@@ -51,6 +51,7 @@ struct pr_opt_ctx
    int current_instr_idx;
    std::vector<uint16_t> uses;
    std::array<int, max_reg_cnt * 4u> instr_idx_by_regs;
+   std::array<int, max_reg_cnt * 4u> instr_idx_by_regs_read;
 
    void reset_block(Block *block)
    {
@@ -105,6 +106,40 @@ int last_writer_idx(pr_opt_ctx &ctx, const Operand &op)
 #endif
 
    return instr_idx;
+}
+
+void save_reg_reads(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   for (const Operand &op : instr->operands) {
+      if (op.isConstant() || op.isUndefined())
+         continue;
+
+      assert(op.regClass().type() != RegType::sgpr || op.physReg().reg() <= 255);
+      assert(op.regClass().type() != RegType::vgpr || op.physReg().reg() >= 256);
+
+      unsigned dw_size = DIV_ROUND_UP(op.bytes(), 4u);
+      unsigned r = op.physReg().reg();
+      int idx = ctx.current_instr_idx;
+
+      if (op.regClass().is_subdword())
+         idx = clobbered;
+
+      assert(op.size() == dw_size || op.regClass().is_subdword());
+      std::fill(&ctx.instr_idx_by_regs_read[r], &ctx.instr_idx_by_regs_read[r + dw_size], idx);
+   }
+}
+
+int last_reader_idx(pr_opt_ctx &ctx, PhysReg physReg, RegClass rc)
+{
+   /* Verify that all of the operand's registers are written by the same instruction. */
+   int instr_idx = ctx.instr_idx_by_regs_read[physReg.reg()];
+   unsigned dw_size = DIV_ROUND_UP(rc.bytes(), 4u);
+   unsigned r = physReg.reg();
+   bool all_same = std::all_of(
+      &ctx.instr_idx_by_regs_read[r], &ctx.instr_idx_by_regs_read[r + dw_size],
+      [instr_idx](int i) { return i == instr_idx; });
+
+   return all_same ? instr_idx : written_by_multiple_instrs;
 }
 
 void try_apply_branch_vcc(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
@@ -298,6 +333,146 @@ void try_optimize_scc_nocompare(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
    }
 }
 
+void try_constant_propagate_salu(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   if (!instr->isSALU())
+      return;
+
+   bool all_operands_constant = true;
+
+   for (Operand &op : instr->operands) {
+      if (op.isConstant())
+         continue;
+      if (op.physReg() == exec && salu_reads_exec_implicitly(instr->opcode))
+         continue;
+
+      int last_wr_idx = last_writer_idx(ctx, op);
+      if (last_wr_idx < 0) {
+         all_operands_constant = false;
+         continue;
+      }
+
+      aco_ptr<Instruction> &last_wr_instr = ctx.current_block->instructions[last_wr_idx];
+      if (last_wr_instr->opcode != aco_opcode::p_parallelcopy) {
+         all_operands_constant = false;
+         continue;
+      }
+
+      assert(last_wr_instr->definitions.size() == last_wr_instr->operands.size());
+
+      for (unsigned i = 0; i < last_wr_instr->definitions.size(); ++i) {
+         if (last_wr_instr->definitions[i].physReg() != op.physReg())
+            continue;
+
+         ctx.uses[last_wr_instr->definitions[i].tempId()]--;
+         op = last_wr_instr->operands[i];
+         if (!op.isConstant())
+            all_operands_constant = false;
+
+         break;
+      }
+   }
+
+   if (all_operands_constant) {
+      switch (instr->opcode) {
+      case aco_opcode::s_ff1_i32_b32:
+      case aco_opcode::s_ff1_i32_b64:
+         /* We don't have 64-bit literals, so it's okay to care about only 32-bit constants */
+         instr->operands[0] = Operand((unsigned) (ffs((int) instr->operands[0].constantValue()) - 1));
+         instr->format = Format::PSEUDO;
+         instr->opcode = aco_opcode::p_parallelcopy;
+         break;
+      case aco_opcode::s_lshl_b32:
+      case aco_opcode::s_lshl_b64:
+         if (ctx.uses[instr->definitions[1].tempId()])
+            break;
+         if (instr->opcode == aco_opcode::s_lshl_b64)
+            instr->operands[0] = Operand((uint64_t) instr->operands[0].constantValue64() << (uint64_t)(instr->operands[1].constantValue() & 0x3F), true);
+         else
+            instr->operands[0] = Operand(instr->operands[0].constantValue() << (instr->operands[1].constantValue() & 0x1F));
+         assert(instr->operands[0].bytes() == instr->definitions[0].bytes());
+         instr->operands.pop_back();
+         instr->definitions.pop_back();
+         instr->format = Format::PSEUDO;
+         instr->opcode = aco_opcode::p_parallelcopy;
+      default:
+         break;
+      }
+   } else if (instr->opcode == aco_opcode::s_and_b32 || instr->opcode == aco_opcode::s_and_b64) {
+      if (instr->operands[0].constantValue() == -1u)
+         std::swap(instr->operands[0], instr->operands[1]);
+
+      if (instr->operands[1].constantValue() == -1u && ctx.uses[instr->definitions[1].tempId()] == 0) {
+         instr->operands.pop_back();
+         instr->definitions.pop_back();
+         instr->format = Format::PSEUDO;
+         instr->opcode = aco_opcode::p_parallelcopy;
+      }
+   }
+}
+
+void try_copy_propagate(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
+{
+   if (instr->opcode != aco_opcode::p_parallelcopy)
+      return;
+
+   assert(instr->operands.size() == instr->definitions.size());
+
+   for (unsigned i = 0; i < instr->definitions.size(); ++i) {
+      Definition &def = instr->definitions[i];
+      Operand &op = instr->operands[i];
+      assert(def.bytes() == op.bytes());
+
+      if (op.isConstant())
+         continue;
+
+      /* Don't mess with special registers or VGPRs for now */
+      if (op.physReg() > 107 && op.physReg() != exec)
+         continue;
+      if (op.regClass() != def.regClass())
+         continue;
+
+      int op_wr_idx = last_writer_idx(ctx, op);
+      int def_wr_idx = last_writer_idx(ctx, def.physReg(), def.regClass());
+      int def_rd_ix = last_reader_idx(ctx, def.physReg(), def.regClass());
+      if (op_wr_idx < 0 || def_wr_idx < not_written_in_block || def_wr_idx >= op_wr_idx || def_rd_ix > op_wr_idx)
+         continue;
+
+      aco_ptr<Instruction> &op_wr_instr = ctx.current_block->instructions[op_wr_idx];
+      if (op_wr_instr->opcode == aco_opcode::p_startpgm)
+         continue;
+
+      if (op_wr_instr->isVOPC() && !op_wr_instr->isVOP3() && def.physReg() != exec && op.physReg() != vcc)
+         continue;
+
+      for (unsigned j = 0; j < op_wr_instr->definitions.size(); ++j) {
+         if (op_wr_instr->definitions[j].physReg() != op.physReg())
+            continue;
+         if (ctx.uses[op_wr_instr->definitions[j].tempId()] > 1)
+            continue;
+
+         if (op_wr_instr->isVOPC() && !op_wr_instr->isVOP3() && def.physReg() == exec) {
+            op_wr_instr->opcode = v_cmp_to_cmpx(op_wr_instr->opcode);
+         }
+
+         /* Move the copy's definition up to the instruction whose def being copied. */
+         op_wr_instr->definitions[j] = def;
+
+         /* Compact the copy's operands and definitions and remove the propagated ones. */
+         std::copy(std::next(instr->definitions.begin(), i + 1), instr->definitions.end(), std::next(instr->definitions.begin(), i));
+         instr->definitions.pop_back();
+         std::copy(std::next(instr->operands.begin(), i + 1), instr->operands.end(), std::next(instr->operands.begin(), i));
+         instr->operands.pop_back();
+         i--;
+         break;
+      }
+   }
+
+   /* If nothing is being copied anymore, delete the copy instruction */
+   if (instr->definitions.size() == 0)
+      instr.reset();
+}
+
 void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 {
    ctx.current_instr_idx++;
@@ -306,8 +481,14 @@ void process_instruction(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
 
    try_optimize_scc_nocompare(ctx, instr);
 
-   if (instr)
+   try_constant_propagate_salu(ctx, instr);
+
+   try_copy_propagate(ctx, instr);
+
+   if (instr) {
       save_reg_writes(ctx, instr);
+      save_reg_reads(ctx, instr);
+   }
 }
 
 } /* End of empty namespace */
