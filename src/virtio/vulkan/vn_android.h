@@ -51,6 +51,12 @@ vn_android_image_from_anb(struct vn_device *dev,
                           const VkAllocationCallbacks *alloc,
                           struct vn_image **out_img);
 
+VkResult
+vn_android_get_ahb_image_properties(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceImageFormatInfo2 *format_info,
+   VkImageFormatProperties2 *out_props);
+
 #else
 
 static inline VkResult
@@ -81,6 +87,15 @@ vn_android_image_from_anb(UNUSED struct vn_device *dev,
                           UNUSED struct vn_image **out_img)
 {
    return VK_ERROR_OUT_OF_HOST_MEMORY;
+}
+
+static inline VkResult
+vn_android_get_ahb_image_properties(
+   UNUSED struct vn_physical_device *physical_dev,
+   UNUSED const VkPhysicalDeviceImageFormatInfo2 *format_info,
+   UNUSED VkImageFormatProperties2 *out_props)
+{
+   return VK_ERROR_FORMAT_NOT_SUPPORTED;
 }
 
 #endif /* ANDROID */

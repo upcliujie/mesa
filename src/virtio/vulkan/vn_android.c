@@ -705,3 +705,53 @@ vn_android_wsi_fini(struct vn_device *dev, const VkAllocationCallbacks *alloc)
 
    vk_free(alloc, dev->android_wsi);
 }
+
+VkResult
+vn_android_get_ahb_image_properties(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceImageFormatInfo2 *format_info,
+   VkImageFormatProperties2 *out_props)
+{
+   if (!vn_android_ahb_format_from_vk_format(format_info->format))
+      return vn_error(physical_dev->instance, VK_ERROR_FORMAT_NOT_SUPPORTED);
+
+   /* Ideally we should override the handle type to DMA_BUF_BIT_EXT and let
+    * vn_device to decide whether to further override to the renderer
+    * supported handle type or not. However, doing this way might copy and fix
+    * the entire pNext twice and need to expose the struct and api used to fix
+    * pNext from vn_device to vn_android. So here we just pass along the ahb
+    * handle type and let vn_device to fix it.
+    */
+   VkResult result = vn_get_physical_device_image_format_properties2(
+      physical_dev, format_info, out_props);
+   if (result != VK_SUCCESS)
+      return vn_error(physical_dev->instance, result);
+
+   VkExternalImageFormatProperties *img_props =
+      vk_find_struct(out_props->pNext, EXTERNAL_IMAGE_FORMAT_PROPERTIES);
+   VkExternalMemoryProperties *mem_props =
+      &img_props->externalMemoryProperties;
+
+   /* AHB backed image requires renderer to support import bit */
+   if (!(mem_props->externalMemoryFeatures &
+         VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT))
+      return vn_error(physical_dev->instance, VK_ERROR_FORMAT_NOT_SUPPORTED);
+
+   mem_props->externalMemoryFeatures =
+      VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT |
+      VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+      VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+   mem_props->exportFromImportedHandleTypes =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+   mem_props->compatibleHandleTypes =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+
+   VkAndroidHardwareBufferUsageANDROID *ahb_usage =
+      vk_find_struct(out_props->pNext, ANDROID_HARDWARE_BUFFER_USAGE_ANDROID);
+   if (ahb_usage) {
+      ahb_usage->androidHardwareBufferUsage =
+         vn_android_get_ahb_usage(format_info->usage, format_info->flags);
+   }
+
+   return VK_SUCCESS;
+}

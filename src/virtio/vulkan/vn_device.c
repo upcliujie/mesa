@@ -2771,7 +2771,10 @@ vn_get_physical_device_image_format_properties2(
 
    struct vn_physical_device_image_format_info local_info;
    if (external_info) {
-      if (!(external_info->handleType & supported_handle_types)) {
+      /* allow ahb handle type here to fix the info only once below */
+      if (!(external_info->handleType &
+            (supported_handle_types |
+             VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID))) {
          return vn_error(physical_dev->instance,
                          VK_ERROR_FORMAT_NOT_SUPPORTED);
       }
@@ -2811,6 +2814,16 @@ vn_GetPhysicalDeviceImageFormatProperties2(
 {
    struct vn_physical_device *physical_dev =
       vn_physical_device_from_handle(physicalDevice);
+
+   const VkPhysicalDeviceExternalImageFormatInfo *external_info =
+      vk_find_struct_const(pImageFormatInfo->pNext,
+                           PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO);
+   if (external_info &&
+       external_info->handleType ==
+          VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) {
+      return vn_android_get_ahb_image_properties(
+         physical_dev, pImageFormatInfo, pImageFormatProperties);
+   }
 
    return vn_get_physical_device_image_format_properties2(
       physical_dev, pImageFormatInfo, pImageFormatProperties);
