@@ -242,6 +242,9 @@ struct panfrost_shader_state {
         /* GPU-executable memory and containing Renderer State Descriptor */
         struct pan_pool_ref bin, state;
 
+        /* For fragment shaders, a prepared (but not uploaded RSD) */
+        struct mali_renderer_state_packed partial_rsd;
+
         struct pan_shader_info info;
 
         /* Linked varyings, for non-separable programs */
