@@ -5643,15 +5643,16 @@ radv_CmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t
                     uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance)
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   struct radv_draw_info info;
 
-   info.indexed = true;
-   info.count = indexCount;
-   info.instance_count = instanceCount;
-   info.first_index = firstIndex;
-   info.first_instance = firstInstance;
-   info.strmout_buffer = NULL;
-   info.indirect = NULL;
+   struct radv_draw_info info = {
+      .indexed = true,
+      .count = indexCount,
+      .instance_count = instanceCount,
+      .first_index = firstIndex,
+      .first_instance = firstInstance,
+      .strmout_buffer = NULL,
+      .indirect = NULL,
+   };
 
    if (!radv_before_draw(cmd_buffer, &info, vertexOffset))
       return;
@@ -5665,15 +5666,17 @@ radv_CmdDrawIndirect(VkCommandBuffer commandBuffer, VkBuffer _buffer, VkDeviceSi
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
    RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
-   struct radv_draw_info info;
 
-   info.count = drawCount;
-   info.indirect = buffer;
-   info.indirect_offset = offset;
-   info.stride = stride;
-   info.strmout_buffer = NULL;
-   info.count_buffer = NULL;
-   info.indexed = false;
+   struct radv_draw_info info = {
+      .count = drawCount,
+      .indirect = buffer,
+      .indirect_offset = offset,
+      .stride = stride,
+      .strmout_buffer = NULL,
+      .count_buffer = NULL,
+      .indexed = false,
+   };
+
 
    if (!radv_before_draw(cmd_buffer, &info, 0))
       return;
@@ -5687,15 +5690,16 @@ radv_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer, VkBuffer _buffer, VkD
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
    RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
-   struct radv_draw_info info;
 
-   info.indexed = true;
-   info.count = drawCount;
-   info.indirect = buffer;
-   info.indirect_offset = offset;
-   info.stride = stride;
-   info.count_buffer = NULL;
-   info.strmout_buffer = NULL;
+   struct radv_draw_info info = {
+      .indexed = true,
+      .count = drawCount,
+      .indirect = buffer,
+      .indirect_offset = offset,
+      .stride = stride,
+      .count_buffer = NULL,
+      .strmout_buffer = NULL,
+   };
 
    if (!radv_before_draw(cmd_buffer, &info, 0))
       return;
@@ -5711,16 +5715,17 @@ radv_CmdDrawIndirectCount(VkCommandBuffer commandBuffer, VkBuffer _buffer, VkDev
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
    RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
    RADV_FROM_HANDLE(radv_buffer, count_buffer, _countBuffer);
-   struct radv_draw_info info;
 
-   info.count = maxDrawCount;
-   info.indirect = buffer;
-   info.indirect_offset = offset;
-   info.count_buffer = count_buffer;
-   info.count_buffer_offset = countBufferOffset;
-   info.stride = stride;
-   info.strmout_buffer = NULL;
-   info.indexed = false;
+   struct radv_draw_info info = {
+      .count = maxDrawCount,
+      .indirect = buffer,
+      .indirect_offset = offset,
+      .count_buffer = count_buffer,
+      .count_buffer_offset = countBufferOffset,
+      .stride = stride,
+      .strmout_buffer = NULL,
+      .indexed = false,
+   };
 
    if (!radv_before_draw(cmd_buffer, &info, 0))
       return;
@@ -5737,16 +5742,17 @@ radv_CmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer _buffer
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
    RADV_FROM_HANDLE(radv_buffer, buffer, _buffer);
    RADV_FROM_HANDLE(radv_buffer, count_buffer, _countBuffer);
-   struct radv_draw_info info;
 
-   info.indexed = true;
-   info.count = maxDrawCount;
-   info.indirect = buffer;
-   info.indirect_offset = offset;
-   info.count_buffer = count_buffer;
-   info.count_buffer_offset = countBufferOffset;
-   info.stride = stride;
-   info.strmout_buffer = NULL;
+   struct radv_draw_info info = {
+      .indexed = true,
+      .count = maxDrawCount,
+      .indirect = buffer,
+      .indirect_offset = offset,
+      .count_buffer = count_buffer,
+      .count_buffer_offset = countBufferOffset,
+      .stride = stride,
+      .strmout_buffer = NULL,
+   };
 
    if (!radv_before_draw(cmd_buffer, &info, 0))
       return;
@@ -7087,16 +7093,17 @@ radv_CmdDrawIndirectByteCountEXT(VkCommandBuffer commandBuffer, uint32_t instanc
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
    RADV_FROM_HANDLE(radv_buffer, counterBuffer, _counterBuffer);
-   struct radv_draw_info info;
 
-   info.count = 0;
-   info.instance_count = instanceCount;
-   info.first_instance = firstInstance;
-   info.strmout_buffer = counterBuffer;
-   info.strmout_buffer_offset = counterBufferOffset;
-   info.stride = vertexStride;
-   info.indexed = false;
-   info.indirect = NULL;
+   struct radv_draw_info info = {
+      .count = 0,
+      .instance_count = instanceCount,
+      .first_instance = firstInstance,
+      .strmout_buffer = counterBuffer,
+      .strmout_buffer_offset = counterBufferOffset,
+      .stride = vertexStride,
+      .indexed = false,
+      .indirect = NULL,
+   };
 
    if (!radv_before_draw(cmd_buffer, &info, 0))
       return;
