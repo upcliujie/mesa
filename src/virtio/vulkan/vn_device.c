@@ -2051,6 +2051,10 @@ vn_EnumeratePhysicalDeviceGroups(
    if (result != VK_SUCCESS)
       return vn_error(instance, result);
 
+   if (pPhysicalDeviceGroupProperties && instance->physical_device_count &&
+       *pPhysicalDeviceGroupCount == 0)
+      return vn_result(instance, VK_INCOMPLETE);
+
    /* make sure VkPhysicalDevice point to objects, as they are considered
     * inputs by the encoder
     */
