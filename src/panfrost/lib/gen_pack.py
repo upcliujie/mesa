@@ -51,6 +51,7 @@ pack_header = """
 #include "util/u_math.h"
 
 #define __gen_unpack_float(x, y, z) uif(__gen_unpack_uint(x, y, z))
+#define NDEBUG
 
 static inline uint64_t
 __gen_uint(uint64_t v, uint32_t start, uint32_t end)
@@ -131,6 +132,7 @@ __gen_unpack_padded(const uint8_t *restrict cl, uint32_t start, uint32_t end)
 
    return (2*odd + 1) << shift;
 }
+#undef NDEBUG
 
 #define pan_prepare(dst, T)                                 \\
    *(dst) = (struct MALI_ ## T){ MALI_ ## T ## _header }
