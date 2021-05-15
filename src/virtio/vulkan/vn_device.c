@@ -2047,9 +2047,28 @@ vn_EnumeratePhysicalDeviceGroups(
    struct vn_physical_device_base *dummy = NULL;
    VkResult result;
 
+   uint32_t group_count = 0;
+   result = vn_call_vkEnumeratePhysicalDeviceGroups(instance, _instance,
+                                                    &group_count, NULL);
+   if (!pPhysicalDeviceGroupProperties) {
+      *pPhysicalDeviceGroupCount = group_count;
+      return vn_result(instance, result);
+   }
+
+   if (!group_count) {
+      *pPhysicalDeviceGroupCount = 0;
+      return vn_result(instance, result);
+   }
+
+   group_count = MIN2(group_count, *pPhysicalDeviceGroupCount);
+   if (!group_count)
+      return vn_result(instance, VK_INCOMPLETE);
+
    result = vn_instance_enumerate_physical_devices(instance);
    if (result != VK_SUCCESS)
       return vn_error(instance, result);
+
+   *pPhysicalDeviceGroupCount = group_count;
 
    /* make sure VkPhysicalDevice point to objects, as they are considered
     * inputs by the encoder
