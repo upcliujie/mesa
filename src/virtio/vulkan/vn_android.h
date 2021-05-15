@@ -57,6 +57,12 @@ vn_android_get_ahb_image_properties(
    const VkPhysicalDeviceImageFormatInfo2 *format_info,
    VkImageFormatProperties2 *out_props);
 
+void
+vn_android_get_ahb_buffer_properties(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceExternalBufferInfo *buffer_info,
+   VkExternalBufferProperties *out_props);
+
 #else
 
 static inline VkResult
@@ -96,6 +102,18 @@ vn_android_get_ahb_image_properties(
    UNUSED VkImageFormatProperties2 *out_props)
 {
    return VK_ERROR_FORMAT_NOT_SUPPORTED;
+}
+
+static inline void
+vn_android_get_ahb_buffer_properties(
+   UNUSED struct vn_physical_device *physical_dev,
+   UNUSED const VkPhysicalDeviceExternalBufferInfo *buffer_info,
+   VkExternalBufferProperties *out_props)
+{
+   out_props->externalMemoryProperties.externalMemoryFeatures = 0;
+   out_props->externalMemoryProperties.exportFromImportedHandleTypes = 0;
+   out_props->externalMemoryProperties.compatibleHandleTypes =
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 }
 
 #endif /* ANDROID */

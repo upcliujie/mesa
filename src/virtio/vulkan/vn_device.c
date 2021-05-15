@@ -2893,6 +2893,13 @@ vn_GetPhysicalDeviceExternalBufferProperties(
    struct vn_physical_device *physical_dev =
       vn_physical_device_from_handle(physicalDevice);
 
+   if (pExternalBufferInfo->handleType ==
+       VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) {
+      vn_android_get_ahb_buffer_properties(physical_dev, pExternalBufferInfo,
+                                           pExternalBufferProperties);
+      return;
+   }
+
    vn_get_physical_device_external_buffer_properties(
       physical_dev, pExternalBufferInfo, pExternalBufferProperties);
 }

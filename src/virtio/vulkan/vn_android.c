@@ -755,3 +755,38 @@ vn_android_get_ahb_image_properties(
 
    return VK_SUCCESS;
 }
+
+void
+vn_android_get_ahb_buffer_properties(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceExternalBufferInfo *buffer_info,
+   VkExternalBufferProperties *out_props)
+{
+   VkPhysicalDeviceExternalBufferInfo local_info = *buffer_info;
+   local_info.handleType =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+
+   vn_get_physical_device_external_buffer_properties(physical_dev,
+                                                     &local_info, out_props);
+
+   VkExternalMemoryProperties *props = &out_props->externalMemoryProperties;
+   /* AHB backed buffer requires renderer to support import bit while it
+    * also requires the renderer to must not advertise dedicated only bit
+    */
+   if (!(props->externalMemoryFeatures &
+         VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT) ||
+       (props->externalMemoryFeatures &
+        VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT)) {
+      props->externalMemoryFeatures = 0;
+      props->exportFromImportedHandleTypes = 0;
+      props->compatibleHandleTypes =
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+      return;
+   }
+   props->externalMemoryFeatures = VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+                                   VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT;
+   props->exportFromImportedHandleTypes =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+   props->compatibleHandleTypes =
+      VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+}
