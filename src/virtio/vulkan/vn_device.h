@@ -216,4 +216,10 @@ vn_get_physical_device_image_format_properties2(
    struct vn_physical_device *physical_dev,
    const VkPhysicalDeviceImageFormatInfo2 *format_info,
    VkImageFormatProperties2 *out_props);
+
+void
+vn_get_physical_device_external_buffer_properties(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceExternalBufferInfo *buffer_info,
+   VkExternalBufferProperties *out_props);
 #endif /* VN_DEVICE_H */

@@ -2846,6 +2846,45 @@ vn_GetPhysicalDeviceSparseImageFormatProperties2(
 }
 
 void
+vn_get_physical_device_external_buffer_properties(
+   struct vn_physical_device *physical_dev,
+   const VkPhysicalDeviceExternalBufferInfo *buffer_info,
+   VkExternalBufferProperties *out_props)
+{
+   VkPhysicalDevice physical_device =
+      vn_physical_device_to_handle(physical_dev);
+   const VkExternalMemoryHandleTypeFlagBits renderer_handle_type =
+      physical_dev->external_memory.renderer_handle_type;
+   const VkExternalMemoryHandleTypeFlags supported_handle_types =
+      physical_dev->external_memory.supported_handle_types;
+
+   VkExternalMemoryProperties *props = &out_props->externalMemoryProperties;
+   if (!(buffer_info->handleType & supported_handle_types)) {
+      props->compatibleHandleTypes = buffer_info->handleType;
+      props->exportFromImportedHandleTypes = 0;
+      props->externalMemoryFeatures = 0;
+      return;
+   }
+
+   VkPhysicalDeviceExternalBufferInfo local_info;
+   if (buffer_info->handleType != renderer_handle_type) {
+      local_info = *buffer_info;
+      local_info.handleType = renderer_handle_type;
+      buffer_info = &local_info;
+   }
+
+   /* TODO per-device cache */
+   vn_call_vkGetPhysicalDeviceExternalBufferProperties(
+      physical_dev->instance, physical_device, buffer_info, out_props);
+
+   props->compatibleHandleTypes = supported_handle_types;
+   props->exportFromImportedHandleTypes =
+      (props->exportFromImportedHandleTypes & renderer_handle_type)
+         ? supported_handle_types
+         : 0;
+}
+
+void
 vn_GetPhysicalDeviceExternalBufferProperties(
    VkPhysicalDevice physicalDevice,
    const VkPhysicalDeviceExternalBufferInfo *pExternalBufferInfo,
@@ -2853,37 +2892,9 @@ vn_GetPhysicalDeviceExternalBufferProperties(
 {
    struct vn_physical_device *physical_dev =
       vn_physical_device_from_handle(physicalDevice);
-   const VkExternalMemoryHandleTypeFlagBits renderer_handle_type =
-      physical_dev->external_memory.renderer_handle_type;
-   const VkExternalMemoryHandleTypeFlags supported_handle_types =
-      physical_dev->external_memory.supported_handle_types;
 
-   VkExternalMemoryProperties *props =
-      &pExternalBufferProperties->externalMemoryProperties;
-   if (!(pExternalBufferInfo->handleType & supported_handle_types)) {
-      props->compatibleHandleTypes = pExternalBufferInfo->handleType;
-      props->exportFromImportedHandleTypes = 0;
-      props->externalMemoryFeatures = 0;
-      return;
-   }
-
-   VkPhysicalDeviceExternalBufferInfo local_info;
-   if (pExternalBufferInfo->handleType != renderer_handle_type) {
-      local_info = *pExternalBufferInfo;
-      local_info.handleType = renderer_handle_type;
-      pExternalBufferInfo = &local_info;
-   }
-
-   /* TODO per-device cache */
-   vn_call_vkGetPhysicalDeviceExternalBufferProperties(
-      physical_dev->instance, physicalDevice, pExternalBufferInfo,
-      pExternalBufferProperties);
-
-   props->compatibleHandleTypes = supported_handle_types;
-   props->exportFromImportedHandleTypes =
-      (props->exportFromImportedHandleTypes & renderer_handle_type)
-         ? supported_handle_types
-         : 0;
+   vn_get_physical_device_external_buffer_properties(
+      physical_dev, pExternalBufferInfo, pExternalBufferProperties);
 }
 
 void
