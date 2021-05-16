@@ -60,16 +60,26 @@ disasm = executable(
   'afuc-disasm',
   [
     'disasm.c',
+    'emu.c',
+    'emu.h',
+    'emu-ds.c',
+    'emu-regs.c',
+    'emu-ui.c',
     'util.c',
     'util.h',
   ],
   include_directories: [
-    inc_freedreno_rnn, inc_include, inc_src, inc_util,
+    inc_freedreno,
+    inc_freedreno_rnn,
+    inc_include,
+    inc_src,
+    inc_util,
   ],
   link_with: [
     libfreedreno_rnn,
   ],
-  dependencies: [],
+  dependencies: [
+  ],
   build_by_default : with_tools.contains('freedreno'),
   install: install_fd_decode_tools,
 )

@@ -24,6 +24,8 @@
 #ifndef _AFUC_H_
 #define _AFUC_H_
 
+#include <stdbool.h>
+
 #include "util/macros.h"
 
 /*
@@ -217,5 +219,10 @@ afuc_set_opc(afuc_instr *ai, afuc_opc opc, bool rep)
       ai->opc_r = opc;
    }
 }
+
+void print_src(unsigned reg);
+void print_dst(unsigned reg);
+void print_control_reg(uint32_t id);
+void print_pipe_reg(uint32_t id);
 
 #endif /* _AFUC_H_ */
