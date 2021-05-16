@@ -136,11 +136,11 @@ agx_emit_load_vary(agx_builder *b, nir_intrinsic_instr *instr)
       /* TODO: Interpolation modes */
       assert(parent->intrinsic ==
              nir_intrinsic_load_barycentric_pixel);
-   } else {
-      /* TODO: flat varyings */
-   }
 
-   return agx_ld_vary_to(b, dest, index, components, true);
+      return agx_ld_vary_to(b, dest, index, components, true);
+   } else {
+      return agx_ld_vary_flat_to(b, dest, index, components);
+   }
 }
 
 static agx_instr *
