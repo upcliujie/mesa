@@ -337,6 +337,19 @@ isa = s.isa
 
 typedef BITSET_WORD bitmask_t[BITSET_WORDS(${isa.bitsize})];
 
+static inline uint64_t
+bitmask_to_uint64_t(bitmask_t mask)
+{
+    return ((uint64_t)mask[1] << 32) | mask[0];
+}
+
+static inline void
+uint64_t_to_bitmask(bitmask_t mask, uint64_t val)
+{
+    mask[0] = val & 0xffffffff;
+    mask[1] = (val >> 32) & 0xffffffff;
+}
+
 /**
  * Opaque type from the PoV of generated code, but allows state to be passed
  * thru to the hand written helpers used by the generated code.
