@@ -121,6 +121,14 @@ agx_emit_load_vary(agx_builder *b, nir_intrinsic_instr *instr)
 
    assert(components >= 1 && components <= 4);
 
+   nir_src *offset = nir_get_io_offset_src(instr);
+   assert(nir_src_is_const(*offset) && "no indirects");
+   unsigned imm_index = (4 * nir_intrinsic_base(instr)) + nir_src_as_uint(*offset);
+   imm_index += 1;
+
+   agx_index index = agx_immediate(imm_index);
+   agx_index dest = agx_dest_index(&instr->dest);
+
    if (smooth) {
       nir_intrinsic_instr *parent = nir_src_as_intrinsic(instr->src[0]);
       assert(parent);
@@ -132,13 +140,7 @@ agx_emit_load_vary(agx_builder *b, nir_intrinsic_instr *instr)
       /* TODO: flat varyings */
    }
 
-   nir_src *offset = nir_get_io_offset_src(instr);
-   assert(nir_src_is_const(*offset) && "no indirects");
-   unsigned imm_index = (4 * nir_intrinsic_base(instr)) + nir_src_as_uint(*offset);
-   imm_index += 1;
-
-   return agx_ld_vary_to(b, agx_dest_index(&instr->dest),
-         agx_immediate(imm_index), components, true);
+   return agx_ld_vary_to(b, dest, index, components, true);
 }
 
 static agx_instr *
