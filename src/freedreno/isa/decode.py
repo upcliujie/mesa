@@ -216,9 +216,23 @@ header = """\
 #ifndef _${guard}_
 #define _${guard}_
 
+#include <stdint.h>
 #include <util/bitset.h>
 
 typedef BITSET_WORD bitmask_t[BITSET_WORDS(${isa.bitsize})];
+
+static inline uint64_t
+bitmask_to_uint64_t(bitmask_t mask)
+{
+    return ((uint64_t)mask[1] << 32) | mask[0];
+}
+
+static inline void
+uint64_t_to_bitmask(uint64_t val, bitmask_t mask)
+{
+    mask[0] = val & 0xffffffff;
+    mask[1] = (val >> 32) & 0xffffffff;
+}
 
 #endif /* _${guard}_ */
 
