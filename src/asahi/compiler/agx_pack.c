@@ -384,7 +384,6 @@ agx_pack_instr(struct util_dynarray *emission, agx_instr *I)
    case AGX_OPCODE_LD_VARY:
    {
       unsigned D = agx_pack_alu_dst(I->dest[0]);
-      bool perspective = 1; // TODO
       unsigned channels = (I->channels & 0x3);
       assert(I->mask < 0xF); /* 0 indicates full mask */
       agx_index index_src = I->src[0];
@@ -393,7 +392,7 @@ agx_pack_instr(struct util_dynarray *emission, agx_instr *I)
       unsigned index = index_src.value;
 
       uint64_t raw =
-            0x21 | (perspective ? (1 << 6) : 0) |
+            0x21 | (I->perspective ? (1 << 6) : 0) |
             ((D & 0xFF) << 7) |
             (1ull << 15) | /* XXX */
             (((uint64_t) index) << 16) |
