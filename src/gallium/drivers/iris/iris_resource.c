@@ -1256,6 +1256,11 @@ iris_resource_from_memobj(struct pipe_screen *pscreen,
    res->offset = offset;
    res->external_format = memobj->format;
 
+   if (templ->bind & PIPE_BIND_SHARED) {
+      iris_bo_make_external(res->bo);
+      res->base.is_shared = true;
+   }
+
    return &res->base.b;
 }
 
