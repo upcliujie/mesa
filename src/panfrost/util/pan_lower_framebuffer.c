@@ -582,6 +582,11 @@ pan_unpack(nir_builder *b,
         case PIPE_FORMAT_B5G5R5A1_UNORM:
         case PIPE_FORMAT_R5G5B5A1_UNORM:
                 return pan_unpack_unorm_5551(b, packed);
+        case PIPE_FORMAT_R5G6B5_UNORM:
+                /* swap R and B */
+                packed = nir_vec4(b, nir_channel(b, packed, 2), nir_channel(b, packed, 1),
+                                  nir_channel(b, packed, 0), nir_channel(b, packed, 3));
+                /* fallthrough */
         case PIPE_FORMAT_B5G6R5_UNORM:
                 return pan_unpack_unorm_565(b, packed);
         case PIPE_FORMAT_R10G10B10A2_UNORM:
@@ -638,6 +643,11 @@ pan_pack(nir_builder *b,
         case PIPE_FORMAT_B5G5R5A1_UNORM:
         case PIPE_FORMAT_R5G5B5A1_UNORM:
                 return pan_pack_unorm_5551(b, unpacked);
+        case PIPE_FORMAT_R5G6B5_UNORM:
+                /* swap R and B */
+                unpacked = nir_vec4(b, nir_channel(b, unpacked, 2), nir_channel(b, unpacked, 1),
+                                    nir_channel(b, unpacked, 0), nir_channel(b, unpacked, 3));
+                /* fallthrough */
         case PIPE_FORMAT_B5G6R5_UNORM:
                 return pan_pack_unorm_565(b, unpacked);
         case PIPE_FORMAT_R10G10B10A2_UNORM:
