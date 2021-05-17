@@ -37,9 +37,11 @@
 #include <stdlib.h>
 
 void
-util_idalloc_init(struct util_idalloc *buf)
+util_idalloc_init(struct util_idalloc *buf, unsigned initial_num_elements)
 {
    memset(buf, 0, sizeof(*buf));
+   assert(initial_num_elements);
+   util_idalloc_resize(buf, DIV_ROUND_UP(initial_num_elements, 32));
 }
 
 void
@@ -106,11 +108,8 @@ util_idalloc_mt_init(struct util_idalloc_mt *buf,
                      unsigned initial_num_elements, bool skip_zero)
 {
    simple_mtx_init(&buf->mutex, mtx_plain);
-   util_idalloc_init(&buf->buf);
+   util_idalloc_init(&buf->buf, initial_num_elements);
    buf->skip_zero = skip_zero;
-
-   if (initial_num_elements)
-      util_idalloc_resize(&buf->buf, DIV_ROUND_UP(initial_num_elements, 32));
 
    if (skip_zero) {
       ASSERTED unsigned zero = util_idalloc_alloc(&buf->buf);
