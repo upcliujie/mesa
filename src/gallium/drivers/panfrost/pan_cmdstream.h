@@ -38,8 +38,45 @@ void panfrost_sampler_desc_init_bifrost(const struct pipe_sampler_state *cso, st
 mali_ptr
 panfrost_emit_compute_shader_meta(struct panfrost_batch *batch, enum pipe_shader_type stage);
 
-mali_ptr
-panfrost_emit_frag_shader_meta(struct panfrost_batch *batch);
+void
+pan_draw_emit_tiler_v4(struct panfrost_batch *batch,
+                         const struct pipe_draw_info *info,
+                         const struct pipe_draw_start_count_bias *draw,
+                         void *invocation_template,
+                         mali_ptr shared_mem, mali_ptr indices,
+                         mali_ptr fs_vary, mali_ptr varyings,
+                         mali_ptr pos, mali_ptr psiz, void *job);
+
+void
+pan_draw_emit_tiler_v5(struct panfrost_batch *batch,
+                         const struct pipe_draw_info *info,
+                         const struct pipe_draw_start_count_bias *draw,
+                         void *invocation_template,
+                         mali_ptr shared_mem, mali_ptr indices,
+                         mali_ptr fs_vary, mali_ptr varyings,
+                         mali_ptr pos, mali_ptr psiz, void *job);
+void
+pan_draw_emit_tiler_v6(struct panfrost_batch *batch,
+                         const struct pipe_draw_info *info,
+                         const struct pipe_draw_start_count_bias *draw,
+                         void *invocation_template,
+                         mali_ptr shared_mem, mali_ptr indices,
+                         mali_ptr fs_vary, mali_ptr varyings,
+                         mali_ptr pos, mali_ptr psiz, void *job);
+
+void
+pan_draw_emit_tiler_v7(struct panfrost_batch *batch,
+                         const struct pipe_draw_info *info,
+                         const struct pipe_draw_start_count_bias *draw,
+                         void *invocation_template,
+                         mali_ptr shared_mem, mali_ptr indices,
+                         mali_ptr fs_vary, mali_ptr varyings,
+                         mali_ptr pos, mali_ptr psiz, void *job);
+
+void
+panfrost_emit_primitive_size(struct panfrost_context *ctx,
+                             bool points, mali_ptr size_array,
+                             void *prim_size);
 
 mali_ptr
 panfrost_emit_viewport(struct panfrost_batch *batch);

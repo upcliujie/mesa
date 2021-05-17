@@ -129,30 +129,6 @@ panfrost_set_frontend_noop(struct pipe_context *pipe, bool enable)
         ctx->is_noop = enable;
 }
 
-#define DEFINE_CASE(c) case PIPE_PRIM_##c: return MALI_DRAW_MODE_##c;
-
-static int
-pan_draw_mode(enum pipe_prim_type mode)
-{
-        switch (mode) {
-                DEFINE_CASE(POINTS);
-                DEFINE_CASE(LINES);
-                DEFINE_CASE(LINE_LOOP);
-                DEFINE_CASE(LINE_STRIP);
-                DEFINE_CASE(TRIANGLES);
-                DEFINE_CASE(TRIANGLE_STRIP);
-                DEFINE_CASE(TRIANGLE_FAN);
-                DEFINE_CASE(QUADS);
-                DEFINE_CASE(QUAD_STRIP);
-                DEFINE_CASE(POLYGON);
-
-        default:
-                unreachable("Invalid draw mode");
-        }
-}
-
-#undef DEFINE_CASE
-
 static bool
 panfrost_scissor_culls_everything(struct panfrost_context *ctx)
 {
@@ -212,17 +188,6 @@ pan_emit_draw_descs(struct panfrost_batch *batch,
         d->samplers = panfrost_emit_sampler_descriptors(batch, st);
 }
 
-static enum mali_index_type
-panfrost_translate_index_size(unsigned size)
-{
-        switch (size) {
-        case 1: return MALI_INDEX_TYPE_UINT8;
-        case 2: return MALI_INDEX_TYPE_UINT16;
-        case 4: return MALI_INDEX_TYPE_UINT32;
-        default: unreachable("Invalid index size");
-        }
-}
-
 static void
 panfrost_draw_emit_vertex(struct panfrost_batch *batch,
                           const struct pipe_draw_info *info,
@@ -259,7 +224,7 @@ panfrost_draw_emit_vertex(struct panfrost_batch *batch,
         pan_section_pack(job, COMPUTE_JOB, DRAW_PADDING, cfg);
 }
 
-static void
+void
 panfrost_emit_primitive_size(struct panfrost_context *ctx,
                              bool points, mali_ptr size_array,
                              void *prim_size)
@@ -275,134 +240,6 @@ panfrost_emit_primitive_size(struct panfrost_context *ctx,
                                        rast->base.line_width;
                 }
         }
-}
-
-static bool
-panfrost_is_implicit_prim_restart(const struct pipe_draw_info *info)
-{
-        unsigned implicit_index = (1 << (info->index_size * 8)) - 1;
-        bool implicit = info->restart_index == implicit_index;
-        return info->primitive_restart && implicit;
-}
-
-static void
-panfrost_draw_emit_tiler(struct panfrost_batch *batch,
-                         const struct pipe_draw_info *info,
-                         const struct pipe_draw_start_count_bias *draw,
-                         void *invocation_template,
-                         mali_ptr shared_mem, mali_ptr indices,
-                         mali_ptr fs_vary, mali_ptr varyings,
-                         mali_ptr pos, mali_ptr psiz, void *job)
-{
-        struct panfrost_context *ctx = batch->ctx;
-        struct pipe_rasterizer_state *rast = &ctx->rasterizer->base;
-        struct panfrost_device *device = pan_device(ctx->base.screen);
-
-        void *section = pan_is_bifrost(device) ?
-                        pan_section_ptr(job, BIFROST_TILER_JOB, INVOCATION) :
-                        pan_section_ptr(job, MIDGARD_TILER_JOB, INVOCATION);
-        memcpy(section, invocation_template, MALI_INVOCATION_LENGTH);
-
-        section = pan_is_bifrost(device) ?
-                  pan_section_ptr(job, BIFROST_TILER_JOB, PRIMITIVE) :
-                  pan_section_ptr(job, MIDGARD_TILER_JOB, PRIMITIVE);
-        pan_pack(section, PRIMITIVE, cfg) {
-                cfg.draw_mode = pan_draw_mode(info->mode);
-                if (panfrost_writes_point_size(ctx))
-                        cfg.point_size_array_format = MALI_POINT_SIZE_ARRAY_FORMAT_FP16;
-
-                /* For line primitives, PRIMITIVE.first_provoking_vertex must
-                 * be set to true and the provoking vertex is selected with
-                 * DRAW.flat_shading_vertex.
-                 */
-                if (info->mode == PIPE_PRIM_LINES ||
-                    info->mode == PIPE_PRIM_LINE_LOOP ||
-                    info->mode == PIPE_PRIM_LINE_STRIP)
-                        cfg.first_provoking_vertex = true;
-                else
-                        cfg.first_provoking_vertex = rast->flatshade_first;
-
-                if (panfrost_is_implicit_prim_restart(info)) {
-                        cfg.primitive_restart = MALI_PRIMITIVE_RESTART_IMPLICIT;
-                } else if (info->primitive_restart) {
-                        cfg.primitive_restart = MALI_PRIMITIVE_RESTART_EXPLICIT;
-                        cfg.primitive_restart_index = info->restart_index;
-                }
-
-                cfg.job_task_split = 6;
-
-                cfg.index_count = ctx->indirect_draw ? 1 : draw->count;
-                if (info->index_size) {
-                        cfg.index_type = panfrost_translate_index_size(info->index_size);
-                        cfg.indices = indices;
-                        cfg.base_vertex_offset = draw->index_bias - ctx->offset_start;
-                }
-        }
-
-        bool points = info->mode == PIPE_PRIM_POINTS;
-        void *prim_size = pan_is_bifrost(device) ?
-                          pan_section_ptr(job, BIFROST_TILER_JOB, PRIMITIVE_SIZE) :
-                          pan_section_ptr(job, MIDGARD_TILER_JOB, PRIMITIVE_SIZE);
-
-        if (pan_is_bifrost(device)) {
-                panfrost_emit_primitive_size(ctx, points, psiz, prim_size);
-                pan_section_pack(job, BIFROST_TILER_JOB, TILER, cfg) {
-                        cfg.address = panfrost_batch_get_bifrost_tiler(batch, ~0);
-                }
-                pan_section_pack(job, BIFROST_TILER_JOB, PADDING, padding) {}
-        }
-
-        section = pan_is_bifrost(device) ?
-                  pan_section_ptr(job, BIFROST_TILER_JOB, DRAW) :
-                  pan_section_ptr(job, MIDGARD_TILER_JOB, DRAW);
-        pan_pack(section, DRAW, cfg) {
-                cfg.four_components_per_vertex = true;
-                cfg.draw_descriptor_is_64b = true;
-                if (!pan_is_bifrost(device))
-                        cfg.texture_descriptor_is_64b = true;
-                cfg.front_face_ccw = rast->front_ccw;
-                cfg.cull_front_face = rast->cull_face & PIPE_FACE_FRONT;
-                cfg.cull_back_face = rast->cull_face & PIPE_FACE_BACK;
-                cfg.position = pos;
-                cfg.state = panfrost_emit_frag_shader_meta(batch);
-                cfg.attributes = panfrost_emit_image_attribs(batch, &cfg.attribute_buffers, PIPE_SHADER_FRAGMENT);
-                cfg.viewport = panfrost_emit_viewport(batch);
-                cfg.varyings = fs_vary;
-                cfg.varying_buffers = fs_vary ? varyings : 0;
-                cfg.thread_storage = shared_mem;
-
-                /* For all primitives but lines DRAW.flat_shading_vertex must
-                 * be set to 0 and the provoking vertex is selected with the
-                 * PRIMITIVE.first_provoking_vertex field.
-                 */
-                if (info->mode == PIPE_PRIM_LINES ||
-                    info->mode == PIPE_PRIM_LINE_LOOP ||
-                    info->mode == PIPE_PRIM_LINE_STRIP) {
-                        /* The logic is inverted on bifrost. */
-                        cfg.flat_shading_vertex =
-                                pan_is_bifrost(device) ?
-                                rast->flatshade_first : !rast->flatshade_first;
-                }
-
-                pan_emit_draw_descs(batch, &cfg, PIPE_SHADER_FRAGMENT);
-
-                if (ctx->occlusion_query && ctx->active_queries) {
-                        if (ctx->occlusion_query->type == PIPE_QUERY_OCCLUSION_COUNTER)
-                                cfg.occlusion_query = MALI_OCCLUSION_MODE_COUNTER;
-                        else
-                                cfg.occlusion_query = MALI_OCCLUSION_MODE_PREDICATE;
-                        cfg.occlusion = ctx->occlusion_query->bo->ptr.gpu;
-                        panfrost_batch_add_bo(ctx->batch, ctx->occlusion_query->bo,
-                                              PAN_BO_ACCESS_SHARED |
-                                              PAN_BO_ACCESS_RW |
-                                              PAN_BO_ACCESS_FRAGMENT);
-                }
-        }
-
-        if (!pan_is_bifrost(device))
-                panfrost_emit_primitive_size(ctx, points, psiz, prim_size);
-        else
-                pan_section_pack(job, BIFROST_TILER_JOB, DRAW_PADDING, cfg);
 }
 
 static void
@@ -510,8 +347,28 @@ panfrost_direct_draw(struct panfrost_batch *batch,
         /* Fire off the draw itself */
         panfrost_draw_emit_vertex(batch, info, &invocation, shared_mem,
                                   vs_vary, varyings, attribs, attrib_bufs, vertex.cpu);
-        panfrost_draw_emit_tiler(batch, info, draw, &invocation, shared_mem, indices,
-                                 fs_vary, varyings, pos, psiz, tiler.cpu);
+
+        switch (device->arch) {
+        case 4:
+                pan_draw_emit_tiler_v4(batch, info, draw, &invocation, shared_mem, indices,
+                                fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        case 5:
+                pan_draw_emit_tiler_v5(batch, info, draw, &invocation, shared_mem, indices,
+                                fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        case 6:
+                pan_draw_emit_tiler_v6(batch, info, draw, &invocation, shared_mem, indices,
+                                fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        case 7:
+                pan_draw_emit_tiler_v7(batch, info, draw, &invocation, shared_mem, indices,
+                                fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        default:
+                unreachable("invalid arch");
+        }
+
         panfrost_emit_vertex_tiler_jobs(batch, &vertex, &tiler);
 
         /* Adjust the batch stack size based on the new shader stack sizes. */
@@ -603,9 +460,30 @@ panfrost_indirect_draw(struct panfrost_batch *batch,
         panfrost_draw_emit_vertex(batch, info, &invocation, shared_mem,
                                   vs_vary, varyings, attribs, attrib_bufs,
                                   vertex.cpu);
-        panfrost_draw_emit_tiler(batch, info, draw, &invocation, shared_mem,
-                                 index_buf ? index_buf->ptr.gpu : 0,
-                                 fs_vary, varyings, pos, psiz, tiler.cpu);
+        switch (dev->arch) {
+        case 4:
+                pan_draw_emit_tiler_v4(batch, info, draw, &invocation, shared_mem,
+                                         index_buf ? index_buf->ptr.gpu : 0,
+                                         fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        case 5:
+                pan_draw_emit_tiler_v5(batch, info, draw, &invocation, shared_mem,
+                                         index_buf ? index_buf->ptr.gpu : 0,
+                                         fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        case 6:
+                pan_draw_emit_tiler_v6(batch, info, draw, &invocation, shared_mem,
+                                         index_buf ? index_buf->ptr.gpu : 0,
+                                         fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        case 7:
+                pan_draw_emit_tiler_v7(batch, info, draw, &invocation, shared_mem,
+                                         index_buf ? index_buf->ptr.gpu : 0,
+                                         fs_vary, varyings, pos, psiz, tiler.cpu);
+                break;
+        default:
+                unreachable("Invalid architecture");
+        }
 
         /* Add the varying heap BO to the batch if we're allocating varyings. */
         if (varyings) {

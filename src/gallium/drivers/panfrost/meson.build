@@ -34,6 +34,10 @@ files_panfrost = files(
   'pan_compute.c',
 )
 
+files_per_version = files(
+  'panx_draw.c'
+)
+
 panfrost_includes = [
   inc_mapi,
   inc_mesa,
@@ -49,16 +53,33 @@ compile_args_panfrost = [
   '-Wno-pointer-arith'
 ]
 
-libpanfrost = static_library(
-  'panfrost',
-  files_panfrost,
-  dependencies: [
+dependencies_panfrost = [
     dep_thread,
     dep_libdrm,
     idep_mesautil,
     idep_nir,
     idep_midgard_pack
-  ],
+]
+
+pan_versions = ['4', '5', '6', '7']
+
+per_version_libs = []
+foreach ver : pan_versions
+  per_version_libs += static_library(
+    'pan-v' + ver,
+    files_per_version,
+    include_directories : panfrost_includes,
+    c_args : [c_msvc_compat_args, compile_args_panfrost, '-DPAN_ARCH=' + ver],
+    gnu_symbol_visibility : 'hidden',
+    dependencies : dependencies_panfrost,
+)
+
+endforeach
+
+libpanfrost = static_library(
+  'panfrost',
+  files_panfrost,
+  dependencies: [dep_libdrm, dep_valgrind, idep_nir_headers],
   include_directories : panfrost_includes,
   c_args : [c_msvc_compat_args, compile_args_panfrost],
   gnu_symbol_visibility : 'hidden',
@@ -66,5 +87,5 @@ libpanfrost = static_library(
 
 driver_panfrost = declare_dependency(
   compile_args : compile_args_panfrost,
-  link_with : [libpanfrost, libpanfrostwinsys, libpanfrost_shared, libpanfrost_midgard, libpanfrost_bifrost, libpanfrost_decode, libpanfrost_lib],
+  link_with : [libpanfrost, libpanfrostwinsys, libpanfrost_shared, libpanfrost_midgard, libpanfrost_bifrost, libpanfrost_decode, libpanfrost_lib, per_version_libs],
 )
