@@ -219,7 +219,8 @@ header = """\
 #include <stdint.h>
 #include <util/bitset.h>
 
-typedef BITSET_WORD bitmask_t[BITSET_WORDS(${isa.bitsize})];
+#define BITMASK_WORDS BITSET_WORDS(${isa.bitsize})
+typedef BITSET_WORD bitmask_t[BITMASK_WORDS];
 
 static inline uint64_t
 bitmask_to_uint64_t(bitmask_t mask)
