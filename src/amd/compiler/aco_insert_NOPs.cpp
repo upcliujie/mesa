@@ -152,6 +152,7 @@ struct NOP_ctx_gfx10 {
    bool has_branch_after_DS = false;
    bool has_NSA_MIMG = false;
    bool has_writelane = false;
+   bool has_s_barrier = false;
    std::bitset<128> sgprs_read_by_VMEM;
    std::bitset<128> sgprs_read_by_SMEM;
 
@@ -166,6 +167,7 @@ struct NOP_ctx_gfx10 {
       has_writelane |= other.has_writelane;
       sgprs_read_by_VMEM |= other.sgprs_read_by_VMEM;
       sgprs_read_by_SMEM |= other.sgprs_read_by_SMEM;
+      has_s_barrier |= other.has_s_barrier;
    }
 
    bool operator==(const NOP_ctx_gfx10 &other)
@@ -180,7 +182,8 @@ struct NOP_ctx_gfx10 {
          has_NSA_MIMG == other.has_NSA_MIMG &&
          has_writelane == other.has_writelane &&
          sgprs_read_by_VMEM == other.sgprs_read_by_VMEM &&
-         sgprs_read_by_SMEM == other.sgprs_read_by_SMEM;
+         sgprs_read_by_SMEM == other.sgprs_read_by_SMEM &&
+         has_s_barrier == other.has_s_barrier;
    }
 };
 
@@ -769,6 +772,19 @@ void handle_instruction_gfx10(Program *program, Block *cur_block, NOP_ctx_gfx10 
       ctx.has_writelane = false;
       if (instr->isMIMG() && get_mimg_nsa_dwords(instr.get()) > 0)
          Builder(program, &new_instructions).sopp(aco_opcode::s_nop, -1, 0);
+   }
+
+   /* See if we have a gs_alloc_req that isn't preceded by an s_barrier. */
+   if (instr->opcode == aco_opcode::s_barrier) {
+      ctx.has_s_barrier = true;
+   } else if (instr->opcode == aco_opcode::s_sendmsg &&
+              instr->sopp().imm == sendmsg_gs_alloc_req) {
+      /* Insert s_barrier at the beginning of the 1st block to mitigate the problem */
+      SOPP_instruction *barr = create_instruction<SOPP_instruction>(aco_opcode::s_barrier, Format::SOPP, 0, 0);
+      barr->imm = 0;
+      barr->block = -1;
+      program->blocks[0].instructions.emplace(program->blocks[0].instructions.begin(), barr);
+      ctx.has_s_barrier = true;
    }
 }
 
