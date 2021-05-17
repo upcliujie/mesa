@@ -281,6 +281,14 @@ pan_pack_unorm_8(nir_builder *b, nir_ssa_def *v)
 }
 
 static nir_ssa_def *
+pan_pack_snorm_8(nir_builder *b, nir_ssa_def *v)
+{
+        return pan_replicate_4(b, nir_pack_32_4x8(b,
+                nir_f2i8(b, nir_fround_even(b, nir_fmul(b, nir_fsat(b,
+                        pan_fill_4(b, v, v->num_components)), nir_imm_float16(b, 127.0))))));
+}
+
+static nir_ssa_def *
 pan_unpack_unorm_8(nir_builder *b, nir_ssa_def *pack, unsigned num_components)
 {
         assert(num_components <= 4);
@@ -600,6 +608,9 @@ pan_pack(nir_builder *b,
 
         if (util_format_is_unorm8(desc))
                 return pan_pack_unorm_8(b, unpacked);
+
+        if (util_format_is_snorm8(desc->format))
+                return pan_pack_snorm_8(b, unpacked);
 
         if (pan_is_unorm4(desc))
                 return pan_pack_unorm_4(b, unpacked);
