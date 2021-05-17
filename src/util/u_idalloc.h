@@ -44,7 +44,7 @@ struct util_idalloc
 };
 
 void
-util_idalloc_init(struct util_idalloc *buf);
+util_idalloc_init(struct util_idalloc *buf, unsigned initial_num_elements);
 
 void
 util_idalloc_fini(struct util_idalloc *buf);
