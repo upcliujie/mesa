@@ -2052,6 +2052,8 @@ public:
    unsigned next_divergent_if_logical_depth = 0;
    unsigned next_uniform_if_depth = 0;
 
+   std::vector<Definition> vs_inputs;
+
    struct {
       FILE* output = stderr;
       bool shorten_messages = false;
