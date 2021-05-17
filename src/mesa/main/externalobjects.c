@@ -164,23 +164,23 @@ _mesa_CreateMemoryObjectsEXT(GLsizei n, GLuint *memoryObjects)
       return;
 
    _mesa_HashLockMutex(ctx->Shared->MemoryObjects);
-   if (_mesa_HashFindFreeKeys(ctx->Shared->MemoryObjects, memoryObjects, n)) {
-      for (GLsizei i = 0; i < n; i++) {
-         struct gl_memory_object *memObj;
+   _mesa_HashFindFreeKeys(ctx->Shared->MemoryObjects, memoryObjects, n);
 
-         /* allocate memory object */
-         memObj = ctx->Driver.NewMemoryObject(ctx, memoryObjects[i]);
-         if (!memObj) {
-            _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s()", func);
-            _mesa_HashUnlockMutex(ctx->Shared->MemoryObjects);
-            return;
-         }
+   for (GLsizei i = 0; i < n; i++) {
+      struct gl_memory_object *memObj;
 
-         /* insert into hash table */
-         _mesa_HashInsertLocked(ctx->Shared->MemoryObjects,
-                                memoryObjects[i],
-                                memObj, true);
+      /* allocate memory object */
+      memObj = ctx->Driver.NewMemoryObject(ctx, memoryObjects[i]);
+      if (!memObj) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s()", func);
+         _mesa_HashUnlockMutex(ctx->Shared->MemoryObjects);
+         return;
       }
+
+      /* insert into hash table */
+      _mesa_HashInsertLocked(ctx->Shared->MemoryObjects,
+                             memoryObjects[i],
+                             memObj, true);
    }
 
    _mesa_HashUnlockMutex(ctx->Shared->MemoryObjects);
@@ -599,11 +599,11 @@ _mesa_GenSemaphoresEXT(GLsizei n, GLuint *semaphores)
       return;
 
    _mesa_HashLockMutex(ctx->Shared->SemaphoreObjects);
-   if (_mesa_HashFindFreeKeys(ctx->Shared->SemaphoreObjects, semaphores, n)) {
-      for (GLsizei i = 0; i < n; i++) {
-         _mesa_HashInsertLocked(ctx->Shared->SemaphoreObjects,
-                                semaphores[i], &DummySemaphoreObject, true);
-      }
+   _mesa_HashFindFreeKeys(ctx->Shared->SemaphoreObjects, semaphores, n);
+
+   for (GLsizei i = 0; i < n; i++) {
+      _mesa_HashInsertLocked(ctx->Shared->SemaphoreObjects,
+                             semaphores[i], &DummySemaphoreObject, true);
    }
 
    _mesa_HashUnlockMutex(ctx->Shared->SemaphoreObjects);

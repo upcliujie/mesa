@@ -271,21 +271,21 @@ create_queries(struct gl_context *ctx, GLenum target, GLsizei n, GLuint *ids,
       return;
    }
 
-   if (_mesa_HashFindFreeKeys(ctx->Query.QueryObjects, ids, n)) {
-      GLsizei i;
-      for (i = 0; i < n; i++) {
-         struct gl_query_object *q
-            = ctx->Driver.NewQueryObject(ctx, ids[i]);
-         if (!q) {
-            _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
-            return;
-         } else if (dsa) {
-            /* Do the equivalent of binding the buffer with a target */
-            q->Target = target;
-            q->EverBound = GL_TRUE;
-         }
-         _mesa_HashInsertLocked(ctx->Query.QueryObjects, ids[i], q, true);
+   _mesa_HashFindFreeKeys(ctx->Query.QueryObjects, ids, n);
+
+   GLsizei i;
+   for (i = 0; i < n; i++) {
+      struct gl_query_object *q
+         = ctx->Driver.NewQueryObject(ctx, ids[i]);
+      if (!q) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
+         return;
+      } else if (dsa) {
+         /* Do the equivalent of binding the buffer with a target */
+         q->Target = target;
+         q->EverBound = GL_TRUE;
       }
+      _mesa_HashInsertLocked(ctx->Query.QueryObjects, ids[i], q, true);
    }
 }
 
