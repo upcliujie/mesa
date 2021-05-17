@@ -549,6 +549,13 @@ pan_is_unorm4(const struct util_format_description *desc)
 }
 
 static nir_ssa_def *
+pan_swap_rb(nir_builder *b, nir_ssa_def *in)
+{
+        unsigned swizzle[4] = { 2, 1, 0, 3 };
+        return nir_swizzle(b, in, swizzle, 4);
+}
+
+static nir_ssa_def *
 pan_unpack(nir_builder *b,
                 const struct util_format_description *desc,
                 nir_ssa_def *packed)
@@ -582,6 +589,10 @@ pan_unpack(nir_builder *b,
         case PIPE_FORMAT_B5G5R5A1_UNORM:
         case PIPE_FORMAT_R5G5B5A1_UNORM:
                 return pan_unpack_unorm_5551(b, packed);
+        case PIPE_FORMAT_R5G6B5_UNORM:
+                /* swap R and B */
+                packed = pan_swap_rb(b, packed);
+                FALLTHROUGH;
         case PIPE_FORMAT_B5G6R5_UNORM:
                 return pan_unpack_unorm_565(b, packed);
         case PIPE_FORMAT_R10G10B10A2_UNORM:
@@ -638,6 +649,10 @@ pan_pack(nir_builder *b,
         case PIPE_FORMAT_B5G5R5A1_UNORM:
         case PIPE_FORMAT_R5G5B5A1_UNORM:
                 return pan_pack_unorm_5551(b, unpacked);
+        case PIPE_FORMAT_R5G6B5_UNORM:
+                /* swap R and B */
+                unpacked = pan_swap_rb(b, unpacked);
+                FALLTHROUGH;
         case PIPE_FORMAT_B5G6R5_UNORM:
                 return pan_pack_unorm_565(b, unpacked);
         case PIPE_FORMAT_R10G10B10A2_UNORM:
