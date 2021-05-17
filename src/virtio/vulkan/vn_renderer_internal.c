@@ -127,6 +127,8 @@ vn_renderer_shmem_cache_get(struct vn_renderer_shmem_cache *cache,
       simple_mtx_lock(&cache->mutex);
       cache->debug.cache_skip_count++;
       simple_mtx_unlock(&cache->mutex);
+
+      VN_TRACE_SCOPE("shmem cache miss");
       return NULL;
    }
 
