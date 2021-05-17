@@ -40,6 +40,8 @@ asm = executable(
   'afuc-asm',
   [
     'asm.c',
+    'util.c',
+    'util.h',
     afuc_lexer,
     afuc_parser,
   ],
@@ -56,7 +58,11 @@ asm = executable(
 
 disasm = executable(
   'afuc-disasm',
-  'disasm.c',
+  [
+    'disasm.c',
+    'util.c',
+    'util.h',
+  ],
   include_directories: [
     inc_freedreno_rnn, inc_include, inc_src, inc_util,
   ],
