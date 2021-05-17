@@ -613,6 +613,12 @@ display(struct decode_scope *scope)
 	}
 }
 
+static inline void
+next_instruction(uint64_t *start, bitmask_t *instr)
+{
+	*instr = *start;
+}
+
 static void
 decode(struct decode_state *state, void *bin, int sz)
 {
@@ -620,7 +626,9 @@ decode(struct decode_state *state, void *bin, int sz)
 	unsigned errors = 0;   /* number of consecutive unmatched instructions */
 
 	for (state->n = 0; state->n < state->num_instr; state->n++) {
-		uint64_t instr = instrs[state->n];
+		bitmask_t instr = { 0 };
+
+		next_instruction(&instrs[state->n], &instr);
 
 		if (state->options->max_errors && (errors > state->options->max_errors)) {
 			break;
