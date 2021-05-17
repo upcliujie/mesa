@@ -855,7 +855,7 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
 
    st->bitmap.cache.empty = true;
 
-   if (ctx->Const.ForceGLNamesReuse && ctx->Shared->RefCount == 1) {
+   if (ctx->Shared->RefCount == 1) {
       _mesa_HashEnableNameReuse(ctx->Shared->TexObjects);
       _mesa_HashEnableNameReuse(ctx->Shared->ShaderObjects);
       _mesa_HashEnableNameReuse(ctx->Shared->BufferObjects);
@@ -865,14 +865,7 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
       _mesa_HashEnableNameReuse(ctx->Shared->MemoryObjects);
       _mesa_HashEnableNameReuse(ctx->Shared->SemaphoreObjects);
    }
-   /* SPECviewperf13/sw-04 crashes since a56849ddda6 if Mesa is build with
-    * -O3 on gcc 7.5, which doesn't happen with ForceGLNamesReuse, which is
-    * the default setting for SPECviewperf because it simulates glGen behavior
-    * of closed source drivers.
-    */
-   if (ctx->Const.ForceGLNamesReuse)
-      _mesa_HashEnableNameReuse(ctx->Query.QueryObjects);
-
+   _mesa_HashEnableNameReuse(ctx->Query.QueryObjects);
    _mesa_override_extensions(ctx);
    _mesa_compute_version(ctx);
 
