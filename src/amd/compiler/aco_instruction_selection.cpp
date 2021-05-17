@@ -3251,6 +3251,7 @@ void visit_alu_instr(isel_context *ctx, nir_alu_instr *instr)
          Temp tl = bld.vop1_dpp(aco_opcode::v_mov_b32, bld.def(v1), src, dpp_ctrl1);
          tmp = bld.vop2_dpp(aco_opcode::v_sub_f32, bld.def(v1), src, tl, dpp_ctrl2);
       } else {
+         src = as_vgpr(ctx, src);
          Temp tl = bld.ds(aco_opcode::ds_swizzle_b32, bld.def(v1), src, (1 << 15) | dpp_ctrl1);
          Temp tr = bld.ds(aco_opcode::ds_swizzle_b32, bld.def(v1), src, (1 << 15) | dpp_ctrl2);
          tmp = bld.vop2(aco_opcode::v_sub_f32, bld.def(v1), tr, tl);
