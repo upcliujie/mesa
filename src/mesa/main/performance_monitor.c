@@ -353,20 +353,17 @@ _mesa_GenPerfMonitorsAMD(GLsizei n, GLuint *monitors)
    if (monitors == NULL)
       return;
 
-   if (_mesa_HashFindFreeKeys(ctx->PerfMonitor.Monitors, monitors, n)) {
-      GLsizei i;
-      for (i = 0; i < n; i++) {
-         struct gl_perf_monitor_object *m =
-            new_performance_monitor(ctx, monitors[i]);
-         if (!m) {
-            _mesa_error(ctx, GL_OUT_OF_MEMORY, "glGenPerfMonitorsAMD");
-            return;
-         }
-         _mesa_HashInsert(ctx->PerfMonitor.Monitors, monitors[i], m, true);
+   _mesa_HashFindFreeKeys(ctx->PerfMonitor.Monitors, monitors, n);
+
+   GLsizei i;
+   for (i = 0; i < n; i++) {
+      struct gl_perf_monitor_object *m =
+         new_performance_monitor(ctx, monitors[i]);
+      if (!m) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glGenPerfMonitorsAMD");
+         return;
       }
-   } else {
-      _mesa_error(ctx, GL_OUT_OF_MEMORY, "glGenPerfMonitorsAMD");
-      return;
+      _mesa_HashInsert(ctx->PerfMonitor.Monitors, monitors[i], m, true);
    }
 }
 

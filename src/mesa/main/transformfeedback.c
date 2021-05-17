@@ -1072,25 +1072,22 @@ create_transform_feedbacks(struct gl_context *ctx, GLsizei n, GLuint *ids,
    if (!ids)
       return;
 
-   if (_mesa_HashFindFreeKeys(ctx->TransformFeedback.Objects, ids, n)) {
-      GLsizei i;
-      for (i = 0; i < n; i++) {
-         struct gl_transform_feedback_object *obj
-            = ctx->Driver.NewTransformFeedback(ctx, ids[i]);
-         if (!obj) {
-            _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
-            return;
-         }
-         _mesa_HashInsertLocked(ctx->TransformFeedback.Objects, ids[i],
-                                obj, true);
-         if (dsa) {
-            /* this is normally done at bind time in the non-dsa case */
-            obj->EverBound = GL_TRUE;
-         }
+   _mesa_HashFindFreeKeys(ctx->TransformFeedback.Objects, ids, n);
+
+   GLsizei i;
+   for (i = 0; i < n; i++) {
+      struct gl_transform_feedback_object *obj
+         = ctx->Driver.NewTransformFeedback(ctx, ids[i]);
+      if (!obj) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
+         return;
       }
-   }
-   else {
-      _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
+      _mesa_HashInsertLocked(ctx->TransformFeedback.Objects, ids[i],
+                             obj, true);
+      if (dsa) {
+         /* this is normally done at bind time in the non-dsa case */
+         obj->EverBound = GL_TRUE;
+      }
    }
 }
 
