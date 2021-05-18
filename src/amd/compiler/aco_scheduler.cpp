@@ -760,6 +760,8 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
          break;
 
       if (!can_move_down) {
+         if (part_of_clause)
+            break;
          add_to_hazard_query(&indep_hq, candidate.get());
          add_to_hazard_query(&clause_hq, candidate.get());
          ctx.mv.downwards_skip();
@@ -769,6 +771,8 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
       Instruction *candidate_ptr = candidate.get();
       MoveResult res = ctx.mv.downwards_move(part_of_clause);
       if (res == move_fail_ssa || res == move_fail_rar) {
+         if (part_of_clause)
+            break;
          add_to_hazard_query(&indep_hq, candidate.get());
          add_to_hazard_query(&clause_hq, candidate.get());
          ctx.mv.downwards_skip();
