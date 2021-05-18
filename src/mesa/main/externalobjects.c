@@ -179,8 +179,7 @@ _mesa_CreateMemoryObjectsEXT(GLsizei n, GLuint *memoryObjects)
 
       /* insert into hash table */
       _mesa_HashInsertLocked(ctx->Shared->MemoryObjects,
-                             memoryObjects[i],
-                             memObj, true);
+                             memoryObjects[i], memObj);
    }
 
    _mesa_HashUnlockMutex(ctx->Shared->MemoryObjects);
@@ -603,7 +602,7 @@ _mesa_GenSemaphoresEXT(GLsizei n, GLuint *semaphores)
 
    for (GLsizei i = 0; i < n; i++) {
       _mesa_HashInsertLocked(ctx->Shared->SemaphoreObjects,
-                             semaphores[i], &DummySemaphoreObject, true);
+                             semaphores[i], &DummySemaphoreObject);
    }
 
    _mesa_HashUnlockMutex(ctx->Shared->SemaphoreObjects);
@@ -881,7 +880,7 @@ _mesa_ImportSemaphoreFdEXT(GLuint semaphore,
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
          return;
       }
-      _mesa_HashInsert(ctx->Shared->SemaphoreObjects, semaphore, semObj, true);
+      _mesa_HashInsert(ctx->Shared->SemaphoreObjects, semaphore, semObj);
    }
 
    ctx->Driver.ImportSemaphoreFd(ctx, semObj, fd);

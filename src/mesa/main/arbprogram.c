@@ -77,7 +77,6 @@ lookup_or_create_program(GLuint id, GLenum target, const char* caller)
       /* Bind a user program */
       newProg = _mesa_lookup_program(ctx, id);
       if (!newProg || newProg == &_mesa_DummyProgram) {
-         bool isGenName = newProg != NULL;
          /* allocate a new program now */
          newProg = ctx->Driver.NewProgram(ctx, _mesa_program_enum_to_shader_stage(target),
                                           id, true);
@@ -85,7 +84,7 @@ lookup_or_create_program(GLuint id, GLenum target, const char* caller)
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
             return NULL;
          }
-         _mesa_HashInsert(ctx->Shared->Programs, id, newProg, isGenName);
+         _mesa_HashInsert(ctx->Shared->Programs, id, newProg);
       }
       else if (newProg->Target != target) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
@@ -237,7 +236,7 @@ _mesa_GenProgramsARB(GLsizei n, GLuint *ids)
    /* Insert pointer to dummy program as placeholder */
    for (i = 0; i < (GLuint) n; i++) {
       _mesa_HashInsertLocked(ctx->Shared->Programs, ids[i],
-                             &_mesa_DummyProgram, true);
+                             &_mesa_DummyProgram);
    }
 
    _mesa_HashUnlockMutex(ctx->Shared->Programs);

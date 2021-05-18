@@ -897,7 +897,7 @@ lookup_bitmap_atlas(struct gl_context *ctx, GLuint listBase)
  * Create new bitmap atlas and insert into hash table.
  */
 static struct gl_bitmap_atlas *
-alloc_bitmap_atlas(struct gl_context *ctx, GLuint listBase, bool isGenName)
+alloc_bitmap_atlas(struct gl_context *ctx, GLuint listBase)
 {
    struct gl_bitmap_atlas *atlas;
 
@@ -906,7 +906,7 @@ alloc_bitmap_atlas(struct gl_context *ctx, GLuint listBase, bool isGenName)
 
    atlas = calloc(1, sizeof(*atlas));
    if (atlas) {
-      _mesa_HashInsert(ctx->Shared->BitmapAtlas, listBase, atlas, isGenName);
+      _mesa_HashInsert(ctx->Shared->BitmapAtlas, listBase, atlas);
       atlas->Id = listBase;
    }
 
@@ -13518,7 +13518,7 @@ _mesa_GenLists(GLsizei range)
       GLint i;
       for (i = 0; i < range; i++) {
          _mesa_HashInsertLocked(ctx->Shared->DisplayList, base + i,
-                                make_list(base + i, 1), true);
+                                make_list(base + i, 1));
       }
    }
 
@@ -13531,7 +13531,7 @@ _mesa_GenLists(GLsizei range)
        */
       struct gl_bitmap_atlas *atlas = lookup_bitmap_atlas(ctx, base);
       if (!atlas) {
-         atlas = alloc_bitmap_atlas(ctx, base, true);
+         atlas = alloc_bitmap_atlas(ctx, base);
       }
       if (atlas) {
          /* Atlas _should_ be new/empty now, but clobbering is OK */
@@ -13637,7 +13637,7 @@ _mesa_EndList(void)
    /* Install the new list */
    _mesa_HashInsert(ctx->Shared->DisplayList,
                     ctx->ListState.CurrentList->Name,
-                    ctx->ListState.CurrentList, true);
+                    ctx->ListState.CurrentList);
 
 
    if (MESA_VERBOSE & VERBOSE_DISPLAY_LIST)
@@ -13725,7 +13725,7 @@ render_bitmap_atlas(struct gl_context *ctx, GLsizei n, GLenum type,
       /* Even if glGenLists wasn't called, we can still try to create
        * the atlas now.
        */
-      atlas = alloc_bitmap_atlas(ctx, ctx->List.ListBase, false);
+      atlas = alloc_bitmap_atlas(ctx, ctx->List.ListBase);
    }
 
    if (atlas && !atlas->complete && !atlas->incomplete) {
