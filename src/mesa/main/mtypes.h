@@ -1662,7 +1662,7 @@ struct gl_array_attrib
    struct gl_vertex_array_object DefaultVAOState;
 
    /** Array objects (GL_ARB_vertex_array_object) */
-   struct _mesa_HashTable *Objects;
+   struct _mesa_HashTable Objects;
 
    GLint ActiveTexture;		/**< Client Active Texture */
    GLuint LockFirst;            /**< GL_EXT_compiled_vertex_array */
@@ -1943,7 +1943,7 @@ struct gl_transform_feedback_state
    struct gl_buffer_object *CurrentBuffer;
 
    /** The table of all transform feedback objects */
-   struct _mesa_HashTable *Objects;
+   struct _mesa_HashTable Objects;
 
    /** The current xform-fb object (GL_TRANSFORM_FEEDBACK_BINDING) */
    struct gl_transform_feedback_object *CurrentObject;
@@ -2059,7 +2059,7 @@ struct gl_perf_monitor_state
    GLuint NumGroups;
 
    /** The table of all performance monitors. */
-   struct _mesa_HashTable *Monitors;
+   struct _mesa_HashTable Monitors;
 };
 
 
@@ -2068,7 +2068,7 @@ struct gl_perf_monitor_state
  */
 struct gl_perf_query_state
 {
-   struct _mesa_HashTable *Objects; /**< The table of all performance query objects */
+   struct _mesa_HashTable Objects; /**< The table of all performance query objects */
 };
 
 
@@ -3233,7 +3233,7 @@ struct gl_pipeline_shader_state
    struct gl_pipeline_object *Default;
 
    /** Pipeline objects */
-   struct _mesa_HashTable *Objects;
+   struct _mesa_HashTable Objects;
 };
 
 /**
@@ -3328,7 +3328,7 @@ struct gl_query_object
  */
 struct gl_query_state
 {
-   struct _mesa_HashTable *QueryObjects;
+   struct _mesa_HashTable QueryObjects;
    struct gl_query_object *CurrentOcclusionObject; /* GL_ARB_occlusion_query */
    struct gl_query_object *CurrentTimerObject;     /* GL_EXT_timer_query */
 
@@ -3375,9 +3375,9 @@ struct gl_shared_state
 {
    simple_mtx_t Mutex;		   /**< for thread safety */
    GLint RefCount;			   /**< Reference count */
-   struct _mesa_HashTable *DisplayList;	   /**< Display lists hash table */
-   struct _mesa_HashTable *BitmapAtlas;    /**< For optimized glBitmap text */
-   struct _mesa_HashTable *TexObjects;	   /**< Texture objects hash table */
+   struct _mesa_HashTable DisplayList;	   /**< Display lists hash table */
+   struct _mesa_HashTable BitmapAtlas;    /**< For optimized glBitmap text */
+   struct _mesa_HashTable TexObjects;	   /**< Texture objects hash table */
 
    /** Default texture objects (shared by all texture units) */
    struct gl_texture_object *DefaultTex[NUM_TEXTURE_TARGETS];
@@ -3400,16 +3400,16 @@ struct gl_shared_state
     * \name Vertex/geometry/fragment programs
     */
    /*@{*/
-   struct _mesa_HashTable *Programs; /**< All vertex/fragment programs */
+   struct _mesa_HashTable Programs; /**< All vertex/fragment programs */
    struct gl_program *DefaultVertexProgram;
    struct gl_program *DefaultFragmentProgram;
    /*@}*/
 
    /* GL_ATI_fragment_shader */
-   struct _mesa_HashTable *ATIShaders;
+   struct _mesa_HashTable ATIShaders;
    struct ati_fragment_shader *DefaultFragmentShader;
 
-   struct _mesa_HashTable *BufferObjects;
+   struct _mesa_HashTable BufferObjects;
 
    /* Buffer objects released by a different context than the one that
     * created them. Since the creating context holds one global buffer
@@ -3425,17 +3425,17 @@ struct gl_shared_state
    struct set *ZombieBufferObjects;
 
    /** Table of both gl_shader and gl_shader_program objects */
-   struct _mesa_HashTable *ShaderObjects;
+   struct _mesa_HashTable ShaderObjects;
 
    /* GL_EXT_framebuffer_object */
-   struct _mesa_HashTable *RenderBuffers;
-   struct _mesa_HashTable *FrameBuffers;
+   struct _mesa_HashTable RenderBuffers;
+   struct _mesa_HashTable FrameBuffers;
 
    /* GL_ARB_sync */
    struct set *SyncObjects;
 
    /** GL_ARB_sampler_objects */
-   struct _mesa_HashTable *SamplerObjects;
+   struct _mesa_HashTable SamplerObjects;
 
    /* GL_ARB_bindless_texture */
    struct hash_table_u64 *TextureHandles;
@@ -3461,10 +3461,10 @@ struct gl_shared_state
    bool ShareGroupReset;
 
    /** EXT_external_objects */
-   struct _mesa_HashTable *MemoryObjects;
+   struct _mesa_HashTable MemoryObjects;
 
    /** EXT_semaphore */
-   struct _mesa_HashTable *SemaphoreObjects;
+   struct _mesa_HashTable SemaphoreObjects;
 
    /**
     * Some context in this share group was affected by a disjoint

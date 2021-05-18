@@ -80,7 +80,7 @@ lookup_vao(struct gl_context *ctx, GLuint id)
        glthread->LastLookedUpVAO->Name == id) {
       vao = glthread->LastLookedUpVAO;
    } else {
-      vao = _mesa_HashLookupLocked(glthread->VAOs, id);
+      vao = _mesa_HashLookupLocked(&glthread->VAOs, id);
       if (!vao)
          return NULL;
 
@@ -134,7 +134,7 @@ _mesa_glthread_DeleteVertexArrays(struct gl_context *ctx,
          glthread->LastLookedUpVAO = NULL;
 
       /* The ID is immediately freed for re-use */
-      _mesa_HashRemoveLocked(glthread->VAOs, vao->Name);
+      _mesa_HashRemoveLocked(&glthread->VAOs, vao->Name);
       free(vao);
    }
 }
@@ -159,7 +159,7 @@ _mesa_glthread_GenVertexArrays(struct gl_context *ctx,
 
       vao->Name = id;
       _mesa_glthread_reset_vao(vao);
-      _mesa_HashInsertLocked(glthread->VAOs, id, vao);
+      _mesa_HashInsertLocked(&glthread->VAOs, id, vao);
    }
 }
 

@@ -1123,7 +1123,7 @@ st_destroy_context(struct st_context *st)
    /* This must be called first so that glthread has a chance to finish */
    _mesa_glthread_destroy(ctx);
 
-   _mesa_HashWalk(ctx->Shared->TexObjects, destroy_tex_sampler_cb, st);
+   _mesa_HashWalk(&ctx->Shared->TexObjects, destroy_tex_sampler_cb, st);
 
    /* For the fallback textures, free any sampler views belonging to this
     * context.
@@ -1153,7 +1153,7 @@ st_destroy_context(struct st_context *st)
       st_framebuffer_reference(&stfb, NULL);
    }
 
-   _mesa_HashWalk(ctx->Shared->FrameBuffers, destroy_framebuffer_attachment_sampler_cb, st);
+   _mesa_HashWalk(&ctx->Shared->FrameBuffers, destroy_framebuffer_attachment_sampler_cb, st);
 
    pipe_sampler_view_reference(&st->pixel_xfer.pixelmap_sampler_view, NULL);
    pipe_resource_reference(&st->pixel_xfer.pixelmap_texture, NULL);
