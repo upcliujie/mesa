@@ -198,6 +198,11 @@ brw_isl_format_for_mesa_format(mesa_format mesa_format)
       [MESA_FORMAT_RGBX_FLOAT16] = ISL_FORMAT_R16G16B16X16_FLOAT,
       [MESA_FORMAT_RGBX_FLOAT32] = ISL_FORMAT_R32G32B32X32_FLOAT,
       [MESA_FORMAT_Z_UNORM16] = ISL_FORMAT_R16_UNORM,
+
+      /* We translate the combined depth/stencil formats to depth only here */
+      [MESA_FORMAT_Z24_UNORM_S8_UINT]       = ISL_FORMAT_R24_UNORM_X8_TYPELESS,
+      [MESA_FORMAT_Z24_UNORM_X8_UINT]       = ISL_FORMAT_R24_UNORM_X8_TYPELESS,
+      [MESA_FORMAT_Z32_FLOAT_S8X24_UINT]    = ISL_FORMAT_R32_FLOAT,
    };
 
    assert(mesa_format < MESA_FORMAT_COUNT);
