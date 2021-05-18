@@ -30,10 +30,16 @@
  * structure returned back to the command stream. */
 
 static bool
-bi_is_direct_aligned_ubo(bi_instr *ins)
+bi_is_ubo(bi_instr *ins)
 {
         return (bi_opcode_props[ins->op].message == BIFROST_MESSAGE_LOAD) &&
-                (ins->seg == BI_SEG_UBO) &&
+                (ins->seg == BI_SEG_UBO);
+}
+
+static bool
+bi_is_direct_aligned_ubo(bi_instr *ins)
+{
+        return bi_is_ubo(ins) &&
                 (ins->src[0].type == BI_INDEX_CONSTANT) &&
                 (ins->src[1].type == BI_INDEX_CONSTANT) &&
                 ((ins->src[0].value & 0x3) == 0);
@@ -52,6 +58,8 @@ struct bi_ubo_analysis {
         /* Per block analysis */
         unsigned nr_blocks;
         struct bi_ubo_block *blocks;
+        /* UBOs that are not entirely pushed */
+        uint32_t ubo_mask;
 };
 
 static struct bi_ubo_analysis
@@ -59,12 +67,26 @@ bi_analyze_ranges(bi_context *ctx)
 {
         struct bi_ubo_analysis res = {
                 .nr_blocks = ctx->nir->info.num_ubos + 1,
+                .ubo_mask = 0,
         };
 
         res.blocks = calloc(res.nr_blocks, sizeof(struct bi_ubo_block));
 
+        assert(res.nr_blocks <= 32);
+
         bi_foreach_instr_global(ctx, ins) {
-                if (!bi_is_direct_aligned_ubo(ins)) continue;
+                if (!bi_is_ubo(ins)) continue;
+
+                if (!bi_is_direct_aligned_ubo(ins)) {
+                        if (ins->src[1].type != BI_INDEX_CONSTANT)
+                                /* TODO: hmmm, maybe set this more
+                                 * accurately? */
+                                res.ubo_mask = ~0;
+                        else
+                                res.ubo_mask |= BITSET_BIT(ins->src[1].value);
+
+                        continue;
+                }
 
                 unsigned ubo = ins->src[1].value;
                 unsigned word = ins->src[0].value / 4;
@@ -129,7 +151,10 @@ bi_opt_push_ubo(bi_context *ctx)
 
                 /* Check if we decided to push this */
                 assert(ubo < analysis.nr_blocks);
-                if (!BITSET_TEST(analysis.blocks[ubo].pushed, offset / 4)) continue;
+                if (!BITSET_TEST(analysis.blocks[ubo].pushed, offset / 4)) {
+                        analysis.ubo_mask |= BITSET_BIT(ubo);
+                        continue;
+                }
 
                 /* Replace the UBO load with moves from FAU */
                 bi_builder b = bi_init_builder(ctx, bi_after_instr(ins));
@@ -152,6 +177,8 @@ bi_opt_push_ubo(bi_context *ctx)
 
                 bi_remove_instruction(ins);
         }
+
+        ctx->ubo_mask = analysis.ubo_mask;
 
         free(analysis.blocks);
 }
