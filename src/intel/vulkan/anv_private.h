@@ -3554,7 +3554,7 @@ struct anv_graphics_pipeline {
 
    struct anv_subpass *                         subpass;
 
-   struct anv_shader_bin *                      shaders[MESA_SHADER_STAGES];
+   struct anv_shader_bin *                      shaders[MESA_GRAPHICS_SHADER_STAGES];
 
    VkShaderStageFlags                           active_stages;
 

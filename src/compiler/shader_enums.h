@@ -119,6 +119,11 @@ const char *_mesa_shader_stage_to_abbrev(unsigned stage);
 #define MESA_SHADER_STAGES (MESA_SHADER_COMPUTE + 1)
 
 /**
+ * Vulkan Graphics pipeline stages (not including CL or Ray-Tracing)
+ */
+#define MESA_GRAPHICS_SHADER_STAGES (MESA_SHADER_MESH + 1)
+
+/**
  * Vulkan stages (not including CL)
  */
 #define MESA_VULKAN_SHADER_STAGES (MESA_SHADER_CALLABLE + 1)
