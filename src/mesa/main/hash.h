@@ -46,8 +46,7 @@ extern struct _mesa_HashTable *_mesa_NewHashTable(void);
 
 extern void _mesa_DeleteHashTable(struct _mesa_HashTable *table);
 
-extern void _mesa_HashInsert(struct _mesa_HashTable *table, uint32_t key, void *data,
-                             bool isGenName);
+extern void _mesa_HashInsert(struct _mesa_HashTable *table, uint32_t key, void *data);
 
 extern void _mesa_HashRemove(struct _mesa_HashTable *table, uint32_t key);
 
@@ -104,7 +103,7 @@ _mesa_HashLookup(struct _mesa_HashTable *table, uint32_t key)
 }
 
 extern void _mesa_HashInsertLocked(struct _mesa_HashTable *table,
-                                   uint32_t key, void *data, bool isGenName);
+                                   uint32_t key, void *data);
 
 extern void _mesa_HashRemoveLocked(struct _mesa_HashTable *table, uint32_t key);
 
@@ -153,13 +152,12 @@ _mesa_HashLookupMaybeLocked(struct _mesa_HashTable *table, uint32_t key,
 
 static inline void
 _mesa_HashInsertMaybeLocked(struct _mesa_HashTable *table,
-                            uint32_t key, void *data, bool isGenName,
-                            bool locked)
+                            uint32_t key, void *data, bool locked)
 {
    if (locked)
-      _mesa_HashInsertLocked(table, key, data, isGenName);
+      _mesa_HashInsertLocked(table, key, data);
    else
-      _mesa_HashInsert(table, key, data, isGenName);
+      _mesa_HashInsert(table, key, data);
 }
 
 static inline void
