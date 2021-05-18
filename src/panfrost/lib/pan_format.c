@@ -334,7 +334,6 @@ const struct panfrost_format GENX(panfrost_pipe_format)[PIPE_FORMAT_COUNT] = {
         FMT(R32G32_UNORM,            RG32_UNORM,      RG01, L, VT__),
         FMT(R8G8B8_UNORM,            RGB8_UNORM,      RGB1, L, VTR_),
         FMT(R16G16B16_UNORM,         RGB16_UNORM,     RGB1, L, VT__),
-        FMT(R32G32B32_UNORM,         RGB32_UNORM,     RGB1, L, VT__),
         FMT(R4G4B4A4_UNORM,          RGBA4_UNORM,     RGBA, L, VTR_),
         FMT(B4G4R4A4_UNORM,          RGBA4_UNORM,     BGRA, L, VTR_),
         FMT(R16G16B16A16_UNORM,      RGBA16_UNORM,    RGBA, L, VT__),
@@ -423,6 +422,7 @@ const struct panfrost_format GENX(panfrost_pipe_format)[PIPE_FORMAT_COUNT] = {
         FMT(A16_UNORM,               R16_UNORM,       000R, L, VT__),
         FMT(A16_SNORM,               R16_SNORM,       000R, L, VT__),
         FMT(A16_FLOAT,               R16F,            000R, L, VTR_),
+        FMT(R32G32B32_UNORM,         RGB32_UNORM,     RGB1, L, VT__),
 
 #else
         FMT(Z16_UNORM,               RGB332_UNORM /* XXX: Deduplicate enum */,    RGBA, L, _T_Z),
