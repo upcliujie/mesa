@@ -305,6 +305,7 @@ x86_build-base:
   variables:
     MESA_BASE_IMAGE: "debian/x86_build-base"
     MESA_BASE_TAG: *x86_build-base
+    MESA_ARTIFACTS_BASE_TAG: *x86_build-base
   needs:
     - x86_build-base
 
@@ -437,6 +438,7 @@ arm_build:
   variables:
     MESA_IMAGE_PATH: "debian/arm_build"
     MESA_IMAGE_TAG: *arm_build
+    MESA_ARTIFACTS_TAG: *arm_build
   needs:
     - arm_build
 
@@ -448,7 +450,7 @@ arm_build:
     GIT_STRATEGY: fetch
     KERNEL_URL: "https://gitlab.freedesktop.org/drm/msm/-/archive/v5.11-for-mesa-ci-40abe2528d16/linux-v5.11-for-mesa-ci-40abe2528d16.tar.bz2"
     MESA_ROOTFS_TAG: &kernel-rootfs "2021-05-14-vkglcts-1.2.6.1"
-    DISTRIBUTION_TAG: &distribution-tag-arm "${MESA_ROOTFS_TAG}--${MESA_IMAGE_TAG}--${MESA_TEMPLATES_COMMIT}"
+    DISTRIBUTION_TAG: &distribution-tag-arm "${MESA_ROOTFS_TAG}--${MESA_ARTIFACTS_TAG}--${MESA_TEMPLATES_COMMIT}"
   script:
     - .gitlab-ci/container/lava_build.sh
 
@@ -459,7 +461,7 @@ kernel+rootfs_amd64:
   image: "$FDO_BASE_IMAGE"
   variables:
     DEBIAN_ARCH: "amd64"
-    DISTRIBUTION_TAG: &distribution-tag-amd64 "${MESA_ROOTFS_TAG}--${MESA_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
+    DISTRIBUTION_TAG: &distribution-tag-amd64 "${MESA_ROOTFS_TAG}--${MESA_ARTIFACTS_BASE_TAG}--${MESA_TEMPLATES_COMMIT}"
 
 kernel+rootfs_arm64:
   extends:
