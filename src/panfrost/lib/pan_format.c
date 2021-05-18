@@ -103,6 +103,7 @@ const struct pan_blendable_format panfrost_blendable_formats[PIPE_FORMAT_COUNT] 
 #define FLAGS__T__ (_T)
 #define FLAGS_VTR_ (_V | _T | _R)
 #define FLAGS_VT__ (_V | _T)
+#define FLAGS_V_R_ (_V | _R)
 #define FLAGS__T_Z (_T | _Z)
 
 #define V6_0000 PAN_V6_SWIZZLE(0, 0, 0, 0)
@@ -578,7 +579,7 @@ const struct panfrost_format panfrost_pipe_format_v7[PIPE_FORMAT_COUNT] = {
         PAN_V7(R32G32_UNORM,            RG32_UNORM,      RGB1, L, VTR_),
         PAN_V7(R8G8B8_UNORM,            RGB8_UNORM,      RGB1, L, VTR_),
         PAN_V7(R16G16B16_UNORM,         RGB16_UNORM,     RGB1, L, VTR_),
-        PAN_V7(R32G32B32_UNORM,         RGB32_UNORM,     RGB1, L, VTR_),
+        PAN_V7(R32G32B32_UNORM,         RGB32_UNORM,     RGB1, L, V___),
         PAN_V7(R4G4B4A4_UNORM,          RGBA4_UNORM,     RGBA, L, VTR_),
         PAN_V7(R16G16B16A16_UNORM,      RGBA16_UNORM,    RGBA, L, VTR_),
         PAN_V7(R32G32B32A32_UNORM,      RGBA32_UNORM,    RGBA, L, VTR_),
