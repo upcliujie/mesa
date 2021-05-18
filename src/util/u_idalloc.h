@@ -56,6 +56,12 @@ util_idalloc_init(struct util_idalloc *buf, unsigned initial_num_elements);
 void
 util_idalloc_fini(struct util_idalloc *buf);
 
+bool
+util_idalloc_initialized(struct util_idalloc *buf);
+
+void
+util_idalloc_clear(struct util_idalloc *buf);
+
 unsigned
 util_idalloc_alloc(struct util_idalloc *buf);
 

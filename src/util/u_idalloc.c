@@ -58,8 +58,24 @@ util_idalloc_init(struct util_idalloc *buf, unsigned initial_num_elements)
 void
 util_idalloc_fini(struct util_idalloc *buf)
 {
-   if (buf->data)
-      free(buf->data);
+   free(buf->data);
+   memset(buf, 0, sizeof(*buf));
+}
+
+bool
+util_idalloc_initialized(struct util_idalloc *buf)
+{
+   return buf->data != NULL;
+}
+
+void
+util_idalloc_clear(struct util_idalloc *buf)
+{
+   for (unsigned i = 0; i < buf->num_used; i++)
+      buf->data[i] = 0;
+
+   buf->num_used = 0;
+   buf->lowest_free_idx = 0;
 }
 
 unsigned
