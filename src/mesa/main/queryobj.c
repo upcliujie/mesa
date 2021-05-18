@@ -271,7 +271,7 @@ create_queries(struct gl_context *ctx, GLenum target, GLsizei n, GLuint *ids,
       return;
    }
 
-   _mesa_HashFindFreeKeys(ctx->Query.QueryObjects, ids, n);
+   _mesa_HashFindFreeKeys(&ctx->Query.QueryObjects, ids, n);
 
    GLsizei i;
    for (i = 0; i < n; i++) {
@@ -285,7 +285,7 @@ create_queries(struct gl_context *ctx, GLenum target, GLsizei n, GLuint *ids,
          q->Target = target;
          q->EverBound = GL_TRUE;
       }
-      _mesa_HashInsertLocked(ctx->Query.QueryObjects, ids[i], q);
+      _mesa_HashInsertLocked(&ctx->Query.QueryObjects, ids[i], q);
    }
 }
 
@@ -351,7 +351,7 @@ _mesa_DeleteQueries(GLsizei n, const GLuint *ids)
                q->Active = GL_FALSE;
                ctx->Driver.EndQuery(ctx, q);
             }
-            _mesa_HashRemoveLocked(ctx->Query.QueryObjects, ids[i]);
+            _mesa_HashRemoveLocked(&ctx->Query.QueryObjects, ids[i]);
             ctx->Driver.DeleteQuery(ctx, q);
          }
       }
@@ -454,7 +454,7 @@ _mesa_BeginQueryIndexed(GLenum target, GLuint index, GLuint id)
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "glBeginQuery{Indexed}");
             return;
          }
-         _mesa_HashInsertLocked(ctx->Query.QueryObjects, id, q);
+         _mesa_HashInsertLocked(&ctx->Query.QueryObjects, id, q);
       }
    }
    else {
@@ -596,7 +596,7 @@ _mesa_QueryCounter(GLuint id, GLenum target)
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glQueryCounter");
          return;
       }
-      _mesa_HashInsertLocked(ctx->Query.QueryObjects, id, q);
+      _mesa_HashInsertLocked(&ctx->Query.QueryObjects, id, q);
    }
    else {
       if (q->Target && q->Target != GL_TIMESTAMP) {
@@ -1030,7 +1030,7 @@ _mesa_GetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname,
 void
 _mesa_init_queryobj(struct gl_context *ctx)
 {
-   ctx->Query.QueryObjects = _mesa_NewHashTable();
+   _mesa_InitHashTable(&ctx->Query.QueryObjects);
    ctx->Query.CurrentOcclusionObject = NULL;
 
    ctx->Const.QueryCounterBits.SamplesPassed = 64;
@@ -1071,6 +1071,6 @@ delete_queryobj_cb(void *data, void *userData)
 void
 _mesa_free_queryobj_data(struct gl_context *ctx)
 {
-   _mesa_HashDeleteAll(ctx->Query.QueryObjects, delete_queryobj_cb, ctx);
-   _mesa_DeleteHashTable(ctx->Query.QueryObjects);
+   _mesa_HashDeleteAll(&ctx->Query.QueryObjects, delete_queryobj_cb, ctx);
+   _mesa_DeleteHashTable(&ctx->Query.QueryObjects);
 }

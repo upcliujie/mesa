@@ -45,18 +45,17 @@
  * 
  * \return pointer to a new, empty hash table.
  */
-struct _mesa_HashTable *
-_mesa_NewHashTable(void)
+void
+_mesa_InitHashTable(struct _mesa_HashTable *table)
 {
-   struct _mesa_HashTable *table = CALLOC_STRUCT(_mesa_HashTable);
-   if (!table) {
-      _mesa_error_no_memory(__func__);
-      return NULL;
-   }
-
    util_idtable_init(&table->table);
    simple_mtx_init(&table->Mutex, mtx_plain);
-   return table;
+}
+
+bool
+_mesa_HashTableInitialized(struct _mesa_HashTable *table)
+{
+   return util_idtable_initialized(&table->table);
 }
 
 /**
@@ -77,7 +76,6 @@ _mesa_DeleteHashTable(struct _mesa_HashTable *table)
 
    util_idtable_deinit(&table->table);
    simple_mtx_destroy(&table->Mutex);
-   free(table);
 }
 
 static inline void

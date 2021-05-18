@@ -48,14 +48,14 @@ _mesa_lookup_samplerobj(struct gl_context *ctx, GLuint name)
       return NULL;
    else
       return (struct gl_sampler_object *)
-         _mesa_HashLookup(ctx->Shared->SamplerObjects, name);
+         _mesa_HashLookup(&ctx->Shared->SamplerObjects, name);
 }
 
 static inline struct gl_sampler_object *
 lookup_samplerobj_locked(struct gl_context *ctx, GLuint name)
 {
    return (struct gl_sampler_object *)
-         _mesa_HashLookupLocked(ctx->Shared->SamplerObjects, name);
+         _mesa_HashLookupLocked(&ctx->Shared->SamplerObjects, name);
 }
 
 static void
@@ -163,9 +163,8 @@ create_samplers(struct gl_context *ctx, GLsizei count, GLuint *samplers,
    if (!samplers)
       return;
 
-   _mesa_HashLockMutex(ctx->Shared->SamplerObjects);
-
-   _mesa_HashFindFreeKeys(ctx->Shared->SamplerObjects, samplers, count);
+   _mesa_HashLockMutex(&ctx->Shared->SamplerObjects);
+   _mesa_HashFindFreeKeys(&ctx->Shared->SamplerObjects, samplers, count);
 
    /* Insert the ID and pointer to new sampler object into hash table */
    for (i = 0; i < count; i++) {
@@ -173,16 +172,16 @@ create_samplers(struct gl_context *ctx, GLsizei count, GLuint *samplers,
 
       sampObj = ctx->Driver.NewSamplerObject(ctx, samplers[i]);
       if (!sampObj) {
-         _mesa_HashUnlockMutex(ctx->Shared->SamplerObjects);
+         _mesa_HashUnlockMutex(&ctx->Shared->SamplerObjects);
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
          return;
       }
 
-      _mesa_HashInsertLocked(ctx->Shared->SamplerObjects, samplers[i],
+      _mesa_HashInsertLocked(&ctx->Shared->SamplerObjects, samplers[i],
                              sampObj);
    }
 
-   _mesa_HashUnlockMutex(ctx->Shared->SamplerObjects);
+   _mesa_HashUnlockMutex(&ctx->Shared->SamplerObjects);
 }
 
 static void
@@ -235,7 +234,7 @@ delete_samplers(struct gl_context *ctx, GLsizei count, const GLuint *samplers)
 {
    FLUSH_VERTICES(ctx, 0, 0);
 
-   _mesa_HashLockMutex(ctx->Shared->SamplerObjects);
+   _mesa_HashLockMutex(&ctx->Shared->SamplerObjects);
 
    for (GLsizei i = 0; i < count; i++) {
       if (samplers[i]) {
@@ -253,14 +252,14 @@ delete_samplers(struct gl_context *ctx, GLsizei count, const GLuint *samplers)
             }
 
             /* The ID is immediately freed for re-use */
-            _mesa_HashRemoveLocked(ctx->Shared->SamplerObjects, samplers[i]);
+            _mesa_HashRemoveLocked(&ctx->Shared->SamplerObjects, samplers[i]);
             /* But the object exists until its reference count goes to zero */
             _mesa_reference_sampler_object(ctx, &sampObj, NULL);
          }
       }
    }
 
-   _mesa_HashUnlockMutex(ctx->Shared->SamplerObjects);
+   _mesa_HashUnlockMutex(&ctx->Shared->SamplerObjects);
 }
 
 
@@ -380,7 +379,7 @@ bind_samplers(struct gl_context *ctx, GLuint first, GLsizei count,
        *       their parameters are valid and no other error occurs."
        */
 
-      _mesa_HashLockMutex(ctx->Shared->SamplerObjects);
+      _mesa_HashLockMutex(&ctx->Shared->SamplerObjects);
 
       for (i = 0; i < count; i++) {
          const GLuint unit = first + i;
@@ -421,7 +420,7 @@ bind_samplers(struct gl_context *ctx, GLuint first, GLsizei count,
          }
       }
 
-      _mesa_HashUnlockMutex(ctx->Shared->SamplerObjects);
+      _mesa_HashUnlockMutex(&ctx->Shared->SamplerObjects);
    } else {
       /* Unbind all samplers in the range <first> through <first>+<count>-1 */
       for (i = 0; i < count; i++) {

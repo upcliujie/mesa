@@ -131,7 +131,7 @@ dump_perf_queries(struct brw_context *brw)
 {
    struct gl_context *ctx = &brw->ctx;
    intel_perf_dump_query_count(brw->perf_ctx);
-   _mesa_HashWalk(ctx->PerfQuery.Objects, dump_perf_query_callback, brw);
+   _mesa_HashWalk(&ctx->PerfQuery.Objects, dump_perf_query_callback, brw);
 }
 
 /**

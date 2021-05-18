@@ -75,7 +75,7 @@ _mesa_transform_feedback_is_using_program(struct gl_context *ctx,
    callback_data.found = false;
    callback_data.prog = shProg->last_vert_prog;
 
-   _mesa_HashWalkLocked(ctx->TransformFeedback.Objects,
+   _mesa_HashWalkLocked(&ctx->TransformFeedback.Objects,
                         active_xfb_object_references_program, &callback_data);
 
    /* Also check DefaultObject, as it's not in the Objects hash table. */
@@ -142,7 +142,7 @@ _mesa_init_transform_feedback(struct gl_context *ctx)
 
    assert(ctx->TransformFeedback.DefaultObject->RefCount == 2);
 
-   ctx->TransformFeedback.Objects = _mesa_NewHashTable();
+   _mesa_InitHashTable(&ctx->TransformFeedback.Objects);
 
    _mesa_reference_buffer_object(ctx,
                                  &ctx->TransformFeedback.CurrentBuffer, NULL);
@@ -178,8 +178,8 @@ _mesa_free_transform_feedback(struct gl_context *ctx)
                                  NULL);
 
    /* Delete all feedback objects */
-   _mesa_HashDeleteAll(ctx->TransformFeedback.Objects, delete_cb, ctx);
-   _mesa_DeleteHashTable(ctx->TransformFeedback.Objects);
+   _mesa_HashDeleteAll(&ctx->TransformFeedback.Objects, delete_cb, ctx);
+   _mesa_DeleteHashTable(&ctx->TransformFeedback.Objects);
 
    /* Delete the default feedback object */
    assert(ctx->Driver.DeleteTransformFeedback);
@@ -1050,7 +1050,7 @@ _mesa_lookup_transform_feedback_object(struct gl_context *ctx, GLuint name)
    }
    else
       return (struct gl_transform_feedback_object *)
-         _mesa_HashLookupLocked(ctx->TransformFeedback.Objects, name);
+         _mesa_HashLookupLocked(&ctx->TransformFeedback.Objects, name);
 }
 
 static void
@@ -1072,7 +1072,7 @@ create_transform_feedbacks(struct gl_context *ctx, GLsizei n, GLuint *ids,
    if (!ids)
       return;
 
-   _mesa_HashFindFreeKeys(ctx->TransformFeedback.Objects, ids, n);
+   _mesa_HashFindFreeKeys(&ctx->TransformFeedback.Objects, ids, n);
 
    GLsizei i;
    for (i = 0; i < n; i++) {
@@ -1082,7 +1082,7 @@ create_transform_feedbacks(struct gl_context *ctx, GLsizei n, GLuint *ids,
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", func);
          return;
       }
-      _mesa_HashInsertLocked(ctx->TransformFeedback.Objects, ids[i], obj);
+      _mesa_HashInsertLocked(&ctx->TransformFeedback.Objects, ids[i], obj);
       if (dsa) {
          /* this is normally done at bind time in the non-dsa case */
          obj->EverBound = GL_TRUE;
@@ -1226,7 +1226,7 @@ _mesa_DeleteTransformFeedbacks(GLsizei n, const GLuint *names)
                            names[i]);
                return;
             }
-            _mesa_HashRemoveLocked(ctx->TransformFeedback.Objects, names[i]);
+            _mesa_HashRemoveLocked(&ctx->TransformFeedback.Objects, names[i]);
             /* unref, but object may not be deleted until later */
             if (obj == ctx->TransformFeedback.CurrentObject) {
                reference_transform_feedback_object(

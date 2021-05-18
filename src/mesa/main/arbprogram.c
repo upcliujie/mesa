@@ -84,7 +84,7 @@ lookup_or_create_program(GLuint id, GLenum target, const char* caller)
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
             return NULL;
          }
-         _mesa_HashInsert(ctx->Shared->Programs, id, newProg);
+         _mesa_HashInsert(&ctx->Shared->Programs, id, newProg);
       }
       else if (newProg->Target != target) {
          _mesa_error(ctx, GL_INVALID_OPERATION,
@@ -178,7 +178,7 @@ _mesa_DeleteProgramsARB(GLsizei n, const GLuint *ids)
       if (ids[i] != 0) {
          struct gl_program *prog = _mesa_lookup_program(ctx, ids[i]);
          if (prog == &_mesa_DummyProgram) {
-            _mesa_HashRemove(ctx->Shared->Programs, ids[i]);
+            _mesa_HashRemove(&ctx->Shared->Programs, ids[i]);
          }
          else if (prog) {
             /* Unbind program if necessary */
@@ -202,7 +202,7 @@ _mesa_DeleteProgramsARB(GLsizei n, const GLuint *ids)
                return;
             }
             /* The ID is immediately available for re-use now */
-            _mesa_HashRemove(ctx->Shared->Programs, ids[i]);
+            _mesa_HashRemove(&ctx->Shared->Programs, ids[i]);
             _mesa_reference_program(ctx, &prog, NULL);
          }
       }
@@ -229,17 +229,17 @@ _mesa_GenProgramsARB(GLsizei n, GLuint *ids)
    if (!ids)
       return;
 
-   _mesa_HashLockMutex(ctx->Shared->Programs);
+   _mesa_HashLockMutex(&ctx->Shared->Programs);
 
-   _mesa_HashFindFreeKeys(ctx->Shared->Programs, ids, n);
+   _mesa_HashFindFreeKeys(&ctx->Shared->Programs, ids, n);
 
    /* Insert pointer to dummy program as placeholder */
    for (i = 0; i < (GLuint) n; i++) {
-      _mesa_HashInsertLocked(ctx->Shared->Programs, ids[i],
+      _mesa_HashInsertLocked(&ctx->Shared->Programs, ids[i],
                              &_mesa_DummyProgram);
    }
 
-   _mesa_HashUnlockMutex(ctx->Shared->Programs);
+   _mesa_HashUnlockMutex(&ctx->Shared->Programs);
 }
 
 
