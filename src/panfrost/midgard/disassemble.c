@@ -1907,6 +1907,7 @@ disassemble_midgard(FILE *fp, uint8_t *code, size_t size, unsigned gpu_id, bool 
         midg_ever_written = 0;
 
         while (i < num_words) {
+                fprintf(fp, "%X:\n", i * 4);
                 unsigned tag = words[i] & 0xF;
                 unsigned next_tag = (words[i] >> 4) & 0xF;
                 unsigned num_quad_words = midgard_tag_props[tag].size;
