@@ -39,6 +39,14 @@
 static void
 util_idalloc_resize(struct util_idalloc *buf, unsigned new_num_elements)
 {
+   /* Never allocate more than the highest possible ID.
+    * The greatest allocated size is 128 MB. (= 2^32 / 32)
+    *
+    * Note that dEQP-GLES3.functional.samplers.single_cubemap.diff_wrap_t
+    * binds texture ID -1, which is equal to UINT32_MAX.
+    */
+   new_num_elements = MIN2(new_num_elements, ((uint64_t)UINT32_MAX + 1) / 32);
+
    if (new_num_elements > buf->num_elements) {
       buf->data = realloc(buf->data, new_num_elements * sizeof(*buf->data));
       memset(&buf->data[buf->num_elements], 0,
