@@ -13,5 +13,5 @@ traces:
   - path: Wicked-Engine/Tests:Cloth_Physics_Test.trace-dxgi
     expectations:
       - device: vk-amd-raven
-        checksum: 117880d4561af71c562a9fec27cdce22
+        checksum: 8515e09da1ea4d949468046af71ca06c
 
