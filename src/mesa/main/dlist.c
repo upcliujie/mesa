@@ -888,7 +888,7 @@ lookup_bitmap_atlas(struct gl_context *ctx, GLuint listBase)
    struct gl_bitmap_atlas *atlas;
 
    assert(listBase > 0);
-   atlas = _mesa_HashLookup(ctx->Shared->BitmapAtlas, listBase);
+   atlas = _mesa_HashLookup(&ctx->Shared->BitmapAtlas, listBase);
    return atlas;
 }
 
@@ -902,11 +902,11 @@ alloc_bitmap_atlas(struct gl_context *ctx, GLuint listBase)
    struct gl_bitmap_atlas *atlas;
 
    assert(listBase > 0);
-   assert(_mesa_HashLookup(ctx->Shared->BitmapAtlas, listBase) == NULL);
+   assert(_mesa_HashLookup(&ctx->Shared->BitmapAtlas, listBase) == NULL);
 
    atlas = calloc(1, sizeof(*atlas));
    if (atlas) {
-      _mesa_HashInsert(ctx->Shared->BitmapAtlas, listBase, atlas);
+      _mesa_HashInsert(&ctx->Shared->BitmapAtlas, listBase, atlas);
       atlas->Id = listBase;
    }
 
@@ -1124,7 +1124,7 @@ struct gl_display_list *
 _mesa_lookup_list(struct gl_context *ctx, GLuint list)
 {
    return (struct gl_display_list *)
-      _mesa_HashLookup(ctx->Shared->DisplayList, list);
+      _mesa_HashLookup(&ctx->Shared->DisplayList, list);
 }
 
 
@@ -1425,12 +1425,12 @@ destroy_list(struct gl_context *ctx, GLuint list)
        * atlas.  Examine all atlases to see if that's the case.  There's
        * usually few (if any) atlases so this isn't expensive.
        */
-      _mesa_HashWalk(ctx->Shared->BitmapAtlas,
+      _mesa_HashWalk(&ctx->Shared->BitmapAtlas,
                      check_atlas_for_deleted_list, &list);
    }
 
    _mesa_delete_list(ctx, dlist);
-   _mesa_HashRemove(ctx->Shared->DisplayList, list);
+   _mesa_HashRemove(&ctx->Shared->DisplayList, list);
 }
 
 
@@ -13477,7 +13477,7 @@ _mesa_DeleteLists(GLuint list, GLsizei range)
       struct gl_bitmap_atlas *atlas = lookup_bitmap_atlas(ctx, list);
       if (atlas) {
          _mesa_delete_bitmap_atlas(ctx, atlas);
-         _mesa_HashRemove(ctx->Shared->BitmapAtlas, list);
+         _mesa_HashRemove(&ctx->Shared->BitmapAtlas, list);
       }
    }
 
@@ -13510,14 +13510,14 @@ _mesa_GenLists(GLsizei range)
    /*
     * Make this an atomic operation
     */
-   _mesa_HashLockMutex(ctx->Shared->DisplayList);
+   _mesa_HashLockMutex(&ctx->Shared->DisplayList);
 
-   base = _mesa_HashFindFreeKeyBlock(ctx->Shared->DisplayList, range);
+   base = _mesa_HashFindFreeKeyBlock(&ctx->Shared->DisplayList, range);
    if (base) {
       /* reserve the list IDs by with empty/dummy lists */
       GLint i;
       for (i = 0; i < range; i++) {
-         _mesa_HashInsertLocked(ctx->Shared->DisplayList, base + i,
+         _mesa_HashInsertLocked(&ctx->Shared->DisplayList, base + i,
                                 make_list(base + i, 1));
       }
    }
@@ -13540,7 +13540,7 @@ _mesa_GenLists(GLsizei range)
       }
    }
 
-   _mesa_HashUnlockMutex(ctx->Shared->DisplayList);
+   _mesa_HashUnlockMutex(&ctx->Shared->DisplayList);
 
    return base;
 }
@@ -13635,7 +13635,7 @@ _mesa_EndList(void)
    destroy_list(ctx, ctx->ListState.CurrentList->Name);
 
    /* Install the new list */
-   _mesa_HashInsert(ctx->Shared->DisplayList,
+   _mesa_HashInsert(&ctx->Shared->DisplayList,
                     ctx->ListState.CurrentList->Name,
                     ctx->ListState.CurrentList);
 

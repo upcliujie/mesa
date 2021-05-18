@@ -3142,7 +3142,7 @@ vertex_array_vertex_buffers(struct gl_context *ctx,
     *       their parameters are valid and no other error occurs."
     */
 
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
 
    for (i = 0; i < count; i++) {
@@ -3200,7 +3200,7 @@ vertex_array_vertex_buffers(struct gl_context *ctx,
                                vbo, offsets[i], strides[i], false, false);
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 
@@ -3905,7 +3905,7 @@ _mesa_init_varray(struct gl_context *ctx)
    _mesa_reference_vao(ctx, &ctx->Array._DrawVAO, ctx->Array._EmptyVAO);
    ctx->Array.ActiveTexture = 0;   /* GL_ARB_multitexture */
 
-   ctx->Array.Objects = _mesa_NewHashTable();
+   _mesa_InitHashTable(&ctx->Array.Objects);
 }
 
 
@@ -3927,8 +3927,8 @@ delete_arrayobj_cb(void *data, void *userData)
 void
 _mesa_free_varray_data(struct gl_context *ctx)
 {
-   _mesa_HashDeleteAll(ctx->Array.Objects, delete_arrayobj_cb, ctx);
-   _mesa_DeleteHashTable(ctx->Array.Objects);
+   _mesa_HashDeleteAll(&ctx->Array.Objects, delete_arrayobj_cb, ctx);
+   _mesa_DeleteHashTable(&ctx->Array.Objects);
 }
 
 void GLAPIENTRY

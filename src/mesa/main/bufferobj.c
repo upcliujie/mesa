@@ -608,7 +608,7 @@ _mesa_total_buffer_object_memory(struct gl_context *ctx)
 {
    GLuint total = 0;
 
-   _mesa_HashWalkMaybeLocked(ctx->Shared->BufferObjects, count_buffer_size,
+   _mesa_HashWalkMaybeLocked(&ctx->Shared->BufferObjects, count_buffer_size,
                              &total, ctx->BufferObjectsLocked);
 
    return total;
@@ -1038,11 +1038,11 @@ _mesa_free_buffer_objects( struct gl_context *ctx )
 				    NULL);
    }
 
-   _mesa_HashLockMutex(ctx->Shared->BufferObjects);
+   _mesa_HashLockMutex(&ctx->Shared->BufferObjects);
    unreference_zombie_buffers_for_ctx(ctx);
-   _mesa_HashWalkLocked(ctx->Shared->BufferObjects,
+   _mesa_HashWalkLocked(&ctx->Shared->BufferObjects,
                         detach_unrefcounted_buffer_from_ctx, ctx);
-   _mesa_HashUnlockMutex(ctx->Shared->BufferObjects);
+   _mesa_HashUnlockMutex(&ctx->Shared->BufferObjects);
 }
 
 /**
@@ -1084,7 +1084,7 @@ _mesa_handle_bind_buffer_gen(struct gl_context *ctx,
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
 	 return false;
       }
-      _mesa_HashInsertMaybeLocked(ctx->Shared->BufferObjects, buffer,
+      _mesa_HashInsertMaybeLocked(&ctx->Shared->BufferObjects, buffer,
                                   *buf_handle, ctx->BufferObjectsLocked);
    }
 
@@ -1158,7 +1158,7 @@ _mesa_lookup_bufferobj(struct gl_context *ctx, GLuint buffer)
       return NULL;
    else
       return (struct gl_buffer_object *)
-         _mesa_HashLookupMaybeLocked(ctx->Shared->BufferObjects, buffer,
+         _mesa_HashLookupMaybeLocked(&ctx->Shared->BufferObjects, buffer,
                                      ctx->BufferObjectsLocked);
 }
 
@@ -1170,7 +1170,7 @@ _mesa_lookup_bufferobj_locked(struct gl_context *ctx, GLuint buffer)
       return NULL;
    else
       return (struct gl_buffer_object *)
-         _mesa_HashLookupLocked(ctx->Shared->BufferObjects, buffer);
+         _mesa_HashLookupLocked(&ctx->Shared->BufferObjects, buffer);
 }
 
 /**
@@ -1571,7 +1571,7 @@ delete_buffers(struct gl_context *ctx, GLsizei n, const GLuint *ids)
 {
    FLUSH_VERTICES(ctx, 0, 0);
 
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
    unreference_zombie_buffers_for_ctx(ctx);
 
@@ -1688,7 +1688,7 @@ delete_buffers(struct gl_context *ctx, GLsizei n, const GLuint *ids)
          }
 
          /* The ID is immediately freed for re-use */
-         _mesa_HashRemoveLocked(ctx->Shared->BufferObjects, ids[i]);
+         _mesa_HashRemoveLocked(&ctx->Shared->BufferObjects, ids[i]);
          /* Make sure we do not run into the classic ABA problem on bind.
           * We don't want to allow re-binding a buffer object that's been
           * "deleted" by glDeleteBuffers().
@@ -1717,7 +1717,7 @@ delete_buffers(struct gl_context *ctx, GLsizei n, const GLuint *ids)
       }
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 
@@ -1760,10 +1760,10 @@ create_buffers(struct gl_context *ctx, GLsizei n, GLuint *buffers, bool dsa)
    /*
     * This must be atomic (generation and allocation of buffer object IDs)
     */
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
 
-   _mesa_HashFindFreeKeys(ctx->Shared->BufferObjects, buffers, n);
+   _mesa_HashFindFreeKeys(&ctx->Shared->BufferObjects, buffers, n);
 
    /* Insert the ID and pointer into the hash table. If non-DSA, insert a
     * DummyBufferObject.  Otherwise, create a new buffer object and insert
@@ -1775,7 +1775,7 @@ create_buffers(struct gl_context *ctx, GLsizei n, GLuint *buffers, bool dsa)
          buf = new_gl_buffer_object(ctx, buffers[i]);
          if (!buf) {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCreateBuffers");
-            _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+            _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                         ctx->BufferObjectsLocked);
             return;
          }
@@ -1783,10 +1783,10 @@ create_buffers(struct gl_context *ctx, GLsizei n, GLuint *buffers, bool dsa)
       else
          buf = &DummyBufferObject;
 
-      _mesa_HashInsertLocked(ctx->Shared->BufferObjects, buffers[i], buf);
+      _mesa_HashInsertLocked(&ctx->Shared->BufferObjects, buffers[i], buf);
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 
@@ -4194,7 +4194,7 @@ bind_uniform_buffers(struct gl_context *ctx, GLuint first, GLsizei count,
     *       parameters are valid and no other error occurs."
     */
 
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
 
    for (int i = 0; i < count; i++) {
@@ -4246,7 +4246,7 @@ bind_uniform_buffers(struct gl_context *ctx, GLuint first, GLsizei count,
                                USAGE_UNIFORM_BUFFER);
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 
@@ -4297,7 +4297,7 @@ bind_shader_storage_buffers(struct gl_context *ctx, GLuint first,
     *       parameters are valid and no other error occurs."
     */
 
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
 
    for (int i = 0; i < count; i++) {
@@ -4349,7 +4349,7 @@ bind_shader_storage_buffers(struct gl_context *ctx, GLuint first,
                                USAGE_SHADER_STORAGE_BUFFER);
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 
@@ -4465,7 +4465,7 @@ bind_xfb_buffers(struct gl_context *ctx,
     *       parameters are valid and no other error occurs."
     */
 
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
 
    for (int i = 0; i < count; i++) {
@@ -4533,7 +4533,7 @@ bind_xfb_buffers(struct gl_context *ctx,
                                            offset, size);
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 
@@ -4626,7 +4626,7 @@ bind_atomic_buffers(struct gl_context *ctx,
     *       parameters are valid and no other error occurs."
     */
 
-   _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashLockMaybeLocked(&ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
 
    for (int i = 0; i < count; i++) {
@@ -4675,7 +4675,7 @@ bind_atomic_buffers(struct gl_context *ctx,
                                USAGE_ATOMIC_COUNTER_BUFFER);
    }
 
-   _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
+   _mesa_HashUnlockMaybeLocked(&ctx->Shared->BufferObjects,
                                ctx->BufferObjectsLocked);
 }
 

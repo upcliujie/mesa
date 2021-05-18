@@ -42,8 +42,8 @@ struct _mesa_HashTable {
    simple_mtx_t Mutex;                   /**< mutual exclusion lock */
 };
 
-extern struct _mesa_HashTable *_mesa_NewHashTable(void);
-
+extern void _mesa_InitHashTable(struct _mesa_HashTable *table);
+extern bool _mesa_HashTableInitialized(struct _mesa_HashTable *table);
 extern void _mesa_DeleteHashTable(struct _mesa_HashTable *table);
 
 extern void _mesa_HashInsert(struct _mesa_HashTable *table, uint32_t key, void *data);
@@ -140,7 +140,7 @@ _mesa_HashWalkMaybeLocked(struct _mesa_HashTable *table,
       _mesa_HashWalk(table, callback, userData);
 }
 
-static inline struct gl_buffer_object *
+static inline void *
 _mesa_HashLookupMaybeLocked(struct _mesa_HashTable *table, uint32_t key,
                             bool locked)
 {

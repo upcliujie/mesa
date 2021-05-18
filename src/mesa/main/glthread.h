@@ -52,6 +52,7 @@
 #include "GL/gl.h"
 #include "compiler/shader_enums.h"
 #include "main/config.h"
+#include "main/hash.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -194,7 +195,7 @@ struct glthread_state
    GLuint _RestartIndex[4]; /**< Restart index for index_size = 1,2,4. */
 
    /** Vertex Array objects tracked by glthread independently of Mesa. */
-   struct _mesa_HashTable *VAOs;
+   struct _mesa_HashTable VAOs;
    struct glthread_vao *CurrentVAO;
    struct glthread_vao *LastLookedUpVAO;
    struct glthread_vao DefaultVAO;
