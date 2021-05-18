@@ -13,6 +13,7 @@
 #include "venus-protocol/vn_protocol_driver_device_memory.h"
 #include "venus-protocol/vn_protocol_driver_transport.h"
 
+#include "vn_android.h"
 #include "vn_device.h"
 
 /* device memory commands */
@@ -239,13 +240,33 @@ vn_AllocateMemory(VkDevice device,
       &dev->physical_device->memory_properties.memoryProperties;
    const VkMemoryType *mem_type =
       &mem_props->memoryTypes[pAllocateInfo->memoryTypeIndex];
-   const VkImportMemoryFdInfoKHR *fd_info =
-      vk_find_struct_const(pAllocateInfo->pNext, IMPORT_MEMORY_FD_INFO_KHR);
-   const VkExportMemoryAllocateInfo *export_info =
-      vk_find_struct_const(pAllocateInfo->pNext, EXPORT_MEMORY_ALLOCATE_INFO);
-   if (export_info && !export_info->handleTypes)
-      export_info = NULL;
 
+   const VkExportMemoryAllocateInfo *export_info = NULL;
+   const VkImportAndroidHardwareBufferInfoANDROID *ahb_info = NULL;
+   const VkImportMemoryFdInfoKHR *fd_info = NULL;
+
+   vk_foreach_struct_const(pnext, pAllocateInfo->pNext) {
+      switch (pnext->sType) {
+      case VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO:
+         export_info = (void *)pnext;
+         if (!export_info->handleTypes)
+            export_info = NULL;
+         break;
+      case VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID:
+         ahb_info = (void *)pnext;
+         break;
+      case VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR:
+         fd_info = (void *)pnext;
+         break;
+      default:
+         break;
+      }
+   }
+
+   const bool need_ahb =
+      !ahb_info && export_info &&
+      export_info->handleTypes &
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
    const bool need_bo =
       (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ||
       export_info;
@@ -265,7 +286,11 @@ vn_AllocateMemory(VkDevice device,
 
    VkDeviceMemory mem_handle = vn_device_memory_to_handle(mem);
    VkResult result;
-   if (fd_info) {
+   if (need_ahb) {
+      result = vn_android_allocate_ahb(dev, mem, pAllocateInfo);
+   } else if (ahb_info) {
+      result = vn_android_import_ahb(dev, mem, pAllocateInfo, ahb_info);
+   } else if (fd_info) {
       result = vn_device_memory_import_fd(dev, mem, pAllocateInfo, fd_info);
    } else if (suballocate) {
       result = vn_device_memory_pool_alloc(

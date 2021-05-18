@@ -67,6 +67,18 @@ vn_android_image_from_ahb(struct vn_device *dev,
                           const VkAllocationCallbacks *alloc,
                           struct vn_image **out_img);
 
+VkResult
+vn_android_import_ahb(
+   struct vn_device *dev,
+   struct vn_device_memory *mem,
+   const VkMemoryAllocateInfo *mem_info,
+   const VkImportAndroidHardwareBufferInfoANDROID *ahb_info);
+
+VkResult
+vn_android_allocate_ahb(struct vn_device *dev,
+                        struct vn_device_memory *mem,
+                        const VkMemoryAllocateInfo *mem_info);
+
 #else
 
 static inline VkResult
@@ -119,6 +131,24 @@ vn_android_image_from_ahb(UNUSED struct vn_device *dev,
                           UNUSED const VkImageCreateInfo *image_info,
                           UNUSED const VkAllocationCallbacks *alloc,
                           UNUSED struct vn_image **out_img)
+{
+   return VK_ERROR_OUT_OF_HOST_MEMORY;
+}
+
+static inline VkResult
+vn_android_import_ahb(
+   UNUSED struct vn_device *dev,
+   UNUSED struct vn_device_memory *mem,
+   UNUSED const VkMemoryAllocateInfo *mem_info,
+   UNUSED const VkImportAndroidHardwareBufferInfoANDROID *ahb_info)
+{
+   return VK_ERROR_OUT_OF_HOST_MEMORY;
+}
+
+static inline VkResult
+vn_android_allocate_ahb(UNUSED struct vn_device *dev,
+                        UNUSED struct vn_device_memory *mem,
+                        UNUSED const VkMemoryAllocateInfo *mem_info)
 {
    return VK_ERROR_OUT_OF_HOST_MEMORY;
 }
