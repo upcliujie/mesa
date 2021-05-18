@@ -3742,6 +3742,9 @@ struct anv_image {
     */
    bool disjoint;
 
+   /* Image was created with VkExternalMemoryImageCreateInfo. */
+   bool supports_export;
+
    /* Image was created with external format. */
    bool external_format;
 
@@ -4194,6 +4197,7 @@ struct anv_image_create_info {
    /** These flags will be added to any derived from VkImageCreateInfo. */
    isl_surf_usage_flags_t isl_extra_usage_flags;
 
+   bool supports_export;
    bool external_format;
 };
 

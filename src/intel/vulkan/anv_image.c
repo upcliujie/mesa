@@ -579,6 +579,17 @@ add_aux_surface_if_supported(struct anv_device *device,
          image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ_CCS;
       }
 
+      /* Check if image supports export without modifiers. */
+      bool export_no_modifiers = image->supports_export &&
+         image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT;
+
+      /* In case of HIZ+CCS, force HIZ_CCS_WT if modifiers not in use. */
+      if (export_no_modifiers && image->samples == 1) {
+         if (isl_surf_supports_ccs(&device->isl_dev,
+                                 &image->planes[plane].primary_surface.isl))
+            image->planes[plane].aux_usage = ISL_AUX_USAGE_HIZ_CCS_WT;
+      }
+
       result = add_surface(device, image, &image->planes[plane].aux_surface,
                            ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane,
                            ANV_OFFSET_IMPLICIT);
@@ -1300,6 +1311,8 @@ anv_image_create(VkDevice _device,
    image->needs_set_tiling = wsi_info && wsi_info->scanout;
    image->drm_format_mod = isl_mod_info ? isl_mod_info->modifier :
                                           DRM_FORMAT_MOD_INVALID;
+   image->supports_export = create_info->supports_export;
+
 
    if (image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
       image->stencil_usage = pCreateInfo->usage;
@@ -1489,6 +1502,7 @@ anv_CreateImage(VkDevice device,
       &(struct anv_image_create_info) {
          .vk_info = pCreateInfo,
          .external_format = use_external_format,
+         .supports_export = create_info ? true : false,
       },
       pAllocator,
       pImage);
