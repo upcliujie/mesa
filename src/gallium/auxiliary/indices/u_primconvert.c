@@ -191,7 +191,7 @@ util_primconvert_draw_vbo(struct primconvert_context *pc,
          if (info->restart_index != new_info.restart_index)
             util_translate_prim_restart_data(new_info.index_size, dst, dst,
                                              new_draw.count,
-                                             info->restart_index);
+                                             info->restart_index, true);
       }
    }
    else {

@@ -44,7 +44,8 @@ struct pipe_resource;
 void
 util_translate_prim_restart_data(unsigned index_size,
                                  void *src_map, void *dst_map,
-                                 unsigned count, unsigned restart_index);
+                                 unsigned count, unsigned restart_index,
+                                 bool restart_enabled);
 
 enum pipe_error
 util_translate_prim_restart_ib(struct pipe_context *context,

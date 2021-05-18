@@ -60,14 +60,15 @@ read_indirect_elements(struct pipe_context *context, const struct pipe_draw_indi
 void
 util_translate_prim_restart_data(unsigned index_size,
                                  void *src_map, void *dst_map,
-                                 unsigned count, unsigned restart_index)
+                                 unsigned count, unsigned restart_index,
+                                 bool restart_enabled)
 {
    if (index_size == 1) {
       uint8_t *src = (uint8_t *) src_map;
       uint16_t *dst = (uint16_t *) dst_map;
       unsigned i;
       for (i = 0; i < count; i++) {
-         dst[i] = (src[i] == restart_index) ? 0xffff : src[i];
+         dst[i] = (restart_enabled && src[i] == restart_index) ? 0xffff : src[i];
       }
    }
    else if (index_size == 2) {
@@ -75,7 +76,7 @@ util_translate_prim_restart_data(unsigned index_size,
       uint16_t *dst = (uint16_t *) dst_map;
       unsigned i;
       for (i = 0; i < count; i++) {
-         dst[i] = (src[i] == restart_index) ? 0xffff : src[i];
+         dst[i] = (restart_enabled && src[i] == restart_index) ? 0xffff : src[i];
       }
    }
    else {
@@ -84,7 +85,7 @@ util_translate_prim_restart_data(unsigned index_size,
       unsigned i;
       assert(index_size == 4);
       for (i = 0; i < count; i++) {
-         dst[i] = (src[i] == restart_index) ? 0xffffffff : src[i];
+         dst[i] = (restart_enabled && src[i] == restart_index) ? 0xffffffff : src[i];
       }
    }
 }
@@ -148,7 +149,7 @@ util_translate_prim_restart_ib(struct pipe_context *context,
       goto error;
 
    util_translate_prim_restart_data(src_index_size, src_map, dst_map,
-                                    draw->count, info->restart_index);
+                                    draw->count, info->restart_index, info->primitive_restart);
 
    if (src_transfer)
       pipe_buffer_unmap(context, src_transfer);
