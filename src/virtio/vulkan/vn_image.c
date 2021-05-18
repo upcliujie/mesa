@@ -244,36 +244,111 @@ vn_image_init_memory_requirements(struct vn_image *img,
    }
 }
 
+static void
+vn_image_store_deferred_create_info(struct vn_image *img,
+                                    const VkImageCreateInfo *info)
+{
+   img->info->create = *info;
+   VkBaseOutStructure *dst = (void *)&img->info->create;
+
+   vk_foreach_struct_const(src, info->pNext) {
+      void *pnext = NULL;
+      switch (src->sType) {
+      case VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO:
+         memcpy(&img->info->list, src, sizeof(img->info->list));
+         pnext = &img->info->list;
+         break;
+      case VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO:
+         memcpy(&img->info->stencil, src, sizeof(img->info->stencil));
+         pnext = &img->info->stencil;
+         break;
+      default:
+         break;
+      }
+
+      if (pnext) {
+         dst->pNext = pnext;
+         dst = pnext;
+      }
+   }
+
+   dst->pNext = NULL;
+}
+
 VkResult
 vn_image_create(struct vn_device *dev,
-                const VkImageCreateInfo *create_info,
+                const struct vn_image_create_info *image_info,
                 const VkAllocationCallbacks *alloc,
                 struct vn_image **out_img)
 {
-   struct vn_image *img = vk_zalloc(alloc, sizeof(*img), VN_DEFAULT_ALIGN,
-                                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!img)
-      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   /* For AHB backed VkImage, the real image creation must be deferred until
+    * we have an AHB available.
+    *
+    * The initial image creation will pass deferred as true to store the main
+    * VkImageCreateInfo to the allocated image, and return the image.
+    *
+    * Upon dedicated memory allocation, pass the previously allocated image as
+    * deferred_img to resume the image creation.
+    */
+   VkResult result = VK_SUCCESS;
+
+   assert(!image_info->deferred || !image_info->deferred_img);
+
+   const struct VkImageCreateInfo *create_info = image_info->vk_info;
+   struct vn_image *img = image_info->deferred_img;
+   /* img will be non-NULL for resumed image creation */
+   if (!img) {
+      img = vk_zalloc(alloc, sizeof(*img), VN_DEFAULT_ALIGN,
+                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (!img)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
 
    vn_object_base_init(&img->base, VK_OBJECT_TYPE_IMAGE, &dev->base);
+
+   if (image_info->deferred) {
+      img->info = vk_zalloc(alloc, sizeof(*img->info), VN_DEFAULT_ALIGN,
+                            VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (!img->info) {
+         result = VK_ERROR_OUT_OF_HOST_MEMORY;
+         goto fail;
+      }
+
+      vn_image_store_deferred_create_info(img, create_info);
+
+      *out_img = img;
+      return VK_SUCCESS;
+   }
 
    VkDevice dev_handle = vn_device_to_handle(dev);
    VkImage img_handle = vn_image_to_handle(img);
    /* TODO async */
-   VkResult result = vn_call_vkCreateImage(dev->instance, dev_handle,
-                                           create_info, NULL, &img_handle);
-   if (result != VK_SUCCESS) {
-      vk_free(alloc, img);
-      return result;
-   }
+   result = vn_call_vkCreateImage(dev->instance, dev_handle, create_info,
+                                  NULL, &img_handle);
+   if (result != VK_SUCCESS)
+      goto fail;
 
    vn_image_init_memory_requirements(img, dev, create_info);
 
    img->sharing_mode = create_info->sharingMode;
 
+   /* free up the deferred create info after creation is done */
+   if (img->info) {
+      vk_free(alloc, img->info);
+      img->info = NULL;
+   }
+
    *out_img = img;
 
    return VK_SUCCESS;
+
+fail:
+   if (img->info)
+      vk_free(alloc, img->info);
+
+   vk_free(alloc, img);
+
+   return result;
 }
 
 /* image commands */
@@ -302,7 +377,13 @@ vn_CreateImage(VkDevice device,
       result =
          vn_android_image_from_anb(dev, pCreateInfo, anb_info, alloc, &img);
    } else {
-      result = vn_image_create(dev, pCreateInfo, alloc, &img);
+      result = vn_image_create(dev,
+                               &(struct vn_image_create_info){
+                                  .vk_info = pCreateInfo,
+                                  .deferred = false,
+                                  .deferred_img = NULL,
+                               },
+                               alloc, &img);
    }
 
    if (result != VK_SUCCESS)
@@ -331,6 +412,9 @@ vn_DestroyImage(VkDevice device,
       vn_FreeMemory(device, img->private_memory, pAllocator);
 
    vn_async_vkDestroyImage(dev->instance, device, image, NULL);
+
+   if (img->info)
+      vk_free(alloc, img->info);
 
    vn_object_base_fini(&img->base);
    vk_free(alloc, img);

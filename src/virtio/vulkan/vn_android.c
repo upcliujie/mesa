@@ -448,7 +448,13 @@ vn_android_image_from_anb(struct vn_device *dev,
    }
 
    /* encoder will strip the Android specific pNext structs */
-   result = vn_image_create(dev, &local_image_info, alloc, &img);
+   result = vn_image_create(dev,
+                            &(struct vn_image_create_info){
+                               .vk_info = &local_image_info,
+                               .deferred = false,
+                               .deferred_img = NULL,
+                            },
+                            alloc, &img);
    if (result != VK_SUCCESS)
       goto fail;
 

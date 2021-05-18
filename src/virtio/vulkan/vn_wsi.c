@@ -112,7 +112,13 @@ vn_wsi_create_scanout_image(struct vn_device *dev,
    if (VN_DEBUG(WSI))
       vn_log(dev->instance, "forcing scanout image linear");
 
-   return vn_image_create(dev, create_info, alloc, out_img);
+   return vn_image_create(dev,
+                          &(struct vn_image_create_info){
+                             .vk_info = create_info,
+                             .deferred = false,
+                             .deferred_img = NULL,
+                          },
+                          alloc, out_img);
 }
 
 /* surface commands */
