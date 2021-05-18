@@ -7,6 +7,14 @@
     VK_DRIVER: radeon
     ACO_DEBUG: validateir,validatera
 
+radv-navy_flounder-vkd3d-proton:
+  extends:
+    - .test-radv
+    - .vkd3d-proton-test
+    - .test-manual
+  tags:
+    - amdgpu:codename:NAVY_FLOUNDER
+
 radv-navy_flounder-traces:
   extends:
     - .test-radv
