@@ -1565,6 +1565,14 @@ void anv_GetPhysicalDeviceFeatures2(
          break;
       }
 
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV: {
+         VkPhysicalDeviceMeshShaderFeaturesNV *features =
+            (VkPhysicalDeviceMeshShaderFeaturesNV *)ext;
+         features->taskShader = false;
+         features->meshShader = false;
+         break;
+      }
+
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR: {
          VkPhysicalDevicePerformanceQueryFeaturesKHR *feature =
             (VkPhysicalDevicePerformanceQueryFeaturesKHR *)ext;
@@ -2307,6 +2315,15 @@ void anv_GetPhysicalDeviceProperties2(
          VkPhysicalDeviceMaintenance4PropertiesKHR *properties =
             (VkPhysicalDeviceMaintenance4PropertiesKHR *)ext;
          properties->maxBufferSize = pdevice->isl_dev.max_buffer_size;
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_NV: {
+         VkPhysicalDeviceMeshShaderPropertiesNV *props =
+            (VkPhysicalDeviceMeshShaderPropertiesNV *)ext;
+
+         /* TODO(mesh): Set properties. */
+
          break;
       }
 
