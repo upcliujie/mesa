@@ -700,13 +700,22 @@ lima_pack_render_state(struct lima_context *ctx, const struct pipe_draw_info *in
 
    /* need more investigation */
    if (info->mode == PIPE_PRIM_POINTS)
-      render->multi_sample = 0x0000F007;
+      render->multi_sample = 0x0000F000;
    else if (info->mode < PIPE_PRIM_TRIANGLES)
-      render->multi_sample = 0x0000F407;
+      render->multi_sample = 0x0000F400;
    else
-      render->multi_sample = 0x0000F807;
+      render->multi_sample = 0x0000F800;
    if (ctx->framebuffer.base.samples)
       render->multi_sample |= 0x68;
+
+   /* alpha test */
+   if (ctx->zsa->base.alpha_enabled) {
+      render->multi_sample |= ctx->zsa->base.alpha_func;
+      render->stencil_test |= float_to_ubyte(ctx->zsa->base.alpha_ref_value) << 16;
+   } else {
+      /* func = PIPE_FUNC_ALWAYS */
+      render->multi_sample |= 0x7;
+   }
 
    render->shader_address =
       ctx->fs->bo->va | (((uint32_t *)ctx->fs->bo->map)[0] & 0x1F);
@@ -721,7 +730,8 @@ lima_pack_render_state(struct lima_context *ctx, const struct pipe_draw_info *in
    if (ctx->blend->base.dither)
       render->aux1 |= 0x00002000;
 
-   if (fs->state.uses_discard) {
+   if (fs->state.uses_discard ||
+       ctx->zsa->base.alpha_enabled) {
       early_z = false;
       pixel_kill = false;
    }
