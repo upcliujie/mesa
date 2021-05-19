@@ -87,6 +87,9 @@ variables_can_merge(const nir_shader *shader,
    if (a->data.per_view || b->data.per_view)
       return false;
 
+   if (a->data.access != b->data.access)
+      return false;
+
    const struct glsl_type *a_type_tail = a->type;
    const struct glsl_type *b_type_tail = b->type;
 
@@ -369,6 +372,41 @@ build_array_deref_of_new_var_flat(nir_shader *shader,
       b, deref, build_array_index(b, leader, nir_imm_int(b, base), vs_in));
 }
 
+static void
+collect_interpolators(nir_function_impl *impl)
+{
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+         int access = 0;
+         switch (intrin->intrinsic) {
+         case nir_intrinsic_interp_deref_at_centroid:
+            ++access;
+            FALLTHROUGH;
+         case nir_intrinsic_interp_deref_at_sample:
+            ++access;
+            FALLTHROUGH;
+         case nir_intrinsic_interp_deref_at_offset:
+            ++access;
+            FALLTHROUGH;
+         case nir_intrinsic_interp_deref_at_vertex: {
+            ++access;
+            nir_variable *var = nir_intrinsic_get_var(intrin, 0);
+            /* var->data.access is not be used for input variables */
+            var->data.access |= 1 << access;
+            break;
+         default:
+               ;
+         }
+         }
+      }
+   }
+}
+
 static bool
 nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
 {
@@ -388,6 +426,9 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
    if (modes & nir_var_shader_in) {
       /* Vertex shaders support overlapping inputs.  We don't do those */
       assert(b.shader->info.stage != MESA_SHADER_VERTEX);
+
+      if (b.shader->info.stage == MESA_SHADER_FRAGMENT)
+         collect_interpolators(impl);
 
       /* If we don't actually merge any variables, remove that bit from modes
        * so we don't bother doing extra non-work.
