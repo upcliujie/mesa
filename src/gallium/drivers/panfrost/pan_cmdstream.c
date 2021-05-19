@@ -1623,7 +1623,7 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
          * Also, we allocate more memory than what's needed here if either instancing
          * is enabled or images are present, this can be improved. */
         unsigned bufs_per_attrib = (instanced || nr_images > 0) ? 2 : 1;
-        unsigned nr_bufs = (vs->info.attribute_count * bufs_per_attrib) +
+        unsigned nr_bufs = ((so->nr_bufs + nr_images) * bufs_per_attrib) +
                            (pan_is_bifrost(dev) ? 1 : 0);
 
         if (!nr_bufs) {
@@ -1648,14 +1648,9 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
         unsigned attrib_to_buffer[PIPE_MAX_ATTRIBS] = { 0 };
         unsigned k = 0;
 
-        for (unsigned i = 0; i < so->num_elements; ++i) {
-                /* We map buffers 1:1 with the attributes, which
-                 * means duplicating some vertex buffers (who cares? aside from
-                 * maybe some caching implications but I somehow doubt that
-                 * matters) */
-
-                struct pipe_vertex_element *elem = &so->pipe[i];
-                unsigned vbi = elem->vertex_buffer_index;
+        for (unsigned i = 0; i < so->nr_bufs; ++i) {
+                unsigned vbi = so->buffers[i].vbi;
+                unsigned divisor = so->buffers[i].divisor;
                 attrib_to_buffer[i] = k;
 
                 if (!(ctx->vb_mask & (1 << vbi)))
@@ -1685,7 +1680,6 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
 
                 /* When there is a divisor, the hardware-level divisor is
                  * the product of the instance divisor and the padded count */
-                unsigned divisor = elem->instance_divisor;
                 unsigned stride = buf->stride;
 
                 if (ctx->indirect_draw) {
@@ -1821,7 +1815,7 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
                         src_offset -= buf->stride * ctx->offset_start;
 
                 pan_pack(out + i, ATTRIBUTE, cfg) {
-                        cfg.buffer_index = attrib_to_buffer[i];
+                        cfg.buffer_index = attrib_to_buffer[so->element_buffer[i]];
                         cfg.format = so->formats[i];
                         cfg.offset = src_offset;
                 }
