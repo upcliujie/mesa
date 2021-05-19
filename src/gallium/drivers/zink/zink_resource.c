@@ -156,6 +156,7 @@ zink_resource_destroy(struct pipe_screen *pscreen,
 
    zink_resource_object_reference(screen, &res->obj, NULL);
    zink_resource_object_reference(screen, &res->scanout_obj, NULL);
+   util_idalloc_mt_free(&screen->buffer_ids, res->base.buffer_id_unique);
    threaded_resource_deinit(pres);
    FREE(res);
 }
@@ -632,6 +633,7 @@ resource_create(struct pipe_screen *pscreen,
                                              64, NULL,
                                              &res->dt_stride);
    }
+   res->base.buffer_id_unique = util_idalloc_mt_alloc(&screen->buffer_ids);
 
    return &res->base.b;
 }
