@@ -50,6 +50,7 @@ pack_header = """
 #include "util/macros.h"
 #include "util/u_math.h"
 
+#define NDEBUG
 #define __gen_unpack_float(x, y, z) uif(__gen_unpack_uint(x, y, z))
 
 static inline uint64_t
