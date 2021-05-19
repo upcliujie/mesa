@@ -91,6 +91,7 @@
 #include "util/format/u_format.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
+#include "util/u_prim_restart.h"
 #include "util/u_screen.h"
 #include "util/u_upload_mgr.h"
 #include "translate/translate.h"
@@ -299,6 +300,9 @@ void u_vbuf_get_caps(struct pipe_screen *screen, struct u_vbuf_caps *caps,
       screen->get_param(screen, PIPE_CAP_USER_VERTEX_BUFFERS);
    caps->max_vertex_buffers =
       screen->get_param(screen, PIPE_CAP_MAX_VERTEX_BUFFERS);
+
+   if (!screen->is_format_supported(screen, PIPE_FORMAT_I8_UINT, PIPE_BUFFER, 0, 0, PIPE_BIND_INDEX_BUFFER))
+      caps->rewrite_ubyte_ibs = true;
 
    /* OpenGL 2.0 requires a minimum of 16 vertex buffers */
    if (caps->max_vertex_buffers < 16)
@@ -1324,7 +1328,8 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
    /* Normal draw. No fallback and no user buffers. */
    if (!incompatible_vb_mask &&
        !mgr->ve->incompatible_elem_mask &&
-       !user_vb_mask) {
+       !user_vb_mask &&
+       (info->index_size != 1 || !mgr->caps.rewrite_ubyte_ibs)) {
 
       /* Set vertex buffers if needed. */
       if (mgr->dirty_real_vb_mask & used_vb_mask) {
@@ -1576,6 +1581,22 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
       }
 
       mgr->dirty_real_vb_mask |= user_vb_mask;
+   }
+
+   if (new_info.index_size == 1 && mgr->caps.rewrite_ubyte_ibs) {
+      struct pipe_resource *index_buffer;
+      if (util_translate_prim_restart_ib(pipe, &new_info, indirect, &new_draw, &index_buffer))
+         goto cleanup;
+      new_info.take_index_buffer_ownership = true;
+      new_info.index.resource = index_buffer;
+      new_info.index_size = 2;
+      new_info.has_user_indices = false;
+      if (new_info.primitive_restart)
+         new_info.restart_index = util_prim_restart_index_from_size(2);
+      if (info->take_index_buffer_ownership) {
+         struct pipe_resource *indexbuf = info->index.resource;
+         pipe_resource_reference(&indexbuf, NULL);
+      }
    }
 
    /*

@@ -463,6 +463,10 @@ nv30_screen_is_format_supported(struct pipe_screen *pscreen,
    /* shared is always supported */
    bindings &= ~PIPE_BIND_SHARED;
 
+   /* 8bit index buffer support */
+   if (bindings == PIPE_BIND_INDEX_BUFFER && format == PIPE_FORMAT_I8_UINT)
+      return true;
+
    return (nv30_format_info(pscreen, format)->bindings & bindings) == bindings;
 }
 

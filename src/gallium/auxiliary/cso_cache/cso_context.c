@@ -232,7 +232,8 @@ static void cso_init_vbuf(struct cso_context *cso, unsigned flags)
    /* Enable u_vbuf if needed. */
    if (caps.fallback_always ||
        (uses_user_vertex_buffers &&
-        caps.fallback_only_for_user_vbuffers)) {
+        caps.fallback_only_for_user_vbuffers) ||
+       caps.rewrite_ubyte_ibs) {
       cso->vbuf = u_vbuf_create(cso->pipe, &caps);
       cso->vbuf_current = cso->vbuf;
       cso->always_use_vbuf = caps.fallback_always;

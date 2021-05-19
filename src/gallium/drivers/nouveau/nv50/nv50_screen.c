@@ -67,6 +67,10 @@ nv50_screen_is_format_supported(struct pipe_screen *pscreen,
    if (format == PIPE_FORMAT_NONE && bindings & PIPE_BIND_RENDER_TARGET)
       return true;
 
+   /* 8bit index buffer support */
+   if (bindings == PIPE_BIND_INDEX_BUFFER && format == PIPE_FORMAT_I8_UINT)
+      return true;
+
    switch (format) {
    case PIPE_FORMAT_Z16_UNORM:
       if (nv50_screen(pscreen)->tesla->oclass < NVA0_3D_CLASS)
