@@ -28,3 +28,8 @@ spec@arb_direct_state_access@dsa-textures
 
 # First flaked on May 3 on a clearly innocent MR.
 spec@arb_draw_instanced@arb_draw_instanced-drawarrays
+
+# Intermittent crashes.  First flaked on May 11th in the piglit 3351e8952
+# uprev, so presumably it regressed some time earlier and then showed up in the
+# piglit reshuffle.
+spec@arb_copy_buffer@intra-buffer-copy
