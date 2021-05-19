@@ -224,6 +224,8 @@ struct pan_shader_info {
                 struct bifrost_shader_info bifrost;
                 struct midgard_shader_info midgard;
         };
+
+        uint32_t ubo_mask;
 };
 
 typedef struct pan_block {
