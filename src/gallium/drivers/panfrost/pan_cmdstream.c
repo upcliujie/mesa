@@ -1219,9 +1219,13 @@ panfrost_emit_const_buf(struct panfrost_batch *batch,
                 }
         }
 
+        /* TODO: Apply this mask earlier */
+        /* Don't use BITSET_MASK as that returns ~0 for 0 */
+        uint32_t ubo_mask = (BITSET_BIT(ubo_count) - 1) & ss->info.ubo_mask;
+
         /* The rest are honest-to-goodness UBOs */
 
-        for (unsigned ubo = 0; ubo < ubo_count; ++ubo) {
+        u_foreach_bit(ubo, ubo_mask) {
                 size_t usz = buf->cb[ubo].buffer_size;
                 bool enabled = buf->enabled_mask & (1 << ubo);
                 bool empty = usz == 0;
