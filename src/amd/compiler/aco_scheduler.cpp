@@ -788,6 +788,7 @@ schedule_VMEM(sched_ctx& ctx, Block* block, std::vector<RegisterDemand>& registe
    int window_size = VMEM_WINDOW_SIZE;
    int max_moves = VMEM_MAX_MOVES;
    int clause_max_grab_dist = VMEM_CLAUSE_MAX_GRAB_DIST;
+   bool only_clauses = false;
    int16_t k = 0;
 
    /* first, check if we have instructions before current to move down */
@@ -825,9 +826,26 @@ schedule_VMEM(sched_ctx& ctx, Block* block, std::vector<RegisterDemand>& registe
             grab_dist < clause_max_grab_dist + k && should_form_clause(current, candidate.get());
       }
 
-      /* if current depends on candidate, add additional dependencies and continue */
       bool can_move_down = !is_vmem || part_of_clause;
+      if (only_clauses) {
+         /* In case of high register pressure, only try to form clauses,
+          * and only if the previous clause is not larger
+          * than the current one will be.
+          */
+         if (part_of_clause) {
+            int clause_size = cursor.insert_idx - cursor.insert_idx_clause;
+            int prev_clause_size = 1;
+            while (should_form_clause(current,
+                                      block->instructions[candidate_idx - prev_clause_size].get()))
+               prev_clause_size++;
+            if (prev_clause_size > clause_size + 1)
+               break;
+         } else {
+            can_move_down = false;
+         }
+      }
 
+      /* if current depends on candidate, add additional dependencies and continue */
       HazardResult haz =
          perform_hazard_query(part_of_clause ? &clause_hq : &indep_hq, candidate.get(), false);
       if (haz == hazard_fail_reorder_ds || haz == hazard_fail_spill ||
@@ -856,7 +874,13 @@ schedule_VMEM(sched_ctx& ctx, Block* block, std::vector<RegisterDemand>& registe
          ctx.mv.downwards_skip(cursor);
          continue;
       } else if (res == move_fail_pressure) {
-         break;
+         only_clauses = true;
+         if (part_of_clause)
+            break;
+         add_to_hazard_query(&indep_hq, candidate.get());
+         add_to_hazard_query(&clause_hq, candidate.get());
+         ctx.mv.downwards_skip(cursor);
+         continue;
       }
       if (part_of_clause)
          add_to_hazard_query(&indep_hq, candidate_ptr);
