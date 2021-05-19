@@ -1835,8 +1835,10 @@ static bool
 tc_invalidate_buffer(struct threaded_context *tc,
                      struct threaded_resource *tbuf)
 {
-   if (!tc_is_buffer_busy(tc, tbuf, PIPE_MAP_READ_WRITE))
+   if (!tc_is_buffer_busy(tc, tbuf, PIPE_MAP_READ_WRITE)) {
+      tc->pipe->invalidate_resource(tc->pipe, &tbuf->b);
       return true;
+   }
 
    struct pipe_screen *screen = tc->base.screen;
    struct pipe_resource *new_buf;
