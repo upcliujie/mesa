@@ -79,6 +79,9 @@ vn_android_allocate_ahb(struct vn_device *dev,
                         struct vn_device_memory *mem,
                         const VkMemoryAllocateInfo *mem_info);
 
+void
+vn_android_release_ahb(struct AHardwareBuffer *ahb);
+
 #else
 
 static inline VkResult
@@ -151,6 +154,12 @@ vn_android_allocate_ahb(UNUSED struct vn_device *dev,
                         UNUSED const VkMemoryAllocateInfo *mem_info)
 {
    return VK_ERROR_OUT_OF_HOST_MEMORY;
+}
+
+static inline void
+vn_android_release_ahb(UNUSED struct AHardwareBuffer *ahb)
+{
+   return;
 }
 
 #endif /* ANDROID */
