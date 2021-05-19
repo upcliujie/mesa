@@ -1082,6 +1082,7 @@ zink_create_cached_shader_state(struct pipe_context *pctx, const struct pipe_sha
    return util_live_shader_cache_get(pctx, &screen->shaders, shader, &cache_hit);
 }
 
+#if 1
 void
 zink_program_init(struct zink_context *ctx)
 {
@@ -1109,3 +1110,31 @@ zink_program_init(struct zink_context *ctx)
    ctx->base.bind_compute_state = zink_bind_cs_state;
    ctx->base.delete_compute_state = zink_delete_shader_state;
 }
+#else
+zink_program_init(struct zink_context *ctx)
+{
+   ctx->base.create_vs_state = zink_create_gfx_shader_state;
+   ctx->base.bind_vs_state = zink_bind_vs_state;
+   ctx->base.delete_vs_state = zink_delete_shader_state;
+
+   ctx->base.create_fs_state = zink_create_gfx_shader_state;
+   ctx->base.bind_fs_state = zink_bind_fs_state;
+   ctx->base.delete_fs_state = zink_delete_shader_state;
+
+   ctx->base.create_gs_state = zink_create_gfx_shader_state;
+   ctx->base.bind_gs_state = zink_bind_gs_state;
+   ctx->base.delete_gs_state = zink_delete_shader_state;
+
+   ctx->base.create_tcs_state = zink_create_gfx_shader_state;
+   ctx->base.bind_tcs_state = zink_bind_tcs_state;
+   ctx->base.delete_tcs_state = zink_delete_shader_state;
+
+   ctx->base.create_tes_state = zink_create_gfx_shader_state;
+   ctx->base.bind_tes_state = zink_bind_tes_state;
+   ctx->base.delete_tes_state = zink_delete_shader_state;
+
+   ctx->base.create_compute_state = zink_create_cs_state;
+   ctx->base.bind_compute_state = zink_bind_cs_state;
+   ctx->base.delete_compute_state = zink_delete_shader_state;
+}
+#endif
