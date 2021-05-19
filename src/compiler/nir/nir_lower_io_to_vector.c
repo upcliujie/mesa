@@ -79,12 +79,17 @@ resize_array_vec_type(const struct glsl_type *type, unsigned num_components)
 static bool
 variables_can_merge(const nir_shader *shader,
                     const nir_variable *a, const nir_variable *b,
-                    bool same_array_structure)
+                    bool same_array_structure,
+                    uint8_t interp[MAX_SLOTS][4])
 {
    if (a->data.compact || b->data.compact)
       return false;
 
    if (a->data.per_view || b->data.per_view)
+      return false;
+
+   if (interp[a->data.location][a->data.location_frac] !=
+       interp[b->data.location][b->data.location_frac])
       return false;
 
    const struct glsl_type *a_type_tail = a->type;
@@ -152,7 +157,8 @@ variables_can_merge(const nir_shader *shader,
 
 static const struct glsl_type *
 get_flat_type(const nir_shader *shader, nir_variable *old_vars[MAX_SLOTS][4],
-              unsigned *loc, nir_variable **first_var, unsigned *num_vertices)
+              unsigned *loc, nir_variable **first_var, unsigned *num_vertices,
+              uint8_t interp[MAX_SLOTS][4])
 {
    unsigned todo = 1;
    unsigned slots = 0;
@@ -168,7 +174,7 @@ get_flat_type(const nir_shader *shader, nir_variable *old_vars[MAX_SLOTS][4],
          if (!var)
             continue;
          if ((*first_var &&
-              !variables_can_merge(shader, var, *first_var, false)) ||
+              !variables_can_merge(shader, var, *first_var, false, interp)) ||
              var->data.compact) {
             (*loc)++;
             return NULL;
@@ -208,7 +214,8 @@ get_flat_type(const nir_shader *shader, nir_variable *old_vars[MAX_SLOTS][4],
 static bool
 create_new_io_vars(nir_shader *shader, nir_variable_mode mode,
                    nir_variable *new_vars[MAX_SLOTS][4],
-                   bool flat_vars[MAX_SLOTS])
+                   bool flat_vars[MAX_SLOTS],
+                   uint8_t interp[MAX_SLOTS][4])
 {
    nir_variable *old_vars[MAX_SLOTS][4] = {{0}};
 
@@ -242,7 +249,7 @@ create_new_io_vars(nir_shader *shader, nir_variable_mode mode,
                break;
 
             if (var != first_var) {
-               if (!variables_can_merge(shader, first_var, var, true))
+               if (!variables_can_merge(shader, first_var, var, true, interp))
                   break;
 
                found_merge = true;
@@ -290,7 +297,7 @@ create_new_io_vars(nir_shader *shader, nir_variable_mode mode,
       unsigned num_vertices;
       unsigned new_loc = loc;
       const struct glsl_type *flat_type =
-         get_flat_type(shader, old_vars, &new_loc, &first_var, &num_vertices);
+         get_flat_type(shader, old_vars, &new_loc, &first_var, &num_vertices, interp);
       if (flat_type) {
          merged_any_vars = true;
 
@@ -380,6 +387,40 @@ build_array_deref_of_new_var_flat(nir_shader *shader,
       build_array_index(b, leader, nir_imm_int(b, base), vs_in, per_vertex));
 }
 
+static void
+collect_interpolators(nir_function_impl *impl, uint8_t interp[MAX_SLOTS][4])
+{
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+         int access = 0;
+         switch (intrin->intrinsic) {
+         case nir_intrinsic_interp_deref_at_centroid:
+            ++access;
+            FALLTHROUGH;
+         case nir_intrinsic_interp_deref_at_sample:
+            ++access;
+            FALLTHROUGH;
+         case nir_intrinsic_interp_deref_at_offset:
+            ++access;
+            FALLTHROUGH;
+         case nir_intrinsic_interp_deref_at_vertex: {
+            ++access;
+            nir_variable *var = nir_intrinsic_get_var(intrin, 0);
+            interp[var->data.location][var->data.location_frac] |= 1 << access;
+            break;
+         default:
+               ;
+         }
+         }
+      }
+   }
+}
+
 static bool
 nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
 {
@@ -395,16 +436,20 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
    nir_variable *new_outputs[MAX_SLOTS][4] = {{0}};
    bool flat_inputs[MAX_SLOTS] = {0};
    bool flat_outputs[MAX_SLOTS] = {0};
+   uint8_t interp[MAX_SLOTS][4] = {0};
 
    if (modes & nir_var_shader_in) {
       /* Vertex shaders support overlapping inputs.  We don't do those */
       assert(b.shader->info.stage != MESA_SHADER_VERTEX);
 
+      if (b.shader->info.stage == MESA_SHADER_FRAGMENT)
+         collect_interpolators(impl, interp);
+
       /* If we don't actually merge any variables, remove that bit from modes
        * so we don't bother doing extra non-work.
        */
       if (!create_new_io_vars(shader, nir_var_shader_in,
-                              new_inputs, flat_inputs))
+                              new_inputs, flat_inputs, interp))
          modes &= ~nir_var_shader_in;
    }
 
@@ -413,7 +458,7 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
        * so we don't bother doing extra non-work.
        */
       if (!create_new_io_vars(shader, nir_var_shader_out,
-                              new_outputs, flat_outputs))
+                              new_outputs, flat_outputs, interp))
          modes &= ~nir_var_shader_out;
    }
 
