@@ -1751,6 +1751,9 @@ struct radv_pipeline {
 
    /* Unique pipeline hash identifier. */
    uint64_t pipeline_hash;
+
+   /* Whether the pipeline uses NGG (GFX10+). */
+   bool is_ngg;
 };
 
 static inline bool
@@ -1764,8 +1767,6 @@ radv_pipeline_has_tess(const struct radv_pipeline *pipeline)
 {
    return pipeline->shaders[MESA_SHADER_TESS_CTRL] ? true : false;
 }
-
-bool radv_pipeline_has_ngg(const struct radv_pipeline *pipeline);
 
 bool radv_pipeline_has_ngg_passthrough(const struct radv_pipeline *pipeline);
 
