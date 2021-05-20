@@ -306,12 +306,127 @@ genX(emit_urb_setup)(struct anv_device *device, struct anv_batch *batch,
          urb.VSNumberofURBEntries      = entries[i];
       }
    }
+#if GFX_VERx10 >= 125
+   if (devinfo->has_mesh_shading) {
+      anv_batch_emit(batch, GENX(3DSTATE_URB_ALLOC_MESH), zero);
+      anv_batch_emit(batch, GENX(3DSTATE_URB_ALLOC_TASK), zero);
+   }
+#endif
 }
+
+#if GFX_VERx10 >= 125
+static void
+emit_urb_setup_mesh(struct anv_graphics_pipeline *pipeline,
+                    enum intel_urb_deref_block_size *deref_block_size)
+{
+   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+
+   const struct brw_task_prog_data *task_prog_data =
+      anv_pipeline_has_stage(pipeline, MESA_SHADER_TASK) ?
+      get_task_prog_data(pipeline) : NULL;
+   const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
+
+   /* Allocation Size must be aligned to 64B. */
+   const unsigned tue_size_dw =
+      task_prog_data ? ALIGN(task_prog_data->map.size_dw, 16) : 0;
+   const unsigned mue_size_dw = ALIGN(mesh_prog_data->map.size_dw, 16);
+   assert(mue_size_dw > 0);
+
+   /* Allocation Size maximum. */
+   assert(tue_size_dw <= (16 * 1024));
+   assert(mue_size_dw <= (16 * 1024));
+
+   const unsigned push_constant_kB = devinfo->max_constant_urb_size_kb;
+
+   const unsigned urb_size_kB =
+      intel_get_l3_config_urb_size(devinfo, pipeline->base.l3_config) - 4 * devinfo->l3_banks - push_constant_kB;
+   const unsigned urb_size_dw = urb_size_kB * 256;
+
+   float task_urb_share = 0.0f;
+   if (task_prog_data) {
+      task_urb_share =
+         MIN2(env_var_as_unsigned("ANV_MESH_TASK_URB_SHARE", 10), 100) / 100.0f;
+   }
+
+   /* Round to 8kB so the starting address for Mesh URB space is already
+    * properly aligned.
+    */
+   const unsigned task_urb_dw = ALIGN(urb_size_dw * task_urb_share, 2048);
+   const unsigned mesh_urb_dw = urb_size_dw - task_urb_dw;
+
+   unsigned tue_entries =
+      MIN2(task_prog_data ? (task_urb_dw / tue_size_dw) : 0, 1548);
+   unsigned mue_entries =
+      MIN2(mesh_urb_dw / mue_size_dw, 1548);
+
+   /* 3DSTATE_URB_ALLOC_TASK_BODY says
+    *
+    *   TASK Number of URB Entries must be divisible by 8 if the TASK URB
+    *   Entry Allocation Size is less than 9 512-bit URB entries.
+    *
+    * Similar restriction applies for Mesh.
+    */
+   if (tue_size_dw < 9 * 16)
+      tue_entries = ROUND_DOWN_TO(tue_entries, 8);
+   if (mue_size_dw < 9 * 16)
+      mue_entries = ROUND_DOWN_TO(mue_entries, 8);
+
+   *deref_block_size = mue_entries > 32 ?
+      INTEL_URB_DEREF_BLOCK_SIZE_MESH :
+      INTEL_URB_DEREF_BLOCK_SIZE_PER_POLY;
+
+   /* Zero out the primitive pipeline URB allocations. */
+   for (int i = 0; i <= MESA_SHADER_GEOMETRY; i++) {
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_VS), urb) {
+         urb._3DCommandSubOpcode += i;
+      }
+   }
+
+   /* Starting addresses are in 8kB units. */
+   assert(push_constant_kB % 8 == 0);
+   unsigned starting_address = push_constant_kB / 8;
+
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_ALLOC_TASK), urb) {
+      if (task_prog_data) {
+         assert(tue_size_dw % 16 == 0);
+         assert(tue_size_dw / 16 > 0);
+         urb.TASKURBEntryAllocationSize = (tue_size_dw / 16) - 1;
+         urb.TASKNumberofURBEntriesSlice0 = tue_entries;
+         urb.TASKNumberofURBEntriesSliceN = tue_entries;
+
+         urb.TASKURBStartingAddressSlice0 = starting_address;
+         urb.TASKURBStartingAddressSliceN = starting_address;
+
+         /* Starting addresses are in 8kB units. */
+         assert(task_urb_dw % 2048 == 0);
+         starting_address += task_urb_dw / 2048;
+      }
+   }
+
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_ALLOC_MESH), urb) {
+      assert(mue_size_dw % 16 == 0);
+      assert(mue_size_dw / 16 > 0);
+      urb.MESHURBEntryAllocationSize = (mue_size_dw / 16) - 1;
+      urb.MESHNumberofURBEntriesSlice0 = mue_entries;
+      urb.MESHNumberofURBEntriesSliceN = mue_entries;
+
+      urb.MESHURBStartingAddressSlice0 = starting_address;
+      urb.MESHURBStartingAddressSliceN = starting_address;
+   }
+}
+#endif
 
 static void
 emit_urb_setup(struct anv_graphics_pipeline *pipeline,
                enum intel_urb_deref_block_size *deref_block_size)
 {
+#if GFX_VERx10 >= 125
+   if (anv_pipeline_is_mesh(pipeline)) {
+      emit_urb_setup_mesh(pipeline, deref_block_size);
+      return;
+   }
+#endif
+
    unsigned entry_size[4];
    for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_GEOMETRY; i++) {
       const struct brw_vue_prog_data *prog_data =
@@ -337,12 +452,19 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
 #if GFX_VER >= 8
       anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE_SWIZ), sbe);
 #endif
+#if GFX_VERx10 >= 125
+      if (anv_pipeline_is_mesh(pipeline))
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE_MESH), sbe_mesh);
+#endif
       return;
    }
 
    struct GENX(3DSTATE_SBE) sbe = {
       GENX(3DSTATE_SBE_header),
-      .AttributeSwizzleEnable = true,
+      /* TODO(mesh): Figure out cases where we need attribute swizzling.  See also
+       * calculate_urb_setup() and related functions.
+       */
+      .AttributeSwizzleEnable = anv_pipeline_is_primitive(pipeline),
       .PointSpriteTextureCoordinateOrigin = UPPERLEFT,
       .NumberofSFOutputAttributes = wm_prog_data->num_varying_inputs,
       .ConstantInterpolationEnable = wm_prog_data->flat_inputs,
@@ -432,6 +554,22 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
       sbe.ForceVertexURBEntryReadOffset = true;
       sbe.ForceVertexURBEntryReadLength = true;
 #endif
+   } else {
+      assert(anv_pipeline_is_mesh(pipeline));
+#if GFX_VERx10 >= 125
+      const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE_MESH), sbe_mesh) {
+         const struct brw_mue_map *mue = &mesh_prog_data->map;
+
+         assert(mue->per_vertex_header_size_dw % 8 == 0);
+         sbe_mesh.PerVertexURBEntryOutputReadOffset = mue->per_vertex_header_size_dw / 8;
+         sbe_mesh.PerVertexURBEntryOutputReadLength = DIV_ROUND_UP(mue->per_vertex_data_size_dw, 8);
+
+         assert(mue->per_primitive_header_size_dw % 8 == 0);
+         sbe_mesh.PerPrimitiveURBEntryOutputReadOffset = mue->per_primitive_header_size_dw / 8;
+         sbe_mesh.PerPrimitiveURBEntryOutputReadLength = DIV_ROUND_UP(mue->per_primitive_data_size_dw, 8);
+      }
+#endif
    }
 
    uint32_t *dw = anv_batch_emit_dwords(&pipeline->base.batch,
@@ -457,7 +595,18 @@ VkPolygonMode
 genX(raster_polygon_mode)(struct anv_graphics_pipeline *pipeline,
                           VkPrimitiveTopology primitive_topology)
 {
-   if (anv_pipeline_has_stage(pipeline, MESA_SHADER_GEOMETRY)) {
+   if (anv_pipeline_is_mesh(pipeline)) {
+      switch (get_mesh_prog_data(pipeline)->primitive_type) {
+      case GL_POINTS:
+         return VK_POLYGON_MODE_POINT;
+      case GL_LINES:
+         return VK_POLYGON_MODE_LINE;
+      case GL_TRIANGLES:
+         return pipeline->polygon_mode;
+      default:
+         unreachable("invalid primitive type for mesh");
+      }
+   } else if (anv_pipeline_has_stage(pipeline, MESA_SHADER_GEOMETRY)) {
       switch (get_gs_prog_data(pipeline)->output_topology) {
       case _3DPRIM_POINTLIST:
          return VK_POLYGON_MODE_POINT;
@@ -678,16 +827,22 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
    sf.DerefBlockSize = urb_deref_block_size;
 #endif
 
+   bool point_from_shader;
    if (anv_pipeline_is_primitive(pipeline)) {
       const struct brw_vue_prog_data *last_vue_prog_data =
          anv_pipeline_get_last_vue_prog_data(pipeline);
+      point_from_shader = last_vue_prog_data->vue_map.slots_valid & VARYING_BIT_PSIZ;
+   } else {
+      assert(anv_pipeline_is_mesh(pipeline));
+      const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
+      point_from_shader = mesh_prog_data->map.start_dw[VARYING_SLOT_PSIZ] >= 0;
+   }
 
-      if (last_vue_prog_data->vue_map.slots_valid & VARYING_BIT_PSIZ) {
-         sf.PointWidthSource = Vertex;
-      } else {
-         sf.PointWidthSource = State;
-         sf.PointWidth = 1.0;
-      }
+   if (point_from_shader) {
+      sf.PointWidthSource = Vertex;
+   } else {
+      sf.PointWidthSource = State;
+      sf.PointWidth = 1.0;
    }
 
 #if GFX_VER >= 8
@@ -699,7 +854,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
 #endif
 
    VkPolygonMode raster_mode =
-      genX(raster_polygon_mode)(pipeline, ia_info->topology);
+      genX(raster_polygon_mode)(pipeline, ia_info ? ia_info->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
    bool dynamic_primitive_topology =
       dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 
@@ -1431,7 +1586,7 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
     * points and lines so we get "pop-free" clipping.
     */
    VkPolygonMode raster_mode =
-      genX(raster_polygon_mode)(pipeline, ia_info->topology);
+      genX(raster_polygon_mode)(pipeline, ia_info ? ia_info->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
    clip.ViewportXYClipTestEnable =
       dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
          0 : (raster_mode == VK_POLYGON_MODE_FILL);
@@ -1461,6 +1616,7 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
    clip.MinimumPointWidth = 0.125;
    clip.MaximumPointWidth = 255.875;
 
+   /* TODO(mesh): Multiview. */
    if (anv_pipeline_is_primitive(pipeline)) {
       const struct brw_vue_prog_data *last =
          anv_pipeline_get_last_vue_prog_data(pipeline);
@@ -1504,6 +1660,17 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
 #endif
 
    GENX(3DSTATE_CLIP_pack)(NULL, pipeline->gfx7.clip, &clip);
+
+#if GFX_VERx10 >= 125
+   if (anv_pipeline_is_mesh(pipeline)) {
+      const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_CLIP_MESH), clip_mesh) {
+         clip_mesh.PrimitiveHeaderEnable = mesh_prog_data->map.per_primitive_header_size_dw > 0;
+         /* TODO(mesh): UserClipDistanceClipTestEnableBitmask. */
+         /* TODO(mesh): UserClipDistanceCullTestEnableBitmask. */
+      }
+   }
+#endif
 }
 
 static void
@@ -2186,7 +2353,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline, struct anv_subpass *subp
       }
 
       VkPolygonMode raster_mode =
-         genX(raster_polygon_mode)(pipeline, ia->topology);
+         genX(raster_polygon_mode)(pipeline, ia ? ia->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
 
       wm.MultisampleRasterizationMode =
          dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ? 0 :
@@ -2463,6 +2630,121 @@ emit_3dstate_primitive_replication(struct anv_graphics_pipeline *pipeline)
 }
 #endif
 
+#if GFX_VERx10 >= 125
+static void
+emit_mesh_state(struct anv_graphics_pipeline *pipeline)
+{
+   assert(anv_pipeline_is_mesh(pipeline));
+
+   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+
+   const struct anv_shader_bin *mesh_bin =
+      pipeline->shaders[MESA_SHADER_MESH];
+
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_CONTROL), mc) {
+      mc.MeshShaderEnable = true;
+      mc.ScratchSpaceBuffer = get_scratch_surf(&pipeline->base, mesh_bin);
+
+      /* TODO(mesh): MaximumNumberofThreadGroups. */
+   }
+
+   const struct brw_task_prog_data *task_prog_data =
+      anv_pipeline_has_stage(pipeline, MESA_SHADER_TASK) ?
+      get_task_prog_data(pipeline) : NULL;
+
+   if (task_prog_data) {
+      const struct anv_shader_bin *task_bin = pipeline->shaders[MESA_SHADER_TASK];
+
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_CONTROL), tc) {
+         tc.TaskShaderEnable = true;
+         tc.ScratchSpaceBuffer = get_scratch_surf(&pipeline->base, task_bin);
+      }
+
+      const struct brw_cs_dispatch_info task_dispatch =
+         brw_cs_get_dispatch_info(devinfo, &task_prog_data->base, NULL);
+
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_SHADER), task) {
+         task.KernelStartPointer                = task_bin->kernel.offset;
+         task.SIMDSize                          = task_dispatch.simd_size / 16;
+         task.MessageSIMD                       = task.SIMDSize;
+         task.NumberofThreadsinGPGPUThreadGroup = task_dispatch.threads;
+         task.ExecutionMask                     = task_dispatch.right_mask;
+         task.LocalXMaximum                     = task_dispatch.group_size - 1;
+         task.EmitLocalIDX                      = true;
+
+         task.NumberofBarriers                  = task_prog_data->base.uses_barrier;
+         task.SharedLocalMemorySize             =
+            encode_slm_size(GFX_VER, task_prog_data->base.base.total_shared);
+      }
+
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_SHADER_DATA), zero);
+
+      /* Recommended values from "Task and Mesh Distribution Programming". */
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_REDISTRIB), redistrib) {
+         redistrib.LocalBOTAccumulatorThreshold = MULTIPLIER_1;
+         redistrib.SmallTaskThreshold = MULTIPLIER_2;
+         redistrib.TargetMeshBatchSize = MULTIPLIER_4;
+         redistrib.TaskRedistributionLevel = TASKREDISTRIB_BOM;
+         redistrib.TaskRedistributionMode = TASKREDISTRIB_RR_FREE;
+      }
+   } else {
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_CONTROL), zero);
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_SHADER), zero);
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_SHADER_DATA), zero);
+      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_REDISTRIB), zero);
+   }
+
+   const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
+
+   const struct brw_cs_dispatch_info mesh_dispatch =
+      brw_cs_get_dispatch_info(devinfo, &mesh_prog_data->base, NULL);
+
+   const unsigned output_topology =
+      mesh_prog_data->primitive_type == GL_POINTS ? OUTPUT_POINT :
+      mesh_prog_data->primitive_type == GL_LINES ? OUTPUT_LINE :
+      OUTPUT_TRI;
+
+   uint32_t index_format;
+   switch (mesh_prog_data->index_format) {
+   case BRW_INDEX_FORMAT_U32:
+      index_format = INDEX_U32;
+      break;
+   default:
+      unreachable("invalid index format");
+   }
+
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_SHADER), mesh) {
+      mesh.KernelStartPointer                = mesh_bin->kernel.offset;
+      mesh.SIMDSize                          = mesh_dispatch.simd_size / 16;
+      mesh.MessageSIMD                       = mesh.SIMDSize;
+      mesh.NumberofThreadsinGPGPUThreadGroup = mesh_dispatch.threads;
+      mesh.ExecutionMask                     = mesh_dispatch.right_mask;
+      mesh.LocalXMaximum                     = mesh_dispatch.group_size - 1;
+      mesh.EmitLocalIDX                      = true;
+
+      mesh.MaximumPrimitiveCount             = mesh_prog_data->max_primitives_out - 1;
+      mesh.OutputTopology                    = output_topology;
+      mesh.PerVertexDataPitch                = mesh_prog_data->map.per_vertex_pitch_dw / 8;
+      mesh.PerPrimitiveDataPresent           = mesh_prog_data->map.per_primitive_pitch_dw > 0;
+      mesh.PerPrimitiveDataPitch             = mesh_prog_data->map.per_primitive_pitch_dw / 8;
+      mesh.IndexFormat                       = index_format;
+
+      mesh.NumberofBarriers                  = mesh_prog_data->base.uses_barrier;
+      mesh.SharedLocalMemorySize             =
+         encode_slm_size(GFX_VER, mesh_prog_data->base.base.total_shared);
+   }
+
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_SHADER_DATA), zero);
+
+   /* Recommended values from "Task and Mesh Distribution Programming". */
+   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_DISTRIB), distrib) {
+      distrib.DistributionMode = MESH_RR_FREE;
+      distrib.TaskDistributionBatchSize = 2; /* 2^2 thread groups */
+      distrib.MeshDistributionBatchSize = 3; /* 2^3 thread groups */
+   }
+}
+#endif
+
 static VkResult
 genX(graphics_pipeline_create)(
     VkDevice                                    _device,
@@ -2590,6 +2872,24 @@ genX(graphics_pipeline_create)(
 
       emit_3dstate_streamout(pipeline, pCreateInfo->pRasterizationState,
                              dynamic_states);
+#if GFX_VERx10 >= 125
+      /* Disable Mesh. */
+      if (device->info.has_mesh_shading) {
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_ALLOC_MESH), zero);
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_ALLOC_TASK), zero);
+
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_SHADER), zero);
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_SHADER), zero);
+
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_CONTROL), zero);
+         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_CONTROL), zero);
+      }
+#endif
+   } else {
+      assert(anv_pipeline_is_mesh(pipeline));
+#if GFX_VERx10 >= 125
+      emit_mesh_state(pipeline);
+#endif
    }
 
    emit_3dstate_sbe(pipeline);
