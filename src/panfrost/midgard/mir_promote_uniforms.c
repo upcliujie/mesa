@@ -37,10 +37,16 @@
  */
 
 static bool
-mir_is_direct_aligned_ubo(midgard_instruction *ins)
+mir_is_ubo(midgard_instruction *ins)
 {
         return (ins->type == TAG_LOAD_STORE_4) &&
-                (OP_IS_UBO_READ(ins->op)) &&
+                (OP_IS_UBO_READ(ins->op));
+}
+
+static bool
+mir_is_direct_aligned_ubo(midgard_instruction *ins)
+{
+        return mir_is_ubo(ins) &&
                 !(ins->constants.u32[0] & 0xF) &&
                 (ins->src[1] == ~0) &&
                 (ins->src[2] == ~0);
@@ -59,6 +65,8 @@ struct mir_ubo_analysis {
         /* Per block analysis */
         unsigned nr_blocks;
         struct mir_ubo_block *blocks;
+        /* UBOs that are not entirely pushed */
+        uint32_t ubo_mask;
 };
 
 static struct mir_ubo_analysis
@@ -66,15 +74,28 @@ mir_analyze_ranges(compiler_context *ctx)
 {
         struct mir_ubo_analysis res = {
                 .nr_blocks = ctx->nir->info.num_ubos + 1,
+                .ubo_mask = 0,
         };
 
         res.blocks = calloc(res.nr_blocks, sizeof(struct mir_ubo_block));
 
+        /* The mask is only 32 bits */
+        assert(res.nr_blocks <= 32);
+
         mir_foreach_instr_global(ctx, ins) {
-                if (!mir_is_direct_aligned_ubo(ins)) continue;
+                if (!mir_is_ubo(ins)) continue;
 
                 unsigned ubo = midgard_unpack_ubo_index_imm(ins->load_store);
                 unsigned offset = ins->constants.u32[0] / 16;
+
+                if (!mir_is_direct_aligned_ubo(ins)) {
+                        if (ins->src[1] != ~0)
+                                res.ubo_mask = ~0;
+                        else
+                                res.ubo_mask |= BITSET_BIT(ubo);
+
+                        continue;
+                }
 
                 assert(ubo < res.nr_blocks);
 
@@ -275,7 +296,10 @@ midgard_promote_uniforms(compiler_context *ctx)
 
                 /* Check if we decided to push this */
                 assert(ubo < analysis.nr_blocks);
-                if (!BITSET_TEST(analysis.blocks[ubo].pushed, qword)) continue;
+                if (!BITSET_TEST(analysis.blocks[ubo].pushed, qword)) {
+                        analysis.ubo_mask |= BITSET_BIT(ubo);
+                        continue;
+                }
 
                 /* Find where we pushed to, TODO: unaligned pushes to pack */
                 unsigned base = pan_lookup_pushed_ubo(&ctx->info->push, ubo, qword * 16);
@@ -311,6 +335,8 @@ midgard_promote_uniforms(compiler_context *ctx)
 
                 mir_remove_instruction(ins);
         }
+
+        ctx->ubo_mask = analysis.ubo_mask;
 
         free(special);
         free(analysis.blocks);
