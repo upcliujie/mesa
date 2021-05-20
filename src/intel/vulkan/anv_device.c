@@ -1974,6 +1974,10 @@ anv_get_physical_device_properties_1_1(struct anv_physical_device *pdevice,
                        MESA_SHADER_INTERSECTION |
                        MESA_SHADER_CALLABLE;
    }
+   if (pdevice->vk.supported_extensions.NV_mesh_shader) {
+      scalar_stages |= MESA_SHADER_TASK |
+                       MESA_SHADER_MESH;
+   }
    p->subgroupSupportedStages = scalar_stages;
    p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT |
                                     VK_SUBGROUP_FEATURE_VOTE_BIT |
