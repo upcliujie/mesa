@@ -999,6 +999,8 @@ mir_demote_uniforms(compiler_context *ctx, unsigned new_cutoff)
                                 struct panfrost_ubo_range word =
                                         pan_index_pushed_ubo(&ctx->info->push, idx);
 
+                                ctx->ubo_mask |= BITSET_BIT(word.ubo);
+
                                 midgard_instruction ld = {
                                         .type = TAG_LOAD_STORE_4,
                                         .mask = 0xF,
