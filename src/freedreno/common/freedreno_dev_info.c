@@ -37,7 +37,7 @@ freedreno_dev_info_init(struct freedreno_dev_info *info, uint32_t gpu_id)
    if (gpu_id >= 600) {
       info->gmem_align_w = 16;
       info->gmem_align_h = 4;
-      info->tile_align_w = gpu_id == 650 ? 96 : 32;
+      info->tile_align_w = 32;
       info->tile_align_h = 32;
       /* based on GRAS_BIN_CONTROL: */
       info->tile_max_w = 1024; /* max_bitfield_val(5, 0, 5) */
@@ -89,12 +89,23 @@ freedreno_dev_info_init(struct freedreno_dev_info *info, uint32_t gpu_id)
          info->a6xx.magic.PC_UNKNOWN_9805 = 2;
          info->a6xx.magic.SP_UNKNOWN_A0F8 = 2;
          break;
+      case 660:
+         info->num_sp_cores = 3;
+         info->fibers_per_sp = 128 * 2 * 16;
+         info->a6xx.version = VERSION_A660;
+         info->a6xx.magic.RB_UNKNOWN_8E04_blit = 0x04100000;
+         info->a6xx.magic.PC_UNKNOWN_9805 = 2;
+         info->a6xx.magic.SP_UNKNOWN_A0F8 = 2;
+         break;
       default:
          /* Drivers should be doing their own version filtering, so we
           * should never get here.
           */
          unreachable("missing a6xx config");
       }
+      /* 96 tile alignment seems correlated to 3 CCU */
+      if (info->num_ccu == 3)
+         info->tile_align_w = 96;
    } else if (gpu_id >= 500) {
       info->gmem_align_w = info->tile_align_w = 64;
       info->gmem_align_h = info->tile_align_h = 32;
