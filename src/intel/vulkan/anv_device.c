@@ -2015,6 +2015,10 @@ anv_get_physical_device_properties_1_1(struct anv_physical_device *pdevice,
                        MESA_SHADER_INTERSECTION |
                        MESA_SHADER_CALLABLE;
    }
+   if (pdevice->vk.supported_extensions.NV_mesh_shader) {
+      scalar_stages |= MESA_SHADER_TASK |
+                       MESA_SHADER_MESH;
+   }
    p->subgroupSupportedStages = scalar_stages;
    p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT |
                                     VK_SUBGROUP_FEATURE_VOTE_BIT |
@@ -2465,7 +2469,9 @@ void anv_GetPhysicalDeviceProperties2(
          props->minSubgroupSize = 8;
          props->maxSubgroupSize = 32;
          props->maxComputeWorkgroupSubgroups = pdevice->info.max_cs_workgroup_threads;
-         props->requiredSubgroupSizeStages = VK_SHADER_STAGE_COMPUTE_BIT;
+         props->requiredSubgroupSizeStages = VK_SHADER_STAGE_COMPUTE_BIT |
+                                             VK_SHADER_STAGE_TASK_BIT_NV |
+                                             VK_SHADER_STAGE_MESH_BIT_NV;
          break;
       }
 
