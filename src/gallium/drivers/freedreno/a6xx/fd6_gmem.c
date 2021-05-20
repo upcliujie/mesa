@@ -666,7 +666,7 @@ emit_binning_pass(struct fd_batch *batch) assert_dt
    OUT_WFI5(ring);
 
    OUT_REG(ring,
-           A6XX_RB_CCU_CNTL(.offset = screen->info.a6xx.ccu_offset_gmem,
+           A6XX_RB_CCU_CNTL(.color_offset = screen->ccu_offset_gmem,
                             .gmem = true,
                             .unk2 = screen->info.a6xx.ccu_cntl_gmem_unk2));
 }
@@ -734,7 +734,7 @@ fd6_emit_tile_init(struct fd_batch *batch) assert_dt
 
    fd_wfi(batch, ring);
    OUT_REG(ring,
-           A6XX_RB_CCU_CNTL(.offset = screen->info.a6xx.ccu_offset_gmem,
+           A6XX_RB_CCU_CNTL(.color_offset = screen->ccu_offset_gmem,
                             .gmem = true,
                             .unk2 = screen->info.a6xx.ccu_cntl_gmem_unk2));
 
@@ -1511,8 +1511,7 @@ fd6_emit_sysmem_prep(struct fd_batch *batch) assert_dt
    fd6_cache_inv(batch, ring);
 
    fd_wfi(batch, ring);
-   OUT_REG(ring,
-           A6XX_RB_CCU_CNTL(.offset = screen->info.a6xx.ccu_offset_bypass));
+   OUT_REG(ring, A6XX_RB_CCU_CNTL(.color_offset = screen->ccu_offset_bypass));
 
    /* enable stream-out, with sysmem there is only one pass: */
    OUT_REG(ring, A6XX_VPC_SO_DISABLE(false));
