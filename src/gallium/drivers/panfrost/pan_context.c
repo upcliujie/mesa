@@ -366,6 +366,11 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
         struct pipe_rasterizer_state *rast = &ctx->rasterizer->base;
         struct panfrost_device *device = pan_device(ctx->base.screen);
 
+        bool points = info->mode == PIPE_PRIM_POINTS;
+        bool lines = (info->mode == PIPE_PRIM_LINES ||
+                      info->mode == PIPE_PRIM_LINE_LOOP ||
+                      info->mode == PIPE_PRIM_LINE_STRIP);
+
         void *section = pan_is_bifrost(device) ?
                         pan_section_ptr(job, BIFROST_TILER_JOB, INVOCATION) :
                         pan_section_ptr(job, MIDGARD_TILER_JOB, INVOCATION);
@@ -383,12 +388,7 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
                  * be set to true and the provoking vertex is selected with
                  * DRAW.flat_shading_vertex.
                  */
-                if (info->mode == PIPE_PRIM_LINES ||
-                    info->mode == PIPE_PRIM_LINE_LOOP ||
-                    info->mode == PIPE_PRIM_LINE_STRIP)
-                        cfg.first_provoking_vertex = true;
-                else
-                        cfg.first_provoking_vertex = rast->flatshade_first;
+                cfg.first_provoking_vertex = lines || rast->flatshade_first;
 
                 if (panfrost_is_implicit_prim_restart(info)) {
                         cfg.primitive_restart = MALI_PRIMITIVE_RESTART_IMPLICIT;
@@ -407,13 +407,14 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
                 }
         }
 
-        bool points = info->mode == PIPE_PRIM_POINTS;
         void *prim_size = pan_is_bifrost(device) ?
                           pan_section_ptr(job, BIFROST_TILER_JOB, PRIMITIVE_SIZE) :
                           pan_section_ptr(job, MIDGARD_TILER_JOB, PRIMITIVE_SIZE);
 
         if (pan_is_bifrost(device)) {
-                panfrost_emit_primitive_size(ctx, points, psiz, prim_size);
+                if (points || lines)
+                        panfrost_emit_primitive_size(ctx, points, psiz, prim_size);
+
                 pan_section_pack(job, BIFROST_TILER_JOB, TILER, cfg) {
                         cfg.address = panfrost_batch_get_bifrost_tiler(batch, ~0);
                 }
@@ -444,9 +445,7 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
                  * be set to 0 and the provoking vertex is selected with the
                  * PRIMITIVE.first_provoking_vertex field.
                  */
-                if (info->mode == PIPE_PRIM_LINES ||
-                    info->mode == PIPE_PRIM_LINE_LOOP ||
-                    info->mode == PIPE_PRIM_LINE_STRIP) {
+                if (lines) {
                         /* The logic is inverted on bifrost. */
                         cfg.flat_shading_vertex =
                                 pan_is_bifrost(device) ?
@@ -468,9 +467,10 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
                 }
         }
 
-        if (!pan_is_bifrost(device))
-                panfrost_emit_primitive_size(ctx, points, psiz, prim_size);
-        else
+        if (!pan_is_bifrost(device)) {
+                if (points || lines)
+                        panfrost_emit_primitive_size(ctx, points, psiz, prim_size);
+        } else
                 pan_section_pack(job, BIFROST_TILER_JOB, DRAW_PADDING, cfg);
 }
 
