@@ -1529,6 +1529,7 @@ tu6_emit_program(struct tu_cs *cs,
    uint32_t cps_per_patch = builder->create_info->pTessellationState ?
       builder->create_info->pTessellationState->patchControlPoints : 0;
    bool multi_pos_output = builder->shaders[MESA_SHADER_VERTEX]->multi_pos_output;
+   enum a6xx_version version = builder->device->physical_device->version;
 
    STATIC_ASSERT(MESA_SHADER_VERTEX == 0);
 
@@ -1565,20 +1566,22 @@ tu6_emit_program(struct tu_cs *cs,
       COND(!multi_pos_output, A6XX_PC_MULTIVIEW_CNTL_DISABLEMULTIPOS)
       : 0;
 
-   /* Copy what the blob does here. This will emit an extra 0x3f
-    * CP_EVENT_WRITE when multiview is disabled. I'm not exactly sure what
-    * this is working around yet.
-    */
-   tu_cs_emit_pkt7(cs, CP_REG_WRITE, 3);
-   tu_cs_emit(cs, CP_REG_WRITE_0_TRACKER(UNK_EVENT_WRITE));
-   tu_cs_emit(cs, REG_A6XX_PC_MULTIVIEW_CNTL);
+   if (a6xx_has_cp_reg_write(version)) {
+      /* Copy what the blob does here. This will emit an extra 0x3f
+       * CP_EVENT_WRITE when multiview is disabled. I'm not exactly sure what
+       * this is working around yet.
+       */
+      tu_cs_emit_pkt7(cs, CP_REG_WRITE, 3);
+      tu_cs_emit(cs, CP_REG_WRITE_0_TRACKER(UNK_EVENT_WRITE));
+   } else {
+      tu_cs_emit_pkt4(cs, REG_A6XX_PC_MULTIVIEW_CNTL, 1);
+   }
    tu_cs_emit(cs, multiview_cntl);
 
    tu_cs_emit_pkt4(cs, REG_A6XX_VFD_MULTIVIEW_CNTL, 1);
    tu_cs_emit(cs, multiview_cntl);
 
-   if (multiview_cntl &&
-       a6xx_supports_multiview_mask(builder->device->physical_device->version)) {
+   if (multiview_cntl && a6xx_supports_multiview_mask(version)) {
       tu_cs_emit_pkt4(cs, REG_A6XX_PC_MULTIVIEW_MASK, 1);
       tu_cs_emit(cs, builder->multiview_mask);
    }
@@ -1587,7 +1590,7 @@ tu6_emit_program(struct tu_cs *cs,
    tu_cs_emit(cs, 0);
 
    tu6_emit_vpc(cs, vs, hs, ds, gs, fs, cps_per_patch,
-                builder->device->physical_device->gpu_id == 650);
+                a6xx_has_vshs_workgroup(version));
    tu6_emit_vpc_varying_modes(cs, fs);
 
    bool no_earlyz = builder->depth_attachment_format == VK_FORMAT_S8_UINT;

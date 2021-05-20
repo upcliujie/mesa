@@ -117,7 +117,7 @@ ir3_compiler_create(struct fd_device *dev, uint32_t gpu_id, bool robust_ubo_acce
 		/* TODO: implement private memory on earlier gen's */
 		compiler->has_pvtmem = true;
 
-		if (compiler->gpu_id == 650)
+		if (compiler->gpu_id == 650 || compiler->gpu_id == 660)
 			compiler->tess_use_shared = true;
 	} else {
 		compiler->max_const_pipeline = 512;
@@ -131,7 +131,7 @@ ir3_compiler_create(struct fd_device *dev, uint32_t gpu_id, bool robust_ubo_acce
 		compiler->max_const_safe = 256;
 	}
 
-	if (compiler->gpu_id == 650) {
+	if (compiler->gpu_id == 650 || compiler->gpu_id == 660) {
 		/* This changed mid-generation for a650, so that using r32.x and above
 		 * requires using the smallest threadsize.
 		 */

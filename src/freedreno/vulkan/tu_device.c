@@ -112,7 +112,7 @@ get_device_extensions(const struct tu_physical_device *device,
                       struct vk_device_extension_table *ext)
 {
    *ext = (struct vk_device_extension_table) {
-      .KHR_16bit_storage = device->gpu_id >= 650,
+      .KHR_16bit_storage = device->version >= VERSION_A650,
       .KHR_bind_memory2 = true,
       .KHR_create_renderpass2 = true,
       .KHR_dedicated_allocation = true,
@@ -156,7 +156,7 @@ get_device_extensions(const struct tu_physical_device *device,
 #endif
       .EXT_external_memory_dma_buf = true,
       .EXT_image_drm_format_modifier = true,
-      .EXT_sample_locations = device->gpu_id == 650,
+      .EXT_sample_locations = device->version >= VERSION_A650,
       .EXT_sampler_filter_minmax = true,
       .EXT_transform_feedback = true,
       .EXT_4444_formats = true,
@@ -165,7 +165,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_depth_clip_enable = true,
       .EXT_descriptor_indexing = true,
       .EXT_extended_dynamic_state = true,
-      .EXT_filter_cubic = device->gpu_id == 650,
+      .EXT_filter_cubic = device->version >= VERSION_A650,
       .EXT_host_query_reset = true,
       .EXT_index_type_uint8 = true,
       .EXT_memory_budget = true,
@@ -180,7 +180,7 @@ get_device_extensions(const struct tu_physical_device *device,
 #ifdef ANDROID
       .ANDROID_native_buffer = true,
 #endif
-      .IMG_filter_cubic = device->gpu_id == 650,
+      .IMG_filter_cubic = device->version >= VERSION_A650,
    };
 }
 
@@ -199,10 +199,12 @@ tu_physical_device_init(struct tu_physical_device *device,
    case 630:
    case 640:
    case 650:
+   case 660:
       freedreno_dev_info_init(&device->info, device->gpu_id);
       device->ccu_offset_bypass = device->info.num_ccu * A6XX_CCU_DEPTH_SIZE;
       device->ccu_offset_gmem = (device->gmem_size -
          device->info.num_ccu * A6XX_CCU_GMEM_COLOR_SIZE);
+      device->version = device->info.a6xx.version;
       break;
    default:
       result = vk_startup_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
@@ -516,7 +518,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES: {
          VkPhysicalDeviceVulkan11Features *features = (void *) ext;
-         features->storageBuffer16BitAccess            = pdevice->gpu_id >= 650;
+         features->storageBuffer16BitAccess            = pdevice->version >= VERSION_A650;
          features->uniformAndStorageBuffer16BitAccess  = false;
          features->storagePushConstant16               = false;
          features->storageInputOutput16                = false;
@@ -612,7 +614,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES: {
          VkPhysicalDevice16BitStorageFeatures *features =
             (VkPhysicalDevice16BitStorageFeatures *) ext;
-         features->storageBuffer16BitAccess = pdevice->gpu_id >= 650;
+         features->storageBuffer16BitAccess = pdevice->version >= VERSION_A650;
          features->uniformAndStorageBuffer16BitAccess = false;
          features->storagePushConstant16 = false;
          features->storageInputOutput16 = false;
