@@ -743,8 +743,39 @@ fs_generator::generate_shuffle(fs_inst *inst,
             brw_MOV(p, byte_offset(dst_d, 4),
                     retype(brw_VxH_indirect(0, 4), BRW_REGISTER_TYPE_D));
          } else {
-            brw_MOV(p, suboffset(dst, group * dst.hstride),
-                    retype(brw_VxH_indirect(0, 0), src.type));
+            /* From the hardware spec section "Register Region Restrictions":
+             *
+             * "In case where source or destination datatype is 64b or
+             *  operation is integer DWord multiply [or in case where a
+             *  floating point data type is used as destination]:
+             *
+             *   1. Register Regioning patterns where register data bit
+             *      locations are changed between source and destination are
+             *      not supported on Src0 and Src1 except for broadcast of a
+             *      scalar.
+             *
+             *   2. Explicit ARF registers except null and accumulator must
+             *      not be used."
+             *
+             * So let's use an unsigned integer type to do the indexed moved
+             * that matches the bit size of registers' sizes.
+             */
+            enum brw_reg_type dst_type =
+               brw_non_float_reg_type_from_bit_size(dst.type);
+            enum brw_reg_type src_type =
+               brw_non_float_reg_type_from_bit_size(src.type);
+
+            if (devinfo->verx10 >= 125 &&
+                (dst_type != dst.type || src_type != src.type)) {
+               brw_gfx12hp_swsb_stall(p, true);
+               brw_MOV(p,
+                       retype(suboffset(dst, group * dst.hstride), dst_type),
+                       retype(brw_VxH_indirect(0, 0), src_type));
+               brw_gfx12hp_swsb_stall(p, false);
+            } else {
+               brw_MOV(p, suboffset(dst, group * dst.hstride),
+                       retype(brw_VxH_indirect(0, 0), src.type));
+            }
          }
       }
 

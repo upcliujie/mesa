@@ -561,3 +561,13 @@ brw_reg_type_to_letters(enum brw_reg_type type)
    assert(type < ARRAY_SIZE(letters));
    return letters[type];
 }
+
+enum brw_reg_type
+brw_non_float_reg_type_from_bit_size(enum brw_reg_type type)
+{
+   if (brw_reg_type_is_integer(type))
+      return type;
+
+   return brw_reg_type_from_bit_size(8 * brw_reg_type_to_size(type),
+                                     BRW_REGISTER_TYPE_UD);
+}
