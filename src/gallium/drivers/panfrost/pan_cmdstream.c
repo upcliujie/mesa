@@ -1421,16 +1421,32 @@ panfrost_emit_sampler_descriptors(struct panfrost_batch *batch,
  * `first_image_buf_index` must be the index of the first image attribute buffer descriptor.
  */
 static void
-emit_image_attribs(struct panfrost_batch *batch, enum pipe_shader_type shader,
-                   struct mali_attribute_packed *attribs,
-                   struct mali_attribute_buffer_packed *bufs,
-                   unsigned first_image_buf_index)
+emit_image_attribs(struct panfrost_context *ctx, enum pipe_shader_type shader,
+                   struct mali_attribute_packed *attribs, unsigned first_buf)
+{
+        struct panfrost_device *dev = pan_device(ctx->base.screen);
+        unsigned last_bit = util_last_bit(ctx->image_mask[shader]);
+
+        for (unsigned i = 0; i < last_bit; ++i) {
+                enum pipe_format format = ctx->images[shader][i].format;
+
+                pan_pack(attribs + i, ATTRIBUTE, cfg) {
+                        /* Continuation record means 2 buffers per image */
+                        cfg.buffer_index = first_buf + (i * 2);
+                        cfg.offset_enable = !pan_is_bifrost(dev);
+                        cfg.format = dev->formats[format].hw;
+                }
+        }
+}
+
+static void
+emit_image_bufs(struct panfrost_batch *batch, enum pipe_shader_type shader,
+                struct mali_attribute_buffer_packed *bufs,
+                unsigned first_image_buf_index)
 {
         struct panfrost_context *ctx = batch->ctx;
-        struct panfrost_device *dev = pan_device(ctx->base.screen);
-
-        unsigned k = 0;
         unsigned last_bit = util_last_bit(ctx->image_mask[shader]);
+
         for (unsigned i = 0; i < last_bit; ++i) {
                 struct pipe_image_view *image = &ctx->images[shader][i];
 
@@ -1438,10 +1454,8 @@ emit_image_attribs(struct panfrost_batch *batch, enum pipe_shader_type shader,
                 if (!(ctx->image_mask[shader] & (1 << i)) ||
                     !(image->shader_access & PIPE_IMAGE_ACCESS_READ_WRITE)) {
                         /* Unused image bindings */
-                        pan_pack(bufs + (k * 2), ATTRIBUTE_BUFFER, cfg);
-                        pan_pack(bufs + (k * 2) + 1, ATTRIBUTE_BUFFER, cfg);
-                        pan_pack(attribs + k, ATTRIBUTE, cfg);
-                        k++;
+                        pan_pack(bufs + (i * 2), ATTRIBUTE_BUFFER, cfg);
+                        pan_pack(bufs + (i * 2) + 1, ATTRIBUTE_BUFFER, cfg);
                         continue;
                 }
 
@@ -1474,7 +1488,7 @@ emit_image_attribs(struct panfrost_batch *batch, enum pipe_shader_type shader,
                 }
                 panfrost_batch_add_bo(batch, rsrc->image.data.bo, flags);
 
-                pan_pack(bufs + (k * 2), ATTRIBUTE_BUFFER, cfg) {
+                pan_pack(bufs + (i * 2), ATTRIBUTE_BUFFER, cfg) {
                         cfg.type = is_linear ?
                                 MALI_ATTRIBUTE_TYPE_3D_LINEAR :
                                 MALI_ATTRIBUTE_TYPE_3D_INTERLEAVED;
@@ -1484,7 +1498,7 @@ emit_image_attribs(struct panfrost_batch *batch, enum pipe_shader_type shader,
                         cfg.size = rsrc->image.data.bo->size;
                 }
 
-                pan_pack(bufs + (k * 2) + 1, ATTRIBUTE_BUFFER_CONTINUATION_3D, cfg) {
+                pan_pack(bufs + (i * 2) + 1, ATTRIBUTE_BUFFER_CONTINUATION_3D, cfg) {
                         cfg.s_dimension = rsrc->base.width0;
                         cfg.t_dimension = rsrc->base.height0;
                         cfg.r_dimension = is_3d ? rsrc->base.depth0 :
@@ -1499,17 +1513,6 @@ emit_image_attribs(struct panfrost_batch *batch, enum pipe_shader_type shader,
                                                                   image->u.tex.level);
                         }
                 }
-
-                /* We map compute shader attributes 1:2 with attribute buffers, because
-                 * every image attribute buffer needs an ATTRIBUTE_BUFFER_CONTINUATION_3D */
-                pan_pack(attribs + k, ATTRIBUTE, cfg) {
-                        cfg.buffer_index = first_image_buf_index + (k * 2);
-                        cfg.offset_enable = !pan_is_bifrost(dev);
-                        cfg.format =
-                                dev->formats[image->format].hw;
-                }
-
-                k++;
         }
 }
 
@@ -1538,7 +1541,8 @@ panfrost_emit_image_attribs(struct panfrost_batch *batch,
         struct panfrost_ptr attribs =
                 panfrost_pool_alloc_desc_array(&batch->pool, attr_count, ATTRIBUTE);
 
-        emit_image_attribs(batch, type, attribs.cpu, bufs.cpu, 0);
+        emit_image_attribs(ctx, type, attribs.cpu, 0);
+        emit_image_bufs(batch, type, bufs.cpu, 0);
 
         /* We need an empty attrib buf to stop the prefetching on Bifrost */
         if (pan_is_bifrost(dev)) {
@@ -1723,7 +1727,8 @@ panfrost_emit_vertex_data(struct panfrost_batch *batch,
         }
 
         k = ALIGN_POT(k, 2);
-        emit_image_attribs(batch, PIPE_SHADER_VERTEX, out + so->num_elements, bufs + k, k);
+        emit_image_attribs(ctx, PIPE_SHADER_VERTEX, out + so->num_elements, k);
+        emit_image_bufs(batch, PIPE_SHADER_VERTEX, bufs + k, k);
         k += util_bitcount(ctx->image_mask[PIPE_SHADER_VERTEX]);
 
         /* We need an empty attrib buf to stop the prefetching on Bifrost */
