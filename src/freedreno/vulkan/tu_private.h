@@ -211,6 +211,7 @@ struct tu_physical_device
    uint32_t ccu_offset_bypass;
 
    struct freedreno_dev_info info;
+   enum a6xx_version version;
 
    int msm_major_version;
    int msm_minor_version;

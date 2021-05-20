@@ -1068,7 +1068,7 @@ handle_zs_blit(struct fd_context *ctx,
       /* non-UBWC Z24_UNORM_S8_UINT_AS_R8G8B8A8 is broken on a630, fall back to
        * 8888_unorm.
        */
-      if (!ctx->screen->info.a6xx.has_z24uint_s8uint) {
+      if (!a6xx_has_z24uint_s8uint(ctx->screen->info.a6xx.version)) {
          if (!src->layout.ubwc)
             blit.src.format = PIPE_FORMAT_RGBA8888_UNORM;
          if (!dst->layout.ubwc)

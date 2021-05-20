@@ -668,7 +668,7 @@ emit_binning_pass(struct fd_batch *batch) assert_dt
    OUT_REG(ring,
            A6XX_RB_CCU_CNTL(.color_offset = screen->ccu_offset_gmem,
                             .gmem = true,
-                            .unk2 = screen->info.a6xx.ccu_cntl_gmem_unk2));
+                            .unk2 = a6xx_ccu_cntl_gmem_unk2(screen->info.a6xx.version)));
 }
 
 static void
@@ -736,7 +736,7 @@ fd6_emit_tile_init(struct fd_batch *batch) assert_dt
    OUT_REG(ring,
            A6XX_RB_CCU_CNTL(.color_offset = screen->ccu_offset_gmem,
                             .gmem = true,
-                            .unk2 = screen->info.a6xx.ccu_cntl_gmem_unk2));
+                            .unk2 = a6xx_ccu_cntl_gmem_unk2(screen->info.a6xx.version)));
 
    emit_zs(ring, pfb->zsbuf, batch->gmem_state);
    emit_mrt(ring, pfb, batch->gmem_state);

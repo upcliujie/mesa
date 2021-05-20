@@ -36,6 +36,32 @@ extern "C" {
  * Freedreno hardware description and quirks
  */
 
+/* a6xx base versions with the same quirks/features, named after flagships */
+enum a6xx_version {
+   VERSION_A630, /* a630, a615, a618 */
+   VERSION_A640, /* a640, a680 */
+   VERSION_A650, /* a650 */
+   VERSION_A660, /* a660, a635 */
+};
+
+static inline bool
+a6xx_supports_multiview_mask(enum a6xx_version version)
+{
+   return version >= VERSION_A640;
+}
+
+static inline bool
+a6xx_has_z24uint_s8uint(enum a6xx_version version)
+{
+   return version >= VERSION_A640;
+}
+
+static inline bool
+a6xx_ccu_cntl_gmem_unk2(enum a6xx_version version)
+{
+   return version == VERSION_A630;
+}
+
 struct freedreno_dev_info {
    /* alignment for size of tiles */
    uint32_t tile_align_w, tile_align_h;
@@ -56,13 +82,7 @@ struct freedreno_dev_info {
 
    union {
       struct {
-         /* Whether the PC_MULTIVIEW_MASK register exists. */
-         bool supports_multiview_mask;
-
-         /* info for setting RB_CCU_CNTL */
-         bool ccu_cntl_gmem_unk2;
-         bool has_z24uint_s8uint;
-
+         enum a6xx_version version;
          struct {
             uint32_t RB_UNKNOWN_8E04_blit;
             uint32_t PC_UNKNOWN_9805;

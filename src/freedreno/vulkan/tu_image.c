@@ -609,7 +609,8 @@ tu_CreateImage(VkDevice _device,
 
    if (!ubwc_possible(image->vk_format, pCreateInfo->imageType, pCreateInfo->usage,
                       stencil_usage_info ? stencil_usage_info->stencilUsage : pCreateInfo->usage,
-                      device->physical_device->info.a6xx.has_z24uint_s8uint, pCreateInfo->samples))
+                      a6xx_has_z24uint_s8uint(device->physical_device->version),
+                      pCreateInfo->samples))
       ubwc_enabled = false;
 
    /* expect UBWC enabled if we asked for it */
@@ -805,7 +806,7 @@ tu_CreateImageView(VkDevice _device,
    if (view == NULL)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   tu_image_view_init(view, pCreateInfo, device->physical_device->info.a6xx.has_z24uint_s8uint);
+   tu_image_view_init(view, pCreateInfo, a6xx_has_z24uint_s8uint(device->physical_device->version));
 
    *pView = tu_image_view_to_handle(view);
 
