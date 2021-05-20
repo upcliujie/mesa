@@ -62,6 +62,24 @@ a6xx_ccu_cntl_gmem_unk2(enum a6xx_version version)
    return version == VERSION_A630;
 }
 
+static inline bool
+a6xx_has_cp_reg_write(enum a6xx_version version)
+{
+   return version <= VERSION_A650;
+}
+
+static inline bool
+a6xx_has_8bpp_ubwc(enum a6xx_version version)
+{
+   return version <= VERSION_A650;
+}
+
+static inline bool
+a6xx_has_vshs_workgroup(enum a6xx_version version)
+{
+   return version >= VERSION_A650;
+}
+
 struct freedreno_dev_info {
    /* alignment for size of tiles */
    uint32_t tile_align_w, tile_align_h;
