@@ -1451,24 +1451,21 @@ vn_physical_device_get_native_extensions(
    /* see vn_physical_device_init_external_memory */
    if (renderer_exts->EXT_external_memory_dma_buf &&
        renderer_info->has_dmabuf_import) {
+#ifdef ANDROID
+      exts->ANDROID_external_memory_android_hardware_buffer = true;
+      exts->ANDROID_native_buffer = true;
+#else
       exts->KHR_external_memory_fd = true;
       exts->EXT_external_memory_dma_buf = true;
+#endif
    }
 
-   /* TODO join Android to do proper checks */
 #ifdef VN_USE_WSI_PLATFORM
    exts->KHR_incremental_present = true;
    exts->KHR_swapchain = true;
    exts->KHR_swapchain_mutable_format = true;
 #endif
 
-#ifdef ANDROID
-   if (renderer_exts->EXT_image_drm_format_modifier &&
-       renderer_exts->EXT_queue_family_foreign &&
-       exts->EXT_external_memory_dma_buf) {
-      exts->ANDROID_native_buffer = true;
-   }
-#endif
 }
 
 static void
@@ -1527,7 +1524,9 @@ vn_physical_device_get_passthrough_extensions(
       .EXT_shader_viewport_index_layer = true,
 
       /* EXT */
+#ifndef ANDROID
       .EXT_image_drm_format_modifier = true,
+#endif
       .EXT_queue_family_foreign = true,
       .EXT_transform_feedback = true,
    };
@@ -3183,10 +3182,11 @@ vn_device_fix_create_info(const struct vn_device *dev,
    uint32_t extra_count = 0;
    uint32_t block_count = 0;
 
-   /* fix for WSI */
-   const bool has_wsi =
-      app_exts->KHR_swapchain || app_exts->ANDROID_native_buffer;
-   if (has_wsi) {
+   /* fix for WSI and AHB */
+   const bool has_wsi_or_ahb =
+      app_exts->KHR_swapchain || app_exts->ANDROID_native_buffer ||
+      app_exts->ANDROID_external_memory_android_hardware_buffer;
+   if (has_wsi_or_ahb) {
       if (!app_exts->EXT_image_drm_format_modifier) {
          extra_exts[extra_count++] =
             VK_EXT_IMAGE_DRM_FORMAT_MODIFIER_EXTENSION_NAME;
@@ -3210,13 +3210,18 @@ vn_device_fix_create_info(const struct vn_device *dev,
             VK_KHR_SWAPCHAIN_MUTABLE_FORMAT_EXTENSION_NAME;
          block_exts[block_count++] =
             VK_KHR_INCREMENTAL_PRESENT_EXTENSION_NAME;
-      } else {
-         block_exts[block_count++] = VK_ANDROID_NATIVE_BUFFER_EXTENSION_NAME;
       }
+
+      if (app_exts->ANDROID_native_buffer)
+         block_exts[block_count++] = VK_ANDROID_NATIVE_BUFFER_EXTENSION_NAME;
+
+      if (app_exts->ANDROID_external_memory_android_hardware_buffer)
+         block_exts[block_count++] =
+            VK_ANDROID_EXTERNAL_MEMORY_ANDROID_HARDWARE_BUFFER_EXTENSION_NAME;
    }
 
    if (app_exts->KHR_external_memory_fd ||
-       app_exts->EXT_external_memory_dma_buf || has_wsi) {
+       app_exts->EXT_external_memory_dma_buf || has_wsi_or_ahb) {
       switch (physical_dev->external_memory.renderer_handle_type) {
       case VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT:
          if (!app_exts->EXT_external_memory_dma_buf) {
