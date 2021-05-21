@@ -480,6 +480,8 @@ d3d12_is_format_supported(struct pipe_screen *pscreen,
       return false;
 
    if (target == PIPE_BUFFER) {
+      if (bind & PIPE_BIND_INDEX_BUFFER && format == PIPE_FORMAT_I8_UINT)
+         return true;
       /* Replace emulated vertex element formats for the tests */
       format = d3d12_emulated_vtx_format(format);
    } else {
