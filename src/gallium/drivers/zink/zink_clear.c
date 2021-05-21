@@ -211,7 +211,6 @@ zink_clear(struct pipe_context *pctx,
    if (buffers & PIPE_CLEAR_COLOR) {
       for (unsigned i = 0; i < fb->nr_cbufs; i++) {
          if ((buffers & (PIPE_CLEAR_COLOR0 << i)) && fb->cbufs[i]) {
-            struct pipe_surface *psurf = fb->cbufs[i];
             struct zink_framebuffer_clear *fb_clear = &ctx->fb_clears[i];
             struct zink_framebuffer_clear_data *clear = get_clear_data(ctx, fb_clear, needs_rp ? scissor_state : NULL);
 
@@ -221,8 +220,6 @@ zink_clear(struct pipe_context *pctx,
             if (scissor_state && needs_rp)
                clear->scissor = *scissor_state;
             clear->color.color = *pcolor;
-            clear->color.srgb = psurf->format != psurf->texture->format &&
-                                !util_format_is_srgb(psurf->format) && util_format_is_srgb(psurf->texture->format);
             if (zink_fb_clear_first_needs_explicit(fb_clear))
                ctx->rp_clears_enabled &= ~(PIPE_CLEAR_COLOR0 << i);
             else
@@ -513,10 +510,11 @@ zink_fb_clear_first_needs_explicit(struct zink_framebuffer_clear *fb_clear)
 }
 
 void
-zink_fb_clear_util_unpack_clear_color(struct zink_framebuffer_clear_data *clear, enum pipe_format format, union pipe_color_union *color)
+zink_fb_clear_util_unpack_clear_color(struct zink_framebuffer_clear_data *clear, struct pipe_surface *psurf, union pipe_color_union *color)
 {
-   const struct util_format_description *desc = util_format_description(format);
-   if (clear->color.srgb) {
+   const struct util_format_description *desc = util_format_description(psurf->format);
+   if (psurf->format != psurf->texture->format &&
+       !util_format_is_srgb(psurf->format) && util_format_is_srgb(psurf->texture->format)) {
       /* if SRGB mode is disabled for the fb with a backing srgb image then we have to
        * convert this to srgb color
        */
@@ -547,7 +545,7 @@ fb_clears_apply_internal(struct zink_context *ctx, struct pipe_resource *pres, i
          struct pipe_surface *psurf = ctx->fb_state.cbufs[i];
          struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(fb_clear, 0);
          union pipe_color_union color;
-         zink_fb_clear_util_unpack_clear_color(clear, psurf->format, &color);
+         zink_fb_clear_util_unpack_clear_color(clear, psurf, &color);
 
          clear_color_no_rp(ctx, zink_resource(pres), &color,
                                 psurf->u.tex.level, psurf->u.tex.first_layer,

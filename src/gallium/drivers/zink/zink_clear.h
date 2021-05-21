@@ -36,7 +36,6 @@ struct zink_framebuffer_clear_data {
    union {
       struct {
          union pipe_color_union color;
-         bool srgb;
       } color;
       struct {
          float depth;
@@ -131,4 +130,6 @@ void
 zink_fb_clears_apply_region(struct zink_context *ctx, struct pipe_resource *pres, struct u_rect region);
 
 void
-zink_fb_clear_util_unpack_clear_color(struct zink_framebuffer_clear_data *clear, enum pipe_format format, union pipe_color_union *color);
+zink_fb_clear_util_unpack_clear_color(struct zink_framebuffer_clear_data *clear,
+                                      struct pipe_surface *psurf,
+                                      union pipe_color_union *color);
