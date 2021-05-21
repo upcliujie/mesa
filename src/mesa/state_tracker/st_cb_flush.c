@@ -81,13 +81,8 @@ st_finish(struct st_context *st)
    st_manager_flush_swapbuffers();
 }
 
-
-
-/**
- * Called via ctx->Driver.Flush()
- */
 static void
-st_glFlush(struct gl_context *ctx)
+st_glFlush_with_flags(struct gl_context *ctx, unsigned flush_flags)
 {
    struct st_context *st = st_context(ctx);
 
@@ -96,11 +91,30 @@ st_glFlush(struct gl_context *ctx)
     * synchronization issues.  Calling finish() here will just hide
     * problems that need to be fixed elsewhere.
     */
-   st_flush(st, NULL, 0);
+   st_flush(st, NULL, flush_flags);
 
    st_manager_flush_frontbuffer(st);
 }
 
+/**
+ * Called via ctx->Driver.Flush()
+ */
+static void
+st_glFlush(struct gl_context *ctx)
+{
+   bool async = !ctx->Shared->HasExternallySharedImages;
+
+   st_glFlush_with_flags(ctx, async ? PIPE_FLUSH_ASYNC : 0);
+}
+
+/**
+ * Called via ctx->Driver.Flush()
+ */
+static void
+st_glFlushNonAsync(struct gl_context *ctx)
+{
+   st_glFlush_with_flags(ctx, 0);
+}
 
 /**
  * Called via ctx->Driver.Finish()
@@ -188,7 +202,7 @@ st_init_flush_functions(struct pipe_screen *screen,
                         struct dd_function_table *functions)
 {
    functions->Flush = st_glFlush;
-   functions->FlushNonAsync = st_glFlush;
+   functions->FlushNonAsync = st_glFlushNonAsync;
    functions->Finish = st_glFinish;
 
    if (screen->get_param(screen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY))
