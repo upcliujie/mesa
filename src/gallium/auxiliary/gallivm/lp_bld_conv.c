@@ -416,9 +416,9 @@ lp_build_unsigned_norm_to_float(struct gallivm_state *gallivm,
        * followed by casting. No further rounding is necessary.
        */
 
-      scale = 1.0/(double)((1ULL << src_width) - 1);
+      scale = (1ULL << src_width) - 1;
       res = LLVMBuildSIToFP(builder, src, vec_type, "");
-      res = LLVMBuildFMul(builder, res,
+      res = LLVMBuildFDiv(builder, res,
                           lp_build_const_vec(gallivm, dst_type, scale), "");
       return res;
    }
