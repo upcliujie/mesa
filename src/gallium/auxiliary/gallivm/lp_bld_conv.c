@@ -412,13 +412,13 @@ lp_build_unsigned_norm_to_float(struct gallivm_state *gallivm,
    if (src_width <= (mantissa + 1)) {
       /*
        * The source width matches fits what can be represented in floating
-       * point (i.e., mantissa + 1 bits). So do a straight multiplication
-       * followed by casting. No further rounding is necessary.
+       * point (i.e., mantissa + 1 bits). So do a straight division. No
+       * further rounding is necessary.
        */
 
-      scale = 1.0/(double)((1ULL << src_width) - 1);
+      scale = (1ULL << src_width) - 1;
       res = LLVMBuildSIToFP(builder, src, vec_type, "");
-      res = LLVMBuildFMul(builder, res,
+      res = LLVMBuildFDiv(builder, res,
                           lp_build_const_vec(gallivm, dst_type, scale), "");
       return res;
    }
