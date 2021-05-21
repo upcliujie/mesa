@@ -633,6 +633,10 @@ virgl_is_format_supported( struct pipe_screen *screen,
    if (!util_is_power_of_two_or_zero(sample_count))
       return false;
 
+   if (bind & PIPE_BIND_INDEX_BUFFER &&
+       (format == PIPE_FORMAT_I8_UINT))
+      return true;
+
    assert(target == PIPE_BUFFER ||
           target == PIPE_TEXTURE_1D ||
           target == PIPE_TEXTURE_1D_ARRAY ||
