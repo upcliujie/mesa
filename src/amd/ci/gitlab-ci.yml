@@ -50,7 +50,8 @@ radv_stoney_vkcts:amd64:
   parallel: 3
   variables:
     DEQP_VERSION: vk
-    ENV_VARS: "DEQP_FRACTION=10 DEQP_PARALLEL=4 DEQP_EXPECTED_RENDERER=STONEY VK_DRIVER=radeon"
+    ENV_VARS: "DEQP_FRACTION=10 DEQP_PARALLEL=4 DEQP_EXPECTED_RENDERER=STONEY"
+    VK_DRIVER: radeon
     DEVICE_TYPE: hp-11A-G6-EE-grunt
     DTB: ""
     GPU_VERSION: radv-stoney-aco

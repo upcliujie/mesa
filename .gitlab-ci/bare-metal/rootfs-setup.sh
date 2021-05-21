@@ -87,7 +87,5 @@ echo "Variables passed through:"
 cat $rootfs_dst/set-job-env-vars.sh
 set -x
 
-# Add the Mesa drivers we built, and make a consistent symlink to them.
-mkdir -p $rootfs_dst/$CI_PROJECT_DIR
-rsync -aH --delete $CI_PROJECT_DIR/install/ $rootfs_dst/$CI_PROJECT_DIR/install/
-ln -sf $CI_PROJECT_DIR/install $rootfs_dst/install
+# Add the Mesa drivers we built
+rsync -aH --delete /install/ $rootfs_dst/install/

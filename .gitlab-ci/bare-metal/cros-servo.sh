@@ -4,7 +4,7 @@
 # NFS and TFTP to boot.
 
 # We're run from the root of the repo, make a helper var for our paths
-BM=$CI_PROJECT_DIR/install/bare-metal
+BM=/install/bare-metal
 
 # Runner config checks
 if [ -z "$BM_SERIAL" ]; then
