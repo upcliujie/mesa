@@ -97,6 +97,7 @@ wsi_device_init(struct wsi_device *wsi,
    WSI_GET_CB(GetPhysicalDeviceFormatProperties);
    WSI_GET_CB(GetPhysicalDeviceFormatProperties2KHR);
    WSI_GET_CB(GetPhysicalDeviceImageFormatProperties2);
+   WSI_GET_CB(GetSemaphoreFdKHR);
    WSI_GET_CB(ImportFenceFdKHR);
    WSI_GET_CB(ImportSemaphoreFdKHR);
    WSI_GET_CB(ResetFences);
@@ -202,6 +203,10 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    chain->device = device;
    chain->alloc = *pAllocator;
    chain->use_prime_blit = false;
+
+#ifndef _WIN32
+   chain->use_dma_buf_sync_file_import = true;
+#endif
 
    chain->cmd_pools =
       vk_zalloc(pAllocator, sizeof(VkCommandPool) * wsi->queue_family_count, 8,
@@ -573,6 +578,36 @@ wsi_signal_fence_for_image(const struct wsi_swapchain *chain,
    return VK_SUCCESS;
 }
 
+static VkResult
+wsi_signal_image_and_fence_for_smeaphores(struct wsi_swapchain *chain,
+                                          const struct wsi_image *image,
+                                          VkFence fence,
+                                          uint32_t semaphore_count,
+                                          const VkSemaphore *semaphores)
+{
+   VkResult result = VK_ERROR_FEATURE_NOT_PRESENT;
+
+#ifndef _WIN32
+   if (chain->use_dma_buf_sync_file_import) {
+      result = wsi_signal_dma_buf_and_fence_for_semaphores(chain,
+                                                           image->dma_buf_fd,
+                                                           fence,
+                                                           semaphore_count,
+                                                           semaphores);
+      if (result == VK_SUCCESS)
+         return VK_SUCCESS;
+
+      /* If we fail to use the sync_file import path once, don't ever try
+       * again on this swapchain.  Something in the path clearly doesn't work.
+       */
+      chain->use_dma_buf_sync_file_import = false;
+      result = VK_ERROR_FEATURE_NOT_PRESENT;
+   }
+#endif
+
+   return result;
+}
+
 VkResult
 wsi_common_acquire_next_image2(const struct wsi_device *wsi,
                                VkDevice device,
@@ -610,7 +645,7 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
 }
 
 VkResult
-wsi_common_queue_present(const struct wsi_device *wsi,
+wsi_common_queue_present(struct wsi_device *wsi,
                          VkDevice device,
                          VkQueue queue,
                          int queue_family_index,
@@ -648,59 +683,71 @@ wsi_common_queue_present(const struct wsi_device *wsi,
       struct wsi_image *image =
          swapchain->get_wsi_image(swapchain, image_index);
 
-      struct wsi_memory_signal_submit_info mem_signal = {
-         .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,
-         .pNext = NULL,
-         .memory = image->memory,
-      };
+      bool need_submit = true;
+      if (!swapchain->use_prime_blit) {
+         wsi_signal_image_and_fence_for_smeaphores(swapchain, image,
+                                                   swapchain->fences[image_index],
+                                                   pPresentInfo->waitSemaphoreCount,
+                                                   pPresentInfo->pWaitSemaphores);
+         if (result == VK_SUCCESS)
+            need_submit = false;
+      }
 
-      VkSubmitInfo submit_info = {
-         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-         .pNext = &mem_signal,
-      };
+      if (need_submit) {
+         struct wsi_memory_signal_submit_info mem_signal = {
+            .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,
+            .pNext = NULL,
+            .memory = image->memory,
+         };
 
-      VkPipelineStageFlags *stage_flags = NULL;
-      if (i == 0) {
-         /* We only need/want to wait on semaphores once.  After that, we're
-          * guaranteed ordering since it all happens on the same queue.
-          */
-         submit_info.waitSemaphoreCount = pPresentInfo->waitSemaphoreCount;
-         submit_info.pWaitSemaphores = pPresentInfo->pWaitSemaphores;
+         VkSubmitInfo submit_info = {
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext = &mem_signal,
+         };
 
-         /* Set up the pWaitDstStageMasks */
-         stage_flags = vk_alloc(&swapchain->alloc,
-                                sizeof(VkPipelineStageFlags) *
-                                pPresentInfo->waitSemaphoreCount,
-                                8,
-                                VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-         if (!stage_flags) {
-            result = VK_ERROR_OUT_OF_HOST_MEMORY;
-            goto fail_present;
+         VkPipelineStageFlags *stage_flags = NULL;
+         if (i == 0) {
+            /* We only need/want to wait on semaphores once.  After that, we're
+             * guaranteed ordering since it all happens on the same queue.
+             */
+            submit_info.waitSemaphoreCount = pPresentInfo->waitSemaphoreCount;
+            submit_info.pWaitSemaphores = pPresentInfo->pWaitSemaphores;
+
+            /* Set up the pWaitDstStageMasks */
+            stage_flags = vk_alloc(&swapchain->alloc,
+                                   sizeof(VkPipelineStageFlags) *
+                                   pPresentInfo->waitSemaphoreCount,
+                                   8,
+                                   VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+            if (!stage_flags) {
+               result = VK_ERROR_OUT_OF_HOST_MEMORY;
+               goto fail_present;
+            }
+            for (uint32_t s = 0; s < pPresentInfo->waitSemaphoreCount; s++)
+               stage_flags[s] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+            submit_info.pWaitDstStageMask = stage_flags;
          }
-         for (uint32_t s = 0; s < pPresentInfo->waitSemaphoreCount; s++)
-            stage_flags[s] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 
-         submit_info.pWaitDstStageMask = stage_flags;
+         if (swapchain->use_prime_blit) {
+            /* If we are using prime blits, we need to perform the blit now.  The
+             * command buffer is attached to the image.
+             */
+            submit_info.commandBufferCount = 1;
+            submit_info.pCommandBuffers =
+               &image->prime.blit_cmd_buffers[queue_family_index];
+            mem_signal.memory = image->prime.memory;
+         }
+
+         result = wsi->ResetFences(device, 1, &swapchain->fences[image_index]);
+         if (result != VK_SUCCESS)
+            goto fail_present;
+
+         result = wsi->QueueSubmit(queue, 1, &submit_info, swapchain->fences[image_index]);
+         vk_free(&swapchain->alloc, stage_flags);
+         if (result != VK_SUCCESS)
+            goto fail_present;
       }
-
-      if (swapchain->use_prime_blit) {
-         /* If we are using prime blits, we need to perform the blit now.  The
-          * command buffer is attached to the image.
-          */
-         submit_info.commandBufferCount = 1;
-         submit_info.pCommandBuffers =
-            &image->prime.blit_cmd_buffers[queue_family_index];
-         mem_signal.memory = image->prime.memory;
-      }
-
-      result = wsi->ResetFences(device, 1, &swapchain->fences[image_index]);
-      if (result != VK_SUCCESS)
-         goto fail_present;
-
-      result = wsi->QueueSubmit(queue, 1, &submit_info, swapchain->fences[image_index]);
-      vk_free(&swapchain->alloc, stage_flags);
-      if (result != VK_SUCCESS)
-         goto fail_present;
 
       const VkPresentRegionKHR *region = NULL;
       if (regions && regions->pRegions)
