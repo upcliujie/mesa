@@ -1138,3 +1138,24 @@ pandecode_jc(mali_ptr jc_gpu_va, bool bifrost, unsigned gpu_id, bool minimal)
 
         pandecode_map_read_write();
 }
+
+void
+pandecode_abort_on_fault(mali_ptr jc_gpu_va)
+{
+        mali_ptr next_job = 0;
+
+        do {
+                struct pandecode_mapped_memory *mem =
+                        pandecode_find_mapped_gpu_mem_containing(jc_gpu_va);
+
+                pan_unpack(PANDECODE_PTR(mem, jc_gpu_va, struct mali_job_header_packed),
+                           JOB_HEADER, h);
+                next_job = h.next;
+
+                /* Ensure the job is marked COMPLETE */
+                if (h.exception_status != 0x1)
+                        unreachable("Incomplete job or timeout");
+        } while ((jc_gpu_va = next_job));
+
+        pandecode_map_read_write();
+}
