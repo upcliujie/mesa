@@ -627,6 +627,9 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
    struct sw_winsys *winsys = screen->winsys;
    const struct util_format_description *format_desc;
 
+   if (bind & PIPE_BIND_INDEX_BUFFER && format == PIPE_FORMAT_I8_UINT)
+      return true;
+
    format_desc = util_format_description(format);
    if (!format_desc)
       return false;
