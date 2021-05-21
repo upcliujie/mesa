@@ -1069,6 +1069,7 @@ meson-ppc64el:
   extends:
     - .meson-cross
     - .use-ppc64el_build
+    - .ppc64el-rules
   variables:
     CROSS: ppc64el
     GALLIUM_DRIVERS: "nouveau,radeonsi,swrast,virgl,zink"
