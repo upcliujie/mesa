@@ -88,6 +88,7 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
       return 0;
 
    case PIPE_CAP_SUPPORTED_PRIM_MODES:
+   case PIPE_CAP_SUPPORTED_RESTART_MODES:
       return BITFIELD_MASK(PIPE_PRIM_MAX);
 
    case PIPE_CAP_MIN_TEXEL_OFFSET:
