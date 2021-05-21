@@ -1957,7 +1957,9 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          brw_set_default_exec_size(p, BRW_EXECUTE_16);
          brw_set_default_mask_control(p, BRW_MASK_DISABLE);
          brw_set_default_predicate_control(p, BRW_PREDICATE_NONE);
+         brw_gfx12hp_swsb_stall(p, true);
          brw_MOV(p, brw_acc_reg(8), brw_imm_f(0.0f));
+         brw_gfx12hp_swsb_stall(p, false);
          last_insn_offset = p->next_insn_offset;
       }
 
