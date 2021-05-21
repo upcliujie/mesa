@@ -1075,7 +1075,9 @@ meson-ppc64el:
     VULKAN_DRIVERS: "amd,swrast"
 
 meson-mingw32-x86_64:
-  extends: .meson-build
+  extends:
+    - .meson-build
+    - .windows-build-rules
   stage: build-misc
   variables:
     UNWIND: "disabled"
