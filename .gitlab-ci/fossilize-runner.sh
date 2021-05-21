@@ -7,14 +7,12 @@ if [ -z "$VK_DRIVER" ]; then
    exit 1
 fi
 
-INSTALL=`pwd`/install
-
 # Set up the driver environment.
-export LD_LIBRARY_PATH=`pwd`/install/lib/
-export VK_ICD_FILENAMES=`pwd`/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.x86_64.json
+export LD_LIBRARY_PATH=/install/lib/
+export VK_ICD_FILENAMES=/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.x86_64.json
 
 # To store Fossilize logs on failure.
 RESULTS=`pwd`/results
 mkdir -p results
 
-"$INSTALL/fossils/fossils.sh" "$INSTALL/fossils.yml" "$RESULTS"
+"/install/fossils/fossils.sh" "/install/fossils.yml" "$RESULTS"

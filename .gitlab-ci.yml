@@ -1101,9 +1101,9 @@ meson-mingw32-x86_64:
     GIT_STRATEGY: none # testing doesn't build anything from source
   before_script:
     # Note: Build dir (and thus install) may be dirty due to GIT_STRATEGY
-    - rm -rf install
+    - rm -rf /install
     - tar -xf artifacts/install.tar
-    - LD_LIBRARY_PATH=install/lib find install/lib -name "*.so" -print -exec ldd {} \;
+    - LD_LIBRARY_PATH=/install/lib find /install/lib -name "*.so" -print -exec ldd {} \;
   artifacts:
     when: always
     name: "mesa_${CI_JOB_NAME}"
@@ -1157,7 +1157,7 @@ meson-mingw32-x86_64:
   variables:
     PIGLIT_NO_WINDOW: 1
   script:
-    - install/piglit/run.sh
+    - /install/piglit/run.sh
 
 .piglit-traces-test:
   extends:
@@ -1181,7 +1181,7 @@ meson-mingw32-x86_64:
 
 .deqp-test:
   script:
-    - ./install/deqp-runner.sh
+    - /install/deqp-runner.sh
   artifacts:
     exclude:
       - results/*.shader_cache
@@ -1196,7 +1196,7 @@ meson-mingw32-x86_64:
 
 .fossilize-test:
   script:
-    - ./install/fossilize-runner.sh
+    - /install/fossilize-runner.sh
   artifacts:
     when: on_failure
     name: "mesa_${CI_JOB_NAME}"

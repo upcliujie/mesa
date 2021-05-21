@@ -20,7 +20,7 @@ Layout:
 Note on paths:
 --------------
 
-Gitlab CI uses an install-path of \`pwd\`/install.  If you use something
+Gitlab CI uses an install-path of /install.  If you use something
 different, then setup a symlink.  Once that is done, to update reference
 decodes (ie. to account for register .xml changes) run:
 
