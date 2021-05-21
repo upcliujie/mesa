@@ -1522,6 +1522,7 @@ cso_draw_vbo(struct cso_context *cso,
           indirect->count_from_stream_output == NULL);
 
    if (vbuf) {
+      u_vbuf_set_flatshade_first(vbuf, cso->flatshade_first);
       u_vbuf_draw_vbo(vbuf, info, drawid_offset, indirect, draw);
    } else {
       struct pipe_context *pipe = cso->pipe;
@@ -1540,6 +1541,7 @@ cso_multi_draw(struct cso_context *cso,
    struct u_vbuf *vbuf = cso->vbuf_current;
 
    if (vbuf) {
+      u_vbuf_set_flatshade_first(vbuf, cso->flatshade_first);
       /* Increase refcount to be able to use take_index_buffer_ownership with
        * all draws.
        */
