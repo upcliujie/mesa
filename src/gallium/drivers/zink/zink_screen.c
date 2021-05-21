@@ -227,6 +227,8 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    switch (param) {
    case PIPE_CAP_ANISOTROPIC_FILTER:
       return screen->info.feats.features.samplerAnisotropy;
+   case PIPE_CAP_REWRITE_UNFIXED_RESTART_INDICES:
+      return 1;
 
    case PIPE_CAP_QUERY_MEMORY_INFO:
    case PIPE_CAP_NPOT_TEXTURES:
