@@ -1268,6 +1268,9 @@ static void u_vbuf_set_driver_vertex_buffers(struct u_vbuf *mgr)
    struct pipe_context *pipe = mgr->pipe;
    unsigned start_slot, count;
 
+   if (!mgr->dirty_real_vb_mask)
+      return;
+
    start_slot = ffs(mgr->dirty_real_vb_mask) - 1;
    count = util_last_bit(mgr->dirty_real_vb_mask >> start_slot);
 
