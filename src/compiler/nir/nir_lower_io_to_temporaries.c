@@ -266,7 +266,8 @@ fixup_interpolation(struct lower_io_state *state, nir_function_impl *impl,
          if (interp->intrinsic == nir_intrinsic_interp_deref_at_centroid ||
              interp->intrinsic == nir_intrinsic_interp_deref_at_sample ||
              interp->intrinsic == nir_intrinsic_interp_deref_at_offset ||
-             interp->intrinsic == nir_intrinsic_interp_deref_at_vertex) {
+             interp->intrinsic == nir_intrinsic_interp_deref_at_vertex ||
+             interp->intrinsic == nir_intrinsic_load_deref) {
             fixup_interpolation_instr(state, interp, b);
          }
       }
