@@ -178,6 +178,7 @@ struct range {
 struct range_info {
    struct range *ranges;
    unsigned count, max;
+   unsigned min_index, max_index;
 };
 
 
@@ -210,6 +211,8 @@ add_range(enum pipe_prim_type mode, struct range_info *info, unsigned start, uns
 
       info->max *= 2;
    }
+   info->min_index = MIN2(info->min_index, start);
+   info->max_index = MIN2(info->max_index, start + count - 1);
 
    /* save the range */
    info->ranges[info->count].start = start;
