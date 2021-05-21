@@ -822,6 +822,9 @@ zink_is_format_supported(struct pipe_screen *pscreen,
       return screen->info.props.limits.framebufferNoAttachmentsSampleCounts &
              vk_sample_count_flags(sample_count);
 
+   if (bind & PIPE_BIND_INDEX_BUFFER && format == PIPE_FORMAT_I8_UINT)
+      return true;
+
    VkFormat vkformat = zink_get_format(screen, format);
    if (vkformat == VK_FORMAT_UNDEFINED)
       return false;
