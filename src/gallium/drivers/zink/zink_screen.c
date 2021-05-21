@@ -825,7 +825,7 @@ zink_is_format_supported(struct pipe_screen *pscreen,
              vk_sample_count_flags(sample_count);
 
    if (bind & PIPE_BIND_INDEX_BUFFER && format == PIPE_FORMAT_I8_UINT)
-      return true;
+      return screen->info.have_EXT_index_type_uint8;
 
    VkFormat vkformat = zink_get_format(screen, format);
    if (vkformat == VK_FORMAT_UNDEFINED)
