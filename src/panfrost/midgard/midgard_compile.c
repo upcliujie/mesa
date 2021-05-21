@@ -3246,7 +3246,7 @@ midgard_compile_shader_nir(nir_shader *nir,
 
                 /* Dump stats */
 
-                fprintf(stderr, "%s - %s shader: "
+                fprintf(stderr, "%s - %s  shader: "
                         "%u inst, %u bundles, %u quadwords, "
                         "%u registers, %u threads, %u loops, "
                         "%u:%u spills:fills\n",
