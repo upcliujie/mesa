@@ -7,12 +7,10 @@ if [ -z "$GPU_VERSION" ]; then
    exit 1
 fi
 
-INSTALL=`pwd`/install
-
 # Set up the driver environment.
-export LD_LIBRARY_PATH=`pwd`/install/lib/
+export LD_LIBRARY_PATH=/install/lib/
 export EGL_PLATFORM=surfaceless
-export VK_ICD_FILENAMES=`pwd`/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.${VK_CPU:-`uname -m`}.json
+export VK_ICD_FILENAMES=/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.${VK_CPU:-`uname -m`}.json
 
 RESULTS=`pwd`/${PIGLIT_RESULTS_DIR:-results}
 mkdir -p $RESULTS
@@ -28,16 +26,16 @@ if [ -n "$CI_NODE_INDEX" ]; then
    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --fraction-start ${CI_NODE_INDEX}"
 fi
 
-if [ -e "$INSTALL/piglit-$GPU_VERSION-fails.txt" ]; then
-    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --baseline $INSTALL/piglit-$GPU_VERSION-fails.txt"
+if [ -e "/install/piglit-$GPU_VERSION-fails.txt" ]; then
+    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --baseline /install/piglit-$GPU_VERSION-fails.txt"
 fi
 
-if [ -e "$INSTALL/piglit-$GPU_VERSION-flakes.txt" ]; then
-    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --flakes $INSTALL/piglit-$GPU_VERSION-flakes.txt"
+if [ -e "/install/piglit-$GPU_VERSION-flakes.txt" ]; then
+    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --flakes /install/piglit-$GPU_VERSION-flakes.txt"
 fi
 
-if [ -e "$INSTALL/piglit-$GPU_VERSION-skips.txt" ]; then
-    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --skips $INSTALL/piglit-$GPU_VERSION-skips.txt"
+if [ -e "/install/piglit-$GPU_VERSION-skips.txt" ]; then
+    PIGLIT_RUNNER_OPTIONS="$PIGLIT_RUNNER_OPTIONS --skips /install/piglit-$GPU_VERSION-skips.txt"
 fi
 
 set +e

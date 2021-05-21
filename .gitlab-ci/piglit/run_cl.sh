@@ -3,16 +3,16 @@
 set -e
 set -o xtrace
 
-VERSION=`cat install/VERSION`
+VERSION=`cat /install/VERSION`
 
 rm -rf results
 cd /piglit
 
-export OCL_ICD_VENDORS=$OLDPWD/install/etc/OpenCL/vendors/
+export OCL_ICD_VENDORS=/install/etc/OpenCL/vendors/
 
 set +e
 unset DISPLAY
-export LD_LIBRARY_PATH=$OLDPWD/install/lib
+export LD_LIBRARY_PATH=/install/lib
 clinfo
 
 # If the job is parallel at the gitlab job level, will take the corresponding
@@ -55,10 +55,10 @@ if [ -n "$USE_CASELIST" ]; then
     # executed, and switch to the version with no summary
     cat .gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig | sed '/^summary:/Q' | rev \
          | cut -f2- -d: | rev | sed "s/$/:/g" > /tmp/executed.txt
-    grep -F -f /tmp/executed.txt $OLDPWD/install/$PIGLIT_RESULTS.txt \
+    grep -F -f /tmp/executed.txt /install/$PIGLIT_RESULTS.txt \
          > .gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline || true
 else
-    cp $OLDPWD/install/$PIGLIT_RESULTS.txt .gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline
+    cp /install/$PIGLIT_RESULTS.txt .gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline
 fi
 
 if diff -q .gitlab-ci/piglit/$PIGLIT_RESULTS.txt{.baseline,}; then

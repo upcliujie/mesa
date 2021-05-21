@@ -21,10 +21,10 @@ fi
 mkdir -p $output
 
 # binary locations:
-cffdump=./install/bin/cffdump
-crashdec=./install/bin/crashdec
-asm=./install/bin/afuc-asm
-disasm=./install/bin/afuc-disasm
+cffdump=/install/bin/cffdump
+crashdec=/install/bin/crashdec
+asm=/install/bin/afuc-asm
+disasm=/install/bin/afuc-disasm
 
 # helper to filter out paths that can change depending on
 # who is building and assert messages that can change

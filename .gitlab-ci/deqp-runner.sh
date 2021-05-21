@@ -29,12 +29,10 @@ if [ -z "$GPU_VERSION" ]; then
    exit 1
 fi
 
-INSTALL=`pwd`/install
-
 # Set up the driver environment.
-export LD_LIBRARY_PATH=`pwd`/install/lib/
+export LD_LIBRARY_PATH=/install/lib/
 export EGL_PLATFORM=surfaceless
-export VK_ICD_FILENAMES=`pwd`/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.${VK_CPU:-`uname -m`}.json
+export VK_ICD_FILENAMES=/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.${VK_CPU:-`uname -m`}.json
 
 # the runner was failing to look for libkms in /usr/local/lib for some reason
 # I never figured out.
@@ -87,18 +85,18 @@ if [ ! -s /tmp/case-list.txt ]; then
     exit 1
 fi
 
-if [ -e "$INSTALL/deqp-$GPU_VERSION-fails.txt" ]; then
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --baseline $INSTALL/deqp-$GPU_VERSION-fails.txt"
+if [ -e "/install/deqp-$GPU_VERSION-fails.txt" ]; then
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --baseline /install/deqp-$GPU_VERSION-fails.txt"
 fi
 
-if [ -e "$INSTALL/deqp-$GPU_VERSION-flakes.txt" ]; then
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --flakes $INSTALL/deqp-$GPU_VERSION-flakes.txt"
+if [ -e "/install/deqp-$GPU_VERSION-flakes.txt" ]; then
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --flakes /install/deqp-$GPU_VERSION-flakes.txt"
 fi
 
-if [ -e "$INSTALL/deqp-$GPU_VERSION-skips.txt" ]; then
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips $INSTALL/deqp-$GPU_VERSION-skips.txt"
+if [ -e "/install/deqp-$GPU_VERSION-skips.txt" ]; then
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips /install/deqp-$GPU_VERSION-skips.txt"
 else
-    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips $INSTALL/deqp-default-skips.txt"
+    DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --skips /install/deqp-default-skips.txt"
 fi
 
 set +e

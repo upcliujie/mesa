@@ -10,7 +10,7 @@
     GPU_VERSION: vc4-rpi3
     DEQP_EXPECTED_RENDERER: VC4
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - /install/bare-metal/poe-powered.sh
   needs:
     - job: arm_test
       artifacts: false
@@ -90,7 +90,7 @@ vc4-rpi3-piglit-quick_shader:armhf:
     DEQP_EXPECTED_RENDERER: V3D
     GPU_VERSION: v3d-rpi4
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - /install/bare-metal/poe-powered.sh
   needs:
     - arm_test
     - meson-armhf
@@ -178,7 +178,7 @@ v3dv-rpi4-vk:armhf:
     VK_CPU: arm7hlf
     VK_DRIVER: broadcom
   script:
-    - ./install/bare-metal/poe-powered.sh
+    - /install/bare-metal/poe-powered.sh
   needs:
     - arm_test
     - meson-armhf
