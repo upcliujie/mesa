@@ -191,6 +191,7 @@ struct wsi_device {
    WSI_CB(GetPhysicalDeviceFormatProperties);
    WSI_CB(GetPhysicalDeviceFormatProperties2KHR);
    WSI_CB(GetPhysicalDeviceImageFormatProperties2);
+   WSI_CB(GetSemaphoreFdKHR);
    WSI_CB(ImportFenceFdKHR);
    WSI_CB(ImportSemaphoreFdKHR);
    WSI_CB(ResetFences);
@@ -306,7 +307,7 @@ wsi_common_destroy_swapchain(VkDevice device,
                              const VkAllocationCallbacks *pAllocator);
 
 VkResult
-wsi_common_queue_present(const struct wsi_device *wsi,
+wsi_common_queue_present(struct wsi_device *wsi,
                          VkDevice device_h,
                          VkQueue queue_h,
                          int queue_family_index,
