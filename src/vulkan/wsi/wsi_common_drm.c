@@ -43,6 +43,7 @@ struct dma_buf_sync_file_wsi {
 };
 
 #define DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI   _IOWR(DMA_BUF_BASE, 2, struct dma_buf_sync_file_wsi)
+#define DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI   _IOW(DMA_BUF_BASE, 3, struct dma_buf_sync_file_wsi)
 
 static VkResult
 wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)
@@ -63,11 +64,37 @@ wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)
          no_dma_buf_sync_file = true;
          return VK_ERROR_FEATURE_NOT_PRESENT;
       } else {
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
+         return VK_ERROR_UNKNOWN;
       }
    }
 
    *sync_file_fd = dma_buf_sync_file_export.fd;
+
+   return VK_SUCCESS;
+}
+
+static VkResult
+wsi_dma_buf_import_sync_file(int dma_buf_fd, int sync_file_fd)
+{
+   /* Don't keep trying an IOCTL that doesn't exist. */
+   static bool no_dma_buf_sync_file = false;
+   if (no_dma_buf_sync_file)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   struct dma_buf_sync_file_wsi dma_buf_sync_file_import = {
+      .flags = DMA_BUF_SYNC_RW,
+      .fd = sync_file_fd,
+   };
+   int ret = drmIoctl(dma_buf_fd, DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI,
+                      &dma_buf_sync_file_import);
+   if (ret) {
+      if (errno == ENOTTY) {
+         no_dma_buf_sync_file = true;
+         return VK_ERROR_FEATURE_NOT_PRESENT;
+      } else {
+         return VK_ERROR_UNKNOWN;
+      }
+   }
 
    return VK_SUCCESS;
 }
@@ -125,6 +152,97 @@ wsi_signal_fence_for_dma_buf(const struct wsi_swapchain *chain,
    if (result != VK_SUCCESS)
       close(sync_file_fd);
 
+   return result;
+}
+
+static VkResult
+wsi_get_sync_file_for_semaphores(const struct wsi_swapchain *chain,
+                                 uint32_t semaphore_count,
+                                 const VkSemaphore *semaphores,
+                                 int *fd_out)
+{
+   if (chain->wsi->GetSemaphoreFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int fd = -1;
+   VkResult result = VK_SUCCESS;
+   for (uint32_t i = 0; i < semaphore_count; i++) {
+      int sem_fd;
+      const VkSemaphoreGetFdInfoKHR get_info = {
+         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+         .semaphore = semaphores[i],
+         .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+      };
+      result = chain->wsi->GetSemaphoreFdKHR(chain->device, &get_info, &sem_fd);
+      if (result != VK_SUCCESS)
+         break;
+
+      if (fd < 0) {
+         fd = sem_fd;
+      } else {
+         struct sync_merge_data merge = {
+            .name = "Mesa VKWSI",
+            .fd2 = sem_fd,
+            .fence = -1,
+         };
+         int ret = drmIoctl(fd, SYNC_IOC_MERGE, &merge);
+         if (ret) {
+            result = VK_ERROR_UNKNOWN;
+            break;
+         }
+      }
+   }
+
+   if (result == VK_SUCCESS) {
+      *fd_out = fd;
+   } else if (fd >= 0) {
+      close(fd);
+   }
+
+   return result;
+}
+
+VkResult
+wsi_signal_dma_buf_and_fence_for_semaphores(const struct wsi_swapchain *chain,
+                                            int dma_buf_fd,
+                                            VkFence fence,
+                                            uint32_t semaphore_count,
+                                            const VkSemaphore *semaphores)
+{
+   VkResult result;
+
+   if (chain->wsi->GetSemaphoreFdKHR == NULL ||
+       chain->wsi->ImportFenceFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int sync_file_fd = -1;
+   result = wsi_get_sync_file_for_semaphores(chain, semaphore_count,
+                                             semaphores, &sync_file_fd);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   result = wsi_dma_buf_import_sync_file(dma_buf_fd, sync_file_fd);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   const VkImportFenceFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR,
+      .fence = fence,
+      .flags = VK_FENCE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+
+      /* vkImportFenceFdKHR takes ownership of the fd */
+      .fd = sync_file_fd,
+   };
+   result = chain->wsi->ImportFenceFdKHR(chain->device, &import_info);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   return VK_SUCCESS;
+
+fail:
+   if (sync_file_fd >= 0)
+      close(sync_file_fd);
    return result;
 }
 
