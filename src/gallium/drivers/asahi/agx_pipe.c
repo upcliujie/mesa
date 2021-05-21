@@ -598,7 +598,6 @@ agx_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 
    case PIPE_CAP_OCCLUSION_QUERY:
    case PIPE_CAP_PRIMITIVE_RESTART:
-   case PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX:
       return true;
 
    case PIPE_CAP_SAMPLER_VIEW_TARGET:
