@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BM=$CI_PROJECT_DIR/install/bare-metal
+BM=/install/bare-metal
 
 if [ -z "$BM_SERIAL" -a -z "$BM_SERIAL_SCRIPT" ]; then
   echo "Must set BM_SERIAL OR BM_SERIAL_SCRIPT in your gitlab-runner config.toml [[runners]] environment"

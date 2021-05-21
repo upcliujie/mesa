@@ -2,8 +2,6 @@
 
 set -ex
 
-INSTALL=$(realpath -s "$PWD"/install)
-
 RESULTS=$(realpath -s "$PWD"/results)
 mkdir -p "$RESULTS"
 
@@ -11,18 +9,18 @@ mkdir -p "$RESULTS"
 # Modifiying here directly LD_LIBRARY_PATH may cause problems when
 # using a command wrapper. Hence, we will just set it when running the
 # command.
-export __LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$INSTALL/lib/"
+export __LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/install/lib/"
 
 # Sanity check to ensure that our environment is sufficient to make our tests
 # run against the Mesa built by CI, rather than any installed distro version.
-MESA_VERSION=$(cat "$INSTALL/VERSION" | sed 's/\./\\./g')
+MESA_VERSION=$(cat "/install/VERSION" | sed 's/\./\\./g')
 
 if [ "$VK_DRIVER" ]; then
 
     ### VULKAN ###
 
     # Set the Vulkan driver to use.
-    export VK_ICD_FILENAMES="$INSTALL/share/vulkan/icd.d/${VK_DRIVER}_icd.x86_64.json"
+    export VK_ICD_FILENAMES="/install/share/vulkan/icd.d/${VK_DRIVER}_icd.x86_64.json"
 
     if [ "x$PIGLIT_PROFILES" = "xreplay" ]; then
         # Set environment for Wine.
@@ -104,7 +102,7 @@ else
 fi
 
 if [ "$ZINK_USE_LAVAPIPE" ]; then
-    export VK_ICD_FILENAMES="$INSTALL/share/vulkan/icd.d/lvp_icd.x86_64.json"
+    export VK_ICD_FILENAMES="/install/share/vulkan/icd.d/lvp_icd.x86_64.json"
 fi
 
 # If the job is parallel at the  gitlab job level, will take the corresponding
@@ -242,10 +240,10 @@ if [ -n "$USE_CASELIST" ]; then
     cat ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig" | sed '/^summary:/Q' | rev \
         | cut -f2- -d: | rev | sed "s/$/:/g" > /tmp/executed.txt
 
-    grep -F -f /tmp/executed.txt "$INSTALL/$PIGLIT_RESULTS.txt" \
+    grep -F -f /tmp/executed.txt "/install/$PIGLIT_RESULTS.txt" \
        > ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" || true
-elif [ -f "$INSTALL/$PIGLIT_RESULTS.txt" ]; then
-    cp "$INSTALL/$PIGLIT_RESULTS.txt" \
+elif [ -f "/install/$PIGLIT_RESULTS.txt" ]; then
+    cp "/install/$PIGLIT_RESULTS.txt" \
        ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline"
 else
     touch ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline"
