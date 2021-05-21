@@ -55,8 +55,8 @@ static bool
 nir_opt_move_block(nir_block *block, nir_move_options options)
 {
    bool progress = false;
-   unsigned index = nir_block_ends_in_jump(block) ? 0 : 1;
-   nir_instr *last_instr = index == 0 ? nir_block_last_instr(block) : NULL;
+   nir_instr *last_instr = nir_block_ends_in_jump(block) ?
+                           nir_block_last_instr(block) : NULL;
    const nir_if *iff = nir_block_get_following_if(block);
    const nir_instr *if_cond_instr = iff ? iff->condition.parent_instr : NULL;
 
@@ -67,6 +67,7 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
     * If multiple instructions have the same user,
     * the original order is kept.
     */
+   unsigned index =  1;
    nir_foreach_instr_reverse_safe(instr, block) {
       instr->index = index++;
 
