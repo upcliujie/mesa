@@ -768,10 +768,43 @@ emit_block(agx_context *ctx, nir_block *block)
    return blk;
 }
 
+static agx_block *
+emit_cf_list(agx_context *ctx, struct exec_list *list);
+
+/* Emit if-else as
+ *
+ *    if_icmp cond != 0
+ *       ...
+ *    else_icmp cond == 0
+ *       ...
+ *    pop_exec
+ *
+ * This is not usually optimal, but it's a start.
+ */
+
 static void
 emit_if(agx_context *ctx, nir_if *nif)
 {
-   unreachable("if-statements todo");
+   agx_block *before_block = ctx->current_block;
+
+   agx_builder _b = agx_init_builder(ctx, agx_after_block(ctx->current_block));
+   agx_index cond = agx_src_index(&nif->condition);
+   agx_instr *if_ = agx_if_icmp(&_b, cond, agx_zero(), 1, AGX_ICOND_UEQ, true);
+   ctx->loop_nesting++;
+
+   /* Emit the two subblocks. */
+   agx_block *then_block = emit_cf_list(ctx, &nif->then_list);
+   agx_block *end_then_block = ctx->current_block;
+
+   _b.cursor = agx_after_block(ctx->current_block);
+   agx_instr *else_ = agx_else_icmp(&_b, cond, agx_zero(), 1, AGX_ICOND_UEQ, false);
+
+   agx_block *else_block = emit_cf_list(ctx, &nif->else_list);
+   _b.cursor = agx_after_block(ctx->current_block);
+   agx_instr *pop = agx_pop_exec(&_b, 1);
+   ctx->loop_nesting--;
+
+   /* TODO: control flow graph(s) */
 }
 
 static void
