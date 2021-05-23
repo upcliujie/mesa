@@ -50,18 +50,27 @@ agx_ra(agx_context *ctx)
          unsigned size = ins->dest[0].size == AGX_SIZE_32 ? 2 : 1;
          if (size == 2 && usage & 1) usage++;
          unsigned base = usage;
-         assert(ins->dest[0].type == AGX_INDEX_NORMAL);
-         alloc[ins->dest[0].value] = base;
-         usage += (components * size);
+
+         if (ins->dest[0].type == AGX_INDEX_REGISTER) {
+            base = ins->dest[0].value;
+         } else {
+            assert(ins->dest[0].type == AGX_INDEX_NORMAL);
+            alloc[ins->dest[0].value] = base;
+            usage += (components * size);
+         }
 
          /* Move the sources */
          agx_builder b = agx_init_builder(ctx, agx_after_instr(ins));
 
          for (unsigned i = 0; i < 4; ++i) {
             if (agx_is_null(ins->src[i])) continue;
-            assert(ins->src[0].type == AGX_INDEX_NORMAL);
+            agx_index src = ins->src[i];
+
+            if (src.type == AGX_INDEX_NORMAL)
+               src = agx_register(alloc[src.value], src.size);
+
             agx_mov_to(&b, agx_register(base + (i * size), ins->dest[0].size),
-                  agx_register(alloc[ins->src[i].value], ins->src[0].size));
+                  src);
          }
 
          /* We've lowered away, delete the old */
@@ -69,11 +78,16 @@ agx_ra(agx_context *ctx)
          continue;
       } else if (ins->op == AGX_OPCODE_P_EXTRACT) {
          assert(ins->dest[0].type == AGX_INDEX_NORMAL);
-         assert(ins->src[0].type == AGX_INDEX_NORMAL);
          assert(ins->dest[0].size == ins->src[0].size);
+         unsigned base = ins->src[0].value;
+
+         if (ins->src[0].type != AGX_INDEX_REGISTER) {
+            assert(ins->src[0].type == AGX_INDEX_NORMAL);
+            base = alloc[base];
+         }
 
          unsigned size = ins->dest[0].size == AGX_SIZE_32 ? 2 : 1;
-         alloc[ins->dest[0].value] = alloc[ins->src[0].value] + (size * ins->imm);
+         alloc[ins->dest[0].value] = base + (size * ins->imm);
          agx_remove_instruction(ins);
          continue;
       }
