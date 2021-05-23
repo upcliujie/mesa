@@ -816,6 +816,12 @@ llvmpipe_get_timestamp(struct pipe_screen *_screen)
    return os_time_get_nano();
 }
 
+static void update_cache_sha1_cpu(struct mesa_sha1 *ctx)
+{
+   const struct util_cpu_caps_t *cpu_caps = util_get_cpu_caps();
+   _mesa_sha1_update(ctx, cpu_caps, 5 * sizeof(uint32_t));
+}
+
 static void lp_disk_cache_create(struct llvmpipe_screen *screen)
 {
    struct mesa_sha1 ctx;
@@ -830,6 +836,7 @@ static void lp_disk_cache_create(struct llvmpipe_screen *screen)
 
    _mesa_sha1_update(&ctx, &gallivm_perf, sizeof(gallivm_perf));
    _mesa_sha1_final(&ctx, sha1);
+   update_cache_sha1_cpu(&ctx);
    disk_cache_format_hex_id(cache_id, sha1, 20 * 2);
 
    screen->disk_shader_cache = disk_cache_create("llvmpipe", cache_id, 0);
