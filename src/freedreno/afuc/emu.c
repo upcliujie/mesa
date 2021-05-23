@@ -93,7 +93,9 @@ emu_alu(struct emu *emu, afuc_opc opc, uint32_t src1, uint32_t src2)
          return 0x2b;
       return 0x1e;
    case OPC_MSB:
-      return util_last_bit(src2);
+      if (!src2)
+         return 0;
+      return util_last_bit(src2) - 1;
    default:
       printf("unhandled alu opc: 0x%02x\n", opc);
       exit(1);

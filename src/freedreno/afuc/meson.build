@@ -62,6 +62,7 @@ disasm = executable(
     'disasm.c',
     'emu.c',
     'emu.h',
+    'emu-ds.c',
     'emu-regs.c',
     'emu-ui.c',
     'util.c',

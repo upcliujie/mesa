@@ -35,10 +35,23 @@
  * Handles access to GPR, GPU, control, and pipe registers.
  */
 
+static bool
+is_draw_state_control_reg(unsigned n)
+{
+   char *reg_name = afuc_control_reg_name(n);
+   if (!reg_name)
+      return false;
+   bool ret = !!strstr(reg_name, "DRAW_STATE");
+   free(reg_name);
+   return ret;
+}
+
 uint32_t
 emu_get_control_reg(struct emu *emu, unsigned n)
 {
    assert(n < ARRAY_SIZE(emu->control_regs.val));
+   if (is_draw_state_control_reg(n))
+      return emu_get_draw_state_reg(emu, n);
    return emu->control_regs.val[n];
 }
 
@@ -70,6 +83,8 @@ emu_set_control_reg(struct emu *emu, unsigned n, uint32_t val)
 
       emu_set_gpu_reg(emu, write_addr++, val);
       emu_set_control_reg(emu, reg_write_addr, write_addr | (flags << 16));
+   } else if (is_draw_state_control_reg(n)) {
+      emu_set_draw_state_reg(emu, n, val);
    }
 }
 
@@ -298,4 +313,62 @@ emu_set_gpr_reg(struct emu *emu, unsigned n, uint32_t val)
       BITSET_SET(emu->gpr_regs.written, n);
       break;
    }
+}
+
+/*
+ * Control/pipe register accessor helpers:
+ */
+
+struct emu_reg_accessor {
+   unsigned (*get_offset)(const char *name);
+   uint32_t (*get)(struct emu *emu, unsigned n);
+   void (*set)(struct emu *emu, unsigned n, uint32_t val);
+};
+
+const struct emu_reg_accessor emu_control_accessor = {
+      .get_offset = afuc_control_reg,
+      .get = emu_get_control_reg,
+      .set = emu_set_control_reg,
+};
+
+const struct emu_reg_accessor emu_pipe_accessor = {
+      .get_offset = afuc_pipe_reg,
+      .get = emu_get_pipe_reg,
+      .set = emu_set_pipe_reg,
+};
+
+unsigned
+emu_reg_offset(struct emu_reg *reg)
+{
+   if (reg->offset == ~0)
+      reg->offset = reg->accessor->get_offset(reg->name);
+   return reg->offset;
+}
+
+uint32_t
+emu_get_reg32(struct emu *emu, struct emu_reg *reg)
+{
+   return reg->accessor->get(emu, emu_reg_offset(reg));
+}
+
+uint64_t
+emu_get_set64(struct emu *emu, struct emu_reg *reg)
+{
+   uint64_t val = reg->accessor->get(emu, emu_reg_offset(reg) + 1);
+   val <<= 32;
+   val |= reg->accessor->get(emu, emu_reg_offset(reg));
+   return val;
+}
+
+void
+emu_set_reg32(struct emu *emu, struct emu_reg *reg, uint32_t val)
+{
+   reg->accessor->set(emu, emu_reg_offset(reg), val);
+}
+
+void
+emu_set_reg64(struct emu *emu, struct emu_reg *reg, uint64_t val)
+{
+   reg->accessor->set(emu, emu_reg_offset(reg),     val);
+   reg->accessor->set(emu, emu_reg_offset(reg) + 1, val >> 32);
 }

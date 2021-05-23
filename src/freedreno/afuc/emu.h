@@ -102,6 +102,20 @@ emu_queue_pop(struct emu_queue *q, uint32_t *val)
 }
 
 /**
+ * Draw-state (ie. CP_SET_DRAW_STATE) related emulation
+ */
+struct emu_draw_state {
+   unsigned write_idx;
+   struct {
+      uint32_t hdr;
+      union {
+         uint32_t base[2];
+         uint64_t base64;
+      };
+   } state[32];
+};
+
+/**
  * The GPU memory size:
  *
  * The size is a bit arbitrary, and could be increased.  The backing
@@ -133,6 +147,8 @@ struct emu {
    struct emu_pipe_regs    pipe_regs;
    struct emu_gpu_regs     gpu_regs;
    struct emu_gpr_regs     gpr_regs;
+
+   struct emu_draw_state   draw_state;
 
    /* branch target to jump to after next instruction (ie. after delay-
     * slot):
@@ -212,7 +228,39 @@ void emu_set_gpu_reg(struct emu *emu, unsigned n, uint32_t val);
 uint32_t emu_get_control_reg(struct emu *emu, unsigned n);
 void emu_set_control_reg(struct emu *emu, unsigned n, uint32_t val);
 
+/* Register helpers for fixed fxn emulation, to avoid lots of boilerplate
+ * for accessing other pipe/control registers.
+ *
+ * Example:
+ *    EMU_CONTROL_REG(REG_NAME);
+ *    val = emu_get_reg32(emu, &SOME_REG);
+ */
 
+struct emu_reg_accessor;
+
+struct emu_reg {
+   const char *name;
+   const struct emu_reg_accessor *accessor;
+   unsigned offset;
+};
+
+extern const struct emu_reg_accessor emu_control_accessor;
+extern const struct emu_reg_accessor emu_pipe_accessor;
+
+#define EMU_CONTROL_REG(name) static struct emu_reg name = { #name, &emu_control_accessor, ~0 }
+#define EMU_PIPE_REG(name)    static struct emu_reg name = { #name, &emu_control_accessor, ~0 }
+
+unsigned emu_reg_offset(struct emu_reg *reg);
+uint32_t emu_get_reg32(struct emu *emu, struct emu_reg *reg);
+uint64_t emu_get_set64(struct emu *emu, struct emu_reg *reg);
+void emu_set_reg32(struct emu *emu, struct emu_reg *reg, uint32_t val);
+void emu_set_reg64(struct emu *emu, struct emu_reg *reg, uint64_t val);
+
+/* Draw-state control reg emulation: */
+uint32_t emu_get_draw_state_reg(struct emu *emu, unsigned n);
+void emu_set_draw_state_reg(struct emu *emu, unsigned n, uint32_t val);
+
+/* Helpers: */
 #define printdelta(fmt, ...) afuc_printc(AFUC_ERR, fmt, ##__VA_ARGS__)
 
 #endif /* _ASM_H_ */
