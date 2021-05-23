@@ -889,19 +889,21 @@ opcode: CP_LOAD_STATE4 (30) (4 dwords)
 	<reg64 offset="1" name="MEM_ADDR" type="address"/>
 </domain>
 
+<bitset name="cp_set_draw_state_header" inline="yes">
+	<bitfield name="COUNT" low="0" high="15" type="uint"/>
+	<bitfield name="DIRTY" pos="16" type="boolean"/>
+	<bitfield name="DISABLE" pos="17" type="boolean"/>
+	<bitfield name="DISABLE_ALL_GROUPS" pos="18" type="boolean"/>
+	<bitfield name="LOAD_IMMED" pos="19" type="boolean"/>
+	<bitfield name="BINNING" pos="20" varset="chip" variants="A6XX-" type="boolean"/>
+	<bitfield name="GMEM" pos="21" varset="chip" variants="A6XX-" type="boolean"/>
+	<bitfield name="SYSMEM" pos="22" varset="chip" variants="A6XX-" type="boolean"/>
+	<bitfield name="GROUP_ID" low="24" high="28" type="uint"/>
+</bitset>
+
 <domain name="CP_SET_DRAW_STATE" width="32" varset="chip" variants="A4XX-">
 	<array offset="0" stride="3" length="100">
-		<reg32 offset="0" name="0">
-			<bitfield name="COUNT" low="0" high="15" type="uint"/>
-			<bitfield name="DIRTY" pos="16" type="boolean"/>
-			<bitfield name="DISABLE" pos="17" type="boolean"/>
-			<bitfield name="DISABLE_ALL_GROUPS" pos="18" type="boolean"/>
-			<bitfield name="LOAD_IMMED" pos="19" type="boolean"/>
-			<bitfield name="BINNING" pos="20" varset="chip" variants="A6XX-" type="boolean"/>
-			<bitfield name="GMEM" pos="21" varset="chip" variants="A6XX-" type="boolean"/>
-			<bitfield name="SYSMEM" pos="22" varset="chip" variants="A6XX-" type="boolean"/>
-			<bitfield name="GROUP_ID" low="24" high="28" type="uint"/>
-		</reg32>
+		<reg32 offset="0" name="0" type="cp_set_draw_state_header"/>
 		<reg32 offset="1" name="1">
 			<bitfield name="ADDR_LO" low="0" high="31" type="hex"/>
 		</reg32>
