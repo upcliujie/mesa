@@ -1026,6 +1026,7 @@ agx_optimize_nir(nir_shader *nir)
 
    NIR_PASS_V(nir, nir_opt_sink, move_all);
    NIR_PASS_V(nir, nir_opt_move, move_all);
+   NIR_PASS_V(nir, nir_convert_from_ssa, true);
 }
 
 /* ABI: position first, then user, then psiz */
@@ -1143,8 +1144,8 @@ agx_compile_shader_nir(nir_shader *nir,
    if (agx_debug & AGX_DBG_SHADERS && !skip_internal)
       agx_print_shader(ctx, stdout);
 
-   agx_optimizer(ctx);
-   agx_dce(ctx);
+//   agx_optimizer(ctx);
+ //  agx_dce(ctx);
 
    if (agx_debug & AGX_DBG_SHADERS && !skip_internal)
       agx_print_shader(ctx, stdout);
