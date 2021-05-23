@@ -101,6 +101,7 @@
 struct u_vbuf_elements {
    unsigned count;
    struct pipe_vertex_element ve[PIPE_MAX_ATTRIBS];
+   unsigned max_blocksize[PIPE_MAX_ATTRIBS]; //maximum blocksize of an attrib using this buffer
 
    unsigned src_format_size[PIPE_MAX_ATTRIBS];
 
@@ -441,7 +442,22 @@ u_vbuf_translate_buffers(struct u_vbuf *mgr, struct translate_key *key,
             static uint64_t dummy_buf[4] = { 0 };
             tr->set_buffer(tr, i, dummy_buf, 0, 0);
             continue;
-        }
+         }
+
+         if (vb->stride) {
+            /* the stride cannot be used to calculate the map size of the buffer,
+             * as it only determines the bytes between elements, not the size of elements
+             * themselves, meaning that if stride < element_size, the mapped size will
+             * be too small and conversion will overrun the map buffer
+             *
+             * instead, calculate the offset of the last attribute using the stride,
+             * then add the blocksize of the largest attribute, which was calculated while
+             * creating the vertex elements struct
+             */
+            unsigned last_offset = offset + size - vb->stride;
+            unsigned max_blocksize = mgr->ve->max_blocksize[i];
+            size = MAX2(size, last_offset + max_blocksize);
+         }
 
          if (offset + size > vb->buffer.resource->width0) {
             /* Don't try to map past end of buffer.  This often happens when
@@ -806,6 +822,8 @@ u_vbuf_create_vertex_elements(struct u_vbuf *mgr, unsigned count,
       unsigned vb_index_bit = 1 << ve->ve[i].vertex_buffer_index;
 
       ve->src_format_size[i] = util_format_get_blocksize(format);
+      ve->max_blocksize[ve->ve[i].vertex_buffer_index] =
+         MAX2(ve->src_format_size[i], ve->max_blocksize[ve->ve[i].vertex_buffer_index]);
 
       if (used_buffers & vb_index_bit)
          ve->interleaved_vb_mask |= vb_index_bit;
