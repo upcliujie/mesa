@@ -107,8 +107,6 @@ gfx6_gs_visitor::emit_prolog()
       this->max_svbi = src_reg(this, glsl_type::uvec4_type);
       emit(MOV(dst_reg(this->max_svbi),
                src_reg(retype(brw_vec1_grf(1, 4), BRW_REGISTER_TYPE_UD))));
-
-      xfb_setup();
    }
 
    /* PrimitveID is delivered in r0.1 of the thread payload. If the program
@@ -519,38 +517,6 @@ gfx6_gs_visitor::setup_payload()
    reg = setup_varying_inputs(reg, attributes_per_reg);
 
    this->first_non_payload_grf = reg;
-}
-
-void
-gfx6_gs_visitor::xfb_setup()
-{
-   static const unsigned swizzle_for_offset[4] = {
-      BRW_SWIZZLE4(0, 1, 2, 3),
-      BRW_SWIZZLE4(1, 2, 3, 3),
-      BRW_SWIZZLE4(2, 3, 3, 3),
-      BRW_SWIZZLE4(3, 3, 3, 3)
-   };
-
-   int i;
-
-   /* Make sure that the VUE slots won't overflow the unsigned chars in
-    * prog_data->transform_feedback_bindings[].
-    */
-   STATIC_ASSERT(BRW_VARYING_SLOT_COUNT <= 256);
-
-   /* Make sure that we don't need more binding table entries than we've
-    * set aside for use in transform feedback.  (We shouldn't, since we
-    * set aside enough binding table entries to have one per component).
-    */
-   assert(linked_xfb_info->NumOutputs <= BRW_MAX_SOL_BINDINGS);
-
-   gs_prog_data->num_transform_feedback_bindings = linked_xfb_info->NumOutputs;
-   for (i = 0; i < gs_prog_data->num_transform_feedback_bindings; i++) {
-      gs_prog_data->transform_feedback_bindings[i] =
-         linked_xfb_info->Outputs[i].OutputRegister;
-      gs_prog_data->transform_feedback_swizzles[i] =
-         swizzle_for_offset[linked_xfb_info->Outputs[i].ComponentOffset];
-   }
 }
 
 void
