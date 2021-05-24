@@ -1065,6 +1065,11 @@ bi_choose_index(struct bi_worklist st,
                 if (!bi_instr_schedulable(instr, clause, tuple, live_after_temp, fma))
                         continue;
 
+                /* If we can schedule +CUBEFACE, we should to satisfy
+                 * restrictions */
+                if (instr->op == BI_OPCODE_CUBEFACE)
+                        return i;
+
                 signed cost = bi_instr_cost(instr, tuple);
 
                 /* Tie break in favour of later instructions, under the
