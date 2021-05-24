@@ -229,6 +229,12 @@ void u_trace_perfetto_stop(void);
 #  define ut_perfetto_enabled 0
 #endif
 
+static inline bool
+u_trace_context_tracing(struct u_trace_context *utctx)
+{
+   return !!utctx->out || (ut_perfetto_enabled > 0);
+}
+
 #ifdef  __cplusplus
 }
 #endif
