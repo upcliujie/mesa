@@ -53,6 +53,7 @@
 #include "util/macros.h"
 #include "util/u_atomic.h"
 #include "util/u_dynarray.h"
+#include "util/perf/u_trace.h"
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
 #include "vk_device.h"
@@ -75,6 +76,7 @@
 
 #include "tu_descriptor_set.h"
 #include "tu_util.h"
+#include "tu_perfetto.h"
 
 /* Pre-declarations needed for WSI entrypoints */
 struct wl_surface;
@@ -287,6 +289,7 @@ struct tu_pipeline_key
 #define TU_MAX_QUEUE_FAMILIES 1
 
 struct tu_syncobj;
+struct tu_u_trace_syncobj;
 
 struct tu_queue
 {
@@ -407,6 +410,14 @@ struct tu_device
     * new submit is executed. */
    pthread_cond_t timeline_cond;
    pthread_mutex_t submit_mutex;
+
+   uint32_t submit_count;
+
+   struct u_trace_context trace_context;
+
+   #ifdef HAVE_PERFETTO
+   struct tu_perfetto_state perfetto;
+   #endif
 };
 
 VkResult _tu_device_set_lost(struct tu_device *device,
@@ -422,6 +433,12 @@ tu_device_is_lost(struct tu_device *device)
 
 VkResult
 tu_device_submit_deferred_locked(struct tu_device *dev);
+
+VkResult
+tu_device_wait_u_trace(struct tu_device *dev, struct tu_u_trace_syncobj *syncobj);
+
+uint64_t
+tu_device_ticks_to_ns(struct tu_device *dev, uint64_t ts);
 
 enum tu_bo_alloc_flags
 {
@@ -984,6 +1001,8 @@ struct tu_cmd_buffer
 
    struct tu_cmd_pool *pool;
    struct list_head pool_link;
+
+   struct u_trace trace;
 
    VkCommandBufferUsageFlags usage_flags;
    VkCommandBufferLevel level;
@@ -1607,6 +1626,10 @@ VkResult
 tu_enumerate_devices(struct tu_instance *instance);
 
 int
+tu_drm_get_timestamp(struct tu_physical_device *device,
+                     uint64_t *ts);
+
+int
 tu_drm_submitqueue_new(const struct tu_device *dev,
                        int priority,
                        uint32_t *queue_id);
@@ -1619,6 +1642,12 @@ tu_signal_fences(struct tu_device *device, struct tu_syncobj *fence1, struct tu_
 
 int
 tu_syncobj_to_fd(struct tu_device *device, struct tu_syncobj *sync);
+
+struct tu_u_trace_flush_data
+{
+   uint32_t submission_id;
+   struct tu_u_trace_syncobj *syncobj;
+};
 
 #define TU_DEFINE_HANDLE_CASTS(__tu_type, __VkType)                          \
                                                                              \
