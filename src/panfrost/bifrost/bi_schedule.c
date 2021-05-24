@@ -288,9 +288,7 @@ bi_create_dependency_graph(struct bi_worklist st, bool inorder)
         }
 }
 
-/* Scheduler pseudoinstruction lowerings to enable instruction pairings.
- * Currently only support CUBEFACE -> *CUBEFACE1/+CUBEFACE2
- */
+/* Scheduler pseudoinstruction lowerings for paired instructions. */
 
 static bi_instr *
 bi_lower_cubeface(bi_context *ctx,
