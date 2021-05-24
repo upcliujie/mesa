@@ -531,8 +531,6 @@ gfx6_gs_visitor::xfb_setup()
       BRW_SWIZZLE4(3, 3, 3, 3)
    };
 
-   const struct gl_transform_feedback_info *linked_xfb_info =
-      this->prog->sh.LinkedTransformFeedback;
    int i;
 
    /* Make sure that the VUE slots won't overflow the unsigned chars in
