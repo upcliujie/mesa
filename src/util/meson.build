@@ -77,6 +77,9 @@ files_mesa_util = files(
   'os_misc.h',
   'os_socket.c',
   'os_socket.h',
+  'perf/u_trace.h',
+  'perf/u_trace.c',
+  'perf/u_trace_priv.h',
   'u_process.c',
   'u_process.h',
   'rwlock.h',
@@ -114,6 +117,7 @@ files_mesa_util = files(
   'u_atomic.h',
   'u_dynarray.h',
   'u_endian.h',
+  'u_fifo.h',
   'u_queue.c',
   'u_queue.h',
   'u_string.h',
@@ -209,6 +213,8 @@ if with_perfetto
   )
   deps_for_libmesa_util += dep_perfetto
 endif
+
+u_trace_py = files('perf/u_trace.py')
 
 _libmesa_util = static_library(
   'mesa_util',

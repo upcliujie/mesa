@@ -82,7 +82,7 @@ $(intermediates)/indices/u_unfilled_gen.c: $(u_unfilled_gen_deps)
 
 u_tracepoints_deps := \
 	$(MESA_TOP)/src/gallium/auxiliary/util/u_tracepoints.py \
-	$(MESA_TOP)/src/gallium/auxiliary/util/u_trace.py
+	$(MESA_TOP)/src/util/perf/u_trace.py
 
 u_tracepoints_c := $(intermediates)/util/u_tracepoints.c
 u_tracepoints_h := $(intermediates)/util/u_tracepoints.h
@@ -90,7 +90,7 @@ u_tracepoints_h := $(intermediates)/util/u_tracepoints.h
 $(intermediates)/util/u_tracepoints.c \
 $(intermediates)/util/u_tracepoints.h: $(u_tracepoints_deps)
 	@mkdir -p $(dir $@)
-	$(hide) $(MESA_PYTHON3) $< -p $(MESA_TOP)/src/gallium/auxiliary/util -C $(u_tracepoints_c) -H $(u_tracepoints_h)
+	$(hide) $(MESA_PYTHON3) $< -p $(MESA_TOP)/src/util/perf -C $(u_tracepoints_c) -H $(u_tracepoints_h)
 
 LOCAL_GENERATED_SOURCES += $(MESA_GEN_NIR_H)
 
