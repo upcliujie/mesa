@@ -34,6 +34,7 @@
 #include "drm-uapi/msm_drm.h"
 #include "util/timespec.h"
 #include "util/os_time.h"
+#include "util/perf/u_trace.h"
 
 #include "tu_private.h"
 
@@ -104,8 +105,17 @@ struct tu_queue_submit
    struct   drm_msm_gem_submit_syncobj *out_syncobjs;
    uint32_t nr_out_syncobjs;
 
+   struct u_trace **traces;
+   uint32_t trace_count;
+
    bool     last_submit;
    uint32_t entry_count;
+};
+
+struct tu_u_trace_syncobj
+{
+   uint32_t msm_queue_id;
+   uint32_t fence;
 };
 
 static int
@@ -159,6 +169,12 @@ static int
 tu_drm_get_gmem_base(const struct tu_physical_device *dev, uint64_t *base)
 {
    return tu_drm_get_param(dev, MSM_PARAM_GMEM_BASE, base);
+}
+
+int
+tu_drm_get_timestamp(struct tu_physical_device *device, uint64_t *ts)
+{
+   return tu_drm_get_param(device, MSM_PARAM_TIMESTAMP, ts);
 }
 
 int
@@ -838,6 +854,7 @@ static VkResult
 tu_queue_submit_create_locked(struct tu_queue *queue,
                               const VkSubmitInfo *submit_info,
                               const uint32_t entry_count,
+                              const uint32_t cmd_buffer_count,
                               const uint32_t nr_in_syncobjs,
                               const uint32_t nr_out_syncobjs,
                               const bool last_submit,
@@ -913,6 +930,18 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
       goto fail_cmds;
    }
 
+   if (u_trace_context_tracing(&queue->device->trace_context)) {
+      new_submit->trace_count = cmd_buffer_count;
+      new_submit->traces = vk_zalloc(&queue->device->vk.alloc,
+            cmd_buffer_count * sizeof(void *), 8,
+            VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+      if (new_submit->traces == NULL) {
+         result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+         goto fail_cmds;
+      }
+   }
+
    /* Allocate without wait timeline semaphores */
    new_submit->in_syncobjs = vk_zalloc(&queue->device->vk.alloc,
          (nr_in_syncobjs - new_submit->wait_timeline_count) *
@@ -977,6 +1006,12 @@ tu_queue_submit_free(struct tu_queue *queue, struct tu_queue_submit *submit)
 static VkResult
 tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
 {
+   queue->device->submit_count++;
+
+#if HAVE_PERFETTO
+   tu_perfetto_submit(queue->device, queue->device->submit_count);
+#endif
+
    uint32_t flags = MSM_PIPE_3D0;
 
    if (submit->nr_in_syncobjs)
@@ -1035,6 +1070,23 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
       assert(signal_value > sem->timeline.highest_submitted);
 
       sem->timeline.highest_submitted = signal_value;
+   }
+
+   if (submit->trace_count > 0) {
+      struct tu_u_trace_flush_data *flush_data =
+         vk_alloc(&queue->device->vk.alloc, sizeof(struct tu_u_trace_flush_data),
+               8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      flush_data->submission_id = queue->device->submit_count;
+      flush_data->syncobj =
+         vk_alloc(&queue->device->vk.alloc, sizeof(struct tu_u_trace_syncobj),
+               8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      flush_data->syncobj->fence = req.fence;
+      flush_data->syncobj->msm_queue_id = queue->msm_queue_id;
+
+      for (uint32_t i = 0; i < submit->trace_count; i++) {
+         struct u_trace *trace = submit->traces[i];
+         u_trace_flush(trace, flush_data);
+      }
    }
 
    pthread_cond_broadcast(&queue->device->timeline_cond);
@@ -1165,6 +1217,35 @@ tu_device_submit_deferred_locked(struct tu_device *dev)
     return result;
 }
 
+static inline void
+get_abs_timeout(struct drm_msm_timespec *tv, uint64_t ns)
+{
+   struct timespec t;
+   clock_gettime(CLOCK_MONOTONIC, &t);
+   tv->tv_sec = t.tv_sec + ns / 1000000000;
+   tv->tv_nsec = t.tv_nsec + ns % 1000000000;
+}
+
+VkResult
+tu_device_wait_u_trace(struct tu_device *dev, struct tu_u_trace_syncobj *syncobj)
+{
+   struct drm_msm_wait_fence req = {
+      .fence = syncobj->fence,
+      .queueid = syncobj->msm_queue_id,
+   };
+   int ret;
+
+   get_abs_timeout(&req.timeout, 1000000000);
+
+   ret = drmCommandWrite(dev->fd, DRM_MSM_WAIT_FENCE, &req, sizeof(req));
+   if (ret && (ret != -ETIMEDOUT)) {
+      fprintf(stderr, "wait-fence failed! %d (%s)", ret, strerror(errno));
+      return VK_TIMEOUT;
+   }
+
+   return VK_SUCCESS;
+}
+
 VkResult
 tu_QueueSubmit(VkQueue _queue,
                uint32_t submitCount,
@@ -1200,8 +1281,8 @@ tu_QueueSubmit(VkQueue _queue,
       struct tu_queue_submit *submit_req = NULL;
 
       VkResult ret = tu_queue_submit_create_locked(queue, submit,
-            entry_count, submit->waitSemaphoreCount, out_syncobjs_size,
-            last_submit, &submit_req);
+            entry_count, submit->commandBufferCount, submit->waitSemaphoreCount,
+            out_syncobjs_size, last_submit, &submit_req);
 
       if (ret != VK_SUCCESS) {
          pthread_mutex_unlock(&queue->device->submit_mutex);
@@ -1276,6 +1357,9 @@ tu_QueueSubmit(VkQueue _queue,
             cmds[entry_idx].nr_relocs = 0;
             cmds[entry_idx].relocs = 0;
          }
+
+         if (submit_req->trace_count > 0)
+            submit_req->traces[j] = &cmdbuf->trace;
       }
 
       /* Queue the current submit */
