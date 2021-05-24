@@ -89,6 +89,7 @@ struct u_trace_chunk {
    bool last;          /* this chunk is last in batch */
    bool eof;           /* this chunk is last in frame */
 
+   uint32_t submission_id;
    uint64_t client_fence;
 };
 
@@ -282,7 +283,7 @@ process_chunk(void *job, int thread_index)
       }
 #ifdef HAVE_PERFETTO
       if (evt->tp->perfetto) {
-         evt->tp->perfetto(utctx->pctx, ns, evt->payload);
+         evt->tp->perfetto(utctx->pctx, ns, chunk->submission_id, evt->payload);
       }
 #endif
    }
@@ -392,9 +393,10 @@ u_trace_append(struct u_trace *ut, const struct u_tracepoint *tp)
 }
 
 void
-u_trace_flush(struct u_trace *ut, uint64_t fence)
+u_trace_flush(struct u_trace *ut, uint32_t submission_id, uint64_t fence)
 {
    list_for_each_entry(struct u_trace_chunk, chunk, &ut->trace_chunks, node) {
+      chunk->submission_id = submission_id;
       chunk->client_fence = fence;
    }
 

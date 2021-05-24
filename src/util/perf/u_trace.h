@@ -209,7 +209,7 @@ void u_trace_fini(struct u_trace *ut);
  * This should typically be called when the corresponding cmdstream (containing
  * the timestamp reads) is flushed to the kernel.
  */
-void u_trace_flush(struct u_trace *ut, uint64_t fence);
+void u_trace_flush(struct u_trace *ut, uint32_t submission_id, uint64_t fence);
 
 #ifdef HAVE_PERFETTO
 extern int ut_perfetto_enabled;
