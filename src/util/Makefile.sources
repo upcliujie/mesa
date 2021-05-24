@@ -78,6 +78,9 @@ MESA_UTIL_FILES := \
 	os_socket.h \
 	os_misc.c \
 	os_misc.h \
+	perf/u_trace.h \
+	perf/u_trace.c \
+	perf/u_trace_priv.h \
 	u_process.c \
 	u_process.h \
 	sha1/sha1.c \
@@ -114,6 +117,7 @@ MESA_UTIL_FILES := \
 	u_atomic.h \
 	u_dynarray.h \
 	u_endian.h \
+	u_fifo.h \
 	u_math.c \
 	u_math.h \
 	u_queue.c \

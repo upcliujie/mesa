@@ -243,7 +243,6 @@ C_SOURCES := \
 	util/u_dump_defines.c \
 	util/u_dump.h \
 	util/u_dump_state.c \
-	util/u_fifo.h \
 	util/u_framebuffer.c \
 	util/u_framebuffer.h \
 	util/u_gen_mipmap.c \
@@ -298,9 +297,8 @@ C_SOURCES := \
 	util/u_texture.h \
 	util/u_tile.c \
 	util/u_tile.h \
-	util/u_trace.c \
-	util/u_trace.h \
-	util/u_trace_priv.h \
+	util/u_trace_gallium.c \
+	util/u_trace_gallium.h \
 	util/u_transfer.c \
 	util/u_transfer.h \
 	util/u_transfer_helper.c \
