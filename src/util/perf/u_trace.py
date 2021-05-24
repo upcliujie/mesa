@@ -106,7 +106,7 @@ hdr_template = """\
 #include "${header.hdr}"
 % endfor
 
-#include "util/u_trace.h"
+#include "util/perf/u_trace.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -134,7 +134,7 @@ struct trace_${trace_name} {
 };
 %    if trace.tp_perfetto is not None:
 #ifdef HAVE_PERFETTO
-void ${trace.tp_perfetto}(struct pipe_context *pctx, uint64_t ts_ns, const struct trace_${trace_name} *payload);
+void ${trace.tp_perfetto}(${ctx_param}, uint64_t ts_ns, const void *flush_data, const struct trace_${trace_name} *payload);
 #endif
 %    endif
 void __trace_${trace_name}(struct u_trace *ut
@@ -198,7 +198,7 @@ src_template = """\
 #include "${hdr}"
 
 #define __NEEDS_TRACE_PRIV
-#include "util/u_trace_priv.h"
+#include "util/perf/u_trace_priv.h"
 
 % for trace_name, trace in TRACEPOINTS.items():
 /*
@@ -223,7 +223,7 @@ static const struct u_tracepoint __tp_${trace_name} = {
     __print_${trace_name},
 %    if trace.tp_perfetto is not None:
 #ifdef HAVE_PERFETTO
-    (void (*)(struct pipe_context *, uint64_t, const void *))${trace.tp_perfetto},
+    (void (*)(void *pctx, uint64_t, const void *, const void *))${trace.tp_perfetto},
 #endif
 %    endif
 };
@@ -243,12 +243,13 @@ void __trace_${trace_name}(struct u_trace *ut
 % endfor
 """
 
-def utrace_generate(cpath, hpath):
+def utrace_generate(cpath, hpath, ctx_param):
     if cpath is not None:
         hdr = os.path.basename(cpath).rsplit('.', 1)[0] + '.h'
         with open(cpath, 'wb') as f:
             f.write(Template(src_template, output_encoding='utf-8').render(
                 hdr=hdr,
+                ctx_param=ctx_param,
                 HEADERS=HEADERS,
                 TRACEPOINTS=TRACEPOINTS))
 
@@ -257,5 +258,6 @@ def utrace_generate(cpath, hpath):
         with open(hpath, 'wb') as f:
             f.write(Template(hdr_template, output_encoding='utf-8').render(
                 hdrname=hdr.rstrip('.h').upper(),
+                ctx_param=ctx_param,
                 HEADERS=HEADERS,
                 TRACEPOINTS=TRACEPOINTS))
