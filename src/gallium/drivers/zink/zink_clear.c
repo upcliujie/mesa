@@ -202,6 +202,11 @@ zink_clear(struct pipe_context *pctx,
       needs_rp = !zink_blit_region_fills(scissor, fb->width, fb->height);
    }
 
+   /* HACK: The out-of-rp code below fails to resolve things correctly
+    * in some tests, so let's disable the code until we've figured out
+    * what's up here.
+    */
+   zink_begin_render_pass(ctx, batch);
 
    if (batch->in_rp) {
       clear_in_rp(pctx, buffers, scissor_state, pcolor, depth, stencil);
