@@ -449,31 +449,60 @@ fd_get_device_reset_status(struct pipe_context *pctx)
    return status;
 }
 
+static void *
+fd_trace_create_ts_buffer(struct u_trace_context *utctx, uint32_t size)
+{
+   struct fd_context *ctx =
+      container_of(utctx, struct fd_context, trace_context);
+
+   struct pipe_resource tmpl = {
+      .target     = PIPE_BUFFER,
+      .format     = PIPE_FORMAT_R8_UNORM,
+      .bind       = PIPE_BIND_QUERY_BUFFER | PIPE_BIND_LINEAR,
+      .width0     = size,
+      .height0    = 1,
+      .depth0     = 1,
+      .array_size = 1,
+   };
+
+   struct pipe_screen *pscreen = &ctx->screen->base;
+   return pscreen->resource_create(pscreen, &tmpl);
+}
+
 static void
-fd_trace_record_ts(struct u_trace *ut, struct pipe_resource *timestamps,
+fd_trace_delete_ts_buffer(struct u_trace_context *utctx, void *timestamps)
+{
+   struct pipe_resource *buffer = timestamps;
+   pipe_resource_reference(&buffer, NULL);
+}
+
+static void
+fd_trace_record_ts(struct u_trace *ut, void *timestamps,
                    unsigned idx)
 {
    struct fd_batch *batch = container_of(ut, struct fd_batch, trace);
    struct fd_ringbuffer *ring = batch->nondraw ? batch->draw : batch->gmem;
+   struct pipe_resource *buffer = timestamps;
 
    if (ring->cur == batch->last_timestamp_cmd) {
-      uint64_t *ts = fd_bo_map(fd_resource(timestamps)->bo);
+      uint64_t *ts = fd_bo_map(fd_resource(buffer)->bo);
       ts[idx] = U_TRACE_NO_TIMESTAMP;
       return;
    }
 
    unsigned ts_offset = idx * sizeof(uint64_t);
-   batch->ctx->record_timestamp(ring, fd_resource(timestamps)->bo, ts_offset);
+   batch->ctx->record_timestamp(ring, fd_resource(buffer)->bo, ts_offset);
    batch->last_timestamp_cmd = ring->cur;
 }
 
 static uint64_t
 fd_trace_read_ts(struct u_trace_context *utctx,
-                 struct pipe_resource *timestamps, unsigned idx)
+                 void *timestamps, unsigned idx, uint64_t client_data)
 {
    struct fd_context *ctx =
       container_of(utctx, struct fd_context, trace_context);
-   struct fd_bo *ts_bo = fd_resource(timestamps)->bo;
+   struct pipe_resource *buffer = timestamps;
+   struct fd_bo *ts_bo = fd_resource(buffer)->bo;
 
    /* Only need to stall on results for the first entry: */
    if (idx == 0) {
@@ -670,7 +699,10 @@ fd_context_init(struct fd_context *ctx, struct pipe_screen *pscreen,
 
    ctx->current_scissor = &ctx->disabled_scissor;
 
-   u_trace_context_init(&ctx->trace_context, pctx, fd_trace_record_ts,
+   u_trace_context_init(&ctx->trace_context, pctx,
+                        fd_trace_create_ts_buffer,
+                        fd_trace_delete_ts_buffer,
+                        fd_trace_record_ts,
                         fd_trace_read_ts);
 
    fd_autotune_init(&ctx->autotune, screen->dev);

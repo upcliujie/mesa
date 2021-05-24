@@ -23,15 +23,12 @@
 
 #include <inttypes.h>
 
-#include "pipe/p_context.h"
-#include "pipe/p_state.h"
-
 #include "util/list.h"
 #include "util/ralloc.h"
 #include "util/u_debug.h"
 #include "util/u_inlines.h"
+#include "util/u_fifo.h"
 
-#include "u_fifo.h"
 #include "u_trace.h"
 
 #define __NEEDS_TRACE_PRIV
@@ -77,7 +74,8 @@ struct u_trace_chunk {
    /* table of driver recorded 64b timestamps, index matches index
     * into traces table
     */
-   struct pipe_resource *timestamps;
+   // struct pipe_resource *timestamps;
+   void *timestamps;
 
    /**
     * For trace payload, we sub-allocate from ralloc'd buffers which
@@ -90,6 +88,8 @@ struct u_trace_chunk {
 
    bool last;          /* this chunk is last in batch */
    bool eof;           /* this chunk is last in frame */
+
+   uint64_t client_fence;
 };
 
 static void
@@ -97,7 +97,7 @@ free_chunk(void *ptr)
 {
    struct u_trace_chunk *chunk = ptr;
 
-   pipe_resource_reference(&chunk->timestamps, NULL);
+   chunk->utctx->delete_timestamp_buffer(chunk->utctx, chunk->timestamps);
 
    list_del(&chunk->node);
 }
@@ -134,20 +134,7 @@ get_chunk(struct u_trace *ut)
    ralloc_set_destructor(chunk, free_chunk);
 
    chunk->utctx = ut->utctx;
-
-   struct pipe_resource tmpl = {
-         .target     = PIPE_BUFFER,
-         .format     = PIPE_FORMAT_R8_UNORM,
-         .bind       = PIPE_BIND_QUERY_BUFFER | PIPE_BIND_LINEAR,
-         .width0     = TIMESTAMP_BUF_SIZE,
-         .height0    = 1,
-         .depth0     = 1,
-         .array_size = 1,
-   };
-
-   struct pipe_screen *pscreen = ut->utctx->pctx->screen;
-   chunk->timestamps = pscreen->resource_create(pscreen, &tmpl);
-
+   chunk->timestamps = ut->utctx->create_timestamp_buffer(ut->utctx, TIMESTAMP_BUF_SIZE);
    chunk->last = true;
 
    list_addtail(&chunk->node, &ut->trace_chunks);
@@ -155,8 +142,8 @@ get_chunk(struct u_trace *ut)
    return chunk;
 }
 
-DEBUG_GET_ONCE_BOOL_OPTION(trace, "GALLIUM_GPU_TRACE", false)
-DEBUG_GET_ONCE_FILE_OPTION(trace_file, "GALLIUM_GPU_TRACEFILE", NULL, "w")
+DEBUG_GET_ONCE_BOOL_OPTION(trace, "GPU_TRACE", false)
+DEBUG_GET_ONCE_FILE_OPTION(trace_file, "GPU_TRACEFILE", NULL, "w")
 
 static FILE *
 get_tracefile(void)
@@ -193,11 +180,15 @@ queue_init(struct u_trace_context *utctx)
 
 void
 u_trace_context_init(struct u_trace_context *utctx,
-      struct pipe_context *pctx,
+      void *pctx,
+      u_trace_create_ts_buffer  create_timestamp_buffer,
+      u_trace_delete_ts_buffer  delete_timestamp_buffer,
       u_trace_record_ts record_timestamp,
       u_trace_read_ts   read_timestamp)
 {
    utctx->pctx = pctx;
+   utctx->create_timestamp_buffer = create_timestamp_buffer;
+   utctx->delete_timestamp_buffer = delete_timestamp_buffer;
    utctx->record_timestamp = record_timestamp;
    utctx->read_timestamp   = read_timestamp;
 
@@ -264,7 +255,7 @@ process_chunk(void *job, int thread_index)
    for (unsigned idx = 0; idx < chunk->num_traces; idx++) {
       const struct u_trace_event *evt = &chunk->traces[idx];
 
-      uint64_t ns = utctx->read_timestamp(utctx, chunk->timestamps, idx);
+      uint64_t ns = utctx->read_timestamp(utctx, chunk->timestamps, idx, chunk->client_fence);
       int32_t delta;
 
       if (!utctx->first_time_ns)
@@ -401,8 +392,12 @@ u_trace_append(struct u_trace *ut, const struct u_tracepoint *tp)
 }
 
 void
-u_trace_flush(struct u_trace *ut)
+u_trace_flush(struct u_trace *ut, uint64_t fence)
 {
+   list_for_each_entry(struct u_trace_chunk, chunk, &ut->trace_chunks, node) {
+      chunk->client_fence = fence;
+   }
+
    /* transfer batch's log chunks to context: */
    list_splicetail(&ut->trace_chunks, &ut->utctx->flushed_trace_chunks);
    list_inithead(&ut->trace_chunks);
