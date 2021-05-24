@@ -21,40 +21,36 @@
  * SOFTWARE.
  */
 
-#ifndef __NEEDS_TRACE_PRIV
-#  error "Do not use this header!"
+#ifndef _U_TRACE_GALLIUM_H
+#define _U_TRACE_GALLIUM_H
+
+#include "util/perf/u_trace.h"
+
+#ifdef  __cplusplus
+extern "C" {
 #endif
 
-#ifndef _U_TRACE_PRIV_H
-#define _U_TRACE_PRIV_H
+/* Gallium specific u_trace helpers */
 
-#include <stdio.h>
+struct pipe_context;
+struct pipe_framebuffer_state;
 
-#include "u_trace.h"
+void
+u_trace_pipe_context_init(struct u_trace_context *utctx,
+                          struct pipe_context *pctx,
+                          u_trace_record_ts   record_timestamp,
+                          u_trace_read_ts     read_timestamp);
 
 /*
- * Internal interface used by generated tracepoints
+ * In some cases it is useful to have composite tracepoints like this,
+ * to log more complex data structures.
  */
 
-/**
- * Tracepoint descriptor.
- */
-struct u_tracepoint {
-   unsigned payload_sz;
-   const char *name;
-   void (*print)(FILE *out, const void *payload);
-#ifdef HAVE_PERFETTO
-   /**
-    * Callback to emit a perfetto event, such as render-stage trace
-    */
-   void (*perfetto)(struct pipe_context *pctx, uint64_t ts_ns, const void *payload);
+void
+trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state *pfb);
+
+#ifdef  __cplusplus
+}
 #endif
-};
 
-/**
- * Append a tracepoint, returning pointer that can be filled with trace
- * payload.
- */
-void * u_trace_append(struct u_trace *ut, const struct u_tracepoint *tp);
-
-#endif  /* _U_TRACE_PRIV_H */
+#endif  /* _U_TRACE_GALLIUM_H */
