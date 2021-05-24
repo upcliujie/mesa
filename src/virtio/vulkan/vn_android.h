@@ -82,6 +82,9 @@ vn_android_allocate_ahb(struct vn_device *dev,
 void
 vn_android_release_ahb(struct AHardwareBuffer *ahb);
 
+VkFormat
+vn_android_ahb_format_to_vk_format(uint32_t format);
+
 #else
 
 static inline VkResult
@@ -160,6 +163,12 @@ static inline void
 vn_android_release_ahb(UNUSED struct AHardwareBuffer *ahb)
 {
    return;
+}
+
+static inline VkFormat
+vn_android_ahb_format_to_vk_format(UNUSED uint32_t format)
+{
+   return VK_FORMAT_UNDEFINED;
 }
 
 #endif /* ANDROID */
