@@ -47,7 +47,7 @@ struct u_tracepoint {
    /**
     * Callback to emit a perfetto event, such as render-stage trace
     */
-   void (*perfetto)(void *pctx, uint64_t ts_ns, const void *payload);
+   void (*perfetto)(void *pctx, uint64_t ts_ns, uint32_t submission_id, const void *payload);
 #endif
 };
 

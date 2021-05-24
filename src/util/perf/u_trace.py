@@ -134,7 +134,7 @@ struct trace_${trace_name} {
 };
 %    if trace.tp_perfetto is not None:
 #ifdef HAVE_PERFETTO
-void ${trace.tp_perfetto}(${ctx_param}, uint64_t ts_ns, const struct trace_${trace_name} *payload);
+void ${trace.tp_perfetto}(${ctx_param}, uint64_t ts_ns, uint32_t submission_id, const struct trace_${trace_name} *payload);
 #endif
 %    endif
 void __trace_${trace_name}(struct u_trace *ut
@@ -223,7 +223,7 @@ static const struct u_tracepoint __tp_${trace_name} = {
     __print_${trace_name},
 %    if trace.tp_perfetto is not None:
 #ifdef HAVE_PERFETTO
-    (void (*)(void *pctx, uint64_t, const void *))${trace.tp_perfetto},
+    (void (*)(void *pctx, uint64_t, uint32_t, const void *))${trace.tp_perfetto},
 #endif
 %    endif
 };
