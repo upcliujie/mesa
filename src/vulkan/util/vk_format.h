@@ -28,6 +28,10 @@
 #include <vulkan/vulkan_core.h>
 #include "util/format/u_format.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum pipe_format
 vk_format_to_pipe_format(enum VkFormat vkformat);
 
@@ -60,5 +64,9 @@ vk_format_has_stencil(VkFormat format)
    const VkImageAspectFlags aspects = vk_format_aspects(format);
    return aspects & VK_IMAGE_ASPECT_STENCIL_BIT;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
