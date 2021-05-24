@@ -96,7 +96,7 @@ gfx6_gs_visitor::emit_prolog()
    this->prim_count = src_reg(this, glsl_type::uint_type);
    emit(MOV(dst_reg(this->prim_count), brw_imm_ud(0u)));
 
-   if (prog->info.has_transform_feedback_varyings) {
+   if (nir->info.has_transform_feedback_varyings) {
       /* Create a virtual register to hold destination indices in SOL */
       this->destination_indices = src_reg(this, glsl_type::uvec4_type);
       /* Create a virtual register to hold number of written primitives */
@@ -353,7 +353,7 @@ gfx6_gs_visitor::emit_thread_end()
    this->current_annotation = "gfx6 thread end: ff_sync";
 
    vec4_instruction *inst = NULL;
-   if (prog->info.has_transform_feedback_varyings) {
+   if (nir->info.has_transform_feedback_varyings) {
       src_reg sol_temp(this, glsl_type::uvec4_type);
       emit(GS_OPCODE_FF_SYNC_SET_PRIMITIVES,
            dst_reg(this->svbi),
@@ -446,7 +446,7 @@ gfx6_gs_visitor::emit_thread_end()
       }
       emit(BRW_OPCODE_WHILE);
 
-      if (prog->info.has_transform_feedback_varyings)
+      if (nir->info.has_transform_feedback_varyings)
          xfb_write();
    }
    emit(BRW_OPCODE_ENDIF);
@@ -468,7 +468,7 @@ gfx6_gs_visitor::emit_thread_end()
     */
    this->current_annotation = "gfx6 thread end: EOT";
 
-   if (prog->info.has_transform_feedback_varyings) {
+   if (nir->info.has_transform_feedback_varyings) {
       /* When emitting EOT, set SONumPrimsWritten Increment Value. */
       src_reg data(this, glsl_type::uint_type);
       emit(AND(dst_reg(data), this->sol_prim_written, brw_imm_ud(0xffffu)));
