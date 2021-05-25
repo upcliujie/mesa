@@ -578,6 +578,7 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                                 nir_builder_instr_insert(&b, &tex->instr);
 
                                 res = res ? nir_fadd(&b, res, &tex->dest.ssa) : &tex->dest.ssa;
+                                BITSET_SET(b.shader->info.textures_used, tex->texture_index);
 			}
 
                         if (base_type == nir_type_float) {
@@ -618,6 +619,8 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                         nir_ssa_dest_init(&tex->instr, &tex->dest, 4, 32, NULL);
                         nir_builder_instr_insert(&b, &tex->instr);
                         res = &tex->dest.ssa;
+
+                        BITSET_SET(b.shader->info.textures_used, tex->texture_index);
                 }
 
                 assert(res);
@@ -644,6 +647,9 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
 
         shader = rzalloc(dev->blitter.shaders.blit,
                          struct pan_blit_shader_data);
+
+        nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+
         shader->key = *key;
         shader->address =
                 panfrost_pool_upload_aligned(&dev->blitter.shaders.pool,
