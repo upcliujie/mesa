@@ -27,6 +27,7 @@
 #include "pipe/p_state.h"
 #include "util/u_dump.h"
 #include "u_tracepoints.h"
+#include "util/u_trace_gallium.h"
 
 #include "freedreno_resource.h"
 #include "freedreno_tracepoints.h"
@@ -174,7 +175,7 @@ fd6_launch_grid(struct fd_context *ctx, const struct pipe_grid_info *info) in_dt
    OUT_RING(ring, 1); /* HLSQ_CS_KERNEL_GROUP_Y */
    OUT_RING(ring, 1); /* HLSQ_CS_KERNEL_GROUP_Z */
 
-   trace_grid_info(&ctx->batch->trace, info);
+   trace_grid_info_pipe(&ctx->batch->trace, info);
    trace_start_compute(&ctx->batch->trace);
 
    if (info->indirect) {

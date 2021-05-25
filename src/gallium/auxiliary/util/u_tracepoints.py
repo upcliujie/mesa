@@ -37,6 +37,7 @@ sys.path.insert(0, args.import_path)
 
 from u_trace import Header
 from u_trace import Tracepoint
+from u_trace import TracepointArg
 from u_trace import utrace_generate
 
 #
@@ -47,11 +48,10 @@ Header('pipe/p_state.h')
 Header('util/format/u_format.h')
 
 Tracepoint('surface',
-    args=[['const struct pipe_surface *', 'psurf']],
-    tp_struct=[['uint16_t',     'width',      'psurf->width'],
-               ['uint16_t',     'height',     'psurf->height'],
-               ['uint8_t',      'nr_samples', 'psurf->nr_samples'],
-               ['const char *', 'format',     'util_format_short_name(psurf->format)']],
+    args=[TracepointArg(type='uint16_t',     var_name='width',      c_format='%u'),
+          TracepointArg(type='uint16_t',     var_name='height',     c_format='%u'),
+          TracepointArg(type='uint8_t',      var_name='nr_samples', c_format='%u'),
+          TracepointArg(type='const char *', var_name='format',     c_format='%s')],
     tp_print=['%ux%u@%u, fmt=%s',
         '__entry->width',
         '__entry->height',
@@ -61,12 +61,11 @@ Tracepoint('surface',
 
 # Note: called internally from trace_framebuffer_state()
 Tracepoint('framebuffer',
-    args=[['const struct pipe_framebuffer_state *', 'pfb']],
-    tp_struct=[['uint16_t',     'width',      'pfb->width'],
-               ['uint16_t',     'height',     'pfb->height'],
-               ['uint8_t',      'layers',     'pfb->layers'],
-               ['uint8_t',      'samples',    'pfb->samples'],
-               ['uint8_t',      'nr_cbufs',   'pfb->nr_cbufs']],
+    args=[TracepointArg(type='uint16_t',     var_name='width',      c_format='%u'),
+          TracepointArg(type='uint16_t',     var_name='height',     c_format='%u'),
+          TracepointArg(type='uint8_t',      var_name='layers',     c_format='%u'),
+          TracepointArg(type='uint8_t',      var_name='samples',    c_format='%u'),
+          TracepointArg(type='uint8_t',      var_name='nr_cbufs',   c_format='%u')],
     tp_print=['%ux%ux%u@%u, nr_cbufs: %u',
         '__entry->width',
         '__entry->height',
@@ -76,14 +75,13 @@ Tracepoint('framebuffer',
 )
 
 Tracepoint('grid_info',
-    args=[['const struct pipe_grid_info *', 'pgrid']],
-    tp_struct=[['uint8_t',  'work_dim',  'pgrid->work_dim'],
-               ['uint16_t', 'block_x',   'pgrid->block[0]'],
-               ['uint16_t', 'block_y',   'pgrid->block[1]'],
-               ['uint16_t', 'block_z',   'pgrid->block[2]'],
-               ['uint16_t', 'grid_x',    'pgrid->grid[0]'],
-               ['uint16_t', 'grid_y',    'pgrid->grid[1]'],
-               ['uint16_t', 'grid_z',    'pgrid->grid[2]']],
+    args=[TracepointArg(type='uint8_t',  var_name='work_dim',  c_format='%u'),
+          TracepointArg(type='uint16_t', var_name='block_x',   c_format='%u'),
+          TracepointArg(type='uint16_t', var_name='block_y',   c_format='%u'),
+          TracepointArg(type='uint16_t', var_name='block_z',   c_format='%u'),
+          TracepointArg(type='uint16_t', var_name='grid_x',    c_format='%u'),
+          TracepointArg(type='uint16_t', var_name='grid_y',    c_format='%u'),
+          TracepointArg(type='uint16_t', var_name='grid_z',    c_format='%u')],
     tp_print=['work_dim=%u, block=%ux%ux%u, grid=%ux%ux%u', '__entry->work_dim',
         '__entry->block_x', '__entry->block_y', '__entry->block_z',
         '__entry->grid_x', '__entry->grid_y', '__entry->grid_z'],

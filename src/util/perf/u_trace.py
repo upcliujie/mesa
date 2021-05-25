@@ -22,6 +22,7 @@
 #
 
 from mako.template import Template
+from collections import namedtuple
 import os
 
 TRACEPOINTS = {}
@@ -29,17 +30,14 @@ TRACEPOINTS = {}
 class Tracepoint(object):
     """Class that represents all the information about a tracepoint
     """
-    def __init__(self, name, args=[], tp_struct=None, tp_print=None, tp_perfetto=None):
+    def __init__(self, name, args=[], tp_print=None, tp_perfetto=None):
         """Parameters:
 
         - name: the tracepoint name, a tracepoint function with the given
           name (prefixed by 'trace_') will be generated with the specied
           args (following a u_trace ptr).  Calling this tracepoint will
           emit a trace, if tracing is enabled.
-        - args: the tracepoint func args, an array of [type, name] pairs
-        - tp_struct: (optional) array of [type, name, expr] tuples to
-          convert from tracepoint args to trace payload.  If not specified
-          it will be generated from `args` (ie, [type, name, name])
+        - args: the tracepoint func args, an array of TracepointArg
         - tp_print: (optional) array of format string followed by expressions
         - tp_perfetto: (optional) driver provided callback which can generate
           perfetto events
@@ -50,15 +48,37 @@ class Tracepoint(object):
 
         self.name = name
         self.args = args
-        if tp_struct is None:
-            tp_struct = []
-            for arg in args:
-                tp_struct.append([arg[0], arg[1], arg[1]])
-        self.tp_struct = tp_struct
         self.tp_print = tp_print
         self.tp_perfetto = tp_perfetto
 
         TRACEPOINTS[name] = self
+
+
+class TracepointArg(object):
+    """Class that represents all the information about a tracepoint
+    """
+    def __init__(self, type, var_name, c_format, pretty_name=None, to_prim_type=None):
+        """Parameters:
+
+        - type: argument's C type.
+        - var_name: the name which will be used to define this arguments in
+          structs and function paramenters.
+        - c_format: printf format to print the value.
+        - pretty_name: (optional) name that will be displayed in output or perfetto,
+          otherwise var_name will be used.
+        - to_prim_type: (optional) C function to convert from arg's type to a type
+          compatible with c_format.
+        """
+        assert isinstance(type, str)
+        assert isinstance(var_name, str)
+        assert isinstance(c_format, str)
+
+        self.type = type
+        self.var_name = var_name
+        self.c_format = c_format
+        self.pretty_name = pretty_name
+        self.to_prim_type = to_prim_type
+
 
 HEADERS = []
 
@@ -134,10 +154,10 @@ ${declaration.decl};
  * ${trace_name}
  */
 struct trace_${trace_name} {
-%    for member in trace.tp_struct:
-         ${member[0]} ${member[1]};
+%    for arg in trace.args:
+         ${arg.type} ${arg.var_name};
 %    endfor
-%    if len(trace.tp_struct) == 0:
+%    if len(trace.args) == 0:
 #ifdef  __cplusplus
      /* avoid warnings about empty struct size mis-match in C vs C++..
       * the size mis-match is harmless because (a) nothing will deref
@@ -156,12 +176,12 @@ void ${trace.tp_perfetto}(${ctx_param}, uint64_t ts_ns, const void *flush_data, 
 %    endif
 void __trace_${trace_name}(struct u_trace *ut
 %    for arg in trace.args:
-     , ${arg[0]} ${arg[1]}
+     , ${arg.type} ${arg.var_name}
 %    endfor
 );
 static inline void trace_${trace_name}(struct u_trace *ut
 %    for arg in trace.args:
-     , ${arg[0]} ${arg[1]}
+     , ${arg.type} ${arg.var_name}
 %    endfor
 ) {
 %    if trace.tp_perfetto is not None:
@@ -172,7 +192,7 @@ static inline void trace_${trace_name}(struct u_trace *ut
       return;
    __trace_${trace_name}(ut
 %    for arg in trace.args:
-        , ${arg[1]}
+        , ${arg.var_name}
 %    endfor
    );
 }
@@ -221,14 +241,29 @@ src_template = """\
 /*
  * ${trace_name}
  */
-%    if trace.tp_print is not None:
+%    if trace.args is not None and len(trace.args) > 0:
 static void __print_${trace_name}(FILE *out, const void *arg) {
    const struct trace_${trace_name} *__entry =
       (const struct trace_${trace_name} *)arg;
+%    if trace.tp_print is not None:
    fprintf(out, "${trace.tp_print[0]}\\n"
 %       for arg in trace.tp_print[1:]:
            , ${arg}
 %       endfor
+% else:
+   fprintf(out, ""
+%  for arg in trace.args:
+      "${arg.pretty_name or arg.var_name}=${arg.c_format}, "
+%  endfor
+         "\\n"
+%  for arg in trace.args:
+   % if arg.to_prim_type:
+   ,${arg.to_prim_type.format('__entry->' + arg.var_name)}
+   % else:
+   ,__entry->${arg.var_name}
+   % endif
+%  endfor
+%endif
    );
 }
 %    else:
@@ -246,14 +281,14 @@ static const struct u_tracepoint __tp_${trace_name} = {
 };
 void __trace_${trace_name}(struct u_trace *ut
 %    for arg in trace.args:
-     , ${arg[0]} ${arg[1]}
+     , ${arg.type} ${arg.var_name}
 %    endfor
 ) {
    struct trace_${trace_name} *__entry =
       (struct trace_${trace_name} *)u_trace_append(ut, &__tp_${trace_name});
    (void)__entry;
-%    for member in trace.tp_struct:
-        __entry->${member[1]} = ${member[2]};
+%    for arg in trace.args:
+        __entry->${arg.var_name} = ${arg.var_name};
 %    endfor
 }
 
@@ -278,4 +313,78 @@ def utrace_generate(cpath, hpath, ctx_param):
                 ctx_param=ctx_param,
                 HEADERS=HEADERS,
                 FORWARD_DECLS=FORWARD_DECLS,
+                TRACEPOINTS=TRACEPOINTS))
+
+
+perfetto_utils_hdr_template = """\
+/*
+ * Copyright © 2021 Igalia S.L.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+<% guard_name = '_' + hdrname + '_H' %>
+#ifndef ${guard_name}
+#define ${guard_name}
+
+#include <perfetto.h>
+
+% for header in HEADERS:
+#include "${header.hdr}"
+% endfor
+
+% for trace_name, trace in TRACEPOINTS.items():
+static void UNUSED
+trace_payload_as_extra_${trace_name}(perfetto::protos::pbzero::GpuRenderStageEvent *event,
+                                     const struct trace_${trace_name} *payload)
+{
+%  if all([trace.tp_perfetto, trace.args]) and len(trace.args) > 0:
+   char buf[128];
+
+%  for arg in trace.args:
+   {
+      auto data = event->add_extra_data();
+      data->set_name("${arg.pretty_name or arg.var_name}");
+
+%     if arg.to_prim_type:
+      sprintf(buf, "${arg.c_format}", ${arg.to_prim_type.format('payload->' + arg.var_name)});
+%     else:
+      sprintf(buf, "${arg.c_format}", payload->${arg.var_name});
+%     endif
+
+      data->set_value(buf);
+   }
+%  endfor
+
+%  endif
+}
+% endfor
+
+#endif /* ${guard_name} */
+"""
+
+def utrace_generate_perfetto_utils(hpath):
+    if hpath is not None:
+        hdr = os.path.basename(hpath)
+        with open(hpath, 'wb') as f:
+            f.write(Template(perfetto_utils_hdr_template, output_encoding='utf-8').render(
+                hdrname=hdr.rstrip('.h').upper(),
+                HEADERS=HEADERS,
                 TRACEPOINTS=TRACEPOINTS))
