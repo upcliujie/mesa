@@ -2033,9 +2033,26 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                 emit_sysval_read(ctx, &instr->instr, 2, 0);
                 break;
 
-        case nir_intrinsic_get_ssbo_size:
-                emit_sysval_read(ctx, &instr->instr, 1, 8);
+        case nir_intrinsic_get_ssbo_size: {
+                assert(nir_dest_bit_size(instr->dest) == 32);
+
+                /* Load the third word of the sysval. All this code is to
+                 * avoid an unaligned UBO access, which can't be pushed at the
+                 * moment. */
+
+                midgard_instruction *ins =
+                        emit_sysval_read(ctx, &instr->instr, 3, 0);
+
+                unsigned tmp = make_compiler_temp(ctx);
+
+                midgard_instruction mov = v_mov(tmp, ins->dest);
+                mov.swizzle[1][0] = 2;
+                emit_mir_instruction(ctx, mov);
+
+                ins->dest = tmp;
+
                 break;
+        }
 
         case nir_intrinsic_load_viewport_scale:
         case nir_intrinsic_load_viewport_offset:
