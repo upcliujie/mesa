@@ -402,6 +402,8 @@ struct si_shader_info {
     * fragment shader invocations if flat shading.
     */
    bool allow_flat_shading;
+
+   bool uses_shadow_sampler;
 };
 
 /* A shader selector is a gallium CSO and contains shader variants and

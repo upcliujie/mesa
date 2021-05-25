@@ -225,9 +225,12 @@ static void scan_instruction(const struct nir_shader *nir, struct si_shader_info
             info->uses_indirect_descriptor = true;
       } else {
          const nir_src *deref = get_texture_src(tex, nir_tex_src_texture_deref);
+         nir_deref_instr *src_deref = nir_src_as_deref(*deref);
 
-         if (nir_deref_instr_has_indirect(nir_src_as_deref(*deref)))
+         if (nir_deref_instr_has_indirect(src_deref))
             info->uses_indirect_descriptor = true;
+         if (glsl_sampler_type_is_shadow(src_deref->type))
+            info->uses_shadow_sampler = true;
       }
    } else if (instr->type == nir_instr_type_intrinsic) {
       nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
