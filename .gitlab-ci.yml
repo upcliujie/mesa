@@ -414,7 +414,7 @@ x86_test-base:
 x86_test-gl:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-gl "2021-05-19-piglit"
+    MESA_IMAGE_TAG: &x86_test-gl "2021-05-25-piglit-vk-tests"
 
 # Debian 11 based x86 test image for VK
 x86_test-vk:
