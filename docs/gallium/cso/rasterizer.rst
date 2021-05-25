@@ -158,6 +158,10 @@ line_last_pixel
     Controls whether the last pixel in a line is drawn or not.  OpenGL
     omits the last pixel to avoid double-drawing pixels at the ends of lines
     when drawing connected lines.
+line_first_pixel
+    Controls whether the first pixel in a line is drawn or not.  OpenGL
+    omits the last pixel to avoid double-drawing pixels at the ends of lines
+    when drawing connected lines. Vulkan requires first and last pixels.
 
 
 Points
