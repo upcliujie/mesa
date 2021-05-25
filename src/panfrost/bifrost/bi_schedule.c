@@ -197,7 +197,7 @@ bi_is_sched_barrier(bi_instr *I)
 }
 
 static void
-bi_create_dependency_graph(struct bi_worklist st, bool inorder)
+bi_create_dependency_graph(struct bi_worklist st, bool inorder, bool is_blend)
 {
         struct util_dynarray last_read[64], last_write[64];
 
@@ -246,6 +246,15 @@ bi_create_dependency_graph(struct bi_worklist st, bool inorder)
 
                                 bi_push_dependency(MAX2(i, j), MIN2(i, j),
                                                 st.dependents, st.dep_counts);
+                        }
+                }
+
+                /* Blend shaders may clobber r0-r15 by ABI */
+                if (ins->op == BI_OPCODE_BLEND && !is_blend) {
+                        for (unsigned c = 0; c < 16; ++c) {
+                                add_dependency(last_read, c, i, st.dependents, st.dep_counts);
+                                add_dependency(last_write, c, i, st.dependents, st.dep_counts);
+                                mark_access(last_write, c, i);
                         }
                 }
 
@@ -412,7 +421,7 @@ bi_flatten_block(bi_block *block, unsigned *len)
  */
 
 static struct bi_worklist
-bi_initialize_worklist(bi_block *block, bool inorder)
+bi_initialize_worklist(bi_block *block, bool inorder, bool is_blend)
 {
         struct bi_worklist st = { };
         st.instructions = bi_flatten_block(block, &st.count);
@@ -423,7 +432,7 @@ bi_initialize_worklist(bi_block *block, bool inorder)
         st.dependents = calloc(st.count, sizeof(st.dependents[0]));
         st.dep_counts = calloc(st.count, sizeof(st.dep_counts[0]));
 
-        bi_create_dependency_graph(st, inorder);
+        bi_create_dependency_graph(st, inorder, is_blend);
         st.worklist = calloc(BITSET_WORDS(st.count), sizeof(BITSET_WORD));
 
         for (unsigned i = 0; i < st.count; ++i) {
@@ -1816,7 +1825,8 @@ bi_schedule_block(bi_context *ctx, bi_block *block)
 
         /* Copy list to dynamic array */
         struct bi_worklist st = bi_initialize_worklist(block,
-                        bifrost_debug & BIFROST_DBG_INORDER);
+                        bifrost_debug & BIFROST_DBG_INORDER,
+                        ctx->inputs->is_blend);
 
         if (!st.count) {
                 bi_free_worklist(st);
