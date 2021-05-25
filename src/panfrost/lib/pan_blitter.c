@@ -77,9 +77,8 @@ struct pan_blit_shader_key {
 
 struct pan_blit_shader_data {
         struct pan_blit_shader_key key;
+        struct pan_shader_info info;
         mali_ptr address;
-        unsigned blend_ret_offsets[8];
-        nir_alu_type blend_types[8];
 };
 
 struct pan_blit_blend_shader_key {
@@ -149,35 +148,6 @@ pan_blitter_prepare_midgard_rsd(const struct panfrost_device *dev,
 }
 
 static void
-pan_blitter_prepare_bifrost_rsd(const struct panfrost_device *dev,
-                                bool zs, bool ms,
-                                struct MALI_RENDERER_STATE *rsd)
-{
-        if (zs) {
-                rsd->properties.bifrost.zs_update_operation =
-                        MALI_PIXEL_KILL_FORCE_LATE;
-                rsd->properties.bifrost.pixel_kill_operation =
-                        MALI_PIXEL_KILL_FORCE_LATE;
-        } else {
-                rsd->properties.bifrost.zs_update_operation =
-                        MALI_PIXEL_KILL_STRONG_EARLY;
-                rsd->properties.bifrost.pixel_kill_operation =
-                        MALI_PIXEL_KILL_FORCE_EARLY;
-        }
-
-        /* We can only allow blit shader fragments to kill if they write all
-         * colour outputs. This is true for our colour (non-Z/S) blit shaders,
-         * but obviously not true for Z/S shaders. However, blit shaders
-         * otherwise lack side effects, so other fragments may kill them. */
-
-        rsd->properties.bifrost.allow_forward_pixel_to_kill = !zs;
-        rsd->properties.bifrost.allow_forward_pixel_to_be_killed = true;
-
-        rsd->preload.fragment.coverage = true;
-        rsd->preload.fragment.sample_mask_id = ms;
-}
-
-static void
 pan_blitter_emit_midgard_blend(const struct panfrost_device *dev,
                                unsigned rt,
                                const struct pan_image_view *iview,
@@ -240,10 +210,11 @@ pan_blitter_emit_bifrost_blend(const struct panfrost_device *dev,
                                             MALI_BIFROST_BLEND_MODE_OPAQUE;
                 if (blend_shader) {
                         cfg.bifrost.internal.shader.pc = blend_shader;
-                        if (blit_shader->blend_ret_offsets[rt]) {
+                        off_t off = blit_shader->info.bifrost.blend[rt].return_offset;
+
+                        if (off) {
                                 cfg.bifrost.internal.shader.return_value =
-                                        blit_shader->address +
-                                        blit_shader->blend_ret_offsets[rt];
+                                        blit_shader->address + off;
                         }
                 } else {
                         cfg.bifrost.equation.rgb.a = MALI_BLEND_OPERAND_A_SRC;
@@ -299,11 +270,8 @@ pan_blitter_emit_rsd(const struct panfrost_device *dev,
         }
 
         pan_pack(out, RENDERER_STATE, cfg) {
-                assert(blit_shader->address);
-                cfg.shader.shader = blit_shader->address;
-                cfg.shader.varying_count = 1;
-                cfg.shader.texture_count = tex_count;
-                cfg.shader.sampler_count = 1;
+                pan_shader_prepare_rsd(dev, &blit_shader->info,
+                                blit_shader->address, &cfg);
 
                 cfg.properties.stencil_from_shader = s != NULL;
                 cfg.properties.depth_source =
@@ -328,7 +296,12 @@ pan_blitter_emit_rsd(const struct panfrost_device *dev,
                 cfg.stencil_back = cfg.stencil_front;
 
                 if (pan_is_bifrost(dev)) {
-                        pan_blitter_prepare_bifrost_rsd(dev, zs, ms, &cfg);
+                        if (!zs) {
+                                cfg.properties.bifrost.zs_update_operation =
+                                        MALI_PIXEL_KILL_STRONG_EARLY;
+                                cfg.properties.bifrost.pixel_kill_operation =
+                                        MALI_PIXEL_KILL_FORCE_EARLY;
+                        }
                 } else {
                         pan_blitter_prepare_midgard_rsd(dev, rts,
                                                         blend_shaders, zs,
@@ -376,7 +349,7 @@ pan_blitter_get_blend_shaders(struct panfrost_device *dev,
                         .format = rts[i]->format,
                         .rt = i,
                         .nr_samples = rts[i]->image->layout.nr_samples,
-                        .type = blit_shader->blend_types[i],
+                        .type = blit_shader->info.bifrost.blend[i].type,
                 };
 
                 pthread_mutex_lock(&dev->blitter.shaders.lock);
@@ -413,7 +386,7 @@ pan_blitter_get_blend_shaders(struct panfrost_device *dev,
                 pthread_mutex_lock(&dev->blend_shaders.lock);
                 struct pan_blend_shader_variant *b =
                         pan_blend_get_shader_locked(dev, &blend_state,
-                                        blit_shader->blend_types[i],
+                                        blit_shader->info.bifrost.blend[i].type,
                                         nir_type_float32, /* unused */
                                         i);
 
@@ -639,16 +612,15 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                 .is_blit = true,
         };
         struct util_dynarray binary;
-        struct pan_shader_info info;
 
         util_dynarray_init(&binary, NULL);
-
-        pan_shader_compile(dev, b.shader, &inputs, &binary, &info);
 
         shader = rzalloc(dev->blitter.shaders.blit,
                          struct pan_blit_shader_data);
 
         nir_shader_gather_info(b.shader, nir_shader_get_entrypoint(b.shader));
+
+        pan_shader_compile(dev, b.shader, &inputs, &binary, &shader->info);
 
         shader->key = *key;
         shader->address =
@@ -658,16 +630,6 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
 
         util_dynarray_fini(&binary);
         ralloc_free(b.shader);
-
-        if (!pan_is_bifrost(dev))
-                shader->address |= info.midgard.first_tag;
-
-        if (pan_is_bifrost(dev)) {
-                for (unsigned i = 0; i < ARRAY_SIZE(shader->blend_ret_offsets); i++) {
-                        shader->blend_ret_offsets[i] = info.bifrost.blend[i].return_offset;
-                        shader->blend_types[i] = info.bifrost.blend[i].type;
-                }
-        }
 
         _mesa_hash_table_insert(dev->blitter.shaders.blit, &shader->key, shader);
 
