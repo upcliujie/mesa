@@ -372,8 +372,10 @@ try_setup_line( struct lp_setup_context *setup,
       
       /* 
        * Diamond exit rule test for starting point 
-       */    
-      if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
+       */
+      if (setup->line_first_pixel) {
+         draw_start = TRUE;
+      } else if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
          draw_start = TRUE;
       }
       else if (sign(x1diff) == sign(-dx)) {
@@ -391,8 +393,10 @@ try_setup_line( struct lp_setup_context *setup,
 
       /* 
        * Diamond exit rule test for ending point 
-       */    
-      if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
+       */
+      if (setup->line_last_pixel) {
+         draw_end = TRUE;
+      } else if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
          draw_end = FALSE;
       }
       else if (sign(x2diff) != sign(-dx)) {
@@ -470,8 +474,10 @@ try_setup_line( struct lp_setup_context *setup,
 
       /* 
        * Diamond exit rule test for starting point 
-       */    
-      if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
+       */
+      if (setup->line_first_pixel) {
+         draw_start = TRUE;
+      } else if (fabsf(x1diff) + fabsf(y1diff) < 0.5) {
          draw_start = TRUE;
       }
       else if (sign(-y1diff) == sign(dy)) {
@@ -488,8 +494,10 @@ try_setup_line( struct lp_setup_context *setup,
 
       /* 
        * Diamond exit rule test for ending point 
-       */    
-      if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
+       */
+      if (setup->line_last_pixel)
+         draw_end = TRUE;
+      else if (fabsf(x2diff) + fabsf(y2diff) < 0.5) {
          draw_end = FALSE;
       }
       else if (sign(-y2diff) != sign(dy) ) {
@@ -506,8 +514,14 @@ try_setup_line( struct lp_setup_context *setup,
 
       /* Are we already drawing start/end?
        */
-      will_draw_start = sign(y1diff) == sign(dy);
-      will_draw_end = (sign(-y2diff) == sign(dy)) || y2diff==0;
+      if (setup->line_last_pixel)
+         will_draw_end = TRUE;
+      else
+         will_draw_end = (sign(-y2diff) == sign(dy)) || y2diff==0;
+      if (setup->line_first_pixel)
+         will_draw_start = TRUE;
+      else
+         will_draw_start = sign(y1diff) == sign(dy);
 
       if (dy > 0) {
          /* if v2 is on top of v1, swap pointers */
