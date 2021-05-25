@@ -477,6 +477,10 @@ struct lvp_pipeline {
    void *shader_cso[PIPE_SHADER_TYPES];
    VkGraphicsPipelineCreateInfo graphics_create_info;
    VkComputePipelineCreateInfo compute_create_info;
+   uint32_t line_stipple_factor;
+   uint16_t line_stipple_pattern;
+   bool line_stipple_enable;
+   bool line_smooth;
    bool provoking_vertex_last;
 };
 
@@ -673,6 +677,7 @@ enum lvp_cmds {
    LVP_CMD_SET_DEPTH_BOUNDS_TEST_ENABLE,
    LVP_CMD_SET_STENCIL_TEST_ENABLE,
    LVP_CMD_SET_STENCIL_OP,
+   LVP_CMD_SET_LINE_STIPPLE,
 };
 
 struct lvp_cmd_bind_pipeline {
@@ -1045,6 +1050,11 @@ struct lvp_cmd_set_stencil_op {
    VkCompareOp compare_op;
 };
 
+struct lvp_cmd_set_line_stipple {
+   uint32_t line_stipple_factor;
+   uint16_t line_stipple_pattern;
+};
+
 struct lvp_cmd_buffer_entry {
    struct list_head cmd_link;
    uint32_t cmd_type;
@@ -1101,6 +1111,7 @@ struct lvp_cmd_buffer_entry {
       struct lvp_cmd_set_depth_bounds_test_enable set_depth_bounds_test_enable;
       struct lvp_cmd_set_stencil_test_enable set_stencil_test_enable;
       struct lvp_cmd_set_stencil_op set_stencil_op;
+      struct lvp_cmd_set_line_stipple set_line_stipple;
    } u;
 };
 
