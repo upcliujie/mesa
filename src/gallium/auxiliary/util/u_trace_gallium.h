@@ -38,24 +38,50 @@ extern "C" {
  * to log more complex data structures.
  */
 
-void __trace_surface(struct u_trace *ut, const struct pipe_surface *psurf);
-void __trace_framebuffer(struct u_trace *ut, const struct pipe_framebuffer_state *pfb);
-
 static inline void
 trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state *pfb)
 {
    if (likely(!ut->enabled))
       return;
 
-   __trace_framebuffer(ut, pfb);
+   trace_framebuffer(ut,
+      pfb->width,
+      pfb->height,
+      pfb->layers,
+      pfb->samples,
+      pfb->nr_cbufs);
+
    for (unsigned i = 0; i < pfb->nr_cbufs; i++) {
       if (pfb->cbufs[i]) {
-         __trace_surface(ut, pfb->cbufs[i]);
+        struct pipe_surface *psurf = pfb->cbufs[i];
+         trace_surface(ut,
+            psurf->width,
+            psurf->height,
+            psurf->nr_samples,
+            util_format_short_name(psurf->format));
       }
    }
    if (pfb->zsbuf) {
-      __trace_surface(ut, pfb->zsbuf);
+        struct pipe_surface *psurf = pfb->zsbuf;
+         trace_surface(ut,
+            psurf->width,
+            psurf->height,
+            psurf->nr_samples,
+            util_format_short_name(psurf->format));
    }
+}
+
+static inline void
+trace_grid_info_pipe(struct u_trace *ut, const struct pipe_grid_info *pgrid)
+{
+   trace_grid_info(ut,
+      pgrid->work_dim,
+      pgrid->block[0],
+      pgrid->block[1],
+      pgrid->block[2],
+      pgrid->grid[0],
+      pgrid->grid[1],
+      pgrid->grid[2]);
 }
 
 #ifdef  __cplusplus
