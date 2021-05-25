@@ -166,19 +166,31 @@ lcra_count_constraints(struct lcra_state *l, unsigned i)
 }
 
 static void
-bi_mark_interference(bi_block *block, struct lcra_state *l, uint16_t *live, unsigned node_count, bool is_blend)
+bi_mark_interference(bi_block *block, struct lcra_state *l, uint16_t *live, uint64_t preload_live, unsigned node_count, bool is_blend)
 {
         bi_foreach_instr_in_block_rev(block, ins) {
+                /* Handle preload liveness */
+                bi_foreach_src(ins, s) {
+                        if (ins->src[s].type == BI_INDEX_REGISTER)
+                                preload_live |= BITFIELD64_BIT(ins->src[s].value);
+                }
+
                 /* Mark all registers live after the instruction as
                  * interfering with the destination */
 
                 bi_foreach_dest(ins, d) {
-                        if (bi_get_node(ins->dest[d]) >= node_count)
+                        unsigned node = bi_get_node(ins->dest[d]);
+
+                        if (node >= node_count)
                                 continue;
+
+                        /* Don't allocate to anything that's read later as a
+                         * preloaded register */
+                        l->affinity[node] &= ~preload_live;
 
                         for (unsigned i = 0; i < node_count; ++i) {
                                 if (live[i]) {
-                                        lcra_add_node_interference(l, bi_get_node(ins->dest[d]),
+                                        lcra_add_node_interference(l, node,
                                                         bi_writemask(ins, d), i, live[i]);
                                 }
                         }
@@ -197,6 +209,8 @@ bi_mark_interference(bi_block *block, struct lcra_state *l, uint16_t *live, unsi
                 /* Update live_in */
                 bi_liveness_ins_update(live, ins, node_count);
         }
+
+        block->reg_live_in = preload_live;
 }
 
 static void
@@ -206,11 +220,19 @@ bi_compute_interference(bi_context *ctx, struct lcra_state *l)
 
         bi_compute_liveness(ctx);
 
-        bi_foreach_block(ctx, _blk) {
+        bi_foreach_block_rev(ctx, _blk) {
                 bi_block *blk = (bi_block *) _blk;
                 uint16_t *live = mem_dup(_blk->live_out, node_count * sizeof(uint16_t));
+                uint64_t preload_live = 0;
 
-                bi_mark_interference(blk, l, live, node_count,
+                /* Liveness analysis for preloading is easy since values can
+                 * only be generated (meaning a block only needs to be
+                 * processed once, simply iterating backwards will suffice) */
+                pan_foreach_successor(_blk, succ) {
+                        preload_live |= ((bi_block *) succ)->reg_live_in;
+                }
+
+                bi_mark_interference(blk, l, live, preload_live, node_count,
                                      ctx->inputs->is_blend);
 
                 free(live);
