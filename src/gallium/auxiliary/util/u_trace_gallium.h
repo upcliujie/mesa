@@ -34,6 +34,7 @@ extern "C" {
 
 struct pipe_context;
 struct pipe_framebuffer_state;
+struct pipe_grid_info;
 
 void
 u_trace_pipe_context_init(struct u_trace_context *utctx,
@@ -49,6 +50,9 @@ u_trace_pipe_context_init(struct u_trace_context *utctx,
 
 void
 trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state *pfb);
+
+void
+trace_grid_info_pipe(struct u_trace *ut, const struct pipe_grid_info *pgrid);
 
 #ifdef  __cplusplus
 }
