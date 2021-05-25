@@ -1494,7 +1494,7 @@ emit_attr_read(
         emit_mir_instruction(ctx, ins);
 }
 
-static void
+static midgard_instruction *
 emit_sysval_read(compiler_context *ctx, nir_instr *instr,
                 unsigned nr_components, unsigned offset)
 {
@@ -1514,6 +1514,8 @@ emit_sysval_read(compiler_context *ctx, nir_instr *instr,
                               sysval_ubo, nr_components);
 
         ins->mask = mask_of(nr_components);
+
+        return ins;
 }
 
 static unsigned
