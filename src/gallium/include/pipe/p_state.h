@@ -117,6 +117,7 @@ struct pipe_rasterizer_state
    unsigned line_smooth:1;
    unsigned line_stipple_enable:1;
    unsigned line_last_pixel:1;
+   unsigned line_first_pixel:1;
    unsigned conservative_raster_mode:2; /**< PIPE_CONSERVATIVE_RASTER_x */
 
    /**
