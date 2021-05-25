@@ -215,6 +215,9 @@ static void emit_state(struct rendering_state *state)
    }
 
    if (state->rs_dirty) {
+      bool ms = state->rs_state.multisample;
+      if (state->rs_state.line_smooth)
+         state->rs_state.multisample = false;
       if (state->rast_handle) {
          state->pctx->bind_rasterizer_state(state->pctx, NULL);
          state->pctx->delete_rasterizer_state(state->pctx, state->rast_handle);
@@ -223,6 +226,7 @@ static void emit_state(struct rendering_state *state)
                                                                 &state->rs_state);
       state->pctx->bind_rasterizer_state(state->pctx, state->rast_handle);
       state->rs_dirty = false;
+      state->rs_state.multisample = ms;
    }
 
    if (state->dsa_dirty) {
@@ -378,10 +382,12 @@ static int conv_dynamic_state_idx(VkDynamicState dyn_state)
 {
    if (dyn_state <= VK_DYNAMIC_STATE_STENCIL_REFERENCE)
       return dyn_state;
-
+   if (dyn_state == VK_DYNAMIC_STATE_LINE_STIPPLE_EXT)
+      /* this one has a weird id, map after the normal dynamic state ones */
+      return VK_DYNAMIC_STATE_STENCIL_REFERENCE + 1;
    if (dyn_state >= VK_DYNAMIC_STATE_CULL_MODE_EXT &&
        dyn_state <= VK_DYNAMIC_STATE_STENCIL_OP_EXT)
-      return dyn_state - VK_DYNAMIC_STATE_CULL_MODE_EXT + VK_DYNAMIC_STATE_STENCIL_REFERENCE + 1;
+      return dyn_state - VK_DYNAMIC_STATE_CULL_MODE_EXT + VK_DYNAMIC_STATE_STENCIL_REFERENCE + 2;
    assert(0);
    return -1;
 }
@@ -390,7 +396,7 @@ static void handle_graphics_pipeline(struct lvp_cmd_buffer_entry *cmd,
                                      struct rendering_state *state)
 {
    struct lvp_pipeline *pipeline = cmd->u.pipeline.pipeline;
-   bool dynamic_states[VK_DYNAMIC_STATE_STENCIL_REFERENCE+13];
+   bool dynamic_states[VK_DYNAMIC_STATE_STENCIL_REFERENCE+32];
    unsigned fb_samples = 0;
 
    memset(dynamic_states, 0, sizeof(dynamic_states));
@@ -461,7 +467,8 @@ static void handle_graphics_pipeline(struct lvp_cmd_buffer_entry *cmd,
       state->rs_state.depth_clip_near = state->rs_state.depth_clip_far = !rsc->depthClampEnable;
       state->rs_state.rasterizer_discard = rsc->rasterizerDiscardEnable;
 
-
+      state->rs_state.line_smooth = pipeline->line_smooth;
+      state->rs_state.line_stipple_enable = pipeline->line_stipple_enable;
       state->rs_state.fill_front = vk_polygon_mode_to_pipe(rsc->polygonMode);
       state->rs_state.fill_back = vk_polygon_mode_to_pipe(rsc->polygonMode);
       state->rs_state.point_size_per_vertex = true;
@@ -474,6 +481,10 @@ static void handle_graphics_pipeline(struct lvp_cmd_buffer_entry *cmd,
 
       if (!dynamic_states[VK_DYNAMIC_STATE_LINE_WIDTH])
          state->rs_state.line_width = rsc->lineWidth;
+      if (!dynamic_states[conv_dynamic_state_idx(VK_DYNAMIC_STATE_LINE_STIPPLE_EXT)]) {
+         state->rs_state.line_stipple_factor = pipeline->line_stipple_factor;
+         state->rs_state.line_stipple_pattern = pipeline->line_stipple_pattern;
+      }
 
       if (!dynamic_states[VK_DYNAMIC_STATE_DEPTH_BIAS]) {
          state->rs_state.offset_units = rsc->depthBiasConstantFactor;
@@ -677,8 +688,10 @@ static void handle_graphics_pipeline(struct lvp_cmd_buffer_entry *cmd,
    {
       const VkPipelineInputAssemblyStateCreateInfo *ia = pipeline->graphics_create_info.pInputAssemblyState;
 
-      if (!dynamic_states[conv_dynamic_state_idx(VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT)])
+      if (!dynamic_states[conv_dynamic_state_idx(VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT)]) {
          state->info.mode = vk_conv_topology(ia->topology);
+         state->rs_dirty = true;
+      }
       state->info.primitive_restart = ia->primitiveRestartEnable;
    }
 
@@ -2865,6 +2878,7 @@ static void handle_set_primitive_topology(struct lvp_cmd_buffer_entry *cmd,
                                           struct rendering_state *state)
 {
    state->info.mode = vk_conv_topology(cmd->u.set_primitive_topology.prim);
+   state->rs_dirty = true;
 }
 
 
@@ -2922,6 +2936,14 @@ static void handle_set_stencil_op(struct lvp_cmd_buffer_entry *cmd,
       state->dsa_state.stencil[1].zfail_op = vk_conv_stencil_op(cmd->u.set_stencil_op.depth_fail_op);
    }
    state->dsa_dirty = true;
+}
+
+static void handle_set_line_stipple(struct lvp_cmd_buffer_entry *cmd,
+                                    struct rendering_state *state)
+{
+   state->rs_state.line_stipple_factor = cmd->u.set_line_stipple.line_stipple_factor - 1;
+   state->rs_state.line_stipple_pattern = cmd->u.set_line_stipple.line_stipple_pattern;
+   state->rs_dirty = true;
 }
 
 static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
@@ -3132,6 +3154,9 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
          break;
       case LVP_CMD_SET_STENCIL_OP:
          handle_set_stencil_op(cmd, state);
+         break;
+      case LVP_CMD_SET_LINE_STIPPLE:
+         handle_set_line_stipple(cmd, state);
          break;
       }
       first = false;
