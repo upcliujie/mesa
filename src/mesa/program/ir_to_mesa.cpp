@@ -1057,9 +1057,11 @@ ir_to_mesa_visitor::visit(ir_expression *ir)
       emit(ir, OPCODE_SGE, result_dst, op[0], op[1]);
       break;
    case ir_binop_equal:
+   case ir_binop_equal_exact:
       emit_seq(ir, result_dst, op[0], op[1]);
       break;
    case ir_binop_nequal:
+   case ir_binop_nequal_exact:
       emit_sne(ir, result_dst, op[0], op[1]);
       break;
    case ir_binop_all_equal:
