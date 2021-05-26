@@ -363,6 +363,18 @@ nequal(operand a, operand b)
 }
 
 ir_expression*
+equal_exact(operand a, operand b)
+{
+   return expr(ir_binop_equal_exact, a, b);
+}
+
+ir_expression*
+nequal_exact(operand a, operand b)
+{
+   return expr(ir_binop_nequal_exact, a, b);
+}
+
+ir_expression*
 less(operand a, operand b)
 {
    return expr(ir_binop_less, a, b);
