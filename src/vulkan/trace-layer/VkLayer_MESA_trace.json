@@ -1,0 +1,18 @@
+{
+  "file_format_version" : "1.1.2",
+  "layer" : {
+    "name": "VK_LAYER_MESA_trace",
+    "type": "GLOBAL",
+    "library_path": "libVkLayer_MESA_trace.so",
+    "api_version": "1.2.73",
+    "implementation_version": "1",
+    "description": "trace layer",
+    "enable_environment": { "ENABLE_VK_LAYER_MESA_trace_1": "1" },
+    "disable_environment": { "DISABLE_VK_LAYER_MESA_trace_1": "1" },
+    "pre_instance_functions": {
+      "vkEnumerateInstanceExtensionProperties": "traceEnumerateInstanceExtensionPropertiesChain",
+      "vkEnumerateInstanceLayerProperties": "traceEnumerateInstanceLayerPropertiesChain",
+      "vkEnumerateInstanceVersion": "traceEnumerateInstanceVersionChain"
+    }
+  }
+}
