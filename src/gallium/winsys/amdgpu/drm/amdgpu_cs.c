@@ -425,7 +425,7 @@ static inline unsigned amdgpu_cs_epilog_dws(struct amdgpu_cs *cs)
 static int amdgpu_lookup_buffer(struct amdgpu_cs_context *cs, struct amdgpu_winsys_bo *bo,
                                 struct amdgpu_cs_buffer *buffers, unsigned num_buffers)
 {
-   unsigned hash = bo->unique_id & (ARRAY_SIZE(cs->buffer_indices_hashlist)-1);
+   unsigned hash = bo->unique_id & (BUFFER_HASHLIST_SIZE-1);
    int i = cs->buffer_indices_hashlist[hash];
 
    /* not found or found */
@@ -522,7 +522,7 @@ amdgpu_lookup_or_add_real_buffer(struct radeon_cmdbuf *rcs, struct amdgpu_cs *ac
 
    idx = amdgpu_do_add_real_buffer(acs->ws, cs, bo);
 
-   hash = bo->unique_id & (ARRAY_SIZE(cs->buffer_indices_hashlist)-1);
+   hash = bo->unique_id & (BUFFER_HASHLIST_SIZE-1);
    cs->buffer_indices_hashlist[hash] = idx;
 
    if (bo->base.placement & RADEON_DOMAIN_VRAM)
@@ -577,7 +577,7 @@ static int amdgpu_lookup_or_add_slab_buffer(struct amdgpu_winsys *ws,
    buffer->u.slab.real_idx = real_idx;
    cs->num_slab_buffers++;
 
-   hash = bo->unique_id & (ARRAY_SIZE(cs->buffer_indices_hashlist)-1);
+   hash = bo->unique_id & (BUFFER_HASHLIST_SIZE-1);
    cs->buffer_indices_hashlist[hash] = idx;
 
    return idx;
@@ -621,7 +621,7 @@ static int amdgpu_lookup_or_add_sparse_buffer(struct amdgpu_winsys *ws,
    amdgpu_winsys_bo_reference(ws, &buffer->bo, bo);
    cs->num_sparse_buffers++;
 
-   hash = bo->unique_id & (ARRAY_SIZE(cs->buffer_indices_hashlist)-1);
+   hash = bo->unique_id & (BUFFER_HASHLIST_SIZE-1);
    cs->buffer_indices_hashlist[hash] = idx;
 
    /* We delay adding the backing buffers until we really have to. However,
@@ -911,7 +911,6 @@ static bool amdgpu_init_cs_context(struct amdgpu_winsys *ws,
    cs->ib[IB_PARALLEL_COMPUTE].ip_type = AMDGPU_HW_IP_COMPUTE;
    cs->ib[IB_PARALLEL_COMPUTE].flags = AMDGPU_IB_FLAG_TC_WB_NOT_INVALIDATE;
 
-   memset(cs->buffer_indices_hashlist, -1, sizeof(cs->buffer_indices_hashlist));
    cs->last_added_bo = NULL;
    return true;
 }
@@ -946,8 +945,6 @@ static void amdgpu_cs_context_cleanup(struct amdgpu_winsys *ws, struct amdgpu_cs
    cs->num_slab_buffers = 0;
    cs->num_sparse_buffers = 0;
    amdgpu_fence_reference(&cs->fence, NULL);
-
-   memset(cs->buffer_indices_hashlist, -1, sizeof(cs->buffer_indices_hashlist));
    cs->last_added_bo = NULL;
 }
 
@@ -1013,9 +1010,14 @@ amdgpu_cs_create(struct radeon_cmdbuf *rcs,
       return false;
    }
 
+   memset(cs->buffer_indices_hashlist, -1, sizeof(cs->buffer_indices_hashlist));
+
    /* Set the first submission context as current. */
    cs->csc = &cs->csc1;
    cs->cst = &cs->csc2;
+
+   cs->csc->buffer_indices_hashlist = cs->buffer_indices_hashlist;
+   cs->cst->buffer_indices_hashlist = NULL;
 
    cs->main.rcs = rcs;
    rcs->priv = cs;
@@ -1869,6 +1871,9 @@ static int amdgpu_cs_flush(struct radeon_cmdbuf *rcs,
       /* Swap command streams. "cst" is going to be submitted. */
       cs->csc = cs->cst;
       cs->cst = cur;
+
+      cs->csc->buffer_indices_hashlist = cs->cst->buffer_indices_hashlist;
+      memset(cs->csc->buffer_indices_hashlist, -1, sizeof(cs->buffer_indices_hashlist));
 
       /* Submit. */
       util_queue_add_job(&ws->cs_queue, cs, &cs->flush_completed,
