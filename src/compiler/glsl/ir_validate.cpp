@@ -780,6 +780,8 @@ ir_validate::visit_leave(ir_expression *ir)
    case ir_binop_gequal:
    case ir_binop_equal:
    case ir_binop_nequal:
+   case ir_binop_equal_exact:
+   case ir_binop_nequal_exact:
       /* The semantics of the IR operators differ from the GLSL <, >, <=, >=,
        * ==, and != operators.  The IR operators perform a component-wise
        * comparison on scalar or vector types and return a boolean scalar or
