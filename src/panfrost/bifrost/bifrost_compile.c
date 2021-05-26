@@ -378,7 +378,7 @@ bi_make_vec_to(bi_builder *b, bi_index final_dst,
         }
 }
 
-static bi_instr *
+static void
 bi_load_sysval_to(bi_builder *b, bi_index dest, int sysval,
                 unsigned nr_components, unsigned offset)
 {
@@ -388,11 +388,17 @@ bi_load_sysval_to(bi_builder *b, bi_index dest, int sysval,
                 pan_lookup_sysval(b->shader->sysval_to_id,
                                   &b->shader->info->sysvals,
                                   sysval);
-        unsigned idx = (uniform * 16) + (offset * 4);
+        unsigned idx = uniform * 16;
 
-        return bi_load_to(b, nr_components * 32, dest,
-                        bi_imm_u32(idx),
-                        bi_imm_u32(sysval_ubo), BI_SEG_UBO);
+        bi_index load_dest = bi_temp(b->shader);
+
+        bi_load_to(b, (nr_components + offset) * 32, load_dest,
+                   bi_imm_u32(idx),
+                   bi_imm_u32(sysval_ubo), BI_SEG_UBO);
+
+        for (unsigned i = 0; i < nr_components; ++i)
+                bi_mov_i32_to(b, bi_word(dest, i),
+                              bi_word(load_dest, i + offset));
 }
 
 static void
