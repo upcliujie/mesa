@@ -87,6 +87,7 @@ SCOREBOARD = immediate("scoreboard")
 ICOND = immediate("icond")
 FCOND = immediate("fcond")
 INVERT_COND = immediate("invert_cond")
+TARGET = immediate("target", "agx_block *")
 
 FUNOP = lambda x: (x << 28)
 FUNOP_MASK = FUNOP((1 << 14) - 1)
