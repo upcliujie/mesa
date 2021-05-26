@@ -27,6 +27,7 @@
 #include "broadcom/cle/v3dx_pack.h"
 #include "vk_format_info.h"
 #include "util/u_pack_color.h"
+#include "vulkan/util/vk_common_entrypoints.h"
 
 static uint32_t
 meta_blit_key_hash(const void *key)
@@ -3653,7 +3654,7 @@ copy_buffer_to_image_blit(struct v3dv_cmd_buffer *cmd_buffer,
       return handled;
 
    VkMemoryRequirements reqs;
-   v3dv_GetImageMemoryRequirements(_device, dummy_image, &reqs);
+   vk_common_GetImageMemoryRequirements(_device, dummy_image, &reqs);
    v3dv_DestroyImage(_device, dummy_image, &device->vk.alloc);
 
    VkDeviceMemory mem;
