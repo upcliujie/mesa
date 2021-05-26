@@ -5549,7 +5549,7 @@ builtin_builder::_isnan(builtin_available_predicate avail, const glsl_type *type
    ir_variable *x = in_var(type, "x");
    MAKE_SIG(glsl_type::bvec(type->vector_elements), avail, 1, x);
 
-   body.emit(ret(nequal(x, x)));
+   body.emit(ret(nequal_exact(x, x)));
 
    return sig;
 }
@@ -5574,7 +5574,7 @@ builtin_builder::_isinf(builtin_available_predicate avail, const glsl_type *type
       }
    }
 
-   body.emit(ret(equal(abs(x), imm(type, infinities))));
+   body.emit(ret(equal_exact(abs(x), imm(type, infinities))));
 
    return sig;
 }

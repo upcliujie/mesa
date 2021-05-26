@@ -2220,17 +2220,27 @@ nir_visitor::visit(ir_expression *ir)
          result = nir_uge(&b, srcs[0], srcs[1]);
       break;
    case ir_binop_equal:
+   case ir_binop_equal_exact: {
+      bool prev_exact = b.exact;
+      b.exact |= ir->operation == ir_binop_equal_exact;
       if (type_is_float(types[0]))
          result = nir_feq(&b, srcs[0], srcs[1]);
       else
          result = nir_ieq(&b, srcs[0], srcs[1]);
+      b.exact = prev_exact;
       break;
+   }
    case ir_binop_nequal:
+   case ir_binop_nequal_exact: {
+      bool prev_exact = b.exact;
+      b.exact |= ir->operation == ir_binop_nequal_exact;
       if (type_is_float(types[0]))
          result = nir_fneu(&b, srcs[0], srcs[1]);
       else
          result = nir_ine(&b, srcs[0], srcs[1]);
+      b.exact = prev_exact;
       break;
+   }
    case ir_binop_all_equal:
       if (type_is_float(types[0])) {
          switch (ir->operands[0]->type->vector_elements) {

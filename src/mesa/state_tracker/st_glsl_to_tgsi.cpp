@@ -1678,9 +1678,11 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
       emit_asm(ir, TGSI_OPCODE_SGE, result_dst, op[0], op[1]);
       break;
    case ir_binop_equal:
+   case ir_binop_equal_exact:
       emit_asm(ir, TGSI_OPCODE_SEQ, result_dst, op[0], op[1]);
       break;
    case ir_binop_nequal:
+   case ir_binop_nequal_exact:
       emit_asm(ir, TGSI_OPCODE_SNE, result_dst, op[0], op[1]);
       break;
    case ir_binop_all_equal:

@@ -528,6 +528,8 @@ ir_expression::ir_expression(int op, ir_rvalue *op0, ir_rvalue *op1)
 
    case ir_binop_equal:
    case ir_binop_nequal:
+   case ir_binop_equal_exact:
+   case ir_binop_nequal_exact:
    case ir_binop_gequal:
    case ir_binop_less:
       assert(op0->type == op1->type);
