@@ -304,6 +304,7 @@ typedef struct VkRingCreateInfoMESA {
 typedef struct VkMemoryResourcePropertiesMESA {
     VkStructureType sType;
     void* pNext;
+    uint64_t allocationSize;
     uint32_t memoryTypeBits;
 } VkMemoryResourcePropertiesMESA;
 
