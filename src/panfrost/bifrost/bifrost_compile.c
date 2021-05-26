@@ -388,7 +388,7 @@ bi_load_sysval_to(bi_builder *b, bi_index dest, int sysval,
                 pan_lookup_sysval(b->shader->sysval_to_id,
                                   &b->shader->info->sysvals,
                                   sysval);
-        unsigned idx = (uniform * 16) + offset;
+        unsigned idx = (uniform * 16) + (offset * 4);
 
         return bi_load_to(b, nr_components * 32, dest,
                         bi_imm_u32(idx),
@@ -1226,11 +1226,11 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
                 break;
 
         case nir_intrinsic_load_base_vertex:
-                bi_load_sysval_nir(b, instr, 1, 4);
+                bi_load_sysval_nir(b, instr, 1, 1);
                 break;
 
         case nir_intrinsic_load_base_instance:
-                bi_load_sysval_nir(b, instr, 1, 8);
+                bi_load_sysval_nir(b, instr, 1, 2);
                 break;
 
         case nir_intrinsic_load_draw_id:
@@ -1238,7 +1238,7 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
                 break;
 
         case nir_intrinsic_get_ssbo_size:
-                bi_load_sysval_nir(b, instr, 1, 8);
+                bi_load_sysval_nir(b, instr, 1, 2);
                 break;
 
         case nir_intrinsic_load_viewport_scale:
