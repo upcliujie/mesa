@@ -145,6 +145,7 @@ vn_sizeof_VkMemoryResourcePropertiesMESA_self(const VkMemoryResourcePropertiesME
 {
     size_t size = 0;
     /* skip val->{sType,pNext} */
+    size += vn_sizeof_uint64_t(&val->allocationSize);
     size += vn_sizeof_uint32_t(&val->memoryTypeBits);
     return size;
 }
@@ -173,6 +174,7 @@ static inline void
 vn_decode_VkMemoryResourcePropertiesMESA_self(struct vn_cs_decoder *dec, VkMemoryResourcePropertiesMESA *val)
 {
     /* skip val->{sType,pNext} */
+    vn_decode_uint64_t(dec, &val->allocationSize);
     vn_decode_uint32_t(dec, &val->memoryTypeBits);
 }
 
@@ -200,6 +202,7 @@ vn_sizeof_VkMemoryResourcePropertiesMESA_self_partial(const VkMemoryResourceProp
 {
     size_t size = 0;
     /* skip val->{sType,pNext} */
+    /* skip val->allocationSize */
     /* skip val->memoryTypeBits */
     return size;
 }
@@ -227,6 +230,7 @@ static inline void
 vn_encode_VkMemoryResourcePropertiesMESA_self_partial(struct vn_cs_encoder *enc, const VkMemoryResourcePropertiesMESA *val)
 {
     /* skip val->{sType,pNext} */
+    /* skip val->allocationSize */
     /* skip val->memoryTypeBits */
 }
 

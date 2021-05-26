@@ -13,7 +13,7 @@
 static inline uint32_t
 vn_info_wire_format_version(void)
 {
-    return 0;
+    return 100000;
 }
 
 static inline uint32_t
