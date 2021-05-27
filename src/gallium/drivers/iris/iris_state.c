@@ -89,6 +89,7 @@
 #include "pipe/p_context.h"
 #include "pipe/p_screen.h"
 #include "util/u_dual_blend.h"
+#include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
 #include "util/u_framebuffer.h"
@@ -3519,6 +3520,9 @@ iris_create_vertex_elements(struct pipe_context *ctx,
                             unsigned count,
                             const struct pipe_vertex_element *state)
 {
+   struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+   util_lower_uint64_vertex_elements(&state, &count, tmp);
+
    struct iris_screen *screen = (struct iris_screen *)ctx->screen;
    const struct intel_device_info *devinfo = &screen->devinfo;
    struct iris_vertex_element_state *cso =
