@@ -109,7 +109,10 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
         bool has_heap = dev->kernel_version->version_major > 1 ||
                         dev->kernel_version->version_minor >= 1;
 
-        /* Bifrost is WIP */
+        /* Only kernel drivers >= 1.2 can enable cycle counters */
+        bool has_clock = dev->kernel_version->version_major > 1 ||
+                         dev->kernel_version->version_minor >= 2;
+
         switch (param) {
         case PIPE_CAP_NPOT_TEXTURES:
         case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
@@ -143,12 +146,10 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
         case PIPE_CAP_ANISOTROPIC_FILTER:
                 return !!(dev->quirks & HAS_ANISOTROPIC);
 
-        /* Compile side is done for Bifrost, Midgard TODO. Needs some kernel
-         * work to turn on, since CYCLE_COUNT_START needs to be issued. In
-         * kbase, userspace requests this via BASE_JD_REQ_PERMON. There is not
-         * yet way to request this with mainline TODO */
+        /* Compile side is done for Bifrost, Midgard TODO. Cycle counting
+         * requires kernel support added in driver version 1.2 */
         case PIPE_CAP_TGSI_CLOCK:
-                return 0;
+                return pan_is_bifrost(dev) && has_clock;
 
         case PIPE_CAP_TGSI_INSTANCEID:
         case PIPE_CAP_TEXTURE_MULTISAMPLE:
