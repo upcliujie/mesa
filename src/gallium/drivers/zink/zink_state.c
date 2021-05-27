@@ -28,6 +28,7 @@
 
 #include "compiler/shader_enums.h"
 #include "util/u_dual_blend.h"
+#include "util/u_helpers.h"
 #include "util/u_memory.h"
 
 #include <math.h>
@@ -37,6 +38,9 @@ zink_create_vertex_elements_state(struct pipe_context *pctx,
                                   unsigned num_elements,
                                   const struct pipe_vertex_element *elements)
 {
+   struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+   util_lower_uint64_vertex_elements(&elements, &num_elements, tmp);
+
    struct zink_screen *screen = zink_screen(pctx->screen);
    unsigned int i;
    struct zink_vertex_elements_state *ves = CALLOC_STRUCT(zink_vertex_elements_state);
