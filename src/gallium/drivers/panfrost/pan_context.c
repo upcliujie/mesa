@@ -317,8 +317,13 @@ panfrost_update_state_vs(struct panfrost_batch *batch)
         enum pipe_shader_type st = PIPE_SHADER_VERTEX;
         unsigned dirty = batch->ctx->dirty_shader[st];
 
-        if (dirty & PAN_DIRTY_STAGE_RENDERER)
+        if (dirty & PAN_DIRTY_STAGE_RENDERER) {
+                struct panfrost_shader_state *vs =
+                        panfrost_get_shader_state(batch->ctx, PIPE_SHADER_VERTEX);
+
                 batch->rsd[st] = panfrost_emit_compute_shader_meta(batch, st);
+                batch->uses_cycle_counter |= vs->info.uses_cycle_counter;
+        }
 
         panfrost_update_state_tex(batch, st);
 }
@@ -329,8 +334,13 @@ panfrost_update_state_fs(struct panfrost_batch *batch)
         enum pipe_shader_type st = PIPE_SHADER_FRAGMENT;
         unsigned dirty = batch->ctx->dirty_shader[st];
 
-        if (dirty & PAN_DIRTY_STAGE_RENDERER)
+        if (dirty & PAN_DIRTY_STAGE_RENDERER) {
+                struct panfrost_shader_state *fs =
+                        panfrost_get_shader_state(batch->ctx, PIPE_SHADER_VERTEX);
+
                 batch->rsd[st] = panfrost_emit_frag_shader_meta(batch);
+                batch->uses_cycle_counter |= fs->info.uses_cycle_counter;
+        }
 
         if (dirty & PAN_DIRTY_STAGE_IMAGE) {
                 batch->attribs[st] = panfrost_emit_image_attribs(batch,

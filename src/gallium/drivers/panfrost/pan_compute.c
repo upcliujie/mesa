@@ -107,6 +107,11 @@ panfrost_launch_grid(struct pipe_context *pipe,
          */
         panfrost_batch_reserve_tls(batch, true);
 
+        struct panfrost_shader_state *cs =
+                panfrost_get_shader_state(batch->ctx, PIPE_SHADER_COMPUTE);
+
+        batch->uses_cycle_counter |= cs->info.uses_cycle_counter;
+
         ctx->compute_grid = info;
 
         struct panfrost_ptr t =
