@@ -2049,6 +2049,11 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                 emit_special(ctx, instr, midgard_ld_special_sample_index);
                 break;
 
+        case nir_intrinsic_shader_clock:
+                ctx->info->uses_cycle_counter = true;
+                emit_special(ctx, instr, midgard_ld_special_cycle_counter);
+                break;
+
         case nir_intrinsic_memory_barrier_buffer:
         case nir_intrinsic_memory_barrier_shared:
         case nir_intrinsic_group_memory_barrier:
