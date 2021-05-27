@@ -1709,6 +1709,42 @@ radv_shader_variant_destroy(struct radv_device *device, struct radv_shader_varia
    free(variant);
 }
 
+uint64_t
+radv_shader_variant_get_va(const struct radv_shader_variant *variant)
+{
+   return radv_buffer_get_va(variant->bo) + variant->bo_offset;
+}
+
+struct radv_shader_variant *
+radv_find_shader_variant(struct radv_device *device, uint64_t pc)
+{
+   mtx_lock(&device->shader_slab_mutex);
+
+   list_for_each_entry(struct radv_shader_slab, slab, &device->shader_slabs, slabs)
+   {
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#endif
+      list_for_each_entry(struct radv_shader_variant, s, &slab->shaders, slab_list)
+      {
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+         uint64_t offset = align_u64(s->bo_offset + s->code_size, 256);
+         uint64_t va = radv_buffer_get_va(s->bo);
+
+         if (pc >= va + s->bo_offset && pc < va + offset) {
+            mtx_unlock(&device->shader_slab_mutex);
+            return s;
+         }
+      }
+   }
+   mtx_unlock(&device->shader_slab_mutex);
+
+   return NULL;
+}
+
 const char *
 radv_get_shader_name(struct radv_shader_info *info, gl_shader_stage stage)
 {
