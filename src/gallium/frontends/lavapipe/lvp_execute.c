@@ -833,12 +833,20 @@ static void fill_sampler(struct pipe_sampler_state *ss,
    ss->wrap_t = vk_conv_wrap_mode(samp->create_info.addressModeV);
    ss->wrap_r = vk_conv_wrap_mode(samp->create_info.addressModeW);
    ss->min_img_filter = samp->create_info.minFilter == VK_FILTER_LINEAR ? PIPE_TEX_FILTER_LINEAR : PIPE_TEX_FILTER_NEAREST;
-   ss->min_mip_filter = samp->create_info.mipmapMode == VK_SAMPLER_MIPMAP_MODE_LINEAR ? PIPE_TEX_MIPFILTER_LINEAR : PIPE_TEX_MIPFILTER_NEAREST;
    ss->mag_img_filter = samp->create_info.magFilter == VK_FILTER_LINEAR ? PIPE_TEX_FILTER_LINEAR : PIPE_TEX_FILTER_NEAREST;
-   ss->min_lod = samp->create_info.minLod;
-   ss->max_lod = samp->create_info.maxLod;
+   ss->min_mip_filter = samp->create_info.mipmapMode == VK_SAMPLER_MIPMAP_MODE_LINEAR ? PIPE_TEX_MIPFILTER_LINEAR : PIPE_TEX_MIPFILTER_NONE;
+   if (ss->min_mip_filter == PIPE_TEX_MIPFILTER_NONE) {
+      ss->min_lod = 0;
+      ss->max_lod = 0;
+   } else {
+      ss->min_lod = samp->create_info.minLod;
+      ss->max_lod = samp->create_info.maxLod;
+   }
    ss->lod_bias = samp->create_info.mipLodBias;
-   ss->max_anisotropy = samp->create_info.maxAnisotropy;
+   if (samp->create_info.anisotropyEnable)
+      ss->max_anisotropy = samp->create_info.maxAnisotropy;
+   else
+      ss->max_anisotropy = 1;
    ss->normalized_coords = !samp->create_info.unnormalizedCoordinates;
    ss->compare_mode = samp->create_info.compareEnable ? PIPE_TEX_COMPARE_R_TO_TEXTURE : PIPE_TEX_COMPARE_NONE;
    ss->compare_func = samp->create_info.compareOp;
