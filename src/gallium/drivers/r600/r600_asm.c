@@ -29,6 +29,7 @@
 #include <errno.h>
 #include "util/u_bitcast.h"
 #include "util/u_dump.h"
+#include "util/u_helpers.h"
 #include "util/u_memory.h"
 #include "util/u_math.h"
 #include "pipe/p_shader_tokens.h"
@@ -2636,6 +2637,9 @@ void *r600_create_vertex_fetch_shader(struct pipe_context *ctx,
 				      unsigned count,
 				      const struct pipe_vertex_element *elements)
 {
+        struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+        util_lower_uint64_vertex_elements(&elements, &count, tmp);
+
 	struct r600_context *rctx = (struct r600_context *)ctx;
 	struct r600_bytecode bc;
 	struct r600_bytecode_vtx vtx;
