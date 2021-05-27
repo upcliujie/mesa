@@ -518,6 +518,9 @@ static void *virgl_create_vertex_elements_state(struct pipe_context *ctx,
                                                         unsigned num_elements,
                                                         const struct pipe_vertex_element *elements)
 {
+   struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+   util_lower_uint64_vertex_elements(&elements, &num_elements, tmp);
+
    struct pipe_vertex_element new_elements[PIPE_MAX_ATTRIBS];
    struct virgl_context *vctx = virgl_context(ctx);
    struct virgl_vertex_elements_state *state =

@@ -25,6 +25,7 @@
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "util/u_draw.h"
+#include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/format/u_format.h"
 #include "translate/translate.h"
@@ -51,7 +52,10 @@ nvc0_vertex_state_create(struct pipe_context *pipe,
                          unsigned num_elements,
                          const struct pipe_vertex_element *elements)
 {
-    struct nvc0_vertex_stateobj *so;
+   struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+   util_lower_uint64_vertex_elements(&elements, &num_elements, tmp);
+
+   struct nvc0_vertex_stateobj *so;
     struct translate_key transkey;
     unsigned i;
     unsigned src_offset_max = 0;
