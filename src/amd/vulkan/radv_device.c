@@ -715,8 +715,9 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
                           driQueryOptionb(&device->instance->dri_options, "radv_require_etc2");
 #endif
 
-   snprintf(device->name, sizeof(device->name), "AMD RADV %s%s", device->rad_info.name,
-            radv_get_compiler_string(device));
+   const char *marketing_name = device->ws->get_chip_name(device->ws);
+   snprintf(device->name, sizeof(device->name), "%s (RADV %s%s)",
+            marketing_name, device->rad_info.name, radv_get_compiler_string(device));
 
 #ifdef ENABLE_SHADER_CACHE
    if (radv_device_get_cache_uuid(device, device->cache_uuid)) {
