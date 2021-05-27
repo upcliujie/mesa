@@ -746,13 +746,33 @@ gv100_sm_config_smem_size(u32 size)
    return (size / 4096) + 1;
 }
 
+static int
+tu102_sm_config_smem_size(u32 size)
+{
+   if      (size > 32 * 1024) size = 64 * 1024;
+   else                       size = 32 * 1024;
+   return (size / 4096) + 1;
+}
+
 static void
 gv100_compute_setup_launch_desc(struct nvc0_context *nvc0, u32 *qmd,
                                 const struct pipe_grid_info *info)
 {
+   int min_smem, max_smem;
+   int (*sm_config_smem_size)(uint32_t);
    struct nvc0_program *cp = nvc0->compprog;
    struct nvc0_screen *screen = nvc0->screen;
    uint64_t entry = screen->text->offset + cp->code_base;
+
+   if (nvc0->screen->compute->oclass >= TU102_COMPUTE_CLASS) {
+      sm_config_smem_size = tu102_sm_config_smem_size;
+      min_smem = 32 * 1024;
+      max_smem = 64 * 1024;
+   } else {
+      sm_config_smem_size = gv100_sm_config_smem_size;
+      min_smem =  8 * 1024;
+      max_smem = 96 * 1024;
+   }
 
    NVC3C0_QMDV02_02_VAL_SET(qmd, SM_GLOBAL_CACHING_ENABLE, 1);
    NVC3C0_QMDV02_02_DEF_SET(qmd, API_VISIBLE_CALL_LIMIT, NO_CHECK);
@@ -764,13 +784,13 @@ gv100_compute_setup_launch_desc(struct nvc0_context *nvc0, u32 *qmd,
                                  align(cp->cp.lmem_size, 0x10));
    NVC3C0_QMDV02_02_VAL_SET(qmd, SHADER_LOCAL_MEMORY_HIGH_SIZE, 0);
    NVC3C0_QMDV02_02_VAL_SET(qmd, MIN_SM_CONFIG_SHARED_MEM_SIZE,
-                                  gv100_sm_config_smem_size(8 * 1024));
+                                  sm_config_smem_size(min_smem));
    NVC3C0_QMDV02_02_VAL_SET(qmd, MAX_SM_CONFIG_SHARED_MEM_SIZE,
-                                  gv100_sm_config_smem_size(96 * 1024));
+                                  sm_config_smem_size(max_smem));
    NVC3C0_QMDV02_02_VAL_SET(qmd, QMD_VERSION, 2);
    NVC3C0_QMDV02_02_VAL_SET(qmd, QMD_MAJOR_VERSION, 2);
    NVC3C0_QMDV02_02_VAL_SET(qmd, TARGET_SM_CONFIG_SHARED_MEM_SIZE,
-                                  gv100_sm_config_smem_size(cp->cp.smem_size));
+                                  sm_config_smem_size(cp->cp.smem_size));
 
    NVC3C0_QMDV02_02_VAL_SET(qmd, CTA_RASTER_WIDTH, info->grid[0]);
    NVC3C0_QMDV02_02_VAL_SET(qmd, CTA_RASTER_HEIGHT, info->grid[1]);
