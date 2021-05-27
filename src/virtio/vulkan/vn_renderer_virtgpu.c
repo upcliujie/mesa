@@ -1128,16 +1128,12 @@ virtgpu_bo_destroy(struct vn_renderer *renderer, struct vn_renderer_bo *_bo)
 }
 
 static uint32_t
-virtgpu_bo_blob_flags(VkMemoryPropertyFlags flags,
-                      VkExternalMemoryHandleTypeFlags external_handles)
+virtgpu_bo_blob_flags(VkMemoryPropertyFlags flags)
 {
-   uint32_t blob_flags = 0;
+   uint32_t blob_flags = VIRTGPU_BLOB_FLAG_USE_SHAREABLE;
+
    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
       blob_flags |= VIRTGPU_BLOB_FLAG_USE_MAPPABLE;
-   if (external_handles)
-      blob_flags |= VIRTGPU_BLOB_FLAG_USE_SHAREABLE;
-   if (external_handles & VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT)
-      blob_flags |= VIRTGPU_BLOB_FLAG_USE_CROSS_DEVICE;
 
    return blob_flags;
 }
@@ -1148,7 +1144,6 @@ virtgpu_bo_create_from_dma_buf(
    VkDeviceSize size,
    int fd,
    VkMemoryPropertyFlags flags,
-   VkExternalMemoryHandleTypeFlags external_handles,
    struct vn_renderer_bo **out_bo)
 {
    struct virtgpu *gpu = (struct virtgpu *)renderer;
@@ -1176,7 +1171,7 @@ virtgpu_bo_create_from_dma_buf(
       if (info.size < size)
          goto fail;
 
-      blob_flags = virtgpu_bo_blob_flags(flags, external_handles);
+      blob_flags = virtgpu_bo_blob_flags(flags);
       mmap_size = size;
    } else {
       /* must be classic resource here
@@ -1231,11 +1226,10 @@ virtgpu_bo_create_from_device_memory(
    VkDeviceSize size,
    vn_object_id mem_id,
    VkMemoryPropertyFlags flags,
-   VkExternalMemoryHandleTypeFlags external_handles,
    struct vn_renderer_bo **out_bo)
 {
    struct virtgpu *gpu = (struct virtgpu *)renderer;
-   const uint32_t blob_flags = virtgpu_bo_blob_flags(flags, external_handles);
+   const uint32_t blob_flags = virtgpu_bo_blob_flags(flags);
 
    uint32_t res_id;
    uint32_t gem_handle = virtgpu_ioctl_resource_create_blob(

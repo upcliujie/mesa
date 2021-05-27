@@ -748,16 +748,12 @@ vtest_bo_destroy(struct vn_renderer *renderer, struct vn_renderer_bo *_bo)
 }
 
 static uint32_t
-vtest_bo_blob_flags(VkMemoryPropertyFlags flags,
-                    VkExternalMemoryHandleTypeFlags external_handles)
+vtest_bo_blob_flags(VkMemoryPropertyFlags flags)
 {
-   uint32_t blob_flags = 0;
+   uint32_t blob_flags = VCMD_BLOB_FLAG_SHAREABLE;
+
    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
       blob_flags |= VCMD_BLOB_FLAG_MAPPABLE;
-   if (external_handles)
-      blob_flags |= VCMD_BLOB_FLAG_SHAREABLE;
-   if (external_handles & VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT)
-      blob_flags |= VCMD_BLOB_FLAG_CROSS_DEVICE;
 
    return blob_flags;
 }
@@ -768,11 +764,10 @@ vtest_bo_create_from_device_memory(
    VkDeviceSize size,
    vn_object_id mem_id,
    VkMemoryPropertyFlags flags,
-   VkExternalMemoryHandleTypeFlags external_handles,
    struct vn_renderer_bo **out_bo)
 {
    struct vtest *vtest = (struct vtest *)renderer;
-   const uint32_t blob_flags = vtest_bo_blob_flags(flags, external_handles);
+   const uint32_t blob_flags = vtest_bo_blob_flags(flags);
 
    mtx_lock(&vtest->sock_mutex);
    int res_fd;

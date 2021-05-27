@@ -53,7 +53,7 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
       &dev->physical_device->memory_properties.memoryProperties;
    const VkMemoryType *mem_type = &mem_props->memoryTypes[mem_type_index];
    result = vn_renderer_bo_create_from_device_memory(
-      dev->renderer, mem->size, mem->base.id, mem_type->propertyFlags, 0,
+      dev->renderer, mem->size, mem->base.id, mem_type->propertyFlags,
       &mem->base_bo);
    if (result != VK_SUCCESS) {
       vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
@@ -179,8 +179,6 @@ vn_device_memory_import_dma_buf(struct vn_device *dev,
 {
    VkDevice device = vn_device_to_handle(dev);
    VkDeviceMemory memory = vn_device_memory_to_handle(mem);
-   const VkExportMemoryAllocateInfo *export_info =
-      vk_find_struct_const(alloc_info->pNext, EXPORT_MEMORY_ALLOCATE_INFO);
    const VkPhysicalDeviceMemoryProperties *mem_props =
       &dev->physical_device->memory_properties.memoryProperties;
    const VkMemoryType *mem_type =
@@ -188,9 +186,9 @@ vn_device_memory_import_dma_buf(struct vn_device *dev,
    struct vn_renderer_bo *bo;
    VkResult result = VK_SUCCESS;
 
-   result = vn_renderer_bo_create_from_dma_buf(
-      dev->renderer, alloc_info->allocationSize, fd, mem_type->propertyFlags,
-      export_info ? export_info->handleTypes : 0, &bo);
+   result = vn_renderer_bo_create_from_dma_buf(dev->renderer,
+                                               alloc_info->allocationSize, fd,
+                                               mem_type->propertyFlags, &bo);
    if (result != VK_SUCCESS)
       return result;
 
@@ -309,7 +307,7 @@ vn_AllocateMemory(VkDevice device,
    if (need_bo && !mem->base_bo) {
       result = vn_renderer_bo_create_from_device_memory(
          dev->renderer, mem->size, mem->base.id, mem_type->propertyFlags,
-         export_info ? export_info->handleTypes : 0, &mem->base_bo);
+         &mem->base_bo);
       if (result != VK_SUCCESS) {
          vn_async_vkFreeMemory(dev->instance, device, mem_handle, NULL);
          vk_free(alloc, mem);
@@ -480,8 +478,8 @@ vn_GetMemoryFdPropertiesKHR(VkDevice device,
       return vn_error(dev->instance, VK_ERROR_INVALID_EXTERNAL_HANDLE);
 
    struct vn_renderer_bo *bo;
-   VkResult result = vn_renderer_bo_create_from_dma_buf(dev->renderer, 0, fd,
-                                                        0, handleType, &bo);
+   VkResult result =
+      vn_renderer_bo_create_from_dma_buf(dev->renderer, 0, fd, 0, &bo);
    if (result != VK_SUCCESS)
       return vn_error(dev->instance, result);
    vn_instance_roundtrip(dev->instance);
