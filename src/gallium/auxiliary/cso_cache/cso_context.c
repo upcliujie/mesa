@@ -404,36 +404,39 @@ void cso_destroy_context( struct cso_context *ctx )
 enum pipe_error cso_set_blend(struct cso_context *ctx,
                               const struct pipe_blend_state *templ)
 {
-   unsigned key_size, hash_key;
-   struct cso_hash_iter iter;
-   void *handle;
+   void *handle = NULL;
 
-   key_size = templ->independent_blend_enable ?
-      sizeof(struct pipe_blend_state) :
-      (char *)&(templ->rt[1]) - (char *)templ;
-   hash_key = cso_construct_key((void*)templ, key_size);
-   iter = cso_find_state_template(&ctx->cache, hash_key, CSO_BLEND,
-                                  (void*)templ, key_size);
+   if (templ) {
+      unsigned key_size, hash_key;
+      struct cso_hash_iter iter;
 
-   if (cso_hash_iter_is_null(iter)) {
-      struct cso_blend *cso = MALLOC(sizeof(struct cso_blend));
-      if (!cso)
-         return PIPE_ERROR_OUT_OF_MEMORY;
+      key_size = templ->independent_blend_enable ?
+         sizeof(struct pipe_blend_state) :
+         (char *)&(templ->rt[1]) - (char *)templ;
+      hash_key = cso_construct_key((void*)templ, key_size);
+      iter = cso_find_state_template(&ctx->cache, hash_key, CSO_BLEND,
+                                     (void*)templ, key_size);
 
-      memset(&cso->state, 0, sizeof cso->state);
-      memcpy(&cso->state, templ, key_size);
-      cso->data = ctx->pipe->create_blend_state(ctx->pipe, &cso->state);
-
-      iter = cso_insert_state(&ctx->cache, hash_key, CSO_BLEND, cso);
       if (cso_hash_iter_is_null(iter)) {
-         FREE(cso);
-         return PIPE_ERROR_OUT_OF_MEMORY;
-      }
+         struct cso_blend *cso = MALLOC(sizeof(struct cso_blend));
+         if (!cso)
+            return PIPE_ERROR_OUT_OF_MEMORY;
 
-      handle = cso->data;
-   }
-   else {
-      handle = ((struct cso_blend *)cso_hash_iter_data(iter))->data;
+         memset(&cso->state, 0, sizeof cso->state);
+         memcpy(&cso->state, templ, key_size);
+         cso->data = ctx->pipe->create_blend_state(ctx->pipe, &cso->state);
+
+         iter = cso_insert_state(&ctx->cache, hash_key, CSO_BLEND, cso);
+         if (cso_hash_iter_is_null(iter)) {
+            FREE(cso);
+            return PIPE_ERROR_OUT_OF_MEMORY;
+         }
+
+         handle = cso->data;
+      }
+      else {
+         handle = ((struct cso_blend *)cso_hash_iter_data(iter))->data;
+      }
    }
 
    if (ctx->blend != handle) {
@@ -466,38 +469,39 @@ enum pipe_error
 cso_set_depth_stencil_alpha(struct cso_context *ctx,
                             const struct pipe_depth_stencil_alpha_state *templ)
 {
-   unsigned key_size = sizeof(struct pipe_depth_stencil_alpha_state);
-   unsigned hash_key = cso_construct_key((void*)templ, key_size);
-   struct cso_hash_iter iter = cso_find_state_template(&ctx->cache,
-                                                       hash_key,
-                                                       CSO_DEPTH_STENCIL_ALPHA,
-                                                       (void*)templ, key_size);
-   void *handle;
+   void *handle = NULL;
+   if (templ) {
+      unsigned key_size = sizeof(struct pipe_depth_stencil_alpha_state);
+      unsigned hash_key = cso_construct_key((void*)templ, key_size);
+      struct cso_hash_iter iter = cso_find_state_template(&ctx->cache,
+                                                          hash_key,
+                                                          CSO_DEPTH_STENCIL_ALPHA,
+                                                          (void*)templ, key_size);
 
-   if (cso_hash_iter_is_null(iter)) {
-      struct cso_depth_stencil_alpha *cso =
-         MALLOC(sizeof(struct cso_depth_stencil_alpha));
-      if (!cso)
-         return PIPE_ERROR_OUT_OF_MEMORY;
-
-      memcpy(&cso->state, templ, sizeof(*templ));
-      cso->data = ctx->pipe->create_depth_stencil_alpha_state(ctx->pipe,
-                                                              &cso->state);
-
-      iter = cso_insert_state(&ctx->cache, hash_key,
-                              CSO_DEPTH_STENCIL_ALPHA, cso);
       if (cso_hash_iter_is_null(iter)) {
-         FREE(cso);
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         struct cso_depth_stencil_alpha *cso =
+            MALLOC(sizeof(struct cso_depth_stencil_alpha));
+         if (!cso)
+            return PIPE_ERROR_OUT_OF_MEMORY;
+
+         memcpy(&cso->state, templ, sizeof(*templ));
+         cso->data = ctx->pipe->create_depth_stencil_alpha_state(ctx->pipe,
+                                                                 &cso->state);
+
+         iter = cso_insert_state(&ctx->cache, hash_key,
+                                 CSO_DEPTH_STENCIL_ALPHA, cso);
+         if (cso_hash_iter_is_null(iter)) {
+            FREE(cso);
+            return PIPE_ERROR_OUT_OF_MEMORY;
+         }
+
+         handle = cso->data;
       }
-
-      handle = cso->data;
+      else {
+         handle = ((struct cso_depth_stencil_alpha *)
+                   cso_hash_iter_data(iter))->data;
+      }
    }
-   else {
-      handle = ((struct cso_depth_stencil_alpha *)
-                cso_hash_iter_data(iter))->data;
-   }
-
    if (ctx->depth_stencil != handle) {
       ctx->depth_stencil = handle;
       ctx->pipe->bind_depth_stencil_alpha_state(ctx->pipe, handle);
@@ -528,39 +532,41 @@ cso_restore_depth_stencil_alpha(struct cso_context *ctx)
 enum pipe_error cso_set_rasterizer(struct cso_context *ctx,
                                    const struct pipe_rasterizer_state *templ)
 {
-   unsigned key_size = sizeof(struct pipe_rasterizer_state);
-   unsigned hash_key = cso_construct_key((void*)templ, key_size);
-   struct cso_hash_iter iter = cso_find_state_template(&ctx->cache,
-                                                       hash_key,
-                                                       CSO_RASTERIZER,
-                                                       (void*)templ, key_size);
    void *handle = NULL;
 
-   /* We can't have both point_quad_rasterization (sprites) and point_smooth
-    * (round AA points) enabled at the same time.
-    */
-   assert(!(templ->point_quad_rasterization && templ->point_smooth));
+   if (templ) {
+      unsigned key_size = sizeof(struct pipe_rasterizer_state);
+      unsigned hash_key = cso_construct_key((void*)templ, key_size);
+      struct cso_hash_iter iter = cso_find_state_template(&ctx->cache,
+                                                          hash_key,
+                                                          CSO_RASTERIZER,
+                                                          (void*)templ, key_size);
 
-   if (cso_hash_iter_is_null(iter)) {
-      struct cso_rasterizer *cso = MALLOC(sizeof(struct cso_rasterizer));
-      if (!cso)
-         return PIPE_ERROR_OUT_OF_MEMORY;
+      /* We can't have both point_quad_rasterization (sprites) and point_smooth
+       * (round AA points) enabled at the same time.
+       */
+      assert(!(templ->point_quad_rasterization && templ->point_smooth));
 
-      memcpy(&cso->state, templ, sizeof(*templ));
-      cso->data = ctx->pipe->create_rasterizer_state(ctx->pipe, &cso->state);
-
-      iter = cso_insert_state(&ctx->cache, hash_key, CSO_RASTERIZER, cso);
       if (cso_hash_iter_is_null(iter)) {
-         FREE(cso);
-         return PIPE_ERROR_OUT_OF_MEMORY;
+         struct cso_rasterizer *cso = MALLOC(sizeof(struct cso_rasterizer));
+         if (!cso)
+            return PIPE_ERROR_OUT_OF_MEMORY;
+
+         memcpy(&cso->state, templ, sizeof(*templ));
+         cso->data = ctx->pipe->create_rasterizer_state(ctx->pipe, &cso->state);
+
+         iter = cso_insert_state(&ctx->cache, hash_key, CSO_RASTERIZER, cso);
+         if (cso_hash_iter_is_null(iter)) {
+            FREE(cso);
+            return PIPE_ERROR_OUT_OF_MEMORY;
+         }
+
+         handle = cso->data;
       }
-
-      handle = cso->data;
+      else {
+         handle = ((struct cso_rasterizer *)cso_hash_iter_data(iter))->data;
+      }
    }
-   else {
-      handle = ((struct cso_rasterizer *)cso_hash_iter_data(iter))->data;
-   }
-
    if (ctx->rasterizer != handle) {
       ctx->rasterizer = handle;
       ctx->pipe->bind_rasterizer_state(ctx->pipe, handle);
