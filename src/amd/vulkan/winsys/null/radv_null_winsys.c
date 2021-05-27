@@ -137,6 +137,12 @@ radv_null_winsys_query_info(struct radeon_winsys *rws, struct radeon_info *info)
       info->family == CHIP_DIMGREY_CAVEFISH || info->family == CHIP_VANGOGH;
 }
 
+static const char *
+radv_null_winsys_get_chip_name(struct radeon_winsys *rws)
+{
+   return "";
+}
+
 static void
 radv_null_winsys_destroy(struct radeon_winsys *rws)
 {
@@ -154,6 +160,7 @@ radv_null_winsys_create()
 
    ws->base.destroy = radv_null_winsys_destroy;
    ws->base.query_info = radv_null_winsys_query_info;
+   ws->base.get_chip_name = radv_null_winsys_get_chip_name;
    radv_null_bo_init_functions(ws);
    radv_null_cs_init_functions(ws);
 
