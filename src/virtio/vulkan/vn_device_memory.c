@@ -489,6 +489,7 @@ vn_get_memory_dma_buf_properties(struct vn_device *dev,
    VkMemoryResourcePropertiesMESA props = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_RESOURCE_PROPERTIES_MESA,
       .pNext = NULL,
+      .allocationSize = 0,
       .memoryTypeBits = 0,
    };
    result = vn_call_vkGetMemoryResourcePropertiesMESA(dev->instance, device,
@@ -497,8 +498,7 @@ vn_get_memory_dma_buf_properties(struct vn_device *dev,
    if (result != VK_SUCCESS)
       return result;
 
-   /* XXX get size of host storage */
-   *out_alloc_size = lseek(fd, 0, SEEK_END);
+   *out_alloc_size = props.allocationSize;
    *out_mem_type_bits = props.memoryTypeBits;
 
    return VK_SUCCESS;
