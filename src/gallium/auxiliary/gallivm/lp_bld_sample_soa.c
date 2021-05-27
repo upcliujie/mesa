@@ -2606,7 +2606,7 @@ lp_build_sample_common(struct lp_build_sample_context *bld,
       *lod_pos_or_zero = bld->lodi_bld.zero;
    }
 
-   if (bld->num_lods != bld->num_mips) {
+   if (bld->num_lods != bld->num_mips || bld->num_lods == 1) {
       /* only makes sense if there's just a single mip level */
       assert(bld->num_mips == 1);
       lod_ipart = lp_build_extract_range(bld->gallivm, lod_ipart, 0, 1);
