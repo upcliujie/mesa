@@ -585,6 +585,9 @@ swr_create_vertex_elements_state(struct pipe_context *pipe,
                                  unsigned num_elements,
                                  const struct pipe_vertex_element *attribs)
 {
+   struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+   util_lower_uint64_vertex_elements(&attribs, &num_elements, tmp);
+
    struct swr_vertex_element_state *velems;
    assert(num_elements <= PIPE_MAX_ATTRIBS);
    velems = new swr_vertex_element_state;

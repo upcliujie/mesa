@@ -236,6 +236,9 @@ svga_create_vertex_elements_state(struct pipe_context *pipe,
                                   unsigned count,
                                   const struct pipe_vertex_element *attribs)
 {
+   struct pipe_vertex_element tmp[PIPE_MAX_ATTRIBS];
+   util_lower_uint64_vertex_elements(&attribs, &count, tmp);
+
    struct svga_context *svga = svga_context(pipe);
    struct svga_velems_state *velems;
 
