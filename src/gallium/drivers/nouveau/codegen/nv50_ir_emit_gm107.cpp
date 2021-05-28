@@ -3930,6 +3930,12 @@ SchedDataCalculatorGM107::recordWr(const Value *v, int cycle, int ready)
    case FILE_FLAGS:
       score->rd.c = ready;
       break;
+   case FILE_BARRIER:
+      score->rd.b[v->reg.data.id] = ready;
+      break;
+   case FILE_THREAD_STATE:
+      score->rd.b[v->reg.data.ts + 16] = ready;
+      break;
    default:
       break;
    }
@@ -3952,6 +3958,12 @@ SchedDataCalculatorGM107::checkRd(const Value *v, int cycle, int &delay) const
       break;
    case FILE_FLAGS:
       ready = MAX2(ready, score->rd.c);
+      break;
+   case FILE_BARRIER:
+      ready = MAX2(ready, score->rd.b[v->reg.data.id]);
+      break;
+   case FILE_THREAD_STATE:
+      ready = MAX2(ready, score->rd.b[v->reg.data.ts  + 16]);
       break;
    default:
       break;
@@ -4113,7 +4125,9 @@ SchedDataCalculatorGM107::doesInsnWriteTo(const Instruction *insn,
 {
    if (val->reg.file != FILE_GPR &&
        val->reg.file != FILE_PREDICATE &&
-       val->reg.file != FILE_FLAGS)
+       val->reg.file != FILE_FLAGS &&
+       val->reg.file != FILE_BARRIER &&
+       val->reg.file != FILE_THREAD_STATE)
       return false;
 
    for (int d = 0; insn->defExists(d); ++d) {
@@ -4137,6 +4151,16 @@ SchedDataCalculatorGM107::doesInsnWriteTo(const Instruction *insn,
       } else
       if (def->reg.file == FILE_FLAGS) {
          if (val->reg.data.id != minGPR)
+            continue;
+         return true;
+      } else
+      if (def->reg.file == FILE_BARRIER) {
+         if (val->reg.data.id != minGPR)
+            continue;
+         return true;
+      } else
+      if (def->reg.file == FILE_THREAD_STATE) {
+         if (val->reg.data.ts != def->reg.data.ts)
             continue;
          return true;
       }
