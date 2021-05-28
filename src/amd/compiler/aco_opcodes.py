@@ -239,7 +239,7 @@ class Opcode(object):
 
       # exceptions for operands:
       if 'sad_' in name:
-        self.operand_size = 0
+        self.operand_size = 32
       elif name in ['v_mad_u64_u32', 'v_mad_i64_i32']:
         self.operand_size = 0
       elif self.operand_size == 24:
