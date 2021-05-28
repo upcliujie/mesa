@@ -109,7 +109,7 @@ struct u_vbuf_elements {
    /* If (velem[i].src_format != native_format[i]), the vertex buffer
     * referenced by the vertex element cannot be used for rendering and
     * its vertex data must be translated to native_format[i]. */
-   enum pipe_format native_format[PIPE_MAX_ATTRIBS];
+   enum pipe_vertex_format native_format[PIPE_MAX_ATTRIBS];
    unsigned native_format_size[PIPE_MAX_ATTRIBS];
 
    /* Which buffers are used by the vertex element state. */
@@ -198,7 +198,7 @@ static void u_vbuf_delete_vertex_elements(void *ctx, void *state,
                                           enum cso_cache_type type);
 
 static const struct {
-   enum pipe_format from, to;
+   enum pipe_vertex_format from, to;
 } vbuf_format_fallbacks[] = {
    { PIPE_FORMAT_R32_FIXED,            PIPE_FORMAT_R32_FLOAT },
    { PIPE_FORMAT_R32G32_FIXED,         PIPE_FORMAT_R32G32_FLOAT },
@@ -278,7 +278,7 @@ void u_vbuf_get_caps(struct pipe_screen *screen, struct u_vbuf_caps *caps,
       caps->format_translation[i] = i;
 
    for (i = 0; i < ARRAY_SIZE(vbuf_format_fallbacks); i++) {
-      enum pipe_format format = vbuf_format_fallbacks[i].from;
+      enum pipe_vertex_format format = vbuf_format_fallbacks[i].from;
       unsigned comp_bits = util_format_get_component_bits(format, 0, 0);
 
       if ((comp_bits > 32) && !needs64b)
@@ -724,7 +724,7 @@ u_vbuf_translate_begin(struct u_vbuf *mgr,
    for (i = 0; i < mgr->ve->count; i++) {
       struct translate_key *k;
       struct translate_element *te;
-      enum pipe_format output_format = mgr->ve->native_format[i];
+      enum pipe_vertex_format output_format = mgr->ve->native_format[i];
       unsigned bit, vb_index = mgr->ve->ve[i].vertex_buffer_index;
       bit = 1 << vb_index;
 
@@ -850,7 +850,7 @@ u_vbuf_create_vertex_elements(struct u_vbuf *mgr, unsigned count,
    /* Set the best native format in case the original format is not
     * supported. */
    for (i = 0; i < count; i++) {
-      enum pipe_format format = ve->ve[i].src_format;
+      enum pipe_vertex_format format = ve->ve[i].src_format;
       unsigned vb_index_bit = 1 << ve->ve[i].vertex_buffer_index;
 
       ve->src_format_size[i] = util_format_get_blocksize(format);
