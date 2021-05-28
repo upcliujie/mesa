@@ -222,6 +222,9 @@ header = """\
 #define BITMASK_WORDS BITSET_WORDS(${isa.bitsize})
 typedef BITSET_WORD bitmask_t[BITMASK_WORDS];
 
+#define BITSET_FORMAT ${isa.format()}
+#define BITSET_VALUE(v) ${isa.value()}
+
 static inline uint64_t
 bitmask_to_uint64_t(bitmask_t mask)
 {
