@@ -643,6 +643,8 @@ RADV driver environment variables
       enable wave32 for pixel shaders (GFX10+)
    ``sam``
       enable optimizations to move more driver internal objects to VRAM.
+   ``rt``
+      enable rt extensions whose implementation is still experimental.
 
 ``RADV_TEX_ANISO``
    force anisotropy filter (up to 16)
