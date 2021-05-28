@@ -924,14 +924,16 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
       goto fail_cmds;
    }
 
-   new_submit->trace_count = cmd_buffer_count;
-   new_submit->traces = vk_zalloc(&queue->device->vk.alloc,
-         cmd_buffer_count * sizeof(void *), 8,
-         VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   if (u_trace_context_tracing(&queue->device->trace_context)) {
+      new_submit->trace_count = cmd_buffer_count;
+      new_submit->traces = vk_zalloc(&queue->device->vk.alloc,
+            cmd_buffer_count * sizeof(void *), 8,
+            VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
-   if (new_submit->traces == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
-      goto fail_cmds;
+      if (new_submit->traces == NULL) {
+         result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+         goto fail_cmds;
+      }
    }
 
    /* Allocate without wait timeline semaphores */
@@ -1339,7 +1341,8 @@ tu_QueueSubmit(VkQueue _queue,
             cmds[entry_idx].relocs = 0;
          }
 
-         submit_req->traces[j] = &cmdbuf->trace;
+         if (submit_req->trace_count > 0)
+            submit_req->traces[j] = &cmdbuf->trace;
       }
 
       /* Queue the current submit */
