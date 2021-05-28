@@ -867,14 +867,11 @@ panfrost_ptr_map(struct pipe_context *pctx,
 
                 assert(transfer->staging.rsrc != NULL);
 
-                /* TODO: Eliminate this flush. It's only there to determine if
-                 * we're initialized or not, when the initialization could come
-                 * from a pending batch XXX */
-                panfrost_flush_batches_accessing_rsrc(ctx, rsrc);
+                bool valid = rsrc->state.slices[level].data_valid;
 
-                if ((usage & PIPE_MAP_READ) && rsrc->state.slices[level].data_valid) {
+                if ((usage & PIPE_MAP_READ) && (valid || rsrc->track.writer)) {
                         pan_blit_to_staging(pctx, transfer);
-                        panfrost_flush_batches_accessing_rsrc(ctx, staging);
+                        panfrost_flush_writer(ctx, staging);
                         panfrost_bo_wait(staging->image.data.bo, INT64_MAX, false);
                 }
 
