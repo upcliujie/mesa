@@ -4675,7 +4675,7 @@ static void *si_create_vertex_elements(struct pipe_context *ctx, unsigned count,
           */
          always_fix = sscreen->info.chip_class <= GFX8 && sscreen->info.family != CHIP_STONEY &&
                       channel->type == UTIL_FORMAT_TYPE_SIGNED;
-      } else if (elements[i].src_format == PIPE_FORMAT_R11G11B10_FLOAT) {
+      } else if (elements[i].src_format == PIPE_VFORMAT_R11G11B10_FLOAT) {
          fix_fetch.u.log_size = 3; /* special encoding */
          fix_fetch.u.format = AC_FETCH_FORMAT_FIXED;
          log_hw_load_size = 2;

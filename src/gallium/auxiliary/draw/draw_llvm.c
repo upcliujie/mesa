@@ -2077,7 +2077,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
                                                      velem->src_offset);
       struct lp_build_if_state if_ctx;
 
-      if (velem->src_format != PIPE_FORMAT_NONE) {
+      if (velem->src_format != PIPE_VFORMAT_NONE) {
          vbuffer_ptr = LLVMBuildGEP(builder, vbuffers_ptr, &vb_index, 1, "");
          vb_info = LLVMBuildGEP(builder, vb_ptr, &vb_index, 1, "");
          vb_stride[j] = draw_jit_vbuffer_stride(gallivm, vb_info);
