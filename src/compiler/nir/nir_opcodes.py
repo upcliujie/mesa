@@ -1093,6 +1093,14 @@ if (bits == 0) {
 }
 """)
 
+triop_horiz("sad_u8x4", 1, 1, 1, 1, """
+dst.x = src2.x +
+        (((src0.x & 0x000000ff) >> 0) - ((src1.x & 0x000000ff) >> 0)) +
+        (((src0.x & 0x0000ff00) >> 8) - ((src1.x & 0x0000ff00) >> 8)) +
+        (((src0.x & 0x00ff0000) >> 16) - ((src1.x & 0x00ff0000) >> 16)) +
+        (((src0.x & 0xff000000) >> 24) - ((src1.x & 0xff000000) >> 24));
+""")
+
 # Combines the first component of each input to make a 3-component vector.
 
 triop_horiz("vec3", 3, 1, 1, 1, """
