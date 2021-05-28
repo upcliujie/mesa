@@ -247,6 +247,12 @@ delay_calc_srcn_postra(struct ir3_instruction *assigner, struct ir3_instruction 
 	if ((src->flags & IR3_REG_RELATIV) || (dst->flags & IR3_REG_RELATIV))
 		return delay;
 
+	/* MOVMSK seems to require that all users wait until the entire
+	 * instruction is finished, so just bail here.
+	 */
+	if (assigner->opc == OPC_MOVMSK)
+		return delay;
+
 	/* TODO: Handle the combination of (rpt) and different component sizes
 	 * better like below. This complicates things significantly because the
 	 * components don't line up.
@@ -278,6 +284,7 @@ delay_calc_srcn_postra(struct ir3_instruction *assigner, struct ir3_instruction 
 		first_dst_instr = assigner_n;
 	else
 		first_dst_instr = first_num - dst->num;
+
 
 	/* The delay we return is relative to the *end* of assigner and the
 	 * *beginning* of consumer, because it's the number of nops (or other
