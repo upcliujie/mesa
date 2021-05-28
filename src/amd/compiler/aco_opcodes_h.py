@@ -42,6 +42,7 @@ enum class aco_opcode : std::uint16_t {
 namespace aco
 {
    aco_opcode v_cmp_to_cmpx(aco_opcode c);
+   bool salu_reads_exec_implicitly(aco_opcode opc);
 }
 
 #endif /* _ACO_OPCODES_ */"""

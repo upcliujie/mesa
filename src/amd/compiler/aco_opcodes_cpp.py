@@ -98,6 +98,22 @@ aco_opcode v_cmp_to_cmpx(aco_opcode c)
    return aco_opcode::num_opcodes;
 }
 
+bool salu_reads_exec_implicitly(aco_opcode c)
+{
+   switch (c) {
+   % for name in opcode_names:
+   % if name.startswith("s_") and ("saveexec" in name or "wrexec" in name):
+   case aco_opcode::${name}:
+   % endif
+   % endfor
+      return true;
+   default:
+      return false;
+   }
+
+   return false;
+}
+
 }
 """
 
