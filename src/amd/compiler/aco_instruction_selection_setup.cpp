@@ -61,6 +61,30 @@ unsigned get_interp_input(nir_intrinsic_op intrin, enum glsl_interp_mode interp)
    return 0;
 }
 
+bool
+only_used_by_readlane_or_phi(nir_dest *dest)
+{
+   nir_src *src = list_first_entry(&dest->ssa.uses, nir_src, use_link);
+
+   if (src->parent_instr->type == nir_instr_type_phi)
+      return only_used_by_readlane_or_phi(&nir_instr_as_phi(src->parent_instr)->dest);
+
+   if (src->parent_instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu = nir_instr_as_alu(src->parent_instr);
+      if (alu->op == nir_op_unpack_64_2x32_split_x || alu->op == nir_op_unpack_64_2x32_split_y)
+         return only_used_by_readlane_or_phi(&alu->dest.dest);
+      return false;
+   }
+
+   if (src->parent_instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(src->parent_instr);
+   return intrin->intrinsic == nir_intrinsic_read_invocation ||
+          intrin->intrinsic == nir_intrinsic_read_first_invocation ||
+          intrin->intrinsic == nir_intrinsic_lane_permute_16_amd;
+}
+
 /* If one side of a divergent IF ends in a branch and the other doesn't, we
  * might have to emit the contents of the side without the branch at the merge
  * block instead. This is so that we can use any SGPR live-out of the side
@@ -811,6 +835,12 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_bvh64_intersect_ray_amd:
                      type = RegType::vgpr;
                      break;
+                  case nir_intrinsic_load_shared:
+                     if (only_used_by_readlane_or_phi(&intrinsic->dest)) {
+                        type = RegType::vgpr;
+                        break;
+                     }
+                     FALLTHROUGH;
                   case nir_intrinsic_shuffle:
                   case nir_intrinsic_quad_broadcast:
                   case nir_intrinsic_quad_swap_horizontal:
@@ -825,7 +855,6 @@ void init_context(isel_context *ctx, nir_shader *shader)
                   case nir_intrinsic_load_ssbo:
                   case nir_intrinsic_load_global:
                   case nir_intrinsic_vulkan_resource_index:
-                  case nir_intrinsic_load_shared:
                   case nir_intrinsic_get_ssbo_size:
                      type = nir_dest_is_divergent(intrinsic->dest) ? RegType::vgpr : RegType::sgpr;
                      break;
