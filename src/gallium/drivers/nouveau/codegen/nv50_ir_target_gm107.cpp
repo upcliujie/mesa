@@ -253,6 +253,12 @@ TargetGM107::getLatency(const Instruction *insn) const
       if (insn->op == OP_CVT && (insn->def(0).getFile() == FILE_PREDICATE ||
                                  insn->src(0).getFile() == FILE_PREDICATE))
          return 6;
+      // not sure what is the correct value, but blob uses 2 at most
+      if (insn->op == OP_CVT && (insn->def(0).getFile() == FILE_BARRIER ||
+                                 insn->def(0).getFile() == FILE_THREAD_STATE ||
+                                 insn->src(0).getFile() == FILE_BARRIER ||
+                                 insn->src(0).getFile() == FILE_THREAD_STATE))
+         return 2;
       break;
    case OP_BFIND:
    case OP_COS:

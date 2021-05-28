@@ -14,6 +14,7 @@ private:
          int r[256];
          int p[8];
          int c;
+         int b[32];
       } rd, wr;
       int base;
 
