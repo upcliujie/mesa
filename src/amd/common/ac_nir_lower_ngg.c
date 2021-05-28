@@ -103,63 +103,73 @@ workgroup_reduce_and_exclusive_scan(nir_builder *b, nir_ssa_def *input_bool,
       return r;
    }
 
-   /* Number of LDS dwords written by all waves (if there is only 1, that is already handled above) */
-   unsigned num_lds_dwords = max_num_waves;
-   assert(num_lds_dwords >= 2 && num_lds_dwords <= 8);
-
-   /* NIR doesn't have vec6 and vec7 so just use 8 for these cases. */
-   if (num_lds_dwords == 6 || num_lds_dwords == 7)
-      num_lds_dwords = 8;
+   /* The workgroup size is at most 256, which means we either have 4xWave64 or 8xWave32 waves maximum.
+    * If each wave writes 1 byte, then it's up to 8 bytes, which means at most 2 dwords.
+    */
+   const unsigned num_lds_dwords = DIV_ROUND_UP(max_num_waves, 4);
+   assert(num_lds_dwords <= 2);
 
    nir_ssa_def *wave_id = nir_build_load_subgroup_id(b);
-   nir_ssa_def *dont_care = nir_ssa_undef(b, num_lds_dwords, 32);
+   nir_ssa_def *dont_care = nir_ssa_undef(b, 1, num_lds_dwords * 32);
    nir_if *if_first_lane = nir_push_if(b, nir_build_elect(b, 1));
 
    /* The first lane of each wave stores the result of its subgroup reduction to LDS (NGG scratch). */
-   nir_ssa_def *wave_id_lds_addr = nir_imul_imm(b, wave_id, 4u);
-   nir_build_store_shared(b, wave_reduction, wave_id_lds_addr, .base = lds_addr_base, .align_mul = 4u, .write_mask = 0x1u);
+   nir_build_store_shared(b, nir_u2u8(b, wave_reduction), wave_id, .base = lds_addr_base, .align_mul = 1u, .write_mask = 0x1u);
 
    /* Workgroup barrier: wait for all waves to finish storing their result */
    nir_scoped_barrier(b, .execution_scope=NIR_SCOPE_WORKGROUP, .memory_scope=NIR_SCOPE_WORKGROUP,
                          .memory_semantics=NIR_MEMORY_ACQ_REL, .memory_modes=nir_var_mem_shared);
 
    /* Only the first lane of each wave loads every wave's results from LDS, to avoid bank conflicts */
-   nir_ssa_def *reduction_vector = nir_build_load_shared(b, num_lds_dwords, 32, nir_imm_zero(b, 1, 32), .base = lds_addr_base, .align_mul = 16u);
+   nir_ssa_def *packed_reductions = nir_build_load_shared(b, 1, num_lds_dwords * 32, nir_imm_zero(b, 1, 32), .base = lds_addr_base, .align_mul = 16u);
+
    nir_pop_if(b, if_first_lane);
 
-   reduction_vector = nir_if_phi(b, reduction_vector, dont_care);
-
-   nir_ssa_def *reduction_per_wave[8] = {0};
-   for (unsigned i = 0; i < num_lds_dwords; ++i) {
-      nir_ssa_def *reduction_wave_i = nir_channel(b, reduction_vector, i);
-      reduction_per_wave[i] = nir_build_read_first_invocation(b, reduction_wave_i);
-   }
+   packed_reductions = nir_if_phi(b, packed_reductions, dont_care);
 
    nir_ssa_def *num_waves = nir_build_load_num_subgroups(b);
-   nir_ssa_def *wg_reduction = reduction_per_wave[0];
-   nir_ssa_def *wg_excl_scan_base = NULL;
+   nir_ssa_def *sg_tid = nir_load_subgroup_invocation(b);
 
-   for (unsigned i = 0; i < num_lds_dwords; ++i) {
-      /* Workgroup reduction:
-       * Add the reduction results from all waves up to and including wave_count.
-       */
-      if (i != 0) {
-         nir_ssa_def *should_add = nir_ige(b, num_waves, nir_imm_int(b, i + 1u));
-         nir_ssa_def *addition = nir_bcsel(b, should_add, reduction_per_wave[i], nir_imm_zero(b, 1, 32));
-         wg_reduction = nir_iadd_nuw(b, wg_reduction, addition);
-      }
+   /* Pack the invocation ID in each byte of a dword. */
+   nir_ssa_def *packed_tid = nir_build_byte_permute_amd(b, nir_imm_int(b, 0), sg_tid, nir_imm_int(b, 0));
+   /* Add to the packed bytes in the dword, so we get: (id + 3, id + 2, id + 1, id). */
+   nir_ssa_def *sel = nir_iadd_imm_nuw(b, packed_tid, 0x03020100);
+   nir_ssa_def *sum = NULL;
 
-      /* Base of workgroup exclusive scan:
-       * Add the reduction results from waves up to and excluding wave_id_in_tg.
-       */
-      if (i != (num_lds_dwords - 1u)) {
-         nir_ssa_def *should_add = nir_ige(b, wave_id, nir_imm_int(b, i + 1u));
-         nir_ssa_def *addition = nir_bcsel(b, should_add, reduction_per_wave[i], nir_imm_zero(b, 1, 32));
-         wg_excl_scan_base = !wg_excl_scan_base ? addition : nir_iadd_nuw(b, wg_excl_scan_base, addition);
-      }
+   /* Each lane will now calculate the reduction result for the wave with the corresponding id. */
+   if (num_lds_dwords == 1) {
+      /* Broadcast the packed data we read from LDS to the first 16 lanes. */
+      nir_ssa_def *packed_dw = nir_build_lane_permute_16_amd(b, packed_reductions, nir_imm_int(b, 0), nir_imm_int(b, 0));
+
+      /* Use byte-permute to filter out the bytes not needed by the current lane. */
+      nir_ssa_def *filtered_packed = nir_build_byte_permute_amd(b, packed_dw, nir_imm_int(b, 0), sel);
+
+      /* Horizontally add the packed bytes. */
+      sum = nir_sad_u8x4(b, filtered_packed, nir_imm_int(b, 0), nir_imm_int(b, 0));
+   } else if (num_lds_dwords == 2) {
+      /* Use lane-permute to get the correct selector for all lanes. */
+      nir_ssa_def *dw0_selector = nir_build_lane_permute_16_amd(b, sel, nir_imm_int(b, 0x44443210), nir_imm_int(b, 0x4));
+      nir_ssa_def *dw1_selector = nir_build_lane_permute_16_amd(b, sel, nir_imm_int(b, 0x32100000), nir_imm_int(b, 0x4));
+
+      /* Broadcast the packed data we read from LDS to the first 16 lanes. */
+      nir_ssa_def *packed_dw0 = nir_build_lane_permute_16_amd(b, nir_unpack_64_2x32_split_x(b, packed_reductions), nir_imm_int(b, 0), nir_imm_int(b, 0));
+      nir_ssa_def *packed_dw1 = nir_build_lane_permute_16_amd(b, nir_unpack_64_2x32_split_y(b, packed_reductions), nir_imm_int(b, 0), nir_imm_int(b, 0));
+
+      /* Use byte-permute to filter out the bytes not needed by the current lane. */
+      nir_ssa_def *filtered_packed_dw0 = nir_build_byte_permute_amd(b, packed_dw0, nir_imm_int(b, 0), dw0_selector);
+      nir_ssa_def *filtered_packed_dw1 = nir_build_byte_permute_amd(b, packed_dw1, nir_imm_int(b, 0), dw1_selector);
+
+      /* Horizontally add the packed bytes. */
+      sum = nir_sad_u8x4(b, filtered_packed_dw0, nir_imm_int(b, 0), nir_imm_int(b, 0));
+      sum = nir_sad_u8x4(b, filtered_packed_dw1, nir_imm_int(b, 0), sum);
+   } else {
+      unreachable("Unimplemented NGG wave count");
    }
 
    nir_ssa_def *sg_excl_scan = nir_build_mbcnt_amd(b, input_mask);
+
+   nir_ssa_def *wg_excl_scan_base = nir_build_read_invocation(b, sum, wave_id);
+   nir_ssa_def *wg_reduction = nir_build_read_invocation(b, sum, num_waves);
    nir_ssa_def *wg_excl_scan = nir_iadd_nuw(b, wg_excl_scan_base, sg_excl_scan);
 
    wg_scan_result r = {
