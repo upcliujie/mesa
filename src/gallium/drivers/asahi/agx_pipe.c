@@ -385,6 +385,8 @@ agx_flush(struct pipe_context *pctx,
    if (!(ctx->batch->draw | ctx->batch->clear))
       return;
 
+   usleep(1000 * 14);
+
    /* Finalize the encoder */
    uint8_t stop[] = {
       0x00, 0x00, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, // Stop
