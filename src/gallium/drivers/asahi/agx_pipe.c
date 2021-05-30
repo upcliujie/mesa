@@ -139,9 +139,13 @@ agx_should_tile(struct agx_device *dev,
       PIPE_BIND_RENDER_TARGET |
       PIPE_BIND_BLENDABLE |
       PIPE_BIND_SAMPLER_VIEW |
+#if __APPLE__
+      /* No macOS window system integration, force linear */ 0;
+#else
       PIPE_BIND_DISPLAY_TARGET |
       PIPE_BIND_SCANOUT |
       PIPE_BIND_SHARED;
+#endif
 
    unsigned bpp = util_format_get_blocksizebits(pres->base.format);
 
@@ -595,10 +599,7 @@ agx_flush_frontbuffer(struct pipe_screen *_screen,
    void *map = winsys->displaytarget_map(winsys, rsrc->dt, PIPE_USAGE_DEFAULT);
    assert(map != NULL);
 
-   agx_detile(rsrc->bo->ptr.cpu, map,
-              rsrc->base.width0, 32, rsrc->dt_stride / 4,
-              0, 0, rsrc->base.width0, rsrc->base.height0);
-
+   memcpy(map, rsrc->bo->ptr.cpu, rsrc->dt_stride * rsrc->base.height0);
    winsys->displaytarget_display(winsys, rsrc->dt, context_private, box);
 }
 
