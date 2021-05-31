@@ -23,6 +23,8 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
+#include <xf86drm.h>
+
 #include "tu_private.h"
 
 #include "vk_util.h"
@@ -34,6 +36,31 @@ tu_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
    TU_FROM_HANDLE(tu_physical_device, pdevice, physicalDevice);
    return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
+}
+
+static bool
+tu_wsi_can_present_on_device(VkPhysicalDevice physicalDevice, int fd)
+{
+   TU_FROM_HANDLE(tu_physical_device, pdevice, physicalDevice);
+
+   drmDevicePtr fd_devinfo, display_devinfo;
+   int ret;
+
+   ret = drmGetDevice2(fd, 0, &fd_devinfo);
+   if (ret)
+      return false;
+
+   ret = drmGetDevice2(pdevice->local_fd, 0, &display_devinfo);
+   if (ret) {
+      drmFreeDevice(&fd_devinfo);
+      return false;
+   }
+
+   bool result = drmDevicesEqual(fd_devinfo, display_devinfo);
+
+   drmFreeDevice(&fd_devinfo);
+   drmFreeDevice(&display_devinfo);
+   return result;
 }
 
 VkResult
@@ -51,6 +78,8 @@ tu_wsi_init(struct tu_physical_device *physical_device)
       return result;
 
    physical_device->wsi_device.supports_modifiers = true;
+   physical_device->wsi_device.can_present_on_device =
+      tu_wsi_can_present_on_device;
 
    return VK_SUCCESS;
 }
