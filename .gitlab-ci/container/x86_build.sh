@@ -102,6 +102,8 @@ ninja install
 popd
 rm -rf DirectX-Headers
 
+pip3 install git+https://git.lavasoftware.org/lava/lavacli@3db3ddc45e5358908bc6a17448059ea2340492b7
+
 ############### Uninstall the build software
 
 apt-get purge -y \
