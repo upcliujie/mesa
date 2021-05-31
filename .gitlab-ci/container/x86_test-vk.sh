@@ -128,6 +128,10 @@ rm bin/glslangValidator glslang-master-linux-Release.zip
 
 . .gitlab-ci/container/container_pre_build.sh
 
+############### Build parallel-deqp-runner's hang-detection tool
+
+. .gitlab-ci/container/build-hang-detection.sh
+
 ############### Build piglit
 
 PIGLIT_BUILD_TARGETS="piglit_replayer" . .gitlab-ci/container/build-piglit.sh
