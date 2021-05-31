@@ -421,7 +421,7 @@ x86_test-gl:
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-vk "2021-05-22-vkd3d-proton-tests"
+    MESA_IMAGE_TAG: &x86_test-vk "2021-05-31-hang-detection"
 
 # Debian 11 based ARM build image
 arm_build:
@@ -1158,7 +1158,7 @@ meson-mingw32-x86_64:
     paths:
       - results/vkd3d-proton.log
   script:
-    - install/vkd3d-proton/run.sh
+    - /parallel-deqp-runner/build/bin/hang-detection ./install/vkd3d-proton/run.sh
 
 .piglit-test:
   artifacts:
@@ -1206,10 +1206,12 @@ meson-mingw32-x86_64:
     - .deqp-test
   variables:
     DEQP_VER: vk
+  script:
+    - /parallel-deqp-runner/build/bin/hang-detection ./install/deqp-runner.sh
 
 .fossilize-test:
   script:
-    - ./install/fossilize-runner.sh
+    - /parallel-deqp-runner/build/bin/hang-detection ./install/fossilize-runner.sh
   artifacts:
     when: on_failure
     name: "mesa_${CI_JOB_NAME}"
