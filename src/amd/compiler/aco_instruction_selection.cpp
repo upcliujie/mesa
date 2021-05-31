@@ -3644,7 +3644,7 @@ Temp lds_load_callback(Builder& bld, const LoadEmitInfo &info,
    const_offset /= const_offset_unit;
 
    RegClass rc = RegClass(RegType::vgpr, DIV_ROUND_UP(size, 4));
-   Temp val = rc == info.dst.regClass() && dst_hint.id() ? dst_hint : bld.tmp(rc);
+   Temp val = size == info.dst.bytes() && info.dst.type() == RegType::vgpr && dst_hint.id() ? dst_hint : bld.tmp(rc);
    Instruction *instr;
    if (read2)
       instr = bld.ds(op, Definition(val), offset, m, const_offset, const_offset + 1);
