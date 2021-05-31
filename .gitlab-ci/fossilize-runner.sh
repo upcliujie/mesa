@@ -13,8 +13,10 @@ INSTALL=`pwd`/install
 export LD_LIBRARY_PATH=`pwd`/install/lib/
 export VK_ICD_FILENAMES=`pwd`/install/share/vulkan/icd.d/"$VK_DRIVER"_icd.x86_64.json
 
+HANG_DETECTION_CMD="/parallel-deqp-runner/build/bin/hang-detection"
+
 # To store Fossilize logs on failure.
 RESULTS=`pwd`/results
 mkdir -p results
 
-"$INSTALL/fossils/fossils.sh" "$INSTALL/fossils.yml" "$RESULTS"
+"$HANG_DETECTION_CMD" "$INSTALL/fossils/fossils.sh" "$INSTALL/fossils.yml" "$RESULTS"
