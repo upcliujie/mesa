@@ -34,6 +34,7 @@ STABLE_EPHEMERAL=" \
       patch \
       pkg-config \
       python3-distutils \
+      unzip \
       wget \
       xz-utils \
       "
@@ -70,7 +71,7 @@ apt-get install -y --no-remove \
 
 ############### Build piglit
 
-PIGLIT_OPTS="-DPIGLIT_BUILD_CL_TESTS=ON -DPIGLIT_BUILD_VK_TESTS=OFF" . .gitlab-ci/container/build-piglit.sh
+PIGLIT_OPTS="-DPIGLIT_BUILD_CL_TESTS=ON -DPIGLIT_BUILD_VK_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
 
 ############### Build dEQP GL
 

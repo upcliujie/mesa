@@ -2,6 +2,12 @@
 
 set -ex
 
+# for the vulkan tests
+wget https://github.com/KhronosGroup/glslang/releases/download/SDK-candidate-26-Jul-2020/glslang-master-linux-Release.zip
+unzip glslang-master-linux-Release.zip bin/glslangValidator
+install -m755 bin/glslangValidator /usr/local/bin/
+rm bin/glslangValidator glslang-master-linux-Release.zip
+
 git clone https://gitlab.freedesktop.org/mesa/piglit.git --single-branch --no-checkout /piglit
 pushd /piglit
 git checkout eee7d89611cf6dbafdd23f85b2f5f25ecc2d1ca3
