@@ -673,6 +673,12 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
          return false;
    }
 
+   if (bind & PIPE_BIND_SHADER_IMAGE) {
+      /* this just doesn't seem to work... */
+      if (format == PIPE_FORMAT_A4R4G4B4_UNORM)
+         return false;
+   }
+
    if ((bind & (PIPE_BIND_RENDER_TARGET | PIPE_BIND_SAMPLER_VIEW)) &&
        ((bind & PIPE_BIND_DISPLAY_TARGET) == 0)) {
       /* Disable all 3-channel formats, where channel size != 32 bits.
