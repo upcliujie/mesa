@@ -34,6 +34,7 @@ STABLE_EPHEMERAL=" \
       patch \
       pkg-config \
       python3-distutils \
+      unzip \
       wget \
       xz-utils \
       "
@@ -52,6 +53,11 @@ apt-get install -y --no-remove \
       python3-simplejson \
       spirv-tools
 
+# for the GL-VK interop tests
+wget https://github.com/KhronosGroup/glslang/releases/download/SDK-candidate-26-Jul-2020/glslang-master-linux-Release.zip
+unzip glslang-master-linux-Release.zip bin/glslangValidator
+install -m755 bin/glslangValidator /usr/local/bin/
+rm bin/glslangValidator glslang-master-linux-Release.zip
 
 . .gitlab-ci/container/container_pre_build.sh
 
@@ -70,7 +76,7 @@ apt-get install -y --no-remove \
 
 ############### Build piglit
 
-PIGLIT_OPTS="-DPIGLIT_BUILD_CL_TESTS=ON -DPIGLIT_BUILD_VK_TESTS=OFF" . .gitlab-ci/container/build-piglit.sh
+PIGLIT_OPTS="-DPIGLIT_BUILD_CL_TESTS=ON -DPIGLIT_BUILD_VK_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
 
 ############### Build dEQP GL
 
