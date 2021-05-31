@@ -987,11 +987,10 @@ lp_build_pack_rgba_soa(struct gallivm_state *gallivm,
    lp_build_context_init(&bld, gallivm, type);
    for (chan = 0; chan < format_desc->nr_channels; ++chan) {
       struct util_format_channel_description chan_desc = format_desc->channel[chan];
-
       lp_build_insert_soa_chan(&bld, format_desc->block.bits,
                                chan_desc,
                                packed,
-                               rgba_in[chan]);
+                               rgba_in[format_desc->swizzle[chan]]);
    }
 }
 
@@ -1062,7 +1061,7 @@ lp_build_store_rgba_soa(struct gallivm_state *gallivm,
             lp_build_insert_soa_chan(&bld, blockbits,
                                      chan_desc,
                                      &packed[vec_nr],
-                                     rgba_in[i]);
+                                     rgba_in[format_desc->swizzle[i]]);
       }
 
       assert(num_stores == 4 || num_stores == 2);
