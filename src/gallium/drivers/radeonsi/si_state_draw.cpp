@@ -1949,8 +1949,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
             false)) && /* Add, then return false. */
        (!primitive_restart || pd_msg("primitive restart")) &&
        /* Supported prim types. */
-       (1 << prim) & ((1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) |
-                      (1 << PIPE_PRIM_TRIANGLE_FAN)) &&
+       (1 << prim) & ((1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP)) &&
        /* Instancing is limited to 16-bit indices, because InstanceID is packed into VertexID. */
        /* TODO: DrawArraysInstanced doesn't sometimes work, so it's disabled. */
        (instance_count == 1 ||
