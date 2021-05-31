@@ -1947,21 +1947,15 @@ static void si_draw_vbo(struct pipe_context *ctx,
            : /* Add, then return true. */
            (sctx->compute_num_verts_ineligible += total_direct_count,
             false)) && /* Add, then return false. */
-       (primitive_restart ?
-                          /* Supported prim types with primitive restart: */
-           (prim == PIPE_PRIM_TRIANGLE_STRIP || pd_msg("bad prim type with primitive restart")) &&
-              /* Disallow instancing with primitive restart: */
-              (instance_count == 1 || pd_msg("instance_count > 1 with primitive restart"))
-                          :
-                          /* Supported prim types without primitive restart + allow instancing: */
-           (1 << prim) & ((1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) |
-                          (1 << PIPE_PRIM_TRIANGLE_FAN)) &&
-              /* Instancing is limited to 16-bit indices, because InstanceID is packed into
-                 VertexID. */
-              /* TODO: DrawArraysInstanced doesn't sometimes work, so it's disabled. */
-              (instance_count == 1 ||
-               (instance_count <= USHRT_MAX && index_size && index_size <= 2) ||
-               pd_msg("instance_count too large or index_size == 4 or DrawArraysInstanced"))) &&
+       (!primitive_restart || pd_msg("primitive restart")) &&
+       /* Supported prim types. */
+       (1 << prim) & ((1 << PIPE_PRIM_TRIANGLES) | (1 << PIPE_PRIM_TRIANGLE_STRIP) |
+                      (1 << PIPE_PRIM_TRIANGLE_FAN)) &&
+       /* Instancing is limited to 16-bit indices, because InstanceID is packed into VertexID. */
+       /* TODO: DrawArraysInstanced doesn't sometimes work, so it's disabled. */
+       (instance_count == 1 ||
+        (instance_count <= USHRT_MAX && index_size && index_size <= 2) ||
+        pd_msg("instance_count too large or index_size == 4 or DrawArraysInstanced")) &&
        ((drawid_offset == 0 && (num_draws == 1 || !info->increment_draw_id)) ||
         !sctx->shader.vs.cso->info.uses_drawid || pd_msg("draw_id > 0")) &&
        (!sctx->render_cond || pd_msg("render condition")) &&
@@ -1988,7 +1982,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
        (si_all_vs_resources_read_only(sctx, index_size ? indexbuf : NULL) ||
         pd_msg("write reference"))) {
       switch (si_prepare_prim_discard_or_split_draw(sctx, info, drawid_offset, draws, num_draws,
-                                                    primitive_restart, total_direct_count)) {
+                                                    total_direct_count)) {
       case SI_PRIM_DISCARD_ENABLED:
          original_index_size = index_size;
          prim_discard_cs_instancing = instance_count > 1;
@@ -1998,7 +1992,6 @@ static void si_draw_vbo(struct pipe_context *ctx,
          prim = PIPE_PRIM_TRIANGLES;
          index_size = 4;
          instance_count = 1;
-         primitive_restart = false;
          sctx->compute_num_verts_rejected -= total_direct_count;
          sctx->compute_num_verts_accepted += total_direct_count;
          break;
