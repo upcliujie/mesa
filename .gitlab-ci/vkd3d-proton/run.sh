@@ -57,6 +57,7 @@ eval $RUN_CMD
 
 VKD3D_PROTON_RESULTS="vkd3d-proton-${VKD3D_PROTON_RESULTS:-results}"
 RESULTSFILE="$RESULTS/$VKD3D_PROTON_RESULTS.txt"
+mkdir -p .gitlab-ci/vkd3d-proton
 grep "Test failed" "$RESULTS"/vkd3d-proton.log > "$RESULTSFILE"
 
 if [ -f "$INSTALL/$VKD3D_PROTON_RESULTS.txt" ]; then
@@ -66,7 +67,7 @@ else
     touch ".gitlab-ci/vkd3d-proton/$VKD3D_PROTON_RESULTS.txt.baseline"
 fi
 
-if diff -q ".gitlab-ci/vkd3d-proton/$PIGLIT_RESULTS.txt.baseline" "$RESULTSFILE"; then
+if diff -q ".gitlab-ci/vkd3d-proton/$VKD3D_PROTON_RESULTS.txt.baseline" "$RESULTSFILE"; then
     exit 0
 fi
 
