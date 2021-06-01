@@ -59,7 +59,6 @@ apt-get -y install \
 	python3-yaml \
 	python3-zmq \
 	u-boot-tools \
-	unzip \
 	wget \
 	xz-utils \
 	zlib1g-dev \

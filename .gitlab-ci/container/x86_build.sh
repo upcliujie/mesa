@@ -14,7 +14,6 @@ STABLE_EPHEMERAL=" \
       cmake \
       libgbm-dev \
       libtool \
-      unzip \
       "
 
 # We need multiarch for Wine
