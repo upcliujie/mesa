@@ -70,4 +70,19 @@
 #define PAGE_CACHE_MINUS_1_5_UB_ROWS (PAGE_CACHE_UB_ROWS - PAGE_UB_ROWS_TIMES_1_5)
 
 
+/* In several cases, we want to prepack different v3d packets. Even if that
+ * could change between hw versions, that would not be a significant
+ * change. And dealing with allocating them dynamically would be a mess. So we
+ * just define our own sizes.  We just need to ensure that the value we use is
+ * the maximum on all the versions supported.
+ */
+#define V3DV_TEXTURE_SHADER_STATE_LENGTH 32
+#define V3DV_SAMPLER_STATE_LENGTH 24
+#define V3DV_BLEND_CFG_LENGTH 5
+#define V3DV_CFG_BITS_LENGTH 4
+#define V3DV_GL_SHADER_STATE_RECORD_LENGTH 36
+#define V3DV_VCM_CACHE_SIZE_LENGTH 2
+#define V3DV_GL_SHADER_STATE_ATTRIBUTE_RECORD_LENGTH 16
+#define V3DV_STENCIL_CFG_LENGTH 6
+
 #endif /* V3DV_LIMITS_H */
