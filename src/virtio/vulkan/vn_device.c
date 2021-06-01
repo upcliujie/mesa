@@ -1453,7 +1453,8 @@ vn_physical_device_get_native_extensions(
        renderer_info->has_dma_buf_import) {
 #ifdef ANDROID
       if (renderer_exts->EXT_image_drm_format_modifier &&
-          renderer_exts->EXT_queue_family_foreign) {
+          renderer_exts->EXT_queue_family_foreign &&
+          instance->experimental.memoryResourceAllocationSize == VK_TRUE) {
          exts->ANDROID_external_memory_android_hardware_buffer = true;
          exts->ANDROID_native_buffer = true;
       }
@@ -1891,6 +1892,12 @@ vn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    result = vn_instance_init_renderer(instance);
    if (result != VK_SUCCESS)
       goto fail;
+
+   if (instance->renderer_info.vk_mesa_venus_protocol_spec_version ==
+       100000) {
+      vn_call_vkGetVenusExperimentalFeatures100000MESA(
+         instance, &instance->experimental);
+   }
 
    result = vn_instance_init_ring(instance);
    if (result != VK_SUCCESS)
