@@ -474,6 +474,8 @@ vn_get_memory_dma_buf_properties(struct vn_device *dev,
 {
    VkDevice device = vn_device_to_handle(dev);
    struct vn_renderer_bo *bo = NULL;
+   const bool has_mem_res_alloc_size =
+      dev->instance->exp_features.memoryResourceAllocationSize;
    VkResult result = VK_SUCCESS;
 
    result = vn_renderer_bo_create_from_dma_buf(dev->renderer, 0 /* size */,
@@ -483,9 +485,15 @@ vn_get_memory_dma_buf_properties(struct vn_device *dev,
 
    vn_instance_roundtrip(dev->instance);
 
+   VkMemoryResourceAllocationSizeProperties100000MESA alloc_size_props = {
+      .sType =
+         VK_STRUCTURE_TYPE_MEMORY_RESOURCE_ALLOCATION_SIZE_PROPERTIES_100000_MESA,
+      .pNext = NULL,
+      .allocationSize = 0,
+   };
    VkMemoryResourcePropertiesMESA props = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_RESOURCE_PROPERTIES_MESA,
-      .pNext = NULL,
+      .pNext = has_mem_res_alloc_size ? &alloc_size_props : NULL,
       .memoryTypeBits = 0,
    };
    result = vn_call_vkGetMemoryResourcePropertiesMESA(dev->instance, device,
@@ -494,8 +502,8 @@ vn_get_memory_dma_buf_properties(struct vn_device *dev,
    if (result != VK_SUCCESS)
       return result;
 
-   /* XXX extend VkMemoryResourcePropertiesMESA for host storage size */
-   *out_alloc_size = lseek(fd, 0, SEEK_END);
+   *out_alloc_size = has_mem_res_alloc_size ? alloc_size_props.allocationSize
+                                            : lseek(fd, 0, SEEK_END);
    *out_mem_type_bits = props.memoryTypeBits;
 
    return VK_SUCCESS;

@@ -1926,6 +1926,9 @@ vn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    if (result != VK_SUCCESS)
       goto fail;
 
+   vn_call_vkGetVenusExperimentalFeatures100000MESA(instance,
+                                                    &instance->exp_features);
+
    driParseOptionInfo(&instance->available_dri_options, vn_dri_options,
                       ARRAY_SIZE(vn_dri_options));
    driParseConfigFiles(&instance->dri_options,
