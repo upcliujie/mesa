@@ -123,6 +123,7 @@ panfrost_compression_tag(const struct panfrost_device *dev,
                 if (!pan_is_bifrost(dev))
                         return flags;
 
+#if 0
                 /* Prefetch enable */
                 flags |= MALI_AFBC_SURFACE_FLAG_PREFETCH;
 
@@ -137,6 +138,7 @@ panfrost_compression_tag(const struct panfrost_device *dev,
                  */
                 if (dev->arch >= 7 && dim != MALI_TEXTURE_DIMENSION_3D)
                         flags |= MALI_AFBC_SURFACE_FLAG_CHECK_PAYLOAD_RANGE;
+#endif
 
                 return flags;
         } else if (desc->layout == UTIL_FORMAT_LAYOUT_ASTC) {

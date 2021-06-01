@@ -490,11 +490,15 @@ pan_prepare_rt(const struct panfrost_device *dev,
                                                AFBC_HEADER_BYTES_PER_TILE;
                         cfg->bifrost_afbc.afbc_wide_block_enable =
                                 panfrost_block_dim(rt->image->layout.modifier, true, 0) > 16;
+
                 } else {
                         cfg->afbc.chunk_size = 9;
                         cfg->midgard_afbc.sparse = true;
                         cfg->afbc.body_size = slice->afbc.body_size;
                 }
+
+                if (dev->arch == 7)
+                        cfg->bifrost_afbc.reverse_issue_order = true; //WIP
 
                 cfg->afbc.header = surf.afbc.header;
                 cfg->afbc.body = surf.afbc.body;
