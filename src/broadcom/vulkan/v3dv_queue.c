@@ -21,6 +21,8 @@
  * IN THE SOFTWARE.
  */
 
+#include "util/u_box.h"
+
 #include "v3dv_private.h"
 #include "drm-uapi/v3d_drm.h"
 
