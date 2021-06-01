@@ -459,9 +459,12 @@ vn_android_image_from_anb(struct vn_device *dev,
              mem_req.size, alloc_size, mem_req.memoryTypeBits, mem_type_bits);
    }
 
-   /* TODO When alloc_size is fixed to return host storage size, we will
-    * also check alloc_size is not smaller than mem_req.size here.
-    */
+   if (dev->instance->exp_features.memoryResourceAllocationSize &&
+       alloc_size < mem_req.size) {
+      result = VK_ERROR_INVALID_EXTERNAL_HANDLE;
+      goto fail;
+   }
+
    mem_type_bits &= mem_req.memoryTypeBits;
    if (!mem_type_bits) {
       result = VK_ERROR_INVALID_EXTERNAL_HANDLE;
@@ -1044,21 +1047,23 @@ vn_android_device_import_ahb(struct vn_device *dev,
       if (result != VK_SUCCESS)
          return result;
 
-      /* TODO When alloc_size is fixed to return host storage size, we will
-       * also check alloc_size is not smaller than mem_req.size here.
-       */
       VkMemoryRequirements mem_req;
       vn_GetImageMemoryRequirements(device, dedicated_info->image, &mem_req);
+      if (dev->instance->exp_features.memoryResourceAllocationSize &&
+          alloc_size < mem_req.size)
+         return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
       alloc_size = mem_req.size;
    }
 
    if (dedicated_info && dedicated_info->buffer != VK_NULL_HANDLE) {
-      /* TODO When alloc_size is fixed to return host storage size, we will
-       * also check alloc_size is not smaller than mem_req.size here.
-       */
       VkMemoryRequirements mem_req;
       vn_GetBufferMemoryRequirements(device, dedicated_info->buffer,
                                      &mem_req);
+      if (dev->instance->exp_features.memoryResourceAllocationSize &&
+          alloc_size < mem_req.size)
+         return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
       alloc_size = mem_req.size;
    }
 
