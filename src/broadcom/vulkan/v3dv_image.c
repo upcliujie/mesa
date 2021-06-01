@@ -534,6 +534,15 @@ v3dv_CreateImageView(VkDevice _device,
    if (iview == NULL)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   VkResult result =
+      v3dv_X(device, image_view_allocate_prepacked)(iview, device, pAllocator);
+
+   if (result != VK_SUCCESS) {
+      vk_object_free(&device->vk, pAllocator, iview);
+
+      return result;
+   }
+
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
 
    assert(range->layerCount > 0);
@@ -650,6 +659,12 @@ v3dv_DestroyImageView(VkDevice _device,
    if (image_view == NULL)
       return;
 
+   if (image_view->texture_shader_state[0])
+      vk_free2(&device->vk.alloc, pAllocator, image_view->texture_shader_state[0]);
+
+   if (image_view->texture_shader_state[1])
+      vk_free2(&device->vk.alloc, pAllocator, image_view->texture_shader_state[1]);
+
    vk_object_free(&device->vk, pAllocator, image_view);
 }
 
@@ -665,7 +680,8 @@ v3dv_CreateBufferView(VkDevice _device,
       v3dv_buffer_from_handle(pCreateInfo->buffer);
 
    struct v3dv_buffer_view *view =
-      vk_object_zalloc(&device->vk, pAllocator, sizeof(*view),
+      vk_object_zalloc(&device->vk, pAllocator,
+                       sizeof(*view) + v3dv_X(device, packet_length)(SAMPLER_STATE),
                        VK_OBJECT_TYPE_BUFFER_VIEW);
    if (!view)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);

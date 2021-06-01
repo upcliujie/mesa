@@ -63,6 +63,7 @@ v3dX(pack_texture_shader_state_helper)(struct v3dv_device *device,
    assert(!for_cube_map_array_storage ||
           image_view->type == VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
    const uint32_t index = for_cube_map_array_storage ? 1 : 0;
+   assert(image_view->texture_shader_state[index] != NULL);
 
    assert(image_view->image);
    const struct v3dv_image *image = image_view->image;
@@ -196,6 +197,8 @@ v3dX(pack_texture_shader_state_from_buffer_view)(struct v3dv_device *device,
    assert(buffer_view->buffer);
    const struct v3dv_buffer *buffer = buffer_view->buffer;
 
+   assert(buffer_view->texture_shader_state != NULL);
+
    v3dvx_pack(buffer_view->texture_shader_state, TEXTURE_SHADER_STATE, tex) {
       tex.swizzle_r = translate_swizzle(PIPE_SWIZZLE_X);
       tex.swizzle_g = translate_swizzle(PIPE_SWIZZLE_Y);
@@ -229,4 +232,23 @@ v3dX(pack_texture_shader_state_from_buffer_view)(struct v3dv_device *device,
 
       tex.texture_base_pointer = v3dv_cl_address(NULL, base_offset);
    }
+}
+
+
+VkResult
+v3dX(image_view_allocate_prepacked)(struct v3dv_image_view *iview,
+                                    struct v3dv_device *device,
+                                    const VkAllocationCallbacks *pAllocator)
+{
+   for (uint32_t i = 0; i < 2; i++) {
+      iview->texture_shader_state[i] =
+         vk_zalloc2(&device->vk.alloc, pAllocator,
+                    cl_packet_length(TEXTURE_SHADER_STATE), 8,
+                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+      if (iview->texture_shader_state[i] == NULL)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   return VK_SUCCESS;
 }

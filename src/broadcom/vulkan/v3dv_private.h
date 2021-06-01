@@ -536,7 +536,7 @@ struct v3dv_image_view {
     * we generate two states and select the one to use based on the descriptor
     * type.
     */
-   uint8_t texture_shader_state[2][cl_packet_length(TEXTURE_SHADER_STATE)];
+   uint8_t *texture_shader_state[2];
 };
 
 uint32_t v3dv_layer_offset(const struct v3dv_image *image, uint32_t level, uint32_t layer);
@@ -567,7 +567,7 @@ struct v3dv_buffer_view {
    uint32_t num_elements;
 
    /* Prepacked TEXTURE_SHADER_STATE. */
-   uint8_t texture_shader_state[cl_packet_length(TEXTURE_SHADER_STATE)];
+   uint8_t texture_shader_state[0];
 };
 
 struct v3dv_subpass_attachment {
@@ -1572,7 +1572,7 @@ struct v3dv_sampler {
     * configuration. If needed it will be copied to the descriptor info during
     * UpdateDescriptorSets
     */
-   uint8_t sampler_state[cl_packet_length(SAMPLER_STATE)];
+   uint8_t sampler_state[0];
 };
 
 struct v3dv_descriptor_template_entry {
@@ -1759,8 +1759,8 @@ struct v3dv_pipeline {
    struct {
       /* Per-RT bit mask with blend enables */
       uint8_t enables;
-      /* Per-RT prepacked blend config packets */
-      uint8_t cfg[V3D_MAX_DRAW_BUFFERS][cl_packet_length(BLEND_CFG)];
+      /* Per-RT prepacked blend config packets (BLEND_CFG) */
+      uint8_t *cfg[V3D_MAX_DRAW_BUFFERS];
       /* Flag indicating whether the blend factors in use require
        * color constants.
        */
@@ -1777,12 +1777,12 @@ struct v3dv_pipeline {
 
    /* Packets prepacked during pipeline creation
     */
-   uint8_t cfg_bits[cl_packet_length(CFG_BITS)];
-   uint8_t shader_state_record[cl_packet_length(GL_SHADER_STATE_RECORD)];
-   uint8_t vcm_cache_size[cl_packet_length(VCM_CACHE_SIZE)];
-   uint8_t vertex_attrs[cl_packet_length(GL_SHADER_STATE_ATTRIBUTE_RECORD) *
-                        MAX_VERTEX_ATTRIBS];
-   uint8_t stencil_cfg[2][cl_packet_length(STENCIL_CFG)];
+   uint8_t *cfg_bits;
+   uint8_t *shader_state_record;
+   uint8_t *vcm_cache_size;
+   /* MAX_VERTEX_ATTRIBS * GL_SHADER_STATE_ATTRIBUTE_RECORD */
+   uint8_t *vertex_attrs;
+   uint8_t *stencil_cfg[2];
 };
 
 static inline VkPipelineBindPoint
@@ -1882,6 +1882,18 @@ v3dv_pipeline_shared_data_unref(struct v3dv_device *device,
    if (p_atomic_dec_zero(&shared_data->ref_cnt))
       v3dv_pipeline_shared_data_destroy(device, shared_data);
 }
+
+/* The following enum is not intended to be a exhaustive list of V3D packets,
+ * but only those we need to get the packet size when copying from the
+ * prepacked data to the descriptor bo.
+ *
+ * FIXME: one alternative would be to save the size on the objects storing the
+ * prepacked.
+ */
+enum v3dv_descriptor_packet {
+   SAMPLER_STATE,
+   TEXTURE_SHADER_STATE,
+};
 
 struct v3dv_descriptor *
 v3dv_descriptor_map_get_descriptor(struct v3dv_descriptor_state *descriptor_state,

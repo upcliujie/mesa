@@ -573,17 +573,14 @@ v3dv_CreateDescriptorSetLayout(VkDevice _device,
 
    uint32_t samplers_offset = sizeof(struct v3dv_descriptor_set_layout) +
       num_bindings * sizeof(set_layout->binding[0]);
-   uint32_t size = samplers_offset +
-      immutable_sampler_count * sizeof(struct v3dv_sampler);
+   uint32_t sampler_size = v3dv_X(device, sampler_size)();
+   uint32_t size = samplers_offset + immutable_sampler_count * sampler_size;
 
    set_layout = vk_object_zalloc(&device->vk, pAllocator, size,
                                  VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT);
 
    if (!set_layout)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   /* We just allocate all the immutable samplers at the end of the struct */
-   struct v3dv_sampler *samplers = (void*) &set_layout->binding[num_bindings];
 
    assert(pCreateInfo->bindingCount == 0 || num_bindings > 0);
 
@@ -643,11 +640,26 @@ v3dv_CreateDescriptorSetLayout(VkDevice _device,
 
          set_layout->binding[binding_number].immutable_samplers_offset = samplers_offset;
 
-         for (uint32_t i = 0; i < binding->descriptorCount; i++)
-            samplers[i] = *v3dv_sampler_from_handle(binding->pImmutableSamplers[i]);
+         for (uint32_t i = 0; i < binding->descriptorCount; i++) {
+            struct v3dv_sampler *current_sampler =
+               v3dv_sampler_from_handle(binding->pImmutableSamplers[i]);
 
-         samplers += binding->descriptorCount;
-         samplers_offset += sizeof(struct v3dv_sampler) * binding->descriptorCount;
+            /* We need to compute manually the position layout_sampler as
+             * v3dv_sampler includes the sampler_state at the end as an [0]
+             * array, which final size depends on the hw version. So we can't
+             * just get the first position and interate using [i].
+             */
+            struct v3dv_sampler *layout_sampler =
+               (struct v3dv_sampler *)((const char *)set_layout +
+                                       samplers_offset + sampler_size * i);
+
+            /* We also can't just assign the structs to copy the sampler, as
+             * sampler_size is a runtime value
+             */
+            memcpy(layout_sampler, current_sampler, sampler_size);
+         }
+
+         samplers_offset += sampler_size * binding->descriptorCount;
       }
 
       descriptor_count += binding->descriptorCount;
@@ -793,7 +805,12 @@ descriptor_set_create(struct v3dv_device *device,
          (const struct v3dv_sampler *)((const char *)layout +
                                        layout->binding[b].immutable_samplers_offset);
 
+      const uint32_t sampler_size = v3dv_X(device, sampler_size)();
+
       for (uint32_t i = 0; i < layout->binding[b].array_size; i++) {
+         const struct v3dv_sampler *sampler =
+            (const struct v3dv_sampler *)((const char *)samplers + sampler_size * i);
+
          uint32_t combined_offset =
             layout->binding[b].type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ?
             v3dv_X(device, offsetof_sampler_state_on_combined)() : 0;
@@ -802,8 +819,8 @@ descriptor_set_create(struct v3dv_device *device,
          desc_map += combined_offset;
 
          memcpy(desc_map,
-                samplers[i].sampler_state,
-                cl_packet_length(SAMPLER_STATE));
+                sampler->sampler_state,
+                v3dv_X(device, packet_length)(SAMPLER_STATE));
       }
    }
 
@@ -922,7 +939,7 @@ write_image_descriptor(struct v3dv_device *device,
          desc_type != VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ? 0 : 1;
       memcpy(desc_map,
              iview->texture_shader_state[tex_state_index],
-             sizeof(iview->texture_shader_state[0]));
+             v3dv_X(device, packet_length)(TEXTURE_SHADER_STATE));
       desc_map += v3dv_X(device, offsetof_sampler_state_on_combined)();
    }
 
@@ -932,7 +949,7 @@ write_image_descriptor(struct v3dv_device *device,
        */
       memcpy(desc_map,
              sampler->sampler_state,
-             sizeof(sampler->sampler_state));
+             v3dv_X(device, packet_length)(SAMPLER_STATE));
    }
 }
 
@@ -954,7 +971,7 @@ write_buffer_view_descriptor(struct v3dv_device *device,
 
    memcpy(desc_map,
           bview->texture_shader_state,
-          sizeof(bview->texture_shader_state));
+          v3dv_X(device, packet_length)(TEXTURE_SHADER_STATE));
 }
 
 VKAPI_ATTR void VKAPI_CALL

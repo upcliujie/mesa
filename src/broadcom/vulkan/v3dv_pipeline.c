@@ -152,6 +152,28 @@ v3dv_destroy_pipeline(struct v3dv_pipeline *pipeline,
       pipeline->default_attribute_values = NULL;
    }
 
+   if (pipeline->cfg_bits)
+      vk_free2(&device->vk.alloc, pAllocator, pipeline->cfg_bits);
+
+   if (pipeline->shader_state_record)
+      vk_free2(&device->vk.alloc, pAllocator, pipeline->shader_state_record);
+
+   if (pipeline->vcm_cache_size)
+      vk_free2(&device->vk.alloc, pAllocator, pipeline->vcm_cache_size);
+
+   if (pipeline->vertex_attrs)
+      vk_free2(&device->vk.alloc, pAllocator, pipeline->vertex_attrs);
+
+   for (uint8_t i = 0; i < 2; i++) {
+      if (pipeline->stencil_cfg[i])
+         vk_free2(&device->vk.alloc, pAllocator, pipeline->stencil_cfg[i]);
+   }
+
+   if (pipeline->blend.cfg[0]) {
+      for (uint8_t i = 0; i < V3D_MAX_DRAW_BUFFERS; i++) {
+         vk_free2(&device->vk.alloc, pAllocator, pipeline->blend.cfg[i]);
+      }
+   }
    vk_object_free(&device->vk, pAllocator, pipeline);
 }
 
@@ -2488,6 +2510,15 @@ pipeline_init(struct v3dv_pipeline *pipeline,
     * feature and it shouldn't be used by any pipeline.
     */
    assert(!ds_info || !ds_info->depthBoundsTestEnable);
+
+   result = v3dv_X(pipeline->device, pipeline_allocate_prepacked)(pipeline, pAllocator);
+
+   if (result != VK_SUCCESS) {
+      /* Returning early would make the caller to call destroy the pipeline,
+       * so that would free any intermediate memory allocated.
+       */
+      return result;
+   }
 
    v3dv_X(device, pack_blend)(pipeline, cb_info);
    v3dv_X(device, pack_cfg_bits)(pipeline, ds_info, rs_info, ms_info);

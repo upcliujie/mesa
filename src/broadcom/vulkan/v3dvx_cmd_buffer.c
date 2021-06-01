@@ -1038,7 +1038,8 @@ v3dX(emit_stencil)(struct v3dv_cmd_buffer *cmd_buffer)
                }
             }
          } else {
-            cl_emit_prepacked(&job->bcl, &pipeline->stencil_cfg[i]);
+            cl_emit_prepacked_sized(&job->bcl, pipeline->stencil_cfg[i],
+                                    cl_packet_length(STENCIL_CFG));
          }
 
          emitted_stencil = true;
@@ -1142,7 +1143,8 @@ v3dX(emit_blend)(struct v3dv_cmd_buffer *cmd_buffer)
 
       for (uint32_t i = 0; i < V3D_MAX_DRAW_BUFFERS; i++) {
          if (pipeline->blend.enables & (1 << i))
-            cl_emit_prepacked(&job->bcl, &pipeline->blend.cfg[i]);
+            cl_emit_prepacked_sized(&job->bcl, pipeline->blend.cfg[i],
+                                    cl_packet_length(BLEND_CFG));
       }
 
       cl_emit(&job->bcl, COLOR_WRITE_MASKS, mask) {
@@ -1805,10 +1807,11 @@ v3dX(emit_gl_shader_state)(struct v3dv_cmd_buffer *cmd_buffer)
 
    if (cmd_buffer->state.dirty & V3DV_CMD_DIRTY_PIPELINE) {
       v3dv_cl_ensure_space_with_branch(&job->bcl,
-                                       sizeof(pipeline->vcm_cache_size));
+                                       cl_packet_length(VCM_CACHE_SIZE));
       v3dv_return_if_oom(cmd_buffer, NULL);
 
-      cl_emit_prepacked(&job->bcl, &pipeline->vcm_cache_size);
+      cl_emit_prepacked_sized(&job->bcl, pipeline->vcm_cache_size,
+                              cl_packet_length(VCM_CACHE_SIZE));
    }
 
    v3dv_cl_ensure_space_with_branch(&job->bcl,

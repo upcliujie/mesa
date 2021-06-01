@@ -47,10 +47,18 @@ vk_to_v3d_compare_func[] = {
    [VK_COMPARE_OP_ALWAYS]                       = V3D_COMPARE_FUNC_ALWAYS,
 };
 
+uint32_t
+v3dX(sampler_size)(void)
+{
+   return sizeof(struct v3dv_sampler) + cl_packet_length(SAMPLER_STATE);
+}
+
 void
 v3dX(pack_sampler_state)(struct v3dv_sampler *sampler,
                          const VkSamplerCreateInfo *pCreateInfo)
 {
+   assert(sampler->sampler_state != NULL);
+
    enum V3DX(Border_Color_Mode) border_color_mode;
 
    /* For now we only support the preset Vulkan border color modes. If we
