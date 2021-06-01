@@ -1,0 +1,20 @@
+Quick TODO list from what I can see:
+
+General:
+Run clang-format or similar to make indentation consistent
+Re-emit SURFACE_STATE_BASE_ADDRESS at the top of every batch
+Fix resource rebinding
+
+Gen4/5:
+fix issues with edgeflags
+Add support for VS push consts
+
+Gen6:
+Streamout
+
+Gen7:
+Wire up UBO pushing for vec4 shaders
+fix images + barriers
+fix tessellation TCS passthrough shader
+add stencil shadowing
+
