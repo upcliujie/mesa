@@ -61,33 +61,6 @@
 #include "drm-uapi/i915_drm.h"
 #endif
 
-static VKAPI_ATTR void * VKAPI_CALL
-default_alloc_func(void *pUserData, size_t size, size_t align,
-                   VkSystemAllocationScope allocationScope)
-{
-   return malloc(size);
-}
-
-static VKAPI_ATTR void * VKAPI_CALL
-default_realloc_func(void *pUserData, void *pOriginal, size_t size,
-                     size_t align, VkSystemAllocationScope allocationScope)
-{
-   return realloc(pOriginal, size);
-}
-
-static VKAPI_ATTR void VKAPI_CALL
-default_free_func(void *pUserData, void *pMemory)
-{
-   free(pMemory);
-}
-
-static const VkAllocationCallbacks default_alloc = {
-   .pUserData = NULL,
-   .pfnAllocation = default_alloc_func,
-   .pfnReallocation = default_realloc_func,
-   .pfnFree = default_free_func,
-};
-
 #define V3DV_API_VERSION VK_MAKE_VERSION(1, 0, VK_HEADER_VERSION)
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -172,7 +145,7 @@ v3dv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
 
    if (pAllocator == NULL)
-      pAllocator = &default_alloc;
+      pAllocator = vk_default_allocator();
 
    instance = vk_alloc2(&default_alloc, pAllocator, sizeof(*instance), 8,
                         VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
