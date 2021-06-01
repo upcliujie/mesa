@@ -444,7 +444,9 @@ _mi_copy_no_unref(struct mi_builder *b,
 #if GFX_VER >= 12
             sdi.ForceWriteCompletionCheck = true;
 #endif
+#if GFX_VER >= 6
             sdi.ImmediateData = src.imm;
+#endif
          }
          break;
 
