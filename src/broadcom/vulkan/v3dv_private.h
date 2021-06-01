@@ -536,7 +536,7 @@ struct v3dv_image_view {
     * we generate two states and select the one to use based on the descriptor
     * type.
     */
-   uint8_t texture_shader_state[2][cl_packet_length(TEXTURE_SHADER_STATE)];
+   uint8_t texture_shader_state[2][32];
 };
 
 uint32_t v3dv_layer_offset(const struct v3dv_image *image, uint32_t level, uint32_t layer);
@@ -567,7 +567,7 @@ struct v3dv_buffer_view {
    uint32_t num_elements;
 
    /* Prepacked TEXTURE_SHADER_STATE. */
-   uint8_t texture_shader_state[cl_packet_length(TEXTURE_SHADER_STATE)];
+   uint8_t texture_shader_state[32];
 };
 
 struct v3dv_subpass_attachment {
@@ -1594,7 +1594,7 @@ struct v3dv_sampler {
     * configuration. If needed it will be copied to the descriptor info during
     * UpdateDescriptorSets
     */
-   uint8_t sampler_state[cl_packet_length(SAMPLER_STATE)];
+   uint8_t sampler_state[24];
 };
 
 struct v3dv_descriptor_template_entry {
@@ -1782,7 +1782,7 @@ struct v3dv_pipeline {
       /* Per-RT bit mask with blend enables */
       uint8_t enables;
       /* Per-RT prepacked blend config packets */
-      uint8_t cfg[V3D_MAX_DRAW_BUFFERS][cl_packet_length(BLEND_CFG)];
+      uint8_t cfg[V3D_MAX_DRAW_BUFFERS][5];
       /* Flag indicating whether the blend factors in use require
        * color constants.
        */
@@ -1799,12 +1799,11 @@ struct v3dv_pipeline {
 
    /* Packets prepacked during pipeline creation
     */
-   uint8_t cfg_bits[cl_packet_length(CFG_BITS)];
-   uint8_t shader_state_record[cl_packet_length(GL_SHADER_STATE_RECORD)];
-   uint8_t vcm_cache_size[cl_packet_length(VCM_CACHE_SIZE)];
-   uint8_t vertex_attrs[cl_packet_length(GL_SHADER_STATE_ATTRIBUTE_RECORD) *
-                        MAX_VERTEX_ATTRIBS];
-   uint8_t stencil_cfg[2][cl_packet_length(STENCIL_CFG)];
+   uint8_t cfg_bits[4];
+   uint8_t shader_state_record[36];
+   uint8_t vcm_cache_size[2];
+   uint8_t vertex_attrs[16 *  MAX_VERTEX_ATTRIBS];
+   uint8_t stencil_cfg[2][6];
 };
 
 static inline VkPipelineBindPoint
