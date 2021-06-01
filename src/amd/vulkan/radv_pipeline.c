@@ -3124,13 +3124,17 @@ mem_vectorize_callback(unsigned align_mul, unsigned align_offset, unsigned bit_s
    case nir_intrinsic_load_shared:
    case nir_intrinsic_store_shared:
       if (bit_size * num_components ==
-          96) /* 96 bit loads require 128 bit alignment and are split otherwise */
+          96) { /* 96 bit loads require 128 bit alignment and are split otherwise */
          return align % 16 == 0;
-      else if (bit_size * num_components ==
-               128) /* 128 bit loads require 64 bit alignment and are split otherwise */
-         return align % 8 == 0;
-      else
-         return align % (bit_size == 8 ? 2 : 4) == 0;
+      } else if (bit_size == 16 && (align % 4)) {
+         /* We can't do 2-byte aligned f16vec2 loads, but they are useful for ALU vectorization */
+         return (align % 2 == 0) && num_components <= 2;
+      } else {
+         unsigned req = bit_size * num_components;
+         if (req == 64 || req == 128)
+            req /= 2u;
+         return num_components != 3 && (align * 8) % req == 0;
+      }
    default:
       return false;
    }
