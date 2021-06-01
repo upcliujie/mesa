@@ -133,6 +133,9 @@ void
 v3dX(pack_sampler_state)(struct v3dv_sampler *sampler,
                          const VkSamplerCreateInfo *pCreateInfo);
 
+uint32_t
+v3dX(sampler_size)(void);
+
 void
 v3dX(framebuffer_compute_internal_bpp_msaa)(const struct v3dv_framebuffer *framebuffer,
                                             const struct v3dv_subpass *subpass,
@@ -167,6 +170,11 @@ v3dX(pack_texture_shader_state_helper)(struct v3dv_device *device,
 void
 v3dX(pack_texture_shader_state_from_buffer_view)(struct v3dv_device *device,
                                                  struct v3dv_buffer_view *buffer_view);
+
+VkResult
+v3dX(image_view_allocate_prepacked)(struct v3dv_image_view *iview,
+                                    struct v3dv_device *device,
+                                    const VkAllocationCallbacks *pAllocator);
 
 /* Used at v3dv_meta_clear */
 
@@ -315,10 +323,15 @@ v3dX(pack_vcm_cache_size)(struct v3dv_pipeline *pipeline);
 void
 v3dX(pack_shader_state_record)(struct v3dv_pipeline *pipeline);
 
+
 void
 v3dX(pack_shader_state_attribute_record)(struct v3dv_pipeline *pipeline,
                                          uint32_t index,
                                          const VkVertexInputAttributeDescription *vi_desc);
+
+VkResult
+v3dX(pipeline_allocate_prepacked)(struct v3dv_pipeline *pipeline,
+                                  const VkAllocationCallbacks *pAllocator);
 
 /* Used at v3dv_queue */
 void
@@ -336,3 +349,5 @@ uint32_t v3dX(max_descriptor_bo_size)(void);
 uint32_t v3dX(offsetof_texture_state_on_combined)(void);
 
 uint32_t v3dX(offsetof_sampler_state_on_combined)(void);
+
+uint32_t v3dX(packet_length)(enum v3dv_descriptor_packet packet);

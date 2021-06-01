@@ -100,3 +100,16 @@ v3dX(offsetof_sampler_state_on_combined)(void)
 {
    return cl_aligned_packet_length(TEXTURE_SHADER_STATE, 32);
 }
+
+uint32_t
+v3dX(packet_length)(enum v3dv_descriptor_packet packet)
+{
+   switch (packet) {
+   case SAMPLER_STATE:
+      return cl_packet_length(SAMPLER_STATE);
+   case TEXTURE_SHADER_STATE:
+      return cl_packet_length(TEXTURE_SHADER_STATE);
+   default:
+      unreachable("Unknown (or not used) v3dv packet");
+   }
+}

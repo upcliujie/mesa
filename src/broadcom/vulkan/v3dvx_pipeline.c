@@ -149,8 +149,7 @@ v3dX(pack_cfg_bits)(struct v3dv_pipeline *pipeline,
                     const VkPipelineRasterizationStateCreateInfo *rs_info,
                     const VkPipelineMultisampleStateCreateInfo *ms_info)
 {
-   assert(sizeof(pipeline->cfg_bits) == cl_packet_length(CFG_BITS));
-
+   assert(pipeline->cfg_bits != NULL);
    pipeline->msaa =
       ms_info && ms_info->rasterizationSamples > VK_SAMPLE_COUNT_1_BIT;
 
@@ -294,7 +293,8 @@ void
 v3dX(pack_stencil_cfg)(struct v3dv_pipeline *pipeline,
                        const VkPipelineDepthStencilStateCreateInfo *ds_info)
 {
-   assert(sizeof(pipeline->stencil_cfg) == 2 * cl_packet_length(STENCIL_CFG));
+   assert(pipeline->stencil_cfg[0] != NULL);
+   assert(pipeline->stencil_cfg[1] != NULL);
 
    if (!ds_info || !ds_info->stencilTestEnable)
       return;
@@ -316,7 +316,7 @@ v3dX(pack_stencil_cfg)(struct v3dv_pipeline *pipeline,
       needs_front_and_back = true;
 
    /* If the front and back configurations are the same we can emit both with
-    * a single packet.
+    * a single packet, and allocate the memory needed for just one packet.
     */
    pipeline->emit_stencil_cfg[0] = true;
    if (!needs_front_and_back) {
@@ -334,8 +334,7 @@ v3dX(pack_stencil_cfg)(struct v3dv_pipeline *pipeline,
 void
 v3dX(pack_shader_state_record)(struct v3dv_pipeline *pipeline)
 {
-   assert(sizeof(pipeline->shader_state_record) ==
-          cl_packet_length(GL_SHADER_STATE_RECORD));
+   assert(pipeline->shader_state_record != NULL);
 
    struct v3d_fs_prog_data *prog_data_fs =
       pipeline->shared_data->variants[BROADCOM_SHADER_FRAGMENT]->prog_data.fs;
@@ -481,9 +480,7 @@ v3dX(pack_shader_state_record)(struct v3dv_pipeline *pipeline)
 void
 v3dX(pack_vcm_cache_size)(struct v3dv_pipeline *pipeline)
 {
-   assert(sizeof(pipeline->vcm_cache_size) ==
-          cl_packet_length(VCM_CACHE_SIZE));
-
+   assert(pipeline->vcm_cache_size != NULL);
    v3dvx_pack(pipeline->vcm_cache_size, VCM_CACHE_SIZE, vcm) {
       vcm.number_of_16_vertex_batches_for_binning = pipeline->vpm_cfg_bin.Vc;
       vcm.number_of_16_vertex_batches_for_rendering = pipeline->vpm_cfg.Vc;
@@ -549,6 +546,8 @@ v3dX(pack_shader_state_attribute_record)(struct v3dv_pipeline *pipeline,
    const uint32_t packet_length =
       cl_packet_length(GL_SHADER_STATE_ATTRIBUTE_RECORD);
 
+   assert(pipeline->vertex_attrs != NULL);
+
    const struct util_format_description *desc =
       vk_format_description(vi_desc->format);
 
@@ -569,4 +568,59 @@ v3dX(pack_shader_state_attribute_record)(struct v3dv_pipeline *pipeline,
       attr.stride = pipeline->vb[binding].stride;
       attr.type = get_attr_type(desc);
    }
+}
+
+VkResult
+v3dX(pipeline_allocate_prepacked)(struct v3dv_pipeline *pipeline,
+                                  const VkAllocationCallbacks *pAllocator)
+{
+   for (uint32_t i = 0; i < V3D_MAX_DRAW_BUFFERS; i++) {
+      pipeline->blend.cfg[i] =
+         vk_zalloc2(&pipeline->device->vk.alloc, pAllocator,
+                    cl_packet_length(BLEND_CFG), 8,
+                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (pipeline->blend.cfg[i] == NULL)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   pipeline->vcm_cache_size =
+      vk_zalloc2(&pipeline->device->vk.alloc, pAllocator,
+                 cl_packet_length(VCM_CACHE_SIZE), 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (pipeline->vcm_cache_size == NULL)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   pipeline->cfg_bits =
+      vk_zalloc2(&pipeline->device->vk.alloc, pAllocator,
+                 cl_packet_length(CFG_BITS), 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (pipeline->cfg_bits == NULL)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   for (uint8_t i = 0; i < 2; i++) {
+      pipeline->stencil_cfg[i] =
+         vk_zalloc2(&pipeline->device->vk.alloc, pAllocator,
+                    cl_packet_length(STENCIL_CFG), 8,
+                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (pipeline->stencil_cfg[i] == NULL)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   uint32_t shader_state_record_length = cl_packet_length(GL_SHADER_STATE_RECORD);
+
+   pipeline->shader_state_record =
+      vk_zalloc2(&pipeline->device->vk.alloc, pAllocator,
+                 shader_state_record_length, 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (pipeline->shader_state_record == NULL)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   pipeline->vertex_attrs =
+      vk_zalloc2(&pipeline->device->vk.alloc, pAllocator,
+                 MAX_VERTEX_ATTRIBS * shader_state_record_length, 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (pipeline->vertex_attrs == NULL)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   return VK_SUCCESS;
 }

@@ -2454,8 +2454,10 @@ v3dv_CreateSampler(VkDevice _device,
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
 
-   sampler = vk_object_zalloc(&device->vk, pAllocator, sizeof(*sampler),
+   sampler = vk_object_zalloc(&device->vk, pAllocator,
+                              v3dv_X(device, sampler_size)(),
                               VK_OBJECT_TYPE_SAMPLER);
+
    if (!sampler)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
