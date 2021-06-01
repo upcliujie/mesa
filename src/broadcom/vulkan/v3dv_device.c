@@ -1675,6 +1675,7 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
       goto fail;
    }
 
+   v3dv_X(device, device_check_prepacked_sizes)();
    init_device_meta(device);
    v3dv_bo_cache_init(device);
    v3dv_pipeline_cache_init(&device->default_pipeline_cache, device,
