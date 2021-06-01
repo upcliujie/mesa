@@ -2913,9 +2913,8 @@ brw_compile_vs(const struct brw_compiler *compiler,
        * made a copy of the shader.
        */
       assert(!is_scalar);
-      if (!(nir->info.inputs_read & VERT_BIT_EDGEFLAG))
-         assert(key->copy_edgeflag);
-      nir->info.inputs_read |= VERT_BIT_EDGEFLAG;
+      if (key->copy_edgeflag)
+         nir->info.inputs_read |= VERT_BIT_EDGEFLAG;
    }
 
    prog_data->inputs_read = nir->info.inputs_read;
