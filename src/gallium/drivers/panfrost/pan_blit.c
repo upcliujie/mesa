@@ -134,8 +134,8 @@ panfrost_blit(struct pipe_context *pipe,
                         .level = info->src.level,
                         .start = { info->src.box.x, info->src.box.y },
                         .end = {
-                                info->src.box.x + info->src.box.width - 1,
-                                info->src.box.y + info->src.box.height - 1,
+                                info->src.box.x + info->src.box.width,
+                                info->src.box.y + info->src.box.height,
                         },
                 },
                 .dst = {
@@ -144,8 +144,8 @@ panfrost_blit(struct pipe_context *pipe,
                         .level = info->dst.level,
                         .start = { info->dst.box.x, info->dst.box.y },
                         .end = {
-                                info->dst.box.x + info->dst.box.width - 1,
-                                info->dst.box.y + info->dst.box.height - 1,
+                                info->dst.box.x + info->dst.box.width,
+                                info->dst.box.y + info->dst.box.height,
                         },
                 },
                 .scissor = {
@@ -166,7 +166,7 @@ panfrost_blit(struct pipe_context *pipe,
                 pinfo.dst.end.layer = info->dst.box.z + info->dst.box.depth - 1;
         } else if (info->dst.resource->target == PIPE_TEXTURE_3D) {
                 pinfo.dst.start.z = info->dst.box.z;
-                pinfo.dst.end.z = info->dst.box.z + info->dst.box.depth - 1;
+                pinfo.dst.end.z = info->dst.box.z + info->dst.box.depth;
         }
 
         if (info->src.resource->target == PIPE_TEXTURE_2D_ARRAY ||
