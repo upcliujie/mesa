@@ -27,6 +27,7 @@
 #include "compiler/brw_compiler.h"
 #include "nir.h"
 
+#include "compiler/brw_nir.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -63,6 +64,20 @@ struct nir_shader *brw_create_nir(struct brw_context *brw,
                                   struct gl_program *prog,
                                   gl_shader_stage stage,
                                   bool is_scalar);
+
+static inline void brw_nir_analyze_ubo_ranges_check(const struct brw_compiler *compiler,
+                                                    nir_shader *nir,
+                                                    const struct brw_vs_prog_key *vs_key,
+                                                    struct brw_ubo_range out_ranges[4])
+{
+   if (compiler->devinfo->verx10 <= 70)
+      return;
+
+   brw_nir_analyze_ubo_ranges(compiler, nir,
+                              vs_key,
+                              out_ranges);
+}
+
 
 void brw_nir_lower_resources(nir_shader *nir,
                              struct gl_shader_program *shader_prog,
