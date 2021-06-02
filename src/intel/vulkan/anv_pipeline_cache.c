@@ -73,8 +73,14 @@ anv_shader_bin_create(struct anv_device *device,
    memcpy(key->data, key_data, key_size);
    shader->key = key;
 
-   shader->kernel =
-      anv_state_pool_alloc(&device->instruction_state_pool, kernel_size, 64);
+   VkResult result =
+      anv_state_pool_alloc(&device->instruction_state_pool, kernel_size, 64,
+                           &shader->kernel);
+   if (result != VK_SUCCESS) {
+      vk_free(&device->vk.alloc, shader);
+      return NULL;
+   }
+
    memcpy(shader->kernel.map, kernel_data, kernel_size);
    shader->kernel_size = kernel_size;
 

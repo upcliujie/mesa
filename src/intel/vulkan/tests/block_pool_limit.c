@@ -1,5 +1,5 @@
 /*
- * Copyright © 2015 Intel Corporation
+ * Copyright © 2021 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -38,32 +38,21 @@ int main(void)
     * that it must grow in the first allocation.
     */
    const uint32_t block_size = 16 * 1024;
-   const uint32_t initial_size = block_size / 2;
 
    pthread_mutex_init(&device.mutex, NULL);
    anv_bo_cache_init(&device.bo_cache);
-   anv_block_pool_init(&pool, &device, "test", 4096, 10 * block_size, initial_size);
-   ASSERT(pool.size == initial_size);
+   anv_block_pool_init(&pool, &device, "test", 4096, 10 * block_size, block_size);
 
    uint32_t padding;
    int32_t offset;
 
+   for (uint32_t i = 0; i < 10; i++) {
+      VkResult result = anv_block_pool_alloc(&pool, block_size, &offset, &padding);
+      assert(result == VK_SUCCESS);
+   }
+
    VkResult result = anv_block_pool_alloc(&pool, block_size, &offset, &padding);
-   assert(result == VK_SUCCESS);
-
-   /* Pool will have grown at least space to fit the new allocation. */
-   ASSERT(pool.size > initial_size);
-   ASSERT(pool.size >= initial_size + block_size);
-
-   /* The whole initial size is considered padding and the allocation should be
-    * right next to it.
-    */
-   ASSERT(padding == initial_size);
-   ASSERT(offset == initial_size);
-
-   /* Use the memory to ensure it is valid. */
-   void *map = anv_block_pool_map(&pool, offset, block_size);
-   memset(map, 22, block_size);
+   assert(result == VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
    anv_block_pool_finish(&pool);
 }

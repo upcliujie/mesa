@@ -1,5 +1,5 @@
 /*
- * Copyright © 2015 Intel Corporation
+ * Copyright © 2018 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,57 +20,53 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-
-#include <pthread.h>
-
 #include "anv_private.h"
 #include "test_common.h"
 
-#define NUM_THREADS 8
-#define STATES_PER_THREAD_LOG2 12
-#define STATES_PER_THREAD (1 << STATES_PER_THREAD_LOG2)
-
-#include "state_pool_test_helper.h"
-
 int main(void)
 {
-   struct anv_physical_device physical_device = { };
+   struct anv_physical_device physical_device = {
+      .use_softpin = true,
+   };
    struct anv_device device = {
       .physical = &physical_device,
    };
    struct anv_state_pool state_pool;
 
+   const uint32_t block_size = 4096;
+   const uint32_t max_size = 64 * block_size;
+
    pthread_mutex_init(&device.mutex, NULL);
    anv_bo_cache_init(&device.bo_cache);
    VkResult result = anv_state_pool_init(&state_pool, &device, "test",
                                          4096 /* base_address */,
-                                         0 /* start_offset */,
-                                         4096 /* block_size */,
-                                         10 * 4096 /* max_size */);
+                                         0 /* start_offset*/,
+                                         block_size,
+                                         max_size);
    assert(result == VK_SUCCESS);
 
-   /* Grab one so a zero offset is impossible */
-   struct anv_state state;
-   result = anv_state_pool_alloc(&state_pool, 16, 16, &state);
-   assert(result == VK_SUCCESS);
-
-   /* Grab and return enough states that the state pool test below won't
-    * actually ever resize anything.
-    */
-   {
-      struct anv_state states[NUM_THREADS * STATES_PER_THREAD];
-      for (unsigned i = 0; i < NUM_THREADS * STATES_PER_THREAD; i++) {
-         result = anv_state_pool_alloc(&state_pool, 16, 16, &states[i]);
-         assert(result == VK_SUCCESS);
-         ASSERT(states[i].offset != 0);
-      }
-
-      for (unsigned i = 0; i < NUM_THREADS * STATES_PER_THREAD; i++)
-         anv_state_pool_free(&state_pool, states[i]);
+   struct anv_state *states = malloc(sizeof(*states) * 8192 / 64);
+   /* Grab the entire pool */
+   for (uint32_t i = 0; i < max_size / 64; i++) {
+      result = anv_state_pool_alloc(&state_pool, 64, 64, &states[i]);
+      assert(result == VK_SUCCESS);
    }
 
-   run_state_pool_test(&state_pool);
+   /* Grab one more an fail */
+   struct anv_state state;
+   result = anv_state_pool_alloc(&state_pool, 64, 64, &state);
+   assert(result == VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   for (uint32_t i = 0; i < 3; i++)
+      anv_state_pool_free(&state_pool, states[i]);
+
+   for (uint32_t i = 0; i < 3; i++) {
+      result = anv_state_pool_alloc(&state_pool, 64, 64, &state);
+      assert(result == VK_SUCCESS);
+   }
+
+   result = anv_state_pool_alloc(&state_pool, 64, 64, &state);
+   assert(result == VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
    anv_state_pool_finish(&state_pool);
-   pthread_mutex_destroy(&device.mutex);
 }

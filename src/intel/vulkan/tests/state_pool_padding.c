@@ -20,7 +20,6 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-
 #include "anv_private.h"
 #include "test_common.h"
 
@@ -36,17 +35,25 @@ int main(void)
 
    pthread_mutex_init(&device.mutex, NULL);
    anv_bo_cache_init(&device.bo_cache);
-   anv_state_pool_init(&state_pool, &device, "test", 4096, 0, 4096);
+   VkResult result = anv_state_pool_init(&state_pool, &device, "test",
+                                         4096 /* base_address */,
+                                         0 /* start_offset*/,
+                                         4096 /* block_size */,
+                                         10 * 4096 /* max_size */);
+   assert(result == VK_SUCCESS);
 
    /* Get the size of the underlying block_pool */
    struct anv_block_pool *bp = &state_pool.block_pool;
    uint64_t pool_size = bp->size;
 
    /* Grab one so the pool has some initial usage */
-   anv_state_pool_alloc(&state_pool, 16, 16);
+   struct anv_state state;
+   result = anv_state_pool_alloc(&state_pool, 16, 16, &state);
+   assert(result == VK_SUCCESS);
 
    /* Grab a state that is the size of the initial allocation */
-   struct anv_state state = anv_state_pool_alloc(&state_pool, pool_size, 16);
+   result = anv_state_pool_alloc(&state_pool, pool_size, 16, &state);
+   assert(result == VK_SUCCESS);
 
    /* The pool must have grown */
    ASSERT(bp->size > pool_size);
@@ -57,20 +64,23 @@ int main(void)
    /* A new allocation that fits into the returned empty space should have an
     * offset within the original pool size
     */
-   state = anv_state_pool_alloc(&state_pool, 4096, 16);
+   result = anv_state_pool_alloc(&state_pool, 4096, 16, &state);
+   assert(result == VK_SUCCESS);
    ASSERT(state.offset + state.alloc_size <= pool_size);
 
    /* We should be able to allocate pool->block_size'd chunks in the returned area
     */
    int left_chunks = pool_size / 4096 - 2;
    for (int i = 0; i < left_chunks; i++) {
-      state = anv_state_pool_alloc(&state_pool, 4096, 16);
+      result = anv_state_pool_alloc(&state_pool, 4096, 16, &state);
+      assert(result == VK_SUCCESS);
       ASSERT(state.offset + state.alloc_size <= pool_size);
    }
 
    /* Now the next chunk to be allocated should make the pool grow again */
    pool_size = bp->size;
-   state = anv_state_pool_alloc(&state_pool, 4096, 16);
+   result = anv_state_pool_alloc(&state_pool, 4096, 16, &state);
+   assert(result == VK_SUCCESS);
    ASSERT(bp->size > pool_size);
    ASSERT(state.offset == pool_size);
 
