@@ -1287,10 +1287,13 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
          anv_isl_format_for_descriptor_type(cmd_buffer->device,
                                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-      const struct isl_device *isl_dev = &cmd_buffer->device->isl_dev;
-      set->desc_surface_state =
-         anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
-                                isl_dev->ss.size, isl_dev->ss.align);
+      VkResult result =
+         anv_state_stream_alloc_surface_state(&cmd_buffer->surface_state_stream,
+                                              1, &set->desc_surface_state);
+      if (result != VK_SUCCESS) {
+         anv_batch_set_error(&cmd_buffer->batch, result);
+         return set;
+      }
       anv_fill_buffer_surface_state(cmd_buffer->device,
                                     set->desc_surface_state, format,
                                     ISL_SURF_USAGE_CONSTANT_BUFFER_BIT,

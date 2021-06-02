@@ -135,8 +135,15 @@ blorp_alloc_binding_table(struct blorp_batch *batch, unsigned num_entries,
    *bt_offset = bt_state.offset;
 
    for (unsigned i = 0; i < num_entries; i++) {
-      struct anv_state surface_state =
-         anv_cmd_buffer_alloc_surface_state(cmd_buffer);
+      struct anv_state surface_state;
+
+      VkResult result =
+         anv_cmd_buffer_alloc_surface_state(cmd_buffer, &surface_state);
+      if (result != VK_SUCCESS) {
+         anv_batch_set_error(&cmd_buffer->batch, result);
+         return;
+      }
+
       bt_map[i] = surface_state.offset + state_offset;
       surface_offsets[i] = surface_state.offset;
       surface_maps[i] = surface_state.map;

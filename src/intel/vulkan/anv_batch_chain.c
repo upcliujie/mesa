@@ -791,12 +791,16 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
    return state;
 }
 
-struct anv_state
-anv_cmd_buffer_alloc_surface_state(struct anv_cmd_buffer *cmd_buffer)
+VkResult
+anv_cmd_buffer_alloc_surface_state(struct anv_cmd_buffer *cmd_buffer,
+                                   struct anv_state *out_state)
 {
-   struct isl_device *isl_dev = &cmd_buffer->device->isl_dev;
-   return anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
-                                 isl_dev->ss.size, isl_dev->ss.align);
+   VkResult result =
+      anv_state_stream_alloc_surface_state(&cmd_buffer->surface_state_stream,
+                                           1, out_state);
+   if (result != VK_SUCCESS)
+      anv_batch_set_error(&cmd_buffer->batch, result);
+   return result;
 }
 
 struct anv_state
