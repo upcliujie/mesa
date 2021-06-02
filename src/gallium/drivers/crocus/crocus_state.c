@@ -4527,15 +4527,24 @@ emit_surface(struct crocus_batch *batch,
              bool blend_enable,
              uint32_t write_disables)
 {
+   const struct intel_device_info *devinfo = &batch->screen->devinfo;
    struct isl_device *isl_dev = &batch->screen->isl_dev;
    struct crocus_resource *res = (struct crocus_resource *)surf->base.texture;
    struct isl_view *view = &surf->view;
    uint32_t offset = 0;
+   struct isl_surf isl_surf = surf->surf;
+   uint32_t extra_main_offset = 0, tile_x_sa = 0, tile_y_sa = 0;
+   enum pipe_texture_target target = devinfo->ver == 4 ? PIPE_TEXTURE_2D : res->base.target;
+
+   get_isl_surf(devinfo, res, view, target,
+                &tile_x_sa, &tile_y_sa,
+                &extra_main_offset, &isl_surf);
 
    uint32_t *surf_state = stream_state(batch, isl_dev->ss.size, isl_dev->ss.align, &offset);
 
-   emit_surface_state(batch, res, &surf->surf, view, true,
-                      aux_usage, blend_enable, write_disables, 0, 0, 0,
+   emit_surface_state(batch, res, &isl_surf, view, true,
+                      aux_usage, blend_enable,
+                      write_disables, extra_main_offset, tile_x_sa, tile_y_sa,
                       surf_state, offset);
    return offset;
 }
