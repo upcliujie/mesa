@@ -222,6 +222,9 @@ struct radeon_winsys {
 
    const char *(*get_chip_name)(struct radeon_winsys *ws);
 
+   int (*reserve_vmid)(struct radeon_winsys *ws);
+   void (*unreserve_vmid)(struct radeon_winsys *ws);
+
    struct radeon_winsys_bo *(*buffer_create)(struct radeon_winsys *ws, uint64_t size,
                                              unsigned alignment, enum radeon_bo_domain domain,
                                              enum radeon_bo_flag flags, unsigned priority);
