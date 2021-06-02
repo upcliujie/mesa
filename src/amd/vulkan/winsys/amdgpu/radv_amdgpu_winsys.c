@@ -137,6 +137,20 @@ radv_amdgpu_winsys_get_chip_name(struct radeon_winsys *rws)
    return amdgpu_get_marketing_name(dev);
 }
 
+static int
+radv_amdgpu_winsys_reserve_vmid(struct radeon_winsys *rws)
+{
+   struct radv_amdgpu_winsys *ws = (struct radv_amdgpu_winsys *)rws;
+   return amdgpu_vm_reserve_vmid(ws->dev, 0);
+}
+
+static void
+radv_amdgpu_winsys_unreserve_vmid(struct radeon_winsys *rws)
+{
+   struct radv_amdgpu_winsys *ws = (struct radv_amdgpu_winsys *)rws;
+   amdgpu_vm_unreserve_vmid(ws->dev, 0);
+}
+
 static simple_mtx_t winsys_creation_mutex = _SIMPLE_MTX_INITIALIZER_NP;
 static struct hash_table *winsyses = NULL;
 
@@ -233,6 +247,8 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags)
    ws->base.query_value = radv_amdgpu_winsys_query_value;
    ws->base.read_registers = radv_amdgpu_winsys_read_registers;
    ws->base.get_chip_name = radv_amdgpu_winsys_get_chip_name;
+   ws->base.reserve_vmid = radv_amdgpu_winsys_reserve_vmid;
+   ws->base.unreserve_vmid = radv_amdgpu_winsys_unreserve_vmid;
    ws->base.destroy = radv_amdgpu_winsys_destroy;
    radv_amdgpu_bo_init_functions(ws);
    radv_amdgpu_cs_init_functions(ws);
