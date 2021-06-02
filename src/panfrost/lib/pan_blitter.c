@@ -1347,10 +1347,10 @@ pan_preload_fb(struct pan_pool *pool,
 void
 pan_blit_ctx_init(struct panfrost_device *dev,
                   const struct pan_blit_info *info,
+                  struct pan_pool *blit_pool,
                   struct pan_blit_context *ctx)
 {
         memset(ctx, 0, sizeof(*ctx));
-        panfrost_pool_init(&ctx->pool, NULL, dev, 0, 65536, "Blitter pool", false, true);
 
         struct pan_image_view sviews[2] = {
                 {
@@ -1446,17 +1446,17 @@ pan_blit_ctx_init(struct panfrost_device *dev,
 
         if (pan_is_bifrost(dev)) {
                 ctx->textures =
-                        pan_blitter_emit_bifrost_textures(&ctx->pool, nviews, sview_ptrs);
+                        pan_blitter_emit_bifrost_textures(blit_pool, nviews, sview_ptrs);
                 ctx->samplers =
-                        pan_blitter_emit_bifrost_sampler(&ctx->pool, info->nearest);
+                        pan_blitter_emit_bifrost_sampler(blit_pool, info->nearest);
         } else {
                 ctx->textures =
-                        pan_blitter_emit_midgard_textures(&ctx->pool, nviews, sview_ptrs);
+                        pan_blitter_emit_midgard_textures(blit_pool, nviews, sview_ptrs);
                 ctx->samplers =
-                        pan_blitter_emit_midgard_sampler(&ctx->pool, info->nearest);
+                        pan_blitter_emit_midgard_sampler(blit_pool, info->nearest);
         }
 
-        ctx->vpd = pan_blitter_emit_viewport(&ctx->pool,
+        ctx->vpd = pan_blitter_emit_viewport(blit_pool,
                                              minx, miny, maxx, maxy);
 
         float dst_rect[] = {
@@ -1467,14 +1467,8 @@ pan_blit_ctx_init(struct panfrost_device *dev,
         };
 
         ctx->position =
-                panfrost_pool_upload_aligned(&ctx->pool, dst_rect,
+                panfrost_pool_upload_aligned(blit_pool, dst_rect,
                                              sizeof(dst_rect), 64);
-}
-
-void
-pan_blit_ctx_cleanup(struct pan_blit_context *ctx)
-{
-        panfrost_pool_cleanup(&ctx->pool);
 }
 
 bool
