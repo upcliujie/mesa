@@ -2426,13 +2426,6 @@ anv_layout_to_fast_clear_type(const struct intel_device_info * const devinfo,
    unreachable("Invalid isl_aux_state");
 }
 
-
-static struct anv_state
-alloc_surface_state(struct anv_device *device)
-{
-   return anv_state_pool_alloc(&device->surface_state_pool, 64, 64);
-}
-
 static enum isl_channel_select
 remap_swizzle(VkComponentSwizzle swizzle, VkComponentSwizzle component,
               struct isl_swizzle format_swizzle)
@@ -2820,6 +2813,7 @@ anv_CreateImageView(VkDevice _device,
    /* Now go through the underlying image selected planes (computed in
     * expanded_aspects) and map them to planes in the image view.
     */
+   VkResult result;
    uint32_t vplane = 0;
    anv_foreach_image_aspect_bit(iaspect_bit, image, expanded_aspects) {
       uint32_t iplane =
@@ -2865,8 +2859,17 @@ anv_CreateImageView(VkDevice _device,
       if (view_usage & VK_IMAGE_USAGE_SAMPLED_BIT ||
           (view_usage & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT &&
            !(iview->aspect_mask & VK_IMAGE_ASPECT_COLOR_BIT))) {
-         iview->planes[vplane].optimal_sampler_surface_state.state = alloc_surface_state(device);
-         iview->planes[vplane].general_sampler_surface_state.state = alloc_surface_state(device);
+         result = anv_surface_state_pool_alloc(
+            device, 1,
+            &iview->planes[vplane].optimal_sampler_surface_state.state);
+         if (result != VK_SUCCESS)
+            goto fail;
+
+         result = anv_surface_state_pool_alloc(
+            device, 1,
+            &iview->planes[vplane].general_sampler_surface_state.state);
+         if (result != VK_SUCCESS)
+            goto fail;
 
          enum isl_aux_usage general_aux_usage =
             anv_layout_to_aux_usage(&device->info, image, 1UL << iaspect_bit,
@@ -2897,8 +2900,11 @@ anv_CreateImageView(VkDevice _device,
       /* NOTE: This one needs to go last since it may stomp isl_view.format */
       if (view_usage & VK_IMAGE_USAGE_STORAGE_BIT) {
          if (isl_is_storage_image_format(format.isl_format)) {
-            iview->planes[vplane].storage_surface_state.state =
-               alloc_surface_state(device);
+            result = anv_surface_state_pool_alloc(
+               device, 1,
+               &iview->planes[vplane].storage_surface_state.state);
+            if (result != VK_SUCCESS)
+               goto fail;
 
             anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
                                          &iview->planes[vplane].isl,
@@ -2919,7 +2925,12 @@ anv_CreateImageView(VkDevice _device,
                device->null_surface_state;
          }
 
-         iview->planes[vplane].writeonly_storage_surface_state.state = alloc_surface_state(device);
+         result = anv_surface_state_pool_alloc(
+            device, 1,
+            &iview->planes[vplane].writeonly_storage_surface_state.state);
+         if (result != VK_SUCCESS)
+            goto fail;
+
          anv_image_fill_surface_state(device, image, 1ULL << iaspect_bit,
                                       &iview->planes[vplane].isl,
                                       ISL_SURF_USAGE_STORAGE_BIT,
@@ -2935,6 +2946,10 @@ anv_CreateImageView(VkDevice _device,
    *pView = anv_image_view_to_handle(iview);
 
    return VK_SUCCESS;
+
+ fail:
+   anv_DestroyImageView(_device, anv_image_view_to_handle(iview), pAllocator);
+   return result;
 }
 
 void
@@ -3004,19 +3019,29 @@ anv_CreateBufferView(VkDevice _device,
 
    view->address = anv_address_add(buffer->address, pCreateInfo->offset);
 
+   VkResult result;
    if (buffer->usage & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT) {
-      view->surface_state = alloc_surface_state(device);
+      result = anv_surface_state_pool_alloc(device, 1, &view->surface_state);
+      if (result != VK_SUCCESS)
+         goto fail;
 
       anv_fill_buffer_surface_state(device, view->surface_state,
                                     view->format, ISL_SURF_USAGE_TEXTURE_BIT,
                                     view->address, view->range, format_bs);
    } else {
-      view->surface_state = (struct anv_state){ 0 };
+      view->surface_state = ANV_STATE_NULL;
    }
 
    if (buffer->usage & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT) {
-      view->storage_surface_state = alloc_surface_state(device);
-      view->writeonly_storage_surface_state = alloc_surface_state(device);
+      result = anv_surface_state_pool_alloc(
+         device, 1, &view->storage_surface_state);
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      result = anv_surface_state_pool_alloc(
+         device, 1, &view->writeonly_storage_surface_state);
+      if (result != VK_SUCCESS)
+         goto fail;
 
       enum isl_format storage_format =
          isl_has_matching_typed_storage_image_format(&device->info,
@@ -3040,13 +3065,17 @@ anv_CreateBufferView(VkDevice _device,
                                   &view->storage_image_param,
                                   view->format, view->range);
    } else {
-      view->storage_surface_state = (struct anv_state){ 0 };
-      view->writeonly_storage_surface_state = (struct anv_state){ 0 };
+      view->storage_surface_state = ANV_STATE_NULL;
+      view->writeonly_storage_surface_state = ANV_STATE_NULL;
    }
 
    *pView = anv_buffer_view_to_handle(view);
 
    return VK_SUCCESS;
+
+ fail:
+   anv_DestroyBufferView(_device, anv_buffer_view_to_handle(view), pAllocator);
+   return result;
 }
 
 void

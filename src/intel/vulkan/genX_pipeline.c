@@ -845,8 +845,10 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
       struct anv_device *device = pipeline->base.device;
       const uint32_t num_dwords =
          GENX(CPS_STATE_length) * 4 * pipeline->dynamic_state.viewport.count;
-      pipeline->cps_state =
-         anv_state_pool_alloc(&device->dynamic_state_pool, num_dwords, 32);
+      VkResult result =
+         anv_state_pool_alloc(&device->dynamic_state_pool, num_dwords, 32,
+                              &pipeline->cps_state);
+      assert(result == VK_SUCCESS);
 #endif
 
       genX(emit_shading_rate)(&pipeline->base.batch,
@@ -1224,8 +1226,10 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
          pipeline->gfx8.blend_state : pipeline->gfx7.blend_state;
       pipeline->blend_state = ANV_STATE_NULL;
    } else {
-      pipeline->blend_state =
-         anv_state_pool_alloc(&device->dynamic_state_pool, num_dwords * 4, 64);
+      VkResult result =
+         anv_state_pool_alloc(&device->dynamic_state_pool, num_dwords * 4, 64,
+                              &pipeline->blend_state);
+      assert(result == VK_SUCCESS);
       blend_state_start = pipeline->blend_state.map;
    }
    state_pos = blend_state_start;

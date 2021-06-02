@@ -2735,8 +2735,10 @@ static struct anv_state
 anv_state_pool_emit_data(struct anv_state_pool *pool, size_t size, size_t align, const void *p)
 {
    struct anv_state state;
+   VkResult result;
 
-   state = anv_state_pool_alloc(pool, size, align);
+   result = anv_state_pool_alloc(pool, size, align, &state);
+   assert(result == VK_SUCCESS);
    memcpy(state.map, p, size);
 
    return state;
@@ -2891,7 +2893,11 @@ intel_aux_map_buffer_alloc(void *driver_ctx, uint32_t size)
           device->physical->use_softpin);
 
    struct anv_state_pool *pool = &device->dynamic_state_pool;
-   buf->state = anv_state_pool_alloc(pool, size, size);
+   VkResult result = anv_state_pool_alloc(pool, size, size, &buf->state);
+   if (result != VK_SUCCESS) {
+      free(buf);
+      return NULL;
+   }
 
    buf->base.gpu = pool->block_pool.bo->offset + buf->state.offset;
    buf->base.gpu_end = buf->base.gpu + buf->state.alloc_size;
@@ -3188,13 +3194,15 @@ VkResult anv_CreateDevice(
     */
    result = anv_state_pool_init(&device->general_state_pool, device,
                                 "general pool",
-                                0, GENERAL_STATE_POOL_MIN_ADDRESS, 16384);
+                                0, GENERAL_STATE_POOL_MIN_ADDRESS, 16384,
+                                GENERAL_STATE_POOL_SIZE);
    if (result != VK_SUCCESS)
       goto fail_batch_bo_pool;
 
    result = anv_state_pool_init(&device->dynamic_state_pool, device,
                                 "dynamic pool",
-                                DYNAMIC_STATE_POOL_MIN_ADDRESS, 0, 16384);
+                                DYNAMIC_STATE_POOL_MIN_ADDRESS, 0, 16384,
+                                DYNAMIC_STATE_POOL_SIZE);
    if (result != VK_SUCCESS)
       goto fail_general_state_pool;
 
@@ -3205,21 +3213,25 @@ VkResult anv_CreateDevice(
        * We achieve that by reserving all the custom border colors we support
        * right off the bat, so they are close to the base address.
        */
-      anv_state_reserved_pool_init(&device->custom_border_colors,
-                                   &device->dynamic_state_pool,
-                                   MAX_CUSTOM_BORDER_COLORS,
-                                   sizeof(struct gfx8_border_color), 64);
+      result = anv_state_reserved_pool_init(&device->custom_border_colors,
+                                            &device->dynamic_state_pool,
+                                            MAX_CUSTOM_BORDER_COLORS,
+                                            sizeof(struct gfx8_border_color), 64);
+      if (result != VK_SUCCESS)
+         goto fail_dynamic_state_pool;
    }
 
    result = anv_state_pool_init(&device->instruction_state_pool, device,
                                 "instruction pool",
-                                INSTRUCTION_STATE_POOL_MIN_ADDRESS, 0, 16384);
+                                INSTRUCTION_STATE_POOL_MIN_ADDRESS, 0, 16384,
+                                INSTRUCTION_STATE_POOL_SIZE);
    if (result != VK_SUCCESS)
-      goto fail_dynamic_state_pool;
+      goto fail_custom_border_pool;
 
    result = anv_state_pool_init(&device->surface_state_pool, device,
                                 "surface state pool",
-                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096);
+                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096,
+                                SURFACE_STATE_POOL_SIZE);
    if (result != VK_SUCCESS)
       goto fail_instruction_state_pool;
 
@@ -3230,7 +3242,8 @@ VkResult anv_CreateDevice(
       result = anv_state_pool_init(&device->binding_table_pool, device,
                                    "binding table pool",
                                    SURFACE_STATE_POOL_MIN_ADDRESS,
-                                   bt_pool_offset, 4096);
+                                   bt_pool_offset, 4096,
+                                   SURFACE_STATE_POOL_SIZE);
       if (result != VK_SUCCESS)
          goto fail_surface_state_pool;
    }
@@ -3270,10 +3283,13 @@ VkResult anv_CreateDevice(
     * NULL descriptor handling trivial because we can just memset structures
     * to zero and they have a valid descriptor.
     */
-   device->null_surface_state =
-      anv_state_pool_alloc(&device->surface_state_pool,
-                           device->isl_dev.ss.size,
-                           device->isl_dev.ss.align);
+   result = anv_state_pool_alloc(&device->surface_state_pool,
+                                 device->isl_dev.ss.size,
+                                 device->isl_dev.ss.align,
+                                 &device->null_surface_state);
+   if (result != VK_SUCCESS)
+      goto fail_trivial_batch_bo_and_scratch_pool;
+
    isl_null_fill_state(&device->isl_dev, device->null_surface_state.map,
                        .size = isl_extent3d(1, 1, 1) /* This shouldn't matter */);
    assert(device->null_surface_state.offset == 0);
@@ -3282,7 +3298,7 @@ VkResult anv_CreateDevice(
 
    result = anv_genX(&device->info, init_device_state)(device);
    if (result != VK_SUCCESS)
-      goto fail_trivial_batch_bo_and_scratch_pool;
+      goto fail_null_surface_state;
 
    anv_pipeline_cache_init(&device->default_pipeline_cache, device,
                            true /* cache_enabled */, false /* external_sync */);
@@ -3297,6 +3313,9 @@ VkResult anv_CreateDevice(
 
    return VK_SUCCESS;
 
+ fail_null_surface_state:
+   anv_state_pool_free(&device->surface_state_pool,
+                       device->null_surface_state);
  fail_trivial_batch_bo_and_scratch_pool:
    anv_scratch_pool_finish(device, &device->scratch_pool);
    anv_device_release_bo(device, device->trivial_batch_bo);
@@ -3314,9 +3333,10 @@ VkResult anv_CreateDevice(
    anv_state_pool_finish(&device->surface_state_pool);
  fail_instruction_state_pool:
    anv_state_pool_finish(&device->instruction_state_pool);
- fail_dynamic_state_pool:
+ fail_custom_border_pool:
    if (device->info.ver >= 8)
       anv_state_reserved_pool_finish(&device->custom_border_colors);
+ fail_dynamic_state_pool:
    anv_state_pool_finish(&device->dynamic_state_pool);
  fail_general_state_pool:
    anv_state_pool_finish(&device->general_state_pool);
@@ -4301,8 +4321,13 @@ VkResult anv_CreateEvent(
    if (event == NULL)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   event->state = anv_state_pool_alloc(&device->dynamic_state_pool,
-                                       sizeof(uint64_t), 8);
+   VkResult result = anv_state_pool_alloc(&device->dynamic_state_pool,
+                                          sizeof(uint64_t), 8,
+                                          &event->state);
+   if (result != VK_SUCCESS) {
+      vk_object_free(&device->vk, pAllocator, event);
+      return result;
+   }
    *(uint64_t *)event->state.map = VK_EVENT_RESET;
 
    *pEvent = anv_event_to_handle(event);

@@ -219,19 +219,20 @@ if with_tests
       dep_thread, dep_dl, dep_m, anv_deps,
       idep_nir, idep_vulkan_util, idep_mesautil,
     ],
-    c_args : anv_flags,
+    c_args : [ anv_flags, '-UNDEBUG' ],
     gnu_symbol_visibility : 'hidden',
   )
 
   foreach t : ['block_pool_no_free', 'block_pool_grow_first',
+               'block_pool_limit',
                'state_pool_no_free', 'state_pool_free_list_only',
-               'state_pool', 'state_pool_padding']
+               'state_pool', 'state_pool_padding', 'state_pool_limit']
     test(
       'anv_@0@'.format(t),
       executable(
         t,
         ['tests/@0@.c'.format(t), anv_entrypoints[0]],
-        c_args : [ c_sse2_args ],
+        c_args : [ c_sse2_args, '-UNDEBUG' ],
         link_with : libvulkan_intel_test,
         dependencies : [dep_libdrm, dep_thread, dep_m, dep_valgrind, idep_vulkan_util, ],
         include_directories : [

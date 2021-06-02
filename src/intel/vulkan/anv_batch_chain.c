@@ -792,17 +792,28 @@ anv_cmd_buffer_alloc_binding_table(struct anv_cmd_buffer *cmd_buffer,
 struct anv_state
 anv_cmd_buffer_alloc_surface_state(struct anv_cmd_buffer *cmd_buffer)
 {
-   struct isl_device *isl_dev = &cmd_buffer->device->isl_dev;
-   return anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
-                                 isl_dev->ss.size, isl_dev->ss.align);
+   const struct isl_device *isl_dev = &cmd_buffer->device->isl_dev;
+   struct anv_state state = ANV_STATE_NULL;
+   VkResult result =
+      anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
+                             isl_dev->ss.size, isl_dev->ss.align,
+                             &state);
+   if (result != VK_SUCCESS)
+      anv_batch_set_error(&cmd_buffer->batch, result);
+   return state;
 }
 
 struct anv_state
 anv_cmd_buffer_alloc_dynamic_state(struct anv_cmd_buffer *cmd_buffer,
                                    uint32_t size, uint32_t alignment)
 {
-   return anv_state_stream_alloc(&cmd_buffer->dynamic_state_stream,
-                                 size, alignment);
+   struct anv_state state = ANV_STATE_NULL;
+   VkResult result =
+      anv_state_stream_alloc(&cmd_buffer->dynamic_state_stream,
+                             size, alignment, &state);
+   if (result != VK_SUCCESS)
+      anv_batch_set_error(&cmd_buffer->batch, result);
+   return state;
 }
 
 VkResult
@@ -814,7 +825,11 @@ anv_cmd_buffer_new_binding_table_block(struct anv_cmd_buffer *cmd_buffer)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
-   *bt_block = anv_binding_table_pool_alloc(cmd_buffer->device);
+   VkResult result = anv_binding_table_pool_alloc(cmd_buffer->device, bt_block);
+   if (result != VK_SUCCESS) {
+      anv_batch_set_error(&cmd_buffer->batch, result);
+      return result;
+   }
 
    /* The bt_next state is a rolling state (we update it as we suballocate
     * from it) which is relative to the start of the binding table block.

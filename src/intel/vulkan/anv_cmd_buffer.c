@@ -1122,16 +1122,21 @@ anv_cmd_buffer_cs_push_constants(struct anv_cmd_buffer *cmd_buffer)
       cmd_buffer->device->info.ver < 8 ? 32 : 64;
    const unsigned aligned_total_push_constants_size =
       ALIGN(total_push_constants_size, push_constant_alignment);
-   struct anv_state state;
+   struct anv_state state = ANV_STATE_NULL;
    if (devinfo->verx10 >= 125) {
-      state = anv_state_stream_alloc(&cmd_buffer->general_state_stream,
-                                     aligned_total_push_constants_size,
-                                     push_constant_alignment);
+      VkResult result = anv_state_stream_alloc(&cmd_buffer->general_state_stream,
+                                               aligned_total_push_constants_size,
+                                               push_constant_alignment,
+                                               &state);
+      if (result != VK_SUCCESS)
+         anv_batch_set_error(&cmd_buffer->batch, result);
    } else {
       state = anv_cmd_buffer_alloc_dynamic_state(cmd_buffer,
                                                  aligned_total_push_constants_size,
                                                  push_constant_alignment);
    }
+   if (state.alloc_size == 0)
+      return ANV_STATE_NULL;
 
    void *dst = state.map;
    const void *src = (char *)data + (range->start * 32);
@@ -1321,9 +1326,12 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
        * we can't modify it) or is too small.  Allocate a new one.
        */
       struct anv_state desc_mem =
-         anv_state_stream_alloc(&cmd_buffer->dynamic_state_stream,
-                                anv_descriptor_set_layout_descriptor_buffer_size(layout, 0),
-                                ANV_UBO_ALIGNMENT);
+         anv_cmd_buffer_alloc_dynamic_state(cmd_buffer,
+                                            anv_descriptor_set_layout_descriptor_buffer_size(layout, 0),
+                                            ANV_UBO_ALIGNMENT);
+      if (desc_mem.alloc_size == 0)
+         return NULL;
+
       if (set->desc_mem.alloc_size) {
          /* TODO: Do we really need to copy all the time? */
          memcpy(desc_mem.map, set->desc_mem.map,
@@ -1340,10 +1348,13 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
          anv_isl_format_for_descriptor_type(cmd_buffer->device,
                                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-      const struct isl_device *isl_dev = &cmd_buffer->device->isl_dev;
-      set->desc_surface_state =
+      VkResult result =
          anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
-                                isl_dev->ss.size, isl_dev->ss.align);
+                                64, 64, &set->desc_surface_state);
+      if (result != VK_SUCCESS) {
+         anv_batch_set_error(&cmd_buffer->batch, result);
+         return NULL;
+      }
       anv_fill_buffer_surface_state(cmd_buffer->device,
                                     set->desc_surface_state, format,
                                     ISL_SURF_USAGE_CONSTANT_BUFFER_BIT,

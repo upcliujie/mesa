@@ -1621,13 +1621,12 @@ genX(cmd_buffer_alloc_att_surf_states)(struct anv_cmd_buffer *cmd_buffer,
    }
 
    const uint32_t ss_stride = align_u32(isl_dev->ss.size, isl_dev->ss.align);
-   state->attachment_states =
+   VkResult result =
       anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
-                             num_states * ss_stride, isl_dev->ss.align);
-   if (state->attachment_states.map == NULL) {
-      return anv_batch_set_error(&cmd_buffer->batch,
-                                 VK_ERROR_OUT_OF_DEVICE_MEMORY);
-   }
+                             num_states * ss_stride, isl_dev->ss.align,
+                             &state->attachment_states);
+   if (result != VK_SUCCESS)
+      return anv_batch_set_error(&cmd_buffer->batch, result);
 
    struct anv_state next_state = state->attachment_states;
    next_state.alloc_size = isl_dev->ss.size;
@@ -2592,6 +2591,8 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
       case ANV_DESCRIPTOR_SET_SHADER_CONSTANTS: {
          struct anv_state surface_state =
             anv_cmd_buffer_alloc_surface_state(cmd_buffer);
+         if (anv_batch_has_error(&cmd_buffer->batch))
+            return cmd_buffer->batch.status;
 
          struct anv_address constant_data = {
             .bo = cmd_buffer->device->instruction_state_pool.block_pool.bo,
@@ -2618,8 +2619,9 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
          /* This is always the first binding for compute shaders */
          assert(shader->stage == MESA_SHADER_COMPUTE && s == 0);
 
-         struct anv_state surface_state =
-            anv_cmd_buffer_alloc_surface_state(cmd_buffer);
+         surface_state = anv_cmd_buffer_alloc_surface_state(cmd_buffer);
+         if (anv_batch_has_error(&cmd_buffer->batch))
+            return cmd_buffer->batch.status;
 
          const enum isl_format format =
             anv_isl_format_for_descriptor_type(cmd_buffer->device,
@@ -2787,8 +2789,13 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
                struct anv_address address =
                   anv_address_add(desc->buffer->address, offset);
 
-               surface_state =
-                  anv_state_stream_alloc(&cmd_buffer->surface_state_stream, 64, 64);
+               const struct isl_device *isl_dev = &cmd_buffer->device->isl_dev;
+               VkResult result =
+                  anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
+                                         isl_dev->ss.size, isl_dev->ss.align,
+                                         &surface_state);
+               if (result != VK_SUCCESS)
+                  return anv_batch_set_error(&cmd_buffer->batch, result);
                enum isl_format format =
                   anv_isl_format_for_descriptor_type(cmd_buffer->device,
                                                      desc->type);
@@ -4538,6 +4545,8 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
    if (cmd_buffer->state.push_constants_dirty & VK_SHADER_STAGE_COMPUTE_BIT) {
       comp_state->push_data =
          anv_cmd_buffer_cs_push_constants(cmd_buffer);
+      if (comp_state->push_data.alloc_size == 0)
+         return;
 
 #if GFX_VERx10 < 125
       if (comp_state->push_data.alloc_size) {

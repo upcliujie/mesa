@@ -611,6 +611,11 @@ struct anv_block_pool {
 
    uint64_t size;
 
+   /* The limit size for the pool. It's allocated a VMA range which it should
+    * not go over.
+    */
+   uint64_t max_size;
+
    /* The address where the start of the pool is pinned. The various bos that
     * are created as the pool grows will have addresses in the range
     * [start_address, start_address + BLOCK_POOL_MEMFD_SIZE).
@@ -709,6 +714,9 @@ struct anv_state_pool {
    /* The size of blocks which will be allocated from the block pool */
    uint32_t block_size;
 
+   /* The limit at which the pool should stop allocating from start_offset. */
+   uint64_t max_size;
+
    /** Free list for "back" allocations */
    union anv_free_list back_alloc_free_list;
 
@@ -744,12 +752,15 @@ VkResult anv_block_pool_init(struct anv_block_pool *pool,
                              struct anv_device *device,
                              const char *name,
                              uint64_t start_address,
+                             uint64_t max_size,
                              uint32_t initial_size);
 void anv_block_pool_finish(struct anv_block_pool *pool);
-int32_t anv_block_pool_alloc(struct anv_block_pool *pool,
-                             uint32_t block_size, uint32_t *padding);
-int32_t anv_block_pool_alloc_back(struct anv_block_pool *pool,
-                                  uint32_t block_size);
+VkResult anv_block_pool_alloc(struct anv_block_pool *pool,
+                              uint32_t block_size,
+                              int32_t *offset, uint32_t *padding);
+VkResult anv_block_pool_alloc_back(struct anv_block_pool *pool,
+                                   uint32_t block_size,
+                                   int32_t *offset);
 void* anv_block_pool_map(struct anv_block_pool *pool, int32_t offset, uint32_t
 size);
 
@@ -758,20 +769,24 @@ VkResult anv_state_pool_init(struct anv_state_pool *pool,
                              const char *name,
                              uint64_t base_address,
                              int32_t start_offset,
-                             uint32_t block_size);
+                             uint32_t block_size,
+                             uint64_t max_size);
 void anv_state_pool_finish(struct anv_state_pool *pool);
-struct anv_state anv_state_pool_alloc(struct anv_state_pool *pool,
-                                      uint32_t state_size, uint32_t alignment);
-struct anv_state anv_state_pool_alloc_back(struct anv_state_pool *pool);
+VkResult anv_state_pool_alloc(struct anv_state_pool *pool,
+                              uint32_t state_size, uint32_t alignment,
+                              struct anv_state *out_state);
+VkResult anv_state_pool_alloc_back(struct anv_state_pool *pool,
+                                   struct anv_state *out_state);
 void anv_state_pool_free(struct anv_state_pool *pool, struct anv_state state);
 void anv_state_stream_init(struct anv_state_stream *stream,
                            struct anv_state_pool *state_pool,
                            uint32_t block_size);
 void anv_state_stream_finish(struct anv_state_stream *stream);
-struct anv_state anv_state_stream_alloc(struct anv_state_stream *stream,
-                                        uint32_t size, uint32_t alignment);
+VkResult anv_state_stream_alloc(struct anv_state_stream *stream,
+                                uint32_t size, uint32_t alignment,
+                                struct anv_state *out_state);
 
-void anv_state_reserved_pool_init(struct anv_state_reserved_pool *pool,
+VkResult anv_state_reserved_pool_init(struct anv_state_reserved_pool *pool,
                                       struct anv_state_pool *parent,
                                       uint32_t count, uint32_t size,
                                       uint32_t alignment);
@@ -1299,19 +1314,31 @@ anv_binding_table_pool(struct anv_device *device)
       return &device->surface_state_pool;
 }
 
-static inline struct anv_state
-anv_binding_table_pool_alloc(struct anv_device *device)
+static inline VkResult
+anv_binding_table_pool_alloc(struct anv_device *device,
+                             struct anv_state *state)
 {
-   if (anv_use_softpin(device->physical))
+   if (anv_use_softpin(device->physical)) {
       return anv_state_pool_alloc(&device->binding_table_pool,
-                                  device->binding_table_pool.block_size, 0);
-   else
-      return anv_state_pool_alloc_back(&device->surface_state_pool);
+                                  device->binding_table_pool.block_size, 0,
+                                  state);
+   } else {
+      return anv_state_pool_alloc_back(&device->surface_state_pool, state);
+   }
 }
 
 static inline void
 anv_binding_table_pool_free(struct anv_device *device, struct anv_state state) {
    anv_state_pool_free(anv_binding_table_pool(device), state);
+}
+
+static inline VkResult
+anv_surface_state_pool_alloc(struct anv_device *device, uint32_t n_surfaces,
+                             struct anv_state *out_state) {
+   const struct isl_device *isl_dev = &device->isl_dev;
+   uint32_t size = n_surfaces * align_u32(isl_dev->ss.size, isl_dev->ss.align);
+   return anv_state_pool_alloc(&device->surface_state_pool,
+                               size, isl_dev->ss.align, out_state);
 }
 
 static inline uint32_t

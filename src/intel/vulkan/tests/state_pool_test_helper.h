@@ -44,7 +44,8 @@ static void *alloc_states(void *void_job)
 
    for (unsigned c = 0; c < num_chunks; c++) {
       for (unsigned i = 0; i < chunk_size; i++) {
-         states[i] = anv_state_pool_alloc(job->pool, 16, 16);
+         VkResult result = anv_state_pool_alloc(job->pool, 16, 16, &states[i]);
+         assert(result == VK_SUCCESS);
          memset(states[i].map, 139, 16);
          ASSERT(states[i].offset != 0);
       }

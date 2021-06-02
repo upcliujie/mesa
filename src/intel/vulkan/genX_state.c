@@ -75,7 +75,7 @@ calculate_pixel_hashing_table(unsigned n, unsigned m,
    }
 }
 
-static void
+static VkResult
 genX(emit_slice_hashing_state)(struct anv_device *device,
                                struct anv_batch *batch)
 {
@@ -85,11 +85,13 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
    assert(device->info.ppipe_subslices[2] == 0);
 
    if (device->info.ppipe_subslices[0] == device->info.ppipe_subslices[1])
-     return;
+     return VK_SUCCESS;
 
    unsigned size = GENX(SLICE_HASH_TABLE_length) * 4;
-   device->slice_hash =
-      anv_state_pool_alloc(&device->dynamic_state_pool, size, 64);
+   VkResult result =
+      anv_state_pool_alloc(&device->dynamic_state_pool, size, 64, &device->slice_hash);
+   if (result != VK_SUCCESS)
+      return result;
 
    const bool flip = device->info.ppipe_subslices[0] <
                      device->info.ppipe_subslices[1];
@@ -124,7 +126,7 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
       /* All three pixel pipes have the maximum number of active dual
        * subslices, or there is only one active pixel pipe: Nothing to do.
        */
-      return;
+      return VK_SUCCESS;
    }
 
    anv_batch_emit(batch, GENX(3DSTATE_SUBSLICE_HASH_TABLE), p) {
@@ -150,6 +152,8 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
       p.SubsliceHashingTableEnableMask = true;
    }
 #endif
+
+   return VK_SUCCESS;
 }
 
 static VkResult
@@ -234,7 +238,9 @@ init_render_queue_state(struct anv_queue *queue)
       tcc.TCDisable = true;
    }
 #endif
-   genX(emit_slice_hashing_state)(device, &batch);
+   VkResult result = genX(emit_slice_hashing_state)(device, &batch);
+   if (result != VK_SUCCESS)
+      return result;
 
 #if GFX_VER >= 11
    /* hardware specification recommends disabling repacking for
@@ -783,9 +789,14 @@ VkResult genX(CreateSampler)(
        * samplers to be 32-byte aligned so we don't have to use indirect
        * sampler messages on them.
        */
-      sampler->bindless_state =
+      VkResult result =
          anv_state_pool_alloc(&device->dynamic_state_pool,
-                              sampler->n_planes * 32, 32);
+                              sampler->n_planes * 32, 32,
+                              &sampler->bindless_state);
+      if (result != VK_SUCCESS) {
+         vk_object_free(&device->vk, pAllocator, sampler);
+         return result;
+      }
    }
 
    for (unsigned p = 0; p < sampler->n_planes; p++) {
