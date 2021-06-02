@@ -366,9 +366,12 @@ anv_block_pool_init(struct anv_block_pool *pool,
                     struct anv_device *device,
                     const char *name,
                     uint64_t start_address,
+                    uint64_t max_size,
                     uint32_t initial_size)
 {
    VkResult result;
+
+   assert(max_size >= initial_size);
 
    pool->name = name;
    pool->device = device;
@@ -377,6 +380,7 @@ anv_block_pool_init(struct anv_block_pool *pool,
    pool->size = 0;
    pool->center_bo_offset = 0;
    pool->start_address = intel_canonical_address(start_address);
+   pool->max_size = max_size;
    pool->map = NULL;
 
    if (pool->use_softpin) {
@@ -735,10 +739,11 @@ done:
    }
 }
 
-static uint32_t
+static VkResult
 anv_block_pool_alloc_new(struct anv_block_pool *pool,
                          struct anv_block_state *pool_state,
-                         uint32_t block_size, uint32_t *padding)
+                         uint32_t block_size,
+                         int32_t *offset, uint32_t *padding)
 {
    struct anv_block_state state, old, new;
 
@@ -748,8 +753,11 @@ anv_block_pool_alloc_new(struct anv_block_pool *pool,
 
    while (1) {
       state.u64 = __sync_fetch_and_add(&pool_state->u64, block_size);
-      if (state.next + block_size <= state.end) {
-         return state.next;
+      if (state.next + block_size > pool->max_size) {
+         return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+      } else if (state.next + block_size <= state.end) {
+         *offset = state.next;
+         return VK_SUCCESS;
       } else if (state.next <= state.end) {
          if (pool->use_softpin && state.next < state.end) {
             /* We need to grow the block pool, but still have some leftover
@@ -780,7 +788,10 @@ anv_block_pool_alloc_new(struct anv_block_pool *pool,
          old.u64 = __sync_lock_test_and_set(&pool_state->u64, new.u64);
          if (old.next != state.next)
             futex_wake(&pool_state->end, INT_MAX);
-         return state.next;
+         if (state.next + block_size > pool->max_size)
+            return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+         *offset = state.next;
+         return VK_SUCCESS;
       } else {
          futex_wait(&pool_state->end, state.end, NULL);
          continue;
@@ -788,15 +799,13 @@ anv_block_pool_alloc_new(struct anv_block_pool *pool,
    }
 }
 
-int32_t
+VkResult
 anv_block_pool_alloc(struct anv_block_pool *pool,
-                     uint32_t block_size, uint32_t *padding)
+                     uint32_t block_size,
+                     int32_t *offset, uint32_t *padding)
 {
-   uint32_t offset;
-
-   offset = anv_block_pool_alloc_new(pool, &pool->state, block_size, padding);
-
-   return offset;
+   return anv_block_pool_alloc_new(pool, &pool->state, block_size,
+                                   offset, padding);
 }
 
 /* Allocates a block out of the back of the block pool.
@@ -808,20 +817,25 @@ anv_block_pool_alloc(struct anv_block_pool *pool,
  * If you ever use anv_block_pool_alloc_back, then you will have to do
  * gymnastics with the block pool's BO when doing relocations.
  */
-int32_t
+VkResult
 anv_block_pool_alloc_back(struct anv_block_pool *pool,
-                          uint32_t block_size)
+                          uint32_t block_size,
+                          int32_t *offset)
 {
-   int32_t offset = anv_block_pool_alloc_new(pool, &pool->back_state,
-                                             block_size, NULL);
+   int32_t global_offset;
+   VkResult result = anv_block_pool_alloc_new(pool, &pool->back_state,
+                                              block_size, &global_offset, NULL);
+   if (result != VK_SUCCESS)
+      return result;
 
    /* The offset we get out of anv_block_pool_alloc_new() is actually the
     * number of bytes downwards from the middle to the end of the block.
     * We need to turn it into a (negative) offset from the middle to the
     * start of the block.
     */
-   assert(offset >= 0);
-   return -(offset + block_size);
+   assert(global_offset >= 0);
+   *offset = -(global_offset + block_size);
+   return VK_SUCCESS;
 }
 
 VkResult
@@ -830,18 +844,21 @@ anv_state_pool_init(struct anv_state_pool *pool,
                     const char *name,
                     uint64_t base_address,
                     int32_t start_offset,
-                    uint32_t block_size)
+                    uint32_t block_size,
+                    uint64_t max_size)
 {
    /* We don't want to ever see signed overflow */
    assert(start_offset < INT32_MAX - (int32_t)BLOCK_POOL_MEMFD_SIZE);
 
    VkResult result = anv_block_pool_init(&pool->block_pool, device, name,
                                          base_address + start_offset,
+                                         max_size,
                                          block_size * 16);
    if (result != VK_SUCCESS)
       return result;
 
    pool->start_offset = start_offset;
+   pool->max_size = max_size;
 
    result = anv_state_table_init(&pool->table, device, 64);
    if (result != VK_SUCCESS) {
@@ -870,15 +887,15 @@ anv_state_pool_finish(struct anv_state_pool *pool)
    anv_block_pool_finish(&pool->block_pool);
 }
 
-static uint32_t
+static VkResult
 anv_fixed_size_state_pool_alloc_new(struct anv_fixed_size_state_pool *pool,
                                     struct anv_block_pool *block_pool,
                                     uint32_t state_size,
                                     uint32_t block_size,
+                                    int32_t *offset,
                                     uint32_t *padding)
 {
    struct anv_block_state block, old, new;
-   uint32_t offset;
 
    /* We don't always use anv_block_pool_alloc(), which would set *padding to
     * zero for us. So if we have a pointer to padding, we must zero it out
@@ -891,21 +908,28 @@ anv_fixed_size_state_pool_alloc_new(struct anv_fixed_size_state_pool *pool,
     * Instead, we just grab whole (potentially large) blocks.
     */
    if (state_size >= block_size)
-      return anv_block_pool_alloc(block_pool, state_size, padding);
+      return anv_block_pool_alloc(block_pool, state_size, offset, padding);
 
  restart:
    block.u64 = __sync_fetch_and_add(&pool->block.u64, state_size);
 
-   if (block.next < block.end) {
-      return block.next;
+   if (block.next + state_size > block_pool->max_size) {
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+   } else if (block.next < block.end) {
+      *offset = block.next;
+      return VK_SUCCESS;
    } else if (block.next == block.end) {
-      offset = anv_block_pool_alloc(block_pool, block_size, padding);
-      new.next = offset + state_size;
-      new.end = offset + block_size;
+      VkResult result = anv_block_pool_alloc(block_pool, block_size,
+                                             offset, padding);
+      if (result != VK_SUCCESS)
+         return result;
+
+      new.next = *offset + state_size;
+      new.end = *offset + block_size;
       old.u64 = __sync_lock_test_and_set(&pool->block.u64, new.u64);
       if (old.next != block.next)
          futex_wake(&pool->block.end, INT_MAX);
-      return offset;
+      return VK_SUCCESS;
    } else {
       futex_wait(&pool->block.end, block.end, NULL);
       goto restart;
@@ -1016,9 +1040,10 @@ anv_state_pool_return_chunk(struct anv_state_pool *pool,
    }
 }
 
-static struct anv_state
+static VkResult
 anv_state_pool_alloc_no_vg(struct anv_state_pool *pool,
-                           uint32_t size, uint32_t align)
+                           uint32_t size, uint32_t align,
+                           struct anv_state *out_state)
 {
    uint32_t bucket = anv_state_pool_get_bucket(MAX2(size, align));
 
@@ -1084,15 +1109,21 @@ anv_state_pool_alloc_no_vg(struct anv_state_pool *pool,
    }
 
    uint32_t padding;
-   offset = anv_fixed_size_state_pool_alloc_new(&pool->buckets[bucket],
-                                                &pool->block_pool,
-                                                alloc_size,
-                                                pool->block_size,
-                                                &padding);
+   VkResult result =
+      anv_fixed_size_state_pool_alloc_new(&pool->buckets[bucket],
+                                          &pool->block_pool,
+                                          alloc_size,
+                                          pool->block_size,
+                                          &offset,
+                                          &padding);
+   if (result != VK_SUCCESS)
+      return result;
+
    /* Everytime we allocate a new state, add it to the state pool */
    uint32_t idx;
-   UNUSED VkResult result = anv_state_table_add(&pool->table, &idx, 1);
-   assert(result == VK_SUCCESS);
+   result = anv_state_table_add(&pool->table, &idx, 1);
+   if (result != VK_SUCCESS)
+      return result;
 
    state = anv_state_table_get(&pool->table, idx);
    state->offset = pool->start_offset + offset;
@@ -1105,22 +1136,28 @@ anv_state_pool_alloc_no_vg(struct anv_state_pool *pool,
    }
 
 done:
-   return *state;
+   *out_state = *state;
+   return VK_SUCCESS;
 }
 
-struct anv_state
-anv_state_pool_alloc(struct anv_state_pool *pool, uint32_t size, uint32_t align)
+VkResult
+anv_state_pool_alloc(struct anv_state_pool *pool,
+                     uint32_t size, uint32_t align,
+                     struct anv_state *out_state)
 {
-   if (size == 0)
-      return ANV_STATE_NULL;
+   if (size == 0) {
+      *out_state = ANV_STATE_NULL;
+      return VK_SUCCESS;
+   }
 
-   struct anv_state state = anv_state_pool_alloc_no_vg(pool, size, align);
-   VG(VALGRIND_MEMPOOL_ALLOC(pool, state.map, size));
-   return state;
+   VkResult result = anv_state_pool_alloc_no_vg(pool, size, align, out_state);
+   VG(VALGRIND_MEMPOOL_ALLOC(pool, out_state->map, size));
+   return result;
 }
 
-struct anv_state
-anv_state_pool_alloc_back(struct anv_state_pool *pool)
+VkResult
+anv_state_pool_alloc_back(struct anv_state_pool *pool,
+                          struct anv_state *out_state)
 {
    struct anv_state *state;
    uint32_t alloc_size = pool->block_size;
@@ -1135,11 +1172,16 @@ anv_state_pool_alloc_back(struct anv_state_pool *pool)
    }
 
    int32_t offset;
-   offset = anv_block_pool_alloc_back(&pool->block_pool,
-                                      pool->block_size);
+   VkResult result = anv_block_pool_alloc_back(&pool->block_pool,
+                                               pool->block_size,
+                                               &offset);
+   if (result != VK_SUCCESS)
+      return result;
+
    uint32_t idx;
-   UNUSED VkResult result = anv_state_table_add(&pool->table, &idx, 1);
-   assert(result == VK_SUCCESS);
+   result = anv_state_table_add(&pool->table, &idx, 1);
+   if (result != VK_SUCCESS)
+      return result;
 
    state = anv_state_table_get(&pool->table, idx);
    state->offset = pool->start_offset + offset;
@@ -1148,7 +1190,8 @@ anv_state_pool_alloc_back(struct anv_state_pool *pool)
 
 done:
    VG(VALGRIND_MEMPOOL_ALLOC(pool, state->map, state->alloc_size));
-   return *state;
+   *out_state = *state;
+   return VK_SUCCESS;
 }
 
 static void
@@ -1227,12 +1270,15 @@ anv_state_stream_finish(struct anv_state_stream *stream)
    VG(VALGRIND_DESTROY_MEMPOOL(stream));
 }
 
-struct anv_state
+VkResult
 anv_state_stream_alloc(struct anv_state_stream *stream,
-                       uint32_t size, uint32_t alignment)
+                       uint32_t size, uint32_t alignment,
+                       struct anv_state *out_state)
 {
-   if (size == 0)
-      return ANV_STATE_NULL;
+   if (size == 0) {
+      *out_state = ANV_STATE_NULL;
+      return VK_SUCCESS;
+   }
 
    assert(alignment <= PAGE_SIZE);
 
@@ -1242,8 +1288,12 @@ anv_state_stream_alloc(struct anv_state_stream *stream,
       if (block_size < size)
          block_size = round_to_power_of_two(size);
 
-      stream->block = anv_state_pool_alloc_no_vg(stream->state_pool,
-                                                 block_size, PAGE_SIZE);
+      VkResult result = anv_state_pool_alloc_no_vg(stream->state_pool,
+                                                   block_size, PAGE_SIZE,
+                                                   &stream->block);
+      if (result != VK_SUCCESS)
+         return result;
+
       util_dynarray_append(&stream->all_blocks,
                            struct anv_state, stream->block);
       VG(VALGRIND_MAKE_MEM_NOACCESS(stream->block.map, block_size));
@@ -1273,22 +1323,30 @@ anv_state_stream_alloc(struct anv_state_stream *stream,
       VG(VALGRIND_MAKE_MEM_UNDEFINED(state.map, state.alloc_size));
    }
 
-   return state;
+   *out_state = state;
+   return VK_SUCCESS;
 }
 
-void
+VkResult
 anv_state_reserved_pool_init(struct anv_state_reserved_pool *pool,
                              struct anv_state_pool *parent,
                              uint32_t count, uint32_t size, uint32_t alignment)
 {
    pool->pool = parent;
    pool->reserved_blocks = ANV_FREE_LIST_EMPTY;
-   pool->count = count;
+   pool->count = 0;
 
-   for (unsigned i = 0; i < count; i++) {
-      struct anv_state state = anv_state_pool_alloc(pool->pool, size, alignment);
+   for (; pool->count < count; pool->count++) {
+      struct anv_state state;
+      VkResult result = anv_state_pool_alloc(pool->pool, size, alignment, &state);
+      if (result != VK_SUCCESS) {
+         anv_state_reserved_pool_finish(pool);
+         return result;
+      }
       anv_free_list_push(&pool->reserved_blocks, &pool->pool->table, state.idx, 1);
    }
+
+   return VK_SUCCESS;
 }
 
 void

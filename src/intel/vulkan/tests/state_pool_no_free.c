@@ -46,7 +46,9 @@ static void *alloc_states(void *_job)
    pthread_barrier_wait(&barrier);
 
    for (unsigned i = 0; i < STATES_PER_THREAD; i++) {
-      struct anv_state state = anv_state_pool_alloc(job->pool, 16, 16);
+      struct anv_state state;
+      VkResult result = anv_state_pool_alloc(job->pool, 16, 16, &state);
+      assert(result == VK_SUCCESS);
       job->offsets[i] = state.offset;
    }
 
@@ -63,7 +65,12 @@ static void run_test()
 
    pthread_mutex_init(&device.mutex, NULL);
    anv_bo_cache_init(&device.bo_cache);
-   anv_state_pool_init(&state_pool, &device, "test", 4096, 0, 64);
+   VkResult result = anv_state_pool_init(&state_pool, &device, "test",
+                                         4096 /* base_address */,
+                                         0 /* start_offset */,
+                                         64 /* block_size */,
+                                         STATES_PER_THREAD * NUM_THREADS * 64 /* max_size */);
+   assert(result == VK_SUCCESS);
 
    pthread_barrier_init(&barrier, NULL, NUM_THREADS);
 
