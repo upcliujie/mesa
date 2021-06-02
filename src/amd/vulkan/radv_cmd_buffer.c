@@ -2809,11 +2809,11 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer, bool pipeline_
       void *vb_ptr;
       unsigned desc_index = 0;
       uint32_t mask = pipeline->vb_desc_usage_mask;
-      uint32_t count = util_bitcount(mask);
+      const uint32_t alloc_size = pipeline->vb_desc_alloc_size;
       uint64_t va;
 
       /* allocate some descriptor state for vertex buffers */
-      if (!radv_cmd_buffer_upload_alloc(cmd_buffer, count * 16, &vb_offset, &vb_ptr))
+      if (!radv_cmd_buffer_upload_alloc(cmd_buffer, alloc_size, &vb_offset, &vb_ptr))
          return;
 
       while (mask) {
@@ -2896,7 +2896,7 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer, bool pipeline_
                                  va);
 
       cmd_buffer->state.vb_va = va;
-      cmd_buffer->state.vb_size = count * 16;
+      cmd_buffer->state.vb_size = alloc_size;
       cmd_buffer->state.prefetch_L2_mask |= RADV_PREFETCH_VBO_DESCRIPTORS;
 
       if (unlikely(cmd_buffer->device->trace_bo))

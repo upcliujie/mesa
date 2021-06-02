@@ -1728,6 +1728,7 @@ struct radv_pipeline {
 
    bool use_per_attribute_vb_descs;
    uint32_t vb_desc_usage_mask;
+   uint32_t vb_desc_alloc_size;
 
    uint32_t user_data_0[MESA_SHADER_STAGES];
    union {
