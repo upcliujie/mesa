@@ -1038,6 +1038,8 @@ bi_emit_ld_tile(bi_builder *b, nir_intrinsic_instr *instr)
 
         bi_index desc = b->shader->inputs->is_blend ?
                 bi_imm_u32(b->shader->inputs->blend.bifrost_blend_desc >> 32) :
+                b->shader->inputs->bifrost.static_rt_conv ?
+                bi_imm_u32(b->shader->inputs->bifrost.rt_conv[rt]) :
                 bi_load_sysval(b, PAN_SYSVAL(RT_CONVERSION, rt | (size << 4)), 1, 0);
 
         uint32_t indices = 0;
