@@ -136,6 +136,10 @@ optimizations = [
    (('usadd_4x8', a, 0), a),
    (('usadd_4x8', a, ~0), ~0),
    (('~fadd', ('fmul', a, b), ('fmul', a, c)), ('fmul', a, ('fadd', b, c))),
+   (('~ffma', a, b, ('ffma(is_used_once)', a, c, d)), ('ffma', a, ('fadd', b, c), d)),
+   (('~ffma', a, b, ('fmul(is_used_once)', a, c)), ('fmul', a, ('fadd', b, c))),
+   (('~fadd', ('fmul(is_used_once)', a, b), ('ffma(is_used_once)', a, c, d)), ('ffma', a, ('fadd', b, c), d)),
+   (('~ffma', a, ('fmul(is_used_once)', b, c), ('fmul(is_used_once)', b, d)), ('fmul', b, ('ffma', a, c, d))),
    (('iadd', ('imul', a, b), ('imul', a, c)), ('imul', a, ('iadd', b, c))),
    (('iand', ('ior', a, b), ('ior', a, c)), ('ior', a, ('iand', b, c))),
    (('ior', ('iand', a, b), ('iand', a, c)), ('iand', a, ('ior', b, c))),
@@ -175,6 +179,7 @@ optimizations = [
    (('ffma@32', a, b, 0.0), ('fmul', a, b), '!'+signed_zero_inf_nan_preserve_32),
    (('ffma', 1.0, a, b), ('fadd', a, b)),
    (('ffma', -1.0, a, b), ('fadd', ('fneg', a), b)),
+   (('~ffma', '#a', '#b', c), ('fadd', ('fmul', a, b), c)),
    (('~flrp', a, b, 0.0), a),
    (('~flrp', a, b, 1.0), b),
    (('~flrp', a, a, b), a),
@@ -202,6 +207,13 @@ for s in [16, 32, 64]:
        (('~fadd@{}'.format(s),    ('fmul', a, ('fadd', 1.0, ('fneg', ('b2f', 'c@1')))), ('fmul', b, ('b2f',  c))), ('bcsel', c, b, a), 'options->lower_flrp{}'.format(s)),
        (('~fadd@{}'.format(s), a, ('fmul', ('b2f', 'c@1'), ('fadd', b, ('fneg', a)))), ('bcsel', c, b, a), 'options->lower_flrp{}'.format(s)),
 
+       (('~ffma@{}'.format(s), a, ('fadd', 1.0, ('fneg', ('b2f', 'c@1'))), ('fmul', b, ('b2f', 'c@1'))), ('bcsel', c, b, a)),
+       (('~ffma@{}'.format(s), b, ('b2f', 'c@1'), ('ffma', ('fneg', a), ('b2f', 'c@1'), a)), ('bcsel', c, b, a)),
+
+       # These two aren't flrp lowerings, but do appear in some shaders.
+       (('~ffma@{}'.format(s), ('b2f', 'c@1'), ('fadd', b, ('fneg', a)), a), ('bcsel', c, b, a)),
+       (('~ffma@{}'.format(s), ('b2f', 'c@1'), ('ffma', ('fneg', a), b, d), ('fmul', a, b)), ('bcsel', c, d, ('fmul', a, b))),
+
        # 1 - ((1 - a) * (1 - b))
        # 1 - (1 - a - b + a*b)
        # 1 - 1 + a + b - a*b
@@ -228,6 +240,8 @@ optimizations.extend([
    (('~ffma@16', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma16'),
    (('~ffma@32', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma32'),
    (('~ffma@64', a, b, c), ('fadd', ('fmul', a, b), c), 'options->fuse_ffma64'),
+   # Separate ffma if the mul can be CSE'd
+   (('~ffma(should_split_ffma)', a, b, c), ('fadd', ('fmul', a, b), c)),
 
    (('~fmul', ('fadd', ('iand', ('ineg', ('b2i', 'a@bool')), ('fmul', b, c)), '#d'), '#e'),
     ('bcsel', a, ('fmul', ('fadd', ('fmul', b, c), d), e), ('fmul', d, e))),
@@ -1344,27 +1358,36 @@ optimizations.extend([
 
    # Propagate negation up multiplication chains
    (('fmul(is_used_by_non_fsat)', ('fneg', a), b), ('fneg', ('fmul', a, b))),
+   (('ffma', ('fneg', a), ('fneg', b), c), ('ffma', a, b, c)),
    (('imul', ('ineg', a), b), ('ineg', ('imul', a, b))),
 
    # Propagate constants up multiplication chains
    (('~fmul(is_used_once)', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fmul', ('fmul', a, c), b)),
    (('imul(is_used_once)', ('imul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('imul', ('imul', a, c), b)),
+   (('~ffma', ('fmul(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c', d), ('ffma', ('fmul', a, c), b, d)),
    # Prefer moving out a multiplication for more MAD/FMA-friendly code
    (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_fmul)'), '#c'), ('fadd', ('fadd', a, c), b)),
    (('~fadd(is_used_once)', ('fadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('fadd', ('fadd', a, c), b)),
+   (('~fadd(is_used_once)', ('ffma(is_used_once)', 'a(is_not_const)', b, 'c(is_not_const)'), '#d'), ('fadd', ('ffma', a, b, d), c)),
    (('iadd(is_used_once)', ('iadd(is_used_once)', 'a(is_not_const)', 'b(is_not_const)'), '#c'), ('iadd', ('iadd', a, c), b)),
 
    # Reassociate constants in add/mul chains so they can be folded together.
    # For now, we mostly only handle cases where the constants are separated by
    # a single non-constant.  We could do better eventually.
    (('~fmul', '#a', ('fmul', 'b(is_not_const)', '#c')), ('fmul', ('fmul', a, c), b)),
+   (('~ffma', '#a', ('fmul', 'b(is_not_const)', '#c'), d), ('ffma', ('fmul', a, c), b, d)),
    (('imul', '#a', ('imul', 'b(is_not_const)', '#c')), ('imul', ('imul', a, c), b)),
    (('~fadd', '#a',          ('fadd', 'b(is_not_const)', '#c')),  ('fadd', ('fadd', a,          c),           b)),
    (('~fadd', '#a', ('fneg', ('fadd', 'b(is_not_const)', '#c'))), ('fadd', ('fadd', a, ('fneg', c)), ('fneg', b))),
+   (('~fadd', '#a',          ('ffma', 'b(is_not_const)', 'c(is_not_const)', '#d')),  ('ffma',          b,  c, ('fadd', a,          d))),
+   (('~fadd', '#a', ('fneg', ('ffma', 'b(is_not_const)', 'c(is_not_const)', '#d'))), ('ffma', ('fneg', b), c, ('fadd', a, ('fneg', d)))),
    (('iadd', '#a', ('iadd', 'b(is_not_const)', '#c')), ('iadd', ('iadd', a, c), b)),
    (('iand', '#a', ('iand', 'b(is_not_const)', '#c')), ('iand', ('iand', a, c), b)),
    (('ior',  '#a', ('ior',  'b(is_not_const)', '#c')), ('ior',  ('ior',  a, c), b)),
    (('ixor', '#a', ('ixor', 'b(is_not_const)', '#c')), ('ixor', ('ixor', a, c), b)),
+
+   # Reassociate add chains for more MAD/FMA-friendly code
+   (('~fadd', ('fadd(is_used_once)', 'a(is_fmul)', 'b(is_fmul)'), 'c(is_not_fmul)'), ('fadd', ('fadd', a, c), b)),
 
    # Drop mul-div by the same value when there's no wrapping.
    (('idiv', ('imul(no_signed_wrap)', a, b), b), a),
@@ -2367,11 +2390,11 @@ late_optimizations = [
    # optimization in these stages.  See bugzilla #111490.  In tessellation
    # stages applications seem to use 'precise' when necessary, so allow the
    # optimization in those stages.
-   (('~fadd', ('ffma(is_used_once)', a, b, ('ffma', c, d, ('fmul', 'e(is_not_const_and_not_fsign)', 'f(is_not_const_and_not_fsign)'))), 'g(is_not_const)'),
+   (('~fadd', ('ffma(is_used_once)', a, b, ('ffma', c, d, ('fmul(is_used_once)', 'e(is_not_const_and_not_fsign)', 'f(is_not_const_and_not_fsign)'))), 'g(is_not_const)'),
     ('ffma', a, b, ('ffma', c, d, ('ffma', e, 'f', 'g'))), '(info->stage != MESA_SHADER_VERTEX && info->stage != MESA_SHADER_GEOMETRY) && !options->intel_vec4'),
-   (('~fadd', ('ffma(is_used_once)', a, b, ('fmul', 'c(is_not_const_and_not_fsign)', 'd(is_not_const_and_not_fsign)') ), 'e(is_not_const)'),
+   (('~fadd', ('ffma(is_used_once)', a, b, ('fmul(is_used_once)', 'c(is_not_const_and_not_fsign)', 'd(is_not_const_and_not_fsign)') ), 'e(is_not_const)'),
     ('ffma', a, b, ('ffma', c, d, e)), '(info->stage != MESA_SHADER_VERTEX && info->stage != MESA_SHADER_GEOMETRY) && !options->intel_vec4'),
-   (('~fadd', ('fneg', ('ffma(is_used_once)', a, b, ('ffma', c, d, ('fmul', 'e(is_not_const_and_not_fsign)', 'f(is_not_const_and_not_fsign)')))), 'g(is_not_const)'),
+   (('~fadd', ('fneg', ('ffma(is_used_once)', a, b, ('ffma', c, d, ('fmul(is_used_once)', 'e(is_not_const_and_not_fsign)', 'f(is_not_const_and_not_fsign)')))), 'g(is_not_const)'),
     ('ffma', ('fneg', a), b, ('ffma', ('fneg', c), d, ('ffma', ('fneg', e), 'f', 'g'))), '(info->stage != MESA_SHADER_VERTEX && info->stage != MESA_SHADER_GEOMETRY) && !options->intel_vec4'),
 
    # Section 8.8 (Integer Functions) of the GLSL 4.60 spec says:
@@ -2389,7 +2412,7 @@ late_optimizations = [
    # result, it is very easy for 3-source instruction combined with either
    # loads of immediate values or copies from weird register strides to be
    # more expensive than the primitive instructions it represents.
-   (('ubfe', a, '#b', '#c'), ('iand', ('ushr', 0xffffffff, ('ineg', c)), ('ushr', a, b)), 'options->lower_bfe_with_two_constants'),
+   (('ubfe', a, '#b', '#c'), ('iand', ('ushr', 0xffffffff, ('ineg', c)), ('ushr', a, b)), 'options->avoid_ternary_with_two_constants'),
 
    # b is the lowest order bit to be extracted and c is the number of bits to
    # extract.  The inner shift removes the bits above b + c by shifting left
@@ -2397,7 +2420,7 @@ late_optimizations = [
    # -(b + c).  The outer shift moves the bit that was at b to bit zero.
    # After the first shift, that bit is now at b + (32 - (b + c)) or 32 - c.
    # This means that it must be shifted right by 32 - c or -c bits.
-   (('ibfe', a, '#b', '#c'), ('ishr', ('ishl', a, ('ineg', ('iadd', b, c))), ('ineg', c)), 'options->lower_bfe_with_two_constants'),
+   (('ibfe', a, '#b', '#c'), ('ishr', ('ishl', a, ('ineg', ('iadd', b, c))), ('ineg', c)), 'options->avoid_ternary_with_two_constants'),
 
    # Clean up no-op shifts that may result from the bfe lowerings.
    (('ishl', a, 0), a),
