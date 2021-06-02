@@ -124,6 +124,8 @@ struct fd_device {
    struct fd_bo_cache bo_cache;
    struct fd_bo_cache ring_cache;
 
+   uint32_t ring_flags;
+
    bool has_cached_coherent;
 
    bool closefd; /* call close(fd) upon destruction */

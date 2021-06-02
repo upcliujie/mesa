@@ -84,6 +84,8 @@ out:
    fd_bo_cache_init(&dev->bo_cache, false);
    fd_bo_cache_init(&dev->ring_cache, true);
 
+   dev->ring_flags = FD_BO_GPUREADONLY;
+
    list_inithead(&dev->deferred_submits);
    simple_mtx_init(&dev->submit_lock, mtx_plain);
 
