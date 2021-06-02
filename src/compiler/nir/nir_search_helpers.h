@@ -522,4 +522,61 @@ is_a_number(struct hash_table *ht, const nir_alu_instr *instr, unsigned src,
    return v.is_a_number;
 }
 
+static void
+get_mul_srcs(nir_alu_instr *mul, nir_ssa_scalar *srcs)
+{
+   /* Swap sources to canonicalize before comparing. */
+   bool swap = mul->src[0].src.ssa->index > mul->src[1].src.ssa->index;
+   srcs[0] = (nir_ssa_scalar){mul->src[swap].src.ssa, mul->src[swap].swizzle[0]};
+   srcs[1] = (nir_ssa_scalar){mul->src[!swap].src.ssa, mul->src[!swap].swizzle[0]};
+
+   for (unsigned i = 0; i < 2; i++) {
+      if (nir_ssa_scalar_is_alu(srcs[i]) && nir_ssa_scalar_alu_op(srcs[i]) == nir_op_fneg)
+         srcs[i] = nir_ssa_scalar_chase_alu_src(srcs[i], 0);
+   }
+}
+
+static inline bool
+should_split_ffma_internal(nir_alu_instr *ffma, bool skip_fneg)
+{
+   nir_ssa_scalar ssa = {ffma->src[0].src.ssa, ffma->src[0].swizzle[0]};
+
+   /* Skip fneg, because fmul(fneg(a), b) will be optimized to fmul(a, b) */
+   bool is_fneg = nir_ssa_scalar_is_alu(ssa) && nir_ssa_scalar_alu_op(ssa) == nir_op_fneg;
+   if (is_fneg)
+      ssa = nir_ssa_scalar_chase_alu_src(ssa, 0);
+   else if (skip_fneg)
+      return false; /* Not going to find anything new. */
+
+   if (list_is_singular(&ssa.def->uses))
+      return false;
+
+   nir_foreach_use(src, ssa.def) {
+      if (src->parent_instr->type != nir_instr_type_alu)
+         continue;
+
+      nir_alu_instr *user = nir_instr_as_alu(src->parent_instr);
+      if ((user->op != nir_op_fmul && user->op != nir_op_ffma) || user == ffma)
+         continue;
+
+      nir_ssa_scalar srcs0[2], srcs1[2];
+      get_mul_srcs(ffma, srcs0);
+      get_mul_srcs(user, srcs1);
+      if (srcs0[0].def == srcs1[0].def && srcs0[0].comp == srcs1[0].comp &&
+          srcs0[1].def == srcs1[1].def && srcs0[1].comp == srcs1[1].comp) {
+         return true;
+      }
+   }
+
+   return false;
+}
+
+static inline bool
+should_split_ffma(nir_alu_instr *ffma)
+{
+   /* We call should_split_ffma_internal() with skip_fneg=false to catch ffma(-a, b, c);ffma(-a, b, d) */
+   return ffma->dest.dest.ssa.num_components == 1 &&
+          (should_split_ffma_internal(ffma, false) || should_split_ffma_internal(ffma, true));
+}
+
 #endif /* _NIR_SEARCH_ */
