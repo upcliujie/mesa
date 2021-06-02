@@ -677,14 +677,12 @@ dri2_x11_connect(struct dri2_egl_display *dri2_dpy)
 
    dri2_query =
       xcb_dri2_query_version_reply (dri2_dpy->conn, dri2_query_cookie, &error);
-   if (dri2_query == NULL || error != NULL) {
+   if (dri2_query == NULL || error != NULL || dri2_query->minor_version < 3) {
       _eglLog(_EGL_WARNING, "DRI2: failed to query version");
       free(error);
       free(dri2_query);
       return EGL_FALSE;
    }
-   dri2_dpy->dri2_major = dri2_query->major_version;
-   dri2_dpy->dri2_minor = dri2_query->minor_version;
    free(dri2_query);
 
    connect = xcb_dri2_connect_reply (dri2_dpy->conn, connect_cookie, NULL);
@@ -892,7 +890,7 @@ dri2_x11_swap_buffers_msc(_EGLDisplay *disp, _EGLSurface *draw,
    xcb_dri2_swap_buffers_reply_t *reply;
    int64_t swap_count = -1;
 
-   if (draw->SwapBehavior == EGL_BUFFER_PRESERVED || !dri2_dpy->swap_available) {
+   if (draw->SwapBehavior == EGL_BUFFER_PRESERVED) {
       swap_count = dri2_copy_region(disp, draw, dri2_surf->region) ? 0 : -1;
    } else {
       dri2_flush_drawable_for_swapbuffers(disp, draw);
@@ -990,8 +988,7 @@ dri2_x11_swap_interval(_EGLDisplay *disp, _EGLSurface *surf, EGLint interval)
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    struct dri2_egl_surface *dri2_surf = dri2_egl_surface(surf);
 
-   if (dri2_dpy->swap_available)
-      xcb_dri2_swap_interval(dri2_dpy->conn, dri2_surf->drawable, interval);
+   xcb_dri2_swap_interval(dri2_dpy->conn, dri2_surf->drawable, interval);
 
    return EGL_TRUE;
 }
@@ -1334,9 +1331,6 @@ dri2_x11_setup_swap_interval(_EGLDisplay *disp)
    dri2_dpy->max_swap_interval = 0;
    dri2_dpy->default_swap_interval = 0;
 
-   if (!dri2_dpy->swap_available)
-      return;
-
    /* If we do have swapbuffers, then we can support pretty much any swap
     * interval.
     */
@@ -1383,9 +1377,6 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
 
    dri2_dpy->loader_extensions = dri3_image_loader_extensions;
 
-   dri2_dpy->swap_available = true;
-   dri2_dpy->invalidate_available = true;
-
    if (!dri2_create_screen(disp))
       goto cleanup;
 
@@ -1430,27 +1421,12 @@ dri2_initialize_x11_dri3(_EGLDisplay *disp)
 }
 #endif
 
-static const __DRIdri2LoaderExtension dri2_loader_extension_old = {
-   .base = { __DRI_DRI2_LOADER, 2 },
-
-   .getBuffers           = dri2_x11_get_buffers,
-   .flushFrontBuffer     = dri2_x11_flush_front_buffer,
-   .getBuffersWithFormat = NULL,
-};
-
 static const __DRIdri2LoaderExtension dri2_loader_extension = {
    .base = { __DRI_DRI2_LOADER, 3 },
 
    .getBuffers           = dri2_x11_get_buffers,
    .flushFrontBuffer     = dri2_x11_flush_front_buffer,
    .getBuffersWithFormat = dri2_x11_get_buffers_with_format,
-};
-
-static const __DRIextension *dri2_loader_extensions_old[] = {
-   &dri2_loader_extension_old.base,
-   &image_lookup_extension.base,
-   &background_callable_extension.base,
-   NULL,
 };
 
 static const __DRIextension *dri2_loader_extensions[] = {
@@ -1489,13 +1465,7 @@ dri2_initialize_x11_dri2(_EGLDisplay *disp)
    if (!dri2_load_driver(disp))
       goto cleanup;
 
-   if (dri2_dpy->dri2_minor >= 1)
-      dri2_dpy->loader_extensions = dri2_loader_extensions;
-   else
-      dri2_dpy->loader_extensions = dri2_loader_extensions_old;
-
-   dri2_dpy->swap_available = (dri2_dpy->dri2_minor >= 2);
-   dri2_dpy->invalidate_available = (dri2_dpy->dri2_minor >= 3);
+   dri2_dpy->loader_extensions = dri2_loader_extensions;
 
    if (!dri2_create_screen(disp))
       goto cleanup;
