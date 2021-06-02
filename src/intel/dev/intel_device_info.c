@@ -528,6 +528,7 @@ static const struct intel_device_info intel_device_info_chv = {
    .max_cs_threads = 56,                            \
    .timestamp_frequency = 12000000,                 \
    .cs_prefetch_size = 512,                         \
+   .max_bindless_surface_offset = 1 << 26,          \
    .urb = {                                         \
       .min_entries = {                              \
          [MESA_SHADER_VERTEX]    = 64,              \
@@ -812,7 +813,9 @@ static const struct intel_device_info intel_device_info_cfl_gt3 = {
    .max_tcs_threads = 224,                          \
    .max_tes_threads = 364,                          \
    .max_cs_threads = 56,                            \
-   .cs_prefetch_size = 512
+   .cs_prefetch_size = 512,                         \
+   .max_bindless_surface_offset = 1 << 26
+
 
 #define GFX11_FEATURES(_gt, _slices, _subslices, _l3) \
    GFX8_FEATURES,                                     \
@@ -934,6 +937,8 @@ static const struct intel_device_info intel_device_info_ehl_2x4 = {
    .max_tcs_threads = 336,                          \
    .max_tes_threads = 546,                          \
    .max_cs_threads = 112, /* threads per DSS */     \
+   .cs_prefetch_size = 512,                         \
+   .max_bindless_surface_offset = 1 << 26,          \
    .urb = {                                         \
       GFX12_URB_MIN_MAX_ENTRIES,                    \
    }
@@ -946,8 +951,7 @@ static const struct intel_device_info intel_device_info_ehl_2x4 = {
    .has_integer_dword_mul = false,                              \
    .gt = _gt, .num_slices = _slices, .l3_banks = _l3,           \
    .simulator_id = 22,                                          \
-   .num_eu_per_subslice = 16,                                   \
-   .cs_prefetch_size = 512
+   .num_eu_per_subslice = 16
 
 #define dual_subslices(args...) { args, }
 

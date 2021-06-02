@@ -264,6 +264,24 @@ struct intel_device_info
     */
    uint64_t timestamp_frequency;
 
+   /**
+    * Maximum offset bindless surfaces can be from
+    * STATE_BASE_ADDRESS::BindlessSurfaceStateBaseAddress.
+    *
+    * From the Skylake PRM Vol. 2d: "Command Reference: Structures"
+    *   - Extended Message Descriptor - Sampling Engine:
+    *
+    * The extended message descriptor given from a shader thread has a field
+    * limited to bits 31:12 for the surface state. Those bits represent an offset
+    * from STATE_BASE_ADDRESS::BindlessSurfaceOffset covering the bits 25:6.
+    *
+    * This means we can only have bindless surface states within the first 26
+    * bits of STATE_BASE_ADDRESS::BindlessSurfaceOffset. This limit should be
+    * used when allocating surface states from anv_device::surface_state_pool to
+    * ensure we stay within the accessible range.
+    */
+   uint32_t max_bindless_surface_offset;
+
    uint64_t aperture_bytes;
 
    /**
