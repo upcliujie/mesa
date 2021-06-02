@@ -1344,10 +1344,6 @@ GENX(pan_blit_ctx_init)(struct panfrost_device *dev,
 
         ctx->rsd = pan_blit_get_rsd(dev, sviews, &dview);
 
-        ASSERTED unsigned nlayers = info->src.end.layer - info->src.start.layer + 1;
-
-        assert(nlayers == (info->dst.end.layer - info->dst.start.layer + 1));
-
         unsigned dst_w = u_minify(info->dst.planes[0].image->layout.width, info->dst.level);
         unsigned dst_h = u_minify(info->dst.planes[0].image->layout.height, info->dst.level);
         unsigned maxx = MIN2(MAX2(info->dst.start.x, info->dst.end.x), dst_w - 1);
