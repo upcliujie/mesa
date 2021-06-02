@@ -105,8 +105,10 @@ collect_varyings(nir_shader *s, nir_variable_mode varying_mode,
                 chan = 4;
 
                 nir_alu_type type = nir_get_nir_type_for_glsl_base_type(base_type);
-
                 type = nir_alu_type_get_base_type(type);
+
+                if (var->data.interpolation == INTERP_MODE_FLAT)
+                        type = nir_type_uint;
 
                 /* Demote to fp16 where possible. int16 varyings are TODO as the hw
                  * will saturate instead of wrap which is not conformant, so we need to
