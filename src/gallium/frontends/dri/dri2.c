@@ -2490,7 +2490,6 @@ dri2_init_screen(__DRIscreen * sPriv)
 
    screen->can_share_buffer = true;
    screen->auto_fake_front = dri_with_format(sPriv);
-   screen->broken_invalidate = !sPriv->dri2.useInvalidate;
    screen->lookup_egl_image = dri2_lookup_egl_image;
 
    const __DRIimageLookupExtension *loader = sPriv->dri2.image;
@@ -2553,7 +2552,6 @@ dri_kms_init_screen(__DRIscreen * sPriv)
 
    screen->can_share_buffer = false;
    screen->auto_fake_front = dri_with_format(sPriv);
-   screen->broken_invalidate = !sPriv->dri2.useInvalidate;
    screen->lookup_egl_image = dri2_lookup_egl_image;
 
    const __DRIimageLookupExtension *loader = sPriv->dri2.image;
