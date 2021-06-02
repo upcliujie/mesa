@@ -124,6 +124,8 @@ struct fd_device {
    struct fd_bo_cache bo_cache;
    struct fd_bo_cache ring_cache;
 
+   uint32_t ring_flags;
+
    int closefd; /* call close(fd) upon destruction */
 
    /* just for valgrind: */
