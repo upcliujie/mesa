@@ -99,6 +99,13 @@ nvc0_screen_is_format_supported(struct pipe_screen *pscreen,
       }
    }
 
+   if (bindings & PIPE_BIND_INDEX_BUFFER) {
+      if (format == PIPE_FORMAT_R8_UINT ||
+          format == PIPE_FORMAT_R16_UINT ||
+          format == PIPE_FORMAT_R32_UINT)
+         bindings &= PIPE_BIND_INDEX_BUFFER;
+   }
+
    return (( nvc0_format_table[format].usage |
             nvc0_vertex_format[format].usage) & bindings) == bindings;
 }
