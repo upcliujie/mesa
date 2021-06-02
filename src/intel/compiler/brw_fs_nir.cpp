@@ -3501,7 +3501,7 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       const glsl_interp_mode interp_mode =
          (enum glsl_interp_mode) nir_intrinsic_interp_mode(instr);
       enum brw_barycentric_mode bary =
-         brw_barycentric_mode(interp_mode, instr->intrinsic);
+         brw_barycentric_mode(devinfo, interp_mode, instr->intrinsic);
       const fs_reg srcs[] = { offset(this->delta_xy[bary], bld, 0),
                               offset(this->delta_xy[bary], bld, 1) };
       bld.LOAD_PAYLOAD(dest, srcs, ARRAY_SIZE(srcs), 0);
@@ -3626,7 +3626,7 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       } else {
          /* Use the delta_xy values computed from the payload */
          enum brw_barycentric_mode bary =
-            brw_barycentric_mode(interp_mode, bary_intrin);
+            brw_barycentric_mode(devinfo, interp_mode, bary_intrin);
          dst_xy = this->delta_xy[bary];
       }
 

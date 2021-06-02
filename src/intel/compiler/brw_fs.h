@@ -652,7 +652,8 @@ fs_reg setup_imm_b(const brw::fs_builder &bld,
 fs_reg setup_imm_ub(const brw::fs_builder &bld,
                    uint8_t v);
 
-enum brw_barycentric_mode brw_barycentric_mode(enum glsl_interp_mode mode,
+enum brw_barycentric_mode brw_barycentric_mode(const struct intel_device_info *devinfo,
+                                               enum glsl_interp_mode mode,
                                                nir_intrinsic_op op);
 
 uint32_t brw_fb_write_msg_control(const fs_inst *inst,
