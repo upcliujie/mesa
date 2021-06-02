@@ -2063,3 +2063,26 @@ anv_device_release_bo(struct anv_device *device,
     */
    pthread_mutex_unlock(&cache->mutex);
 }
+
+VkResult
+anv_surface_state_pool_alloc(struct anv_device *device,
+                             uint32_t n_surfaces,
+                             struct anv_state *out_state)
+{
+   const struct isl_device *isl_dev = &device->isl_dev;
+   uint32_t size =
+      n_surfaces * align_u32(isl_dev->ss.size, isl_dev->ss.align);
+   struct anv_state state =
+      anv_state_pool_alloc(&device->surface_state_pool, size, isl_dev->ss.align);
+
+   if (device->physical->has_bindless_images &&
+       (state.offset + size) > ANV_MAX_BINDLESS_SURFACE_STATE_OFFSET) {
+      anv_state_pool_free(&device->surface_state_pool, state);
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+   }
+
+   *out_state = state;
+
+   return VK_SUCCESS;
+
+}

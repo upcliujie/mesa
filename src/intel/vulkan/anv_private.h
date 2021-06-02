@@ -1302,6 +1302,10 @@ anv_binding_table_pool_free(struct anv_device *device, struct anv_state state) {
    anv_state_pool_free(anv_binding_table_pool(device), state);
 }
 
+VkResult
+anv_surface_state_pool_alloc(struct anv_device *device, uint32_t n_surfaces,
+                             struct anv_state *out_state);
+
 static inline uint32_t
 anv_mocs(const struct anv_device *device,
          const struct anv_bo *bo,
