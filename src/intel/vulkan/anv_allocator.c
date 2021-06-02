@@ -1227,9 +1227,9 @@ anv_state_stream_finish(struct anv_state_stream *stream)
    VG(VALGRIND_DESTROY_MEMPOOL(stream));
 }
 
-struct anv_state
-anv_state_stream_alloc(struct anv_state_stream *stream,
-                       uint32_t size, uint32_t alignment)
+static struct anv_state
+_anv_state_stream_alloc(struct anv_state_stream *stream,
+                        uint32_t size, uint32_t alignment)
 {
    if (size == 0)
       return ANV_STATE_NULL;
@@ -1274,6 +1274,33 @@ anv_state_stream_alloc(struct anv_state_stream *stream,
    }
 
    return state;
+}
+
+struct anv_state
+anv_state_stream_alloc(struct anv_state_stream *stream,
+                       uint32_t size, uint32_t alignment)
+{
+   return _anv_state_stream_alloc(stream, size, alignment);
+}
+
+VkResult
+anv_state_stream_alloc_surface_state(struct anv_state_stream *stream,
+                                     uint32_t n_surfaces,
+                                     struct anv_state *out_state)
+{
+   struct anv_device *device = stream->state_pool->block_pool.device;
+   const struct isl_device *isl_dev = &device->isl_dev;
+   uint32_t size =
+      n_surfaces * align_u32(isl_dev->ss.size, isl_dev->ss.align);
+   struct anv_state state = _anv_state_stream_alloc(stream, size, isl_dev->ss.align);
+
+   if (device->physical->has_bindless_images &&
+       (state.offset + size) > ANV_MAX_BINDLESS_SURFACE_STATE_OFFSET)
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   *out_state = state;
+
+   return VK_SUCCESS;
 }
 
 void
