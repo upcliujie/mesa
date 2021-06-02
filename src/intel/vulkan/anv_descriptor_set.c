@@ -1259,7 +1259,8 @@ anv_surface_state_to_handle(struct anv_state state)
     */
    assert(state.offset >= 0);
    uint32_t offset = state.offset;
-   assert((offset & 0x3f) == 0 && offset < (1 << 26));
+   assert((offset & 0x3f) == 0 &&
+          offset < ANV_MAX_BINDLESS_SURFACE_STATE_OFFSET);
    return offset << 6;
 }
 

@@ -195,6 +195,20 @@ struct intel_perf_query_result;
 #define MAX_VIEWS_FOR_PRIMITIVE_REPLICATION 16
 #define MAX_SAMPLE_LOCATIONS 16
 
+/* From the Skylake PRM Vol. 2d: "Command Reference: Structures"
+ *   - Extended Message Descriptor - Sampling Engine:
+ *
+ * The extended message descriptor given from a shader thread has a field
+ * limited to bits 31:12 for the surface state. Those bits represent an offset
+ * from STATE_BASE_ADDRESS::BindlessSurfaceOffset covering the bits 25:6.
+ *
+ * This means we can only have bindless surface states within the first 26
+ * bits of STATE_BASE_ADDRESS::BindlessSurfaceOffset. This limit should be
+ * used when allocating surface states from anv_device::surface_state_pool to
+ * ensure we stay within the accessible range.
+ */
+#define ANV_MAX_BINDLESS_SURFACE_STATE_OFFSET (1U << 26)
+
 /* From the Skylake PRM Vol. 7 "Binding Table Surface State Model":
  *
  *    "The surface state model is used when a Binding Table Index (specified
