@@ -2122,9 +2122,13 @@ panfrost_emit_varying_descs(
         }
 
         for (unsigned i = 0; i < producer_count; ++i) {
+                signed j = pan_find_vary(consumer->info.varyings.input,
+                                consumer->info.varyings.input_count,
+                                producer->info.varyings.output[i].location);
+
                 panfrost_emit_varying(dev, descs + i,
                                 producer->info.varyings.output[i],
-                                producer->info.varyings.output[i].format,
+                                consumer->info.varyings.input[j].format,
                                 out->present, 0, &producer->stream_output,
                                 producer->so_mask, xfb->num_targets,
                                 xfb_offsets, offsets[i], PAN_VARY_POSITION);
@@ -2139,7 +2143,7 @@ panfrost_emit_varying_descs(
 
                 panfrost_emit_varying(dev, descs + producer_count + i,
                                 consumer->info.varyings.input[i],
-                                producer->info.varyings.output[j].format,
+                                consumer->info.varyings.input[i].format,
                                 out->present, point_coord_mask,
                                 &producer->stream_output, producer->so_mask,
                                 xfb->num_targets, xfb_offsets, offset,
