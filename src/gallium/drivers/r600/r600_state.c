@@ -241,6 +241,13 @@ bool r600_is_format_supported(struct pipe_screen *screen,
 	    !(usage & PIPE_BIND_DEPTH_STENCIL))
 		retval |= PIPE_BIND_LINEAR;
 
+	if (usage & PIPE_BIND_INDEX_BUFFER) {
+		if (format == PIPE_FORMAT_R8_UINT ||
+		    format == PIPE_FORMAT_R16_UINT ||
+		    format == PIPE_FORMAT_R32_UINT)
+			retval |= PIPE_BIND_INDEX_BUFFER;
+	}
+
 	return retval == usage;
 }
 
