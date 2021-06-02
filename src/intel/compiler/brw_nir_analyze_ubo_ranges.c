@@ -202,11 +202,6 @@ brw_nir_analyze_ubo_ranges(const struct brw_compiler *compiler,
 {
    const struct intel_device_info *devinfo = compiler->devinfo;
 
-   if (devinfo->verx10 <= 70) {
-      memset(out_ranges, 0, 4 * sizeof(struct brw_ubo_range));
-      return;
-   }
-
    void *mem_ctx = ralloc_context(NULL);
 
    struct ubo_analysis_state state = {
