@@ -755,7 +755,8 @@ panfrost_batch_draw_wallpaper(struct panfrost_batch *batch,
         struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
 
         pan_preload_fb(&batch->pool, &batch->scoreboard, fb, batch->tls.gpu,
-                       pan_is_bifrost(dev) ? batch->tiler_ctx.bifrost : 0);
+                       pan_is_bifrost(dev) ? batch->tiler_ctx.bifrost : 0,
+                       NULL);
 }
 
 static void
