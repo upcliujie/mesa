@@ -102,6 +102,7 @@ collect_varyings(nir_shader *s, nir_variable_mode varying_mode,
                  */
                 chan += var->data.location_frac;
                 assert(chan >= 1 && chan <= 4);
+                chan = 4;
 
                 nir_alu_type type = nir_get_nir_type_for_glsl_base_type(base_type);
 
