@@ -28,6 +28,12 @@ main(int argc, char *argv[])
       assert(devinfo.num_thread_per_eu != 0);
       assert(devinfo.timestamp_frequency != 0);
       assert(devinfo.cs_prefetch_size > 0);
+
+      /* Bindless surfaces are available on Gfx9+, so we should have a valid
+       * value on anything above that, 0 otherwise.
+       */
+      assert((devinfo.verx10 < 90 && devinfo.max_bindless_surface_offset == 0) ||
+             (devinfo.verx10 >= 90 && devinfo.max_bindless_surface_offset > 0));
    }
 
    return 0;
