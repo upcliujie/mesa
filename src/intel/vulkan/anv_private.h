@@ -784,6 +784,9 @@ void anv_state_stream_init(struct anv_state_stream *stream,
 void anv_state_stream_finish(struct anv_state_stream *stream);
 struct anv_state anv_state_stream_alloc(struct anv_state_stream *stream,
                                         uint32_t size, uint32_t alignment);
+VkResult anv_state_stream_alloc_surface_state(struct anv_state_stream *stream,
+                                              uint32_t n_surfaces,
+                                              struct anv_state *out_state);
 
 void anv_state_reserved_pool_init(struct anv_state_reserved_pool *pool,
                                       struct anv_state_pool *parent,
