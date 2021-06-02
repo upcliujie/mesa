@@ -689,11 +689,6 @@ void lp_build_fetch_args(
    struct lp_build_tgsi_context * bld_base,
    struct lp_build_emit_data * emit_data);
 
-LLVMValueRef
-lp_build_tgsi_inst_llvm_aos(
-   struct lp_build_tgsi_context * bld_base,
-   const struct tgsi_full_instruction *inst);
-
 void
 lp_build_tgsi_intrinsic(
  const struct lp_build_tgsi_action * action,
