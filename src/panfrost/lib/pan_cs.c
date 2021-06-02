@@ -742,9 +742,8 @@ pan_emit_mfbd(const struct panfrost_device *dev,
                         /* If the data is currently invalid, still write CRC
                          * data if we are doing a full write, so that it is
                          * valid for next time. */
-                        cfg.crc_write_enable = valid || full;
-
-                        crc_slice->crc_valid |= full;
+                        cfg.crc_write_enable = full;
+                        crc_slice->crc_valid = full;
                 }
         }
 
