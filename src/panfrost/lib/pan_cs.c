@@ -727,7 +727,11 @@ pan_emit_mfbd(const struct panfrost_device *dev,
                 cfg.s_write_enable = (fb->zs.view.s && !fb->zs.discard.s);
                 cfg.has_zs_crc_extension = has_zs_crc_ext;
 
-                if (crc_slice) {
+                /* The behaviour of CRC depends on the effective tile size. CRC
+                 * only really makes sense at 16x16, the default tile size.
+                 * Disable CRC if we pick a different effective tile size to
+                 * avoid corruption. */
+                if (crc_slice && tile_size == 16*16) {
                         bool valid = crc_slice->crc_valid;
                         bool full = !fb->extent.minx && !fb->extent.miny &&
                                     fb->extent.maxx == (fb->width - 1) &&
