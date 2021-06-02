@@ -1611,13 +1611,12 @@ genX(cmd_buffer_alloc_att_surf_states)(struct anv_cmd_buffer *cmd_buffer,
    }
 
    const uint32_t ss_stride = align_u32(isl_dev->ss.size, isl_dev->ss.align);
-   state->attachment_states =
-      anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
-                             num_states * ss_stride, isl_dev->ss.align);
-   if (state->attachment_states.map == NULL) {
-      return anv_batch_set_error(&cmd_buffer->batch,
-                                 VK_ERROR_OUT_OF_DEVICE_MEMORY);
-   }
+   VkResult result =
+      anv_state_stream_alloc_surface_state(&cmd_buffer->surface_state_stream,
+                                           num_states,
+                                           &state->attachment_states);
+   if (result != VK_SUCCESS)
+      return anv_batch_set_error(&cmd_buffer->batch, result);
 
    struct anv_state next_state = state->attachment_states;
    next_state.alloc_size = isl_dev->ss.size;
@@ -2580,8 +2579,11 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
          break;
 
       case ANV_DESCRIPTOR_SET_SHADER_CONSTANTS: {
-         struct anv_state surface_state =
-            anv_cmd_buffer_alloc_surface_state(cmd_buffer);
+         struct anv_state surface_state;
+         VkResult result =
+            anv_cmd_buffer_alloc_surface_state(cmd_buffer, &surface_state);
+         if (result != VK_SUCCESS)
+            return result;
 
          struct anv_address constant_data = {
             .bo = cmd_buffer->device->instruction_state_pool.block_pool.bo,
@@ -2608,8 +2610,10 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
          /* This is always the first binding for compute shaders */
          assert(shader->stage == MESA_SHADER_COMPUTE && s == 0);
 
-         struct anv_state surface_state =
-            anv_cmd_buffer_alloc_surface_state(cmd_buffer);
+         VkResult result =
+            anv_cmd_buffer_alloc_surface_state(cmd_buffer, &surface_state);
+         if (result != VK_SUCCESS)
+            return result;
 
          const enum isl_format format =
             anv_isl_format_for_descriptor_type(cmd_buffer->device,
@@ -2777,8 +2781,11 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
                struct anv_address address =
                   anv_address_add(desc->buffer->address, offset);
 
-               surface_state =
-                  anv_state_stream_alloc(&cmd_buffer->surface_state_stream, 64, 64);
+               VkResult result =
+                  anv_state_stream_alloc_surface_state(&cmd_buffer->surface_state_stream,
+                                                       1, &surface_state);
+               if (result != VK_SUCCESS)
+                  return anv_batch_set_error(&cmd_buffer->batch, result);
                enum isl_format format =
                   anv_isl_format_for_descriptor_type(cmd_buffer->device,
                                                      desc->type);
