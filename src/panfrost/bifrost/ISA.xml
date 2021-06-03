@@ -6200,7 +6200,7 @@
     </mod>
   </ins>
 
-  <ins name="+LD_ATTR" staging="w=format" message="attribute">
+  <ins name="+LD_ATTR" staging="w=4" message="attribute">
     <src start="0"/>
     <src start="3"/>
     <src start="6"/>
@@ -6239,7 +6239,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_ATTR_IMM" staging="w=format" message="attribute">
+  <ins name="+LD_ATTR_IMM" staging="w=4" message="attribute">
     <src start="0"/>
     <src start="3"/>
     <immediate name="attribute_index" start="6" size="4"/>
@@ -6278,7 +6278,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_ATTR_TEX" staging="w=format" message="attribute">
+  <ins name="+LD_ATTR_TEX" staging="w=4" message="attribute">
     <src start="0"/>
     <src start="3"/>
     <src start="6"/>
@@ -6317,7 +6317,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_CVT" staging="w=format" mask="0xff800" exact="0xc9000" message="load">
+  <ins name="+LD_CVT" staging="w=4" mask="0xff800" exact="0xc9000" message="load">
     <src start="0"/>
     <src start="3"/>
     <src start="6" mask="0xf7"/>
@@ -6505,7 +6505,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_VAR_FLAT" staging="w=format" message="varying">
+  <ins name="+LD_VAR_FLAT" staging="w=4" message="varying">
     <src start="3"/>
     <mod name="vecsize" start="8" size="2">
       <opt>none</opt>
@@ -6558,7 +6558,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_VAR_FLAT_IMM" staging="w=format" message="varying">
+  <ins name="+LD_VAR_FLAT_IMM" staging="w=4" message="varying">
     <immediate name="index" start="3" size="5"/>
     <mod name="vecsize" start="8" size="2">
       <opt>none</opt>
@@ -6611,7 +6611,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_VAR_IMM" staging="w=format" message="varying">
+  <ins name="+LD_VAR_IMM" staging="w=4" message="varying">
     <src start="0"/>
     <immediate name="index" start="3" size="5"/>
     <mod name="vecsize" start="8" size="2">
@@ -6752,7 +6752,7 @@
     </encoding>
   </ins>
 
-  <ins name="+LD_VAR_SPECIAL" staging="w=format" message="varying">
+  <ins name="+LD_VAR_SPECIAL" staging="w=4" message="varying">
     <src start="0"/>
     <mod name="varying_name" size="5">
       <opt>point</opt>
