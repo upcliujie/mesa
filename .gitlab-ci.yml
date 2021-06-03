@@ -100,7 +100,7 @@ pages:
   stage: deploy
   artifacts:
     paths:
-    - public
+    - public/
   needs: []
   rules:
     - *ignore_scheduled_pipelines
