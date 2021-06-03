@@ -791,7 +791,13 @@ ngg_gs_finale(nir_builder *b, lower_ngg_gs_state *s)
 
    /* When the output is not known in compile time: there are gaps between the output vertices data in LDS.
     * However, we need to make sure that the vertex exports are packed, meaning that there shouldn't be any gaps
-    * between the threads that perform the exports. We solve this using a perform a workgroup reduction + scan.
+    * between the threads that perform the exports. We solve this using a workgroup reduction + scan.
+    *
+    * The result of the reduction is the total number of vertices exported by the workgroup.
+    * This is used for allocating space in the parameter cache.
+    *
+    * The result of the exclusive scan tells every invocation with a live vertex which invocation
+    * is going to export that vertex.
     */
    nir_ssa_def *vertex_live = nir_ine(b, out_vtx_primflag_0, nir_imm_zero(b, 1, out_vtx_primflag_0->bit_size));
    wg_scan_result wg_scan = workgroup_reduce_and_exclusive_scan(b, vertex_live, s->lds_addr_gs_scratch, s->max_num_waves);
