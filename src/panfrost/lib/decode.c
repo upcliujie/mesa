@@ -381,6 +381,24 @@ pandecode_attributes(const struct pandecode_mapped_memory *mem,
                 pan_unpack(cl + i * MALI_ATTRIBUTE_BUFFER_LENGTH, ATTRIBUTE_BUFFER, temp);
                 DUMP_UNPACKED(ATTRIBUTE_BUFFER, temp, "%s:\n", prefix);
 
+                const uint32_t *cl = 0;
+                struct pandecode_mapped_memory *mem = pandecode_find_mapped_gpu_mem_containing(temp.pointer);
+
+                if (mem && mem->addr) {
+                        cl = pandecode_fetch_gpu_mem(mem, temp.pointer, temp.size);
+
+                        printf("%" PRIx64 " %p %u\n", temp.pointer, cl, temp.size);
+
+                        if (cl) {
+                                printf("dump\n");
+                                for (unsigned i = 0; i < MIN2(temp.size / 4, 32); ++i) {
+                                        fprintf(pandecode_dump_stream, "%u: %u\n", i, cl[i]);
+                                }
+                        }
+                } else {
+                        printf("no mem for %" PRIx64 "\n", temp.pointer);
+                }
+
                 switch (temp.type) {
                 case MALI_ATTRIBUTE_TYPE_1D_NPOT_DIVISOR_WRITE_REDUCTION:
                 case MALI_ATTRIBUTE_TYPE_1D_NPOT_DIVISOR: {
@@ -527,6 +545,19 @@ static void
 pandecode_uniforms(mali_ptr uniforms, unsigned uniform_count)
 {
         pandecode_validate_buffer(uniforms, uniform_count * 16);
+
+        struct pandecode_mapped_memory *mem = pandecode_find_mapped_gpu_mem_containing(uniforms);
+
+        uint64_t *cl = pandecode_fetch_gpu_mem(mem, uniforms, 8);
+
+        for (unsigned j = 0; j < 2; ++j) {
+                mem = pandecode_find_mapped_gpu_mem_containing(cl[j]);
+                uint32_t *foo = pandecode_fetch_gpu_mem(mem, cl[j], 8);
+
+                for (unsigned i = 0; i < 4; ++i) {
+                        fprintf(pandecode_dump_stream, "%u: %u\n", i, foo[i]);
+                }
+        }
 
         char *ptr = pointer_as_memory_reference(uniforms);
         pandecode_log("vec4 uniforms[%u] = %s;\n", uniform_count, ptr);

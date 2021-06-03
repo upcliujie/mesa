@@ -93,6 +93,7 @@ pandecode_inject_mmap(uint64_t gpu_va, void *cpu, unsigned sz, const char *name)
 
         struct pandecode_mapped_memory *existing =
                 pandecode_find_mapped_gpu_mem_containing_rw(gpu_va);
+        printf("mapping %" PRIx64 " - %" PRIx64 "\n", gpu_va, gpu_va + sz);
 
         if (existing && existing->gpu_va == gpu_va) {
                 existing->length = sz;
@@ -126,6 +127,7 @@ pandecode_inject_free(uint64_t gpu_va, unsigned sz)
         if (!mem)
                 return;
 
+        printf("freeing %" PRIx64 " - %" PRIx64 "\n", gpu_va, gpu_va + sz);
         assert(mem->gpu_va == gpu_va);
         assert(mem->length == sz);
 
