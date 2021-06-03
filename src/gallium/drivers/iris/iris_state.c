@@ -2326,6 +2326,7 @@ get_rt_read_isl_surf(const struct intel_device_info *devinfo,
                      struct isl_surf *surf)
 {
    *surf = res->surf;
+   return;
 
    const enum isl_dim_layout dim_layout =
       iris_get_isl_dim_layout(devinfo, res->surf.tiling, target);
@@ -2334,6 +2335,8 @@ get_rt_read_isl_surf(const struct intel_device_info *devinfo,
 
    if (surf->dim_layout == dim_layout)
       return;
+
+   assert(!"Wut!?!");
 
    /* The layout of the specified texture target is not compatible with the
     * actual layout of the miptree structure in memory -- You're entering
