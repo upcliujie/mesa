@@ -1182,8 +1182,7 @@ iris_compile_vs(struct iris_screen *screen,
                 struct u_upload_mgr *uploader,
                 struct pipe_debug_callback *dbg,
                 struct iris_uncompiled_shader *ish,
-                struct iris_compiled_shader *shader,
-                const struct iris_vs_prog_key *key)
+                struct iris_compiled_shader *shader)
 {
    const struct brw_compiler *compiler = screen->compiler;
    const struct intel_device_info *devinfo = &screen->devinfo;
@@ -1197,6 +1196,7 @@ iris_compile_vs(struct iris_screen *screen,
    unsigned num_cbufs;
 
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
+   const struct iris_vs_prog_key *const key = &shader->key.vs;
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
@@ -1284,7 +1284,7 @@ iris_update_compiled_vs(struct iris_context *ice)
 
    if (added && !iris_disk_cache_retrieve(screen, uploader, ish, shader,
                                           &key, sizeof(key))) {
-      iris_compile_vs(screen, uploader, &ice->dbg, ish, shader, &key);
+      iris_compile_vs(screen, uploader, &ice->dbg, ish, shader);
    }
 
    if (shader->compilation_failed)
@@ -1360,8 +1360,7 @@ iris_compile_tcs(struct iris_screen *screen,
                  struct u_upload_mgr *uploader,
                  struct pipe_debug_callback *dbg,
                  struct iris_uncompiled_shader *ish,
-                 struct iris_compiled_shader *shader,
-                 const struct iris_tcs_prog_key *key)
+                 struct iris_compiled_shader *shader)
 {
    const struct brw_compiler *compiler = screen->compiler;
    const struct nir_shader_compiler_options *options =
@@ -1380,6 +1379,7 @@ iris_compile_tcs(struct iris_screen *screen,
 
    struct iris_binding_table bt;
 
+   const struct iris_tcs_prog_key *const key = &shader->key.tcs;
    struct brw_tcs_prog_key brw_key = iris_to_brw_tcs_key(devinfo, key);
 
    if (ish) {
@@ -1515,7 +1515,7 @@ iris_update_compiled_tcs(struct iris_context *ice)
        (tcs == NULL || !iris_disk_cache_retrieve(screen, uploader, tcs, shader,
                                                  &key, sizeof(key)))) {
       iris_compile_tcs(screen, ice->shaders.cache, uploader, &ice->dbg, tcs,
-                       shader, &key);
+                       shader);
    }
 
    if (shader->compilation_failed)
@@ -1542,8 +1542,7 @@ iris_compile_tes(struct iris_screen *screen,
                  struct u_upload_mgr *uploader,
                  struct pipe_debug_callback *dbg,
                  struct iris_uncompiled_shader *ish,
-                 struct iris_compiled_shader *shader,
-                 const struct iris_tes_prog_key *key)
+                 struct iris_compiled_shader *shader)
 {
    const struct brw_compiler *compiler = screen->compiler;
    void *mem_ctx = ralloc_context(NULL);
@@ -1557,6 +1556,7 @@ iris_compile_tes(struct iris_screen *screen,
    unsigned num_cbufs;
 
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
+   const struct iris_tes_prog_key *const key = &shader->key.tes;
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
@@ -1639,7 +1639,7 @@ iris_update_compiled_tes(struct iris_context *ice)
 
    if (added && !iris_disk_cache_retrieve(screen, uploader, ish, shader,
                                           &key, sizeof(key))) {
-      iris_compile_tes(screen, uploader, &ice->dbg, ish, shader, &key);
+      iris_compile_tes(screen, uploader, &ice->dbg, ish, shader);
    }
 
    if (shader->compilation_failed)
@@ -1673,8 +1673,7 @@ iris_compile_gs(struct iris_screen *screen,
                 struct u_upload_mgr *uploader,
                 struct pipe_debug_callback *dbg,
                 struct iris_uncompiled_shader *ish,
-                struct iris_compiled_shader *shader,
-                const struct iris_gs_prog_key *key)
+                struct iris_compiled_shader *shader)
 {
    const struct brw_compiler *compiler = screen->compiler;
    const struct intel_device_info *devinfo = &screen->devinfo;
@@ -1688,6 +1687,7 @@ iris_compile_gs(struct iris_screen *screen,
    unsigned num_cbufs;
 
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
+   const struct iris_gs_prog_key *const key = &shader->key.gs;
 
    if (key->vue.nr_userclip_plane_consts) {
       nir_function_impl *impl = nir_shader_get_entrypoint(nir);
@@ -1772,7 +1772,7 @@ iris_update_compiled_gs(struct iris_context *ice)
 
       if (added && !iris_disk_cache_retrieve(screen, uploader, ish, shader,
                                              &key, sizeof(key))) {
-         iris_compile_gs(screen, uploader, &ice->dbg, ish, shader, &key);
+         iris_compile_gs(screen, uploader, &ice->dbg, ish, shader);
       }
    }
 
@@ -1802,7 +1802,6 @@ iris_compile_fs(struct iris_screen *screen,
                 struct pipe_debug_callback *dbg,
                 struct iris_uncompiled_shader *ish,
                 struct iris_compiled_shader *shader,
-                const struct iris_fs_prog_key *key,
                 struct brw_vue_map *vue_map)
 {
    const struct brw_compiler *compiler = screen->compiler;
@@ -1816,6 +1815,7 @@ iris_compile_fs(struct iris_screen *screen,
    unsigned num_cbufs;
 
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
+   const struct iris_fs_prog_key *const key = &shader->key.fs;
 
    prog_data->use_alt_mode = ish->use_alt_mode;
 
@@ -1909,8 +1909,7 @@ iris_update_compiled_fs(struct iris_context *ice)
 
    if (added && !iris_disk_cache_retrieve(screen, uploader, ish, shader,
                                           &key, sizeof(key))) {
-      iris_compile_fs(screen, uploader, &ice->dbg, ish, shader, &key,
-                      last_vue_map);
+      iris_compile_fs(screen, uploader, &ice->dbg, ish, shader, last_vue_map);
    }
 
    if (shader->compilation_failed)
@@ -2093,8 +2092,7 @@ iris_compile_cs(struct iris_screen *screen,
                 struct u_upload_mgr *uploader,
                 struct pipe_debug_callback *dbg,
                 struct iris_uncompiled_shader *ish,
-                struct iris_compiled_shader *shader,
-                const struct iris_cs_prog_key *key)
+                struct iris_compiled_shader *shader)
 {
    const struct brw_compiler *compiler = screen->compiler;
    void *mem_ctx = ralloc_context(NULL);
@@ -2107,6 +2105,7 @@ iris_compile_cs(struct iris_screen *screen,
    unsigned num_cbufs;
 
    nir_shader *nir = nir_shader_clone(mem_ctx, ish->nir);
+   const struct iris_cs_prog_key *const key = &shader->key.cs;
 
    NIR_PASS_V(nir, brw_nir_lower_cs_intrinsics);
 
@@ -2171,7 +2170,7 @@ iris_update_compiled_cs(struct iris_context *ice)
 
    if (added && !iris_disk_cache_retrieve(screen, uploader, ish, shader,
                                           &key, sizeof(key))) {
-      iris_compile_cs(screen, uploader, &ice->dbg, ish, shader, &key);
+      iris_compile_cs(screen, uploader, &ice->dbg, ish, shader);
    }
 
    if (shader->compilation_failed)
@@ -2449,7 +2448,7 @@ iris_create_compute_state(struct pipe_context *ctx,
 
       if (!iris_disk_cache_retrieve(screen, uploader, ish, shader,
                                     &key, sizeof(key))) {
-         iris_compile_cs(screen, uploader, &ice->dbg, ish, shader, &key);
+         iris_compile_cs(screen, uploader, &ice->dbg, ish, shader);
       }
    }
 
@@ -2465,24 +2464,19 @@ iris_compile_shader(struct iris_screen *screen,
 {
    switch (ish->nir->info.stage) {
    case MESA_SHADER_VERTEX:
-      iris_compile_vs(screen, uploader, dbg, ish, shader,
-                      &shader->key.vs);
+      iris_compile_vs(screen, uploader, dbg, ish, shader);
       break;
    case MESA_SHADER_TESS_CTRL:
-      iris_compile_tcs(screen, NULL, uploader, dbg, ish, shader,
-                       &shader->key.tcs);
+      iris_compile_tcs(screen, NULL, uploader, dbg, ish, shader);
       break;
    case MESA_SHADER_TESS_EVAL:
-      iris_compile_tes(screen, uploader, dbg, ish, shader,
-                       &shader->key.tes);
+      iris_compile_tes(screen, uploader, dbg, ish, shader);
       break;
    case MESA_SHADER_GEOMETRY:
-      iris_compile_gs(screen, uploader, dbg, ish, shader,
-                      &shader->key.gs);
+      iris_compile_gs(screen, uploader, dbg, ish, shader);
       break;
    case MESA_SHADER_FRAGMENT:
-      iris_compile_fs(screen, uploader, dbg, ish, shader,
-                      &shader->key.fs, NULL);
+      iris_compile_fs(screen, uploader, dbg, ish, shader, NULL);
       break;
 
    default:
