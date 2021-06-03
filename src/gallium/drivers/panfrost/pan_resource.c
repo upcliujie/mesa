@@ -614,8 +614,6 @@ panfrost_resource_create_with_modifier(struct pipe_screen *screen,
 
         pipe_reference_init(&so->base.reference, 1);
 
-        util_range_init(&so->valid_buffer_range);
-
         panfrost_resource_setup(dev, so, modifier, template->format);
 
         /* Guess a label based on the bind */
@@ -697,7 +695,6 @@ panfrost_resource_destroy(struct pipe_screen *screen,
         if (rsrc->image.crc.bo)
                 panfrost_bo_unreference(rsrc->image.crc.bo);
 
-        util_range_destroy(&rsrc->valid_buffer_range);
         ralloc_free(rsrc);
 }
 
@@ -861,26 +858,6 @@ panfrost_ptr_map(struct pipe_context *pctx,
                 pandecode_inject_mmap(bo->ptr.gpu, bo->ptr.cpu, bo->size, NULL);
 
         bool create_new_bo = usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE;
-        bool copy_resource = false;
-
-        if (!create_new_bo &&
-            !(usage & PIPE_MAP_UNSYNCHRONIZED) &&
-            (usage & PIPE_MAP_WRITE) &&
-            !(resource->target == PIPE_BUFFER
-              && !util_ranges_intersect(&rsrc->valid_buffer_range, box->x, box->x + box->width)) &&
-            panfrost_pending_batches_access_bo(ctx, bo)) {
-
-                /* When a resource to be modified is already being used by a
-                 * pending batch, it is often faster to copy the whole BO than
-                 * to flush and split the frame in two.
-                 */
-
-                panfrost_flush_batches_accessing_bo(ctx, bo, false);
-                panfrost_bo_wait(bo, INT64_MAX, false);
-
-                create_new_bo = true;
-                copy_resource = true;
-        }
 
         if (create_new_bo) {
                 /* If the BO is used by one of the pending batches or if it's
@@ -903,14 +880,10 @@ panfrost_ptr_map(struct pipe_context *pctx,
                                                            flags, bo->label);
 
                         if (newbo) {
-                                if (copy_resource)
-                                        memcpy(newbo->ptr.cpu, rsrc->image.data.bo->ptr.cpu, bo->size);
-
                                 panfrost_bo_unreference(bo);
                                 rsrc->image.data.bo = newbo;
 
-	                        if (!copy_resource &&
-                                    drm_is_afbc(rsrc->image.layout.modifier))
+                                if (drm_is_afbc(rsrc->image.layout.modifier))
                                         panfrost_resource_init_afbc_headers(rsrc);
 
                                 bo = newbo;
@@ -922,10 +895,6 @@ panfrost_ptr_map(struct pipe_context *pctx,
                                 panfrost_bo_wait(bo, INT64_MAX, true);
                         }
                 }
-        } else if ((usage & PIPE_MAP_WRITE)
-                   && resource->target == PIPE_BUFFER
-                   && !util_ranges_intersect(&rsrc->valid_buffer_range, box->x, box->x + box->width)) {
-                /* No flush for writes to uninitialized */
         } else if (!(usage & PIPE_MAP_UNSYNCHRONIZED)) {
                 if (usage & PIPE_MAP_WRITE) {
                         panfrost_flush_batches_accessing_bo(ctx, bo, true);
@@ -1151,11 +1120,6 @@ panfrost_ptr_unmap(struct pipe_context *pctx,
                 }
         }
 
-
-        util_range_add(&prsrc->base, &prsrc->valid_buffer_range,
-                       transfer->box.x,
-                       transfer->box.x + transfer->box.width);
-
         panfrost_minmax_cache_invalidate(prsrc->index_cache, transfer);
 
         /* Derefence the resource */
@@ -1172,11 +1136,7 @@ panfrost_ptr_flush_region(struct pipe_context *pctx,
 {
         struct panfrost_resource *rsc = pan_resource(transfer->resource);
 
-        if (transfer->resource->target == PIPE_BUFFER) {
-                util_range_add(&rsc->base, &rsc->valid_buffer_range,
-                               transfer->box.x + box->x,
-                               transfer->box.x + box->x + box->width);
-        } else {
+        if (!(transfer->resource->target == PIPE_BUFFER)) {
                 unsigned level = transfer->level;
                 rsc->state.slices[level].data_valid = true;
         }

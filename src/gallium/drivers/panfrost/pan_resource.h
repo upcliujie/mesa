@@ -52,8 +52,6 @@ struct panfrost_resource {
 
         struct panfrost_resource *separate_stencil;
 
-        struct util_range valid_buffer_range;
-
         /* Description of the resource layout */
         struct pan_image image;
 
