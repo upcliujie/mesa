@@ -4271,6 +4271,9 @@ struct anv_image_create_info {
    isl_surf_usage_flags_t isl_extra_usage_flags;
 
    bool external_format;
+
+   /* Image was created with VkExternalMemoryImageCreateInfo. */
+   bool supports_export;
 };
 
 VkResult anv_image_create(VkDevice _device,
