@@ -47,24 +47,29 @@ panvk_CreateDescriptorSetLayout(VkDevice _device,
 {
    VK_FROM_HANDLE(panvk_device, device, _device);
    struct panvk_descriptor_set_layout *set_layout;
-   VkDescriptorSetLayoutBinding *bindings;
+   VkDescriptorSetLayoutBinding *bindings = NULL;
+   VkResult result;
 
-   assert(pCreateInfo->bindingCount);
-
-   VkResult result =
-      vk_create_sorted_bindings(pCreateInfo->pBindings,
-                                pCreateInfo->bindingCount,
-                                &bindings);
-   if (result != VK_SUCCESS)
-      return vk_error(device->instance, result);
+   if (pCreateInfo->bindingCount) {
+      result =
+         vk_create_sorted_bindings(pCreateInfo->pBindings,
+                                   pCreateInfo->bindingCount,
+                                   &bindings);
+      if (result != VK_SUCCESS)
+         return vk_error(device->instance, result);
+   }
 
    unsigned num_immutable_samplers = 0;
    for (unsigned i = 0; i < pCreateInfo->bindingCount; i++) {
       if (bindings[i].pImmutableSamplers)
-        num_immutable_samplers += bindings[i].descriptorCount;
+         num_immutable_samplers += bindings[i].descriptorCount;
    }
 
-   unsigned max_binding = bindings[pCreateInfo->bindingCount - 1].binding;
+   int max_binding;
+   if (pCreateInfo->bindingCount)
+      max_binding = bindings[pCreateInfo->bindingCount - 1].binding;
+   else
+      max_binding = -1;
    size_t size = sizeof(*set_layout) +
                  (sizeof(struct panvk_descriptor_set_binding_layout) *
                   (max_binding + 1)) +
