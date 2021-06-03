@@ -233,6 +233,17 @@ lower_vulkan_resource_index(nir_builder *b, nir_intrinsic_instr *instr,
          binding_layout->dynamic_offset_offset;
       set = MAX_SETS;
       break;
+   case VK_DESCRIPTOR_TYPE_MUTABLE_VALVE:
+      if (binding_layout->size > 4 * A6XX_TEX_CONST_DWORDS) {
+         /* This means the size of ssbo/ubo desc set is twice as normal
+          * cases since the mutable descriptor list contains combined
+          * image+sampler type. So multiply(left-shift) 2 to get proper
+          * index of the desc set.
+          */
+         assert(binding_layout->size == 4 * A6XX_TEX_CONST_DWORDS * 2);
+         vulkan_idx = nir_ishl(b, vulkan_idx, nir_imm_int(b, 1));
+      }
+      FALLTHROUGH;
    default:
       base = binding_layout->offset / (4 * A6XX_TEX_CONST_DWORDS);
       break;
@@ -252,6 +263,7 @@ lower_vulkan_resource_reindex(nir_builder *b, nir_intrinsic_instr *instr)
    nir_ssa_def *old_index = instr->src[0].ssa;
    nir_ssa_def *delta = instr->src[1].ssa;
 
+   /* FIXME. we should deal with cases for mutable descriptors. */
    nir_ssa_def *new_index =
       nir_vec3(b, nir_channel(b, old_index, 0),
                nir_iadd(b, nir_channel(b, old_index, 1), delta),
