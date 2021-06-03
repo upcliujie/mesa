@@ -1027,10 +1027,6 @@ add_all_surfaces_implicit_layout(
       create_info->isl_extra_usage_flags;
    VkResult result;
 
-   const VkExternalMemoryImageCreateInfo *ext_mem_info =
-      vk_find_struct_const(create_info->vk_info->pNext,
-                           EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
-
    u_foreach_bit(b, image->aspects) {
       VkImageAspectFlagBits aspect = 1 << b;
       uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
@@ -1068,8 +1064,8 @@ add_all_surfaces_implicit_layout(
       }
 
       /* Disable aux if image supports export without modifiers. */
-      if (ext_mem_info && ext_mem_info->handleTypes != 0 &&
-          image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
+      if (create_info->supports_export &&
+         image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
          continue;
 
       result = add_aux_surface_if_supported(device, image, plane, plane_format,
@@ -1277,9 +1273,6 @@ anv_image_create(VkDevice _device,
    const struct wsi_image_create_info *wsi_info =
       vk_find_struct_const(pCreateInfo->pNext, WSI_IMAGE_CREATE_INFO_MESA);
 
-   const VkExternalFormatANDROID *ext_format =
-      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_FORMAT_ANDROID);
-
    if (pCreateInfo->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
       mod_explicit_info =
          vk_find_struct_const(pCreateInfo->pNext,
@@ -1326,9 +1319,6 @@ anv_image_create(VkDevice _device,
    image->drm_format_mod = isl_mod_info ? isl_mod_info->modifier :
                                           DRM_FORMAT_MOD_INVALID;
 
-   if (ext_format && ext_format->externalFormat != 0)
-      image->has_android_external_format = true;
-
    if (image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
       image->stencil_usage = pCreateInfo->usage;
       const VkImageStencilUsageCreateInfoEXT *stencil_usage_info =
@@ -1347,12 +1337,11 @@ anv_image_create(VkDevice _device,
       };
    }
 
-   /* In case of AHardwareBuffer import, we don't know the layout yet */
-   const VkExternalMemoryImageCreateInfo *ext_mem_info =
-      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
-   if (ext_mem_info && (ext_mem_info->handleTypes &
-       VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)) {
-      image->from_ahb = true;
+   /* In case of external format, We don't know format yet,
+    * so skip the rest for now.
+    */
+   if (create_info->external_format) {
+      image->external_format = true;
       *pImage = anv_image_to_handle(image);
       return VK_SUCCESS;
    }
@@ -1471,6 +1460,7 @@ anv_image_from_swapchain(VkDevice device,
    return anv_image_create(device,
       &(struct anv_image_create_info) {
          .vk_info = &local_create_info,
+         .external_format = swapchain_image->external_format,
       },
       pAllocator,
       pImage);
@@ -1482,27 +1472,42 @@ anv_CreateImage(VkDevice device,
                 const VkAllocationCallbacks *pAllocator,
                 VkImage *pImage)
 {
+   const VkExternalMemoryImageCreateInfo *create_info =
+      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
+
+   if (create_info && (create_info->handleTypes &
+       VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID))
+      return anv_image_from_external(device, pCreateInfo, create_info,
+                                     pAllocator, pImage);
+
+   bool use_external_format = false;
+   const VkExternalFormatANDROID *ext_format =
+      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_FORMAT_ANDROID);
+
+   /* "If externalFormat is zero, the effect is as if the
+    * VkExternalFormatANDROID structure was not present. Otherwise, the image
+    * will have the specified external format."
+    */
+   if (ext_format && ext_format->externalFormat != 0)
+      use_external_format = true;
+
    const VkNativeBufferANDROID *gralloc_info =
       vk_find_struct_const(pCreateInfo->pNext, NATIVE_BUFFER_ANDROID);
    if (gralloc_info)
       return anv_image_from_gralloc(device, pCreateInfo, gralloc_info,
                                     pAllocator, pImage);
 
-#ifndef VK_USE_PLATFORM_ANDROID_KHR
-   /* Ignore swapchain creation info on Android. Since we don't have an
-    * implementation in Mesa, we're guaranteed to access an Android object
-    * incorrectly.
-    */
    const VkImageSwapchainCreateInfoKHR *swapchain_info =
       vk_find_struct_const(pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
    if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE)
       return anv_image_from_swapchain(device, pCreateInfo, swapchain_info,
                                       pAllocator, pImage);
-#endif
 
    return anv_image_create(device,
       &(struct anv_image_create_info) {
          .vk_info = pCreateInfo,
+         .external_format = use_external_format,
+         .supports_export = create_info && create_info->handleTypes != 0,
       },
       pAllocator,
       pImage);
@@ -1656,7 +1661,7 @@ void anv_GetImageMemoryRequirements2(
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
          VkMemoryDedicatedRequirements *requirements = (void *)ext;
-         if (image->needs_set_tiling || image->from_ahb) {
+         if (image->needs_set_tiling || image->external_format) {
             /* If we need to set the tiling for external consumers, we need a
              * dedicated allocation.
              *
@@ -2708,7 +2713,7 @@ anv_CreateImageView(VkDevice _device,
     * VKSamplerYcbcrConversionInfo with a conversion object created with the same
     * external format as image."
     */
-   assert(!image->has_android_external_format || conv_info);
+   assert(!image->external_format || conv_info);
 
    if (conv_info) {
       ANV_FROM_HANDLE(anv_ycbcr_conversion, conversion, conv_info->conversion);
@@ -2794,8 +2799,7 @@ anv_CreateImageView(VkDevice _device,
    iview->vk_format = pCreateInfo->format;
 
    /* "If image has an external format, format must be VK_FORMAT_UNDEFINED." */
-   assert(!image->has_android_external_format ||
-          pCreateInfo->format == VK_FORMAT_UNDEFINED);
+   assert(!image->external_format || pCreateInfo->format == VK_FORMAT_UNDEFINED);
 
    /* Format is undefined, this can happen when using external formats. Set
     * view format from the passed conversion info.
