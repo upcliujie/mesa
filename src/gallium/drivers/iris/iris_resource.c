@@ -1246,6 +1246,8 @@ iris_resource_from_memobj(struct pipe_screen *pscreen,
    res->offset = offset;
    res->external_format = memobj->format;
 
+   iris_bo_reference(memobj->bo);
+
    return &res->base.b;
 }
 
