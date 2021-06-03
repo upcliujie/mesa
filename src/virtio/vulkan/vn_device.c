@@ -1272,7 +1272,6 @@ vn_physical_device_init_properties(struct vn_physical_device *physical_dev)
    props->deviceID = instance->renderer_info.pci.device_id;
    /* some apps don't like VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU */
    props->deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
-   snprintf(props->deviceName, sizeof(props->deviceName), "Virtio GPU");
 
    vk12_props->driverID = 0;
    snprintf(vk12_props->driverName, sizeof(vk12_props->driverName), "venus");
