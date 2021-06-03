@@ -576,7 +576,7 @@ const struct panfrost_format panfrost_pipe_format_v7[PIPE_FORMAT_COUNT] = {
         PAN_V7(R8G8_UNORM,              RG8_UNORM,       RGB1, L, VTR_),
         PAN_V7(R16G16_UNORM,            RG16_UNORM,      RGB1, L, VTR_),
         PAN_V7(R32G32_UNORM,            RG32_UNORM,      RGB1, L, VTR_),
-        PAN_V7(R8G8B8_UNORM,            RGB8_UNORM,      RGB1, L, VTR_),
+        PAN_V7(R8G8B8_UNORM,            RGB8_UNORM,      RGB1, L, V___),
         PAN_V7(R16G16B16_UNORM,         RGB16_UNORM,     RGB1, L, VTR_),
         PAN_V7(R32G32B32_UNORM,         RGB32_UNORM,     RGB1, L, VTR_),
         PAN_V7(R4G4B4A4_UNORM,          RGBA4_UNORM,     RGBA, L, VTR_),
