@@ -1336,9 +1336,6 @@ virtgpu_get_info(struct vn_renderer *renderer, struct vn_renderer_info *info)
 
    memset(info, 0, sizeof(*info));
 
-   info->pci.vendor_id = VIRTGPU_PCI_VENDOR_ID;
-   info->pci.device_id = VIRTGPU_PCI_DEVICE_ID;
-
    info->pci.has_bus_info = true;
    info->pci.domain = gpu->bus_info.domain;
    info->pci.bus = gpu->bus_info.bus;

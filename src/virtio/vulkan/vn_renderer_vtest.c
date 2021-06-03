@@ -24,9 +24,6 @@
 
 #include "vn_renderer.h"
 
-#define VTEST_PCI_VENDOR_ID 0x1af4
-#define VTEST_PCI_DEVICE_ID 0x1050
-
 struct vtest;
 
 struct vtest_shmem {
@@ -927,9 +924,6 @@ vtest_get_info(struct vn_renderer *renderer, struct vn_renderer_info *info)
    struct vtest *vtest = (struct vtest *)renderer;
 
    memset(info, 0, sizeof(*info));
-
-   info->pci.vendor_id = VTEST_PCI_VENDOR_ID;
-   info->pci.device_id = VTEST_PCI_DEVICE_ID;
 
    info->has_dma_buf_import = false;
    info->has_cache_management = false;

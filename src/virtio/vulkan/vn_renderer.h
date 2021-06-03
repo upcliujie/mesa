@@ -68,9 +68,6 @@ struct vn_renderer_sync {
 
 struct vn_renderer_info {
    struct {
-      uint16_t vendor_id;
-      uint16_t device_id;
-
       bool has_bus_info;
       uint16_t domain;
       uint8_t bus;
