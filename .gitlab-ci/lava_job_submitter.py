@@ -51,7 +51,7 @@ def generate_lava_yaml(args):
     env = jinja2.Environment(loader = jinja2.FileSystemLoader(os.path.dirname(args.template)), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(os.path.basename(args.template))
 
-    env_vars = args.env_vars
+    env_vars = ""
 
     # This should generally be kept in sync with the list in
     # bare-metal/rootfs-setup.sh, other than driver-specific env vars.
@@ -101,6 +101,7 @@ def generate_lava_yaml(args):
         'MESA_GLES_VERSION_OVERRIDE',
         'MINIO_HOST',
         'NIR_VALIDATE',
+        'PAN_MESA_DEBUG',
         'PIGLIT_FRACTION',
         'PIGLIT_JUNIT_RESULTS',
         'PIGLIT_NO_WINDOW',
@@ -258,7 +259,6 @@ if __name__ == '__main__':
     parser.add_argument("--gpu-version")
     parser.add_argument("--boot-method")
     parser.add_argument("--lava-tags", nargs='?', default="")
-    parser.add_argument("--env-vars", nargs='?', default="")
     parser.add_argument("--deqp-version")
     parser.add_argument("--ci-node-index")
     parser.add_argument("--ci-node-total")
