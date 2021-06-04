@@ -128,6 +128,7 @@ iris-amly-gles2:
 iris-amly-gles3:
   extends:
     - .iris-amly-test
+    - .test-manual-mr
   variables:
     DEQP_VERSION: gles3
     ENV_VARS: "DEQP_EXPECTED_RENDERER=AML DEQP_FRACTION=2"
@@ -135,6 +136,7 @@ iris-amly-gles3:
 iris-amly-gles31:
   extends:
     - .iris-amly-test
+    - .test-manual-mr
   variables:
     DEQP_VERSION: gles31
     ENV_VARS: "DEQP_EXPECTED_RENDERER=AML DEQP_FRACTION=2"
@@ -150,6 +152,17 @@ iris-amly-egl:
     - .iris-amly-test
   variables:
     DEQP_VERSION: egl
+
+iris-amly-piglit:
+  extends:
+    - .iris-amly-test
+    - .lava-piglit
+  parallel: 3
+  variables:
+    PIGLIT_PLATFORM: mixed_glx_egl
+    PIGLIT_PROFILES: gpu
+    PIGLIT_JUNIT_RESULTS: 1
+    LAVA_START_XORG: 1
 
 .iris-traces:
   extends:
