@@ -3228,10 +3228,13 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_custom_border_pool;
 
+   const uint32_t ss_pool_size =
+      physical_device->has_bindless_images ?
+      device->info.max_bindless_surface_offset : SURFACE_STATE_POOL_SIZE;
    result = anv_state_pool_init(&device->surface_state_pool, device,
                                 "surface state pool",
                                 SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096,
-                                SURFACE_STATE_POOL_SIZE);
+                                ss_pool_size);
    if (result != VK_SUCCESS)
       goto fail_instruction_state_pool;
 
