@@ -254,9 +254,11 @@ MoveResult MoveState::downwards_move(DownwardsCursor& cursor, bool add_to_clause
       register_demand[i] -= candidate_diff;
    register_demand[dest_insert_idx - 1] = new_demand;
    cursor.insert_idx_clause--;
-   cursor.total_demand -= candidate_diff;
-   if (cursor.source_idx == cursor.insert_idx_clause) {
-      cursor.total_demand = RegisterDemand{};
+   if (cursor.source_idx != cursor.insert_idx_clause) {
+      // Update demand if we moved over any instructions before the clause
+      cursor.total_demand -= candidate_diff;
+   } else {
+      assert(cursor.total_demand == RegisterDemand{});
    }
    if (add_to_clause) {
       cursor.clause_demand.update(new_demand);
