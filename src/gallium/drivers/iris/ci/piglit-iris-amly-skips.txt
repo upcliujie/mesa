@@ -1,0 +1,5 @@
+# triggers oomkiller and kills innocent tests!
+spec@!opengl 1.1@max-texture-size
+
+# Ignore these other-OS tests that don't get built.
+wgl@.*
