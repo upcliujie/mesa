@@ -38,6 +38,7 @@
 #include "util/u_atomic.h"
 #include "util/u_upload_mgr.h"
 #include "util/debug.h"
+#include "util/u_async_debug.h"
 #include "compiler/nir/nir.h"
 #include "compiler/nir/nir_builder.h"
 #include "compiler/nir/nir_serialize.h"
@@ -53,6 +54,14 @@
    .base.tex.swizzles[0 ... MAX_SAMPLERS - 1] = 0x688,   \
    .base.tex.compressed_multisample_layout_mask = ~0,    \
    .base.tex.msaa_16 = (gen >= 9 ? ~0 : 0)
+
+struct threaded_compile_job {
+   struct iris_screen *screen;
+   struct u_upload_mgr *uploader;
+   struct pipe_debug_callback *dbg;
+   struct iris_uncompiled_shader *ish;
+   struct iris_compiled_shader *shader;
+};
 
 static unsigned
 get_new_program_id(struct iris_screen *screen)
@@ -1172,6 +1181,42 @@ find_or_add_variant(const struct iris_screen *screen,
    }
 
    return variant;
+}
+
+static void
+threaded_compile_job_delete(void *_job, UNUSED void *_gdata,
+                            UNUSED int thread_index)
+{
+   free(_job);
+}
+
+static void
+iris_schedule_compile(struct iris_screen *screen,
+                      struct util_queue_fence *ready_fence,
+                      struct pipe_debug_callback *dbg,
+                      struct threaded_compile_job *job,
+                      util_queue_execute_func execute)
+
+{
+   util_queue_fence_init(ready_fence);
+
+   struct util_async_debug_callback async_debug;
+
+   if (dbg) {
+      u_async_debug_init(&async_debug);
+      job->dbg = &async_debug.base;
+   }
+
+   util_queue_add_job(&screen->shader_compiler_queue, job, ready_fence, execute,
+                      threaded_compile_job_delete, 0);
+
+   if (screen->driconf.sync_compile || dbg)
+      util_queue_fence_wait(ready_fence);
+
+   if (dbg) {
+      u_async_debug_drain(&async_debug, dbg);
+      u_async_debug_cleanup(&async_debug);
+   }
 }
 
 /**
@@ -2456,12 +2501,17 @@ iris_create_compute_state(struct pipe_context *ctx,
 }
 
 static void
-iris_compile_shader(struct iris_screen *screen,
-                    struct u_upload_mgr *uploader,
-                    struct pipe_debug_callback *dbg,
-                    struct iris_uncompiled_shader *ish,
-                    struct iris_compiled_shader *shader)
+iris_compile_shader(void *_job, UNUSED void *_gdata, UNUSED int thread_index)
 {
+   const struct threaded_compile_job *job =
+      (struct threaded_compile_job *) _job;
+
+   struct iris_screen *screen = job->screen;
+   struct u_upload_mgr *uploader = job->uploader;
+   struct pipe_debug_callback *dbg = job->dbg;
+   struct iris_uncompiled_shader *ish = job->ish;
+   struct iris_compiled_shader *shader = job->shader;
+
    switch (ish->nir->info.stage) {
    case MESA_SHADER_VERTEX:
       iris_compile_vs(screen, uploader, dbg, ish, shader);
@@ -2610,9 +2660,23 @@ iris_create_shader_state(struct pipe_context *ctx,
                              (enum iris_program_cache_id) info->stage,
                              &key, key_size, &added);
 
-      if (added && !iris_disk_cache_retrieve(screen, uploader, ish, shader,
-                                             &key, key_size)) {
-         iris_compile_shader(screen, uploader, &ice->dbg, ish, shader);
+      if (added) {
+         assert(!util_queue_fence_is_signalled(&shader->ready));
+
+         if (!iris_disk_cache_retrieve(screen, uploader, ish, shader,
+                                       &key, key_size)) {
+            assert(!util_queue_fence_is_signalled(&shader->ready));
+
+            struct threaded_compile_job *job = calloc(1, sizeof(*job));
+
+            job->screen = screen;
+            job->uploader = uploader;
+            job->ish = ish;
+            job->shader = shader;
+
+            iris_schedule_compile(screen, &ish->ready, &ice->dbg, job,
+                                  iris_compile_shader);
+         }
       }
    }
 
@@ -2640,6 +2704,7 @@ iris_destroy_shader_state(struct pipe_context *ctx, void *state)
    }
 
    simple_mtx_destroy(&ish->lock);
+   util_queue_fence_destroy(&ish->ready);
 
    ralloc_free(ish->nir);
    free(ish);
