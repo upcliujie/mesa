@@ -93,9 +93,9 @@ actions:
           - GPU_AUTOSUSPEND=`find /sys/devices -name autosuspend_delay_ms | grep gpu | head -1`
           - echo -1 > $GPU_AUTOSUSPEND || true
 
-{% if env_vars %}
-          - export {{ env_vars }}
-{% endif %}
+{% for var in env_vars %}
+          - "export {{ var }}"
+{% endfor %}
 
           # runner script assumes some stuff is in pwd
           - cd /
