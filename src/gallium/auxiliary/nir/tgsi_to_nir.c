@@ -629,8 +629,8 @@ ttn_src_for_file_and_index(struct ttn_compile *c, unsigned file, unsigned index,
          load = nir_load_local_invocation_id(b);
          break;
       case TGSI_SEMANTIC_BLOCK_ID:
-         op = nir_intrinsic_load_work_group_id;
-         load = nir_load_work_group_id(b, 32);
+         op = nir_intrinsic_load_workgroup_id;
+         load = nir_load_workgroup_id(b, 32);
          break;
       case TGSI_SEMANTIC_BLOCK_SIZE:
          op = nir_intrinsic_load_workgroup_size;
