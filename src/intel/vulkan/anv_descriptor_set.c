@@ -1024,6 +1024,9 @@ static void
 anv_descriptor_pool_free_state(struct anv_descriptor_pool *pool,
                                struct anv_state state)
 {
+   if (state.alloc_size == 0)
+      return;
+
    /* Put the buffer view surface state back on the free list. */
    struct surface_state_free_list_entry *entry = state.map;
    entry->next = pool->surface_state_free_list;
@@ -1110,7 +1113,8 @@ anv_descriptor_set_create(struct anv_device *device,
     * a descriptor has not been populated with user data.
     */
    memset(set->descriptors, 0,
-          sizeof(struct anv_descriptor) * set->descriptor_count);
+          sizeof(struct anv_descriptor) * set->descriptor_count +
+          sizeof(struct anv_buffer_view) * set->buffer_view_count);
 
    /* Go through and fill out immutable samplers if we have any */
    struct anv_descriptor *desc = set->descriptors;
@@ -1132,13 +1136,15 @@ anv_descriptor_set_create(struct anv_device *device,
                                                 b, i);
          }
       }
+      /* Allocate surface state for the buffer views. */
+      if (layout->binding[b].data & ANV_DESCRIPTOR_BUFFER_VIEW) {
+         uint32_t buffer_view_idx = layout->binding[b].buffer_view_index;
+         for (uint32_t i = 0; i < layout->binding[b].array_size; i++) {
+            set->buffer_views[buffer_view_idx + i].surface_state =
+               anv_descriptor_pool_alloc_state(pool);
+         }
+      }
       desc += layout->binding[b].array_size;
-   }
-
-   /* Allocate surface state for the buffer views. */
-   for (uint32_t b = 0; b < set->buffer_view_count; b++) {
-      set->buffer_views[b].surface_state =
-         anv_descriptor_pool_alloc_state(pool);
    }
 
    list_addtail(&set->pool_link, &pool->desc_sets);
