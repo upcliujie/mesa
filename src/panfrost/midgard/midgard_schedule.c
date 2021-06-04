@@ -530,13 +530,21 @@ mir_pipeline_count(midgard_instruction *ins)
                 /* Skip empty source  */
                 if (ins->src[i] == ~0) continue;
 
-                unsigned bytemask = mir_bytemask_of_read_components_index(ins, i);
-
-                unsigned max = util_logbase2(bytemask) + 1;
-                bytecount += max;
+                if (i == 0) {
+                        /* First source is a vector, worst-case the mask */
+                        unsigned bytemask = mir_bytemask_of_read_components_index(ins, i);
+                        unsigned max = util_logbase2(bytemask) + 1;
+                        bytecount += max;
+                } else {
+                        /* Sources 1 on are scalars */
+                        bytecount += 4;
+                }
         }
 
-        return DIV_ROUND_UP(bytecount, 16);
+        unsigned dwords = DIV_ROUND_UP(bytecount, 16);
+        assert(dwords <= 2);
+
+        return dwords;
 }
 
 /* Matches FADD x, x with modifiers compatible. Since x + x = x * 2, for
@@ -652,10 +660,7 @@ mir_choose_instruction(
 {
         /* Parse the predicate */
         unsigned tag = predicate->tag;
-        bool alu = tag == TAG_ALU_4;
-        bool ldst = tag == TAG_LOAD_STORE_4;
         unsigned unit = predicate->unit;
-        bool branch = alu && (unit == ALU_ENAB_BR_COMPACT);
         bool scalar = (unit != ~0) && (unit & UNITS_SCALAR);
         bool no_cond = predicate->no_cond;
 
@@ -688,20 +693,24 @@ mir_choose_instruction(
         }
 
         BITSET_FOREACH_SET(i, worklist, count) {
-                bool is_move = alu &&
-                        (instructions[i]->op == midgard_alu_op_imov ||
-                         instructions[i]->op == midgard_alu_op_fmov);
-
                 if ((max_active - i) >= max_distance)
                         continue;
 
                 if (tag != ~0 && instructions[i]->type != tag)
                         continue;
 
+                bool alu = (instructions[i]->type == TAG_ALU_4);
+                bool ldst = (instructions[i]->type == TAG_LOAD_STORE_4);
+
+                bool branch = alu && (unit == ALU_ENAB_BR_COMPACT);
+                bool is_move = alu &&
+                        (instructions[i]->op == midgard_alu_op_imov ||
+                         instructions[i]->op == midgard_alu_op_fmov);
+
                 if (predicate->exclude != ~0 && instructions[i]->dest == predicate->exclude)
                         continue;
 
-                if (alu && !branch && !(mir_has_unit(instructions[i], unit)))
+                if (alu && !branch && unit != ~0 && !(mir_has_unit(instructions[i], unit)))
                         continue;
 
                 /* 0: don't care, 1: no moves, 2: only moves */
@@ -714,7 +723,7 @@ mir_choose_instruction(
                 if (alu && scalar && !mir_is_scalar(instructions[i]))
                         continue;
 
-                if (alu && !mir_adjust_constants(instructions[i], predicate, false))
+                if (alu && predicate->constants && !mir_adjust_constants(instructions[i], predicate, false))
                         continue;
 
                 if (needs_dest && instructions[i]->dest != dest)
@@ -755,17 +764,18 @@ mir_choose_instruction(
 
         /* If we found something, remove it from the worklist */
         assert(best_index < count);
+        midgard_instruction *I = instructions[best_index];
 
         if (predicate->destructive) {
                 BITSET_CLEAR(worklist, best_index);
 
-                if (alu)
+                if (I->type == TAG_ALU_4)
                         mir_adjust_constants(instructions[best_index], predicate, true);
 
-                if (ldst)
+                if (I->type == TAG_LOAD_STORE_4)
                         predicate->pipeline_count += mir_pipeline_count(instructions[best_index]);
 
-                if (alu)
+                if (I->type == TAG_ALU_4)
                         mir_adjust_unit(instructions[best_index], unit);
 
                 /* Once we schedule a conditional, we can't again */
@@ -773,7 +783,7 @@ mir_choose_instruction(
                 mir_live_effect(liveness, instructions[best_index], true);
         }
 
-        return instructions[best_index];
+        return I;
 }
 
 /* Still, we don't choose instructions in a vacuum. We need a way to choose the
@@ -792,6 +802,7 @@ mir_choose_bundle(
 
         struct midgard_predicate predicate = {
                 .tag = ~0,
+                .unit = ~0,
                 .destructive = false,
                 .exclude = ~0
         };
@@ -811,6 +822,8 @@ mir_choose_bundle(
                 predicate.tag = ~0;
 
                 chosen = mir_choose_instruction(instructions, liveness, worklist, count, &predicate);
+                assert(chosen == NULL || chosen->type != TAG_LOAD_STORE_4);
+
                 if (chosen)
                         return chosen->type;
                 else
@@ -1052,6 +1065,8 @@ mir_schedule_ldst(
 
         midgard_instruction *pair =
                 mir_choose_instruction(instructions, liveness, worklist, len, &predicate);
+
+        assert(ins != NULL);
 
         struct midgard_bundle out = {
                 .tag = TAG_LOAD_STORE_4,
@@ -1486,6 +1501,27 @@ schedule_block(compiler_context *ctx, midgard_block *block)
 void
 midgard_schedule_program(compiler_context *ctx)
 {
+        mir_foreach_instr_global_safe(ctx, I) {
+                if (I->type != TAG_LOAD_STORE_4) continue;
+
+                mir_foreach_src(I, s) {
+                        if (s == 0) continue;
+                        if (I->src[s] == ~0) continue;
+                        if (I->swizzle[s][0] == 0) continue;
+
+                        unsigned temp = make_compiler_temp(ctx);
+                        midgard_instruction mov = v_mov(I->src[s], temp);
+                        mov.mask = 0x1;
+                        mov.dest_type = I->src_types[s];
+                        for (unsigned c = 0; c < NIR_MAX_VEC_COMPONENTS; ++c)
+                                mov.swizzle[1][c] = I->swizzle[s][0];
+
+                        mir_insert_instruction_before(ctx, I, mov);
+                        I->src[s] = mov.dest;
+                        I->swizzle[s][0] = 0;
+                }
+        }
+
         midgard_promote_uniforms(ctx);
 
         /* Must be lowered right before scheduling */
@@ -1500,5 +1536,4 @@ midgard_schedule_program(compiler_context *ctx)
                 midgard_opt_dead_move_eliminate(ctx, block);
                 schedule_block(ctx, block);
         }
-
 }

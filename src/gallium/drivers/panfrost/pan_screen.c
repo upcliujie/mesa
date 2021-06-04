@@ -302,7 +302,7 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
                 return 0;
 
         case PIPE_CAP_DRAW_INDIRECT:
-                return has_heap && pan_is_bifrost(dev);
+                return has_heap;
 
         case PIPE_CAP_START_INSTANCE:
         case PIPE_CAP_DRAW_PARAMETERS:
