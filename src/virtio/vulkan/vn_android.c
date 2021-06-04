@@ -241,6 +241,12 @@ struct cros_gralloc0_buffer_info {
    uint32_t stride[4];
 };
 
+struct vn_android_gralloc_buffer_properties {
+   uint64_t modifier;
+   uint32_t offset[4];
+   uint32_t stride[4];
+};
+
 static VkResult
 vn_android_get_dma_buf_from_native_handle(const native_handle_t *handle,
                                           int *out_dma_buf)
@@ -264,10 +270,9 @@ vn_android_get_dma_buf_from_native_handle(const native_handle_t *handle,
 }
 
 static bool
-vn_android_get_gralloc_buffer_info(buffer_handle_t handle,
-                                   uint32_t out_strides[4],
-                                   uint32_t out_offsets[4],
-                                   uint64_t *out_format_modifier)
+vn_android_get_gralloc_buffer_properties(
+   buffer_handle_t handle,
+   struct vn_android_gralloc_buffer_properties *out_props)
 {
    static const int32_t CROS_GRALLOC_DRM_GET_BUFFER_INFO = 4;
    struct cros_gralloc0_buffer_info info;
@@ -279,21 +284,24 @@ vn_android_get_gralloc_buffer_info(buffer_handle_t handle,
       return false;
 
    for (uint32_t i = 0; i < 4; i++) {
-      out_strides[i] = info.stride[i];
-      out_offsets[i] = info.offset[i];
+      out_props->stride[i] = info.stride[i];
+      out_props->offset[i] = info.offset[i];
    }
-   *out_format_modifier = info.modifier;
+   out_props->modifier = info.modifier;
 
    return true;
 }
 
 static VkResult
-vn_android_get_modifier_properties(VkPhysicalDevice physical_device,
+vn_android_get_modifier_properties(struct vn_device *dev,
                                    VkFormat format,
                                    uint64_t modifier,
-                                   const VkAllocationCallbacks *alloc,
                                    VkDrmFormatModifierPropertiesEXT *out_props)
 {
+   const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+   VkPhysicalDevice physical_device =
+      vn_physical_device_to_handle(dev->physical_device);
+
    VkDrmFormatModifierPropertiesListEXT mod_prop_list = {
       .sType = VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_EXT,
       .pNext = NULL,
@@ -362,8 +370,6 @@ vn_android_image_from_anb(struct vn_device *dev,
     */
    VkResult result = VK_SUCCESS;
    VkDevice device = vn_device_to_handle(dev);
-   VkPhysicalDevice physical_device =
-      vn_physical_device_to_handle(dev->physical_device);
    VkDeviceMemory memory = VK_NULL_HANDLE;
    VkImage image = VK_NULL_HANDLE;
    struct vn_image *img = NULL;
@@ -371,25 +377,22 @@ vn_android_image_from_anb(struct vn_device *dev,
    uint32_t mem_type_bits = 0;
    int dma_buf_fd = -1;
    int dup_fd = -1;
-   uint32_t strides[4] = { 0, 0, 0, 0 };
-   uint32_t offsets[4] = { 0, 0, 0, 0 };
-   uint64_t format_modifier = 0;
+   struct vn_android_gralloc_buffer_properties buf_props;
+   VkDrmFormatModifierPropertiesEXT mod_props;
 
    result = vn_android_get_dma_buf_from_native_handle(anb_info->handle,
                                                       &dma_buf_fd);
    if (result != VK_SUCCESS)
       goto fail;
 
-   if (!vn_android_get_gralloc_buffer_info(anb_info->handle, strides, offsets,
-                                           &format_modifier)) {
+   if (!vn_android_get_gralloc_buffer_properties(anb_info->handle,
+                                                 &buf_props)) {
       result = VK_ERROR_INVALID_EXTERNAL_HANDLE;
       goto fail;
    }
 
-   VkDrmFormatModifierPropertiesEXT mod_props;
-   result =
-      vn_android_get_modifier_properties(physical_device, image_info->format,
-                                         format_modifier, alloc, &mod_props);
+   result = vn_android_get_modifier_properties(
+      dev, image_info->format, buf_props.modifier, &mod_props);
    if (result != VK_SUCCESS)
       goto fail;
 
@@ -403,9 +406,9 @@ vn_android_image_from_anb(struct vn_device *dev,
    }
 
    const VkSubresourceLayout layout = {
-      .offset = offsets[0],
+      .offset = buf_props.offset[0],
       .size = 0,
-      .rowPitch = strides[0],
+      .rowPitch = buf_props.stride[0],
       .arrayPitch = 0,
       .depthPitch = 0,
    };
@@ -413,7 +416,7 @@ vn_android_image_from_anb(struct vn_device *dev,
       .sType =
          VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT,
       .pNext = image_info->pNext,
-      .drmFormatModifier = format_modifier,
+      .drmFormatModifier = buf_props.modifier,
       .drmFormatModifierPlaneCount = 1,
       .pPlaneLayouts = &layout,
    };
@@ -601,12 +604,12 @@ vn_android_get_ahb_format_properties(
    const struct AHardwareBuffer *ahb,
    VkAndroidHardwareBufferFormatPropertiesANDROID *out_props)
 {
-   VkPhysicalDevice physical_device =
-      vn_physical_device_to_handle(dev->physical_device);
-
    AHardwareBuffer_Desc desc;
-   AHardwareBuffer_describe(ahb, &desc);
+   VkFormat format;
+   struct vn_android_gralloc_buffer_properties buf_props;
+   VkDrmFormatModifierPropertiesEXT mod_props;
 
+   AHardwareBuffer_describe(ahb, &desc);
    /* AHB usage must include at least one GPU bit for image or buffer */
    if (!(desc.usage & (AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
                        AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER |
@@ -618,7 +621,7 @@ vn_android_get_ahb_format_properties(
     * the ahb is not intended for backing a VkBuffer, error out early if the
     * format is VK_FORMAT_UNDEFINED.
     */
-   VkFormat format = vn_android_ahb_format_to_vk_format(desc.format);
+   format = vn_android_ahb_format_to_vk_format(desc.format);
    if (format == VK_FORMAT_UNDEFINED) {
       if (desc.format != AHARDWAREBUFFER_FORMAT_BLOB)
          return VK_ERROR_INVALID_EXTERNAL_HANDLE;
@@ -628,18 +631,12 @@ vn_android_get_ahb_format_properties(
       return VK_SUCCESS;
    }
 
-   uint32_t strides[4] = { 0, 0, 0, 0 };
-   uint32_t offsets[4] = { 0, 0, 0, 0 };
-   uint64_t format_modifier = 0;
-   const native_handle_t *handle = AHardwareBuffer_getNativeHandle(ahb);
-   if (!vn_android_get_gralloc_buffer_info(handle, strides, offsets,
-                                           &format_modifier))
+   if (!vn_android_get_gralloc_buffer_properties(
+          AHardwareBuffer_getNativeHandle(ahb), &buf_props))
       return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 
-   VkDrmFormatModifierPropertiesEXT mod_props;
    VkResult result = vn_android_get_modifier_properties(
-      physical_device, format, format_modifier, &dev->base.base.alloc,
-      &mod_props);
+      dev, format, buf_props.modifier, &mod_props);
    if (result != VK_SUCCESS)
       return result;
 
@@ -750,12 +747,9 @@ vn_android_get_drm_format_modifier_info(
     * sharing mode, we assume VK_SHARING_MODE_EXCLUSIVE for now.
     */
    AHardwareBuffer *ahb = NULL;
-   const native_handle_t *handle = NULL;
    uint32_t format = 0;
    uint64_t usage = 0;
-   uint32_t strides[4] = { 0, 0, 0, 0 };
-   uint32_t offsets[4] = { 0, 0, 0, 0 };
-   uint64_t format_modifier = 0;
+   struct vn_android_gralloc_buffer_properties buf_props;
 
    assert(format_info->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT);
 
@@ -768,9 +762,8 @@ vn_android_get_drm_format_modifier_info(
    if (!ahb)
       return false;
 
-   handle = AHardwareBuffer_getNativeHandle(ahb);
-   if (!vn_android_get_gralloc_buffer_info(handle, strides, offsets,
-                                           &format_modifier)) {
+   if (!vn_android_get_gralloc_buffer_properties(
+          AHardwareBuffer_getNativeHandle(ahb), &buf_props)) {
       AHardwareBuffer_release(ahb);
       return false;
    }
@@ -779,7 +772,7 @@ vn_android_get_drm_format_modifier_info(
       .sType =
          VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_DRM_FORMAT_MODIFIER_INFO_EXT,
       .pNext = NULL,
-      .drmFormatModifier = format_modifier,
+      .drmFormatModifier = buf_props.modifier,
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
       .queueFamilyIndexCount = 0,
       .pQueueFamilyIndices = NULL,
@@ -847,33 +840,29 @@ vn_android_device_import_ahb(struct vn_device *dev,
    if (dedicated_info && dedicated_info->image != VK_NULL_HANDLE) {
       const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
       struct vn_image *img = vn_image_from_handle(dedicated_info->image);
+      struct vn_android_gralloc_buffer_properties buf_props;
       VkImageCreateInfo *image_info = &img->deferred_info->create;
       VkSubresourceLayout layouts[4];
-      uint32_t strides[4] = { 0, 0, 0, 0 };
-      uint32_t offsets[4] = { 0, 0, 0, 0 };
-      uint64_t format_modifier = 0;
       VkDrmFormatModifierPropertiesEXT mod_props;
 
-      if (!vn_android_get_gralloc_buffer_info(handle, strides, offsets,
-                                              &format_modifier))
+      if (!vn_android_get_gralloc_buffer_properties(handle, &buf_props))
          return VK_ERROR_INVALID_EXTERNAL_HANDLE;
 
       result = vn_android_get_modifier_properties(
-         vn_physical_device_to_handle(dev->physical_device),
-         image_info->format, format_modifier, alloc, &mod_props);
+         dev, image_info->format, buf_props.modifier, &mod_props);
       if (result != VK_SUCCESS)
          return result;
 
       memset(layouts, 0, sizeof(layouts));
       for (uint32_t i = 0; i < mod_props.drmFormatModifierPlaneCount; i++) {
-         layouts[i].offset = offsets[i];
-         layouts[i].rowPitch = strides[i];
+         layouts[i].offset = buf_props.offset[i];
+         layouts[i].rowPitch = buf_props.stride[i];
       }
       const VkImageDrmFormatModifierExplicitCreateInfoEXT drm_mod_info = {
          .sType =
             VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT,
          .pNext = image_info->pNext,
-         .drmFormatModifier = format_modifier,
+         .drmFormatModifier = buf_props.modifier,
          .drmFormatModifierPlaneCount = mod_props.drmFormatModifierPlaneCount,
          .pPlaneLayouts = layouts,
       };
