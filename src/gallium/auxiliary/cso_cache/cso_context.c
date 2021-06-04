@@ -285,10 +285,7 @@ cso_create_context(struct pipe_context *pipe, unsigned flags)
    return ctx;
 }
 
-/**
- * Free the CSO context.
- */
-void cso_destroy_context( struct cso_context *ctx )
+void cso_unbind_context(struct cso_context *ctx)
 {
    unsigned i;
 
@@ -382,7 +379,14 @@ void cso_destroy_context( struct cso_context *ctx )
       pipe_so_target_reference(&ctx->so_targets[i], NULL);
       pipe_so_target_reference(&ctx->so_targets_saved[i], NULL);
    }
+}
 
+/**
+ * Free the CSO context.
+ */
+void cso_destroy_context( struct cso_context *ctx )
+{
+   cso_unbind_context(ctx);
    cso_cache_delete(&ctx->cache);
 
    if (ctx->vbuf)
