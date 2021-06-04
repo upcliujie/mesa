@@ -1258,14 +1258,15 @@ anv_descriptor_set_write_image_param(uint32_t *param_desc_map,
 }
 
 static uint32_t
-anv_surface_state_to_handle(struct anv_state state)
+anv_surface_state_to_handle(const struct intel_device_info *devinfo,
+                            struct anv_state state)
 {
    /* Bits 31:12 of the bindless surface offset in the extended message
     * descriptor is bits 25:6 of the byte-based address.
     */
    assert(state.offset >= 0);
    uint32_t offset = state.offset;
-   assert((offset & 0x3f) == 0 && offset < (1 << 26));
+   assert((offset & 0x3f) == 0 && offset < devinfo->max_bindless_surface_offset);
    return offset << 6;
 }
 
@@ -1278,6 +1279,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
                                     uint32_t element)
 {
    const struct anv_physical_device *pdevice = device->physical;
+   const struct intel_device_info *devinfo = &device->info;
    const struct anv_descriptor_set_binding_layout *bind_layout =
       &set->layout->binding[binding];
    struct anv_descriptor *desc =
@@ -1336,7 +1338,8 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
                (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
                image_view->planes[p].general_sampler_surface_state :
                image_view->planes[p].optimal_sampler_surface_state;
-            desc_data[p].image = anv_surface_state_to_handle(sstate.state);
+            desc_data[p].image =
+               anv_surface_state_to_handle(devinfo, sstate.state);
          }
       }
 
@@ -1361,9 +1364,11 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       assert(image_view->n_planes == 1);
       struct anv_storage_image_descriptor desc_data = {
          .read_write = anv_surface_state_to_handle(
-                           image_view->planes[0].storage_surface_state.state),
+            devinfo,
+            image_view->planes[0].storage_surface_state.state),
          .write_only = anv_surface_state_to_handle(
-                           image_view->planes[0].writeonly_storage_surface_state.state),
+            devinfo,
+            image_view->planes[0].writeonly_storage_surface_state.state),
       };
       memcpy(desc_map, &desc_data, sizeof(desc_data));
    }
@@ -1406,6 +1411,7 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
                                      uint32_t binding,
                                      uint32_t element)
 {
+   const struct intel_device_info *devinfo = &device->info;
    const struct anv_descriptor_set_binding_layout *bind_layout =
       &set->layout->binding[binding];
    struct anv_descriptor *desc =
@@ -1429,7 +1435,8 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
 
    if (bind_layout->data & ANV_DESCRIPTOR_SAMPLED_IMAGE) {
       struct anv_sampled_image_descriptor desc_data = {
-         .image = anv_surface_state_to_handle(buffer_view->surface_state),
+         .image = anv_surface_state_to_handle(
+            devinfo, buffer_view->surface_state),
       };
       memcpy(desc_map, &desc_data, sizeof(desc_data));
    }
@@ -1438,9 +1445,9 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
       assert(!(bind_layout->data & ANV_DESCRIPTOR_IMAGE_PARAM));
       struct anv_storage_image_descriptor desc_data = {
          .read_write = anv_surface_state_to_handle(
-                           buffer_view->storage_surface_state),
+            devinfo, buffer_view->storage_surface_state),
          .write_only = anv_surface_state_to_handle(
-                           buffer_view->writeonly_storage_surface_state),
+            devinfo, buffer_view->writeonly_storage_surface_state),
       };
       memcpy(desc_map, &desc_data, sizeof(desc_data));
    }
