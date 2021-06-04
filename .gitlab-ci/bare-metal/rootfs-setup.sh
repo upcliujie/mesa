@@ -10,7 +10,8 @@ cp $BM/init.sh $rootfs_dst/init
 cp $BM/capture-devcoredump.sh $rootfs_dst/
 
 set +x
-# Pass through relevant env vars from the gitlab job to the baremetal init script
+# Pass through relevant env vars from the gitlab job to the baremetal init script.
+# this should generally be kept in sync with the list in lava_job_submitter.py
 touch $rootfs_dst/set-job-env-vars.sh
 chmod +x $rootfs_dst/set-job-env-vars.sh
 for var in \
@@ -29,6 +30,7 @@ for var in \
     CI_NODE_TOTAL \
     CI_PAGES_DOMAIN \
     CI_PIPELINE_ID \
+    CI_PROJECT_DIR \
     CI_PROJECT_NAME \
     CI_PROJECT_PATH \
     CI_PROJECT_ROOT_NAMESPACE \
@@ -63,6 +65,7 @@ for var in \
     NIR_VALIDATE \
     PIGLIT_FRACTION \
     PIGLIT_JUNIT_RESULTS \
+    PIGLIT_NO_WINDOW \
     PIGLIT_OPTIONS \
     PIGLIT_PLATFORM \
     PIGLIT_PROFILES \
