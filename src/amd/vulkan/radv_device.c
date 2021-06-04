@@ -347,6 +347,12 @@ radv_thread_trace_enabled()
           getenv("RADV_THREAD_TRACE_TRIGGER");
 }
 
+static bool
+radv_spm_trace_enabled()
+{
+   return radv_thread_trace_enabled() && getenv("RADV_THREAD_TRACE_CACHE_COUNTERS");
+}
+
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR) || defined(VK_USE_PLATFORM_XCB_KHR) ||                    \
    defined(VK_USE_PLATFORM_XLIB_KHR) || defined(VK_USE_PLATFORM_DISPLAY_KHR)
 #define RADV_USE_WSI_PLATFORM
@@ -3115,9 +3121,20 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          goto fail;
 
       fprintf(stderr, "radv: Thread trace support is enabled (initial buffer size: %u MiB, "
-                      "instruction timing: %s).\n",
+                      "instruction timing: %s, cache counters: %s).\n",
               device->thread_trace.buffer_size / (1024 * 1024),
-              radv_is_instruction_timing_enabled() ? "enabled" : "disabled");
+              radv_is_instruction_timing_enabled() ? "enabled" : "disabled",
+              radv_spm_trace_enabled() ? "enabled" : "disabled");
+
+      if (radv_spm_trace_enabled()) {
+         if (device->physical_device->rad_info.chip_class < GFX10) {
+            fprintf(stderr, "SPM isn't supported for this GPU!\n");
+            abort();
+         }
+
+         if (!radv_spm_init(device))
+            goto fail;
+      }
    }
 
    if (getenv("RADV_TRAP_HANDLER")) {
@@ -3239,6 +3256,8 @@ fail_meta:
 fail:
    radv_thread_trace_finish(device);
 
+   radv_spm_finish(device);
+
    radv_trap_handler_finish(device);
    radv_finish_trace(device);
 
@@ -3307,6 +3326,8 @@ radv_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
    u_cnd_monotonic_destroy(&device->timeline_cond);
 
    radv_thread_trace_finish(device);
+
+   radv_spm_finish(device);
 
    vk_device_finish(&device->vk);
    vk_free(&device->vk.alloc, device);
