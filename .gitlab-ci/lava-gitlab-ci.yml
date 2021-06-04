@@ -5,7 +5,7 @@
   interruptible: true
   variables:
     GIT_STRATEGY: none # testing doesn't build anything from source
-    ENV_VARS: "DEQP_PARALLEL=6"
+    DEQP_PARALLEL: 6
     DEQP_VERSION: gles2
     ARTIFACTS_PREFIX: "https://${MINIO_HOST}/mesa-lava"
     MESA_URL: "http://caching-proxy/cache/?uri=https://${MINIO_HOST}/artifacts/${CI_PROJECT_PATH}/${CI_PIPELINE_ID}/mesa-${ARCH}.tar.gz"
@@ -29,7 +29,6 @@
         --mesa-url ${MESA_URL} \
         --device-type ${DEVICE_TYPE} \
         --dtb ${DTB} \
-        --env-vars "${ENV_VARS}" \
         --deqp-version ${DEQP_VERSION} \
         --kernel-image-name ${KERNEL_IMAGE_NAME} \
         --kernel-image-type "${KERNEL_IMAGE_TYPE}" \
