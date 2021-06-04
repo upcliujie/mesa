@@ -27,6 +27,7 @@
 import argparse
 import jinja2
 import lavacli
+import shlex
 import os
 import sys
 import time
@@ -47,10 +48,84 @@ def print_log(msg):
 
 
 def generate_lava_yaml(args):
-    env = jinja2.Environment(loader = jinja2.FileSystemLoader(os.path.dirname(args.template)), trim_blocks=True, lstrip_blocks=True)
+    env = jinja2.Environment(loader=jinja2.FileSystemLoader(os.path.dirname(args.template)), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(os.path.basename(args.template))
 
-    env_vars = "%s CI_NODE_INDEX=%s CI_NODE_TOTAL=%s" % (args.env_vars, args.ci_node_index, args.ci_node_total)
+    env_vars = []
+
+    # This should generally be kept in sync with the list in
+    # bare-metal/rootfs-setup.sh, other than driver-specific env vars.
+    passthrough_vars = [
+        'ASAN_OPTIONS',
+        'CI_COMMIT_BRANCH',
+        'CI_COMMIT_TITLE',
+        'CI_JOB_ID',
+        'CI_JOB_JWT',
+        'CI_JOB_URL',
+        'CI_MERGE_REQUEST_SOURCE_BRANCH_NAME',
+        'CI_MERGE_REQUEST_TITLE',
+        'CI_NODE_INDEX',
+        'CI_NODE_TOTAL',
+        'CI_PAGES_DOMAIN',
+        'CI_PIPELINE_ID',
+        'CI_PROJECT_DIR',
+        'CI_PROJECT_NAME',
+        'CI_PROJECT_PATH',
+        'CI_PROJECT_ROOT_NAMESPACE',
+        'CI_RUNNER_DESCRIPTION',
+        'CI_SERVER_URL',
+        'DEQP_CASELIST_FILTER',
+        'DEQP_CASELIST_INV_FILTER',
+        'DEQP_CONFIG',
+        'DEQP_EXPECTED_RENDERER',
+        'DEQP_FRACTION',
+        'DEQP_HEIGHT',
+        'DEQP_NO_SAVE_RESULTS',
+        'DEQP_PARALLEL',
+        'DEQP_RESULTS_DIR',
+        'DEQP_RUNNER_OPTIONS',
+        'DEQP_VARIANT',
+        'DEQP_VER',
+        'DEQP_WIDTH',
+        'DEVICE_NAME',
+        'DRIVER_NAME',
+        'EGL_PLATFORM',
+        'FDO_CI_CONCURRENT',
+        'FDO_UPSTREAM_REPO',
+        'FLAKES_CHANNEL',
+        'GPU_VERSION',
+        'LAVA_TEST_SCRIPT',
+        'LAVA_START_XORG',
+        'MESA_GL_VERSION_OVERRIDE',
+        'MESA_GLSL_VERSION_OVERRIDE',
+        'MESA_GLES_VERSION_OVERRIDE',
+        'MINIO_HOST',
+        'NIR_VALIDATE',
+        'PAN_MESA_DEBUG',
+        'PIGLIT_FRACTION',
+        'PIGLIT_JUNIT_RESULTS',
+        'PIGLIT_NO_WINDOW',
+        'PIGLIT_OPTIONS',
+        'PIGLIT_PLATFORM',
+        'PIGLIT_PROFILES',
+        'PIGLIT_REPLAY_ARTIFACTS_BASE_URL',
+        'PIGLIT_REPLAY_SUBCOMMAND',
+        'PIGLIT_REPLAY_DESCRIPTION_FILE',
+        'PIGLIT_REPLAY_DEVICE_NAME',
+        'PIGLIT_REPLAY_EXTRA_ARGS',
+        'PIGLIT_REPLAY_REFERENCE_IMAGES_BASE_URL',
+        'PIGLIT_REPLAY_UPLOAD_TO_MINIO',
+        'PIGLIT_RESULTS',
+        'PIGLIT_TESTS',
+        'TEST_LD_PRELOAD',
+        'VK_CPU',
+        'VK_DRIVER'
+    ]
+
+    for var in passthrough_vars:
+        val = os.environ.get(var)
+        if val:
+            env_vars.append("{}={}".format(var, shlex.quote(val)))
 
     values = {}
     values['pipeline_info'] = args.pipeline_info
@@ -187,7 +262,6 @@ if __name__ == '__main__':
     parser.add_argument("--gpu-version")
     parser.add_argument("--boot-method")
     parser.add_argument("--lava-tags", nargs='?', default="")
-    parser.add_argument("--env-vars", nargs='?', default="")
     parser.add_argument("--deqp-version")
     parser.add_argument("--ci-node-index")
     parser.add_argument("--ci-node-total")
