@@ -56,6 +56,10 @@ DEBUG_GET_ONCE_FLAGS_OPTION(virgl_debug, "VIRGL_DEBUG", virgl_debug_options, 0)
 static const char *
 virgl_get_vendor(struct pipe_screen *screen)
 {
+   struct virgl_screen *vscreen = virgl_screen(screen);
+   if (vscreen->caps.caps.v2.host_feature_check_version >= 5)
+      return vscreen->caps.caps.v2.vendor;
+
    return "Mesa/X.org";
 }
 
@@ -63,6 +67,10 @@ virgl_get_vendor(struct pipe_screen *screen)
 static const char *
 virgl_get_name(struct pipe_screen *screen)
 {
+   struct virgl_screen *vscreen = virgl_screen(screen);
+   if (vscreen->caps.caps.v2.host_feature_check_version >= 5)
+      return vscreen->caps.caps.v2.renderer;
+
    return "virgl";
 }
 
