@@ -1271,6 +1271,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
                                     uint32_t binding,
                                     uint32_t element)
 {
+   const struct anv_physical_device *pdevice = device->physical;
    const struct anv_descriptor_set_binding_layout *bind_layout =
       &set->layout->binding[binding];
    struct anv_descriptor *desc =
@@ -1323,7 +1324,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       struct anv_sampled_image_descriptor desc_data[3];
       memset(desc_data, 0, sizeof(desc_data));
 
-      if (image_view) {
+      if (pdevice->has_bindless_images && image_view) {
          for (unsigned p = 0; p < image_view->n_planes; p++) {
             struct anv_surface_state sstate =
                (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
