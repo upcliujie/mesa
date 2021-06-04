@@ -784,6 +784,10 @@ void anv_DestroyPipelineLayout(
 
 #define EMPTY 1
 
+static void anv_descriptor_pool_alloc_init(struct anv_device *device,
+                                           struct anv_descriptor_pool *pool,
+                                           struct anv_state state);
+
 VkResult anv_CreateDescriptorPool(
     VkDevice                                    _device,
     const VkDescriptorPoolCreateInfo*           pCreateInfo,
@@ -800,13 +804,19 @@ VkResult anv_CreateDescriptorPool(
    uint32_t descriptor_count = 0;
    uint32_t buffer_view_count = 0;
    uint32_t descriptor_bo_size = 0;
+   /* We need one surface state per buffer view + 1 for each set to access the
+    * set data.
+    */
+   uint32_t surface_state_count = pCreateInfo->maxSets;
    for (uint32_t i = 0; i < pCreateInfo->poolSizeCount; i++) {
       enum anv_descriptor_data desc_data =
          anv_descriptor_data_for_type(device->physical,
                                       pCreateInfo->pPoolSizes[i].type);
 
-      if (desc_data & ANV_DESCRIPTOR_BUFFER_VIEW)
+      if (desc_data & ANV_DESCRIPTOR_BUFFER_VIEW) {
          buffer_view_count += pCreateInfo->pPoolSizes[i].descriptorCount;
+         surface_state_count += pCreateInfo->pPoolSizes[i].descriptorCount;
+      }
 
       unsigned desc_data_size = anv_descriptor_data_size(desc_data) *
                                 pCreateInfo->pPoolSizes[i].descriptorCount;
@@ -862,33 +872,44 @@ VkResult anv_CreateDescriptorPool(
    pool->next = 0;
    pool->free_list = EMPTY;
 
+   VkResult result;
    if (descriptor_bo_size > 0) {
-      VkResult result = anv_device_alloc_bo(device,
-                                            "descriptors",
-                                            descriptor_bo_size,
-                                            ANV_BO_ALLOC_MAPPED |
-                                            ANV_BO_ALLOC_SNOOPED,
-                                            0 /* explicit_address */,
-                                            &pool->bo);
-      if (result != VK_SUCCESS) {
-         vk_object_free(&device->vk, pAllocator, pool);
-         return result;
-      }
+      result = anv_device_alloc_bo(device,
+                                   "descriptors",
+                                   descriptor_bo_size,
+                                   ANV_BO_ALLOC_MAPPED |
+                                   ANV_BO_ALLOC_SNOOPED,
+                                   0 /* explicit_address */,
+                                   &pool->bo);
+      if (result != VK_SUCCESS)
+         goto fail_pool;
 
       util_vma_heap_init(&pool->bo_heap, POOL_HEAP_OFFSET, descriptor_bo_size);
    } else {
       pool->bo = NULL;
    }
 
-   anv_state_stream_init(&pool->surface_state_stream,
-                         &device->surface_state_pool, 4096);
-   pool->surface_state_free_list = NULL;
+   result = anv_surface_state_pool_alloc(device, surface_state_count,
+                                         &pool->surface_states);
+   if (result != VK_SUCCESS)
+      goto fail_bo;
+
+   anv_descriptor_pool_alloc_init(device, pool, pool->surface_states);
 
    list_inithead(&pool->desc_sets);
 
    *pDescriptorPool = anv_descriptor_pool_to_handle(pool);
 
    return VK_SUCCESS;
+
+ fail_bo:
+   if (descriptor_bo_size > 0) {
+      util_vma_heap_finish(&pool->bo_heap);
+      anv_device_release_bo(device, pool->bo);
+   }
+ fail_pool:
+   vk_object_free(&device->vk, pAllocator, pool);
+   return result;
 }
 
 void anv_DestroyDescriptorPool(
@@ -911,7 +932,8 @@ void anv_DestroyDescriptorPool(
       util_vma_heap_finish(&pool->bo_heap);
       anv_device_release_bo(device, pool->bo);
    }
-   anv_state_stream_finish(&pool->surface_state_stream);
+
+   anv_state_pool_free(&device->surface_state_pool, pool->surface_states);
 
    vk_object_free(&device->vk, pAllocator, pool);
 }
@@ -938,10 +960,7 @@ VkResult anv_ResetDescriptorPool(
       util_vma_heap_init(&pool->bo_heap, POOL_HEAP_OFFSET, pool->bo->size);
    }
 
-   anv_state_stream_finish(&pool->surface_state_stream);
-   anv_state_stream_init(&pool->surface_state_stream,
-                         &device->surface_state_pool, 4096);
-   pool->surface_state_free_list = NULL;
+   anv_descriptor_pool_alloc_init(device, pool, pool->surface_states);
 
    return VK_SUCCESS;
 }
@@ -1004,26 +1023,61 @@ struct surface_state_free_list_entry {
    struct anv_state state;
 };
 
+static void
+anv_descriptor_pool_alloc_init(struct anv_device *device,
+                               struct anv_descriptor_pool *pool,
+                               struct anv_state state)
+{
+   const struct isl_device *isl_dev = &device->isl_dev;
+   const uint32_t ss_size = align_u32(isl_dev->ss.size, isl_dev->ss.align);
+   struct surface_state_free_list_entry *entry = state.map;
+
+   assert(state.alloc_size % ss_size == 0);
+
+   entry->next = NULL;
+   entry->state = state;
+   pool->surface_state_free_list = entry;
+}
+
 static VkResult
 anv_descriptor_pool_alloc_state(struct anv_device *device,
                                 struct anv_descriptor_pool *pool,
                                 struct anv_state *out_state)
 {
+   const struct isl_device *isl_dev = &device->isl_dev;
+   const uint32_t ss_size = align_u32(isl_dev->ss.size, isl_dev->ss.align);
    struct surface_state_free_list_entry *entry =
       pool->surface_state_free_list;
 
-   if (entry) {
-      struct anv_state state = entry->state;
+   if (entry == NULL)
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   /* If we find a fitting entry, just use that. */
+   struct anv_state state = entry->state;
+   if (state.alloc_size == ss_size) {
       pool->surface_state_free_list = entry->next;
-      *out_state = state;
+      *out_state = entry->state;
       return VK_SUCCESS;
-   } else {
-      const struct isl_device *isl_dev = &device->isl_dev;
-      return anv_state_stream_alloc(&pool->surface_state_stream,
-                                    isl_dev->ss.size,
-                                    isl_dev->ss.align,
-                                    out_state);
    }
+
+   /* If we find a larger entry, split it up and use the first chunk. */
+   if (state.alloc_size > ss_size) {
+      struct surface_state_free_list_entry *new_entry = state.map + ss_size;
+      new_entry->next = entry->next;
+      new_entry->state = state;
+      new_entry->state.map += ss_size;
+      new_entry->state.offset += ss_size;
+      new_entry->state.alloc_size -= ss_size;
+      pool->surface_state_free_list = new_entry;
+
+      entry->state.alloc_size = ss_size;
+      *out_state = entry->state;
+      return VK_SUCCESS;
+   }
+
+   unreachable("Invalid free list");
+
+   return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
 }
 
 static void

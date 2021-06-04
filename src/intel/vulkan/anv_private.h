@@ -2084,7 +2084,7 @@ struct anv_descriptor_pool {
    struct anv_bo *bo;
    struct util_vma_heap bo_heap;
 
-   struct anv_state_stream surface_state_stream;
+   struct anv_state surface_states;
    void *surface_state_free_list;
 
    struct list_head desc_sets;
