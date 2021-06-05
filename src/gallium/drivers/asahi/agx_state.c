@@ -831,30 +831,41 @@ agx_update_shader(struct agx_context *ctx, struct agx_compiled_shader **out,
 
    compiled->varying_count = varying_count;
 
-   unsigned varying_desc_len = AGX_VARYING_HEADER_LENGTH + (varying_count + 1) * AGX_VARYING_LENGTH;
+   unsigned varying_descriptors = (varying_count + 1);
+   unsigned varying_desc_len = AGX_VARYING_HEADER_LENGTH + varying_descriptors * AGX_VARYING_LENGTH;
    uint8_t *varying_desc = calloc(1, varying_desc_len);
+   unsigned num_slots = 0;
+   unsigned num_descs = 0;
+   struct agx_varying_packed *descs = (struct agx_varying_packed *) (varying_desc + AGX_VARYING_HEADER_LENGTH);
 
-   agx_pack(varying_desc, VARYING_HEADER, cfg) {
-      cfg.slots_1 = 1 + (4 * varying_count);
-      cfg.slots_2 = 1 + (4 * varying_count);
-   }
-
-   agx_pack(varying_desc + AGX_VARYING_HEADER_LENGTH, VARYING, cfg) {
+   agx_pack(&descs[num_descs], VARYING, cfg) {
+      /* fragcoord.w */
       cfg.unk = 0x0C;
-      cfg.slot_1 = cfg.slot_2 = 0;
+      cfg.slot_1 = cfg.slot_2 = num_slots;
+      num_slots += 1;
    }
+
+  ++num_descs;
 
    for (unsigned i = 0; i < varying_count; ++i) {
-      agx_pack(varying_desc + AGX_VARYING_HEADER_LENGTH + ((i + 1) * AGX_VARYING_LENGTH), VARYING, cfg) {
-         cfg.slot_1 = 1 + (4 * i);
-         cfg.slot_2 = 1 + (4 * i);
+      agx_pack(&descs[num_descs], VARYING, cfg) {
+         cfg.slot_1 = cfg.slot_2 = num_slots;
+         num_slots += 4;
       }
+
+      ++num_descs;
+   }
+
+   assert(num_descs == varying_descriptors);
+
+   agx_pack(varying_desc, VARYING_HEADER, cfg) {
+      cfg.slots_1 = cfg.slots_2 = num_slots;
    }
 
    if (binary.size) {
       struct agx_device *dev = agx_device(ctx->base.screen);
       compiled->bo = agx_bo_create(dev,
-                                   ALIGN_POT(binary.size, 256) + ((3 * (AGX_VARYING_HEADER_LENGTH + (varying_count + 1) * AGX_VARYING_LENGTH)) + 20),
+                                   ALIGN_POT(binary.size, 256) + ((3 * (AGX_VARYING_HEADER_LENGTH + varying_descriptors * AGX_VARYING_LENGTH)) + 20),
                                    AGX_MEMORY_TYPE_SHADER);
       memcpy(compiled->bo->ptr.cpu, binary.data, binary.size);
 
