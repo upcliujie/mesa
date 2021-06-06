@@ -714,6 +714,7 @@ static void
 i915_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
                        unsigned start, unsigned num,
                        unsigned unbind_num_trailing_slots,
+                       bool take_ownership,
                        struct pipe_sampler_view **views)
 {
    if (shader != PIPE_SHADER_FRAGMENT) {
@@ -736,7 +737,12 @@ i915_set_sampler_views(struct pipe_context *pipe, enum pipe_shader_type shader,
       return;
 
    for (i = 0; i < num; i++) {
-      pipe_sampler_view_reference(&i915->fragment_sampler_views[i], views[i]);
+      if (take_ownership) {
+         pipe_sampler_view_reference(&i915->fragment_sampler_views[i], NULL);
+         i915->fragment_sampler_views[i] = views[i];
+      } else {
+         pipe_sampler_view_reference(&i915->fragment_sampler_views[i], views[i]);
+      }
    }
 
    for (i = num; i < i915->num_fragment_sampler_views; i++)

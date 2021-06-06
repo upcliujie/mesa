@@ -1519,6 +1519,7 @@ static void r300_set_sampler_views(struct pipe_context* pipe,
                                    enum pipe_shader_type shader,
                                    unsigned start, unsigned count,
                                    unsigned unbind_num_trailing_slots,
+                                   bool take_ownership,
                                    struct pipe_sampler_view** views)
 {
     struct r300_context* r300 = r300_context(pipe);
@@ -1545,9 +1546,15 @@ static void r300_set_sampler_views(struct pipe_context* pipe,
     }
 
     for (i = 0; i < count; i++) {
-        pipe_sampler_view_reference(
-                (struct pipe_sampler_view**)&state->sampler_views[i],
-                views[i]);
+        if (take_ownership) {
+            pipe_sampler_view_reference(
+                    (struct pipe_sampler_view**)&state->sampler_views[i], NULL);
+            state->sampler_views[i] = (struct r300_sampler_view*)views[i];
+        } else {
+            pipe_sampler_view_reference(
+                    (struct pipe_sampler_view**)&state->sampler_views[i],
+                    views[i]);
+        }
 
         if (!views[i]) {
             continue;

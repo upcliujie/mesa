@@ -415,6 +415,7 @@ svga_set_sampler_views(struct pipe_context *pipe,
                        unsigned start,
                        unsigned num,
                        unsigned unbind_num_trailing_slots,
+                       bool take_ownership,
                        struct pipe_sampler_view **views)
 {
    struct svga_context *svga = svga_context(pipe);
@@ -448,7 +449,12 @@ svga_set_sampler_views(struct pipe_context *pipe,
    for (i = 0; i < num; i++) {
       enum pipe_texture_target target;
 
-      if (svga->curr.sampler_views[shader][start + i] != views[i]) {
+      if (take_ownership) {
+         pipe_sampler_view_reference(&svga->curr.sampler_views[shader][start + i],
+               NULL);
+         svga->curr.sampler_views[shader][start + i] = views[i];
+         any_change = TRUE;
+      } else if (svga->curr.sampler_views[shader][start + i] != views[i]) {
          pipe_sampler_view_reference(&svga->curr.sampler_views[shader][start + i],
                                      views[i]);
          any_change = TRUE;
