@@ -60,12 +60,14 @@ fd_pipe_new2(struct fd_device *dev, enum fd_pipe_id id, uint32_t prio)
    fd_pipe_get_param(pipe, FD_GPU_ID, &val);
    pipe->gpu_id = val;
 
+   unsigned control_flags = 0;
    if ((pipe->gpu_id >= 600) && dev->has_cached_coherent) {
       dev->ring_flags |= FD_BO_CACHED_COHERENT;
+      control_flags |= FD_BO_CACHED_COHERENT;
    }
 
    pipe->control_mem = fd_bo_new(dev, sizeof(*pipe->control),
-                                 0, "pipe-control");
+                                 control_flags, "pipe-control");
    pipe->control = fd_bo_map(pipe->control_mem);
 
    /* We could be getting a bo from the bo-cache, make sure the fence value
