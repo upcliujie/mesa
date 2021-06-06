@@ -1524,6 +1524,8 @@ struct isl_null_fill_state_info {
    const struct isl_surf *surf;
 
    struct isl_extent3d size;
+   uint32_t levels;
+   uint32_t minimum_array_element;
 };
 
 extern const struct isl_format_layout isl_format_layouts[];
