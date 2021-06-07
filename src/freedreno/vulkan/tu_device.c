@@ -1304,8 +1304,74 @@ tu_trace_delete_flush_data(struct u_trace_context *utctx, void *flush_data)
       container_of(utctx, struct tu_device, trace_context);
    struct tu_u_trace_flush_data *trace_flush_data = flush_data;
 
+   tu_u_trace_cmd_data_finish(device, trace_flush_data->cmd_trace_data);
    vk_free(&device->vk.alloc, trace_flush_data->syncobj);
    vk_free(&device->vk.alloc, trace_flush_data);
+}
+
+static void
+tu_copy_ts_buffer(struct u_trace_context *utctx, void *cmdstream,
+                  void *ts_from, void *ts_to, uint32_t count)
+{
+   struct tu_cs *cs = cmdstream;
+   struct tu_bo *bo_from = ts_from;
+   struct tu_bo *bo_to = ts_to;
+
+   tu_cs_emit_pkt7(cs, CP_MEMCPY, 5);
+   tu_cs_emit(cs, count * sizeof(uint64_t));
+   tu_cs_emit_qw(cs, bo_from->iova);
+   tu_cs_emit_qw(cs, bo_to->iova);
+}
+
+VkResult
+tu_create_copy_timestamp_cs(struct tu_cmd_buffer *cmdbuf, struct tu_cs** cs,
+                            struct u_trace **trace_copy)
+{
+   *cs = vk_zalloc(&cmdbuf->device->vk.alloc, sizeof(struct tu_cs), 8,
+                   VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+   if (*cs == NULL) {
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   tu_cs_init(*cs, cmdbuf->device, TU_CS_MODE_GROW, 4096);
+
+   tu_cs_begin(*cs);
+
+   tu_cs_emit_wfi(*cs);
+   tu_cs_emit_pkt7(*cs, CP_WAIT_FOR_ME, 0);
+
+   *trace_copy = vk_zalloc(&cmdbuf->device->vk.alloc, sizeof(struct u_trace), 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+   if (*trace_copy == NULL) {
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   u_trace_clone(&cmdbuf->trace, *trace_copy, *cs, tu_copy_ts_buffer);
+
+   tu_cs_emit_wfi(*cs);
+
+   tu_cs_end(*cs);
+
+   return VK_SUCCESS;
+}
+
+void
+tu_u_trace_cmd_data_finish(struct tu_device *device,
+                           struct tu_u_trace_cmd_data *trace_data)
+{
+   for (uint32_t i = 0; i < trace_data->entry_count; ++i) {
+      if (trace_data[i].timestamp_copy_cs != NULL) {
+         tu_cs_finish(trace_data[i].timestamp_copy_cs);
+         vk_free(&device->vk.alloc, trace_data[i].timestamp_copy_cs);
+
+         u_trace_fini(trace_data[i].trace);
+         vk_free(&device->vk.alloc, trace_data[i].trace);
+      }
+   }
+
+   vk_free(&device->vk.alloc, trace_data);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

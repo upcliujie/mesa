@@ -204,6 +204,8 @@ sync_timestamp(struct tu_device *dev)
    /* convert GPU ts into ns: */
    gpu_ts = tu_device_ticks_to_ns(dev, gpu_ts);
 
+   PERFETTO_ILOG("cpu clock %" PRIu64 " gpu clock %" PRIu64 "", cpu_ts, gpu_ts);
+
    TuRenderpassDataSource::Trace([=](TuRenderpassDataSource::TraceContext tctx) {
       auto packet = tctx.NewTracePacket();
 
