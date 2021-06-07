@@ -1081,6 +1081,9 @@ st_create_context(gl_api api, struct pipe_context *pipe,
       align_free(ctx);
    }
 
+   if (pipe->set_prediction_mode)
+      pipe->set_prediction_mode(pipe, true);
+
    return st;
 }
 
