@@ -5416,6 +5416,10 @@ radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
    radv_pipeline_init_raster_state(pipeline, pCreateInfo);
    radv_pipeline_init_depth_stencil_state(pipeline, pCreateInfo);
 
+   pipeline->graphics.uses_conservative_overestimate =
+      radv_get_conservative_raster_mode(pCreateInfo->pRasterizationState) ==
+         VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
+
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX10_3)
       gfx103_pipeline_init_vrs_state(pipeline, pCreateInfo);
 

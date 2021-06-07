@@ -2623,6 +2623,13 @@ radv_cmd_buffer_flush_dynamic_state(struct radv_cmd_buffer *cmd_buffer)
    if (states & RADV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE)
       radv_emit_rasterizer_discard_enable(cmd_buffer);
 
+   if (states &
+       (RADV_CMD_DIRTY_DYNAMIC_CULL_MODE | RADV_CMD_DIRTY_DYNAMIC_FRONT_FACE |
+        RADV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE))
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_CULLING_SETTINGS;
+   if (states & RADV_CMD_DIRTY_DYNAMIC_VIEWPORT)
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_CULLING_SETTINGS | RADV_CMD_DIRTY_NGG_CULLING_VIEWPORT;
+
    cmd_buffer->state.dirty &= ~states;
 }
 
@@ -3865,6 +3872,7 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
    memset(&cmd_buffer->state, 0, sizeof(cmd_buffer->state));
    cmd_buffer->state.last_primitive_reset_en = -1;
    cmd_buffer->state.last_index_type = -1;
+   cmd_buffer->state.last_num_vertices = -1;
    cmd_buffer->state.last_num_instances = -1;
    cmd_buffer->state.last_vertex_offset = -1;
    cmd_buffer->state.last_first_instance = -1;
@@ -3873,6 +3881,8 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
    cmd_buffer->state.last_sx_ps_downconvert = -1;
    cmd_buffer->state.last_sx_blend_opt_epsilon = -1;
    cmd_buffer->state.last_sx_blend_opt_control = -1;
+   cmd_buffer->state.last_ngg_culling_settings = 0;
+   cmd_buffer->state.last_ngg_culling_settings_sgpr_idx = -1;
    cmd_buffer->usage_flags = pBeginInfo->flags;
 
    if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_SECONDARY &&
@@ -5493,6 +5503,192 @@ radv_need_late_scissor_emission(struct radv_cmd_buffer *cmd_buffer,
    return false;
 }
 
+enum {
+   ngg_cull_front_face = 1,
+   ngg_cull_back_face = 2,
+   ngg_cull_viewport_xy = 4,
+   ngg_cull_small_primitives = 8,
+};
+
+ALWAYS_INLINE static bool
+radv_is_small_ngg_draw(const unsigned vtx_cnt)
+{
+   return vtx_cnt && vtx_cnt < 256;
+}
+
+ALWAYS_INLINE static uint32_t
+radv_get_ngg_culling_settings(struct radv_cmd_buffer *cmd_buffer,
+                              const struct radv_draw_info *draw_info, bool vp_y_inverted)
+{
+   const struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
+   const struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
+
+   /* Don't enable culling for small draw calls. */
+   if (radv_is_small_ngg_draw(draw_info->count))
+      return 0;
+
+   /* Cull every triangle when rasterizer discard is enabled. */
+   if (d->rasterizer_discard_enable ||
+       G_028810_DX_RASTERIZATION_KILL(cmd_buffer->state.pipeline->graphics.pa_cl_clip_cntl))
+      return ngg_cull_front_face | ngg_cull_back_face;
+
+   /* TODO: figure out a good way to cull when there are multiple viewports. */
+   if (cmd_buffer->state.dynamic.viewport.count > 1)
+      return 0;
+
+   uint32_t pa_su_sc_mode_cntl = cmd_buffer->state.pipeline->graphics.pa_su_sc_mode_cntl;
+   uint32_t ngg_culling_settings = 0;
+
+   /* The culling code operates on CW, swap when we have CCW. */
+   bool face_swap = (pipeline->graphics.needed_dynamic_state & RADV_DYNAMIC_FRONT_FACE)
+                     ? d->front_face == VK_FRONT_FACE_COUNTER_CLOCKWISE
+                     : G_028814_FACE(pa_su_sc_mode_cntl) == 0;
+
+   /* Also swap when the viewport is inverted. */
+   if (vp_y_inverted)
+      face_swap = !face_swap;
+
+   /* Face culling settings. */
+   if ((pipeline->graphics.needed_dynamic_state & RADV_DYNAMIC_CULL_MODE)
+         ? (d->cull_mode & VK_CULL_MODE_FRONT_BIT)
+         : G_028814_CULL_FRONT(pa_su_sc_mode_cntl))
+      ngg_culling_settings |= face_swap ? ngg_cull_back_face : ngg_cull_front_face;
+   if ((pipeline->graphics.needed_dynamic_state & RADV_DYNAMIC_CULL_MODE)
+         ? (d->cull_mode & VK_CULL_MODE_BACK_BIT)
+         : G_028814_CULL_BACK(pa_su_sc_mode_cntl))
+      ngg_culling_settings |= face_swap ? ngg_cull_front_face : ngg_cull_back_face;
+
+   /* Viewport culling can always work. */
+   ngg_culling_settings |= ngg_cull_viewport_xy;
+
+   /* Small primitive culling is only valid when conservative overestimation is not used. */
+   if (!pipeline->graphics.uses_conservative_overestimate)
+      ngg_culling_settings |= ngg_cull_small_primitives;
+
+   /* small_prim_precision = num_samples / 2^subpixel_bits
+    * num_samples is also always a power of two, so the small prim precision can only be
+    * a power of two between 2^-2 and 2^-6, therefore it's enough to remember the exponent.
+    */
+   unsigned subpixel_bits = 256;
+   int32_t small_prim_precision_log2 = util_logbase2(pipeline->graphics.ms.num_samples) - util_logbase2(subpixel_bits);
+   ngg_culling_settings |= ((uint32_t) small_prim_precision_log2 << 24u);
+
+   return ngg_culling_settings;
+}
+
+static void
+radv_emit_ngg_culling_args(struct radv_cmd_buffer *cmd_buffer, const struct radv_draw_info *draw_info)
+{
+
+   struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
+
+   if (!pipeline->graphics.is_ngg)
+      return;
+   if ((cmd_buffer->state.dirty & (RADV_CMD_DIRTY_NGG_CULLING_SETTINGS | RADV_CMD_DIRTY_NGG_CULLING_VIEWPORT)) == 0)
+      return;
+
+   const unsigned lookup_stage = radv_pipeline_has_gs(pipeline) ? MESA_SHADER_GEOMETRY :
+                                 radv_pipeline_has_tess(pipeline) ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
+   const struct radv_shader_info *sh_info = &pipeline->shaders[lookup_stage]->info;
+
+   /* If the shader doesn't support culling AND it was already disabled:
+    * just remember that the SGPR's location is not set.
+    */
+   if (!sh_info->has_ngg_culling && cmd_buffer->state.last_ngg_culling_settings == 0) {
+      cmd_buffer->state.last_ngg_culling_settings_sgpr_idx = -1;
+      cmd_buffer->state.dirty &= ~(RADV_CMD_DIRTY_NGG_CULLING_SETTINGS | RADV_CMD_DIRTY_NGG_CULLING_VIEWPORT);
+      return;
+   }
+
+   /* Find the user SGPR. */
+   uint32_t base_reg = pipeline->user_data_0[lookup_stage];
+   struct radv_userdata_info *loc_nggc = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_CULLING_SETTINGS);
+
+   /* The SGPRs always need to be reset when culling was previously disabled, or the SGPR index changed. */
+   bool culling_settings_reset = cmd_buffer->state.last_ngg_culling_settings_sgpr_idx != loc_nggc->sgpr_idx;
+
+   /* Get viewport transformation. */
+   float vp_scale[3], vp_translate[3];
+   get_viewport_xform(&cmd_buffer->state.dynamic.viewport.viewports[0], vp_scale, vp_translate);
+   bool vp_y_inverted = (-vp_scale[1] + vp_translate[1]) > (vp_scale[1] + vp_translate[1]);
+
+   /* Get current culling settings. */
+   uint32_t ngg_culling_settings = sh_info->has_ngg_culling
+                                   ? radv_get_ngg_culling_settings(cmd_buffer, draw_info, vp_y_inverted)
+                                   : 0;
+
+   bool viewport_dirty = cmd_buffer->state.dirty & RADV_CMD_DIRTY_NGG_CULLING_VIEWPORT ||
+                         culling_settings_reset;
+
+   /* Update viewport SGPRs if necessary. */
+   if (unlikely(ngg_culling_settings && viewport_dirty)) {
+      /* Correction for inverted Y */
+      if (vp_y_inverted) {
+         vp_scale[1] = -vp_scale[1];
+         vp_translate[1] = -vp_translate[1];
+      }
+
+      /* Correction for number of samples per pixel. */
+      for (unsigned i = 0; i < 2; ++i) {
+         vp_scale[i] *= (float) pipeline->graphics.ms.num_samples;
+         vp_translate[i] *= (float) pipeline->graphics.ms.num_samples;
+      }
+
+      uint32_t vp_reg_values[4] = {fui(vp_scale[0]), fui(vp_scale[1]), fui(vp_translate[0]), fui(vp_translate[1])};
+      struct radv_userdata_info *loc_vp = radv_lookup_user_sgpr(pipeline, lookup_stage, AC_UD_NGG_VIEWPORT);
+      assert(loc_vp->sgpr_idx != -1);
+      radeon_set_sh_reg_seq(cmd_buffer->cs, base_reg + loc_vp->sgpr_idx * 4, 4);
+      radeon_emit_array(cmd_buffer->cs, vp_reg_values, 4);
+   }
+
+   bool culling_settings_dirty = cmd_buffer->state.last_ngg_culling_settings != ngg_culling_settings ||
+                                 culling_settings_reset;
+
+   if (culling_settings_dirty) {
+      assert(!sh_info->has_ngg_culling || loc_nggc->sgpr_idx != -1);
+
+      /* These registers only need adjustment when culling was turned completely on or off */
+      if (!!cmd_buffer->state.last_ngg_culling_settings != !!ngg_culling_settings) {
+         const struct radv_physical_device *physical_device = cmd_buffer->device->physical_device;
+         uint32_t rsrc2 = pipeline->shaders[lookup_stage]->config.rsrc2;
+         uint32_t oversub_pc_lines = physical_device->rad_info.pc_lines / 4;
+
+         if (ngg_culling_settings) {
+            /* Tweak the parameter cache oversubscription, this should give better performance when culling is enabled. */
+            if (sh_info->vs.outinfo.param_exports > 4)
+               oversub_pc_lines = physical_device->rad_info.pc_lines;
+            else if (sh_info->vs.outinfo.param_exports > 2)
+               oversub_pc_lines = physical_device->rad_info.pc_lines * 3 / 4;
+            else
+               oversub_pc_lines = physical_device->rad_info.pc_lines / 2;
+         } else {
+            /* Allocate less LDS when culling is disabled. NGG GS always needs LDS, so this is not useful there. */
+            if (lookup_stage != MESA_SHADER_GEOMETRY) {
+               rsrc2 &= C_00B22C_LDS_SIZE;
+               rsrc2 |= S_00B22C_LDS_SIZE(sh_info->num_lds_blocks_when_not_culling);
+            }
+         }
+
+         /* Update LDS size. */
+         radeon_set_sh_reg(cmd_buffer->cs, R_00B22C_SPI_SHADER_PGM_RSRC2_GS, rsrc2);
+
+         /* Update parameter cache oversubscription setting. */
+         radeon_set_uconfig_reg(cmd_buffer->cs, R_030980_GE_PC_ALLOC,
+                                                S_030980_OVERSUB_EN(physical_device->rad_info.use_late_alloc) |
+                                                S_030980_NUM_PC_LINES(oversub_pc_lines - 1));
+      }
+
+      /* Update the user SGPR when culling is supported by the shader. */
+      if (loc_nggc->sgpr_idx != -1)
+         radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc_nggc->sgpr_idx * 4, ngg_culling_settings);
+   }
+
+   cmd_buffer->state.last_ngg_culling_settings = ngg_culling_settings;
+   cmd_buffer->state.last_ngg_culling_settings_sgpr_idx = loc_nggc->sgpr_idx;
+
+   cmd_buffer->state.dirty &= ~(RADV_CMD_DIRTY_NGG_CULLING_SETTINGS | RADV_CMD_DIRTY_NGG_CULLING_VIEWPORT);
+}
+
 static void
 radv_emit_all_graphics_states(struct radv_cmd_buffer *cmd_buffer, const struct radv_draw_info *info)
 {
@@ -5533,6 +5729,8 @@ radv_emit_all_graphics_states(struct radv_cmd_buffer *cmd_buffer, const struct r
 
    if (late_scissor_emission)
       radv_emit_scissor(cmd_buffer);
+
+   radv_emit_ngg_culling_args(cmd_buffer, info);
 }
 
 /* MUST inline this function to avoid massive perf loss in drawoverhead */
@@ -5563,6 +5761,11 @@ radv_before_draw(struct radv_cmd_buffer *cmd_buffer, const struct radv_draw_info
    /* Need to apply this workaround early as it can set flush flags. */
    if (cmd_buffer->state.dirty & RADV_CMD_DIRTY_FRAMEBUFFER)
       radv_emit_fb_mip_change_flush(cmd_buffer);
+
+   if (radv_is_small_ngg_draw(info->count) != radv_is_small_ngg_draw(cmd_buffer->state.last_num_vertices) || pipeline_is_dirty)
+      cmd_buffer->state.dirty |= RADV_CMD_DIRTY_NGG_CULLING_SETTINGS;
+
+   cmd_buffer->state.last_num_vertices = info->count;
 
    /* Use optimal packet order based on whether we need to sync the
     * pipeline.
