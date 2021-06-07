@@ -541,10 +541,12 @@ radv_amdgpu_cs_add_buffer(struct radeon_cmdbuf *_cs, struct radeon_winsys_bo *_b
 }
 
 static void
-radv_amdgpu_cs_execute_secondary(struct radeon_cmdbuf *_parent, struct radeon_cmdbuf *_child)
+radv_amdgpu_cs_execute_secondary(struct radeon_cmdbuf *_parent, struct radeon_cmdbuf *_child,
+                                 bool allow_ib2)
 {
    struct radv_amdgpu_cs *parent = radv_amdgpu_cs(_parent);
    struct radv_amdgpu_cs *child = radv_amdgpu_cs(_child);
+   bool use_ib2 = parent->ws->use_ib_bos && allow_ib2;
 
    if (parent->status != VK_SUCCESS || child->status != VK_SUCCESS)
       return;
@@ -558,7 +560,7 @@ radv_amdgpu_cs_execute_secondary(struct radeon_cmdbuf *_parent, struct radeon_cm
       radv_amdgpu_cs_add_buffer(&parent->base, child->virtual_buffers[i]);
    }
 
-   if (parent->ws->use_ib_bos) {
+   if (use_ib2) {
       if (parent->base.cdw + 4 > parent->base.max_dw)
          radv_amdgpu_cs_grow(&parent->base, 4);
 
