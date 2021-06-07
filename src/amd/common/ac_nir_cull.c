@@ -97,6 +97,12 @@ cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const p
       nir_ssa_def *vp_translate[2] = { nir_build_load_viewport_x_offset(b), nir_build_load_viewport_y_offset(b), };
       nir_ssa_def *prim_invisible = nir_imm_false(b);
 
+      /* Frustrum culling (aka. viewport culling). */
+      for (unsigned chan = 0; chan < 2; ++chan) {
+         prim_invisible = nir_ior(b, prim_invisible, nir_flt(b, bbox_max[chan], nir_imm_float(b, -1.0f)));
+         prim_invisible = nir_ior(b, prim_invisible, nir_flt(b, nir_imm_float(b, 1.0f), bbox_min[chan]));
+      }
+
       /* Small primitive elimination. */
       nir_ssa_def *small_prim_precision = nir_build_load_cull_small_prim_precision_amd(b);
 
