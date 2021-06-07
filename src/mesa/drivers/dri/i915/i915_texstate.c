@@ -250,7 +250,7 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
          }
       }
 
-      lodbias = (int) ((tUnit->LodBias + sampler->Attrib.LodBias) * 16.0);
+      lodbias = (int) (sampler->Attrib.LodBias * 16.0);
       if (lodbias < -256)
           lodbias = -256;
       if (lodbias > 255)
