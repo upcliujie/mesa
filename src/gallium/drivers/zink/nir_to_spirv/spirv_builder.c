@@ -1550,7 +1550,6 @@ spirv_builder_get_words(struct spirv_builder *b, uint32_t *words,
                         size_t num_words, uint32_t spirv_version)
 {
    assert(num_words >= spirv_builder_get_num_words(b));
-   assert(spirv_version >= 0x00010000);
 
    size_t written  = 0;
    words[written++] = SpvMagicNumber;
