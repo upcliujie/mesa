@@ -363,6 +363,33 @@ u_trace_fini(struct u_trace *ut)
    free_chunks(&ut->trace_chunks);
 }
 
+bool
+u_trace_has_points(struct u_trace *ut)
+{
+   return !list_is_empty(&ut->trace_chunks);
+}
+
+void
+u_trace_clone(struct u_trace *from, struct u_trace *into,
+              void *cmdstream,
+              u_trace_copy_ts_buffer copy_ts_buffer)
+{
+   u_trace_init(into, from->utctx);
+
+   list_for_each_entry(struct u_trace_chunk, from_chunk, &from->trace_chunks, node) {
+      assert(from_chunk->flush_data == NULL);
+
+      struct u_trace_chunk *into_chunk = get_chunk(into);
+
+      into_chunk->num_traces = from_chunk->num_traces;
+      memcpy(&into_chunk->traces, &from_chunk->traces, from_chunk->num_traces * sizeof(struct u_trace_event));
+
+      copy_ts_buffer(from->utctx, cmdstream,
+                     from_chunk->timestamps, into_chunk->timestamps,
+                     from_chunk->num_traces);
+   }
+}
+
 /**
  * Append a trace event, returning pointer to buffer of tp->payload_sz
  * to be filled in with trace payload.  Called by generated tracepoint
