@@ -1804,6 +1804,18 @@ vtn_get_call_payload_for_location(struct vtn_builder *b, uint32_t location_id)
             "or RayPayloadKHR and location %d", location);
 }
 
+static bool
+vtn_type_is_ray_query(struct vtn_type *type)
+{
+   if (type->base_type == vtn_base_type_ray_query)
+      return true;
+
+   if (type->base_type == vtn_base_type_array)
+      return vtn_type_is_ray_query(type->array_element);
+
+   return false;
+}
+
 static void
 vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
                     struct vtn_type *ptr_type, SpvStorageClass storage_class,
@@ -1900,6 +1912,7 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
 
       var->var->data.mode = nir_mode;
       var->var->data.location = -1;
+      var->var->data.ray_query = vtn_type_is_ray_query(var->type);
       var->var->interface_type = NULL;
       break;
 
