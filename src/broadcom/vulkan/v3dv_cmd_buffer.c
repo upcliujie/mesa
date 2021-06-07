@@ -4488,19 +4488,14 @@ v3dv_CmdDraw(VkCommandBuffer commandBuffer,
    cmd_buffer_draw(cmd_buffer, &info);
 }
 
-VKAPI_ATTR void VKAPI_CALL
-v3dv_CmdDrawIndexed(VkCommandBuffer commandBuffer,
-                    uint32_t indexCount,
-                    uint32_t instanceCount,
-                    uint32_t firstIndex,
-                    int32_t vertexOffset,
-                    uint32_t firstInstance)
+static void
+cmd_buffer_emit_draw_indexed(struct v3dv_cmd_buffer *cmd_buffer,
+                             uint32_t indexCount,
+                             uint32_t instanceCount,
+                             uint32_t firstIndex,
+                             int32_t vertexOffset,
+                             uint32_t firstInstance)
 {
-   if (indexCount == 0 || instanceCount == 0)
-      return;
-
-   V3DV_FROM_HANDLE(v3dv_cmd_buffer, cmd_buffer, commandBuffer);
-
    cmd_buffer_emit_pre_draw(cmd_buffer);
 
    struct v3dv_job *job = cmd_buffer->state.job;
@@ -4551,19 +4546,29 @@ v3dv_CmdDrawIndexed(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-v3dv_CmdDrawIndirect(VkCommandBuffer commandBuffer,
-                     VkBuffer _buffer,
-                     VkDeviceSize offset,
-                     uint32_t drawCount,
-                     uint32_t stride)
+v3dv_CmdDrawIndexed(VkCommandBuffer commandBuffer,
+                    uint32_t indexCount,
+                    uint32_t instanceCount,
+                    uint32_t firstIndex,
+                    int32_t vertexOffset,
+                    uint32_t firstInstance)
 {
-   /* drawCount is the number of draws to execute, and can be zero. */
-   if (drawCount == 0)
+   if (indexCount == 0 || instanceCount == 0)
       return;
 
    V3DV_FROM_HANDLE(v3dv_cmd_buffer, cmd_buffer, commandBuffer);
-   V3DV_FROM_HANDLE(v3dv_buffer, buffer, _buffer);
 
+   cmd_buffer_emit_draw_indexed(cmd_buffer, indexCount, instanceCount,
+                                firstIndex, vertexOffset, firstInstance);
+}
+
+static void
+cmd_buffer_emit_draw_indirect(struct v3dv_cmd_buffer *cmd_buffer,
+                              struct v3dv_buffer *buffer,
+                              VkDeviceSize offset,
+                              uint32_t drawCount,
+                              uint32_t stride)
+{
    cmd_buffer_emit_pre_draw(cmd_buffer);
 
    struct v3dv_job *job = cmd_buffer->state.job;
@@ -4586,11 +4591,11 @@ v3dv_CmdDrawIndirect(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-v3dv_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
-                            VkBuffer _buffer,
-                            VkDeviceSize offset,
-                            uint32_t drawCount,
-                            uint32_t stride)
+v3dv_CmdDrawIndirect(VkCommandBuffer commandBuffer,
+                     VkBuffer _buffer,
+                     VkDeviceSize offset,
+                     uint32_t drawCount,
+                     uint32_t stride)
 {
    /* drawCount is the number of draws to execute, and can be zero. */
    if (drawCount == 0)
@@ -4599,6 +4604,17 @@ v3dv_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
    V3DV_FROM_HANDLE(v3dv_cmd_buffer, cmd_buffer, commandBuffer);
    V3DV_FROM_HANDLE(v3dv_buffer, buffer, _buffer);
 
+   cmd_buffer_emit_draw_indirect(cmd_buffer, buffer, offset, drawCount, stride);
+}
+
+static void
+cmd_buffer_emit_indexed_indirect(struct v3dv_cmd_buffer *cmd_buffer,
+                                 struct v3dv_buffer *buffer,
+                                 VkDeviceSize offset,
+                                 uint32_t drawCount,
+                                 uint32_t stride)
+
+{
    cmd_buffer_emit_pre_draw(cmd_buffer);
 
    struct v3dv_job *job = cmd_buffer->state.job;
@@ -4621,6 +4637,24 @@ v3dv_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
       prim.address = v3dv_cl_address(buffer->mem->bo,
                                      buffer->mem_offset + offset);
    }
+
+}
+
+VKAPI_ATTR void VKAPI_CALL
+v3dv_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
+                            VkBuffer _buffer,
+                            VkDeviceSize offset,
+                            uint32_t drawCount,
+                            uint32_t stride)
+{
+   /* drawCount is the number of draws to execute, and can be zero. */
+   if (drawCount == 0)
+      return;
+
+   V3DV_FROM_HANDLE(v3dv_cmd_buffer, cmd_buffer, commandBuffer);
+   V3DV_FROM_HANDLE(v3dv_buffer, buffer, _buffer);
+
+   cmd_buffer_emit_indexed_indirect(cmd_buffer, buffer, offset, drawCount, stride);
 }
 
 VKAPI_ATTR void VKAPI_CALL
