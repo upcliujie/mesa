@@ -204,6 +204,15 @@ void u_trace_context_process(struct u_trace_context *utctx, bool eof);
 void u_trace_init(struct u_trace *ut, struct u_trace_context *utctx);
 void u_trace_fini(struct u_trace *ut);
 
+bool u_trace_has_points(struct u_trace *ut);
+
+typedef void (*u_trace_copy_ts_buffer)(struct u_trace_context *utctx,
+      void *cmdstream, void *ts_from, void *ts_to, uint32_t count);
+
+void u_trace_clone(struct u_trace *from, struct u_trace *into,
+                   void *cmdstream,
+                   u_trace_copy_ts_buffer copy_ts_buffer);
+
 /**
  * Flush traces to the parent trace-context.  At this point, the expectation
  * is that all the tracepoints are "executed" by the GPU following any previously
