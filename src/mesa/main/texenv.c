@@ -463,15 +463,15 @@ _mesa_texenvfv_indexed( struct gl_context* ctx, GLuint texunit, GLenum target,
       }
    }
    else if (target == GL_TEXTURE_FILTER_CONTROL_EXT) {
-      struct gl_texture_unit *texUnit =
-         _mesa_get_tex_unit(ctx, texunit);
+      struct gl_fixedfunc_texture_unit *texUnit =
+         _mesa_get_fixedfunc_tex_unit(ctx, texunit);
 
       if (pname == GL_TEXTURE_LOD_BIAS_EXT) {
 	 if (texUnit->LodBias == param[0])
 	    return;
-	 FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT, GL_TEXTURE_BIT);
+	 FLUSH_VERTICES(ctx, _NEW_TEXTURE_STATE | _NEW_FF_FRAG_PROGRAM,
+                        GL_TEXTURE_BIT);
          texUnit->LodBias = param[0];
-         texUnit->LodBiasQuantized = util_quantize_lod_bias(param[0]);
       }
       else {
          TE_ERROR(GL_INVALID_ENUM, "glTexEnv(pname=%s)", pname);
@@ -756,7 +756,8 @@ _mesa_gettexenvfv_indexed( GLuint texunit, GLenum target, GLenum pname, GLfloat 
       }
    }
    else if (target == GL_TEXTURE_FILTER_CONTROL_EXT) {
-      const struct gl_texture_unit *texUnit = _mesa_get_tex_unit(ctx, texunit);
+      const struct gl_fixedfunc_texture_unit *texUnit =
+         _mesa_get_fixedfunc_tex_unit(ctx, texunit);
 
       if (pname == GL_TEXTURE_LOD_BIAS_EXT) {
          *params = texUnit->LodBias;
@@ -832,7 +833,8 @@ _mesa_gettexenviv_indexed( GLuint texunit, GLenum target,
       }
    }
    else if (target == GL_TEXTURE_FILTER_CONTROL_EXT) {
-      const struct gl_texture_unit *texUnit = _mesa_get_tex_unit(ctx, texunit);
+      const struct gl_fixedfunc_texture_unit *texUnit =
+         _mesa_get_fixedfunc_tex_unit(ctx, texunit);
 
       if (pname == GL_TEXTURE_LOD_BIAS_EXT) {
          *params = (GLint) texUnit->LodBias;

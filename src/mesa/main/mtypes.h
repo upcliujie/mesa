@@ -1180,9 +1180,6 @@ struct gl_texgen
  */
 struct gl_texture_unit
 {
-   GLfloat LodBias;		/**< for biasing mipmap levels */
-   float LodBiasQuantized;      /**< to reduce pipe_sampler_state variants */
-
    /** Texture targets that have a non-default texture bound */
    GLbitfield _BoundTextures;
 
@@ -1215,6 +1212,8 @@ struct gl_fixedfunc_texture_unit
    GLenum16 EnvMode;            /**< GL_MODULATE, GL_DECAL, GL_BLEND, etc. */
    GLclampf EnvColor[4];
    GLfloat EnvColorUnclamped[4];
+
+   GLfloat LodBias;		/**< for biasing mipmap levels */
 
    struct gl_texgen GenS;
    struct gl_texgen GenT;
@@ -5095,8 +5094,6 @@ struct gl_texture_attrib_node
    GLuint CurrentUnit;   /**< GL_ACTIVE_TEXTURE */
    GLuint NumTexSaved;
    struct gl_fixedfunc_texture_unit FixedFuncUnit[MAX_TEXTURE_COORD_UNITS];
-   GLfloat LodBias[MAX_TEXTURE_UNITS];
-   float LodBiasQuantized[MAX_TEXTURE_UNITS];
 
    /** Saved default texture object state. */
    struct gl_texture_object SavedDefaultObj[NUM_TEXTURE_TARGETS];

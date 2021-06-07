@@ -303,6 +303,13 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
             COPY_4V(value, ctx->Texture.FixedFuncUnit[unit].EnvColorUnclamped);
       }
       return;
+   case STATE_TEXENV_LOD_BIAS:
+      {
+         /* state[1] is the texture unit */
+         const GLuint unit = (GLuint) state[1];
+         *value = ctx->Texture.FixedFuncUnit[unit].LodBias;
+      }
+      return;
    case STATE_FOG_COLOR:
       if (_mesa_get_clamp_fragment_color(ctx, ctx->DrawBuffer))
          COPY_4V(value, ctx->Fog.Color);
@@ -786,7 +793,8 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
 unsigned
 _mesa_program_state_value_size(const gl_state_index16 state[STATE_LENGTH])
 {
-   if (state[0] == STATE_LIGHT && state[2] == STATE_SPOT_CUTOFF)
+   if ((state[0] == STATE_LIGHT && state[2] == STATE_SPOT_CUTOFF) ||
+       state[0] == STATE_TEXENV_LOD_BIAS)
       return 1;
 
    /* Everything else is packed into vec4s */
@@ -827,6 +835,7 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
       return _NEW_LIGHT_CONSTANTS;
 
    case STATE_TEXGEN:
+   case STATE_TEXENV_LOD_BIAS:
       return _NEW_TEXTURE_STATE;
    case STATE_TEXENV_COLOR:
       return _NEW_TEXTURE_STATE | _NEW_BUFFERS | _NEW_FRAG_CLAMP;
@@ -1107,6 +1116,7 @@ append_token(char *dst, gl_state_index k)
       append(dst, "object.q");
       break;
    case STATE_TEXENV_COLOR:
+   case STATE_TEXENV_LOD_BIAS:
       append(dst, "texenv");
       break;
    case STATE_NUM_SAMPLES:
@@ -1245,6 +1255,10 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
    case STATE_TEXENV_COLOR:
       append_index(str, state[1], true); /* tex unit [i] */
       append(str, "color");
+      break;
+   case STATE_TEXENV_LOD_BIAS:
+      append_index(str, state[1], true); /* tex unit [i] */
+      append(str, "lodbias");
       break;
    case STATE_CLIPPLANE:
       append_index(str, state[1], true); /* plane [i] */

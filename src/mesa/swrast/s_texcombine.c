@@ -650,6 +650,7 @@ _swrast_texture_span( struct gl_context *ctx, SWspan *span )
     */
    for (unit = 0; unit < ctx->Const.MaxTextureUnits; unit++) {
       const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+      const struct gl_fixedfunc_texture_unit *ffUnit = &ctx->Texture.FixedFuncUnit[unit];
       if (texUnit->_Current) {
          const GLfloat (*texcoords)[4] = (const GLfloat (*)[4])
             span->array->attribs[VARYING_SLOT_TEX0 + unit];
@@ -660,9 +661,9 @@ _swrast_texture_span( struct gl_context *ctx, SWspan *span )
 
          /* adjust texture lod (lambda) */
          if (span->arrayMask & SPAN_LAMBDA) {
-            if (texUnit->LodBias + samp->Attrib.LodBias != 0.0F) {
+            if (ffUnit->LodBias + samp->Attrib.LodBias != 0.0F) {
                /* apply LOD bias, but don't clamp yet */
-               const GLfloat bias = CLAMP(texUnit->LodBias + samp->Attrib.LodBias,
+               const GLfloat bias = CLAMP(ffUnit->LodBias + samp->Attrib.LodBias,
                                           -ctx->Const.MaxTextureLodBias,
                                           ctx->Const.MaxTextureLodBias);
                GLuint i;

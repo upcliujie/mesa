@@ -75,9 +75,6 @@ _mesa_copy_texture_state( const struct gl_context *src, struct gl_context *dst )
 
    /* per-unit state */
    for (u = 0; u < src->Const.MaxCombinedTextureImageUnits; u++) {
-      dst->Texture.Unit[u].LodBias = src->Texture.Unit[u].LodBias;
-      dst->Texture.Unit[u].LodBiasQuantized = src->Texture.Unit[u].LodBiasQuantized;
-
       /*
        * XXX strictly speaking, we should compare texture names/ids and
        * bind textures in the dest context according to id.  For now, only
@@ -105,6 +102,7 @@ _mesa_copy_texture_state( const struct gl_context *src, struct gl_context *dst )
       dst->Texture.FixedFuncUnit[u].Enabled = src->Texture.FixedFuncUnit[u].Enabled;
       dst->Texture.FixedFuncUnit[u].EnvMode = src->Texture.FixedFuncUnit[u].EnvMode;
       COPY_4V(dst->Texture.FixedFuncUnit[u].EnvColor, src->Texture.FixedFuncUnit[u].EnvColor);
+      dst->Texture.FixedFuncUnit[u].LodBias = src->Texture.FixedFuncUnit[u].LodBias;
       dst->Texture.FixedFuncUnit[u].TexGenEnabled = src->Texture.FixedFuncUnit[u].TexGenEnabled;
       dst->Texture.FixedFuncUnit[u].GenS = src->Texture.FixedFuncUnit[u].GenS;
       dst->Texture.FixedFuncUnit[u].GenT = src->Texture.FixedFuncUnit[u].GenT;

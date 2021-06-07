@@ -241,7 +241,8 @@ i830_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
          }
       }
 
-      lodbias = (int) ((tUnit->LodBias + sampler->Attrib.LodBias) * 16.0);
+      lodbias = (int) ((ctx->Texture.FixedFuncUnit[unit].LodBias +
+                        sampler->Attrib.LodBias) * 16.0);
       if (lodbias < -64)
           lodbias = -64;
       if (lodbias > 63)

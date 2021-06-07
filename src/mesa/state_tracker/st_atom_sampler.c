@@ -60,7 +60,6 @@ void
 st_convert_sampler(const struct st_context *st,
                    const struct gl_texture_object *texobj,
                    const struct gl_sampler_object *msamp,
-                   float tex_unit_lod_bias,
                    struct pipe_sampler_state *sampler)
 {
    memcpy(sampler, &msamp->Attrib.state, sizeof(*sampler));
@@ -72,8 +71,6 @@ st_convert_sampler(const struct st_context *st,
 
    if (texobj->Target != GL_TEXTURE_RECTANGLE_ARB)
       sampler->normalized_coords = 1;
-
-   sampler->lod_bias += tex_unit_lod_bias;
 
    /* Check that only wrap modes using the border color have the first bit
     * set.
@@ -155,8 +152,7 @@ st_convert_sampler_from_unit(const struct st_context *st,
 
    msamp = _mesa_get_samplerobj(ctx, texUnit);
 
-   st_convert_sampler(st, texobj, msamp, ctx->Texture.Unit[texUnit].LodBiasQuantized,
-                      sampler);
+   st_convert_sampler(st, texobj, msamp, sampler);
 
    sampler->seamless_cube_map |= ctx->Texture.CubeMapSeamless;
 }
