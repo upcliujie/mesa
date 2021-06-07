@@ -104,7 +104,10 @@
  * We use it to indicate the free list is empty. */
 #define EMPTY UINT32_MAX
 
+/* On FreeBSD PAGE_SIZE is defined in machine/param.h */
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#endif
 
 struct anv_mmap_cleanup {
    void *map;
