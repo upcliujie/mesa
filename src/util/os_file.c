@@ -89,6 +89,17 @@ typedef ptrdiff_t ssize_t;
 static ssize_t
 readN(int fd, char *buf, size_t len)
 {
+    /* On Linux ENODATA is defined while ENOATTR isn't.
+     * On NetBSD and MacOSX ENODATA is defined but has other usages
+     * and ENOATTR is also defined.
+     * On FreeBSD ENODATA is *not* defined but ENOATTR is defined.
+     * So the safest thing to do here is to use ENOATTR when we
+     * are not on Linux.
+     */
+#if !defined(__linux__)
+#define ENODATA ENOATTR
+#endif
+
    int err = -ENODATA;
    size_t total = 0;
    do {
