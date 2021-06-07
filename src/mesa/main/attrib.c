@@ -276,9 +276,6 @@ _mesa_PushAttrib(GLbitfield mask)
       /* copy state/contents of the currently bound texture objects */
       unsigned num_tex_used = ctx->Texture.NumCurrentTexUsed;
       for (u = 0; u < num_tex_used; u++) {
-         head->Texture.LodBias[u] = ctx->Texture.Unit[u].LodBias;
-         head->Texture.LodBiasQuantized[u] = ctx->Texture.Unit[u].LodBiasQuantized;
-
          for (tex = 0; tex < NUM_TEXTURE_TARGETS; tex++) {
             struct gl_texture_object *dst = &head->Texture.SavedObj[u][tex];
             struct gl_texture_object *src = ctx->Texture.Unit[u].CurrentTex[tex];
@@ -591,7 +588,7 @@ pop_texture_group(struct gl_context *ctx, struct gl_texture_attrib_node *texstat
          _mesa_TexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, unit->EnvMode);
          _mesa_TexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, unit->EnvColor);
          _mesa_TexEnvf(GL_TEXTURE_FILTER_CONTROL, GL_TEXTURE_LOD_BIAS,
-                       texstate->LodBias[u]);
+                       unit->LodBias);
          _mesa_TexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB,
                        unit->Combine.ModeRGB);
          _mesa_TexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA,
@@ -618,8 +615,6 @@ pop_texture_group(struct gl_context *ctx, struct gl_texture_attrib_node *texstat
          /* Fast path for other drivers. */
          memcpy(destUnit, unit, sizeof(*unit));
          destUnit->_CurrentCombine = NULL;
-         ctx->Texture.Unit[u].LodBias = texstate->LodBias[u];
-         ctx->Texture.Unit[u].LodBiasQuantized = texstate->LodBiasQuantized[u];
       }
    }
 

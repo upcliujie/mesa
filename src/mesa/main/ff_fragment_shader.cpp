@@ -94,6 +94,7 @@ struct state_key {
       GLuint enabled:1;
       GLuint source_index:4;   /**< TEXTURE_x_INDEX */
       GLuint shadow:1;
+      GLuint lod_bias:1;
 
       /***
        * These are taken from struct gl_tex_env_combine_packed
@@ -271,8 +272,9 @@ static GLuint make_state_key( struct gl_context *ctx,  struct state_key *key )
       i = u_bit_scan(&mask);
       const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[i];
       const struct gl_texture_object *texObj = texUnit->_Current;
+      struct gl_fixedfunc_texture_unit *unit = &ctx->Texture.FixedFuncUnit[i];
       const struct gl_tex_env_combine_packed *comb =
-         &ctx->Texture.FixedFuncUnit[i]._CurrentCombinePacked;
+         &unit->_CurrentCombinePacked;
 
       if (!texObj)
          continue;
@@ -288,6 +290,8 @@ static GLuint make_state_key( struct gl_context *ctx,  struct state_key *key )
          key->unit[i].shadow = (format == GL_DEPTH_COMPONENT ||
 				format == GL_DEPTH_STENCIL_EXT);
       }
+
+      key->unit[i].lod_bias = unit->LodBias != 0;
 
       key->unit[i].ModeRGB = comb->ModeRGB;
       key->unit[i].ModeA = comb->ModeA;
@@ -803,7 +807,8 @@ static void load_texture( texenv_fragment_program *p, GLuint unit )
    p->src_texture[unit] = p->make_temp(glsl_type::vec4_type,
 				       "tex");
 
-   ir_texture *tex = new(p->mem_ctx) ir_texture(ir_tex);
+   enum ir_texture_opcode op = p->state->unit[unit].lod_bias ? ir_txb : ir_tex;
+   ir_texture *tex = new(p->mem_ctx) ir_texture(op);
 
 
    char *sampler_name = ralloc_asprintf(p->mem_ctx, "sampler_%d", unit);
@@ -829,6 +834,18 @@ static void load_texture( texenv_fragment_program *p, GLuint unit )
 							  coords, 0, 0, 0,
 							  1);
       coords++;
+   }
+
+   if (p->state->unit[unit].lod_bias) {
+      ir_variable *var =
+         p->shader->symbols->get_variable("gl_TextureEnvLodBiasMESA");
+      assert(var);
+      var->data.max_array_access = MAX2(var->data.max_array_access, (int)unit);
+
+      tex->lod_info.bias =
+         new(p->mem_ctx)
+         ir_dereference_array(new(p->mem_ctx) ir_dereference_variable(var),
+                              new(p->mem_ctx) ir_constant(unit));
    }
 
    texcoord = texcoord->clone(p->mem_ctx, NULL);

@@ -81,7 +81,7 @@ nv04_emit_tex_obj(struct gl_context *ctx, int emit)
 			lod_max = CLAMP(MIN2(sa->Attrib.MaxLod, t->_MaxLambda),
 					0, 15) + 1;
 
-			lod_bias = CLAMP(ctx->Texture.Unit[i].LodBias +
+			lod_bias = CLAMP(ctx->Texture.FixedFuncUnit[i].LodBias +
 					 sa->Attrib.LodBias, -16, 15) * 8;
 		}
 

@@ -67,6 +67,7 @@ typedef enum gl_state_index_ {
 
    STATE_TEXGEN,
    STATE_TEXENV_COLOR,
+   STATE_TEXENV_LOD_BIAS,
 
    STATE_FOG_COLOR,
    STATE_FOG_PARAMS,
