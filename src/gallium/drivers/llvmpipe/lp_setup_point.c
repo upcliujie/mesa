@@ -516,22 +516,22 @@ try_setup_point( struct lp_setup_context *setup,
 
       plane[0].dcdx = ~0U << 8;
       plane[0].dcdy = 0;
-      plane[0].c = -x[0];
+      plane[0].c = -x[0] + 1;
       plane[0].eo = 1 << 8;
 
       plane[1].dcdx = 1 << 8;
       plane[1].dcdy = 0;
-      plane[1].c = x[1];
+      plane[1].c = x[1] + 1;
       plane[1].eo = 0;
 
       plane[2].dcdx = 0;
       plane[2].dcdy = 1 << 8;
-      plane[2].c = -y[0];
+      plane[2].c = -y[0] + 1;
       plane[2].eo = 1 << 8;
 
       plane[3].dcdx = 0;
       plane[3].dcdy = ~0U << 8;
-      plane[3].c = y[1];
+      plane[3].c = y[1] + 1;
       plane[3].eo = 0;
    }
 
