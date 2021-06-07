@@ -3861,7 +3861,9 @@ lds_load_callback(Builder& bld, const LoadEmitInfo& info, Temp offset, unsigned 
 {
    offset = offset.regClass() == s1 ? bld.copy(bld.def(v1), offset) : offset;
 
-   Operand m = load_lds_size_m0(bld);
+   Operand m;
+   if (bld.program->chip_class <= GFX8)
+      m = load_lds_size_m0(bld);
 
    bool large_ds_read = bld.program->chip_class >= GFX7;
    bool usable_read2 = bld.program->chip_class >= GFX7;
@@ -3915,6 +3917,10 @@ lds_load_callback(Builder& bld, const LoadEmitInfo& info, Temp offset, unsigned 
       instr = bld.ds(op, Definition(val), offset, m, const_offset, const_offset + 1);
    else
       instr = bld.ds(op, Definition(val), offset, m, const_offset);
+
+   if (!m.tempId())
+      instr->operands.pop_back();
+
    instr->ds().sync = info.sync;
 
    return val;
@@ -4304,7 +4310,9 @@ store_lds(isel_context* ctx, unsigned elem_size_bytes, Temp data, uint32_t wrmas
       advance_write_mask(&todo, offset, byte);
    }
 
-   Operand m = load_lds_size_m0(bld);
+   Operand m;
+   if (ctx->program->chip_class <= GFX8)
+      m = load_lds_size_m0(bld);
 
    split_store_data(ctx, RegType::vgpr, write_count, write_datas, bytes, data);
 
@@ -4349,6 +4357,10 @@ store_lds(isel_context* ctx, unsigned elem_size_bytes, Temp data, uint32_t wrmas
       } else {
          instr = bld.ds(op, address_offset, split_data, m, inline_offset);
       }
+
+      if (!m.tempId())
+         instr->operands.pop_back();
+
       instr->ds().sync = memory_sync_info(storage_shared);
    }
 }
