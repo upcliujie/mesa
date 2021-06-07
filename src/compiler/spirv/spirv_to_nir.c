@@ -791,6 +791,7 @@ vtn_types_compatible(struct vtn_builder *b,
       return true;
 
    case vtn_base_type_accel_struct:
+   case vtn_base_type_ray_query:
       return true;
 
    case vtn_base_type_function:
@@ -831,6 +832,7 @@ vtn_type_copy(struct vtn_builder *b, struct vtn_type *src)
    case vtn_base_type_sampled_image:
    case vtn_base_type_event:
    case vtn_base_type_accel_struct:
+   case vtn_base_type_ray_query:
       /* Nothing more to do */
       break;
 
@@ -1786,11 +1788,23 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
       val->type->type = glsl_uint64_t_type();
       break;
 
-   case SpvOpTypeOpaque:
+
+   case SpvOpTypeOpaque: {
       val->type->base_type = vtn_base_type_struct;
       const char *name = vtn_string_literal(b, &w[2], count - 2, NULL);
       val->type->type = glsl_struct_type(NULL, 0, name, false);
       break;
+   }
+
+   case SpvOpTypeRayQueryKHR: {
+      val->type->base_type = vtn_base_type_ray_query;
+      const char *name = "RayQueryKHR";
+      val->type->type = glsl_struct_type(NULL, 0, name, false);
+      /* Ray queries must run on helper invocations. */
+      if (b->shader->info.stage == MESA_SHADER_FRAGMENT)
+         val->type->access = ACCESS_INCLUDE_HELPERS;
+      break;
+   }
 
    case SpvOpTypeEvent:
       val->type->base_type = vtn_base_type_event;
@@ -5269,6 +5283,7 @@ vtn_handle_variable_or_type_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpTypeQueue:
    case SpvOpTypePipe:
    case SpvOpTypeAccelerationStructureKHR:
+   case SpvOpTypeRayQueryKHR:
       vtn_handle_type(b, opcode, w, count);
       break;
 
@@ -5553,6 +5568,172 @@ vtn_handle_write_packed_primitive_indices(struct vtn_builder *b, SpvOp opcode,
       nir_ssa_def *val = nir_u2u(&b->nb, nir_channel(&b->nb, unpacked, i), 32);
 
       nir_store_deref(&b->nb, offset_deref, val, 0x1);
+   }
+}
+
+struct ray_query_value {
+   nir_ray_query_value     nir_value;
+   const struct glsl_type *glsl_type;
+};
+
+static struct ray_query_value
+spirv_to_nir_type_ray_query_intrinsic(struct vtn_builder *b,
+                                      SpvOp opcode)
+{
+   switch (opcode) {
+#define CASE(_spv, _nir, _type) case SpvOpRayQueryGet##_spv:            \
+      return (struct ray_query_value) { .nir_value = nir_ray_query_value_##_nir, .glsl_type = _type }
+      CASE(RayTMinKHR,                                            tmin,                               glsl_floatN_t_type(32));
+      CASE(RayFlagsKHR,                                           flags,                              glsl_uint_type());
+      CASE(WorldRayDirectionKHR,                                  world_ray_direction,                glsl_vec_type(3));
+      CASE(WorldRayOriginKHR,                                     world_ray_origin,                   glsl_vec_type(3));
+      CASE(IntersectionTypeKHR,                                   intersection_type,                  glsl_uint_type());
+      CASE(IntersectionTKHR,                                      intersection_t,                     glsl_floatN_t_type(32));
+      CASE(IntersectionInstanceCustomIndexKHR,                    intersection_instance_custom_index, glsl_int_type());
+      CASE(IntersectionInstanceIdKHR,                             intersection_instance_id,           glsl_int_type());
+      CASE(IntersectionInstanceShaderBindingTableRecordOffsetKHR, intersection_instance_sbt_index,    glsl_uint_type());
+      CASE(IntersectionGeometryIndexKHR,                          intersection_geometry_index,        glsl_int_type());
+      CASE(IntersectionPrimitiveIndexKHR,                         intersection_primitive_index,       glsl_int_type());
+      CASE(IntersectionBarycentricsKHR,                           intersection_barycentrics,          glsl_vec_type(2));
+      CASE(IntersectionFrontFaceKHR,                              intersection_front_face,            glsl_bool_type());
+      CASE(IntersectionCandidateAABBOpaqueKHR,                    intersection_candidate_aabb_opaque, glsl_bool_type());
+      CASE(IntersectionObjectToWorldKHR,                          intersection_object_to_world,       glsl_matrix_type(glsl_get_base_type(glsl_float_type()), 3, 4));
+      CASE(IntersectionWorldToObjectKHR,                          intersection_world_to_object,       glsl_matrix_type(glsl_get_base_type(glsl_float_type()), 3, 4));
+      CASE(IntersectionObjectRayOriginKHR,                        intersection_object_ray_origin,     glsl_vec_type(3));
+      CASE(IntersectionObjectRayDirectionKHR,                     intersection_object_ray_direction,  glsl_vec_type(3));
+#undef CASE
+   default:
+      vtn_fail_with_opcode("Unhandled opcode", opcode);
+   }
+}
+
+static void
+ray_query_load_intrinsic_create(struct vtn_builder *b, SpvOp opcode,
+                                const uint32_t *w, nir_src src0,
+                                nir_src src1)
+{
+   struct ray_query_value value =
+      spirv_to_nir_type_ray_query_intrinsic(b, opcode);
+
+   if (glsl_type_is_matrix(value.glsl_type)) {
+      const struct glsl_type *elem_type = glsl_get_array_element(value.glsl_type);
+      const unsigned elems = glsl_get_length(value.glsl_type);
+
+      struct vtn_ssa_value *ssa = vtn_create_ssa_value(b, value.glsl_type);
+      for (unsigned i = 0; i < elems; i++) {
+         nir_intrinsic_instr *intrin =
+            nir_intrinsic_instr_create(b->nb.shader, nir_intrinsic_rq_load);
+         nir_intrinsic_set_base(intrin, value.nir_value);
+         nir_intrinsic_set_column(intrin, i);
+         intrin->src[0] = src0;
+         intrin->src[1] = src1;
+         intrin->num_components = glsl_get_vector_elements(elem_type);
+
+         nir_ssa_dest_init(&intrin->instr, &intrin->dest, intrin->num_components, 32, NULL);
+         nir_builder_instr_insert(&b->nb, &intrin->instr);
+
+         ssa->elems[i]->def = &intrin->dest.ssa;
+      }
+
+      vtn_push_ssa_value(b, w[2], ssa);
+   } else {
+      assert(glsl_type_is_vector_or_scalar(value.glsl_type));
+
+      nir_intrinsic_instr *intrin =
+         nir_intrinsic_instr_create(b->nb.shader, nir_intrinsic_rq_load);
+      nir_intrinsic_set_base(intrin, value.nir_value);
+      intrin->src[0] = src0;
+      intrin->src[1] = src1;
+      intrin->num_components = glsl_get_vector_elements(value.glsl_type);
+
+      nir_ssa_dest_init(&intrin->instr, &intrin->dest,
+                        intrin->num_components,
+                        glsl_get_bit_size(value.glsl_type), NULL);
+      nir_builder_instr_insert(&b->nb, &intrin->instr);
+
+      vtn_push_nir_ssa(b, w[2], &intrin->dest.ssa);
+   }
+}
+
+static void
+vtn_handle_ray_query_intrinsic(struct vtn_builder *b, SpvOp opcode,
+                               const uint32_t *w, unsigned count)
+{
+   nir_intrinsic_instr *intrin;
+
+   switch (opcode) {
+   case SpvOpRayQueryInitializeKHR:
+      intrin = nir_intrinsic_instr_create(b->nb.shader,
+                                          nir_intrinsic_rq_initialize);
+      /* The sources are in the same order in the NIR intrinsic */
+      for (unsigned i = 0; i < 8; i++)
+         intrin->src[i] = nir_src_for_ssa(vtn_ssa_value(b, w[i + 1])->def);
+      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      break;
+
+   case SpvOpRayQueryTerminateKHR:
+      intrin = nir_intrinsic_instr_create(b->nb.shader,
+                                          nir_intrinsic_rq_terminate);
+      intrin->src[0] = nir_src_for_ssa(vtn_ssa_value(b, w[1])->def);
+      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      break;
+
+   case SpvOpRayQueryProceedKHR:
+      intrin = nir_intrinsic_instr_create(b->nb.shader,
+                                          nir_intrinsic_rq_proceed);
+      intrin->src[0] = nir_src_for_ssa(vtn_ssa_value(b, w[3])->def);
+      nir_ssa_dest_init(&intrin->instr, &intrin->dest, 1, 1, NULL);
+      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      vtn_push_nir_ssa(b, w[2], &intrin->dest.ssa);
+      break;
+
+   case SpvOpRayQueryGenerateIntersectionKHR: {
+      intrin = nir_intrinsic_instr_create(b->nb.shader,
+                                          nir_intrinsic_rq_generate_intersection);
+      intrin->src[0] = nir_src_for_ssa(vtn_ssa_value(b, w[1])->def);
+      intrin->src[1] = nir_src_for_ssa(vtn_ssa_value(b, w[2])->def);
+      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      break;
+   }
+
+   case SpvOpRayQueryConfirmIntersectionKHR:
+      intrin = nir_intrinsic_instr_create(b->nb.shader,
+                                          nir_intrinsic_rq_confirm_intersection);
+      intrin->src[0] = nir_src_for_ssa(vtn_ssa_value(b, w[1])->def);
+      nir_builder_instr_insert(&b->nb, &intrin->instr);
+      break;
+
+   case SpvOpRayQueryGetIntersectionTKHR:
+   case SpvOpRayQueryGetIntersectionTypeKHR:
+   case SpvOpRayQueryGetIntersectionInstanceCustomIndexKHR:
+   case SpvOpRayQueryGetIntersectionInstanceIdKHR:
+   case SpvOpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR:
+   case SpvOpRayQueryGetIntersectionGeometryIndexKHR:
+   case SpvOpRayQueryGetIntersectionPrimitiveIndexKHR:
+   case SpvOpRayQueryGetIntersectionBarycentricsKHR:
+   case SpvOpRayQueryGetIntersectionFrontFaceKHR:
+   case SpvOpRayQueryGetIntersectionObjectRayDirectionKHR:
+   case SpvOpRayQueryGetIntersectionObjectRayOriginKHR:
+   case SpvOpRayQueryGetIntersectionObjectToWorldKHR:
+   case SpvOpRayQueryGetIntersectionWorldToObjectKHR:
+      ray_query_load_intrinsic_create(b, opcode, w,
+                                      nir_src_for_ssa(vtn_ssa_value(b, w[3])->def),
+                                      nir_src_for_ssa(nir_i2b1(&b->nb, vtn_ssa_value(b, w[4])->def)));
+      break;
+
+   case SpvOpRayQueryGetRayTMinKHR:
+   case SpvOpRayQueryGetRayFlagsKHR:
+   case SpvOpRayQueryGetWorldRayDirectionKHR:
+   case SpvOpRayQueryGetWorldRayOriginKHR:
+   case SpvOpRayQueryGetIntersectionCandidateAABBOpaqueKHR:
+      ray_query_load_intrinsic_create(b, opcode, w,
+                                      nir_src_for_ssa(vtn_ssa_value(b, w[3])->def),
+                                      /* Provide a committed value */
+                                      nir_src_for_ssa(nir_imm_bool(&b->nb, false)));
+      break;
+
+   default:
+      vtn_fail_with_opcode("Unhandled opcode", opcode);
    }
 }
 
@@ -5983,6 +6164,32 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpExecuteCallableNV:
    case SpvOpExecuteCallableKHR:
       vtn_handle_ray_intrinsic(b, opcode, w, count);
+      break;
+
+   case SpvOpRayQueryInitializeKHR:
+   case SpvOpRayQueryTerminateKHR:
+   case SpvOpRayQueryGenerateIntersectionKHR:
+   case SpvOpRayQueryConfirmIntersectionKHR:
+   case SpvOpRayQueryProceedKHR:
+   case SpvOpRayQueryGetIntersectionTypeKHR:
+   case SpvOpRayQueryGetRayTMinKHR:
+   case SpvOpRayQueryGetRayFlagsKHR:
+   case SpvOpRayQueryGetIntersectionTKHR:
+   case SpvOpRayQueryGetIntersectionInstanceCustomIndexKHR:
+   case SpvOpRayQueryGetIntersectionInstanceIdKHR:
+   case SpvOpRayQueryGetIntersectionInstanceShaderBindingTableRecordOffsetKHR:
+   case SpvOpRayQueryGetIntersectionGeometryIndexKHR:
+   case SpvOpRayQueryGetIntersectionPrimitiveIndexKHR:
+   case SpvOpRayQueryGetIntersectionBarycentricsKHR:
+   case SpvOpRayQueryGetIntersectionFrontFaceKHR:
+   case SpvOpRayQueryGetIntersectionCandidateAABBOpaqueKHR:
+   case SpvOpRayQueryGetIntersectionObjectRayDirectionKHR:
+   case SpvOpRayQueryGetIntersectionObjectRayOriginKHR:
+   case SpvOpRayQueryGetWorldRayDirectionKHR:
+   case SpvOpRayQueryGetWorldRayOriginKHR:
+   case SpvOpRayQueryGetIntersectionObjectToWorldKHR:
+   case SpvOpRayQueryGetIntersectionWorldToObjectKHR:
+      vtn_handle_ray_query_intrinsic(b, opcode, w, count);
       break;
 
    case SpvOpLifetimeStart:
