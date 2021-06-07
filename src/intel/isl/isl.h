@@ -1397,8 +1397,8 @@ struct isl_surf_fill_state_info {
    /**
     * The auxilary surface or NULL if no auxilary surface is to be used.
     */
-   const struct isl_surf *aux_surf;
    enum isl_aux_usage aux_usage;
+   const struct isl_surf *aux_surf;
    uint64_t aux_address;
 
    /**
@@ -1408,15 +1408,8 @@ struct isl_surf_fill_state_info {
     */
    union isl_color_value clear_color;
 
-   /**
-    * Send only the clear value address
-    *
-    * If set, we only pass the clear address to the GPU and it will fetch it
-    * from wherever it is.
-    */
-   bool use_clear_address;
-   uint64_t clear_address;
-
+   /* Intra-tile offset */
+   uint16_t x_offset_sa, y_offset_sa;
    /**
     * Surface write disables for gfx4-5
     */
@@ -1427,8 +1420,14 @@ struct isl_surf_fill_state_info {
     */
    bool blend_enable;
 
-   /* Intra-tile offset */
-   uint16_t x_offset_sa, y_offset_sa;
+   /**
+    * Send only the clear value address
+    *
+    * If set, we only pass the clear address to the GPU and it will fetch it
+    * from wherever it is.
+    */
+   bool use_clear_address;
+   uint64_t clear_address;
 };
 
 struct isl_buffer_fill_state_info {
