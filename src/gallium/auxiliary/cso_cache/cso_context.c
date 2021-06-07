@@ -1479,7 +1479,7 @@ cso_save_state(struct cso_context *cso, unsigned state_mask)
  * Restore the state which was saved by cso_save_state().
  */
 void
-cso_restore_state(struct cso_context *cso)
+cso_restore_state(struct cso_context *cso, unsigned unbind)
 {
    unsigned state_mask = cso->saved_state;
 
@@ -1499,8 +1499,16 @@ cso_restore_state(struct cso_context *cso)
       cso_restore_tessctrl_shader(cso);
    if (state_mask & CSO_BIT_VERTEX_SHADER)
       cso_restore_vertex_shader(cso);
+   if (unbind & CSO_UNBIND_FS_SAMPLERVIEWS)
+      cso->pipe->set_sampler_views(cso->pipe, PIPE_SHADER_FRAGMENT, 0, 0,
+                                   PIPE_SHADER_CAP_MAX_TEXTURE_SAMPLERS, false, NULL);
+   if (unbind & CSO_UNBIND_FS_SAMPLERVIEW0)
+      cso->pipe->set_sampler_views(cso->pipe, PIPE_SHADER_FRAGMENT, 0, 0,
+                                   1, false, NULL);
    if (state_mask & CSO_BIT_FRAGMENT_SAMPLERS)
       cso_restore_fragment_samplers(cso);
+   if (unbind & CSO_UNBIND_FS_IMAGE0)
+      cso->pipe->set_shader_images(cso->pipe, PIPE_SHADER_FRAGMENT, 0, 0, 1, NULL);
    if (state_mask & CSO_BIT_FRAMEBUFFER)
       cso_restore_framebuffer(cso);
    if (state_mask & CSO_BIT_BLEND)
@@ -1515,8 +1523,14 @@ cso_restore_state(struct cso_context *cso)
       cso_restore_sample_mask(cso);
    if (state_mask & CSO_BIT_VIEWPORT)
       cso_restore_viewport(cso);
+   if (unbind & CSO_UNBIND_VS_CONSTANTS)
+      cso->pipe->set_constant_buffer(cso->pipe, PIPE_SHADER_VERTEX, 0, false, NULL);
+   if (unbind & CSO_UNBIND_FS_CONSTANTS)
+      cso->pipe->set_constant_buffer(cso->pipe, PIPE_SHADER_FRAGMENT, 0, false, NULL);
    if (state_mask & CSO_BIT_VERTEX_ELEMENTS)
       cso_restore_vertex_elements(cso);
+   if (unbind & CSO_UNBIND_VERTEX_BUFFER0)
+      cso->pipe->set_vertex_buffers(cso->pipe, 0, 0, 1, false, NULL);
    if (state_mask & CSO_BIT_STREAM_OUTPUTS)
       cso_restore_stream_outputs(cso);
    if (state_mask & CSO_BIT_PAUSE_QUERIES)
