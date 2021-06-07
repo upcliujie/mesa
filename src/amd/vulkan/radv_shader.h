@@ -161,7 +161,12 @@ enum radv_ud_index {
    AC_UD_VIEW_INDEX = 4,
    AC_UD_STREAMOUT_BUFFERS = 5,
    AC_UD_NGG_GS_STATE = 6,
-   AC_UD_SHADER_START = 7,
+   AC_UD_NGG_CULLING_SETTINGS = 7,
+   AC_UD_NGG_VIEWPORT_SCALE_X = 8,
+   AC_UD_NGG_VIEWPORT_SCALE_Y = 9,
+   AC_UD_NGG_VIEWPORT_TRANSLATE_X = 10,
+   AC_UD_NGG_VIEWPORT_TRANSLATE_Y = 11,
+   AC_UD_SHADER_START = 12,
    AC_UD_VS_VERTEX_BUFFERS = AC_UD_SHADER_START,
    AC_UD_VS_BASE_VERTEX_START_INSTANCE,
    AC_UD_VS_MAX_UD,
@@ -260,6 +265,8 @@ struct radv_shader_info {
    bool need_indirect_descriptor_sets;
    bool is_ngg;
    bool is_ngg_passthrough;
+   bool has_ngg_culling;
+   uint32_t num_lds_blocks_when_not_culling;
    uint32_t num_tess_patches;
    struct {
       uint8_t input_usage_mask[RADV_VERT_ATTRIB_MAX];
