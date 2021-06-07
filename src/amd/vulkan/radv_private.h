@@ -1041,6 +1041,8 @@ enum radv_cmd_dirty_bits {
    RADV_CMD_DIRTY_FRAMEBUFFER = 1ull << 30,
    RADV_CMD_DIRTY_VERTEX_BUFFER = 1ull << 31,
    RADV_CMD_DIRTY_STREAMOUT_BUFFER = 1ull << 32,
+   RADV_CMD_DIRTY_NGG_CULLING_SETTINGS = 1ull << 33,
+   RADV_CMD_DIRTY_NGG_CULLING_VIEWPORT = 1ull << 34,
 };
 
 enum radv_cmd_flush_bits {
@@ -1397,6 +1399,10 @@ struct radv_cmd_state {
    bool pending_sqtt_barrier_end;
    enum rgp_flush_bits sqtt_flush_bits;
 
+   /* NGG culling state. */
+   uint32_t last_ngg_culling_settings;
+   int8_t last_ngg_culling_settings_sgpr_idx;
+
    uint8_t cb_mip[MAX_RTS];
 };
 
@@ -1736,6 +1742,7 @@ struct radv_pipeline {
          unsigned db_depth_control;
          unsigned pa_cl_clip_cntl;
          bool uses_dynamic_stride;
+         bool uses_conservative_overestimate;
 
          /* Used for rbplus */
          uint32_t col_format;
