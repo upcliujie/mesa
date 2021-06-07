@@ -100,6 +100,22 @@ lower_returns_in_loop(nir_loop *loop, struct lower_returns_state *state)
    return progress;
 }
 
+static void
+remove_single_arg_phis(nir_block *block) {
+   nir_foreach_instr_safe(instr, block) {
+      if (instr->type != nir_instr_type_phi)
+         break;
+
+      nir_phi_instr *phi = nir_instr_as_phi(instr);
+      assert(exec_list_is_singular(&phi->srcs));
+
+      nir_phi_src *src = exec_node_data(nir_phi_src,
+                                        exec_list_get_head(&phi->srcs), node);
+      nir_ssa_def_rewrite_uses_src(&phi->dest.ssa, src->src);
+      nir_instr_remove(instr);
+   }
+}
+
 static bool
 lower_returns_in_if(nir_if *if_stmt, struct lower_returns_state *state)
 {
@@ -129,6 +145,14 @@ lower_returns_in_if(nir_if *if_stmt, struct lower_returns_state *state)
          /* If there are no nested returns we can just add the instructions to
           * the end of the branch that doesn't have the return.
           */
+
+         /* nir_cf_extract will not extract phis at the start of the block. In
+          * this case we know that any phis will have to have a single
+          * predecessor, so we can just replace the phi with its single source.
+          */
+         nir_block *succ_block = nir_after_cf_node(&if_stmt->cf_node).block;
+         remove_single_arg_phis(succ_block);
+
          nir_cf_list list;
          nir_cf_extract(&list, nir_after_cf_node(&if_stmt->cf_node),
                         nir_after_cf_list(state->cf_list));
