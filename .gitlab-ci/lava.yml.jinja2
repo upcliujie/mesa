@@ -94,7 +94,7 @@ actions:
           - echo -1 > $GPU_AUTOSUSPEND || true
 
 {% for var in env_vars %}
-          - export {{ var }}
+          - "export {{ var }}"
 {% endfor %}
 
           # runner script assumes some stuff is in pwd
