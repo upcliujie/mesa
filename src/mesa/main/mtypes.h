@@ -3483,7 +3483,6 @@ struct gl_shared_state
  */
 struct gl_renderbuffer
 {
-   simple_mtx_t Mutex; /**< for thread safety */
    GLuint ClassID;        /**< Useful for drivers */
    GLuint Name;
    GLchar *Label;         /**< GL_KHR_debug */
