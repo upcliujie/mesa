@@ -1397,16 +1397,21 @@ struct isl_surf_fill_state_info {
    /**
     * The auxilary surface or NULL if no auxilary surface is to be used.
     */
-   const struct isl_surf *aux_surf;
    enum isl_aux_usage aux_usage;
+   const struct isl_surf *aux_surf;
    uint64_t aux_address;
 
+   /* Intra-tile offset */
+   uint16_t x_offset_sa, y_offset_sa;
    /**
-    * The clear color for this surface
-    *
-    * Valid values depend on hardware generation.
+    * Surface write disables for gfx4-5
     */
-   union isl_color_value clear_color;
+   isl_channel_mask_t write_disables;
+
+   /**
+    * blend enable for gfx4-5
+    */
+   bool blend_enable;
 
    /**
     * Send only the clear value address
@@ -1418,17 +1423,11 @@ struct isl_surf_fill_state_info {
    uint64_t clear_address;
 
    /**
-    * Surface write disables for gfx4-5
+    * The clear color for this surface
+    *
+    * Valid values depend on hardware generation.
     */
-   isl_channel_mask_t write_disables;
-
-   /**
-    * blend enable for gfx4-5
-    */
-   bool blend_enable;
-
-   /* Intra-tile offset */
-   uint16_t x_offset_sa, y_offset_sa;
+   union isl_color_value clear_color;
 };
 
 struct isl_buffer_fill_state_info {
