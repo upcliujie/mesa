@@ -1415,7 +1415,7 @@ void anv_CmdPushDescriptorSetKHR(
             ANV_FROM_HANDLE(anv_buffer, buffer, write->pBufferInfo[j].buffer);
 
             anv_descriptor_set_write_buffer(cmd_buffer->device, set,
-                                            &cmd_buffer->surface_state_stream,
+                                            cmd_buffer,
                                             write->descriptorType,
                                             buffer,
                                             write->dstBinding,
@@ -1457,7 +1457,7 @@ void anv_CmdPushDescriptorSetWithTemplateKHR(
       return;
 
    anv_descriptor_set_write_template(cmd_buffer->device, set,
-                                     &cmd_buffer->surface_state_stream,
+                                     cmd_buffer,
                                      template,
                                      pData);
 

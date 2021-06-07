@@ -2136,7 +2136,7 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
 void
 anv_descriptor_set_write_buffer(struct anv_device *device,
                                 struct anv_descriptor_set *set,
-                                struct anv_state_stream *alloc_stream,
+                                struct anv_cmd_buffer *cmd_buffer,
                                 VkDescriptorType type,
                                 struct anv_buffer *buffer,
                                 uint32_t binding,
@@ -2154,7 +2154,7 @@ anv_descriptor_set_write_inline_uniform_data(struct anv_device *device,
 void
 anv_descriptor_set_write_template(struct anv_device *device,
                                   struct anv_descriptor_set *set,
-                                  struct anv_state_stream *alloc_stream,
+                                  struct anv_cmd_buffer *cmd_buffer,
                                   const struct anv_descriptor_update_template *template,
                                   const void *data);
 
