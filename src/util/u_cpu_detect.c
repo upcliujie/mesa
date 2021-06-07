@@ -86,6 +86,9 @@
 #endif
 #endif
 
+#if defined(HAS_SCHED_H)
+#include <sched.h>
+#endif
 
 DEBUG_GET_ONCE_BOOL_OPTION(dump_cpu, "GALLIUM_DUMP_CPU", false)
 
@@ -568,6 +571,32 @@ util_cpu_detect_once(void)
    util_cpu_caps.nr_cpus = sysconf(_SC_NPROCESSORS_ONLN);
    if (util_cpu_caps.nr_cpus == ~0)
       util_cpu_caps.nr_cpus = 1;
+   else {
+#ifdef HAS_SCHED_GETAFFINITY
+      /* sched_setaffinity() can be used to further restrict the number of
+       * CPUs on which the process can run.  Use sched_getaffinity() to
+       * determine the true number of available CPUs.
+       *
+       * FIXME: The Linux manual page for sched_getaffinity describes how this
+       * simple implementation will fail with > 1024 CPUs.  We can cross that
+       * bridge when we get to it.
+       */
+      cpu_set_t affin;
+
+      if (sched_getaffinity(getpid(), sizeof(affin), &affin) == 0) {
+         const int nr_cpu = CPU_COUNT(&affin);
+         unsigned count = 0;
+
+         for (int i = 0; i < nr_cpu; i++) {
+            if (CPU_ISSET(i, &affin))
+               count++;
+         }
+
+         assert(count > 0 && count <= util_cpu_caps.nr_cpus);
+         util_cpu_caps.nr_cpus = count;
+      }
+#endif
+   }
 #elif defined(PIPE_OS_BSD)
    {
       int mib[2], ncpu;
