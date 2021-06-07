@@ -133,6 +133,7 @@ get_variable(lower_builtin_state *state, nir_deref_path *path,
       case STATE_LIGHTPROD:
       case STATE_TEXGEN:
       case STATE_TEXENV_COLOR:
+      case STATE_TEXENV_LOD_BIAS:
       case STATE_CLIPPLANE:
          tokens[1] = nir_src_as_uint(path->path[idx]->arr.index);
          break;

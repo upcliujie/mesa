@@ -136,6 +136,10 @@ static const struct gl_builtin_uniform_element gl_TextureEnvColor_elements[] = {
    {NULL, {STATE_TEXENV_COLOR, 0}, SWIZZLE_XYZW},
 };
 
+static const struct gl_builtin_uniform_element gl_TextureEnvLodBiasMESA_elements[] = {
+   {NULL, {STATE_TEXENV_LOD_BIAS, 0}, SWIZZLE_XXXX},
+};
+
 static const struct gl_builtin_uniform_element gl_EyePlaneS_elements[] = {
    {NULL, {STATE_TEXGEN, 0, STATE_TEXGEN_EYE_S}, SWIZZLE_XYZW},
 };
@@ -277,6 +281,7 @@ static const struct gl_builtin_uniform_desc _mesa_builtin_uniform_desc[] = {
    STATEVAR(gl_FrontLightProduct),
    STATEVAR(gl_BackLightProduct),
    STATEVAR(gl_TextureEnvColor),
+   STATEVAR(gl_TextureEnvLodBiasMESA),
    STATEVAR(gl_EyePlaneS),
    STATEVAR(gl_EyePlaneT),
    STATEVAR(gl_EyePlaneR),
@@ -1085,6 +1090,8 @@ builtin_variable_generator::generate_uniforms()
 
       add_uniform(array(vec4_t, state->Const.MaxTextureUnits),
                   "gl_TextureEnvColor");
+      add_uniform(array(float_t, state->Const.MaxTextureUnits),
+                  "gl_TextureEnvLodBiasMESA");
 
       const glsl_type *const texcoords_vec4 =
 	 array(vec4_t, state->Const.MaxTextureCoords);

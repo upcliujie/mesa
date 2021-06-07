@@ -5373,7 +5373,7 @@ update_sampler_state(struct brw_context *brw,
    struct gl_texture_image *firstImage = texObj->Image[0][texObj->Attrib.BaseLevel];
    genX(update_sampler_state)(brw, texObj->Target,
                               ctx->Texture.CubeMapSeamless,
-                              texUnit->LodBias,
+                              0,
                               firstImage->TexFormat, firstImage->_BaseFormat,
                               texObj, sampler,
                               sampler_state);

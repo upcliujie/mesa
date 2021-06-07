@@ -255,7 +255,7 @@ nv20_emit_tex_obj(struct gl_context *ctx, int emit)
 		int lod_min = sa->Attrib.MinLod;
 		int lod_max = MIN2(sa->Attrib.MaxLod, t->_MaxLambda);
 		int lod_bias = sa->Attrib.LodBias
-			+ ctx->Texture.Unit[i].LodBias;
+			+ ctx->Texture.FixedFuncUnit[i].LodBias;
 
 		lod_max = CLAMP(lod_max, 0, 15);
 		lod_min = CLAMP(lod_min, 0, 15);

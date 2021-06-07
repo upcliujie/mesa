@@ -114,6 +114,7 @@ fetch_texel_deriv( struct gl_context *ctx, const GLfloat texcoord[4],
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   const struct gl_fixedfunc_texture_unit *ffUnit = &ctx->Texture.FixedFuncUnit[unit];
    const struct gl_texture_object *texObj = texUnit->_Current;
 
    if (texObj) {
@@ -133,7 +134,7 @@ fetch_texel_deriv( struct gl_context *ctx, const GLfloat texcoord[4],
                                       texcoord[0], texcoord[1], texcoord[3],
                                       1.0F / texcoord[3]);
 
-      lambda += lodBias + texUnit->LodBias + samp->Attrib.LodBias;
+      lambda += lodBias + ffUnit->LodBias + samp->Attrib.LodBias;
 
       lambda = CLAMP(lambda, samp->Attrib.MinLod, samp->Attrib.MaxLod);
 

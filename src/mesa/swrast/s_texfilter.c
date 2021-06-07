@@ -1899,9 +1899,9 @@ sample_lambda_2d_aniso(struct gl_context *ctx,
    GLfloat q = span->attrStart[attr][3] + span->leftClip * dqdx;
 
    /* from swrast/s_texcombine.c _swrast_texture_span */
-   const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[u];
+   const struct gl_fixedfunc_texture_unit *ffUnit = &ctx->Texture.FixedFuncUnit[u];
    const GLboolean adjustLOD =
-      (texUnit->LodBias + samp->Attrib.LodBias != 0.0F)
+      (ffUnit->LodBias + samp->Attrib.LodBias != 0.0F)
       || (samp->Attrib.MinLod != -1000.0F || samp->Attrib.MaxLod != 1000.0F);
 
    GLuint i;
@@ -1965,10 +1965,10 @@ sample_lambda_2d_aniso(struct gl_context *ctx,
 
       if (adjustLOD) {
          /* from swrast/s_texcombine.c _swrast_texture_span */
-         if (texUnit->LodBias + samp->Attrib.LodBias != 0.0F) {
+         if (ffUnit->LodBias + samp->Attrib.LodBias != 0.0F) {
             /* apply LOD bias, but don't clamp yet */
             const GLfloat bias =
-               CLAMP(texUnit->LodBias + samp->Attrib.LodBias,
+               CLAMP(ffUnit->LodBias + samp->Attrib.LodBias,
                      -ctx->Const.MaxTextureLodBias,
                      ctx->Const.MaxTextureLodBias);
             lod += bias;
