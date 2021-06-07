@@ -1550,7 +1550,7 @@ emit_image_bufs(struct panfrost_batch *batch, enum pipe_shader_type shader,
                         cfg.type = pan_modifier_to_attr_type(rsrc->image.layout.modifier);
                         cfg.pointer = rsrc->image.data.bo->ptr.gpu + offset;
                         cfg.stride = util_format_get_blocksize(image->format);
-                        cfg.size = rsrc->image.data.bo->size;
+                        cfg.size = rsrc->image.data.bo->size - offset;
                 }
 
                 pan_pack(bufs + (i * 2) + 1, ATTRIBUTE_BUFFER_CONTINUATION_3D, cfg) {
