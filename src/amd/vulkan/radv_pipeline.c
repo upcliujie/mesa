@@ -1810,6 +1810,10 @@ radv_pipeline_init_raster_state(struct radv_pipeline *pipeline,
       S_028810_ZCLIP_FAR_DISABLE(depth_clip_disable ? 1 : 0) |
       S_028810_DX_RASTERIZATION_KILL(raster_info->rasterizerDiscardEnable ? 1 : 0) |
       S_028810_DX_LINEAR_ATTR_CLIP_ENA(1);
+
+   pipeline->graphics.uses_conservative_overestimate =
+      radv_get_conservative_raster_mode(pCreateInfo->pRasterizationState) ==
+         VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT;
 }
 
 static void
