@@ -525,7 +525,10 @@ void
 util_queue_destroy(struct util_queue *queue)
 {
    util_queue_kill_threads(queue, 0, false);
-   remove_from_atexit_list(queue);
+
+   /* This makes it safe to call on a queue that failedutil_queue_init. */
+   if (queue->head.next != NULL)
+      remove_from_atexit_list(queue);
 
    cnd_destroy(&queue->has_space_cond);
    cnd_destroy(&queue->has_queued_cond);
