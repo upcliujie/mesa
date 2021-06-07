@@ -51,7 +51,7 @@ def generate_lava_yaml(args):
     env = jinja2.Environment(loader = jinja2.FileSystemLoader(os.path.dirname(args.template)), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(os.path.basename(args.template))
 
-    env_vars = ""
+    env_vars = []
 
     # This should generally be kept in sync with the list in
     # bare-metal/rootfs-setup.sh, other than driver-specific env vars.
@@ -125,7 +125,7 @@ def generate_lava_yaml(args):
     for var in passthrough_vars:
         val = os.environ.get(var)
         if val:
-            env_vars += " {}={}".format(var, shlex.quote(val))
+            env_vars.append("{}={}".format(var, shlex.quote(val)))
 
     values = {}
     values['pipeline_info'] = args.pipeline_info
