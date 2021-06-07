@@ -355,6 +355,7 @@ try_setup_point( struct lp_setup_context *setup,
    struct lp_rast_triangle *point;
    unsigned bytes;
    struct u_rect bbox;
+   int x[2], y[2];
    unsigned nr_planes = 4;
    struct point_info info;
    unsigned viewport_index = 0;
@@ -375,7 +376,8 @@ try_setup_point( struct lp_setup_context *setup,
 
    /* Bounding rectangle (in pixels) */
    if (!lp_context->rasterizer ||
-       lp_context->rasterizer->point_quad_rasterization) {
+       lp_context->rasterizer->point_quad_rasterization ||
+       setup->multisample) {
       /*
        * Rasterize points as quads.
        */
@@ -388,10 +390,14 @@ try_setup_point( struct lp_setup_context *setup,
       x0 = subpixel_snap(v0[0][0] - pixel_offset) - fixed_width/2;
       y0 = subpixel_snap(v0[0][1] - pixel_offset) - fixed_width/2;
 
-      bbox.x0 = (x0 + (FIXED_ONE-1)) >> FIXED_ORDER;
-      bbox.x1 = (x0 + fixed_width + (FIXED_ONE-1)) >> FIXED_ORDER;
-      bbox.y0 = (y0 + (FIXED_ONE-1) + adj) >> FIXED_ORDER;
-      bbox.y1 = (y0 + fixed_width + (FIXED_ONE-1) + adj) >> FIXED_ORDER;
+      x[0] = x0;
+      x[1] = x0 + fixed_width;
+      y[0] = y0 + adj;
+      y[1] = y0 + adj + fixed_width;
+      bbox.x0 =  x[0] >> FIXED_ORDER;
+      bbox.x1 = (x[1] + (FIXED_ONE-1)) >> FIXED_ORDER;
+      bbox.y0 =  y[0] >> FIXED_ORDER;
+      bbox.y1 = (y[1] + (FIXED_ONE-1)) >> FIXED_ORDER;
 
       /* Inclusive coordinates:
        */
@@ -505,23 +511,33 @@ try_setup_point( struct lp_setup_context *setup,
 
       plane[0].dcdx = ~0U << 8;
       plane[0].dcdy = 0;
-      plane[0].c = (1-bbox.x0) << 8;
       plane[0].eo = 1 << 8;
 
       plane[1].dcdx = 1 << 8;
       plane[1].dcdy = 0;
-      plane[1].c = (bbox.x1+1) << 8;
       plane[1].eo = 0;
 
       plane[2].dcdx = 0;
       plane[2].dcdy = 1 << 8;
-      plane[2].c = (1-bbox.y0) << 8;
       plane[2].eo = 1 << 8;
 
       plane[3].dcdx = 0;
       plane[3].dcdy = ~0U << 8;
-      plane[3].c = (bbox.y1+1) << 8;
       plane[3].eo = 0;
+
+      if (!lp_context->rasterizer ||
+          lp_context->rasterizer->point_quad_rasterization ||
+          setup->multisample) {
+         plane[0].c = -x[0];
+         plane[1].c = x[1];
+         plane[2].c = -y[0];
+         plane[3].c = y[1];
+      } else {
+         plane[0].c = (1-bbox.x0) << 8;
+         plane[1].c = (bbox.x1+1) << 8;
+         plane[2].c = (1-bbox.y0) << 8;
+         plane[3].c = (bbox.y1+1) << 8;
+      }
    }
 
    return lp_setup_bin_triangle(setup, point, &bbox, &bbox, nr_planes, viewport_index);
