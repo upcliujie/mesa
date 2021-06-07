@@ -650,7 +650,7 @@ fail:
    device->ws->cs_destroy(cs);
 }
 
-static void
+void
 get_viewport_xform(const VkViewport *viewport, float scale[3], float translate[3])
 {
    float x = viewport->x;
