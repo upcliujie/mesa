@@ -1454,7 +1454,7 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
 void
 anv_descriptor_set_write_buffer(struct anv_device *device,
                                 struct anv_descriptor_set *set,
-                                struct anv_state_stream *alloc_stream,
+                                struct anv_cmd_buffer *cmd_buffer,
                                 VkDescriptorType type,
                                 struct anv_buffer *buffer,
                                 uint32_t binding,
@@ -1509,8 +1509,11 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
        * allocate the surface state from the command buffer. Otherwise it will
        * be allocated by the descriptor pool when calling
        * vkAllocateDescriptorSets. */
-      if (alloc_stream)
-         bview->surface_state = anv_state_stream_alloc(alloc_stream, 64, 64);
+      if (cmd_buffer) {
+         bview->surface_state =
+            anv_state_stream_alloc(&cmd_buffer->surface_state_stream,
+                                   64, 64);
+      }
 
       isl_surf_usage_flags_t usage =
          (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
@@ -1681,7 +1684,7 @@ void anv_UpdateDescriptorSets(
 void
 anv_descriptor_set_write_template(struct anv_device *device,
                                   struct anv_descriptor_set *set,
-                                  struct anv_state_stream *alloc_stream,
+                                  struct anv_cmd_buffer *cmd_buffer,
                                   const struct anv_descriptor_update_template *template,
                                   const void *data)
 {
@@ -1730,7 +1733,7 @@ anv_descriptor_set_write_template(struct anv_device *device,
             ANV_FROM_HANDLE(anv_buffer, buffer, info->buffer);
 
             anv_descriptor_set_write_buffer(device, set,
-                                            alloc_stream,
+                                            cmd_buffer,
                                             entry->type,
                                             buffer,
                                             entry->binding,
