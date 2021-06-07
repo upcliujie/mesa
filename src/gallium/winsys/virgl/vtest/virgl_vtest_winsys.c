@@ -414,6 +414,21 @@ alloc:
    return res;
 }
 
+static boolean
+virgl_vtest_winsys_resource_get_handle(struct virgl_winsys *qws,
+                                       struct virgl_hw_res *res,
+                                       uint32_t stride,
+                                       struct winsys_handle *whandle)
+{
+   struct virgl_vtest_winsys *vtws = virgl_vtest_winsys(qws);
+
+   if (!res->dt)
+      return false;
+
+   whandle->stride = stride;
+   return vtws->sws->displaytarget_get_handle(vtws->sws, res->dt, whandle);
+}
+
 static boolean virgl_vtest_lookup_res(struct virgl_vtest_cmd_buf *cbuf,
                                       struct virgl_hw_res *res)
 {
@@ -714,6 +729,7 @@ virgl_vtest_winsys_wrap(struct sw_winsys *sws)
 
    vtws->base.resource_create = virgl_vtest_winsys_resource_cache_create;
    vtws->base.resource_reference = virgl_vtest_resource_reference;
+   vtws->base.resource_get_handle = virgl_vtest_winsys_resource_get_handle;
    vtws->base.resource_map = virgl_vtest_resource_map;
    vtws->base.resource_wait = virgl_vtest_resource_wait;
    vtws->base.resource_is_busy = virgl_vtest_resource_is_busy;
