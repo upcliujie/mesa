@@ -1411,6 +1411,11 @@ struct radv_cmd_state {
    bool pending_sqtt_barrier_end;
    enum rgp_flush_bits sqtt_flush_bits;
 
+   /* NGG culling state. */
+   uint32_t last_nggc_settings;
+   int8_t last_nggc_settings_sgpr_idx;
+   bool last_nggc_small_draw;
+
    uint8_t cb_mip[MAX_RTS];
 
    /* Whether DRAW_{INDEX}_INDIRECT_MULTI is emitted. */
@@ -1755,6 +1760,7 @@ struct radv_pipeline {
          unsigned pa_cl_clip_cntl;
          unsigned cb_color_control;
          bool uses_dynamic_stride;
+         bool uses_conservative_overestimate;
 
          /* Used for rbplus */
          uint32_t col_format;
