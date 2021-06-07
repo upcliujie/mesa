@@ -41,6 +41,11 @@ struct radv_shader_args {
 
    /* NGG GS */
    struct ac_arg ngg_gs_state;
+   struct ac_arg ngg_culling_settings;
+   struct ac_arg ngg_viewport_scale_x;
+   struct ac_arg ngg_viewport_scale_y;
+   struct ac_arg ngg_viewport_translate_x;
+   struct ac_arg ngg_viewport_translate_y;
 
    bool is_gs_copy_shader;
    bool is_trap_handler_shader;
