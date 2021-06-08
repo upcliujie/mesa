@@ -29,11 +29,14 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "util/debug.h"
 #include "util/os_file.h"
 
 #include "anv_private.h"
 #include "anv_measure.h"
 #include "vk_util.h"
+
+#include "compiler/brw_rt.h"
 
 #include "genxml/gen7_pack.h"
 
