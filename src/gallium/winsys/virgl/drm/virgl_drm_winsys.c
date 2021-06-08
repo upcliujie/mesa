@@ -397,7 +397,8 @@ virgl_drm_winsys_resource_cache_create(struct virgl_winsys *qws,
    mtx_lock(&qdws->mutex);
 
    entry = virgl_resource_cache_remove_compatible(&qdws->cache, size,
-                                                  bind, format, flags);
+                                                  bind, format, flags,
+                                                  nr_samples);
    if (entry) {
       res = cache_entry_container_res(entry);
       mtx_unlock(&qdws->mutex);

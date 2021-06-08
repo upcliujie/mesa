@@ -360,7 +360,8 @@ virgl_vtest_winsys_resource_cache_create(struct virgl_winsys *vws,
    mtx_lock(&vtws->mutex);
 
    entry = virgl_resource_cache_remove_compatible(&vtws->cache, size,
-                                                  bind, format, 0);
+                                                  bind, format, 0,
+                                                  nr_samples);
    if (entry) {
       res = cache_entry_container_res(entry);
       mtx_unlock(&vtws->mutex);
