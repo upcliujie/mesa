@@ -8,3 +8,4 @@ VK_KHR_shader_subgroup_uniform_control_flow on Intel and RADV.
 GL ES 3.1 on GT21x hardware.
 VK_EXT_acquire_drm_display on RADV.
 VK_EXT_vertex_input_dynamic_state on lavapipe
+NGG culling in RADV.
