@@ -7,6 +7,9 @@ variables:
           set +o xtrace
   MINIO_HOST: minio-packet.freedesktop.org
 
+default:
+  timeout: 30m
+
 include:
   - project: 'freedesktop/ci-templates'
     ref: 79c325922670137e8f0a4dc5f6f097e0eb57c1af
