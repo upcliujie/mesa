@@ -30,7 +30,8 @@
 static bool
 virgl_resource_cache_entry_is_compatible(struct virgl_resource_cache_entry *entry,
                                          uint32_t size, uint32_t bind,
-                                         uint32_t format, uint32_t flags)
+                                         uint32_t format, uint32_t flags,
+                                         uint32_t nr_samples)
 {
    return (entry->bind == bind &&
            entry->format == format &&
@@ -39,7 +40,8 @@ virgl_resource_cache_entry_is_compatible(struct virgl_resource_cache_entry *entr
            /* We don't want to waste space, so don't reuse resource storage to
             * hold much smaller (< 50%) sizes.
             */
-           entry->size <= size * 2);
+           entry->size <= size * 2 &&
+           entry->nr_samples >= nr_samples);
 }
 
 static void
@@ -98,7 +100,8 @@ virgl_resource_cache_add(struct virgl_resource_cache *cache,
 struct virgl_resource_cache_entry *
 virgl_resource_cache_remove_compatible(struct virgl_resource_cache *cache,
                                        uint32_t size, uint32_t bind,
-                                       uint32_t format, uint32_t flags)
+                                       uint32_t format, uint32_t flags,
+                                       uint32_t nr_samples)
 {
    const int64_t now = os_time_get();
    struct virgl_resource_cache_entry *compat_entry = NULL;
@@ -111,7 +114,7 @@ virgl_resource_cache_remove_compatible(struct virgl_resource_cache *cache,
                             entry, &cache->resources, head) {
       const bool compatible =
          virgl_resource_cache_entry_is_compatible(entry, size, bind, format,
-						  flags);
+						  flags, nr_samples);
 
       if (compatible) {
          if (!cache->entry_is_busy_func(entry, cache->user_data))
