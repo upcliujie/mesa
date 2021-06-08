@@ -173,7 +173,9 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
          encoding |= instr->definitions.size() ? instr->definitions[0].physReg() << 15 : 0;
          encoding |= instr->operands.size() ? (instr->operands[0].physReg() >> 1) << 9 : 0;
          if (instr->operands.size() >= 2) {
-            if (!instr->operands[1].isConstant() || instr->operands[1].constantValue() >= 1024) {
+            if (instr->operands[1].isConstant() && instr->operands[1].constantValue() >= 1024) {
+               encoding |= 255; /* SQ_SRC_LITERAL */
+            } else if (!instr->operands[1].isConstant()) {
                encoding |= instr->operands[1].physReg().reg();
             } else {
                encoding |= instr->operands[1].constantValue() >> 2;
