@@ -481,6 +481,13 @@ set_dirty_for_bind_map(struct anv_cmd_buffer *cmd_buffer,
       cmd_buffer->state.push_constants_dirty |= mesa_to_vk_shader_stage(stage);
 }
 
+static inline uint32_t
+ilog2_round_up(uint32_t value)
+{
+   assert(value != 0);
+   return 32 - __builtin_clz(value - 1);
+}
+
 void anv_CmdBindPipeline(
     VkCommandBuffer                             commandBuffer,
     VkPipelineBindPoint                         pipelineBindPoint,
@@ -488,6 +495,9 @@ void anv_CmdBindPipeline(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_pipeline, pipeline, _pipeline);
+   struct anv_device *device = cmd_buffer->device;
+   struct anv_cmd_pipeline_state *state;
+   VkShaderStageFlags stages = 0;
 
    switch (pipelineBindPoint) {
    case VK_PIPELINE_BIND_POINT_COMPUTE: {
@@ -500,6 +510,9 @@ void anv_CmdBindPipeline(
       cmd_buffer->state.compute.pipeline_dirty = true;
       set_dirty_for_bind_map(cmd_buffer, MESA_SHADER_COMPUTE,
                              &compute_pipeline->cs->bind_map);
+
+      state = &cmd_buffer->state.compute.base;
+      stages = VK_SHADER_STAGE_COMPUTE_BIT;
       break;
    }
 
@@ -523,6 +536,9 @@ void anv_CmdBindPipeline(
          anv_dynamic_state_copy(&cmd_buffer->state.gfx.dynamic,
                                 &gfx_pipeline->dynamic_state,
                                 gfx_pipeline->dynamic_state_mask);
+
+      state = &cmd_buffer->state.gfx.base;
+      stages = gfx_pipeline->active_stages;
       break;
    }
 
@@ -539,12 +555,68 @@ void anv_CmdBindPipeline(
          anv_CmdSetRayTracingPipelineStackSizeKHR(commandBuffer,
                                                   rt_pipeline->stack_size);
       }
+
+      state = &cmd_buffer->state.rt.base;
       break;
    }
 
    default:
       assert(!"invalid bind point");
       break;
+   }
+
+   uint64_t ray_shadow_size =
+      align_u64(brw_rt_ray_queries_shadow_stacks_size(&device->info,
+                                                      pipeline->ray_queries),
+                4096);
+   if (ray_shadow_size > 0 &&
+       (!cmd_buffer->state.ray_query_shadow_bo ||
+        cmd_buffer->state.ray_query_shadow_bo->size < ray_shadow_size)) {
+      unsigned shadow_size_log2 = MAX2(ilog2_round_up(ray_shadow_size), 16);
+      unsigned bucket = shadow_size_log2 - 16;
+      assert(bucket < ARRAY_SIZE(device->ray_query_shadow_bos));
+
+      struct anv_bo *bo = p_atomic_read(&device->ray_query_shadow_bos[bucket]);
+      if (bo == NULL) {
+         struct anv_bo *new_bo;
+         VkResult result = anv_device_alloc_bo(device, "RT queries shadow",
+                                               ray_shadow_size,
+                                               ANV_BO_ALLOC_LOCAL_MEM, /* alloc_flags */
+                                               0, /* explicit_address */
+                                               &new_bo);
+         if (result != VK_SUCCESS) {
+            anv_batch_set_error(&cmd_buffer->batch, result);
+            return;
+         }
+
+         bo = p_atomic_cmpxchg(&device->ray_query_shadow_bos[bucket], NULL, new_bo);
+         if (bo != NULL) {
+            anv_device_release_bo(device, bo);
+         } else {
+            bo = new_bo;
+         }
+      }
+      cmd_buffer->state.ray_query_shadow_bo = bo;
+
+      /* Add the ray query buffers to the batch list. */
+      anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
+                            cmd_buffer->batch.alloc,
+                            cmd_buffer->state.ray_query_shadow_bo);
+      anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
+                            cmd_buffer->batch.alloc,
+                            device->ray_query_bo);
+
+      /* Fill the push constants & mark them dirty. */
+      struct anv_state ray_query_global_state =
+         anv_genX(&device->info, cmd_buffer_ray_query_globals)(cmd_buffer);
+
+      struct anv_address ray_query_globals_addr = (struct anv_address) {
+         .bo = device->dynamic_state_pool.block_pool.bo,
+         .offset = ray_query_global_state.offset,
+      };
+      state->push_constants.ray_query_globals =
+         anv_address_physical(ray_query_globals_addr);
+      cmd_buffer->state.push_constants_dirty |= stages;
    }
 }
 
@@ -1612,13 +1684,6 @@ void anv_CmdSetFragmentShadingRateKHR(
 
    cmd_buffer->state.gfx.dynamic.fragment_shading_rate = *pFragmentSize;
    cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE;
-}
-
-static inline uint32_t
-ilog2_round_up(uint32_t value)
-{
-   assert(value != 0);
-   return 32 - __builtin_clz(value - 1);
 }
 
 void anv_CmdSetRayTracingPipelineStackSizeKHR(
