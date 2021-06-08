@@ -540,7 +540,7 @@ try_setup_point( struct lp_setup_context *setup,
       if (pixel_offset == 0)
          plane[2].c++; /* top-left */
       else
-         plane[3].c++; /* bottom-left */
+         plane[3].c--; /* bottom-left */
    }
 
    return lp_setup_bin_triangle(setup, point, &bbox, &bbox, nr_planes, viewport_index);
