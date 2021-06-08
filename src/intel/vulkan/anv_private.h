@@ -1643,10 +1643,20 @@ anv_address_is_null(struct anv_address addr)
 static inline uint64_t
 anv_address_physical(struct anv_address addr)
 {
-   if (addr.bo && (addr.bo->flags & EXEC_OBJECT_PINNED))
-      return intel_canonical_address(addr.bo->offset + addr.offset);
-   else
-      return intel_canonical_address(addr.offset);
+   if (ANV_ALWAYS_SOFTPIN) {
+      if (addr.bo) {
+         assert(addr.bo->flags & EXEC_OBJECT_PINNED);
+         return intel_canonical_address(addr.bo->offset + addr.offset);
+      } else {
+         assert(addr.offset == 0);
+         return 0;
+      }
+   } else {
+      if (addr.bo && (addr.bo->flags & EXEC_OBJECT_PINNED))
+         return intel_canonical_address(addr.bo->offset + addr.offset);
+      else
+         return intel_canonical_address(addr.offset);
+   }
 }
 
 static inline struct anv_address
