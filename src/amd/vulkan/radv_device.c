@@ -830,6 +830,7 @@ static const struct debug_control radv_perftest_options[] = {{"localbos", RADV_P
                                                              {"nosam", RADV_PERFTEST_NO_SAM},
                                                              {"sam", RADV_PERFTEST_SAM},
                                                              {"rt", RADV_PERFTEST_RT},
+                                                             {"nggc", RADV_PERFTEST_FORCE_NGG_CULLING},
                                                              {NULL, 0}};
 
 const char *
