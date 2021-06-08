@@ -82,6 +82,7 @@ lower_impl(nir_function_impl *impl)
    out = nir_variable_create(shader, nir_var_shader_out,
                              glsl_vec4_type(), "edgeflag_out");
    out->data.location = VARYING_SLOT_EDGE;
+   shader->info.outputs_written |= BITFIELD64_BIT(VARYING_SLOT_EDGE);
 
    def = nir_load_var(&b, in);
    nir_store_var(&b, out, def, 0xf);
