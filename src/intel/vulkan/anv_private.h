@@ -1199,6 +1199,13 @@ struct anv_device {
     struct anv_scratch_pool                     scratch_pool;
     struct anv_bo                              *rt_scratch_bos[16];
 
+    /** Shadow BO based on the number of queries per shader.
+     */
+    struct anv_bo                              *ray_query_shadow_bos[16];
+    /** Ray query buffer used to communicated with HW unit.
+     */
+    struct anv_bo                              *ray_query_bo;
+
     struct anv_shader_bin                      *rt_trampoline;
     struct anv_shader_bin                      *rt_trivial_return;
 
@@ -2609,8 +2616,8 @@ struct anv_push_constants {
    /* Robust access pushed registers. */
    uint64_t push_reg_mask[MESA_SHADER_STAGES];
 
-   /** Pad out to a multiple of 32 bytes */
-   uint32_t pad[2];
+   /** Ray query globals (RT_DISPATCH_GLOBALS) */
+   uint64_t ray_query_globals;
 
    /* Base addresses for descriptor sets */
    uint64_t desc_sets[MAX_SETS];
@@ -2991,6 +2998,11 @@ struct anv_cmd_state {
     * is one of the states in attachment_states.
     */
    struct anv_state                             null_surface_state;
+
+   /**
+    * A buffer used for spill/fill of ray queries.
+    */
+   struct anv_bo *                              ray_query_shadow_bo;
 };
 
 struct anv_cmd_pool {
@@ -3342,6 +3354,8 @@ struct anv_pipeline {
 
    enum anv_pipeline_type                       type;
    VkPipelineCreateFlags                        flags;
+
+   uint32_t                                     ray_queries;
 
    struct util_dynarray                         executables;
 
