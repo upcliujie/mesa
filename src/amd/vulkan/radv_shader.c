@@ -864,6 +864,9 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
       if (has_gs || !key->vs_common_out.as_ngg)
          return false;
 
+      bool is_meta_shader = !!nir->info.name;
+      bool consider_culling = !(device->instance->debug_flags & RADV_DEBUG_NO_NGG_CULLING) && !is_meta_shader;
+
       out_conf =
          ac_nir_lower_ngg_nogs(
             nir,
@@ -871,7 +874,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
             num_vertices_per_prim,
             max_workgroup_size,
             info->wave_size,
-            false,
+            consider_culling,
             key->vs_common_out.as_ngg_passthrough,
             key->vs_common_out.export_prim_id,
             key->vs.provoking_vtx_last);
