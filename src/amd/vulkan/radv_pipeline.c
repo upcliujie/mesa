@@ -217,6 +217,8 @@ get_hash_flags(const struct radv_device *device, bool stats)
 
    if (device->instance->debug_flags & RADV_DEBUG_NO_NGG)
       hash_flags |= RADV_HASH_SHADER_NO_NGG;
+   if (device->instance->debug_flags & RADV_DEBUG_NO_NGG_CULLING)
+      hash_flags |= RADV_HASH_SHADER_NO_NGG_CULLING;
    if (device->physical_device->cs_wave_size == 32)
       hash_flags |= RADV_HASH_SHADER_CS_WAVE32;
    if (device->physical_device->ps_wave_size == 32)
