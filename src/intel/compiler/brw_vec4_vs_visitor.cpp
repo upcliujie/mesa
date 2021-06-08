@@ -80,6 +80,22 @@ vec4_vs_visitor::emit_urb_slot(dst_reg reg, int varying)
          inst->saturate = true;
       break;
    }
+   case VARYING_SLOT_EDGE:
+      if (key->copy_edgeflag) {
+         /* This is present when doing unfilled polygons.  We're supposed to copy
+          * the edge flag from the user-provided vertex array
+          * (glEdgeFlagPointer), or otherwise we'll copy from the current value
+          * of that attribute (starts as 1.0f).  This is then used in clipping to
+          * determine which edges should be drawn as wireframe.
+          */
+         current_annotation = "edge flag";
+         int edge_attr = util_bitcount64(nir->info.inputs_read &
+                                         BITFIELD64_MASK(VERT_ATTRIB_EDGEFLAG));
+         emit(MOV(reg, src_reg(dst_reg(ATTR, edge_attr,
+                                       glsl_type::float_type, WRITEMASK_XYZW))));
+         return;
+      }
+   FALLTHROUGH;
    default:
       return vec4_visitor::emit_urb_slot(reg, varying);
    }
