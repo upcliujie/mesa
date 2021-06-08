@@ -537,7 +537,7 @@ try_setup_point( struct lp_setup_context *setup,
 
       /* adjust for fill-rule*/
       plane[0].c++; /* left */
-      if (pixel_offset == 0)
+      if (setup->pixel_offset == 0)
          plane[2].c++; /* top-left */
       else
          plane[3].c++; /* bottom-left */
