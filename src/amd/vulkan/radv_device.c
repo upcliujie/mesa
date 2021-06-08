@@ -763,6 +763,7 @@ static const struct debug_control radv_debug_options[] = {
    {"checkir", RADV_DEBUG_CHECKIR},
    {"nobinning", RADV_DEBUG_NOBINNING},
    {"nongg", RADV_DEBUG_NO_NGG},
+   {"nonggc", RADV_DEBUG_NO_NGG_CULLING},
    {"metashaders", RADV_DEBUG_DUMP_META_SHADERS},
    {"nomemorycache", RADV_DEBUG_NO_MEMORY_CACHE},
    {"discardtodemote", RADV_DEBUG_DISCARD_TO_DEMOTE},
