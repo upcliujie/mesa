@@ -838,6 +838,11 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
    } else if (nir->info.stage == MESA_SHADER_VERTEX) {
       /* Need to add 1, because: V_028A6C_POINTLIST=0, V_028A6C_LINESTRIP=1, V_028A6C_TRISTRIP=2, etc. */
       num_vertices_per_prim = key->vs.outprim + 1;
+
+      /* Manually mark the instance ID used, if necessary. */
+      if (key->vs.instance_rate_inputs)
+         BITSET_SET(nir->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
+
    } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       num_vertices_per_prim = nir->info.gs.vertices_in;
    } else {
@@ -863,6 +868,19 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
       if (has_gs || !key->vs_common_out.as_ngg)
          return false;
 
+      /* Shader based culling may not be worth it when there are many PS inputs.
+       * Here we assume that the number of PS inputs and VS outputs are the same.
+       */
+      unsigned param_limit = 5;
+      if (device->physical_device->rad_info.chip_class >= GFX10_3 &&
+          device->physical_device->rad_info.max_render_backends > 4)
+         param_limit = 7;
+
+      bool is_meta_shader = !!nir->info.name;
+      bool consider_culling = !(device->instance->debug_flags & RADV_DEBUG_NO_NGG_CULLING) &&
+                              !is_meta_shader &&
+                              util_bitcount64(nir->info.outputs_written & ~VARYING_BIT_POS) < param_limit;
+
       out_conf =
          ac_nir_lower_ngg_nogs(
             nir,
@@ -870,7 +888,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
             num_vertices_per_prim,
             max_workgroup_size,
             info->wave_size,
-            false,
+            consider_culling,
             key->vs_common_out.as_ngg_passthrough,
             key->vs_common_out.export_prim_id,
             key->vs.provoking_vtx_last);
