@@ -3,3 +3,4 @@ VK_EXT_provoking_vertex on RADV.
 VK_EXT_extended_dynamic_state2 on RADV.
 32-bit x86 builds now default disable x87 math and use sse2.
 GL ES 3.1 on GT21x hardware.
+NGG culling in RADV.
