@@ -255,6 +255,8 @@ class Opcode(object):
         self.definition_size = 0
       elif '_pk' in name:
         self.definition_size = 32
+      elif name in ['ds_read_u8', 'ds_read_u16']:
+        self.definition_size = 32 # should already be 32, but that was only accidentally
 
 
 # global dictionary of opcodes

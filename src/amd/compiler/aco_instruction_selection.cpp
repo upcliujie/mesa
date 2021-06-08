@@ -3645,7 +3645,7 @@ Temp lds_load_callback(Builder& bld, const LoadEmitInfo &info,
 
    const_offset /= const_offset_unit;
 
-   RegClass rc = RegClass::get(RegType::vgpr, ALIGN(size, d16 ? 2 : 4));
+   RegClass rc = RegClass::get(RegType::vgpr, size);
    Temp val = size == info.dst.bytes() && info.dst.type() == RegType::vgpr && dst_hint.id() ? dst_hint : bld.tmp(rc);
    Instruction *instr;
    if (read2)
@@ -3653,9 +3653,6 @@ Temp lds_load_callback(Builder& bld, const LoadEmitInfo &info,
    else
       instr = bld.ds(op, Definition(val), offset, m, const_offset);
    instr->ds().sync = info.sync;
-
-   if (val.bytes() > size)
-      val = bld.pseudo(aco_opcode::p_extract_vector, bld.def(RegClass::get(RegType::vgpr, size)), val, Operand(0u));
 
    return val;
 }
