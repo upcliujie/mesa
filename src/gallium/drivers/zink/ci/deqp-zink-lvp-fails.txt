@@ -28,14 +28,6 @@ dEQP-GLES3.functional.multisample.fbo_4_samples.proportionality_sample_coverage,
 dEQP-GLES3.functional.multisample.fbo_4_samples.sample_coverage_invert,Fail
 dEQP-GLES3.functional.multisample.fbo_max_samples.proportionality_sample_coverage,Fail
 dEQP-GLES3.functional.multisample.fbo_max_samples.sample_coverage_invert,Fail
-dEQP-GLES3.functional.rasterization.fbo.rbo_singlesample.interpolation.lines_wide,Fail
-dEQP-GLES3.functional.rasterization.fbo.texture_2d.interpolation.lines_wide,Fail
-dEQP-GLES3.functional.rasterization.interpolation.basic.line_loop_wide,Fail
-dEQP-GLES3.functional.rasterization.interpolation.basic.line_strip_wide,Fail
-dEQP-GLES3.functional.rasterization.interpolation.basic.lines_wide,Fail
-dEQP-GLES3.functional.rasterization.interpolation.projected.line_loop_wide,Fail
-dEQP-GLES3.functional.rasterization.interpolation.projected.line_strip_wide,Fail
-dEQP-GLES3.functional.rasterization.interpolation.projected.lines_wide,Fail
 KHR-GL32.transform_feedback.capture_geometry_separate_test,Fail
 KHR-GL32.transform_feedback.capture_vertex_interleaved_test,Fail
 KHR-GL32.transform_feedback.capture_vertex_separate_test,Fail
