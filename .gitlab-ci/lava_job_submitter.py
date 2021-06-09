@@ -112,10 +112,11 @@ def get_job_results(proxy, job_id, test_suite, test_case):
     results_yaml = _call_proxy(proxy.results.get_testjob_results_yaml, job_id)
     results = yaml.load(results_yaml, Loader=loader(False))
 
-    metadata = results[0]['metadata']
-    if metadata['result'] == 'fail' and 'error_type' in metadata and metadata['error_type'] == "Infrastructure":
-        print_log("LAVA job {} failed with Infrastructure Error. Retry.".format(job_id))
-        return False
+    for res in results:
+        metadata = res['metadata']
+        if metadata['result'] == 'fail' and 'error_type' in metadata and metadata['error_type'] == "Infrastructure":
+            print_log("LAVA job {} failed with Infrastructure Error. Retry.".format(job_id))
+            return False
 
     results_yaml = _call_proxy(proxy.results.get_testcase_results_yaml, job_id, test_suite, test_case)
     results = yaml.load(results_yaml, Loader=loader(False))
