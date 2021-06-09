@@ -488,7 +488,10 @@ do {                                                                    \
    int sz = (sizeof(C) / sizeof(GLfloat));                              \
                                                                         \
    assert(sz == 1 || sz == 2);                                          \
-                                                                        \
+   if (!exec->vtx.buffer_ptr) {                                         \
+      vbo_exec_vtx_map(exec);                                           \
+      assert(exec->vtx.buffer_ptr);                                     \
+   }                                                                    \
    /* store a copy of the attribute in exec except for glVertex */      \
    if ((A) != 0) {                                                      \
       /* Check if attribute size or type is changing. */                \
@@ -1033,10 +1036,6 @@ vbo_exec_vtx_init(struct vbo_exec_context *exec, bool use_buffer_objects)
       struct vbo_exec_context *exec = &vbo_context(ctx)->exec;
 
       exec->vtx.bufferobj = ctx->Driver.NewBufferObject(ctx, IMM_BUFFER_NAME);
-
-      /* Map the buffer. */
-      vbo_exec_vtx_map(exec);
-      assert(exec->vtx.buffer_ptr);
    } else {
       /* Use allocated memory for immediate mode. */
       exec->vtx.bufferobj = NULL;
