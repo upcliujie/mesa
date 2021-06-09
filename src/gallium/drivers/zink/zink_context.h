@@ -203,7 +203,7 @@ struct zink_context {
    bool shader_reads_basevertex;
    struct zink_gfx_pipeline_state gfx_pipeline_state;
    enum pipe_prim_type gfx_prim_mode;
-   struct hash_table program_cache;
+   struct hash_table program_cache[8];
    struct zink_gfx_program *curr_program;
 
    struct zink_descriptor_data *dd;
