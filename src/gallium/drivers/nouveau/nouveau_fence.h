@@ -23,6 +23,7 @@ struct nouveau_fence_work {
 struct nouveau_fence {
    struct nouveau_fence *next;
    struct nouveau_screen *screen;
+   struct nouveau_context *context;
    int state;
    int ref;
    uint32_t sequence;
@@ -33,7 +34,6 @@ struct nouveau_fence {
 struct nouveau_fence_list {
    struct nouveau_fence *head;
    struct nouveau_fence *tail;
-   struct nouveau_fence *current;
    uint32_t sequence;
    uint32_t sequence_ack;
    simple_mtx_t lock;
@@ -54,14 +54,14 @@ nouveau_fence_list_destroy(struct nouveau_fence_list *fence_list)
 }
 
 void nouveau_fence_emit(struct nouveau_fence *);
-bool nouveau_fence_new(struct nouveau_screen *, struct nouveau_fence **);
-void nouveau_fence_cleanup(struct nouveau_fence_list *);
+bool nouveau_fence_new(struct nouveau_context *, struct nouveau_fence **);
+void nouveau_fence_cleanup(struct nouveau_context *);
 bool nouveau_fence_work(struct nouveau_fence *, void (*)(void *), void *);
 void nouveau_fence_update(struct nouveau_screen *, bool flushed);
-void nouveau_fence_next(struct nouveau_screen *);
+void nouveau_fence_next(struct nouveau_context *);
 bool nouveau_fence_wait(struct nouveau_fence *, struct pipe_debug_callback *);
 bool nouveau_fence_signalled(struct nouveau_fence *);
-void nouveau_fence_ref_current(struct nouveau_fence_list *, struct nouveau_fence **);
+void nouveau_fence_ref_current(struct nouveau_context *, struct nouveau_fence **);
 void nouveau_fence_ref(struct nouveau_fence *, struct nouveau_fence **);
 
 void nouveau_fence_unref_bo(void *data); /* generic unref bo callback */
