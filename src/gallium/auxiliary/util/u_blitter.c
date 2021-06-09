@@ -2859,6 +2859,8 @@ util_blitter_stencil_fallback(struct blitter_context *blitter,
    struct pipe_sampler_view src_templ, *src_view;
    util_blitter_default_src_texture(blitter, &src_templ, src, src_level);
    src_templ.format = util_format_stencil_only(src_templ.format);
+   src_templ.swizzle_r = PIPE_SWIZZLE_Y;
+   src_templ.swizzle_g = PIPE_SWIZZLE_Y;
    src_view = pipe->create_sampler_view(pipe, src, &src_templ);
 
    /* bind states */
