@@ -22,6 +22,10 @@
  */
 
 #include "v3dv_private.h"
+
+/* The branching packets are the same across V3D versions. */
+#define V3D_VERSION 33
+#include "broadcom/common/v3d_macros.h"
 #include "broadcom/cle/v3dx_pack.h"
 
 void

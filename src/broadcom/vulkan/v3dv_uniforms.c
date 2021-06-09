@@ -28,6 +28,13 @@
 #include "v3dv_private.h"
 #include "vk_format_info.h"
 
+/* The only packet-specific structure that we need is
+ * TMU_CONFIG_PARAMETER_1. So far that didn't change too much from old
+ * versions, and don't seem that will change soon. So for now let's just
+ * hardcode the version, and avoid the need to define a full generation
+ * wrapping (v3dvx_uniforms)
+ */
+#define V3D_VERSION 41
 #include "broadcom/common/v3d_macros.h"
 #include "broadcom/cle/v3dx_pack.h"
 
