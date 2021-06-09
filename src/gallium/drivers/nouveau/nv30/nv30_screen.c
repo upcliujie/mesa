@@ -508,8 +508,6 @@ nv30_screen_destroy(struct pipe_screen *pscreen)
    if (!nouveau_drm_screen_unref(&screen->base))
       return;
 
-   nouveau_fence_cleanup(&screen->base.fence);
-
    nouveau_bo_ref(NULL, &screen->notify);
 
    nouveau_heap_destroy(&screen->query_heap);
@@ -814,6 +812,5 @@ nv30_screen_create(struct nouveau_device *dev)
 
    nouveau_pushbuf_kick(push, push->channel);
 
-   nouveau_fence_new(&screen->base, &screen->base.fence.current);
    return &screen->base;
 }
