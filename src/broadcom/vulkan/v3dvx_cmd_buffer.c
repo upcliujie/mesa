@@ -1552,7 +1552,7 @@ v3dX(cmd_buffer_execute_inside_pass)(struct v3dv_cmd_buffer *primary,
             STATIC_ASSERT(cl_packet_length(RETURN_FROM_SUB_LIST) == 1);
             assert(v3dv_cl_offset(&secondary_job->bcl) >= 1);
             assert(*(((uint8_t *)secondary_job->bcl.next) - 1) ==
-                   V3D42_RETURN_FROM_SUB_LIST_opcode);
+                   V3DX(RETURN_FROM_SUB_LIST_opcode));
 
             /* If this secondary has any barriers (or we had any pending barrier
              * to apply), then we can't just branch to it from the primary, we
@@ -2111,10 +2111,18 @@ v3dX(render_pass_setup_render_target)(struct v3dv_cmd_buffer *cmd_buffer,
 
    *rt_bpp = iview->internal_bpp;
    *rt_type = iview->internal_type;
+
+#if V3D_VERSION == 42
    if (vk_format_is_int(iview->vk_format))
       *rt_clamp = V3D_RENDER_TARGET_CLAMP_INT;
    else if (vk_format_is_srgb(iview->vk_format))
       *rt_clamp = V3D_RENDER_TARGET_CLAMP_NORM;
    else
       *rt_clamp = V3D_RENDER_TARGET_CLAMP_NONE;
+#endif
+
+#if V3D_VERSION == 41
+   /* FIXME: do something */
+   *rt_clamp = V3D_RENDER_TARGET_CLAMP_NONE;
+#endif
 }
