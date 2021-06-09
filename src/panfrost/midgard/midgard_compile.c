@@ -249,6 +249,58 @@ midgard_nir_lower_fdot2(nir_shader *shader)
 }
 
 static bool
+midgard_nir_lower_global_load_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+        if (instr->type != nir_instr_type_intrinsic)
+                return false;
+
+        nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+        if (intr->intrinsic != nir_intrinsic_load_global)
+                return false;
+
+        unsigned compsz = nir_dest_bit_size(intr->dest);
+        unsigned totalsz = compsz * nir_dest_num_components(intr->dest);
+        /* 8, 16, 32, 64 and 128 bit loads don't need to be lowered */
+        if (util_bitcount(totalsz) < 2 && totalsz <= 128)
+                return false;
+
+        b->cursor = nir_before_instr(instr);
+
+        assert(intr->src[0].is_ssa);
+        nir_ssa_def *addr = intr->src[0].ssa;
+
+        nir_ssa_def *comps[MIR_VEC_COMPONENTS];
+        unsigned ncomps = 0;
+
+        while (totalsz) {
+                unsigned loadsz = MIN2(1 << (util_last_bit(totalsz) - 1), 128);
+                unsigned loadncomps = loadsz / compsz;
+
+                nir_ssa_def *load =
+                        nir_load_global(b, addr, compsz / 8, loadncomps, compsz);
+                for (unsigned i = 0; i < loadncomps; i++)
+                        comps[ncomps++] = nir_channel(b, load, i);
+
+                totalsz -= loadsz;
+                addr = nir_iadd(b, addr, nir_imm_int64(b, loadsz / 8));
+        }
+
+        assert(ncomps == nir_dest_num_components(intr->dest));
+        nir_ssa_def_rewrite_uses(&intr->dest.ssa, nir_vec(b, comps, ncomps));
+
+        return true;
+}
+
+static bool
+midgard_nir_lower_global_load(nir_shader *shader)
+{
+        return nir_shader_instructions_pass(shader,
+                                            midgard_nir_lower_global_load_instr,
+                                            nir_metadata_block_index | nir_metadata_dominance,
+                                            NULL);
+}
+
+static bool
 mdg_is_64(const nir_instr *instr, const void *_unused)
 {
         const nir_alu_instr *alu = nir_instr_as_alu(instr);
@@ -3099,6 +3151,8 @@ midgard_compile_shader_nir(nir_shader *nir,
         NIR_PASS_V(nir, pan_nir_lower_zs_store);
 
         NIR_PASS_V(nir, pan_nir_lower_64bit_intrin);
+
+        NIR_PASS_V(nir, midgard_nir_lower_global_load);
 
         /* Optimisation passes */
 
