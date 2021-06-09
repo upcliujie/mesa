@@ -25,7 +25,7 @@ v3dv_entrypoints = custom_target(
   command : [
     prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--proto', '--weak',
     '--out-h', '@OUTPUT0@', '--out-c', '@OUTPUT1@', '--prefix', 'v3dv',
-    '--device-prefix', 'ver42',
+    '--device-prefix', 'ver41', '--device-prefix', 'ver42',
   ],
   depend_files : vk_entrypoints_gen_depend_files,
 )
@@ -70,7 +70,7 @@ files_per_version = files(
 # The vulkan driver only supports version >= 42, which is the version present in
 # Rpi4. We need to explicitly set it as we are reusing pieces from the GL v3d
 # driver.
-v3d_versions = ['42']
+v3d_versions = ['41', '42']
 
 v3dv_flags = []
 

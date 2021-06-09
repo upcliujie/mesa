@@ -2075,6 +2075,9 @@ u64_compare(const void *key1, const void *key2)
 #define v3dv_X(device, thing) ({                      \
    __typeof(&v3d42_##thing) v3d_X_thing;              \
    switch (device->devinfo.ver) {                     \
+   case 41:                                           \
+      v3d_X_thing = &v3d41_##thing;                   \
+      break;                                          \
    case 42:                                           \
       v3d_X_thing = &v3d42_##thing;                   \
       break;                                          \
@@ -2092,6 +2095,10 @@ u64_compare(const void *key1, const void *key2)
 #ifdef v3dX
 #  include "v3dvx_private.h"
 #else
+#  define v3dX(x) v3d41_##x
+#  include "v3dvx_private.h"
+#  undef v3dX
+#
 #  define v3dX(x) v3d42_##x
 #  include "v3dvx_private.h"
 #  undef v3dX
