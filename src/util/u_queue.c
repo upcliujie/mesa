@@ -521,6 +521,13 @@ util_queue_kill_threads(struct util_queue *queue, unsigned keep_num_threads,
       mtx_unlock(&queue->finish_lock);
 }
 
+static void
+util_queue_finish_execute(void *data, int num_thread)
+{
+   util_barrier *barrier = data;
+   util_barrier_wait(barrier);
+}
+
 void
 util_queue_destroy(struct util_queue *queue)
 {
@@ -647,13 +654,6 @@ util_queue_drop_job(struct util_queue *queue, struct util_queue_fence *fence)
       util_queue_fence_signal(fence);
    else
       util_queue_fence_wait(fence);
-}
-
-static void
-util_queue_finish_execute(void *data, int num_thread)
-{
-   util_barrier *barrier = data;
-   util_barrier_wait(barrier);
 }
 
 /**
