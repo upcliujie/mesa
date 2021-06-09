@@ -115,6 +115,7 @@ def get_job_results(proxy, job_id, test_suite, test_case):
         return False
 
     results_yaml = _call_proxy(proxy.results.get_testcase_results_yaml, job_id, test_suite, test_case)
+    print_log(results_yaml)
     results = yaml.load(results_yaml, Loader=loader(False))
     if not results:
         sys.exit(log_msg("LAVA: no result for test_suite '{}', test_case '{}'".format(test_suite, test_case)))
