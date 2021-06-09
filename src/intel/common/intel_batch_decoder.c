@@ -614,7 +614,7 @@ static void
 decode_ps_kernels(struct intel_batch_decode_ctx *ctx, const uint32_t *p)
 {
    struct intel_group *inst = intel_ctx_find_instruction(ctx, p);
-
+   bool single_ksp = ctx->devinfo.ver == 4; /* vertex shaders on Gfx8+ only */
    uint64_t ksp[3] = {0, 0, 0};
    bool enabled[3] = {false, false, false};
 
@@ -633,6 +633,9 @@ decode_ps_kernels(struct intel_batch_decode_ctx *ctx, const uint32_t *p)
          enabled[2] = strcmp(iter.value, "true") == 0;
       }
    }
+
+   if (single_ksp)
+      ksp[1] = ksp[2] = ksp[0];
 
    /* Reorder KSPs to be [8, 16, 32] instead of the hardware order. */
    if (enabled[0] + enabled[1] + enabled[2] == 1) {
@@ -1092,6 +1095,33 @@ decode_wm_state(struct intel_batch_decode_ctx *ctx, uint32_t offset)
    }
 
    ctx_print_group(ctx, strct, offset, bind_bo.map);
+
+   uint64_t ksp[3] = {0, 0, 0};
+   bool enabled[3] = {false, false, false};
+   struct intel_field_iterator iter;
+   intel_field_iterator_init(&iter, strct, bind_bo.map, 0, false);
+   while (intel_field_iterator_next(&iter)) {
+      if (strncmp(iter.name, "Kernel Start Pointer ",
+                  strlen("Kernel Start Pointer ")) == 0) {
+         int idx = iter.name[strlen("Kernel Start Pointer ")] - '0';
+         ksp[idx] = strtol(iter.value, NULL, 16);
+      } else if (strcmp(iter.name, "8 Pixel Dispatch Enable") == 0) {
+         enabled[0] = strcmp(iter.value, "true") == 0;
+      } else if (strcmp(iter.name, "16 Pixel Dispatch Enable") == 0) {
+         enabled[1] = strcmp(iter.value, "true") == 0;
+      } else if (strcmp(iter.name, "32 Pixel Dispatch Enable") == 0) {
+         enabled[2] = strcmp(iter.value, "true") == 0;
+      }
+   }
+   if (enabled[0])
+      ctx_disassemble_program(ctx, ksp[0], "SIMD8 fragment shader");
+   if (enabled[1])
+      ctx_disassemble_program(ctx, ksp[0], "SIMD16 fragment shader");
+   if (enabled[2])
+      ctx_disassemble_program(ctx, ksp[2], "SIMD32 fragment shader");
+
+   if (enabled[0] || enabled[1] || enabled[2])
+      fprintf(ctx->fp, "\n");
 }
 
 static void
