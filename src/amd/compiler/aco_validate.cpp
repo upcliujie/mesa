@@ -79,7 +79,8 @@ validate_ir(Program* program)
 {
    bool is_valid = true;
    auto check = [&program, &is_valid](bool success, const char* msg,
-                                      aco::Instruction* instr) -> void {
+                                      aco::Instruction* instr) -> void
+   {
       if (!success) {
          char* out;
          size_t outsize;
@@ -99,7 +100,8 @@ validate_ir(Program* program)
    };
 
    auto check_block = [&program, &is_valid](bool success, const char* msg,
-                                            aco::Block* block) -> void {
+                                            aco::Block* block) -> void
+   {
       if (!success) {
          aco_err(program, "%s: BB%u", msg, block->index);
          is_valid = false;
@@ -565,8 +567,7 @@ validate_ir(Program* program)
                      "FLAT/GLOBAL/SCRATCH data must be vgpr", instr.get());
             break;
          }
-         default:
-            break;
+         default: break;
          }
       }
    }
@@ -608,9 +609,7 @@ validate_ir(Program* program)
 namespace {
 
 struct Location {
-   Location(): block(NULL), instr(NULL)
-   {
-   }
+   Location() : block(NULL), instr(NULL) {}
 
    Block* block;
    Instruction* instr; // NULL if it's the block's live-in
@@ -706,8 +705,7 @@ validate_subdword_operand(chip_class chip, const aco_ptr<Instruction>& instr, un
       if (byte == 2 && index == 2)
          return true;
       break;
-   default:
-      break;
+   default: break;
    }
 
    return byte == 0;
@@ -736,10 +734,8 @@ validate_subdword_definition(chip_class chip, const aco_ptr<Instruction>& instr)
    case aco_opcode::global_load_ubyte_d16_hi:
    case aco_opcode::global_load_short_d16_hi:
    case aco_opcode::ds_read_u8_d16_hi:
-   case aco_opcode::ds_read_u16_d16_hi:
-      return byte == 2;
-   default:
-      break;
+   case aco_opcode::ds_read_u16_d16_hi: return byte == 2;
+   default: break;
    }
 
    return byte == 0;
@@ -776,8 +772,7 @@ get_subdword_bytes_written(Program* program, const aco_ptr<Instruction>& instr, 
    case aco_opcode::global_load_ubyte_d16_hi:
    case aco_opcode::global_load_short_d16_hi:
    case aco_opcode::ds_read_u8_d16_hi:
-   case aco_opcode::ds_read_u16_d16_hi:
-      return program->dev.sram_ecc_enabled ? 4 : 2;
+   case aco_opcode::ds_read_u16_d16_hi: return program->dev.sram_ecc_enabled ? 4 : 2;
    case aco_opcode::v_mad_f16:
    case aco_opcode::v_mad_u16:
    case aco_opcode::v_mad_i16:
@@ -787,8 +782,7 @@ get_subdword_bytes_written(Program* program, const aco_ptr<Instruction>& instr, 
       if (chip >= GFX9)
          return 2;
       break;
-   default:
-      break;
+   default: break;
    }
 
    return MAX2(chip >= GFX10 ? def.bytes() : 4,

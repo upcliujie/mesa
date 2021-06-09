@@ -41,30 +41,16 @@ print_asm_gfx6_gfx7(Program* program, std::vector<uint32_t>& binary, FILE* outpu
    switch (program->chip_class) {
    case GFX6:
       switch (program->family) {
-      case CHIP_TAHITI:
-         gpu_type = "tahiti";
-         break;
-      case CHIP_PITCAIRN:
-         gpu_type = "pitcairn";
-         break;
-      case CHIP_VERDE:
-         gpu_type = "capeverde";
-         break;
-      case CHIP_OLAND:
-         gpu_type = "oland";
-         break;
-      case CHIP_HAINAN:
-         gpu_type = "hainan";
-         break;
-      default:
-         unreachable("Invalid GFX6 family!");
+      case CHIP_TAHITI: gpu_type = "tahiti"; break;
+      case CHIP_PITCAIRN: gpu_type = "pitcairn"; break;
+      case CHIP_VERDE: gpu_type = "capeverde"; break;
+      case CHIP_OLAND: gpu_type = "oland"; break;
+      case CHIP_HAINAN: gpu_type = "hainan"; break;
+      default: unreachable("Invalid GFX6 family!");
       }
       break;
-   case GFX7:
-      gpu_type = "gfx700";
-      break;
-   default:
-      unreachable("Invalid chip class!");
+   case GFX7: gpu_type = "gfx700"; break;
+   default: unreachable("Invalid chip class!");
    }
 
    sprintf(command, "clrxdisasm --gpuType=%s -r %s", gpu_type, path);

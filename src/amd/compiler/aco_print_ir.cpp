@@ -8,7 +8,8 @@
 
 namespace aco {
 
-const std::array<const char*, num_reduce_ops> reduce_ops = []() {
+const std::array<const char*, num_reduce_ops> reduce_ops = []()
+{
    std::array<const char*, num_reduce_ops> ret{};
    ret[iadd8] = "iadd8";
    ret[iadd16] = "iadd16";
@@ -65,75 +66,29 @@ static void
 print_reg_class(const RegClass rc, FILE* output)
 {
    switch (rc) {
-   case RegClass::s1:
-      fprintf(output, " s1: ");
-      return;
-   case RegClass::s2:
-      fprintf(output, " s2: ");
-      return;
-   case RegClass::s3:
-      fprintf(output, " s3: ");
-      return;
-   case RegClass::s4:
-      fprintf(output, " s4: ");
-      return;
-   case RegClass::s6:
-      fprintf(output, " s6: ");
-      return;
-   case RegClass::s8:
-      fprintf(output, " s8: ");
-      return;
-   case RegClass::s16:
-      fprintf(output, "s16: ");
-      return;
-   case RegClass::v1:
-      fprintf(output, " v1: ");
-      return;
-   case RegClass::v2:
-      fprintf(output, " v2: ");
-      return;
-   case RegClass::v3:
-      fprintf(output, " v3: ");
-      return;
-   case RegClass::v4:
-      fprintf(output, " v4: ");
-      return;
-   case RegClass::v5:
-      fprintf(output, " v5: ");
-      return;
-   case RegClass::v6:
-      fprintf(output, " v6: ");
-      return;
-   case RegClass::v7:
-      fprintf(output, " v7: ");
-      return;
-   case RegClass::v8:
-      fprintf(output, " v8: ");
-      return;
-   case RegClass::v1b:
-      fprintf(output, " v1b: ");
-      return;
-   case RegClass::v2b:
-      fprintf(output, " v2b: ");
-      return;
-   case RegClass::v3b:
-      fprintf(output, " v3b: ");
-      return;
-   case RegClass::v4b:
-      fprintf(output, " v4b: ");
-      return;
-   case RegClass::v6b:
-      fprintf(output, " v6b: ");
-      return;
-   case RegClass::v8b:
-      fprintf(output, " v8b: ");
-      return;
-   case RegClass::v1_linear:
-      fprintf(output, " v1: ");
-      return;
-   case RegClass::v2_linear:
-      fprintf(output, " v2: ");
-      return;
+   case RegClass::s1: fprintf(output, " s1: "); return;
+   case RegClass::s2: fprintf(output, " s2: "); return;
+   case RegClass::s3: fprintf(output, " s3: "); return;
+   case RegClass::s4: fprintf(output, " s4: "); return;
+   case RegClass::s6: fprintf(output, " s6: "); return;
+   case RegClass::s8: fprintf(output, " s8: "); return;
+   case RegClass::s16: fprintf(output, "s16: "); return;
+   case RegClass::v1: fprintf(output, " v1: "); return;
+   case RegClass::v2: fprintf(output, " v2: "); return;
+   case RegClass::v3: fprintf(output, " v3: "); return;
+   case RegClass::v4: fprintf(output, " v4: "); return;
+   case RegClass::v5: fprintf(output, " v5: "); return;
+   case RegClass::v6: fprintf(output, " v6: "); return;
+   case RegClass::v7: fprintf(output, " v7: "); return;
+   case RegClass::v8: fprintf(output, " v8: "); return;
+   case RegClass::v1b: fprintf(output, " v1b: "); return;
+   case RegClass::v2b: fprintf(output, " v2b: "); return;
+   case RegClass::v3b: fprintf(output, " v3b: "); return;
+   case RegClass::v4b: fprintf(output, " v4b: "); return;
+   case RegClass::v6b: fprintf(output, " v6b: "); return;
+   case RegClass::v8b: fprintf(output, " v8b: "); return;
+   case RegClass::v1_linear: fprintf(output, " v1: "); return;
+   case RegClass::v2_linear: fprintf(output, " v2: "); return;
    }
 }
 
@@ -178,33 +133,15 @@ print_constant(uint8_t reg, FILE* output)
    }
 
    switch (reg) {
-   case 240:
-      fprintf(output, "0.5");
-      break;
-   case 241:
-      fprintf(output, "-0.5");
-      break;
-   case 242:
-      fprintf(output, "1.0");
-      break;
-   case 243:
-      fprintf(output, "-1.0");
-      break;
-   case 244:
-      fprintf(output, "2.0");
-      break;
-   case 245:
-      fprintf(output, "-2.0");
-      break;
-   case 246:
-      fprintf(output, "4.0");
-      break;
-   case 247:
-      fprintf(output, "-4.0");
-      break;
-   case 248:
-      fprintf(output, "1/(2*PI)");
-      break;
+   case 240: fprintf(output, "0.5"); break;
+   case 241: fprintf(output, "-0.5"); break;
+   case 242: fprintf(output, "1.0"); break;
+   case 243: fprintf(output, "-1.0"); break;
+   case 244: fprintf(output, "2.0"); break;
+   case 245: fprintf(output, "-2.0"); break;
+   case 246: fprintf(output, "4.0"); break;
+   case 247: fprintf(output, "-4.0"); break;
+   case 248: fprintf(output, "1/(2*PI)"); break;
    }
 }
 
@@ -308,21 +245,11 @@ print_scope(sync_scope scope, FILE* output, const char* prefix = "scope")
 {
    fprintf(output, " %s:", prefix);
    switch (scope) {
-   case scope_invocation:
-      fprintf(output, "invocation");
-      break;
-   case scope_subgroup:
-      fprintf(output, "subgroup");
-      break;
-   case scope_workgroup:
-      fprintf(output, "workgroup");
-      break;
-   case scope_queuefamily:
-      fprintf(output, "queuefamily");
-      break;
-   case scope_device:
-      fprintf(output, "device");
-      break;
+   case scope_invocation: fprintf(output, "invocation"); break;
+   case scope_subgroup: fprintf(output, "subgroup"); break;
+   case scope_workgroup: fprintf(output, "workgroup"); break;
+   case scope_queuefamily: fprintf(output, "queuefamily"); break;
+   case scope_device: fprintf(output, "device"); break;
    }
 }
 
@@ -371,9 +298,7 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
       case aco_opcode::s_sendmsg: {
          unsigned id = imm & sendmsg_id_mask;
          switch (id) {
-         case sendmsg_none:
-            fprintf(output, " sendmsg(MSG_NONE)");
-            break;
+         case sendmsg_none: fprintf(output, " sendmsg(MSG_NONE)"); break;
          case _sendmsg_gs:
             fprintf(output, " sendmsg(gs%s%s, %u)", imm & 0x10 ? ", cut" : "",
                     imm & 0x20 ? ", emit" : "", imm >> 8);
@@ -382,24 +307,12 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
             fprintf(output, " sendmsg(gs_done%s%s, %u)", imm & 0x10 ? ", cut" : "",
                     imm & 0x20 ? ", emit" : "", imm >> 8);
             break;
-         case sendmsg_save_wave:
-            fprintf(output, " sendmsg(save_wave)");
-            break;
-         case sendmsg_stall_wave_gen:
-            fprintf(output, " sendmsg(stall_wave_gen)");
-            break;
-         case sendmsg_halt_waves:
-            fprintf(output, " sendmsg(halt_waves)");
-            break;
-         case sendmsg_ordered_ps_done:
-            fprintf(output, " sendmsg(ordered_ps_done)");
-            break;
-         case sendmsg_early_prim_dealloc:
-            fprintf(output, " sendmsg(early_prim_dealloc)");
-            break;
-         case sendmsg_gs_alloc_req:
-            fprintf(output, " sendmsg(gs_alloc_req)");
-            break;
+         case sendmsg_save_wave: fprintf(output, " sendmsg(save_wave)"); break;
+         case sendmsg_stall_wave_gen: fprintf(output, " sendmsg(stall_wave_gen)"); break;
+         case sendmsg_halt_waves: fprintf(output, " sendmsg(halt_waves)"); break;
+         case sendmsg_ordered_ps_done: fprintf(output, " sendmsg(ordered_ps_done)"); break;
+         case sendmsg_early_prim_dealloc: fprintf(output, " sendmsg(early_prim_dealloc)"); break;
+         case sendmsg_gs_alloc_req: fprintf(output, " sendmsg(gs_alloc_req)"); break;
          }
          break;
       }
@@ -474,30 +387,14 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
                  mimg.dmask & 0x2 ? "y" : "", mimg.dmask & 0x4 ? "z" : "",
                  mimg.dmask & 0x8 ? "w" : "");
       switch (mimg.dim) {
-      case ac_image_1d:
-         fprintf(output, " 1d");
-         break;
-      case ac_image_2d:
-         fprintf(output, " 2d");
-         break;
-      case ac_image_3d:
-         fprintf(output, " 3d");
-         break;
-      case ac_image_cube:
-         fprintf(output, " cube");
-         break;
-      case ac_image_1darray:
-         fprintf(output, " 1darray");
-         break;
-      case ac_image_2darray:
-         fprintf(output, " 2darray");
-         break;
-      case ac_image_2dmsaa:
-         fprintf(output, " 2dmsaa");
-         break;
-      case ac_image_2darraymsaa:
-         fprintf(output, " 2darraymsaa");
-         break;
+      case ac_image_1d: fprintf(output, " 1d"); break;
+      case ac_image_2d: fprintf(output, " 2d"); break;
+      case ac_image_3d: fprintf(output, " 3d"); break;
+      case ac_image_cube: fprintf(output, " cube"); break;
+      case ac_image_1darray: fprintf(output, " 1darray"); break;
+      case ac_image_2darray: fprintf(output, " 2darray"); break;
+      case ac_image_2dmsaa: fprintf(output, " 2dmsaa"); break;
+      case ac_image_2darraymsaa: fprintf(output, " 2darraymsaa"); break;
       }
       if (mimg.unrm)
          fprintf(output, " unrm");
@@ -595,78 +492,32 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
       const MTBUF_instruction& mtbuf = instr->mtbuf();
       fprintf(output, " dfmt:");
       switch (mtbuf.dfmt) {
-      case V_008F0C_BUF_DATA_FORMAT_8:
-         fprintf(output, "8");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_16:
-         fprintf(output, "16");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_8_8:
-         fprintf(output, "8_8");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_32:
-         fprintf(output, "32");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_16_16:
-         fprintf(output, "16_16");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_10_11_11:
-         fprintf(output, "10_11_11");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_11_11_10:
-         fprintf(output, "11_11_10");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_10_10_10_2:
-         fprintf(output, "10_10_10_2");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_2_10_10_10:
-         fprintf(output, "2_10_10_10");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_8_8_8_8:
-         fprintf(output, "8_8_8_8");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_32_32:
-         fprintf(output, "32_32");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_16_16_16_16:
-         fprintf(output, "16_16_16_16");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_32_32_32:
-         fprintf(output, "32_32_32");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_32_32_32_32:
-         fprintf(output, "32_32_32_32");
-         break;
-      case V_008F0C_BUF_DATA_FORMAT_RESERVED_15:
-         fprintf(output, "reserved15");
-         break;
+      case V_008F0C_BUF_DATA_FORMAT_8: fprintf(output, "8"); break;
+      case V_008F0C_BUF_DATA_FORMAT_16: fprintf(output, "16"); break;
+      case V_008F0C_BUF_DATA_FORMAT_8_8: fprintf(output, "8_8"); break;
+      case V_008F0C_BUF_DATA_FORMAT_32: fprintf(output, "32"); break;
+      case V_008F0C_BUF_DATA_FORMAT_16_16: fprintf(output, "16_16"); break;
+      case V_008F0C_BUF_DATA_FORMAT_10_11_11: fprintf(output, "10_11_11"); break;
+      case V_008F0C_BUF_DATA_FORMAT_11_11_10: fprintf(output, "11_11_10"); break;
+      case V_008F0C_BUF_DATA_FORMAT_10_10_10_2: fprintf(output, "10_10_10_2"); break;
+      case V_008F0C_BUF_DATA_FORMAT_2_10_10_10: fprintf(output, "2_10_10_10"); break;
+      case V_008F0C_BUF_DATA_FORMAT_8_8_8_8: fprintf(output, "8_8_8_8"); break;
+      case V_008F0C_BUF_DATA_FORMAT_32_32: fprintf(output, "32_32"); break;
+      case V_008F0C_BUF_DATA_FORMAT_16_16_16_16: fprintf(output, "16_16_16_16"); break;
+      case V_008F0C_BUF_DATA_FORMAT_32_32_32: fprintf(output, "32_32_32"); break;
+      case V_008F0C_BUF_DATA_FORMAT_32_32_32_32: fprintf(output, "32_32_32_32"); break;
+      case V_008F0C_BUF_DATA_FORMAT_RESERVED_15: fprintf(output, "reserved15"); break;
       }
       fprintf(output, " nfmt:");
       switch (mtbuf.nfmt) {
-      case V_008F0C_BUF_NUM_FORMAT_UNORM:
-         fprintf(output, "unorm");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_SNORM:
-         fprintf(output, "snorm");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_USCALED:
-         fprintf(output, "uscaled");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_SSCALED:
-         fprintf(output, "sscaled");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_UINT:
-         fprintf(output, "uint");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_SINT:
-         fprintf(output, "sint");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_SNORM_OGL:
-         fprintf(output, "snorm");
-         break;
-      case V_008F0C_BUF_NUM_FORMAT_FLOAT:
-         fprintf(output, "float");
-         break;
+      case V_008F0C_BUF_NUM_FORMAT_UNORM: fprintf(output, "unorm"); break;
+      case V_008F0C_BUF_NUM_FORMAT_SNORM: fprintf(output, "snorm"); break;
+      case V_008F0C_BUF_NUM_FORMAT_USCALED: fprintf(output, "uscaled"); break;
+      case V_008F0C_BUF_NUM_FORMAT_SSCALED: fprintf(output, "sscaled"); break;
+      case V_008F0C_BUF_NUM_FORMAT_UINT: fprintf(output, "uint"); break;
+      case V_008F0C_BUF_NUM_FORMAT_SINT: fprintf(output, "sint"); break;
+      case V_008F0C_BUF_NUM_FORMAT_SNORM_OGL: fprintf(output, "snorm"); break;
+      case V_008F0C_BUF_NUM_FORMAT_FLOAT: fprintf(output, "float"); break;
       }
       if (mtbuf.offset)
          fprintf(output, " offset:%u", mtbuf.offset);
@@ -699,15 +550,9 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
    if (instr->isVOP3()) {
       const VOP3_instruction& vop3 = instr->vop3();
       switch (vop3.omod) {
-      case 1:
-         fprintf(output, " *2");
-         break;
-      case 2:
-         fprintf(output, " *4");
-         break;
-      case 3:
-         fprintf(output, " *0.5");
-         break;
+      case 1: fprintf(output, " *2"); break;
+      case 2: fprintf(output, " *4"); break;
+      case 3: fprintf(output, " *0.5"); break;
       }
       if (vop3.clamp)
          fprintf(output, " clamp");
@@ -752,21 +597,14 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
    } else if (instr->isSDWA()) {
       const SDWA_instruction& sdwa = instr->sdwa();
       switch (sdwa.omod) {
-      case 1:
-         fprintf(output, " *2");
-         break;
-      case 2:
-         fprintf(output, " *4");
-         break;
-      case 3:
-         fprintf(output, " *0.5");
-         break;
+      case 1: fprintf(output, " *2"); break;
+      case 2: fprintf(output, " *4"); break;
+      case 3: fprintf(output, " *0.5"); break;
       }
       if (sdwa.clamp)
          fprintf(output, " clamp");
       switch (sdwa.dst_sel & sdwa_asuint) {
-      case sdwa_udword:
-         break;
+      case sdwa_udword: break;
       case sdwa_ubyte0:
       case sdwa_ubyte1:
       case sdwa_ubyte2:
@@ -1009,16 +847,12 @@ void
 aco_print_program(const Program* program, FILE* output, const live& live_vars, unsigned flags)
 {
    switch (program->progress) {
-   case CompilationProgress::after_isel:
-      fprintf(output, "After Instruction Selection:\n");
-      break;
+   case CompilationProgress::after_isel: fprintf(output, "After Instruction Selection:\n"); break;
    case CompilationProgress::after_spilling:
       fprintf(output, "After Spilling:\n");
       flags |= print_kill;
       break;
-   case CompilationProgress::after_ra:
-      fprintf(output, "After RA:\n");
-      break;
+   case CompilationProgress::after_ra: fprintf(output, "After RA:\n"); break;
    }
 
    print_stage(program->stage, output);

@@ -236,10 +236,8 @@ try_optimize_scc_nocompare(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
       case aco_opcode::s_ashr_i32:
       case aco_opcode::s_ashr_i64:
       case aco_opcode::s_abs_i32:
-      case aco_opcode::s_absdiff_i32:
-         break;
-      default:
-         return;
+      case aco_opcode::s_absdiff_i32: break;
+      default: return;
       }
 
       /* Use the SCC def from wr_instr */
@@ -340,9 +338,8 @@ optimize_postRA(Program* program)
     */
    for (auto& block : program->blocks) {
       auto new_end = std::remove_if(block.instructions.begin(), block.instructions.end(),
-                                    [&ctx](const aco_ptr<Instruction>& instr) {
-                                       return !instr || is_dead(ctx.uses, instr.get());
-                                    });
+                                    [&ctx](const aco_ptr<Instruction>& instr)
+                                    { return !instr || is_dead(ctx.uses, instr.get()); });
       block.instructions.resize(new_end - block.instructions.begin());
    }
 }

@@ -145,8 +145,7 @@ is_empty_block(Block* block, bool ignore_exec_writes)
       case aco_opcode::p_phi:
       case aco_opcode::p_logical_start:
       case aco_opcode::p_logical_end:
-      case aco_opcode::p_branch:
-         break;
+      case aco_opcode::p_branch: break;
       case aco_opcode::p_parallelcopy:
          for (unsigned i = 0; i < instr->definitions.size(); i++) {
             if (ignore_exec_writes && instr->definitions[i].physReg() == exec)
@@ -160,8 +159,7 @@ is_empty_block(Block* block, bool ignore_exec_writes)
          if (ignore_exec_writes && instr->definitions[0].physReg() == exec)
             break;
          return false;
-      default:
-         return false;
+      default: return false;
       }
    }
    return true;

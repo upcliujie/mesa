@@ -83,15 +83,12 @@ struct UpwardsCursor {
    /* Maximum demand of instructions from insert_idx (inclusive) to source_idx (exclusive) */
    RegisterDemand total_demand;
 
-   UpwardsCursor(int source_idx_): source_idx(source_idx_)
+   UpwardsCursor(int source_idx_) : source_idx(source_idx_)
    {
       insert_idx = -1; /* to be initialized later */
    }
 
-   bool has_insert_idx() const
-   {
-      return insert_idx != -1;
-   }
+   bool has_insert_idx() const { return insert_idx != -1; }
    void verify_invariants(const RegisterDemand* register_demand);
 };
 

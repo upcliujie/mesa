@@ -183,9 +183,7 @@ enum sync_scope : uint8_t {
 };
 
 struct memory_sync_info {
-   memory_sync_info(): storage(storage_none), semantics(semantic_none), scope(scope_invocation)
-   {
-   }
+   memory_sync_info() : storage(storage_none), semantics(semantic_none), scope(scope_invocation) {}
    memory_sync_info(int storage_, int semantics_ = 0, sync_scope scope_ = scope_invocation)
        : storage((storage_class)storage_), semantics((memory_semantics)semantics_), scope(scope_)
    {
@@ -335,49 +333,23 @@ struct RegClass {
    };
 
    RegClass() = default;
-   constexpr RegClass(RC rc_): rc(rc_)
-   {
-   }
+   constexpr RegClass(RC rc_) : rc(rc_) {}
    constexpr RegClass(RegType type, unsigned size)
        : rc((RC)((type == RegType::vgpr ? 1 << 5 : 0) | size))
    {
    }
 
-   constexpr operator RC() const
-   {
-      return rc;
-   }
+   constexpr operator RC() const { return rc; }
    explicit operator bool() = delete;
 
-   constexpr RegType type() const
-   {
-      return rc <= RC::s16 ? RegType::sgpr : RegType::vgpr;
-   }
-   constexpr bool is_subdword() const
-   {
-      return rc & (1 << 7);
-   }
-   constexpr unsigned bytes() const
-   {
-      return ((unsigned)rc & 0x1F) * (is_subdword() ? 1 : 4);
-   }
+   constexpr RegType type() const { return rc <= RC::s16 ? RegType::sgpr : RegType::vgpr; }
+   constexpr bool is_subdword() const { return rc & (1 << 7); }
+   constexpr unsigned bytes() const { return ((unsigned)rc & 0x1F) * (is_subdword() ? 1 : 4); }
    // TODO: use size() less in favor of bytes()
-   constexpr unsigned size() const
-   {
-      return (bytes() + 3) >> 2;
-   }
-   constexpr bool is_linear() const
-   {
-      return rc <= RC::s16 || rc & (1 << 6);
-   }
-   constexpr RegClass as_linear() const
-   {
-      return RegClass((RC)(rc | (1 << 6)));
-   }
-   constexpr RegClass as_subdword() const
-   {
-      return RegClass((RC)(rc | 1 << 7));
-   }
+   constexpr unsigned size() const { return (bytes() + 3) >> 2; }
+   constexpr bool is_linear() const { return rc <= RC::s16 || rc & (1 << 6); }
+   constexpr RegClass as_linear() const { return RegClass((RC)(rc | (1 << 6))); }
+   constexpr RegClass as_subdword() const { return RegClass((RC)(rc | 1 << 7)); }
 
    static constexpr RegClass get(RegType type, unsigned bytes)
    {
@@ -421,51 +393,20 @@ static constexpr RegClass v8b{RegClass::v8b};
  * and SSA id.
  */
 struct Temp {
-   Temp() noexcept: id_(0), reg_class(0)
-   {
-   }
-   constexpr Temp(uint32_t id, RegClass cls) noexcept: id_(id), reg_class(uint8_t(cls))
-   {
-   }
+   Temp() noexcept : id_(0), reg_class(0) {}
+   constexpr Temp(uint32_t id, RegClass cls) noexcept : id_(id), reg_class(uint8_t(cls)) {}
 
-   constexpr uint32_t id() const noexcept
-   {
-      return id_;
-   }
-   constexpr RegClass regClass() const noexcept
-   {
-      return (RegClass::RC)reg_class;
-   }
+   constexpr uint32_t id() const noexcept { return id_; }
+   constexpr RegClass regClass() const noexcept { return (RegClass::RC)reg_class; }
 
-   constexpr unsigned bytes() const noexcept
-   {
-      return regClass().bytes();
-   }
-   constexpr unsigned size() const noexcept
-   {
-      return regClass().size();
-   }
-   constexpr RegType type() const noexcept
-   {
-      return regClass().type();
-   }
-   constexpr bool is_linear() const noexcept
-   {
-      return regClass().is_linear();
-   }
+   constexpr unsigned bytes() const noexcept { return regClass().bytes(); }
+   constexpr unsigned size() const noexcept { return regClass().size(); }
+   constexpr RegType type() const noexcept { return regClass().type(); }
+   constexpr bool is_linear() const noexcept { return regClass().is_linear(); }
 
-   constexpr bool operator<(Temp other) const noexcept
-   {
-      return id() < other.id();
-   }
-   constexpr bool operator==(Temp other) const noexcept
-   {
-      return id() == other.id();
-   }
-   constexpr bool operator!=(Temp other) const noexcept
-   {
-      return id() != other.id();
-   }
+   constexpr bool operator<(Temp other) const noexcept { return id() < other.id(); }
+   constexpr bool operator==(Temp other) const noexcept { return id() == other.id(); }
+   constexpr bool operator!=(Temp other) const noexcept { return id() != other.id(); }
 
  private:
    uint32_t id_ : 24;
@@ -479,33 +420,13 @@ struct Temp {
  */
 struct PhysReg {
    constexpr PhysReg() = default;
-   explicit constexpr PhysReg(unsigned r): reg_b(r << 2)
-   {
-   }
-   constexpr unsigned reg() const
-   {
-      return reg_b >> 2;
-   }
-   constexpr unsigned byte() const
-   {
-      return reg_b & 0x3;
-   }
-   constexpr operator unsigned() const
-   {
-      return reg();
-   }
-   constexpr bool operator==(PhysReg other) const
-   {
-      return reg_b == other.reg_b;
-   }
-   constexpr bool operator!=(PhysReg other) const
-   {
-      return reg_b != other.reg_b;
-   }
-   constexpr bool operator<(PhysReg other) const
-   {
-      return reg_b < other.reg_b;
-   }
+   explicit constexpr PhysReg(unsigned r) : reg_b(r << 2) {}
+   constexpr unsigned reg() const { return reg_b >> 2; }
+   constexpr unsigned byte() const { return reg_b & 0x3; }
+   constexpr operator unsigned() const { return reg(); }
+   constexpr bool operator==(PhysReg other) const { return reg_b == other.reg_b; }
+   constexpr bool operator!=(PhysReg other) const { return reg_b != other.reg_b; }
+   constexpr bool operator<(PhysReg other) const { return reg_b < other.reg_b; }
    constexpr PhysReg advance(int bytes) const
    {
       PhysReg res = *this;
@@ -734,7 +655,7 @@ class Operand final {
       if (sext && (upper33 == 0xFFFFFFFF80000000 || upper33 == 0))
          return true;
 
-      return val <= 64 || val >= 0xFFFFFFFFFFFFFFF0 || /* [-16 .. -1] */
+      return val >= 0xFFFFFFFFFFFFFFF0 || val <= 64 || /* [-16 .. 64] */
              val == 0x3FE0000000000000 ||              /* 0.5 */
              val == 0xBFE0000000000000 ||              /* -0.5 */
              val == 0x3FF0000000000000 ||              /* 1.0 */
@@ -745,10 +666,7 @@ class Operand final {
              val == 0xC010000000000000;                /* -4.0 */
    }
 
-   constexpr bool isTemp() const noexcept
-   {
-      return isTemp_;
-   }
+   constexpr bool isTemp() const noexcept { return isTemp_; }
 
    constexpr void setTemp(Temp t) noexcept
    {
@@ -757,25 +675,13 @@ class Operand final {
       data_.temp = t;
    }
 
-   constexpr Temp getTemp() const noexcept
-   {
-      return data_.temp;
-   }
+   constexpr Temp getTemp() const noexcept { return data_.temp; }
 
-   constexpr uint32_t tempId() const noexcept
-   {
-      return data_.temp.id();
-   }
+   constexpr uint32_t tempId() const noexcept { return data_.temp.id(); }
 
-   constexpr bool hasRegClass() const noexcept
-   {
-      return isTemp() || isUndefined();
-   }
+   constexpr bool hasRegClass() const noexcept { return isTemp() || isUndefined(); }
 
-   constexpr RegClass regClass() const noexcept
-   {
-      return data_.temp.regClass();
-   }
+   constexpr RegClass regClass() const noexcept { return data_.temp.regClass(); }
 
    constexpr unsigned bytes() const noexcept
    {
@@ -793,15 +699,9 @@ class Operand final {
          return data_.temp.size();
    }
 
-   constexpr bool isFixed() const noexcept
-   {
-      return isFixed_;
-   }
+   constexpr bool isFixed() const noexcept { return isFixed_; }
 
-   constexpr PhysReg physReg() const noexcept
-   {
-      return reg_;
-   }
+   constexpr PhysReg physReg() const noexcept { return reg_; }
 
    constexpr void setFixed(PhysReg reg) noexcept
    {
@@ -809,25 +709,13 @@ class Operand final {
       reg_ = reg;
    }
 
-   constexpr bool isConstant() const noexcept
-   {
-      return isConstant_;
-   }
+   constexpr bool isConstant() const noexcept { return isConstant_; }
 
-   constexpr bool isLiteral() const noexcept
-   {
-      return isConstant() && reg_ == 255;
-   }
+   constexpr bool isLiteral() const noexcept { return isConstant() && reg_ == 255; }
 
-   constexpr bool isUndefined() const noexcept
-   {
-      return isUndef_;
-   }
+   constexpr bool isUndefined() const noexcept { return isUndef_; }
 
-   constexpr uint32_t constantValue() const noexcept
-   {
-      return data_.i;
-   }
+   constexpr uint32_t constantValue() const noexcept { return data_.i; }
 
    constexpr bool constantEquals(uint32_t cmp) const noexcept
    {
@@ -843,22 +731,14 @@ class Operand final {
             return 0xFFFFFFFFFFFFFFFF - (reg_ - 193);
 
          switch (reg_) {
-         case 240:
-            return 0x3FE0000000000000;
-         case 241:
-            return 0xBFE0000000000000;
-         case 242:
-            return 0x3FF0000000000000;
-         case 243:
-            return 0xBFF0000000000000;
-         case 244:
-            return 0x4000000000000000;
-         case 245:
-            return 0xC000000000000000;
-         case 246:
-            return 0x4010000000000000;
-         case 247:
-            return 0xC010000000000000;
+         case 240: return 0x3FE0000000000000;
+         case 241: return 0xBFE0000000000000;
+         case 242: return 0x3FF0000000000000;
+         case 243: return 0xBFF0000000000000;
+         case 244: return 0x4000000000000000;
+         case 245: return 0xC000000000000000;
+         case 246: return 0x4010000000000000;
+         case 247: return 0xC010000000000000;
          case 255:
             return (signext && (data_.i & 0x80000000u) ? 0xffffffff00000000ull : 0ull) | data_.i;
          }
@@ -876,15 +756,9 @@ class Operand final {
    /* Indicates that the killed operand's live range intersects with the
     * instruction's definitions. Unlike isKill() and isFirstKill(), this is
     * not set by liveness analysis. */
-   constexpr void setLateKill(bool flag) noexcept
-   {
-      isLateKill_ = flag;
-   }
+   constexpr void setLateKill(bool flag) noexcept { isLateKill_ = flag; }
 
-   constexpr bool isLateKill() const noexcept
-   {
-      return isLateKill_;
-   }
+   constexpr bool isLateKill() const noexcept { return isLateKill_; }
 
    constexpr void setKill(bool flag) noexcept
    {
@@ -893,10 +767,7 @@ class Operand final {
          setFirstKill(false);
    }
 
-   constexpr bool isKill() const noexcept
-   {
-      return isKill_ || isFirstKill();
-   }
+   constexpr bool isKill() const noexcept { return isKill_ || isFirstKill(); }
 
    constexpr void setFirstKill(bool flag) noexcept
    {
@@ -907,20 +778,11 @@ class Operand final {
 
    /* When there are multiple operands killing the same temporary,
     * isFirstKill() is only returns true for the first one. */
-   constexpr bool isFirstKill() const noexcept
-   {
-      return isFirstKill_;
-   }
+   constexpr bool isFirstKill() const noexcept { return isFirstKill_; }
 
-   constexpr bool isKillBeforeDef() const noexcept
-   {
-      return isKill() && !isLateKill();
-   }
+   constexpr bool isKillBeforeDef() const noexcept { return isKill() && !isLateKill(); }
 
-   constexpr bool isFirstKillBeforeDef() const noexcept
-   {
-      return isFirstKill() && !isLateKill();
-   }
+   constexpr bool isFirstKillBeforeDef() const noexcept { return isFirstKill() && !isLateKill(); }
 
    constexpr bool operator==(Operand other) const noexcept
    {
@@ -940,30 +802,15 @@ class Operand final {
          return other.isTemp() && other.getTemp() == getTemp();
    }
 
-   constexpr bool operator!=(Operand other) const noexcept
-   {
-      return !operator==(other);
-   }
+   constexpr bool operator!=(Operand other) const noexcept { return !operator==(other); }
 
-   constexpr void set16bit(bool flag) noexcept
-   {
-      is16bit_ = flag;
-   }
+   constexpr void set16bit(bool flag) noexcept { is16bit_ = flag; }
 
-   constexpr bool is16bit() const noexcept
-   {
-      return is16bit_;
-   }
+   constexpr bool is16bit() const noexcept { return is16bit_; }
 
-   constexpr void set24bit(bool flag) noexcept
-   {
-      is24bit_ = flag;
-   }
+   constexpr void set24bit(bool flag) noexcept { is24bit_ = flag; }
 
-   constexpr bool is24bit() const noexcept
-   {
-      return is24bit_;
-   }
+   constexpr bool is24bit() const noexcept { return is24bit_; }
 
  private:
    union {
@@ -1004,70 +851,33 @@ class Definition final {
          isNoCSE_(0)
    {
    }
-   Definition(uint32_t index, RegClass type) noexcept: temp(index, type)
-   {
-   }
-   explicit Definition(Temp tmp) noexcept: temp(tmp)
-   {
-   }
-   Definition(PhysReg reg, RegClass type) noexcept: temp(Temp(0, type))
-   {
-      setFixed(reg);
-   }
-   Definition(uint32_t tmpId, PhysReg reg, RegClass type) noexcept: temp(Temp(tmpId, type))
+   Definition(uint32_t index, RegClass type) noexcept : temp(index, type) {}
+   explicit Definition(Temp tmp) noexcept : temp(tmp) {}
+   Definition(PhysReg reg, RegClass type) noexcept : temp(Temp(0, type)) { setFixed(reg); }
+   Definition(uint32_t tmpId, PhysReg reg, RegClass type) noexcept : temp(Temp(tmpId, type))
    {
       setFixed(reg);
    }
 
-   constexpr bool isTemp() const noexcept
-   {
-      return tempId() > 0;
-   }
+   constexpr bool isTemp() const noexcept { return tempId() > 0; }
 
-   constexpr Temp getTemp() const noexcept
-   {
-      return temp;
-   }
+   constexpr Temp getTemp() const noexcept { return temp; }
 
-   constexpr uint32_t tempId() const noexcept
-   {
-      return temp.id();
-   }
+   constexpr uint32_t tempId() const noexcept { return temp.id(); }
 
-   constexpr void setTemp(Temp t) noexcept
-   {
-      temp = t;
-   }
+   constexpr void setTemp(Temp t) noexcept { temp = t; }
 
-   void swapTemp(Definition& other) noexcept
-   {
-      std::swap(temp, other.temp);
-   }
+   void swapTemp(Definition& other) noexcept { std::swap(temp, other.temp); }
 
-   constexpr RegClass regClass() const noexcept
-   {
-      return temp.regClass();
-   }
+   constexpr RegClass regClass() const noexcept { return temp.regClass(); }
 
-   constexpr unsigned bytes() const noexcept
-   {
-      return temp.bytes();
-   }
+   constexpr unsigned bytes() const noexcept { return temp.bytes(); }
 
-   constexpr unsigned size() const noexcept
-   {
-      return temp.size();
-   }
+   constexpr unsigned size() const noexcept { return temp.size(); }
 
-   constexpr bool isFixed() const noexcept
-   {
-      return isFixed_;
-   }
+   constexpr bool isFixed() const noexcept { return isFixed_; }
 
-   constexpr PhysReg physReg() const noexcept
-   {
-      return reg_;
-   }
+   constexpr PhysReg physReg() const noexcept { return reg_; }
 
    constexpr void setFixed(PhysReg reg) noexcept
    {
@@ -1081,51 +891,24 @@ class Definition final {
       reg_ = reg;
    }
 
-   constexpr bool hasHint() const noexcept
-   {
-      return hasHint_;
-   }
+   constexpr bool hasHint() const noexcept { return hasHint_; }
 
-   constexpr void setKill(bool flag) noexcept
-   {
-      isKill_ = flag;
-   }
+   constexpr void setKill(bool flag) noexcept { isKill_ = flag; }
 
-   constexpr bool isKill() const noexcept
-   {
-      return isKill_;
-   }
+   constexpr bool isKill() const noexcept { return isKill_; }
 
-   constexpr void setPrecise(bool precise) noexcept
-   {
-      isPrecise_ = precise;
-   }
+   constexpr void setPrecise(bool precise) noexcept { isPrecise_ = precise; }
 
-   constexpr bool isPrecise() const noexcept
-   {
-      return isPrecise_;
-   }
+   constexpr bool isPrecise() const noexcept { return isPrecise_; }
 
    /* No Unsigned Wrap */
-   constexpr void setNUW(bool nuw) noexcept
-   {
-      isNUW_ = nuw;
-   }
+   constexpr void setNUW(bool nuw) noexcept { isNUW_ = nuw; }
 
-   constexpr bool isNUW() const noexcept
-   {
-      return isNUW_;
-   }
+   constexpr bool isNUW() const noexcept { return isNUW_; }
 
-   constexpr void setNoCSE(bool noCSE) noexcept
-   {
-      isNoCSE_ = noCSE;
-   }
+   constexpr void setNoCSE(bool noCSE) noexcept { isNoCSE_ = noCSE; }
 
-   constexpr bool isNoCSE() const noexcept
-   {
-      return isNoCSE_;
-   }
+   constexpr bool isNoCSE() const noexcept { return isNoCSE_; }
 
  private:
    Temp temp = Temp(0, s1);
@@ -1200,10 +983,7 @@ struct Instruction {
       assert(isPseudo());
       return *(Pseudo_instruction*)this;
    }
-   constexpr bool isPseudo() const noexcept
-   {
-      return format == Format::PSEUDO;
-   }
+   constexpr bool isPseudo() const noexcept { return format == Format::PSEUDO; }
    SOP1_instruction& sop1() noexcept
    {
       assert(isSOP1());
@@ -1214,10 +994,7 @@ struct Instruction {
       assert(isSOP1());
       return *(SOP1_instruction*)this;
    }
-   constexpr bool isSOP1() const noexcept
-   {
-      return format == Format::SOP1;
-   }
+   constexpr bool isSOP1() const noexcept { return format == Format::SOP1; }
    SOP2_instruction& sop2() noexcept
    {
       assert(isSOP2());
@@ -1228,10 +1005,7 @@ struct Instruction {
       assert(isSOP2());
       return *(SOP2_instruction*)this;
    }
-   constexpr bool isSOP2() const noexcept
-   {
-      return format == Format::SOP2;
-   }
+   constexpr bool isSOP2() const noexcept { return format == Format::SOP2; }
    SOPK_instruction& sopk() noexcept
    {
       assert(isSOPK());
@@ -1242,10 +1016,7 @@ struct Instruction {
       assert(isSOPK());
       return *(SOPK_instruction*)this;
    }
-   constexpr bool isSOPK() const noexcept
-   {
-      return format == Format::SOPK;
-   }
+   constexpr bool isSOPK() const noexcept { return format == Format::SOPK; }
    SOPP_instruction& sopp() noexcept
    {
       assert(isSOPP());
@@ -1256,10 +1027,7 @@ struct Instruction {
       assert(isSOPP());
       return *(SOPP_instruction*)this;
    }
-   constexpr bool isSOPP() const noexcept
-   {
-      return format == Format::SOPP;
-   }
+   constexpr bool isSOPP() const noexcept { return format == Format::SOPP; }
    SOPC_instruction& sopc() noexcept
    {
       assert(isSOPC());
@@ -1270,10 +1038,7 @@ struct Instruction {
       assert(isSOPC());
       return *(SOPC_instruction*)this;
    }
-   constexpr bool isSOPC() const noexcept
-   {
-      return format == Format::SOPC;
-   }
+   constexpr bool isSOPC() const noexcept { return format == Format::SOPC; }
    SMEM_instruction& smem() noexcept
    {
       assert(isSMEM());
@@ -1284,10 +1049,7 @@ struct Instruction {
       assert(isSMEM());
       return *(SMEM_instruction*)this;
    }
-   constexpr bool isSMEM() const noexcept
-   {
-      return format == Format::SMEM;
-   }
+   constexpr bool isSMEM() const noexcept { return format == Format::SMEM; }
    DS_instruction& ds() noexcept
    {
       assert(isDS());
@@ -1298,10 +1060,7 @@ struct Instruction {
       assert(isDS());
       return *(DS_instruction*)this;
    }
-   constexpr bool isDS() const noexcept
-   {
-      return format == Format::DS;
-   }
+   constexpr bool isDS() const noexcept { return format == Format::DS; }
    MTBUF_instruction& mtbuf() noexcept
    {
       assert(isMTBUF());
@@ -1312,10 +1071,7 @@ struct Instruction {
       assert(isMTBUF());
       return *(MTBUF_instruction*)this;
    }
-   constexpr bool isMTBUF() const noexcept
-   {
-      return format == Format::MTBUF;
-   }
+   constexpr bool isMTBUF() const noexcept { return format == Format::MTBUF; }
    MUBUF_instruction& mubuf() noexcept
    {
       assert(isMUBUF());
@@ -1326,10 +1082,7 @@ struct Instruction {
       assert(isMUBUF());
       return *(MUBUF_instruction*)this;
    }
-   constexpr bool isMUBUF() const noexcept
-   {
-      return format == Format::MUBUF;
-   }
+   constexpr bool isMUBUF() const noexcept { return format == Format::MUBUF; }
    MIMG_instruction& mimg() noexcept
    {
       assert(isMIMG());
@@ -1340,10 +1093,7 @@ struct Instruction {
       assert(isMIMG());
       return *(MIMG_instruction*)this;
    }
-   constexpr bool isMIMG() const noexcept
-   {
-      return format == Format::MIMG;
-   }
+   constexpr bool isMIMG() const noexcept { return format == Format::MIMG; }
    Export_instruction& exp() noexcept
    {
       assert(isEXP());
@@ -1354,10 +1104,7 @@ struct Instruction {
       assert(isEXP());
       return *(Export_instruction*)this;
    }
-   constexpr bool isEXP() const noexcept
-   {
-      return format == Format::EXP;
-   }
+   constexpr bool isEXP() const noexcept { return format == Format::EXP; }
    FLAT_instruction& flat() noexcept
    {
       assert(isFlat());
@@ -1368,10 +1115,7 @@ struct Instruction {
       assert(isFlat());
       return *(FLAT_instruction*)this;
    }
-   constexpr bool isFlat() const noexcept
-   {
-      return format == Format::FLAT;
-   }
+   constexpr bool isFlat() const noexcept { return format == Format::FLAT; }
    FLAT_instruction& global() noexcept
    {
       assert(isGlobal());
@@ -1382,10 +1126,7 @@ struct Instruction {
       assert(isGlobal());
       return *(FLAT_instruction*)this;
    }
-   constexpr bool isGlobal() const noexcept
-   {
-      return format == Format::GLOBAL;
-   }
+   constexpr bool isGlobal() const noexcept { return format == Format::GLOBAL; }
    FLAT_instruction& scratch() noexcept
    {
       assert(isScratch());
@@ -1396,10 +1137,7 @@ struct Instruction {
       assert(isScratch());
       return *(FLAT_instruction*)this;
    }
-   constexpr bool isScratch() const noexcept
-   {
-      return format == Format::SCRATCH;
-   }
+   constexpr bool isScratch() const noexcept { return format == Format::SCRATCH; }
    Pseudo_branch_instruction& branch() noexcept
    {
       assert(isBranch());
@@ -1410,10 +1148,7 @@ struct Instruction {
       assert(isBranch());
       return *(Pseudo_branch_instruction*)this;
    }
-   constexpr bool isBranch() const noexcept
-   {
-      return format == Format::PSEUDO_BRANCH;
-   }
+   constexpr bool isBranch() const noexcept { return format == Format::PSEUDO_BRANCH; }
    Pseudo_barrier_instruction& barrier() noexcept
    {
       assert(isBarrier());
@@ -1424,10 +1159,7 @@ struct Instruction {
       assert(isBarrier());
       return *(Pseudo_barrier_instruction*)this;
    }
-   constexpr bool isBarrier() const noexcept
-   {
-      return format == Format::PSEUDO_BARRIER;
-   }
+   constexpr bool isBarrier() const noexcept { return format == Format::PSEUDO_BARRIER; }
    Pseudo_reduction_instruction& reduction() noexcept
    {
       assert(isReduction());
@@ -1438,10 +1170,7 @@ struct Instruction {
       assert(isReduction());
       return *(Pseudo_reduction_instruction*)this;
    }
-   constexpr bool isReduction() const noexcept
-   {
-      return format == Format::PSEUDO_REDUCTION;
-   }
+   constexpr bool isReduction() const noexcept { return format == Format::PSEUDO_REDUCTION; }
    VOP3P_instruction& vop3p() noexcept
    {
       assert(isVOP3P());
@@ -1452,10 +1181,7 @@ struct Instruction {
       assert(isVOP3P());
       return *(VOP3P_instruction*)this;
    }
-   constexpr bool isVOP3P() const noexcept
-   {
-      return format == Format::VOP3P;
-   }
+   constexpr bool isVOP3P() const noexcept { return format == Format::VOP3P; }
    VOP1_instruction& vop1() noexcept
    {
       assert(isVOP1());
@@ -1466,10 +1192,7 @@ struct Instruction {
       assert(isVOP1());
       return *(VOP1_instruction*)this;
    }
-   constexpr bool isVOP1() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::VOP1;
-   }
+   constexpr bool isVOP1() const noexcept { return (uint16_t)format & (uint16_t)Format::VOP1; }
    VOP2_instruction& vop2() noexcept
    {
       assert(isVOP2());
@@ -1480,10 +1203,7 @@ struct Instruction {
       assert(isVOP2());
       return *(VOP2_instruction*)this;
    }
-   constexpr bool isVOP2() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::VOP2;
-   }
+   constexpr bool isVOP2() const noexcept { return (uint16_t)format & (uint16_t)Format::VOP2; }
    VOPC_instruction& vopc() noexcept
    {
       assert(isVOPC());
@@ -1494,10 +1214,7 @@ struct Instruction {
       assert(isVOPC());
       return *(VOPC_instruction*)this;
    }
-   constexpr bool isVOPC() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::VOPC;
-   }
+   constexpr bool isVOPC() const noexcept { return (uint16_t)format & (uint16_t)Format::VOPC; }
    VOP3_instruction& vop3() noexcept
    {
       assert(isVOP3());
@@ -1508,10 +1225,7 @@ struct Instruction {
       assert(isVOP3());
       return *(VOP3_instruction*)this;
    }
-   constexpr bool isVOP3() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::VOP3;
-   }
+   constexpr bool isVOP3() const noexcept { return (uint16_t)format & (uint16_t)Format::VOP3; }
    Interp_instruction& vintrp() noexcept
    {
       assert(isVINTRP());
@@ -1522,10 +1236,7 @@ struct Instruction {
       assert(isVINTRP());
       return *(Interp_instruction*)this;
    }
-   constexpr bool isVINTRP() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::VINTRP;
-   }
+   constexpr bool isVINTRP() const noexcept { return (uint16_t)format & (uint16_t)Format::VINTRP; }
    DPP_instruction& dpp() noexcept
    {
       assert(isDPP());
@@ -1536,10 +1247,7 @@ struct Instruction {
       assert(isDPP());
       return *(DPP_instruction*)this;
    }
-   constexpr bool isDPP() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::DPP;
-   }
+   constexpr bool isDPP() const noexcept { return (uint16_t)format & (uint16_t)Format::DPP; }
    SDWA_instruction& sdwa() noexcept
    {
       assert(isSDWA());
@@ -1550,25 +1258,13 @@ struct Instruction {
       assert(isSDWA());
       return *(SDWA_instruction*)this;
    }
-   constexpr bool isSDWA() const noexcept
-   {
-      return (uint16_t)format & (uint16_t)Format::SDWA;
-   }
+   constexpr bool isSDWA() const noexcept { return (uint16_t)format & (uint16_t)Format::SDWA; }
 
-   FLAT_instruction& flatlike()
-   {
-      return *(FLAT_instruction*)this;
-   }
+   FLAT_instruction& flatlike() { return *(FLAT_instruction*)this; }
 
-   const FLAT_instruction& flatlike() const
-   {
-      return *(FLAT_instruction*)this;
-   }
+   const FLAT_instruction& flatlike() const { return *(FLAT_instruction*)this; }
 
-   constexpr bool isFlatLike() const noexcept
-   {
-      return isFlat() || isGlobal() || isScratch();
-   }
+   constexpr bool isFlatLike() const noexcept { return isFlat() || isGlobal() || isScratch(); }
 
    constexpr bool isVALU() const noexcept
    {
@@ -1580,10 +1276,7 @@ struct Instruction {
       return isSOP1() || isSOP2() || isSOPC() || isSOPK() || isSOPP();
    }
 
-   constexpr bool isVMEM() const noexcept
-   {
-      return isMTBUF() || isMUBUF() || isMIMG();
-   }
+   constexpr bool isVMEM() const noexcept { return isMTBUF() || isMUBUF() || isMIMG(); }
 };
 static_assert(sizeof(Instruction) == 16, "Unexpected padding");
 
@@ -1904,55 +1597,22 @@ struct Pseudo_barrier_instruction : public Instruction {
 static_assert(sizeof(Pseudo_barrier_instruction) == sizeof(Instruction) + 4, "Unexpected padding");
 
 enum ReduceOp : uint16_t {
-   iadd8,
-   iadd16,
-   iadd32,
-   iadd64,
-   imul8,
-   imul16,
-   imul32,
-   imul64,
-   fadd16,
-   fadd32,
-   fadd64,
-   fmul16,
-   fmul32,
-   fmul64,
-   imin8,
-   imin16,
-   imin32,
-   imin64,
-   imax8,
-   imax16,
-   imax32,
-   imax64,
-   umin8,
-   umin16,
-   umin32,
-   umin64,
-   umax8,
-   umax16,
-   umax32,
-   umax64,
-   fmin16,
-   fmin32,
-   fmin64,
-   fmax16,
-   fmax32,
-   fmax64,
-   iand8,
-   iand16,
-   iand32,
-   iand64,
-   ior8,
-   ior16,
-   ior32,
-   ior64,
-   ixor8,
-   ixor16,
-   ixor32,
-   ixor64,
+   // clang-format off
+   iadd8, iadd16, iadd32, iadd64,
+   imul8, imul16, imul32, imul64,
+          fadd16, fadd32, fadd64,
+          fmul16, fmul32, fmul64,
+   imin8, imin16, imin32, imin64,
+   imax8, imax16, imax32, imax64,
+   umin8, umin16, umin32, umin64,
+   umax8, umax16, umax32, umax64,
+          fmin16, fmin32, fmin64,
+          fmax16, fmax32, fmax64,
+   iand8, iand16, iand32, iand64,
+   ior8, ior16, ior32, ior64,
+   ixor8, ixor16, ixor32, ixor64,
    num_reduce_ops,
+   // clang-format on
 };
 
 /**
@@ -1976,10 +1636,7 @@ static_assert(sizeof(Pseudo_reduction_instruction) == sizeof(Instruction) + 4,
               "Unexpected padding");
 
 struct instr_deleter_functor {
-   void operator()(void* p)
-   {
-      free(p);
-   }
+   void operator()(void* p) { free(p); }
 };
 
 template <typename T> using aco_ptr = std::unique_ptr<T, instr_deleter_functor>;
@@ -2084,9 +1741,7 @@ enum block_kind {
 
 struct RegisterDemand {
    constexpr RegisterDemand() = default;
-   constexpr RegisterDemand(const int16_t v, const int16_t s) noexcept: vgpr{v}, sgpr{s}
-   {
-   }
+   constexpr RegisterDemand(const int16_t v, const int16_t s) noexcept : vgpr{v}, sgpr{s} {}
    int16_t vgpr = 0;
    int16_t sgpr = 0;
 
@@ -2180,9 +1835,7 @@ struct Block {
    bool scc_live_out = false;
    PhysReg scratch_sgpr = PhysReg(); /* only needs to be valid if scc_live_out != false */
 
-   Block(): index(0)
-   {
-   }
+   Block() : index(0) {}
 };
 
 /*
@@ -2235,9 +1888,7 @@ enum class HWStage : uint8_t {
 struct Stage {
    constexpr Stage() = default;
 
-   explicit constexpr Stage(HWStage hw_, SWStage sw_): sw(sw_), hw(hw_)
-   {
-   }
+   explicit constexpr Stage(HWStage hw_, SWStage sw_) : sw(sw_), hw(hw_) {}
 
    /* Check if the given SWStage is included */
    constexpr bool has(SWStage stage) const
@@ -2245,20 +1896,11 @@ struct Stage {
       return (static_cast<uint8_t>(sw) & static_cast<uint8_t>(stage));
    }
 
-   unsigned num_sw_stages() const
-   {
-      return util_bitcount(static_cast<uint8_t>(sw));
-   }
+   unsigned num_sw_stages() const { return util_bitcount(static_cast<uint8_t>(sw)); }
 
-   constexpr bool operator==(const Stage& other) const
-   {
-      return sw == other.sw && hw == other.hw;
-   }
+   constexpr bool operator==(const Stage& other) const { return sw == other.sw && hw == other.hw; }
 
-   constexpr bool operator!=(const Stage& other) const
-   {
-      return sw != other.sw || hw != other.hw;
-   }
+   constexpr bool operator!=(const Stage& other) const { return sw != other.sw || hw != other.hw; }
 
    /* Mask of merged software stages */
    SWStage sw = SWStage::None;
@@ -2389,15 +2031,9 @@ class Program final {
       allocationID += amount;
    }
 
-   Temp allocateTmp(RegClass rc)
-   {
-      return Temp(allocateId(rc), rc);
-   }
+   Temp allocateTmp(RegClass rc) { return Temp(allocateId(rc), rc); }
 
-   uint32_t peekAllocationId()
-   {
-      return allocationID;
-   }
+   uint32_t peekAllocationId() { return allocationID; }
 
    friend void reindex_ssa(Program* program);
    friend void reindex_ssa(Program* program, std::vector<IDSet>& live_out);

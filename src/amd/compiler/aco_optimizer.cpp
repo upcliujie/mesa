@@ -150,9 +150,7 @@ struct ssa_info {
       Instruction* instr;
    };
 
-   ssa_info(): label(0)
-   {
-   }
+   ssa_info() : label(0) {}
 
    void add_label(Label new_label)
    {
@@ -191,10 +189,7 @@ struct ssa_info {
       instr = vec;
    }
 
-   bool is_vec()
-   {
-      return label & label_vec;
-   }
+   bool is_vec() { return label & label_vec; }
 
    void set_constant(chip_class chip, uint64_t constant)
    {
@@ -222,14 +217,10 @@ struct ssa_info {
    bool is_constant(unsigned bits)
    {
       switch (bits) {
-      case 8:
-         return label & label_literal;
-      case 16:
-         return label & label_constant_16bit;
-      case 32:
-         return label & label_constant_32bit;
-      case 64:
-         return label & label_constant_64bit;
+      case 8: return label & label_literal;
+      case 16: return label & label_constant_16bit;
+      case 32: return label & label_constant_32bit;
+      case 64: return label & label_constant_64bit;
       }
       return false;
    }
@@ -238,14 +229,10 @@ struct ssa_info {
    {
       bool is_lit = label & label_literal;
       switch (bits) {
-      case 8:
-         return false;
-      case 16:
-         return is_lit && ~(label & label_constant_16bit);
-      case 32:
-         return is_lit && ~(label & label_constant_32bit);
-      case 64:
-         return false;
+      case 8: return false;
+      case 16: return is_lit && ~(label & label_constant_16bit);
+      case 32: return is_lit && ~(label & label_constant_32bit);
+      case 64: return false;
       }
       return false;
    }
@@ -264,10 +251,7 @@ struct ssa_info {
       temp = abs_temp;
    }
 
-   bool is_abs()
-   {
-      return label & label_abs;
-   }
+   bool is_abs() { return label & label_abs; }
 
    void set_neg(Temp neg_temp)
    {
@@ -275,10 +259,7 @@ struct ssa_info {
       temp = neg_temp;
    }
 
-   bool is_neg()
-   {
-      return label & label_neg;
-   }
+   bool is_neg() { return label & label_neg; }
 
    void set_neg_abs(Temp neg_abs_temp)
    {
@@ -292,10 +273,7 @@ struct ssa_info {
       instr = mul;
    }
 
-   bool is_mul()
-   {
-      return label & label_mul;
-   }
+   bool is_mul() { return label & label_mul; }
 
    void set_temp(Temp tmp)
    {
@@ -303,10 +281,7 @@ struct ssa_info {
       temp = tmp;
    }
 
-   bool is_temp()
-   {
-      return label & label_temp;
-   }
+   bool is_temp() { return label & label_temp; }
 
    void set_mad(Instruction* mad, uint32_t mad_info_idx)
    {
@@ -315,10 +290,7 @@ struct ssa_info {
       instr = mad;
    }
 
-   bool is_mad()
-   {
-      return label & label_mad;
-   }
+   bool is_mad() { return label & label_mad; }
 
    void set_omod2(Instruction* mul)
    {
@@ -326,10 +298,7 @@ struct ssa_info {
       instr = mul;
    }
 
-   bool is_omod2()
-   {
-      return label & label_omod2;
-   }
+   bool is_omod2() { return label & label_omod2; }
 
    void set_omod4(Instruction* mul)
    {
@@ -337,10 +306,7 @@ struct ssa_info {
       instr = mul;
    }
 
-   bool is_omod4()
-   {
-      return label & label_omod4;
-   }
+   bool is_omod4() { return label & label_omod4; }
 
    void set_omod5(Instruction* mul)
    {
@@ -348,10 +314,7 @@ struct ssa_info {
       instr = mul;
    }
 
-   bool is_omod5()
-   {
-      return label & label_omod5;
-   }
+   bool is_omod5() { return label & label_omod5; }
 
    void set_clamp(Instruction* med3)
    {
@@ -359,20 +322,11 @@ struct ssa_info {
       instr = med3;
    }
 
-   bool is_clamp()
-   {
-      return label & label_clamp;
-   }
+   bool is_clamp() { return label & label_clamp; }
 
-   void set_undefined()
-   {
-      add_label(label_undefined);
-   }
+   void set_undefined() { add_label(label_undefined); }
 
-   bool is_undefined()
-   {
-      return label & label_undefined;
-   }
+   bool is_undefined() { return label & label_undefined; }
 
    void set_vcc(Temp vcc_val)
    {
@@ -380,10 +334,7 @@ struct ssa_info {
       temp = vcc_val;
    }
 
-   bool is_vcc()
-   {
-      return label & label_vcc;
-   }
+   bool is_vcc() { return label & label_vcc; }
 
    void set_b2f(Temp b2f_val)
    {
@@ -391,10 +342,7 @@ struct ssa_info {
       temp = b2f_val;
    }
 
-   bool is_b2f()
-   {
-      return label & label_b2f;
-   }
+   bool is_b2f() { return label & label_b2f; }
 
    void set_add_sub(Instruction* add_sub_instr)
    {
@@ -402,10 +350,7 @@ struct ssa_info {
       instr = add_sub_instr;
    }
 
-   bool is_add_sub()
-   {
-      return label & label_add_sub;
-   }
+   bool is_add_sub() { return label & label_add_sub; }
 
    void set_bitwise(Instruction* bitwise_instr)
    {
@@ -413,20 +358,11 @@ struct ssa_info {
       instr = bitwise_instr;
    }
 
-   bool is_bitwise()
-   {
-      return label & label_bitwise;
-   }
+   bool is_bitwise() { return label & label_bitwise; }
 
-   void set_uniform_bitwise()
-   {
-      add_label(label_uniform_bitwise);
-   }
+   void set_uniform_bitwise() { add_label(label_uniform_bitwise); }
 
-   bool is_uniform_bitwise()
-   {
-      return label & label_uniform_bitwise;
-   }
+   bool is_uniform_bitwise() { return label & label_uniform_bitwise; }
 
    void set_minmax(Instruction* minmax_instr)
    {
@@ -434,10 +370,7 @@ struct ssa_info {
       instr = minmax_instr;
    }
 
-   bool is_minmax()
-   {
-      return label & label_minmax;
-   }
+   bool is_minmax() { return label & label_minmax; }
 
    void set_vopc(Instruction* vopc_instr)
    {
@@ -445,20 +378,11 @@ struct ssa_info {
       instr = vopc_instr;
    }
 
-   bool is_vopc()
-   {
-      return label & label_vopc;
-   }
+   bool is_vopc() { return label & label_vopc; }
 
-   void set_scc_needed()
-   {
-      add_label(label_scc_needed);
-   }
+   void set_scc_needed() { add_label(label_scc_needed); }
 
-   bool is_scc_needed()
-   {
-      return label & label_scc_needed;
-   }
+   bool is_scc_needed() { return label & label_scc_needed; }
 
    void set_scc_invert(Temp scc_inv)
    {
@@ -466,10 +390,7 @@ struct ssa_info {
       temp = scc_inv;
    }
 
-   bool is_scc_invert()
-   {
-      return label & label_scc_invert;
-   }
+   bool is_scc_invert() { return label & label_scc_invert; }
 
    void set_uniform_bool(Temp uniform_bool)
    {
@@ -477,20 +398,11 @@ struct ssa_info {
       temp = uniform_bool;
    }
 
-   bool is_uniform_bool()
-   {
-      return label & label_uniform_bool;
-   }
+   bool is_uniform_bool() { return label & label_uniform_bool; }
 
-   void set_vcc_hint()
-   {
-      add_label(label_vcc_hint);
-   }
+   void set_vcc_hint() { add_label(label_vcc_hint); }
 
-   bool is_vcc_hint()
-   {
-      return label & label_vcc_hint;
-   }
+   bool is_vcc_hint() { return label & label_vcc_hint; }
 
    void set_b2i(Temp b2i_val)
    {
@@ -498,10 +410,7 @@ struct ssa_info {
       temp = b2i_val;
    }
 
-   bool is_b2i()
-   {
-      return label & label_b2i;
-   }
+   bool is_b2i() { return label & label_b2i; }
 
    void set_usedef(Instruction* label_instr)
    {
@@ -509,10 +418,7 @@ struct ssa_info {
       instr = label_instr;
    }
 
-   bool is_usedef()
-   {
-      return label & label_usedef;
-   }
+   bool is_usedef() { return label & label_usedef; }
 
    void set_vop3p(Instruction* vop3p_instr)
    {
@@ -520,10 +426,7 @@ struct ssa_info {
       instr = vop3p_instr;
    }
 
-   bool is_vop3p()
-   {
-      return label & label_vop3p;
-   }
+   bool is_vop3p() { return label & label_vop3p; }
 
    void set_fcanonicalize(Temp tmp)
    {
@@ -531,20 +434,11 @@ struct ssa_info {
       temp = tmp;
    }
 
-   bool is_fcanonicalize()
-   {
-      return label & label_fcanonicalize;
-   }
+   bool is_fcanonicalize() { return label & label_fcanonicalize; }
 
-   void set_canonicalized()
-   {
-      add_label(label_canonicalized);
-   }
+   void set_canonicalized() { add_label(label_canonicalized); }
 
-   bool is_canonicalized()
-   {
-      return label & label_canonicalized;
-   }
+   bool is_canonicalized() { return label & label_canonicalized; }
 
    void set_extract(Instruction* extract)
    {
@@ -552,10 +446,7 @@ struct ssa_info {
       instr = extract;
    }
 
-   bool is_extract()
-   {
-      return label & label_extract;
-   }
+   bool is_extract() { return label & label_extract; }
 
    void set_insert(Instruction* insert)
    {
@@ -563,10 +454,7 @@ struct ssa_info {
       instr = insert;
    }
 
-   bool is_insert()
-   {
-      return label & label_insert;
-   }
+   bool is_insert() { return label & label_insert; }
 };
 
 struct opt_ctx {
@@ -625,23 +513,12 @@ can_swap_operands(aco_ptr<Instruction>& instr)
    case aco_opcode::v_max_i16_e64:
    case aco_opcode::v_min_i16_e64:
    case aco_opcode::v_max_u16_e64:
-   case aco_opcode::v_min_u16_e64:
-      return true;
-   case aco_opcode::v_sub_f16:
-      instr->opcode = aco_opcode::v_subrev_f16;
-      return true;
-   case aco_opcode::v_sub_f32:
-      instr->opcode = aco_opcode::v_subrev_f32;
-      return true;
-   case aco_opcode::v_sub_co_u32:
-      instr->opcode = aco_opcode::v_subrev_co_u32;
-      return true;
-   case aco_opcode::v_sub_u16:
-      instr->opcode = aco_opcode::v_subrev_u16;
-      return true;
-   case aco_opcode::v_sub_u32:
-      instr->opcode = aco_opcode::v_subrev_u32;
-      return true;
+   case aco_opcode::v_min_u16_e64: return true;
+   case aco_opcode::v_sub_f16: instr->opcode = aco_opcode::v_subrev_f16; return true;
+   case aco_opcode::v_sub_f32: instr->opcode = aco_opcode::v_subrev_f32; return true;
+   case aco_opcode::v_sub_co_u32: instr->opcode = aco_opcode::v_subrev_co_u32; return true;
+   case aco_opcode::v_sub_u16: instr->opcode = aco_opcode::v_subrev_u16; return true;
+   case aco_opcode::v_sub_u32: instr->opcode = aco_opcode::v_subrev_u32; return true;
    default: {
       CmpInfo info;
       get_cmp_info(instr->opcode, &info);
@@ -737,8 +614,7 @@ pseudo_propagate_temp(opt_ctx& ctx, aco_ptr<Instruction>& instr, Temp temp, unsi
       if (temp.regClass() == instr->definitions[0].regClass())
          instr->opcode = aco_opcode::p_parallelcopy;
       break;
-   default:
-      return false;
+   default: return false;
    }
 
    instr->operands[index].setTemp(temp);
@@ -809,8 +685,7 @@ alu_can_accept_constant(aco_opcode opcode, unsigned operand)
    case aco_opcode::v_mac_f32:
    case aco_opcode::v_writelane_b32:
    case aco_opcode::v_writelane_b32_e64:
-   case aco_opcode::v_cndmask_b32:
-      return operand != 2;
+   case aco_opcode::v_cndmask_b32: return operand != 2;
    case aco_opcode::s_addk_i32:
    case aco_opcode::s_mulk_i32:
    case aco_opcode::p_wqm:
@@ -820,10 +695,8 @@ alu_can_accept_constant(aco_opcode opcode, unsigned operand)
    case aco_opcode::v_readlane_b32_e64:
    case aco_opcode::v_readfirstlane_b32:
    case aco_opcode::p_extract:
-   case aco_opcode::p_insert:
-      return operand != 0;
-   default:
-      return true;
+   case aco_opcode::p_insert: return operand != 0;
+   default: return true;
    }
 }
 
@@ -906,10 +779,8 @@ parse_base_offset(opt_ctx& ctx, Instruction* instr, unsigned op_index, Temp* bas
    case aco_opcode::v_add_co_u32:
    case aco_opcode::v_add_co_u32_e64:
    case aco_opcode::s_add_i32:
-   case aco_opcode::s_add_u32:
-      break;
-   default:
-      return false;
+   case aco_opcode::s_add_u32: break;
+   default: return false;
    }
    if (prevent_overflow && !add_instr->definitions[0].isNUW())
       return false;
@@ -1042,18 +913,10 @@ apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_info&
    if (sel == sdwa_udword || sel == sdwa_sdword) {
    } else if (instr->opcode == aco_opcode::v_cvt_f32_u32 && sel <= sdwa_ubyte3) {
       switch (sel) {
-      case sdwa_ubyte0:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte0;
-         break;
-      case sdwa_ubyte1:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte1;
-         break;
-      case sdwa_ubyte2:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte2;
-         break;
-      case sdwa_ubyte3:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte3;
-         break;
+      case sdwa_ubyte0: instr->opcode = aco_opcode::v_cvt_f32_ubyte0; break;
+      case sdwa_ubyte1: instr->opcode = aco_opcode::v_cvt_f32_ubyte1; break;
+      case sdwa_ubyte2: instr->opcode = aco_opcode::v_cvt_f32_ubyte2; break;
+      case sdwa_ubyte3: instr->opcode = aco_opcode::v_cvt_f32_ubyte3; break;
       }
    } else if (can_use_SDWA(ctx.program->chip_class, instr, true) &&
               (tmp.type() == RegType::vgpr || ctx.program->chip_class >= GFX9)) {
@@ -1101,10 +964,8 @@ does_fp_op_flush_denorms(opt_ctx& ctx, aco_opcode op)
       case aco_opcode::v_min3_f32:
       case aco_opcode::v_max3_f32:
       case aco_opcode::v_min_f16:
-      case aco_opcode::v_max_f16:
-         return false;
-      default:
-         break;
+      case aco_opcode::v_max_f16: return false;
+      default: break;
       }
    }
    return op != aco_opcode::v_cndmask_b32;
@@ -1797,10 +1658,12 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    case aco_opcode::s_or_b64:
    case aco_opcode::s_xor_b32:
    case aco_opcode::s_xor_b64:
-      if (std::all_of(instr->operands.begin(), instr->operands.end(), [&ctx](const Operand& op) {
-             return op.isTemp() && (ctx.info[op.tempId()].is_uniform_bool() ||
-                                    ctx.info[op.tempId()].is_uniform_bitwise());
-          })) {
+      if (std::all_of(instr->operands.begin(), instr->operands.end(),
+                      [&ctx](const Operand& op)
+                      {
+                         return op.isTemp() && (ctx.info[op.tempId()].is_uniform_bool() ||
+                                                ctx.info[op.tempId()].is_uniform_bitwise());
+                      })) {
          ctx.info[instr->definitions[0].tempId()].set_uniform_bitwise();
       }
       FALLTHROUGH;
@@ -1867,8 +1730,7 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       }
       break;
    }
-   default:
-      break;
+   default: break;
    }
 
    /* Don't remove label_extract if we can't apply the extract to
@@ -1925,8 +1787,7 @@ get_cmp_info(aco_opcode op, CmpInfo* info)
       ORD_TEST(32)
       ORD_TEST(64)
 #undef ORD_TEST
-   default:
-      return false;
+   default: return false;
    }
 }
 
@@ -2079,15 +1940,9 @@ combine_ordering_test(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 
    aco_opcode new_op = aco_opcode::num_opcodes;
    switch (bitsize) {
-   case 16:
-      new_op = is_or ? aco_opcode::v_cmp_u_f16 : aco_opcode::v_cmp_o_f16;
-      break;
-   case 32:
-      new_op = is_or ? aco_opcode::v_cmp_u_f32 : aco_opcode::v_cmp_o_f32;
-      break;
-   case 64:
-      new_op = is_or ? aco_opcode::v_cmp_u_f64 : aco_opcode::v_cmp_o_f64;
-      break;
+   case 16: new_op = is_or ? aco_opcode::v_cmp_u_f16 : aco_opcode::v_cmp_o_f16; break;
+   case 32: new_op = is_or ? aco_opcode::v_cmp_u_f32 : aco_opcode::v_cmp_o_f32; break;
+   case 64: new_op = is_or ? aco_opcode::v_cmp_u_f64 : aco_opcode::v_cmp_o_f64; break;
    }
    Instruction* new_instr;
    if (neg[0] || neg[1] || abs[0] || abs[1] || opsel || num_sgprs > 1) {
@@ -2617,10 +2472,8 @@ combine_salu_not_bitwise(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    case aco_opcode::s_xor_b32:
    case aco_opcode::s_and_b64:
    case aco_opcode::s_or_b64:
-   case aco_opcode::s_xor_b64:
-      break;
-   default:
-      return false;
+   case aco_opcode::s_xor_b64: break;
+   default: return false;
    }
 
    /* create instruction */
@@ -2630,26 +2483,13 @@ combine_salu_not_bitwise(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    ctx.info[op2_instr->definitions[0].tempId()].label = 0;
 
    switch (op2_instr->opcode) {
-   case aco_opcode::s_and_b32:
-      op2_instr->opcode = aco_opcode::s_nand_b32;
-      break;
-   case aco_opcode::s_or_b32:
-      op2_instr->opcode = aco_opcode::s_nor_b32;
-      break;
-   case aco_opcode::s_xor_b32:
-      op2_instr->opcode = aco_opcode::s_xnor_b32;
-      break;
-   case aco_opcode::s_and_b64:
-      op2_instr->opcode = aco_opcode::s_nand_b64;
-      break;
-   case aco_opcode::s_or_b64:
-      op2_instr->opcode = aco_opcode::s_nor_b64;
-      break;
-   case aco_opcode::s_xor_b64:
-      op2_instr->opcode = aco_opcode::s_xnor_b64;
-      break;
-   default:
-      break;
+   case aco_opcode::s_and_b32: op2_instr->opcode = aco_opcode::s_nand_b32; break;
+   case aco_opcode::s_or_b32: op2_instr->opcode = aco_opcode::s_nor_b32; break;
+   case aco_opcode::s_xor_b32: op2_instr->opcode = aco_opcode::s_xnor_b32; break;
+   case aco_opcode::s_and_b64: op2_instr->opcode = aco_opcode::s_nand_b64; break;
+   case aco_opcode::s_or_b64: op2_instr->opcode = aco_opcode::s_nor_b64; break;
+   case aco_opcode::s_xor_b64: op2_instr->opcode = aco_opcode::s_xnor_b64; break;
+   default: break;
    }
 
    return true;
@@ -2683,20 +2523,11 @@ combine_salu_n2(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       ctx.info[instr->definitions[0].tempId()].label = 0;
 
       switch (instr->opcode) {
-      case aco_opcode::s_and_b32:
-         instr->opcode = aco_opcode::s_andn2_b32;
-         break;
-      case aco_opcode::s_or_b32:
-         instr->opcode = aco_opcode::s_orn2_b32;
-         break;
-      case aco_opcode::s_and_b64:
-         instr->opcode = aco_opcode::s_andn2_b64;
-         break;
-      case aco_opcode::s_or_b64:
-         instr->opcode = aco_opcode::s_orn2_b64;
-         break;
-      default:
-         break;
+      case aco_opcode::s_and_b32: instr->opcode = aco_opcode::s_andn2_b32; break;
+      case aco_opcode::s_or_b32: instr->opcode = aco_opcode::s_orn2_b32; break;
+      case aco_opcode::s_and_b64: instr->opcode = aco_opcode::s_andn2_b64; break;
+      case aco_opcode::s_or_b64: instr->opcode = aco_opcode::s_orn2_b64; break;
+      default: break;
       }
 
       return true;
@@ -2840,8 +2671,7 @@ get_minmax_info(aco_opcode op, aco_opcode* min, aco_opcode* max, aco_opcode* min
       MINMAX(u16, true)
       MINMAX(i16, true)
 #undef MINMAX
-   default:
-      return false;
+   default: return false;
    }
 }
 
@@ -2949,8 +2779,7 @@ combine_clamp(opt_ctx& ctx, aco_ptr<Instruction>& instr, aco_opcode min, aco_opc
             lower_idx = const0_i < const1_i ? const0_idx : const1_idx;
             break;
          }
-         default:
-            break;
+         default: break;
          }
          int upper_idx = lower_idx == const0_idx ? const1_idx : const0_idx;
 
@@ -3764,17 +3593,11 @@ to_uniform_bool_instr(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 {
    switch (instr->opcode) {
    case aco_opcode::s_and_b32:
-   case aco_opcode::s_and_b64:
-      instr->opcode = aco_opcode::s_and_b32;
-      break;
+   case aco_opcode::s_and_b64: instr->opcode = aco_opcode::s_and_b32; break;
    case aco_opcode::s_or_b32:
-   case aco_opcode::s_or_b64:
-      instr->opcode = aco_opcode::s_or_b32;
-      break;
+   case aco_opcode::s_or_b64: instr->opcode = aco_opcode::s_or_b32; break;
    case aco_opcode::s_xor_b32:
-   case aco_opcode::s_xor_b64:
-      instr->opcode = aco_opcode::s_absdiff_i32;
-      break;
+   case aco_opcode::s_xor_b64: instr->opcode = aco_opcode::s_absdiff_i32; break;
    default:
       /* Don't transform other instructions. They are very unlikely to appear here. */
       return false;

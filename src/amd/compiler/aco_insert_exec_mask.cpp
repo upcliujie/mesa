@@ -90,9 +90,7 @@ struct exec_ctx {
    std::vector<block_info> info;
    std::vector<loop_info> loop;
    bool handle_wqm = false;
-   exec_ctx(Program* program_): program(program_), info(program->blocks.size())
-   {
-   }
+   exec_ctx(Program* program_) : program(program_), info(program->blocks.size()) {}
 };
 
 bool

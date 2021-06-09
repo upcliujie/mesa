@@ -533,7 +533,8 @@ bool
 check_written_regs(const aco_ptr<Instruction>& instr, const std::bitset<N>& check_regs)
 {
    return std::any_of(instr->definitions.begin(), instr->definitions.end(),
-                      [&check_regs](const Definition& def) -> bool {
+                      [&check_regs](const Definition& def) -> bool
+                      {
                          bool writes_any = false;
                          for (unsigned i = 0; i < def.size(); i++) {
                             unsigned def_reg = def.physReg() + i;
@@ -574,17 +575,16 @@ bool
 instr_writes_exec(const aco_ptr<Instruction>& instr)
 {
    return std::any_of(instr->definitions.begin(), instr->definitions.end(),
-                      [](const Definition& def) -> bool {
-                         return def.physReg() == exec_lo || def.physReg() == exec_hi;
-                      });
+                      [](const Definition& def) -> bool
+                      { return def.physReg() == exec_lo || def.physReg() == exec_hi; });
 }
 
 bool
 instr_writes_sgpr(const aco_ptr<Instruction>& instr)
 {
-   return std::any_of(
-      instr->definitions.begin(), instr->definitions.end(),
-      [](const Definition& def) -> bool { return def.getTemp().type() == RegType::sgpr; });
+   return std::any_of(instr->definitions.begin(), instr->definitions.end(),
+                      [](const Definition& def) -> bool
+                      { return def.getTemp().type() == RegType::sgpr; });
 }
 
 inline bool

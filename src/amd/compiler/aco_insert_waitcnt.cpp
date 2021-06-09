@@ -92,22 +92,16 @@ get_counters_for_event(wait_event ev)
    case event_smem:
    case event_lds:
    case event_gds:
-   case event_sendmsg:
-      return counter_lgkm;
-   case event_vmem:
-      return counter_vm;
-   case event_vmem_store:
-      return counter_vs;
-   case event_flat:
-      return counter_vm | counter_lgkm;
+   case event_sendmsg: return counter_lgkm;
+   case event_vmem: return counter_vm;
+   case event_vmem_store: return counter_vs;
+   case event_flat: return counter_vm | counter_lgkm;
    case event_exp_pos:
    case event_exp_param:
    case event_exp_mrt_null:
    case event_gds_gpr_lock:
-   case event_vmem_gpr_lock:
-      return counter_exp;
-   default:
-      return 0;
+   case event_vmem_gpr_lock: return counter_exp;
+   default: return 0;
    }
 }
 
@@ -197,9 +191,7 @@ struct wait_ctx {
 
    std::map<PhysReg, wait_entry> gpr_map;
 
-   wait_ctx()
-   {
-   }
+   wait_ctx() {}
    wait_ctx(Program* program_)
        : program(program_), chip_class(program_->chip_class),
          max_vm_cnt(program_->chip_class >= GFX9 ? 62 : 14), max_exp_cnt(6),
@@ -724,8 +716,7 @@ gen(Instruction* instr, wait_ctx& ctx)
          update_counters(ctx, event_sendmsg);
       break;
    }
-   default:
-      break;
+   default: break;
    }
 }
 

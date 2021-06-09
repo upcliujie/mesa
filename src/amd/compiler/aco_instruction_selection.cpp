@@ -537,8 +537,8 @@ byte_align_vector(isel_context* ctx, Temp vec, Operand offset, Temp dst, unsigne
    for (unsigned i = skip; i < num_components; i++)
       elems[i - skip] = emit_extract_vector(ctx, vec, i, rc);
 
-   /* if dst is vgpr - split the src and create a shrunk version according to the mask. */
    if (dst.type() == RegType::vgpr) {
+      /* if dst is vgpr - split the src and create a shrunk version according to the mask. */
       num_components = dst.bytes() / component_size;
       aco_ptr<Pseudo_instruction> create_vec{create_instruction<Pseudo_instruction>(
          aco_opcode::p_create_vector, Format::PSEUDO, num_components, 1)};
@@ -547,8 +547,8 @@ byte_align_vector(isel_context* ctx, Temp vec, Operand offset, Temp dst, unsigne
       create_vec->definitions[0] = Definition(dst);
       bld.insert(std::move(create_vec));
 
-      /* if dst is sgpr - split the src, but move the original to sgpr. */
    } else if (skip) {
+      /* if dst is sgpr - split the src, but move the original to sgpr. */
       vec = bld.pseudo(aco_opcode::p_as_uniform, bld.def(RegClass(RegType::sgpr, vec.size())), vec);
       byte_align_scalar(ctx, vec, offset, dst);
    } else {
@@ -981,62 +981,25 @@ emit_vopc_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Te
       if (src0.type() == RegType::vgpr) {
          /* to swap the operands, we might also have to change the opcode */
          switch (op) {
-         case aco_opcode::v_cmp_lt_f16:
-            op = aco_opcode::v_cmp_gt_f16;
-            break;
-         case aco_opcode::v_cmp_ge_f16:
-            op = aco_opcode::v_cmp_le_f16;
-            break;
-         case aco_opcode::v_cmp_lt_i16:
-            op = aco_opcode::v_cmp_gt_i16;
-            break;
-         case aco_opcode::v_cmp_ge_i16:
-            op = aco_opcode::v_cmp_le_i16;
-            break;
-         case aco_opcode::v_cmp_lt_u16:
-            op = aco_opcode::v_cmp_gt_u16;
-            break;
-         case aco_opcode::v_cmp_ge_u16:
-            op = aco_opcode::v_cmp_le_u16;
-            break;
-         case aco_opcode::v_cmp_lt_f32:
-            op = aco_opcode::v_cmp_gt_f32;
-            break;
-         case aco_opcode::v_cmp_ge_f32:
-            op = aco_opcode::v_cmp_le_f32;
-            break;
-         case aco_opcode::v_cmp_lt_i32:
-            op = aco_opcode::v_cmp_gt_i32;
-            break;
-         case aco_opcode::v_cmp_ge_i32:
-            op = aco_opcode::v_cmp_le_i32;
-            break;
-         case aco_opcode::v_cmp_lt_u32:
-            op = aco_opcode::v_cmp_gt_u32;
-            break;
-         case aco_opcode::v_cmp_ge_u32:
-            op = aco_opcode::v_cmp_le_u32;
-            break;
-         case aco_opcode::v_cmp_lt_f64:
-            op = aco_opcode::v_cmp_gt_f64;
-            break;
-         case aco_opcode::v_cmp_ge_f64:
-            op = aco_opcode::v_cmp_le_f64;
-            break;
-         case aco_opcode::v_cmp_lt_i64:
-            op = aco_opcode::v_cmp_gt_i64;
-            break;
-         case aco_opcode::v_cmp_ge_i64:
-            op = aco_opcode::v_cmp_le_i64;
-            break;
-         case aco_opcode::v_cmp_lt_u64:
-            op = aco_opcode::v_cmp_gt_u64;
-            break;
-         case aco_opcode::v_cmp_ge_u64:
-            op = aco_opcode::v_cmp_le_u64;
-            break;
-         default: /* eq and ne are commutative */
-            break;
+         case aco_opcode::v_cmp_lt_f16: op = aco_opcode::v_cmp_gt_f16; break;
+         case aco_opcode::v_cmp_ge_f16: op = aco_opcode::v_cmp_le_f16; break;
+         case aco_opcode::v_cmp_lt_i16: op = aco_opcode::v_cmp_gt_i16; break;
+         case aco_opcode::v_cmp_ge_i16: op = aco_opcode::v_cmp_le_i16; break;
+         case aco_opcode::v_cmp_lt_u16: op = aco_opcode::v_cmp_gt_u16; break;
+         case aco_opcode::v_cmp_ge_u16: op = aco_opcode::v_cmp_le_u16; break;
+         case aco_opcode::v_cmp_lt_f32: op = aco_opcode::v_cmp_gt_f32; break;
+         case aco_opcode::v_cmp_ge_f32: op = aco_opcode::v_cmp_le_f32; break;
+         case aco_opcode::v_cmp_lt_i32: op = aco_opcode::v_cmp_gt_i32; break;
+         case aco_opcode::v_cmp_ge_i32: op = aco_opcode::v_cmp_le_i32; break;
+         case aco_opcode::v_cmp_lt_u32: op = aco_opcode::v_cmp_gt_u32; break;
+         case aco_opcode::v_cmp_ge_u32: op = aco_opcode::v_cmp_le_u32; break;
+         case aco_opcode::v_cmp_lt_f64: op = aco_opcode::v_cmp_gt_f64; break;
+         case aco_opcode::v_cmp_ge_f64: op = aco_opcode::v_cmp_le_f64; break;
+         case aco_opcode::v_cmp_lt_i64: op = aco_opcode::v_cmp_gt_i64; break;
+         case aco_opcode::v_cmp_ge_i64: op = aco_opcode::v_cmp_le_i64; break;
+         case aco_opcode::v_cmp_lt_u64: op = aco_opcode::v_cmp_gt_u64; break;
+         case aco_opcode::v_cmp_ge_u64: op = aco_opcode::v_cmp_le_u64; break;
+         default: /* eq and ne are commutative */ break;
          }
          Temp t = src0;
          src0 = src1;
@@ -3550,8 +3513,7 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
       emit_wqm(bld, tmp, dst, true);
       break;
    }
-   default:
-      isel_err(&instr->instr, "Unknown NIR ALU instr");
+   default: isel_err(&instr->instr, "Unknown NIR ALU instr");
    }
 }
 
@@ -4376,8 +4338,9 @@ store_lds(isel_context* ctx, unsigned elem_size_bytes, Temp data, uint32_t wrmas
          address_offset = bld.vadd32(bld.def(v1), Operand(base_offset), address_offset);
          inline_offset = offsets[i];
       }
-      assert(inline_offset <=
-             max_offset); /* offsets[i] shouldn't be large enough for this to happen */
+
+      /* offsets[i] shouldn't be large enough for this to happen */
+      assert(inline_offset <= max_offset);
 
       Instruction* instr;
       if (write2) {
@@ -4396,18 +4359,12 @@ aco_opcode
 get_buffer_store_op(unsigned bytes)
 {
    switch (bytes) {
-   case 1:
-      return aco_opcode::buffer_store_byte;
-   case 2:
-      return aco_opcode::buffer_store_short;
-   case 4:
-      return aco_opcode::buffer_store_dword;
-   case 8:
-      return aco_opcode::buffer_store_dwordx2;
-   case 12:
-      return aco_opcode::buffer_store_dwordx3;
-   case 16:
-      return aco_opcode::buffer_store_dwordx4;
+   case 1: return aco_opcode::buffer_store_byte;
+   case 2: return aco_opcode::buffer_store_short;
+   case 4: return aco_opcode::buffer_store_dword;
+   case 8: return aco_opcode::buffer_store_dwordx2;
+   case 12: return aco_opcode::buffer_store_dwordx3;
+   case 16: return aco_opcode::buffer_store_dwordx4;
    }
    unreachable("Unexpected store size");
    return aco_opcode::num_opcodes;
@@ -4635,10 +4592,8 @@ get_tess_rel_patch_id(isel_context* ctx)
    case MESA_SHADER_TESS_CTRL:
       return bld.pseudo(aco_opcode::p_extract, bld.def(v1), get_arg(ctx, ctx->args->ac.tcs_rel_ids),
                         Operand(0u), Operand(8u), Operand(0u));
-   case MESA_SHADER_TESS_EVAL:
-      return get_arg(ctx, ctx->args->ac.tes_rel_patch_id);
-   default:
-      unreachable("Unsupported stage in get_tess_rel_patch_id");
+   case MESA_SHADER_TESS_EVAL: return get_arg(ctx, ctx->args->ac.tes_rel_patch_id);
+   default: unreachable("Unsupported stage in get_tess_rel_patch_id");
    }
 }
 
@@ -5121,8 +5076,7 @@ visit_load_input(isel_context* ctx, nir_intrinsic_instr* instr)
             opcode =
                use_mubuf ? aco_opcode::buffer_load_dwordx4 : aco_opcode::tbuffer_load_format_xyzw;
             break;
-         default:
-            unreachable("Unimplemented load_input vector size");
+         default: unreachable("Unimplemented load_input vector size");
          }
 
          Temp fetch_dst;
@@ -5220,8 +5174,7 @@ visit_load_input(isel_context* ctx, nir_intrinsic_instr* instr)
          case 2:
             vertex_id = 1; /* P20 */
             break;
-         default:
-            unreachable("invalid vertex index");
+         default: unreachable("invalid vertex index");
          }
       }
 
@@ -5261,11 +5214,8 @@ void
 visit_load_per_vertex_input(isel_context* ctx, nir_intrinsic_instr* instr)
 {
    switch (ctx->shader->info.stage) {
-   case MESA_SHADER_TESS_CTRL:
-      visit_load_tcs_per_vertex_input(ctx, instr);
-      break;
-   default:
-      unreachable("Unimplemented shader stage");
+   case MESA_SHADER_TESS_CTRL: visit_load_tcs_per_vertex_input(ctx, instr); break;
+   default: unreachable("Unimplemented shader stage");
    }
 }
 
@@ -5516,28 +5466,19 @@ visit_load_push_constant(isel_context* ctx, nir_intrinsic_instr* instr)
    aco_opcode op;
 
    switch (vec.size()) {
-   case 1:
-      op = aco_opcode::s_load_dword;
-      break;
-   case 2:
-      op = aco_opcode::s_load_dwordx2;
-      break;
+   case 1: op = aco_opcode::s_load_dword; break;
+   case 2: op = aco_opcode::s_load_dwordx2; break;
    case 3:
       vec = bld.tmp(s4);
       trim = true;
       FALLTHROUGH;
-   case 4:
-      op = aco_opcode::s_load_dwordx4;
-      break;
+   case 4: op = aco_opcode::s_load_dwordx4; break;
    case 6:
       vec = bld.tmp(s8);
       trim = true;
       FALLTHROUGH;
-   case 8:
-      op = aco_opcode::s_load_dwordx8;
-      break;
-   default:
-      unreachable("unimplemented or forbidden load_push_constant.");
+   case 8: op = aco_opcode::s_load_dwordx8; break;
+   default: unreachable("unimplemented or forbidden load_push_constant.");
    }
 
    bld.smem(op, Definition(vec), ptr, index).instr->smem().prevent_overflow = true;
@@ -5792,8 +5733,7 @@ get_sampler_desc(isel_context* ctx, nir_deref_instr* deref_instr,
       opcode = aco_opcode::s_load_dwordx4;
       offset += 64;
       break;
-   default:
-      unreachable("invalid desc_type\n");
+   default: unreachable("invalid desc_type\n");
    }
 
    offset += constant_index * stride;
@@ -5884,24 +5824,16 @@ static int
 image_type_to_components_count(enum glsl_sampler_dim dim, bool array)
 {
    switch (dim) {
-   case GLSL_SAMPLER_DIM_BUF:
-      return 1;
-   case GLSL_SAMPLER_DIM_1D:
-      return array ? 2 : 1;
-   case GLSL_SAMPLER_DIM_2D:
-      return array ? 3 : 2;
-   case GLSL_SAMPLER_DIM_MS:
-      return array ? 4 : 3;
+   case GLSL_SAMPLER_DIM_BUF: return 1;
+   case GLSL_SAMPLER_DIM_1D: return array ? 2 : 1;
+   case GLSL_SAMPLER_DIM_2D: return array ? 3 : 2;
+   case GLSL_SAMPLER_DIM_MS: return array ? 4 : 3;
    case GLSL_SAMPLER_DIM_3D:
-   case GLSL_SAMPLER_DIM_CUBE:
-      return 3;
+   case GLSL_SAMPLER_DIM_CUBE: return 3;
    case GLSL_SAMPLER_DIM_RECT:
-   case GLSL_SAMPLER_DIM_SUBPASS:
-      return 2;
-   case GLSL_SAMPLER_DIM_SUBPASS_MS:
-      return 3;
-   default:
-      break;
+   case GLSL_SAMPLER_DIM_SUBPASS: return 2;
+   case GLSL_SAMPLER_DIM_SUBPASS_MS: return 3;
+   default: break;
    }
    return 0;
 }
@@ -6218,20 +6150,11 @@ visit_image_load(isel_context* ctx, nir_intrinsic_instr* instr)
 
       aco_opcode opcode;
       switch (util_bitcount(dmask)) {
-      case 1:
-         opcode = aco_opcode::buffer_load_format_x;
-         break;
-      case 2:
-         opcode = aco_opcode::buffer_load_format_xy;
-         break;
-      case 3:
-         opcode = aco_opcode::buffer_load_format_xyz;
-         break;
-      case 4:
-         opcode = aco_opcode::buffer_load_format_xyzw;
-         break;
-      default:
-         unreachable(">4 channel buffer image load");
+      case 1: opcode = aco_opcode::buffer_load_format_x; break;
+      case 2: opcode = aco_opcode::buffer_load_format_xy; break;
+      case 3: opcode = aco_opcode::buffer_load_format_xyz; break;
+      case 4: opcode = aco_opcode::buffer_load_format_xyzw; break;
+      default: unreachable(">4 channel buffer image load");
       }
       aco_ptr<MUBUF_instruction> load{
          create_instruction<MUBUF_instruction>(opcode, Format::MUBUF, 3 + is_sparse, 1)};
@@ -6305,20 +6228,11 @@ visit_image_store(isel_context* ctx, nir_intrinsic_instr* instr)
       Temp vindex = emit_extract_vector(ctx, get_ssa_temp(ctx, instr->src[1].ssa), 0, v1);
       aco_opcode opcode;
       switch (data.size()) {
-      case 1:
-         opcode = aco_opcode::buffer_store_format_x;
-         break;
-      case 2:
-         opcode = aco_opcode::buffer_store_format_xy;
-         break;
-      case 3:
-         opcode = aco_opcode::buffer_store_format_xyz;
-         break;
-      case 4:
-         opcode = aco_opcode::buffer_store_format_xyzw;
-         break;
-      default:
-         unreachable(">4 channel buffer image store");
+      case 1: opcode = aco_opcode::buffer_store_format_x; break;
+      case 2: opcode = aco_opcode::buffer_store_format_xy; break;
+      case 3: opcode = aco_opcode::buffer_store_format_xyz; break;
+      case 4: opcode = aco_opcode::buffer_store_format_xyzw; break;
+      default: unreachable(">4 channel buffer image store");
       }
       aco_ptr<MUBUF_instruction> store{
          create_instruction<MUBUF_instruction>(opcode, Format::MUBUF, 4, 0)};
@@ -6880,15 +6794,9 @@ visit_store_global(isel_context* ctx, nir_intrinsic_instr* instr)
          bool global = ctx->options->chip_class >= GFX9;
          aco_opcode op;
          switch (write_datas[i].bytes()) {
-         case 1:
-            op = global ? aco_opcode::global_store_byte : aco_opcode::flat_store_byte;
-            break;
-         case 2:
-            op = global ? aco_opcode::global_store_short : aco_opcode::flat_store_short;
-            break;
-         case 4:
-            op = global ? aco_opcode::global_store_dword : aco_opcode::flat_store_dword;
-            break;
+         case 1: op = global ? aco_opcode::global_store_byte : aco_opcode::flat_store_byte; break;
+         case 2: op = global ? aco_opcode::global_store_short : aco_opcode::flat_store_short; break;
+         case 4: op = global ? aco_opcode::global_store_dword : aco_opcode::flat_store_dword; break;
          case 8:
             op = global ? aco_opcode::global_store_dwordx2 : aco_opcode::flat_store_dwordx2;
             break;
@@ -6898,8 +6806,7 @@ visit_store_global(isel_context* ctx, nir_intrinsic_instr* instr)
          case 16:
             op = global ? aco_opcode::global_store_dwordx4 : aco_opcode::flat_store_dwordx4;
             break;
-         default:
-            unreachable("store_global not implemented for this size.");
+         default: unreachable("store_global not implemented for this size.");
          }
 
          aco_ptr<FLAT_instruction> flat{
@@ -7153,18 +7060,12 @@ translate_nir_scope(nir_scope scope)
 {
    switch (scope) {
    case NIR_SCOPE_NONE:
-   case NIR_SCOPE_INVOCATION:
-      return scope_invocation;
-   case NIR_SCOPE_SUBGROUP:
-      return scope_subgroup;
-   case NIR_SCOPE_WORKGROUP:
-      return scope_workgroup;
-   case NIR_SCOPE_QUEUE_FAMILY:
-      return scope_queuefamily;
-   case NIR_SCOPE_DEVICE:
-      return scope_device;
-   case NIR_SCOPE_SHADER_CALL:
-      unreachable("unsupported scope");
+   case NIR_SCOPE_INVOCATION: return scope_invocation;
+   case NIR_SCOPE_SUBGROUP: return scope_subgroup;
+   case NIR_SCOPE_WORKGROUP: return scope_workgroup;
+   case NIR_SCOPE_QUEUE_FAMILY: return scope_queuefamily;
+   case NIR_SCOPE_DEVICE: return scope_device;
+   case NIR_SCOPE_SHADER_CALL: unreachable("unsupported scope");
    }
    unreachable("invalid scope");
 }
@@ -7320,8 +7221,7 @@ visit_shared_atomic(isel_context* ctx, nir_intrinsic_instr* instr)
       op64 = aco_opcode::num_opcodes;
       op64_rtn = aco_opcode::num_opcodes;
       break;
-   default:
-      unreachable("Unhandled shared atomic intrinsic");
+   default: unreachable("Unhandled shared atomic intrinsic");
    }
 
    /* return the previous value if dest is ever used */
@@ -7717,8 +7617,7 @@ get_reduce_op(nir_op op, unsigned bit_size)
              : (bit_size == 8)  ? name##8                                                          \
                                 : name##64;
 #define CASEF(name)                                                                                \
-   case nir_op_##name:                                                                             \
-      return (bit_size == 32) ? name##32 : (bit_size == 16) ? name##16 : name##64;
+   case nir_op_##name: return (bit_size == 32) ? name##32 : (bit_size == 16) ? name##16 : name##64;
       CASEI(iadd)
       CASEI(imul)
       CASEI(imin)
@@ -7732,8 +7631,7 @@ get_reduce_op(nir_op op, unsigned bit_size)
       CASEF(fmul)
       CASEF(fmin)
       CASEF(fmax)
-   default:
-      unreachable("unknown reduction op");
+   default: unreachable("unknown reduction op");
 #undef CASEI
 #undef CASEF
    }
@@ -8026,8 +7924,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
          else if (instr->intrinsic == nir_intrinsic_load_barycentric_sample)
             bary = get_arg(ctx, ctx->args->ac.linear_sample);
          break;
-      default:
-         break;
+      default: break;
       }
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
       Temp p1 = emit_extract_vector(ctx, bary, 0, v1);
@@ -8051,17 +7948,10 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    case nir_intrinsic_load_barycentric_at_sample: {
       uint32_t sample_pos_offset = RING_PS_SAMPLE_POSITIONS * 16;
       switch (ctx->options->key.fs.num_samples) {
-      case 2:
-         sample_pos_offset += 1 << 3;
-         break;
-      case 4:
-         sample_pos_offset += 3 << 3;
-         break;
-      case 8:
-         sample_pos_offset += 7 << 3;
-         break;
-      default:
-         break;
+      case 2: sample_pos_offset += 1 << 3; break;
+      case 4: sample_pos_offset += 3 << 3; break;
+      case 8: sample_pos_offset += 7 << 3; break;
+      default: break;
       }
       Temp sample_pos;
       Temp addr = get_ssa_temp(ctx, instr->src[0].ssa);
@@ -8195,48 +8085,22 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
                  posy.id() ? bld.vop1(aco_opcode::v_fract_f32, bld.def(v1), posy) : Operand(0u));
       break;
    }
-   case nir_intrinsic_load_tess_coord:
-      visit_load_tess_coord(ctx, instr);
-      break;
-   case nir_intrinsic_load_interpolated_input:
-      visit_load_interpolated_input(ctx, instr);
-      break;
-   case nir_intrinsic_store_output:
-      visit_store_output(ctx, instr);
-      break;
+   case nir_intrinsic_load_tess_coord: visit_load_tess_coord(ctx, instr); break;
+   case nir_intrinsic_load_interpolated_input: visit_load_interpolated_input(ctx, instr); break;
+   case nir_intrinsic_store_output: visit_store_output(ctx, instr); break;
    case nir_intrinsic_load_input:
-   case nir_intrinsic_load_input_vertex:
-      visit_load_input(ctx, instr);
-      break;
-   case nir_intrinsic_load_per_vertex_input:
-      visit_load_per_vertex_input(ctx, instr);
-      break;
-   case nir_intrinsic_load_ubo:
-      visit_load_ubo(ctx, instr);
-      break;
-   case nir_intrinsic_load_push_constant:
-      visit_load_push_constant(ctx, instr);
-      break;
-   case nir_intrinsic_load_constant:
-      visit_load_constant(ctx, instr);
-      break;
-   case nir_intrinsic_vulkan_resource_index:
-      visit_load_resource(ctx, instr);
-      break;
+   case nir_intrinsic_load_input_vertex: visit_load_input(ctx, instr); break;
+   case nir_intrinsic_load_per_vertex_input: visit_load_per_vertex_input(ctx, instr); break;
+   case nir_intrinsic_load_ubo: visit_load_ubo(ctx, instr); break;
+   case nir_intrinsic_load_push_constant: visit_load_push_constant(ctx, instr); break;
+   case nir_intrinsic_load_constant: visit_load_constant(ctx, instr); break;
+   case nir_intrinsic_vulkan_resource_index: visit_load_resource(ctx, instr); break;
    case nir_intrinsic_terminate:
-   case nir_intrinsic_discard:
-      visit_discard(ctx, instr);
-      break;
+   case nir_intrinsic_discard: visit_discard(ctx, instr); break;
    case nir_intrinsic_terminate_if:
-   case nir_intrinsic_discard_if:
-      visit_discard_if(ctx, instr);
-      break;
-   case nir_intrinsic_load_shared:
-      visit_load_shared(ctx, instr);
-      break;
-   case nir_intrinsic_store_shared:
-      visit_store_shared(ctx, instr);
-      break;
+   case nir_intrinsic_discard_if: visit_discard_if(ctx, instr); break;
+   case nir_intrinsic_load_shared: visit_load_shared(ctx, instr); break;
+   case nir_intrinsic_store_shared: visit_store_shared(ctx, instr); break;
    case nir_intrinsic_shared_atomic_add:
    case nir_intrinsic_shared_atomic_imin:
    case nir_intrinsic_shared_atomic_umin:
@@ -8247,16 +8111,10 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    case nir_intrinsic_shared_atomic_xor:
    case nir_intrinsic_shared_atomic_exchange:
    case nir_intrinsic_shared_atomic_comp_swap:
-   case nir_intrinsic_shared_atomic_fadd:
-      visit_shared_atomic(ctx, instr);
-      break;
+   case nir_intrinsic_shared_atomic_fadd: visit_shared_atomic(ctx, instr); break;
    case nir_intrinsic_image_deref_load:
-   case nir_intrinsic_image_deref_sparse_load:
-      visit_image_load(ctx, instr);
-      break;
-   case nir_intrinsic_image_deref_store:
-      visit_image_store(ctx, instr);
-      break;
+   case nir_intrinsic_image_deref_sparse_load: visit_image_load(ctx, instr); break;
+   case nir_intrinsic_image_deref_store: visit_image_store(ctx, instr); break;
    case nir_intrinsic_image_deref_atomic_add:
    case nir_intrinsic_image_deref_atomic_umin:
    case nir_intrinsic_image_deref_atomic_imin:
@@ -8266,33 +8124,15 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    case nir_intrinsic_image_deref_atomic_or:
    case nir_intrinsic_image_deref_atomic_xor:
    case nir_intrinsic_image_deref_atomic_exchange:
-   case nir_intrinsic_image_deref_atomic_comp_swap:
-      visit_image_atomic(ctx, instr);
-      break;
-   case nir_intrinsic_image_deref_size:
-      visit_image_size(ctx, instr);
-      break;
-   case nir_intrinsic_image_deref_samples:
-      visit_image_samples(ctx, instr);
-      break;
-   case nir_intrinsic_load_ssbo:
-      visit_load_ssbo(ctx, instr);
-      break;
-   case nir_intrinsic_store_ssbo:
-      visit_store_ssbo(ctx, instr);
-      break;
-   case nir_intrinsic_load_global:
-      visit_load_global(ctx, instr);
-      break;
-   case nir_intrinsic_load_buffer_amd:
-      visit_load_buffer(ctx, instr);
-      break;
-   case nir_intrinsic_store_buffer_amd:
-      visit_store_buffer(ctx, instr);
-      break;
-   case nir_intrinsic_store_global:
-      visit_store_global(ctx, instr);
-      break;
+   case nir_intrinsic_image_deref_atomic_comp_swap: visit_image_atomic(ctx, instr); break;
+   case nir_intrinsic_image_deref_size: visit_image_size(ctx, instr); break;
+   case nir_intrinsic_image_deref_samples: visit_image_samples(ctx, instr); break;
+   case nir_intrinsic_load_ssbo: visit_load_ssbo(ctx, instr); break;
+   case nir_intrinsic_store_ssbo: visit_store_ssbo(ctx, instr); break;
+   case nir_intrinsic_load_global: visit_load_global(ctx, instr); break;
+   case nir_intrinsic_load_buffer_amd: visit_load_buffer(ctx, instr); break;
+   case nir_intrinsic_store_buffer_amd: visit_store_buffer(ctx, instr); break;
+   case nir_intrinsic_store_global: visit_store_global(ctx, instr); break;
    case nir_intrinsic_global_atomic_add:
    case nir_intrinsic_global_atomic_imin:
    case nir_intrinsic_global_atomic_umin:
@@ -8302,9 +8142,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    case nir_intrinsic_global_atomic_or:
    case nir_intrinsic_global_atomic_xor:
    case nir_intrinsic_global_atomic_exchange:
-   case nir_intrinsic_global_atomic_comp_swap:
-      visit_global_atomic(ctx, instr);
-      break;
+   case nir_intrinsic_global_atomic_comp_swap: visit_global_atomic(ctx, instr); break;
    case nir_intrinsic_ssbo_atomic_add:
    case nir_intrinsic_ssbo_atomic_imin:
    case nir_intrinsic_ssbo_atomic_umin:
@@ -8314,21 +8152,11 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    case nir_intrinsic_ssbo_atomic_or:
    case nir_intrinsic_ssbo_atomic_xor:
    case nir_intrinsic_ssbo_atomic_exchange:
-   case nir_intrinsic_ssbo_atomic_comp_swap:
-      visit_atomic_ssbo(ctx, instr);
-      break;
-   case nir_intrinsic_load_scratch:
-      visit_load_scratch(ctx, instr);
-      break;
-   case nir_intrinsic_store_scratch:
-      visit_store_scratch(ctx, instr);
-      break;
-   case nir_intrinsic_get_ssbo_size:
-      visit_get_ssbo_size(ctx, instr);
-      break;
-   case nir_intrinsic_scoped_barrier:
-      emit_scoped_barrier(ctx, instr);
-      break;
+   case nir_intrinsic_ssbo_atomic_comp_swap: visit_atomic_ssbo(ctx, instr); break;
+   case nir_intrinsic_load_scratch: visit_load_scratch(ctx, instr); break;
+   case nir_intrinsic_store_scratch: visit_store_scratch(ctx, instr); break;
+   case nir_intrinsic_get_ssbo_size: visit_get_ssbo_size(ctx, instr); break;
+   case nir_intrinsic_scoped_barrier: emit_scoped_barrier(ctx, instr); break;
    case nir_intrinsic_load_num_workgroups: {
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
       bld.copy(Definition(dst), Operand(get_arg(ctx, ctx->args->ac.num_work_groups)));
@@ -8595,8 +8423,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
          case nir_intrinsic_inclusive_scan:
             emit_wqm(bld, emit_boolean_inclusive_scan(ctx, op, src), dst);
             break;
-         default:
-            assert(false);
+         default: assert(false);
          }
       } else if (cluster_size == 1) {
          bld.copy(Definition(dst), src);
@@ -8609,17 +8436,10 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
 
          aco_opcode aco_op;
          switch (instr->intrinsic) {
-         case nir_intrinsic_reduce:
-            aco_op = aco_opcode::p_reduce;
-            break;
-         case nir_intrinsic_inclusive_scan:
-            aco_op = aco_opcode::p_inclusive_scan;
-            break;
-         case nir_intrinsic_exclusive_scan:
-            aco_op = aco_opcode::p_exclusive_scan;
-            break;
-         default:
-            unreachable("unknown reduce intrinsic");
+         case nir_intrinsic_reduce: aco_op = aco_opcode::p_reduce; break;
+         case nir_intrinsic_inclusive_scan: aco_op = aco_opcode::p_inclusive_scan; break;
+         case nir_intrinsic_exclusive_scan: aco_op = aco_opcode::p_exclusive_scan; break;
+         default: unreachable("unknown reduce intrinsic");
          }
 
          Temp tmp_dst = emit_reduction_instr(ctx, aco_op, reduce_op, cluster_size,
@@ -8708,20 +8528,11 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       }
       uint16_t dpp_ctrl = 0;
       switch (instr->intrinsic) {
-      case nir_intrinsic_quad_swap_horizontal:
-         dpp_ctrl = dpp_quad_perm(1, 0, 3, 2);
-         break;
-      case nir_intrinsic_quad_swap_vertical:
-         dpp_ctrl = dpp_quad_perm(2, 3, 0, 1);
-         break;
-      case nir_intrinsic_quad_swap_diagonal:
-         dpp_ctrl = dpp_quad_perm(3, 2, 1, 0);
-         break;
-      case nir_intrinsic_quad_swizzle_amd:
-         dpp_ctrl = nir_intrinsic_swizzle_mask(instr);
-         break;
-      default:
-         break;
+      case nir_intrinsic_quad_swap_horizontal: dpp_ctrl = dpp_quad_perm(1, 0, 3, 2); break;
+      case nir_intrinsic_quad_swap_vertical: dpp_ctrl = dpp_quad_perm(2, 3, 0, 1); break;
+      case nir_intrinsic_quad_swap_diagonal: dpp_ctrl = dpp_quad_perm(3, 2, 1, 0); break;
+      case nir_intrinsic_quad_swizzle_amd: dpp_ctrl = nir_intrinsic_swizzle_mask(instr); break;
+      default: break;
       }
       if (ctx->program->chip_class < GFX8)
          dpp_ctrl |= (1 << 15);
@@ -9119,12 +8930,8 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
                bool_to_vector_condition(ctx, shader_query_enabled));
       break;
    }
-   case nir_intrinsic_load_sbt_amd:
-      visit_load_sbt_amd(ctx, instr);
-      break;
-   case nir_intrinsic_bvh64_intersect_ray_amd:
-      visit_bvh64_intersect_ray_amd(ctx, instr);
-      break;
+   case nir_intrinsic_load_sbt_amd: visit_load_sbt_amd(ctx, instr); break;
+   case nir_intrinsic_bvh64_intersect_ray_amd: visit_bvh64_intersect_ray_amd(ctx, instr); break;
    default:
       isel_err(&instr->instr, "Unimplemented intrinsic instr");
       abort();
@@ -9149,11 +8956,8 @@ tex_fetch_ptrs(isel_context* ctx, nir_tex_instr* instr, Temp* res_ptr, Temp* sam
       case nir_tex_src_sampler_deref:
          sampler_deref_instr = nir_src_as_deref(instr->src[i].src);
          break;
-      case nir_tex_src_plane:
-         plane = nir_src_as_int(instr->src[i].src);
-         break;
-      default:
-         break;
+      case nir_tex_src_plane: plane = nir_src_as_int(instr->src[i].src); break;
+      default: break;
       }
    }
 
@@ -9408,8 +9212,7 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          break;
       case nir_tex_src_texture_offset:
       case nir_tex_src_sampler_offset:
-      default:
-         break;
+      default: break;
       }
    }
 
@@ -9724,20 +9527,11 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
       assert(coords.size() == 1);
       aco_opcode op;
       switch (util_last_bit(dmask & 0xf)) {
-      case 1:
-         op = aco_opcode::buffer_load_format_x;
-         break;
-      case 2:
-         op = aco_opcode::buffer_load_format_xy;
-         break;
-      case 3:
-         op = aco_opcode::buffer_load_format_xyz;
-         break;
-      case 4:
-         op = aco_opcode::buffer_load_format_xyzw;
-         break;
-      default:
-         unreachable("Tex instruction loads more than 4 components.");
+      case 1: op = aco_opcode::buffer_load_format_x; break;
+      case 2: op = aco_opcode::buffer_load_format_xy; break;
+      case 3: op = aco_opcode::buffer_load_format_xyz; break;
+      case 4: op = aco_opcode::buffer_load_format_xyzw; break;
+      default: unreachable("Tex instruction loads more than 4 components.");
       }
 
       aco_ptr<MUBUF_instruction> mubuf{
@@ -10292,15 +10086,9 @@ visit_jump(isel_context* ctx, nir_jump_instr* instr)
    ctx->cf_info.nir_to_aco[instr->instr.block->index] = ctx->block->index;
 
    switch (instr->type) {
-   case nir_jump_break:
-      emit_loop_break(ctx);
-      break;
-   case nir_jump_continue:
-      emit_loop_continue(ctx);
-      break;
-   default:
-      isel_err(&instr->instr, "Unknown NIR jump instr");
-      abort();
+   case nir_jump_break: emit_loop_break(ctx); break;
+   case nir_jump_continue: emit_loop_continue(ctx); break;
+   default: isel_err(&instr->instr, "Unknown NIR jump instr"); abort();
    }
 }
 
@@ -10309,31 +10097,15 @@ visit_block(isel_context* ctx, nir_block* block)
 {
    nir_foreach_instr (instr, block) {
       switch (instr->type) {
-      case nir_instr_type_alu:
-         visit_alu_instr(ctx, nir_instr_as_alu(instr));
-         break;
-      case nir_instr_type_load_const:
-         visit_load_const(ctx, nir_instr_as_load_const(instr));
-         break;
-      case nir_instr_type_intrinsic:
-         visit_intrinsic(ctx, nir_instr_as_intrinsic(instr));
-         break;
-      case nir_instr_type_tex:
-         visit_tex(ctx, nir_instr_as_tex(instr));
-         break;
-      case nir_instr_type_phi:
-         visit_phi(ctx, nir_instr_as_phi(instr));
-         break;
-      case nir_instr_type_ssa_undef:
-         visit_undef(ctx, nir_instr_as_ssa_undef(instr));
-         break;
-      case nir_instr_type_deref:
-         break;
-      case nir_instr_type_jump:
-         visit_jump(ctx, nir_instr_as_jump(instr));
-         break;
-      default:
-         isel_err(instr, "Unknown NIR instr type");
+      case nir_instr_type_alu: visit_alu_instr(ctx, nir_instr_as_alu(instr)); break;
+      case nir_instr_type_load_const: visit_load_const(ctx, nir_instr_as_load_const(instr)); break;
+      case nir_instr_type_intrinsic: visit_intrinsic(ctx, nir_instr_as_intrinsic(instr)); break;
+      case nir_instr_type_tex: visit_tex(ctx, nir_instr_as_tex(instr)); break;
+      case nir_instr_type_phi: visit_phi(ctx, nir_instr_as_phi(instr)); break;
+      case nir_instr_type_ssa_undef: visit_undef(ctx, nir_instr_as_ssa_undef(instr)); break;
+      case nir_instr_type_deref: break;
+      case nir_instr_type_jump: visit_jump(ctx, nir_instr_as_jump(instr)); break;
+      default: isel_err(instr, "Unknown NIR instr type");
       }
    }
 
@@ -10775,18 +10547,13 @@ visit_cf_list(isel_context* ctx, struct exec_list* list)
 {
    foreach_list_typed (nir_cf_node, node, node, list) {
       switch (node->type) {
-      case nir_cf_node_block:
-         visit_block(ctx, nir_cf_node_as_block(node));
-         break;
+      case nir_cf_node_block: visit_block(ctx, nir_cf_node_as_block(node)); break;
       case nir_cf_node_if:
          if (!visit_if(ctx, nir_cf_node_as_if(node)))
             return true;
          break;
-      case nir_cf_node_loop:
-         visit_loop(ctx, nir_cf_node_as_loop(node));
-         break;
-      default:
-         unreachable("unimplemented cf list type");
+      case nir_cf_node_loop: visit_loop(ctx, nir_cf_node_as_loop(node)); break;
+      default: unreachable("unimplemented cf list type");
       }
    }
    return false;
@@ -11088,13 +10855,9 @@ export_fs_mrt_color(isel_context* ctx, int slot)
    }
 
    switch (col_format) {
-   case V_028714_SPI_SHADER_32_R:
-      enabled_channels = 1;
-      break;
+   case V_028714_SPI_SHADER_32_R: enabled_channels = 1; break;
 
-   case V_028714_SPI_SHADER_32_GR:
-      enabled_channels = 0x3;
-      break;
+   case V_028714_SPI_SHADER_32_GR: enabled_channels = 0x3; break;
 
    case V_028714_SPI_SHADER_32_AR:
       if (ctx->options->chip_class >= GFX10) {
@@ -11207,13 +10970,10 @@ export_fs_mrt_color(isel_context* ctx, int slot)
       }
       break;
 
-   case V_028714_SPI_SHADER_32_ABGR:
-      enabled_channels = 0xF;
-      break;
+   case V_028714_SPI_SHADER_32_ABGR: enabled_channels = 0xF; break;
 
    case V_028714_SPI_SHADER_ZERO:
-   default:
-      return false;
+   default: return false;
    }
 
    if ((bool)compr_op) {
@@ -11330,20 +11090,11 @@ emit_stream_output(isel_context* ctx, Temp const* so_buffers, Temp const* so_wri
 
       aco_opcode opcode;
       switch (count) {
-      case 1:
-         opcode = aco_opcode::buffer_store_dword;
-         break;
-      case 2:
-         opcode = aco_opcode::buffer_store_dwordx2;
-         break;
-      case 3:
-         opcode = aco_opcode::buffer_store_dwordx3;
-         break;
-      case 4:
-         opcode = aco_opcode::buffer_store_dwordx4;
-         break;
-      default:
-         unreachable("Unsupported dword count.");
+      case 1: opcode = aco_opcode::buffer_store_dword; break;
+      case 2: opcode = aco_opcode::buffer_store_dwordx2; break;
+      case 3: opcode = aco_opcode::buffer_store_dwordx3; break;
+      case 4: opcode = aco_opcode::buffer_store_dwordx4; break;
+      default: unreachable("Unsupported dword count.");
       }
 
       aco_ptr<MUBUF_instruction> store{

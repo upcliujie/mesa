@@ -30,7 +30,8 @@
 #include <array>
 #include <iostream>
 
-static const std::array<aco_compiler_statistic_info, aco::num_statistics> statistic_infos = []() {
+static const std::array<aco_compiler_statistic_info, aco::num_statistics> statistic_infos = []()
+{
    std::array<aco_compiler_statistic_info, aco::num_statistics> ret{};
    ret[aco::statistic_hash] =
       aco_compiler_statistic_info{"Hash", "CRC32 hash of code and constant data"};

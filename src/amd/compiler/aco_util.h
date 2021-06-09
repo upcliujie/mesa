@@ -55,23 +55,18 @@ template <typename T> class span {
    constexpr span() = default;
 
    /*! \brief                 Constructor taking a pointer and the length of the span
-    *   \param[in]   data      Pointer to the underlying data array
-    *   \param[in]   length    The size of the span
+    *  \param[in]   data      Pointer to the underlying data array
+    *  \param[in]   length    The size of the span
     */
-   constexpr span(uint16_t offset_, const size_type length_): offset{offset_}, length{length_}
-   {
-   }
+   constexpr span(uint16_t offset_, const size_type length_) : offset{offset_}, length{length_} {}
 
    /*! \brief                 Returns an iterator to the begin of the span
-    *   \return                data
+    *  \return                data
     */
-   constexpr iterator begin() noexcept
-   {
-      return (pointer)((uintptr_t)this + offset);
-   }
+   constexpr iterator begin() noexcept { return (pointer)((uintptr_t)this + offset); }
 
    /*! \brief                 Returns a const_iterator to the begin of the span
-    *   \return                data
+    *  \return                data
     */
    constexpr const_iterator begin() const noexcept
    {
@@ -79,47 +74,32 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns an iterator to the end of the span
-    *   \return                data + length
+    *  \return                data + length
     */
-   constexpr iterator end() noexcept
-   {
-      return std::next(begin(), length);
-   }
+   constexpr iterator end() noexcept { return std::next(begin(), length); }
 
    /*! \brief                 Returns a const_iterator to the end of the span
-    *   \return                data + length
+    *  \return                data + length
     */
-   constexpr const_iterator end() const noexcept
-   {
-      return std::next(begin(), length);
-   }
+   constexpr const_iterator end() const noexcept { return std::next(begin(), length); }
 
    /*! \brief                 Returns a const_iterator to the begin of the span
-    *   \return                data
+    *  \return                data
     */
-   constexpr const_iterator cbegin() const noexcept
-   {
-      return begin();
-   }
+   constexpr const_iterator cbegin() const noexcept { return begin(); }
 
    /*! \brief                 Returns a const_iterator to the end of the span
-    *   \return                data + length
+    *  \return                data + length
     */
-   constexpr const_iterator cend() const noexcept
-   {
-      return std::next(begin(), length);
-   }
+   constexpr const_iterator cend() const noexcept { return std::next(begin(), length); }
 
    /*! \brief                 Returns a reverse_iterator to the end of the span
-    *   \return                reverse_iterator(end())
+    *  \return                reverse_iterator(end())
     */
-   constexpr reverse_iterator rbegin() noexcept
-   {
-      return reverse_iterator(end());
-   }
+   constexpr reverse_iterator rbegin() noexcept { return reverse_iterator(end()); }
 
    /*! \brief                 Returns a const_reverse_iterator to the end of the span
-    *   \return                reverse_iterator(end())
+    *  \return                reverse_iterator(end())
     */
    constexpr const_reverse_iterator rbegin() const noexcept
    {
@@ -129,13 +109,10 @@ template <typename T> class span {
    /*! \brief                 Returns a reverse_iterator to the begin of the span
     *   \return                reverse_iterator(begin())
     */
-   constexpr reverse_iterator rend() noexcept
-   {
-      return reverse_iterator(begin());
-   }
+   constexpr reverse_iterator rend() noexcept { return reverse_iterator(begin()); }
 
    /*! \brief                 Returns a const_reverse_iterator to the begin of the span
-    *   \return                reverse_iterator(begin())
+    *  \return                reverse_iterator(begin())
     */
    constexpr const_reverse_iterator rend() const noexcept
    {
@@ -143,7 +120,7 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns a const_reverse_iterator to the end of the span
-    *   \return                rbegin()
+    *  \return                rbegin()
     */
    constexpr const_reverse_iterator crbegin() const noexcept
    {
@@ -151,7 +128,7 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns a const_reverse_iterator to the begin of the span
-    *   \return                rend()
+    *  \return                rend()
     */
    constexpr const_reverse_iterator crend() const noexcept
    {
@@ -159,8 +136,8 @@ template <typename T> class span {
    }
 
    /*! \brief                 Unchecked access operator
-    *   \param[in] index       Index of the element we want to access
-    *   \return                *(std::next(data, index))
+    *  \param[in] index       Index of the element we want to access
+    *  \return                *(std::next(data, index))
     */
    constexpr reference operator[](const size_type index) noexcept
    {
@@ -169,8 +146,8 @@ template <typename T> class span {
    }
 
    /*! \brief                 Unchecked const access operator
-    *   \param[in] index       Index of the element we want to access
-    *   \return                *(std::next(data, index))
+    *  \param[in] index       Index of the element we want to access
+    *  \return                *(std::next(data, index))
     */
    constexpr const_reference operator[](const size_type index) const noexcept
    {
@@ -179,7 +156,7 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns a reference to the last element of the span
-    *   \return                *(std::next(data, length - 1))
+    *  \return                *(std::next(data, length - 1))
     */
    constexpr reference back() noexcept
    {
@@ -188,7 +165,7 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns a const_reference to the last element of the span
-    *   \return                *(std::next(data, length - 1))
+    *  \return                *(std::next(data, length - 1))
     */
    constexpr const_reference back() const noexcept
    {
@@ -197,7 +174,7 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns a reference to the first element of the span
-    *   \return                *begin()
+    *  \return                *begin()
     */
    constexpr reference front() noexcept
    {
@@ -206,7 +183,7 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns a const_reference to the first element of the span
-    *   \return                *cbegin()
+    *  \return                *cbegin()
     */
    constexpr const_reference front() const noexcept
    {
@@ -215,20 +192,14 @@ template <typename T> class span {
    }
 
    /*! \brief                 Returns true if the span is empty
-    *   \return                length == 0
+    *  \return                length == 0
     */
-   constexpr bool empty() const noexcept
-   {
-      return length == 0;
-   }
+   constexpr bool empty() const noexcept { return length == 0; }
 
    /*! \brief                 Returns the size of the span
-    *   \return                length == 0
+    *  \return                length == 0
     */
-   constexpr size_type size() const noexcept
-   {
-      return length;
-   }
+   constexpr size_type size() const noexcept { return length; }
 
    /*! \brief                 Decreases the size of the span by 1
     */
@@ -240,10 +211,7 @@ template <typename T> class span {
 
    /*! \brief                 Adds an element to the end of the span
     */
-   constexpr void push_back(const_reference val) noexcept
-   {
-      *std::next(begin(), length++) = val;
-   }
+   constexpr void push_back(const_reference val) noexcept { *std::next(begin(), length++) = val; }
 
    /*! \brief                 Clears the span
     */
@@ -358,25 +326,13 @@ struct IDSet {
       return it;
    }
 
-   Iterator begin() const
-   {
-      return cbegin();
-   }
+   Iterator begin() const { return cbegin(); }
 
-   Iterator end() const
-   {
-      return cend();
-   }
+   Iterator end() const { return cend(); }
 
-   bool empty() const
-   {
-      return bits_set == 0;
-   }
+   bool empty() const { return bits_set == 0; }
 
-   size_t size() const
-   {
-      return bits_set;
-   }
+   size_t size() const { return bits_set; }
 
    std::vector<uint64_t> words;
    uint32_t bits_set = 0;

@@ -24,7 +24,7 @@ struct asm_context {
    const int16_t* opcode;
    // TODO: keep track of branch instructions referring blocks
    // and, when emitting the block, correct the offset in instr
-   asm_context(Program* program_): program(program_), chip_class(program->chip_class)
+   asm_context(Program* program_) : program(program_), chip_class(program->chip_class)
    {
       if (chip_class <= GFX7)
          opcode = &instr_info.opcode_gfx7[0];
@@ -802,9 +802,8 @@ insert_code(asm_context& ctx, std::vector<uint32_t>& out, unsigned insert_before
 
    /* Find first branch after the inserted code */
    auto branch_it = std::find_if(ctx.branches.begin(), ctx.branches.end(),
-                                 [insert_before](const auto& branch) -> bool {
-                                    return (unsigned)branch.first >= insert_before;
-                                 });
+                                 [insert_before](const auto& branch) -> bool
+                                 { return (unsigned)branch.first >= insert_before; });
 
    /* Update the locations of branches */
    for (; branch_it != ctx.branches.end(); ++branch_it)
@@ -829,8 +828,9 @@ fix_branches_gfx10(asm_context& ctx, std::vector<uint32_t>& out)
    bool gfx10_3f_bug = false;
 
    do {
-      auto buggy_branch_it =
-         std::find_if(ctx.branches.begin(), ctx.branches.end(), [&ctx](const auto& branch) -> bool {
+      auto buggy_branch_it = std::find_if(
+         ctx.branches.begin(), ctx.branches.end(),
+         [&ctx](const auto& branch) -> bool {
             return ((int)ctx.program->blocks[branch.second->block].offset - branch.first - 1) ==
                    0x3f;
          });
@@ -862,26 +862,13 @@ emit_long_jump(asm_context& ctx, SOPP_instruction* branch, bool backwards,
       /* for conditional branches, skip the long jump if the condition is false */
       aco_opcode inv;
       switch (branch->opcode) {
-      case aco_opcode::s_cbranch_scc0:
-         inv = aco_opcode::s_cbranch_scc1;
-         break;
-      case aco_opcode::s_cbranch_scc1:
-         inv = aco_opcode::s_cbranch_scc0;
-         break;
-      case aco_opcode::s_cbranch_vccz:
-         inv = aco_opcode::s_cbranch_vccnz;
-         break;
-      case aco_opcode::s_cbranch_vccnz:
-         inv = aco_opcode::s_cbranch_vccz;
-         break;
-      case aco_opcode::s_cbranch_execz:
-         inv = aco_opcode::s_cbranch_execnz;
-         break;
-      case aco_opcode::s_cbranch_execnz:
-         inv = aco_opcode::s_cbranch_execz;
-         break;
-      default:
-         unreachable("Unhandled long jump.");
+      case aco_opcode::s_cbranch_scc0: inv = aco_opcode::s_cbranch_scc1; break;
+      case aco_opcode::s_cbranch_scc1: inv = aco_opcode::s_cbranch_scc0; break;
+      case aco_opcode::s_cbranch_vccz: inv = aco_opcode::s_cbranch_vccnz; break;
+      case aco_opcode::s_cbranch_vccnz: inv = aco_opcode::s_cbranch_vccz; break;
+      case aco_opcode::s_cbranch_execz: inv = aco_opcode::s_cbranch_execnz; break;
+      case aco_opcode::s_cbranch_execnz: inv = aco_opcode::s_cbranch_execz; break;
+      default: unreachable("Unhandled long jump.");
       }
       instr.reset(bld.sopp(inv, -1, 7));
       emit_instruction(ctx, out, instr.get());

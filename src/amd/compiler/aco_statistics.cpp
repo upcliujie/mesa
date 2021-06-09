@@ -54,9 +54,7 @@ class BlockCycleEstimator {
       resource_count,
    };
 
-   BlockCycleEstimator(Program* program_): program(program_)
-   {
-   }
+   BlockCycleEstimator(Program* program_) : program(program_) {}
 
    Program* program;
 
@@ -116,84 +114,61 @@ get_perf_info(Program* program, aco_ptr<Instruction>& instr)
       switch (cls) {
       case instr_class::valu32:
       case instr_class::valu_convert32:
-      case instr_class::valu_fma:
-         return {5, WAIT_USE(valu, 1)};
-      case instr_class::valu64:
-         return {6, WAIT_USE(valu, 2), WAIT_USE(valu_complex, 2)};
+      case instr_class::valu_fma: return {5, WAIT_USE(valu, 1)};
+      case instr_class::valu64: return {6, WAIT_USE(valu, 2), WAIT_USE(valu_complex, 2)};
       case instr_class::valu_quarter_rate32:
          return {8, WAIT_USE(valu, 4), WAIT_USE(valu_complex, 4)};
       case instr_class::valu_transcendental32:
          return {10, WAIT_USE(valu, 1), WAIT_USE(valu_complex, 4)};
-      case instr_class::valu_double:
-         return {22, WAIT_USE(valu, 16), WAIT_USE(valu_complex, 16)};
+      case instr_class::valu_double: return {22, WAIT_USE(valu, 16), WAIT_USE(valu_complex, 16)};
       case instr_class::valu_double_add:
          return {22, WAIT_USE(valu, 16), WAIT_USE(valu_complex, 16)};
       case instr_class::valu_double_convert:
          return {22, WAIT_USE(valu, 16), WAIT_USE(valu_complex, 16)};
       case instr_class::valu_double_transcendental:
          return {24, WAIT_USE(valu, 16), WAIT_USE(valu_complex, 16)};
-      case instr_class::salu:
-         return {2, WAIT_USE(scalar, 1)};
-      case instr_class::smem:
-         return {0, WAIT_USE(scalar, 1)};
+      case instr_class::salu: return {2, WAIT_USE(scalar, 1)};
+      case instr_class::smem: return {0, WAIT_USE(scalar, 1)};
       case instr_class::branch:
-      case instr_class::sendmsg:
-         return {0, WAIT_USE(branch_sendmsg, 1)};
+      case instr_class::sendmsg: return {0, WAIT_USE(branch_sendmsg, 1)};
       case instr_class::ds:
          return instr->ds().gds ? perf_info{0, WAIT_USE(export_gds, 1)}
                                 : perf_info{0, WAIT_USE(lds, 1)};
-      case instr_class::exp:
-         return {0, WAIT_USE(export_gds, 1)};
-      case instr_class::vmem:
-         return {0, WAIT_USE(vmem, 1)};
+      case instr_class::exp: return {0, WAIT_USE(export_gds, 1)};
+      case instr_class::vmem: return {0, WAIT_USE(vmem, 1)};
       case instr_class::barrier:
       case instr_class::waitcnt:
       case instr_class::other:
-      default:
-         return {0};
+      default: return {0};
       }
    } else {
       switch (cls) {
-      case instr_class::valu32:
-         return {4, WAIT_USE(valu, 4)};
-      case instr_class::valu_convert32:
-         return {16, WAIT_USE(valu, 16)};
-      case instr_class::valu64:
-         return {8, WAIT_USE(valu, 8)};
-      case instr_class::valu_quarter_rate32:
-         return {16, WAIT_USE(valu, 16)};
+      case instr_class::valu32: return {4, WAIT_USE(valu, 4)};
+      case instr_class::valu_convert32: return {16, WAIT_USE(valu, 16)};
+      case instr_class::valu64: return {8, WAIT_USE(valu, 8)};
+      case instr_class::valu_quarter_rate32: return {16, WAIT_USE(valu, 16)};
       case instr_class::valu_fma:
          return program->dev.has_fast_fma32 ? perf_info{4, WAIT_USE(valu, 4)}
                                             : perf_info{16, WAIT_USE(valu, 16)};
-      case instr_class::valu_transcendental32:
-         return {16, WAIT_USE(valu, 16)};
-      case instr_class::valu_double:
-         return {64, WAIT_USE(valu, 64)};
-      case instr_class::valu_double_add:
-         return {32, WAIT_USE(valu, 32)};
-      case instr_class::valu_double_convert:
-         return {16, WAIT_USE(valu, 16)};
-      case instr_class::valu_double_transcendental:
-         return {64, WAIT_USE(valu, 64)};
-      case instr_class::salu:
-         return {4, WAIT_USE(scalar, 4)};
-      case instr_class::smem:
-         return {4, WAIT_USE(scalar, 4)};
+      case instr_class::valu_transcendental32: return {16, WAIT_USE(valu, 16)};
+      case instr_class::valu_double: return {64, WAIT_USE(valu, 64)};
+      case instr_class::valu_double_add: return {32, WAIT_USE(valu, 32)};
+      case instr_class::valu_double_convert: return {16, WAIT_USE(valu, 16)};
+      case instr_class::valu_double_transcendental: return {64, WAIT_USE(valu, 64)};
+      case instr_class::salu: return {4, WAIT_USE(scalar, 4)};
+      case instr_class::smem: return {4, WAIT_USE(scalar, 4)};
       case instr_class::branch:
          return {8, WAIT_USE(branch_sendmsg, 8)};
          return {4, WAIT_USE(branch_sendmsg, 4)};
       case instr_class::ds:
          return instr->ds().gds ? perf_info{4, WAIT_USE(export_gds, 4)}
                                 : perf_info{4, WAIT_USE(lds, 4)};
-      case instr_class::exp:
-         return {16, WAIT_USE(export_gds, 16)};
-      case instr_class::vmem:
-         return {4, WAIT_USE(vmem, 4)};
+      case instr_class::exp: return {16, WAIT_USE(export_gds, 16)};
+      case instr_class::vmem: return {4, WAIT_USE(vmem, 4)};
       case instr_class::barrier:
       case instr_class::waitcnt:
       case instr_class::other:
-      default:
-         return {4};
+      default: return {4};
       }
    }
 
@@ -366,10 +341,8 @@ is_vector(aco_opcode op)
    case instr_class::exp:
    case instr_class::valu64:
    case instr_class::valu_quarter_rate32:
-   case instr_class::valu_transcendental32:
-      return true;
-   default:
-      return false;
+   case instr_class::valu_transcendental32: return true;
+   default: return false;
    }
 }
 
@@ -472,9 +445,9 @@ collect_preasm_stats(Program* program)
             program->statistics[statistic_instructions] += 2;
 
          if (instr->isVMEM() && !instr->operands.empty()) {
-            if (std::none_of(vmem_clause.begin(), vmem_clause.end(), [&](Instruction* other) {
-                   return should_form_clause(instr.get(), other);
-                }))
+            if (std::none_of(vmem_clause.begin(), vmem_clause.end(),
+                             [&](Instruction* other)
+                             { return should_form_clause(instr.get(), other); }))
                program->statistics[statistic_vmem_clauses]++;
             vmem_clause.insert(instr.get());
          } else {
@@ -482,9 +455,9 @@ collect_preasm_stats(Program* program)
          }
 
          if (instr->isSMEM() && !instr->operands.empty()) {
-            if (std::none_of(smem_clause.begin(), smem_clause.end(), [&](Instruction* other) {
-                   return should_form_clause(instr.get(), other);
-                }))
+            if (std::none_of(smem_clause.begin(), smem_clause.end(),
+                             [&](Instruction* other)
+                             { return should_form_clause(instr.get(), other); }))
                program->statistics[statistic_smem_clauses]++;
             smem_clause.insert(instr.get());
          } else {

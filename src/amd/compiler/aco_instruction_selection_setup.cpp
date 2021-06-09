@@ -56,8 +56,7 @@ get_interp_input(nir_intrinsic_op intrin, enum glsl_interp_mode interp)
       else if (intrin == nir_intrinsic_load_barycentric_sample)
          return S_0286CC_LINEAR_SAMPLE_ENA(1);
       break;
-   default:
-      break;
+   default: break;
    }
    return 0;
 }
@@ -141,8 +140,7 @@ sanitize_cf_list(nir_function_impl* impl, struct exec_list* cf_list)
    bool progress = false;
    foreach_list_typed (nir_cf_node, cf_node, node, cf_list) {
       switch (cf_node->type) {
-      case nir_cf_node_block:
-         break;
+      case nir_cf_node_block: break;
       case nir_cf_node_if: {
          nir_if* nif = nir_cf_node_as_if(cf_node);
          progress |= sanitize_cf_list(impl, &nif->then_list);
@@ -155,8 +153,7 @@ sanitize_cf_list(nir_function_impl* impl, struct exec_list* cf_list)
          progress |= sanitize_cf_list(impl, &loop->body);
          break;
       }
-      case nir_cf_node_function:
-         unreachable("Invalid cf type");
+      case nir_cf_node_function: unreachable("Invalid cf type");
       }
    }
 
@@ -262,8 +259,7 @@ fill_desc_set_info(isel_context* ctx, nir_function_impl* impl)
             res = intrin->src[0].ssa;
             flags |= has_glc_vmem_load | has_glc_vmem_store;
             break;
-         default:
-            continue;
+         default: continue;
          }
 
          uint8_t* flags_ptr;
@@ -330,8 +326,7 @@ apply_nuw_to_offsets(isel_context* ctx, nir_function_impl* impl)
             if (!nir_src_is_divergent(intrin->src[2]))
                apply_nuw_to_ssa(ctx, intrin->src[2].ssa);
             break;
-         default:
-            break;
+         default: break;
          }
       }
    }
@@ -507,8 +502,7 @@ setup_variables(isel_context* ctx, nir_shader* nir)
       setup_tes_variables(ctx, nir);
       break;
    }
-   default:
-      unreachable("Unhandled shader stage.");
+   default: unreachable("Unhandled shader stage.");
    }
 
    /* Make sure we fit the available LDS space. */
@@ -565,28 +559,18 @@ init_context(isel_context* ctx, nir_shader* shader)
          switch (dfmt) {
          case V_008F0C_BUF_DATA_FORMAT_8:
          case V_008F0C_BUF_DATA_FORMAT_8_8:
-         case V_008F0C_BUF_DATA_FORMAT_8_8_8_8:
-            max = uscaled ? 0x437f0000u : UINT8_MAX;
-            break;
+         case V_008F0C_BUF_DATA_FORMAT_8_8_8_8: max = uscaled ? 0x437f0000u : UINT8_MAX; break;
          case V_008F0C_BUF_DATA_FORMAT_10_10_10_2:
-         case V_008F0C_BUF_DATA_FORMAT_2_10_10_10:
-            max = uscaled ? 0x447fc000u : 1023;
-            break;
+         case V_008F0C_BUF_DATA_FORMAT_2_10_10_10: max = uscaled ? 0x447fc000u : 1023; break;
          case V_008F0C_BUF_DATA_FORMAT_10_11_11:
-         case V_008F0C_BUF_DATA_FORMAT_11_11_10:
-            max = uscaled ? 0x44ffe000u : 2047;
-            break;
+         case V_008F0C_BUF_DATA_FORMAT_11_11_10: max = uscaled ? 0x44ffe000u : 2047; break;
          case V_008F0C_BUF_DATA_FORMAT_16:
          case V_008F0C_BUF_DATA_FORMAT_16_16:
-         case V_008F0C_BUF_DATA_FORMAT_16_16_16_16:
-            max = uscaled ? 0x477fff00u : UINT16_MAX;
-            break;
+         case V_008F0C_BUF_DATA_FORMAT_16_16_16_16: max = uscaled ? 0x477fff00u : UINT16_MAX; break;
          case V_008F0C_BUF_DATA_FORMAT_32:
          case V_008F0C_BUF_DATA_FORMAT_32_32:
          case V_008F0C_BUF_DATA_FORMAT_32_32_32:
-         case V_008F0C_BUF_DATA_FORMAT_32_32_32_32:
-            max = uscaled ? 0x4f800000u : UINT32_MAX;
-            break;
+         case V_008F0C_BUF_DATA_FORMAT_32_32_32_32: max = uscaled ? 0x4f800000u : UINT32_MAX; break;
          }
       }
       ctx->ub_config.vertex_attrib_max[i] = max;
@@ -677,9 +661,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                case nir_op_frexp_sig:
                case nir_op_frexp_exp:
                case nir_op_cube_face_index:
-               case nir_op_cube_face_coord:
-                  type = RegType::vgpr;
-                  break;
+               case nir_op_cube_face_coord: type = RegType::vgpr; break;
                case nir_op_f2i16:
                case nir_op_f2u16:
                case nir_op_f2i32:
@@ -693,8 +675,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                case nir_op_b2b32:
                case nir_op_b2f16:
                case nir_op_b2f32:
-               case nir_op_mov:
-                  break;
+               case nir_op_mov: break;
                case nir_op_iadd:
                case nir_op_isub:
                case nir_op_imul:
@@ -758,9 +739,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                case nir_intrinsic_has_input_primitive_amd:
                case nir_intrinsic_load_workgroup_num_input_vertices_amd:
                case nir_intrinsic_load_workgroup_num_input_primitives_amd:
-               case nir_intrinsic_load_shader_query_enabled_amd:
-                  type = RegType::sgpr;
-                  break;
+               case nir_intrinsic_load_shader_query_enabled_amd: type = RegType::sgpr; break;
                case nir_intrinsic_load_sample_id:
                case nir_intrinsic_load_sample_mask_in:
                case nir_intrinsic_load_input:
@@ -840,9 +819,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                case nir_intrinsic_load_packed_passthrough_primitive_amd:
                case nir_intrinsic_gds_atomic_add_amd:
                case nir_intrinsic_load_sbt_amd:
-               case nir_intrinsic_bvh64_intersect_ray_amd:
-                  type = RegType::vgpr;
-                  break;
+               case nir_intrinsic_bvh64_intersect_ray_amd: type = RegType::vgpr; break;
                case nir_intrinsic_shuffle:
                case nir_intrinsic_quad_broadcast:
                case nir_intrinsic_quad_swap_horizontal:
@@ -918,8 +895,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                   spi_ps_inputs |= S_0286CC_ANCILLARY_ENA(1);
                   spi_ps_inputs |= S_0286CC_SAMPLE_COVERAGE_ENA(1);
                   break;
-               default:
-                  break;
+               default: break;
                }
                break;
             }
@@ -971,8 +947,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                regclasses[phi->dest.ssa.index] = rc;
                break;
             }
-            default:
-               break;
+            default: break;
             }
          }
       }
@@ -1015,26 +990,15 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
    SWStage sw_stage = SWStage::None;
    for (unsigned i = 0; i < shader_count; i++) {
       switch (shaders[i]->info.stage) {
-      case MESA_SHADER_VERTEX:
-         sw_stage = sw_stage | SWStage::VS;
-         break;
-      case MESA_SHADER_TESS_CTRL:
-         sw_stage = sw_stage | SWStage::TCS;
-         break;
-      case MESA_SHADER_TESS_EVAL:
-         sw_stage = sw_stage | SWStage::TES;
-         break;
+      case MESA_SHADER_VERTEX: sw_stage = sw_stage | SWStage::VS; break;
+      case MESA_SHADER_TESS_CTRL: sw_stage = sw_stage | SWStage::TCS; break;
+      case MESA_SHADER_TESS_EVAL: sw_stage = sw_stage | SWStage::TES; break;
       case MESA_SHADER_GEOMETRY:
          sw_stage = sw_stage | (is_gs_copy_shader ? SWStage::GSCopy : SWStage::GS);
          break;
-      case MESA_SHADER_FRAGMENT:
-         sw_stage = sw_stage | SWStage::FS;
-         break;
-      case MESA_SHADER_COMPUTE:
-         sw_stage = sw_stage | SWStage::CS;
-         break;
-      default:
-         unreachable("Shader stage not implemented");
+      case MESA_SHADER_FRAGMENT: sw_stage = sw_stage | SWStage::FS; break;
+      case MESA_SHADER_COMPUTE: sw_stage = sw_stage | SWStage::CS; break;
+      default: unreachable("Shader stage not implemented");
       }
    }
    bool gfx9_plus = args->options->chip_class >= GFX9;

@@ -54,9 +54,7 @@ struct assignment {
    RegClass rc;
    uint8_t assigned = 0;
    assignment() = default;
-   assignment(PhysReg reg_, RegClass rc_): reg(reg_), rc(rc_), assigned(-1)
-   {
-   }
+   assignment(PhysReg reg_, RegClass rc_) : reg(reg_), rc(rc_), assigned(-1) {}
 };
 
 struct ra_ctx {
@@ -100,10 +98,7 @@ struct PhysRegIterator {
 
    PhysReg reg;
 
-   PhysReg operator*() const
-   {
-      return reg;
-   }
+   PhysReg operator*() const { return reg; }
 
    PhysRegIterator& operator++()
    {
@@ -117,20 +112,11 @@ struct PhysRegIterator {
       return *this;
    }
 
-   bool operator==(PhysRegIterator oth) const
-   {
-      return reg == oth.reg;
-   }
+   bool operator==(PhysRegIterator oth) const { return reg == oth.reg; }
 
-   bool operator!=(PhysRegIterator oth) const
-   {
-      return reg != oth.reg;
-   }
+   bool operator!=(PhysRegIterator oth) const { return reg != oth.reg; }
 
-   bool operator<(PhysRegIterator oth) const
-   {
-      return reg < oth.reg;
-   }
+   bool operator<(PhysRegIterator oth) const { return reg < oth.reg; }
 };
 
 /* Half-open register interval used in "sliding window"-style for-loops */
@@ -139,16 +125,10 @@ struct PhysRegInterval {
    unsigned size;
 
    /* Inclusive lower bound */
-   PhysReg lo() const
-   {
-      return lo_;
-   }
+   PhysReg lo() const { return lo_; }
 
    /* Exclusive upper bound */
-   PhysReg hi() const
-   {
-      return PhysReg{lo() + size};
-   }
+   PhysReg hi() const { return PhysReg{lo() + size}; }
 
    PhysRegInterval& operator+=(uint32_t stride)
    {
@@ -156,36 +136,21 @@ struct PhysRegInterval {
       return *this;
    }
 
-   bool operator!=(const PhysRegInterval& oth) const
-   {
-      return lo_ != oth.lo_ || size != oth.size;
-   }
+   bool operator!=(const PhysRegInterval& oth) const { return lo_ != oth.lo_ || size != oth.size; }
 
    /* Construct a half-open interval, excluding the end register */
-   static PhysRegInterval from_until(PhysReg first, PhysReg end)
-   {
-      return {first, end - first};
-   }
+   static PhysRegInterval from_until(PhysReg first, PhysReg end) { return {first, end - first}; }
 
-   bool contains(PhysReg reg) const
-   {
-      return lo() <= reg && reg < hi();
-   }
+   bool contains(PhysReg reg) const { return lo() <= reg && reg < hi(); }
 
    bool contains(const PhysRegInterval& needle) const
    {
       return needle.lo() >= lo() && needle.hi() <= hi();
    }
 
-   PhysRegIterator begin() const
-   {
-      return {lo_};
-   }
+   PhysRegIterator begin() const { return {lo_}; }
 
-   PhysRegIterator end() const
-   {
-      return {PhysReg{lo_ + size}};
-   }
+   PhysRegIterator end() const { return {PhysReg{lo_ + size}}; }
 };
 
 bool
@@ -228,7 +193,7 @@ struct DefInfo {
    uint8_t stride;
    RegClass rc;
 
-   DefInfo(ra_ctx& ctx, aco_ptr<Instruction>& instr, RegClass rc_, int operand): rc(rc_)
+   DefInfo(ra_ctx& ctx, aco_ptr<Instruction>& instr, RegClass rc_, int operand) : rc(rc_)
    {
       size = rc.size();
       stride = get_stride(rc);
@@ -258,23 +223,14 @@ struct DefInfo {
 
 class RegisterFile {
  public:
-   RegisterFile()
-   {
-      regs.fill(0);
-   }
+   RegisterFile() { regs.fill(0); }
 
    std::array<uint32_t, 512> regs;
    std::map<uint32_t, std::array<uint32_t, 4>> subdword_regs;
 
-   const uint32_t& operator[](PhysReg index) const
-   {
-      return regs[index];
-   }
+   const uint32_t& operator[](PhysReg index) const { return regs[index]; }
 
-   uint32_t& operator[](PhysReg index)
-   {
-      return regs[index];
-   }
+   uint32_t& operator[](PhysReg index) { return regs[index]; }
 
    unsigned count_zero(PhysRegInterval reg_interval)
    {
@@ -348,10 +304,7 @@ class RegisterFile {
          fill(op.physReg(), op.size(), op.tempId());
    }
 
-   void clear(Operand op)
-   {
-      clear(op.physReg(), op.regClass());
-   }
+   void clear(Operand op) { clear(op.physReg(), op.regClass()); }
 
    void fill(Definition def)
    {
@@ -361,10 +314,7 @@ class RegisterFile {
          fill(def.physReg(), def.size(), def.tempId());
    }
 
-   void clear(Definition def)
-   {
-      clear(def.physReg(), def.regClass());
-   }
+   void clear(Definition def) { clear(def.physReg(), def.regClass()); }
 
    unsigned get_id(PhysReg reg)
    {
@@ -408,8 +358,14 @@ print_reg(const RegisterFile& reg_file, PhysReg reg, bool has_adjacent_variable)
    } else if (reg_file[reg]) {
       const bool show_subdword_alloc = (reg_file[reg] == 0xF0000000);
       if (show_subdword_alloc) {
-         const char* block_chars[] = {"?", "▘", "▝", "▀", "▖", "▌", "▞", "▛",
-                                      "▗", "▚", "▐", "▜", "▄", "▙", "▟", "▉"};
+         const char* block_chars[] = {
+            // clang-format off
+            "?", "▘", "▝", "▀",
+            "▖", "▌", "▞", "▛",
+            "▗", "▚", "▐", "▜",
+            "▄", "▙", "▟", "▉"
+            // clang-format on
+         };
          unsigned index = 0;
          for (int i = 0; i < 4; ++i) {
             if (reg_file.subdword_regs.at(reg)[i]) {
@@ -528,8 +484,7 @@ get_subdword_operand_stride(chip_class chip, const aco_ptr<Instruction>& instr, 
 
    switch (instr->opcode) {
    case aco_opcode::ds_write_b8:
-   case aco_opcode::ds_write_b16:
-      return chip >= GFX8 ? 2 : 4;
+   case aco_opcode::ds_write_b16: return chip >= GFX8 ? 2 : 4;
    case aco_opcode::buffer_store_byte:
    case aco_opcode::buffer_store_short:
    case aco_opcode::flat_store_byte:
@@ -537,10 +492,8 @@ get_subdword_operand_stride(chip_class chip, const aco_ptr<Instruction>& instr, 
    case aco_opcode::scratch_store_byte:
    case aco_opcode::scratch_store_short:
    case aco_opcode::global_store_byte:
-   case aco_opcode::global_store_short:
-      return chip >= GFX9 ? 2 : 4;
-   default:
-      break;
+   case aco_opcode::global_store_short: return chip >= GFX9 ? 2 : 4;
+   default: break;
    }
 
    return 4;
@@ -558,18 +511,10 @@ add_subdword_operand(ra_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, uns
 
    if (!instr->usesModifiers() && instr->opcode == aco_opcode::v_cvt_f32_ubyte0) {
       switch (byte) {
-      case 0:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte0;
-         break;
-      case 1:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte1;
-         break;
-      case 2:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte2;
-         break;
-      case 3:
-         instr->opcode = aco_opcode::v_cvt_f32_ubyte3;
-         break;
+      case 0: instr->opcode = aco_opcode::v_cvt_f32_ubyte0; break;
+      case 1: instr->opcode = aco_opcode::v_cvt_f32_ubyte1; break;
+      case 2: instr->opcode = aco_opcode::v_cvt_f32_ubyte2; break;
+      case 3: instr->opcode = aco_opcode::v_cvt_f32_ubyte3; break;
       }
       return;
    } else if (can_use_SDWA(chip, instr, false)) {
@@ -635,11 +580,8 @@ get_subdword_definition_info(Program* program, const aco_ptr<Instruction>& instr
    case aco_opcode::v_mad_i16:
    case aco_opcode::v_fma_f16:
    case aco_opcode::v_div_fixup_f16:
-   case aco_opcode::v_interp_p2_f16:
-      bytes_written = chip >= GFX9 ? rc.bytes() : 4u;
-      break;
-   default:
-      break;
+   case aco_opcode::v_interp_p2_f16: bytes_written = chip >= GFX9 ? rc.bytes() : 4u; break;
+   default: break;
    }
    bytes_written = bytes_written > 4 ? align(bytes_written, 4) : bytes_written;
    bytes_written = MAX2(bytes_written, instr_info.definition_size[(int)instr->opcode] / 8u);
@@ -665,10 +607,8 @@ get_subdword_definition_info(Program* program, const aco_ptr<Instruction>& instr
          return std::make_pair(2u, 2u);
       else
          return std::make_pair(2u, 4u);
-   case aco_opcode::v_fma_mixlo_f16:
-      return std::make_pair(2u, 2u);
-   default:
-      break;
+   case aco_opcode::v_fma_mixlo_f16: return std::make_pair(2u, 2u);
+   default: break;
    }
 
    return std::make_pair(4u, bytes_written);
@@ -831,9 +771,8 @@ get_reg_simple(ra_ctx& ctx, RegisterFile& reg_file, DefInfo info)
          return res;
    }
 
-   auto is_free = [&](PhysReg reg_index) {
-      return reg_file[reg_index] == 0 && !ctx.war_hint[reg_index];
-   };
+   auto is_free = [&](PhysReg reg_index)
+   { return reg_file[reg_index] == 0 && !ctx.war_hint[reg_index]; };
 
    if (stride == 1) {
       /* best fit algorithm: find the smallest gap to fit in the variable */
@@ -1346,18 +1285,14 @@ increase_register_file(ra_ctx& ctx, RegType type)
 }
 
 struct IDAndRegClass {
-   IDAndRegClass(unsigned id_, RegClass rc_): id(id_), rc(rc_)
-   {
-   }
+   IDAndRegClass(unsigned id_, RegClass rc_) : id(id_), rc(rc_) {}
 
    unsigned id;
    RegClass rc;
 };
 
 struct IDAndInfo {
-   IDAndInfo(unsigned id_, DefInfo info_): id(id_), info(info_)
-   {
-   }
+   IDAndInfo(unsigned id_, DefInfo info_) : id(id_), info(info_) {}
 
    unsigned id;
    DefInfo info;
@@ -1380,18 +1315,21 @@ compact_relocate_vars(ra_ctx& ctx, const std::vector<IDAndRegClass>& vars,
       sorted.emplace_back(var.id, info);
    }
 
-   std::sort(sorted.begin(), sorted.end(), [&ctx](const IDAndInfo& a, const IDAndInfo& b) {
-      unsigned a_stride = a.info.stride * (a.info.rc.is_subdword() ? 1 : 4);
-      unsigned b_stride = b.info.stride * (b.info.rc.is_subdword() ? 1 : 4);
-      if (a_stride > b_stride)
-         return true;
-      if (a_stride < b_stride)
-         return false;
-      if (a.id == 0xffffffff || b.id == 0xffffffff)
-         return a.id ==
-                0xffffffff; /* place 0xffffffff before others if possible, not for any reason */
-      return ctx.assignments[a.id].reg < ctx.assignments[b.id].reg;
-   });
+   std::sort(
+      sorted.begin(), sorted.end(),
+      [&ctx](const IDAndInfo& a, const IDAndInfo& b)
+      {
+         unsigned a_stride = a.info.stride * (a.info.rc.is_subdword() ? 1 : 4);
+         unsigned b_stride = b.info.stride * (b.info.rc.is_subdword() ? 1 : 4);
+         if (a_stride > b_stride)
+            return true;
+         if (a_stride < b_stride)
+            return false;
+         if (a.id == 0xffffffff || b.id == 0xffffffff)
+            return a.id ==
+                   0xffffffff; /* place 0xffffffff before others if possible, not for any reason */
+         return ctx.assignments[a.id].reg < ctx.assignments[b.id].reg;
+      });
 
    PhysReg next_reg = start;
    PhysReg space_reg;
@@ -1747,10 +1685,8 @@ handle_pseudo(ra_ctx& ctx, const RegisterFile& reg_file, Instruction* instr)
    case aco_opcode::p_create_vector:
    case aco_opcode::p_split_vector:
    case aco_opcode::p_parallelcopy:
-   case aco_opcode::p_wqm:
-      break;
-   default:
-      return;
+   case aco_opcode::p_wqm: break;
+   default: return;
    }
 
    /* if all definitions are vgpr, no need to care for SCC */
@@ -2243,9 +2179,9 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
             if (reg == scc) {
                /* only use scc if all operands are already placed there */
                bool use_scc =
-                  std::all_of(phi->operands.begin(), phi->operands.end(), [](const Operand& op) {
-                     return op.isTemp() && op.isFixed() && op.physReg() == scc;
-                  });
+                  std::all_of(phi->operands.begin(), phi->operands.end(),
+                              [](const Operand& op)
+                              { return op.isTemp() && op.isFixed() && op.physReg() == scc; });
                if (!use_scc)
                   continue;
             }
@@ -2458,24 +2394,13 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
                 register_file.test(ctx.assignments[it->second].reg, instr->operands[2].bytes())) {
                instr->format = Format::VOP2;
                switch (instr->opcode) {
-               case aco_opcode::v_mad_f32:
-                  instr->opcode = aco_opcode::v_mac_f32;
-                  break;
-               case aco_opcode::v_fma_f32:
-                  instr->opcode = aco_opcode::v_fmac_f32;
-                  break;
+               case aco_opcode::v_mad_f32: instr->opcode = aco_opcode::v_mac_f32; break;
+               case aco_opcode::v_fma_f32: instr->opcode = aco_opcode::v_fmac_f32; break;
                case aco_opcode::v_mad_f16:
-               case aco_opcode::v_mad_legacy_f16:
-                  instr->opcode = aco_opcode::v_mac_f16;
-                  break;
-               case aco_opcode::v_fma_f16:
-                  instr->opcode = aco_opcode::v_fmac_f16;
-                  break;
-               case aco_opcode::v_pk_fma_f16:
-                  instr->opcode = aco_opcode::v_pk_fmac_f16;
-                  break;
-               default:
-                  break;
+               case aco_opcode::v_mad_legacy_f16: instr->opcode = aco_opcode::v_mac_f16; break;
+               case aco_opcode::v_fma_f16: instr->opcode = aco_opcode::v_fmac_f16; break;
+               case aco_opcode::v_pk_fma_f16: instr->opcode = aco_opcode::v_pk_fmac_f16; break;
+               default: break;
                }
             }
          }

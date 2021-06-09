@@ -92,32 +92,19 @@ struct InstrHash {
          return hash_murmur_32<SDWA_instruction>(instr);
 
       switch (instr->format) {
-      case Format::SMEM:
-         return hash_murmur_32<SMEM_instruction>(instr);
-      case Format::VINTRP:
-         return hash_murmur_32<Interp_instruction>(instr);
-      case Format::DS:
-         return hash_murmur_32<DS_instruction>(instr);
-      case Format::SOPP:
-         return hash_murmur_32<SOPP_instruction>(instr);
-      case Format::SOPK:
-         return hash_murmur_32<SOPK_instruction>(instr);
-      case Format::EXP:
-         return hash_murmur_32<Export_instruction>(instr);
-      case Format::MUBUF:
-         return hash_murmur_32<MUBUF_instruction>(instr);
-      case Format::MIMG:
-         return hash_murmur_32<MIMG_instruction>(instr);
-      case Format::MTBUF:
-         return hash_murmur_32<MTBUF_instruction>(instr);
-      case Format::FLAT:
-         return hash_murmur_32<FLAT_instruction>(instr);
-      case Format::PSEUDO_BRANCH:
-         return hash_murmur_32<Pseudo_branch_instruction>(instr);
-      case Format::PSEUDO_REDUCTION:
-         return hash_murmur_32<Pseudo_reduction_instruction>(instr);
-      default:
-         return hash_murmur_32<Instruction>(instr);
+      case Format::SMEM: return hash_murmur_32<SMEM_instruction>(instr);
+      case Format::VINTRP: return hash_murmur_32<Interp_instruction>(instr);
+      case Format::DS: return hash_murmur_32<DS_instruction>(instr);
+      case Format::SOPP: return hash_murmur_32<SOPP_instruction>(instr);
+      case Format::SOPK: return hash_murmur_32<SOPK_instruction>(instr);
+      case Format::EXP: return hash_murmur_32<Export_instruction>(instr);
+      case Format::MUBUF: return hash_murmur_32<MUBUF_instruction>(instr);
+      case Format::MIMG: return hash_murmur_32<MIMG_instruction>(instr);
+      case Format::MTBUF: return hash_murmur_32<MTBUF_instruction>(instr);
+      case Format::FLAT: return hash_murmur_32<FLAT_instruction>(instr);
+      case Format::PSEUDO_BRANCH: return hash_murmur_32<Pseudo_branch_instruction>(instr);
+      case Format::PSEUDO_REDUCTION: return hash_murmur_32<Pseudo_reduction_instruction>(instr);
+      default: return hash_murmur_32<Instruction>(instr);
       }
    }
 };
@@ -280,10 +267,8 @@ struct InstrPred {
       case Format::EXP:
       case Format::SOPP:
       case Format::PSEUDO_BRANCH:
-      case Format::PSEUDO_BARRIER:
-         assert(false);
-      default:
-         return true;
+      case Format::PSEUDO_BARRIER: assert(false);
+      default: return true;
       }
    }
 };
@@ -302,7 +287,7 @@ struct vn_ctx {
     */
    uint32_t exec_id = 1;
 
-   vn_ctx(Program* program_): program(program_)
+   vn_ctx(Program* program_) : program(program_)
    {
       static_assert(sizeof(Temp) == 4, "Temp must fit in 32bits");
       unsigned size = 0;
@@ -343,8 +328,7 @@ can_eliminate(aco_ptr<Instruction>& instr)
    case Format::EXP:
    case Format::SOPP:
    case Format::PSEUDO_BRANCH:
-   case Format::PSEUDO_BARRIER:
-      return false;
+   case Format::PSEUDO_BARRIER: return false;
    case Format::DS:
       return instr->opcode == aco_opcode::ds_bpermute_b32 ||
              instr->opcode == aco_opcode::ds_permute_b32 ||
@@ -356,8 +340,7 @@ can_eliminate(aco_ptr<Instruction>& instr)
       if (!get_sync_info(instr.get()).can_reorder())
          return false;
       break;
-   default:
-      break;
+   default: break;
    }
 
    if (instr->definitions.empty() || instr->opcode == aco_opcode::p_phi ||

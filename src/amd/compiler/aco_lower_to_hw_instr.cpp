@@ -97,10 +97,8 @@ get_reduce_opcode(chip_class chip, ReduceOp op)
          return aco_opcode::v_mul_u32_u24;
       }
       break;
-   case fadd16:
-      return aco_opcode::v_add_f16;
-   case fmul16:
-      return aco_opcode::v_mul_f16;
+   case fadd16: return aco_opcode::v_add_f16;
+   case fmul16: return aco_opcode::v_mul_f16;
    case imax8:
    case imax16:
       if (chip >= GFX10) {
@@ -141,70 +139,41 @@ get_reduce_opcode(chip_class chip, ReduceOp op)
          return aco_opcode::v_max_u32;
       }
       break;
-   case fmin16:
-      return aco_opcode::v_min_f16;
-   case fmax16:
-      return aco_opcode::v_max_f16;
-   case iadd32:
-      return chip >= GFX9 ? aco_opcode::v_add_u32 : aco_opcode::v_add_co_u32;
-   case imul32:
-      return aco_opcode::v_mul_lo_u32;
-   case fadd32:
-      return aco_opcode::v_add_f32;
-   case fmul32:
-      return aco_opcode::v_mul_f32;
-   case imax32:
-      return aco_opcode::v_max_i32;
-   case imin32:
-      return aco_opcode::v_min_i32;
-   case umin32:
-      return aco_opcode::v_min_u32;
-   case umax32:
-      return aco_opcode::v_max_u32;
-   case fmin32:
-      return aco_opcode::v_min_f32;
-   case fmax32:
-      return aco_opcode::v_max_f32;
+   case fmin16: return aco_opcode::v_min_f16;
+   case fmax16: return aco_opcode::v_max_f16;
+   case iadd32: return chip >= GFX9 ? aco_opcode::v_add_u32 : aco_opcode::v_add_co_u32;
+   case imul32: return aco_opcode::v_mul_lo_u32;
+   case fadd32: return aco_opcode::v_add_f32;
+   case fmul32: return aco_opcode::v_mul_f32;
+   case imax32: return aco_opcode::v_max_i32;
+   case imin32: return aco_opcode::v_min_i32;
+   case umin32: return aco_opcode::v_min_u32;
+   case umax32: return aco_opcode::v_max_u32;
+   case fmin32: return aco_opcode::v_min_f32;
+   case fmax32: return aco_opcode::v_max_f32;
    case iand8:
    case iand16:
-   case iand32:
-      return aco_opcode::v_and_b32;
+   case iand32: return aco_opcode::v_and_b32;
    case ixor8:
    case ixor16:
-   case ixor32:
-      return aco_opcode::v_xor_b32;
+   case ixor32: return aco_opcode::v_xor_b32;
    case ior8:
    case ior16:
-   case ior32:
-      return aco_opcode::v_or_b32;
-   case iadd64:
-      return aco_opcode::num_opcodes;
-   case imul64:
-      return aco_opcode::num_opcodes;
-   case fadd64:
-      return aco_opcode::v_add_f64;
-   case fmul64:
-      return aco_opcode::v_mul_f64;
-   case imin64:
-      return aco_opcode::num_opcodes;
-   case imax64:
-      return aco_opcode::num_opcodes;
-   case umin64:
-      return aco_opcode::num_opcodes;
-   case umax64:
-      return aco_opcode::num_opcodes;
-   case fmin64:
-      return aco_opcode::v_min_f64;
-   case fmax64:
-      return aco_opcode::v_max_f64;
-   case iand64:
-      return aco_opcode::num_opcodes;
-   case ior64:
-      return aco_opcode::num_opcodes;
-   case ixor64:
-      return aco_opcode::num_opcodes;
-   default:
-      return aco_opcode::num_opcodes;
+   case ior32: return aco_opcode::v_or_b32;
+   case iadd64: return aco_opcode::num_opcodes;
+   case imul64: return aco_opcode::num_opcodes;
+   case fadd64: return aco_opcode::v_add_f64;
+   case fmul64: return aco_opcode::v_mul_f64;
+   case imin64: return aco_opcode::num_opcodes;
+   case imax64: return aco_opcode::num_opcodes;
+   case umin64: return aco_opcode::num_opcodes;
+   case umax64: return aco_opcode::num_opcodes;
+   case fmin64: return aco_opcode::v_min_f64;
+   case fmax64: return aco_opcode::v_max_f64;
+   case iand64: return aco_opcode::num_opcodes;
+   case ior64: return aco_opcode::num_opcodes;
+   case ixor64: return aco_opcode::num_opcodes;
+   default: return aco_opcode::num_opcodes;
    }
 }
 
@@ -272,20 +241,11 @@ emit_int64_dpp_op(lower_context* ctx, PhysReg dst_reg, PhysReg src0_reg, PhysReg
    } else if (op == umin64 || op == umax64 || op == imin64 || op == imax64) {
       aco_opcode cmp = aco_opcode::num_opcodes;
       switch (op) {
-      case umin64:
-         cmp = aco_opcode::v_cmp_gt_u64;
-         break;
-      case umax64:
-         cmp = aco_opcode::v_cmp_lt_u64;
-         break;
-      case imin64:
-         cmp = aco_opcode::v_cmp_gt_i64;
-         break;
-      case imax64:
-         cmp = aco_opcode::v_cmp_lt_i64;
-         break;
-      default:
-         break;
+      case umin64: cmp = aco_opcode::v_cmp_gt_u64; break;
+      case umax64: cmp = aco_opcode::v_cmp_lt_u64; break;
+      case imin64: cmp = aco_opcode::v_cmp_gt_i64; break;
+      case imax64: cmp = aco_opcode::v_cmp_lt_i64; break;
+      default: break;
       }
 
       if (identity) {
@@ -384,20 +344,11 @@ emit_int64_op(lower_context* ctx, PhysReg dst_reg, PhysReg src0_reg, PhysReg src
    } else if (op == umin64 || op == umax64 || op == imin64 || op == imax64) {
       aco_opcode cmp = aco_opcode::num_opcodes;
       switch (op) {
-      case umin64:
-         cmp = aco_opcode::v_cmp_gt_u64;
-         break;
-      case umax64:
-         cmp = aco_opcode::v_cmp_lt_u64;
-         break;
-      case imin64:
-         cmp = aco_opcode::v_cmp_gt_i64;
-         break;
-      case imax64:
-         cmp = aco_opcode::v_cmp_lt_i64;
-         break;
-      default:
-         break;
+      case umin64: cmp = aco_opcode::v_cmp_gt_u64; break;
+      case umax64: cmp = aco_opcode::v_cmp_lt_u64; break;
+      case imin64: cmp = aco_opcode::v_cmp_gt_i64; break;
+      case imax64: cmp = aco_opcode::v_cmp_lt_i64; break;
+      default: break;
       }
 
       bld.vopc(cmp, bld.def(bld.lm, vcc), src0_64, src1_64);
@@ -852,8 +803,7 @@ emit_reduction(lower_context* ctx, aco_opcode op, ReduceOp reduce_op, unsigned c
                      false, identity);
       }
       break;
-   default:
-      unreachable("Invalid reduction mode");
+   default: unreachable("Invalid reduction mode");
    }
 
    if (op == aco_opcode::p_reduce) {
@@ -2211,8 +2161,7 @@ lower_to_hw_instr(Program* program)
                }
                break;
             }
-            default:
-               break;
+            default: break;
             }
          } else if (instr->isBranch()) {
             Pseudo_branch_instruction* branch = &instr->branch();
@@ -2282,8 +2231,7 @@ lower_to_hw_instr(Program* program)
                   bld.sopp(aco_opcode::s_cbranch_scc0, branch->definitions[0], target);
                }
                break;
-            default:
-               unreachable("Unknown Pseudo branch instruction!");
+            default: unreachable("Unknown Pseudo branch instruction!");
             }
 
          } else if (instr->isReduction()) {

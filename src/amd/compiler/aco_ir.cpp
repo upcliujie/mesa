@@ -71,24 +71,12 @@ init_program(Program* program, Stage stage, struct radv_shader_info* info,
    program->chip_class = chip_class;
    if (family == CHIP_UNKNOWN) {
       switch (chip_class) {
-      case GFX6:
-         program->family = CHIP_TAHITI;
-         break;
-      case GFX7:
-         program->family = CHIP_BONAIRE;
-         break;
-      case GFX8:
-         program->family = CHIP_POLARIS10;
-         break;
-      case GFX9:
-         program->family = CHIP_VEGA10;
-         break;
-      case GFX10:
-         program->family = CHIP_NAVI10;
-         break;
-      default:
-         program->family = CHIP_UNKNOWN;
-         break;
+      case GFX6: program->family = CHIP_TAHITI; break;
+      case GFX7: program->family = CHIP_BONAIRE; break;
+      case GFX8: program->family = CHIP_POLARIS10; break;
+      case GFX9: program->family = CHIP_VEGA10; break;
+      case GFX10: program->family = CHIP_NAVI10; break;
+      default: program->family = CHIP_UNKNOWN; break;
       }
    } else {
       program->family = family;
@@ -146,11 +134,8 @@ init_program(Program* program, Stage stage, struct radv_shader_info* info,
    /* GFX9 APUS */
    case CHIP_RAVEN:
    case CHIP_RAVEN2:
-   case CHIP_RENOIR:
-      program->dev.xnack_enabled = true;
-      break;
-   default:
-      break;
+   case CHIP_RENOIR: program->dev.xnack_enabled = true; break;
+   default: break;
    }
 
    program->dev.sram_ecc_enabled = program->family == CHIP_ARCTURUS;
@@ -180,22 +165,15 @@ memory_sync_info
 get_sync_info(const Instruction* instr)
 {
    switch (instr->format) {
-   case Format::SMEM:
-      return instr->smem().sync;
-   case Format::MUBUF:
-      return instr->mubuf().sync;
-   case Format::MIMG:
-      return instr->mimg().sync;
-   case Format::MTBUF:
-      return instr->mtbuf().sync;
+   case Format::SMEM: return instr->smem().sync;
+   case Format::MUBUF: return instr->mubuf().sync;
+   case Format::MIMG: return instr->mimg().sync;
+   case Format::MTBUF: return instr->mtbuf().sync;
    case Format::FLAT:
    case Format::GLOBAL:
-   case Format::SCRATCH:
-      return instr->flatlike().sync;
-   case Format::DS:
-      return instr->ds().sync;
-   default:
-      return memory_sync_info();
+   case Format::SCRATCH: return instr->flatlike().sync;
+   case Format::DS: return instr->ds().sync;
+   default: return memory_sync_info();
    }
 }
 
@@ -295,15 +273,9 @@ convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& instr)
          break;
 
       switch (instr->operands[i].bytes()) {
-      case 1:
-         sdwa.sel[i] = sdwa_ubyte;
-         break;
-      case 2:
-         sdwa.sel[i] = sdwa_uword;
-         break;
-      case 4:
-         sdwa.sel[i] = sdwa_udword;
-         break;
+      case 1: sdwa.sel[i] = sdwa_ubyte; break;
+      case 2: sdwa.sel[i] = sdwa_uword; break;
+      case 4: sdwa.sel[i] = sdwa_udword; break;
       }
    }
    switch (instr->definitions[0].bytes()) {
@@ -315,9 +287,7 @@ convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& instr)
       sdwa.dst_sel = sdwa_uword;
       sdwa.dst_preserve = true;
       break;
-   case 4:
-      sdwa.dst_sel = sdwa_udword;
-      break;
+   case 4: sdwa.dst_sel = sdwa_udword; break;
    }
 
    if (instr->definitions[0].getTemp().type() == RegType::sgpr && chip == GFX8)
@@ -363,17 +333,13 @@ can_use_opsel(chip_class chip, aco_opcode op, int idx, bool high)
    case aco_opcode::v_lshlrev_b16_e64:
    case aco_opcode::v_lshrrev_b16_e64:
    case aco_opcode::v_ashrrev_i16_e64:
-   case aco_opcode::v_mul_lo_u16_e64:
-      return true;
+   case aco_opcode::v_mul_lo_u16_e64: return true;
    case aco_opcode::v_pack_b32_f16:
    case aco_opcode::v_cvt_pknorm_i16_f16:
-   case aco_opcode::v_cvt_pknorm_u16_f16:
-      return idx != -1;
+   case aco_opcode::v_cvt_pknorm_u16_f16: return idx != -1;
    case aco_opcode::v_mad_u32_u16:
-   case aco_opcode::v_mad_i32_i16:
-      return idx >= 0 && idx < 2;
-   default:
-      return false;
+   case aco_opcode::v_mad_i32_i16: return idx >= 0 && idx < 2;
+   default: return false;
    }
 }
 
@@ -399,60 +365,37 @@ get_reduction_identity(ReduceOp op, unsigned idx)
    case umax8:
    case umax16:
    case umax32:
-   case umax64:
-      return 0;
+   case umax64: return 0;
    case imul8:
    case imul16:
    case imul32:
-   case imul64:
-      return idx ? 0 : 1;
-   case fmul16:
-      return 0x3c00u; /* 1.0 */
-   case fmul32:
-      return 0x3f800000u; /* 1.0 */
-   case fmul64:
-      return idx ? 0x3ff00000u : 0u; /* 1.0 */
-   case imin8:
-      return INT8_MAX;
-   case imin16:
-      return INT16_MAX;
-   case imin32:
-      return INT32_MAX;
-   case imin64:
-      return idx ? 0x7fffffffu : 0xffffffffu;
-   case imax8:
-      return INT8_MIN;
-   case imax16:
-      return INT16_MIN;
-   case imax32:
-      return INT32_MIN;
-   case imax64:
-      return idx ? 0x80000000u : 0;
+   case imul64: return idx ? 0 : 1;
+   case fmul16: return 0x3c00u;                /* 1.0 */
+   case fmul32: return 0x3f800000u;            /* 1.0 */
+   case fmul64: return idx ? 0x3ff00000u : 0u; /* 1.0 */
+   case imin8: return INT8_MAX;
+   case imin16: return INT16_MAX;
+   case imin32: return INT32_MAX;
+   case imin64: return idx ? 0x7fffffffu : 0xffffffffu;
+   case imax8: return INT8_MIN;
+   case imax16: return INT16_MIN;
+   case imax32: return INT32_MIN;
+   case imax64: return idx ? 0x80000000u : 0;
    case umin8:
    case umin16:
    case iand8:
-   case iand16:
-      return 0xffffffffu;
+   case iand16: return 0xffffffffu;
    case umin32:
    case umin64:
    case iand32:
-   case iand64:
-      return 0xffffffffu;
-   case fmin16:
-      return 0x7c00u; /* infinity */
-   case fmin32:
-      return 0x7f800000u; /* infinity */
-   case fmin64:
-      return idx ? 0x7ff00000u : 0u; /* infinity */
-   case fmax16:
-      return 0xfc00u; /* negative infinity */
-   case fmax32:
-      return 0xff800000u; /* negative infinity */
-   case fmax64:
-      return idx ? 0xfff00000u : 0u; /* negative infinity */
-   default:
-      unreachable("Invalid reduction operation");
-      break;
+   case iand64: return 0xffffffffu;
+   case fmin16: return 0x7c00u;                /* infinity */
+   case fmin32: return 0x7f800000u;            /* infinity */
+   case fmin64: return idx ? 0x7ff00000u : 0u; /* infinity */
+   case fmax16: return 0xfc00u;                /* negative infinity */
+   case fmax32: return 0xff800000u;            /* negative infinity */
+   case fmax64: return idx ? 0xfff00000u : 0u; /* negative infinity */
+   default: unreachable("Invalid reduction operation"); break;
    }
    return 0;
 }
@@ -483,10 +426,8 @@ needs_exec_mask(const Instruction* instr)
       case aco_opcode::p_reload:
       case aco_opcode::p_logical_start:
       case aco_opcode::p_logical_end:
-      case aco_opcode::p_startpgm:
-         return false;
-      default:
-         break;
+      case aco_opcode::p_startpgm: return false;
+      default: break;
       }
    }
 
@@ -499,7 +440,7 @@ needs_exec_mask(const Instruction* instr)
    return true;
 }
 
-wait_imm::wait_imm(): vm(unset_counter), exp(unset_counter), lgkm(unset_counter), vs(unset_counter)
+wait_imm::wait_imm() : vm(unset_counter), exp(unset_counter), lgkm(unset_counter), vs(unset_counter)
 {
 }
 wait_imm::wait_imm(uint16_t vm_, uint16_t exp_, uint16_t lgkm_, uint16_t vs_)
@@ -507,7 +448,7 @@ wait_imm::wait_imm(uint16_t vm_, uint16_t exp_, uint16_t lgkm_, uint16_t vs_)
 {
 }
 
-wait_imm::wait_imm(enum chip_class chip, uint16_t packed): vs(unset_counter)
+wait_imm::wait_imm(enum chip_class chip, uint16_t packed) : vs(unset_counter)
 {
    vm = packed & 0xf;
    if (chip >= GFX9)
