@@ -428,7 +428,7 @@ intrinsic("masked_swizzle_amd", src_comp=[0], dest_comp=0, bit_sizes=src0,
           indices=[SWIZZLE_MASK], flags=[CAN_ELIMINATE])
 intrinsic("write_invocation_amd", src_comp=[0, 0, 1], dest_comp=0, bit_sizes=src0,
           flags=[CAN_ELIMINATE])
-intrinsic("mbcnt_amd", src_comp=[1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
+intrinsic("mbcnt_amd", src_comp=[1, 1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
 intrinsic("byte_permute_amd", src_comp=[1, 1, 1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
 intrinsic("lane_permute_16_amd", src_comp=[1, 1, 1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
 
