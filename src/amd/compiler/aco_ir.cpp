@@ -468,6 +468,8 @@ bool needs_exec_mask(const Instruction* instr) {
       case aco_opcode::p_split_vector:
       case aco_opcode::p_phi:
       case aco_opcode::p_parallelcopy:
+         if (instr->reads_exec())
+            return true;
          for (Definition def : instr->definitions) {
             if (def.getTemp().type() == RegType::vgpr)
                return true;
