@@ -109,6 +109,7 @@ PointerAlignment: Left
 SpaceBeforeCtorInitializerColon: True
 AllowShortCaseLabelsOnASingleLine: True
 AllowShortFunctionsOnASingleLine: InlineOnly
+AccessModifierOffset: -3
 BraceWrapping:
   AfterControlStatement: false
   AfterEnum: false
