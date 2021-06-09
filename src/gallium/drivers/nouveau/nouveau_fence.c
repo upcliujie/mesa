@@ -21,6 +21,7 @@
  */
 
 #include "nouveau_screen.h"
+#include "nouveau_context.h"
 #include "nouveau_winsys.h"
 #include "nouveau_fence.h"
 #include "util/os_time.h"
@@ -34,16 +35,17 @@ _nouveau_fence_ref(struct nouveau_fence *fence, struct nouveau_fence **ref);
 static bool
 _nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *debug);
 static void
-_nouveau_fence_next(struct nouveau_screen *screen);
+_nouveau_fence_next(struct nouveau_context *);
 
 bool
-nouveau_fence_new(struct nouveau_screen *screen, struct nouveau_fence **fence)
+nouveau_fence_new(struct nouveau_context *nv, struct nouveau_fence **fence)
 {
    *fence = CALLOC_STRUCT(nouveau_fence);
    if (!*fence)
       return false;
 
-   (*fence)->screen = screen;
+   (*fence)->screen = nv->screen;
+   (*fence)->context = nv;
    (*fence)->ref = 1;
    list_inithead(&(*fence)->work);
 
@@ -125,19 +127,20 @@ nouveau_fence_del(struct nouveau_fence *fence)
 }
 
 void
-nouveau_fence_cleanup(struct nouveau_fence_list *fence_list)
+nouveau_fence_cleanup(struct nouveau_context *nv)
 {
-   if (fence_list->current) {
+   struct nouveau_fence_list *fence_list = &nv->screen->fence;
+   if (nv->fence) {
       struct nouveau_fence *current = NULL;
 
       /* nouveau_fence_wait will create a new current fence, so wait on the
        * _current_ one, and remove both.
        */
       simple_mtx_lock(&fence_list->lock);
-      _nouveau_fence_ref(fence_list->current, &current);
+      _nouveau_fence_ref(nv->fence, &current);
       _nouveau_fence_wait(current, NULL);
       _nouveau_fence_ref(NULL, &current);
-      _nouveau_fence_ref(NULL, &fence_list->current);
+      _nouveau_fence_ref(NULL, &nv->fence);
       simple_mtx_unlock(&fence_list->lock);
    }
 }
@@ -236,8 +239,8 @@ nouveau_fence_kick(struct nouveau_fence *fence)
          return false;
    }
 
-   if (fence == fence_list->current)
-      _nouveau_fence_next(screen);
+   if (fence == fence->context->fence)
+      _nouveau_fence_next(fence->context);
 
    _nouveau_fence_update(screen, false);
 
@@ -287,22 +290,22 @@ _nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *deb
 }
 
 static void
-_nouveau_fence_next(struct nouveau_screen *screen)
+_nouveau_fence_next(struct nouveau_context *nv)
 {
-   struct nouveau_fence_list *fence_list = &screen->fence;
+   struct nouveau_fence_list *fence_list = &nv->screen->fence;
 
    simple_mtx_assert_locked(&fence_list->lock);
 
-   if (fence_list->current->state < NOUVEAU_FENCE_STATE_EMITTING) {
-      if (p_atomic_read(&fence_list->current->ref) > 1)
-         _nouveau_fence_emit(fence_list->current);
+   if (nv->fence->state < NOUVEAU_FENCE_STATE_EMITTING) {
+      if (p_atomic_read(&nv->fence->ref) > 1)
+         _nouveau_fence_emit(nv->fence);
       else
          return;
    }
 
-   _nouveau_fence_ref(NULL, &fence_list->current);
+   _nouveau_fence_ref(NULL, &nv->fence);
 
-   nouveau_fence_new(screen, &fence_list->current);
+   nouveau_fence_new(nv, &nv->fence);
 }
 
 void
@@ -354,11 +357,11 @@ _nouveau_fence_ref(struct nouveau_fence *fence, struct nouveau_fence **ref)
 }
 
 void
-nouveau_fence_ref_current(struct nouveau_fence_list *fence_list, struct nouveau_fence **ref)
+nouveau_fence_ref_current(struct nouveau_context *nv, struct nouveau_fence **ref)
 {
-   simple_mtx_lock(&fence_list->lock);
-   _nouveau_fence_ref(fence_list->current, ref);
-   simple_mtx_unlock(&fence_list->lock);
+   simple_mtx_lock(&nv->screen->fence.lock);
+   _nouveau_fence_ref(nv->fence, ref);
+   simple_mtx_unlock(&nv->screen->fence.lock);
 }
 
 void
@@ -388,11 +391,11 @@ nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *debu
 }
 
 void
-nouveau_fence_next(struct nouveau_screen *screen)
+nouveau_fence_next(struct nouveau_context *nv)
 {
-   simple_mtx_lock(&screen->fence.lock);
-   _nouveau_fence_next(screen);
-   simple_mtx_unlock(&screen->fence.lock);
+   simple_mtx_lock(&nv->screen->fence.lock);
+   _nouveau_fence_next(nv);
+   simple_mtx_unlock(&nv->screen->fence.lock);
 }
 
 void
