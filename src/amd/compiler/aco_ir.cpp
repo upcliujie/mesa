@@ -22,47 +22,48 @@
  *
  */
 #include "aco_ir.h"
-#include "vulkan/radv_shader.h"
 #include "c11/threads.h"
 #include "util/debug.h"
+#include "vulkan/radv_shader.h"
 
 namespace aco {
 
 uint64_t debug_flags = 0;
 
-static const struct debug_control aco_debug_options[] = {
-   {"validateir", DEBUG_VALIDATE_IR},
-   {"validatera", DEBUG_VALIDATE_RA},
-   {"perfwarn", DEBUG_PERFWARN},
-   {"force-waitcnt", DEBUG_FORCE_WAITCNT},
-   {"novn", DEBUG_NO_VN},
-   {"noopt", DEBUG_NO_OPT},
-   {"nosched", DEBUG_NO_SCHED},
-   {"perfinfo", DEBUG_PERF_INFO},
-   {"liveinfo", DEBUG_LIVE_INFO},
-   {NULL, 0}
-};
+static const struct debug_control aco_debug_options[] = {{"validateir", DEBUG_VALIDATE_IR},
+                                                         {"validatera", DEBUG_VALIDATE_RA},
+                                                         {"perfwarn", DEBUG_PERFWARN},
+                                                         {"force-waitcnt", DEBUG_FORCE_WAITCNT},
+                                                         {"novn", DEBUG_NO_VN},
+                                                         {"noopt", DEBUG_NO_OPT},
+                                                         {"nosched", DEBUG_NO_SCHED},
+                                                         {"perfinfo", DEBUG_PERF_INFO},
+                                                         {"liveinfo", DEBUG_LIVE_INFO},
+                                                         {NULL, 0}};
 
 static once_flag init_once_flag = ONCE_FLAG_INIT;
 
-static void init_once()
+static void
+init_once()
 {
    debug_flags = parse_debug_string(getenv("ACO_DEBUG"), aco_debug_options);
 
-   #ifndef NDEBUG
+#ifndef NDEBUG
    /* enable some flags by default on debug builds */
    debug_flags |= aco::DEBUG_VALIDATE_IR;
-   #endif
+#endif
 }
 
-void init()
+void
+init()
 {
    call_once(&init_once_flag, init_once);
 }
 
-void init_program(Program *program, Stage stage, struct radv_shader_info *info,
-                  enum chip_class chip_class, enum radeon_family family,
-                  bool wgp_mode, ac_shader_config *config)
+void
+init_program(Program* program, Stage stage, struct radv_shader_info* info,
+             enum chip_class chip_class, enum radeon_family family, bool wgp_mode,
+             ac_shader_config* config)
 {
    program->stage = stage;
    program->config = config;
@@ -96,7 +97,8 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
    program->lane_mask = program->wave_size == 32 ? s1 : s2;
 
    program->dev.lds_encoding_granule = chip_class >= GFX7 ? 512 : 256;
-   program->dev.lds_alloc_granule = chip_class >= GFX10_3 ? 1024 : program->dev.lds_encoding_granule;
+   program->dev.lds_alloc_granule =
+      chip_class >= GFX10_3 ? 1024 : program->dev.lds_encoding_granule;
    program->dev.lds_limit = chip_class >= GFX7 ? 65536 : 32768;
    /* apparently gfx702 also has 16-bank LDS but I can't find a family for that */
    program->dev.has_16bank_lds = family == CHIP_KABINI || family == CHIP_STONEY;
@@ -109,7 +111,8 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
       program->dev.physical_sgprs = 5120; /* doesn't matter as long as it's at least 128 * 40 */
       program->dev.physical_vgprs = program->wave_size == 32 ? 1024 : 512;
       program->dev.sgpr_alloc_granule = 128;
-      program->dev.sgpr_limit = 108; /* includes VCC, which can be treated as s[106-107] on GFX10+ */
+      program->dev.sgpr_limit =
+         108; /* includes VCC, which can be treated as s[106-107] on GFX10+ */
       if (chip_class >= GFX10_3)
          program->dev.vgpr_alloc_granule = program->wave_size == 32 ? 16 : 8;
       else
@@ -153,8 +156,7 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
    program->dev.sram_ecc_enabled = program->family == CHIP_ARCTURUS;
    /* apparently gfx702 also has fast v_fma_f32 but I can't find a family for that */
    program->dev.has_fast_fma32 = program->chip_class >= GFX9;
-   if (program->family == CHIP_TAHITI ||
-       program->family == CHIP_CARRIZO ||
+   if (program->family == CHIP_TAHITI || program->family == CHIP_CARRIZO ||
        program->family == CHIP_HAWAII)
       program->dev.has_fast_fma32 = true;
 
@@ -174,7 +176,8 @@ void init_program(Program *program, Stage stage, struct radv_shader_info *info,
    program->next_fp_mode.round32 = fp_round_ne;
 }
 
-memory_sync_info get_sync_info(const Instruction* instr)
+memory_sync_info
+get_sync_info(const Instruction* instr)
 {
    switch (instr->format) {
    case Format::SMEM:
@@ -196,7 +199,8 @@ memory_sync_info get_sync_info(const Instruction* instr)
    }
 }
 
-bool can_use_SDWA(chip_class chip, const aco_ptr<Instruction>& instr, bool pre_ra)
+bool
+can_use_SDWA(chip_class chip, const aco_ptr<Instruction>& instr, bool pre_ra)
 {
    if (!instr->isVALU())
       return false;
@@ -216,7 +220,7 @@ bool can_use_SDWA(chip_class chip, const aco_ptr<Instruction>& instr, bool pre_r
       if (vop3.omod && chip < GFX9)
          return false;
 
-      //TODO: return true if we know we will use vcc
+      // TODO: return true if we know we will use vcc
       if (!pre_ra && instr->definitions.size() >= 2)
          return false;
 
@@ -242,38 +246,36 @@ bool can_use_SDWA(chip_class chip, const aco_ptr<Instruction>& instr, bool pre_r
          return false;
    }
 
-   bool is_mac = instr->opcode == aco_opcode::v_mac_f32 ||
-                 instr->opcode == aco_opcode::v_mac_f16 ||
-                 instr->opcode == aco_opcode::v_fmac_f32 ||
-                 instr->opcode == aco_opcode::v_fmac_f16;
+   bool is_mac = instr->opcode == aco_opcode::v_mac_f32 || instr->opcode == aco_opcode::v_mac_f16 ||
+                 instr->opcode == aco_opcode::v_fmac_f32 || instr->opcode == aco_opcode::v_fmac_f16;
 
    if (chip != GFX8 && is_mac)
       return false;
 
-   //TODO: return true if we know we will use vcc
+   // TODO: return true if we know we will use vcc
    if (!pre_ra && instr->isVOPC())
       return false;
    if (!pre_ra && instr->operands.size() >= 3 && !is_mac)
       return false;
 
-   return instr->opcode != aco_opcode::v_madmk_f32 &&
-          instr->opcode != aco_opcode::v_madak_f32 &&
-          instr->opcode != aco_opcode::v_madmk_f16 &&
-          instr->opcode != aco_opcode::v_madak_f16 &&
+   return instr->opcode != aco_opcode::v_madmk_f32 && instr->opcode != aco_opcode::v_madak_f32 &&
+          instr->opcode != aco_opcode::v_madmk_f16 && instr->opcode != aco_opcode::v_madak_f16 &&
           instr->opcode != aco_opcode::v_readfirstlane_b32 &&
-          instr->opcode != aco_opcode::v_clrexcp &&
-          instr->opcode != aco_opcode::v_swap_b32;
+          instr->opcode != aco_opcode::v_clrexcp && instr->opcode != aco_opcode::v_swap_b32;
 }
 
 /* updates "instr" and returns the old instruction (or NULL if no update was needed) */
-aco_ptr<Instruction> convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& instr)
+aco_ptr<Instruction>
+convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& instr)
 {
    if (instr->isSDWA())
       return NULL;
 
    aco_ptr<Instruction> tmp = std::move(instr);
-   Format format = (Format)(((uint16_t)tmp->format & ~(uint16_t)Format::VOP3) | (uint16_t)Format::SDWA);
-   instr.reset(create_instruction<SDWA_instruction>(tmp->opcode, format, tmp->operands.size(), tmp->definitions.size()));
+   Format format =
+      (Format)(((uint16_t)tmp->format & ~(uint16_t)Format::VOP3) | (uint16_t)Format::SDWA);
+   instr.reset(create_instruction<SDWA_instruction>(tmp->opcode, format, tmp->operands.size(),
+                                                    tmp->definitions.size()));
    std::copy(tmp->operands.cbegin(), tmp->operands.cend(), instr->operands.begin());
    std::copy(tmp->definitions.cbegin(), tmp->definitions.cend(), instr->definitions.begin());
 
@@ -328,7 +330,8 @@ aco_ptr<Instruction> convert_to_SDWA(chip_class chip, aco_ptr<Instruction>& inst
    return tmp;
 }
 
-bool can_use_opsel(chip_class chip, aco_opcode op, int idx, bool high)
+bool
+can_use_opsel(chip_class chip, aco_opcode op, int idx, bool high)
 {
    /* opsel is only GFX9+ */
    if ((high || idx == -1) && chip < GFX9)
@@ -374,7 +377,8 @@ bool can_use_opsel(chip_class chip, aco_opcode op, int idx, bool high)
    }
 }
 
-uint32_t get_reduction_identity(ReduceOp op, unsigned idx)
+uint32_t
+get_reduction_identity(ReduceOp op, unsigned idx)
 {
    switch (op) {
    case iadd8:
@@ -453,7 +457,9 @@ uint32_t get_reduction_identity(ReduceOp op, unsigned idx)
    return 0;
 }
 
-bool needs_exec_mask(const Instruction* instr) {
+bool
+needs_exec_mask(const Instruction* instr)
+{
    if (instr->isSALU() || instr->isBranch())
       return instr->reads_exec();
    if (instr->isSMEM())
@@ -493,12 +499,15 @@ bool needs_exec_mask(const Instruction* instr) {
    return true;
 }
 
-wait_imm::wait_imm() :
-   vm(unset_counter), exp(unset_counter), lgkm(unset_counter), vs(unset_counter) {}
-wait_imm::wait_imm(uint16_t vm_, uint16_t exp_, uint16_t lgkm_, uint16_t vs_) :
-      vm(vm_), exp(exp_), lgkm(lgkm_), vs(vs_) {}
+wait_imm::wait_imm(): vm(unset_counter), exp(unset_counter), lgkm(unset_counter), vs(unset_counter)
+{
+}
+wait_imm::wait_imm(uint16_t vm_, uint16_t exp_, uint16_t lgkm_, uint16_t vs_)
+    : vm(vm_), exp(exp_), lgkm(lgkm_), vs(vs_)
+{
+}
 
-wait_imm::wait_imm(enum chip_class chip, uint16_t packed) : vs(unset_counter)
+wait_imm::wait_imm(enum chip_class chip, uint16_t packed): vs(unset_counter)
 {
    vm = packed & 0xf;
    if (chip >= GFX9)
@@ -511,7 +520,8 @@ wait_imm::wait_imm(enum chip_class chip, uint16_t packed) : vs(unset_counter)
       lgkm |= (packed >> 8) & 0x30;
 }
 
-uint16_t wait_imm::pack(enum chip_class chip) const
+uint16_t
+wait_imm::pack(enum chip_class chip) const
 {
    uint16_t imm = 0;
    assert(exp == unset_counter || exp <= 0x7);
@@ -534,13 +544,16 @@ uint16_t wait_imm::pack(enum chip_class chip) const
       break;
    }
    if (chip < GFX9 && vm == wait_imm::unset_counter)
-      imm |= 0xc000; /* should have no effect on pre-GFX9 and now we won't have to worry about the architecture when interpreting the immediate */
+      imm |= 0xc000; /* should have no effect on pre-GFX9 and now we won't have to worry about the
+                        architecture when interpreting the immediate */
    if (chip < GFX10 && lgkm == wait_imm::unset_counter)
-      imm |= 0x3000; /* should have no effect on pre-GFX10 and now we won't have to worry about the architecture when interpreting the immediate */
+      imm |= 0x3000; /* should have no effect on pre-GFX10 and now we won't have to worry about the
+                        architecture when interpreting the immediate */
    return imm;
 }
 
-bool wait_imm::combine(const wait_imm& other)
+bool
+wait_imm::combine(const wait_imm& other)
 {
    bool changed = other.vm < vm || other.exp < exp || other.lgkm < lgkm || other.vs < vs;
    vm = std::min(vm, other.vm);
@@ -550,17 +563,21 @@ bool wait_imm::combine(const wait_imm& other)
    return changed;
 }
 
-bool wait_imm::empty() const
+bool
+wait_imm::empty() const
 {
-   return vm == unset_counter && exp == unset_counter &&
-          lgkm == unset_counter && vs == unset_counter;
+   return vm == unset_counter && exp == unset_counter && lgkm == unset_counter &&
+          vs == unset_counter;
 }
 
-bool should_form_clause(const Instruction *a, const Instruction *b)
+bool
+should_form_clause(const Instruction* a, const Instruction* b)
 {
    /* Vertex attribute loads from the same binding likely load from similar addresses */
-   unsigned a_vtx_binding = a->isMUBUF() ? a->mubuf().vtx_binding : (a->isMTBUF() ? a->mtbuf().vtx_binding : 0);
-   unsigned b_vtx_binding = b->isMUBUF() ? b->mubuf().vtx_binding : (b->isMTBUF() ? b->mtbuf().vtx_binding : 0);
+   unsigned a_vtx_binding =
+      a->isMUBUF() ? a->mubuf().vtx_binding : (a->isMTBUF() ? a->mtbuf().vtx_binding : 0);
+   unsigned b_vtx_binding =
+      b->isMUBUF() ? b->mubuf().vtx_binding : (b->isMTBUF() ? b->mtbuf().vtx_binding : 0);
    if (a_vtx_binding && a_vtx_binding == b_vtx_binding)
       return true;
 
@@ -582,4 +599,4 @@ bool should_form_clause(const Instruction *a, const Instruction *b)
    return false;
 }
 
-}
+} // namespace aco

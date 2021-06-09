@@ -21,16 +21,17 @@
  * IN THE SOFTWARE.
  *
  */
- 
+
 #include <deque>
 
-#include "aco_ir.h"
 #include "util/crc32.h"
+#include "aco_ir.h"
 
 namespace aco {
 
 /* sgpr_presched/vgpr_presched */
-void collect_presched_stats(Program *program)
+void
+collect_presched_stats(Program* program)
 {
    RegisterDemand presched_demand;
    for (Block& block : program->blocks)
@@ -40,7 +41,7 @@ void collect_presched_stats(Program *program)
 }
 
 class BlockCycleEstimator {
-public:
+ public:
    enum resource {
       null = 0,
       scalar,
@@ -53,9 +54,11 @@ public:
       resource_count,
    };
 
-   BlockCycleEstimator(Program *program_) : program(program_) {}
+   BlockCycleEstimator(Program* program_): program(program_)
+   {
+   }
 
-   Program *program;
+   Program* program;
 
    int32_t cur_cycle = 0;
    int32_t res_available[(int)BlockCycleEstimator::resource_count] = {0};
@@ -69,7 +72,8 @@ public:
    unsigned predict_cost(aco_ptr<Instruction>& instr);
    void add(aco_ptr<Instruction>& instr);
    void join(const BlockCycleEstimator& other);
-private:
+
+ private:
    unsigned get_waitcnt_cost(wait_imm imm);
    unsigned get_dependency_cost(aco_ptr<Instruction>& instr);
 
@@ -78,8 +82,10 @@ private:
 };
 
 struct wait_counter_info {
-   wait_counter_info(unsigned vm_, unsigned exp_, unsigned lgkm_, unsigned vs_) :
-      vm(vm_), exp(exp_), lgkm(lgkm_), vs(vs_) {}
+   wait_counter_info(unsigned vm_, unsigned exp_, unsigned lgkm_, unsigned vs_)
+       : vm(vm_), exp(exp_), lgkm(lgkm_), vs(vs_)
+   {
+   }
 
    unsigned vm;
    unsigned exp;
@@ -97,12 +103,13 @@ struct perf_info {
    unsigned cost1;
 };
 
-static perf_info get_perf_info(Program *program, aco_ptr<Instruction>& instr)
+static perf_info
+get_perf_info(Program* program, aco_ptr<Instruction>& instr)
 {
    instr_class cls = instr_info.classes[(int)instr->opcode];
 
-   #define WAIT(res) BlockCycleEstimator::res, 0
-   #define WAIT_USE(res, cnt) BlockCycleEstimator::res, cnt
+#define WAIT(res)          BlockCycleEstimator::res, 0
+#define WAIT_USE(res, cnt) BlockCycleEstimator::res, cnt
 
    if (program->chip_class >= GFX10) {
       /* fp64 might be incorrect */
@@ -133,9 +140,8 @@ static perf_info get_perf_info(Program *program, aco_ptr<Instruction>& instr)
       case instr_class::sendmsg:
          return {0, WAIT_USE(branch_sendmsg, 1)};
       case instr_class::ds:
-         return instr->ds().gds ?
-                perf_info{0, WAIT_USE(export_gds, 1)} :
-                perf_info{0, WAIT_USE(lds, 1)};
+         return instr->ds().gds ? perf_info{0, WAIT_USE(export_gds, 1)}
+                                : perf_info{0, WAIT_USE(lds, 1)};
       case instr_class::exp:
          return {0, WAIT_USE(export_gds, 1)};
       case instr_class::vmem:
@@ -157,9 +163,8 @@ static perf_info get_perf_info(Program *program, aco_ptr<Instruction>& instr)
       case instr_class::valu_quarter_rate32:
          return {16, WAIT_USE(valu, 16)};
       case instr_class::valu_fma:
-         return program->dev.has_fast_fma32 ?
-                perf_info{4, WAIT_USE(valu, 4)} :
-                perf_info{16, WAIT_USE(valu, 16)};
+         return program->dev.has_fast_fma32 ? perf_info{4, WAIT_USE(valu, 4)}
+                                            : perf_info{16, WAIT_USE(valu, 16)};
       case instr_class::valu_transcendental32:
          return {16, WAIT_USE(valu, 16)};
       case instr_class::valu_double:
@@ -178,9 +183,8 @@ static perf_info get_perf_info(Program *program, aco_ptr<Instruction>& instr)
          return {8, WAIT_USE(branch_sendmsg, 8)};
          return {4, WAIT_USE(branch_sendmsg, 4)};
       case instr_class::ds:
-         return instr->ds().gds ?
-                perf_info{4, WAIT_USE(export_gds, 4)} :
-                perf_info{4, WAIT_USE(lds, 4)};
+         return instr->ds().gds ? perf_info{4, WAIT_USE(export_gds, 4)}
+                                : perf_info{4, WAIT_USE(lds, 4)};
       case instr_class::exp:
          return {16, WAIT_USE(export_gds, 16)};
       case instr_class::vmem:
@@ -193,11 +197,12 @@ static perf_info get_perf_info(Program *program, aco_ptr<Instruction>& instr)
       }
    }
 
-   #undef WAIT_USE
-   #undef WAIT
+#undef WAIT_USE
+#undef WAIT
 }
 
-void BlockCycleEstimator::use_resources(aco_ptr<Instruction>& instr)
+void
+BlockCycleEstimator::use_resources(aco_ptr<Instruction>& instr)
 {
    perf_info perf = get_perf_info(program, instr);
 
@@ -212,7 +217,8 @@ void BlockCycleEstimator::use_resources(aco_ptr<Instruction>& instr)
    }
 }
 
-int32_t BlockCycleEstimator::cycles_until_res_available(aco_ptr<Instruction>& instr)
+int32_t
+BlockCycleEstimator::cycles_until_res_available(aco_ptr<Instruction>& instr)
 {
    perf_info perf = get_perf_info(program, instr);
 
@@ -225,7 +231,8 @@ int32_t BlockCycleEstimator::cycles_until_res_available(aco_ptr<Instruction>& in
    return cost;
 }
 
-static wait_counter_info get_wait_counter_info(aco_ptr<Instruction>& instr)
+static wait_counter_info
+get_wait_counter_info(aco_ptr<Instruction>& instr)
 {
    /* These numbers are all a bit nonsense. LDS/VMEM/SMEM/EXP performance
     * depends a lot on the situation. */
@@ -249,8 +256,8 @@ static wait_counter_info get_wait_counter_info(aco_ptr<Instruction>& instr)
 
       bool likely_desc_load = instr->operands[0].size() == 2;
       bool soe = instr->operands.size() >= (!instr->definitions.empty() ? 3 : 4);
-      bool const_offset = instr->operands[1].isConstant() &&
-                          (!soe || instr->operands.back().isConstant());
+      bool const_offset =
+         instr->operands[1].isConstant() && (!soe || instr->operands.back().isConstant());
 
       if (likely_desc_load || const_offset)
          return wait_counter_info(0, 0, 30, 0); /* likely to hit L0 cache */
@@ -270,7 +277,8 @@ static wait_counter_info get_wait_counter_info(aco_ptr<Instruction>& instr)
    return wait_counter_info(0, 0, 0, 0);
 }
 
-static wait_imm get_wait_imm(Program *program, aco_ptr<Instruction>& instr)
+static wait_imm
+get_wait_imm(Program* program, aco_ptr<Instruction>& instr)
 {
    if (instr->opcode == aco_opcode::s_endpgm) {
       return wait_imm(0, 0, 0, 0);
@@ -294,7 +302,8 @@ static wait_imm get_wait_imm(Program *program, aco_ptr<Instruction>& instr)
    }
 }
 
-unsigned BlockCycleEstimator::get_dependency_cost(aco_ptr<Instruction>& instr)
+unsigned
+BlockCycleEstimator::get_dependency_cost(aco_ptr<Instruction>& instr)
 {
    int deps_available = cur_cycle;
 
@@ -334,13 +343,15 @@ unsigned BlockCycleEstimator::get_dependency_cost(aco_ptr<Instruction>& instr)
    return deps_available - cur_cycle;
 }
 
-unsigned BlockCycleEstimator::predict_cost(aco_ptr<Instruction>& instr)
+unsigned
+BlockCycleEstimator::predict_cost(aco_ptr<Instruction>& instr)
 {
    int32_t dep = get_dependency_cost(instr);
    return dep + std::max(cycles_until_res_available(instr) - dep, 0);
 }
 
-static bool is_vector(aco_opcode op)
+static bool
+is_vector(aco_opcode op)
 {
    switch (instr_info.classes[(int)op]) {
    case instr_class::valu32:
@@ -362,7 +373,8 @@ static bool is_vector(aco_opcode op)
    }
 }
 
-void BlockCycleEstimator::add(aco_ptr<Instruction>& instr)
+void
+BlockCycleEstimator::add(aco_ptr<Instruction>& instr)
 {
    perf_info perf = get_perf_info(program, instr);
 
@@ -408,13 +420,14 @@ void BlockCycleEstimator::add(aco_ptr<Instruction>& instr)
    int32_t result_available = start + MAX2(perf.latency, latency);
 
    for (Definition& def : instr->definitions) {
-      int32_t *available = &reg_available[def.physReg().reg()];
+      int32_t* available = &reg_available[def.physReg().reg()];
       for (unsigned i = 0; i < def.size(); i++)
          available[i] = MAX2(available[i], result_available);
    }
 }
 
-static void join_queue(std::deque<int32_t>& queue, const std::deque<int32_t>& pred, int cycle_diff)
+static void
+join_queue(std::deque<int32_t>& queue, const std::deque<int32_t>& pred, int cycle_diff)
 {
    for (unsigned i = 0; i < MIN2(queue.size(), pred.size()); i++)
       queue.rbegin()[i] = MAX2(queue.rbegin()[i], pred.rbegin()[i] + cycle_diff);
@@ -422,7 +435,8 @@ static void join_queue(std::deque<int32_t>& queue, const std::deque<int32_t>& pr
       queue.push_front(pred[i] + cycle_diff);
 }
 
-void BlockCycleEstimator::join(const BlockCycleEstimator& pred)
+void
+BlockCycleEstimator::join(const BlockCycleEstimator& pred)
 {
    assert(cur_cycle == 0);
 
@@ -432,8 +446,7 @@ void BlockCycleEstimator::join(const BlockCycleEstimator& pred)
    }
 
    for (unsigned i = 0; i < 512; i++)
-      reg_available[i] = MAX2(reg_available[i],
-                              pred.reg_available[i] - pred.cur_cycle + cur_cycle);
+      reg_available[i] = MAX2(reg_available[i], pred.reg_available[i] - pred.cur_cycle + cur_cycle);
 
    join_queue(lgkm, pred.lgkm, -pred.cur_cycle);
    join_queue(exp, pred.exp, -pred.cur_cycle);
@@ -442,11 +455,12 @@ void BlockCycleEstimator::join(const BlockCycleEstimator& pred)
 }
 
 /* instructions/branches/vmem_clauses/smem_clauses/cycles */
-void collect_preasm_stats(Program *program)
+void
+collect_preasm_stats(Program* program)
 {
    for (Block& block : program->blocks) {
-      std::set<Instruction *> vmem_clause;
-      std::set<Instruction *> smem_clause;
+      std::set<Instruction*> vmem_clause;
+      std::set<Instruction*> smem_clause;
 
       program->statistics[statistic_instructions] += block.instructions.size();
 
@@ -458,8 +472,9 @@ void collect_preasm_stats(Program *program)
             program->statistics[statistic_instructions] += 2;
 
          if (instr->isVMEM() && !instr->operands.empty()) {
-            if (std::none_of(vmem_clause.begin(), vmem_clause.end(),
-                             [&](Instruction *other) {return should_form_clause(instr.get(), other);}))
+            if (std::none_of(vmem_clause.begin(), vmem_clause.end(), [&](Instruction* other) {
+                   return should_form_clause(instr.get(), other);
+                }))
                program->statistics[statistic_vmem_clauses]++;
             vmem_clause.insert(instr.get());
          } else {
@@ -467,13 +482,14 @@ void collect_preasm_stats(Program *program)
          }
 
          if (instr->isSMEM() && !instr->operands.empty()) {
-            if (std::none_of(smem_clause.begin(), smem_clause.end(),
-                             [&](Instruction *other) {return should_form_clause(instr.get(), other);}))
+            if (std::none_of(smem_clause.begin(), smem_clause.end(), [&](Instruction* other) {
+                   return should_form_clause(instr.get(), other);
+                }))
                program->statistics[statistic_smem_clauses]++;
             smem_clause.insert(instr.get());
          } else {
             smem_clause.clear();
-          }
+         }
       }
    }
 
@@ -511,8 +527,10 @@ void collect_preasm_stats(Program *program)
       iter *= pow(0.5, block.uniform_if_depth);
       iter *= pow(0.75, block.divergent_if_logical_depth);
 
-      bool divergent_if_linear_else = block.logical_preds.empty() && block.linear_preds.size() == 1 && block.linear_succs.size() == 1 &&
-                                      program->blocks[block.linear_preds[0]].kind & (block_kind_branch | block_kind_invert);
+      bool divergent_if_linear_else =
+         block.logical_preds.empty() && block.linear_preds.size() == 1 &&
+         block.linear_succs.size() == 1 &&
+         program->blocks[block.linear_preds[0]].kind & (block_kind_branch | block_kind_invert);
       if (divergent_if_linear_else)
          iter *= 0.25;
 
@@ -537,7 +555,8 @@ void collect_preasm_stats(Program *program)
 
    double max_utilization = 1.0;
    if (program->workgroup_size != UINT_MAX)
-      max_utilization = program->workgroup_size / (double)align(program->workgroup_size, program->wave_size);
+      max_utilization =
+         program->workgroup_size / (double)align(program->workgroup_size, program->wave_size);
    wave64_per_cycle *= max_utilization;
 
    program->statistics[statistic_latency] = round(latency);
@@ -548,7 +567,8 @@ void collect_preasm_stats(Program *program)
 
       fprintf(stderr, "num_waves: %u\n", program->num_waves);
       fprintf(stderr, "salu_smem_usage: %f\n", usage[(int)BlockCycleEstimator::scalar]);
-      fprintf(stderr, "branch_sendmsg_usage: %f\n", usage[(int)BlockCycleEstimator::branch_sendmsg]);
+      fprintf(stderr, "branch_sendmsg_usage: %f\n",
+              usage[(int)BlockCycleEstimator::branch_sendmsg]);
       fprintf(stderr, "valu_usage: %f\n", usage[(int)BlockCycleEstimator::valu]);
       fprintf(stderr, "valu_complex_usage: %f\n", usage[(int)BlockCycleEstimator::valu_complex]);
       fprintf(stderr, "lds_usage: %f\n", usage[(int)BlockCycleEstimator::lds]);
@@ -562,9 +582,10 @@ void collect_preasm_stats(Program *program)
    }
 }
 
-void collect_postasm_stats(Program *program, const std::vector<uint32_t>& code)
+void
+collect_postasm_stats(Program* program, const std::vector<uint32_t>& code)
 {
    program->statistics[aco::statistic_hash] = util_hash_crc32(code.data(), code.size() * 4);
 }
 
-}
+} // namespace aco
