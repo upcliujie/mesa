@@ -23,25 +23,23 @@
  *
  */
 
-#include <algorithm>
-#include <array>
-#include <functional>
-#include <map>
-#include <numeric>
-#include <stack>
-
-#include "ac_shader_util.h"
-#include "aco_ir.h"
-#include "aco_builder.h"
-#include "aco_interface.h"
 #include "aco_instruction_selection.h"
-#include "util/fast_idiv_by_const.h"
-#include "util/memstream.h"
+
+#include "aco_builder.h"
+#include "aco_ir.h"
 
 #include "ac_exp_param.h"
 #include "sid.h"
 #include "vulkan/radv_descriptor_set.h"
-#include "vulkan/radv_shader.h"
+
+#include "util/fast_idiv_by_const.h"
+#include "util/memstream.h"
+
+#include <array>
+#include <map>
+#include <numeric>
+#include <stack>
+#include <vector>
 
 namespace aco {
 namespace {
