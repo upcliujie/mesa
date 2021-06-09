@@ -40,7 +40,7 @@ LOCAL_STATIC_LIBRARIES := libexpat libarect libelf
 LOCAL_HEADER_LIBRARIES := libnativebase_headers hwvulkan_headers libbacktrace_headers
 MESON_GEN_PKGCONFIGS := backtrace cutils expat hardware libdrm:2.4.105 nativewindow sync zlib:1.2.11 libelf
 
-ifneq ($(filter swr swrast,$(BOARD_MESA3D_GALLIUM_DRIVERS) $(BOARD_MESA3D_VULKAN_DRIVERS)),)
+ifneq ($(filter swrast,$(BOARD_MESA3D_GALLIUM_DRIVERS) $(BOARD_MESA3D_VULKAN_DRIVERS)),)
 MESON_GEN_LLVM_STUB := true
 endif
 

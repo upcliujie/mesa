@@ -58,7 +58,6 @@ with_aco_tests = get_option('build-aco-tests')
 with_glx_read_only_text = get_option('glx-read-only-text')
 with_glx_direct = get_option('glx-direct')
 with_osmesa = get_option('osmesa')
-with_swr_arches = get_option('swr-arches')
 with_vulkan_overlay_layer = get_option('vulkan-layers').contains('overlay')
 with_vulkan_device_select_layer = get_option('vulkan-layers').contains('device-select')
 with_tools = get_option('tools')
@@ -236,7 +235,6 @@ with_gallium_iris = gallium_drivers.contains('iris')
 with_gallium_i915 = gallium_drivers.contains('i915')
 with_gallium_svga = gallium_drivers.contains('svga')
 with_gallium_virgl = gallium_drivers.contains('virgl')
-with_gallium_swr = gallium_drivers.contains('swr')
 with_gallium_lima = gallium_drivers.contains('lima')
 with_gallium_zink = gallium_drivers.contains('zink')
 with_gallium_d3d12 = gallium_drivers.contains('d3d12')
@@ -593,7 +591,7 @@ dep_dxheaders = null_dep
 if with_gallium_d3d12 or with_microsoft_clc
   dep_dxheaders = dependency('DirectX-Headers', fallback : ['DirectX-Headers', 'dep_dxheaders'],
     required : with_gallium_d3d12
-  ) 
+  )
 endif
 
 if with_vulkan_overlay_layer or with_aco_tests
@@ -1569,8 +1567,6 @@ elif with_microsoft_clc
   _llvm_version = '>= 10.0.0'
 elif with_gallium_opencl
   _llvm_version = '>= 8.0.0'
-elif with_gallium_swr
-  _llvm_version = '>= 6.0.0'
 else
   _llvm_version = '>= 3.9.0'
 endif
@@ -1617,7 +1613,7 @@ if _llvm != 'disabled'
     modules : llvm_modules,
     optional_modules : llvm_optional_modules,
     required : (
-      with_amd_vk or with_gallium_radeonsi or with_gallium_swr or
+      with_amd_vk or with_gallium_radeonsi or
       with_gallium_opencl or with_microsoft_clc or _llvm == 'enabled'
     ),
     static : not _shared_llvm,
@@ -1636,8 +1632,6 @@ if with_llvm
     pre_args += '-DDRAW_LLVM_AVAILABLE'
   elif with_swrast_vk
     error('Lavapipe requires LLVM draw support.')
-  elif with_gallium_swr
-    error('SWR requires LLVM draw support.')
   endif
 
   # LLVM can be built without rtti, turning off rtti changes the ABI of C++
@@ -1671,8 +1665,8 @@ if with_llvm
       language : ['c', 'cpp'],
     )
   endif
-elif with_amd_vk or with_gallium_radeonsi or with_gallium_swr or with_swrast_vk
-  error('The following drivers require LLVM: Radv, RadeonSI, SWR, Lavapipe. One of these is enabled, but LLVM is disabled.')
+elif with_amd_vk or with_gallium_radeonsi or with_swrast_vk
+  error('The following drivers require LLVM: Radv, RadeonSI, Lavapipe. One of these is enabled, but LLVM is disabled.')
 elif with_gallium_opencl
   error('The OpenCL "Clover" state tracker requires LLVM, but LLVM is disabled.')
 elif with_microsoft_clc
