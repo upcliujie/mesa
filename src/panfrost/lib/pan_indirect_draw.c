@@ -1076,7 +1076,11 @@ create_indirect_draw_shader(struct panfrost_device *dev,
         else
                 patch(&builder);
 
-        struct panfrost_compile_inputs inputs = { .gpu_id = dev->gpu_id };
+        struct panfrost_compile_inputs inputs = {
+                .gpu_id = dev->gpu_id,
+                .no_ubo_to_push = true
+        };
+
         struct pan_shader_info shader_info;
         struct util_dynarray binary;
 
@@ -1162,25 +1166,6 @@ get_ubos(struct pan_pool *pool,
         return ubos_buf.gpu;
 }
 
-static mali_ptr
-get_push_uniforms(struct pan_pool *pool,
-                  const struct pan_indirect_draw_shader *shader,
-                  const struct indirect_draw_inputs *inputs)
-{
-        if (!shader->push.count)
-                return 0;
-
-        struct panfrost_ptr push_consts_buf =
-                panfrost_pool_alloc_aligned(pool, shader->push.count * 4, 16);
-        uint32_t *out = push_consts_buf.cpu;
-        uint8_t *in = (uint8_t *)inputs;
-
-        for (unsigned i = 0; i < shader->push.count; ++i)
-                memcpy(out + i, in + shader->push.words[i].offset, 4);
-
-        return push_consts_buf.gpu;
-}
-
 static void
 panfrost_indirect_draw_alloc_deps(struct panfrost_device *dev)
 {
@@ -1235,10 +1220,6 @@ panfrost_emit_index_min_max_search(struct pan_pool *pool,
         mali_ptr rsd =
                 get_renderer_state(dev, draw_info->flags,
                                    draw_info->index_size, true);
-        unsigned shader_id =
-                get_shader_id(draw_info->flags, draw_info->index_size, true);
-        const struct pan_indirect_draw_shader *shader =
-                &dev->indirect_draw_shaders.shaders[shader_id];
         struct panfrost_ptr job =
                 panfrost_pool_alloc_desc(pool, COMPUTE_JOB);
         void *invocation =
@@ -1257,7 +1238,6 @@ panfrost_emit_index_min_max_search(struct pan_pool *pool,
                 cfg.state = rsd;
                 cfg.thread_storage = get_tls(pool->dev);
                 cfg.uniform_buffers = ubos;
-                cfg.push_uniforms = get_push_uniforms(pool, shader, inputs);
         }
 
         pan_section_pack(job.cpu, COMPUTE_JOB, DRAW_PADDING, cfg);
@@ -1327,10 +1307,6 @@ panfrost_emit_indirect_draw(struct pan_pool *pool,
                 inputs.min_max_ctx = min_max_ctx_ptr.gpu;
         }
 
-        unsigned shader_id =
-                get_shader_id(draw_info->flags, draw_info->index_size, false);
-        const struct pan_indirect_draw_shader *shader =
-                &dev->indirect_draw_shaders.shaders[shader_id];
         mali_ptr ubos = get_ubos(pool, &inputs);
 
         void *invocation =
@@ -1349,7 +1325,6 @@ panfrost_emit_indirect_draw(struct pan_pool *pool,
                 cfg.state = rsd;
                 cfg.thread_storage = get_tls(pool->dev);
                 cfg.uniform_buffers = ubos;
-                cfg.push_uniforms = get_push_uniforms(pool, shader, &inputs);
         }
 
         pan_section_pack(job.cpu, COMPUTE_JOB, DRAW_PADDING, cfg);

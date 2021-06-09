@@ -93,24 +93,6 @@ get_ubos(struct pan_pool *pool,
         return ubos_buf.gpu;
 }
 
-static mali_ptr
-get_push_uniforms(struct pan_pool *pool,
-                  const struct indirect_dispatch_inputs *inputs)
-{
-        const struct panfrost_device *dev = pool->dev;
-        struct panfrost_ptr push_consts_buf =
-                panfrost_pool_alloc_aligned(pool,
-                                            ALIGN(dev->indirect_dispatch.push.count * 4, 16),
-                                            16);
-        uint32_t *out = push_consts_buf.cpu;
-        uint8_t *in = (uint8_t *)inputs;
-
-        for (unsigned i = 0; i < dev->indirect_dispatch.push.count; ++i)
-                memcpy(out + i, in +  dev->indirect_dispatch.push.words[i].offset, 4);
-
-        return push_consts_buf.gpu;
-}
-
 unsigned
 pan_indirect_dispatch_emit(struct pan_pool *pool,
                            struct pan_scoreboard *scoreboard,
@@ -145,7 +127,6 @@ pan_indirect_dispatch_emit(struct pan_pool *pool,
                 cfg.state = get_rsd(dev);
                 cfg.thread_storage = get_tls(pool->dev);
                 cfg.uniform_buffers = get_ubos(pool, &inputs);
-                cfg.push_uniforms = get_push_uniforms(pool, &inputs);
         }
 
         pan_section_pack(job.cpu, COMPUTE_JOB, DRAW_PADDING, cfg);
@@ -223,7 +204,11 @@ pan_indirect_dispatch_init(struct panfrost_device *dev)
         nir_pop_if(&b, NULL);
         nir_pop_if(&b, NULL);
 
-        struct panfrost_compile_inputs inputs = { .gpu_id = dev->gpu_id };
+        struct panfrost_compile_inputs inputs = {
+                .gpu_id = dev->gpu_id,
+                .no_ubo_to_push = true
+        };
+
         struct pan_shader_info shader_info;
         struct util_dynarray binary;
 
