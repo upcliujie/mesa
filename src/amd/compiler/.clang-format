@@ -115,6 +115,7 @@ BraceWrapping:
   AfterFunction: true
   AfterStruct: false
   BeforeElse: false
-  SplitEmptyFunction: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
   BeforeLambdaBody: true
 
