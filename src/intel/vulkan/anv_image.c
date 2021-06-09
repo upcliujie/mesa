@@ -1145,7 +1145,23 @@ add_all_surfaces_explicit_layout(
    if (result != VK_SUCCESS)
       return result;
 
-   if (isl_mod_info->aux_usage == ISL_AUX_USAGE_NONE) {
+   if (isl_mod_info->aux_usage == ISL_AUX_USAGE_NONE && mod_plane_count == 2) {
+      const uint32_t plane1 = anv_image_aspect_to_plane(image->aspects,
+                                                        VK_IMAGE_ASPECT_PLANE_1_BIT);
+      const struct anv_format_plane format_plane1 =
+         anv_get_format_plane(devinfo, image->vk_format, VK_IMAGE_ASPECT_PLANE_1_BIT,
+                              image->tiling);
+      const VkSubresourceLayout *aux_layout = &drm_info->pPlaneLayouts[1];
+
+      result = add_primary_surface(device, image, plane1,
+                                   format_plane1,
+                                   aux_layout->offset,
+                                   aux_layout->rowPitch,
+                                   isl_tiling_flags,
+                                   isl_extra_usage_flags);
+      if (result != VK_SUCCESS)
+         return result;
+   } else if (isl_mod_info->aux_usage == ISL_AUX_USAGE_NONE) {
       /* Even though the modifier does not support aux, try to create
        * a driver-private aux to improve performance.
        */
