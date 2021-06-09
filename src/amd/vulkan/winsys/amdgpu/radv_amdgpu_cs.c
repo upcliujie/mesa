@@ -1672,7 +1672,7 @@ radv_amdgpu_wait_syncobj(struct radeon_winsys *_ws, const uint32_t *handles, uin
    } else if (ret == -ETIME) {
       return false;
    } else {
-      fprintf(stderr, "amdgpu: radv_amdgpu_wait_syncobj failed!\nerrno: %d\n", errno);
+      fprintf(stderr, "amdgpu: radv_amdgpu_wait_syncobj failed! (%d)\n", ret);
       return false;
    }
 }
@@ -1697,7 +1697,7 @@ radv_amdgpu_wait_timeline_syncobj(struct radeon_winsys *_ws, const uint32_t *han
    } else if (ret == -ETIME) {
       return false;
    } else {
-      fprintf(stderr, "amdgpu: radv_amdgpu_wait_syncobj failed! (%d)\n", errno);
+      fprintf(stderr, "amdgpu: radv_amdgpu_wait_timeline_syncobj failed! (%d)\n", ret);
       return false;
    }
 }
