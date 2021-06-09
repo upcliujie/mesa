@@ -82,8 +82,7 @@ struct mad_info {
 
    mad_info(aco_ptr<Instruction> instr, uint32_t id)
        : add_instr(std::move(instr)), mul_temp_id(id), literal_idx(0), check_literal(false)
-   {
-   }
+   {}
 };
 
 enum Label {

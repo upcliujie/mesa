@@ -186,8 +186,7 @@ struct memory_sync_info {
    memory_sync_info() : storage(storage_none), semantics(semantic_none), scope(scope_invocation) {}
    memory_sync_info(int storage_, int semantics_ = 0, sync_scope scope_ = scope_invocation)
        : storage((storage_class)storage_), semantics((memory_semantics)semantics_), scope(scope_)
-   {
-   }
+   {}
 
    storage_class storage : 8;
    memory_semantics semantics : 8;
@@ -336,8 +335,7 @@ struct RegClass {
    constexpr RegClass(RC rc_) : rc(rc_) {}
    constexpr RegClass(RegType type, unsigned size)
        : rc((RC)((type == RegType::vgpr ? 1 << 5 : 0) | size))
-   {
-   }
+   {}
 
    constexpr operator RC() const { return rc; }
    explicit operator bool() = delete;
@@ -477,8 +475,7 @@ class Operand final {
        : reg_(PhysReg{128}), isTemp_(false), isFixed_(true), isConstant_(false), isKill_(false),
          isUndef_(true), isFirstKill_(false), constSize(0), isLateKill_(false), is16bit_(false),
          is24bit_(false), signext(false)
-   {
-   }
+   {}
 
    explicit Operand(Temp r) noexcept
    {
@@ -849,8 +846,7 @@ class Definition final {
    constexpr Definition()
        : temp(Temp(0, s1)), reg_(0), isFixed_(0), hasHint_(0), isKill_(0), isPrecise_(0), isNUW_(0),
          isNoCSE_(0)
-   {
-   }
+   {}
    Definition(uint32_t index, RegClass type) noexcept : temp(index, type) {}
    explicit Definition(Temp tmp) noexcept : temp(tmp) {}
    Definition(PhysReg reg, RegClass type) noexcept : temp(Temp(0, type)) { setFixed(reg); }
@@ -1292,16 +1288,13 @@ struct SOPP_instruction : public Instruction {
 };
 static_assert(sizeof(SOPP_instruction) == sizeof(Instruction) + 8, "Unexpected padding");
 
-struct SOPC_instruction : public Instruction {
-};
+struct SOPC_instruction : public Instruction {};
 static_assert(sizeof(SOPC_instruction) == sizeof(Instruction) + 0, "Unexpected padding");
 
-struct SOP1_instruction : public Instruction {
-};
+struct SOP1_instruction : public Instruction {};
 static_assert(sizeof(SOP1_instruction) == sizeof(Instruction) + 0, "Unexpected padding");
 
-struct SOP2_instruction : public Instruction {
-};
+struct SOP2_instruction : public Instruction {};
 static_assert(sizeof(SOP2_instruction) == sizeof(Instruction) + 0, "Unexpected padding");
 
 /**
@@ -1326,16 +1319,13 @@ struct SMEM_instruction : public Instruction {
 };
 static_assert(sizeof(SMEM_instruction) == sizeof(Instruction) + 4, "Unexpected padding");
 
-struct VOP1_instruction : public Instruction {
-};
+struct VOP1_instruction : public Instruction {};
 static_assert(sizeof(VOP1_instruction) == sizeof(Instruction) + 0, "Unexpected padding");
 
-struct VOP2_instruction : public Instruction {
-};
+struct VOP2_instruction : public Instruction {};
 static_assert(sizeof(VOP2_instruction) == sizeof(Instruction) + 0, "Unexpected padding");
 
-struct VOPC_instruction : public Instruction {
-};
+struct VOPC_instruction : public Instruction {};
 static_assert(sizeof(VOPC_instruction) == sizeof(Instruction) + 0, "Unexpected padding");
 
 struct VOP3_instruction : public Instruction {

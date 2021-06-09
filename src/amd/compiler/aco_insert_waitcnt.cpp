@@ -118,8 +118,7 @@ struct wait_entry {
        : imm(imm_), events(event_), counters(get_counters_for_event(event_)),
          wait_on_read(wait_on_read_), logical(logical_), has_vmem_nosampler(false),
          has_vmem_sampler(false)
-   {
-   }
+   {}
 
    bool join(const wait_entry& other)
    {
@@ -198,8 +197,7 @@ struct wait_ctx {
          max_lgkm_cnt(program_->chip_class >= GFX10 ? 62 : 14),
          max_vs_cnt(program_->chip_class >= GFX10 ? 62 : 0),
          unordered_events(event_smem | (program_->chip_class < GFX10 ? event_flat : 0))
-   {
-   }
+   {}
 
    bool join(const wait_ctx* other, bool logical)
    {

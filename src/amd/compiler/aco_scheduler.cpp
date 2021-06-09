@@ -66,8 +66,7 @@ struct DownwardsCursor {
    DownwardsCursor(int current_idx, RegisterDemand initial_clause_demand)
        : source_idx(current_idx - 1), insert_idx_clause(current_idx), insert_idx(current_idx + 1),
          clause_demand(initial_clause_demand)
-   {
-   }
+   {}
 
    void verify_invariants(const RegisterDemand* register_demand);
 };

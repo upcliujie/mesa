@@ -441,12 +441,10 @@ needs_exec_mask(const Instruction* instr)
 }
 
 wait_imm::wait_imm() : vm(unset_counter), exp(unset_counter), lgkm(unset_counter), vs(unset_counter)
-{
-}
+{}
 wait_imm::wait_imm(uint16_t vm_, uint16_t exp_, uint16_t lgkm_, uint16_t vs_)
     : vm(vm_), exp(exp_), lgkm(lgkm_), vs(vs_)
-{
-}
+{}
 
 wait_imm::wait_imm(enum chip_class chip, uint16_t packed) : vs(unset_counter)
 {

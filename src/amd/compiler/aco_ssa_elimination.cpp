@@ -47,8 +47,7 @@ struct ssa_elimination_ctx {
        : logical_phi_info(program_->blocks.size()), linear_phi_info(program_->blocks.size()),
          empty_blocks(program_->blocks.size(), true),
          blocks_incoming_exec_used(program_->blocks.size(), true), program(program_)
-   {
-   }
+   {}
 };
 
 void

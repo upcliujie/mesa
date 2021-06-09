@@ -82,8 +82,7 @@ class BlockCycleEstimator {
 struct wait_counter_info {
    wait_counter_info(unsigned vm_, unsigned exp_, unsigned lgkm_, unsigned vs_)
        : vm(vm_), exp(exp_), lgkm(lgkm_), vs(vs_)
-   {
-   }
+   {}
 
    unsigned vm;
    unsigned exp;

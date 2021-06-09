@@ -71,8 +71,7 @@ struct loop_info {
    loop_info(Block* b, uint16_t num, uint8_t needs_, bool breaks, bool cont, bool discard)
        : loop_header(b), num_exec_masks(num), needs(needs_), has_divergent_break(breaks),
          has_divergent_continue(cont), has_discard(discard)
-   {
-   }
+   {}
 };
 
 struct block_info {
