@@ -358,7 +358,7 @@ struct RegClass {
       }
    }
 
- private:
+private:
    RC rc;
 };
 
@@ -406,7 +406,7 @@ struct Temp {
    constexpr bool operator==(Temp other) const noexcept { return id() == other.id(); }
    constexpr bool operator!=(Temp other) const noexcept { return id() != other.id(); }
 
- private:
+private:
    uint32_t id_ : 24;
    uint32_t reg_class : 8;
 };
@@ -470,7 +470,7 @@ static constexpr PhysReg scc{253};
  * Constant values are inlined into the instruction sequence.
  */
 class Operand final {
- public:
+public:
    constexpr Operand()
        : reg_(PhysReg{128}), isTemp_(false), isFixed_(true), isConstant_(false), isKill_(false),
          isUndef_(true), isFirstKill_(false), constSize(0), isLateKill_(false), is16bit_(false),
@@ -809,7 +809,7 @@ class Operand final {
 
    constexpr bool is24bit() const noexcept { return is24bit_; }
 
- private:
+private:
    union {
       Temp temp;
       uint32_t i;
@@ -842,7 +842,7 @@ class Operand final {
  * which are later mapped to physical registers
  */
 class Definition final {
- public:
+public:
    constexpr Definition()
        : temp(Temp(0, s1)), reg_(0), isFixed_(0), hasHint_(0), isKill_(0), isPrecise_(0), isNUW_(0),
          isNoCSE_(0)
@@ -906,7 +906,7 @@ class Definition final {
 
    constexpr bool isNoCSE() const noexcept { return isNoCSE_; }
 
- private:
+private:
    Temp temp = Temp(0, s1);
    PhysReg reg_;
    union {
@@ -1961,7 +1961,7 @@ enum class CompilationProgress {
 };
 
 class Program final {
- public:
+public:
    std::vector<Block> blocks;
    std::vector<RegClass> temp_rc = {s1};
    RegisterDemand max_reg_demand = RegisterDemand();
@@ -2045,7 +2045,7 @@ class Program final {
       return &blocks.back();
    }
 
- private:
+private:
    uint32_t allocationID = 1;
 };
 

@@ -41,7 +41,7 @@ collect_presched_stats(Program* program)
 }
 
 class BlockCycleEstimator {
- public:
+public:
    enum resource {
       null = 0,
       scalar,
@@ -71,7 +71,7 @@ class BlockCycleEstimator {
    void add(aco_ptr<Instruction>& instr);
    void join(const BlockCycleEstimator& other);
 
- private:
+private:
    unsigned get_waitcnt_cost(wait_imm imm);
    unsigned get_dependency_cost(aco_ptr<Instruction>& instr);
 

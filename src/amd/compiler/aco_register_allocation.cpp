@@ -222,7 +222,7 @@ struct DefInfo {
 };
 
 class RegisterFile {
- public:
+public:
    RegisterFile() { regs.fill(0); }
 
    std::array<uint32_t, 512> regs;
@@ -321,7 +321,7 @@ class RegisterFile {
       return regs[reg] == 0xF0000000 ? subdword_regs[reg][reg.byte()] : regs[reg];
    }
 
- private:
+private:
    void fill(PhysReg start, unsigned size, uint32_t val)
    {
       for (unsigned i = 0; i < size; i++)

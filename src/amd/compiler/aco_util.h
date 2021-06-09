@@ -37,7 +37,7 @@ namespace aco {
  *               data. The "span" object does not own the data itself.
  */
 template <typename T> class span {
- public:
+public:
    using value_type = T;
    using pointer = value_type*;
    using const_pointer = const value_type*;
@@ -221,7 +221,7 @@ template <typename T> class span {
       length = 0;
    }
 
- private:
+private:
    uint16_t offset{0};  //!> Byte offset from span to data
    size_type length{0}; //!> Size of the span
 };
