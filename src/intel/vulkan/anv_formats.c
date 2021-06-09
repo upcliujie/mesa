@@ -725,6 +725,7 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
       switch (isl_layout->colorspace) {
       case ISL_COLORSPACE_LINEAR:
       case ISL_COLORSPACE_SRGB:
+      case ISL_COLORSPACE_YUV:
          /* Each DRM_FORMAT in in the rgb/srgb space uses unorm (if the DRM
           * format name has no type suffix) or sfloat (if it has suffix F). No
           * format contains mixed types. (as of 2020-10-16)
@@ -733,9 +734,6 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
              isl_layout->uniform_channel_type != ISL_SFLOAT)
             return 0;
          break;
-      case ISL_COLORSPACE_YUV:
-         anv_finishme("support YUV formats with DRM format modifiers");
-         return 0;
       case ISL_COLORSPACE_NONE:
          return 0;
       }
@@ -753,8 +751,9 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
       if (anv_format_has_npot_plane(anv_format))
          return 0;
 
-      if (anv_format->n_planes > 1) {
-         anv_finishme("support multi-planar formats with DRM format modifiers");
+      if (anv_format->n_planes > 1 &&
+          vk_format != VK_FORMAT_G8_B8R8_2PLANE_420_UNORM) {
+         anv_finishme("support more multi-planar formats with DRM modifiers");
          return 0;
       }
 
