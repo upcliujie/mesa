@@ -2,11 +2,6 @@
 # TODO: Inherit Style from RADV when Clang 13 is default.
 # BasedOnStyle: InheritParentConfig
 
-# Force pointers to the type for C++
-Language: Cpp
-DerivePointerAlignment: false
-PointerAlignment: Left
-
 # Copied from /src/amd/.clang-format
 AlignAfterOpenBracket: true
 AlignConsecutiveMacros: true
@@ -104,4 +99,22 @@ SpaceAfterCStyleCast: false
 SpaceBeforeCpp11BracedList: false
 SpaceBeforeCtorInitializerColon: false
 SpacesInContainerLiterals: false
+
+Language: Cpp
+
+# Force pointers to the type for C++
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+SpaceBeforeCtorInitializerColon: True
+AllowShortCaseLabelsOnASingleLine: True
+AllowShortFunctionsOnASingleLine: InlineOnly
+BraceWrapping:
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: true
+  AfterStruct: false
+  BeforeElse: false
+  SplitEmptyFunction: true
+  BeforeLambdaBody: true
 
