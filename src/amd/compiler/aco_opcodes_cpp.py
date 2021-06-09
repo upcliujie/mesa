@@ -26,8 +26,9 @@ template = """\
 
 #include "aco_ir.h"
 
-namespace aco {
+#include <bitset>
 
+namespace aco {
 
 <%
 opcode_names = sorted(opcodes.keys())

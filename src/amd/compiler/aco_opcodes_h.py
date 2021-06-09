@@ -29,6 +29,8 @@ template = """\
 #ifndef _ACO_OPCODES_
 #define _ACO_OPCODES_
 
+#include <bitset>
+
 <% opcode_names = sorted(opcodes.keys()) %>
 
 enum class aco_opcode : std::uint16_t {
