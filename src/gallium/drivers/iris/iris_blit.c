@@ -27,6 +27,7 @@
 #include "pipe/p_screen.h"
 #include "util/format/u_format.h"
 #include "util/u_inlines.h"
+#include "util/u_surface.h"
 #include "util/ralloc.h"
 #include "intel/blorp/blorp.h"
 #include "iris_context.h"
@@ -353,6 +354,36 @@ clear_color_is_fully_zero(const struct iris_resource *res)
           res->aux.clear_color.u32[3] == 0;
 }
 
+static bool
+iris_try_blit_via_copy(struct iris_context *ice,
+                       const struct pipe_blit_info *info)
+{
+   struct iris_screen *screen = (struct iris_screen *) ice->ctx.screen;
+   const struct intel_device_info *devinfo = &screen->devinfo;
+   struct iris_resource *src_res = (void *) info->src.resource;
+   struct iris_resource *dst_res = (void *) info->dst.resource;
+   bool predicated = ice->state.predicate == IRIS_PREDICATE_STATE_USE_BIT;
+
+   /* Prior to Icelake, blorp_copy() has extra texture cache flushing we'd
+    * rather not use.  There's also not much benefit to this path on Icelake.
+    * On Tigerlake and later, we may get the blitter, which is useful.
+    */
+   if (devinfo->ver < 12)
+      return false;
+
+   /* Only try blorp_copy() when the clear color is fully zero.  Non-zero
+    * clear colors might not be representable in the copy format used by
+    * blorp_copy(), which could require extra resolves, which we don't want.
+    */
+   if ((src_res->aux.usage == ISL_AUX_USAGE_NONE ||
+        clear_color_is_fully_zero(src_res)) &&
+       (dst_res->aux.usage == ISL_AUX_USAGE_NONE ||
+        clear_color_is_fully_zero(dst_res)))
+      return util_try_blit_via_copy_region(&ice->ctx, info, predicated);
+
+   return false;
+}
+
 /**
  * The pipe->blit() driver hook.
  *
@@ -400,6 +431,9 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
       if (noop)
          return;
    }
+
+   if (iris_try_blit_via_copy(ice, info))
+      return;
 
    if (abs(info->dst.box.width) == abs(info->src.box.width) &&
        abs(info->dst.box.height) == abs(info->src.box.height)) {
