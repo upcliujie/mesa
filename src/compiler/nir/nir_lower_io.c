@@ -2299,6 +2299,9 @@ lower_vars_to_explicit(nir_shader *shader,
       unreachable("Unsupported mode");
    }
 
+   if (progress)
+      nir_shader_preserve_all_metadata(shader);
+
    return progress;
 }
 
