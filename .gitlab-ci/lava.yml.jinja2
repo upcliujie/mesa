@@ -81,6 +81,7 @@ actions:
           - for i in 1 2 3; do sntp -sS pool.ntp.org && break || sleep 2; done
 
           - modprobe amdgpu || true
+          - ulimit -c 0 || true
 
           # Disable GPU frequency scaling
           - DEVFREQ_GOVERNOR=`find /sys/devices -name governor | grep gpu || true`
