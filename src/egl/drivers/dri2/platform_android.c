@@ -44,6 +44,7 @@
 
 #include "loader.h"
 #include "egl_dri2.h"
+#include "platform_android.h"
 
 #ifdef HAVE_DRM_GRALLOC
 #include <gralloc_drm_handle.h>
@@ -409,15 +410,9 @@ droid_window_dequeue_buffer(struct dri2_egl_surface *dri2_surf)
 {
    int fence_fd;
 
-#if ANDROID_API_LEVEL >= 26
    if (ANativeWindow_dequeueBuffer(dri2_surf->window, &dri2_surf->buffer,
-                                   &fence_fd)) {
-#else
-   if (dri2_surf->window->dequeueBuffer(dri2_surf->window, &dri2_surf->buffer,
-                                        &fence_fd)) {
-#endif
+                                   &fence_fd))
       return EGL_FALSE;
-   }
 
    /* If access to the buffer is controlled by a sync fence, then block on the
     * fence.
@@ -499,12 +494,7 @@ droid_window_enqueue_buffer(_EGLDisplay *disp, struct dri2_egl_surface *dri2_sur
     */
    int fence_fd = dri2_surf->out_fence_fd;
    dri2_surf->out_fence_fd = -1;
-#if ANDROID_API_LEVEL >= 26
    ANativeWindow_queueBuffer(dri2_surf->window, dri2_surf->buffer, fence_fd);
-#else
-   dri2_surf->window->queueBuffer(dri2_surf->window, dri2_surf->buffer,
-                                  fence_fd);
-#endif
 
    dri2_surf->buffer = NULL;
    dri2_surf->back = NULL;
@@ -526,13 +516,8 @@ droid_window_cancel_buffer(struct dri2_egl_surface *dri2_surf)
    int fence_fd = dri2_surf->out_fence_fd;
 
    dri2_surf->out_fence_fd = -1;
-#if ANDROID_API_LEVEL >= 26
    ret = ANativeWindow_cancelBuffer(dri2_surf->window, dri2_surf->buffer,
                                     fence_fd);
-#else
-   ret = dri2_surf->window->cancelBuffer(dri2_surf->window,
-                                         dri2_surf->buffer, fence_fd);
-#endif
    dri2_surf->buffer = NULL;
    if (ret < 0) {
       _eglLog(_EGL_WARNING, "ANativeWindow_cancelBuffer failed");
@@ -552,11 +537,7 @@ droid_set_shared_buffer_mode(_EGLDisplay *disp, _EGLSurface *surf, bool mode)
 
    _eglLog(_EGL_DEBUG, "%s: mode=%d", __func__, mode);
 
-#if ANDROID_API_LEVEL >= 26
    if (ANativeWindow_setSharedBufferMode(window, mode)) {
-#else
-   if (native_window_set_shared_buffer_mode(window, mode)) {
-#endif
       _eglLog(_EGL_WARNING, "failed ANativeWindow_setSharedBufferMode"
               "(window=%p, mode=%d)", window, mode);
       return false;
@@ -594,12 +575,8 @@ droid_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
       int buffer_count;
       int min_undequeued_buffers;
 
-#if ANDROID_API_LEVEL >= 26
       format = ANativeWindow_getFormat(window);
       if (format < 0) {
-#else
-      if (window->query(window, NATIVE_WINDOW_FORMAT, &format)) {
-#endif
          _eglError(EGL_BAD_NATIVE_WINDOW, "droid_create_surface");
          goto cleanup_surface;
       }
@@ -607,14 +584,9 @@ droid_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
       /* Query ANativeWindow for MIN_UNDEQUEUED_BUFFER, minimum amount
        * of undequeued buffers.
        */
-#if ANDROID_API_LEVEL >= 26
       if (ANativeWindow_query(window,
                               ANATIVEWINDOW_QUERY_MIN_UNDEQUEUED_BUFFERS,
                               &min_undequeued_buffers)) {
-#else
-      if (window->query(window, NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS,
-                        &min_undequeued_buffers)) {
-#endif
          _eglError(EGL_BAD_NATIVE_WINDOW, "droid_create_surface");
          goto cleanup_surface;
       }
@@ -635,17 +607,10 @@ droid_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
                format, dri2_conf->base.NativeVisualID);
       }
 
-#if ANDROID_API_LEVEL >= 26
       ANativeWindow_query(window, ANATIVEWINDOW_QUERY_DEFAULT_WIDTH,
                           &dri2_surf->base.Width);
       ANativeWindow_query(window, ANATIVEWINDOW_QUERY_DEFAULT_HEIGHT,
                           &dri2_surf->base.Height);
-#else
-      window->query(window, NATIVE_WINDOW_DEFAULT_WIDTH,
-                    &dri2_surf->base.Width);
-      window->query(window, NATIVE_WINDOW_DEFAULT_HEIGHT,
-                    &dri2_surf->base.Height);
-#endif
 
       uint32_t usage = strcmp(dri2_dpy->driver_name, "kms_swrast") == 0
             ? GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN
@@ -654,11 +619,7 @@ droid_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
       if (conf->SurfaceType & EGL_MUTABLE_RENDER_BUFFER_BIT_KHR)
          usage |= dri2_dpy->front_rendering_usage;
 
-#if ANDROID_API_LEVEL >= 26
       ANativeWindow_setUsage(window, usage);
-#else
-      native_window_set_usage(window, usage);
-#endif
    }
 
    config = dri2_get_dri_config(dri2_conf, type,
@@ -672,11 +633,7 @@ droid_create_surface(_EGLDisplay *disp, EGLint type, _EGLConfig *conf,
       goto cleanup_surface;
 
    if (window) {
-#if ANDROID_API_LEVEL >= 26
       ANativeWindow_acquire(window);
-#else
-      window->common.incRef(&window->common);
-#endif
       dri2_surf->window = window;
    }
 
@@ -718,11 +675,7 @@ droid_destroy_surface(_EGLDisplay *disp, _EGLSurface *surf)
       if (dri2_surf->buffer)
          droid_window_cancel_buffer(dri2_surf);
 
-#if ANDROID_API_LEVEL >= 26
       ANativeWindow_release(dri2_surf->window);
-#else
-      dri2_surf->window->common.decRef(&dri2_surf->window->common);
-#endif
    }
 
    if (dri2_surf->dri_image_back) {
@@ -752,13 +705,8 @@ droid_swap_interval(_EGLDisplay *disp, _EGLSurface *surf, EGLint interval)
    struct dri2_egl_surface *dri2_surf = dri2_egl_surface(surf);
    struct ANativeWindow *window = dri2_surf->window;
 
-#if ANDROID_API_LEVEL >= 26
-   if (ANativeWindow_setSwapInterval(window, interval)) {
-#else
-   if (window->setSwapInterval(window, interval)) {
-#endif
+   if (ANativeWindow_setSwapInterval(window, interval))
       return EGL_FALSE;
-   }
 
    surf->SwapInterval = interval;
    return EGL_TRUE;
@@ -1055,25 +1003,15 @@ droid_query_surface(_EGLDisplay *disp, _EGLSurface *surf,
    switch (attribute) {
       case EGL_WIDTH:
          if (dri2_surf->base.Type == EGL_WINDOW_BIT && dri2_surf->window) {
-#if ANDROID_API_LEVEL >= 26
             ANativeWindow_query(dri2_surf->window,
                                 ANATIVEWINDOW_QUERY_DEFAULT_WIDTH, value);
-#else
-            dri2_surf->window->query(dri2_surf->window,
-                                     NATIVE_WINDOW_DEFAULT_WIDTH, value);
-#endif
             return EGL_TRUE;
          }
          break;
       case EGL_HEIGHT:
          if (dri2_surf->base.Type == EGL_WINDOW_BIT && dri2_surf->window) {
-#if ANDROID_API_LEVEL >= 26
             ANativeWindow_query(dri2_surf->window,
                                 ANATIVEWINDOW_QUERY_DEFAULT_HEIGHT, value);
-#else
-            dri2_surf->window->query(dri2_surf->window,
-                                     NATIVE_WINDOW_DEFAULT_HEIGHT, value);
-#endif
             return EGL_TRUE;
          }
          break;
@@ -1396,13 +1334,8 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
       dri2_surf->out_fence_fd = -1;
    }
 
-#if ANDROID_API_LEVEL >= 26
    if (ANativeWindow_queueBuffer(dri2_surf->window, dri2_surf->buffer,
                                  fence_fd)) {
-#else
-   if (dri2_surf->window->queueBuffer(dri2_surf->window, dri2_surf->buffer,
-                                      fence_fd)) {
-#endif
       _eglLog(_EGL_WARNING, "%s: ANativeWindow_queueBuffer failed", __func__);
       close(fence_fd);
       return;
@@ -1410,13 +1343,8 @@ droid_display_shared_buffer(__DRIdrawable *driDrawable, int fence_fd,
 
    fence_fd = -1;
 
-#if ANDROID_API_LEVEL >= 26
    if (ANativeWindow_dequeueBuffer(dri2_surf->window, &dri2_surf->buffer,
                                    &fence_fd)) {
-#else
-   if (dri2_surf->window->dequeueBuffer(dri2_surf->window, &dri2_surf->buffer,
-                                        &fence_fd)) {
-#endif
       /* Tear down the surface because it no longer has a back buffer. */
       struct dri2_egl_display *dri2_dpy =
          dri2_egl_display(dri2_surf->base.Resource.Display);
