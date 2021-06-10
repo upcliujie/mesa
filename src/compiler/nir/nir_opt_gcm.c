@@ -620,9 +620,9 @@ opt_gcm_impl(nir_function_impl *impl, bool value_number)
       rzalloc_array(NULL, struct gcm_instr_info, state.num_instrs);
 
    if (value_number) {
-      struct set *gvn_set = nir_instr_set_create(NULL, false);
+      struct set *gvn_set = nir_instr_set_create(NULL);
       foreach_list_typed_safe(nir_instr, instr, node, &state.instrs) {
-         if (nir_instr_set_add_or_rewrite(gvn_set, instr))
+         if (nir_instr_set_add_or_rewrite(gvn_set, instr, NULL))
             state.progress = true;
       }
       nir_instr_set_destroy(gvn_set);

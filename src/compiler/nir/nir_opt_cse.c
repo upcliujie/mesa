@@ -33,9 +33,15 @@
  */
 
 static bool
+dominates(const nir_instr *old_instr, const nir_instr *new_instr)
+{
+   return nir_block_dominates(old_instr->block, new_instr->block);
+}
+
+static bool
 nir_opt_cse_impl(nir_function_impl *impl)
 {
-   struct set *instr_set = nir_instr_set_create(NULL, true);
+   struct set *instr_set = nir_instr_set_create(NULL);
 
    _mesa_set_resize(instr_set, impl->ssa_alloc);
 
@@ -44,7 +50,7 @@ nir_opt_cse_impl(nir_function_impl *impl)
    bool progress = false;
    nir_foreach_block(block, impl) {
       nir_foreach_instr_safe(instr, block)
-         progress |= nir_instr_set_add_or_rewrite(instr_set, instr);
+         progress |= nir_instr_set_add_or_rewrite(instr_set, instr, dominates);
    }
 
    if (progress) {

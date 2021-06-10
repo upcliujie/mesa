@@ -789,23 +789,10 @@ cmp_func(const void *data1, const void *data2)
    return nir_instrs_equal(data1, data2);
 }
 
-static bool
-cmp_func_cse(const void *data1, const void *data2)
-{
-   const nir_instr *instr1 = data1;
-   const nir_instr *instr2 = data2;
-
-   if (!nir_block_dominates(instr1->block, instr2->block) &&
-       !nir_block_dominates(instr2->block, instr1->block))
-      return false;
-
-   return nir_instrs_equal(instr1, instr2);
-}
-
 struct set *
-nir_instr_set_create(void *mem_ctx, bool cse)
+nir_instr_set_create(void *mem_ctx)
 {
-   return _mesa_set_create(mem_ctx, hash_instr, cse ? cmp_func_cse : cmp_func);
+   return _mesa_set_create(mem_ctx, hash_instr, cmp_func);
 }
 
 void
@@ -815,23 +802,20 @@ nir_instr_set_destroy(struct set *instr_set)
 }
 
 bool
-nir_instr_set_add_or_rewrite(struct set *instr_set, nir_instr *instr)
+nir_instr_set_add_or_rewrite(struct set *instr_set, nir_instr *instr,
+                             bool (*cond_function) (const nir_instr *a,
+                                                    const nir_instr *b))
 {
    if (!instr_can_rewrite(instr))
       return false;
 
    struct set_entry *e = _mesa_set_search_or_add(instr_set, instr, NULL);
    nir_instr *match = (nir_instr *) e->key;
-   if (match != instr) {
-      if (instr_set->key_equals_function == cmp_func_cse &&
-          !nir_block_dominates(match->block, instr->block)) {
-         nir_instr *tmp = match;
-         match = instr;
-         instr = tmp;
+   if (match == instr)
+      return false;
 
-         e->key = match;
-      }
-
+   if (!cond_function || cond_function(match, instr)) {
+      /* rewrite instruction if condition is matched */
       nir_ssa_def *def = nir_instr_get_dest_ssa_def(instr);
       nir_ssa_def *new_def = nir_instr_get_dest_ssa_def(match);
 
@@ -848,9 +832,11 @@ nir_instr_set_add_or_rewrite(struct set *instr_set, nir_instr *instr)
       nir_instr_remove(instr);
 
       return true;
+   } else {
+      /* otherwise, replace hashed instruction */
+      e->key = instr;
+      return false;
    }
-
-   return false;
 }
 
 void
