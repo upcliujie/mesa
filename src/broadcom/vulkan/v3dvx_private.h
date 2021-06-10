@@ -29,6 +29,31 @@
 #error This file is included by means other than v3dv_private.h
 #endif
 
+/* Used at v3dv_pipeline */
+void
+v3dX(pipeline_pack_blend)(struct v3dv_pipeline *pipeline,
+                          const VkPipelineColorBlendStateCreateInfo *cb_info);
+
+void
+v3dX(pipeline_pack_cfg_bits)(struct v3dv_pipeline *pipeline,
+                             const VkPipelineDepthStencilStateCreateInfo *ds_info,
+                             const VkPipelineRasterizationStateCreateInfo *rs_info,
+                             const VkPipelineMultisampleStateCreateInfo *ms_info);
+
+void
+v3dX(pipeline_pack_stencil_cfg)(struct v3dv_pipeline *pipeline,
+                                const VkPipelineDepthStencilStateCreateInfo *ds_info);
+
+void
+v3dX(pipeline_pack_vcm_cache_size)(struct v3dv_pipeline *pipeline);
+
+void
+v3dX(pipeline_pack_shader_state_record)(struct v3dv_pipeline *pipeline);
+
+void
+v3dX(pipeline_pack_shader_state_attribute_record)(struct v3dv_pipeline *pipeline,
+                                                  uint32_t index,
+                                                  const VkVertexInputAttributeDescription *vi_desc);
 /* Used at v3dv_queue */
 void
 v3dX(job_emit_noop_render)(struct v3dv_job *job);
