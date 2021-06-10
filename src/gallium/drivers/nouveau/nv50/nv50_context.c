@@ -139,8 +139,6 @@ nv50_default_kick_notify(struct nouveau_pushbuf *push)
    struct nv50_context *context = screen->cur_ctx;
 
    if (context) {
-      nouveau_fence_next(&context->base);
-      nouveau_fence_update(&screen->base, true);
       context->state.flushed = true;
    }
 }
@@ -314,7 +312,8 @@ nv50_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    if (!nv50_blitctx_create(nv50))
       goto out_err;
 
-   nouveau_context_init(&nv50->base, &screen->base);
+   if (nouveau_context_init(&nv50->base, &screen->base))
+      goto out_err;
 
    ret = nouveau_bufctx_new(nv50->base.client, 2, &nv50->bufctx);
    if (!ret)
