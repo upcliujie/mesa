@@ -37,7 +37,7 @@ struct nouveau_fence_list {
    uint32_t sequence;
    uint32_t sequence_ack;
    simple_mtx_t lock;
-   void (*emit)(struct pipe_screen *, uint32_t *sequence);
+   void (*emit)(struct pipe_context *, uint32_t *sequence);
    uint32_t (*update)(struct pipe_screen *);
 };
 
