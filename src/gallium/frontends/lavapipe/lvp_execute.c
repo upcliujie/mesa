@@ -47,6 +47,7 @@
 
 struct rendering_state {
    struct pipe_context *pctx;
+   struct cso_context *cso;
 
    bool blend_dirty;
    bool rs_dirty;
@@ -3157,51 +3158,7 @@ VkResult lvp_execute_cmds(struct lvp_device *device,
 
    state.start_vb = -1;
    state.num_vb = 0;
-   state.pctx->set_vertex_buffers(state.pctx, 0, 0, PIPE_MAX_ATTRIBS, false, NULL);
-   state.pctx->bind_vertex_elements_state(state.pctx, NULL);
-   state.pctx->bind_vs_state(state.pctx, NULL);
-   state.pctx->bind_fs_state(state.pctx, NULL);
-   state.pctx->bind_gs_state(state.pctx, NULL);
-   if (state.pctx->bind_tcs_state)
-      state.pctx->bind_tcs_state(state.pctx, NULL);
-   if (state.pctx->bind_tes_state)
-      state.pctx->bind_tes_state(state.pctx, NULL);
-   if (state.pctx->bind_compute_state)
-      state.pctx->bind_compute_state(state.pctx, NULL);
-   if (state.velems_cso)
-      state.pctx->delete_vertex_elements_state(state.pctx, state.velems_cso);
-
-   state.pctx->bind_rasterizer_state(state.pctx, NULL);
-   state.pctx->delete_rasterizer_state(state.pctx, state.rast_handle);
-   if (state.blend_handle) {
-      state.pctx->bind_blend_state(state.pctx, NULL);
-      state.pctx->delete_blend_state(state.pctx, state.blend_handle);
-   }
-
-   if (state.dsa_handle) {
-      state.pctx->bind_depth_stencil_alpha_state(state.pctx, NULL);
-      state.pctx->delete_depth_stencil_alpha_state(state.pctx, state.dsa_handle);
-   }
-
-   for (enum pipe_shader_type s = PIPE_SHADER_VERTEX; s < PIPE_SHADER_TYPES; s++) {
-      for (unsigned i = 0; i < PIPE_MAX_SAMPLERS; i++) {
-         if (state.sv[s][i])
-            pipe_sampler_view_reference(&state.sv[s][i], NULL);
-         if (state.ss_cso[s][i]) {
-            state.pctx->delete_sampler_state(state.pctx, state.ss_cso[s][i]);
-            state.ss_cso[s][i] = NULL;
-         }
-      }
-      state.pctx->bind_sampler_states(state.pctx, s, 0, PIPE_MAX_SAMPLERS, state.ss_cso[s]);
-
-      state.pctx->set_shader_images(state.pctx, s, 0, 0, device->physical_device->max_images, NULL);
-
-      state.pctx->set_constant_buffer(state.pctx, s, 0, false, NULL);
-      for (unsigned idx = 0; idx < state.num_const_bufs[s]; idx++)
-         state.pctx->set_constant_buffer(state.pctx, s, idx + 1, false, NULL);
-   }
-
-   state.pctx->set_stream_output_targets(state.pctx, 0, NULL, NULL);
+   cso_unbind_context(queue->cso);
    for (unsigned i = 0; i < PIPE_MAX_SO_BUFFERS; i++) {
       if (state.so_targets[i]) {
          state.pctx->stream_output_target_destroy(state.pctx, state.so_targets[i]);
