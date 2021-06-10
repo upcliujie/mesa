@@ -520,14 +520,14 @@ if with_any_vk and with_platform_x11
   with_dri3 = true
 endif
 
+if with_gallium_kmsro and with_platform_x11
+  with_dri3 = true
+endif
+
 if with_dri
   if with_glx == 'disabled' and not with_egl and not with_gbm
     error('building dri drivers require at least one windowing system')
   endif
-endif
-
-if with_gallium_kmsro and (with_platform_x11 and not with_dri3)
-  error('kmsro requires dri3 for X11 support')
 endif
 
 _vdpau = get_option('gallium-vdpau')
