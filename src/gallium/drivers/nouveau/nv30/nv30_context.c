@@ -45,9 +45,6 @@ nv30_context_kick_notify(struct nouveau_pushbuf *push)
    nv30 = container_of(push->user_priv, struct nv30_context, bufctx);
    screen = &nv30->screen->base;
 
-   nouveau_fence_next(&nv30->base);
-   nouveau_fence_update(screen, true);
-
    if (push->bufctx) {
       struct nouveau_bufref *bref;
       LIST_FOR_EACH_ENTRY(bref, &push->bufctx->current, thead) {
@@ -205,7 +202,10 @@ nv30_context_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    pipe->priv = priv;
    pipe->destroy = nv30_context_destroy;
    pipe->flush = nv30_context_flush;
-   nouveau_context_init(&nv30->base, &screen->base);
+   if (nouveau_context_init(&nv30->base, &screen->base)) {
+      nv30_context_destroy(pipe);
+      return NULL;
+   }
 
    nv30->base.pipe.stream_uploader = u_upload_create_default(&nv30->base.pipe);
    if (!nv30->base.pipe.stream_uploader) {
