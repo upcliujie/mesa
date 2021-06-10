@@ -1629,9 +1629,6 @@ _mesa_make_current( struct gl_context *newCtx,
    }
 
    if (curCtx &&
-       (curCtx->WinSysDrawBuffer || curCtx->WinSysReadBuffer) &&
-       /* make sure this context is valid for flushing */
-       curCtx != newCtx &&
        curCtx->Const.ContextReleaseBehavior ==
        GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH) {
       _mesa_flush(curCtx);
