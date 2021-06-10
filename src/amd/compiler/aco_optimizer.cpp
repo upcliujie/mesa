@@ -3486,62 +3486,47 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       }
    } else if (instr->opcode == aco_opcode::v_or_b32 && ctx.program->chip_class >= GFX9) {
       if (combine_three_valu_op(ctx, instr, aco_opcode::s_or_b32, aco_opcode::v_or3_b32, "012",
-                                1 | 2))
-         ;
-      else if (combine_three_valu_op(ctx, instr, aco_opcode::v_or_b32, aco_opcode::v_or3_b32, "012",
-                                     1 | 2))
-         ;
-      else
-         combine_add_or_then_and_lshl(ctx, instr);
+                                1 | 2)) {
+      } else if (combine_three_valu_op(ctx, instr, aco_opcode::v_or_b32, aco_opcode::v_or3_b32,
+                                       "012", 1 | 2)) {
+      } else if (combine_add_or_then_and_lshl(ctx, instr)) {
+      }
    } else if (instr->opcode == aco_opcode::v_xor_b32 && ctx.program->chip_class >= GFX10) {
       if (combine_three_valu_op(ctx, instr, aco_opcode::v_xor_b32, aco_opcode::v_xor3_b32, "012",
-                                1 | 2))
-         ;
-      else
-         combine_three_valu_op(ctx, instr, aco_opcode::s_xor_b32, aco_opcode::v_xor3_b32, "012",
-                               1 | 2);
+                                1 | 2)) {
+      } else if (combine_three_valu_op(ctx, instr, aco_opcode::s_xor_b32, aco_opcode::v_xor3_b32,
+                                       "012", 1 | 2)) {
+      }
    } else if (instr->opcode == aco_opcode::v_add_u32) {
-      if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2))
-         ;
-      else if (combine_add_bcnt(ctx, instr))
-         ;
-      else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24,
-                                     aco_opcode::v_mad_u32_u24, "120", 1 | 2))
-         ;
-      else if (ctx.program->chip_class >= GFX9 && !instr->usesModifiers()) {
+      if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2)) {
+      } else if (combine_add_bcnt(ctx, instr)) {
+      } else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24,
+                                       aco_opcode::v_mad_u32_u24, "120", 1 | 2)) {
+      } else if (ctx.program->chip_class >= GFX9 && !instr->usesModifiers()) {
          if (combine_three_valu_op(ctx, instr, aco_opcode::s_xor_b32, aco_opcode::v_xad_u32, "120",
-                                   1 | 2))
-            ;
-         else if (combine_three_valu_op(ctx, instr, aco_opcode::v_xor_b32, aco_opcode::v_xad_u32,
-                                        "120", 1 | 2))
-            ;
-         else if (combine_three_valu_op(ctx, instr, aco_opcode::s_add_i32, aco_opcode::v_add3_u32,
-                                        "012", 1 | 2))
-            ;
-         else if (combine_three_valu_op(ctx, instr, aco_opcode::s_add_u32, aco_opcode::v_add3_u32,
-                                        "012", 1 | 2))
-            ;
-         else if (combine_three_valu_op(ctx, instr, aco_opcode::v_add_u32, aco_opcode::v_add3_u32,
-                                        "012", 1 | 2))
-            ;
-         else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_lo_u16,
-                                        aco_opcode::v_mad_u32_u16, "120", 1 | 2))
-            ;
-         else
-            combine_add_or_then_and_lshl(ctx, instr);
+                                   1 | 2)) {
+         } else if (combine_three_valu_op(ctx, instr, aco_opcode::v_xor_b32, aco_opcode::v_xad_u32,
+                                          "120", 1 | 2)) {
+         } else if (combine_three_valu_op(ctx, instr, aco_opcode::s_add_i32, aco_opcode::v_add3_u32,
+                                          "012", 1 | 2)) {
+         } else if (combine_three_valu_op(ctx, instr, aco_opcode::s_add_u32, aco_opcode::v_add3_u32,
+                                          "012", 1 | 2)) {
+         } else if (combine_three_valu_op(ctx, instr, aco_opcode::v_add_u32, aco_opcode::v_add3_u32,
+                                          "012", 1 | 2)) {
+         } else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_lo_u16,
+                                          aco_opcode::v_mad_u32_u16, "120", 1 | 2)) {
+         } else if (combine_add_or_then_and_lshl(ctx, instr)) {
+         }
       }
    } else if (instr->opcode == aco_opcode::v_add_co_u32 ||
               instr->opcode == aco_opcode::v_add_co_u32_e64) {
       bool carry_out = ctx.uses[instr->definitions[1].tempId()] > 0;
-      if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2))
-         ;
-      else if (!carry_out && combine_add_bcnt(ctx, instr))
-         ;
-      else if (!carry_out && combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24,
-                                                   aco_opcode::v_mad_u32_u24, "120", 1 | 2))
-         ;
-      else if (!carry_out)
-         combine_add_lshl(ctx, instr);
+      if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2)) {
+      } else if (!carry_out && combine_add_bcnt(ctx, instr)) {
+      } else if (!carry_out && combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24,
+                                                     aco_opcode::v_mad_u32_u24, "120", 1 | 2)) {
+      } else if (!carry_out && combine_add_lshl(ctx, instr) {
+      }
    } else if (instr->opcode == aco_opcode::v_sub_u32 || instr->opcode == aco_opcode::v_sub_co_u32 ||
               instr->opcode == aco_opcode::v_sub_co_u32_e64) {
       combine_add_sub_b2i(ctx, instr, aco_opcode::v_subbrev_co_u32, 2);
@@ -3559,14 +3544,11 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       combine_salu_not_bitwise(ctx, instr);
    } else if (instr->opcode == aco_opcode::s_and_b32 || instr->opcode == aco_opcode::s_or_b32 ||
               instr->opcode == aco_opcode::s_and_b64 || instr->opcode == aco_opcode::s_or_b64) {
-      if (combine_ordering_test(ctx, instr))
-         ;
-      else if (combine_comparison_ordering(ctx, instr))
-         ;
-      else if (combine_constant_comparison_ordering(ctx, instr))
-         ;
-      else
-         combine_salu_n2(ctx, instr);
+      if (combine_ordering_test(ctx, instr)) {
+      } else if (combine_comparison_ordering(ctx, instr)) {
+      } else if (combine_constant_comparison_ordering(ctx, instr)) {
+      } else if (combine_salu_n2(ctx, instr)) {
+      }
    } else if (instr->opcode == aco_opcode::v_and_b32) {
       combine_and_subbrev(ctx, instr);
    } else {
@@ -3575,10 +3557,10 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       if (get_minmax_info(instr->opcode, &min, &max, &min3, &max3, &med3, &some_gfx9_only) &&
           (!some_gfx9_only || ctx.program->chip_class >= GFX9)) {
          if (combine_minmax(ctx, instr, instr->opcode == min ? max : min,
-                            instr->opcode == min ? min3 : max3))
-            ;
-         else
+                            instr->opcode == min ? min3 : max3)) {
+         } else {
             combine_clamp(ctx, instr, min, max, med3);
+         }
       }
    }
 
