@@ -2147,4 +2147,29 @@ u64_compare(const void *key1, const void *key2)
    return memcmp(key1, key2, sizeof(uint64_t)) == 0;
 }
 
+/* Helper to call hw ver speficic functions */
+#define v3dv_X(device, thing) ({                \
+   __typeof(&v3d42_##thing) v3d_X_thing;        \
+   switch (device->devinfo.ver) {               \
+   case 42:                                     \
+      v3d_X_thing = &v3d42_##thing;             \
+      break;                                    \
+   default:                                     \
+      unreachable("Unknown hardware generation"); \
+   }                                            \
+   v3d_X_thing;                                 \
+})
+
+/* Note: be careful here with trying to define v3dvX macros, as we are reusing
+ * the broadcom general v3dX (see v3d_macros)
+ */
+#ifdef v3dX
+#  include "v3dvx_private.h"
+#else
+
+#  define v3dX(x) v3d42_##x
+#  include "v3dvx_private.h"
+#  undef v3dX
+#endif
+
 #endif /* V3DV_PRIVATE_H */
