@@ -102,6 +102,7 @@
 .lava-traces-base:
   variables:
     LAVA_TEST_SCRIPT: "/install/piglit/run.sh"
+    PIGLIT_REPLAY_EXTRA_ARGS: "--keep-image"
   artifacts:
     reports:
       junit: results/junit.xml
