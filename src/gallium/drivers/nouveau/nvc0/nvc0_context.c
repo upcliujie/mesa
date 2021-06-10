@@ -276,19 +276,14 @@ nvc0_destroy(struct pipe_context *pipe)
 }
 
 void
-nvc0_default_kick_notify(struct nouveau_pushbuf *push)
+nvc0_default_kick_notify(struct nouveau_context *context)
 {
-   struct nvc0_screen *screen = push->user_priv;
-   struct nvc0_context *nvc0 = screen->cur_ctx;
+   struct nvc0_context *nvc0 = nvc0_context(&context->pipe);
+   struct nvc0_screen *screen = nvc0->screen;
 
-   if (nvc0) {
-      nouveau_fence_next(&nvc0->base);
-      nouveau_fence_update(&screen->base, true);
-      simple_mtx_lock(&screen->state_lock);
-      nvc0->state.flushed = true;
-      simple_mtx_unlock(&screen->state_lock);
-      NOUVEAU_DRV_STAT(&screen->base, pushbuf_count, 1);
-   }
+   simple_mtx_lock(&screen->state_lock);
+   nvc0->state.flushed = true;
+   simple_mtx_unlock(&screen->state_lock);
 }
 
 static int
@@ -427,7 +422,10 @@ nvc0_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    if (!nvc0_blitctx_create(nvc0))
       goto out_err;
 
-   nouveau_context_init(&nvc0->base, &screen->base);
+   if (nouveau_context_init(&nvc0->base, &screen->base))
+      goto out_err;
+   nvc0->base.kick_notify = nvc0_default_kick_notify;
+   nvc0->base.pushbuf->rsvd_kick = 5;
 
    ret = nouveau_bufctx_new(nvc0->base.client, 2, &nvc0->bufctx);
    if (!ret)
@@ -498,9 +496,8 @@ nvc0_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    if (!screen->cur_ctx) {
       nvc0->state = screen->save_state;
       screen->cur_ctx = nvc0;
-      nouveau_pushbuf_bufctx(screen->base.pushbuf, nvc0->bufctx);
+      nouveau_pushbuf_bufctx(nvc0->base.pushbuf, nvc0->bufctx);
    }
-   screen->base.pushbuf->kick_notify = nvc0_default_kick_notify;
 
    /* add permanently resident buffers to bufctxts */
 
