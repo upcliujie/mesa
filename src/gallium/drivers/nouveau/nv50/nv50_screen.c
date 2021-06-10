@@ -627,10 +627,11 @@ nv50_screen_destroy(struct pipe_screen *pscreen)
 }
 
 static void
-nv50_screen_fence_emit(struct pipe_screen *pscreen, u32 *sequence)
+nv50_screen_fence_emit(struct pipe_context *pcontext, u32 *sequence)
 {
-   struct nv50_screen *screen = nv50_screen(pscreen);
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
+   struct nv50_context *nv50 = nv50_context(pcontext);
+   struct nv50_screen *screen = nv50->screen;
+   struct nouveau_pushbuf *push = nv50->base.pushbuf;
 
    /* we need to do it after possible flush in MARK_RING */
    *sequence = ++screen->base.fence.sequence;

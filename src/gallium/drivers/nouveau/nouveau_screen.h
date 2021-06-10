@@ -29,6 +29,7 @@ struct nouveau_screen {
    struct nouveau_object *channel;
    struct nouveau_client *client;
    struct nouveau_pushbuf *pushbuf;
+   void (*kick_notify)(struct nouveau_screen *);
 
    char chipset_name[8];
 
