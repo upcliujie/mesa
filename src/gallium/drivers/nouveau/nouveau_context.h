@@ -66,7 +66,7 @@ nouveau_context(struct pipe_context *pipe)
 void
 nouveau_context_init_vdec(struct nouveau_context *);
 
-void
+int MUST_CHECK
 nouveau_context_init(struct nouveau_context *, struct nouveau_screen *);
 
 void

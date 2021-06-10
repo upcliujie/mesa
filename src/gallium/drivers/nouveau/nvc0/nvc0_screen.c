@@ -841,10 +841,11 @@ nvc0_magic_3d_init(struct nouveau_pushbuf *push, uint16_t obj_class)
 }
 
 static void
-nvc0_screen_fence_emit(struct pipe_screen *pscreen, u32 *sequence)
+nvc0_screen_fence_emit(struct pipe_context *pcontext, u32 *sequence)
 {
-   struct nvc0_screen *screen = nvc0_screen(pscreen);
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
+   struct nvc0_context *nvc0 = nvc0_context(pcontext);
+   struct nvc0_screen *screen = nvc0->screen;
+   struct nouveau_pushbuf *push = nvc0->base.pushbuf;
 
    /* we need to do it after possible flush in MARK_RING */
    *sequence = ++screen->base.fence.sequence;

@@ -425,7 +425,9 @@ nvc0_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    if (!nvc0_blitctx_create(nvc0))
       goto out_err;
 
-   nouveau_context_init(&nvc0->base, &screen->base);
+   if (nouveau_context_init(&nvc0->base, &screen->base))
+      goto out_err;
+   nvc0->base.pushbuf->user_priv = screen;
 
    ret = nouveau_bufctx_new(screen->base.client, 2, &nvc0->bufctx);
    if (!ret)
@@ -496,7 +498,7 @@ nvc0_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    if (!screen->cur_ctx) {
       nvc0->state = screen->save_state;
       screen->cur_ctx = nvc0;
-      nouveau_pushbuf_bufctx(screen->base.pushbuf, nvc0->bufctx);
+      nouveau_pushbuf_bufctx(nvc0->base.pushbuf, nvc0->bufctx);
    }
    screen->base.pushbuf->kick_notify = nvc0_default_kick_notify;
 
