@@ -34,14 +34,16 @@ num_subpass_attachments(const VkSubpassDescription *desc)
 }
 
 static void
-set_use_tlb_resolve(struct v3dv_render_pass_attachment *att)
+set_use_tlb_resolve(struct v3dv_render_pass_attachment *att,
+                    struct v3dv_device *device)
 {
-   const struct v3dv_format *format = v3dv_get_format(att->desc.format);
-   att->use_tlb_resolve = v3dv_format_supports_tlb_resolve(format);
+   const struct v3dv_format *format = v3dv_X(device, get_format)(att->desc.format);
+   att->use_tlb_resolve = v3dv_X(device, format_supports_tlb_resolve)(format);
 }
 
 static void
-pass_find_subpass_range_for_attachments(struct v3dv_render_pass *pass)
+pass_find_subpass_range_for_attachments(struct v3dv_render_pass *pass,
+                                        struct v3dv_device *device)
 {
    for (uint32_t i = 0; i < pass->attachment_count; i++) {
       pass->attachments[i].first_subpass = pass->subpass_count - 1;
@@ -63,7 +65,7 @@ pass_find_subpass_range_for_attachments(struct v3dv_render_pass *pass)
 
          if (subpass->resolve_attachments &&
              subpass->resolve_attachments[j].attachment != VK_ATTACHMENT_UNUSED) {
-            set_use_tlb_resolve(&pass->attachments[attachment_idx]);
+            set_use_tlb_resolve(&pass->attachments[attachment_idx], device);
          }
       }
 
@@ -230,7 +232,7 @@ v3dv_CreateRenderPass(VkDevice _device,
       }
    }
 
-   pass_find_subpass_range_for_attachments(pass);
+   pass_find_subpass_range_for_attachments(pass, device);
 
    /* FIXME: handle subpass dependencies */
 
@@ -256,6 +258,7 @@ v3dv_DestroyRenderPass(VkDevice _device,
 
 static void
 subpass_get_granularity(struct v3dv_render_pass *pass,
+                        struct v3dv_device *device,
                         uint32_t subpass_idx,
                         VkExtent2D *granularity)
 {
@@ -283,11 +286,10 @@ subpass_get_granularity(struct v3dv_render_pass *pass,
          continue;
       const VkAttachmentDescription *desc =
          &pass->attachments[attachment_idx].desc;
-      const struct v3dv_format *format = v3dv_get_format(desc->format);
+      const struct v3dv_format *format = v3dv_X(device, get_format)(desc->format);
       uint32_t internal_type, internal_bpp;
-      v3dv_get_internal_type_bpp_for_output_format(format->rt_type,
-                                                   &internal_type,
-                                                   &internal_bpp);
+      v3dv_X(device, get_internal_type_bpp_for_output_format)
+         (format->rt_type, &internal_type, &internal_bpp);
       max_internal_bpp = MAX2(max_internal_bpp, internal_bpp);
    }
 
@@ -307,11 +309,12 @@ subpass_get_granularity(struct v3dv_render_pass *pass,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-v3dv_GetRenderAreaGranularity(VkDevice device,
+v3dv_GetRenderAreaGranularity(VkDevice _device,
                               VkRenderPass renderPass,
                               VkExtent2D *pGranularity)
 {
    V3DV_FROM_HANDLE(v3dv_render_pass, pass, renderPass);
+   V3DV_FROM_HANDLE(v3dv_device, device, _device);
 
    *pGranularity = (VkExtent2D) {
       .width = 64,
@@ -320,7 +323,7 @@ v3dv_GetRenderAreaGranularity(VkDevice device,
 
    for (uint32_t i = 0; i < pass->subpass_count; i++) {
       VkExtent2D sg;
-      subpass_get_granularity(pass, i, &sg);
+      subpass_get_granularity(pass, device, i, &sg);
       pGranularity->width = MIN2(pGranularity->width, sg.width);
       pGranularity->height = MIN2(pGranularity->height, sg.height);
    }
@@ -351,12 +354,13 @@ bool
 v3dv_subpass_area_is_tile_aligned(const VkRect2D *area,
                                   struct v3dv_framebuffer *fb,
                                   struct v3dv_render_pass *pass,
-                                  uint32_t subpass_idx)
+                                  uint32_t subpass_idx,
+                                  struct v3dv_device *device)
 {
    assert(subpass_idx < pass->subpass_count);
 
    VkExtent2D granularity;
-   subpass_get_granularity(pass, subpass_idx, &granularity);
+   subpass_get_granularity(pass, device, subpass_idx, &granularity);
 
    return area->offset.x % granularity.width == 0 &&
           area->offset.y % granularity.height == 0 &&

@@ -108,5 +108,5 @@ void
 v3dX(emit_noop_bin)(struct v3dv_job *job)
 {
    v3dv_job_start_frame(job, 1, 1, 1, 1, V3D_INTERNAL_BPP_32, false);
-   v3dv_job_emit_binning_flush(job);
+   v3dX(v3dv_job_emit_binning_flush)(job);
 }

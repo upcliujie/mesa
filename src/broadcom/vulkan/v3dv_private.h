@@ -657,14 +657,11 @@ struct v3dv_frame_tiling {
    uint32_t frame_height_in_supertiles;
 };
 
-void v3dv_framebuffer_compute_internal_bpp_msaa(const struct v3dv_framebuffer *framebuffer,
-                                                const struct v3dv_subpass *subpass,
-                                                uint8_t *max_bpp, bool *msaa);
-
 bool v3dv_subpass_area_is_tile_aligned(const VkRect2D *area,
                                        struct v3dv_framebuffer *fb,
                                        struct v3dv_render_pass *pass,
-                                       uint32_t subpass_idx);
+                                       uint32_t subpass_idx,
+                                       struct v3dv_device *device);
 struct v3dv_cmd_pool {
    struct vk_object_base base;
 
@@ -694,11 +691,6 @@ struct v3dv_cmd_buffer_attachment_state {
    /* The hardware clear value */
    union v3dv_clear_value clear_value;
 };
-
-void v3dv_get_hw_clear_color(const VkClearColorValue *color,
-                             uint32_t internal_type,
-                             uint32_t internal_size,
-                             uint32_t *hw_color);
 
 struct v3dv_viewport_state {
    uint32_t count;
@@ -988,7 +980,6 @@ void v3dv_job_destroy(struct v3dv_job *job);
 void v3dv_job_add_bo(struct v3dv_job *job, struct v3dv_bo *bo);
 void v3dv_job_add_bo_unchecked(struct v3dv_job *job, struct v3dv_bo *bo);
 
-void v3dv_job_emit_binning_flush(struct v3dv_job *job);
 void v3dv_job_start_frame(struct v3dv_job *job,
                           uint32_t width,
                           uint32_t height,
@@ -996,10 +987,34 @@ void v3dv_job_start_frame(struct v3dv_job *job,
                           uint32_t render_target_count,
                           uint8_t max_internal_bpp,
                           bool msaa);
+
+struct v3dv_job *
+v3dv_job_clone_in_cmd_buffer(struct v3dv_job *job,
+                             struct v3dv_cmd_buffer *cmd_buffer);
+
 struct v3dv_job *v3dv_cmd_buffer_create_cpu_job(struct v3dv_device *device,
                                                 enum v3dv_job_type type,
                                                 struct v3dv_cmd_buffer *cmd_buffer,
                                                 uint32_t subpass_idx);
+
+void
+v3dv_cmd_buffer_ensure_array_state(struct v3dv_cmd_buffer *cmd_buffer,
+                                   uint32_t slot_size,
+                                   uint32_t used_count,
+                                   uint32_t *alloc_count,
+                                   void **ptr);
+
+void v3dv_cmd_buffer_emit_pre_draw(struct v3dv_cmd_buffer *cmd_buffer);
+
+/* FIXME: only used on v3dv_cmd_buffer and v3dvx_cmd_buffer, perhaps move to a
+ * cmd_buffer specific header?
+ */
+struct v3dv_draw_info {
+   uint32_t vertex_count;
+   uint32_t instance_count;
+   uint32_t first_vertex;
+   uint32_t first_instance;
+};
 
 struct v3dv_vertex_binding {
    struct v3dv_buffer *buffer;
@@ -1294,12 +1309,6 @@ void v3dv_cmd_buffer_meta_state_push(struct v3dv_cmd_buffer *cmd_buffer,
 void v3dv_cmd_buffer_meta_state_pop(struct v3dv_cmd_buffer *cmd_buffer,
                                     uint32_t dirty_dynamic_state,
                                     bool needs_subpass_resume);
-
-void v3dv_render_pass_setup_render_target(struct v3dv_cmd_buffer *cmd_buffer,
-                                          int rt,
-                                          uint32_t *rt_bpp,
-                                          uint32_t *rt_type,
-                                          uint32_t *rt_clamp);
 
 void v3dv_cmd_buffer_reset_queries(struct v3dv_cmd_buffer *cmd_buffer,
                                    struct v3dv_query_pool *pool,
@@ -1827,52 +1836,6 @@ v3dv_cmd_buffer_get_descriptor_state(struct v3dv_cmd_buffer *cmd_buffer,
 
 const nir_shader_compiler_options *v3dv_pipeline_get_nir_options(void);
 
-static inline uint32_t
-v3dv_zs_buffer_from_aspect_bits(VkImageAspectFlags aspects)
-{
-   const VkImageAspectFlags zs_aspects =
-      VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-   const VkImageAspectFlags filtered_aspects = aspects & zs_aspects;
-
-   if (filtered_aspects == zs_aspects)
-      return ZSTENCIL;
-   else if (filtered_aspects == VK_IMAGE_ASPECT_DEPTH_BIT)
-      return Z;
-   else if (filtered_aspects == VK_IMAGE_ASPECT_STENCIL_BIT)
-      return STENCIL;
-   else
-      return NONE;
-}
-
-static inline uint32_t
-v3dv_zs_buffer(bool depth, bool stencil)
-{
-   if (depth && stencil)
-      return ZSTENCIL;
-   else if (depth)
-      return Z;
-   else if (stencil)
-      return STENCIL;
-   return NONE;
-}
-
-static inline uint8_t
-v3dv_get_internal_depth_type(VkFormat format)
-{
-   switch (format) {
-   case VK_FORMAT_D16_UNORM:
-      return V3D_INTERNAL_TYPE_DEPTH_16;
-   case VK_FORMAT_D32_SFLOAT:
-      return V3D_INTERNAL_TYPE_DEPTH_32F;
-   case VK_FORMAT_X8_D24_UNORM_PACK32:
-   case VK_FORMAT_D24_UNORM_S8_UINT:
-      return V3D_INTERNAL_TYPE_DEPTH_24;
-   default:
-      unreachable("Invalid depth format");
-      break;
-   }
-}
-
 uint32_t v3dv_physical_device_vendor_id(struct v3dv_physical_device *dev);
 uint32_t v3dv_physical_device_device_id(struct v3dv_physical_device *dev);
 
@@ -1890,18 +1853,14 @@ VkResult __vk_errorf(struct v3dv_instance *instance, VkResult error,
 #define v3dv_debug_ignored_stype(sType)
 #endif
 
-const struct v3dv_format *v3dv_get_format(VkFormat);
-const uint8_t *v3dv_get_format_swizzle(VkFormat f);
-void v3dv_get_internal_type_bpp_for_output_format(uint32_t format, uint32_t *type, uint32_t *bpp);
+const uint8_t *v3dv_get_format_swizzle(struct v3dv_device *device, VkFormat f);
 uint8_t v3dv_get_tex_return_size(const struct v3dv_format *vf, bool compare_enable);
-bool v3dv_tfu_supports_tex_format(const struct v3d_device_info *devinfo,
-                                  uint32_t tex_format);
 const struct v3dv_format *
-v3dv_get_compatible_tfu_format(const struct v3d_device_info *devinfo,
+v3dv_get_compatible_tfu_format(const struct v3dv_device *device,
                                uint32_t bpp, VkFormat *out_vk_format);
-bool v3dv_buffer_format_supports_features(VkFormat vk_format,
+bool v3dv_buffer_format_supports_features(struct v3dv_device *device,
+                                          VkFormat vk_format,
                                           VkFormatFeatureFlags features);
-bool v3dv_format_supports_tlb_resolve(const struct v3dv_format *format);
 
 struct v3dv_cl_reloc v3dv_write_uniforms(struct v3dv_cmd_buffer *cmd_buffer,
                                          struct v3dv_pipeline *pipeline,
