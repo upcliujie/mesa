@@ -27,6 +27,7 @@
 #include "nv30/nv30-40_3d.xml.h"
 #include "nv30/nv30_screen.h"
 #include "nv30/nv30_context.h"
+#include "nv30/nv30_winsys.h"
 
 #define LIST_FIRST_ENTRY(__type, __item, __field) \
    LIST_ENTRY(__type, (__item)->next, __field)
