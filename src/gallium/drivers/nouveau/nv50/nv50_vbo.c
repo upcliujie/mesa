@@ -747,13 +747,12 @@ nva0_draw_stream_output(struct nv50_context *nv50,
 }
 
 static void
-nv50_draw_vbo_kick_notify(struct nouveau_pushbuf *chan)
+nv50_draw_vbo_kick_notify(struct nouveau_context *context)
 {
-   struct nv50_screen *screen = chan->user_priv;
+   struct nv50_context *nv50 = nv50_context(&context->pipe);
 
-   nouveau_fence_update(&screen->base, true);
-
-   nv50_bufctx_fence(screen->cur_ctx, screen->cur_ctx->bufctx_3d, true);
+   nouveau_fence_update(context->screen, true);
+   nv50_bufctx_fence(nv50, nv50->bufctx_3d, true);
 }
 
 void
@@ -817,7 +816,7 @@ nv50_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
 
    nv50_state_validate_3d(nv50, ~0);
 
-   push->kick_notify = nv50_draw_vbo_kick_notify;
+   nv50->base.kick_notify = nv50_draw_vbo_kick_notify;
 
    for (s = 0; s < NV50_MAX_3D_SHADER_STAGES && !nv50->cb_dirty; ++s) {
       if (nv50->constbuf_coherent[s])
@@ -924,7 +923,7 @@ nv50_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
    }
 
 cleanup:
-   push->kick_notify = nv50_default_kick_notify;
+   nv50->base.kick_notify = nv50_default_kick_notify;
 
    nv50_release_user_vbufs(nv50);
 

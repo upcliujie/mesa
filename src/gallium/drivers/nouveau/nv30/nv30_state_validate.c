@@ -457,7 +457,6 @@ nv30_state_context_switch(struct nv30_context *nv30)
       nv30->dirty &= ~NV30_NEW_ZSA;
 
    nv30->screen->cur_ctx = nv30;
-   nv30->base.pushbuf->user_priv = &nv30->bufctx;
 }
 
 bool

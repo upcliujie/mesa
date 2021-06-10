@@ -168,9 +168,6 @@ nv30_context_destroy(struct pipe_context *pipe)
    if (nv30->blit_fp)
       pipe_resource_reference(&nv30->blit_fp, NULL);
 
-   if (nv30->screen->base.pushbuf->user_priv == &nv30->bufctx)
-      nv30->screen->base.pushbuf->user_priv = NULL;
-
    nouveau_bufctx_del(&nv30->bufctx);
 
    if (nv30->screen->cur_ctx == nv30)
@@ -207,7 +204,10 @@ nv30_context_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    pipe->destroy = nv30_context_destroy;
    pipe->flush = nv30_context_flush;
 
-   nouveau_context_init(&nv30->base, &screen->base);
+   if (nouveau_context_init(&nv30->base, &screen->base)) {
+      nv30_context_destroy(pipe);
+      return NULL;
+   }
    nv30->base.pushbuf->kick_notify = nv30_context_kick_notify;
 
    nv30->base.pipe.stream_uploader = u_upload_create_default(&nv30->base.pipe);
