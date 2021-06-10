@@ -478,10 +478,11 @@ nv30_screen_is_format_supported(struct pipe_screen *pscreen,
 }
 
 static void
-nv30_screen_fence_emit(struct pipe_screen *pscreen, uint32_t *sequence)
+nv30_screen_fence_emit(struct pipe_context *pcontext, uint32_t *sequence)
 {
-   struct nv30_screen *screen = nv30_screen(pscreen);
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
+   struct nv30_context *nv30 = nv30_context(pcontext);
+   struct nv30_screen *screen = nv30->screen;
+   struct nouveau_pushbuf *push = nv30->base.pushbuf;
 
    *sequence = ++screen->base.fence.sequence;
 
