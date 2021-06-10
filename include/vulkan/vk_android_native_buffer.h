@@ -18,6 +18,10 @@
 
 /* MESA: A hack to avoid #ifdefs in driver code. */
 #ifdef ANDROID
+#if ANDROID_API_LEVEL < 26
+/* buffer_handle_t definition was in system/window.h before Oreo */
+#include <system/window.h>
+#endif
 #include <cutils/native_handle.h>
 #include <vulkan/vulkan.h>
 #else
