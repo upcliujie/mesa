@@ -1,3 +1,4 @@
+#include <android/native_window.h>
 #include <vndk/window.h>
 
 extern "C" {
