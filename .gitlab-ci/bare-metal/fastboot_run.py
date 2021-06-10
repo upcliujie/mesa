@@ -31,7 +31,7 @@ import threading
 class FastbootRun:
     def __init__(self, args):
         self.powerup = args.powerup
-        self.ser = SerialBuffer(args.dev, "results/serial-output.txt", "R SERIAL> ")
+        self.ser = SerialBuffer(args.dev, "results/serial-output.txt", "R SERIAL> ", timeout=60)
         self.fastboot="fastboot boot -s {ser} artifacts/fastboot.img".format(ser=args.fbserial)
 
     def print_error(self, message):
@@ -59,7 +59,7 @@ class FastbootRun:
 
         if not fastboot_ready:
             self.print_error("Failed to get to fastboot prompt")
-            return 1
+            return 2
 
         if self.logged_system(self.fastboot) != 0:
             return 1
@@ -87,8 +87,8 @@ class FastbootRun:
                 else:
                     return 1
 
-        self.print_error("Reached the end of the CPU serial log without finding a result")
-        return 1
+        self.print_error("Reached the end of the CPU serial log without finding a result, restarting run...")
+        return 2
 
 def main():
     parser = argparse.ArgumentParser()
@@ -98,10 +98,8 @@ def main():
     parser.add_argument('--fbserial', type=str, help='fastboot serial number of the board', required=True)
     args = parser.parse_args()
 
-    fastboot = FastbootRun(args)
-
     while True:
-        retval = fastboot.run()
+        retval = FastbootRun(args).run()
         if retval != 2:
             break
 
