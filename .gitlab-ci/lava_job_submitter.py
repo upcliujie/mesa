@@ -52,6 +52,7 @@ def generate_lava_yaml(args):
     template = env.get_template(os.path.basename(args.template))
 
     env_vars = []
+    env_vars_censored = []
 
     # This should generally be kept in sync with the list in
     # bare-metal/rootfs-setup.sh, other than driver-specific env vars.
@@ -60,7 +61,6 @@ def generate_lava_yaml(args):
         'CI_COMMIT_BRANCH',
         'CI_COMMIT_TITLE',
         'CI_JOB_ID',
-        'CI_JOB_JWT',
         'CI_JOB_URL',
         'CI_MERGE_REQUEST_SOURCE_BRANCH_NAME',
         'CI_MERGE_REQUEST_TITLE',
@@ -121,11 +121,22 @@ def generate_lava_yaml(args):
         'VK_CPU',
         'VK_DRIVER'
     ]
+    passthrough_vars_sensitive = [
+        'CI_JOB_JWT',
+    ]
 
     for var in passthrough_vars:
         val = os.environ.get(var)
         if val:
             env_vars.append("{}={}".format(var, shlex.quote(val)))
+            env_vars_censored.append("{}={}".format(var, shlex.quote(val)))
+
+    for var in passthrough_vars_sensitive:
+        val = os.environ.get(var)
+        if val:
+            env_vars.append("{}={}".format(var, shlex.quote(val)))
+            env_vars_censored.append("{}=xxx".format(var))
+
 
     values = {}
     values['pipeline_info'] = args.pipeline_info
@@ -138,10 +149,17 @@ def generate_lava_yaml(args):
     values['gpu_version'] = args.gpu_version
     values['boot_method'] = args.boot_method
     values['tags'] = args.lava_tags
-    values['env_vars'] = env_vars
     values['deqp_version'] = args.deqp_version
 
+    censored_values = values
+    values['env_vars'] = env_vars
+    censored_values['env_vars'] = env_vars_censored
     yaml = template.render(values)
+    censored_yaml = template.render(censored_values)
+
+    f = open(os.path.splitext(os.path.basename(args.template))[0], "w")
+    f.write(censored_yaml)
+    f.close()
 
     return yaml
 
