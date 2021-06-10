@@ -16,6 +16,7 @@ struct nouveau_context {
    struct nouveau_client *client;
    struct nouveau_pushbuf *pushbuf;
    struct nouveau_fence *fence;
+   void (*kick_notify)(struct nouveau_context *);
    struct pipe_debug_callback debug;
 
    bool vbo_dirty;
@@ -66,7 +67,7 @@ nouveau_context(struct pipe_context *pipe)
 void
 nouveau_context_init_vdec(struct nouveau_context *);
 
-void
+int MUST_CHECK
 nouveau_context_init(struct nouveau_context *, struct nouveau_screen *);
 
 void
@@ -99,6 +100,10 @@ nouveau_context_destroy(struct nouveau_context *ctx)
    for (i = 0; i < NOUVEAU_MAX_SCRATCH_BUFS; ++i)
       if (ctx->scratch.bo[i])
          nouveau_bo_ref(NULL, &ctx->scratch.bo[i]);
+
+   FREE(ctx->pushbuf->user_priv);
+   nouveau_pushbuf_del(&ctx->pushbuf);
+   nouveau_client_del(&ctx->client);
 
    FREE(ctx);
 }
