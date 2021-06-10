@@ -187,6 +187,37 @@ reserve_vma(uintptr_t start, uint64_t reserved_size)
    return reserved;
 }
 
+struct nouveau_pushbuf_priv {
+   struct nouveau_screen *screen;
+   struct nouveau_context *context;
+};
+
+static void
+nouveau_pushbuf_cb(struct nouveau_pushbuf *push)
+{
+   struct nouveau_pushbuf_priv *p = (struct nouveau_pushbuf_priv *)push->user_priv;
+
+   if (p->context)
+      nouveau_fence_next(p->context);
+   nouveau_fence_update(p->screen, true);
+
+   if (p->context)
+      p->context->kick_notify(p->context);
+
+   NOUVEAU_DRV_STAT(p->screen, pushbuf_count, 1);
+}
+
+static void
+nouveau_init_pushbuf_cb(struct nouveau_pushbuf *push, struct nouveau_screen *screen,
+                        struct nouveau_context *context)
+{
+   struct nouveau_pushbuf_priv *p = MALLOC_STRUCT(nouveau_pushbuf_priv);
+   p->screen = screen;
+   p->context = context;
+   push->kick_notify = nouveau_pushbuf_cb;
+   push->user_priv = p;
+}
+
 int
 nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
 {
@@ -308,6 +339,8 @@ nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
    if (ret)
       goto err;
 
+   nouveau_init_pushbuf_cb(screen->pushbuf, screen, NULL);
+
    /* getting CPU time first appears to be more accurate */
    screen->cpu_gpu_time_delta = os_time_get();
 
@@ -370,6 +403,7 @@ nouveau_screen_fini(struct nouveau_screen *screen)
    nouveau_mm_destroy(screen->mm_GART);
    nouveau_mm_destroy(screen->mm_VRAM);
 
+   FREE(screen->pushbuf->user_priv);
    nouveau_pushbuf_del(&screen->pushbuf);
 
    nouveau_client_del(&screen->client);
@@ -395,12 +429,25 @@ nouveau_set_debug_callback(struct pipe_context *pipe,
       memset(&context->debug, 0, sizeof(context->debug));
 }
 
-void
+int
 nouveau_context_init(struct nouveau_context *context, struct nouveau_screen *screen)
 {
-   context->pipe.set_debug_callback = nouveau_set_debug_callback;
+   int ret;
 
+   context->pipe.set_debug_callback = nouveau_set_debug_callback;
    context->screen = screen;
-   context->client = screen->client;
-   context->pushbuf = screen->pushbuf;
+
+   ret = nouveau_client_new(screen->device, &context->client);
+   if (ret)
+      return ret;
+
+   ret = nouveau_pushbuf_new(context->client, screen->channel,
+                             4, 512 * 1024, 1,
+                             &context->pushbuf);
+   if (ret)
+      return ret;
+
+   nouveau_init_pushbuf_cb(context->pushbuf, screen, context);
+
+   return 0;
 }
