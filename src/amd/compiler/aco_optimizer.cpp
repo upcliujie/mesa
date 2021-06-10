@@ -1746,6 +1746,7 @@ get_cmp_info(aco_opcode op, CmpInfo* info)
    info->ordered_swapped = aco_opcode::num_opcodes;
    info->unordered_swapped = aco_opcode::num_opcodes;
    switch (op) {
+      // clang-format off
 #define CMP2(ord, unord, ord_swap, unord_swap, sz)                                                 \
    case aco_opcode::v_cmp_##ord##_f##sz:                                                           \
    case aco_opcode::v_cmp_n##unord##_f##sz:                                                        \
@@ -1763,12 +1764,12 @@ get_cmp_info(aco_opcode op, CmpInfo* info)
    CMP2(ord, unord, ord_swap, unord_swap, 16)                                                      \
    CMP2(ord, unord, ord_swap, unord_swap, 32)                                                      \
    CMP2(ord, unord, ord_swap, unord_swap, 64)
-      CMP(lt, /*n*/ ge, gt, /*n*/ le)
-      CMP(eq, /*n*/ lg, eq, /*n*/ lg)
-      CMP(le, /*n*/ gt, ge, /*n*/ lt)
-      CMP(gt, /*n*/ le, lt, /*n*/ le)
-      CMP(lg, /*n*/ eq, lg, /*n*/ eq)
-      CMP(ge, /*n*/ lt, le, /*n*/ gt)
+      CMP(lt, /*n*/ge, gt, /*n*/le)
+      CMP(eq, /*n*/lg, eq, /*n*/lg)
+      CMP(le, /*n*/gt, ge, /*n*/lt)
+      CMP(gt, /*n*/le, lt, /*n*/le)
+      CMP(lg, /*n*/eq, lg, /*n*/eq)
+      CMP(ge, /*n*/lt, le, /*n*/gt)
 #undef CMP
 #undef CMP2
 #define ORD_TEST(sz)                                                                               \
@@ -1786,6 +1787,7 @@ get_cmp_info(aco_opcode op, CmpInfo* info)
       ORD_TEST(32)
       ORD_TEST(64)
 #undef ORD_TEST
+      // clang-format on
    default: return false;
    }
 }
