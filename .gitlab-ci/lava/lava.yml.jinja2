@@ -82,10 +82,10 @@ actions:
           - echo "$NFS_SERVER_IP caching-proxy" >> /etc/hosts
           - for i in 1 2 3; do sntp -sS pool.ntp.org && break || sleep 2; done
 
-          - wget -S --progress=dot:giga -O- {{ mesa_build_url }} | tar -xz
+          - mkdir -p $CI_PROJECT_DIR
+          - wget -S --progress=dot:giga -O- {{ mesa_build_url }} | tar -xz -C $CI_PROJECT_DIR
           - wget -S --progress=dot:giga -O- {{ job_rootfs_overlay_url }} | tar -xz -C /
           - . /set-job-env-vars.sh
-          - mkdir -p $CI_PROJECT_DIR
           - ln -sf /install $CI_PROJECT_DIR/install
 
           # Set up our devices
