@@ -1,11 +1,13 @@
 #include <array>
 #include <iomanip>
 #include "aco_ir.h"
-#include "llvm-c/Disassembler.h"
 #include "amd_family.h"
 
+#ifdef LLVM_AVAILABLE
+#include "llvm-c/Disassembler.h"
 #include <llvm/ADT/StringRef.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
+#endif
 
 namespace aco {
 namespace {
@@ -94,6 +96,7 @@ fail:
 #endif
 }
 
+#ifdef LLVM_AVAILABLE
 std::pair<bool, size_t> disasm_instr(chip_class chip, LLVMDisasmContextRef disasm,
                                      uint32_t *binary, unsigned exec_size, size_t pos,
                                      char *outline, unsigned outline_size)
@@ -141,7 +144,22 @@ std::pair<bool, size_t> disasm_instr(chip_class chip, LLVMDisasmContextRef disas
 
    return std::make_pair(invalid, size);
 }
+#endif /* LLVM_AVAILABLE */
+
 } /* end namespace */
+
+bool check_print_asm_support(Program *program) {
+   if (program->chip_class <= GFX7) {
+      return system("clrxdisasm --version") == 0;
+   } else {
+#ifdef LLVM_AVAILABLE
+      return true;
+#else
+      /* TODO: Fall back to CLRX */
+      return false;
+#endif
+   }
+}
 
 bool print_asm(Program *program, std::vector<uint32_t>& binary,
                unsigned exec_size, FILE *output)
@@ -152,6 +170,7 @@ bool print_asm(Program *program, std::vector<uint32_t>& binary,
       return false;
    }
 
+#ifdef LLVM_AVAILABLE
    std::vector<bool> referenced_blocks(program->blocks.size());
    referenced_blocks[0] = true;
    for (Block& block : program->blocks) {
@@ -242,6 +261,9 @@ bool print_asm(Program *program, std::vector<uint32_t>& binary,
    }
 
    return invalid;
+#else
+   return true;
+#endif
 }
 
 }
