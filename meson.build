@@ -790,9 +790,7 @@ if with_gallium_st_nine
             or with_gallium_iris or with_gallium_crocus)
     error('The nine state tracker requires at least one non-swrast gallium driver.')
   endif
-  if not with_dri3
-    error('Using nine with wine requires dri3')
-  endif
+  with_dri3 = true
 endif
 with_gallium_st_d3d10umd =  get_option('gallium-d3d10umd')
 if with_gallium_st_d3d10umd
