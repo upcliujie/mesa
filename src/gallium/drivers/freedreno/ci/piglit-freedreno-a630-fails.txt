@@ -1,5 +1,3 @@
-glx@glx_arb_sync_control@timing -fullscreen -msc-delta 1,Fail
-glx@glx_arb_sync_control@timing -waitformsc -msc-delta 2,Fail
 glx@glx-copy-sub-buffer samples=2,Fail
 glx@glx-make-current,Crash
 glx@glx-multi-window-single-context,Fail
@@ -9,8 +7,6 @@ glx@glx-visuals-depth -pixmap,Crash
 glx@glx-visuals-stencil -pixmap,Crash
 glx@glx_arb_create_context_es2_profile@invalid opengl es version,Fail
 glx@glx_arb_create_context_robustness@invalid reset notification strategy,Fail
-glx@glx_arb_sync_control@timing -fullscreen -divisor 2,Fail
-glx@glx_arb_sync_control@timing -waitformsc -divisor 1,Fail
 glx@glx_ext_import_context@free context,Fail
 glx@glx_ext_import_context@get context id,Fail
 glx@glx_ext_import_context@get current display,Fail
