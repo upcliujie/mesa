@@ -51,6 +51,7 @@
 #include "compiler/nir/nir_builder.h"
 #include "compiler/nir/nir_format_convert.h"
 #include "util/format/u_format.h"
+#include "panfrost/lib/pan_texture.h"
 #include "pan_lower_framebuffer.h"
 #include "panfrost-quirks.h"
 
@@ -88,63 +89,10 @@ pan_unpacked_type_for_format(const struct util_format_description *desc)
 }
 
 static enum pan_format_class
-pan_format_class_load(const struct util_format_description *desc, unsigned quirks)
+pan_format_class(enum pipe_format fmt)
 {
-        /* Pure integers can be loaded via EXT_framebuffer_fetch and should be
-         * handled as a raw load with a size conversion (it's cheap). Likewise,
-         * since float framebuffers are internally implemented as raw (i.e.
-         * integer) framebuffers with blend shaders to go back and forth, they
-         * should be s/w as well */
-
-        if (util_format_is_pure_integer(desc->format) || util_format_is_float(desc->format))
-                return PAN_FORMAT_SOFTWARE;
-
-        /* Check if we can do anything better than software architecturally */
-        if (quirks & MIDGARD_NO_TYPED_BLEND_LOADS) {
-                return (quirks & NO_BLEND_PACKS)
-                        ? PAN_FORMAT_SOFTWARE : PAN_FORMAT_PACK;
-        }
-
-        /* Some formats are missing as typed on some GPUs but have unpacks */
-        if (quirks & MIDGARD_MISSING_LOADS) {
-                switch (desc->format) {
-                case PIPE_FORMAT_R11G11B10_FLOAT:
-                case PIPE_FORMAT_R10G10B10A2_UNORM:
-                case PIPE_FORMAT_B10G10R10A2_UNORM:
-                case PIPE_FORMAT_R10G10B10X2_UNORM:
-                case PIPE_FORMAT_B10G10R10X2_UNORM:
-                case PIPE_FORMAT_R10G10B10A2_UINT:
-                        return PAN_FORMAT_PACK;
-                default:
-                        return PAN_FORMAT_NATIVE;
-                }
-        }
-
-        /* Otherwise, we can do native */
-        return PAN_FORMAT_NATIVE;
-}
-
-static enum pan_format_class
-pan_format_class_store(const struct util_format_description *desc, unsigned quirks)
-{
-        /* Check if we can do anything better than software architecturally */
-        if (quirks & MIDGARD_NO_TYPED_BLEND_STORES) {
-                return (quirks & NO_BLEND_PACKS)
-                        ? PAN_FORMAT_SOFTWARE : PAN_FORMAT_PACK;
-        }
-
-        return PAN_FORMAT_NATIVE;
-}
-
-/* Convenience method */
-
-static enum pan_format_class
-pan_format_class(const struct util_format_description *desc, unsigned quirks, bool is_store)
-{
-        if (is_store)
-                return pan_format_class_store(desc, quirks);
-        else
-                return pan_format_class_load(desc, quirks);
+        return panfrost_blendable_formats[fmt].internal ?
+                PAN_FORMAT_NATIVE : PAN_FORMAT_SOFTWARE;
 }
 
 /* Software packs/unpacks, by format class. Packs take in the pixel value typed
@@ -541,7 +489,7 @@ pan_is_unorm4(const struct util_format_description *desc)
 }
 
 static nir_ssa_def *
-pan_unpack(nir_builder *b,
+pan_unpack_pix(nir_builder *b,
                 const struct util_format_description *desc,
                 nir_ssa_def *packed)
 {
@@ -591,7 +539,7 @@ pan_unpack(nir_builder *b,
 }
 
 static nir_ssa_def *
-pan_pack(nir_builder *b,
+pan_pack_pix(nir_builder *b,
                 const struct util_format_description *desc,
                 nir_ssa_def *unpacked)
 {
@@ -652,7 +600,7 @@ pan_lower_fb_store(nir_shader *shader,
 {
         /* For stores, add conversion before */
         nir_ssa_def *unpacked = nir_ssa_for_src(b, intr->src[1], 4);
-        nir_ssa_def *packed = pan_pack(b, desc, unpacked);
+        nir_ssa_def *packed = pan_pack_pix(b, desc, unpacked);
 
         nir_store_raw_output_pan(b, packed);
 }
@@ -675,7 +623,7 @@ pan_lower_fb_load(nir_shader *shader,
                                         .base = base);
 
         /* Convert the raw value */
-        nir_ssa_def *unpacked = pan_unpack(b, desc, packed);
+        nir_ssa_def *unpacked = pan_unpack_pix(b, desc, packed);
 
         if (desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB)
                 unpacked = pan_srgb_to_linear(b, unpacked);
@@ -751,7 +699,7 @@ pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
                                    util_format_description(rt_fmts[rt]);
 
                                 enum pan_format_class fmt_class =
-                                        pan_format_class(desc, quirks, is_store);
+                                        pan_format_class(rt_fmts[rt]);
 
                                 /* Don't lower */
                                 if (fmt_class == PAN_FORMAT_NATIVE)
