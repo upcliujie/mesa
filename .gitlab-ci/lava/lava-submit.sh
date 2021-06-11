@@ -18,7 +18,7 @@ mkdir -p results/job-rootfs-overlay/
 # from the DUT
 export PIGLIT_NO_WINDOW=1
 export PIGLIT_REPLAY_UPLOAD_TO_MINIO=1
-artifacts/ci-common/generate-env.sh > results/job-rootfs-overlay/environment.sh
+artifacts/ci-common/generate-env.sh > results/job-rootfs-overlay/set-job-env-vars.sh
 
 tar zcf job-rootfs-overlay.tar.gz -C results/job-rootfs-overlay/ .
 ci-fairy minio login "${CI_JOB_JWT}"
