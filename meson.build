@@ -513,9 +513,10 @@ with_dri2 = (with_dri or with_any_vk) and (with_dri_platform == 'drm' or
   host_machine.system() == 'gnu')
 with_dri3 = system_has_kms_drm and with_dri2
 
-if with_any_vk and (with_platform_x11 and not with_dri3)
-  error('Vulkan drivers require dri3 for X11 support')
+if with_any_vk and with_platform_x11
+  with_dri3 = true
 endif
+
 if with_dri
   if with_glx == 'disabled' and not with_egl and not with_gbm
     error('building dri drivers require at least one windowing system')
