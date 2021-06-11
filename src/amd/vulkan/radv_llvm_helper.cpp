@@ -21,7 +21,7 @@
  * IN THE SOFTWARE.
  */
 #include "ac_llvm_util.h"
-#include "radv_shader_helper.h"
+#include "radv_llvm_helper.h"
 
 #include <list>
 class radv_llvm_per_thread_info {

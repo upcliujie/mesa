@@ -74,7 +74,6 @@ libradv_files = files(
   'radv_shader.h',
   'radv_shader_args.c',
   'radv_shader_args.h',
-  'radv_shader_helper.h',
   'radv_shader_info.c',
   'radv_sqtt.c',
   'radv_query.c',
@@ -101,6 +100,7 @@ endif
 if with_llvm
   libradv_files += files(
     'radv_llvm_helper.cpp',
+    'radv_llvm_helper.h',
     'radv_nir_to_llvm.c',
   )
 endif
