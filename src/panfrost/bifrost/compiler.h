@@ -1002,6 +1002,14 @@ bi_word_node(bi_index idx)
         return (idx.value << 2) | idx.offset;
 }
 
+static inline void
+bi_swap_srcs(bi_instr *I)
+{
+        bi_index tmp = I->src[0];
+        I->src[0] = I->src[1];
+        I->src[1] = tmp;
+}
+
 /* NIR passes */
 
 bool bi_lower_divergent_indirects(nir_shader *shader, unsigned lanes);
