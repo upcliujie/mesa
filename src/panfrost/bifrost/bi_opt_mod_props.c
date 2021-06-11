@@ -70,6 +70,34 @@ bi_is_fabsneg(bi_instr *I)
                (I->clamp == BI_CLAMP_NONE);
 }
 
+static bool
+bi_is_shift(bi_instr *I)
+{
+        return bi_is_equiv(I->src[1], bi_zero()) && !I->not_result && !I->src[1].neg;
+}
+
+static bool
+bi_takes_shift(bi_instr *I)
+{
+        switch (I->op) {
+        case BI_OPCODE_LSHIFT_AND_I32:
+        case BI_OPCODE_LSHIFT_AND_V2I16:
+        case BI_OPCODE_LSHIFT_AND_V4I8:
+        case BI_OPCODE_LSHIFT_OR_I32:
+        case BI_OPCODE_LSHIFT_OR_V2I16:
+        case BI_OPCODE_LSHIFT_OR_V4I8:
+        case BI_OPCODE_LSHIFT_XOR_I32:
+        case BI_OPCODE_LSHIFT_XOR_V2I16:
+        case BI_OPCODE_LSHIFT_XOR_V4I8:
+                break;
+        default:
+                return false;
+        }
+
+        /* Must not have an existing shift */
+        return bi_is_equiv(I->src[2], bi_zero());
+}
+
 static enum bi_swizzle
 bi_compose_swizzle_16(enum bi_swizzle a, enum bi_swizzle b)
 {
@@ -101,6 +129,41 @@ bi_compose_float_index(bi_index old, bi_index repl)
         repl.swizzle = bi_compose_swizzle_16(old.swizzle, repl.swizzle);
 
         return repl;
+}
+
+static enum bi_opcode
+bi_rshift_op(enum bi_opcode op)
+{
+        switch (op) {
+        case BI_OPCODE_LSHIFT_AND_I32: return BI_OPCODE_RSHIFT_AND_I32;
+        case BI_OPCODE_LSHIFT_AND_V2I16: return BI_OPCODE_RSHIFT_AND_V2I16;
+        case BI_OPCODE_LSHIFT_AND_V4I8: return BI_OPCODE_RSHIFT_AND_V4I8;
+        case BI_OPCODE_LSHIFT_OR_I32: return BI_OPCODE_RSHIFT_OR_I32;
+        case BI_OPCODE_LSHIFT_OR_V2I16: return BI_OPCODE_RSHIFT_OR_V2I16;
+        case BI_OPCODE_LSHIFT_OR_V4I8: return BI_OPCODE_RSHIFT_OR_V4I8;
+        case BI_OPCODE_LSHIFT_XOR_I32: return BI_OPCODE_RSHIFT_XOR_I32;
+        case BI_OPCODE_LSHIFT_XOR_V2I16: return BI_OPCODE_RSHIFT_XOR_V2I16;
+        case BI_OPCODE_LSHIFT_XOR_V4I8: return BI_OPCODE_RSHIFT_XOR_V4I8;
+        default: unreachable("Invalid LSHIFT op");
+        }
+}
+
+static void
+bi_opt_fuse_shift(bi_instr *I, bi_instr *mod, unsigned s, bool rshift)
+{
+        if (s == 2 || !bi_takes_shift(I))
+                return;
+
+        /* Shift always applies to 0'th source */
+        if (s == 1)
+                bi_swap_srcs(I);
+
+        /* Swap opcode to match the shift direction */
+        if (rshift)
+                I->op = bi_rshift_op(I->op);
+
+        I->src[0] = bi_compose_swizzle_16(I->src[0], mod->src[0]);
+        I->src[2] = mod->src[2];
 }
 
 void
@@ -137,6 +200,20 @@ bi_opt_mod_prop_forward(bi_context *ctx)
                                         break;
 
                                 I->src[s] = bi_compose_float_index(I->src[s], mod->src[0]);
+                                break;
+
+                        case BI_OPCODE_LSHIFT_OR_V4I8:
+                        case BI_OPCODE_LSHIFT_OR_V2I16:
+                        case BI_OPCODE_LSHIFT_OR_I32:
+                                if (bi_is_shift(mod))
+                                        bi_opt_fuse_shift(I, mod, s, false);
+                                break;
+
+                        case BI_OPCODE_RSHIFT_OR_V4I8:
+                        case BI_OPCODE_RSHIFT_OR_V2I16:
+                        case BI_OPCODE_RSHIFT_OR_I32:
+                                if (bi_is_shift(mod))
+                                        bi_opt_fuse_shift(I, mod, s, true);
                                 break;
 
                         default:
