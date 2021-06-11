@@ -119,6 +119,10 @@ pan_shader_prepare_bifrost_rsd(const struct panfrost_device *dev,
         unsigned fau_count = DIV_ROUND_UP(info->push.count, 2);
         rsd->preload.uniform_count = fau_count;
 
+        /* TODO */
+        rsd->properties.bifrost.shader_register_allocation =
+                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD;
+
         switch (info->stage) {
         case MESA_SHADER_VERTEX:
                 rsd->properties.bifrost.zs_update_operation = MALI_PIXEL_KILL_STRONG_EARLY;
