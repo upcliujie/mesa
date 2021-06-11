@@ -66,9 +66,8 @@ bi_takes_fneg(bi_instr *I, unsigned s)
 static bool
 bi_is_fabsneg(bi_instr *I)
 {
-        return (I->op == BI_OPCODE_FADD_F32 || I->op == BI_OPCODE_FADD_V2F16) &&
-                (I->src[1].type == BI_INDEX_CONSTANT && I->src[1].value == 0) &&
-                (I->clamp == BI_CLAMP_NONE);
+        return (I->src[1].type == BI_INDEX_CONSTANT && I->src[1].value == 0) &&
+               (I->clamp == BI_CLAMP_NONE);
 }
 
 static enum bi_swizzle
@@ -125,14 +124,23 @@ bi_opt_mod_prop_forward(bi_context *ctx)
                         if (bi_opcode_props[mod->op].size != bi_opcode_props[I->op].size)
                                 continue;
 
-                        if (bi_is_fabsneg(mod)) {
+                        switch (mod->op) {
+                        case BI_OPCODE_FADD_F32:
+                        case BI_OPCODE_FADD_V2F16:
+                                if (!bi_is_fabsneg(mod))
+                                        break;
+
                                 if (mod->src[0].abs && !bi_takes_fabs(I, mod->src[0], s))
-                                        continue;
+                                        break;
 
                                 if (mod->src[0].neg && !bi_takes_fneg(I, s))
-                                        continue;
+                                        break;
 
                                 I->src[s] = bi_compose_float_index(I->src[s], mod->src[0]);
+                                break;
+
+                        default:
+                                break;
                         }
                 }
         }
