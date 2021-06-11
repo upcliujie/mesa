@@ -208,7 +208,7 @@ anv_gem_wait(struct anv_device *device, uint32_t gem_handle, int64_t *timeout_ns
       .flags = 0,
    };
 
-   int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_WAIT, &wait);
+   int ret = u_ioctl_retry(device->fd, DRM_IOCTL_I915_GEM_WAIT, &wait);
    *timeout_ns = wait.timeout_ns;
 
    return ret;
@@ -687,7 +687,7 @@ anv_gem_syncobj_wait(struct anv_device *device,
    if (wait_all)
       args.flags |= DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL;
 
-   return intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_WAIT, &args);
+   return u_ioctl_retry(device->fd, DRM_IOCTL_SYNCOBJ_WAIT, &args);
 }
 
 int
@@ -711,7 +711,7 @@ anv_gem_syncobj_timeline_wait(struct anv_device *device,
    if (wait_materialize)
       args.flags |= DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE;
 
-   return intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT, &args);
+   return u_ioctl_retry(device->fd, DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT, &args);
 }
 
 int
