@@ -147,7 +147,7 @@ anv_gem_create_context(struct anv_device *device)
    unreachable("Unused");
 }
 
-int
+void
 anv_gem_destroy_context(struct anv_device *device, int context)
 {
    unreachable("Unused");

@@ -1456,7 +1456,7 @@ int anv_gem_create_context_engines(struct anv_device *device,
                                    int num_engines,
                                    uint16_t *engine_classes);
 bool anv_gem_has_context_priority(int fd);
-int anv_gem_destroy_context(struct anv_device *device, int context);
+void anv_gem_destroy_context(struct anv_device *device, int context);
 int anv_gem_set_context_param(int fd, int context, uint32_t param,
                               uint64_t value);
 int anv_gem_get_context_param(int fd, int context, uint32_t param,
