@@ -165,11 +165,11 @@ iris-amly-piglit:
     - .lava-piglit
   parallel: 3
   variables:
+    HWCI_START_XORG: 1
     PIGLIT_NO_WINDOW: 0
     PIGLIT_PLATFORM: mixed_glx_egl
     PIGLIT_PROFILES: gpu
     PIGLIT_JUNIT_RESULTS: 1
-    LAVA_START_XORG: 1
 
 .iris-traces:
   extends:
