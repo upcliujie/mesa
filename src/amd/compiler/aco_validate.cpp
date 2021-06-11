@@ -174,21 +174,16 @@ validate_ir(Program* program)
                      "2nd definition must be fixed to vcc with SDWA", instr.get());
             }
 
-            check(instr->opcode != aco_opcode::v_madmk_f32 &&
-                     instr->opcode != aco_opcode::v_madak_f32 &&
-                     instr->opcode != aco_opcode::v_madmk_f16 &&
-                     instr->opcode != aco_opcode::v_madak_f16 &&
-                     instr->opcode != aco_opcode::v_readfirstlane_b32 &&
-                     instr->opcode != aco_opcode::v_clrexcp &&
-                     instr->opcode != aco_opcode::v_swap_b32,
-                  "SDWA can't be used with this opcode", instr.get());
-            if (program->chip_class != GFX8) {
-               check(instr->opcode != aco_opcode::v_mac_f32 &&
-                        instr->opcode != aco_opcode::v_mac_f16 &&
-                        instr->opcode != aco_opcode::v_fmac_f32 &&
-                        instr->opcode != aco_opcode::v_fmac_f16,
-                     "SDWA can't be used with this opcode", instr.get());
-            }
+            const bool sdwa_opcode =
+               instr->opcode != aco_opcode::v_madmk_f32 &&
+               instr->opcode != aco_opcode::v_madak_f32 &&
+               instr->opcode != aco_opcode::v_madmk_f16 &&
+               instr->opcode != aco_opcode::v_madak_f16 && instr->opcode != aco_opcode::v_mac_f32 &&
+               instr->opcode != aco_opcode::v_mac_f16 && instr->opcode != aco_opcode::v_fmac_f32 &&
+               instr->opcode != aco_opcode::v_fmac_f16 && instr->opcode != aco_opcode::v_clrexcp &&
+               instr->opcode != aco_opcode::v_swap_b32 &&
+               instr->opcode != aco_opcode::v_readfirstlane_b32;
+            check(sdwa_opcode, "SDWA can't be used with this opcode", instr.get());
 
             if (instr->definitions[0].regClass().is_subdword())
                check((sdwa.dst_sel & sdwa_asuint) == (sdwa_isra | instr->definitions[0].bytes()),
