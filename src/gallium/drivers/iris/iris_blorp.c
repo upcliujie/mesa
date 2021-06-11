@@ -259,6 +259,10 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
    struct iris_context *ice = blorp_batch->blorp->driver_ctx;
    struct iris_batch *batch = blorp_batch->driver_batch;
 
+   const bool zs_enabled = params->depth.enabled || params->stencil.enabled;
+   if (ice->gpu_has_null_zs && !zs_enabled)
+      blorp_batch->flags |= BLORP_BATCH_NO_EMIT_DEPTH_STENCIL;
+
 #if GFX_VER >= 11
    /* The PIPE_CONTROL command description says:
     *
@@ -373,6 +377,8 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
 
    ice->state.dirty |= ~skip_bits;
    ice->state.stage_dirty |= ~skip_stage_bits;
+
+   ice->gpu_has_null_zs = !zs_enabled;
 
    for (int i = 0; i < ARRAY_SIZE(ice->shaders.urb.size); i++)
       ice->shaders.urb.size[i] = 0;

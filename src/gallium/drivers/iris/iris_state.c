@@ -6277,6 +6277,8 @@ iris_upload_dirty_render_state(struct iris_context *ice,
          clear.DepthClearValue = clear_value.f32[0];
       }
       iris_batch_emit(batch, clear_params, clear_length);
+
+      ice->gpu_has_null_zs = !cso_fb->zsbuf;
    }
 
    if (dirty & (IRIS_DIRTY_DEPTH_BUFFER | IRIS_DIRTY_WM_DEPTH_STENCIL)) {

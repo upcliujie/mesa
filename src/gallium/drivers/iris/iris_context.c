@@ -74,6 +74,7 @@ iris_lost_context_state(struct iris_batch *batch)
    ice->state.dirty = ~0ull;
    ice->state.stage_dirty = ~0ull;
    ice->state.current_hash_scale = 0;
+   ice->gpu_has_null_zs = false;
    memset(&ice->shaders.urb, 0, sizeof(ice->shaders.urb));
    memset(ice->state.last_block, 0, sizeof(ice->state.last_block));
    memset(ice->state.last_grid, 0, sizeof(ice->state.last_grid));
