@@ -667,6 +667,8 @@ struct iris_context {
    /** Frame number for debug prints */
    uint32_t frame;
 
+   bool gpu_has_null_zs;
+
    struct {
       uint64_t dirty;
       uint64_t stage_dirty;
