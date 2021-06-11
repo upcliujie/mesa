@@ -1986,7 +1986,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
        if (has_tess) {
           const VkPipelineTessellationStateCreateInfo *tess_info =
              pCreateInfo->pTessellationState;
-          dynamic->primitive_topology = _3DPRIM_PATCHLIST(tess_info->patchControlPoints);
+          dynamic->primitive_topology = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
        } else {
          dynamic->primitive_topology = pCreateInfo->pInputAssemblyState->topology;
        }
