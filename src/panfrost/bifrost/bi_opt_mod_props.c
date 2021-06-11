@@ -24,6 +24,70 @@
 
 #include "compiler.h"
 
+static enum bi_opcode
+bi_de_morgan_op(enum bi_opcode op)
+{
+        switch (op) {
+        case BI_OPCODE_LSHIFT_AND_I32: return BI_OPCODE_LSHIFT_OR_I32;
+        case BI_OPCODE_LSHIFT_AND_V2I16: return BI_OPCODE_LSHIFT_OR_V2I16;
+        case BI_OPCODE_LSHIFT_AND_V4I8: return BI_OPCODE_LSHIFT_OR_V4I8;
+        case BI_OPCODE_LSHIFT_OR_I32: return BI_OPCODE_LSHIFT_AND_I32;
+        case BI_OPCODE_LSHIFT_OR_V2I16: return BI_OPCODE_LSHIFT_AND_V2I16;
+        case BI_OPCODE_LSHIFT_OR_V4I8: return BI_OPCODE_LSHIFT_AND_V4I8;
+        case BI_OPCODE_RSHIFT_AND_I32: return BI_OPCODE_RSHIFT_OR_I32;
+        case BI_OPCODE_RSHIFT_AND_V2I16: return BI_OPCODE_RSHIFT_OR_V2I16;
+        case BI_OPCODE_RSHIFT_AND_V4I8: return BI_OPCODE_RSHIFT_OR_V4I8;
+        case BI_OPCODE_RSHIFT_OR_I32: return BI_OPCODE_RSHIFT_AND_I32;
+        case BI_OPCODE_RSHIFT_OR_V2I16: return BI_OPCODE_RSHIFT_AND_V2I16;
+        case BI_OPCODE_RSHIFT_OR_V4I8: return BI_OPCODE_RSHIFT_AND_V4I8;
+        default: unreachable("Invalid De Morgan lowerable op");
+        }
+}
+
+static void
+bi_lower_mods(bi_instr *I)
+{
+        switch (I->op) {
+        /* No per-source invert, but (f(A) ^ ~B) = ~(f(A) ^ B) */
+        case BI_OPCODE_LSHIFT_XOR_V4I8:
+        case BI_OPCODE_LSHIFT_XOR_V2I16:
+        case BI_OPCODE_LSHIFT_XOR_I32:
+        case BI_OPCODE_RSHIFT_XOR_V4I8:
+        case BI_OPCODE_RSHIFT_XOR_V2I16:
+        case BI_OPCODE_RSHIFT_XOR_I32:
+                I->not_result ^= (I->src[0].neg ^ I->src[1].neg);
+                I->src[0].neg = I->src[1].neg = false;
+                break;
+
+        /* Bitwise can take NOT only on the second argument or destination, but
+         * ~f(A) & B = ~(f(A) | ~B) by De Morgan's Law */
+        case BI_OPCODE_LSHIFT_AND_I32:
+        case BI_OPCODE_LSHIFT_AND_V2I16:
+        case BI_OPCODE_LSHIFT_AND_V4I8:
+        case BI_OPCODE_LSHIFT_OR_I32:
+        case BI_OPCODE_LSHIFT_OR_V2I16:
+        case BI_OPCODE_LSHIFT_OR_V4I8:
+        case BI_OPCODE_RSHIFT_AND_I32:
+        case BI_OPCODE_RSHIFT_AND_V2I16:
+        case BI_OPCODE_RSHIFT_AND_V4I8:
+        case BI_OPCODE_RSHIFT_OR_I32:
+        case BI_OPCODE_RSHIFT_OR_V2I16:
+        case BI_OPCODE_RSHIFT_OR_V4I8:
+                if (I->src[0].neg) {
+                        I->op = bi_de_morgan_op(I->op);
+                        I->src[0].neg ^= true;
+                        I->src[1].neg ^= true;
+                        I->not_result ^= true;
+                }
+
+                assert(!I->src[0].neg);
+                break;
+
+        default:
+                break;
+        }
+}
+
 static bool
 bi_takes_fabs(bi_instr *I, bi_index repl, unsigned s)
 {
@@ -71,15 +135,21 @@ bi_is_fabsneg(bi_instr *I)
 }
 
 static bool
-bi_is_shift(bi_instr *I)
+bi_is_shift(bi_instr *I, bool should_neg)
 {
-        return bi_is_equiv(I->src[1], bi_zero()) && !I->not_result && !I->src[1].neg;
+        return bi_is_equiv(I->src[1], bi_zero()) && (I->src[1].neg == should_neg);
 }
 
 static bool
-bi_takes_shift(bi_instr *I)
+bi_is_not(bi_instr *I)
 {
-        switch (I->op) {
+        return bi_is_equiv(I->src[0], bi_zero()) && !I->not_result && I->src[1].neg;
+}
+
+static bool
+bi_is_bitwise(enum bi_opcode op)
+{
+        switch (op) {
         case BI_OPCODE_LSHIFT_AND_I32:
         case BI_OPCODE_LSHIFT_AND_V2I16:
         case BI_OPCODE_LSHIFT_AND_V4I8:
@@ -89,13 +159,26 @@ bi_takes_shift(bi_instr *I)
         case BI_OPCODE_LSHIFT_XOR_I32:
         case BI_OPCODE_LSHIFT_XOR_V2I16:
         case BI_OPCODE_LSHIFT_XOR_V4I8:
-                break;
+        case BI_OPCODE_RSHIFT_AND_I32:
+        case BI_OPCODE_RSHIFT_AND_V2I16:
+        case BI_OPCODE_RSHIFT_AND_V4I8:
+        case BI_OPCODE_RSHIFT_OR_I32:
+        case BI_OPCODE_RSHIFT_OR_V2I16:
+        case BI_OPCODE_RSHIFT_OR_V4I8:
+        case BI_OPCODE_RSHIFT_XOR_I32:
+        case BI_OPCODE_RSHIFT_XOR_V2I16:
+        case BI_OPCODE_RSHIFT_XOR_V4I8:
+                return true;
         default:
                 return false;
         }
-
+}
+ 
+static bool
+bi_takes_shift(bi_instr *I)
+{
         /* Must not have an existing shift */
-        return bi_is_equiv(I->src[2], bi_zero());
+        return bi_is_bitwise(I->op) && bi_is_equiv(I->src[2], bi_zero());
 }
 
 static enum bi_swizzle
@@ -154,24 +237,33 @@ bi_opt_fuse_shift(bi_instr *I, bi_instr *mod, unsigned s, bool rshift)
         if (s == 2 || !bi_takes_shift(I))
                 return;
 
-        /* Shift always applies to 0'th source, NOT always applies to 1st
-         * source. Swap to make optimizations possible, but bail if we can't */
-        if (s == 1) {
-                if (I->src[1].neg)
-                        return;
-
+        /* Shift always applies to 0'th source. NOT can get lowered later */
+        if (s == 1)
                 bi_swap_srcs(I);
-        }
 
         /* Swap opcode to match the shift direction */
         if (rshift)
                 I->op = bi_rshift_op(I->op);
 
         enum bi_swizzle old_swizzle = I->src[0].swizzle;
-        I->src[0] = mod->src[0];
-        I->src[0].swizzle = bi_compose_swizzle_16(old_swizzle, I->src[0].swizzle);
+        I->src[0] = bi_replace_index(I->src[0], mod->src[0]);
+        I->src[0].swizzle = bi_compose_swizzle_16(old_swizzle, mod->src[0].swizzle);
+        I->src[0].neg ^= mod->not_result;
 
         I->src[2] = mod->src[2];
+}
+
+/* Dual to the shift logic */
+
+static void
+bi_opt_fuse_not(bi_instr *I, bi_instr *mod, unsigned s)
+{
+        if (s == 2 || !bi_is_bitwise(I->op))
+                return;
+
+        enum bi_swizzle old_swizzle = I->src[s].swizzle;
+        I->src[s] = mod->src[1];
+        I->src[s].swizzle = bi_compose_swizzle_16(old_swizzle, mod->src[1].swizzle);
 }
 
 void
@@ -213,20 +305,38 @@ bi_opt_mod_prop_forward(bi_context *ctx)
                         case BI_OPCODE_LSHIFT_OR_V4I8:
                         case BI_OPCODE_LSHIFT_OR_V2I16:
                         case BI_OPCODE_LSHIFT_OR_I32:
-                                if (bi_is_shift(mod))
+                                if (bi_is_shift(mod, false))
+                                        bi_opt_fuse_shift(I, mod, s, false);
+                                else if (bi_is_not(mod))
+                                        bi_opt_fuse_not(I, mod, s);
+                                break;
+
+                        case BI_OPCODE_LSHIFT_AND_V4I8:
+                        case BI_OPCODE_LSHIFT_AND_V2I16:
+                        case BI_OPCODE_LSHIFT_AND_I32:
+                                if (bi_is_shift(mod, true))
                                         bi_opt_fuse_shift(I, mod, s, false);
                                 break;
 
                         case BI_OPCODE_RSHIFT_OR_V4I8:
                         case BI_OPCODE_RSHIFT_OR_V2I16:
                         case BI_OPCODE_RSHIFT_OR_I32:
-                                if (bi_is_shift(mod))
+                                if (bi_is_shift(mod, false))
+                                        bi_opt_fuse_shift(I, mod, s, true);
+                                break;
+
+                        case BI_OPCODE_RSHIFT_AND_V4I8:
+                        case BI_OPCODE_RSHIFT_AND_V2I16:
+                        case BI_OPCODE_RSHIFT_AND_I32:
+                                if (bi_is_shift(mod, true))
                                         bi_opt_fuse_shift(I, mod, s, true);
                                 break;
 
                         default:
                                 break;
                         }
+
+                        bi_lower_mods(I);
                 }
         }
 
@@ -284,6 +394,17 @@ bi_optimizer_clamp(bi_instr *I, bi_instr *use)
         return true;
 }
 
+static bool
+bi_optimizer_not(bi_instr *I, bi_instr *use)
+{
+        if (!bi_is_not(use)) return false;
+        if (!bi_is_bitwise(I->op)) return false;
+
+        I->not_result ^= true;
+        I->dest[0] = use->dest[0];
+        return true;
+}
+
 void
 bi_opt_mod_prop_backward(bi_context *ctx)
 {
@@ -315,7 +436,7 @@ bi_opt_mod_prop_backward(bi_context *ctx)
                         continue;
 
                 /* Destination has a single use, try to propagate */
-                if (bi_optimizer_clamp(I, use)) {
+                if (bi_optimizer_clamp(I, use) || bi_optimizer_not(I, use)) {
                         bi_remove_instruction(use);
                         continue;
                 }
