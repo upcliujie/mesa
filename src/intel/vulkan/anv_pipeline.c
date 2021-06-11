@@ -1983,13 +1983,9 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
          if (stage == MESA_SHADER_TESS_CTRL || stage == MESA_SHADER_TESS_EVAL)
             has_tess = true;
       }
-       if (has_tess) {
-          const VkPipelineTessellationStateCreateInfo *tess_info =
-             pCreateInfo->pTessellationState;
-          dynamic->primitive_topology = _3DPRIM_PATCHLIST(tess_info->patchControlPoints);
-       } else {
-         dynamic->primitive_topology = pCreateInfo->pInputAssemblyState->topology;
-       }
+      dynamic->primitive_topology = has_tess ?
+                                    VK_PRIMITIVE_TOPOLOGY_PATCH_LIST :
+                                    pCreateInfo->pInputAssemblyState->topology;
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
