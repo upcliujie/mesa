@@ -830,8 +830,6 @@ panfrost_create_screen(int fd, struct renderonly *ro)
          *  - Preload is broken if the effective tile size is not 16x16
          *  - Some systems lack AFBC but we need kernel changes to know that
          */
-        if (dev->arch == 7)
-                dev->quirks |= MIDGARD_NO_AFBC;
 
         /* XXX: Indirect draws on Midgard need debugging, emulate for now */
         if (dev->arch < 6)
