@@ -1875,7 +1875,9 @@ radv_GetShaderInfoAMD(VkDevice _device, VkPipeline _pipeline, VkShaderStageFlagB
 
       fprintf(memf, "%s:\n", radv_get_shader_name(&variant->info, stage));
       fprintf(memf, "%s\n\n", variant->ir_string);
-      fprintf(memf, "%s\n\n", variant->disasm_string);
+      if (variant->disasm_string) {
+         fprintf(memf, "%s\n\n", variant->disasm_string);
+      }
       radv_dump_shader_stats(device, pipeline, stage, memf);
       u_memstream_close(&mem);
 
