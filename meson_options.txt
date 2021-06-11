@@ -33,14 +33,6 @@ option(
   value : false,
   description : 'Build against android-stub',
 )
-
-option(
-  'dri3',
-  type : 'combo',
-  value : 'auto',
-  choices : ['auto', 'true', 'false', 'disabled', 'enabled'],
-  description : 'enable support for dri3'
-)
 option(
   'dri-drivers',
   type : 'array',
