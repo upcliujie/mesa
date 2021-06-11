@@ -71,6 +71,7 @@ VULKAN_FILES := \
 	radv_nir_lower_ycbcr_textures.c \
 	radv_nir_to_llvm.c \
 	radv_llvm_helper.cpp \
+	radv_llvm_helper.h \
 	radv_pass.c \
 	radv_pipeline.c \
 	radv_pipeline_cache.c \
@@ -81,7 +82,6 @@ VULKAN_FILES := \
 	radv_shader_args.h \
 	radv_shader_info.c \
 	radv_shader.h \
-	radv_shader_helper.h \
 	radv_sqtt.c \
 	radv_query.c \
 	radv_util.c \
