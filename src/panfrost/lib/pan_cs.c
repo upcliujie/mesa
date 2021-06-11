@@ -909,7 +909,8 @@ pan_emit_bifrost_tiler(const struct panfrost_device *dev,
                        void *out)
 {
         pan_pack(out, BIFROST_TILER, tiler) {
-                tiler.hierarchy_mask = 0x28;
+                /* TODO: Select hierarchy mask more effectively */
+                tiler.hierarchy_mask = 0xff;
                 tiler.fb_width = fb_width;
                 tiler.fb_height = fb_height;
                 tiler.heap = heap;
