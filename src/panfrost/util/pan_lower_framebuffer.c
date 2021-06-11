@@ -595,7 +595,7 @@ pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
                                    util_format_description(rt_fmts[rt]);
 
                                 enum pan_format_class fmt_class =
-                                        pan_format_class(rt_fmts[rt]);
+                                        pan_format_class(rt_fmts[rt]) || is_store;
 
                                 /* Don't lower */
                                 if (fmt_class == PAN_FORMAT_NATIVE)
