@@ -391,6 +391,7 @@ brw_init_driver_functions(struct brw_context *brw,
 
    functions->Enable = brw_glEnable;
    functions->Flush = brw_glFlush;
+   functions->FlushNonAsync = brw_glFlush;
    functions->Finish = brw_finish;
    functions->GetString = brw_get_string;
    functions->UpdateState = brw_update_state;

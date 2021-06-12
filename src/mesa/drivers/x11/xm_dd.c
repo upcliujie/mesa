@@ -838,6 +838,7 @@ xmesa_init_driver_functions( XMesaVisual xmvisual,
    driver->GetString = get_string;
    driver->UpdateState = xmesa_update_state;
    driver->Flush = finish_or_flush;
+   driver->FlushNonAsync = finish_or_flush;
    driver->Finish = finish_or_flush;
    driver->ColorMask = color_mask;
    driver->Enable = enable;

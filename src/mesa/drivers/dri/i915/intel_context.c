@@ -384,6 +384,7 @@ intelInitDriverFunctions(struct dd_function_table *functions)
    _tnl_init_driver_draw_function(functions);
 
    functions->Flush = intel_glFlush;
+   functions->FlushNonAsync = intel_glFlush;
    functions->Finish = intelFinish;
    functions->GetString = intelGetString;
    functions->UpdateState = intelInvalidateState;

@@ -413,5 +413,6 @@ void radeonInitIoctlFuncs( struct gl_context *ctx )
     ctx->Driver.Clear = radeonClear;
     ctx->Driver.Finish = radeonFinish;
     ctx->Driver.Flush = radeonFlush;
+    ctx->Driver.FlushNonAsync = radeonFlush;
 }
 
