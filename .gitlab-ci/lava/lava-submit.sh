@@ -16,6 +16,7 @@ mkdir -p results/job-rootfs-overlay/
 
 # LAVA always uploads to MinIO when necessary as we don't have direct upload
 # from the DUT
+export PIGLIT_NO_WINDOW=1
 export PIGLIT_REPLAY_UPLOAD_TO_MINIO=1
 artifacts/ci-common/generate-env.sh > results/job-rootfs-overlay/environment.sh
 
