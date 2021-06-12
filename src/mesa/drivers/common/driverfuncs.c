@@ -80,6 +80,7 @@ _mesa_init_driver_functions(struct dd_function_table *driver)
 
    driver->Finish = NULL;
    driver->Flush = NULL;
+   driver->FlushNonAsync = NULL;
 
    /* framebuffer/image functions */
    driver->Clear = _swrast_Clear;

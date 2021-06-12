@@ -84,5 +84,6 @@ void r200InitIoctlFuncs( struct dd_function_table *functions )
     functions->Clear = r200Clear;
     functions->Finish = radeonFinish;
     functions->Flush = radeonFlush;
+    functions->FlushNonAsync = radeonFlush;
 }
 

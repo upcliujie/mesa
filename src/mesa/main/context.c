@@ -1634,7 +1634,9 @@ _mesa_make_current( struct gl_context *newCtx,
        curCtx != newCtx &&
        curCtx->Const.ContextReleaseBehavior ==
        GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH) {
-      _mesa_flush(curCtx);
+      FLUSH_VERTICES(curCtx, 0, 0);
+      if (curCtx->Driver.FlushNonAsync)
+         curCtx->Driver.FlushNonAsync(curCtx);
    }
 
    /* Call this periodically to detect when the user has begun using

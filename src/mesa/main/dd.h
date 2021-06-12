@@ -125,7 +125,12 @@ struct dd_function_table {
    /**
     * This is called whenever glFlush() is called.
     */
-   void (*Flush)( struct gl_context *ctx );
+   void (*Flush)(struct gl_context *ctx);
+
+   /**
+    * Same as Flush, but not asynchronous.
+    */
+   void (*FlushNonAsync)(struct gl_context *ctx);
 
    /**
     * Clear the color/depth/stencil/accum buffer(s).

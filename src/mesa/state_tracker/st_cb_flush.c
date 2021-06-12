@@ -188,6 +188,7 @@ st_init_flush_functions(struct pipe_screen *screen,
                         struct dd_function_table *functions)
 {
    functions->Flush = st_glFlush;
+   functions->FlushNonAsync = st_glFlush;
    functions->Finish = st_glFinish;
 
    if (screen->get_param(screen, PIPE_CAP_DEVICE_RESET_STATUS_QUERY))

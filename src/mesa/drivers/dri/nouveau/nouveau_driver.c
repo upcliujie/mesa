@@ -173,6 +173,7 @@ nouveau_driver_functions_init(struct dd_function_table *functions)
 {
 	functions->GetString = nouveau_get_string;
 	functions->Flush = nouveau_flush;
+        functions->FlushNonAsync = nouveau_flush;
 	functions->Finish = nouveau_finish;
 	functions->Clear = nouveau_clear;
 	functions->DrawPixels = _mesa_meta_DrawPixels;
