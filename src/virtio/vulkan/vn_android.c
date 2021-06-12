@@ -548,7 +548,7 @@ vn_AcquireImageANDROID(VkDevice device,
    struct vn_fence *fen = vn_fence_from_handle(fence);
 
    if (nativeFenceFd >= 0) {
-      int ret = sync_wait(nativeFenceFd, INT32_MAX);
+      int ret = sync_wait(nativeFenceFd, -1);
       /* Android loader expects the ICD to always close the fd */
       close(nativeFenceFd);
       if (ret)
@@ -571,55 +571,85 @@ vn_QueueSignalReleaseImageANDROID(VkQueue queue,
                                   VkImage image,
                                   int *pNativeFenceFd)
 {
-   /* At this moment, the wait semaphores are converted to a VkFence via an
-    * empty submit. The VkFence is then waited inside until signaled, and the
-    * out native fence fd is set to -1.
-    */
    VkResult result = VK_SUCCESS;
    struct vn_queue *que = vn_queue_from_handle(queue);
-   const VkAllocationCallbacks *alloc = &que->device->base.base.alloc;
-   VkDevice device = vn_device_to_handle(que->device);
-   VkPipelineStageFlags local_stage_masks[8];
-   VkPipelineStageFlags *stage_masks = local_stage_masks;
+   struct vn_device *dev = que->device;
+   VkDevice device = vn_device_to_handle(dev);
 
-   if (waitSemaphoreCount == 0)
-      goto out;
+   if (waitSemaphoreCount == 0) {
+      *pNativeFenceFd = -1;
+      return VK_SUCCESS;
+   }
 
-   if (waitSemaphoreCount > ARRAY_SIZE(local_stage_masks)) {
+   if (dev->instance->experimental.globalFencing == VK_FALSE) {
+      /* Fallback when VkVenusExperimentalFeatures100000MESA::globalFencing is
+       * VK_FALSE. The wait semaphores are converted to a VkFence via an empty
+       * submit, and the VkFence is waited until signaled before return.
+       */
+      const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+      VkPipelineStageFlags *stage_masks = NULL;
+
       stage_masks =
-         vk_alloc(alloc, sizeof(VkPipelineStageFlags) * waitSemaphoreCount,
+         vk_alloc(alloc, sizeof(*stage_masks) * waitSemaphoreCount,
                   VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-      if (!stage_masks) {
-         result = VK_ERROR_OUT_OF_HOST_MEMORY;
-         goto out;
+      if (!stage_masks)
+         return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+      for (uint32_t i = 0; i < waitSemaphoreCount; i++)
+         stage_masks[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+
+      const VkSubmitInfo submit_info = {
+         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+         .pNext = NULL,
+         .waitSemaphoreCount = waitSemaphoreCount,
+         .pWaitSemaphores = pWaitSemaphores,
+         .pWaitDstStageMask = stage_masks,
+         .commandBufferCount = 0,
+         .pCommandBuffers = NULL,
+         .signalSemaphoreCount = 0,
+         .pSignalSemaphores = NULL,
+      };
+      result = vn_QueueSubmit(queue, 1, &submit_info, que->wait_fence);
+
+      vk_free(alloc, stage_masks);
+
+      if (result != VK_SUCCESS)
+         return vn_error(dev->instance, result);
+
+      result =
+         vn_WaitForFences(device, 1, &que->wait_fence, VK_TRUE, UINT64_MAX);
+      vn_ResetFences(device, 1, &que->wait_fence);
+
+      *pNativeFenceFd = -1;
+
+      return vn_result(dev->instance, result);
+   }
+
+   int fd = -1;
+   VkSemaphoreGetFdInfoKHR fd_info = {
+      .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+      .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+   };
+   for (uint32_t i = 0; i < waitSemaphoreCount; i++) {
+      int tmp_fd = -1;
+
+      fd_info.semaphore = pWaitSemaphores[i];
+      result = vn_GetSemaphoreFdKHR(device, &fd_info, &tmp_fd);
+      if (result != VK_SUCCESS) {
+         if (fd >= 0)
+            close(fd);
+         return vn_result(dev->instance, result);
+      }
+
+      if (tmp_fd >= 0) {
+         sync_accumulate("vn", &fd, tmp_fd);
+         close(tmp_fd);
       }
    }
 
-   for (uint32_t i = 0; i < waitSemaphoreCount; i++)
-      stage_masks[i] = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+   *pNativeFenceFd = fd;
 
-   const VkSubmitInfo submit_info = {
-      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-      .pNext = NULL,
-      .waitSemaphoreCount = waitSemaphoreCount,
-      .pWaitSemaphores = pWaitSemaphores,
-      .pWaitDstStageMask = stage_masks,
-      .commandBufferCount = 0,
-      .pCommandBuffers = NULL,
-      .signalSemaphoreCount = 0,
-      .pSignalSemaphores = NULL,
-   };
-   result = vn_QueueSubmit(queue, 1, &submit_info, que->wait_fence);
-   if (result != VK_SUCCESS)
-      goto out;
-
-   result =
-      vn_WaitForFences(device, 1, &que->wait_fence, VK_TRUE, UINT64_MAX);
-   vn_ResetFences(device, 1, &que->wait_fence);
-
-out:
-   *pNativeFenceFd = -1;
-   return result;
+   return VK_SUCCESS;
 }
 
 static VkResult
