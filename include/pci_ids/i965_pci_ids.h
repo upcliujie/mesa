@@ -1,3 +1,4 @@
+#ifndef PREFER_CROCUS
 CHIPSET(0x29A2, i965,    "BW",      "Intel(R) 965G")
 CHIPSET(0x2992, i965,    "BW",      "Intel(R) 965Q")
 CHIPSET(0x2982, i965,    "BW",      "Intel(R) 965G")
@@ -97,6 +98,7 @@ CHIPSET(0x0F32, byt,     "BYT",     "Intel(R) HD Graphics")
 CHIPSET(0x0F33, byt,     "BYT",     "Intel(R) HD Graphics")
 CHIPSET(0x0157, byt,     "BYT",     "Intel(R) HD Graphics")
 CHIPSET(0x0155, byt,     "BYT",     "Intel(R) HD Graphics")
+#endif
 
 CHIPSET(0x22B0, chv,     "CHV",     "Intel(R) HD Graphics")
 CHIPSET(0x22B1, chv,     "BSW",     "Intel(R) HD Graphics XXX") /* Overridden in brw_get_renderer_string */
