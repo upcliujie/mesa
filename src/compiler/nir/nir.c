@@ -1456,6 +1456,14 @@ nir_ssa_def_components_read(const nir_ssa_def *def)
          int src_idx = alu_src - &alu->src[0];
          assert(src_idx >= 0 && src_idx < nir_op_infos[alu->op].num_inputs);
          read_mask |= nir_alu_instr_src_read_mask(alu, src_idx);
+      } else if (use->parent_instr->type == nir_instr_type_intrinsic) {
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(use->parent_instr);
+         if (use == &intrin->src[0] && nir_intrinsic_has_write_mask(intrin) &&
+             !nir_intrinsic_has_io_semantics(intrin)) {
+            read_mask |= nir_intrinsic_write_mask(intrin);
+         } else {
+            return (1 << def->num_components) - 1;
+         }
       } else {
          return (1 << def->num_components) - 1;
       }
