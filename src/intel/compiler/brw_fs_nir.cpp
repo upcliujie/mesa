@@ -3982,6 +3982,55 @@ fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
    }
 }
 
+static void
+emit_rt_lsc_fence(const fs_builder &bld, bool flush, bool invalidate)
+{
+   const intel_device_info *devinfo = bld.shader->devinfo;
+
+   const fs_builder ubld = bld.exec_all().group(8, 0);
+   fs_inst *send;
+   fs_reg tmp;
+
+   /* Emit a LSC flush to flush out any writes to from the RT hardware */
+   if (flush) {
+      tmp = ubld.vgrf(BRW_REGISTER_TYPE_UD);
+      send = ubld.emit(SHADER_OPCODE_SEND, tmp,
+                       brw_imm_ud(0) /* desc */,
+                       brw_imm_ud(0) /* ex_desc */,
+                       brw_vec8_grf(0, 0) /* payload */);
+      send->sfid = GFX12_SFID_UGM;
+      send->desc = lsc_fence_msg_desc(devinfo, LSC_FENCE_TILE,
+                                      LSC_FLUSH_TYPE_EVICT, true);
+      send->mlen = 1; /* g0 header */
+      send->ex_mlen = 0;
+      send->size_written = REG_SIZE; /* Temp write for scheduling */
+      send->send_has_side_effects = true;
+
+      ubld.emit(FS_OPCODE_SCHEDULING_FENCE, ubld.null_reg_ud(), tmp);
+   }
+
+   /* Emit a HDC invalidate to invalidate in case anything was written from
+    * the RT hardware.
+    */
+   if (invalidate) {
+      tmp = ubld.vgrf(BRW_REGISTER_TYPE_UD);
+      send = ubld.emit(SHADER_OPCODE_SEND, tmp,
+                       brw_imm_ud(0) /* desc */,
+                       brw_imm_ud(0) /* ex_desc */,
+                       brw_vec8_grf(0, 0) /* payload */);
+      send->sfid = GFX12_SFID_UGM;
+      send->desc = lsc_fence_msg_desc(devinfo, LSC_FENCE_TILE,
+                                      LSC_FLUSH_TYPE_INVALIDATE, true);
+      send->mlen = 1; /* g0 header */
+      send->ex_mlen = 0;
+      send->size_written = REG_SIZE; /* Temp write for scheduling */
+      send->send_has_side_effects = true;
+
+      ubld.emit(FS_OPCODE_SCHEDULING_FENCE, ubld.null_reg_ud(), tmp);
+   }
+}
+
+
 void
 fs_visitor::nir_emit_bs_intrinsic(const fs_builder &bld,
                                   nir_intrinsic_instr *instr)
@@ -3999,27 +4048,6 @@ fs_visitor::nir_emit_bs_intrinsic(const fs_builder &bld,
 
    case nir_intrinsic_load_btd_local_arg_addr_intel:
       bld.MOV(dest, retype(brw_vec1_grf(2, 2), dest.type));
-      break;
-
-   case nir_intrinsic_trace_ray_initial_intel:
-      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
-               bld.null_reg_ud(),
-               brw_imm_ud(BRW_RT_BVH_LEVEL_WORLD),
-               brw_imm_ud(GEN_RT_TRACE_RAY_INITAL));
-      break;
-
-   case nir_intrinsic_trace_ray_commit_intel:
-      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
-               bld.null_reg_ud(),
-               brw_imm_ud(BRW_RT_BVH_LEVEL_OBJECT),
-               brw_imm_ud(GEN_RT_TRACE_RAY_COMMIT));
-      break;
-
-   case nir_intrinsic_trace_ray_continue_intel:
-      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
-               bld.null_reg_ud(),
-               brw_imm_ud(BRW_RT_BVH_LEVEL_OBJECT),
-               brw_imm_ud(GEN_RT_TRACE_RAY_CONTINUE));
       break;
 
    default:
@@ -5889,6 +5917,25 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       }
       bld.emit(SHADER_OPCODE_BTD_RETIRE_LOGICAL);
       break;
+
+   case nir_intrinsic_trace_ray_intel: {
+      const bool synchronous = nir_intrinsic_base(instr);
+      assert(brw_shader_stage_is_bindless(stage) || synchronous);
+      if (synchronous)
+         emit_rt_lsc_fence(bld, true, false);
+      fs_reg srcs[RT_LOGICAL_NUM_SRCS];
+      srcs[RT_LOGICAL_SRC_GLOBALS] = get_nir_src(instr->src[0]);
+      srcs[RT_LOGICAL_SRC_BVH_LEVEL] = get_nir_src(instr->src[1]);
+      srcs[RT_LOGICAL_SRC_TRACE_RAY_CONTROL] = get_nir_src(instr->src[2]);
+      srcs[RT_LOGICAL_SRC_SYNCHRONOUS] = brw_imm_ud(synchronous);
+      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL, bld.null_reg_ud(),
+               srcs, RT_LOGICAL_NUM_SRCS);
+      if (synchronous) {
+         bld.emit(BRW_OPCODE_SYNC, bld.null_reg_ud(), brw_imm_ud(TGL_SYNC_ALLWR));
+         emit_rt_lsc_fence(bld, false, true);
+      }
+      break;
+   }
 
    default:
       unreachable("unknown intrinsic");
