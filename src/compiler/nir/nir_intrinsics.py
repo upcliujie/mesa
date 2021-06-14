@@ -1349,10 +1349,9 @@ intrinsic("btd_stack_push_intel", indices=[STACK_SIZE])
 # src[] = { }
 intrinsic("btd_retire_intel")
 
-# Intel-specific ray-tracing intrinsics
-intrinsic("trace_ray_initial_intel")
-intrinsic("trace_ray_commit_intel")
-intrinsic("trace_ray_continue_intel")
+# Intel-specific ray-tracing intrinsic
+# src[] = { globals, level, operation } BASE=synchronous
+intrinsic("trace_ray_intel", src_comp=[1, 1, 1], indices=[BASE])
 
 # System values used for ray-tracing on Intel
 system_value("ray_base_mem_addr_intel", 1, bit_sizes=[64])
