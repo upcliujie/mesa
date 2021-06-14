@@ -3483,8 +3483,10 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
             NIR_PASS(more_algebraic, nir[i], nir_opt_algebraic);
          }
 
-         if (io_to_mem || lowered_ngg || i == MESA_SHADER_COMPUTE)
+         if (io_to_mem || lowered_ngg || i == MESA_SHADER_COMPUTE) {
+            NIR_PASS_V(nir[i], nir_opt_shrink_vectors, false);
             NIR_PASS_V(nir[i], nir_opt_offsets);
+         }
 
          /* Do late algebraic optimization to turn add(a,
           * neg(b)) back into subs, then the mandatory cleanup
