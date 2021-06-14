@@ -2830,6 +2830,7 @@ static void *si_create_shader_selector(struct pipe_context *ctx,
    }
 
    bool ngg_culling_allowed =
+      LLVM_VERSION_MAJOR >= 12 && /* hangs on 11, see #4874 */
       sscreen->info.chip_class >= GFX10 &&
       sscreen->use_ngg_culling &&
       (sel->info.stage == MESA_SHADER_VERTEX ||
