@@ -403,7 +403,7 @@ android_build:
 x86_test-base:
   extends: x86_build-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-base "2021-03-31-cargo"
+    MESA_IMAGE_TAG: &x86_test-base "2021-06-14-deqp-runner"
 
 .use-x86_test-base:
   extends:
