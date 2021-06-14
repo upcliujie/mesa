@@ -334,7 +334,10 @@ vtn_push_nir_ssa(struct vtn_builder *b, uint32_t value_id, nir_ssa_def *def)
    /* Types for all SPIR-V SSA values are set as part of a pre-pass so the
     * type will be valid by the time we get here.
     */
-   struct vtn_type *type = vtn_get_value_type(b, value_id);
+  struct vtn_type *type = vtn_get_value_type(b, value_id);
+  assert(def->num_components == glsl_get_vector_elements(type->type) &&
+         def->bit_size == glsl_get_bit_size(type->type));
+
    vtn_fail_if(def->num_components != glsl_get_vector_elements(type->type) ||
                def->bit_size != glsl_get_bit_size(type->type),
                "Mismatch between NIR and SPIR-V type.");
@@ -4364,6 +4367,10 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
       case SpvCapabilityImageGatherExtended:
       case SpvCapabilityStorageImageExtendedFormats:
       case SpvCapabilityVector16:
+      case SpvCapabilityDotProductKHR:
+      case SpvCapabilityDotProductInputAllKHR:
+      case SpvCapabilityDotProductInput4x8BitKHR:
+      case SpvCapabilityDotProductInput4x8BitPackedKHR:
          break;
 
       case SpvCapabilityLinkage:
@@ -5648,6 +5655,15 @@ vtn_handle_body_instruction(struct vtn_builder *b, SpvOp opcode,
    case SpvOpIMul32x16INTEL:
    case SpvOpUMul32x16INTEL:
       vtn_handle_alu(b, opcode, w, count);
+      break;
+
+   case SpvOpSDotKHR:
+   case SpvOpUDotKHR:
+   case SpvOpSUDotKHR:
+   case SpvOpSDotAccSatKHR:
+   case SpvOpUDotAccSatKHR:
+   case SpvOpSUDotAccSatKHR:
+      vtn_handle_integer_dot(b, opcode, w, count);
       break;
 
    case SpvOpBitcast:
