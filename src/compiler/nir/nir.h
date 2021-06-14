@@ -1650,7 +1650,7 @@ typedef struct {
 
 #include "nir_intrinsics.h"
 
-#define NIR_INTRINSIC_MAX_CONST_INDEX 5
+#define NIR_INTRINSIC_MAX_CONST_INDEX 6
 
 /** Represents an intrinsic
  *
