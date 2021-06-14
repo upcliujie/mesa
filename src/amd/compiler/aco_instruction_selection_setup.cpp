@@ -90,7 +90,7 @@ is_block_reachable(nir_function_impl *impl, nir_block *known_reachable, nir_bloc
 }
 
 bool
-only_used_by_readlane_or_phi(nir_dest *dest)
+only_used_by_readlane_or_phi(nir_dest *dest, bool has_phi = false)
 {
    nir_src *src = list_first_entry(&dest->ssa.uses, nir_src, use_link);
 
@@ -98,7 +98,7 @@ only_used_by_readlane_or_phi(nir_dest *dest)
    case nir_instr_type_alu: {
       nir_alu_instr *alu = nir_instr_as_alu(src->parent_instr);
       if (alu->op == nir_op_unpack_64_2x32_split_x || alu->op == nir_op_unpack_64_2x32_split_y)
-         return only_used_by_readlane_or_phi(&alu->dest.dest);
+         return only_used_by_readlane_or_phi(&alu->dest.dest, has_phi);
       return false;
    }
    case nir_instr_type_intrinsic: {
@@ -107,8 +107,13 @@ only_used_by_readlane_or_phi(nir_dest *dest)
              intrin->intrinsic == nir_intrinsic_read_first_invocation ||
              intrin->intrinsic == nir_intrinsic_lane_permute_16_amd;
    }
-   case nir_instr_type_phi:
-      return only_used_by_readlane_or_phi(&nir_instr_as_phi(src->parent_instr)->dest);
+   case nir_instr_type_phi: {
+      /* If we already found a phi, don't look further */
+      if (has_phi)
+         return false;
+
+      return only_used_by_readlane_or_phi(&nir_instr_as_phi(src->parent_instr)->dest, true);
+   }
    default:
       return false;
    }
