@@ -1230,7 +1230,8 @@ cmd_buffer_update_tile_alignment(struct v3dv_cmd_buffer *cmd_buffer)
       v3dv_subpass_area_is_tile_aligned(rect,
                                         cmd_buffer->state.framebuffer,
                                         cmd_buffer->state.pass,
-                                        cmd_buffer->state.subpass_idx);
+                                        cmd_buffer->state.subpass_idx,
+                                        cmd_buffer->device);
 
    if (!cmd_buffer->state.tile_aligned_render_area) {
       perf_debug("Render area for subpass %d of render pass %p doesn't "
@@ -1286,10 +1287,11 @@ cmd_buffer_state_set_attachment_clear_color(struct v3dv_cmd_buffer *cmd_buffer,
       &cmd_buffer->state.pass->attachments[attachment_idx];
 
    uint32_t internal_type, internal_bpp;
-   const struct v3dv_format *format = v3dv_get_format(attachment->desc.format);
-   v3dv_get_internal_type_bpp_for_output_format(format->rt_type,
-                                                &internal_type,
-                                                &internal_bpp);
+   const struct v3dv_format *format =
+      v3dv_X(cmd_buffer->device, get_format)(attachment->desc.format);
+
+   v3dv_X(cmd_buffer->device, get_internal_type_bpp_for_output_format)
+      (format->rt_type, &internal_type, &internal_bpp);
 
    uint32_t internal_size = 4 << internal_bpp;
 
