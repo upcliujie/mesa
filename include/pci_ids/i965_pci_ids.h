@@ -1,3 +1,4 @@
+#ifndef PREFER_CROCUS
 CHIPSET(0x29A2, i965,    "BW",      "Intel(R) 965G")
 CHIPSET(0x2992, i965,    "BW",      "Intel(R) 965Q")
 CHIPSET(0x2982, i965,    "BW",      "Intel(R) 965G")
@@ -91,6 +92,7 @@ CHIPSET(0x0D2B, hsw_gt3, "HSW GT3", "Intel(R) HD Graphics")
 CHIPSET(0x0D0E, hsw_gt1, "HSW GT1", "Intel(R) HD Graphics")
 CHIPSET(0x0D1E, hsw_gt2, "HSW GT2", "Intel(R) HD Graphics")
 CHIPSET(0x0D2E, hsw_gt3, "HSW GT3", "Intel(R) HD Graphics")
+#endif
 
 CHIPSET(0x0F31, byt,     "BYT",     "Intel(R) HD Graphics")
 CHIPSET(0x0F32, byt,     "BYT",     "Intel(R) HD Graphics")
