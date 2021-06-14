@@ -952,7 +952,7 @@ build_bitmap_atlas(struct gl_context *ctx, struct gl_bitmap_atlas *atlas,
     * bitmap in the atlas to determine the texture atlas size.
     */
    for (i = 0; i < atlas->numBitmaps; i++) {
-      const struct gl_display_list *list = _mesa_lookup_list(ctx, listBase + i, false);
+      const struct gl_display_list *list = _mesa_lookup_list(ctx, listBase + i, true);
       const Node *n;
       struct gl_bitmap_glyph *g = &atlas->glyphs[i];
       unsigned bitmap_width, bitmap_height;
@@ -1058,7 +1058,7 @@ build_bitmap_atlas(struct gl_context *ctx, struct gl_bitmap_atlas *atlas,
    memset(map, 0xff, map_stride * atlas->texHeight);
 
    for (i = 0; i < atlas->numBitmaps; i++) {
-      const struct gl_display_list *list = _mesa_lookup_list(ctx, listBase + i, false);
+      const struct gl_display_list *list = _mesa_lookup_list(ctx, listBase + i, true);
       const Node *n = list->Head;
 
       assert(n[0].opcode == OPCODE_BITMAP ||
@@ -1429,8 +1429,10 @@ destroy_list(struct gl_context *ctx, GLuint list)
                      check_atlas_for_deleted_list, &list);
    }
 
+   _mesa_HashLockMutex(ctx->Shared->DisplayList);
    _mesa_delete_list(ctx, dlist);
-   _mesa_HashRemove(ctx->Shared->DisplayList, list);
+   _mesa_HashRemoveLocked(ctx->Shared->DisplayList, list);
+   _mesa_HashUnlockMutex(ctx->Shared->DisplayList);
 }
 
 
@@ -11190,10 +11192,11 @@ _mesa_compile_error(struct gl_context *ctx, GLenum error, const char *s)
  */
 bool
 _mesa_get_list(struct gl_context *ctx, GLuint list,
-               struct gl_display_list **dlist)
+               struct gl_display_list **dlist,
+               bool locked)
 {
    struct gl_display_list * dl =
-      list > 0 ? _mesa_lookup_list(ctx, list, false) : NULL;
+      list > 0 ? _mesa_lookup_list(ctx, list, locked) : NULL;
 
    if (dlist)
       *dlist = dl;
@@ -11212,6 +11215,7 @@ _mesa_get_list(struct gl_context *ctx, GLuint list,
  * Execute a display list.  Note that the ListBase offset must have already
  * been added before calling this function.  I.e. the list argument is
  * the absolute list number, not relative to ListBase.
+ * Must be called with ctx->Shared->DisplayList locked.
  * \param list - display list number
  */
 static void
@@ -11220,7 +11224,7 @@ execute_list(struct gl_context *ctx, GLuint list)
    struct gl_display_list *dlist;
    Node *n;
 
-   if (list == 0 || !_mesa_get_list(ctx, list, &dlist))
+   if (list == 0 || !_mesa_get_list(ctx, list, &dlist, true))
       return;
 
    if (ctx->ListState.CallDepth == MAX_LIST_NESTING) {
@@ -11301,7 +11305,9 @@ execute_list(struct gl_context *ctx, GLuint list)
             break;
          case OPCODE_CALL_LISTS:
             if (ctx->ListState.CallDepth < MAX_LIST_NESTING) {
+               _mesa_HashUnlockMutex(ctx->Shared->DisplayList);
                CALL_CallLists(ctx->Exec, (n[1].i, n[2].e, get_pointer(&n[3])));
+               _mesa_HashLockMutex(ctx->Shared->DisplayList);
             }
             break;
          case OPCODE_CLEAR:
@@ -13450,7 +13456,7 @@ _mesa_IsList(GLuint list)
    GET_CURRENT_CONTEXT(ctx);
    FLUSH_VERTICES(ctx, 0, 0);      /* must be called before assert */
    ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, GL_FALSE);
-   return _mesa_get_list(ctx, list, NULL);
+   return _mesa_get_list(ctx, list, NULL, false);
 }
 
 
@@ -13684,7 +13690,9 @@ _mesa_CallList(GLuint list)
       ctx->CompileFlag = GL_FALSE;
    }
 
+   _mesa_HashLockMutex(ctx->Shared->DisplayList);
    execute_list(ctx, list);
+   _mesa_HashUnlockMutex(ctx->Shared->DisplayList);
    ctx->CompileFlag = save_compile_flag;
 
    /* also restore API function pointers to point to "save" versions */
@@ -13803,6 +13811,8 @@ _mesa_CallLists(GLsizei n, GLenum type, const GLvoid * lists)
 
    GLuint base = ctx->List.ListBase;
 
+   _mesa_HashLockMutex(ctx->Shared->DisplayList);
+
    /* A loop inside a switch is faster than a switch inside a loop. */
    switch (type) {
    case GL_BYTE:
@@ -13869,6 +13879,7 @@ _mesa_CallLists(GLsizei n, GLenum type, const GLvoid * lists)
       break;
    }
 
+   _mesa_HashUnlockMutex(ctx->Shared->DisplayList);
    ctx->CompileFlag = save_compile_flag;
 
    /* also restore API function pointers to point to "save" versions */
@@ -14570,7 +14581,7 @@ print_list(struct gl_context *ctx, GLuint list, const char *fname)
          return;
    }
 
-   if (!_mesa_get_list(ctx, list, &dlist)) {
+   if (!_mesa_get_list(ctx, list, &dlist, true)) {
       fprintf(f, "%u is not a display list ID\n", list);
       fflush(f);
       if (fname)
@@ -14865,7 +14876,7 @@ _mesa_glthread_execute_list(struct gl_context *ctx, GLuint list)
 
    if (list == 0 ||
        ctx->GLThread.ListCallDepth == MAX_LIST_NESTING ||
-       !_mesa_get_list(ctx, list, &dlist))
+       !_mesa_get_list(ctx, list, &dlist, true))
       return;
 
    ctx->GLThread.ListCallDepth++;
