@@ -1874,8 +1874,8 @@ pipeline_populate_graphics_key(struct v3dv_pipeline *pipeline,
        */
       if (key->logicop_func != PIPE_LOGICOP_COPY) {
          key->color_fmt[i].format = fb_pipe_format;
-         key->color_fmt[i].swizzle = v3dv_get_format_swizzle(fb_format,
-                                                             pipeline->device);
+         key->color_fmt[i].swizzle =
+            v3dv_get_format_swizzle(fb_format, pipeline->device);
       }
 
       const struct util_format_description *desc =
