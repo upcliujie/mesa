@@ -3514,6 +3514,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
             uint64_t ps_inputs_read = nir[MESA_SHADER_FRAGMENT] ? nir[MESA_SHADER_FRAGMENT]->info.inputs_read : 0;
             bool consider_culling = radv_consider_culling(device, nir[i], ps_inputs_read);
             radv_lower_ngg(device, nir[i], &infos[i], pipeline_key, &keys[i], consider_culling);
+            NIR_PASS_V(nir[i], nir_opt_shrink_vectors, false);
          }
 
          radv_optimize_nir_algebraic(nir[i], io_to_mem || lowered_ngg || i == MESA_SHADER_COMPUTE);
