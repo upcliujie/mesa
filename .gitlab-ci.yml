@@ -403,7 +403,7 @@ android_build:
 x86_test-base:
   extends: x86_build-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-base "2021-03-31-cargo"
+    MESA_IMAGE_TAG: &x86_test-base "2021-06-13-deqp-runner"
 
 .use-x86_test-base:
   extends:
@@ -427,7 +427,7 @@ x86_test-gl:
 x86_test-vk:
   extends: .use-x86_test-base
   variables:
-    MESA_IMAGE_TAG: &x86_test-vk "2021-06-09-piglit"
+    MESA_IMAGE_TAG: &x86_test-vk "2021-06-13-deqp-runner"
 
 # Debian 11 based ARM build image
 arm_build:
