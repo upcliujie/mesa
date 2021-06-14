@@ -765,6 +765,14 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
       break;
    }
 
+   case SpvOpSDotKHR:
+   case SpvOpUDotKHR:
+   case SpvOpSUDotKHR:
+   case SpvOpSDotAccSatKHR:
+   case SpvOpUDotAccSatKHR:
+   case SpvOpSUDotAccSatKHR:
+      unreachable("Should have called vtn_handle_integer_dot instead.");
+
    default: {
       bool swap;
       bool exact;
@@ -816,6 +824,232 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
    default:
       /* Do nothing. */
       break;
+   }
+
+   vtn_push_ssa_value(b, w[2], dest);
+
+   b->nb.exact = b->exact;
+}
+
+void
+vtn_handle_integer_dot(struct vtn_builder *b, SpvOp opcode,
+                       const uint32_t *w, unsigned count)
+{
+   struct vtn_value *dest_val = vtn_untyped_value(b, w[2]);
+   const struct glsl_type *dest_type = vtn_get_type(b, w[1])->type;
+   const unsigned dest_size = glsl_get_bit_size(dest_type);
+
+   vtn_handle_no_contraction(b, dest_val);
+
+   /* Collect the various SSA sources.
+    *
+    * Due to the optional "Packed Vector Format" field, determine number of
+    * inputs from the opcode.  This differs from vtn_handle_alu.
+    */
+   const unsigned num_inputs = (opcode == SpvOpSDotAccSatKHR ||
+                                opcode == SpvOpUDotAccSatKHR ||
+                                opcode == SpvOpSUDotAccSatKHR) ? 3 : 2;
+   struct vtn_ssa_value *vtn_src[3] = { NULL, };
+   for (unsigned i = 0; i < num_inputs; i++)
+      vtn_src[i] = vtn_ssa_value(b, w[i + 3]);
+
+   struct vtn_ssa_value *dest = vtn_create_ssa_value(b, dest_type);
+   nir_ssa_def *src[3] = { NULL, };
+   for (unsigned i = 0; i < num_inputs; i++) {
+      vtn_assert(glsl_type_is_vector_or_scalar(vtn_src[i]->type));
+      src[i] = vtn_src[i]->def;
+   }
+
+   /* For all of the opcodes *except* SpvOpSUDotKHR and SpvOpSUDotAccSatKHR,
+    * the SPV_KHR_integer_dot_product spec says:
+    *
+    *    _Vector 1_ and _Vector 2_ must have the same type.
+    *
+    * The practical requirement is the same bit-size and the same number of
+    * components.
+    */
+   vtn_assert(glsl_get_bit_size(vtn_src[0]->type) ==
+              glsl_get_bit_size(vtn_src[1]->type) &&
+              glsl_get_vector_elements(vtn_src[0]->type) ==
+              glsl_get_vector_elements(vtn_src[1]->type));
+
+   if (glsl_type_is_vector(vtn_src[0]->type)) {
+      const nir_op s_conversion_op =
+         nir_type_conversion_op(nir_type_int, nir_type_int | dest_size,
+                                nir_rounding_mode_undef);
+
+      const nir_op u_conversion_op =
+         nir_type_conversion_op(nir_type_uint, nir_type_uint | dest_size,
+                                nir_rounding_mode_undef);
+
+      nir_op src0_conversion_op;
+      nir_op src1_conversion_op;
+
+      switch (opcode) {
+      case SpvOpSDotKHR:
+      case SpvOpSDotAccSatKHR:
+         src0_conversion_op = s_conversion_op;
+         src1_conversion_op = s_conversion_op;
+         break;
+
+      case SpvOpUDotKHR:
+      case SpvOpUDotAccSatKHR:
+         src0_conversion_op = u_conversion_op;
+         src1_conversion_op = u_conversion_op;
+         break;
+
+      case SpvOpSUDotKHR:
+      case SpvOpSUDotAccSatKHR:
+         src0_conversion_op = s_conversion_op;
+         src1_conversion_op = u_conversion_op;
+         break;
+
+      default:
+         unreachable("Invalid opcode.");
+      }
+
+      /* The SPV_KHR_integer_dot_product spec says:
+       *
+       *    All components of the input vectors are sign-extended to the bit
+       *    width of the result's type. The sign-extended input vectors are
+       *    then multiplied component-wise and all components of the vector
+       *    resulting from the component-wise multiplication are added
+       *    together. The resulting value will equal the low-order N bits of
+       *    the correct result R, where N is the result width and R is
+       *    computed with enough precision to avoid overflow and underflow.
+       */
+      const unsigned vector_components =
+         glsl_get_vector_elements(vtn_src[0]->type);
+
+      for (unsigned i = 0; i < vector_components; i++) {
+         nir_ssa_def *const src0 =
+            nir_build_alu(&b->nb, src0_conversion_op,
+                          nir_channel(&b->nb, src[0], i), NULL, NULL, NULL);
+
+         nir_ssa_def *const src1 =
+            nir_build_alu(&b->nb, src1_conversion_op,
+                          nir_channel(&b->nb, src[1], i), NULL, NULL, NULL);
+
+         nir_ssa_def *const mul_result = nir_imul(&b->nb, src0, src1);
+
+         dest->def = (i == 0) ? mul_result
+                              : nir_iadd(&b->nb, dest->def, mul_result);
+      }
+
+      if (num_inputs == 3) {
+         /* For SpvOpSDotAccSatKHR, the SPV_KHR_integer_dot_product spec says:
+          *
+          *    Signed integer dot product of _Vector 1_ and _Vector 2_ and
+          *    signed saturating addition of the result with _Accumulator_.
+          *
+          * For SpvOpUDotAccSatKHR, the SPV_KHR_integer_dot_product spec says:
+          *
+          *    Unsigned integer dot product of _Vector 1_ and _Vector 2_ and
+          *    unsigned saturating addition of the result with _Accumulator_.
+          *
+          * For SpvOpSUDotAccSatKHR, the SPV_KHR_integer_dot_product spec says:
+          *
+          *    Mixed-signedness integer dot product of _Vector 1_ and _Vector
+          *    2_ and signed saturating addition of the result with
+          *    _Accumulator_.
+          */
+         dest->def = (opcode == SpvOpUDotAccSatKHR)
+            ? nir_uadd_sat(&b->nb, dest->def, src[2])
+            : nir_iadd_sat(&b->nb, dest->def, src[2]);
+      }
+   } else if (glsl_type_is_scalar(vtn_src[0]->type) &&
+              glsl_type_is_32bit(vtn_src[0]->type)) {
+      /* The SPV_KHR_integer_dot_product spec says:
+       *
+       *    When _Vector 1_ and _Vector 2_ are scalar integer types, _Packed
+       *    Vector Format_ must be specified to select how the integers are to
+       *    be interpreted as vectors.
+       *
+       * The "Packed Vector Format" value follows the last input.
+       */
+      const bool packed4x8 = count > (num_inputs + 3) && w[num_inputs + 3] == 0;
+
+      /* The value is required, and the only defined value is zero.  Therefore
+       * packed4x8 must be true.
+       */
+      if (!packed4x8)
+         vtn_fail_with_opcode("Invalid packed vector format.", opcode);
+
+      nir_ssa_def *const zero = nir_imm_zero(&b->nb, 1, 32);
+      bool is_signed;
+      bool saturate = false;
+
+      switch (opcode) {
+      case SpvOpSDotKHR:
+         dest->def = nir_idp4a(&b->nb, src[0], src[1], zero);
+         is_signed = true;
+         break;
+
+      case SpvOpUDotKHR:
+         dest->def = nir_udp4a(&b->nb, src[0], src[1], zero);
+         is_signed = false;
+         break;
+
+      case SpvOpSUDotKHR:
+         dest->def = nir_iudp4a(&b->nb, src[0], src[1], zero);
+         is_signed = true;
+         break;
+
+      case SpvOpSDotAccSatKHR:
+         dest->def = nir_idp4a_sat(&b->nb, src[0], src[1],
+                                   nir_i2i(&b->nb, src[2], 32));
+         is_signed = true;
+         saturate = true;
+         break;
+
+      case SpvOpUDotAccSatKHR:
+         dest->def = nir_udp4a_sat(&b->nb, src[0], src[1],
+                                   nir_u2u(&b->nb, src[2], 32));
+         is_signed = false;
+         saturate = true;
+         break;
+
+      case SpvOpSUDotAccSatKHR:
+         dest->def = nir_iudp4a_sat(&b->nb, src[0], src[1],
+                                    nir_i2i(&b->nb, src[2], 32));
+         is_signed = true;
+         saturate = true;
+         break;
+
+      default:
+         unreachable("Invalid opcode.");
+      }
+
+      /* For the AccSat instructions, clamp the 32-bit result to proper range
+       * for the destination type.
+       */
+      if (saturate) {
+         if (dest_size < 32) {
+            if (is_signed) {
+               const int32_t int_max = INT32_MAX / (1 << (32 - dest_size));
+               const int32_t int_min = INT32_MIN / (1 << (32 - dest_size));
+
+               dest->def = nir_imax(&b->nb,
+                                    nir_imm_int(&b->nb, int_min),
+                                    nir_imin(&b->nb,
+                                             nir_imm_int(&b->nb, int_max),
+                                             dest->def));
+            } else {
+               const uint32_t uint_max = 0xffffffffU >> (32 - dest_size);
+
+               dest->def = nir_umin(&b->nb,
+                                    nir_imm_int(&b->nb, uint_max),
+                                    dest->def);
+            }
+         } else if (dest_size != 32) {
+            vtn_fail_with_opcode("Invalid size.", opcode);
+         }
+      }
+
+      dest->def = is_signed ? nir_i2i(&b->nb, dest->def, dest_size)
+                            : nir_u2u(&b->nb, dest->def, dest_size);
+   } else {
+      vtn_fail_with_opcode("Invalid source types.", opcode);
    }
 
    vtn_push_ssa_value(b, w[2], dest);
