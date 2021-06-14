@@ -112,6 +112,7 @@ Linux, FreeBSD, and other operating systems.
    dispatch
    gallium/index
    nir/index
+   isl/index
    android
    macos
    Linux Kernel Drivers <https://www.kernel.org/doc/html/latest/gpu/>
