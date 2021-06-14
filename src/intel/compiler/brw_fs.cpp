@@ -6778,9 +6778,14 @@ static void
 lower_trace_ray_logical_send(const fs_builder &bld, fs_inst *inst)
 {
    const intel_device_info *devinfo = bld.shader->devinfo;
-   const fs_reg &bvh_level = inst->src[0];
-   assert(inst->src[1].file == BRW_IMMEDIATE_VALUE);
-   const uint32_t trace_ray_control = inst->src[1].ud;
+   const fs_reg &bvh_level =
+      inst->src[0].file == BRW_IMMEDIATE_VALUE ?
+      inst->src[0] :
+      bld.move_to_vgrf(inst->src[0], inst->components_read(0));
+   const fs_reg &trace_ray_control =
+      inst->src[1].file == BRW_IMMEDIATE_VALUE ?
+      inst->src[1] :
+      bld.move_to_vgrf(inst->src[1], inst->components_read(1));
 
    const unsigned mlen = 1;
    const fs_builder ubld = bld.exec_all().group(8, 0);
@@ -6792,13 +6797,13 @@ lower_trace_ray_logical_send(const fs_builder &bld, fs_inst *inst)
 
    const unsigned ex_mlen = inst->exec_size / 8;
    fs_reg payload = bld.vgrf(BRW_REGISTER_TYPE_UD);
-   const uint32_t trc_bits = SET_BITS(trace_ray_control, 9, 8);
-   if (bvh_level.file == BRW_IMMEDIATE_VALUE) {
-      bld.MOV(payload, brw_imm_ud(trc_bits | (bvh_level.ud & 0x7)));
+   if (bvh_level.file == BRW_IMMEDIATE_VALUE &&
+       trace_ray_control.file == BRW_IMMEDIATE_VALUE) {
+      bld.MOV(payload, brw_imm_ud(SET_BITS(trace_ray_control.ud, 9, 8) |
+                                  (bvh_level.ud & 0x7)));
    } else {
-      bld.AND(payload, bvh_level, brw_imm_ud(0x7));
-      if (trc_bits != 0)
-         bld.OR(payload, payload, brw_imm_ud(trc_bits));
+      bld.SHL(payload, trace_ray_control, brw_imm_ud(8));
+      bld.OR(payload, payload, bvh_level);
    }
    bld.AND(subscript(payload, BRW_REGISTER_TYPE_UW, 1),
            retype(brw_vec8_grf(1, 0), BRW_REGISTER_TYPE_UW),

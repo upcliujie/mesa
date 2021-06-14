@@ -226,7 +226,9 @@ brw_nir_lower_shader_calls(nir_shader *shader)
                .shader_index_multiplier = sbt_stride,
             };
             brw_nir_rt_store_mem_ray(b, &ray_defs, BRW_RT_BVH_LEVEL_WORLD);
-            nir_trace_ray_initial_intel(b);
+            nir_trace_ray_intel(b,
+                                nir_imm_int(b, BRW_RT_BVH_LEVEL_WORLD),
+                                nir_imm_int(b, GEN_RT_TRACE_RAY_INITAL));
             break;
          }
 

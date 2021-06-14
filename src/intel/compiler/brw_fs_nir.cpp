@@ -3993,25 +3993,11 @@ fs_visitor::nir_emit_bs_intrinsic(const fs_builder &bld,
       bld.MOV(dest, retype(brw_vec1_grf(2, 2), dest.type));
       break;
 
-   case nir_intrinsic_trace_ray_initial_intel:
+   case nir_intrinsic_trace_ray_intel:
       bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
                bld.null_reg_ud(),
-               brw_imm_ud(BRW_RT_BVH_LEVEL_WORLD),
-               brw_imm_ud(GEN_RT_TRACE_RAY_INITAL));
-      break;
-
-   case nir_intrinsic_trace_ray_commit_intel:
-      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
-               bld.null_reg_ud(),
-               brw_imm_ud(BRW_RT_BVH_LEVEL_OBJECT),
-               brw_imm_ud(GEN_RT_TRACE_RAY_COMMIT));
-      break;
-
-   case nir_intrinsic_trace_ray_continue_intel:
-      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
-               bld.null_reg_ud(),
-               brw_imm_ud(BRW_RT_BVH_LEVEL_OBJECT),
-               brw_imm_ud(GEN_RT_TRACE_RAY_CONTINUE));
+               get_nir_src(instr->src[0]),
+               get_nir_src(instr->src[1]));
       break;
 
    default:
