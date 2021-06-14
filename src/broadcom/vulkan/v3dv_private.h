@@ -655,10 +655,6 @@ struct v3dv_frame_tiling {
    uint32_t frame_height_in_supertiles;
 };
 
-void v3dv_framebuffer_compute_internal_bpp_msaa(const struct v3dv_framebuffer *framebuffer,
-                                                const struct v3dv_subpass *subpass,
-                                                uint8_t *max_bpp, bool *msaa);
-
 bool v3dv_subpass_area_is_tile_aligned(const VkRect2D *area,
                                        struct v3dv_framebuffer *fb,
                                        struct v3dv_render_pass *pass,
