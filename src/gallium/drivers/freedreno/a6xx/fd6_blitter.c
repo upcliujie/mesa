@@ -906,7 +906,7 @@ handle_rgba_blit(struct fd_context *ctx,
    if (!can_do_blit(info))
       return false;
 
-   batch = fd_bc_alloc_batch(&ctx->screen->batch_cache, ctx, true);
+   batch = fd_bc_alloc_batch(ctx, true);
 
    fd_screen_lock(ctx->screen);
 
