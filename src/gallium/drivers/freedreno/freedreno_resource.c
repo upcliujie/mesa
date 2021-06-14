@@ -60,6 +60,8 @@
  */
 #define FD_FORMAT_MOD_QCOM_TILED fourcc_mod_code(QCOM, 0xffffffff)
 
+static uint64_t fd_resource_modifier(struct fd_resource *rsc, bool internal);
+
 /**
  * Go through the entire state and see if the resource is bound
  * anywhere. If it is, mark the relevant state as dirty. This is
@@ -360,6 +362,26 @@ fd_try_shadow_resource(struct fd_context *ctx, struct fd_resource *rsc,
 
    if (prsc->next)
       return false;
+
+   /* Because IB1 ("gmem") cmdstream is built only when we flush the
+    * batch, we need to flush any batches that reference this rsc as
+    * a render target.  Otherwise the framebuffer state emitted in
+    * IB1 will reference the resources new state, and not the state
+    * at the point in time that the earlier draws referenced it.
+    *
+    * Or, for example, if we need to do a demotion to uncompressed,
+    * and/or linear, the uncompress blit will treat it as UBWC, but
+    * the IB1 cmdstream emitted at flush time would treat it as
+    * uncompressed.
+    */
+   if (modifier != fd_resource_modifier(rsc, true)) {
+      struct fd_screen *screen = fd_screen(pctx->screen);
+      struct fd_batch *batch;
+
+      foreach_batch (batch, &screen->batch_cache, rsc->track->bc_batch_mask) {
+         fd_batch_flush(batch);
+      }
+   }
 
    /* If you have a sequence where there is a single rsc associated
     * with the current render target, and then you end up shadowing
@@ -1036,7 +1058,7 @@ fd_resource_destroy(struct pipe_screen *pscreen, struct pipe_resource *prsc)
 }
 
 static uint64_t
-fd_resource_modifier(struct fd_resource *rsc)
+fd_resource_modifier(struct fd_resource *rsc, bool internal)
 {
    if (!rsc->layout.tile_mode)
       return DRM_FORMAT_MOD_LINEAR;
@@ -1044,7 +1066,10 @@ fd_resource_modifier(struct fd_resource *rsc)
    if (rsc->layout.ubwc_layer_size)
       return DRM_FORMAT_MOD_QCOM_COMPRESSED;
 
-   /* TODO invent a modifier for tiled but not UBWC buffers: */
+   if (internal)
+      return FD_FORMAT_MOD_QCOM_TILED;
+
+   /* TODO invent a public modifier for tiled but not UBWC buffers: */
    return DRM_FORMAT_MOD_INVALID;
 }
 
@@ -1057,7 +1082,7 @@ fd_resource_get_handle(struct pipe_screen *pscreen, struct pipe_context *pctx,
 
    rsc->b.is_shared = true;
 
-   handle->modifier = fd_resource_modifier(rsc);
+   handle->modifier = fd_resource_modifier(rsc, false);
 
    DBG("%" PRSC_FMT ", modifier=%" PRIx64, PRSC_ARGS(prsc), handle->modifier);
 
