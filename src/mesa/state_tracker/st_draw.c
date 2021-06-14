@@ -208,14 +208,20 @@ st_draw_gallium_multimode(struct gl_context *ctx,
    /* Find consecutive draws where mode and base_vertex don't vary. */
    for (i = 0, first = 0; i <= num_draws; i++) {
       if (i == num_draws || mode[i] != mode[first]) {
-         info->mode = mode[first];
-         cso_multi_draw(cso, info, drawid_offset, &draws[first], i - first);
-         first = i;
+         unsigned current_num_draws = i - first;
 
-         /* We can pass the reference only once. st_buffer_object keeps
-          * the reference alive for later draws.
+         /* Increase refcount to be able to use take_index_buffer_ownership with
+          * all draws.
           */
-         info->take_index_buffer_ownership = false;
+         if (current_num_draws > 1 && info->take_index_buffer_ownership) {
+            p_atomic_add(&info->index.resource->reference.count,
+                         current_num_draws - 1);
+         }
+
+         info->mode = mode[first];
+         cso_multi_draw(cso, info, drawid_offset, &draws[first],
+                        current_num_draws);
+         first = i;
       }
    }
 }
