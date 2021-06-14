@@ -1,0 +1,15 @@
+# Doxyfile 1.9.1
+DOXYFILE_ENCODING      = UTF-8
+PROJECT_NAME           = "Mesa"
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+INPUT                  = ../src/intel/isl
+
+# Enable some preprocessing so PACKED doesn't confuse doxygen
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = YES
+PREDEFINED             = PACKED= \
+                         ATTRIBUTE_CONST=
