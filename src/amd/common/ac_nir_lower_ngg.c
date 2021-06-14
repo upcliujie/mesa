@@ -1445,9 +1445,6 @@ lower_ngg_gs_emit_vertex_with_counter(nir_builder *b, nir_intrinsic_instr *intri
 
          /* Store the output to LDS */
          nir_ssa_def *out_val = nir_load_var(b, s->output_vars[slot][comp]);
-         if (info->bit_size != 32)
-            out_val = nir_u2u(b, out_val, info->bit_size);
-
          nir_build_store_shared(b, out_val, gs_emit_vtx_addr, .base = packed_location * 16 + comp * 4, .align_mul = 4, .write_mask = 0x1u);
 
          /* Clear the variable that holds the output */
@@ -1594,14 +1591,15 @@ ngg_gs_export_vertices(nir_builder *b, nir_ssa_def *max_num_out_vtx, nir_ssa_def
 
       unsigned packed_location = util_bitcount64((b->shader->info.outputs_written & BITFIELD64_MASK(slot)));
       nir_io_semantics io_sem = { .location = slot, .num_slots = 1 };
+      nir_ssa_def *load = nir_build_load_shared(b, 4, 32, exported_out_vtx_lds_addr, .base = packed_location * 16u, .align_mul = 4u);
 
       for (unsigned comp = 0; comp < 4; ++comp) {
          gs_output_component_info *info = &s->output_component_info[slot][comp];
          if (info->stream != 0 || info->bit_size == 0)
             continue;
 
-         nir_ssa_def *load = nir_build_load_shared(b, 1, info->bit_size, exported_out_vtx_lds_addr, .base = packed_location * 16u + comp * 4u, .align_mul = 4u);
-         nir_build_store_output(b, load, nir_imm_int(b, 0), .write_mask = 0x1u, .base = slot, .component = comp, .io_semantics = io_sem);
+         nir_ssa_def *to_store = nir_u2u(b, nir_channel(b, load, comp), info->bit_size);
+         nir_build_store_output(b, to_store, nir_imm_int(b, 0), .write_mask = 0x1u, .base = slot, .component = comp, .io_semantics = io_sem);
       }
    }
 
