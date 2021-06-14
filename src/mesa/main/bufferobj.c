@@ -1084,8 +1084,12 @@ _mesa_handle_bind_buffer_gen(struct gl_context *ctx,
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
 	 return false;
       }
-      _mesa_HashInsertMaybeLocked(ctx->Shared->BufferObjects, buffer,
-                                  *buf_handle, buf != NULL,
+      _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
+                                ctx->BufferObjectsLocked);
+      _mesa_HashInsertLocked(ctx->Shared->BufferObjects, buffer,
+                             *buf_handle, buf != NULL);
+      unreference_zombie_buffers_for_ctx(ctx);
+      _mesa_HashUnlockMaybeLocked(ctx->Shared->BufferObjects,
                                   ctx->BufferObjectsLocked);
    }
 
@@ -1763,6 +1767,7 @@ create_buffers(struct gl_context *ctx, GLsizei n, GLuint *buffers, bool dsa)
     */
    _mesa_HashLockMaybeLocked(ctx->Shared->BufferObjects,
                              ctx->BufferObjectsLocked);
+   unreference_zombie_buffers_for_ctx(ctx);
 
    _mesa_HashFindFreeKeys(ctx->Shared->BufferObjects, buffers, n);
 
