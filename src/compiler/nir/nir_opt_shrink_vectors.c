@@ -151,12 +151,6 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool sh
    case nir_intrinsic_load_global_constant:
    case nir_intrinsic_load_kernel_input:
    case nir_intrinsic_load_scratch:
-   case nir_intrinsic_store_output:
-   case nir_intrinsic_store_per_vertex_output:
-   case nir_intrinsic_store_ssbo:
-   case nir_intrinsic_store_shared:
-   case nir_intrinsic_store_global:
-   case nir_intrinsic_store_scratch:
       break;
    case nir_intrinsic_bindless_image_store:
    case nir_intrinsic_image_deref_store:
@@ -168,30 +162,12 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool sh
 
    /* Must be a vectorized intrinsic that we can resize. */
    assert(instr->num_components != 0);
+   assert(nir_intrinsic_infos[instr->intrinsic].has_dest);
 
-   if (nir_intrinsic_infos[instr->intrinsic].has_dest) {
-      /* loads: Trim the dest to the used channels */
-
-      if (shrink_dest_to_read_mask(&instr->dest.ssa)) {
-         instr->num_components = instr->dest.ssa.num_components;
-         return true;
-      }
-   } else {
-      /* Stores: trim the num_components stored according to the write
-       * mask.
-       */
-      unsigned write_mask = nir_intrinsic_write_mask(instr);
-      unsigned last_bit = util_last_bit(write_mask);
-      if (last_bit < instr->num_components && instr->src[0].is_ssa) {
-         nir_ssa_def *def = nir_channels(b, instr->src[0].ssa,
-                                         BITSET_MASK(last_bit));
-         nir_instr_rewrite_src(&instr->instr,
-                               &instr->src[0],
-                               nir_src_for_ssa(def));
-         instr->num_components = last_bit;
-
-         return true;
-      }
+   /* Trim the dest to the used channels */
+   if (shrink_dest_to_read_mask(&instr->dest.ssa)) {
+      instr->num_components = instr->dest.ssa.num_components;
+      return true;
    }
 
    return false;
