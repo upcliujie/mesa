@@ -3474,6 +3474,12 @@ struct anv_graphics_pipeline {
 
    uint32_t                                     topology;
 
+   /* These fields are required with dynamic primitive topology,
+    * rasterization_samples used only with gen < 8.
+    */
+   VkLineRasterizationModeEXT                   line_mode;
+   uint32_t                                     rasterization_samples;
+
    struct anv_subpass *                         subpass;
 
    struct anv_shader_bin *                      shaders[MESA_SHADER_STAGES];
@@ -4342,6 +4348,32 @@ anv_sanitize_image_offset(const VkImageType imageType,
    default:
       unreachable("invalid image type");
    }
+}
+
+static inline VkPolygonMode
+anv_polygon_mode_from_topology(VkPrimitiveTopology topology)
+{
+   switch (topology) {
+   case VK_PRIMITIVE_TOPOLOGY_POINT_LIST:
+      return VK_POLYGON_MODE_POINT;
+   case VK_PRIMITIVE_TOPOLOGY_LINE_LIST:
+   case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP:
+   case VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY:
+   case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY:
+      return VK_POLYGON_MODE_LINE;
+   default:
+      return VK_POLYGON_MODE_FILL;
+   };
+}
+
+static inline uint32_t
+anv_rasterization_aa_mode(VkPolygonMode raster_mode,
+                          VkLineRasterizationModeEXT line_mode)
+{
+   if (raster_mode == VK_POLYGON_MODE_LINE &&
+       line_mode == VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_EXT)
+      return true;
+   return false;
 }
 
 VkFormatFeatureFlags
