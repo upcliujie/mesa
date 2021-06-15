@@ -35,6 +35,7 @@ libpanfrost_midgard_files = files(
   'mir_promote_uniforms.c',
   'mir_squeeze.c',
   'midgard_nir_lower_image_bitsize.c',
+  'midgard_nir_lower_framebuffer.c',
   'midgard_nir_lower_helper_writes.c',
   'midgard_opt_copy_prop.c',
   'midgard_opt_dce.c',
@@ -85,7 +86,8 @@ libpanfrost_midgard = static_library(
    inc_panfrost_hw,
   ],
   dependencies: [
-   idep_nir
+   idep_nir,
+   libpanfrost_dep
   ],
   link_with: [libpanfrost_util, libpanfrost_midgard_disasm],
   c_args : [no_override_init_args],

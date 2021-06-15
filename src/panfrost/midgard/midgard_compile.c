@@ -50,7 +50,6 @@
 #include "compiler.h"
 #include "midgard_quirks.h"
 #include "panfrost-quirks.h"
-#include "panfrost/util/pan_lower_framebuffer.h"
 
 #include "disassemble.h"
 
@@ -3091,7 +3090,7 @@ midgard_compile_shader_nir(nir_shader *nir,
         NIR_PASS_V(nir, nir_lower_var_copies);
         NIR_PASS_V(nir, nir_lower_vars_to_ssa);
 
-        NIR_PASS_V(nir, pan_lower_framebuffer,
+        NIR_PASS_V(nir, midgard_nir_lower_framebuffer,
                    inputs->rt_formats, inputs->is_blend);
 
         NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,

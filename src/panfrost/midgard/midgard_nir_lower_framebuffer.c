@@ -53,7 +53,7 @@
 #include "util/format/u_format.h"
 #include "panfrost/lib/pan_texture.h"
 #include "panfrost/lib/pan_blend.h"
-#include "pan_lower_framebuffer.h"
+#include "midgard_nir.h"
 
 /* Software packs/unpacks, by format class. Packs take in the pixel value typed
  * as `pan_unpacked_type_for_format` of the format and return an i32vec4
@@ -443,8 +443,8 @@ pan_lower_framebuffer_instr(nir_builder *b, nir_instr *instr, void *data)
 }
 
 void
-pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
-                      bool is_blend)
+midgard_nir_lower_framebuffer(nir_shader *shader,
+                              const enum pipe_format *rt_fmts, bool is_blend)
 {
         if (shader->info.stage != MESA_SHADER_FRAGMENT)
                return;
