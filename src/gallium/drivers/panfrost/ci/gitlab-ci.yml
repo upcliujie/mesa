@@ -53,7 +53,7 @@ panfrost-t760-traces:armhf:
     PIGLIT_PROFILES: replay
     PIGLIT_JUNIT_RESULTS: 1
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-panfrost.yml"
-    PIGLIT_REPLAY_EXTRA_ARGS: "--keep-image"
+    PIGLIT_REPLAY_EXTRA_ARGS: "--keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/"
   tags:
     - mesa-ci-x86-64-lava-rk3288-veyron-jaq
 
@@ -115,7 +115,7 @@ panfrost-t860-traces:arm64:
     PIGLIT_PROFILES: replay
     PIGLIT_JUNIT_RESULTS: 1
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/traces-panfrost.yml"
-    PIGLIT_REPLAY_EXTRA_ARGS: --keep-image
+    PIGLIT_REPLAY_EXTRA_ARGS: "--keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/"
 
 .lava-meson-g12b-a311d-khadas-vim3:
   extends:
