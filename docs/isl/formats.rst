@@ -22,7 +22,6 @@ not all data is color data and not all values are nicely bounded.  The possible
 data encodings are specified by :cpp:enum:`isl_base_type`:
 
 .. doxygenenum:: isl_base_type
-   :project: isl
 
 Data Layout
 -----------
@@ -185,14 +184,11 @@ To get the layout of a given :cpp:enum:`isl_format`, call
 :cpp:func:`isl_format_get_layout`:
 
 .. doxygenfunction:: isl_format_get_layout
-   :project: isl
 
 .. doxygenstruct:: isl_format_layout
-   :project: isl
    :members:
 
 .. doxygenstruct:: isl_channel_layout
-   :project: isl
    :members:
 
 There are also quite a few helpers for many of the common cases that allow you
@@ -209,37 +205,16 @@ directly and, instead, hardware support information is exposed via a set of
 helper functions:
 
 .. doxygenfunction:: isl_format_supports_rendering
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_alpha_blending
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_sampling
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_filtering
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_vertex_fetch
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_typed_writes
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_typed_reads
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_ccs_d
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_ccs_e
-   :project: isl
-
 .. doxygenfunction:: isl_format_supports_multisampling
-   :project: isl
-
 .. doxygenfunction:: isl_formats_are_ccs_e_compatible
-   :project: isl
 
 Surface Format Enums
 --------------------
@@ -249,9 +224,7 @@ for the sake of interacting with other parts of Mesa, we provide a helper for
 converting a :cpp:enum:`pipe_format` to an :cpp:enum:`isl_format`:
 
 .. doxygenfunction:: isl_format_for_pipe_format
-   :project: isl
 
 The :cpp:enum:`isl_format` enum is as follows:
 
 .. doxygenenum:: isl_format
-   :project: isl
