@@ -1438,18 +1438,24 @@ lower_ngg_gs_emit_vertex_with_counter(nir_builder *b, nir_intrinsic_instr *intri
    for (unsigned slot = 0; slot < VARYING_SLOT_MAX; ++slot) {
       unsigned packed_location = util_bitcount64((b->shader->info.outputs_written & BITFIELD64_MASK(slot)));
 
+      nir_ssa_def *out_val = nir_vec4(b, nir_load_var(b, s->output_vars[slot][0]),
+                                         nir_load_var(b, s->output_vars[slot][1]),
+                                         nir_load_var(b, s->output_vars[slot][2]),
+                                         nir_load_var(b, s->output_vars[slot][3]));
+
+      unsigned write_mask = 0;
       for (unsigned comp = 0; comp < 4; ++comp) {
          gs_output_component_info *info = &s->output_component_info[slot][comp];
          if (info->stream != stream || !info->bit_size)
             continue;
-
-         /* Store the output to LDS */
-         nir_ssa_def *out_val = nir_load_var(b, s->output_vars[slot][comp]);
-         nir_build_store_shared(b, out_val, gs_emit_vtx_addr, .base = packed_location * 16 + comp * 4, .align_mul = 4, .write_mask = 0x1u);
+         write_mask |= 1 << comp;
 
          /* Clear the variable that holds the output */
          nir_store_var(b, s->output_vars[slot][comp], nir_ssa_undef(b, 1, 32), 0x1u);
       }
+
+      /* Store the output to LDS */
+      nir_build_store_shared(b, out_val, gs_emit_vtx_addr, .base = packed_location * 16, .align_mul = 4, .write_mask = write_mask);
    }
 
    /* Calculate and store per-vertex primitive flags based on vertex counts:
