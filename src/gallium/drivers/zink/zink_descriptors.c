@@ -277,7 +277,7 @@ descriptor_layout_create(struct zink_screen *screen, enum zink_descriptor_type t
    dcslci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
    dcslci.pNext = NULL;
    VkDescriptorSetLayoutBindingFlagsCreateInfo fci = {0};
-   VkDescriptorBindingFlags flags[num_bindings];
+   VkDescriptorBindingFlags flags[ZINK_MAX_DESCRIPTORS_PER_TYPE];
    if (screen->lazy_descriptors) {
       /* FIXME */
       dcslci.pNext = &fci;
@@ -1012,7 +1012,7 @@ update_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zds
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    unsigned num_descriptors = pg->dd->pool[ZINK_DESCRIPTOR_TYPE_UBO]->key.layout->num_descriptors;
    unsigned num_bindings = zds->pool->num_resources;
-   VkWriteDescriptorSet wds[num_descriptors];
+   VkWriteDescriptorSet wds[ZINK_MAX_DESCRIPTORS_PER_TYPE];
    VkDescriptorBufferInfo buffer_infos[num_bindings];
    unsigned num_wds = 0;
    unsigned num_buffer_info = 0;
@@ -1089,7 +1089,7 @@ update_ssbo_descriptors(struct zink_context *ctx, struct zink_descriptor_set *zd
    ASSERTED struct zink_screen *screen = zink_screen(ctx->base.screen);
    unsigned num_descriptors = pg->dd->pool[ZINK_DESCRIPTOR_TYPE_SSBO]->key.layout->num_descriptors;
    unsigned num_bindings = zds->pool->num_resources;
-   VkWriteDescriptorSet wds[num_descriptors];
+   VkWriteDescriptorSet wds[ZINK_MAX_DESCRIPTORS_PER_TYPE];
    VkDescriptorBufferInfo buffer_infos[num_bindings];
    unsigned num_wds = 0;
    unsigned num_buffer_info = 0;
@@ -1196,7 +1196,7 @@ update_sampler_descriptors(struct zink_context *ctx, struct zink_descriptor_set 
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    unsigned num_descriptors = pg->dd->pool[ZINK_DESCRIPTOR_TYPE_SAMPLER_VIEW]->key.layout->num_descriptors;
    unsigned num_bindings = zds->pool->num_resources;
-   VkWriteDescriptorSet wds[num_descriptors];
+   VkWriteDescriptorSet wds[ZINK_MAX_DESCRIPTORS_PER_TYPE];
    VkDescriptorImageInfo image_infos[num_bindings];
    VkBufferView buffer_views[num_bindings];
    unsigned num_wds = 0;
@@ -1268,7 +1268,7 @@ update_image_descriptors(struct zink_context *ctx, struct zink_descriptor_set *z
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    unsigned num_descriptors = pg->dd->pool[ZINK_DESCRIPTOR_TYPE_IMAGE]->key.layout->num_descriptors;
    unsigned num_bindings = zds->pool->num_resources;
-   VkWriteDescriptorSet wds[num_descriptors];
+   VkWriteDescriptorSet wds[ZINK_MAX_DESCRIPTORS_PER_TYPE];
    VkDescriptorImageInfo image_infos[num_bindings];
    VkBufferView buffer_views[num_bindings];
    unsigned num_wds = 0;
