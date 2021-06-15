@@ -126,3 +126,10 @@ void genX(blorp_exec)(struct blorp_batch *batch,
 void genX(cmd_emit_timestamp)(struct anv_batch *batch,
                               struct anv_bo *bo,
                               uint32_t offset);
+
+void
+genX(setup_rasterization_mode)(VkPolygonMode raster_mode,
+                               VkLineRasterizationModeEXT line_mode,
+                               uint32_t *api_mode,
+                               bool *msaa_rasterization_enable,
+                               bool *aa_enable);

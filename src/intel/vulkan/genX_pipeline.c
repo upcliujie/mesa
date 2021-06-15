@@ -602,6 +602,51 @@ vk_conservative_rasterization_mode(const VkPipelineRasterizationStateCreateInfo 
 }
 #endif
 
+void
+genX(setup_rasterization_mode)(VkPolygonMode raster_mode,
+                               VkLineRasterizationModeEXT line_mode,
+                               uint32_t *api_mode,
+                               bool *msaa_rasterization_enable,
+                               bool *aa_enable)
+{
+#if GFX_VER >= 8
+   if (raster_mode == VK_POLYGON_MODE_LINE) {
+      /* Unfortunately, configuring our line rasterization hardware on gfx8
+       * and later is rather painful.  Instead of giving us bits to tell the
+       * hardware what line mode to use like we had on gfx7, we now have an
+       * arcane combination of API Mode and MSAA enable bits which do things
+       * in a table which are expected to magically put the hardware into the
+       * right mode for your API.  Sadly, Vulkan isn't any of the APIs the
+       * hardware people thought of so nothing works the way you want it to.
+       *
+       * Look at the table titled "Multisample Rasterization Modes" in Vol 7
+       * of the Skylake PRM for more details.
+       */
+      switch (line_mode) {
+      case VK_LINE_RASTERIZATION_MODE_RECTANGULAR_EXT:
+         *api_mode = DX100;
+         *msaa_rasterization_enable = true;
+         break;
+
+      case VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_EXT:
+         *aa_enable = true;
+         /* fallthrough */
+      case VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT:
+         *api_mode = DX9OGL;
+         *msaa_rasterization_enable = false;
+         break;
+
+      default:
+         unreachable("Unsupported line rasterization mode");
+      }
+   } else {
+      *api_mode = DX100;
+      *msaa_rasterization_enable = true;
+      *aa_enable = false;
+   }
+#endif
+}
+
 static void
 emit_rs_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineInputAssemblyStateCreateInfo *ia_info,
@@ -665,46 +710,21 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
 #  define raster sf
 #endif
 
-   VkPolygonMode raster_mode =
-      anv_raster_polygon_mode(pipeline, ia_info, rs_info);
-   VkLineRasterizationModeEXT line_mode =
-      vk_line_rasterization_mode(line_info, ms_info);
-
    /* For details on 3DSTATE_RASTER multisample state, see the BSpec table
     * "Multisample Modes State".
     */
 #if GFX_VER >= 8
-   if (raster_mode == VK_POLYGON_MODE_LINE) {
-      /* Unfortunately, configuring our line rasterization hardware on gfx8
-       * and later is rather painful.  Instead of giving us bits to tell the
-       * hardware what line mode to use like we had on gfx7, we now have an
-       * arcane combination of API Mode and MSAA enable bits which do things
-       * in a table which are expected to magically put the hardware into the
-       * right mode for your API.  Sadly, Vulkan isn't any of the APIs the
-       * hardware people thought of so nothing works the way you want it to.
-       *
-       * Look at the table titled "Multisample Rasterization Modes" in Vol 7
-       * of the Skylake PRM for more details.
-       */
-      switch (line_mode) {
-      case VK_LINE_RASTERIZATION_MODE_RECTANGULAR_EXT:
-         raster.APIMode = DX100;
-         raster.DXMultisampleRasterizationEnable = true;
-         break;
+   VkPolygonMode raster_mode =
+      anv_raster_polygon_mode(pipeline, ia_info, rs_info);
+   VkLineRasterizationModeEXT line_mode =
+      vk_line_rasterization_mode(line_info, ms_info);
+   bool dynamic_primitive_topology =
+      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 
-      case VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT:
-      case VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_EXT:
-         raster.APIMode = DX9OGL;
-         raster.DXMultisampleRasterizationEnable = false;
-         break;
-
-      default:
-         unreachable("Unsupported line rasterization mode");
-      }
-   } else {
-      raster.APIMode = DX100;
-      raster.DXMultisampleRasterizationEnable = true;
-   }
+   if (!dynamic_primitive_topology)
+      genX(setup_rasterization_mode)(raster_mode, line_mode, &raster.APIMode,
+                                     &raster.DXMultisampleRasterizationEnable,
+                                     &raster.AntialiasingEnable);
 
    /* NOTE: 3DSTATE_RASTER::ForcedSampleCount affects the BDW and SKL PMA fix
     * computations.  If we ever set this bit to a different value, they will
@@ -716,10 +736,6 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
    raster.MultisampleRasterizationMode =
       gfx7_ms_rast_mode(pipeline, ia_info, rs_info, ms_info);
 #endif
-
-   if (raster_mode == VK_POLYGON_MODE_LINE &&
-       line_mode == VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_EXT)
-      raster.AntialiasingEnable = true;
 
    raster.FrontWinding =
       dynamic_states & ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE ?
@@ -1423,7 +1439,9 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
     */
    VkPolygonMode raster_mode =
       anv_raster_polygon_mode(pipeline, ia_info, rs_info);
-   clip.ViewportXYClipTestEnable = (raster_mode == VK_POLYGON_MODE_FILL);
+   clip.ViewportXYClipTestEnable =
+      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
+         0 : (raster_mode == VK_POLYGON_MODE_FILL);
 
 #if GFX_VER >= 8
    clip.VertexSubPixelPrecisionSelect = _8Bit;
@@ -2463,6 +2481,9 @@ genX(graphics_pipeline_create)(
    const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
       vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
                            PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
+
+   /* Store line mode for dynamic primitive topology changes. */
+   pipeline->line_mode = vk_line_rasterization_mode(line_info, ms_info);
 
    enum intel_urb_deref_block_size urb_deref_block_size;
    emit_urb_setup(pipeline, &urb_deref_block_size);
