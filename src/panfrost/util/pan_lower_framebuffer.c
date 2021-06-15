@@ -88,13 +88,6 @@ pan_unpacked_type_for_format(const struct util_format_description *desc)
         }
 }
 
-static enum pan_format_class
-pan_format_class(enum pipe_format fmt)
-{
-        return panfrost_blendable_formats[fmt].internal ?
-                PAN_FORMAT_NATIVE : PAN_FORMAT_SOFTWARE;
-}
-
 /* Software packs/unpacks, by format class. Packs take in the pixel value typed
  * as `pan_unpacked_type_for_format` of the format and return an i32vec4
  * suitable for storing (with components replicated to fill). Unpacks do the
@@ -554,11 +547,8 @@ pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
                                 const struct util_format_description *desc =
                                    util_format_description(rt_fmts[rt]);
 
-                                enum pan_format_class fmt_class =
-                                        pan_format_class(rt_fmts[rt]) || is_store;
-
-                                /* Don't lower */
-                                if (fmt_class == PAN_FORMAT_NATIVE)
+                                /* Don't lower blendable */
+                                if (!is_store && panfrost_blendable_formats[desc->format].internal)
                                         continue;
 
                                 /* EXT_shader_framebuffer_fetch requires
