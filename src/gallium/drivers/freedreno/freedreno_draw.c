@@ -344,7 +344,6 @@ fd_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
    }
 
    batch->blit = ctx->in_discard_blit;
-   batch->back_blit = ctx->in_shadow;
    batch->num_draws++;
 
    /* Marking the batch as needing flush must come after the batch
