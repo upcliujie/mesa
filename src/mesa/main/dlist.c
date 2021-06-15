@@ -150,9 +150,6 @@
 
 /**
  * Display list opcodes.
- *
- * The fact that these identifiers are assigned consecutive
- * integer values starting at 0 is very important, see InstSize array usage)
  */
 typedef enum
 {
@@ -657,7 +654,10 @@ typedef enum
  */
 union gl_dlist_node
 {
-   OpCode opcode;
+   struct {
+      OpCode opcode:16;
+      uint16_t InstSize;
+   };
    GLboolean b;
    GLbitfield bf;
    GLubyte ub;
@@ -778,14 +778,6 @@ union int64_pair
 #define BLOCK_SIZE 256
 
 
-
-/**
- * Number of nodes of storage needed for each instruction.
- * Sizes for dynamically allocated opcodes are stored in the context struct.
- */
-static GLuint InstSize[OPCODE_END_OF_LIST + 1];
-
-
 void mesa_print_display_list(GLuint list);
 
 
@@ -845,7 +837,7 @@ is_bitmap_list(const struct gl_display_list *dlist)
 {
    const Node *n = dlist->Head;
    if (n[0].opcode == OPCODE_BITMAP) {
-      n += InstSize[OPCODE_BITMAP];
+      n += n[0].InstSize;
       if (n[0].opcode == OPCODE_END_OF_LIST)
          return true;
    }
@@ -1110,8 +1102,6 @@ make_list(GLuint name, GLuint count)
    dlist->Name = name;
    dlist->Head = malloc(sizeof(Node) * count);
    dlist->Head[0].opcode = OPCODE_END_OF_LIST;
-   /* All InstSize[] entries must be non-zero */
-   InstSize[OPCODE_END_OF_LIST] = 1;
    return dlist;
 }
 
@@ -1371,8 +1361,8 @@ _mesa_delete_list(struct gl_context *ctx, struct gl_display_list *dlist)
             ;
       }
 
-      assert(InstSize[opcode] > 0);
-      n += InstSize[opcode];
+      assert(n[0].InstSize > 0);
+      n += n[0].InstSize;
    }
 }
 
@@ -1531,15 +1521,6 @@ dlist_alloc(struct gl_context *ctx, OpCode opcode, GLuint bytes, bool align8)
 
    assert(bytes <= BLOCK_SIZE * sizeof(Node));
 
-   if (InstSize[opcode] == 0) {
-      /* save instruction size now */
-      InstSize[opcode] = numNodes;
-   }
-   else {
-      /* make sure instruction size agrees */
-      assert(numNodes == InstSize[opcode]);
-   }
-
    if (sizeof(void *) > sizeof(Node) && align8
        && ctx->ListState.CurrentPos % 2 == 0) {
       /* The opcode would get placed at node[0] and the payload would start
@@ -1585,6 +1566,7 @@ dlist_alloc(struct gl_context *ctx, OpCode opcode, GLuint bytes, bool align8)
    if (nopNode) {
       assert(ctx->ListState.CurrentPos % 2 == 0); /* even value */
       n[0].opcode = OPCODE_NOP;
+      n[0].InstSize = 1;
       n++;
       /* The "real" opcode will now be at an odd location and the payload
        * will be at an even location.
@@ -1593,6 +1575,7 @@ dlist_alloc(struct gl_context *ctx, OpCode opcode, GLuint bytes, bool align8)
    ctx->ListState.CurrentPos += nopNode + numNodes;
 
    n[0].opcode = opcode;
+   n[0].InstSize = numNodes;
 
    return n;
 }
@@ -13433,8 +13416,8 @@ execute_list(struct gl_context *ctx, GLuint list)
       }
 
       /* increment n to point to next compiled command */
-      assert(InstSize[opcode] > 0);
-      n += InstSize[opcode];
+      assert(n[0].InstSize > 0);
+      n += n[0].InstSize;
    }
 }
 
@@ -14847,7 +14830,7 @@ print_list(struct gl_context *ctx, GLuint list, const char *fname)
                    opcode, (void *) n);
             } else {
                fprintf(f, "command %d, %u operands\n", opcode,
-                            InstSize[opcode]);
+                            n[0].InstSize);
                break;
             }
             FALLTHROUGH;
@@ -14860,8 +14843,8 @@ print_list(struct gl_context *ctx, GLuint list, const char *fname)
       }
 
       /* increment n to point to next compiled command */
-      assert(InstSize[opcode] > 0);
-      n += InstSize[opcode];
+      assert(n[0].InstSize > 0);
+      n += n[0].InstSize;
    }
 }
 
@@ -14938,8 +14921,8 @@ _mesa_glthread_execute_list(struct gl_context *ctx, GLuint list)
       }
 
       /* increment n to point to next compiled command */
-      assert(InstSize[opcode] > 0);
-      n += InstSize[opcode];
+      assert(n[0].InstSize > 0);
+      n += n[0].InstSize;
    }
 }
 
@@ -14976,14 +14959,7 @@ _mesa_install_dlist_vtxfmt(struct _glapi_table *disp,
 void
 _mesa_init_display_list(struct gl_context *ctx)
 {
-   static GLboolean tableInitialized = GL_FALSE;
    GLvertexformat *vfmt = &ctx->ListState.ListVtxfmt;
-
-   /* zero-out the instruction size table, just once */
-   if (!tableInitialized) {
-      memset(InstSize, 0, sizeof(InstSize));
-      tableInitialized = GL_TRUE;
-   }
 
    /* Display list */
    ctx->ListState.CallDepth = 0;
@@ -14994,9 +14970,6 @@ _mesa_init_display_list(struct gl_context *ctx)
 
    /* Display List group */
    ctx->List.ListBase = 0;
-
-   InstSize[OPCODE_NOP] = 1;
-   InstSize[OPCODE_VERTEX_LIST] = 1 + align(sizeof(struct vbo_save_vertex_list), sizeof(Node)) / sizeof(Node);
 
 #define NAME_AE(x) _ae_##x
 #define NAME_CALLLIST(x) save_##x
