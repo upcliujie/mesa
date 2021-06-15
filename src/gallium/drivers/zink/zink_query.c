@@ -432,6 +432,8 @@ get_query_result(struct pipe_context *pctx,
 
    if (!wait)
       flags |= PIPE_MAP_DONTBLOCK;
+   if (query->base.flushed)
+      flags |= PIPE_MAP_THREAD_SAFE | PIPE_MAP_UNSYNCHRONIZED;
 
    util_query_clear_result(result, query->type);
 
