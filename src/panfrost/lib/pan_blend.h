@@ -162,4 +162,7 @@ pan_blend_shaders_init(struct panfrost_device *dev);
 void
 pan_blend_shaders_cleanup(struct panfrost_device *dev);
 
+nir_alu_type
+pan_unpacked_type_for_format(const struct util_format_description *desc);
+
 #endif

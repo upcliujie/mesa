@@ -56,7 +56,6 @@
 #include "pan_indirect_draw.h"
 #include "pan_util.h"
 #include "decode.h"
-#include "util/pan_lower_framebuffer.h"
 
 static void
 panfrost_clear(
