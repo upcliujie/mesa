@@ -234,8 +234,11 @@ batch_flush_dependencies(struct fd_batch *batch) assert_dt
    struct fd_batch *dep;
 
    foreach_batch (dep, cache, batch->dependents_mask) {
+      struct fd_batch *tmp = NULL;
+      fd_batch_reference(&tmp, dep);
       fd_batch_flush(dep);
       fd_batch_reference(&dep, NULL);
+      fd_batch_reference(&tmp, NULL);
    }
 
    batch->dependents_mask = 0;
@@ -335,9 +338,9 @@ fd_batch_get_prologue(struct fd_batch *batch)
    return batch->prologue;
 }
 
-/* Only called from fd_batch_flush() */
-static void
-batch_flush(struct fd_batch *batch) assert_dt
+/* Note: Caller must hold a reference on the passed batch. */
+void
+fd_batch_flush(struct fd_batch *batch) assert_dt
 {
    DBG("%p: needs_flush=%d", batch, batch->needs_flush);
 
@@ -377,22 +380,12 @@ batch_flush(struct fd_batch *batch) assert_dt
 
    cleanup_submit(batch);
    fd_batch_unlock_submit(batch);
-}
 
-/* NOTE: could drop the last ref to batch
- */
-void
-fd_batch_flush(struct fd_batch *batch)
-{
-   struct fd_batch *tmp = NULL;
-
-   /* NOTE: we need to hold an extra ref across the body of flush,
-    * since the last ref to this batch could be dropped when cleaning
-    * up used_resources
+   /* The caller should have held a reference on the batch, so our flushing
+    * shouldn't have dropped it to zero.  Just a little sanity checking of a
+    * likely way to have use-after-free bugs that we might miss.
     */
-   fd_batch_reference(&tmp, batch);
-   batch_flush(tmp);
-   fd_batch_reference(&tmp, NULL);
+   assert(p_atomic_read(&batch->reference.count) >= 1);
 }
 
 /* find a batches dependents mask, including recursive dependencies: */

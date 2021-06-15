@@ -68,8 +68,12 @@ fence_flush(struct pipe_context *pctx, struct pipe_fence_handle *fence,
       return true;
    }
 
-   if (fence->batch)
+   if (fence->batch) {
+      struct fd_batch *batch = NULL;
+      fd_batch_reference(&batch, fence->batch);
       fd_batch_flush(fence->batch);
+      fd_batch_reference(&batch, NULL);
+   }
 
    util_queue_fence_wait(&fence->submit_fence.ready);
 

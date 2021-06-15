@@ -264,8 +264,12 @@ fd_emit_string_marker(struct pipe_context *pctx, const char *string,
 void
 fd_context_switch_from(struct fd_context *ctx)
 {
-   if (ctx->batch && (ctx->batch->in_fence_fd != -1))
-      fd_batch_flush(ctx->batch);
+   if (ctx->batch && (ctx->batch->in_fence_fd != -1)) {
+      struct fd_batch *batch = NULL;
+      fd_batch_reference(&batch, ctx->batch);
+      fd_batch_flush(batch);
+      fd_batch_reference(&batch, NULL);
+   }
 }
 
 /**
