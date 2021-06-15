@@ -450,14 +450,14 @@ enum PACKED isl_base_type {
     * the mantissa.  The available bit sizes for unsigned floats are as
     * follows:
     *
-    * \verbatim embed:rst:leading-asterisk
+    * \rst
     * =====  =========  =========
     * Bits   Mantissa   Exponent
     * =====  =========  =========
     *  11       6          5
     *  10       5          5
     * =====  =========  =========
-    * \endverbatim
+    * \endrst
     *
     * In particular, both unsigned floating-point formats are identical to
     * IEEE float16 except that the sign bit and the bottom mantissa bits are
@@ -470,7 +470,7 @@ enum PACKED isl_base_type {
     * Signed floating-point data is represented as standard IEEE floats with
     * the usual number of mantissa and exponent bits
     *
-    * \verbatim embed:rst:leading-asterisk
+    * \rst
     * =====  =========  =========
     * Bits   Mantissa   Exponent
     * =====  =========  =========
@@ -478,7 +478,7 @@ enum PACKED isl_base_type {
     *  32      23          8
     *  16      10          5
     * =====  =========  =========
-    * \endverbatim
+    * \endrst
     */
    ISL_SFLOAT,
 
