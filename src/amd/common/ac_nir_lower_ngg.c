@@ -1455,7 +1455,7 @@ lower_ngg_gs_emit_vertex_with_counter(nir_builder *b, nir_intrinsic_instr *intri
       }
 
       /* Store the output to LDS */
-      nir_build_store_shared(b, out_val, gs_emit_vtx_addr, .base = packed_location * 16, .align_mul = 4, .write_mask = write_mask);
+      nir_build_store_shared(b, out_val, gs_emit_vtx_addr, .base = packed_location * 16, .align_mul = 8u, .write_mask = write_mask);
    }
 
    /* Calculate and store per-vertex primitive flags based on vertex counts:
@@ -1597,7 +1597,7 @@ ngg_gs_export_vertices(nir_builder *b, nir_ssa_def *max_num_out_vtx, nir_ssa_def
 
       unsigned packed_location = util_bitcount64((b->shader->info.outputs_written & BITFIELD64_MASK(slot)));
       nir_io_semantics io_sem = { .location = slot, .num_slots = 1 };
-      nir_ssa_def *load = nir_build_load_shared(b, 4, 32, exported_out_vtx_lds_addr, .base = packed_location * 16u, .align_mul = 4u);
+      nir_ssa_def *load = nir_build_load_shared(b, 4, 32, exported_out_vtx_lds_addr, .base = packed_location * 16u, .align_mul = 16u);
 
       for (unsigned comp = 0; comp < 4; ++comp) {
          gs_output_component_info *info = &s->output_component_info[slot][comp];
