@@ -77,20 +77,30 @@ actions:
           - mkdir -p /dev/shm
           - mount -t tmpfs tmpfs /dev/shm
           - mount -t tmpfs tmpfs /tmp
+          - mkdir /install
+          - mount -t tmpfs tmpfs /install
+          - mkdir /results
+          - mount -t tmpfs tmpfs /results
 
           - echo "nameserver 8.8.8.8" > /etc/resolv.conf
           - echo "$NFS_SERVER_IP caching-proxy" >> /etc/hosts
+
           - for i in 1 2 3; do sntp -sS pool.ntp.org && break || sleep 2; done
 
-          - wget -S --progress=dot:giga -O- {{ mesa_build_url }} | tar -xz
-          - mkdir -p /job-overlay
+          - mkdir -p /tmp/job-overlay/
           - wget -S --progress=dot:giga -O- {{ job_rootfs_overlay_url }} | tar -xz -C /job-overlay/
-          - . /job-overlay/environment.sh
+          - . /tmp/job-overlay/environment.sh
+
           - mkdir -p $CI_PROJECT_DIR
+          - mount -t tmpfs tmpfs $CI_PROJECT_DIR
+
+          - wget -S --progress=dot:giga -O- {{ mesa_build_url }} | tar -xz
           - ln -sf /install $CI_PROJECT_DIR/install
 
           # Set up our devices
           - modprobe amdgpu || true
+
+          - mount -r -o remount /
 
           # Disable GPU frequency scaling
           - DEVFREQ_GOVERNOR=`find /sys/devices -name governor | grep gpu || true`
@@ -115,10 +125,10 @@ actions:
           # without using -displayfd you can race with Xorg's startup), but xinit will eat
           # your client's return code
           - "if [ -n $LAVA_START_XORG ]; then
-               echo 'touch /xorg-started; sleep 100000' > /xorg-script;
-               env LD_LIBRARY_PATH=/install/lib/ xinit /bin/sh /xorg-script -- /usr/bin/Xorg -noreset -s 0 -dpms -logfile /Xorg.0.log &
+               echo 'touch /tmp/xorg-started; sleep 100000' > /tmp/xorg-script;
+               env LD_LIBRARY_PATH=/install/lib/ xinit /bin/sh /tmp/xorg-script -- /usr/bin/Xorg -noreset -s 0 -dpms -logfile /tmp/Xorg.0.log &
                for i in 1 2 3 4 5; do
-                 if [ -e /xorg-started ]; then
+                 if [ -e /tmp/xorg-started ]; then
                    break;
                  fi;
                  sleep 5;
@@ -133,10 +143,12 @@ actions:
              fi"
 
           - "if [ -d results ]; then
-                tar -czf results.tar.gz results/;
-                ci-fairy minio login $CI_JOB_JWT;
-                ci-fairy minio cp results.tar.gz minio://${JOB_ARTIFACTS_BASE}/results.tar.gz;
+                tar -czf /tmp/results.tar.gz results/;
+                ci-fairy minio login --credentials=/tmp/.minio_credentials $CI_JOB_JWT;
+                ci-fairy minio cp --credentials=/tmp/.minio_credentials /tmp/results.tar.gz minio://${JOB_ARTIFACTS_BASE}/results.tar.gz;
              fi"
+
+          - mount --rw -o remount /
 
           - "echo mesa: $RESULT"
         parse:
