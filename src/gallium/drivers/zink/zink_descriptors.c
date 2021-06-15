@@ -428,11 +428,13 @@ get_invalidated_desc_set(struct zink_descriptor_set *zds)
    return p_atomic_read(&zds->reference.count) == 1;
 }
 
+#define DESC_BUCKET_FACTOR 10
+
 bool
 zink_descriptor_util_alloc_sets(struct zink_screen *screen, VkDescriptorSetLayout dsl, VkDescriptorPool pool, VkDescriptorSet *sets, unsigned num_sets)
 {
    VkDescriptorSetAllocateInfo dsai;
-   VkDescriptorSetLayout layouts[num_sets];
+   VkDescriptorSetLayout layouts[DESC_BUCKET_FACTOR];
    memset((void *)&dsai, 0, sizeof(dsai));
    dsai.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
    dsai.pNext = NULL;
@@ -453,13 +455,12 @@ static struct zink_descriptor_set *
 allocate_desc_set(struct zink_screen *screen, struct zink_program *pg, enum zink_descriptor_type type, unsigned descs_used, bool is_compute)
 {
    struct zink_descriptor_pool *pool = pg->dd->pool[type];
-#define DESC_BUCKET_FACTOR 10
    unsigned bucket_size = pool->key.layout->num_descriptors ? DESC_BUCKET_FACTOR : 1;
    if (pool->key.layout->num_descriptors) {
       for (unsigned desc_factor = DESC_BUCKET_FACTOR; desc_factor < descs_used; desc_factor *= DESC_BUCKET_FACTOR)
          bucket_size = desc_factor;
    }
-   VkDescriptorSet desc_set[bucket_size];
+   VkDescriptorSet desc_set[DESC_BUCKET_FACTOR];
    if (!zink_descriptor_util_alloc_sets(screen, pg->dsl[type], pool->descpool, desc_set, bucket_size))
       return VK_NULL_HANDLE;
 
