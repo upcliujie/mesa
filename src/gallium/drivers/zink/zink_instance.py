@@ -115,10 +115,10 @@ VkInstance
 zink_create_instance(struct zink_instance_info *instance_info)
 {
    /* reserve one slot for MoltenVK */
-   const char *layers[${len(layers) + 1}] = { 0 };
+   const char *layers[${len(layers) + 1}] = {0};
    uint32_t num_layers = 0;
    
-   const char *extensions[${len(extensions) + 1}] = { 0 };
+   const char *extensions[${len(extensions) + 1}] = {0};
    uint32_t num_extensions = 0;
 
 %for ext in extensions:
@@ -204,7 +204,7 @@ zink_create_instance(struct zink_instance_info *instance_info)
    }
 %endfor
 
-   VkApplicationInfo ai = {};
+   VkApplicationInfo ai = {0};
    ai.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 
    char proc_name[128];
@@ -216,7 +216,7 @@ zink_create_instance(struct zink_instance_info *instance_info)
    ai.pEngineName = "mesa zink";
    ai.apiVersion = instance_info->loader_version;
 
-   VkInstanceCreateInfo ici = {};
+   VkInstanceCreateInfo ici = {0};
    ici.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
    ici.pApplicationInfo = &ai;
    ici.ppEnabledExtensionNames = extensions;
