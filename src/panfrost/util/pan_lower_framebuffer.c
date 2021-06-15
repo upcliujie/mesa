@@ -340,18 +340,6 @@ pan_pack_pix(nir_builder *b,
         unreachable("Unknown format");
 }
 
-static void
-pan_lower_fb_store(nir_builder *b,
-                nir_intrinsic_instr *intr,
-                const struct util_format_description *desc)
-{
-        /* For stores, add conversion before */
-        nir_ssa_def *unpacked = nir_ssa_for_src(b, intr->src[1], 4);
-        nir_ssa_def *packed = pan_pack_pix(b, desc, unpacked);
-
-        nir_store_raw_output_pan(b, packed);
-}
-
 static nir_ssa_def *
 pan_sample_id(nir_builder *b, int sample)
 {
@@ -442,7 +430,9 @@ pan_lower_framebuffer_instr(nir_builder *b, nir_instr *instr, void *data)
 
         if (is_store) {
                 b->cursor = nir_before_instr(instr);
-                pan_lower_fb_store(b, intr, desc);
+
+                nir_ssa_def *input = nir_ssa_for_src(b, intr->src[1], 4);
+                nir_store_raw_output_pan(b, pan_pack_pix(b, desc, input));
         } else {
                 b->cursor = nir_after_instr(instr);
                 pan_lower_fb_load(b, intr, desc, base, sample);
