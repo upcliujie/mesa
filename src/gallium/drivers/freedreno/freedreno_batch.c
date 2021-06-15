@@ -457,7 +457,9 @@ fd_batch_add_resource(struct fd_batch *batch, struct fd_resource *rsc)
 void
 fd_batch_resource_write(struct fd_batch *batch, struct fd_resource *rsc)
 {
-   fd_screen_assert_locked(batch->ctx->screen);
+   struct fd_context *ctx = batch->ctx;
+
+   fd_screen_assert_locked(ctx->screen);
 
    DBG("%p: write %p", batch, rsc);
 
@@ -474,31 +476,26 @@ fd_batch_resource_write(struct fd_batch *batch, struct fd_resource *rsc)
    if (rsc->stencil)
       fd_batch_resource_write(batch, rsc->stencil);
 
-   /* note, invalidate write batch, to avoid further writes to rsc
-    * resulting in a write-after-read hazard.
+   /* Flush any other batches accessing our resource.  Similar to
+    * fd_bc_flush_readers(), except we skip our batch and we're doing it under
+    * the screen lock so we have to unlock to batch flush.
     */
-   /* if we are pending read or write by any other batch: */
-   if (unlikely(rsc->track->batch_mask & ~(1 << batch->idx))) {
-      struct fd_batch_cache *cache = &batch->ctx->screen->batch_cache;
-      struct fd_batch *dep;
-
-      if (rsc->track->write_batch)
-         flush_write_batch(rsc);
-
-      foreach_batch (dep, cache, rsc->track->batch_mask) {
-         struct fd_batch *b = NULL;
-         if (dep == batch)
-            continue;
-         /* note that batch_add_dep could flush and unref dep, so
-          * we need to hold a reference to keep it live for the
-          * fd_bc_invalidate_batch()
-          */
-         fd_batch_reference(&b, dep);
-         fd_batch_add_dep(batch, b);
-         fd_bc_invalidate_batch(b, false);
-         fd_batch_reference_locked(&b, NULL);
-      }
+   struct fd_batch_cache *cache = &ctx->screen->batch_cache;
+   struct fd_batch *batches[ARRAY_SIZE(cache->batches)];
+   uint32_t batch_count = 0;
+   foreach_batch (batch, cache, rsc->track->batch_mask & ~(1 << batch->idx)) {
+      batches[batch_count] = NULL;
+      fd_batch_reference_locked(&batches[batch_count++], batch);
    }
+   if (batch_count) {
+      fd_screen_unlock(ctx->screen);
+      for (int i = 0; i < batch_count; i++) {
+         fd_batch_flush(batches[i]);
+         fd_batch_reference(&batches[i], NULL);
+      }
+      fd_screen_lock(ctx->screen);
+   }
+
    fd_batch_reference_locked(&rsc->track->write_batch, batch);
 
    fd_batch_add_resource(batch, rsc);
