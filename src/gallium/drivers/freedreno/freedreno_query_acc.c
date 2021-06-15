@@ -158,7 +158,7 @@ fd_acc_get_query_result(struct fd_context *ctx, struct fd_query *q, bool wait,
    if (rsc->track->write_batch) {
       tc_assert_driver_thread(ctx->tc);
       fd_context_access_begin(ctx);
-      fd_batch_flush(rsc->track->write_batch);
+      fd_bc_flush_writer(ctx, rsc);
       fd_context_access_end(ctx);
    }
 
