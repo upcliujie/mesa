@@ -3464,11 +3464,26 @@ cmd_buffer_emit_clip(struct anv_cmd_buffer *cmd_buffer)
       ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE |
       ANV_CMD_DIRTY_DYNAMIC_CULL_MODE |
 #endif
+      ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY |
       ANV_CMD_DIRTY_DYNAMIC_VIEWPORT |
       ANV_CMD_DIRTY_PIPELINE;
 
    if ((cmd_buffer->state.gfx.dirty & clip_states) == 0)
       return;
+
+   /* Take dynamic primitive topology in to account. */
+   struct anv_dynamic_state *dynamic =
+      &cmd_buffer->state.gfx.pipeline->dynamic_state;
+
+   bool dynamic_topology =
+      cmd_buffer->state.gfx.pipeline->dynamic_states &
+      ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
+
+   VkPolygonMode dynamic_raster_mode =
+      anv_polygon_mode_from_topology(dynamic->primitive_topology);
+
+   bool xy_clip_test_enable = dynamic_topology ?
+      (dynamic_raster_mode == VK_POLYGON_MODE_FILL) : 0;
 
 #if GFX_VER <= 7
    const struct anv_dynamic_state *d = &cmd_buffer->state.gfx.dynamic;
@@ -3479,6 +3494,7 @@ cmd_buffer_emit_clip(struct anv_cmd_buffer *cmd_buffer)
       .FrontWinding = genX(vk_to_intel_front_face)[d->front_face],
       .CullMode     = genX(vk_to_intel_cullmode)[d->cull_mode],
 #endif
+      .ViewportXYClipTestEnable = xy_clip_test_enable,
    };
    uint32_t dwords[GENX(3DSTATE_CLIP_length)];
 

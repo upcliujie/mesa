@@ -443,10 +443,40 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
                                       ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS |
                                       ANV_CMD_DIRTY_DYNAMIC_CULL_MODE |
                                       ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE |
-                                      ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE)) {
+                                      ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE |
+                                      ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY)) {
+      /* Take dynamic primitive topology in to account. */
+      struct anv_dynamic_state *dynamic =
+         &cmd_buffer->state.gfx.pipeline->dynamic_state;
+
+      bool dynamic_topology =
+         cmd_buffer->state.gfx.pipeline->dynamic_states &
+         ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
+
+      VkPolygonMode dynamic_raster_mode =
+         anv_polygon_mode_from_topology(dynamic->primitive_topology);
+
+      /* Toogle APIMode and DXMultisampleRasterizationEnable
+       * based on rasterization mode and line mode.
+       */
+      bool api_mode_dx100 = dynamic_topology ?
+         dynamic_raster_mode != VK_POLYGON_MODE_LINE ||
+         (dynamic_raster_mode == VK_POLYGON_MODE_LINE &&
+          pipeline->line_mode == VK_LINE_RASTERIZATION_MODE_RECTANGULAR_EXT) : 0;
+
+      uint8_t api_mode =
+         dynamic_topology ? api_mode_dx100 ? DX100 : DX9OGL : 0;
+
+      bool aa_enable = dynamic_topology ?
+         dynamic_raster_mode == VK_POLYGON_MODE_LINE &&
+         pipeline->line_mode == VK_LINE_RASTERIZATION_MODE_RECTANGULAR_SMOOTH_EXT : 0;
+
       uint32_t raster_dw[GENX(3DSTATE_RASTER_length)];
       struct GENX(3DSTATE_RASTER) raster = {
          GENX(3DSTATE_RASTER_header),
+         .APIMode = api_mode,
+         .DXMultisampleRasterizationEnable = api_mode_dx100,
+         .AntialiasingEnable = aa_enable,
          .GlobalDepthOffsetConstant = d->depth_bias.bias,
          .GlobalDepthOffsetScale = d->depth_bias.slope,
          .GlobalDepthOffsetClamp = d->depth_bias.clamp,
