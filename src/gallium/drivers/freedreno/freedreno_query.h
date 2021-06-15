@@ -131,4 +131,5 @@ pidx(unsigned query_type)
    }
 }
 
+
 #endif /* FREEDRENO_QUERY_H_ */
