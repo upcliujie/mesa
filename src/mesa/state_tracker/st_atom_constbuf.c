@@ -149,9 +149,10 @@ st_upload_constants(struct st_context *st, struct gl_program *prog, gl_shader_st
           */
          unsigned num_inlinable_uniforms = prog->info.num_inlinable_uniforms;
          if (num_inlinable_uniforms) {
-            uint32_t values[MAX_INLINABLE_UNIFORMS];
+            uint32_t value;
             gl_constant_value *constbuf = params->ParameterValues;
             bool loaded_state_vars = false;
+            bool changed = false;
 
             for (unsigned i = 0; i < num_inlinable_uniforms; i++) {
                unsigned dw_offset = prog->info.inlinable_uniform_dw_offsets[i];
@@ -161,12 +162,15 @@ st_upload_constants(struct st_context *st, struct gl_program *prog, gl_shader_st
                   loaded_state_vars = true;
                }
 
-               values[i] = constbuf[prog->info.inlinable_uniform_dw_offsets[i]].u;
+               value = constbuf[prog->info.inlinable_uniform_dw_offsets[i]].u;
+               changed |= st->state.inlined_uniforms[shader_type][i] != value;
+               st->state.inlined_uniforms[shader_type][i] = value;
             }
 
-            pipe->set_inlinable_constants(pipe, shader_type,
-                                          prog->info.num_inlinable_uniforms,
-                                          values);
+            if (changed)
+               pipe->set_inlinable_constants(pipe, shader_type,
+                                             prog->info.num_inlinable_uniforms,
+                                             st->state.inlined_uniforms[shader_type]);
          }
       } else {
          struct pipe_context *pipe = st->pipe;
@@ -184,15 +188,20 @@ st_upload_constants(struct st_context *st, struct gl_program *prog, gl_shader_st
          /* Set inlinable constants. */
          unsigned num_inlinable_uniforms = prog->info.num_inlinable_uniforms;
          if (num_inlinable_uniforms) {
-            uint32_t values[MAX_INLINABLE_UNIFORMS];
+            uint32_t value;
             gl_constant_value *constbuf = params->ParameterValues;
+            bool changed = false;
 
-            for (unsigned i = 0; i < num_inlinable_uniforms; i++)
-               values[i] = constbuf[prog->info.inlinable_uniform_dw_offsets[i]].u;
+            for (unsigned i = 0; i < num_inlinable_uniforms; i++) {
+               value = constbuf[prog->info.inlinable_uniform_dw_offsets[i]].u;
+               changed |= st->state.inlined_uniforms[shader_type][i] != value;
+               st->state.inlined_uniforms[shader_type][i] = value;
+            }
 
-            pipe->set_inlinable_constants(pipe, shader_type,
-                                          prog->info.num_inlinable_uniforms,
-                                          values);
+            if (changed)
+               pipe->set_inlinable_constants(pipe, shader_type,
+                                             prog->info.num_inlinable_uniforms,
+                                             st->state.inlined_uniforms[shader_type]);
          }
       }
 
