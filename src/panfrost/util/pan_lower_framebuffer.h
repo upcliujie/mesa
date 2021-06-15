@@ -31,6 +31,6 @@
 #include "util/format/u_format.h"
 
 bool pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
-                           bool is_blend, unsigned quirks);
+                           bool is_blend);
 
 #endif

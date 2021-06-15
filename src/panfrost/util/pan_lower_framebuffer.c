@@ -54,7 +54,6 @@
 #include "panfrost/lib/pan_texture.h"
 #include "panfrost/lib/pan_blend.h"
 #include "pan_lower_framebuffer.h"
-#include "panfrost-quirks.h"
 
 /* Software packs/unpacks, by format class. Packs take in the pixel value typed
  * as `pan_unpacked_type_for_format` of the format and return an i32vec4
@@ -342,11 +341,9 @@ pan_pack_pix(nir_builder *b,
 }
 
 static void
-pan_lower_fb_store(nir_shader *shader,
-                nir_builder *b,
+pan_lower_fb_store(nir_builder *b,
                 nir_intrinsic_instr *intr,
-                const struct util_format_description *desc,
-                unsigned quirks)
+                const struct util_format_description *desc)
 {
         /* For stores, add conversion before */
         nir_ssa_def *unpacked = nir_ssa_for_src(b, intr->src[1], 4);
@@ -362,11 +359,10 @@ pan_sample_id(nir_builder *b, int sample)
 }
 
 static void
-pan_lower_fb_load(nir_shader *shader,
-                nir_builder *b,
+pan_lower_fb_load(nir_builder *b,
                 nir_intrinsic_instr *intr,
                 const struct util_format_description *desc,
-                unsigned base, int sample, unsigned quirks)
+                unsigned base, int sample)
 {
         nir_ssa_def *packed =
                 nir_load_raw_output_pan(b, 4, 32, pan_sample_id(b, sample),
@@ -398,76 +394,78 @@ pan_lower_fb_load(nir_shader *shader,
         nir_ssa_def_rewrite_uses_after(&intr->dest.ssa, unpacked, &intr->instr);
 }
 
+struct pan_lower_fb_args {
+        const enum pipe_format *rt_fmts;
+        bool is_blend;
+};
+
+static bool
+pan_lower_framebuffer_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+        struct pan_lower_fb_args *args = data;
+
+        if (instr->type != nir_instr_type_intrinsic)
+                return false;
+
+        nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+        bool is_load = intr->intrinsic == nir_intrinsic_load_deref;
+        bool is_store = intr->intrinsic == nir_intrinsic_store_deref;
+
+        if (!(is_load || (is_store && args->is_blend)))
+                return false;
+
+        nir_variable *var = nir_intrinsic_get_var(intr, 0);
+
+        if (var->data.mode != nir_var_shader_out)
+                return false;
+
+        if (var->data.location < FRAG_RESULT_DATA0)
+                return false;
+
+        unsigned base = var->data.driver_location;
+        unsigned rt = var->data.location - FRAG_RESULT_DATA0;
+
+        if (args->rt_fmts[rt] == PIPE_FORMAT_NONE)
+                return false;
+
+        const struct util_format_description *desc =
+                util_format_description(args->rt_fmts[rt]);
+
+        /* Don't lower blendable */
+        if (!is_store && panfrost_blendable_formats[desc->format].internal)
+                return false;
+
+        /* EXT_shader_framebuffer_fetch requires per-sample loads.  MSAA blend
+         * shaders are not yet handled, so for now always load sample 0. */
+        int sample = args->is_blend ? 0 : -1;
+
+        if (is_store) {
+                b->cursor = nir_before_instr(instr);
+                pan_lower_fb_store(b, intr, desc);
+        } else {
+                b->cursor = nir_after_instr(instr);
+                pan_lower_fb_load(b, intr, desc, base, sample);
+        }
+
+        nir_instr_remove(instr);
+        return true;
+}
+
 bool
 pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
-                      bool is_blend, unsigned quirks)
+                      bool is_blend)
 {
         if (shader->info.stage != MESA_SHADER_FRAGMENT)
                return false;
 
-        bool progress = false;
+        struct pan_lower_fb_args args = {
+                .rt_fmts = rt_fmts,
+                .is_blend = is_blend
+        };
 
-        nir_foreach_function(func, shader) {
-                nir_foreach_block(block, func->impl) {
-                        nir_foreach_instr_safe(instr, block) {
-                                if (instr->type != nir_instr_type_intrinsic)
-                                        continue;
-
-                                nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-
-                                bool is_load = intr->intrinsic == nir_intrinsic_load_deref;
-                                bool is_store = intr->intrinsic == nir_intrinsic_store_deref;
-
-                                if (!(is_load || (is_store && is_blend)))
-                                        continue;
-
-                                nir_variable *var = nir_intrinsic_get_var(intr, 0);
-
-                                if (var->data.mode != nir_var_shader_out)
-                                        continue;
-
-                                if (var->data.location < FRAG_RESULT_DATA0)
-                                        continue;
-
-                                unsigned base = var->data.driver_location;
-                                unsigned rt = var->data.location - FRAG_RESULT_DATA0;
-
-                                if (rt_fmts[rt] == PIPE_FORMAT_NONE)
-                                        continue;
-
-                                const struct util_format_description *desc =
-                                   util_format_description(rt_fmts[rt]);
-
-                                /* Don't lower blendable */
-                                if (!is_store && panfrost_blendable_formats[desc->format].internal)
-                                        continue;
-
-                                /* EXT_shader_framebuffer_fetch requires
-                                 * per-sample loads.
-                                 * MSAA blend shaders are not yet handled, so
-                                 * for now always load sample 0. */
-                                int sample = is_blend ? 0 : -1;
-
-                                nir_builder b;
-                                nir_builder_init(&b, func->impl);
-
-                                if (is_store) {
-                                        b.cursor = nir_before_instr(instr);
-                                        pan_lower_fb_store(shader, &b, intr, desc, quirks);
-                                } else {
-                                        b.cursor = nir_after_instr(instr);
-                                        pan_lower_fb_load(shader, &b, intr, desc, base, sample, quirks);
-                                }
-
-                                nir_instr_remove(instr);
-
-                                progress = true;
-                        }
-                }
-
-                nir_metadata_preserve(func->impl, nir_metadata_block_index |
-                                nir_metadata_dominance);
-        }
-
-        return progress;
+        return nir_shader_instructions_pass(shader,
+                                            pan_lower_framebuffer_instr,
+                                            nir_metadata_block_index | nir_metadata_dominance,
+                                            &args);
 }
