@@ -30,7 +30,7 @@
 #include "compiler/nir/nir.h"
 #include "util/format/u_format.h"
 
-bool pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
+void pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
                            bool is_blend);
 
 #endif

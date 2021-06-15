@@ -442,20 +442,20 @@ pan_lower_framebuffer_instr(nir_builder *b, nir_instr *instr, void *data)
         return true;
 }
 
-bool
+void
 pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
                       bool is_blend)
 {
         if (shader->info.stage != MESA_SHADER_FRAGMENT)
-               return false;
+               return;
 
         struct pan_lower_fb_args args = {
                 .rt_fmts = rt_fmts,
                 .is_blend = is_blend
         };
 
-        return nir_shader_instructions_pass(shader,
-                                            pan_lower_framebuffer_instr,
-                                            nir_metadata_block_index | nir_metadata_dominance,
-                                            &args);
+        nir_shader_instructions_pass(shader,
+                                     pan_lower_framebuffer_instr,
+                                     nir_metadata_block_index | nir_metadata_dominance,
+                                     &args);
 }
