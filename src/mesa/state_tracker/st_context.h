@@ -234,6 +234,8 @@ struct st_context
 
       GLuint fb_orientation;
 
+      uint32_t inlined_uniforms[PIPE_SHADER_TYPES][MAX_INLINABLE_UNIFORMS];
+
       bool enable_sample_locations;
       unsigned sample_locations_samples;
       uint8_t sample_locations[
