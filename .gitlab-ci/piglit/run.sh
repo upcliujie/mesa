@@ -148,7 +148,7 @@ replay_minio_upload_images() {
         | while read -r line; do
 
         __TRACE="${line%-*-*}"
-        if grep -q "^$__PREFIX/$__TRACE: pass$" ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig"; then
+        if grep -q "^$__PREFIX/$__TRACE: pass$" "/tmp/$PIGLIT_RESULTS.txt.orig"; then
             if [ "x$CI_PROJECT_PATH" != "x$FDO_UPSTREAM_REPO" ]; then
                 continue
             fi
@@ -227,9 +227,8 @@ fi
 
 PIGLIT_RESULTS="${PIGLIT_RESULTS:-$PIGLIT_PROFILES}"
 RESULTSFILE="$RESULTS/$PIGLIT_RESULTS.txt"
-mkdir -p .gitlab-ci/piglit
 ./piglit summary console "$RESULTS"/results.json.bz2 \
-    | tee ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig" \
+    | tee "/tmp/$PIGLIT_RESULTS.txt.orig" \
     | head -n -1 | grep -v ": pass" \
     | sed '/^summary:/Q' \
     > $RESULTSFILE
@@ -251,19 +250,19 @@ fi
 if [ -n "$USE_CASELIST" ]; then
     # Just filter the expected results based on the tests that were actually
     # executed, and switch to the version with no summary
-    cat ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.orig" | sed '/^summary:/Q' | rev \
+    cat "/tmp/$PIGLIT_RESULTS.txt.orig" | sed '/^summary:/Q' | rev \
         | cut -f2- -d: | rev | sed "s/$/:/g" > /tmp/executed.txt
 
     grep -F -f /tmp/executed.txt "$INSTALL/$PIGLIT_RESULTS.txt" \
-       > ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" || true
+       > "/tmp/$PIGLIT_RESULTS.txt.baseline" || true
 elif [ -f "$INSTALL/$PIGLIT_RESULTS.txt" ]; then
     cp "$INSTALL/$PIGLIT_RESULTS.txt" \
-       ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline"
+       "/tmp/$PIGLIT_RESULTS.txt.baseline"
 else
-    touch ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline"
+    touch "/tmp/$PIGLIT_RESULTS.txt.baseline"
 fi
 
-if diff -q ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE; then
+if diff -q "/tmp/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE; then
     exit 0
 fi
 
@@ -280,5 +279,5 @@ fi
 FAILURE_MESSAGE=$(printf "${FAILURE_MESSAGE}\n%s" "Check the HTML summary for problems at: ${ARTIFACTS_BASE_URL}/results/summary/problems.html")
 
 quiet print_red printf "%s\n" "$FAILURE_MESSAGE"
-quiet diff --color=always -u ".gitlab-ci/piglit/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
+quiet diff --color=always -u "/tmp/$PIGLIT_RESULTS.txt.baseline" $RESULTSFILE
 exit 1
