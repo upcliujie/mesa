@@ -134,22 +134,6 @@ pan_unpack_pure_16(nir_builder *b, nir_ssa_def *pack, unsigned num_components)
         return nir_vec(b, unpacked, 4);
 }
 
-/* And likewise for x8. pan_fill_4 fills a 4-channel vector with a n-channel
- * vector (n <= 4), replicating as needed. pan_replicate_4 constructs a
- * 4-channel vector from a scalar via replication */
-
-static nir_ssa_def *
-pan_fill_4(nir_builder *b, nir_ssa_def *v, unsigned num_components)
-{
-        nir_ssa_def *q[4];
-        assert(v->num_components <= 4);
-
-        for (unsigned j = 0; j < 4; ++j)
-                q[j] = nir_channel(b, v, j % num_components);
-
-        return nir_vec(b, q, 4);
-}
-
 static nir_ssa_def *
 pan_replicate_4(nir_builder *b, nir_ssa_def *v)
 {
@@ -178,7 +162,7 @@ pan_pack_unorm_8(nir_builder *b, nir_ssa_def *v)
 {
         return pan_replicate_4(b, nir_pack_32_4x8(b,
                 nir_f2u8(b, nir_fround_even(b, nir_fmul(b, nir_fsat(b,
-                        pan_fill_4(b, v, v->num_components)), nir_imm_float16(b, 255.0))))));
+                        nir_pad_vec4(b, v)), nir_imm_float16(b, 255.0))))));
 }
 
 /* UNORM 4 is also unpacked to f16, which prevents us from using the shared
@@ -196,7 +180,7 @@ static nir_ssa_def *
 pan_pack_unorm_small(nir_builder *b, nir_ssa_def *v,
                 nir_ssa_def *scales, nir_ssa_def *shifts)
 {
-        nir_ssa_def *f = nir_fmul(b, nir_fsat(b, pan_fill_4(b, v, v->num_components)), scales);
+        nir_ssa_def *f = nir_fmul(b, nir_fsat(b, nir_pad_vec4(b, v)), scales);
         nir_ssa_def *u8 = nir_f2u8(b, nir_fround_even(b, f));
         nir_ssa_def *s = nir_ishl(b, u8, shifts);
         nir_ssa_def *repl = nir_pack_32_4x8(b, s);
