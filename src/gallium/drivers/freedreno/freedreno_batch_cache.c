@@ -225,17 +225,7 @@ fd_bc_dump(struct fd_context *ctx, const char *fmt, ...)
 void
 fd_bc_invalidate_context(struct fd_context *ctx)
 {
-   struct fd_batch_cache *cache = &ctx->screen->batch_cache;
-   struct fd_batch *batch;
-
-   fd_screen_lock(ctx->screen);
-
-   foreach_batch (batch, cache, cache->batch_mask) {
-      if (batch->ctx == ctx)
-         fd_bc_invalidate_batch(batch, true);
-   }
-
-   fd_screen_unlock(ctx->screen);
+   fd_bc_flush(ctx, false);
 }
 
 /**
