@@ -232,6 +232,16 @@ to_panfrost_function(enum blend_func blend_func,
 bool
 pan_blend_is_opaque(const struct pan_blend_equation equation)
 {
+        /* If some channel is masked out, it may not be opaque (XXX: we could
+         * check the framebuffer format and do better for silly apps) */
+        if (equation.color_mask != 0xF)
+                return false;
+
+        /* If blending is disabled, it is opaque by definition */
+        if (!equation.blend_enable)
+                return true;
+
+        /* If blending is enabled, check if it's a passthrough blend mode */
         return equation.rgb_src_factor == BLEND_FACTOR_ZERO &&
                equation.rgb_invert_src_factor &&
                equation.rgb_dst_factor == BLEND_FACTOR_ZERO &&
@@ -243,8 +253,7 @@ pan_blend_is_opaque(const struct pan_blend_equation equation)
                equation.alpha_dst_factor == BLEND_FACTOR_ZERO &&
                !equation.alpha_invert_dst_factor &&
                (equation.alpha_func == BLEND_FUNC_ADD ||
-                equation.alpha_func == BLEND_FUNC_SUBTRACT) &&
-               equation.color_mask == 0xf;
+                equation.alpha_func == BLEND_FUNC_SUBTRACT);
 }
 
 static bool
