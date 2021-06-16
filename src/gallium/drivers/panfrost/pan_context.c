@@ -537,7 +537,7 @@ panfrost_direct_draw(struct panfrost_batch *batch,
                         cfg.workgroups_x_shift = 0;
                         cfg.workgroups_y_shift = 0;
                         cfg.workgroups_z_shift = 32;
-                        cfg.thread_group_split = MALI_SPLIT_MIN_EFFICIENT;
+                        cfg.thread_group_split = MALI_SPLIT_MIN_EFFICIENT + 1;
                 }
         }
 
