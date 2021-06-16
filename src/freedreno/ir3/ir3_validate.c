@@ -195,6 +195,18 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 			validate_assert(ctx, !(instr->regs[1]->flags & IR3_REG_HALF));
 			break;
 		case OPC_STG:
+			validate_assert(ctx, !(instr->regs[1]->flags & IR3_REG_HALF));
+			validate_assert(ctx, !(instr->regs[2]->flags & IR3_REG_HALF));
+			validate_reg_size(ctx, instr->regs[3], instr->cat6.type);
+			validate_assert(ctx, !(instr->regs[4]->flags & IR3_REG_HALF));
+			break;
+		case OPC_STG_A:
+			validate_assert(ctx, !(instr->regs[1]->flags & IR3_REG_HALF));
+			validate_assert(ctx, !(instr->regs[3]->flags & IR3_REG_HALF));
+			validate_assert(ctx, !(instr->regs[4]->flags & IR3_REG_HALF));
+			validate_reg_size(ctx, instr->regs[5], instr->cat6.type);
+			validate_assert(ctx, !(instr->regs[6]->flags & IR3_REG_HALF));
+			break;
 		case OPC_STL:
 		case OPC_STP:
 		case OPC_STLW:
