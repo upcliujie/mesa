@@ -315,12 +315,12 @@ nv50_create(struct pipe_screen *pscreen, void *priv, unsigned ctxflags)
    nv50->base.pushbuf = screen->base.pushbuf;
    nv50->base.client = screen->base.client;
 
-   ret = nouveau_bufctx_new(screen->base.client, 2, &nv50->bufctx);
+   ret = nouveau_bufctx_new(nv50->base.client, 2, &nv50->bufctx);
    if (!ret)
-      ret = nouveau_bufctx_new(screen->base.client, NV50_BIND_3D_COUNT,
+      ret = nouveau_bufctx_new(nv50->base.client, NV50_BIND_3D_COUNT,
                                &nv50->bufctx_3d);
    if (!ret)
-      ret = nouveau_bufctx_new(screen->base.client, NV50_BIND_CP_COUNT,
+      ret = nouveau_bufctx_new(nv50->base.client, NV50_BIND_CP_COUNT,
                                &nv50->bufctx_cp);
    if (ret)
       goto out_err;
