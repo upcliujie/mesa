@@ -169,19 +169,6 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
       (const struct vbo_save_vertex_list *) data;
    struct vbo_context *vbo = vbo_context(ctx);
    struct vbo_save_context *save = &vbo->save;
-   GLboolean remap_vertex_store = GL_FALSE;
-
-   if (save->vertex_store && save->vertex_store->buffer_map) {
-      /* The vertex store is currently mapped but we're about to replay
-       * a display list.  This can happen when a nested display list is
-       * being build with GL_COMPILE_AND_EXECUTE.
-       * We never want to have mapped vertex buffers when we're drawing.
-       * Unmap the vertex store, execute the list, then remap the vertex
-       * store.
-       */
-      vbo_save_unmap_vertex_store(ctx, save->vertex_store);
-      remap_vertex_store = GL_TRUE;
-   }
 
    FLUSH_FOR_DRAW(ctx);
 
@@ -191,7 +178,7 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
        */
       _mesa_error(ctx, GL_INVALID_OPERATION,
                   "draw operation inside glBegin/End");
-      goto end;
+      return;
    }
    else if (save->replay_flags) {
       /* Various degenerate cases: translate into immediate mode
@@ -199,7 +186,7 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
        */
       loopback_vertex_list(ctx, node);
 
-      goto end;
+      return;
    }
 
    bind_vertex_list(ctx, node);
@@ -236,9 +223,4 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
    /* Copy to current?
     */
    playback_copy_to_current(ctx, node);
-
-end:
-   if (remap_vertex_store) {
-      save->buffer_ptr = vbo_save_map_vertex_store(ctx, save->vertex_store);
-   }
 }
