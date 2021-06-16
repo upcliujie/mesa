@@ -119,7 +119,6 @@ zink_resource_destroy(struct pipe_screen *pscreen,
    /* no need to do anything for the caches, these objects own the resource lifetimes */
 
    zink_resource_object_reference(screen, &res->obj, NULL);
-   zink_resource_object_reference(screen, &res->scanout_obj, NULL);
    threaded_resource_deinit(pres);
    FREE_CL(res);
 }
@@ -469,7 +468,10 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    pipe_reference_init(&obj->reference, 1);
    util_dynarray_init(&obj->tmp, NULL);
    util_dynarray_init(&obj->desc_set_refs.refs, NULL);
-   if (templ->target == PIPE_BUFFER) {
+   if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
+      // do this elsewhere
+      return obj;
+   } else if (templ->target == PIPE_BUFFER) {
       VkBufferCreateInfo bci = create_bci(screen, templ, templ->bind);
 
       if (VKSCR(CreateBuffer)(screen->dev, &bci, NULL, &obj->buffer) != VK_SUCCESS) {
@@ -729,7 +731,8 @@ resource_create(struct pipe_screen *pscreen,
                 const struct pipe_resource *templ,
                 struct winsys_handle *whandle,
                 unsigned external_usage,
-                const uint64_t *modifiers, int modifiers_count)
+                const uint64_t *modifiers, int modifiers_count,
+                const void *loader_private)
 {
    struct zink_screen *screen = zink_screen(pscreen);
    struct zink_resource *res = CALLOC_STRUCT_CL(zink_resource);
@@ -794,24 +797,18 @@ resource_create(struct pipe_screen *pscreen,
       res->layout = res->dmabuf_acquire ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;
       res->optimal_tiling = optimal_tiling;
       res->aspect = aspect_from_format(templ->format);
-      if (scanout_flags && optimal_tiling) {
-         // TODO: remove for wsi
-         templ2 = res->base.b;
-         templ2.bind = scanout_flags | PIPE_BIND_LINEAR;
-         res->scanout_obj = resource_object_create(screen, &templ2, whandle, &optimal_tiling, res->modifiers, res->modifiers_count);
-         assert(!optimal_tiling);
-      }
    }
 
-   if (screen->winsys && (templ->bind & PIPE_BIND_DISPLAY_TARGET)) {
-      struct sw_winsys *winsys = screen->winsys;
-      res->dt = winsys->displaytarget_create(screen->winsys,
+   if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
+      struct sw_winsys *winsys = &screen->winsys;
+      res->dt = winsys->displaytarget_create(winsys,
                                              res->base.b.bind,
                                              res->base.b.format,
                                              templ->width0,
                                              templ->height0,
-                                             64, NULL,
+                                             64, loader_private,
                                              &res->dt_stride);
+      // hook up the swapchain images
    }
    if (res->obj->is_buffer) {
       res->base.buffer_id_unique = util_idalloc_mt_alloc(&screen->buffer_ids);
@@ -838,6 +835,14 @@ zink_resource_create_with_modifiers(struct pipe_screen *pscreen, const struct pi
    return resource_create(pscreen, templ, NULL, 0, modifiers, modifiers_count);
 }
 
+static struct pipe_resource *
+zink_resource_create_drawable(struct pipe_screen *pscreen,
+                              const struct pipe_resource *templ,
+                              const void *loader_private)
+{
+   return resource_create(pscreen, templ, NULL, 0, NULL, 0, loader_private);
+}
+
 static bool
 zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
                         struct pipe_resource *pres,
@@ -859,6 +864,9 @@ zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
       /* not yet implemented */
       *value = 1;
       break;
+=======
+   struct zink_resource_object *obj = res->obj;
+>>>>>>> 01a0de14530 (penny: and again for something completely different)
 
    case PIPE_RESOURCE_PARAM_STRIDE: {
       VkImageSubresource sub_res = {0};
@@ -945,13 +953,11 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
 #ifdef ZINK_USE_DMABUF
       struct zink_resource *res = zink_resource(tex);
       struct zink_screen *screen = zink_screen(pscreen);
-      //TODO: remove for wsi
-      struct zink_resource_object *obj = res->scanout_obj ? res->scanout_obj : res->obj;
+      struct zink_resource_object *obj = res->obj;
 
       VkMemoryGetFdInfoKHR fd_info = {0};
       int fd;
       fd_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
-      //TODO: remove for wsi
       fd_info.memory = zink_bo_get_mem(obj->bo);
       if (whandle->type == WINSYS_HANDLE_TYPE_FD)
          fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
@@ -1740,6 +1746,7 @@ zink_screen_resource_init(struct pipe_screen *pscreen)
    struct zink_screen *screen = zink_screen(pscreen);
    pscreen->resource_create = zink_resource_create;
    pscreen->resource_create_with_modifiers = zink_resource_create_with_modifiers;
+   pscreen->resource_create_drawable = zink_resource_create_drawable;
    pscreen->resource_destroy = zink_resource_destroy;
    pscreen->transfer_helper = u_transfer_helper_create(&transfer_vtbl, true, true, false, false);
 

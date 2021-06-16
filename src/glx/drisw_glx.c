@@ -354,11 +354,6 @@ static const __DRIswrastLoaderExtension swrastLoaderExtension_shm = {
    .getImageShm2        = swrastGetImageShm2,
 };
 
-static const __DRIextension *loader_extensions_shm[] = {
-   &swrastLoaderExtension_shm.base,
-   NULL
-};
-
 static const __DRIswrastLoaderExtension swrastLoaderExtension = {
    .base = {__DRI_SWRAST_LOADER, 3 },
 
@@ -369,8 +364,40 @@ static const __DRIswrastLoaderExtension swrastLoaderExtension = {
    .getImage2           = swrastGetImage2,
 };
 
+#include "copper_interface.h"
+#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_xcb.h>
+
+// void?
+static VkResult
+copperSetSurfaceCreateInfo(void *_draw, VkBaseOutStructure *out)
+{
+    __GLXDRIdrawable *draw = _draw;
+    VkXcbSurfaceCreateInfoKHR *xsci = (VkXcbSurfaceCreateInfoKHR *)out;
+
+    xsci->sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+    xsci->pNext = NULL;
+    xsci->flags = 0;
+    xsci->connection = XGetXCBConnection(draw->psc->dpy);
+    xsci->window = draw->xDrawable; // i think?
+    return VK_SUCCESS;
+}
+
+static const __DRIcopperLoaderExtension copperLoaderExtension = {
+    .base = { __DRI_COPPER_LOADER, 1 },
+
+    .SetSurfaceCreateInfo   = copperSetSurfaceCreateInfo,
+};
+
+static const __DRIextension *loader_extensions_shm[] = {
+   &swrastLoaderExtension_shm.base,
+   &copperLoaderExtension.base,
+   NULL
+};
+
 static const __DRIextension *loader_extensions_noshm[] = {
    &swrastLoaderExtension.base,
+   &copperLoaderExtension.base,
    NULL
 };
 
@@ -715,7 +742,8 @@ driswDestroyScreen(struct glx_screen *base)
    free(psc);
 }
 
-#define SWRAST_DRIVER_NAME "swrast"
+// probably not right but for now
+#define SWRAST_DRIVER_NAME "zink"
 
 static char *
 drisw_get_driver_name(struct glx_screen *glx_screen)
