@@ -1519,6 +1519,7 @@ zink_create_logical_device(struct zink_screen *screen)
     */
    if (screen->info.feats.sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2) {
       dci.pNext = &screen->info.feats;
+      screen->info.feats.pNext = NULL;
    } else {
       dci.pEnabledFeatures = &screen->info.feats.features;
    }
