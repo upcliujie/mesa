@@ -426,12 +426,12 @@ batch_from_key(struct fd_context *ctx, struct fd_batch_key *key) assert_dt
    DBG("%p: hash=0x%08x, %ux%u, %u layers, %u samples", batch, hash, key->width,
        key->height, key->layers, key->samples);
    for (unsigned idx = 0; idx < key->num_surfs; idx++) {
-      DBG("%p:  surf[%u]: %p (%s) (%u,%u / %u,%u,%u)", batch,
+      DBG("%p:  surf[%u]: %p (%s) (%u,%u / %u,%u,%u), %u samples", batch,
           key->surf[idx].pos, key->surf[idx].texture,
           util_format_name(key->surf[idx].format),
           key->surf[idx].u.buf.first_element, key->surf[idx].u.buf.last_element,
           key->surf[idx].u.tex.first_layer, key->surf[idx].u.tex.last_layer,
-          key->surf[idx].u.tex.level);
+          key->surf[idx].u.tex.level, key->surf[idx].samples);
    }
 #endif
    if (!batch)
@@ -464,7 +464,7 @@ key_surf(struct fd_batch_key *key, unsigned idx, unsigned pos,
    key->surf[idx].texture = psurf->texture;
    key->surf[idx].u = psurf->u;
    key->surf[idx].pos = pos;
-   key->surf[idx].samples = MAX2(1, psurf->nr_samples);
+   key->surf[idx].samples = MAX3(1, psurf->nr_samples, psurf->texture->nr_samples);
    key->surf[idx].format = psurf->format;
 }
 
