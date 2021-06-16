@@ -219,8 +219,8 @@ nir_lower_mediump_io(nir_shader *nir, nir_variable_mode modes,
             sem.location = VARYING_SLOT_VAR0_16BIT + index / 2;
             sem.high_16bits = index % 2;
             nir_intrinsic_set_io_semantics(intr, sem);
+            changed = true;
          }
-         changed = true;
       }
    }
 
