@@ -844,6 +844,8 @@ emit_intrinsic_load_ubo(struct ir3_context *ctx, nir_intrinsic_instr *intr,
 	for (int i = 0; i < intr->num_components; i++) {
 		struct ir3_instruction *load =
 			ir3_LDG(b, addr, 0,
+					create_immed(b, 0), 0,
+					create_immed(b, 0), 0,
 					create_immed(b, off + i * 4), 0,
 					create_immed(b, 1), 0); /* num components */
 		load->cat6.type = TYPE_U32;
@@ -1749,8 +1751,13 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 		value = ir3_create_collect(ctx, ir3_get_src(ctx, &intr->src[0]), ncomp);
 
 		struct ir3_instruction *stg =
-			ir3_STG_G(ctx->block, addr, 0, value, 0,
-					  create_immed(ctx->block, ncomp), 0, offset, 0);
+			ir3_STG_G(ctx->block,
+					  addr, 0,
+					  offset, 0,
+					  create_immed(b, 0), 0,
+					  create_immed(b, 0), 0,
+					  value, 0,
+					  create_immed(ctx->block, ncomp), 0);
 		stg->cat6.type = TYPE_U32;
 		stg->cat6.iim_val = 1;
 
@@ -1773,6 +1780,8 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 
 		struct ir3_instruction *load =
 			ir3_LDG(b, addr, 0, offset, 0,
+					create_immed(b, 0), 0,
+					create_immed(b, 0), 0,
 					create_immed(ctx->block, dest_components), 0);
 		load->cat6.type = TYPE_U32;
 		load->regs[0]->wrmask = MASK(dest_components);
@@ -3085,10 +3094,14 @@ emit_stream_out(struct ir3_context *ctx)
 			base = bases[strmout->output[i].output_buffer];
 			out = ctx->outputs[regid(strmout->output[i].register_index, c)];
 
-			stg = ir3_STG(ctx->block, base, 0, out, 0,
-					create_immed(ctx->block, 1), 0);
+			stg = ir3_STG(ctx->block,
+						  base, 0,
+						  create_immed(ctx->block, 0), 0,
+						  create_immed(ctx->block, 0), 0,
+						  create_immed(ctx->block, (strmout->output[i].dst_offset + j) * 4), 0,
+						  out, 0,
+						  create_immed(ctx->block, 1), 0);
 			stg->cat6.type = TYPE_U32;
-			stg->cat6.dst_offset = (strmout->output[i].dst_offset + j) * 4;
 
 			array_insert(ctx->block, ctx->block->keeps, stg);
 		}
