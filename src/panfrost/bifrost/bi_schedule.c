@@ -459,6 +459,11 @@ bi_reads_t(bi_instr *ins, unsigned src)
         if (src == 0 && bi_opcode_props[ins->op].sr_read)
                 return false;
 
+        /* Errata: +F16_TO_F32 with passthrough and lane 1 raises
+         * INSTR_INVALID_ENC under certain conditions */
+        if (ins->op == BI_OPCODE_F16_TO_F32 && ins->src[0].swizzle == BI_SWIZZLE_H11)
+                return false;
+
         /* Descriptor must not come from a passthrough */
         switch (ins->op) {
         case BI_OPCODE_LD_CVT:
