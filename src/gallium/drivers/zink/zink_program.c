@@ -441,13 +441,13 @@ init_slot_map(struct zink_context *ctx, struct zink_gfx_program *prog)
                      break;
                   default:
                      /* remaining legacy builtins only require 1 slot each */
-                     if (ctx->curr_program->shader_slot_map[slot] == -1)
+                     if (ctx->curr_program->shader_slot_map[slot] == 0xff)
                         user_outputs_count++;
                      break;
                   }
                }
                u_foreach_bit(slot, user_outputs) {
-                  if (ctx->curr_program->shader_slot_map[slot] == -1) {
+                  if (ctx->curr_program->shader_slot_map[slot] == 0xff) {
                      /* user variables can span multiple slots */
                      nir_variable *var = nir_find_variable_with_location(ctx->gfx_stages[i]->nir,
                                                                          nir_var_shader_out, slot);
@@ -469,7 +469,7 @@ init_slot_map(struct zink_context *ctx, struct zink_gfx_program *prog)
 
    if (needs_new_map || ctx->dirty_shader_stages == existing_shaders || !existing_shaders) {
       /* all shaders are being recompiled: new slot map */
-      memset(prog->shader_slot_map, -1, sizeof(prog->shader_slot_map));
+      memset(prog->shader_slot_map, 0xff, sizeof(prog->shader_slot_map));
       /* we need the slot map to match up, so we can't reuse the previous cache if we can't guarantee
        * the slots match up
        * TOOD: if we compact the slot map table, we can store it on the shader keys and reuse the cache
