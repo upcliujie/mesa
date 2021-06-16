@@ -541,7 +541,7 @@ static void si_fast_clear(struct si_context *sctx, unsigned *buffers,
    struct si_clear_info info[8 * 2 + 1]; /* MRTs * (CMASK + DCC) + ZS */
    unsigned num_clears = 0;
    unsigned clear_types = 0;
-   bool fb_too_small = fb->width * fb->height * fb->layers <= 512 * 512;
+   bool fb_too_small = fb->width * fb->height <= 512 * 512;
 
    /* This function is broken in BE, so just disable this path for now */
 #if UTIL_ARCH_BIG_ENDIAN
