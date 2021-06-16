@@ -28,6 +28,7 @@
 #include "compiler/glsl/glsl_to_nir.h"
 #include "compiler/nir_types.h"
 #include "compiler/nir/nir_builder.h"
+#include "compiler/nir/nir_schedule.h"
 #include "util/u_debug.h"
 
 #include "disassemble.h"
@@ -3150,6 +3151,13 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
         }
 
         NIR_PASS(progress, nir, nir_convert_from_ssa, true);
+
+        nir_schedule_options sched_opts = {
+                .threshold = 16,
+                .fallback = true
+        };
+
+        NIR_PASS_V(nir, nir_schedule, &sched_opts);
 }
 
 /* The cmdstream lowers 8-bit fragment output as 16-bit, so we need to do the
