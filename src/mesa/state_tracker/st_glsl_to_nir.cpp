@@ -552,7 +552,7 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
          NIR_PASS(lowered_64bit_ops, nir, nir_lower_int64);
 
       if (revectorize)
-         NIR_PASS_V(nir, nir_opt_vectorize, nullptr, nullptr);
+         NIR_PASS_V(nir, nir_opt_vectorize, nullptr, nullptr, false);
 
       if (revectorize || lowered_64bit_ops)
          st_nir_opts(nir);

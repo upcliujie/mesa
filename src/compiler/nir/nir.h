@@ -5205,7 +5205,7 @@ bool nir_opt_uniform_atomics(nir_shader *shader);
 typedef bool (*nir_opt_vectorize_cb)(const nir_instr *instr, void *data);
 
 bool nir_opt_vectorize(nir_shader *shader, nir_opt_vectorize_cb filter,
-                       void *data);
+                       void *data, bool aggressive);
 
 bool nir_opt_conditional_discard(nir_shader *shader);
 bool nir_opt_move_discards_to_top(nir_shader *shader);

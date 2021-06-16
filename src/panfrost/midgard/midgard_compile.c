@@ -377,7 +377,7 @@ optimise_nir(nir_shader *nir, unsigned quirks, bool is_blend)
                          nir_var_function_temp);
 
                 NIR_PASS(progress, nir, nir_opt_vectorize,
-                         midgard_vectorize_filter, NULL);
+                         midgard_vectorize_filter, NULL, false);
         } while (progress);
 
         NIR_PASS_V(nir, nir_lower_alu_to_scalar, mdg_is_64, NULL);

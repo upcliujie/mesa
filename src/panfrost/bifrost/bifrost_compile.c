@@ -3116,7 +3116,7 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
         }
 
         NIR_PASS(progress, nir, nir_lower_alu_to_scalar, NULL, NULL);
-        NIR_PASS(progress, nir, nir_opt_vectorize, bi_vectorize_filter, NULL);
+        NIR_PASS(progress, nir, nir_opt_vectorize, bi_vectorize_filter, NULL, true);
         NIR_PASS(progress, nir, nir_lower_load_const_to_scalar);
         NIR_PASS(progress, nir, nir_opt_dce);
 
