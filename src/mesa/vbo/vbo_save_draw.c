@@ -157,18 +157,11 @@ loopback_vertex_list(struct gl_context *ctx,
 }
 
 
-/**
- * Execute the buffer and save copied verts.
- * This is called from the display list code when executing
- * a drawing command.
- */
 void
-vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
+vbo_save_playback_vertex_list_loopback(struct gl_context *ctx, void *data)
 {
    const struct vbo_save_vertex_list *node =
       (const struct vbo_save_vertex_list *) data;
-   struct vbo_context *vbo = vbo_context(ctx);
-   struct vbo_save_context *save = &vbo->save;
 
    FLUSH_FOR_DRAW(ctx);
 
@@ -180,12 +173,31 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
                   "draw operation inside glBegin/End");
       return;
    }
-   else if (save->replay_flags) {
-      /* Various degenerate cases: translate into immediate mode
-       * calls rather than trying to execute in place.
-       */
-      loopback_vertex_list(ctx, node);
+   /* Various degenerate cases: translate into immediate mode
+    * calls rather than trying to execute in place.
+    */
+   loopback_vertex_list(ctx, node);
+}
 
+/**
+ * Execute the buffer and save copied verts.
+ * This is called from the display list code when executing
+ * a drawing command.
+ */
+void
+vbo_save_playback_vertex_list(struct gl_context *ctx, void *data)
+{
+   const struct vbo_save_vertex_list *node =
+      (const struct vbo_save_vertex_list *) data;
+
+   FLUSH_FOR_DRAW(ctx);
+
+   if (_mesa_inside_begin_end(ctx) && node->cold->prims[0].begin) {
+      /* Error: we're about to begin a new primitive but we're already
+       * inside a glBegin/End pair.
+       */
+      _mesa_error(ctx, GL_INVALID_OPERATION,
+                  "draw operation inside glBegin/End");
       return;
    }
 
