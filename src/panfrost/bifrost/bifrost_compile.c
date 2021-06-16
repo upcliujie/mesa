@@ -3359,7 +3359,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
                         glsl_type_size, 0);
 
         if (ctx->stage == MESA_SHADER_FRAGMENT) {
-                NIR_PASS_V(nir, nir_lower_mediump_io, nir_var_shader_out,
+                NIR_PASS_V(nir, nir_lower_mediump_io, nir_var_shader_in | nir_var_shader_out,
                                 ~0, false);
         } else {
                 struct hash_table_u64 *stores = _mesa_hash_table_u64_create(ctx);
