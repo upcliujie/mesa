@@ -1696,3 +1696,17 @@ nir_print_deref(const nir_deref_instr *deref, FILE *fp)
    };
    print_deref_link(deref, true, &state);
 }
+
+void nir_log_shader_annotated_tagged(enum mesa_log_level level, const char *tag,
+                                     nir_shader *shader, struct hash_table *annotations)
+{
+   char *stream_data = NULL;
+   size_t stream_size = 0;
+   FILE *stream = open_memstream(&stream_data, &stream_size);
+   nir_print_shader(shader, stream);
+
+   _mesa_log_multiline(level, tag, stream_data);
+
+   fclose(stream);
+   free(stream_data);
+}
