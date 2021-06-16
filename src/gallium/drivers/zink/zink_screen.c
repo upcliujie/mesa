@@ -1510,6 +1510,9 @@ zink_create_logical_device(struct zink_screen *screen)
    qci.queueCount = screen->threaded && screen->max_queues > 1 ? 2 : 1;
    qci.pQueuePriorities = &dummy;
 
+   if (screen->info.driver_props.driverID == VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS)
+      screen->info.rb2_feats.robustBufferAccess2 = false;
+
    VkDeviceCreateInfo dci = {0};
    dci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
    dci.queueCreateInfoCount = 1;
