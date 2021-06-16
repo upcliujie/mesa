@@ -92,7 +92,7 @@ static void new_label(const char *name)
 
 static struct ir3_instruction * new_instr(opc_t opc)
 {
-	instr = ir3_instr_create(block, opc, 5);
+	instr = ir3_instr_create(block, opc, 7);
 	instr->flags = iflags.flags;
 	instr->repeat = iflags.repeat;
 	instr->nop = iflags.nop;
@@ -990,7 +990,25 @@ cat6_dst_offset:   offset    { instr->cat6.dst_offset = $1; }
 
 cat6_immed:        integer   { instr->cat6.iim_val = $1; }
 
-cat6_load:         T_OP_LDG  { new_instr(OPC_LDG); }  cat6_type dst_reg ',' 'g' '[' reg cat6_offset ']' ',' immediate
+cat6_stg_ldg_offset: offset {
+                        new_reg(0, IR3_REG_IMMED);
+                        new_reg(0, IR3_REG_IMMED);
+                        new_reg(0, IR3_REG_IMMED)->iim_val = $1;
+                    }
+|                  '+' '(' reg offset ')' '<' '<' integer {
+                        assert($8 == 2);
+                        instr->flags |= IR3_INSTR_G;
+                        new_reg(0, IR3_REG_IMMED)->uim_val = 0;
+                        new_reg(0, IR3_REG_IMMED)->uim_val = $4;
+                    }
+|                  '+' reg '<' '<' integer offset '<' '<' integer {
+                        assert($9 == 2);
+                        instr->flags |= IR3_INSTR_G;
+                        new_reg(0, IR3_REG_IMMED)->uim_val = $5 - 2;
+                        new_reg(0, IR3_REG_IMMED)->uim_val = $6;
+                    }
+
+cat6_load:         T_OP_LDG  { new_instr(OPC_LDG); }  cat6_type dst_reg ',' 'g' '[' reg cat6_stg_ldg_offset ']' ',' immediate
 |                  T_OP_LDP  { new_instr(OPC_LDP); }  cat6_type dst_reg ',' 'p' '[' reg cat6_offset ']' ',' immediate
 |                  T_OP_LDL  { new_instr(OPC_LDL); }  cat6_type dst_reg ',' 'l' '[' reg cat6_offset ']' ',' immediate
 |                  T_OP_LDLW { new_instr(OPC_LDLW); } cat6_type dst_reg ',' 'l' '[' reg cat6_offset ']' ',' immediate
@@ -1001,15 +1019,7 @@ cat6_load:         T_OP_LDG  { new_instr(OPC_LDG); }  cat6_type dst_reg ',' 'g' 
 // TODO some of the cat6 instructions have different syntax for a6xx..
 //|                  T_OP_LDIB { new_instr(OPC_LDIB); } cat6_type dst_reg cat6_offset ',' reg ',' cat6_immed
 
-cat6_store:        T_OP_STG  { new_instr(OPC_STG); dummy_dst(); }  cat6_type 'g' '[' reg cat6_dst_offset ']' ',' reg ',' immediate {
-                       /* fixup src order, the offset reg is expected last currently */
-                       if (instr->flags & IR3_INSTR_G) {
-                           struct ir3_register *offset = instr->regs[2];
-                           instr->regs[2] = instr->regs[3];
-                           instr->regs[3] = instr->regs[4];
-                           instr->regs[4] = offset;
-                       }
-                   }
+cat6_store:        T_OP_STG  { new_instr(OPC_STG); dummy_dst(); }  cat6_type 'g' '[' reg cat6_stg_ldg_offset ']' ',' reg ',' immediate
 |                  T_OP_STP  { new_instr(OPC_STP); dummy_dst(); }  cat6_type 'p' '[' reg cat6_dst_offset ']' ',' reg ',' immediate
 |                  T_OP_STL  { new_instr(OPC_STL); dummy_dst(); }  cat6_type 'l' '[' reg cat6_dst_offset ']' ',' reg ',' immediate
 |                  T_OP_STLW { new_instr(OPC_STLW); dummy_dst(); } cat6_type 'l' '[' reg cat6_dst_offset ']' ',' reg ',' immediate
