@@ -655,10 +655,18 @@ const_header:      T_A_CONST '(' T_CONSTANT ')' const_val ',' const_val ',' cons
                        add_const($3, $5, $7, $9, $11);
 }
 
-buf_header:        T_A_BUF const_val {
+buf_header:        T_A_BUF const_val '(' T_CONSTANT ')' {
                        int idx = info->num_bufs++;
                        assert(idx < MAX_BUFS);
+
+                       assert(($4 & 0x1) == 0);  /* half-reg not allowed */
+                       unsigned reg = $4 >> 1;
+
                        info->buf_sizes[idx] = $2;
+                       info->buf_addr_regs[idx] = reg;
+
+                       /* reserve space in immediates for the actual value to be plugged in later: */
+                       add_const($4, 0, 0, 0, 0);
 }
 
 invocationid_header: T_A_INVOCATIONID '(' T_REGISTER ')' {
