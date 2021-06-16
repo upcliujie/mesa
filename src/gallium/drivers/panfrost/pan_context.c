@@ -1520,6 +1520,18 @@ static inline void
 pan_pipe_to_stencil(const struct pipe_stencil_state *in,
                     struct mali_stencil_packed *out)
 {
+        if (!in->enabled) {
+                pan_pack(out, STENCIL, s) {
+                        s.mask = 0xFF;
+                        s.compare_function = MALI_FUNC_ALWAYS;
+                        s.stencil_fail = MALI_STENCIL_OP_KEEP;
+                        s.depth_fail = MALI_STENCIL_OP_KEEP;;
+                        s.depth_pass = MALI_STENCIL_OP_KEEP;
+                }
+
+                return;
+        }
+
         pan_pack(out, STENCIL, s) {
                 s.mask = in->valuemask;
                 s.compare_function = (enum mali_func) in->func;
@@ -1553,9 +1565,10 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
         pan_pack(&so->rsd_stencil, STENCIL_MASK_MISC, cfg) {
                 cfg.stencil_enable = zsa->stencil[0].enabled;
 
-                cfg.stencil_mask_front = zsa->stencil[0].writemask;
+                cfg.stencil_mask_front = zsa->stencil[0].enabled ?
+                        zsa->stencil[0].writemask : 0xFF;
                 cfg.stencil_mask_back = zsa->stencil[1].enabled ?
-                        zsa->stencil[1].writemask : zsa->stencil[0].writemask;
+                        zsa->stencil[1].writemask : cfg.stencil_mask_front;
 
                 if (dev->arch < 6) {
                         cfg.alpha_test_compare_function =
