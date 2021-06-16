@@ -1709,6 +1709,54 @@ ir3_##name(struct ir3_block *block,                                      \
 #define INSTR4F(f, name)    __INSTR4(IR3_INSTR_##f, name##_##f, OPC_##name)
 #define INSTR4(name)        __INSTR4(0, name, OPC_##name)
 
+#define __INSTR5(flag, name, opc)                                        \
+static inline struct ir3_instruction *                                   \
+ir3_##name(struct ir3_block *block,                                      \
+		struct ir3_instruction *a, unsigned aflags,                      \
+		struct ir3_instruction *b, unsigned bflags,                      \
+		struct ir3_instruction *c, unsigned cflags,                      \
+		struct ir3_instruction *d, unsigned dflags,                      \
+		struct ir3_instruction *e, unsigned eflags)                      \
+{                                                                        \
+	struct ir3_instruction *instr =                                      \
+		ir3_instr_create(block, opc, 6);                                 \
+	__ssa_dst(instr);                                                    \
+	__ssa_src(instr, a, aflags);                                         \
+	__ssa_src(instr, b, bflags);                                         \
+	__ssa_src(instr, c, cflags);                                         \
+	__ssa_src(instr, d, dflags);                                         \
+	__ssa_src(instr, e, eflags);                                         \
+	instr->flags |= flag;                                                \
+	return instr;                                                        \
+}
+#define INSTR5F(f, name)    __INSTR5(IR3_INSTR_##f, name##_##f, OPC_##name)
+#define INSTR5(name)        __INSTR5(0, name, OPC_##name)
+
+#define __INSTR6(flag, name, opc)                                        \
+static inline struct ir3_instruction *                                   \
+ir3_##name(struct ir3_block *block,                                      \
+		struct ir3_instruction *a, unsigned aflags,                      \
+		struct ir3_instruction *b, unsigned bflags,                      \
+		struct ir3_instruction *c, unsigned cflags,                      \
+		struct ir3_instruction *d, unsigned dflags,                      \
+		struct ir3_instruction *e, unsigned eflags,                      \
+		struct ir3_instruction *f, unsigned fflags)                      \
+{                                                                        \
+	struct ir3_instruction *instr =                                      \
+		ir3_instr_create(block, opc, 7);                                 \
+	__ssa_dst(instr);                                                    \
+	__ssa_src(instr, a, aflags);                                         \
+	__ssa_src(instr, b, bflags);                                         \
+	__ssa_src(instr, c, cflags);                                         \
+	__ssa_src(instr, d, dflags);                                         \
+	__ssa_src(instr, e, eflags);                                         \
+	__ssa_src(instr, f, fflags);                                         \
+	instr->flags |= flag;                                                \
+	return instr;                                                        \
+}
+#define INSTR6F(f, name)    __INSTR6(IR3_INSTR_##f, name##_##f, OPC_##name)
+#define INSTR6(name)        __INSTR6(0, name, OPC_##name)
+
 /* cat0 instructions: */
 INSTR1(B)
 INSTR0(JUMP)
@@ -1846,11 +1894,11 @@ ir3_SAM(struct ir3_block *block, opc_t opc, type_t type,
 
 /* cat6 instructions: */
 INSTR2(LDLV)
-INSTR3(LDG)
+INSTR5(LDG)
 INSTR3(LDL)
 INSTR3(LDLW)
 INSTR3(LDP)
-INSTR3(STG)
+INSTR6(STG)
 INSTR3(STL)
 INSTR3(STLW)
 INSTR3(STP)
@@ -1899,7 +1947,7 @@ INSTR4F(G, ATOMIC_OR)
 INSTR4F(G, ATOMIC_XOR)
 #endif
 
-INSTR4F(G, STG)
+INSTR6F(G, STG)
 
 /* cat7 instructions: */
 INSTR0(BAR)
