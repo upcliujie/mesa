@@ -37,6 +37,11 @@ struct virgl_resource_cache_entry {
    uint32_t format;
    uint32_t flags;
    uint32_t nr_samples;
+   uint32_t width;
+   uint32_t height;
+   uint32_t depth;
+   uint32_t array_size;
+   uint32_t last_level;
 };
 
 /* Pointer to a function that returns whether the resource represented by
@@ -84,7 +89,12 @@ struct virgl_resource_cache_entry *
 virgl_resource_cache_remove_compatible(struct virgl_resource_cache *cache,
                                        uint32_t size, uint32_t bind,
                                        uint32_t format, uint32_t flags,
-                                       uint32_t nr_samples);
+                                       uint32_t nr_samples,
+                                       uint32_t width,
+                                       uint32_t height,
+                                       uint32_t depth,
+                                       uint32_t array_size,
+                                       uint32_t last_level);
 
 /** Empties the resource cache. */
 void
@@ -93,12 +103,21 @@ virgl_resource_cache_flush(struct virgl_resource_cache *cache);
 static inline void
 virgl_resource_cache_entry_init(struct virgl_resource_cache_entry *entry,
                                 uint32_t size, uint32_t bind,
-                                uint32_t format, uint32_t flags)
+                                uint32_t format, uint32_t flags,
+                                uint32_t nr_samples, uint32_t width,
+                                uint32_t height, uint32_t depth,
+                                uint32_t array_size, uint32_t last_level)
 {
    entry->size = size;
    entry->bind = bind;
    entry->format = format;
    entry->flags = flags;
+   entry->nr_samples = nr_samples;
+   entry->width = width;
+   entry->height = height;
+   entry->depth = depth;
+   entry->array_size = array_size;
+   entry->last_level = last_level;
 }
 
 #endif
