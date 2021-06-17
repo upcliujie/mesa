@@ -202,6 +202,13 @@ static void print_reg_name(struct ir3_instruction *instr, struct ir3_register *r
 	if (reg->flags & IR3_REG_R)
 		printf("(r)");
 
+	/* Right now all instructions that use tied registers only have one
+	 * destination register, so we can just print (tied) as if it's a flag,
+	 * although it's more convenient for RA if it's a pointer.
+	 */
+	if (reg->tied)
+		printf("(tied)");
+
 	if (reg->flags & IR3_REG_SHARED)
 		printf("s");
 	if (reg->flags & IR3_REG_HALF)
