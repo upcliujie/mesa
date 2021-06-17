@@ -98,6 +98,14 @@ PUSH_KICK(struct nouveau_pushbuf *push)
    simple_mtx_unlock(&ppush->screen->fence.lock);
 }
 
+static inline void
+PUSH_KICK_MT(struct nouveau_pushbuf *push)
+{
+   struct nouveau_pushbuf_priv *ppush = push->user_priv;
+   if (ppush->screen->base.num_contexts != 1)
+      PUSH_KICK(push);
+}
+
 static inline int
 PUSH_VAL(struct nouveau_pushbuf *push)
 {
