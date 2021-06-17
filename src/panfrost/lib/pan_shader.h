@@ -106,7 +106,7 @@ pan_shader_classify_pixel_kill_coverage(const struct pan_shader_info *info,
         else if (coverage)
                 SET_PIXEL_KILL(WEAK_EARLY, FORCE_LATE);
         else
-                SET_PIXEL_KILL(WEAK_EARLY, WEAK_EARLY);
+                SET_PIXEL_KILL(FORCE_EARLY, FORCE_EARLY);
 }
 
 #undef SET_PIXEL_KILL
