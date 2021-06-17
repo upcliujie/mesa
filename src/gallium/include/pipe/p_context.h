@@ -51,6 +51,7 @@ struct pipe_device_reset_callback;
 struct pipe_draw_info;
 struct pipe_draw_indirect_info;
 struct pipe_draw_start_count_bias;
+struct pipe_draw_vertex_state_info;
 struct pipe_grid_info;
 struct pipe_fence_handle;
 struct pipe_framebuffer_state;
@@ -71,6 +72,7 @@ struct pipe_surface;
 struct pipe_transfer;
 struct pipe_vertex_buffer;
 struct pipe_vertex_element;
+struct pipe_vertex_state;
 struct pipe_video_buffer;
 struct pipe_video_codec;
 struct pipe_viewport_state;
@@ -142,6 +144,13 @@ struct pipe_context {
                     const struct pipe_draw_indirect_info *indirect,
                     const struct pipe_draw_start_count_bias *draws,
                     unsigned num_draws);
+
+   void (*draw_vertex_state)(struct pipe_context *ctx,
+                             struct pipe_vertex_state *state,
+                             uint32_t vertex_element_mask,
+                             struct pipe_draw_vertex_state_info info,
+                             const struct pipe_draw_start_count_bias *draws,
+                             unsigned num_draws);
    /*@}*/
 
    /**

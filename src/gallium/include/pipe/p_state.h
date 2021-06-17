@@ -687,6 +687,36 @@ struct pipe_vertex_element
    unsigned instance_divisor;
 };
 
+/**
+ * Opaque refcounted constant state object encapsulating the vertex buffer
+ * and vertex elements, and index buffer needed by a draw call.
+ * Used by display lists to bind those states and pass buffer references
+ * quickly.
+ *
+ * The state contains 0 or 1 index buffer, 0 or 1 vertex buffer,
+ * and 0 or more vertex elements.
+ *
+ * Constraints on the buffers to get the fastest codepath:
+ * - All buffer contents are considered immutable and read-only after
+ *   initialization. This implies the following things.
+ * - No place is required to track whether these buffers are busy.
+ * - All CPU mappings of these buffers can be forced to UNSYNCHRONIZED by
+ *   both drivers and common code unconditionally.
+ * - Buffer invalidation can be skipped by both drivers and common code
+ *   unconditionally.
+ */
+struct pipe_vertex_state {
+   struct pipe_reference reference;
+   struct pipe_screen *screen;
+
+   /* The following fields are used as a key for util_vertex_state_cache.
+    * They should be together.
+    */
+   struct pipe_resource *indexbuf;
+   struct pipe_vertex_buffer vbuffer;
+   unsigned num_elements;
+   struct pipe_vertex_element elements[PIPE_MAX_ATTRIBS];
+};
 
 struct pipe_draw_indirect_info
 {
@@ -743,6 +773,13 @@ struct pipe_draw_start_count_bias {
    unsigned start;
    unsigned count;
    int index_bias; /**< a bias to be added to each index */
+};
+
+struct pipe_draw_vertex_state_info {
+   enum pipe_prim_type mode:8;   /**< mode of the primitive */
+   uint8_t vertices_per_patch;   /**< the number of vertices per patch */
+   uint8_t index_size;           /**< if 0, the draw is not indexed. */
+   bool take_vertex_state_ownership; /**< for skipping reference counting */
 };
 
 /**

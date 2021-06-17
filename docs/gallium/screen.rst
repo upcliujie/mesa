@@ -615,6 +615,7 @@ The integer capabilities:
 * ``PIPE_CAP_TEXRECT``: Driver supports rectangle textures.  Required for OpenGL on `!prefers_nir` drivers.  If this cap is not present, st/mesa will lower the NIR to use normal 2D texture sampling by using either `txs` or `nir_intrinsic_load_texture_scaling` to normalize the texture coordinates.
 * ``PIPE_CAP_SAMPLER_REDUCTION_MINMAX``: Driver supports EXT min/max sampler reduction.
 * ``PIPE_CAP_SAMPLER_REDUCTION_MINMAX_ARB``: Driver supports ARB min/max sampler reduction with format queries.
+* ``PIPE_CAP_DRAW_VERTEX_STATE``: Driver supports `pipe_screen::create_vertex_state/vertex_state_destroy` and `pipe_context::draw_vertex_state`.
 
 .. _pipe_capf:
 
