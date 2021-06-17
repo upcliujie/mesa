@@ -462,10 +462,12 @@ nvc0_vertex_arrays_validate(struct nvc0_context *nvc0)
    if (update_vertex) {
       const unsigned n = MAX2(vertex->num_elements, nvc0->state.num_vtxelts);
 
+      simple_mtx_lock(&nvc0->screen->state_lock);
       nvc0->state.constant_vbos = const_vbos;
       nvc0->state.constant_elts = 0;
       nvc0->state.num_vtxelts = vertex->num_elements;
       nvc0->state.vbo_mode = vbo_mode;
+      simple_mtx_unlock(&nvc0->screen->state_lock);
 
       if (unlikely(vbo_mode)) {
          if (unlikely(nvc0->state.instance_elts & 3)) {
