@@ -31,7 +31,12 @@ static bool
 virgl_resource_cache_entry_is_compatible(struct virgl_resource_cache_entry *entry,
                                          uint32_t size, uint32_t bind,
                                          uint32_t format, uint32_t flags,
-                                         uint32_t nr_samples)
+                                         uint32_t nr_samples,
+                                         uint32_t width,
+                                         uint32_t height,
+                                         uint32_t depth,
+                                         uint32_t array_size,
+                                         uint32_t last_level)
 {
    return (entry->bind == bind &&
            entry->format == format &&
@@ -41,7 +46,15 @@ virgl_resource_cache_entry_is_compatible(struct virgl_resource_cache_entry *entr
             * hold much smaller (< 50%) sizes.
             */
            entry->size <= size * 2 &&
-           entry->nr_samples >= nr_samples);
+           entry->nr_samples >= nr_samples &&
+           entry->width >= width &&
+           entry->height >= height &&
+           entry->depth >= depth &&
+           entry->array_size >= array_size &&
+           entry->last_level >= last_level &&
+           entry->width <= width * 2 &&
+           entry->height <= height * 2 &&
+           entry->depth <= depth * 2);
 }
 
 static void
@@ -101,7 +114,12 @@ struct virgl_resource_cache_entry *
 virgl_resource_cache_remove_compatible(struct virgl_resource_cache *cache,
                                        uint32_t size, uint32_t bind,
                                        uint32_t format, uint32_t flags,
-                                       uint32_t nr_samples)
+                                       uint32_t nr_samples,
+                                       uint32_t width,
+                                       uint32_t height,
+                                       uint32_t depth,
+                                       uint32_t array_size,
+                                       uint32_t last_level)
 {
    const int64_t now = os_time_get();
    struct virgl_resource_cache_entry *compat_entry = NULL;
@@ -114,7 +132,10 @@ virgl_resource_cache_remove_compatible(struct virgl_resource_cache *cache,
                             entry, &cache->resources, head) {
       const bool compatible =
          virgl_resource_cache_entry_is_compatible(entry, size, bind, format,
-						  flags, nr_samples);
+						  flags, nr_samples,
+                    width, height,
+                    depth, array_size,
+                    last_level);
 
       if (compatible) {
          if (!cache->entry_is_busy_func(entry, cache->user_data))

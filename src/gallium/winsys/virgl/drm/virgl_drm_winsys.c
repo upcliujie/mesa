@@ -226,7 +226,8 @@ virgl_drm_winsys_resource_create_blob(struct virgl_winsys *qws,
    p_atomic_set(&res->external, false);
    p_atomic_set(&res->num_cs_references, 0);
    virgl_resource_cache_entry_init(&res->cache_entry, size, bind, format,
-                                    flags);
+                                    flags, nr_samples, width, height, depth,
+                                    array_size, last_level);
    return res;
 }
 
@@ -290,7 +291,9 @@ virgl_drm_winsys_resource_create(struct virgl_winsys *qws,
     */
    p_atomic_set(&res->maybe_busy, for_fencing);
 
-   virgl_resource_cache_entry_init(&res->cache_entry, size, bind, format, 0);
+   virgl_resource_cache_entry_init(&res->cache_entry, size, bind, format, 0,
+                                   nr_samples, width, height, depth,
+                                   array_size, last_level);
 
    return res;
 }
@@ -399,7 +402,12 @@ virgl_drm_winsys_resource_cache_create(struct virgl_winsys *qws,
 
    entry = virgl_resource_cache_remove_compatible(&qdws->cache, size,
                                                   bind, format, flags,
-                                                  nr_samples);
+                                                  nr_samples,
+                                                  width,
+                                                  height,
+                                                  depth,
+                                                  array_size,
+                                                  last_level);
    if (entry) {
       res = cache_entry_container_res(entry);
       mtx_unlock(&qdws->mutex);
