@@ -28,15 +28,24 @@
 
 #include "util/list.h"
 
-struct virgl_resource_cache_entry {
-   struct list_head head;
-   int64_t timeout_start;
-   int64_t timeout_end;
+struct virgl_resource_params {
    uint32_t size;
    uint32_t bind;
    uint32_t format;
    uint32_t flags;
    uint32_t nr_samples;
+   uint32_t width;
+   uint32_t height;
+   uint32_t depth;
+   uint32_t array_size;
+   uint32_t last_level;
+};
+
+struct virgl_resource_cache_entry {
+   struct list_head head;
+   int64_t timeout_start;
+   int64_t timeout_end;
+   struct virgl_resource_params params;
 };
 
 /* Pointer to a function that returns whether the resource represented by
@@ -82,9 +91,7 @@ virgl_resource_cache_add(struct virgl_resource_cache *cache,
  */
 struct virgl_resource_cache_entry *
 virgl_resource_cache_remove_compatible(struct virgl_resource_cache *cache,
-                                       uint32_t size, uint32_t bind,
-                                       uint32_t format, uint32_t flags,
-                                       uint32_t nr_samples);
+                                       struct virgl_resource_params params);
 
 /** Empties the resource cache. */
 void
@@ -92,13 +99,18 @@ virgl_resource_cache_flush(struct virgl_resource_cache *cache);
 
 static inline void
 virgl_resource_cache_entry_init(struct virgl_resource_cache_entry *entry,
-                                uint32_t size, uint32_t bind,
-                                uint32_t format, uint32_t flags)
+                                struct virgl_resource_params params)
 {
-   entry->size = size;
-   entry->bind = bind;
-   entry->format = format;
-   entry->flags = flags;
+   entry->params.size = params.size;
+   entry->params.bind = params.bind;
+   entry->params.format = params.format;
+   entry->params.flags = params.flags;
+   entry->params.nr_samples = params.nr_samples;
+   entry->params.width = params.width;
+   entry->params.height = params.height;
+   entry->params.depth = params.depth;
+   entry->params.array_size = params.array_size;
+   entry->params.last_level = params.last_level;
 }
 
 #endif
