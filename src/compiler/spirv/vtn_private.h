@@ -49,6 +49,10 @@ struct vtn_decoration;
   #define vtn_longjmp longjmp
 #endif
 
+#ifndef NDEBUG
+enum nir_spirv_debug_level vtn_default_log_level(void);
+#endif
+
 void vtn_log(struct vtn_builder *b, enum nir_spirv_debug_level level,
              size_t spirv_offset, const char *message);
 
