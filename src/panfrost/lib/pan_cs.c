@@ -696,10 +696,13 @@ pan_emit_mfbd(const struct panfrost_device *dev,
         pan_section_pack(fbd, MULTI_TARGET_FRAMEBUFFER, PARAMETERS, cfg) {
                 cfg.width = fb->width;
                 cfg.height = fb->height;
-                cfg.bound_min_x = fb->extent.minx;
-                cfg.bound_min_y = fb->extent.miny;
-                cfg.bound_max_x = fb->extent.maxx;
-                cfg.bound_max_y = fb->extent.maxy;
+
+                /* Align so that CRC data for framebuffer edges is correct */
+                cfg.bound_min_x = fb->extent.minx & ~15;
+                cfg.bound_min_y = fb->extent.miny & ~15;
+                cfg.bound_max_x = MIN2(ALIGN_POT(fb->extent.maxx + 1, 16), fb->width) - 1;
+                cfg.bound_max_y = MIN2(ALIGN_POT(fb->extent.maxy + 1, 16), fb->height) - 1;
+
                 cfg.effective_tile_size = tile_size;
                 cfg.tie_break_rule = MALI_TIE_BREAK_RULE_MINUS_180_IN_0_OUT;
                 cfg.render_target_count = MAX2(fb->rt_count, 1);
