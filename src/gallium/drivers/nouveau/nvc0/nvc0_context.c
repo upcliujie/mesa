@@ -278,7 +278,11 @@ nvc0_destroy(struct pipe_context *pipe)
 void
 nvc0_default_kick_notify(struct nouveau_context *context)
 {
-   nvc0_context(&context->pipe)->state.flushed = true;
+   struct nvc0_context *nvc0 = nvc0_context(&context->pipe);
+
+   simple_mtx_lock(&nvc0->screen->state_lock);
+   nvc0->state.flushed = true;
+   simple_mtx_unlock(&nvc0->screen->state_lock);
 }
 
 static int

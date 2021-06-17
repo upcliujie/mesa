@@ -872,6 +872,7 @@ nvc0_switch_pipe_context(struct nvc0_context *ctx_to)
    struct nvc0_context *ctx_from = ctx_to->screen->cur_ctx;
    unsigned s;
 
+   simple_mtx_lock(&ctx_to->screen->state_lock);
    if (ctx_from)
       ctx_to->state = ctx_from->state;
    else
@@ -909,6 +910,7 @@ nvc0_switch_pipe_context(struct nvc0_context *ctx_to)
       ctx_to->dirty_3d &= ~NVC0_NEW_3D_ZSA;
 
    ctx_to->screen->cur_ctx = ctx_to;
+   simple_mtx_unlock(&ctx_to->screen->state_lock);
 }
 
 static struct nvc0_state_validate
