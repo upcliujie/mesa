@@ -94,7 +94,6 @@ struct fd_batch {
    bool nondraw : 1;
    bool needs_flush : 1;
    bool flushed : 1;
-   bool blit : 1;
    bool back_blit : 1;    /* only blit so far is resource shadowing back-blit */
    bool tessellation : 1; /* tessellation used in batch */
 
