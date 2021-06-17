@@ -801,7 +801,7 @@ static __DRIimage *
 dri2_create_image_from_winsys(__DRIscreen *_screen,
                               int width, int height, const struct dri2_format_mapping *map,
                               int num_handles, struct winsys_handle *whandle,
-                              bool is_protected_content,
+                              int is_protected_content,
                               void *loaderPrivate)
 {
    struct dri_screen *screen = dri_screen(_screen);
@@ -908,16 +908,20 @@ dri2_create_image_from_winsys(__DRIscreen *_screen,
          return NULL;
       }
 
-      /* Reject image creation if there's an inconsistency between
-       * content protection status of tex and img.
-       */
-      const struct driOptionCache *optionCache = &screen->dev->option_cache;
-      if (!driQueryOptionb(optionCache, "disable_protected_content_check") &&
-          (bool)(tex->bind & PIPE_BIND_PROTECTED) != is_protected_content) {
-         pipe_resource_reference(&img->texture, NULL);
-         pipe_resource_reference(&tex, NULL);
-         FREE(img);
-         return NULL;
+      if (is_protected_content != -1) {
+         /* Reject image creation if there's an inconsistency between
+          * content protection status of tex and img.
+          * If the caller didn't specifically asked for protected_content off or on,
+          * this check is skipped.
+          */
+         const struct driOptionCache *optionCache = &screen->dev->option_cache;
+         if (!driQueryOptionb(optionCache, "disable_protected_content_check") &&
+             (bool)(tex->bind & PIPE_BIND_PROTECTED) != (bool)is_protected_content) {
+            pipe_resource_reference(&img->texture, NULL);
+            pipe_resource_reference(&tex, NULL);
+            FREE(img);
+            return NULL;
+         }
       }
 
       img->texture = tex;
@@ -953,7 +957,7 @@ dri2_create_image_from_name(__DRIscreen *_screen,
    whandle.stride = pitch * util_format_get_blocksize(map->pipe_format);
 
    img = dri2_create_image_from_winsys(_screen, width, height, map,
-                                       1, &whandle, false, loaderPrivate);
+                                       1, &whandle, -1, loaderPrivate);
 
    if (!img)
       return NULL;
@@ -1000,7 +1004,7 @@ static __DRIimage *
 dri2_create_image_from_fd(__DRIscreen *_screen,
                           int width, int height, int fourcc,
                           uint64_t modifier, int *fds, int num_fds,
-                          int *strides, int *offsets, bool protected_content,
+                          int *strides, int *offsets, int protected_content,
                           unsigned *error, void *loaderPrivate)
 {
    struct winsys_handle whandles[4];
@@ -1458,7 +1462,7 @@ dri2_from_names(__DRIscreen *screen, int width, int height, int format,
    whandle.modifier = DRM_FORMAT_MOD_INVALID;
 
    img = dri2_create_image_from_winsys(screen, width, height, map,
-                                       1, &whandle, false, loaderPrivate);
+                                       1, &whandle, -1, loaderPrivate);
    if (img == NULL)
       return NULL;
 
@@ -1515,7 +1519,7 @@ dri2_from_fds(__DRIscreen *screen, int width, int height, int fourcc,
 {
    return dri2_create_image_from_fd(screen, width, height, fourcc,
                                    DRM_FORMAT_MOD_INVALID, fds, num_fds,
-                                   strides, offsets, false, NULL, loaderPrivate);
+                                   strides, offsets, -1, NULL, loaderPrivate);
 }
 
 static boolean
@@ -1588,7 +1592,7 @@ dri2_from_dma_bufs(__DRIscreen *screen,
 
    img = dri2_create_image_from_fd(screen, width, height, fourcc,
                                    DRM_FORMAT_MOD_INVALID, fds, num_fds,
-                                   strides, offsets, false, error, loaderPrivate);
+                                   strides, offsets, -1, error, loaderPrivate);
    if (img == NULL)
       return NULL;
 
@@ -1617,7 +1621,7 @@ dri2_from_dma_bufs2(__DRIscreen *screen,
 
    img = dri2_create_image_from_fd(screen, width, height, fourcc,
                                    modifier, fds, num_fds, strides, offsets,
-                                   false, error, loaderPrivate);
+                                   -1, error, loaderPrivate);
    if (img == NULL)
       return NULL;
 
@@ -1647,7 +1651,7 @@ dri2_from_dma_bufs3(__DRIscreen *screen,
 
    img = dri2_create_image_from_fd(screen, width, height, fourcc,
                                    modifier, fds, num_fds, strides, offsets,
-                                   flags & __DRI_IMAGE_PROTECTED_CONTENT_FLAG,
+                                   (flags & __DRI_IMAGE_PROTECTED_CONTENT_FLAG) ? 1 : 0,
                                    error, loaderPrivate);
    if (img == NULL)
       return NULL;
