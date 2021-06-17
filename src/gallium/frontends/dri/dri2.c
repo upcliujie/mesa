@@ -860,9 +860,6 @@ dri2_create_image_from_winsys(__DRIscreen *_screen,
    if (!tex_usage)
       return NULL;
 
-   if (is_protected_content)
-      tex_usage |= PIPE_BIND_PROTECTED;
-
    img = CALLOC_STRUCT(__DRIimageRec);
    if (!img)
       return NULL;
