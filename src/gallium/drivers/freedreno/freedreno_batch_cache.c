@@ -260,9 +260,6 @@ fd_bc_invalidate_batch(struct fd_batch *batch, bool remove)
    struct hash_entry *entry =
       _mesa_hash_table_search_pre_hashed(cache->ht, batch->hash, key);
    _mesa_hash_table_remove(cache->ht, entry);
-
-   batch->key = NULL;
-   free(key);
 }
 
 void
