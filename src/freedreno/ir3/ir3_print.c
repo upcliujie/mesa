@@ -221,13 +221,8 @@ static void print_reg_name(struct ir3_instruction *instr, struct ir3_register *r
 			print_ssa_name(reg, reg->flags & IR3_REG_DEST);
 			printf(":");
 		}
-		printf(SYN_ARRAY("arr[id=%u, offset=%d, size=%u"), reg->array.id,
+		printf(SYN_ARRAY("arr[id=%u, offset=%d, size=%u]"), reg->array.id,
 				reg->array.offset, reg->size);
-		if (reg->flags & IR3_REG_DEST) {
-			printf(SYN_ARRAY(", "));
-			print_ssa_name(reg, false);
-		}
-		printf(SYN_ARRAY("]"));
 		if (reg->array.base != INVALID_REG)
 			printf("("SYN_REG("r%u.%c")")", reg->array.base >> 2,
 				   "xyzw"[reg->array.base & 0x3]);
