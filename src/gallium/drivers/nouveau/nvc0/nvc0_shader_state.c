@@ -338,7 +338,10 @@ nvc0_tfb_validate(struct nvc0_context *nvc0)
          }
       }
    }
+
+   simple_mtx_lock(&nvc0->screen->state_lock);
    nvc0->state.tfb = tfb;
+   simple_mtx_unlock(&nvc0->screen->state_lock);
 
    if (!(nvc0->dirty_3d & NVC0_NEW_3D_TFB_TARGETS))
       return;
