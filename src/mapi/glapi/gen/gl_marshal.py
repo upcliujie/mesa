@@ -238,7 +238,7 @@ class PrintCode(gl_XML.gl_print_base):
             fixed_params = func.fixed_params
             variable_params = func.variable_params
 
-        out('void')
+        out('uint32_t')
         out(('_mesa_unmarshal_{0}(struct gl_context *ctx, '
              'const struct marshal_cmd_{0} *cmd, const uint64_t *last)').format(func.name))
         out('{')
@@ -281,6 +281,7 @@ class PrintCode(gl_XML.gl_print_base):
                     i += 1
 
             self.print_sync_call(func, unmarshal = 1)
+            out('return cmd->cmd_base.cmd_size;')
         out('}')
 
     def validate_count_or_fallback(self, func):
