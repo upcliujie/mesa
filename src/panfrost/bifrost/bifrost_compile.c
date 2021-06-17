@@ -612,7 +612,8 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 
         ASSERTED nir_alu_type T = nir_intrinsic_src_type(instr);
         assert(nir_alu_type_get_type_size(T) == 32);
-        enum bi_register_format regfmt = BI_REGISTER_FORMAT_AUTO;
+        enum bi_register_format regfmt = //BI_REGISTER_FORMAT_AUTO;
+bi_reg_fmt_for_nir(T);
 
         unsigned imm_index = 0;
         bool immediate = bi_is_intr_immediate(instr, &imm_index, 16);
