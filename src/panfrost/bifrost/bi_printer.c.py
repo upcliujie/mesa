@@ -156,14 +156,7 @@ bi_${mod}_as_str(enum bi_${mod} ${mod})
 void
 bi_print_instr(bi_instr *I, FILE *fp)
 {
-    bi_foreach_dest(I, d) {
-        if (bi_is_null(I->dest[d])) break;
-        if (d > 0) fprintf(fp, ", ");
-
-        bi_print_index(fp, I->dest[d]);
-    }
-
-    fprintf(fp, " = %s", bi_opcode_props[I->op].name);
+    fprintf(fp, "%s", bi_opcode_props[I->op].name);
 
     if (I->table)
         fprintf(fp, ".%s", bi_table_as_str(I->table));
@@ -177,8 +170,16 @@ bi_print_instr(bi_instr *I, FILE *fp)
     case BI_OPCODE_${opcode.replace('.', '_').upper()}:
         ${print_modifiers(root_modifiers, modifiers)}
         fputs(" ", fp);
+
+    % for dest in range(dest_count(ops[opcode])):
+    % if dest > 0:
+        fputs(", ", fp);
+    % endif
+        bi_print_index(fp, I->dest[${dest}]);
+    % endfor
+ 
     % for src in range(src_count(ops[opcode])):
-    % if src > 0:
+    % if src > 0 or dest_count(ops[opcode]) > 0:
         fputs(", ", fp);
     % endif
         bi_print_index(fp, I->src[${src}]);
@@ -208,4 +209,4 @@ instructions = parse_instructions(sys.argv[1], include_pseudo = True)
 ir_instructions = partition_mnemonics(instructions)
 modifier_lists = order_modifiers(ir_instructions)
 
-print(Template(COPYRIGHT + TEMPLATE).render(ops = ir_instructions, modifiers = modifier_lists, src_count = src_count))
+print(Template(COPYRIGHT + TEMPLATE).render(ops = ir_instructions, modifiers = modifier_lists, src_count = src_count, dest_count = dest_count))

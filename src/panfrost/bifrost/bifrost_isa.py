@@ -335,6 +335,10 @@ def src_count(op):
     staging = 1 if (op["staging"] in ["r", "rw"]) else 0
     return op["srcs"] + staging
 
+def dest_count(op):
+    staging = 1 if (op["staging"] in ["w", "rw"]) else 0
+    return op["dests"] + staging
+
 # Parses out the size part of an opocde name
 def typesize(opcode):
     if opcode[-3:] == '128':

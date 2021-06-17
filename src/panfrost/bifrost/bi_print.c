@@ -70,7 +70,7 @@ bi_print_tuple(bi_tuple *tuple, FILE *fp)
         bi_instr *ins[2] = { tuple->fma, tuple->add };
 
         for (unsigned i = 0; i < 2; ++i) {
-                fprintf(fp, (i == 0) ? "\t* " : "\t+ ");
+                fprintf(fp, (i == 0) ? "    *" : "    +");
 
                 if (ins[i])
                         bi_print_instr(ins[i], fp);
@@ -106,12 +106,14 @@ bi_print_clause(bi_clause *clause, FILE *fp)
         if (clause->pcrel_idx != ~0)
                 fprintf(fp, " pcrel(%u)", clause->pcrel_idx);
 
-        fprintf(fp, "\n");
+        fprintf(fp, "\n{\n");
 
         for (unsigned i = 0; i < clause->tuple_count; ++i)
                 bi_print_tuple(&clause->tuples[i], fp);
 
         if (clause->constant_count) {
+                fprintf(fp, "    ");
+
                 for (unsigned i = 0; i < clause->constant_count; ++i)
                         fprintf(fp, "%" PRIx64 " ", clause->constants[i]);
 
@@ -121,7 +123,7 @@ bi_print_clause(bi_clause *clause, FILE *fp)
                 fprintf(fp, "\n");
         }
 
-        fprintf(fp, "\n");
+        fprintf(fp, "}\n\n");
 }
 
 void
