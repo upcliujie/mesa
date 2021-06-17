@@ -64,6 +64,27 @@ struct panfrost_bo_access {
         bool last_is_write;
 };
 
+/* Rebuild the readers array of access to remove the holes, otherwise it will
+ * continue growing in size forever */
+
+static void
+panfrost_readers_cleanup(struct panfrost_bo_access *access)
+{
+        struct panfrost_batch **readers_array = util_dynarray_begin(&access->readers);
+        struct panfrost_batch **new_readers = readers_array;
+
+        util_dynarray_foreach(&access->readers,
+                              struct panfrost_batch *, reader) {
+                if (*reader)
+                        *(new_readers++) = *reader;
+        }
+
+        if (!util_dynarray_resize(&access->readers, struct panfrost_batch *,
+                                  new_readers - readers_array) &&
+            new_readers != readers_array)
+                unreachable("Invalid dynarray access->readers");
+}
+
 static void
 panfrost_batch_init(struct panfrost_context *ctx,
                     const struct pipe_framebuffer_state *key,
@@ -363,6 +384,8 @@ panfrost_batch_update_bo_access(struct panfrost_batch *batch,
                         assert(!util_dynarray_num_elements(&access->readers,
                                                            struct panfrost_batch *));
 
+                        panfrost_readers_cleanup(access);
+
                         /* Add ourselves to the readers array. */
                         util_dynarray_append(&access->readers,
                                              struct panfrost_batch *,
@@ -370,6 +393,8 @@ panfrost_batch_update_bo_access(struct panfrost_batch *batch,
                 }
         } else {
                 assert(!access->writer);
+
+                panfrost_readers_cleanup(access);
 
                 /* Previous access was a read and we want to read this BO.
                  * Add ourselves to the readers array.
