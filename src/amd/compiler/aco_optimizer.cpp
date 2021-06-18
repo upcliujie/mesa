@@ -1698,7 +1698,11 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    case aco_opcode::s_and_b32:
    case aco_opcode::s_and_b64:
       if (fixed_to_exec(instr->operands[1]) && instr->operands[0].isTemp()) {
-         if (ctx.info[instr->operands[0].tempId()].is_uniform_bool()) {
+         if ((ctx.program->stage.num_sw_stages() > 1 || ctx.program->stage.hw == HWStage::NGG) && instr->pass_flags == 1) {
+            /* In case of merged shaders, pass_flags=1 means that all lanes are active (exec=-1), so s_and is unnecessary. */
+            ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[0].getTemp());
+            break;
+         } else if (ctx.info[instr->operands[0].tempId()].is_uniform_bool()) {
             /* Try to get rid of the superfluous s_cselect + s_and_b64 that comes from turning a uniform bool into divergent */
             ctx.info[instr->definitions[1].tempId()].set_temp(ctx.info[instr->operands[0].tempId()].temp);
             ctx.info[instr->definitions[0].tempId()].set_uniform_bool(ctx.info[instr->operands[0].tempId()].temp);
