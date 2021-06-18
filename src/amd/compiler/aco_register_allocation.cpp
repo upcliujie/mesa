@@ -1639,8 +1639,15 @@ PhysReg get_reg_create_vector(ra_ctx& ctx,
       correct_pos_mask = correct_pos_mask_new;
    }
 
-   if (num_moves >= bytes)
+   /* too many moves: try the generic get_reg() function */
+   if (num_moves >= 2 * bytes) {
       return get_reg(ctx, reg_file, temp, parallelcopies, instr);
+   } else if (num_moves > bytes) {
+      DefInfo info(ctx, instr, rc, -1);
+      std::pair<PhysReg, bool> res = get_reg_simple(ctx, reg_file, info);
+      if (res.second)
+         return res.first;
+   }
 
    /* re-enable killed operands which are in the wrong position */
    RegisterFile tmp_file(reg_file);
