@@ -194,11 +194,6 @@ ir3_delay_calc_prera(struct ir3_block *block, struct ir3_instruction *instr)
 		delay = MAX2(delay, d);
 	}
 
-	if (instr->address) {
-		unsigned d = delay_calc_srcn_prera(block, instr->address, instr, 0);
-		delay = MAX2(delay, d);
-	}
-
 	return delay;
 }
 
@@ -217,9 +212,15 @@ post_ra_reg_elems(struct ir3_register *reg)
 static unsigned
 post_ra_reg_num(struct ir3_register *reg)
 {
+	unsigned num = reg->num;
 	if (reg->flags & IR3_REG_RELATIV)
-		return reg->array.base;
-	return reg->num;
+		num = reg->array.base;
+	/* Special regs like a0.x which happen to be half-regs would overlap with
+	 * certain normal full regs, so remap them to avoid this.
+	 */
+	if ((reg->flags & IR3_REG_HALF) && num >= 48 * 4)
+		num *= 2;
+	return num;
 }
 
 static unsigned
@@ -317,11 +318,6 @@ delay_calc_postra(struct ir3_block *block,
 			continue;
 
 		unsigned new_delay = 0;
-
-		if (consumer->address == assigner) {
-			unsigned addr_delay = ir3_delayslots(assigner, consumer, 0, soft);
-			new_delay = MAX2(new_delay, addr_delay);
-		}
 
 		if (dest_regs(assigner) != 0) {
 			foreach_src_n (src, n, consumer) {
