@@ -153,7 +153,9 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 		 * bindless, irrespective of the precision of other srcs. The
 		 * tex/samp src is the first src reg when .s2en is set
 		 */
-		if ((instr->flags & IR3_INSTR_S2EN) && (n < 2)) {
+		if (reg == instr->address) {
+			validate_assert(ctx, reg->flags & IR3_REG_HALF);
+		} else if ((instr->flags & IR3_INSTR_S2EN) && (n < 2)) {
 			if (n == 0) {
 				if (instr->flags & IR3_INSTR_B)
 					validate_assert(ctx, !(reg->flags & IR3_REG_HALF));
