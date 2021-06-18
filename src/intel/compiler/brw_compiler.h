@@ -1994,6 +1994,21 @@ brw_compute_first_urb_slot_required(uint64_t inputs_read,
    return 0;
 }
 
+/**
+ * This enum is used as the base indice of the nir_load_topology_id_intel
+ * intrinsic. This is used to return different values based on some aspect of
+ * the topology of the device.
+ */
+enum brw_topology_id
+{
+   /* A value based of the DSS identifier the shader is currently running on.
+    * Be mindful that the DSS ID can be higher than the total number of DSS on
+    * the device. This is because of the fusing that can occur on different
+    * parts.
+    */
+   BRW_TOPOLOGY_ID_DSS,
+};
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
