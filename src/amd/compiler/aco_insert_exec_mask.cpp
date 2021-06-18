@@ -784,6 +784,21 @@ void process_instructions(exec_ctx& ctx, Block* block,
          instr->operands[0] = bld.scc(exit_cond);
          state = Exact;
 
+      } else if (instr->opcode == aco_opcode::p_elect) {
+         Definition dst = instr->definitions[0];
+
+         if (all_lanes_enabled) {
+            instr.reset(create_instruction<Pseudo_instruction>(aco_opcode::p_parallelcopy, Format::PSEUDO, 1, 1));
+            instr->operands[0] = Operand(1u, dst.size() == 2);
+            instr->definitions[0] = dst;
+         } else {
+            Temp first_lane_idx = bld.sop1(Builder::s_ff1_i32, bld.def(s1), Operand(exec, bld.lm));
+            instr.reset(create_instruction<SOP2_instruction>(bld.w64or32(Builder::s_lshl), Format::SOP2, 2, 2));
+            instr->operands[0] = Operand(1u);
+            instr->operands[1] = Operand(first_lane_idx);
+            instr->definitions[0] = dst;
+            instr->definitions[1] = bld.def(s1, scc);
+         }
       } else if (all_lanes_enabled &&
                  (instr->opcode == aco_opcode::s_and_b64 || instr->opcode == aco_opcode::s_and_b32) &&
                  instr->operands[1].isFixed() && instr->operands[1].physReg() == exec) {
