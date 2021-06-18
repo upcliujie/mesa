@@ -673,6 +673,38 @@ iris_resource_configure_main(const struct iris_screen *screen,
    return true;
 }
 
+static bool
+iris_get_ccs_surf(const struct isl_device *dev,
+                  const struct isl_surf *surf,
+                  struct isl_surf *aux_surf,
+                  struct isl_surf *extra_aux_surf,
+                  uint32_t row_pitch_B)
+{
+   assert(aux_surf);
+
+   /* An uninitialized surface is needed to get a CCS surface. */
+   if (aux_surf->size_B > 0 &&
+       (extra_aux_surf == NULL || extra_aux_surf->size_B > 0)) {
+      return false;
+   }
+
+   /* A surface can't have two CCS surfaces. */
+   if (aux_surf->usage & ISL_SURF_USAGE_CCS_BIT)
+      return false;
+
+   /* Combined Hiz+CCS or MCS+CCS is only available starting with Tigerlake */
+   assert(aux_surf->size_B == 0 || ISL_GFX_VER(dev) >= 12);
+
+   /* With depth surfaces, HIZ is required for CCS. */
+   if ((surf->usage & ISL_SURF_USAGE_DEPTH_BIT) &&
+       aux_surf->tiling != ISL_TILING_HIZ)
+      return false;
+
+   struct isl_surf *ccs_surf =
+      aux_surf->size_B > 0 ? extra_aux_surf : aux_surf;
+   return isl_surf_get_ccs_surf(dev, surf, ccs_surf, row_pitch_B);
+}
+
 /**
  * Configure aux for the resource, but don't allocate it. For images which
  * might be shared with modifiers, we must allocate the image and aux data in
@@ -705,8 +737,8 @@ iris_resource_configure_aux(struct iris_screen *screen,
    const bool has_ccs =
       ((!res->mod_info && !(INTEL_DEBUG & DEBUG_NO_RBC)) ||
        (res->mod_info && res->mod_info->aux_usage != ISL_AUX_USAGE_NONE)) &&
-      isl_surf_get_ccs_surf(&screen->isl_dev, &res->surf, &res->aux.surf,
-                            &res->aux.extra_aux.surf, 0);
+      iris_get_ccs_surf(&screen->isl_dev, &res->surf, &res->aux.surf,
+                        &res->aux.extra_aux.surf, 0);
 
    /* Having both HIZ and MCS is impossible. */
    assert(!has_mcs || !has_hiz);
