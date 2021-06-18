@@ -277,10 +277,11 @@ BEGIN_TEST(regalloc.linear_vgpr.live_range_split.get_reg_create_vector)
    //! v1: %log_tmp:v[1] = p_unit_test
    Temp log_tmp = bld.pseudo(aco_opcode::p_unit_test, bld.def(v1, reg_v1));
 
-   //! v2: %_:v[2-3] = p_create_vector v1: undef, %log_tmp:v[1]
+   //! lv1: %lin_tmp2:v[2] = p_parallelcopy %lin_tmp1:v[0]
+   //! v2: %_:v[0-1] = p_create_vector v1: undef, %log_tmp:v[1]
    bld.pseudo(aco_opcode::p_create_vector, bld.def(v2), Operand(v1), log_tmp);
 
-   //! p_unit_test %lin_tmp2:v[0]
+   //! p_unit_test %lin_tmp2:v[2]
    bld.pseudo(aco_opcode::p_unit_test, lin_tmp);
 
    finish_ra_test(ra_test_policy());
