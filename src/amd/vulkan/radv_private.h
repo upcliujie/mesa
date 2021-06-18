@@ -1856,6 +1856,8 @@ struct radv_image {
    unsigned queue_family_mask;
    bool exclusive;
    bool shareable;
+   bool pipe_misaligned;
+   bool l2_coherent;
 
    /* Set when bound */
    struct radeon_winsys_bo *bo;
