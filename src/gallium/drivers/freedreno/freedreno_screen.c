@@ -96,6 +96,7 @@ static const struct debug_named_value fd_debug_options[] = {
    {"layout",    FD_DBG_LAYOUT,   "Dump resource layouts"},
    {"nofp16",    FD_DBG_NOFP16,   "Disable mediump precision lowering"},
    {"nohw",      FD_DBG_NOHW,     "Disable submitting commands to the HW"},
+   {"cachedlinear", FD_DBG_CACHEDLINEAR, "Used cached linear resources (to speed up dEQP/piglit)"},
    DEBUG_NAMED_VALUE_END
 };
 /* clang-format on */

@@ -200,6 +200,13 @@ realloc_bo(struct fd_resource *rsc, uint32_t size)
       COND(prsc->bind & PIPE_BIND_SCANOUT, FD_BO_SCANOUT);
    /* TODO other flags? */
 
+   /* Special mode to speed up readpix/etc when there is no staging
+    * transfer blit, ie. for piglit/dEQP which is more CPU limited
+    * than GPU limited.
+    */
+   if (FD_DBG(CACHEDLINEAR) && !rsc->layout.tile_mode)
+      flags |= FD_BO_CACHED_COHERENT;
+
    /* if we start using things other than write-combine,
     * be sure to check for PIPE_RESOURCE_FLAG_MAP_COHERENT
     */
