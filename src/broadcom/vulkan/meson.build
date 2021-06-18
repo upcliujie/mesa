@@ -114,7 +114,7 @@ per_version_libs = []
 foreach ver : v3d_versions
   per_version_libs += static_library(
     'v3dv-v' + ver,
-    [files_per_version, v3d_xml_pack],
+    [files_per_version, v3d_xml_pack, v3dv_entrypoints[0]],
     include_directories : [
       inc_src, inc_include, inc_gallium, inc_gallium_aux, inc_broadcom,
       inc_compiler, inc_util, inc_vulkan_wsi,
