@@ -2224,6 +2224,67 @@ bool combine_constant_comparison_ordering(opt_ctx &ctx, aco_ptr<Instruction>& in
    return true;
 }
 
+/* s_and(a, s_cselect(-1, 0, b)) -> s_cselect(a, 0, b)
+ * s_or(a, s_cselect(-1, 0, b)) -> s_cselect(-1, a, b)
+ */
+bool combine_cselect_divergent_bool(opt_ctx &ctx, aco_ptr<Instruction>& instr)
+{
+   /* Filter unsuitable instructions. */
+   if (!instr->isSALU() || instr->operands.size() < 2 || instr->definitions.size() < 2)
+      return false;
+   
+   /* When SCC is used, can't do this. */
+   if (ctx.uses[instr->definitions[1].tempId()] > 0)
+      return false;
+
+   /* When both are uniform, to_uniform_bool_instr handles this, when both are divergent there is nothing to do. */
+   bool op0_uniform = instr->operands[0].isTemp() && ctx.info[instr->operands[0].tempId()].is_uniform_bool();
+   bool op1_uniform = instr->operands[1].isTemp() && ctx.info[instr->operands[1].tempId()].is_uniform_bool();
+   if (op0_uniform == op1_uniform)
+      return false;
+
+   Temp uniform_scc_tmp = op0_uniform ? ctx.info[instr->operands[0].tempId()].temp : ctx.info[instr->operands[1].tempId()].temp;
+   Operand other_operand = op0_uniform ? instr->operands[1] : instr->operands[0];
+
+   switch (instr->opcode) {
+   case aco_opcode::s_and_b32:
+   case aco_opcode::s_and_b64:
+   case aco_opcode::s_or_b32:
+   case aco_opcode::s_or_b64:
+      break;
+   default:
+      return false;
+   }
+
+   /* Create an s_cselect which will substitute the divergent boolean instruction. */
+   aco_opcode cselect_opcode = instr->opcode == aco_opcode::s_and_b32 || instr->opcode == aco_opcode::s_or_b32 ? aco_opcode::s_cselect_b32 : aco_opcode::s_cselect_b64;
+   Instruction *cselect_instr = create_instruction<SOP2_instruction>(cselect_opcode, Format::SOP2, 3, 1);
+   cselect_instr->definitions[0] = instr->definitions[0];
+   cselect_instr->operands[2] = Operand(uniform_scc_tmp, scc);
+   
+   if (instr->opcode == aco_opcode::s_and_b32 || instr->opcode == aco_opcode::s_and_b64) {
+      cselect_instr->operands[0] = other_operand;
+      cselect_instr->operands[1] = Operand(0u);
+   } else if (instr->opcode == aco_opcode::s_or_b32 || instr->opcode == aco_opcode::s_or_b64) {
+      cselect_instr->operands[0] = Operand(-1u);
+      cselect_instr->operands[1] = other_operand;
+   } else {
+      unreachable("unimplemented input instruction in combine_cselect_divergent_bool");
+   }
+
+   /* When the uniform bool has the SCC invert flag, also use that to our advantage here:
+    * s_and(a, s_cselect(-1, 0, invert(c))) -> s_cselect(0, a, c)
+    * s_or(a, s_cselect(-1, 0, invert(c))) -> s_cselect(a, -1, c)
+    */
+   if (ctx.info[uniform_scc_tmp.id()].is_scc_invert()) {
+      cselect_instr->operands[2] = Operand(ctx.info[uniform_scc_tmp.id()].temp, scc);
+      std::swap(cselect_instr->operands[0], cselect_instr->operands[1]);
+   }
+
+   instr.reset(cselect_instr);
+   return true;
+}
+
 /* s_andn2(exec, cmp(a, b)) -> get_inverse(cmp)(a, b) */
 bool combine_inverse_comparison(opt_ctx &ctx, aco_ptr<Instruction>& instr)
 {
@@ -3573,7 +3634,8 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       if (combine_ordering_test(ctx, instr)) ;
       else if (combine_comparison_ordering(ctx, instr)) ;
       else if (combine_constant_comparison_ordering(ctx, instr)) ;
-      else combine_salu_n2(ctx, instr);
+      else if (combine_salu_n2(ctx, instr)) ;
+      else combine_cselect_divergent_bool(ctx, instr);
    } else if (instr->opcode == aco_opcode::v_and_b32) {
       combine_and_subbrev(ctx, instr);
    } else {
