@@ -261,10 +261,10 @@ print_instr(struct ir3_instruction *instr, int lvl)
 	if (is_tex(instr)) {
 		printf(" (%s)(", type_name(instr->cat5.type));
 		for (unsigned i = 0; i < 4; i++)
-			if (instr->regs[0]->wrmask & (1 << i))
+			if (instr->dsts[0]->wrmask & (1 << i))
 				printf("%c", "xyzw"[i]);
 		printf(")");
-	} else if ((instr->regs_count > 0) && (instr->opc != OPC_B)) {
+	} else if ((instr->dsts_count > 0 || instr->srcs_count > 0) && (instr->opc != OPC_B)) {
 		/* NOTE the b(ranch) instruction has a suffix, which is
 		 * handled below
 		 */
@@ -272,14 +272,22 @@ print_instr(struct ir3_instruction *instr, int lvl)
 	}
 
 	if (!is_flow(instr) || instr->opc == OPC_END || instr->opc == OPC_CHMASK) {
-		for (unsigned i = 0, n = 0; i < instr->regs_count; i++) {
-			struct ir3_register *reg = instr->regs[i];
-
-			if ((i == 0) && (dest_regs(instr) == 0))
+		bool first = true;
+		for (unsigned i = 0; i < instr->dsts_count; i++) {
+			struct ir3_register *reg = instr->dsts[i];
+			if (dest_regs(instr) == 0)
 				continue;
-
-			printf(n++ ? ", " : "");
+			if (!first)
+				printf(", ");
 			print_reg_name(instr, reg);
+			first = false;
+		}
+		for (unsigned i = 0; i < instr->srcs_count; i++) {
+			struct ir3_register *reg = instr->srcs[i];
+			if (!first)
+				printf(", ");
+			print_reg_name(instr, reg);
+			first = false;
 		}
 	}
 
@@ -328,14 +336,14 @@ print_instr(struct ir3_instruction *instr, int lvl)
 				printf(" %sp0.%c (",
 						instr->cat0.inv1 ? "!" : "",
 						"xyzw"[instr->cat0.comp1 & 0x3]);
-				print_reg_name(instr, instr->regs[1]);
+				print_reg_name(instr, instr->srcs[0]);
 				printf("), ");
 			}
 			if (brinfo[instr->cat0.brtype].nsrc >= 2) {
 				printf(" %sp0.%c (",
 						instr->cat0.inv2 ? "!" : "",
 						"xyzw"[instr->cat0.comp2 & 0x3]);
-				print_reg_name(instr, instr->regs[2]);
+				print_reg_name(instr, instr->srcs[1]);
 				printf("), ");
 			}
 		}
