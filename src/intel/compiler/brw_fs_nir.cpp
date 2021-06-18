@@ -5750,6 +5750,56 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          /* Get rid of anything below dualsubslice */
          bld.SHR(retype(dest, BRW_REGISTER_TYPE_UD), raw_id, brw_imm_ud(9));
          break;
+      case BRW_TOPOLOGY_ID_EU_THREAD_SIMD: {
+         /* This topology is only useful for ray queries at the moment and
+          * those don't run in SIMD32.
+          */
+         assert(bld.dispatch_width() <= 16);
+         fs_reg dst = retype(dest, BRW_REGISTER_TYPE_UD);
+
+         /* EU[3:0] << 7
+          *
+          * The 4bit EU[3:0] we need to build for ray query memory addresses
+          * computations is a bit odd :
+          *
+          *   EU[1:0] = raw_id[5:4] (identified as EUID[1:0])
+          *   EU[2]   = raw_id[8]   (identified as SubSlice ID)
+          *   EU[3]   = raw_id[7]   (identified as EUID[2] or Row ID)
+          */
+         {
+            fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD);
+            bld.AND(tmp, raw_id, brw_imm_ud(INTEL_MASK(7, 7)));
+            bld.SHL(dst, tmp, brw_imm_ud(3));
+            bld.AND(tmp, raw_id, brw_imm_ud(INTEL_MASK(8, 8)));
+            bld.SHL(tmp, tmp, brw_imm_ud(1));
+            bld.OR(dst, dst, tmp);
+            bld.AND(tmp, raw_id, brw_imm_ud(INTEL_MASK(5, 4)));
+            bld.SHL(tmp, tmp, brw_imm_ud(3));
+            bld.OR(dst, dst, tmp);
+         }
+
+         /* ThreadID[2:0] << 4 (ThreadID comes from raw_id[2:0]) */
+         {
+            bld.AND(raw_id, raw_id, brw_imm_ud(INTEL_MASK(2, 0)));
+            bld.SHL(raw_id, raw_id, brw_imm_ud(4));
+            bld.OR(dst, dst, raw_id);
+         }
+
+         /* LaneID[0:3] << 0 (We build up LaneID by putting the right number
+          *                   in each lane)
+          */
+         const fs_builder ibld = bld.exec_all().group(8, 0);
+         fs_reg tmp = ibld.vgrf(BRW_REGISTER_TYPE_UW);
+         ibld.MOV(tmp, brw_imm_v(0x76543210));
+         ibld.ADD(horiz_offset(dst, 0 * 8), horiz_offset(dst, 0 * 8), tmp);
+         /* By adding 8 in the upper part of the register, it's like doing the
+          * previous ADD with 0xfedcba98 instead of 0x76543210, which saves us
+          * a MOV.
+          */
+         if (bld.dispatch_width() == 16)
+            ibld.ADD(horiz_offset(dst, 1 * 8), horiz_offset(dst, 0 * 8), brw_imm_ud(8));
+         break;
+      }
       default:
          unreachable("Invalid topology id type");
       }
