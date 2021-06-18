@@ -1628,6 +1628,7 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
    PhysReg best_pos{0xFFF};
    unsigned num_moves = 0xFF;
    bool best_war_hint = true;
+   uint32_t correct_pos_mask = 0;
 
    /* test for each operand which definition placement causes the least shuffle instructions */
    for (unsigned i = 0, offset = 0; i < instr->operands.size();
@@ -1689,12 +1690,12 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
          continue;
 
       /* count operands in wrong positions */
+      uint32_t correct_pos_mask_new = 0;
       for (unsigned j = 0, offset2 = 0; j < instr->operands.size();
            offset2 += instr->operands[j].bytes(), j++) {
-         if (j == i || !instr->operands[j].isTemp() ||
-             instr->operands[j].getTemp().type() != rc.type())
-            continue;
-         if (instr->operands[j].physReg().reg_b != reg_win.lo() * 4 + offset2)
+         if (instr->operands[j].physReg().reg_b == reg_win.lo() * 4 + offset2)
+            correct_pos_mask_new |= 1 << j;
+         else
             k += instr->operands[j].bytes();
       }
       bool aligned = rc == RegClass::v4 && reg_win.lo() % 4 == 0;
@@ -1704,6 +1705,7 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
       best_pos = reg_win.lo();
       num_moves = k;
       best_war_hint = war_hint;
+      correct_pos_mask = correct_pos_mask_new;
    }
 
    if (num_moves >= bytes)
@@ -1711,11 +1713,13 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
 
    /* re-enable killed operands which are in the wrong position */
    RegisterFile tmp_file(reg_file);
-   for (unsigned i = 0, offset = 0; i < instr->operands.size();
-        offset += instr->operands[i].bytes(), i++) {
-      if (instr->operands[i].isTemp() && instr->operands[i].isFirstKillBeforeDef() &&
-          instr->operands[i].physReg().reg_b != best_pos.reg_b + offset)
-         tmp_file.fill(instr->operands[i]);
+   for (Operand& op : instr->operands) {
+      if (op.isTemp() && op.isFirstKillBeforeDef())
+         tmp_file.fill(op);
+   }
+   for (unsigned i = 0; i < instr->operands.size(); i++) {
+      if ((correct_pos_mask >> i) & 1u && instr->operands[i].isKill())
+         tmp_file.clear(instr->operands[i]);
    }
 
    /* collect variables to be moved */
@@ -1727,7 +1731,7 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
       if (!instr->operands[i].isTemp() || !instr->operands[i].isFirstKillBeforeDef() ||
           instr->operands[i].getTemp().type() != rc.type())
          continue;
-      bool correct_pos = instr->operands[i].physReg().reg_b == best_pos.reg_b + offset;
+      bool correct_pos = !tmp_file.test(instr->operands[i].physReg(), instr->operands[i].bytes());
       /* GFX9+: move killed operands which aren't yet at the correct position
        * Moving all killed operands generally leads to more register swaps.
        * This is only done on GFX9+ because of the cheap v_swap instruction.
@@ -1735,9 +1739,6 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
       if (ctx.program->chip_class >= GFX9 && !correct_pos) {
          vars.emplace(instr->operands[i].bytes(), instr->operands[i].tempId());
          tmp_file.clear(instr->operands[i]);
-         /* fill operands which are in the correct position to avoid overwriting */
-      } else if (correct_pos) {
-         tmp_file.fill(instr->operands[i]);
       }
    }
    bool success = false;
