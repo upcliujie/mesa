@@ -396,6 +396,7 @@ static struct ir3_instruction *instr_create(struct ir3_block *block, int ndst, i
 	instr = (struct ir3_instruction *)ptr;
 	ptr  += sizeof(*instr);
 	instr->regs = (struct ir3_register **)ptr;
+	instr->dsts = (struct ir3_register **)ptr;
 
 #ifdef DEBUG
 	instr->regs_max = ndst + nsrc;
@@ -484,6 +485,8 @@ struct ir3_register * ir3_src_create(struct ir3_instruction *instr,
 #ifdef DEBUG
 	debug_assert(instr->srcs_count < instr->srcs_max);
 #endif
+	if (instr->srcs_count == 0)
+		instr->srcs = instr->regs + instr->dsts_count;
 	instr->srcs_count++;
 	return ir3_reg_create(instr, num, flags);
 }
