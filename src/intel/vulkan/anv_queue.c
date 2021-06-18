@@ -890,25 +890,11 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
    return result;
 }
 
-/* Transfer ownership of temporary semaphores from the VkSemaphore object to
- * the anv_queue_submit object. Those temporary semaphores are then freed in
- * anv_queue_submit_free() once the driver is finished with them.
- */
 static VkResult
-maybe_transfer_temporary_semaphore(struct anv_queue_submit *submit,
-                                   struct anv_semaphore *semaphore,
-                                   struct anv_semaphore_impl **out_impl)
+add_temporary_semaphore(struct anv_queue_submit *submit,
+                        struct anv_semaphore_impl *impl,
+                        struct anv_semaphore_impl **out_impl)
 {
-   struct anv_semaphore_impl *impl = &semaphore->temporary;
-
-   if (impl->type == ANV_SEMAPHORE_TYPE_NONE) {
-      *out_impl = &semaphore->permanent;
-      return VK_SUCCESS;
-   }
-
-   /* BO backed timeline semaphores cannot be temporary. */
-   assert(impl->type != ANV_SEMAPHORE_TYPE_TIMELINE);
-
    /*
     * There is a requirement to reset semaphore to their permanent state after
     * submission. From the Vulkan 1.0.53 spec:
@@ -943,6 +929,96 @@ maybe_transfer_temporary_semaphore(struct anv_queue_submit *submit,
    submit->temporary_semaphores[submit->temporary_semaphore_count++] = *impl;
    *out_impl = &submit->temporary_semaphores[submit->temporary_semaphore_count - 1];
 
+   return VK_SUCCESS;
+}
+
+static VkResult
+clone_syncobj_dma_fence(struct anv_device *device,
+                        struct anv_semaphore_impl *in,
+                        struct anv_semaphore_impl *out)
+{
+   /* No need to cleanup output->syncobj on error as it's part of the
+    * anv_queue_submit and will be dealt with in anv_queue_submit_free().
+    */
+   out->syncobj = anv_gem_syncobj_create(device, 0);
+   if (!out->syncobj)
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   int fd = anv_gem_syncobj_export_sync_file(device, in->syncobj);
+   if (fd < 0)
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   int ret = anv_gem_syncobj_import_sync_file(device,
+                                              out->syncobj,
+                                              fd);
+   close(fd);
+   if (ret < 0)
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   return VK_SUCCESS;
+}
+
+/* Clone semaphore in the following cases :
+ *
+ *   - We're dealing with a temporary semaphore that needs to be reset to
+ *     follow the Vulkan spec requirements.
+ *
+ *   - We're dealing with a syncobj semaphore and are using threaded
+ *     submission to i915. Because we might want to export the semaphore right
+ *     after calling vkQueueSubmit, we need to make sure it doesn't contain a
+ *     staled DMA fence. In this case we reset the original syncobj, but make
+ *     a clone of the contained DMA fence into another syncobj for submission
+ *     to i915.
+ *
+ * Those temporary semaphores are later freed in anv_queue_submit_free().
+ */
+static VkResult
+maybe_transfer_temporary_semaphore(struct anv_queue_submit *submit,
+                                   struct anv_device *device,
+                                   struct anv_semaphore *semaphore,
+                                   struct anv_semaphore_impl **out_impl)
+{
+   struct anv_semaphore_impl *impl = &semaphore->temporary;
+   VkResult result;
+
+   if (impl->type == ANV_SEMAPHORE_TYPE_NONE) {
+      /* No temporary, use the permanent semaphore. */
+      impl = &semaphore->permanent;
+
+      /* We need to reset syncobj before submission so that they do not
+       * contain a stale DMA fence. When using a submission thread this is
+       * problematic because the i915 EXECBUF ioctl happens after
+       * vkQueueSubmit has returned. A subsequent vkQueueSubmit() call could
+       * reset the syncobj that i915 is about to see from the submission
+       * thread.
+       *
+       * To avoid this, clone the DMA fence in the semaphore, into a another
+       * syncobj that the submission thread will destroy when it's done with
+       * it.
+       */
+      if (device->physical->has_thread_submit &&
+          impl->type == ANV_SEMAPHORE_TYPE_DRM_SYNCOBJ) {
+         /* Create a copy of the anv_semaphore structure. */
+         result = add_temporary_semaphore(submit, impl, out_impl);
+         if (result != VK_SUCCESS)
+            return result;
+
+         /* Put a new syncobj containing the same DMA fence in the copy. */
+         return clone_syncobj_dma_fence(device, impl, *out_impl);
+      }
+
+      *out_impl = impl;
+      return VK_SUCCESS;
+   }
+
+   /* BO backed timeline semaphores cannot be temporary. */
+   assert(impl->type != ANV_SEMAPHORE_TYPE_TIMELINE);
+
+   /* Copy anv_semaphore_impl into anv_queue_submit. */
+   result = add_temporary_semaphore(submit, impl, out_impl);
+   if (result != VK_SUCCESS)
+      return result;
+
    /* Clear the incoming semaphore */
    impl->type = ANV_SEMAPHORE_TYPE_NONE;
 
@@ -963,7 +1039,7 @@ anv_queue_submit_add_in_semaphores(struct anv_queue_submit *submit,
       ANV_FROM_HANDLE(anv_semaphore, semaphore, in_semaphores[i]);
       struct anv_semaphore_impl *impl;
 
-      result = maybe_transfer_temporary_semaphore(submit, semaphore, &impl);
+      result = maybe_transfer_temporary_semaphore(submit, device, semaphore, &impl);
       if (result != VK_SUCCESS)
          return result;
 
