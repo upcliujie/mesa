@@ -1017,6 +1017,9 @@ struct anv_queue_submit {
    uint32_t                                  signal_timeline_array_length;
    uint64_t *                                signal_timeline_values;
 
+   /* Whether or not to submit this from the submission thread. */
+   bool                                      no_submit_thread;
+
    int                                       in_fence;
    bool                                      need_out_fence;
    int                                       out_fence;
@@ -1072,6 +1075,8 @@ struct anv_queue {
     * thread when the queued_submits list is empty.
     */
    pthread_cond_t                            consumer_cond;
+
+   bool                                      drained;
 
    /*
     * A list of struct anv_queue_submit to be submitted to i915.

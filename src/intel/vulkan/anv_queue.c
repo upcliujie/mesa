@@ -444,12 +444,29 @@ anv_queue_task(void *_queue)
    return NULL;
 }
 
+static void
+anv_queue_drain(struct anv_queue *queue)
+{
+   if (queue->drained)
+      return;
+
+   pthread_mutex_lock(&queue->mutex);
+   if (!list_is_empty(&queue->queued_submits))
+      pthread_cond_wait(&queue->consumer_cond, &queue->mutex);
+   assert(list_is_empty(&queue->queued_submits));
+   pthread_mutex_unlock(&queue->mutex);
+
+   queue->drained = true;
+}
+
 static VkResult
 anv_queue_submit_post(struct anv_queue *queue,
                       struct anv_queue_submit **_submit,
                       bool flush_queue)
 {
    struct anv_queue_submit *submit = *_submit;
+   VkResult result;
+
 
    /* Wait before signal behavior means we might keep alive the
     * anv_queue_submit object a bit longer, so transfer the ownership to the
@@ -458,10 +475,19 @@ anv_queue_submit_post(struct anv_queue *queue,
    *_submit = NULL;
    if (queue->device->has_thread_submit) {
       pthread_mutex_lock(&queue->mutex);
-      pthread_cond_broadcast(&queue->producer_cond);
-      list_addtail(&submit->link, &queue->queued_submits);
+      if (submit->no_submit_thread) {
+         /* Things should have been drained before. */
+         assert(queue->drained);
+         assert(list_is_empty(&queue->queued_submits));
+         result = anv_queue_submit_process_and_free(queue, submit);
+      } else {
+         pthread_cond_broadcast(&queue->producer_cond);
+         list_addtail(&submit->link, &queue->queued_submits);
+         queue->drained = false;
+         result = VK_SUCCESS;
+      }
       pthread_mutex_unlock(&queue->mutex);
-      return VK_SUCCESS;
+      return result;
    } else {
       pthread_mutex_lock(&queue->device->mutex);
       list_addtail(&submit->link, &queue->queued_submits);
@@ -998,13 +1024,13 @@ anv_queue_submit_add_out_semaphore(struct anv_queue *queue,
 
    switch (impl->type) {
    case ANV_SEMAPHORE_TYPE_DRM_SYNCOBJ: {
-      /*
-       * Reset the content of the syncobj so it doesn't contain a previously
-       * signaled dma-fence, until one is added by EXECBUFFER by the
-       * submission thread.
+      /* When using binary syncobjs we do the submission to i915 in the
+       * application thread to ensure that after returning from
+       * vkQueueSubmit() all the signaled syncobj have been set with the
+       * appropriate underlying DMA-fence.
        */
-      anv_gem_syncobj_reset(queue->device, impl->syncobj);
-
+      anv_queue_drain(queue);
+      submit->no_submit_thread = true;
       result = anv_queue_submit_add_syncobj(queue, submit, impl->syncobj,
                                             I915_EXEC_FENCE_SIGNAL,
                                             0);
