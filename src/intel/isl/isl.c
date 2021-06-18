@@ -2143,31 +2143,13 @@ isl_surf_supports_ccs(const struct isl_device *dev,
 bool
 isl_surf_get_ccs_surf(const struct isl_device *dev,
                       const struct isl_surf *surf,
-                      struct isl_surf *aux_surf,
-                      struct isl_surf *extra_aux_surf,
+                      struct isl_surf *ccs_surf,
                       uint32_t row_pitch_B)
 {
-   assert(aux_surf);
-
-   /* An uninitialized surface is needed to get a CCS surface. */
-   if (aux_surf->size_B > 0 &&
-       (extra_aux_surf == NULL || extra_aux_surf->size_B > 0)) {
-      return false;
-   }
-
-   /* A surface can't have two CCS surfaces. */
-   if (aux_surf->usage & ISL_SURF_USAGE_CCS_BIT)
-      return false;
-
    if (!isl_surf_supports_ccs(dev, surf))
       return false;
 
    if (ISL_GFX_VER(dev) >= 12) {
-      /* With depth surfaces, HIZ is required for CCS. */
-      if (surf->usage & ISL_SURF_USAGE_DEPTH_BIT &&
-          aux_surf->tiling != ISL_TILING_HIZ)
-         return false;
-
       enum isl_format ccs_format;
       switch (isl_format_get_layout(surf->format)->bpb) {
       case 8:     ccs_format = ISL_FORMAT_GFX12_CCS_8BPP_Y0;    break;
@@ -2182,8 +2164,6 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
       /* On Gfx12, the CCS is a scaled-down version of the main surface. We
        * model this as the CCS compressing a 2D-view of the entire surface.
        */
-      struct isl_surf *ccs_surf =
-         aux_surf->size_B > 0 ? extra_aux_surf : aux_surf;
       const bool ok =
          isl_surf_init(dev, ccs_surf,
                        .dim = ISL_SURF_DIM_2D,
@@ -2227,7 +2207,7 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
          unreachable("Invalid tiling format");
       }
 
-      return isl_surf_init(dev, aux_surf,
+      return isl_surf_init(dev, ccs_surf,
                            .dim = surf->dim,
                            .format = ccs_format,
                            .width = surf->logical_level0_px.width,
