@@ -184,7 +184,7 @@ static void print_ssa_name(struct ir3_register *reg, bool dst)
 		printf("("SYN_REG("r%u.%c")")", reg_num(reg), "xyzw"[reg_comp(reg)]);
 }
 
-static void print_reg_name(struct ir3_instruction *instr, struct ir3_register *reg)
+static void print_reg_name(struct ir3_instruction *instr, struct ir3_register *reg, bool dest)
 {
 	if ((reg->flags & (IR3_REG_FABS | IR3_REG_SABS)) &&
 			(reg->flags & (IR3_REG_FNEG | IR3_REG_SNEG | IR3_REG_BNOT)))
@@ -218,7 +218,7 @@ static void print_reg_name(struct ir3_instruction *instr, struct ir3_register *r
 		printf(SYN_IMMED("imm[%f,%d,0x%x]"), reg->fim_val, reg->iim_val, reg->iim_val);
 	} else if (reg->flags & IR3_REG_ARRAY) {
 		if (reg->flags & IR3_REG_SSA) {
-			print_ssa_name(reg, reg->flags & IR3_REG_DEST);
+			print_ssa_name(reg, dest);
 			printf(":");
 		}
 		printf(SYN_ARRAY("arr[id=%u, offset=%d, size=%u]"), reg->array.id,
@@ -227,7 +227,7 @@ static void print_reg_name(struct ir3_instruction *instr, struct ir3_register *r
 			printf("("SYN_REG("r%u.%c")")", reg->array.base >> 2,
 				   "xyzw"[reg->array.base & 0x3]);
 	} else if (reg->flags & IR3_REG_SSA) {
-		print_ssa_name(reg, reg->flags & IR3_REG_DEST);
+		print_ssa_name(reg, dest);
 	} else if (reg->flags & IR3_REG_RELATIV) {
 		if (reg->flags & IR3_REG_CONST)
 			printf(SYN_CONST("c<a0.x + %d>"), reg->array.offset);
@@ -279,14 +279,14 @@ print_instr(struct ir3_instruction *instr, int lvl)
 				continue;
 			if (!first)
 				printf(", ");
-			print_reg_name(instr, reg);
+			print_reg_name(instr, reg, true);
 			first = false;
 		}
 		for (unsigned i = 0; i < instr->srcs_count; i++) {
 			struct ir3_register *reg = instr->srcs[i];
 			if (!first)
 				printf(", ");
-			print_reg_name(instr, reg);
+			print_reg_name(instr, reg, false);
 			first = false;
 		}
 	}
@@ -336,14 +336,14 @@ print_instr(struct ir3_instruction *instr, int lvl)
 				printf(" %sp0.%c (",
 						instr->cat0.inv1 ? "!" : "",
 						"xyzw"[instr->cat0.comp1 & 0x3]);
-				print_reg_name(instr, instr->srcs[0]);
+				print_reg_name(instr, instr->srcs[0], false);
 				printf("), ");
 			}
 			if (brinfo[instr->cat0.brtype].nsrc >= 2) {
 				printf(" %sp0.%c (",
 						instr->cat0.inv2 ? "!" : "",
 						"xyzw"[instr->cat0.comp2 & 0x3]);
-				print_reg_name(instr, instr->srcs[1]);
+				print_reg_name(instr, instr->srcs[1], false);
 				printf("), ");
 			}
 		}
