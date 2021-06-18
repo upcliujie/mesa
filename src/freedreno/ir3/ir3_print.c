@@ -296,13 +296,6 @@ print_instr(struct ir3_instruction *instr, int lvl)
 		}
 	}
 
-	if (instr->address) {
-		printf(", address=_");
-		printf("[");
-		print_instr_name(instr->address, false);
-		printf("]");
-	}
-
 	if (instr->opc == OPC_META_SPLIT) {
 		printf(", off=%d", instr->split.off);
 	} else if (instr->opc == OPC_META_TEX_PREFETCH) {

@@ -410,6 +410,9 @@ struct ir3_instruction * ir3_instr_create(struct ir3_block *block,
 	/* Add an extra source for array destinations */
 	if (1 <= opc_cat(opc) && opc_cat(opc) <= 3)
 		nreg++;
+	/* Add an extra source for address reg */
+	if (1 <= opc_cat(opc))
+		nreg++;
 	struct ir3_instruction *instr = instr_create(block, nreg);
 	instr->block = block;
 	instr->opc = opc;
@@ -493,13 +496,14 @@ void
 ir3_instr_set_address(struct ir3_instruction *instr,
 		struct ir3_instruction *addr)
 {
-	if (instr->address != addr) {
+	if (!instr->address) {
 		struct ir3 *ir = instr->block->shader;
 
-		debug_assert(!instr->address);
 		debug_assert(instr->block == addr->block);
 
-		instr->address = addr;
+		instr->address = ir3_reg_create(instr, addr->regs[0]->num,
+										addr->regs[0]->flags & ~IR3_REG_DEST);
+		instr->address->def = addr->regs[0];
 		debug_assert(reg_num(addr->regs[0]) == REG_A0);
 		unsigned comp = reg_comp(addr->regs[0]);
 		if (comp == 0) {
@@ -508,6 +512,8 @@ ir3_instr_set_address(struct ir3_instruction *instr,
 			debug_assert(comp == 1);
 			array_insert(ir, ir->a1_users, instr);
 		}
+	} else {
+		debug_assert(instr->address->def->instr == addr);
 	}
 }
 
@@ -706,7 +712,7 @@ ir3_valid_flags(struct ir3_instruction *instr, unsigned n,
 		 */
 		if (instr->regs[n+1]->flags & IR3_REG_SSA) {
 			struct ir3_instruction *src = ssa(instr->regs[n+1]);
-			if (src->address->block != instr->block)
+			if (src->address->def->instr->block != instr->block)
 				return false;
 		}
 	}
