@@ -424,6 +424,28 @@ opt_split_alu_of_phi(nir_builder *b, nir_loop *loop)
           alu_instr_is_type_conversion(alu))
          continue;
 
+      /* If the ALU is already in the continue block, check if there's any
+       * non-phi use in that block.  If not, no transformation is needed, the
+       * instruction is already "at the end of the loop".
+       */
+      nir_block *const continue_block = find_continue_block(loop);
+      if (instr->block == continue_block) {
+         bool local_non_phi_uses = false;
+
+         nir_foreach_use(src, &alu->dest.dest.ssa) {
+            nir_instr *use_instr = src->parent_instr;
+            if (use_instr->block != instr->block)
+               continue;
+            if (use_instr->type != nir_instr_type_phi) {
+               local_non_phi_uses = true;
+               break;
+            }
+         }
+
+         if (!local_non_phi_uses)
+            continue;
+      }
+
       bool has_phi_src_from_prev_block = false;
       bool all_non_phi_exist_in_prev_block = true;
       bool is_prev_result_undef = true;
@@ -499,8 +521,6 @@ opt_split_alu_of_phi(nir_builder *b, nir_loop *loop)
       }
 
       /* Split ALU of Phi */
-      nir_block *const continue_block = find_continue_block(loop);
-
       b->cursor = nir_after_block(prev_block);
       nir_ssa_def *prev_value = clone_alu_and_replace_src_defs(b, alu, prev_srcs);
 
