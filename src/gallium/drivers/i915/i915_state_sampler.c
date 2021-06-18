@@ -92,6 +92,13 @@ static void update_sampler(struct i915_context *i915,
    state[1] = sampler->state[1];
    state[2] = sampler->state[2];
 
+   /* There is no HW support for 1D textures, so we just make them 2D textures
+    * with h=1, but that means we need to make the Y coordinate not contribute
+    * to bringin any border color in.  Clearing it sets it to WRAP.
+    */
+   if (pt->target == PIPE_TEXTURE_1D)
+      state[1] &= ~SS3_TCY_ADDR_MODE_MASK;
+
    if (pt->format == PIPE_FORMAT_UYVY ||
        pt->format == PIPE_FORMAT_YUYV)
       state[0] |= SS2_COLORSPACE_CONVERSION;
