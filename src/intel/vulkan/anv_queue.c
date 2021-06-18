@@ -472,12 +472,29 @@ anv_queue_task(void *_queue)
    return NULL;
 }
 
+static void
+anv_queue_drain(struct anv_queue *queue)
+{
+   if (queue->drained)
+      return;
+
+   pthread_mutex_lock(&queue->mutex);
+   if (!list_is_empty(&queue->queued_submits))
+      pthread_cond_wait(&queue->consumer_cond, &queue->mutex);
+   assert(list_is_empty(&queue->queued_submits));
+   pthread_mutex_unlock(&queue->mutex);
+
+   queue->drained = true;
+}
+
 static VkResult
 anv_queue_submit_post(struct anv_queue *queue,
                       struct anv_queue_submit **_submit,
                       bool flush_queue)
 {
    struct anv_queue_submit *submit = *_submit;
+   VkResult result;
+
 
    /* Wait before signal behavior means we might keep alive the
     * anv_queue_submit object a bit longer, so transfer the ownership to the
@@ -486,10 +503,19 @@ anv_queue_submit_post(struct anv_queue *queue,
    *_submit = NULL;
    if (queue->device->has_thread_submit) {
       pthread_mutex_lock(&queue->mutex);
-      pthread_cond_broadcast(&queue->producer_cond);
-      list_addtail(&submit->link, &queue->queued_submits);
+      if (submit->no_submit_thread) {
+         /* Things should have been drained before. */
+         assert(queue->drained);
+         assert(list_is_empty(&queue->queued_submits));
+         result = anv_queue_submit_process_and_free(queue, submit);
+      } else {
+         pthread_cond_broadcast(&queue->producer_cond);
+         list_addtail(&submit->link, &queue->queued_submits);
+         queue->drained = false;
+         result = VK_SUCCESS;
+      }
       pthread_mutex_unlock(&queue->mutex);
-      return VK_SUCCESS;
+      return result;
    } else {
       pthread_mutex_lock(&queue->device->mutex);
       list_addtail(&submit->link, &queue->queued_submits);
@@ -1124,11 +1150,12 @@ anv_queue_submit_add_in_semaphores(struct anv_queue_submit *submit,
 
 static VkResult
 anv_queue_submit_add_out_semaphores(struct anv_queue_submit *submit,
-                                    struct anv_device *device,
+                                    struct anv_queue *queue,
                                     const VkSemaphore *out_semaphores,
                                     const uint64_t *out_values,
                                     uint32_t num_out_semaphores)
 {
+   struct anv_device *device = queue->device;
    ASSERTED struct anv_physical_device *pdevice = device->physical;
    VkResult result;
 
@@ -1170,7 +1197,13 @@ anv_queue_submit_add_out_semaphores(struct anv_queue_submit *submit,
           * Reset the content of the syncobj so it doesn't contain a
           * previously signaled dma-fence, until one is added by EXECBUFFER by
           * the submission thread.
+          *
+          * In order to do this, we must ensure all previous submissions on
+          * this syncobj have been processed by i915 and we must flag the
+          * submission to not go through the submission thread.
           */
+         anv_queue_drain(queue);
+         submit->no_submit_thread = true;
          anv_gem_syncobj_reset(device, impl->syncobj);
 
          result = anv_queue_submit_add_syncobj(submit, device, impl->syncobj,
@@ -1489,7 +1522,7 @@ VkResult anv_QueueSubmit(
 
       /* Signal semaphores */
       result = anv_queue_submit_add_out_semaphores(submit,
-                                                   device,
+                                                   queue,
                                                    pSubmits[i].pSignalSemaphores,
                                                    signal_values,
                                                    pSubmits[i].signalSemaphoreCount);
