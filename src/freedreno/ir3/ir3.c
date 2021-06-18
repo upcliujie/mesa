@@ -387,10 +387,10 @@ unsigned ir3_block_get_pred_index(struct ir3_block *block, struct ir3_block *pre
 	unreachable("ir3_block_get_pred_index() invalid predecessor");
 }
 
-static struct ir3_instruction *instr_create(struct ir3_block *block, int nreg)
+static struct ir3_instruction *instr_create(struct ir3_block *block, int ndst, int nsrc)
 {
 	struct ir3_instruction *instr;
-	unsigned sz = sizeof(*instr) + (nreg * sizeof(instr->regs[0]));
+	unsigned sz = sizeof(*instr) + ((ndst + nsrc) * sizeof(instr->regs[0]));
 	char *ptr = ir3_alloc(block->shader, sz);
 
 	instr = (struct ir3_instruction *)ptr;
@@ -398,22 +398,24 @@ static struct ir3_instruction *instr_create(struct ir3_block *block, int nreg)
 	instr->regs = (struct ir3_register **)ptr;
 
 #ifdef DEBUG
-	instr->regs_max = nreg;
+	instr->regs_max = ndst + nsrc;
+	instr->dsts_max = ndst;
+	instr->srcs_max = nsrc;
 #endif
 
 	return instr;
 }
 
 struct ir3_instruction * ir3_instr_create(struct ir3_block *block,
-		opc_t opc, int nreg)
+		opc_t opc, int ndst, int nsrc)
 {
 	/* Add an extra source for array destinations */
 	if (1 <= opc_cat(opc) && opc_cat(opc) <= 3)
-		nreg++;
+		nsrc++;
 	/* Add an extra source for address reg */
 	if (1 <= opc_cat(opc))
-		nreg++;
-	struct ir3_instruction *instr = instr_create(block, nreg);
+		nsrc++;
+	struct ir3_instruction *instr = instr_create(block, ndst, nsrc);
 	instr->block = block;
 	instr->opc = opc;
 	insert_instr(block, instr);
@@ -423,7 +425,7 @@ struct ir3_instruction * ir3_instr_create(struct ir3_block *block,
 struct ir3_instruction * ir3_instr_clone(struct ir3_instruction *instr)
 {
 	struct ir3_instruction *new_instr = instr_create(instr->block,
-			instr->regs_count);
+			instr->dsts_count, instr->srcs_count);
 	struct ir3_register **regs;
 	unsigned i;
 
@@ -435,6 +437,8 @@ struct ir3_instruction * ir3_instr_clone(struct ir3_instruction *instr)
 
 	/* clone registers: */
 	new_instr->regs_count = 0;
+	new_instr->dsts_count = 0;
+	new_instr->srcs_count = 0;
 	for (i = 0; i < instr->regs_count; i++) {
 		struct ir3_register *reg = instr->regs[i];
 		struct ir3_register *new_reg;
@@ -477,12 +481,21 @@ struct ir3_register * ir3_src_create(struct ir3_instruction *instr,
 		int num, int flags)
 {
 	assert(!(flags & IR3_REG_DEST));
+#ifdef DEBUG
+	debug_assert(instr->srcs_count < instr->srcs_max);
+#endif
+	instr->srcs_count++;
 	return ir3_reg_create(instr, num, flags);
 }
 
 struct ir3_register * ir3_dst_create(struct ir3_instruction *instr,
 		int num, int flags)
 {
+	assert(instr->srcs_count == 0);
+#ifdef DEBUG
+	debug_assert(instr->dsts_count < instr->dsts_max);
+#endif
+	instr->dsts_count++;
 	return ir3_reg_create(instr, num, flags | IR3_REG_DEST);
 }
 
