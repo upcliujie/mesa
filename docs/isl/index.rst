@@ -12,6 +12,7 @@ Chery.
    units
    formats
    tiling
+   aux
    ccs
    hiz
 
