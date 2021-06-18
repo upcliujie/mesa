@@ -597,7 +597,7 @@ vn_CreateSamplerYcbcrConversion(
       assert(pCreateInfo->format == VK_FORMAT_UNDEFINED);
 
       VkFormat format =
-         vn_android_ahb_format_to_vk_format(ext_info->externalFormat);
+         vn_android_drm_format_to_vk_format(ext_info->externalFormat);
       if (format == VK_FORMAT_UNDEFINED)
          return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
