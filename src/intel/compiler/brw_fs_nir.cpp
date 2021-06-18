@@ -5749,6 +5749,37 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          /* Get rid of anything below dualsubslice */
          bld.SHR(retype(dest, BRW_REGISTER_TYPE_UD), raw_id, brw_imm_ud(9));
          break;
+      case BRW_TOPOLOGY_ID_EU_THREAD_SIMD: {
+         /* */
+         assert(bld.dispatch_width() <= 16);
+         fs_reg dst = retype(dest, BRW_REGISTER_TYPE_UD);
+
+         /* EU[3:0] << 7 (EUID comes from raw_id[8:7][5:4]) */
+         {
+            fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD);
+            bld.AND(dst, raw_id, brw_imm_ud(0b110000000));
+            bld.SHL(dst, dst, brw_imm_ud(1));
+            bld.AND(tmp, raw_id, brw_imm_ud(0b110000));
+            bld.SHL(tmp, tmp, brw_imm_ud(3));
+            bld.OR(dst, dst, tmp);
+         }
+
+         /* ThreadID[2:0] << 4 (ThreadID comes from raw_id[2:0]) */
+         bld.SHL(raw_id, raw_id, brw_imm_ud(4));
+         bld.AND(raw_id, raw_id, brw_imm_ud(0b1110000));
+         bld.OR(raw_id, dst, raw_id);
+
+         /* LaneID[0:3] << 0 (We build up LaneID by putting the right number
+          *                   in each lane)
+          */
+         const fs_builder ibld = bld.exec_all().group(8, 0);
+         fs_reg tmp = ibld.vgrf(BRW_REGISTER_TYPE_UW);
+         for (unsigned i = 0; i < bld.dispatch_width() / 8; i++) {
+            ibld.MOV(tmp, brw_imm_v(i == 0 ? 0x76543210 : 0xfedcba98));
+            ibld.ADD(offset(dst, ibld, i * 8), offset(raw_id, ibld, i * 8), tmp);
+         }
+         break;
+      }
       default:
          unreachable("Invalid topology id type");
       }
