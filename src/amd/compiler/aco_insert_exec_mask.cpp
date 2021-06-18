@@ -663,13 +663,16 @@ void process_instructions(exec_ctx& ctx, Block* block,
       state = Exact;
    }
 
+   bool all_lanes_enabled = ctx.info[block->index].exec.back().first.constantEquals(-1u);
+
    /* if the block doesn't need both, WQM and Exact, we can skip processing the instructions */
    bool process = (ctx.handle_wqm &&
                    (ctx.info[block->index].block_needs & state) !=
                    (ctx.info[block->index].block_needs & (WQM | Exact))) ||
                   block->kind & block_kind_uses_discard_if ||
                   block->kind & block_kind_uses_demote ||
-                  block->kind & block_kind_needs_lowering;
+                  block->kind & block_kind_needs_lowering ||
+                  all_lanes_enabled;
    if (!process) {
       std::vector<aco_ptr<Instruction>>::iterator it = std::next(block->instructions.begin(), idx);
       instructions.insert(instructions.end(),
@@ -781,6 +784,13 @@ void process_instructions(exec_ctx& ctx, Block* block,
          instr->operands[0] = bld.scc(exit_cond);
          state = Exact;
 
+      } else if (all_lanes_enabled &&
+                 (instr->opcode == aco_opcode::s_and_b64 || instr->opcode == aco_opcode::s_and_b32) &&
+                 instr->operands[1].isFixed() && instr->operands[1].physReg() == exec) {
+         instr->opcode = aco_opcode::p_parallelcopy;
+         instr->format = Format::PSEUDO;
+         instr->operands.pop_back();
+         instr->definitions.pop_back();
       }
 
       bld.insert(std::move(instr));
