@@ -1716,6 +1716,10 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
                ctx.info[instr->definitions[0].tempId()].set_temp(vopc_instr->definitions[0].getTemp());
                break;
             }
+         } else if ((ctx.program->stage.num_sw_stages() > 1 || ctx.program->stage.hw == HWStage::NGG) && instr->pass_flags == 1) {
+            /* In case of merged shaders, pass_flags=1 means that all lanes are active (exec=-1), so s_and is unnecessary. */
+            ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[0].getTemp());
+            break;
          }
       }
       FALLTHROUGH;
