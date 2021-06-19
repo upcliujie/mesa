@@ -2326,7 +2326,7 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
  *
  * @note
  * Starting with Tigerlake, the CCS is no longer really a surface.  It's not
- * laid out as an independent surface and isn't longer referenced by
+ * laid out as an independent surface and isn't referenced by
  * RENDER_SURFACE_STATE::"Auxiliary Surface Base Address" like other auxiliary
  * compression surfaces.  It's a blob of memory that's a 1:256 scale-down from
  * the main surfaced that's attached side-band via a second set of page
