@@ -3087,6 +3087,12 @@ struct anv_cmd_buffer {
     * used.
     */
    uint32_t                                      perf_reloc_idx;
+
+   /**
+    * Sum of all the anv_batch_bo sizes allocated for this command buffer.
+    * Used to increase allocation size for long command buffers.
+    */
+   uint32_t                                     total_batch_size;
 };
 
 /* Determine whether we can chain a given cmd_buffer to another one. We need
