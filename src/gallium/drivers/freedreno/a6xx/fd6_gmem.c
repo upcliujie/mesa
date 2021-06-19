@@ -1151,8 +1151,14 @@ prepare_tile_setup_ib(struct fd_batch *batch)
 
    set_blit_scissor(batch, batch->tile_setup);
 
+   /* The restore blits and clears use double-buffered registers but don't do
+    * any internal WFIing of their draws that use those regs.  So, we need a WFI
+    * before kicking off the second or later blit.
+    */
+   batch->needs_wfi = false;
    emit_restore_blits(batch, batch->tile_setup);
    emit_clears(batch, batch->tile_setup);
+   batch->needs_wfi = false;
 }
 
 /*

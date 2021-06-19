@@ -200,9 +200,11 @@ fd6_cache_flush(struct fd_batch *batch, struct fd_ringbuffer *ring)
 static inline void
 fd6_emit_blit(struct fd_batch *batch, struct fd_ringbuffer *ring)
 {
+   fd_wfi(batch, ring);
    emit_marker6(ring, 7);
    fd6_event_write(batch, ring, BLIT, false);
    emit_marker6(ring, 7);
+   fd_reset_wfi(batch);
 }
 
 static inline void
