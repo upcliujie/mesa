@@ -32,7 +32,7 @@ The difficulty with a scheme like this comes when we want to do something else
 with that surface.  What happens if the sampler doesn't support this fast-clear
 scheme (it doesn't on IVB)?  In that case, we have to do a *resolve* where we
 run a special pipeline that reads the auxiliary data and applies it to the main
-surface.  In the case of fast clears, this meas that, for every 1 bit in the
+surface.  In the case of fast clears, this means that, for every 1 bit in the
 auxiliary surface, the corresponding pair of cache lines in the main surface
 gets filled with the clear color.  At the end of the resolve operation, the main surface contents are the actual contents of the surface.
 
