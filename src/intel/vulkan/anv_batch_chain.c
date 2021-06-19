@@ -344,6 +344,9 @@ anv_batch_bo_create(struct anv_cmd_buffer *cmd_buffer,
                     struct anv_batch_bo **bbo_out)
 {
    VkResult result;
+   /* Double the total size of the batch when we extend cmd_buffer. */
+   uint32_t additional_size = ANV_CMD_BUFFER_BATCH_SIZE *
+      MAX2(1, u_vector_length(&cmd_buffer->seen_bbos));
 
    struct anv_batch_bo *bbo = vk_alloc(&cmd_buffer->pool->alloc, sizeof(*bbo),
                                         8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
@@ -351,7 +354,7 @@ anv_batch_bo_create(struct anv_cmd_buffer *cmd_buffer,
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    result = anv_bo_pool_alloc(&cmd_buffer->device->batch_bo_pool,
-                              ANV_CMD_BUFFER_BATCH_SIZE, &bbo->bo);
+                              additional_size, &bbo->bo);
    if (result != VK_SUCCESS)
       goto fail_alloc;
 
@@ -833,9 +836,15 @@ anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
 
    list_inithead(&cmd_buffer->batch_bos);
 
+   int success = u_vector_init(&cmd_buffer->seen_bbos,
+                                 sizeof(struct anv_bo *),
+                                 8 * sizeof(struct anv_bo *));
+   if (!success)
+      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+
    result = anv_batch_bo_create(cmd_buffer, &batch_bo);
    if (result != VK_SUCCESS)
-      return result;
+      goto fail_seen_bbos;
 
    list_addtail(&batch_bo->link, &cmd_buffer->batch_bos);
 
@@ -851,12 +860,6 @@ anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
    anv_batch_bo_start(batch_bo, &cmd_buffer->batch,
                       GFX8_MI_BATCH_BUFFER_START_length * 4);
 
-   int success = u_vector_init(&cmd_buffer->seen_bbos,
-                                 sizeof(struct anv_bo *),
-                                 8 * sizeof(struct anv_bo *));
-   if (!success)
-      goto fail_batch_bo;
-
    *(struct anv_batch_bo **)u_vector_add(&cmd_buffer->seen_bbos) = batch_bo;
 
    /* u_vector requires power-of-two size elements */
@@ -864,7 +867,7 @@ anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
    success = u_vector_init(&cmd_buffer->bt_block_states,
                            pow2_state_size, 8 * pow2_state_size);
    if (!success)
-      goto fail_seen_bbos;
+      goto fail_batch_bo;
 
    result = anv_reloc_list_init(&cmd_buffer->surface_relocs,
                                 &cmd_buffer->pool->alloc);
@@ -880,10 +883,10 @@ anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
 
  fail_bt_blocks:
    u_vector_finish(&cmd_buffer->bt_block_states);
- fail_seen_bbos:
-   u_vector_finish(&cmd_buffer->seen_bbos);
  fail_batch_bo:
    anv_batch_bo_destroy(batch_bo, cmd_buffer);
+ fail_seen_bbos:
+   u_vector_finish(&cmd_buffer->seen_bbos);
 
    return result;
 }
@@ -1793,7 +1796,11 @@ setup_execbuf_for_cmd_buffers(struct anv_execbuf *execbuf,
       .buffers_ptr = (uintptr_t) execbuf->objects,
       .buffer_count = execbuf->bo_count,
       .batch_start_offset = 0,
-      .batch_len = batch->next - batch->start,
+      /* On platforms that cannot chain batch buffers because of the i915
+       * command parser, we have to provide the batch length. Everywhere else
+       * we'll chain batches so no point in passing a length.
+       */
+      .batch_len = device->can_chain_batches ? 8 : batch->next - batch->start,
       .cliprects_ptr = 0,
       .num_cliprects = 0,
       .DR1 = 0,
@@ -1913,7 +1920,8 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
       submit->perf_query_pool;
 
    if (INTEL_DEBUG & DEBUG_SUBMIT) {
-      fprintf(stderr, "Batch on queue 0\n");
+      fprintf(stderr, "Batch offset=0x%x len=0x%x on queue 0\n",
+              execbuf.execbuf.batch_start_offset, execbuf.execbuf.batch_len);
       for (uint32_t i = 0; i < execbuf.bo_count; i++) {
          const struct anv_bo *bo = execbuf.bos[i];
 
