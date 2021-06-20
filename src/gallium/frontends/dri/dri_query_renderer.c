@@ -74,6 +74,11 @@ dri2_query_renderer_integer(__DRIscreen *_screen, int param,
       if (!value[0])
          return -1;
       return 0;
+   case __DRI2_RENDERER_DIFFERENT_GPU:
+      value[0] =
+         screen->base.screen->get_param(screen->base.screen,
+                                        PIPE_CAP_DIFFERENT_GPU);
+      return 0;
    default:
       return driQueryRendererIntegerCommon(_screen, param, value);
    }

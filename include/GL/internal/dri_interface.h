@@ -1993,6 +1993,8 @@ typedef struct __DRIDriverVtableExtensionRec {
 
 #define __DRI2_RENDERER_HAS_PROTECTED_CONTENT                 0x000e
 
+#define __DRI2_RENDERER_DIFFERENT_GPU                         0x000f
+
 typedef struct __DRI2rendererQueryExtensionRec __DRI2rendererQueryExtension;
 struct __DRI2rendererQueryExtensionRec {
    __DRIextension base;

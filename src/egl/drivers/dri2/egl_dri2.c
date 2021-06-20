@@ -919,6 +919,10 @@ dri2_setup_screen(_EGLDisplay *disp)
        disp->Extensions.MESA_query_driver = EGL_TRUE;
    }
 
+   if (dri2_renderer_query_integer(dri2_dpy,
+                                   __DRI2_RENDERER_DIFFERENT_GPU))
+      dri2_dpy->is_different_gpu = true;
+
    /* Report back to EGL the bitmask of priorities supported */
    disp->Extensions.IMG_context_priority =
       dri2_renderer_query_integer(dri2_dpy,
