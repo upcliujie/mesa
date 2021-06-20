@@ -680,32 +680,21 @@ iris_get_ccs_surf(const struct isl_device *dev,
                   struct isl_surf *extra_aux_surf,
                   uint32_t row_pitch_B)
 {
-   assert(aux_surf);
+   assert(extra_aux_surf->size_B == 0);
 
-   /* An uninitialized surface is needed to get a CCS surface. */
-   if (aux_surf->size_B > 0 &&
-       (extra_aux_surf == NULL || extra_aux_surf->size_B > 0)) {
-      return false;
+   struct isl_surf *ccs_surf = aux_surf;
+   const struct isl_surf *hiz_or_mcs_surf = NULL;
+   if (aux_surf->size_B > 0) {
+      assert(aux_surf->usage & (ISL_SURF_USAGE_HIZ_BIT |
+                                ISL_SURF_USAGE_MCS_BIT));
+      hiz_or_mcs_surf = aux_surf;
+      ccs_surf = extra_aux_surf;
+   } else {
+      ccs_surf = aux_surf;
    }
 
-   /* A surface can't have two CCS surfaces. */
-   if (aux_surf->usage & ISL_SURF_USAGE_CCS_BIT)
-      return false;
-
-   if (!isl_surf_supports_ccs(dev, surf))
-      return false;
-
-   /* Combined Hiz+CCS or MCS+CCS is only available starting with Tigerlake */
-   assert(aux_surf->size_B == 0 || ISL_GFX_VER(dev) >= 12);
-
-   /* With depth surfaces, HIZ is required for CCS. */
-   if ((surf->usage & ISL_SURF_USAGE_DEPTH_BIT) &&
-       aux_surf->tiling != ISL_TILING_HIZ)
-      return false;
-
-   struct isl_surf *ccs_surf =
-      aux_surf->size_B > 0 ? extra_aux_surf : aux_surf;
-   return isl_surf_get_ccs_surf(dev, surf, ccs_surf, row_pitch_B);
+   return isl_surf_get_ccs_surf(dev, surf, hiz_or_mcs_surf,
+                                ccs_surf, row_pitch_B);
 }
 
 /**
