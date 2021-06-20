@@ -2007,7 +2007,8 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
 
 bool
 isl_surf_supports_ccs(const struct isl_device *dev,
-                      const struct isl_surf *surf)
+                      const struct isl_surf *surf,
+                      const struct isl_surf *hiz_or_mcs_surf)
 {
    /* CCS support does not exist prior to Gfx7 */
    if (ISL_GFX_VER(dev) <= 6)
@@ -2050,8 +2051,37 @@ isl_surf_supports_ccs(const struct isl_device *dev,
       return false;
 
    if (ISL_GFX_VER(dev) >= 12) {
-      if (isl_surf_usage_is_stencil(surf->usage) && surf->samples > 1)
-         return false;
+      if (isl_surf_usage_is_stencil(surf->usage)) {
+         /* We're single-sampled stencil so having HiZ or MCS makes no sense */
+         assert(hiz_or_mcs_surf == NULL || hiz_or_mcs_surf->size_B == 0);
+
+         /* Multi-sampled stencil cannot have CCS */
+         if (surf->samples > 1)
+            return false;
+      } else if (isl_surf_usage_is_depth(surf->usage)) {
+         const struct isl_surf *hiz_surf = hiz_or_mcs_surf;
+
+         /* With depth surfaces, HIZ is required for CCS. */
+         if (hiz_surf == NULL || hiz_surf->size_B == 0)
+            return false;
+
+         assert(hiz_surf->usage & ISL_SURF_USAGE_HIZ_BIT);
+         assert(hiz_surf->tiling == ISL_TILING_HIZ);
+         assert(hiz_surf->format == ISL_FORMAT_HIZ);
+      } else if (surf->samples > 1) {
+         const struct isl_surf *mcs_surf = hiz_or_mcs_surf;
+
+         /* With multisampled color, CSC requires MCS */
+         if (mcs_surf == NULL || mcs_surf->size_B == 0)
+            return false;
+
+         assert(mcs_surf->usage & ISL_SURF_USAGE_MCS_BIT);
+         assert(isl_format_is_mcs(mcs_surf->format));
+         assert(isl_tiling_is_any_y(mcs_surf->tiling));
+      } else {
+         /* Single-sampled color can't have MCS or HiZ */
+         assert(hiz_or_mcs_surf == NULL || hiz_or_mcs_surf->size_B == 0);
+      }
 
       /* On Gfx12, all CCS-compressed surface pitches must be multiples of
        * 512B.
@@ -2092,6 +2122,9 @@ isl_surf_supports_ccs(const struct isl_device *dev,
       /* CCS is only for color images on Gfx7-11 */
       if (isl_surf_usage_is_depth_or_stencil(surf->usage))
          return false;
+
+      /* We're single-sampled color so having HiZ or MCS makes no sense */
+      assert(hiz_or_mcs_surf == NULL || hiz_or_mcs_surf->size_B == 0);
 
       /* The PRM doesn't say this explicitly, but fast-clears don't appear to
        * work for 3D textures until gfx9 where the layout of 3D textures
@@ -2143,10 +2176,11 @@ isl_surf_supports_ccs(const struct isl_device *dev,
 bool
 isl_surf_get_ccs_surf(const struct isl_device *dev,
                       const struct isl_surf *surf,
+                      const struct isl_surf *hiz_or_mcs_surf,
                       struct isl_surf *ccs_surf,
                       uint32_t row_pitch_B)
 {
-   if (!isl_surf_supports_ccs(dev, surf))
+   if (!isl_surf_supports_ccs(dev, surf, hiz_or_mcs_surf))
       return false;
 
    if (ISL_GFX_VER(dev) >= 12) {

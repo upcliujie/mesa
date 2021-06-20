@@ -1890,6 +1890,14 @@ isl_format_has_bc_compression(enum isl_format fmt)
 }
 
 static inline bool
+isl_format_is_mcs(enum isl_format fmt)
+{
+   const struct isl_format_layout *fmtl = isl_format_get_layout(fmt);
+
+   return fmtl->txc == ISL_TXC_MCS;
+}
+
+static inline bool
 isl_format_is_planar(enum isl_format fmt)
 {
    return fmt == ISL_FORMAT_PLANAR_420_8 ||
@@ -2295,10 +2303,16 @@ void
 isl_surf_get_tile_info(const struct isl_surf *surf,
                        struct isl_tile_info *tile_info);
 
-/** @returns true if the given surface supports CCS. */
+/**
+ * @param[in]  surf              The main surface
+ * @param[in]  hiz_or_mcs_surf   HiZ or MCS surface associated with the main
+ *                               surface
+ * @returns true if the given surface supports CCS.
+ */
 bool
 isl_surf_supports_ccs(const struct isl_device *dev,
-                      const struct isl_surf *surf);
+                      const struct isl_surf *surf,
+                      const struct isl_surf *hiz_or_mcs_surf);
 
 /** Constructs a HiZ surface for the given main surface.
  *
@@ -2338,15 +2352,18 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
  * on Tigerlake or later, this function still works and produces such a linear
  * surface.
  *
- * @param[in]  surf     The main surface
- * @param[out] ccs_surf The CCS to populate on success
- * @param row_pitch_B: The row pitch for the CCS in bytes or 0 if ISL should
- *                     calculate the row pitch.
+ * @param[in]  surf              The main surface
+ * @param[in]  hiz_or_mcs_surf   HiZ or MCS surface associated with the main
+ *                               surface
+ * @param[out] ccs_surf          The CCS to populate on success
+ * @param row_pitch_B:           The row pitch for the CCS in bytes or 0 if
+ *                               ISL should calculate the row pitch.
  * @returns false if the main surface cannot support CCS.
  */
 bool
 isl_surf_get_ccs_surf(const struct isl_device *dev,
                       const struct isl_surf *surf,
+                      const struct isl_surf *hiz_or_mcs_surf,
                       struct isl_surf *ccs_surf,
                       uint32_t row_pitch_B);
 
