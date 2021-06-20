@@ -213,6 +213,7 @@ struct i915_sampler_state {
 
 struct i915_surface {
    struct pipe_surface templ;
+   uint32_t buf_info; /* _3DSTATE_BUF_INFO_CMD flags */
 };
 
 struct i915_velems_state {
@@ -405,10 +406,10 @@ i915_context( struct pipe_context *pipe )
    return (struct i915_context *)pipe;
 }
 
-static inline struct i915_surface_state *
-i915_surface_state( struct pipe_surface_state *pipe )
+static inline struct i915_surface *
+i915_surface(struct pipe_surface *pipe)
 {
-   return (struct i915_surface_state *)pipe;
+   return (struct i915_surface *)pipe;
 }
 
 #endif
