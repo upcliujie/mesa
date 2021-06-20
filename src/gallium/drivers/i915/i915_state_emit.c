@@ -128,48 +128,28 @@ validate_immediate(struct i915_context *i915, unsigned *batch_space)
    *batch_space = 1 + util_bitcount(dirty);
 }
 
-static uint target_fixup(struct pipe_surface *p, int component)
-{
-   const struct
-   {
-      enum pipe_format format;
-      uint hw_mask[4];
-   } fixup_mask[] = {
-      { PIPE_FORMAT_R8G8B8A8_UNORM, { S5_WRITEDISABLE_BLUE, S5_WRITEDISABLE_GREEN, S5_WRITEDISABLE_RED, S5_WRITEDISABLE_ALPHA}},
-      { PIPE_FORMAT_R8G8B8X8_UNORM, { S5_WRITEDISABLE_BLUE, S5_WRITEDISABLE_GREEN, S5_WRITEDISABLE_RED, S5_WRITEDISABLE_ALPHA}},
-      { PIPE_FORMAT_L8_UNORM,       { S5_WRITEDISABLE_RED | S5_WRITEDISABLE_GREEN | S5_WRITEDISABLE_BLUE, 0, 0, S5_WRITEDISABLE_ALPHA}},
-      { PIPE_FORMAT_I8_UNORM,       { S5_WRITEDISABLE_RED | S5_WRITEDISABLE_GREEN | S5_WRITEDISABLE_BLUE, 0, 0, S5_WRITEDISABLE_ALPHA}},
-      { PIPE_FORMAT_A8_UNORM,       { 0, 0, 0, S5_WRITEDISABLE_RED | S5_WRITEDISABLE_GREEN | S5_WRITEDISABLE_BLUE | S5_WRITEDISABLE_ALPHA}},
-      { 0,                          { S5_WRITEDISABLE_RED, S5_WRITEDISABLE_GREEN, S5_WRITEDISABLE_BLUE, S5_WRITEDISABLE_ALPHA}}
-   };
-   int i = sizeof(fixup_mask) / sizeof(*fixup_mask) - 1;
-
-   if (p)
-      for(i = 0; fixup_mask[i].format != 0; i++)
-         if (p->format == fixup_mask[i].format)
-            return fixup_mask[i].hw_mask[component];
-
-   /* Just return default masks */
-   return fixup_mask[i].hw_mask[component];
-}
 
 static void emit_immediate_s5(struct i915_context *i915, uint imm)
 {
-   /* Fixup write mask for non-BGRA render targets */
-   uint fixup_imm = imm & ~( S5_WRITEDISABLE_RED | S5_WRITEDISABLE_GREEN |
-                             S5_WRITEDISABLE_BLUE | S5_WRITEDISABLE_ALPHA );
-   struct pipe_surface *surf = i915->framebuffer.cbufs[0];
+   struct i915_surface *surf = i915_surface(i915->framebuffer.cbufs[0]);
 
-   if (imm & S5_WRITEDISABLE_RED)
-      fixup_imm |= target_fixup(surf, 0);
-   if (imm & S5_WRITEDISABLE_GREEN)
-      fixup_imm |= target_fixup(surf, 1);
-   if (imm & S5_WRITEDISABLE_BLUE)
-      fixup_imm |= target_fixup(surf, 2);
-   if (imm & S5_WRITEDISABLE_ALPHA)
-      fixup_imm |= target_fixup(surf, 3);
+   if (surf) {
+      uint32_t writemask = imm & S5_WRITEDISABLE_MASK;
+      imm &= ~S5_WRITEDISABLE_MASK;
 
-   OUT_BATCH(fixup_imm);
+      /* The register bits are not in order. */
+      static const uint32_t writedisables[4] = {
+         S5_WRITEDISABLE_RED,
+         S5_WRITEDISABLE_GREEN,
+         S5_WRITEDISABLE_BLUE,
+         S5_WRITEDISABLE_ALPHA,
+      };
+
+      for (int i = 0; i < 4; i++)
+         imm |= writemask & writedisables[surf->color_swizzle[i]];
+   }
+
+   OUT_BATCH(imm);
 }
 
 static void emit_immediate_s6(struct i915_context *i915, uint imm)
@@ -179,7 +159,8 @@ static void emit_immediate_s6(struct i915_context *i915, uint imm)
     * and therefore we need to use the color factor for alphas. */
    uint srcRGB;
 
-   if (i915->current.target_fixup_format == PIPE_FORMAT_A8_UNORM) {
+   if (i915->framebuffer.cbufs[0] &&
+       i915->framebuffer.cbufs[0]->format == PIPE_FORMAT_R8_UNORM) {
       srcRGB = (imm >> S6_CBUF_SRC_BLEND_FACT_SHIFT) & BLENDFACT_MASK;
       if (srcRGB == BLENDFACT_DST_ALPHA)
          srcRGB = BLENDFACT_DST_COLR;
@@ -425,7 +406,7 @@ validate_program(struct i915_context *i915, unsigned *batch_space)
 {
    uint additional_size = 0;
 
-   additional_size += i915->current.target_fixup_format ? 3 : 0;
+   additional_size += i915->current.fixup_swizzle ? 3 : 0;
 
    /* we need more batch space if we want to emulate rgba framebuffers */
    *batch_space = i915->fs->decl_len + i915->fs->program_len + additional_size;
@@ -464,7 +445,7 @@ emit_program(struct i915_context *i915)
    }
 
    /* we emit an additional mov with swizzle to fake RGBA framebuffers */
-   if (i915->current.target_fixup_format) {
+   if (i915->current.fixup_swizzle) {
       /* mov out_color, out_color.zyxw */
       OUT_BATCH(A0_MOV |
                 (REG_TYPE_OC << A0_DEST_TYPE_SHIFT) |
