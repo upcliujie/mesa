@@ -34,8 +34,6 @@ static void
 _nouveau_fence_ref(struct nouveau_fence *fence, struct nouveau_fence **ref);
 static bool
 _nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *debug);
-static void
-_nouveau_fence_next(struct nouveau_context *);
 
 bool
 nouveau_fence_new(struct nouveau_context *nv, struct nouveau_fence **fence)
@@ -145,7 +143,7 @@ nouveau_fence_cleanup(struct nouveau_context *nv)
    }
 }
 
-static void
+void
 _nouveau_fence_update(struct nouveau_screen *screen, bool flushed)
 {
    struct nouveau_fence *fence;
@@ -233,9 +231,7 @@ nouveau_fence_kick(struct nouveau_fence *fence)
    if (fence->state < NOUVEAU_FENCE_STATE_FLUSHED) {
       int ret;
 
-      simple_mtx_unlock(&fence_list->lock);
       ret = nouveau_pushbuf_kick(context->pushbuf, context->pushbuf->channel);
-      simple_mtx_lock(&fence_list->lock);
 
       if (ret)
          return false;
@@ -291,7 +287,7 @@ _nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *deb
    return false;
 }
 
-static void
+void
 _nouveau_fence_next(struct nouveau_context *nv)
 {
    struct nouveau_fence_list *fence_list = &nv->screen->fence;
