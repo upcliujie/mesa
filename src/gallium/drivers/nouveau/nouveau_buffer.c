@@ -168,7 +168,7 @@ nouveau_transfer_staging(struct nouveau_context *nv,
          nouveau_mm_allocate(nv->screen->mm_GART, size, &tx->bo, &tx->offset);
       if (tx->bo) {
          tx->offset += adj;
-         if (!nouveau_bo_map(tx->bo, 0, NULL))
+         if (!BO_MAP(nv->screen, tx->bo, 0, NULL))
             tx->map = (uint8_t *)tx->bo->map + tx->offset;
       }
    }
@@ -191,7 +191,7 @@ nouveau_transfer_read(struct nouveau_context *nv, struct nouveau_transfer *tx)
    nv->copy_data(nv, tx->bo, tx->offset, NOUVEAU_BO_GART,
                  buf->bo, buf->offset + base, buf->domain, size);
 
-   if (nouveau_bo_wait(tx->bo, NOUVEAU_BO_RD, nv->client))
+   if (BO_WAIT(nv->screen, tx->bo, NOUVEAU_BO_RD, nv->client))
       return false;
 
    if (buf->data)
@@ -470,9 +470,9 @@ nouveau_buffer_transfer_map(struct pipe_context *pipe,
     * wait on the whole slab and instead use the logic below to return a
     * reasonable buffer for that case.
     */
-   ret = nouveau_bo_map(buf->bo,
-                        buf->mm ? 0 : nouveau_screen_transfer_flags(usage),
-                        nv->client);
+   ret = BO_MAP(nv->screen, buf->bo,
+                buf->mm ? 0 : nouveau_screen_transfer_flags(usage),
+                nv->client);
    if (ret) {
       FREE(tx);
       return NULL;
@@ -638,10 +638,10 @@ nouveau_resource_map_offset(struct nouveau_context *nv,
       unsigned rw;
       rw = (flags & NOUVEAU_BO_WR) ? PIPE_MAP_WRITE : PIPE_MAP_READ;
       nouveau_buffer_sync(nv, res, rw);
-      if (nouveau_bo_map(res->bo, 0, NULL))
+      if (BO_MAP(nv->screen, res->bo, 0, NULL))
          return NULL;
    } else {
-      if (nouveau_bo_map(res->bo, flags, nv->client))
+      if (BO_MAP(nv->screen, res->bo, flags, nv->client))
          return NULL;
    }
    return (uint8_t *)res->bo->map + res->offset + offset;
@@ -797,7 +797,7 @@ nouveau_buffer_data_fetch(struct nouveau_context *nv, struct nv04_resource *buf,
 {
    if (!nouveau_buffer_malloc(buf))
       return false;
-   if (nouveau_bo_map(bo, NOUVEAU_BO_RD, nv->client))
+   if (BO_MAP(nv->screen, bo, NOUVEAU_BO_RD, nv->client))
       return false;
    memcpy(buf->data, (uint8_t *)bo->map + offset, size);
    return true;
@@ -822,7 +822,7 @@ nouveau_buffer_migrate(struct nouveau_context *nv,
    if (new_domain == NOUVEAU_BO_GART && old_domain == 0) {
       if (!nouveau_buffer_allocate(screen, buf, new_domain))
          return false;
-      ret = nouveau_bo_map(buf->bo, 0, nv->client);
+      ret = BO_MAP(nv->screen, buf->bo, 0, nv->client);
       if (ret)
          return ret;
       memcpy((uint8_t *)buf->bo->map + buf->offset, buf->data, size);
@@ -892,7 +892,7 @@ nouveau_user_buffer_upload(struct nouveau_context *nv,
    if (!nouveau_buffer_reallocate(screen, buf, NOUVEAU_BO_GART))
       return false;
 
-   ret = nouveau_bo_map(buf->bo, 0, nv->client);
+   ret = BO_MAP(nv->screen, buf->bo, 0, nv->client);
    if (ret)
       return false;
    memcpy((uint8_t *)buf->bo->map + buf->offset + base, buf->data + base, size);
@@ -988,7 +988,7 @@ nouveau_scratch_runout(struct nouveau_context *nv, unsigned size)
 
    ret = nouveau_scratch_bo_alloc(nv, &nv->scratch.runout->bo[n], size);
    if (!ret) {
-      ret = nouveau_bo_map(nv->scratch.runout->bo[n], 0, NULL);
+      ret = BO_MAP(nv->screen, nv->scratch.runout->bo[n], 0, NULL);
       if (ret)
          nouveau_bo_ref(NULL, &nv->scratch.runout->bo[--nv->scratch.runout->nr]);
    }
@@ -1026,7 +1026,7 @@ nouveau_scratch_next(struct nouveau_context *nv, unsigned size)
    nv->scratch.offset = 0;
    nv->scratch.end = nv->scratch.bo_size;
 
-   ret = nouveau_bo_map(bo, NOUVEAU_BO_WR, nv->client);
+   ret = BO_MAP(nv->screen, bo, NOUVEAU_BO_WR, nv->client);
    if (!ret)
       nv->scratch.map = bo->map;
    return !ret;
