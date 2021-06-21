@@ -5750,24 +5750,39 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          bld.SHR(retype(dest, BRW_REGISTER_TYPE_UD), raw_id, brw_imm_ud(9));
          break;
       case BRW_TOPOLOGY_ID_EU_THREAD_SIMD: {
-         /* */
+         /* This topology query is used with ray queries which only work at
+          * SIMD8/SIMD16
+          */
          assert(bld.dispatch_width() <= 16);
          fs_reg dst = retype(dest, BRW_REGISTER_TYPE_UD);
 
-         /* EU[3:0] << 7 (EUID comes from raw_id[8:7][5:4]) */
+         /* EU[3:0] << 7
+          *
+          * The 4bit EU[3:0] we need to build for ray query memory addresses
+          * computations is a bit odd :
+          *
+          *   EU[1:0] = raw_id[5:4] (identified as EUID[1:0])
+          *   EU[2]   = raw_id[8]   (identified as SubSlice ID)
+          *   EU[3]   = raw_id[7]   (identified as EUID[2] or Row ID)
+          */
          {
             fs_reg tmp = bld.vgrf(BRW_REGISTER_TYPE_UD);
-            bld.AND(dst, raw_id, brw_imm_ud(0b110000000));
-            bld.SHL(dst, dst, brw_imm_ud(1));
-            bld.AND(tmp, raw_id, brw_imm_ud(0b110000));
+            bld.AND(tmp, raw_id, brw_imm_ud(INTEL_MASK(7, 7)));
+            bld.SHL(dst, tmp, brw_imm_ud(3));
+            bld.AND(tmp, raw_id, brw_imm_ud(INTEL_MASK(8, 8)));
+            bld.SHL(tmp, tmp, brw_imm_ud(1));
+            bld.OR(dst, dst, tmp);
+            bld.AND(tmp, raw_id, brw_imm_ud(INTEL_MASK(5, 4)));
             bld.SHL(tmp, tmp, brw_imm_ud(3));
             bld.OR(dst, dst, tmp);
          }
 
          /* ThreadID[2:0] << 4 (ThreadID comes from raw_id[2:0]) */
-         bld.SHL(raw_id, raw_id, brw_imm_ud(4));
-         bld.AND(raw_id, raw_id, brw_imm_ud(0b1110000));
-         bld.OR(raw_id, dst, raw_id);
+         {
+            bld.AND(raw_id, raw_id, brw_imm_ud(INTEL_MASK(2, 0)));
+            bld.SHL(raw_id, raw_id, brw_imm_ud(4));
+            bld.OR(dst, dst, raw_id);
+         }
 
          /* LaneID[0:3] << 0 (We build up LaneID by putting the right number
           *                   in each lane)
@@ -5775,11 +5790,17 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          const fs_builder ibld = bld.exec_all().group(8, 0);
          fs_reg tmp = ibld.vgrf(BRW_REGISTER_TYPE_UW);
          for (unsigned i = 0; i < bld.dispatch_width() / 8; i++) {
-            ibld.MOV(tmp, brw_imm_v(i == 0 ? 0x76543210 : 0xfedcba98));
-            ibld.ADD(offset(dst, ibld, i * 8), offset(raw_id, ibld, i * 8), tmp);
+            ibld.MOV(tmp, brw_imm_uv(i == 0 ? 0x76543210 : 0xfedcba98));
+            ibld.ADD(horiz_offset(dst, i * 8), horiz_offset(dst, i * 8), tmp);
          }
          break;
       }
+      case BRW_TOPOLOGY_ID_NUM_SIMD_LANES_PER_DSS:
+         bld.MOV(retype(dest, BRW_REGISTER_TYPE_UD),
+                 brw_imm_ud(devinfo->num_thread_per_eu *
+                            devinfo->max_eu_per_subslice *
+                            16 /* We assume SIMD16 */));
+         break;
       default:
          unreachable("Invalid topology id type");
       }
