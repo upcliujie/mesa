@@ -3845,6 +3845,7 @@ vs_params_offset(struct tu_cmd_buffer *cmd)
 
 static struct tu_draw_state
 tu6_emit_vs_params(struct tu_cmd_buffer *cmd,
+                   uint32_t draw_id,
                    uint32_t vertex_offset,
                    uint32_t first_instance)
 {
@@ -3873,7 +3874,7 @@ tu6_emit_vs_params(struct tu_cmd_buffer *cmd,
       tu_cs_emit(&cs, 0);
       tu_cs_emit(&cs, 0);
 
-      tu_cs_emit(&cs, 0);
+      tu_cs_emit(&cs, draw_id);
       tu_cs_emit(&cs, vertex_offset);
       tu_cs_emit(&cs, first_instance);
       tu_cs_emit(&cs, 0);
@@ -3893,7 +3894,7 @@ tu_CmdDraw(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
 
-   cmd->state.vs_params = tu6_emit_vs_params(cmd, firstVertex, firstInstance);
+   cmd->state.vs_params = tu6_emit_vs_params(cmd, 0, firstVertex, firstInstance);
 
    tu6_draw_common(cmd, cs, false, vertexCount);
 
@@ -3901,6 +3902,38 @@ tu_CmdDraw(VkCommandBuffer commandBuffer,
    tu_cs_emit(cs, tu_draw_initiator(cmd, DI_SRC_SEL_AUTO_INDEX));
    tu_cs_emit(cs, instanceCount);
    tu_cs_emit(cs, vertexCount);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_CmdDrawMultiEXT(VkCommandBuffer commandBuffer,
+                   uint32_t drawCount,
+                   const VkMultiDrawInfoEXT *pVertexInfo,
+                   uint32_t instanceCount,
+                   uint32_t firstInstance,
+                   uint32_t stride)
+{
+   TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
+   struct tu_cs *cs = &cmd->draw_cs;
+
+   cmd->state.vs_params = (struct tu_draw_state) {};
+
+   uint32_t max_vertex_count = 0;
+   vk_foreach_multi_draw(draw, i, pVertexInfo, drawCount, stride,
+      max_vertex_count = MAX2(max_vertex_count, draw->count);
+   );
+
+   tu6_draw_common(cmd, cs, false, max_vertex_count);
+
+   vk_foreach_multi_draw(draw, i, pVertexInfo, drawCount, stride,
+      cmd->state.vs_params = tu6_emit_vs_params(cmd, i, draw->first, firstInstance);
+      tu_cs_emit_pkt7(cs, CP_SET_DRAW_STATE, 3);
+      tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
+
+      tu_cs_emit_pkt7(cs, CP_DRAW_INDX_OFFSET, 3);
+      tu_cs_emit(cs, tu_draw_initiator(cmd, DI_SRC_SEL_AUTO_INDEX));
+      tu_cs_emit(cs, instanceCount);
+      tu_cs_emit(cs, draw->count);
+   );
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3914,7 +3947,7 @@ tu_CmdDrawIndexed(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
 
-   cmd->state.vs_params = tu6_emit_vs_params(cmd, vertexOffset, firstInstance);
+   cmd->state.vs_params = tu6_emit_vs_params(cmd, 0, vertexOffset, firstInstance);
 
    tu6_draw_common(cmd, cs, true, indexCount);
 
@@ -3925,6 +3958,43 @@ tu_CmdDrawIndexed(VkCommandBuffer commandBuffer,
    tu_cs_emit(cs, firstIndex);
    tu_cs_emit_qw(cs, cmd->state.index_va);
    tu_cs_emit(cs, cmd->state.max_index_count);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
+                          uint32_t drawCount,
+                          const VkMultiDrawIndexedInfoEXT *pIndexInfo,
+                          uint32_t instanceCount,
+                          uint32_t firstInstance,
+                          uint32_t stride,
+                          const int32_t *pVertexOffset)
+{
+   TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
+   struct tu_cs *cs = &cmd->draw_cs;
+
+   cmd->state.vs_params = (struct tu_draw_state) {};
+
+   uint32_t max_index_count = 0;
+   vk_foreach_multi_draw_indexed(draw, i, pIndexInfo, drawCount, stride,
+      max_index_count = MAX2(max_index_count, draw->count);
+   );
+
+   tu6_draw_common(cmd, cs, true, max_index_count);
+
+   vk_foreach_multi_draw_indexed(draw, i, pIndexInfo, drawCount, stride,
+      int32_t vertexOffset = pVertexOffset ? *pVertexOffset : draw->offset;
+      cmd->state.vs_params = tu6_emit_vs_params(cmd, i, vertexOffset, firstInstance);
+      tu_cs_emit_pkt7(cs, CP_SET_DRAW_STATE, 3);
+      tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
+
+      tu_cs_emit_pkt7(cs, CP_DRAW_INDX_OFFSET, 7);
+      tu_cs_emit(cs, tu_draw_initiator(cmd, DI_SRC_SEL_DMA));
+      tu_cs_emit(cs, instanceCount);
+      tu_cs_emit(cs, draw->count);
+      tu_cs_emit(cs, draw->first);
+      tu_cs_emit_qw(cs, cmd->state.index_va);
+      tu_cs_emit(cs, cmd->state.max_index_count);
+   );
 }
 
 /* Various firmware bugs/inconsistencies mean that some indirect draw opcodes
@@ -4091,7 +4161,7 @@ tu_CmdDrawIndirectByteCountEXT(VkCommandBuffer commandBuffer,
     */
    draw_wfm(cmd);
 
-   cmd->state.vs_params = tu6_emit_vs_params(cmd, 0, firstInstance);
+   cmd->state.vs_params = tu6_emit_vs_params(cmd, 0, 0, firstInstance);
 
    tu6_draw_common(cmd, cs, false, 0);
 

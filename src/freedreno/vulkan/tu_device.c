@@ -179,6 +179,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_shader_viewport_index_layer = true,
       .EXT_vertex_attribute_divisor = true,
       .EXT_provoking_vertex = true,
+      .EXT_multi_draw = true,
 #ifdef ANDROID
       .ANDROID_native_buffer = true,
 #endif
@@ -743,6 +744,12 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->transformFeedbackPreservesProvokingVertex = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT: {
+         VkPhysicalDeviceMultiDrawFeaturesEXT *features =
+            (VkPhysicalDeviceMultiDrawFeaturesEXT *)ext;
+         features->multiDraw = true;
+         break;
+      }
 
       default:
          break;
@@ -1074,6 +1081,11 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->provokingVertexModePerPipeline = true;
          properties->transformFeedbackPreservesTriangleFanProvokingVertex = false;
          break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT: {
+         VkPhysicalDeviceMultiDrawPropertiesEXT *properties =
+            (VkPhysicalDeviceMultiDrawPropertiesEXT *)ext;
+         properties->maxMultiDrawCount = 2048;
       }
       default:
          break;
