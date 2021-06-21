@@ -223,6 +223,7 @@ ir3_optimize_loop(struct ir3_compiler *compiler, nir_shader *s)
 			progress |= OPT(s, nir_opt_gcm, false);
 		progress |= OPT(s, nir_opt_peephole_select, 16, true, true);
 		progress |= OPT(s, nir_opt_intrinsics);
+		progress |= OPT(s, nir_opt_phi_precision);
 		progress |= OPT(s, nir_opt_algebraic);
 		progress |= OPT(s, nir_lower_alu);
 		progress |= OPT(s, nir_lower_pack);
