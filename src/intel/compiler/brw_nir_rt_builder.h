@@ -33,6 +33,12 @@ brw_load_btd_dss_id(nir_builder *b)
    return nir_build_load_topology_id_intel(b, .base = BRW_TOPOLOGY_ID_DSS);
 }
 
+static inline nir_ssa_def *
+brw_load_num_simd_lanes_per_dss(nir_builder *b)
+{
+   return nir_build_load_topology_id_intel(b, .base = BRW_TOPOLOGY_ID_NUM_SIMD_LANES_PER_DSS);
+}
+
 /* We have our own load/store scratch helpers because they emit a global
  * memory read or write based on the scratch_base_ptr system value rather
  * than a load/store_scratch intrinsic.

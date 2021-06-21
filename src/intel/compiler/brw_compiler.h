@@ -1897,6 +1897,9 @@ enum brw_topology_id
 
    /* A value composed of EU ID, thread ID & SIMD lane ID. */
    BRW_TOPOLOGY_ID_EU_THREAD_SIMD,
+
+   /* Number of SIMD lanes per DSS. */
+   BRW_TOPOLOGY_ID_NUM_SIMD_LANES_PER_DSS,
 };
 
 #ifdef __cplusplus

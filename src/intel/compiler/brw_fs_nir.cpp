@@ -5800,6 +5800,12 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
             ibld.ADD(horiz_offset(dst, 1 * 8), horiz_offset(dst, 0 * 8), brw_imm_ud(8));
          break;
       }
+      case BRW_TOPOLOGY_ID_NUM_SIMD_LANES_PER_DSS:
+         bld.MOV(retype(dest, BRW_REGISTER_TYPE_UD),
+                 brw_imm_ud(devinfo->num_thread_per_eu *
+                            devinfo->max_eu_per_subslice *
+                            16 /* We assume SIMD16 */));
+         break;
       default:
          unreachable("Invalid topology id type");
       }
