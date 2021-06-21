@@ -323,6 +323,7 @@ st_nir_opts(nir_shader *nir)
       NIR_PASS(progress, nir, nir_opt_undef);
       NIR_PASS(progress, nir, nir_opt_conditional_discard);
       if (nir->options->max_unroll_iterations) {
+         NIR_PASS(progress, nir, nir_opt_phi_precision);
          NIR_PASS(progress, nir, nir_opt_loop_unroll, (nir_variable_mode)0);
       }
    } while (progress);
