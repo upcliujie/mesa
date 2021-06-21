@@ -6778,21 +6778,23 @@ static void
 lower_trace_ray_logical_send(const fs_builder &bld, fs_inst *inst)
 {
    const intel_device_info *devinfo = bld.shader->devinfo;
+   const fs_reg &globals_addr = inst->src[RT_LOGICAL_SRC_GLOBALS];
    const fs_reg &bvh_level =
-      inst->src[0].file == BRW_IMMEDIATE_VALUE ?
-      inst->src[0] :
-      bld.move_to_vgrf(inst->src[0], inst->components_read(0));
+      inst->src[RT_LOGICAL_SRC_BVH_LEVEL].file == BRW_IMMEDIATE_VALUE ?
+      inst->src[RT_LOGICAL_SRC_BVH_LEVEL] :
+      bld.move_to_vgrf(inst->src[RT_LOGICAL_SRC_BVH_LEVEL],
+                       inst->components_read(RT_LOGICAL_SRC_BVH_LEVEL));
    const fs_reg &trace_ray_control =
-      inst->src[1].file == BRW_IMMEDIATE_VALUE ?
-      inst->src[1] :
-      bld.move_to_vgrf(inst->src[1], inst->components_read(1));
+      inst->src[RT_LOGICAL_SRC_TRACE_RAY_CONTROL].file == BRW_IMMEDIATE_VALUE ?
+      inst->src[RT_LOGICAL_SRC_TRACE_RAY_CONTROL] :
+      bld.move_to_vgrf(inst->src[RT_LOGICAL_SRC_TRACE_RAY_CONTROL],
+                       inst->components_read(RT_LOGICAL_SRC_TRACE_RAY_CONTROL));
 
    const unsigned mlen = 1;
    const fs_builder ubld = bld.exec_all().group(8, 0);
    fs_reg header = ubld.vgrf(BRW_REGISTER_TYPE_UD);
    ubld.MOV(header, brw_imm_ud(0));
-   ubld.group(2, 0).MOV(header,
-      retype(brw_vec2_grf(2, 0), BRW_REGISTER_TYPE_UD));
+   ubld.group(2, 0).MOV(header, retype(globals_addr, BRW_REGISTER_TYPE_UD));
    /* TODO: Bit 128 is ray_query */
 
    const unsigned ex_mlen = inst->exec_size / 8;

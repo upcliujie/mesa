@@ -3993,12 +3993,15 @@ fs_visitor::nir_emit_bs_intrinsic(const fs_builder &bld,
       bld.MOV(dest, retype(brw_vec1_grf(2, 2), dest.type));
       break;
 
-   case nir_intrinsic_trace_ray_intel:
-      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL,
-               bld.null_reg_ud(),
-               get_nir_src(instr->src[0]),
-               get_nir_src(instr->src[1]));
+   case nir_intrinsic_trace_ray_intel: {
+      fs_reg srcs[RT_LOGICAL_NUM_SRCS];
+      srcs[RT_LOGICAL_SRC_GLOBALS] = get_nir_src(instr->src[0]);
+      srcs[RT_LOGICAL_SRC_BVH_LEVEL] = get_nir_src(instr->src[1]);
+      srcs[RT_LOGICAL_SRC_TRACE_RAY_CONTROL] = get_nir_src(instr->src[2]);
+      bld.emit(RT_OPCODE_TRACE_RAY_LOGICAL, bld.null_reg_ud(),
+               srcs, RT_LOGICAL_NUM_SRCS);
       break;
+   }
 
    default:
       nir_emit_intrinsic(bld, instr);
