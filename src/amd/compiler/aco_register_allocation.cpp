@@ -984,8 +984,8 @@ get_reg_for_create_vector_copy(ra_ctx& ctx, RegisterFile& reg_file,
    for (unsigned i = 0; i < instr->operands.size(); i++) {
       if (instr->operands[i].isTemp() && instr->operands[i].tempId() == id &&
           instr->operands[i].isKillBeforeDef()) {
-         assert(!reg_file.test(reg, info.rc.bytes()));
-         return {reg, !info.rc.is_subdword() || (reg.byte() % info.stride == 0)};
+         return {reg, !reg_file.test(reg, info.rc.bytes()) &&
+                         (!info.rc.is_subdword() || (reg.byte() % info.stride == 0))};
       }
       reg.reg_b += instr->operands[i].bytes();
    }
@@ -1750,25 +1750,21 @@ get_reg_create_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp,
          return res.first;
    }
 
-   /* re-enable killed operands which are in the wrong position */
+   PhysRegInterval def_reg{best_pos, size};
    RegisterFile tmp_file(reg_file);
-   for (Operand& op : instr->operands) {
-      if (op.isTemp() && op.isFirstKillBeforeDef())
-         tmp_file.fill(op);
-   }
-   for (unsigned i = 0; i < instr->operands.size(); i++) {
-      if ((correct_pos_mask >> i) & 1u && instr->operands[i].isKill())
-         tmp_file.clear(instr->operands[i]);
-   }
 
    /* collect variables to be moved */
-   std::set<std::pair<unsigned, unsigned>> vars =
-      collect_vars(ctx, tmp_file, PhysRegInterval{best_pos, size});
+   std::set<std::pair<unsigned, unsigned>> vars = collect_vars(ctx, tmp_file, def_reg);
+
+   /* re-enable killed operands which are at wrong positions */
+   for (unsigned i = 0; i < instr->operands.size(); i++) {
+      if (!((correct_pos_mask >> i) & 1u) && instr->operands[i].isKill())
+         tmp_file.fill(instr->operands[i]);
+   }
 
    bool success = false;
    std::vector<std::pair<Operand, Definition>> pc;
-   success =
-      get_regs_for_copies(ctx, tmp_file, pc, vars, bounds, instr, PhysRegInterval{best_pos, size});
+   success = get_regs_for_copies(ctx, tmp_file, pc, vars, bounds, instr, def_reg);
 
    if (!success) {
       if (!increase_register_file(ctx, temp.type())) {
