@@ -187,19 +187,14 @@ reserve_vma(uintptr_t start, uint64_t reserved_size)
    return reserved;
 }
 
-struct nouveau_pushbuf_priv {
-   struct nouveau_screen *screen;
-   struct nouveau_context *context;
-};
-
 static void
 nouveau_pushbuf_cb(struct nouveau_pushbuf *push)
 {
    struct nouveau_pushbuf_priv *p = (struct nouveau_pushbuf_priv *)push->user_priv;
 
    if (p->context)
-      nouveau_fence_next(p->context);
-   nouveau_fence_update(p->screen, true);
+      _nouveau_fence_next(p->context);
+   _nouveau_fence_update(p->screen, true);
 
    if (p->context)
       p->context->kick_notify(p->context);
