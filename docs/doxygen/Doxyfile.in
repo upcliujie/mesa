@@ -1,0 +1,24 @@
+DOXYFILE_ENCODING = UTF-8
+PROJECT_NAME = "Mesa"
+
+INPUT = @input_files@
+XML_OUTPUT = @output_xml@
+
+QUIET = YES
+
+# Only generate XML
+GENERATE_HTML = NO
+GENERATE_LATEX = NO
+GENERATE_XML = YES
+
+# Add aliases for easily writing reStructuredText in comments
+ALIASES  = "rst=\\verbatim embed:rst:leading-asterisk"
+ALIASES += "endrst=\endverbatim"
+
+ENABLE_PREPROCESSING = YES
+MACRO_EXPANSION = YES
+EXPAND_ONLY_PREDEF = YES
+
+# Defines required to keep doxygen from tripping on our attribute macros
+PREDEFINED  = PACKED=
+PREDEFINED += ATTRIBUTE_CONST=

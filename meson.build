@@ -2216,7 +2216,8 @@ if meson.version().version_compare('>= 0.58')
 endif
 
 sphinx = find_program('sphinx-build', required: get_option('html-docs'))
-if sphinx.found()
+doxygen = find_program('doxygen', required: get_option('html-docs'))
+if sphinx.found() and doxygen.found()
   subdir('docs')
 endif
 
