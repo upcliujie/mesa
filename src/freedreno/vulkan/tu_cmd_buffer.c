@@ -1520,6 +1520,7 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
    cmd_buffer->state.last_vs_params.first_instance = -1;
    cmd_buffer->state.last_vs_params.params_offset = -1;
    cmd_buffer->state.last_vs_params.vertex_offset = -1;
+   cmd_buffer->state.last_vs_params.draw_id = -1;
 
    tu_cache_init(&cmd_buffer->state.cache);
    tu_cache_init(&cmd_buffer->state.renderpass_cache);
@@ -3869,14 +3870,16 @@ tu6_emit_empty_vs_params(struct tu_cmd_buffer *cmd)
 
 static void
 tu6_emit_vs_params(struct tu_cmd_buffer *cmd,
+                   uint32_t draw_id,
                    uint32_t vertex_offset,
                    uint32_t first_instance)
 {
    uint32_t offset = vs_params_offset(cmd);
 
-   if (offset == cmd->state.last_vs_params.params_offset &&
-       vertex_offset == cmd->state.last_vs_params.vertex_offset &&
-       first_instance == cmd->state.last_vs_params.first_instance) {
+   if ((offset == 0 || draw_id == cmd->state.last_vs_params.draw_id) &&
+       (offset == cmd->state.last_vs_params.params_offset &&
+        vertex_offset == cmd->state.last_vs_params.vertex_offset &&
+        first_instance == cmd->state.last_vs_params.first_instance)) {
       return;
    }
 
@@ -3901,7 +3904,7 @@ tu6_emit_vs_params(struct tu_cmd_buffer *cmd,
       tu_cs_emit(&cs, 0);
       tu_cs_emit(&cs, 0);
 
-      tu_cs_emit(&cs, 0);
+      tu_cs_emit(&cs, draw_id);
       tu_cs_emit(&cs, vertex_offset);
       tu_cs_emit(&cs, first_instance);
       tu_cs_emit(&cs, 0);
@@ -3910,6 +3913,7 @@ tu6_emit_vs_params(struct tu_cmd_buffer *cmd,
    cmd->state.last_vs_params.params_offset = offset;
    cmd->state.last_vs_params.vertex_offset = vertex_offset;
    cmd->state.last_vs_params.first_instance = first_instance;
+   cmd->state.last_vs_params.draw_id = draw_id;
 
    struct tu_cs_entry entry = tu_cs_end_sub_stream(&cmd->sub_cs, &cs);
    cmd->state.vs_params = (struct tu_draw_state) {entry.bo->iova + entry.offset, entry.size / 4};
@@ -3927,7 +3931,7 @@ tu_CmdDraw(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
 
-   tu6_emit_vs_params(cmd, firstVertex, firstInstance);
+   tu6_emit_vs_params(cmd, 0, firstVertex, firstInstance);
 
    tu6_draw_common(cmd, cs, false, vertexCount);
 
@@ -3935,6 +3939,46 @@ tu_CmdDraw(VkCommandBuffer commandBuffer,
    tu_cs_emit(cs, tu_draw_initiator(cmd, DI_SRC_SEL_AUTO_INDEX));
    tu_cs_emit(cs, instanceCount);
    tu_cs_emit(cs, vertexCount);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_CmdDrawMultiEXT(VkCommandBuffer commandBuffer,
+                   uint32_t drawCount,
+                   const VkMultiDrawInfoEXT *pVertexInfo,
+                   uint32_t instanceCount,
+                   uint32_t firstInstance,
+                   uint32_t stride)
+{
+   TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
+   struct tu_cs *cs = &cmd->draw_cs;
+
+   bool has_tess =
+         cmd->state.pipeline->active_stages & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+
+   uint32_t max_vertex_count = 0;
+   if (has_tess) {
+      uint32_t i = 0;
+      vk_foreach_multi_draw(draw, i, pVertexInfo, drawCount, stride) {
+         max_vertex_count = MAX2(max_vertex_count, draw->vertexCount);
+      }
+   }
+
+   tu6_draw_common(cmd, cs, false, max_vertex_count);
+
+   uint32_t i = 0;
+   vk_foreach_multi_draw(draw, i, pVertexInfo, drawCount, stride) {
+      tu6_emit_vs_params(cmd, i, draw->firstVertex, firstInstance);
+      if (cmd->state.dirty & TU_CMD_DIRTY_VS_PARAMS) {
+         tu_cs_emit_pkt7(cs, CP_SET_DRAW_STATE, 3);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
+         cmd->state.dirty &= ~TU_CMD_DIRTY_VS_PARAMS;
+      }
+
+      tu_cs_emit_pkt7(cs, CP_DRAW_INDX_OFFSET, 3);
+      tu_cs_emit(cs, tu_draw_initiator(cmd, DI_SRC_SEL_AUTO_INDEX));
+      tu_cs_emit(cs, instanceCount);
+      tu_cs_emit(cs, draw->vertexCount);
+   }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3948,7 +3992,7 @@ tu_CmdDrawIndexed(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
    struct tu_cs *cs = &cmd->draw_cs;
 
-   tu6_emit_vs_params(cmd, vertexOffset, firstInstance);
+   tu6_emit_vs_params(cmd, 0, vertexOffset, firstInstance);
 
    tu6_draw_common(cmd, cs, true, indexCount);
 
@@ -3959,6 +4003,51 @@ tu_CmdDrawIndexed(VkCommandBuffer commandBuffer,
    tu_cs_emit(cs, firstIndex);
    tu_cs_emit_qw(cs, cmd->state.index_va);
    tu_cs_emit(cs, cmd->state.max_index_count);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
+                          uint32_t drawCount,
+                          const VkMultiDrawIndexedInfoEXT *pIndexInfo,
+                          uint32_t instanceCount,
+                          uint32_t firstInstance,
+                          uint32_t stride,
+                          const int32_t *pVertexOffset)
+{
+   TU_FROM_HANDLE(tu_cmd_buffer, cmd, commandBuffer);
+   struct tu_cs *cs = &cmd->draw_cs;
+
+   bool has_tess =
+         cmd->state.pipeline->active_stages & VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+
+   uint32_t max_index_count = 0;
+   if (has_tess) {
+      uint32_t i = 0;
+      vk_foreach_multi_draw_indexed(draw, i, pIndexInfo, drawCount, stride) {
+         max_index_count = MAX2(max_index_count, draw->indexCount);
+      }
+   }
+
+   tu6_draw_common(cmd, cs, true, max_index_count);
+
+   uint32_t i = 0;
+   vk_foreach_multi_draw_indexed(draw, i, pIndexInfo, drawCount, stride) {
+      int32_t vertexOffset = pVertexOffset ? *pVertexOffset : draw->vertexOffset;
+      tu6_emit_vs_params(cmd, i, vertexOffset, firstInstance);
+      if (cmd->state.dirty & TU_CMD_DIRTY_VS_PARAMS) {
+         tu_cs_emit_pkt7(cs, CP_SET_DRAW_STATE, 3);
+         tu_cs_emit_draw_state(cs, TU_DRAW_STATE_VS_PARAMS, cmd->state.vs_params);
+         cmd->state.dirty &= ~TU_CMD_DIRTY_VS_PARAMS;
+      }
+
+      tu_cs_emit_pkt7(cs, CP_DRAW_INDX_OFFSET, 7);
+      tu_cs_emit(cs, tu_draw_initiator(cmd, DI_SRC_SEL_DMA));
+      tu_cs_emit(cs, instanceCount);
+      tu_cs_emit(cs, draw->indexCount);
+      tu_cs_emit(cs, draw->firstIndex);
+      tu_cs_emit_qw(cs, cmd->state.index_va);
+      tu_cs_emit(cs, cmd->state.max_index_count);
+   }
 }
 
 /* Various firmware bugs/inconsistencies mean that some indirect draw opcodes
@@ -4125,7 +4214,7 @@ tu_CmdDrawIndirectByteCountEXT(VkCommandBuffer commandBuffer,
     */
    draw_wfm(cmd);
 
-   tu6_emit_vs_params(cmd, 0, firstInstance);
+   tu6_emit_vs_params(cmd, 0, 0, firstInstance);
 
    tu6_draw_common(cmd, cs, false, 0);
 
