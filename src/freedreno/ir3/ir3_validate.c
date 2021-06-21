@@ -209,8 +209,29 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 			validate_assert(ctx, !(instr->dsts[0]->flags & IR3_REG_HALF));
 			validate_assert(ctx, util_is_power_of_two_or_zero(instr->dsts[0]->wrmask + 1));
 		} else {
-			validate_reg_size(ctx, instr->dsts[0], instr->cat1.dst_type);
-			validate_reg_size(ctx, instr->srcs[0], instr->cat1.src_type);
+			foreach_dst (dst, instr)
+				validate_reg_size(ctx, dst, instr->cat1.dst_type);
+			foreach_src (src, instr) {
+				if (!src->tied && src != instr->address)
+					validate_reg_size(ctx, src, instr->cat1.src_type);
+			}
+
+			switch (instr->opc) {
+				case OPC_SWZ:
+					validate_assert(ctx, instr->srcs_count == 2);
+					validate_assert(ctx, instr->dsts_count == 2);
+					break;
+				case OPC_GAT:
+					validate_assert(ctx, instr->srcs_count == 4);
+					validate_assert(ctx, instr->dsts_count == 1);
+					break;
+				case OPC_SCT:
+					validate_assert(ctx, instr->srcs_count == 1);
+					validate_assert(ctx, instr->dsts_count == 4);
+					break;
+				default:
+					break;
+			}
 		}
 		break;
 	case 3:
