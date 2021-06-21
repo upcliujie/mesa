@@ -2090,6 +2090,11 @@ subdir('include')
 subdir('bin')
 subdir('src')
 
+sphinx = find_program('sphinx-build', required: get_option('html-docs'))
+if sphinx.found()
+  subdir('docs')
+endif
+
 # Meson 0.49 and earlier seems to have a bug that fails to evaluate the string-
 # formatting below unless the first argument is passed as a variable. This has
 # been fixed in Meson 0.50 and beyond, but we need to keep it like this for now
