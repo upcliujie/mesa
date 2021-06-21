@@ -887,6 +887,7 @@ struct tu_vs_params {
    uint32_t params_offset;
    uint32_t vertex_offset;
    uint32_t first_instance;
+   uint32_t draw_id;
 };
 
 struct tu_cmd_state
