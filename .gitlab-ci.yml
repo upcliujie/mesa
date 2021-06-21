@@ -100,7 +100,7 @@ stages:
   - apk --no-cache add graphviz doxygen
   - pip3 install "sphinx<4.0" breathe mako sphinx_rtd_theme
   - docs/doxygen-wrapper.py --out-dir=docs/doxygen_xml
-  - sphinx-build -W -b html docs public
+  - sphinx-build -W -Dbreathe_projects.mesa=docs/doxygen_xml -b html docs public
 
 pages:
   extends: .docs-base

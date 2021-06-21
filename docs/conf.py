@@ -214,9 +214,6 @@ texinfo_documents = [
 graphviz_output_format = 'svg'
 
 # -- Options for breathe --------------------------------------------------
-breathe_projects = {
-    'mesa' : 'doxygen_xml',
-}
 breathe_default_project = 'mesa'
 breathe_show_define_initializer = True
 breathe_show_enumvalue_initializer = True
