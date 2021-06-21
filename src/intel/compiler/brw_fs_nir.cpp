@@ -4030,7 +4030,6 @@ emit_rt_lsc_fence(const fs_builder &bld, bool flush, bool invalidate)
    }
 }
 
-
 void
 fs_visitor::nir_emit_bs_intrinsic(const fs_builder &bld,
                                   nir_intrinsic_instr *instr)
@@ -5930,6 +5929,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       assert(brw_shader_stage_is_bindless(stage) || synchronous);
       if (synchronous)
          emit_rt_lsc_fence(bld, true, false);
+
       fs_reg srcs[RT_LOGICAL_NUM_SRCS];
       srcs[RT_LOGICAL_SRC_GLOBALS] = get_nir_src(instr->src[0]);
       srcs[RT_LOGICAL_SRC_BVH_LEVEL] = get_nir_src(instr->src[1]);
