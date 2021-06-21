@@ -212,6 +212,10 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 			validate_reg_size(ctx, instr->dsts[0], instr->cat1.dst_type);
 			validate_reg_size(ctx, instr->srcs[0], instr->cat1.src_type);
 		}
+
+		if (instr->opc != OPC_MOV)
+			validate_assert(ctx, !instr->address);
+
 		break;
 	case 3:
 		/* Validate that cat3 opc matches the src type.  We've already checked that all
