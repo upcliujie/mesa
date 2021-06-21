@@ -44,7 +44,7 @@ Start-Process -NoNewWindow -Wait git -ArgumentList 'config --global core.autocrl
 
 Get-Date
 Write-Host "Installing Meson, Mako and numpy"
-pip3 install meson mako numpy
+pip3 install "meson==0.57.2" mako numpy
 if (!$?) {
   Write-Host "Failed to install dependencies from pip"
   Exit 1
