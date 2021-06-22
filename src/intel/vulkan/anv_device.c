@@ -321,7 +321,7 @@ get_device_extensions(const struct anv_physical_device *device,
       .INTEL_performance_query               = device->perf &&
                                                device->perf->i915_perf_version >= 3,
       .INTEL_shader_integer_functions2       = device->info.ver >= 8,
-      .EXT_multi_draw                        = false,
+      .EXT_multi_draw                        = true,
       .NV_compute_shader_derivatives         = true,
    };
 }
