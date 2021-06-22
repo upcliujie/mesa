@@ -475,7 +475,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .EXT_line_rasterization = true,
       .EXT_memory_budget = true,
       .EXT_memory_priority = true,
-      .EXT_multi_draw = false,
+      .EXT_multi_draw = true,
       .EXT_pci_bus_info = true,
 #ifndef _WIN32
       .EXT_physical_device_drm = true,
@@ -1643,6 +1643,11 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->descriptorBindingAccelerationStructureUpdateAfterBind = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT: {
+         VkPhysicalDeviceMultiDrawFeaturesEXT *features = (VkPhysicalDeviceMultiDrawFeaturesEXT *)ext;
+         features->multiDraw = true;
+         break;
+      }
       default:
          break;
       }
@@ -2352,6 +2357,11 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          break;
       }
 #endif
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT: {
+         VkPhysicalDeviceMultiDrawPropertiesEXT *props = (VkPhysicalDeviceMultiDrawPropertiesEXT *)ext;
+         props->maxMultiDrawCount = 2048;
+         break;
+      }
       default:
          break;
       }
