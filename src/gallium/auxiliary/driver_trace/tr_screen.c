@@ -26,6 +26,7 @@
  **************************************************************************/
 
 #include "util/format/u_format.h"
+#include "util/u_debug.h"
 #include "util/u_memory.h"
 #include "util/hash_table.h"
 #include "util/simple_list.h"
