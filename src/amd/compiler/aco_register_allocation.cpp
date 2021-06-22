@@ -363,10 +363,10 @@ UNUSED void print_reg(const RegisterFile& reg_file, PhysReg reg, bool has_adjace
       const bool show_subdword_alloc = (reg_file[reg] == 0xF0000000);
       if (show_subdword_alloc) {
          const char* block_chars[] = {
-            "?", "▘", "▝", "▀",
-            "▖", "▌", "▞", "▛",
-            "▗", "▚", "▐", "▜",
-            "▄", "▙", "▟", "▉"
+            "?", "\u2598", "\u259D", "\u2580",
+            "\u2596", "\u258C", "\u259E", "\u259B",
+            "\u2597", "\u259A", "\u2590", "\u259C",
+            "\u2584", "\u2599", "\u259F", "\u2589"
          };
          unsigned index = 0;
          for (int i = 0; i < 4; ++i) {
@@ -378,10 +378,10 @@ UNUSED void print_reg(const RegisterFile& reg_file, PhysReg reg, bool has_adjace
       } else {
          /* Indicate filled register slot */
          if (!has_adjacent_variable) {
-            printf("█");
+            printf("\u2588");
          } else {
             /* Use a slightly shorter box to leave a small gap between adjacent variables */
-            printf("▉");
+            printf("\u2589");
          }
       }
    } else {
