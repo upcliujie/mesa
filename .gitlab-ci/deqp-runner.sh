@@ -196,6 +196,8 @@ if [ "$GALLIUM_DRIVER" = "virpipe" ]; then
         VTEST_ARGS="$VTEST_ARGS --use-gles"
     fi
 
+    ldd $(which virgl_test_server)
+
     GALLIUM_DRIVER=llvmpipe \
     GALLIVM_PERF="nopt,no_filter_hacks" \
     virgl_test_server $VTEST_ARGS >$RESULTS/vtest-log.txt 2>&1 &
