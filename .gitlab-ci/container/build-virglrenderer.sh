@@ -10,7 +10,7 @@ ninja -C build install
 popd
 rm -rf /epoxy
 
-VIRGLRENDERER_VERSION=7db2faa354a895b75cee9e9c872c87500e1be7cb
+VIRGLRENDERER_VERSION=7b5dd3eb47b82db16d8ab51a03b6cda8625fa8e9
 git clone https://gitlab.freedesktop.org/virgl/virglrenderer.git --single-branch --no-checkout /virglrenderer
 pushd /virglrenderer
 git checkout "$VIRGLRENDERER_VERSION"
