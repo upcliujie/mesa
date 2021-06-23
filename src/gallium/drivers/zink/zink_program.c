@@ -277,7 +277,7 @@ get_shader_module_for_stage(struct zink_context *ctx, struct zink_shader *zs, st
 static void
 zink_destroy_shader_module(struct zink_screen *screen, struct zink_shader_module *zm)
 {
-   vkDestroyShaderModule(screen->dev, zm->shader, NULL);
+   screen->vk.DestroyShaderModule(screen->dev, zm->shader, NULL);
    free(zm);
 }
 
@@ -521,7 +521,7 @@ zink_pipeline_layout_create(struct zink_screen *screen, struct zink_program *pg)
    plci.pPushConstantRanges = &pcr[0];
 
    VkPipelineLayout layout;
-   if (vkCreatePipelineLayout(screen->dev, &plci, NULL, &layout) != VK_SUCCESS) {
+   if (screen->vk.CreatePipelineLayout(screen->dev, &plci, NULL, &layout) != VK_SUCCESS) {
       debug_printf("vkCreatePipelineLayout failed!\n");
       return VK_NULL_HANDLE;
    }
@@ -771,7 +771,7 @@ zink_destroy_gfx_program(struct zink_screen *screen,
                          struct zink_gfx_program *prog)
 {
    if (prog->base.layout)
-      vkDestroyPipelineLayout(screen->dev, prog->base.layout, NULL);
+      screen->vk.DestroyPipelineLayout(screen->dev, prog->base.layout, NULL);
 
    for (int i = 0; i < ZINK_SHADER_COUNT; ++i) {
       if (prog->shaders[i]) {
@@ -786,7 +786,7 @@ zink_destroy_gfx_program(struct zink_screen *screen,
       hash_table_foreach(prog->pipelines[i], entry) {
          struct gfx_pipeline_cache_entry *pc_entry = entry->data;
 
-         vkDestroyPipeline(screen->dev, pc_entry->pipeline, NULL);
+         screen->vk.DestroyPipeline(screen->dev, pc_entry->pipeline, NULL);
          free(pc_entry);
       }
       _mesa_hash_table_destroy(prog->pipelines[i], NULL);
@@ -802,7 +802,7 @@ zink_destroy_compute_program(struct zink_screen *screen,
                          struct zink_compute_program *comp)
 {
    if (comp->base.layout)
-      vkDestroyPipelineLayout(screen->dev, comp->base.layout, NULL);
+      screen->vk.DestroyPipelineLayout(screen->dev, comp->base.layout, NULL);
 
    if (comp->shader)
       _mesa_set_remove_key(comp->shader->programs, comp);
@@ -812,7 +812,7 @@ zink_destroy_compute_program(struct zink_screen *screen,
    hash_table_foreach(comp->pipelines, entry) {
       struct compute_pipeline_cache_entry *pc_entry = entry->data;
 
-      vkDestroyPipeline(screen->dev, pc_entry->pipeline, NULL);
+      screen->vk.DestroyPipeline(screen->dev, pc_entry->pipeline, NULL);
       free(pc_entry);
    }
    _mesa_hash_table_destroy(comp->pipelines, NULL);

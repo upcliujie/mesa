@@ -296,7 +296,7 @@ create_pool(struct zink_screen *screen, unsigned num_type_sizes, VkDescriptorPoo
    dpci.poolSizeCount = num_type_sizes;
    dpci.flags = flags;
    dpci.maxSets = ZINK_DEFAULT_MAX_DESCS;
-   if (vkCreateDescriptorPool(screen->dev, &dpci, 0, &pool) != VK_SUCCESS) {
+   if (screen->vk.CreateDescriptorPool(screen->dev, &dpci, 0, &pool) != VK_SUCCESS) {
       debug_printf("vkCreateDescriptorPool failed\n");
       return VK_NULL_HANDLE;
    }
@@ -447,7 +447,7 @@ zink_descriptors_update_lazy(struct zink_context *ctx, bool is_compute)
          if (pg->dd->layout_key[type])
             screen->vk.UpdateDescriptorSetWithTemplate(screen->dev, desc_sets[type + 1], pg->dd->layouts[type + 1]->template, ctx);
          assert(type + 1 < pg->num_dsl);
-         vkCmdBindDescriptorSets(bs->cmdbuf,
+         screen->vk.CmdBindDescriptorSets(bs->cmdbuf,
                                  is_compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
                                  /* set index incremented by 1 to account for push set */
                                  pg->layout, type + 1, 1, &desc_sets[type + 1],
@@ -463,14 +463,14 @@ zink_descriptors_update_lazy(struct zink_context *ctx, bool is_compute)
       else {
          assert(desc_sets[0]);
          screen->vk.UpdateDescriptorSetWithTemplate(screen->dev, desc_sets[0], pg->dd->push_template, ctx);
-         vkCmdBindDescriptorSets(batch->state->cmdbuf,
+         screen->vk.CmdBindDescriptorSets(batch->state->cmdbuf,
                                  is_compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
                                  pg->layout, 0, 1, &desc_sets[0],
                                  0, NULL);
       }
       dd_lazy(ctx)->push_state_changed[is_compute] = false;
    } else if (dd_lazy(ctx)->push_state_changed[is_compute]) {
-      vkCmdBindDescriptorSets(bs->cmdbuf,
+      screen->vk.CmdBindDescriptorSets(bs->cmdbuf,
                               is_compute ? VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
                               pg->layout, 0, 1, &ctx->dd->dummy_set,
                               0, NULL);
@@ -499,13 +499,13 @@ zink_batch_descriptor_deinit_lazy(struct zink_screen *screen, struct zink_batch_
       for (unsigned i = 0; i < ZINK_DESCRIPTOR_TYPES; i++) {
          hash_table_foreach(&bdd_lazy(bs)->pools[i], entry) {
             struct zink_descriptor_pool *pool = (void*)entry->data;
-            vkDestroyDescriptorPool(screen->dev, pool->pool, NULL);
+            screen->vk.DestroyDescriptorPool(screen->dev, pool->pool, NULL);
          }
       }
       if (bdd_lazy(bs)->push_pool[0])
-         vkDestroyDescriptorPool(screen->dev, bdd_lazy(bs)->push_pool[0]->pool, NULL);
+         screen->vk.DestroyDescriptorPool(screen->dev, bdd_lazy(bs)->push_pool[0]->pool, NULL);
       if (bdd_lazy(bs)->push_pool[1])
-         vkDestroyDescriptorPool(screen->dev, bdd_lazy(bs)->push_pool[1]->pool, NULL);
+         screen->vk.DestroyDescriptorPool(screen->dev, bdd_lazy(bs)->push_pool[1]->pool, NULL);
    }
    ralloc_free(bs->dd);
 }
@@ -522,7 +522,7 @@ zink_batch_descriptor_reset_lazy(struct zink_screen *screen, struct zink_batch_s
          if (key->use_count)
             pool->set_idx = 0;
          else {
-            vkDestroyDescriptorPool(screen->dev, pool->pool, NULL);
+            screen->vk.DestroyDescriptorPool(screen->dev, pool->pool, NULL);
             ralloc_free(pool);
             _mesa_hash_table_remove(&bdd_lazy(bs)->pools[i], entry);
          }
@@ -603,11 +603,11 @@ zink_descriptors_deinit_lazy(struct zink_context *ctx)
    if (ctx->dd) {
       struct zink_screen *screen = zink_screen(ctx->base.screen);
       if (ctx->dd->dummy_pool)
-         vkDestroyDescriptorPool(screen->dev, ctx->dd->dummy_pool, NULL);
+         screen->vk.DestroyDescriptorPool(screen->dev, ctx->dd->dummy_pool, NULL);
       if (screen->descriptor_mode == ZINK_DESCRIPTOR_MODE_LAZY &&
           screen->info.have_KHR_push_descriptor) {
-         vkDestroyDescriptorSetLayout(screen->dev, ctx->dd->push_dsl[0]->layout, NULL);
-         vkDestroyDescriptorSetLayout(screen->dev, ctx->dd->push_dsl[1]->layout, NULL);
+         screen->vk.DestroyDescriptorSetLayout(screen->dev, ctx->dd->push_dsl[0]->layout, NULL);
+         screen->vk.DestroyDescriptorSetLayout(screen->dev, ctx->dd->push_dsl[1]->layout, NULL);
       }
    }
    ralloc_free(ctx->dd);

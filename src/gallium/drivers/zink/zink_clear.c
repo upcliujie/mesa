@@ -66,6 +66,7 @@ clear_in_rp(struct pipe_context *pctx,
            const union pipe_color_union *pcolor,
            double depth, unsigned stencil)
 {
+   struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_context *ctx = zink_context(pctx);
    struct pipe_framebuffer_state *fb = &ctx->fb_state;
 
@@ -116,12 +117,13 @@ clear_in_rp(struct pipe_context *pctx,
    cr.baseArrayLayer = 0;
    cr.layerCount = util_framebuffer_get_num_layers(fb);
    struct zink_batch *batch = zink_batch_rp(ctx);
-   vkCmdClearAttachments(batch->state->cmdbuf, num_attachments, attachments, 1, &cr);
+   screen->vk.CmdClearAttachments(batch->state->cmdbuf, num_attachments, attachments, 1, &cr);
 }
 
 static void
 clear_color_no_rp(struct zink_context *ctx, struct zink_resource *res, const union pipe_color_union *pcolor, unsigned level, unsigned layer, unsigned layerCount)
 {
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
    struct zink_batch *batch = zink_batch_no_rp(ctx);
    VkImageSubresourceRange range = {0};
    range.baseMipLevel = level;
@@ -140,12 +142,13 @@ clear_color_no_rp(struct zink_context *ctx, struct zink_resource *res, const uni
        zink_resource_image_needs_barrier(res, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0))
       zink_resource_image_barrier(ctx, NULL, res, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0);
    zink_batch_reference_resource_rw(batch, res, true);
-   vkCmdClearColorImage(batch->state->cmdbuf, res->obj->image, res->layout, &color, 1, &range);
+   screen->vk.CmdClearColorImage(batch->state->cmdbuf, res->obj->image, res->layout, &color, 1, &range);
 }
 
 static void
 clear_zs_no_rp(struct zink_context *ctx, struct zink_resource *res, VkImageAspectFlags aspects, double depth, unsigned stencil, unsigned level, unsigned layer, unsigned layerCount)
 {
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
    struct zink_batch *batch = zink_batch_no_rp(ctx);
    VkImageSubresourceRange range = {0};
    range.baseMipLevel = level;
@@ -160,7 +163,7 @@ clear_zs_no_rp(struct zink_context *ctx, struct zink_resource *res, VkImageAspec
        zink_resource_image_needs_barrier(res, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0))
       zink_resource_image_barrier(ctx, NULL, res, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0);
    zink_batch_reference_resource_rw(batch, res, true);
-   vkCmdClearDepthStencilImage(batch->state->cmdbuf, res->obj->image, res->layout, &zs_value, 1, &range);
+   screen->vk.CmdClearDepthStencilImage(batch->state->cmdbuf, res->obj->image, res->layout, &zs_value, 1, &range);
 }
 
 
@@ -432,6 +435,7 @@ zink_clear_buffer(struct pipe_context *pctx,
                   const void *clear_value,
                   int clear_value_size)
 {
+   struct zink_screen *screen = zink_screen(pctx->screen);
    struct zink_context *ctx = zink_context(pctx);
    struct zink_resource *res = zink_resource(pres);
 
@@ -449,7 +453,7 @@ zink_clear_buffer(struct pipe_context *pctx,
       struct zink_batch *batch = zink_batch_no_rp(ctx);
       zink_batch_reference_resource_rw(batch, res, true);
       util_range_add(&res->base.b, &res->valid_buffer_range, offset, offset + size);
-      vkCmdFillBuffer(batch->state->cmdbuf, res->obj->buffer, offset, size, *(uint32_t*)clear_value);
+      screen->vk.CmdFillBuffer(batch->state->cmdbuf, res->obj->buffer, offset, size, *(uint32_t*)clear_value);
       return;
    }
    struct pipe_transfer *xfer;

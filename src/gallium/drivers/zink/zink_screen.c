@@ -163,14 +163,14 @@ zink_screen_update_pipeline_cache(struct zink_screen *screen)
 
    if (!screen->disk_cache)
       return;
-   if (vkGetPipelineCacheData(screen->dev, screen->pipeline_cache, &size, NULL) != VK_SUCCESS)
+   if (screen->vk.GetPipelineCacheData(screen->dev, screen->pipeline_cache, &size, NULL) != VK_SUCCESS)
       return;
    if (screen->pipeline_cache_size == size)
       return;
    void *data = malloc(size);
    if (!data)
       return;
-   if (vkGetPipelineCacheData(screen->dev, screen->pipeline_cache, &size, data) == VK_SUCCESS) {
+   if (screen->vk.GetPipelineCacheData(screen->dev, screen->pipeline_cache, &size, data) == VK_SUCCESS) {
       screen->pipeline_cache_size = size;
       disk_cache_put(screen->disk_cache, screen->disk_cache_key, data, size, NULL);
    }
@@ -969,7 +969,7 @@ resource_cache_entry_destroy(struct zink_screen *screen, struct hash_entry *he)
 {
    struct util_dynarray *array = (void*)he->data;
    util_dynarray_foreach(array, struct mem_cache_entry, mc) {
-      vkFreeMemory(screen->dev, mc->mem, NULL);
+      screen->vk.FreeMemory(screen->dev, mc->mem, NULL);
    }
    util_dynarray_fini(array);
 }
@@ -1016,18 +1016,17 @@ zink_destroy_screen(struct pipe_screen *pscreen)
    _mesa_hash_table_destroy(screen->resource_mem_cache, NULL);
    simple_mtx_unlock(&screen->mem_cache_mtx);
    simple_mtx_destroy(&screen->mem_cache_mtx);
-   vkDestroyPipelineCache(screen->dev, screen->pipeline_cache, NULL);
+   screen->vk.DestroyPipelineCache(screen->dev, screen->pipeline_cache, NULL);
 
    util_live_shader_cache_deinit(&screen->shaders);
 
    if (screen->sem)
-      vkDestroySemaphore(screen->dev, screen->sem, NULL);
+      screen->vk.DestroySemaphore(screen->dev, screen->sem, NULL);
    if (screen->prev_sem)
-      vkDestroySemaphore(screen->dev, screen->prev_sem, NULL);
+      screen->vk.DestroySemaphore(screen->dev, screen->prev_sem, NULL);
 
-
-   vkDestroyDevice(screen->dev, NULL);
-   vkDestroyInstance(screen->instance, NULL);
+   screen->vk.DestroyDevice(screen->dev, NULL);
+   screen->vk.DestroyInstance(screen->instance, NULL);
    util_idalloc_mt_fini(&screen->buffer_ids);
 
    slab_destroy_parent(&screen->transfer_pool);
@@ -1039,20 +1038,20 @@ choose_pdev(struct zink_screen *screen)
 {
    uint32_t i, pdev_count;
    VkPhysicalDevice *pdevs;
-   VkResult result = vkEnumeratePhysicalDevices(screen->instance, &pdev_count, NULL);
+   VkResult result = screen->vk.EnumeratePhysicalDevices(screen->instance, &pdev_count, NULL);
    if (result != VK_SUCCESS)
       return;
 
    assert(pdev_count > 0);
 
    pdevs = malloc(sizeof(*pdevs) * pdev_count);
-   result = vkEnumeratePhysicalDevices(screen->instance, &pdev_count, pdevs);
+   result = screen->vk.EnumeratePhysicalDevices(screen->instance, &pdev_count, pdevs);
    assert(result == VK_SUCCESS);
    assert(pdev_count > 0);
 
    VkPhysicalDeviceProperties *props = &screen->info.props;
    for (i = 0; i < pdev_count; ++i) {
-      vkGetPhysicalDeviceProperties(pdevs[i], props);
+      screen->vk.GetPhysicalDeviceProperties(pdevs[i], props);
 
 #ifdef ZINK_WITH_SWRAST_VK
       char *use_lavapipe = getenv("ZINK_USE_LAVAPIPE");
@@ -1089,11 +1088,11 @@ static void
 update_queue_props(struct zink_screen *screen)
 {
    uint32_t num_queues;
-   vkGetPhysicalDeviceQueueFamilyProperties(screen->pdev, &num_queues, NULL);
+   screen->vk.GetPhysicalDeviceQueueFamilyProperties(screen->pdev, &num_queues, NULL);
    assert(num_queues > 0);
 
    VkQueueFamilyProperties *props = malloc(sizeof(*props) * num_queues);
-   vkGetPhysicalDeviceQueueFamilyProperties(screen->pdev, &num_queues, props);
+   screen->vk.GetPhysicalDeviceQueueFamilyProperties(screen->pdev, &num_queues, props);
 
    for (uint32_t i = 0; i < num_queues; i++) {
       if (props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
@@ -1109,9 +1108,9 @@ update_queue_props(struct zink_screen *screen)
 static void
 init_queue(struct zink_screen *screen)
 {
-   vkGetDeviceQueue(screen->dev, screen->gfx_queue, 0, &screen->queue);
+   screen->vk.GetDeviceQueue(screen->dev, screen->gfx_queue, 0, &screen->queue);
    if (screen->threaded && screen->max_queues > 1)
-      vkGetDeviceQueue(screen->dev, screen->gfx_queue, 1, &screen->thread_queue);
+      screen->vk.GetDeviceQueue(screen->dev, screen->gfx_queue, 1, &screen->thread_queue);
    else
       screen->thread_queue = screen->queue;
 }
@@ -1154,7 +1153,7 @@ bool
 zink_is_depth_format_supported(struct zink_screen *screen, VkFormat format)
 {
    VkFormatProperties props;
-   vkGetPhysicalDeviceFormatProperties(screen->pdev, format, &props);
+   screen->vk.GetPhysicalDeviceFormatProperties(screen->pdev, format, &props);
    return (props.linearTilingFeatures | props.optimalTilingFeatures) &
           VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 }
@@ -1391,7 +1390,7 @@ populate_format_props(struct zink_screen *screen)
          screen->vk.GetPhysicalDeviceFormatProperties2(screen->pdev, format, &props);
          screen->format_props[i] = props.formatProperties;
       } else
-         vkGetPhysicalDeviceFormatProperties(screen->pdev, format, &screen->format_props[i]);
+         screen->vk.GetPhysicalDeviceFormatProperties(screen->pdev, format, &screen->format_props[i]);
    }
 }
 
@@ -1406,12 +1405,12 @@ zink_screen_init_semaphore(struct zink_screen *screen)
    tci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
    tci.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
 
-   if (vkCreateSemaphore(screen->dev, &sci, NULL, &sem) == VK_SUCCESS) {
+   if (screen->vk.CreateSemaphore(screen->dev, &sci, NULL, &sem) == VK_SUCCESS) {
       /* semaphore signal values can never decrease,
        * so we need a new semaphore anytime we overflow
        */
       if (screen->prev_sem)
-         vkDestroySemaphore(screen->dev, screen->prev_sem, NULL);
+         screen->vk.DestroySemaphore(screen->dev, screen->prev_sem, NULL);
       screen->prev_sem = screen->sem;
       screen->sem = sem;
       return true;
@@ -1531,7 +1530,7 @@ zink_create_logical_device(struct zink_screen *screen)
    dci.ppEnabledExtensionNames = screen->info.extensions;
    dci.enabledExtensionCount = screen->info.num_extensions;
 
-   vkCreateDevice(screen->pdev, &dci, NULL, &dev);
+   screen->vk.CreateDevice(screen->pdev, &dci, NULL, &dev);
    return dev;
 }
 
@@ -1717,7 +1716,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       pcci.pInitialData = disk_cache_get(screen->disk_cache, screen->disk_cache_key, &screen->pipeline_cache_size);
       pcci.initialDataSize = screen->pipeline_cache_size;
    }
-   vkCreatePipelineCache(screen->dev, &pcci, NULL, &screen->pipeline_cache);
+   screen->vk.CreatePipelineCache(screen->dev, &pcci, NULL, &screen->pipeline_cache);
    free((void*)pcci.pInitialData);
 
    slab_create_parent(&screen->transfer_pool, sizeof(struct zink_transfer), 16);

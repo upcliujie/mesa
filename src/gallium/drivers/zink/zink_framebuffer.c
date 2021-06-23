@@ -37,10 +37,10 @@ zink_destroy_framebuffer(struct zink_screen *screen,
 {
    hash_table_foreach(&fb->objects, he) {
 #if defined(_WIN64) || defined(__x86_64__)
-      vkDestroyFramebuffer(screen->dev, he->data, NULL);
+      screen->vk.DestroyFramebuffer(screen->dev, he->data, NULL);
 #else
       VkFramebuffer *ptr = he->data;
-      vkDestroyFramebuffer(screen->dev, *ptr, NULL);
+      screen->vk.DestroyFramebuffer(screen->dev, *ptr, NULL);
 #endif
    }
 
@@ -81,14 +81,14 @@ zink_init_framebuffer(struct zink_screen *screen, struct zink_framebuffer *fb, s
    fci.height = fb->state.height;
    fci.layers = fb->state.layers;
 
-   if (vkCreateFramebuffer(screen->dev, &fci, NULL, &ret) != VK_SUCCESS)
+   if (screen->vk.CreateFramebuffer(screen->dev, &fci, NULL, &ret) != VK_SUCCESS)
       return;
 #if defined(_WIN64) || defined(__x86_64__)
    _mesa_hash_table_insert_pre_hashed(&fb->objects, hash, rp, ret);
 #else
    VkFramebuffer *ptr = ralloc(fb, VkFramebuffer);
    if (!ptr) {
-      vkDestroyFramebuffer(screen->dev, ret, NULL);
+      screen->vk.DestroyFramebuffer(screen->dev, ret, NULL);
       return;
    }
    *ptr = ret;
