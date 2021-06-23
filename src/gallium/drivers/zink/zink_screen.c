@@ -1443,13 +1443,13 @@ zink_screen_timeline_wait(struct zink_screen *screen, uint32_t batch_id, uint64_
 }
 
 static uint32_t
-zink_get_loader_version(void)
+zink_get_loader_version(struct zink_screen *screen)
 {
 
    uint32_t loader_version = VK_API_VERSION_1_0;
 
    // Get the Loader version
-   GET_PROC_ADDR_INSTANCE_LOCAL(NULL, EnumerateInstanceVersion);
+   GET_PROC_ADDR_INSTANCE_LOCAL(screen, NULL, EnumerateInstanceVersion);
    if (vk_EnumerateInstanceVersion) {
       uint32_t loader_version_temp = VK_API_VERSION_1_0;
       if (VK_SUCCESS == (*vk_EnumerateInstanceVersion)(&loader_version_temp)) {
@@ -1605,7 +1605,7 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
       abort();
    }
 
-   screen->instance_info.loader_version = zink_get_loader_version();
+   screen->instance_info.loader_version = zink_get_loader_version(screen);
    if (!zink_create_instance(screen))
       goto fail;
 
