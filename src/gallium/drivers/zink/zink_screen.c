@@ -38,6 +38,7 @@
 
 #include "os/os_process.h"
 #include "util/u_debug.h"
+#include "util/u_dl.h"
 #include "util/format/u_format.h"
 #include "util/hash_table.h"
 #include "util/u_math.h"
@@ -1594,6 +1595,12 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    if (!screen)
       return NULL;
 
+   screen->loader_lib = util_dl_open(UTIL_DL_PREFIX "vulkan" UTIL_DL_EXT);
+   if (!screen->loader_lib)
+      goto fail;
+   screen->vk_GetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)util_dl_get_proc_address(screen->loader_lib, "vkGetInstanceProcAddr");
+   screen->vk_GetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)util_dl_get_proc_address(screen->loader_lib, "vkGetDeviceProcAddr");
+
    util_cpu_detect();
    screen->threaded = util_get_cpu_caps()->nr_cpus > 1 && debug_get_bool_option("GALLIUM_THREAD", util_get_cpu_caps()->nr_cpus > 1);
 
@@ -1608,8 +1615,13 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    if (!zink_create_instance(screen))
       goto fail;
 
-   vk_instance_dispatch_table_load(&screen->vk.instance, &vkGetInstanceProcAddr, screen->instance);
-   vk_physical_device_dispatch_table_load(&screen->vk.physical_device, &vkGetInstanceProcAddr, screen->instance);
+   vk_instance_dispatch_table_load(&screen->vk.instance,
+                                   screen->vk_GetInstanceProcAddr,
+                                   screen->instance);
+
+   vk_physical_device_dispatch_table_load(&screen->vk.physical_device,
+                                          screen->vk_GetInstanceProcAddr,
+                                          screen->instance);
 
    zink_verify_instance_extensions(screen);
 
@@ -1644,7 +1656,9 @@ zink_internal_create_screen(const struct pipe_screen_config *config)
    if (!screen->dev)
       goto fail;
 
-   vk_device_dispatch_table_load(&screen->vk.device, &vkGetDeviceProcAddr, screen->dev);
+   vk_device_dispatch_table_load(&screen->vk.device,
+                                 screen->vk_GetDeviceProcAddr,
+                                 screen->dev);
 
    init_queue(screen);
    if (screen->info.driver_props.driverID == VK_DRIVER_ID_MESA_RADV ||

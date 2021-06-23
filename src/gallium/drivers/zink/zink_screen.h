@@ -41,6 +41,7 @@
 
 extern uint32_t zink_debug;
 struct hash_table;
+struct util_dl_library;
 
 struct zink_batch_state;
 struct zink_context;
@@ -62,6 +63,12 @@ enum zink_descriptor_mode {
 
 struct zink_screen {
    struct pipe_screen base;
+
+   /* the basics that we need from the loader */
+   struct util_dl_library *loader_lib;
+   PFN_vkGetInstanceProcAddr vk_GetInstanceProcAddr;
+   PFN_vkGetDeviceProcAddr vk_GetDeviceProcAddr;
+
    bool threaded;
    uint32_t curr_batch; //the current batch id
    uint32_t last_finished; //this is racy but ultimately doesn't matter
@@ -229,7 +236,7 @@ bool
 zink_is_depth_format_supported(struct zink_screen *screen, VkFormat format);
 
 #define GET_PROC_ADDR_INSTANCE_LOCAL(screen, instance, x) \
-   PFN_vk##x vk_##x = (PFN_vk##x)vkGetInstanceProcAddr(instance, "vk"#x)
+   PFN_vk##x vk_##x = (PFN_vk##x)screen->vk_GetInstanceProcAddr(instance, "vk"#x)
 
 void
 zink_screen_update_pipeline_cache(struct zink_screen *screen);

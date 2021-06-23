@@ -585,10 +585,6 @@ if vdpau_drivers_path == ''
   vdpau_drivers_path = join_paths(get_option('libdir'), 'vdpau')
 endif
 
-if with_gallium_zink
-  dep_vulkan = dependency('vulkan')
-endif
-
 dep_dxheaders = null_dep
 if with_gallium_d3d12 or with_microsoft_clc
   dep_dxheaders = dependency('DirectX-Headers', fallback : ['DirectX-Headers', 'dep_dxheaders'],
