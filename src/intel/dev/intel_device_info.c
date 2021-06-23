@@ -1039,8 +1039,14 @@ static const struct intel_device_info intel_device_info_sg1 = {
    .platform = INTEL_PLATFORM_DG2,                              \
    .has_lsc = true
 
-static const struct intel_device_info intel_device_info_dg2 = {
+static const struct intel_device_info intel_device_info_dg2_g10 = {
    DG2_FEATURES,
+   .dg2_sku = INTEL_DEVICE_DG2_G10,
+};
+
+static const struct intel_device_info intel_device_info_dg2_g11 = {
+   DG2_FEATURES,
+   .dg2_sku = INTEL_DEVICE_DG2_G11,
 };
 
 static void
