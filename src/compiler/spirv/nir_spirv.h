@@ -75,6 +75,12 @@ struct spirv_to_nir_options {
     */
    bool use_deref_buffer_array_length;
 
+   /* Whether SpvExecutionModeSubgroupUniformControlFlowKHR is supported,
+    * there's no explicit SPIR-V capability for this.  See
+    * SPV_KHR_subgroup_uniform_control_flow.
+    */
+   bool supports_subgroup_uniform_control_flow;
+
    /* Initial value for shader_info::float_controls_execution_mode,
     * indicates hardware requirements rather than shader author intent
     */
