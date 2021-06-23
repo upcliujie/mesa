@@ -1781,6 +1781,23 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
          ctx.info[instr->definitions[0].tempId()].set_canonicalized();
       break;
    case aco_opcode::p_extract: {
+      if (instr->definitions[0].regClass() == v1 &&
+          instr->operands[0].isTemp() &&
+          ctx.info[instr->operands[0].tempId()].is_usedef()) {
+         Instruction *usedef = ctx.info[instr->operands[0].tempId()].instr;
+
+         if (usedef->opcode == aco_opcode::ds_read_u8_d16)
+            usedef->opcode = aco_opcode::ds_read_u8;
+         else if (usedef->opcode == aco_opcode::ds_read_u16_d16)
+            usedef->opcode = aco_opcode::ds_read_u16;
+
+         if (usedef->opcode == aco_opcode::ds_read_u8 ||
+             usedef->opcode == aco_opcode::ds_read_u16) {
+            ctx.info[instr->definitions[0].tempId()].set_temp(usedef->definitions[0].getTemp());
+            break;
+         }
+      }
+
       if (instr->definitions[0].bytes() == 4) {
          ctx.info[instr->definitions[0].tempId()].set_extract(instr.get());
          if (instr->operands[0].regClass() == v1 && parse_insert(instr.get()) >= 0)
@@ -1796,6 +1813,13 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
             ctx.info[instr->definitions[0].tempId()].set_extract(instr.get());
          ctx.info[instr->definitions[0].tempId()].set_bitwise(instr.get());
       }
+      break;
+   }
+   case aco_opcode::ds_read_u8:
+   case aco_opcode::ds_read_u8_d16:
+   case aco_opcode::ds_read_u16:
+   case aco_opcode::ds_read_u16_d16: {
+      ctx.info[instr->definitions[0].tempId()].set_usedef(instr.get());
       break;
    }
    default:
