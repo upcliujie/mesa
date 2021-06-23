@@ -130,6 +130,29 @@ if (!$buildstatus) {
 }
 
 Get-Date
+Write-Host "Cloning Vulkan-Loader"
+git clone https://github.com/KhronosGroup/Vulkan-Loader
+if (!$?) {
+  Write-Host "Failed to clone Vulkan-Loader repository"
+  Exit 1
+}
+Write-Host "Building Vulkan-Loader"
+$vk_loader = New-Item -ItemType Directory -Path ".\Vulkan-Loader" -Name "build"
+Push-Location -Path $vk_loader.FullName
+cmd.exe /C 'C:\BuildTools\Common7\Tools\VsDevCmd.bat -host_arch=amd64 -arch=amd64 && py -3 ..\scripts\update_deps.py && cmake -GNinja -C helper.cmake .. && cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release && ninja -j32 install'
+$buildstatus = $?
+if ($buildstatus) {
+  Write-Host "Installing Vulkan-1.dll"
+  Copy-Item .\install\bin\vulkan-1.dll $env:WINDIR\system32
+}
+Pop-Location
+Remove-Item -Recurse -Path $vk_loader
+if (!$buildstatus) {
+  Write-Host "Failed to compile Vulkan-Loader"
+  Exit 1
+}
+
+Get-Date
 Write-Host "Downloading Freeglut"
 
 $freeglut_zip = 'freeglut-MSVC.zip'
