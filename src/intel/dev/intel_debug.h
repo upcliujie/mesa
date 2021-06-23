@@ -127,6 +127,14 @@ extern uint64_t intel_debug_flag_for_shader_stage(gl_shader_stage stage);
 
 extern void brw_process_intel_debug_variable(void);
 
+enum intel_force_mem {
+   INTEL_FORCE_MEM_NONE = 0,
+   INTEL_FORCE_MEM_LOCAL,
+   INTEL_FORCE_MEM_SYSTEM,
+};
+
+enum intel_force_mem intel_get_force_mem(void);
+
 /* Below is a list of structure located in the identifier buffer. The driver
  * can fill those in for debug purposes.
  */

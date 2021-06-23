@@ -137,6 +137,33 @@ brw_process_intel_debug_variable(void)
              brw_process_intel_debug_variable_once);
 }
 
+enum intel_force_mem
+intel_get_force_mem(void)
+{
+   static int force_mem = -1;
+   if (force_mem < 0) {
+      const char *force_mem_env = getenv("INTEL_FORCE_MEM");
+      if (force_mem_env == NULL) {
+         force_mem = INTEL_FORCE_MEM_NONE;
+      } else if (!strcmp(force_mem_env, "local")) {
+         force_mem = INTEL_FORCE_MEM_LOCAL;
+      } else if (!strcmp(force_mem_env, "system")) {
+         force_mem = INTEL_FORCE_MEM_SYSTEM;
+      } else {
+         force_mem = INTEL_FORCE_MEM_NONE;
+         fprintf(stderr, "INTEL: Unknown INTEL_FORCE_MEM option: %s\n",
+                 force_mem_env);
+      }
+
+      if (force_mem != INTEL_FORCE_MEM_NONE) {
+         printf("DEBUG: Forcing all memory allocation to come from: %s\n",
+                force_mem == INTEL_FORCE_MEM_LOCAL ? "local" : "system");
+      }
+   }
+
+   return force_mem;
+}
+
 static uint64_t debug_identifier[4] = {
    0xffeeddccbbaa9988,
    0x7766554433221100,
