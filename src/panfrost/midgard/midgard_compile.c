@@ -3228,6 +3228,12 @@ midgard_compile_shader_nir(nir_shader *nir,
         /* Report the very first tag executed */
         info->midgard.first_tag = midgard_get_first_tag_from_block(ctx, 0);
 
+        /* A shader ending on a 16MB boundary causes INSTR_INVALID_PC faults,
+         * workaround by adding some padding to the end of the shader. (The
+         * kernel already makes sure shaders can't cross 16MB boundaries.) */
+        if (binary->size)
+                memset(util_dynarray_grow(binary, uint8_t, 16), 0, 16);
+
         if ((midgard_debug & MIDGARD_DBG_SHADERS) && !nir->info.internal) {
                 disassemble_midgard(stdout, binary->data,
                                     binary->size, inputs->gpu_id,
