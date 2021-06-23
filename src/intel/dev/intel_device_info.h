@@ -81,6 +81,10 @@ struct intel_device_info
    int gt;
 
    enum intel_platform platform;
+   enum {
+      INTEL_DEVICE_DG2_G10 = 1,
+      INTEL_DEVICE_DG2_G11,
+   } dg2_sku;
 
    bool has_hiz_and_separate_stencil;
    bool must_use_separate_stencil;
