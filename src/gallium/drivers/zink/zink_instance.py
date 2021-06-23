@@ -83,8 +83,8 @@ struct zink_instance_info {
 %endfor
 };
 
-VkInstance
-zink_create_instance(struct zink_instance_info *instance_info);
+bool
+zink_create_instance(struct zink_screen *screen);
 
 void
 zink_verify_instance_extensions(struct zink_screen *screen);
@@ -110,9 +110,11 @@ impl_code = """
 #include "zink_instance.h"
 #include "zink_screen.h"
 
-VkInstance
-zink_create_instance(struct zink_instance_info *instance_info)
+bool
+zink_create_instance(struct zink_screen *screen)
 {
+   struct zink_instance_info *instance_info = &screen->instance_info;
+
    /* reserve one slot for MoltenVK */
    const char *layers[${len(layers) + 1}] = {0};
    uint32_t num_layers = 0;
@@ -223,12 +225,7 @@ zink_create_instance(struct zink_instance_info *instance_info)
    ici.ppEnabledLayerNames = layers;
    ici.enabledLayerCount = num_layers;
 
-   VkInstance instance = VK_NULL_HANDLE;
-   VkResult err = vkCreateInstance(&ici, NULL, &instance);
-   if (err != VK_SUCCESS)
-      return VK_NULL_HANDLE;
-
-   return instance;
+   return vkCreateInstance(&ici, NULL, &screen->instance) == VK_SUCCESS;
 }
 
 void
