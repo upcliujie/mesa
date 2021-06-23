@@ -21,40 +21,6 @@ dEQP-VK.api.info.format_properties.g8b8g8r8_422_unorm,Fail
 dEQP-VK.compute.basic.max_local_size_x,Crash
 dEQP-VK.compute.basic.max_local_size_y,Crash
 
-dEQP-VK.draw.shader_viewport_index.fragment_shader_10,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_12,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_13,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_14,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_16,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_2,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_4,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_5,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_6,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_8,Fail
-dEQP-VK.draw.shader_viewport_index.fragment_shader_9,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_10,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_11,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_13,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_14,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_15,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_2,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_3,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_5,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_6,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_7,Fail
-dEQP-VK.draw.shader_viewport_index.vertex_shader_9,Fail
-dEQP-VK.glsl.atomic_operations.add_unsigned_geometry,Fail
-dEQP-VK.glsl.atomic_operations.and_signed_geometry,Fail
-dEQP-VK.glsl.atomic_operations.and_unsigned_geometry,Fail
-dEQP-VK.glsl.atomic_operations.comp_swap_unsigned_geometry,Fail
-dEQP-VK.glsl.atomic_operations.exchange_signed_geometry,Fail
-dEQP-VK.glsl.atomic_operations.exchange_unsigned_geometry,Fail
-dEQP-VK.glsl.atomic_operations.max_signed_geometry,Fail
-dEQP-VK.glsl.atomic_operations.max_unsigned_geometry,Fail
-dEQP-VK.glsl.atomic_operations.or_signed_geometry,Fail
-dEQP-VK.glsl.atomic_operations.or_unsigned_geometry,Fail
-dEQP-VK.glsl.atomic_operations.xor_signed_geometry,Fail
-dEQP-VK.glsl.atomic_operations.xor_unsigned_geometry,Fail
 
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/4462
 dEQP-VK.pipeline.framebuffer_attachment.diff_attachments_2d_19x27_32x32_ms,Fail
@@ -68,9 +34,6 @@ dEQP-VK.renderpass2.suballocation.attachment_allocation.input_output.7,Fail
 # "MESA: error: ir3_ra() failed!
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/33
 dEQP-VK.spirv_assembly.instruction.compute.opcopymemory.array,Fail
-
-dEQP-VK.spirv_assembly.instruction.graphics.variable_pointers.graphics.writes_single_buffer_geom,Fail
-dEQP-VK.spirv_assembly.instruction.graphics.variable_pointers.graphics.writes_two_buffers_geom,Fail
 
 # "MESA: error: ir3_ra() failed!"
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/33
