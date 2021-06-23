@@ -146,7 +146,7 @@ if ($buildstatus) {
   Copy-Item .\install\bin\vulkan-1.dll $env:WINDIR\system32
 }
 Pop-Location
-Remove-Item -Recurse -Path $vk_loader
+Remove-Item -Recurse -Force -Path $vk_loader
 if (!$buildstatus) {
   Write-Host "Failed to compile Vulkan-Loader"
   Exit 1
