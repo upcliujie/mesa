@@ -11,3 +11,4 @@ stack.
    :maxdepth: 2
 
    alu
+   control_flow
