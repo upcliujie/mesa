@@ -36,14 +36,18 @@ struct asm_context {
    int subvector_begin_pos = -1;
 };
 
-static uint32_t get_sdwa_sel(unsigned sel, PhysReg reg)
+static uint32_t get_sdwa_sel(unsigned sel, unsigned bytes, PhysReg reg)
 {
    if (sel & sdwa_isra) {
-      unsigned size = sdwa_rasize & sel;
-      if (size == 1)
+      if (bytes == 1)
          return reg.byte();
-      else /* size == 2 */
+      else if (bytes == 2)
          return sdwa_isword | (reg.byte() >> 1);
+      else if (bytes == 4)
+         return sdwa_udword;
+      else
+         unreachable("unimplemented SDWA byte count");
+
    }
    return sel & sdwa_asuint;
 }
@@ -672,7 +676,7 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
             }
             encoding |= (sdwa.clamp ? 1 : 0) << 13;
          } else {
-            encoding |= get_sdwa_sel(sdwa.dst_sel, instr->definitions[0].physReg()) << 8;
+            encoding |= get_sdwa_sel(sdwa.dst_sel, instr->definitions[0].bytes(), instr->definitions[0].physReg()) << 8;
             uint32_t dst_u = sdwa.dst_sel & sdwa_sext ? 1 : 0;
             if (sdwa.dst_preserve || (sdwa.dst_sel & sdwa_isra))
                dst_u = 2;
@@ -681,13 +685,13 @@ void emit_instruction(asm_context& ctx, std::vector<uint32_t>& out, Instruction*
             encoding |= sdwa.omod << 14;
          }
 
-         encoding |= get_sdwa_sel(sdwa.sel[0], sdwa_op.physReg()) << 16;
+         encoding |= get_sdwa_sel(sdwa.sel[0], sdwa_op.bytes(), sdwa_op.physReg()) << 16;
          encoding |= sdwa.sel[0] & sdwa_sext ? 1 << 19 : 0;
          encoding |= sdwa.abs[0] << 21;
          encoding |= sdwa.neg[0] << 20;
 
          if (instr->operands.size() >= 2) {
-            encoding |= get_sdwa_sel(sdwa.sel[1], instr->operands[1].physReg()) << 24;
+            encoding |= get_sdwa_sel(sdwa.sel[1], instr->operands[1].bytes(), instr->operands[1].physReg()) << 24;
             encoding |= sdwa.sel[1] & sdwa_sext ? 1 << 27 : 0;
             encoding |= sdwa.abs[1] << 29;
             encoding |= sdwa.neg[1] << 28;
