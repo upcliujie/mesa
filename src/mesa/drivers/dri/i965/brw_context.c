@@ -1871,12 +1871,8 @@ brw_update_image_buffer(struct brw_context *intel,
    else
       last_mt = rb->singlesample_mt;
 
-   if (last_mt && last_mt->bo == buffer->bo) {
-      if (buffer_type == __DRI_IMAGE_BUFFER_SHARED) {
-         brw_miptree_make_shareable(intel, last_mt);
-      }
+   if (last_mt && last_mt->bo == buffer->bo)
       return;
-   }
 
    /* Only allow internal compression if samples == 0.  For multisampled
     * window system buffers, the only thing the single-sampled buffer is used
@@ -1904,35 +1900,6 @@ brw_update_image_buffer(struct brw_context *intel,
        buffer_type == __DRI_IMAGE_BUFFER_FRONT &&
        rb->Base.Base.NumSamples > 1) {
       brw_renderbuffer_upsample(intel, rb);
-   }
-
-   if (buffer_type == __DRI_IMAGE_BUFFER_SHARED) {
-      /* The compositor and the application may access this image
-       * concurrently. The display hardware may even scanout the image while
-       * the GPU is rendering to it.  Aux surfaces cause difficulty with
-       * concurrent access, so permanently disable aux for this miptree.
-       *
-       * Perhaps we could improve overall application performance by
-       * re-enabling the aux surface when EGL_RENDER_BUFFER transitions to
-       * EGL_BACK_BUFFER, then disabling it again when EGL_RENDER_BUFFER
-       * returns to EGL_SINGLE_BUFFER. I expect the wins and losses with this
-       * approach to be highly dependent on the application's GL usage.
-       *
-       * I [chadv] expect clever disabling/reenabling to be counterproductive
-       * in the use cases I care about: applications that render nearly
-       * realtime handwriting to the surface while possibly undergiong
-       * simultaneously scanout as a display plane. The app requires low
-       * render latency. Even though the app spends most of its time in
-       * shared-buffer mode, it also frequently transitions between
-       * shared-buffer (EGL_SINGLE_BUFFER) and double-buffer (EGL_BACK_BUFFER)
-       * mode.  Visual sutter during the transitions should be avoided.
-       *
-       * In this case, I [chadv] believe reducing the GPU workload at
-       * shared-buffer/double-buffer transitions would offer a smoother app
-       * experience than any savings due to aux compression. But I've
-       * collected no data to prove my theory.
-       */
-      brw_miptree_make_shareable(intel, mt);
    }
 }
 
