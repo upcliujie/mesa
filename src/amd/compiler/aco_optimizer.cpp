@@ -922,6 +922,10 @@ apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_info&
    } else if (can_use_SDWA(ctx.program->chip_class, instr, true) &&
               (tmp.type() == RegType::vgpr || ctx.program->chip_class >= GFX9)) {
       to_SDWA(ctx, instr);
+
+      if (instr->operands[idx].bytes() != tmp.bytes())
+         sel |= sdwa_isra;
+
       static_cast<SDWA_instruction*>(instr.get())->sel[idx] = sel;
    } else if (instr->isVOP3()) {
       if (sel & sdwa_wordnum)
