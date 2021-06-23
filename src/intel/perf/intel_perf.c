@@ -43,8 +43,27 @@
 #include "perf/intel_perf.h"
 #include "perf/intel_perf_regs.h"
 #include "perf/intel_perf_mdapi.h"
-#include "perf/intel_perf_metrics.h"
 #include "perf/intel_perf_private.h"
+
+#include "intel_perf_metrics_chv.h"
+#include "intel_perf_metrics_hsw.h"
+#include "intel_perf_metrics_bdw.h"
+#include "intel_perf_metrics_sklgt2.h"
+#include "intel_perf_metrics_sklgt3.h"
+#include "intel_perf_metrics_sklgt4.h"
+#include "intel_perf_metrics_kblgt2.h"
+#include "intel_perf_metrics_kblgt3.h"
+#include "intel_perf_metrics_bxt.h"
+#include "intel_perf_metrics_glk.h"
+#include "intel_perf_metrics_cflgt2.h"
+#include "intel_perf_metrics_cflgt3.h"
+#include "intel_perf_metrics_ehl.h"
+#include "intel_perf_metrics_icl.h"
+#include "intel_perf_metrics_tglgt1.h"
+#include "intel_perf_metrics_tglgt2.h"
+#include "intel_perf_metrics_rkl.h"
+#include "intel_perf_metrics_dg1.h"
+#include "intel_perf_metrics_adl.h"
 
 #include "util/bitscan.h"
 #include "util/macros.h"
@@ -1397,4 +1416,11 @@ intel_perf_init_metrics(struct intel_perf_config *perf_cfg,
 
    if (oa_metrics)
       intel_perf_register_mdapi_oa_query(perf_cfg, devinfo);
+}
+
+void
+intel_perf_add_metric_set(struct intel_perf_config *perf,
+                          struct intel_perf_query_info *metric_set)
+{
+   _mesa_hash_table_insert(perf->oa_metrics_table, metric_set->guid, metric_set);
 }

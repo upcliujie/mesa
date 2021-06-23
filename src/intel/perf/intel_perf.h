@@ -179,19 +179,29 @@ struct intel_perf_query_counter {
    const char *desc;
    const char *symbol_name;
    const char *category;
+   const struct intel_perf_query_info *query;
    enum intel_perf_counter_type type;
    enum intel_perf_counter_data_type data_type;
    enum intel_perf_counter_units units;
-   uint64_t raw_max;
    size_t offset;
 
    union {
-      uint64_t (*oa_counter_read_uint64)(struct intel_perf_config *perf,
+      struct {
+         uint64_t (*oa_counter_read_uint64)(const struct intel_perf_config *perf,
+                                            const struct intel_perf_query_info *query,
+                                            const struct intel_perf_query_result *results);
+         uint64_t (*oa_counter_max_uint64)(const struct intel_perf_config *perf,
+                                           const struct intel_perf_query_info *query,
+                                           const struct intel_perf_query_result *results);
+      };
+      struct {
+         double (*oa_counter_read_float)(const struct intel_perf_config *perf,
                                          const struct intel_perf_query_info *query,
                                          const struct intel_perf_query_result *results);
-      float (*oa_counter_read_float)(struct intel_perf_config *perf,
-                                     const struct intel_perf_query_info *query,
-                                     const struct intel_perf_query_result *results);
+         double (*oa_counter_max_float)(const struct intel_perf_config *perf,
+                                        const struct intel_perf_query_info *query,
+                                        const struct intel_perf_query_result *results);
+      };
       struct intel_pipeline_stat pipeline_stat;
    };
 };
@@ -203,13 +213,13 @@ struct intel_perf_query_register_prog {
 
 /* Register programming for a given query */
 struct intel_perf_registers {
-   const struct intel_perf_query_register_prog *flex_regs;
+   struct intel_perf_query_register_prog *flex_regs;
    uint32_t n_flex_regs;
 
-   const struct intel_perf_query_register_prog *mux_regs;
+   struct intel_perf_query_register_prog *mux_regs;
    uint32_t n_mux_regs;
 
-   const struct intel_perf_query_register_prog *b_counter_regs;
+   struct intel_perf_query_register_prog *b_counter_regs;
    uint32_t n_b_counter_regs;
 };
 

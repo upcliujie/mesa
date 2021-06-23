@@ -206,6 +206,9 @@ brw_get_perf_counter_info(struct gl_context *ctx,
       &perf_cfg->queries[query_index];
    const struct intel_perf_query_counter *counter =
       &query->counters[counter_index];
+   struct intel_perf_query_result results;
+
+   intel_perf_query_result_clear(&results);
 
    *name = counter->name;
    *desc = counter->desc;
@@ -213,7 +216,22 @@ brw_get_perf_counter_info(struct gl_context *ctx,
    *data_size = intel_perf_query_counter_get_size(counter);
    *type_enum = intel_counter_type_enum_to_gl_type(counter->type);
    *data_type_enum = intel_counter_data_type_to_gl_type(counter->data_type);
-   *raw_max = counter->raw_max;
+
+   if (query->kind == INTEL_PERF_QUERY_TYPE_OA) {
+      switch (counter->data_type) {
+      case INTEL_PERF_COUNTER_DATA_TYPE_BOOL32:
+      case INTEL_PERF_COUNTER_DATA_TYPE_UINT32:
+      case INTEL_PERF_COUNTER_DATA_TYPE_UINT64:
+         *raw_max = counter->oa_counter_max_uint64(perf_cfg, query, &results);
+         break;
+      case INTEL_PERF_COUNTER_DATA_TYPE_FLOAT:
+      case INTEL_PERF_COUNTER_DATA_TYPE_DOUBLE:
+         *raw_max = counter->oa_counter_max_float(perf_cfg, query, &results);
+         break;
+      }
+   } else {
+      *raw_max = 0;
+   }
 }
 
 enum OaReadStatus {
