@@ -2083,7 +2083,8 @@ lower_to_hw_instr(Program* program)
                      bld.sop2(signext ? aco_opcode::s_bfe_i32 : aco_opcode::s_bfe_u32, dst,
                               bld.def(s1, scc), op, Operand::c32((bits << 16) | offset));
                   }
-               } else if (dst.regClass() == v1 || ctx.program->chip_class <= GFX7) {
+               } else if ((dst.regClass() == v1 && op.regClass() == v1) ||
+                          ctx.program->chip_class <= GFX7) {
                   assert(op.physReg().byte() == 0 && dst.physReg().byte() == 0);
                   if (offset == (32 - bits) && op.regClass() != s1) {
                      bld.vop2(signext ? aco_opcode::v_ashrrev_i32 : aco_opcode::v_lshrrev_b32, dst,
@@ -2092,18 +2093,40 @@ lower_to_hw_instr(Program* program)
                      bld.vop3(signext ? aco_opcode::v_bfe_i32 : aco_opcode::v_bfe_u32, dst, op,
                               Operand::c32(offset), Operand::c32(bits));
                   }
-               } else if (dst.regClass() == v2b) {
+               } else if (dst.regClass() == v2b || dst.regClass() == v1b || op.regClass() == v1b ||
+                          op.regClass() == v2b) {
+                  assert(op.bytes() <= 4 && dst.bytes() <= 4);
                   aco_ptr<SDWA_instruction> sdwa{create_instruction<SDWA_instruction>(
                      aco_opcode::v_mov_b32,
                      (Format)((uint16_t)Format::VOP1 | (uint16_t)Format::SDWA), 1, 1)};
                   sdwa->operands[0] = Operand(op.physReg().advance(-op.physReg().byte()),
                                               RegClass::get(op.regClass().type(), 4));
                   sdwa->definitions[0] = dst;
-                  sdwa->sel[0] = sdwa_ubyte0 + op.physReg().byte() + index;
+
+                  if (bits == 8)
+                     sdwa->sel[0] = sdwa_ubyte0 + index + op.physReg().byte();
+                  else if (bits == 16)
+                     sdwa->sel[0] = sdwa_uword0 + index + op.physReg().byte() / 2;
+                  else if (bits == 32)
+                     sdwa->sel[0] = sdwa_udword;
+                  else
+                     unreachable("unimplemented extracted bit count in p_extract");
+
                   if (signext)
                      sdwa->sel[0] |= sdwa_sext;
-                  sdwa->dst_sel = sdwa_uword;
+
+                  if (dst.regClass() == v1)
+                     sdwa->dst_sel = sdwa_udword;
+                  else if (dst.regClass() == v2b)
+                     sdwa->dst_sel = sdwa_uword;
+                  else if (dst.regClass() == v1b)
+                     sdwa->dst_sel = sdwa_ubyte;
+                  else
+                     unreachable("unimplemented definition regclass in p_extract");
+
                   bld.insert(std::move(sdwa));
+               } else {
+                  unreachable("unimplemented p_extract");
                }
                break;
             }
