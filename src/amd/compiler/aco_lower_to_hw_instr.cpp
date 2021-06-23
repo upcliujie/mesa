@@ -522,7 +522,7 @@ void emit_reduction(lower_context *ctx, aco_opcode op, ReduceOp reduce_op, unsig
    if (src.regClass() == v1b) {
       if (ctx->program->chip_class >= GFX8) {
          aco_ptr<SDWA_instruction> sdwa{create_instruction<SDWA_instruction>(aco_opcode::v_mov_b32, asSDWA(Format::VOP1), 1, 1)};
-         sdwa->operands[0] = Operand(PhysReg{tmp}, v1);
+         sdwa->operands[0] = Operand(PhysReg{tmp}.advance(src.physReg().byte()), src.regClass());
          sdwa->definitions[0] = Definition(PhysReg{tmp}, v1);
          if (reduce_op == imin8 || reduce_op == imax8)
             sdwa->sel[0] = sdwa_sbyte;
@@ -546,7 +546,7 @@ void emit_reduction(lower_context *ctx, aco_opcode op, ReduceOp reduce_op, unsig
           (reduce_op == iadd16 || reduce_op == imax16 ||
            reduce_op == imin16 || reduce_op == umin16 || reduce_op == umax16)) {
          aco_ptr<SDWA_instruction> sdwa{create_instruction<SDWA_instruction>(aco_opcode::v_mov_b32, asSDWA(Format::VOP1), 1, 1)};
-         sdwa->operands[0] = Operand(PhysReg{tmp}, v1);
+         sdwa->operands[0] = Operand(PhysReg{tmp}.advance(src.physReg().byte()), src.regClass());
          sdwa->definitions[0] = Definition(PhysReg{tmp}, v1);
          if (reduce_op == imin16 || reduce_op == imax16 || reduce_op == iadd16)
             sdwa->sel[0] = sdwa_sword;
