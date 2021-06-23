@@ -533,7 +533,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
 static void
 warn_non_conformant_implementation()
 {
-   if (env_var_as_boolean("RADV_IGNORE_CONFORMANCE_WARNING", false))
+   if (env_var_as_boolean("IGNORE_CONFORMANCE_WARNING", false))
       return;
    fprintf(stderr,
 	   "WARNING: radv is not a conformant vulkan implementation, testing use only.\n");

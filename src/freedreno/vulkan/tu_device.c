@@ -189,7 +189,7 @@ get_device_extensions(const struct tu_physical_device *device,
 static void
 warn_non_conformant_implementation(void)
 {
-   if (env_var_as_boolean("TU_IGNORE_CONFORMANCE_WARNING", false))
+   if (env_var_as_boolean("IGNORE_CONFORMANCE_WARNING", false))
       return;
    fprintf(stderr, "WARNING: tu is not a conformant vulkan implementation, "
                    "testing use only.\n");
