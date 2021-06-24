@@ -165,14 +165,19 @@ void init_any_pred_defined(Program *program, ssa_state *state, Block *block, aco
    }
 
    unsigned start = block->logical_preds[0];
+   unsigned end = block->index;
 
    /* for loop exit phis, start at the loop header */
    const bool loop_exit = block->kind & block_kind_loop_exit;
    while (loop_exit && program->blocks[start - 1].loop_nest_depth >= state->loop_nest_depth)
       start--;
+   /* for loop header phis, end at the loop exit */
+   const bool loop_header = block->kind & block_kind_loop_header;
+   while (loop_header && program->blocks[end].loop_nest_depth >= state->loop_nest_depth)
+      end++;
 
    for (unsigned i = 0; i < 1u + loop_exit; i++) {
-      for (unsigned j = start; j < block->index; j++) {
+      for (unsigned j = start; j < end; j++) {
          if (!state->any_pred_defined[j])
             continue;
          for (unsigned succ : program->blocks[j].linear_succs)
