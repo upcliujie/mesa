@@ -1,0 +1,842 @@
+/*
+ * Copyright © Microsoft Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "dzn_private.h"
+
+#include "vk_alloc.h"
+#include "vk_debug_report.h"
+#include "vk_format.h"
+#include "vk_util.h"
+
+VkResult
+dzn_CreateCommandPool(VkDevice _device,
+                      const VkCommandPoolCreateInfo *pCreateInfo,
+                      const VkAllocationCallbacks *pAllocator,
+                      VkCommandPool *pCmdPool)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   struct dzn_cmd_pool *pool = (struct dzn_cmd_pool *)
+      vk_object_alloc(&device->vk, pAllocator, sizeof(*pool),
+                      VK_OBJECT_TYPE_COMMAND_POOL);
+   if (pool == NULL)
+      vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+
+   if (pAllocator)
+      pool->alloc = *pAllocator;
+   else
+      pool->alloc = device->vk.alloc;
+
+   list_inithead(&pool->cmd_buffers);
+
+   pool->flags = pCreateInfo->flags;
+
+   *pCmdPool = dzn_cmd_pool_to_handle(pool);
+
+   return VK_SUCCESS;
+}
+
+static void
+dzn_cmd_buffer_destroy(struct dzn_cmd_buffer *cmd_buffer)
+{
+   list_del(&cmd_buffer->pool_link);
+
+   util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
+      (*heap)->Release();
+
+   util_dynarray_fini(&cmd_buffer->heaps);
+   vk_object_free(&cmd_buffer->device->vk, &cmd_buffer->pool->alloc, cmd_buffer);
+}
+
+void
+dzn_DestroyCommandPool(VkDevice _device,
+                       VkCommandPool commandPool,
+                       const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
+
+   if (!pool)
+      return;
+
+   list_for_each_entry_safe(struct dzn_cmd_buffer, cmd_buffer,
+                            &pool->cmd_buffers, pool_link) {
+      dzn_cmd_buffer_destroy(cmd_buffer);
+   }
+
+   vk_object_free(&device->vk, pAllocator, pool);
+}
+
+static VkResult
+dzn_create_cmd_buffer(struct dzn_device *device,
+                      struct dzn_cmd_pool *pool,
+                      VkCommandBufferLevel level,
+                      VkCommandBuffer *pCommandBuffer)
+{
+   dzn_cmd_buffer *cmd_buffer;
+   VkResult result;
+
+   cmd_buffer = (dzn_cmd_buffer *)
+      vk_object_zalloc(&device->vk, &pool->alloc, sizeof(*cmd_buffer),
+                       VK_OBJECT_TYPE_COMMAND_BUFFER);
+   if (cmd_buffer == NULL)
+      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+
+   util_dynarray_init(&cmd_buffer->heaps, NULL);
+   cmd_buffer->device = device;
+   cmd_buffer->pool = pool;
+   cmd_buffer->level = level;
+
+   D3D12_COMMAND_LIST_TYPE type;
+   if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+   else
+      type = D3D12_COMMAND_LIST_TYPE_BUNDLE;
+
+   if (FAILED(device->dev->CreateCommandAllocator(type,
+                                                  IID_PPV_ARGS(&cmd_buffer->alloc)))) {
+      result = vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      goto fail;
+   }
+
+
+   if (FAILED(device->dev->CreateCommandList(0, type, cmd_buffer->alloc, NULL,
+                                             IID_PPV_ARGS(&cmd_buffer->cmdlist)))) {
+      result = vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      goto fail;
+   }
+   if (FAILED(cmd_buffer->cmdlist->Close())) {
+      result = vk_errorfi(device->instance, NULL, VK_ERROR_UNKNOWN, NULL);
+      goto fail;
+   }
+
+   list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
+
+   *pCommandBuffer = dzn_cmd_buffer_to_handle(cmd_buffer);
+
+   return VK_SUCCESS;
+
+ fail:
+   vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
+
+   return result;
+}
+
+VkResult
+dzn_AllocateCommandBuffers(VkDevice _device,
+                           const VkCommandBufferAllocateInfo *pAllocateInfo,
+                           VkCommandBuffer *pCommandBuffers)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_cmd_pool, pool, pAllocateInfo->commandPool);
+
+   VkResult result = VK_SUCCESS;
+   uint32_t i;
+
+   for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
+      result = dzn_create_cmd_buffer(device, pool, pAllocateInfo->level,
+                                     &pCommandBuffers[i]);
+      if (result != VK_SUCCESS)
+         break;
+   }
+
+   if (result != VK_SUCCESS) {
+      dzn_FreeCommandBuffers(_device, pAllocateInfo->commandPool,
+                             i, pCommandBuffers);
+      for (i = 0; i < pAllocateInfo->commandBufferCount; i++)
+         pCommandBuffers[i] = VK_NULL_HANDLE;
+   }
+
+   return result;
+}
+
+void
+dzn_FreeCommandBuffers(VkDevice device,
+                       VkCommandPool commandPool,
+                       uint32_t commandBufferCount,
+                       const VkCommandBuffer *pCommandBuffers)
+{
+   for (uint32_t i = 0; i < commandBufferCount; i++) {
+      DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, pCommandBuffers[i]);
+
+      if (!cmd_buffer)
+         continue;
+
+      dzn_cmd_buffer_destroy(cmd_buffer);
+   }
+}
+
+VkResult
+dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmd_buffer)
+{
+   HRESULT hr = cmd_buffer->cmdlist->Reset(cmd_buffer->alloc, NULL);
+   assert(hr == S_OK);
+
+   util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
+      (*heap)->Release();
+   util_dynarray_clear(&cmd_buffer->heaps);
+
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
+                       VkCommandBufferResetFlags flags)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   return dzn_cmd_buffer_reset(cmd_buffer);
+}
+
+VkResult
+dzn_BeginCommandBuffer(
+    VkCommandBuffer commandBuffer,
+    const VkCommandBufferBeginInfo *pBeginInfo)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   /* If this is the first vkBeginCommandBuffer, we must *initialize* the
+    * command buffer's state. Otherwise, we must *reset* its state. In both
+    * cases we reset it.
+    *
+    * From the Vulkan 1.0 spec:
+    *
+    *    If a command buffer is in the executable state and the command buffer
+    *    was allocated from a command pool with the
+    *    VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT flag set, then
+    *    vkBeginCommandBuffer implicitly resets the command buffer, behaving
+    *    as if vkResetCommandBuffer had been called with
+    *    VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT not set. It then puts
+    *    the command buffer in the recording state.
+    */
+   dzn_cmd_buffer_reset(cmd_buffer);
+
+   cmd_buffer->usage_flags = pBeginInfo->flags;
+
+   /* VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT must be ignored for
+    * primary level command buffers.
+    *
+    * From the Vulkan 1.0 spec:
+    *
+    *    VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT specifies that a
+    *    secondary command buffer is considered to be entirely inside a render
+    *    pass. If this is a primary command buffer, then this bit is ignored.
+    */
+   if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      cmd_buffer->usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+
+   VkResult result = VK_SUCCESS;
+
+#if 0
+   if (cmd_buffer->usage_flags &
+       VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+      assert(pBeginInfo->pInheritanceInfo);
+      DZN_FROM_HANDLE(dzn_render_pass, pass,
+                      pBeginInfo->pInheritanceInfo->renderPass);
+      struct dzn_subpass *subpass =
+         &pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
+      DZN_FROM_HANDLE(dzn_framebuffer, framebuffer,
+                      pBeginInfo->pInheritanceInfo->framebuffer);
+
+      cmd_buffer->state.pass = pass;
+      cmd_buffer->state.subpass = subpass;
+   }
+#endif
+
+   return result;
+}
+
+VkResult
+dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->cmdlist->Close();
+
+   return VK_SUCCESS;
+}
+
+D3D12_RESOURCE_STATES
+dzn_get_states(VkImageLayout layout)
+{
+   switch (layout) {
+   case VK_IMAGE_LAYOUT_PREINITIALIZED:
+   case VK_IMAGE_LAYOUT_UNDEFINED:
+      /* YOLO! */
+   case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+      return D3D12_RESOURCE_STATE_COMMON;
+
+   case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+      return D3D12_RESOURCE_STATE_COPY_DEST;
+
+   case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+      return D3D12_RESOURCE_STATE_COPY_SOURCE;
+
+   case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+      return D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+   case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+      return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+
+   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+   case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL:
+      return D3D12_RESOURCE_STATE_DEPTH_READ;
+
+   case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+      return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+
+   default:
+      unreachable("not implemented");
+   }
+}
+
+void
+dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
+                       VkPipelineStageFlags srcStageMask,
+                       VkPipelineStageFlags destStageMask,
+                       VkBool32 byRegion,
+                       uint32_t memoryBarrierCount,
+                       const VkMemoryBarrier *pMemoryBarriers,
+                       uint32_t bufferMemoryBarrierCount,
+                       const VkBufferMemoryBarrier * pBufferMemoryBarriers,
+                       uint32_t imageMemoryBarrierCount,
+                       const VkImageMemoryBarrier *pImageMemoryBarriers)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   /* no idea what this really means in D3D12... */
+   assert(memoryBarrierCount == 0);
+
+   /* TODO: use D3D12_RESOURCE_BARRIER_TYPE_UAV */
+   assert(bufferMemoryBarrierCount == 0);
+
+   for (uint32_t i = 0; i < imageMemoryBarrierCount; i++) {
+      /* D3D12_RESOURCE_BARRIER_TYPE_TRANSITION */
+      DZN_FROM_HANDLE(dzn_image, image, pImageMemoryBarriers[i].image);
+      const VkImageSubresourceRange *range =
+         &pImageMemoryBarriers[i].subresourceRange;
+
+      uint32_t base_layer, layer_count;
+      if (image->type == VK_IMAGE_TYPE_3D) {
+         base_layer = 0;
+         layer_count = u_minify(image->extent.depth, range->baseMipLevel);
+      } else {
+         base_layer = range->baseArrayLayer;
+         layer_count = dzn_get_layerCount(image, range);
+      }
+
+      D3D12_RESOURCE_BARRIER barrier;
+      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+      barrier.Transition.pResource = image->res;
+      assert(base_layer == 0 && layer_count == 1);
+      barrier.Transition.Subresource = 0; // YOLO
+
+      if (pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
+          pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
+         barrier.Transition.StateBefore = image->mem->initial_state;
+      else
+         barrier.Transition.StateBefore = dzn_get_states(pImageMemoryBarriers[i].oldLayout);
+
+      barrier.Transition.StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout);
+
+      /* some layouts map to the states, and NOP-barriers are illegal */
+      if (barrier.Transition.StateBefore != barrier.Transition.StateAfter)
+         cmd_buffer->cmdlist->ResourceBarrier(1, &barrier);
+   }
+}
+
+void dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
+                                  const VkCopyBufferToImageInfo2KHR *pCopyBufferToImageInfo)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   DZN_FROM_HANDLE(dzn_buffer, src_buffer, pCopyBufferToImageInfo->srcBuffer);
+   DZN_FROM_HANDLE(dzn_image, dst_image, pCopyBufferToImageInfo->dstImage);
+
+   D3D12_TEXTURE_COPY_LOCATION src_buf_loc = {
+      .pResource = src_buffer->res,
+      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+   };
+
+   D3D12_TEXTURE_COPY_LOCATION dst_img_loc = {
+      .pResource = dst_image->res,
+      .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+   };
+
+   ID3D12Device *dev = cmd_buffer->device->dev;
+   ID3D12GraphicsCommandList *cmdlist = cmd_buffer->cmdlist;
+
+   for (int i = 0; i < pCopyBufferToImageInfo->regionCount; i++) {
+      const VkBufferImageCopy2KHR *region = &pCopyBufferToImageInfo->pRegions[i];
+
+      const uint32_t buffer_row_length =
+         region->bufferRowLength ?
+         region->bufferRowLength : region->imageExtent.width;
+
+      const uint32_t buffer_image_height =
+         region->bufferImageHeight ?
+         region->bufferImageHeight : region->imageExtent.height;
+
+      /* prepare source details */
+      dev->GetCopyableFootprints(&dst_image->desc, 0, 1, 0,
+                                 &src_buf_loc.PlacedFootprint,
+                                 NULL, NULL, NULL);
+      src_buf_loc.PlacedFootprint.Footprint.Width = buffer_row_length;
+      src_buf_loc.PlacedFootprint.Footprint.Height = buffer_image_height;
+      src_buf_loc.PlacedFootprint.Footprint.Depth = 1;
+      src_buf_loc.PlacedFootprint.Offset += region->bufferOffset;
+      D3D12_BOX src_box = {
+         .left = 0,
+         .top = 0,
+         .front = 0,
+         .right = region->imageExtent.width,
+         .bottom = region->imageExtent.height,
+         .back = region->imageExtent.depth,
+      };
+
+      /* prepare destination details */
+      dst_img_loc.SubresourceIndex =
+         dzn_get_subresource_index(&dst_image->desc,
+                                   region->imageSubresource.aspectMask,
+                                   region->imageSubresource.mipLevel,
+                                   region->imageSubresource.baseArrayLayer);
+
+      assert(region->imageSubresource.layerCount == 1);
+
+      cmdlist->CopyTextureRegion(&dst_img_loc, region->imageOffset.x,
+                                 region->imageOffset.y, region->imageOffset.z,
+                                 &src_buf_loc, &src_box);
+   }
+}
+
+void
+dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
+                             const VkCopyImageToBufferInfo2KHR *pCopyImageToBufferInfo)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   DZN_FROM_HANDLE(dzn_image, src_image, pCopyImageToBufferInfo->srcImage);
+   DZN_FROM_HANDLE(dzn_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
+
+   D3D12_TEXTURE_COPY_LOCATION dst_buf_loc = {
+      .pResource = dst_buffer->res,
+      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+   };
+
+   D3D12_TEXTURE_COPY_LOCATION src_img_loc = {
+      .pResource = src_image->res,
+      .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+   };
+
+   ID3D12Device *dev = cmd_buffer->device->dev;
+   ID3D12GraphicsCommandList *cmdlist = cmd_buffer->cmdlist;
+
+   for (int i = 0; i < pCopyImageToBufferInfo->regionCount; i++) {
+      const VkBufferImageCopy2KHR *region = &pCopyImageToBufferInfo->pRegions[i];
+
+      const uint32_t buffer_row_length =
+         region->bufferRowLength ?
+         region->bufferRowLength : region->imageExtent.width;
+
+      const uint32_t buffer_image_height =
+         region->bufferImageHeight ?
+         region->bufferImageHeight : region->imageExtent.height;
+
+      /* prepare destination details */
+      dev->GetCopyableFootprints(&src_image->desc, 0, 1, 0,
+                                 &dst_buf_loc.PlacedFootprint,
+                                 NULL, NULL, NULL);
+      dst_buf_loc.PlacedFootprint.Footprint.Width = buffer_row_length;
+      dst_buf_loc.PlacedFootprint.Footprint.Height = buffer_image_height;
+      dst_buf_loc.PlacedFootprint.Footprint.Depth = 1;
+      dst_buf_loc.PlacedFootprint.Offset += region->bufferOffset;
+      D3D12_BOX src_box = {
+         .left = 0,
+         .top = 0,
+         .front = 0,
+         .right = region->imageExtent.width,
+         .bottom = region->imageExtent.height,
+         .back = region->imageExtent.depth,
+      };
+
+      /* prepare source details */
+      src_img_loc.SubresourceIndex =
+         dzn_get_subresource_index(&src_image->desc,
+                                   region->imageSubresource.aspectMask,
+                                   region->imageSubresource.mipLevel,
+                                   region->imageSubresource.baseArrayLayer);
+
+      assert(region->imageSubresource.layerCount == 1);
+
+      cmdlist->CopyTextureRegion(&dst_buf_loc, region->imageOffset.x,
+                                 region->imageOffset.y, region->imageOffset.z,
+                                 &src_img_loc, &src_box);
+   }
+}
+
+void
+dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
+                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                        const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   DZN_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
+   DZN_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
+   const struct dzn_subpass *subpass = &pass->subpasses[0];
+
+   cmd_buffer->state.framebuffer = framebuffer;
+   cmd_buffer->state.pass = pass;
+   cmd_buffer->state.subpass = 0;
+
+   D3D12_CPU_DESCRIPTOR_HANDLE rt_handles[MAX_RTS] = { };
+   D3D12_CPU_DESCRIPTOR_HANDLE zs_handle = { 0 };
+
+   for (uint32_t i = 0; i < subpass->color_count; i++) {
+      if (subpass->colors[i].idx == VK_ATTACHMENT_UNUSED) continue;
+
+      if (!i)
+         cmd_buffer->rt0 = framebuffer->attachments[subpass->colors[i].idx]->image->res;
+      rt_handles[i] = framebuffer->attachments[subpass->colors[i].idx]->rt_handle.cpu_handle;
+   }
+
+   if (subpass->zs.idx != VK_ATTACHMENT_UNUSED) {
+      zs_handle = framebuffer->attachments[subpass->zs.idx]->zs_handle.cpu_handle;
+   }
+
+   assert(pass->attachment_count == framebuffer->attachment_count);
+
+   for (uint32_t i = 0; i < pass->attachment_count; i++) {
+      const dzn_attachment *att = &pass->attachments[i];
+      const dzn_image *image = framebuffer->attachments[i]->image;
+
+      if (att->before == att->during)
+         continue;
+
+      D3D12_RESOURCE_BARRIER barrier;
+      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+      barrier.Transition.pResource = image->res;
+      barrier.Transition.Subresource = 0; // YOLO
+
+      barrier.Transition.StateBefore = att->before;
+      barrier.Transition.StateAfter = att->during;
+
+      cmd_buffer->cmdlist->ResourceBarrier(1, &barrier);
+   }
+
+   assert(subpass->color_count > 0);
+   cmd_buffer->cmdlist->OMSetRenderTargets(subpass->color_count, rt_handles, FALSE, zs_handle.ptr ? &zs_handle : NULL);
+
+   D3D12_RECT rect = {
+      pRenderPassBeginInfo->renderArea.offset.x,
+      pRenderPassBeginInfo->renderArea.offset.y,
+      pRenderPassBeginInfo->renderArea.offset.x + pRenderPassBeginInfo->renderArea.extent.width,
+      pRenderPassBeginInfo->renderArea.offset.y + pRenderPassBeginInfo->renderArea.extent.height
+   };
+
+   assert(pRenderPassBeginInfo->clearValueCount == framebuffer->attachment_count);
+   for (int i = 0; i < framebuffer->attachment_count; ++i) {
+      if (vk_format_is_depth_or_stencil(framebuffer->attachments[i]->vk_format)) {
+         cmd_buffer->cmdlist->ClearDepthStencilView(framebuffer->attachments[i]->zs_handle.cpu_handle,
+                                                    D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
+                                                    pRenderPassBeginInfo->pClearValues[i].depthStencil.depth,
+                                                    pRenderPassBeginInfo->pClearValues[i].depthStencil.stencil,
+                                                    1, &rect);
+      } else {
+         cmd_buffer->cmdlist->ClearRenderTargetView(framebuffer->attachments[i]->rt_handle.cpu_handle,
+                                                   pRenderPassBeginInfo->pClearValues[i].color.float32,
+                                                   1, &rect);
+      }
+   }
+}
+
+void
+dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
+                      const VkSubpassEndInfoKHR *pSubpassEndInfo)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   assert(cmd_buffer->state.pass->attachment_count ==
+          cmd_buffer->state.framebuffer->attachment_count);
+   for (uint32_t i = 0; i < cmd_buffer->state.pass->attachment_count; i++) {
+      const dzn_attachment *att = &cmd_buffer->state.pass->attachments[i];
+      const dzn_image *image = cmd_buffer->state.framebuffer->attachments[i]->image;
+
+      if (att->during == att->after)
+         continue;
+
+      D3D12_RESOURCE_BARRIER barrier;
+      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+
+      barrier.Transition.pResource = image->res;
+      barrier.Transition.Subresource = 0; // YOLO
+
+      barrier.Transition.StateBefore = att->during;
+      barrier.Transition.StateAfter = att->after;
+
+      cmd_buffer->cmdlist->ResourceBarrier(1, &barrier);
+      fprintf(stdout, "%s:%i res %p transition %d -> %d\n", __func__, __LINE__, image->res, att->during, att->after);fflush(stdout);
+   }
+
+   cmd_buffer->state.framebuffer = NULL;
+   cmd_buffer->state.pass = NULL;
+
+#if 0
+   cmd_buffer->state.subpass = NULL;
+#endif
+}
+
+void
+dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
+                    VkPipelineBindPoint pipelineBindPoint,
+                    VkPipeline _pipeline)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   DZN_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
+
+   cmd_buffer->state.bindpoint[pipelineBindPoint].pipeline = pipeline;
+   cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+}
+
+static void
+update_pipeline(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
+{
+   if (cmd_buffer->state.bindpoint[bindpoint].pipeline &&
+       cmd_buffer->state.bindpoint[bindpoint].pipeline != cmd_buffer->state.pipeline) {
+      cmd_buffer->state.pipeline = cmd_buffer->state.bindpoint[bindpoint].pipeline;
+      cmd_buffer->cmdlist->SetGraphicsRootSignature(cmd_buffer->state.pipeline->layout->root.sig);
+      cmd_buffer->cmdlist->SetPipelineState(cmd_buffer->state.pipeline->state);
+      if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+         struct dzn_graphics_pipeline *gfx =
+            container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
+         cmd_buffer->cmdlist->IASetPrimitiveTopology(gfx->ia.topology);
+         fprintf(stdout, "%s:%i prim topo %d\n", __func__, __LINE__, gfx->ia.topology);fflush(stdout);
+      }
+   }
+}
+
+static void
+update_heaps(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
+{
+   ID3D12DescriptorHeap **heaps = cmd_buffer->state.bindpoint[bindpoint].heaps;
+   const struct dzn_pipeline *pipeline = cmd_buffer->state.bindpoint[bindpoint].pipeline;
+   uint32_t view_desc_sz =
+      cmd_buffer->device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+   uint32_t sampler_desc_sz =
+      cmd_buffer->device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
+   if (!(cmd_buffer->state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_HEAPS))
+      goto set_heaps;
+
+   for (uint32_t type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; type++) {
+      if (heaps[type]) {
+         util_dynarray_append(&cmd_buffer->heaps, ID3D12DescriptorHeap *,
+                              cmd_buffer->state.bindpoint[bindpoint].heaps[type]);
+         heaps[type] = NULL;
+      }
+
+      uint32_t desc_count = cmd_buffer->state.pipeline->layout->desc_count[type];
+      if (!desc_count)
+         continue;
+
+      D3D12_DESCRIPTOR_HEAP_DESC desc = {
+         .Type = (D3D12_DESCRIPTOR_HEAP_TYPE)type,
+         .NumDescriptors = desc_count,
+         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+      };
+
+      HRESULT ret =
+         cmd_buffer->device->dev->CreateDescriptorHeap(&desc,
+                                                       IID_PPV_ARGS(&heaps[type]));
+      assert(!FAILED(ret));
+
+      D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = {
+         .ptr = heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
+      };
+
+      for (uint32_t s = 0; s < MAX_SETS; s++) {
+         const struct dzn_descriptor_set *set =
+            cmd_buffer->state.bindpoint[bindpoint].sets[s];
+
+         if (!set) continue;
+
+         uint32_t set_desc_count =
+            type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ?
+            set->layout->view_desc_count : set->layout->sampler_desc_count;
+         uint32_t desc_sz =
+            type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ?
+            view_desc_sz : sampler_desc_sz;
+
+         if (!set_desc_count) continue;
+
+         D3D12_CPU_DESCRIPTOR_HANDLE src_handle = {
+            .ptr = set->heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
+         };
+
+         cmd_buffer->device->dev->CopyDescriptorsSimple(set_desc_count,
+                                                        dst_handle,
+                                                        src_handle,
+						        desc.Type);
+         dst_handle.ptr += (desc_sz * set_desc_count);
+      }
+   }
+
+set_heaps:
+   if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] != cmd_buffer->state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] ||
+       heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] != cmd_buffer->state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]) {
+      if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] && heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER])
+         cmd_buffer->cmdlist->SetDescriptorHeaps(2, heaps);
+      else if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV])
+         cmd_buffer->cmdlist->SetDescriptorHeaps(1, &heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]);
+      else if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER])
+         cmd_buffer->cmdlist->SetDescriptorHeaps(1, &heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]);
+      memcpy(cmd_buffer->state.heaps, heaps, sizeof(cmd_buffer->state.heaps));
+
+      for (uint32_t r = 0; r < pipeline->layout->root.param_count; r++) {
+         if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+            D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->layout->root.type[r];
+            D3D12_GPU_DESCRIPTOR_HANDLE handle = {
+               .ptr = heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
+            };
+
+            fprintf(stdout, "%s:%i type %d handle %llx\n", __func__, __LINE__, type, handle.ptr);fflush(stdout);
+            cmd_buffer->cmdlist->SetGraphicsRootDescriptorTable(r, handle);
+         }
+      }
+   }
+}
+
+void
+dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
+                          VkPipelineBindPoint pipelineBindPoint,
+                          VkPipelineLayout _layout,
+                          uint32_t firstSet,
+                          uint32_t descriptorSetCount,
+                          const VkDescriptorSet *pDescriptorSets,
+                          uint32_t dynamicOffsetCount,
+                          const uint32_t *pDynamicOffsets)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   DZN_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
+
+   for (uint32_t i = 0; i < descriptorSetCount; i++) {
+      DZN_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
+      cmd_buffer->state.bindpoint[pipelineBindPoint].sets[firstSet + i] = set;
+   }
+
+   cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+}
+
+static void
+update_viewports(dzn_cmd_buffer *cmd_buffer)
+{
+   struct dzn_graphics_pipeline *pipeline =
+      container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
+
+   if (!(cmd_buffer->state.dirty & DZN_CMD_DIRTY_VIEWPORTS) ||
+       !pipeline->vp.count)
+      return;
+
+
+   for (uint32_t i = 0; i < pipeline->vp.count; i++) {
+      fprintf(stdout, "%s:%i VP %d { %f, %f, %f, %f, %f, %f}\n", __func__, __LINE__, i,
+              cmd_buffer->state.viewports[i].TopLeftX,
+	      cmd_buffer->state.viewports[i].TopLeftY,
+              cmd_buffer->state.viewports[i].Width,
+              cmd_buffer->state.viewports[i].Height,
+              cmd_buffer->state.viewports[i].MinDepth,
+              cmd_buffer->state.viewports[i].MaxDepth);fflush(stdout);
+   }
+   cmd_buffer->cmdlist->RSSetViewports(pipeline->vp.count,
+                                       cmd_buffer->state.viewports);
+}
+
+void
+dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
+                   uint32_t firstViewport,
+                   uint32_t viewportCount,
+                   const VkViewport *pViewports)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   for (uint32_t i = firstViewport; i < firstViewport + viewportCount; i++)
+      dzn_translate_viewport(&cmd_buffer->state.viewports[i], &pViewports[i]);
+
+   if (viewportCount)
+      cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
+}
+
+static void
+update_scissors(dzn_cmd_buffer *cmd_buffer)
+{
+   struct dzn_graphics_pipeline *pipeline =
+      container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
+
+   if (!(cmd_buffer->state.dirty & DZN_CMD_DIRTY_SCISSORS) ||
+       !pipeline->scissor.count)
+      return;
+
+   for (uint32_t i = 0; i < pipeline->scissor.count; i++) {
+      fprintf(stdout, "%s:%i VP %d { %d, %d, %d, %d}\n", __func__, __LINE__, i,
+              cmd_buffer->state.scissors[i].left,
+	      cmd_buffer->state.scissors[i].top,
+              cmd_buffer->state.scissors[i].right,
+              cmd_buffer->state.scissors[i].bottom);fflush(stdout);
+   }
+   cmd_buffer->cmdlist->RSSetScissorRects(pipeline->scissor.count,
+                                          cmd_buffer->state.scissors);
+}
+
+void
+dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
+                  uint32_t firstScissor,
+                  uint32_t scissorCount,
+                  const VkRect2D *pScissors)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   for (uint32_t i = firstScissor; i < firstScissor + scissorCount; i++)
+      dzn_translate_scissor(&cmd_buffer->state.scissors[i], &pScissors[i]);
+
+   if (scissorCount)
+      cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+}
+
+void
+dzn_CmdDraw(VkCommandBuffer commandBuffer,
+            uint32_t vertexCount,
+            uint32_t instanceCount,
+            uint32_t firstVertex,
+            uint32_t firstInstance)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   update_pipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
+   update_heaps(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
+   update_viewports(cmd_buffer);
+   update_scissors(cmd_buffer);
+
+   cmd_buffer->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+}
