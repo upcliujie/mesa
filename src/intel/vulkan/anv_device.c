@@ -1913,8 +1913,8 @@ void anv_GetPhysicalDeviceProperties(
       .maxImageDimension2D                      = (1 << 14),
       .maxImageDimension3D                      = (1 << 11),
       .maxImageDimensionCube                    = (1 << 14),
-      .maxImageArrayLayers                      = (1 << 11),
-      .maxTexelBufferElements                   = 128 * 1024 * 1024,
+      .maxImageArrayLayers                      = (1 << 14), /* questionable, but the same as we used in gallium d3d12 */
+      .maxTexelBufferElements                   = 128 * 1024 * 1024, /* ??? */
       .maxUniformBufferRange                    = (1ul << 27),
       .maxStorageBufferRange                    = max_raw_buffer_sz,
       .maxPushConstantsSize                     = MAX_PUSH_CONSTANTS_SIZE,
