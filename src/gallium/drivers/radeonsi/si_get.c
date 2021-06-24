@@ -1026,6 +1026,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
       .lower_insert_byte = true,
       .lower_insert_word = true,
       .lower_rotate = true,
+      .lower_ternary_add = true,
       .lower_to_scalar = true,
       .optimize_sample_mask_in = true,
       .max_unroll_iterations = 32,

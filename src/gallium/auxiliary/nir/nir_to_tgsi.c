@@ -2704,6 +2704,7 @@ ntt_fix_nir_options(struct pipe_screen *screen, struct nir_shader *s)
        !options->lower_flrp64 ||
        !options->lower_fmod ||
        !options->lower_rotate ||
+       !options->lower_ternary_add ||
        !options->lower_uniforms_to_ubo ||
        !options->lower_vector_cmp ||
        options->lower_fsqrt != lower_fsqrt) {
@@ -2718,6 +2719,7 @@ ntt_fix_nir_options(struct pipe_screen *screen, struct nir_shader *s)
       new_options->lower_flrp64 = true;
       new_options->lower_fmod = true;
       new_options->lower_rotate = true;
+      new_options->lower_ternary_add = true;
       new_options->lower_uniforms_to_ubo = true,
       new_options->lower_vector_cmp = true;
       new_options->lower_fsqrt = lower_fsqrt;
@@ -2884,6 +2886,7 @@ static const nir_shader_compiler_options nir_to_tgsi_compiler_options = {
    .lower_flrp64 = true,
    .lower_fmod = true,
    .lower_rotate = true,
+   .lower_ternary_add = true,
    .lower_uniforms_to_ubo = true,
    .lower_vector_cmp = true,
    .use_interpolated_input_intrinsics = true,

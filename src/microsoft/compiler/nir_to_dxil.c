@@ -99,6 +99,7 @@ nir_options = {
    .lower_uadd_carry = true,
    .lower_mul_high = true,
    .lower_rotate = true,
+   .lower_ternary_add = true,
    .lower_pack_64_2x32_split = true,
    .lower_pack_32_2x16_split = true,
    .lower_unpack_64_2x32_split = true,

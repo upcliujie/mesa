@@ -3285,6 +3285,7 @@ nvir_nir_shader_compiler_options(int chipset)
    op.use_interpolated_input_intrinsics = true;
    op.lower_mul_2x32_64 = true; // TODO
    op.lower_rotate = (chipset < NVISA_GV100_CHIPSET);
+   op.lower_ternary_add = true;
    op.has_imul24 = false;
    op.intel_vec4 = false;
    op.max_unroll_iterations = 32;

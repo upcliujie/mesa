@@ -43,6 +43,7 @@ static const nir_shader_compiler_options options = {
    .vertex_id_zero_based = true, /* its not implemented anyway */
    .lower_bitops = true,
    .lower_rotate = true,
+   .lower_ternary_add = true,
    .lower_vector_cmp = true,
    .lower_fdph = true,
    .has_fsub = true,

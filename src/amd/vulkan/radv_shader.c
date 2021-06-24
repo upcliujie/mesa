@@ -78,6 +78,7 @@ static const struct nir_shader_compiler_options nir_options = {
    .lower_fpow = true,
    .lower_mul_2x32_64 = true,
    .lower_rotate = true,
+   .lower_ternary_add = true,
    .has_fsub = true,
    .has_isub = true,
    .use_scoped_barrier = true,

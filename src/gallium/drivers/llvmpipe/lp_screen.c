@@ -580,6 +580,7 @@ static const struct nir_shader_compiler_options gallivm_nir_options = {
    .lower_insert_byte = true,
    .lower_insert_word = true,
    .lower_rotate = true,
+   .lower_ternary_add = true,
    .lower_uadd_carry = true,
    .lower_usub_borrow = true,
    .lower_mul_2x32_64 = true,

@@ -154,6 +154,7 @@ static const nir_shader_compiler_options agx_nir_options = {
    .lower_wpos_pntc = true,
    .lower_fsign = true,
    .lower_rotate = true,
+   .lower_ternary_add = true,
    .lower_pack_split = true,
    .lower_insert_byte = true,
    .lower_insert_word = true,
