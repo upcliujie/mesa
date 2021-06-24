@@ -973,7 +973,7 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
 fail_image:
    wsi_destroy_image(&chain->base, &image->base);
 
-   return result;
+   return VK_ERROR_OUT_OF_HOST_MEMORY;
 }
 
 static VkResult
