@@ -37,7 +37,6 @@
 #include "vk_util.h"
 #include "wsi_common_private.h"
 #include "wsi_common_wayland.h"
-#include "wayland-drm-client-protocol.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
 
 #include <util/compiler.h>
@@ -46,12 +45,6 @@
 #include <util/u_vector.h>
 
 struct wsi_wayland;
-
-struct wsi_wl_display_drm {
-   struct wl_drm *                              wl_drm;
-   struct u_vector                              formats;
-   uint32_t                                     capabilities;
-};
 
 struct wsi_wl_display_dmabuf {
    struct zwp_linux_dmabuf_v1 *                 wl_dmabuf;
@@ -69,7 +62,6 @@ struct wsi_wl_display {
    struct wl_display *                          wl_display_wrapper;
    struct wl_event_queue *                      queue;
 
-   struct wsi_wl_display_drm                    drm;
    struct wsi_wl_display_dmabuf                 dmabuf;
 
    struct wsi_wayland *wsi_wl;
@@ -207,11 +199,6 @@ wsi_wl_display_add_drm_format(struct wsi_wl_display *display,
    }
 }
 
-static void
-drm_handle_device(void *data, struct wl_drm *drm, const char *name)
-{
-}
-
 static uint32_t
 wl_drm_format_for_vk_format(VkFormat vk_format, bool alpha)
 {
@@ -258,36 +245,6 @@ wl_drm_format_for_vk_format(VkFormat vk_format, bool alpha)
       return 0;
    }
 }
-
-static void
-drm_handle_format(void *data, struct wl_drm *drm, uint32_t wl_format)
-{
-   struct wsi_wl_display *display = data;
-   if (display->drm.formats.element_size == 0)
-      return;
-
-   wsi_wl_display_add_drm_format(display, &display->drm.formats, wl_format);
-}
-
-static void
-drm_handle_authenticated(void *data, struct wl_drm *drm)
-{
-}
-
-static void
-drm_handle_capabilities(void *data, struct wl_drm *drm, uint32_t capabilities)
-{
-   struct wsi_wl_display *display = data;
-
-   display->drm.capabilities = capabilities;
-}
-
-static const struct wl_drm_listener drm_listener = {
-   drm_handle_device,
-   drm_handle_format,
-   drm_handle_authenticated,
-   drm_handle_capabilities,
-};
 
 static void
 dmabuf_handle_format(void *data, struct zwp_linux_dmabuf_v1 *dmabuf,
@@ -346,14 +303,7 @@ registry_handle_global(void *data, struct wl_registry *registry,
 {
    struct wsi_wl_display *display = data;
 
-   if (strcmp(interface, "wl_drm") == 0) {
-      assert(display->drm.wl_drm == NULL);
-
-      assert(version >= 2);
-      display->drm.wl_drm =
-         wl_registry_bind(registry, name, &wl_drm_interface, 2);
-      wl_drm_add_listener(display->drm.wl_drm, &drm_listener, display);
-   } else if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3) {
+   if (strcmp(interface, "zwp_linux_dmabuf_v1") == 0 && version >= 3) {
       display->dmabuf.wl_dmabuf =
          wl_registry_bind(registry, name, &zwp_linux_dmabuf_v1_interface, 3);
       zwp_linux_dmabuf_v1_add_listener(display->dmabuf.wl_dmabuf,
@@ -376,12 +326,9 @@ wsi_wl_display_finish(struct wsi_wl_display *display)
 {
    assert(display->refcount == 0);
 
-   u_vector_finish(&display->drm.formats);
    u_vector_finish(&display->dmabuf.formats);
    u_vector_finish(&display->dmabuf.modifiers.argb8888);
    u_vector_finish(&display->dmabuf.modifiers.xrgb8888);
-   if (display->drm.wl_drm)
-      wl_drm_destroy(display->drm.wl_drm);
    if (display->dmabuf.wl_dmabuf)
       zwp_linux_dmabuf_v1_destroy(display->dmabuf.wl_dmabuf);
    if (display->wl_display_wrapper)
@@ -403,8 +350,7 @@ wsi_wl_display_init(struct wsi_wayland *wsi_wl,
    display->wl_display = wl_display;
 
    if (get_format_list) {
-      if (!u_vector_init(&display->drm.formats, sizeof(VkFormat), 8) ||
-          !u_vector_init(&display->dmabuf.formats, sizeof(VkFormat), 8) ||
+      if (!u_vector_init(&display->dmabuf.formats, sizeof(VkFormat), 8) ||
           !u_vector_init(&display->dmabuf.modifiers.argb8888,
                          sizeof(uint64_t), 32) ||
           !u_vector_init(&display->dmabuf.modifiers.xrgb8888,
@@ -442,7 +388,7 @@ wsi_wl_display_init(struct wsi_wayland *wsi_wl,
    wl_display_roundtrip_queue(display->wl_display, display->queue);
 
    /* Round-trip again to get formats, modifiers and capabilities */
-   if (display->drm.wl_drm || display->dmabuf.wl_dmabuf)
+   if (display->dmabuf.wl_dmabuf)
       wl_display_roundtrip_queue(display->wl_display, display->queue);
 
    if (wsi_wl->wsi->force_bgra8_unorm_first) {
@@ -460,19 +406,12 @@ wsi_wl_display_init(struct wsi_wayland *wsi_wl,
       }
    }
 
-   /* Prefer the linux-dmabuf protocol if available */
-   if (display->dmabuf.wl_dmabuf) {
-      display->formats = &display->dmabuf.formats;
-   } else if (display->drm.wl_drm &&
-       (display->drm.capabilities & WL_DRM_CAPABILITY_PRIME)) {
-      /* We need prime support for wl_drm */
-      display->formats = &display->drm.formats;
-   }
-
-   if (!display->formats) {
+   if (!display->dmabuf.wl_dmabuf) {
       result = VK_ERROR_SURFACE_LOST_KHR;
       goto fail_registry;
    }
+
+   display->formats = &display->dmabuf.formats;
 
    /* We don't need this anymore */
    wl_registry_destroy(registry);
@@ -951,46 +890,29 @@ wsi_wl_image_init(struct wsi_wl_swapchain *chain,
    if (result != VK_SUCCESS)
       return result;
 
-   if (display->dmabuf.wl_dmabuf) {
-      struct zwp_linux_buffer_params_v1 *params =
-         zwp_linux_dmabuf_v1_create_params(display->dmabuf.wl_dmabuf);
-      if (!params)
-         goto fail_image;
+   struct zwp_linux_buffer_params_v1 *params =
+      zwp_linux_dmabuf_v1_create_params(display->dmabuf.wl_dmabuf);
+   if (!params)
+      goto fail_image;
 
-      for (int i = 0; i < image->base.num_planes; i++) {
-         zwp_linux_buffer_params_v1_add(params,
-                                        image->base.fds[i],
-                                        i,
-                                        image->base.offsets[i],
-                                        image->base.row_pitches[i],
-                                        image->base.drm_modifier >> 32,
-                                        image->base.drm_modifier & 0xffffffff);
-         close(image->base.fds[i]);
-      }
-
-      image->buffer =
-         zwp_linux_buffer_params_v1_create_immed(params,
-                                                 chain->extent.width,
-                                                 chain->extent.height,
-                                                 chain->drm_format,
-                                                 0);
-      zwp_linux_buffer_params_v1_destroy(params);
-   } else {
-      /* Without passing modifiers, we can't have multi-plane RGB images. */
-      assert(image->base.num_planes == 1);
-      assert(image->base.drm_modifier == DRM_FORMAT_MOD_INVALID);
-
-      image->buffer =
-         wl_drm_create_prime_buffer(display->drm.wl_drm,
-                                    image->base.fds[0], /* name */
-                                    chain->extent.width,
-                                    chain->extent.height,
-                                    chain->drm_format,
-                                    image->base.offsets[0],
-                                    image->base.row_pitches[0],
-                                    0, 0, 0, 0 /* unused */);
-      close(image->base.fds[0]);
+   for (int i = 0; i < image->base.num_planes; i++) {
+      zwp_linux_buffer_params_v1_add(params,
+                                     image->base.fds[i],
+                                     i,
+                                     image->base.offsets[i],
+                                     image->base.row_pitches[i],
+                                     image->base.drm_modifier >> 32,
+                                     image->base.drm_modifier & 0xffffffff);
+      close(image->base.fds[i]);
    }
+
+   image->buffer =
+      zwp_linux_buffer_params_v1_create_immed(params,
+                                              chain->extent.width,
+                                              chain->extent.height,
+                                              chain->drm_format,
+                                              0);
+   zwp_linux_buffer_params_v1_destroy(params);
 
    if (!image->buffer)
       goto fail_image;
@@ -1112,8 +1034,7 @@ wsi_wl_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    /* Use explicit DRM format modifiers when both the server and the driver
     * support them.
     */
-   if (chain->display->dmabuf.wl_dmabuf &&
-       chain->base.wsi->supports_modifiers) {
+   if (chain->base.wsi->supports_modifiers) {
       struct u_vector *modifiers;
       switch (chain->drm_format) {
       case DRM_FORMAT_ARGB8888:
