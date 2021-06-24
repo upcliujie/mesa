@@ -42,7 +42,7 @@ struct st_context;
 #define DEBUG_GREMEDY         BITFIELD_BIT(5)
 #define DEBUG_NOREADPIXCACHE  BITFIELD_BIT(6)
 
-extern int ST_DEBUG;
+extern _Atomic int ST_DEBUG;
 
 void st_debug_init( void );
 
