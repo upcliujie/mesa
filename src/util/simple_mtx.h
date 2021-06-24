@@ -123,7 +123,7 @@ simple_mtx_unlock(simple_mtx_t *mtx)
    assert(c != _SIMPLE_MTX_INVALID_VALUE);
 
    if (__builtin_expect(c != 1, 0)) {
-      mtx->val = 0;
+      __sync_lock_test_and_set(&mtx->val, 0);
       futex_wake(&mtx->val, 1);
    }
 }
