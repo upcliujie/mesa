@@ -437,7 +437,11 @@ void JitManager::DumpAsm(Function* pFunction, const char* fileName)
         sprintf(fName, "%s.%s.asm", funcName, fileName);
 #endif
 
+#if LLVM_VERSION_MAJOR >= 13
+        raw_fd_ostream filestream(fName, EC, llvm::sys::fs::OF_None);
+#else
         raw_fd_ostream filestream(fName, EC, llvm::sys::fs::F_None);
+#endif
 
         legacy::PassManager* pMPasses         = new legacy::PassManager();
         auto*                pTarget          = mpExec->getTargetMachine();
@@ -490,7 +494,11 @@ void JitManager::DumpToFile(Module*                         M,
 #else
         sprintf(fName, "%s.%s.ll", funcName, fileName);
 #endif
+#if LLVM_VERSION_MAJOR >= 13
+        raw_fd_ostream fd(fName, EC, llvm::sys::fs::OF_None);
+#else
         raw_fd_ostream fd(fName, EC, llvm::sys::fs::F_None);
+#endif
         M->print(fd, annotater);
         fd.flush();
     }
@@ -512,7 +520,11 @@ void JitManager::DumpToFile(Function* f, const char* fileName)
 #else
         sprintf(fName, "%s.%s.ll", funcName, fileName);
 #endif
+#if LLVM_VERSION_MAJOR >= 13
+        raw_fd_ostream fd(fName, EC, llvm::sys::fs::OF_None);
+#else
         raw_fd_ostream fd(fName, EC, llvm::sys::fs::F_None);
+#endif
         f->print(fd, nullptr);
 
 #if defined(_WIN32)
@@ -522,7 +534,11 @@ void JitManager::DumpToFile(Function* f, const char* fileName)
 #endif
         fd.flush();
 
+#if LLVM_VERSION_MAJOR >= 13
+        raw_fd_ostream fd_cfg(fName, EC, llvm::sys::fs::OF_Text);
+#else
         raw_fd_ostream fd_cfg(fName, EC, llvm::sys::fs::F_Text);
+#endif
         WriteGraph(fd_cfg, (const Function*)f);
 
         fd_cfg.flush();
@@ -726,7 +742,11 @@ void JitCache::notifyObjectCompiled(const llvm::Module* M, llvm::MemoryBufferRef
 
     {
         std::error_code      err;
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::raw_fd_ostream fileObj(objPath.c_str(), err, llvm::sys::fs::OF_None);
+#else
         llvm::raw_fd_ostream fileObj(objPath.c_str(), err, llvm::sys::fs::F_None);
+#endif
         fileObj << Obj.getBuffer();
         fileObj.flush();
     }
@@ -734,7 +754,11 @@ void JitCache::notifyObjectCompiled(const llvm::Module* M, llvm::MemoryBufferRef
 
     {
         std::error_code      err;
+#if LLVM_VERSION_MAJOR >= 13
+        llvm::raw_fd_ostream fileObj(filePath.c_str(), err, llvm::sys::fs::OF_None);
+#else
         llvm::raw_fd_ostream fileObj(filePath.c_str(), err, llvm::sys::fs::F_None);
+#endif
 
         uint32_t objcrc = ComputeCRC(0, Obj.getBufferStart(), Obj.getBufferSize());
 
