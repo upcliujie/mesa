@@ -938,7 +938,7 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
        * access to HW binding tables.  This means that we have to upload the
        * descriptor set as an 64-bit address in the push constants.
        */
-      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR) {
+      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR && set->pool) {
          struct anv_push_constants *push = &pipe_state->push_constants;
 
          struct anv_address set_addr = {
@@ -1413,6 +1413,9 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
          .bo = cmd_buffer->dynamic_state_stream.state_pool->block_pool.bo,
          .offset = set->desc_mem.offset,
       };
+
+      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR)
+         pipe_state->push_constants.desc_sets[_set] = anv_address_physical(addr);
 
       enum isl_format format =
          anv_isl_format_for_descriptor_type(cmd_buffer->device,
