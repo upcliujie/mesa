@@ -199,8 +199,8 @@ fd5_clear_lrz(struct fd_batch *batch, struct fd_resource *zsbuf, double depth)
    OUT_RING(ring, A5XX_RB_MRT_BUF_INFO_COLOR_FORMAT(RB5_R16_UNORM) |
                      A5XX_RB_MRT_BUF_INFO_COLOR_TILE_MODE(TILE5_LINEAR) |
                      A5XX_RB_MRT_BUF_INFO_COLOR_SWAP(WZYX));
-   OUT_RING(ring, A5XX_RB_MRT_PITCH(zsbuf->lrz_pitch * 2));
-   OUT_RING(ring, A5XX_RB_MRT_ARRAY_PITCH(fd_bo_size(zsbuf->lrz)));
+   OUT_RING(ring, A5XX_RB_MRT_PITCH_VAL(zsbuf->lrz_pitch * 2));
+   OUT_RING(ring, A5XX_RB_MRT_ARRAY_PITCH_VAL(fd_bo_size(zsbuf->lrz)));
    OUT_RELOC(ring, zsbuf->lrz, 0x1000, 0, 0);
 
    OUT_PKT4(ring, REG_A5XX_RB_RENDER_CNTL, 1);

@@ -56,13 +56,13 @@ fd5_rasterizer_state_create(struct pipe_context *pctx,
 
    so->gras_su_point_minmax = A5XX_GRAS_SU_POINT_MINMAX_MIN(psize_min) |
                               A5XX_GRAS_SU_POINT_MINMAX_MAX(psize_max);
-   so->gras_su_point_size = A5XX_GRAS_SU_POINT_SIZE(cso->point_size);
+   so->gras_su_point_size = A5XX_GRAS_SU_POINT_SIZE_VAL(cso->point_size);
    so->gras_su_poly_offset_scale =
-      A5XX_GRAS_SU_POLY_OFFSET_SCALE(cso->offset_scale);
+      A5XX_GRAS_SU_POLY_OFFSET_SCALE_VAL(cso->offset_scale);
    so->gras_su_poly_offset_offset =
-      A5XX_GRAS_SU_POLY_OFFSET_OFFSET(cso->offset_units);
+      A5XX_GRAS_SU_POLY_OFFSET_OFFSET_VAL(cso->offset_units);
    so->gras_su_poly_offset_clamp =
-      A5XX_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP(cso->offset_clamp);
+      A5XX_GRAS_SU_POLY_OFFSET_OFFSET_CLAMP_VAL(cso->offset_clamp);
 
    so->gras_su_cntl = A5XX_GRAS_SU_CNTL_LINEHALFWIDTH(cso->line_width / 2.0);
    so->pc_raster_cntl =

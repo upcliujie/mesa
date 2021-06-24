@@ -214,6 +214,9 @@ class Bitset(object):
 		for f in self.fields:
 			if f.name:
 				name = prefix + "_" + f.name
+			elif self.inline:
+				# Avoid a name collision with the pack header by adding a _VAL.
+				name = prefix + "_VAL"
 			else:
 				name = prefix
 

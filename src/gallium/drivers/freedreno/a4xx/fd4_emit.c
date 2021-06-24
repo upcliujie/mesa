@@ -662,12 +662,12 @@ fd4_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
    if (dirty & FD_DIRTY_VIEWPORT) {
       fd_wfi(ctx->batch, ring);
       OUT_PKT0(ring, REG_A4XX_GRAS_CL_VPORT_XOFFSET_0, 6);
-      OUT_RING(ring, A4XX_GRAS_CL_VPORT_XOFFSET_0(ctx->viewport.translate[0]));
-      OUT_RING(ring, A4XX_GRAS_CL_VPORT_XSCALE_0(ctx->viewport.scale[0]));
-      OUT_RING(ring, A4XX_GRAS_CL_VPORT_YOFFSET_0(ctx->viewport.translate[1]));
-      OUT_RING(ring, A4XX_GRAS_CL_VPORT_YSCALE_0(ctx->viewport.scale[1]));
-      OUT_RING(ring, A4XX_GRAS_CL_VPORT_ZOFFSET_0(ctx->viewport.translate[2]));
-      OUT_RING(ring, A4XX_GRAS_CL_VPORT_ZSCALE_0(ctx->viewport.scale[2]));
+      OUT_RING(ring, A4XX_GRAS_CL_VPORT_XOFFSET_0_VAL(ctx->viewport.translate[0]));
+      OUT_RING(ring, A4XX_GRAS_CL_VPORT_XSCALE_0_VAL(ctx->viewport.scale[0]));
+      OUT_RING(ring, A4XX_GRAS_CL_VPORT_YOFFSET_0_VAL(ctx->viewport.translate[1]));
+      OUT_RING(ring, A4XX_GRAS_CL_VPORT_YSCALE_0_VAL(ctx->viewport.scale[1]));
+      OUT_RING(ring, A4XX_GRAS_CL_VPORT_ZOFFSET_0_VAL(ctx->viewport.translate[2]));
+      OUT_RING(ring, A4XX_GRAS_CL_VPORT_ZSCALE_0_VAL(ctx->viewport.scale[2]));
    }
 
    if (dirty &
@@ -749,19 +749,19 @@ fd4_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
       OUT_RING(ring, A4XX_RB_BLEND_RED_FLOAT(bcolor->color[0]) |
                         A4XX_RB_BLEND_RED_UINT(bcolor->color[0] * 0xff) |
                         A4XX_RB_BLEND_RED_SINT(bcolor->color[0] * 0x7f));
-      OUT_RING(ring, A4XX_RB_BLEND_RED_F32(bcolor->color[0]));
+      OUT_RING(ring, A4XX_RB_BLEND_RED_F32_VAL(bcolor->color[0]));
       OUT_RING(ring, A4XX_RB_BLEND_GREEN_FLOAT(bcolor->color[1]) |
                         A4XX_RB_BLEND_GREEN_UINT(bcolor->color[1] * 0xff) |
                         A4XX_RB_BLEND_GREEN_SINT(bcolor->color[1] * 0x7f));
-      OUT_RING(ring, A4XX_RB_BLEND_RED_F32(bcolor->color[1]));
+      OUT_RING(ring, A4XX_RB_BLEND_RED_F32_VAL(bcolor->color[1]));
       OUT_RING(ring, A4XX_RB_BLEND_BLUE_FLOAT(bcolor->color[2]) |
                         A4XX_RB_BLEND_BLUE_UINT(bcolor->color[2] * 0xff) |
                         A4XX_RB_BLEND_BLUE_SINT(bcolor->color[2] * 0x7f));
-      OUT_RING(ring, A4XX_RB_BLEND_BLUE_F32(bcolor->color[2]));
+      OUT_RING(ring, A4XX_RB_BLEND_BLUE_F32_VAL(bcolor->color[2]));
       OUT_RING(ring, A4XX_RB_BLEND_ALPHA_FLOAT(bcolor->color[3]) |
                         A4XX_RB_BLEND_ALPHA_UINT(bcolor->color[3] * 0xff) |
                         A4XX_RB_BLEND_ALPHA_SINT(bcolor->color[3] * 0x7f));
-      OUT_RING(ring, A4XX_RB_BLEND_ALPHA_F32(bcolor->color[3]));
+      OUT_RING(ring, A4XX_RB_BLEND_ALPHA_F32_VAL(bcolor->color[3]));
    }
 
    if (ctx->dirty_shader[PIPE_SHADER_VERTEX] & FD_DIRTY_SHADER_TEX)

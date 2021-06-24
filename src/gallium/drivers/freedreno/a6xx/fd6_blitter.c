@@ -386,7 +386,7 @@ emit_blit_buffer(struct fd_context *ctx, struct fd_ringbuffer *ring,
                         A6XX_RB_2D_DST_INFO_TILE_MODE(TILE6_LINEAR) |
                         A6XX_RB_2D_DST_INFO_COLOR_SWAP(WZYX));
       OUT_RELOC(ring, dst->bo, doff, 0, 0); /* RB_2D_DST_LO/HI */
-      OUT_RING(ring, A6XX_RB_2D_DST_PITCH(p));
+      OUT_RING(ring, A6XX_RB_2D_DST_PITCH_VAL(p));
       OUT_RING(ring, 0x00000000);
       OUT_RING(ring, 0x00000000);
       OUT_RING(ring, 0x00000000);
@@ -397,10 +397,10 @@ emit_blit_buffer(struct fd_context *ctx, struct fd_ringbuffer *ring,
        * Blit command:
        */
       OUT_PKT4(ring, REG_A6XX_GRAS_2D_SRC_TL_X, 4);
-      OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X(sshift));
-      OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X(sshift + w - 1));
-      OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y(0));
-      OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y(0));
+      OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X_VAL(sshift));
+      OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X_VAL(sshift + w - 1));
+      OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y_VAL(0));
+      OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y_VAL(0));
 
       OUT_PKT4(ring, REG_A6XX_GRAS_2D_DST_TL, 2);
       OUT_RING(ring, A6XX_GRAS_2D_DST_TL_X(dshift) | A6XX_GRAS_2D_DST_TL_Y(0));
@@ -454,10 +454,10 @@ fd6_clear_ubwc(struct fd_batch *batch, struct fd_resource *rsc) assert_dt
    OUT_RING(ring, 0x00000000);
 
    OUT_PKT4(ring, REG_A6XX_GRAS_2D_SRC_TL_X, 4);
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X(0));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X(0));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y(0));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y(0));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X_VAL(0));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X_VAL(0));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y_VAL(0));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y_VAL(0));
 
    unsigned size = rsc->layout.slices[0].offset;
    unsigned offset = 0;
@@ -486,7 +486,7 @@ fd6_clear_ubwc(struct fd_batch *batch, struct fd_resource *rsc) assert_dt
                         A6XX_RB_2D_DST_INFO_TILE_MODE(TILE6_LINEAR) |
                         A6XX_RB_2D_DST_INFO_COLOR_SWAP(WZYX));
       OUT_RELOC(ring, rsc->bo, offset, 0, 0); /* RB_2D_DST_LO/HI */
-      OUT_RING(ring, A6XX_RB_2D_DST_PITCH(p));
+      OUT_RING(ring, A6XX_RB_2D_DST_PITCH_VAL(p));
       OUT_RING(ring, 0x00000000);
       OUT_RING(ring, 0x00000000);
       OUT_RING(ring, 0x00000000);
@@ -549,7 +549,7 @@ emit_blit_dst(struct fd_ringbuffer *ring, struct pipe_resource *prsc,
                      COND(util_format_is_srgb(pfmt), A6XX_RB_2D_DST_INFO_SRGB) |
                      COND(ubwc_enabled, A6XX_RB_2D_DST_INFO_FLAGS));
    OUT_RELOC(ring, dst->bo, off, 0, 0); /* RB_2D_DST_LO/HI */
-   OUT_RING(ring, A6XX_RB_2D_DST_PITCH(pitch));
+   OUT_RING(ring, A6XX_RB_2D_DST_PITCH_VAL(pitch));
    OUT_RING(ring, 0x00000000);
    OUT_RING(ring, 0x00000000);
    OUT_RING(ring, 0x00000000);
@@ -646,10 +646,10 @@ emit_blit_texture(struct fd_context *ctx, struct fd_ringbuffer *ring,
    sy2 = sbox->y + sbox->height - 1;
 
    OUT_PKT4(ring, REG_A6XX_GRAS_2D_SRC_TL_X, 4);
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X(sx1));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X(sx2));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y(sy1));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y(sy2));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X_VAL(sx1));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X_VAL(sx2));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y_VAL(sy1));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y_VAL(sy2));
 
    dx1 = dbox->x * nr_samples;
    dy1 = dbox->y;
@@ -839,10 +839,10 @@ fd6_resolve_tile(struct fd_batch *batch, struct fd_ringbuffer *ring,
                      A6XX_GRAS_2D_DST_BR_Y(psurf->height - 1));
 
    OUT_PKT4(ring, REG_A6XX_GRAS_2D_SRC_TL_X, 4);
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X(0));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X(psurf->width - 1));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y(0));
-   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y(psurf->height - 1));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_X_VAL(0));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_X_VAL(psurf->width - 1));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_TL_Y_VAL(0));
+   OUT_RING(ring, A6XX_GRAS_2D_SRC_BR_Y_VAL(psurf->height - 1));
 
    /* Enable scissor bit, which will take into account the window scissor
     * which is set per-tile

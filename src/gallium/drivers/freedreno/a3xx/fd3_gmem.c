@@ -280,12 +280,12 @@ emit_binning_workaround(struct fd_batch *batch) assert_dt
 
    fd_wfi(batch, ring);
    OUT_PKT0(ring, REG_A3XX_GRAS_CL_VPORT_XOFFSET, 6);
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XOFFSET(0.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE(1.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YOFFSET(0.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE(1.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET(0.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE(1.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XOFFSET_VAL(0.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE_VAL(1.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YOFFSET_VAL(0.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE_VAL(1.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET_VAL(0.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE_VAL(1.0));
 
    OUT_PKT0(ring, REG_A3XX_GRAS_CL_CLIP_CNTL, 1);
    OUT_RING(ring, A3XX_GRAS_CL_CLIP_CNTL_CLIP_DISABLE |
@@ -420,12 +420,14 @@ fd3_emit_tile_gmem2mem(struct fd_batch *batch,
 
    fd_wfi(batch, ring);
    OUT_PKT0(ring, REG_A3XX_GRAS_CL_VPORT_XOFFSET, 6);
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XOFFSET((float)pfb->width / 2.0 - 0.5));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE((float)pfb->width / 2.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YOFFSET((float)pfb->height / 2.0 - 0.5));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE(-(float)pfb->height / 2.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET(0.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE(1.0));
+   OUT_RING(ring,
+            A3XX_GRAS_CL_VPORT_XOFFSET_VAL((float)pfb->width / 2.0 - 0.5));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE_VAL((float)pfb->width / 2.0));
+   OUT_RING(ring,
+            A3XX_GRAS_CL_VPORT_YOFFSET_VAL((float)pfb->height / 2.0 - 0.5));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE_VAL(-(float)pfb->height / 2.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET_VAL(0.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE_VAL(1.0));
 
    OUT_PKT0(ring, REG_A3XX_RB_MODE_CONTROL, 1);
    OUT_RING(ring, A3XX_RB_MODE_CONTROL_RENDER_MODE(RB_RESOLVE_PASS) |
@@ -531,7 +533,7 @@ emit_mem2gmem_surf(struct fd_batch *batch, const uint32_t bases[],
       OUT_PKT0(ring, REG_A3XX_RB_DEPTH_INFO, 2);
       OUT_RING(ring, A3XX_RB_DEPTH_INFO_DEPTH_BASE(bases[0]) |
                         A3XX_RB_DEPTH_INFO_DEPTH_FORMAT(DEPTHX_32));
-      OUT_RING(ring, A3XX_RB_DEPTH_PITCH(4 * batch->gmem_state->bin_w));
+      OUT_RING(ring, A3XX_RB_DEPTH_PITCH_VAL(4 * batch->gmem_state->bin_w));
 
       if (psurf[0]->format == PIPE_FORMAT_Z32_FLOAT) {
          OUT_PKT0(ring, REG_A3XX_RB_MRT_CONTROL(0), 1);
@@ -627,12 +629,12 @@ fd3_emit_tile_mem2gmem(struct fd_batch *batch,
 
    fd_wfi(batch, ring);
    OUT_PKT0(ring, REG_A3XX_GRAS_CL_VPORT_XOFFSET, 6);
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XOFFSET((float)bin_w / 2.0 - 0.5));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE((float)bin_w / 2.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YOFFSET((float)bin_h / 2.0 - 0.5));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE(-(float)bin_h / 2.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET(0.0));
-   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE(1.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XOFFSET_VAL((float)bin_w / 2.0 - 0.5));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE_VAL((float)bin_w / 2.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YOFFSET_VAL((float)bin_h / 2.0 - 0.5));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE_VAL(-(float)bin_h / 2.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET_VAL(0.0));
+   OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE_VAL(1.0));
 
    OUT_PKT0(ring, REG_A3XX_GRAS_SC_WINDOW_SCISSOR_TL, 2);
    OUT_RING(ring, A3XX_GRAS_SC_WINDOW_SCISSOR_TL_X(0) |
@@ -1026,13 +1028,13 @@ fd3_emit_tile_renderprep(struct fd_batch *batch,
    OUT_RING(ring, reg);
    if (pfb->zsbuf) {
       struct fd_resource *rsc = fd_resource(pfb->zsbuf->texture);
-      OUT_RING(ring,
-               A3XX_RB_DEPTH_PITCH(gmem->bin_w << fdl_cpp_shift(&rsc->layout)));
+      OUT_RING(ring, A3XX_RB_DEPTH_PITCH_VAL(gmem->bin_w
+                                             << fdl_cpp_shift(&rsc->layout)));
       if (rsc->stencil) {
          OUT_PKT0(ring, REG_A3XX_RB_STENCIL_INFO, 2);
          OUT_RING(ring, A3XX_RB_STENCIL_INFO_STENCIL_BASE(gmem->zsbuf_base[1]));
-         OUT_RING(ring, A3XX_RB_STENCIL_PITCH(gmem->bin_w << fdl_cpp_shift(
-                                                 &rsc->stencil->layout)));
+         OUT_RING(ring, A3XX_RB_STENCIL_PITCH_VAL(gmem->bin_w << fdl_cpp_shift(
+                                                     &rsc->stencil->layout)));
       }
    } else {
       OUT_RING(ring, 0x00000000);

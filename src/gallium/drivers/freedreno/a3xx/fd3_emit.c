@@ -709,14 +709,15 @@ fd3_emit_state(struct fd_context *ctx, struct fd_ringbuffer *ring,
    if (dirty & FD_DIRTY_VIEWPORT) {
       fd_wfi(ctx->batch, ring);
       OUT_PKT0(ring, REG_A3XX_GRAS_CL_VPORT_XOFFSET, 6);
+      OUT_RING(ring, A3XX_GRAS_CL_VPORT_XOFFSET_VAL(ctx->viewport.translate[0] -
+                                                    0.5));
+      OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE_VAL(ctx->viewport.scale[0]));
+      OUT_RING(ring, A3XX_GRAS_CL_VPORT_YOFFSET_VAL(ctx->viewport.translate[1] -
+                                                    0.5));
+      OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE_VAL(ctx->viewport.scale[1]));
       OUT_RING(ring,
-               A3XX_GRAS_CL_VPORT_XOFFSET(ctx->viewport.translate[0] - 0.5));
-      OUT_RING(ring, A3XX_GRAS_CL_VPORT_XSCALE(ctx->viewport.scale[0]));
-      OUT_RING(ring,
-               A3XX_GRAS_CL_VPORT_YOFFSET(ctx->viewport.translate[1] - 0.5));
-      OUT_RING(ring, A3XX_GRAS_CL_VPORT_YSCALE(ctx->viewport.scale[1]));
-      OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZOFFSET(ctx->viewport.translate[2]));
-      OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE(ctx->viewport.scale[2]));
+               A3XX_GRAS_CL_VPORT_ZOFFSET_VAL(ctx->viewport.translate[2]));
+      OUT_RING(ring, A3XX_GRAS_CL_VPORT_ZSCALE_VAL(ctx->viewport.scale[2]));
    }
 
    if (dirty &

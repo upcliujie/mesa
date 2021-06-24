@@ -66,11 +66,11 @@ fd3_rasterizer_state_create(struct pipe_context *pctx,
       COND(cso->clip_halfz, A3XX_GRAS_CL_CLIP_CNTL_ZERO_GB_SCALE_Z);
    so->gras_su_point_minmax = A3XX_GRAS_SU_POINT_MINMAX_MIN(psize_min) |
                               A3XX_GRAS_SU_POINT_MINMAX_MAX(psize_max);
-   so->gras_su_point_size = A3XX_GRAS_SU_POINT_SIZE(cso->point_size);
+   so->gras_su_point_size = A3XX_GRAS_SU_POINT_SIZE_VAL(cso->point_size);
    so->gras_su_poly_offset_scale =
       A3XX_GRAS_SU_POLY_OFFSET_SCALE_VAL(cso->offset_scale);
    so->gras_su_poly_offset_offset =
-      A3XX_GRAS_SU_POLY_OFFSET_OFFSET(cso->offset_units * 2.0f);
+      A3XX_GRAS_SU_POLY_OFFSET_OFFSET_VAL(cso->offset_units * 2.0f);
 
    so->gras_su_mode_control =
       A3XX_GRAS_SU_MODE_CONTROL_LINEHALFWIDTH(cso->line_width / 2.0);

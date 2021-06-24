@@ -106,8 +106,8 @@ emit_mrt(struct fd_ringbuffer *ring, unsigned nr_bufs,
             COND(gmem,
                  0x800) | /* XXX 0x1000 for RECTLIST clear, 0x0 for BLIT.. */
             COND(srgb, A5XX_RB_MRT_BUF_INFO_COLOR_SRGB));
-      OUT_RING(ring, A5XX_RB_MRT_PITCH(stride));
-      OUT_RING(ring, A5XX_RB_MRT_ARRAY_PITCH(size));
+      OUT_RING(ring, A5XX_RB_MRT_PITCH_VAL(stride));
+      OUT_RING(ring, A5XX_RB_MRT_ARRAY_PITCH_VAL(size));
       if (gmem || (i >= nr_bufs) || !bufs[i]) {
          OUT_RING(ring, base);       /* RB_MRT[i].BASE_LO */
          OUT_RING(ring, 0x00000000); /* RB_MRT[i].BASE_HI */
@@ -128,8 +128,8 @@ emit_mrt(struct fd_ringbuffer *ring, unsigned nr_bufs,
       OUT_PKT4(ring, REG_A5XX_RB_MRT_FLAG_BUFFER(i), 4);
       OUT_RING(ring, 0x00000000); /* RB_MRT_FLAG_BUFFER[i].ADDR_LO */
       OUT_RING(ring, 0x00000000); /* RB_MRT_FLAG_BUFFER[i].ADDR_HI */
-      OUT_RING(ring, A5XX_RB_MRT_FLAG_BUFFER_PITCH(0));
-      OUT_RING(ring, A5XX_RB_MRT_FLAG_BUFFER_ARRAY_PITCH(0));
+      OUT_RING(ring, A5XX_RB_MRT_FLAG_BUFFER_PITCH_VAL(0));
+      OUT_RING(ring, A5XX_RB_MRT_FLAG_BUFFER_ARRAY_PITCH_VAL(0));
    }
 }
 
@@ -160,8 +160,8 @@ emit_zs(struct fd_ringbuffer *ring, struct pipe_surface *zsbuf,
       } else {
          OUT_RELOC(ring, rsc->bo, 0, 0, 0); /* RB_DEPTH_BUFFER_BASE_LO/HI */
       }
-      OUT_RING(ring, A5XX_RB_DEPTH_BUFFER_PITCH(stride));
-      OUT_RING(ring, A5XX_RB_DEPTH_BUFFER_ARRAY_PITCH(size));
+      OUT_RING(ring, A5XX_RB_DEPTH_BUFFER_PITCH_VAL(stride));
+      OUT_RING(ring, A5XX_RB_DEPTH_BUFFER_ARRAY_PITCH_VAL(size));
 
       OUT_PKT4(ring, REG_A5XX_GRAS_SU_DEPTH_BUFFER_INFO, 1);
       OUT_RING(ring, A5XX_GRAS_SU_DEPTH_BUFFER_INFO_DEPTH_FORMAT(fmt));
@@ -174,7 +174,7 @@ emit_zs(struct fd_ringbuffer *ring, struct pipe_surface *zsbuf,
       if (rsc->lrz) {
          OUT_PKT4(ring, REG_A5XX_GRAS_LRZ_BUFFER_BASE_LO, 3);
          OUT_RELOC(ring, rsc->lrz, 0x1000, 0, 0);
-         OUT_RING(ring, A5XX_GRAS_LRZ_BUFFER_PITCH(rsc->lrz_pitch));
+         OUT_RING(ring, A5XX_GRAS_LRZ_BUFFER_PITCH_VAL(rsc->lrz_pitch));
 
          OUT_PKT4(ring, REG_A5XX_GRAS_LRZ_FAST_CLEAR_BUFFER_BASE_LO, 2);
          OUT_RELOC(ring, rsc->lrz, 0, 0, 0);
@@ -207,8 +207,8 @@ emit_zs(struct fd_ringbuffer *ring, struct pipe_surface *zsbuf,
             OUT_RELOC(ring, rsc->stencil->bo, 0, 0,
                       0); /* RB_STENCIL_BASE_LO/HI */
          }
-         OUT_RING(ring, A5XX_RB_STENCIL_PITCH(stride));
-         OUT_RING(ring, A5XX_RB_STENCIL_ARRAY_PITCH(size));
+         OUT_RING(ring, A5XX_RB_STENCIL_PITCH_VAL(stride));
+         OUT_RING(ring, A5XX_RB_STENCIL_ARRAY_PITCH_VAL(size));
       } else {
          OUT_PKT4(ring, REG_A5XX_RB_STENCIL_INFO, 1);
          OUT_RING(ring, 0x00000000); /* RB_STENCIL_INFO */
@@ -499,8 +499,8 @@ emit_mem2gmem_surf(struct fd_batch *batch, uint32_t base,
                A5XX_RB_MRT_BUF_INFO_COLOR_FORMAT(format) |
                   A5XX_RB_MRT_BUF_INFO_COLOR_TILE_MODE(rsc->layout.tile_mode) |
                   A5XX_RB_MRT_BUF_INFO_COLOR_SWAP(WZYX));
-      OUT_RING(ring, A5XX_RB_MRT_PITCH(fd_resource_pitch(rsc, 0)));
-      OUT_RING(ring, A5XX_RB_MRT_ARRAY_PITCH(slice->size0));
+      OUT_RING(ring, A5XX_RB_MRT_PITCH_VAL(fd_resource_pitch(rsc, 0)));
+      OUT_RING(ring, A5XX_RB_MRT_ARRAY_PITCH_VAL(slice->size0));
       OUT_RELOC(ring, rsc->bo, 0, 0, 0); /* BASE_LO/HI */
 
       buf = BLIT_MRT0;
@@ -519,8 +519,8 @@ emit_mem2gmem_surf(struct fd_batch *batch, uint32_t base,
    OUT_RING(ring, 0x00000000); /* RB_RESOLVE_CNTL_3 */
    OUT_RING(ring, base);       /* RB_BLIT_DST_LO */
    OUT_RING(ring, 0x00000000); /* RB_BLIT_DST_HI */
-   OUT_RING(ring, A5XX_RB_BLIT_DST_PITCH(stride));
-   OUT_RING(ring, A5XX_RB_BLIT_DST_ARRAY_PITCH(size));
+   OUT_RING(ring, A5XX_RB_BLIT_DST_PITCH_VAL(stride));
+   OUT_RING(ring, A5XX_RB_BLIT_DST_ARRAY_PITCH_VAL(size));
 
    OUT_PKT4(ring, REG_A5XX_RB_BLIT_CNTL, 1);
    OUT_RING(ring, A5XX_RB_BLIT_CNTL_BUF(buf));
@@ -644,8 +644,8 @@ emit_gmem2mem_surf(struct fd_batch *batch, uint32_t base,
    OUT_RING(ring, 0x00000004 | /* XXX RB_RESOLVE_CNTL_3 */
                      COND(tiled, A5XX_RB_RESOLVE_CNTL_3_TILED));
    OUT_RELOC(ring, rsc->bo, offset, 0, 0); /* RB_BLIT_DST_LO/HI */
-   OUT_RING(ring, A5XX_RB_BLIT_DST_PITCH(pitch));
-   OUT_RING(ring, A5XX_RB_BLIT_DST_ARRAY_PITCH(slice->size0));
+   OUT_RING(ring, A5XX_RB_BLIT_DST_PITCH_VAL(pitch));
+   OUT_RING(ring, A5XX_RB_BLIT_DST_ARRAY_PITCH_VAL(slice->size0));
 
    OUT_PKT4(ring, REG_A5XX_RB_BLIT_CNTL, 1);
    OUT_RING(ring, A5XX_RB_BLIT_CNTL_BUF(buf));
