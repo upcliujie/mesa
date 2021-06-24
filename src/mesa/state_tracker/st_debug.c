@@ -41,7 +41,7 @@
 
 
 
-int ST_DEBUG = 0;
+_Atomic int ST_DEBUG = 0;
 
 static const struct debug_named_value st_debug_flags[] = {
    { "mesa",     DEBUG_MESA, NULL },
