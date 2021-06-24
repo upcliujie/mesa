@@ -938,18 +938,23 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
        * access to HW binding tables.  This means that we have to upload the
        * descriptor set as an 64-bit address in the push constants.
        */
-      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR && set->pool) {
+      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR) {
          struct anv_push_constants *push = &pipe_state->push_constants;
+         struct anv_address addr;
 
-         struct anv_address set_addr = {
-            .bo = set->pool->bo,
-            .offset = set->desc_mem.offset,
-         };
-         push->desc_sets[set_index] = anv_address_physical(set_addr);
+         if (set->pool) {
+            anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
+                                  cmd_buffer->batch.alloc,
+                                  set->pool->bo);
 
-         anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
-                               cmd_buffer->batch.alloc,
-                               set->pool->bo);
+            addr.bo = set->pool->bo;
+         } else {
+            addr.bo = cmd_buffer->dynamic_state_stream.state_pool->block_pool.bo;
+         }
+
+         addr.offset = set->desc_mem.offset;
+
+         push->desc_sets[set_index] = anv_address_physical(addr);
       }
 
       dirty_stages |= stages;
@@ -1413,9 +1418,6 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
          .bo = cmd_buffer->dynamic_state_stream.state_pool->block_pool.bo,
          .offset = set->desc_mem.offset,
       };
-
-      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR)
-         pipe_state->push_constants.desc_sets[_set] = anv_address_physical(addr);
 
       enum isl_format format =
          anv_isl_format_for_descriptor_type(cmd_buffer->device,
