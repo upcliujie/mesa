@@ -1079,17 +1079,19 @@ static uint32_t
 blorp_emit_blend_state(struct blorp_batch *batch,
                        const struct blorp_params *params)
 {
-   struct GENX(BLEND_STATE) blend;
-   memset(&blend, 0, sizeof(blend));
-
    uint32_t offset;
-   int size = GENX(BLEND_STATE_length) * 4;
+   uint32_t blend_state_length = GENX(BLEND_STATE_length);
+   uint32_t size = blend_state_length * 4;
    size += GENX(BLEND_STATE_ENTRY_length) * 4 * params->num_draw_buffers;
    uint32_t *state = blorp_alloc_dynamic_state(batch, size, 64, &offset);
    uint32_t *pos = state;
 
-   GENX(BLEND_STATE_pack)(NULL, pos, &blend);
-   pos += GENX(BLEND_STATE_length);
+   if (blend_state_length) {
+      struct GENX(BLEND_STATE) blend;
+      memset(&blend, 0, sizeof(blend));
+      GENX(BLEND_STATE_pack)(NULL, pos, &blend);
+      pos += blend_state_length;
+   }
 
    for (unsigned i = 0; i < params->num_draw_buffers; ++i) {
       struct GENX(BLEND_STATE_ENTRY) entry = {
