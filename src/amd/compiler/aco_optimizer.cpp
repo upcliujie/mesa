@@ -2220,15 +2220,10 @@ bool combine_constant_comparison_ordering(opt_ctx &ctx, aco_ptr<Instruction>& in
    return true;
 }
 
-/* s_andn2(exec, cmp(a, b)) -> get_inverse(cmp)(a, b) */
+/* s_not(cmp(a, b)) -> get_inverse(cmp)(a, b) */
 bool combine_inverse_comparison(opt_ctx &ctx, aco_ptr<Instruction>& instr)
 {
-   if (!instr->operands[0].isFixed() || instr->operands[0].physReg() != exec)
-      return false;
-   if (ctx.uses[instr->definitions[1].tempId()])
-      return false;
-
-   Instruction *cmp = follow_operand(ctx, instr->operands[1]);
+   Instruction *cmp = follow_operand(ctx, instr->operands[0]);
    if (!cmp)
       return false;
 
@@ -3563,7 +3558,8 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    } else if ((instr->opcode == aco_opcode::s_add_u32 || instr->opcode == aco_opcode::s_add_i32) && ctx.program->chip_class >= GFX9) {
       combine_salu_lshl_add(ctx, instr);
    } else if (instr->opcode == aco_opcode::s_not_b32 || instr->opcode == aco_opcode::s_not_b64) {
-      combine_salu_not_bitwise(ctx, instr);
+      if (combine_inverse_comparison(ctx, instr)) ;
+      else combine_salu_not_bitwise(ctx, instr) ;
    } else if (instr->opcode == aco_opcode::s_and_b32 || instr->opcode == aco_opcode::s_or_b32 ||
               instr->opcode == aco_opcode::s_and_b64 || instr->opcode == aco_opcode::s_or_b64) {
       if (combine_ordering_test(ctx, instr)) ;
@@ -3581,10 +3577,6 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
          else combine_clamp(ctx, instr, min, max, med3);
       }
    }
-
-   /* do this after combine_salu_n2() */
-   if (instr->opcode == aco_opcode::s_andn2_b32 || instr->opcode == aco_opcode::s_andn2_b64)
-      combine_inverse_comparison(ctx, instr);
 }
 
 bool to_uniform_bool_instr(opt_ctx &ctx, aco_ptr<Instruction> &instr)
