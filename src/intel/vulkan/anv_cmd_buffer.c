@@ -931,7 +931,13 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
    }
 
    VkShaderStageFlags dirty_stages = 0;
-   if (pipe_state->descriptors[set_index] != set) {
+   bool is_push = set->pool == NULL;
+
+   /* If it's a push descriptor set, we have to flag things as dirty
+    * regardless of whether or not the CPU-side data structure changed as we
+    * may have edited in-place.
+    */
+   if (pipe_state->descriptors[set_index] != set || is_push) {
       pipe_state->descriptors[set_index] = set;
 
       /* Ray-tracing shaders are entirely bindless and so they don't have
@@ -941,26 +947,24 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
       if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR) {
          struct anv_push_constants *push = &pipe_state->push_constants;
 
-         struct anv_address set_addr = {
-            .bo = set->pool->bo,
-            .offset = set->desc_mem.offset,
-         };
-         push->desc_sets[set_index] = anv_address_physical(set_addr);
+         if (!is_push) {
+            struct anv_address addr = {
+               .bo = set->pool->bo,
+               .offset = set->desc_mem.offset,
+            };
 
-         anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
-                               cmd_buffer->batch.alloc,
-                               set->pool->bo);
+            set->desc_addr = anv_address_physical(addr);
+
+            anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
+                                  cmd_buffer->batch.alloc,
+                                  set->pool->bo);
+         }
+
+         push->desc_sets[set_index] = set->desc_addr;
       }
 
       dirty_stages |= stages;
    }
-
-   /* If it's a push descriptor set, we have to flag things as dirty
-    * regardless of whether or not the CPU-side data structure changed as we
-    * may have edited in-place.
-    */
-   if (set->pool == NULL)
-      dirty_stages |= stages;
 
    if (dynamic_offsets) {
       if (set_layout->dynamic_offset_count > 0) {
@@ -1413,6 +1417,8 @@ anv_cmd_buffer_push_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
          .bo = cmd_buffer->dynamic_state_stream.state_pool->block_pool.bo,
          .offset = set->desc_mem.offset,
       };
+
+      set->desc_addr = anv_address_physical(addr);
 
       enum isl_format format =
          anv_isl_format_for_descriptor_type(cmd_buffer->device,
