@@ -40,7 +40,7 @@ struct nv04_resource {
    struct nouveau_bo *bo;
    uint32_t offset; /* offset into the data/bo */
 
-   uint8_t status;
+   _Atomic uint8_t status;
    uint8_t domain;
 
    uint16_t cb_bindings[6]; /* per-shader per-slot bindings */
