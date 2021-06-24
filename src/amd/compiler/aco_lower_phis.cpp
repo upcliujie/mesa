@@ -168,22 +168,29 @@ void init_any_pred_defined(Program *program, ssa_state *state, Block *block, aco
    unsigned end = block->index;
 
    /* for loop exit phis, start at the loop header */
-   const bool loop_exit = block->kind & block_kind_loop_exit;
-   while (loop_exit && program->blocks[start - 1].loop_nest_depth >= state->loop_nest_depth)
-      start--;
-   /* for loop header phis, end at the loop exit */
-   const bool loop_header = block->kind & block_kind_loop_header;
-   while (loop_header && program->blocks[end].loop_nest_depth >= state->loop_nest_depth)
-      end++;
-
-   for (unsigned i = 0; i < 1u + loop_exit; i++) {
-      for (unsigned j = start; j < end; j++) {
-         if (!state->any_pred_defined[j])
-            continue;
-         for (unsigned succ : program->blocks[j].linear_succs)
-            state->any_pred_defined[succ] = true;
-      }
+   if (block->kind & block_kind_loop_exit) {
+      while (program->blocks[start - 1].loop_nest_depth >= state->loop_nest_depth)
+         start--;
+      /* if the start has a back-edge, it will contain a defined value */
+      if (program->blocks[start].linear_preds.size() > 1)
+         state->any_pred_defined[start] = true;
    }
+   /* for loop header phis, end at the loop exit */
+   if (block->kind & block_kind_loop_header) {
+      while (program->blocks[end].loop_nest_depth >= state->loop_nest_depth)
+         end++;
+      /* don't propagate the incoming value */
+      state->any_pred_defined[block->index] = false;
+   }
+
+   for (unsigned j = start; j < end; j++) {
+      if (!state->any_pred_defined[j])
+         continue;
+      for (unsigned succ : program->blocks[j].linear_succs)
+         state->any_pred_defined[succ] = true;
+   }
+
+   state->any_pred_defined[block->index] = false;
 }
 
 void lower_divergent_bool_phi(Program *program, ssa_state *state, Block *block, aco_ptr<Instruction>& phi)
