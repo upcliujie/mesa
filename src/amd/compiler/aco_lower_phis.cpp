@@ -52,40 +52,65 @@ struct ssa_state {
 Operand get_ssa(Program *program, unsigned block_idx, ssa_state *state, bool input)
 {
    if (!input) {
-      if (state->visited[block_idx]) {
-         assert(state->outputs[block_idx].size() == program->lane_mask.size());
+      if (state->visited[block_idx])
          return state->outputs[block_idx];
-      }
+
+      /* otherwise, output == input */
+      Operand output = get_ssa(program, block_idx, state, true);
+      state->visited[block_idx] = true;
+      state->outputs[block_idx] = output;
+      return output;
    }
+
+   /* retreive the Operand by checking the predecessors */
+   if (!state->any_pred_defined[block_idx])
+      return Operand(program->lane_mask);
 
    Block& block = program->blocks[block_idx];
    size_t pred = block.linear_preds.size();
    Operand op;
-   if (pred == 0 || block.loop_nest_depth < state->loop_nest_depth ||
-       !state->any_pred_defined[block_idx]) {
+   if (block.loop_nest_depth < state->loop_nest_depth) {
       op = Operand(program->lane_mask);
-   } else if (block.loop_nest_depth > state->loop_nest_depth) {
-      op = get_ssa(program, block_idx - 1, state, false);
-   } else if (pred == 1 || block.kind & block_kind_loop_exit) {
+   } else if (block.loop_nest_depth > state->loop_nest_depth ||
+              pred == 1 || block.kind & block_kind_loop_exit) {
       op = get_ssa(program, block.linear_preds[0], state, false);
    } else {
-      Temp res = Temp(program->allocateTmp(program->lane_mask));
-      if (!input) {
+      assert(pred > 1);
+      bool previously_visited = state->visited[block_idx];
+      /* potential recursion: anchor at loop header */
+      if (block.kind & block_kind_loop_header) {
+         assert(!previously_visited);
+         previously_visited = true;
          state->visited[block_idx] = true;
-         state->outputs[block_idx] = Operand(res);
+         state->outputs[block_idx] = Operand(Temp(program->allocateTmp(program->lane_mask)));
       }
 
+      /* collect predecessor output operands */
+      std::vector<Operand> ops(pred);
+      for (unsigned i = 0; i < pred; i++)
+         ops[i] = get_ssa(program, block.linear_preds[i], state, false);
+
+      /* check triviality */
+      bool trivial = true;
+      for (unsigned i = 1; trivial && i < pred; i++)
+         trivial &= ops[i] == ops[0];
+
+      if (trivial)
+         return ops[0];
+      if (!previously_visited && state->visited[block_idx])
+         return state->outputs[block_idx];
+
+      if (block.kind & block_kind_loop_header)
+         op = state->outputs[block_idx];
+      else
+         op = Operand(Temp(program->allocateTmp(program->lane_mask)));
+
+      /* create phi */
       aco_ptr<Pseudo_instruction> phi{create_instruction<Pseudo_instruction>(aco_opcode::p_linear_phi, Format::PSEUDO, pred, 1)};
       for (unsigned i = 0; i < pred; i++)
-         phi->operands[i] = get_ssa(program, block.linear_preds[i], state, false);
-      phi->definitions[0] = Definition(res);
+         phi->operands[i] = ops[i];
+      phi->definitions[0] = Definition(op.getTemp());
       block.instructions.emplace(block.instructions.begin(), std::move(phi));
-      return Operand(res);
-   }
-
-   if (!input) {
-      state->visited[block_idx] = true;
-      state->outputs[block_idx] = op;
    }
 
    assert(op.size() == program->lane_mask.size());
