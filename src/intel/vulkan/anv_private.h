@@ -2029,6 +2029,9 @@ struct anv_descriptor_set {
    /* Surface state for the descriptor buffer */
    struct anv_state desc_surface_state;
 
+   /* Descriptor set address. */
+   struct anv_address desc_addr;
+
    uint32_t buffer_view_count;
    struct anv_buffer_view *buffer_views;
 
@@ -2038,6 +2041,12 @@ struct anv_descriptor_set {
    uint32_t descriptor_count;
    struct anv_descriptor descriptors[0];
 };
+
+static inline bool
+anv_descriptor_set_is_push(struct anv_descriptor_set *set)
+{
+   return set->pool == NULL;
+}
 
 struct anv_buffer_view {
    struct vk_object_base base;
