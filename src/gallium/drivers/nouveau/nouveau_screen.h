@@ -109,6 +109,11 @@ struct nouveau_screen {
 #endif
 };
 
+struct nouveau_pushbuf_priv {
+   struct nouveau_screen *screen;
+   struct nouveau_context *context;
+};
+
 #define NV_VRAM_DOMAIN(screen) ((screen)->vram_domain)
 
 #ifdef NOUVEAU_ENABLE_DRIVER_STATISTICS
