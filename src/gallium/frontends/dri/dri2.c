@@ -909,18 +909,11 @@ dri2_create_image_from_winsys(__DRIscreen *_screen,
       }
 
       if (is_protected_content != -1) {
-         /* Reject image creation if there's an inconsistency between
-          * content protection status of tex and img.
-          * If the caller didn't specifically asked for protected_content off or on,
-          * this check is skipped.
+         /* The application explicitely asked for a protected-content surface.
           */
-         const struct driOptionCache *optionCache = &screen->dev->option_cache;
-         if (!driQueryOptionb(optionCache, "disable_protected_content_check") &&
-             (bool)(tex->bind & PIPE_BIND_PROTECTED) != (bool)is_protected_content) {
-            pipe_resource_reference(&img->texture, NULL);
-            pipe_resource_reference(&tex, NULL);
-            FREE(img);
-            return NULL;
+         if ((bool)(tex->bind & PIPE_BIND_PROTECTED) != (bool)is_protected_content &&
+             pscreen->force_resource_protected_content) {
+            pscreen->force_resource_protected_content(pscreen, tex, is_protected_content);
          }
       }
 

@@ -470,6 +470,8 @@ struct radeon_winsys {
     */
    enum radeon_bo_flag (*buffer_get_flags)(struct pb_buffer *buf);
 
+   bool (*buffer_force_tmz)(struct pb_buffer *buf, bool on_off);
+
    /**************************************************************************
     * Command submission.
     *

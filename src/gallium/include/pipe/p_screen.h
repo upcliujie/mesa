@@ -220,6 +220,10 @@ struct pipe_screen {
 						  struct winsys_handle *handle,
 						  unsigned usage);
 
+   bool (*force_resource_protected_content)(struct pipe_screen *,
+                                            struct pipe_resource *t,
+                                            bool new_value);
+
    /**
     * Create a resource from user memory. This maps the user memory into
     * the device address space.

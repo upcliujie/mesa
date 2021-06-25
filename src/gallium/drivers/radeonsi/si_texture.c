@@ -2183,6 +2183,25 @@ static bool si_check_resource_capability(struct pipe_screen *screen, struct pipe
    return true;
 }
 
+static bool si_force_resource_tmz(struct pipe_screen *screen, struct pipe_resource *resource,
+                                  bool on_off)
+{
+   struct si_screen *sscreen = (struct si_screen *)screen;
+   struct si_texture *tex = (struct si_texture *)resource;
+
+   if (sscreen->ws->buffer_force_tmz(tex->buffer.buf, on_off)) {
+      struct si_resource *sres = si_resource(resource);
+      if (on_off)
+         sres->flags |= RADEON_FLAG_ENCRYPTED;
+      else
+         sres->flags &= ~RADEON_FLAG_ENCRYPTED;
+
+      return true;
+   }
+
+   return false;
+}
+
 void si_init_screen_texture_functions(struct si_screen *sscreen)
 {
    sscreen->b.resource_from_handle = si_texture_from_handle;
@@ -2204,6 +2223,9 @@ void si_init_screen_texture_functions(struct si_screen *sscreen)
       sscreen->b.is_dmabuf_modifier_supported = si_is_dmabuf_modifier_supported;
       sscreen->b.get_dmabuf_modifier_planes = si_get_dmabuf_modifier_planes;
    }
+
+   if (sscreen->info.has_tmz_support)
+      sscreen->b.force_resource_protected_content = si_force_resource_tmz;
 }
 
 void si_init_context_texture_functions(struct si_context *sctx)
