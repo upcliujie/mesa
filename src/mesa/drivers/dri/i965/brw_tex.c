@@ -322,23 +322,6 @@ brw_texture_barrier(struct gl_context *ctx)
    }
 }
 
-/* Return the usual surface usage flags for the given format. */
-static isl_surf_usage_flags_t
-isl_surf_usage(mesa_format format)
-{
-   switch(_mesa_get_format_base_format(format)) {
-   case GL_DEPTH_COMPONENT:
-      return ISL_SURF_USAGE_DEPTH_BIT | ISL_SURF_USAGE_TEXTURE_BIT;
-   case GL_DEPTH_STENCIL:
-      return ISL_SURF_USAGE_DEPTH_BIT | ISL_SURF_USAGE_STENCIL_BIT |
-             ISL_SURF_USAGE_TEXTURE_BIT;
-   case GL_STENCIL_INDEX:
-      return ISL_SURF_USAGE_STENCIL_BIT | ISL_SURF_USAGE_TEXTURE_BIT;
-   default:
-      return ISL_SURF_USAGE_RENDER_TARGET_BIT | ISL_SURF_USAGE_TEXTURE_BIT;
-   }
-}
-
 static GLboolean
 intel_texture_for_memory_object(struct gl_context *ctx,
                                           struct gl_texture_object *tex_obj,
@@ -351,30 +334,7 @@ intel_texture_for_memory_object(struct gl_context *ctx,
    struct brw_memory_object *intel_memobj = brw_memory_object(mem_obj);
    struct brw_texture_object *intel_texobj = brw_texture_object(tex_obj);
    struct gl_texture_image *image = tex_obj->Image[0][0];
-   struct isl_surf surf;
-
-   /* Only color formats are supported. */
-   if (!_mesa_is_format_color_format(image->TexFormat))
-      return GL_FALSE;
-
-   isl_tiling_flags_t tiling_flags = ISL_TILING_ANY_MASK;
-   if (tex_obj->TextureTiling == GL_LINEAR_TILING_EXT)
-      tiling_flags = ISL_TILING_LINEAR_BIT;
-
-   UNUSED const bool isl_surf_created_successfully =
-      isl_surf_init(&brw->screen->isl_dev, &surf,
-                    .dim = get_isl_surf_dim(tex_obj->Target),
-                    .format = brw_isl_format_for_mesa_format(image->TexFormat),
-                    .width = width,
-                    .height = height,
-                    .depth = depth,
-                    .levels = levels,
-                    .array_len = tex_obj->Target == GL_TEXTURE_3D ? 1 : depth,
-                    .samples = MAX2(image->NumSamples, 1),
-                    .usage = isl_surf_usage(image->TexFormat),
-                    .tiling_flags = tiling_flags);
-
-   assert(isl_surf_created_successfully);
+   uint64_t s_offset;
 
    intel_texobj->mt = brw_miptree_create_for_bo(brw,
                                                 intel_memobj->bo,
@@ -383,10 +343,25 @@ intel_texture_for_memory_object(struct gl_context *ctx,
                                                 width,
                                                 height,
                                                 depth,
-                                                surf.row_pitch_B,
-                                                surf.tiling,
+                                                0,
+                                                ISL_TILING_Y0,
                                                 MIPTREE_CREATE_NO_AUX);
    assert(intel_texobj->mt);
+   if (util_format_is_depth_and_stencil(image->TexFormat)) {
+      s_offset = offset + ALIGN(intel_texobj->mt->surf.size_B, intel_texobj->mt->surf.alignment_B);
+      intel_texobj->mt->stencil_mt = brw_miptree_create_for_bo(brw,
+                                                               intel_memobj->bo,
+                                                               MESA_FORMAT_S_UINT8,
+                                                               s_offset,
+                                                               width,
+                                                               height,
+                                                               depth,
+                                                               0,
+                                                               ISL_TILING_W,
+                                                               MIPTREE_CREATE_NO_AUX);
+      assert(intel_texobj->mt->stencil_mt);
+   }
+
    brw_alloc_texture_image_buffer(ctx, image);
 
    intel_texobj->needs_validate = false;
