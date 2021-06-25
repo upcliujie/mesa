@@ -13,8 +13,8 @@ namespace {
 /* LLVM disassembler only supports GFX8+, try to disassemble with CLRXdisasm
  * for GFX6-GFX7 if found on the system, this is better than nothing.
 */
-bool print_asm_gfx6_gfx7(Program *program, std::vector<uint32_t>& binary,
-                         FILE *output)
+bool print_asm_clrx(Program *program, std::vector<uint32_t>& binary,
+                    FILE *output)
 {
 #ifdef _WIN32
    return true;
@@ -141,17 +141,10 @@ std::pair<bool, size_t> disasm_instr(chip_class chip, LLVMDisasmContextRef disas
 
    return std::make_pair(invalid, size);
 }
-} /* end namespace */
 
-bool print_asm(Program *program, std::vector<uint32_t>& binary,
-               unsigned exec_size, FILE *output)
+bool print_asm_llvm(Program *program, std::vector<uint32_t>& binary,
+                    unsigned exec_size, FILE *output)
 {
-   if (program->chip_class <= GFX7) {
-      /* Do not abort if clrxdisasm isn't found. */
-      print_asm_gfx6_gfx7(program, binary, output);
-      return false;
-   }
-
    std::vector<bool> referenced_blocks(program->blocks.size());
    referenced_blocks[0] = true;
    for (Block& block : program->blocks) {
@@ -242,6 +235,19 @@ bool print_asm(Program *program, std::vector<uint32_t>& binary,
    }
 
    return invalid;
+}
+} /* end namespace */
+
+bool print_asm(Program *program, std::vector<uint32_t>& binary,
+               unsigned exec_size, FILE *output)
+{
+   if (program->chip_class <= GFX7) {
+      /* Do not abort if clrxdisasm isn't found. */
+      print_asm_clrx(program, binary, output);
+      return false;
+   } else {
+      return print_asm_llvm(program, binary, exec_size, output);
+   }
 }
 
 }
