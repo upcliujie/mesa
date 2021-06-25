@@ -29,8 +29,13 @@ PUSH_SPACE(struct nouveau_pushbuf *push, uint32_t size)
 {
    /* Provide a buffer so that fences always have room to be emitted */
    size += 8;
-   if (PUSH_AVAIL(push) < size)
-      return nouveau_pushbuf_space(push, size, 0, 0) == 0;
+   if (PUSH_AVAIL(push) < size) {
+      struct nouveau_pushbuf_priv *ppush = push->user_priv;
+      simple_mtx_lock(&ppush->screen->fence.lock);
+      bool res = nouveau_pushbuf_space(push, size, 0, 0) == 0;
+      simple_mtx_unlock(&ppush->screen->fence.lock);
+      return res;
+   }
    return true;
 }
 
@@ -65,19 +70,30 @@ PUSH_DATAf(struct nouveau_pushbuf *push, float f)
 static inline void
 PUSH_KICK(struct nouveau_pushbuf *push)
 {
+   struct nouveau_pushbuf_priv *ppush = push->user_priv;
+   simple_mtx_lock(&ppush->screen->fence.lock);
    nouveau_pushbuf_kick(push, push->channel);
+   simple_mtx_unlock(&ppush->screen->fence.lock);
 }
 
 static inline int
 BO_MAP(struct nouveau_screen *screen, struct nouveau_bo *bo, uint32_t access, struct nouveau_client *client)
 {
-   return nouveau_bo_map(bo, access, client);
+   int res;
+   simple_mtx_lock(&screen->fence.lock);
+   res = nouveau_bo_map(bo, access, client);
+   simple_mtx_unlock(&screen->fence.lock);
+   return res;
 }
 
 static inline int
 BO_WAIT(struct nouveau_screen *screen, struct nouveau_bo *bo, uint32_t access, struct nouveau_client *client)
 {
-   return nouveau_bo_wait(bo, access, client);
+   int res;
+   simple_mtx_lock(&screen->fence.lock);
+   res = nouveau_bo_wait(bo, access, client);
+   simple_mtx_unlock(&screen->fence.lock);
+   return res;
 }
 
 #define NOUVEAU_RESOURCE_FLAG_LINEAR   (PIPE_RESOURCE_FLAG_DRV_PRIV << 0)
