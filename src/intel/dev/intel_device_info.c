@@ -1042,6 +1042,55 @@ reset_masks(struct intel_device_info *devinfo)
 }
 
 static void
+update_pixel_pipes(struct intel_device_info *devinfo)
+{
+   if (devinfo->ver < 11)
+      return;
+
+   /* On current ICL+ hardware we only have one slice. */
+   assert(devinfo->slice_masks == 1 || devinfo->verx10 >= 125);
+
+   /* Count the number of subslices on each pixel pipe. Assume that every
+    * contiguous group of 4 subslices in the mask belong to the same pixel
+    * pipe. However note that on TGL the kernel returns a mask of enabled
+    * *dual* subslices instead of actual subslices somewhat confusingly, so
+    * each pixel pipe only takes 2 bits in the mask even though it's still 4
+    * subslices.
+    */
+   const unsigned ppipe_bits = devinfo->ver >= 12 ? 2 : 4;
+   for (unsigned p = 0; p < INTEL_DEVICE_MAX_PIXEL_PIPES; p++) {
+      const unsigned offset = p * ppipe_bits;
+      const unsigned ppipe_mask = BITFIELD_RANGE(offset % 8, ppipe_bits);
+
+      assert(offset / 8 < ARRAY_SIZE(devinfo->subslice_masks));
+      devinfo->ppipe_subslices[p] =
+         __builtin_popcount(devinfo->subslice_masks[offset / 8] & ppipe_mask);
+   }
+}
+
+static void
+update_l3_banks(struct intel_device_info *devinfo)
+{
+   if (devinfo->ver != 12 || devinfo->num_slices != 1)
+      return;
+
+   if (devinfo->subslice_total > 16) {
+      assert(devinfo->subslice_total <= 32);
+      devinfo->l3_banks = 32;
+   } else if (devinfo->subslice_total > 8) {
+      devinfo->l3_banks = 16;
+   } else if (devinfo->subslice_total >= 6) {
+      assert(devinfo->subslice_total == 6 ||
+             intel_device_info_is_dg2(devinfo));
+      devinfo->l3_banks = 8;
+   } else if (devinfo->subslice_total > 2) {
+         devinfo->l3_banks = 6;
+   } else {
+      devinfo->l3_banks = 4;
+   }
+}
+
+static void
 update_from_topology(struct intel_device_info *devinfo,
                      const struct drm_i915_query_topology_info *topology)
 {
@@ -1082,41 +1131,6 @@ update_from_topology(struct intel_device_info *devinfo,
    }
    assert(n_subslices > 0);
 
-   if (devinfo->ver >= 11) {
-      /* On current ICL+ hardware we only have one slice. */
-      assert(devinfo->slice_masks == 1 || devinfo->verx10 >= 125);
-
-      /* Count the number of subslices on each pixel pipe. Assume that every
-       * contiguous group of 4 subslices in the mask belong to the same pixel
-       * pipe.  However note that on TGL the kernel returns a mask of enabled
-       * *dual* subslices instead of actual subslices somewhat confusingly, so
-       * each pixel pipe only takes 2 bits in the mask even though it's still
-       * 4 subslices.
-       */
-      const unsigned ppipe_bits = devinfo->ver >= 12 ? 2 : 4;
-      for (unsigned p = 0; p < INTEL_DEVICE_MAX_PIXEL_PIPES; p++) {
-         const unsigned ppipe_mask = BITFIELD_RANGE(p * ppipe_bits, ppipe_bits);
-         devinfo->ppipe_subslices[p] =
-            __builtin_popcount(devinfo->subslice_masks[0] & ppipe_mask);
-      }
-   }
-
-   if (devinfo->ver == 12 && devinfo->num_slices == 1) {
-      if (n_subslices > 16) {
-         assert(n_subslices <= 32);
-         devinfo->l3_banks = 32;
-      } else if (n_subslices > 8) {
-         devinfo->l3_banks = 16;
-      } else if (n_subslices >= 6) {
-         assert(n_subslices == 6 || intel_device_info_is_dg2(devinfo));
-         devinfo->l3_banks = 8;
-      } else if (n_subslices > 2) {
-         devinfo->l3_banks = 6;
-      } else {
-         devinfo->l3_banks = 4;
-      }
-   }
-
    uint32_t eu_mask_len =
       topology->eu_stride * topology->max_subslices * topology->max_slices;
    assert(sizeof(devinfo->eu_masks) >= eu_mask_len);
@@ -1125,6 +1139,9 @@ update_from_topology(struct intel_device_info *devinfo,
    uint32_t n_eus = 0;
    for (int b = 0; b < eu_mask_len; b++)
       n_eus += __builtin_popcount(devinfo->eu_masks[b]);
+
+   update_pixel_pipes(devinfo);
+   update_l3_banks(devinfo);
 }
 
 /* Generate detailed mask from the I915_PARAM_SLICE_MASK,
