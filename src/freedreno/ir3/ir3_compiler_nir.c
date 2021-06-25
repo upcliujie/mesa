@@ -3859,11 +3859,10 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 		}
 
 		struct ir3_instruction *chmask =
-			ir3_instr_create(ctx->block, OPC_CHMASK, 1, outputs_count);
+			ir3_instr_create(ctx->block, OPC_CHMASK, 0, outputs_count);
 		chmask->barrier_class = IR3_BARRIER_EVERYTHING;
 		chmask->barrier_conflict = IR3_BARRIER_EVERYTHING;
 
-		__ssa_dst(chmask);
 		for (unsigned i = 0; i < outputs_count; i++)
 			__ssa_src(chmask, outputs[i], 0)->num = regids[i];
 
@@ -3955,9 +3954,8 @@ ir3_compile_shader_nir(struct ir3_compiler *compiler,
 		ctx->block = old_block;
 
 		struct ir3_instruction *end = ir3_instr_create(ctx->block, OPC_END,
-				1, outputs_count);
+				0, outputs_count);
 
-		__ssa_dst(end);
 		for (unsigned i = 0; i < outputs_count; i++) {
 			__ssa_src(end, outputs[i], 0);
 		}

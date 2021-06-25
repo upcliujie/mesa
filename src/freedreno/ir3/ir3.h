@@ -961,7 +961,7 @@ reg_size(const struct ir3_register *reg)
 
 static inline unsigned dest_regs(struct ir3_instruction *instr)
 {
-	if ((instr->dsts_count == 0) || is_store(instr) || is_flow(instr))
+	if (instr->dsts_count == 0)
 		return 0;
 
 	return util_last_bit(instr->dsts[0]->wrmask);
@@ -1691,7 +1691,7 @@ ir3_##name(struct ir3_block *block,                                      \
 #define INSTR2F(f, name)    __INSTR2(IR3_INSTR_##f, name##_##f, OPC_##name)
 #define INSTR2(name)        __INSTR2(0, name, OPC_##name)
 
-#define __INSTR3(flag, name, opc)                                        \
+#define __INSTR3(flag, dst_count, name, opc)							 \
 static inline struct ir3_instruction *                                   \
 ir3_##name(struct ir3_block *block,                                      \
 		struct ir3_instruction *a, unsigned aflags,                      \
@@ -1699,18 +1699,20 @@ ir3_##name(struct ir3_block *block,                                      \
 		struct ir3_instruction *c, unsigned cflags)                      \
 {                                                                        \
 	struct ir3_instruction *instr =                                      \
-		ir3_instr_create(block, opc, 1, 3);                              \
-	__ssa_dst(instr);                                                    \
+		ir3_instr_create(block, opc, dst_count, 3);						 \
+	for (unsigned i = 0; i < dst_count; i++)							 \
+		__ssa_dst(instr);												 \
 	__ssa_src(instr, a, aflags);                                         \
 	__ssa_src(instr, b, bflags);                                         \
 	__ssa_src(instr, c, cflags);                                         \
 	instr->flags |= flag;                                                \
 	return instr;                                                        \
 }
-#define INSTR3F(f, name)    __INSTR3(IR3_INSTR_##f, name##_##f, OPC_##name)
-#define INSTR3(name)        __INSTR3(0, name, OPC_##name)
+#define INSTR3F(f, name)    __INSTR3(IR3_INSTR_##f, 1, name##_##f, OPC_##name)
+#define INSTR3(name)        __INSTR3(0, 1, name, OPC_##name)
+#define INSTR3NDST(name)    __INSTR3(0, 0, name, OPC_##name)
 
-#define __INSTR4(flag, name, opc)                                        \
+#define __INSTR4(flag, dst_count, name, opc)							 \
 static inline struct ir3_instruction *                                   \
 ir3_##name(struct ir3_block *block,                                      \
 		struct ir3_instruction *a, unsigned aflags,                      \
@@ -1719,8 +1721,9 @@ ir3_##name(struct ir3_block *block,                                      \
 		struct ir3_instruction *d, unsigned dflags)                      \
 {                                                                        \
 	struct ir3_instruction *instr =                                      \
-		ir3_instr_create(block, opc, 1, 4);                              \
-	__ssa_dst(instr);                                                    \
+		ir3_instr_create(block, opc, dst_count, 4);                      \
+	for (unsigned i = 0; i < dst_count; i++)							 \
+		__ssa_dst(instr);												 \
 	__ssa_src(instr, a, aflags);                                         \
 	__ssa_src(instr, b, bflags);                                         \
 	__ssa_src(instr, c, cflags);                                         \
@@ -1728,8 +1731,9 @@ ir3_##name(struct ir3_block *block,                                      \
 	instr->flags |= flag;                                                \
 	return instr;                                                        \
 }
-#define INSTR4F(f, name)    __INSTR4(IR3_INSTR_##f, name##_##f, OPC_##name)
-#define INSTR4(name)        __INSTR4(0, name, OPC_##name)
+#define INSTR4F(f, name)    __INSTR4(IR3_INSTR_##f, 1, name##_##f, OPC_##name)
+#define INSTR4(name)        __INSTR4(0, 1, name, OPC_##name)
+#define INSTR4NDST(name)    __INSTR4(0, 0, name, OPC_##name)
 
 /* cat0 instructions: */
 INSTR1(B)
@@ -1872,10 +1876,10 @@ INSTR3(LDG)
 INSTR3(LDL)
 INSTR3(LDLW)
 INSTR3(LDP)
-INSTR3(STG)
-INSTR3(STL)
-INSTR3(STLW)
-INSTR3(STP)
+INSTR3NDST(STG)
+INSTR3NDST(STL)
+INSTR3NDST(STLW)
+INSTR3NDST(STP)
 INSTR1(RESINFO)
 INSTR1(RESFMT)
 INSTR2(ATOMIC_ADD)
@@ -1906,8 +1910,8 @@ INSTR3F(G, ATOMIC_OR)
 INSTR3F(G, ATOMIC_XOR)
 #elif GPU >= 400
 INSTR3(LDGB)
-INSTR4(STGB)
-INSTR4(STIB)
+INSTR4NDST(STGB)
+INSTR4NDST(STIB)
 INSTR4F(G, ATOMIC_ADD)
 INSTR4F(G, ATOMIC_SUB)
 INSTR4F(G, ATOMIC_XCHG)
