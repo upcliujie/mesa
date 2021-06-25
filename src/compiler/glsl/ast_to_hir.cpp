@@ -957,6 +957,10 @@ do_assignment(exec_list *instructions, struct _mesa_glsl_parse_state *state,
           * no such distinction, that is why this check here is limited to
           * buffer variables alone.
           */
+
+         if (state->ignore_write_to_readonly_var)
+            return false;
+
          _mesa_glsl_error(&lhs_loc, state,
                           "assignment to read-only variable '%s'",
                           lhs_var->name);
