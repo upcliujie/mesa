@@ -105,6 +105,24 @@ bi_compose_float_index(bi_index old, bi_index repl)
         return repl;
 }
 
+static bool
+bi_takes_widen_f16(bi_instr *I, unsigned s)
+{
+        switch (I->op) {
+        case BI_OPCODE_FADD_F32:
+        case BI_OPCODE_FREXPE_F32:
+        case BI_OPCODE_FREXPM_F32:
+        case BI_OPCODE_FROUND_F32:
+                return true;
+        case BI_OPCODE_FMA_F32:
+                /* Unconstrained widen0/widen1, but there is no widen2 */
+                return s < 2;
+        default:
+                /* TODO: Constrained FCMP.f32, DISCARD.f32, FLOG_TABLE */
+                return false;
+        }
+}
+
 void
 bi_opt_mod_prop_forward(bi_context *ctx)
 {
@@ -123,14 +141,19 @@ bi_opt_mod_prop_forward(bi_context *ctx)
                         if (!mod)
                                 continue;
 
-                        if (bi_opcode_props[mod->op].size != bi_opcode_props[I->op].size)
-                                continue;
-
                         if (bi_is_fabsneg(mod)) {
+                                if (bi_opcode_props[mod->op].size != bi_opcode_props[I->op].size)
+                                        continue;
+
                                 if (mod->src[0].abs && !bi_takes_fabs(I, mod->src[0], s))
                                         continue;
 
                                 if (mod->src[0].neg && !bi_takes_fneg(I, s))
+                                        continue;
+
+                                I->src[s] = bi_compose_float_index(I->src[s], mod->src[0]);
+                        } else if (mod->op == BI_OPCODE_F16_TO_F32) {
+                                if (!bi_takes_widen_f16(I, s))
                                         continue;
 
                                 I->src[s] = bi_compose_float_index(I->src[s], mod->src[0]);
