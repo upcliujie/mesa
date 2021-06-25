@@ -60,10 +60,12 @@ intermediates := $(call local-generated-sources-dir)
 LOCAL_SRC_FILES := \
 	$(VULKAN_FILES)
 
-LOCAL_CFLAGS += -DFORCE_BUILD_AMDGPU   # instructs LLVM to declare LLVMInitializeAMDGPU* functions
 LOCAL_CFLAGS += -DVK_USE_PLATFORM_ANDROID_KHR
 
+ifeq ($(MESA_ENABLE_LLVM),true)
+LOCAL_CFLAGS += -DFORCE_BUILD_AMDGPU   # instructs LLVM to declare LLVMInitializeAMDGPU* functions
 $(call mesa-build-with-llvm)
+endif # MESA_ENABLE_LLVM == true
 
 LOCAL_C_INCLUDES := $(RADV_COMMON_INCLUDES)
 
