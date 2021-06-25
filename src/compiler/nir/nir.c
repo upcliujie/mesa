@@ -2453,3 +2453,42 @@ nir_variable *nir_get_binding_variable(nir_shader *shader, nir_binding binding)
 
    return binding_var;
 }
+
+bool
+nir_alu_instr_is_copy(nir_alu_instr *instr)
+{
+   assert(instr->src[0].src.is_ssa);
+
+   /* we handle modifiers in a separate pass */
+   if (instr->op == nir_op_mov) {
+      return !instr->dest.saturate &&
+             !instr->src[0].abs &&
+             !instr->src[0].negate;
+   } else if (nir_op_is_vec(instr->op)) {
+      for (unsigned i = 0; i < instr->dest.dest.ssa.num_components; i++) {
+         if (instr->src[i].abs || instr->src[i].negate)
+            return false;
+      }
+      return !instr->dest.saturate;
+   } else {
+      return false;
+   }
+}
+nir_ssa_scalar
+nir_ssa_scalar_chase_movs(nir_ssa_scalar s)
+{
+   while (nir_ssa_scalar_is_alu(s)) {
+      nir_alu_instr *alu = nir_instr_as_alu(s.def->parent_instr);
+      if (!nir_alu_instr_is_copy(alu))
+         break;
+
+      if (alu->op == nir_op_mov) {
+         s = nir_ssa_scalar_chase_alu_src(s, 0);
+      } else {
+         assert(nir_op_is_vec(alu->op));
+         s = nir_ssa_scalar_chase_alu_src(s, s.comp);
+      }
+   }
+
+   return s;
+}
