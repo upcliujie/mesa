@@ -2484,6 +2484,20 @@ bool combine_minmax(opt_ctx& ctx, aco_ptr<Instruction>& instr, aco_opcode opposi
          ctx.uses[instr->operands[swap].tempId()]--;
          neg[1] = !neg[1];
          neg[2] = !neg[2];
+
+         /* max(-min(0, a), 0) -> max(0, -a) *
+          * min(-max(0, a), 0) -> min(-0, -a) */
+         if (instr->isVOP3() &&
+             operands[0].isConstant() && operands[0].constantValue() == 0 && !neg[0] &&
+             operands[1].isConstant() && operands[1].constantValue() == 0 && neg[1]) {
+            instr->operands[1] = operands[2];
+            VOP3_instruction& vop3 = instr->vop3();
+            if (instr->opcode == aco_opcode::v_min_f32)
+               vop3.neg[0] = true;
+            vop3.neg[1] = neg[2];
+            return true;
+         }
+
          create_vop3_for_op3(ctx, minmax3, instr, operands, neg, abs, opsel, clamp, omod);
          return true;
       }

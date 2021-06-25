@@ -759,18 +759,30 @@ BEGIN_TEST(optimize.minmax)
       if (!setup_cs("v1", (chip_class)i))
          continue;
 
-      //! v1: %res0 = v_max3_f32 0, -0, %a
+      //! v1: %res0 = v_max_f32 0, %a
       //! p_unit_test 0, %res0
       Temp xor0 = fneg(inputs[0]);
       Temp min = bld.vop2(aco_opcode::v_min_f32, bld.def(v1), Operand(0u), xor0);
       Temp xor1 = fneg(min);
       writeout(0, bld.vop2(aco_opcode::v_max_f32, bld.def(v1), Operand(0u), xor1));
 
-      //! v1: %res1 = v_max3_f32 0, -0, -%a
+      //! v1: %res1 = v_max_f32 0, -%a
       //! p_unit_test 1, %res1
       min = bld.vop2(aco_opcode::v_min_f32, bld.def(v1), Operand(0u), Operand(inputs[0]));
       xor1 = fneg(min);
       writeout(1, bld.vop2(aco_opcode::v_max_f32, bld.def(v1), Operand(0u), xor1));
+
+      //! v1: %res2 = v_min_f32 -0, %a
+      //! p_unit_test 2, %res2
+      Temp max = bld.vop2(aco_opcode::v_max_f32, bld.def(v1), Operand(0u), xor0);
+      xor1 = fneg(max);
+      writeout(2, bld.vop2(aco_opcode::v_min_f32, bld.def(v1), Operand(0u), xor1));
+
+      //! v1: %res3 = v_min_f32 -0, -%a
+      //! p_unit_test 3, %res3
+      max = bld.vop2(aco_opcode::v_max_f32, bld.def(v1), Operand(0u), Operand(inputs[0]));
+      xor1 = fneg(max);
+      writeout(3, bld.vop2(aco_opcode::v_min_f32, bld.def(v1), Operand(0u), xor1));
 
       finish_opt_test();
    }
