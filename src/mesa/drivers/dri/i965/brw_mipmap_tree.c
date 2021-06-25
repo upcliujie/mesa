@@ -619,6 +619,7 @@ brw_miptree_create_for_bo(struct brw_context *brw,
       assert(bo->size >= mt->surf.size_B);
 
       brw_bo_reference(bo);
+      mt->offset = offset;
       return mt;
    }
 
