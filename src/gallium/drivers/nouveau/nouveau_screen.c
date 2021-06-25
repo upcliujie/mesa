@@ -187,11 +187,6 @@ reserve_vma(uintptr_t start, uint64_t reserved_size)
    return reserved;
 }
 
-struct nouveau_pushbuf_priv {
-   struct nouveau_screen *screen;
-   struct nouveau_context *context;
-};
-
 static void
 nouveau_pushbuf_cb(struct nouveau_pushbuf *push)
 {
@@ -200,7 +195,7 @@ nouveau_pushbuf_cb(struct nouveau_pushbuf *push)
    if (p->context)
       p->context->kick_notify(p->context);
    else
-      nouveau_fence_update(p->screen, true);
+      _nouveau_fence_update(p->screen, true);
 
    NOUVEAU_DRV_STAT(p->screen, pushbuf_count, 1);
 }

@@ -256,7 +256,7 @@ nvc0_destroy(struct pipe_context *pipe)
     * Other contexts will always set their bufctx again on action calls.
     */
    nouveau_pushbuf_bufctx(nvc0->base.pushbuf, NULL);
-   nouveau_pushbuf_kick(nvc0->base.pushbuf, nvc0->base.pushbuf->channel);
+   PUSH_KICK(nvc0->base.pushbuf);
 
    nvc0_context_unreference_resources(nvc0);
    nvc0_blitctx_destroy(nvc0);
@@ -280,8 +280,8 @@ nvc0_default_kick_notify(struct nouveau_context *context)
 {
    struct nvc0_context *nvc0 = nvc0_context(&context->pipe);
 
-   nouveau_fence_next(context);
-   nouveau_fence_update(context->screen, true);
+   _nouveau_fence_next(context);
+   _nouveau_fence_update(context->screen, true);
 
    nvc0->state.flushed = true;
 }
