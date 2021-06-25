@@ -1575,7 +1575,7 @@ anv_nir_apply_pipeline_layout(const struct anv_physical_device *pdevice,
       }
    }
 
-   nir_foreach_uniform_variable(var, shader) {
+   nir_foreach_variable_with_modes(var, shader, nir_var_uniform | nir_var_mem_image) {
       const struct glsl_type *glsl_type = glsl_without_array(var->type);
 
       if (!glsl_type_is_image(glsl_type))
