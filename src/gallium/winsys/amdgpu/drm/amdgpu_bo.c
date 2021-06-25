@@ -1772,6 +1772,25 @@ static uint64_t amdgpu_bo_get_va(struct pb_buffer *buf)
    return ((struct amdgpu_winsys_bo*)buf)->va;
 }
 
+static bool amdgpu_buffer_force_tmz(struct pb_buffer *buf, bool on_off)
+{
+   struct amdgpu_winsys_bo *bo = amdgpu_winsys_bo(buf);
+   int r;
+
+   assert(bo->bo && "must not be called for slab entries");
+
+   r = amdgpu_bo_toggle_tmz_bit(bo->bo, on_off);
+   if (r)
+      return false;
+
+   if (on_off)
+      buf->usage |= RADEON_FLAG_ENCRYPTED;
+   else
+      buf->usage &= ~RADEON_FLAG_ENCRYPTED;
+
+   return true;
+}
+
 void amdgpu_bo_init_functions(struct amdgpu_screen_winsys *ws)
 {
    ws->base.buffer_set_metadata = amdgpu_buffer_set_metadata;
@@ -1789,4 +1808,5 @@ void amdgpu_bo_init_functions(struct amdgpu_screen_winsys *ws)
    ws->base.buffer_get_virtual_address = amdgpu_bo_get_va;
    ws->base.buffer_get_initial_domain = amdgpu_bo_get_initial_domain;
    ws->base.buffer_get_flags = amdgpu_bo_get_flags;
+   ws->base.buffer_force_tmz = amdgpu_buffer_force_tmz;
 }
