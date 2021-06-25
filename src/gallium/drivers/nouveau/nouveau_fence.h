@@ -53,6 +53,9 @@ nouveau_fence_list_destroy(struct nouveau_fence_list *fence_list)
    simple_mtx_destroy(&fence_list->lock);
 }
 
+void _nouveau_fence_update(struct nouveau_screen *, bool flushed);
+void _nouveau_fence_next(struct nouveau_context *);
+
 void nouveau_fence_emit(struct nouveau_fence *);
 bool nouveau_fence_new(struct nouveau_context *, struct nouveau_fence **);
 void nouveau_fence_cleanup(struct nouveau_context *);
