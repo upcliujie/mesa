@@ -1674,9 +1674,7 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
 
       int64_t stage_start = os_time_get_nano();
 
-      void *stage_ctx = ralloc_context(NULL);
-
-      anv_pipeline_lower_nir(&pipeline->base, stage_ctx, &stages[s], layout);
+      anv_pipeline_lower_nir(&pipeline->base, pipeline_ctx, &stages[s], layout);
 
       if (prev_stage && compiler->glsl_compiler_options[s].NirOptions->unify_interfaces) {
          prev_stage->nir->info.outputs_written |= stages[s].nir->info.inputs_read &
@@ -1686,8 +1684,6 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
          prev_stage->nir->info.patch_outputs_written |= stages[s].nir->info.patch_inputs_read;
          stages[s].nir->info.patch_inputs_read |= prev_stage->nir->info.patch_outputs_written;
       }
-
-      ralloc_free(stage_ctx);
 
       stages[s].feedback.duration += os_time_get_nano() - stage_start;
 
