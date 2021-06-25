@@ -13,7 +13,6 @@ apt-get install -y --no-remove \
         cpio \
         fastboot \
         netcat \
-        nginx-full \
         procps \
         python-is-python3 \
         python3-distutils \
