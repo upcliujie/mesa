@@ -2711,7 +2711,10 @@ bool si_gfx_resources_check_encrypted(struct si_context *sctx)
    }
 
 #ifndef NDEBUG
-   if (use_encrypted_bo) {
+   /* Disabled by default: this is useful for testing the drivers, but this breaks
+    * x11 + tmz since the window pixmap is not initially using tmz.
+    */
+   if (use_encrypted_bo && false) {
       /* Verify that color buffers are encrypted */
       for (int i = 0; i < sctx->framebuffer.state.nr_cbufs; i++) {
          struct pipe_surface *surf = sctx->framebuffer.state.cbufs[i];
