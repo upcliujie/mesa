@@ -1047,9 +1047,6 @@ update_pixel_pipes(struct intel_device_info *devinfo)
    if (devinfo->ver < 11)
       return;
 
-   /* On current ICL+ hardware we only have one slice. */
-   assert(devinfo->slice_masks == 1 || devinfo->verx10 >= 125);
-
    /* Count the number of subslices on each pixel pipe. Assume that every
     * contiguous group of 4 subslices in the mask belong to the same pixel
     * pipe. However note that on TGL the kernel returns a mask of enabled
@@ -1060,18 +1057,22 @@ update_pixel_pipes(struct intel_device_info *devinfo)
    const unsigned ppipe_bits = devinfo->ver >= 12 ? 2 : 4;
    for (unsigned p = 0; p < INTEL_DEVICE_MAX_PIXEL_PIPES; p++) {
       const unsigned offset = p * ppipe_bits;
-      const unsigned ppipe_mask = BITFIELD_RANGE(offset % 8, ppipe_bits);
+      const unsigned ppipe_mask =
+         BITFIELD_RANGE(offset % devinfo->max_subslices_per_slice, ppipe_bits);
 
       assert(offset / 8 < ARRAY_SIZE(devinfo->subslice_masks));
       devinfo->ppipe_subslices[p] =
-         __builtin_popcount(devinfo->subslice_masks[offset / 8] & ppipe_mask);
+         __builtin_popcount(
+            devinfo->subslice_masks[offset /
+                                    devinfo->max_subslices_per_slice] &
+            ppipe_mask);
    }
 }
 
 static void
 update_l3_banks(struct intel_device_info *devinfo)
 {
-   if (devinfo->ver != 12 || devinfo->num_slices != 1)
+   if (devinfo->ver != 12)
       return;
 
    if (devinfo->subslice_total > 16) {
@@ -1088,6 +1089,88 @@ update_l3_banks(struct intel_device_info *devinfo)
    } else {
       devinfo->l3_banks = 4;
    }
+}
+
+/* At some point in time, some people decided to redefine what topology means,
+ * from useful HW related information (slice, subslice, etc...), to much less
+ * useful generic stuff that noone cares about (a single slice with lots of
+ * subslices). Of course all of this was done without asking the people who
+ * defined the topology query in the first place, to solve a lack of
+ * information Gfx10+. This function is here to workaround the fact it's not
+ * possible to change people's mind even before this stuff goes upstream. Sad
+ * times...
+ */
+static void
+update_from_single_slice_topology(struct intel_device_info *devinfo,
+                                  const struct drm_i915_query_topology_info *topology)
+{
+   assert(devinfo->verx10 >= 12);
+
+   reset_masks(devinfo);
+
+   assert(topology->max_slices == 1);
+   assert(topology->max_subslices > 0);
+   assert(topology->max_eus_per_subslice > 0);
+
+   /* i915 gives us only one slice so we have to rebuild that out of groups of
+    * 4 dualsubslices.
+    */
+   devinfo->max_subslices_per_slice = 4;
+   devinfo->max_eus_per_subslice = 16;
+   devinfo->subslice_slice_stride = 1;
+   devinfo->eu_slice_stride = DIV_ROUND_UP(16 * 4, 8);
+   devinfo->eu_subslice_stride = DIV_ROUND_UP(16, 8);
+
+   for (uint32_t ss_idx = 0; ss_idx < topology->max_subslices; ss_idx++) {
+      const bool ss_idx_available =
+         (topology->data[topology->subslice_offset + ss_idx / 8] >>
+          (ss_idx % 8)) & 1;
+
+      if (!ss_idx_available)
+         continue;
+
+      uint32_t s = ss_idx / 4;
+      uint32_t ss = ss_idx % 4;
+
+      devinfo->max_slices = MAX2(devinfo->max_slices, s + 1);
+      devinfo->slice_masks |= 1u << s;
+
+      devinfo->subslice_masks[s * devinfo->subslice_slice_stride +
+                              ss / 8] |= 1u << (ss % 8);
+
+      for (uint32_t eu = 0; eu < devinfo->max_eus_per_subslice; eu++) {
+         const bool eu_available =
+            (topology->data[topology->eu_offset +
+                            ss_idx * topology->eu_stride +
+                            eu / 8] >> (eu % 8)) & 1;
+
+         if (!eu_available)
+            continue;
+
+         devinfo->eu_masks[s * devinfo->eu_slice_stride +
+                           ss * devinfo->eu_subslice_stride +
+                           eu / 8] |= 1u << (eu % 8);
+      }
+   }
+
+   uint32_t n_subslices = 0;
+   devinfo->num_slices = 0;
+   for (int s = 0; s < devinfo->max_slices; s++) {
+      if ((devinfo->slice_masks & (1 << s)) == 0)
+         continue;
+
+      devinfo->num_slices++;
+      for (int b = 0; b < devinfo->subslice_slice_stride; b++) {
+         devinfo->num_subslices[s] +=
+            __builtin_popcount(devinfo->subslice_masks[s * devinfo->subslice_slice_stride + b]);
+      }
+      n_subslices += devinfo->num_subslices[s];
+   }
+   assert(n_subslices > 0);
+   assert(devinfo->num_slices > 0);
+
+   update_pixel_pipes(devinfo);
+   update_l3_banks(devinfo);
 }
 
 static void
@@ -1399,7 +1482,10 @@ query_topology(struct intel_device_info *devinfo, int fd)
    if (topo_info == NULL)
       return false;
 
-   update_from_topology(devinfo, topo_info);
+   if (devinfo->verx10 >= 125)
+      update_from_single_slice_topology(devinfo, topo_info);
+   else
+      update_from_topology(devinfo, topo_info);
 
    free(topo_info);
 
