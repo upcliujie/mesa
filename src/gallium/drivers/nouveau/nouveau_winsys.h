@@ -75,6 +75,9 @@ PUSH_DATAf(struct nouveau_pushbuf *push, float f)
 static inline void
 PUSH_KICK(struct nouveau_pushbuf *push)
 {
+   if (unlikely(push->cur == push->end))
+      return;
+
    struct nouveau_pushbuf_priv *ppush = push->user_priv;
    simple_mtx_lock(&ppush->screen->fence.lock);
    nouveau_pushbuf_kick(push, push->channel);
