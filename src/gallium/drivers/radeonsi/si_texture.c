@@ -889,7 +889,7 @@ static struct si_texture *si_texture_create_object(struct pipe_screen *screen,
       return NULL;
    }
 
-   tex = CALLOC_STRUCT(si_texture);
+   tex = CALLOC_STRUCT_CL(si_texture);
    if (!tex)
       goto error;
 
@@ -1122,7 +1122,7 @@ static struct si_texture *si_texture_create_object(struct pipe_screen *screen,
    return tex;
 
 error:
-   FREE(tex);
+   FREE_CL(tex);
    return NULL;
 }
 
@@ -1565,7 +1565,7 @@ static struct pipe_resource *si_texture_from_handle(struct pipe_screen *screen,
       return NULL;
 
    if (whandle->plane >= util_format_get_num_planes(whandle->format)) {
-      struct si_auxiliary_texture *tex = CALLOC_STRUCT(si_auxiliary_texture);
+      struct si_auxiliary_texture *tex = CALLOC_STRUCT_CL(si_auxiliary_texture);
       if (!tex)
          return NULL;
       tex->b.b = *templ;
