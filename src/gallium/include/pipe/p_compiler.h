@@ -155,6 +155,16 @@ typedef unsigned char boolean;
 
 #endif
 
+/**
+ * Placed after struct pipe_reference. This eliminates false sharing to make
+ * atomic operations on pipe_reference::count faster.
+ *
+ * https://en.wikipedia.org/wiki/False_sharing
+ *
+ * CALLOC_STRUCT_CL and FREE_CL should be used to allocate structures that
+ * contain this.
+ */
+#define PIPE_ALIGN_CL PIPE_ALIGN_VAR(CACHE_LINE_SIZE)
 
 #if defined(__GNUC__)
 
