@@ -89,7 +89,9 @@ mem_dup(const void *src, size_t size)
  */
 #define Offset(TYPE, MEMBER) ((uintptr_t)&(((TYPE *)NULL)->MEMBER))
 
-
+/* Allocate a structure aligned to a cache line. (used to make atomic ops faster) */
+#define CALLOC_STRUCT_CL(T) (struct T *)align_calloc(sizeof(struct T), CACHE_LINE_SIZE)
+#define FREE_CL(ptr) align_free(ptr)
 
 #ifdef __cplusplus
 }
