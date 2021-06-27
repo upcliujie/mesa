@@ -151,11 +151,25 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
 		}
 	}
 
+	if (instr->flags & IR3_INSTR_A1EN) {
+		validate_assert(ctx, instr->address);
+	}
+
 	foreach_src_n (reg, n, instr) {
 		if (reg->flags & IR3_REG_RELATIV)
 			validate_assert(ctx, instr->address);
 
 		validate_src(ctx, instr, reg);
+
+		if (n > 0 && reg_num(reg) == REG_A0) {
+			if (opc_cat(instr->opc) == 5) {
+				validate_assert(ctx, instr->flags & IR3_INSTR_A1EN);
+				/* Only cat5 may have a1 as a src and it is always half-reg */
+				continue;
+			} else {
+				validate_error(ctx, "Only cat5 may have a0 special reg as a src");
+			}
+		}
 
 		/* Validate that all src's are either half of full.
 		 *
