@@ -364,6 +364,54 @@ anv_queue_submit_signal_fences(struct anv_device *device,
    }
 }
 
+static VkResult
+anv_queue_submit_process_and_free(struct anv_queue *queue,
+                                  struct anv_queue_submit *submit)
+{
+   VkResult result = VK_ERROR_DEVICE_LOST;
+
+   /* Wait for timeline points to materialize before submitting. We need to do
+    * this because we're using threads to do the submit to i915. We could end
+    * up in a situation where the application submits to 2 queues with the
+    * first submit creating the dma-fence for the second. But because the
+    * scheduling of the submission threads might wakeup the second queue
+    * thread first, this would make that execbuf fail because the dma-fence it
+    * depends on hasn't materialized yet.
+    */
+   if (!queue->lost && submit->wait_timeline_count > 0) {
+      int ret = queue->device->info.no_hw ? 0 :
+         anv_gem_syncobj_timeline_wait(
+            queue->device, submit->wait_timeline_syncobjs,
+            submit->wait_timeline_values, submit->wait_timeline_count,
+            anv_get_absolute_timeout(UINT64_MAX) /* wait forever */,
+            true /* wait for all */, true /* wait for materialize */);
+      if (ret) {
+         result = anv_queue_set_lost(queue, "timeline timeout: %s",
+                                     strerror(errno));
+      }
+   }
+
+   /* Now submit */
+   if (!queue->lost) {
+      pthread_mutex_lock(&queue->device->mutex);
+      result = anv_queue_execbuf_locked(queue, submit);
+      pthread_mutex_unlock(&queue->device->mutex);
+   }
+
+   if (result != VK_SUCCESS) {
+      /* vkQueueSubmit or some other entry point will report the
+       * DEVICE_LOST error at some point, but until we have emptied our
+       * list of execbufs we need to wake up all potential the waiters
+       * until one of them spots the error.
+       */
+      anv_queue_submit_signal_fences(queue->device, submit);
+   }
+
+   anv_queue_submit_free(queue->device, submit);
+
+   return result;
+}
+
 static void *
 anv_queue_task(void *_queue)
 {
@@ -379,46 +427,7 @@ anv_queue_task(void *_queue)
 
          pthread_mutex_unlock(&queue->mutex);
 
-         VkResult result = VK_ERROR_DEVICE_LOST;
-
-         /* Wait for timeline points to materialize before submitting. We need
-          * to do this because we're using threads to do the submit to i915.
-          * We could end up in a situation where the application submits to 2
-          * queues with the first submit creating the dma-fence for the
-          * second. But because the scheduling of the submission threads might
-          * wakeup the second queue thread first, this would make that execbuf
-          * fail because the dma-fence it depends on hasn't materialized yet.
-          */
-         if (!queue->lost && submit->wait_timeline_count > 0) {
-            int ret = queue->device->info.no_hw ? 0 :
-               anv_gem_syncobj_timeline_wait(
-                  queue->device, submit->wait_timeline_syncobjs,
-                  submit->wait_timeline_values, submit->wait_timeline_count,
-                  anv_get_absolute_timeout(UINT64_MAX) /* wait forever */,
-                  true /* wait for all */, true /* wait for materialize */);
-            if (ret) {
-               result = anv_queue_set_lost(queue, "timeline timeout: %s",
-                                           strerror(errno));
-            }
-         }
-
-         /* Now submit */
-         if (!queue->lost) {
-            pthread_mutex_lock(&queue->device->mutex);
-            result = anv_queue_execbuf_locked(queue, submit);
-            pthread_mutex_unlock(&queue->device->mutex);
-         }
-
-         if (result != VK_SUCCESS) {
-            /* vkQueueSubmit or some other entry point will report the
-             * DEVICE_LOST error at some point, but until we have emptied our
-             * list of execbufs we need to wake up all potential the waiters
-             * until one of them spots the error.
-             */
-            anv_queue_submit_signal_fences(queue->device, submit);
-         }
-
-         anv_queue_submit_free(queue->device, submit);
+         anv_queue_submit_process_and_free(queue, submit);
 
          pthread_mutex_lock(&queue->mutex);
       }
