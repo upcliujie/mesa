@@ -155,6 +155,23 @@ typedef unsigned char boolean;
 
 #endif
 
+/* Place the variable at the beginning of a cache line. */
+#define PIPE_ALIGN_CL PIPE_ALIGN_VAR(CACHE_LINE_SIZE)
+
+/**
+ * Declare a variable on its own cache line.
+ *
+ * This helps eliminate "False sharing" to make atomic operations
+ * on pipe_reference::count faster and/or access to adjacent fields faster.
+ *
+ * https://en.wikipedia.org/wiki/False_sharing
+ *
+ * CALLOC_STRUCT_CL or MALLOC_STRUCT_CL and FREE_CL should be used to allocate
+ * structures that contain this.
+ */
+#define EXCLUSIVE_CACHELINE(decl) \
+   union { PIPE_ALIGN_CL char __cl_space[CACHE_LINE_SIZE]; \
+           PIPE_ALIGN_CL decl; }
 
 #if defined(__GNUC__)
 
