@@ -85,7 +85,16 @@ struct pipe_reference
    int32_t count; /* atomic */
 };
 
-
+/**
+ * Placed after struct pipe_reference. This eliminates false sharing to make
+ * atomic operations on pipe_reference::count faster.
+ *
+ * https://en.wikipedia.org/wiki/False_sharing
+ *
+ * CALLOC_STRUCT_CL and FREE_CL should be used to allocate structures that
+ * contain this.
+ */
+#define PIPE_ALIGN_CL PIPE_ALIGN_VAR(CACHE_LINE_SIZE)
 
 /**
  * Primitive (point/line/tri) rasterization info
@@ -464,7 +473,9 @@ struct pipe_surface
 struct pipe_sampler_view
 {
    struct pipe_reference reference;
-   enum pipe_format format:15;      /**< typed PIPE_FORMAT_x */
+
+   /* The next variable must not share a cache line with "reference". */
+   PIPE_ALIGN_CL enum pipe_format format:15;      /**< typed PIPE_FORMAT_x */
    enum pipe_texture_target target:5; /**< PIPE_TEXTURE_x */
    unsigned swizzle_r:3;         /**< PIPE_SWIZZLE_x for red component */
    unsigned swizzle_g:3;         /**< PIPE_SWIZZLE_x for green component */
@@ -536,7 +547,8 @@ struct pipe_resource
 {
    struct pipe_reference reference;
 
-   unsigned width0; /**< Used by both buffers and textures. */
+    /* The next variable must not share a cache line with "reference". */
+   PIPE_ALIGN_CL unsigned width0; /**< Used by both buffers and textures. */
    uint16_t height0; /* Textures: The maximum height/depth/array_size is 16k. */
    uint16_t depth0;
    uint16_t array_size;
