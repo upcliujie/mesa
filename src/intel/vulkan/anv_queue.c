@@ -423,7 +423,7 @@ anv_queue_task(void *_queue)
       }
 
       if (!queue->quit)
-         pthread_cond_wait(&queue->cond, &queue->mutex);
+         pthread_cond_wait(&queue->producer_cond, &queue->mutex);
    }
 
    pthread_mutex_unlock(&queue->mutex);
@@ -445,7 +445,7 @@ anv_queue_submit_post(struct anv_queue *queue,
    *_submit = NULL;
    if (queue->device->has_thread_submit) {
       pthread_mutex_lock(&queue->mutex);
-      pthread_cond_broadcast(&queue->cond);
+      pthread_cond_broadcast(&queue->producer_cond);
       list_addtail(&submit->link, &queue->queued_submits);
       pthread_mutex_unlock(&queue->mutex);
       return VK_SUCCESS;
@@ -497,7 +497,7 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
       if (pthread_mutex_init(&queue->mutex, NULL) != 0)
          return vk_error(VK_ERROR_INITIALIZATION_FAILED);
 
-      if (pthread_cond_init(&queue->cond, NULL) != 0) {
+      if (pthread_cond_init(&queue->producer_cond, NULL) != 0) {
          result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
          goto fail_mutex;
       }
@@ -512,7 +512,7 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    return VK_SUCCESS;
 
  fail_cond:
-   pthread_cond_destroy(&queue->cond);
+   pthread_cond_destroy(&queue->producer_cond);
  fail_mutex:
    pthread_mutex_destroy(&queue->mutex);
 
@@ -524,14 +524,14 @@ anv_queue_finish(struct anv_queue *queue)
 {
    if (queue->device->has_thread_submit) {
       pthread_mutex_lock(&queue->mutex);
-      pthread_cond_broadcast(&queue->cond);
+      pthread_cond_broadcast(&queue->producer_cond);
       queue->quit = true;
       pthread_mutex_unlock(&queue->mutex);
 
       void *ret;
       pthread_join(queue->thread, &ret);
 
-      pthread_cond_destroy(&queue->cond);
+      pthread_cond_destroy(&queue->producer_cond);
       pthread_mutex_destroy(&queue->mutex);
    }
 
