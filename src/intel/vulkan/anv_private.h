@@ -1064,7 +1064,10 @@ struct anv_queue {
    pthread_mutex_t                           mutex;
 
    pthread_t                                 thread;
-   pthread_cond_t                            cond;
+   /* Submission thread waiting condition, to be signaled from the application
+    * thread.
+    */
+   pthread_cond_t                            producer_cond;
 
    /*
     * A list of struct anv_queue_submit to be submitted to i915.
