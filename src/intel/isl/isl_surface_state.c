@@ -48,9 +48,9 @@ static const uint8_t isl_encode_halign[] = {
 };
 #elif GFX_VER >= 8
 static const uint8_t isl_encode_halign[] = {
-    [4] = HALIGN4,
-    [8] = HALIGN8,
-    [16] = HALIGN16,
+    [4] = HALIGN_4,
+    [8] = HALIGN_8,
+    [16] = HALIGN_16,
 };
 #elif GFX_VER >= 7
 static const uint8_t isl_encode_halign[] = {
@@ -61,9 +61,9 @@ static const uint8_t isl_encode_halign[] = {
 
 #if GFX_VER >= 8
 static const uint8_t isl_encode_valign[] = {
-    [4] = VALIGN4,
-    [8] = VALIGN8,
-    [16] = VALIGN16,
+    [4] = VALIGN_4,
+    [8] = VALIGN_8,
+    [16] = VALIGN_16,
 };
 #elif GFX_VER >= 6
 static const uint8_t isl_encode_valign[] = {
