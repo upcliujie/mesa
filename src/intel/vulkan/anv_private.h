@@ -1068,6 +1068,10 @@ struct anv_queue {
     * thread.
     */
    pthread_cond_t                            producer_cond;
+   /* Application thread waiting condition, to be signaled from the submission
+    * thread when the queued_submits list is empty.
+    */
+   pthread_cond_t                            consumer_cond;
 
    /*
     * A list of struct anv_queue_submit to be submitted to i915.

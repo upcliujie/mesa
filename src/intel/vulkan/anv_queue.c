@@ -432,6 +432,9 @@ anv_queue_task(void *_queue)
          pthread_mutex_lock(&queue->mutex);
       }
 
+      /* Tell the application thread that all elements have been consumed. */
+      pthread_cond_broadcast(&queue->consumer_cond);
+
       if (!queue->quit)
          pthread_cond_wait(&queue->producer_cond, &queue->mutex);
    }
@@ -517,15 +520,21 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
          result = vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
          goto fail_mutex;
       }
+      if (pthread_cond_init(&queue->consumer_cond, NULL) != 0) {
+         result = vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
+         goto fail_producer_cond;
+      }
       if (pthread_create(&queue->thread, NULL, anv_queue_task, queue)) {
          result = vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
-         goto fail_cond;
+         goto fail_consumer_cond;
       }
    }
 
    return VK_SUCCESS;
 
- fail_cond:
+ fail_consumer_cond:
+   pthread_cond_destroy(&queue->consumer_cond);
+ fail_producer_cond:
    pthread_cond_destroy(&queue->producer_cond);
  fail_mutex:
    pthread_mutex_destroy(&queue->mutex);
