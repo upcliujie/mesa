@@ -2042,6 +2042,12 @@ struct anv_descriptor_set {
    struct anv_descriptor descriptors[0];
 };
 
+static inline bool
+anv_descriptor_set_is_push(struct anv_descriptor_set *set)
+{
+   return set->pool == NULL;
+}
+
 struct anv_buffer_view {
    struct vk_object_base base;
 

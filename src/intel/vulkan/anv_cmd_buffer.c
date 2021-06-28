@@ -931,7 +931,12 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
    }
 
    VkShaderStageFlags dirty_stages = 0;
-   if (pipe_state->descriptors[set_index] != set) {
+   /* If it's a push descriptor set, we have to flag things as dirty
+    * regardless of whether or not the CPU-side data structure changed as we
+    * may have edited in-place.
+    */
+   if (pipe_state->descriptors[set_index] != set ||
+         anv_descriptor_set_is_push(set)) {
       pipe_state->descriptors[set_index] = set;
 
       /* Ray-tracing shaders are entirely bindless and so they don't have
@@ -943,20 +948,15 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
 
          push->desc_sets[set_index] = anv_address_physical(set->desc_addr);
 
-         anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
-                               cmd_buffer->batch.alloc,
-                               set->pool->bo);
+         if (set->desc_addr.bo) {
+            anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
+                                  cmd_buffer->batch.alloc,
+                                  set->desc_addr.bo);
+         }
       }
 
       dirty_stages |= stages;
    }
-
-   /* If it's a push descriptor set, we have to flag things as dirty
-    * regardless of whether or not the CPU-side data structure changed as we
-    * may have edited in-place.
-    */
-   if (set->pool == NULL)
-      dirty_stages |= stages;
 
    if (dynamic_offsets) {
       if (set_layout->dynamic_offset_count > 0) {

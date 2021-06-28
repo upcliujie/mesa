@@ -2551,8 +2551,8 @@ static struct anv_address
 anv_descriptor_set_address(struct anv_cmd_buffer *cmd_buffer,
                            struct anv_descriptor_set *set)
 {
-   if (set->pool) {
-      /* This is a push descriptor set.  We have to flag it as used on the GPU
+   if (anv_descriptor_set_is_push(set)) {
+      /* We have to flag push descriptor set as used on the GPU
        * so that the next time we push descriptors, we grab a new memory.
        */
       struct anv_push_descriptor_set *push_set =
