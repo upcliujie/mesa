@@ -735,8 +735,6 @@ i915_texture_transfer_map(struct pipe_context *pipe,
        !(usage & (PIPE_MAP_READ | PIPE_MAP_DONTBLOCK | PIPE_MAP_UNSYNCHRONIZED)))
       use_staging_texture = TRUE;
 
-   use_staging_texture = FALSE;
-
    if (use_staging_texture) {
       /* 
        * Allocate the untiled staging texture.
