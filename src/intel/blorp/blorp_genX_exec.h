@@ -2182,7 +2182,7 @@ blorp_exec_compute(struct blorp_batch *batch, const struct blorp_params *params)
       vfe.BypassGatewayControl = BypassingOpenGatewayCloseGatewayprotocol;
 #endif
 #if GFX_VER == 7
-      vfe.GPGPUMode = 1;
+      vfe.GPGPUMode = true;
 #endif
 
       /* We are uploading duplicated copies of push constant uniforms for each
