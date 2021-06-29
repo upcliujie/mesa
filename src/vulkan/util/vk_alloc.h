@@ -33,6 +33,10 @@
 #include "util/macros.h"
 #include "util/u_printf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 const VkAllocationCallbacks *
 vk_default_allocator(void);
 
@@ -230,7 +234,7 @@ vk_multialloc_alloc(struct vk_multialloc *ma,
                     const VkAllocationCallbacks *alloc,
                     VkSystemAllocationScope scope)
 {
-   char *ptr = (char *)vk_alloc(alloc, ma->size, ma->align, scope);
+   void *ptr = vk_alloc(alloc, ma->size, ma->align, scope);
    if (!ptr)
       return NULL;
 
@@ -246,7 +250,7 @@ vk_multialloc_alloc(struct vk_multialloc *ma,
    STATIC_ASSERT(ARRAY_SIZE(ma->ptrs) == 8);
 #define _VK_MULTIALLOC_UPDATE_POINTER(_i) \
    if ((_i) < ma->ptr_count) \
-      *ma->ptrs[_i] = ptr + (uintptr_t)*ma->ptrs[_i]
+      *ma->ptrs[_i] = (char *)ptr + (uintptr_t)*ma->ptrs[_i]
    _VK_MULTIALLOC_UPDATE_POINTER(0);
    _VK_MULTIALLOC_UPDATE_POINTER(1);
    _VK_MULTIALLOC_UPDATE_POINTER(2);
@@ -292,5 +296,9 @@ vk_multialloc_zalloc2(struct vk_multialloc *ma,
 {
    return vk_multialloc_zalloc(ma, alloc ? alloc : parent_alloc, scope);
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
