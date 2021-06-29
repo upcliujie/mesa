@@ -881,6 +881,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
       bool consider_culling = !(device->instance->debug_flags & RADV_DEBUG_NO_NGG_CULLING) &&
                               !is_meta_shader &&
                               util_bitcount64(nir->info.outputs_written & ~VARYING_BIT_POS) < param_limit;
+      bool compactionless_culling = false;
 
       out_conf =
          ac_nir_lower_ngg_nogs(
@@ -892,7 +893,8 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
             consider_culling,
             key->vs_common_out.as_ngg_passthrough,
             key->vs_common_out.export_prim_id,
-            key->vs.provoking_vtx_last);
+            key->vs.provoking_vtx_last,
+            compactionless_culling);
 
       info->has_ngg_culling = out_conf.can_cull;
       info->num_lds_blocks_when_not_culling = DIV_ROUND_UP(out_conf.lds_bytes_if_culling_off, device->physical_device->rad_info.lds_encode_granularity);
