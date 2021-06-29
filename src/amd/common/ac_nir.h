@@ -107,7 +107,8 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
                       bool consider_culling,
                       bool consider_passthrough,
                       bool export_prim_id,
-                      bool provoking_vtx_last);
+                      bool provoking_vtx_last,
+                      bool disable_compaction);
 
 void
 ac_nir_lower_ngg_gs(nir_shader *shader,
