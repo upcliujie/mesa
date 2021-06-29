@@ -784,7 +784,12 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *nogs_state)
             nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
             if (!nir_intrinsic_can_reorder(intrin) ||
                 !nir_intrinsic_infos[intrin->intrinsic].has_dest ||
-                intrin->dest.ssa.divergent)
+                (intrin->dest.ssa.divergent && !nogs_state->compactionless_culling))
+               continue;
+
+            /* In compactionless mode, save the results of memory loads. */
+            if (intrin->dest.ssa.divergent &&
+                intrin->intrinsic != nir_intrinsic_load_input)
                continue;
 
             ssa = &intrin->dest.ssa;
