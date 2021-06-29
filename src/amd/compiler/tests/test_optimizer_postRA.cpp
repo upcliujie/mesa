@@ -213,7 +213,7 @@ BEGIN_TEST(optimizer_postRA.scc_nocmp_opt)
         auto salu = bld.sop2(aco_opcode::s_and_b64, bld.def(s2, reg_s2), bld.def(s1, scc), op_in_1,
                              Operand::c32(0x12345u));
         auto scmp = bld.sopc(aco_opcode::s_cmp_eq_u64, bld.def(s1, scc), Operand(salu, reg_s2),
-                             Operand::zero(UINT64_C(0)));
+                             Operand::zero(8));
         auto br = bld.branch(aco_opcode::p_cbranch_nz, bld.def(s2, vcc), bld.scc(scmp));
         writeout(4, Operand(br, vcc));
     }

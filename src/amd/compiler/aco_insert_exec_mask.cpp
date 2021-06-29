@@ -1047,7 +1047,7 @@ add_branch_code(exec_ctx& ctx, Block* block)
       unsigned succ_idx = ctx.program->blocks[block->linear_succs[1]].linear_succs[0];
       Block& succ = ctx.program->blocks[succ_idx];
       if (!(succ.kind & block_kind_invert || succ.kind & block_kind_merge)) {
-         bld.copy(Definition(exec, bld.lm), Operand::zero(, bld.lm == s2));
+         bld.copy(Definition(exec, bld.lm), Operand::zero(bld.lm == s2 ? 8 : 4));
       }
 
       bld.branch(aco_opcode::p_cbranch_nz, bld.hint_vcc(bld.def(s2)), bld.scc(cond),
@@ -1076,7 +1076,7 @@ add_branch_code(exec_ctx& ctx, Block* block)
       unsigned succ_idx = ctx.program->blocks[block->linear_succs[1]].linear_succs[0];
       Block& succ = ctx.program->blocks[succ_idx];
       if (!(succ.kind & block_kind_invert || succ.kind & block_kind_merge)) {
-         bld.copy(Definition(exec, bld.lm), Operand::zero(, bld.lm == s2));
+         bld.copy(Definition(exec, bld.lm), Operand::zero(bld.lm == s2 ? 8 : 4));
       }
 
       bld.branch(aco_opcode::p_cbranch_nz, bld.hint_vcc(bld.def(s2)), bld.scc(cond),
