@@ -79,7 +79,7 @@ graw_create_window_and_screen(int x,
    if (winsys == NULL)
       goto fail;
 
-   screen = sw_screen_create(winsys);
+   screen = sw_screen_create(winsys, false);
    if (screen == NULL)
       goto fail;
 
