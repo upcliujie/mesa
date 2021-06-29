@@ -389,6 +389,10 @@ set_program_string(struct gl_program *prog, GLenum target, GLenum format, GLsize
       string = replacement;
 #endif /* ENABLE_SHADER_CACHE */
 
+   /* Clear info to not reuse any stale data, but keep name, label, stage and next_stage */
+   memset(&prog->info.num_textures, 0, sizeof(prog->info) -
+                                       offsetof(struct shader_info, num_textures));
+
    if (target == GL_VERTEX_PROGRAM_ARB && ctx->Extensions.ARB_vertex_program) {
       _mesa_parse_arb_vertex_program(ctx, target, string, len, prog);
    }
