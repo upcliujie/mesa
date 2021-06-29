@@ -31,6 +31,10 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_icd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef WSI_ENTRYPOINTS_H
 extern const struct vk_instance_entrypoint_table wsi_instance_entrypoints;
 extern const struct vk_physical_device_entrypoint_table wsi_physical_device_entrypoints;
@@ -274,5 +278,9 @@ wsi_common_queue_present(const struct wsi_device *wsi,
                          VkQueue queue_h,
                          int queue_family_index,
                          const VkPresentInfoKHR *pPresentInfo);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
