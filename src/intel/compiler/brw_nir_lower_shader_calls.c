@@ -138,10 +138,12 @@ brw_nir_lower_shader_calls(nir_shader *shader)
          if (instr->type != nir_instr_type_intrinsic)
             continue;
 
+         /* Leave nir_intrinsic_rt_resume to be lowered by
+          * brw_nir_lower_rt_intrinsics()
+          */
          nir_intrinsic_instr *call = nir_instr_as_intrinsic(instr);
          if (call->intrinsic != nir_intrinsic_rt_trace_ray &&
-             call->intrinsic != nir_intrinsic_rt_execute_callable &&
-             call->intrinsic != nir_intrinsic_rt_resume)
+             call->intrinsic != nir_intrinsic_rt_execute_callable)
             continue;
 
          b->cursor = nir_before_instr(instr);
