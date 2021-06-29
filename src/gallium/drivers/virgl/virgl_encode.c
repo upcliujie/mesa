@@ -864,7 +864,8 @@ static void virgl_encoder_transfer3d_common(struct virgl_screen *vs,
     * because transfer->resource might have a different virgl_hw_res than what
     * this transfer targets, which is saved in xfer->hw_res.
     */
-   vs->vws->emit_res(vs->vws, buf, xfer->hw_res, TRUE);
+   if (xfer->hw_res)
+	   vs->vws->emit_res(vs->vws, buf, xfer->hw_res, TRUE);
    virgl_encoder_write_dword(buf, transfer->level);
    virgl_encoder_write_dword(buf, transfer->usage);
    virgl_encoder_write_dword(buf, stride);
