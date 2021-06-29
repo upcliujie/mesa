@@ -328,9 +328,19 @@ fs_visitor::register_coalesce()
    }
 
    if (progress) {
-      foreach_block_and_inst_safe (block, backend_instruction, inst, cfg) {
-         if (inst->opcode == BRW_OPCODE_NOP) {
-            inst->remove(block);
+      foreach_block_safe (block, cfg) {
+         foreach_inst_in_block_safe(backend_instruction, inst, block) {
+            if (inst->opcode == BRW_OPCODE_NOP) {
+               inst->remove(block, true);
+            }
+         }
+
+         if (block->end_ip_delta != 0) {
+            /* We're only removing instructions. */
+            assert(block->end_ip_delta < 0);
+
+            block->adjust_later_block_ips(block->end_ip_delta);
+            block->end_ip_delta = 0;
          }
       }
 
