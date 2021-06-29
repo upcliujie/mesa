@@ -1727,6 +1727,7 @@ struct radv_pipeline {
 
    uint8_t attrib_bindings[MAX_VERTEX_ATTRIBS];
    uint32_t attrib_ends[MAX_VERTEX_ATTRIBS];
+   uint32_t attrib_index_offset[MAX_VERTEX_ATTRIBS];
 
    bool use_per_attribute_vb_descs;
    uint32_t vb_desc_usage_mask;
