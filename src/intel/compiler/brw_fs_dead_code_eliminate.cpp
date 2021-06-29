@@ -121,7 +121,7 @@ fs_visitor::dead_code_eliminate()
             flag_live[0] &= ~inst->flags_written();
 
          if (inst->opcode == BRW_OPCODE_NOP) {
-            inst->remove(block);
+            inst->remove(block, true);
             continue;
          }
 
@@ -136,6 +136,14 @@ fs_visitor::dead_code_eliminate()
          }
 
          flag_live[0] |= inst->flags_read(devinfo);
+      }
+
+      if (block->end_ip_delta != 0) {
+         /* We're only removing instructions. */
+         assert(block->end_ip_delta < 0);
+
+         block->adjust_later_block_ips(block->end_ip_delta);
+         block->end_ip_delta = 0;
       }
    }
 
