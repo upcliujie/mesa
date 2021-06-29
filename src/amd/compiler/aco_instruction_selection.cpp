@@ -3362,10 +3362,10 @@ void visit_load_const(isel_context *ctx, nir_load_const_instr *instr)
       aco_ptr<Pseudo_instruction> vec{create_instruction<Pseudo_instruction>(aco_opcode::p_create_vector, Format::PSEUDO, dst.size(), 1)};
       if (instr->def.bit_size == 64)
          for (unsigned i = 0; i < dst.size(); i++)
-            vec->operands[i] = Operand::c32{(instr->value[0].u64 >> i * 32)};
+            vec->operands[i] = Operand::c32(instr->value[0].u64 >> i * 32);
       else {
          for (unsigned i = 0; i < dst.size(); i++)
-            vec->operands[i] = Operand::c32{instr->value[i].u32};
+            vec->operands[i] = Operand::c32(instr->value[i].u32);
       }
       vec->definitions[0] = Definition(dst);
       ctx->block->instructions.emplace_back(std::move(vec));
