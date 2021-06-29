@@ -433,7 +433,7 @@ expand_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned num_components
             src = bld.as_uniform(src);
          vec->operands[i] = Operand(src);
       } else {
-         vec->operands[i] = Operand::zero(, component_size == 2);
+         vec->operands[i] = Operand::zero(component_size == 2 ? 8 : 4);
       }
       elems[i] = vec->operands[i].getTemp();
    }
@@ -3573,10 +3573,10 @@ visit_load_const(isel_context* ctx, nir_load_const_instr* instr)
          aco_opcode::p_create_vector, Format::PSEUDO, dst.size(), 1)};
       if (instr->def.bit_size == 64)
          for (unsigned i = 0; i < dst.size(); i++)
-            vec->operands[i] = Operand::c32{(instr->value[0].u64 >> i * 32)};
+            vec->operands[i] = Operand::c32(instr->value[0].u64 >> i * 32);
       else {
          for (unsigned i = 0; i < dst.size(); i++)
-            vec->operands[i] = Operand::c32{instr->value[i].u32};
+            vec->operands[i] = Operand::c32(instr->value[i].u32);
       }
       vec->definitions[0] = Definition(dst);
       ctx->block->instructions.emplace_back(std::move(vec));
@@ -4468,8 +4468,8 @@ create_vec_from_array(isel_context* ctx, Temp arr[], unsigned cnt, RegType reg_t
          allocated_vec[i] = arr[i];
          instr->operands[i] = Operand(arr[i]);
       } else {
-         Temp zero =
-            bld.copy(bld.def(RegClass(reg_type, dword_size)), Operand::zero(, dword_size == 2));
+         Temp zero = bld.copy(bld.def(RegClass(reg_type, dword_size)),
+                              Operand::zero(dword_size == 2 ? 8 : 4));
          allocated_vec[i] = zero;
          instr->operands[i] = Operand(zero);
       }
@@ -11495,7 +11495,7 @@ ngg_emit_sendmsg_gs_alloc_req(isel_context* ctx, Temp vtx_cnt, Temp prm_cnt)
       Temp cond = bld.sop2(Builder::s_lshl, bld.def(bld.lm), bld.def(s1, scc),
                            Operand::c32_or_c64(1u, ctx->program->wave_size == 64), first_lane);
       cond = bld.sop2(Builder::s_cselect, bld.def(bld.lm), cond,
-                      Operand::zero(, ctx->program->wave_size == 64), bld.scc(prm_cnt_0));
+                      Operand::zero(ctx->program->wave_size == 64 ? 8 : 4), bld.scc(prm_cnt_0));
 
       if_context ic_prim_0;
       begin_divergent_if_then(ctx, &ic_prim_0, cond);

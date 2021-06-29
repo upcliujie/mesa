@@ -150,7 +150,7 @@ build_merge_code(Program* program, Block* block, Definition dst, Operand prev, O
       else if (cur.constantValue())
          bld.copy(dst, Operand(exec, bld.lm));
       else
-         bld.copy(dst, Operand::zero(, bld.lm == s2));
+         bld.copy(dst, Operand::zero(bld.lm == s2 ? 8 : 4));
    }
 }
 
