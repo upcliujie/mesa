@@ -107,6 +107,16 @@ struct bblock_t {
 
    backend_instruction *first_non_control_flow_inst();
    backend_instruction *last_non_control_flow_inst();
+
+   inline void adjust_later_block_ips(int ip_adjustment)
+   {
+      for (bblock_t *block_iter = this->next();
+           block_iter;
+           block_iter = block_iter->next()) {
+         block_iter->start_ip += ip_adjustment;
+         block_iter->end_ip += ip_adjustment;
+      }
+   }
 #endif
 
    struct exec_node link;

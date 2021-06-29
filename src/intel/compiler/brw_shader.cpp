@@ -1183,17 +1183,6 @@ inst_is_in_block(const bblock_t *block, const backend_instruction *inst)
 }
 #endif
 
-static void
-adjust_later_block_ips(bblock_t *start_block, int ip_adjustment)
-{
-   for (bblock_t *block_iter = start_block->next();
-        block_iter;
-        block_iter = block_iter->next()) {
-      block_iter->start_ip += ip_adjustment;
-      block_iter->end_ip += ip_adjustment;
-   }
-}
-
 void
 backend_instruction::insert_after(bblock_t *block, backend_instruction *inst)
 {
@@ -1204,7 +1193,7 @@ backend_instruction::insert_after(bblock_t *block, backend_instruction *inst)
 
    block->end_ip++;
 
-   adjust_later_block_ips(block, 1);
+   block->adjust_later_block_ips(1);
 
    exec_node::insert_after(inst);
 }
@@ -1219,7 +1208,7 @@ backend_instruction::insert_before(bblock_t *block, backend_instruction *inst)
 
    block->end_ip++;
 
-   adjust_later_block_ips(block, 1);
+   block->adjust_later_block_ips(1);
 
    exec_node::insert_before(inst);
 }
@@ -1233,7 +1222,7 @@ backend_instruction::insert_before(bblock_t *block, exec_list *list)
 
    block->end_ip += num_inst;
 
-   adjust_later_block_ips(block, num_inst);
+   block->adjust_later_block_ips(num_inst);
 
    exec_node::insert_before(list);
 }
@@ -1243,7 +1232,7 @@ backend_instruction::remove(bblock_t *block)
 {
    assert(inst_is_in_block(block, this) || !"Instruction not in block");
 
-   adjust_later_block_ips(block, -1);
+   block->adjust_later_block_ips(-1);
 
    if (block->start_ip == block->end_ip) {
       block->cfg->remove_block(block);
