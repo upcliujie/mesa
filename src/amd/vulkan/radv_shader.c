@@ -823,7 +823,7 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
       return false;
 
    ac_nir_ngg_config out_conf = {0};
-   const struct gfx10_ngg_info *ngg_info = &info->ngg_info;
+   struct gfx10_ngg_info *ngg_info = &info->ngg_info;
    unsigned num_gs_invocations = (nir->info.stage != MESA_SHADER_GEOMETRY || ngg_info->max_vert_out_per_gs_instance) ? 1 : info->gs.invocations;
    unsigned num_vertices_per_prim = 3;
 
@@ -880,7 +880,16 @@ bool radv_lower_ngg(struct radv_device *device, struct nir_shader *nir, bool has
       bool consider_culling = !(device->instance->debug_flags & RADV_DEBUG_NO_NGG_CULLING) &&
                               !is_meta_shader &&
                               util_bitcount64(nir->info.outputs_written & ~VARYING_BIT_POS) < param_limit;
-      bool compactionless_culling = false;
+      bool compactionless_culling = consider_culling && device->physical_device->rad_info.chip_class >= GFX10_3;
+
+      if (compactionless_culling) {
+         /* GFX10.3 doesn't need vertex compaction for single-wave workgroups */
+         ngg_info->enable_vertex_grouping = true;
+         ngg_info->max_gsprims = MIN2(ngg_info->max_gsprims, info->wave_size);
+         ngg_info->hw_max_esverts = MIN2(ngg_info->hw_max_esverts, info->wave_size);
+         max_vtx_in = ngg_info->hw_max_esverts;
+         max_workgroup_size = MAX2(ngg_info->max_gsprims, ngg_info->hw_max_esverts);
+      }
 
       out_conf =
          ac_nir_lower_ngg_nogs(
