@@ -5,6 +5,6 @@ struct pipe_screen;
 struct sw_winsys;
 
 struct pipe_screen *
-sw_screen_create(struct sw_winsys *winsys);
+sw_screen_create(struct sw_winsys *winsys, bool sw_vk);
 
 #endif /* _SW_HELPER_PUBLIC_H */

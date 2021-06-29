@@ -305,12 +305,12 @@ pipe_loader_sw_get_driconf(struct pipe_loader_device *dev, unsigned *count)
 
 static struct pipe_screen *
 pipe_loader_sw_create_screen(struct pipe_loader_device *dev,
-                             const struct pipe_screen_config *config)
+                             const struct pipe_screen_config *config, bool sw_vk)
 {
    struct pipe_loader_sw_device *sdev = pipe_loader_sw_device(dev);
    struct pipe_screen *screen;
 
-   screen = sdev->dd->create_screen(sdev->ws);
+   screen = sdev->dd->create_screen(sdev->ws, sw_vk);
    if (!screen)
       sdev->ws->destroy(sdev->ws);
 

@@ -88,6 +88,8 @@ pipe_loader_probe(struct pipe_loader_device **devs, int ndev);
  * \param dev Device the screen will be created for.
  */
 struct pipe_screen *
+pipe_loader_create_screen_vk(struct pipe_loader_device *dev, bool sw_vk);
+struct pipe_screen *
 pipe_loader_create_screen(struct pipe_loader_device *dev);
 
 /**
