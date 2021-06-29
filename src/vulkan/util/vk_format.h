@@ -28,11 +28,19 @@
 #include <vulkan/vulkan_core.h>
 #include "util/format/u_format.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum pipe_format
 vk_format_to_pipe_format(enum VkFormat vkformat);
 
 VkImageAspectFlags
 vk_format_aspects(VkFormat format);
+
+#ifdef __cplusplus
+}
+#endif
 
 static inline bool
 vk_format_is_color(VkFormat format)

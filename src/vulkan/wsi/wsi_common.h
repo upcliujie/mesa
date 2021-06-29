@@ -30,6 +30,10 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_icd.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* This is guaranteed to not collide with anything because it's in the
  * VK_KHR_swapchain namespace but not actually used by the extension.
  */
@@ -311,5 +315,9 @@ wsi_common_queue_present(const struct wsi_device *wsi,
 
 uint64_t
 wsi_common_get_current_time(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
