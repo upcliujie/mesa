@@ -11,7 +11,7 @@ PUBLIC struct pipe_screen *
 swrast_create_screen(struct sw_winsys *ws);
 
 struct pipe_screen *
-swrast_create_screen(struct sw_winsys *ws)
+swrast_create_screen(struct sw_winsys *ws, bool sw_vk)
 {
    struct pipe_screen *screen;
 
