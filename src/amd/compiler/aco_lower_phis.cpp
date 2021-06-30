@@ -39,6 +39,7 @@ enum pred_defined : uint8_t {
    pred_const_1 = 1,
    pred_const_0 = 2,
    pred_temp = 3,
+   pred_zero = 4, /* all disabled lanes are zero'd out */
 };
 
 struct ssa_state {
@@ -72,7 +73,8 @@ Operand get_ssa(Program *program, unsigned block_idx, ssa_state *state, bool inp
    size_t pred = block.linear_preds.size();
    Operand op;
    if (block.loop_nest_depth < state->loop_nest_depth) {
-      op = Operand(program->lane_mask);
+      /* loop-carried value for loop exit phis */
+      op = Operand(0u, program->wave_size == 64);
    } else if (block.loop_nest_depth > state->loop_nest_depth ||
               pred == 1 || block.kind & block_kind_loop_exit) {
       op = get_ssa(program, block.linear_preds[0], state, false);
@@ -161,6 +163,21 @@ void build_merge_code(Program *program, ssa_state *state, Block *block, Operand 
    }
 
    assert(prev.isTemp());
+   /* simpler sequence in case prev has only zeros in disabled lanes */
+   if (state->any_pred_defined[block_idx] & pred_zero) {
+      if (cur.isConstant()) {
+         if (!cur.constantValue()) {
+            bld.copy(dst, prev);
+            return;
+         }
+         cur = Operand(exec, bld.lm);
+      } else {
+         cur = bld.sop2(Builder::s_and, bld.def(bld.lm), bld.def(s1, scc), cur, Operand(exec, bld.lm));
+      }
+      bld.sop2(Builder::s_or, dst, bld.def(s1, scc), prev, cur);
+      return;
+   }
+
    if (cur.isConstant()) {
       if (cur.constantValue())
          bld.sop2(Builder::s_or, dst, bld.def(s1, scc), prev, Operand(exec, bld.lm));
@@ -204,6 +221,18 @@ void init_any_pred_defined(Program *program, ssa_state *state, Block *block, aco
          end++;
       /* don't propagate the incoming value */
       state->any_pred_defined[block->index] = pred_undef;
+   }
+
+   /* add dominating zero: this allows to emit simpler merge sequences
+    * if we can ensure that all disabled lanes are always zero on incoming values */
+   // TODO: find more occasions where pred_zero is beneficial (e.g. with 2 or more temp merges)
+   if (block->kind & block_kind_loop_exit) {
+      /* zero the loop-carried variable */
+      if (program->blocks[start].linear_preds.size() > 1) {
+         state->any_pred_defined[start] |= pred_zero;
+         // TODO: emit this zero explicitly
+         state->any_pred_defined[start - 1] = pred_const_0;
+      }
    }
 
    for (unsigned j = start; j < end; j++) {
