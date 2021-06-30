@@ -145,7 +145,8 @@ radv_image_use_fast_clear_for_image(const struct radv_device *device,
             * supported because that means we can keep DCC compressed on
             * all layouts/queues.
             */
-           radv_image_use_dcc_image_stores(device, image));
+           (radv_image_use_dcc_image_stores(device, image) &&
+            !device->instance->disable_dcc_concurrent));
 }
 
 bool
