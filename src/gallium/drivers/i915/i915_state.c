@@ -28,6 +28,7 @@
 /* Authors:  Keith Whitwell <keithw@vmware.com>
  */
 
+#include "compiler/nir/nir_builder.h"
 #include "draw/draw_context.h"
 #include "nir/nir_to_tgsi.h"
 #include "tgsi/tgsi_parse.h"
@@ -565,6 +566,37 @@ i915_delete_fs_state(struct pipe_context *pipe, void *shader)
    FREE(ifs);
 }
 
+static bool
+i915_nir_clamp_point_size_instr(nir_builder *b, nir_instr *instr, void *state)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return true;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   if (intr->intrinsic != nir_intrinsic_store_deref)
+      return false;
+
+   nir_deref_instr *deref = nir_src_as_deref(intr->src[0]);
+   nir_variable *var = nir_deref_instr_get_variable(deref);
+   if (var->data.location != VARYING_SLOT_PSIZ)
+      return false;
+   b->cursor = nir_before_instr(instr);
+   nir_instr_rewrite_src_ssa(instr, &intr->src[1],
+                             nir_fmin(b, nir_ssa_for_src(b, intr->src[1], 1),
+                                      nir_imm_float(b, 255.0)));
+
+   return true;
+}
+
+/* Clamps the per-vertex point size to be within the HW limits. */
+static bool
+i915_nir_clamp_point_size(nir_shader *s)
+{
+   return nir_shader_instructions_pass(
+      s, i915_nir_clamp_point_size_instr,
+      nir_metadata_block_index | nir_metadata_dominance, NULL);
+}
+
 static void *
 i915_create_vs_state(struct pipe_context *pipe,
                      const struct pipe_shader_state *templ)
@@ -573,13 +605,17 @@ i915_create_vs_state(struct pipe_context *pipe,
 
    struct pipe_shader_state from_nir;
    if (templ->type == PIPE_SHADER_IR_NIR) {
+      nir_shader *s = templ->ir.nir;
+
+      NIR_PASS_V(s, i915_nir_clamp_point_size);
+
       /* The gallivm draw path doesn't support non-native-integers NIR shaders,
        * st/mesa does native-integers for the screen as a whole rather than
        * per-stage, and i915 FS can't do native integers.  So, convert to TGSI,
        * where the draw path *does* support non-native-integers.
        */
       from_nir.type = PIPE_SHADER_IR_TGSI;
-      from_nir.tokens = nir_to_tgsi(templ->ir.nir, pipe->screen);
+      from_nir.tokens = nir_to_tgsi(s, pipe->screen);
       templ = &from_nir;
    }
 
