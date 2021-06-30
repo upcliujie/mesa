@@ -663,7 +663,7 @@ adjust_vertex_fetch_alpha(struct radv_shader_context *ctx, unsigned adjustment, 
 
 static LLVMValueRef
 radv_fixup_vertex_input_fetches(struct radv_shader_context *ctx, LLVMValueRef value,
-                                unsigned num_channels, bool is_float)
+                                unsigned num_channels, bool is_float, unsigned alpha_adjust)
 {
    LLVMValueRef zero = is_float ? ctx->ac.f32_0 : ctx->ac.i32_0;
    LLVMValueRef one = is_float ? ctx->ac.f32_1 : ctx->ac.i32_1;
@@ -689,34 +689,28 @@ radv_fixup_vertex_input_fetches(struct radv_shader_context *ctx, LLVMValueRef va
       chan[i] = ac_to_integer(&ctx->ac, chan[i]);
    }
 
+   chan[3] = adjust_vertex_fetch_alpha(ctx, alpha_adjust, chan[3]);
+
    return ac_build_gather_values(&ctx->ac, chan, 4);
 }
 
-static void
-handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *variable)
+static LLVMValueRef
+load_vs_input(struct radv_shader_context *ctx, unsigned location)
 {
-   LLVMValueRef t_list_ptr = ac_get_arg(&ctx->ac, ctx->args->ac.vertex_buffers);
-   LLVMValueRef t_offset;
-   LLVMValueRef t_list;
-   LLVMValueRef input;
-   LLVMValueRef buffer_index;
-   unsigned attrib_count = glsl_count_attribute_slots(variable->type, true);
-
-   enum glsl_base_type type = glsl_get_base_type(variable->type);
-   for (unsigned i = 0; i < attrib_count; ++i) {
-      LLVMValueRef output[4];
-      unsigned attrib_index = variable->data.location + i - VERT_ATTRIB_GENERIC0;
+   unsigned attrib_index = location - VERT_ATTRIB_GENERIC0;
       unsigned attrib_format = ctx->args->options->key.vs.vertex_attribute_formats[attrib_index];
       unsigned data_format = attrib_format & 0x0f;
       unsigned num_format = (attrib_format >> 4) & 0x07;
       bool is_float =
          num_format != V_008F0C_BUF_NUM_FORMAT_UINT && num_format != V_008F0C_BUF_NUM_FORMAT_SINT;
       uint8_t input_usage_mask =
-         ctx->args->shader_info->vs.input_usage_mask[variable->data.location + i];
+      ctx->args->shader_info->vs.input_usage_mask[location];
       unsigned num_input_channels = util_last_bit(input_usage_mask);
+   LLVMValueRef t_list_ptr = ac_get_arg(&ctx->ac, ctx->args->ac.vertex_buffers);
+   LLVMValueRef t_offset, t_list, buffer_index, input;
 
       if (num_input_channels == 0)
-         continue;
+      return NULL;
 
       if (ctx->args->options->key.vs.instance_rate_inputs & (1u << attrib_index)) {
          uint32_t divisor = ctx->args->options->key.vs.instance_rate_divisors[attrib_index];
@@ -821,7 +815,26 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
          input = ac_build_gather_values(&ctx->ac, c, 4);
       }
 
-      input = radv_fixup_vertex_input_fetches(ctx, input, num_channels, is_float);
+   return radv_fixup_vertex_input_fetches(ctx, input, num_channels, is_float, alpha_adjust);
+}
+
+static void
+handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *variable)
+{
+   unsigned attrib_count = glsl_count_attribute_slots(variable->type, true);
+   enum glsl_base_type type = glsl_get_base_type(variable->type);
+
+   for (unsigned i = 0; i < attrib_count; ++i) {
+      LLVMValueRef output[4], input;
+
+      if (ctx->args->shader_info->vs.dynamic_vs_inputs) {
+         unsigned index = variable->data.location + i - VERT_ATTRIB_GENERIC0;
+         input = ac_get_arg(&ctx->ac, ctx->args->vs_inputs[index]);
+      } else {
+         input = load_vs_input(ctx, variable->data.location + i);
+         if (!input)
+            continue;
+      }
 
       for (unsigned chan = 0; chan < 4; chan++) {
          LLVMValueRef llvm_chan = LLVMConstInt(ctx->ac.i32, chan, false);
@@ -831,8 +844,6 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
             output[chan] = LLVMBuildFPTrunc(ctx->ac.builder, output[chan], ctx->ac.f16, "");
          }
       }
-
-      output[3] = adjust_vertex_fetch_alpha(ctx, alpha_adjust, output[3]);
 
       for (unsigned chan = 0; chan < 4; chan++) {
          output[chan] = ac_to_integer(&ctx->ac, output[chan]);
