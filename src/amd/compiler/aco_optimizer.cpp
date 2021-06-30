@@ -1551,6 +1551,9 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       if (!ctx.program->needs_wqm)
          ctx.info[instr->definitions[0].tempId()].set_constant(ctx.program->chip_class, 0u);
       break;
+   case aco_opcode::v_mul_f64:
+      ctx.info[instr->definitions[0].tempId()].set_mul(instr.get());
+      break;
    case aco_opcode::v_mul_f16:
    case aco_opcode::v_mul_f32: { /* omod */
       ctx.info[instr->definitions[0].tempId()].set_mul(instr.get());
@@ -3406,9 +3409,10 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    bool mad16 = instr->opcode == aco_opcode::v_add_f16 ||
                 instr->opcode == aco_opcode::v_sub_f16 ||
                 instr->opcode == aco_opcode::v_subrev_f16;
-   if (mad16 || mad32) {
+   bool mad64 = instr->opcode == aco_opcode::v_add_f64;
+   if (mad16 || mad32 || mad64) {
       bool need_fma = mad32 ? (ctx.fp_mode.denorm32 != 0 || ctx.program->chip_class >= GFX10_3) :
-                              (ctx.fp_mode.denorm16_64 != 0 || ctx.program->chip_class >= GFX10);
+                              (ctx.fp_mode.denorm16_64 != 0 || ctx.program->chip_class >= GFX10 || mad64);
       if (need_fma && instr->definitions[0].isPrecise())
          return;
       if (need_fma && mad32 && !ctx.program->dev.has_fast_fma32)
@@ -3490,6 +3494,8 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
          if (mad16)
             mad_op = need_fma ? (ctx.program->chip_class == GFX8 ? aco_opcode::v_fma_legacy_f16 : aco_opcode::v_fma_f16) :
                                 (ctx.program->chip_class == GFX8 ? aco_opcode::v_mad_legacy_f16 : aco_opcode::v_mad_f16);
+         if (mad64)
+            mad_op = aco_opcode::v_fma_f64;
 
          aco_ptr<VOP3_instruction> mad{create_instruction<VOP3_instruction>(mad_op, Format::VOP3, 3, 1)};
          for (unsigned i = 0; i < 3; i++) {
@@ -3745,7 +3751,7 @@ void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
          mad_info = NULL;
       }
       /* check literals */
-      else if (!instr->usesModifiers()) {
+      else if (!instr->usesModifiers() && instr->opcode != aco_opcode::v_fma_f64) {
          /* FMA can only take literals on GFX10+ */
          if ((instr->opcode == aco_opcode::v_fma_f32 || instr->opcode == aco_opcode::v_fma_f16) &&
              ctx.program->chip_class < GFX10)
