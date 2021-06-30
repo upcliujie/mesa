@@ -13,6 +13,7 @@
 #include "venus-protocol/vn_protocol_driver_buffer.h"
 #include "venus-protocol/vn_protocol_driver_buffer_view.h"
 
+#include "vn_android.h"
 #include "vn_device.h"
 #include "vn_device_memory.h"
 
@@ -64,6 +65,14 @@ vn_CreateBuffer(VkDevice device,
    struct vn_buffer *buf = NULL;
    VkResult result;
 
+   const VkExternalMemoryBufferCreateInfo *external_info =
+      vk_find_struct_const(pCreateInfo->pNext,
+                           EXTERNAL_MEMORY_BUFFER_CREATE_INFO);
+   const bool ahb_info =
+      external_info &&
+      external_info->handleTypes ==
+         VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
+
    buf = vk_zalloc(alloc, sizeof(*buf), VN_DEFAULT_ALIGN,
                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!buf)
@@ -71,7 +80,10 @@ vn_CreateBuffer(VkDevice device,
 
    vn_object_base_init(&buf->base, VK_OBJECT_TYPE_BUFFER, &dev->base);
 
-   result = vn_buffer_init(dev, buf, pCreateInfo);
+   if (ahb_info)
+      result = vn_android_buffer_from_ahb(dev, buf, pCreateInfo);
+   else
+      result = vn_buffer_init(dev, buf, pCreateInfo);
 
    if (result != VK_SUCCESS) {
       vk_free(alloc, buf);
