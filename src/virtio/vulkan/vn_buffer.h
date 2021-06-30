@@ -32,4 +32,9 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(vn_buffer_view,
                                VkBufferView,
                                VK_OBJECT_TYPE_BUFFER_VIEW)
 
+VkResult
+vn_buffer_init(struct vn_device *dev,
+               struct vn_buffer *buf,
+               const VkBufferCreateInfo *create_info);
+
 #endif /* VN_BUFFER_H */
