@@ -251,6 +251,9 @@ struct fd_batch {
     */
    struct set *resources;
 
+   BITSET_WORD *bos;
+   uint32_t bos_size;
+
    /** key in batch-cache (if not null): */
    struct fd_batch_key *key;
    uint32_t hash;
