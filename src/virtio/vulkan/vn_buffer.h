@@ -18,6 +18,8 @@ struct vn_buffer {
 
    VkMemoryRequirements2 memory_requirements;
    VkMemoryDedicatedRequirements dedicated_requirements;
+   /* Non-zero for AHB external handle type */
+   uint32_t dma_buf_memory_type_bits;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_buffer,
                                base.base,

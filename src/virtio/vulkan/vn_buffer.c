@@ -50,6 +50,13 @@ vn_buffer_init(struct vn_device *dev,
       },
       &buf->memory_requirements);
 
+   if (buf->dma_buf_memory_type_bits) {
+      buf->memory_requirements.memoryRequirements.memoryTypeBits &=
+         buf->dma_buf_memory_type_bits;
+
+      assert(buf->memory_requirements.memoryRequirements.memoryTypeBits);
+   }
+
    return VK_SUCCESS;
 }
 
