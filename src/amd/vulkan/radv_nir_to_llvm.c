@@ -663,7 +663,7 @@ adjust_vertex_fetch_alpha(struct radv_shader_context *ctx, unsigned adjustment, 
 
 static LLVMValueRef
 radv_fixup_vertex_input_fetches(struct radv_shader_context *ctx, LLVMValueRef value,
-                                unsigned num_channels, bool is_float)
+                                unsigned num_channels, bool is_float, unsigned alpha_adjust)
 {
    LLVMValueRef zero = is_float ? ctx->ac.f32_0 : ctx->ac.i32_0;
    LLVMValueRef one = is_float ? ctx->ac.f32_1 : ctx->ac.i32_1;
@@ -689,139 +689,152 @@ radv_fixup_vertex_input_fetches(struct radv_shader_context *ctx, LLVMValueRef va
       chan[i] = ac_to_integer(&ctx->ac, chan[i]);
    }
 
+   chan[3] = adjust_vertex_fetch_alpha(ctx, alpha_adjust, chan[3]);
+
    return ac_build_gather_values(&ctx->ac, chan, 4);
+}
+
+static LLVMValueRef
+load_vs_input(struct radv_shader_context *ctx, unsigned location)
+{
+   unsigned attrib_index = location - VERT_ATTRIB_GENERIC0;
+   unsigned attrib_format = ctx->args->options->key.vs.vertex_attribute_formats[attrib_index];
+   unsigned data_format = attrib_format & 0x0f;
+   unsigned num_format = (attrib_format >> 4) & 0x07;
+   bool is_float =
+      num_format != V_008F0C_BUF_NUM_FORMAT_UINT && num_format != V_008F0C_BUF_NUM_FORMAT_SINT;
+   uint8_t input_usage_mask =
+      ctx->args->shader_info->vs.input_usage_mask[location];
+   unsigned num_input_channels = util_last_bit(input_usage_mask);
+   LLVMValueRef t_list_ptr = ac_get_arg(&ctx->ac, ctx->args->ac.vertex_buffers);
+   LLVMValueRef t_offset, t_list, buffer_index, input;
+
+   if (num_input_channels == 0)
+      return NULL;
+
+   if (ctx->args->options->key.vs.instance_rate_inputs & (1u << attrib_index)) {
+      uint32_t divisor = ctx->args->options->key.vs.instance_rate_divisors[attrib_index];
+
+      if (divisor) {
+         buffer_index = ctx->abi.instance_id;
+
+         if (divisor != 1) {
+            buffer_index = LLVMBuildUDiv(ctx->ac.builder, buffer_index,
+                                         LLVMConstInt(ctx->ac.i32, divisor, 0), "");
+         }
+      } else {
+         buffer_index = ctx->ac.i32_0;
+      }
+
+      buffer_index = LLVMBuildAdd(
+         ctx->ac.builder, ac_get_arg(&ctx->ac, ctx->args->ac.start_instance), buffer_index, "");
+   } else {
+      buffer_index = LLVMBuildAdd(ctx->ac.builder, ctx->abi.vertex_id,
+                                  ac_get_arg(&ctx->ac, ctx->args->ac.base_vertex), "");
+   }
+
+   const struct ac_data_format_info *vtx_info = ac_get_data_format_info(data_format);
+
+   /* Adjust the number of channels to load based on the vertex
+    * attribute format.
+    */
+   unsigned num_channels = MIN2(num_input_channels, vtx_info->num_channels);
+   unsigned attrib_binding = ctx->args->options->key.vs.vertex_attribute_bindings[attrib_index];
+   unsigned attrib_offset = ctx->args->options->key.vs.vertex_attribute_offsets[attrib_index];
+   unsigned attrib_stride = ctx->args->options->key.vs.vertex_attribute_strides[attrib_index];
+   unsigned alpha_adjust = ctx->args->options->key.vs.alpha_adjust[attrib_index];
+
+   if (ctx->args->options->key.vs.post_shuffle & (1 << attrib_index)) {
+      /* Always load, at least, 3 channels for formats that
+       * need to be shuffled because X<->Z.
+       */
+      num_channels = MAX2(num_channels, 3);
+   }
+
+   unsigned desc_index =
+      ctx->args->shader_info->vs.use_per_attribute_vb_descs ? attrib_index : attrib_binding;
+   desc_index = util_bitcount(ctx->args->shader_info->vs.vb_desc_usage_mask &
+                              u_bit_consecutive(0, desc_index));
+   t_offset = LLVMConstInt(ctx->ac.i32, desc_index, false);
+   t_list = ac_build_load_to_sgpr(&ctx->ac, t_list_ptr, t_offset);
+
+   /* Always split typed vertex buffer loads on GFX6 and GFX10+
+    * to avoid any alignment issues that triggers memory
+    * violations and eventually a GPU hang. This can happen if
+    * the stride (static or dynamic) is unaligned and also if the
+    * VBO offset is aligned to a scalar (eg. stride is 8 and VBO
+    * offset is 2 for R16G16B16A16_SNORM).
+    */
+   if (ctx->ac.chip_class == GFX6 || ctx->ac.chip_class >= GFX10) {
+      unsigned chan_format = vtx_info->chan_format;
+      LLVMValueRef values[4];
+
+      assert(ctx->ac.chip_class == GFX6 || ctx->ac.chip_class >= GFX10);
+
+      for (unsigned chan = 0; chan < num_channels; chan++) {
+         unsigned chan_offset = attrib_offset + chan * vtx_info->chan_byte_size;
+         LLVMValueRef chan_index = buffer_index;
+
+         if (attrib_stride != 0 && chan_offset > attrib_stride) {
+            LLVMValueRef buffer_offset =
+               LLVMConstInt(ctx->ac.i32, chan_offset / attrib_stride, false);
+
+            chan_index = LLVMBuildAdd(ctx->ac.builder, buffer_index, buffer_offset, "");
+
+            chan_offset = chan_offset % attrib_stride;
+         }
+
+         values[chan] = ac_build_struct_tbuffer_load(
+            &ctx->ac, t_list, chan_index, LLVMConstInt(ctx->ac.i32, chan_offset, false),
+            ctx->ac.i32_0, ctx->ac.i32_0, 1, chan_format, num_format, 0, true);
+      }
+
+      input = ac_build_gather_values(&ctx->ac, values, num_channels);
+   } else {
+      if (attrib_stride != 0 && attrib_offset > attrib_stride) {
+         LLVMValueRef buffer_offset =
+            LLVMConstInt(ctx->ac.i32, attrib_offset / attrib_stride, false);
+
+         buffer_index = LLVMBuildAdd(ctx->ac.builder, buffer_index, buffer_offset, "");
+
+         attrib_offset = attrib_offset % attrib_stride;
+      }
+
+      input = ac_build_struct_tbuffer_load(
+         &ctx->ac, t_list, buffer_index, LLVMConstInt(ctx->ac.i32, attrib_offset, false),
+         ctx->ac.i32_0, ctx->ac.i32_0, num_channels, data_format, num_format, 0, true);
+   }
+
+   if (ctx->args->options->key.vs.post_shuffle & (1 << attrib_index)) {
+      LLVMValueRef c[4];
+      c[0] = ac_llvm_extract_elem(&ctx->ac, input, 2);
+      c[1] = ac_llvm_extract_elem(&ctx->ac, input, 1);
+      c[2] = ac_llvm_extract_elem(&ctx->ac, input, 0);
+      c[3] = ac_llvm_extract_elem(&ctx->ac, input, 3);
+
+      input = ac_build_gather_values(&ctx->ac, c, 4);
+   }
+
+   return radv_fixup_vertex_input_fetches(ctx, input, num_channels, is_float, alpha_adjust);
 }
 
 static void
 handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *variable)
 {
-   LLVMValueRef t_list_ptr = ac_get_arg(&ctx->ac, ctx->args->ac.vertex_buffers);
-   LLVMValueRef t_offset;
-   LLVMValueRef t_list;
-   LLVMValueRef input;
-   LLVMValueRef buffer_index;
    unsigned attrib_count = glsl_count_attribute_slots(variable->type, true);
-
    enum glsl_base_type type = glsl_get_base_type(variable->type);
+
    for (unsigned i = 0; i < attrib_count; ++i) {
-      LLVMValueRef output[4];
-      unsigned attrib_index = variable->data.location + i - VERT_ATTRIB_GENERIC0;
-      unsigned attrib_format = ctx->args->options->key.vs.vertex_attribute_formats[attrib_index];
-      unsigned data_format = attrib_format & 0x0f;
-      unsigned num_format = (attrib_format >> 4) & 0x07;
-      bool is_float =
-         num_format != V_008F0C_BUF_NUM_FORMAT_UINT && num_format != V_008F0C_BUF_NUM_FORMAT_SINT;
-      uint8_t input_usage_mask =
-         ctx->args->shader_info->vs.input_usage_mask[variable->data.location + i];
-      unsigned num_input_channels = util_last_bit(input_usage_mask);
+      LLVMValueRef output[4], input;
 
-      if (num_input_channels == 0)
-         continue;
-
-      if (ctx->args->options->key.vs.instance_rate_inputs & (1u << attrib_index)) {
-         uint32_t divisor = ctx->args->options->key.vs.instance_rate_divisors[attrib_index];
-
-         if (divisor) {
-            buffer_index = ctx->abi.instance_id;
-
-            if (divisor != 1) {
-               buffer_index = LLVMBuildUDiv(ctx->ac.builder, buffer_index,
-                                            LLVMConstInt(ctx->ac.i32, divisor, 0), "");
-            }
-         } else {
-            buffer_index = ctx->ac.i32_0;
-         }
-
-         buffer_index = LLVMBuildAdd(
-            ctx->ac.builder, ac_get_arg(&ctx->ac, ctx->args->ac.start_instance), buffer_index, "");
+      if (ctx->args->shader_info->vs.dynamic_vs_inputs) {
+         unsigned index = variable->data.location + i - VERT_ATTRIB_GENERIC0;
+         input = ac_get_arg(&ctx->ac, ctx->args->vs_inputs[index]);
       } else {
-         buffer_index = LLVMBuildAdd(ctx->ac.builder, ctx->abi.vertex_id,
-                                     ac_get_arg(&ctx->ac, ctx->args->ac.base_vertex), "");
+         input = load_vs_input(ctx, variable->data.location + i);
+         if (!input)
+            continue;
       }
-
-      const struct ac_data_format_info *vtx_info = ac_get_data_format_info(data_format);
-
-      /* Adjust the number of channels to load based on the vertex
-       * attribute format.
-       */
-      unsigned num_channels = MIN2(num_input_channels, vtx_info->num_channels);
-      unsigned attrib_binding = ctx->args->options->key.vs.vertex_attribute_bindings[attrib_index];
-      unsigned attrib_offset = ctx->args->options->key.vs.vertex_attribute_offsets[attrib_index];
-      unsigned attrib_stride = ctx->args->options->key.vs.vertex_attribute_strides[attrib_index];
-      unsigned alpha_adjust = ctx->args->options->key.vs.alpha_adjust[attrib_index];
-
-      if (ctx->args->options->key.vs.post_shuffle & (1 << attrib_index)) {
-         /* Always load, at least, 3 channels for formats that
-          * need to be shuffled because X<->Z.
-          */
-         num_channels = MAX2(num_channels, 3);
-      }
-
-      unsigned desc_index =
-         ctx->args->shader_info->vs.use_per_attribute_vb_descs ? attrib_index : attrib_binding;
-      desc_index = util_bitcount(ctx->args->shader_info->vs.vb_desc_usage_mask &
-                                 u_bit_consecutive(0, desc_index));
-      t_offset = LLVMConstInt(ctx->ac.i32, desc_index, false);
-      t_list = ac_build_load_to_sgpr(&ctx->ac, t_list_ptr, t_offset);
-
-      /* Always split typed vertex buffer loads on GFX6 and GFX10+
-       * to avoid any alignment issues that triggers memory
-       * violations and eventually a GPU hang. This can happen if
-       * the stride (static or dynamic) is unaligned and also if the
-       * VBO offset is aligned to a scalar (eg. stride is 8 and VBO
-       * offset is 2 for R16G16B16A16_SNORM).
-       */
-      if (ctx->ac.chip_class == GFX6 || ctx->ac.chip_class >= GFX10) {
-         unsigned chan_format = vtx_info->chan_format;
-         LLVMValueRef values[4];
-
-         assert(ctx->ac.chip_class == GFX6 || ctx->ac.chip_class >= GFX10);
-
-         for (unsigned chan = 0; chan < num_channels; chan++) {
-            unsigned chan_offset = attrib_offset + chan * vtx_info->chan_byte_size;
-            LLVMValueRef chan_index = buffer_index;
-
-            if (attrib_stride != 0 && chan_offset > attrib_stride) {
-               LLVMValueRef buffer_offset =
-                  LLVMConstInt(ctx->ac.i32, chan_offset / attrib_stride, false);
-
-               chan_index = LLVMBuildAdd(ctx->ac.builder, buffer_index, buffer_offset, "");
-
-               chan_offset = chan_offset % attrib_stride;
-            }
-
-            values[chan] = ac_build_struct_tbuffer_load(
-               &ctx->ac, t_list, chan_index, LLVMConstInt(ctx->ac.i32, chan_offset, false),
-               ctx->ac.i32_0, ctx->ac.i32_0, 1, chan_format, num_format, 0, true);
-         }
-
-         input = ac_build_gather_values(&ctx->ac, values, num_channels);
-      } else {
-         if (attrib_stride != 0 && attrib_offset > attrib_stride) {
-            LLVMValueRef buffer_offset =
-               LLVMConstInt(ctx->ac.i32, attrib_offset / attrib_stride, false);
-
-            buffer_index = LLVMBuildAdd(ctx->ac.builder, buffer_index, buffer_offset, "");
-
-            attrib_offset = attrib_offset % attrib_stride;
-         }
-
-         input = ac_build_struct_tbuffer_load(
-            &ctx->ac, t_list, buffer_index, LLVMConstInt(ctx->ac.i32, attrib_offset, false),
-            ctx->ac.i32_0, ctx->ac.i32_0, num_channels, data_format, num_format, 0, true);
-      }
-
-      if (ctx->args->options->key.vs.post_shuffle & (1 << attrib_index)) {
-         LLVMValueRef c[4];
-         c[0] = ac_llvm_extract_elem(&ctx->ac, input, 2);
-         c[1] = ac_llvm_extract_elem(&ctx->ac, input, 1);
-         c[2] = ac_llvm_extract_elem(&ctx->ac, input, 0);
-         c[3] = ac_llvm_extract_elem(&ctx->ac, input, 3);
-
-         input = ac_build_gather_values(&ctx->ac, c, 4);
-      }
-
-      input = radv_fixup_vertex_input_fetches(ctx, input, num_channels, is_float);
 
       for (unsigned chan = 0; chan < 4; chan++) {
          LLVMValueRef llvm_chan = LLVMConstInt(ctx->ac.i32, chan, false);
@@ -831,8 +844,6 @@ handle_vs_input_decl(struct radv_shader_context *ctx, struct nir_variable *varia
             output[chan] = LLVMBuildFPTrunc(ctx->ac.builder, output[chan], ctx->ac.f16, "");
          }
       }
-
-      output[3] = adjust_vertex_fetch_alpha(ctx, alpha_adjust, output[3]);
 
       for (unsigned chan = 0; chan < 4; chan++) {
          output[chan] = ac_to_integer(&ctx->ac, output[chan]);
