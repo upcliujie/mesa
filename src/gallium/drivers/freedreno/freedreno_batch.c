@@ -282,6 +282,9 @@ batch_reset_resources(struct fd_batch *batch)
     * rather than having any deleted keys.
     */
    _mesa_set_clear(batch->resources, NULL);
+
+   free(batch->bos);
+   batch->bos = NULL;
 }
 
 static void
@@ -420,13 +423,27 @@ fd_batch_add_dep(struct fd_batch *batch, struct fd_batch *dep)
 static void
 fd_batch_add_resource(struct fd_batch *batch, struct fd_resource *rsc)
 {
-   bool found = false;
+   if (fd_batch_references(batch, rsc))
+      return;
+
+   ASSERTED bool found = false;
    _mesa_set_search_or_add_pre_hashed(batch->resources, rsc->hash, rsc, &found);
-   if (!found) {
-      struct pipe_resource *table_ref = NULL;
-      pipe_resource_reference(&table_ref, &rsc->b.b);
-      p_atomic_inc(&rsc->batch_references);
+   assert(!found);
+
+   struct pipe_resource *table_ref = NULL;
+   pipe_resource_reference(&table_ref, &rsc->b.b);
+   p_atomic_inc(&rsc->batch_references);
+
+   uint32_t handle = fd_bo_id(rsc->bo);
+   if (batch->bos_size <= handle) {
+      uint32_t new_size = MAX2(BITSET_WORDBITS,
+                               util_next_power_of_two(handle + 1));
+      batch->bos = realloc(batch->bos, new_size / 8);
+      memset(&batch->bos[batch->bos_size / BITSET_WORDBITS], 0,
+             (new_size - batch->bos_size) / 8);
+      batch->bos_size = new_size;
    }
+   BITSET_SET(batch->bos, handle);
 }
 
 void
