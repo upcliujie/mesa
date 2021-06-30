@@ -692,7 +692,7 @@ void handle_instruction_gfx10(Program *program, Block *cur_block, NOP_ctx_gfx10 
          /* Insert s_mov to mitigate the problem */
          aco_ptr<SOP1_instruction> s_mov{create_instruction<SOP1_instruction>(aco_opcode::s_mov_b32, Format::SOP1, 1, 1)};
          s_mov->definitions[0] = Definition(sgpr_null, s1);
-         s_mov->operands[0] = Operand(0u);
+         s_mov->operands[0] = Operand::c32(0u);
          new_instructions.emplace_back(std::move(s_mov));
       }
    } else if (instr->isSALU()) {

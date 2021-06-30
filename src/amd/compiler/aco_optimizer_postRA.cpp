@@ -247,7 +247,7 @@ void try_optimize_scc_nocompare(pr_opt_ctx &ctx, aco_ptr<Instruction> &instr)
       ctx.uses[instr->operands[0].tempId()]++;
 
       /* Set the opcode and operand to 32-bit */
-      instr->operands[1] = Operand(0u);
+      instr->operands[1] = Operand::c32(0u);
       instr->opcode = (instr->opcode == aco_opcode::s_cmp_eq_u32 ||
                        instr->opcode == aco_opcode::s_cmp_eq_i32 ||
                        instr->opcode == aco_opcode::s_cmp_eq_u64)
