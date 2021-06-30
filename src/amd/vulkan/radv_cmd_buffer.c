@@ -2902,7 +2902,7 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer, bool pipeline_
                 * num_records and stride are zero. This doesn't seem necessary on GFX8, GFX10 and
                 * GFX10.3 but it doesn't hurt.
                 */
-               stride = 1;
+               stride = 16;
             }
          } else {
             if (chip != GFX8 && stride)
