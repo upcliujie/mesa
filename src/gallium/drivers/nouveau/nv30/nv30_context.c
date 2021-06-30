@@ -41,8 +41,8 @@ nv30_context_kick_notify(struct nouveau_pushbuf *push)
    struct nouveau_pushbuf_priv *p = push->user_priv;
    struct nouveau_screen *screen = p->screen;
 
-   nouveau_fence_next(p->context);
-   nouveau_fence_update(screen, true);
+   _nouveau_fence_next(p->context);
+   _nouveau_fence_update(screen, true);
 
    if (push->bufctx) {
       struct nouveau_bufref *bref;
