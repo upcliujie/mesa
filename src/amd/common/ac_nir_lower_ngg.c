@@ -1223,6 +1223,29 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
    nir_builder_init(b, impl);
 
    if (can_cull) {
+      /* Run a round of algebraic opts before we split the shader in two.
+       * This has better stats than doing it after.
+       */
+      bool more_algebraic;
+      do {
+         more_algebraic = false;
+         NIR_PASS_V(shader, nir_copy_prop);
+         NIR_PASS_V(shader, nir_opt_dce);
+         NIR_PASS_V(shader, nir_opt_constant_folding);
+         NIR_PASS_V(shader, nir_opt_cse);
+         NIR_PASS(more_algebraic, shader, nir_opt_algebraic);
+      } while (more_algebraic);
+
+      bool more_late_algebraic;
+      do {
+         more_late_algebraic = false;
+         NIR_PASS(more_late_algebraic, shader, nir_opt_algebraic_late);
+         NIR_PASS_V(shader, nir_opt_constant_folding);
+         NIR_PASS_V(shader, nir_copy_prop);
+         NIR_PASS_V(shader, nir_opt_dce);
+         NIR_PASS_V(shader, nir_opt_cse);
+      } while (more_late_algebraic);
+
       /* We need divergence info for culling shaders. */
       nir_divergence_analysis(shader);
       analyze_shader_before_culling(shader, &state);
