@@ -481,6 +481,7 @@ struct brw_wm_prog_key {
    bool coherent_fb_fetch:1;
    bool ignore_sample_mask_out:1;
    bool coarse_pixel:1;
+   bool ilk_allow_dual_src_rt_write_msg:1;
 
    uint8_t color_outputs_valid;
    uint64_t input_slots_valid;
