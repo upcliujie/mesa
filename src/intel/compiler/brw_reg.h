@@ -324,11 +324,11 @@ type_sz(unsigned type)
    case BRW_REGISTER_TYPE_D:
    case BRW_REGISTER_TYPE_F:
    case BRW_REGISTER_TYPE_VF:
+   case BRW_REGISTER_TYPE_UV:
+   case BRW_REGISTER_TYPE_V:
       return 4;
    case BRW_REGISTER_TYPE_UW:
    case BRW_REGISTER_TYPE_W:
-   case BRW_REGISTER_TYPE_UV:
-   case BRW_REGISTER_TYPE_V:
    case BRW_REGISTER_TYPE_HF:
       return 2;
    case BRW_REGISTER_TYPE_UB:

@@ -519,8 +519,8 @@ brw_reg_type_to_size(enum brw_reg_type type)
       [BRW_REGISTER_TYPE_UW] = 2,
       [BRW_REGISTER_TYPE_B]  = 1,
       [BRW_REGISTER_TYPE_UB] = 1,
-      [BRW_REGISTER_TYPE_V]  = 2,
-      [BRW_REGISTER_TYPE_UV] = 2,
+      [BRW_REGISTER_TYPE_V]  = 4,
+      [BRW_REGISTER_TYPE_UV] = 4,
    };
    if (type >= ARRAY_SIZE(type_size))
       return -1;
