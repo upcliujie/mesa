@@ -4552,7 +4552,7 @@ brw_fb_write_msg_control(const fs_inst *inst,
       else
          unreachable("Invalid dual-source FB write instruction group");
    } else {
-      assert(inst->group == 0 || (inst->group == 16 && inst->exec_size == 16));
+      //assert(inst->group == 0 || (inst->group == 16 && inst->exec_size == 16));
 
       if (inst->exec_size == 16)
          mctl = BRW_DATAPORT_RENDER_TARGET_WRITE_SIMD16_SINGLE_SOURCE;

@@ -702,13 +702,19 @@ fs_visitor::emit_fb_writes()
       if (devinfo->ver >= 6 && replicate_alpha && target != 0)
          src0_alpha = offset(outputs[0], bld, 3);
 
+      fs_reg color1;
+      if (devinfo->ver >= 6 || key->allow_dual_src_rt_write_msg)
+         color1 = this->dual_src_output;
+
       inst = emit_single_fb_write(abld, this->outputs[target],
-                                  this->dual_src_output, src0_alpha, 4);
+                                  color1, src0_alpha, 4);
       inst->target = target;
    }
 
    prog_data->dual_src_blend = (this->dual_src_output.file != BAD_FILE &&
                                 this->outputs[0].file != BAD_FILE);
+   if (devinfo->ver < 6 && !key->allow_dual_src_rt_write_msg)
+      prog_data->dual_src_blend = false;
    assert(!prog_data->dual_src_blend || key->nr_color_regions == 1);
 
    if (inst == NULL) {

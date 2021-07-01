@@ -187,6 +187,8 @@ debug_fs_recompile(const struct brw_compiler *c, void *log,
    found |= check("mrt alpha test function", alpha_test_func);
    found |= check("mrt alpha test reference value", alpha_test_ref);
 
+   found |= check("dual src msg", allow_dual_src_rt_write_msg);
+
    found |= debug_base_recompile(c, log, &old_key->base, &key->base);
 
    if (!found) {
