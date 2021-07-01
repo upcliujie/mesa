@@ -58,7 +58,9 @@ files_etnaviv = files(
   'etnaviv_format.c',
   'etnaviv_format.h',
   'etnaviv_internal.h',
+  'etnaviv_nir_lower_multiple_uniform_usage.c',
   'etnaviv_nir_lower_ubo_to_uniform.c',
+  'etnaviv_nir_opt_combine_const_src.c',
   'etnaviv_nir.c',
   'etnaviv_nir.h',
   'etnaviv_perfmon.c',
@@ -138,6 +140,34 @@ if with_tests
     executable(
       'nir_lower_ubo_test',
       files('tests/lower_ubo_tests.cpp'),
+      cpp_args : [cpp_msvc_compat_args],
+      gnu_symbol_visibility : 'hidden',
+      include_directories : [inc_include, inc_src, inc_gallium],
+      link_with : [libetnaviv],
+      dependencies : [idep_gtest, idep_nir],
+    ),
+    suite : ['compiler', 'etnaviv'],
+  )
+
+  test(
+    'lower_multiple_uniform_usage',
+    executable(
+      'nir_lower_multiple_uniform_usage_test',
+      files('tests/lower_multiple_uniform_usage_test.cpp'),
+      cpp_args : [cpp_msvc_compat_args],
+      gnu_symbol_visibility : 'hidden',
+      include_directories : [inc_include, inc_src, inc_gallium],
+      link_with : [libetnaviv],
+      dependencies : [idep_gtest, idep_nir],
+    ),
+    suite : ['compiler', 'etnaviv'],
+  )
+
+  test(
+    'opt_combine_const_src',
+    executable(
+      'nir_opt_combine_const_src',
+      files('tests/opt_combine_const_src.cpp'),
       cpp_args : [cpp_msvc_compat_args],
       gnu_symbol_visibility : 'hidden',
       include_directories : [inc_include, inc_src, inc_gallium],
