@@ -1602,11 +1602,7 @@ void label_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       break;
    }
    case aco_opcode::v_mul_lo_u16:
-      if (instr->definitions[0].isNUW()) {
-         /* Most of 16-bit mul optimizations are only valid if no overflow. */
-         ctx.info[instr->definitions[0].tempId()].set_usedef(instr.get());
-      }
-      break;
+   case aco_opcode::v_mul_lo_u16_e64:
    case aco_opcode::v_mul_u32_u24:
       ctx.info[instr->definitions[0].tempId()].set_usedef(instr.get());
       break;
@@ -3538,6 +3534,10 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
    } else if (instr->opcode == aco_opcode::v_xor_b32 && ctx.program->chip_class >= GFX10) {
       if (combine_three_valu_op(ctx, instr, aco_opcode::v_xor_b32, aco_opcode::v_xor3_b32, "012", 1 | 2)) ;
       else combine_three_valu_op(ctx, instr, aco_opcode::s_xor_b32, aco_opcode::v_xor3_b32, "012", 1 | 2);
+   } else if (instr->opcode == aco_opcode::v_add_u16) {
+      combine_three_valu_op(ctx, instr, aco_opcode::v_mul_lo_u16, aco_opcode::v_mad_u16, "120", 1 | 2);
+   } else if (instr->opcode == aco_opcode::v_add_u16_e64) {
+      combine_three_valu_op(ctx, instr, aco_opcode::v_mul_lo_u16_e64, aco_opcode::v_mad_u16, "120", 1 | 2);
    } else if (instr->opcode == aco_opcode::v_add_u32) {
       if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_addc_co_u32, 1 | 2)) ;
       else if (combine_add_bcnt(ctx, instr)) ;
