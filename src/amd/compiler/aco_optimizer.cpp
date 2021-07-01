@@ -3548,7 +3548,6 @@ void combine_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
          else if (combine_three_valu_op(ctx, instr, aco_opcode::s_add_i32, aco_opcode::v_add3_u32, "012", 1 | 2)) ;
          else if (combine_three_valu_op(ctx, instr, aco_opcode::s_add_u32, aco_opcode::v_add3_u32, "012", 1 | 2)) ;
          else if (combine_three_valu_op(ctx, instr, aco_opcode::v_add_u32, aco_opcode::v_add3_u32, "012", 1 | 2)) ;
-         else if (combine_three_valu_op(ctx, instr, aco_opcode::v_mul_lo_u16, aco_opcode::v_mad_u32_u16, "120", 1 | 2)) ;
          else combine_add_or_then_and_lshl(ctx, instr) ;
       }
    } else if (instr->opcode == aco_opcode::v_add_co_u32 ||
@@ -3643,16 +3642,14 @@ bool to_uniform_bool_instr(opt_ctx &ctx, aco_ptr<Instruction> &instr)
    return true;
 }
 
-void select_mul_u32_u24(opt_ctx &ctx, aco_ptr<Instruction>& instr)
+void select_mul_u32_u16(opt_ctx &ctx, aco_ptr<Instruction>& instr)
 {
-   if (instr->usesModifiers())
+   /* check chip_class restrictions */
+   if (ctx.program->chip_class < GFX8)
       return;
-
-   /* Only valid if the accumulator is zero (this is selected by isel to
-    * combine more v_add_u32+v_mad_u32_u16 together), but the optimizer
-    * fallbacks here when not possible.
-    */
-   if (!instr->operands[2].constantEquals(0))
+   if (instr->opcode == aco_opcode::v_mul_u32_u24 && ctx.program->chip_class > GFX9)
+      return;
+   if (instr->opcode == aco_opcode::v_mad_u32_u24 && ctx.program->chip_class < GFX9)
       return;
 
    /* Only valid if the upper 16-bits of both operands are zero (because
@@ -3663,28 +3660,11 @@ void select_mul_u32_u24(opt_ctx &ctx, aco_ptr<Instruction>& instr)
          return;
    }
 
-   bool swap = false;
-
-   /* VOP2 instructions can only take constants/sgprs in operand 0. */
-   if ((instr->operands[1].isConstant() ||
-       (instr->operands[1].hasRegClass() &&
-      instr->operands[1].regClass().type() == RegType::sgpr))) {
-      swap = true;
-      if ((instr->operands[0].isConstant() ||
-          (instr->operands[0].hasRegClass() &&
-           instr->operands[0].regClass().type() == RegType::sgpr))) {
-         /* VOP2 can't take both constants/sgprs, keep v_mad_u32_u16 because
-          * v_mul_u32_u24 has no advantages.
-          */
-         return;
-      }
-   }
-
-   VOP2_instruction *new_instr = create_instruction<VOP2_instruction>(aco_opcode::v_mul_u32_u24, Format::VOP2, 2, 1);
-   new_instr->operands[0] = instr->operands[swap];
-   new_instr->operands[1] = instr->operands[!swap];
-   new_instr->definitions[0] = instr->definitions[0];
-   instr.reset(new_instr);
+   if (instr->opcode == aco_opcode::v_mul_u32_u24 && instr->definitions[0].isNUW())
+      instr->opcode = aco_opcode::v_mul_lo_u16;
+   if (instr->opcode == aco_opcode::v_mad_u32_u24)
+      instr->opcode = aco_opcode::v_mad_u32_u16;
+   return;
 }
 
 void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
@@ -3860,8 +3840,8 @@ void select_instruction(opt_ctx &ctx, aco_ptr<Instruction>& instr)
       return;
    }
 
-   if (instr->opcode == aco_opcode::v_mad_u32_u16)
-      select_mul_u32_u24(ctx, instr);
+   if (instr->opcode == aco_opcode::v_mad_u32_u24 || instr->opcode == aco_opcode::v_mul_u32_u24)
+      select_mul_u32_u16(ctx, instr);
 
    if (instr->isSDWA() || instr->isDPP() ||
        (instr->isVOP3() && ctx.program->chip_class < GFX10) ||
