@@ -500,6 +500,8 @@ hs_emit_write_tess_factors(nir_shader *shader,
    nir_builder builder;
    nir_builder *b = &builder; /* This is to avoid the & */
    nir_builder_init(b, impl);
+   b->cursor = nir_before_block(nir_start_block(impl));
+   nir_ssa_def *lds_base = hs_output_lds_offset(b, st, NULL);
    b->cursor = nir_after_block(last_block);
 
    nir_scoped_barrier(b, .execution_scope=NIR_SCOPE_WORKGROUP, .memory_scope=NIR_SCOPE_WORKGROUP,
@@ -514,7 +516,7 @@ hs_emit_write_tess_factors(nir_shader *shader,
    nir_ssa_def *tessfactor_ring = nir_build_load_ring_tess_factors_amd(b);
 
    /* Base LDS address of per-patch outputs in the current patch. */
-   nir_ssa_def *lds_base = hs_output_lds_offset(b, st, NULL);
+   // nir_ssa_def *lds_base = hs_output_lds_offset(b, st, NULL);
 
    /* Load all tessellation factors (aka. tess levels) from LDS. */
    nir_ssa_def *tessfactors_outer = nir_build_load_shared(b, outer_comps, 32, lds_base, .base = st->tcs_tess_lvl_out_loc,
