@@ -602,6 +602,9 @@ struct panvk_cmd_pool {
    struct vk_object_base base;
    VkAllocationCallbacks alloc;
    uint32_t queue_family_index;
+   struct panvk_bo_pool desc_bo_pool;
+   struct panvk_bo_pool varying_bo_pool;
+   struct panvk_bo_pool tls_bo_pool;
 };
 
 enum panvk_cmd_buffer_status {
