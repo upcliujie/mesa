@@ -172,6 +172,13 @@ enum {
                                        IRIS_STAGE_DIRTY_BINDINGS_FS  | \
                                        IRIS_STAGE_DIRTY_BINDINGS_CS)
 
+#define IRIS_ALL_STAGE_DIRTY_CONSTANTS_FOR_RENDER (IRIS_STAGE_DIRTY_BINDINGS_VS  | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_TCS | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_TES | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_GS  | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_FS)
+
+
 /**
  * Non-orthogonal state (NOS) dependency flags.
  *
