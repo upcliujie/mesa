@@ -2566,7 +2566,6 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
          unsigned binding = desc->binding;
          unsigned num_format, data_format;
          bool post_shuffle;
-         enum radv_vs_input_alpha_adjust alpha_adjust;
 
          if (binding_input_rate & (1u << binding)) {
             key.instance_rate_inputs |= 1u << location;
@@ -2575,7 +2574,8 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
 
          format_desc = vk_format_description(desc->format);
          radv_translate_vertex_format(pipeline->device->physical_device, desc->format, format_desc,
-                                      &data_format, &num_format, &post_shuffle, &alpha_adjust);
+                                      &data_format, &num_format, &post_shuffle,
+                                      &key.vertex_alpha_adjust[location]);
 
          key.vertex_attribute_formats[location] = data_format | (num_format << 4);
          key.vertex_attribute_bindings[location] = desc->binding;
@@ -2610,21 +2610,6 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
              */
             key.vertex_attribute_strides[location] =
                radv_get_attrib_stride(input_state, desc->binding);
-         }
-
-         switch (alpha_adjust) {
-         case ALPHA_ADJUST_NONE:
-            key.vertex_alpha_adjust[location] = AC_FETCH_FORMAT_NONE;
-            break;
-         case ALPHA_ADJUST_SNORM:
-            key.vertex_alpha_adjust[location] = AC_FETCH_FORMAT_SNORM;
-            break;
-         case ALPHA_ADJUST_SSCALED:
-            key.vertex_alpha_adjust[location] = AC_FETCH_FORMAT_SSCALED;
-            break;
-         case ALPHA_ADJUST_SINT:
-            key.vertex_alpha_adjust[location] = AC_FETCH_FORMAT_SINT;
-            break;
          }
 
          if (post_shuffle)
