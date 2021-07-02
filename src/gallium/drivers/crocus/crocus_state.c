@@ -4796,7 +4796,7 @@ crocus_populate_fs_key(const struct crocus_context *ice,
 
 #if GFX_VER <= 5
    /* pre SNB cannot use dual src write msgs without blend enabled */
-   key->allow_dual_src_rt_write_msg = !!blend->blend_enables;
+   key->ilk_allow_dual_src_rt_write_msg = !!blend->blend_enables;
 #endif
 
    /* TODO: Respect glHint for key->high_quality_derivatives */
