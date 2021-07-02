@@ -58,6 +58,13 @@ struct radv_vs_out_key {
    uint32_t export_viewport_index : 1;
 };
 
+enum radv_vs_input_alpha_adjust {
+   ALPHA_ADJUST_NONE = 0,
+   ALPHA_ADJUST_SNORM = 1,
+   ALPHA_ADJUST_SSCALED = 2,
+   ALPHA_ADJUST_SINT = 3,
+};
+
 struct radv_vs_variant_key {
    struct radv_vs_out_key out;
 
@@ -71,7 +78,7 @@ struct radv_vs_variant_key {
 
    /* For 2_10_10_10 formats the alpha is handled as unsigned by pre-vega HW.
     * so we may need to fix it up. */
-   enum ac_fetch_format alpha_adjust[MAX_VERTEX_ATTRIBS];
+   enum radv_vs_input_alpha_adjust alpha_adjust[MAX_VERTEX_ATTRIBS];
 
    /* For some formats the channels have to be shuffled. */
    uint32_t post_shuffle;
