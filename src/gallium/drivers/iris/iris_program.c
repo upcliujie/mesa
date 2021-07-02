@@ -2014,9 +2014,11 @@ iris_update_compiled_shaders(struct iris_context *ice)
    if (stage_dirty & IRIS_STAGE_DIRTY_UNCOMPILED_FS)
       iris_update_compiled_fs(ice);
 
-   for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_FRAGMENT; i++) {
-      if (ice->state.stage_dirty & (IRIS_STAGE_DIRTY_CONSTANTS_VS << i))
-         iris_update_pull_constant_descriptors(ice, i);
+   if (stage_dirty & IRIS_ALL_STAGE_DIRTY_CONSTANTS_FOR_RENDER) {
+      for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_FRAGMENT; i++) {
+         if (ice->state.stage_dirty & (IRIS_STAGE_DIRTY_CONSTANTS_VS << i))
+            iris_update_pull_constant_descriptors(ice, i);
+      }
    }
 }
 
