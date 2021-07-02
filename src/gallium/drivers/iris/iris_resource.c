@@ -347,45 +347,12 @@ iris_memobj_destroy(struct pipe_screen *pscreen,
    free(memobj);
 }
 
-struct pipe_resource *
-iris_resource_get_separate_stencil(struct pipe_resource *p_res)
-{
-   /* For packed depth-stencil, we treat depth as the primary resource
-    * and store S8 as the "second plane" resource.
-    */
-   if (p_res->next && p_res->next->format == PIPE_FORMAT_S8_UINT)
-      return p_res->next;
-
-   return NULL;
-
-}
-
 static void
 iris_resource_set_separate_stencil(struct pipe_resource *p_res,
                                    struct pipe_resource *stencil)
 {
    assert(util_format_has_depth(util_format_description(p_res->format)));
    pipe_resource_reference(&p_res->next, stencil);
-}
-
-void
-iris_get_depth_stencil_resources(struct pipe_resource *res,
-                                 struct iris_resource **out_z,
-                                 struct iris_resource **out_s)
-{
-   if (!res) {
-      *out_z = NULL;
-      *out_s = NULL;
-      return;
-   }
-
-   if (res->format != PIPE_FORMAT_S8_UINT) {
-      *out_z = (void *) res;
-      *out_s = (void *) iris_resource_get_separate_stencil(res);
-   } else {
-      *out_z = NULL;
-      *out_s = (void *) res;
-   }
 }
 
 void
