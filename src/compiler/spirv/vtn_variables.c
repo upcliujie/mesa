@@ -597,7 +597,8 @@ _vtn_variable_load_store(struct vtn_builder *b, bool load,
                          enum gl_access_qualifier access,
                          struct vtn_ssa_value **inout)
 {
-   if (ptr->mode == vtn_variable_mode_uniform) {
+   if (ptr->mode == vtn_variable_mode_uniform ||
+       ptr->mode == vtn_variable_mode_image) {
       if (ptr->type->base_type == vtn_base_type_image ||
           ptr->type->base_type == vtn_base_type_sampler) {
          /* See also our handling of OpTypeSampler and OpTypeImage */
@@ -1357,7 +1358,8 @@ var_decoration_cb(struct vtn_builder *b, struct vtn_value *val, int member,
       } else if (vtn_var->mode == vtn_variable_mode_call_data ||
                  vtn_var->mode == vtn_variable_mode_ray_payload) {
          /* This location is fine as-is */
-      } else if (vtn_var->mode != vtn_variable_mode_uniform) {
+      } else if (vtn_var->mode != vtn_variable_mode_uniform &&
+                 vtn_var->mode != vtn_variable_mode_image) {
          vtn_warn("Location must be on input, output, uniform, sampler or "
                   "image variable");
          return;
@@ -1453,6 +1455,10 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
          if (interface_type->base_type == vtn_base_type_accel_struct) {
             mode = vtn_variable_mode_accel_struct;
             nir_mode = nir_var_uniform;
+         } else if (interface_type->base_type == vtn_base_type_image &&
+                    glsl_type_is_image(interface_type->glsl_image)) {
+            mode = vtn_variable_mode_image;
+            nir_mode = nir_var_mem_image;
          } else {
             mode = vtn_variable_mode_uniform;
             nir_mode = nir_var_uniform;
@@ -1493,7 +1499,7 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
       break;
    case SpvStorageClassImage:
       mode = vtn_variable_mode_image;
-      nir_mode = nir_var_mem_ubo;
+      nir_mode = nir_var_mem_image;
       break;
    case SpvStorageClassCallableDataKHR:
       mode = vtn_variable_mode_call_data;
@@ -1775,7 +1781,10 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       break;
 
    case vtn_variable_mode_image:
-      vtn_fail("Cannot create a variable with the Image storage class");
+      if (storage_class == SpvStorageClassImage)
+         vtn_fail("Cannot create a variable with the Image storage class");
+      else
+         vtn_assert(storage_class == SpvStorageClassUniformConstant);
       break;
 
    case vtn_variable_mode_phys_ssbo:
@@ -1808,6 +1817,7 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
    case vtn_variable_mode_constant:
    case vtn_variable_mode_call_data:
    case vtn_variable_mode_call_data_in:
+   case vtn_variable_mode_image:
    case vtn_variable_mode_ray_payload:
    case vtn_variable_mode_ray_payload_in:
    case vtn_variable_mode_hit_attrib:
@@ -1937,7 +1947,6 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       break;
    }
 
-   case vtn_variable_mode_image:
    case vtn_variable_mode_phys_ssbo:
    case vtn_variable_mode_generic:
       unreachable("Should have been caught before");
@@ -2027,6 +2036,7 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
    }
 
    if (var->mode == vtn_variable_mode_uniform ||
+       var->mode == vtn_variable_mode_image ||
        var->mode == vtn_variable_mode_ssbo) {
       /* SSBOs and images are assumed to not alias in the Simple, GLSL and Vulkan memory models */
       var->var->data.access |= b->mem_model != SpvMemoryModelOpenCL ? ACCESS_RESTRICT : 0;
@@ -2045,6 +2055,7 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
    }
 
    if (var->mode == vtn_variable_mode_uniform ||
+       var->mode == vtn_variable_mode_image ||
        var->mode == vtn_variable_mode_ubo ||
        var->mode == vtn_variable_mode_ssbo ||
        var->mode == vtn_variable_mode_atomic_counter) {

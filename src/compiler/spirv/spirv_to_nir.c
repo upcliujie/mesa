@@ -367,8 +367,10 @@ vtn_get_image(struct vtn_builder *b, uint32_t value_id,
    vtn_assert(type->base_type == vtn_base_type_image);
    if (access)
       *access |= spirv_to_gl_access_qualifier(b, type->access_qualifier);
+   nir_variable_mode mode = glsl_type_is_image(type->glsl_image) ?
+                            nir_var_mem_image : nir_var_uniform;
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
-                               nir_var_uniform, type->glsl_image, 0);
+                               mode, type->glsl_image, 0);
 }
 
 static void
@@ -942,6 +944,7 @@ vtn_type_get_nir_type(struct vtn_builder *b, struct vtn_type *type,
       }
 
       case vtn_base_type_image:
+         vtn_assert(glsl_type_is_sampler(type->glsl_image));
          return type->glsl_image;
 
       case vtn_base_type_sampler:
@@ -953,6 +956,11 @@ vtn_type_get_nir_type(struct vtn_builder *b, struct vtn_type *type,
       default:
          return type->type;
       }
+   }
+
+   if (mode == vtn_variable_mode_image) {
+      vtn_assert(type->base_type == vtn_base_type_image);
+      return type->glsl_image;
    }
 
    /* Layout decorations are allowed but ignored in certain conditions,
@@ -2381,18 +2389,15 @@ vtn_mem_semantics_to_nir_var_modes(struct vtn_builder *b,
                      SpvMemorySemanticsAtomicCounterMemoryMask);
    }
 
-   /* TODO: Consider adding nir_var_mem_image mode to NIR so it can be used
-    * for SpvMemorySemanticsImageMemoryMask.
-    */
-
    nir_variable_mode modes = 0;
-   if (semantics & (SpvMemorySemanticsUniformMemoryMask |
-                    SpvMemorySemanticsImageMemoryMask)) {
+   if (semantics & SpvMemorySemanticsUniformMemoryMask) {
       modes |= nir_var_uniform |
                nir_var_mem_ubo |
                nir_var_mem_ssbo |
                nir_var_mem_global;
    }
+   if (semantics & SpvMemorySemanticsImageMemoryMask)
+      modes |= nir_var_mem_image;
    if (semantics & SpvMemorySemanticsWorkgroupMemoryMask)
       modes |= nir_var_mem_shared;
    if (semantics & SpvMemorySemanticsCrossWorkgroupMemoryMask)
