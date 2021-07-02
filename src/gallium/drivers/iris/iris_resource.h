@@ -315,11 +315,40 @@ struct iris_format_info iris_format_for_usage(const struct intel_device_info *,
                                               enum pipe_format pf,
                                               isl_surf_usage_flags_t usage);
 
-struct pipe_resource *iris_resource_get_separate_stencil(struct pipe_resource *);
+static inline struct pipe_resource *
+_iris_resource_get_separate_stencil(struct pipe_resource *p_res)
+{
+   /* For packed depth-stencil, we treat depth as the primary resource
+    * and store S8 as the "second plane" resource.
+    */
+   if (p_res->next && p_res->next->format == PIPE_FORMAT_S8_UINT)
+      return p_res->next;
 
-void iris_get_depth_stencil_resources(struct pipe_resource *res,
-                                      struct iris_resource **out_z,
-                                      struct iris_resource **out_s);
+   return NULL;
+
+}
+
+static inline void
+iris_get_depth_stencil_resources(struct pipe_resource *res,
+                                 struct iris_resource **out_z,
+                                 struct iris_resource **out_s)
+{
+   if (!res) {
+      *out_z = NULL;
+      *out_s = NULL;
+      return;
+   }
+
+   if (res->format != PIPE_FORMAT_S8_UINT) {
+      *out_z = (void *) res;
+      *out_s = (void *) _iris_resource_get_separate_stencil(res);
+   } else {
+      *out_z = NULL;
+      *out_s = (void *) res;
+   }
+}
+
+
 bool iris_resource_set_clear_color(struct iris_context *ice,
                                    struct iris_resource *res,
                                    union isl_color_value color);
