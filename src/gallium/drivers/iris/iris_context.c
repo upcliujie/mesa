@@ -79,6 +79,9 @@ iris_lost_context_state(struct iris_batch *batch)
    memset(ice->state.last_grid, 0, sizeof(ice->state.last_grid));
    batch->last_surface_base_address = ~0ull;
    batch->last_aux_map_state = 0;
+   ice->state.last_ib_index_size = 0;
+   ice->state.last_ib_offset = 0;
+   pipe_resource_reference(&ice->state.last_res.index_buffer, NULL);
    batch->screen->vtbl.lost_genx_state(ice, batch);
 }
 

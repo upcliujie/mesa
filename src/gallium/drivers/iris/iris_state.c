@@ -1152,7 +1152,6 @@ struct iris_depth_buffer_state {
  */
 struct iris_genx_state {
    struct iris_vertex_buffer_state vertex_buffers[33];
-   uint32_t last_index_buffer[GENX(3DSTATE_INDEX_BUFFER_length)];
 
    struct iris_depth_buffer_state depth_buffer;
 
@@ -6611,7 +6610,7 @@ iris_upload_render_state(struct iris_context *ice,
 
    if (draw->index_size > 0) {
       unsigned offset;
-
+      bool emit_index = false;
       if (draw->has_user_indices) {
          unsigned start_offset = draw->index_size * sc->start;
 
@@ -6620,34 +6619,45 @@ iris_upload_render_state(struct iris_context *ice,
                        (char*)draw->index.user + start_offset,
                        &offset, &ice->state.last_res.index_buffer);
          offset -= start_offset;
+         emit_index = true;
       } else {
          struct iris_resource *res = (void *) draw->index.resource;
-         res->bind_history |= PIPE_BIND_INDEX_BUFFER;
 
-         pipe_resource_reference(&ice->state.last_res.index_buffer,
-                                 draw->index.resource);
+         if (ice->state.last_res.index_buffer != draw->index.resource) {
+            res->bind_history |= PIPE_BIND_INDEX_BUFFER;
+
+            pipe_resource_reference(&ice->state.last_res.index_buffer,
+                                    draw->index.resource);
+            emit_index = true;
+         }
          offset = 0;
       }
 
-      struct iris_genx_state *genx = ice->state.genx;
+      if (!emit_index &&
+          (ice->state.last_ib_offset != offset ||
+           ice->state.last_ib_index_size != draw->index_size))
+          emit_index = true;
+
       struct iris_bo *bo = iris_resource_bo(ice->state.last_res.index_buffer);
 
-      uint32_t ib_packet[GENX(3DSTATE_INDEX_BUFFER_length)];
-      iris_pack_command(GENX(3DSTATE_INDEX_BUFFER), ib_packet, ib) {
-         ib.IndexFormat = draw->index_size >> 1;
-         ib.MOCS = iris_mocs(bo, &batch->screen->isl_dev,
-                             ISL_SURF_USAGE_INDEX_BUFFER_BIT);
-         ib.BufferSize = bo->size - offset;
-         ib.BufferStartingAddress = ro_bo(NULL, bo->gtt_offset + offset);
+      if (emit_index) {
+         uint32_t ib_packet[GENX(3DSTATE_INDEX_BUFFER_length)];
+         iris_pack_command(GENX(3DSTATE_INDEX_BUFFER), ib_packet, ib) {
+            ib.IndexFormat = draw->index_size >> 1;
+            ib.MOCS = iris_mocs(bo, &batch->screen->isl_dev,
+                                ISL_SURF_USAGE_INDEX_BUFFER_BIT);
+            ib.BufferSize = bo->size - offset;
+            ib.BufferStartingAddress = ro_bo(NULL, bo->gtt_offset + offset);
 #if GFX_VER >= 12
-         ib.L3BypassDisable       = true;
+            ib.L3BypassDisable       = true;
 #endif
-      }
+         }
 
-      if (memcmp(genx->last_index_buffer, ib_packet, sizeof(ib_packet)) != 0) {
-         memcpy(genx->last_index_buffer, ib_packet, sizeof(ib_packet));
          iris_batch_emit(batch, ib_packet, sizeof(ib_packet));
          iris_use_pinned_bo(batch, bo, false, IRIS_DOMAIN_OTHER_READ);
+
+         ice->state.last_ib_offset = offset;
+         ice->state.last_ib_index_size = draw->index_size;
       }
 
 #if GFX_VER < 11
@@ -7875,9 +7885,6 @@ gfx9_toggle_preemption(struct iris_context *ice,
 static void
 iris_lost_genx_state(struct iris_context *ice, struct iris_batch *batch)
 {
-   struct iris_genx_state *genx = ice->state.genx;
-
-   memset(genx->last_index_buffer, 0, sizeof(genx->last_index_buffer));
 }
 
 static void
