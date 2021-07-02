@@ -791,6 +791,9 @@ struct iris_context {
       uint16_t last_vbo_high_bits[33];
       uint16_t last_index_bo_high_bits;
 
+      uint32_t last_ib_offset;
+      uint8_t last_ib_index_size;
+
       /**
        * Resources containing streamed state which our render context
        * currently points to.  Used to re-add these to the validation
