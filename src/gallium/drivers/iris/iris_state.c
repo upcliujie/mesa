@@ -5305,12 +5305,9 @@ iris_restore_compute_saved_bos(struct iris_context *ice,
  * Possibly emit STATE_BASE_ADDRESS to update Surface State Base Address.
  */
 static void
-iris_update_surface_base_address(struct iris_batch *batch,
-                                 struct iris_binder *binder)
+_iris_update_surface_base_address(struct iris_batch *batch,
+				  struct iris_binder *binder)
 {
-   if (batch->last_surface_base_address == binder->bo->gtt_offset)
-      return;
-
    struct isl_device *isl_dev = &batch->screen->isl_dev;
    uint32_t mocs = isl_mocs(isl_dev, 0, false);
 
@@ -8008,7 +8005,7 @@ genX(init_screen_state)(struct iris_screen *screen)
    screen->vtbl.init_render_context = iris_init_render_context;
    screen->vtbl.init_compute_context = iris_init_compute_context;
    screen->vtbl.upload_render_state = iris_upload_render_state;
-   screen->vtbl.update_surface_base_address = iris_update_surface_base_address;
+   screen->vtbl.update_surface_base_address = _iris_update_surface_base_address;
    screen->vtbl.upload_compute_state = iris_upload_compute_state;
    screen->vtbl.emit_raw_pipe_control = iris_emit_raw_pipe_control;
    screen->vtbl.emit_mi_report_perf_count = iris_emit_mi_report_perf_count;

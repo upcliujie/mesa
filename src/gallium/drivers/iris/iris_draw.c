@@ -290,7 +290,7 @@ iris_draw_vbo(struct pipe_context *ctx, const struct pipe_draw_info *info,
 
    iris_binder_reserve_3d(ice);
 
-   batch->screen->vtbl.update_surface_base_address(batch, &ice->state.binder);
+   iris_update_surface_base_address(batch, &ice->state.binder);
 
    iris_handle_always_flush_cache(batch);
 
@@ -393,7 +393,7 @@ iris_launch_grid(struct pipe_context *ctx, const struct pipe_grid_info *grid)
    iris_update_grid_size_resource(ice, grid);
 
    iris_binder_reserve_compute(ice);
-   batch->screen->vtbl.update_surface_base_address(batch, &ice->state.binder);
+   iris_update_surface_base_address(batch, &ice->state.binder);
 
    if (ice->state.compute_predicate) {
       batch->screen->vtbl.load_register_mem64(batch, MI_PREDICATE_RESULT,
