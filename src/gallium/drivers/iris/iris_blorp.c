@@ -164,7 +164,8 @@ blorp_alloc_binding_table(struct blorp_batch *blorp_batch,
 
    iris_use_pinned_bo(batch, binder->bo, false, IRIS_DOMAIN_NONE);
 
-   batch->screen->vtbl.update_surface_base_address(batch, binder);
+   if (batch->last_surface_base_address != binder->bo->gtt_offset)
+      batch->screen->vtbl.update_surface_base_address(batch, binder);
 }
 
 static void *

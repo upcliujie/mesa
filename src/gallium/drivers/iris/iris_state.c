@@ -5307,9 +5307,6 @@ static void
 iris_update_surface_base_address(struct iris_batch *batch,
                                  struct iris_binder *binder)
 {
-   if (batch->last_surface_base_address == binder->bo->gtt_offset)
-      return;
-
    struct isl_device *isl_dev = &batch->screen->isl_dev;
    uint32_t mocs = isl_mocs(isl_dev, 0, false);
 
