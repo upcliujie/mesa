@@ -887,7 +887,7 @@ void schedule_VMEM(sched_ctx& ctx, Block* block,
    }
 }
 
-void schedule_position_export(sched_ctx& ctx, Block* block,
+void schedule_position_export(sched_ctx& ctx, Block* block, Program* program,
                               std::vector<RegisterDemand>& register_demand,
                               Instruction* current, int idx)
 {
@@ -895,6 +895,17 @@ void schedule_position_export(sched_ctx& ctx, Block* block,
    int window_size = POS_EXP_WINDOW_SIZE;
    int max_moves = POS_EXP_MAX_MOVES;
    int16_t k = 0;
+
+   if (program->info->has_ngg_culling &&
+       program->stage.num_sw_stages() == 1) {
+
+      if (!program->info->has_ngg_early_prim_export) {
+         return;
+      } else {
+         window_size /= 4;
+         max_moves /= 4;
+      }
+   }
 
    DownwardsCursor cursor = ctx.mv.downwards_init(idx, true, false);
 
@@ -948,7 +959,7 @@ void schedule_block(sched_ctx& ctx, Program *program, Block* block, live& live_v
          unsigned target = current->exp().dest;
          if (target >= V_008DFC_SQ_EXP_POS && target < V_008DFC_SQ_EXP_PRIM) {
             ctx.mv.current = current;
-            schedule_position_export(ctx, block, live_vars.register_demand[block->index], current, idx);
+            schedule_position_export(ctx, block, program, live_vars.register_demand[block->index], current, idx);
          }
       }
 
