@@ -40,8 +40,6 @@
 static VkResult
 panvk_reset_cmdbuf(struct panvk_cmd_buffer *cmdbuf)
 {
-   struct panfrost_device *pdev = &cmdbuf->device->physical_device->pdev;
-
    cmdbuf->record_result = VK_SUCCESS;
 
    list_for_each_entry_safe(struct panvk_batch, batch, &cmdbuf->batches, node) {
@@ -112,7 +110,6 @@ panvk_create_cmdbuf(struct panvk_device *device,
 static void
 panvk_destroy_cmdbuf(struct panvk_cmd_buffer *cmdbuf)
 {
-   struct panfrost_device *pdev = &cmdbuf->device->physical_device->pdev;
    struct panvk_device *device = cmdbuf->device;
 
    list_del(&cmdbuf->pool_link);
