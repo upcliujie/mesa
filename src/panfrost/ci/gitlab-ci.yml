@@ -158,6 +158,19 @@ panfrost-g52-gles31:arm64:
     DEQP_PARALLEL: 6
     DEQP_EXPECTED_RENDERER: G52
 
+panfrost-g52-vk:arm64:
+  parallel: 4
+  extends:
+    - .lava-test:arm64
+    - .lava-meson-g12b-a311d-khadas-vim3
+  variables:
+    DEQP_VER: vk
+    PAN_MESA_DEBUG: "deqp,sync"
+    DEQP_PARALLEL: 6
+    DEQP_EXPECTED_RENDERER: G52
+    VK_DRIVER: panfrost
+    MESA_VK_IGNORE_CONFORMANCE_WARNING: 1
+
 .lava-acer-mt8183-cp311-3h-jacuzzi:
   extends:
     - .panfrost-bifrost-rules
