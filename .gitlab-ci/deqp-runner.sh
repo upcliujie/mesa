@@ -165,7 +165,7 @@ check_renderer() {
 check_vk_device_name() {
     echo "Capturing device info for VK driver sanity checks"
     export LD_PRELOAD=$TEST_LD_PRELOAD
-    $DEQP $DEQP_OPTIONS --deqp-case=dEQP-VK.info.device --deqp-log-filename=$RESULTS/deqp-info.qpa
+    strace -f $DEQP $DEQP_OPTIONS --deqp-case=dEQP-VK.info.device --deqp-log-filename=$RESULTS/deqp-info.qpa
     export LD_PRELOAD=
     DEVICENAME=`grep deviceName $RESULTS/deqp-info.qpa | sed 's|deviceName: ||g'`
     echo "deviceName: $DEVICENAME"
