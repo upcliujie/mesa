@@ -214,7 +214,7 @@ public:
                          const fs_reg &texture,
                          const fs_reg &texture_handle);
    void emit_gfx6_gather_wa(uint8_t wa, fs_reg dst);
-   fs_reg resolve_source_modifiers(const fs_reg &src);
+   fs_reg resolve_source_modifiers(const brw::fs_builder &bld, const fs_reg &src);
    void emit_fsign(const class brw::fs_builder &, const nir_alu_instr *instr,
                    fs_reg result, fs_reg *op, unsigned fsign_src);
    void emit_shader_float_controls_execution_mode();
