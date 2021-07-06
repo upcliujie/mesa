@@ -5264,6 +5264,15 @@ bool nir_opt_remove_phis_block(nir_block *block);
 
 bool nir_opt_phi_precision(nir_shader *shader);
 
+typedef struct {
+   bool has_float32_atomic_add;
+   bool has_float32_atomic_min_max;
+   bool has_float64_atomic_min_max;
+} nir_opt_shared_atomics_options;
+
+bool nir_opt_shared_atomics(nir_shader *shader,
+                            const nir_opt_shared_atomics_options *options);
+
 bool nir_opt_shrink_vectors(nir_shader *shader, bool shrink_image_store);
 
 bool nir_opt_trivial_continues(nir_shader *shader);
