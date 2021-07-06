@@ -3576,42 +3576,6 @@ lower_bit_size_callback(const nir_instr *instr, void *_)
    return 0;
 }
 
-static uint8_t
-opt_vectorize_callback(const nir_instr *instr, const void *_)
-{
-   if (instr->type != nir_instr_type_alu)
-      return 0;
-
-   const nir_alu_instr *alu = nir_instr_as_alu(instr);
-   const unsigned bit_size = alu->dest.dest.ssa.bit_size;
-   if (bit_size != 16)
-      return 1;
-
-   switch (alu->op) {
-   case nir_op_fadd:
-   case nir_op_fsub:
-   case nir_op_fmul:
-   case nir_op_ffma:
-   case nir_op_fneg:
-   case nir_op_fsat:
-   case nir_op_fmin:
-   case nir_op_fmax:
-   case nir_op_iadd:
-   case nir_op_isub:
-   case nir_op_imul:
-   case nir_op_imin:
-   case nir_op_imax:
-   case nir_op_umin:
-   case nir_op_umax:
-      return 2;
-   case nir_op_ishl: /* TODO: in NIR, these have 32bit shift operands */
-   case nir_op_ishr: /* while Radeon needs 16bit operands when vectorized */
-   case nir_op_ushr:
-   default:
-      return 1;
-   }
-}
-
 static nir_component_mask_t
 non_uniform_access_callback(const nir_src *src, void *_)
 {
@@ -3898,7 +3862,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
    for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
       if (nir[i]) {
          radv_start_feedback(stage_feedbacks[i]);
-         radv_optimize_nir(nir[i], optimize_conservatively, false);
+         radv_optimize_nir(device, nir[i], optimize_conservatively, false);
 
          /* Gather info again, information such as outputs_read can be out-of-date. */
          nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
@@ -3998,7 +3962,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          nir_opt_shrink_vectors(nir[i]);
 
          if (lower_to_scalar)
-            nir_lower_alu_to_scalar(nir[i], NULL, NULL);
+            nir_lower_alu_to_scalar(nir[i], radv_vectorize_callback,
+                                    &device->physical_device->rad_info.chip_class);
 
          /* lower ALU operations */
          nir_lower_int64(nir[i]);
@@ -4044,7 +4009,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
             if (!nir_has_any_rounding_mode_enabled(nir[i]->info.float_controls_execution_mode))
                NIR_PASS_V(nir[i], nir_fold_16bit_sampler_conversions, 0);
 
-            NIR_PASS_V(nir[i], nir_opt_vectorize, opt_vectorize_callback, NULL);
+            NIR_PASS_V(nir[i], nir_opt_vectorize, radv_vectorize_callback,
+                       &device->physical_device->rad_info.chip_class);
           }
 
          /* cleanup passes */
