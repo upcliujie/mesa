@@ -623,8 +623,8 @@ iris_copy_mem_mem(struct iris_batch *batch,
    iris_batch_sync_region_end(batch);
 }
 
-static void
-emit_pipeline_select(struct iris_batch *batch, uint32_t pipeline)
+void
+genX(iris_emit_pipeline_select)(struct iris_batch *batch, uint32_t pipeline)
 {
 #if GFX_VER >= 8 && GFX_VER < 10
    /* From the Broadwell PRM, Volume 2a: Instructions, PIPELINE_SELECT:
@@ -983,7 +983,7 @@ iris_init_render_context(struct iris_batch *batch)
 
    iris_batch_sync_region_start(batch);
 
-   emit_pipeline_select(batch, _3D);
+   genX(iris_emit_pipeline_select)(batch, _3D);
 
    iris_emit_l3_config(batch, batch->screen->l3_config_3d);
 
@@ -1098,9 +1098,9 @@ iris_init_compute_context(struct iris_batch *batch)
     *  Start with pipeline in 3D mode to set the STATE_BASE_ADDRESS.
     */
 #if GFX_VER == 12
-   emit_pipeline_select(batch, _3D);
+   genX(iris_emit_pipeline_select)(batch, _3D);
 #else
-   emit_pipeline_select(batch, GPGPU);
+   genX(iris_emit_pipeline_select)(batch, GPGPU);
 #endif
 
    iris_emit_l3_config(batch, batch->screen->l3_config_cs);
@@ -1110,7 +1110,7 @@ iris_init_compute_context(struct iris_batch *batch)
    iris_init_common_context(batch);
 
 #if GFX_VER == 12
-   emit_pipeline_select(batch, GPGPU);
+   genX(iris_emit_pipeline_select)(batch, GPGPU);
 #endif
 
 #if GFX_VER == 9
@@ -5285,7 +5285,7 @@ iris_update_surface_base_address(struct iris_batch *batch,
     *  mode by putting the pipeline temporarily in 3D mode..
     */
    if (batch->name == IRIS_BATCH_COMPUTE)
-      emit_pipeline_select(batch, _3D);
+      genX(iris_emit_pipeline_select)(batch, _3D);
 #endif
 
    iris_emit_cmd(batch, GENX(STATE_BASE_ADDRESS), sba) {
@@ -5312,7 +5312,7 @@ iris_update_surface_base_address(struct iris_batch *batch,
     *  Put the pipeline back into compute mode.
     */
    if (batch->name == IRIS_BATCH_COMPUTE)
-      emit_pipeline_select(batch, GPGPU);
+      genX(iris_emit_pipeline_select)(batch, GPGPU);
 #endif
 
    flush_after_state_base_change(batch);
