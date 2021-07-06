@@ -1217,8 +1217,8 @@ gen7_emit_cs_stall_flush(struct crocus_batch *batch)
 }
 #endif
 
-static void
-emit_pipeline_select(struct crocus_batch *batch, uint32_t pipeline)
+void
+genX(crocus_emit_pipeline_select)(struct crocus_batch *batch, uint32_t pipeline)
 {
 #if GFX_VER == 8
    /* From the Broadwell PRM, Volume 2a: Instructions, PIPELINE_SELECT:
@@ -1370,7 +1370,7 @@ crocus_init_render_context(struct crocus_batch *batch)
 {
    UNUSED const struct intel_device_info *devinfo = &batch->screen->devinfo;
 
-   emit_pipeline_select(batch, _3D);
+   genX(crocus_emit_pipeline_select)(batch, _3D);
 
    crocus_emit_cmd(batch, GENX(STATE_SIP), foo);
 
@@ -1419,7 +1419,7 @@ crocus_init_compute_context(struct crocus_batch *batch)
 {
    UNUSED const struct intel_device_info *devinfo = &batch->screen->devinfo;
 
-   emit_pipeline_select(batch, GPGPU);
+   genX(crocus_emit_pipeline_select)(batch, GPGPU);
 
 #if GFX_VER >= 7
    emit_l3_state(batch, true);

@@ -37,6 +37,8 @@ void genX(crocus_upload_urb)(struct crocus_batch *batch,
 void genX(crocus_update_pma_fix)(struct crocus_context *ice,
                                  struct crocus_batch *batch,
                                  bool enable);
+void genX(crocus_emit_pipeline_select)(struct crocus_batch *batch,
+                                       uint32_t pipeline);
 /* crocus_blorp.c */
 void genX(crocus_init_blorp)(struct crocus_context *ice);
 
