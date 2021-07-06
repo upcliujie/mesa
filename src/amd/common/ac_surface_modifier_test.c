@@ -16,6 +16,7 @@
 #include "util/u_vector.h"
 #include "util/mesa-sha1.h"
 #include "addrlib/inc/addrinterface.h"
+#include "vulkan/vulkan_core.h"
 
 #include "ac_surface_test_common.h"
 
@@ -43,7 +44,7 @@ struct test_entry {
 
    /* u_vector requires power of two sizing */
    char padding[8];
-#ifdef PIPE_ARCH_X86
+#if VK_USE_64_BIT_PTR_DEFINES == 0
    char padding2[8];
 #endif
 };
