@@ -282,21 +282,21 @@ midgard_nir_lower_global_load(nir_shader *shader)
                                             NULL);
 }
 
-static bool
+static uint8_t
 mdg_should_scalarize(const nir_instr *instr, const void *_unused)
 {
         const nir_alu_instr *alu = nir_instr_as_alu(instr);
 
         if (nir_dest_bit_size(alu->dest.dest) == 64)
-                return true;
+                return 1;
 
         switch (alu->op) {
         case nir_op_fdot2:
         case nir_op_umul_high:
         case nir_op_imul_high:
-                return true;
+                return 1;
         default:
-                return false;
+                return 0;
         }
 }
 
