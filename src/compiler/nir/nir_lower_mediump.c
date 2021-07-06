@@ -121,7 +121,7 @@ nir_recompute_io_bases(nir_function_impl *impl, nir_variable_mode modes)
       }
    }
 
-   nir_metadata_preserve(impl, nir_metadata_all);
+   nir_metadata_preserve(impl, nir_metadata_dominance | nir_metadata_block_index);
    return changed;
 }
 
@@ -227,7 +227,7 @@ nir_lower_mediump_io(nir_shader *nir, nir_variable_mode modes,
    if (changed && use_16bit_slots)
       nir_recompute_io_bases(impl, modes);
 
-   nir_metadata_preserve(impl, nir_metadata_all);
+   nir_metadata_preserve(impl, nir_metadata_dominance | nir_metadata_block_index);
    return changed;
 }
 
@@ -286,7 +286,7 @@ nir_force_mediump_io(nir_shader *nir, nir_variable_mode modes,
       }
    }
 
-   nir_metadata_preserve(impl, nir_metadata_all);
+   nir_metadata_preserve(impl, nir_metadata_dominance | nir_metadata_block_index);
    return changed;
 }
 
@@ -326,7 +326,7 @@ nir_unpack_16bit_varying_slots(nir_shader *nir, nir_variable_mode modes)
    if (changed)
       nir_recompute_io_bases(impl, modes);
 
-   nir_metadata_preserve(impl, nir_metadata_all);
+   nir_metadata_preserve(impl, nir_metadata_dominance | nir_metadata_block_index);
    return changed;
 }
 
@@ -515,7 +515,7 @@ nir_fold_16bit_sampler_conversions(nir_shader *nir,
       }
    }
 
-   nir_metadata_preserve(impl, nir_metadata_all);
+   nir_metadata_preserve(impl, nir_metadata_dominance | nir_metadata_block_index);
    return changed;
 }
 
@@ -606,6 +606,6 @@ nir_legalize_16bit_sampler_srcs(nir_shader *nir,
       }
    }
 
-   nir_metadata_preserve(impl, nir_metadata_all);
+   nir_metadata_preserve(impl, nir_metadata_dominance | nir_metadata_block_index);
    return changed;
 }
