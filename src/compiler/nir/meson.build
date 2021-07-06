@@ -237,6 +237,7 @@ files_libnir = files(
   'nir_opt_phi_precision.c',
   'nir_opt_rematerialize_compares.c',
   'nir_opt_remove_phis.c',
+  'nir_opt_shared_atomics.c',
   'nir_opt_shrink_vectors.c',
   'nir_opt_sink.c',
   'nir_opt_trivial_continues.c',
@@ -517,5 +518,19 @@ if with_tests
       dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
     ),
     suite : ['compiler', 'nir'],
+  )
+
+  test(
+    'opt_shared_atomics',
+    executable(
+      'opt_shared_atomics',
+      files('tests/opt_shared_atomics_tests.cpp'),
+      cpp_args : [cpp_msvc_compat_args],
+      gnu_symbol_visibility : 'hidden',
+      include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
+      dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
+    ),
+    suite : ['compiler', 'nir'],
+    should_fail : meson.get_cross_property('xfail', '').contains('load_store_vectorizer'),
   )
 endif
