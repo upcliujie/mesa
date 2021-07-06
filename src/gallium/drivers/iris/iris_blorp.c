@@ -269,6 +269,11 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
    struct iris_context *ice = blorp_batch->blorp->driver_ctx;
    struct iris_batch *batch = blorp_batch->driver_batch;
 
+   const bool compute_on_render =
+      ((params->cs_prog_data != NULL) && (batch->name != IRIS_BATCH_COMPUTE));
+   if (compute_on_render)
+      genX(iris_emit_pipeline_select)(batch, GPGPU);
+
 #if GFX_VER >= 11
    /* The PIPE_CONTROL command description says:
     *
@@ -331,6 +336,9 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
    blorp_exec(blorp_batch, params);
 
    iris_handle_always_flush_cache(batch);
+
+   if (compute_on_render)
+      genX(iris_emit_pipeline_select)(batch, _3D);
 
    /* We've smashed all state compared to what the normal 3D pipeline
     * rendering tracks for GL.
