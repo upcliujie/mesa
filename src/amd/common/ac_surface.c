@@ -80,6 +80,10 @@
 #define AMDGPU_TILING_GET(value, field) \
 	(((__u64)(value) >> AMDGPU_TILING_##field##_SHIFT) & AMDGPU_TILING_##field##_MASK)
 #else
+
+#define AMD_FMT_MOD_TILE_VERSION_SHIFT 0
+#define AMD_FMT_MOD_TILE_VERSION_MASK 0xFF
+
 #include "drm-uapi/amdgpu_drm.h"
 #endif
 
