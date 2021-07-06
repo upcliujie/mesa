@@ -44,13 +44,13 @@
 #include "util/compiler.h"
 #include "util/half_float.h"
 
-static bool
+static uint8_t
 etna_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
 {
    const struct etna_specs *specs = data;
 
    if (instr->type != nir_instr_type_alu)
-      return false;
+      return 0;
 
    nir_alu_instr *alu = nir_instr_as_alu(instr);
    switch (alu->op) {
@@ -63,7 +63,7 @@ etna_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
    case nir_op_fsin:
    case nir_op_fdiv:
    case nir_op_imul:
-      return true;
+      return 1;
    /* TODO: can do better than alu_to_scalar for vector compares */
    case nir_op_b32all_fequal2:
    case nir_op_b32all_fequal3:
@@ -77,16 +77,16 @@ etna_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
    case nir_op_b32any_inequal2:
    case nir_op_b32any_inequal3:
    case nir_op_b32any_inequal4:
-      return true;
+      return 1;
    case nir_op_fdot2:
       if (!specs->has_halti2_instructions)
-         return true;
+         return 1;
       break;
    default:
       break;
    }
 
-   return false;
+   return 0;
 }
 
 static void

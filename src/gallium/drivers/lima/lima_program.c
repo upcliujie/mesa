@@ -152,11 +152,11 @@ lima_program_optimize_vs_nir(struct nir_shader *s)
    nir_sweep(s);
 }
 
-static bool
+static uint8_t
 lima_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
 {
    if (instr->type != nir_instr_type_alu)
-      return false;
+      return 0;
 
    nir_alu_instr *alu = nir_instr_as_alu(instr);
    switch (alu->op) {
@@ -167,7 +167,7 @@ lima_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
    case nir_op_fsqrt:
    case nir_op_fsin:
    case nir_op_fcos:
-      return true;
+      return 1;
    default:
       break;
    }
@@ -182,7 +182,7 @@ lima_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
    case nir_op_fcsel:
       break;
    default:
-      return false;
+      return 0;
    }
 
    int num_components = nir_dest_num_components(alu->dest.dest);
@@ -191,9 +191,9 @@ lima_alu_to_scalar_filter_cb(const nir_instr *instr, const void *data)
 
    for (int i = 1; i < num_components; i++)
       if (alu->src[0].swizzle[i] != swizzle)
-         return true;
+         return 1;
 
-   return false;
+   return 0;
 }
 
 static bool
@@ -204,7 +204,7 @@ lima_vec_to_movs_filter_cb(const nir_instr *instr, unsigned writemask,
    if (util_bitcount(writemask) == 1)
       return true;
 
-   return !lima_alu_to_scalar_filter_cb(instr, data);
+   return lima_alu_to_scalar_filter_cb(instr, data) != 1;
 }
 
 void

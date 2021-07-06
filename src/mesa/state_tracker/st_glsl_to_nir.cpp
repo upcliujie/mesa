@@ -429,7 +429,7 @@ src_is_64bit(nir_src *src, void *state)
    return true;
 }
 
-static bool
+static uint8_t
 filter_64_bit_instr(const nir_instr *const_instr, UNUSED const void *data)
 {
    bool lower = false;
@@ -439,9 +439,9 @@ filter_64_bit_instr(const nir_instr *const_instr, UNUSED const void *data)
 
    nir_foreach_dest(instr, dest_is_64bit, &lower);
    if (lower)
-      return true;
+      return 1;
    nir_foreach_src(instr, src_is_64bit, &lower);
-   return lower;
+   return lower ? 1 : 0;
 }
 
 /* Second third of converting glsl_to_nir. This creates uniforms, gathers

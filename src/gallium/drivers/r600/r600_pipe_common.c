@@ -1188,7 +1188,7 @@ r600_get_compiler_options(struct pipe_screen *screen,
        return &rscreen->nir_options;
 }
 
-extern bool r600_lower_to_scalar_instr_filter(const nir_instr *instr, const void *);
+extern uint8_t r600_lower_to_scalar_instr_filter(const nir_instr *instr, const void *);
 
 static void r600_resource_destroy(struct pipe_screen *screen,
 				  struct pipe_resource *res)
