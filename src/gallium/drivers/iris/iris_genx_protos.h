@@ -40,6 +40,10 @@ void genX(update_pma_fix)(struct iris_context *ice,
 
 void genX(invalidate_aux_map_state)(struct iris_batch *batch);
 
+void genX(iris_emit_pipeline_select)(struct iris_batch *batch,
+                                     uint32_t pipeline);
+
+
 /* iris_blorp.c */
 void genX(init_blorp)(struct iris_context *ice);
 
