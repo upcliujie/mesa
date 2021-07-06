@@ -274,6 +274,15 @@ crocus_blorp_exec(struct blorp_batch *blorp_batch,
    struct crocus_context *ice = blorp_batch->blorp->driver_ctx;
    struct crocus_batch *batch = blorp_batch->driver_batch;
 
+#if GFX_VER >= 7
+   const bool compute_on_render =
+      ((params->cs_prog_data != NULL) && (batch->name != CROCUS_BATCH_COMPUTE));
+   if (compute_on_render)
+      genX(crocus_emit_pipeline_select)(batch, GPGPU);
+#else
+   assert((params->cs_prog_data != NULL) == (batch->name == CROCUS_BATCH_COMPUTE));
+#endif
+
    /* Flush the sampler and render caches.  We definitely need to flush the
     * sampler cache so that we get updated contents from the render cache for
     * the glBlitFramebuffer() source.  Also, we are sometimes warned in the
@@ -323,6 +332,11 @@ crocus_blorp_exec(struct blorp_batch *blorp_batch,
 
    batch->no_wrap = false;
    crocus_handle_always_flush_cache(batch);
+
+#if GFX_VER >= 7
+   if (compute_on_render)
+      genX(crocus_emit_pipeline_select)(batch, _3D);
+#endif
 
    /* We've smashed all state compared to what the normal 3D pipeline
     * rendering tracks for GL.
