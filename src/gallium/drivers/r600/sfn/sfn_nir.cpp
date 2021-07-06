@@ -759,10 +759,10 @@ bool has_saturate(const nir_function *func)
 }
 
 extern "C"
-bool r600_lower_to_scalar_instr_filter(const nir_instr *instr, const void *)
+uint8_t r600_lower_to_scalar_instr_filter(const nir_instr *instr, const void *)
 {
    if (instr->type != nir_instr_type_alu)
-      return true;
+      return 0;
 
    auto alu = nir_instr_as_alu(instr);
    switch (alu->op) {
@@ -778,14 +778,14 @@ bool r600_lower_to_scalar_instr_filter(const nir_instr *instr, const void *)
    case nir_op_fdot3:
    case nir_op_fdot4:
    case nir_op_cube_r600:
-      return false;
+      return 0;
    case nir_op_bany_fnequal2:
    case nir_op_ball_fequal2:
    case nir_op_bany_inequal2:
    case nir_op_ball_iequal2:
-      return nir_src_bit_size(alu->src[0].src) != 64;
+      return nir_src_bit_size(alu->src[0].src) != 64 ? 1 : 0;
    default:
-      return true;
+      return 1;
    }
 }
 
