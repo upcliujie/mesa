@@ -5259,6 +5259,12 @@ bool nir_opt_remove_phis_block(nir_block *block);
 
 bool nir_opt_phi_precision(nir_shader *shader);
 
+typedef bool (*nir_opt_shared_atomics_cb)(nir_intrinsic_op op,
+                                          uint8_t bit_size, void *data);
+
+bool nir_opt_shared_atomics(nir_shader *shader,
+                            nir_opt_shared_atomics_cb callback, void *data);
+
 bool nir_opt_shrink_vectors(nir_shader *shader, bool shrink_image_store);
 
 bool nir_opt_trivial_continues(nir_shader *shader);
