@@ -3431,7 +3431,7 @@ typedef struct nir_shader_compiler_options {
     */
    bool vectorize_io;
    bool lower_to_scalar;
-   nir_instr_filter_cb lower_to_scalar_filter;
+   nir_vectorize_cb lower_to_scalar_filter;
 
    /**
     * Disables potentially harmful algebraic transformations for architectures
@@ -4753,6 +4753,7 @@ bool nir_lower_flrp(nir_shader *shader, unsigned lowering_mask,
 bool nir_scale_fdiv(nir_shader *shader);
 
 bool nir_lower_alu_to_scalar(nir_shader *shader, nir_instr_filter_cb cb, const void *data);
+bool nir_lower_alu_width(nir_shader *shader, nir_vectorize_cb cb, const void *data);
 bool nir_lower_bool_to_bitsize(nir_shader *shader);
 bool nir_lower_bool_to_float(nir_shader *shader);
 bool nir_lower_bool_to_int32(nir_shader *shader);
