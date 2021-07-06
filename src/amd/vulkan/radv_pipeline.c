@@ -3582,6 +3582,11 @@ opt_vectorize_callback(const nir_instr *instr, const void *_)
    if (instr->type != nir_instr_type_alu)
       return 0;
 
+   const struct radv_device *device = _;
+   enum chip_class chip = device->physical_device->rad_info.chip_class;
+   if (chip < GFX9)
+      return 1;
+
    const nir_alu_instr *alu = nir_instr_as_alu(instr);
    const unsigned bit_size = alu->dest.dest.ssa.bit_size;
    if (bit_size != 16)
@@ -3972,8 +3977,6 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          }
          NIR_PASS_V(nir[i], nir_lower_memory_model);
 
-         bool lower_to_scalar = false;
-
          nir_load_store_vectorize_options vectorize_opts = {
             .modes = nir_var_mem_ssbo | nir_var_mem_ubo | nir_var_mem_push_const |
                      nir_var_mem_shared | nir_var_mem_global,
@@ -3989,7 +3992,6 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          if (nir_opt_load_store_vectorize(nir[i], &vectorize_opts)) {
             NIR_PASS_V(nir[i], nir_copy_prop);
             nir_opt_shrink_stores(nir[i], !device->instance->disable_shrink_image_store);
-            lower_to_scalar = true;
 
             /* Gather info again, to update whether 8/16-bit are used. */
             nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
@@ -3997,8 +3999,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
          nir_opt_shrink_vectors(nir[i]);
 
-         if (lower_to_scalar)
-            nir_lower_alu_to_scalar(nir[i], NULL, NULL);
+         nir_lower_alu_to_scalar(nir[i], opt_vectorize_callback, device);
 
          /* lower ALU operations */
          nir_lower_int64(nir[i]);
@@ -4044,7 +4045,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
             if (!nir_has_any_rounding_mode_enabled(nir[i]->info.float_controls_execution_mode))
                NIR_PASS_V(nir[i], nir_fold_16bit_sampler_conversions, 0);
 
-            NIR_PASS_V(nir[i], nir_opt_vectorize, opt_vectorize_callback, NULL);
+            NIR_PASS_V(nir[i], nir_opt_vectorize, opt_vectorize_callback, device);
           }
 
          /* cleanup passes */
