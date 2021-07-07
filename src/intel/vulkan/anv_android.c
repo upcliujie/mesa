@@ -246,6 +246,86 @@ get_ahw_buffer_format_properties(
    return VK_SUCCESS;
 }
 
+static VkResult
+get_ahw_buffer_format_properties2(
+   VkDevice device_h,
+   const struct AHardwareBuffer *buffer,
+   VkAndroidHardwareBufferFormatProperties2ANDROID *pProperties)
+{
+   ANV_FROM_HANDLE(anv_device, device, device_h);
+
+   /* Get a description of buffer contents . */
+   AHardwareBuffer_Desc desc;
+   AHardwareBuffer_describe(buffer, &desc);
+
+   /* Verify description. */
+   uint64_t gpu_usage =
+      AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE |
+      AHARDWAREBUFFER_USAGE_GPU_COLOR_OUTPUT |
+      AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER;
+
+   /* "Buffer must be a valid Android hardware buffer object with at least
+    * one of the AHARDWAREBUFFER_USAGE_GPU_* usage flags."
+    */
+   if (!(desc.usage & (gpu_usage)))
+      return VK_ERROR_INVALID_EXTERNAL_HANDLE;
+
+   /* Fill properties fields based on description. */
+   VkAndroidHardwareBufferFormatProperties2ANDROID *p = pProperties;
+
+   p->format = vk_format_from_android(desc.format, desc.usage);
+
+   const struct anv_format *anv_format = anv_get_format(p->format);
+   p->externalFormat = (uint64_t) (uintptr_t) anv_format;
+
+   /* Default to OPTIMAL tiling but set to linear in case
+    * of AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER usage.
+    */
+   VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+
+   if (desc.usage & AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER)
+      tiling = VK_IMAGE_TILING_LINEAR;
+
+   p->formatFeatures =
+      anv_get_image_format_features(&device->info, p->format, anv_format,
+                                    tiling, NULL);
+
+   /* "Images can be created with an external format even if the Android hardware
+    *  buffer has a format which has an equivalent Vulkan format to enable
+    *  consistent handling of images from sources that might use either category
+    *  of format. However, all images created with an external format are subject
+    *  to the valid usage requirements associated with external formats, even if
+    *  the Android hardware buffer’s format has a Vulkan equivalent."
+    *
+    * "The formatFeatures member *must* include
+    *  VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT and at least one of
+    *  VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT or
+    *  VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT"
+    */
+   p->formatFeatures |=
+      VK_FORMAT_FEATURE_2_MIDPOINT_CHROMA_SAMPLES_BIT_KHR;
+
+   /* "Implementations may not always be able to determine the color model,
+    *  numerical range, or chroma offsets of the image contents, so the values
+    *  in VkAndroidHardwareBufferFormatPropertiesANDROID are only suggestions.
+    *  Applications should treat these values as sensible defaults to use in
+    *  the absence of more reliable information obtained through some other
+    *  means."
+    */
+   p->samplerYcbcrConversionComponents.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+   p->samplerYcbcrConversionComponents.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+   p->samplerYcbcrConversionComponents.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+   p->samplerYcbcrConversionComponents.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+   p->suggestedYcbcrModel = VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601;
+   p->suggestedYcbcrRange = VK_SAMPLER_YCBCR_RANGE_ITU_FULL;
+
+   p->suggestedXChromaOffset = VK_CHROMA_LOCATION_MIDPOINT;
+   p->suggestedYChromaOffset = VK_CHROMA_LOCATION_MIDPOINT;
+
+   return VK_SUCCESS;
+}
+
 VkResult
 anv_GetAndroidHardwareBufferPropertiesANDROID(
    VkDevice device_h,
@@ -257,10 +337,15 @@ anv_GetAndroidHardwareBufferPropertiesANDROID(
    VkAndroidHardwareBufferFormatPropertiesANDROID *format_prop =
       vk_find_struct(pProperties->pNext,
                      ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID);
-
    /* Fill format properties of an Android hardware buffer. */
    if (format_prop)
       get_ahw_buffer_format_properties(device_h, buffer, format_prop);
+
+   VkAndroidHardwareBufferFormatProperties2ANDROID *format_prop2 =
+      vk_find_struct(pProperties->pNext,
+                     ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_2_ANDROID);
+   if (format_prop2)
+      get_ahw_buffer_format_properties2(device_h, buffer, format_prop2);
 
    /* NOTE - We support buffers with only one handle but do not error on
     * multiple handle case. Reason is that we want to support YUV formats

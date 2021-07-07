@@ -578,6 +578,10 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
       if ((aspects & VK_IMAGE_ASPECT_DEPTH_BIT) && devinfo->ver >= 9)
          flags |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_FILTER_MINMAX_BIT_KHR;
 
+      if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
+         flags |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT_KHR;
+      }
+
       return flags;
    }
 
@@ -636,7 +640,16 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
    /* Load/store is determined based on base format.  This prevents RGB
     * formats from showing up as load/store capable.
     */
+   if (isl_format_supports_typed_reads(devinfo, base_isl_format))
+      flags |= VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT_KHR;
    if (isl_format_supports_typed_writes(devinfo, base_isl_format))
+      flags |= VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR;
+
+   /* Keep this old behavior on VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT_KHR, but
+    * applications should only rely on it for the list of shader storage
+    * extended formats.
+    */
+   if (flags & VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT_KHR)
       flags |= VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT_KHR;
 
    if (base_isl_format == ISL_FORMAT_R32_SINT ||
@@ -873,6 +886,39 @@ get_drm_format_modifier_properties_list(const struct anv_physical_device *physic
    }
 }
 
+static void
+get_drm_format_modifier_properties_list_2(const struct anv_physical_device *physical_device,
+                                          VkFormat vk_format,
+                                          VkDrmFormatModifierPropertiesList2EXT *list)
+{
+   const struct intel_device_info *devinfo = &physical_device->info;
+   const struct anv_format *anv_format = anv_get_format(vk_format);
+
+   VK_OUTARRAY_MAKE(out, list->pDrmFormatModifierProperties,
+                    &list->drmFormatModifierCount);
+
+   isl_drm_modifier_info_for_each(isl_mod_info) {
+      VkFormatFeatureFlags2KHR features =
+         anv_get_image_format_features(devinfo, vk_format, anv_format,
+                                       VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT,
+                                       isl_mod_info);
+      if (!features)
+         continue;
+
+      uint32_t planes = anv_format->n_planes;
+      if (isl_mod_info->aux_usage != ISL_AUX_USAGE_NONE)
+         ++planes;
+
+      vk_outarray_append(&out, out_props) {
+         *out_props = (VkDrmFormatModifierProperties2EXT) {
+            .drmFormatModifier = isl_mod_info->modifier,
+            .drmFormatModifierPlaneCount = planes,
+            .drmFormatModifierTilingFeatures = features,
+         };
+      };
+   }
+}
+
 void anv_GetPhysicalDeviceFormatProperties(
     VkPhysicalDevice                            physicalDevice,
     VkFormat                                    vk_format,
@@ -900,6 +946,9 @@ void anv_GetPhysicalDeviceFormatProperties2(
     VkFormatProperties2*                        pFormatProperties)
 {
    ANV_FROM_HANDLE(anv_physical_device, physical_device, physicalDevice);
+   const struct intel_device_info *devinfo = &physical_device->info;
+   const struct anv_format *anv_format = anv_get_format(format);
+
    anv_GetPhysicalDeviceFormatProperties(physicalDevice, format,
                                          &pFormatProperties->formatProperties);
 
@@ -910,6 +959,24 @@ void anv_GetPhysicalDeviceFormatProperties2(
          get_drm_format_modifier_properties_list(physical_device, format,
                                                  (void *)ext);
          break;
+
+      case VK_STRUCTURE_TYPE_DRM_FORMAT_MODIFIER_PROPERTIES_LIST_2_EXT:
+         get_drm_format_modifier_properties_list_2(physical_device, format,
+                                                   (void *)ext);
+         break;
+
+      case VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_3_KHR: {
+         VkFormatProperties3KHR *props = (VkFormatProperties3KHR *)ext;
+         props->linearTilingFeatures =
+            anv_get_image_format_features(devinfo, format, anv_format,
+                                          VK_IMAGE_TILING_LINEAR, NULL);
+         props->optimalTilingFeatures =
+             anv_get_image_format_features(devinfo, format, anv_format,
+                                           VK_IMAGE_TILING_OPTIMAL, NULL);
+         props->bufferFeatures =
+            get_buffer_format_features(devinfo, format, anv_format);
+         break;
+      }
       default:
          anv_debug_ignored_stype(ext->sType);
          break;
