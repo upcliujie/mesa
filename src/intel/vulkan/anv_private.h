@@ -4466,7 +4466,7 @@ anv_rasterization_aa_mode(VkPolygonMode raster_mode,
    return false;
 }
 
-VkFormatFeatureFlags
+VkFormatFeatureFlags2KHR
 anv_get_image_format_features(const struct intel_device_info *devinfo,
                               VkFormat vk_format,
                               const struct anv_format *anv_format,
