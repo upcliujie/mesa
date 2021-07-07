@@ -449,10 +449,7 @@ clone_phi(clone_state *state, const nir_phi_instr *phi, nir_block *nblk)
    nir_instr_insert_after_block(nblk, &nphi->instr);
 
    foreach_list_typed(nir_phi_src, src, node, &phi->srcs) {
-      nir_phi_src *nsrc = ralloc(nphi, nir_phi_src);
-
-      /* Just copy the old source for now. */
-      memcpy(nsrc, src, sizeof(*src));
+      nir_phi_src *nsrc = nir_phi_instr_add_src(nphi, src->pred, src->src);
 
       /* Since we're not letting nir_insert_instr handle use/def stuff for us,
        * we have to set the parent_instr manually.  It doesn't really matter
@@ -464,8 +461,6 @@ clone_phi(clone_state *state, const nir_phi_instr *phi, nir_block *nblk)
        * sources at the very end of clone_function_impl.
        */
       list_add(&nsrc->src.use_link, &state->phi_srcs);
-
-      exec_list_push_tail(&nphi->srcs, &nsrc->node);
    }
 
    return nphi;
