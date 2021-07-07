@@ -787,8 +787,13 @@ anv_i915_query(int fd, uint64_t query_id, void *buffer,
    };
 
    int ret = intel_ioctl(fd, DRM_IOCTL_I915_QUERY, &args);
+   if (ret != 0)
+      return -errno;
+   else if (item.length < 0)
+      return item.length;
+
    *buffer_len = item.length;
-   return ret;
+   return 0;
 }
 
 struct drm_i915_query_engine_info *
