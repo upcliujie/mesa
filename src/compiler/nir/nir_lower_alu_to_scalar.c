@@ -71,11 +71,11 @@ lower_reduction(nir_alu_instr *alu, nir_op chan_op, nir_op merge_op,
    for (int i = num_components - 1; i >= 0; i--) {
       nir_alu_instr *chan = nir_alu_instr_create(builder->shader, chan_op);
       nir_alu_ssa_dest_init(chan, 1, alu->dest.dest.ssa.bit_size);
-      nir_alu_src_copy(&chan->src[0], &alu->src[0], chan);
+      nir_alu_src_copy(&chan->src[0], &alu->src[0]);
       chan->src[0].swizzle[0] = chan->src[0].swizzle[i];
       if (nir_op_infos[chan_op].num_inputs > 1) {
          assert(nir_op_infos[chan_op].num_inputs == 2);
-         nir_alu_src_copy(&chan->src[1], &alu->src[1], chan);
+         nir_alu_src_copy(&chan->src[1], &alu->src[1]);
          chan->src[1].swizzle[0] = chan->src[1].swizzle[i];
       }
       chan->exact = alu->exact;
@@ -287,7 +287,7 @@ lower_alu_instr_scalar(nir_builder *b, nir_instr *instr, void *_data)
          unsigned src_chan = (nir_op_infos[alu->op].input_sizes[i] == 1 ?
                               0 : chan);
 
-         nir_alu_src_copy(&lower->src[i], &alu->src[i], lower);
+         nir_alu_src_copy(&lower->src[i], &alu->src[i]);
          for (int j = 0; j < NIR_MAX_VEC_COMPONENTS; j++)
             lower->src[i].swizzle[j] = alu->src[i].swizzle[src_chan];
       }
