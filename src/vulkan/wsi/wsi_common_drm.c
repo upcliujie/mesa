@@ -28,11 +28,223 @@
 #include "vk_util.h"
 #include "drm-uapi/drm_fourcc.h"
 
+#include <errno.h>
+#include <linux/dma-buf.h>
+#include <linux/sync_file.h>
 #include <time.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <xf86drm.h>
+
+struct dma_buf_sync_file_wsi {
+   __u32 flags;
+   __s32 fd;
+};
+
+#define DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI   _IOWR(DMA_BUF_BASE, 2, struct dma_buf_sync_file_wsi)
+#define DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI   _IOW(DMA_BUF_BASE, 3, struct dma_buf_sync_file_wsi)
+
+static VkResult
+wsi_dma_buf_export_sync_file(int dma_buf_fd, int *sync_file_fd)
+{
+   /* Don't keep trying an IOCTL that doesn't exist. */
+   static bool no_dma_buf_sync_file = false;
+   if (no_dma_buf_sync_file)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   struct dma_buf_sync_file_wsi dma_buf_sync_file_export = {
+      .flags = DMA_BUF_SYNC_WRITE,
+      .fd = -1,
+   };
+   int ret = drmIoctl(dma_buf_fd, DMA_BUF_IOCTL_EXPORT_SYNC_FILE_WSI,
+                      &dma_buf_sync_file_export);
+   if (ret) {
+      if (errno == ENOTTY) {
+         no_dma_buf_sync_file = true;
+         return VK_ERROR_FEATURE_NOT_PRESENT;
+      } else {
+         return VK_ERROR_UNKNOWN;
+      }
+   }
+
+   *sync_file_fd = dma_buf_sync_file_export.fd;
+
+   return VK_SUCCESS;
+}
+
+static VkResult
+wsi_dma_buf_import_sync_file(int dma_buf_fd, int sync_file_fd)
+{
+   /* Don't keep trying an IOCTL that doesn't exist. */
+   static bool no_dma_buf_sync_file = false;
+   if (no_dma_buf_sync_file)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   struct dma_buf_sync_file_wsi dma_buf_sync_file_import = {
+      .flags = DMA_BUF_SYNC_RW,
+      .fd = sync_file_fd,
+   };
+   int ret = drmIoctl(dma_buf_fd, DMA_BUF_IOCTL_IMPORT_SYNC_FILE_WSI,
+                      &dma_buf_sync_file_import);
+   if (ret) {
+      if (errno == ENOTTY) {
+         no_dma_buf_sync_file = true;
+         return VK_ERROR_FEATURE_NOT_PRESENT;
+      } else {
+         return VK_ERROR_UNKNOWN;
+      }
+   }
+
+   return VK_SUCCESS;
+}
+
+VkResult
+wsi_signal_semaphore_for_dma_buf(const struct wsi_swapchain *chain,
+                                 VkSemaphore semaphore, int dma_buf_fd)
+{
+   if (chain->wsi->ImportSemaphoreFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int sync_file_fd = -1;
+   VkResult result = wsi_dma_buf_export_sync_file(dma_buf_fd, &sync_file_fd);
+   if (result != VK_SUCCESS)
+      return result;
+
+   const VkImportSemaphoreFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_FD_INFO_KHR,
+      .semaphore = semaphore,
+      .flags = VK_SEMAPHORE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+
+      /* vkImportSemaphoreFdKHR takes ownership of the fd */
+      .fd = sync_file_fd,
+   };
+   result = chain->wsi->ImportSemaphoreFdKHR(chain->device, &import_info);
+   if (result != VK_SUCCESS)
+      close(sync_file_fd);
+
+   return result;
+}
+
+VkResult
+wsi_signal_fence_for_dma_buf(const struct wsi_swapchain *chain,
+                             VkFence fence, int dma_buf_fd)
+{
+   if (chain->wsi->ImportFenceFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int sync_file_fd = -1;
+   VkResult result = wsi_dma_buf_export_sync_file(dma_buf_fd, &sync_file_fd);
+   if (result != VK_SUCCESS)
+      return result;
+
+   const VkImportFenceFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR,
+      .fence = fence,
+      .flags = VK_FENCE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+
+      /* vkImportFenceFdKHR takes ownership of the fd */
+      .fd = sync_file_fd,
+   };
+   result = chain->wsi->ImportFenceFdKHR(chain->device, &import_info);
+   if (result != VK_SUCCESS)
+      close(sync_file_fd);
+
+   return result;
+}
+
+static VkResult
+wsi_get_sync_file_for_semaphores(const struct wsi_swapchain *chain,
+                                 uint32_t semaphore_count,
+                                 const VkSemaphore *semaphores,
+                                 int *fd_out)
+{
+   if (chain->wsi->GetSemaphoreFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int fd = -1;
+   VkResult result = VK_SUCCESS;
+   for (uint32_t i = 0; i < semaphore_count; i++) {
+      int sem_fd;
+      const VkSemaphoreGetFdInfoKHR get_info = {
+         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+         .semaphore = semaphores[i],
+         .handleType = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT,
+      };
+      result = chain->wsi->GetSemaphoreFdKHR(chain->device, &get_info, &sem_fd);
+      if (result != VK_SUCCESS)
+         break;
+
+      if (fd < 0) {
+         fd = sem_fd;
+      } else {
+         struct sync_merge_data merge = {
+            .name = "Mesa VKWSI",
+            .fd2 = sem_fd,
+            .fence = -1,
+         };
+         int ret = drmIoctl(fd, SYNC_IOC_MERGE, &merge);
+         if (ret) {
+            result = VK_ERROR_UNKNOWN;
+            break;
+         }
+      }
+   }
+
+   if (result == VK_SUCCESS) {
+      *fd_out = fd;
+   } else if (fd >= 0) {
+      close(fd);
+   }
+
+   return result;
+}
+
+VkResult
+wsi_signal_dma_buf_and_fence_for_semaphores(const struct wsi_swapchain *chain,
+                                            int dma_buf_fd,
+                                            VkFence fence,
+                                            uint32_t semaphore_count,
+                                            const VkSemaphore *semaphores)
+{
+   VkResult result;
+
+   if (chain->wsi->GetSemaphoreFdKHR == NULL ||
+       chain->wsi->ImportFenceFdKHR == NULL)
+      return VK_ERROR_FEATURE_NOT_PRESENT;
+
+   int sync_file_fd = -1;
+   result = wsi_get_sync_file_for_semaphores(chain, semaphore_count,
+                                             semaphores, &sync_file_fd);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   result = wsi_dma_buf_import_sync_file(dma_buf_fd, sync_file_fd);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   const VkImportFenceFdInfoKHR import_info = {
+      .sType = VK_STRUCTURE_TYPE_IMPORT_FENCE_FD_INFO_KHR,
+      .fence = fence,
+      .flags = VK_FENCE_IMPORT_TEMPORARY_BIT,
+      .handleType = VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT,
+
+      /* vkImportFenceFdKHR takes ownership of the fd */
+      .fd = sync_file_fd,
+   };
+   result = chain->wsi->ImportFenceFdKHR(chain->device, &import_info);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   return VK_SUCCESS;
+
+fail:
+   if (sync_file_fd >= 0)
+      close(sync_file_fd);
+   return result;
+}
 
 bool
 wsi_device_matches_drm_fd(const struct wsi_device *wsi, int drm_fd)
@@ -102,9 +314,7 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
 
-   memset(image, 0, sizeof(*image));
-   for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
-      image->fds[i] = -1;
+   wsi_image_init(image);
 
    struct wsi_image_create_info image_wsi_info = {
       .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
@@ -319,7 +529,6 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
    if (result != VK_SUCCESS)
       goto fail;
 
-   int fd = -1;
    if (!wsi->sw) {
       const VkMemoryGetFdInfoKHR memory_get_fd_info = {
          .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
@@ -328,7 +537,8 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
          .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
       };
 
-      result = wsi->GetMemoryFdKHR(chain->device, &memory_get_fd_info, &fd);
+      result = wsi->GetMemoryFdKHR(chain->device, &memory_get_fd_info,
+                                   &image->dma_buf_fd);
       if (result != VK_SUCCESS)
          goto fail;
    }
@@ -340,10 +550,9 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
       result = wsi->GetImageDrmFormatModifierPropertiesEXT(chain->device,
                                                            image->image,
                                                            &image_mod_props);
-      if (result != VK_SUCCESS) {
-         close(fd);
+      if (result != VK_SUCCESS)
          goto fail;
-      }
+
       image->drm_modifier = image_mod_props.drmFormatModifier;
       assert(image->drm_modifier != DRM_FORMAT_MOD_INVALID);
 
@@ -366,18 +575,6 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
          image->sizes[p] = image_layout.size;
          image->row_pitches[p] = image_layout.rowPitch;
          image->offsets[p] = image_layout.offset;
-         if (p == 0) {
-            image->fds[p] = fd;
-         } else {
-            image->fds[p] = os_dupfd_cloexec(fd);
-            if (image->fds[p] == -1) {
-               for (uint32_t i = 0; i < p; i++)
-                  close(image->fds[i]);
-
-               result = VK_ERROR_OUT_OF_HOST_MEMORY;
-               goto fail;
-            }
-         }
       }
    } else {
       const VkImageSubresource image_subresource = {
@@ -394,7 +591,6 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
       image->sizes[0] = reqs.size;
       image->row_pitches[0] = image_layout.rowPitch;
       image->offsets[0] = 0;
-      image->fds[0] = fd;
    }
 
    vk_free(&chain->alloc, modifier_props);
@@ -428,7 +624,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    const struct wsi_device *wsi = chain->wsi;
    VkResult result;
 
-   memset(image, 0, sizeof(*image));
+   wsi_image_init(image);
 
    const uint32_t cpp = vk_format_size(pCreateInfo->imageFormat);
    const uint32_t linear_stride = align_u32(pCreateInfo->imageExtent.width * cpp,
@@ -605,8 +801,8 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .memory = image->prime.memory,
       .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
    };
-   int fd;
-   result = wsi->GetMemoryFdKHR(chain->device, &linear_memory_get_fd_info, &fd);
+   result = wsi->GetMemoryFdKHR(chain->device, &linear_memory_get_fd_info,
+                                &image->dma_buf_fd);
    if (result != VK_SUCCESS)
       goto fail;
 
@@ -615,7 +811,6 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
    image->sizes[0] = linear_size;
    image->row_pitches[0] = linear_stride;
    image->offsets[0] = 0;
-   image->fds[0] = fd;
 
    return VK_SUCCESS;
 

@@ -38,6 +38,7 @@
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #include "util/hash_table.h"
+#include "util/os_file.h"
 #include "util/u_thread.h"
 #include "util/xmlconfig.h"
 
@@ -1326,6 +1327,18 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
       /* If the image has a modifier, we must have DRI3 v1.2. */
       assert(chain->has_dri3_modifiers);
 
+      /* XCB requires an array of file descriptors but we only have one */
+      int fds[4] = { -1, -1, -1, -1 };
+      for (int i = 0; i < image->base.num_planes; i++) {
+         fds[i] = os_dupfd_cloexec(image->base.dma_buf_fd);
+         if (fds[i] == -1) {
+            for (int j = 0; j < i; j++)
+               close(fds[j]);
+
+            return VK_ERROR_OUT_OF_HOST_MEMORY;
+         }
+      }
+
       cookie =
          xcb_dri3_pixmap_from_buffers_checked(chain->conn,
                                               image->pixmap,
@@ -1343,12 +1356,17 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                                               image->base.offsets[3],
                                               chain->depth, bpp,
                                               image->base.drm_modifier,
-                                              image->base.fds);
+                                              fds);
    } else
 #endif
    {
       /* Without passing modifiers, we can't have multi-plane RGB images. */
       assert(image->base.num_planes == 1);
+
+      /* XCB will take ownership of the FD we pass it. */
+      int fd = os_dupfd_cloexec(image->base.dma_buf_fd);
+      if (fd == -1)
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
 
       cookie =
          xcb_dri3_pixmap_from_buffer_checked(chain->conn,
@@ -1358,15 +1376,10 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                                              pCreateInfo->imageExtent.width,
                                              pCreateInfo->imageExtent.height,
                                              image->base.row_pitches[0],
-                                             chain->depth, bpp,
-                                             image->base.fds[0]);
+                                             chain->depth, bpp, fd);
    }
 
    xcb_discard_reply(chain->conn, cookie.sequence);
-
-   /* XCB has now taken ownership of the FDs. */
-   for (int i = 0; i < image->base.num_planes; i++)
-      image->base.fds[i] = -1;
 
    int fence_fd = xshmfence_alloc_shm();
    if (fence_fd < 0)

@@ -41,7 +41,7 @@ struct wsi_image {
    uint32_t sizes[4];
    uint32_t offsets[4];
    uint32_t row_pitches[4];
-   int fds[4];
+   int dma_buf_fd;
 };
 
 struct wsi_swapchain {
@@ -56,6 +56,14 @@ struct wsi_swapchain {
    uint32_t image_count;
 
    bool use_prime_blit;
+
+   /* Whether or not to try dma-buf sync_file import
+    *
+    * This allows us to avoid the dummy vkQueueSubmit on the vkQueuePresent
+    * path for cases where we don't need a prime blit.  If the import ever
+    * fails, we smash this to false and fall back to dummy vkQueueSubmit.
+    */
+   bool use_dma_buf_sync_file_import;
 
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
@@ -103,9 +111,24 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
                        struct wsi_image *image);
 
 void
+wsi_image_init(struct wsi_image *image);
+
+void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image);
 
+VkResult
+wsi_signal_semaphore_for_dma_buf(const struct wsi_swapchain *chain,
+                                 VkSemaphore semaphore, int dma_buf_fd);
+VkResult
+wsi_signal_fence_for_dma_buf(const struct wsi_swapchain *chain,
+                             VkFence fence, int dma_buf_fd);
+VkResult
+wsi_signal_dma_buf_and_fence_for_semaphores(const struct wsi_swapchain *chain,
+                                            int dma_buf_fd,
+                                            VkFence fence,
+                                            uint32_t semaphore_count,
+                                            const VkSemaphore *semaphores);
 
 struct wsi_interface {
    VkResult (*get_support)(VkIcdSurfaceBase *surface,
