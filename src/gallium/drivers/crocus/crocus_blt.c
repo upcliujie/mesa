@@ -250,8 +250,9 @@ static bool crocus_emit_blt(struct crocus_batch *batch,
          const uint32_t chunk_w = MIN2(max_chunk_size, src_width - chunk_x);
          const uint32_t chunk_h = MIN2(max_chunk_size, src_height - chunk_y);
 
+         uint64_t src_offset;
+         uint32_t src_tile_x, src_tile_y;
          ASSERTED uint32_t z_offset_el, array_offset;
-         uint32_t src_offset, src_tile_x, src_tile_y;
          isl_tiling_get_intratile_offset_el(src->surf.tiling,
                                             src_cpp * 8, src->surf.row_pitch_B,
                                             src->surf.array_pitch_el_rows,
@@ -262,7 +263,8 @@ static bool crocus_emit_blt(struct crocus_batch *batch,
          assert(z_offset_el == 0);
          assert(array_offset == 0);
 
-         uint32_t dst_offset, dst_tile_x, dst_tile_y;
+         uint64_t dst_offset;
+         uint32_t dst_tile_x, dst_tile_y;
          isl_tiling_get_intratile_offset_el(dst->surf.tiling,
                                             dst_cpp * 8, dst->surf.row_pitch_B,
                                             dst->surf.array_pitch_el_rows,
