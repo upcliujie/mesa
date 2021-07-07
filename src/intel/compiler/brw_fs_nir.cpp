@@ -5882,7 +5882,7 @@ fs_visitor::nir_emit_texture(const fs_builder &bld, nir_tex_instr *instr)
          switch (instr->op) {
          case nir_texop_txf:
          case nir_texop_txf_ms:
-         case nir_texop_txf_ms_mcs:
+         case nir_texop_txf_ms_mcs_intel:
          case nir_texop_samples_identical:
             srcs[TEX_LOGICAL_SRC_COORDINATE] = retype(src, BRW_REGISTER_TYPE_D);
             break;
@@ -5971,7 +5971,7 @@ fs_visitor::nir_emit_texture(const fs_builder &bld, nir_tex_instr *instr)
          srcs[TEX_LOGICAL_SRC_SAMPLER_HANDLE] = bld.emit_uniformize(src);
          break;
 
-      case nir_tex_src_ms_mcs:
+      case nir_tex_src_ms_mcs_intel:
          assert(instr->op == nir_texop_txf_ms);
          srcs[TEX_LOGICAL_SRC_MCS] = retype(src, BRW_REGISTER_TYPE_D);
          break;
@@ -6033,7 +6033,7 @@ fs_visitor::nir_emit_texture(const fs_builder &bld, nir_tex_instr *instr)
       else
          opcode = SHADER_OPCODE_TXF_CMS_LOGICAL;
       break;
-   case nir_texop_txf_ms_mcs:
+   case nir_texop_txf_ms_mcs_intel:
       opcode = SHADER_OPCODE_TXF_MCS_LOGICAL;
       break;
    case nir_texop_query_levels:
