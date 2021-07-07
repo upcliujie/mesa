@@ -50,7 +50,7 @@ def generate_lava_yaml(args):
     values = {
         'job_name': 'mesa: {}'.format(args.pipeline_info),
         'device_type': args.device_type,
-        'visibility': { 'group': [ 'Collabora+fdo'] },
+        #'visibility': { 'group': [ 'Collabora+fdo'] }, TODO
         'priority': 75,
         'context': {
             'extra_nfsroot_args': ' init=/init rootwait minio_results={}'.format(args.job_artifacts_base)
