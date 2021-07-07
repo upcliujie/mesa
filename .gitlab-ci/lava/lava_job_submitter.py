@@ -62,6 +62,10 @@ def generate_lava_yaml(args):
         },
     }
 
+    # TODO this is here just to validate lima-ci WIP
+    if args.dtb == 'meson-gxl-s805x-libretech-ac':
+        values.pop('visibility')
+
     if args.lava_tags:
         values['tags'] = args.lava_tags.split(',')
 
