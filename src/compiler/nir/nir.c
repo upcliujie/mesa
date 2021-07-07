@@ -1096,6 +1096,16 @@ void nir_instr_free(nir_instr *instr)
    ralloc_free(instr);
 }
 
+void
+nir_instr_free_list(struct exec_list *list)
+{
+   struct exec_node *node;
+   while ((node = exec_list_pop_head(list))) {
+      nir_instr *removed_instr = exec_node_data(nir_instr, node, node);
+      nir_instr_free(removed_instr);
+   }
+}
+
 static bool nir_instr_free_and_dce_live_cb(nir_ssa_def *def, void *state)
 {
    bool *live = state;
@@ -1158,11 +1168,7 @@ nir_instr_free_and_dce(nir_instr *instr)
       }
    }
 
-   struct exec_node *node;
-   while ((node = exec_list_pop_head(&to_free))) {
-      nir_instr *removed_instr = exec_node_data(nir_instr, node, node);
-      nir_instr_free(removed_instr);
-   }
+   nir_instr_free_list(&to_free);
 
    nir_instr_worklist_destroy(worklist);
 
