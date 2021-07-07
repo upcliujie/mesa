@@ -1710,6 +1710,17 @@ iris_bufmgr_query_meminfo(struct iris_bufmgr *bufmgr)
    if (drmIoctl(bufmgr->fd, DRM_IOCTL_I915_QUERY, &query))
       return false;
 
+   if (item.length < 0) {
+      /* -EINVAL is expected when the Kernel does not support our query, so
+       * log only the others.
+       */
+      if (item.length != -EINVAL)
+         DBG("DRM_I915_QUERY_MEMORY_REGIONS unexpected error: %d\n",
+             item.length);
+
+      return false;
+   }
+
    struct drm_i915_query_memory_regions *meminfo = calloc(1, item.length);
    item.data_ptr = (uintptr_t)meminfo;
 
