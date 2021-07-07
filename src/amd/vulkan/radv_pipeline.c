@@ -3422,6 +3422,15 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
                nir_var_mem_ubo | nir_var_mem_ssbo | nir_var_mem_global | nir_var_mem_push_const;
          }
 
+         if (i == MESA_SHADER_COMPUTE) {
+            NIR_PASS_V(nir[i], nir_opt_shared_atomics,
+                       &(nir_opt_shared_atomics_options) {
+                          .has_float32_atomic_add = device->physical_device->rad_info.chip_class >= GFX8,
+                          .has_float32_atomic_min_max = !radv_use_llvm_for_stage(device, i),
+                          .has_float64_atomic_min_max = !radv_use_llvm_for_stage(device, i),
+                       });
+         }
+
          if (nir_opt_load_store_vectorize(nir[i], &vectorize_opts)) {
             NIR_PASS_V(nir[i], nir_copy_prop);
             lower_to_scalar = true;
