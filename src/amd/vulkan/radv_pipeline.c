@@ -3234,6 +3234,35 @@ non_uniform_access_callback(const nir_src *src, void *_)
    return nir_chase_binding(*src).success ? 0x2 : 0x3;
 }
 
+static bool
+opt_shared_atomics_callback(nir_intrinsic_op op, uint8_t bit_size, void *data)
+{
+   struct radv_device *device = (struct radv_device *)data;
+
+   if ((bit_size == 32 || bit_size == 64) &&
+       (op == nir_intrinsic_shared_atomic_add ||
+        op == nir_intrinsic_shared_atomic_imin ||
+        op == nir_intrinsic_shared_atomic_umin ||
+        op == nir_intrinsic_shared_atomic_imax ||
+        op == nir_intrinsic_shared_atomic_umax ||
+        op == nir_intrinsic_shared_atomic_and ||
+        op == nir_intrinsic_shared_atomic_or ||
+        op == nir_intrinsic_shared_atomic_xor))
+      return true;
+
+   if (device->physical_device->rad_info.chip_class >= GFX8 &&
+       bit_size == 32 && op == nir_intrinsic_shared_atomic_fadd)
+      return true;
+
+   if (!device->physical_device->use_llvm &&
+       (bit_size == 32 || bit_size == 64) &&
+       (op == nir_intrinsic_shared_atomic_fmin ||
+        op == nir_intrinsic_shared_atomic_fmax))
+      return true;
+
+   return false;
+}
+
 VkResult
 radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
                     struct radv_pipeline_cache *cache, const struct radv_pipeline_key *pipeline_key,
@@ -3409,6 +3438,10 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
          if (device->robust_buffer_access2) {
             vectorize_opts.robust_modes =
                nir_var_mem_ubo | nir_var_mem_ssbo | nir_var_mem_global | nir_var_mem_push_const;
+         }
+
+         if (i == MESA_SHADER_COMPUTE) {
+            NIR_PASS_V(nir[i], nir_opt_shared_atomics, opt_shared_atomics_callback, device);
          }
 
          if (nir_opt_load_store_vectorize(nir[i], &vectorize_opts)) {
