@@ -496,6 +496,18 @@ panfrost_batch_get_shared_memory(struct panfrost_batch *batch,
 
         return batch->shared_memory;
 }
+        
+static inline enum mali_sample_pattern
+pan_sample_pattern(unsigned samples)
+{
+        switch (samples) {
+        case 1:  return MALI_SAMPLE_PATTERN_SINGLE_SAMPLED;
+        case 4:  return MALI_SAMPLE_PATTERN_ROTATED_4X_GRID;
+        case 8:  return MALI_SAMPLE_PATTERN_D3D_8X_GRID;
+        case 16: return MALI_SAMPLE_PATTERN_D3D_16X_GRID;
+        default: unreachable("Unsupported sample count");
+        }
+}
 
 mali_ptr
 panfrost_batch_get_bifrost_tiler(struct panfrost_batch *batch, unsigned vertex_count)
@@ -512,14 +524,25 @@ panfrost_batch_get_bifrost_tiler(struct panfrost_batch *batch, unsigned vertex_c
         struct panfrost_ptr t =
                 pan_pool_alloc_desc(&batch->pool.base, BIFROST_TILER_HEAP);
 
-        pan_emit_bifrost_tiler_heap(dev, t.cpu);
+        pan_pack(t.cpu, BIFROST_TILER_HEAP, heap) {
+                heap.size = dev->tiler_heap->size;
+                heap.base = dev->tiler_heap->ptr.gpu;
+                heap.bottom = dev->tiler_heap->ptr.gpu;
+                heap.top = dev->tiler_heap->ptr.gpu + dev->tiler_heap->size;
+        }
 
         mali_ptr heap = t.gpu;
 
         t = pan_pool_alloc_desc(&batch->pool.base, BIFROST_TILER);
-        pan_emit_bifrost_tiler(dev, batch->key.width, batch->key.height,
-                               util_framebuffer_get_num_samples(&batch->key),
-                               heap, t.cpu);
+
+        pan_pack(t.cpu, BIFROST_TILER, tiler) {
+                tiler.hierarchy_mask = 0x28;
+                tiler.fb_width = batch->key.width;
+                tiler.fb_height = batch->key.height;
+                tiler.heap = heap;
+                tiler.sample_pattern = pan_sample_pattern(
+                               util_framebuffer_get_num_samples(&batch->key));
+        }
 
         batch->tiler_ctx.bifrost = t.gpu;
         return batch->tiler_ctx.bifrost;
@@ -664,6 +687,45 @@ panfrost_batch_to_fb_info(const struct panfrost_batch *batch,
         }
 }
 
+int
+panfrost_select_crc_rt(const struct panfrost_device *dev, const struct pan_fb_info *fb)
+{
+        if (dev->arch < 7) {
+                if (fb->rt_count == 1 && fb->rts[0].view && !fb->rts[0].discard &&
+                    fb->rts[0].view->image->layout.crc_mode != PAN_IMAGE_CRC_NONE)
+                        return 0;
+
+                return -1;
+        }
+
+        bool best_rt_valid = false;
+        int best_rt = -1;
+
+        for (unsigned i = 0; i < fb->rt_count; i++) {
+		if (!fb->rts[i].view || fb->rts[0].discard ||
+                    fb->rts[i].view->image->layout.crc_mode == PAN_IMAGE_CRC_NONE)
+                        continue;
+
+                bool valid = *(fb->rts[i].crc_valid);
+                bool full = !fb->extent.minx && !fb->extent.miny &&
+                            fb->extent.maxx == (fb->width - 1) &&
+                            fb->extent.maxy == (fb->height - 1);
+                if (!full && !valid)
+                        continue;
+
+                if (best_rt < 0 || (valid && !best_rt_valid)) {
+                        best_rt = i;
+                        best_rt_valid = valid;
+                }
+
+                if (valid)
+                        break;
+        }
+
+        return best_rt;
+}
+
+
 static void
 panfrost_batch_draw_wallpaper(struct panfrost_batch *batch,
                               struct pan_fb_info *fb)
@@ -671,7 +733,8 @@ panfrost_batch_draw_wallpaper(struct panfrost_batch *batch,
         struct panfrost_device *dev = pan_device(batch->ctx->base.screen);
 
         pan_preload_fb(&batch->pool.base, &batch->scoreboard, fb, batch->tls.gpu,
-                       pan_is_bifrost(dev) ? batch->tiler_ctx.bifrost : 0);
+                       pan_is_bifrost(dev) ? batch->tiler_ctx.bifrost : 0,
+                       panfrost_select_crc_rt(dev, fb));
 }
 
 static int

@@ -208,4 +208,7 @@ panfrost_batch_intersection_scissor(struct panfrost_batch *batch,
 mali_ptr
 panfrost_batch_get_bifrost_tiler(struct panfrost_batch *batch, unsigned vertex_count);
 
+int
+panfrost_select_crc_rt(const struct panfrost_device *dev, const struct pan_fb_info *fb);
+
 #endif

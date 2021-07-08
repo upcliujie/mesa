@@ -1231,17 +1231,13 @@ static void
 pan_preload_emit_bifrost_pre_frame_dcd(struct pan_pool *desc_pool,
                                        struct pan_fb_info *fb, bool zs,
                                        mali_ptr coords, mali_ptr rsd,
-                                       mali_ptr tsd)
+                                       mali_ptr tsd, int crc_rt)
 {
-        struct panfrost_device *dev = desc_pool->dev;
-
         unsigned dcd_idx = zs ? 0 : 1;
         pan_preload_fb_bifrost_alloc_pre_post_dcds(desc_pool, fb);
         assert(fb->bifrost.pre_post.dcds.cpu);
         void *dcd = fb->bifrost.pre_post.dcds.cpu +
                     (dcd_idx * (MALI_DRAW_LENGTH + MALI_DRAW_PADDING_LENGTH));
-
-        int crc_rt = pan_select_crc_rt(dev, fb);
 
         bool always_write = false;
 
@@ -1295,14 +1291,14 @@ static void
 pan_preload_fb_part(struct pan_pool *pool,
                     struct pan_scoreboard *scoreboard,
                     struct pan_fb_info *fb, bool zs,
-                    mali_ptr coords, mali_ptr tsd, mali_ptr tiler)
+                    mali_ptr coords, mali_ptr tsd, mali_ptr tiler, int crc_rt)
 {
         struct panfrost_device *dev = pool->dev;
         mali_ptr rsd = pan_preload_get_rsd(dev, fb, zs);
 
         if (pan_is_bifrost(dev)) {
                 pan_preload_emit_bifrost_pre_frame_dcd(pool, fb, zs,
-                                                       coords, rsd, tsd);
+                                                       coords, rsd, tsd, crc_rt);
         } else {
                 pan_preload_emit_midgard_tiler_job(pool, scoreboard,
                                                    fb, zs, coords, rsd, tsd);
@@ -1313,7 +1309,7 @@ void
 pan_preload_fb(struct pan_pool *pool,
                struct pan_scoreboard *scoreboard,
                struct pan_fb_info *fb,
-               mali_ptr tsd, mali_ptr tiler)
+               mali_ptr tsd, mali_ptr tiler, int crc_rt)
 {
         bool preload_zs = pan_preload_needed(fb, true);
         bool preload_rts = pan_preload_needed(fb, false);
@@ -1334,11 +1330,11 @@ pan_preload_fb(struct pan_pool *pool,
 
         if (preload_zs)
                 pan_preload_fb_part(pool, scoreboard, fb, true, coords,
-                                    tsd, tiler);
+                                    tsd, tiler, crc_rt);
 
         if (preload_rts)
                 pan_preload_fb_part(pool, scoreboard, fb, false, coords,
-                                    tsd, tiler);
+                                    tsd, tiler, crc_rt);
 }
 
 void

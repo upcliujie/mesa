@@ -117,46 +117,4 @@ struct pan_fb_info {
         };
 };
 
-unsigned
-pan_wls_mem_size(const struct panfrost_device *dev,
-                 const struct pan_compute_dim *dim,
-                 unsigned wls_size);
-
-void
-pan_emit_tls(const struct panfrost_device *dev,
-             const struct pan_tls_info *info,
-             void *out);
-
-bool
-pan_fbd_has_zs_crc_ext(const struct panfrost_device *dev,
-                       const struct pan_fb_info *fb);
-
-int
-pan_select_crc_rt(const struct panfrost_device *dev,
-                  const struct pan_fb_info *fb);
-
-unsigned
-pan_emit_fbd(const struct panfrost_device *dev,
-             const struct pan_fb_info *fb,
-             const struct pan_tls_info *tls,
-             const struct pan_tiler_context *tiler_ctx,
-             void *out);
-
-void
-pan_emit_bifrost_tiler_heap(const struct panfrost_device *dev,
-                            void *out);
-
-void
-pan_emit_bifrost_tiler(const struct panfrost_device *dev,
-                       unsigned fb_width, unsigned fb_height,
-                       unsigned nr_samples,
-                       mali_ptr heap,
-                       void *out);
-
-void
-pan_emit_fragment_job(const struct panfrost_device *dev,
-                      const struct pan_fb_info *fb,
-                      mali_ptr fbd,
-                      void *out);
-
 #endif

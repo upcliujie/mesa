@@ -91,7 +91,7 @@ void
 pan_preload_fb(struct pan_pool *desc_pool,
                struct pan_scoreboard *scoreboard,
                struct pan_fb_info *fb,
-               mali_ptr tsd, mali_ptr tiler);
+               mali_ptr tsd, mali_ptr tiler, int crc_rt);
 
 void
 pan_blit_ctx_init(struct panfrost_device *dev,
