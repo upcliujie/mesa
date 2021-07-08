@@ -214,5 +214,7 @@ EGL_FUNCTIONS = (
     # EGL_KHR_partial_update
     _eglFunc("eglSetDamageRegionKHR",                "display"),
 
+    # EGL_MESA_unsynchronized_image
+    _eglFunc("eglInvalidateUnsynchronizedImageMESA", "display"),
 )
 

@@ -1,0 +1,97 @@
+Name
+
+    MESA_unsynchronized_image
+
+Name Strings
+
+    EGL_MESA_unsynchronized_image
+
+Contributors
+
+    Neil Roberts
+    Iago Toral
+
+Contact
+
+    Neil Roberts   <nroberts@igalia.com>
+
+IP Status
+
+    No known claims.
+
+Status
+
+    Draft
+
+Version
+
+    Version 1, 2021-07-09
+
+Number
+
+    TBD
+
+Dependencies
+
+    EGL 1.2 is required.
+
+    EGL_KHR_image_base is required.
+
+Overview
+
+    When importing an EGLimage into a texture, some drivers may need
+    to make a copy of the buffer in order to have it in a format that
+    can be used for sampling. Unlike in the equivalent GLX
+    texture-from-pixmap extension, there is no way for an application
+    to inform the driver when the contents of the original pixmap have
+    been modified so it generally just has to assume the worst and
+    update the copy every time the texture is used. This extension
+    provides a way for the application to both inform the driver that
+    it doesn’t need to automatically keep the contents of the texture
+    up-to-date with the EGLimage and also to inform the driver
+    whenever any external changes have been made.
+
+New Procedures and Functions
+
+    EGLBoolean eglInvalidateUnsynchronizedImageMESA(EGLDisplay dpy,
+                                                    EGLimageKHR image);
+
+Description
+
+    Calling eglInvalidateUnsynchronizedImageMESA performs two things:
+
+    First it informs the driver that the image is unsynchronized. This
+    means that if the image is later used as the backing for a
+    texture, then any external changes to the image don’t have to be
+    automatically reflected in the texture. Typically this would be
+    called immediately after creating the image.
+
+    Secondly it also informs the driver that the contents of the image
+    may have changed and it should perform any action necessary to
+    synchronize the data with any textures created from the image
+    before they are next used for sampling. This can be called
+    repeatedly whenever necessary. The function would typically be
+    called for example in response to damage events on a pixmap that
+    the image points to.
+
+Errors
+
+    EGL_FALSE is returned if the function fails, EGL_TRUE otherwise.
+
+    EGL_BAD_DISPLAY is generated if `disp` is not an EGL display connection.
+
+    EGL_NOT_INITIALIZED is generated if `disp` has not been initialized.
+
+    EGL_BAD_PARAMETER is generated if `image` is not an EGL image.
+
+New Tokens
+
+    No new tokens
+
+Issues
+
+    None
+
+Revision History
+
+    Version 1, 2021-07-09 - First draft (Neil Roberts)
