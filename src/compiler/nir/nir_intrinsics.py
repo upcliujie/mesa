@@ -706,6 +706,7 @@ system_value("sample_id", 1)
 system_value("sample_id_no_per_sample", 1)
 system_value("sample_pos", 2)
 system_value("sample_mask_in", 1)
+system_value("fully_covered", 1, bit_sizes=[1])
 system_value("primitive_id", 1)
 system_value("invocation_id", 1)
 system_value("tess_coord", 3)
@@ -1238,6 +1239,10 @@ intrinsic("load_global_const_block_intel", src_comp=[1, 1], dest_comp=0,
 
 # Number of data items being operated on for a SIMD program.
 system_value("simd_width_intel", 1)
+
+# The "real" input coverage mask.  For per-sample dispatch, this contains all
+# of the samples, not just the one for the current invocation.
+system_value("coverage_mask_intel", 1)
 
 # Load a relocatable 32-bit value
 intrinsic("load_reloc_const_intel", dest_comp=1, bit_sizes=[32],

@@ -610,6 +610,7 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
    case nir_intrinsic_load_sample_id:
    case nir_intrinsic_load_sample_pos:
    case nir_intrinsic_load_sample_mask_in:
+   case nir_intrinsic_load_fully_covered:
    case nir_intrinsic_load_helper_invocation:
    case nir_intrinsic_load_tess_coord:
    case nir_intrinsic_load_patch_vertices_in:
@@ -669,6 +670,10 @@ gather_intrinsic_info(nir_intrinsic_instr *instr, nir_shader *shader,
       }
       if (shader->info.stage == MESA_SHADER_FRAGMENT)
          shader->info.fs.uses_sample_qualifier = true;
+      break;
+
+   case nir_intrinsic_load_coverage_mask_intel:
+      BITSET_SET(shader->info.system_values_read, SYSTEM_VALUE_SAMPLE_MASK_IN);
       break;
 
    case nir_intrinsic_quad_broadcast:

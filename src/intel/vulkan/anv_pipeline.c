@@ -140,6 +140,7 @@ anv_shader_compile_to_nir(struct anv_device *device,
          .draw_parameters = true,
          .float16 = pdevice->info.ver >= 8,
          .float64 = pdevice->info.ver >= 8,
+         .fragment_fully_covered = true,
          .fragment_shader_sample_interlock = pdevice->info.ver >= 9,
          .fragment_shader_pixel_interlock = pdevice->info.ver >= 9,
          .geometry_streams = true,
@@ -510,6 +511,7 @@ populate_wm_prog_key(const struct anv_graphics_pipeline *pipeline,
                      VkPipelineShaderStageCreateFlags flags,
                      bool robust_buffer_acccess,
                      const struct anv_subpass *subpass,
+                     const VkPipelineRasterizationStateCreateInfo *rs_info,
                      const VkPipelineMultisampleStateCreateInfo *ms_info,
                      const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr_info,
                      struct brw_wm_prog_key *key)
@@ -552,17 +554,26 @@ populate_wm_prog_key(const struct anv_graphics_pipeline *pipeline,
    /* Vulkan doesn't support fixed-function alpha test */
    key->alpha_test_replicate_alpha = false;
 
-   if (ms_info) {
+   if (ms_info && ms_info->rasterizationSamples > 1) {
       /* We should probably pull this out of the shader, but it's fairly
        * harmless to compute it and then let dead-code take care of it.
        */
-      if (ms_info->rasterizationSamples > 1) {
-         key->persample_interp = ms_info->sampleShadingEnable &&
-            (ms_info->minSampleShading * ms_info->rasterizationSamples) > 1;
-         key->multisample_fbo = true;
-      }
-
+      key->persample_interp = ms_info->sampleShadingEnable &&
+         (ms_info->minSampleShading * ms_info->rasterizationSamples) > 1;
+      key->multisample_fbo = true;
       key->frag_coord_adds_sample_pos = key->persample_interp;
+   }
+
+   const VkPipelineRasterizationConservativeStateCreateInfoEXT *cr =
+      vk_find_struct_const(rs_info, PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT);
+   if (cr && cr->conservativeRasterizationMode !=
+             VK_CONSERVATIVE_RASTERIZATION_MODE_DISABLED_EXT) {
+      /* Key values were carefully chose to match Vulkan */
+      key->vk_conservative = cr->conservativeRasterizationMode;
+      const unsigned samples = ms_info ? ms_info->rasterizationSamples : 1;
+      key->conservative_sample_mask = BITFIELD_MASK(samples);
+      if (ms_info && ms_info->pSampleMask)
+         key->conservative_sample_mask &= ms_info->pSampleMask[0];
    }
 
    key->coarse_pixel =
@@ -1205,6 +1216,9 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
                         struct anv_pipeline_stage *fs_stage,
                         struct anv_pipeline_stage *prev_stage)
 {
+   NIR_PASS_V(fs_stage->nir, anv_nir_lower_conservative_rasterization,
+                             &fs_stage->key.wm);
+
    /* TODO: we could set this to 0 based on the information in nir_shader, but
     * we need this before we call spirv_to_nir.
     */
@@ -1468,6 +1482,7 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
          populate_wm_prog_key(pipeline, sinfo->flags,
                               pipeline->base.device->robust_buffer_access,
                               pipeline->subpass,
+                              info->pRasterizationState,
                               raster_enabled ? info->pMultisampleState : NULL,
                               vk_find_struct_const(info->pNext,
                                                    PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR),
