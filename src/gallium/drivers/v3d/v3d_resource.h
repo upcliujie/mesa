@@ -123,6 +123,17 @@ struct v3d_resource {
 
         /* Resource storing the S8 part of a Z32F_S8 resource, or NULL. */
         struct v3d_resource *separate_stencil;
+
+        /**
+         * If the resource is not private then we normally can’t tell if it
+         * has had any external modifications on it. If we are using a shadow
+         * texture for the resource then this usually means that we need to
+         * update the copy whenever it is used as a texture source. If this
+         * flag is set then instead the driver can assume any external
+         * modifications don’t need to be automatically reflected in the
+         * texture. This is the case for imports from GLX TFP for example.
+         */
+        bool unsynchronized_external;
 };
 
 static inline struct v3d_resource *
