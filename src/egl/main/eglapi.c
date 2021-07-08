@@ -540,6 +540,7 @@ _eglCreateExtensionsString(_EGLDisplay *disp)
    _EGL_CHECK_EXTENSION(MESA_drm_image);
    _EGL_CHECK_EXTENSION(MESA_image_dma_buf_export);
    _EGL_CHECK_EXTENSION(MESA_query_driver);
+   _EGL_CHECK_EXTENSION(MESA_unsynchronized_image);
 
    _EGL_CHECK_EXTENSION(NOK_swap_region);
    _EGL_CHECK_EXTENSION(NOK_texture_from_pixmap);
@@ -2713,6 +2714,25 @@ eglGetDisplayDriverName(EGLDisplay dpy)
 
     ret = disp->Driver->QueryDriverName(disp);
     RETURN_EGL_EVAL(disp, ret);
+}
+
+static EGLBoolean EGLAPIENTRY
+eglInvalidateUnsynchronizedImageMESA(EGLDisplay dpy, EGLImage image)
+{
+    _EGLDisplay *disp = _eglLockDisplay(dpy);
+    _EGLImage *img = _eglLookupImage(image, disp);
+
+    _EGL_FUNC_START(disp, EGL_OBJECT_IMAGE_KHR, img, EGL_FALSE);
+    _EGL_CHECK_DISPLAY(disp, EGL_FALSE);
+
+    if (!disp->Extensions.MESA_unsynchronized_image)
+        RETURN_EGL_EVAL(disp, EGL_FALSE);
+    if (!img)
+        RETURN_EGL_ERROR(disp, EGL_BAD_PARAMETER, EGL_FALSE);
+
+    disp->Driver->InvalidateUnsynchronizedImageMESA(disp, img);
+
+    RETURN_EGL_EVAL(disp, EGL_TRUE);
 }
 
 __eglMustCastToProperFunctionPointerType EGLAPIENTRY
