@@ -656,8 +656,8 @@ typedef enum
  */
 union gl_dlist_node
 {
-   struct {
-#ifndef PIPE_CC_MSVC
+   struct PACKED {
+#if HAVE_FUNC_ATTRIBUTE_PACKED
       OpCode opcode:16;
 #else
       /* sizeof(Node) is 8 with MSVC, so use an explicit 16 bits type. */
