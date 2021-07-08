@@ -16,3 +16,4 @@ VK_EXT_separate_stencil_usage on lavapipe
 VK_EXT_extended_dynamic_state2 on lavapipe
 Panfrost supports OpenGL ES 3.1
 New Asahi driver for the Apple M1
+freedreno+turnip: Initial support for a6xx gen4 (a660, a635)
