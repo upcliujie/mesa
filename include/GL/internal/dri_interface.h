@@ -1305,7 +1305,7 @@ struct __DRIdri2ExtensionRec {
  * extensions.
  */
 #define __DRI_IMAGE "DRI_IMAGE"
-#define __DRI_IMAGE_VERSION 19
+#define __DRI_IMAGE_VERSION 20
 
 /**
  * These formats correspond to the similarly named MESA_FORMAT_*
@@ -1804,6 +1804,18 @@ struct __DRIimageExtensionRec {
                                             const unsigned int modifier_count,
                                             unsigned int use,
                                             void *loaderPrivate);
+
+   /**
+    * Marks that the image doesn’t need to be automatically synchronized to
+    * external updates and also that an external update has occured. This is
+    * useful if the driver is maintaining a shadow copy of the contents. If
+    * this is called at least once then the driver can assume that it doesn’t
+    * need to update the shadow copy unless this function is called.
+    *
+    * \since 20
+    */
+   void (*invalidateUnsynchronizedImage)(__DRIscreen *screen,
+                                         __DRIimage *image);
 };
 
 
@@ -1991,6 +2003,8 @@ typedef struct __DRIDriverVtableExtensionRec {
 #define   __DRI2_RENDERER_HAS_CONTEXT_PRIORITY_HIGH           (1 << 2)
 
 #define __DRI2_RENDERER_HAS_PROTECTED_CONTENT                 0x000e
+
+#define __DRI2_RENDERER_HAS_UNSYNCHRONIZED_IMAGE              0x000f
 
 typedef struct __DRI2rendererQueryExtensionRec __DRI2rendererQueryExtension;
 struct __DRI2rendererQueryExtensionRec {
