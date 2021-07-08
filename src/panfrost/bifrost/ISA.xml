@@ -8235,4 +8235,13 @@
     <mod name="neg2" size="1" opt="neg"/>
   </ins>
 
+  <!-- 64-bit addition -->
+  <ins name="+SHADDX.i64" pseudo="true" dests="2">
+    <src start="0"/>
+    <src start="3"/>
+    <src start="6"/>
+    <src start="9"/>
+    <immediate name="shift" start="6" size="3"/>
+  </ins>
+
 </bifrost>
