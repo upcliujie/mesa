@@ -1327,8 +1327,28 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
 }
 
 static void
+bi_emit_load_const_64(bi_builder *b, nir_load_const_instr *instr)
+{
+        /* nir_lower_load_const_to_scalar */
+        assert(instr->def.num_components == 1);
+
+        uint64_t imm = nir_const_value_as_uint(instr->value[0], 64);
+        bi_index dest = bi_get_index(instr->def.index, false, 0);
+
+        /* Move halves separately */
+        bi_mov_i32_to(b, bi_word(dest, 0), bi_imm_u32(imm & 0xFFFFFFFF));
+        bi_mov_i32_to(b, bi_word(dest, 1), bi_imm_u32(imm >> 32));
+}
+
+static void
 bi_emit_load_const(bi_builder *b, nir_load_const_instr *instr)
 {
+        /* 64-bit is special */
+        if (instr->def.bit_size == 64) {
+                bi_emit_load_const_64(b, instr);
+                return;
+        }
+
         /* Make sure we've been lowered */
         assert(instr->def.num_components <= (32 / instr->def.bit_size));
 
