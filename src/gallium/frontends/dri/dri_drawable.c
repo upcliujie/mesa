@@ -248,6 +248,7 @@ dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
    struct dri_context *ctx = dri_context(pDRICtx);
    struct st_context_iface *st = ctx->st;
    struct dri_drawable *drawable = dri_drawable(dPriv);
+   struct pipe_screen *screen = drawable->screen->base.screen;
    struct pipe_resource *pt;
 
    if (st->thread_finish)
@@ -257,6 +258,18 @@ dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
 
    /* Use the pipe resource associated with the X drawable */
    pt = drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
+
+   /* The TFP extension specifies that if the drawable is rendered to then the
+    * contents of the texture become unspecified. The application is supposed
+    * to inform the driver that the drawable has been damaged by rebinding the
+    * image. By calling this we can inform the driver both that it doesn’t
+    * need to worry about automatically handling external updates and that an
+    * external update has just occurred.
+    */
+   if (screen->invalidate_unsynchronized_resource) {
+      int rectangle[4] = { 0, 0, pt->width0, pt->height0 };
+      screen->invalidate_unsynchronized_resource(screen, pt, rectangle, 1);
+   }
 
    if (pt) {
       enum pipe_format internal_format = pt->format;
