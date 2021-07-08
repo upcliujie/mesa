@@ -304,6 +304,16 @@ struct pipe_screen {
                              unsigned *offset);
 
    /**
+    * Marks that the resource doesn’t need to be automatically synchronized to
+    * external updates. This is useful if the driver is maintaining a shadow
+    * copy of the contents. If this is set then the driver can assume that it
+    * doesn’t need to update the shadow copy unless resource_changed is called.
+    */
+   void (*set_unsynchronized_external_resource)(struct pipe_screen *screen,
+                                                struct pipe_resource *pt,
+                                                bool value);
+
+   /**
     * Mark the resource as changed so derived internal resources will be
     * recreated on next use.
     *

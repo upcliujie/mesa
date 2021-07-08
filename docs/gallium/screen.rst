@@ -1005,6 +1005,19 @@ memory planes.
 As a corollary, this mean resources for an image with multiple planes have
 to be created starting from the highest plane.
 
+
+
+set_unsynchronized_external_resource
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Marks that the resource doesn’t need to be automatically synchronized
+to external updates. This is useful if the driver is maintaining a
+shadow copy of the contents. If this is set then the driver can assume
+that it doesn’t need to update the shadow copy unless
+``resource_changed`` is called.
+
+
+
 resource_changed
 ^^^^^^^^^^^^^^^^
 
