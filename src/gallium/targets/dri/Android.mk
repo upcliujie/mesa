@@ -75,6 +75,10 @@ ifeq ($(USE_LIBBACKTRACE),true)
 	LOCAL_SHARED_LIBRARIES += libbacktrace
 endif
 
+ifeq ($(HAVE_GALLIUM_LLVMPIPE),true)
+$(call mesa-build-with-llvm)
+endif
+
 $(foreach d, $(MESA_BUILD_GALLIUM), $(eval LOCAL_CFLAGS += $(patsubst HAVE_%,-D%,$(d))))
 
 # sort GALLIUM_LIBS to remove any duplicates
