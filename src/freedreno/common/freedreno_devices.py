@@ -51,6 +51,13 @@ def add_gpus(ids, info):
     for id in ids:
         s.gpus[id] = info
 
+class GPUId(object):
+    def __init__(self, gpu_id, name=None):
+        self.gpu_id = gpu_id
+        if name == None:
+            name = "FD%d" % gpu_id
+        self.name = name
+
 class Struct(object):
     """A helper class that stringifies itself to a 'C' struct initializer
     """
@@ -121,10 +128,10 @@ class A6xxGPUInfo(GPUInfo):
 # a2xx is really two sub-generations, a20x and a22x, but we don't currently
 # capture that in the device-info tables
 add_gpus([
-        200,
-        201,
-        205,
-        220,
+        GPUId(200),
+        GPUId(201),
+        GPUId(205),
+        GPUId(220),
     ], GPUInfo(
         gmem_align_w = 32,  gmem_align_h = 32,
         tile_align_w = 32,  tile_align_h = 32,
@@ -134,10 +141,10 @@ add_gpus([
     ))
 
 add_gpus([
-        305,
-        307,
-        320,
-        330,
+        GPUId(305),
+        GPUId(307),
+        GPUId(320),
+        GPUId(330),
     ], GPUInfo(
         gmem_align_w = 32,  gmem_align_h = 32,
         tile_align_w = 32,  tile_align_h = 32,
@@ -147,9 +154,9 @@ add_gpus([
     ))
 
 add_gpus([
-        405,
-        420,
-        430,
+        GPUId(405),
+        GPUId(420),
+        GPUId(430),
     ], GPUInfo(
         gmem_align_w = 32,  gmem_align_h = 32,
         tile_align_w = 32,  tile_align_h = 32,
@@ -159,9 +166,9 @@ add_gpus([
     ))
 
 add_gpus([
-        510,
-        530,
-        540,
+        GPUId(510),
+        GPUId(530),
+        GPUId(540),
     ], GPUInfo(
         gmem_align_w = 64,  gmem_align_h = 32,
         tile_align_w = 64,  tile_align_h = 32,
@@ -204,8 +211,8 @@ a6xx_gen3 = dict(
     )
 
 add_gpus([
-        615,
-        618,
+        GPUId(615),
+        GPUId(618),
     ], A6xxGPUInfo(
         a6xx_gen1,
         num_sp_cores = 1,
@@ -216,7 +223,7 @@ add_gpus([
     ))
 
 add_gpus([
-        630,
+        GPUId(630),
     ], A6xxGPUInfo(
         a6xx_gen1,
         num_sp_cores = 2,
@@ -227,7 +234,7 @@ add_gpus([
     ))
 
 add_gpus([
-        640,
+        GPUId(640),
     ], A6xxGPUInfo(
         a6xx_gen2,
         num_sp_cores = 2,
@@ -238,7 +245,7 @@ add_gpus([
     ))
 
 add_gpus([
-        650,
+        GPUId(650),
     ], A6xxGPUInfo(
         a6xx_gen3,
         num_sp_cores = 3,
@@ -283,7 +290,7 @@ static const struct fd_dev_info __info${s.info_index(info)} = ${str(info)};
 
 const struct fd_dev_id fd_dev_ids[] = {
 %for id, info in s.gpus.items():
-   { ${id}, &__info${s.info_index(info)} },
+   { ${id.gpu_id}, "${id.name}", &__info${s.info_index(info)} },
 %endfor
 };
 const unsigned fd_dev_ids_count = ${len(s.gpus)};
