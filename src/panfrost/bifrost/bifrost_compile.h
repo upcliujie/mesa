@@ -73,7 +73,7 @@ static const nir_shader_compiler_options bifrost_nir_options = {
 
         .lower_doubles_options = nir_lower_dmod,
         /* TODO: Don't lower supported 64-bit operations */
-        .lower_int64_options = ~0,
+        .lower_int64_options = ~(nir_lower_iadd64),
         /* TODO: Use IMULD on v7 */
         .lower_mul_high = true,
         .lower_uadd_carry = true,
