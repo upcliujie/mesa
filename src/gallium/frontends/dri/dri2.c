@@ -1765,9 +1765,21 @@ dri2_get_capabilities(__DRIscreen *_screen)
    return (screen->can_share_buffer ? __DRI_IMAGE_CAP_GLOBAL_NAMES : 0);
 }
 
+static void
+dri2_invalidate_unsynchronized_image(__DRIscreen *_screen,
+                                     __DRIimage *image)
+{
+   struct pipe_screen *screen = dri_screen(_screen)->base.screen;
+   struct pipe_resource *texture = image->texture;
+
+   int rectangle[4] = { 0, 0, texture->width0, texture->height0 };
+
+   screen->invalidate_unsynchronized_resource(screen, texture, rectangle, 1);
+}
+
 /* The extension is modified during runtime if DRI_PRIME is detected */
 static const __DRIimageExtension dri2ImageExtensionTempl = {
-    .base = { __DRI_IMAGE, 19 },
+    .base = { __DRI_IMAGE, 20 },
 
     .createImageFromName          = dri2_create_image_from_name,
     .createImageFromRenderbuffer  = dri2_create_image_from_renderbuffer,
@@ -1793,6 +1805,7 @@ static const __DRIimageExtension dri2ImageExtensionTempl = {
     .queryDmaBufFormatModifierAttribs = NULL,
     .createImageFromRenderbuffer2 = dri2_create_image_from_renderbuffer2,
     .createImageWithModifiers2    = NULL,
+    .invalidateUnsynchronizedImage = dri2_invalidate_unsynchronized_image,
 };
 
 static const __DRIrobustnessExtension dri2Robustness = {
