@@ -236,6 +236,18 @@ dri_drawable_validate_att(struct dri_context *ctx,
    drawable->texture_stamp = drawable->dPriv->lastStamp - 1;
 
    drawable->base.validate(ctx->st, &drawable->base, statts, count, NULL);
+
+   struct pipe_screen *screen = drawable->screen->base.screen;
+
+   /* The TFP extension specifies that if the drawable is rendered to then the
+    * contents of the texture become unspecified. The application is supposed
+    * to inform the driver that the drawable has been damaged by rebinding the
+    * image.
+    */
+   if (screen->set_unsynchronized_external_resource) {
+      struct pipe_resource *pt = drawable->textures[statt];
+      screen->set_unsynchronized_external_resource(screen, pt, true);
+   }
 }
 
 /**
@@ -248,6 +260,7 @@ dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
    struct dri_context *ctx = dri_context(pDRICtx);
    struct st_context_iface *st = ctx->st;
    struct dri_drawable *drawable = dri_drawable(dPriv);
+   struct pipe_screen *screen = drawable->screen->base.screen;
    struct pipe_resource *pt;
 
    if (st->thread_finish)
@@ -257,6 +270,14 @@ dri_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
 
    /* Use the pipe resource associated with the X drawable */
    pt = drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
+
+   /* The resource will have been marked as external unsynchronized and the
+    * application is supposed to inform the driver that the buffer has changed
+    * by rebinding it. We can report this to the gallium driver with
+    * resource_changed.
+    */
+   if (screen->resource_changed)
+      screen->resource_changed(screen, pt);
 
    if (pt) {
       enum pipe_format internal_format = pt->format;
