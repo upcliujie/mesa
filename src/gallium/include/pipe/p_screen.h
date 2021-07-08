@@ -315,6 +315,15 @@ struct pipe_screen {
    void (*resource_destroy)(struct pipe_screen *,
 			    struct pipe_resource *pt);
 
+   /**
+    * Marks that the resource doesn’t need to be automatically synchronized to
+    * external updates and also that an external update has occured. This is
+    * useful if the driver is maintaining a shadow copy of the contents. If
+    * this is called at least once then the driver can assume that it doesn’t
+    * need to update the shadow copy unless this function is called.
+    */
+   void (*invalidate_unsynchronized_resource)(struct pipe_screen *screen,
+                                              struct pipe_resource *pt);
 
    /**
     * Do any special operations to ensure frontbuffer contents are
