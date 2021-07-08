@@ -881,6 +881,16 @@ dri2_query_driver_config(_EGLDisplay *disp)
     return strdup(ext->xml);
 }
 
+static void
+dri2_invalidate_unsynchronized_image_mesa(_EGLDisplay *disp, _EGLImage *img)
+{
+    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
+    const __DRIimageExtension *ext = dri2_dpy->image;
+   __DRIimage *image = dri2_egl_image(img)->dri_image;
+
+    if (ext->base.version >= 20)
+        ext->invalidateUnsynchronizedImage(dri2_dpy->dri_screen, image);
+}
 
 void
 dri2_setup_screen(_EGLDisplay *disp)
@@ -1017,6 +1027,10 @@ dri2_setup_screen(_EGLDisplay *disp)
    disp->Extensions.EXT_protected_surface =
       dri2_renderer_query_integer(dri2_dpy,
                                   __DRI2_RENDERER_HAS_PROTECTED_CONTENT);
+
+   disp->Extensions.MESA_unsynchronized_image =
+      dri2_renderer_query_integer(dri2_dpy,
+                                  __DRI2_RENDERER_HAS_UNSYNCHRONIZED_IMAGE);
 }
 
 void
@@ -3709,6 +3723,8 @@ const _EGLDriver _eglDriver = {
    .QuerySurface = dri2_query_surface,
    .QueryDriverName = dri2_query_driver_name,
    .QueryDriverConfig = dri2_query_driver_config,
+   .InvalidateUnsynchronizedImageMESA =
+   dri2_invalidate_unsynchronized_image_mesa,
 #ifdef HAVE_LIBDRM
    .CreateDRMImageMESA = dri2_create_drm_image_mesa,
    .ExportDRMImageMESA = dri2_export_drm_image_mesa,
