@@ -74,6 +74,10 @@ dri2_query_renderer_integer(__DRIscreen *_screen, int param,
       if (!value[0])
          return -1;
       return 0;
+   case __DRI2_RENDERER_HAS_UNSYNCHRONIZED_IMAGE:
+      value[0] =
+         screen->base.screen->invalidate_unsynchronized_resource != NULL;
+      return 0;
    default:
       return driQueryRendererIntegerCommon(_screen, param, value);
    }
