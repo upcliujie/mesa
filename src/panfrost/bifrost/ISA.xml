@@ -8244,4 +8244,18 @@
     <immediate name="shift" start="6" size="3"/>
   </ins>
 
+  <ins name="+SHADDX.i32" pseudo="true" dests="2">
+    <src start="0"/>
+    <src start="3"/>
+    <src start="6"/>
+    <immediate name="shift" start="6" size="3"/>
+  </ins>
+
+  <ins name="+SHADDX.u32" pseudo="true" dests="2">
+    <src start="0"/>
+    <src start="3"/>
+    <src start="6"/>
+    <immediate name="shift" start="6" size="3"/>
+  </ins>
+
 </bifrost>

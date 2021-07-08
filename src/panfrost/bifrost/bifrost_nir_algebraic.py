@@ -28,6 +28,36 @@ a = 'a'
 b = 'b'
 c = 'c'
 
+fuse_shaddx = []
+
+for sz in ['8', '16', '32']:
+    b32 = ('u2u32', b) if sz != '32' else b
+
+    for imm in range(1, 8):
+        fuse_shaddx += [
+            (('iadd', 'a@64', ('u2u64', ('ishl', 'b@' + sz, imm))),
+                    ('ushaddx_mali', a, b32, imm)),
+            (('iadd', 'a@64', ('i2i64', ('ishl', 'b@' + sz, imm))),
+                    ('ishaddx_mali', a, b32, imm)),
+        ]
+
+    fuse_shaddx += [
+        (('iadd', 'a@64', ('u2u64', 'b@' + sz)), ('ushaddx_mali', a, b32, 0)),
+        (('iadd', 'a@64', ('i2i64', 'b@' + sz)), ('ishaddx_mali', a, b32, 0))
+    ]
+
+for imm in range(1, 8):
+    fuse_shaddx += [
+            (('iadd', 'a@64', ('ishl', 'b@64', imm)),
+                ('ushadd_mali', a, b, imm))
+    ]
+
+# XXX; fixme
+fuse_shaddx += [(('iadd', 'a@64', '#b'),
+    ('ushaddx_mali', a, ('unpack_64_2x32_split_x', b), 0))]
+
+fuse_shaddx += [(('iadd', 'a@64', 'b@64'), ('ushadd_mali', a, b, 0))]
+
 algebraic_late = [
     # Canonical form. The scheduler will convert back if it makes sense.
     (('fmul', a, 2.0), ('fadd', a, a)),
@@ -51,7 +81,8 @@ def run():
     import nir_algebraic  # pylint: disable=import-error
 
     print('#include "bifrost_nir.h"')
-
+    print(nir_algebraic.AlgebraicPass("bifrost_nir_fuse_shaddx",
+                                      fuse_shaddx).render())
     print(nir_algebraic.AlgebraicPass("bifrost_nir_lower_algebraic_late",
                                       algebraic_late).render())
 

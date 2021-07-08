@@ -1294,6 +1294,14 @@ for (int i = 0; i < 32; i += 8) {
 unop("fsat_signed_mali", tfloat, ("fmin(fmax(src0, -1.0), 1.0)"))
 unop("fclamp_pos_mali", tfloat, ("fmax(src0, 0.0)"))
 
+# Corresponds to optimized address arithmetic sequences on Bifrost
+opcode("ushadd_mali",  0, tuint, [0, 0, 0], [tuint64, tuint64, tuint8], False,
+      "", "src0 + (src1 << src2)")
+opcode("ushaddx_mali", 0, tuint, [0, 0, 0], [tuint64, tuint32, tuint8], False,
+      "", "src0 + (((uint64_t) src1) << src2)")
+opcode("ishaddx_mali", 0, tuint, [0, 0, 0], [tuint64, tint32, tuint8], False,
+      "", "src0 + (((int64_t) src1) << src2)")
+
 # DXIL specific double [un]pack
 # DXIL doesn't support generic [un]pack instructions, so we want those
 # lowered to bit ops. HLSL doesn't support 64bit bitcasts to/from

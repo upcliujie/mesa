@@ -1847,6 +1847,41 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 return;
         }
 
+        case nir_op_ushadd_mali:
+        {
+                bi_index s0 = bi_alu_src_index_64(instr->src[0]);
+                bi_index s1 = bi_alu_src_index_64(instr->src[1]);
+
+                bi_shaddx_i64_to(b, bi_word(dst, 0), bi_word(dst, 1),
+                                    bi_word(s0, 0), bi_word(s0, 1),
+                                    bi_word(s1, 0), bi_word(s1, 1), 
+                                    nir_src_as_uint(instr->src[2].src));
+                return;
+        }
+
+        case nir_op_ushaddx_mali:
+        {
+                bi_index s0 = bi_alu_src_index_64(instr->src[0]);
+                bi_index s1 = bi_alu_src_index(instr->src[1], 1);
+
+                bi_shaddx_u32_to(b, bi_word(dst, 0), bi_word(dst, 1),
+                                    bi_word(s0, 0), bi_word(s0, 1),
+                                    s1, nir_src_as_uint(instr->src[2].src));
+                return;
+        }
+
+        case nir_op_ishaddx_mali:
+        {
+                bi_index s0 = bi_alu_src_index_64(instr->src[0]);
+                bi_index s1 = bi_alu_src_index(instr->src[1], 1);
+
+                bi_shaddx_i32_to(b, bi_word(dst, 0), bi_word(dst, 1),
+                                    bi_word(s0, 0), bi_word(s0, 1),
+                                    s1, nir_src_as_uint(instr->src[2].src));
+
+                return;
+        }
+
         case nir_op_iadd: {
                 if (sz == 64) {
                         bi_emit_shaddx(b, instr, dst, srcs);
@@ -3188,6 +3223,65 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
         }
 }
 
+#if 0
+struct pan_shaddx_state {
+        .
+static bool
+pan_match_addx(...)
+{
+        for (unsigned i = 0; i < 2; ++i) {
+                nir_ssa_scalar s = nir_ssa_scalar_resolved(alu->src[i].ssa, 0);
+
+                if (!nir_ssa_scalar_is_alu(s))
+                        continue;
+
+                nir_op op = nir_ssa_scalar_alu_op(s);
+
+                if (op != nir_op_u2u64)
+                        continue;
+
+                nir_ssa_scalar repl = nir_ssa_scalar_chase_alu_src(s, 0);
+
+                return s;
+ 
+}
+
+static bool
+pan_fuse_shaddx(struct nir_builder *b, nir_instr *instr, UNUSED void *_)
+{
+        if (instr->type != nir_instr_type_alu)
+                return false;
+
+        nir_alu_instr *alu = nir_instr_as_intrinsic(instr);
+        if (alu->op != nir_op_iadd)
+                return false;
+
+        if (nir_dest_bit_size(alu->dest.dest) != 64)
+                return false;
+
+        /* Check if one source is zero/sign-extended and fuse that */
+        for (unsigned i = 0; i < 2; ++i) {
+                nir_ssa_scalar s = nir_ssa_scalar_resolved(alu->src[i].ssa, 0);
+
+                if (!nir_ssa_scalar_is_alu(s))
+                        continue;
+
+                nir_op op = nir_ssa_scalar_alu_op(s);
+
+                if (op != nir_op_u2u64)
+                        continue;
+
+                nir_ssa_scalar repl = nir_ssa_scalar_chase_alu_src(s, 0);
+
+                return s;
+ 
+        
+        nir_ssa_scalar_chase_alu_src(nir_ssa_scalar s, unsigned alu_src_idx)
+ 
+        return nir_foreach_ssa_def(instr, nir_invalidate_divergence_ssa, NULL);
+}
+#endif
+
 /* XXX: This is a kludge to workaround NIR's lack of divergence metadata. If we
  * keep divergence info around after we consume it for indirect lowering,
  * nir_convert_from_ssa will regress code quality since it will avoid
@@ -3226,7 +3320,12 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
         NIR_PASS(progress, nir, pan_nir_lower_64bit_intrin);
         NIR_PASS(progress, nir, pan_lower_helper_invocation);
 
-        NIR_PASS(progress, nir, nir_lower_int64);
+#if 0
+        /* Run before lowering int64 */
+        NIR_PASS_V(nir, nir_shader_instructions_pass, pan_fuse_shaddx,
+                        nir_metadata_block_index | nir_metadata_dominance,
+                        NULL);
+#endif
 
         nir_lower_idiv_options idiv_options = {
                 .imprecise_32bit_lowering = true,
@@ -3283,6 +3382,58 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
                          nir_var_shader_out |
                          nir_var_function_temp);
         } while (progress);
+
+                NIR_PASS(progress, nir, bifrost_nir_fuse_shaddx);
+                NIR_PASS(progress, nir, nir_lower_int64);
+
+
+        do {
+                progress = false;
+
+                NIR_PASS(progress, nir, nir_lower_var_copies);
+                NIR_PASS(progress, nir, nir_lower_vars_to_ssa);
+                NIR_PASS(progress, nir, nir_lower_wrmasks, should_split_wrmask, NULL);
+
+                NIR_PASS(progress, nir, nir_copy_prop);
+                NIR_PASS(progress, nir, nir_opt_remove_phis);
+                NIR_PASS(progress, nir, nir_opt_dce);
+                NIR_PASS(progress, nir, nir_opt_dead_cf);
+                NIR_PASS(progress, nir, nir_opt_cse);
+                NIR_PASS(progress, nir, nir_opt_peephole_select, 64, false, true);
+                NIR_PASS(progress, nir, nir_opt_algebraic);
+                NIR_PASS(progress, nir, nir_opt_constant_folding);
+
+                NIR_PASS(progress, nir, nir_lower_alu);
+
+                if (lower_flrp != 0) {
+                        bool lower_flrp_progress = false;
+                        NIR_PASS(lower_flrp_progress,
+                                 nir,
+                                 nir_lower_flrp,
+                                 lower_flrp,
+                                 false /* always_precise */);
+                        if (lower_flrp_progress) {
+                                NIR_PASS(progress, nir,
+                                         nir_opt_constant_folding);
+                                progress = true;
+                        }
+
+                        /* Nothing should rematerialize any flrps, so we only
+                         * need to do this lowering once.
+                         */
+                        lower_flrp = 0;
+                }
+
+                NIR_PASS(progress, nir, nir_opt_undef);
+                NIR_PASS(progress, nir, nir_lower_undef_to_zero);
+
+                NIR_PASS(progress, nir, nir_opt_loop_unroll,
+                         nir_var_shader_in |
+                         nir_var_shader_out |
+                         nir_var_function_temp);
+        } while (progress);
+
+
 
         /* TODO: Why is 64-bit getting rematerialized?
          * KHR-GLES31.core.shader_image_load_store.basic-allTargets-atomicFS */
