@@ -762,6 +762,16 @@ v3d_screen_is_dmabuf_modifier_supported(struct pipe_screen *pscreen,
         return false;
 }
 
+static void
+v3d_screen_invalidate_unsynchronized_resource(struct pipe_screen *screen,
+                                              struct pipe_resource *pt)
+{
+        struct v3d_resource *rsc = v3d_resource(pt);
+
+        rsc->unsynchronized_external = true;
+        rsc->writes++;
+}
+
 struct pipe_screen *
 v3d_screen_create(int fd, const struct pipe_screen_config *config,
                   struct renderonly *ro)
@@ -822,6 +832,8 @@ v3d_screen_create(int fd, const struct pipe_screen_config *config,
         pscreen->query_dmabuf_modifiers = v3d_screen_query_dmabuf_modifiers;
         pscreen->is_dmabuf_modifier_supported =
                 v3d_screen_is_dmabuf_modifier_supported;
+        pscreen->invalidate_unsynchronized_resource =
+                v3d_screen_invalidate_unsynchronized_resource;
 
         return pscreen;
 
