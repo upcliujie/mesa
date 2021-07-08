@@ -851,7 +851,7 @@ bi_instr_schedulable(bi_instr *instr,
         unsigned total_srcs = tuple->reg.nr_reads + unique_new_srcs;
 
         /* TODO: spill to moves */
-        if (total_srcs > 3)
+        if (total_srcs > 3 && tuple->add)
                 return false;
 
         /* Count effective reads for the successor */
@@ -942,6 +942,21 @@ bi_take_instr(bi_context *ctx, struct bi_worklist st,
                 return bi_lower_shaddx_i64(ctx, clause, tuple);
         else if (tuple->add && tuple->add->table)
                 return bi_lower_dtsel(ctx, clause, tuple);
+
+        /* TODO: Optimize these moves */
+        if (!fma && tuple->nr_prev_reads > 3) {
+                /* Only spill by one source for now */
+                assert(tuple->nr_prev_reads == 4);
+
+                /* Pick a source to spill */
+                bi_index src = tuple->prev_reads[0];
+
+                /* Schedule the spill */
+                bi_builder b = bi_init_builder(ctx, bi_before_tuple(tuple->prev));
+                bi_instr *mov = bi_mov_i32_to(&b, src, src);
+                bi_pop_instr(clause, tuple, mov, live_after_temp, fma);
+                return mov;
+        }
 
 #ifndef NDEBUG
         /* Don't pair instructions if debugging */
