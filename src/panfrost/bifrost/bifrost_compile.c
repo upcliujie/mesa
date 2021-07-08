@@ -1692,6 +1692,29 @@ bi_emit_alu_bool(bi_builder *b, unsigned sz, nir_op op,
         }
 }
 
+static bi_index
+bi_alu_src_index_64(nir_alu_src src)
+{
+        assert(!(src.negate || src.abs));
+        assert(nir_src_bit_size(src.src) == 64);
+
+        unsigned component = src.swizzle[0];
+        unsigned word = component * 2;
+
+        return bi_word(bi_src_index(&src.src), word);
+}
+
+static void
+bi_emit_shaddx(bi_builder *b, nir_alu_instr *instr, bi_index dst, unsigned srcs)
+{
+        bi_index s0 = srcs > 0 ? bi_alu_src_index_64(instr->src[0]) : bi_null();
+        bi_index s1 = srcs > 1 ? bi_alu_src_index_64(instr->src[1]) : bi_null();
+
+        bi_shaddx_i64_to(b, bi_word(dst, 0), bi_word(dst, 1),
+                            bi_word(s0, 0), bi_word(s0, 1),
+                            bi_word(s1, 0), bi_word(s1, 1), 0);
+}
+
 static void
 bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 {
@@ -1822,6 +1845,15 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 
                 bi_make_vec_to(b, dst, &idx, chan, comps, 8);
                 return;
+        }
+
+        case nir_op_iadd: {
+                if (sz == 64) {
+                        bi_emit_shaddx(b, instr, dst, srcs);
+                        return;
+                }
+
+                break;
         }
 
         default:
