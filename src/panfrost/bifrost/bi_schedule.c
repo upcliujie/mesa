@@ -251,6 +251,23 @@ bi_lower_dtsel(bi_context *ctx,
         return dtsel;
 }
 
+static bi_instr *
+bi_lower_shaddx_i64(bi_context *ctx,
+                    struct bi_clause_state *clause, struct bi_tuple_state *tuple)
+{
+        bi_instr *pinstr = tuple->add;
+        bi_builder b = bi_init_builder(ctx, bi_before_instr(pinstr));
+
+        bi_instr *fma = bi_shaddxl_i64_to(&b, pinstr->dest[0], pinstr->src[0],
+                                              pinstr->src[2], pinstr->shift);
+        pinstr->op = BI_OPCODE_SHADDXH_I32;
+        pinstr->src[0] = pinstr->src[1];
+        pinstr->src[1] = pinstr->src[3];
+        pinstr->dest[0] = pinstr->dest[1];
+
+        return fma;
+}
+
 /* Flatten linked list to array for O(1) indexing */
 
 static bi_instr **
@@ -921,6 +938,8 @@ bi_take_instr(bi_context *ctx, struct bi_worklist st,
                 return bi_lower_atom_c1(ctx, clause, tuple);
         else if (tuple->add && tuple->add->op == BI_OPCODE_SEG_ADD_I64)
                 return bi_lower_seg_add(ctx, clause, tuple);
+        else if (tuple->add && tuple->add->op == BI_OPCODE_SHADDX_I64)
+                return bi_lower_shaddx_i64(ctx, clause, tuple);
         else if (tuple->add && tuple->add->table)
                 return bi_lower_dtsel(ctx, clause, tuple);
 
