@@ -11,3 +11,4 @@ VK_EXT_acquire_drm_display on RADV.
 VK_EXT_vertex_input_dynamic_state on lavapipe
 VK_EXT_line_rasterization and wideLines on lavapipe
 VK_EXT_multi_draw on ANV, lavapipe, and RADV
+freedreno+turnip: Initial support for a6xx gen4 (a660, a635)
