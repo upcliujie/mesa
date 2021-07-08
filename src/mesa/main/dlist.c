@@ -657,7 +657,12 @@ typedef enum
 union gl_dlist_node
 {
    struct {
+#if !DETECT_OS_WINDOWS
       OpCode opcode:16;
+#else
+      /* sizeof(Node) is 8 with MSVC/mingw, so use an explicit 16 bits type. */
+      uint16_t opcode;
+#endif
       uint16_t InstSize;
    };
    GLboolean b;
