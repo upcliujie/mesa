@@ -4460,6 +4460,7 @@ struct gl_extensions
    GLboolean EXT_memory_object;
    GLboolean EXT_memory_object_fd;
    GLboolean EXT_multisampled_render_to_texture;
+   GLboolean EXT_multisample_compatibility;
    GLboolean EXT_packed_float;
    GLboolean EXT_pixel_buffer_object;
    GLboolean EXT_point_parameters;

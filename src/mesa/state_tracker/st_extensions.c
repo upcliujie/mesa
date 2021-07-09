@@ -1445,6 +1445,7 @@ void st_init_extensions(struct pipe_screen *screen,
       /* Real MSAA support */
       extensions->EXT_framebuffer_multisample = GL_TRUE;
       extensions->EXT_framebuffer_multisample_blit_scaled = GL_TRUE;
+      extensions->EXT_multisample_compatibility = GL_TRUE;
    }
    else if (consts->MaxSamples > 0 &&
             screen->get_param(screen, PIPE_CAP_FAKE_SW_MSAA)) {
