@@ -1372,8 +1372,7 @@ radv_emit_graphics_pipeline(struct radv_cmd_buffer *cmd_buffer)
 static void
 radv_emit_viewport(struct radv_cmd_buffer *cmd_buffer)
 {
-   si_write_viewport(cmd_buffer->cs, 0, cmd_buffer->state.dynamic.viewport.count,
-                     cmd_buffer->state.dynamic.viewport.viewports);
+   si_write_viewport(cmd_buffer->cs, &cmd_buffer->state.dynamic.viewport);
 }
 
 static void
