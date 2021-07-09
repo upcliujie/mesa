@@ -1667,6 +1667,8 @@ zink_screen_timeline_wait(struct zink_screen *screen, uint32_t batch_id, uint64_
    wi.semaphoreCount = 1;
    /* handle batch_id overflow */
    wi.pSemaphores = batch_id > screen->curr_batch ? &screen->prev_sem : &screen->sem;
+   if (!wi.pSemaphores[0])
+      return false;
    uint64_t batch_id64 = batch_id;
    wi.pValues = &batch_id64;
    bool success = false;
