@@ -37,7 +37,9 @@
  * instruction are not counted.
  */
 
+/* clang-format off */
 #define TEST(n, ...) { # __VA_ARGS__, n }
+/* clang-format on */
 
 static const struct test {
 	const char *asmstr;
