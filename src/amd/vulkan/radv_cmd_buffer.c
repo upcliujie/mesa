@@ -138,6 +138,7 @@ radv_bind_dynamic_state(struct radv_cmd_buffer *cmd_buffer, const struct radv_dy
       if (memcmp(&dest->viewport.viewports, &src->viewport.viewports,
                  src->viewport.count * sizeof(VkViewport))) {
          typed_memcpy(dest->viewport.viewports, src->viewport.viewports, src->viewport.count);
+         typed_memcpy(dest->viewport.xform, src->viewport.xform, src->viewport.count);
          dest_mask |= RADV_DYNAMIC_VIEWPORT;
       }
    }
@@ -4374,6 +4375,8 @@ radv_CmdSetViewport(VkCommandBuffer commandBuffer, uint32_t firstViewport, uint3
 
    memcpy(state->dynamic.viewport.viewports + firstViewport, pViewports,
           viewportCount * sizeof(*pViewports));
+   for (unsigned i = firstViewport; i < firstViewport + viewportCount; i++)
+      radv_get_viewport_xform(&pViewports[i], state->dynamic.viewport.xform[i].scale, state->dynamic.viewport.xform[i].translate);
 
    state->dirty |= RADV_CMD_DIRTY_DYNAMIC_VIEWPORT;
 }
