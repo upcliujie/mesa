@@ -1640,12 +1640,12 @@ radv_get_descriptors_state(struct radv_cmd_buffer *cmd_buffer, VkPipelineBindPoi
 static inline void
 radv_get_viewport_xform(const VkViewport *viewport, float scale[3], float translate[3])
 {
-   float x = viewport->x;
-   float y = viewport->y;
-   float half_width = 0.5f * viewport->width;
-   float half_height = 0.5f * viewport->height;
-   double n = viewport->minDepth;
-   double f = viewport->maxDepth;
+   const float x = viewport->x;
+   const float y = viewport->y;
+   const float half_width = 0.5f * viewport->width;
+   const float half_height = 0.5f * viewport->height;
+   const double n = viewport->minDepth;
+   const double f = viewport->maxDepth;
 
    scale[0] = half_width;
    translate[0] = half_width + x;
