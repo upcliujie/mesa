@@ -91,6 +91,9 @@ ForEachMacros:
   - foreach_name
   - foreach_def
   - foreach_use
+  - ra_foreach_dst
+  - ra_foreach_src
+  - ra_foreach_src_rev
   - foreach_batch
   - hash_table_foreach
   - set_foreach
