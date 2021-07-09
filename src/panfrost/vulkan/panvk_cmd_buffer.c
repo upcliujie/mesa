@@ -908,10 +908,10 @@ panvk_CmdNextSubpass(VkCommandBuffer cmd, VkSubpassContents contents)
 }
 
 
-static void
+void
 panvk_cmd_alloc_fb_desc(struct panvk_cmd_buffer *cmdbuf)
 {
-   if (!cmdbuf->state.pipeline->fs.required)
+   if (cmdbuf->state.pipeline && !cmdbuf->state.pipeline->fs.required)
       return;
 
    struct panvk_batch *batch = cmdbuf->state.batch;
@@ -934,7 +934,7 @@ panvk_cmd_alloc_fb_desc(struct panvk_cmd_buffer *cmdbuf)
    batch->fb.desc.gpu |= tags;
 }
 
-static void
+void
 panvk_cmd_alloc_tls_desc(struct panvk_cmd_buffer *cmdbuf)
 {
    const struct panfrost_device *pdev =
