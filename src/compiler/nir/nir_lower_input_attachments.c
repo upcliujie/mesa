@@ -110,7 +110,7 @@ try_lower_input_load(nir_function_impl *impl, nir_intrinsic_instr *load,
 
    tex->dest_type =
       nir_get_nir_type_for_glsl_base_type(glsl_get_sampler_result_type(deref->type));
-   tex->is_array = true;
+   tex->is_array = glsl_sampler_type_is_array(deref->type);
    tex->is_shadow = false;
    tex->is_sparse = load->intrinsic == nir_intrinsic_image_deref_sparse_load;
 
