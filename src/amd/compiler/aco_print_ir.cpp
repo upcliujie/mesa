@@ -737,19 +737,19 @@ void aco_print_instr(const Instruction *instr, FILE *output, unsigned flags)
          }
       } else if (instr->isDPP()) {
          const DPP_instruction& dpp = instr->dpp();
-         for (unsigned i = 0; i < instr->operands.size(); ++i) {
-            abs[i] = i < 2 ? dpp.abs[i] : false;
-            neg[i] = i < 2 ? dpp.neg[i] : false;
+         for (unsigned i = 0; i < 2; ++i) {
+            abs[i] = dpp.abs[i];
+            neg[i] = dpp.neg[i];
             opsel[i] = false;
             sel[i] = sdwa_udword;
          }
       } else if (instr->isSDWA()) {
          const SDWA_instruction& sdwa = instr->sdwa();
-         for (unsigned i = 0; i < instr->operands.size(); ++i) {
-            abs[i] = i < 2 ? sdwa.abs[i] : false;
-            neg[i] = i < 2 ? sdwa.neg[i] : false;
+         for (unsigned i = 0; i < 2; ++i) {
+            abs[i] = sdwa.abs[i];
+            neg[i] = sdwa.neg[i];
             opsel[i] = false;
-            sel[i] = i < 2 ? sdwa.sel[i] : sdwa_udword;
+            sel[i] = sdwa.sel[i];
          }
       } else {
          for (unsigned i = 0; i < instr->operands.size(); ++i) {
