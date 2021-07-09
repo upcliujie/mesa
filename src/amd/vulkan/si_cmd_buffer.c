@@ -649,9 +649,12 @@ fail:
 }
 
 void
-si_write_viewport(struct radeon_cmdbuf *cs, int first_vp, int count, const VkViewport *viewports)
+si_write_viewport(struct radeon_cmdbuf *cs, const struct radv_viewport_state *viewport)
 {
    int i;
+   const unsigned count = viewport->count;
+   const unsigned first_vp = 0;
+   const VkViewport *viewports = viewport->viewports;
 
    assert(count);
    radeon_set_context_reg_seq(cs, R_02843C_PA_CL_VPORT_XSCALE + first_vp * 4 * 6, count * 6);
