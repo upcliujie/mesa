@@ -560,6 +560,7 @@ static const struct nir_shader_compiler_options gallivm_nir_options = {
    .lower_ffma16 = true,
    .lower_ffma32 = true,
    .lower_ffma64 = true,
+   .lower_fpow = true,
    .lower_fmod = true,
    .lower_hadd = true,
    .lower_add_sat = true,
