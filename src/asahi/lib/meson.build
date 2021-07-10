@@ -83,3 +83,14 @@ if with_tests
     protocol : gtest_test_protocol,
   )
 endif
+
+libasahi_wrap = shared_library(
+  'wrap',
+  'wrap.c',
+  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_asahi],
+  dependencies : [idep_mesautil, dep_iokit],
+  c_args : [no_override_init_args, '-Wno-missing-prototypes'],
+  gnu_symbol_visibility : 'hidden',
+  build_by_default : true,
+  link_with: libasahi_decode,
+)
