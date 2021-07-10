@@ -28,6 +28,8 @@
 
 #include "common/sid.h"
 
+#include <algorithm>
+#include <functional>
 #include <map>
 #include <set>
 #include <stack>
@@ -354,10 +356,16 @@ get_rematerialize_info(spill_ctx& ctx)
    }
 }
 
-std::vector<std::map<Temp, uint32_t>>
-local_next_uses(spill_ctx& ctx, Block* block)
+void
+local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_t>>& local_next_uses)
 {
-   std::vector<std::map<Temp, uint32_t>> local_next_uses(block->instructions.size());
+   // Reset vector by clearing individual maps rather than clearing the entire vector. This avoids dropping the map's reserved memory!
+   if (local_next_uses.size() < block->instructions.size()) {
+      local_next_uses.resize(block->instructions.size());
+   }
+   std::for_each(local_next_uses.begin(),
+                 (local_next_uses.begin() + std::min(local_next_uses.size(), block->instructions.size())),
+                 std::mem_fn(&std::map<Temp, uint32_t>::clear));
 
    std::map<Temp, uint32_t> next_uses;
    for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair :
@@ -385,7 +393,6 @@ local_next_uses(spill_ctx& ctx, Block* block)
       }
       local_next_uses[idx] = next_uses;
    }
-   return local_next_uses;
 }
 
 RegisterDemand
@@ -1111,7 +1118,6 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
 {
    assert(!ctx.processed[block_idx]);
 
-   std::vector<std::map<Temp, uint32_t>> local_next_use_distance;
    std::vector<aco_ptr<Instruction>> instructions;
    unsigned idx = 0;
 
@@ -1121,8 +1127,12 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
       instructions.emplace_back(std::move(block->instructions[idx++]));
    }
 
-   if (block->register_demand.exceeds(ctx.target_pressure))
-      local_next_use_distance = local_next_uses(ctx, block);
+   static std::vector<std::map<Temp, uint32_t>> local_next_use_distance;
+   if (block->register_demand.exceeds(ctx.target_pressure)) {
+      local_next_uses(ctx, block, local_next_use_distance);
+   } else {
+      /* We won't use local_next_use_distance, so no initialization needed */
+   }
 
    while (idx < block->instructions.size()) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
