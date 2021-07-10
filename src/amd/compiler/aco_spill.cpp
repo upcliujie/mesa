@@ -1144,8 +1144,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
 }
 
 void
-process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
-              std::map<Temp, uint32_t>& current_spills, RegisterDemand spilled_registers)
+process_block(spill_ctx& ctx, unsigned block_idx, Block* block, RegisterDemand spilled_registers)
 {
    assert(!ctx.processed[block_idx]);
 
@@ -1164,6 +1163,9 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
       /* We won't use local_next_use_distance, so no initialization needed */
    }
 
+   auto& spills_exit = ctx.spills_exit[block_idx];
+   assert(spills_exit.empty());
+
    while (idx < block->instructions.size()) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
 
@@ -1173,7 +1175,7 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
       for (Operand& op : instr->operands) {
          if (!op.isTemp())
             continue;
-         if (current_spills.find(op.getTemp()) == current_spills.end()) {
+         if (spills_exit.find(op.getTemp()) == spills_exit.end()) {
             /* the Operand is in register: check if it was renamed */
             if (ctx.renames[block_idx].find(op.getTemp()) != ctx.renames[block_idx].end())
                op.setTemp(ctx.renames[block_idx][op.getTemp()]);
@@ -1185,8 +1187,8 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
          /* the Operand is spilled: add it to reloads */
          Temp new_tmp = ctx.program->allocateTmp(op.regClass());
          ctx.renames[block_idx][op.getTemp()] = new_tmp;
-         reloads[new_tmp] = std::make_pair(op.getTemp(), current_spills[op.getTemp()]);
-         current_spills.erase(op.getTemp());
+         reloads[new_tmp] = std::make_pair(op.getTemp(), spills_exit[op.getTemp()]);
+         spills_exit.erase(op.getTemp());
          op.setTemp(new_tmp);
          spilled_registers -= new_tmp;
       }
@@ -1214,9 +1216,7 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
                bool can_rematerialize = ctx.remat.count(pair.first);
                if (((pair.second > distance && can_rematerialize == do_rematerialize) ||
                     (can_rematerialize && !do_rematerialize && pair.second > idx)) &&
-                   current_spills.find(pair.first) == current_spills.end() &&
-                   ctx.spills_exit[block_idx].find(pair.first) ==
-                      ctx.spills_exit[block_idx].end()) {
+                   spills_exit.find(pair.first) == spills_exit.end()) {
                   to_spill = pair.first;
                   distance = pair.second;
                   do_rematerialize = can_rematerialize;
@@ -1227,12 +1227,12 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
             uint32_t spill_id = ctx.allocate_spill_id(to_spill.regClass());
 
             /* add interferences with currently spilled variables */
-            for (std::pair<Temp, uint32_t> pair : current_spills)
+            for (std::pair<Temp, uint32_t> pair : spills_exit)
                ctx.add_interference(spill_id, pair.second);
             for (std::pair<const Temp, std::pair<Temp, uint32_t>>& pair : reloads)
                ctx.add_interference(spill_id, pair.second.second);
 
-            current_spills[to_spill] = spill_id;
+            spills_exit[to_spill] = spill_id;
             spilled_registers += to_spill;
 
             /* rename if necessary */
@@ -1260,7 +1260,6 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
    }
 
    block->instructions = std::move(instructions);
-   ctx.spills_exit[block_idx].insert(current_spills.begin(), current_spills.end());
 }
 
 void
@@ -1284,7 +1283,7 @@ spill_block(spill_ctx& ctx, unsigned block_idx)
       add_coupling_code(ctx, block, block_idx);
    }
 
-   std::map<Temp, uint32_t> current_spills = ctx.spills_entry[block_idx];
+   const std::map<Temp, uint32_t>& current_spills = ctx.spills_entry[block_idx];
 
    /* check conditions to process this block */
    bool process = (block->register_demand - spilled_registers).exceeds(ctx.target_pressure) ||
@@ -1295,10 +1294,10 @@ spill_block(spill_ctx& ctx, unsigned block_idx)
          process = true;
    }
 
-   if (process)
-      process_block(ctx, block_idx, block, current_spills, spilled_registers);
-   else
-      ctx.spills_exit[block_idx].insert(current_spills.begin(), current_spills.end());
+   ctx.spills_exit[block_idx] = current_spills;
+   if (process) {
+      process_block(ctx, block_idx, block, spilled_registers);
+   }
 
    ctx.processed[block_idx] = true;
 
