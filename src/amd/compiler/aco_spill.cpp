@@ -372,6 +372,8 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
         ctx.next_use_distances_end[block->index])
       next_uses[pair.first] = pair.second.second + block->instructions.size();
 
+   std::map<Temp, uint32_t>* prev_next_use = nullptr;
+
    for (int idx = block->instructions.size() - 1; idx >= 0; idx--) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
       if (!instr)
@@ -384,14 +386,29 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
             continue;
          if (op.regClass().type() == RegType::vgpr && op.regClass().is_linear())
             continue;
-         if (op.isTemp())
+         if (op.isTemp()) {
+            if (prev_next_use) {
+               next_uses = *prev_next_use;
+               prev_next_use = nullptr;
+            }
             next_uses[op.getTemp()] = idx;
+         }
       }
       for (const Definition& def : instr->definitions) {
-         if (def.isTemp())
+         if (def.isTemp()) {
+            if (prev_next_use) {
+               next_uses = *prev_next_use;
+               prev_next_use = nullptr;
+            }
             next_uses.erase(def.getTemp());
+         }
       }
-      local_next_uses[idx] = next_uses;
+      if (!prev_next_use) {
+         std::swap(local_next_uses[idx], next_uses);
+         prev_next_use = &local_next_uses[idx];
+      } else {
+         local_next_uses[idx] = *prev_next_use;
+      }
    }
 }
 
