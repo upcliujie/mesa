@@ -1271,21 +1271,26 @@ spill_block(spill_ctx& ctx, unsigned block_idx)
       add_coupling_code(ctx, block, block_idx);
    }
 
-   std::map<Temp, uint32_t> current_spills = ctx.spills_entry[block_idx];
+   {
+      const std::map<Temp, uint32_t>& current_spills = ctx.spills_entry[block_idx];
 
-   /* check conditions to process this block */
-   bool process = (block->register_demand - spilled_registers).exceeds(ctx.target_pressure) ||
-                  !ctx.renames[block_idx].empty() || ctx.remat_used.size();
+      /* check conditions to process this block */
+      bool process = (block->register_demand - spilled_registers).exceeds(ctx.target_pressure) ||
+                     !ctx.renames[block_idx].empty() || ctx.remat_used.size();
 
-   for (auto it = current_spills.begin(); !process && it != current_spills.end(); ++it) {
-      if (ctx.next_use_distances_start[block_idx][it->first].first == block_idx)
-         process = true;
+      for (auto it = current_spills.begin(); !process && it != current_spills.end(); ++it) {
+         if (ctx.next_use_distances_start[block_idx][it->first].first == block_idx)
+            process = true;
+      }
+
+      if (process) {
+         static std::map<Temp, uint32_t> current_spills_copy;
+         current_spills_copy = current_spills;
+         process_block(ctx, block_idx, block, current_spills_copy, spilled_registers);
+      } else {
+         ctx.spills_exit[block_idx].insert(current_spills.begin(), current_spills.end());
+      }
    }
-
-   if (process)
-      process_block(ctx, block_idx, block, current_spills, spilled_registers);
-   else
-      ctx.spills_exit[block_idx].insert(current_spills.begin(), current_spills.end());
 
    ctx.processed[block_idx] = true;
 
