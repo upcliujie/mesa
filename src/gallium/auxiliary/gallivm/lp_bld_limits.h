@@ -34,7 +34,7 @@
 
 #include "pipe/p_state.h"
 #include "pipe/p_defines.h"
-
+#include "util/u_cpu_detect.h"
 
 /*
  * TGSI translation limits.
@@ -85,6 +85,11 @@
  */
 #define LP_MAX_TGSI_LOOP_ITERATIONS 65535
 
+static inline bool
+lp_has_fp16(void)
+{
+   return util_get_cpu_caps()->has_f16c;
+}
 
 /**
  * Some of these limits are actually infinite (i.e., only limited by available
@@ -124,10 +129,11 @@ gallivm_get_shader_param(enum pipe_shader_cap param)
       return 1;
    case PIPE_SHADER_CAP_INTEGERS:
       return 1;
-   case PIPE_SHADER_CAP_INT64_ATOMICS:
    case PIPE_SHADER_CAP_FP16:
    case PIPE_SHADER_CAP_FP16_DERIVATIVES:
    case PIPE_SHADER_CAP_FP16_CONST_BUFFERS:
+      return lp_has_fp16();
+   case PIPE_SHADER_CAP_INT64_ATOMICS:
       return 0;
    case PIPE_SHADER_CAP_INT16:
    case PIPE_SHADER_CAP_GLSL_16BIT_CONSTS:
