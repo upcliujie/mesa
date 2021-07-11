@@ -39,7 +39,7 @@ lp_build_elem_type(struct gallivm_state *gallivm, struct lp_type type)
    if (type.floating) {
       switch(type.width) {
       case 16:
-         return LLVMIntTypeInContext(gallivm->context, 16);
+         return LLVMHalfTypeInContext(gallivm->context);
          break;
       case 32:
          return LLVMFloatTypeInContext(gallivm->context);
@@ -89,7 +89,7 @@ lp_check_elem_type(struct lp_type type, LLVMTypeRef elem_type)
    if (type.floating) {
       switch(type.width) {
       case 16:
-         if(elem_kind != LLVMIntegerTypeKind)
+         if(elem_kind != LLVMHalfTypeKind)
             return FALSE;
          break;
       case 32:
@@ -259,6 +259,8 @@ lp_sizeof_llvm_type(LLVMTypeRef t)
       return 8 * sizeof(float);
    case LLVMDoubleTypeKind:
       return 8 * sizeof(double);
+   case LLVMHalfTypeKind:
+      return 8 * sizeof(uint16_t);
    case LLVMVectorTypeKind:
       {
          LLVMTypeRef elem = LLVMGetElementType(t);
@@ -291,6 +293,8 @@ lp_typekind_name(LLVMTypeKind t)
       return "LLVMVoidTypeKind";
    case LLVMFloatTypeKind:
       return "LLVMFloatTypeKind";
+   case LLVMHalfTypeKind:
+      return "LLVMHalfTypeKind";
    case LLVMDoubleTypeKind:
       return "LLVMDoubleTypeKind";
    case LLVMX86_FP80TypeKind:
