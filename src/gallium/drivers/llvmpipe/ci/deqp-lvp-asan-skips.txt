@@ -1,0 +1,2 @@
+# Lots of timeouts
+dEQP-VK.texture.filtering.*.combinations.*
