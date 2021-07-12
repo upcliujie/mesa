@@ -920,10 +920,15 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
 
    VkShaderStageFlags stages = set_layout->shader_stages;
    struct anv_cmd_pipeline_state *pipe_state;
+   bool update_desc_sets = false;
 
    switch (bind_point) {
    case VK_PIPELINE_BIND_POINT_GRAPHICS:
-      stages &= VK_SHADER_STAGE_ALL_GRAPHICS;
+      update_desc_sets = stages & (VK_SHADER_STAGE_TASK_BIT_NV |
+                                   VK_SHADER_STAGE_MESH_BIT_NV);
+      stages &= VK_SHADER_STAGE_ALL_GRAPHICS |
+                VK_SHADER_STAGE_TASK_BIT_NV |
+                VK_SHADER_STAGE_MESH_BIT_NV;
       pipe_state = &cmd_buffer->state.gfx.base;
       break;
 
@@ -940,6 +945,7 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
                 VK_SHADER_STAGE_INTERSECTION_BIT_KHR |
                 VK_SHADER_STAGE_CALLABLE_BIT_KHR;
       pipe_state = &cmd_buffer->state.rt.base;
+      update_desc_sets = true;
       break;
 
    default:
@@ -959,7 +965,7 @@ anv_cmd_buffer_bind_descriptor_set(struct anv_cmd_buffer *cmd_buffer,
        * access to HW binding tables.  This means that we have to upload the
        * descriptor set as an 64-bit address in the push constants.
        */
-      if (bind_point == VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR) {
+      if (update_desc_sets) {
          struct anv_push_constants *push = &pipe_state->push_constants;
 
          struct anv_address addr = anv_descriptor_set_address(set);
@@ -1237,7 +1243,9 @@ void anv_CmdPushConstants(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
 
-   if (stageFlags & VK_SHADER_STAGE_ALL_GRAPHICS) {
+   if (stageFlags & (VK_SHADER_STAGE_ALL_GRAPHICS |
+                     VK_SHADER_STAGE_TASK_BIT_NV |
+                     VK_SHADER_STAGE_MESH_BIT_NV)) {
       struct anv_cmd_pipeline_state *pipe_state =
          &cmd_buffer->state.gfx.base;
 
