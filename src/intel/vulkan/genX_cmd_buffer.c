@@ -2990,6 +2990,9 @@ cmd_buffer_emit_descriptor_pointers(struct anv_cmd_buffer *cmd_buffer,
       [MESA_SHADER_COMPUTE]                     = 0,
    };
 
+   /* Task and Mesh stages don't have these pointer packets. */
+   stages &= ~(VK_SHADER_STAGE_TASK_BIT_NV | VK_SHADER_STAGE_MESH_BIT_NV);
+
    anv_foreach_stage(s, stages) {
       assert(s < ARRAY_SIZE(binding_table_opcodes));
       assert(binding_table_opcodes[s] > 0);
@@ -3399,6 +3402,42 @@ cmd_buffer_flush_push_constants(struct anv_cmd_buffer *cmd_buffer,
             assert(bind_map->push_ranges[i].length == 0);
       }
 
+      if (stage == MESA_SHADER_TASK) {
+#if GFX_VERx10 >= 125
+         assert(buffer_count <= 1);
+
+         anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_TASK_SHADER_DATA), data) {
+            if (buffer_count > 0) {
+               uintptr_t addr = anv_address_physical(buffers[0]);
+               data.InlineData[0] = addr & 0xffffffff;
+               data.InlineData[1] = addr >> 32;
+            }
+         }
+#else
+         assert(buffer_count == 0);
+#endif
+
+         continue;
+      }
+
+      if (stage == MESA_SHADER_MESH) {
+#if GFX_VERx10 >= 125
+         assert(buffer_count <= 1);
+
+         anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_MESH_SHADER_DATA), data) {
+            if (buffer_count > 0) {
+               uintptr_t addr = anv_address_physical(buffers[0]);
+               data.InlineData[0] = addr & 0xffffffff;
+               data.InlineData[1] = addr >> 32;
+            }
+         }
+#else
+         assert(buffer_count == 0);
+#endif
+
+         continue;
+      }
+
 #if GFX_VER >= 12
       /* If this stage doesn't have any push constants, emit it later in a
        * single CONSTANT_ALL packet.
@@ -3737,7 +3776,9 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
        * descriptors or push constants is dirty.
        */
       dirty |= cmd_buffer->state.push_constants_dirty;
-      dirty &= ANV_STAGE_MASK & VK_SHADER_STAGE_ALL_GRAPHICS;
+      dirty &= ANV_STAGE_MASK & (VK_SHADER_STAGE_ALL_GRAPHICS |
+                                 VK_SHADER_STAGE_TASK_BIT_NV |
+                                 VK_SHADER_STAGE_MESH_BIT_NV);
       cmd_buffer_flush_push_constants(cmd_buffer, dirty);
    }
 
