@@ -266,7 +266,7 @@ panfrost_blit(struct pipe_context *pipe,
                         key.nr_cbufs = 1;
                 }
 
-                struct panfrost_batch *batch = panfrost_get_fresh_batch(ctx, &key);
+                struct panfrost_batch *batch = panfrost_get_fresh_batch(ctx, &key, "Blit");
 
                 pipe_surface_reference(&dst_surf, NULL);
 
