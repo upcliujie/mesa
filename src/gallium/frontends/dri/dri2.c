@@ -1116,6 +1116,9 @@ dri2_create_image_common(__DRIscreen *_screen,
    templ.depth0 = 1;
    templ.array_size = 1;
 
+   if (use & __DRI_IMAGE_USE_CROSS_DEVICE)
+      templ.flags |= PIPE_RESOURCE_FLAG_CROSS_DEVICE;
+
    if (modifiers)
       img->texture =
          screen->base.screen
