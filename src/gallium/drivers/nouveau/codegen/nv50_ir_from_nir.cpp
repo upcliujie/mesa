@@ -167,7 +167,6 @@ private:
    bool visit(nir_tex_instr *);
 
    // tex stuff
-   Value* applyProjection(Value *src, Value *proj);
    unsigned int getNIRArgCount(TexInstruction::Target&);
 
    nir_shader *nir;
@@ -2897,14 +2896,6 @@ Converter::convert(glsl_sampler_dim dim, bool isArray, bool isShadow)
 }
 #undef CASE_SAMPLER
 
-Value*
-Converter::applyProjection(Value *src, Value *proj)
-{
-   if (!proj)
-      return src;
-   return mkOp2v(OP_MUL, TYPE_F32, getScratch(), src, proj);
-}
-
 unsigned int
 Converter::getNIRArgCount(TexInstruction::Target& target)
 {
@@ -2947,7 +2938,6 @@ Converter::visit(nir_tex_instr *insn)
       std::vector<nir_src*> offsets;
       uint8_t mask = 0;
       bool lz = false;
-      Value *proj = NULL;
       TexInstruction::Target target = convert(insn->sampler_dim, insn->is_array, insn->is_shadow);
       operation op = getOperation(insn->op);
 
@@ -2960,7 +2950,6 @@ Converter::visit(nir_tex_instr *insn)
       int msIdx = nir_tex_instr_src_index(insn, nir_tex_src_ms_index);
       int lodIdx = nir_tex_instr_src_index(insn, nir_tex_src_lod);
       int offsetIdx = nir_tex_instr_src_index(insn, nir_tex_src_offset);
-      int projIdx = nir_tex_instr_src_index(insn, nir_tex_src_projector);
       int sampOffIdx = nir_tex_instr_src_index(insn, nir_tex_src_sampler_offset);
       int texOffIdx = nir_tex_instr_src_index(insn, nir_tex_src_texture_offset);
       int sampHandleIdx = nir_tex_instr_src_index(insn, nir_tex_src_sampler_handle);
@@ -2969,12 +2958,9 @@ Converter::visit(nir_tex_instr *insn)
       bool bindless = sampHandleIdx != -1 || texHandleIdx != -1;
       assert((sampHandleIdx != -1) == (texHandleIdx != -1));
 
-      if (projIdx != -1)
-         proj = mkOp1v(OP_RCP, TYPE_F32, getScratch(), getSrc(&insn->src[projIdx].src, 0));
-
       srcs.resize(insn->coord_components);
       for (uint8_t i = 0u; i < insn->coord_components; ++i)
-         srcs[i] = applyProjection(getSrc(&insn->src[coordsIdx].src, i), proj);
+         srcs[i] = getSrc(&insn->src[coordsIdx].src, i);
 
       // sometimes we get less args than target.getArgCount, but codegen expects the latter
       if (insn->coord_components) {
@@ -3002,7 +2988,7 @@ Converter::visit(nir_tex_instr *insn)
       if (offsetIdx != -1)
          offsets.push_back(&insn->src[offsetIdx].src);
       if (compIdx != -1)
-         srcs.push_back(applyProjection(getSrc(&insn->src[compIdx].src, 0), proj));
+         srcs.push_back(getSrc(&insn->src[compIdx].src, 0));
       if (texOffIdx != -1) {
          srcs.push_back(getSrc(&insn->src[texOffIdx].src, 0));
          texOffIdx = srcs.size() - 1;
@@ -3132,6 +3118,11 @@ Converter::run()
               type_size, (nir_lower_io_options)0);
 
    NIR_PASS_V(nir, nir_lower_subgroups, &subgroup_options);
+
+   struct nir_lower_tex_options tex_options = {};
+   tex_options.lower_txp = ~0;
+
+   NIR_PASS_V(nir, nir_lower_tex, &tex_options);
 
    NIR_PASS_V(nir, nir_lower_load_const_to_scalar);
    NIR_PASS_V(nir, nir_lower_alu_to_scalar, NULL, NULL);
