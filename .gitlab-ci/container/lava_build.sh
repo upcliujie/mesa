@@ -85,6 +85,7 @@ apt-get install -y --no-remove \
                    libwaffle-dev \
                    libwayland-dev \
                    libx11-xcb-dev \
+                   libxcb-dri2-0-dev \
                    libxkbcommon-dev \
                    patch \
                    python3-distutils \
@@ -136,7 +137,7 @@ mv /deqp /lava-files/rootfs-${DEBIAN_ARCH}/.
 
 
 ############### Build piglit
-. .gitlab-ci/container/build-piglit.sh
+PIGLIT_OPTS="-DPIGLIT_BUILD_DMA_BUF_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
 mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
 
 
