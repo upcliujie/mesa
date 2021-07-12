@@ -17,23 +17,23 @@ traces:
   - path: gputest/furmark.trace
     expectations:
       - device: gl-virgl
-        checksum: 248ee9534a1f333b479e599646f56f63
+        checksum: 0fb94e32cc13e0b86c743e533ae0fc49
   - path: gputest/pixmark-piano.trace
     expectations:
       - device: gl-virgl
-        checksum: 3bb42312c7d7d694f7e186b480e16314
+        checksum: 919c9f302b35982ccd9a210e8d3d8c83
   - path: gputest/triangle.trace
     expectations:
       - device: gl-virgl
-        checksum: c8848dec77ee0c55292417f54c0a1a49
+        checksum: 848436d1a2448bdc76fd6220382d8606
   - path: humus/Portals.trace
     expectations:
       - device: gl-virgl
-        checksum: 80e88e6be47138c18370d84c6426544f
+        checksum: d39319e26da8a572e585f9c0d3c3718e
   - path: 0ad/0ad.trace
     expectations:
       - device: gl-virgl
-        checksum: b244fb65c77f5cca2c49bb256874e132
+        checksum: 253b873e21e8e880e3d4356595f50777
   - path: glmark2/buffer-columns=200:interleave=false:update-dispersion=0.9:update-fraction=0.5:update-method=map.rdc
     expectations:
       - device: gl-virgl
@@ -121,7 +121,7 @@ traces:
   - path: glmark2/refract.rdc
     expectations:
       - device: gl-virgl
-        checksum: 8ffd396d27f55fdfa7b730741f2f3013
+        checksum: f6b03908b728e8a441264ecf80c82f1d
   - path: glmark2/shading-shading=blinn-phong-inf.rdc
     expectations:
       - device: gl-virgl
@@ -150,7 +150,7 @@ traces:
   - path: glmark2/texture-texture-filter=mipmap.rdc
     expectations:
       - device: gl-virgl
-        checksum: afedbd8f7ad8d379bcd392406d95ff30
+        checksum: b0a7fd92474a7a8dcbe77a8279acd4c7
   - path: glmark2/texture-texture-filter=nearest.rdc
     expectations:
       - device: gl-virgl
@@ -167,7 +167,7 @@ traces:
   - path: gputest/pixmark-julia-fp32.trace
     expectations:
       - device: gl-virgl
-        checksum: dcf806be38c0b4c42ff85c98564177f9
+        checksum: 2c62cb53123334754dea165c1e2efd49
 # Crash
 # - path: gputest/pixmark-julia-fp64.trace
 #   expectations:
@@ -176,11 +176,11 @@ traces:
   - path: gputest/pixmark-volplosion.trace
     expectations:
       - device: gl-virgl
-        checksum: 922842c426150dc19a69c95181fda8b2
+        checksum: 592f35e418490990ea88e19c90cf1205
   - path: gputest/plot3d.trace
     expectations:
       - device: gl-virgl
-        checksum: 09e49ca9a988fe86c8b26f2a73d5bc08
+        checksum: 68290b41353a798986a66288748ca4cf
 # Crash
 #  - path: gputest/tessmark.trace
 #    expectations:
@@ -189,27 +189,28 @@ traces:
   - path: humus/AmbientAperture.trace
     expectations:
       - device: gl-virgl
-        checksum: ff490e36a763608e1ed3fa041216a378
+        checksum: 3fb52265640ba165df899e11e7e3cc68
   - path: humus/CelShading.trace
     expectations:
       - device: gl-virgl
-        checksum: da817304110f4fb7fdbcdf3f83fe184d
+        checksum: c9fcda26cbe70a05fb92ec239842ff8d
   - path: humus/DynamicBranching3.trace
     expectations:
+      # speckling present on the ground that isn't there on other drivers.
       - device: gl-virgl
-        checksum: 82c6b38f49b6a5d26d00ee64cf6e3fa6
+        checksum: 87fbaddbcc4a849f3001054ceed3f288
   - path: humus/HDR.trace
     expectations:
       - device: gl-virgl
-        checksum: 40cae3617b7fe872939125ee574b50f0
+        checksum: 85b80ba4477afc2431373224e45a8a16
   - path: humus/RaytracedShadows.trace
     expectations:
       - device: gl-virgl
-        checksum: 0e1096159db72b650d43f134c3ccaf79
+        checksum: b612996af7d0bfbebb8c2de3416c9fdc
   - path: humus/VolumetricFogging2.trace
     expectations:
       - device: gl-virgl
-        checksum: a596785521a96162204ac266d5496c23
+        checksum: 4d75e581d5aa2c105b0dd664cba9f5cb
 # Crash
 #  - path: itoral-gl-terrain-demo/demo.trace
 #    expectations:
@@ -218,7 +219,7 @@ traces:
   - path: neverball/neverball.trace
     expectations:
       - device: gl-virgl
-        checksum: 6936cde5edab2b3fd02115ef36015cde
+        checksum: 452267404823d8bfd2442a18e50f8f63
 # Crash
 #  - path: pathfinder/canvas_moire.trace
 #    expectations:
@@ -237,7 +238,7 @@ traces:
   - path: supertuxkart/supertuxkart-mansion-egl-gles.trace
     expectations:
       - device: gl-virgl
-        checksum: 7e478a9cca2686531370e91ece6b3afc
+        checksum: 55fb3fc51d2b5ad2f15e84e56182bf1a
 # Sometimes crashes
 #  - path: xonotic/xonotic-keybench-high.trace
 #    expectations:
@@ -246,11 +247,11 @@ traces:
   - path: valve/counterstrike.trace
     expectations:
       - device: gl-virgl
-        checksum: c63da1fbaec101dba5224ca1f52ec429
+        checksum: 3fe002fc1cc9d755496ff57515b6edbb
   - path: valve/counterstrike-source.trace
     expectations:
       - device: gl-virgl
-        checksum: 4c19f6060ff0fe0055678c48e1e77282
+        checksum: f8b9be9a3f94bf9845b889b67dc3180a
 # Piglit times-out when trying to run this one
 #  - path: valve/half-life-2.trace
 #    expectations:
@@ -259,7 +260,7 @@ traces:
   - path: valve/portal-2.trace
     expectations:
       - device: gl-virgl
-        checksum: 41ab89c4174004360d63c2fd7dd81ff4
+        checksum: f63e8bda6fde5869feb65c30350c2036
 # Piglit crashes when trying to run this one
 #  - path: supertuxkart/supertuxkart-antediluvian-abyss.rdc
 #    expectations:
