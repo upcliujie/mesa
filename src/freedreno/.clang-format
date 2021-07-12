@@ -1,5 +1,6 @@
 AlignAfterOpenBracket: true
 AlignConsecutiveMacros: true
+AlignConsecutiveBitFields: true
 AllowAllArgumentsOnNextLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
@@ -19,7 +20,9 @@ ColumnLimit: 80
 ContinuationIndentWidth: 3
 Cpp11BracedListStyle: false
 Cpp11BracedListStyle: true
+BreakStringLiterals: false
 ForEachMacros:
+  - BITSET_FOREACH_SET
   - LIST_FOR_EACH_ENTRY
   - LIST_FOR_EACH_ENTRY_SAFE
   - LIST_FOR_EACH_ENTRY_SAFE_REV
@@ -45,6 +48,7 @@ ForEachMacros:
   - nir_foreach_instr_reverse
   - nir_foreach_instr_safe
   - nir_foreach_instr_reverse_safe
+  - nir_foreach_instr_from_safe
   - nir_foreach_function
   - nir_foreach_block
   - nir_foreach_block_safe
@@ -69,6 +73,9 @@ ForEachMacros:
   - foreach_src_n
   - foreach_dst
   - foreach_dst_n
+  - ra_foreach_dst
+  - ra_foreach_src
+  - ra_foreach_src_rev
   - foreach_ssa_use
   - foreach_ssa_srcp_n
   - foreach_ssa_srcp
