@@ -78,11 +78,41 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
    if (def->num_components == 1)
       return false;
 
-   if (nir_op_infos[instr->op].output_size == 0) {
-      unsigned mask = nir_ssa_def_components_read(def);
-      if (mask == 0 || mask == BITFIELD_MASK(def->num_components))
-         return false;
+   bool is_vec = false;
+   switch (instr->op) {
+      case nir_op_vec4:
+      case nir_op_vec3:
+      case nir_op_vec2:
+         is_vec = true;
+         break;
+      default:
+         if (nir_op_infos[instr->op].output_size != 0)
+            return false;
+         break;
+   }
 
+   unsigned mask = nir_ssa_def_components_read(def);
+   unsigned num_components = util_bitcount(mask);
+
+   /* return, if there is nothing to do */
+   if (num_components == 0 || num_components == def->num_components)
+      return false;
+
+   if (is_vec) {
+      /* replace vecN with smaller version */
+      nir_ssa_def *srcs[NIR_MAX_VEC_COMPONENTS] = { 0 };
+      unsigned index = 0;
+      for (int i = 0; i < def->num_components; i++) {
+         if ((mask >> i) & 0x1)
+            srcs[index++] = nir_ssa_for_alu_src(b, instr, i);
+      }
+      nir_ssa_def *new_vec = nir_vec(b, srcs, num_components);
+
+      /* update dest */
+      nir_ssa_def_rewrite_uses(def, new_vec);
+      def = new_vec;
+
+   } else {
       /* update sources */
       for (int i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {
          uint8_t index = 0;
@@ -92,65 +122,32 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
          }
       }
 
-      /* compute new dest swizzles */
-      uint8_t reswizzle[NIR_MAX_VEC_COMPONENTS] = { 0 };
-      uint8_t index = 0;
-      for (int i = 0; i < def->num_components; i++) {
-         if ((mask >> i) & 0x1)
-            reswizzle[i] = index++;
-      }
-
       /* update dest */
-      def->num_components = util_bitcount(mask);
-      instr->dest.write_mask = BITFIELD_MASK(def->num_components);
+      def->num_components = num_components;
+      instr->dest.write_mask = BITFIELD_MASK(num_components);
+   }
 
-      /* update uses */
-      nir_foreach_use_safe(use_src, def) {
-         if (use_src->parent_instr->type == nir_instr_type_intrinsic) {
-            nir_instr_as_intrinsic(use_src->parent_instr)->num_components = def->num_components;
-         } else {
-            assert(use_src->parent_instr->type == nir_instr_type_alu);
-            nir_alu_src *alu_src = (nir_alu_src*)use_src;
-            for (unsigned i = 0; i < def->num_components; i++)
-               alu_src->swizzle[i] = reswizzle[alu_src->swizzle[i]];
-         }
-      }
-   } else {
+   /* compute new dest swizzles */
+   uint8_t reswizzle[NIR_MAX_VEC_COMPONENTS];
+   uint8_t index = 0;
+   for (int i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
+      if ((mask >> i) & 0x1)
+         reswizzle[i] = index++;
+   }
 
-      switch (instr->op) {
-      case nir_op_vec4:
-      case nir_op_vec3:
-      case nir_op_vec2: {
-         unsigned mask = nir_ssa_def_components_read(def);
-
-         /* If nothing was read, leave it up to DCE. */
-         if (mask == 0)
-            return false;
-
-         int last_bit = util_last_bit(mask);
-         if (last_bit < def->num_components) {
-            nir_ssa_def *srcs[NIR_MAX_VEC_COMPONENTS] = { 0 };
-            for (int i = 0; i < last_bit; i++)
-               srcs[i] = nir_ssa_for_alu_src(b, instr, i);
-
-            nir_ssa_def *new_vec = nir_vec(b, srcs, last_bit);
-
-            nir_foreach_use_safe(use_src, def) {
-               if (use_src->parent_instr->type == nir_instr_type_intrinsic)
-                  nir_instr_as_intrinsic(use_src->parent_instr)->num_components = last_bit;
-            }
-            nir_ssa_def_rewrite_uses(def, new_vec);
-            return true;
-         }
-         break;
-      }
-
-      default:
-         break;
+   /* update uses */
+   nir_foreach_use_safe(use_src, def) {
+      if (use_src->parent_instr->type == nir_instr_type_intrinsic) {
+         nir_instr_as_intrinsic(use_src->parent_instr)->num_components = num_components;
+      } else {
+         assert(use_src->parent_instr->type == nir_instr_type_alu);
+         nir_alu_src *alu_src = (nir_alu_src*)use_src;
+         for (unsigned i = 0; i < num_components; i++)
+            alu_src->swizzle[i] = reswizzle[alu_src->swizzle[i]];
       }
    }
 
-   return false;
+   return true;
 }
 
 static bool
