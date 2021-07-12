@@ -429,7 +429,8 @@ iris_resource_alloc_flags(const struct iris_screen *screen,
    }
 
    if (templ->flags & (PIPE_RESOURCE_FLAG_MAP_COHERENT |
-                       PIPE_RESOURCE_FLAG_MAP_PERSISTENT))
+                       PIPE_RESOURCE_FLAG_MAP_PERSISTENT |
+                       PIPE_RESOURCE_FLAG_CROSS_DEVICE))
       flags |= BO_ALLOC_SMEM;
 
    return flags;
