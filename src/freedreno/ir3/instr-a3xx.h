@@ -364,15 +364,12 @@ type_size(type_t type)
    switch (type) {
    case TYPE_F32:
    case TYPE_U32:
-   case TYPE_S32:
-      return 32;
+   case TYPE_S32: return 32;
    case TYPE_F16:
    case TYPE_U16:
-   case TYPE_S16:
-      return 16;
+   case TYPE_S16: return 16;
    case TYPE_U8:
-   case TYPE_S8:
-      return 8;
+   case TYPE_S8: return 8;
    default:
       ir3_assert(0); /* invalid type */
       return 0;
@@ -676,8 +673,7 @@ instr_cat3_full(instr_cat3_t *cat3)
    case OPC_SAD_S16:
    case OPC_SAD_S32: // really??
       return false;
-   default:
-      return true;
+   default: return true;
    }
 }
 
@@ -1073,18 +1069,12 @@ static inline uint32_t
 instr_repeat(instr_t *instr)
 {
    switch (instr->opc_cat) {
-   case 0:
-      return instr->cat0.repeat;
-   case 1:
-      return instr->cat1.repeat;
-   case 2:
-      return instr->cat2.repeat;
-   case 3:
-      return instr->cat3.repeat;
-   case 4:
-      return instr->cat4.repeat;
-   default:
-      return 0;
+   case 0: return instr->cat0.repeat;
+   case 1: return instr->cat1.repeat;
+   case 2: return instr->cat2.repeat;
+   case 3: return instr->cat3.repeat;
+   case 4: return instr->cat4.repeat;
+   default: return 0;
    }
 }
 
@@ -1092,14 +1082,10 @@ static inline bool
 instr_sat(instr_t *instr)
 {
    switch (instr->opc_cat) {
-   case 2:
-      return instr->cat2.sat;
-   case 3:
-      return instr->cat3.sat;
-   case 4:
-      return instr->cat4.sat;
-   default:
-      return false;
+   case 2: return instr->cat2.sat;
+   case 3: return instr->cat3.sat;
+   case 4: return instr->cat4.sat;
+   default: return false;
    }
 }
 
@@ -1119,10 +1105,8 @@ is_sat_compatible(opc_t opc)
    case OPC_SEL_S16:
    case OPC_SEL_S32:
    case OPC_SEL_F16:
-   case OPC_SEL_F32:
-      return false;
-   default:
-      return true;
+   case OPC_SEL_F32: return false;
+   default: return true;
    }
 }
 
@@ -1155,26 +1139,18 @@ static inline uint32_t
 instr_opc(instr_t *instr, unsigned gpu_id)
 {
    switch (instr->opc_cat) {
-   case 0:
-      return instr->cat0.opc | instr->cat0.opc_hi << 4;
-   case 1:
-      return instr->cat1.opc;
-   case 2:
-      return instr->cat2.opc;
-   case 3:
-      return instr->cat3.opc;
-   case 4:
-      return instr->cat4.opc;
-   case 5:
-      return instr->cat5.opc;
+   case 0: return instr->cat0.opc | instr->cat0.opc_hi << 4;
+   case 1: return instr->cat1.opc;
+   case 2: return instr->cat2.opc;
+   case 3: return instr->cat3.opc;
+   case 4: return instr->cat4.opc;
+   case 5: return instr->cat5.opc;
    case 6:
       if (!is_cat6_legacy(instr, gpu_id))
          return instr->cat6_a6xx.opc;
       return instr->cat6.opc;
-   case 7:
-      return instr->cat7.opc;
-   default:
-      return 0;
+   case 7: return instr->cat7.opc;
+   default: return 0;
    }
 }
 
@@ -1187,10 +1163,8 @@ is_mad(opc_t opc)
    case OPC_MAD_U24:
    case OPC_MAD_S24:
    case OPC_MAD_F16:
-   case OPC_MAD_F32:
-      return true;
-   default:
-      return false;
+   case OPC_MAD_F32: return true;
+   default: return false;
    }
 }
 
@@ -1199,10 +1173,8 @@ is_madsh(opc_t opc)
 {
    switch (opc) {
    case OPC_MADSH_U16:
-   case OPC_MADSH_M16:
-      return true;
-   default:
-      return false;
+   case OPC_MADSH_M16: return true;
+   default: return false;
    }
 }
 
@@ -1220,10 +1192,8 @@ is_atomic(opc_t opc)
    case OPC_ATOMIC_MAX:
    case OPC_ATOMIC_AND:
    case OPC_ATOMIC_OR:
-   case OPC_ATOMIC_XOR:
-      return true;
-   default:
-      return false;
+   case OPC_ATOMIC_XOR: return true;
+   default: return false;
    }
 }
 
@@ -1235,10 +1205,8 @@ is_ssbo(opc_t opc)
    case OPC_RESINFO:
    case OPC_LDGB:
    case OPC_STGB:
-   case OPC_STIB:
-      return true;
-   default:
-      return false;
+   case OPC_STIB: return true;
+   default: return false;
    }
 }
 
@@ -1248,10 +1216,8 @@ is_isam(opc_t opc)
    switch (opc) {
    case OPC_ISAM:
    case OPC_ISAML:
-   case OPC_ISAMM:
-      return true;
-   default:
-      return false;
+   case OPC_ISAMM: return true;
+   default: return false;
    }
 }
 
@@ -1271,11 +1237,9 @@ is_cat2_float(opc_t opc)
    case OPC_CEIL_F:
    case OPC_RNDNE_F:
    case OPC_RNDAZ_F:
-   case OPC_TRUNC_F:
-      return true;
+   case OPC_TRUNC_F: return true;
 
-   default:
-      return false;
+   default: return false;
    }
 }
 
@@ -1286,10 +1250,8 @@ is_cat3_float(opc_t opc)
    case OPC_MAD_F16:
    case OPC_MAD_F32:
    case OPC_SEL_F16:
-   case OPC_SEL_F32:
-      return true;
-   default:
-      return false;
+   case OPC_SEL_F32: return true;
+   default: return false;
    }
 }
 

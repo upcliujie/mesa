@@ -96,12 +96,8 @@ print_instr_name(struct log_stream *stream, struct ir3_instruction *instr,
 
    if (is_meta(instr)) {
       switch (instr->opc) {
-      case OPC_META_INPUT:
-         mesa_log_stream_printf(stream, "_meta:in");
-         break;
-      case OPC_META_SPLIT:
-         mesa_log_stream_printf(stream, "_meta:split");
-         break;
+      case OPC_META_INPUT: mesa_log_stream_printf(stream, "_meta:in"); break;
+      case OPC_META_SPLIT: mesa_log_stream_printf(stream, "_meta:split"); break;
       case OPC_META_COLLECT:
          mesa_log_stream_printf(stream, "_meta:collect");
          break;
@@ -111,14 +107,10 @@ print_instr_name(struct log_stream *stream, struct ir3_instruction *instr,
       case OPC_META_PARALLEL_COPY:
          mesa_log_stream_printf(stream, "_meta:parallel_copy");
          break;
-      case OPC_META_PHI:
-         mesa_log_stream_printf(stream, "_meta:phi");
-         break;
+      case OPC_META_PHI: mesa_log_stream_printf(stream, "_meta:phi"); break;
 
       /* shouldn't hit here.. just for debugging: */
-      default:
-         mesa_log_stream_printf(stream, "_meta:%d", instr->opc);
-         break;
+      default: mesa_log_stream_printf(stream, "_meta:%d", instr->opc); break;
       }
    } else if (opc_cat(instr->opc) == 1) {
       if (instr->opc == OPC_MOV) {
@@ -181,8 +173,7 @@ print_instr_name(struct log_stream *stream, struct ir3_instruction *instr,
          mesa_log_stream_printf(stream, ".%s",
                                 cond[instr->cat2.condition & 0x7]);
          break;
-      default:
-         break;
+      default: break;
       }
    }
 }
@@ -449,17 +440,10 @@ print_block(struct ir3_block *block, int lvl)
       tab(stream, lvl + 1);
       mesa_log_stream_printf(stream, "/* succs: if ");
       switch (block->brtype) {
-      case IR3_BRANCH_COND:
-         break;
-      case IR3_BRANCH_ANY:
-         printf("any ");
-         break;
-      case IR3_BRANCH_ALL:
-         printf("all ");
-         break;
-      case IR3_BRANCH_GETONE:
-         printf("getone ");
-         break;
+      case IR3_BRANCH_COND: break;
+      case IR3_BRANCH_ANY: printf("any "); break;
+      case IR3_BRANCH_ALL: printf("all "); break;
+      case IR3_BRANCH_GETONE: printf("getone "); break;
       }
       if (block->condition)
          mesa_log_stream_printf(stream, SYN_SSA("ssa_%u") " ",

@@ -138,14 +138,9 @@ create_cov(struct ir3_context *ctx, struct ir3_instruction *src,
    case nir_op_f2u16:
    case nir_op_f2u8:
       switch (src_bitsize) {
-      case 32:
-         src_type = TYPE_F32;
-         break;
-      case 16:
-         src_type = TYPE_F16;
-         break;
-      default:
-         ir3_context_error(ctx, "invalid src bit size: %u", src_bitsize);
+      case 32: src_type = TYPE_F32; break;
+      case 16: src_type = TYPE_F16; break;
+      default: ir3_context_error(ctx, "invalid src bit size: %u", src_bitsize);
       }
       break;
 
@@ -155,17 +150,10 @@ create_cov(struct ir3_context *ctx, struct ir3_instruction *src,
    case nir_op_i2i16:
    case nir_op_i2i8:
       switch (src_bitsize) {
-      case 32:
-         src_type = TYPE_S32;
-         break;
-      case 16:
-         src_type = TYPE_S16;
-         break;
-      case 8:
-         src_type = TYPE_S8;
-         break;
-      default:
-         ir3_context_error(ctx, "invalid src bit size: %u", src_bitsize);
+      case 32: src_type = TYPE_S32; break;
+      case 16: src_type = TYPE_S16; break;
+      case 8: src_type = TYPE_S8; break;
+      default: ir3_context_error(ctx, "invalid src bit size: %u", src_bitsize);
       }
       break;
 
@@ -175,17 +163,10 @@ create_cov(struct ir3_context *ctx, struct ir3_instruction *src,
    case nir_op_u2u16:
    case nir_op_u2u8:
       switch (src_bitsize) {
-      case 32:
-         src_type = TYPE_U32;
-         break;
-      case 16:
-         src_type = TYPE_U16;
-         break;
-      case 8:
-         src_type = TYPE_U8;
-         break;
-      default:
-         ir3_context_error(ctx, "invalid src bit size: %u", src_bitsize);
+      case 32: src_type = TYPE_U32; break;
+      case 16: src_type = TYPE_U16; break;
+      case 8: src_type = TYPE_U8; break;
+      default: ir3_context_error(ctx, "invalid src bit size: %u", src_bitsize);
       }
       break;
 
@@ -193,66 +174,46 @@ create_cov(struct ir3_context *ctx, struct ir3_instruction *src,
    case nir_op_b2f32:
    case nir_op_b2i8:
    case nir_op_b2i16:
-   case nir_op_b2i32:
-      src_type = TYPE_U32;
-      break;
+   case nir_op_b2i32: src_type = TYPE_U32; break;
 
-   default:
-      ir3_context_error(ctx, "invalid conversion op: %u", op);
+   default: ir3_context_error(ctx, "invalid conversion op: %u", op);
    }
 
    switch (op) {
    case nir_op_f2f32:
    case nir_op_i2f32:
    case nir_op_u2f32:
-   case nir_op_b2f32:
-      dst_type = TYPE_F32;
-      break;
+   case nir_op_b2f32: dst_type = TYPE_F32; break;
 
    case nir_op_f2f16_rtne:
    case nir_op_f2f16_rtz:
    case nir_op_f2f16:
    case nir_op_i2f16:
    case nir_op_u2f16:
-   case nir_op_b2f16:
-      dst_type = TYPE_F16;
-      break;
+   case nir_op_b2f16: dst_type = TYPE_F16; break;
 
    case nir_op_f2i32:
    case nir_op_i2i32:
-   case nir_op_b2i32:
-      dst_type = TYPE_S32;
-      break;
+   case nir_op_b2i32: dst_type = TYPE_S32; break;
 
    case nir_op_f2i16:
    case nir_op_i2i16:
-   case nir_op_b2i16:
-      dst_type = TYPE_S16;
-      break;
+   case nir_op_b2i16: dst_type = TYPE_S16; break;
 
    case nir_op_f2i8:
    case nir_op_i2i8:
-   case nir_op_b2i8:
-      dst_type = TYPE_S8;
-      break;
+   case nir_op_b2i8: dst_type = TYPE_S8; break;
 
    case nir_op_f2u32:
-   case nir_op_u2u32:
-      dst_type = TYPE_U32;
-      break;
+   case nir_op_u2u32: dst_type = TYPE_U32; break;
 
    case nir_op_f2u16:
-   case nir_op_u2u16:
-      dst_type = TYPE_U16;
-      break;
+   case nir_op_u2u16: dst_type = TYPE_U16; break;
 
    case nir_op_f2u8:
-   case nir_op_u2u8:
-      dst_type = TYPE_U8;
-      break;
+   case nir_op_u2u8: dst_type = TYPE_U8; break;
 
-   default:
-      ir3_context_error(ctx, "invalid conversion op: %u", op);
+   default: ir3_context_error(ctx, "invalid conversion op: %u", op);
    }
 
    if (src_type == dst_type)
@@ -387,9 +348,7 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
    case nir_op_b2f32:
    case nir_op_b2i8:
    case nir_op_b2i16:
-   case nir_op_b2i32:
-      dst[0] = create_cov(ctx, src[0], bs[0], alu->op);
-      break;
+   case nir_op_b2i32: dst[0] = create_cov(ctx, src[0], bs[0], alu->op); break;
 
    case nir_op_fquantize2f16:
       dst[0] = create_cov(ctx, create_cov(ctx, src[0], 32, nir_op_f2f16_rtne),
@@ -432,18 +391,10 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
       dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SNEG);
       break;
 
-   case nir_op_fneg:
-      dst[0] = ir3_ABSNEG_F(b, src[0], IR3_REG_FNEG);
-      break;
-   case nir_op_fabs:
-      dst[0] = ir3_ABSNEG_F(b, src[0], IR3_REG_FABS);
-      break;
-   case nir_op_fmax:
-      dst[0] = ir3_MAX_F(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_fmin:
-      dst[0] = ir3_MIN_F(b, src[0], 0, src[1], 0);
-      break;
+   case nir_op_fneg: dst[0] = ir3_ABSNEG_F(b, src[0], IR3_REG_FNEG); break;
+   case nir_op_fabs: dst[0] = ir3_ABSNEG_F(b, src[0], IR3_REG_FABS); break;
+   case nir_op_fmax: dst[0] = ir3_MAX_F(b, src[0], 0, src[1], 0); break;
+   case nir_op_fmin: dst[0] = ir3_MIN_F(b, src[0], 0, src[1], 0); break;
    case nir_op_fsat:
       /* if there is just a single use of the src, and it supports
        * (sat) bit, we can just fold the (sat) flag back to the
@@ -462,12 +413,8 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
          dst[0]->flags |= IR3_INSTR_SAT;
       }
       break;
-   case nir_op_fmul:
-      dst[0] = ir3_MUL_F(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_fadd:
-      dst[0] = ir3_ADD_F(b, src[0], 0, src[1], 0);
-      break;
+   case nir_op_fmul: dst[0] = ir3_MUL_F(b, src[0], 0, src[1], 0); break;
+   case nir_op_fadd: dst[0] = ir3_ADD_F(b, src[0], 0, src[1], 0); break;
    case nir_op_fsub:
       dst[0] = ir3_ADD_F(b, src[0], 0, src[1], IR3_REG_FNEG);
       break;
@@ -509,68 +456,28 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
       dst[0] = ir3_CMPS_F(b, src[0], 0, src[1], 0);
       dst[0]->cat2.condition = IR3_COND_NE;
       break;
-   case nir_op_fceil:
-      dst[0] = ir3_CEIL_F(b, src[0], 0);
-      break;
-   case nir_op_ffloor:
-      dst[0] = ir3_FLOOR_F(b, src[0], 0);
-      break;
-   case nir_op_ftrunc:
-      dst[0] = ir3_TRUNC_F(b, src[0], 0);
-      break;
-   case nir_op_fround_even:
-      dst[0] = ir3_RNDNE_F(b, src[0], 0);
-      break;
-   case nir_op_fsign:
-      dst[0] = ir3_SIGN_F(b, src[0], 0);
-      break;
+   case nir_op_fceil: dst[0] = ir3_CEIL_F(b, src[0], 0); break;
+   case nir_op_ffloor: dst[0] = ir3_FLOOR_F(b, src[0], 0); break;
+   case nir_op_ftrunc: dst[0] = ir3_TRUNC_F(b, src[0], 0); break;
+   case nir_op_fround_even: dst[0] = ir3_RNDNE_F(b, src[0], 0); break;
+   case nir_op_fsign: dst[0] = ir3_SIGN_F(b, src[0], 0); break;
 
-   case nir_op_fsin:
-      dst[0] = ir3_SIN(b, src[0], 0);
-      break;
-   case nir_op_fcos:
-      dst[0] = ir3_COS(b, src[0], 0);
-      break;
-   case nir_op_frsq:
-      dst[0] = ir3_RSQ(b, src[0], 0);
-      break;
-   case nir_op_frcp:
-      dst[0] = ir3_RCP(b, src[0], 0);
-      break;
-   case nir_op_flog2:
-      dst[0] = ir3_LOG2(b, src[0], 0);
-      break;
-   case nir_op_fexp2:
-      dst[0] = ir3_EXP2(b, src[0], 0);
-      break;
-   case nir_op_fsqrt:
-      dst[0] = ir3_SQRT(b, src[0], 0);
-      break;
+   case nir_op_fsin: dst[0] = ir3_SIN(b, src[0], 0); break;
+   case nir_op_fcos: dst[0] = ir3_COS(b, src[0], 0); break;
+   case nir_op_frsq: dst[0] = ir3_RSQ(b, src[0], 0); break;
+   case nir_op_frcp: dst[0] = ir3_RCP(b, src[0], 0); break;
+   case nir_op_flog2: dst[0] = ir3_LOG2(b, src[0], 0); break;
+   case nir_op_fexp2: dst[0] = ir3_EXP2(b, src[0], 0); break;
+   case nir_op_fsqrt: dst[0] = ir3_SQRT(b, src[0], 0); break;
 
-   case nir_op_iabs:
-      dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SABS);
-      break;
-   case nir_op_iadd:
-      dst[0] = ir3_ADD_U(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_iand:
-      dst[0] = ir3_AND_B(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_imax:
-      dst[0] = ir3_MAX_S(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_umax:
-      dst[0] = ir3_MAX_U(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_imin:
-      dst[0] = ir3_MIN_S(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_umin:
-      dst[0] = ir3_MIN_U(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_umul_low:
-      dst[0] = ir3_MULL_U(b, src[0], 0, src[1], 0);
-      break;
+   case nir_op_iabs: dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SABS); break;
+   case nir_op_iadd: dst[0] = ir3_ADD_U(b, src[0], 0, src[1], 0); break;
+   case nir_op_iand: dst[0] = ir3_AND_B(b, src[0], 0, src[1], 0); break;
+   case nir_op_imax: dst[0] = ir3_MAX_S(b, src[0], 0, src[1], 0); break;
+   case nir_op_umax: dst[0] = ir3_MAX_U(b, src[0], 0, src[1], 0); break;
+   case nir_op_imin: dst[0] = ir3_MIN_S(b, src[0], 0, src[1], 0); break;
+   case nir_op_umin: dst[0] = ir3_MIN_U(b, src[0], 0, src[1], 0); break;
+   case nir_op_umul_low: dst[0] = ir3_MULL_U(b, src[0], 0, src[1], 0); break;
    case nir_op_imadsh_mix16:
       dst[0] = ir3_MADSH_M16(b, src[0], 0, src[1], 0, src[2], 0);
       break;
@@ -581,12 +488,8 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
       compile_assert(ctx, nir_dest_bit_size(alu->dest.dest) == 16);
       dst[0] = ir3_MUL_S24(b, src[0], 0, src[1], 0);
       break;
-   case nir_op_imul24:
-      dst[0] = ir3_MUL_S24(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_ineg:
-      dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SNEG);
-      break;
+   case nir_op_imul24: dst[0] = ir3_MUL_S24(b, src[0], 0, src[1], 0); break;
+   case nir_op_ineg: dst[0] = ir3_ABSNEG_S(b, src[0], IR3_REG_SNEG); break;
    case nir_op_inot:
       if (bs[0] == 1) {
          dst[0] = ir3_SUB_U(b, create_immed(ctx->block, 1), 0, src[0], 0);
@@ -594,9 +497,7 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
          dst[0] = ir3_NOT_B(b, src[0], 0);
       }
       break;
-   case nir_op_ior:
-      dst[0] = ir3_OR_B(b, src[0], 0, src[1], 0);
-      break;
+   case nir_op_ior: dst[0] = ir3_OR_B(b, src[0], 0, src[1], 0); break;
    case nir_op_ishl:
       dst[0] =
          ir3_SHL_B(b, src[0], 0, resize_shift_amount(ctx, src[1], bs[0]), 0);
@@ -605,12 +506,8 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
       dst[0] =
          ir3_ASHR_B(b, src[0], 0, resize_shift_amount(ctx, src[1], bs[0]), 0);
       break;
-   case nir_op_isub:
-      dst[0] = ir3_SUB_U(b, src[0], 0, src[1], 0);
-      break;
-   case nir_op_ixor:
-      dst[0] = ir3_XOR_B(b, src[0], 0, src[1], 0);
-      break;
+   case nir_op_isub: dst[0] = ir3_SUB_U(b, src[0], 0, src[1], 0); break;
+   case nir_op_ixor: dst[0] = ir3_XOR_B(b, src[0], 0, src[1], 0); break;
    case nir_op_ushr:
       dst[0] =
          ir3_SHR_B(b, src[0], 0, resize_shift_amount(ctx, src[1], bs[0]), 0);
@@ -716,9 +613,7 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
       dst[0] = ir3_BFREV_B(b, src[0], 0);
       dst[0] = ir3_CLZ_B(b, dst[0], 0);
       break;
-   case nir_op_bitfield_reverse:
-      dst[0] = ir3_BFREV_B(b, src[0], 0);
-      break;
+   case nir_op_bitfield_reverse: dst[0] = ir3_BFREV_B(b, src[0], 0); break;
 
    default:
       ir3_context_error(ctx, "Unhandled ALU op: %s\n",
@@ -738,10 +633,8 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
       case nir_op_ior:
       case nir_op_ixor:
       case nir_op_inot:
-      case nir_op_bcsel:
-         break;
-      default:
-         compile_assert(ctx, nir_dest_bit_size(alu->dest.dest) != 1);
+      case nir_op_bcsel: break;
+      default: compile_assert(ctx, nir_dest_bit_size(alu->dest.dest) != 1);
       }
    }
 
@@ -1065,8 +958,7 @@ emit_intrinsic_atomic_shared(struct ir3_context *ctx, nir_intrinsic_instr *intr)
                                 2);
       atomic = ir3_ATOMIC_CMPXCHG(b, src0, 0, src1, 0);
       break;
-   default:
-      unreachable("boo");
+   default: unreachable("boo");
    }
 
    atomic->cat6.iim_val = 1;
@@ -1346,9 +1238,7 @@ emit_intrinsic_barrier(struct ir3_context *ctx, nir_intrinsic_instr *intr)
     */
 
    switch (intr->intrinsic) {
-   case nir_intrinsic_control_barrier:
-      emit_control_barrier(ctx);
-      return;
+   case nir_intrinsic_control_barrier: emit_control_barrier(ctx); return;
    case nir_intrinsic_scoped_barrier: {
       nir_scope exec_scope = nir_intrinsic_execution_scope(intr);
       nir_variable_mode modes = nir_intrinsic_memory_modes(intr);
@@ -1461,8 +1351,7 @@ emit_intrinsic_barrier(struct ir3_context *ctx, nir_intrinsic_instr *intr)
                                   IR3_BARRIER_IMAGE_R | IR3_BARRIER_IMAGE_W |
                                   IR3_BARRIER_BUFFER_R | IR3_BARRIER_BUFFER_W;
       break;
-   default:
-      unreachable("boo");
+   default: unreachable("boo");
    }
 
    /* make sure barrier doesn't get DCE'd */
@@ -1561,8 +1450,7 @@ nir_intrinsic_barycentric_sysval(nir_intrinsic_instr *intr)
       else
          sysval = SYSTEM_VALUE_BARYCENTRIC_PERSP_SAMPLE;
       break;
-   default:
-      unreachable("invalid barycentric intrinsic");
+   default: unreachable("invalid barycentric intrinsic");
    }
 
    return sysval;
@@ -1590,8 +1478,7 @@ emit_intrinsic_barycentric(struct ir3_context *ctx, nir_intrinsic_instr *intr,
          if (ctx->compiler->gpu_id < 600)
             sysval = SYSTEM_VALUE_BARYCENTRIC_LINEAR_PIXEL;
          break;
-      default:
-         break;
+      default: break;
       }
    }
 
@@ -1712,16 +1599,10 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       dst[0] = create_uniform(b, primitive_map + idx);
       break;
 
-   case nir_intrinsic_load_gs_header_ir3:
-      dst[0] = ctx->gs_header;
-      break;
-   case nir_intrinsic_load_tcs_header_ir3:
-      dst[0] = ctx->tcs_header;
-      break;
+   case nir_intrinsic_load_gs_header_ir3: dst[0] = ctx->gs_header; break;
+   case nir_intrinsic_load_tcs_header_ir3: dst[0] = ctx->tcs_header; break;
 
-   case nir_intrinsic_load_primitive_id:
-      dst[0] = ctx->primitive_id;
-      break;
+   case nir_intrinsic_load_primitive_id: dst[0] = ctx->primitive_id; break;
 
    case nir_intrinsic_load_tess_coord:
       if (!ctx->tess_coord) {
@@ -1750,9 +1631,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       ctx->funcs->emit_intrinsic_load_global_ir3(ctx, intr, dst);
       break;
 
-   case nir_intrinsic_load_ubo:
-      emit_intrinsic_load_ubo(ctx, intr, dst);
-      break;
+   case nir_intrinsic_load_ubo: emit_intrinsic_load_ubo(ctx, intr, dst); break;
    case nir_intrinsic_load_ubo_vec4:
       emit_intrinsic_load_ubo_ldc(ctx, intr, dst);
       break;
@@ -1785,9 +1664,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       emit_intrinsic_barycentric(ctx, intr, dst);
       break;
    case nir_intrinsic_load_interpolated_input:
-   case nir_intrinsic_load_input:
-      setup_input(ctx, intr);
-      break;
+   case nir_intrinsic_load_input: setup_input(ctx, intr); break;
    /* All SSBO intrinsics should have been lowered by 'lower_io_offsets'
     * pass and replaced by an ir3-specifc version that adds the
     * dword-offset in the last source.
@@ -1902,9 +1779,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       /* note that blk ptr no longer valid, make that obvious: */
       b = NULL;
       break;
-   case nir_intrinsic_store_output:
-      setup_output(ctx, intr);
-      break;
+   case nir_intrinsic_store_output: setup_output(ctx, intr); break;
    case nir_intrinsic_load_base_vertex:
    case nir_intrinsic_load_first_vertex:
       if (!ctx->basevertex) {
@@ -1948,9 +1823,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       }
       dst[0] = ctx->instance_id;
       break;
-   case nir_intrinsic_load_sample_id:
-      ctx->so->per_samp = true;
-      FALLTHROUGH;
+   case nir_intrinsic_load_sample_id: ctx->so->per_samp = true; FALLTHROUGH;
    case nir_intrinsic_load_sample_id_no_per_sample:
       if (!ctx->samp_id) {
          ctx->samp_id = create_sysval_input(ctx, SYSTEM_VALUE_SAMPLE_ID, 0x1);
@@ -2208,23 +2081,16 @@ get_tex_dest_type(nir_tex_instr *tex)
    type_t type;
 
    switch (tex->dest_type) {
-   case nir_type_float32:
-      return TYPE_F32;
-   case nir_type_float16:
-      return TYPE_F16;
-   case nir_type_int32:
-      return TYPE_S32;
-   case nir_type_int16:
-      return TYPE_S16;
+   case nir_type_float32: return TYPE_F32;
+   case nir_type_float16: return TYPE_F16;
+   case nir_type_int32: return TYPE_S32;
+   case nir_type_int16: return TYPE_S16;
    case nir_type_bool32:
-   case nir_type_uint32:
-      return TYPE_U32;
+   case nir_type_uint32: return TYPE_U32;
    case nir_type_bool16:
-   case nir_type_uint16:
-      return TYPE_U16;
+   case nir_type_uint16: return TYPE_U16;
    case nir_type_invalid:
-   default:
-      unreachable("bad dest_type");
+   default: unreachable("bad dest_type");
    }
 
    return type;
@@ -2423,9 +2289,7 @@ emit_tex(struct ir3_context *ctx, nir_tex_instr *tex)
 
    for (unsigned i = 0; i < tex->num_srcs; i++) {
       switch (tex->src[i].src_type) {
-      case nir_tex_src_coord:
-         coord = ir3_get_src(ctx, &tex->src[i].src);
-         break;
+      case nir_tex_src_coord: coord = ir3_get_src(ctx, &tex->src[i].src); break;
       case nir_tex_src_bias:
          lod = ir3_get_src(ctx, &tex->src[i].src)[0];
          has_bias = true;
@@ -2445,12 +2309,8 @@ emit_tex(struct ir3_context *ctx, nir_tex_instr *tex)
          off = ir3_get_src(ctx, &tex->src[i].src);
          has_off = true;
          break;
-      case nir_tex_src_ddx:
-         ddx = ir3_get_src(ctx, &tex->src[i].src);
-         break;
-      case nir_tex_src_ddy:
-         ddy = ir3_get_src(ctx, &tex->src[i].src);
-         break;
+      case nir_tex_src_ddx: ddx = ir3_get_src(ctx, &tex->src[i].src); break;
+      case nir_tex_src_ddy: ddy = ir3_get_src(ctx, &tex->src[i].src); break;
       case nir_tex_src_ms_index:
          sample_index = ir3_get_src(ctx, &tex->src[i].src)[0];
          break;
@@ -2488,48 +2348,26 @@ emit_tex(struct ir3_context *ctx, nir_tex_instr *tex)
          break;
       }
       FALLTHROUGH;
-   case nir_texop_tex:
-      opc = has_lod ? OPC_SAML : OPC_SAM;
-      break;
-   case nir_texop_txb:
-      opc = OPC_SAMB;
-      break;
-   case nir_texop_txl:
-      opc = OPC_SAML;
-      break;
-   case nir_texop_txd:
-      opc = OPC_SAMGQ;
-      break;
-   case nir_texop_txf:
-      opc = OPC_ISAML;
-      break;
-   case nir_texop_lod:
-      opc = OPC_GETLOD;
-      break;
+   case nir_texop_tex: opc = has_lod ? OPC_SAML : OPC_SAM; break;
+   case nir_texop_txb: opc = OPC_SAMB; break;
+   case nir_texop_txl: opc = OPC_SAML; break;
+   case nir_texop_txd: opc = OPC_SAMGQ; break;
+   case nir_texop_txf: opc = OPC_ISAML; break;
+   case nir_texop_lod: opc = OPC_GETLOD; break;
    case nir_texop_tg4:
       /* NOTE: a4xx might need to emulate gather w/ txf (this is
        * what blob does, seems gather  is broken?), and a3xx did
        * not support it (but probably could also emulate).
        */
       switch (tex->component) {
-      case 0:
-         opc = OPC_GATHER4R;
-         break;
-      case 1:
-         opc = OPC_GATHER4G;
-         break;
-      case 2:
-         opc = OPC_GATHER4B;
-         break;
-      case 3:
-         opc = OPC_GATHER4A;
-         break;
+      case 0: opc = OPC_GATHER4R; break;
+      case 1: opc = OPC_GATHER4G; break;
+      case 2: opc = OPC_GATHER4B; break;
+      case 3: opc = OPC_GATHER4A; break;
       }
       break;
    case nir_texop_txf_ms_fb:
-   case nir_texop_txf_ms:
-      opc = OPC_ISAMM;
-      break;
+   case nir_texop_txf_ms: opc = OPC_ISAMM; break;
    default:
       ir3_context_error(ctx, "Unhandled NIR tex type: %d\n", tex->op);
       return;
@@ -2923,9 +2761,7 @@ static void
 emit_instr(struct ir3_context *ctx, nir_instr *instr)
 {
    switch (instr->type) {
-   case nir_instr_type_alu:
-      emit_alu(ctx, nir_instr_as_alu(instr));
-      break;
+   case nir_instr_type_alu: emit_alu(ctx, nir_instr_as_alu(instr)); break;
    case nir_instr_type_deref:
       /* ignored, handled as part of the intrinsic they are src to */
       break;
@@ -2943,27 +2779,15 @@ emit_instr(struct ir3_context *ctx, nir_instr *instr)
       /* couple tex instructions get special-cased:
        */
       switch (tex->op) {
-      case nir_texop_txs:
-         emit_tex_txs(ctx, tex);
-         break;
-      case nir_texop_query_levels:
-         emit_tex_info(ctx, tex, 2);
-         break;
-      case nir_texop_texture_samples:
-         emit_tex_info(ctx, tex, 3);
-         break;
-      default:
-         emit_tex(ctx, tex);
-         break;
+      case nir_texop_txs: emit_tex_txs(ctx, tex); break;
+      case nir_texop_query_levels: emit_tex_info(ctx, tex, 2); break;
+      case nir_texop_texture_samples: emit_tex_info(ctx, tex, 3); break;
+      default: emit_tex(ctx, tex); break;
       }
       break;
    }
-   case nir_instr_type_jump:
-      emit_jump(ctx, nir_instr_as_jump(instr));
-      break;
-   case nir_instr_type_phi:
-      emit_phi(ctx, nir_instr_as_phi(instr));
-      break;
+   case nir_instr_type_jump: emit_jump(ctx, nir_instr_as_jump(instr)); break;
+   case nir_instr_type_phi: emit_phi(ctx, nir_instr_as_phi(instr)); break;
    case nir_instr_type_call:
    case nir_instr_type_parallel_copy:
       ir3_context_error(ctx, "Unhandled NIR instruction type: %d\n",
@@ -3148,9 +2972,7 @@ emit_cf_list(struct ir3_context *ctx, struct exec_list *list)
          emit_loop(ctx, nir_cf_node_as_loop(node));
          stack_pop(ctx);
          break;
-      case nir_cf_node_function:
-         ir3_context_error(ctx, "TODO\n");
-         break;
+      case nir_cf_node_function: ir3_context_error(ctx, "TODO\n"); break;
       }
    }
 }
@@ -3556,9 +3378,7 @@ setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 
    if (ctx->so->type == MESA_SHADER_FRAGMENT) {
       switch (slot) {
-      case FRAG_RESULT_DEPTH:
-         so->writes_pos = true;
-         break;
+      case FRAG_RESULT_DEPTH: so->writes_pos = true; break;
       case FRAG_RESULT_COLOR:
          if (!ctx->s->info.fs.color_is_dual_source) {
             so->color0_mrt = 1;
@@ -3566,12 +3386,8 @@ setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr)
             slot = FRAG_RESULT_DATA0 + io.dual_source_blend_index;
          }
          break;
-      case FRAG_RESULT_SAMPLE_MASK:
-         so->writes_smask = true;
-         break;
-      case FRAG_RESULT_STENCIL:
-         so->writes_stencilref = true;
-         break;
+      case FRAG_RESULT_SAMPLE_MASK: so->writes_smask = true; break;
+      case FRAG_RESULT_STENCIL: so->writes_stencilref = true; break;
       default:
          slot += io.dual_source_blend_index; /* For dual-src blend */
          if (slot >= FRAG_RESULT_DATA0)
@@ -3583,12 +3399,8 @@ setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr)
               ctx->so->type == MESA_SHADER_TESS_EVAL ||
               ctx->so->type == MESA_SHADER_GEOMETRY) {
       switch (slot) {
-      case VARYING_SLOT_POS:
-         so->writes_pos = true;
-         break;
-      case VARYING_SLOT_PSIZ:
-         so->writes_psize = true;
-         break;
+      case VARYING_SLOT_POS: so->writes_pos = true; break;
+      case VARYING_SLOT_PSIZ: so->writes_psize = true; break;
       case VARYING_SLOT_PRIMITIVE_ID:
       case VARYING_SLOT_GS_VERTEX_FLAGS_IR3:
          debug_assert(ctx->so->type == MESA_SHADER_GEOMETRY);
@@ -3602,8 +3414,7 @@ setup_output(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       case VARYING_SLOT_CLIP_DIST1:
       case VARYING_SLOT_CLIP_VERTEX:
       case VARYING_SLOT_LAYER:
-      case VARYING_SLOT_VIEWPORT:
-         break;
+      case VARYING_SLOT_VIEWPORT: break;
       default:
          if (slot >= VARYING_SLOT_VAR0)
             break;
@@ -3662,18 +3473,13 @@ static bool
 uses_store_output(struct ir3_shader_variant *so)
 {
    switch (so->type) {
-   case MESA_SHADER_VERTEX:
-      return !so->key.has_gs && !so->key.tessellation;
-   case MESA_SHADER_TESS_EVAL:
-      return !so->key.has_gs;
+   case MESA_SHADER_VERTEX: return !so->key.has_gs && !so->key.tessellation;
+   case MESA_SHADER_TESS_EVAL: return !so->key.has_gs;
    case MESA_SHADER_GEOMETRY:
-   case MESA_SHADER_FRAGMENT:
-      return true;
+   case MESA_SHADER_FRAGMENT: return true;
    case MESA_SHADER_TESS_CTRL:
-   case MESA_SHADER_COMPUTE:
-      return false;
-   default:
-      unreachable("unknown stage");
+   case MESA_SHADER_COMPUTE: return false;
+   default: unreachable("unknown stage");
    }
 }
 
@@ -3700,8 +3506,7 @@ emit_instructions(struct ir3_context *ctx)
             case VARYING_SLOT_BFC1:
                ctx->so->inputs[var->data.driver_location].rasterflat = true;
                break;
-            default:
-               break;
+            default: break;
             }
          }
       }
@@ -3792,8 +3597,7 @@ emit_instructions(struct ir3_context *ctx)
       ctx->primitive_id =
          create_sysval_input(ctx, SYSTEM_VALUE_PRIMITIVE_ID, 0x1);
       break;
-   default:
-      break;
+   default: break;
    }
 
    /* Find # of samplers. Just assume that we'll be reading from images.. if

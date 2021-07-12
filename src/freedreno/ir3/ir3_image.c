@@ -155,23 +155,16 @@ ir3_get_type_for_image_intrinsic(const nir_intrinsic_instr *instr)
    case nir_intrinsic_image_atomic_imin:
    case nir_intrinsic_bindless_image_atomic_imin:
    case nir_intrinsic_image_atomic_imax:
-   case nir_intrinsic_bindless_image_atomic_imax:
-      type = nir_type_int;
-      break;
+   case nir_intrinsic_bindless_image_atomic_imax: type = nir_type_int; break;
 
-   default:
-      unreachable("Unhandled NIR image intrinsic");
+   default: unreachable("Unhandled NIR image intrinsic");
    }
 
    switch (type) {
-   case nir_type_uint:
-      return bit_size == 16 ? TYPE_U16 : TYPE_U32;
-   case nir_type_int:
-      return bit_size == 16 ? TYPE_S16 : TYPE_S32;
-   case nir_type_float:
-      return bit_size == 16 ? TYPE_F16 : TYPE_F32;
-   default:
-      unreachable("bad type");
+   case nir_type_uint: return bit_size == 16 ? TYPE_U16 : TYPE_U32;
+   case nir_type_int: return bit_size == 16 ? TYPE_S16 : TYPE_S32;
+   case nir_type_float: return bit_size == 16 ? TYPE_F16 : TYPE_F32;
+   default: unreachable("bad type");
    }
 }
 

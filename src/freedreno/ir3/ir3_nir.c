@@ -284,10 +284,8 @@ should_split_wrmask(const nir_instr *instr, const void *data)
    case nir_intrinsic_store_ssbo:
    case nir_intrinsic_store_shared:
    case nir_intrinsic_store_global:
-   case nir_intrinsic_store_scratch:
-      return true;
-   default:
-      return false;
+   case nir_intrinsic_store_scratch: return true;
+   default: return false;
    }
 }
 
@@ -614,8 +612,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
          NIR_PASS_V(s, ir3_nir_lower_to_explicit_input, so);
          progress = true;
          break;
-      default:
-         break;
+      default: break;
       }
    }
 
@@ -797,8 +794,7 @@ ir3_nir_scan_driver_consts(nir_shader *shader, struct ir3_const_state *layout)
                layout->num_driver_params =
                   MAX2(layout->num_driver_params, IR3_DP_SUBGROUP_ID_SHIFT + 1);
                break;
-            default:
-               break;
+            default: break;
             }
          }
       }
@@ -882,8 +878,7 @@ ir3_setup_const_state(nir_shader *nir, struct ir3_shader_variant *v,
       const_state->offsets.primitive_map = constoff + 1;
       constoff += 1 + DIV_ROUND_UP(v->input_size, 4);
       break;
-   default:
-      break;
+   default: break;
    }
 
    const_state->offsets.immediate = constoff;

@@ -2,7 +2,7 @@ AlignAfterOpenBracket: true
 AlignConsecutiveMacros: true
 AlignConsecutiveBitFields: true
 AllowAllArgumentsOnNextLine: false
-AllowShortCaseLabelsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: false
 AlwaysBreakAfterReturnType: TopLevelDefinitions
 BasedOnStyle: LLVM

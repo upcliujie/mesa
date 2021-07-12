@@ -133,8 +133,7 @@ build_local_offset(nir_builder *b, struct state *state, nir_ssa_def *vertex,
       attr_offset = nir_iadd(b, nir_load_primitive_location_ir3(b, index),
                              nir_imm_int(b, comp * 4));
       break;
-   default:
-      unreachable("bad shader stage");
+   default: unreachable("bad shader stage");
    }
 
    nir_ssa_def *vertex_offset = nir_imul24(b, vertex, vertex_stride);
@@ -261,8 +260,7 @@ lower_block_to_explicit_output(nir_block *block, nir_builder *b,
          break;
       }
 
-      default:
-         break;
+      default: break;
       }
    }
 }
@@ -340,8 +338,7 @@ lower_block_to_explicit_input(nir_block *block, nir_builder *b,
          break;
       }
 
-      default:
-         break;
+      default: break;
       }
    }
 }
@@ -417,8 +414,7 @@ build_per_vertex_offset(nir_builder *b, struct state *state,
          attr_offset = nir_iadd(b, nir_load_primitive_location_ir3(b, index),
                                 nir_imm_int(b, comp));
          break;
-      default:
-         unreachable("bad shader state");
+      default: unreachable("bad shader state");
       }
 
       attr_offset = nir_iadd(b, attr_offset,
@@ -458,8 +454,7 @@ tess_level_components(struct state *state, uint32_t *inner, uint32_t *outer)
       *inner = 0;
       *outer = 2;
       break;
-   default:
-      unreachable("bad");
+   default: unreachable("bad");
    }
 }
 
@@ -482,11 +477,8 @@ build_tessfactor_base(nir_builder *b, gl_varying_slot slot, struct state *state)
       /* There's some kind of header dword, tess levels start at index 1. */
       offset = 1;
       break;
-   case VARYING_SLOT_TESS_LEVEL_INNER:
-      offset = 1 + outer_levels;
-      break;
-   default:
-      unreachable("bad");
+   case VARYING_SLOT_TESS_LEVEL_INNER: offset = 1 + outer_levels; break;
+   default: unreachable("bad");
    }
 
    return nir_iadd(b, patch_offset, nir_imm_int(b, offset));
@@ -622,8 +614,7 @@ lower_tess_ctrl_block(nir_block *block, nir_builder *b, struct state *state)
          break;
       }
 
-      default:
-         break;
+      default: break;
       }
    }
 }
@@ -780,8 +771,7 @@ lower_tess_eval_block(nir_block *block, nir_builder *b, struct state *state)
          break;
       }
 
-      default:
-         break;
+      default: break;
       }
    }
 }
@@ -872,8 +862,7 @@ lower_gs_block(nir_block *block, nir_builder *b, struct state *state)
          break;
       }
 
-      default:
-         break;
+      default: break;
       }
    }
 }

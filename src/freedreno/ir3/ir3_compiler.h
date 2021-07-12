@@ -209,21 +209,13 @@ shader_debug_enabled(gl_shader_stage type)
       return true;
 
    switch (type) {
-   case MESA_SHADER_VERTEX:
-      return !!(ir3_shader_debug & IR3_DBG_SHADER_VS);
-   case MESA_SHADER_TESS_CTRL:
-      return !!(ir3_shader_debug & IR3_DBG_SHADER_TCS);
-   case MESA_SHADER_TESS_EVAL:
-      return !!(ir3_shader_debug & IR3_DBG_SHADER_TES);
-   case MESA_SHADER_GEOMETRY:
-      return !!(ir3_shader_debug & IR3_DBG_SHADER_GS);
-   case MESA_SHADER_FRAGMENT:
-      return !!(ir3_shader_debug & IR3_DBG_SHADER_FS);
-   case MESA_SHADER_COMPUTE:
-      return !!(ir3_shader_debug & IR3_DBG_SHADER_CS);
-   default:
-      debug_assert(0);
-      return false;
+   case MESA_SHADER_VERTEX: return !!(ir3_shader_debug & IR3_DBG_SHADER_VS);
+   case MESA_SHADER_TESS_CTRL: return !!(ir3_shader_debug & IR3_DBG_SHADER_TCS);
+   case MESA_SHADER_TESS_EVAL: return !!(ir3_shader_debug & IR3_DBG_SHADER_TES);
+   case MESA_SHADER_GEOMETRY: return !!(ir3_shader_debug & IR3_DBG_SHADER_GS);
+   case MESA_SHADER_FRAGMENT: return !!(ir3_shader_debug & IR3_DBG_SHADER_FS);
+   case MESA_SHADER_COMPUTE: return !!(ir3_shader_debug & IR3_DBG_SHADER_CS);
+   default: debug_assert(0); return false;
    }
 }
 

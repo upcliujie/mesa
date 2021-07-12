@@ -639,12 +639,9 @@ output_name(struct ir3_shader_variant *so, int i)
       return gl_frag_result_name(so->outputs[i].slot);
    } else {
       switch (so->outputs[i].slot) {
-      case VARYING_SLOT_GS_HEADER_IR3:
-         return "GS_HEADER";
-      case VARYING_SLOT_GS_VERTEX_FLAGS_IR3:
-         return "GS_VERTEX_FLAGS";
-      case VARYING_SLOT_TCS_HEADER_IR3:
-         return "TCS_HEADER";
+      case VARYING_SLOT_GS_HEADER_IR3: return "GS_HEADER";
+      case VARYING_SLOT_GS_VERTEX_FLAGS_IR3: return "GS_VERTEX_FLAGS";
+      case VARYING_SLOT_TCS_HEADER_IR3: return "TCS_HEADER";
       default:
          return gl_varying_slot_name_for_stage(so->outputs[i].slot, so->type);
       }

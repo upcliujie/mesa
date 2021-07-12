@@ -241,8 +241,7 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
             validate_assert(ctx, instr->srcs_count == 1);
             validate_assert(ctx, instr->dsts_count == 4);
             break;
-         default:
-            break;
+         default: break;
          }
       }
 
@@ -268,9 +267,7 @@ validate_instr(struct ir3_validate_ctx *ctx, struct ir3_instruction *instr)
          validate_assert(ctx, instr->opc == cat4_full_opc(instr->opc));
       }
       break;
-   case 5:
-      validate_reg_size(ctx, instr->dsts[0], instr->cat5.type);
-      break;
+   case 5: validate_reg_size(ctx, instr->dsts[0], instr->cat5.type); break;
    case 6:
       switch (instr->opc) {
       case OPC_RESINFO:

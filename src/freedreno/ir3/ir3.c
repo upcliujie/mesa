@@ -763,16 +763,13 @@ ir3_valid_flags(struct ir3_instruction *instr, unsigned n, unsigned flags)
    }
 
    switch (opc_cat(instr->opc)) {
-   case 0: /* end, chmask */
-      return flags == 0;
+   case 0: /* end, chmask */ return flags == 0;
    case 1:
       switch (instr->opc) {
       case OPC_MOVMSK:
       case OPC_SWZ:
       case OPC_SCT:
-      case OPC_GAT:
-         valid_flags = IR3_REG_SHARED;
-         break;
+      case OPC_GAT: valid_flags = IR3_REG_SHARED; break;
       default:
          valid_flags =
             IR3_REG_IMMED | IR3_REG_CONST | IR3_REG_RELATIV | IR3_REG_SHARED;
@@ -901,8 +898,7 @@ ir3_valid_flags(struct ir3_instruction *instr, unsigned n, unsigned flags)
             if (n != 0)
                return false;
             break;
-         default:
-            break;
+         default: break;
          }
       }
 

@@ -137,10 +137,8 @@ lower_block(struct ir3 *ir, struct ir3_block **block)
       case OPC_ELECT_MACRO:
       case OPC_READ_COND_MACRO:
       case OPC_READ_FIRST_MACRO:
-      case OPC_SWZ_SHARED_MACRO:
-         break;
-      default:
-         continue;
+      case OPC_SWZ_SHARED_MACRO: break;
+      default: continue;
       }
 
       struct ir3_block *before_block = *block;
@@ -168,29 +166,20 @@ lower_block(struct ir3 *ir, struct ir3_block **block)
       case OPC_ALL_MACRO:
          before_block->condition = instr->srcs[0]->def->instr;
          break;
-      default:
-         before_block->condition = NULL;
-         break;
+      default: before_block->condition = NULL; break;
       }
 
       switch (instr->opc) {
       case OPC_BALLOT_MACRO:
-      case OPC_READ_COND_MACRO:
-         before_block->brtype = IR3_BRANCH_COND;
-         break;
-      case OPC_ANY_MACRO:
-         before_block->brtype = IR3_BRANCH_ANY;
-         break;
-      case OPC_ALL_MACRO:
-         before_block->brtype = IR3_BRANCH_ALL;
-         break;
+      case OPC_READ_COND_MACRO: before_block->brtype = IR3_BRANCH_COND; break;
+      case OPC_ANY_MACRO: before_block->brtype = IR3_BRANCH_ANY; break;
+      case OPC_ALL_MACRO: before_block->brtype = IR3_BRANCH_ALL; break;
       case OPC_ELECT_MACRO:
       case OPC_READ_FIRST_MACRO:
       case OPC_SWZ_SHARED_MACRO:
          before_block->brtype = IR3_BRANCH_GETONE;
          break;
-      default:
-         unreachable("bad opcode");
+      default: unreachable("bad opcode");
       }
 
       switch (instr->opc) {
@@ -234,8 +223,7 @@ lower_block(struct ir3 *ir, struct ir3_block **block)
          break;
       }
 
-      default:
-         unreachable("bad opcode");
+      default: unreachable("bad opcode");
       }
 
       *block = after_block;

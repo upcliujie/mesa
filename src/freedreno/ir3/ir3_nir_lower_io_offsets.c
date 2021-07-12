@@ -53,10 +53,8 @@ get_ir3_intrinsic_for_ssbo_intrinsic(unsigned intrinsic,
    case nir_intrinsic_store_ssbo:
       *offset_src_idx = 2;
       return nir_intrinsic_store_ssbo_ir3;
-   case nir_intrinsic_load_ssbo:
-      return nir_intrinsic_load_ssbo_ir3;
-   case nir_intrinsic_ssbo_atomic_add:
-      return nir_intrinsic_ssbo_atomic_add_ir3;
+   case nir_intrinsic_load_ssbo: return nir_intrinsic_load_ssbo_ir3;
+   case nir_intrinsic_ssbo_atomic_add: return nir_intrinsic_ssbo_atomic_add_ir3;
    case nir_intrinsic_ssbo_atomic_imin:
       return nir_intrinsic_ssbo_atomic_imin_ir3;
    case nir_intrinsic_ssbo_atomic_umin:
@@ -65,18 +63,14 @@ get_ir3_intrinsic_for_ssbo_intrinsic(unsigned intrinsic,
       return nir_intrinsic_ssbo_atomic_imax_ir3;
    case nir_intrinsic_ssbo_atomic_umax:
       return nir_intrinsic_ssbo_atomic_umax_ir3;
-   case nir_intrinsic_ssbo_atomic_and:
-      return nir_intrinsic_ssbo_atomic_and_ir3;
-   case nir_intrinsic_ssbo_atomic_or:
-      return nir_intrinsic_ssbo_atomic_or_ir3;
-   case nir_intrinsic_ssbo_atomic_xor:
-      return nir_intrinsic_ssbo_atomic_xor_ir3;
+   case nir_intrinsic_ssbo_atomic_and: return nir_intrinsic_ssbo_atomic_and_ir3;
+   case nir_intrinsic_ssbo_atomic_or: return nir_intrinsic_ssbo_atomic_or_ir3;
+   case nir_intrinsic_ssbo_atomic_xor: return nir_intrinsic_ssbo_atomic_xor_ir3;
    case nir_intrinsic_ssbo_atomic_exchange:
       return nir_intrinsic_ssbo_atomic_exchange_ir3;
    case nir_intrinsic_ssbo_atomic_comp_swap:
       return nir_intrinsic_ssbo_atomic_comp_swap_ir3;
-   default:
-      break;
+   default: break;
    }
 
    return -1;
@@ -154,8 +148,7 @@ ir3_nir_try_propagate_bit_shift(nir_builder *b, nir_ssa_def *offset,
       if (shift_ssa)
          new_offset = nir_ushr(b, src0, shift_ssa);
       break;
-   default:
-      return NULL;
+   default: return NULL;
    }
 
    return new_offset;

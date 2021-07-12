@@ -410,8 +410,7 @@ chase_definition(struct reg_state *state)
          }
          break;
       }
-      default:
-         return;
+      default: return;
       }
    }
 }

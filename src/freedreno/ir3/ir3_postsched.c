@@ -645,11 +645,8 @@ sched_block(struct ir3_postsched_ctx *ctx, struct ir3_block *block)
       switch (instr->opc) {
       case OPC_NOP:
       case OPC_B:
-      case OPC_JUMP:
-         list_delinit(&instr->node);
-         break;
-      default:
-         break;
+      case OPC_JUMP: list_delinit(&instr->node); break;
+      default: break;
       }
    }
 

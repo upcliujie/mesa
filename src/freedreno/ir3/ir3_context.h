@@ -243,15 +243,10 @@ static inline type_t
 utype_for_size(unsigned bit_size)
 {
    switch (bit_size) {
-   case 32:
-      return TYPE_U32;
-   case 16:
-      return TYPE_U16;
-   case 8:
-      return TYPE_U8;
-   default:
-      unreachable("bad bitsize");
-      return ~0;
+   case 32: return TYPE_U32;
+   case 16: return TYPE_U16;
+   case 8: return TYPE_U8;
+   default: unreachable("bad bitsize"); return ~0;
    }
 }
 

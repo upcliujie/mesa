@@ -543,17 +543,12 @@ ir3_merge_regs(struct ir3_liveness *live, struct ir3 *ir)
    foreach_block (block, &ir->block_list) {
       foreach_instr (instr, &block->instr_list) {
          switch (instr->opc) {
-         case OPC_META_SPLIT:
-            aggressive_coalesce_split(live, instr);
-            break;
-         case OPC_META_COLLECT:
-            aggressive_coalesce_collect(live, instr);
-            break;
+         case OPC_META_SPLIT: aggressive_coalesce_split(live, instr); break;
+         case OPC_META_COLLECT: aggressive_coalesce_collect(live, instr); break;
          case OPC_META_PARALLEL_COPY:
             aggressive_coalesce_parallel_copy(live, instr);
             break;
-         default:
-            break;
+         default: break;
          }
       }
    }

@@ -697,8 +697,7 @@ block_sched(struct ir3 *ir)
                br1->cat0.brtype = BRANCH_ALL;
                br2->cat0.brtype = BRANCH_ANY;
                break;
-            case IR3_BRANCH_GETONE:
-               unreachable("can't get here");
+            case IR3_BRANCH_GETONE: unreachable("can't get here");
             }
          }
       } else if (block->successors[0]) {

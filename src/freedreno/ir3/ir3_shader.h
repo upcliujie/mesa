@@ -341,14 +341,10 @@ static inline unsigned
 ir3_tess_mode(unsigned gl_tess_mode)
 {
    switch (gl_tess_mode) {
-   case GL_ISOLINES:
-      return IR3_TESS_ISOLINES;
-   case GL_TRIANGLES:
-      return IR3_TESS_TRIANGLES;
-   case GL_QUADS:
-      return IR3_TESS_QUADS;
-   default:
-      unreachable("bad tessmode");
+   case GL_ISOLINES: return IR3_TESS_ISOLINES;
+   case GL_TRIANGLES: return IR3_TESS_TRIANGLES;
+   case GL_QUADS: return IR3_TESS_QUADS;
+   default: unreachable("bad tessmode");
    }
 }
 
@@ -691,21 +687,13 @@ static inline const char *
 ir3_shader_stage(struct ir3_shader_variant *v)
 {
    switch (v->type) {
-   case MESA_SHADER_VERTEX:
-      return v->binning_pass ? "BVERT" : "VERT";
-   case MESA_SHADER_TESS_CTRL:
-      return "TCS";
-   case MESA_SHADER_TESS_EVAL:
-      return "TES";
-   case MESA_SHADER_GEOMETRY:
-      return "GEOM";
-   case MESA_SHADER_FRAGMENT:
-      return "FRAG";
-   case MESA_SHADER_COMPUTE:
-      return "CL";
-   default:
-      unreachable("invalid type");
-      return NULL;
+   case MESA_SHADER_VERTEX: return v->binning_pass ? "BVERT" : "VERT";
+   case MESA_SHADER_TESS_CTRL: return "TCS";
+   case MESA_SHADER_TESS_EVAL: return "TES";
+   case MESA_SHADER_GEOMETRY: return "GEOM";
+   case MESA_SHADER_FRAGMENT: return "FRAG";
+   case MESA_SHADER_COMPUTE: return "CL";
+   default: unreachable("invalid type"); return NULL;
    }
 }
 

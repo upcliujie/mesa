@@ -596,8 +596,7 @@ instr_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr)
          unuse(cond);
          ctx->progress = true;
          break;
-      default:
-         break;
+      default: break;
       }
    }
 

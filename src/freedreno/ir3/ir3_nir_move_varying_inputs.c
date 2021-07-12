@@ -89,9 +89,7 @@ check_precondition_instr(precond_state *state, nir_instr *instr)
       }
       break;
    }
-   default:
-      state->precondition_failed = true;
-      return;
+   default: state->precondition_failed = true; return;
    }
 
    nir_foreach_src (instr, check_precondition_src, state)
@@ -109,10 +107,8 @@ check_precondition_block(precond_state *state, nir_block *block)
 
       switch (intr->intrinsic) {
       case nir_intrinsic_load_interpolated_input:
-      case nir_intrinsic_load_input:
-         break;
-      default:
-         continue;
+      case nir_intrinsic_load_input: break;
+      default: continue;
       }
 
       check_precondition_instr(state, instr);
@@ -167,8 +163,7 @@ move_varying_inputs_block(state *state, nir_block *block)
       case nir_intrinsic_load_input:
          /* TODO any others to handle? */
          break;
-      default:
-         continue;
+      default: continue;
       }
 
       debug_assert(intr->dest.is_ssa);

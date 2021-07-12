@@ -177,8 +177,7 @@ emit_intrinsic_atomic_ssbo(struct ir3_context *ctx, nir_intrinsic_instr *intr)
    case nir_intrinsic_ssbo_atomic_comp_swap_ir3:
       atomic = ir3_ATOMIC_CMPXCHG_G(b, ibo, 0, src0, 0, src1, 0);
       break;
-   default:
-      unreachable("boo");
+   default: unreachable("boo");
    }
 
    atomic->cat6.iim_val = 1;
@@ -326,8 +325,7 @@ emit_intrinsic_atomic_image(struct ir3_context *ctx, nir_intrinsic_instr *intr)
    case nir_intrinsic_bindless_image_atomic_comp_swap:
       atomic = ir3_ATOMIC_CMPXCHG_G(b, ibo, 0, src0, 0, src1, 0);
       break;
-   default:
-      unreachable("boo");
+   default: unreachable("boo");
    }
 
    atomic->cat6.iim_val = 1;

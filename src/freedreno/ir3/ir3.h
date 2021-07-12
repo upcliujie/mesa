@@ -784,8 +784,7 @@ is_same_type_mov(struct ir3_instruction *instr)
       if (!is_same_type_reg(instr->dsts[0], instr->srcs[0]))
          return false;
       break;
-   default:
-      return false;
+   default: return false;
    }
 
    dst = instr->dsts[0];
@@ -885,10 +884,8 @@ is_store(struct ir3_instruction *instr)
    case OPC_STL:
    case OPC_STLW:
    case OPC_L2G:
-   case OPC_G2L:
-      return true;
-   default:
-      return false;
+   case OPC_G2L: return true;
+   default: return false;
    }
 }
 
@@ -908,8 +905,7 @@ is_load(struct ir3_instruction *instr)
    case OPC_LDLV:
       /* probably some others too.. */
       return true;
-   default:
-      return false;
+   default: return false;
    }
 }
 
@@ -922,10 +918,8 @@ is_input(struct ir3_instruction *instr)
     */
    switch (instr->opc) {
    case OPC_LDLV:
-   case OPC_BARY_F:
-      return true;
-   default:
-      return false;
+   case OPC_BARY_F: return true;
+   default: return false;
    }
 }
 
@@ -935,10 +929,8 @@ is_bool(struct ir3_instruction *instr)
    switch (instr->opc) {
    case OPC_CMPS_F:
    case OPC_CMPS_S:
-   case OPC_CMPS_U:
-      return true;
-   default:
-      return false;
+   case OPC_CMPS_U: return true;
+   default: return false;
    }
 }
 
@@ -946,18 +938,12 @@ static inline opc_t
 cat3_half_opc(opc_t opc)
 {
    switch (opc) {
-   case OPC_MAD_F32:
-      return OPC_MAD_F16;
-   case OPC_SEL_B32:
-      return OPC_SEL_B16;
-   case OPC_SEL_S32:
-      return OPC_SEL_S16;
-   case OPC_SEL_F32:
-      return OPC_SEL_F16;
-   case OPC_SAD_S32:
-      return OPC_SAD_S16;
-   default:
-      return opc;
+   case OPC_MAD_F32: return OPC_MAD_F16;
+   case OPC_SEL_B32: return OPC_SEL_B16;
+   case OPC_SEL_S32: return OPC_SEL_S16;
+   case OPC_SEL_F32: return OPC_SEL_F16;
+   case OPC_SAD_S32: return OPC_SAD_S16;
+   default: return opc;
    }
 }
 
@@ -965,18 +951,12 @@ static inline opc_t
 cat3_full_opc(opc_t opc)
 {
    switch (opc) {
-   case OPC_MAD_F16:
-      return OPC_MAD_F32;
-   case OPC_SEL_B16:
-      return OPC_SEL_B32;
-   case OPC_SEL_S16:
-      return OPC_SEL_S32;
-   case OPC_SEL_F16:
-      return OPC_SEL_F32;
-   case OPC_SAD_S16:
-      return OPC_SAD_S32;
-   default:
-      return opc;
+   case OPC_MAD_F16: return OPC_MAD_F32;
+   case OPC_SEL_B16: return OPC_SEL_B32;
+   case OPC_SEL_S16: return OPC_SEL_S32;
+   case OPC_SEL_F16: return OPC_SEL_F32;
+   case OPC_SAD_S16: return OPC_SAD_S32;
+   default: return opc;
    }
 }
 
@@ -984,14 +964,10 @@ static inline opc_t
 cat4_half_opc(opc_t opc)
 {
    switch (opc) {
-   case OPC_RSQ:
-      return OPC_HRSQ;
-   case OPC_LOG2:
-      return OPC_HLOG2;
-   case OPC_EXP2:
-      return OPC_HEXP2;
-   default:
-      return opc;
+   case OPC_RSQ: return OPC_HRSQ;
+   case OPC_LOG2: return OPC_HLOG2;
+   case OPC_EXP2: return OPC_HEXP2;
+   default: return opc;
    }
 }
 
@@ -999,14 +975,10 @@ static inline opc_t
 cat4_full_opc(opc_t opc)
 {
    switch (opc) {
-   case OPC_HRSQ:
-      return OPC_RSQ;
-   case OPC_HLOG2:
-      return OPC_LOG2;
-   case OPC_HEXP2:
-      return OPC_EXP2;
-   default:
-      return opc;
+   case OPC_HRSQ: return OPC_RSQ;
+   case OPC_HLOG2: return OPC_LOG2;
+   case OPC_HEXP2: return OPC_EXP2;
+   default: return opc;
    }
 }
 
@@ -1141,19 +1113,13 @@ static inline type_t
 half_type(type_t type)
 {
    switch (type) {
-   case TYPE_F32:
-      return TYPE_F16;
-   case TYPE_U32:
-      return TYPE_U16;
-   case TYPE_S32:
-      return TYPE_S16;
+   case TYPE_F32: return TYPE_F16;
+   case TYPE_U32: return TYPE_U16;
+   case TYPE_S32: return TYPE_S16;
    case TYPE_F16:
    case TYPE_U16:
-   case TYPE_S16:
-      return type;
-   default:
-      assert(0);
-      return ~0;
+   case TYPE_S16: return type;
+   default: assert(0); return ~0;
    }
 }
 
@@ -1161,19 +1127,13 @@ static inline type_t
 full_type(type_t type)
 {
    switch (type) {
-   case TYPE_F16:
-      return TYPE_F32;
-   case TYPE_U16:
-      return TYPE_U32;
-   case TYPE_S16:
-      return TYPE_S32;
+   case TYPE_F16: return TYPE_F32;
+   case TYPE_U16: return TYPE_U32;
+   case TYPE_S16: return TYPE_S32;
    case TYPE_F32:
    case TYPE_U32:
-   case TYPE_S32:
-      return type;
-   default:
-      assert(0);
-      return ~0;
+   case TYPE_S32: return type;
+   default: assert(0); return ~0;
    }
 }
 
@@ -1213,11 +1173,9 @@ ir3_cat2_int(opc_t opc)
    case OPC_MGEN_B:
    case OPC_GETBIT_B:
    case OPC_CBITS_B:
-   case OPC_BARY_F:
-      return true;
+   case OPC_BARY_F: return true;
 
-   default:
-      return false;
+   default: return false;
    }
 }
 
@@ -1239,8 +1197,7 @@ ir3_cat2_absneg(opc_t opc)
    case OPC_RNDNE_F:
    case OPC_RNDAZ_F:
    case OPC_TRUNC_F:
-   case OPC_BARY_F:
-      return IR3_REG_FABS | IR3_REG_FNEG;
+   case OPC_BARY_F: return IR3_REG_FABS | IR3_REG_FNEG;
 
    case OPC_ADD_U:
    case OPC_ADD_S:
@@ -1257,11 +1214,9 @@ ir3_cat2_absneg(opc_t opc)
    case OPC_MUL_U24:
    case OPC_MUL_S24:
    case OPC_MULL_U:
-   case OPC_CLZ_S:
-      return 0;
+   case OPC_CLZ_S: return 0;
 
-   case OPC_ABSNEG_S:
-      return IR3_REG_SABS | IR3_REG_SNEG;
+   case OPC_ABSNEG_S: return IR3_REG_SABS | IR3_REG_SNEG;
 
    case OPC_AND_B:
    case OPC_OR_B:
@@ -1274,11 +1229,9 @@ ir3_cat2_absneg(opc_t opc)
    case OPC_ASHR_B:
    case OPC_MGEN_B:
    case OPC_GETBIT_B:
-   case OPC_CBITS_B:
-      return IR3_REG_BNOT;
+   case OPC_CBITS_B: return IR3_REG_BNOT;
 
-   default:
-      return 0;
+   default: return 0;
    }
 }
 
@@ -1290,8 +1243,7 @@ ir3_cat3_absneg(opc_t opc)
    case OPC_MAD_F16:
    case OPC_MAD_F32:
    case OPC_SEL_F16:
-   case OPC_SEL_F32:
-      return IR3_REG_FNEG;
+   case OPC_SEL_F32: return IR3_REG_FNEG;
 
    case OPC_MAD_U16:
    case OPC_MADSH_U16:
@@ -1310,8 +1262,7 @@ ir3_cat3_absneg(opc_t opc)
 
    case OPC_SHLG_B16:
 
-   default:
-      return 0;
+   default: return 0;
    }
 }
 
@@ -1331,8 +1282,7 @@ ir3_output_conv_type(struct ir3_instruction *instr, bool *can_fold)
    case OPC_MUL_F:
    case OPC_BARY_F:
    case OPC_MAD_F32:
-   case OPC_MAD_F16:
-      return TYPE_F32;
+   case OPC_MAD_F16: return TYPE_F32;
 
    case OPC_ADD_U:
    case OPC_SUB_U:
@@ -1354,8 +1304,7 @@ ir3_output_conv_type(struct ir3_instruction *instr, bool *can_fold)
    case OPC_CMPS_F:
    case OPC_CMPV_F:
    case OPC_CMPS_U:
-   case OPC_CMPS_S:
-      return TYPE_U32;
+   case OPC_CMPS_S: return TYPE_U32;
 
    case OPC_ADD_S:
    case OPC_SUB_S:
@@ -1363,16 +1312,13 @@ ir3_output_conv_type(struct ir3_instruction *instr, bool *can_fold)
    case OPC_MAX_S:
    case OPC_ABSNEG_S:
    case OPC_MUL_S24:
-   case OPC_MAD_S24:
-      return TYPE_S32;
+   case OPC_MAD_S24: return TYPE_S32;
 
    /* We assume that any move->move folding that could be done was done by
     * NIR.
     */
    case OPC_MOV:
-   default:
-      *can_fold = false;
-      return TYPE_U32;
+   default: *can_fold = false; return TYPE_U32;
    }
 }
 
@@ -1429,10 +1375,8 @@ ir3_try_swap_signedness(opc_t opc, bool *can_swap)
 {
    switch (opc) {
 #define PAIR(u, s)                                                             \
-   case OPC_##u:                                                               \
-      return OPC_##s;                                                          \
-   case OPC_##s:                                                               \
-      return OPC_##u;
+   case OPC_##u: return OPC_##s;                                               \
+   case OPC_##s: return OPC_##u;
       PAIR(ADD_U, ADD_S)
       PAIR(SUB_U, SUB_S)
       /* Note: these are only identical when the sources are half, but that's
@@ -1440,9 +1384,7 @@ ir3_try_swap_signedness(opc_t opc, bool *can_swap)
        */
       PAIR(MUL_U24, MUL_S24)
 
-   default:
-      *can_swap = false;
-      return opc;
+   default: *can_swap = false; return opc;
    }
 }
 
@@ -1630,10 +1572,8 @@ ir3_has_latency_to_hide(struct ir3 *ir)
             switch (instr->opc) {
             case OPC_LDLV:
             case OPC_LDL:
-            case OPC_LDLW:
-               break;
-            default:
-               return true;
+            case OPC_LDLW: break;
+            default: return true;
             }
          }
       }

@@ -437,9 +437,7 @@ create_addr0(struct ir3_block *block, struct ir3_instruction *src, int align)
       immed = create_immed_typed(block, 2, TYPE_S16);
       instr = ir3_SHL_B(block, instr, 0, immed, 0);
       break;
-   default:
-      unreachable("bad align");
-      return NULL;
+   default: unreachable("bad align"); return NULL;
    }
 
    instr->dsts[0]->flags |= IR3_REG_HALF;
