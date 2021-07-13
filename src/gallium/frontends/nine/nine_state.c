@@ -997,7 +997,6 @@ update_textures_and_samplers(struct NineDevice9 *device)
                             device->ff.ps->sampler_mask;
 
     commit_samplers = FALSE;
-    uint16_t prev_mask = context->bound_samplers_mask_ps;
     context->bound_samplers_mask_ps = 0;
     const uint16_t ps_mask = sampler_mask | context->enabled_samplers_mask_ps;
     /* iterate over extant+enabled mask */
@@ -1039,15 +1038,14 @@ update_textures_and_samplers(struct NineDevice9 *device)
        view[i] = NULL;
 
     pipe->set_sampler_views(pipe, PIPE_SHADER_FRAGMENT, 0, num_textures,
-                            /* unbind trailing based on bitcount of shifted mask */
-                            util_bitcount(prev_mask >> num_textures), view);
+                            num_textures < context->enabled_sampler_count_ps ? context->enabled_sampler_count_ps - num_textures : 0, view);
+    context->enabled_sampler_count_ps = num_textures;
 
     if (commit_samplers)
         cso_single_sampler_done(context->cso, PIPE_SHADER_FRAGMENT);
 
     commit_samplers = FALSE;
     sampler_mask = context->programmable_vs ? context->vs->sampler_mask : 0;
-    prev_mask = context->bound_samplers_mask_vs;
     context->bound_samplers_mask_vs = 0;
     const uint16_t vs_mask = sampler_mask | context->enabled_samplers_mask_vs;
     u_foreach_bit(i, vs_mask) {
@@ -1088,8 +1086,8 @@ update_textures_and_samplers(struct NineDevice9 *device)
        view[i] = NULL;
 
     pipe->set_sampler_views(pipe, PIPE_SHADER_VERTEX, 0, num_textures,
-                            /* unbind trailing based on bitcount of shifted mask */
-                            util_bitcount(prev_mask >> num_textures), view);
+                            num_textures < context->enabled_sampler_count_vs ? context->enabled_sampler_count_vs - num_textures : 0, view);
+    context->enabled_sampler_count_vs = num_textures;
 
     if (commit_samplers)
         cso_single_sampler_done(context->cso, PIPE_SHADER_VERTEX);
