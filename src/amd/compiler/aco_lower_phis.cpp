@@ -93,12 +93,10 @@ get_ssa(Program* program, unsigned block_idx, ssa_state* state, bool input)
          ops[i] = get_ssa(program, block.linear_preds[i], state, false);
 
       /* check triviality */
-      bool trivial = true;
-      for (unsigned i = 1; trivial && i < pred; i++)
-         trivial &= ops[i] == ops[0];
-
-      if (trivial)
-         return ops[0];
+      if (std::all_of(ops.begin() + 1, ops.end(),
+                      [&](Operand op) { return op == ops[0]; }) {
+          return ops[0];
+      }
       if (!previously_visited && state->visited[block_idx])
          return state->outputs[block_idx];
 
