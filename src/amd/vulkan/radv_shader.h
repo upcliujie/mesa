@@ -127,7 +127,6 @@ struct radv_nir_compiler_options {
    enum chip_class chip_class;
    const struct radeon_info *info;
    uint32_t address32_hi;
-   uint8_t force_vrs_rates;
 
    struct {
       void (*func)(void *private_data, enum radv_compiler_debug_level level, const char *message);

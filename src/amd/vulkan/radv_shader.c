@@ -458,6 +458,92 @@ radv_lower_primitive_shading_rate(nir_shader *nir)
    return progress;
 }
 
+static bool
+radv_force_primitive_shading_rate(nir_shader *nir, struct radv_device *device)
+{
+   nir_function_impl *impl = nir_shader_get_entrypoint(nir);
+   bool progress = false;
+   unsigned vrs_rate = 0;
+
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
+   /* Bits [2:3] = VRS rate X
+    * Bits [4:5] = VRS rate Y
+    *
+    * The range is [-2, 1]. Values:
+    *   1: 2x coarser shading rate in that direction.
+    *   0: normal shading rate
+    *  -1: 2x finer shading rate (sample shading, not directional)
+    *  -2: 4x finer shading rate (sample shading, not directional)
+    *
+    * Sample shading can't go above 8 samples, so both numbers can't be -2
+    * at the same time.
+    */
+   switch (device->force_vrs) {
+   case RADV_FORCE_VRS_2x2:
+      vrs_rate = (1u << 2) | (1u << 4);
+      break;
+   case RADV_FORCE_VRS_2x1:
+      vrs_rate = (1u << 2) | (0u << 4);
+      break;
+   case RADV_FORCE_VRS_1x2:
+      vrs_rate = (0u << 2) | (1u << 4);
+      break;
+   default:
+      unreachable("Invalid RADV_FORCE_VRS value");
+   }
+
+   nir_foreach_block_reverse(block, impl) {
+      nir_foreach_instr_reverse(instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+         if (intr->intrinsic != nir_intrinsic_store_deref)
+            continue;
+
+         nir_variable *var = nir_intrinsic_get_var(intr, 0);
+         if (var->data.mode != nir_var_shader_out ||
+             var->data.location != VARYING_SLOT_POS)
+            continue;
+
+         b.cursor = nir_after_instr(instr);
+
+         nir_ssa_scalar scalar_idx = nir_ssa_scalar_resolved(intr->src[1].ssa, 3);
+
+         /* Use coarse shading if the value of Pos.W can't be determined or if its value is != 1
+          * (typical for non-GUI elements).
+          */
+         if (!nir_ssa_scalar_is_const(scalar_idx) ||
+             nir_ssa_scalar_as_uint(scalar_idx) != 0x3f800000u) {
+
+            var = nir_variable_create(nir, nir_var_shader_out, glsl_int_type(), "vrs rate");
+            var->data.location = VARYING_SLOT_PRIMITIVE_SHADING_RATE;
+            var->data.interpolation = INTERP_MODE_NONE;
+
+            nir_ssa_def *pos_w = nir_channel(&b, intr->src[1].ssa, 3);
+            nir_ssa_def *val = nir_bcsel(&b, nir_fneu(&b, pos_w, nir_imm_int(&b, 0x3f800000u)),
+                                             nir_imm_int(&b, vrs_rate), nir_imm_int(&b, 0));
+
+            nir_intrinsic_instr *store =
+               nir_intrinsic_instr_create(b.shader, nir_intrinsic_store_deref);
+            store->num_components = 1;
+            store->src[0] = nir_src_for_ssa(&nir_build_deref_var(&b, var)->dest.ssa);
+            store->src[1] = nir_src_for_ssa(val);
+            nir_intrinsic_set_write_mask(store, 0x1);
+            nir_builder_instr_insert(&b, &store->instr);
+
+            progress = true;
+            if (nir->info.stage == MESA_SHADER_VERTEX)
+               return progress;
+         }
+      }
+   }
+
+   return progress;
+}
+
 nir_shader *
 radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *module,
                            const char *entrypoint_name, gl_shader_stage stage,
@@ -802,7 +888,12 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
         nir->info.stage == MESA_SHADER_GEOMETRY ||
         nir->info.stage == MESA_SHADER_MESH) &&
        nir->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_SHADING_RATE)) {
+      /* Lower primitive shading rate to match HW requirements. */
       NIR_PASS_V(nir, radv_lower_primitive_shading_rate);
+   } else if ((nir->info.stage == MESA_SHADER_VERTEX ||
+               nir->info.stage == MESA_SHADER_GEOMETRY) && device->force_vrs != RADV_FORCE_VRS_NONE) {
+      /* Force primitive shading rate when VRS is force enabled. */
+      NIR_PASS_V(nir, radv_force_primitive_shading_rate, device);
    }
 
    /* Indirect lowering must be called after the radv_optimize_nir() loop
@@ -1867,20 +1958,6 @@ shader_compile(struct radv_device *device, struct vk_shader_module *module,
    options->has_image_load_dcc_bug = device->physical_device->rad_info.has_image_load_dcc_bug;
    options->debug.func = radv_compiler_debug;
    options->debug.private_data = &debug_data;
-
-   switch (options->key.ps.force_vrs) {
-   case RADV_FORCE_VRS_2x2:
-      options->force_vrs_rates = (1u << 2) | (1u << 4);
-      break;
-   case RADV_FORCE_VRS_2x1:
-      options->force_vrs_rates = (1u << 2) | (0u << 4);
-      break;
-   case RADV_FORCE_VRS_1x2:
-      options->force_vrs_rates = (0u << 2) | (1u << 4);
-      break;
-   default:
-      break;
-   }
 
    struct radv_shader_args args = {0};
    args.is_gs_copy_shader = gs_copy_shader;
