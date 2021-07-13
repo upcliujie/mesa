@@ -452,6 +452,20 @@ cfg_t::adjust_block_ips()
       block->start_ip += delta;
       block->end_ip += delta;
 
+      /* This is a weaker check than checking inst_is_in_block() on every call
+       * to backend_instruction::remove(), but it should catch most of the
+       * same kinds of problems.  If this assertion fails, move the
+       * inst_is_in_block assertion outside the defer_later_block_ip_updates
+       * check.
+       *
+       * Note: Without the end_ip_delta conditioning, moving the assertion
+       * here generally makes performance worse.
+       */
+      if (block->end_ip_delta != 0) {
+         assert(block->instructions.length() ==
+                unsigned(block->end_ip - block->start_ip) + 1);
+      }
+
       delta += block->end_ip_delta;
 
       block->end_ip_delta = 0;

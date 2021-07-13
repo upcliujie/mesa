@@ -1242,16 +1242,23 @@ backend_instruction::insert_before(bblock_t *block, exec_list *list)
 void
 backend_instruction::remove(bblock_t *block, bool defer_later_block_ip_updates)
 {
-   assert(inst_is_in_block(block, this) || !"Instruction not in block");
-
    if (defer_later_block_ip_updates) {
       block->end_ip_delta--;
    } else {
+      assert(inst_is_in_block(block, this) || !"Instruction not in block");
       assert(block->end_ip_delta == 0);
       adjust_later_block_ips(block, -1);
    }
 
    if (block->start_ip == block->end_ip) {
+      if (defer_later_block_ip_updates) {
+         /* start_ip == end_ip implies `this` is the only instruction in the
+          * list.
+          */
+         assert((exec_node *)this == block->instructions.get_head_raw() ||
+                !"Instruction not in block");
+      }
+
       if (block->end_ip_delta != 0) {
          adjust_later_block_ips(block, block->end_ip_delta);
          block->end_ip_delta = 0;
