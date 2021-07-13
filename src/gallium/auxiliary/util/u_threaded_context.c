@@ -2350,7 +2350,13 @@ tc_buffer_unmap(struct pipe_context *_pipe, struct pipe_transfer *transfer)
     * and if it goes over an optional limit the current batch is flushed,
     * to reclaim some RAM. */
    if (!ttrans->staging && tc->bytes_mapped_limit &&
-       tc->bytes_mapped_estimate > tc->bytes_mapped_limit) {
+       tc->bytes_mapped_estimate >
+#ifdef PIPE_ARCH_X86
+       MIN2(tc->bytes_mapped_limit, 2*1024*1024*1024UL)
+#else
+       tc->bytes_mapped_limit
+#endif
+        ) {
       tc_flush(_pipe, NULL, PIPE_FLUSH_ASYNC);
    }
 }
@@ -2383,7 +2389,13 @@ tc_texture_unmap(struct pipe_context *_pipe, struct pipe_transfer *transfer)
     * and if it goes over an optional limit the current batch is flushed,
     * to reclaim some RAM. */
    if (!ttrans->staging && tc->bytes_mapped_limit &&
-       tc->bytes_mapped_estimate > tc->bytes_mapped_limit) {
+       tc->bytes_mapped_estimate >
+#ifdef PIPE_ARCH_X86
+       MIN2(tc->bytes_mapped_limit, 2*1024*1024*1024UL)
+#else
+       tc->bytes_mapped_limit
+#endif
+        ) {
       tc_flush(_pipe, NULL, PIPE_FLUSH_ASYNC);
    }
 }
