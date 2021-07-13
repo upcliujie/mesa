@@ -470,6 +470,7 @@ class Group(object):
         self.collect_words(self.fields, 0, '', words)
 
         # Validate the modifier is lossless
+        asserts = []
         for field in self.fields:
             if field.modifier is None:
                 continue
@@ -479,11 +480,17 @@ class Group(object):
             if field.modifier[0] == "shr":
                 shift = field.modifier[1]
                 mask = hex((1 << shift) - 1)
-                print("   assert((values->{} & {}) == 0);".format(field.name, mask))
+                asserts.append("   assert((values->{} & {}) == 0);".format(field.name, mask))
             elif field.modifier[0] == "minus":
-                print("   assert(values->{} >= {});".format(field.name, field.modifier[1]))
+                asserts.append("   assert(values->{} >= {});".format(field.name, field.modifier[1]))
             elif field.modifier[0] == "log2":
-                print("   assert(util_is_power_of_two_nonzero(values->{}));".format(field.name))
+                asserts.append("   assert(util_is_power_of_two_nonzero(values->{}));".format(field.name))
+
+        if len(asserts) > 0:
+            print("#ifndef NDEBUG")
+            for ln in asserts:
+                print(ln)
+            print("#endif")
 
         for index in range(self.length // 4):
             # Handle MBZ words
