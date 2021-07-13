@@ -539,9 +539,6 @@ prepare_vs_constants_userbuf(struct NineDevice9 *device)
     u_upload_unmap(context->pipe->const_uploader);
     cb.user_buffer = NULL;
 
-    /* Free previous resource */
-    pipe_resource_reference(&context->pipe_data.cb_vs.buffer, NULL);
-
     context->pipe_data.cb_vs = cb;
     context->changed.vs_const_f = 0;
 
@@ -1148,7 +1145,7 @@ commit_vs_constants(struct NineDevice9 *device)
             pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 2, false, &context->pipe_data.cb2_swvp);
             pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 3, false, &context->pipe_data.cb3_swvp);
         } else {
-            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 0, false, &context->pipe_data.cb_vs);
+            pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 0, true, &context->pipe_data.cb_vs);
         }
     }
 }
