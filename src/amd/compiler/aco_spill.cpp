@@ -31,12 +31,24 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <set>
 #include <stack>
 #include <unordered_set>
 #include <vector>
 
-/*
+#include <cstring>
+
+namespace std {
+template<>
+struct hash<aco::Temp> {
+   size_t operator()(aco::Temp temp) const noexcept {
+      uint32_t v;
+      std::memcpy(&v, &temp, sizeof(temp));
+      return std::hash<uint32_t>{}(v);
+   }
+};
+}/*
  * Implements the spilling algorithm on SSA-form from
  * "Register Spilling and Live-Range Splitting for SSA-Form Programs"
  * by Matthias Braun and Sebastian Hack.
@@ -60,8 +72,8 @@ struct spill_ctx {
 
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
-   std::vector<std::map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
-   std::vector<std::map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
+   std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
+   std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
    std::vector<std::vector<std::pair<Temp, uint32_t>>> local_next_use_distance; /* Working buffer */
    std::vector<std::pair<RegClass, std::unordered_set<uint32_t>>> interferences;
    std::vector<std::vector<uint32_t>> affinities;
@@ -159,11 +171,11 @@ void
 next_uses_per_block(spill_ctx& ctx, unsigned block_idx, std::set<uint32_t>& worklist)
 {
    Block* block = &ctx.program->blocks[block_idx];
-   std::map<Temp, std::pair<uint32_t, uint32_t>> next_uses = ctx.next_use_distances_end[block_idx];
+   std::unordered_map<Temp, std::pair<uint32_t, uint32_t>> next_uses = ctx.next_use_distances_end[block_idx];
 
    /* to compute the next use distance at the beginning of the block, we have to add the block's
     * size */
-   for (std::map<Temp, std::pair<uint32_t, uint32_t>>::iterator it = next_uses.begin();
+   for (std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>::iterator it = next_uses.begin();
         it != next_uses.end(); ++it)
       it->second.second = it->second.second + block->instructions.size();
 
