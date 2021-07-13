@@ -801,7 +801,7 @@ debian-release:
   script:
     - .gitlab-ci/meson/build.sh
 
-fedora-release:
+.fedora-release:
   extends:
     - .meson-build
     - .use-fedora/x86_build
