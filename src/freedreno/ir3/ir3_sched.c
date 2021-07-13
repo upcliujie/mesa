@@ -593,6 +593,28 @@ static struct ir3_sched_node *choose_instr_inc(struct ir3_sched_ctx *ctx,
                                                struct ir3_sched_notes *notes,
                                                bool defer, bool avoid_output);
 
+enum choose_instr_rank {
+   NEUTRAL,
+   NEUTRAL_READY,
+   FREED,
+   FREED_READY,
+};
+
+static const char *
+rank_name(enum choose_instr_rank rank)
+{
+   switch (rank) {
+   case NEUTRAL:
+      return "neutral";
+   case NEUTRAL_READY:
+      return "neutral+ready";
+   case FREED:
+      return "freed";
+   case FREED_READY:
+      return "freed+ready";
+   }
+}
+
 /**
  * Chooses an instruction to schedule using the Goodman/Hsu (1988) CSR (Code
  * Scheduling for Register pressure) heuristic.
@@ -606,8 +628,8 @@ choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
 {
    const char *mode = defer ? "-d" : "";
    struct ir3_sched_node *chosen = NULL;
+   enum choose_instr_rank chosen_rank = NEUTRAL;
 
-   /* Find a ready inst with regs freed and pick the one with max cost. */
    foreach_sched_node (n, &ctx->dag->heads) {
       if (defer && should_defer(ctx, n->instr))
          continue;
@@ -615,93 +637,48 @@ choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
       /* Note: mergedregs is only used post-RA, just set it to false */
       unsigned d = ir3_delay_calc_prera(ctx->block, n->instr);
 
-      if (d > 0)
-         continue;
-
-      if (live_effect(n->instr) > -1)
+      int live = live_effect(n->instr);
+      if (live > 0)
          continue;
 
       if (!check_instr(ctx, notes, n->instr))
          continue;
 
-      if (!chosen || chosen->max_delay < n->max_delay) {
+      enum choose_instr_rank rank;
+      if (live < 0) {
+         /* Prioritize instrs which free up regs and can be scheduled with no
+          * delay.
+          */
+         if (d == 0)
+            rank = FREED_READY;
+         else
+            rank = FREED;
+      } else {
+         /* Contra the paper, pick a leader with no effect on used regs.  This
+          * may open up new opportunities, as otherwise a single-operand instr
+          * consuming a value will tend to block finding freeing that value.
+          * This had a massive effect on reducing spilling on V3D.
+          *
+          * XXX: Should this prioritize ready?
+          */
+         if (d == 0)
+            rank = NEUTRAL_READY;
+         else
+            rank = NEUTRAL;
+      }
+
+      /* Prefer higher-ranked instructions, or in the case of a rank tie, the
+       * highest latency-to-end-of-program instruction.
+       */
+      if (!chosen || rank > chosen_rank ||
+          (rank == chosen_rank && chosen->max_delay < n->max_delay)) {
          chosen = n;
+         chosen_rank = rank;
       }
    }
 
    if (chosen) {
-      di(chosen->instr, "dec%s: chose (freed+ready)", mode);
-      return chosen;
-   }
-
-   /* Find a leader with regs freed and pick the one with max cost. */
-   foreach_sched_node (n, &ctx->dag->heads) {
-      if (defer && should_defer(ctx, n->instr))
-         continue;
-
-      if (live_effect(n->instr) > -1)
-         continue;
-
-      if (!check_instr(ctx, notes, n->instr))
-         continue;
-
-      if (!chosen || chosen->max_delay < n->max_delay) {
-         chosen = n;
-      }
-   }
-
-   if (chosen) {
-      di(chosen->instr, "dec%s: chose (freed)", mode);
-      return chosen;
-   }
-
-   /* Contra the paper, pick a leader with no effect on used regs.  This may
-    * open up new opportunities, as otherwise a single-operand instr consuming
-    * a value will tend to block finding freeing that value.  This had a
-    * massive effect on reducing spilling on V3D.
-    *
-    * XXX: Should this prioritize ready?
-    */
-   foreach_sched_node (n, &ctx->dag->heads) {
-      if (defer && should_defer(ctx, n->instr))
-         continue;
-
-      unsigned d = ir3_delay_calc_prera(ctx->block, n->instr);
-
-      if (d > 0)
-         continue;
-
-      if (live_effect(n->instr) > 0)
-         continue;
-
-      if (!check_instr(ctx, notes, n->instr))
-         continue;
-
-      if (!chosen || chosen->max_delay < n->max_delay)
-         chosen = n;
-   }
-
-   if (chosen) {
-      di(chosen->instr, "dec%s: chose (neutral+ready)", mode);
-      return chosen;
-   }
-
-   foreach_sched_node (n, &ctx->dag->heads) {
-      if (defer && should_defer(ctx, n->instr))
-         continue;
-
-      if (live_effect(n->instr) > 0)
-         continue;
-
-      if (!check_instr(ctx, notes, n->instr))
-         continue;
-
-      if (!chosen || chosen->max_delay < n->max_delay)
-         chosen = n;
-   }
-
-   if (chosen) {
-      di(chosen->instr, "dec%s: chose (neutral)", mode);
+      di(chosen->instr, "dec%s: chose (%s)", mode, rank_name(chosen_rank));
       return chosen;
    }
 
