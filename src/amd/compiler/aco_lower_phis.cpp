@@ -63,7 +63,7 @@ get_ssa(Program* program, unsigned block_idx, ssa_state* state, bool input)
       return output;
    }
 
-   /* retreive the Operand by checking the predecessors */
+   /* retrieve the Operand by checking the predecessors */
    if (state->any_pred_defined[block_idx] == pred_undef)
       return Operand(program->lane_mask);
 
