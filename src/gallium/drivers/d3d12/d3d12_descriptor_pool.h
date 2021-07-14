@@ -31,8 +31,12 @@
 #define D3D12_IGNORE_SDK_LAYERS
 #include <directx/d3d12.h>
 
+#include <stdint.h>
+
 struct d3d12_descriptor_pool;
 struct d3d12_descriptor_heap;
+
+struct d3d12_screen;
 
 struct d3d12_descriptor_handle {
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle;
