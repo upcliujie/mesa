@@ -2072,9 +2072,18 @@ anv_get_physical_device_properties_1_1(struct anv_physical_device *pdevice,
 
    p->subgroupSize = BRW_SUBGROUP_SIZE;
    VkShaderStageFlags scalar_stages = 0;
-   for (unsigned stage = 0; stage < MESA_VULKAN_SHADER_STAGES; stage++) {
+   for (unsigned stage = 0; stage < MESA_SHADER_STAGES; stage++) {
       if (pdevice->compiler->scalar_stage[stage])
          scalar_stages |= mesa_to_vk_shader_stage(stage);
+   }
+   if (pdevice->vk.supported_extensions.NV_mesh_shader) {
+      scalar_stages |= mesa_to_vk_shader_stage(MESA_SHADER_TASK);
+      scalar_stages |= mesa_to_vk_shader_stage(MESA_SHADER_MESH);
+   }
+   if (pdevice->vk.supported_extensions.KHR_ray_tracing_pipeline) {
+      for (unsigned stage = MESA_SHADER_RAYGEN; stage < MESA_VULKAN_SHADER_STAGES; stage++) {
+         scalar_stages |= mesa_to_vk_shader_stage(stage);
+      }
    }
    p->subgroupSupportedStages = scalar_stages;
    p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT |
