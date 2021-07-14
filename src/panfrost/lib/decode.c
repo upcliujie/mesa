@@ -448,7 +448,7 @@ pandecode_attribute_meta(int count, mali_ptr attribute, bool varying)
 static u32
 bits(u32 word, u32 lo, u32 hi)
 {
-        if (hi - lo >= 32)
+        if (hi - lo >= 32 || lo >= 32)
                 return word; // avoid undefined behavior with the shift
 
         return (word >> lo) & ((1 << (hi - lo)) - 1);
