@@ -71,6 +71,7 @@ typedef uint16_t (*tc_execute)(struct pipe_context *pipe, void *call, uint64_t *
 
 static const tc_execute execute_func[TC_NUM_CALLS];
 
+#if TC_DEBUG >= 1
 static void
 tc_batch_check(UNUSED struct tc_batch *batch)
 {
@@ -86,6 +87,15 @@ tc_debug_check(struct threaded_context *tc)
       tc_assert(tc->batch_slots[i].tc == tc);
    }
 }
+#else
+static void
+tc_batch_check(UNUSED struct tc_batch *batch)
+{}
+
+static void
+tc_debug_check(UNUSED struct threaded_context *tc)
+{}
+#endif
 
 static void
 tc_set_driver_thread(struct threaded_context *tc)
