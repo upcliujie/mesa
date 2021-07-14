@@ -27,5 +27,6 @@ if with_gallium_d3d12
   subdir('resource_state_manager')
 endif
 if with_spirv_to_dxil
+  subdir('common')
   subdir('spirv_to_dxil')
 endif
