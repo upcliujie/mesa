@@ -39,7 +39,9 @@ namespace clover {
       struct disk_cache *create_clc_disk_cache(void);
 
       // converts a given spirv module to nir
-      module spirv_to_nir(const module &mod, const device &dev, std::string &r_log);
+      module spirv_to_nir(const module &mod, const device &dev,
+                          const std::vector<spec_const> &spec_consts,
+                          std::string &r_log);
    }
 }
 

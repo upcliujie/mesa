@@ -75,7 +75,7 @@ program::link(const ref_vector<device> &devs, const std::string &opts,
       std::string log = _builds[&dev].log;
 
       try {
-         const module m = compiler::link_program(ms, dev, opts, log);
+         const module m = compiler::link_program(ms, dev, _spec_constants, opts, log);
          _builds[&dev] = { m, opts, log };
       } catch (...) {
          _builds[&dev] = { module(), opts, log };

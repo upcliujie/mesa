@@ -29,6 +29,26 @@
 #include "CL/cl.h"
 
 namespace clover {
+   typedef union {
+      bool b;
+      float f32;
+      double f64;
+      int8_t i8;
+      uint8_t u8;
+      int16_t i16;
+      uint16_t u16;
+      int32_t i32;
+      uint32_t u32;
+      int64_t i64;
+      uint64_t u64;
+   } spec_const_value;
+
+   struct spec_const {
+      cl_uint id;
+      size_t size;
+      spec_const_value value;
+   };
+
    struct module {
       typedef uint32_t resource_id;
       typedef uint32_t size_t;
