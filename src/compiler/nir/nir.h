@@ -2036,6 +2036,8 @@ typedef enum {
    nir_tex_src_texture_handle, /* < bindless texture handle */
    nir_tex_src_sampler_handle, /* < bindless sampler handle */
    nir_tex_src_plane,          /* < selects plane for planar textures */
+   nir_tex_src_backend1,
+   nir_tex_src_backend2,
    nir_num_tex_src_types
 } nir_tex_src_type;
 
@@ -2280,6 +2282,8 @@ nir_tex_instr_src_type(const nir_tex_instr *instr, unsigned src)
    case nir_tex_src_min_lod:
    case nir_tex_src_ddx:
    case nir_tex_src_ddy:
+   case nir_tex_src_backend1:
+   case nir_tex_src_backend2:
       return nir_type_float;
 
    case nir_tex_src_offset:
@@ -2333,6 +2337,10 @@ nir_tex_instr_src_size(const nir_tex_instr *instr, unsigned src)
       else
          return instr->coord_components;
    }
+
+   if (instr->src[src].src_type == nir_tex_src_backend1 ||
+       instr->src[src].src_type == nir_tex_src_backend2)
+      return nir_src_num_components(instr->src[src].src);
 
    return 1;
 }
