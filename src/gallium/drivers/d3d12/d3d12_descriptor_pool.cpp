@@ -21,12 +21,8 @@
  * IN THE SOFTWARE.
  */
 
-#include "d3d12_context.h"
 #include "d3d12_descriptor_pool.h"
 #include "d3d12_screen.h"
-
-#include "pipe/p_context.h"
-#include "pipe/p_state.h"
 
 #include "util/list.h"
 #include "util/u_dynarray.h"
