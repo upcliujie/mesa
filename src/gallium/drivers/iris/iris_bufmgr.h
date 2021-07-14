@@ -126,6 +126,7 @@ enum iris_mmap_mode {
    IRIS_MMAP_UC, /**< Fully uncached memory map */
    IRIS_MMAP_WC, /**< Write-combining map with no caching of reads */
    IRIS_MMAP_WB, /**< Write-back mapping with CPU caches enabled */
+   IRIS_MMAP_FIXED, /**< Mapping mode is fixed at BO create time by i915 */
 };
 
 struct iris_bo {

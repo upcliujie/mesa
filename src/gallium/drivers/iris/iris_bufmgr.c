@@ -207,6 +207,7 @@ struct iris_bufmgr {
    struct iris_memregion vram, sys;
 
    bool has_llc:1;
+   bool has_local_mem:1;
    bool has_mmap_offset:1;
    bool has_tiling_uapi:1;
    bool bo_reuse:1;
@@ -615,7 +616,8 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
 
    bool is_coherent = bufmgr->has_llc || (flags & BO_ALLOC_COHERENT);
    enum iris_mmap_mode mmap_mode =
-      !local && is_coherent ? IRIS_MMAP_WB : IRIS_MMAP_WC;
+      bufmgr->has_local_mem ? IRIS_MMAP_FIXED :
+      is_coherent ? IRIS_MMAP_WB : IRIS_MMAP_WC;
 
    mtx_lock(&bufmgr->lock);
 
@@ -735,7 +737,7 @@ iris_bo_create_userptr(struct iris_bufmgr *bufmgr, const char *name,
    bo->userptr = true;
    bo->index = -1;
    bo->idle = true;
-   bo->mmap_mode = IRIS_MMAP_WB;
+   bo->mmap_mode = bufmgr->has_local_mem ? IRIS_MMAP_FIXED : IRIS_MMAP_WB;
 
    return bo;
 
@@ -799,7 +801,7 @@ iris_bo_gem_create_from_name(struct iris_bufmgr *bufmgr,
    bo->global_name = handle;
    bo->reusable = false;
    bo->imported = true;
-   bo->mmap_mode = IRIS_MMAP_WC;
+   bo->mmap_mode = bufmgr->has_local_mem ? IRIS_MMAP_FIXED : IRIS_MMAP_WC;
    bo->kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
    bo->gtt_offset = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 1);
 
@@ -1015,6 +1017,8 @@ iris_bo_gem_mmap_legacy(struct pipe_debug_callback *dbg, struct iris_bo *bo)
 {
    struct iris_bufmgr *bufmgr = bo->bufmgr;
 
+   assert(bo->mmap_mode == IRIS_MMAP_WB || bo->mmap_mode == IRIS_MMAP_WC);
+
    struct drm_i915_gem_mmap mmap_arg = {
       .handle = bo->gem_handle,
       .size = bo->size,
@@ -1041,6 +1045,7 @@ iris_bo_gem_mmap_offset(struct pipe_debug_callback *dbg, struct iris_bo *bo)
       [IRIS_MMAP_UC]    = I915_MMAP_OFFSET_UC,
       [IRIS_MMAP_WC]    = I915_MMAP_OFFSET_WC,
       [IRIS_MMAP_WB]    = I915_MMAP_OFFSET_WB,
+      [IRIS_MMAP_FIXED] = I915_MMAP_OFFSET_FIXED,
    };
    assert(bo->mmap_mode < ARRAY_SIZE(mmap_offset_for_mode));
 
@@ -1301,7 +1306,7 @@ iris_bo_import_dmabuf(struct iris_bufmgr *bufmgr, int prime_fd)
    bo->name = "prime";
    bo->reusable = false;
    bo->imported = true;
-   bo->mmap_mode = IRIS_MMAP_WC;
+   bo->mmap_mode = bufmgr->has_local_mem ? IRIS_MMAP_FIXED : IRIS_MMAP_WC;
    bo->kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
 
    /* From the Bspec, Memory Compression - Gfx12:
@@ -1766,6 +1771,7 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
    list_inithead(&bufmgr->zombie_list);
 
    bufmgr->has_llc = devinfo->has_llc;
+   bufmgr->has_local_mem = devinfo->has_local_mem;
    bufmgr->has_tiling_uapi = devinfo->has_tiling_uapi;
    bufmgr->bo_reuse = bo_reuse;
    bufmgr->has_mmap_offset = gem_param(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
