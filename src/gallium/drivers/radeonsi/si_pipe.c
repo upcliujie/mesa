@@ -831,9 +831,8 @@ static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, v
                               true,
                               &((struct si_context *)ctx)->tc);
 
-   if (tc && tc != ctx && os_get_total_physical_memory(&total_ram)) {
-      ((struct threaded_context *) tc)->bytes_mapped_limit = total_ram / 4;
-   }
+   if (tc && tc != ctx)
+      threaded_context_init_bytes_mapped_limit(tc, 4);
 
    return tc;
 }
