@@ -1020,13 +1020,13 @@ d3d12_init_screen(struct d3d12_screen *screen, struct sw_winsys *winsys, IUnknow
                                                                D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
                                                                &desc);
 
-   screen->rtv_pool = d3d12_descriptor_pool_new(screen,
+   screen->rtv_pool = d3d12_descriptor_pool_new(screen->dev,
                                                 D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                                                 64);
-   screen->dsv_pool = d3d12_descriptor_pool_new(screen,
+   screen->dsv_pool = d3d12_descriptor_pool_new(screen->dev,
                                                 D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
                                                 64);
-   screen->view_pool = d3d12_descriptor_pool_new(screen,
+   screen->view_pool = d3d12_descriptor_pool_new(screen->dev,
                                                  D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
                                                  1024);
 

@@ -2032,7 +2032,7 @@ d3d12_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    }
    d3d12_start_batch(ctx, &ctx->batches[0]);
 
-   ctx->sampler_pool = d3d12_descriptor_pool_new(screen,
+   ctx->sampler_pool = d3d12_descriptor_pool_new(screen->dev,
                                                  D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
                                                  64);
    if (!ctx->sampler_pool) {

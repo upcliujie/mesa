@@ -36,8 +36,6 @@
 struct d3d12_descriptor_pool;
 struct d3d12_descriptor_heap;
 
-struct d3d12_screen;
-
 struct d3d12_descriptor_handle {
     D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle;
     D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle;
@@ -56,7 +54,7 @@ d3d12_descriptor_handle_free(struct d3d12_descriptor_handle *handle);
 /* Offline Descriptor Pool */
 
 struct d3d12_descriptor_pool*
-d3d12_descriptor_pool_new(struct d3d12_screen *screen,
+d3d12_descriptor_pool_new(ID3D12Device *device,
                           D3D12_DESCRIPTOR_HEAP_TYPE type,
                           uint32_t num_descriptors);
 

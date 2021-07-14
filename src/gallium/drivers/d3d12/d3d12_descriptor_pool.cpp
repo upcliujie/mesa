@@ -22,7 +22,6 @@
  */
 
 #include "d3d12_descriptor_pool.h"
-#include "d3d12_screen.h"
 
 #include "util/list.h"
 #include "util/u_dynarray.h"
@@ -189,7 +188,7 @@ d3d12_descriptor_heap_clear(struct d3d12_descriptor_heap *heap)
 }
 
 struct d3d12_descriptor_pool*
-d3d12_descriptor_pool_new(struct d3d12_screen *screen,
+d3d12_descriptor_pool_new(ID3D12Device *device,
                           D3D12_DESCRIPTOR_HEAP_TYPE type,
                           uint32_t num_descriptors)
 {
@@ -197,7 +196,7 @@ d3d12_descriptor_pool_new(struct d3d12_screen *screen,
    if (!pool)
       return NULL;
 
-   pool->dev = screen->dev;
+   pool->dev = device;
    pool->type = type;
    pool->num_descriptors = num_descriptors;
    list_inithead(&pool->heaps);
