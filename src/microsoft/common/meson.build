@@ -19,43 +19,19 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-files_libd3d12 = files(
-  'd3d12_batch.cpp',
-  'd3d12_blit.cpp',
-  'd3d12_bufmgr.cpp',
-  'd3d12_compiler.cpp',
-  'd3d12_context.cpp',
-  'd3d12_draw.cpp',
-  'd3d12_dxcore_screen.cpp',
-  'd3d12_fence.cpp',
-  'd3d12_format.c',
-  'd3d12_gs_variant.cpp',
-  'd3d12_lower_int_cubemap_to_array.c',
-  'd3d12_lower_point_sprite.c',
-  'd3d12_nir_lower_texcmp.c',
-  'd3d12_nir_lower_vs_vertex_conversion.c',
-  'd3d12_nir_passes.c',
-  'd3d12_pipeline_state.cpp',
-  'd3d12_query.cpp',
-  'd3d12_resource.cpp',
-  'd3d12_root_signature.cpp',
-  'd3d12_screen.cpp',
-  'd3d12_surface.cpp',
+files_libd3d12_common = files(
+  'd3d12_descriptor_pool.cpp',
 )
 
-if host_machine.system() == 'windows'
-  files_libd3d12 += files('d3d12_dxgi_screen.cpp')
-endif
-
-libd3d12 = static_library(
-  'd3d12',
-  files_libd3d12,
+libd3d12_common = static_library(
+  'd3d12_common',
+  files_libd3d12_common,
   gnu_symbol_visibility : 'hidden',
-  include_directories : [inc_include, inc_src, inc_mesa, inc_gallium, inc_gallium_aux],
-  dependencies: [idep_nir_headers, idep_libdxil_compiler, idep_libd3d12_resource_state, idep_libd3d12_common, dep_dxheaders],
+  include_directories : [inc_include, inc_src, inc_mesa],
+  dependencies: [dep_dxheaders],
 )
 
-driver_d3d12 = declare_dependency(
-  compile_args : '-DGALLIUM_D3D12',
-  link_with : [libd3d12],
+idep_libd3d12_common = declare_dependency(
+  link_with : [libd3d12_common],
+  include_directories : include_directories('.')
 )
