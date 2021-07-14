@@ -857,8 +857,10 @@ d3d12_init_null_srvs(struct d3d12_screen *screen)
 
       if (srv.ViewDimension != D3D12_SRV_DIMENSION_UNKNOWN)
       {
-         d3d12_descriptor_pool_alloc_handle(screen->view_pool, &screen->null_srvs[i]);
-         screen->dev->CreateShaderResourceView(NULL, &srv, screen->null_srvs[i].cpu_handle);
+         struct d3d12_descriptor_handle null_srv;
+         d3d12_descriptor_pool_alloc_handle(screen->view_pool, &null_srv);
+         screen->null_srvs[i] = null_srv.cpu_handle;
+         screen->dev->CreateShaderResourceView(NULL, &srv, screen->null_srvs[i]);
       }
    }
 }
@@ -871,8 +873,10 @@ d3d12_init_null_rtv(struct d3d12_screen *screen)
    rtv.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
    rtv.Texture2D.MipSlice = 0;
    rtv.Texture2D.PlaneSlice = 0;
-   d3d12_descriptor_pool_alloc_handle(screen->rtv_pool, &screen->null_rtv);
-   screen->dev->CreateRenderTargetView(NULL, &rtv, screen->null_rtv.cpu_handle);
+   struct d3d12_descriptor_handle null_rtv;
+   d3d12_descriptor_pool_alloc_handle(screen->rtv_pool, &null_rtv);
+   screen->null_rtv = null_rtv.cpu_handle;
+   screen->dev->CreateRenderTargetView(NULL, &rtv, screen->null_rtv);
 }
 
 bool

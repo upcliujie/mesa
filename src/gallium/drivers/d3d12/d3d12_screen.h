@@ -27,7 +27,6 @@
 #include "pipe/p_screen.h"
 
 #include "util/slab.h"
-#include "d3d12_descriptor_pool.h"
 
 #ifndef _WIN32
 #include <wsl/winadapter.h>
@@ -37,6 +36,7 @@
 #include <directx/d3d12.h>
 
 struct pb_manager;
+struct d3d12_descriptor_pool;
 
 enum resource_dimension
 {
@@ -72,8 +72,8 @@ struct d3d12_screen {
    struct d3d12_descriptor_pool *dsv_pool;
    struct d3d12_descriptor_pool *view_pool;
 
-   struct d3d12_descriptor_handle null_srvs[RESOURCE_DIMENSION_COUNT];
-   struct d3d12_descriptor_handle null_rtv;
+   D3D12_CPU_DESCRIPTOR_HANDLE null_srvs[RESOURCE_DIMENSION_COUNT];
+   D3D12_CPU_DESCRIPTOR_HANDLE null_rtv;
 
    /* capabilities */
    D3D_FEATURE_LEVEL max_feature_level;

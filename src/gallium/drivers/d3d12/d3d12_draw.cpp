@@ -129,7 +129,7 @@ fill_srv_descriptors(struct d3d12_context *ctx,
                                                 D3D12_BIND_INVALIDATE_NONE);
          }
       } else {
-         descs[desc_idx] = screen->null_srvs[shader->srv_bindings[i].dimension].cpu_handle;
+         descs[desc_idx] = screen->null_srvs[shader->srv_bindings[i].dimension];
       }
    }
 
@@ -687,7 +687,7 @@ d3d12_draw_vbo(struct pipe_context *pctx,
             render_targets[i] = d3d12_surface_get_handle(surface, conversion_modes[i]);
             d3d12_batch_reference_surface_texture(batch, surface);
          } else
-            render_targets[i] = screen->null_rtv.cpu_handle;
+            render_targets[i] = screen->null_rtv;
       }
       if (ctx->fb.zsbuf) {
          struct d3d12_surface *surface = d3d12_surface(ctx->fb.zsbuf);
