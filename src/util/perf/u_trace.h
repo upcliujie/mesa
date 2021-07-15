@@ -90,14 +90,15 @@ typedef void (*u_trace_delete_ts_buffer)(struct u_trace_context *utctx,
       void *timestamps);
 
 /**
- * Driver provided callback to emit commands to capture a 64b timestamp
- * into the specified timestamps buffer, at the specified index.
+ * Driver provided callback to emit commands into the soecified command
+ * stream to capture a 64b timestamp into the specified timestamps buffer,
+ * at the specified index.
  *
  * The hw counter that the driver records should be something that runs at
  * a fixed rate, even as the GPU freq changes.  The same source used for
  * GL_TIMESTAMP queries should be appropriate.
  */
-typedef void (*u_trace_record_ts)(struct u_trace *ut,
+typedef void (*u_trace_record_ts)(struct u_trace *ut, void *cs,
       void *timestamps, unsigned idx);
 
 /**
@@ -212,6 +213,29 @@ typedef void (*u_trace_copy_ts_buffer)(struct u_trace_context *utctx,
 void u_trace_clone(struct u_trace *from, struct u_trace *into,
                    void *cmdstream,
                    u_trace_copy_ts_buffer copy_ts_buffer);
+
+typedef void (*u_trace_append_ts_buffer)(struct u_trace_context *utctx,
+      void *cmdstream,
+      void *ts_from, uint32_t from_offset,
+      void *ts_to, uint32_t to_offset,
+      uint32_t count);
+
+/**
+ * Copy and append tracepoints, u_trace_append_ts_buffer callback
+ * allows the driver to copy timestamps.
+ *
+ * Does not copy payload data!
+ *
+ * Allows tiling GPUs to trace events inside a tile by duplicating
+ * tracepoints for each tile and appending timestamps.
+ * Copying timestamps is necessary if GPU doesn't support writing
+ * them to indirect address.
+ */
+void u_trace_copy_and_append(struct u_trace *from, struct u_trace *to,
+                             void *cmdstream,
+                             u_trace_append_ts_buffer append_ts_buffer);
+
+void u_trace_move_chunks(struct u_trace *from, struct u_trace *to);
 
 /**
  * Flush traces to the parent trace-context.  At this point, the expectation

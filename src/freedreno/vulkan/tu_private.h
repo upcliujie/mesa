@@ -1024,6 +1024,7 @@ struct tu_cmd_buffer
    struct list_head pool_link;
 
    struct u_trace trace;
+   struct u_trace trace_per_bin;
 
    VkCommandBufferUsageFlags usage_flags;
    VkCommandBufferLevel level;

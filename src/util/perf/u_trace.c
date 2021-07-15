@@ -390,13 +390,67 @@ u_trace_clone(struct u_trace *from, struct u_trace *into,
    }
 }
 
+void
+u_trace_copy_and_append(struct u_trace *from, struct u_trace *to,
+                        void *cmdstream,
+                        u_trace_append_ts_buffer append_ts_buffer)
+{
+   list_for_each_entry(struct u_trace_chunk, from_chunk, &from->trace_chunks, node) {
+      assert(from_chunk->flush_data == NULL);
+
+      struct u_trace_chunk *to_chunk = get_chunk(to);
+
+      unsigned to_copy = MIN2(TRACES_PER_CHUNK - to_chunk->num_traces, from_chunk->num_traces);
+      append_ts_buffer(from->utctx, cmdstream,
+                       from_chunk->timestamps, 0,
+                       to_chunk->timestamps, to_chunk->num_traces,
+                       to_copy);
+
+      memcpy(&to_chunk->traces[to_chunk->num_traces], &from_chunk->traces,
+             to_copy * sizeof(struct u_trace_event));
+      to_chunk->num_traces += to_copy;
+
+      if (to_copy < from_chunk->num_traces) {
+         to_chunk = get_chunk(to);
+
+         unsigned from_offset = to_copy;
+         to_copy = from_chunk->num_traces - to_copy;
+
+         append_ts_buffer(from->utctx, cmdstream,
+                  from_chunk->timestamps, from_offset,
+                  to_chunk->timestamps, 0,
+                  to_copy);
+         memcpy(&to_chunk->traces, &from_chunk->traces[from_offset],
+                to_copy * sizeof(struct u_trace_event));
+         to_chunk->num_traces += to_copy;
+      }
+   }
+}
+
+void u_trace_move_chunks(struct u_trace *from, struct u_trace *into)
+{
+   if (list_is_empty(&from->trace_chunks)) {
+      return;
+   }
+
+   struct u_trace_chunk *last_chunk =
+      list_last_entry(&into->trace_chunks, struct u_trace_chunk, node);
+
+   list_for_each_entry(struct u_trace_chunk, chunk, &from->trace_chunks, node) {
+      // chunk->num_traces = -1;
+      ralloc_steal(last_chunk, chunk);
+   }
+
+   list_inithead(&from->trace_chunks);
+}
+
 /**
  * Append a trace event, returning pointer to buffer of tp->payload_sz
  * to be filled in with trace payload.  Called by generated tracepoint
  * functions.
  */
 void *
-u_trace_append(struct u_trace *ut, const struct u_tracepoint *tp)
+u_trace_append(struct u_trace *ut, void *cs, const struct u_tracepoint *tp)
 {
    struct u_trace_chunk *chunk = get_chunk(ut);
 
@@ -416,7 +470,7 @@ u_trace_append(struct u_trace *ut, const struct u_tracepoint *tp)
    chunk->payload_buf += tp->payload_sz;
 
    /* record a timestamp for the trace: */
-   ut->utctx->record_timestamp(ut, chunk->timestamps, chunk->num_traces);
+   ut->utctx->record_timestamp(ut, cs, chunk->timestamps, chunk->num_traces);
 
    chunk->traces[chunk->num_traces] = (struct u_trace_event) {
          .tp = tp,
