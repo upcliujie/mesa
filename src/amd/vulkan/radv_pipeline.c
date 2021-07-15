@@ -4379,6 +4379,22 @@ radv_pipeline_generate_hw_vs(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf 
 
    if (pipeline->device->physical_device->rad_info.chip_class <= GFX8)
       radeon_set_context_reg(ctx_cs, R_028AB4_VGT_REUSE_OFF, outinfo->writes_viewport_index);
+
+   unsigned late_alloc_wave64, cu_mask;
+   ac_compute_late_alloc(&pipeline->device->physical_device->rad_info, false, false,
+                         shader->config.scratch_bytes_per_wave > 0, &late_alloc_wave64, &cu_mask);
+
+   if (pipeline->device->physical_device->rad_info.chip_class >= GFX7) {
+      radeon_set_sh_reg_idx(pipeline->device->physical_device, cs, R_00B118_SPI_SHADER_PGM_RSRC3_VS, 3,
+                            S_00B118_CU_EN(cu_mask) | S_00B118_WAVE_LIMIT(0x3F));
+      radeon_set_sh_reg(cs, R_00B11C_SPI_SHADER_LATE_ALLOC_VS, S_00B11C_LIMIT(late_alloc_wave64));
+   }
+   if (pipeline->device->physical_device->rad_info.chip_class >= GFX10) {
+      uint32_t oversub_pc_lines = late_alloc_wave64 ? pipeline->device->physical_device->rad_info.pc_lines / 4 : 0;
+      radeon_set_uconfig_reg(
+         cs, R_030980_GE_PC_ALLOC,
+         S_030980_OVERSUB_EN(oversub_pc_lines > 0) | S_030980_NUM_PC_LINES(oversub_pc_lines - 1));
+   }
 }
 
 static void
@@ -4547,6 +4563,24 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
    }
 
    radeon_set_uconfig_reg(ctx_cs, R_03096C_GE_CNTL, ge_cntl);
+
+   unsigned late_alloc_wave64, cu_mask;
+   ac_compute_late_alloc(&pipeline->device->physical_device->rad_info, true, shader->info.has_ngg_culling,
+                         shader->config.scratch_bytes_per_wave > 0, &late_alloc_wave64, &cu_mask);
+
+   uint32_t oversub_pc_lines = late_alloc_wave64 ? pipeline->device->physical_device->rad_info.pc_lines / 4 : 0;
+   if (shader->info.has_ngg_culling)
+      oversub_pc_lines *= 3;
+
+   radeon_set_sh_reg_idx(
+      pipeline->device->physical_device, cs, R_00B21C_SPI_SHADER_PGM_RSRC3_GS, 3,
+      S_00B21C_CU_EN(cu_mask) | S_00B21C_WAVE_LIMIT(0x3F));
+   radeon_set_sh_reg_idx(
+      pipeline->device->physical_device, cs, R_00B204_SPI_SHADER_PGM_RSRC4_GS, 3,
+      S_00B204_CU_EN(0xffff) | S_00B204_SPI_SHADER_LATE_ALLOC_GS_GFX10(late_alloc_wave64));
+   radeon_set_uconfig_reg(
+      cs, R_030980_GE_PC_ALLOC,
+      S_030980_OVERSUB_EN(oversub_pc_lines > 0) | S_030980_NUM_PC_LINES(oversub_pc_lines - 1));
 }
 
 static void
@@ -4780,6 +4814,11 @@ radv_pipeline_generate_hw_gs(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf 
       radeon_emit(cs, S_00B224_MEM_BASE(va >> 40));
       radeon_emit(cs, gs->config.rsrc1);
       radeon_emit(cs, gs->config.rsrc2);
+   }
+
+   if (pipeline->device->physical_device->rad_info.chip_class >= GFX7) {
+      radeon_set_sh_reg_idx(pipeline->device->physical_device, cs, R_00B21C_SPI_SHADER_PGM_RSRC3_GS, 3,
+                            S_00B21C_CU_EN(0xffff) | S_00B21C_WAVE_LIMIT(0x3F));
    }
 
    radv_pipeline_generate_hw_vs(ctx_cs, cs, pipeline, pipeline->gs_copy_shader);
