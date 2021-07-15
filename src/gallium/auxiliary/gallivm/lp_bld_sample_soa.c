@@ -2109,17 +2109,18 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
       mipoff0 = lp_build_get_mip_offsets(bld, ilevel0);
    }
 
-   float_size = lp_build_int_to_float(&bld->float_size_bld, size0);
+   float_size = lp_build_int_to_float(&bld->float_size_in_bld, bld->int_size);
 
+   LLVMValueRef float_size_lvl = lp_build_int_to_float(&bld->float_size_bld, size0);
    /* extract width and height into vectors for use later */
-   LLVMValueRef width_dim = lp_build_extract_broadcast(gallivm,
-                                                       bld->float_size_bld.type,
-                                                       bld->coord_bld.type,
-                                                       float_size, index0);
-   LLVMValueRef height_dim = lp_build_extract_broadcast(gallivm,
-                                                        bld->float_size_bld.type,
-                                                        bld->coord_bld.type,
-                                                        float_size, index1);
+   static const unsigned char swizzle15[] = { /* no-op swizzle */
+      1, 1, 1, 1, 5, 5, 5, 5
+   };
+   static const unsigned char swizzle04[] = { /* no-op swizzle */
+      0, 0, 0, 0, 4, 4, 4, 4
+   };
+   LLVMValueRef width_dim = lp_build_swizzle_aos(coord_bld, float_size_lvl, swizzle04);
+   LLVMValueRef height_dim = lp_build_swizzle_aos(coord_bld, float_size_lvl, swizzle15);
 
    /* shuffle width/height for ddx/ddy calculations. */
    LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH / 4];
@@ -2161,12 +2162,7 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
    /* * A*x*x + B*x*y + C*y*y = F.*/
    /* float A = vx*vx+vy*vy+1; */
    LLVMValueRef A = lp_build_mul(coord_bld, ddx_ddyt, ddx_ddyt);
-   static const unsigned char swizzle15[] = { /* no-op swizzle */
-      1, 1, 1, 1, 5, 5, 5, 5
-   };
-   static const unsigned char swizzle04[] = { /* no-op swizzle */
-      0, 0, 0, 0, 4, 4, 4, 4
-   };
+
    LLVMValueRef Ay = lp_build_swizzle_aos(coord_bld, A, swizzle15);
    A = lp_build_add(coord_bld, A, Ay);
    A = lp_build_add(coord_bld, A, coord_bld->one);
