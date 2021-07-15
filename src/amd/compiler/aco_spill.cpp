@@ -385,7 +385,7 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
    std::map<Temp, uint32_t> next_uses;
    for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair :
         ctx.next_use_distances_end[block->index])
-      next_uses[pair.first] = pair.second.second + block->instructions.size();
+      next_uses.insert({pair.first, pair.second.second + block->instructions.size()});
 
    std::map<Temp, uint32_t>* prev_next_use = nullptr;
 
