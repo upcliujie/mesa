@@ -395,12 +395,10 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
                  (local_next_uses.begin() + std::min(local_next_uses.size(), block->instructions.size())),
                  std::mem_fn(&std::map<Temp, uint32_t>::clear));
 
-   std::map<Temp, uint32_t> next_uses;
    for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair :
-        ctx.next_use_distances_end[block->index])
-      next_uses.insert({pair.first, pair.second.second + block->instructions.size()});
-
-   std::map<Temp, uint32_t>* prev_next_use = nullptr;
+        ctx.next_use_distances_end[block->index]) {
+      local_next_uses[block->instructions.size() - 1].insert({pair.first, pair.second.second + block->instructions.size()});
+   }
 
    for (int idx = block->instructions.size() - 1; idx >= 0; idx--) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
@@ -409,33 +407,23 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
       if (instr->opcode == aco_opcode::p_phi || instr->opcode == aco_opcode::p_linear_phi)
          break;
 
+      if (idx != (int)block->instructions.size() - 1) {
+         local_next_uses[idx] = local_next_uses[idx + 1];
+      }
+
       for (const Operand& op : instr->operands) {
          if (op.isFixed() && op.physReg() == exec)
             continue;
          if (op.regClass().type() == RegType::vgpr && op.regClass().is_linear())
             continue;
          if (op.isTemp()) {
-            if (prev_next_use) {
-               next_uses = *prev_next_use;
-               prev_next_use = nullptr;
-            }
-            next_uses[op.getTemp()] = idx;
+            local_next_uses[idx][op.getTemp()] = idx;
          }
       }
       for (const Definition& def : instr->definitions) {
          if (def.isTemp()) {
-            if (prev_next_use) {
-               next_uses = *prev_next_use;
-               prev_next_use = nullptr;
-            }
-            next_uses.erase(def.getTemp());
+            local_next_uses[idx].erase(def.getTemp());
          }
-      }
-      if (!prev_next_use) {
-         std::swap(local_next_uses[idx], next_uses);
-         prev_next_use = &local_next_uses[idx];
-      } else {
-         local_next_uses[idx] = *prev_next_use;
       }
    }
 }
