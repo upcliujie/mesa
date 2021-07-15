@@ -92,34 +92,48 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
          break;
    }
 
-   /* don't remove any channels if used by an intrinsic */
-   nir_foreach_use(use_src, def) {
-      if (use_src->parent_instr->type == nir_instr_type_intrinsic)
-         return false;
-   }
-
    unsigned mask = nir_ssa_def_components_read(def);
    unsigned last_bit = util_last_bit(mask);
    unsigned num_components = util_bitcount(mask);
 
    /* return, if there is nothing to do */
-   if (mask == 0 || num_components == def->num_components)
+   if (mask == 0 || instr->dest.write_mask == mask)
       return false;
+
+   /* don't remove any channels if used by an intrinsic */
+   nir_foreach_use(use_src, def) {
+      if (use_src->parent_instr->type == nir_instr_type_intrinsic) {
+         num_components = def->num_components;
+         last_bit = num_components;
+         break;
+      }
+   }
 
    const bool is_bitfield_mask = last_bit == num_components;
 
    if (is_vec) {
-      /* replace vecN with smaller version */
-      nir_ssa_def *srcs[NIR_MAX_VEC_COMPONENTS] = { 0 };
-      unsigned index = 0;
-      for (int i = 0; i < last_bit; i++) {
-         if ((mask >> i) & 0x1)
-            srcs[index++] = nir_ssa_for_alu_src(b, instr, i);
+      if (def->num_components == num_components) {
+         /* rewrite undef sources in-place */
+         nir_ssa_def *undef = nir_ssa_undef(b, 1, def->bit_size);
+         for (int i = 0; i < last_bit; i++) {
+            if (((mask >> i) & 0x1) == 0) {
+               nir_instr_rewrite_src_ssa(&instr->instr, &instr->src[i].src, undef);
+               instr->src[i].swizzle[0] = 0;
+            }
+         }
+      } else {
+         /* replace vecN with smaller version */
+         nir_ssa_def *srcs[NIR_MAX_VEC_COMPONENTS] = { 0 };
+         unsigned index = 0;
+         for (int i = 0; i < last_bit; i++) {
+            if ((mask >> i) & 0x1)
+               srcs[index++] = nir_ssa_for_alu_src(b, instr, i);
+         }
+         assert(index == num_components);
+         nir_ssa_def *new_vec = nir_vec(b, srcs, num_components);
+         nir_ssa_def_rewrite_uses(def, new_vec);
+         def = new_vec;
       }
-      assert(index == num_components);
-      nir_ssa_def *new_vec = nir_vec(b, srcs, num_components);
-      nir_ssa_def_rewrite_uses(def, new_vec);
-      def = new_vec;
    }
 
    if (is_bitfield_mask) {
