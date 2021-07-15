@@ -171,13 +171,14 @@ void
 next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
 {
    Block* block = &ctx.program->blocks[block_idx];
-   std::unordered_map<Temp, std::pair<uint32_t, uint32_t>> next_uses =
-      ctx.next_use_distances_end[block_idx];
+   ctx.next_use_distances_start[block_idx] = ctx.next_use_distances_end[block_idx];
+   auto& next_use_distances_start = ctx.next_use_distances_start[block_idx];
 
    /* to compute the next use distance at the beginning of the block, we have to add the block's
     * size */
-   for (std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>::iterator it = next_uses.begin();
-        it != next_uses.end(); ++it)
+   for (std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>::iterator it =
+           next_use_distances_start.begin();
+        it != next_use_distances_start.end(); ++it)
       it->second.second = it->second.second + block->instructions.size();
 
    int idx = block->instructions.size() - 1;
@@ -189,7 +190,7 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
 
       for (const Definition& def : instr->definitions) {
          if (def.isTemp())
-            next_uses.erase(def.getTemp());
+            next_use_distances_start.erase(def.getTemp());
       }
 
       for (const Operand& op : instr->operands) {
@@ -199,25 +200,25 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
          if (op.regClass().type() == RegType::vgpr && op.regClass().is_linear())
             continue;
          if (op.isTemp())
-            next_uses[op.getTemp()] = {block_idx, idx};
+            next_use_distances_start[op.getTemp()] = {block_idx, idx};
       }
       idx--;
    }
 
-   assert(block_idx != 0 || next_uses.empty());
-   ctx.next_use_distances_start[block_idx] = next_uses;
+   assert(block_idx != 0 || next_use_distances_start.empty());
+   std::unordered_set<Temp> phi_defs;
    while (idx >= 0) {
       aco_ptr<Instruction>& instr = block->instructions[idx];
       assert(instr->opcode == aco_opcode::p_linear_phi || instr->opcode == aco_opcode::p_phi);
 
-      if (!instr->definitions[0].isTemp()) {
+      if (!instr->definitions[0].isTemp() || phi_defs.count(instr->definitions[0].getTemp())) {
          idx--;
          continue;
       }
 
-      auto it = next_uses.find(instr->definitions[0].getTemp());
+      auto it = next_use_distances_start.find(instr->definitions[0].getTemp());
       std::pair<uint32_t, uint32_t> distance =
-         it == next_uses.end() ? std::make_pair(block_idx, 0u) : it->second;
+         it == next_use_distances_start.end() ? std::make_pair(block_idx, 0u) : it->second;
       for (unsigned i = 0; i < instr->operands.size(); i++) {
          unsigned pred_idx =
             instr->opcode == aco_opcode::p_phi ? block->logical_preds[i] : block->linear_preds[i];
@@ -231,13 +232,16 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
             entry_distance = distance;
          }
       }
-      next_uses.erase(instr->definitions[0].getTemp());
+      phi_defs.insert(instr->definitions[0].getTemp());
       idx--;
    }
 
    /* all remaining live vars must be live-out at the predecessors */
-   for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair : next_uses) {
+   for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair : next_use_distances_start) {
       Temp temp = pair.first;
+      if (phi_defs.count(temp)) {
+         continue;
+      }
       uint32_t distance = pair.second.second;
       uint32_t dom = pair.second.first;
       std::vector<unsigned>& preds = temp.is_linear() ? block->linear_preds : block->logical_preds;
