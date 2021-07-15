@@ -68,11 +68,14 @@ struct spill_ctx {
    std::vector<std::vector<RegisterDemand>> register_demand;
    std::vector<std::map<Temp, Temp>> renames;
    std::vector<std::map<Temp, uint32_t>> spills_entry;
+   std::map<Temp, uint32_t> spills_entry_scratch; /* Scratch memory used for intermediary operations*/
    std::vector<std::map<Temp, uint32_t>> spills_exit;
+
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
    std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
    std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
+   std::vector<std::map<Temp, uint32_t>> local_next_use_distance; /* Working buffer */
    std::vector<std::pair<RegClass, std::unordered_set<uint32_t>>> interferences;
    std::vector<std::vector<uint32_t>> affinities;
    std::vector<bool> is_reloaded;
@@ -1164,7 +1167,7 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
       instructions.emplace_back(std::move(block->instructions[idx++]));
    }
 
-   static std::vector<std::map<Temp, uint32_t>> local_next_use_distance;
+   std::vector<std::map<Temp, uint32_t>>& local_next_use_distance = ctx.local_next_use_distance;
    if (block->register_demand.exceeds(ctx.target_pressure)) {
       local_next_uses(ctx, block, local_next_use_distance);
    } else {
@@ -1308,9 +1311,8 @@ spill_block(spill_ctx& ctx, unsigned block_idx)
       }
 
       if (process) {
-         static std::map<Temp, uint32_t> current_spills_copy;
-         current_spills_copy = current_spills;
-         process_block(ctx, block_idx, block, current_spills_copy, spilled_registers);
+         ctx.spills_entry_scratch = current_spills;
+         process_block(ctx, block_idx, block, ctx.spills_entry_scratch, spilled_registers);
       } else {
          ctx.spills_exit[block_idx].insert(current_spills.begin(), current_spills.end());
       }
