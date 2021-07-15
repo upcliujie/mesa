@@ -2817,6 +2817,11 @@ typedef struct {
 } nir_loop_terminator;
 
 typedef struct {
+   nir_ssa_def *def;
+   nir_src *only_uniform_src[2];
+} nir_loop_induction_variable;
+
+typedef struct {
    /* Estimated cost (in number of instructions) of the loop */
    unsigned instr_cost;
 
@@ -2842,6 +2847,10 @@ typedef struct {
 
    /* A list of loop_terminators terminating this loop. */
    struct list_head loop_terminator_list;
+
+   /* array of induction variables for this loop */
+   nir_loop_induction_variable *induction_vars;
+   unsigned num_induction_vars;
 } nir_loop_info;
 
 typedef enum {
