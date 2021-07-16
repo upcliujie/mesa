@@ -1707,7 +1707,8 @@ iris_bufmgr_query_meminfo(struct iris_bufmgr *bufmgr)
       .items_ptr = (uintptr_t) &item,
    };
 
-   if (drmIoctl(bufmgr->fd, DRM_IOCTL_I915_QUERY, &query))
+   if (drmIoctl(bufmgr->fd, DRM_IOCTL_I915_QUERY, &query) ||
+       item.length <= 0)
       return false;
 
    struct drm_i915_query_memory_regions *meminfo = calloc(1, item.length);
