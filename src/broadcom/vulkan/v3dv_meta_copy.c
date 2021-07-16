@@ -394,7 +394,7 @@ copy_image_to_buffer_tlb(struct v3dv_cmd_buffer *cmd_buffer,
    if (image->type != VK_IMAGE_TYPE_3D)
       num_layers = region->imageSubresource.layerCount;
    else
-      num_layers = region->imageExtent.depth;
+      num_layers = region->imageExtent.depth - region->imageOffset.z;
    assert(num_layers > 0);
 
    struct v3dv_job *job =
