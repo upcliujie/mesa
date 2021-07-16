@@ -143,7 +143,7 @@ struct spill_ctx {
    uint32_t next_spill_id = 0;
 };
 
-int32_t
+UNUSED int32_t
 get_dominator(int idx_a, int idx_b, Program* program, bool is_linear)
 {
 
@@ -225,7 +225,7 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
          unsigned pred_idx =
             instr->opcode == aco_opcode::p_phi ? block->logical_preds[i] : block->linear_preds[i];
          if (instr->operands[i].isTemp()) {
-            auto [next_use_distance_it, inserted] = ctx.next_use_distances_end[pred_idx].insert({instr->operands[i].getTemp(), distance});
+            auto [next_use_distance_it, inserted] = ctx.next_use_distances_end[pred_idx].insert(std::make_pair(instr->operands[i].getTemp(), distance));
             if (inserted || next_use_distance_it->second != distance)
                worklist = std::max(worklist, pred_idx + 1);
             next_use_distance_it->second = distance;
@@ -248,7 +248,7 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
          if (ctx.program->blocks[pred_idx].loop_nest_depth > block->loop_nest_depth)
             distance += 0xFFFF;
          // TODO: PREVIOUS CODE LOOKED FISHY. Should "worklist.insert" actually be called if [temp] was not an element before?
-         auto [next_use_distance_end_it, inserted] = ctx.next_use_distances_end[pred_idx].insert({temp, std::pair<uint32_t, uint32_t>{}});
+         auto [next_use_distance_end_it, inserted] = ctx.next_use_distances_end[pred_idx].insert(std::make_pair(temp, std::pair<uint32_t, uint32_t>{}));
          if (!inserted) {
             dom = get_dominator(dom, next_use_distance_end_it->second.first, ctx.program, temp.is_linear());
             distance = std::min(next_use_distance_end_it->second.second, distance);
@@ -400,7 +400,7 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<boost::container::flat
                  std::mem_fn(&boost::container::flat_map<Temp, uint32_t>::clear));
 
    for (const auto& pair : ctx.next_use_distances_end[block->index]) {
-      local_next_uses[block->instructions.size() - 1].insert({pair.first, pair.second.second + block->instructions.size()});
+      local_next_uses[block->instructions.size() - 1].insert(std::make_pair<Temp, uint32_t>((Temp)pair.first, pair.second.second + block->instructions.size()));
    }
 
    for (int idx = block->instructions.size() - 1; idx >= 0; idx--) {
