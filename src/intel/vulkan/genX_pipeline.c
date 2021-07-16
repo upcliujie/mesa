@@ -2681,6 +2681,8 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
           * of a buffer with push constants and descriptor set table.
           */
          task.EmitInlineParameter = true;
+
+         task.XP0Required = task_prog_data->uses_drawid;
       }
 
       /* Recommended values from "Task and Mesh Distribution Programming". */
@@ -2742,6 +2744,8 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
        * of a buffer with push constants and descriptor set table.
        */
       mesh.EmitInlineParameter = true;
+
+      mesh.XP0Required = mesh_prog_data->uses_drawid;
    }
 
    /* Recommended values from "Task and Mesh Distribution Programming". */
