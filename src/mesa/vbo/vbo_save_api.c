@@ -83,6 +83,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "main/varray.h"
 #include "util/bitscan.h"
 #include "util/u_memory.h"
+#include "util/hash_table.h"
 
 #include "gallium/include/pipe/p_state.h"
 
@@ -448,6 +449,53 @@ realloc_storage(struct gl_context *ctx, int prim_count, int vertex_count)
    }
 }
 
+/* Add vertex to the vertex buffer and return its index. If this vertex is a duplicate
+ * of an existing vertex, return the original index instead.
+ */
+static uint32_t
+add_vertex(struct vbo_save_context *save, struct hash_table *hash_to_index,
+           uint32_t index, uint32_t offset_in_bytes, uint32_t base_index, fi_type *new_buffer,
+           uint32_t *max_indice)
+{
+   /* If vertex deduplication is disabled return the original index. */
+   if (!hash_to_index)
+      return index;
+
+   /* Apply the offset into buffer_in_ram ... */
+   fi_type *vert = save->vertex_store->buffer_in_ram + offset_in_bytes / sizeof(float);
+   /* ... and cancel the start_offset trick.
+    * This way we get the correct offset in all cases (= start_offset being 0 or not).
+    */
+   vert += save->vertex_size * (index - base_index);
+
+   /* Hash the vertex attributes */
+   uint32_t hash = _mesa_hash_data(vert, save->vertex_size * sizeof(fi_type));
+   void *key = (void*)(uintptr_t)hash;
+   struct hash_entry *entry = _mesa_hash_table_search_pre_hashed(hash_to_index, hash, key);
+   if (entry) {
+      /* We found an existing vertex with the same hash, return its index. */
+      return (uintptr_t) entry->data;
+   } else {
+      /* This is a new vertex. Determine a new index and copy its attributes to the vertex
+       * buffer. Note that 'new_buffer' is created at each list compilation so we write vertices
+       * starting at index 0.
+       */
+      uint32_t n = _mesa_hash_table_num_entries(hash_to_index);
+      *max_indice = MAX2(n + base_index, *max_indice);
+
+      memcpy(&new_buffer[save->vertex_size * n],
+             vert,
+             save->vertex_size * sizeof(fi_type));
+
+      _mesa_hash_table_insert_pre_hashed(hash_to_index, hash, key, (void*)(uintptr_t)(n + base_index));
+
+      /* The index buffer is shared between list compilations, so add the base index to get
+       * the final index.
+       */
+      return n + base_index;
+   }
+}
+
 
 /**
  * Insert the active immediate struct onto the display list currently
@@ -614,6 +662,18 @@ compile_vertex_list(struct gl_context *ctx)
    struct _mesa_prim *merged_prims = NULL;
 
    int idx = 0;
+   struct hash_table *vertex_to_index = NULL;
+   fi_type *temp_vertices_buffer = NULL;
+
+   /* The loopback replay code doesn't use the index buffer, so we can't
+    * dedup vertices in this case.
+    */
+   if (!ctx->ListState.Current.UseLoopback) {
+      vertex_to_index = _mesa_hash_table_create(NULL, NULL, _mesa_key_pointer_equal);
+      temp_vertices_buffer = malloc(save->vertex_store->buffer_in_ram_size);
+   }
+
+   uint32_t max_indice = 0;
 
    int last_valid_prim = -1;
    /* Construct indices array. */
@@ -647,13 +707,17 @@ compile_vertex_list(struct gl_context *ctx)
          unsigned tri_count = merged_prims[last_valid_prim].count - 2;
 
          indices[idx] = indices[idx - 1];
-         indices[idx + 1] = original_prims[i].start;
+         indices[idx + 1] = add_vertex(save, vertex_to_index, original_prims[i].start,
+                                       original_buffer_offset, start_offset,
+                                       temp_vertices_buffer, &max_indice);
          idx += 2;
          merged_prims[last_valid_prim].count += 2;
 
          if (tri_count % 2) {
             /* Add another index to preserve winding order */
-            indices[idx++] = original_prims[i].start;
+            indices[idx++] = add_vertex(save, vertex_to_index, original_prims[i].start,
+                                        original_buffer_offset, start_offset,
+                                        temp_vertices_buffer, &max_indice);
             merged_prims[last_valid_prim].count++;
          }
       }
@@ -670,10 +734,14 @@ compile_vertex_list(struct gl_context *ctx)
             (original_prims[i + 1].mode == GL_LINE_STRIP ||
              original_prims[i + 1].mode == GL_LINES)))) {
          for (unsigned j = 0; j < vertex_count; j++) {
-            indices[idx++] = original_prims[i].start + j;
+            indices[idx++] = add_vertex(save, vertex_to_index, original_prims[i].start + j,
+                                        original_buffer_offset, start_offset,
+                                        temp_vertices_buffer, &max_indice);
             /* Repeat all but the first/last indices. */
             if (j && j != vertex_count - 1) {
-               indices[idx++] = original_prims[i].start + j;
+               indices[idx++] = add_vertex(save, vertex_to_index, original_prims[i].start + j,
+                                           original_buffer_offset, start_offset,
+                                           temp_vertices_buffer, &max_indice);
             }
          }
       } else {
@@ -681,7 +749,9 @@ compile_vertex_list(struct gl_context *ctx)
          mode = original_prims[i].mode;
 
          for (unsigned j = 0; j < vertex_count; j++) {
-            indices[idx++] = original_prims[i].start + j;
+            indices[idx++] = add_vertex(save, vertex_to_index, original_prims[i].start + j,
+                                        original_buffer_offset, start_offset,
+                                        temp_vertices_buffer, &max_indice);
          }
       }
 
@@ -712,11 +782,11 @@ compile_vertex_list(struct gl_context *ctx)
       _mesa_reference_buffer_object(ctx, &save->previous_ib, NULL);
       save->previous_ib = ctx->Driver.NewBufferObject(ctx, VBO_BUF_ID + 1);
       bool success = ctx->Driver.BufferData(ctx,
-                                         GL_ELEMENT_ARRAY_BUFFER_ARB,
-                                         MAX2(VBO_SAVE_INDEX_SIZE, idx) * sizeof(uint32_t),
-                                         NULL,
-                                         GL_STATIC_DRAW_ARB, GL_MAP_WRITE_BIT,
-                                         save->previous_ib);
+                                            GL_ELEMENT_ARRAY_BUFFER_ARB,
+                                            MAX2(VBO_SAVE_INDEX_SIZE, idx) * sizeof(uint32_t),
+                                            NULL,
+                                            GL_STATIC_DRAW_ARB, GL_MAP_WRITE_BIT,
+                                            save->previous_ib);
       if (!success) {
          _mesa_reference_buffer_object(ctx, &save->previous_ib, NULL);
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "IB allocation");
@@ -738,11 +808,24 @@ compile_vertex_list(struct gl_context *ctx)
    }
 
    if (save->vertex_store->buffer_in_ram_size) {
-      ctx->Driver.BufferSubData(ctx,
-                                original_buffer_offset,
-                                idx * save->vertex_size * sizeof(fi_type),
-                                &save->vertex_store->buffer_in_ram[original_buffer_offset / sizeof(float)],
-                                save->vertex_store->bufferobj);
+      if (vertex_to_index) {
+         ctx->Driver.BufferSubData(ctx,
+                                   original_buffer_offset,
+                                   (max_indice - start_offset + 1) * save->vertex_size * sizeof(fi_type),
+                                   temp_vertices_buffer,
+                                   save->vertex_store->bufferobj);
+      } else {
+         ctx->Driver.BufferSubData(ctx,
+                                   original_buffer_offset,
+                                   idx * save->vertex_size * sizeof(fi_type),
+                                   &save->vertex_store->buffer_in_ram[original_buffer_offset / sizeof(float)],
+                                   save->vertex_store->bufferobj);
+      }
+   }
+
+   if (vertex_to_index) {
+      _mesa_hash_table_destroy(vertex_to_index, NULL);
+      free(temp_vertices_buffer);
    }
 
    /* Prepare for DrawGallium */
