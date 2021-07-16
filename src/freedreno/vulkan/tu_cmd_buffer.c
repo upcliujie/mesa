@@ -1247,6 +1247,13 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 
    tu_cs_emit_ib(cs, &cmd->state.tile_store_ib);
 
+   if (u_trace_has_points(&cmd->trace_per_tile)) {
+      tu_cs_emit_wfi(cs);
+      tu_cs_emit_pkt7(&cmd->cs, CP_WAIT_FOR_ME, 0);
+      u_trace_clone_append(&cmd->trace_per_tile, &cmd->trace,
+                           cs, tu_copy_timestamp_buffer);
+   }
+
    tu_cs_sanity_check(cs);
 }
 
@@ -1266,9 +1273,30 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 }
 
 static void
+tu_cmd_prepare_tile_store_ib(struct tu_cmd_buffer *cmd)
+{
+   const uint32_t tile_store_space = 7 + (35 * 2) * cmd->state.pass->attachment_count;
+   struct tu_cs sub_cs;
+
+   VkResult result =
+      tu_cs_begin_sub_stream(&cmd->sub_cs, tile_store_space, &sub_cs);
+   if (result != VK_SUCCESS) {
+      cmd->record_result = result;
+      return;
+   }
+
+   /* emit to tile-store sub_cs */
+   tu6_emit_tile_store(cmd, &sub_cs);
+
+   cmd->state.tile_store_ib = tu_cs_end_sub_stream(&cmd->sub_cs, &sub_cs);
+}
+
+static void
 tu_cmd_render_tiles(struct tu_cmd_buffer *cmd)
 {
    const struct tu_framebuffer *fb = cmd->state.framebuffer;
+
+   tu_cmd_prepare_tile_store_ib(cmd);
 
    tu6_tile_render_begin(cmd, &cmd->cs);
 
@@ -1314,6 +1342,13 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd)
 
    tu_cs_emit_call(&cmd->cs, &cmd->draw_cs);
 
+   if (u_trace_has_points(&cmd->trace_per_tile)) {
+      tu_cs_emit_wfi(&cmd->cs);
+      tu_cs_emit_pkt7(&cmd->cs, CP_WAIT_FOR_ME, 0);
+      u_trace_clone_append(&cmd->trace_per_tile, &cmd->trace,
+                           &cmd->cs, tu_copy_timestamp_buffer);
+   }
+
    trace_end_draw_ib_sysmem(&cmd->trace, &cmd->cs);
 
    tu6_sysmem_render_end(cmd, &cmd->cs);
@@ -1328,25 +1363,6 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd)
       0,
       0
    );
-}
-
-static void
-tu_cmd_prepare_tile_store_ib(struct tu_cmd_buffer *cmd)
-{
-   const uint32_t tile_store_space = 7 + (35 * 2) * cmd->state.pass->attachment_count;
-   struct tu_cs sub_cs;
-
-   VkResult result =
-      tu_cs_begin_sub_stream(&cmd->sub_cs, tile_store_space, &sub_cs);
-   if (result != VK_SUCCESS) {
-      cmd->record_result = result;
-      return;
-   }
-
-   /* emit to tile-store sub_cs */
-   tu6_emit_tile_store(cmd, &sub_cs);
-
-   cmd->state.tile_store_ib = tu_cs_end_sub_stream(&cmd->sub_cs, &sub_cs);
 }
 
 static VkResult
@@ -1379,6 +1395,7 @@ tu_create_cmd_buffer(struct tu_device *device,
    }
 
    u_trace_init(&cmd_buffer->trace, &device->trace_context);
+   u_trace_init(&cmd_buffer->trace_per_tile, &device->trace_context);
 
    tu_cs_init(&cmd_buffer->cs, device, TU_CS_MODE_GROW, 4096);
    tu_cs_init(&cmd_buffer->draw_cs, device, TU_CS_MODE_GROW, 4096);
@@ -1401,6 +1418,7 @@ tu_cmd_buffer_destroy(struct tu_cmd_buffer *cmd_buffer)
    tu_cs_finish(&cmd_buffer->sub_cs);
 
    u_trace_fini(&cmd_buffer->trace);
+   u_trace_fini(&cmd_buffer->trace_per_tile);
 
    vk_object_free(&cmd_buffer->device->vk, &cmd_buffer->pool->alloc, cmd_buffer);
 }
@@ -1422,6 +1440,9 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
 
    u_trace_fini(&cmd_buffer->trace);
    u_trace_init(&cmd_buffer->trace, &cmd_buffer->device->trace_context);
+
+   u_trace_fini(&cmd_buffer->trace_per_tile);
+   u_trace_init(&cmd_buffer->trace_per_tile, &cmd_buffer->device->trace_context);
 
    cmd_buffer->status = TU_CMD_BUFFER_STATUS_INITIAL;
 
@@ -2967,8 +2988,6 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
 
    trace_start_render_pass(&cmd->trace, &cmd->cs);
 
-   tu_cmd_prepare_tile_store_ib(cmd);
-
    /* Note: because this is external, any flushes will happen before draw_cs
     * gets called. However deferred flushes could have to happen later as part
     * of the subpass.
@@ -4417,6 +4436,9 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
       tu_cmd_render_sysmem(cmd_buffer);
    else
       tu_cmd_render_tiles(cmd_buffer);
+
+   u_trace_transfer_chunk_ownership(&cmd_buffer->trace_per_tile,
+                                    &cmd_buffer->trace);
 
    /* outside of renderpasses we assume all draw states are disabled
     * we can do this in the main cs because no resolve/store commands
