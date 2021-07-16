@@ -471,6 +471,8 @@ brw_nir_lower_vue_outputs(nir_shader *nir)
 
    nir_lower_io(nir, nir_var_shader_out, type_size_vec4,
                 nir_lower_io_lower_64bit_to_32);
+
+   brw_nir_lower_shading_rate_output(nir);
 }
 
 void
@@ -483,6 +485,8 @@ brw_nir_lower_tcs_outputs(nir_shader *nir, const struct brw_vue_map *vue_map,
 
    nir_lower_io(nir, nir_var_shader_out, type_size_vec4,
                 nir_lower_io_lower_64bit_to_32);
+
+   brw_nir_lower_shading_rate_output(nir);
 
    /* This pass needs actual constants */
    nir_opt_constant_folding(nir);
@@ -1073,9 +1077,6 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
       };
       OPT(nir_lower_idiv, &options);
    }
-
-   if (nir->info.stage != MESA_SHADER_FRAGMENT)
-      brw_nir_lower_shading_rate_output(nir);
 
    brw_nir_optimize(nir, compiler, is_scalar, false);
 
