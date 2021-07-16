@@ -74,12 +74,12 @@ u_trace_pipe_context_init(struct u_trace_context *utctx,
 }
 
 inline void
-trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state *pfb)
+trace_framebuffer_state(struct u_trace *ut, void *cs, const struct pipe_framebuffer_state *pfb)
 {
    if (likely(!ut->enabled))
       return;
 
-   trace_framebuffer(ut,
+   trace_framebuffer(ut, cs,
       pfb->width,
       pfb->height,
       pfb->layers,
@@ -89,7 +89,7 @@ trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state 
    for (unsigned i = 0; i < pfb->nr_cbufs; i++) {
       if (pfb->cbufs[i]) {
          struct pipe_surface *psurf = pfb->cbufs[i];
-         trace_surface(ut,
+         trace_surface(ut, cs,
             psurf->width,
             psurf->height,
             psurf->nr_samples,
@@ -98,7 +98,7 @@ trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state 
    }
    if (pfb->zsbuf) {
       struct pipe_surface *psurf = pfb->zsbuf;
-      trace_surface(ut,
+      trace_surface(ut, cs,
          psurf->width,
          psurf->height,
          psurf->nr_samples,
@@ -107,9 +107,9 @@ trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state 
 }
 
 void
-trace_grid_info_pipe(struct u_trace *ut, const struct pipe_grid_info *pgrid)
+trace_grid_info_pipe(struct u_trace *ut, void *cs, const struct pipe_grid_info *pgrid)
 {
-   trace_grid_info(ut,
+   trace_grid_info(ut, cs,
       pgrid->work_dim,
       pgrid->block[0],
       pgrid->block[1],
