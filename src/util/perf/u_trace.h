@@ -204,6 +204,40 @@ void u_trace_context_process(struct u_trace_context *utctx, bool eof);
 void u_trace_init(struct u_trace *ut, struct u_trace_context *utctx);
 void u_trace_fini(struct u_trace *ut);
 
+bool u_trace_has_points(struct u_trace *ut);
+
+typedef void (*u_trace_copy_ts_buffer)(struct u_trace_context *utctx,
+      void *cmdstream,
+      void *ts_from, uint32_t from_offset,
+      void *ts_to, uint32_t to_offset,
+      uint32_t count);
+
+/**
+ * Clones tracepoints from one u_trace and append them to another.
+ * Provides callback for driver to copy timestamps on GPU from
+ * one buffer to another.
+ *
+ * The payload is shared and remains owned by the original u_trace!
+ * Use u_trace_transfer_chunk_ownership to transfer payload ownership.
+ *
+ * It allows:
+ * - Tracing re-usable command buffer in Vulkan, by copying tracepoints
+ *   each time it is submitted.
+ * - Per-tile tracing for tiling GPUs, by cloning tracepoints for each tile.
+ */
+void u_trace_clone_append(struct u_trace *from, struct u_trace *into,
+                          void *cmdstream,
+                          u_trace_copy_ts_buffer copy_ts_buffer);
+
+/* Deactivates and transfers chunks from one u_trace to another.
+ * They won't be processed but payload and timestamps buffers would be
+ * kept alive until the chunk, which was last at the time this function
+ * was called, is processed.
+ *
+ * Leaves the source u_trace empty.
+ */
+void u_trace_transfer_chunk_ownership(struct u_trace *from, struct u_trace *to);
+
 /**
  * Flush traces to the parent trace-context.  At this point, the expectation
  * is that all the tracepoints are "executed" by the GPU following any previously
