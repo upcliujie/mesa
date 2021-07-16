@@ -77,7 +77,7 @@ struct spill_ctx {
    std::stack<Block*, std::vector<Block*>> loop_header;
    std::vector<boost::container::flat_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
    std::vector<boost::container::flat_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
-   std::vector<std::map<Temp, uint32_t>> local_next_use_distance; /* Working buffer */
+   std::vector<boost::container::flat_map<Temp, uint32_t>> local_next_use_distance; /* Working buffer */
    std::vector<std::pair<RegClass, std::unordered_set<uint32_t>>> interferences;
    std::vector<std::vector<uint32_t>> affinities;
    std::vector<bool> is_reloaded;
@@ -389,7 +389,7 @@ get_rematerialize_info(spill_ctx& ctx)
 }
 
 void
-local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_t>>& local_next_uses)
+local_next_uses(spill_ctx& ctx, Block* block, std::vector<boost::container::flat_map<Temp, uint32_t>>& local_next_uses)
 {
    // Reset vector by clearing individual maps rather than clearing the entire vector. This avoids dropping the map's reserved memory!
    if (local_next_uses.size() < block->instructions.size()) {
@@ -397,7 +397,7 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
    }
    std::for_each(local_next_uses.begin(),
                  (local_next_uses.begin() + std::min(local_next_uses.size(), block->instructions.size())),
-                 std::mem_fn(&std::map<Temp, uint32_t>::clear));
+                 std::mem_fn(&boost::container::flat_map<Temp, uint32_t>::clear));
 
    for (const auto& pair : ctx.next_use_distances_end[block->index]) {
       local_next_uses[block->instructions.size() - 1].insert({pair.first, pair.second.second + block->instructions.size()});
@@ -1164,7 +1164,7 @@ process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
       instructions.emplace_back(std::move(block->instructions[idx++]));
    }
 
-   std::vector<std::map<Temp, uint32_t>>& local_next_use_distance = ctx.local_next_use_distance;
+   auto& local_next_use_distance = ctx.local_next_use_distance;
    if (block->register_demand.exceeds(ctx.target_pressure)) {
       local_next_uses(ctx, block, local_next_use_distance);
    } else {
