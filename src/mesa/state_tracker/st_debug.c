@@ -52,6 +52,7 @@ static const struct debug_named_value st_debug_flags[] = {
    { "wf",       DEBUG_WIREFRAME, NULL },
    { "gremedy",  DEBUG_GREMEDY, "Enable GREMEDY debug extensions" },
    { "noreadpixcache", DEBUG_NOREADPIXCACHE, NULL },
+   { "force_nir",      DEBUG_FORCE_NIR, "Force GLSL to compile to NIR and use nir_to_tgsi if needed" },
    DEBUG_NAMED_VALUE_END
 };
 

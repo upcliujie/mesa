@@ -126,11 +126,7 @@ lookup_shader(struct st_context *st,
       CachedShaders[i].semantic_indexes[j] = semantic_indexes[j];
    }
 
-   enum pipe_shader_ir preferred_ir =
-      screen->get_shader_param(screen, PIPE_SHADER_VERTEX,
-                               PIPE_SHADER_CAP_PREFERRED_IR);
-
-   if (preferred_ir == PIPE_SHADER_IR_NIR) {
+   if (st_use_nir(screen, PIPE_SHADER_VERTEX)) {
       unsigned inputs[2 + MAX_TEXTURE_UNITS];
       unsigned outputs[2 + MAX_TEXTURE_UNITS];
 
