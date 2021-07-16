@@ -69,8 +69,8 @@ struct spill_ctx {
    Program* program;
    std::vector<std::vector<RegisterDemand>> register_demand;
    std::vector<std::map<Temp, Temp>> renames;
-   std::vector<std::unordered_map<Temp, uint32_t>> spills_entry;
-   std::unordered_map<Temp, uint32_t> spills_entry_scratch; /* Scratch memory used for intermediary operations*/
+   std::vector<boost::container::flat_map<Temp, uint32_t>> spills_entry;
+   boost::container::flat_map<Temp, uint32_t> spills_entry_scratch; /* Scratch memory used for intermediary operations*/
    std::vector<boost::container::flat_map<Temp, uint32_t>> spills_exit;
 
    std::vector<bool> processed;
@@ -1156,7 +1156,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
 
 void
 process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
-              std::unordered_map<Temp, uint32_t> &current_spills, RegisterDemand spilled_registers)
+              boost::container::flat_map<Temp, uint32_t> &current_spills, RegisterDemand spilled_registers)
 {
    assert(!ctx.processed[block_idx]);
 
