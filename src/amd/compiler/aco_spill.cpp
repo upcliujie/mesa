@@ -39,6 +39,8 @@
 
 #include <cstring>
 
+#include <boost/container/flat_map.hpp>
+
 namespace std {
 template<>
 struct hash<aco::Temp> {
@@ -69,7 +71,7 @@ struct spill_ctx {
    std::vector<std::map<Temp, Temp>> renames;
    std::vector<std::unordered_map<Temp, uint32_t>> spills_entry;
    std::unordered_map<Temp, uint32_t> spills_entry_scratch; /* Scratch memory used for intermediary operations*/
-   std::vector<std::unordered_map<Temp, uint32_t>> spills_exit;
+   std::vector<boost::container::flat_map<Temp, uint32_t>> spills_exit;
 
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
