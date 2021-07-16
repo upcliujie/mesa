@@ -4720,12 +4720,14 @@ genX(CmdDrawMeshTasksNV)(
    /* TODO(mesh): Check if this is not emitting more packets than we need. */
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
-   /* TODO(mesh): Support conditional rendering. */
+   if (cmd_buffer->state.conditional_render_enabled)
+      genX(cmd_emit_conditional_render_predicate)(cmd_buffer);
 
    /* TODO(mesh): Support non-zero firstTask. */
    assert(firstTask == 0);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(3DMESH_1D), m) {
+      m.PredicateEnable = cmd_buffer->state.conditional_render_enabled;
       m.ThreadGroupCountX = taskCount;
    }
 }
