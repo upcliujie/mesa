@@ -85,6 +85,49 @@ Tracepoint('start_draw_ib_gmem',
 Tracepoint('end_draw_ib_gmem',
     tp_perfetto='tu_end_draw_ib_gmem')
 
+Tracepoint('start_gmem_clear',
+    tp_perfetto='tu_start_gmem_clear')
+Tracepoint('end_gmem_clear',
+    args=[TracepointArg(type='enum VkFormat',  var_name='format',  c_format='%s', to_prim_type='vk_format_description({})->short_name'),
+          TracepointArg(type='uint8_t',        var_name='samples', c_format='%u')],
+    tp_perfetto='tu_end_gmem_clear')
+
+Tracepoint('start_sysmem_clear',
+    tp_perfetto='tu_start_sysmem_clear')
+Tracepoint('end_sysmem_clear',
+    args=[TracepointArg(type='enum VkFormat',  var_name='format',      c_format='%s', to_prim_type='vk_format_description({})->short_name'),
+          TracepointArg(type='uint8_t',        var_name='uses_3d_ops', c_format='%u'),
+          TracepointArg(type='uint8_t',        var_name='samples',     c_format='%u')],
+    tp_perfetto='tu_end_sysmem_clear')
+
+Tracepoint('start_sysmem_clear_all',
+    tp_perfetto='tu_start_sysmem_clear_all')
+Tracepoint('end_sysmem_clear_all',
+    args=[TracepointArg(type='uint8_t',        var_name='mrt_count',   c_format='%u'),
+          TracepointArg(type='uint8_t',        var_name='rect_count',  c_format='%u')],
+    tp_perfetto='tu_end_sysmem_clear_all')
+
+Tracepoint('start_gmem_load',
+    tp_perfetto='tu_start_gmem_load')
+Tracepoint('end_gmem_load',
+    args=[TracepointArg(type='enum VkFormat',  var_name='format',   c_format='%s', to_prim_type='vk_format_description({})->short_name'),
+          TracepointArg(type='uint8_t',        var_name='force_load', c_format='%u')],
+    tp_perfetto='tu_end_gmem_load')
+
+Tracepoint('start_gmem_store',
+    tp_perfetto='tu_start_gmem_store')
+Tracepoint('end_gmem_store',
+    args=[TracepointArg(type='enum VkFormat',  var_name='format',   c_format='%s', to_prim_type='vk_format_description({})->short_name'),
+          TracepointArg(type='uint8_t',        var_name='fast_path', c_format='%u'),
+          TracepointArg(type='uint8_t',        var_name='unaligned', c_format='%u')],
+    tp_perfetto='tu_end_gmem_store')
+
+Tracepoint('start_sysmem_resolve',
+    tp_perfetto='tu_start_sysmem_resolve')
+Tracepoint('end_sysmem_resolve',
+    args=[TracepointArg(type='enum VkFormat',  var_name='format',   c_format='%s', to_prim_type='vk_format_description({})->short_name')],
+    tp_perfetto='tu_end_sysmem_resolve')
+
 Tracepoint('start_blit',
     tp_perfetto='tu_start_blit',
 )
