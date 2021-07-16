@@ -1,0 +1,17 @@
+MOV.i32.ts r1, lane_id
+MOV.i32.id r1, wls_ptr
+MOV.i32 r1, lane_id
+MOV.i32 r1, wls_ptr
+FADD.f32 r0, r1
+TEX.computed.2d.slot0 @r2, @r4:r5:r6:r7
+BRANCH
+BRANCH #0
+BRANCH #0, offset:
+BRANCH u0, offset:-123456789
+BRANCH u0, offset:123456789
+IADD_IMM.i32 r3, #12345
+FADD.v2f16 r0, r1, r0.h0
+MOV.i32.wait01.wait1 r0, r1
+MOV.i32.wait01.return r0, r1
+MOV.i32.reconverge.return r0, r1
+FROUND.f32.rtn.clamp_m1_1 r2, `r2.neg
