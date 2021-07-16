@@ -1306,6 +1306,13 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 
    tu_cs_emit_call(cs, &cmd->tile_store_cs);
 
+   if (u_trace_has_points(&cmd->trace_per_tile)) {
+      tu_cs_emit_wfi(cs);
+      tu_cs_emit_pkt7(&cmd->cs, CP_WAIT_FOR_ME, 0);
+      u_trace_clone_append(&cmd->trace_per_tile, &cmd->trace,
+                           cs, tu_copy_timestamp_buffer);
+   }
+
    tu_cs_sanity_check(cs);
 }
 
@@ -1373,6 +1380,13 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd)
 
    tu_cs_emit_call(&cmd->cs, &cmd->draw_cs);
 
+   if (u_trace_has_points(&cmd->trace_per_tile)) {
+      tu_cs_emit_wfi(&cmd->cs);
+      tu_cs_emit_pkt7(&cmd->cs, CP_WAIT_FOR_ME, 0);
+      u_trace_clone_append(&cmd->trace_per_tile, &cmd->trace,
+                           &cmd->cs, tu_copy_timestamp_buffer);
+   }
+
    trace_end_draw_ib_sysmem(&cmd->trace, &cmd->cs);
 
    tu6_sysmem_render_end(cmd, &cmd->cs);
@@ -1419,6 +1433,7 @@ tu_create_cmd_buffer(struct tu_device *device,
    }
 
    u_trace_init(&cmd_buffer->trace, &device->trace_context);
+   u_trace_init(&cmd_buffer->trace_per_tile, &device->trace_context);
 
    tu_cs_init(&cmd_buffer->cs, device, TU_CS_MODE_GROW, 4096);
    tu_cs_init(&cmd_buffer->draw_cs, device, TU_CS_MODE_GROW, 4096);
@@ -1443,6 +1458,7 @@ tu_cmd_buffer_destroy(struct tu_cmd_buffer *cmd_buffer)
    tu_cs_finish(&cmd_buffer->sub_cs);
 
    u_trace_fini(&cmd_buffer->trace);
+   u_trace_fini(&cmd_buffer->trace_per_tile);
 
    vk_object_free(&cmd_buffer->device->vk, &cmd_buffer->pool->alloc, cmd_buffer);
 }
@@ -1465,6 +1481,9 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
 
    u_trace_fini(&cmd_buffer->trace);
    u_trace_init(&cmd_buffer->trace, &cmd_buffer->device->trace_context);
+
+   u_trace_fini(&cmd_buffer->trace_per_tile);
+   u_trace_init(&cmd_buffer->trace_per_tile, &cmd_buffer->device->trace_context);
 
    cmd_buffer->status = TU_CMD_BUFFER_STATUS_INITIAL;
 
@@ -4602,6 +4621,9 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
       tu_cmd_render_sysmem(cmd_buffer);
    else
       tu_cmd_render_tiles(cmd_buffer);
+
+   u_trace_transfer_chunk_ownership(&cmd_buffer->trace_per_tile,
+                                    &cmd_buffer->trace);
 
    /* Outside of renderpasses we assume all draw states are disabled. We do
     * this outside the draw CS for the normal case where 3d gmem stores aren't
