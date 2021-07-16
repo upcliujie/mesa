@@ -471,6 +471,9 @@ brw_nir_lower_vue_outputs(nir_shader *nir)
 
    nir_lower_io(nir, nir_var_shader_out, type_size_vec4,
                 nir_lower_io_lower_64bit_to_32);
+
+   if (gl_shader_stage_can_set_fragment_shading_rate(nir->info.stage))
+      brw_nir_lower_shading_rate_output(nir);
 }
 
 void
@@ -1073,9 +1076,6 @@ brw_postprocess_nir(nir_shader *nir, const struct brw_compiler *compiler,
       };
       OPT(nir_lower_idiv, &options);
    }
-
-   if (gl_shader_stage_can_set_fragment_shading_rate(nir->info.stage))
-      brw_nir_lower_shading_rate_output(nir);
 
    brw_nir_optimize(nir, compiler, is_scalar, false);
 
