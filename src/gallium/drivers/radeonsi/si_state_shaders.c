@@ -76,7 +76,7 @@ void si_get_ir_cache_key(struct si_shader_selector *sel, bool ngg, bool es,
        /* Derivatives imply helper invocations so check for needs_quad_helper_invocations. */
        sel->info.base.fs.needs_quad_helper_invocations &&
        sel->info.base.fs.uses_discard &&
-       sel->screen->debug_flags & DBG(FS_CORRECT_DERIVS_AFTER_KILL))
+       ((sel->screen->debug_flags & DBG(FS_CORRECT_DERIVS_AFTER_KILL)) || sel->nir->info.is_arb_asm))
       shader_variant_flags |= 1 << 3;
    if (sel->info.stage == MESA_SHADER_VERTEX) {
       /* This varies depending on whether compute-based culling is enabled. */
