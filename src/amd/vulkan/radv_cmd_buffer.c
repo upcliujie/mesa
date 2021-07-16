@@ -3282,7 +3282,9 @@ radv_src_access_flush(struct radv_cmd_buffer *cmd_buffer, VkAccessFlags src_flag
                       const struct radv_image *image)
 {
    bool has_CB_meta = true, has_DB_meta = true;
-   bool image_is_coherent = image ? image->l2_coherent : false;
+   bool image_is_coherent = image ? image->l2_coherent :
+                                    (!cmd_buffer->state.non_coherent_images_l2_dirty &&
+                                     cmd_buffer->device->physical_device->rad_info.chip_class >= GFX9);
    enum radv_cmd_flush_bits flush_bits = 0;
 
    if (image) {
@@ -3358,7 +3360,9 @@ radv_dst_access_flush(struct radv_cmd_buffer *cmd_buffer, VkAccessFlags dst_flag
    bool has_CB_meta = true, has_DB_meta = true;
    enum radv_cmd_flush_bits flush_bits = 0;
    bool flush_CB = true, flush_DB = true;
-   bool image_is_coherent = image ? image->l2_coherent : false;
+   bool image_is_coherent = image ? image->l2_coherent :
+                                    (!cmd_buffer->state.non_coherent_images_l2_dirty &&
+                                     cmd_buffer->device->physical_device->rad_info.chip_class >= GFX9);
 
    if (image) {
       if (!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
@@ -3741,6 +3745,8 @@ radv_cmd_state_setup_attachments(struct radv_cmd_buffer *cmd_buffer, struct radv
       } else {
          iview = state->framebuffer->attachments[i];
       }
+
+      state->non_coherent_images_l2_dirty |= !iview->image->l2_coherent;
 
       state->attachments[i].iview = iview;
       if (iview->aspect_mask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
@@ -6990,6 +6996,9 @@ radv_barrier(struct radv_cmd_buffer *cmd_buffer, uint32_t memoryBarrierCount,
       dst_flush_bits |=
          radv_dst_access_flush(cmd_buffer, pImageMemoryBarriers[i].dstAccessMask, image);
    }
+
+   if (dst_flush_bits & RADV_CMD_FLAG_INV_L2)
+      cmd_buffer->state.non_coherent_images_l2_dirty = false;
 
    /* The Vulkan spec 1.1.98 says:
     *

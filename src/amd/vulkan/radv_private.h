@@ -1398,6 +1398,7 @@ struct radv_cmd_state {
 
    /* Whether CP DMA is busy/idle. */
    bool dma_is_busy;
+   bool non_coherent_images_l2_dirty;
 
    /* Conditional rendering info. */
    uint8_t predication_op; /* 32-bit or 64-bit predicate value */
