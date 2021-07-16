@@ -34,6 +34,7 @@
 #include "main/spirv_extensions.h"
 #include "main/version.h"
 
+#include "nir/nir_to_tgsi.h"
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
@@ -45,6 +46,7 @@
 #include "st_debug.h"
 #include "st_extensions.h"
 #include "st_format.h"
+#include "st_nir.h"
 
 
 /*
@@ -166,12 +168,16 @@ void st_init_limits(struct pipe_screen *screen,
       struct gl_program_constants *pc;
       const nir_shader_compiler_options *nir_options = NULL;
 
-      bool prefer_nir = PIPE_SHADER_IR_NIR ==
-         screen->get_shader_param(screen, sh, PIPE_SHADER_CAP_PREFERRED_IR);
+      bool prefer_nir = st_use_nir(screen, sh);
 
-      if (screen->get_compiler_options && prefer_nir) {
-         nir_options = (const nir_shader_compiler_options *)
-            screen->get_compiler_options(screen, PIPE_SHADER_IR_NIR, sh);
+      if (prefer_nir) {
+         if (screen->get_compiler_options) {
+            nir_options = (const nir_shader_compiler_options *)
+               screen->get_compiler_options(screen, PIPE_SHADER_IR_NIR, sh);
+         } else {
+            nir_options = nir_to_tgsi_get_compiler_options(screen,
+                                              PIPE_SHADER_IR_NIR, sh);
+         }
       }
 
       const gl_shader_stage stage = tgsi_processor_to_shader_stage(sh);
@@ -1833,8 +1839,7 @@ void st_init_extensions(struct pipe_screen *screen,
 
    consts->AllowDrawOutOfOrder = options->allow_draw_out_of_order;
 
-   bool prefer_nir = PIPE_SHADER_IR_NIR ==
-         screen->get_shader_param(screen, PIPE_SHADER_FRAGMENT, PIPE_SHADER_CAP_PREFERRED_IR);
+   bool prefer_nir = st_use_nir(screen, PIPE_SHADER_FRAGMENT);
    const struct nir_shader_compiler_options *nir_options =
       consts->ShaderCompilerOptions[MESA_SHADER_FRAGMENT].NirOptions;
 

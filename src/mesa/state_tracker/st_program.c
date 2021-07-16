@@ -2033,3 +2033,12 @@ st_finalize_program(struct st_context *st, struct gl_program *prog)
    /* Always create the default variant of the program. */
    st_precompile_shader_variant(st, prog);
 }
+
+bool
+st_use_nir(struct pipe_screen *pscreen, enum pipe_shader_type stage)
+{
+   enum pipe_shader_ir preferred_ir = (enum pipe_shader_ir)
+      pscreen->get_shader_param(pscreen, stage, PIPE_SHADER_CAP_PREFERRED_IR);
+
+   return (preferred_ir == PIPE_SHADER_IR_NIR) || (ST_DEBUG & DEBUG_FORCE_NIR);
+}

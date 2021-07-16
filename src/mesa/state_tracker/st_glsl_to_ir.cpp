@@ -31,6 +31,7 @@
 #include "st_nir.h"
 #include "st_shader_cache.h"
 #include "st_glsl_to_tgsi.h"
+#include "st_program.h"
 
 #include "tgsi/tgsi_from_mesa.h"
 
@@ -46,11 +47,7 @@ GLboolean
 st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
 {
    struct pipe_screen *pscreen = st_context(ctx)->screen;
-
-   enum pipe_shader_ir preferred_ir = (enum pipe_shader_ir)
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
-   bool use_nir = preferred_ir == PIPE_SHADER_IR_NIR;
+   bool use_nir = st_use_nir(pscreen, PIPE_SHADER_VERTEX);
 
    /* Return early if we are loading the shader from on-disk cache */
    if (st_load_ir_from_disk_cache(ctx, prog, use_nir)) {

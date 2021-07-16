@@ -75,6 +75,9 @@ st_nir_make_passthrough_shader(struct st_context *st,
                                unsigned *interpolation_modes,
                                unsigned sysval_mask);
 
+bool
+st_use_nir(struct pipe_screen *pscreen, enum pipe_shader_type stage);
+
 #ifdef __cplusplus
 }
 #endif

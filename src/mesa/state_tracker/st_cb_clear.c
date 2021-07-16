@@ -110,9 +110,7 @@ static inline void
 set_fragment_shader(struct st_context *st)
 {
    struct pipe_screen *pscreen = st->screen;
-   bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
+   bool use_nir = st_use_nir(pscreen, PIPE_SHADER_VERTEX);
 
    if (!st->clear.fs) {
       if (use_nir) {
@@ -164,9 +162,7 @@ static inline void
 set_vertex_shader(struct st_context *st)
 {
    struct pipe_screen *pscreen = st->screen;
-   bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
+   bool use_nir = st_use_nir(pscreen, PIPE_SHADER_VERTEX);
 
    /* vertex shader - still required to provide the linkage between
     * fragment shader input semantics and vertex_element/buffers.
@@ -198,9 +194,7 @@ set_vertex_shader_layered(struct st_context *st)
 {
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *pscreen = st->screen;
-   bool use_nir = PIPE_SHADER_IR_NIR ==
-      pscreen->get_shader_param(pscreen, PIPE_SHADER_VERTEX,
-                                PIPE_SHADER_CAP_PREFERRED_IR);
+   bool use_nir = st_use_nir(pscreen, PIPE_SHADER_VERTEX);
 
    if (!st->screen->get_param(st->screen, PIPE_CAP_TGSI_INSTANCEID)) {
       assert(!"Got layered clear, but VS instancing is unsupported");
