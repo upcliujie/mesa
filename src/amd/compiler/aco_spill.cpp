@@ -75,8 +75,8 @@ struct spill_ctx {
 
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
-   std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
-   std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
+   std::vector<boost::container::flat_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
+   std::vector<boost::container::flat_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
    std::vector<std::map<Temp, uint32_t>> local_next_use_distance; /* Working buffer */
    std::vector<std::pair<RegClass, std::unordered_set<uint32_t>>> interferences;
    std::vector<std::vector<uint32_t>> affinities;
@@ -179,8 +179,7 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
 
    /* to compute the next use distance at the beginning of the block, we have to add the block's
     * size */
-   for (std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>::iterator it = next_use_distances_start.begin();
-        it != next_use_distances_start.end(); ++it)
+   for (auto it = next_use_distances_start.begin(); it != next_use_distances_start.end(); ++it)
       it->second.second = it->second.second + block->instructions.size();
 
    int idx = block->instructions.size() - 1;
@@ -237,7 +236,7 @@ next_uses_per_block(spill_ctx& ctx, unsigned block_idx, uint32_t& worklist)
    }
 
    /* all remaining live vars must be live-out at the predecessors */
-   for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair : next_use_distances_start) {
+   for (const auto& pair : next_use_distances_start) {
       Temp temp = pair.first;
       if (phi_defs.count(temp)) {
          continue;
@@ -400,8 +399,7 @@ local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_
                  (local_next_uses.begin() + std::min(local_next_uses.size(), block->instructions.size())),
                  std::mem_fn(&std::map<Temp, uint32_t>::clear));
 
-   for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair :
-        ctx.next_use_distances_end[block->index]) {
+   for (const auto& pair : ctx.next_use_distances_end[block->index]) {
       local_next_uses[block->instructions.size() - 1].insert({pair.first, pair.second.second + block->instructions.size()});
    }
 
@@ -534,7 +532,7 @@ init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
 
          unsigned distance = 0;
          Temp to_spill;
-         for (const std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair : next_use_distances) {
+         for (const auto& pair : next_use_distances) {
             if (pair.first.type() == type &&
                 (pair.second.first >= loop_end ||
                  (ctx.remat.count(pair.first) && type == RegType::sgpr)) &&
@@ -577,7 +575,7 @@ init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
          Temp to_spill;
          type = reg_pressure.vgpr > ctx.target_pressure.vgpr ? RegType::vgpr : RegType::sgpr;
 
-         for (const std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair : next_use_distances) {
+         for (const auto& pair : next_use_distances) {
             if (pair.first.type() == type && pair.second.second > distance &&
                 !ctx.spills_entry[block_idx].count(pair.first)) {
                to_spill = pair.first;
@@ -654,7 +652,7 @@ init_live_in_vars(spill_ctx& ctx, Block* block, unsigned block_idx)
    std::set<Temp> partial_spills;
 
    /* keep variables spilled on all incoming paths */
-   for (const std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair : next_use_distances) {
+   for (const auto& pair : next_use_distances) {
       std::vector<unsigned>& preds =
          pair.first.is_linear() ? block->linear_preds : block->logical_preds;
       /* If it can be rematerialized, keep the variable spilled if all predecessors do not reload
@@ -770,8 +768,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
       unsigned insert_idx = 0;
       RegisterDemand demand_before = get_demand_before(ctx, block_idx, 0);
 
-      for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& live :
-           ctx.next_use_distances_start[block_idx]) {
+      for (const auto& live : ctx.next_use_distances_start[block_idx]) {
          const unsigned pred_idx = block->linear_preds[0];
 
          if (!live.first.is_linear())
@@ -807,8 +804,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
          } while (instructions.back()->opcode != aco_opcode::p_logical_start);
 
          unsigned pred_idx = block->logical_preds[0];
-         for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& live :
-              ctx.next_use_distances_start[block_idx]) {
+         for (const auto& live : ctx.next_use_distances_start[block_idx]) {
             if (live.first.is_linear())
                continue;
             /* still spilled */
@@ -1043,8 +1039,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
 
    /* iterate live variables for which to reload */
    // TODO: reload at current block if variable is spilled on all predecessors
-   for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair :
-        ctx.next_use_distances_start[block_idx]) {
+   for (const auto& pair : ctx.next_use_distances_start[block_idx]) {
       /* skip spilled variables */
       if (ctx.spills_entry[block_idx].count(pair.first))
          continue;
