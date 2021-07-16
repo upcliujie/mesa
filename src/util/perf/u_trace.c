@@ -104,7 +104,9 @@ free_chunk(void *ptr)
 
    chunk->utctx->delete_timestamp_buffer(chunk->utctx, chunk->timestamps);
 
-   list_del(&chunk->node);
+   /* There could be dangling chunks due to u_trace_transfer_chunk_ownership */
+   if (list_is_linked(&chunk->node))
+      list_del(&chunk->node);
 }
 
 static void
@@ -362,6 +364,67 @@ u_trace_fini(struct u_trace *ut)
     * have been flushed to the trace-context.
     */
    free_chunks(&ut->trace_chunks);
+}
+
+bool
+u_trace_has_points(struct u_trace *ut)
+{
+   return !list_is_empty(&ut->trace_chunks);
+}
+
+void
+u_trace_clone_append(struct u_trace *from, struct u_trace *into,
+                     void *cmdstream,
+                     u_trace_copy_ts_buffer copy_ts_buffer)
+{
+   list_for_each_entry(struct u_trace_chunk, from_chunk, &from->trace_chunks, node) {
+      assert(from_chunk->flush_data == NULL);
+
+      struct u_trace_chunk *to_chunk = get_chunk(into);
+
+      unsigned to_copy = MIN2(TRACES_PER_CHUNK - to_chunk->num_traces, from_chunk->num_traces);
+      copy_ts_buffer(from->utctx, cmdstream,
+                     from_chunk->timestamps, 0,
+                     to_chunk->timestamps, to_chunk->num_traces,
+                     to_copy);
+
+      memcpy(&to_chunk->traces[to_chunk->num_traces], &from_chunk->traces,
+             to_copy * sizeof(struct u_trace_event));
+      to_chunk->num_traces += to_copy;
+
+      if (to_copy < from_chunk->num_traces) {
+         to_chunk = get_chunk(into);
+
+         unsigned from_offset = to_copy;
+         to_copy = from_chunk->num_traces - to_copy;
+
+         copy_ts_buffer(from->utctx, cmdstream,
+                        from_chunk->timestamps, from_offset,
+                        to_chunk->timestamps, 0,
+                        to_copy);
+         memcpy(&to_chunk->traces, &from_chunk->traces[from_offset],
+                to_copy * sizeof(struct u_trace_event));
+         to_chunk->num_traces += to_copy;
+      }
+   }
+}
+
+void
+u_trace_transfer_chunk_ownership(struct u_trace *from, struct u_trace *into)
+{
+   if (list_is_empty(&from->trace_chunks)) {
+      return;
+   }
+
+   struct u_trace_chunk *last_chunk =
+      list_last_entry(&into->trace_chunks, struct u_trace_chunk, node);
+
+   while (!list_is_empty(&from->trace_chunks)) {
+      struct u_trace_chunk *chunk = list_first_entry(&from->trace_chunks,
+            struct u_trace_chunk, node);
+      ralloc_steal(last_chunk, chunk);
+      list_del(&chunk->node);
+   }
 }
 
 /**
