@@ -49,10 +49,10 @@ u_trace_pipe_context_init(struct u_trace_context *utctx,
  */
 
 void
-trace_framebuffer_state(struct u_trace *ut, const struct pipe_framebuffer_state *pfb);
+trace_framebuffer_state(struct u_trace *ut, void *cs, const struct pipe_framebuffer_state *pfb);
 
 void
-trace_grid_info_pipe(struct u_trace *ut, const struct pipe_grid_info *pgrid);
+trace_grid_info_pipe(struct u_trace *ut, void *cs, const struct pipe_grid_info *pgrid);
 
 #ifdef  __cplusplus
 }

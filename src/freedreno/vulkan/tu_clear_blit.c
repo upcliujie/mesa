@@ -1175,7 +1175,7 @@ tu6_blit_image(struct tu_cmd_buffer *cmd,
          unreachable("unexpected D32_S8 aspect mask in blit_image");
    }
 
-   trace_start_blit(&cmd->trace);
+   trace_start_blit(&cmd->trace, cs);
 
    ops->setup(cmd, cs, format, info->dstSubresource.aspectMask,
               blit_param, false, dst_image->layout[0].ubwc);
@@ -1225,7 +1225,7 @@ tu6_blit_image(struct tu_cmd_buffer *cmd,
 
    ops->teardown(cmd, cs);
 
-   trace_end_blit(&cmd->trace,
+   trace_end_blit(&cmd->trace, cs,
                   ops == &r3d_ops,
                   src_image->vk_format,
                   dst_image->vk_format,
@@ -1836,7 +1836,7 @@ resolve_sysmem(struct tu_cmd_buffer *cmd,
 {
    const struct blit_ops *ops = &r2d_ops;
 
-   trace_start_resolve(&cmd->trace);
+   trace_start_resolve(&cmd->trace, cs);
 
    ops->setup(cmd, cs, format, VK_IMAGE_ASPECT_COLOR_BIT,
               0, false, dst->ubwc_enabled);
@@ -1855,7 +1855,7 @@ resolve_sysmem(struct tu_cmd_buffer *cmd,
 
    ops->teardown(cmd, cs);
 
-   trace_end_resolve(&cmd->trace);
+   trace_end_resolve(&cmd->trace, cs);
 }
 
 void
