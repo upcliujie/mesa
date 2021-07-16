@@ -2392,7 +2392,6 @@ img_filter_2d_ewa(const struct sp_sampler_view *sp_sview,
     * using the s_buffer/t_buffer and weight_buffer. Only when the buffer is
     * full, then the pixel values are read from the image.
     */
-   const float ddq = 2 * A;
 
    /* Scale ellipse formula to directly index the Filter Lookup Table.
     * i.e. scale so that F = WEIGHT_LUT_SIZE-1
@@ -2402,6 +2401,8 @@ img_filter_2d_ewa(const struct sp_sampler_view *sp_sview,
    B *= formScale;
    C *= formScale;
    /* F *= formScale; */ /* no need to scale F as we don't use it below here */
+
+   const float ddq = 2 * A;
 
    args.level = level;
    args.offset = offset;
