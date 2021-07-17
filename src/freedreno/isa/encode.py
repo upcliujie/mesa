@@ -266,7 +266,7 @@ class State(object):
             else:
                 extr = self.extractor_fallback(bitset, name)
         if field and field.get_c_typename() == 'TYPE_BITSET':
-            extr = 'encode' + isa.roots[field.type].get_c_name() + '(s, ' + p + ', ' + extr + ')'
+            extr = 'encode' + isa.roots[field.type].get_c_name() + '(&tmp, s, ' + p + ', ' + extr + ')'
         return extr
 
     # A limited resolver for field type which doesn't properly account for
@@ -367,11 +367,22 @@ struct encode_state;
 
 struct bitset_params;
 
-static uint64_t
-pack_field(unsigned low, unsigned high, uint64_t val)
+static void
+store_field(bitmask_t *valp, unsigned low, unsigned high, uint64_t val)
 {
-   val &= ((UINT64_C(1) << (1 + high - low)) - 1);
-   return val << low;
+   bitmask_t mask, tmp;
+
+   if (!val)
+      return;
+
+   BITSET_ZERO(mask);
+   BITSET_SET_RANGE(mask, 0, high - low);
+
+   uint64_t_to_bitmask(tmp, val);
+   BITSET_AND(tmp, tmp, mask);
+   BITSET_SHL(tmp, low);
+
+   BITSET_OR(*valp, *valp, tmp);
 }
 
 /*
@@ -380,7 +391,7 @@ pack_field(unsigned low, unsigned high, uint64_t val)
  */
 
 %for root in s.encode_roots():
-static uint64_t encode${root.get_c_name()}(struct encode_state *s, struct bitset_params *p, ${root.encode.type} src);
+static void encode${root.get_c_name()}(bitmask_t *valp, struct encode_state *s, struct bitset_params *p, ${root.encode.type} src);
 %endfor
 
 ## TODO before the expr evaluators, we should generate extract_FOO() for
@@ -423,7 +434,10 @@ ${s.expr_name(leaf.get_root(), expr)}(struct encode_state *s, struct bitset_para
 <% field = s.resolve_simple_field(leaf, fieldname) %>
 %      if field is not None and field.get_c_typename() == 'TYPE_BITSET':
           { ${encode_params(leaf, field)}
-          ${fieldname} = ${s.expr_extractor(leaf, fieldname, '&bp')};
+          bitmask_t tmp;
+
+          ${s.expr_extractor(leaf, fieldname, '&bp')};
+          ${fieldname} = bitmask_to_uint64_t(tmp);
           }
 %      else:
           ${fieldname} = ${s.expr_extractor(leaf, fieldname, 'p')};
@@ -482,8 +496,11 @@ ${s.expr_name(leaf.get_root(), expr)}(struct encode_state *s, struct bitset_para
 </%def>
 
 <%def name="encode_bitset(root, leaf)">
-      uint64_t fld, val = ${hex(leaf.get_pattern().match)};
+      uint64_t fld;
+      bitmask_t val = {};
+
       (void)fld;
+      uint64_t_to_bitmask(val, ${hex(leaf.get_pattern().match)});
 <% visited_exprs = [] %>
 %for case in s.bitset_cases(leaf):
 <%
@@ -508,11 +525,15 @@ ${s.expr_name(leaf.get_root(), expr)}(struct encode_state *s, struct bitset_para
            ${case_pre(root, expr)}
 %         if f.field.get_c_typename() == 'TYPE_BITSET':
              { ${encode_params(leaf, f.field)}
-             fld = encode${isa.roots[f.field.type].get_c_name()}(s, &bp, ${s.extractor(leaf, f.field.name)}); }
+               bitmask_t tmp;
+
+               encode${isa.roots[f.field.type].get_c_name()}(&tmp, s, &bp, ${s.extractor(leaf, f.field.name)});
+               fld = bitmask_to_uint64_t(tmp);
+             }
 %         else:
              fld = ${s.extractor(leaf, f.field.name)};
 %         endif
-          val |= pack_field(${f.field.low}, ${f.field.high}, fld);  /* ${f.field.name} */
+          store_field(&val, ${f.field.low}, ${f.field.high}, fld);  /* ${f.field.name} */
            ${case_post(root, expr)}
 %       endfor
 %   endfor
@@ -531,13 +552,14 @@ ${s.expr_name(leaf.get_root(), expr)}(struct encode_state *s, struct bitset_para
           continue
 %>
        ${case_pre(root, expr)}
-      val |= pack_field(${f.field.low}, ${f.field.high}, ${f.field.val});
+      store_field(&val, ${f.field.low}, ${f.field.high}, ${f.field.val});
        ${case_post(root, None)}
 %   endfor
       {}  /* in case no unconditional field to close out last '} else' */
     ${case_post(root, case.expr)}
 %endfor
-      return val;
+      BITSET_COPY(*valp, val);
+      return;
 </%def>
 
 /*
@@ -546,8 +568,8 @@ ${s.expr_name(leaf.get_root(), expr)}(struct encode_state *s, struct bitset_para
 
 %for root in s.encode_roots():
 
-static uint64_t
-encode${root.get_c_name()}(struct encode_state *s, struct bitset_params *p, ${root.encode.type} src)
+static void
+encode${root.get_c_name()}(bitmask_t *valp, struct encode_state *s, struct bitset_params *p, ${root.encode.type} src)
 {
 %   if root.encode.case_prefix is not None:
    switch (${root.get_c_name()}_case(s, src)) {
@@ -565,7 +587,7 @@ encode${root.get_c_name()}(struct encode_state *s, struct bitset_params *p, ${ro
       break;
    }
    mesa_loge("Unhandled ${root.name} encode case: 0x%x\\n", ${root.get_c_name()}_case(s, src));
-   return 0;
+   return;
 %   else: # single case bitset, no switch
 %      for leaf in s.encode_leafs(root):
        ${encode_bitset(root, leaf)}
