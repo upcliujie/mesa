@@ -1823,10 +1823,24 @@ TEST_F(cmod_propagation_test, int_saturate_nz_cmp)
     * 1: cmp.nz.f0(8)  null  dest  0
     *
     * = After =
-    * No change.
+    * 0: add.sat.nz.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
+   test_positive_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
+}
+
+TEST_F(cmod_propagation_test, uint_saturate_nz_cmp)
+{
+   /* = Before =
+    *
+    * 0: add.sat(8)    dest:UD  src0:UD  src1:UD
+    * 1: cmp.nz.f0(8)  null:D   dest:D   0
+    *
+    * = After =
+    * 0: add.sat.nz.f0(8)    dest:UD  src0:UD  src1:UD
+    */
+   test_positive_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_UD, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_nz_mov)
@@ -1837,9 +1851,9 @@ TEST_F(cmod_propagation_test, int_saturate_nz_mov)
     * 1: mov.nz.f0(8)  null  dest
     *
     * = After =
-    * No change.
+    * 0: add.sat.nz.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_MOV,
+   test_positive_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_MOV,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
@@ -1851,10 +1865,24 @@ TEST_F(cmod_propagation_test, int_saturate_z_cmp)
     * 1: cmp.z.f0(8)   null  dest  0
     *
     * = After =
-    * No change.
+    * 0: add.sat.z.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
+   test_positive_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
+}
+
+TEST_F(cmod_propagation_test, uint_saturate_z_cmp)
+{
+   /* = Before =
+    *
+    * 0: add.sat(8)   dest:UD  src0:UD  src1:UD
+    * 1: cmp.z.f0(8)  null:D   dest:D   0
+    *
+    * = After =
+    * 0: add.sat.z.f0(8)    dest:UD  src0:UD  src1:UD
+    */
+   test_positive_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_UD, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_z_mov)
@@ -1868,7 +1896,7 @@ TEST_F(cmod_propagation_test, int_saturate_z_mov)
     * 1: mov.z.f0(8)   null  dest
     *
     * = After =
-    * No change.
+    * No change. cmod propagation bails on every MOV except MOV.NZ.
     */
    test_negative_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
@@ -1882,9 +1910,9 @@ TEST_F(cmod_propagation_test, int_saturate_g_cmp)
     * 1: cmp.g.f0(8)   null  dest  0
     *
     * = After =
-    * No change.
+    * 0: add.sat.g.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_CMP,
+   test_positive_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_CMP,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
@@ -1896,7 +1924,7 @@ TEST_F(cmod_propagation_test, int_saturate_g_mov)
     * 1: mov.g.f0(8)   null  dest
     *
     * = After =
-    * No change.
+    * No change. cmod propagation bails on every MOV except MOV.NZ.
     */
    test_negative_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
@@ -1910,9 +1938,9 @@ TEST_F(cmod_propagation_test, int_saturate_le_cmp)
     * 1: cmp.le.f0(8)  null  dest  0
     *
     * = After =
-    * No change.
+    * 0: add.sat.le.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_CMP,
+   test_positive_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_CMP,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
@@ -1924,7 +1952,7 @@ TEST_F(cmod_propagation_test, int_saturate_le_mov)
     * 1: mov.le.f0(8)  null  dest
     *
     * = After =
-    * No change.
+    * No change. cmod propagation bails on every MOV except MOV.NZ.
     */
    test_negative_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
@@ -1938,9 +1966,9 @@ TEST_F(cmod_propagation_test, int_saturate_l_cmp)
     * 1: cmp.l.f0(8)  null  dest  0
     *
     * = After =
-    * No change
+    * 0: add.sat.l.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP,
+   test_positive_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
@@ -1952,7 +1980,7 @@ TEST_F(cmod_propagation_test, int_saturate_l_mov)
     * 1: mov.l.f0(8)  null  dest  0
     *
     * = After =
-    * No change
+    * No change. cmod propagation bails on every MOV except MOV.NZ.
     */
    test_negative_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
@@ -1966,9 +1994,9 @@ TEST_F(cmod_propagation_test, int_saturate_ge_cmp)
     * 1: cmp.ge.f0(8)  null  dest  0
     *
     * = After =
-    * No change
+    * 0: add.sat.ge.f0(8)    dest  src0  src1
     */
-   test_negative_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP,
+   test_positive_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
@@ -1980,7 +2008,7 @@ TEST_F(cmod_propagation_test, int_saturate_ge_mov)
     * 1: mov.ge.f0(8)  null  dest
     *
     * = After =
-    * No change
+    * No change. cmod propagation bails on every MOV except MOV.NZ.
     */
    test_negative_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV,
                                BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
