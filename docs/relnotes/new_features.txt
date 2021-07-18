@@ -1,0 +1,2 @@
+GL_ARB_texture_filter_anisotropic in llvmpipe
+Anisotropic texture filtering in lavapipe
