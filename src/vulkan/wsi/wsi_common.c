@@ -223,7 +223,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
                    VkDevice device,
                    const VkSwapchainCreateInfoKHR *pCreateInfo,
                    const VkAllocationCallbacks *pAllocator,
-                   bool use_prime_blit)
+                   bool use_buffer_blit)
 {
    VkResult result;
 
@@ -234,12 +234,12 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    chain->wsi = wsi;
    chain->device = device;
    chain->alloc = *pAllocator;
-   chain->use_prime_blit = use_prime_blit;
-   chain->prime_blit_queue = VK_NULL_HANDLE;
-   if (use_prime_blit && wsi->get_prime_blit_queue)
-      chain->prime_blit_queue = wsi->get_prime_blit_queue(device);
+   chain->use_buffer_blit = use_buffer_blit;
+   chain->buffer_blit_queue = VK_NULL_HANDLE;
+   if (use_buffer_blit && wsi->get_buffer_blit_queue)
+      chain->buffer_blit_queue = wsi->get_buffer_blit_queue(device);
 
-   int cmd_pools_count = chain->prime_blit_queue != VK_NULL_HANDLE ? 1 : wsi->queue_family_count;
+   int cmd_pools_count = chain->buffer_blit_queue != VK_NULL_HANDLE ? 1 : wsi->queue_family_count;
 
    chain->cmd_pools =
       vk_zalloc(pAllocator, sizeof(VkCommandPool) * cmd_pools_count, 8,
@@ -250,8 +250,8 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    for (uint32_t i = 0; i < cmd_pools_count; i++) {
       int queue_family_index = i;
 
-      if (chain->prime_blit_queue != VK_NULL_HANDLE) {
-         VK_FROM_HANDLE(vk_queue, queue, chain->prime_blit_queue);
+      if (chain->buffer_blit_queue != VK_NULL_HANDLE) {
+         VK_FROM_HANDLE(vk_queue, queue, chain->buffer_blit_queue);
          queue_family_index = queue->queue_family_index;
       }
       const VkCommandPoolCreateInfo cmd_pool_info = {
@@ -335,14 +335,14 @@ wsi_swapchain_finish(struct wsi_swapchain *chain)
 
       vk_free(&chain->alloc, chain->fences);
    }
-   if (chain->prime_blit_semaphores) {
+   if (chain->buffer_blit_semaphores) {
       for (unsigned i = 0; i < chain->image_count; i++)
-         chain->wsi->DestroySemaphore(chain->device, chain->prime_blit_semaphores[i], &chain->alloc);
+         chain->wsi->DestroySemaphore(chain->device, chain->buffer_blit_semaphores[i], &chain->alloc);
 
-      vk_free(&chain->alloc, chain->prime_blit_semaphores);
+      vk_free(&chain->alloc, chain->buffer_blit_semaphores);
    }
 
-   int cmd_pools_count = chain->prime_blit_queue != VK_NULL_HANDLE ?
+   int cmd_pools_count = chain->buffer_blit_queue != VK_NULL_HANDLE ?
       1 : chain->wsi->queue_family_count;
    for (uint32_t i = 0; i < cmd_pools_count; i++) {
       chain->wsi->DestroyCommandPool(chain->device, chain->cmd_pools[i],
@@ -359,18 +359,18 @@ wsi_destroy_image(const struct wsi_swapchain *chain,
 {
    const struct wsi_device *wsi = chain->wsi;
 
-   if (image->prime.blit_cmd_buffers) {
+   if (image->buffer.blit_cmd_buffers) {
       for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
          wsi->FreeCommandBuffers(chain->device, chain->cmd_pools[i],
-                                 1, &image->prime.blit_cmd_buffers[i]);
+                                 1, &image->buffer.blit_cmd_buffers[i]);
       }
-      vk_free(&chain->alloc, image->prime.blit_cmd_buffers);
+      vk_free(&chain->alloc, image->buffer.blit_cmd_buffers);
    }
 
    wsi->FreeMemory(chain->device, image->memory, &chain->alloc);
    wsi->DestroyImage(chain->device, image->image, &chain->alloc);
-   wsi->FreeMemory(chain->device, image->prime.memory, &chain->alloc);
-   wsi->DestroyBuffer(chain->device, image->prime.buffer, &chain->alloc);
+   wsi->FreeMemory(chain->device, image->buffer.memory, &chain->alloc);
+   wsi->DestroyBuffer(chain->device, image->buffer.buffer, &chain->alloc);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -566,12 +566,12 @@ wsi_CreateSwapchainKHR(VkDevice _device,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
-   if (swapchain->prime_blit_queue != VK_NULL_HANDLE) {
-      swapchain->prime_blit_semaphores = vk_zalloc(alloc,
-                                         sizeof (*swapchain->prime_blit_semaphores) * swapchain->image_count,
-                                         sizeof (*swapchain->prime_blit_semaphores),
+   if (swapchain->buffer_blit_queue != VK_NULL_HANDLE) {
+      swapchain->buffer_blit_semaphores = vk_zalloc(alloc,
+                                         sizeof (*swapchain->buffer_blit_semaphores) * swapchain->image_count,
+                                         sizeof (*swapchain->buffer_blit_semaphores),
                                          VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-      if (!swapchain->prime_blit_semaphores) {
+      if (!swapchain->buffer_blit_semaphores) {
          swapchain->destroy(swapchain, alloc);
          return VK_ERROR_OUT_OF_HOST_MEMORY;
       }
@@ -753,7 +753,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
          if (result != VK_SUCCESS)
             goto fail_present;
 
-         if (swapchain->use_prime_blit && swapchain->prime_blit_queue != VK_NULL_HANDLE) {
+         if (swapchain->use_buffer_blit && swapchain->buffer_blit_queue != VK_NULL_HANDLE) {
             const VkSemaphoreCreateInfo sem_info = {
                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
                .pNext = NULL,
@@ -761,7 +761,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
             };
             result = wsi->CreateSemaphore(device, &sem_info,
                                           &swapchain->alloc,
-                                          &swapchain->prime_blit_semaphores[image_index]);
+                                          &swapchain->buffer_blit_semaphores[image_index]);
             if (result != VK_SUCCESS)
                goto fail_present;
          }
@@ -817,22 +817,22 @@ wsi_common_queue_present(const struct wsi_device *wsi,
       }
 
       VkFence fence = swapchain->fences[image_index];
-      if (swapchain->use_prime_blit) {
-         if (swapchain->prime_blit_queue == VK_NULL_HANDLE) {
-            /* If we are using default prime blits, we need to perform the blit now.  The
+      if (swapchain->use_buffer_blit) {
+         if (swapchain->buffer_blit_queue == VK_NULL_HANDLE) {
+            /* If we are using default buffer blits, we need to perform the blit now.  The
              * command buffer is attached to the image.
              */
             submit_info.commandBufferCount = 1;
             submit_info.pCommandBuffers =
-               &image->prime.blit_cmd_buffers[queue_family_index];
-            mem_signal.memory = image->prime.memory;
+               &image->buffer.blit_cmd_buffers[queue_family_index];
+            mem_signal.memory = image->buffer.memory;
          } else {
             /* If we are using a blit using the driver's private queue, then do an empty
              * submit signalling a semaphore, and then submit the blit.
              */
             fence = VK_NULL_HANDLE;
             submit_info.signalSemaphoreCount = 1;
-            submit_info.pSignalSemaphores = &swapchain->prime_blit_semaphores[image_index];
+            submit_info.pSignalSemaphores = &swapchain->buffer_blit_semaphores[image_index];
          }
       }
 
@@ -841,22 +841,22 @@ wsi_common_queue_present(const struct wsi_device *wsi,
       if (result != VK_SUCCESS)
          goto fail_present;
 
-      if (swapchain->use_prime_blit && swapchain->prime_blit_queue != VK_NULL_HANDLE) {
+      if (swapchain->use_buffer_blit && swapchain->buffer_blit_queue != VK_NULL_HANDLE) {
          submit_info.commandBufferCount = 1;
 
-         if (swapchain->prime_blit_queue != VK_NULL_HANDLE) {
-            submit_info.pCommandBuffers = &image->prime.blit_cmd_buffers[0];
+         if (swapchain->buffer_blit_queue != VK_NULL_HANDLE) {
+            submit_info.pCommandBuffers = &image->buffer.blit_cmd_buffers[0];
             submit_info.waitSemaphoreCount = 1;
             submit_info.pWaitSemaphores = submit_info.pSignalSemaphores;
             submit_info.signalSemaphoreCount = 0;
             submit_info.pSignalSemaphores = NULL;
             /* Submit the copy to the private transfer queue */
-            result = wsi->QueueSubmit(swapchain->prime_blit_queue,
+            result = wsi->QueueSubmit(swapchain->buffer_blit_queue,
                                       1,
                                       &submit_info,
                                       swapchain->fences[image_index]);
          }
-         mem_signal.memory = image->prime.memory;
+         mem_signal.memory = image->buffer.memory;
       }
 
       if (wsi->sw)
@@ -920,4 +920,232 @@ wsi_GetDeviceGroupSurfacePresentModesKHR(VkDevice device,
    *pModes = VK_DEVICE_GROUP_PRESENT_MODE_LOCAL_BIT_KHR;
 
    return VK_SUCCESS;
+}
+
+static inline uint32_t
+align_u32(uint32_t v, uint32_t a)
+{
+   assert(a != 0 && a == (a & -a));
+   return (v + a - 1) & ~(a - 1);
+}
+
+static uint32_t
+vk_format_size(VkFormat format)
+{
+   switch (format) {
+   case VK_FORMAT_B8G8R8A8_UNORM:
+   case VK_FORMAT_B8G8R8A8_SRGB:
+      return 4;
+   default:
+      unreachable("Unknown WSI Format");
+   }
+}
+
+static uint32_t
+select_memory_type(const struct wsi_device *wsi,
+                   bool want_device_local,
+                   uint32_t type_bits)
+{
+   assert(type_bits);
+
+   bool all_local = true;
+   for (uint32_t i = 0; i < wsi->memory_props.memoryTypeCount; i++) {
+       const VkMemoryType type = wsi->memory_props.memoryTypes[i];
+       bool local = type.propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+       if ((type_bits & (1 << i)) && local == want_device_local)
+         return i;
+       all_local &= local;
+   }
+
+   /* ignore want_device_local when all memory types are device-local */
+   if (all_local) {
+      assert(!want_device_local);
+      return ffs(type_bits) - 1;
+   }
+
+   unreachable("No memory type found");
+}
+
+VkResult
+wsi_create_buffer_image(const struct wsi_swapchain *chain,
+                        const VkSwapchainCreateInfoKHR *pCreateInfo,
+                        struct wsi_image *image,
+                        unsigned stride_align,
+                        unsigned size_align,
+                        const void *buffer_create_extra,
+                        const void *buffer_memory_extra)
+{
+   const struct wsi_device *wsi = chain->wsi;
+   VkResult result;
+
+   memset(image, 0, sizeof(*image));
+
+   const uint32_t cpp = vk_format_size(pCreateInfo->imageFormat);
+   const uint32_t linear_stride = align_u32(pCreateInfo->imageExtent.width * cpp,
+                                            stride_align);
+
+   uint32_t linear_size = linear_stride * pCreateInfo->imageExtent.height;
+   linear_size = align_u32(linear_size, size_align);
+
+   const VkBufferCreateInfo buffer_info = {
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .pNext = buffer_create_extra,
+      .size = linear_size,
+      .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+   };
+   result = wsi->CreateBuffer(chain->device, &buffer_info,
+                              &chain->alloc, &image->buffer.buffer);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   VkMemoryRequirements reqs;
+   wsi->GetBufferMemoryRequirements(chain->device, image->buffer.buffer, &reqs);
+   assert(reqs.size <= linear_size);
+
+   const VkMemoryDedicatedAllocateInfo buffer_memory_dedicated_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+      .pNext = buffer_memory_extra,
+      .image = VK_NULL_HANDLE,
+      .buffer = image->buffer.buffer,
+   };
+   const VkMemoryAllocateInfo buffer_memory_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .pNext = &buffer_memory_dedicated_info,
+      .allocationSize = linear_size,
+      .memoryTypeIndex = select_memory_type(wsi, false, reqs.memoryTypeBits),
+   };
+   result = wsi->AllocateMemory(chain->device, &buffer_memory_info,
+                                &chain->alloc, &image->buffer.memory);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   result = wsi->BindBufferMemory(chain->device, image->buffer.buffer,
+                                  image->buffer.memory, 0);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   const struct wsi_image_create_info image_wsi_info = {
+      .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
+      .buffer_blit_src = true,
+   };
+   const VkImageCreateInfo image_info = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+      .pNext = &image_wsi_info,
+      .flags = 0,
+      .imageType = VK_IMAGE_TYPE_2D,
+      .format = pCreateInfo->imageFormat,
+      .extent = {
+         .width = pCreateInfo->imageExtent.width,
+         .height = pCreateInfo->imageExtent.height,
+         .depth = 1,
+      },
+      .mipLevels = 1,
+      .arrayLayers = 1,
+      .samples = VK_SAMPLE_COUNT_1_BIT,
+      .tiling = VK_IMAGE_TILING_OPTIMAL,
+      .usage = pCreateInfo->imageUsage | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+      .sharingMode = pCreateInfo->imageSharingMode,
+      .queueFamilyIndexCount = pCreateInfo->queueFamilyIndexCount,
+      .pQueueFamilyIndices = pCreateInfo->pQueueFamilyIndices,
+      .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+   };
+   result = wsi->CreateImage(chain->device, &image_info,
+                             &chain->alloc, &image->image);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   wsi->GetImageMemoryRequirements(chain->device, image->image, &reqs);
+
+   const VkMemoryDedicatedAllocateInfo memory_dedicated_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+      .pNext = NULL,
+      .image = image->image,
+      .buffer = VK_NULL_HANDLE,
+   };
+   const VkMemoryAllocateInfo memory_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .pNext = &memory_dedicated_info,
+      .allocationSize = reqs.size,
+      .memoryTypeIndex = select_memory_type(wsi, true, reqs.memoryTypeBits),
+   };
+   result = wsi->AllocateMemory(chain->device, &memory_info,
+                                &chain->alloc, &image->memory);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   result = wsi->BindImageMemory(chain->device, image->image,
+                                 image->memory, 0);
+   if (result != VK_SUCCESS)
+      goto fail;
+
+   image->buffer.blit_cmd_buffers =
+      vk_zalloc(&chain->alloc,
+                sizeof(VkCommandBuffer) * wsi->queue_family_count, 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!image->buffer.blit_cmd_buffers) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      goto fail;
+   }
+
+   int cmd_buffer_count = chain->buffer_blit_queue != VK_NULL_HANDLE ?
+                          1 : wsi->queue_family_count;
+   for (uint32_t i = 0; i < cmd_buffer_count; i++) {
+      const VkCommandBufferAllocateInfo cmd_buffer_info = {
+         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+         .pNext = NULL,
+         .commandPool = chain->cmd_pools[i],
+         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+         .commandBufferCount = 1,
+      };
+      result = wsi->AllocateCommandBuffers(chain->device, &cmd_buffer_info,
+                                           &image->buffer.blit_cmd_buffers[i]);
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      const VkCommandBufferBeginInfo begin_info = {
+         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      };
+      wsi->BeginCommandBuffer(image->buffer.blit_cmd_buffers[i], &begin_info);
+
+      struct VkBufferImageCopy buffer_image_copy = {
+         .bufferOffset = 0,
+         .bufferRowLength = linear_stride / vk_format_size(pCreateInfo->imageFormat),
+         .bufferImageHeight = 0,
+         .imageSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+         },
+         .imageOffset = { .x = 0, .y = 0, .z = 0 },
+         .imageExtent = {
+            .width = pCreateInfo->imageExtent.width,
+            .height = pCreateInfo->imageExtent.height,
+            .depth = 1,
+         },
+      };
+      wsi->CmdCopyImageToBuffer(image->buffer.blit_cmd_buffers[i],
+                                image->image,
+                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                image->buffer.buffer,
+                                1, &buffer_image_copy);
+
+      result = wsi->EndCommandBuffer(image->buffer.blit_cmd_buffers[i]);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
+
+   image->num_planes = 1;
+   image->sizes[0] = linear_size;
+   image->row_pitches[0] = linear_stride;
+   image->offsets[0] = 0;
+
+   return VK_SUCCESS;
+
+fail:
+   wsi_destroy_image(chain, image);
+
+   return result;
 }

@@ -34,7 +34,7 @@ struct wsi_image {
       VkBuffer buffer;
       VkDeviceMemory memory;
       VkCommandBuffer *blit_cmd_buffers;
-   } prime;
+   } buffer;
 
    uint64_t drm_modifier;
    int num_planes;
@@ -52,18 +52,18 @@ struct wsi_swapchain {
    VkDevice device;
    VkAllocationCallbacks alloc;
    VkFence* fences;
-   VkSemaphore* prime_blit_semaphores;
+   VkSemaphore* buffer_blit_semaphores;
    VkPresentModeKHR present_mode;
    uint32_t image_count;
 
-   bool use_prime_blit;
+   bool use_buffer_blit;
 
-   /* If the driver wants to use a special queue to execute the prime blit,
-    * it'll implement the wsi_device::get_prime_blit_queue callback.
+   /* If the driver wants to use a special queue to execute the buffer blit,
+    * it'll implement the wsi_device::get_buffer_blit_queue callback.
     * The created queue will be stored here and will be used to execute the
-    * prime blit instead of using the present queue.
+    * buffer blit instead of using the present queue.
     */
-   VkQueue prime_blit_queue;
+   VkQueue buffer_blit_queue;
 
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
@@ -89,7 +89,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
                    VkDevice device,
                    const VkSwapchainCreateInfoKHR *pCreateInfo,
                    const VkAllocationCallbacks *pAllocator,
-                   bool use_prime_blit);
+                   bool use_buffer_blit);
 
 enum VkPresentModeKHR
 wsi_swapchain_get_present_mode(struct wsi_device *wsi,
@@ -105,6 +105,16 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
                         const uint64_t *const *modifiers,
                         uint8_t *(alloc_shm)(struct wsi_image *image, unsigned size),
                         struct wsi_image *image);
+
+
+VkResult
+wsi_create_buffer_image(const struct wsi_swapchain *chain,
+                               const VkSwapchainCreateInfoKHR *pCreateInfo,
+                               struct wsi_image *image,
+                               unsigned stride_align,
+                               unsigned size_align,
+                               const void *buffer_create_extra,
+                               const void *buffer_memory_extra);
 
 VkResult
 wsi_create_prime_image(const struct wsi_swapchain *chain,
