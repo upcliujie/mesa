@@ -1044,6 +1044,32 @@ replace_resume_with_halt(nir_shader *shader, nir_instr *keep)
    }
 }
 
+static void
+replace_empty_phi_with_undef(nir_shader *shader)
+{
+   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
+
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
+   nir_foreach_block_safe(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         if (instr->type != nir_instr_type_phi)
+            continue;
+
+         nir_phi_instr *phi = nir_instr_as_phi(instr);
+         if (!exec_list_length(&phi->srcs))
+            continue;
+
+         b.cursor = nir_instr_remove(instr);
+         nir_ssa_def *undef =
+            nir_ssa_undef(&b, phi->dest.ssa.num_components,
+                          phi->dest.ssa.bit_size);
+         nir_ssa_def_rewrite_uses(&phi->dest.ssa, undef);
+      }
+   }
+}
+
 /** Lower shader call instructions to split shaders.
  *
  * Shader calls can be split into an initial shader and a series of "resume"
@@ -1116,6 +1142,7 @@ nir_lower_shader_calls(nir_shader *shader,
    for (unsigned i = 0; i < num_calls; i++) {
       nir_instr *resume_instr = lower_resume(resume_shaders[i], i);
       replace_resume_with_halt(resume_shaders[i], resume_instr);
+      replace_empty_phi_with_undef(resume_shaders[i]);
    }
 
    *resume_shaders_out = resume_shaders;
