@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-#include "compiler.h"
+#include "va_compiler.h"
 #include "valhall.h"
 
 /* This file contains the final passes of the compiler. Running after
@@ -29,18 +29,758 @@
  * bits on the wire (as well as fixup branches)
  */
 
+/*
+ * Validate that two adjacent 32-bit sources form an aligned 64-bit register
+ * pair. This is a compiler invariant, required on Valhall but not on Bifrost.
+ */
 static void
-va_pack_instr(const bi_instr *I, struct util_dynarray *emission)
+va_validate_register_pair(const bi_instr *I, unsigned s)
 {
-   uint64_t hex = (0xC0ull << 40); // NOP
-   util_dynarray_append(emission, uint64_t, hex);
+   bi_index lo = I->src[s], hi = I->src[s + 1];
+
+   assert(lo.type == hi.type);
+
+   if (lo.type == BI_INDEX_REGISTER) {
+      assert(hi.value & 1);
+      assert(hi.value == lo.value + 1);
+   } else {
+      assert(hi.offset & 1);
+      assert(hi.offset == lo.offset + 1);
+   }
+}
+
+static unsigned
+va_pack_reg(bi_index idx)
+{
+   assert(idx.type == BI_INDEX_REGISTER);
+   assert(idx.value < 64);
+   return idx.value;
+}
+
+static unsigned
+va_pack_src(bi_index idx)
+{
+   if (idx.type == BI_INDEX_REGISTER) {
+      unsigned value = va_pack_reg(idx);
+      if (idx.discard) value |= (1 << 6);
+      return value;
+   } else if (idx.type == BI_INDEX_FAU) {
+      assert(idx.offset <= 1);
+
+      unsigned val = (idx.value & BITFIELD_MASK(5)) << 1;
+      if (idx.offset) val++;
+
+      if (idx.value & BIR_FAU_IMMEDIATE)
+         return (0x3 << 6) | val;
+      else if (idx.value & BIR_FAU_UNIFORM)
+         return (0x2 << 6) | val;
+      else if (idx.value == BIR_FAU_LANE_ID)
+         return (0x3 << 6) | (32+2);
+      else if (idx.value == BIR_FAU_ATEST_PARAM)
+         return (0x3 << 6) | (0x2A);
+      else if (idx.value == BIR_FAU_PROGRAM_COUNTER)
+         return (0x7 << 5) | (0xF << 1);
+      else if (idx.value == BIR_FAU_TLS_PTR)
+         return (0x7 << 5) | (0x1 << 1);
+      else if (idx.value == BIR_FAU_WLS_PTR)
+         return (0x7 << 5) | (0x3 << 1);
+      else if (idx.value >= BIR_FAU_BLEND_0 && idx.value <= BIR_FAU_BLEND_0 + 8)
+         return (0x3 << 6) | (0x30 + ((idx.value - BIR_FAU_BLEND_0) << 1) + idx.offset);
+      else
+         unreachable("TODO: handle fau");
+   }
+
+   unreachable("Invalid type");
+}
+
+static unsigned
+va_pack_wrmask(enum bi_swizzle swz)
+{
+   switch (swz) {
+   case BI_SWIZZLE_H00: return 0x1;
+   case BI_SWIZZLE_H11: return 0x2;
+   case BI_SWIZZLE_H01: return 0x3;
+   default: unreachable("Invalid write mask");
+   }
+}
+
+static unsigned
+va_pack_atom_opc(enum bi_atom_opc opc)
+{
+   switch (opc) {
+   case BI_ATOM_OPC_AADD: return 2;
+   case BI_ATOM_OPC_ASMIN: return 8;
+   case BI_ATOM_OPC_ASMAX: return 9;
+   case BI_ATOM_OPC_AUMIN: return 10;
+   case BI_ATOM_OPC_AUMAX: return 11;
+   case BI_ATOM_OPC_AAND: return 12;
+   case BI_ATOM_OPC_AOR: return 13;
+   case BI_ATOM_OPC_AXOR: return 14;
+   case BI_ATOM_OPC_ACMPXCHG:
+   case BI_ATOM_OPC_AXCHG: return 15;
+   default: unreachable("Invalid atom_opc");
+   }
+}
+
+static unsigned
+va_pack_atom_opc_1(enum bi_atom_opc opc)
+{
+   switch (opc) {
+   case BI_ATOM_OPC_AINC: return 0;
+   case BI_ATOM_OPC_ADEC: return 1;
+   case BI_ATOM_OPC_AUMAX1: return 2;
+   case BI_ATOM_OPC_ASMAX1: return 3;
+   case BI_ATOM_OPC_AOR1: return 4;
+   default: unreachable("Invalid atom_opc");
+   }
+}
+
+static unsigned
+va_pack_dest(bi_index index)
+{
+   return va_pack_reg(index) | (va_pack_wrmask(index.swizzle) << 6);
+}
+
+static unsigned
+va_pack_widen_f32(enum bi_swizzle swz)
+{
+   switch (swz) {
+   case BI_SWIZZLE_H01: return 0;
+   case BI_SWIZZLE_H00: return 1;
+   case BI_SWIZZLE_H11: return 2;
+   default: unreachable("Invalid widen");
+   }
+}
+
+/* bits are reversed */
+static unsigned
+va_pack_swizzle_f16(enum bi_swizzle swz)
+{
+   switch (swz) {
+   case BI_SWIZZLE_H00: return 0;
+   case BI_SWIZZLE_H10: return 1;
+   case BI_SWIZZLE_H01: return 2;
+   case BI_SWIZZLE_H11: return 3;
+   default: unreachable("Invalid swizzle");
+   }
+}
+
+static unsigned
+va_pack_widen(enum bi_swizzle swz, enum va_size size)
+{
+   if (size == VA_SIZE_8) {
+      switch (swz) {
+      case BI_SWIZZLE_H01: return 0;
+      case BI_SWIZZLE_H00: return 2;
+      case BI_SWIZZLE_H11: return 3;
+      case BI_SWIZZLE_B0000: return 4;
+      case BI_SWIZZLE_B1111: return 5;
+      case BI_SWIZZLE_B2222: return 6;
+      case BI_SWIZZLE_B3333: return 7;
+      default: unreachable("Exotic swizzles not yet handled");
+      }
+   } else if (size == VA_SIZE_16) {
+      switch (swz) {
+      case BI_SWIZZLE_H00: return 0;
+      case BI_SWIZZLE_H10: return 1;
+      case BI_SWIZZLE_H01: return 2;
+      case BI_SWIZZLE_H11: return 3;
+      case BI_SWIZZLE_B0000: return 4;
+      case BI_SWIZZLE_B1111: return 8;
+      case BI_SWIZZLE_B2222: return 7;
+      case BI_SWIZZLE_B3333: return 10;
+      default: unreachable("Exotic swizzles not yet handled");
+      }
+   } else if (size == VA_SIZE_32) {
+      switch (swz) {
+      case BI_SWIZZLE_H01: return 0;
+      case BI_SWIZZLE_H00: return 2;
+      case BI_SWIZZLE_H11: return 3;
+      case BI_SWIZZLE_B0000: return 4;
+      case BI_SWIZZLE_B1111: return 5;
+      case BI_SWIZZLE_B2222: return 6;
+      case BI_SWIZZLE_B3333: return 7;
+      default: unreachable("Invalid swizzle");
+      }
+   } else {
+      unreachable("TODO: other type sizes");
+   }
+}
+
+static unsigned
+va_pack_halfswizzle(enum bi_swizzle swz)
+{
+   switch (swz) {
+   case BI_SWIZZLE_B0000: return 0;
+   case BI_SWIZZLE_B1111: return 5;
+   case BI_SWIZZLE_B2222: return 10;
+   case BI_SWIZZLE_B3333: return 15;
+   case BI_SWIZZLE_B0011: return 4;
+   case BI_SWIZZLE_B2233: return 14;
+   case BI_SWIZZLE_B0022: return 8;
+   default: unreachable("todo: more halfswizzles");
+   }
+}
+
+static unsigned
+va_pack_shift_lanes(enum bi_swizzle swz)
+{
+   switch (swz) {
+   case BI_SWIZZLE_H01: return 0; // b02
+   case BI_SWIZZLE_B0000: return 4; // b00
+   default: unreachable("todo: more shifts");
+   }
+}
+
+static unsigned
+va_pack_branch_lane(enum bi_swizzle swz)
+{
+   switch (swz) {
+   case BI_SWIZZLE_H01: return 0;
+   case BI_SWIZZLE_H00: return 1;
+   case BI_SWIZZLE_H11: return 2;
+   default: unreachable("Invalid branch lane");
+   }
+}
+
+static uint64_t
+va_pack_varying_format(const bi_instr *I)
+{
+   switch (I->register_format) {
+   case BI_REGISTER_FORMAT_S32:
+   case BI_REGISTER_FORMAT_U32: return 0;
+   case BI_REGISTER_FORMAT_S16:
+   case BI_REGISTER_FORMAT_U16: return 1;
+   case BI_REGISTER_FORMAT_F32: return 2;
+   case BI_REGISTER_FORMAT_F16: return 3;
+   default: unreachable("unhandled register format");
+   }
+}
+
+static uint64_t
+va_pack_alu(const bi_instr *I)
+{
+   struct va_opcode_info info = valhall_opcodes[I->op];
+   uint64_t hex = 0;
+
+   switch (I->op) {
+   /* Add FREXP flags */
+   case BI_OPCODE_FREXPE_F32:
+   case BI_OPCODE_FREXPE_V2F16:
+   case BI_OPCODE_FREXPM_F32:
+   case BI_OPCODE_FREXPM_V2F16:
+      if (I->sqrt) hex |= 1ull << 24;
+      if (I->log) hex |= 1ull << 25;
+      break;
+
+   /* Add mux type */
+   case BI_OPCODE_MUX_I32:
+   case BI_OPCODE_MUX_V2I16:
+   case BI_OPCODE_MUX_V4I8:
+      hex |= (uint64_t) I->mux << 32;
+      break;
+
+   /* Add .eq flag */
+   case BI_OPCODE_BRANCHZ_I16:
+   case BI_OPCODE_BRANCHZI:
+      assert(I->cmpf == BI_CMPF_EQ || I->cmpf == BI_CMPF_NE);
+
+      if (I->cmpf == BI_CMPF_EQ) hex |= (1ull << 36);
+
+      if (I->op == BI_OPCODE_BRANCHZI)
+         hex |= (0x1ull << 40); /* Absolute */
+      else
+         hex |= ((uint64_t) I->branch_offset & BITFIELD_MASK(27)) << 8;
+
+      break;
+
+   /* Add arithmetic flag */
+   case BI_OPCODE_RSHIFT_AND_I32:
+   case BI_OPCODE_RSHIFT_AND_V2I16:
+   case BI_OPCODE_RSHIFT_AND_V4I8:
+   case BI_OPCODE_RSHIFT_OR_I32:
+   case BI_OPCODE_RSHIFT_OR_V2I16:
+   case BI_OPCODE_RSHIFT_OR_V4I8:
+   case BI_OPCODE_RSHIFT_XOR_I32:
+   case BI_OPCODE_RSHIFT_XOR_V2I16:
+   case BI_OPCODE_RSHIFT_XOR_V4I8:
+      hex |= (uint64_t) I->arithmetic << 34;
+      break;
+
+   case BI_OPCODE_LEA_BUF_IMM:
+      /* Buffer table index */
+      hex |= 0xD << 8;
+      break;
+
+   case BI_OPCODE_LEA_ATTR_IMM:
+      hex |= ((uint64_t) I->table) << 16;
+      hex |= ((uint64_t) I->attribute_index) << 20;
+      break;
+
+   case BI_OPCODE_IADD_IMM_I32:
+   case BI_OPCODE_IADD_IMM_V2I16:
+   case BI_OPCODE_IADD_IMM_V4I8:
+   case BI_OPCODE_FADD_IMM_F32:
+   case BI_OPCODE_FADD_IMM_V2F16:
+      hex |= ((uint64_t) I->index) << 8;
+      break;
+
+   case BI_OPCODE_CLPER_I32:
+      hex |= ((uint64_t) I->inactive_result) << 22;
+      hex |= ((uint64_t) I->lane_op) << 32;
+      hex |= ((uint64_t) I->subgroup) << 36;
+      break;
+
+   case BI_OPCODE_LD_VAR_BUF_F16:
+   case BI_OPCODE_LD_VAR_BUF_F32:
+   case BI_OPCODE_LD_VAR_BUF_IMM_F16:
+   case BI_OPCODE_LD_VAR_BUF_IMM_F32:
+   case BI_OPCODE_LD_VAR_SPECIAL:
+      if (I->op == BI_OPCODE_LD_VAR_SPECIAL)
+         hex |= ((uint64_t) I->varying_name) << 12; /* instead of index */
+      else if (I->op == BI_OPCODE_LD_VAR_BUF_IMM_F16 ||
+               I->op == BI_OPCODE_LD_VAR_BUF_IMM_F32) {
+         hex |= ((uint64_t) I->index) << 16;
+      }
+
+      hex |= va_pack_varying_format(I) << 24;
+      hex |= ((uint64_t) I->update) << 36;
+      hex |= ((uint64_t) I->sample) << 38;
+      break;
+
+   case BI_OPCODE_LD_ATTR_IMM:
+      hex |= ((uint64_t) I->table) << 16;
+      hex |= ((uint64_t) I->attribute_index) << 20;
+      break;
+
+   case BI_OPCODE_ZS_EMIT:
+      if (I->stencil) hex |= (1 << 24);
+      if (I->z) hex |= (1 << 25);
+      break;
+
+   default:
+      break;
+   }
+
+   /* FMA_RSCALE.f32 special modes treated as extra opcodes */
+   if (I->op == BI_OPCODE_FMA_RSCALE_F32) {
+      assert(I->special < 4);
+      hex |= ((uint64_t) I->special) << 48;
+   }
+
+   /* Add the normal destination or a placeholder.  Staging destinations are
+    * added elsewhere, as they require special handling for control fields.
+    */
+   if (info.has_dest && info.nr_staging_dests == 0) {
+      hex |= (uint64_t) va_pack_dest(I->dest[0]) << 40;
+   } else if (info.nr_staging_dests == 0 && info.nr_staging_srcs == 0) {
+      assert(bi_is_null(I->dest[0]));
+      hex |= 0xC0ull << 40; /* Placeholder */
+   }
+
+   bool swap12 = va_swap_12(I->op);
+
+   /* First src is staging if we read, skip it when packing sources */
+   unsigned src_offset = bi_opcode_props[I->op].sr_read ? 1 : 0;
+
+   for (unsigned i = 0; i < info.nr_srcs; ++i) {
+      unsigned logical_i = (swap12 && i == 1) ? 2 : (swap12 && i == 2) ? 1 : i;
+
+      struct va_src_info src_info = info.srcs[i];
+      enum va_size size = src_info.size;
+
+      bi_index src = I->src[logical_i + src_offset];
+      hex |= (uint64_t) va_pack_src(src) << (8 * i);
+
+      if (src_info.notted) {
+         if (src.neg) hex |= (1ull << 35);
+      } else if (src_info.absneg) {
+         unsigned neg_offs = 32 + 2 + ((2 - i) * 2);
+         unsigned abs_offs = 33 + 2 + ((2 - i) * 2);
+
+         if (src.neg) hex |= 1ull << neg_offs;
+         if (src.abs) hex |= 1ull << abs_offs;
+      } else {
+         assert(!src.neg && "Unexpected negate");
+         assert(!src.abs && "Unexpected absolute value");
+      }
+
+      if (src_info.swizzle) {
+         unsigned offs = 24 + ((2 - i) * 2);
+         unsigned S = src.swizzle;
+         assert(size == VA_SIZE_16 || size == VA_SIZE_32);
+
+         uint64_t v = (size == VA_SIZE_32 ? va_pack_widen_f32(S) : va_pack_swizzle_f16(S));
+         hex |= v << offs;
+      } else if (src_info.widen) {
+         unsigned offs = (i == 1) ? 26 : 36;
+         hex |= (uint64_t) va_pack_widen(src.swizzle, src_info.size) << offs;
+      } else if (src_info.lane) {
+         unsigned offs = 28;
+         assert(i == 0 && "todo: MKVEC");
+         if (src_info.size == VA_SIZE_16) {
+            hex |= (src.swizzle == BI_SWIZZLE_H11 ? 1 : 0) << offs;
+         } else if (I->op == BI_OPCODE_BRANCHZ_I16) {
+            hex |= ((uint64_t) va_pack_branch_lane(src.swizzle) << 37);
+         } else {
+            assert(src_info.size == VA_SIZE_8);
+            unsigned comp = src.swizzle - BI_SWIZZLE_B0000;
+            assert(comp < 4);
+            hex |= (uint64_t) comp << offs;
+         }
+      } else if (src_info.lanes) {
+         assert(src_info.size == VA_SIZE_8);
+         assert(i == 1);
+         hex |= (uint64_t) va_pack_shift_lanes(src.swizzle) << 26;
+      } else if (src_info.combine) {
+         /* Treat as swizzle, subgroup ops not yet supported */
+         assert(src_info.size == VA_SIZE_32);
+         assert(i == 0);
+         hex |= (uint64_t) va_pack_widen_f32(src.swizzle) << 37;
+      } else if (src_info.halfswizzle) {
+         assert(src_info.size == VA_SIZE_8);
+         assert(i == 0);
+         hex |= (uint64_t) va_pack_halfswizzle(src.swizzle) << 36;
+      } else {
+         assert(src.swizzle == BI_SWIZZLE_H01 && "Unexpected swizzle");
+      }
+   }
+
+   if (info.clamp) hex |= (uint64_t) I->clamp << 32;
+   if (info.round_mode) hex |= (uint64_t) I->round << 30;
+   if (info.condition) hex |= (uint64_t) I->cmpf << 32;
+   if (info.result_type) hex |= (uint64_t) I->result_type << 30;
+
+   return hex;
+}
+
+static uint64_t
+va_pack_byte_offset(const bi_instr *I)
+{
+   int16_t offset = I->byte_offset;
+   assert(offset == I->byte_offset && "offset overflow");
+
+   uint16_t offset_as_u16 = offset;
+   return ((uint64_t) offset_as_u16) << 8;
+}
+
+static uint64_t
+va_pack_byte_offset_8(const bi_instr *I)
+{
+   uint8_t offset = I->byte_offset;
+   assert(offset == I->byte_offset && "offset overflow");
+
+   return ((uint64_t) offset) << 8;
+}
+
+static uint64_t
+va_pack_load(const bi_instr *I, bool buffer_descriptor)
+{
+   const uint8_t load_lane_identity[8] = {
+      0, 0, 0, 0, 4, 7, 6, 7
+   };
+
+   // load lane identity
+   unsigned memory_size = (valhall_opcodes[I->op].exact >> 27) & 0x7;
+   uint64_t hex = (uint64_t) load_lane_identity[memory_size] << 36;
+
+   // unsigned
+   hex |= (1ull << 39);
+
+   if (!buffer_descriptor)
+      hex |= va_pack_byte_offset(I);
+
+   hex |= (uint64_t) va_pack_src(I->src[0]) << 0;
+
+   if (buffer_descriptor)
+      hex |= (uint64_t) va_pack_src(I->src[1]) << 8;
+
+   return hex;
+}
+
+enum va_memory_access {
+   VA_MEMORY_ACCESS_NONE = 0,
+   VA_MEMORY_ACCESS_ISTREAM = 1,
+   VA_MEMORY_ACCESS_ESTREAM = 2,
+   VA_MEMORY_ACCESS_FORCE = 3,
+};
+
+static uint64_t
+va_pack_memory_access(const bi_instr *I)
+{
+   switch (I->seg) {
+   case BI_SEG_TL:   return VA_MEMORY_ACCESS_FORCE;
+   case BI_SEG_POS:  return VA_MEMORY_ACCESS_ISTREAM;
+   case BI_SEG_VARY: return VA_MEMORY_ACCESS_ESTREAM;
+   default:          return VA_MEMORY_ACCESS_NONE;
+   }
+}
+
+static uint64_t
+va_pack_store(const bi_instr *I)
+{
+   uint64_t hex = va_pack_memory_access(I) << 24;
+
+   va_validate_register_pair(I, 1);
+   hex |= (uint64_t) va_pack_src(I->src[1]) << 0;
+
+   hex |= va_pack_byte_offset(I);
+
+   return hex;
+}
+
+static unsigned
+va_pack_lod_mode(enum bi_va_lod_mode mode)
+{
+   switch (mode) {
+   case BI_VA_LOD_MODE_ZERO_LOD: return 0;
+   case BI_VA_LOD_MODE_COMPUTED_LOD: return 1;
+   case BI_VA_LOD_MODE_EXPLICIT: return 4;
+   case BI_VA_LOD_MODE_COMPUTED_BIAS: return 5;
+   case BI_VA_LOD_MODE_GRDESC: return 6;
+   }
+
+   unreachable("Invalid LOD mode");
+}
+
+static unsigned
+va_pack_register_type(enum bi_register_format regfmt)
+{
+   switch (regfmt) {
+   case BI_REGISTER_FORMAT_F16:
+   case BI_REGISTER_FORMAT_F32:
+      return 1;
+
+   case BI_REGISTER_FORMAT_U16:
+   case BI_REGISTER_FORMAT_U32:
+      return 2;
+
+   case BI_REGISTER_FORMAT_S16:
+   case BI_REGISTER_FORMAT_S32:
+      return 3;
+
+   default:
+      unreachable("Invalid register format");
+   }
+}
+
+static uint64_t
+va_pack_register_format(const bi_instr *I)
+{
+   switch (I->register_format) {
+   case BI_REGISTER_FORMAT_AUTO: return 0;
+   case BI_REGISTER_FORMAT_F32: return 2;
+   case BI_REGISTER_FORMAT_F16: return 3;
+   case BI_REGISTER_FORMAT_S32: return 4;
+   case BI_REGISTER_FORMAT_S16: return 5;
+   case BI_REGISTER_FORMAT_U32: return 6;
+   case BI_REGISTER_FORMAT_U16: return 7;
+   default: unreachable("unhandled register format");
+   }
+}
+
+uint64_t
+va_pack_instr(const bi_instr *I, unsigned action)
+{
+   struct va_opcode_info info = valhall_opcodes[I->op];
+
+   uint64_t hex = info.exact | (((uint64_t) action) << 59);
+   hex |= ((uint64_t) va_select_fau_page(I)) << 57;
+
+   if (info.slot) {
+      unsigned slot = (I->op == BI_OPCODE_BARRIER) ? 7 : 0;
+      hex |= (slot << 30);
+   }
+
+   if (info.sr_count) {
+      bool read = bi_opcode_props[I->op].sr_read;
+      bi_index sr = read ? I->src[0] : I->dest[0];
+
+      unsigned count = read ?
+         bi_count_read_registers(I, 0) :
+         bi_count_write_registers(I, 0);
+
+      hex |= ((uint64_t) count << 33);
+      hex |= (uint64_t) va_pack_reg(sr) << 40;
+      hex |= ((uint64_t) info.sr_control << 46);
+   }
+
+   if (info.sr_write_count) {
+      hex |= ((uint64_t) bi_count_write_registers(I, 0) - 1) << 36;
+      hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
+   }
+
+   if (info.vecsize)
+      hex |= ((uint64_t) I->vecsize << 28);
+
+   if (info.register_format)
+      hex |= va_pack_register_format(I) << 24;
+
+   switch (I->op) {
+   case BI_OPCODE_LOAD_I8:
+   case BI_OPCODE_LOAD_I16:
+   case BI_OPCODE_LOAD_I24:
+   case BI_OPCODE_LOAD_I32:
+   case BI_OPCODE_LOAD_I48:
+   case BI_OPCODE_LOAD_I64:
+   case BI_OPCODE_LOAD_I96:
+   case BI_OPCODE_LOAD_I128:
+      hex |= va_pack_load(I, false);
+      break;
+
+   case BI_OPCODE_LD_BUFFER_I8:
+   case BI_OPCODE_LD_BUFFER_I16:
+   case BI_OPCODE_LD_BUFFER_I24:
+   case BI_OPCODE_LD_BUFFER_I32:
+   case BI_OPCODE_LD_BUFFER_I48:
+   case BI_OPCODE_LD_BUFFER_I64:
+   case BI_OPCODE_LD_BUFFER_I96:
+   case BI_OPCODE_LD_BUFFER_I128:
+      hex |= va_pack_load(I, true);
+      break;
+
+   case BI_OPCODE_STORE_I8:
+   case BI_OPCODE_STORE_I16:
+   case BI_OPCODE_STORE_I24:
+   case BI_OPCODE_STORE_I32:
+   case BI_OPCODE_STORE_I48:
+   case BI_OPCODE_STORE_I64:
+   case BI_OPCODE_STORE_I96:
+   case BI_OPCODE_STORE_I128:
+      hex |= va_pack_store(I);
+      break;
+
+   case BI_OPCODE_ATOM1_RETURN_I32:
+      /* Permit omitting the destination for plain ATOM1 */
+      if (!bi_count_write_registers(I, 0)) {
+         hex |= (0x40ull << 40); // fake read
+      }
+
+      /* 64-bit source */
+      va_validate_register_pair(I, 0);
+      hex |= (uint64_t) va_pack_src(I->src[0]) << 0;
+      hex |= va_pack_byte_offset_8(I);
+      hex |= ((uint64_t) va_pack_atom_opc_1(I->atom_opc)) << 22;
+      break;
+
+   case BI_OPCODE_ATOM_I32:
+   case BI_OPCODE_ATOM_RETURN_I32:
+      /* 64-bit source */
+      va_validate_register_pair(I, 1);
+      hex |= (uint64_t) va_pack_src(I->src[1]) << 0;
+      hex |= va_pack_byte_offset_8(I);
+      hex |= ((uint64_t) va_pack_atom_opc(I->atom_opc)) << 22;
+
+      if (I->op == BI_OPCODE_ATOM_RETURN_I32)
+         hex |= (0xc0ull << 40); // flags
+
+      if (I->atom_opc == BI_ATOM_OPC_ACMPXCHG)
+         hex |= (1 << 26); /* .compare */
+
+      break;
+
+   case BI_OPCODE_ST_CVT:
+      /* Staging read */
+      hex |= va_pack_store(I);
+
+      /* Conversion descriptor */
+      hex |= (uint64_t) va_pack_src(I->src[3]) << 16;
+      break;
+
+   case BI_OPCODE_BLEND:
+   {
+      /* Source 0 - Blend descriptor (64-bit) */
+      hex |= ((uint64_t) va_pack_src(I->src[2])) << 0;
+
+      /* Vaidate that it is a 64-bit register pair */
+      assert(I->src[3].type == I->src[2].type);
+
+      if (I->src[2].type == BI_INDEX_REGISTER) {
+         assert(I->src[3].value & 1);
+         assert(I->src[3].value == I->src[2].value + 1);
+      } else {
+         assert(I->src[3].offset & 1);
+         assert(I->src[3].offset == I->src[2].offset + 1);
+      }
+
+      /* Target */
+      assert((I->branch_offset & 0x7) == 0);
+      hex |= ((I->branch_offset >> 3) << 8);
+
+      /* Source 2 - coverage mask */
+      hex |= ((uint64_t) va_pack_reg(I->src[1])) << 16;
+
+      /* Vector size */
+      unsigned vecsize = 4;
+      hex |= ((uint64_t) (vecsize - 1) << 28);
+
+      break;
+   }
+
+   case BI_OPCODE_TEX_SINGLE:
+   case BI_OPCODE_TEX_FETCH:
+   case BI_OPCODE_TEX_GATHER:
+   {
+      /* Image to read from */
+      hex |= ((uint64_t) va_pack_src(I->src[1])) << 0;
+
+      assert(!(I->op == BI_OPCODE_TEX_FETCH && I->shadow));
+
+      if (I->array_enable) hex |= (1ull << 10);
+      if (I->texel_offset) hex |= (1ull << 11);
+      if (I->shadow) hex |= (1ull << 12);
+      if (I->skip) hex |= (1ull << 39);
+      if (!bi_is_regfmt_16(I->register_format)) hex |= (1ull << 46);
+
+      /* LOD mode */
+      if (I->op == BI_OPCODE_TEX_SINGLE) {
+         assert(I->va_lod_mode < 8);
+         hex |= ((uint64_t) va_pack_lod_mode(I->va_lod_mode)) << 13;
+      }
+
+      /* Gathers */
+      if (I->op == BI_OPCODE_TEX_GATHER) {
+         if (I->integer_coordinates) hex |= (1 << 13);
+         hex |= ((uint64_t) I->fetch_component) << 14;
+      }
+
+      /* Write mask */
+      hex |= (0xF << 22);
+
+      /* Register type */
+      hex |= ((uint64_t) va_pack_register_type(I->register_format)) << 26;
+
+      /* Dimension */
+      hex |= ((uint64_t) I->dimension) << 28;
+
+      break;
+   }
+
+   default:
+      if (!info.exact && I->op != BI_OPCODE_NOP) {
+         bi_print_instr(I, stderr);
+         fflush(stderr);
+         unreachable("Opcode not packable on Valhall");
+      }
+
+      hex |= va_pack_alu(I);
+      break;
+   }
+
+   return hex;
+}
+
+static bool
+va_last_in_block(bi_block *block, bi_instr *I)
+{
+   return (I->link.next == &block->instructions);
 }
 
 static bool
 va_should_return(bi_block *block, bi_instr *I)
 {
    /* Don't return within a block */
-   if (I->link.next != &block->instructions)
+   if (!va_last_in_block(block, I))
       return false;
 
    /* Don't return if we're succeeded by instructions */
@@ -61,7 +801,16 @@ va_pack_action(bi_block *block, bi_instr *I)
    if (va_should_return(block, I))
       return 0x7 | 0x8;
 
-   /* TODO: Barrier, reconverge, thread discard, ATEST */
+   /* .reconverge */
+   if (va_last_in_block(block, I) && bi_reconverge_branches(block))
+      return 0x2 | 0x8;
+
+   if (I->op == BI_OPCODE_BARRIER)
+      return 0x9; /* .wait */
+
+   /* TODO: Barrier, thread discard, ATEST */
+   if (I->action)
+      return I->action;
 
    /* TODO: Generalize waits */
    if (valhall_opcodes[I->op].nr_staging_dests > 0 || I->op == BI_OPCODE_BLEND)
@@ -78,7 +827,9 @@ bi_pack_valhall(bi_context *ctx, struct util_dynarray *emission)
 
    bi_foreach_block(ctx, block) {
       bi_foreach_instr_in_block(block, I) {
-         va_pack_instr(I, emission);
+         unsigned action = va_pack_action(block, I);
+         uint64_t hex = va_pack_instr(I, action);
+         util_dynarray_append(emission, uint64_t, hex);
       }
    }
 
