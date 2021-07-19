@@ -3839,7 +3839,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
         if (ctx->arch <= 8) {
                 bi_pack_clauses(ctx, binary);
         } else {
-                /* TODO: pack flat */
+                bi_pack_valhall(ctx, binary);
         }
 
         info->ubo_mask = ctx->ubo_mask & BITSET_MASK(ctx->nir->info.num_ubos);
