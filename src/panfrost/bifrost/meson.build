@@ -43,6 +43,7 @@ libpanfrost_bifrost_files = files(
   'bi_test_pack.c',
   'bir.c',
   'bifrost_compile.c',
+  'valhall/va_pack.c',
 )
 
 bifrost_gen_disasm_c = custom_target(
