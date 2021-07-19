@@ -43,11 +43,39 @@
 #define MAX_OFFSET (UINT16_MAX * 4)
 
 static bool
-src_only_uses_uniforms(const nir_src *src, uint32_t *uni_offsets,
-                       unsigned *num_offsets)
+src_only_uses_uniforms(const nir_src *src, nir_loop_info *info,
+                       uint32_t *uni_offsets, unsigned *num_offsets)
 {
    if (!src->is_ssa)
       return false;
+
+   /* Return true for induction variable (ie. i in for loop) */
+   if (info) {
+      for (int i = 0; i < info->num_induction_vars; i++) {
+         nir_loop_induction_variable *var = info->induction_vars + i;
+         if (var->def == src->ssa) {
+            /* Induction variable should have constant initial value (ie. i = 0),
+             * constant update value (ie. i++) and constant end condition
+             * (ie. i < 10), so that we know the exact loop count for unrolling
+             * the loop.
+             *
+             * Add uniforms need to be inlined for this induction variable's
+             * initial and update value to be constant, for example:
+             *
+             *     for (i = init; i < count; i += step)
+             *
+             * We collect uniform "init" and "step" here.
+             */
+            for (int j = 0; j < 2; j++) {
+               if (var->only_uniform_src[j] &&
+                   !src_only_uses_uniforms(var->only_uniform_src[j], NULL,
+                                           uni_offsets, num_offsets))
+                  return false;
+            }
+            return true;
+         }
+      }
+   }
 
    nir_instr *instr = src->ssa->parent_instr;
 
@@ -57,7 +85,7 @@ src_only_uses_uniforms(const nir_src *src, uint32_t *uni_offsets,
       /* TODO: Swizzles are ignored, so vectors can prevent inlining. */
       nir_alu_instr *alu = nir_instr_as_alu(instr);
       for (unsigned i = 0; i < nir_op_infos[alu->op].num_inputs; i++) {
-         if (!src_only_uses_uniforms(&alu->src[i].src, uni_offsets,
+         if (!src_only_uses_uniforms(&alu->src[i].src, info, uni_offsets,
                                      num_offsets))
              return false;
       }
@@ -108,16 +136,78 @@ src_only_uses_uniforms(const nir_src *src, uint32_t *uni_offsets,
 }
 
 static void
-add_inlinable_uniforms(const nir_src *cond, uint32_t *uni_offsets,
-                       unsigned *num_offsets)
+add_inlinable_uniforms(const nir_src *cond, nir_loop_info *info,
+                       uint32_t *uni_offsets, unsigned *num_offsets)
 {
    unsigned new_num = *num_offsets;
 
    /* Only update uniform number when all uniforms in the expression
     * can be inlined. Partially inline uniforms can't lower if/loop.
     */
-   if (src_only_uses_uniforms(cond, uni_offsets, &new_num))
+   if (src_only_uses_uniforms(cond, info, uni_offsets, &new_num))
       *num_offsets = new_num;
+}
+
+static void
+process_node(nir_cf_node *node, nir_loop_info *info,
+             uint32_t *uni_offsets, unsigned *num_offsets)
+{
+   switch (node->type) {
+   case nir_cf_node_if: {
+      nir_if *if_node = nir_cf_node_as_if(node);
+      const nir_src *cond = &if_node->condition;
+      add_inlinable_uniforms(cond, info, uni_offsets, num_offsets);
+
+      foreach_list_typed(nir_cf_node, nested_node, node, &if_node->then_list)
+         process_node(nested_node, info, uni_offsets, num_offsets);
+      foreach_list_typed(nir_cf_node, nested_node, node, &if_node->else_list)
+         process_node(nested_node, info, uni_offsets, num_offsets);
+      break;
+   }
+
+   case nir_cf_node_loop: {
+      nir_loop *loop = nir_cf_node_as_loop(node);
+
+      /* Replace loop info, no nested loop info currently:
+       *
+       *     for (i = 0; i < count0; i++)
+       *         for (j = 0; j < count1; j++)
+       *             if (i == num)
+       *
+       * so "num" won't be inlined due to "i" is an induction
+       * variable of upper loop.
+       */
+      info = loop->info;
+
+      foreach_list_typed(nir_cf_node, nested_node, node, &loop->body) {
+         bool is_terminator = false;
+         list_for_each_entry(nir_loop_terminator, terminator,
+                             &info->loop_terminator_list,
+                             loop_terminator_link) {
+            if (nested_node == &terminator->nif->cf_node) {
+               is_terminator = true;
+               break;
+            }
+         }
+
+         /* Allow induction variables for terminator "if" only:
+          *
+          *     for (i = 0; i < count; i++)
+          *         if (i == num)
+          *             <no break>
+          *
+          * so "num" won't be inlined due to the "if" is not a
+          * terminator.
+          */
+         nir_loop_info *use_info = is_terminator ? info : NULL;
+         process_node(nested_node, use_info, uni_offsets, num_offsets);
+      }
+      break;
+   }
+
+   default:
+      break;
+   }
 }
 
 void
@@ -128,22 +218,10 @@ nir_find_inlinable_uniforms(nir_shader *shader)
 
    nir_foreach_function(function, shader) {
       if (function->impl) {
-         foreach_list_typed(nir_cf_node, node, node, &function->impl->body) {
-            switch (node->type) {
-            case nir_cf_node_if: {
-               const nir_src *cond = &nir_cf_node_as_if(node)->condition;
-               add_inlinable_uniforms(cond, uni_offsets, &num_offsets);
-               break;
-            }
+         nir_metadata_require(function->impl, nir_metadata_loop_analysis, nir_var_all);
 
-            case nir_cf_node_loop:
-               /* TODO: handle loops if we want to unroll them at draw time */
-               break;
-
-            default:
-               break;
-            }
-         }
+         foreach_list_typed(nir_cf_node, node, node, &function->impl->body)
+            process_node(node, NULL, uni_offsets, &num_offsets);
       }
    }
 
