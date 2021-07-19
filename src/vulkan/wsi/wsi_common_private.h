@@ -34,7 +34,7 @@ struct wsi_image {
       VkBuffer buffer;
       VkDeviceMemory memory;
       VkCommandBuffer *blit_cmd_buffers;
-   } prime;
+   } buffer;
 
    uint64_t drm_modifier;
    int num_planes;
@@ -55,7 +55,7 @@ struct wsi_swapchain {
    VkPresentModeKHR present_mode;
    uint32_t image_count;
 
-   bool use_prime_blit;
+   bool use_buffer_blit;
 
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
@@ -96,6 +96,16 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
                         const uint64_t *const *modifiers,
                         uint8_t *(alloc_shm)(struct wsi_image *image, unsigned size),
                         struct wsi_image *image);
+
+
+VkResult
+wsi_create_buffer_image(const struct wsi_swapchain *chain,
+                               const VkSwapchainCreateInfoKHR *pCreateInfo,
+                               struct wsi_image *image,
+                               unsigned stride_align,
+                               unsigned size_align,
+                               const void *buffer_create_extra,
+                               const void *buffer_memory_extra);
 
 VkResult
 wsi_create_prime_image(const struct wsi_swapchain *chain,
