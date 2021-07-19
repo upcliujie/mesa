@@ -29,7 +29,7 @@ traces:
   - path: humus/Portals.trace
     expectations:
       - device: gl-virgl
-        checksum: e46ba031e63d55209469f20019657baa
+        checksum: c4a0f928e0cedf91726728e7fd5d9759
   - path: 0ad/0ad.trace
     expectations:
       - device: gl-virgl
@@ -193,7 +193,7 @@ traces:
   - path: humus/CelShading.trace
     expectations:
       - device: gl-virgl
-        checksum: f426204fdf37ea12a9510ca8f205cd3a
+        checksum: ef4db5cb4d47f19b4fe8f09006d59200
   - path: humus/DynamicBranching3.trace
     expectations:
       - device: gl-virgl
@@ -201,11 +201,11 @@ traces:
   - path: humus/HDR.trace
     expectations:
       - device: gl-virgl
-        checksum: 31e668d7c119d327fbefc4973f87bf41
+        checksum: 28b8acdc5dff44a066d47a5d40b3e365
   - path: humus/RaytracedShadows.trace
     expectations:
       - device: gl-virgl
-        checksum: 81db70518812f372c8e29bdc19043191
+        checksum: b9df146ad6b041e38ff9da1b562077bc
   - path: humus/VolumetricFogging2.trace
     expectations:
       - device: gl-virgl
@@ -246,7 +246,7 @@ traces:
   - path: valve/counterstrike.trace
     expectations:
       - device: gl-virgl
-        checksum: 6435cdace910ed659a8b78603a32cd19
+        checksum: 43e64ddfb9fcf67c8511ee13add20cc5
 # Piglit times-out when trying to run these two
 #  - path: valve/counterstrike-source.trace
 #    expectations:
