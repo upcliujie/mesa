@@ -177,6 +177,7 @@ struct wsi_device {
    WSI_CB(BindBufferMemory);
    WSI_CB(BindImageMemory);
    WSI_CB(BeginCommandBuffer);
+   WSI_CB(CmdPipelineBarrier);
    WSI_CB(CmdCopyImageToBuffer);
    WSI_CB(CreateBuffer);
    WSI_CB(CreateCommandPool);
