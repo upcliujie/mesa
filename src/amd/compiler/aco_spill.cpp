@@ -361,7 +361,10 @@ get_rematerialize_info(spill_ctx& ctx)
 void
 local_next_uses(spill_ctx& ctx, Block* block, std::vector<std::map<Temp, uint32_t>>& local_next_uses)
 {
-   local_next_uses.resize(block->instructions.size());
+   // Reset vector by clearing individual maps rather than clearing the entire vector. This avoids dropping the map's reserved memory!
+   if (local_next_uses.size() < block->instructions.size()) {
+      local_next_uses.resize(block->instructions.size());
+   }
 
    local_next_uses[block->instructions.size() - 1].clear();
    for (std::pair<const Temp, std::pair<uint32_t, uint32_t>>& pair :
