@@ -248,6 +248,8 @@ class Opcode(object):
       elif name in ['v_cvt_f32_ubyte0', 'v_cvt_f32_ubyte1',
                     'v_cvt_f32_ubyte2', 'v_cvt_f32_ubyte3']:
         self.operand_size = 32
+      elif 'v_pk_' in name:
+        self.operand_size = 32
 
       # exceptions for definitions:
       if 'qsad_' in name:
