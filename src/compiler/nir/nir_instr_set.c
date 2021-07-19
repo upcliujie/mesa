@@ -814,11 +814,14 @@ nir_instr_set_add_or_rewrite(struct set *instr_set, nir_instr *instr,
    if (match == instr)
       return false;
 
-   if (!cond_function || cond_function(match, instr)) {
-      /* rewrite instruction if condition is matched */
-      nir_ssa_def *def = nir_instr_get_dest_ssa_def(instr);
-      nir_ssa_def *new_def = nir_instr_get_dest_ssa_def(match);
+   nir_ssa_def *def = nir_instr_get_dest_ssa_def(instr);
+   nir_ssa_def *new_def = nir_instr_get_dest_ssa_def(match);
 
+   /* Rewrite instruction if destinations have matching bit sizes and
+    * condition is matched.
+    */
+   if (def->bit_size == new_def->bit_size &&
+       (!cond_function || cond_function(match, instr))) {
       /* It's safe to replace an exact instruction with an inexact one as
        * long as we make it exact.  If we got here, the two instructions are
        * exactly identical in every other way so, once we've set the exact
