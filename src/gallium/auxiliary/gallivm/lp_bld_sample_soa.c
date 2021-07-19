@@ -2382,6 +2382,14 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
          weights = lp_build_and(&bld->int_coord_bld, weights, q_mask);
          weights = LLVMBuildBitCast(builder, weights, bld->coord_bld.vec_type, "");
 
+         /* if the weights are all 0 avoid doing the sampling at all. */
+         struct lp_build_if_state noloadw0;
+
+         LLVMValueRef wnz = LLVMBuildFCmp(gallivm->builder, LLVMRealUNE,
+                                          weights, bld->coord_bld.zero, "");
+         wnz = LLVMBuildSExt(builder, wnz, bld->int_coord_bld.vec_type, "");
+         wnz = lp_build_any_true_range(&bld->coord_bld, bld->coord_bld.type.length, wnz);
+         lp_build_if(&noloadw0, gallivm, wnz);
          LLVMValueRef new_coords[3];
          new_coords[0] = lp_build_div(coord_bld, lp_build_int_to_float(coord_bld, u_val), width_dim);
          new_coords[1] = lp_build_div(coord_bld, lp_build_int_to_float(coord_bld, v_val), height_dim);
@@ -2407,6 +2415,7 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
          den = lp_build_add(&bld->texel_bld, den, weights);
          LLVMBuildStore(builder, den, den_store);
 
+         lp_build_endif(&noloadw0);
          /* q += dq; */
          /* dq += ddq; */
          q = LLVMBuildLoad(builder, q_store, "");
