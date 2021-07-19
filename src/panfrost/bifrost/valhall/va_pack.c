@@ -22,6 +22,7 @@
  */
 
 #include "compiler.h"
+#include "valhall.h"
 
 /* This file contains the final passes of the compiler. Running after
  * scheduling and RA, the IR is now finalized, so we need to emit it to actual
@@ -50,6 +51,23 @@ va_should_return(bi_block *block, bi_instr *I)
    }
 
    return true;
+}
+
+static unsigned
+va_pack_action(bi_block *block, bi_instr *I)
+{
+   /* .return */
+   if (va_should_return(block, I))
+      return 0x7 | 0x8;
+
+   /* TODO: Barrier, reconverge, thread discard, ATEST */
+
+   /* TODO: Generalize waits */
+   if (valhall_opcodes[I->op].nr_staging_dests > 0)
+      return 0x1;
+
+   /* Default - no action */
+   return 0;
 }
 
 void
