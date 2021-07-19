@@ -139,6 +139,13 @@ llvmpipe_get_query_result(struct pipe_context *pipe,
          }
       }
       break;
+   case PIPE_QUERY_TIME_ELAPSED:
+      for (i = 0; i < num_threads; i++) {
+         if (pq->end[i] - pq->start[i] > *result) {
+            *result = pq->end[i] - pq->start[i];
+         }
+      }
+      break;
    case PIPE_QUERY_TIMESTAMP_DISJOINT: {
       struct pipe_query_data_timestamp_disjoint *td =
          (struct pipe_query_data_timestamp_disjoint *)vresult;
@@ -257,6 +264,13 @@ llvmpipe_get_query_result_resource(struct pipe_context *pipe,
          for (i = 0; i < num_threads; i++) {
             if (pq->end[i] > value) {
                value = pq->end[i];
+            }
+         }
+         break;
+      case PIPE_QUERY_TIME_ELAPSED:
+         for (i = 0; i < num_threads; i++) {
+            if (pq->end[i] - pq->start[i] > value) {
+               value = pq->end[i] - pq->start[i];
             }
          }
          break;
