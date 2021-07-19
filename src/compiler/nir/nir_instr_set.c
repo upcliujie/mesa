@@ -703,6 +703,9 @@ nir_instrs_equal(const nir_instr *instr1, const nir_instr *instr2)
       if (phi1->instr.block != phi2->instr.block)
          return false;
 
+      if (phi1->dest.ssa.bit_size != phi2->dest.ssa.bit_size)
+         return false;
+
       nir_foreach_phi_src(src1, phi1) {
          nir_foreach_phi_src(src2, phi2) {
             if (src1->pred == src2->pred) {
