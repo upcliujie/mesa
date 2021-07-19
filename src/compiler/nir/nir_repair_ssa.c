@@ -22,6 +22,7 @@
  */
 
 #include "nir.h"
+#include "nir_builder.h"
 #include "nir_phi_builder.h"
 
 struct repair_ssa_state {
@@ -171,7 +172,24 @@ nir_repair_ssa_impl(nir_function_impl *impl)
    nir_metadata_require(impl, nir_metadata_block_index |
                               nir_metadata_dominance);
 
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
    nir_foreach_block(block, impl) {
+      nir_foreach_instr_safe(instr, block) {
+         if (instr->type != nir_instr_type_phi)
+            continue;
+
+         nir_phi_instr *phi = nir_instr_as_phi(instr);
+         if (!exec_list_length(&phi->srcs))
+            continue;
+
+         b.cursor = nir_instr_remove(instr);
+         nir_ssa_def *undef =
+            nir_ssa_undef(&b, phi->dest.ssa.num_components,
+                          phi->dest.ssa.bit_size);
+         nir_ssa_def_rewrite_uses(&phi->dest.ssa, undef);
+      }
       nir_foreach_instr_safe(instr, block) {
          nir_foreach_ssa_def(instr, repair_ssa_def, &state);
       }
