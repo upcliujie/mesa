@@ -35,6 +35,24 @@ va_pack_instr(const bi_instr *I, struct util_dynarray *emission)
    util_dynarray_append(emission, uint64_t, hex);
 }
 
+static bool
+va_should_return(bi_block *block, bi_instr *I)
+{
+   /* Don't return within a block */
+   if (I->link.next != &block->instructions)
+      return false;
+
+   /* Don't return if we're succeeded by instructions */
+   for (unsigned i = 0; i < ARRAY_SIZE(block->successors); ++i) {
+      bi_block *succ = block->successors[i];
+
+      if (succ && !bi_is_terminal_block(succ))
+         return false;
+   }
+
+   return true;
+}
+
 void
 bi_pack_valhall(bi_context *ctx, struct util_dynarray *emission)
 {
