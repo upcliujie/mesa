@@ -24,6 +24,8 @@
  *      Alyssa Rosenzweig <alyssa.rosenzweig@collabora.com>
  */
 
+#include "valhall/disassemble.h"
+
 #include "main/mtypes.h"
 #include "compiler/glsl/glsl_to_nir.h"
 #include "compiler/nir_types.h"
@@ -3843,8 +3845,13 @@ bifrost_compile_shader_nir(nir_shader *nir,
         info->ubo_mask = ctx->ubo_mask & BITSET_MASK(ctx->nir->info.num_ubos);
 
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal) {
-                disassemble_bifrost(stdout, binary->data, binary->size,
-                                    bifrost_debug & BIFROST_DBG_VERBOSE);
+                if (ctx->arch <= 8) {
+                        disassemble_bifrost(stdout, binary->data, binary->size,
+                                        bifrost_debug & BIFROST_DBG_VERBOSE);
+                } else {
+                        disassemble_valhall(stdout, binary->data, binary->size);
+                }
+
                 fflush(stdout);
         }
 
