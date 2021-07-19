@@ -1521,7 +1521,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    uint32_t bpp = 32;
    int fence_fd;
 
-   if (chain->base.use_prime_blit) {
+   if (chain->base.use_buffer_blit) {
       bool use_modifier = num_tranches > 0;
       result = wsi_create_prime_image(&chain->base, pCreateInfo, use_modifier, &image->base);
    } else {
@@ -1866,13 +1866,13 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    /* When our local device is not compatible with the DRI3 device provided by
     * the X server we assume this is a PRIME system.
     */
-   bool use_prime_blit = false;
+   bool use_buffer_blit = false;
    if (!wsi_device->sw)
       if (!wsi_x11_check_dri3_compatible(wsi_device, conn))
-         use_prime_blit = true;
+         use_buffer_blit = true;
 
    result = wsi_swapchain_init(wsi_device, &chain->base, device,
-                               pCreateInfo, pAllocator, use_prime_blit);
+                               pCreateInfo, pAllocator, use_buffer_blit);
    if (result != VK_SUCCESS)
       goto fail_alloc;
 
