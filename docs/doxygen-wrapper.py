@@ -30,6 +30,7 @@ import tempfile
 
 INPUT_PATHS = [
     'src/compiler/nir/nir.h',
+    'src/compiler/nir/nir_control_flow.h',
     'src/intel/isl',
 ]
 

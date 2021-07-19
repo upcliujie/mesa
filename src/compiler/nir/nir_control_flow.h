@@ -34,7 +34,7 @@
 extern "C" {
 #endif
 
-/** NIR Control Flow Modification
+/* NIR Control Flow Modification
  *
  * This file contains various APIs that make modifying control flow in NIR,
  * while maintaining the invariants checked by the validator, much easier.
@@ -46,7 +46,7 @@ extern "C" {
  *    deleting them.
  */
 
-/** Control flow insertion. */
+/* Control flow insertion. */
 
 /** puts a control flow node where the cursor is */
 void nir_cf_node_insert(nir_cursor cursor, nir_cf_node *node);
@@ -80,68 +80,61 @@ nir_cf_node_insert_end(struct exec_list *list, nir_cf_node *node)
 }
 
 
-/** Control flow motion.
+/* Control flow motion.
  *
  * These functions let you take a part of a control flow list (basically
  * equivalent to a series of statement in GLSL) and "extract" it from the IR,
  * so that it's a free-floating piece of IR that can be either re-inserted
- * somewhere else or deleted entirely. A few notes on using it:
+ * somewhere else or deleted entirely.
  *
- * 1. Phi nodes are considered attached to the piece of control flow that
- *    their sources come from. There are three places where phi nodes can
- *    occur, which are the three places where a block can have multiple
- *    predecessors:
- *
- *    1) After an if statement, if neither branch ends in a jump.
- *    2) After a loop, if there are multiple breaks.
- *    3) At the beginning of a loop.
- *
- *    For #1, the phi node is considered to be part of the if, and for #2 and
- *    #3 the phi node is considered to be part of the loop. This allows us to
- *    keep phis intact, but it means that phi nodes cannot be separated from
- *    the control flow they come from. For example, extracting an if without
- *    extracting all the phi nodes after it is not allowed, and neither is
- *    extracting only some of the phi nodes at the beginning of a block. It
- *    also means that extracting from the beginning of a basic block actually
- *    means extracting from the first non-phi instruction, since there's no
- *    situation where extracting phi nodes without extracting what comes
- *    before them makes any sense.
- *
- * 2. Phi node sources are guaranteed to remain valid, meaning that they still
- *    correspond one-to-one with the predecessors of the basic block they're
- *    part of. In addition, the original sources will be preserved unless they
- *    correspond to a break or continue that was deleted. However, no attempt
- *    is made to ensure that SSA form is maintained. In particular, it is
- *    *not* guaranteed that definitions of SSA values will dominate all their
- *    uses after all is said and done. Either the caller must ensure that this
- *    is the case, or it must insert extra phi nodes to restore SSA.
- *
- * 3. It is invalid to move a piece of IR with a break/continue outside of the
- *    loop it references. Doing this will result in invalid
- *    successors/predecessors and phi node sources.
- *
- * 4. It is invalid to move a piece of IR from one function implementation to
- *    another.
- *
- * 5. Extracting a control flow list will leave lots of dangling references to
- *    and from other pieces of the IR. It also leaves things in a not 100%
- *    consistent state. This means that some things (e.g. inserting
- *    instructions) might not work reliably on the extracted control flow. It
- *    also means that extracting control flow without re-inserting it or
- *    deleting it is a Bad Thing (tm).
+ * There are several caveats on these functions, see the docs for more
+ * information.
  */
 
+/**
+ * An opaque wrapper for a portion of a CF list that has been extracted from
+ * a function.
+ */
 typedef struct {
    struct exec_list list;
    nir_function_impl *impl; /* for cleaning up if the list is deleted */
 } nir_cf_list;
 
+/** Extract a piece of control flow from a function.
+ *
+ * \p begin and \p end must be inside blocks in the same CF list, and
+ * \p begin must be before \p end. If a NIR CF list corresponds to a list
+ * of statements in GLSL, then the portion between \p begin and \p end
+ * then corresponds to a sub-list within that list, which is extracted into
+ * \p extracted which is a free-floating piece of IR that can later be
+ * deleted, cloned, or re-inserted.
+ *
+ * This function splits up the basic blocks at both \p begin and \p end, and
+ * it is left unspecified how they are split up. This means that any pointers
+ * to those blocks are invalid after the function is called.
+ */
 void nir_cf_extract(nir_cf_list *extracted, nir_cursor begin, nir_cursor end);
 
+/**
+ * Re-insert a ::nir_cf_list which has been extracted by nir_cf_extract() at
+ * the cursor. Any pointer to the block that \p cursor is in is similarly
+ * invalidated.
+ */
 void nir_cf_reinsert(nir_cf_list *cf_list, nir_cursor cursor);
 
+/** Delete a ::nir_cf_list which has been extracted by nir_cf_extract(). */
 void nir_cf_delete(nir_cf_list *cf_list);
 
+/** Clone a ::nir_cf_list which has been extracted by nir_cf_extract().
+ *
+ * @param dst The cloned ::nir_cf_list.
+ * @param src The ::nir_cf_list to clone.
+ * @param parent The ::nir_cf_node \p dst will be inserted under.
+ * @param remap_table A table of SSA values used to rewrite uses of values
+ *                    when cloning. If a value is in this table, uses of it
+ *                    will be rewritten. Otherwise, values outside \p src
+ *                    will be kept as-is.
+ */
 void nir_cf_list_clone(nir_cf_list *dst, nir_cf_list *src, nir_cf_node *parent,
                        struct hash_table *remap_table);
 
@@ -155,6 +148,7 @@ nir_cf_list_clone_and_reinsert(nir_cf_list *src_list, nir_cf_node *parent,
    nir_cf_reinsert(&list, cursor);
 }
 
+/** Extract an entire CF list. */
 static inline void
 nir_cf_list_extract(nir_cf_list *extracted, struct exec_list *cf_list)
 {
@@ -162,7 +156,7 @@ nir_cf_list_extract(nir_cf_list *extracted, struct exec_list *cf_list)
                   nir_after_cf_list(cf_list));
 }
 
-/** removes a control flow node, doing any cleanup necessary */
+/** Removes a control flow node, doing any cleanup necessary. */
 static inline void
 nir_cf_node_remove(nir_cf_node *node)
 {
