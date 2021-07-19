@@ -187,7 +187,7 @@ compile_shader(int stages, char **files)
                 NIR_PASS_V(nir[i], nir_opt_constant_folding);
 
                 struct panfrost_compile_inputs inputs = {
-                        .gpu_id = 0x7212, /* Mali G52 */
+                        .gpu_id = 0x9202, /* Mali G52 */
                 };
                 struct pan_shader_info info = { 0 };
 
