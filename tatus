@@ -1,0 +1,124 @@
+[33mcommit 8413c57a3ffe2ea2d4bedd9efe5524686720495f[m[33m ([m[1;36mHEAD -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: M Henning <drawoc@darkrefraction.com>
+Date:   Fri Mar 26 13:06:58 2021 -0700
+
+    nouveau: Support nir_intrinsic_*_atomic_fadd
+    
+    This fixes failures in piglit's nv_shader_atomic_float tests with
+    NV50_PROG_USE_NIR=1
+    
+    Reviewed-by: Karol Herbst <kherbst@redhat.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/9866>
+
+[33mcommit 57dcfb4e55346ee2d7e3da79e93a7d36a8a5ca17[m
+Author: Dave Airlie <airlied@redhat.com>
+Date:   Fri Jul 16 12:28:57 2021 +1000
+
+    softpipe/aniso: move DDQ calculation to after scaling.
+    
+    I've read the papers on EWA filters and it seems like the calculate
+    DDQ = 2 * A after the scaling of A happens. This seems to make
+    things less blurry and more like real aniso.
+    
+    Fixes: 2135aba8 ("softpipe: Constify variables")
+    Reviewed-by: Timothy Arceri <tarceri@itsqueeze.com>
+    Reviewed-by: Roland Scheidegger <sroland@vmware.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11917>
+
+[33mcommit 7de5293b897080a2a954d54e076b2c1e55f08c53[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 19:17:53 2021 -0400
+
+    pan/bi: Shrink live array to 8-bits
+    
+    We only actually use 4-bits, so we could shrink again. But this by
+    itself means 1/2 the memory usage for liveness analysis and 1/2 the
+    copying/alloc/free.
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit bbf2ef6b4a60d8aa3c45c22ebb8ae68e56b8b548[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 18:43:19 2021 -0400
+
+    pan/bi: Clean up liveness freeing
+    
+    This is ralloc'd, kind of pointless.
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit 84e2e5f23c7d01f09d68c10a95e59a35f37939af[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 18:40:39 2021 -0400
+
+    pan/bi: Clean up useless casts
+    
+    Left over from removing inheritance with sed instead of coccinelle.
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit 1fcea302954c97d53cfe836ffae707664585f7b1[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 18:33:43 2021 -0400
+
+    pan/bi: Copy block bi_block
+    
+    Gets rid of the silly inheritance everywhere, which has caused _far_
+    more problems in practice than it has fixed. It was an idea I tried
+    before the pandemic. It didn't work. I'm finally cleaning it up.
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit a372368e228ac587c5fad74d381dd16b072da245[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 18:33:32 2021 -0400
+
+    pan/bi: Copy back bi_foreach_successor
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit 8bee48a635be1ec1397416b9099a5f86767949cf[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 18:22:54 2021 -0400
+
+    pan/bi: Copy back add_successor
+    
+    Trying to get back independent block types.
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit a667e1bb6ddaafedcd1db16e1ff520c805338a9c[m
+Author: Alyssa Rosenzweig <alyssa@collabora.com>
+Date:   Fri Jul 16 18:18:08 2021 -0400
+
+    pan/bi: Copy liveness routines back
+    
+    We'll diverge shortly.
+    
+    Signed-off-by: Alyssa Rosenzweig <alyssa@collabora.com>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11936>
+
+[33mcommit 55d57b828f7669a1fd5e4c6c9cc04370a88d31a2[m
+Author: Timur Kristóf <timur.kristof@gmail.com>
+Date:   Sat Jul 17 23:25:52 2021 +0200
+
+    aco: Fix how p_elect interacts with optimizations.
+    
+    Since p_elect doesn't have any operands, ACO's value numbering and/or
+    the pre-RA optimizer could currently recognize two p_elect instructions
+    in two different blocks as the same.
+    
+    This patch adds exec as an operand to p_elect in order to achieve
+    correct behavior.
+    
+    Fixes: e66f54e5c83fd545e1a4062e683b584a35dacc00
+    Closes: #5080
+    Signed-off-by: Timur Kristóf <timur.kristof@gmail.com>
+    Reviewed-by: Daniel Schürmann <daniel@schuermann.dev>
+    Part-of: <https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11943>

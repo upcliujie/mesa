@@ -1,0 +1,71 @@
+From ae9d4bd12d3f0eff811ecf2fca28543d854dd3d8 Mon Sep 17 00:00:00 2001
+From: jeff_shuai <shuaijie@uniontech.com>
+Date: Mon, 19 Jul 2021 14:49:52 +0800
+Subject: [PATCH] fix the Chip oland uvd decoder 2048x1152 upto 2560x1440
+ capabilities
+
+---
+ src/gallium/drivers/radeonsi/si_get.c | 26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/src/gallium/drivers/radeonsi/si_get.c b/src/gallium/drivers/radeonsi/si_get.c
+index 6e1b8028450..256bfbf3b9c 100644
+--- a/src/gallium/drivers/radeonsi/si_get.c
++++ b/src/gallium/drivers/radeonsi/si_get.c
+@@ -535,13 +535,13 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
+                sscreen->info.enc_caps.codec_info[codec - 1].valid)
+             return sscreen->info.enc_caps.codec_info[codec - 1].max_width;
+          else
+-            return (sscreen->info.family < CHIP_TONGA) ? 2048 : 4096;
++            return (sscreen->info.family == CHIP_OLAND) ? 2560 : ( (sscreen->info.family < CHIP_TONGA) ? 2048 : 4096 );  //max_width 2048   upto  2560
+       case PIPE_VIDEO_CAP_MAX_HEIGHT:
+          if (codec != PIPE_VIDEO_FORMAT_UNKNOWN &&
+                sscreen->info.enc_caps.codec_info[codec - 1].valid)
+             return sscreen->info.enc_caps.codec_info[codec - 1].max_height;
+          else
+-            return (sscreen->info.family < CHIP_TONGA) ? 1152 : 2304;
++            return (sscreen->info.family == CHIP_OLAND) ? 1440 : ((sscreen->info.family < CHIP_TONGA) ? 1152 : 2304 );  //max_height 1152   upto  1440
+       case PIPE_VIDEO_CAP_PREFERED_FORMAT:
+          if (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10)
+             return PIPE_FORMAT_P010;
+@@ -627,11 +627,14 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
+          switch (codec) {
+          case PIPE_VIDEO_FORMAT_HEVC:
+          case PIPE_VIDEO_FORMAT_VP9:
+-         case PIPE_VIDEO_FORMAT_AV1:
+-            return (sscreen->info.family < CHIP_RENOIR) ?
+-               ((sscreen->info.family < CHIP_TONGA) ? 2048 : 4096) : 8192;
++         case PIPE_VIDEO_FORMAT_AV1:{
++            if((sscreen->info.family == CHIP_OLAND))   //max_width 2048   upto  2560 
++               return 2560;
++            else            
++               return (sscreen->info.family < CHIP_RENOIR) ?    ((sscreen->info.family < CHIP_TONGA) ? 2048 : 4096) : 8192;
++         }
+          default:
+-            return (sscreen->info.family < CHIP_TONGA) ? 2048 : 4096;
++            return (sscreen->info.family == CHIP_OLAND) ? 2560 : ( (sscreen->info.family < CHIP_TONGA) ? 2048 : 4096 );
+          }
+       }
+    case PIPE_VIDEO_CAP_MAX_HEIGHT:
+@@ -642,11 +645,14 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
+          switch (codec) {
+          case PIPE_VIDEO_FORMAT_HEVC:
+          case PIPE_VIDEO_FORMAT_VP9:
+-         case PIPE_VIDEO_FORMAT_AV1:
+-            return (sscreen->info.family < CHIP_RENOIR) ?
+-               ((sscreen->info.family < CHIP_TONGA) ? 1152 : 4096) : 4352;
++         case PIPE_VIDEO_FORMAT_AV1:{
++            if((sscreen->info.family == CHIP_OLAND))    //max_height 1152  upto 1440
++               return 1440;
++            else            
++               return (sscreen->info.family < CHIP_RENOIR) ? ((sscreen->info.family < CHIP_TONGA) ? 1152 : 4096) : 4352;
++         }
+          default:
+-            return (sscreen->info.family < CHIP_TONGA) ? 1152 : 4096;
++            return (sscreen->info.family == CHIP_OLAND) ? 1440 : ( (sscreen->info.family < CHIP_TONGA) ? 1152 : 4096 );
+          }
+       }
+    case PIPE_VIDEO_CAP_PREFERED_FORMAT:
+-- 
+2.20.1
+
