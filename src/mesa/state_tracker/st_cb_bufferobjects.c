@@ -252,14 +252,12 @@ buffer_usage(GLenum target, GLboolean immutable,
 {
    if (immutable) {
       /* BufferStorage */
-      if (storageFlags & GL_CLIENT_STORAGE_BIT) {
-         if (storageFlags & GL_MAP_READ_BIT)
-            return PIPE_USAGE_STAGING;
-         else
-            return PIPE_USAGE_STREAM;
-      } else {
+      if (storageFlags & GL_MAP_READ_BIT)
+         return PIPE_USAGE_STAGING;
+      else if (storageFlags & GL_CLIENT_STORAGE_BIT)
+         return PIPE_USAGE_STREAM;
+      else
          return PIPE_USAGE_DEFAULT;
-      }
    }
    else {
       /* These are often read by the CPU, so enable CPU caches. */
