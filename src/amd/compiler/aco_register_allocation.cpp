@@ -1440,7 +1440,7 @@ get_reg_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp, aco_ptr<Instructi
          our_offset += op.bytes();
    }
 
-   if (vec->format != Format::MIMG || is_mimg_vaddr_intact(ctx, reg_file, vec)) {
+   if (vec->format == Format::PSEUDO || is_mimg_vaddr_intact(ctx, reg_file, vec)) {
       unsigned their_offset = 0;
       /* check for every operand of the vector
        * - whether the operand is assigned and
@@ -1454,6 +1454,10 @@ get_reg_vector(ra_ctx& ctx, RegisterFile& reg_file, Temp temp, aco_ptr<Instructi
             reg.reg_b += (our_offset - their_offset);
             if (get_reg_specified(ctx, reg_file, temp.regClass(), instr, reg))
                return {reg, true};
+
+            /* return if MIMG NSA instructions don't remain intact */
+            if (vec->format == Format::MIMG)
+               return {{}, false};
          }
          their_offset += op.bytes();
       }
