@@ -81,15 +81,19 @@ uint_to_ballot_type(nir_builder *b, nir_ssa_def *value,
    assert(util_is_power_of_two_nonzero(num_components));
    assert(util_is_power_of_two_nonzero(value->num_components));
 
-   /* The ballot type must always have enough bits */
    unsigned total_bits = bit_size * num_components;
-   assert(total_bits >= value->bit_size * value->num_components);
 
    /* If the source doesn't have enough bits, zero-pad */
    if (total_bits > value->bit_size * value->num_components)
       value = nir_pad_vector_imm_int(b, value, 0, total_bits / value->bit_size);
 
-   return nir_bitcast_vector(b, value, bit_size);
+   value = nir_bitcast_vector(b, value, bit_size);
+
+   /* If the source has too many components, truncate */
+   if (value->num_components > num_components)
+      value = nir_channels(b, value, BITFIELD_MASK(num_components));
+
+   return value;
 }
 
 static nir_ssa_def *
