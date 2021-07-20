@@ -2467,18 +2467,28 @@ lp_build_sample_aniso(struct lp_build_sample_context *bld,
 
    LLVMValueRef den = LLVMBuildLoad(builder, den_store, "");
 
+   for (chan = 0; chan < 4; chan++)
+      colors0[chan] = lp_build_div(&bld->texel_bld, LLVMBuildLoad(builder, colors0[chan], ""), den);
+   LLVMValueRef den0 = lp_build_cmp(&bld->coord_bld, PIPE_FUNC_EQUAL, den, bld->coord_bld.zero);
+
+   LLVMValueRef den0_any = lp_build_any_true_range(&bld->coord_bld, bld->coord_bld.type.length, den0);
+
+   struct lp_build_if_state den0_fallback;
+   lp_build_if(&den0_fallback, gallivm, den0_any);
+
    LLVMValueRef colors_den0[4];
    lp_build_sample_image_linear(bld, false, size0, NULL,
                                  row_stride0_vec, img_stride0_vec,
                                  data_ptr0, mipoff0, coords, offsets,
                                  colors_den0);
-
-   LLVMValueRef den0 = lp_build_cmp(&bld->coord_bld, PIPE_FUNC_EQUAL, den, bld->coord_bld.zero);
    for (chan = 0; chan < 4; chan++) {
-      colors0[chan] = lp_build_div(&bld->texel_bld, LLVMBuildLoad(builder, colors0[chan], ""), den);
-      colors0[chan] = lp_build_select(&bld->texel_bld, den0, colors_den0[chan], colors0[chan]);
-      LLVMBuildStore(builder, colors0[chan], colors_out[chan]);
+      LLVMValueRef chan_val = lp_build_select(&bld->texel_bld, den0, colors_den0[chan], colors0[chan]);
+      LLVMBuildStore(builder, chan_val, colors_out[chan]);
    }
+   lp_build_else(&den0_fallback);
+   for (chan = 0; chan < 4; chan++)
+      LLVMBuildStore(builder, colors0[chan], colors_out[chan]);
+   lp_build_endif(&den0_fallback);
 }
 
 /**
