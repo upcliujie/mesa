@@ -326,6 +326,10 @@ struct st_context
       void *gs;
       void *upload_fs[5][2];
       void *download_fs[5][PIPE_MAX_TEXTURE_TYPES][2];
+      struct hash_table *shaders;
+      struct pipe_resource *constants;
+      void *constants_map;
+      struct pipe_transfer *constants_xfer;
       bool upload_enabled;
       bool download_enabled;
       bool rgba_only;
