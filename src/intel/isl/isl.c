@@ -1841,6 +1841,9 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
    if (!isl_surf_usage_is_depth(surf->usage))
       return false;
 
+   if (surf->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT)
+      return false;
+
    /* HiZ only works with Y-tiled depth buffers */
    if (!isl_tiling_is_any_y(surf->tiling))
       return false;
@@ -1947,6 +1950,9 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
 {
    /* It must be multisampled with an array layout */
    if (surf->msaa_layout != ISL_MSAA_LAYOUT_ARRAY)
+      return false;
+
+   if (surf->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT)
       return false;
 
    if (mcs_surf->size_B > 0)
