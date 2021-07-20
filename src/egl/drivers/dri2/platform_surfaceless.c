@@ -329,12 +329,14 @@ dri2_initialize_surfaceless(_EGLDisplay *disp)
 
    driver_loaded = surfaceless_probe_device(disp, disp->Options.ForceSoftware);
 
-   if (!driver_loaded) {
+   if (!driver_loaded && disp->Options.ForceSoftware) {
       _eglLog(_EGL_DEBUG, "Falling back to surfaceless swrast without DRM.");
-      if (!surfaceless_probe_device_sw(disp)) {
-         err = "DRI2: failed to load driver";
-         goto cleanup;
-      }
+      driver_loaded = surfaceless_probe_device_sw(disp);
+   }
+
+   if (!driver_loaded) {
+      err = "DRI2: failed to load driver";
+      goto cleanup;
    }
 
    if (!dri2_create_screen(disp)) {
