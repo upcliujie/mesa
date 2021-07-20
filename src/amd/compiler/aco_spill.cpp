@@ -31,11 +31,13 @@
 #include <algorithm>
 #include <cstring>
 #include <map>
+#include <memory_resource>
 #include <set>
 #include <stack>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
 
 namespace std {
 template <> struct hash<aco::Temp> {
@@ -70,10 +72,13 @@ struct spill_ctx {
    std::vector<std::unordered_map<Temp, uint32_t>> spills_entry;
    std::vector<std::unordered_map<Temp, uint32_t>> spills_exit;
 
+   std::pmr::monotonic_buffer_resource memory;
+
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
-   std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_start;
-   std::vector<std::unordered_map<Temp, std::pair<uint32_t, uint32_t>>> next_use_distances_end;
+   using next_use_distance_startend_type = std::pmr::unordered_map<Temp, std::pair<uint32_t, uint32_t>>;
+   std::pmr::vector<next_use_distance_startend_type> next_use_distances_start;
+   std::pmr::vector<next_use_distance_startend_type> next_use_distances_end;
    std::vector<std::vector<std::pair<Temp, uint32_t>>> local_next_use_distance; /* Working buffer */
    std::vector<std::pair<RegClass, std::unordered_set<uint32_t>>> interferences;
    std::vector<std::vector<uint32_t>> affinities;
@@ -87,7 +92,10 @@ struct spill_ctx {
        : target_pressure(target_pressure_), program(program_),
          register_demand(std::move(register_demand_)), renames(program->blocks.size()),
          spills_entry(program->blocks.size()), spills_exit(program->blocks.size()),
-         processed(program->blocks.size(), false), wave_size(program->wave_size)
+         processed(program->blocks.size(), false),
+         next_use_distances_start(&memory),
+         next_use_distances_end(&memory),
+         wave_size(program->wave_size)
    {}
 
    void add_affinity(uint32_t first, uint32_t second)
