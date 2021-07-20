@@ -115,7 +115,7 @@ llvmpipe-gles31:
 
 llvmpipe-gl:
   variables:
-    DEQP_VER: gl45
+    DEQP_VER: gl46
   extends:
     - .llvmpipe-deqp-test
 
