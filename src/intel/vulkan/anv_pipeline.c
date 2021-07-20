@@ -118,7 +118,13 @@ anv_shader_compile_to_nir(struct anv_device *device,
             spec_entries[i].value.u8 = *(const uint8_t *)data;
             break;
          default:
-            assert(!"Invalid spec constant size");
+            /* The spec says:
+             *   If a constantID value is not a specialization constant ID
+             *   used in the shader, that map entry does not affect the
+             *   behavior of the pipeline.
+             * So we assume that if the size is invalid, it's an unused
+             * entry.
+             */
             break;
          }
       }
