@@ -535,13 +535,15 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
                sscreen->info.enc_caps.codec_info[codec - 1].valid)
             return sscreen->info.enc_caps.codec_info[codec - 1].max_width;
          else
-            return (sscreen->info.family == CHIP_OLAND) ? 2560 : ( (sscreen->info.family < CHIP_TONGA) ? 2048 : 4096 );  //max_width 2048   upto  2560
+	     /*for CHIP_OLAND max_width 2048 upto  2560 */
+            return (sscreen->info.family == CHIP_OLAND) ? 2560 : ( (sscreen->info.family < CHIP_TONGA) ? 2048 : 4096 );  
       case PIPE_VIDEO_CAP_MAX_HEIGHT:
          if (codec != PIPE_VIDEO_FORMAT_UNKNOWN &&
                sscreen->info.enc_caps.codec_info[codec - 1].valid)
             return sscreen->info.enc_caps.codec_info[codec - 1].max_height;
          else
-            return (sscreen->info.family == CHIP_OLAND) ? 1440 : ((sscreen->info.family < CHIP_TONGA) ? 1152 : 2304 );  //max_height 1152   upto  1440
+		/*for CHIP_OLAND  max_height 1152   upto  1440*/
+            return (sscreen->info.family == CHIP_OLAND) ? 1440 : ((sscreen->info.family < CHIP_TONGA) ? 1152 : 2304 );  
       case PIPE_VIDEO_CAP_PREFERED_FORMAT:
          if (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10)
             return PIPE_FORMAT_P010;
@@ -633,8 +635,9 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
          switch (codec) {
          case PIPE_VIDEO_FORMAT_HEVC:
          case PIPE_VIDEO_FORMAT_VP9:
-         case PIPE_VIDEO_FORMAT_AV1:{
-            if((sscreen->info.family == CHIP_OLAND))   //max_width 2048   upto  2560 
+         case PIPE_VIDEO_FORMAT_AV1:{ 
+		/*for CHIP_OLAND max_width 2048 upto  2560 */
+            if((sscreen->info.family == CHIP_OLAND))   
                return 2560;
             else            
                return (sscreen->info.family < CHIP_RENOIR) ?    ((sscreen->info.family < CHIP_TONGA) ? 2048 : 4096) : 8192;
@@ -652,7 +655,8 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
          case PIPE_VIDEO_FORMAT_HEVC:
          case PIPE_VIDEO_FORMAT_VP9:
          case PIPE_VIDEO_FORMAT_AV1:{
-            if((sscreen->info.family == CHIP_OLAND))    //max_height 1152  upto 1440
+		/*for CHIP_OLAND  max_height 1152   upto  1440*/
+            if((sscreen->info.family == CHIP_OLAND))   
                return 1440;
             else            
                return (sscreen->info.family < CHIP_RENOIR) ? ((sscreen->info.family < CHIP_TONGA) ? 1152 : 4096) : 4352;
