@@ -64,6 +64,13 @@ struct remat_info {
    Instruction* instr;
 };
 
+/* Drop-in replacement for C++20's std::pmr::polymorphic_allocator<T>::new_object */
+template<typename T, typename Alloc, typename... Args>
+[[nodiscard]] T* new_object(Alloc& alloc, Args&&... args) {
+   void* ptr = alloc.allocate(sizeof(T), alignof(T));
+   return new (ptr) T(std::forward<Args>(args)...);
+}
+
 struct spill_ctx {
    RegisterDemand target_pressure;
    Program* program;
@@ -77,8 +84,10 @@ struct spill_ctx {
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
    using next_use_distance_startend_type = std::pmr::unordered_map<Temp, std::pair<uint32_t, uint32_t>>;
-   std::pmr::vector<next_use_distance_startend_type> next_use_distances_start;
-   std::pmr::vector<next_use_distance_startend_type> next_use_distances_end;
+   std::pmr::vector<next_use_distance_startend_type>* next_use_distances_start_ptr;
+   std::pmr::vector<next_use_distance_startend_type>* next_use_distances_end_ptr;
+   std::pmr::vector<next_use_distance_startend_type>& next_use_distances_start = *next_use_distances_start_ptr;
+   std::pmr::vector<next_use_distance_startend_type>& next_use_distances_end = *next_use_distances_end_ptr;
    std::vector<std::vector<std::pair<Temp, uint32_t>>> local_next_use_distance; /* Working buffer */
    std::vector<std::pair<RegClass, std::unordered_set<uint32_t>>> interferences;
    std::vector<std::vector<uint32_t>> affinities;
@@ -93,8 +102,8 @@ struct spill_ctx {
          register_demand(std::move(register_demand_)), renames(program->blocks.size()),
          spills_entry(program->blocks.size()), spills_exit(program->blocks.size()),
          processed(program->blocks.size(), false),
-         next_use_distances_start(&memory),
-         next_use_distances_end(&memory),
+         next_use_distances_start_ptr(new_object<std::pmr::vector<next_use_distance_startend_type>>(memory, &memory)),
+         next_use_distances_end_ptr(new_object<std::pmr::vector<next_use_distance_startend_type>>(memory, &memory)),
          wave_size(program->wave_size)
    {}
 
