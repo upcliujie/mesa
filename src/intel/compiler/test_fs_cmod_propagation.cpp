@@ -40,15 +40,16 @@ public:
    struct gl_shader_program *shader_prog;
    fs_visitor *v;
 
-   void test_positive_float_saturate_prop(enum brw_conditional_mod before,
-                                          enum brw_conditional_mod after,
-                                          enum opcode op);
+   void test_positive_saturate_prop(enum brw_conditional_mod before,
+                                    enum brw_conditional_mod after,
+                                    enum opcode op,
+                                    enum brw_reg_type add_type,
+                                    enum brw_reg_type op_type);
 
-   void test_negative_float_saturate_prop(enum brw_conditional_mod before,
-                                          enum opcode op);
-
-   void test_negative_int_saturate_prop(enum brw_conditional_mod before,
-                                        enum opcode op);
+   void test_negative_saturate_prop(enum brw_conditional_mod before,
+                                    enum opcode op,
+                                    enum brw_reg_type add_type,
+                                    enum brw_reg_type op_type);
 };
 
 class cmod_propagation_fs_visitor : public fs_visitor
@@ -1504,22 +1505,30 @@ TEST_F(cmod_propagation_test, signed_unsigned_comparison_mismatch)
 }
 
 void
-cmod_propagation_test::test_positive_float_saturate_prop(enum brw_conditional_mod before,
-                                                         enum brw_conditional_mod after,
-                                                         enum opcode op)
+cmod_propagation_test::test_positive_saturate_prop(enum brw_conditional_mod before,
+                                                   enum brw_conditional_mod after,
+                                                   enum opcode op,
+                                                   enum brw_reg_type add_type,
+                                                   enum brw_reg_type op_type)
 {
    const fs_builder &bld = v->bld;
-   fs_reg dest = v->vgrf(glsl_type::float_type);
-   fs_reg src0 = v->vgrf(glsl_type::float_type);
-   fs_reg src1 = v->vgrf(glsl_type::float_type);
-   fs_reg zero(brw_imm_f(0.0f));
+   fs_reg dest = bld.vgrf(add_type);
+   fs_reg src0 = bld.vgrf(add_type);
+   fs_reg src1 = bld.vgrf(add_type);
+   fs_reg zero(brw_imm_ud(0));
+
    bld.ADD(dest, src0, src1)->saturate = true;
 
    assert(op == BRW_OPCODE_CMP || op == BRW_OPCODE_MOV);
-   if (op == BRW_OPCODE_CMP)
-      bld.CMP(bld.null_reg_f(), dest, zero, before);
-   else
-      bld.MOV(bld.null_reg_f(), dest)->conditional_mod = before;
+   if (op == BRW_OPCODE_CMP) {
+      bld.CMP(bld.vgrf(op_type, 0),
+              retype(dest, op_type),
+              retype(zero, op_type),
+              before);
+   } else {
+      bld.MOV(bld.vgrf(op_type, 0), retype(dest, op_type))
+         ->conditional_mod = before;
+   }
 
    v->calculate_cfg();
    bblock_t *block0 = v->cfg->blocks[0];
@@ -1531,26 +1540,36 @@ cmod_propagation_test::test_positive_float_saturate_prop(enum brw_conditional_mo
    EXPECT_EQ(0, block0->start_ip);
    EXPECT_EQ(0, block0->end_ip);
    EXPECT_EQ(BRW_OPCODE_ADD, instruction(block0, 0)->opcode);
+   EXPECT_EQ(add_type, instruction(block0, 0)->dst.type);
+   EXPECT_EQ(add_type, instruction(block0, 0)->src[0].type);
+   EXPECT_EQ(add_type, instruction(block0, 0)->src[1].type);
    EXPECT_TRUE(instruction(block0, 0)->saturate);
    EXPECT_EQ(after, instruction(block0, 0)->conditional_mod);
 }
 
 void
-cmod_propagation_test::test_negative_float_saturate_prop(enum brw_conditional_mod before,
-                                                         enum opcode op)
+cmod_propagation_test::test_negative_saturate_prop(enum brw_conditional_mod before,
+                                                   enum opcode op,
+                                                   enum brw_reg_type add_type,
+                                                   enum brw_reg_type op_type)
 {
    const fs_builder &bld = v->bld;
-   fs_reg dest = v->vgrf(glsl_type::float_type);
-   fs_reg src0 = v->vgrf(glsl_type::float_type);
-   fs_reg src1 = v->vgrf(glsl_type::float_type);
+   fs_reg dest = bld.vgrf(add_type);
+   fs_reg src0 = bld.vgrf(add_type);
+   fs_reg src1 = bld.vgrf(add_type);
    fs_reg zero(brw_imm_f(0.0f));
    bld.ADD(dest, src0, src1)->saturate = true;
 
    assert(op == BRW_OPCODE_CMP || op == BRW_OPCODE_MOV);
-   if (op == BRW_OPCODE_CMP)
-      bld.CMP(bld.null_reg_f(), dest, zero, before);
-   else
-      bld.MOV(bld.null_reg_f(), dest)->conditional_mod = before;
+   if (op == BRW_OPCODE_CMP) {
+      bld.CMP(bld.vgrf(op_type, 0),
+              retype(dest, op_type),
+              retype(zero, op_type),
+              before);
+   } else {
+      bld.MOV(bld.vgrf(op_type, 0), retype(dest, op_type))
+         ->conditional_mod = before;
+   }
 
    v->calculate_cfg();
    bblock_t *block0 = v->cfg->blocks[0];
@@ -1562,43 +1581,14 @@ cmod_propagation_test::test_negative_float_saturate_prop(enum brw_conditional_mo
    EXPECT_EQ(0, block0->start_ip);
    EXPECT_EQ(1, block0->end_ip);
    EXPECT_EQ(BRW_OPCODE_ADD, instruction(block0, 0)->opcode);
+   EXPECT_EQ(add_type, instruction(block0, 0)->dst.type);
+   EXPECT_EQ(add_type, instruction(block0, 0)->src[0].type);
+   EXPECT_EQ(add_type, instruction(block0, 0)->src[1].type);
    EXPECT_TRUE(instruction(block0, 0)->saturate);
    EXPECT_EQ(BRW_CONDITIONAL_NONE, instruction(block0, 0)->conditional_mod);
    EXPECT_EQ(op, instruction(block0, 1)->opcode);
-   EXPECT_FALSE(instruction(block0, 1)->saturate);
-   EXPECT_EQ(before, instruction(block0, 1)->conditional_mod);
-}
-
-void
-cmod_propagation_test::test_negative_int_saturate_prop(enum brw_conditional_mod before,
-                                                       enum opcode op)
-{
-   const fs_builder &bld = v->bld;
-   fs_reg dest = v->vgrf(glsl_type::int_type);
-   fs_reg src0 = v->vgrf(glsl_type::int_type);
-   fs_reg src1 = v->vgrf(glsl_type::int_type);
-   fs_reg zero(brw_imm_d(0));
-   bld.ADD(dest, src0, src1)->saturate = true;
-
-   assert(op == BRW_OPCODE_CMP || op == BRW_OPCODE_MOV);
-   if (op == BRW_OPCODE_CMP)
-      bld.CMP(bld.null_reg_d(), dest, zero, before);
-   else
-      bld.MOV(bld.null_reg_d(), dest)->conditional_mod = before;
-
-   v->calculate_cfg();
-   bblock_t *block0 = v->cfg->blocks[0];
-
-   EXPECT_EQ(0, block0->start_ip);
-   EXPECT_EQ(1, block0->end_ip);
-
-   EXPECT_FALSE(cmod_propagation(v));
-   EXPECT_EQ(0, block0->start_ip);
-   EXPECT_EQ(1, block0->end_ip);
-   EXPECT_EQ(BRW_OPCODE_ADD, instruction(block0, 0)->opcode);
-   EXPECT_TRUE(instruction(block0, 0)->saturate);
-   EXPECT_EQ(BRW_CONDITIONAL_NONE, instruction(block0, 0)->conditional_mod);
-   EXPECT_EQ(op, instruction(block0, 1)->opcode);
+   EXPECT_EQ(op_type, instruction(block0, 0)->dst.type);
+   EXPECT_EQ(op_type, instruction(block0, 0)->src[0].type);
    EXPECT_FALSE(instruction(block0, 1)->saturate);
    EXPECT_EQ(before, instruction(block0, 1)->conditional_mod);
 }
@@ -1616,8 +1606,9 @@ TEST_F(cmod_propagation_test, float_saturate_nz_cmp)
     * = After =
     * 0: add.sat.g.f0(8)  dest  src0  src1
     */
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_NZ, BRW_CONDITIONAL_G,
-                                     BRW_OPCODE_CMP);
+   test_positive_saturate_prop(BRW_CONDITIONAL_NZ, BRW_CONDITIONAL_G,
+                               BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, float_saturate_nz_mov)
@@ -1633,8 +1624,9 @@ TEST_F(cmod_propagation_test, float_saturate_nz_mov)
     * = After =
     * 0: add.sat.g.f0(8)  dest  src0  src1
     */
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_NZ, BRW_CONDITIONAL_G,
-                            BRW_OPCODE_MOV);
+   test_positive_saturate_prop(BRW_CONDITIONAL_NZ, BRW_CONDITIONAL_G,
+                               BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, float_saturate_z_cmp)
@@ -1650,8 +1642,9 @@ TEST_F(cmod_propagation_test, float_saturate_z_cmp)
     * = After =
     * 0: add.sat.le.f0(8)  dest  src0  src1
     */
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_Z, BRW_CONDITIONAL_LE,
-                                     BRW_OPCODE_CMP);
+   test_positive_saturate_prop(BRW_CONDITIONAL_Z, BRW_CONDITIONAL_LE,
+                               BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, float_saturate_z_mov)
@@ -1669,10 +1662,12 @@ TEST_F(cmod_propagation_test, float_saturate_z_mov)
     */
 #if 1
    /* cmod propagation bails on every MOV except MOV.NZ. */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 #else
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_Z, BRW_CONDITIONAL_LE,
-                                     BRW_OPCODE_MOV);
+   test_positive_saturate_prop(BRW_CONDITIONAL_Z, BRW_CONDITIONAL_LE,
+                               BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 #endif
 }
 
@@ -1689,8 +1684,9 @@ TEST_F(cmod_propagation_test, float_saturate_g_cmp)
     * = After =
     * 0: add.sat.g.f0(8)  dest  src0  src1
     */
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_G, BRW_CONDITIONAL_G,
-                                     BRW_OPCODE_CMP);
+   test_positive_saturate_prop(BRW_CONDITIONAL_G, BRW_CONDITIONAL_G,
+                               BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, float_saturate_g_mov)
@@ -1708,10 +1704,12 @@ TEST_F(cmod_propagation_test, float_saturate_g_mov)
     */
 #if 1
    /* cmod propagation bails on every MOV except MOV.NZ. */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 #else
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_G, BRW_CONDITIONAL_G,
-                                     BRW_OPCODE_MOV);
+   test_positive_saturate_prop(BRW_CONDITIONAL_G, BRW_CONDITIONAL_G,
+                               BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 #endif
 }
 
@@ -1728,8 +1726,9 @@ TEST_F(cmod_propagation_test, float_saturate_le_cmp)
     * = After =
     * 0: add.sat.le.f0(8)  dest  src0  src1
     */
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_LE, BRW_CONDITIONAL_LE,
-                                     BRW_OPCODE_CMP);
+   test_positive_saturate_prop(BRW_CONDITIONAL_LE, BRW_CONDITIONAL_LE,
+                               BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, float_saturate_le_mov)
@@ -1747,10 +1746,12 @@ TEST_F(cmod_propagation_test, float_saturate_le_mov)
     */
 #if 1
    /* cmod propagation bails on every MOV except MOV.NZ. */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 #else
-   test_positive_float_saturate_prop(BRW_CONDITIONAL_LE, BRW_CONDITIONAL_LE,
-                                     BRW_OPCODE_MOV);
+   test_positive_saturate_prop(BRW_CONDITIONAL_LE, BRW_CONDITIONAL_LE,
+                               BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 #endif
 }
 
@@ -1767,7 +1768,8 @@ TEST_F(cmod_propagation_test, float_saturate_l_cmp)
     * = After =
     * No change
     */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 #if 0
@@ -1784,7 +1786,8 @@ TEST_F(cmod_propagation_test, float_saturate_l_mov)
     * = After =
     * No change
     */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 #endif
 
@@ -1801,7 +1804,8 @@ TEST_F(cmod_propagation_test, float_saturate_ge_cmp)
     * = After =
     * No change
     */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, float_saturate_ge_mov)
@@ -1817,7 +1821,8 @@ TEST_F(cmod_propagation_test, float_saturate_ge_mov)
     * = After =
     * No change
     */
-   test_negative_float_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_F, BRW_REGISTER_TYPE_F);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_nz_cmp)
@@ -1830,7 +1835,8 @@ TEST_F(cmod_propagation_test, int_saturate_nz_cmp)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_nz_mov)
@@ -1843,7 +1849,8 @@ TEST_F(cmod_propagation_test, int_saturate_nz_mov)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_NZ, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_z_cmp)
@@ -1856,7 +1863,8 @@ TEST_F(cmod_propagation_test, int_saturate_z_cmp)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_z_mov)
@@ -1872,7 +1880,8 @@ TEST_F(cmod_propagation_test, int_saturate_z_mov)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_Z, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_g_cmp)
@@ -1885,7 +1894,8 @@ TEST_F(cmod_propagation_test, int_saturate_g_cmp)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_g_mov)
@@ -1898,7 +1908,8 @@ TEST_F(cmod_propagation_test, int_saturate_g_mov)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_G, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_le_cmp)
@@ -1911,7 +1922,8 @@ TEST_F(cmod_propagation_test, int_saturate_le_cmp)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_le_mov)
@@ -1924,7 +1936,8 @@ TEST_F(cmod_propagation_test, int_saturate_le_mov)
     * = After =
     * No change.
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_LE, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_l_cmp)
@@ -1937,7 +1950,8 @@ TEST_F(cmod_propagation_test, int_saturate_l_cmp)
     * = After =
     * No change
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_l_mov)
@@ -1950,7 +1964,8 @@ TEST_F(cmod_propagation_test, int_saturate_l_mov)
     * = After =
     * No change
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_L, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_ge_cmp)
@@ -1963,7 +1978,8 @@ TEST_F(cmod_propagation_test, int_saturate_ge_cmp)
     * = After =
     * No change
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP);
+   test_negative_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_CMP,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, int_saturate_ge_mov)
@@ -1976,7 +1992,8 @@ TEST_F(cmod_propagation_test, int_saturate_ge_mov)
     * = After =
     * No change
     */
-   test_negative_int_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV);
+   test_negative_saturate_prop(BRW_CONDITIONAL_GE, BRW_OPCODE_MOV,
+                               BRW_REGISTER_TYPE_D, BRW_REGISTER_TYPE_D);
 }
 
 TEST_F(cmod_propagation_test, not_to_or)
