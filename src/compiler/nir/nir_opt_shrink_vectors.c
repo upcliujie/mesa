@@ -207,30 +207,6 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr, bool shrink_image_s
 }
 
 static bool
-opt_shrink_vectors_image_store(nir_builder *b, nir_intrinsic_instr *instr)
-{
-   enum pipe_format format;
-   if (instr->intrinsic == nir_intrinsic_image_deref_store) {
-      nir_deref_instr *deref = nir_src_as_deref(instr->src[0]);
-      format = nir_deref_instr_get_variable(deref)->data.image.format;
-   } else {
-      format = nir_intrinsic_format(instr);
-   }
-   if (format == PIPE_FORMAT_NONE)
-      return false;
-
-   unsigned components = util_format_get_nr_components(format);
-   if (components >= instr->num_components)
-      return false;
-
-   nir_ssa_def *data = nir_channels(b, instr->src[3].ssa, BITSET_MASK(components));
-   nir_instr_rewrite_src(&instr->instr, &instr->src[3], nir_src_for_ssa(data));
-   instr->num_components = components;
-
-   return true;
-}
-
-static bool
 opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool shrink_image_store)
 {
    switch (instr->intrinsic) {
@@ -249,10 +225,6 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool sh
    case nir_intrinsic_load_kernel_input:
    case nir_intrinsic_load_scratch:
       break;
-   case nir_intrinsic_bindless_image_store:
-   case nir_intrinsic_image_deref_store:
-   case nir_intrinsic_image_store:
-      return shrink_image_store && opt_shrink_vectors_image_store(b, instr);
    default:
       return false;
    }
