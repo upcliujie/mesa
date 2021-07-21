@@ -1566,19 +1566,6 @@ nir_ssa_def_rewrite_uses_after(nir_ssa_def *def, nir_ssa_def *new_ssa,
    }
 }
 
-static nir_ssa_def *
-get_store_value(nir_intrinsic_instr *intrin)
-{
-   assert(nir_intrinsic_has_write_mask(intrin));
-   /* deref stores have the deref in src[0] and the store value in src[1] */
-   if (intrin->intrinsic == nir_intrinsic_store_deref ||
-       intrin->intrinsic == nir_intrinsic_store_deref_block_intel)
-      return intrin->src[1].ssa;
-
-   /* all other stores have the store value in src[0] */
-   return intrin->src[0].ssa;
-}
-
 nir_component_mask_t
 nir_ssa_def_components_read(const nir_ssa_def *def)
 {
@@ -1592,13 +1579,40 @@ nir_ssa_def_components_read(const nir_ssa_def *def)
          read_mask |= nir_alu_instr_src_read_mask(alu, src_idx);
       } else if (use->parent_instr->type == nir_instr_type_intrinsic) {
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(use->parent_instr);
-         if (nir_intrinsic_has_write_mask(intrin) && use->ssa == get_store_value(intrin)) {
-            read_mask |= nir_intrinsic_write_mask(intrin);
-         } else {
-            return (1 << def->num_components) - 1;
+         switch (intrin->intrinsic) {
+         case nir_intrinsic_image_deref_store: {
+            nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+            enum pipe_format format = nir_deref_instr_get_variable(deref)->data.image.format;
+            if (format == PIPE_FORMAT_NONE)
+               break;
+            read_mask |= BITSET_MASK(util_format_get_nr_components(format));
+            continue;
          }
+         case nir_intrinsic_bindless_image_store:
+         case nir_intrinsic_image_store: {
+            enum pipe_format format = nir_intrinsic_format(intrin);
+            if (nir_intrinsic_format(intrin) == PIPE_FORMAT_NONE)
+               break;
+            read_mask |= BITSET_MASK(util_format_get_nr_components(format));
+            continue;
+         }
+         case nir_intrinsic_store_deref:
+         case nir_intrinsic_store_deref_block_intel:
+            if (use->ssa != intrin->src[1].ssa)
+               break;
+            read_mask |= nir_intrinsic_write_mask(intrin);
+            continue;
+         default:
+            if (nir_intrinsic_has_write_mask(intrin) && use->ssa == intrin->src[0].ssa) {
+               read_mask |= nir_intrinsic_write_mask(intrin);
+               continue;
+            }
+            break;
+         }
+         /* Otherwise, all components are being used */
+         return BITSET_MASK(def->num_components);
       } else {
-         return (1 << def->num_components) - 1;
+         return BITSET_MASK(def->num_components);
       }
    }
 
