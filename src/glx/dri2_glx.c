@@ -201,7 +201,7 @@ dri2_create_context_attribs(struct glx_screen *base,
    unsigned num_ctx_attribs = 0;
 
    if (psc->dri2->base.version < 3) {
-      *error = __DRI_CTX_ERROR_NO_MEMORY;
+      *error = BadAlloc;
       goto error_exit;
    }
 
@@ -234,7 +234,7 @@ dri2_create_context_attribs(struct glx_screen *base,
 
    pcp = calloc(1, sizeof *pcp);
    if (pcp == NULL) {
-      *error = __DRI_CTX_ERROR_NO_MEMORY;
+      *error = BadAlloc;
       goto error_exit;
    }
 
@@ -286,6 +286,8 @@ dri2_create_context_attribs(struct glx_screen *base,
 					  ctx_attribs,
 					  error,
 					  pcp);
+
+   *error = dri_context_error_to_glx_error(*error);
 
    if (pcp->driContext == NULL)
       goto error_exit;

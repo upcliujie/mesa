@@ -253,10 +253,6 @@ indirect_create_context(struct glx_screen *psc,
  * \todo Eliminate \c __glXInitVertexArrayState.  Replace it with a new
  * function called \c __glXAllocateClientState that allocates the memory and
  * does all the initialization (including the pixel pack / unpack).
- *
- * \note
- * This function is \b not the place to validate the context creation
- * parameters.  It is just the allocator for the \c glx_context.
  */
 _X_HIDDEN struct glx_context *
 indirect_create_context_attribs(struct glx_screen *psc,
@@ -277,6 +273,7 @@ indirect_create_context_attribs(struct glx_screen *psc,
 
    opcode = __glXSetupForCommand(psc->dpy);
    if (!opcode) {
+      *error = BadImplementation;
       return NULL;
    }
 
@@ -299,12 +296,14 @@ indirect_create_context_attribs(struct glx_screen *psc,
    if (mask != GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB ||
        major != 1 ||
        minor > 4) {
+      *error = GLXBadFBConfig;
       return NULL;
    }
 
    /* Allocate our context record */
    gc = calloc(1, sizeof *gc);
    if (!gc) {
+      *error = BadAlloc;
       /* Out of memory */
       return NULL;
    }
@@ -317,6 +316,7 @@ indirect_create_context_attribs(struct glx_screen *psc,
 
    if (state == NULL) {
       /* Out of memory */
+      *error = BadAlloc;
       free(gc);
       return NULL;
    }
@@ -333,6 +333,7 @@ indirect_create_context_attribs(struct glx_screen *psc,
    bufSize = (XMaxRequestSize(psc->dpy) * 4) - sz_xGLXRenderReq;
    gc->buf = malloc(bufSize);
    if (!gc->buf) {
+      *error = BadAlloc;
       free(gc->client_state_private);
       free(gc);
       return NULL;

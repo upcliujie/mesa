@@ -76,6 +76,8 @@ extern bool
 dri2_check_no_error(uint32_t flags, struct glx_context *share_context,
                     int major, unsigned *error);
 
+extern unsigned
+dri_context_error_to_glx_error(unsigned error);
 
 extern struct glx_context *
 dri_common_create_context(struct glx_screen *base,

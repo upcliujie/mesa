@@ -600,6 +600,9 @@ drisw_create_context_attribs(struct glx_screen *base,
 					    ctx_attribs,
 					    error,
 					    pcp);
+
+   *error = dri_context_error_to_glx_error(*error);
+
    if (pcp->driContext == NULL) {
       free(pcp);
       return NULL;

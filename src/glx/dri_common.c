@@ -444,7 +444,7 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
    /* This is actually an internal error, but what the heck.
     */
    if (attribs == NULL) {
-      *error = __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE;
+      *error = BadImplementation;
       return false;
    }
 
@@ -478,7 +478,7 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
             *reset = __DRI_CTX_RESET_LOSE_CONTEXT;
             break;
          default:
-            *error = __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE;
+            *error = BadValue;
             return false;
          }
          break;
@@ -491,7 +491,7 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
             *release = __DRI_CTX_RELEASE_BEHAVIOR_FLUSH;
             break;
          default:
-            *error = __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE;
+            *error = BadValue;
             return false;
          }
          break;
@@ -502,7 +502,7 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
       default:
 	 /* If an unknown attribute is received, fail.
 	  */
-	 *error = __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE;
+	 *error = BadValue;
 	 return false;
       }
    }
@@ -538,12 +538,12 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
          else if (*major_ver == 1 && *minor_ver < 2)
             *api = __DRI_API_GLES;
          else {
-            *error = __DRI_CTX_ERROR_BAD_API;
+            *error = BadValue;
             return false;
          }
          break;
       default:
-	 *error = __DRI_CTX_ERROR_BAD_API;
+	 *error = BadValue;
 	 return false;
       }
    }
@@ -553,7 +553,7 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
    if (*flags & ~(__DRI_CTX_FLAG_DEBUG | __DRI_CTX_FLAG_FORWARD_COMPATIBLE
                   | __DRI_CTX_FLAG_ROBUST_BUFFER_ACCESS
                   | __DRI_CTX_FLAG_NO_ERROR)) {
-      *error = __DRI_CTX_ERROR_UNKNOWN_FLAG;
+      *error = BadImplementation;
       return false;
    }
 
@@ -564,16 +564,22 @@ dri2_convert_glx_attribs(unsigned num_attribs, const uint32_t *attribs,
     *     3.0 and later."
     */
    if (*major_ver < 3 && (*flags & __DRI_CTX_FLAG_FORWARD_COMPATIBLE) != 0) {
-      *error = __DRI_CTX_ERROR_BAD_FLAG;
+      *error = BadMatch;
       return false;
    }
 
+   /* It also says:
+    *
+    *    "OpenGL contexts supporting version 3.0 or later of the API do not
+    *    support color index rendering, even if a color index <config> is
+    *    available."
+    */
    if (*major_ver >= 3 && *render_type == GLX_COLOR_INDEX_TYPE) {
-      *error = __DRI_CTX_ERROR_BAD_FLAG;
+      *error = BadMatch;
       return false;
    }
 
-   *error = __DRI_CTX_ERROR_SUCCESS;
+   *error = Success;
    return true;
 }
 
@@ -588,7 +594,7 @@ dri2_check_no_error(uint32_t flags, struct glx_context *share_context,
     *    Requires OpenGL ES 2.0 or OpenGL 2.0.
     */
    if (noError && major < 2) {
-      *error = __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE;
+      *error = BadMatch;
       return false;
    }
 
@@ -599,7 +605,7 @@ dri2_check_no_error(uint32_t flags, struct glx_context *share_context,
     *    GLX_CONTEXT_OPENGL_NO_ERROR_ARB for the context being created.
     */
    if (share_context && !!share_context->noError != !!noError) {
-      *error = __DRI_CTX_ERROR_BAD_FLAG;
+      *error = BadMatch;
       return false;
    }
 
@@ -611,11 +617,32 @@ dri2_check_no_error(uint32_t flags, struct glx_context *share_context,
     */
    if (noError && ((flags & __DRI_CTX_FLAG_DEBUG) ||
                    (flags & __DRI_CTX_FLAG_ROBUST_BUFFER_ACCESS))) {
-      *error = __DRI_CTX_ERROR_BAD_FLAG;
+      *error = BadMatch;
       return false;
    }
 
    return true;
+}
+
+unsigned
+dri_context_error_to_glx_error(unsigned error)
+{
+   if (error == __DRI_CTX_ERROR_SUCCESS)
+      return Success;
+   if (error == __DRI_CTX_ERROR_NO_MEMORY)
+      return BadAlloc;
+   else if (error == __DRI_CTX_ERROR_BAD_API)
+      return BadMatch;
+   else if (error == __DRI_CTX_ERROR_BAD_VERSION)
+      return BadMatch;
+   else if (error == __DRI_CTX_ERROR_BAD_FLAG)
+      return BadMatch;
+   else if (error == __DRI_CTX_ERROR_UNKNOWN_ATTRIBUTE)
+      return BadValue;
+   else if (error == __DRI_CTX_ERROR_UNKNOWN_FLAG)
+      return BadValue;
+   else
+      unreachable("Impossible DRI context error");
 }
 
 struct glx_context *
