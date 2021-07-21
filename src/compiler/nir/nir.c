@@ -1581,21 +1581,25 @@ nir_ssa_def_components_read(const nir_ssa_def *def)
          nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(use->parent_instr);
          switch (intrin->intrinsic) {
          case nir_intrinsic_image_deref_store: {
-            if (use->ssa != intrin->src[4].ssa)
+            if (use->ssa != intrin->src[3].ssa)
                break;
             nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-            enum pipe_format format = nir_deref_instr_get_variable(deref)->data.image.format;
+            nir_variable *var = nir_deref_instr_get_variable(deref);
+            if (!var)
+               break;
+            enum pipe_format format = var->data.image.format;
             if (format == PIPE_FORMAT_NONE)
                break;
+
             read_mask |= BITSET_MASK(util_format_get_nr_components(format));
             continue;
          }
          case nir_intrinsic_bindless_image_store:
          case nir_intrinsic_image_store: {
-            if (use->ssa != intrin->src[4].ssa)
+            if (use->ssa != intrin->src[3].ssa)
                break;
             enum pipe_format format = nir_intrinsic_format(intrin);
-            if (nir_intrinsic_format(intrin) == PIPE_FORMAT_NONE)
+            if (format == PIPE_FORMAT_NONE)
                break;
             read_mask |= BITSET_MASK(util_format_get_nr_components(format));
             continue;
