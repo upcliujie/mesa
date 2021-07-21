@@ -100,6 +100,48 @@ build_idiv(nir_builder *b, nir_ssa_def *n, int64_t d)
    }
 }
 
+static nir_ssa_def *
+build_imod(nir_builder *b, nir_ssa_def *n, int64_t d)
+{
+   int64_t int_min = INT64_C(-1) << (n->bit_size - 1);
+   if (d == 0) {
+      return nir_imm_intN_t(b, 0, n->bit_size);
+   } else if (d == int_min) {
+      nir_ssa_def *int_min_def = nir_imm_intN_t(b, int_min, n->bit_size);
+      nir_ssa_def *is_neg_not_int_min = nir_ult(b, int_min_def, n);
+      return nir_bcsel(b, is_neg_not_int_min, n, nir_iadd(b, int_min_def, n));
+   } else if (d > 0 && util_is_power_of_two_or_zero64(d)) {
+      return nir_iand(b, n, nir_imm_intN_t(b, d - 1, n->bit_size));
+   } else if (d < 0 && util_is_power_of_two_or_zero64(-d)) {
+      nir_ssa_def *d_def = nir_imm_intN_t(b, d, n->bit_size);
+      nir_ssa_def *res = nir_ior(b, n, d_def);
+      return nir_bcsel(b, nir_ieq(b, res, d_def), nir_imm_intN_t(b, 0, n->bit_size), res);
+   } else {
+      return nir_isub(b, n, nir_imul(b, build_idiv(b, n, d),
+                                     nir_imm_intN_t(b, d, n->bit_size)));
+   }
+}
+
+static nir_ssa_def *
+build_irem(nir_builder *b, nir_ssa_def *n, int64_t d)
+{
+   int64_t int_min = INT64_C(-1) << (n->bit_size - 1);
+   if (d == 0) {
+      return nir_imm_intN_t(b, 0, n->bit_size);
+   } else if (d == int_min) {
+      return nir_bcsel(b, nir_ieq_imm(b, n, int_min), nir_imm_intN_t(b, 0, n->bit_size), n);
+   } else {
+      d = d < 0 ? -d : d;
+      nir_ssa_def *tmp = nir_bcsel(b, nir_ilt(b, n, nir_imm_intN_t(b, 0, n->bit_size)),
+                                   nir_iadd_imm(b, n, d - 1), n);
+      if (util_is_power_of_two_or_zero64(d))
+         return nir_isub(b, n, nir_iand_imm(b, tmp, -d));
+      else
+         return nir_isub(b, n, nir_imul(b, build_idiv(b, tmp, d),
+                                        nir_imm_intN_t(b, d, n->bit_size)));
+   }
+}
+
 static bool
 nir_opt_idiv_const_instr(nir_builder *b, nir_alu_instr *alu)
 {
@@ -143,6 +185,12 @@ nir_opt_idiv_const_instr(nir_builder *b, nir_alu_instr *alu)
       case nir_op_umod:
          q[comp] = build_umod(b, n, d);
          break;
+      case nir_op_imod:
+         q[comp] = build_imod(b, n, d);
+         break;
+      case nir_op_irem:
+         q[comp] = build_irem(b, n, d);
+         break;
       default:
          unreachable("Unknown integer division op");
       }
@@ -171,7 +219,9 @@ nir_opt_idiv_const_impl(nir_function_impl *impl, unsigned min_bit_size)
          nir_alu_instr *alu = nir_instr_as_alu(instr);
          if (alu->op != nir_op_udiv &&
              alu->op != nir_op_idiv &&
-             alu->op != nir_op_umod)
+             alu->op != nir_op_umod &&
+             alu->op != nir_op_imod &&
+             alu->op != nir_op_irem)
             continue;
 
          assert(alu->dest.dest.is_ssa);
