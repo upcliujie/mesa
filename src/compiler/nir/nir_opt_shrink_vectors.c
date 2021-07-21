@@ -42,15 +42,43 @@
 #include "nir.h"
 #include "nir_builder.h"
 
+static int
+get_last_bit(nir_ssa_def *def, unsigned read_mask, bool shrink_image_store)
+{
+   int last_bit = util_last_bit(read_mask);
+   if (last_bit == def->num_components)
+      return last_bit;
+
+   nir_foreach_use_safe(use, def) {
+      if (use->parent_instr->type == nir_instr_type_intrinsic) {
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(use->parent_instr);
+         switch (intrin->intrinsic) {
+         case nir_intrinsic_store_deref:
+            return def->num_components;
+         case nir_intrinsic_bindless_image_store:
+         case nir_intrinsic_image_deref_store:
+         case nir_intrinsic_image_store:
+            if (!shrink_image_store)
+               return def->num_components;
+            break;
+         default:
+            break;
+         }
+      }
+   }
+
+   return last_bit;
+}
+
 static bool
-shrink_dest_to_read_mask(nir_ssa_def *def)
+shrink_dest_to_read_mask(nir_ssa_def *def, bool shrink_image_store)
 {
    /* early out if there's nothing to do. */
    if (def->num_components == 1)
       return false;
 
    unsigned mask = nir_ssa_def_components_read(def);
-   int last_bit = util_last_bit(mask);
+   int last_bit = get_last_bit(def, mask, shrink_image_store);
 
    /* If nothing was read, leave it up to DCE. */
    if (!mask)
@@ -70,7 +98,7 @@ shrink_dest_to_read_mask(nir_ssa_def *def)
 }
 
 static bool
-opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
+opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr, bool shrink_image_store)
 {
    nir_ssa_def *def = &instr->dest.dest.ssa;
 
@@ -92,7 +120,7 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
    }
 
    unsigned mask = nir_ssa_def_components_read(def);
-   unsigned last_bit = util_last_bit(mask);
+   unsigned last_bit = get_last_bit(def, mask, shrink_image_store);
    unsigned num_components = util_bitcount(mask);
 
    /* return, if there is nothing to do */
@@ -234,7 +262,7 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool sh
    assert(nir_intrinsic_infos[instr->intrinsic].has_dest);
 
    /* Trim the dest to the used channels */
-   if (shrink_dest_to_read_mask(&instr->dest.ssa)) {
+   if (shrink_dest_to_read_mask(&instr->dest.ssa, shrink_image_store)) {
       instr->num_components = instr->dest.ssa.num_components;
       return true;
    }
@@ -243,15 +271,15 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool sh
 }
 
 static bool
-opt_shrink_vectors_load_const(nir_load_const_instr *instr)
+opt_shrink_vectors_load_const(nir_load_const_instr *instr, bool shrink_image_store)
 {
-   return shrink_dest_to_read_mask(&instr->def);
+   return shrink_dest_to_read_mask(&instr->def, shrink_image_store);
 }
 
 static bool
-opt_shrink_vectors_ssa_undef(nir_ssa_undef_instr *instr)
+opt_shrink_vectors_ssa_undef(nir_ssa_undef_instr *instr, bool shrink_image_store)
 {
-   return shrink_dest_to_read_mask(&instr->def);
+   return shrink_dest_to_read_mask(&instr->def, shrink_image_store);
 }
 
 static bool
@@ -261,16 +289,16 @@ opt_shrink_vectors_instr(nir_builder *b, nir_instr *instr, bool shrink_image_sto
 
    switch (instr->type) {
    case nir_instr_type_alu:
-      return opt_shrink_vectors_alu(b, nir_instr_as_alu(instr));
+      return opt_shrink_vectors_alu(b, nir_instr_as_alu(instr), shrink_image_store);
 
    case nir_instr_type_intrinsic:
       return opt_shrink_vectors_intrinsic(b, nir_instr_as_intrinsic(instr), shrink_image_store);
 
    case nir_instr_type_load_const:
-      return opt_shrink_vectors_load_const(nir_instr_as_load_const(instr));
+      return opt_shrink_vectors_load_const(nir_instr_as_load_const(instr), shrink_image_store);
 
    case nir_instr_type_ssa_undef:
-      return opt_shrink_vectors_ssa_undef(nir_instr_as_ssa_undef(instr));
+      return opt_shrink_vectors_ssa_undef(nir_instr_as_ssa_undef(instr), shrink_image_store);
 
    default:
       return false;
