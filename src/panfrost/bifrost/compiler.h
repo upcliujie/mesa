@@ -804,7 +804,7 @@ unsigned bi_writemask(bi_instr *ins, unsigned dest);
 bi_clause * bi_next_clause(bi_context *ctx, bi_block *block, bi_clause *clause);
 bool bi_side_effects(enum bi_opcode op);
 
-void bi_print_instr(bi_instr *I, FILE *fp);
+void bi_print_instr(const bi_instr *I, FILE *fp);
 void bi_print_slots(bi_registers *regs, FILE *fp);
 void bi_print_tuple(bi_tuple *tuple, FILE *fp);
 void bi_print_clause(bi_clause *clause, FILE *fp);
