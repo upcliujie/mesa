@@ -21,7 +21,7 @@
 
 subdir('valhall')
 
-inc_valhall = include_directories('.', 'valhall')
+inc_valhall = include_directories(['.', 'valhall'])
 
 libpanfrost_bifrost_files = files(
   'bi_helper_invocations.c',
@@ -166,5 +166,19 @@ if with_tests
     ),
     suite : ['panfrost'],
     protocol : gtest_test_protocol,
+  )
+
+  test(
+    'valhall_packing',
+    executable(
+      'valhall_packing_test',
+      files('valhall/test/test-packing.c'),
+      c_args : [c_msvc_compat_args, no_override_init_args],
+      gnu_symbol_visibility : 'hidden',
+      include_directories : [inc_include, inc_src, inc_mesa, inc_valhall],
+      dependencies: [idep_nir, idep_bi_builder_h],
+      link_with : [libpanfrost_bifrost],
+    ),
+    suite : ['panfrost'],
   )
 endif
