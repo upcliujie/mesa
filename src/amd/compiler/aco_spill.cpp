@@ -74,14 +74,14 @@ template<typename T, typename Alloc, typename... Args>
 struct spill_ctx {
    RegisterDemand target_pressure;
    Program* program;
-   std::vector<std::vector<RegisterDemand>> register_demand;
-   std::vector<std::map<Temp, Temp>> renames;
-   std::vector<std::unordered_map<Temp, uint32_t>> spills_entry;
-   std::unordered_map<Temp, uint32_t>
-      spills_entry_scratch; /* Scratch memory used for process_block */
-   std::vector<std::unordered_map<Temp, uint32_t>> spills_exit;
 
    std::pmr::monotonic_buffer_resource memory;
+
+   std::vector<std::vector<RegisterDemand>> register_demand;
+   std::vector<std::map<Temp, Temp>> renames;
+   std::pmr::vector<std::pmr::unordered_map<Temp, uint32_t>> spills_entry;
+   std::pmr::unordered_map<Temp, uint32_t> spills_entry_scratch; /* Scratch memory used for intermediary operations*/
+   std::pmr::vector<std::pmr::unordered_map<Temp, uint32_t>> spills_exit;
 
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
@@ -102,7 +102,7 @@ struct spill_ctx {
              std::vector<std::vector<RegisterDemand>> register_demand_)
        : target_pressure(target_pressure_), program(program_),
          register_demand(std::move(register_demand_)), renames(program->blocks.size()),
-         spills_entry(program->blocks.size()), spills_exit(program->blocks.size()),
+         spills_entry(program->blocks.size(), &memory), spills_entry_scratch(&memory), spills_exit(program->blocks.size(), &memory),
          processed(program->blocks.size(), false),
 //         next_use_distances_start(&memory),
 //         next_use_distances_end(&memory),
@@ -1173,7 +1173,7 @@ add_coupling_code(spill_ctx& ctx, Block* block, unsigned block_idx)
 
 void
 process_block(spill_ctx& ctx, unsigned block_idx, Block* block,
-              std::unordered_map<Temp, uint32_t>& current_spills, RegisterDemand spilled_registers)
+              std::pmr::unordered_map<Temp, uint32_t> &current_spills, RegisterDemand spilled_registers)
 {
    assert(!ctx.processed[block_idx]);
 
