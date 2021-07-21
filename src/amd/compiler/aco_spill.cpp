@@ -74,12 +74,13 @@ template<typename T, typename Alloc, typename... Args>
 struct spill_ctx {
    RegisterDemand target_pressure;
    Program* program;
-   std::vector<std::vector<RegisterDemand>> register_demand;
-   std::vector<std::map<Temp, Temp>> renames;
-   std::vector<std::unordered_map<Temp, uint32_t>> spills_entry;
-   std::vector<std::unordered_map<Temp, uint32_t>> spills_exit;
 
    std::pmr::monotonic_buffer_resource memory;
+
+   std::vector<std::vector<RegisterDemand>> register_demand;
+   std::vector<std::map<Temp, Temp>> renames;
+   std::pmr::vector<std::pmr::unordered_map<Temp, uint32_t>> spills_entry;
+   std::pmr::vector<std::pmr::unordered_map<Temp, uint32_t>> spills_exit;
 
    std::vector<bool> processed;
    std::stack<Block*, std::vector<Block*>> loop_header;
@@ -100,7 +101,7 @@ struct spill_ctx {
              std::vector<std::vector<RegisterDemand>> register_demand_)
        : target_pressure(target_pressure_), program(program_),
          register_demand(std::move(register_demand_)), renames(program->blocks.size()),
-         spills_entry(program->blocks.size()), spills_exit(program->blocks.size()),
+         spills_entry(program->blocks.size(), &memory), spills_exit(program->blocks.size(), &memory),
          processed(program->blocks.size(), false),
          next_use_distances_start_ptr(new_object<std::pmr::vector<next_use_distance_startend_type>>(memory, &memory)),
          next_use_distances_end_ptr(new_object<std::pmr::vector<next_use_distance_startend_type>>(memory, &memory)),
