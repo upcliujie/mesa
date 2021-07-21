@@ -759,9 +759,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
 
    device->info = devinfo;
 
-   device->no_hw = device->info.no_hw;
-   if (getenv("INTEL_NO_HW") != NULL)
-      device->no_hw = true;
+   device->no_hw = env_var_as_boolean("INTEL_NO_HW", device->info.no_hw);
 
    device->pci_info.domain = drm_device->businfo.pci->domain;
    device->pci_info.bus = drm_device->businfo.pci->bus;
