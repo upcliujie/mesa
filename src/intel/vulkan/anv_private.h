@@ -3953,7 +3953,6 @@ struct anv_image {
     * of the actual surface formats.
     */
    VkFormat vk_format;
-   const struct anv_format *format;
 
    VkImageAspectFlags aspects;
    VkExtent3D extent;
