@@ -143,8 +143,10 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr, bool shrink_image_s
          assert(is_bitfield_mask);
          nir_ssa_def *undef = nir_ssa_undef(b, 1, def->bit_size);
          for (int i = 0; i < last_bit; i++) {
-            if (((mask >> i) & 0x1) == 0)
+            if (((mask >> i) & 0x1) == 0) {
                nir_instr_rewrite_src_ssa(&instr->instr, &instr->src[i].src, undef);
+               instr->src[i].swizzle[0] = 0;
+            }
          }
       } else {
          /* replace vecN with smaller version */
