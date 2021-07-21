@@ -438,8 +438,27 @@ vk_spec_info_to_nir_spirv(const VkSpecializationInfo *spec_info,
       case 1:
          spec_entries[i].value.u8 = *(const uint8_t *)data;
          break;
+      case 0:
       default:
-         assert(!"Invalid spec constant size");
+         /* According to Specialization Constants specs:
+          *
+          *   "For a constantID specialization constant declared in a shader,
+          *    size must match the byte size of the constantID. If the
+          *    specialization constant is of type boolean, size must be the
+          *    byte size of VkBool32".
+          *
+          * As only scalars can be decorated as specialization constants, we
+          * can assume that if it doesn't have a size of 1, 2, 4 or 8, any use
+          * in a shader is invalid.
+          *
+          * Also:
+          *   "If a constantID value is not a specialization constant ID used
+          *    in the shader, that map entry does not affect the behavior of
+          *    the pipeline."
+          *
+          * We can assume that an invalid specificacion constant is not used
+          * in the shader and thus we can ignore it.
+          */
          break;
       }
    }
