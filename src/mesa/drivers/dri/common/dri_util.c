@@ -252,12 +252,11 @@ static const __DRIextension **driGetExtensions(__DRIscreen *psp)
 /*@}*/
 
 
-static bool
+static unsigned
 validate_context_version(__DRIscreen *screen,
                          int mesa_api,
                          unsigned major_version,
-                         unsigned minor_version,
-                         unsigned *dri_ctx_error)
+                         unsigned minor_version)
 {
    unsigned req_version = 10 * major_version + minor_version;
    unsigned max_version = 0;
@@ -280,15 +279,12 @@ validate_context_version(__DRIscreen *screen,
       break;
    }
 
-   if (max_version == 0) {
-      *dri_ctx_error = __DRI_CTX_ERROR_BAD_API;
-      return false;
-   } else if (req_version > max_version) {
-      *dri_ctx_error = __DRI_CTX_ERROR_BAD_VERSION;
-      return false;
-   }
+   if (max_version == 0)
+      return __DRI_CTX_ERROR_BAD_API;
+   else if (req_version > max_version)
+      return __DRI_CTX_ERROR_BAD_VERSION;
 
-   return true;
+   return __DRI_CTX_ERROR_SUCCESS;
 }
 
 /*****************************************************************/
@@ -459,10 +455,10 @@ driCreateContextAttribs(__DRIscreen *screen, int api,
 	return NULL;
     }
 
-    if (!validate_context_version(screen, mesa_api,
-                                  ctx_config.major_version,
-                                  ctx_config.minor_version,
-                                  error))
+    *error = validate_context_version(screen, mesa_api,
+                                      ctx_config.major_version,
+                                      ctx_config.minor_version);
+    if (*error != __DRI_CTX_ERROR_SUCCESS)
        return NULL;
 
     context = calloc(1, sizeof *context);
