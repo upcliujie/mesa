@@ -150,8 +150,12 @@ class UI:
 
     async def update(self) -> None:
         self.load()
-        with open('VERSION', 'r') as f:
-            version = '.'.join(f.read().split('.')[:2])
+        p = await asyncio.create_subprocess_exec(
+            'meson', 'introspect', '--projectinfo', 'meson.build',
+            stdout=asyncio.subprocess.PIPE)
+        payload, *_ = await p.communicate()
+        raw_version = json.loads(payload)['version']
+        version = '.'.join(raw_version.split('.')[:2])
         if self.previous_commits:
             sha = self.previous_commits[0].sha
         else:

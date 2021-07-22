@@ -23,6 +23,7 @@
 
 import asyncio
 import datetime
+import json
 import os
 import pathlib
 import re
@@ -291,9 +292,12 @@ def get_features(is_point_release: bool) -> typing.Generator[str, None, None]:
 
 
 async def main() -> None:
-    v = pathlib.Path(__file__).parent.parent / 'VERSION'
-    with v.open('rt') as f:
-        raw_version = f.read().strip()
+    v = pathlib.Path(__file__).parent.parent / 'meson.build'
+    p = await asyncio.create_subprocess_exec(
+        'meson', 'introspect', '--projectinfo', v.as_posix(),
+        stdout=asyncio.subprocess.PIPE)
+    payload, *_ = await p.communicate()
+    raw_version = json.loads(payload)['version']
     is_point_release = '-rc' not in raw_version
     assert '-devel' not in raw_version, 'Do not run this script on -devel'
     version = raw_version.split('-')[0]
