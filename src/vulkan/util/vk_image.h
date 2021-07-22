@@ -56,6 +56,8 @@ struct vk_image {
    /* VK_ANDROID_external_memory_android_hardware_buffer */
    uint64_t android_external_format;
 };
+VK_DEFINE_NONDISP_HANDLE_CASTS(vk_image, base, VkImage,
+                               VK_OBJECT_TYPE_IMAGE);
 
 void vk_image_init(struct vk_device *device,
                    struct vk_image *image,
@@ -104,6 +106,42 @@ vk_image_subresource_level_count(const struct vk_image *image,
    return range->levelCount == VK_REMAINING_MIP_LEVELS ?
           image->mip_levels - range->baseMipLevel : range->levelCount;
 }
+
+struct vk_image_view {
+   struct vk_object_base base;
+
+   VkImageViewCreateFlags create_flags;
+   struct vk_image *image;
+   VkImageViewType view_type;
+   VkFormat format;
+   VkComponentMapping swizzle;
+
+   /* VkImageViewCreateInfo::subresourceRange */
+   VkImageAspectFlags aspects;
+   uint32_t base_mip_level;
+   uint32_t level_count;
+   uint32_t base_array_layer;
+   uint32_t layer_count;
+
+   /* Image extent at LOD 0 */
+   VkExtent3D extent;
+
+   /* VK_KHR_maintenance2 */
+   VkImageUsageFlags usage;
+};
+
+void vk_image_view_init(struct vk_device *device,
+                        struct vk_image_view *image_view,
+                        const VkImageViewCreateInfo *pCreateInfo);
+void vk_image_view_finish(struct vk_image_view *image_view);
+
+void *vk_image_view_create(struct vk_device *device,
+                           const VkImageViewCreateInfo *pCreateInfo,
+                           const VkAllocationCallbacks *alloc,
+                           size_t size);
+void vk_image_view_destroy(struct vk_device *device,
+                           const VkAllocationCallbacks *alloc,
+                           struct vk_image_view *image_view);
 
 #ifdef __cplusplus
 }
