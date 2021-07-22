@@ -53,6 +53,9 @@ struct vk_image {
    /* VK_KHR_external_memory */
    VkExternalMemoryHandleTypeFlags external_handle_types;
 
+   /* wsi_image_create_info::scanout */
+   bool wsi_legacy_scanout;
+
    /* VK_EXT_drm_format_modifier
     *
     * Initialized by vk_image_create/init() to DRM_FORMAT_MOD_INVALID.  It's
