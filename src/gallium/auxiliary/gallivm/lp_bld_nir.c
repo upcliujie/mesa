@@ -27,6 +27,7 @@
 #include "lp_bld_arit.h"
 #include "lp_bld_bitarit.h"
 #include "lp_bld_const.h"
+#include "lp_bld_conv.h"
 #include "lp_bld_gather.h"
 #include "lp_bld_logic.h"
 #include "lp_bld_quad.h"
@@ -2127,7 +2128,12 @@ static void visit_tex(struct lp_build_nir_context *bld_base, nir_tex_instr *inst
    params.ms_index = ms_index;
    params.aniso_filter_table = bld_base->aniso_filter_table;
    bld_base->tex(bld_base, &params);
+   if (instr->dest_type == nir_type_float16) {
+     for (unsigned i = 0; i < nir_dest_num_components(instr->dest); i++)
+       texel[i] = lp_build_float_to_half(gallivm, texel[i]);
+   }
    assign_dest(bld_base, &instr->dest, texel);
+
 }
 
 static void visit_ssa_undef(struct lp_build_nir_context *bld_base,
