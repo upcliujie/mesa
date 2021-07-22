@@ -1031,9 +1031,9 @@ wsi_create_buffer_image(const struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
       .buffer_blit_src = true,
    };
-   const VkImageCreateInfo image_info = {
+   VkImageCreateInfo image_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-      .pNext = &image_wsi_info,
+      .pNext = NULL,
       .flags = 0,
       .imageType = VK_IMAGE_TYPE_2D,
       .format = pCreateInfo->imageFormat,
@@ -1052,6 +1052,14 @@ wsi_create_buffer_image(const struct wsi_swapchain *chain,
       .pQueueFamilyIndices = pCreateInfo->pQueueFamilyIndices,
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
    };
+
+   /* only set prime_blit_src if this is a DMABUF handle */
+   const VkExportMemoryAllocateInfo *export_memory_alloc_info =
+      vk_find_struct_const(buffer_memory_extra, EXPORT_MEMORY_ALLOCATE_INFO);
+   if (export_memory_alloc_info && (export_memory_alloc_info->handleTypes &
+        VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT))
+      image_info.pNext = &image_wsi_info;
+
    result = wsi->CreateImage(chain->device, &image_info,
                              &chain->alloc, &image->image);
    if (result != VK_SUCCESS)
