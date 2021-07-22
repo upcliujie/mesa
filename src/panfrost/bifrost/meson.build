@@ -42,6 +42,7 @@ libpanfrost_bifrost_files = files(
   'bi_scoreboard.c',
   'bir.c',
   'bifrost_compile.c',
+  'valhall/va_optimize.c',
   'valhall/va_pack.c',
 )
 
