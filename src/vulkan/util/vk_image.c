@@ -48,11 +48,74 @@ sanitize_image_extent(const VkImageType imageType,
    }
 }
 
+static struct vk_image *
+get_first_swapchain_image(struct vk_device *device, VkSwapchainKHR swapchain)
+{
+   VkImage _image = VK_NULL_HANDLE;
+   uint32_t one = 1;
+   ASSERTED VkResult result =
+      device->dispatch_table.GetSwapchainImagesKHR(vk_device_to_handle(device),
+                                                   swapchain, &one, &_image);
+
+   /* These are the only two values returned by wsi_common_get_images */
+   assert(result == VK_SUCCESS || result == VK_INCOMPLETE);
+   assert(one == 1);
+
+   return vk_image_from_handle(_image);
+}
+
+static void
+vk_image_init_from_swapchain(struct vk_device *device,
+                             struct vk_image *image,
+                             ASSERTED const VkImageCreateInfo *pCreateInfo,
+                             VkSwapchainKHR swapchain)
+{
+   /* From the Vulkan 1.1 spec:
+    *
+    *    "If swapchain is not VK_NULL_HANDLE, the fields of VkImageCreateInfo
+    *    must match the implied image creation parameters of the swapchain."
+    *
+    * Therefore, it doesn't make sense for there to be any other create
+    * extension structs combined with VkImageSwapchainCreateInfoKHR.
+    */
+   vk_foreach_struct_const(ext, pCreateInfo->pNext)
+      assert(ext->sType == VK_STRUCTURE_TYPE_IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
+
+   const struct vk_image *swc_image =
+      get_first_swapchain_image(device, swapchain);
+
+   assert(swc_image->create_flags == pCreateInfo->flags);
+   assert(swc_image->image_type == pCreateInfo->imageType);
+   assert(swc_image->format == pCreateInfo->format);
+   assert(swc_image->extent.width == pCreateInfo->extent.width);
+   assert(swc_image->extent.height == pCreateInfo->extent.height);
+   assert(swc_image->extent.depth == pCreateInfo->extent.depth);
+   assert(swc_image->mip_levels == pCreateInfo->mipLevels);
+   assert(swc_image->array_layers == pCreateInfo->arrayLayers);
+   assert(swc_image->samples == pCreateInfo->samples);
+   assert(pCreateInfo->tiling == VK_IMAGE_TILING_OPTIMAL);
+   assert(swc_image->usage == pCreateInfo->usage);
+   assert(swc_image->stencil_usage == 0);
+   assert(swc_image->android_external_format == 0);
+
+   *image = *swc_image;
+   vk_object_base_init(device, &image->base, VK_OBJECT_TYPE_IMAGE);
+   image->swapchain = swapchain;
+}
+
 void
 vk_image_init(struct vk_device *device,
               struct vk_image *image,
               const VkImageCreateInfo *pCreateInfo)
 {
+   const VkImageSwapchainCreateInfoKHR *swapchain_info =
+      vk_find_struct_const(pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
+   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE) {
+      vk_image_init_from_swapchain(device, image, pCreateInfo,
+                                   swapchain_info->swapchain);
+      return;
+   }
+
    vk_object_base_init(device, &image->base, VK_OBJECT_TYPE_IMAGE);
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);

@@ -69,6 +69,9 @@ struct vk_image {
 
    /* VK_ANDROID_external_memory_android_hardware_buffer */
    uint64_t android_external_format;
+
+   /* VK_KHR_swapchain with Vulkan 1.1 */
+   VkSwapchainKHR swapchain;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vk_image, base, VkImage,
                                VK_OBJECT_TYPE_IMAGE);

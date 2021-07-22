@@ -1265,6 +1265,7 @@ anv_image_create(VkDevice _device,
       anv_image_create_usage(pCreateInfo, image->vk.stencil_usage);
 
    if (pCreateInfo->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
+      assert(image->vk.drm_format_mod == DRM_FORMAT_MOD_INVALID);
       mod_explicit_info =
          vk_find_struct_const(pCreateInfo->pNext,
                               IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT);
@@ -1367,56 +1368,6 @@ anv_swapchain_get_image(VkSwapchainKHR swapchain,
    return image;
 }
 
-static VkResult
-anv_image_from_swapchain(VkDevice device,
-                         const VkImageCreateInfo *pCreateInfo,
-                         const VkImageSwapchainCreateInfoKHR *swapchain_info,
-                         const VkAllocationCallbacks *pAllocator,
-                         VkImage *pImage)
-{
-   struct anv_image *swapchain_image = anv_swapchain_get_image(swapchain_info->swapchain, 0);
-   assert(swapchain_image);
-
-   VkImageCreateInfo local_create_info = *pCreateInfo;
-   local_create_info.pNext = NULL;
-
-   /* Added by wsi code. */
-   local_create_info.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-   /* The spec requires TILING_OPTIMAL as input, but the swapchain image may
-    * privately use a different tiling.  See spec anchor
-    * #swapchain-wsi-image-create-info .
-    */
-   assert(local_create_info.tiling == VK_IMAGE_TILING_OPTIMAL);
-   local_create_info.tiling = swapchain_image->vk.tiling;
-
-   VkImageDrmFormatModifierListCreateInfoEXT local_modifier_info = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT,
-      .drmFormatModifierCount = 1,
-      .pDrmFormatModifiers = &swapchain_image->vk.drm_format_mod,
-   };
-
-   if (swapchain_image->vk.drm_format_mod != DRM_FORMAT_MOD_INVALID)
-      __vk_append_struct(&local_create_info, &local_modifier_info);
-
-   assert(swapchain_image->vk.image_type == local_create_info.imageType);
-   assert(swapchain_image->vk.format == local_create_info.format);
-   assert(swapchain_image->vk.extent.width == local_create_info.extent.width);
-   assert(swapchain_image->vk.extent.height == local_create_info.extent.height);
-   assert(swapchain_image->vk.extent.depth == local_create_info.extent.depth);
-   assert(swapchain_image->vk.array_layers == local_create_info.arrayLayers);
-   assert(swapchain_image->vk.samples == local_create_info.samples);
-   assert(swapchain_image->vk.tiling == local_create_info.tiling);
-   assert(swapchain_image->vk.usage == local_create_info.usage);
-
-   return anv_image_create(device,
-      &(struct anv_image_create_info) {
-         .vk_info = &local_create_info,
-      },
-      pAllocator,
-      pImage);
-}
-
 VkResult
 anv_CreateImage(VkDevice device,
                 const VkImageCreateInfo *pCreateInfo,
@@ -1428,12 +1379,6 @@ anv_CreateImage(VkDevice device,
    if (gralloc_info)
       return anv_image_from_gralloc(device, pCreateInfo, gralloc_info,
                                     pAllocator, pImage);
-
-   const VkImageSwapchainCreateInfoKHR *swapchain_info =
-      vk_find_struct_const(pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
-   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE)
-      return anv_image_from_swapchain(device, pCreateInfo, swapchain_info,
-                                      pAllocator, pImage);
 
    return anv_image_create(device,
       &(struct anv_image_create_info) {
