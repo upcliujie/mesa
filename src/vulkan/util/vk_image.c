@@ -30,6 +30,7 @@
 #include "vk_device.h"
 #include "vk_format.h"
 #include "vk_util.h"
+#include "vulkan/wsi/wsi_common.h"
 
 static VkExtent3D
 sanitize_image_extent(const VkImageType imageType,
@@ -90,6 +91,10 @@ vk_image_init(struct vk_device *device,
       image->external_handle_types = ext_mem_info->handleTypes;
    else
       image->external_handle_types = 0;
+
+   const struct wsi_image_create_info *wsi_info =
+      vk_find_struct_const(pCreateInfo->pNext, WSI_IMAGE_CREATE_INFO_MESA);
+   image->wsi_legacy_scanout = wsi_info && wsi_info->scanout;
 
    const VkExternalFormatANDROID *ext_format =
       vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_FORMAT_ANDROID);
