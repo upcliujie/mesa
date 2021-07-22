@@ -46,8 +46,14 @@ mir_is_ubo(midgard_instruction *ins)
 static bool
 mir_is_direct_aligned_ubo(midgard_instruction *ins)
 {
-        return mir_is_ubo(ins) &&
-                !(ins->constants.u32[0] & 0x3) &&
+        if (!mir_is_ubo(ins))
+                return false;
+
+        unsigned offset = ins->constants.u32[0];
+        unsigned size = util_logbase2_ceil(mir_bytemask(ins));
+
+        return !(offset & 0x3) &&
+                ((offset & 0xf) + size <= 16) &&
                 (ins->src[1] == ~0) &&
                 (ins->src[2] == ~0);
 }
@@ -260,7 +266,7 @@ mir_special_indices(compiler_context *ctx)
 void
 midgard_promote_uniforms(compiler_context *ctx)
 {
-        if (ctx->inputs->no_ubo_to_push) {
+        if (ctx->inputs->no_ubo_to_push || (midgard_debug & MIDGARD_DBG_NOPUSH)) {
                 /* If nothing is pushed, all UBOs need to be uploaded
                  * conventionally */
                 ctx->ubo_mask = ~0;
@@ -292,6 +298,9 @@ midgard_promote_uniforms(compiler_context *ctx)
                 unsigned ubo = midgard_unpack_ubo_index_imm(ins->load_store);
                 unsigned qword = ins->constants.u32[0] / 16;
                 unsigned offset = ins->constants.u32[0] % 16;
+
+//                mir_print_instruction(ins);
+//                printf("word %i, offset: %i\n", qword, offset);
 
                 if (!mir_is_direct_aligned_ubo(ins)) {
                         if (ins->src[1] == ~0)

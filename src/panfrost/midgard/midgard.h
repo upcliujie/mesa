@@ -37,6 +37,7 @@
 #define MIDGARD_DBG_INORDER             0x0008
 #define MIDGARD_DBG_VERBOSE             0x0010
 #define MIDGARD_DBG_INTERNAL            0x0020
+#define MIDGARD_DBG_NOPUSH            0x0020
 
 extern int midgard_debug;
 

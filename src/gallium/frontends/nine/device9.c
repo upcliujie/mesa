@@ -972,6 +972,8 @@ NineDevice9_GetSwapChain( struct NineDevice9 *This,
                           UINT iSwapChain,
                           IDirect3DSwapChain9 **pSwapChain )
 {
+    DBG("This=%p iSwapChain=%d pSwapChain=%p\n", This, iSwapChain, pSwapChain);
+
     user_assert(pSwapChain != NULL, D3DERR_INVALIDCALL);
 
     *pSwapChain = NULL;

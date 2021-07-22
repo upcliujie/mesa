@@ -61,6 +61,7 @@ static const struct debug_named_value midgard_debug_options[] = {
         {"inorder",   MIDGARD_DBG_INORDER,      "Disables out-of-order scheduling"},
         {"verbose",   MIDGARD_DBG_VERBOSE,      "Dump shaders verbosely"},
         {"internal",  MIDGARD_DBG_INTERNAL,     "Dump internal shaders"},
+        {"nopush",  MIDGARD_DBG_NOPUSH,     "Don't push uniforms"},
         DEBUG_NAMED_VALUE_END
 };
 
