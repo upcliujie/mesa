@@ -2688,7 +2688,7 @@ anv_CreateImageView(VkDevice _device,
     * VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM.
     */
    VkImageAspectFlags expanded_aspects =
-      anv_image_expand_aspects(image, range->aspectMask);
+      vk_image_expand_aspect_mask(&image->vk, range->aspectMask);
 
    iview->image = image;
 
