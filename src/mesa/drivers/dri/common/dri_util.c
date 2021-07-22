@@ -261,6 +261,9 @@ validate_context_version(__DRIscreen *screen,
    unsigned req_version = 10 * major_version + minor_version;
    unsigned max_version = 0;
 
+   if (major_version == 0 || major_version > 4)
+      return __DRI_CTX_ERROR_BAD_VERSION;
+
    switch (mesa_api) {
    case API_OPENGL_COMPAT:
       max_version = screen->max_gl_compat_version;
@@ -283,6 +286,20 @@ validate_context_version(__DRIscreen *screen,
       return __DRI_CTX_ERROR_BAD_API;
    else if (req_version > max_version)
       return __DRI_CTX_ERROR_BAD_VERSION;
+
+   if (mesa_api == API_OPENGL_COMPAT || mesa_api == API_OPENGL_CORE) {
+      if ((major_version == 4 && minor_version > 6) ||
+          (major_version == 3 && minor_version > 3) ||
+          (major_version == 2 && minor_version > 1) ||
+          (major_version == 1 && minor_version > 5))
+         return __DRI_CTX_ERROR_BAD_VERSION;
+   } else {
+      if ((major_version == 4) ||
+          (major_version == 3 && minor_version > 2) ||
+          (major_version == 2 && minor_version > 0) ||
+          (major_version == 1 && minor_version > 1))
+         return __DRI_CTX_ERROR_BAD_VERSION;
+   }
 
    return __DRI_CTX_ERROR_SUCCESS;
 }
