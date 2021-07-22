@@ -896,6 +896,7 @@ void bi_lower_fau(bi_context *ctx);
 void bi_schedule(bi_context *ctx);
 void bi_assign_scoreboard(bi_context *ctx);
 void bi_register_allocate(bi_context *ctx);
+void va_optimizer(bi_context *ctx);
 
 uint32_t bi_fold_constant(bi_instr *I, bool *unsupported);
 void bi_opt_constant_fold(bi_context *ctx);
