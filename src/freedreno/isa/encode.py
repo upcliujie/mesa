@@ -329,10 +329,13 @@ template = """\
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <util/bitset.h>
 
 <%
 isa = s.isa
 %>
+
+typedef BITSET_WORD bitmask_t[BITSET_WORDS(${isa.bitsize})];
 
 /**
  * Opaque type from the PoV of generated code, but allows state to be passed
