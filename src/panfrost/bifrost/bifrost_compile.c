@@ -3796,6 +3796,10 @@ bifrost_compile_shader_nir(nir_shader *nir,
                 bi_lower_opt_instruction(I);
         }
 
+        if (ctx->arch >= 9) {
+                va_optimizer(ctx);
+        }
+
         bi_foreach_block(ctx, block) {
                 bi_lower_branch(block);
         }
