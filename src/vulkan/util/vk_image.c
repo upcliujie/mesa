@@ -210,3 +210,99 @@ vk_image_expand_aspect_mask(const struct vk_image *image,
       return aspect_mask;
    }
 }
+
+static VkComponentSwizzle
+remap_swizzle(VkComponentSwizzle swizzle, VkComponentSwizzle component)
+{
+   return swizzle == VK_COMPONENT_SWIZZLE_IDENTITY ? component : swizzle;
+}
+
+void
+vk_image_view_init(struct vk_device *device,
+                   struct vk_image_view *image_view,
+                   const VkImageViewCreateInfo *pCreateInfo)
+{
+   vk_object_base_init(device, &image_view->base, VK_OBJECT_TYPE_IMAGE_VIEW);
+
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO);
+   VK_FROM_HANDLE(vk_image, image, pCreateInfo->image);
+
+   image_view->create_flags = pCreateInfo->flags;
+   image_view->image = image;
+   image_view->view_type = pCreateInfo->viewType;
+   image_view->format = pCreateInfo->format;
+
+   image_view->swizzle = (VkComponentMapping) {
+      .r = remap_swizzle(pCreateInfo->components.r, VK_COMPONENT_SWIZZLE_R),
+      .g = remap_swizzle(pCreateInfo->components.g, VK_COMPONENT_SWIZZLE_G),
+      .b = remap_swizzle(pCreateInfo->components.b, VK_COMPONENT_SWIZZLE_B),
+      .a = remap_swizzle(pCreateInfo->components.a, VK_COMPONENT_SWIZZLE_A),
+   };
+
+   const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
+   assert(range->layerCount > 0);
+   assert(range->baseMipLevel < image->mip_levels);
+
+   image_view->aspects = vk_image_expand_aspect_mask(image, range->aspectMask);
+   image_view->base_mip_level = range->baseMipLevel;
+   image_view->level_count = vk_image_subresource_level_count(image, range);
+   image_view->base_array_layer = range->baseArrayLayer;
+   image_view->layer_count = vk_image_subresource_layer_count(image, range);
+
+   image_view->extent =
+      vk_image_mip_level_extent(image, image_view->base_mip_level);
+
+   assert(image_view->base_mip_level + image_view->level_count
+          <= image->mip_levels);
+   switch (image->image_type) {
+   default:
+      unreachable("bad VkImageType");
+   case VK_IMAGE_TYPE_1D:
+   case VK_IMAGE_TYPE_2D:
+      assert(image_view->base_array_layer + image_view->layer_count
+             <= image->array_layers);
+      break;
+   case VK_IMAGE_TYPE_3D:
+      assert(image_view->base_array_layer + image_view->layer_count
+             <= image_view->extent.depth);
+      break;
+   }
+
+   const VkImageUsageFlags image_usage =
+      vk_image_usage(image, image_view->aspects);
+   const VkImageViewUsageCreateInfo *usage_info =
+      vk_find_struct_const(pCreateInfo, IMAGE_VIEW_USAGE_CREATE_INFO);
+   image_view->usage = usage_info ? usage_info->usage : image_usage;
+   assert(!(image_view->usage & ~image_usage));
+}
+
+void
+vk_image_view_finish(struct vk_image_view *image_view)
+{
+   vk_object_base_finish(&image_view->base);
+}
+
+void *
+vk_image_view_create(struct vk_device *device,
+                     const VkImageViewCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *alloc,
+                     size_t size)
+{
+   struct vk_image_view *image_view =
+      vk_zalloc2(&device->alloc, alloc, size, 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (image_view == NULL)
+      return NULL;
+
+   vk_image_view_init(device, image_view, pCreateInfo);
+
+   return image_view;
+}
+
+void
+vk_image_view_destroy(struct vk_device *device,
+                      const VkAllocationCallbacks *alloc,
+                      struct vk_image_view *image_view)
+{
+   vk_object_free(device, alloc, image_view);
+}
