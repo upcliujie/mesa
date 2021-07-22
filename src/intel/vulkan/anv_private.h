@@ -66,6 +66,7 @@
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
 #include "vk_device.h"
+#include "vk_image.h"
 #include "vk_instance.h"
 #include "vk_physical_device.h"
 #include "vk_shader_module.h"
@@ -3942,24 +3943,9 @@ anv_surface_is_valid(const struct anv_surface *surface)
 }
 
 struct anv_image {
-   struct vk_object_base base;
+   struct vk_image vk;
 
-   VkImageType type; /**< VkImageCreateInfo::imageType */
-   /* The original VkFormat provided by the client.  This may not match any
-    * of the actual surface formats.
-    */
-   VkFormat vk_format;
-
-   VkImageAspectFlags aspects;
-   VkExtent3D extent;
-   uint32_t levels;
-   uint32_t array_size;
-   uint32_t samples; /**< VkImageCreateInfo::samples */
    uint32_t n_planes;
-   VkImageUsageFlags usage; /**< VkImageCreateInfo::usage. */
-   VkImageUsageFlags stencil_usage;
-   VkImageCreateFlags create_flags; /* Flags used when creating image. */
-   VkImageTiling tiling; /** VkImageCreateInfo::tiling */
 
    /** True if this is needs to be bound to an appropriately tiled BO.
     *
@@ -3987,11 +3973,6 @@ struct anv_image {
     * final image creation until bind time.
     */
    bool from_ahb;
-
-   /**
-    * True if an external format was specified
-    */
-   bool has_android_external_format;
 
    /**
     * Image was imported from gralloc with VkNativeBufferANDROID. The gralloc bo
@@ -4070,11 +4051,11 @@ static inline uint8_t
 anv_image_aux_levels(const struct anv_image * const image,
                      VkImageAspectFlagBits aspect)
 {
-   uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
+   uint32_t plane = anv_image_aspect_to_plane(image->vk.aspects, aspect);
    if (image->planes[plane].aux_usage == ISL_AUX_USAGE_NONE)
       return 0;
 
-   return image->levels;
+   return image->vk.mip_levels;
 }
 
 /* Returns the number of auxiliary buffer layers attached to an image. */
@@ -4086,7 +4067,7 @@ anv_image_aux_layers(const struct anv_image * const image,
    assert(image);
 
    /* The miplevel must exist in the main buffer. */
-   assert(miplevel < image->levels);
+   assert(miplevel < image->vk.mip_levels);
 
    if (miplevel >= anv_image_aux_levels(image, aspect)) {
       /* There are no layers with auxiliary data because the miplevel has no
@@ -4095,7 +4076,7 @@ anv_image_aux_layers(const struct anv_image * const image,
       return 0;
    }
 
-   return MAX2(image->array_size, image->extent.depth >> miplevel);
+   return MAX2(image->vk.array_layers, image->vk.extent.depth >> miplevel);
 }
 
 static inline struct anv_address MUST_CHECK
@@ -4116,10 +4097,10 @@ anv_image_get_clear_color_addr(UNUSED const struct anv_device *device,
                                const struct anv_image *image,
                                VkImageAspectFlagBits aspect)
 {
-   assert(image->aspects & (VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV |
-                            VK_IMAGE_ASPECT_DEPTH_BIT));
+   assert(image->vk.aspects & (VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV |
+                               VK_IMAGE_ASPECT_DEPTH_BIT));
 
-   uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
+   uint32_t plane = anv_image_aspect_to_plane(image->vk.aspects, aspect);
    const struct anv_image_memory_range *mem_range =
       &image->planes[plane].fast_clear_memory_range;
 
@@ -4148,7 +4129,7 @@ anv_image_get_compression_state_addr(const struct anv_device *device,
 {
    assert(level < anv_image_aux_levels(image, aspect));
    assert(array_layer < anv_image_aux_layers(image, aspect, level));
-   UNUSED uint32_t plane = anv_image_aspect_to_plane(image->aspects, aspect);
+   UNUSED uint32_t plane = anv_image_aspect_to_plane(image->vk.aspects, aspect);
    assert(image->planes[plane].aux_usage == ISL_AUX_USAGE_CCS_E);
 
    /* Relative to start of the plane's fast clear memory range */
@@ -4156,11 +4137,11 @@ anv_image_get_compression_state_addr(const struct anv_device *device,
 
    offset = 4; /* Go past the fast clear type */
 
-   if (image->type == VK_IMAGE_TYPE_3D) {
+   if (image->vk.image_type == VK_IMAGE_TYPE_3D) {
       for (uint32_t l = 0; l < level; l++)
-         offset += anv_minify(image->extent.depth, l) * 4;
+         offset += anv_minify(image->vk.extent.depth, l) * 4;
    } else {
-      offset += level * image->array_size * 4;
+      offset += level * image->vk.array_layers * 4;
    }
 
    offset += array_layer * 4;
@@ -4177,7 +4158,7 @@ static inline bool
 anv_can_sample_with_hiz(const struct intel_device_info * const devinfo,
                         const struct anv_image *image)
 {
-   if (!(image->aspects & VK_IMAGE_ASPECT_DEPTH_BIT))
+   if (!(image->vk.aspects & VK_IMAGE_ASPECT_DEPTH_BIT))
       return false;
 
    /* For Gfx8-11, there are some restrictions around sampling from HiZ.
@@ -4187,7 +4168,7 @@ anv_can_sample_with_hiz(const struct intel_device_info * const devinfo,
     *    "If this field is set to AUX_HIZ, Number of Multisamples must
     *    be MULTISAMPLECOUNT_1, and Surface Type cannot be SURFTYPE_3D."
     */
-   if (image->type == VK_IMAGE_TYPE_3D)
+   if (image->vk.image_type == VK_IMAGE_TYPE_3D)
       return false;
 
    /* Allow this feature on BDW even though it is disabled in the BDW devinfo
@@ -4199,7 +4180,7 @@ anv_can_sample_with_hiz(const struct intel_device_info * const devinfo,
    if (devinfo->ver != 8 && !devinfo->has_sample_with_hiz)
       return false;
 
-   return image->samples == 1;
+   return image->vk.samples == 1;
 }
 
 /* Returns true if an MCS-enabled buffer can be sampled from. */
@@ -4207,9 +4188,9 @@ static inline bool
 anv_can_sample_mcs_with_clear(const struct intel_device_info * const devinfo,
                               const struct anv_image *image)
 {
-   assert(image->aspects == VK_IMAGE_ASPECT_COLOR_BIT);
+   assert(image->vk.aspects == VK_IMAGE_ASPECT_COLOR_BIT);
    const uint32_t plane =
-      anv_image_aspect_to_plane(image->aspects, VK_IMAGE_ASPECT_COLOR_BIT);
+      anv_image_aspect_to_plane(image->vk.aspects, VK_IMAGE_ASPECT_COLOR_BIT);
 
    assert(isl_aux_usage_has_mcs(image->planes[plane].aux_usage));
 
@@ -4337,14 +4318,14 @@ anv_layout_to_fast_clear_type(const struct intel_device_info * const devinfo,
  */
 #define anv_get_layerCount(_image, _range) \
    ((_range)->layerCount == VK_REMAINING_ARRAY_LAYERS ? \
-    (_image)->array_size - (_range)->baseArrayLayer : (_range)->layerCount)
+    (_image)->vk.array_layers - (_range)->baseArrayLayer : (_range)->layerCount)
 
 static inline uint32_t
 anv_get_levelCount(const struct anv_image *image,
                    const VkImageSubresourceRange *range)
 {
    return range->levelCount == VK_REMAINING_MIP_LEVELS ?
-          image->levels - range->baseMipLevel : range->levelCount;
+          image->vk.mip_levels - range->baseMipLevel : range->levelCount;
 }
 
 static inline VkImageAspectFlags
@@ -4354,9 +4335,9 @@ anv_image_expand_aspects(const struct anv_image *image,
    /* If the underlying image has color plane aspects and
     * VK_IMAGE_ASPECT_COLOR_BIT has been requested, then return the aspects of
     * the underlying image. */
-   if ((image->aspects & VK_IMAGE_ASPECT_PLANES_BITS_ANV) != 0 &&
+   if ((image->vk.aspects & VK_IMAGE_ASPECT_PLANES_BITS_ANV) != 0 &&
        aspects == VK_IMAGE_ASPECT_COLOR_BIT)
-      return image->aspects;
+      return image->vk.aspects;
 
    return aspects;
 }
@@ -4811,7 +4792,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(anv_fence, base, VkFence, VK_OBJECT_TYPE_FENCE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(anv_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(anv_framebuffer, base, VkFramebuffer,
                                VK_OBJECT_TYPE_FRAMEBUFFER)
-VK_DEFINE_NONDISP_HANDLE_CASTS(anv_image, base, VkImage, VK_OBJECT_TYPE_IMAGE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(anv_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(anv_image_view, base, VkImageView,
                                VK_OBJECT_TYPE_IMAGE_VIEW);
 VK_DEFINE_NONDISP_HANDLE_CASTS(anv_pipeline_cache, base, VkPipelineCache,
