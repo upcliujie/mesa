@@ -378,7 +378,6 @@ wsi_configure_image(const struct wsi_swapchain *chain,
 
    info->wsi = (struct wsi_image_create_info) {
       .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
-      .scanout = true,
    };
    __vk_append_struct(&info->create, &info->wsi);
 
@@ -457,6 +456,12 @@ wsi_create_image(const struct wsi_swapchain *chain,
                                  image->memory, 0);
    if (result != VK_SUCCESS)
       goto fail;
+
+   if (info->finish_create) {
+      result = info->finish_create(chain, info, image);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
 
    return VK_SUCCESS;
 
