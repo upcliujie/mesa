@@ -147,6 +147,11 @@ vk_image_view_extent(const struct vk_image_view *image_view)
                                     image_view->base_mip_level);
 }
 
+bool vk_image_layout_is_read_only(VkImageLayout layout,
+                                  VkImageAspectFlagBits aspect);
+VkImageUsageFlags vk_image_layout_to_usage_flags(VkImageLayout layout,
+                                                 VkImageAspectFlagBits aspect);
+
 #ifdef __cplusplus
 }
 #endif
