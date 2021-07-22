@@ -35,6 +35,8 @@ struct wsi_image_info {
    VkImageFormatListCreateInfoKHR format_list;
    VkImageDrmFormatModifierListCreateInfoEXT drm_mod_list;
 
+   bool prime_use_linear_modifier;
+
    /* Not really part of VkImageCreateInfo but needed to figure out the
     * number of planes we need to bind.
     */
@@ -123,6 +125,11 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
                         const uint64_t *const *modifiers,
                         struct wsi_image *image);
 
+VkResult
+wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
+                          const VkSwapchainCreateInfoKHR *pCreateInfo,
+                          bool use_modifier,
+                          struct wsi_image_info *info);
 VkResult
 wsi_create_prime_image(const struct wsi_swapchain *chain,
                        const VkSwapchainCreateInfoKHR *pCreateInfo,
