@@ -46,8 +46,14 @@ mir_is_ubo(midgard_instruction *ins)
 static bool
 mir_is_direct_aligned_ubo(midgard_instruction *ins)
 {
-        return mir_is_ubo(ins) &&
-                !(ins->constants.u32[0] & 0x3) &&
+        if (!mir_is_ubo(ins))
+                return false;
+
+        unsigned offset = ins->constants.u32[0];
+        unsigned size = util_logbase2_ceil(mir_bytemask(ins));
+
+        return !(offset & 0x3) &&
+                ((offset & 0xf) + size <= 16) &&
                 (ins->src[1] == ~0) &&
                 (ins->src[2] == ~0);
 }
