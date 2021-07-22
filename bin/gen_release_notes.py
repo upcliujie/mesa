@@ -32,12 +32,13 @@ import textwrap
 import typing
 import urllib.parse
 
-import aiohttp
-from mako.template import Template
 from mako import exceptions
-
-import docutils.utils
+from mako.template import Template
+import aiohttp
 import docutils.parsers.rst.states as states
+import docutils.utils
+
+import utils
 
 CURRENT_GL_VERSION = '4.6'
 CURRENT_VK_VERSION = '1.2'
@@ -291,9 +292,7 @@ def get_features(is_point_release: bool) -> typing.Generator[str, None, None]:
 
 
 async def main() -> None:
-    v = pathlib.Path(__file__).parent.parent / 'VERSION'
-    with v.open('rt') as f:
-        raw_version = f.read().strip()
+    raw_version = await utils.project_version()
     is_point_release = '-rc' not in raw_version
     assert '-devel' not in raw_version, 'Do not run this script on -devel'
     version = raw_version.split('-')[0]

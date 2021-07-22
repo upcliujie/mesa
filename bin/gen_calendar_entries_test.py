@@ -155,13 +155,9 @@ class TestRC:
     @pytest.fixture(autouse=True, scope='class')
     def mock_version(self) -> None:
         """Keep the version set at a specific value."""
-        with tempfile.TemporaryDirectory() as d:
-            v = os.path.join(d, 'version')
-            with open(v, 'w') as f:
-                f.write('21.0.0-devel\n')
-
-            with mock.patch('bin.gen_calendar_entries.VERSION', pathlib.Path(v)):
-                yield
+        with mock.patch('bin.gen_calendar_entries.get_version',
+                        mock.Mock(return_value='21.0.0-devel')):
+            yield
 
     @pytest.fixture(autouse=True)
     def csv(self) -> None:

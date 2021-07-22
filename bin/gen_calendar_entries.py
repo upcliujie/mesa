@@ -25,9 +25,10 @@
 
 from __future__ import annotations
 import argparse
-import csv
 import contextlib
+import csv
 import datetime
+import json
 import pathlib
 import subprocess
 import typing
@@ -60,7 +61,7 @@ if typing.TYPE_CHECKING:
 
 _ROOT = pathlib.Path(__file__).parent.parent
 CALENDAR_CSV = _ROOT / 'docs' / 'release-calendar.csv'
-VERSION = _ROOT / 'VERSION'
+MESON_BUILD = _ROOT / 'meson.build'
 LAST_RELEASE = 'This is the last planned release of the {}.x series.'
 OR_FINAL = 'Or {}.0 final.'
 
@@ -75,6 +76,15 @@ def commit(message: str) -> None:
     """Commit the changes the the release-calendar.csv file."""
     subprocess.run(['git', 'commit', str(CALENDAR_CSV), '--message', message])
 
+
+def get_version() -> str:
+    """Run meson instrospect to get version.
+
+    Using this as a separate function makes unittesting easier.
+    """
+    with subprocess.run(['meson', 'introspect', '--projectinfo', MESON_BUILD], stdout=subprocess.PIPE) as p:
+        project_info = json.loads(p.stdout)
+    return project_info['version']
 
 
 def _calculate_release_start(major: str, minor: str) -> datetime.date:
@@ -98,8 +108,7 @@ def _calculate_release_start(major: str, minor: str) -> datetime.date:
 
 def release_candidate(args: RCArguments) -> None:
     """Add release candidate entries."""
-    with VERSION.open('r') as f:
-        version = f.read().rstrip('-devel')
+    version = get_version()
     major, minor, _ = version.split('.')
     date = _calculate_release_start(major, minor)
 
