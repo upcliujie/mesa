@@ -342,7 +342,6 @@ wsi_configure_image(const struct wsi_swapchain *chain,
 
    info->wsi = (struct wsi_image_create_info) {
       .sType = VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
-      .scanout = true,
    };
    __vk_append_struct(&info->create, &info->wsi);
 
