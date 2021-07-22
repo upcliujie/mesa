@@ -423,11 +423,18 @@ get_live_in_demand(spill_ctx& ctx, unsigned block_idx)
 
    reg_pressure += get_demand_before(ctx, block_idx, idx);
 
-   /* Consider register pressure from linear predecessors. This can affect
-    * reg_pressure if the branch instructions define sgprs. */
-   for (unsigned pred : block.linear_preds)
-      reg_pressure.sgpr =
-         std::max<int16_t>(reg_pressure.sgpr, ctx.register_demand[pred].back().sgpr);
+   /* Since spill/reload code is inserted before the predecessors' branches, we have to consider
+    * their definitions.
+    */
+   RegisterDemand branch_pressure;
+   for (unsigned pred : block.linear_preds) {
+      aco_ptr<Instruction>& branch = ctx.program->blocks[pred].instructions.back();
+      if (!branch->definitions.empty()) {
+         assert(branch->definitions.size() == 1);
+         branch_pressure.update(branch->definitions[0].getTemp());
+      }
+   }
+   reg_pressure += branch_pressure;
 
    return reg_pressure;
 }

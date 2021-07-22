@@ -1764,6 +1764,7 @@ enum block_kind {
 struct RegisterDemand {
    constexpr RegisterDemand() = default;
    constexpr RegisterDemand(const int16_t v, const int16_t s) noexcept : vgpr{v}, sgpr{s} {}
+   constexpr RegisterDemand(const Temp t) noexcept { *this += t; }
    int16_t vgpr = 0;
    int16_t sgpr = 0;
 
