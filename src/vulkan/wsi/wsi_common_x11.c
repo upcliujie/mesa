@@ -1296,23 +1296,15 @@ static VkResult
 x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                const VkSwapchainCreateInfoKHR *pCreateInfo,
                const VkAllocationCallbacks* pAllocator,
-               const uint64_t *const *modifiers,
-               const uint32_t *num_modifiers,
-               int num_tranches, struct x11_image *image)
+               struct x11_image *image)
 {
    xcb_void_cookie_t cookie;
    VkResult result;
    uint32_t bpp = 32;
 
-   if (chain->base.use_prime_blit) {
-      bool use_modifier = num_tranches > 0;
-      result = wsi_create_prime_image(&chain->base, pCreateInfo, use_modifier, &image->base);
-   } else {
-      result = wsi_create_native_image(&chain->base, pCreateInfo,
-                                       num_tranches, num_modifiers, modifiers,
-                                       &image->base);
-   }
-   if (result < 0)
+   result = wsi_create_image(&chain->base, &chain->base.image_info,
+                             &image->base);
+   if (result != VK_SUCCESS)
       return result;
 
    if (chain->base.wsi->sw) {
@@ -1683,11 +1675,23 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
                                  modifiers, num_modifiers, &num_tranches,
                                  pAllocator);
 
+   if (chain->base.use_prime_blit) {
+      bool use_modifier = num_tranches > 0;
+      result = wsi_configure_prime_image(&chain->base, pCreateInfo,
+                                         use_modifier,
+                                         &chain->base.image_info);
+   } else {
+      result = wsi_configure_native_image(&chain->base, pCreateInfo,
+                                          num_tranches, num_modifiers,
+                                          (const uint64_t *const *)modifiers,
+                                          &chain->base.image_info);
+   }
+   if (result != VK_SUCCESS)
+      return result;
+
    uint32_t image = 0;
    for (; image < chain->base.image_count; image++) {
       result = x11_image_init(device, chain, pCreateInfo, pAllocator,
-                              (const uint64_t *const *)modifiers,
-                              num_modifiers, num_tranches,
                               &chain->images[image]);
       if (result != VK_SUCCESS)
          goto fail_init_images;
