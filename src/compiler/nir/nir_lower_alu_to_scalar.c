@@ -177,6 +177,93 @@ lower_alu_instr_scalar(nir_builder *b, nir_instr *instr, void *_data)
        */
       return NULL;
 
+   case nir_op_pack_unorm_4x8: {
+      if (!b->shader->options->lower_pack_unorm_4x8)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      nir_ssa_def *c = nir_imm_float(b, 255.0);
+      src = nir_fround_even(b, nir_fmul(b, nir_fsat(b, src), c));
+      return nir_pack_uvec4_to_uint(b, nir_f2u32(b, src));
+   }
+   case nir_op_unpack_unorm_4x8: {
+      if (!b->shader->options->lower_unpack_unorm_4x8)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      nir_ssa_def *x = nir_extract_u8(b, src, nir_imm_int(b, 0));
+      nir_ssa_def *y = nir_extract_u8(b, src, nir_imm_int(b, 1));
+      nir_ssa_def *z = nir_extract_u8(b, src, nir_imm_int(b, 2));
+      nir_ssa_def *w = nir_extract_u8(b, src, nir_imm_int(b, 3));
+      nir_ssa_def *c = nir_imm_float(b, 255.0);
+      return nir_fdiv(b, nir_u2f32(b, nir_vec4(b, x, y, z, w)), c);
+   }
+   case nir_op_pack_snorm_4x8: {
+      if (!b->shader->options->lower_pack_snorm_4x8)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      src = nir_fmin(b, nir_imm_float(b, 1.0),
+                     nir_fmax(b, nir_imm_float(b, -1.0), src));
+      src = nir_fround_even(b, nir_fmul(b, src, nir_imm_float(b, 127.0)));
+      return nir_pack_uvec4_to_uint(b, nir_f2i32(b, src));
+   }
+   case nir_op_unpack_snorm_4x8: {
+      if (!b->shader->options->lower_unpack_snorm_4x8)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      nir_ssa_def *x = nir_extract_i8(b, src, nir_imm_int(b, 0));
+      nir_ssa_def *y = nir_extract_i8(b, src, nir_imm_int(b, 1));
+      nir_ssa_def *z = nir_extract_i8(b, src, nir_imm_int(b, 2));
+      nir_ssa_def *w = nir_extract_i8(b, src, nir_imm_int(b, 3));
+      nir_ssa_def *c = nir_imm_float(b, 127.0);
+      src = nir_fdiv(b, nir_i2f32(b, nir_vec4(b, x, y, z, w)), c);
+      return nir_fmin(b, nir_imm_float(b, 1.0),
+                      nir_fmax(b, nir_imm_float(b, -1.0), src));
+   }
+   case nir_op_pack_unorm_2x16: {
+      if (!b->shader->options->lower_pack_unorm_2x16)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      nir_ssa_def *c = nir_imm_float(b, 65535.0);
+      src = nir_fround_even(b, nir_fmul(b, nir_fsat(b, src), c));
+      return nir_pack_uvec2_to_uint(b, nir_f2u32(b, src));
+   }
+   case nir_op_unpack_unorm_2x16: {
+      if (!b->shader->options->lower_unpack_unorm_2x16)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      nir_ssa_def *x = nir_extract_u16(b, src, nir_imm_int(b, 0));
+      nir_ssa_def *y = nir_extract_u16(b, src, nir_imm_int(b, 1));
+      nir_ssa_def *c = nir_imm_float(b, 65535.0);
+      return nir_fdiv(b, nir_u2f32(b, nir_vec2(b, x, y)), c);
+   }
+   case nir_op_pack_snorm_2x16: {
+      if (!b->shader->options->lower_pack_snorm_2x16)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      src = nir_fmin(b, nir_imm_float(b, 1.0),
+                     nir_fmax(b, nir_imm_float(b, -1.0), src));
+      src = nir_fround_even(b, nir_fmul(b, src, nir_imm_float(b, 32767.0)));
+      return nir_pack_uvec2_to_uint(b, nir_f2i32(b, src));
+   }
+   case nir_op_unpack_snorm_2x16: {
+      if (!b->shader->options->lower_unpack_snorm_2x16)
+         return NULL;
+
+      nir_ssa_def *src = nir_ssa_for_alu_src(b, alu, 0);
+      nir_ssa_def *x = nir_extract_i16(b, src, nir_imm_int(b, 0));
+      nir_ssa_def *y = nir_extract_i16(b, src, nir_imm_int(b, 1));
+      nir_ssa_def *div = nir_fdiv(b, nir_u2f32(b, nir_vec2(b, x, y)),
+                                  nir_imm_float(b, 32767.0));
+      return nir_fmin(b, nir_imm_float(b, 1.0),
+                      nir_fmax(b, nir_imm_float(b, -1.0), div));
+   }
+
    case nir_op_pack_half_2x16: {
       if (!b->shader->options->lower_pack_half_2x16)
          return NULL;
@@ -185,16 +272,6 @@ lower_alu_instr_scalar(nir_builder *b, nir_instr *instr, void *_data)
       return nir_pack_half_2x16_split(b, nir_channel(b, src_vec2, 0),
                                          nir_channel(b, src_vec2, 1));
    }
-
-   case nir_op_unpack_unorm_4x8:
-   case nir_op_unpack_snorm_4x8:
-   case nir_op_unpack_unorm_2x16:
-   case nir_op_unpack_snorm_2x16:
-      /* There is no scalar version of these ops, unless we were to break it
-       * down to bitshifts and math (which is definitely not intended).
-       */
-      return NULL;
-
    case nir_op_unpack_half_2x16_flush_to_zero:
    case nir_op_unpack_half_2x16: {
       if (!b->shader->options->lower_unpack_half_2x16)
