@@ -44,6 +44,15 @@ main(int argc, const char **argv)
       }
    }
 
+   /* Discard gets implicit R60 destination for coverage mask */
+   {
+      bi_instr *I = bi_discard_f32(b, reg, reg, BI_CMPF_EQ);
+      bi_instr *J = bi_discard_f32(b, reg, reg, BI_CMPF_EQ);
+      J->dest[0] = bi_register(60);
+
+      CASE(I, J);
+   }
+
    /* Negative smoke tests */
    NEGCASE(bi_fadd_f32_to(b, reg, reg, reg, BI_ROUND_RTP));
 
