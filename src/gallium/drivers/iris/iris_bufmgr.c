@@ -209,6 +209,7 @@ struct iris_bufmgr {
    bool has_llc:1;
    bool has_mmap_offset:1;
    bool has_tiling_uapi:1;
+   bool has_userptr_probe:1;
    bool bo_reuse:1;
 
    struct intel_aux_map_context *aux_map_ctx;
@@ -705,17 +706,24 @@ iris_bo_create_userptr(struct iris_bufmgr *bufmgr, const char *name,
       .user_ptr = (uintptr_t)ptr,
       .user_size = size,
    };
+   if (bufmgr->has_userptr_probe)
+      arg.flags |= I915_USERPTR_PROBE;
    if (intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_USERPTR, &arg))
       goto err_free;
    bo->gem_handle = arg.handle;
 
-   /* Check the buffer for validity before we try and use it in a batch */
-   struct drm_i915_gem_set_domain sd = {
-      .handle = bo->gem_handle,
-      .read_domains = I915_GEM_DOMAIN_CPU,
-   };
-   if (intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_SET_DOMAIN, &sd))
-      goto err_close;
+   /* If we have I915_USERPTR_PROBE, we use that above to test if the userptr
+    * is valid.  If not, we fall back to the old SET_DOMAIN hack.
+    */
+   if (!bufmgr->has_userptr_probe) {
+      /* Check the buffer for validity before we try and use it in a batch */
+      struct drm_i915_gem_set_domain sd = {
+         .handle = bo->gem_handle,
+         .read_domains = I915_GEM_DOMAIN_CPU,
+      };
+      if (intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_SET_DOMAIN, &sd))
+         goto err_close;
+   }
 
    bo->name = name;
    bo->size = size;
@@ -1741,6 +1749,7 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
    bufmgr->has_tiling_uapi = devinfo->has_tiling_uapi;
    bufmgr->bo_reuse = bo_reuse;
    bufmgr->has_mmap_offset = gem_param(fd, I915_PARAM_MMAP_GTT_VERSION) >= 4;
+   bufmgr->has_userptr_probe = gem_param(fd, I915_PARAM_HAS_USERPTR_PROBE);
    iris_bufmgr_query_meminfo(bufmgr);
 
    STATIC_ASSERT(IRIS_MEMZONE_SHADER_START == 0ull);
