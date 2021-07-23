@@ -111,6 +111,11 @@ get_modifier_props(const struct wsi_image_info *info, uint64_t modifier)
    return NULL;
 }
 
+static VkResult
+wsi_create_native_image_mem(const struct wsi_swapchain *chain,
+                            const struct wsi_image_info *info,
+                            struct wsi_image *image);
+
 VkResult
 wsi_configure_native_image(const struct wsi_swapchain *chain,
                            const VkSwapchainCreateInfoKHR *pCreateInfo,
@@ -243,6 +248,8 @@ wsi_configure_native_image(const struct wsi_swapchain *chain,
       }
    }
 
+   info->create_mem = wsi_create_native_image_mem;
+
    return VK_SUCCESS;
 }
 
@@ -369,12 +376,7 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
                         const uint64_t *const *modifiers,
                         struct wsi_image *image)
 {
-   const struct wsi_device *wsi = chain->wsi;
    VkResult result;
-
-   memset(image, 0, sizeof(*image));
-   for (int i = 0; i < ARRAY_SIZE(image->fds); i++)
-      image->fds[i] = -1;
 
    struct wsi_image_info info;
    result = wsi_configure_native_image(chain, pCreateInfo, num_modifier_lists,
@@ -382,25 +384,13 @@ wsi_create_native_image(const struct wsi_swapchain *chain,
    if (result != VK_SUCCESS)
       return result;
 
-   result = wsi->CreateImage(chain->device, &info.create,
-                             &chain->alloc, &image->image);
-   if (result != VK_SUCCESS)
-      goto fail;
-
-   result = wsi_create_native_image_mem(chain, &info, image);
-   if (result != VK_SUCCESS)
-      goto fail;
-
-   result = wsi->BindImageMemory(chain->device, image->image,
-                                 image->memory, 0);
-   if (result != VK_SUCCESS)
-      goto fail;
+   result = wsi_create_image(chain, &info, image);
+   if (result != VK_SUCCESS) {
+      wsi_destroy_image_info(chain, &info);
+      return result;
+   }
 
    return VK_SUCCESS;
-
-fail:
-   wsi_destroy_image_info(chain, &info);
-   return result;
 }
 
 static inline uint32_t
