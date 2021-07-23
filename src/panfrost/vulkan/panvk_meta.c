@@ -31,6 +31,33 @@
 #include "vk_format.h"
 
 void
+panvk_meta_close_batch(struct panvk_cmd_buffer *cmdbuf)
+{
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+
+   if (!pan_is_bifrost(pdev) && batch->scoreboard.first_tiler) {
+      mali_ptr polygon_list =
+         batch->tiler.ctx.midgard.polygon_list->ptr.gpu;
+      struct panfrost_ptr writeval_job =
+         panfrost_scoreboard_initialize_tiler(&cmdbuf->desc_pool.base,
+                                              &batch->scoreboard,
+                                              polygon_list);
+      if (writeval_job.cpu)
+         util_dynarray_append(&batch->jobs, void *, writeval_job.cpu);
+
+      memcpy(&batch->tiler.templ.midgard,
+             pan_section_ptr(batch->fb.desc.cpu,
+                             MULTI_TARGET_FRAMEBUFFER, TILER),
+             sizeof(batch->tiler.templ.midgard));
+   }
+
+   list_addtail(&cmdbuf->state.batch->node, &cmdbuf->batches);
+   cmdbuf->state.batch = NULL;
+}
+
+void
 panvk_CmdBlitImage(VkCommandBuffer commandBuffer,
                    VkImage srcImage,
                    VkImageLayout srcImageLayout,
@@ -75,7 +102,13 @@ panvk_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
                            uint32_t regionCount,
                            const VkBufferImageCopy *pRegions)
 {
-   panvk_stub();
+   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(panvk_buffer, buf, destBuffer);
+   VK_FROM_HANDLE(panvk_image, img, srcImage);
+
+   for (unsigned i = 0; i < regionCount; i++) {
+      panvk_meta_copy_img2buf(cmdbuf, buf, img, &pRegions[i]);
+   }
 }
 
 void
@@ -190,6 +223,7 @@ panvk_meta_init(struct panvk_physical_device *dev)
    pan_blitter_init(&dev->pdev, &dev->meta.blitter.bin_pool.base,
                     &dev->meta.blitter.desc_pool.base);
    panvk_meta_clear_attachment_init(dev);
+   panvk_meta_copy_img2buf_init(dev);
 }
 
 void
