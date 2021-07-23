@@ -19,7 +19,6 @@ glx@glx-visuals-stencil -pixmap,Crash
 shaders@glsl-bug-110796,Fail
 shaders@glsl-uniform-interstage-limits@subdivide 5,Crash
 shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges,Crash
-shaders@glsl-vs-if-bool,Fail
 shaders@point-vertex-id divisor,Fail
 shaders@point-vertex-id gl_instanceid divisor,Fail
 shaders@point-vertex-id gl_instanceid,Fail
