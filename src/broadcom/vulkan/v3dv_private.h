@@ -658,8 +658,14 @@ struct v3dv_subpass {
 
 struct v3dv_render_pass_attachment {
    VkAttachmentDescription desc;
+
    uint32_t first_subpass;
    uint32_t last_subpass;
+
+   struct {
+      uint32_t first_subpass;
+      uint32_t last_subpass;
+   } views[MAX_MULTIVIEW_VIEW_COUNT];
 
    /* If this is a multismapled attachment that is going to be resolved,
     * whether we can use the TLB resolve on store.
