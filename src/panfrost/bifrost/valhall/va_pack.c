@@ -816,6 +816,8 @@ bi_pack_valhall(bi_context *ctx, struct util_dynarray *emission)
 {
    unsigned orig_size = emission->size;
 
+   va_validate(stderr, ctx);
+
    bi_foreach_block(ctx, block) {
       bi_foreach_instr_in_block(block, I) {
          unsigned action = va_pack_action(block, I);
