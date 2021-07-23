@@ -81,7 +81,7 @@ ir3_reg_interval_search_sloppy(struct rb_tree *tree, unsigned offset)
  * doesn't exist.
  */
 static struct ir3_reg_interval *
-ir3_reg_interval_search_right(struct rb_tree *tree, unsigned offset)
+interval_search_right(struct rb_tree *tree, unsigned offset)
 {
    struct ir3_reg_interval *interval =
       ir3_reg_interval_search_sloppy(tree, offset);
@@ -98,6 +98,12 @@ ir3_reg_interval_search_right(struct rb_tree *tree, unsigned offset)
    }
 }
 
+struct ir3_reg_interval *
+ir3_reg_interval_search_right(struct ir3_reg_ctx *ctx, unsigned offset)
+{
+   return interval_search_right(&ctx->intervals, offset);
+}
+
 static int
 ir3_reg_interval_insert_cmp(const struct rb_node *_a, const struct rb_node *_b)
 {
@@ -111,7 +117,7 @@ interval_insert(struct ir3_reg_ctx *ctx, struct rb_tree *tree,
                 struct ir3_reg_interval *interval)
 {
    struct ir3_reg_interval *right =
-      ir3_reg_interval_search_right(tree, interval->reg->interval_start);
+      interval_search_right(tree, interval->reg->interval_start);
    if (right && right->reg->interval_start < interval->reg->interval_end) {
       /* We disallow trees where different members have different half-ness.
        * This means that we can't treat bitcasts as copies like normal

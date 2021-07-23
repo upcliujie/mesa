@@ -261,6 +261,9 @@ void ir3_reg_interval_dump(struct ir3_reg_interval *interval);
 void ir3_reg_interval_insert(struct ir3_reg_ctx *ctx,
                              struct ir3_reg_interval *interval);
 
+struct ir3_reg_interval *ir3_reg_interval_search_right(struct ir3_reg_ctx *ctx,
+                                                       unsigned offset);
+
 void ir3_reg_interval_remove(struct ir3_reg_ctx *ctx,
                              struct ir3_reg_interval *interval);
 
