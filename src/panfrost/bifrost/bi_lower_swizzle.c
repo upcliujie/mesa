@@ -39,6 +39,7 @@ bi_lower_swizzle_16(bi_context *ctx, bi_instr *ins, unsigned src)
 
         /* TODO: Use the opcode table and be a lot more methodical about this... */
         switch (ins->op) {
+        case BI_OPCODE_CSEL_I32:
         /* Some instructions used with 16-bit data never have swizzles */
         case BI_OPCODE_CSEL_V2F16:
         case BI_OPCODE_CSEL_V2I16:
