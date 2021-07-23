@@ -25,3 +25,8 @@ dEQP-VK.spirv_assembly.instruction.*.spirv_ids_abuse.lots_ids.*
 # timeout, spending all its time in nir_compare_deref_paths()
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/5152
 dEQP-VK.ubo.random.all_shared_buffer.48
+
+# causes a GPU timeout on a630:
+# msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
+dEQP-VK.graphicsfuzz.spv-stable-maze-flatten-copy-composite
+dEQP-VK.graphicsfuzz.spv-stable-pillars-volatile-nontemporal-store
