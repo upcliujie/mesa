@@ -19,50 +19,23 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- *
- * Authors (Collabora):
- *      Alyssa Rosenzweig <alyssa.rosenzweig@collabora.com>
  */
 
-#ifndef __VALHALL_COMPILER_H
-#define __VALHALL_COMPILER_H
-
-#include "compiler.h"
+#include "va_compiler.h"
 #include "valhall.h"
+#include "bi_builder.h"
 
-bool va_validate_fau(bi_instr *I);
-void va_validate(FILE *fp, bi_context *ctx);
-void va_repair_fau(bi_builder *b, bi_instr *I);
-void va_fuse_add_imm(bi_instr *I);
-void va_lower_constants(bi_context *ctx, bi_instr *I);
-void va_lower_isel(bi_instr *I);
-uint64_t va_pack_instr(const bi_instr *I, unsigned action);
-
-static inline enum va_immediate_mode
-va_fau_mode(enum bir_fau value)
+void
+va_lower_isel(bi_instr *I)
 {
-   switch (value) {
-   case BIR_FAU_TLS_PTR:
-   case BIR_FAU_WLS_PTR:
-      return VA_MODE_TS;
-   case BIR_FAU_LANE_ID:
-   case BIR_FAU_CORE_ID:
-   case BIR_FAU_PROGRAM_COUNTER:
-      return VA_MODE_ID;
+   switch (I->op) {
+
+   /* Integer addition has swizzles and addition with 0 is canonical swizzle */
+   case BI_OPCODE_SWZ_V2I16:
+      I->op = BI_OPCODE_IADD_V2U16;
+      I->src[1] = bi_zero();
+      break;
    default:
-      return VA_MODE_DEFAULT;
+      break;
    }
 }
-
-static inline enum va_immediate_mode
-va_select_fau_mode(const bi_instr *I)
-{
-   bi_foreach_src(I, s) {
-      if (I->src[s].type == BI_INDEX_FAU)
-         return va_fau_mode(I->src[s].value);
-   }
-
-   return VA_MODE_DEFAULT;
-}
-
-#endif
