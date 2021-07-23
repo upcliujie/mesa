@@ -44,3 +44,15 @@ panvk_per_arch(meta_clear_attachment)(struct panvk_cmd_buffer *cmdbuf,
                                       VkImageAspectFlags mask,
                                       const VkClearValue *clear_value,
                                       const VkClearRect *clear_rect);
+
+void
+panvk_per_arch(meta_copy_img2buf_init)(struct panvk_physical_device *dev);
+
+void
+panvk_per_arch(meta_copy_img2buf)(struct panvk_cmd_buffer *cmdbuf,
+                                  const struct panvk_buffer *buf,
+                                  const struct panvk_image *img,
+                                  const VkBufferImageCopy *region);
+
+void
+panvk_per_arch(meta_close_batch)(struct panvk_cmd_buffer *cmdbuf);

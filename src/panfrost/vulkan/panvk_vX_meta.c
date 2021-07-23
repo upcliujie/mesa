@@ -33,6 +33,16 @@
 #include "vk_format.h"
 
 void
+panvk_per_arch(meta_close_batch)(struct panvk_cmd_buffer *cmdbuf)
+{
+   /* TODO: Emit value job for Midgard (see panvk_cmd_close_batch) */
+   assert(PAN_ARCH >= 6);
+
+   list_addtail(&cmdbuf->state.batch->node, &cmdbuf->batches);
+   cmdbuf->state.batch = NULL;
+}
+
+void
 panvk_per_arch(CmdBlitImage)(VkCommandBuffer commandBuffer,
                              VkImage srcImage,
                              VkImageLayout srcImageLayout,
@@ -77,7 +87,13 @@ panvk_per_arch(CmdCopyImageToBuffer)(VkCommandBuffer commandBuffer,
                                      uint32_t regionCount,
                                      const VkBufferImageCopy *pRegions)
 {
-   panvk_stub();
+   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(panvk_buffer, buf, destBuffer);
+   VK_FROM_HANDLE(panvk_image, img, srcImage);
+
+   for (unsigned i = 0; i < regionCount; i++) {
+      panvk_per_arch(meta_copy_img2buf)(cmdbuf, buf, img, &pRegions[i]);
+   }
 }
 
 void
@@ -192,6 +208,7 @@ panvk_per_arch(meta_init)(struct panvk_physical_device *dev)
    pan_blitter_init(&dev->pdev, &dev->meta.blitter.bin_pool.base,
                     &dev->meta.blitter.desc_pool.base);
    panvk_per_arch(meta_clear_attachment_init)(dev);
+   panvk_per_arch(meta_copy_img2buf_init)(dev);
 }
 
 void
