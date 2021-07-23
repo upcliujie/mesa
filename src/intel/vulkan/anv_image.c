@@ -1418,69 +1418,20 @@ anv_swapchain_get_image(VkSwapchainKHR swapchain,
    return image;
 }
 
-static VkResult
-anv_image_from_swapchain(VkDevice device,
-                         const VkImageCreateInfo *pCreateInfo,
-                         const VkImageSwapchainCreateInfoKHR *swapchain_info,
-                         const VkAllocationCallbacks *pAllocator,
-                         VkImage *pImage)
-{
-   struct anv_image *swapchain_image = anv_swapchain_get_image(swapchain_info->swapchain, 0);
-   assert(swapchain_image);
-
-   VkImageCreateInfo local_create_info = *pCreateInfo;
-   local_create_info.pNext = NULL;
-
-   /* Added by wsi code. */
-   local_create_info.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-   /* The spec requires TILING_OPTIMAL as input, but the swapchain image may
-    * privately use a different tiling.  See spec anchor
-    * #swapchain-wsi-image-create-info .
-    */
-   assert(local_create_info.tiling == VK_IMAGE_TILING_OPTIMAL);
-   local_create_info.tiling = swapchain_image->tiling;
-
-   VkImageDrmFormatModifierListCreateInfoEXT local_modifier_info = {
-      .sType = VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT,
-      .drmFormatModifierCount = 1,
-      .pDrmFormatModifiers = &swapchain_image->drm_format_mod,
-   };
-
-   if (swapchain_image->drm_format_mod != DRM_FORMAT_MOD_INVALID)
-      __vk_append_struct(&local_create_info, &local_modifier_info);
-
-   assert(swapchain_image->type == local_create_info.imageType);
-   assert(swapchain_image->vk_format == local_create_info.format);
-   assert(swapchain_image->extent.width == local_create_info.extent.width);
-   assert(swapchain_image->extent.height == local_create_info.extent.height);
-   assert(swapchain_image->extent.depth == local_create_info.extent.depth);
-   assert(swapchain_image->array_size == local_create_info.arrayLayers);
-   assert(swapchain_image->samples == local_create_info.samples);
-   assert(swapchain_image->tiling == local_create_info.tiling);
-   assert(swapchain_image->usage == local_create_info.usage);
-
-   return anv_image_create(device,
-      &(struct anv_image_create_info) {
-         .vk_info = &local_create_info,
-         .external_format = swapchain_image->external_format,
-      },
-      pAllocator,
-      pImage);
-}
-
 VkResult
-anv_CreateImage(VkDevice device,
+anv_CreateImage(VkDevice _device,
                 const VkImageCreateInfo *pCreateInfo,
                 const VkAllocationCallbacks *pAllocator,
                 VkImage *pImage)
 {
+   ANV_FROM_HANDLE(anv_device, device, _device);
+
    const VkExternalMemoryImageCreateInfo *create_info =
       vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
 
    if (create_info && (create_info->handleTypes &
        VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID))
-      return anv_image_from_external(device, pCreateInfo, create_info,
+      return anv_image_from_external(_device, pCreateInfo, create_info,
                                      pAllocator, pImage);
 
    bool use_external_format = false;
@@ -1497,16 +1448,19 @@ anv_CreateImage(VkDevice device,
    const VkNativeBufferANDROID *gralloc_info =
       vk_find_struct_const(pCreateInfo->pNext, NATIVE_BUFFER_ANDROID);
    if (gralloc_info)
-      return anv_image_from_gralloc(device, pCreateInfo, gralloc_info,
+      return anv_image_from_gralloc(_device, pCreateInfo, gralloc_info,
                                     pAllocator, pImage);
 
    const VkImageSwapchainCreateInfoKHR *swapchain_info =
       vk_find_struct_const(pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
-   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE)
-      return anv_image_from_swapchain(device, pCreateInfo, swapchain_info,
-                                      pAllocator, pImage);
+   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE) {
+      return wsi_common_create_swapchain_image(&device->physical->wsi_device,
+                                               pCreateInfo,
+                                               swapchain_info->swapchain,
+                                               pImage);
+   }
 
-   return anv_image_create(device,
+   return anv_image_create(_device,
       &(struct anv_image_create_info) {
          .vk_info = pCreateInfo,
          .external_format = use_external_format,
