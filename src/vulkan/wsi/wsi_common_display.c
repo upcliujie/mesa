@@ -1030,9 +1030,8 @@ wsi_display_image_init(VkDevice device_h,
    if (drm_format == 0)
       return VK_ERROR_DEVICE_LOST;
 
-   VkResult result = wsi_create_native_image(&chain->base, create_info,
-                                             0, NULL, NULL,
-                                             &image->base);
+   VkResult result = wsi_create_image(&chain->base, &chain->base.image_info,
+                                      &image->base);
    if (result != VK_SUCCESS)
       return result;
 
@@ -1832,6 +1831,14 @@ wsi_display_surface_create_swapchain(
 
    chain->surface = (VkIcdSurfaceDisplay *) icd_surface;
 
+   result = wsi_configure_native_image(&chain->base, create_info,
+                                       0, NULL, NULL,
+                                       &chain->base.image_info);
+   if (result != VK_SUCCESS) {
+      vk_free(allocator, chain);
+      goto fail_init_images;
+   }
+
    for (uint32_t image = 0; image < chain->base.image_count; image++) {
       result = wsi_display_image_init(device, &chain->base,
                                       create_info, allocator,
@@ -1842,6 +1849,7 @@ wsi_display_surface_create_swapchain(
             wsi_display_image_finish(&chain->base, allocator,
                                      &chain->images[image]);
          }
+         wsi_destroy_image_info(&chain->base, &chain->base.image_info);
          vk_free(allocator, chain);
          goto fail_init_images;
       }
