@@ -217,8 +217,10 @@ dri2_create_context_attribs(struct glx_screen *base,
    }
 
    /* Check the renderType value */
-   if (!validate_renderType_against_config(config_base, renderType))
-       goto error_exit;
+   if (!validate_renderType_against_config(config_base, renderType)) {
+      *error = BadValue;
+      goto error_exit;
+   }
 
    if (shareList) {
       /* If the shareList context is not a DRI2 context, we cannot possibly

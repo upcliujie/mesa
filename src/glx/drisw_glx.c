@@ -537,7 +537,8 @@ drisw_create_context_attribs(struct glx_screen *base,
 
    /* Check the renderType value */
    if (!validate_renderType_against_config(config_base, renderType)) {
-       return NULL;
+      *error = BadValue;
+      return NULL;
    }
 
    if (reset != __DRI_CTX_RESET_NO_NOTIFICATION)

@@ -264,8 +264,10 @@ dri3_create_context_attribs(struct glx_screen *base,
    }
 
    /* Check the renderType value */
-   if (!validate_renderType_against_config(config_base, render_type))
-       goto error_exit;
+   if (!validate_renderType_against_config(config_base, render_type)) {
+      *error = BadValue;
+      goto error_exit;
+   }
 
    if (shareList) {
       /* If the shareList context is not a DRI3 context, we cannot possibly
