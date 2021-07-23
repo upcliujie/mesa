@@ -119,24 +119,12 @@ wsi_configure_native_image(const struct wsi_swapchain *chain,
                            const uint32_t *num_modifiers,
                            const uint64_t *const *modifiers,
                            struct wsi_image_info *info);
-VkResult
-wsi_create_native_image(const struct wsi_swapchain *chain,
-                        const VkSwapchainCreateInfoKHR *pCreateInfo,
-                        uint32_t num_modifier_lists,
-                        const uint32_t *num_modifiers,
-                        const uint64_t *const *modifiers,
-                        struct wsi_image *image);
 
 VkResult
 wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
                           const VkSwapchainCreateInfoKHR *pCreateInfo,
                           bool use_modifier,
                           struct wsi_image_info *info);
-VkResult
-wsi_create_prime_image(const struct wsi_swapchain *chain,
-                       const VkSwapchainCreateInfoKHR *pCreateInfo,
-                       bool use_modifier,
-                       struct wsi_image *image);
 
 VkResult
 wsi_configure_image(const struct wsi_swapchain *chain,
