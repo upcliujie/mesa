@@ -519,7 +519,7 @@ panvk_per_arch(emit_tiler_job)(const struct panvk_pipeline *pipeline,
 }
 
 void
-panvk_per_arch(emit_fragment_job)(const struct panvk_framebuffer *fb,
+panvk_per_arch(emit_fragment_job)(const struct pan_fb_info *fbinfo,
                                   mali_ptr fbdesc,
                                   void *job)
 {
@@ -532,8 +532,8 @@ panvk_per_arch(emit_fragment_job)(const struct panvk_framebuffer *fb,
       payload.bound_min_x = 0;
       payload.bound_min_y = 0;
 
-      payload.bound_max_x = (fb->width - 1) >> MALI_TILE_SHIFT;
-      payload.bound_max_y = (fb->height - 1) >> MALI_TILE_SHIFT;
+      payload.bound_max_x = (fbinfo->width - 1) >> MALI_TILE_SHIFT;
+      payload.bound_max_y = (fbinfo->height - 1) >> MALI_TILE_SHIFT;
       payload.framebuffer = fbdesc;
    }
 }
