@@ -20,19 +20,9 @@ dEQP-VK.renderpass.suballocation.attachment_allocation.input_output.7,Fail
 dEQP-VK.renderpass2.dedicated_allocation.attachment_allocation.input_output.7,Fail
 dEQP-VK.renderpass2.suballocation.attachment_allocation.input_output.7,Fail
 
-# "MESA: error: ir3_ra() failed!
-# https://gitlab.freedesktop.org/mesa/mesa/-/issues/33
-dEQP-VK.spirv_assembly.instruction.compute.opcopymemory.array,Fail
-
 # fails to reproduce on anholt's cheza, even with a failing caselist from CI.
 dEQP-VK.spirv_assembly.instruction.graphics.variable_pointers.graphics.writes_single_buffer_geom,Fail
 dEQP-VK.spirv_assembly.instruction.graphics.variable_pointers.graphics.writes_two_buffers_geom,Fail
-
-# "MESA: error: ir3_ra() failed!"
-# https://gitlab.freedesktop.org/mesa/mesa/-/issues/33
-# Needs spilling, or maybe some scheduling (though throwing a bit of nir_move/sink
-# at it didn't help).
-dEQP-VK.spirv_assembly.instruction.spirv1p4.opcopylogical.nested_arrays_different_inner_stride,Fail
 
 dEQP-VK.texture.filtering.2d.formats.d24_unorm_s8_uint_stencil.nearest,Fail
 dEQP-VK.texture.filtering.2d_array.formats.d24_unorm_s8_uint_stencil.d24_unorm_s8_uint_stencil_nearest,Fail
@@ -48,57 +38,4 @@ KHR-GL33.cull_distance.coverage,Fail
 dEQP-VK.api.copy_and_blit.core.resolve_image.whole_array_image_one_region.4_bit,Fail
 dEQP-VK.api.info.format_properties.g8_b8_r8_3plane_420_unorm,Fail
 dEQP-VK.api.info.image_format_properties.2d.optimal.g8_b8_r8_3plane_420_unorm,Fail
-dEQP-VK.graphicsfuzz.spv-stable-maze-flatten-copy-composite,Fail
-dEQP-VK.graphicsfuzz.spv-stable-pillars-volatile-nontemporal-store,Fail
-dEQP-VK.spirv_assembly.instruction.spirv1p4.opcopylogical.nested_arrays_different_strides,Fail
-dEQP-VK.ssbo.layout.2_level_array.scalar.row_major_mat4_store_cols,Fail
-dEQP-VK.ssbo.layout.2_level_array.std140.row_major_mat4_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.2_level_array.std430.row_major_mat4_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat2x4,Fail
-dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat3_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat3x4_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat4_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat4x2_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat4x3,Fail
-dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat2x4_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat3_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat3x4,Fail
-dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat4,Fail
-dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat4x2_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat4x3_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat2x4_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat3,Fail
-dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat3x4_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat4_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat4x2_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat4x3_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat2x4_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat3,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat3x4_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat4_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat4x2_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat4x3_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat2x4_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat3_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat3x4_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat4_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat4x2,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat4x3_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat2x4_comp_access,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat3_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat3x4,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat4,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat4x2_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat4x3_comp_access,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.scalar.row_major_mat3x4,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.scalar.row_major_mat4,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.scalar.row_major_mat4x3_comp_access,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.std140.row_major_mat3x4_comp_access,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.std140.row_major_mat4_comp_access,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.std140.row_major_mat4x3,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.std430.row_major_mat3x4_store_cols,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.std430.row_major_mat4_store_cols,Fail
-dEQP-VK.ssbo.layout.basic_unsized_array.std430.row_major_mat4x3_comp_access_store_cols,Fail
-dEQP-VK.ssbo.layout.random.all_shared_buffer.5,Fail
-dEQP-VK.ssbo.layout.random.scalar.19,Fail
 dEQP-VK.transform_feedback.fuzz.various_buffers.buffers100_instance_array_vertex,Fail
