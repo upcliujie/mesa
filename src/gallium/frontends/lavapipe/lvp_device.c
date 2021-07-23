@@ -1121,45 +1121,35 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vk_icdGetPhysicalDeviceProcAddr(
    return vk_instance_get_physical_device_proc_addr(&instance->vk, pName);
 }
 
-static int queue_thread(void *data)
+void
+queue_thread_noop(void *data, void *gdata, int thread_index)
 {
-   struct lvp_queue *queue = data;
+   struct lvp_device *device = gdata;
+   struct lvp_fence *fence = data;
+   struct pipe_fence_handle *handle = NULL;
+   device->queue.ctx->flush(device->queue.ctx, &handle, 0);
+   fence->handle = handle;
+   device->pscreen->fence_reference(device->pscreen, &device->queue.last_fence, handle);
+}
 
-   mtx_lock(&queue->m);
-   while (!queue->shutdown) {
-      struct lvp_queue_work *task;
-      while (list_is_empty(&queue->workqueue) && !queue->shutdown)
-         cnd_wait(&queue->new_work, &queue->m);
+static void
+queue_thread(void *data, void *gdata, int thread_index)
+{
+   struct lvp_queue_work *task = data;
+   struct lvp_device *device = gdata;
+   struct lvp_queue *queue = &device->queue;
 
-      if (queue->shutdown)
-         break;
-
-      task = list_first_entry(&queue->workqueue, struct lvp_queue_work,
-                              list);
-
-      mtx_unlock(&queue->m);
-      //execute
-      for (unsigned i = 0; i < task->cmd_buffer_count; i++) {
-         lvp_execute_cmds(queue->device, queue, task->cmd_buffers[i]);
-      }
-
-      if (task->cmd_buffer_count) {
-         struct pipe_fence_handle *handle = NULL;
-         queue->ctx->flush(queue->ctx, task->fence ? &handle : NULL, 0);
-         if (task->fence) {
-            mtx_lock(&queue->device->fence_lock);
-            task->fence->handle = handle;
-            mtx_unlock(&queue->device->fence_lock);
-         }
-      } else if (task->fence)
-         task->fence->signaled = true;
-      p_atomic_dec(&queue->count);
-      mtx_lock(&queue->m);
-      list_del(&task->list);
-      free(task);
+   //execute
+   for (unsigned i = 0; i < task->cmd_buffer_count; i++) {
+      lvp_execute_cmds(queue->device, queue, task->cmd_buffers[i]);
    }
-   mtx_unlock(&queue->m);
-   return 0;
+
+   struct pipe_fence_handle *handle = NULL;
+   queue->ctx->flush(queue->ctx, &handle, 0);
+   if (task->fence)
+      task->fence->handle = handle;
+   device->pscreen->fence_reference(device->pscreen, &queue->last_fence, handle);
+   free(task);
 }
 
 static VkResult
@@ -1168,12 +1158,11 @@ lvp_queue_init(struct lvp_device *device, struct lvp_queue *queue)
    queue->device = device;
 
    queue->flags = 0;
+   queue->timeline = 0;
    queue->ctx = device->pscreen->context_create(device->pscreen, NULL, PIPE_CONTEXT_ROBUST_BUFFER_ACCESS);
    queue->cso = cso_create_context(queue->ctx, CSO_NO_VBUF);
-   list_inithead(&queue->workqueue);
+   util_queue_init(&queue->queue, "lavapipe", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL, device);
    p_atomic_set(&queue->count, 0);
-   mtx_init(&queue->m, mtx_plain);
-   queue->exec_thread = u_thread_create(queue_thread, queue);
 
    vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
    return VK_SUCCESS;
@@ -1182,15 +1171,9 @@ lvp_queue_init(struct lvp_device *device, struct lvp_queue *queue)
 static void
 lvp_queue_finish(struct lvp_queue *queue)
 {
-   mtx_lock(&queue->m);
-   queue->shutdown = true;
-   cnd_broadcast(&queue->new_work);
-   mtx_unlock(&queue->m);
+   util_queue_finish(&queue->queue);
+   util_queue_destroy(&queue->queue);
 
-   thrd_join(queue->exec_thread, NULL);
-
-   cnd_destroy(&queue->new_work);
-   mtx_destroy(&queue->m);
    cso_destroy_context(queue->cso);
    queue->ctx->destroy(queue->ctx);
 }
@@ -1243,7 +1226,6 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDevice(
    device->instance = (struct lvp_instance *)physical_device->vk.instance;
    device->physical_device = physical_device;
 
-   mtx_init(&device->fence_lock, mtx_plain);
    device->pscreen = physical_device->pscreen;
 
    lvp_queue_init(device, &device->queue);
@@ -1260,6 +1242,8 @@ VKAPI_ATTR void VKAPI_CALL lvp_DestroyDevice(
 {
    LVP_FROM_HANDLE(lvp_device, device, _device);
 
+   if (device->queue.last_fence)
+      device->pscreen->fence_reference(device->pscreen, &device->queue.last_fence, NULL);
    lvp_queue_finish(&device->queue);
    vk_device_finish(&device->vk);
    vk_free(&device->vk.alloc, device);
@@ -1355,43 +1339,36 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_QueueSubmit(
    LVP_FROM_HANDLE(lvp_queue, queue, _queue);
    LVP_FROM_HANDLE(lvp_fence, fence, _fence);
 
+   if (fence)
+      fence->timeline = p_atomic_inc_return(&queue->timeline);
+
    if (submitCount == 0)
       goto just_signal_fence;
+
+   /* - calculate cmdbuf count
+    * - create task for enqueuing cmdbufs
+    * - enqueue job
+    */
+   uint32_t cmdbuf_count = 0;
+   for (uint32_t i = 0; i < submitCount; i++)
+      cmdbuf_count += pSubmits[i].commandBufferCount;
+
+   struct lvp_queue_work *task = malloc(sizeof(struct lvp_queue_work) + cmdbuf_count * sizeof(struct lvp_cmd_buffer *));
+   task->cmd_buffer_count = cmdbuf_count;
+   task->fence = fence;
+   task->cmd_buffers = (struct lvp_cmd_buffer **)(task + 1);
+   unsigned c = 0;
    for (uint32_t i = 0; i < submitCount; i++) {
-      uint32_t task_size = sizeof(struct lvp_queue_work) + pSubmits[i].commandBufferCount * sizeof(struct lvp_cmd_buffer *);
-      struct lvp_queue_work *task = malloc(task_size);
-
-      task->cmd_buffer_count = pSubmits[i].commandBufferCount;
-      task->fence = fence;
-      task->cmd_buffers = (struct lvp_cmd_buffer **)(task + 1);
       for (uint32_t j = 0; j < pSubmits[i].commandBufferCount; j++) {
-         task->cmd_buffers[j] = lvp_cmd_buffer_from_handle(pSubmits[i].pCommandBuffers[j]);
+         task->cmd_buffers[c++] = lvp_cmd_buffer_from_handle(pSubmits[i].pCommandBuffers[j]);
       }
-
-      mtx_lock(&queue->m);
-      p_atomic_inc(&queue->count);
-      list_addtail(&task->list, &queue->workqueue);
-      cnd_signal(&queue->new_work);
-      mtx_unlock(&queue->m);
    }
+
+   util_queue_add_job(&queue->queue, task, fence ? &fence->fence : NULL, queue_thread, NULL, 0);
    return VK_SUCCESS;
  just_signal_fence:
-   fence->signaled = true;
-   return VK_SUCCESS;
-}
-
-static VkResult queue_wait_idle(struct lvp_queue *queue, uint64_t timeout)
-{
-   if (timeout == 0)
-      return p_atomic_read(&queue->count) == 0 ? VK_SUCCESS : VK_TIMEOUT;
-   if (timeout == UINT64_MAX)
-      while (p_atomic_read(&queue->count))
-         os_time_sleep(100);
-   else {
-      int64_t atime = os_time_get_absolute_timeout(timeout);
-      if (!os_wait_until_zero_abs_timeout(&queue->count, atime))
-         return VK_TIMEOUT;
-   }
+   if (fence)
+      util_queue_add_job(&queue->queue, fence, &fence->fence, queue_thread_noop, NULL, 0);
    return VK_SUCCESS;
 }
 
@@ -1400,7 +1377,10 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_QueueWaitIdle(
 {
    LVP_FROM_HANDLE(lvp_queue, queue, _queue);
 
-   return queue_wait_idle(queue, UINT64_MAX);
+   util_queue_finish(&queue->queue);
+   if (queue->last_fence)
+      queue->device->pscreen->fence_finish(queue->device->pscreen, NULL, queue->last_fence, PIPE_TIMEOUT_INFINITE);
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL lvp_DeviceWaitIdle(
@@ -1408,7 +1388,10 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_DeviceWaitIdle(
 {
    LVP_FROM_HANDLE(lvp_device, device, _device);
 
-   return queue_wait_idle(&device->queue, UINT64_MAX);
+   util_queue_finish(&device->queue.queue);
+   if (device->queue.last_fence)
+      device->pscreen->fence_finish(device->pscreen, NULL, device->queue.last_fence, PIPE_TIMEOUT_INFINITE);
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL lvp_AllocateMemory(
@@ -1712,11 +1695,12 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateFence(
                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (fence == NULL)
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
    vk_object_base_init(&device->vk, &fence->base, VK_OBJECT_TYPE_FENCE);
-   fence->signaled = pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT;
+   util_queue_fence_init(&fence->fence);
+   fence->signalled = (pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT) == VK_FENCE_CREATE_SIGNALED_BIT;
 
    fence->handle = NULL;
+   fence->timeline = 0;
    *pFence = lvp_fence_to_handle(fence);
 
    return VK_SUCCESS;
@@ -1732,6 +1716,9 @@ VKAPI_ATTR void VKAPI_CALL lvp_DestroyFence(
 
    if (!_fence)
       return;
+   /* evade annoying destroy assert */
+   util_queue_fence_init(&fence->fence);
+   util_queue_fence_destroy(&fence->fence);
    if (fence->handle)
       device->pscreen->fence_reference(device->pscreen, &fence->handle, NULL);
 
@@ -1747,13 +1734,14 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_ResetFences(
    LVP_FROM_HANDLE(lvp_device, device, _device);
    for (unsigned i = 0; i < fenceCount; i++) {
       struct lvp_fence *fence = lvp_fence_from_handle(pFences[i]);
+      util_queue_fence_init(&fence->fence);
 
-      fence->signaled = false;
-
-      mtx_lock(&device->fence_lock);
-      if (fence->handle)
+      if (fence->handle) {
+         if (fence->handle == device->queue.last_fence)
+            device->pscreen->fence_reference(device->pscreen, &device->queue.last_fence, NULL);
          device->pscreen->fence_reference(device->pscreen, &fence->handle, NULL);
-      mtx_unlock(&device->fence_lock);
+      }
+      fence->signalled = false;
    }
    return VK_SUCCESS;
 }
@@ -1765,25 +1753,16 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetFenceStatus(
    LVP_FROM_HANDLE(lvp_device, device, _device);
    LVP_FROM_HANDLE(lvp_fence, fence, _fence);
 
-   if (fence->signaled)
+   if (fence->signalled)
       return VK_SUCCESS;
 
-   mtx_lock(&device->fence_lock);
-
-   if (!fence->handle) {
-      mtx_unlock(&device->fence_lock);
+   if (!util_queue_fence_is_signalled(&fence->fence) ||
+       !fence->handle ||
+       !device->pscreen->fence_finish(device->pscreen, NULL, fence->handle, 0))
       return VK_NOT_READY;
-   }
 
-   bool signalled = device->pscreen->fence_finish(device->pscreen,
-                                                  NULL,
-                                                  fence->handle,
-                                                  0);
-   mtx_unlock(&device->fence_lock);
-   if (signalled)
-      return VK_SUCCESS;
-   else
-      return VK_NOT_READY;
+   fence->signalled = true;
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateFramebuffer(
@@ -1852,36 +1831,47 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_WaitForFences(
    uint64_t                                    timeout)
 {
    LVP_FROM_HANDLE(lvp_device, device, _device);
+   struct lvp_fence *fence = NULL;
 
-   VkResult qret = queue_wait_idle(&device->queue, timeout);
-   bool timeout_status = false;
-   if (qret == VK_TIMEOUT)
-      return VK_TIMEOUT;
+   /* lavapipe is completely synchronous, so only one fence needs to be waited on */
+   if (waitAll) {
+      /* find highest timeline id */
+      for (unsigned i = 0; i < fenceCount; i++) {
+         struct lvp_fence *f = lvp_fence_from_handle(pFences[i]);
 
-   mtx_lock(&device->fence_lock);
-   for (unsigned i = 0; i < fenceCount; i++) {
-      struct lvp_fence *fence = lvp_fence_from_handle(pFences[i]);
-
-      if (fence->signaled)
-         continue;
-      if (!fence->handle) {
-         timeout_status |= true;
-         continue;
+         /* this is an unsubmitted fence: immediately bail out */
+         if (!f->timeline)
+            return VK_TIMEOUT;
+         if (!fence || f->timeline > fence->timeline)
+            fence = f;
       }
-      bool ret = device->pscreen->fence_finish(device->pscreen,
-                                               NULL,
-                                               fence->handle,
-                                               timeout);
-      if (ret && !waitAll) {
-         timeout_status = false;
-         break;
+   } else {
+      /* find lowest timeline id */
+      for (unsigned i = 0; i < fenceCount; i++) {
+         struct lvp_fence *f = lvp_fence_from_handle(pFences[i]);
+         if (f->timeline && (!fence || f->timeline < fence->timeline))
+            fence = f;
       }
-
-      if (!ret)
-         timeout_status |= true;
    }
-   mtx_unlock(&device->fence_lock);
-   return timeout_status ? VK_TIMEOUT : VK_SUCCESS;
+   if (!fence)
+      return VK_TIMEOUT;
+   if (fence->signalled)
+      return VK_SUCCESS;
+
+   if (!util_queue_fence_is_signalled(&fence->fence)) {
+      int64_t abs_timeout = os_time_get_absolute_timeout(timeout);
+      if (!util_queue_fence_wait_timeout(&fence->fence, abs_timeout))
+         return VK_TIMEOUT;
+
+      int64_t time_ns = os_time_get_nano();
+      timeout = abs_timeout > time_ns ? abs_timeout - time_ns : 0;
+   }
+
+   if (!fence->handle ||
+       !device->pscreen->fence_finish(device->pscreen, NULL, fence->handle, timeout))
+      return VK_TIMEOUT;
+   fence->signalled = true;
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateSemaphore(
