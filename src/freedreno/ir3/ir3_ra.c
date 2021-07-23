@@ -175,6 +175,8 @@ void
 ir3_reg_interval_insert(struct ir3_reg_ctx *ctx,
                         struct ir3_reg_interval *interval)
 {
+   rb_tree_init(&interval->children);
+   interval->parent = NULL;
    interval_insert(ctx, &ctx->intervals, interval);
 }
 
