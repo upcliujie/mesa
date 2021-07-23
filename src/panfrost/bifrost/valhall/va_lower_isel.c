@@ -35,6 +35,33 @@ va_lower_isel(bi_instr *I)
       I->op = BI_OPCODE_IADD_V2U16;
       I->src[1] = bi_zero();
       break;
+
+   /* Extra source in Valhall not yet modeled in the Bifrost IR */
+   case BI_OPCODE_ICMP_I32:
+      I->op = BI_OPCODE_ICMP_U32;
+      I->src[2] = bi_zero();
+      break;
+
+   case BI_OPCODE_ICMP_V2I16:
+      I->op = BI_OPCODE_ICMP_V2U16;
+      I->src[2] = bi_zero();
+      break;
+
+   case BI_OPCODE_ICMP_V4I8:
+      I->op = BI_OPCODE_ICMP_V4U8;
+      I->src[2] = bi_zero();
+      break;
+
+   case BI_OPCODE_ICMP_U32:
+   case BI_OPCODE_ICMP_V2U16:
+   case BI_OPCODE_ICMP_V4U8:
+   case BI_OPCODE_ICMP_S32:
+   case BI_OPCODE_ICMP_V2S16:
+   case BI_OPCODE_ICMP_V4S8:
+   case BI_OPCODE_FCMP_F32:
+   case BI_OPCODE_FCMP_V2F16:
+      I->src[2] = bi_zero();
+      break;
    default:
       break;
    }
