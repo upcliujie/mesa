@@ -30,6 +30,9 @@
 #include "compiler.h"
 #include "valhall.h"
 
+bool va_validate_fau(bi_instr *I);
+void va_validate(FILE *fp, bi_context *ctx);
+void va_repair_fau(bi_builder *b, bi_instr *I);
 void va_fuse_add_imm(bi_instr *I);
 uint64_t va_pack_instr(const bi_instr *I, unsigned action);
 
