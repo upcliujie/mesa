@@ -36,6 +36,12 @@ va_lower_isel(bi_instr *I)
       I->src[1] = bi_zero();
       break;
 
+   /* Needs to output the coverage mask */
+   case BI_OPCODE_DISCARD_F32:
+      assert(bi_is_null(I->dest[0]));
+      I->dest[0] = bi_register(60);
+      break;
+
    /* Extra source in Valhall not yet modeled in the Bifrost IR */
    case BI_OPCODE_ICMP_I32:
       I->op = BI_OPCODE_ICMP_U32;
@@ -62,6 +68,15 @@ va_lower_isel(bi_instr *I)
    case BI_OPCODE_FCMP_V2F16:
       I->src[2] = bi_zero();
       break;
+
+   /* Jump -> conditional branch with condition tied to true. */
+   case BI_OPCODE_JUMP:
+      I->op = BI_OPCODE_BRANCHZ_I16;
+      I->src[1] = I->src[0];
+      I->src[0] = bi_zero();
+      I->cmpf = BI_CMPF_EQ;
+      break;
+
    default:
       break;
    }
