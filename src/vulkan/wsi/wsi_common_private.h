@@ -85,6 +85,8 @@ struct wsi_swapchain {
    VkAllocationCallbacks alloc;
    VkFence* fences;
    VkPresentModeKHR present_mode;
+
+   struct wsi_image_info image_info;
    uint32_t image_count;
 
    bool use_prime_blit;
