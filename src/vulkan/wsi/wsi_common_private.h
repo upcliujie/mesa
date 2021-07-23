@@ -26,6 +26,9 @@
 #include "wsi_common.h"
 #include "vulkan/util/vk_object.h"
 
+struct wsi_image;
+struct wsi_swapchain;
+
 struct wsi_image_info {
    VkImageCreateInfo create;
    struct wsi_image_create_info wsi;
@@ -37,6 +40,10 @@ struct wsi_image_info {
     */
    uint32_t modifier_prop_count;
    struct VkDrmFormatModifierPropertiesEXT *modifier_props;
+
+   VkResult (*create_mem)(const struct wsi_swapchain *chain,
+                          const struct wsi_image_info *info,
+                          struct wsi_image *image);
 };
 
 struct wsi_image {
@@ -129,6 +136,10 @@ wsi_configure_image(const struct wsi_swapchain *chain,
 void
 wsi_destroy_image_info(const struct wsi_swapchain *chain,
                        struct wsi_image_info *info);
+VkResult
+wsi_create_image(const struct wsi_swapchain *chain,
+                 const struct wsi_image_info *info,
+                 struct wsi_image *image);
 void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image);
