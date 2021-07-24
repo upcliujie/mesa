@@ -292,12 +292,14 @@ dri_make_current(__DRIcontext * cPriv,
    else if (!draw || !read)
       return GL_FALSE;
 
-   if (ctx->dPriv != driDrawPriv) {
+   if (ctx->dPriv != driDrawPriv || !driDrawPriv->bound) {
       ctx->dPriv = driDrawPriv;
+      driDrawPriv->bound = 1;
       draw->texture_stamp = driDrawPriv->lastStamp - 1;
    }
-   if (ctx->rPriv != driReadPriv) {
+   if (ctx->rPriv != driReadPriv || !driReadPriv->bound) {
       ctx->rPriv = driReadPriv;
+      driReadPriv->bound = 1;
       read->texture_stamp = driReadPriv->lastStamp - 1;
    }
 

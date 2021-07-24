@@ -309,6 +309,8 @@ struct __DRIdrawableRec {
 
     int w, h;
 
+    int bound;
+
     /**
      * Drawable timestamp.  Increased when the loader calls invalidate.
      */

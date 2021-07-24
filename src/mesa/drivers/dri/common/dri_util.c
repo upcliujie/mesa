@@ -692,6 +692,7 @@ driCreateNewDrawable(__DRIscreen *screen,
     pdraw->lastStamp = 0;
     pdraw->w = 0;
     pdraw->h = 0;
+    pdraw->bound = 0;
 
     dri_get_drawable(pdraw);
 
