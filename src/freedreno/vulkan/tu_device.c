@@ -150,6 +150,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .KHR_uniform_buffer_standard_layout = true,
       .KHR_variable_pointers = true,
       .KHR_vulkan_memory_model = true,
+      .KHR_buffer_device_address = true,
 #ifndef TU_USE_KGSL
       .KHR_timeline_semaphore = true,
 #endif
@@ -181,6 +182,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_shader_viewport_index_layer = true,
       .EXT_vertex_attribute_divisor = true,
       .EXT_provoking_vertex = true,
+      .EXT_buffer_device_address = true,
 #ifdef ANDROID
       .ANDROID_native_buffer = true,
 #endif
@@ -549,6 +551,10 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderOutputViewportIndex           = true;
          features->shaderOutputLayer                   = true;
          features->subgroupBroadcastDynamicId          = false;
+
+         features->bufferDeviceAddress                = true;
+         features->bufferDeviceAddressCaptureReplay   = false;
+         features->bufferDeviceAddressMultiDevice     = false;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES: {
@@ -1097,6 +1103,23 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->transformFeedbackPreservesTriangleFanProvokingVertex = false;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT: {
+         VkPhysicalDeviceBufferDeviceAddressFeaturesEXT *features =
+            (VkPhysicalDeviceBufferDeviceAddressFeaturesEXT *)ext;
+         features->bufferDeviceAddress = true;
+         features->bufferDeviceAddressCaptureReplay = false;
+         features->bufferDeviceAddressMultiDevice = false;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR: {
+         VkPhysicalDeviceBufferDeviceAddressFeaturesKHR *features =
+            (VkPhysicalDeviceBufferDeviceAddressFeaturesKHR *)ext;
+         features->bufferDeviceAddress = true;
+         features->bufferDeviceAddressCaptureReplay = false;
+         features->bufferDeviceAddressMultiDevice = false;
+         break;
+      }
+
       default:
          break;
       }
@@ -2412,4 +2435,27 @@ tu_GetPhysicalDeviceMultisamplePropertiesEXT(
       pMultisampleProperties->maxSampleLocationGridSize = (VkExtent2D){ 1, 1 };
    else
       pMultisampleProperties->maxSampleLocationGridSize = (VkExtent2D){ 0, 0 };
+}
+
+VkDeviceAddress
+tu_GetBufferDeviceAddress(VkDevice _device,
+                          const VkBufferDeviceAddressInfoKHR* pInfo)
+{
+   TU_FROM_HANDLE(tu_buffer, buffer, pInfo->buffer);
+
+   return tu_buffer_iova(buffer);
+}
+
+uint64_t tu_GetBufferOpaqueCaptureAddress(
+    VkDevice                                    device,
+    const VkBufferDeviceAddressInfoKHR*         pInfo)
+{
+   return 0;
+}
+
+uint64_t tu_GetDeviceMemoryOpaqueCaptureAddress(
+    VkDevice                                    device,
+    const VkDeviceMemoryOpaqueCaptureAddressInfoKHR* pInfo)
+{
+   return 0;
 }
