@@ -68,6 +68,15 @@ va_lower_isel(bi_instr *I)
    case BI_OPCODE_FCMP_V2F16:
       I->src[2] = bi_zero();
       break;
+
+   /* Jump -> conditional branch with condition tied to true. */
+   case BI_OPCODE_JUMP:
+      I->op = BI_OPCODE_BRANCHZ_I16;
+      I->src[1] = I->src[0];
+      I->src[0] = bi_zero();
+      I->cmpf = BI_CMPF_EQ;
+      break;
+
    default:
       break;
    }
