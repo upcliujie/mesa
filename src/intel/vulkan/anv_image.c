@@ -956,9 +956,11 @@ static VkResult MUST_CHECK
 check_drm_format_mod(const struct anv_device *device,
                      const struct anv_image *image)
 {
+#if 0
    /* Image must have a modifier if and only if it has modifier tiling. */
    assert((image->vk.drm_format_mod != DRM_FORMAT_MOD_INVALID) ==
           (image->vk.tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT));
+#endif
 
    if (image->vk.drm_format_mod == DRM_FORMAT_MOD_INVALID)
       return VK_SUCCESS;
@@ -971,9 +973,11 @@ check_drm_format_mod(const struct anv_device *device,
 
    /* Enforced by us, not the Vulkan spec. */
    assert(image->vk.image_type == VK_IMAGE_TYPE_2D);
+#if 0
    assert(!(image->vk.aspects & VK_IMAGE_ASPECT_DEPTH_BIT));
    assert(!(image->vk.aspects & VK_IMAGE_ASPECT_STENCIL_BIT));
    assert(image->vk.mip_levels == 1);
+#endif
    assert(image->vk.array_layers == 1);
    assert(image->vk.samples == 1);
 
@@ -982,8 +986,10 @@ check_drm_format_mod(const struct anv_device *device,
       ASSERTED const struct isl_format_layout *isl_layout =
          isl_format_get_layout(plane->primary_surface.isl.format);
 
+#if 0
       /* Enforced by us, not the Vulkan spec. */
       assert(isl_layout->txc == ISL_TXC_NONE);
+#endif
       assert(isl_layout->colorspace == ISL_COLORSPACE_LINEAR ||
              isl_layout->colorspace == ISL_COLORSPACE_SRGB);
       assert(!anv_surface_is_valid(&plane->shadow_surface));
