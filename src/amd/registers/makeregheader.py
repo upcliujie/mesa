@@ -112,6 +112,25 @@ def get_chips_comment(chips, parent=None):
 
     return ', '.join(comment)
 
+def detect_conflict(regdb, prev, line):
+    # no conflict example:
+    #  prev     line
+    # [0, 1]...[0, 2]
+    # [5, 6]...[5, 6]
+    # conflict examples:
+    #  prev     line      prev     line
+    # [0, 1]...[0, 2]    [0, 3]...[0, 0]
+    # [2, 6]...[5, 6]    [4, 6]...[1, 2]
+    for idx, type_refs in enumerate([prev.type_refs, line.type_refs]):
+        ref = line if idx == 0 else prev
+        for type_ref in type_refs:
+            for field in regdb.register_type(type_ref).fields:
+                # If a field starts in the bits[0, 1] interval
+                if (field.bits[0] > ref.bits[0] and
+                    field.bits[0] <= ref.bits[1]):
+                    return True
+
+    return False
 
 class HeaderWriter(object):
     def __init__(self, regdb, guard=None):
@@ -200,21 +219,10 @@ class HeaderWriter(object):
                 if prev.bits[0] != line.bits[0]:
                     continue
 
-                if prev.bits[1] < line.bits[1]:
+                if prev.bits[1] != line.bits[1]:
                     # Current line's field extends beyond the range of prev.
                     # Need to check for conflicts
-                    conflict = False
-                    for type_ref in prev.type_refs:
-                        for field in regdb.register_type(type_ref).fields:
-                            # The only possible conflict is for a prev field
-                            # that starts at a higher bit.
-                            if (field.bits[0] > line.bits[0] and
-                                field.bits[0] <= line.bits[1]):
-                                conflict = True
-                                break
-                        if conflict:
-                            break
-                    if conflict:
+                    if detect_conflict(regdb, prev, line):
                         continue
 
                 prev.bits[1] = max(prev.bits[1], line.bits[1])
