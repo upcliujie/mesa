@@ -103,4 +103,15 @@ nir_block_ends_in_break(nir_block *block)
       nir_instr_as_jump(instr)->type == nir_jump_break;
 }
 
+static inline bool
+nir_is_supported_terminator_condition(nir_ssa_scalar cond)
+{
+   if (!nir_ssa_scalar_is_alu(cond))
+      return false;
+
+   nir_alu_instr *alu = nir_instr_as_alu(cond.def->parent_instr);
+   return nir_alu_instr_is_comparison(alu) &&
+          nir_op_infos[alu->op].num_inputs == 2;
+}
+
 #endif /* NIR_LOOP_ANALYZE_H */
