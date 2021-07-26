@@ -2162,6 +2162,20 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
    case nir_intrinsic_bindless_resource_ir3:
       dst[0] = ir3_get_src(ctx, &intr->src[0])[0];
       break;
+   case nir_intrinsic_global_atomic_add:
+   case nir_intrinsic_global_atomic_imin:
+   case nir_intrinsic_global_atomic_umin:
+   case nir_intrinsic_global_atomic_imax:
+   case nir_intrinsic_global_atomic_umax:
+   case nir_intrinsic_global_atomic_and:
+   case nir_intrinsic_global_atomic_or:
+   case nir_intrinsic_global_atomic_xor:
+   case nir_intrinsic_global_atomic_exchange:
+   case nir_intrinsic_global_atomic_comp_swap: {
+      dst[0] = ctx->funcs->emit_intrinsic_atomic_global(ctx, intr);
+      break;
+   }
+
    default:
       ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
                         nir_intrinsic_infos[intr->intrinsic].name);
