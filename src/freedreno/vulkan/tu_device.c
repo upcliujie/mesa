@@ -152,6 +152,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .KHR_uniform_buffer_standard_layout = true,
       .KHR_variable_pointers = true,
       .KHR_vulkan_memory_model = true,
+      .KHR_buffer_device_address = true,
 #ifndef TU_USE_KGSL
       .KHR_timeline_semaphore = true,
 #endif
@@ -189,6 +190,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_shader_viewport_index_layer = true,
       .EXT_vertex_attribute_divisor = true,
       .EXT_provoking_vertex = true,
+      .EXT_buffer_device_address = true,
 #ifdef ANDROID
       .ANDROID_native_buffer = true,
 #endif
@@ -520,7 +522,7 @@ tu_get_physical_device_features_1_2(struct tu_physical_device *pdevice,
    features->separateDepthStencilLayouts         = false;
    features->hostQueryReset                      = true;
    features->timelineSemaphore                   = true;
-   features->bufferDeviceAddress                 = false;
+   features->bufferDeviceAddress                 = true;
    features->bufferDeviceAddressCaptureReplay    = false;
    features->bufferDeviceAddressMultiDevice      = false;
    features->vulkanMemoryModel                   = true;
@@ -594,6 +596,9 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
    };
    tu_get_physical_device_features_1_2(pdevice, &core_1_2);
+
+#define CORE_FEATURE(major, minor, feature) \
+   features->feature = core_##major##_##minor.feature
 
    vk_foreach_struct(ext, pFeatures->pNext)
    {
@@ -730,11 +735,21 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->mutableDescriptorType = true;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT: {
+         VkPhysicalDeviceBufferDeviceAddressFeaturesEXT *features =
+            (VkPhysicalDeviceBufferDeviceAddressFeaturesEXT *)ext;
+         CORE_FEATURE(1, 2, bufferDeviceAddress);
+         CORE_FEATURE(1, 2, bufferDeviceAddressCaptureReplay);
+         CORE_FEATURE(1, 2, bufferDeviceAddressMultiDevice);
+         break;
+      }
 
       default:
          break;
       }
    }
+
+#undef CORE_FEATURE
 }
 
 
@@ -2510,4 +2525,27 @@ tu_GetPhysicalDeviceMultisamplePropertiesEXT(
       pMultisampleProperties->maxSampleLocationGridSize = (VkExtent2D){ 1, 1 };
    else
       pMultisampleProperties->maxSampleLocationGridSize = (VkExtent2D){ 0, 0 };
+}
+
+VkDeviceAddress
+tu_GetBufferDeviceAddress(VkDevice _device,
+                          const VkBufferDeviceAddressInfoKHR* pInfo)
+{
+   TU_FROM_HANDLE(tu_buffer, buffer, pInfo->buffer);
+
+   return tu_buffer_iova(buffer);
+}
+
+uint64_t tu_GetBufferOpaqueCaptureAddress(
+    VkDevice                                    device,
+    const VkBufferDeviceAddressInfoKHR*         pInfo)
+{
+   return 0;
+}
+
+uint64_t tu_GetDeviceMemoryOpaqueCaptureAddress(
+    VkDevice                                    device,
+    const VkDeviceMemoryOpaqueCaptureAddressInfoKHR* pInfo)
+{
+   return 0;
 }
