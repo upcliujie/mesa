@@ -114,7 +114,7 @@ can_fast_clear_color(struct iris_context *ice,
     * resource and not the renderbuffer.
     */
    if (!iris_render_formats_color_compatible(render_format, res->surf.format,
-                                             color)) {
+                                             color, res->aux.clear_color_unknown)) {
       return false;
    }
 
@@ -218,8 +218,8 @@ fast_clear_color(struct iris_context *ice,
    struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
    struct pipe_resource *p_res = (void *) res;
 
-   bool color_changed = !!memcmp(&res->aux.clear_color, &color,
-                                 sizeof(color));
+   bool color_changed = res->aux.clear_color_unknown ||
+      memcmp(&res->aux.clear_color, &color, sizeof(color)) != 0;
 
    if (color_changed) {
       /* If we are clearing to a new clear value, we need to resolve fast
@@ -463,7 +463,7 @@ fast_clear_depth(struct iris_context *ice,
    /* If we're clearing to a new clear value, then we need to resolve any clear
     * flags out of the HiZ buffer into the real depth buffer.
     */
-   if (res->aux.clear_color.f32[0] != depth) {
+   if (res->aux.clear_color_unknown || res->aux.clear_color.f32[0] != depth) {
       for (unsigned res_level = 0; res_level < res->surf.levels; res_level++) {
          const unsigned level_layers =
             iris_get_num_logical_layers(res, res_level);
