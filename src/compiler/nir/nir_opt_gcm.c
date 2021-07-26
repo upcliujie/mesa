@@ -37,9 +37,19 @@
  * verify correcness.
  */
 
+/* This is used to stop GCM moving instruction out of a loop if the loop
+ * contains too many instructions and moving them would create excess spilling.
+ *
+ * TODO: Figure out a better way to decide if we should remove instructions from
+ * a loop.
+ */
+#define MAX_LOOP_INSTRUCTIONS 100
+
 struct gcm_block_info {
    /* Number of loops this block is inside */
    unsigned loop_depth;
+
+   unsigned loop_instr_count;
 
    /* The last instruction inserted into this block.  This is used as we
     * traverse the instructions and insert them back into the program to
@@ -80,27 +90,61 @@ struct gcm_state {
    struct gcm_instr_info *instr_infos;
 };
 
+static unsigned
+get_loop_instr_count(struct exec_list *cf_list)
+{
+   unsigned loop_instr_count = 0;
+   foreach_list_typed(nir_cf_node, node, node, cf_list) {
+      switch (node->type) {
+      case nir_cf_node_block: {
+         nir_block *block = nir_cf_node_as_block(node);
+         nir_foreach_instr(instr, block) {
+            loop_instr_count++;
+         }
+         break;
+      }
+      case nir_cf_node_if: {
+         nir_if *if_stmt = nir_cf_node_as_if(node);
+         loop_instr_count += get_loop_instr_count(&if_stmt->then_list);
+         loop_instr_count += get_loop_instr_count(&if_stmt->else_list);
+         break;
+      }
+      case nir_cf_node_loop: {
+         nir_loop *loop = nir_cf_node_as_loop(node);
+         loop_instr_count += get_loop_instr_count(&loop->body);
+         break;
+      }
+      default:
+         unreachable("Invalid CF node type");
+      }
+   }
+
+   return loop_instr_count;
+}
+
 /* Recursively walks the CFG and builds the block_info structure */
 static void
 gcm_build_block_info(struct exec_list *cf_list, struct gcm_state *state,
-                     unsigned loop_depth)
+                     unsigned loop_depth, unsigned loop_instr_count)
 {
    foreach_list_typed(nir_cf_node, node, node, cf_list) {
       switch (node->type) {
       case nir_cf_node_block: {
          nir_block *block = nir_cf_node_as_block(node);
          state->blocks[block->index].loop_depth = loop_depth;
+         state->blocks[block->index].loop_instr_count = loop_instr_count;
          break;
       }
       case nir_cf_node_if: {
          nir_if *if_stmt = nir_cf_node_as_if(node);
-         gcm_build_block_info(&if_stmt->then_list, state, loop_depth);
-         gcm_build_block_info(&if_stmt->else_list, state, loop_depth);
+         gcm_build_block_info(&if_stmt->then_list, state, loop_depth, ~0u);
+         gcm_build_block_info(&if_stmt->else_list, state, loop_depth, ~0u);
          break;
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(node);
-         gcm_build_block_info(&loop->body, state, loop_depth + 1);
+         gcm_build_block_info(&loop->body, state, loop_depth + 1,
+                              get_loop_instr_count(&loop->body));
          break;
       }
       default:
@@ -357,13 +401,17 @@ gcm_choose_block_for_instr(nir_instr *instr, nir_block *early_block,
        * these calculations outside the loop causes register pressure.
        *
        * To work around these issues for now we only allow constant and texture
-       * instructions to be moved outside their original loops.
+       * instructions to be moved outside their original loops, or instructions
+       * where the total loop instruction count is less than
+       * MAX_LOOP_INSTRUCTIONS.
        *
-       * TODO: figure out some heuristics to allow more to be moved out of loops.
+       * TODO: figure out some more heuristics to allow more to be moved out of
+       * loops.
        */
       if (state->blocks[block->index].loop_depth <
           state->blocks[best->index].loop_depth &&
           (nir_block_dominates(instr->block, block) ||
+           state->blocks[instr->block->index].loop_instr_count < MAX_LOOP_INSTRUCTIONS ||
            instr->type == nir_instr_type_load_const ||
            instr->type == nir_instr_type_tex))
          best = block;
@@ -575,7 +623,7 @@ opt_gcm_impl(nir_function_impl *impl, bool value_number)
    exec_list_make_empty(&state.instrs);
    state.blocks = rzalloc_array(NULL, struct gcm_block_info, impl->num_blocks);
 
-   gcm_build_block_info(&impl->body, &state, 0);
+   gcm_build_block_info(&impl->body, &state, 0, ~0u);
 
    gcm_pin_instructions(impl, &state);
 
