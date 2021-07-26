@@ -63,7 +63,6 @@ dEQP-VK.pipeline.framebuffer_attachment.diff_attachments_2d_19x27_32x32_ms,Fail
 
 dEQP-VK.renderpass.dedicated_allocation.attachment_allocation.input_output.7,Fail
 dEQP-VK.renderpass.suballocation.attachment_allocation.input_output.7,Fail
-dEQP-VK.renderpass.suballocation.subpass_dependencies.implicit_dependencies.render_passes_5,Fail
 dEQP-VK.renderpass2.dedicated_allocation.attachment_allocation.input_output.7,Fail
 dEQP-VK.renderpass2.suballocation.attachment_allocation.input_output.7,Fail
 
@@ -88,3 +87,63 @@ dEQP-VK.texture.filtering.unnormal.formats.d24_unorm_s8_uint_stencil.nearest,Fai
 
 # Broken on all drivers: https://gitlab.freedesktop.org/mesa/mesa/-/issues/4582
 dEQP-VK.wsi.display_control.register_device_event,Fail
+
+# New in VK-GL-CTS 1.2.7.0
+KHR-GL33.cull_distance.coverage,Fail
+dEQP-VK.api.info.format_properties.g8_b8_r8_3plane_420_unorm,Fail
+dEQP-VK.api.info.image_format_properties.2d.optimal.g8_b8_r8_3plane_420_unorm,Fail
+dEQP-VK.graphicsfuzz.spv-stable-maze-flatten-copy-composite,Fail
+dEQP-VK.graphicsfuzz.spv-stable-pillars-volatile-nontemporal-store,Fail
+dEQP-VK.pipeline.misc.primitive_id_from_tess,Fail
+dEQP-VK.spirv_assembly.instruction.spirv1p4.opcopylogical.nested_arrays_different_strides,Fail
+dEQP-VK.ssbo.layout.2_level_array.scalar.row_major_mat4_store_cols,Fail
+dEQP-VK.ssbo.layout.2_level_array.std140.row_major_mat4_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.2_level_array.std430.row_major_mat4_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat2x4,Fail
+dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat3_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat3x4_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat4_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat4x2_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.scalar.row_major_mat4x3,Fail
+dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat2x4_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat3_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat3x4,Fail
+dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat4,Fail
+dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat4x2_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.std140.row_major_mat4x3_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat2x4_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat3,Fail
+dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat3x4_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat4_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat4x2_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_array.std430.row_major_mat4x3_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat2x4_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat3,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat3x4_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat4_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat4x2_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.scalar.row_major_mat4x3_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat2x4_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat3_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat3x4_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat4_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat4x2,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std140.row_major_mat4x3_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat2x4_comp_access,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat3_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat3x4,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat4,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat4x2_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.3_level_unsized_array.std430.row_major_mat4x3_comp_access,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.scalar.row_major_mat3x4,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.scalar.row_major_mat4,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.scalar.row_major_mat4x3_comp_access,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.std140.row_major_mat3x4_comp_access,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.std140.row_major_mat4_comp_access,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.std140.row_major_mat4x3,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.std430.row_major_mat3x4_store_cols,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.std430.row_major_mat4_store_cols,Fail
+dEQP-VK.ssbo.layout.basic_unsized_array.std430.row_major_mat4x3_comp_access_store_cols,Fail
+dEQP-VK.ssbo.layout.random.all_shared_buffer.5,Fail
+dEQP-VK.ssbo.layout.random.scalar.19,Fail
+dEQP-VK.transform_feedback.fuzz.various_buffers.buffers100_instance_array_vertex,Fail
