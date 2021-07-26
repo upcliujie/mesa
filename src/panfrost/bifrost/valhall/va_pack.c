@@ -394,10 +394,16 @@ va_pack_instr(const bi_instr *I, unsigned action)
 }
 
 static bool
+va_last_in_block(bi_block *block, bi_instr *I)
+{
+   return (I->link.next == &block->instructions);
+}
+
+static bool
 va_should_return(bi_block *block, bi_instr *I)
 {
    /* Don't return within a block */
-   if (I->link.next != &block->instructions)
+   if (!va_last_in_block(block, I))
       return false;
 
    /* Don't return if we're succeeded by instructions */
@@ -418,7 +424,11 @@ va_pack_action(bi_block *block, bi_instr *I)
    if (va_should_return(block, I))
       return 0x7 | 0x8;
 
-   /* TODO: Barrier, reconverge, thread discard, ATEST */
+   /* .reconverge */
+   if (va_last_in_block(block, I) && bi_reconverge_branches(block))
+      return 0x2 | 0x8;
+
+   /* TODO: Barrier, thread discard, ATEST */
 
    /* TODO: Generalize waits */
    if (valhall_opcodes[I->op].nr_staging_dests > 0)
