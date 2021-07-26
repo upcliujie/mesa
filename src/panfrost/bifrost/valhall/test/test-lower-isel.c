@@ -53,6 +53,10 @@ main(int argc, const char **argv)
       CASE(I, J);
    }
 
+   /* Jumps lowered to branches */
+   CASE(bi_jump(b, bi_imm_u32(0xDEADBEEF)),
+        bi_branchz_i16(b, bi_zero(), bi_imm_u32(0xDEADBEEF), BI_CMPF_EQ));
+
    /* Negative smoke tests */
    NEGCASE(bi_fadd_f32_to(b, reg, reg, reg, BI_ROUND_RTP));
 
