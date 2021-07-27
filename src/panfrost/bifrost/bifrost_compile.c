@@ -33,6 +33,7 @@
 #include "valhall/disassemble.h"
 #include "bifrost_compile.h"
 #include "compiler.h"
+#include "valhall/va_compiler.h"
 #include "bi_quirks.h"
 #include "bi_builder.h"
 #include "bifrost_nir.h"
@@ -3857,6 +3858,22 @@ bi_compile_variant_nir(nir_shader *nir,
 
         if (ctx->arch >= 9) {
                 va_optimizer(ctx);
+
+                bi_foreach_instr_global_safe(ctx, I) {
+                        va_lower_isel(I);
+                        va_lower_constants(ctx, I);
+
+                        bi_builder b = bi_init_builder(ctx, bi_before_instr(I));
+                        va_repair_fau(&b, I);
+                }
+
+                /* We need to clean up after constant lowering */
+                if (likely(optimize)) {
+                        bi_opt_cse(ctx);
+                        bi_opt_dead_code_eliminate(ctx);
+                }
+
+                bi_validate(ctx, "Valhall passes");
         }
 
         bi_foreach_block(ctx, block) {
@@ -3865,7 +3882,10 @@ bi_compile_variant_nir(nir_shader *nir,
 
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal)
                 bi_print_shader(ctx, stdout);
-        bi_lower_fau(ctx);
+
+        if (ctx->arch <= 8) {
+                bi_lower_fau(ctx);
+        }
 
         /* Analyze before register allocation to avoid false dependencies. The
          * skip bit is a function of only the data flow graph and is invariant
