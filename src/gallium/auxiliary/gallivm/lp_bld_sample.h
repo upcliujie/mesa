@@ -382,6 +382,7 @@ struct lp_build_sample_context
    boolean no_quad_lod;
    boolean no_brilinear;
    boolean no_rho_approx;
+   boolean no_lambda_approx;
    boolean fetch_ms;
 
    /** regular scalar float type */
