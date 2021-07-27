@@ -566,6 +566,9 @@ etna_resource_from_handle(struct pipe_screen *pscreen,
    if (!rsc->pending_ctx)
       goto fail;
 
+   if (screen->ro)
+      rsc->scanout = renderonly_scanout_for_resource(prsc, screen->ro, NULL);
+
    return prsc;
 
 fail:
