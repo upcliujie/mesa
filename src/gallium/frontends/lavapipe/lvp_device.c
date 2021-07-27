@@ -1164,8 +1164,14 @@ get_semaphore_link(struct lvp_semaphore *sema)
       }
    }
    struct lvp_semaphore_timeline *tl = util_dynarray_pop(&sema->links, struct lvp_semaphore_timeline*);
-   if (!sema->timeline)
+   if (!sema->timeline) {
       sema->timeline = tl;
+   } else {
+      struct lvp_semaphore_timeline *iter = sema->timeline;
+      while (iter->next)
+         iter = iter->next;
+      iter->next = tl;
+   }
    return tl;
 }
 
