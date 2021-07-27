@@ -2416,7 +2416,9 @@ CSMT_ITEM_NO_WAIT(nine_context_draw_indexed_primitive,
     /* These don't include index bias: */
     info.min_index = MinVertexIndex;
     info.max_index = MinVertexIndex + NumVertices - 1;
-    info.index.resource = context->idxbuf;
+    info.index.resource = NULL;
+    pipe_resource_reference(&info.index.resource, context->idxbuf);
+    info.take_index_buffer_ownership = true;
 
     context->pipe->draw_vbo(context->pipe, &info, 0, NULL, &draw, 1);
 }
@@ -2446,9 +2448,11 @@ CSMT_ITEM_NO_WAIT(nine_context_draw_indexed_primitive_from_vtxbuf_idxbuf,
     info.min_index = MinVertexIndex;
     info.max_index = MinVertexIndex + NumVertices - 1;
     info.has_user_indices = ibuf == NULL;
-    if (ibuf)
-        info.index.resource = ibuf;
-    else
+    if (ibuf) {
+        info.index.resource = NULL;
+        pipe_resource_reference(&info.index.resource, ibuf);
+        info.take_index_buffer_ownership = true;
+    } else
         info.index.user = user_ibuf;
 
     context->pipe->set_vertex_buffers(context->pipe, 0, 1, 0, false, vbuf);
