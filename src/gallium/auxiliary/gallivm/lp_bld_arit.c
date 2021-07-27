@@ -3042,8 +3042,12 @@ lp_build_pow(struct lp_build_context *bld,
                    __FUNCTION__);
    }
 
+   LLVMValueRef log2x = bld->type.width >= 32 ?
+      lp_build_log2_safe(bld, x) :
+      lp_build_log2(bld, x);
+
    LLVMValueRef cmp = lp_build_cmp(bld, PIPE_FUNC_EQUAL, x, lp_build_const_vec(bld->gallivm, bld->type, 0.0f));
-   LLVMValueRef res = lp_build_exp2(bld, lp_build_mul(bld, lp_build_log2(bld, x), y));
+   LLVMValueRef res = lp_build_exp2(bld, lp_build_mul(bld, log2x, y));
 
    res = lp_build_select(bld, cmp, lp_build_const_vec(bld->gallivm, bld->type, 0.0f), res);
    return res;
