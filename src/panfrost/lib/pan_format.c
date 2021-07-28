@@ -430,8 +430,8 @@ const struct panfrost_format GENX(panfrost_pipe_format)[PIPE_FORMAT_COUNT] = {
         FMT(Z24_UNORM_S8_UINT,       Z24X8_UNORM,     RGBA, L, _T_Z),
         FMT(Z24X8_UNORM,             Z24X8_UNORM,     RGBA, L, _T_Z),
         FMT(Z32_FLOAT,               R32F,            RGBA, L, _T_Z),
-        FMT(Z32_FLOAT_S8X24_UINT,    Z32_X32,         RGBA, L, _T_Z),
-        FMT(X32_S8X24_UINT,          X32_S8X24,       GRBA, L, _T__),
+        FMT(Z32_FLOAT_S8X24_UINT,    R32F,            RGBA, L, _T_Z),
+        FMT(X32_S8X24_UINT,          S8X24,           GRBA, L, _T__),
         FMT(X24S8_UINT,              TILEBUFFER_NATIVE /* XXX: Deduplicate enum */, GRBA, L, _T_Z),
         FMT(S8_UINT,                 S8,              GRBA, L, _T__),
 
