@@ -25,19 +25,7 @@ include:
       - '/templates/fedora.yml'
   - local: '.gitlab-ci/lava/lava-gitlab-ci.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
-  - local: 'src/amd/ci/gitlab-ci.yml'
-  - local: 'src/broadcom/ci/gitlab-ci.yml'
   - local: 'src/freedreno/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/i915/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/iris/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/panfrost/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/radeonsi/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/softpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/virgl/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/zink/ci/gitlab-ci.yml'
-  - local: 'src/gallium/frontends/lavapipe/ci/gitlab-ci.yml'
 
 stages:
   - sanity
@@ -422,6 +410,8 @@ debian/arm_build:
     - aarch64
   variables:
     MESA_IMAGE_TAG: &debian-arm_build "2021-07-02-bump-libdrm"
+  rules:
+    - when: always
 
 .use-debian/arm_build:
   extends:
@@ -953,17 +943,6 @@ debian-arm64-asan:
     ARTIFACTS_DEBUG_SYMBOLS: 1
     MINIO_ARTIFACT_NAME: mesa-arm64-asan
     MESON_TEST_ARGS: "--no-suite mesa:compiler"
-
-debian-arm64-build-test:
-  extends:
-    - .meson-arm
-    - .ci-deqp-artifacts
-  variables:
-    VULKAN_DRIVERS: "amd"
-    EXTRA_OPTION: >
-      -Dtools=panfrost
-  script:
-    - .gitlab-ci/meson/build.sh
 
 debian-clang:
   extends: .meson-build

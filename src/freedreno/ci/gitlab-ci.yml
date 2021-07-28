@@ -29,6 +29,7 @@
 .freedreno-test-traces:
   extends:
     - .piglit-traces-test
+    - .test-manual-mr
   variables:
     HWCI_TEST_SCRIPT: "/install/piglit/run.sh"
     HWCI_START_XORG: 1
