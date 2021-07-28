@@ -1145,44 +1145,7 @@ panvk_meta_copy_buf2img_emit_dcd(struct pan_pool *pool,
 }
 
 static struct panfrost_ptr
-panvk_meta_copy_buf2img_emit_midgard_tiler_job(struct pan_pool *desc_pool,
-                                               struct pan_scoreboard *scoreboard,
-                                               mali_ptr src_coords, mali_ptr dst_coords,
-                                               mali_ptr ubo, mali_ptr push_constants,
-                                               mali_ptr vpd, mali_ptr rsd, mali_ptr tsd)
-{
-   struct panfrost_ptr job =
-      pan_pool_alloc_desc(desc_pool, MIDGARD_TILER_JOB);
-
-   panvk_meta_copy_buf2img_emit_dcd(desc_pool,
-                                    src_coords, dst_coords,
-                                    ubo, push_constants,
-                                    vpd, tsd, rsd,
-                                    pan_section_ptr(job.cpu, MIDGARD_TILER_JOB, DRAW));
-
-   pan_section_pack(job.cpu, MIDGARD_TILER_JOB, PRIMITIVE, cfg) {
-      cfg.draw_mode = MALI_DRAW_MODE_TRIANGLE_STRIP;
-      cfg.index_count = 4;
-      cfg.job_task_split = 6;
-   }
-
-   pan_section_pack(job.cpu, MIDGARD_TILER_JOB, PRIMITIVE_SIZE, cfg) {
-      cfg.constant = 1.0f;
-   }
-
-   void *invoc = pan_section_ptr(job.cpu,
-                                 MIDGARD_TILER_JOB,
-                                 INVOCATION);
-   panfrost_pack_work_groups_compute(invoc, 1, 4,
-                                     1, 1, 1, 1, true, false);
-
-   panfrost_add_job(desc_pool, scoreboard, MALI_JOB_TYPE_TILER,
-                    false, false, 0, 0, &job, false);
-   return job;
-}
-
-static struct panfrost_ptr
-panvk_meta_copy_buf2img_emit_bifrost_tiler_job(struct pan_pool *desc_pool,
+panvk_meta_copy_buf2img_emit_tiler_job(struct pan_pool *desc_pool,
                                                struct pan_scoreboard *scoreboard,
                                                mali_ptr src_coords, mali_ptr dst_coords,
                                                mali_ptr ubo, mali_ptr push_constants,
@@ -1190,34 +1153,36 @@ panvk_meta_copy_buf2img_emit_bifrost_tiler_job(struct pan_pool *desc_pool,
                                                mali_ptr tsd, mali_ptr tiler)
 {
    struct panfrost_ptr job =
-      pan_pool_alloc_desc(desc_pool, BIFROST_TILER_JOB);
+      pan_pool_alloc_desc(desc_pool, TILER_JOB);
 
    panvk_meta_copy_buf2img_emit_dcd(desc_pool,
                                     src_coords, dst_coords,
                                     ubo, push_constants,
                                     vpd, tsd, rsd,
-                                    pan_section_ptr(job.cpu, BIFROST_TILER_JOB, DRAW));
+                                    pan_section_ptr(job.cpu, TILER_JOB, DRAW));
 
-   pan_section_pack(job.cpu, BIFROST_TILER_JOB, PRIMITIVE, cfg) {
+   pan_section_pack(job.cpu, TILER_JOB, PRIMITIVE, cfg) {
       cfg.draw_mode = MALI_DRAW_MODE_TRIANGLE_STRIP;
       cfg.index_count = 4;
       cfg.job_task_split = 6;
    }
 
-   pan_section_pack(job.cpu, BIFROST_TILER_JOB, PRIMITIVE_SIZE, cfg) {
+   pan_section_pack(job.cpu, TILER_JOB, PRIMITIVE_SIZE, cfg) {
       cfg.constant = 1.0f;
    }
 
    void *invoc = pan_section_ptr(job.cpu,
-                                 BIFROST_TILER_JOB,
+                                 TILER_JOB,
                                  INVOCATION);
    panfrost_pack_work_groups_compute(invoc, 1, 4,
                                      1, 1, 1, 1, true, false);
 
-   pan_section_pack(job.cpu, BIFROST_TILER_JOB, PADDING, cfg);
-   pan_section_pack(job.cpu, BIFROST_TILER_JOB, TILER, cfg) {
-      cfg.address = tiler;
-   }
+   #if PAN_ARCH >= 6
+      pan_section_pack(job.cpu, TILER_JOB, PADDING, cfg);
+      pan_section_pack(job.cpu, TILER_JOB, TILER, cfg) {
+         cfg.address = tiler;
+      }
+   #endif
 
    panfrost_add_job(desc_pool, scoreboard, MALI_JOB_TYPE_TILER,
                     false, false, 0, 0, &job, false);
@@ -1373,19 +1338,11 @@ panvk_per_arch(meta_copy_buf2img)(struct panvk_cmd_buffer *cmdbuf,
 
       struct panfrost_ptr job;
 
-      #if PAN_ARCH >= 6
-         job = panvk_meta_copy_buf2img_emit_bifrost_tiler_job(&cmdbuf->desc_pool.base,
-                                                              &batch->scoreboard,
-                                                              src_coords, dst_coords,
-                                                              ubo, pushconsts,
-                                                              vpd, rsd, tsd, tiler);
-      #else
-         job = panvk_meta_copy_buf2img_emit_midgard_tiler_job(&cmdbuf->desc_pool.base,
-                                                              &batch->scoreboard,
-                                                              src_coords, dst_coords,
-                                                              ubo, pushconsts,
-                                                              vpd, rsd, tsd);
-      #endif
+      job = panvk_meta_copy_buf2img_emit_tiler_job(&cmdbuf->desc_pool.base,
+                                                            &batch->scoreboard,
+                                                            src_coords, dst_coords,
+                                                            ubo, pushconsts,
+                                                            vpd, rsd, tsd, tiler);
 
       util_dynarray_append(&batch->jobs, void *, job.cpu);
       panvk_per_arch(cmd_preload_fb)(cmdbuf, &fbinfo);

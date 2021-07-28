@@ -267,6 +267,7 @@ panvk_per_arch(meta_init)(struct panvk_physical_device *dev)
                     &dev->meta.blitter.desc_pool.base);
    panvk_per_arch(meta_clear_attachment_init)(dev);
    panvk_per_arch(meta_copy_img2buf_init)(dev);
+   panvk_per_arch(meta_copy_buf2img_init)(dev);
 }
 
 void
