@@ -5685,7 +5685,7 @@ visit_discard(isel_context* ctx, nir_intrinsic_instr* instr)
       assert(nir_instr_is_last(&instr->instr));
       ctx->block->kind |= block_kind_uniform;
       ctx->cf_info.has_branch = true;
-      bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+      bld.branch(aco_opcode::p_branch, bld.def(s2));
       add_linear_edge(ctx->block->index, linear_target);
       return;
    }
@@ -9996,7 +9996,7 @@ begin_loop(isel_context* ctx, loop_context* lc)
    append_logical_end(ctx->block);
    ctx->block->kind |= block_kind_loop_preheader | block_kind_uniform;
    Builder bld(ctx->program, ctx->block);
-   bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+   bld.branch(aco_opcode::p_branch, bld.def(s2));
    unsigned loop_preheader_idx = ctx->block->index;
 
    lc->loop_exit.kind |= (block_kind_loop_exit | (ctx->block->kind & block_kind_top_level));
@@ -10040,14 +10040,14 @@ end_loop(isel_context* ctx, loop_context* lc)
          Block* break_block = ctx->program->create_and_insert_block();
          break_block->kind = block_kind_uniform;
          bld.reset(break_block);
-         bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+         bld.branch(aco_opcode::p_branch, bld.def(s2));
          add_linear_edge(block_idx, break_block);
          add_linear_edge(break_block->index, &lc->loop_exit);
 
          Block* continue_block = ctx->program->create_and_insert_block();
          continue_block->kind = block_kind_uniform;
          bld.reset(continue_block);
-         bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+         bld.branch(aco_opcode::p_branch, bld.def(s2));
          add_linear_edge(block_idx, continue_block);
          add_linear_edge(continue_block->index, &ctx->program->blocks[loop_header_idx]);
 
@@ -10063,7 +10063,7 @@ end_loop(isel_context* ctx, loop_context* lc)
       }
 
       bld.reset(ctx->block);
-      bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+      bld.branch(aco_opcode::p_branch, bld.def(s2));
    }
 
    ctx->cf_info.has_branch = false;
@@ -10122,7 +10122,7 @@ emit_loop_jump(isel_context* ctx, bool is_break)
          /* uniform break - directly jump out of the loop */
          ctx->block->kind |= block_kind_uniform;
          ctx->cf_info.has_branch = true;
-         bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+         bld.branch(aco_opcode::p_branch, bld.def(s2));
          add_linear_edge(idx, logical_target);
          return;
       }
@@ -10136,7 +10136,7 @@ emit_loop_jump(isel_context* ctx, bool is_break)
          /* uniform continue - directly jump to the loop header */
          ctx->block->kind |= block_kind_uniform;
          ctx->cf_info.has_branch = true;
-         bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+         bld.branch(aco_opcode::p_branch, bld.def(s2));
          add_linear_edge(idx, logical_target);
          return;
       }
@@ -10153,7 +10153,7 @@ emit_loop_jump(isel_context* ctx, bool is_break)
    }
 
    /* remove critical edges from linear CFG */
-   bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+   bld.branch(aco_opcode::p_branch, bld.def(s2));
    Block* break_block = ctx->program->create_and_insert_block();
    break_block->kind |= block_kind_uniform;
    add_linear_edge(idx, break_block);
@@ -10162,7 +10162,7 @@ emit_loop_jump(isel_context* ctx, bool is_break)
       logical_target = &ctx->program->blocks[ctx->cf_info.parent_loop.header_idx];
    add_linear_edge(break_block->index, logical_target);
    bld.reset(break_block);
-   bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
+   bld.branch(aco_opcode::p_branch, bld.def(s2));
 
    Block* continue_block = ctx->program->create_and_insert_block();
    add_linear_edge(idx, continue_block);
@@ -10343,7 +10343,6 @@ begin_divergent_if_then(isel_context* ctx, if_context* ic, Temp cond)
    branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_cbranch_z,
                                                               Format::PSEUDO_BRANCH, 1, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    branch->operands[0] = Operand(cond);
    ctx->block->instructions.push_back(std::move(branch));
 
@@ -10384,7 +10383,6 @@ begin_divergent_if_else(isel_context* ctx, if_context* ic)
    branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                               Format::PSEUDO_BRANCH, 0, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    BB_then_logical->instructions.emplace_back(std::move(branch));
    add_linear_edge(BB_then_logical->index, &ic->BB_invert);
    if (!ctx->cf_info.parent_loop.has_divergent_branch)
@@ -10403,7 +10401,6 @@ begin_divergent_if_else(isel_context* ctx, if_context* ic)
    branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                               Format::PSEUDO_BRANCH, 0, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    BB_then_linear->instructions.emplace_back(std::move(branch));
    add_linear_edge(BB_then_linear->index, &ic->BB_invert);
 
@@ -10415,7 +10412,6 @@ begin_divergent_if_else(isel_context* ctx, if_context* ic)
    branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                               Format::PSEUDO_BRANCH, 0, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    ctx->block->instructions.push_back(std::move(branch));
 
    ic->exec_potentially_empty_discard_old |= ctx->cf_info.exec_potentially_empty_discard;
@@ -10447,7 +10443,6 @@ end_divergent_if(isel_context* ctx, if_context* ic)
    branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                               Format::PSEUDO_BRANCH, 0, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    BB_else_logical->instructions.emplace_back(std::move(branch));
    add_linear_edge(BB_else_logical->index, &ic->BB_endif);
    if (!ctx->cf_info.parent_loop.has_divergent_branch)
@@ -10467,7 +10462,6 @@ end_divergent_if(isel_context* ctx, if_context* ic)
    branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                               Format::PSEUDO_BRANCH, 0, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    BB_else_linear->instructions.emplace_back(std::move(branch));
    add_linear_edge(BB_else_linear->index, &ic->BB_endif);
 
@@ -10506,7 +10500,6 @@ begin_uniform_if_then(isel_context* ctx, if_context* ic, Temp cond)
    branch.reset(
       create_instruction<Pseudo_branch_instruction>(branch_opcode, Format::PSEUDO_BRANCH, 1, 1));
    branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-   branch->definitions[0].setHint(vcc);
    branch->operands[0] = Operand(cond);
    branch->operands[0].setFixed(scc);
    ctx->block->instructions.emplace_back(std::move(branch));
@@ -10541,7 +10534,6 @@ begin_uniform_if_else(isel_context* ctx, if_context* ic)
       branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                                  Format::PSEUDO_BRANCH, 0, 1));
       branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-      branch->definitions[0].setHint(vcc);
       BB_then->instructions.emplace_back(std::move(branch));
       add_linear_edge(BB_then->index, &ic->BB_endif);
       if (!ic->then_branch_divergent)
@@ -10571,7 +10563,6 @@ end_uniform_if(isel_context* ctx, if_context* ic)
       branch.reset(create_instruction<Pseudo_branch_instruction>(aco_opcode::p_branch,
                                                                  Format::PSEUDO_BRANCH, 0, 1));
       branch->definitions[0] = Definition(ctx->program->allocateTmp(s2));
-      branch->definitions[0].setHint(vcc);
       BB_else->instructions.emplace_back(std::move(branch));
       add_linear_edge(BB_else->index, &ic->BB_endif);
       if (!ctx->cf_info.parent_loop.has_divergent_branch)
