@@ -21,6 +21,8 @@
  * SOFTWARE.
  */
 
+#include "gen_macros.h"
+
 #include "pan_device.h"
 #include "pan_bo.h"
 

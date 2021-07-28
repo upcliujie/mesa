@@ -30,6 +30,8 @@
 #ifndef PAN_DEVICE_H
 #define PAN_DEVICE_H
 
+#include "gen_macros.h"
+
 #include <xf86drm.h>
 #include "renderonly/renderonly.h"
 #include "util/u_dynarray.h"
@@ -40,8 +42,6 @@
 #include "panfrost/util/pan_ir.h"
 #include "pan_pool.h"
 #include "pan_util.h"
-
-#include <midgard_pack.h>
 
 #if defined(__cplusplus)
 extern "C" {

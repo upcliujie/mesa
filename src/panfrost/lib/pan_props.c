@@ -26,6 +26,8 @@
 
 #include <xf86drm.h>
 
+#include "gen_macros.h"
+
 #include "util/u_math.h"
 #include "util/macros.h"
 #include "util/hash_table.h"

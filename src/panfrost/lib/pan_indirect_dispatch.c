@@ -112,9 +112,9 @@ get_push_uniforms(struct pan_pool *pool,
 }
 
 unsigned
-pan_indirect_dispatch_emit(struct pan_pool *pool,
-                           struct pan_scoreboard *scoreboard,
-                           const struct pan_indirect_dispatch_info *dispatch_info)
+GENX(pan_indirect_dispatch_emit)(struct pan_pool *pool,
+                                 struct pan_scoreboard *scoreboard,
+                                 const struct pan_indirect_dispatch_info *dispatch_info)
 {
         struct panfrost_device *dev = pool->dev;
         struct panfrost_ptr job =
@@ -141,7 +141,7 @@ pan_indirect_dispatch_emit(struct pan_pool *pool,
 
         pan_section_pack(job.cpu, COMPUTE_JOB, DRAW, cfg) {
                 cfg.draw_descriptor_is_64b = true;
-                cfg.texture_descriptor_is_64b = !pan_is_bifrost(dev);
+                cfg.texture_descriptor_is_64b = PAN_ARCH <= 5;
                 cfg.state = get_rsd(dev);
                 cfg.thread_storage = get_tls(pool->dev);
                 cfg.uniform_buffers = get_ubos(pool, &inputs);
@@ -155,11 +155,11 @@ pan_indirect_dispatch_emit(struct pan_pool *pool,
 }
 
 void
-pan_indirect_dispatch_init(struct panfrost_device *dev)
+GENX(pan_indirect_dispatch_init)(struct panfrost_device *dev)
 {
         nir_builder b =
                 nir_builder_init_simple_shader(MESA_SHADER_COMPUTE,
-                                               pan_shader_get_compiler_options(dev),
+                                               GENX(pan_shader_get_compiler_options)(),
                                                "%s", "indirect_dispatch");
         b.shader->info.internal = true;
         nir_variable_create(b.shader, nir_var_mem_ubo,
@@ -226,7 +226,7 @@ pan_indirect_dispatch_init(struct panfrost_device *dev)
         struct util_dynarray binary;
 
         util_dynarray_init(&binary, NULL);
-        pan_shader_compile(dev, b.shader, &inputs, &binary, &shader_info);
+        GENX(pan_shader_compile)(b.shader, &inputs, &binary, &shader_info);
 
         ralloc_free(b.shader);
 
@@ -249,12 +249,14 @@ pan_indirect_dispatch_init(struct panfrost_device *dev)
                                    0, "Indirect dispatch descriptors");
 
         mali_ptr address = dev->indirect_dispatch.bin->ptr.gpu;
-        if (!pan_is_bifrost(dev))
-                address |= shader_info.midgard.first_tag;
+
+#if PAN_ARCH <= 5
+        address |= shader_info.midgard.first_tag;
+#endif
 
         void *rsd = dev->indirect_dispatch.descs->ptr.cpu;
         pan_pack(rsd, RENDERER_STATE, cfg) {
-                pan_shader_prepare_rsd(dev, &shader_info, address, &cfg);
+                pan_shader_prepare_rsd(&shader_info, address, &cfg);
         }
 
         void *tsd = dev->indirect_dispatch.descs->ptr.cpu +
@@ -265,7 +267,7 @@ pan_indirect_dispatch_init(struct panfrost_device *dev)
 }
 
 void
-pan_indirect_dispatch_cleanup(struct panfrost_device *dev)
+GENX(pan_indirect_dispatch_cleanup)(struct panfrost_device *dev)
 {
         panfrost_bo_unreference(dev->indirect_dispatch.bin);
         panfrost_bo_unreference(dev->indirect_dispatch.descs);

@@ -22,6 +22,11 @@
  * SOFTWARE.
  */
 
+/* Blending is shared across all supported Malis with only minor differences,
+ * so pin a particular version */
+
+#include "gen_macros.h"
+
 #include "pan_blend.h"
 #include "pan_shader.h"
 #include "pan_texture.h"
@@ -32,11 +37,7 @@
 #include "compiler/nir/nir_conversion_builder.h"
 #include "compiler/nir/nir_lower_blend.h"
 
-/* Blending is shared across all supported Malis with only minor differences,
- * so pin a particular version */
-#define ARCH 7
-#include <midgard_pack.h>
-
+#ifndef PAN_ARCH
 /* Fixed function blending */
 
 static bool
@@ -312,6 +313,33 @@ pan_blend_to_fixed_function_equation(const struct pan_blend_equation equation,
         out->color_mask = equation.color_mask;
 }
 
+static uint32_t pan_blend_shader_key_hash(const void *key)
+{
+        return _mesa_hash_data(key, sizeof(struct pan_blend_shader_key));
+}
+
+static bool pan_blend_shader_key_equal(const void *a, const void *b)
+{
+        return !memcmp(a, b, sizeof(struct pan_blend_shader_key));
+}
+
+void
+pan_blend_shaders_init(struct panfrost_device *dev)
+{
+        dev->blend_shaders.shaders =
+                _mesa_hash_table_create(NULL, pan_blend_shader_key_hash,
+                                        pan_blend_shader_key_equal);
+        pthread_mutex_init(&dev->blend_shaders.lock, NULL);
+}
+
+void
+pan_blend_shaders_cleanup(struct panfrost_device *dev)
+{
+        _mesa_hash_table_destroy(dev->blend_shaders.shaders, NULL);
+}
+
+#else /* ifndef PAN_ARCH */
+
 static const char *
 logicop_str(enum pipe_logicop logicop)
 {
@@ -417,11 +445,11 @@ pan_inline_blend_constants(nir_builder *b, nir_instr *instr, void *data)
 }
 
 nir_shader *
-pan_blend_create_shader(const struct panfrost_device *dev,
-                        const struct pan_blend_state *state,
-                        nir_alu_type src0_type,
-                        nir_alu_type src1_type,
-                        unsigned rt)
+GENX(pan_blend_create_shader)(const struct panfrost_device *dev,
+                              const struct pan_blend_state *state,
+                              nir_alu_type src0_type,
+                              nir_alu_type src1_type,
+                              unsigned rt)
 {
         const struct pan_blend_rt_state *rt_state = &state->rts[rt];
         char equation_str[128] = { 0 };
@@ -430,7 +458,7 @@ pan_blend_create_shader(const struct panfrost_device *dev,
 
         nir_builder b =
                 nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT,
-                                               pan_shader_get_compiler_options(dev),
+                                               GENX(pan_shader_get_compiler_options)(),
                                                "pan_blend(rt=%d,fmt=%s,nr_samples=%d,%s=%s)",
                                                rt, util_format_name(rt_state->format),
                                                rt_state->nr_samples,
@@ -523,10 +551,11 @@ pan_blend_create_shader(const struct panfrost_device *dev,
         return b.shader;
 }
 
+#if PAN_ARCH >= 6
 uint64_t
-pan_blend_get_bifrost_desc(const struct panfrost_device *dev,
-                           enum pipe_format fmt, unsigned rt,
-                           unsigned force_size)
+GENX(pan_blend_get_internal_desc)(const struct panfrost_device *dev,
+                                  enum pipe_format fmt, unsigned rt,
+                                  unsigned force_size)
 {
         const struct util_format_description *desc = util_format_description(fmt);
         uint64_t res;
@@ -578,13 +607,14 @@ pan_blend_get_bifrost_desc(const struct panfrost_device *dev,
 
         return res;
 }
+#endif
 
 struct pan_blend_shader_variant *
-pan_blend_get_shader_locked(const struct panfrost_device *dev,
-                            const struct pan_blend_state *state,
-                            nir_alu_type src0_type,
-                            nir_alu_type src1_type,
-                            unsigned rt)
+GENX(pan_blend_get_shader_locked)(const struct panfrost_device *dev,
+                                  const struct pan_blend_state *state,
+                                  nir_alu_type src0_type,
+                                  nir_alu_type src1_type,
+                                  unsigned rt)
 {
         struct pan_blend_shader_key key = {
                 .format = state->rts[rt].format,
@@ -631,7 +661,8 @@ pan_blend_get_shader_locked(const struct panfrost_device *dev,
                 util_dynarray_clear(&variant->binary);
         }
 
-        nir_shader *nir = pan_blend_create_shader(dev, state, src0_type, src1_type, rt);
+        nir_shader *nir =
+                GENX(pan_blend_create_shader)(dev, state, src0_type, src1_type, rt);
 
         /* Compile the NIR shader */
         struct panfrost_compile_inputs inputs = {
@@ -642,45 +673,23 @@ pan_blend_get_shader_locked(const struct panfrost_device *dev,
                 .rt_formats = { key.format },
         };
 
-        if (pan_is_bifrost(dev)) {
-                inputs.blend.bifrost_blend_desc =
-                        pan_blend_get_bifrost_desc(dev, key.format, key.rt, 0);
-        }
+#if PAN_ARCH >= 6
+        inputs.blend.bifrost_blend_desc =
+                GENX(pan_blend_get_internal_desc)(dev, key.format, key.rt, 0);
+#endif
 
         struct pan_shader_info info;
 
-        pan_shader_compile(dev, nir, &inputs, &variant->binary, &info);
+        GENX(pan_shader_compile)(nir, &inputs, &variant->binary, &info);
 
         variant->work_reg_count = info.work_reg_count;
-        if (!pan_is_bifrost(dev))
-                variant->first_tag = info.midgard.first_tag;
+
+#if PAN_ARCH <= 5
+        variant->first_tag = info.midgard.first_tag;
+#endif
 
         ralloc_free(nir);
 
         return variant;
 }
-
-static uint32_t pan_blend_shader_key_hash(const void *key)
-{
-        return _mesa_hash_data(key, sizeof(struct pan_blend_shader_key));
-}
-
-static bool pan_blend_shader_key_equal(const void *a, const void *b)
-{
-        return !memcmp(a, b, sizeof(struct pan_blend_shader_key));
-}
-
-void
-pan_blend_shaders_init(struct panfrost_device *dev)
-{
-        dev->blend_shaders.shaders =
-                _mesa_hash_table_create(NULL, pan_blend_shader_key_hash,
-                                        pan_blend_shader_key_equal);
-        pthread_mutex_init(&dev->blend_shaders.lock, NULL);
-}
-
-void
-pan_blend_shaders_cleanup(struct panfrost_device *dev)
-{
-        _mesa_hash_table_destroy(dev->blend_shaders.shaders, NULL);
-}
+#endif /* ifndef PAN_ARCH */
