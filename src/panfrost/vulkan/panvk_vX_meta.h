@@ -55,4 +55,30 @@ panvk_per_arch(meta_copy_img2buf)(struct panvk_cmd_buffer *cmdbuf,
                         const VkBufferImageCopy *region);
 
 void
+panvk_per_arch(meta_copy_buf2img_init)(struct panvk_physical_device *dev);
+
+void
+panvk_per_arch(meta_copy_buf2img)(struct panvk_cmd_buffer *cmdbuf,
+                        const struct panvk_buffer *buf,
+                        const struct panvk_image *img,
+                        const VkBufferImageCopy *region);
+
+void
 panvk_per_arch(meta_close_batch)(struct panvk_cmd_buffer *cmdbuf);
+
+void
+panvk_per_arch(meta_blit_emit_fb)(struct panvk_cmd_buffer *cmdbuf,
+                        struct pan_fb_info *fbinfo,
+                        const struct pan_tls_info *tlsinfo);
+
+void
+panvk_per_arch(meta_emit_tls)(struct panvk_cmd_buffer *cmdbuf,
+                    const struct pan_tls_info *info);
+
+void
+panvk_per_arch(meta_preload)(struct panvk_cmd_buffer *cmdbuf,
+                   struct pan_fb_info *fbinfo);
+
+void
+panvk_per_arch(meta_emit_fragment_job)(struct panvk_cmd_buffer *cmdbuf,
+                             const struct pan_fb_info *fbinfo);

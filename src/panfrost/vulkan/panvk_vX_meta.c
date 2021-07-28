@@ -42,6 +42,93 @@ panvk_per_arch(meta_close_batch)(struct panvk_cmd_buffer *cmdbuf)
 }
 
 void
+panvk_per_arch(meta_emit_tls)(struct panvk_cmd_buffer *cmdbuf,
+                              const struct pan_tls_info *info)
+{
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+
+   assert(batch && !batch->tls.gpu);
+   if (!pan_is_bifrost(pdev))
+      return;
+
+   batch->tls =
+      pan_pool_alloc_aligned(&cmdbuf->desc_pool.base,
+                             MALI_LOCAL_STORAGE_LENGTH, 64);
+   pan_emit_tls(pdev, info, batch->tls.cpu);
+}
+
+void
+panvk_per_arch(meta_blit_emit_fb)(struct panvk_cmd_buffer *cmdbuf,
+                                  struct pan_fb_info *fbinfo,
+                                  const struct pan_tls_info *tlsinfo)
+{
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+   unsigned zs_ext = (fbinfo->zs.view.zs || fbinfo->zs.view.s) ? 1 : 0;
+
+#if PAN_ARCH <= 5
+   panvk_per_arch(cmd_get_polygon_list)(cmdbuf,
+                                        fbinfo->width,
+                                        fbinfo->height,
+                                        true);
+#else
+   panvk_per_arch(cmd_get_tiler_context)(cmdbuf,
+                                         fbinfo->width,
+                                         fbinfo->height);
+#endif
+
+   batch->fb.desc =
+      pan_pool_alloc_desc_aggregate(&cmdbuf->desc_pool.base,
+                                    PAN_DESC(MULTI_TARGET_FRAMEBUFFER),
+                                    PAN_DESC_ARRAY(zs_ext, ZS_CRC_EXTENSION),
+                                    PAN_DESC_ARRAY(1, RENDER_TARGET));
+
+   batch->fb.desc.gpu |=
+      pan_emit_fbd(pdev, fbinfo, tlsinfo,
+                   &cmdbuf->state.batch->tiler.ctx,
+                   cmdbuf->state.batch->fb.desc.cpu);
+   if (!pan_is_bifrost(pdev))
+      batch->tls = batch->fb.desc;
+}
+
+void
+panvk_per_arch(meta_preload)(struct panvk_cmd_buffer *cmdbuf,
+                                   struct pan_fb_info *fbinfo)
+{
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+   struct panfrost_ptr jobs[2];
+   unsigned njobs =
+      pan_preload_fb(&cmdbuf->desc_pool.base, &batch->scoreboard, fbinfo,
+                     batch->tls.gpu,
+                     pan_is_bifrost(pdev) ? batch->tiler.descs.gpu : 0,
+                     jobs);
+
+   assert(njobs <= 2);
+   for (unsigned i = 0; i < njobs; i++)
+      util_dynarray_append(&batch->jobs, void *, jobs[i].cpu);
+}
+
+void
+panvk_per_arch(meta_emit_fragment_job)(struct panvk_cmd_buffer *cmdbuf,
+                                       const struct pan_fb_info *fbinfo)
+{
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+   struct panfrost_ptr job_ptr =
+      pan_pool_alloc_desc(&cmdbuf->desc_pool.base, FRAGMENT_JOB);
+
+   pan_emit_fragment_job(pdev, fbinfo, batch->fb.desc.gpu, job_ptr.cpu),
+   cmdbuf->state.batch->fragment_job = job_ptr.gpu;
+   util_dynarray_append(&batch->jobs, void *, job_ptr.cpu);
+}
+
+void
 panvk_per_arch(CmdBlitImage)(VkCommandBuffer commandBuffer,
                              VkImage srcImage,
                              VkImageLayout srcImageLayout,
@@ -75,7 +162,13 @@ panvk_per_arch(CmdCopyBufferToImage)(VkCommandBuffer commandBuffer,
                                      uint32_t regionCount,
                                      const VkBufferImageCopy *pRegions)
 {
-   panvk_stub();
+   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(panvk_buffer, buf, srcBuffer);
+   VK_FROM_HANDLE(panvk_image, img, destImage);
+
+   for (unsigned i = 0; i < regionCount; i++) {
+      panvk_per_arch(meta_copy_buf2img)(cmdbuf, buf, img, &pRegions[i]);
+   }
 }
 
 void
@@ -208,6 +301,7 @@ panvk_per_arch(meta_init)(struct panvk_physical_device *dev)
                     &dev->meta.blitter.desc_pool.base);
    panvk_per_arch(meta_clear_attachment_init)(dev);
    panvk_per_arch(meta_copy_img2buf_init)(dev);
+   panvk_per_arch(meta_copy_buf2img_init)(dev);
 }
 
 void
