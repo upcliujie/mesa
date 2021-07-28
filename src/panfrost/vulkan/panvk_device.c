@@ -56,6 +56,7 @@
 #endif
 
 #include "panvk_cs.h"
+#include "panvk_meta.h"
 
 VkResult
 _panvk_device_set_lost(struct panvk_device *device,

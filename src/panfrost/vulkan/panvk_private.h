@@ -173,13 +173,6 @@ struct panvk_physical_device {
    int master_fd;
 };
 
-void
-panvk_meta_init(struct panvk_physical_device *dev);
-
-void
-panvk_meta_cleanup(struct panvk_physical_device *dev);
-
-
 enum panvk_debug_flags {
    PANVK_DEBUG_STARTUP = 1 << 0,
    PANVK_DEBUG_NIR = 1 << 1,
