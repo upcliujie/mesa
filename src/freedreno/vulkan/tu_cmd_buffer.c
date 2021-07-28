@@ -1166,7 +1166,7 @@ static void
 tu6_sysmem_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 {
    /* Do any resolves of the last subpass. These are handled in the
-    * tile_store_ib in the gmem path.
+    * tile_store_cs in the gmem path.
     */
    tu6_emit_sysmem_resolves(cmd, cs, cmd->state.subpass);
 
@@ -1239,7 +1239,7 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
       tu_cs_emit(cs, A6XX_CP_SET_MARKER_0_MODE(RM6_ENDVIS));
    }
 
-   tu_cs_emit_ib(cs, &cmd->state.tile_store_ib);
+   tu_cs_emit_call(cs, &cmd->tile_store_cs);
 
    tu_cs_sanity_check(cs);
 }
@@ -1296,25 +1296,6 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd)
    tu6_sysmem_render_end(cmd, &cmd->cs);
 }
 
-static void
-tu_cmd_prepare_tile_store_ib(struct tu_cmd_buffer *cmd)
-{
-   const uint32_t tile_store_space = 7 + (35 * 2) * cmd->state.pass->attachment_count;
-   struct tu_cs sub_cs;
-
-   VkResult result =
-      tu_cs_begin_sub_stream(&cmd->sub_cs, tile_store_space, &sub_cs);
-   if (result != VK_SUCCESS) {
-      cmd->record_result = result;
-      return;
-   }
-
-   /* emit to tile-store sub_cs */
-   tu6_emit_tile_store(cmd, &sub_cs);
-
-   cmd->state.tile_store_ib = tu_cs_end_sub_stream(&cmd->sub_cs, &sub_cs);
-}
-
 static VkResult
 tu_create_cmd_buffer(struct tu_device *device,
                      struct tu_cmd_pool *pool,
@@ -1346,6 +1327,7 @@ tu_create_cmd_buffer(struct tu_device *device,
 
    tu_cs_init(&cmd_buffer->cs, device, TU_CS_MODE_GROW, 4096);
    tu_cs_init(&cmd_buffer->draw_cs, device, TU_CS_MODE_GROW, 4096);
+   tu_cs_init(&cmd_buffer->tile_store_cs, device, TU_CS_MODE_GROW, 2048);
    tu_cs_init(&cmd_buffer->draw_epilogue_cs, device, TU_CS_MODE_GROW, 4096);
    tu_cs_init(&cmd_buffer->sub_cs, device, TU_CS_MODE_SUB_STREAM, 2048);
 
@@ -1361,6 +1343,7 @@ tu_cmd_buffer_destroy(struct tu_cmd_buffer *cmd_buffer)
 
    tu_cs_finish(&cmd_buffer->cs);
    tu_cs_finish(&cmd_buffer->draw_cs);
+   tu_cs_finish(&cmd_buffer->tile_store_cs);
    tu_cs_finish(&cmd_buffer->draw_epilogue_cs);
    tu_cs_finish(&cmd_buffer->sub_cs);
 
@@ -1374,6 +1357,7 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
 
    tu_cs_reset(&cmd_buffer->cs);
    tu_cs_reset(&cmd_buffer->draw_cs);
+   tu_cs_reset(&cmd_buffer->tile_store_cs);
    tu_cs_reset(&cmd_buffer->draw_epilogue_cs);
    tu_cs_reset(&cmd_buffer->sub_cs);
 
@@ -1507,6 +1491,7 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
 
    tu_cs_begin(&cmd_buffer->cs);
    tu_cs_begin(&cmd_buffer->draw_cs);
+   tu_cs_begin(&cmd_buffer->tile_store_cs);
    tu_cs_begin(&cmd_buffer->draw_epilogue_cs);
 
    /* setup initial configuration into command buffer */
@@ -2048,6 +2033,7 @@ tu_EndCommandBuffer(VkCommandBuffer commandBuffer)
 
    tu_cs_end(&cmd_buffer->cs);
    tu_cs_end(&cmd_buffer->draw_cs);
+   tu_cs_end(&cmd_buffer->tile_store_cs);
    tu_cs_end(&cmd_buffer->draw_epilogue_cs);
 
    cmd_buffer->status = TU_CMD_BUFFER_STATUS_EXECUTABLE;
@@ -2924,7 +2910,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    cmd->state.framebuffer = fb;
    cmd->state.render_area = pRenderPassBegin->renderArea;
 
-   tu_cmd_prepare_tile_store_ib(cmd);
+   tu6_emit_tile_store(cmd, &cmd->tile_store_cs);
 
    /* Note: because this is external, any flushes will happen before draw_cs
     * gets called. However deferred flushes could have to happen later as part
@@ -4361,6 +4347,7 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
    TU_FROM_HANDLE(tu_cmd_buffer, cmd_buffer, commandBuffer);
 
    tu_cs_end(&cmd_buffer->draw_cs);
+   tu_cs_end(&cmd_buffer->tile_store_cs);
    tu_cs_end(&cmd_buffer->draw_epilogue_cs);
 
    if (use_sysmem_rendering(cmd_buffer))
@@ -4379,6 +4366,8 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
       rendered */
    tu_cs_discard_entries(&cmd_buffer->draw_cs);
    tu_cs_begin(&cmd_buffer->draw_cs);
+   tu_cs_discard_entries(&cmd_buffer->tile_store_cs);
+   tu_cs_begin(&cmd_buffer->tile_store_cs);
    tu_cs_discard_entries(&cmd_buffer->draw_epilogue_cs);
    tu_cs_begin(&cmd_buffer->draw_epilogue_cs);
 
