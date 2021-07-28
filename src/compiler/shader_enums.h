@@ -953,6 +953,13 @@ enum gl_tess_spacing
    TESS_SPACING_FRACTIONAL_EVEN,
 };
 
+enum gl_hint_mode
+{
+   HINT_DONT_CARE,
+   HINT_FASTEST,
+   HINT_NICEST,
+};
+
 /**
  * A compare function enum for use in compiler lowering passes.  This is in
  * the same order as GL's compare functions (shifted down by GL_NEVER), and is
