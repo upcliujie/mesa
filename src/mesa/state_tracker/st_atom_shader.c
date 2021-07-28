@@ -173,6 +173,22 @@ st_update_fp( struct st_context *st )
          (st->ctx->Transform.DepthClampNear ||
           st->ctx->Transform.DepthClampFar);
 
+      key.lower_fddx_fddy_precision = HINT_DONT_CARE;
+      if (st->has_fine_derivatives &&
+          stfp->Base.info.uses_fddx_fddy) {
+         switch (st->ctx->Hint.FragmentShaderDerivative) {
+         case GL_DONT_CARE:
+            key.lower_fddx_fddy_precision = HINT_DONT_CARE;
+            break;
+         case GL_FASTEST:
+            key.lower_fddx_fddy_precision = HINT_FASTEST;
+            break;
+         case GL_NICEST:
+            key.lower_fddx_fddy_precision = HINT_NICEST;
+            break;
+         }
+      }
+
       if (stfp->ati_fs) {
          key.fog = st->ctx->Fog._PackedEnabledMode;
 

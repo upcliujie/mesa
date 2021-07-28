@@ -165,6 +165,9 @@ struct st_fp_variant_key
    /** for OpenGL 1.0 on modern hardware */
    GLuint lower_two_sided_color:1;
 
+   /* support GL_FRAGMENT_SHADER_DERIVATIVE_HINT */
+   GLuint lower_fddx_fddy_precision:2;
+
    GLuint lower_flatshade:1;
    GLuint lower_texcoord_replace:MAX_TEXTURE_COORD_UNITS;
    unsigned lower_alpha_func:3;
