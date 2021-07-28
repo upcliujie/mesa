@@ -34,3 +34,13 @@ panvk_per_arch(meta_init)(struct panvk_physical_device *dev);
 
 void
 panvk_per_arch(meta_cleanup)(struct panvk_physical_device *dev);
+
+void
+panvk_per_arch(meta_clear_attachment_init)(struct panvk_physical_device *dev);
+
+void
+panvk_per_arch(meta_clear_attachment)(struct panvk_cmd_buffer *cmdbuf,
+                            uint32_t attachment,
+                            VkImageAspectFlags mask,
+                            const VkClearValue *clear_value,
+                            const VkClearRect *clear_rect);
