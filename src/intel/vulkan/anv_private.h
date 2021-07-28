@@ -4444,10 +4444,9 @@ struct anv_image_create_info {
    isl_surf_usage_flags_t isl_extra_usage_flags;
 };
 
-VkResult anv_image_create(VkDevice _device,
+VkResult anv_image_create(struct anv_device *device,
                           const struct anv_image_create_info *info,
-                          const VkAllocationCallbacks* alloc,
-                          VkImage *pImage);
+                          struct anv_image *image);
 
 enum isl_format
 anv_isl_format_for_descriptor_type(const struct anv_device *device,

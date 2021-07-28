@@ -453,16 +453,13 @@ anv_create_ahw_memory(VkDevice device_h,
 }
 
 VkResult
-anv_image_from_gralloc(VkDevice device_h,
+anv_image_from_gralloc(struct anv_device *device,
                        const VkImageCreateInfo *base_info,
                        const VkNativeBufferANDROID *gralloc_info,
-                       const VkAllocationCallbacks *alloc,
-                       VkImage *out_image_h)
+                       struct anv_image *image)
 
 {
-   ANV_FROM_HANDLE(anv_device, device, device_h);
    VkImage image_h = VK_NULL_HANDLE;
-   struct anv_image *image = NULL;
    struct anv_bo *bo = NULL;
    VkResult result;
 
@@ -517,12 +514,12 @@ anv_image_from_gralloc(VkDevice device_h,
       result = vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "DRM_IOCTL_I915_GEM_GET_TILING failed for "
                          "VkNativeBufferANDROID");
-      goto fail_tiling;
+      goto error;
    default:
       result = vk_errorf(device, device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "DRM_IOCTL_I915_GEM_GET_TILING returned unknown "
                          "tiling %d for VkNativeBufferANDROID", i915_tiling);
-      goto fail_tiling;
+      goto error;
    }
 
    enum isl_format format = anv_get_isl_format(&device->info,
@@ -531,10 +528,9 @@ anv_image_from_gralloc(VkDevice device_h,
                                                base_info->tiling);
    assert(format != ISL_FORMAT_UNSUPPORTED);
 
-   result = anv_image_create(device_h, &anv_info, alloc, &image_h);
-   image = anv_image_from_handle(image_h);
+   result = anv_image_create(device_h, &anv_info, image);
    if (result != VK_SUCCESS)
-      goto fail_create;
+      goto error;
 
    VkImageMemoryRequirementsInfo2 mem_reqs_info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
@@ -556,7 +552,7 @@ anv_image_from_gralloc(VkDevice device_h,
                          "dma-buf from VkNativeBufferANDROID is too small for "
                          "VkImage: %"PRIu64"B < %"PRIu64"B",
                          bo->size, aligned_image_size);
-      goto fail_size;
+      goto error;
    }
 
    assert(!image->disjoint);
@@ -568,15 +564,9 @@ anv_image_from_gralloc(VkDevice device_h,
    image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].address.bo = bo;
    image->from_gralloc = true;
 
-   /* Don't clobber the out-parameter until success is certain. */
-   *out_image_h = image_h;
-
    return VK_SUCCESS;
 
- fail_size:
-   anv_DestroyImage(device_h, image_h, alloc);
- fail_create:
- fail_tiling:
+ error:
    anv_device_release_bo(device, bo);
 
    return result;

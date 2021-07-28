@@ -24,11 +24,10 @@
 #include "anv_android.h"
 
 VkResult
-anv_image_from_gralloc(VkDevice device_h,
+anv_image_from_gralloc(struct anv_device *device,
                        const VkImageCreateInfo *base_info,
                        const VkNativeBufferANDROID *gralloc_info,
-                       const VkAllocationCallbacks *alloc,
-                       VkImage *pImage)
+                       struct anv_image *image)
 {
    return VK_ERROR_EXTENSION_NOT_PRESENT;
 }

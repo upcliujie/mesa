@@ -1249,16 +1249,13 @@ alloc_private_binding(struct anv_device *device,
 }
 
 VkResult
-anv_image_create(VkDevice _device,
+anv_image_create(struct anv_device *device,
                  const struct anv_image_create_info *create_info,
-                 const VkAllocationCallbacks* alloc,
-                 VkImage *pImage)
+                 struct anv_image *image)
 {
-   ANV_FROM_HANDLE(anv_device, device, _device);
    const VkImageCreateInfo *pCreateInfo = create_info->vk_info;
    const struct VkImageDrmFormatModifierExplicitCreateInfoEXT *mod_explicit_info = NULL;
    const struct isl_drm_modifier_info *isl_mod_info = NULL;
-   struct anv_image *image = NULL;
    VkResult r;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
@@ -1293,11 +1290,6 @@ anv_image_create(VkDevice _device,
    anv_assert(pCreateInfo->extent.width > 0);
    anv_assert(pCreateInfo->extent.height > 0);
    anv_assert(pCreateInfo->extent.depth > 0);
-
-   image = vk_object_zalloc(&device->vk, alloc, sizeof(*image),
-                            VK_OBJECT_TYPE_IMAGE);
-   if (!image)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    image->type = pCreateInfo->imageType;
    image->extent = anv_sanitize_image_extent(pCreateInfo->imageType,
@@ -1342,7 +1334,6 @@ anv_image_create(VkDevice _device,
    if (ext_mem_info && (ext_mem_info->handleTypes &
        VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID)) {
       image->from_ahb = true;
-      *pImage = anv_image_to_handle(image);
       return VK_SUCCESS;
    }
 
@@ -1375,25 +1366,19 @@ anv_image_create(VkDevice _device,
    }
 
    if (r != VK_SUCCESS)
-      goto fail;
+      return r;
 
    r = alloc_private_binding(device, image, pCreateInfo);
    if (r != VK_SUCCESS)
-      goto fail;
+      return r;
 
    check_memory_bindings(device, image);
 
    r = check_drm_format_mod(device, image);
    if (r != VK_SUCCESS)
-      goto fail;
-
-   *pImage = anv_image_to_handle(image);
+      return r;
 
    return VK_SUCCESS;
-
-fail:
-   vk_object_free(&device->vk, alloc, image);
-   return r;
 }
 
 static struct anv_image *
@@ -1416,11 +1401,10 @@ anv_swapchain_get_image(VkSwapchainKHR swapchain,
 }
 
 static VkResult
-anv_image_from_swapchain(VkDevice device,
+anv_image_from_swapchain(struct anv_device *device,
                          const VkImageCreateInfo *pCreateInfo,
                          const VkImageSwapchainCreateInfoKHR *swapchain_info,
-                         const VkAllocationCallbacks *pAllocator,
-                         VkImage *pImage)
+                         struct anv_image *image)
 {
    struct anv_image *swapchain_image = anv_swapchain_get_image(swapchain_info->swapchain, 0);
    assert(swapchain_image);
@@ -1461,34 +1445,58 @@ anv_image_from_swapchain(VkDevice device,
       &(struct anv_image_create_info) {
          .vk_info = &local_create_info,
       },
-      pAllocator,
-      pImage);
+      image);
 }
 
-VkResult
-anv_CreateImage(VkDevice device,
-                const VkImageCreateInfo *pCreateInfo,
-                const VkAllocationCallbacks *pAllocator,
-                VkImage *pImage)
+static VkResult
+anv_create_image_from_create_info(struct anv_device *device,
+                                  struct anv_image *image,
+                                  const VkImageCreateInfo *pCreateInfo)
 {
    const VkNativeBufferANDROID *gralloc_info =
       vk_find_struct_const(pCreateInfo->pNext, NATIVE_BUFFER_ANDROID);
    if (gralloc_info)
-      return anv_image_from_gralloc(device, pCreateInfo, gralloc_info,
-                                    pAllocator, pImage);
+      return anv_image_from_gralloc(device, pCreateInfo, gralloc_info, image);
 
    const VkImageSwapchainCreateInfoKHR *swapchain_info =
       vk_find_struct_const(pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
-   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE)
+   if (swapchain_info && swapchain_info->swapchain != VK_NULL_HANDLE) {
       return anv_image_from_swapchain(device, pCreateInfo, swapchain_info,
-                                      pAllocator, pImage);
+                                      image);
+   }
 
    return anv_image_create(device,
-      &(struct anv_image_create_info) {
-         .vk_info = pCreateInfo,
-      },
-      pAllocator,
-      pImage);
+                           &(struct anv_image_create_info) {
+                              .vk_info = pCreateInfo,
+                           },
+                           image);
+}
+
+VkResult anv_CreateImage(
+    VkDevice                                    _device,
+    const VkImageCreateInfo*                    pCreateInfo,
+    const VkAllocationCallbacks*                pAllocator,
+    VkImage*                                    pImage)
+{
+   ANV_FROM_HANDLE(anv_device, device, _device);
+
+   struct anv_image *image =
+      vk_object_zalloc(&device->vk, pAllocator, sizeof(*image),
+                       VK_OBJECT_TYPE_IMAGE);
+   if (!image)
+      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   VkResult result = anv_create_image_from_create_info(device,
+                                                       image,
+                                                       pCreateInfo);
+   if (result != VK_SUCCESS) {
+      vk_object_free(&device->vk, pAllocator, image);
+      return result;
+   }
+
+   *pImage = anv_image_to_handle(image);
+
+   return result;
 }
 
 void
