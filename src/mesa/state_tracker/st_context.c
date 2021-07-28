@@ -731,6 +731,8 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
       !screen->get_param(screen, PIPE_CAP_POINT_SPRITE);
    st->lower_rect_tex =
       !screen->get_param(screen, PIPE_CAP_TEXRECT);
+   st->has_fine_derivatives =
+      screen->get_param(screen, PIPE_CAP_TGSI_FS_FINE_DERIVATIVE);
    st->allow_st_finalize_nir_twice = screen->finalize_nir != NULL;
 
    st->has_hw_atomics =
