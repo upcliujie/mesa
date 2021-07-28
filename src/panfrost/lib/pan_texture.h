@@ -28,6 +28,8 @@
 #ifndef __PAN_TEXTURE_H
 #define __PAN_TEXTURE_H
 
+#include "gen_macros.h"
+
 #include <stdbool.h>
 #include "drm-uapi/drm_fourcc.h"
 #include "util/format/u_format.h"
@@ -156,15 +158,17 @@ panfrost_afbc_can_ytr(enum pipe_format format);
 unsigned
 panfrost_block_dim(uint64_t modifier, bool width, unsigned plane);
 
+#ifdef PAN_ARCH
 unsigned
-panfrost_estimate_texture_payload_size(const struct panfrost_device *dev,
-                                       const struct pan_image_view *iview);
+GENX(panfrost_estimate_texture_payload_size)(const struct panfrost_device *dev,
+                                             const struct pan_image_view *iview);
 
 void
-panfrost_new_texture(const struct panfrost_device *dev,
-                     const struct pan_image_view *iview,
-                     void *out,
-                     const struct panfrost_ptr *payload);
+GENX(panfrost_new_texture)(const struct panfrost_device *dev,
+                           const struct pan_image_view *iview,
+                           void *out,
+                           const struct panfrost_ptr *payload);
+#endif
 
 unsigned
 panfrost_get_layer_stride(const struct pan_image_layout *layout,
@@ -183,21 +187,6 @@ struct pan_scoreboard;
 #define drm_is_afbc(mod) \
         ((mod >> 52) == (DRM_FORMAT_MOD_ARM_TYPE_AFBC | \
                 (DRM_FORMAT_MOD_VENDOR_ARM << 4)))
-
-/* Map modifiers to mali_texture_layout for packing in a texture descriptor */
-
-static inline enum mali_texture_layout
-panfrost_modifier_to_layout(uint64_t modifier)
-{
-        if (drm_is_afbc(modifier))
-                return MALI_TEXTURE_LAYOUT_AFBC;
-        else if (modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED)
-                return MALI_TEXTURE_LAYOUT_TILED;
-        else if (modifier == DRM_FORMAT_MOD_LINEAR)
-                return MALI_TEXTURE_LAYOUT_LINEAR;
-        else
-                unreachable("Invalid modifer");
-}
 
 struct pan_image_explicit_layout {
         unsigned offset;
