@@ -69,12 +69,16 @@
 /* Suffixing macros */
 #if (PAN_ARCH == 4)
 #  define GENX(X) X##_v4
+#  include "midgard_pack.h"
 #elif (PAN_ARCH == 5)
 #  define GENX(X) X##_v5
+#  include "midgard_pack.h"
 #elif (PAN_ARCH == 6)
 #  define GENX(X) X##_v6
+#  include "midgard_pack.h"
 #elif (PAN_ARCH == 7)
 #  define GENX(X) X##_v7
+#  include "midgard_pack.h"
 #else
 #  error "Need to add suffixing macro for this architecture"
 #endif
