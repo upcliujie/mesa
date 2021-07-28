@@ -211,6 +211,21 @@ bi_make_affinity(uint64_t clobber, unsigned count, bool split_file)
         return ~clobbered;
 }
 
+
+/* The general definition of interference is two simulutaneously live values
+ * with distinct values. A move does not itself generate interference. If both
+ * source and destination are SSA, the values of the move are fixed so the
+ * local equality holds globally for the value's lifetimes. */
+
+static bool
+bi_noninterfering_move(bi_instr *I, unsigned node)
+{
+        return (I->op == BI_OPCODE_MOV_I32) &&
+               bi_is_ssa(I->dest[0]) && bi_is_ssa(I->src[0]) &&
+               (bi_get_node(I->src[0]) == node) &&
+               (I->src[0].offset == I->dest[0].offset);
+}
+
 static void
 bi_mark_interference(bi_block *block, struct lcra_state *l, uint8_t *live, uint64_t preload_live, unsigned node_count, bool is_blend, bool split_file, bool aligned_sr)
 {
@@ -241,10 +256,15 @@ bi_mark_interference(bi_block *block, struct lcra_state *l, uint8_t *live, uint6
                         l->affinity[node] &= (affinity >> offset);
 
                         for (unsigned i = 0; i < node_count; ++i) {
-                                if (live[i]) {
-                                        lcra_add_node_interference(l, node,
-                                                        bi_writemask(ins, d), i, live[i]);
-                                }
+                                unsigned interference = live[i];
+                                if (!interference) continue;
+
+                                /* Drop interference for the noninterfering component only */
+                                if (bi_noninterfering_move(ins, i))
+                                        interference &= ~BITFIELD_BIT(ins->src[0].offset);
+
+                                lcra_add_node_interference(l, node,
+                                                        bi_writemask(ins, d), i, interference);
                         }
                 }
 
