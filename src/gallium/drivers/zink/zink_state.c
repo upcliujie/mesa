@@ -465,8 +465,6 @@ zink_create_rasterizer_state(struct pipe_context *pctx,
       return NULL;
 
    state->base = *rs_state;
-   state->base.line_stipple_factor++;
-   state->hw_state.line_stipple_enable = rs_state->line_stipple_enable;
 
    assert(rs_state->depth_clip_far == rs_state->depth_clip_near);
    state->hw_state.depth_clamp = rs_state->depth_clip_near == 0;
@@ -490,6 +488,9 @@ zink_create_rasterizer_state(struct pipe_context *pctx,
       VK_LINE_RASTERIZATION_MODE_DEFAULT_EXT;
 
    if (rs_state->line_stipple_enable) {
+      state->hw_state.line_stipple_factor = rs_state->line_stipple_factor;
+      state->hw_state.line_stipple_pattern = rs_state->line_stipple_pattern;
+
       if (screen->info.have_EXT_line_rasterization) {
          if (rs_state->line_rectangular) {
             if (rs_state->line_smooth) {
@@ -504,8 +505,8 @@ zink_create_rasterizer_state(struct pipe_context *pctx,
                VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT;
          else {
             /* no suitable mode that supports line stippling */
-            state->base.line_stipple_factor = 0;
-            state->base.line_stipple_pattern = UINT16_MAX;
+            state->hw_state.line_stipple_factor = 0;
+            state->hw_state.line_stipple_pattern = UINT16_MAX;
          }
       }
    } else {
@@ -522,8 +523,8 @@ zink_create_rasterizer_state(struct pipe_context *pctx,
             state->hw_state.line_mode =
                VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT;
       }
-      state->base.line_stipple_factor = 0;
-      state->base.line_stipple_pattern = UINT16_MAX;
+      state->hw_state.line_stipple_factor = 0;
+      state->hw_state.line_stipple_pattern = UINT16_MAX;
    }
 
    state->offset_point = rs_state->offset_point;
