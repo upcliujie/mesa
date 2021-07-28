@@ -35,6 +35,18 @@ struct drm_driver_descriptor
     */
    struct pipe_screen* (*create_screen)(int drm_fd,
                                         const struct pipe_screen_config *config);
+
+   /**
+    * Get the device name (ie. equiv to GL_RENDERER string).
+    *
+    * This function returns the device name, to differentiate different
+    * GPUs supported by a single driver.  Only required if the driver
+    * utilizes driconf options specific to a particular device.
+    *
+    * Note that the return is 'const char *', the caller is not expected
+    * to free().
+    */
+   const char * (*device_name)(int drm_fd);
 };
 
 extern const struct drm_driver_descriptor driver_descriptor;
