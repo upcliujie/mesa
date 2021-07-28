@@ -626,6 +626,11 @@ bi_reads_t(bi_instr *ins, unsigned src)
         case BI_OPCODE_BLEND:
                 return src != 2 && src != 3;
 
+        /* Errata: some instructions cannot load t.h1 in the first source */
+        case BI_OPCODE_MKVEC_V2I16:
+        case BI_OPCODE_F16_TO_F32:
+                return (src != 0) || (ins->src[src].swizzle == BI_SWIZZLE_H00);
+
         /* Else, just check if we can read any temps */
         default:
                 return bi_reads_temps(ins, src);
