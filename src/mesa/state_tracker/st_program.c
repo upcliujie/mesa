@@ -1397,6 +1397,12 @@ st_create_fp_variant(struct st_context *st,
           finalize = true;
       }
 
+      if (key->lower_fddx_fddy_precision != HINT_DONT_CARE) {
+         NIR_PASS_V(state.ir.nir, nir_lower_fddx_fddy_precision,
+                    key->lower_fddx_fddy_precision);
+         finalize = true;
+      }
+
       if (key->lower_texcoord_replace) {
          bool point_coord_is_sysval = st->ctx->Const.GLSLPointCoordIsSysVal;
          NIR_PASS_V(state.ir.nir, nir_lower_texcoord_replace,
@@ -1666,7 +1672,7 @@ st_get_fp_variant(struct st_context *st,
 
       if (stfp->variants != NULL) {
          _mesa_perf_debug(st->ctx, MESA_DEBUG_SEVERITY_MEDIUM,
-                          "Compiling fragment shader variant (%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
+                          "Compiling fragment shader variant (%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
                           key->bitmap ? "bitmap," : "",
                           key->drawpixels ? "drawpixels," : "",
                           key->scaleAndBias ? "scale_bias," : "",
@@ -1675,6 +1681,7 @@ st_get_fp_variant(struct st_context *st,
                           key->persample_shading ? "persample_shading," : "",
                           key->fog ? "fog," : "",
                           key->lower_depth_clamp ? "depth_clamp," : "",
+                          key->lower_fddx_fddy_precision ? "fddx_fddy_precision," : "",
                           key->lower_two_sided_color ? "twoside," : "",
                           key->lower_flatshade ? "flatshade," : "",
                           key->lower_texcoord_replace ? "texcoord_replace," : "",

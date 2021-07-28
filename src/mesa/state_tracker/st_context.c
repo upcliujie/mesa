@@ -238,6 +238,9 @@ st_invalidate_state(struct gl_context *ctx)
    if (new_state & _NEW_POINT && st->lower_texcoord_replace)
       st->dirty |= ST_NEW_FS_STATE;
 
+   if (new_state & _NEW_HINT)
+      st->dirty |= ST_NEW_FS_STATE;
+
    if (new_state & _NEW_PIXEL)
       st->dirty |= ST_NEW_PIXEL_TRANSFER;
 
@@ -731,6 +734,8 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
       !screen->get_param(screen, PIPE_CAP_POINT_SPRITE);
    st->lower_rect_tex =
       !screen->get_param(screen, PIPE_CAP_TEXRECT);
+   st->has_fine_derivatives =
+      screen->get_param(screen, PIPE_CAP_TGSI_FS_FINE_DERIVATIVE);
    st->allow_st_finalize_nir_twice = screen->finalize_nir != NULL;
 
    st->has_hw_atomics =
@@ -822,7 +827,8 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
          !st->clamp_frag_depth_in_shader &&
          !st->force_persample_in_shader &&
          !st->lower_two_sided_color &&
-         !st->lower_texcoord_replace;
+         !st->lower_texcoord_replace &&
+         !st->has_fine_derivatives;
 
    st->shader_has_one_variant[MESA_SHADER_TESS_CTRL] = st->has_shareable_shaders;
    st->shader_has_one_variant[MESA_SHADER_TESS_EVAL] =
