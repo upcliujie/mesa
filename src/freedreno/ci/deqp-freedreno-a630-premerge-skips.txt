@@ -1,0 +1,21 @@
+# Note: skips lists for CI are just a list of lines that, when
+# non-zero-length and not starting with '#', will regex match to
+# delete lines from the test list.  Be careful.
+
+# Timeouts, passes otherwise
+KHR-GL33.texture_swizzle.smoke
+KHR-GLES31.core.shader_image_load_store.basic-allFormats-store-fs,Timeout
+
+# Crashes in RA, but slow enough to get there that CI times out sometimes
+dEQP-VK.spirv_assembly.instruction.*.spirv_ids_abuse.lots_ids.*
+
+# Timeouts, passes otherwise
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_equal_spacing
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_edge_division.quads_fractional_odd_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.quads_equal_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.quads_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.quads_fractional_odd_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.triangles_equal_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.triangles_fractional_even_spacing
+dEQP-VK.tessellation.invariance.outer_triangle_set.triangles_fractional_odd_spacing
