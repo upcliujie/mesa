@@ -10,12 +10,13 @@
 /**
  * Instantiate a drm_driver_descriptor struct.
  */
-#define DEFINE_DRM_DRIVER_DESCRIPTOR(descriptor_name, driver, _driconf, _driconf_count, func) \
+#define DEFINE_DRM_DRIVER_DESCRIPTOR(descriptor_name, driver, _driconf, _driconf_count, func, ...) \
 const struct drm_driver_descriptor descriptor_name = {         \
    .driver_name = #driver,                                     \
    .driconf = _driconf,                                        \
    .driconf_count = _driconf_count,                            \
    .create_screen = func,                                      \
+   ##__VA_ARGS__                                               \
 };
 
 /* The static pipe loader refers to the *_driver_descriptor structs for all
@@ -33,8 +34,11 @@ const struct drm_driver_descriptor descriptor_name = {         \
 
 #ifdef PIPE_LOADER_DYNAMIC
 
-#define DRM_DRIVER_DESCRIPTOR(driver, driconf, driconf_count)           \
-   PUBLIC DEFINE_DRM_DRIVER_DESCRIPTOR(driver_descriptor, driver, driconf, driconf_count, pipe_##driver##_create_screen)
+#define DRM_DRIVER_DESCRIPTOR(driver, driconf, driconf_count, ...)      \
+   PUBLIC DEFINE_DRM_DRIVER_DESCRIPTOR(driver_descriptor, driver,       \
+                                       driconf, driconf_count,          \
+                                       pipe_##driver##_create_screen,   \
+                                       ##__VA_ARGS__)
 
 #define DRM_DRIVER_DESCRIPTOR_STUB(driver)
 
@@ -42,8 +46,11 @@ const struct drm_driver_descriptor descriptor_name = {         \
 
 #else
 
-#define DRM_DRIVER_DESCRIPTOR(driver, driconf, driconf_count)                          \
-   DEFINE_DRM_DRIVER_DESCRIPTOR(driver##_driver_descriptor, driver, driconf, driconf_count, pipe_##driver##_create_screen)
+#define DRM_DRIVER_DESCRIPTOR(driver, driconf, driconf_count, ...)      \
+   DEFINE_DRM_DRIVER_DESCRIPTOR(driver##_driver_descriptor, driver,     \
+                                driconf, driconf_count,                 \
+                                pipe_##driver##_create_screen,          \
+                                ##__VA_ARGS__)
 
 #define DRM_DRIVER_DESCRIPTOR_STUB(driver)                              \
    static struct pipe_screen *                                          \

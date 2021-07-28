@@ -269,6 +269,17 @@ pipe_loader_drm_create_screen(struct pipe_loader_device *dev,
    return ddev->dd->create_screen(ddev->fd, config);
 }
 
+static const char *
+pipe_loader_drm_device_name(struct pipe_loader_device *dev)
+{
+   struct pipe_loader_drm_device *ddev = pipe_loader_drm_device(dev);
+
+   if (!ddev->dd->device_name)
+      return NULL;
+
+   return ddev->dd->device_name(ddev->fd);
+}
+
 const struct driOptionDescription *
 pipe_loader_drm_get_driconf_by_name(const char *driver_name, unsigned *count)
 {
@@ -293,6 +304,7 @@ pipe_loader_drm_get_driconf_by_name(const char *driver_name, unsigned *count)
 
 static const struct pipe_loader_ops pipe_loader_drm_ops = {
    .create_screen = pipe_loader_drm_create_screen,
+   .device_name = pipe_loader_drm_device_name,
    .get_driconf = pipe_loader_drm_get_driconf,
    .release = pipe_loader_drm_release
 };
