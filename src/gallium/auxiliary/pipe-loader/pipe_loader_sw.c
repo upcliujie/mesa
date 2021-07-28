@@ -317,8 +317,15 @@ pipe_loader_sw_create_screen(struct pipe_loader_device *dev,
    return screen ? debug_screen_wrap(screen) : NULL;
 }
 
+static const char *
+pipe_loader_sw_device_name(struct pipe_loader_device *dev)
+{
+   return NULL;
+}
+
 static const struct pipe_loader_ops pipe_loader_sw_ops = {
    .create_screen = pipe_loader_sw_create_screen,
+   .device_name = pipe_loader_sw_device_name,
    .get_driconf = pipe_loader_sw_get_driconf,
    .release = pipe_loader_sw_release
 };
