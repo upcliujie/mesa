@@ -1620,6 +1620,7 @@ ntt_emit_load_input(struct ntt_compile *c, nir_intrinsic_instr *instr)
 
       switch (bary_instr->intrinsic) {
       case nir_intrinsic_load_barycentric_pixel:
+      case nir_intrinsic_load_barycentric_sample:
          ntt_store(c, &instr->dest, input);
          break;
 
@@ -1918,6 +1919,7 @@ ntt_emit_intrinsic(struct ntt_compile *c, nir_intrinsic_instr *instr)
        */
    case nir_intrinsic_load_barycentric_pixel:
    case nir_intrinsic_load_barycentric_centroid:
+   case nir_intrinsic_load_barycentric_sample:
    case nir_intrinsic_load_barycentric_at_sample:
       break;
 
