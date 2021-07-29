@@ -43,6 +43,7 @@ main(int argc, const char **argv)
    unsigned nr_fail = 0, nr_pass = 0;
    bi_builder *b = bit_builder(NULL);
    bi_index zero = bi_fau(BIR_FAU_IMMEDIATE | 0, false);
+   bi_index one = bi_fau(BIR_FAU_IMMEDIATE | 8, false);
 
    CASE(bi_mov_i32_to(b, bi_register(1), bi_register(2)),
          0x0091c10000000002ULL);
@@ -153,6 +154,20 @@ main(int argc, const char **argv)
                        bi_fau(BIR_FAU_BLEND_0, false), bi_null(),
                        BI_REGISTER_FORMAT_F16, 2),
         0x007f4004333c00f0);
+
+   {
+      bi_instr *I = bi_atest_to(b, bi_register(60), bi_register(60),
+                                bi_half(bi_register(1), true));
+      I->src[2] = bi_fau(BIR_FAU_ATEST_PARAM, false);
+
+      CASE(I, 0x007dbc0208ea013c);
+   }
+
+   {
+      bi_instr *I = bi_atest_to(b, bi_register(60), bi_register(60), one);
+      I->src[2] = bi_fau(BIR_FAU_ATEST_PARAM, false);
+      CASE(I, 0x007dbc0200ead03c);
+   }
 
    TEST_END(nr_pass, nr_fail);
 }
