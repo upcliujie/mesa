@@ -927,9 +927,9 @@ nvc0_screen_resize_tls_area(struct nvc0_screen *screen,
 }
 
 int
-nvc0_screen_resize_text_area(struct nvc0_screen *screen, uint64_t size)
+nvc0_screen_resize_text_area(struct nvc0_screen *screen, struct nouveau_pushbuf *push,
+                             uint64_t size)
 {
-   struct nouveau_pushbuf *push = screen->base.pushbuf;
    struct nouveau_bo *bo;
    int ret;
 
@@ -942,7 +942,7 @@ nvc0_screen_resize_text_area(struct nvc0_screen *screen, uint64_t size)
     * segment, as it may have commands that will reference it.
     */
    if (screen->text)
-      PUSH_REFN(push, screen->text,
+      PUSH_REFN(screen->base.pushbuf, screen->text,
                 NV_VRAM_DOMAIN(&screen->base) | NOUVEAU_BO_RD);
    nouveau_bo_ref(NULL, &screen->text);
    screen->text = bo;
@@ -1293,7 +1293,7 @@ nvc0_screen_create(struct nouveau_device *dev)
 
    nvc0_magic_3d_init(push, screen->eng3d->oclass);
 
-   ret = nvc0_screen_resize_text_area(screen, 1 << 19);
+   ret = nvc0_screen_resize_text_area(screen, push, 1 << 19);
    if (ret)
       FAIL_SCREEN_INIT("Error allocating TEXT area: %d\n", ret);
 
