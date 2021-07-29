@@ -379,8 +379,9 @@ panfrost_compression_tag(const struct panfrost_device *dev,
                 unsigned flags = (modifier & AFBC_FORMAT_MOD_YTR) ?
                                  MALI_AFBC_SURFACE_FLAG_YTR : 0;
 
-                if (PAN_ARCH <= 5)
-                        return flags;
+#if PAN_ARCH <= 5
+                return flags;
+#else
 
                 /* Prefetch enable */
                 flags |= MALI_AFBC_SURFACE_FLAG_PREFETCH;
@@ -394,8 +395,11 @@ panfrost_compression_tag(const struct panfrost_device *dev,
                  * which doesn't work for 3D textures because the surface
                  * stride does not cover the body. Only supported on v7+.
                  */
-                if (dev->arch >= 7 && dim != MALI_TEXTURE_DIMENSION_3D)
+#if PAN_ARCH >= 7
+                if (dim != MALI_TEXTURE_DIMENSION_3D)
                         flags |= MALI_AFBC_SURFACE_FLAG_CHECK_PAYLOAD_RANGE;
+#endif
+#endif
 
                 return flags;
         } else if (desc->layout == UTIL_FORMAT_LAYOUT_ASTC) {
