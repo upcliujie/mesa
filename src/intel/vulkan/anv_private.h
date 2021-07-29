@@ -3780,6 +3780,29 @@ struct anv_format {
    bool can_ycbcr;
 };
 
+static inline void
+anv_assert_valid_aspect_set(VkImageAspectFlags aspects)
+{
+   if (util_bitcount(aspects) == 1) {
+      assert(aspects & (VK_IMAGE_ASPECT_COLOR_BIT |
+                        VK_IMAGE_ASPECT_DEPTH_BIT |
+                        VK_IMAGE_ASPECT_STENCIL_BIT |
+                        VK_IMAGE_ASPECT_PLANE_0_BIT |
+                        VK_IMAGE_ASPECT_PLANE_1_BIT |
+                        VK_IMAGE_ASPECT_PLANE_2_BIT));
+   } else if (aspects & VK_IMAGE_ASPECT_PLANES_BITS_ANV) {
+      assert(aspects == VK_IMAGE_ASPECT_PLANE_0_BIT ||
+             aspects == (VK_IMAGE_ASPECT_PLANE_0_BIT |
+                         VK_IMAGE_ASPECT_PLANE_1_BIT) ||
+             aspects == (VK_IMAGE_ASPECT_PLANE_0_BIT |
+                         VK_IMAGE_ASPECT_PLANE_1_BIT |
+                         VK_IMAGE_ASPECT_PLANE_2_BIT));
+   } else {
+      assert(aspects == (VK_IMAGE_ASPECT_DEPTH_BIT |
+                         VK_IMAGE_ASPECT_STENCIL_BIT));
+   }
+}
+
 /**
  * Return the aspect's _format_ plane, not its _memory_ plane (using the
  * vocabulary of VK_EXT_image_drm_format_modifier). As a consequence, \a
@@ -3787,40 +3810,32 @@ struct anv_format {
  * VK_IMAGE_ASPECT_MEMORY_PLANE_* .
  */
 static inline uint32_t
-anv_image_aspect_to_plane(VkImageAspectFlags image_aspects,
-                          VkImageAspectFlags aspect_mask)
+anv_image_aspect_to_plane(VkImageAspectFlags all_aspects,
+                          VkImageAspectFlagBits aspect)
 {
-   switch (aspect_mask) {
-   case VK_IMAGE_ASPECT_COLOR_BIT:
-   case VK_IMAGE_ASPECT_DEPTH_BIT:
-   case VK_IMAGE_ASPECT_PLANE_0_BIT:
-      return 0;
-   case VK_IMAGE_ASPECT_STENCIL_BIT:
-      if ((image_aspects & VK_IMAGE_ASPECT_DEPTH_BIT) == 0)
-         return 0;
-      FALLTHROUGH;
-   case VK_IMAGE_ASPECT_PLANE_1_BIT:
-      return 1;
-   case VK_IMAGE_ASPECT_PLANE_2_BIT:
-      return 2;
-   default:
-      /* Purposefully assert with depth/stencil aspects. */
-      unreachable("invalid image aspect");
-   }
+   anv_assert_valid_aspect_set(all_aspects);
+   assert(util_bitcount(aspect) == 1);
+   assert(!(aspect & ~all_aspects));
+
+   return util_bitcount(all_aspects & (aspect - 1));
 }
 
 static inline VkImageAspectFlags
-anv_plane_to_aspect(VkImageAspectFlags image_aspects,
+anv_plane_to_aspect(VkImageAspectFlags all_aspects,
                     uint32_t plane)
 {
-   if (image_aspects & VK_IMAGE_ASPECT_PLANES_BITS_ANV)
-      return VK_IMAGE_ASPECT_PLANE_0_BIT << plane;
-   if (image_aspects == VK_IMAGE_ASPECT_COLOR_BIT)
-      return VK_IMAGE_ASPECT_COLOR_BIT;
-   if (image_aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
-      return VK_IMAGE_ASPECT_DEPTH_BIT << plane;
-   assert(image_aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
-   return VK_IMAGE_ASPECT_STENCIL_BIT;
+   VkImageAspectFlagBits aspect;
+   if (util_bitcount(all_aspects) == 1) {
+      assert(plane == 0);
+      aspect = all_aspects;
+   } else if (all_aspects & VK_IMAGE_ASPECT_PLANES_BITS_ANV) {
+      aspect = VK_IMAGE_ASPECT_PLANE_0_BIT << plane;
+   } else {
+      assert(all_aspects & VK_IMAGE_ASPECT_DEPTH_BIT);
+      aspect = VK_IMAGE_ASPECT_DEPTH_BIT << plane;
+   }
+   assert(plane == anv_image_aspect_to_plane(all_aspects, aspect));
+   return aspect;
 }
 
 #define anv_foreach_image_aspect_bit(b, image, aspects) \
