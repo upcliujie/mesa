@@ -32,8 +32,6 @@
 
 #define AC_LLVM_MAX_OUTPUTS (VARYING_SLOT_VAR31 + 1)
 
-#define AC_MAX_INLINE_PUSH_CONSTS 8
-
 enum ac_descriptor_type
 {
    AC_DESC_IMAGE,
