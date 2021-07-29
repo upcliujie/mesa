@@ -333,6 +333,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_STORE_I64:
    case BI_OPCODE_STORE_I96:
    case BI_OPCODE_STORE_I128:
+   case BI_OPCODE_BLEND:
       hex |= ((uint64_t) bi_count_read_registers(I, 0) << 33);
       break;
    default:
@@ -379,6 +380,42 @@ va_pack_instr(const bi_instr *I, unsigned action)
       hex |= va_pack_alu(I);
       hex |= ((uint64_t) I->index) << 8;
       break;
+
+   case BI_OPCODE_BLEND:
+   {
+      /* Blend descriptor */
+      hex |= ((uint64_t) va_pack_src(I->src[2])) << 0;
+
+      /* Target */
+      hex |= (0ull << 8);
+
+      /* Staging register #1 - coverage mask */
+      hex |= ((uint64_t) va_pack_reg(I->src[1])) << 16;
+
+      unsigned rt = (I->src[2].value - BIR_FAU_BLEND_0);
+      assert(rt < 8);
+
+      /* TODO: Other formats */
+      assert(I->register_format == BI_REGISTER_FORMAT_F16 ||
+             I->register_format == BI_REGISTER_FORMAT_F32);
+
+      /* Register format */
+      unsigned regfmt = (I->register_format == BI_REGISTER_FORMAT_F32) ? 2 : 3;
+      hex |= ((uint64_t) regfmt) << 24;
+
+      /* Vector size */
+      unsigned vecsize = 4;
+      hex |= ((uint64_t) (vecsize - 1) << 28);
+
+      /* Slot */
+      hex |= (0ull << 30);
+
+      /* Staging register #2 - input colour */
+      hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
+      hex |= (0x40ull << 40); // flags
+
+      break;
+   }
 
    default:
       if (!info.exact && I->op != BI_OPCODE_NOP) {
