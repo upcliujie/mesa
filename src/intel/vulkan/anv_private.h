@@ -3813,11 +3813,10 @@ static inline VkImageAspectFlags
 anv_plane_to_aspect(VkImageAspectFlags image_aspects,
                     uint32_t plane)
 {
-   if (image_aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) {
-      if (util_bitcount(image_aspects) > 1)
-         return VK_IMAGE_ASPECT_PLANE_0_BIT << plane;
+   if (image_aspects & VK_IMAGE_ASPECT_PLANES_BITS_ANV)
+      return VK_IMAGE_ASPECT_PLANE_0_BIT << plane;
+   if (image_aspects == VK_IMAGE_ASPECT_COLOR_BIT)
       return VK_IMAGE_ASPECT_COLOR_BIT;
-   }
    if (image_aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
       return VK_IMAGE_ASPECT_DEPTH_BIT << plane;
    assert(image_aspects == VK_IMAGE_ASPECT_STENCIL_BIT);
@@ -4388,7 +4387,7 @@ struct anv_image_view {
 
    const struct anv_image *image; /**< VkImageViewCreateInfo::image */
 
-   VkImageAspectFlags aspect_mask;
+   VkImageAspectFlags aspects;
    VkFormat vk_format;
    VkExtent3D extent; /**< Extent of VkImageViewCreateInfo::baseMipLevel. */
 
