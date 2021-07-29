@@ -107,3 +107,19 @@ unlock:
 	mtx_unlock(&fd_screen_mutex);
 	return pscreen;
 }
+
+const char *
+fd_drm_device_name(int fd)
+{
+	struct fd_device *dev = fd_device_new(fd);
+	struct fd_pipe *pipe = fd_pipe_new(dev, FD_PIPE_3D);
+	uint64_t gpu_id;
+
+	if (fd_pipe_get_param(pipe, FD_GPU_ID, &gpu_id))
+		return NULL;
+
+	fd_pipe_del(pipe);
+	fd_device_del(dev);
+
+	return fd_dev_name(gpu_id);
+}
