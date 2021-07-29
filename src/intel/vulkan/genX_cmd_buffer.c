@@ -382,10 +382,11 @@ anv_can_fast_clear_color_view(struct anv_device * device,
     * alignment restrictions.  It's easier to just restrict to full size
     * fast clears for now.
     */
+   const VkExtent3D iview_extent = vk_image_view_extent(&iview->vk);
    if (render_area.offset.x != 0 ||
        render_area.offset.y != 0 ||
-       render_area.extent.width != iview->vk.extent.width ||
-       render_area.extent.height != iview->vk.extent.height)
+       render_area.extent.width != iview_extent.width ||
+       render_area.extent.height != iview_extent.height)
       return false;
 
    /* On Broadwell and earlier, we can only handle 0/1 clear colors */
@@ -6490,10 +6491,11 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
           * blow it all away so we can claim the initial layout is UNDEFINED
           * and we'll get a HiZ ambiguate instead of a resolve.
           */
+         const VkExtent3D dst_extent = vk_image_view_extent(&dst_iview->vk);
          if (dst_iview->image->vk.image_type != VK_IMAGE_TYPE_3D &&
              render_area.offset.x == 0 && render_area.offset.y == 0 &&
-             render_area.extent.width == dst_iview->vk.extent.width &&
-             render_area.extent.height == dst_iview->vk.extent.height)
+             render_area.extent.width == dst_extent.width &&
+             render_area.extent.height == dst_extent.height)
             dst_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
 
          transition_depth_buffer(cmd_buffer, dst_iview->image,

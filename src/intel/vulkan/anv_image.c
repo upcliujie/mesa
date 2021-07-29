@@ -2672,7 +2672,8 @@ anv_CreateImageView(VkDevice _device,
 
       if (pCreateInfo->viewType == VK_IMAGE_VIEW_TYPE_3D) {
          iview->planes[vplane].isl.base_array_layer = 0;
-         iview->planes[vplane].isl.array_len = iview->vk.extent.depth;
+         iview->planes[vplane].isl.array_len =
+            vk_image_view_extent(&iview->vk).depth;
       }
 
       if (pCreateInfo->viewType == VK_IMAGE_VIEW_TYPE_CUBE ||
