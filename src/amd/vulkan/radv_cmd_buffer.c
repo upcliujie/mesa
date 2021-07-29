@@ -36,6 +36,7 @@
 #include "vk_util.h"
 
 #include "ac_debug.h"
+#include "ac_shader_args.h"
 
 enum {
    RADV_PREFETCH_VBO_DESCRIPTORS = (1 << 0),
@@ -2844,11 +2845,25 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer, VkShaderStageFlags stag
       need_push_constants |= shader->info.loads_push_constants;
       need_push_constants |= shader->info.loads_dynamic_offsets;
 
-      uint8_t base = shader->info.base_inline_push_consts;
-      uint8_t count = shader->info.num_inline_push_consts;
+      uint32_t mask = shader->info.inline_push_constant_mask;
+      if (!mask)
+         continue;
 
-      radv_emit_inline_push_consts(cmd_buffer, pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS, count,
-                                   (uint32_t *)&cmd_buffer->push_constants[base * 4]);
+      uint8_t base = ffs(mask) - 1;
+      uint8_t count = util_last_bit(mask) - base;
+      if (mask == u_bit_consecutive(base, count)) {
+         /* consecutive inline push constants */
+         radv_emit_inline_push_consts(cmd_buffer, pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS,
+                                      count, (uint32_t *)&cmd_buffer->push_constants[base * 4]);
+      } else {
+         /* sparse inline push constants */
+         uint32_t consts[AC_MAX_INLINE_PUSH_CONSTS];
+         unsigned num_consts = 0;
+         u_foreach_bit (idx, mask)
+            consts[num_consts++] = ((uint32_t *)cmd_buffer->push_constants)[idx];
+         radv_emit_inline_push_consts(cmd_buffer, pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS,
+                                      num_consts, consts);
+      }
    }
 
    if (need_push_constants) {
