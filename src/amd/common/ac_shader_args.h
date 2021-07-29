@@ -27,7 +27,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define AC_MAX_INLINE_PUSH_CONSTS 8
+#define AC_MAX_MIXED_INLINE_PUSH_CONSTS 8
+#define AC_MAX_INLINE_PUSH_CONSTS       32
 
 enum ac_arg_regfile
 {
