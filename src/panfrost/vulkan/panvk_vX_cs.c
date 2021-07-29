@@ -399,8 +399,6 @@ panvk_per_arch(emit_vertex_job)(const struct panvk_pipeline *pipeline,
       cfg.textures = draw->textures;
       cfg.samplers = draw->samplers;
    }
-
-   pan_section_pack(job, COMPUTE_JOB, DRAW_PADDING, cfg);
 }
 
 static void
@@ -513,7 +511,6 @@ panvk_per_arch(emit_tiler_job)(const struct panvk_pipeline *pipeline,
    pan_section_pack(job, TILER_JOB, TILER, cfg) {
       cfg.address = draw->tiler_ctx->bifrost;
    }
-   pan_section_pack(job, TILER_JOB, DRAW_PADDING, padding);
    pan_section_pack(job, TILER_JOB, PADDING, padding);
 #endif
 }
@@ -576,24 +573,24 @@ panvk_per_arch(emit_viewport)(const VkViewport *viewport,
 }
 
 #if PAN_ARCH >= 6
-static enum mali_bifrost_register_file_format
+static enum mali_register_file_format
 bifrost_blend_type_from_nir(nir_alu_type nir_type)
 {
    switch(nir_type) {
    case 0: /* Render target not in use */
       return 0;
    case nir_type_float16:
-      return MALI_BIFROST_REGISTER_FILE_FORMAT_F16;
+      return MALI_REGISTER_FILE_FORMAT_F16;
    case nir_type_float32:
-      return MALI_BIFROST_REGISTER_FILE_FORMAT_F32;
+      return MALI_REGISTER_FILE_FORMAT_F32;
    case nir_type_int32:
-      return MALI_BIFROST_REGISTER_FILE_FORMAT_I32;
+      return MALI_REGISTER_FILE_FORMAT_I32;
    case nir_type_uint32:
-      return MALI_BIFROST_REGISTER_FILE_FORMAT_U32;
+      return MALI_REGISTER_FILE_FORMAT_U32;
    case nir_type_int16:
-      return MALI_BIFROST_REGISTER_FILE_FORMAT_I16;
+      return MALI_REGISTER_FILE_FORMAT_I16;
    case nir_type_uint16:
-      return MALI_BIFROST_REGISTER_FILE_FORMAT_U16;
+      return MALI_REGISTER_FILE_FORMAT_U16;
    default:
       unreachable("Unsupported blend shader type for NIR alu type");
    }
@@ -613,7 +610,7 @@ panvk_per_arch(emit_blend)(const struct panvk_device *dev,
       if (!blend->rt_count || !rts->equation.color_mask) {
          cfg.enable = false;
 #if PAN_ARCH >= 6
-         cfg.bifrost.internal.mode = MALI_BIFROST_BLEND_MODE_OFF;
+         cfg.internal.mode = MALI_BLEND_MODE_OFF;
 #endif
          continue;
       }
@@ -623,10 +620,10 @@ panvk_per_arch(emit_blend)(const struct panvk_device *dev,
       cfg.round_to_fb_precision = dithered;
 
 #if PAN_ARCH <= 5
-      cfg.midgard.blend_shader = false;
+      cfg.blend_shader = false;
       pan_blend_to_fixed_function_equation(blend->rts[rt].equation,
-                                           &cfg.midgard.equation);
-      cfg.midgard.constant =
+                                           &cfg.equation);
+      cfg.constant =
          pan_blend_get_constant(pan_blend_constant_mask(blend->rts[rt].equation),
                                 blend->constants);
 #else
@@ -638,7 +635,7 @@ panvk_per_arch(emit_blend)(const struct panvk_device *dev,
          chan_size = MAX2(format_desc->channel[0].size, chan_size);
 
       pan_blend_to_fixed_function_equation(blend->rts[rt].equation,
-                                           &cfg.bifrost.equation);
+                                           &cfg.equation);
 
       /* Fixed point constant */
       float fconst =
@@ -646,22 +643,22 @@ panvk_per_arch(emit_blend)(const struct panvk_device *dev,
                                 blend->constants);
       u16 constant = fconst * ((1 << chan_size) - 1);
       constant <<= 16 - chan_size;
-      cfg.bifrost.constant = constant;
+      cfg.constant = constant;
 
       if (pan_blend_is_opaque(blend->rts[rt].equation))
-         cfg.bifrost.internal.mode = MALI_BIFROST_BLEND_MODE_OPAQUE;
+         cfg.internal.mode = MALI_BLEND_MODE_OPAQUE;
       else
-         cfg.bifrost.internal.mode = MALI_BIFROST_BLEND_MODE_FIXED_FUNCTION;
+         cfg.internal.mode = MALI_BLEND_MODE_FIXED_FUNCTION;
 
       /* If we want the conversion to work properly,
        * num_comps must be set to 4
        */
-      cfg.bifrost.internal.fixed_function.num_comps = 4;
-      cfg.bifrost.internal.fixed_function.conversion.memory_format =
+      cfg.internal.fixed_function.num_comps = 4;
+      cfg.internal.fixed_function.conversion.memory_format =
          panfrost_format_to_bifrost_blend(pdev, rts->format, dithered);
-      cfg.bifrost.internal.fixed_function.conversion.register_format =
+      cfg.internal.fixed_function.conversion.register_format =
          bifrost_blend_type_from_nir(pipeline->fs.info.bifrost.blend[rt].type);
-      cfg.bifrost.internal.fixed_function.rt = rt;
+      cfg.internal.fixed_function.rt = rt;
 #endif
    }
 }
@@ -677,9 +674,9 @@ panvk_per_arch(emit_blend_constant)(const struct panvk_device *dev,
    pan_pack(bd, BLEND, cfg) {
       cfg.enable = false;
 #if PAN_ARCH == 5
-      cfg.midgard.constant = constant;
+      cfg.constant = constant;
 #else
-      cfg.bifrost.constant = constant * pipeline->blend.constant[rt].bifrost_factor;
+      cfg.constant = constant * pipeline->blend.constant[rt].bifrost_factor;
 #endif
    }
 }
@@ -730,8 +727,8 @@ panvk_per_arch(emit_base_fs_rsd)(const struct panvk_device *dev,
             (pipeline->zs.z_test && pipeline->zs.z_compare_func != MALI_FUNC_ALWAYS) ||
             pipeline->zs.s_test;
 
-         cfg.properties.midgard.work_register_count = info->work_reg_count;
-         cfg.properties.midgard.force_early_z =
+         cfg.properties.work_register_count = info->work_reg_count;
+         cfg.properties.force_early_z =
             info->fs.can_early_z && !pipeline->ms.alpha_to_coverage &&
             pipeline->zs.z_compare_func == MALI_FUNC_ALWAYS;
 
@@ -740,25 +737,25 @@ panvk_per_arch(emit_base_fs_rsd)(const struct panvk_device *dev,
           * when discarding even when the depth buffer is read-only, by
           * lying to the hardware about the discard and setting the
           * reads tilebuffer? flag to compensate */
-         cfg.properties.midgard.shader_reads_tilebuffer =
+         cfg.properties.shader_reads_tilebuffer =
             info->fs.outputs_read ||
             (!zs_enabled && info->fs.can_discard);
-         cfg.properties.midgard.shader_contains_discard =
+         cfg.properties.shader_contains_discard =
             zs_enabled && info->fs.can_discard;
 #else
-         cfg.properties.bifrost.allow_forward_pixel_to_kill = info->fs.can_fpk;
+         cfg.properties.allow_forward_pixel_to_kill = info->fs.can_fpk;
 #endif
       } else {
 #if PAN_ARCH == 5
          cfg.shader.shader = 0x1;
-         cfg.properties.midgard.work_register_count = 1;
+         cfg.properties.work_register_count = 1;
          cfg.properties.depth_source = MALI_DEPTH_SOURCE_FIXED_FUNCTION;
-         cfg.properties.midgard.force_early_z = true;
+         cfg.properties.force_early_z = true;
 #else
-         cfg.properties.bifrost.shader_modifies_coverage = true;
-         cfg.properties.bifrost.allow_forward_pixel_to_kill = true;
-         cfg.properties.bifrost.allow_forward_pixel_to_be_killed = true;
-         cfg.properties.bifrost.zs_update_operation = MALI_PIXEL_KILL_STRONG_EARLY;
+         cfg.properties.shader_modifies_coverage = true;
+         cfg.properties.allow_forward_pixel_to_kill = true;
+         cfg.properties.allow_forward_pixel_to_be_killed = true;
+         cfg.properties.zs_update_operation = MALI_PIXEL_KILL_STRONG_EARLY;
 #endif
       }
 

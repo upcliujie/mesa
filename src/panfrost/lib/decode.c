@@ -158,14 +158,14 @@ pandecode_validate_buffer(mali_ptr addr, size_t sz)
 
 static void
 pandecode_midgard_tiler_descriptor(
-                const struct mali_midgard_tiler_packed *tp,
-                const struct mali_midgard_tiler_weights_packed *wp)
+                const struct mali_tiler_context_packed *tp,
+                const struct mali_tiler_weights_packed *wp)
 {
         pan_unpack(tp, TILER_CONTEXT, t);
         DUMP_UNPACKED(TILER_CONTEXT, t, "Tiler:\n");
 
         /* We've never seen weights used in practice, but they exist */
-        pan_unpack(wp, MIDGARD_TILER_WEIGHTS, w);
+        pan_unpack(wp, TILER_WEIGHTS, w);
         bool nonzero_weights = false;
 
         nonzero_weights |= w.weight0 != 0x0;
@@ -178,7 +178,7 @@ pandecode_midgard_tiler_descriptor(
         nonzero_weights |= w.weight7 != 0x0;
 
         if (nonzero_weights)
-                DUMP_UNPACKED(MIDGARD_TILER_WEIGHTS, w, "Tiler Weights:\n");
+                DUMP_UNPACKED(TILER_WEIGHTS, w, "Tiler Weights:\n");
 }
 #endif
 
@@ -260,7 +260,7 @@ pandecode_render_target(uint64_t gpu_va, unsigned job_no, unsigned gpu_id,
 static void
 pandecode_sample_locations(const void *fb, int job_no)
 {
-        pan_section_unpack(fb, MULTI_TARGET_FRAMEBUFFER, BIFROST_PARAMETERS, params);
+        pan_section_unpack(fb, MULTI_TARGET_FRAMEBUFFER, PARAMETERS, params);
 
         struct pandecode_mapped_memory *smem =
                 pandecode_find_mapped_gpu_mem_containing(params.sample_locations);
@@ -293,7 +293,7 @@ pandecode_mfbd_bfr(uint64_t gpu_va, int job_no, bool is_fragment, unsigned gpu_i
 #if PAN_ARCH >= 6
         pandecode_sample_locations(fb, job_no);
 
-        pan_section_unpack(fb, MULTI_TARGET_FRAMEBUFFER, BIFROST_PARAMETERS, bparams);
+        pan_section_unpack(fb, MULTI_TARGET_FRAMEBUFFER, PARAMETERS, bparams);
         unsigned dcd_size = pan_size(DRAW);
         struct pandecode_mapped_memory *dcdmem =
                 pandecode_find_mapped_gpu_mem_containing(bparams.frame_shader_dcds);
@@ -332,11 +332,8 @@ pandecode_mfbd_bfr(uint64_t gpu_va, int job_no, bool is_fragment, unsigned gpu_i
         info.rt_count = params.render_target_count;
         DUMP_UNPACKED(MULTI_TARGET_FRAMEBUFFER_PARAMETERS, params, "Parameters:\n");
 
-#if PAN_ARCH >= 6
-        DUMP_SECTION(MULTI_TARGET_FRAMEBUFFER, BIFROST_TILER_POINTER, fb, "Tiler Pointer");
-        pan_section_unpack(fb, MULTI_TARGET_FRAMEBUFFER, BIFROST_PADDING, padding);
-#else
-        const void *t = pan_section_ptr(fb, MULTI_TARGET_FRAMEBUFFER, TILER);
+#if PAN_ARCH <= 5
+	const void *t = pan_section_ptr(fb, MULTI_TARGET_FRAMEBUFFER, TILER);
         const void *w = pan_section_ptr(fb, MULTI_TARGET_FRAMEBUFFER, TILER_WEIGHTS);
         pandecode_midgard_tiler_descriptor(t, w);
 #endif
@@ -417,10 +414,10 @@ pandecode_bifrost_blend(void *descs, int job_no, int rt_no, mali_ptr frag_shader
 {
         pan_unpack(descs + (rt_no * pan_size(BLEND)), BLEND, b);
         DUMP_UNPACKED(BLEND, b, "Blend RT %d:\n", rt_no);
-        if (b.bifrost.internal.mode != MALI_BIFROST_BLEND_MODE_SHADER)
+        if (b.internal.mode != MALI_BLEND_MODE_SHADER)
                 return 0;
 
-        return (frag_shader & 0xFFFFFFFF00000000ULL) | b.bifrost.internal.shader.pc;
+        return (frag_shader & 0xFFFFFFFF00000000ULL) | b.internal.shader.pc;
 }
 #else
 static mali_ptr
@@ -428,7 +425,7 @@ pandecode_midgard_blend_mrt(void *descs, int job_no, int rt_no)
 {
         pan_unpack(descs + (rt_no * pan_size(BLEND)), BLEND, b);
         DUMP_UNPACKED(BLEND, b, "Blend RT %d:\n", rt_no);
-        return b.midgard.blend_shader ? (b.midgard.shader_pc & ~0xf) : 0;
+        return b.blend_shader ? (b.shader_pc & ~0xf) : 0;
 }
 #endif
 
@@ -843,7 +840,7 @@ pandecode_dcd(const struct MALI_DRAW *p,
 #if PAN_ARCH >= 6
                 uniform_count = state.preload.uniform_count;
 #else
-                uniform_count = state.properties.midgard.uniform_count;
+                uniform_count = state.properties.uniform_count;
 #endif
 
 #if PAN_ARCH >= 6
@@ -992,33 +989,31 @@ pandecode_indexed_vertex_job(const struct MALI_JOB_HEADER *h,
                              const struct pandecode_mapped_memory *mem,
                              mali_ptr job, int job_no, unsigned gpu_id)
 {
-        struct mali_bifrost_indexed_vertex_job_packed *PANDECODE_PTR_VAR(p, mem, job);
+        struct mali_indexed_vertex_job_packed *PANDECODE_PTR_VAR(p, mem, job);
 
         pandecode_log("Vertex:\n");
-        pan_section_unpack(p, BIFROST_INDEXED_VERTEX_JOB, VERTEX_DRAW, vert_draw);
+        pan_section_unpack(p, INDEXED_VERTEX_JOB, VERTEX_DRAW, vert_draw);
         pandecode_dcd(&vert_draw, job_no, h->type, "", gpu_id);
         DUMP_UNPACKED(DRAW, vert_draw, "Vertex Draw:\n");
 
         pandecode_log("Fragment:\n");
-        pan_section_unpack(p, BIFROST_INDEXED_VERTEX_JOB, FRAGMENT_DRAW, frag_draw);
+        pan_section_unpack(p, INDEXED_VERTEX_JOB, FRAGMENT_DRAW, frag_draw);
         pandecode_dcd(&frag_draw, job_no, MALI_JOB_TYPE_FRAGMENT, "", gpu_id);
         DUMP_UNPACKED(DRAW, frag_draw, "Fragment Draw:\n");
 
-        pan_section_unpack(p, BIFROST_INDEXED_VERTEX_JOB, TILER, tiler_ptr);
+        pan_section_unpack(p, INDEXED_VERTEX_JOB, TILER, tiler_ptr);
         pandecode_log("Tiler Job Payload:\n");
         pandecode_indent++;
         pandecode_bifrost_tiler(tiler_ptr.address, job_no);
         pandecode_indent--;
 
-        pandecode_invocation(pan_section_ptr(p, BIFROST_INDEXED_VERTEX_JOB, INVOCATION));
-        pandecode_primitive(pan_section_ptr(p, BIFROST_INDEXED_VERTEX_JOB, PRIMITIVE));
+        pandecode_invocation(pan_section_ptr(p, INDEXED_VERTEX_JOB, INVOCATION));
+        pandecode_primitive(pan_section_ptr(p, INDEXED_VERTEX_JOB, PRIMITIVE));
 
         /* TODO: gl_PointSize on Bifrost */
-        pandecode_primitive_size(pan_section_ptr(p, BIFROST_INDEXED_VERTEX_JOB, PRIMITIVE_SIZE), true);
+        pandecode_primitive_size(pan_section_ptr(p, INDEXED_VERTEX_JOB, PRIMITIVE_SIZE), true);
 
-        pan_section_unpack(p, BIFROST_INDEXED_VERTEX_JOB, PADDING, padding);
-        pan_section_unpack(p, BIFROST_INDEXED_VERTEX_JOB, FRAGMENT_DRAW_PADDING, f_padding);
-        pan_section_unpack(p, BIFROST_INDEXED_VERTEX_JOB, VERTEX_DRAW_PADDING, v_padding);
+        pan_section_unpack(p, INDEXED_VERTEX_JOB, PADDING, padding);
 }
 
 static void
@@ -1026,7 +1021,7 @@ pandecode_tiler_job_bfr(const struct MALI_JOB_HEADER *h,
                         const struct pandecode_mapped_memory *mem,
                         mali_ptr job, int job_no, unsigned gpu_id)
 {
-        struct mali_bifrost_tiler_job_packed *PANDECODE_PTR_VAR(p, mem, job);
+        struct mali_tiler_job_packed *PANDECODE_PTR_VAR(p, mem, job);
         pan_section_unpack(p, TILER_JOB, DRAW, draw);
         pan_section_unpack(p, TILER_JOB, TILER, tiler_ptr);
         pandecode_dcd(&draw, job_no, h->type, "", gpu_id);
@@ -1051,7 +1046,7 @@ pandecode_tiler_job_mdg(const struct MALI_JOB_HEADER *h,
                         const struct pandecode_mapped_memory *mem,
                         mali_ptr job, int job_no, unsigned gpu_id)
 {
-        struct mali_midgard_tiler_job_packed *PANDECODE_PTR_VAR(p, mem, job);
+        struct mali_tiler_job_packed *PANDECODE_PTR_VAR(p, mem, job);
         pan_section_unpack(p, TILER_JOB, DRAW, draw);
         pandecode_dcd(&draw, job_no, h->type, "", gpu_id);
 

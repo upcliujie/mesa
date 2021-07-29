@@ -48,16 +48,16 @@
  * This is primarily designed as a fallback for preloads but could be extended
  * for other clears/blits if needed in the future. */
 
-static enum mali_bifrost_register_file_format
+static enum mali_register_file_format
 blit_type_to_reg_fmt(nir_alu_type in)
 {
         switch (in) {
         case nir_type_float32:
-                return MALI_BIFROST_REGISTER_FILE_FORMAT_F32;
+                return MALI_REGISTER_FILE_FORMAT_F32;
         case nir_type_int32:
-                return MALI_BIFROST_REGISTER_FILE_FORMAT_I32;
+                return MALI_REGISTER_FILE_FORMAT_I32;
         case nir_type_uint32:
-                return MALI_BIFROST_REGISTER_FILE_FORMAT_U32;
+                return MALI_REGISTER_FILE_FORMAT_U32;
         default:
                 unreachable("Invalid blit type");
         }
@@ -126,7 +126,7 @@ pan_blitter_emit_blend(const struct panfrost_device *dev,
                 if (!iview) {
                         cfg.enable = false;
 #if PAN_ARCH >= 6
-                        cfg.bifrost.internal.mode = MALI_BIFROST_BLEND_MODE_OFF;
+                        cfg.internal.mode = MALI_BLEND_MODE_OFF;
 #endif
                         continue;
                 }
@@ -135,49 +135,49 @@ pan_blitter_emit_blend(const struct panfrost_device *dev,
                 cfg.srgb = util_format_is_srgb(iview->format);
 
 #if PAN_ARCH >= 6
-                cfg.bifrost.internal.mode = blend_shader ?
-                                            MALI_BIFROST_BLEND_MODE_SHADER :
-                                            MALI_BIFROST_BLEND_MODE_OPAQUE;
+                cfg.internal.mode = blend_shader ?
+                                    MALI_BLEND_MODE_SHADER :
+                                    MALI_BLEND_MODE_OPAQUE;
 #endif
 
                 if (!blend_shader) {
 #if PAN_ARCH >= 6
                         nir_alu_type type = blit_shader->key.surfaces[rt].type;
 
-                        cfg.bifrost.equation.rgb.a = MALI_BLEND_OPERAND_A_SRC;
-                        cfg.bifrost.equation.rgb.b = MALI_BLEND_OPERAND_B_SRC;
-                        cfg.bifrost.equation.rgb.c = MALI_BLEND_OPERAND_C_ZERO;
-                        cfg.bifrost.equation.alpha.a = MALI_BLEND_OPERAND_A_SRC;
-                        cfg.bifrost.equation.alpha.b = MALI_BLEND_OPERAND_B_SRC;
-                        cfg.bifrost.equation.alpha.c = MALI_BLEND_OPERAND_C_ZERO;
-                        cfg.bifrost.equation.color_mask = 0xf;
-                        cfg.bifrost.internal.fixed_function.num_comps = 4;
-                        cfg.bifrost.internal.fixed_function.conversion.memory_format =
+                        cfg.equation.rgb.a = MALI_BLEND_OPERAND_A_SRC;
+                        cfg.equation.rgb.b = MALI_BLEND_OPERAND_B_SRC;
+                        cfg.equation.rgb.c = MALI_BLEND_OPERAND_C_ZERO;
+                        cfg.equation.alpha.a = MALI_BLEND_OPERAND_A_SRC;
+                        cfg.equation.alpha.b = MALI_BLEND_OPERAND_B_SRC;
+                        cfg.equation.alpha.c = MALI_BLEND_OPERAND_C_ZERO;
+                        cfg.equation.color_mask = 0xf;
+                        cfg.internal.fixed_function.num_comps = 4;
+                        cfg.internal.fixed_function.conversion.memory_format =
                                 panfrost_format_to_bifrost_blend(dev, iview->format, false);
-                        cfg.bifrost.internal.fixed_function.conversion.register_format =
+                        cfg.internal.fixed_function.conversion.register_format =
                                 blit_type_to_reg_fmt(type);
 
-                        cfg.bifrost.internal.fixed_function.rt = rt;
+                        cfg.internal.fixed_function.rt = rt;
 #else
-                        cfg.midgard.equation.rgb.a = MALI_BLEND_OPERAND_A_SRC;
-                        cfg.midgard.equation.rgb.b = MALI_BLEND_OPERAND_B_SRC;
-                        cfg.midgard.equation.rgb.c = MALI_BLEND_OPERAND_C_ZERO;
-                        cfg.midgard.equation.alpha.a = MALI_BLEND_OPERAND_A_SRC;
-                        cfg.midgard.equation.alpha.b = MALI_BLEND_OPERAND_B_SRC;
-                        cfg.midgard.equation.alpha.c = MALI_BLEND_OPERAND_C_ZERO;
-                        cfg.midgard.equation.color_mask = 0xf;
+                        cfg.equation.rgb.a = MALI_BLEND_OPERAND_A_SRC;
+                        cfg.equation.rgb.b = MALI_BLEND_OPERAND_B_SRC;
+                        cfg.equation.rgb.c = MALI_BLEND_OPERAND_C_ZERO;
+                        cfg.equation.alpha.a = MALI_BLEND_OPERAND_A_SRC;
+                        cfg.equation.alpha.b = MALI_BLEND_OPERAND_B_SRC;
+                        cfg.equation.alpha.c = MALI_BLEND_OPERAND_C_ZERO;
+                        cfg.equation.color_mask = 0xf;
 #endif
                 } else {
 #if PAN_ARCH >= 6
-                        cfg.bifrost.internal.shader.pc = blend_shader;
+                        cfg.internal.shader.pc = blend_shader;
                         if (blit_shader->blend_ret_offsets[rt]) {
-                                cfg.bifrost.internal.shader.return_value =
+                                cfg.internal.shader.return_value =
                                         blit_shader->address +
                                         blit_shader->blend_ret_offsets[rt];
                         }
 #else
-                        cfg.midgard.blend_shader = true;
-                        cfg.midgard.shader_pc = blend_shader;
+                        cfg.blend_shader = true;
+                        cfg.shader_pc = blend_shader;
 #endif
                 }
         }
@@ -249,14 +249,14 @@ pan_blitter_emit_rsd(const struct panfrost_device *dev,
 
 #if PAN_ARCH >= 6
                 if (zs) {
-                        cfg.properties.bifrost.zs_update_operation =
+                        cfg.properties.zs_update_operation =
                                 MALI_PIXEL_KILL_FORCE_LATE;
-                        cfg.properties.bifrost.pixel_kill_operation =
+                        cfg.properties.pixel_kill_operation =
                                 MALI_PIXEL_KILL_FORCE_LATE;
                 } else {
-                        cfg.properties.bifrost.zs_update_operation =
+                        cfg.properties.zs_update_operation =
                                 MALI_PIXEL_KILL_STRONG_EARLY;
-                        cfg.properties.bifrost.pixel_kill_operation =
+                        cfg.properties.pixel_kill_operation =
                                 MALI_PIXEL_KILL_FORCE_EARLY;
                 }
 
@@ -268,8 +268,8 @@ pan_blitter_emit_rsd(const struct panfrost_device *dev,
                  * for frame shaders it can cause GPU timeouts, so only allow colour
                  * blit shaders to be killed. */
 
-                cfg.properties.bifrost.allow_forward_pixel_to_kill = !zs;
-                cfg.properties.bifrost.allow_forward_pixel_to_be_killed = (dev->arch >= 7) || !zs;
+                cfg.properties.allow_forward_pixel_to_kill = !zs;
+                cfg.properties.allow_forward_pixel_to_be_killed = (dev->arch >= 7) || !zs;
 
                 cfg.preload.fragment.coverage = true;
                 cfg.preload.fragment.sample_mask_id = ms;
@@ -277,8 +277,8 @@ pan_blitter_emit_rsd(const struct panfrost_device *dev,
                 mali_ptr blend_shader = blend_shaders ?
                         panfrost_last_nonnull(blend_shaders, rt_count) : 0;
 
-                cfg.properties.midgard.work_register_count = 4;
-                cfg.properties.midgard.force_early_z = !zs;
+                cfg.properties.work_register_count = 4;
+                cfg.properties.force_early_z = !zs;
                 cfg.stencil_mask_misc.alpha_test_compare_function = MALI_FUNC_ALWAYS;
 
                 /* Set even on v5 for erratum workaround */
@@ -1007,7 +1007,10 @@ pan_preload_emit_dcd(struct pan_pool *pool,
                 pan_preload_emit_textures(pool, fb, zs, &cfg);
 
                 cfg.samplers = pan_blitter_emit_sampler(pool, true);
-                cfg.texture_descriptor_is_64b = PAN_ARCH <= 5;
+
+#if PAN_ARCH <= 5
+                cfg.texture_descriptor_is_64b = true;
+#endif
 
                 /* Tiles updated by blit shaders are still considered
                  * clean (separate for colour and Z/S), allowing us to
@@ -1032,7 +1035,9 @@ pan_blit_emit_dcd(struct pan_pool *pool,
                 cfg.position = dst_coords;
                 pan_blitter_emit_varying(pool, src_coords, &cfg);
                 cfg.viewport = vpd;
-                cfg.texture_descriptor_is_64b = PAN_ARCH <= 5;
+#if PAN_ARCH <= 5
+                cfg.texture_descriptor_is_64b = true;
+#endif
                 cfg.textures = textures;
                 cfg.samplers = samplers;
         }
@@ -1091,13 +1096,7 @@ pan_preload_fb_alloc_pre_post_dcds(struct pan_pool *desc_pool,
                 return;
 
         fb->bifrost.pre_post.dcds =
-                pan_pool_alloc_desc_aggregate(desc_pool,
-                                              PAN_DESC(DRAW),
-                                              PAN_DESC(DRAW_PADDING),
-                                              PAN_DESC(DRAW),
-                                              PAN_DESC(DRAW_PADDING),
-                                              PAN_DESC(DRAW),
-                                              PAN_DESC(DRAW_PADDING));
+                pan_pool_alloc_desc_array(desc_pool, 3, DRAW);
 }
 
 static void
@@ -1110,7 +1109,7 @@ pan_preload_emit_pre_frame_dcd(struct pan_pool *desc_pool,
         pan_preload_fb_alloc_pre_post_dcds(desc_pool, fb);
         assert(fb->bifrost.pre_post.dcds.cpu);
         void *dcd = fb->bifrost.pre_post.dcds.cpu +
-                    (dcd_idx * (pan_size(DRAW) + pan_size(DRAW_PADDING)));
+                    (dcd_idx * pan_size(DRAW));
 
         int crc_rt = GENX(pan_select_crc_rt)(fb);
 
