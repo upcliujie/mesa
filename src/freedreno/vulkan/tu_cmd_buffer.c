@@ -571,7 +571,8 @@ use_hw_binning(struct tu_cmd_buffer *cmd)
 }
 
 static bool
-use_sysmem_rendering(struct tu_cmd_buffer *cmd)
+use_sysmem_rendering(struct tu_cmd_buffer *cmd,
+                     struct tu_renderpass_result **autotune_result)
 {
    if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_SYSMEM))
       return true;
@@ -593,6 +594,19 @@ use_sysmem_rendering(struct tu_cmd_buffer *cmd)
 
    if (cmd->state.disable_gmem)
       return true;
+
+   bool use_autotuner = cmd->usage_flags &
+      VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+   if (use_autotuner) {
+      bool use_sysmem = tu_autotune_use_bypass(&cmd->device->autotune,
+                                               cmd, autotune_result);
+      if (*autotune_result) {
+         list_addtail(&(*autotune_result)->node, &cmd->renderpass_autotune_results);
+      }
+
+      return use_sysmem;
+   }
 
    return false;
 }
@@ -1190,7 +1204,50 @@ tu_emit_renderpass_begin(struct tu_cmd_buffer *cmd,
 }
 
 static void
-tu6_sysmem_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+tu6_autotune_begin(struct tu_cs *cs, struct tu_autotune *at,
+                   const struct tu_renderpass_result *autotune_result)
+{
+   if (!autotune_result)
+      return;
+
+   uint32_t result_idx = autotune_result->idx % TU_AUTOTUNE_MAX_RESULTS;
+   uint64_t begin_iova = results_ptr(at, result[result_idx].samples_start);
+
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_SAMPLE_COUNT_CONTROL(.copy = true));
+
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_SAMPLE_COUNT_ADDR(.qword = begin_iova));
+
+   tu_cs_emit_pkt7(cs, CP_EVENT_WRITE, 1);
+   tu_cs_emit(cs, ZPASS_DONE);
+}
+
+static void
+tu6_autotune_end(struct tu_cs *cs, struct tu_autotune *at,
+                 const struct tu_renderpass_result *autotune_result)
+{
+   if (!autotune_result)
+      return;
+
+   uint32_t result_idx = autotune_result->idx % TU_AUTOTUNE_MAX_RESULTS;
+   uint64_t end_iova = results_ptr(at, result[result_idx].samples_end);
+
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_SAMPLE_COUNT_CONTROL(.copy = true));
+
+   tu_cs_emit_regs(cs,
+                   A6XX_RB_SAMPLE_COUNT_ADDR(.qword = end_iova));
+
+   tu_cs_emit_pkt7(cs, CP_EVENT_WRITE, 1);
+   tu_cs_emit(cs, ZPASS_DONE);
+
+   /* A fence would be emitted at the submission time */
+}
+
+static void
+tu6_sysmem_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
+                        const struct tu_renderpass_result *autotune_result)
 {
    const struct tu_framebuffer *fb = cmd->state.framebuffer;
 
@@ -1220,12 +1277,17 @@ tu6_sysmem_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    tu_cs_emit_pkt7(cs, CP_SET_MODE, 1);
    tu_cs_emit(cs, 0x0);
 
+   tu6_autotune_begin(cs, &cmd->device->autotune, autotune_result);
+
    tu_cs_sanity_check(cs);
 }
 
 static void
-tu6_sysmem_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+tu6_sysmem_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
+                      const struct tu_renderpass_result *autotune_result)
 {
+   tu6_autotune_end(cs, &cmd->device->autotune, autotune_result);
+
    /* Do any resolves of the last subpass. These are handled in the
     * tile_store_cs in the gmem path.
     */
@@ -1242,7 +1304,8 @@ tu6_sysmem_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 }
 
 static void
-tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
+                      const struct tu_renderpass_result *autotune_result)
 {
    struct tu_physical_device *phys_dev = cmd->device->physical_device;
 
@@ -1292,6 +1355,8 @@ tu6_tile_render_begin(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
                         A6XX_RB_BIN_CONTROL_LRZ_FEEDBACK_ZMODE_MASK(0x6));
    }
 
+   tu6_autotune_begin(cs, &cmd->device->autotune, autotune_result);
+
    tu_cs_sanity_check(cs);
 }
 
@@ -1320,8 +1385,11 @@ tu6_render_tile(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 }
 
 static void
-tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
+tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs,
+                    const struct tu_renderpass_result *autotune_result)
 {
+   tu6_autotune_end(cs, &cmd->device->autotune, autotune_result);
+
    tu_cs_emit_call(cs, &cmd->draw_epilogue_cs);
 
    tu_cs_emit_regs(cs,
@@ -1335,11 +1403,12 @@ tu6_tile_render_end(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
 }
 
 static void
-tu_cmd_render_tiles(struct tu_cmd_buffer *cmd)
+tu_cmd_render_tiles(struct tu_cmd_buffer *cmd,
+                    const struct tu_renderpass_result *autotune_result)
 {
    const struct tu_framebuffer *fb = cmd->state.framebuffer;
 
-   tu6_tile_render_begin(cmd, &cmd->cs);
+   tu6_tile_render_begin(cmd, &cmd->cs, autotune_result);
 
    uint32_t pipe = 0;
    for (uint32_t py = 0; py < fb->pipe_count.height; py++) {
@@ -1361,7 +1430,7 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd)
       }
    }
 
-   tu6_tile_render_end(cmd, &cmd->cs);
+   tu6_tile_render_end(cmd, &cmd->cs, autotune_result);
 
    trace_end_render_pass(&cmd->trace, &cmd->cs, fb);
 
@@ -1371,9 +1440,10 @@ tu_cmd_render_tiles(struct tu_cmd_buffer *cmd)
 }
 
 static void
-tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd)
+tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd,
+                     const struct tu_renderpass_result *autotune_result)
 {
-   tu6_sysmem_render_begin(cmd, &cmd->cs);
+   tu6_sysmem_render_begin(cmd, &cmd->cs, autotune_result);
 
    trace_start_draw_ib_sysmem(&cmd->trace, &cmd->cs);
 
@@ -1381,7 +1451,7 @@ tu_cmd_render_sysmem(struct tu_cmd_buffer *cmd)
 
    trace_end_draw_ib_sysmem(&cmd->trace, &cmd->cs);
 
-   tu6_sysmem_render_end(cmd, &cmd->cs);
+   tu6_sysmem_render_end(cmd, &cmd->cs, autotune_result);
 
    trace_end_render_pass(&cmd->trace, &cmd->cs, cmd->state.framebuffer);
 }
@@ -1422,7 +1492,9 @@ tu_create_cmd_buffer(struct tu_device *device,
       cmd_buffer->queue_family_index = TU_QUEUE_GENERAL;
    }
 
+
    u_trace_init(&cmd_buffer->trace, &device->trace_context);
+   list_inithead(&cmd_buffer->renderpass_autotune_results);
 
    tu_cs_init(&cmd_buffer->cs, device, TU_CS_MODE_GROW, 4096);
    tu_cs_init(&cmd_buffer->draw_cs, device, TU_CS_MODE_GROW, 4096);
@@ -1448,6 +1520,8 @@ tu_cmd_buffer_destroy(struct tu_cmd_buffer *cmd_buffer)
 
    u_trace_fini(&cmd_buffer->trace);
 
+   tu_autotune_free_results(&cmd_buffer->renderpass_autotune_results);
+
    vk_command_buffer_finish(&cmd_buffer->vk);
    vk_free2(&cmd_buffer->device->vk.alloc, &cmd_buffer->pool->alloc,
             cmd_buffer);
@@ -1465,6 +1539,8 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
    tu_cs_reset(&cmd_buffer->tile_store_cs);
    tu_cs_reset(&cmd_buffer->draw_epilogue_cs);
    tu_cs_reset(&cmd_buffer->sub_cs);
+
+   tu_autotune_free_results(&cmd_buffer->renderpass_autotune_results);
 
    for (unsigned i = 0; i < MAX_BIND_POINTS; i++) {
       memset(&cmd_buffer->descriptors[i].sets, 0, sizeof(cmd_buffer->descriptors[i].sets));
@@ -3821,6 +3897,15 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
    const struct tu_pipeline *pipeline = cmd->state.pipeline;
    VkResult result;
 
+   /* Fill draw stats for autotuner */
+   cmd->state.drawcall_count++;
+
+   cmd->state.total_drawcalls_cost += cmd->state.pipeline->drawcall_base_cost;
+   if (cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_WRITE_ENABLE)
+      cmd->state.total_drawcalls_cost++;
+   if (cmd->state.rb_depth_cntl & A6XX_RB_DEPTH_CNTL_Z_TEST_ENABLE)
+      cmd->state.total_drawcalls_cost++;
+
    tu_emit_cache_flush_renderpass(cmd, cs);
 
    bool primitive_restart_enabled = pipeline->ia.primitive_restart;
@@ -4618,10 +4703,11 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
 
    cmd_buffer->trace_renderpass_end = u_trace_end_iterator(&cmd_buffer->trace);
 
-   if (use_sysmem_rendering(cmd_buffer))
-      tu_cmd_render_sysmem(cmd_buffer);
+   struct tu_renderpass_result *autotune_result = NULL;
+   if (use_sysmem_rendering(cmd_buffer, &autotune_result))
+      tu_cmd_render_sysmem(cmd_buffer, autotune_result);
    else
-      tu_cmd_render_tiles(cmd_buffer);
+      tu_cmd_render_tiles(cmd_buffer, autotune_result);
 
    /* Outside of renderpasses we assume all draw states are disabled. We do
     * this outside the draw CS for the normal case where 3d gmem stores aren't
@@ -4648,6 +4734,8 @@ tu_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
    cmd_buffer->state.has_tess = false;
    cmd_buffer->state.has_subpass_predication = false;
    cmd_buffer->state.disable_gmem = false;
+   cmd_buffer->state.drawcall_count = 0;
+   cmd_buffer->state.total_drawcalls_cost = 0;
 
    /* LRZ is not valid next time we use it */
    cmd_buffer->state.lrz.valid = false;

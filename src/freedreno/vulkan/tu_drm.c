@@ -114,6 +114,8 @@ struct tu_queue_submit
    bool     last_submit;
    uint32_t entry_count;
    uint32_t counter_pass_index;
+
+   bool     autotune_fence;
 };
 
 struct tu_u_trace_syncobj
@@ -961,6 +963,10 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
       }
    }
 
+   new_submit->autotune_fence = tu_autotune_submit_requires_fence(submit_info);
+   if (new_submit->autotune_fence)
+      entry_count++;
+
    new_submit->cmds = vk_zalloc(&queue->device->vk.alloc,
          entry_count * sizeof(*new_submit->cmds), 8,
          VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
@@ -1076,40 +1082,42 @@ tu_queue_submit_free(struct tu_queue *queue, struct tu_queue_submit *submit)
 }
 
 static void
-tu_queue_build_msm_gem_submit_cmds(struct tu_queue *queue,
-                                   struct tu_queue_submit *submit)
+tu_fill_msm_gem_submit(struct tu_device *dev,
+                       struct drm_msm_gem_submit_cmd *cmd,
+                       struct tu_cs_entry *cs_entry)
 {
+   cmd->type = MSM_SUBMIT_CMD_BUF;
+   cmd->submit_idx =
+      dev->bo_idx[cs_entry->bo->gem_handle];
+   cmd->submit_offset = cs_entry->offset;
+   cmd->size = cs_entry->size;
+   cmd->pad = 0;
+   cmd->nr_relocs = 0;
+   cmd->relocs = 0;
+}
+
+static void
+tu_queue_build_msm_gem_submit_cmds(struct tu_queue *queue,
+                                   struct tu_queue_submit *submit,
+                                   struct tu_cs *autotune_cs)
+{
+   struct tu_device *dev = queue->device;
    struct drm_msm_gem_submit_cmd *cmds = submit->cmds;
 
    uint32_t entry_idx = 0;
    for (uint32_t j = 0; j < submit->cmd_buffer_count; ++j) {
       TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, submit->cmd_buffers[j]);
       struct tu_cs *cs = &cmdbuf->cs;
-      struct tu_device *dev = queue->device;
 
       if (submit->counter_pass_index != ~0) {
          struct tu_cs_entry *perf_cs_entry =
             &dev->perfcntrs_pass_cs_entries[submit->counter_pass_index];
 
-         cmds[entry_idx].type = MSM_SUBMIT_CMD_BUF;
-         cmds[entry_idx].submit_idx =
-            dev->bo_idx[perf_cs_entry->bo->gem_handle];
-         cmds[entry_idx].submit_offset = perf_cs_entry->offset;
-         cmds[entry_idx].size = perf_cs_entry->size;
-         cmds[entry_idx].pad = 0;
-         cmds[entry_idx].nr_relocs = 0;
-         cmds[entry_idx++].relocs = 0;
+         tu_fill_msm_gem_submit(dev, &cmds[entry_idx], perf_cs_entry);
       }
 
       for (unsigned i = 0; i < cs->entry_count; ++i, ++entry_idx) {
-         cmds[entry_idx].type = MSM_SUBMIT_CMD_BUF;
-         cmds[entry_idx].submit_idx =
-            dev->bo_idx[cs->entries[i].bo->gem_handle];
-         cmds[entry_idx].submit_offset = cs->entries[i].offset;
-         cmds[entry_idx].size = cs->entries[i].size;
-         cmds[entry_idx].pad = 0;
-         cmds[entry_idx].nr_relocs = 0;
-         cmds[entry_idx].relocs = 0;
+         tu_fill_msm_gem_submit(dev, &cmds[entry_idx], &cs->entries[i]);
       }
 
       if (submit->cmd_buffer_trace_data) {
@@ -1129,6 +1137,12 @@ tu_queue_build_msm_gem_submit_cmds(struct tu_queue *queue,
          }
       }
    }
+
+   if (autotune_cs) {
+      assert(autotune_cs->entry_count == 1);
+      tu_fill_msm_gem_submit(dev, &cmds[entry_idx], &autotune_cs->entries[0]);
+      entry_idx++;
+   }
 }
 
 static VkResult
@@ -1139,6 +1153,14 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
 #if HAVE_PERFETTO
    tu_perfetto_submit(queue->device, queue->device->submit_count);
 #endif
+
+   struct tu_cs *autotune_cs = NULL;
+   if (submit->autotune_fence) {
+      autotune_cs = tu_autotune_on_submit(queue->device,
+                                          &queue->device->autotune,
+                                          submit->cmd_buffers,
+                                          submit->cmd_buffer_count);
+   }
 
    uint32_t flags = MSM_PIPE_3D0;
 
@@ -1157,7 +1179,7 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
     * time when bo_mutex is not locked. So we build submit cmds here the real
     * place to submit.
     */
-   tu_queue_build_msm_gem_submit_cmds(queue, submit);
+   tu_queue_build_msm_gem_submit_cmds(queue, submit, autotune_cs);
 
    struct drm_msm_gem_submit req = {
       .flags = flags,
