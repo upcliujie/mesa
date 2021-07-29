@@ -81,6 +81,30 @@ lower_alu_instr(nir_builder *bld, nir_alu_instr *alu, unsigned bit_size)
          lowered_dst = nir_ishr_imm(bld, lowered_dst, dst_bit_size);
    } else {
       lowered_dst = nir_build_alu_src_arr(bld, op, srcs);
+
+      /* The add_sat and sub_sat instructions need to clamp the result to the
+       * range of the original type.
+       */
+      if (op == nir_op_iadd_sat || op == nir_op_isub_sat) {
+         assert(dst_bit_size < 32);
+
+         const int32_t int_max = INT32_MAX / (1 << (32 - dst_bit_size));
+         const int32_t int_min = INT32_MIN / (1 << (32 - dst_bit_size));
+
+         lowered_dst = nir_imax(bld,
+                                nir_imm_intN_t(bld, int_min, bit_size),
+                                nir_imin(bld,
+                                         nir_imm_intN_t(bld, int_max, bit_size),
+                                         lowered_dst));
+      } else if (op == nir_op_uadd_sat || op == nir_op_usub_sat) {
+         assert(dst_bit_size < 32);
+
+         const uint32_t uint_max = 0xffffffffU >> (32 - dst_bit_size);
+
+         lowered_dst = nir_umin(bld,
+                                nir_imm_intN_t(bld, uint_max, bit_size),
+                                lowered_dst);
+      }
    }
 
 
