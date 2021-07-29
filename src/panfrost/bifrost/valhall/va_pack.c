@@ -323,6 +323,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LOAD_I64:
    case BI_OPCODE_LOAD_I96:
    case BI_OPCODE_LOAD_I128:
+   case BI_OPCODE_ATEST:
       hex |= ((uint64_t) bi_count_write_registers(I, 0) << 33);
       break;
    case BI_OPCODE_STORE_I8:
@@ -414,6 +415,16 @@ va_pack_instr(const bi_instr *I, unsigned action)
       hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
       hex |= (0x40ull << 40); // flags
 
+      break;
+   }
+
+   case BI_OPCODE_ATEST:
+   {
+      /* Staging register - updated coverage mask */
+      hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 40;
+      hex |= (0x80ull << 40); // flags
+
+      hex |= va_pack_alu(I);
       break;
    }
 
