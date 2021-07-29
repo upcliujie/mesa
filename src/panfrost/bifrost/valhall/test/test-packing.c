@@ -149,5 +149,10 @@ main(int argc, const char **argv)
       CASE(I, 0x001fc017fffff8c0);
    }
 
+   CASE(bi_blend_to(b, bi_null(), bi_register(0), bi_register(60),
+                       bi_fau(BIR_FAU_BLEND_0, false), bi_null(),
+                       BI_REGISTER_FORMAT_F16, 2),
+        0x007f4004333c00f0);
+
    TEST_END(nr_pass, nr_fail);
 }
