@@ -2697,13 +2697,13 @@
     <src start="6" mask="0xf7"/>
     <mod name="widen0" size="2">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="widen1" size="2">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="cmpf" size="3">
       <opt>eq</opt>
@@ -3844,7 +3844,7 @@
     <src start="0"/>
     <mod name="lane0" start="3" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -3859,7 +3859,7 @@
     </mod>
     <mod name="lane0" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <encoding mask="0xfff48" exact="0x3c500">
       <neq left="round" right="#rtna"/>
@@ -3888,7 +3888,7 @@
     </mod>
     <mod name="lane0" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <encoding mask="0xfff48" exact="0x3c508">
       <neq left="round" right="#rtna"/>
@@ -3974,13 +3974,13 @@
     <mod name="abs0" size="1" opt="abs"/>
     <mod name="widen0" size="2">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="widen1" size="2">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <encoding mask="0xf0000" exact="0x20000">
       <neq left="round" right="#rto"/>
@@ -4165,13 +4165,13 @@
     <src start="3"/>
     <mod name="widen0" size="2">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="widen1" size="2">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="neg0" size="1" opt="neg"/>
     <mod name="neg1" size="1" opt="neg"/>
@@ -4761,8 +4761,8 @@
     <mod name="widen0" start="3" size="2">
       <reserved/>
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <encoding mask="0xffea0" exact="0x3dc20">
       <eq left="log" right="#none"/>
@@ -4811,8 +4811,8 @@
     <mod name="widen0" start="3" size="2">
       <reserved/>
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="neg0" size="1" opt="neg"/>
     <encoding mask="0xfff20" exact="0x3db20">
@@ -4866,8 +4866,8 @@
     <mod name="widen0" start="3" size="2">
       <reserved/>
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="round" start="9" size="2">
       <opt>none</opt>
@@ -5045,12 +5045,12 @@
     <mod name="saturate" start="8" size="1" opt="sat"/>
     <mod name="lanes1" size="3">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
-      <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
+      <opt impacted="true">b0</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
     <encoding mask="0xffec0" exact="0xbc600">
       <eq left="lanes1" right="#none"/>
@@ -5087,12 +5087,12 @@
     <mod name="saturate" start="8" size="1" opt="sat"/>
     <mod name="lanes1" size="3">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
-      <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
+      <opt impacted="true">b0</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
     <encoding mask="0xffe40" exact="0xbc600">
       <eq left="lanes1" right="#none"/>
@@ -5166,8 +5166,8 @@
       <opt>h10</opt>
       <opt>h00</opt>
       <opt>h11</opt>
-      <opt>b01</opt>
-      <opt>b23</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b23</opt>
     </mod>
     <encoding mask="0xff8c0" exact="0xbc800">
       <and>
@@ -5230,8 +5230,8 @@
       <opt>h10</opt>
       <opt>h00</opt>
       <opt>h11</opt>
-      <opt>b01</opt>
-      <opt>b23</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b23</opt>
     </mod>
     <encoding mask="0xff840" exact="0xbc800">
       <and>
@@ -5326,12 +5326,12 @@
     </mod>
     <mod name="lanes1" size="3" default="b0123">
       <opt>b0123</opt>
-      <opt>b0000</opt>
-      <opt>b1111</opt>
-      <opt>b2222</opt>
-      <opt>b3333</opt>
-      <opt>b0101</opt>
-      <opt>b2323</opt>
+      <opt impacted="true">b0000</opt>
+      <opt impacted="true">b1111</opt>
+      <opt impacted="true">b2222</opt>
+      <opt impacted="true">b3333</opt>
+      <opt impacted="true">b0101</opt>
+      <opt impacted="true">b2323</opt>
     </mod>
     <encoding mask="0xffec0" exact="0xbc400">
       <and>
@@ -5380,12 +5380,12 @@
     </mod>
     <mod name="lanes1" size="3" default="b0123">
       <opt>b0123</opt>
-      <opt>b0000</opt>
-      <opt>b1111</opt>
-      <opt>b2222</opt>
-      <opt>b3333</opt>
-      <opt>b0101</opt>
-      <opt>b2323</opt>
+      <opt impacted="true">b0000</opt>
+      <opt impacted="true">b1111</opt>
+      <opt impacted="true">b2222</opt>
+      <opt impacted="true">b3333</opt>
+      <opt impacted="true">b0101</opt>
+      <opt impacted="true">b2323</opt>
     </mod>
     <encoding mask="0xffe40" exact="0xbc400">
       <and>
@@ -5742,8 +5742,8 @@
     <mod name="widen0" start="3" size="2">
       <reserved/>
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -5770,12 +5770,12 @@
     <mod name="saturate" start="8" size="1" opt="sat"/>
     <mod name="lanes1" size="3">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
-      <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
+      <opt impacted="true">b0</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
     <encoding mask="0xffec0" exact="0xbd600">
       <eq left="lanes1" right="#none"/>
@@ -5812,12 +5812,12 @@
     <mod name="saturate" start="8" size="1" opt="sat"/>
     <mod name="lanes1" size="3">
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
-      <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
+      <opt impacted="true">b0</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
     <encoding mask="0xffe40" exact="0xbd600">
       <eq left="lanes1" right="#none"/>
@@ -5891,8 +5891,8 @@
       <opt>h10</opt>
       <opt>h00</opt>
       <opt>h11</opt>
-      <opt>b01</opt>
-      <opt>b23</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b23</opt>
     </mod>
     <encoding mask="0xff8c0" exact="0xbd800">
       <and>
@@ -5955,8 +5955,8 @@
       <opt>h10</opt>
       <opt>h00</opt>
       <opt>h11</opt>
-      <opt>b01</opt>
-      <opt>b23</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b23</opt>
     </mod>
     <encoding mask="0xff840" exact="0xbd800">
       <and>
@@ -6051,12 +6051,12 @@
     </mod>
     <mod name="lanes1" size="3" default="b0123">
       <opt>b0123</opt>
-      <opt>b0000</opt>
-      <opt>b1111</opt>
-      <opt>b2222</opt>
-      <opt>b3333</opt>
-      <opt>b0101</opt>
-      <opt>b2323</opt>
+      <opt impacted="true">b0000</opt>
+      <opt impacted="true">b1111</opt>
+      <opt impacted="true">b2222</opt>
+      <opt impacted="true">b3333</opt>
+      <opt impacted="true">b0101</opt>
+      <opt impacted="true">b2323</opt>
     </mod>
     <encoding mask="0xffec0" exact="0xbd400">
       <and>
@@ -6105,12 +6105,12 @@
     </mod>
     <mod name="lanes1" size="3" default="b0123">
       <opt>b0123</opt>
-      <opt>b0000</opt>
-      <opt>b1111</opt>
-      <opt>b2222</opt>
-      <opt>b3333</opt>
-      <opt>b0101</opt>
-      <opt>b2323</opt>
+      <opt impacted="true">b0000</opt>
+      <opt impacted="true">b1111</opt>
+      <opt impacted="true">b2222</opt>
+      <opt impacted="true">b3333</opt>
+      <opt impacted="true">b0101</opt>
+      <opt impacted="true">b2323</opt>
     </mod>
     <encoding mask="0xffe40" exact="0xbd400">
       <and>
@@ -7317,8 +7317,8 @@
     <mod name="widen0" start="3" size="2">
       <reserved/>
       <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h0</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -7337,11 +7337,11 @@
     <src start="3"/>
     <mod name="lane0" start="6" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
     <mod name="lane1" start="7" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -7415,7 +7415,7 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -7423,7 +7423,7 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -7454,9 +7454,9 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="2" default="b0">
       <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
   </ins>
 
@@ -7464,9 +7464,9 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="2" default="b0">
       <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
   </ins>
 
@@ -7748,7 +7748,7 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -7756,7 +7756,7 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="1" default="h0">
       <opt>h0</opt>
-      <opt>h1</opt>
+      <opt impacted="true">h1</opt>
     </mod>
   </ins>
 
@@ -7787,9 +7787,9 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="2" default="b0">
       <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
   </ins>
 
@@ -7797,9 +7797,9 @@
     <src start="0"/>
     <mod name="lane0" start="4" size="2" default="b0">
       <opt>b0</opt>
-      <opt>b1</opt>
-      <opt>b2</opt>
-      <opt>b3</opt>
+      <opt impacted="true">b1</opt>
+      <opt impacted="true">b2</opt>
+      <opt impacted="true">b3</opt>
     </mod>
   </ins>
 
@@ -7941,44 +7941,44 @@
   <ins name="+V2S8_TO_V2F16" mask="0xfff08" exact="0x3c800">
     <src start="0"/>
     <mod name="swz0" start="4" size="4" default="b01">
-      <opt>b00</opt>
-      <opt>b10</opt>
-      <opt>b20</opt>
-      <opt>b30</opt>
-      <opt>b01</opt>
-      <opt>b11</opt>
-      <opt>b21</opt>
-      <opt>b31</opt>
+      <opt impacted="true">b00</opt>
+      <opt impacted="true">b10</opt>
+      <opt impacted="true">b20</opt>
+      <opt impacted="true">b30</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b11</opt>
+      <opt impacted="true">b21</opt>
+      <opt impacted="true">b31</opt>
       <opt>b02</opt>
-      <opt>b12</opt>
-      <opt>b22</opt>
-      <opt>b32</opt>
-      <opt>b03</opt>
-      <opt>b13</opt>
-      <opt>b23</opt>
-      <opt>b33</opt>
+      <opt impacted="true">b12</opt>
+      <opt impacted="true">b22</opt>
+      <opt impacted="true">b32</opt>
+      <opt impacted="true">b03</opt>
+      <opt impacted="true">b13</opt>
+      <opt impacted="true">b23</opt>
+      <opt impacted="true">b33</opt>
     </mod>
   </ins>
 
   <ins name="+V2S8_TO_V2S16" mask="0xfff08" exact="0x3c700">
     <src start="0"/>
     <mod name="swz0" start="4" size="4" default="b01">
-      <opt>b00</opt>
-      <opt>b10</opt>
-      <opt>b20</opt>
-      <opt>b30</opt>
-      <opt>b01</opt>
-      <opt>b11</opt>
-      <opt>b21</opt>
-      <opt>b31</opt>
+      <opt impacted="true">b00</opt>
+      <opt impacted="true">b10</opt>
+      <opt impacted="true">b20</opt>
+      <opt impacted="true">b30</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b11</opt>
+      <opt impacted="true">b21</opt>
+      <opt impacted="true">b31</opt>
       <opt>b02</opt>
-      <opt>b12</opt>
-      <opt>b22</opt>
-      <opt>b32</opt>
-      <opt>b03</opt>
-      <opt>b13</opt>
-      <opt>b23</opt>
-      <opt>b33</opt>
+      <opt impacted="true">b12</opt>
+      <opt impacted="true">b22</opt>
+      <opt impacted="true">b32</opt>
+      <opt impacted="true">b03</opt>
+      <opt impacted="true">b13</opt>
+      <opt impacted="true">b23</opt>
+      <opt impacted="true">b33</opt>
     </mod>
   </ins>
 
@@ -8016,44 +8016,44 @@
   <ins name="+V2U8_TO_V2F16" mask="0xfff08" exact="0x3c808">
     <src start="0"/>
     <mod name="swz0" start="4" size="4" default="b01">
-      <opt>b00</opt>
-      <opt>b10</opt>
-      <opt>b20</opt>
-      <opt>b30</opt>
-      <opt>b01</opt>
-      <opt>b11</opt>
-      <opt>b21</opt>
-      <opt>b31</opt>
+      <opt impacted="true">b00</opt>
+      <opt impacted="true">b10</opt>
+      <opt impacted="true">b20</opt>
+      <opt impacted="true">b30</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b11</opt>
+      <opt impacted="true">b21</opt>
+      <opt impacted="true">b31</opt>
       <opt>b02</opt>
-      <opt>b12</opt>
-      <opt>b22</opt>
-      <opt>b32</opt>
-      <opt>b03</opt>
-      <opt>b13</opt>
-      <opt>b23</opt>
-      <opt>b33</opt>
+      <opt impacted="true">b12</opt>
+      <opt impacted="true">b22</opt>
+      <opt impacted="true">b32</opt>
+      <opt impacted="true">b03</opt>
+      <opt impacted="true">b13</opt>
+      <opt impacted="true">b23</opt>
+      <opt impacted="true">b33</opt>
     </mod>
   </ins>
 
   <ins name="+V2U8_TO_V2U16" mask="0xfff08" exact="0x3c708">
     <src start="0"/>
     <mod name="swz0" start="4" size="4" default="b01">
-      <opt>b00</opt>
-      <opt>b10</opt>
-      <opt>b20</opt>
-      <opt>b30</opt>
-      <opt>b01</opt>
-      <opt>b11</opt>
-      <opt>b21</opt>
-      <opt>b31</opt>
+      <opt impacted="true">b00</opt>
+      <opt impacted="true">b10</opt>
+      <opt impacted="true">b20</opt>
+      <opt impacted="true">b30</opt>
+      <opt impacted="true">b01</opt>
+      <opt impacted="true">b11</opt>
+      <opt impacted="true">b21</opt>
+      <opt impacted="true">b31</opt>
       <opt>b02</opt>
-      <opt>b12</opt>
-      <opt>b22</opt>
-      <opt>b32</opt>
-      <opt>b03</opt>
-      <opt>b13</opt>
-      <opt>b23</opt>
-      <opt>b33</opt>
+      <opt impacted="true">b12</opt>
+      <opt impacted="true">b22</opt>
+      <opt impacted="true">b32</opt>
+      <opt impacted="true">b03</opt>
+      <opt impacted="true">b13</opt>
+      <opt impacted="true">b23</opt>
+      <opt impacted="true">b33</opt>
     </mod>
   </ins>
 
