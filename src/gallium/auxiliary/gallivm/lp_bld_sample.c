@@ -598,17 +598,25 @@ lp_build_rho(struct lp_build_sample_context *bld,
             }
             else {
                if (dims >= 2) {
-                  LLVMValueRef rho_s, rho_t, rho_r;
+                  LLVMValueRef rho_s, rho_t, rho_r, rho_max, rho_sum, half;
 
                   rho_s = lp_build_swizzle_aos(coord_bld, rho_vec, swizzle0);
                   rho_t = lp_build_swizzle_aos(coord_bld, rho_vec, swizzle1);
 
-                  rho = lp_build_max(coord_bld, rho_s, rho_t);
+                  rho_max = lp_build_max(coord_bld, rho_s, rho_t);
+                  rho_sum = lp_build_add(coord_bld, rho_s, rho_t);
 
                   if (dims >= 3) {
                      rho_r = lp_build_swizzle_aos(coord_bld, rho_vec, swizzle2);
-                     rho = lp_build_max(coord_bld, rho, rho_r);
+                     rho_max = lp_build_max(coord_bld, rho_max, rho_r);
+                     rho_sum = lp_build_add(coord_bld, rho_sum, rho_r);
                   }
+
+                  rho = lp_build_add(coord_bld, rho_max, rho_sum);
+                  half = lp_build_const_float(bld->gallivm, 0.5f);
+                  if (!rho_per_quad)
+                     half = lp_build_broadcast_scalar(coord_bld, half);
+                  rho = lp_build_mul(coord_bld, rho, half);
                }
             }
             if (rho_per_quad) {
