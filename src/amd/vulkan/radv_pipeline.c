@@ -3323,6 +3323,8 @@ radv_declare_pipeline_args(struct radv_device *device, struct radv_shader_args *
                                MESA_SHADER_TESS_CTRL, true, MESA_SHADER_VERTEX,
                                &args[MESA_SHADER_TESS_CTRL]);
       infos[MESA_SHADER_TESS_CTRL].user_sgprs_locs = args[MESA_SHADER_TESS_CTRL].user_sgprs_locs;
+      infos[MESA_SHADER_TESS_CTRL].inline_push_constant_mask =
+         args[MESA_SHADER_TESS_CTRL].ac.inline_push_const_mask;
 
       args[MESA_SHADER_VERTEX] = args[MESA_SHADER_TESS_CTRL];
       active_stages &= ~(1 << MESA_SHADER_VERTEX);
@@ -3335,6 +3337,8 @@ radv_declare_pipeline_args(struct radv_device *device, struct radv_shader_args *
       radv_declare_shader_args(chip_class, pipeline_key, &infos[MESA_SHADER_GEOMETRY],
                                MESA_SHADER_GEOMETRY, true, pre_stage, &args[MESA_SHADER_GEOMETRY]);
       infos[MESA_SHADER_GEOMETRY].user_sgprs_locs = args[MESA_SHADER_GEOMETRY].user_sgprs_locs;
+      infos[MESA_SHADER_GEOMETRY].inline_push_constant_mask =
+         args[MESA_SHADER_GEOMETRY].ac.inline_push_const_mask;
 
       args[pre_stage] = args[MESA_SHADER_GEOMETRY];
       active_stages &= ~(1 << pre_stage);
@@ -3345,6 +3349,7 @@ radv_declare_pipeline_args(struct radv_device *device, struct radv_shader_args *
       radv_declare_shader_args(chip_class, pipeline_key, &infos[i], i, false, MESA_SHADER_VERTEX,
                                &args[i]);
       infos[i].user_sgprs_locs = args[i].user_sgprs_locs;
+      infos[i].inline_push_constant_mask = args[i].ac.inline_push_const_mask;
    }
 }
 
@@ -4184,6 +4189,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
       radv_declare_shader_args(device->physical_device->rad_info.chip_class, pipeline_key, &info,
                                MESA_SHADER_VERTEX, false, MESA_SHADER_VERTEX, &gs_copy_args);
       info.user_sgprs_locs = gs_copy_args.user_sgprs_locs;
+      info.inline_push_constant_mask = gs_copy_args.ac.inline_push_const_mask;
 
       pipeline->gs_copy_shader = radv_create_gs_copy_shader(
          device, nir[MESA_SHADER_GEOMETRY], &info, &gs_copy_args, &gs_copy_binary,
