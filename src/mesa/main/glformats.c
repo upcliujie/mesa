@@ -2796,6 +2796,140 @@ gles_effective_internal_format_for_format_and_type(GLenum format,
 }
 
 /**
+ * Error checking if internalformat for glTex[Sub]Image is valid
+ * within OpenGL ES 3.2 (or introduced by an ES extension).
+ *
+ * Note, further checks in _mesa_gles_error_check_format_and_type
+ * are required for complete checking between format and type.
+ */
+static GLenum
+_mesa_gles_check_internalformat(const struct gl_context *ctx,
+                                GLenum internalFormat)
+{
+   switch (internalFormat) {
+   /* OpenGL ES 3.2 */
+   case GL_RGBA8:
+   case GL_RGB5_A1:
+   case GL_RGBA4:
+   case GL_SRGB8_ALPHA8:
+   case GL_RGBA8_SNORM:
+   case GL_RGB10_A2:
+   case GL_RGBA16F:
+   case GL_RGBA32F:
+   case GL_RGBA8UI:
+   case GL_RGBA8I:
+   case GL_RGBA16UI:
+   case GL_RGBA16I:
+   case GL_RGBA32UI:
+   case GL_RGBA32I:
+   case GL_RGB10_A2UI:
+   case GL_RGB8:
+   case GL_RGB565:
+   case GL_SRGB8:
+   case GL_RGB8_SNORM:
+   case GL_R11F_G11F_B10F:
+   case GL_RGB9_E5:
+   case GL_RGB32F:
+   case GL_RGB16F:
+   case GL_RGB8UI:
+   case GL_RGB8I:
+   case GL_RGB16UI:
+   case GL_RGB16I:
+   case GL_RGB32UI:
+   case GL_RGB32I:
+   case GL_RG8:
+   case GL_RG8_SNORM:
+   case GL_RG16F:
+   case GL_RG32F:
+   case GL_RG8UI:
+   case GL_RG8I:
+   case GL_RG16UI:
+   case GL_RG16I:
+   case GL_RG32UI:
+   case GL_RG32I:
+   case GL_R8:
+   case GL_R8_SNORM:
+   case GL_R16F:
+   case GL_R32F:
+   case GL_R8UI:
+   case GL_R8I:
+   case GL_R16UI:
+   case GL_R16I:
+   case GL_R32UI:
+   case GL_R32I:
+   case GL_DEPTH_COMPONENT16:
+   case GL_DEPTH_COMPONENT32F:
+   case GL_DEPTH24_STENCIL8:
+   case GL_DEPTH32F_STENCIL8:
+   case GL_RGBA:
+   case GL_RGB:
+   case GL_LUMINANCE_ALPHA:
+   case GL_LUMINANCE:
+   case GL_ALPHA:
+
+   /* GL_OES_stencil8 */
+   case GL_STENCIL_INDEX8:
+
+   /* GL_OES_depth24 */
+   case GL_DEPTH_COMPONENT24:
+
+   /* GL_EXT_texture_format_BGRA8888 */
+   case GL_BGRA:
+
+   /* GL_EXT_texture_compression_bptc */
+   case GL_COMPRESSED_RGBA_BPTC_UNORM:
+   case GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM:
+   case GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT:
+   case GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT:
+
+   /* GL_EXT_texture_compression_rgtc */
+   case GL_COMPRESSED_RED_RGTC1:
+   case GL_COMPRESSED_SIGNED_RED_RGTC1:
+   case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
+   case GL_COMPRESSED_SIGNED_RED_GREEN_RGTC2_EXT:
+
+   /* GL_EXT_texture_rg */
+   case GL_RED:
+   case GL_RG:
+      return GL_NO_ERROR;
+
+   /* Formats from GL_OES_required_internalformat that did not
+    * find their way as valid internalformat to ES spec.
+    */
+   case GL_ALPHA8:
+   case GL_LUMINANCE8:
+   case GL_LUMINANCE8_ALPHA8:
+   case GL_LUMINANCE4_ALPHA4:
+
+   /* GL_EXT_texture_norm16 */
+   case GL_R16:
+   case GL_RG16:
+   case GL_RGB16:
+   case GL_RGBA16:
+
+   /* GL_EXT_texture_norm16, GL_EXT_texture_snorm */
+   case GL_R16_SNORM:
+   case GL_RG16_SNORM:
+   case GL_RGB16_SNORM:
+   case GL_RGBA16_SNORM:
+
+   /* GL_EXT_texture_sRGB_R8 */
+   case GL_SR8_EXT:
+
+   /* GL_EXT_texture_type_2_10_10_10_REV, GL_OES_required_internalformat */
+   case GL_RGB10:
+
+   /* GL_OES_depth_texture */
+   case GL_DEPTH_COMPONENT:
+
+      return GL_NO_ERROR;
+
+   default:
+      return GL_INVALID_VALUE;
+   }
+}
+
+/**
  * Do error checking of format/type combinations for OpenGL ES 3
  * glTex[Sub]Image, or ES1/ES2 with GL_OES_required_internalformat.
  * \return error code, or GL_NO_ERROR.
@@ -2856,6 +2990,15 @@ _mesa_gles_error_check_format_and_type(const struct gl_context *ctx,
         internalFormat == GL_COMPRESSED_RGBA_S3TC_DXT5_EXT))
       return format == GL_RGB || format == GL_RGBA ? GL_NO_ERROR :
                                                      GL_INVALID_OPERATION;
+
+   /* Before checking for the combination, verify that
+    * given internalformat is legal for OpenGL ES.
+    */
+   GLenum internal_format_error =
+      _mesa_gles_check_internalformat(ctx, internalFormat);
+
+   if (internal_format_error != GL_NO_ERROR)
+      return internal_format_error;
 
    switch (format) {
    case GL_BGRA_EXT:
