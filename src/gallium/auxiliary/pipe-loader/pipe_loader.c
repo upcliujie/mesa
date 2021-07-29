@@ -117,10 +117,11 @@ pipe_loader_load_options(struct pipe_loader_device *dev)
 
    const driOptionDescription *merged_driconf =
       merge_driconf(driver_driconf, driver_count, &merged_count);
+   const char *device_name = dev->ops->device_name(dev);
 
    driParseOptionInfo(&dev->option_info, merged_driconf, merged_count);
    driParseConfigFiles(&dev->option_cache, &dev->option_info, 0,
-                       dev->driver_name, NULL, NULL, 0, NULL, 0);
+                       dev->driver_name, NULL, device_name, NULL, 0, NULL, 0);
    free((void *)merged_driconf);
 }
 
