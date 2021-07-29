@@ -508,6 +508,10 @@ bi_emit_load_blend_input(bi_builder *b, nir_intrinsic_instr *instr)
 static void
 bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T, unsigned rt)
 {
+        /* Valhall does not specify the upper half of the blend descriptor or
+         * the return address on the BLEND instruction itself */
+        bool bifrost = b->shader->arch <= 8;
+
         /* Reads 2 or 4 staging registers to cover the input */
         unsigned size = nir_alu_type_get_type_size(T);
         unsigned sr_count = (size <= 16) ? 2 : 4;
@@ -525,18 +529,23 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T, unsigned rt)
 
                 /* Blend descriptor comes from the compile inputs */
                 /* Put the result in r0 */
-                bi_blend_to(b, bi_register(0), rgba,
+                bi_index desc_hi = bifrost ? bi_imm_u32(blend_desc >> 32)
+                                           : bi_null();
+
+                bi_blend_to(b, bifrost ? bi_register(0) : bi_null(), rgba,
                                 bi_register(60),
-                                bi_imm_u32(blend_desc & 0xffffffff),
-                                bi_imm_u32(blend_desc >> 32), regfmt, sr_count);
+                                bi_imm_u32(blend_desc & 0xffffffff), desc_hi,
+                                regfmt, sr_count);
         } else {
                 /* Blend descriptor comes from the FAU RAM. By convention, the
-                 * return address is stored in r48 and will be used by the
-                 * blend shader to jump back to the fragment shader after */
-                bi_blend_to(b, bi_register(48), rgba,
+                 * return address on Bifrost is stored in r48 and will be used
+                 * by the blend shader to jump back to the fragment shader */
+                bi_index desc_hi = bifrost ? bi_fau(BIR_FAU_BLEND_0 + rt, true)
+                                           : bi_null();
+
+                bi_blend_to(b, bifrost ? bi_register(48) : bi_null(), rgba,
                                 bi_register(60),
-                                bi_fau(BIR_FAU_BLEND_0 + rt, false),
-                                bi_fau(BIR_FAU_BLEND_0 + rt, true),
+                                bi_fau(BIR_FAU_BLEND_0 + rt, false), desc_hi,
                                 regfmt, sr_count);
         }
 
