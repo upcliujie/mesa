@@ -6,5 +6,6 @@ struct pipe_screen;
 struct renderonly;
 
 struct pipe_screen *fd_drm_screen_create(int drmFD, struct renderonly *ro);
+const char *fd_drm_device_name(int fd);
 
 #endif
