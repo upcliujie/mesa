@@ -1871,6 +1871,7 @@ shader_compile(struct radv_device *device, struct vk_shader_module *module,
       shader_count >= 2 ? shaders[shader_count - 2]->info.stage : MESA_SHADER_VERTEX, &args);
 
    info->user_sgprs_locs = args.user_sgprs_locs;
+   info->inline_push_constant_mask = args.ac.inline_push_const_mask;
 
 #ifdef LLVM_AVAILABLE
    if (radv_use_llvm_for_stage(device, stage) || options->dump_shader || options->record_ir)
@@ -2049,6 +2050,7 @@ radv_create_vs_prolog(struct radv_device *device, const struct radv_vs_prolog_ke
                             MESA_SHADER_VERTEX, &args);
 
    info.user_sgprs_locs = args.user_sgprs_locs;
+   info.inline_push_constant_mask = args.ac.inline_push_const_mask;
 
 #ifdef LLVM_AVAILABLE
    if (options.dump_shader || options.record_ir)
