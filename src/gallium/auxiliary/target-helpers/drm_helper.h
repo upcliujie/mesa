@@ -275,7 +275,7 @@ pipe_msm_create_screen(int fd, const struct pipe_screen_config *config)
    screen = fd_drm_screen_create(fd, NULL);
    return screen ? debug_screen_wrap(screen) : NULL;
 }
-DRM_DRIVER_DESCRIPTOR(msm, NULL, 0)
+DRM_DRIVER_DESCRIPTOR(msm, NULL, 0, .device_name = fd_drm_device_name)
 #else
 DRM_DRIVER_DESCRIPTOR_STUB(msm)
 #endif
