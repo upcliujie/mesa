@@ -358,6 +358,9 @@ tu_QueueSubmit(VkQueue _queue,
             entry_count++;
       }
 
+      if (tu_autotune_submit_requires_fence(submit))
+         entry_count++;
+
       max_entry_count = MAX2(max_entry_count, entry_count);
    }
 
@@ -402,6 +405,21 @@ tu_QueueSubmit(VkQueue _queue,
                .id = cs->entries[k].bo->gem_handle,
             };
          }
+      }
+
+      if (tu_autotune_submit_requires_fence(submit)) {
+         struct tu_cs *autotune_cs =
+            tu_autotune_on_submit(queue->device,
+                                  &queue->device->autotune,
+                                  submit->pCommandBuffers,
+                                  submit->commandBufferCount);
+         cmds[entry_idx++] = (struct kgsl_command_object) {
+            .offset = autotune_cs->entries[0].offset,
+            .gpuaddr = autotune_cs->entries[0].bo->iova,
+            .size = autotune_cs->entries[0].size,
+            .flags = KGSL_CMDLIST_IB,
+            .id = autotune_cs->entries[0].bo->gem_handle,
+         };
       }
 
       struct tu_syncobj s = sync_merge(submit->pWaitSemaphores,
