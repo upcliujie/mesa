@@ -81,10 +81,10 @@ TEST_F(SchedulerPredicates, LOAD)
 
 TEST_F(SchedulerPredicates, BLEND)
 {
-   bi_instr *blend = bi_blend_to(b, TMP(), TMP(), TMP(), TMP(), TMP(), 4);
-   ASSERT_FALSE(bi_can_fma(blend));
-   ASSERT_TRUE(bi_can_add(blend));
-   ASSERT_TRUE(bi_must_message(blend));
+   bi_instr *blend = bi_blend_to(b, TMP(), TMP(), TMP(), TMP(), TMP(), BI_REGISTER_FORMAT_F32, 4);
+   BIT_ASSERT(!bi_can_fma(blend));
+   BIT_ASSERT(bi_can_add(blend));
+   BIT_ASSERT(bi_must_message(blend));
    for (unsigned i = 0; i < 4; ++i)
       ASSERT_TRUE(bi_reads_temps(blend, i));
    ASSERT_FALSE(bi_reads_t(blend, 0));
