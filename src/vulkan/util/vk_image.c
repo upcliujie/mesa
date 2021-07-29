@@ -249,9 +249,6 @@ vk_image_view_init(struct vk_device *device,
    image_view->base_array_layer = range->baseArrayLayer;
    image_view->layer_count = vk_image_subresource_layer_count(image, range);
 
-   image_view->extent =
-      vk_image_mip_level_extent(image, image_view->base_mip_level);
-
    assert(image_view->base_mip_level + image_view->level_count
           <= image->mip_levels);
    switch (image->image_type) {
@@ -264,7 +261,7 @@ vk_image_view_init(struct vk_device *device,
       break;
    case VK_IMAGE_TYPE_3D:
       assert(image_view->base_array_layer + image_view->layer_count
-             <= image_view->extent.depth);
+             <= u_minify(image->extent.depth, image_view->base_mip_level));
       break;
    }
 

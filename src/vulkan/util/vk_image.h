@@ -123,9 +123,6 @@ struct vk_image_view {
    uint32_t base_array_layer;
    uint32_t layer_count;
 
-   /* Image extent at LOD 0 */
-   VkExtent3D extent;
-
    /* VK_KHR_maintenance2 */
    VkImageUsageFlags usage;
 };
@@ -142,6 +139,13 @@ void *vk_image_view_create(struct vk_device *device,
 void vk_image_view_destroy(struct vk_device *device,
                            const VkAllocationCallbacks *alloc,
                            struct vk_image_view *image_view);
+
+static inline VkExtent3D
+vk_image_view_extent(const struct vk_image_view *image_view)
+{
+   return vk_image_mip_level_extent(image_view->image,
+                                    image_view->base_mip_level);
+}
 
 #ifdef __cplusplus
 }
