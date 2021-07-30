@@ -2103,6 +2103,33 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
       assert(0);
    }
 
+   if (key->opt.inline_uniforms) {
+      /* Limit how many inline-uniforms-values variants we produce. */
+      const int max_inline_uniforms_variants = 5;
+      /* Compute the size of the key without the uniform values. */
+      size_t s = (void*)&key->opt.inlined_uniform_values - (void*)key;
+      int count = 0;
+      simple_mtx_lock(&sel->mutex);
+      for (struct si_shader *iter = sel->first_variant;
+           iter && count < max_inline_uniforms_variants;
+           iter = iter->next_variant) {
+         if (iter->key.opt.inline_uniforms &&
+             memcmp(&iter->key, key, s) == 0 &&
+             memcmp(iter->key.opt.inlined_uniform_values,
+                    key->opt.inlined_uniform_values,
+                    num_inlinable_uniforms * 4) != 0) {
+            count++;
+         }
+      }
+      simple_mtx_unlock(&sel->mutex);
+
+      if (count >= max_inline_uniforms_variants) {
+         /* Stop producing new variants. */
+         memset(key->opt.inlined_uniform_values, 0, num_inlinable_uniforms * 4);
+         key->opt.inline_uniforms = false;
+      }
+   }
+
    if (unlikely(sctx->screen->debug_flags & DBG(NO_OPT_VARIANT)))
       memset(&key->opt, 0, sizeof(key->opt));
 }
