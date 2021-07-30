@@ -61,6 +61,22 @@ nv30_clear(struct pipe_context *pipe, unsigned buffers, const struct pipe_scisso
    if (!nv30_state_validate(nv30, NV30_NEW_FRAMEBUFFER | NV30_NEW_SCISSOR, true))
       return;
 
+   if (scissor_state) {
+      uint32_t minx = scissor_state->minx;
+      uint32_t maxx = MIN2(fb->width, scissor_state->maxx);
+      uint32_t miny = scissor_state->miny;
+      uint32_t maxy = MIN2(fb->height, scissor_state->maxy);
+
+      BEGIN_NV04(push, NV30_3D(SCISSOR_HORIZ), 2);
+      PUSH_DATA (push, minx | (maxx - minx) << 16);
+      PUSH_DATA (push, miny | (maxy - miny) << 16);
+   }
+   else {
+      BEGIN_NV04(push, NV30_3D(SCISSOR_HORIZ), 2);
+      PUSH_DATA (push, 0x10000000);
+      PUSH_DATA (push, 0x10000000);
+   }
+
    if (buffers & PIPE_CLEAR_COLOR && fb->nr_cbufs) {
       colr  = pack_rgba(fb->cbufs[0]->format, color->f);
       mode |= NV30_3D_CLEAR_BUFFERS_COLOR_R |
@@ -96,6 +112,8 @@ nv30_clear(struct pipe_context *pipe, unsigned buffers, const struct pipe_scisso
    PUSH_DATA (push, mode);
 
    nv30_state_release(nv30);
+
+   nv30->dirty |= NV30_NEW_SCISSOR;
 }
 
 static void
