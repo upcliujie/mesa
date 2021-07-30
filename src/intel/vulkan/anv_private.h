@@ -3817,7 +3817,22 @@ anv_image_aspect_to_plane(VkImageAspectFlags all_aspects,
    assert(util_bitcount(aspect) == 1);
    assert(!(aspect & ~all_aspects));
 
-   return util_bitcount(all_aspects & (aspect - 1));
+   switch (aspect) {
+   case VK_IMAGE_ASPECT_COLOR_BIT:
+   case VK_IMAGE_ASPECT_DEPTH_BIT:
+      return 0;
+   case VK_IMAGE_ASPECT_STENCIL_BIT:
+      return (all_aspects & VK_IMAGE_ASPECT_DEPTH_BIT) ? 1 : 0;
+   case VK_IMAGE_ASPECT_PLANE_0_BIT:
+      return 0;
+   case VK_IMAGE_ASPECT_PLANE_1_BIT:
+      return 1;
+   case VK_IMAGE_ASPECT_PLANE_2_BIT:
+      return 2;
+   default:
+      /* Purposefully assert with depth/stencil aspects. */
+      unreachable("invalid image aspect");
+   }
 }
 
 static inline VkImageAspectFlags
