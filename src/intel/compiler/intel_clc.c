@@ -385,6 +385,11 @@ int main(int argc, char **argv)
          return 1;
       }
 
+      const char *allowed_spirv_extensions[] = {
+         "SPV_INTEL_subgroups",
+         NULL,
+      };
+
       struct clc_compile_args clc_args = {
          .source = {
             .name = *infile,
@@ -392,6 +397,7 @@ int main(int argc, char **argv)
          },
          .args = clang_args,
          .num_args = num_clang_args,
+         .allowed_spirv_extensions = allowed_spirv_extensions,
       };
 
       struct clc_binary *spirv_out =
