@@ -139,14 +139,6 @@ allocate_inline_push_consts(struct radv_shader_args *args, struct user_sgpr_info
    if (args->shader_info->min_push_constant_used == UINT8_MAX)
       return;
 
-   /* Only supported if shaders don't have indirect push constants. */
-   if (args->shader_info->has_indirect_push_constants)
-      return;
-
-   /* Only supported for 32-bit push constants. */
-   if (!args->shader_info->has_only_32bit_push_constants)
-      return;
-
    uint8_t num_push_consts =
       (args->shader_info->max_push_constant_used - args->shader_info->min_push_constant_used) / 4;
 
@@ -162,6 +154,8 @@ allocate_inline_push_consts(struct radv_shader_args *args, struct user_sgpr_info
       args->shader_info->num_inline_push_consts = AC_MAX_INLINE_PUSH_CONSTS;
 
    if (args->shader_info->num_inline_push_consts == num_push_consts &&
+       args->shader_info->has_only_32bit_push_constants &&
+       !args->shader_info->has_indirect_push_constants &&
        !args->shader_info->loads_dynamic_offsets) {
       /* Disable the default push constants path if all constants are
        * inlined and if shaders don't use dynamic descriptors.
