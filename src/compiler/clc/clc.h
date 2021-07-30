@@ -46,6 +46,12 @@ struct clc_compile_args {
    struct clc_named_value source;
    const char * const *args;
    unsigned num_args;
+
+   /* Allowed extensions, use -1 in num_allowed_extensions to allow all
+    * extensions known by the translator.
+    */
+   const char * const *allowed_extensions;
+   int num_allowed_extensions;
 };
 
 struct clc_binary {
