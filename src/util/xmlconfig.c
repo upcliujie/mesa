@@ -59,6 +59,7 @@ inline void regfree(regex_t* r) {}
 #include "strndup.h"
 #include "u_process.h"
 #include "os_file.h"
+#include "os_misc.h"
 
 /* For systems like Hurd */
 #ifndef PATH_MAX
@@ -68,7 +69,7 @@ inline void regfree(regex_t* r) {}
 static bool
 be_verbose(void)
 {
-   const char *s = getenv("MESA_DEBUG");
+   const char *s = os_get_option("MESA_DEBUG");
    if (!s)
       return true;
 
@@ -378,7 +379,7 @@ driParseOptionInfo(driOptionCache *info,
       /* Built-in default values should always be valid. */
       assert(checkValue(optval, optinfo));
 
-      char *envVal = getenv(name);
+      const char *envVal = os_get_option(name);
       if (envVal != NULL) {
          driOptionValue v;
 
@@ -544,7 +545,7 @@ __driUtilMessage(const char *f, ...)
    va_list args;
    const char *libgl_debug;
 
-   libgl_debug=getenv("LIBGL_DEBUG");
+   libgl_debug=os_get_option("LIBGL_DEBUG");
    if (libgl_debug && !strstr(libgl_debug, "quiet")) {
       fprintf(stderr, "libGL: ");
       va_start(args, f);
@@ -802,7 +803,7 @@ parseOptConfAttr(struct OptConfData *data, const char **attr)
          /* don't use XML_WARNING, drirc defines options for all drivers,
           * but not all drivers support them */
          return;
-      else if (getenv(cache->info[opt].name)) {
+      else if (os_get_option(cache->info[opt].name)) {
          /* don't use XML_WARNING, we want the user to see this! */
          if (be_verbose()) {
             fprintf(stderr,
@@ -1174,12 +1175,12 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
    userData.execName = execname ? execname : util_get_process_name();
 
 #if WITH_XMLCONFIG
-   char *home;
+   const char *home;
 
    parseConfigDir(&userData, datadir);
    parseOneConfigFile(&userData, SYSCONFDIR "/drirc");
 
-   if ((home = getenv("HOME"))) {
+   if ((home = os_get_option("HOME"))) {
       char filename[PATH_MAX];
 
       snprintf(filename, PATH_MAX, "%s/.drirc", home);
