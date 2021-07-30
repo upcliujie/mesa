@@ -115,38 +115,6 @@ zink_resource_destroy(struct pipe_screen *pscreen,
    FREE(res);
 }
 
-static uint32_t
-get_memory_type_index(struct zink_screen *screen,
-                      const VkMemoryRequirements *reqs,
-                      VkMemoryPropertyFlags props)
-{
-   int32_t idx = -1;
-   for (uint32_t i = 0u; i < VK_MAX_MEMORY_TYPES; i++) {
-      if (((reqs->memoryTypeBits >> i) & 1) == 1) {
-         if ((screen->info.mem_props.memoryTypes[i].propertyFlags & props) == props) {
-            if (!(props & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) &&
-                screen->info.mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-               idx = i;
-            } else
-               return i;
-         }
-      }
-   }
-   if (idx >= 0)
-      return idx;
-
-   if (props & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-      /* if no suitable cached memory can be found, fall back
-       * to non-cached memory instead.
-       */
-      return get_memory_type_index(screen, reqs,
-         props & ~VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
-   }
-
-   unreachable("Unsupported memory-type");
-   return 0;
-}
-
 static VkImageAspectFlags
 aspect_from_format(enum pipe_format fmt)
 {
@@ -595,10 +563,27 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
             templ->usage == PIPE_USAGE_STAGING)
       flags |= VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
 
-   VkMemoryAllocateInfo mai = {0};
+   VkMemoryAllocateInfo mai;
+   enum zink_alloc_flag aflags = templ->flags & PIPE_RESOURCE_FLAG_SPARSE ? ZINK_ALLOC_SPARSE : 0;
    mai.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
    mai.allocationSize = reqs.size;
-   mai.memoryTypeIndex = get_memory_type_index(screen, &reqs, flags);
+   enum zink_heap heap = zink_heap_from_domain_flags(flags, aflags);
+   mai.memoryTypeIndex = screen->heap_map[heap];
+   if (unlikely(!(reqs.memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex)))) {
+      /* not valid based on reqs; demote to more compatible type */
+      switch (heap) {
+      case ZINK_HEAP_DEVICE_LOCAL_VISIBLE:
+         heap = ZINK_HEAP_DEVICE_LOCAL;
+         break;
+      case ZINK_HEAP_HOST_VISIBLE_CACHED:
+         heap = ZINK_HEAP_HOST_VISIBLE_ANY;
+         break;
+      default:
+         break;
+      }
+      mai.memoryTypeIndex = screen->heap_map[heap];
+      assert(reqs.memoryTypeBits & BITFIELD_BIT(mai.memoryTypeIndex));
+   }
 
    VkMemoryType mem_type = screen->info.mem_props.memoryTypes[mai.memoryTypeIndex];
    obj->coherent = mem_type.propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
@@ -653,7 +638,6 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    }
 
    if (!mai.pNext) {
-      enum zink_alloc_flag aflags = templ->flags & PIPE_RESOURCE_FLAG_SPARSE ? ZINK_ALLOC_SPARSE : 0;
       unsigned alignment = MAX2(reqs.alignment, 256);
       if (templ->usage == PIPE_USAGE_STAGING && obj->is_buffer)
          alignment = MAX2(alignment, screen->info.props.limits.minMemoryMapAlignment);
