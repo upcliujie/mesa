@@ -173,6 +173,10 @@ public:
       assert(op->type == SPV_OPERAND_TYPE_RESULT_ID);
       id = ins->words[op->offset];
       curKernel->args.push_back(SPIRVKernelArg(id, typeId));
+
+      auto name_iter = typeNames.find(typeId);
+      if (name_iter != typeNames.end())
+         curKernel->args.back().typeName = name_iter->second;
    }
 
    void parseName(const spv_parsed_instruction_t *ins)
@@ -197,6 +201,39 @@ public:
               break;
 	    }
          }
+      }
+
+      typeNames[id] = std::string(name);
+   }
+
+   void parseBaseType(const spv_parsed_instruction_t *ins)
+   {
+      switch (ins->opcode) {
+      case SpvOpTypeInt: {
+         std::stringstream ss;
+         ss << "uint" << ins->words[2];
+         typeNames[ins->result_id] = ss.str();
+         break;
+      }
+      case SpvOpTypeFloat: {
+         std::stringstream ss;
+         ss << "float" << ins->words[2];
+         typeNames[ins->result_id] = ss.str();
+         break;
+      }
+      case SpvOpTypeBool:
+         typeNames[ins->result_id] = "bool";
+         break;
+      }
+   }
+
+   void parseVector(const spv_parsed_instruction_t *ins)
+   {
+      auto base_name_iter = typeNames.find(ins->words[2]);
+      if (base_name_iter != typeNames.end()) {
+         std::stringstream ss;
+         ss << "vec" << ins->words[3] << "." << base_name_iter->second;
+         typeNames[ins->result_id] = ss.str();
       }
    }
 
@@ -229,6 +266,10 @@ public:
          addrQualifier = CLC_KERNEL_ARG_ADDRESS_PRIVATE;
          break;
       }
+
+      auto base_name_iter = typeNames.find(ins->words[3]);
+      if (base_name_iter != typeNames.end())
+         typeNames[ins->result_id] = "ptr." + base_name_iter->second;
 
       for (auto &kernel : kernels) {
 	 for (auto &arg : kernel.args) {
@@ -535,6 +576,9 @@ public:
       SPIRVKernelParser *parser = reinterpret_cast<SPIRVKernelParser *>(data);
 
       switch (ins->opcode) {
+      case SpvOpTypeVector:
+         parser->parseVector(ins);
+         break;
       case SpvOpName:
          parser->parseName(ins);
          break;
@@ -573,6 +617,7 @@ public:
       case SpvOpTypeInt:
       case SpvOpTypeFloat:
          parser->parseLiteralType(ins);
+         parser->parseBaseType(ins);
          break;
       case SpvOpSpecConstant:
       case SpvOpSpecConstantFalse:
@@ -631,6 +676,9 @@ public:
    std::vector<SPIRVKernelInfo> kernels;
    std::vector<std::pair<uint32_t, clc_parsed_spec_constant>> specConstants;
    std::map<uint32_t, enum clc_spec_constant_type> literalTypes;
+
+   std::map<uint32_t, std::string> typeNames;
+
    std::map<uint32_t, std::vector<uint32_t>> decorationGroups;
    SPIRVKernelInfo *curKernel;
    spv_context ctx;
