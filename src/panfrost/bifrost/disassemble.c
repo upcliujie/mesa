@@ -697,11 +697,15 @@ void disassemble_bifrost(FILE *fp, uint8_t *code, size_t size, bool verbose)
         // used for displaying branch targets
         unsigned offset = 0;
         while (words != words_end) {
-                fprintf(fp, "clause_%d:\n", offset);
-                unsigned size;
-
-                if (dump_clause(fp, words, &size, offset, verbose))
+                /* Shaders have zero bytes at the end for padding; stop
+                 * disassembling when we hit them. */
+                if (*words == 0)
                         break;
+
+                fprintf(fp, "clause_%d:\n", offset);
+
+                unsigned size;
+                dump_clause(fp, words, &size, offset, verbose);
 
                 words += size * 4;
                 offset += size;
