@@ -54,7 +54,7 @@ ir3_disk_cache_init(struct ir3_compiler *compiler)
    /* array length = print length + nul char + 1 extra to verify it's unused */
    char renderer[7];
    ASSERTED int len =
-      snprintf(renderer, sizeof(renderer), "FD%03d", compiler->gpu_id);
+      snprintf(renderer, sizeof(renderer), "%s", fd_dev_name(compiler->dev_id));
    assert(len == sizeof(renderer) - 2);
 
    const struct build_id_note *note =
