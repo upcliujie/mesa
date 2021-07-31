@@ -5569,6 +5569,7 @@ radv_graphics_pipeline_create(VkDevice _device, VkPipelineCache _cache,
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &pipeline->base, VK_OBJECT_TYPE_PIPELINE);
+   pipeline->type = RADV_PIPELINE_GRAPHICS;
 
    result = radv_pipeline_init(pipeline, device, cache, pCreateInfo, extra);
    if (result != VK_SUCCESS) {
@@ -5715,6 +5716,7 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
       return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &pipeline->base, VK_OBJECT_TYPE_PIPELINE);
+   pipeline->type = RADV_PIPELINE_COMPUTE;
 
    pipeline->device = device;
    pipeline->graphics.last_vgt_api_stage = MESA_SHADER_NONE;
