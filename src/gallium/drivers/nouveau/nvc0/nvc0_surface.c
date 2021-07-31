@@ -795,8 +795,11 @@ gm200_evaluate_depth_buffer(struct pipe_context *pipe)
    struct nvc0_context *nvc0 = nvc0_context(pipe);
    struct nouveau_pushbuf *push = nvc0->base.pushbuf;
 
+   simple_mtx_lock(&nvc0->screen->state_lock);
    nvc0_state_validate_3d(nvc0, NVC0_NEW_3D_FRAMEBUFFER);
    IMMED_NVC0(push, SUBC_3D(0x11fc), 1);
+   PUSH_KICK(push);
+   simple_mtx_unlock(&nvc0->screen->state_lock);
 }
 
 
