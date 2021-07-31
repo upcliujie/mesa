@@ -107,6 +107,36 @@ src_only_uses_uniforms(const nir_src *src, uint32_t *uni_offsets,
    }
 }
 
+static void
+add_inlinable_uniforms(const nir_src *cond, uint32_t *uni_offsets,
+                       unsigned *num_offsets)
+{
+   unsigned new_num = *num_offsets;
+
+   /* Only update uniform number when all uniforms in the expression
+    * can be inlined. Partially inline uniforms can't lower if/loop.
+    *
+    * For example, uniform can be inlined for a shader is limited to 4,
+    * and we have already added 3 uniforms, then want to deal with
+    *
+    *     if (uniform0 + uniform1 == 10)
+    *
+    * only uniform0 can be inlined due to we exceed the 4 limit. But
+    * unless both uniform0 and uniform1 are inlined, can we eliminate
+    * the if statement.
+    *
+    * This is even possible when we deal with loop if the induction
+    * variable init and update also contains uniform like
+    *
+    *    for (i = uniform0; i < uniform1; i+= uniform2)
+    *
+    * unless uniform0, uniform1 and uniform2 can be inlined at once,
+    * can the loop be unrolled.
+    */
+   if (src_only_uses_uniforms(cond, uni_offsets, &new_num))
+      *num_offsets = new_num;
+}
+
 void
 nir_find_inlinable_uniforms(nir_shader *shader)
 {
@@ -119,7 +149,7 @@ nir_find_inlinable_uniforms(nir_shader *shader)
             switch (node->type) {
             case nir_cf_node_if: {
                const nir_src *cond = &nir_cf_node_as_if(node)->condition;
-               src_only_uses_uniforms(cond, uni_offsets, &num_offsets);
+               add_inlinable_uniforms(cond, uni_offsets, &num_offsets);
                break;
             }
 
