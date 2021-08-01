@@ -593,5 +593,11 @@ mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 
    return real_mmap(addr, length, prot, flags, fd, offset);
 }
-PUBLIC void *mmap64(void*, size_t, int, int, int, off_t)
-   __attribute__((alias("mmap")));
+
+PUBLIC void *
+mmap64(void* addr, size_t length, int prot, int flags, int fd, off64_t offset)
+{
+   assert((off_t)offset == offset);
+
+   return mmap(addr, length, prot, flags, fd, offset);
+}
