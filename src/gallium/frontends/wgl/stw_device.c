@@ -106,9 +106,10 @@ init_options()
       #include "pipe-loader/driinfo_gallium.h"
    };
 
+   const char *driver_name = stw_dev->stw_winsys->get_name ? stw_dev->stw_winsys->get_name() : NULL;
    driParseOptionInfo(&stw_dev->option_info, gallium_driconf, ARRAY_SIZE(gallium_driconf));
    driParseConfigFiles(&stw_dev->option_cache, &stw_dev->option_info, 0,
-      "", NULL, NULL, 0, NULL, 0);
+      driver_name ? driver_name : "", NULL, NULL, 0, NULL, 0);
 }
 
 boolean
