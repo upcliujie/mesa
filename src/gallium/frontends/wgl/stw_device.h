@@ -32,10 +32,10 @@
 #include "pipe/p_compiler.h"
 #include "util/u_handle_table.h"
 #include "util/u_dynarray.h"
+#include "util/xmlconfig.h"
 #include <GL/gl.h>
 #include "gldrv.h"
 #include "stw_pixelformat.h"
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -84,6 +84,9 @@ struct stw_device
    /** WGL_EXT_swap_control */
    int refresh_rate;
    int swap_interval;
+
+   driOptionCache option_cache;
+   driOptionCache option_info;
 
    bool initialized;
 };

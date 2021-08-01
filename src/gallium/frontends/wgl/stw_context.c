@@ -38,6 +38,7 @@
 #include "util/compiler.h"
 #include "util/u_memory.h"
 #include "util/u_atomic.h"
+#include "util/u_driconf.h"
 #include "frontend/api.h"
 #include "hud/hud_context.h"
 
@@ -270,6 +271,8 @@ stw_create_context_attribs(HDC hdc, INT iLayerPlane, DHGLRC hShareContext,
       assert(0);
       goto no_st_ctx;
    }
+
+   u_driconf_fill_st_options(&attribs.options, &stw_dev->option_cache);
 
    ctx->st = stw_dev->stapi->create_context(stw_dev->stapi,
          stw_dev->smapi, &attribs, &ctx_err, shareCtx ? shareCtx->st : NULL);
