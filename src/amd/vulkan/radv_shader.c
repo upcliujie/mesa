@@ -50,6 +50,14 @@
 void
 radv_get_nir_options(struct radv_physical_device *device)
 {
+   enum radeon_family family = device->rad_info.family;
+   enum chip_class chip = device->rad_info.chip_class;
+
+   bool has_dot_instrs =
+      !device->use_llvm &&
+      (family == CHIP_ARCTURUS || family == CHIP_ALDEBARAN || family == CHIP_VEGA20 ||
+       family == CHIP_NAVI12 || family == CHIP_NAVI14 || chip >= GFX10_3);
+
    device->nir_options = (nir_shader_compiler_options){
       .vertex_id_zero_based = true,
       .lower_scmp = true,
@@ -84,6 +92,8 @@ radv_get_nir_options(struct radv_physical_device *device)
       .lower_iadd_sat = chip <= GFX8,
       .has_fsub = true,
       .has_isub = true,
+      .has_dot_4x8 = has_dot_instrs,
+      .has_dot_2x16 = has_dot_instrs,
       .use_scoped_barrier = true,
       .max_unroll_iterations = 32,
       .max_unroll_iterations_aggressive = 128,
