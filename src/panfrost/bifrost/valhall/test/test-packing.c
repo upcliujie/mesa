@@ -169,5 +169,15 @@ main(int argc, const char **argv)
       CASE(I, 0x007dbc0200ead03c);
    }
 
+   {
+      bi_instr *I = bi_tex_to(b, bi_register(2), bi_register(2), bi_register(3),
+            BI_DIMENSION_2D, false, false, BI_VA_LOD_MODE_COMPUTED_LOD, 1);
+
+      /* Test with and without .skip */
+      CASE(I, 0x0128420210c22003);
+      I->skip = true;
+      CASE(I, 0x0128428210c22003);
+   }
+
    TEST_END(nr_pass, nr_fail);
 }
