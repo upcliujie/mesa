@@ -433,6 +433,7 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .KHR_shader_draw_parameters = true,
       .KHR_shader_float16_int8 = true,
       .KHR_shader_float_controls = true,
+      .KHR_shader_integer_dot_product = true,
       .KHR_shader_non_semantic_info = true,
       .KHR_shader_subgroup_extended_types = true,
       .KHR_shader_subgroup_uniform_control_flow = true,
@@ -1694,6 +1695,12 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->sparseImageFloat32AtomicMinMax = has_shader_float_minmax;
          break;
       }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR: {
+         VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR *features =
+            (VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR *)ext;
+         features->shaderIntegerDotProduct = true;
+         break;
+      }
       default:
          break;
       }
@@ -2404,6 +2411,32 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_PROPERTIES_EXT: {
          VkPhysicalDeviceMultiDrawPropertiesEXT *props = (VkPhysicalDeviceMultiDrawPropertiesEXT *)ext;
          props->maxMultiDrawCount = 2048;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_PROPERTIES_KHR: {
+         VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR *props =
+            (VkPhysicalDeviceShaderIntegerDotProductPropertiesKHR *)ext;
+
+         memset(props, 0, sizeof(*props));
+
+         enum radeon_family family = pdevice->rad_info.family;
+         enum chip_class chip = pdevice->rad_info.chip_class;
+         bool accel = !pdevice->use_llvm && (family == CHIP_ARCTURUS || family == CHIP_ALDEBARAN ||
+                                             family == CHIP_VEGA20 || family == CHIP_NAVI12 ||
+                                             family == CHIP_NAVI14 || chip >= GFX10_3);
+
+         props->integerDotProduct8BitUnsignedAccelerated = accel;
+         props->integerDotProduct8BitSignedAccelerated = accel;
+         props->integerDotProduct4x8BitPackedUnsignedAccelerated = accel;
+         props->integerDotProduct4x8BitPackedSignedAccelerated = accel;
+         props->integerDotProduct16BitUnsignedAccelerated = accel;
+         props->integerDotProduct16BitSignedAccelerated = accel;
+         props->integerDotProductAccumulatingSaturating8BitUnsignedAccelerated = accel;
+         props->integerDotProductAccumulatingSaturating8BitSignedAccelerated = accel;
+         props->integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated = accel;
+         props->integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated = accel;
+         props->integerDotProductAccumulatingSaturating16BitUnsignedAccelerated = accel;
+         props->integerDotProductAccumulatingSaturating16BitSignedAccelerated = accel;
          break;
       }
       default:
