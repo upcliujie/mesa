@@ -70,6 +70,10 @@ get_perf_config(unsigned int gpu_id)
    case 0x7212:
    case 0x7402:
       return &panfrost_perf_config_tgox;
+   case 0x9091:
+      return &panfrost_perf_config_tnax;
+   case 0x9202:
+      return &panfrost_perf_config_tbox;
    default:
       unreachable("Invalid GPU ID");
    }

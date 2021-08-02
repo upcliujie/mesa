@@ -69,6 +69,7 @@ static const struct debug_named_value panfrost_debug_options[] = {
         {"indirect",  PAN_DBG_INDIRECT, "Use experimental compute kernel for indirect draws"},
         {"linear",    PAN_DBG_LINEAR,   "Force linear textures"},
         {"nocache",   PAN_DBG_NO_CACHE, "Disable BO cache"},
+        {"valhall",   PAN_DBG_VALHALL,  "Enable broken support for Valhall GPUs"},
         DEBUG_NAMED_VALUE_END
 };
 
@@ -868,6 +869,13 @@ panfrost_create_screen(int fd, struct renderonly *ro)
         case 0x7212: /* G52 */
         case 0x7402: /* G52r1 */
                 break;
+        case 0x9091: /* G57 */
+        case 0x9202: /* G78 */
+                /* Valhall support is badly broken, only probe when debugging */
+                if (dev->debug & PAN_DBG_VALHALL)
+                        break;
+
+                FALLTHROUGH;
         default:
                 /* Fail to load against untested models */
                 debug_printf("panfrost: Unsupported model %X", dev->gpu_id);
