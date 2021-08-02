@@ -322,6 +322,20 @@ va_pack_store(const bi_instr *I)
    return hex;
 }
 
+static unsigned
+va_pack_lod_mode(enum bi_va_lod_mode mode)
+{
+   switch (mode) {
+   case BI_VA_LOD_MODE_ZERO_LOD: return 0;
+   case BI_VA_LOD_MODE_COMPUTED_LOD: return 1;
+   case BI_VA_LOD_MODE_EXPLICIT: return 4;
+   case BI_VA_LOD_MODE_COMPUTED_BIAS: return 5;
+   case BI_VA_LOD_MODE_GRDESC: return 6;
+   }
+
+   unreachable("Invalid LOD mode");
+}
+
 uint64_t
 va_pack_instr(const bi_instr *I, unsigned action)
 {
@@ -354,6 +368,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_STORE_I96:
    case BI_OPCODE_STORE_I128:
    case BI_OPCODE_BLEND:
+   case BI_OPCODE_TEX_SINGLE:
       hex |= ((uint64_t) bi_count_read_registers(I, 0) << 33);
       break;
    default:
@@ -437,6 +452,36 @@ va_pack_instr(const bi_instr *I, unsigned action)
       break;
    }
 
+   case BI_OPCODE_TEX_SINGLE:
+   {
+      /* Image to read from */
+      hex |= ((uint64_t) va_pack_src(I->src[1])) << 0;
+
+      if (I->explicit_offset) hex |= (1ull << 11);
+      if (I->shadow) hex |= (1ull << 12);
+      if (I->skip) hex |= (1ull << 39);
+
+      /* LOD mode */
+      assert(I->va_lod_mode < 8);
+      hex |= ((uint64_t) va_pack_lod_mode(I->va_lod_mode)) << 13;
+
+      /* Staging register #1 - output */
+      hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
+      hex |= (0xC0ull << 16); // flags
+
+      /* Dimension */
+      hex |= ((uint64_t) I->dimension) << 28;
+
+      /* Slot */
+      hex |= (0ull << 30);
+
+      /* Staging register #0 - inputs */
+      hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
+      hex |= (0x40ull << 40); // flags
+
+      break;
+   }
+
    case BI_OPCODE_ATEST:
    {
       /* Staging register - updated coverage mask */
@@ -493,10 +538,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
 
    case BI_OPCODE_LEA_ATTR_TEX:
    case BI_OPCODE_ST_CVT:
-   case BI_OPCODE_VAR_TEX_F32:
-   case BI_OPCODE_VAR_TEX_F16:
    case BI_OPCODE_ZS_EMIT:
-   case BI_OPCODE_CUBEFACE:
       /* TODO: Pack thse ops. For now, nop them out */
       hex |= (0xc0ull << 40);
       break;

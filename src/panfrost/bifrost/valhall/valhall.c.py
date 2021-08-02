@@ -75,7 +75,6 @@ SKIP = set([
         "TODO.ATOM_C",
         "TODO.ATOM_CX",
         "TEX_FETCH",
-        "TEX",
         "TODO.VAR_TEX",
         "BRANCHZI",
         "ST_IMAGE",
@@ -109,6 +108,8 @@ valhall_opcodes[BI_NUM_OPCODES] = {
     name = op.name
     if name == 'BRANCHZ':
         name = 'BRANCHZ.i16'
+    elif name == 'CUBEFACE2':
+        name = 'CUBEFACE2_V9'
 %>
     [BI_OPCODE_${name.replace('.', '_').upper()}] = {
         .exact = ${hex(exact(op))}ULL,
