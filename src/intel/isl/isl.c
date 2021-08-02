@@ -2977,6 +2977,7 @@ isl_surf_get_uncompressed_surf(const struct isl_device *dev,
       if (ISL_GFX_VER(dev) < 9)
          return false;
 
+      *offset_B = 0;
       *x_offset_el = 0;
       *y_offset_el = 0;
 
