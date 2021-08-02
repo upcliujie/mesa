@@ -863,6 +863,7 @@ panfrost_create_screen(int fd, struct renderonly *ro)
         case 0x7093: /* G31 */
         case 0x7212: /* G52 */
         case 0x7402: /* G52r1 */
+        case 0x9202: /* G78 */
                 break;
         default:
                 /* Fail to load against untested models */
@@ -907,6 +908,8 @@ panfrost_create_screen(int fd, struct renderonly *ro)
         else if (dev->arch == 6)
                 panfrost_cmdstream_screen_init_v6(screen);
         else if (dev->arch == 7)
+                panfrost_cmdstream_screen_init_v7(screen);
+        else if (dev->arch == 9)
                 panfrost_cmdstream_screen_init_v7(screen);
         else
                 unreachable("Unhandled architecture major");
