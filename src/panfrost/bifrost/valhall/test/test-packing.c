@@ -179,5 +179,12 @@ main(int argc, const char **argv)
       CASE(I, 0x0128428210c22003);
    }
 
+   {
+      bi_instr *I = bi_tex_to(b, bi_register(0), bi_register(2), zero,
+            BI_DIMENSION_2D, false, false, BI_VA_LOD_MODE_EXPLICIT, 3);
+
+      CASE(I, 0x0128420610c080c0);
+   }
+
    TEST_END(nr_pass, nr_fail);
 }
