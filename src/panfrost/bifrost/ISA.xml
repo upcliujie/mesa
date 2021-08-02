@@ -8354,4 +8354,28 @@
     </mod>
   </ins>
 
+  <ins name="+TEX" staging="rw=sr_count" message="tex" pseudo="true">
+    <src start="0"/>
+    <immediate name="sr_count" size="4" pseudo="true"/>
+    <mod name="explicit_offset" start="9" size="1" opt="skip"/>
+    <mod name="skip" start="9" size="1" opt="skip"/>
+    <mod name="shadow" start="9" size="1" opt="shadow"/>
+    <mod name="dimension" start="9" size="2">
+      <opt>1d</opt>
+      <opt>2d</opt>
+      <opt>3d</opt>
+      <opt>cube</opt>
+    </mod>
+    <mod name="va_lod_mode" start="13" size="3" default="zero_lod">
+      <opt>zero_lod</opt>
+      <opt>computed_lod</opt>
+      <reserved/>
+      <reserved/>
+      <opt>explicit</opt>
+      <opt>compued_bias</opt>
+      <opt>grdesc</opt>
+      <reserved/>
+    </mod>
+  </ins>
+
 </bifrost>
