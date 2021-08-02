@@ -215,10 +215,11 @@ traces:
 #    expectations:
 #      - device: gl-virgl
 #        checksum: 9571117bf4eab6fe29b12f6c3d42d865
-  - path: neverball/neverball.trace
-    expectations:
-      - device: gl-virgl
-        checksum: 452267404823d8bfd2442a18e50f8f63
+# https://gitlab.freedesktop.org/virgl/virglrenderer/-/issues/239
+#  - path: neverball/neverball.trace
+#    expectations:
+#      - device: gl-virgl
+#        checksum: 452267404823d8bfd2442a18e50f8f63
 # Crash
 #  - path: pathfinder/canvas_moire.trace
 #    expectations:
