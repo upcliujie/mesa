@@ -7588,6 +7588,7 @@ iris_rebind_buffer(struct iris_context *ice,
 static void
 batch_mark_sync_for_pipe_control(struct iris_batch *batch)
 {
+   const struct intel_device_info *devinfo = &batch->screen->devinfo;
    const struct brw_compiler *compiler = batch->screen->compiler;
    unsigned indirect_ubo_flag = compiler->indirect_ubos_use_sampler ?
       PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE : PIPE_CONTROL_DATA_CACHE_FLUSH;
@@ -7603,8 +7604,24 @@ batch_mark_sync_for_pipe_control(struct iris_batch *batch)
       if ((flags & PIPE_CONTROL_DEPTH_CACHE_FLUSH))
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_DEPTH_WRITE);
 
-      if ((flags & PIPE_CONTROL_DATA_CACHE_FLUSH))
+      if ((flags & PIPE_CONTROL_TILE_CACHE_FLUSH)) {
+         /* A tile cache flush makes any C/Z data in L3 visible to memory. */
+         const unsigned c = IRIS_DOMAIN_RENDER_WRITE;
+         const unsigned z = IRIS_DOMAIN_DEPTH_WRITE;
+         batch->coherent_seqnos[c][c] = batch->l3_coherent_seqnos[c];
+         batch->coherent_seqnos[z][z] = batch->l3_coherent_seqnos[z];
+      }
+
+      if (flags & (PIPE_CONTROL_FLUSH_HDC | PIPE_CONTROL_DATA_CACHE_FLUSH)) {
+         /* HDC and DC flushes both flush the data cache out to L3 */
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_DATA_WRITE);
+      }
+
+      if ((flags & PIPE_CONTROL_DATA_CACHE_FLUSH)) {
+         /* A DC flush also flushes L3 data cache lines out to memory. */
+         const unsigned i = IRIS_DOMAIN_DATA_WRITE;
+         batch->coherent_seqnos[i][i] = batch->l3_coherent_seqnos[i];
+      }
 
       if ((flags & PIPE_CONTROL_FLUSH_ENABLE))
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_OTHER_WRITE);
@@ -7616,6 +7633,16 @@ batch_mark_sync_for_pipe_control(struct iris_batch *batch)
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_SAMPLER_READ);
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_OTHER_READ);
       }
+   }
+
+   if (iris_domain_is_l3_coherent(devinfo, IRIS_DOMAIN_VF_READ) &&
+       (flags & PIPE_CONTROL_VF_CACHE_INVALIDATE)) {
+      /* This is actually due to the "L3 Read Only Cache Invalidate"
+       * bit, but we always set that when doing a VF cache invalidate
+       * for now.
+       */
+      const unsigned i = IRIS_DOMAIN_VF_READ;
+      batch->l3_coherent_seqnos[i] = batch->coherent_seqnos[i][i];
    }
 
    if ((flags & PIPE_CONTROL_RENDER_TARGET_FLUSH))
