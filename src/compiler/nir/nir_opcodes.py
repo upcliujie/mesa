@@ -1244,7 +1244,9 @@ triop("umad24_relaxed", tuint32, _2src_commutative, "src0 * src1 + src2")
 binop("umul24_relaxed", tuint32, _2src_commutative + associative, "src0 * src1")
 
 unop_convert("fisnormal", tbool1, tfloat, "isnormal(src0)")
+unop_convert("fisnormal32", tbool32, tfloat, "isnormal(src0)")
 unop_convert("fisfinite", tbool1, tfloat, "isfinite(src0)")
+unop_convert("fisfinite32", tint32, tfloat, "isfinite(src0)")
 
 # vc4-specific opcodes
 

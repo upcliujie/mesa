@@ -103,6 +103,9 @@ lower_alu_instr(nir_alu_instr *alu)
 
    case nir_op_bcsel: alu->op = nir_op_b32csel; break;
 
+   case nir_op_fisfinite: alu->op = nir_op_fisfinite32; break;
+   case nir_op_fisnormal: alu->op = nir_op_fisnormal32; break;
+
    default:
       assert(alu->dest.dest.ssa.bit_size > 1);
       for (unsigned i = 0; i < op_info->num_inputs; i++)
