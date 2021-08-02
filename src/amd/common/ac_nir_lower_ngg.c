@@ -540,6 +540,7 @@ static void
 compact_vertices_after_culling(nir_builder *b,
                                lower_ngg_nogs_state *nogs_state,
                                nir_variable **repacked_arg_vars,
+                               nir_variable **gs_vtxidx_vars,
                                nir_variable **gs_vtxaddr_vars,
                                nir_ssa_def *invocation_index,
                                nir_ssa_def *es_vertex_lds_addr,
@@ -553,7 +554,6 @@ compact_vertices_after_culling(nir_builder *b,
    nir_variable *es_accepted_var = nogs_state->es_accepted_var;
    nir_variable *gs_accepted_var = nogs_state->gs_accepted_var;
    nir_variable *position_value_var = nogs_state->position_value_var;
-   nir_variable *prim_exp_arg_var = nogs_state->prim_exp_arg_var;
 
    nir_if *if_es_accepted = nir_push_if(b, nir_load_var(b, es_accepted_var));
    {
@@ -598,22 +598,16 @@ compact_vertices_after_culling(nir_builder *b,
 
    nir_if *if_gs_accepted = nir_push_if(b, nir_load_var(b, gs_accepted_var));
    {
-      nir_ssa_def *exporter_vtx_indices[3] = {0};
-
       /* Load the index of the ES threads that will export the current GS thread's vertices */
       for (unsigned v = 0; v < 3; ++v) {
          nir_ssa_def *vtx_addr = nir_load_var(b, gs_vtxaddr_vars[v]);
          nir_ssa_def *exporter_vtx_idx = nir_build_load_shared(b, 1, 8, vtx_addr, .base = lds_es_exporter_tid, .align_mul = 1u);
-         exporter_vtx_indices[v] = nir_u2u32(b, exporter_vtx_idx);
+         nir_store_var(b, gs_vtxidx_vars[v], nir_u2u32(b, exporter_vtx_idx), 0x1u);
       }
-
-      nir_ssa_def *prim_exp_arg = emit_pack_ngg_prim_exp_arg(b, 3, exporter_vtx_indices, NULL);
-      nir_store_var(b, prim_exp_arg_var, prim_exp_arg, 0x1u);
    }
    nir_pop_if(b, if_gs_accepted);
 
    nir_store_var(b, es_accepted_var, es_survived, 0x1u);
-   nir_store_var(b, gs_accepted_var, nir_bcsel(b, fully_culled, nir_imm_false(b), nir_build_has_input_primitive_amd(b)), 0x1u);
 }
 
 static void
@@ -873,6 +867,12 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
    nir_variable *prim_exp_arg_var = nogs_state->prim_exp_arg_var;
    nir_variable *gs_accepted_var = nogs_state->gs_accepted_var;
    nir_variable *es_accepted_var = nogs_state->es_accepted_var;
+   nir_variable *gs_nullprim_var = nir_local_variable_create(impl, glsl_uint_type(), "gs_nullprim");
+   nir_variable *gs_vtxidx_vars[3] = {
+      nir_local_variable_create(impl, glsl_uint_type(), "gs_vtx0_idx"),
+      nir_local_variable_create(impl, glsl_uint_type(), "gs_vtx1_idx"),
+      nir_local_variable_create(impl, glsl_uint_type(), "gs_vtx2_idx"),
+   };
    nir_variable *gs_vtxaddr_vars[3] = {
       nir_local_variable_create(impl, glsl_uint_type(), "gs_vtx0_addr"),
       nir_local_variable_create(impl, glsl_uint_type(), "gs_vtx1_addr"),
@@ -928,11 +928,18 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
 
    nir_store_var(b, es_accepted_var, es_thread, 0x1u);
    nir_store_var(b, gs_accepted_var, nir_build_has_input_primitive_amd(b), 0x1u);
+   nir_store_var(b, gs_nullprim_var, nir_imm_int(b, 0), 0x1u);
 
    /* Remove all non-position outputs, and put the position output into the variable. */
    nir_metadata_preserve(impl, nir_metadata_none);
    remove_culling_shader_outputs(b->shader, nogs_state, position_value_var);
    b->cursor = nir_after_cf_list(&impl->body);
+
+   /* Load GS vertex indices from input VGPRs */
+   for (unsigned vtx = 0; vtx < 3; ++vtx) {
+      nir_ssa_def *vtx_idx = ngg_input_primitive_vertex_index(b, vtx);
+      nir_store_var(b, gs_vtxidx_vars[vtx], vtx_idx, 0x1u);
+   }
 
    /* Run culling algorithms if culling is enabled.
     *
@@ -966,22 +973,21 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
                             .memory_semantics=NIR_MEMORY_ACQ_REL, .memory_modes=nir_var_mem_shared);
 
       nir_store_var(b, gs_accepted_var, nir_imm_bool(b, false), 0x1u);
-      nir_store_var(b, prim_exp_arg_var, nir_imm_int(b, 1 << 31), 0x1u);
 
       /* GS invocations load the vertex data and perform the culling. */
       nir_if *if_gs_thread = nir_push_if(b, nir_build_has_input_primitive_amd(b));
       {
-         /* Load vertex indices from input VGPRs */
-         nir_ssa_def *vtx_idx[3] = {0};
+         /* Load vertex indices from variables */
+         nir_ssa_def *gs_vtx_idx[3] = {0};
          for (unsigned vertex = 0; vertex < 3; ++vertex)
-            vtx_idx[vertex] = ngg_input_primitive_vertex_index(b, vertex);
+            gs_vtx_idx[vertex] = nir_load_var(b, gs_vtxidx_vars[vertex]);
 
          nir_ssa_def *vtx_addr[3] = {0};
          nir_ssa_def *pos[3][4] = {0};
 
          /* Load W positions of vertices first because the culling code will use these first */
          for (unsigned vtx = 0; vtx < 3; ++vtx) {
-            vtx_addr[vtx] = pervertex_lds_addr(b, vtx_idx[vtx], pervertex_lds_bytes);
+            vtx_addr[vtx] = pervertex_lds_addr(b, gs_vtx_idx[vtx], pervertex_lds_bytes);
             pos[vtx][3] = nir_build_load_shared(b, 1, 32, vtx_addr[vtx], .align_mul = 4u, .base = lds_es_pos_w);
             nir_store_var(b, gs_vtxaddr_vars[vtx], vtx_addr[vtx], 0x1u);
          }
@@ -1043,10 +1049,14 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
 
       /* Vertex compaction. */
       compact_vertices_after_culling(b, nogs_state,
-                                     repacked_arg_vars, gs_vtxaddr_vars,
+                                     repacked_arg_vars, gs_vtxidx_vars, gs_vtxaddr_vars,
                                      invocation_index, es_vertex_lds_addr,
                                      es_exporter_tid, num_live_vertices_in_workgroup, fully_culled,
                                      ngg_scratch_lds_base_addr, pervertex_lds_bytes, max_exported_args);
+
+      nir_ssa_def *gs_nullprim = nir_bcsel(b, nir_load_var(b, gs_accepted_var), nir_imm_int(b, 0), nir_imm_int(b, 1));
+      nir_store_var(b, gs_nullprim_var, gs_nullprim, 0x1u);
+      nir_store_var(b, gs_accepted_var, nir_bcsel(b, fully_culled, nir_imm_false(b), nir_build_has_input_primitive_amd(b)), 0x1u);
    }
    nir_push_else(b, if_cull_en);
    {
@@ -1058,9 +1068,17 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
          nir_build_alloc_vertices_and_primitives_amd(b, vtx_cnt, prim_cnt);
       }
       nir_pop_if(b, if_wave_0);
-      nir_store_var(b, prim_exp_arg_var, emit_ngg_nogs_prim_exp_arg(b, nogs_state), 0x1u);
    }
    nir_pop_if(b, if_cull_en);
+
+   /* Create packed primitive export argument */
+   nir_ssa_def *gs_nullprim = nir_load_var(b, gs_nullprim_var);
+   nir_ssa_def *gs_vtx_idx[3] = {0};
+   for (unsigned vertex = 0; vertex < 3; ++vertex)
+      gs_vtx_idx[vertex] = nir_load_var(b, gs_vtxidx_vars[vertex]);
+
+   nir_ssa_def *prim_exp_arg = emit_pack_ngg_prim_exp_arg(b, 3, gs_vtx_idx, gs_nullprim);
+   nir_store_var(b, prim_exp_arg_var, prim_exp_arg, 0x1u);
 
    /* Update shader arguments.
     *
