@@ -458,10 +458,16 @@ typedef struct {
                         enum bi_varying_name varying_name; /* LD_VAR_SPECIAL */
                         bool skip; /* VAR_TEX, TEXS, TEXC */
                         bool lod_mode; /* VAR_TEX, TEXS, implicitly for TEXC */
+
+                        /* Used for valhall texturing */
+                        bool shadow;
+                        bool explicit_offset;
+                        enum bi_va_lod_mode va_lod_mode;
+                        enum bi_dimension dimension;
                 };
 
                 /* Maximum size, for hashing */
-                unsigned flags[5];
+                unsigned flags[9];
 
                 struct {
                         enum bi_subgroup subgroup; /* WMASK, CLPER */
