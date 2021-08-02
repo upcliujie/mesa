@@ -101,7 +101,7 @@ bi_count_write_registers(const bi_instr *ins, unsigned d)
         if (d == 0 && bi_opcode_props[ins->op].sr_write) {
                 /* TODO: this special case is even more special, TEXC has a
                  * generic write mask stuffed in the desc... */
-                if (ins->op == BI_OPCODE_TEXC)
+                if (ins->op == BI_OPCODE_TEXC || ins->op == BI_OPCODE_TEX)
                         return 4;
                 else
                         return bi_count_staging_registers(ins);
