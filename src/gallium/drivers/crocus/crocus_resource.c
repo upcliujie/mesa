@@ -1541,13 +1541,19 @@ crocus_map_direct(struct crocus_transfer *map)
          isl_format_get_layout(surf->format);
       const unsigned cpp = fmtl->bpb / 8;
       unsigned x0_el, y0_el;
+      uint32_t x = box->x;
+      uint32_t y = box->y;
 
+      x /= util_format_get_blockwidth(res->base.b.format);
+      y /= util_format_get_blockheight(res->base.b.format);
       get_image_offset_el(surf, xfer->level, box->z, &x0_el, &y0_el);
 
+      x += x0_el;
+      y += y0_el;
       xfer->stride = isl_surf_get_row_pitch_B(surf);
       xfer->layer_stride = isl_surf_get_array_pitch(surf);
 
-      map->ptr = ptr + (y0_el + box->y) * xfer->stride + (x0_el + box->x) * cpp;
+      map->ptr = ptr + y * xfer->stride + x * cpp;
    }
 }
 
