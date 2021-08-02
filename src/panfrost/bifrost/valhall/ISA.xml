@@ -1121,7 +1121,7 @@
       The logarithm instruction (`FLOGD.f32`) requires an argument reduction. See the
       transcendentals section for more information.
     </desc>
-    <src float="true" swizzle="true"/>
+    <src float="true" swizzle="true" absneg="true"/>
   </group>
 
   <group name="SFU" title="Special function unit" dests="1" opcode="0x9C">
