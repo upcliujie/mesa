@@ -65,4 +65,13 @@ va_select_fau_mode(const bi_instr *I)
    return VA_MODE_DEFAULT;
 }
 
+/** Cycle model for Valhall. Results need to be normalized */
+struct va_stats {
+   /** Counts per pipe */
+   unsigned fma, cvt, sfu, v, ls, t;
+};
+
+void
+va_count_instr_stats(bi_instr *I, struct va_stats *stats);
+
 #endif
