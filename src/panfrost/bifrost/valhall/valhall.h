@@ -49,6 +49,32 @@ enum va_size {
    VA_SIZE_64 = 3,
 };
 
+enum va_unit {
+   /** Fused floating-point multiply-add */
+   VA_UNIT_FMA = 0,
+
+   /** Type conversion and basic arithmetic */
+   VA_UNIT_CVT = 1,
+
+   /** Special function unit */
+   VA_UNIT_SFU = 2,
+
+   /** Varying */
+   VA_UNIT_V = 3,
+
+   /** General load/store */
+   VA_UNIT_LS = 4,
+
+   /** Texture */
+   VA_UNIT_T = 5,
+
+   /** Fused varying and texture */
+   VA_UNIT_VT = 6,
+
+   /** Produces a message for a unit not otherwise specified */
+   VA_UNIT_NONE = 7
+};
+
 struct va_src_info {
    bool absneg : 1;
    bool swizzle : 1;
@@ -63,6 +89,7 @@ struct va_opcode_info {
     uint64_t exact;
     struct va_src_info srcs[4];
     uint8_t type_size : 8;
+    enum va_unit unit : 3;
     unsigned nr_srcs : 3;
     unsigned nr_staging_srcs : 2;
     unsigned nr_staging_dests : 2;
