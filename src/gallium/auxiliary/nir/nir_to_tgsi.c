@@ -2038,7 +2038,17 @@ ntt_push_tex_arg(struct ntt_compile *c,
    if (tex_src < 0)
       return;
 
-   s->srcs[s->i++] = ntt_get_src(c, instr->src[tex_src].src);
+   struct ureg_src src = ntt_get_src(c, instr->src[tex_src].src);
+   if (src.File == TGSI_FILE_IMMEDIATE && instr->op != nir_texop_tex) {
+      /* virgl overflows buffers when loading bias/lod/txf/etc. tex coords from
+       * immediates.
+       * https://gitlab.freedesktop.org/virgl/virglrenderer/-/issues/235
+       */
+      struct ureg_dst temp = ureg_DECL_temporary(c->ureg);
+      ureg_MOV(c->ureg, temp, src);
+      src = ureg_src(temp);
+   }
+   s->srcs[s->i++] = src;
 }
 
 static void
