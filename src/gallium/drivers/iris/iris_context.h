@@ -174,6 +174,13 @@ enum {
 #define IRIS_ALL_STAGE_DIRTY_BINDINGS (IRIS_ALL_STAGE_DIRTY_BINDINGS_FOR_RENDER | \
                                        IRIS_STAGE_DIRTY_BINDINGS_CS)
 
+#define IRIS_ALL_STAGE_DIRTY_CONSTANTS_FOR_RENDER (IRIS_STAGE_DIRTY_BINDINGS_VS  | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_TCS | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_TES | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_GS  | \
+                                                   IRIS_STAGE_DIRTY_BINDINGS_FS)
+
+
 /**
  * Non-orthogonal state (NOS) dependency flags.
  *
@@ -1054,7 +1061,14 @@ void gfx9_toggle_preemption(struct iris_context *ice,
                             struct iris_batch *batch,
                             const struct pipe_draw_info *draw);
 
+static inline void iris_update_surface_base_address(struct iris_batch *batch,
+						    struct iris_binder *binder)
+{
+   if (batch->last_surface_base_address == binder->bo->gtt_offset)
+      return;
 
+   batch->screen->vtbl.update_surface_base_address(batch, binder);
+}
 
 #ifdef genX
 #  include "iris_genx_protos.h"
