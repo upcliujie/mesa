@@ -279,10 +279,12 @@ copy_subregion_no_barriers(struct d3d12_context *ctx,
    int src_array_size = src->base.array_size;
    int dst_array_size = dst->base.array_size;
 
-   if (dst->base.target == PIPE_TEXTURE_CUBE)
+   if (dst->base.target == PIPE_TEXTURE_CUBE ||
+       dst->base.target == PIPE_TEXTURE_CUBE_ARRAY)
       dst_array_size *= 6;
 
-   if (src->base.target == PIPE_TEXTURE_CUBE)
+   if (src->base.target == PIPE_TEXTURE_CUBE ||
+       src->base.target == PIPE_TEXTURE_CUBE_ARRAY)
       src_array_size *= 6;
 
    int stencil_src_res_offset = 1;
