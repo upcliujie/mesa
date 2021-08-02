@@ -8391,12 +8391,10 @@
 
   <ins name="+TEX_SINGLE" staging="rw=sr_count" message="tex" pseudo="true">
     <src start="0"/>
-    <src start="1"/>
     <immediate name="sr_count" size="4" pseudo="true"/>
-    <mod name="texel_offset" start="9" size="1" opt="texel_offset"/>
+    <mod name="explicit_offset" start="9" size="1" opt="skip"/>
     <mod name="skip" start="9" size="1" opt="skip"/>
     <mod name="shadow" start="9" size="1" opt="shadow"/>
-    <mod name="array_enable" start="9" size="1" opt="array_enable"/>
     <mod name="dimension" start="9" size="2">
       <opt>1d</opt>
       <opt>2d</opt>

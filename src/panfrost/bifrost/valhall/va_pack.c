@@ -406,6 +406,7 @@ va_pack_lod_mode(enum bi_va_lod_mode mode)
    unreachable("Invalid LOD mode");
 }
 
+<<<<<<< HEAD
 static unsigned
 va_pack_register_type(enum bi_register_format regfmt)
 {
@@ -470,6 +471,8 @@ va_pack_typed_load(const bi_instr *I)
    return hex;
 }
 
+=======
+>>>>>>> dbaff101c6a ([HACK] pan/bi: Extend IR for Valhall texturing)
 uint64_t
 va_pack_instr(const bi_instr *I, unsigned action)
 {
@@ -642,14 +645,9 @@ va_pack_instr(const bi_instr *I, unsigned action)
       assert(I->va_lod_mode < 8);
       hex |= ((uint64_t) va_pack_lod_mode(I->va_lod_mode)) << 13;
 
-      /* Staging register write */
+      /* Staging register #1 - output */
       hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
-
-      /* Write mask */
-      hex |= (0xF << 22);
-
-      /* Register type */
-      hex |= ((uint64_t) va_pack_register_type(I->register_format)) << 26;
+      hex |= (0xC0ull << 16); // flags
 
       /* Dimension */
       hex |= ((uint64_t) I->dimension) << 28;
