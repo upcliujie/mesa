@@ -30,6 +30,8 @@
 #include "c99_compat.h"
 #include "c11_compat.h"
 
+#include <stdint.h>
+
 /* Compute the size of an array */
 #ifndef ARRAY_SIZE
 #  define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -391,6 +393,38 @@ do {                       \
 /** Set count bits starting from bit b  */
 #define BITFIELD64_RANGE(b, count) \
    (BITFIELD64_MASK((b) + (count)) & ~BITFIELD64_MASK(b))
+
+static inline int64_t
+u_intmin(unsigned bit_size)
+{
+   /* The ISO/IEC 9899:201x draft standard dated November 16, 2010 page 95
+    * (page 113 of n1539.pdf) says:
+    *
+    *    The result of E1 >> E2 is E1 right-shifted E2 bit positions. If E1
+    *    has an unsigned type or if E1 has a signed type and a nonnegative
+    *    value, the value of the result is the integral part of the quotient
+    *    of E1 / 2^E2 . If E1 has a signed type and a negative value, the
+    *    resulting value is implementation-defined.
+    *
+    * Avoid the implementation-defined behavior by just doing the division.
+    */
+   assert(bit_size <= 64 && bit_size > 0);
+   return INT64_MAX / (INT64_C(1) << (64 - bit_size));
+}
+
+static inline int64_t
+u_intmax(unsigned bit_size)
+{
+   assert(bit_size <= 64 && bit_size > 0);
+   return INT64_MAX >> (64 - bit_size);
+}
+
+static inline uint64_t
+u_uintmax(unsigned bit_size)
+{
+   assert(bit_size <= 64 && bit_size > 0);
+   return UINT64_MAX >> (64 - bit_size);
+}
 
 /* TODO: In future we should try to move this to u_debug.h once header
  * dependencies are reorganised to allow this.
