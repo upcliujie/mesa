@@ -413,6 +413,19 @@ va_pack_instr(const bi_instr *I, unsigned action)
       break;
    }
 
+   case BI_OPCODE_LD_VAR:
+   case BI_OPCODE_LD_VAR_IMM:
+   case BI_OPCODE_LD_VAR_SPECIAL:
+   case BI_OPCODE_LEA_ATTR_IMM:
+   case BI_OPCODE_ST_CVT:
+   case BI_OPCODE_VAR_TEX_F32:
+   case BI_OPCODE_VAR_TEX_F16:
+   case BI_OPCODE_ZS_EMIT:
+   case BI_OPCODE_CUBEFACE:
+      /* TODO: Pack thse ops. For now, nop them out */
+      hex |= (0xc0ull << 40);
+      break;
+
    default:
       if (!info.exact && I->op != BI_OPCODE_NOP) {
          bi_print_instr(I, stdout);
