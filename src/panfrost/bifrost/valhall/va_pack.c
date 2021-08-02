@@ -342,6 +342,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LOAD_I96:
    case BI_OPCODE_LOAD_I128:
    case BI_OPCODE_ATEST:
+   case BI_OPCODE_LD_VAR_SPECIAL:
       hex |= ((uint64_t) bi_count_write_registers(I, 0) << 33);
       break;
    case BI_OPCODE_STORE_I8:
@@ -445,6 +446,60 @@ va_pack_instr(const bi_instr *I, unsigned action)
       hex |= va_pack_alu(I);
       break;
    }
+
+   case BI_OPCODE_LD_VAR_IMM_F16:
+   case BI_OPCODE_LD_VAR_IMM_F32:
+   {
+      hex |= va_pack_alu(I);
+
+      /* Staging register - destination */
+      hex |= (uint64_t) va_pack_reg(I->dest[0]) << 40;
+      hex |= (0x80ull << 40);
+
+      hex |= va_pack_varying_format(I) << 24;
+      hex |= ((uint64_t) I->vecsize << 28);
+
+      hex |= ((uint64_t) I->index) << 16;
+      hex |= ((uint64_t) I->update) << 36;
+      hex |= ((uint64_t) I->sample) << 38;
+      break;
+   }
+
+   case BI_OPCODE_LD_VAR_SPECIAL:
+   {
+      hex |= va_pack_alu(I);
+
+      /* Staging register - destination */
+      hex |= (uint64_t) va_pack_reg(I->dest[0]) << 40;
+      hex |= (0x80ull << 40);
+
+      hex |= va_pack_varying_format(I) << 24;
+      hex |= ((uint64_t) I->vecsize << 28);
+
+      hex |= ((uint64_t) I->varying_name) << 12; /* instead of index */
+      hex |= ((uint64_t) I->update) << 36;
+      hex |= ((uint64_t) I->sample) << 38;
+      break;
+   }
+
+   case BI_OPCODE_LD_ATTR_IMM:
+   {
+      hex |= va_pack_typed_load(I);
+
+      hex |= ((uint64_t) I->table) << 16;
+      hex |= ((uint64_t) I->attribute_index) << 20;
+      break;
+   }
+
+   case BI_OPCODE_LEA_ATTR_TEX:
+   case BI_OPCODE_ST_CVT:
+   case BI_OPCODE_VAR_TEX_F32:
+   case BI_OPCODE_VAR_TEX_F16:
+   case BI_OPCODE_ZS_EMIT:
+   case BI_OPCODE_CUBEFACE:
+      /* TODO: Pack thse ops. For now, nop them out */
+      hex |= (0xc0ull << 40);
+      break;
 
    default:
       if (!info.exact && I->op != BI_OPCODE_NOP) {
