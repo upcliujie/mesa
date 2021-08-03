@@ -2193,6 +2193,45 @@ cp_indirect(uint32_t *dwords, uint32_t sizedwords, int level)
 }
 
 static void
+cp_start_bin(uint32_t *dwords, uint32_t sizedwords, int level)
+{
+   uint64_t ibaddr;
+   uint32_t ibsize;
+   uint32_t loopcount;
+   uint32_t *ptr = NULL;
+
+   loopcount = dwords[0];
+   ibaddr = dwords[1];
+   ibaddr |= ((uint64_t)dwords[2]) << 32;
+   ibsize = dwords[3];
+
+   /* map gpuaddr back to hostptr: */
+   ptr = hostptr(ibaddr);
+
+   if (ptr) {
+      /* If the GPU hung within the target IB, the trigger point will be
+       * just after the current CP_START_BIN.  Because the IB is
+       * executed but never returns.  Account for this by checking if
+       * the IB returned:
+       */
+      highlight_gpuaddr(gpuaddr(&dwords[5]));
+
+      ib++;
+      for (uint32_t i = 0; i < loopcount; i++) {
+         ibs[ib].base = ibaddr;
+         ibs[ib].size = ibsize;
+         printf("%sbin %u\n", levels[level], i);
+         dump_commands(ptr, ibsize, level);
+         ibaddr += ibsize;
+         ptr += ibsize;
+      }
+      ib--;
+   } else {
+      fprintf(stderr, "could not find: %016" PRIx64 " (%d)\n", ibaddr, ibsize);
+   }
+}
+
+static void
 cp_wfi(uint32_t *dwords, uint32_t sizedwords, int level)
 {
    needs_wfi = false;
@@ -2649,6 +2688,8 @@ static const struct type3_op {
    CP(REG_WRITE, cp_reg_write),
 
    CP(SET_CTXSWITCH_IB, cp_set_ctxswitch_ib),
+
+   CP(START_BIN, cp_start_bin),
 };
 
 static void
