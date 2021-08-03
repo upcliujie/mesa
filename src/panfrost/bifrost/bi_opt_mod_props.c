@@ -222,6 +222,7 @@ bi_is_var_tex(bi_instr *var, bi_instr *tex)
 static bool
 bi_optimizer_var_tex(bi_context *ctx, bi_instr *var, bi_instr *tex)
 {
+        if (ctx->arch >= 9) return false;
         if (!bi_is_var_tex(var, tex)) return false;
 
         /* Construct the corresponding VAR_TEX intruction */
