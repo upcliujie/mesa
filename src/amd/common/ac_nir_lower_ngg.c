@@ -1086,6 +1086,9 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       nir_store_var(b, gs_vtxidx_vars[vtx], vtx_idx, 0x1u);
    }
 
+   nir_ssa_def *num_wg_in_vtx = nir_build_load_workgroup_num_input_vertices_amd(b);
+   nir_ssa_def *num_wg_in_prm = nir_build_load_workgroup_num_input_primitives_amd(b);
+
    /* Run culling algorithms if culling is enabled.
     *
     * NGG culling can be enabled or disabled in runtime.
@@ -1181,9 +1184,8 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       nir_ssa_def *es_exporter_tid = rep.repacked_invocation_index;
 
       /* If all vertices are culled, set primitive count to 0 as well. */
-      nir_ssa_def *num_exported_prims = nir_build_load_workgroup_num_input_primitives_amd(b);
       nir_ssa_def *fully_culled = nir_ieq_imm(b, num_live_vertices_in_workgroup, 0u);
-      num_exported_prims = nir_bcsel(b, fully_culled, nir_imm_int(b, 0u), num_exported_prims);
+      nir_ssa_def *num_exported_prims = nir_bcsel(b, fully_culled, nir_imm_int(b, 0u), num_wg_in_prm);
 
       nir_if *if_wave_0 = nir_push_if(b, nir_ieq(b, nir_build_load_subgroup_id(b), nir_imm_int(b, 0)));
       {
@@ -1208,9 +1210,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       /* When culling is disabled, we do the same as we would without culling. */
       nir_if *if_wave_0 = nir_push_if(b, nir_ieq(b, nir_build_load_subgroup_id(b), nir_imm_int(b, 0)));
       {
-         nir_ssa_def *vtx_cnt = nir_build_load_workgroup_num_input_vertices_amd(b);
-         nir_ssa_def *prim_cnt = nir_build_load_workgroup_num_input_primitives_amd(b);
-         nir_build_alloc_vertices_and_primitives_amd(b, vtx_cnt, prim_cnt);
+         nir_build_alloc_vertices_and_primitives_amd(b, num_wg_in_vtx, num_wg_in_prm);
       }
       nir_pop_if(b, if_wave_0);
    }
