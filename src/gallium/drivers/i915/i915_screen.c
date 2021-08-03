@@ -209,7 +209,7 @@ i915_optimize_nir(struct nir_shader *s)
    NIR_PASS(progress, s, nir_remove_dead_variables, nir_var_function_temp, NULL);
 }
 
-static void
+static char *
 i915_finalize_nir(struct pipe_screen *pscreen, void *nir)
 {
    nir_shader *s = nir;
@@ -234,6 +234,8 @@ i915_finalize_nir(struct pipe_screen *pscreen, void *nir)
    nir_validate_shader(s, "after uniform var removal");
 
    nir_sweep(s);
+
+   return NULL;
 }
 
 static int
