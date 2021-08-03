@@ -107,3 +107,7 @@ c0 01 00 00 00 c4 10 51    IADD_IMM.i32.reconverge r4, 0x0, #0x1
 42 00 00 38 08 44 61 00    STORE.i128.slot0 @r4:r5:r6:r7, `r2, offset:0
 41 f8 ff ff 07 c0 1f 50    BRANCHZ.reconverge `r1, offset:-8
 40 00 00 00 c0 c0 9c 40    FRCP.f32.wait0126 r0, `r0.neg.abs
+40 44 80 00 00 c0 b8 00    MUX.i32.neg r0, `r0, `r4, u0
+40 44 80 00 01 c0 b8 00    MUX.i32 r0, `r0, `r4, u0
+40 44 80 00 02 c0 b8 00    MUX.i32.fp_zero r0, `r0, `r4, u0
+40 44 80 00 03 c0 b8 00    MUX.i32.bit r0, `r0, `r4, u0
