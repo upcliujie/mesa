@@ -121,3 +121,7 @@ c0 01 00 00 00 c4 10 51    IADD_IMM.i32.reconverge r4, 0x0, #0x1
 41 82 00 30 e6 82 6a 00    LD_BUFFER.i96.unsigned.slot0 @r2:r3:r4, `r1, u2
 40 83 00 30 e6 86 6a 08    LD_BUFFER.i96.unsigned.slot0.wait0 @r6:r7:r8, `r0, u3
 40 00 00 00 c0 c0 9c 40    FRCP.f32.wait0126 r0, `r0.neg.abs
+40 44 80 00 00 c0 b8 00    MUX.i32.neg r0, `r0, `r4, u0
+40 44 80 00 01 c0 b8 00    MUX.i32 r0, `r0, `r4, u0
+40 44 80 00 02 c0 b8 00    MUX.i32.fp_zero r0, `r0, `r4, u0
+40 44 80 00 03 c0 b8 00    MUX.i32.bit r0, `r0, `r4, u0
