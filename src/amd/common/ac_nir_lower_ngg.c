@@ -1194,12 +1194,18 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       }
       nir_pop_if(b, if_wave_0);
 
-      /* Vertex compaction. */
-      compact_vertices_after_culling(b, nogs_state,
-                                     repacked_arg_vars, gs_vtxidx_vars, gs_vtxaddr_vars,
-                                     invocation_index, es_vertex_lds_addr,
-                                     es_exporter_tid, num_live_vertices_in_workgroup, fully_culled,
-                                     ngg_scratch_lds_base_addr, pervertex_lds_bytes, max_exported_args);
+      nir_ssa_def *compact_vertices = nir_ine(b, num_wg_in_vtx, num_live_vertices_in_workgroup);
+
+      nir_if *if_compact_vertices = nir_push_if(b, compact_vertices);
+      {
+         /* Vertex compaction. */
+         compact_vertices_after_culling(b, nogs_state,
+                                        repacked_arg_vars, gs_vtxidx_vars, gs_vtxaddr_vars,
+                                        invocation_index, es_vertex_lds_addr,
+                                        es_exporter_tid, num_live_vertices_in_workgroup, fully_culled,
+                                        ngg_scratch_lds_base_addr, pervertex_lds_bytes, max_exported_args);
+      }
+      nir_pop_if(b, if_compact_vertices);
 
       nir_ssa_def *gs_nullprim = nir_bcsel(b, nir_load_var(b, gs_accepted_var), nir_imm_int(b, 0), nir_imm_int(b, 1));
       nir_store_var(b, gs_nullprim_var, gs_nullprim, 0x1u);
