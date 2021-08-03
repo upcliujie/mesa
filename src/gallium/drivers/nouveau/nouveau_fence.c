@@ -158,7 +158,8 @@ nouveau_fence_update(struct nouveau_screen *screen, bool flushed)
    }
 }
 
-#define NOUVEAU_FENCE_MAX_SPINS (1 << 31)
+#define NOUVEAU_FENCE_MAX_SPINS              (1 << 31)
+#define NOUVEAU_FENCE_CHECK_CONTEXT_INTERVAL (1 << 22)
 
 bool
 nouveau_fence_signalled(struct nouveau_fence *fence)
@@ -231,6 +232,13 @@ nouveau_fence_wait(struct nouveau_fence *fence, struct util_debug_callback *debu
       if (!(spins % 8)) /* donate a few cycles */
          sched_yield();
 #endif
+      /* check regularly for a dead channel */
+      if (!(spins % NOUVEAU_FENCE_CHECK_CONTEXT_INTERVAL)) {
+         if (nouveau_check_dead_channel(screen->drm, screen->channel)) {
+            debug_printf("Channel killed waiting on fence %u!\n", fence->sequence);
+            return false;
+         }
+      }
 
       nouveau_fence_update(screen, false);
    } while (spins < NOUVEAU_FENCE_MAX_SPINS);
