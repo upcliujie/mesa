@@ -431,6 +431,7 @@ static const char *const dp_dc0_msg_type_gfx7[16] = {
 
 static const int dp_oword_block_rw[8] = {
       [BRW_DATAPORT_OWORD_BLOCK_1_OWORDLOW] = 1,
+      [BRW_DATAPORT_OWORD_BLOCK_1_OWORDHIGH] = 1,
       [BRW_DATAPORT_OWORD_BLOCK_2_OWORDS] = 2,
       [BRW_DATAPORT_OWORD_BLOCK_4_OWORDS] = 4,
       [BRW_DATAPORT_OWORD_BLOCK_8_OWORDS] = 8,
