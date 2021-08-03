@@ -193,6 +193,7 @@ lower_cube_sample(nir_builder *b, nir_tex_instr *tex)
 static nir_ssa_def *
 lower_cube_txs(nir_builder *b, nir_tex_instr *tex)
 {
+   assert(!tex->is_array);
    b->cursor = nir_after_instr(&tex->instr);
    return nir_channels(b, &tex->dest.ssa, 3);
 }

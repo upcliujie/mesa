@@ -1067,6 +1067,7 @@ d3d12_create_shader(struct d3d12_context *ctx,
       tex_options.lower_txp = ~0u; /* No equivalent for textureProj */
       tex_options.lower_rect = true;
       tex_options.lower_rect_offset = true;
+      tex_options.lower_txs_cube_array = true;
 
       NIR_PASS_V(nir, nir_lower_tex, &tex_options);
    }
