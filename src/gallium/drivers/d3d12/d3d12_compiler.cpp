@@ -867,9 +867,6 @@ select_shader_variant(struct d3d12_selection_context *sel_ctx, d3d12_shader_sele
 
    {
       struct nir_lower_tex_options tex_options = { };
-      tex_options.lower_txp = ~0u; /* No equivalent for textureProj */
-      tex_options.lower_rect = true;
-      tex_options.lower_rect_offset = true;
       tex_options.saturate_s = key.tex_saturate_s;
       tex_options.saturate_r = key.tex_saturate_r;
       tex_options.saturate_t = key.tex_saturate_t;
@@ -1063,6 +1060,15 @@ d3d12_create_shader(struct d3d12_context *ctx,
    } else {
       NIR_PASS_V(nir, nir_lower_fragcoord_wtrans);
       dxil_sort_ps_outputs(nir);
+   }
+
+   {
+      struct nir_lower_tex_options tex_options = {};
+      tex_options.lower_txp = ~0u; /* No equivalent for textureProj */
+      tex_options.lower_rect = true;
+      tex_options.lower_rect_offset = true;
+
+      NIR_PASS_V(nir, nir_lower_tex, &tex_options);
    }
 
    /* Integer cube maps are not supported in DirectX because sampling is not supported
