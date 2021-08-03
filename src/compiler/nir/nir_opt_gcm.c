@@ -46,6 +46,8 @@
 #define MAX_LOOP_INSTRUCTIONS 100
 
 struct gcm_block_info {
+   bool nested_in_if_inside_loop;
+
    /* Number of loops this block is inside */
    unsigned loop_depth;
 
@@ -79,6 +81,8 @@ struct gcm_state {
    nir_instr *instr;
 
    bool progress;
+
+   bool second_early_run;
 
    /* The list of non-pinned instructions.  As we do the late scheduling,
     * we pull non-pinned instructions out of their blocks and place them in
@@ -129,7 +133,7 @@ get_loop_instr_count(struct exec_list *cf_list)
 static void
 gcm_build_block_info(struct exec_list *cf_list, struct gcm_state *state,
                      nir_loop *loop, unsigned loop_depth,
-                     unsigned loop_instr_count)
+                     unsigned loop_instr_count, bool nested_in_if_inside_loop)
 {
    foreach_list_typed(nir_cf_node, node, node, cf_list) {
       switch (node->type) {
@@ -138,20 +142,22 @@ gcm_build_block_info(struct exec_list *cf_list, struct gcm_state *state,
          state->blocks[block->index].loop_depth = loop_depth;
          state->blocks[block->index].loop_instr_count = loop_instr_count;
          state->blocks[block->index].loop = loop;
+         state->blocks[block->index].nested_in_if_inside_loop =
+            nested_in_if_inside_loop;
          break;
       }
       case nir_cf_node_if: {
          nir_if *if_stmt = nir_cf_node_as_if(node);
          gcm_build_block_info(&if_stmt->then_list, state, loop, loop_depth,
-                              loop_instr_count);
+                              loop_instr_count, loop_depth > 0);
          gcm_build_block_info(&if_stmt->else_list, state, loop, loop_depth,
-                              loop_instr_count);
+                              loop_instr_count, loop_depth > 0);
          break;
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(node);
          gcm_build_block_info(&loop->body, state, loop, loop_depth + 1,
-                              get_loop_instr_count(&loop->body));
+                              get_loop_instr_count(&loop->body), false);
          break;
       }
       default:
@@ -406,6 +412,104 @@ gcm_pin_instructions(nir_function_impl *impl, struct gcm_state *state)
    }
 }
 
+struct gcm_instr_src_uses_state {
+   /* Block which we are checking agaisnt to see if a src is still live after */
+   unsigned block_idx;
+
+   /* Number of srcs still live after the block */
+   unsigned num_srcs_live_after_block;
+
+   /* Total number of srcs the instruction has that contribute to register
+    * pressure. For example we do not count constants, ubos etc.
+    */
+   unsigned num_srcs;
+
+   struct gcm_instr_info *instr_infos;
+
+   /* The instr we are checking if we should move */
+   nir_instr *instr;
+};
+
+static bool
+check_if_src_used_after_block(nir_src *src, void *void_state)
+{
+   struct gcm_instr_src_uses_state *state = void_state;
+
+   /* Don't count sources that don't contribute to register pressure */
+   if (src->ssa->parent_instr->type == nir_instr_type_load_const) {
+      return true;
+   }
+
+   state->num_srcs++;
+
+   unsigned latest_blk_idx = 0;
+   nir_foreach_use(use_src, src->ssa) {
+      nir_instr *use_instr = use_src->parent_instr;
+
+      /* Skip dead instructions. These get cleaned up elsewhere */
+      if (use_instr->block == NULL) {
+         continue;
+      }
+
+      /* Skip if its used by the instruction were are trying to move */
+      if (use_instr == state->instr)
+         continue;
+
+      latest_blk_idx = latest_blk_idx < use_instr->block->index ?
+         use_instr->block->index : latest_blk_idx;
+
+      if (use_instr->block->index > state->instr->block->index) {
+         state->num_srcs_live_after_block++;
+         break;
+      }
+   }
+
+   /* If the last block to use the src is the same one as the block we are
+    * trying to move the instruction from check if moving other instructions in
+    * this block will allow this instruction to be moved. For example we don't
+    * want to add to the num_srcs_live_after_block count if we can move all of
+    * the following users of ssa_7 out of a loop:
+    *
+    *    vec1 32 ssa_430 = ffma ssa_7.x, ssa_23.x, ssa_4.x
+    *    vec1 32 ssa_433 = ffma ssa_7.y, ssa_23.x, ssa_4.y
+    *    vec1 32 ssa_436 = ffma ssa_7.z, ssa_23.x, ssa_4.z
+    *
+    */
+   unsigned moveable_instr_count = 0;
+   if (latest_blk_idx == state->instr->block->index) {
+      nir_foreach_use(use_src, src->ssa) {
+         nir_instr *use_instr = use_src->parent_instr;
+
+         /* Skip dead instructions. These get cleaned up elsewhere */
+         if (use_instr->block == NULL) {
+            continue;
+         }
+
+         /* Skip if its used by the instruction were are trying to move */
+         if (use_instr == state->instr)
+            continue;
+
+         if (use_instr->block->index < state->instr->block->index)
+            continue;
+
+         struct gcm_instr_info *info = &state->instr_infos[use_instr->index];
+         if (info->early_block->index > state->block_idx/* ||
+             use_instr->type == nir_instr_type_intrinsic*/) {
+            state->num_srcs_live_after_block++;
+            break;
+         } else {
+            moveable_instr_count++;
+            if (moveable_instr_count > src->ssa->num_components) {
+               state->num_srcs_live_after_block++;
+               break;
+            }
+         }
+      }
+   }
+
+   return true;
+}
+
 static bool
 set_block_for_loop_instr(struct gcm_state *state, nir_instr *instr,
                          nir_block *block)
@@ -454,6 +558,23 @@ set_block_for_loop_instr(struct gcm_state *state, nir_instr *instr,
    if (instr->type == nir_instr_type_load_const ||
        instr->type == nir_instr_type_tex)
       return true;
+
+   /* Move instructions outside the loop if doing so would cause at least one of
+    * the sources to not be live after the block that the instruction would
+    * be moved to.  Basically, we move the instruction if the number of live
+    * values would decrease or stay the same.
+    */
+   struct gcm_instr_src_uses_state src_uses_state = {0};
+   src_uses_state.block_idx = block->index;
+   src_uses_state.instr = instr;
+   src_uses_state.instr_infos = state->instr_infos;
+   nir_foreach_src(instr, check_if_src_used_after_block, &src_uses_state);
+
+   if (instr->type != nir_instr_type_intrinsic &&
+       /*!state->blocks[instr->block->index].nested_in_if_inside_loop && */
+       src_uses_state.num_srcs >= src_uses_state.num_srcs_live_after_block + 1) {
+      return true;
+   }
 
    return false;
 }
@@ -534,18 +655,36 @@ gcm_schedule_early_instr(nir_instr *instr, struct gcm_state *state)
    state->instr = instr;
 
    nir_foreach_src(instr, gcm_schedule_early_src, state);
+
+   /* If we are not going to move an instruction out of a loop due to our
+    * heuristics we need to set the earlier block so that we don't end up trying
+    * to schedule its users outside of the loop.
+    */
+   if (state->second_early_run) {
+      struct gcm_instr_info *info = &state->instr_infos[instr->index];
+      if (state->blocks[instr->block->index].loop &&
+          info->early_block != instr->block &&
+          !set_block_for_loop_instr(state, instr, info->early_block)) {
+         info->early_block = instr->block;
+      }
+   }
 }
 
 static nir_block *
 gcm_choose_block_for_instr(nir_instr *instr, nir_block *early_block,
                            nir_block *late_block, struct gcm_state *state)
 {
-   assert(nir_block_dominates(early_block, late_block));
+   /* We might have tried to force the the instruction to stay inside a loop in
+    * gcm_schedule_early_instr() but if GVN has already moved the LCA higher
+    * then we need to fix it up here.
+    */
+   if (nir_block_dominates(late_block, early_block))
+      early_block = late_block;
 
    nir_block *best = late_block;
    for (nir_block *block = late_block; block != NULL; block = block->imm_dom) {
-      if (state->blocks[block->index].loop_depth <
-          state->blocks[best->index].loop_depth &&
+      if ((state->blocks[block->index].loop_depth <
+          state->blocks[best->index].loop_depth) &&
           set_block_for_loop_instr(state, instr, block))
          best = block;
       else if (block == instr->block)
@@ -755,10 +894,11 @@ opt_gcm_impl(nir_shader *shader, nir_function_impl *impl, bool value_number)
    state.impl = impl;
    state.instr = NULL;
    state.progress = false;
+   state.second_early_run = false;
    exec_list_make_empty(&state.instrs);
    state.blocks = rzalloc_array(NULL, struct gcm_block_info, impl->num_blocks);
 
-   gcm_build_block_info(&impl->body, &state, NULL, 0, ~0u);
+   gcm_build_block_info(&impl->body, &state, NULL, 0, ~0u, false);
 
    gcm_pin_instructions(impl, &state);
 
@@ -777,6 +917,13 @@ opt_gcm_impl(nir_shader *shader, nir_function_impl *impl, bool value_number)
       nir_instr_set_destroy(gvn_set);
    }
 
+   foreach_list_typed(nir_instr, instr, node, &state.instrs)
+      gcm_schedule_early_instr(instr, &state);
+
+   foreach_list_typed(nir_instr, instr, node, &state.instrs)
+      instr->pass_flags &= ~GCM_INSTR_SCHEDULED_EARLY;
+
+   state.second_early_run = true;
    foreach_list_typed(nir_instr, instr, node, &state.instrs)
       gcm_schedule_early_instr(instr, &state);
 
