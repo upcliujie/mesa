@@ -231,6 +231,12 @@ nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *debu
       if (!(spins % 8)) /* donate a few cycles */
          sched_yield();
 #endif
+      if (!(spins % 0x1000000)) { /* check regularly for a dead channel */
+         if (nouveau_check_dead_channel(screen->drm, screen->channel)) {
+            debug_printf("Channel killed waiting on fence %u!\n", fence->sequence);
+            return false;
+         }
+      }
 
       nouveau_fence_update(screen, false);
    } while (spins < NOUVEAU_FENCE_MAX_SPINS);
