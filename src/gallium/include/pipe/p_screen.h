@@ -523,8 +523,11 @@ struct pipe_screen {
     *
     * \param optimize  Whether the input shader hasn't been optimized and
     *                  should be.
+    *
+    * The driver may return a non-NULL string to trigger GLSL link failure and
+    * logging of that message in the GLSL linker log.
     */
-   void (*finalize_nir)(struct pipe_screen *screen, void *nir, bool optimize);
+   char * (*finalize_nir)(struct pipe_screen *screen, void *nir, bool optimize);
 
    /*Separated memory/resource allocations interfaces for Vulkan */
 

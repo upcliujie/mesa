@@ -919,12 +919,12 @@ trace_screen_get_timestamp(struct pipe_screen *_screen)
    return result;
 }
 
-static void
+static char *
 trace_screen_finalize_nir(struct pipe_screen *_screen, void *nir, bool optimize)
 {
    struct pipe_screen *screen = trace_screen(_screen)->screen;
 
-   screen->finalize_nir(screen, nir, optimize);
+   return screen->finalize_nir(screen, nir, optimize);
 }
 
 static void
