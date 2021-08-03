@@ -155,6 +155,11 @@ main(int argc, const char **argv)
                        BI_REGISTER_FORMAT_F16, 2),
         0x007f4004333c00f0);
 
+   CASE(bi_mux_i32_to(b, bi_register(0), bi_discard(bi_register(0)),
+                      bi_discard(bi_register(4)),
+                      bi_fau(BIR_FAU_UNIFORM | 0, false), BI_MUX_BIT),
+        0x00b8c00300804440ull);
+
    {
       bi_instr *I = bi_atest_to(b, bi_register(60), bi_register(60),
                                 bi_half(bi_register(1), true));
