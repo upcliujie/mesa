@@ -161,7 +161,7 @@ load_inline_buffer_descriptor(struct apply_layout_state *state, nir_ssa_def *rsr
 }
 
 static nir_ssa_def *
-load_buffer_descriptor(struct apply_layout_state *state, nir_ssa_def *rsrc)
+load_buffer_descriptor(struct apply_layout_state *state, nir_ssa_def *rsrc, unsigned access)
 {
    nir_builder *b = &state->builder;
 
@@ -176,7 +176,36 @@ load_buffer_descriptor(struct apply_layout_state *state, nir_ssa_def *rsrc)
       }
    }
 
-   return rsrc;
+   if (access & ACCESS_NON_UNIFORM)
+      return nir_iadd(b, nir_channel(b, rsrc, 0), nir_channel(b, rsrc, 1));
+
+   nir_ssa_def *desc_set = convert_pointer_to_64_bit(state, nir_channel(b, rsrc, 0));
+   return nir_load_smem_amd(b, 4, desc_set, nir_channel(b, rsrc, 1), .align_mul = 16);
+}
+
+static void
+visit_get_ssbo_size(struct apply_layout_state *state, nir_intrinsic_instr *intrin)
+{
+   nir_builder *b = &state->builder;
+   nir_ssa_def *rsrc = intrin->src[0].ssa;
+
+   nir_ssa_def *size;
+   if (nir_intrinsic_access(intrin) & ACCESS_NON_UNIFORM) {
+      nir_ssa_def *ptr = nir_iadd(b, nir_channel(b, rsrc, 0), nir_channel(b, rsrc, 1));
+      ptr = nir_iadd_imm(b, ptr, 4);
+      ptr = convert_pointer_to_64_bit(state, ptr);
+      size =
+         nir_build_load_global(b, 4, 32, ptr, .access = ACCESS_NON_WRITEABLE | ACCESS_CAN_REORDER,
+                               .align_mul = 16, .align_offset = 4);
+   } else {
+      /* load the entire descriptor so it can be CSE'd */
+      nir_ssa_def *ptr = convert_pointer_to_64_bit(state, nir_channel(b, rsrc, 0));
+      nir_ssa_def *desc = nir_load_smem_amd(b, 4, ptr, nir_channel(b, rsrc, 1), .align_mul = 16);
+      size = nir_channel(b, desc, 2);
+   }
+
+   nir_ssa_def_rewrite_uses(&intrin->dest.ssa, size);
+   nir_instr_remove(&intrin->instr);
 }
 
 static void
@@ -194,8 +223,28 @@ apply_layout_to_intrin(struct apply_layout_state *state, nir_intrinsic_instr *in
       visit_load_vulkan_descriptor(state, intrin);
       break;
    case nir_intrinsic_load_ubo:
-      rsrc = load_buffer_descriptor(state, intrin->src[0].ssa);
+   case nir_intrinsic_load_ssbo:
+   case nir_intrinsic_ssbo_atomic_add:
+   case nir_intrinsic_ssbo_atomic_imin:
+   case nir_intrinsic_ssbo_atomic_umin:
+   case nir_intrinsic_ssbo_atomic_fmin:
+   case nir_intrinsic_ssbo_atomic_imax:
+   case nir_intrinsic_ssbo_atomic_umax:
+   case nir_intrinsic_ssbo_atomic_fmax:
+   case nir_intrinsic_ssbo_atomic_and:
+   case nir_intrinsic_ssbo_atomic_or:
+   case nir_intrinsic_ssbo_atomic_xor:
+   case nir_intrinsic_ssbo_atomic_exchange:
+   case nir_intrinsic_ssbo_atomic_comp_swap:
+      rsrc = load_buffer_descriptor(state, intrin->src[0].ssa, nir_intrinsic_access(intrin));
       nir_instr_rewrite_src_ssa(&intrin->instr, &intrin->src[0], rsrc);
+      break;
+   case nir_intrinsic_store_ssbo:
+      rsrc = load_buffer_descriptor(state, intrin->src[1].ssa, nir_intrinsic_access(intrin));
+      nir_instr_rewrite_src_ssa(&intrin->instr, &intrin->src[1], rsrc);
+      break;
+   case nir_intrinsic_get_ssbo_size:
+      visit_get_ssbo_size(state, intrin);
       break;
    default:
       break;
