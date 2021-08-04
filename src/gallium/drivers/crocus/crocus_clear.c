@@ -333,10 +333,17 @@ clear_color(struct crocus_context *ice,
             union isl_color_value color)
 {
    struct crocus_resource *res = (void *) p_res;
-   struct crocus_batch *batch = &ice->batches[CROCUS_BATCH_RENDER];
+   const bool compute =
+      unlikely((INTEL_DEBUG & DEBUG_BLOCS) &&
+               blorp_clear_supports_compute(&ice->blorp,
+                                            ice->state.color_write_enables != 0,
+                                            ice->state.blend_enables != 0,
+                                            res->aux.usage));
+   struct crocus_batch *batch =
+      &ice->batches[compute ? CROCUS_BATCH_COMPUTE : CROCUS_BATCH_RENDER];
    struct crocus_screen *screen = batch->screen;
    const struct intel_device_info *devinfo = &batch->screen->devinfo;
-   enum blorp_batch_flags blorp_flags = 0;
+   enum blorp_batch_flags blorp_flags = compute ? BLORP_BATCH_USE_COMPUTE : 0;
 
    if (render_condition_enabled) {
       if (!crocus_check_conditional_render(ice))
@@ -351,9 +358,10 @@ clear_color(struct crocus_context *ice,
 
    crocus_batch_maybe_flush(batch, 1500);
 
-   bool can_fast_clear = can_fast_clear_color(ice, p_res, level, box,
-                                              render_condition_enabled,
-                                              res->surf.format, format, color);
+   bool can_fast_clear =
+      !compute && can_fast_clear_color(ice, p_res, level, box,
+                                       render_condition_enabled,
+                                       res->surf.format, format, color);
    if (can_fast_clear) {
       fast_clear_color(ice, res, level, box, format, color,
                        blorp_flags);
@@ -364,8 +372,14 @@ clear_color(struct crocus_context *ice,
    enum isl_aux_usage aux_usage =
       crocus_resource_render_aux_usage(ice, res, level, format, false);
 
-   crocus_resource_prepare_render(ice, res, level,
-                                  box->z, box->depth, aux_usage);
+   if (!compute) {
+      crocus_resource_prepare_render(ice, res, level,
+                                     box->z, box->depth, aux_usage);
+   } else {
+      crocus_resource_prepare_access(ice, res, 0, INTEL_REMAINING_LEVELS, 0,
+                                     INTEL_REMAINING_LAYERS, ISL_AUX_USAGE_NONE,
+                                     false);
+   }
 
    struct blorp_surf surf;
    crocus_blorp_surf_for_resource(&screen->vtbl, &batch->screen->isl_dev, &surf,
@@ -388,8 +402,9 @@ clear_color(struct crocus_context *ice,
                                       PIPE_CONTROL_RENDER_TARGET_FLUSH,
                                       "cache history: post color clear");
 
-   crocus_resource_finish_render(ice, res, level,
-                                 box->z, box->depth, aux_usage);
+   if (!compute)
+      crocus_resource_finish_render(ice, res, level,
+                                    box->z, box->depth, aux_usage);
 }
 
 static bool
