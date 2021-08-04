@@ -5987,6 +5987,17 @@ adjust_sample_index_using_fmask(isel_context* ctx, bool da, std::vector<Temp>& c
    load->da = da;
    load->dim = dim;
 
+   /* Don't adjust the sample index if WORD1.DATA_FORMAT of the FMASK
+    * resource descriptor is 0 (invalid),
+    */
+   Temp is_null = bld.tmp(bld.lm);
+   bld.vopc_e64(aco_opcode::v_cmp_lg_u32, Definition(is_null), Operand::zero(),
+                emit_extract_vector(ctx, fmask_desc_ptr, 1, s1))
+      .def(0)
+      .setHint(vcc);
+   fmask =
+      bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), Operand::c32(0x76543210), fmask, is_null);
+
    Operand sample_index4;
    if (sample_index.isConstant()) {
       if (sample_index.constantValue() < 16) {
@@ -6003,28 +6014,12 @@ adjust_sample_index_using_fmask(isel_context* ctx, bool da, std::vector<Temp>& c
          bld.vop2(aco_opcode::v_lshlrev_b32, bld.def(v1), Operand::c32(2u), sample_index);
    }
 
-   Temp final_sample;
    if (sample_index4.isConstant() && sample_index4.constantValue() == 0)
-      final_sample = bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand::c32(15u), fmask);
+      return bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand::c32(15u), fmask);
    else if (sample_index4.isConstant() && sample_index4.constantValue() == 28)
-      final_sample = bld.vop2(aco_opcode::v_lshrrev_b32, bld.def(v1), Operand::c32(28u), fmask);
+      return bld.vop2(aco_opcode::v_lshrrev_b32, bld.def(v1), Operand::c32(28u), fmask);
    else
-      final_sample =
-         bld.vop3(aco_opcode::v_bfe_u32, bld.def(v1), fmask, sample_index4, Operand::c32(4u));
-
-   /* Don't rewrite the sample index if WORD1.DATA_FORMAT of the FMASK
-    * resource descriptor is 0 (invalid),
-    */
-   Temp compare = bld.tmp(bld.lm);
-   bld.vopc_e64(aco_opcode::v_cmp_lg_u32, Definition(compare), Operand::zero(),
-                emit_extract_vector(ctx, fmask_desc_ptr, 1, s1))
-      .def(0)
-      .setHint(vcc);
-
-   Temp sample_index_v = bld.copy(bld.def(v1), sample_index);
-
-   /* Replace the MSAA sample index. */
-   return bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), sample_index_v, final_sample, compare);
+      return bld.vop3(aco_opcode::v_bfe_u32, bld.def(v1), fmask, sample_index4, Operand::c32(4u));
 }
 
 static std::vector<Temp>
@@ -9503,7 +9498,8 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          dmask = 1 << instr->component;
       if (tg4_integer_cube_workaround || dst.type() == RegType::sgpr)
          tmp_dst = bld.tmp(instr->is_sparse ? v5 : v4);
-   } else if (instr->op == nir_texop_samples_identical) {
+   } else if (instr->op == nir_texop_samples_identical ||
+              instr->op == nir_texop_fragment_mask_fetch) {
       tmp_dst = bld.tmp(v1);
    } else if (util_bitcount(dmask) != instr->dest.ssa.num_components ||
               dst.type() == RegType::sgpr) {
@@ -9705,6 +9701,23 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          bld.vopc(aco_opcode::v_cmp_eq_u32, Definition(dst), Operand::zero(), tmp_dst)
             .def(0)
             .setHint(vcc);
+      } else if (instr->op == nir_texop_fragment_mask_fetch) {
+         /* Use 0x76543210 if the image doesn't have FMASK. */
+         assert(dmask == 1 && dst.bytes() == 4);
+         assert(dst.id() != tmp_dst.id());
+
+         Temp is_null = bld.tmp(bld.lm);
+         bld.vopc_e64(aco_opcode::v_cmp_lg_u32, Definition(is_null), Operand::zero(),
+                      emit_extract_vector(ctx, resource, 1, s1))
+            .def(0)
+            .setHint(vcc);
+         if (dst.regClass() == s1)
+            bld.pseudo(aco_opcode::p_as_uniform, Definition(dst),
+                       bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), Operand::c32(0x76543210),
+                                tmp_dst, is_null));
+         else
+            bld.vop2(aco_opcode::v_cndmask_b32, Definition(dst), Operand::c32(0x76543210), tmp_dst,
+                     is_null);
       } else {
          expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, dmask);
       }
