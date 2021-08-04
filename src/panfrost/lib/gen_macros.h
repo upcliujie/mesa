@@ -53,8 +53,8 @@
  * do anything.
  */
 #ifndef PAN_ARCH
-#  error "The PAN_ARCH macro must be defined"
-#endif
+#  include "common_pack.h"
+#else
 
 #if PAN_ARCH >= 6
 #define TILER_JOB BIFROST_TILER_JOB
@@ -83,4 +83,5 @@
 #  error "Need to add suffixing macro for this architecture"
 #endif
 
+#endif /* PAN_ARCH */
 #endif /* GEN_MACROS_H */

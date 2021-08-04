@@ -32,7 +32,6 @@
 #include "drm-uapi/drm_fourcc.h"
 #include "util/format/u_format.h"
 #include "compiler/shader_enums.h"
-#include "midgard_pack.h"
 #include "pan_bo.h"
 #include "pan_device.h"
 #include "pan_util.h"
@@ -82,17 +81,6 @@ enum pan_image_crc_mode {
       PAN_IMAGE_CRC_INBAND,
       PAN_IMAGE_CRC_OOB,
 };
-
-#ifndef PAN_PACK_H
-/* Avoid the GenXML dependence */
-
-enum mali_texture_dimension {
-        MALI_TEXTURE_DIMENSION_CUBE = 0,
-        MALI_TEXTURE_DIMENSION_1D   = 1,
-        MALI_TEXTURE_DIMENSION_2D   = 2,
-        MALI_TEXTURE_DIMENSION_3D   = 3,
-};
-#endif
 
 struct pan_image_layout {
         uint64_t modifier;
