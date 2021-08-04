@@ -5135,6 +5135,12 @@ typedef struct nir_lower_tex_options {
    bool lower_tg4_offsets;
 
    /**
+    * Lower txf_ms to fragment_mask_fetch and fragment_fetch and samples_identical to
+    * fragment_mask_fetch.
+    */
+   bool lower_to_fragment_fetch;
+
+   /**
     * To lower packed sampler return formats.
     *
     * Indexed by sampler-id.
