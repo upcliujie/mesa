@@ -403,6 +403,8 @@ tgsi_target_from_sampler_dim(enum glsl_sampler_dim dim, bool is_array)
       return is_array ? TGSI_TEXTURE_1D_ARRAY : TGSI_TEXTURE_1D;
    case GLSL_SAMPLER_DIM_2D:
       return is_array ? TGSI_TEXTURE_2D_ARRAY : TGSI_TEXTURE_2D;
+   case GLSL_SAMPLER_DIM_MS:
+      return is_array ? TGSI_TEXTURE_2D_ARRAY_MSAA : TGSI_TEXTURE_2D_MSAA;
    case GLSL_SAMPLER_DIM_3D:
       return TGSI_TEXTURE_3D;
    case GLSL_SAMPLER_DIM_CUBE:
@@ -2143,7 +2145,7 @@ ntt_emit_texture(struct ntt_compile *c, nir_tex_instr *instr)
       if (instr->is_array) {
          target = TGSI_TEXTURE_2D_ARRAY_MSAA;
       } else {
-         target = TGSI_TEXTURE_2D_ARRAY;
+         target = TGSI_TEXTURE_2D_MSAA;
       }
       break;
    case GLSL_SAMPLER_DIM_3D:
