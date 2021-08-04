@@ -828,8 +828,6 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
       driQueryOptionb(config->options, "disable_throttling");
    screen->driconf.always_flush_cache =
       driQueryOptionb(config->options, "always_flush_cache");
-   screen->driconf.sync_compile =
-      driQueryOptionb(config->options, "sync_compile");
 
    screen->precompile = env_var_as_boolean("shader_precompile", true);
 
