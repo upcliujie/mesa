@@ -33,6 +33,7 @@ struct radv_shader_args {
    struct radv_shader_info *shader_info;
    struct radv_shader_variant_key *key;
    const struct radv_nir_compiler_options *options;
+   struct radv_pipeline_layout *layout;
 
    struct ac_arg descriptor_sets[MAX_SETS];
    struct ac_arg ring_offsets;
