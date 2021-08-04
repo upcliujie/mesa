@@ -18,7 +18,7 @@ virgl-on-gl:
     DEQP_PARALLEL: 2
     DEQP_EXPECTED_RENDERER: virgl
     CROSVM_TEST_SCRIPT: "/install/deqp-runner.sh"
-  parallel: 2
+  parallel: 8
   tags:
     - kvm
   script:
