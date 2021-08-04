@@ -77,7 +77,7 @@ panfrost_shader_compile(struct pipe_screen *pscreen,
         struct util_dynarray binary;
 
         util_dynarray_init(&binary, NULL);
-        pan_shader_compile(dev, s, &inputs, &binary, &state->info);
+        screen->vtbl.compile_shader(dev, s, &inputs, &binary, &state->info);
 
         if (binary.size) {
                 state->bin = panfrost_pool_take_ref(shader_pool,

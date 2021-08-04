@@ -3671,6 +3671,8 @@ GENX(panfrost_cmdstream_screen_init)(struct panfrost_screen *screen)
         screen->vtbl.context_init = context_init;
         screen->vtbl.init_batch = init_batch;
         screen->vtbl.init_polygon_list = init_polygon_list;
+        screen->vtbl.get_compiler_options = pan_shader_get_compiler_options;
+        screen->vtbl.compile_shader = pan_shader_compile;
 
         pan_blitter_init(dev, &screen->blitter.bin_pool.base,
                          &screen->blitter.desc_pool.base);

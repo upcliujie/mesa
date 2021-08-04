@@ -79,6 +79,14 @@ struct panfrost_vtable {
 
         /* Initialize the polygon list */
         void (*init_polygon_list)(struct panfrost_batch *);
+
+        /* Shader compilation methods */
+        const nir_shader_compiler_options *
+        (*get_compiler_options)(const struct panfrost_device *);
+        void (*compile_shader)(const struct panfrost_device *, nir_shader *s,
+                               const struct panfrost_compile_inputs *inputs,
+                               struct util_dynarray *binary,
+                               struct pan_shader_info *info);
 };
 
 struct panfrost_screen {
