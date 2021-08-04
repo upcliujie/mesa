@@ -2976,7 +2976,8 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
 static void
 radv_declare_pipeline_args(struct radv_device *device, struct radv_shader_args *args,
                            nir_shader **nir, struct radv_shader_info *infos,
-                           struct radv_shader_variant_key *keys)
+                           struct radv_shader_variant_key *keys,
+                           struct radv_pipeline_layout *layout)
 {
    unsigned active_stages = 0;
 
@@ -2991,6 +2992,7 @@ radv_declare_pipeline_args(struct radv_device *device, struct radv_shader_args *
       args[i].chip_class = device->physical_device->rad_info.chip_class;
       args[i].explicit_scratch_args = !radv_use_llvm_for_stage(device, i);
       args[i].key = &keys[i];
+      args[i].layout = layout;
    }
 
    if (device->physical_device->rad_info.chip_class >= GFX9 && nir[MESA_SHADER_TESS_CTRL]) {
@@ -3513,7 +3515,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
    }
 
    struct radv_shader_args args[MESA_SHADER_STAGES] = {{{{{0}}}}};
-   radv_declare_pipeline_args(device, args, nir, infos, keys);
+   radv_declare_pipeline_args(device, args, nir, infos, keys, pipeline->layout);
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
       if (nir[i]) {
@@ -3533,8 +3535,6 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
          }
          NIR_PASS_V(nir[i], nir_lower_memory_model);
 
-         bool lower_to_scalar = false;
-
          nir_load_store_vectorize_options vectorize_opts = {
             .modes = nir_var_mem_ssbo | nir_var_mem_ubo | nir_var_mem_push_const |
                      nir_var_mem_shared | nir_var_mem_global,
@@ -3549,17 +3549,16 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
 
          if (nir_opt_load_store_vectorize(nir[i], &vectorize_opts)) {
             NIR_PASS_V(nir[i], nir_copy_prop);
-            lower_to_scalar = true;
 
             /* Gather info again, to update whether 8/16-bit are used. */
             nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
          }
 
-         lower_to_scalar |=
-            nir_opt_shrink_vectors(nir[i], !device->instance->disable_shrink_image_store);
+         NIR_PASS_V(nir[i], radv_nir_apply_pipeline_layout, device, &args[i]);
 
-         if (lower_to_scalar)
-            nir_lower_alu_to_scalar(nir[i], NULL, NULL);
+         nir_opt_shrink_vectors(nir[i], !device->instance->disable_shrink_image_store);
+
+         nir_lower_alu_to_scalar(nir[i], NULL, NULL);
 
          /* lower ALU operations */
          nir_lower_int64(nir[i]);

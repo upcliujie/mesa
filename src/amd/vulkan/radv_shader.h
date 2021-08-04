@@ -435,6 +435,9 @@ void radv_optimize_nir(const struct radv_device *device, struct nir_shader *shad
 void radv_optimize_nir_algebraic(nir_shader *shader, bool opt_offsets);
 bool radv_nir_lower_ycbcr_textures(nir_shader *shader, const struct radv_pipeline_layout *layout);
 
+void radv_nir_apply_pipeline_layout(nir_shader *shader, struct radv_device *device,
+                                    struct radv_shader_args *args);
+
 nir_shader *radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *module,
                                        const char *entrypoint_name, gl_shader_stage stage,
                                        const VkSpecializationInfo *spec_info,
