@@ -411,21 +411,51 @@ tgsi_target_from_sampler_dim(enum glsl_sampler_dim dim, bool is_array)
    }
 }
 
+static enum tgsi_return_type
+tgsi_return_type_from_base_type(enum glsl_base_type type)
+{
+   switch (type) {
+   case GLSL_TYPE_INT:
+      return TGSI_RETURN_TYPE_SINT;
+   case GLSL_TYPE_UINT:
+      return TGSI_RETURN_TYPE_UINT;
+   case GLSL_TYPE_FLOAT:
+     return TGSI_RETURN_TYPE_FLOAT;
+   default:
+      unreachable("unexpected texture type");
+   }
+}
+
 static void
 ntt_setup_uniforms(struct ntt_compile *c)
 {
    nir_foreach_uniform_variable(var, c->s) {
-      if (glsl_type_is_image(var->type)) {
+      if (glsl_type_is_sampler(glsl_without_array(var->type))) {
+         /* Don't use this size for the check for samplers -- arrays of structs
+          * containing samplers should be ignored, and just the separate lowered
+          * sampler uniform decl used.
+          */
+         int size = glsl_type_get_sampler_count(var->type);
+
+         const struct glsl_type *stype = glsl_without_array(var->type);
+         enum tgsi_texture_type target = tgsi_target_from_sampler_dim(glsl_get_sampler_dim(stype), glsl_sampler_type_is_array(stype));
+         enum tgsi_return_type ret_type = tgsi_return_type_from_base_type(glsl_get_sampler_result_type(stype));
+         for (int i = 0; i < size; i++) {
+            ureg_DECL_sampler_view(c->ureg, var->data.driver_location + i,
+               target, ret_type, ret_type, ret_type, ret_type);
+            ureg_DECL_sampler(c->ureg, var->data.driver_location + i);
+         }
+      } else if (glsl_type_is_image(var->type)) {
          enum tgsi_texture_type tex_type =
-             tgsi_target_from_sampler_dim(glsl_get_sampler_dim(var->type),
+               tgsi_target_from_sampler_dim(glsl_get_sampler_dim(var->type),
                                           glsl_sampler_type_is_array(var->type));
 
          c->images[var->data.binding] = ureg_DECL_image(c->ureg,
-                                                        var->data.binding,
-                                                        tex_type,
-                                                        var->data.image.format,
-                                                        !(var->data.access & ACCESS_NON_WRITEABLE),
-                                                        false);
+                                                         var->data.binding,
+                                                         tex_type,
+                                                         var->data.image.format,
+                                                         !(var->data.access & ACCESS_NON_WRITEABLE),
+                                                         false);
       } else if (glsl_contains_atomic(var->type)) {
          uint32_t offset = var->data.offset / 4;
          uint32_t size = glsl_atomic_size(var->type) / 4;
@@ -470,11 +500,6 @@ ntt_setup_uniforms(struct ntt_compile *c)
        */
       bool atomic = false;
       ureg_DECL_buffer(c->ureg, i, atomic);
-   }
-
-   for (int i = 0; i < PIPE_MAX_SAMPLERS; i++) {
-      if (BITSET_TEST(c->s->info.textures_used, i))
-         ureg_DECL_sampler(c->ureg, i);
    }
 }
 
