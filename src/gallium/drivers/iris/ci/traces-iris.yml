@@ -84,7 +84,7 @@ traces:
         checksum: 21bccd42f2deb6416cf6591cd6a99258
       - device: gl-intel-kbl
         checksum: 21bccd42f2deb6416cf6591cd6a99258
-  - path: pathfinder/canvas_text.trace
+  - path: pathfinder/canvas_text_v2.trace
     expectations:
       - device: gl-intel-apl
         checksum: 7873656a6fd5cce14d37cb7873bfc813

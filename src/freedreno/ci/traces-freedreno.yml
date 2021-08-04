@@ -533,7 +533,7 @@ traces:
       # a306/a630 would need higher GL version to run
       - device: freedreno-a630
         checksum: 0e32ca8fc815a7250f38a07faeafb21b
-  - path: pathfinder/canvas_text.trace
+  - path: pathfinder/canvas_text_v2.trace
     expectations:
       # a306/a630 would need higher GL version to run
       - device: freedreno-a630

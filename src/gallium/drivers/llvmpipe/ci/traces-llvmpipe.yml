@@ -26,7 +26,7 @@ traces:
     expectations:
       - device: gl-vmware-llvmpipe
         checksum: c4ee0eef519f1a32ba24b7b392b31b28
-  - path: pathfinder/canvas_text.trace
+  - path: pathfinder/canvas_text_v2.trace
     expectations:
       - device: gl-vmware-llvmpipe
         checksum: f8c6d9a5c9248821ed9aaa376bef05c3

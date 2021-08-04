@@ -26,7 +26,7 @@ traces:
     expectations:
       - device: gl-radeonsi-stoney
         checksum: 78dd2357ad6e5ffc049a75bfb11c5497
-  - path: pathfinder/canvas_text.trace
+  - path: pathfinder/canvas_text_v2.trace
     expectations:
       - device: gl-radeonsi-stoney
         checksum: 56d1398206ceea45562f80f8ea9d3814
