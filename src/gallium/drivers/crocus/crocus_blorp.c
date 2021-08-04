@@ -319,6 +319,8 @@ crocus_blorp_exec(struct blorp_batch *blorp_batch,
    crocus_handle_always_flush_cache(batch);
 
    batch->contains_draw = true;
+   assert(((blorp_batch->flags & BLORP_BATCH_USE_COMPUTE) != 0) ==
+          (batch->name == CROCUS_BATCH_COMPUTE));
    blorp_exec(blorp_batch, params);
 
    batch->no_wrap = false;
