@@ -397,6 +397,9 @@ lp_build_is_inf_or_nan(struct gallivm_state *gallivm,
                        const struct lp_type type,
                        LLVMValueRef x);
 
+LLVMValueRef
+lp_build_isnormal(struct lp_build_context *bld,
+                  LLVMValueRef x);
 
 LLVMValueRef
 lp_build_fpstate_get(struct gallivm_state *gallivm);

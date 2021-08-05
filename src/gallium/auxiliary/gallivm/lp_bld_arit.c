@@ -3659,6 +3659,27 @@ lp_build_is_inf_or_nan(struct gallivm_state *gallivm,
    return ret;
 }
 
+// isnormal(x) --> x == x && fabsf(x) < infinity && fabsf(x) >= float_min
+LLVMValueRef
+lp_build_isnormal(struct lp_build_context *bld,
+		  LLVMValueRef x)
+{
+   LLVMBuilderRef builder = bld->gallivm->builder;
+   LLVMValueRef ret, absx, tmp, tmp2;
+
+   absx = lp_build_abs(bld, x);
+
+   tmp = lp_build_compare(bld->gallivm, bld->type, PIPE_FUNC_LESS, absx,
+			  lp_build_const_vec(bld->gallivm, bld->type, INFINITY));
+   tmp2 = lp_build_compare(bld->gallivm, bld->type, PIPE_FUNC_GEQUAL, absx,
+			   lp_build_const_vec(bld->gallivm, bld->type, FLT_MIN));
+
+   ret = lp_build_cmp_ordered(bld, PIPE_FUNC_EQUAL, x, x);
+   ret = LLVMBuildAnd(builder, ret, tmp, "");
+   ret = LLVMBuildAnd(builder, ret, tmp2, "");
+
+   return ret;
+}
 
 LLVMValueRef
 lp_build_fpstate_get(struct gallivm_state *gallivm)
