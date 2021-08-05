@@ -521,6 +521,18 @@ optimizations.extend([
    (('ishl', ('iadd(is_used_once)', ('iadd(is_used_once)', a, '#b'), c), '#d'),
     ('iadd', ('ishl', ('iadd', a, c), d), ('ishl', b, d))),
 
+   # Comparison strength reductions.  On some architectures, arithmetic
+   # instructions can be fused with zero-comparisons to generate flags for
+   # free.
+   (('ult', 0, a), ('ine', a, 0)),
+   (('uge', a, 1), ('ine', a, 0)),
+   (('uge', 0, a), ('ieq', a, 0)),
+   (('ult', a, 1), ('ieq', a, 0)),
+   (('ige', -1, a), ('ilt', a, 0)),
+   (('ilt', -1, a), ('ige', a, 0)),
+   (('ult', 'a@32', 0x80000000), ('ige', a, 0)),
+   (('uge', 'a@32', 0x80000000), ('ilt', a, 0)),
+
    # Comparison simplifications
    (('inot', ('flt(is_used_once)', 'a(is_a_number)', 'b(is_a_number)')), ('fge', a, b)),
    (('inot', ('fge(is_used_once)', 'a(is_a_number)', 'b(is_a_number)')), ('flt', a, b)),
