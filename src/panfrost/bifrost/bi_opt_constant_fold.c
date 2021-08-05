@@ -65,9 +65,12 @@ bi_fold_constant(bi_instr *I, bool *unsupported)
                 return (a << c) | b;
 
         case BI_OPCODE_F32_TO_U32:
-                if (I->round == BI_ROUND_NONE)
-                        return (uint32_t) uif(a);
-                else
+                if (I->round == BI_ROUND_NONE) {
+                        /* Explicitly clamp to prevent undefined behaviour and
+                         * match hardware rules */
+                        float f = uif(a);
+                        return (f >= 0.0) ? (uint32_t) f : 0;
+                } else
                         break;
 
         default:
