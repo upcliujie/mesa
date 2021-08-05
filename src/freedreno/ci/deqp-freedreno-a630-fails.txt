@@ -49,7 +49,6 @@ dEQP-VK.wsi.display_control.register_device_event,Fail
 # New in VK-GL-CTS 1.2.7.0
 KHR-GL33.cull_distance.coverage,Fail
 
-dEQP-VK.api.copy_and_blit.core.resolve_image.whole_array_image_one_region.4_bit,Fail
 dEQP-VK.api.info.format_properties.g8_b8_r8_3plane_420_unorm,Fail
 dEQP-VK.api.info.image_format_properties.2d.optimal.g8_b8_r8_3plane_420_unorm,Fail
 dEQP-VK.binding_model.mutable_descriptor.single.combined_image_sampler.update_copy.mutable_source.host_only_source.pool_expand_types.pre_update.no_array.tesc,Crash
