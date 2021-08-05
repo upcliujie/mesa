@@ -54,6 +54,9 @@ clover::GetPlatformInfo(cl_platform_id d_platform, cl_platform_info param,
                         size_t size, void *r_buf, size_t *r_size) try {
    property_buffer buf { r_buf, size, r_size };
 
+   if (d_platform != desc(_clover_platform))
+      return CL_INVALID_PLATFORM;
+
    auto &platform = obj(d_platform);
 
    switch (param) {
