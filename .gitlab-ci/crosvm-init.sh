@@ -14,6 +14,17 @@ mount -t tmpfs tmpfs /tmp
 # / is ro
 export PIGLIT_REPLAY_EXTRA_ARGS="$PIGLIT_REPLAY_EXTRA_ARGS --db-path /tmp/replayer-db"
 
+sleep 4
+bash -c 'while :; do
+  echo "------------- Guest -------------"
+  TERM=xterm top -n1 -b | grep Cpu
+  ps -eo pcpu,comm | sort -n | tac | head  -3
+
+  sleep 10
+done' &
+
+while [ 1 ] ; do cat /proc/loadavg ; sleep 60; done &
+
 if sh $CROSVM_TEST_SCRIPT; then
     touch /results/success
 fi
