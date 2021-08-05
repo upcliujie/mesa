@@ -146,7 +146,7 @@ clear_stale_syncobjs(struct iris_batch *batch)
       /* This sync object has already passed, there's no need to continue
        * marking it as a dependency; we can stop holding on to the reference.
        */
-      iris_syncobj_reference(bufmgr, syncobj, NULL);
+      iris_syncobj_reference_dec(bufmgr, syncobj);
 
       /* Remove it from the lists; move the last element here. */
       struct iris_syncobj **nth_syncobj =

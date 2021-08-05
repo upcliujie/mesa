@@ -60,6 +60,25 @@ iris_syncobj_reference(struct iris_bufmgr *bufmgr,
    *dst = src;
 }
 
+static inline void
+iris_syncobj_reference_inc(struct iris_bufmgr *bufmgr,
+                           struct iris_syncobj *obj)
+{
+   pipe_reference(NULL, &obj->ref);
+}
+
+static inline void
+iris_syncobj_reference_dec(struct iris_bufmgr *bufmgr,
+                           struct iris_syncobj **obj)
+{
+   if (*obj == NULL)
+      return;
+
+   if (pipe_reference(&(*obj)->ref, NULL))
+      iris_syncobj_destroy(bufmgr, *obj);
+   *obj = NULL;
+}
+
 /* ------------------------------------------------------------------- */
 
 void iris_init_context_fence_functions(struct pipe_context *ctx);

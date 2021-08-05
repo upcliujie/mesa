@@ -412,7 +412,7 @@ iris_batch_reset(struct iris_batch *batch)
 
    struct iris_syncobj *syncobj = iris_create_syncobj(bufmgr);
    iris_batch_add_syncobj(batch, syncobj, I915_EXEC_FENCE_SIGNAL);
-   iris_syncobj_reference(bufmgr, &syncobj, NULL);
+   iris_syncobj_reference_dec(bufmgr, &syncobj);
 
    assert(!batch->sync_region_depth);
    iris_batch_sync_boundary(batch);
@@ -443,7 +443,7 @@ iris_batch_free(struct iris_batch *batch)
    pipe_resource_reference(&batch->fine_fences.ref.res, NULL);
 
    util_dynarray_foreach(&batch->syncobjs, struct iris_syncobj *, s)
-      iris_syncobj_reference(bufmgr, s, NULL);
+      iris_syncobj_reference_dec(bufmgr, s);
    ralloc_free(batch->syncobjs.mem_ctx);
 
    iris_fine_fence_reference(batch->screen, &batch->last_fence, NULL);
@@ -740,7 +740,7 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
    batch->aperture_space = 0;
 
    util_dynarray_foreach(&batch->syncobjs, struct iris_syncobj *, s)
-      iris_syncobj_reference(screen->bufmgr, s, NULL);
+      iris_syncobj_reference_dec(screen->bufmgr, s);
    util_dynarray_clear(&batch->syncobjs);
 
    util_dynarray_clear(&batch->exec_fences);

@@ -36,7 +36,7 @@ void
 iris_fine_fence_destroy(struct iris_screen *screen,
                         struct iris_fine_fence *fine)
 {
-   iris_syncobj_reference(screen->bufmgr, &fine->syncobj, NULL);
+   iris_syncobj_reference_dec(screen->bufmgr, &fine->syncobj);
    pipe_resource_reference(&fine->ref.res, NULL);
    free(fine);
 }

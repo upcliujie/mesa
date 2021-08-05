@@ -483,7 +483,7 @@ iris_destroy_query(struct pipe_context *ctx, struct pipe_query *p_query)
       iris_destroy_monitor_object(ctx, query->monitor);
       query->monitor = NULL;
    } else {
-      iris_syncobj_reference(screen->bufmgr, &query->syncobj, NULL);
+      iris_syncobj_reference_dec(screen->bufmgr, &query->syncobj);
       screen->base.fence_reference(ctx->screen, &query->fence, NULL);
    }
    pipe_resource_reference(&query->query_state_ref.res, NULL);
