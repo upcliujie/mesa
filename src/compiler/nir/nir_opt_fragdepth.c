@@ -49,11 +49,11 @@ opt_fragdepth_pass(struct nir_builder *b, nir_instr *instr, void *data)
       return false;
 
    nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-   nir_variable *var = nir_deref_instr_get_variable(deref);
+   if (deref->mode != nir_var_shader_out)
+      return false;
 
-   if (!var ||
-       var->data.mode != nir_var_shader_out ||
-       var->data.location != FRAG_RESULT_DEPTH)
+   nir_variable *var = nir_deref_get_variable(deref);
+   if (var->data.location != FRAG_RESULT_DEPTH)
       return false;
 
    /* We found a write to gl_FragDepth */
@@ -101,6 +101,9 @@ nir_opt_fragdepth(nir_shader *shader)
       }
 
       return true;
+   } else {
+      nir_shader_preserve_all_metadata(shader);
+      return false;
    }
 
    return false;
