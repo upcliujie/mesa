@@ -25,7 +25,7 @@
 #ifndef __PAN_SHADER_H__
 #define __PAN_SHADER_H__
 
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 
 #include "compiler/nir/nir.h"
 #include "panfrost/util/pan_ir.h"

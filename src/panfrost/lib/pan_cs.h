@@ -29,7 +29,7 @@
 #define __PAN_CS_H
 
 #ifdef PAN_ARCH
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 #endif
 
 #include "pan_texture.h"

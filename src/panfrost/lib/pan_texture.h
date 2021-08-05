@@ -28,7 +28,7 @@
 #ifndef __PAN_TEXTURE_H
 #define __PAN_TEXTURE_H
 
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 
 #include <stdbool.h>
 #include "drm-uapi/drm_fourcc.h"

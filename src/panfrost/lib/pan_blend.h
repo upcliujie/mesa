@@ -26,7 +26,7 @@
 #define __PAN_BLEND_H__
 
 #ifdef PAN_ARCH
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 #endif
 
 #include "util/u_dynarray.h"
