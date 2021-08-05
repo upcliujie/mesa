@@ -692,6 +692,7 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    {
       enum pipe_texture_transfer_mode val = screen->get_param(screen, PIPE_CAP_TEXTURE_TRANSFER_MODES);
       st->prefer_blit_based_texture_transfer = (val & PIPE_TEXTURE_TRANSFER_BLIT) == PIPE_TEXTURE_TRANSFER_BLIT;
+      st->allow_compute_based_texture_transfer = (val & PIPE_TEXTURE_TRANSFER_COMPUTE) == PIPE_TEXTURE_TRANSFER_COMPUTE;
    }
    st->force_persample_in_shader =
       screen->get_param(screen, PIPE_CAP_SAMPLE_SHADING) &&
