@@ -86,6 +86,7 @@ MESON_GEN_NINJA := \
 	--cross-file $(AOSP_ABSOLUTE_PATH)/$(MESON_GEN_DIR)/aosp_cross               \
 	--buildtype=release                                                          \
 	-Ddri-search-path=/vendor/$(MESA3D_LIB_DIR)/dri                              \
+	-Dgbm-backends-path=/vendor/$(MESA3D_LIB_DIR)/gbm                            \
 	-Dplatforms=android                                                          \
 	-Dplatform-sdk-version=$(PLATFORM_SDK_VERSION)                               \
 	-Ddri-drivers=                                                               \
