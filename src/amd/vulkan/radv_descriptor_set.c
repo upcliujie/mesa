@@ -219,6 +219,10 @@ radv_CreateDescriptorSetLayout(VkDevice _device, const VkDescriptorSetLayoutCrea
          alignment = 16;
          break;
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+         set_layout->binding[b].size = 32;
+         binding_buffer_count = 1;
+         alignment = 32;
+         break;
       case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
          /* main descriptor + fmask descriptor */
@@ -385,6 +389,9 @@ radv_GetDescriptorSetLayoutSupport(VkDevice device,
          descriptor_alignment = 16;
          break;
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+         descriptor_size = 32;
+         descriptor_alignment = 32;
+         break;
       case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
          descriptor_size = 64;
@@ -739,11 +746,11 @@ radv_CreateDescriptorPool(VkDevice _device, const VkDescriptorPoolCreateInfo *pC
       case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
       case VK_DESCRIPTOR_TYPE_SAMPLER:
       case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+      case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
          /* 32 as we may need to align for images */
          bo_size += 32 * pCreateInfo->pPoolSizes[i].descriptorCount;
          break;
       case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-      case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
          bo_size += 64 * pCreateInfo->pPoolSizes[i].descriptorCount;
          break;
@@ -1170,8 +1177,11 @@ radv_update_descriptor_sets(struct radv_device *device, struct radv_cmd_buffer *
             write_texel_buffer_descriptor(device, cmd_buffer, ptr, buffer_list,
                                           writeset->pTexelBufferView[j]);
             break;
-         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+            write_image_descriptor(device, cmd_buffer, 32, ptr, buffer_list,
+                                   writeset->descriptorType, writeset->pImageInfo + j);
+            break;
+         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
             write_image_descriptor(device, cmd_buffer, 64, ptr, buffer_list,
                                    writeset->descriptorType, writeset->pImageInfo + j);
@@ -1437,8 +1447,12 @@ radv_update_descriptor_set_with_template(struct radv_device *device,
             write_texel_buffer_descriptor(device, cmd_buffer, pDst, buffer_list,
                                           *(VkBufferView *)pSrc);
             break;
-         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+            write_image_descriptor(device, cmd_buffer, 32, pDst, buffer_list,
+                                   templ->entry[i].descriptor_type,
+                                   (struct VkDescriptorImageInfo *)pSrc);
+            break;
+         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
             write_image_descriptor(device, cmd_buffer, 64, pDst, buffer_list,
                                    templ->entry[i].descriptor_type,

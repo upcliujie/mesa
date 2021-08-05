@@ -6009,79 +6009,6 @@ visit_bvh64_intersect_ray_amd(isel_context* ctx, nir_intrinsic_instr* instr)
    mimg->r128 = true;
 }
 
-/* Adjust the sample index according to FMASK.
- *
- * For uncompressed MSAA surfaces, FMASK should return 0x76543210,
- * which is the identity mapping. Each nibble says which physical sample
- * should be fetched to get that sample.
- *
- * For example, 0x11111100 means there are only 2 samples stored and
- * the second sample covers 3/4 of the pixel. When reading samples 0
- * and 1, return physical sample 0 (determined by the first two 0s
- * in FMASK), otherwise return physical sample 1.
- *
- * The sample index should be adjusted as follows:
- *   sample_index = (fmask >> (sample_index * 4)) & 0xF;
- */
-static Temp
-adjust_sample_index_using_fmask(isel_context* ctx, bool da, std::vector<Temp>& coords,
-                                Operand sample_index, Temp fmask_desc_ptr)
-{
-   Builder bld(ctx->program, ctx->block);
-   Temp fmask = bld.tmp(v1);
-   unsigned dim = ctx->options->chip_class >= GFX10
-                     ? ac_get_sampler_dim(ctx->options->chip_class, GLSL_SAMPLER_DIM_2D, da)
-                     : 0;
-
-   MIMG_instruction* load = emit_mimg(bld, aco_opcode::image_load, Definition(fmask),
-                                      fmask_desc_ptr, Operand(s4), coords);
-   load->glc = false;
-   load->dlc = false;
-   load->dmask = 0x1;
-   load->unrm = true;
-   load->da = da;
-   load->dim = dim;
-
-   Operand sample_index4;
-   if (sample_index.isConstant()) {
-      if (sample_index.constantValue() < 16) {
-         sample_index4 = Operand::c32(sample_index.constantValue() << 2);
-      } else {
-         sample_index4 = Operand::zero();
-      }
-   } else if (sample_index.regClass() == s1) {
-      sample_index4 = bld.sop2(aco_opcode::s_lshl_b32, bld.def(s1), bld.def(s1, scc), sample_index,
-                               Operand::c32(2u));
-   } else {
-      assert(sample_index.regClass() == v1);
-      sample_index4 =
-         bld.vop2(aco_opcode::v_lshlrev_b32, bld.def(v1), Operand::c32(2u), sample_index);
-   }
-
-   Temp final_sample;
-   if (sample_index4.isConstant() && sample_index4.constantValue() == 0)
-      final_sample = bld.vop2(aco_opcode::v_and_b32, bld.def(v1), Operand::c32(15u), fmask);
-   else if (sample_index4.isConstant() && sample_index4.constantValue() == 28)
-      final_sample = bld.vop2(aco_opcode::v_lshrrev_b32, bld.def(v1), Operand::c32(28u), fmask);
-   else
-      final_sample =
-         bld.vop3(aco_opcode::v_bfe_u32, bld.def(v1), fmask, sample_index4, Operand::c32(4u));
-
-   /* Don't rewrite the sample index if WORD1.DATA_FORMAT of the FMASK
-    * resource descriptor is 0 (invalid),
-    */
-   Temp compare = bld.tmp(bld.lm);
-   bld.vopc_e64(aco_opcode::v_cmp_lg_u32, Definition(compare), Operand::zero(),
-                emit_extract_vector(ctx, fmask_desc_ptr, 1, s1))
-      .def(0)
-      .setHint(vcc);
-
-   Temp sample_index_v = bld.copy(bld.def(v1), sample_index);
-
-   /* Replace the MSAA sample index. */
-   return bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1), sample_index_v, final_sample, compare);
-}
-
 static std::vector<Temp>
 get_image_coords(isel_context* ctx, const nir_intrinsic_instr* instr)
 {
@@ -6098,28 +6025,8 @@ get_image_coords(isel_context* ctx, const nir_intrinsic_instr* instr)
    std::vector<Temp> coords(count);
    Builder bld(ctx->program, ctx->block);
 
-   if (is_ms) {
-      count--;
-      Temp src2 = get_ssa_temp(ctx, instr->src[2].ssa);
-      /* get sample index */
-      if (instr->intrinsic == nir_intrinsic_image_deref_load ||
-          instr->intrinsic == nir_intrinsic_image_deref_sparse_load) {
-         nir_const_value* sample_cv = nir_src_as_const_value(instr->src[2]);
-         Operand sample_index = sample_cv ? Operand::c32(sample_cv->u32)
-                                          : Operand(emit_extract_vector(ctx, src2, 0, v1));
-         std::vector<Temp> fmask_load_address;
-         for (unsigned i = 0; i < (is_array ? 3 : 2); i++)
-            fmask_load_address.emplace_back(emit_extract_vector(ctx, src0, i, v1));
-
-         Temp fmask_desc_ptr =
-            get_sampler_desc(ctx, nir_instr_as_deref(instr->src[0].ssa->parent_instr),
-                             ACO_DESC_FMASK, nullptr, false);
-         coords[count] = adjust_sample_index_using_fmask(ctx, is_array, fmask_load_address,
-                                                         sample_index, fmask_desc_ptr);
-      } else {
-         coords[count] = emit_extract_vector(ctx, src2, 0, v1);
-      }
-   }
+   if (is_ms)
+      coords[--count] = emit_extract_vector(ctx, get_ssa_temp(ctx, instr->src[2].ssa), 0, v1);
 
    if (gfx9_1d) {
       coords[0] = emit_extract_vector(ctx, src0, 0, v1);
@@ -9127,7 +9034,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
 
 void
 tex_fetch_ptrs(isel_context* ctx, nir_tex_instr* instr, Temp* res_ptr, Temp* samp_ptr,
-               Temp* fmask_ptr, enum glsl_base_type* stype)
+               enum glsl_base_type* stype)
 {
    nir_deref_instr* texture_deref_instr = NULL;
    nir_deref_instr* sampler_deref_instr = NULL;
@@ -9152,13 +9059,12 @@ tex_fetch_ptrs(isel_context* ctx, nir_tex_instr* instr, Temp* res_ptr, Temp* sam
       sampler_deref_instr = texture_deref_instr;
 
    if (plane >= 0) {
-      assert(instr->op != nir_texop_txf_ms && instr->op != nir_texop_samples_identical);
       assert(instr->sampler_dim != GLSL_SAMPLER_DIM_BUF);
       *res_ptr = get_sampler_desc(ctx, texture_deref_instr,
                                   (aco_descriptor_type)(ACO_DESC_PLANE_0 + plane), instr, false);
    } else if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF) {
       *res_ptr = get_sampler_desc(ctx, texture_deref_instr, ACO_DESC_BUFFER, instr, false);
-   } else if (instr->op == nir_texop_fragment_mask_fetch) {
+   } else if (instr->op == nir_texop_fragment_mask_fetch_amd) {
       *res_ptr = get_sampler_desc(ctx, texture_deref_instr, ACO_DESC_FMASK, instr, false);
    } else {
       *res_ptr = get_sampler_desc(ctx, texture_deref_instr, ACO_DESC_IMAGE, instr, false);
@@ -9187,8 +9093,6 @@ tex_fetch_ptrs(isel_context* ctx, nir_tex_instr* instr, Temp* res_ptr, Temp* sam
                                 samp[3]);
       }
    }
-   if (fmask_ptr && (instr->op == nir_texop_txf_ms || instr->op == nir_texop_samples_identical))
-      *fmask_ptr = get_sampler_desc(ctx, texture_deref_instr, ACO_DESC_FMASK, instr, false);
 }
 
 void
@@ -9327,19 +9231,19 @@ get_const_vec(nir_ssa_def* vec, nir_const_value* cv[4])
 void
 visit_tex(isel_context* ctx, nir_tex_instr* instr)
 {
+   assert(instr->op != nir_texop_txf_ms && instr->op != nir_texop_samples_identical);
+
    Builder bld(ctx->program, ctx->block);
    bool has_bias = false, has_lod = false, level_zero = false, has_compare = false,
         has_offset = false, has_ddx = false, has_ddy = false, has_derivs = false,
         has_sample_index = false, has_clamped_lod = false;
-   Temp resource, sampler, fmask_ptr, bias = Temp(), compare = Temp(), sample_index = Temp(),
-                                      lod = Temp(), offset = Temp(), ddx = Temp(), ddy = Temp(),
-                                      clamped_lod = Temp();
+   Temp resource, sampler, bias = Temp(), compare = Temp(), sample_index = Temp(), lod = Temp(),
+                           offset = Temp(), ddx = Temp(), ddy = Temp(), clamped_lod = Temp();
    std::vector<Temp> coords;
    std::vector<Temp> derivs;
-   nir_const_value* sample_index_cv = NULL;
    nir_const_value* const_offset[4] = {NULL, NULL, NULL, NULL};
    enum glsl_base_type stype;
-   tex_fetch_ptrs(ctx, instr, &resource, &sampler, &fmask_ptr, &stype);
+   tex_fetch_ptrs(ctx, instr, &resource, &sampler, &stype);
 
    bool tg4_integer_workarounds = ctx->options->chip_class <= GFX8 && instr->op == nir_texop_tg4 &&
                                   (stype == GLSL_TYPE_UINT || stype == GLSL_TYPE_INT);
@@ -9392,7 +9296,6 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          break;
       case nir_tex_src_ms_index:
          sample_index = get_ssa_temp(ctx, instr->src[i].src.ssa);
-         sample_index_cv = nir_src_as_const_value(instr->src[i].src);
          has_sample_index = true;
          break;
       case nir_tex_src_texture_offset:
@@ -9502,7 +9405,7 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
         instr->sampler_dim == GLSL_SAMPLER_DIM_SUBPASS ||
         instr->sampler_dim == GLSL_SAMPLER_DIM_SUBPASS_MS) &&
        instr->is_array && instr->op != nir_texop_txf && instr->op != nir_texop_txf_ms &&
-       instr->op != nir_texop_fragment_fetch && instr->op != nir_texop_fragment_mask_fetch)
+       instr->op != nir_texop_fragment_fetch_amd && instr->op != nir_texop_fragment_mask_fetch_amd)
       coords[2] = bld.vop1(aco_opcode::v_rndne_f32, bld.def(v1), coords[2]);
 
    if (ctx->options->chip_class == GFX9 && instr->sampler_dim == GLSL_SAMPLER_DIM_1D &&
@@ -9515,20 +9418,6 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
    }
 
    bool da = should_declare_array(ctx, instr->sampler_dim, instr->is_array);
-
-   if (instr->op == nir_texop_samples_identical)
-      resource = fmask_ptr;
-
-   else if ((instr->sampler_dim == GLSL_SAMPLER_DIM_MS ||
-             instr->sampler_dim == GLSL_SAMPLER_DIM_SUBPASS_MS) &&
-            instr->op != nir_texop_txs && instr->op != nir_texop_fragment_fetch &&
-            instr->op != nir_texop_fragment_mask_fetch) {
-      assert(has_sample_index);
-      Operand op(sample_index);
-      if (sample_index_cv)
-         op = Operand::c32(sample_index_cv->u32);
-      sample_index = adjust_sample_index_using_fmask(ctx, da, coords, op, fmask_ptr);
-   }
 
    if (has_offset && (instr->op == nir_texop_txf || instr->op == nir_texop_txf_ms)) {
       for (unsigned i = 0; i < std::min(offset.size(), instr->coord_components); i++) {
@@ -9560,7 +9449,7 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          dmask = 1 << instr->component;
       if (tg4_integer_cube_workaround || dst.type() == RegType::sgpr)
          tmp_dst = bld.tmp(instr->is_sparse ? v5 : v4);
-   } else if (instr->op == nir_texop_samples_identical) {
+   } else if (instr->op == nir_texop_fragment_mask_fetch_amd) {
       tmp_dst = bld.tmp(v1);
    } else if (util_bitcount(dmask) != instr->dest.ssa.num_components ||
               dst.type() == RegType::sgpr) {
@@ -9739,9 +9628,8 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
    if (has_clamped_lod)
       args.emplace_back(clamped_lod);
 
-   if (instr->op == nir_texop_txf || instr->op == nir_texop_txf_ms ||
-       instr->op == nir_texop_samples_identical || instr->op == nir_texop_fragment_fetch ||
-       instr->op == nir_texop_fragment_mask_fetch) {
+   if (instr->op == nir_texop_txf || instr->op == nir_texop_fragment_fetch_amd ||
+       instr->op == nir_texop_fragment_mask_fetch_amd) {
       aco_opcode op = level_zero || instr->sampler_dim == GLSL_SAMPLER_DIM_MS ||
                             instr->sampler_dim == GLSL_SAMPLER_DIM_SUBPASS_MS
                          ? aco_opcode::image_load
@@ -9755,13 +9643,23 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
       tex->da = da;
       tex->tfe = instr->is_sparse;
 
-      if (instr->op == nir_texop_samples_identical) {
-         assert(dmask == 1 && dst.regClass() == bld.lm);
+      if (instr->op == nir_texop_fragment_mask_fetch_amd) {
+         /* Use 0x76543210 if the image doesn't have FMASK. */
+         assert(dmask == 1 && dst.bytes() == 4);
          assert(dst.id() != tmp_dst.id());
 
-         bld.vopc(aco_opcode::v_cmp_eq_u32, Definition(dst), Operand::zero(), tmp_dst)
+         Temp is_null = bld.tmp(bld.lm);
+         bld.vopc_e64(aco_opcode::v_cmp_lg_u32, Definition(is_null), Operand::zero(),
+                      emit_extract_vector(ctx, resource, 1, s1))
             .def(0)
             .setHint(vcc);
+         if (dst.regClass() == s1)
+            bld.pseudo(aco_opcode::p_as_uniform, Definition(dst),
+                       bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1),
+                                bld.copy(bld.def(v1), Operand::c32(0x76543210)), tmp_dst, is_null));
+         else
+            bld.vop2(aco_opcode::v_cndmask_b32, Definition(dst),
+                     bld.copy(bld.def(v1), Operand::c32(0x76543210)), tmp_dst, is_null);
       } else {
          expand_vector(ctx, tmp_dst, dst, instr->dest.ssa.num_components, dmask);
       }
