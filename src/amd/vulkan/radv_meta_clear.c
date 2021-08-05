@@ -835,6 +835,13 @@ clear_htile_mask(struct radv_cmd_buffer *cmd_buffer, const struct radv_image *im
    radv_CmdBindPipeline(radv_cmd_buffer_to_handle(cmd_buffer), VK_PIPELINE_BIND_POINT_COMPUTE,
                         state->clear_htile_mask_pipeline);
 
+   if (device->physical_device->rad_info.chip_class <= GFX8) {
+      /* Invalidate L2 because the driver might have performed a slow clear of the depth or stencil
+       * aspect and DB doesn't use L2 on GFX6-8.
+       */
+      cmd_buffer->state.flush_bits |= RADV_CMD_FLAG_INV_L2;
+   }
+
    radv_meta_push_descriptor_set(
       cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, state->clear_htile_mask_p_layout, 0, /* set */
       1, /* descriptorWriteCount */
