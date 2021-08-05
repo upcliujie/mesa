@@ -254,6 +254,7 @@ struct iris_bo {
          bool local;
       } real;
       struct {
+         struct iris_bo *real;
       } slab;
    };
 };
@@ -344,30 +345,46 @@ void iris_bufmgr_unref(struct iris_bufmgr *bufmgr);
  */
 int iris_bo_flink(struct iris_bo *bo, uint32_t *name);
 
+static inline struct iris_bo *
+iris_get_backing_bo(struct iris_bo *bo)
+{
+   if (bo->gem_handle == 0)
+      bo = bo->slab.real;
+
+   /* We only allow one level of wrapping. */
+   assert(bo->gem_handle);
+
+   return bo;
+}
+
 /**
  * Is this buffer shared with external clients (imported or exported)?
  */
 static inline bool
 iris_bo_is_external(const struct iris_bo *bo)
 {
+   bo = iris_get_backing_bo((struct iris_bo *) bo);
    return bo->real.exported || bo->real.imported;
 }
 
 static inline bool
 iris_bo_is_imported(const struct iris_bo *bo)
 {
+   bo = iris_get_backing_bo((struct iris_bo *) bo);
    return bo->real.imported;
 }
 
 static inline bool
 iris_bo_is_exported(const struct iris_bo *bo)
 {
+   bo = iris_get_backing_bo((struct iris_bo *) bo);
    return bo->real.exported;
 }
 
 static inline enum iris_mmap_mode
 iris_bo_mmap_mode(const struct iris_bo *bo)
 {
+   bo = iris_get_backing_bo((struct iris_bo *) bo);
    return bo->real.mmap_mode;
 }
 
