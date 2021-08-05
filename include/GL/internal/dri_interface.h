@@ -1204,16 +1204,23 @@ struct __DRIdri2LoaderExtensionRec {
 #define __DRI_CTX_ATTRIB_MAJOR_VERSION		0
 #define __DRI_CTX_ATTRIB_MINOR_VERSION		1
 
+/* These must alias the GLX/EGL values. */
 #define __DRI_CTX_ATTRIB_FLAGS			2
 #define __DRI_CTX_FLAG_DEBUG			0x00000001
 #define __DRI_CTX_FLAG_FORWARD_COMPATIBLE	0x00000002
 #define __DRI_CTX_FLAG_ROBUST_BUFFER_ACCESS	0x00000004
+/* Deprecated, do not use */
 #define __DRI_CTX_FLAG_NO_ERROR			0x00000008
+/* Not yet implemented but placed here to reserve the alias with GLX */
+#define __DRI_CTX_FLAG_RESET_ISOLATION          0x00000008
 
 #define __DRI_CTX_ATTRIB_RESET_STRATEGY		3
 #define __DRI_CTX_RESET_NO_NOTIFICATION		0
 #define __DRI_CTX_RESET_LOSE_CONTEXT		1
 
+/**
+ * \name Context priority levels.
+ */
 #define __DRI_CTX_ATTRIB_PRIORITY		4
 #define __DRI_CTX_PRIORITY_LOW			0
 #define __DRI_CTX_PRIORITY_MEDIUM		1
@@ -1223,7 +1230,9 @@ struct __DRIdri2LoaderExtensionRec {
 #define __DRI_CTX_RELEASE_BEHAVIOR_NONE         0
 #define __DRI_CTX_RELEASE_BEHAVIOR_FLUSH        1
 
-#define __DRI_CTX_NUM_ATTRIBS                   6
+#define __DRI_CTX_ATTRIB_NO_ERROR               6
+
+#define __DRI_CTX_NUM_ATTRIBS                   7
 
 /**
  * \name Reasons that __DRIdri2Extension::createContextAttribs might fail
@@ -1860,10 +1869,13 @@ struct __DRIrobustnessExtensionRec {
 };
 
 /**
- * No-error context driver extension.
+ * No-error context driver extension (deprecated).
  *
  * Existence of this extension means the driver can accept the
  * __DRI_CTX_FLAG_NO_ERROR flag.
+ *
+ * This extension is deprecated, and modern loaders will not use it. Please
+ * use __DRI2_NO_ERROR2 instead.
  */
 #define __DRI2_NO_ERROR "DRI_NoError"
 #define __DRI2_NO_ERROR_VERSION 1
@@ -1871,6 +1883,19 @@ struct __DRIrobustnessExtensionRec {
 typedef struct __DRInoErrorExtensionRec {
    __DRIextension base;
 } __DRInoErrorExtension;
+
+/*
+ * No-error context driver extension.
+ *
+ * Existence of this extension means the driver can accept the
+ * __DRI_CTX_ATTRIB_NO_ERROR attribute.
+ */
+#define __DRI2_NO_ERROR2 "DRI_NoError2"
+#define __DRI2_NO_ERROR2_VERSION 1
+
+typedef struct __DRInoError2ExtensionRec {
+   __DRIextension base;
+} __DRInoError2Extension;
 
 /*
  * Flush control driver extension.
