@@ -177,6 +177,13 @@ v3d_choose_spill_node(struct v3d_compile *c, struct ra_graph *g,
 void
 v3d_setup_spill_base(struct v3d_compile *c)
 {
+        /* Spill base setup is done at the beginning of the entry block, not
+         * the current block. Disable ldunif optimization to avoid searching
+         * in the wrong block.
+         */
+        bool had_disable_ldunif_opt = c->disable_ldunif_opt;
+        c->disable_ldunif_opt = true;
+
         c->cursor = vir_before_block(vir_entry_block(c));
 
         int start_num_temps = c->num_temps;
@@ -205,6 +212,7 @@ v3d_setup_spill_base(struct v3d_compile *c)
                 BITSET_CLEAR(c->spillable, i);
 
         c->cursor = vir_after_block(c->cur_block);
+        c->disable_ldunif_opt = had_disable_ldunif_opt;
 }
 
 static void
