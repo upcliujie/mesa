@@ -30,6 +30,9 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 # Crosvm wants this
 syslogd > /dev/null
 
+while [ 1 ] ; do top -b -n 1 | grep Cpu ; sleep 10; done &
+while [ 1 ] ; do cat /proc/loadavg ; sleep 60; done &
+
 crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
   -m 4096 \
