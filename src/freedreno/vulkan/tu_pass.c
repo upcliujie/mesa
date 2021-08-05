@@ -334,6 +334,53 @@ tu_render_pass_add_implicit_deps(struct tu_render_pass *pass,
    }
 }
 
+/* If an input attachment is used without an intervening write to the same
+ * attachment, then we can just use the original image, even in GMEM mode.
+ * This is an optimization, but it's also important because it allows us to
+ * avoid having to invalidate UCHE at the beginning of each tile due to it
+ * becoming invalid. The only reads of GMEM via UCHE should be after an
+ * earlier pass modified it, which only works if there's already an
+ * appropriate dependency that will add the CACHE_INVALIDATE anyway. We
+ * don't consider this in the dependency code, so this is also required for
+ * correctness.
+ */
+static void
+tu_render_pass_patch_input_gmem(struct tu_render_pass *pass)
+{
+   bool written[pass->attachment_count];
+
+   memset(written, 0, sizeof(written));
+
+   for (unsigned i = 0; i < pass->subpass_count; i++) {
+      struct tu_subpass *subpass = &pass->subpasses[i];
+
+      for (unsigned j = 0; j < subpass->input_count; j++) {
+         uint32_t a = subpass->input_attachments[j].attachment;
+         if (a == VK_ATTACHMENT_UNUSED)
+            continue;
+         subpass->input_attachments[j].patch_input_gmem = written[a];
+      }
+
+      for (unsigned j = 0; j < subpass->color_count; j++) {
+         uint32_t a = subpass->color_attachments[j].attachment;
+         if (a == VK_ATTACHMENT_UNUSED)
+            continue;
+         written[a] = true;
+      }
+
+      for (unsigned j = 0; j < subpass->resolve_count; j++) {
+         uint32_t a = subpass->resolve_attachments[j].attachment;
+         if (a == VK_ATTACHMENT_UNUSED)
+            continue;
+         written[a] = true;
+      }
+
+      if (subpass->depth_stencil_attachment.attachment != VK_ATTACHMENT_UNUSED) {
+         written[subpass->depth_stencil_attachment.attachment] = true;
+      }
+   }
+}
+
 static void update_samples(struct tu_subpass *subpass,
                            VkSampleCountFlagBits samples)
 {
@@ -584,8 +631,10 @@ tu_CreateRenderPass2(VkDevice _device,
          for (uint32_t j = 0; j < desc->inputAttachmentCount; j++) {
             uint32_t a = desc->pInputAttachments[j].attachment;
             subpass->input_attachments[j].attachment = a;
-            if (a != VK_ATTACHMENT_UNUSED)
-               pass->attachments[a].gmem_offset = 0;
+            /* Note: attachments only used as input attachments will be read
+             * directly instead of through gmem, so we don't mark input
+             * attachments as needing gmem.
+             */
          }
       }
 
@@ -634,6 +683,8 @@ tu_CreateRenderPass2(VkDevice _device,
             update_samples(subpass, pCreateInfo->pAttachments[a].samples);
       }
    }
+
+   tu_render_pass_patch_input_gmem(pass);
 
    /* disable unused attachments */
    for (uint32_t i = 0; i < pass->attachment_count; i++) {

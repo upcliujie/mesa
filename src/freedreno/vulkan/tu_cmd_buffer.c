@@ -1056,7 +1056,7 @@ tu_emit_input_attachments(struct tu_cmd_buffer *cmd,
          gmem_offset = att->gmem_offset_stencil;
       }
 
-      if (!gmem)
+      if (!gmem || !subpass->input_attachments[i / 2].patch_input_gmem)
          continue;
 
       /* patched for gmem */
