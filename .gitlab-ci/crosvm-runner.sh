@@ -30,6 +30,19 @@ echo 1 > /proc/sys/net/ipv4/ip_forward
 # Crosvm wants this
 syslogd > /dev/null
 
+apt-get update
+apt-get install -y procps
+
+bash -c 'while :; do
+  echo "------------- Host -------------"
+  TERM=xterm top -n1 -b | grep Cpu
+  ps aux | sort -nrk 3,3 | head -n 4 | tr -s " " | cut -d " " -f 3,11-
+
+  sleep 10
+done' &
+
+while [ 1 ] ; do cat /proc/loadavg ; sleep 60; done &
+
 crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
   -m 4096 \
