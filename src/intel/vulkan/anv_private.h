@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include "drm-uapi/i915_drm.h"
+#include "vk_format.h"
 
 #ifdef HAVE_VALGRIND
 #include <valgrind.h>
@@ -3824,19 +3825,29 @@ anv_plane_to_aspect(VkImageAspectFlags image_aspects,
    return VK_IMAGE_ASPECT_STENCIL_BIT;
 }
 
+static inline VkImageAspectFlags
+anv_format_aspects(VkFormat format)
+{
+   switch (format) {
+   case VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16:
+   case VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16:
+   case VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16:
+   case VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16:
+   case VK_FORMAT_G16B16G16R16_422_UNORM:
+   case VK_FORMAT_B16G16R16G16_422_UNORM:
+      return (VK_IMAGE_ASPECT_PLANE_0_BIT |
+              VK_IMAGE_ASPECT_PLANE_1_BIT);
+
+   default:
+      return vk_format_aspects(format);
+   }
+}
+
 #define anv_foreach_image_aspect_bit(b, image, aspects) \
    u_foreach_bit(b, anv_image_expand_aspects(image, aspects))
 
 const struct anv_format *
 anv_get_format(VkFormat format);
-
-static inline uint32_t
-anv_get_format_planes(VkFormat vk_format)
-{
-   const struct anv_format *format = anv_get_format(vk_format);
-
-   return format != NULL ? format->n_planes : 0;
-}
 
 struct anv_format_plane
 anv_get_format_plane(const struct intel_device_info *devinfo,
@@ -4508,6 +4519,24 @@ void anv_fill_buffer_surface_state(struct anv_device *device,
                                    isl_surf_usage_flags_t usage,
                                    struct anv_address address,
                                    uint32_t range, uint32_t stride);
+
+/**
+ * Do Y plane and UV planes have the same storage?
+ *
+ * Some packed, subsampled YUV formats are handled by the driver as if they
+ * were planar.  For these formats, the Y plane and the UV plane is the same
+ * memory, but the surface formats for each view a different.
+ */
+static inline bool
+anv_is_y_plane_and_uv_plane_same_memory(VkFormat vk_format)
+{
+   return vk_format == VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16 ||
+          vk_format == VK_FORMAT_G16B16G16R16_422_UNORM ||
+          vk_format == VK_FORMAT_B16G16R16G16_422_UNORM;
+}
 
 static inline void
 anv_clear_color_from_att_state(union isl_color_value *clear_color,

@@ -188,13 +188,37 @@ static const struct anv_format main_formats[] = {
    fmt1(VK_FORMAT_A8B8G8R8_UINT_PACK32,              ISL_FORMAT_R8G8B8A8_UINT),
    fmt1(VK_FORMAT_A8B8G8R8_SINT_PACK32,              ISL_FORMAT_R8G8B8A8_SINT),
    fmt1(VK_FORMAT_A8B8G8R8_SRGB_PACK32,              ISL_FORMAT_R8G8B8A8_UNORM_SRGB),
-   fmt1(VK_FORMAT_A2R10G10B10_UNORM_PACK32,          ISL_FORMAT_B10G10R10A2_UNORM),
+
+   ycbcr_fmt(VK_FORMAT_A2R10G10B10_UNORM_PACK32, 1,
+             /* Same as the y_plane macro, but also sets
+              * VK_IMAGE_ASPECT_COLOR_BIT.
+              */
+             { .isl_format = ISL_FORMAT_B10G10R10A2_UNORM,
+               .swizzle = RGBA,
+               .ycbcr_swizzle = RGBA,
+               .denominator_scales = { 1, 1 },
+               .has_chroma = false,
+               .aspect = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_PLANE_0_BIT,
+             }),
+
    fmt1(VK_FORMAT_A2R10G10B10_SNORM_PACK32,          ISL_FORMAT_B10G10R10A2_SNORM),
    fmt1(VK_FORMAT_A2R10G10B10_USCALED_PACK32,        ISL_FORMAT_B10G10R10A2_USCALED),
    fmt1(VK_FORMAT_A2R10G10B10_SSCALED_PACK32,        ISL_FORMAT_B10G10R10A2_SSCALED),
    fmt1(VK_FORMAT_A2R10G10B10_UINT_PACK32,           ISL_FORMAT_B10G10R10A2_UINT),
    fmt1(VK_FORMAT_A2R10G10B10_SINT_PACK32,           ISL_FORMAT_B10G10R10A2_SINT),
-   fmt1(VK_FORMAT_A2B10G10R10_UNORM_PACK32,          ISL_FORMAT_R10G10B10A2_UNORM),
+
+   ycbcr_fmt(VK_FORMAT_A2B10G10R10_UNORM_PACK32, 1,
+             /* Same as the y_plane macro, but also sets
+              * VK_IMAGE_ASPECT_COLOR_BIT.
+              */
+             { .isl_format = ISL_FORMAT_R10G10B10A2_UNORM,
+               .swizzle = RGBA,
+               .ycbcr_swizzle = RGBA,
+               .denominator_scales = { 1, 1 },
+               .has_chroma = false,
+               .aspect = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_PLANE_0_BIT,
+             }),
+
    fmt1(VK_FORMAT_A2B10G10R10_SNORM_PACK32,          ISL_FORMAT_R10G10B10A2_SNORM),
    fmt1(VK_FORMAT_A2B10G10R10_USCALED_PACK32,        ISL_FORMAT_R10G10B10A2_USCALED),
    fmt1(VK_FORMAT_A2B10G10R10_SSCALED_PACK32,        ISL_FORMAT_R10G10B10A2_SSCALED),
@@ -221,7 +245,19 @@ static const struct anv_format main_formats[] = {
    fmt1(VK_FORMAT_R16G16B16_UINT,                    ISL_FORMAT_R16G16B16_UINT),
    fmt1(VK_FORMAT_R16G16B16_SINT,                    ISL_FORMAT_R16G16B16_SINT),
    fmt1(VK_FORMAT_R16G16B16_SFLOAT,                  ISL_FORMAT_R16G16B16_FLOAT),
-   fmt1(VK_FORMAT_R16G16B16A16_UNORM,                ISL_FORMAT_R16G16B16A16_UNORM),
+
+   ycbcr_fmt(VK_FORMAT_R16G16B16A16_UNORM, 1,
+             /* Same as the y_plane macro, but also sets
+              * VK_IMAGE_ASPECT_COLOR_BIT.
+              */
+             { .isl_format = ISL_FORMAT_R16G16B16A16_UNORM,
+               .swizzle = RGBA,
+               .ycbcr_swizzle = RGBA,
+               .denominator_scales = { 1, 1 },
+               .has_chroma = false,
+               .aspect = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_PLANE_0_BIT,
+             }),
+
    fmt1(VK_FORMAT_R16G16B16A16_SNORM,                ISL_FORMAT_R16G16B16A16_SNORM),
    fmt1(VK_FORMAT_R16G16B16A16_USCALED,              ISL_FORMAT_R16G16B16A16_USCALED),
    fmt1(VK_FORMAT_R16G16B16A16_SSCALED,              ISL_FORMAT_R16G16B16A16_SSCALED),
@@ -365,8 +401,14 @@ static const struct anv_format ycbcr_formats[] = {
    fmt_unsupported(VK_FORMAT_R10X6_UNORM_PACK16),
    fmt_unsupported(VK_FORMAT_R10X6G10X6_UNORM_2PACK16),
    fmt_unsupported(VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16),
+
+   ycbcr_fmt(VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, BLUE, ZERO, RED), 2, 1)),
+   ycbcr_fmt(VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, GREEN, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, RED, ZERO), 2, 1)),
+
    fmt_unsupported(VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16),
@@ -374,20 +416,28 @@ static const struct anv_format ycbcr_formats[] = {
    fmt_unsupported(VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_R12X4_UNORM_PACK16),
    fmt_unsupported(VK_FORMAT_R12X4G12X4_UNORM_2PACK16),
-   fmt_unsupported(VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16),
-   fmt_unsupported(VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16),
+
+   ycbcr_fmt(VK_FORMAT_R12X4G12X4B12X4A12X4_UNORM_4PACK16, 1,
+             y_plane(0, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, RGBA, 1, 1)),
+   ycbcr_fmt(VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, BLUE, ZERO, RED), 2, 1)),
+   ycbcr_fmt(VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, GREEN, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, RED, ZERO), 2, 1)),
+
    fmt_unsupported(VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4R12X4_2PLANE_420_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_422_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4R12X4_2PLANE_422_UNORM_3PACK16),
    fmt_unsupported(VK_FORMAT_G12X4_B12X4_R12X4_3PLANE_444_UNORM_3PACK16),
-   /* TODO: it is possible to enable the following 2 formats, but that
-    * requires further refactoring of how we handle multiplanar formats.
-    */
-   fmt_unsupported(VK_FORMAT_G16B16G16R16_422_UNORM),
-   fmt_unsupported(VK_FORMAT_B16G16R16G16_422_UNORM),
 
+   ycbcr_fmt(VK_FORMAT_G16B16G16R16_422_UNORM, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, BLUE, ZERO, RED), 2, 1)),
+   ycbcr_fmt(VK_FORMAT_B16G16R16G16_422_UNORM, 2,
+             y_plane(0, ISL_FORMAT_R16G16_UNORM, RGBA, _ISL_SWIZZLE(ZERO, GREEN, ZERO, ZERO), 1, 1),
+             chroma_plane(1, ISL_FORMAT_R16G16B16A16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, RED, ZERO), 2, 1)),
    ycbcr_fmt(VK_FORMAT_G16_B16_R16_3PLANE_420_UNORM, 3,
              y_plane(0, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(GREEN, ZERO, ZERO, ZERO), 1, 1),
              chroma_plane(1, ISL_FORMAT_R16_UNORM, RGBA, _ISL_SWIZZLE(BLUE, ZERO, ZERO, ZERO), 2, 2),
@@ -480,16 +530,30 @@ anv_get_format_plane(const struct intel_device_info *devinfo,
    if (format == NULL)
       return unsupported;
 
-   uint32_t plane = anv_image_aspect_to_plane(vk_format_aspects(vk_format), aspect);
+   uint32_t plane = anv_image_aspect_to_plane(anv_format_aspects(vk_format), aspect);
    struct anv_format_plane plane_format = format->planes[plane];
    if (plane_format.isl_format == ISL_FORMAT_UNSUPPORTED)
       return unsupported;
+
+   /* These VK formats map the same memory twice with different ISL formats.
+    * They must be restricted to Ice Lake and later to avoid hardware texture
+    * cache bugs.
+    */
+   if (devinfo->ver < 11 &&
+       (vk_format == VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_G12X4B12X4G12X4R12X4_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_B12X4G12X4R12X4G12X4_422_UNORM_4PACK16 ||
+        vk_format == VK_FORMAT_G16B16G16R16_422_UNORM ||
+        vk_format == VK_FORMAT_B16G16R16G16_422_UNORM)) {
+      return unsupported;
+   }
 
    if (tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
       return plane_format;
 
    if (aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
-      assert(vk_format_aspects(vk_format) &
+      assert(anv_format_aspects(vk_format) &
              (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT));
 
       /* There's no reason why we strictly can't support depth or stencil with
@@ -557,7 +621,7 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
    assert((isl_mod_info != NULL) ==
           (vk_tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT));
 
-   const VkImageAspectFlags aspects = vk_format_aspects(vk_format);
+   const VkImageAspectFlags aspects = anv_format_aspects(vk_format);
 
    if (aspects & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
       if (vk_tiling == VK_IMAGE_TILING_LINEAR ||
@@ -696,17 +760,28 @@ anv_get_image_format_features(const struct intel_device_info *devinfo,
          }
       }
 
-      if (anv_format->n_planes > 1)
+      if (anv_format->n_planes > 1 &&
+          !anv_is_y_plane_and_uv_plane_same_memory(anv_format->vk_format)) {
          flags |= VK_FORMAT_FEATURE_DISJOINT_BIT;
+      }
 
-      const VkFormatFeatureFlags disallowed_ycbcr_image_features =
-         VK_FORMAT_FEATURE_BLIT_SRC_BIT |
-         VK_FORMAT_FEATURE_BLIT_DST_BIT |
-         VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
-         VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT |
-         VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+      /* Almost all YCbCr formats either have multiple planes, are subsampled,
+       * or have weird bit-pattern usages (e.g., Y412).  There are a couple
+       * formats that just normal RGBA formats that can be reinterpreted as
+       * YUV.  These will have VK_IMAGE_ASPECT_COLOR_BIT set (in addition to
+       * VK_IMAGE_ASPECT_PLANE_0_BIT).  Thus far, the only known formats to
+       * fall into this category are Y410 and Y416).
+       */
+      if ((anv_format->planes[0].aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0) {
+         const VkFormatFeatureFlags disallowed_ycbcr_image_features =
+            VK_FORMAT_FEATURE_BLIT_SRC_BIT |
+            VK_FORMAT_FEATURE_BLIT_DST_BIT |
+            VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
+            VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT |
+            VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
 
-      flags &= ~disallowed_ycbcr_image_features;
+         flags &= ~disallowed_ycbcr_image_features;
+      }
    }
 
    if (vk_tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
@@ -818,7 +893,15 @@ get_buffer_format_features(const struct intel_device_info *devinfo,
    if (anv_format->n_planes > 1)
       return 0;
 
-   if (anv_format->can_ycbcr)
+   /* Almost all YCbCr formats either have multiple planes, are subsampled, or
+    * have weird bit-pattern usages (e.g., Y412).  There are a couple formats
+    * that just normal RGBA formats that can be reinterpreted as YUV.  These
+    * will have VK_IMAGE_ASPECT_COLOR_BIT set (in addition to
+    * VK_IMAGE_ASPECT_PLANE_0_BIT).  Thus far, the only known formats to fall
+    * into this category are Y410 and Y416).
+    */
+   if (anv_format->can_ycbcr &&
+       (anv_format->planes[0].aspect & VK_IMAGE_ASPECT_COLOR_BIT) == 0)
       return 0;
 
    if (vk_format_is_depth_or_stencil(vk_format))

@@ -798,8 +798,14 @@ add_primary_surface(struct anv_device *device,
 
    image->planes[plane].aux_usage = ISL_AUX_USAGE_NONE;
 
-   return add_surface(device, image, anv_surf,
-                      ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane, offset);
+   if (plane == 1 && anv_is_y_plane_and_uv_plane_same_memory(image->vk_format)){
+      anv_surf->memory_range = image->planes[0].primary_surface.memory_range;
+
+      return VK_SUCCESS;
+   } else {
+      return add_surface(device, image, anv_surf,
+                         ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane, offset);
+   }
 }
 
 #ifndef NDEBUG
@@ -1304,7 +1310,7 @@ anv_image_create(VkDevice _device,
                                              pCreateInfo->extent);
    image->vk_format = pCreateInfo->format;
    image->format = anv_get_format(pCreateInfo->format);
-   image->aspects = vk_format_aspects(image->vk_format);
+   image->aspects = anv_format_aspects(image->vk_format);
    image->levels = pCreateInfo->mipLevels;
    image->array_size = pCreateInfo->arrayLayers;
    image->samples = pCreateInfo->samples;
@@ -1354,6 +1360,7 @@ anv_image_create(VkDevice _device,
     *    with the VK_IMAGE_CREATE_DISJOINT_BIT bit set.
     */
    image->disjoint = image->format->n_planes > 1 &&
+                     !anv_is_y_plane_and_uv_plane_same_memory(image->vk_format) &&
                      (pCreateInfo->flags & VK_IMAGE_CREATE_DISJOINT_BIT);
 
    const isl_tiling_flags_t isl_tiling_flags =
@@ -1579,7 +1586,7 @@ resolve_ahw_image(struct anv_device *device,
     */
    image->vk_format = vk_format;
    image->format = anv_get_format(vk_format);
-   image->aspects = vk_format_aspects(image->vk_format);
+   image->aspects = anv_format_aspects(image->vk_format);
    image->n_planes = image->format->n_planes;
 
    uint32_t stride = desc.stride *
@@ -2797,15 +2804,19 @@ anv_CreateImageView(VkDevice _device,
     */
    uint32_t vplane = 0;
    anv_foreach_image_aspect_bit(iaspect_bit, image, expanded_aspects) {
-      uint32_t iplane =
-         anv_image_aspect_to_plane(image->aspects, 1UL << iaspect_bit);
       VkImageAspectFlags vplane_aspect =
          anv_plane_to_aspect(iview->aspect_mask, vplane);
       struct anv_format_plane format =
          anv_get_format_plane(&device->info, iview->vk_format,
                               vplane_aspect, image->tiling);
 
-      iview->planes[vplane].image_plane = iplane;
+      if (conv_format != NULL &&
+          anv_is_y_plane_and_uv_plane_same_memory(conv_format->vk_format)) {
+         iview->planes[vplane].image_plane = 0;
+      } else {
+         iview->planes[vplane].image_plane =
+            anv_image_aspect_to_plane(image->aspects, 1UL << iaspect_bit);
+      }
 
       iview->planes[vplane].isl = (struct isl_view) {
          .format = format.isl_format,

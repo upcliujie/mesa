@@ -256,19 +256,19 @@ try_lower_tex_ycbcr(const struct anv_pipeline_layout *layout,
    assert(y_isl_layout != NULL);
    uint8_t y_bpc = y_isl_layout->channels_array[0].bits;
 
-   /* |ycbcr_comp| holds components in the order : Cr-Y-Cb */
+   /* |ycbcr_comp| holds components in the order : Cr-Y-Cb-A. */
    nir_ssa_def *zero = nir_imm_float(builder, 0.0f);
    nir_ssa_def *one = nir_imm_float(builder, 1.0f);
    /* Use extra 2 channels for following swizzle */
-   nir_ssa_def *ycbcr_comp[5] = { zero, zero, zero, one, zero };
+   nir_ssa_def *ycbcr_comp[6] = { zero, zero, zero, one, one, zero };
 
-   uint8_t ycbcr_bpcs[5];
+   uint8_t ycbcr_bpcs[6];
    memset(ycbcr_bpcs, y_bpc, sizeof(ycbcr_bpcs));
 
    /* Go through all the planes and gather the samples into a |ycbcr_comp|
     * while applying a swizzle required by the spec:
     *
-    *    R, G, B should respectively map to Cr, Y, Cb
+    *    R, G, B, A should respectively map to Cr, Y, Cb, A
     */
    for (uint32_t p = 0; p < format->n_planes; p++) {
       const struct anv_format_plane *plane_format = &format->planes[p];
@@ -297,8 +297,8 @@ try_lower_tex_ycbcr(const struct anv_pipeline_layout *layout,
    for (uint32_t i = 0; i < ARRAY_SIZE(state.conversion->mapping); i++) {
       /* Maps to components in |ycbcr_comp| */
       static const uint32_t swizzle_mapping[] = {
-         [VK_COMPONENT_SWIZZLE_ZERO] = 4,
-         [VK_COMPONENT_SWIZZLE_ONE]  = 3,
+         [VK_COMPONENT_SWIZZLE_ZERO] = 5,
+         [VK_COMPONENT_SWIZZLE_ONE]  = 4,
          [VK_COMPONENT_SWIZZLE_R]    = 0,
          [VK_COMPONENT_SWIZZLE_G]    = 1,
          [VK_COMPONENT_SWIZZLE_B]    = 2,
