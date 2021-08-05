@@ -60,6 +60,11 @@ typedef struct
 
    uint64_t inputs_needed_by_pos;
    uint64_t inputs_needed_by_others;
+   uint32_t instance_rate_inputs;
+
+   nir_instr *compact_arg_stores[4];
+   nir_instr *compact_arg_loads[4];
+   nir_intrinsic_instr *overwrite_args;
 } lower_ngg_nogs_state;
 
 typedef struct
@@ -526,6 +531,138 @@ remove_extra_pos_outputs(nir_shader *shader, lower_ngg_nogs_state *nogs_state)
                                 nir_metadata_block_index | nir_metadata_dominance, &s);
 }
 
+static bool
+remove_compacted_arg(lower_ngg_nogs_state *state, nir_builder *b, unsigned idx)
+{
+   bool progress = false;
+
+   nir_instr *store_instr = state->compact_arg_stores[idx];
+   nir_instr *load_instr = state->compact_arg_loads[idx];
+
+   if (store_instr) {
+      nir_instr_remove(store_instr);
+
+      state->compact_arg_stores[idx] = NULL;
+      progress = true;
+   }
+
+   if (load_instr) {
+      /* Find the intrinsic that overwrites the shader arguments,
+       * and change its corresponding source.
+       * This will cause NIR's DCE to recognize the load and its phis as dead.
+       */
+      assert(state->overwrite_args);
+      b->cursor = nir_before_instr(&state->overwrite_args->instr);
+      nir_ssa_def *undef_arg = nir_ssa_undef(b, 1, 32);
+      nir_ssa_def_rewrite_uses(state->overwrite_args->src[idx].ssa, undef_arg);
+
+      state->compact_arg_loads[idx] = NULL;
+      progress = true;
+   }
+
+   return progress;
+}
+
+static bool
+cleanup_culling_shader_after_dce(nir_shader *shader,
+                                 nir_function_impl *function_impl,
+                                 lower_ngg_nogs_state *state)
+{
+   bool uses_vs_vertex_id = false;
+   bool uses_vs_instance_id = false;
+   bool uses_tes_u = false;
+   bool uses_tes_v = false;
+   bool uses_tes_rel_patch_id = false;
+   bool uses_tes_patch_id = false;
+
+   nir_foreach_block_reverse_safe(block, function_impl) {
+      nir_foreach_instr_reverse_safe(instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+         switch (intrin->intrinsic) {
+         case nir_intrinsic_alloc_vertices_and_primitives_amd:
+            goto cleanup_culling_shader_after_dce_done;
+
+         case nir_intrinsic_load_vertex_id:
+         case nir_intrinsic_load_vertex_id_zero_base: {
+            assert(shader->info.stage == MESA_SHADER_VERTEX);
+            uses_vs_vertex_id = true;
+            break;
+         }
+
+         case nir_intrinsic_load_instance_id: {
+            assert(shader->info.stage == MESA_SHADER_VERTEX);
+            uses_vs_instance_id = true;
+            break;
+         }
+
+         case nir_intrinsic_load_input: {
+            /* TES I/O should have been already lowered at this point. */
+            assert(shader->info.stage == MESA_SHADER_VERTEX);
+
+            unsigned location = nir_intrinsic_base(intrin) - VERT_ATTRIB_GENERIC0;
+            if (state->instance_rate_inputs & (1 << location))
+               uses_vs_instance_id = true;
+            else
+               uses_vs_vertex_id = true;
+
+            break;
+         }
+
+         case nir_intrinsic_load_tess_coord: {
+            assert(shader->info.stage == MESA_SHADER_TESS_EVAL);
+            /* We currently can't easily distinguish between these */
+            uses_tes_u = true;
+            uses_tes_v = true;
+            break;
+         }
+
+         case nir_intrinsic_load_tess_rel_patch_id_amd: {
+            assert(shader->info.stage == MESA_SHADER_TESS_EVAL);
+            uses_tes_rel_patch_id = true;
+            break;
+         }
+
+         case nir_intrinsic_load_primitive_id: {
+            if (shader->info.stage == MESA_SHADER_TESS_EVAL)
+               uses_tes_patch_id = true;
+            break;
+         }
+
+         default:
+            break;
+         }
+      }
+   }
+
+   cleanup_culling_shader_after_dce_done:
+   bool progress = false;
+
+   nir_builder b;
+   nir_builder_init(&b, function_impl);
+
+   if (shader->info.stage == MESA_SHADER_VERTEX) {
+      if (!uses_vs_vertex_id)
+         progress |= remove_compacted_arg(state, &b, 0);
+      if (!uses_vs_instance_id)
+         progress |= remove_compacted_arg(state, &b, 1);
+   } else if (shader->info.stage == MESA_SHADER_TESS_EVAL) {
+      if (!uses_tes_u)
+         progress |= remove_compacted_arg(state, &b, 0);
+      if (!uses_tes_v)
+         progress |= remove_compacted_arg(state, &b, 1);
+      if (!uses_tes_rel_patch_id)
+         progress |= remove_compacted_arg(state, &b, 2);
+      if (!uses_tes_patch_id)
+         progress |= remove_compacted_arg(state, &b, 3);
+   }
+
+   return progress;
+}
+
 /**
  * Perform vertex compaction after culling.
  *
@@ -573,7 +710,9 @@ compact_vertices_after_culling(nir_builder *b,
       /* Store the current thread's repackable arguments to the exporter thread's LDS space */
       for (unsigned i = 0; i < max_exported_args; ++i) {
          nir_ssa_def *arg_val = nir_load_var(b, repacked_arg_vars[i]);
-         nir_build_store_shared(b, arg_val, exporter_addr, .base = lds_es_arg_0 + 4u * i, .align_mul = 4u, .write_mask = 0x1u);
+         nir_intrinsic_instr *store = nir_build_store_shared(b, arg_val, exporter_addr, .base = lds_es_arg_0 + 4u * i, .align_mul = 4u, .write_mask = 0x1u);
+
+         nogs_state->compact_arg_stores[i] = &store->instr;
       }
    }
    nir_pop_if(b, if_es_accepted);
@@ -610,6 +749,8 @@ compact_vertices_after_culling(nir_builder *b,
       for (unsigned i = 0; i < max_exported_args; ++i) {
          nir_ssa_def *arg_val = nir_build_load_shared(b, 1, 32, es_vertex_lds_addr, .base = lds_es_arg_0 + 4u * i, .align_mul = 4u);
          nir_store_var(b, repacked_arg_vars[i], arg_val, 0x1u);
+
+         nogs_state->compact_arg_loads[i] = arg_val->parent_instr;
       }
    }
    nir_push_else(b, if_packed_es_thread);
@@ -1085,12 +1226,14 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
     */
 
    if (b->shader->info.stage == MESA_SHADER_VERTEX)
-      nir_build_overwrite_vs_arguments_amd(b,
-         nir_load_var(b, repacked_arg_vars[0]), nir_load_var(b, repacked_arg_vars[1]));
+      nogs_state->overwrite_args =
+         nir_build_overwrite_vs_arguments_amd(b,
+            nir_load_var(b, repacked_arg_vars[0]), nir_load_var(b, repacked_arg_vars[1]));
    else if (b->shader->info.stage == MESA_SHADER_TESS_EVAL)
-      nir_build_overwrite_tes_arguments_amd(b,
-         nir_load_var(b, repacked_arg_vars[0]), nir_load_var(b, repacked_arg_vars[1]),
-         nir_load_var(b, repacked_arg_vars[2]), nir_load_var(b, repacked_arg_vars[3]));
+      nogs_state->overwrite_args =
+         nir_build_overwrite_tes_arguments_amd(b,
+            nir_load_var(b, repacked_arg_vars[0]), nir_load_var(b, repacked_arg_vars[1]),
+            nir_load_var(b, repacked_arg_vars[2]), nir_load_var(b, repacked_arg_vars[3]));
    else
       unreachable("Should be VS or TES.");
 }
@@ -1125,7 +1268,8 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
                       bool consider_culling,
                       bool consider_passthrough,
                       bool export_prim_id,
-                      bool provoking_vtx_last)
+                      bool provoking_vtx_last,
+                      uint32_t instance_rate_inputs)
 {
    nir_function_impl *impl = nir_shader_get_entrypoint(shader);
    assert(impl);
@@ -1154,6 +1298,7 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
       .max_num_waves = DIV_ROUND_UP(max_workgroup_size, wave_size),
       .max_es_num_vertices = max_num_es_vertices,
       .wave_size = wave_size,
+      .instance_rate_inputs = instance_rate_inputs,
    };
 
    /* We need LDS space when VS needs to export the primitive ID. */
@@ -1269,6 +1414,9 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
       NIR_PASS(progress, shader, nir_opt_undef);
       NIR_PASS(progress, shader, nir_opt_dce);
       NIR_PASS(progress, shader, nir_opt_dead_cf);
+
+      if (can_cull)
+         progress |= cleanup_culling_shader_after_dce(shader, b->impl, &state);
    } while (progress);
 
    shader->info.shared_size = state.total_lds_bytes;
