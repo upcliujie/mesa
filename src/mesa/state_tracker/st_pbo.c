@@ -672,6 +672,11 @@ st_init_pbo_helpers(struct st_context *st)
    /* Rasterizer state */
    memset(&st->pbo.raster, 0, sizeof(struct pipe_rasterizer_state));
    st->pbo.raster.half_pixel_center = 1;
+
+   st->pbo.shaders = _mesa_hash_table_create_u32_keys(NULL);
+   st->pbo.constants = pipe_buffer_create_const0(screen, PIPE_BIND_CONSTANT_BUFFER, PIPE_USAGE_STREAM, sizeof(uint32_t) * 4);
+   if (screen->get_param(screen, PIPE_CAP_BUFFER_MAP_PERSISTENT_COHERENT))
+      st->pbo.constants_map = pipe_buffer_map(st->pipe, st->pbo.constants, PIPE_MAP_PERSISTENT | PIPE_MAP_WRITE, &st->pbo.constants_xfer);
 }
 
 void
@@ -708,4 +713,13 @@ st_destroy_pbo_helpers(struct st_context *st)
       st->pipe->delete_vs_state(st->pipe, st->pbo.vs);
       st->pbo.vs = NULL;
    }
+
+   if (st->pbo.shaders) {
+      hash_table_foreach(st->pbo.shaders, entry)
+         st->pipe->delete_compute_state(st->pipe, entry->data);
+      _mesa_hash_table_destroy(st->pbo.shaders, NULL);
+   }
+   if (st->pbo.constants_xfer)
+      pipe_buffer_unmap(st->pipe, st->pbo.constants_xfer);
+   pipe_resource_reference(&st->pbo.constants, NULL);
 }
