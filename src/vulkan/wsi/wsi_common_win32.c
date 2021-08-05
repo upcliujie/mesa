@@ -313,7 +313,7 @@ wsi_win32_image_init(VkDevice device_h,
 {
    assert(chain->base.use_buffer_blit);
    VkResult result = wsi_create_buffer_image(&chain->base, create_info,
-                                             &image->base, 1, 1,
+                                             &image->base, 256, 1,
                                              NULL, NULL);
    if (result != VK_SUCCESS)
       return result;
