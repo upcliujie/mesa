@@ -559,7 +559,7 @@ static const __DRIextension *radeon_screen_extensions[] = {
     &radeonFlushExtension.base,
     &radeonImageExtension.base,
     &radeonRendererQueryExtension.base,
-    &dri2NoErrorExtension.base,
+    &dri2NoError2Extension.base,
     NULL
 };
 

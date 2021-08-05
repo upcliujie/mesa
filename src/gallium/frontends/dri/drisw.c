@@ -465,7 +465,7 @@ static const __DRIextension *drisw_screen_extensions[] = {
    &dri2RendererQueryExtension.base,
    &dri2ConfigQueryExtension.base,
    &dri2FenceExtension.base,
-   &dri2NoErrorExtension.base,
+   &dri2NoError2Extension.base,
    &driSWImageExtension.base,
    &dri2FlushControlExtension.base,
    NULL
@@ -476,7 +476,7 @@ static const __DRIextension *drisw_robust_screen_extensions[] = {
    &dri2RendererQueryExtension.base,
    &dri2ConfigQueryExtension.base,
    &dri2FenceExtension.base,
-   &dri2NoErrorExtension.base,
+   &dri2NoError2Extension.base,
    &dri2Robustness.base,
    &driSWImageExtension.base,
    &dri2FlushControlExtension.base,

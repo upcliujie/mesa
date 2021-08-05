@@ -1680,7 +1680,7 @@ static const __DRIextension *screenExtensions[] = {
     &brwRendererQueryExtension.base,
     &brwMutableRenderBufferExtension.base,
     &dri2ConfigQueryExtension.base,
-    &dri2NoErrorExtension.base,
+    &dri2NoError2Extension.base,
     &brwBlobExtension.base,
     NULL
 };
@@ -1694,7 +1694,7 @@ static const __DRIextension *brwRobustScreenExtensions[] = {
     &brwMutableRenderBufferExtension.base,
     &dri2ConfigQueryExtension.base,
     &dri2Robustness.base,
-    &dri2NoErrorExtension.base,
+    &dri2NoError2Extension.base,
     &brwBlobExtension.base,
     NULL
 };
