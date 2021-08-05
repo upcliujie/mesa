@@ -212,12 +212,25 @@ if with_perfetto
   deps_for_libmesa_util += dep_perfetto
 endif
 
+if host_machine.cpu_family() == 'x86_64' and cc.get_id() != 'msvc'
+  libmesa_atomic_list_x86_64 = static_library(
+    'libmesa_atomic_list_x86_64',
+    files('u_atomic_list_x86_64.c'),
+    include_directories : [inc_include, inc_src, inc_gallium],
+    c_args : [c_msvc_compat_args, '-mcx16'],
+    gnu_symbol_visibility : 'hidden',
+    build_by_default : false
+  )
+else
+  libmesa_atomic_list_x86_64 = []
+endif
+
 _libmesa_util = static_library(
   'mesa_util',
   [files_mesa_util, files_debug_stack, format_srgb],
   include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
   dependencies : deps_for_libmesa_util,
-  link_with: libmesa_format,
+  link_with: [libmesa_format, libmesa_atomic_list_x86_64],
   c_args : [c_msvc_compat_args],
   gnu_symbol_visibility : 'hidden',
   build_by_default : false
@@ -383,6 +396,7 @@ if with_tests
     env: ['BUILD_FULL_PATH='+process_test_exe_full_path]
   )
 
+  subdir('tests/atomic_list')
   subdir('tests/cache')
   subdir('tests/fast_idiv_by_const')
   subdir('tests/fast_urem_by_const')
