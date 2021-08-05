@@ -27,7 +27,7 @@
 #ifndef __PAN_ENCODER_H
 #define __PAN_ENCODER_H
 
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 
 #include "util/macros.h"
 #include "panfrost-quirks.h"

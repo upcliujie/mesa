@@ -30,7 +30,7 @@
 #ifndef PAN_DEVICE_H
 #define PAN_DEVICE_H
 
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 
 #include <xf86drm.h>
 #include "renderonly/renderonly.h"
