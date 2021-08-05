@@ -84,7 +84,6 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_MIXED_COLOR_DEPTH_BITS:
    case PIPE_CAP_VERTEX_COLOR_CLAMPED:
    case PIPE_CAP_FRAGMENT_COLOR_CLAMPED:
-   case PIPE_CAP_TEXTURE_TRANSFER_MODES:
    case PIPE_CAP_TGSI_INSTANCEID:
    case PIPE_CAP_COMPUTE:
    case PIPE_CAP_TEXTURE_BUFFER_OBJECTS:
@@ -166,6 +165,9 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    case PIPE_CAP_DRAW_VERTEX_STATE:
       return !(sscreen->debug_flags & DBG(NO_FAST_DISPLAY_LIST));
+
+   case PIPE_CAP_TEXTURE_TRANSFER_MODES:
+      return PIPE_TEXTURE_TRANSFER_BLIT | PIPE_TEXTURE_TRANSFER_COMPUTE;
 
    case PIPE_CAP_GLSL_ZERO_INIT:
       return 2;
@@ -889,6 +891,20 @@ static int si_get_compute_param(struct pipe_screen *screen, enum pipe_shader_ir 
    return 0;
 }
 
+static bool
+si_is_compute_copy_faster(struct pipe_screen *pscreen,
+                            enum pipe_format src_format,
+                            enum pipe_format dst_format,
+                            unsigned width,
+                            unsigned height,
+                            unsigned depth,
+                            bool cpu)
+{
+   if (cpu)
+      return width * height * depth > 64 * 64;
+   return false;
+}
+
 static uint64_t si_get_timestamp(struct pipe_screen *screen)
 {
    struct si_screen *sscreen = (struct si_screen *)screen;
@@ -977,6 +993,7 @@ void si_init_screen_get_functions(struct si_screen *sscreen)
    sscreen->b.get_driver_uuid = si_get_driver_uuid;
    sscreen->b.query_memory_info = si_query_memory_info;
    sscreen->b.get_disk_shader_cache = si_get_disk_shader_cache;
+   sscreen->b.is_compute_copy_faster = si_is_compute_copy_faster;
 
    if (sscreen->info.has_video_hw.uvd_decode || sscreen->info.has_video_hw.vcn_decode ||
        sscreen->info.has_video_hw.jpeg_decode || sscreen->info.has_video_hw.vce_encode ||
