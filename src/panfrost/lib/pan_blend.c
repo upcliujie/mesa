@@ -25,7 +25,7 @@
 /* Blending is shared across all supported Malis with only minor differences,
  * so pin a particular version */
 
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 
 #include "pan_blend.h"
 

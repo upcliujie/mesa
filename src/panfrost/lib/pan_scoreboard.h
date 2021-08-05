@@ -28,7 +28,7 @@
 #define __PAN_SCOREBOARD_H__
 
 #ifdef PAN_ARCH
-#include "gen_macros.h"
+#include "genxml/gen_macros.h"
 #endif
 
 #include "pan_pool.h"
