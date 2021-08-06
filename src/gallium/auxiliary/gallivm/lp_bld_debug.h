@@ -48,6 +48,7 @@
 #define GALLIVM_PERF_NO_QUAD_LOD     (1 << 2)
 #define GALLIVM_PERF_NO_OPT          (1 << 3)
 #define GALLIVM_PERF_NO_AOS_SAMPLING (1 << 4)
+#define GALLIVM_PERF_8BIT_SAMPLING   (1 << 5)
 
 #ifdef __cplusplus
 extern "C" {
