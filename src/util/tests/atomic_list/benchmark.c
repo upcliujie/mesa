@@ -21,6 +21,7 @@
  * IN THE SOFTWARE.
  */
 
+#include "util/os_time.h"
 #include "util/u_atomic_list.h"
 #include "util/u_cpu_detect.h"
 #include "c11/threads.h"
@@ -36,21 +37,9 @@
 unsigned num_threads;
 uint64_t adds_per_thread;
 struct u_atomic_link *elems;
-uint64_t cpu_time_ns;
+int64_t cpu_time_ns;
 
 struct u_atomic_list list;
-
-#define NSEC_PER_SEC (1000 * USEC_PER_SEC)
-#define USEC_PER_SEC (1000 * MSEC_PER_SEC)
-#define MSEC_PER_SEC (1000)
-
-static uint64_t
-gettime_ns(void)
-{
-   struct timespec current;
-   clock_gettime(CLOCK_MONOTONIC, &current);
-   return (uint64_t)current.tv_sec * NSEC_PER_SEC + current.tv_nsec;
-}
 
 typedef void (*add_fn)(struct u_atomic_list *,
                        struct u_atomic_link *,
@@ -63,14 +52,14 @@ run_adds(unsigned id, add_fn fn)
    unsigned num_elems = TOTAL_ELEMS / num_threads;
    struct u_atomic_link *my_elems = elems + (id * num_elems);
 
-   uint64_t start = gettime_ns();
+   int64_t start = os_time_get_nano();
 
    for (uint64_t i = 0; i < adds_per_thread; i++) {
       struct u_atomic_link *e = &my_elems[i % num_elems];
       fn(&list, e, e, 1);
    }
 
-   uint64_t end = gettime_ns();
+   int64_t end = os_time_get_nano();
 
    __sync_fetch_and_add(&cpu_time_ns, end - start);
 }

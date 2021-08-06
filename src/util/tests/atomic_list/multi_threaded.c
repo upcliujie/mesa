@@ -50,7 +50,7 @@ struct del_thread_data {
    thrd_t thrd;
    bool del_all;
 
-   uint32_t found[NUM_THREADS * NUM_ADDS_PER_THREAD];
+   uint32_t *found;
    uint32_t num_found;
 };
 
@@ -157,8 +157,8 @@ run_threads(struct add_thread_data *add_data, int (*add)(void *), int add_thread
 static void
 validate(struct del_thread_data *data, unsigned num_threads)
 {
-   BITSET_DECLARE(found, NUM_THREADS * NUM_ADDS_PER_THREAD);
-   memset(found, 0, sizeof(found));
+   BITSET_WORD *found = calloc(BITSET_WORDS(NUM_THREADS * NUM_ADDS_PER_THREAD),
+                               sizeof(BITSET_WORD));
 
    for (unsigned t = 0; t < num_threads; t++) {
       for (unsigned i = 0; i < data[t].num_found; i++) {
@@ -167,6 +167,8 @@ validate(struct del_thread_data *data, unsigned num_threads)
          BITSET_SET(found, id);
       }
    }
+
+   free(found);
 }
 
 static void
@@ -182,6 +184,8 @@ run_test(bool del_all)
          add_data[t].elems[i].id = t * NUM_ADDS_PER_THREAD + i;
 
       del_data[t].del_all = del_all;
+      del_data[t].found = calloc(NUM_THREADS * NUM_ADDS_PER_THREAD,
+                                 sizeof(*del_data[t].found));
    }
 
    for (int add_threads = 1; add_threads < NUM_THREADS - 1; add_threads++) {
@@ -209,8 +213,10 @@ run_test(bool del_all)
       RUN_TEST(mtx);
    }
 
-   for (unsigned t = 0; t < NUM_THREADS; t++)
+   for (unsigned t = 0; t < NUM_THREADS; t++) {
       free(add_data[t].elems);
+      free(del_data[t].found);
+   }
 }
 
 int
