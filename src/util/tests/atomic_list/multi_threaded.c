@@ -48,6 +48,7 @@ struct add_thread_data {
 
 struct del_thread_data {
    thrd_t thrd;
+   bool del_all;
 
    uint32_t found[NUM_THREADS * NUM_ADDS_PER_THREAD];
    uint32_t num_found;
@@ -80,37 +81,11 @@ del_thread(void *_state)
       /* Check add_running before we grab another element and only actually
        * quit if the adds are done AND the list is empty.
        */
-      struct u_atomic_link *l = u_atomic_list_del(&list);
+      struct u_atomic_link *l = u_atomic_list_del(&list, data->del_all);
       if (end && l == NULL)
          break;
 
       if (l != NULL) {
-         struct elem *e = (struct elem *)l;
-         data->found[data->num_found++] = e->id;
-      }
-   }
-
-   return 0;
-}
-
-static int
-del_all_thread(void *_state)
-{
-   struct del_thread_data *data = _state;
-
-   data->num_found = 0;
-
-   while (1) {
-      bool end = !add_running;
-
-      /* Check add_running before we grab another element and only actually
-       * quit if the adds are done AND the list is empty.
-       */
-      struct u_atomic_link *l = u_atomic_list_del_all(&list);
-      if (end && l == NULL)
-         break;
-
-      for (; l; l = l->next) {
          struct elem *e = (struct elem *)l;
          data->found[data->num_found++] = e->id;
       }
@@ -135,7 +110,7 @@ validate(struct del_thread_data *data, unsigned num_threads)
 }
 
 static void
-run_test(int (*del_fn)(void *))
+run_test(bool del_all)
 {
    struct add_thread_data add_data[NUM_THREADS];
    struct del_thread_data del_data[NUM_THREADS];
@@ -159,8 +134,9 @@ run_test(int (*del_fn)(void *))
       }
 
       for (int i = 0; i < del_threads; i++) {
+         del_data[i].del_all = del_all;
          del_data[i].num_found = 0;
-         int ret = thrd_create(&del_data[i].thrd, del_fn, &del_data[i]);
+         int ret = thrd_create(&del_data[i].thrd, del_thread, &del_data[i]);
          assert(ret == thrd_success);
       }
 
@@ -188,8 +164,8 @@ main(int argc, char **argv)
    util_cpu_detect();
 
    for (unsigned i = 0; i < NUM_RUNS; i++) {
-      run_test(del_thread);
-      run_test(del_all_thread);
+      run_test(false);
+      run_test(true);
    }
 }
 

@@ -75,23 +75,13 @@ list_add_list_cmpxchg16b(struct u_atomic_list *list,
 }
 
 static struct u_atomic_link *
-list_del_cmpxchg16b(struct u_atomic_list *list)
+list_del_cmpxchg16b(struct u_atomic_list *list, bool del_all)
 {
-   return __u_atomic_list_del(list,
+   return __u_atomic_list_del(list, del_all,
                               __u_atomic_list_get_dp_head,
                               __u_atomic_list_get_dp_serial,
                               __u_atomic_list_pack_dp,
                               16);
-}
-
-static struct u_atomic_link *
-list_del_all_cmpxchg16b(struct u_atomic_list *list)
-{
-   return __u_atomic_list_del_all(list,
-                                  __u_atomic_list_get_dp_head,
-                                  __u_atomic_list_get_dp_serial,
-                                  __u_atomic_list_pack_dp,
-                                  16);
 }
 
 static void
@@ -146,23 +136,13 @@ list_add_list_48bit(struct u_atomic_list *list,
 }
 
 static struct u_atomic_link *
-list_del_48bit(struct u_atomic_list *list)
+list_del_48bit(struct u_atomic_list *list, bool del_all)
 {
-   return __u_atomic_list_del(list,
+   return __u_atomic_list_del(list, del_all,
                               get_48bit_head,
                               get_48bit_serial,
                               pack_48bit,
                               8);
-}
-
-static struct u_atomic_link *
-list_del_all_48bit(struct u_atomic_list *list)
-{
-   return __u_atomic_list_del_all(list,
-                                  get_48bit_head,
-                                  get_48bit_serial,
-                                  pack_48bit,
-                                  8);
 }
 
 static void
@@ -195,30 +175,18 @@ void (*__u_atomic_list_add_list_x86_64)(struct u_atomic_list *,
                                         unsigned) = list_add_list_tramp;
 
 static struct u_atomic_link *
-list_del_tramp(struct u_atomic_list *list)
+list_del_tramp(struct u_atomic_list *list, bool del_all)
 {
    if (has_cmpxchg16b())
       __u_atomic_list_del_x86_64 = list_del_cmpxchg16b;
    else
       __u_atomic_list_del_x86_64 = list_del_48bit;
 
-   return __u_atomic_list_del_x86_64(list);
+   return __u_atomic_list_del_x86_64(list, del_all);
 }
 
-struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list *) = list_del_tramp;
-
-static struct u_atomic_link *
-list_del_all_tramp(struct u_atomic_list *list)
-{
-   if (has_cmpxchg16b())
-      __u_atomic_list_del_all_x86_64 = list_del_all_cmpxchg16b;
-   else
-      __u_atomic_list_del_all_x86_64 = list_del_all_48bit;
-
-   return __u_atomic_list_del_all_x86_64(list);
-}
-
-struct u_atomic_link *(*__u_atomic_list_del_all_x86_64)(struct u_atomic_list *) = list_del_all_tramp;
+struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list *,
+                                                    bool del_all) = list_del_tramp;
 
 static void
 list_finish_tramp(struct u_atomic_list *list)

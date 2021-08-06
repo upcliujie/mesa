@@ -68,8 +68,8 @@ u_atomic_list_add(struct u_atomic_list *list, struct u_atomic_link *item)
    u_atomic_list_add_list(list, item, item, 1);
 }
 
-static inline struct u_atomic_link *u_atomic_list_del(struct u_atomic_list *list);
-static inline struct u_atomic_link *u_atomic_list_del_all(struct u_atomic_list *list);
+static inline struct u_atomic_link *u_atomic_list_del(struct u_atomic_list *list,
+                                                      bool del_all);
 static inline void u_atomic_list_finish(struct u_atomic_list *list);
 
 #if defined(PIPE_ARCH_X86_64) && !defined(_MSC_VER) && \
@@ -85,8 +85,8 @@ extern void (*__u_atomic_list_add_list_x86_64)(struct u_atomic_list *,
                                                struct u_atomic_link *,
                                                struct u_atomic_link *,
                                                unsigned);
-extern struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list *);
-extern struct u_atomic_link *(*__u_atomic_list_del_all_x86_64)(struct u_atomic_list *);
+extern struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list *,
+                                                           bool del_all);
 extern void (*__u_atomic_list_finish_x86_64)(struct u_atomic_list *);
 
 static inline void
@@ -104,15 +104,9 @@ static inline void u_atomic_list_add_list(struct u_atomic_list *list,
 }
 
 static inline struct u_atomic_link *
-u_atomic_list_del(struct u_atomic_list *list)
+u_atomic_list_del(struct u_atomic_list *list, bool del_all)
 {
-   return __u_atomic_list_del_x86_64(list);
-}
-
-static inline struct u_atomic_link *
-u_atomic_list_del_all(struct u_atomic_list *list)
-{
-   return __u_atomic_list_del_all_x86_64(list);
+   return __u_atomic_list_del_x86_64(list, del_all);
 }
 
 static inline void
@@ -147,23 +141,13 @@ static inline void u_atomic_list_add_list(struct u_atomic_list *list,
 }
 
 static inline struct u_atomic_link *
-u_atomic_list_del(struct u_atomic_list *list)
+u_atomic_list_del(struct u_atomic_list *list, bool del_all);
 {
-   return __u_atomic_list_del(list,
+   return __u_atomic_list_del(list, del_all,
                               __u_atomic_list_get_dp_head,
                               __u_atomic_list_get_dp_serial,
                               __u_atomic_list_pack_dp,
                               sizeof(void *) * 2);
-}
-
-static inline struct u_atomic_link *
-u_atomic_list_del_all(struct u_atomic_list *list)
-{
-   return __u_atomic_list_del_all(list,
-                                  __u_atomic_list_get_dp_head,
-                                  __u_atomic_list_get_dp_serial,
-                                  __u_atomic_list_pack_dp,
-                                  sizeof(void *) * 2);
 }
 
 static inline void
@@ -213,27 +197,14 @@ u_atomic_list_add_list(struct u_atomic_list *list,
 }
 
 static inline struct u_atomic_link *
-u_atomic_list_del(struct u_atomic_list *list)
+u_atomic_list_del(struct u_atomic_list *list, bool del_all)
 {
    struct u_atomic_list_mtx_impl *impl = (void *)list->data;
 
    simple_mtx_lock(&impl->mtx);
    struct u_atomic_link *head = impl->head;
    if (head != NULL)
-      impl->head = head->next;
-   simple_mtx_unlock(&impl->mtx);
-
-   return head;
-}
-
-static inline struct u_atomic_link *
-u_atomic_list_del_all(struct u_atomic_list *list)
-{
-   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
-
-   simple_mtx_lock(&impl->mtx);
-   struct u_atomic_link *head = impl->head;
-   impl->head = NULL;
+      impl->head = del_all ? NULL : head->next;
    simple_mtx_unlock(&impl->mtx);
 
    return head;

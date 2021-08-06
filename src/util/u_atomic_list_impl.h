@@ -105,7 +105,7 @@ __u_atomic_list_add_list(struct u_atomic_list *list,
 }
 
 static inline struct u_atomic_link *
-__u_atomic_list_del(struct u_atomic_list *list,
+__u_atomic_list_del(struct u_atomic_list *list, bool del_all,
                     struct u_atomic_link *(*get_head)(struct u_atomic_list),
                     uintptr_t (*get_serial)(struct u_atomic_list),
                     struct u_atomic_list (*pack)(struct u_atomic_link *,
@@ -125,34 +125,7 @@ __u_atomic_list_del(struct u_atomic_list *list,
       if (old_head == NULL)
          return NULL;
 
-      _new = pack(old_head->next, get_serial(old) + 1);
-   } while (!__u_atomic_list_cmpxchg(list, &old, _new, bytes));
-
-   return get_head(old);
-}
-
-static inline struct u_atomic_link *
-__u_atomic_list_del_all(struct u_atomic_list *list,
-                        struct u_atomic_link *(*get_head)(struct u_atomic_list),
-                        uintptr_t (*get_serial)(struct u_atomic_list),
-                        struct u_atomic_list (*pack)(struct u_atomic_link *,
-                                                     uintptr_t),
-                        unsigned bytes)
-{
-   struct u_atomic_list old, _new;
-
-   /* This read may not be atomic and almost certainly won't be for
-    * double-word reads.  However, the worst that can happen if we read the
-    * list wrong is that we'll have a bogus old value when we go to do the
-    * cmpxchg and it will fail.
-    */
-   old = *(volatile struct u_atomic_list *)list;
-   do {
-      struct u_atomic_link *old_head = get_head(old);
-      if (old_head == NULL)
-         return NULL;
-
-      _new = pack(NULL, get_serial(old) + 1);
+      _new = pack(del_all ? NULL : old_head->next, get_serial(old) + 1);
    } while (!__u_atomic_list_cmpxchg(list, &old, _new, bytes));
 
    return get_head(old);
