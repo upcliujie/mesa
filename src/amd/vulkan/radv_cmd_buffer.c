@@ -5155,15 +5155,11 @@ radv_cmd_buffer_begin_subpass(struct radv_cmd_buffer *cmd_buffer, uint32_t subpa
             /* Clear the HTILE buffer before copying VRS rates because it's a read-modify-write
              * operation.
              */
-            VkImageSubresourceRange range = {
-               .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
-               .baseMipLevel = 0,
-               .levelCount = 1,
-               .baseArrayLayer = 0,
-               .layerCount = 1,
-            };
+            uint64_t htile_offset = ds_image->offset + ds_image->planes[0].surface.meta_offset;
+            uint64_t htile_size = ds_image->planes[0].surface.meta_size;
 
-            cmd_buffer->state.flush_bits |= radv_clear_htile(cmd_buffer, ds_image, &range, htile_value);
+            cmd_buffer->state.flush_bits |= radv_fill_buffer(cmd_buffer, ds_image, ds_image->bo,
+                                                             htile_offset, htile_size, htile_value);
 
             /* Copy the VRS rates to the HTILE buffer. */
             radv_copy_vrs_htile(cmd_buffer, vrs_iview->image, &extent, ds_image);
