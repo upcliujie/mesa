@@ -184,7 +184,7 @@ check_ici(struct zink_screen *screen, VkImageCreateInfo *ici, uint64_t modifier)
    } else
       ret = vkGetPhysicalDeviceImageFormatProperties(screen->pdev, ici->format, ici->imageType,
                                                    ici->tiling, ici->usage, ici->flags, &image_props);
-   return ret == VK_SUCCESS;
+   return ret == VK_SUCCESS && (image_props.sampleCounts & ici->samples);
 }
 
 static VkImageUsageFlags
@@ -349,21 +349,9 @@ create_ici(struct zink_screen *screen, VkImageCreateInfo *ici, const struct pipe
    ici->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
    ici->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-   if (templ->target == PIPE_TEXTURE_CUBE ||
-       templ->target == PIPE_TEXTURE_CUBE_ARRAY ||
-       (templ->target == PIPE_TEXTURE_2D_ARRAY &&
-        ici->extent.width == ici->extent.height &&
-        ici->arrayLayers >= 6)) {
-      VkImageFormatProperties props;
-      if (vkGetPhysicalDeviceImageFormatProperties(screen->pdev, ici->format,
-                                                   ici->imageType, ici->tiling,
-                                                   ici->usage, ici->flags |
-                                                   VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
-                                                   &props) == VK_SUCCESS) {
-         if (props.sampleCounts & ici->samples)
-            ici->flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-      }
-   }
+   bool want_cube = templ->target == PIPE_TEXTURE_CUBE ||
+                    templ->target == PIPE_TEXTURE_CUBE_ARRAY ||
+                    (templ->target == PIPE_TEXTURE_2D_ARRAY && ici->extent.width == ici->extent.height && ici->arrayLayers >= 6);
 
    if (templ->target == PIPE_TEXTURE_CUBE)
       ici->arrayLayers *= 6;
@@ -405,6 +393,11 @@ create_ici(struct zink_screen *screen, VkImageCreateInfo *ici, const struct pipe
       first = false;
       if (ici->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
          tried[ici->tiling] = true;
+   }
+   if (want_cube) {
+      ici->flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+      if (get_image_usage(screen, ici, templ, bind, modifiers_count, modifiers, &mod) != ici->usage)
+         ici->flags &= ~VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
    }
 
    *success = true;
