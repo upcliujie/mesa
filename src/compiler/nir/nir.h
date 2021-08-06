@@ -4959,7 +4959,6 @@ bool nir_lower_regs_to_ssa(nir_shader *shader);
 bool nir_lower_vars_to_ssa(nir_shader *shader);
 
 bool nir_remove_dead_derefs(nir_shader *shader);
-bool nir_remove_dead_derefs_impl(nir_function_impl *impl);
 
 typedef struct nir_remove_dead_variables_options {
    bool (*can_remove_var)(nir_variable *var, void *data);
