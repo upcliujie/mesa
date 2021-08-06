@@ -23,16 +23,14 @@ if host_machine.cpu_family() == 'x86_64' and cc.get_id() != 'msvc'
   test_c_args += '-mcx16'
 endif
 
-if cc.get_id() != 'msvc'
-  executable(
-    'u_atomic_list_benchmark',
-    'benchmark.c',
-    dependencies : [idep_mesautil],
-    include_directories : [inc_include, inc_src, inc_gallium],
-    c_args : test_c_args,
-    install : false,
-  )
-endif
+executable(
+  'u_atomic_list_benchmark',
+  'benchmark.c',
+  dependencies : [idep_mesautil],
+  include_directories : [inc_include, inc_src, inc_gallium],
+  c_args : test_c_args,
+  install : false,
+)
 
 test(
   'u_atomic_list_multi_threaded',
