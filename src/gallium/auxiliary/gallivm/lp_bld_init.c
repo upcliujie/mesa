@@ -60,6 +60,7 @@ static const struct debug_named_value lp_bld_perf_flags[] = {
    { "no_quad_lod", GALLIVM_PERF_NO_QUAD_LOD, "disable quad_lod optimization" },
    { "no_aos_sampling", GALLIVM_PERF_NO_AOS_SAMPLING, "disable aos sampling optimization" },
    { "nopt",   GALLIVM_PERF_NO_OPT, "disable optimization passes to speed up shader compilation" },
+   { "8bit_sampling", GALLIVM_PERF_8BIT_SAMPLING, "enable 8-bit fixed-point unorm sampling"},
    DEBUG_NAMED_VALUE_END
 };
 
