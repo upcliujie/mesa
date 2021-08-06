@@ -128,13 +128,11 @@ retrieve_variant(struct blob_reader *blob, struct ir3_shader_variant *v)
    v->bin = rzalloc_size(v, v->info.size);
    blob_copy_bytes(blob, v->bin, v->info.size);
 
-   if (!v->binning_pass) {
-      blob_copy_bytes(blob, v->const_state, sizeof(*v->const_state));
-      unsigned immeds_sz = v->const_state->immediates_size *
-                           sizeof(v->const_state->immediates[0]);
-      v->const_state->immediates = ralloc_size(v->const_state, immeds_sz);
-      blob_copy_bytes(blob, v->const_state->immediates, immeds_sz);
-   }
+   blob_copy_bytes(blob, v->const_state, sizeof(*v->const_state));
+   unsigned immeds_sz = v->const_state->immediates_size *
+                        sizeof(v->const_state->immediates[0]);
+   v->const_state->immediates = ralloc_size(v->const_state, immeds_sz);
+   blob_copy_bytes(blob, v->const_state->immediates, immeds_sz);
 }
 
 static void
@@ -148,14 +146,10 @@ store_variant(struct blob *blob, struct ir3_shader_variant *v)
 
    blob_write_bytes(blob, v->bin, v->info.size);
 
-   /* No saving constant_data, it's already baked into bin at this point. */
-
-   if (!v->binning_pass) {
-      blob_write_bytes(blob, v->const_state, sizeof(*v->const_state));
-      unsigned immeds_sz = v->const_state->immediates_size *
-                           sizeof(v->const_state->immediates[0]);
-      blob_write_bytes(blob, v->const_state->immediates, immeds_sz);
-   }
+   blob_write_bytes(blob, v->const_state, sizeof(*v->const_state));
+   unsigned immeds_sz = v->const_state->immediates_size *
+                        sizeof(v->const_state->immediates[0]);
+   blob_write_bytes(blob, v->const_state->immediates, immeds_sz);
 }
 
 bool
