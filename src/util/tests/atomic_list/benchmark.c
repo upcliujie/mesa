@@ -22,6 +22,7 @@
  */
 
 #include "util/os_time.h"
+#include "util/u_atomic.h"
 #include "util/u_atomic_list.h"
 #include "util/u_cpu_detect.h"
 #include "c11/threads.h"
@@ -61,7 +62,7 @@ run_adds(unsigned id, add_fn fn)
 
    int64_t end = os_time_get_nano();
 
-   __sync_fetch_and_add(&cpu_time_ns, end - start);
+   p_atomic_add(&cpu_time_ns, end - start);
 }
 
 #define DECL_TEST(suffix) \
@@ -91,7 +92,7 @@ run_threads(int (*fn)(void*), const char *name)
    adds_per_thread = MAX_NUM_ADDS / num_threads;
    uint64_t num_adds = adds_per_thread * num_threads;
 
-   cpu_time_ns = 0;
+   p_atomic_set(&cpu_time_ns, 0);
    if (num_threads == 1) {
       fn((void*)0);
    } else {
@@ -108,8 +109,9 @@ run_threads(int (*fn)(void*), const char *name)
       }
    }
 
-   printf("    %s took %"PRIu64"us (%"PRIu64"ns/add)\n", name,
-          cpu_time_ns / 1000, cpu_time_ns / num_adds);
+   int64_t time_ns = p_atomic_read(&cpu_time_ns);
+   printf("    %s took %"PRId64"us (%"PRId64"ns/add)\n", name,
+          time_ns / 1000, time_ns / num_adds);
 }
 
 #define RUN_TEST(suffix, name) \
