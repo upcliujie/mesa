@@ -2833,14 +2833,15 @@ radv_device_finish_border_color(struct radv_device *device)
 }
 
 VkResult
-radv_device_init_vrs_image(struct radv_device *device)
+radv_device_init_vrs_state(struct radv_device *device)
 {
    /* FIXME: 4k depth buffers should be large enough for now but we might want to adjust this
-    * dynamically at some point. Also, it's probably better to use S8_UINT but no HTILE support yet.
+    * dynamically at some point.
     */
    uint32_t width = 4096, height = 4096;
    VkMemoryRequirements mem_req;
    VkDeviceMemory mem;
+   VkBuffer buffer;
    VkResult result;
    VkImage image;
 
@@ -2865,7 +2866,19 @@ radv_device_init_vrs_image(struct radv_device *device)
    if (result != VK_SUCCESS)
       return result;
 
-   radv_GetImageMemoryRequirements(radv_device_to_handle(device), image, &mem_req);
+   VkBufferCreateInfo buffer_create_info = {
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .size = radv_image_from_handle(image)->planes[0].surface.meta_size,
+      .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+   };
+
+   result = radv_CreateBuffer(radv_device_to_handle(device), &buffer_create_info,
+                              &device->meta_state.alloc, &buffer);
+   if (result != VK_SUCCESS)
+      goto fail_create;
+
+   radv_GetBufferMemoryRequirements(radv_device_to_handle(device), buffer, &mem_req);
 
    VkMemoryAllocateInfo alloc_info = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -2877,11 +2890,12 @@ radv_device_init_vrs_image(struct radv_device *device)
    if (result != VK_SUCCESS)
       goto fail_alloc;
 
-   result = radv_BindImageMemory(radv_device_to_handle(device), image, mem, 0);
+   result = radv_BindBufferMemory(radv_device_to_handle(device), buffer, mem, 0);
    if (result != VK_SUCCESS)
       goto fail_bind;
 
    device->vrs.image = radv_image_from_handle(image);
+   device->vrs.buffer = radv_buffer_from_handle(buffer);
    device->vrs.mem = radv_device_memory_from_handle(mem);
 
    return VK_SUCCESS;
@@ -2889,6 +2903,8 @@ radv_device_init_vrs_image(struct radv_device *device)
 fail_bind:
    radv_FreeMemory(radv_device_to_handle(device), mem, &device->meta_state.alloc);
 fail_alloc:
+   radv_DestroyBuffer(radv_device_to_handle(device), buffer, &device->meta_state.alloc);
+fail_create:
    radv_DestroyImage(radv_device_to_handle(device), image, &device->meta_state.alloc);
 
    return result;
@@ -2899,6 +2915,8 @@ radv_device_finish_vrs_image(struct radv_device *device)
 {
    radv_FreeMemory(radv_device_to_handle(device), radv_device_memory_to_handle(device->vrs.mem),
                    &device->meta_state.alloc);
+   radv_DestroyBuffer(radv_device_to_handle(device), radv_buffer_to_handle(device->vrs.buffer),
+                     &device->meta_state.alloc);
    radv_DestroyImage(radv_device_to_handle(device), radv_image_to_handle(device->vrs.image),
                      &device->meta_state.alloc);
 }
@@ -6854,6 +6872,31 @@ radv_calc_decompress_on_z_planes(struct radv_device *device, struct radv_image_v
    }
 
    return max_zplanes;
+}
+
+void
+radv_initialise_vrs_surface(struct radv_image *image, struct radv_buffer *htile_buffer,
+                            struct radv_ds_buffer_info *ds)
+{
+   const struct radeon_surf *surf = &image->planes[0].surface;
+
+   assert(image->vk_format == VK_FORMAT_D16_UNORM);
+   memset(ds, 0, sizeof(*ds));
+
+   ds->pa_su_poly_offset_db_fmt_cntl = S_028B78_POLY_OFFSET_NEG_NUM_DB_BITS(-16);
+
+   ds->db_z_info = S_028038_FORMAT(V_028040_Z_16) |
+                   S_028038_SW_MODE(surf->u.gfx9.swizzle_mode) |
+                   S_028038_ZRANGE_PRECISION(1) |
+                   S_028038_TILE_SURFACE_ENABLE(1);
+   ds->db_stencil_info = S_02803C_FORMAT(V_028044_STENCIL_INVALID);
+
+   ds->db_depth_size = S_02801C_X_MAX(image->info.width - 1) |
+                       S_02801C_Y_MAX(image->info.height - 1);
+
+   ds->db_htile_data_base = radv_buffer_get_va(htile_buffer->bo) >> 8;
+   ds->db_htile_surface = S_028ABC_FULL_CACHE(1) | S_028ABC_PIPE_ALIGNED(1) |
+                          S_028ABC_VRS_HTILE_ENCODING(V_028ABC_VRS_HTILE_4BIT_ENCODING);
 }
 
 void
