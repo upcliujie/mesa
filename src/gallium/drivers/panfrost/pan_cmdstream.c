@@ -3197,9 +3197,9 @@ panfrost_launch_grid(struct pipe_context *pipe,
                         },
                 };
 
-                indirect_dep = pan_indirect_dispatch_emit(&batch->pool.base,
-                                                          &batch->scoreboard,
-                                                          &indirect);
+                indirect_dep = GENX(pan_indirect_dispatch_emit)(&batch->pool.base,
+                                                                &batch->scoreboard,
+                                                                &indirect);
         }
 
         panfrost_add_job(&batch->pool.base, &batch->scoreboard,
@@ -3537,6 +3537,7 @@ screen_destroy(struct pipe_screen *pscreen)
 {
         struct panfrost_device *dev = pan_device(pscreen);
         pan_blitter_cleanup(dev);
+        GENX(pan_indirect_dispatch_cleanup)(dev);
 }
 
 static void
@@ -3674,4 +3675,5 @@ GENX(panfrost_cmdstream_screen_init)(struct panfrost_screen *screen)
 
         pan_blitter_init(dev, &screen->blitter.bin_pool.base,
                          &screen->blitter.desc_pool.base);
+        GENX(pan_indirect_dispatch_init)(dev);
 }
