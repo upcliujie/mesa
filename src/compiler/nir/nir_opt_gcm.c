@@ -398,6 +398,12 @@ set_block_for_loop_instr(struct gcm_state *state, nir_instr *instr,
    if (nir_block_dominates(instr->block, block))
       return true;
 
+   /* If the instruction wasn't in a loop to begin with we don't want to push
+    * it down into one.
+    */
+   if (!state->blocks[instr->block->index].loop)
+      return true;
+
    /* If the loop only executes a single time i.e its wrapped in a:
     *    do{ ... break; } while(true)
     * Don't move the instruction as it will not help anything.
