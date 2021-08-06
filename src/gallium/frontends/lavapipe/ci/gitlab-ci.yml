@@ -5,6 +5,7 @@ lavapipe-vk:
     - .lavapipe-rules
     - .deqp-test-vk
   variables:
+    GALLIVM_PERF: no_aos_sampling
     GPU_VERSION: lvp
     VK_DRIVER: lvp
     DEQP_FRACTION: 10
