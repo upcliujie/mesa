@@ -426,8 +426,8 @@
   rules:
     - *ignore_scheduled_pipelines
     # Run only on pre-merge pipelines from Marge
-    - if: '$GITLAB_USER_LOGIN != "marge-bot" || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME'
-      when: never
+#    - if: '$GITLAB_USER_LOGIN != "marge-bot" || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != $CI_COMMIT_REF_NAME'
+#      when: never
     - changes:
         *mesa_core_file_list
       when: on_success
