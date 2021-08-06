@@ -43,6 +43,9 @@ done' &
 
 while [ 1 ] ; do cat /proc/loadavg ; sleep 60; done &
 
+# We aren't testing LLVMPipe here, so we don't need to validate NIR
+export NIR_VALIDATE=0
+
 crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
   -m 4096 \
