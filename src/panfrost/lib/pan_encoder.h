@@ -27,10 +27,14 @@
 #ifndef __PAN_ENCODER_H
 #define __PAN_ENCODER_H
 
+#include "util/macros.h"
+#include "panfrost-quirks.h"
+
 #include <stdbool.h>
 #include "util/format/u_format.h"
 #include "pan_bo.h"
 #include "gen_macros.h"
+#include "pan_device.h"
 
 /* Indices for named (non-XFB) varyings that are present. These are packed
  * tightly so they correspond to a bitfield present (P) indexed by (1 <<
@@ -58,13 +62,6 @@ enum pan_special_varying {
 
 /* Tiler structure size computation */
 
-struct panfrost_device;
-
-unsigned
-panfrost_tiler_get_polygon_list_size(const struct panfrost_device *dev,
-                                     unsigned fb_width, unsigned fb_height,
-                                     bool has_draws);
-
 unsigned
 panfrost_tiler_header_size(unsigned width, unsigned height, unsigned mask, bool hierarchy);
 
@@ -75,6 +72,24 @@ unsigned
 panfrost_choose_hierarchy_mask(
         unsigned width, unsigned height,
         unsigned vertex_count, bool hierarchy);
+
+#if defined(PAN_ARCH) && PAN_ARCH <= 5
+static inline unsigned
+panfrost_tiler_get_polygon_list_size(const struct panfrost_device *dev,
+                                     unsigned fb_width, unsigned fb_height,
+                                     bool has_draws)
+{
+        if (!has_draws)
+                return MALI_MIDGARD_TILER_MINIMUM_HEADER_SIZE + 4;
+
+        bool hierarchy = !(dev->quirks & MIDGARD_NO_HIER_TILING);
+        unsigned hierarchy_mask =
+                panfrost_choose_hierarchy_mask(fb_width, fb_height, 1, hierarchy);
+
+        return panfrost_tiler_full_size(fb_width, fb_height, hierarchy_mask, hierarchy) +
+                panfrost_tiler_header_size(fb_width, fb_height, hierarchy_mask, hierarchy);
+}
+#endif
 
 /* Stack sizes */
 
@@ -97,6 +112,7 @@ panfrost_padded_vertex_count(unsigned vertex_count);
 unsigned
 panfrost_compute_magic_divisor(unsigned hw_divisor, unsigned *o_shift, unsigned *extra_flags);
 
+#ifdef PAN_ARCH
 /* Records for gl_VertexID and gl_InstanceID use special encodings on Midgard */
 
 static inline void
@@ -233,5 +249,7 @@ panfrost_get_z_internal_format(enum pipe_format fmt)
                 unreachable("Unsupported depth/stencil format.");
          }
 }
+
+#endif /* PAN_ARCH */
 
 #endif
