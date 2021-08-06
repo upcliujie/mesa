@@ -243,7 +243,7 @@ lower_builtin_block(lower_builtin_state *state, nir_block *block)
    return progress;
 }
 
-static void
+static bool
 lower_builtin_impl(lower_builtin_state *state, nir_function_impl *impl)
 {
    nir_builder_init(&state->builder, impl);
@@ -254,20 +254,23 @@ lower_builtin_impl(lower_builtin_state *state, nir_function_impl *impl)
       progress |= lower_builtin_block(state, block);
    }
 
-   if (progress)
-      nir_remove_dead_derefs_impl(impl);
-
    nir_metadata_preserve(impl, nir_metadata_block_index |
                                nir_metadata_dominance);
+
+   return progress;
 }
 
 void
 st_nir_lower_builtin(nir_shader *shader)
 {
+   bool progress = false;
    lower_builtin_state state;
    state.shader = shader;
    nir_foreach_function(function, shader) {
       if (function->impl)
-         lower_builtin_impl(&state, function->impl);
+         progress |= lower_builtin_impl(&state, function->impl);
    }
+
+   if (progress)
+      nir_remove_dead_derefs(shader);
 }
