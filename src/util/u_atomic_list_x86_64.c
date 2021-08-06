@@ -28,10 +28,9 @@
 #if !defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16)
 #error("This file must be built with -mcx16")
 #endif
-#define U_ATOMIC_LIST_X86_64_C
 
 #include "u_atomic_list.h"
-#include "u_atomic_list_impl.h"
+#include "u_atomic_list_x86_64.h"
 #include "u_cpu_detect.h"
 
 /* x86_64 is annoying.  The vast majority of x86_64 CPUs in the whild have the
@@ -51,152 +50,57 @@
  * function pointer calls here since they'll always be the same after the
  * first one.
  */
-static bool
-has_cmpxchg16b(void)
-{
-   return util_get_cpu_caps()->has_cx16;
-}
 
-/*
- * CMPXCHG16B implementation
- */
+void
+u_atomic_list_init_x86_64(struct u_atomic_list *list)
+{
+   if (util_get_cpu_caps()->has_cx16)
+      u_atomic_list_init_dp(list);
+   else
+      u_atomic_list_init_48bit(list);
+}
 
 static void
-list_add_list_cmpxchg16b(struct u_atomic_list *list,
-                         struct u_atomic_link *first,
-                         struct u_atomic_link *last,
-                         unsigned count)
+u_atomic_list_add_list_x86_64_tramp(struct u_atomic_list *list,
+                                    struct u_atomic_link *first,
+                                    struct u_atomic_link *last,
+                                    unsigned count)
 {
-   __u_atomic_list_add_list(list, first, last, count,
-                            __u_atomic_list_get_dp_head,
-                            __u_atomic_list_get_dp_serial,
-                            __u_atomic_list_pack_dp,
-                            16);
+   if (util_get_cpu_caps()->has_cx16)
+      u_atomic_list_add_list_x86_64_fn = u_atomic_list_add_list_dp;
+   else
+      u_atomic_list_add_list_x86_64_fn = u_atomic_list_add_list_48bit;
+
+   u_atomic_list_add_list_x86_64_fn(list, first, last, count);
 }
+
+void (*u_atomic_list_add_list_x86_64_fn)(struct u_atomic_list *,
+                                         struct u_atomic_link *,
+                                         struct u_atomic_link *,
+                                         unsigned) =
+   u_atomic_list_add_list_x86_64_tramp;
 
 static struct u_atomic_link *
-list_del_cmpxchg16b(struct u_atomic_list *list, bool del_all)
+u_atomic_list_del_x86_64_tramp(struct u_atomic_list *list, bool del_all)
 {
-   return __u_atomic_list_del(list, del_all,
-                              __u_atomic_list_get_dp_head,
-                              __u_atomic_list_get_dp_serial,
-                              __u_atomic_list_pack_dp,
-                              16);
-}
-
-static void
-list_finish_cmpxchg16b(struct u_atomic_list *list)
-{
-   return __u_atomic_list_finish(list, __u_atomic_list_get_dp_head, 16);
-}
-
-/*
- * 48-bit pointer implementation
- */
-
-/** Helper implementations for 48-bit pointers */
-static inline struct u_atomic_link *
-get_48bit_head(struct u_atomic_list list)
-{
-   int64_t p = *(int64_t *)list.data;
-   p = (p << 16) >> 16;
-   return (struct u_atomic_link *)p;
-}
-
-static inline uintptr_t
-get_48bit_serial(struct u_atomic_list list)
-{
-   uint64_t p = *(uint64_t *)list.data;
-   return p >> 48;
-}
-
-static inline struct u_atomic_list
-pack_48bit(struct u_atomic_link *link, uintptr_t serial)
-{
-   int64_t p = (int64_t)link;
-   /* Make sure it's a canonical 48-bit pointer */
-   assert(p == ((p << 16) >> 16));
-   p = (p & 0x0000ffffffffffffull) | ((uint64_t)serial << 48);
-   struct u_atomic_list list = { .data = { 0, } };
-   *(uint64_t *)list.data = p;
-   return list;
-}
-
-static void
-list_add_list_48bit(struct u_atomic_list *list,
-                    struct u_atomic_link *first,
-                    struct u_atomic_link *last,
-                    unsigned count)
-{
-   __u_atomic_list_add_list(list, first, last, count,
-                            get_48bit_head,
-                            get_48bit_serial,
-                            pack_48bit,
-                            8);
-}
-
-static struct u_atomic_link *
-list_del_48bit(struct u_atomic_list *list, bool del_all)
-{
-   return __u_atomic_list_del(list, del_all,
-                              get_48bit_head,
-                              get_48bit_serial,
-                              pack_48bit,
-                              8);
-}
-
-static void
-list_finish_48bit(struct u_atomic_list *list)
-{
-   return __u_atomic_list_finish(list, get_48bit_head, 16);
-}
-
-/*
- * Trampoline functions
- */
-
-static void
-list_add_list_tramp(struct u_atomic_list *list,
-                    struct u_atomic_link *first,
-                    struct u_atomic_link *last,
-                    unsigned count)
-{
-   if (has_cmpxchg16b())
-      __u_atomic_list_add_list_x86_64 = list_add_list_cmpxchg16b;
+   if (util_get_cpu_caps()->has_cx16)
+      u_atomic_list_del_x86_64_fn = u_atomic_list_del_dp;
    else
-      __u_atomic_list_add_list_x86_64 = list_add_list_48bit;
+      u_atomic_list_del_x86_64_fn = u_atomic_list_del_48bit;
 
-   __u_atomic_list_add_list_x86_64(list, first, last, count);
+   return u_atomic_list_del_x86_64_fn(list, del_all);
 }
 
-void (*__u_atomic_list_add_list_x86_64)(struct u_atomic_list *,
-                                        struct u_atomic_link *,
-                                        struct u_atomic_link *,
-                                        unsigned) = list_add_list_tramp;
+struct u_atomic_link *(*u_atomic_list_del_x86_64_fn)(struct u_atomic_list *,
+                                                     bool) =
+   u_atomic_list_del_x86_64_tramp;
 
-static struct u_atomic_link *
-list_del_tramp(struct u_atomic_list *list, bool del_all)
+void
+u_atomic_list_finish_x86_64(struct u_atomic_list *list)
 {
-   if (has_cmpxchg16b())
-      __u_atomic_list_del_x86_64 = list_del_cmpxchg16b;
+   if (util_get_cpu_caps()->has_cx16)
+      u_atomic_list_finish_dp(list);
    else
-      __u_atomic_list_del_x86_64 = list_del_48bit;
-
-   return __u_atomic_list_del_x86_64(list, del_all);
+      u_atomic_list_finish_48bit(list);
 }
 
-struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list *,
-                                                    bool del_all) = list_del_tramp;
-
-static void
-list_finish_tramp(struct u_atomic_list *list)
-{
-   if (has_cmpxchg16b())
-      __u_atomic_list_finish_x86_64 = list_finish_cmpxchg16b;
-   else
-      __u_atomic_list_finish_x86_64 = list_finish_48bit;
-
-   __u_atomic_list_finish_x86_64(list);
-}
-
-void (*__u_atomic_list_finish_x86_64)(struct u_atomic_list *) = list_finish_tramp;

@@ -57,167 +57,44 @@ struct u_atomic_link {
    struct u_atomic_link *next;
 };
 
-static inline void u_atomic_list_add_list(struct u_atomic_list *list,
-                                          struct u_atomic_link *first,
-                                          struct u_atomic_link *last,
-                                          unsigned count);
+#if defined(PIPE_ARCH_X86_64) && !defined(PIPE_CC_MSVC) && \
+    !defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16)
+
+#include "u_atomic_list_x86_64.h"
+
+#define u_atomic_list_init u_atomic_list_init_x86_64
+#define u_atomic_list_add_list u_atomic_list_add_list_x86_64
+#define u_atomic_list_del u_atomic_list_del_x86_64
+#define u_atomic_list_finish u_atomic_list_finish_x86_64
+
+#elif defined(PIPE_CC_MSVC) || \
+      defined(PIPE_ARCH_X86_64) || \
+      defined(PIPE_ARCH_X86) || \
+      defined(PIPE_ARCH_ARM) || \
+      defined(PIPE_ARCH_AARCH64)
+
+#include "u_atomic_list_cmpxchg.h"
+
+#define u_atomic_list_init u_atomic_list_init_dp
+#define u_atomic_list_add_list u_atomic_list_add_list_dp
+#define u_atomic_list_del u_atomic_list_del_dp
+#define u_atomic_list_finish u_atomic_list_finish_dp
+
+#else
+
+#include "u_atomic_list_mtx.h"
+
+#define u_atomic_list_init u_atomic_list_init_mtx
+#define u_atomic_list_add_list u_atomic_list_add_list_mtx
+#define u_atomic_list_del u_atomic_list_del_mtx
+#define u_atomic_list_finish u_atomic_list_finish_mtx
+
+#endif
 
 static inline void
 u_atomic_list_add(struct u_atomic_list *list, struct u_atomic_link *item)
 {
    u_atomic_list_add_list(list, item, item, 1);
 }
-
-static inline struct u_atomic_link *u_atomic_list_del(struct u_atomic_list *list,
-                                                      bool del_all);
-static inline void u_atomic_list_finish(struct u_atomic_list *list);
-
-#if defined(PIPE_ARCH_X86_64) && !defined(_MSC_VER) && \
-    (defined(U_ATOMIC_LIST_X86_64_C) || \
-     !defined(__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16))
-
-/* For x86_64, things are really annoying because the CMPXCHG16B instruction
- * doesn't actually exist everywhere.  We have to work around this by swapping
- * out the implementation based on CPU ID.
- */
-
-extern void (*__u_atomic_list_add_list_x86_64)(struct u_atomic_list *,
-                                               struct u_atomic_link *,
-                                               struct u_atomic_link *,
-                                               unsigned);
-extern struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list *,
-                                                           bool del_all);
-extern void (*__u_atomic_list_finish_x86_64)(struct u_atomic_list *);
-
-static inline void
-u_atomic_list_init(struct u_atomic_list *list)
-{
-   memset(list, 0, sizeof(*list));
-}
-
-static inline void u_atomic_list_add_list(struct u_atomic_list *list,
-                                          struct u_atomic_link *first,
-                                          struct u_atomic_link *last,
-                                          unsigned count)
-{
-   __u_atomic_list_add_list_x86_64(list, first, last, count);
-}
-
-static inline struct u_atomic_link *
-u_atomic_list_del(struct u_atomic_list *list, bool del_all)
-{
-   return __u_atomic_list_del_x86_64(list, del_all);
-}
-
-static inline void
-u_atomic_list_finish(struct u_atomic_list *list)
-{
-   __u_atomic_list_finish_x86_64(list);
-}
-
-#elif defined(PIPE_CC_MSVC) || \
-      defined(PIPE_ARCH_X86) || \
-      defined(PIPE_ARCH_ARM) || \
-      defined(PIPE_ARCH_AARCH64)
-
-#include "u_atomic_list_impl.h"
-
-static inline void
-u_atomic_list_init(struct u_atomic_list *list)
-{
-   memset(list, 0, sizeof(*list));
-}
-
-static inline void u_atomic_list_add_list(struct u_atomic_list *list,
-                                          struct u_atomic_link *first,
-                                          struct u_atomic_link *last,
-                                          unsigned count)
-{
-   __u_atomic_list_add_list(list, first, last, count,
-                            __u_atomic_list_get_dp_head,
-                            __u_atomic_list_get_dp_serial,
-                            __u_atomic_list_pack_dp,
-                            sizeof(void *) * 2);
-}
-
-static inline struct u_atomic_link *
-u_atomic_list_del(struct u_atomic_list *list, bool del_all);
-{
-   return __u_atomic_list_del(list, del_all,
-                              __u_atomic_list_get_dp_head,
-                              __u_atomic_list_get_dp_serial,
-                              __u_atomic_list_pack_dp,
-                              sizeof(void *) * 2);
-}
-
-static inline void
-u_atomic_list_finish(struct u_atomic_list *list)
-{
-   __u_atomic_list_finish(list, __u_atomic_list_get_dp_head,
-                          sizeof(void *) * 2);
-}
-
-#else
-
-#include "simple_mtx.h"
-
-struct u_atomic_list_mtx_impl {
-   struct u_atomic_link *head;
-   simple_mtx_t mtx;
-};
-
-static inline void
-u_atomic_list_init(struct u_atomic_list *list)
-{
-   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
-
-   impl->head = NULL;
-   simple_mtx_init(&impl->mtx, mtx_plain);
-}
-
-static inline void
-u_atomic_list_add_list(struct u_atomic_list *list,
-                       struct u_atomic_link *first,
-                       struct u_atomic_link *last,
-                       unsigned count)
-{
-   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
-
-#ifndef NDEBUG
-   unsigned check_count = 1;
-   for (struct u_atomic_link *i = first; i != last; i = i->next)
-      check_count++;
-   assert(check_count == count);
-#endif
-
-   simple_mtx_lock(&impl->mtx);
-   last->next = impl->head;
-   impl->head = first;
-   simple_mtx_unlock(&impl->mtx);
-}
-
-static inline struct u_atomic_link *
-u_atomic_list_del(struct u_atomic_list *list, bool del_all)
-{
-   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
-
-   simple_mtx_lock(&impl->mtx);
-   struct u_atomic_link *head = impl->head;
-   if (head != NULL)
-      impl->head = del_all ? NULL : head->next;
-   simple_mtx_unlock(&impl->mtx);
-
-   return head;
-}
-
-static inline void
-u_atomic_list_finish(struct u_atomic_list *list)
-{
-   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
-   assert(impl->head == NULL);
-   simple_mtx_destroy(&impl->mtx);
-}
-
-#endif
 
 #endif /* UTIL_U_ATOMIC_LIST_H */

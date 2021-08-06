@@ -51,6 +51,7 @@ __u_atomic_list_cmpxchg(struct u_atomic_list *list,
       return cmp64 == res64;
    } else {
       assert(bytes == 16);
+      assert(sizeof(list->data) == 16);
 #ifdef _MSC_VER
 #if _WIN64
       return InterlockedCompareExchange128((LONG64 *)list->data,
@@ -73,6 +74,20 @@ __u_atomic_list_cmpxchg(struct u_atomic_list *list,
    }
 }
 
+static void
+__u_atomic_list_read(struct u_atomic_list *list,
+                     struct u_atomic_list *res,
+                     unsigned bytes)
+{
+   /* This read may not be atomic and almost certainly won't be for
+    * double-word reads.  However, the worst that can happen if we read the
+    * list wrong is that we'll have a bogus old value when we go to do the
+    * cmpxchg and it will fail.
+    */
+   for (unsigned i = 0; i < bytes; i += 8)
+      *(int64_t *)(res->data + i) = *(volatile int64_t *)(list->data + i);
+}
+
 static inline void
 __u_atomic_list_add_list(struct u_atomic_list *list,
                          struct u_atomic_link *first,
@@ -92,12 +107,7 @@ __u_atomic_list_add_list(struct u_atomic_list *list,
    assert(check_count == count);
 #endif
 
-   /* This read may not be atomic and almost certainly won't be for
-    * double-word reads.  However, the worst that can happen if we read the
-    * list wrong is that we'll have a bogus old value when we go to do the
-    * cmpxchg and it will fail.
-    */
-   old = *(volatile struct u_atomic_list *)list;
+   __u_atomic_list_read(list, &old, bytes);
    do {
       last->next = get_head(old);
       _new = pack(first, get_serial(old) + 1);
@@ -114,12 +124,7 @@ __u_atomic_list_del(struct u_atomic_list *list, bool del_all,
 {
    struct u_atomic_list old, _new;
 
-   /* This read may not be atomic and almost certainly won't be for
-    * double-word reads.  However, the worst that can happen if we read the
-    * list wrong is that we'll have a bogus old value when we go to do the
-    * cmpxchg and it will fail.
-    */
-   old = *(volatile struct u_atomic_list *)list;
+   __u_atomic_list_read(list, &old, bytes);
    do {
       struct u_atomic_link *old_head = get_head(old);
       if (old_head == NULL)
@@ -133,12 +138,10 @@ __u_atomic_list_del(struct u_atomic_list *list, bool del_all,
 
 static inline void
 __u_atomic_list_finish(UNUSED struct u_atomic_list *list,
-                       UNUSED struct u_atomic_link *(*get_head)(struct u_atomic_list),
-                       UNUSED unsigned bytes)
+                       UNUSED struct u_atomic_link *(*get_head)(struct u_atomic_list))
 {
 #ifndef NDEBUG
-   struct u_atomic_list l = *(volatile struct u_atomic_list *)list;
-   assert(get_head(l) == NULL);
+   assert(get_head(*list) == NULL);
 #endif
 }
 
@@ -147,7 +150,10 @@ struct u_atomic_list_dp_impl {
    uintptr_t serial;
 };
 
-/** Helper implementations for double-pointer */
+/**
+ * Double-pointer implementation
+ */
+
 static inline struct u_atomic_link *
 __u_atomic_list_get_dp_head(struct u_atomic_list list)
 {
@@ -167,4 +173,105 @@ __u_atomic_list_pack_dp(struct u_atomic_link *link, uintptr_t serial)
    ((struct u_atomic_list_dp_impl *)list.data)->head = link;
    ((struct u_atomic_list_dp_impl *)list.data)->serial = serial;
    return list;
+}
+
+static inline void
+u_atomic_list_init_dp(struct u_atomic_list *list)
+{
+   memset(list, 0, sizeof(*list));
+}
+
+static inline void u_atomic_list_add_list_dp(struct u_atomic_list *list,
+                                             struct u_atomic_link *first,
+                                             struct u_atomic_link *last,
+                                             unsigned count)
+{
+   __u_atomic_list_add_list(list, first, last, count,
+                            __u_atomic_list_get_dp_head,
+                            __u_atomic_list_get_dp_serial,
+                            __u_atomic_list_pack_dp,
+                            sizeof(void *) * 2);
+}
+
+static inline struct u_atomic_link *
+u_atomic_list_del_dp(struct u_atomic_list *list, bool del_all)
+{
+   return __u_atomic_list_del(list, del_all,
+                              __u_atomic_list_get_dp_head,
+                              __u_atomic_list_get_dp_serial,
+                              __u_atomic_list_pack_dp,
+                              sizeof(void *) * 2);
+}
+
+static inline void
+u_atomic_list_finish_dp(struct u_atomic_list *list)
+{
+   __u_atomic_list_finish(list, __u_atomic_list_get_dp_head);
+}
+
+/*
+ * 48-bit pointer implementation
+ */
+
+/** Helper implementations for 48-bit pointers */
+static inline struct u_atomic_link *
+__u_atomic_list_get_48bit_head(struct u_atomic_list list)
+{
+   int64_t p = *(int64_t *)list.data;
+   p = (p << 16) >> 16;
+   return (struct u_atomic_link *)p;
+}
+
+static inline uintptr_t
+__u_atomic_list_get_48bit_serial(struct u_atomic_list list)
+{
+   uint64_t p = *(uint64_t *)list.data;
+   return p >> 48;
+}
+
+static inline struct u_atomic_list
+__u_atomic_list_pack_48bit(struct u_atomic_link *link, uintptr_t serial)
+{
+   int64_t p = (int64_t)link;
+   /* Make sure it's a canonical 48-bit pointer */
+   assert(p == ((p << 16) >> 16));
+   p = (p & 0x0000ffffffffffffull) | ((uint64_t)serial << 48);
+   struct u_atomic_list list = { .data = { 0, } };
+   *(uint64_t *)list.data = p;
+   return list;
+}
+
+static inline void
+u_atomic_list_init_48bit(struct u_atomic_list *list)
+{
+   memset(list, 0, sizeof(*list));
+}
+
+static inline void
+u_atomic_list_add_list_48bit(struct u_atomic_list *list,
+                             struct u_atomic_link *first,
+                             struct u_atomic_link *last,
+                             unsigned count)
+{
+   __u_atomic_list_add_list(list, first, last, count,
+                            __u_atomic_list_get_48bit_head,
+                            __u_atomic_list_get_48bit_serial,
+                            __u_atomic_list_pack_48bit,
+                            8);
+}
+
+static inline struct u_atomic_link *
+u_atomic_list_del_48bit(struct u_atomic_list *list, bool del_all)
+{
+   return __u_atomic_list_del(list, del_all,
+                              __u_atomic_list_get_48bit_head,
+                              __u_atomic_list_get_48bit_serial,
+                              __u_atomic_list_pack_48bit,
+                              8);
+}
+
+static inline void
+u_atomic_list_finish_48bit(struct u_atomic_list *list)
+{
+   return __u_atomic_list_finish(list, __u_atomic_list_get_48bit_head);
 }
