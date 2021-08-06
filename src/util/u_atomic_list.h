@@ -57,12 +57,6 @@ struct u_atomic_link {
    struct u_atomic_link *next;
 };
 
-static inline void
-u_atomic_list_init(struct u_atomic_list *list)
-{
-   memset(list, 0, sizeof(*list));
-}
-
 static inline void u_atomic_list_add_list(struct u_atomic_list *list,
                                           struct u_atomic_link *first,
                                           struct u_atomic_link *last,
@@ -95,6 +89,12 @@ extern struct u_atomic_link *(*__u_atomic_list_del_x86_64)(struct u_atomic_list 
 extern struct u_atomic_link *(*__u_atomic_list_del_all_x86_64)(struct u_atomic_list *);
 extern void (*__u_atomic_list_finish_x86_64)(struct u_atomic_list *);
 
+static inline void
+u_atomic_list_init(struct u_atomic_list *list)
+{
+   memset(list, 0, sizeof(*list));
+}
+
 static inline void u_atomic_list_add_list(struct u_atomic_list *list,
                                           struct u_atomic_link *first,
                                           struct u_atomic_link *last,
@@ -121,9 +121,17 @@ u_atomic_list_finish(struct u_atomic_list *list)
    __u_atomic_list_finish_x86_64(list);
 }
 
-#else
+#elif defined(PIPE_CC_MSVC) || \
+      defined(PIPE_ARCH_ARM) || \
+      defined(PIPE_ARCH_AARCH64)
 
 #include "u_atomic_list_impl.h"
+
+static inline void
+u_atomic_list_init(struct u_atomic_list *list)
+{
+   memset(list, 0, sizeof(*list));
+}
 
 static inline void u_atomic_list_add_list(struct u_atomic_list *list,
                                           struct u_atomic_link *first,
@@ -162,6 +170,79 @@ u_atomic_list_finish(struct u_atomic_list *list)
 {
    __u_atomic_list_finish(list, __u_atomic_list_get_dp_head,
                           sizeof(void *) * 2);
+}
+
+#else
+
+#include "simple_mtx.h"
+
+struct u_atomic_list_mtx_impl {
+   struct u_atomic_link *head;
+   simple_mtx_t mtx;
+};
+
+static inline void
+u_atomic_list_init(struct u_atomic_list *list)
+{
+   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
+
+   impl->head = NULL;
+   simple_mtx_init(&impl->mtx, mtx_plane);
+}
+
+static inline void
+u_atomic_list_add_list(struct u_atomic_list *list,
+                       struct u_atomic_link *first,
+                       struct u_atomic_link *last,
+                       unsigned count)
+{
+   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
+
+#ifndef NDEBUG
+   unsigned check_count = 1;
+   for (struct u_atomic_link *i = first; i != last; i = i->next)
+      check_count++;
+   assert(check_count == count);
+#endif
+
+   simple_mtx_lock(&impl->mtx);
+   last->next = impl->head;
+   impl->head = first;
+   simple_mtx_unlock(&impl->mtx);
+}
+
+static inline struct u_atomic_link *
+u_atomic_list_del(struct u_atomic_list *list)
+{
+   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
+
+   simple_mtx_lock(&impl->mtx);
+   struct u_atomic_link *head = impl->head;
+   impl->head = head->next;
+   simple_mtx_unlock(&impl->mtx);
+
+   return head;
+}
+
+static inline struct u_atomic_link *
+u_atomic_list_del_all(struct u_atomic_list *list)
+{
+   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
+
+   simple_mtx_lock(&impl->mtx);
+   struct u_atomic_link *head = impl->head;
+   impl->head = NULL;
+   simple_mtx_unlock(&impl->mtx);
+
+   return head;
+}
+
+static inline void
+u_atomic_list_finish(struct u_atomic_list *list)
+{
+   struct u_atomic_list_mtx_impl *impl = (void *)list->data;
+   assert(impl->head == NULL);
+   simple_mtx_destroy(&impl->mtx);
 }
 
 #endif
