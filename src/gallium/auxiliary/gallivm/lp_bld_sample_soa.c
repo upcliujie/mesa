@@ -3652,6 +3652,20 @@ lp_build_sample_soa_code(struct gallivm_state *gallivm,
          use_aos = 0;
       }
 
+      if (static_sampler_state->reduction_mode == PIPE_TEX_REDUCTION_WEIGHTED_AVERAGE &&
+          (derived_sampler_state.min_mip_filter != PIPE_TEX_MIPFILTER_NEAREST ||
+           derived_sampler_state.min_img_filter != PIPE_TEX_FILTER_NEAREST ||
+           derived_sampler_state.mag_img_filter != PIPE_TEX_FILTER_NEAREST)) {
+         /* the AOS texture-filtering code takes unorm data, interpolates them as a wider type,
+          * but then converts it back to unorm again. This obviously discards any fractional bits,
+          * which is far outside of both the OpenGL and Vulkan specs.
+          *
+          * The only practical thing we can do, is to use this code when we're using nearest
+          * filtering, beacuse that won't lead to any fractional values.
+          */
+         use_aos = 0;
+      }
+
       if ((gallivm_debug & GALLIVM_DEBUG_PERF) &&
           !use_aos && util_format_fits_8unorm(bld.format_desc)) {
          debug_printf("%s: using floating point linear filtering for %s\n",
