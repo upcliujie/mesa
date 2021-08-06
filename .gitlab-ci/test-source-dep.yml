@@ -430,13 +430,13 @@
 #      when: never
     - changes:
         *mesa_core_file_list
-      when: on_success
+      when: manual
     - changes:
         *gallium_core_file_list
-      when: on_success
+      when: manual
     - changes:
         *iris_file_list
-      when: on_success
+      when: manual
     - when: never
 
 .anv-rules:
