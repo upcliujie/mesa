@@ -326,9 +326,12 @@ clip_halfz
     When true clip space in the z axis goes from [0..1] (D3D).  When false
     [-1, 1] (GL)
 
-depth_clip
-    When false, the near and far depth clipping planes of the view volume are
-    disabled and the depth value will be clamped at the per-pixel level, after
+depth_clip_near
+    When false, the near depth clipping plane of the view volume is disabled.
+depth_clip_far
+    When false, the far depth clipping plane of the view volume is disabled.
+depth_clamp
+    Whether the depth value will be clamped at the per-pixel level, after
     polygon offset has been applied and before depth testing.
 
 clip_plane_enable
