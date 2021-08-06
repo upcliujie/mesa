@@ -395,6 +395,12 @@ static bool
 set_block_for_loop_instr(struct gcm_state *state, nir_instr *instr,
                          nir_block *block)
 {
+   /* If the instruction wasn't in a loop to begin with we don't want to push
+    * it down into one.
+    */
+   if (!state->blocks[instr->block->index].loop)
+      return true;
+
    if (nir_block_dominates(instr->block, block))
       return true;
 
