@@ -364,35 +364,22 @@ nir_build_deref_offset(nir_builder *b, nir_deref_instr *deref,
 }
 
 static bool
-nir_remove_dead_derefs_impl(nir_function_impl *impl)
+nir_remove_dead_derefs_instr(nir_builder *b,
+                             nir_instr *instr,
+                             UNUSED void *cb_data)
 {
-   bool progress = false;
-
-   nir_foreach_block(block, impl) {
-      nir_foreach_instr_safe(instr, block) {
-         if (instr->type == nir_instr_type_deref &&
-             nir_deref_instr_remove_if_unused(nir_instr_as_deref(instr)))
-            progress = true;
-      }
-   }
-
-   if (progress)
-      nir_metadata_preserve(impl, nir_metadata_block_index |
-                                  nir_metadata_dominance);
-
-   return progress;
+   if (instr->type == nir_instr_type_deref)
+      return nir_deref_instr_remove_if_unused(nir_instr_as_deref(instr));
+   return false;
 }
 
 bool
 nir_remove_dead_derefs(nir_shader *shader)
 {
-   bool progress = false;
-   nir_foreach_function(function, shader) {
-      if (function->impl && nir_remove_dead_derefs_impl(function->impl))
-         progress = true;
-   }
-
-   return progress;
+   return nir_shader_instructions_pass(shader, nir_remove_dead_derefs_instr,
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance,
+                                       NULL);
 }
 
 void
