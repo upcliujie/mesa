@@ -363,7 +363,7 @@ nir_build_deref_offset(nir_builder *b, nir_deref_instr *deref,
    return offset;
 }
 
-bool
+static bool
 nir_remove_dead_derefs_impl(nir_function_impl *impl)
 {
    bool progress = false;
