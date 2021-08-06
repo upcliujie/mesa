@@ -2359,7 +2359,7 @@ radv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->fragmentShadingRateWithShaderSampleMask = false;
          props->fragmentShadingRateWithConservativeRasterization = true;
          props->fragmentShadingRateWithFragmentShaderInterlock = false;
-         props->fragmentShadingRateWithCustomSampleLocations = true;
+         props->fragmentShadingRateWithCustomSampleLocations = false;
          props->fragmentShadingRateStrictMultiplyCombiner = true;
          break;
       }
