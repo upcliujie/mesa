@@ -428,6 +428,10 @@ iris_resource_alloc_flags(const struct iris_screen *screen,
       break;
    }
 
+   /* scanout buffers need to be WC */
+   if (templ->bind & PIPE_BIND_SCANOUT)
+      flags |= BO_ALLOC_SCANOUT;
+
    if (templ->flags & (PIPE_RESOURCE_FLAG_MAP_COHERENT |
                        PIPE_RESOURCE_FLAG_MAP_PERSISTENT))
       flags |= BO_ALLOC_SMEM;
