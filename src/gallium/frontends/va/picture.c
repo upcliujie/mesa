@@ -130,16 +130,20 @@ handlePictureParameterBuffer(vlVaDriver *drv, vlVaContext *context, vlVaBuffer *
       vlVaHandlePictureParameterBufferMPEG4(drv, context, buf);
       break;
 
-  case PIPE_VIDEO_FORMAT_HEVC:
+   case PIPE_VIDEO_FORMAT_HEVC:
       vlVaHandlePictureParameterBufferHEVC(drv, context, buf);
       break;
 
-  case PIPE_VIDEO_FORMAT_JPEG:
+   case PIPE_VIDEO_FORMAT_JPEG:
       vlVaHandlePictureParameterBufferMJPEG(drv, context, buf);
       break;
 
-  case PIPE_VIDEO_FORMAT_VP9:
+   case PIPE_VIDEO_FORMAT_VP9:
       vlVaHandlePictureParameterBufferVP9(drv, context, buf);
+      break;
+
+   case PIPE_VIDEO_FORMAT_AV1:
+      vlVaHandlePictureParameterBufferAV1(drv, context, buf);
       break;
 
    default:
@@ -204,7 +208,7 @@ handleIQMatrixBuffer(vlVaContext *context, vlVaBuffer *buf)
 }
 
 static void
-handleSliceParameterBuffer(vlVaContext *context, vlVaBuffer *buf)
+handleSliceParameterBuffer(vlVaContext *context, vlVaBuffer *buf, unsigned num)
 {
    switch (u_reduce_video_profile(context->templat.profile)) {
    case PIPE_VIDEO_FORMAT_MPEG12:
@@ -233,6 +237,10 @@ handleSliceParameterBuffer(vlVaContext *context, vlVaBuffer *buf)
 
    case PIPE_VIDEO_FORMAT_VP9:
       vlVaHandleSliceParameterBufferVP9(context, buf);
+      break;
+
+   case PIPE_VIDEO_FORMAT_AV1:
+      vlVaHandleSliceParameterBufferAV1(context, buf, num);
       break;
 
    default:
@@ -271,7 +279,8 @@ handleVAProtectedSliceDataBufferType(vlVaContext *context, vlVaBuffer *buf)
 }
 
 static void
-handleVASliceDataBufferType(vlVaContext *context, vlVaBuffer *buf)
+handleVASliceDataBufferType(vlVaContext *context, vlVaBuffer *buf,
+      unsigned int num, unsigned int total_buffers)
 {
    enum pipe_video_format format = u_reduce_video_profile(context->templat.profile);
    unsigned num_buffers = 0;
@@ -326,6 +335,23 @@ handleVASliceDataBufferType(vlVaContext *context, vlVaBuffer *buf)
       case PIPE_VIDEO_FORMAT_VP9:
          vlVaDecoderVP9BitstreamHeader(context, buf);
          break;
+      case PIPE_VIDEO_FORMAT_AV1: {
+         unsigned n = num >> 1;
+         void *d;
+         unsigned s;
+
+         if (n != ((total_buffers >> 1) - 1)) {
+            d = buf->user_data + context->desc.av1.slice_parameter.slice_data_offset[n] -
+               context->desc.av1.slice_parameter.slice_data_offset[0] ;
+            s = buf->size + context->desc.av1.slice_parameter.slice_data_offset[0];
+         } else {
+            d = buf->user_data + context->desc.av1.slice_parameter.slice_data_offset[n];
+            s = buf->size;
+         }
+         buffers[num_buffers] = d;
+         sizes[num_buffers++] = s;
+         break;
+      }
       default:
          break;
       }
@@ -336,7 +362,7 @@ handleVASliceDataBufferType(vlVaContext *context, vlVaBuffer *buf)
         buffers[num_buffers] = buf->data + context->desc.vp9.picture_parameter.frame_header_length_in_bytes;
         sizes[num_buffers] = buf->size - context->desc.vp9.picture_parameter.frame_header_length_in_bytes;
         ++num_buffers;
-   } else {
+   } else if (format != PIPE_VIDEO_FORMAT_AV1) {
         buffers[num_buffers] = buf->data;
         sizes[num_buffers] = buf->size;
         ++num_buffers;
@@ -598,11 +624,11 @@ vlVaRenderPicture(VADriverContextP ctx, VAContextID context_id, VABufferID *buff
          break;
 
       case VASliceParameterBufferType:
-         handleSliceParameterBuffer(context, buf);
+         handleSliceParameterBuffer(context, buf, i);
          break;
 
       case VASliceDataBufferType:
-         handleVASliceDataBufferType(context, buf);
+         handleVASliceDataBufferType(context, buf, i, num_buffers);
          break;
 
       case VAProcPipelineParameterBufferType:

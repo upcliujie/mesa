@@ -60,8 +60,10 @@ vlVaCreateBuffer(VADriverContextP ctx, VAContextID context, VABufferType type,
       return VA_STATUS_ERROR_ALLOCATION_FAILED;
    }
 
-   if (data)
+   if (data) {
       memcpy(buf->data, data, size * num_elements);
+      buf->user_data = data;
+   }
 
    drv = VL_VA_DRIVER(ctx);
    mtx_lock(&drv->mutex);

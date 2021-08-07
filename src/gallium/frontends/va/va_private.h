@@ -272,6 +272,7 @@ typedef struct {
    VABufferInfo export_state;
    unsigned int coded_size;
    struct pipe_video_buffer *derived_image_buffer;
+   void *user_data;
 } vlVaBuffer;
 
 typedef struct {
