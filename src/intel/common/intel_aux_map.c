@@ -210,7 +210,12 @@ intel_aux_map_init(void *driver_ctx,
    if (!ctx)
       return NULL;
 
-   if (pthread_mutex_init(&ctx->mutex, NULL))
+   pthread_mutexattr_t attr;
+
+   pthread_mutexattr_init(&attr);
+   pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+
+   if (pthread_mutex_init(&ctx->mutex, &attr))
       return NULL;
 
    ctx->driver_ctx = driver_ctx;
