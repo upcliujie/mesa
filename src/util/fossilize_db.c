@@ -286,6 +286,7 @@ foz_prepare(struct foz_db *foz_db, char *cache_path)
       return false;
 
    simple_mtx_init(&foz_db->mtx, mtx_plain);
+   simple_mtx_init(&foz_db->flock_mtx, mtx_plain);
    foz_db->mem_ctx = ralloc_context(NULL);
    foz_db->index_db = _mesa_hash_table_u64_create(NULL);
 
@@ -348,6 +349,7 @@ foz_destroy(struct foz_db *foz_db)
    if (foz_db->mem_ctx) {
       _mesa_hash_table_u64_destroy(foz_db->index_db);
       ralloc_free(foz_db->mem_ctx);
+      simple_mtx_destroy(&foz_db->flock_mtx);
       simple_mtx_destroy(&foz_db->mtx);
    }
 }
@@ -434,6 +436,9 @@ foz_write_entry(struct foz_db *foz_db, const uint8_t *cache_key_160bit,
    if (!foz_db->alive)
       return false;
 
+   /* A separate flock mtx so we don't block reads while trying to get a file lock. */
+   simple_mtx_lock(&foz_db->flock_mtx);
+
    /* Wait for 1 second. This is done outside of the mutex as I believe there is more potential
     * for file contention than mtx contention of significant length. */
    int err = lock_file_with_timeout(foz_db->file[0], 1000000000);
@@ -449,6 +454,7 @@ foz_write_entry(struct foz_db *foz_db, const uint8_t *cache_key_160bit,
    if (entry) {
       simple_mtx_unlock(&foz_db->mtx);
       flock(fileno(foz_db->file[0]), LOCK_UN);
+      simple_mtx_unlock(&foz_db->flock_mtx);
       return NULL;
    }
 
@@ -511,6 +517,7 @@ foz_write_entry(struct foz_db *foz_db, const uint8_t *cache_key_160bit,
 
    simple_mtx_unlock(&foz_db->mtx);
    flock(fileno(foz_db->file[0]), LOCK_UN);
+   simple_mtx_unlock(&foz_db->flock_mtx);
 
    return true;
 
@@ -518,6 +525,7 @@ fail:
    simple_mtx_unlock(&foz_db->mtx);
 fail_file:
    flock(fileno(foz_db->file[0]), LOCK_UN);
+   simple_mtx_unlock(&foz_db->flock_mtx);
    return false;
 }
 #else
