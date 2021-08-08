@@ -43,9 +43,15 @@ namespace clover {
       class iterator_adaptor {
       public:
          typedef std::forward_iterator_tag iterator_category;
+#if __cplusplus >= 201703L
+         typedef typename std::invoke_result<
+               F, typename std::iterator_traits<Is>::reference...
+            >::type reference;
+#else
          typedef typename std::result_of<
                F(typename std::iterator_traits<Is>::reference...)
             >::type reference;
+#endif
          typedef typename std::remove_reference<reference>::type value_type;
          typedef pseudo_ptr<value_type> pointer;
          typedef std::ptrdiff_t difference_type;
