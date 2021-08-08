@@ -58,6 +58,9 @@
 #endif
 
 #ifdef __HAIKU__
+/* u_thread.h -> OS.h -> StorageDefs.h -> bsd/sys/param.h (BSD compat headers)
+ * - defines ALIGN which clashes with our ALIGN
+ */
 #include <OS.h>
 #undef ALIGN
 #endif
