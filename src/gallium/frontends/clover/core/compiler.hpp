@@ -24,14 +24,14 @@
 #define CLOVER_CORE_COMPILER_HPP
 
 #include "core/device.hpp"
-#include "core/module.hpp"
+#include "core/object.hpp"
 #include "llvm/invocation.hpp"
 #include "nir/invocation.hpp"
 #include "spirv/invocation.hpp"
 
 namespace clover {
    namespace compiler {
-      static inline module
+      static inline object
       compile_program(const program &prog, const header_map &headers,
                       const device &dev, const std::string &opts,
                       std::string &log) {
@@ -59,15 +59,15 @@ namespace clover {
          }
       }
 
-      static inline module
-      link_program(const std::vector<module> &ms, const device &dev,
+      static inline object
+      link_program(const std::vector<object> &os, const device &dev,
                    const std::string &opts, std::string &log) {
          switch (dev.ir_format()) {
          case PIPE_SHADER_IR_NIR_SERIALIZED:
-            return nir::spirv_to_nir(spirv::link_program(ms, dev, opts, log),
+            return nir::spirv_to_nir(spirv::link_program(os, dev, opts, log),
                                      dev, log);
          case PIPE_SHADER_IR_NATIVE:
-            return llvm::link_program(ms, dev, opts, log);
+            return llvm::link_program(os, dev, opts, log);
          default:
             unreachable("device with unsupported IR");
             throw error(CL_INVALID_VALUE);

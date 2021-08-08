@@ -29,21 +29,21 @@
 using namespace clover;
 
 kernel::kernel(clover::program &prog, const std::string &name,
-               const std::vector<module::argument> &margs) :
+               const std::vector<object::argument> &oargs) :
    program(prog), _name(name), exec(*this),
    program_ref(prog._kernel_ref_counter) {
-   for (auto &marg : margs) {
-      if (marg.semantic == module::argument::general)
-         _args.emplace_back(argument::create(marg));
+   for (auto &oarg : oargs) {
+      if (oarg.semantic == object::argument::general)
+         _args.emplace_back(argument::create(oarg));
    }
    for (auto &dev : prog.devices()) {
-      auto &m = prog.build(dev).binary;
-      auto msym = find(name_equals(name), m.syms);
-      const auto f = id_type_equals(msym.section, module::section::data_constant);
-      if (!any_of(f, m.secs))
+      auto &o = prog.build(dev).binary;
+      auto osym = find(name_equals(name), o.syms);
+      const auto f = id_type_equals(osym.section, object::section::data_constant);
+      if (!any_of(f, o.secs))
          continue;
 
-      auto mconst = find(f, m.secs);
+      auto mconst = find(f, o.secs);
       auto rb = std::make_unique<root_buffer>(prog.context(), std::vector<cl_mem_properties>(),
                                               CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
                                               mconst.size, mconst.data.data());
@@ -64,7 +64,7 @@ kernel::launch(command_queue &q,
                const std::vector<size_t> &grid_offset,
                const std::vector<size_t> &grid_size,
                const std::vector<size_t> &block_size) {
-   const auto m = program().build(q.device()).binary;
+   const auto o = program().build(q.device()).binary;
    const auto reduced_grid_size =
       map(divides(), grid_size, block_size);
    void *st = exec.bind(&q, grid_offset);
@@ -94,7 +94,7 @@ kernel::launch(command_queue &q,
    info.work_dim = grid_size.size();
    copy(pad_vector(q, block_size, 1), info.block);
    copy(pad_vector(q, reduced_grid_size, 1), info.grid);
-   info.pc = find(name_equals(_name), m.syms).offset;
+   info.pc = find(name_equals(_name), o.syms).offset;
    info.input = exec.input.data();
 
    q.pipe->launch_grid(q.pipe, &info);
@@ -157,18 +157,18 @@ kernel::args() const {
    return map(derefs(), _args);
 }
 
-std::vector<clover::module::arg_info>
+std::vector<clover::object::arg_info>
 kernel::args_infos() {
-   std::vector<clover::module::arg_info> infos;
-   for (auto &marg: find(name_equals(_name), program().symbols()).args)
-      if (marg.semantic == clover::module::argument::general)
-         infos.emplace_back(marg.info);
+   std::vector<clover::object::arg_info> infos;
+   for (auto &oarg: find(name_equals(_name), program().symbols()).args)
+      if (oarg.semantic == clover::object::argument::general)
+         infos.emplace_back(oarg.info);
 
    return infos;
 }
 
-const module &
-kernel::module(const command_queue &q) const {
+const object &
+kernel::object(const command_queue &q) const {
    return program().build(q.device()).binary;
 }
 
@@ -187,79 +187,79 @@ kernel::exec_context::bind(intrusive_ptr<command_queue> _q,
    std::swap(q, _q);
 
    // Bind kernel arguments.
-   auto &m = kern.program().build(q->device()).binary;
-   auto msym = find(name_equals(kern.name()), m.syms);
-   auto margs = msym.args;
-   auto msec = find(id_type_equals(msym.section, module::section::text_executable), m.secs);
+   auto &o = kern.program().build(q->device()).binary;
+   auto osym = find(name_equals(kern.name()), o.syms);
+   auto oargs = osym.args;
+   auto msec = find(id_type_equals(osym.section, object::section::text_executable), o.secs);
    auto explicit_arg = kern._args.begin();
 
-   for (auto &marg : margs) {
-      switch (marg.semantic) {
-      case module::argument::general:
-         (*(explicit_arg++))->bind(*this, marg);
+   for (auto &oarg : oargs) {
+      switch (oarg.semantic) {
+      case object::argument::general:
+         (*(explicit_arg++))->bind(*this, oarg);
          break;
 
-      case module::argument::grid_dimension: {
+      case object::argument::grid_dimension: {
          const cl_uint dimension = grid_offset.size();
-         auto arg = argument::create(marg);
+         auto arg = argument::create(oarg);
 
          arg->set(sizeof(dimension), &dimension);
-         arg->bind(*this, marg);
+         arg->bind(*this, oarg);
          break;
       }
-      case module::argument::grid_offset: {
+      case object::argument::grid_offset: {
          for (cl_uint x : pad_vector(*q, grid_offset, 0)) {
-            auto arg = argument::create(marg);
+            auto arg = argument::create(oarg);
 
             arg->set(sizeof(x), &x);
-            arg->bind(*this, marg);
+            arg->bind(*this, oarg);
          }
          break;
       }
-      case module::argument::image_size: {
+      case object::argument::image_size: {
          auto img = dynamic_cast<image_argument &>(**(explicit_arg - 1)).get();
          std::vector<cl_uint> image_size{
                static_cast<cl_uint>(img->width()),
                static_cast<cl_uint>(img->height()),
                static_cast<cl_uint>(img->depth())};
          for (auto x : image_size) {
-            auto arg = argument::create(marg);
+            auto arg = argument::create(oarg);
 
             arg->set(sizeof(x), &x);
-            arg->bind(*this, marg);
+            arg->bind(*this, oarg);
          }
          break;
       }
-      case module::argument::image_format: {
+      case object::argument::image_format: {
          auto img = dynamic_cast<image_argument &>(**(explicit_arg - 1)).get();
          cl_image_format fmt = img->format();
          std::vector<cl_uint> image_format{
                static_cast<cl_uint>(fmt.image_channel_data_type),
                static_cast<cl_uint>(fmt.image_channel_order)};
          for (auto x : image_format) {
-            auto arg = argument::create(marg);
+            auto arg = argument::create(oarg);
 
             arg->set(sizeof(x), &x);
-            arg->bind(*this, marg);
+            arg->bind(*this, oarg);
          }
          break;
       }
-      case module::argument::constant_buffer: {
-         auto arg = argument::create(marg);
+      case object::argument::constant_buffer: {
+         auto arg = argument::create(oarg);
          cl_mem buf = kern._constant_buffers.at(&q->device()).get();
          arg->set(sizeof(buf), &buf);
-         arg->bind(*this, marg);
+         arg->bind(*this, oarg);
          break;
       }
-      case module::argument::printf_buffer: {
-         print_handler = printf_handler::create(q, m.printf_infos,
-                                                m.printf_strings_in_buffer,
+      case object::argument::printf_buffer: {
+         print_handler = printf_handler::create(q, o.printf_infos,
+                                                o.printf_strings_in_buffer,
                                                 q->device().max_printf_buffer_size());
          cl_mem print_mem = print_handler->get_mem();
 
-         auto arg = argument::create(marg);
+         auto arg = argument::create(oarg);
          arg->set(sizeof(cl_mem), &print_mem);
-         arg->bind(*this, marg);
+         arg->bind(*this, oarg);
          break;
       }
       }
@@ -345,16 +345,16 @@ namespace {
    ///
    template<typename T>
    void
-   extend(T &v, enum module::argument::ext_type ext, size_t n) {
-      const size_t m = std::min(v.size(), n);
-      const bool sign_ext = (ext == module::argument::sign_ext);
+   extend(T &v, enum object::argument::ext_type ext, size_t n) {
+      const size_t o = std::min(v.size(), n);
+      const bool sign_ext = (ext == object::argument::sign_ext);
       const uint8_t fill = (sign_ext && msb(v) ? ~0 : 0);
       T w(n, fill);
 
       if (PIPE_ENDIAN_NATIVE == PIPE_ENDIAN_LITTLE)
-         std::copy_n(v.begin(), m, w.begin());
+         std::copy_n(v.begin(), o, w.begin());
       else
-         std::copy_n(v.end() - m, m, w.end() - m);
+         std::copy_n(v.end() - o, o, w.end() - o);
 
       std::swap(v, w);
    }
@@ -381,27 +381,27 @@ namespace {
 }
 
 std::unique_ptr<kernel::argument>
-kernel::argument::create(const module::argument &marg) {
-   switch (marg.type) {
-   case module::argument::scalar:
-      return std::unique_ptr<kernel::argument>(new scalar_argument(marg.size));
+kernel::argument::create(const object::argument &oarg) {
+   switch (oarg.type) {
+   case object::argument::scalar:
+      return std::unique_ptr<kernel::argument>(new scalar_argument(oarg.size));
 
-   case module::argument::global:
+   case object::argument::global:
       return std::unique_ptr<kernel::argument>(new global_argument);
 
-   case module::argument::local:
+   case object::argument::local:
       return std::unique_ptr<kernel::argument>(new local_argument);
 
-   case module::argument::constant:
+   case object::argument::constant:
       return std::unique_ptr<kernel::argument>(new constant_argument);
 
-   case module::argument::image_rd:
+   case object::argument::image_rd:
       return std::unique_ptr<kernel::argument>(new image_rd_argument);
 
-   case module::argument::image_wr:
+   case object::argument::image_wr:
       return std::unique_ptr<kernel::argument>(new image_wr_argument);
 
-   case module::argument::sampler:
+   case object::argument::sampler:
       return std::unique_ptr<kernel::argument>(new sampler_argument);
 
    }
@@ -438,12 +438,12 @@ kernel::scalar_argument::set(size_t size, const void *value) {
 
 void
 kernel::scalar_argument::bind(exec_context &ctx,
-                              const module::argument &marg) {
+                              const object::argument &oarg) {
    auto w = v;
 
-   extend(w, marg.ext_type, marg.target_size);
+   extend(w, oarg.ext_type, oarg.target_size);
    byteswap(w, ctx.q->device().endianness());
-   align(ctx.input, marg.target_align);
+   align(ctx.input, oarg.target_align);
    insert(ctx.input, w);
 }
 
@@ -473,8 +473,8 @@ kernel::global_argument::set_svm(const void *value) {
 
 void
 kernel::global_argument::bind(exec_context &ctx,
-                              const module::argument &marg) {
-   align(ctx.input, marg.target_align);
+                              const object::argument &oarg) {
+   align(ctx.input, oarg.target_align);
 
    if (buf) {
       const resource &r = buf->resource_in(*ctx.q);
@@ -485,17 +485,17 @@ kernel::global_argument::bind(exec_context &ctx,
       // We don't need to.  Buffer offsets are always
       // one-dimensional.
       auto v = bytes(r.offset[0]);
-      extend(v, marg.ext_type, marg.target_size);
+      extend(v, oarg.ext_type, oarg.target_size);
       byteswap(v, ctx.q->device().endianness());
       insert(ctx.input, v);
    } else if (svm) {
       auto v = bytes(svm);
-      extend(v, marg.ext_type, marg.target_size);
+      extend(v, oarg.ext_type, oarg.target_size);
       byteswap(v, ctx.q->device().endianness());
       insert(ctx.input, v);
    } else {
       // Null pointer.
-      allocate(ctx.input, marg.target_size);
+      allocate(ctx.input, oarg.target_size);
    }
 }
 
@@ -522,11 +522,11 @@ kernel::local_argument::set(size_t size, const void *value) {
 
 void
 kernel::local_argument::bind(exec_context &ctx,
-                             const module::argument &marg) {
-   ctx.mem_local = ::align(ctx.mem_local, marg.target_align);
+                             const object::argument &oarg) {
+   ctx.mem_local = ::align(ctx.mem_local, oarg.target_align);
    auto v = bytes(ctx.mem_local);
 
-   extend(v, module::argument::zero_ext, marg.target_size);
+   extend(v, object::argument::zero_ext, oarg.target_size);
    byteswap(v, ctx.q->device().endianness());
    align(ctx.input, ctx.q->device().address_bits() / 8);
    insert(ctx.input, v);
@@ -552,14 +552,14 @@ kernel::constant_argument::set(size_t size, const void *value) {
 
 void
 kernel::constant_argument::bind(exec_context &ctx,
-                                const module::argument &marg) {
-   align(ctx.input, marg.target_align);
+                                const object::argument &oarg) {
+   align(ctx.input, oarg.target_align);
 
    if (buf) {
       resource &r = buf->resource_in(*ctx.q);
       auto v = bytes(ctx.resources.size() << 24 | r.offset[0]);
 
-      extend(v, module::argument::zero_ext, marg.target_size);
+      extend(v, object::argument::zero_ext, oarg.target_size);
       byteswap(v, ctx.q->device().endianness());
       insert(ctx.input, v);
 
@@ -567,7 +567,7 @@ kernel::constant_argument::bind(exec_context &ctx,
       ctx.resources.push_back(st);
    } else {
       // Null pointer.
-      allocate(ctx.input, marg.target_size);
+      allocate(ctx.input, oarg.target_size);
    }
 }
 
@@ -591,12 +591,12 @@ kernel::image_rd_argument::set(size_t size, const void *value) {
 
 void
 kernel::image_rd_argument::bind(exec_context &ctx,
-                                const module::argument &marg) {
+                                const object::argument &oarg) {
    auto v = bytes(ctx.sviews.size());
 
-   extend(v, module::argument::zero_ext, marg.target_size);
+   extend(v, object::argument::zero_ext, oarg.target_size);
    byteswap(v, ctx.q->device().endianness());
-   align(ctx.input, marg.target_align);
+   align(ctx.input, oarg.target_align);
    insert(ctx.input, v);
 
    st = img->resource_in(*ctx.q).bind_sampler_view(*ctx.q);
@@ -622,12 +622,12 @@ kernel::image_wr_argument::set(size_t size, const void *value) {
 
 void
 kernel::image_wr_argument::bind(exec_context &ctx,
-                                const module::argument &marg) {
+                                const object::argument &oarg) {
    auto v = bytes(ctx.iviews.size());
 
-   extend(v, module::argument::zero_ext, marg.target_size);
+   extend(v, object::argument::zero_ext, oarg.target_size);
    byteswap(v, ctx.q->device().endianness());
-   align(ctx.input, marg.target_align);
+   align(ctx.input, oarg.target_align);
    insert(ctx.input, v);
    ctx.iviews.push_back(img->resource_in(*ctx.q).create_image_view(*ctx.q));
 }
@@ -653,7 +653,7 @@ kernel::sampler_argument::set(size_t size, const void *value) {
 
 void
 kernel::sampler_argument::bind(exec_context &ctx,
-                               const module::argument &marg) {
+                               const object::argument &oarg) {
    st = s->bind(*ctx.q);
    ctx.samplers.push_back(st);
 }
