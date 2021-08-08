@@ -83,12 +83,17 @@ namespace clover {
 
       friend class kernel;
 
+      void add_spec_const(spec_const &sc) {
+         _spec_constants.push_back(sc);
+      }
+
    private:
       std::vector<intrusive_ref<device>> _devices;
       std::map<const device *, struct build> _builds;
       std::string _source;
       ref_counter _kernel_ref_counter;
       enum il_type _il_type;
+      std::vector<spec_const> _spec_constants;
    };
 }
 

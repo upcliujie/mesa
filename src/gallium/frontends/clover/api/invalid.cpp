@@ -90,11 +90,3 @@ clSetProgramReleaseCallback(cl_program d_prog,
 			    void *user_data) {
    return CL_INVALID_OPERATION;
 }
-
-CLOVER_API cl_int
-clSetProgramSpecializationConstant(cl_program program,
-				   cl_uint spec_id,
-				   size_t spec_size,
-				   const void* spec_value) {
-   return CL_INVALID_OPERATION;
-}

@@ -590,3 +590,42 @@ clGetProgramBuildInfo(cl_program d_prog, cl_device_id d_dev,
 } catch (error &e) {
    return e.get();
 }
+
+CLOVER_API cl_int
+clSetProgramSpecializationConstant(cl_program d_prog,
+				   cl_uint spec_id,
+				   size_t spec_size,
+				   const void* spec_value) try {
+   auto &prog = obj(d_prog);
+
+#ifdef HAVE_CLOVER_SPIRV
+   struct spec_const spec_const;
+
+   spec_const.id = spec_id;
+   spec_const.size = spec_size;
+   switch (spec_size) {
+   case 8:
+      memcpy(&spec_const.value.u64, spec_value, sizeof(uint64_t));
+      break;
+   case 4:
+      memcpy(&spec_const.value.u32, spec_value, sizeof(uint32_t));
+      break;
+   case 2:
+      memcpy(&spec_const.value.u16, spec_value, sizeof(uint16_t));
+      break;
+   case 1:
+      memcpy(&spec_const.value.u8, spec_value, sizeof(uint8_t));
+      break;
+   default:
+      assert(!"Invalid spec constant size");
+      break;
+   }
+
+   prog.add_spec_const(spec_const);
+   return CL_SUCCESS;
+#else
+   return CL_INVALID_OPERATION;
+#endif
+} catch (error &e) {
+   return e.get();
+}

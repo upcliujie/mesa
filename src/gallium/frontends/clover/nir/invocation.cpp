@@ -397,6 +397,7 @@ nir_shader *clover::nir::load_libclc_nir(const device &dev, std::string &r_log)
 }
 
 module clover::nir::spirv_to_nir(const module &mod, const device &dev,
+                                 const std::vector<spec_const> &spec_consts,
                                  std::string &r_log)
 {
    spirv_to_nir_options spirv_options = create_spirv_options(dev, r_log);
@@ -419,7 +420,28 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
       const char *name = sym.name.c_str();
       auto *compiler_options = dev_get_nir_compiler_options(dev);
 
-      nir_shader *nir = spirv_to_nir(data, num_words, nullptr, 0,
+      struct nir_spirv_specialization *spec_entries =
+         (struct nir_spirv_specialization *)calloc(sizeof(*spec_entries), spec_consts.size());
+
+      for (unsigned i = 0; i < spec_consts.size(); i++) {
+         spec_entries[i].id = spec_consts[i].id;
+         switch (spec_consts[i].size) {
+         case 8:
+            spec_entries[i].value.u64 = spec_consts[i].value.u64;
+            break;
+         case 4:
+            spec_entries[i].value.u32 = spec_consts[i].value.u32;
+            break;
+         case 2:
+            spec_entries[i].value.u16 = spec_consts[i].value.u16;
+            break;
+         default:
+         case 1:
+            spec_entries[i].value.u8 = spec_consts[i].value.u8;
+            break;
+         }
+      }
+      nir_shader *nir = spirv_to_nir(data, num_words, spec_entries, spec_consts.size(),
                                      MESA_SHADER_KERNEL, name,
                                      &spirv_options, compiler_options);
       if (!nir) {
@@ -427,6 +449,8 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
                   "\" failed.\n";
          throw build_error();
       }
+
+      free(spec_entries);
 
       nir->info.workgroup_size_variable = sym.reqd_work_group_size[0] == 0;
       nir->info.workgroup_size[0] = sym.reqd_work_group_size[0];
@@ -589,7 +613,9 @@ module clover::nir::spirv_to_nir(const module &mod, const device &dev,
    return m;
 }
 #else
-module clover::nir::spirv_to_nir(const module &mod, const device &dev, std::string &r_log)
+module clover::nir::spirv_to_nir(const module &mod, const device &dev,
+                                 const std::vector<spec_const> &spec_consts,
+                                 std::string &r_log)
 {
    r_log += "SPIR-V support in clover is not enabled.\n";
    throw error(CL_LINKER_NOT_AVAILABLE);
