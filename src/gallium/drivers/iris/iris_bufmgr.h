@@ -35,11 +35,14 @@
 #include "util/list.h"
 #include "util/simple_mtx.h"
 #include "pipe/p_defines.h"
+#include "pipebuffer/pb_slab.h"
 
 struct intel_device_info;
 struct pipe_debug_callback;
 struct isl_surf;
 struct iris_syncobj;
+
+#define NUM_SLAB_ALLOCATORS 3
 
 /**
  * Memory zones.  When allocating a buffer, you can request that it is
@@ -259,6 +262,7 @@ struct iris_bo {
          bool local;
       } real;
       struct {
+         struct pb_slab_entry entry;
          struct iris_bo *real;
       } slab;
    };
