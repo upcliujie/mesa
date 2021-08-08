@@ -1678,30 +1678,6 @@ if with_llvm
     error('SWR requires LLVM draw support.')
   endif
 
-  # LLVM can be built without rtti, turning off rtti changes the ABI of C++
-  # programs, so we need to build all C++ code in mesa without rtti as well to
-  # ensure that linking works.
-  #
-  # In meson 0.51.0 we can use cmake to find LLVM in addittion to meson's
-  # builtin llvm-config based finder. A new generic variable getter method
-  # has also been added, so we'll use that if we can, to cover the cmake case.
-  if dep_llvm.type_name() == 'internal'
-    _rtti = subproject('llvm').get_variable('has_rtti', true)
-  else
-    # The CMake finder will return 'ON', the llvm-config will return 'YES'
-    _rtti = ['ON', 'YES'].contains(dep_llvm.get_variable(cmake : 'LLVM_ENABLE_RTTI', configtool: 'has-rtti'))
-  endif
-  if not _rtti
-    if with_gallium_opencl
-      error('The Clover OpenCL state tracker requires rtti, you need to turn off clover or use an LLVM built with LLVM_ENABLE_RTTI.')
-    endif
-    if cc.get_id() == 'msvc'
-      cpp_args += '/GR-'
-    else
-      cpp_args += '-fno-rtti'
-    endif
-  endif
-
   if cc.get_id() == 'msvc'
     # Suppress "/DELAYLOAD:ole32.dll/shell32.dll ignored" warnings that LLVM adds
     add_project_link_arguments(
