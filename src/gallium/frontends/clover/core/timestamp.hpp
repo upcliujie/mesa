@@ -23,7 +23,7 @@
 #ifndef CLOVER_CORE_TIMESTAMP_HPP
 #define CLOVER_CORE_TIMESTAMP_HPP
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 
 struct pipe_query;
 

@@ -26,7 +26,7 @@
 #include <deque>
 #include <mutex>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/context.hpp"
 #include "core/timestamp.hpp"
 #include "pipe/p_context.h"

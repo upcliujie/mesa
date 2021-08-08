@@ -26,7 +26,7 @@
 #include <map>
 #include <stack>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/device.hpp"
 #include "core/property.hpp"
 

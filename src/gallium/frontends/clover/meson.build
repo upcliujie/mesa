@@ -129,7 +129,7 @@ clover_files = files(
   'core/memory.hpp',
   'core/module.cpp',
   'core/module.hpp',
-  'core/object.hpp',
+  'core/objects.hpp',
   'core/platform.cpp',
   'core/platform.hpp',
   'core/printf.cpp',

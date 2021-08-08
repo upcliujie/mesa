@@ -23,7 +23,7 @@
 #ifndef CLOVER_CORE_SAMPLER_HPP
 #define CLOVER_CORE_SAMPLER_HPP
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/queue.hpp"
 
 namespace clover {

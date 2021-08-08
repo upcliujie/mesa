@@ -20,8 +20,8 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#ifndef CLOVER_CORE_OBJECT_HPP
-#define CLOVER_CORE_OBJECT_HPP
+#ifndef CLOVER_CORE_OBJECTS_HPP
+#define CLOVER_CORE_OBJECTS_HPP
 
 #include <cassert>
 #include <functional>

@@ -28,7 +28,7 @@
 #include <memory>
 #include <stack>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/queue.hpp"
 #include "core/resource.hpp"
 

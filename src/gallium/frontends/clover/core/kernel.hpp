@@ -26,7 +26,7 @@
 #include <map>
 #include <memory>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/printf.hpp"
 #include "core/program.hpp"
 #include "core/memory.hpp"

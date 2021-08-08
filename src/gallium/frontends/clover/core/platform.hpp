@@ -25,7 +25,7 @@
 
 #include <vector>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/device.hpp"
 #include "util/range.hpp"
 

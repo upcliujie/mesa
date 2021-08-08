@@ -26,7 +26,7 @@
 #include <condition_variable>
 #include <functional>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/queue.hpp"
 #include "core/timestamp.hpp"
 #include "util/lazy.hpp"

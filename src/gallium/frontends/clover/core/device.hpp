@@ -26,7 +26,7 @@
 #include <set>
 #include <vector>
 
-#include "core/object.hpp"
+#include "core/objects.hpp"
 #include "core/format.hpp"
 #include "core/module.hpp"
 #include "util/lazy.hpp"
