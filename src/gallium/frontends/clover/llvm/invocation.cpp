@@ -60,7 +60,7 @@
 #include "util/algorithm.hpp"
 
 
-using clover::module;
+using clover::object;
 using clover::device;
 using clover::build_error;
 using clover::invalid_build_options_error;
@@ -379,7 +379,7 @@ namespace {
 #endif
 }
 
-module
+object
 clover::llvm::compile_program(const std::string &source,
                               const header_map &headers,
                               const device &dev,
@@ -397,7 +397,7 @@ clover::llvm::compile_program(const std::string &source,
    if (has_flag(debug::llvm))
       debug::log(".ll", print_module_bitcode(*mod));
 
-   return build_module_library(*mod, module::section::text_intermediate);
+   return build_module_library(*mod, object::section::text_intermediate);
 }
 
 namespace {
@@ -411,10 +411,10 @@ namespace {
       // functions as internal enables the optimizer to perform optimizations
       // like function inlining and global dead-code elimination.
       //
-      // When there is no "main" function in a module, the internalize pass will
-      // treat the module like a library, and it won't internalize any functions.
+      // When there is no "main" function in an object, the internalize pass will
+      // treat the object like a library, and it won't internalize any functions.
       // Since there is no "main" function in our kernels, we need to tell
-      // the internalizer pass that this module is not a library by passing a
+      // the internalizer pass that this object is not a library by passing a
       // list of kernel functions to the internalizer.  The internalizer will
       // treat the functions in the list as "main" functions and internalize
       // all of the other functions.
@@ -438,12 +438,12 @@ namespace {
 
    std::unique_ptr<Module>
    link(LLVMContext &ctx, const clang::CompilerInstance &c,
-        const std::vector<module> &modules, std::string &r_log) {
+        const std::vector<object> &modules, std::string &r_log) {
       std::unique_ptr<Module> mod { new Module("link", ctx) };
       std::unique_ptr< ::llvm::Linker> linker { new ::llvm::Linker(*mod) };
 
-      for (auto &m : modules) {
-         if (linker->linkInModule(parse_module_library(m, ctx, r_log)))
+      for (auto &o : modules) {
+         if (linker->linkInModule(parse_module_library(o, ctx, r_log)))
             throw build_error();
       }
 
@@ -451,8 +451,8 @@ namespace {
    }
 }
 
-module
-clover::llvm::link_program(const std::vector<module> &modules,
+object
+clover::llvm::link_program(const std::vector<object> &modules,
                            const device &dev, const std::string &opts,
                            std::string &r_log) {
    std::vector<std::string> options = tokenize(opts + " input.cl");
@@ -473,7 +473,7 @@ clover::llvm::link_program(const std::vector<module> &modules,
       debug::log(id + ".ll", print_module_bitcode(*mod));
 
    if (create_library) {
-      return build_module_library(*mod, module::section::text_library);
+      return build_module_library(*mod, object::section::text_library);
 
    } else if (dev.ir_format() == PIPE_SHADER_IR_NATIVE) {
       if (has_flag(debug::native))
@@ -487,7 +487,7 @@ clover::llvm::link_program(const std::vector<module> &modules,
 }
 
 #ifdef HAVE_CLOVER_SPIRV
-module
+object
 clover::llvm::compile_to_spirv(const std::string &source,
                                const header_map &headers,
                                const device &dev,

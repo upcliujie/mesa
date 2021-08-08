@@ -20,8 +20,8 @@
 // OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#ifndef CLOVER_CORE_MODULE_HPP
-#define CLOVER_CORE_MODULE_HPP
+#ifndef CLOVER_CORE_OBJECT_HPP
+#define CLOVER_CORE_OBJECT_HPP
 
 #include <vector>
 #include <string>
@@ -29,7 +29,7 @@
 #include "CL/cl.h"
 
 namespace clover {
-   struct module {
+   struct object {
       typedef uint32_t resource_id;
       typedef uint32_t size_t;
 
@@ -153,9 +153,9 @@ namespace clover {
          std::vector<argument> args;
       };
 
-      module() : printf_strings_in_buffer(0) { }
+      object() : printf_strings_in_buffer(0) { }
       void serialize(std::ostream &os) const;
-      static module deserialize(std::istream &is);
+      static object deserialize(std::istream &is);
       size_t size() const;
 
       std::vector<symbol> syms;

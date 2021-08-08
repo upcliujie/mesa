@@ -25,7 +25,7 @@
 ///
 /// \file
 /// Codegen back-end-independent part of the construction of an executable
-/// clover::module, including kernel argument metadata extraction and
+/// clover::object, including kernel argument metadata extraction and
 /// formatting of the pre-generated binary code in a form that can be
 /// understood by pipe drivers.
 ///
@@ -42,7 +42,7 @@
 
 #include <clang/Basic/TargetInfo.h>
 
-using clover::module;
+using clover::object;
 using clover::detokenize;
 using namespace clover::llvm;
 
@@ -54,20 +54,20 @@ using ::llvm::cast;
 using ::llvm::dyn_cast;
 
 namespace {
-   enum module::argument::type
+   enum object::argument::type
    get_image_type(const std::string &type,
                   const std::string &qual) {
       if (type == "image1d_t" || type == "image2d_t" || type == "image3d_t") {
          if (qual == "read_only")
-            return module::argument::image_rd;
+            return object::argument::image_rd;
          else if (qual == "write_only")
-            return module::argument::image_wr;
+            return object::argument::image_wr;
       }
 
       unreachable("Unsupported image type");
    }
 
-   module::arg_info create_arg_info(const std::string &arg_name,
+   object::arg_info create_arg_info(const std::string &arg_name,
                                     const std::string &type_name,
                                     const std::string &type_qualifier,
                                     const uint64_t address_qualifier,
@@ -100,7 +100,7 @@ namespace {
       else if (access_qualifier == "read_write")
          cl_access_qualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
 
-      return module::arg_info(arg_name, type_name, cl_type_qualifier,
+      return object::arg_info(arg_name, type_name, cl_type_qualifier,
                               cl_address_qualifier, cl_access_qualifier);
    }
 
@@ -147,10 +147,10 @@ namespace {
       return detokenize(attributes, " ");
    }
 
-   std::vector<module::argument>
+   std::vector<object::argument>
    make_kernel_args(const Module &mod, const std::string &kernel_name,
                     const clang::CompilerInstance &c) {
-      std::vector<module::argument> args;
+      std::vector<object::argument> args;
       const Function &f = *mod.getFunction(kernel_name);
       ::llvm::DataLayout dl(&mod);
       const auto size_type =
@@ -176,28 +176,28 @@ namespace {
                f, arg, "kernel_arg_access_qual");
             args.emplace_back(get_image_type(type_name, access_qual),
                               target_size, target_size,
-                              target_align, module::argument::zero_ext);
+                              target_align, object::argument::zero_ext);
 
          } else if (type_name == "sampler_t") {
-            args.emplace_back(module::argument::sampler, arg_api_size,
+            args.emplace_back(object::argument::sampler, arg_api_size,
                               target_size, target_align,
-                              module::argument::zero_ext);
+                              object::argument::zero_ext);
 
          } else if (type_name == "__llvm_image_size") {
             // Image size implicit argument.
-            args.emplace_back(module::argument::scalar, sizeof(cl_uint),
+            args.emplace_back(object::argument::scalar, sizeof(cl_uint),
                               dl.getTypeStoreSize(size_type),
                               dl.getABITypeAlignment(size_type),
-                              module::argument::zero_ext,
-                              module::argument::image_size);
+                              object::argument::zero_ext,
+                              object::argument::image_size);
 
          } else if (type_name == "__llvm_image_format") {
             // Image format implicit argument.
-            args.emplace_back(module::argument::scalar, sizeof(cl_uint),
+            args.emplace_back(object::argument::scalar, sizeof(cl_uint),
                               dl.getTypeStoreSize(size_type),
                               dl.getABITypeAlignment(size_type),
-                              module::argument::zero_ext,
-                              module::argument::image_format);
+                              object::argument::zero_ext,
+                              object::argument::image_format);
 
          } else {
             // Other types.
@@ -215,10 +215,10 @@ namespace {
                if (address_space == map[offset]) {
                   const auto pointee_type = cast<
                      ::llvm::PointerType>(actual_type)->getElementType();
-                  args.emplace_back(module::argument::local, arg_api_size,
+                  args.emplace_back(object::argument::local, arg_api_size,
                                     target_size,
                                     dl.getABITypeAlignment(pointee_type),
-                                    module::argument::zero_ext);
+                                    object::argument::zero_ext);
                } else {
                   // XXX: Correctly handle constant address space.  There is no
                   // way for r600g to pass a handle for constant buffers back
@@ -227,19 +227,19 @@ namespace {
                   // continue treating constant buffers as global buffers
                   // until we can come up with a way to create handles for
                   // constant buffers.
-                  args.emplace_back(module::argument::global, arg_api_size,
+                  args.emplace_back(object::argument::global, arg_api_size,
                                     target_size, target_align,
-                                    module::argument::zero_ext);
+                                    object::argument::zero_ext);
                }
 
             } else {
                const bool needs_sign_ext = f.getAttributes().hasAttribute(
                   arg.getArgNo() + 1, ::llvm::Attribute::SExt);
 
-               args.emplace_back(module::argument::scalar, arg_api_size,
+               args.emplace_back(object::argument::scalar, arg_api_size,
                                  target_size, target_align,
-                                 (needs_sign_ext ? module::argument::sign_ext :
-                                  module::argument::zero_ext));
+                                 (needs_sign_ext ? object::argument::sign_ext :
+                                  object::argument::zero_ext));
             }
 
             // Add kernel argument infos if built with -cl-kernel-arg-info.
@@ -257,25 +257,25 @@ namespace {
       // Append implicit arguments.  XXX - The types, ordering and
       // vector size of the implicit arguments should depend on the
       // target according to the selected calling convention.
-      args.emplace_back(module::argument::scalar, sizeof(cl_uint),
+      args.emplace_back(object::argument::scalar, sizeof(cl_uint),
                         dl.getTypeStoreSize(size_type),
                         dl.getABITypeAlignment(size_type),
-                        module::argument::zero_ext,
-                        module::argument::grid_dimension);
+                        object::argument::zero_ext,
+                        object::argument::grid_dimension);
 
-      args.emplace_back(module::argument::scalar, sizeof(cl_uint),
+      args.emplace_back(object::argument::scalar, sizeof(cl_uint),
                         dl.getTypeStoreSize(size_type),
                         dl.getABITypeAlignment(size_type),
-                        module::argument::zero_ext,
-                        module::argument::grid_offset);
+                        object::argument::zero_ext,
+                        object::argument::grid_offset);
 
       return args;
    }
 
-   module::section
+   object::section
    make_text_section(const std::vector<char> &code) {
       const pipe_binary_program_header header { uint32_t(code.size()) };
-      module::section text { 0, module::section::text_executable,
+      object::section text { 0, object::section::text_executable,
                              header.num_bytes, {} };
 
       text.data.insert(text.data.end(), reinterpret_cast<const char *>(&header),
@@ -286,24 +286,24 @@ namespace {
    }
 }
 
-module
+object
 clover::llvm::build_module_common(const Module &mod,
                                   const std::vector<char> &code,
                                   const std::map<std::string,
                                                  unsigned> &offsets,
                                   const clang::CompilerInstance &c) {
-   module m;
+   object o;
 
    for (const auto &llvm_name : map(std::mem_fn(&Function::getName),
                                get_kernels(mod))) {
       const ::std::string name(llvm_name);
       if (offsets.count(name))
-         m.syms.emplace_back(name, kernel_attributes(mod, name),
+         o.syms.emplace_back(name, kernel_attributes(mod, name),
                              get_reqd_work_group_size(mod, name),
                              0, offsets.at(name),
                              make_kernel_args(mod, name, c));
    }
 
-   m.secs.push_back(make_text_section(code));
-   return m;
+   o.secs.push_back(make_text_section(code));
+   return o;
 }

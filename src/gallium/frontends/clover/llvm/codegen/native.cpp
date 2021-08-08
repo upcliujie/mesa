@@ -36,7 +36,7 @@
 #include "llvm/util.hpp"
 #include "core/error.hpp"
 
-using clover::module;
+using clover::object;
 using clover::build_error;
 using namespace clover::llvm;
 using ::llvm::TargetMachine;
@@ -143,7 +143,7 @@ namespace {
    }
 }
 
-module
+object
 clover::llvm::build_module_native(::llvm::Module &mod, const target &target,
                                   const clang::CompilerInstance &c,
                                   std::string &r_log) {
@@ -167,7 +167,7 @@ clover::llvm::print_module_native(const ::llvm::Module &mod,
 
 #else
 
-module
+object
 clover::llvm::build_module_native(::llvm::Module &mod, const target &target,
                                   const clang::CompilerInstance &c,
                                   std::string &r_log) {
