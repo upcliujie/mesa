@@ -112,10 +112,12 @@ dri_init_options(struct dri_screen *screen)
    options->transcode_astc =
       driQueryOptionb(optionCache, "transcode_astc");
 
-   char *vendor_str = driQueryOptionstr(optionCache, "force_gl_vendor");
-   /* not an empty string */
-   if (*vendor_str)
-      options->force_gl_vendor = strdup(vendor_str);
+   if (driCheckOption(optionCache, "force_gl_vendor", DRI_STRING)) {
+      char *vendor_str = driQueryOptionstr(optionCache, "force_gl_vendor");
+      /* not an empty string */
+      if (*vendor_str)
+         options->force_gl_vendor = strdup(vendor_str);
+   }
 
    char *renderer_str = driQueryOptionstr(optionCache, "force_gl_renderer");
    if (*renderer_str)
