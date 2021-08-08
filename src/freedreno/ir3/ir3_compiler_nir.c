@@ -3642,6 +3642,7 @@ uses_store_output(struct ir3_shader_variant *so)
       return true;
    case MESA_SHADER_TESS_CTRL:
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_KERNEL:
       return false;
    default:
       unreachable("unknown stage");
