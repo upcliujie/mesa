@@ -111,102 +111,78 @@ emit_load_store_deref(nir_builder *b, nir_intrinsic_instr *orig_instr,
    }
 }
 
-static bool
-lower_indirect_derefs_block(nir_block *block, nir_builder *b,
-                            nir_variable_mode modes,
-                            uint32_t max_lower_array_len,
-                            bool builtins_only)
-{
-   bool progress = false;
-
-   nir_foreach_instr_safe(instr, block) {
-      if (instr->type != nir_instr_type_intrinsic)
-         continue;
-
-      nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
-      if (intrin->intrinsic != nir_intrinsic_load_deref &&
-          intrin->intrinsic != nir_intrinsic_interp_deref_at_centroid &&
-          intrin->intrinsic != nir_intrinsic_interp_deref_at_sample &&
-          intrin->intrinsic != nir_intrinsic_interp_deref_at_offset &&
-          intrin->intrinsic != nir_intrinsic_interp_deref_at_vertex &&
-          intrin->intrinsic != nir_intrinsic_store_deref)
-         continue;
-
-      nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
-
-      /* Walk the deref chain back to the base and look for indirects */
-      uint32_t indirect_array_len = 1;
-      bool has_indirect = false;
-      nir_deref_instr *base = deref;
-      while (base && base->deref_type != nir_deref_type_var) {
-         nir_deref_instr *parent = nir_deref_instr_parent(base);
-         if (base->deref_type == nir_deref_type_array &&
-             !nir_src_is_const(base->arr.index)) {
-            indirect_array_len *= glsl_get_length(parent->type);
-            has_indirect = true;
-         }
-
-         base = parent;
-      }
-
-      if (!has_indirect || !base || indirect_array_len > max_lower_array_len)
-         continue;
-
-      /* Only lower variables whose mode is in the mask, or compact
-       * array variables.  (We can't handle indirects on tightly packed
-       * scalar arrays, so we need to lower them regardless.)
-       */
-      if (!(modes & base->var->data.mode) && !base->var->data.compact)
-         continue;
-
-      /* built-in's will always start with "gl_" */
-      if (builtins_only && strncmp(base->var->name, "gl_", 3))
-         continue;
-
-      b->cursor = nir_instr_remove(&intrin->instr);
-
-      nir_deref_path path;
-      nir_deref_path_init(&path, deref, NULL);
-      assert(path.path[0] == base);
-
-      if (intrin->intrinsic == nir_intrinsic_store_deref) {
-         assert(intrin->src[1].is_ssa);
-         emit_load_store_deref(b, intrin, base, &path.path[1],
-                               NULL, intrin->src[1].ssa);
-      } else {
-         nir_ssa_def *result;
-         emit_load_store_deref(b, intrin, base, &path.path[1],
-                               &result, NULL);
-         nir_ssa_def_rewrite_uses(&intrin->dest.ssa, result);
-      }
-
-      nir_deref_path_finish(&path);
-
-      progress = true;
-   }
-
-   return progress;
-}
+struct lower_indirect_derefs_params {
+   nir_variable_mode modes;
+   uint32_t max_lower_array_len;
+   bool builtins_only;
+};
 
 static bool
-lower_indirects_impl(nir_function_impl *impl, nir_variable_mode modes,
-                     uint32_t max_lower_array_len, bool builtins_only)
+lower_indirect_derefs_instr(nir_builder *b, nir_instr *instr, void *cb_data)
 {
-   nir_builder builder;
-   nir_builder_init(&builder, impl);
-   bool progress = false;
+   struct lower_indirect_derefs_params *p = cb_data;
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
 
-   nir_foreach_block_safe(block, impl) {
-      progress |= lower_indirect_derefs_block(block, &builder, modes,
-                                              max_lower_array_len, builtins_only);
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+   if (intrin->intrinsic != nir_intrinsic_load_deref &&
+       intrin->intrinsic != nir_intrinsic_interp_deref_at_centroid &&
+       intrin->intrinsic != nir_intrinsic_interp_deref_at_sample &&
+       intrin->intrinsic != nir_intrinsic_interp_deref_at_offset &&
+       intrin->intrinsic != nir_intrinsic_interp_deref_at_vertex &&
+       intrin->intrinsic != nir_intrinsic_store_deref)
+      return false;
+
+   nir_deref_instr *deref = nir_src_as_deref(intrin->src[0]);
+
+   /* Walk the deref chain back to the base and look for indirects */
+   uint32_t indirect_array_len = 1;
+   bool has_indirect = false;
+   nir_deref_instr *base = deref;
+   while (base && base->deref_type != nir_deref_type_var) {
+      nir_deref_instr *parent = nir_deref_instr_parent(base);
+      if (base->deref_type == nir_deref_type_array &&
+          !nir_src_is_const(base->arr.index)) {
+         indirect_array_len *= glsl_get_length(parent->type);
+         has_indirect = true;
+      }
+
+      base = parent;
    }
 
-   if (progress)
-      nir_metadata_preserve(impl, nir_metadata_none);
-   else
-      nir_metadata_preserve(impl, nir_metadata_all);
+   if (!has_indirect || !base || indirect_array_len > p->max_lower_array_len)
+      return false;
 
-   return progress;
+   /* Only lower variables whose mode is in the mask, or compact
+    * array variables.  (We can't handle indirects on tightly packed
+    * scalar arrays, so we need to lower them regardless.)
+    */
+   if (!(p->modes & base->var->data.mode) && !base->var->data.compact)
+      return false;
+
+   /* built-in's will always start with "gl_" */
+   if (p->builtins_only && strncmp(base->var->name, "gl_", 3))
+      return false;
+
+   b->cursor = nir_instr_remove(&intrin->instr);
+
+   nir_deref_path path;
+   nir_deref_path_init(&path, deref, NULL);
+   assert(path.path[0] == base);
+
+   if (intrin->intrinsic == nir_intrinsic_store_deref) {
+      assert(intrin->src[1].is_ssa);
+      emit_load_store_deref(b, intrin, base, &path.path[1],
+                            NULL, intrin->src[1].ssa);
+   } else {
+      nir_ssa_def *result;
+      emit_load_store_deref(b, intrin, base, &path.path[1], &result, NULL);
+      nir_ssa_def_rewrite_uses(&intrin->dest.ssa, result);
+   }
+
+   nir_deref_path_finish(&path);
+
+   return true;
 }
 
 /** Lowers indirect variable loads/stores to direct loads/stores.
@@ -218,16 +194,13 @@ bool
 nir_lower_indirect_derefs(nir_shader *shader, nir_variable_mode modes,
                           uint32_t max_lower_array_len)
 {
-   bool progress = false;
-
-   nir_foreach_function(function, shader) {
-      if (function->impl) {
-         progress = lower_indirects_impl(function->impl, modes,
-                                         max_lower_array_len, false) || progress;
-      }
-   }
-
-   return progress;
+   struct lower_indirect_derefs_params p = {
+         .modes = modes,
+         .max_lower_array_len = max_lower_array_len,
+         .builtins_only = false,
+   };
+   return nir_shader_instructions_pass(shader, lower_indirect_derefs_instr,
+                                       nir_metadata_none, &p);
 }
 
 /** Lowers indirect variable loads/stores to direct loads/stores.
@@ -239,14 +212,11 @@ nir_lower_indirect_derefs(nir_shader *shader, nir_variable_mode modes,
 bool
 nir_lower_indirect_builtin_uniform_derefs(nir_shader *shader)
 {
-   bool progress = false;
-
-   nir_foreach_function(function, shader) {
-      if (function->impl) {
-         progress = lower_indirects_impl(function->impl, nir_var_uniform,
-                                         UINT_MAX, true) || progress;
-      }
-   }
-
-   return progress;
+   struct lower_indirect_derefs_params p = {
+         .modes = nir_var_uniform,
+         .max_lower_array_len = UINT_MAX,
+         .builtins_only = true,
+   };
+   return nir_shader_instructions_pass(shader, lower_indirect_derefs_instr,
+                                       nir_metadata_none, &p);
 }
