@@ -440,9 +440,17 @@ device::device_version_as_string() const {
 
 std::string
 device::device_clc_version_as_string() const {
+   int major = CL_VERSION_MAJOR(clc_version);
+   int minor = CL_VERSION_MINOR(clc_version);
+
+   /* for CL 3.0 we need this to be 1.2 until we support 2.0. */
+   if (major == 3) {
+      major = 1;
+      minor = 2;
+   }
    static const std::string version_string =
-      std::to_string(CL_VERSION_MAJOR(clc_version)) + "." +
-      std::to_string(CL_VERSION_MINOR(clc_version));
+      std::to_string(major) + "." +
+      std::to_string(minor);
    return version_string;
 }
 
