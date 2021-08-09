@@ -876,9 +876,10 @@ check_memory_bindings(const struct anv_device *device,
          : ANV_IMAGE_MEMORY_BINDING_MAIN;
 
       /* Aliasing is incompatible with the private binding because it does not
-       * live in a VkDeviceMemory.
+       * live in a VkDeviceMemory.  The one exception is swapchain images.
        */
       assert(!(image->create_flags & VK_IMAGE_CREATE_ALIAS_BIT) ||
+             image->from_wsi ||
              image->bindings[ANV_IMAGE_MEMORY_BINDING_PRIVATE].memory_range.size == 0);
 
       /* Check primary surface */
@@ -1325,6 +1326,7 @@ anv_image_create(VkDevice _device,
    image->needs_set_tiling = wsi_info && wsi_info->scanout;
    image->drm_format_mod = isl_mod_info ? isl_mod_info->modifier :
                                           DRM_FORMAT_MOD_INVALID;
+   image->from_wsi = wsi_info != NULL;
 
    if (ext_format && ext_format->externalFormat != 0)
       image->has_android_external_format = true;
