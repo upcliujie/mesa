@@ -243,7 +243,7 @@ if cc.has_argument('-Wpacked-bitfield-compat')
   freedreno_c_args += '-Wno-packed-bitfield-compat'
 endif
 
-freedreno_cpp_args = []
+freedreno_cpp_args = ['-std=c++17']
 if cpp.has_argument('-Wpacked-bitfield-compat')
   freedreno_cpp_args += '-Wno-packed-bitfield-compat'
 endif
