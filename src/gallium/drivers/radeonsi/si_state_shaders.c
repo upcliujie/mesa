@@ -4199,9 +4199,12 @@ bool si_update_shaders(struct si_context *sctx)
          }
       }
    } else {
-      if (sctx->chip_class <= GFX8)
+      if (sctx->chip_class <= GFX8) {
          si_pm4_bind_state(sctx, ls, NULL);
+         sctx->prefetch_L2_mask &= ~SI_PREFETCH_LS;
+      }
       si_pm4_bind_state(sctx, hs, NULL);
+      sctx->prefetch_L2_mask &= ~SI_PREFETCH_HS;
    }
 
    /* Update GS. */
@@ -4217,12 +4220,16 @@ bool si_update_shaders(struct si_context *sctx)
             return false;
       } else {
          si_pm4_bind_state(sctx, vs, NULL);
+         sctx->prefetch_L2_mask &= ~SI_PREFETCH_VS;
       }
    } else {
       if (!sctx->ngg) {
          si_pm4_bind_state(sctx, gs, NULL);
-         if (sctx->chip_class <= GFX8)
+         sctx->prefetch_L2_mask &= ~SI_PREFETCH_GS;
+         if (sctx->chip_class <= GFX8) {
             si_pm4_bind_state(sctx, es, NULL);
+            sctx->prefetch_L2_mask &= ~SI_PREFETCH_ES;
+         }
       }
    }
 
@@ -4236,6 +4243,7 @@ bool si_update_shaders(struct si_context *sctx)
          if (sctx->ngg) {
             si_pm4_bind_state(sctx, gs, sctx->shader.vs.current->pm4);
             si_pm4_bind_state(sctx, vs, NULL);
+            sctx->prefetch_L2_mask &= ~SI_PREFETCH_VS;
          } else {
             si_pm4_bind_state(sctx, vs, sctx->shader.vs.current->pm4);
          }
@@ -4356,33 +4364,21 @@ bool si_update_shaders(struct si_context *sctx)
    if (sctx->chip_class >= GFX7) {
       if (si_pm4_state_enabled_and_changed(sctx, ls))
          sctx->prefetch_L2_mask |= SI_PREFETCH_LS;
-      else if (!sctx->queued.named.ls)
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_LS;
 
       if (si_pm4_state_enabled_and_changed(sctx, hs))
          sctx->prefetch_L2_mask |= SI_PREFETCH_HS;
-      else if (!sctx->queued.named.hs)
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_HS;
 
       if (si_pm4_state_enabled_and_changed(sctx, es))
          sctx->prefetch_L2_mask |= SI_PREFETCH_ES;
-      else if (!sctx->queued.named.es)
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_ES;
 
       if (si_pm4_state_enabled_and_changed(sctx, gs))
          sctx->prefetch_L2_mask |= SI_PREFETCH_GS;
-      else if (!sctx->queued.named.gs)
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_GS;
 
       if (si_pm4_state_enabled_and_changed(sctx, vs))
          sctx->prefetch_L2_mask |= SI_PREFETCH_VS;
-      else if (!sctx->queued.named.vs)
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_VS;
 
       if (si_pm4_state_enabled_and_changed(sctx, ps))
          sctx->prefetch_L2_mask |= SI_PREFETCH_PS;
-      else if (!sctx->queued.named.ps)
-         sctx->prefetch_L2_mask &= ~SI_PREFETCH_PS;
    }
 
    sctx->do_update_shaders = false;
