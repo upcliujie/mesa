@@ -32,6 +32,9 @@
 #include <math.h>
 #include <xf86drm.h>
 #include <xf86drmMode.h>
+#ifdef HAVE_LIBUDEV
+#include <libudev.h>
+#endif
 #include "drm-uapi/drm_fourcc.h"
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
 #include <xcb/randr.h>
@@ -96,6 +99,10 @@ struct wsi_display {
    pthread_cond_t               wait_cond;
    pthread_t                    wait_thread;
 
+   pthread_mutex_t              hotplug_mutex;
+   pthread_cond_t               hotplug_cond;
+   pthread_t                    hotplug_thread;
+
    struct list_head             connectors; /* list of all discovered connectors */
 };
 
@@ -139,6 +146,7 @@ struct wsi_display_fence {
    bool                         destroyed;
    uint32_t                     syncobj; /* syncobj to signal on event */
    uint64_t                     sequence;
+   bool                         device_event; /* fence is used for device events */
 };
 
 static uint64_t fence_sequence;
@@ -1476,6 +1484,29 @@ bail:
 
 }
 
+static int
+wsi_device_wait_for_event(struct wsi_fence *fence_wsi, uint64_t timeout_ns)
+{
+   struct wsi_display_fence *fence = (struct wsi_display_fence *) fence_wsi;
+   const struct wsi_device *wsi_device = fence_wsi->wsi_device;
+   struct wsi_display *wsi =
+      (struct wsi_display *) wsi_device->wsi[VK_ICD_WSI_PLATFORM_DISPLAY];
+
+   struct timespec abs_timeout = {
+      .tv_sec = timeout_ns / 1000000000ULL,
+      .tv_nsec = timeout_ns % 1000000000ULL,
+   };
+
+   int err = pthread_cond_timedwait(&wsi->hotplug_cond, &wsi->hotplug_mutex,
+                                    &abs_timeout);
+
+   if (!err)
+      fence->event_received = true;
+
+   wsi_display_debug("%9ld done waiting for event %d\n", pthread_self(), ret);
+   return err;
+}
+
 static VkResult
 wsi_display_fence_wait(struct wsi_fence *fence_wsi, uint64_t timeout)
 {
@@ -1489,6 +1520,7 @@ wsi_display_fence_wait(struct wsi_fence *fence_wsi, uint64_t timeout)
                      (int64_t) (timeout - wsi_common_get_current_time()));
    wsi_display_debug_code(uint64_t start_ns = wsi_common_get_current_time());
    pthread_mutex_lock(&wsi->wait_mutex);
+   pthread_mutex_lock(&wsi->hotplug_mutex);
 
    VkResult result;
    int ret = 0;
@@ -1507,7 +1539,11 @@ wsi_display_fence_wait(struct wsi_fence *fence_wsi, uint64_t timeout)
          break;
       }
 
-      ret = wsi_display_wait_for_event(wsi, timeout);
+      if (fence->device_event) {
+         ret = wsi_device_wait_for_event(fence_wsi, timeout);
+      } else {
+         ret = wsi_display_wait_for_event(wsi, timeout);
+      }
 
       if (ret && ret != ETIMEDOUT) {
          wsi_display_debug("%9lu fence %lu error\n",
@@ -1516,6 +1552,7 @@ wsi_display_fence_wait(struct wsi_fence *fence_wsi, uint64_t timeout)
          break;
       }
    }
+   pthread_mutex_unlock(&wsi->hotplug_mutex);
    pthread_mutex_unlock(&wsi->wait_mutex);
    wsi_display_debug("%9lu fence wait %f ms\n",
                      pthread_self(),
@@ -1903,6 +1940,81 @@ local_drmIsMaster(int fd)
    return drmAuthMagic(fd, 0) != -EACCES;
 }
 
+#ifdef HAVE_LIBUDEV
+static void *
+udev_event_listener_thread(void *data)
+{
+   struct wsi_device *wsi_device = data;
+   struct wsi_display *wsi =
+      (struct wsi_display *) wsi_device->wsi[VK_ICD_WSI_PLATFORM_DISPLAY];
+
+   char pci_bus_name[256];
+   snprintf(pci_bus_name, 256, "%04x:%02x:%02x.%x",
+            wsi_device->pci_bus_info.pciDomain,
+            wsi_device->pci_bus_info.pciBus,
+            wsi_device->pci_bus_info.pciDevice,
+            wsi_device->pci_bus_info.pciFunction);
+
+   struct udev *u = udev_new();
+   if (!u)
+      goto fail;
+
+   struct udev_monitor *mon =
+      udev_monitor_new_from_netlink(u, "udev");
+   if (!mon)
+      goto fail;
+
+   int ret =
+      udev_monitor_filter_add_match_subsystem_devtype(mon, "drm", "drm_minor");
+   if (ret < 0)
+      goto fail;
+
+   ret = udev_monitor_enable_receiving(mon);
+   if (ret < 0)
+      goto fail;
+
+   int udev_fd = udev_monitor_get_fd(mon);
+
+   pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
+   for (;;) {
+      nfds_t nfds = 1;
+      struct pollfd fds[1] =  {
+         {
+            .fd = udev_fd,
+            .events = POLLIN,
+         },
+      };
+
+      int ret = poll(fds, nfds, -1);
+      if (ret > 0) {
+         if (fds[0].revents & POLLIN) {
+            struct udev_device *dev = udev_monitor_receive_device(mon);
+            /* Ignore event if it is not a hotplug event or syspath does not
+             * match with wsi_device pci_bus_info.
+             */
+            if (!atoi(udev_device_get_property_value(dev, "HOTPLUG")) ||
+                !strstr(udev_device_get_syspath(dev), pci_bus_name))
+               continue;
+
+            mtx_lock(&wsi->hotplug_mutex);
+            pthread_cond_broadcast(&wsi->hotplug_cond);
+            mtx_unlock(&wsi->hotplug_mutex);
+         }
+     }
+   }
+
+   udev_monitor_unref(mon);
+   udev_unref(u);
+
+   return 0;
+
+fail:
+   wsi_display_debug("critical hotplug thread error\n");
+   return 0;
+}
+#endif
+
 VkResult
 wsi_display_init_wsi(struct wsi_device *wsi_device,
                      const VkAllocationCallbacks *alloc,
@@ -1931,10 +2043,27 @@ wsi_display_init_wsi(struct wsi_device *wsi_device,
       goto fail_mutex;
    }
 
+   ret = pthread_mutex_init(&wsi->hotplug_mutex, NULL);
+   if (ret) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      goto fail_mutex;
+   }
+
    if (!wsi_init_pthread_cond_monotonic(&wsi->wait_cond)) {
       result = VK_ERROR_OUT_OF_HOST_MEMORY;
       goto fail_cond;
    }
+
+   if (!wsi_init_pthread_cond_monotonic(&wsi->hotplug_cond)) {
+      result = VK_ERROR_OUT_OF_HOST_MEMORY;
+      goto fail_cond;
+   }
+
+#ifdef HAVE_LIBUDEV
+   /* Listen for output change notifications. */
+   pthread_create(&wsi->hotplug_thread, NULL, udev_event_listener_thread,
+                  wsi_device);
+#endif
 
    wsi->base.get_support = wsi_display_surface_get_support;
    wsi->base.get_capabilities2 = wsi_display_surface_get_capabilities2;
@@ -1950,6 +2079,7 @@ wsi_display_init_wsi(struct wsi_device *wsi_device,
 
 fail_cond:
    pthread_mutex_destroy(&wsi->wait_mutex);
+   pthread_mutex_destroy(&wsi->hotplug_mutex);
 fail_mutex:
    vk_free(alloc, wsi);
 fail:
@@ -1972,8 +2102,17 @@ wsi_display_finish_wsi(struct wsi_device *wsi_device,
       }
 
       wsi_display_stop_wait_thread(wsi);
+
+#ifdef HAVE_LIBUDEV
+      /* Exit hotplug thread. */
+      pthread_cancel(wsi->hotplug_thread);
+      pthread_join(wsi->hotplug_thread, NULL);
+#endif
+
       pthread_mutex_destroy(&wsi->wait_mutex);
       pthread_cond_destroy(&wsi->wait_cond);
+      pthread_mutex_destroy(&wsi->hotplug_mutex);
+      pthread_cond_destroy(&wsi->hotplug_cond);
 
       vk_free(alloc, wsi);
    }
@@ -2525,7 +2664,27 @@ wsi_register_device_event(VkDevice device,
                           struct wsi_fence **fence_p,
                           int sync_fd)
 {
+#ifndef HAVE_LIBUDEV
    return VK_ERROR_FEATURE_NOT_PRESENT;
+#endif
+
+   struct wsi_display_fence *fence;
+   assert(device_event_info->deviceEvent ==
+          VK_DEVICE_EVENT_TYPE_DISPLAY_HOTPLUG_EXT);
+
+   fence = wsi_display_fence_alloc(device, wsi_device, NULL, allocator, sync_fd);
+
+   if (!fence)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   if (fence_p)
+      *fence_p = &fence->base;
+   else
+      fence->base.destroy(&fence->base);
+
+   fence->device_event = true;
+
+   return VK_SUCCESS;
 }
 
 VkResult
