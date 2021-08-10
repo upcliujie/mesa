@@ -58,8 +58,6 @@ protected:
    virtual void emit_thread_end();
    virtual void emit_urb_write_header(int mrf);
    virtual vec4_instruction *emit_urb_write_opcode(bool complete);
-   virtual void gs_emit_vertex(int stream_id);
-   virtual void gs_end_primitive();
    virtual void nir_emit_intrinsic(nir_intrinsic_instr *instr);
 
 protected:
@@ -71,6 +69,10 @@ protected:
    src_reg control_data_bits;
    const struct brw_gs_compile * const c;
    struct brw_gs_prog_data * const gs_prog_data;
+
+private:
+   void gs_emit_vertex(int stream_id);
+   void gs_end_primitive();
 };
 
 } /* namespace brw */

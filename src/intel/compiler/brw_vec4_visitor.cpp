@@ -1046,18 +1046,6 @@ vec4_visitor::emit_gfx6_gather_wa(uint8_t wa, dst_reg dst)
 }
 
 void
-vec4_visitor::gs_emit_vertex(int /* stream_id */)
-{
-   unreachable("not reached");
-}
-
-void
-vec4_visitor::gs_end_primitive()
-{
-   unreachable("not reached");
-}
-
-void
 vec4_visitor::emit_ndc_computation()
 {
    if (output_reg[VARYING_SLOT_POS][0].file == BAD_FILE)
