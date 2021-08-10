@@ -2116,17 +2116,6 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
 {
    struct si_context *sctx = (struct si_context *)ctx;
 
-#if 0 /* TODO: enable this */
-   unsigned num_inlinable_uniforms = sel->info.base.num_inlinable_uniforms;
-   if (num_inlinable_uniforms &&
-       sctx->inlinable_uniforms_valid_mask & (1 << sel->pipe_shader_type)) {
-      key->opt.inline_uniforms = true;
-      memcpy(key->opt.inlined_uniform_values,
-             sctx->inlinable_uniforms[sel->pipe_shader_type],
-             num_inlinable_uniforms * 4);
-   }
-#endif
-
    switch (sel->info.stage) {
    case MESA_SHADER_VERTEX:
       key->opt.prefer_mono = sctx->vertex_elements->instance_divisor_is_fetched;
@@ -3174,9 +3163,7 @@ static void si_update_common_shader_state(struct si_context *sctx, struct si_sha
                                 si_shader_uses_bindless_images(sctx->shader.tcs.cso) ||
                                 si_shader_uses_bindless_images(sctx->shader.tes.cso);
 
-   /* Invalidate inlinable uniforms. */
-   sctx->inlinable_uniforms_valid_mask &= ~(1 << type);
-
+   si_invalidate_inlinable_uniforms(sctx, type);
    sctx->do_update_shaders = true;
 }
 
