@@ -216,12 +216,17 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
         case PIPE_CAP_VERTEX_BUFFER_STRIDE_4BYTE_ALIGNED_ONLY:
                 return 1;
 
+        /* Mali hardware can texture up to 65536 x 65536 x 65536. However, it
+         * may only render up to 16384 x 16384. Therefore it's convenient to
+         * limit our maximum texture size to the maximum render size, since
+         * 16384 x 16384 x 16384 should already be plenty. The OpenGL game
+         * "Cathedral" requires a texture of width 8192 to start. */
         case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
-                return 4096;
+                return 16384;
         case PIPE_CAP_MAX_TEXTURE_3D_LEVELS:
-                return 13;
+                return 14;
         case PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS:
-                return 13;
+                return 14;
 
         case PIPE_CAP_TGSI_FS_COORD_ORIGIN_LOWER_LEFT:
                 /* Hardware is natively upper left */
