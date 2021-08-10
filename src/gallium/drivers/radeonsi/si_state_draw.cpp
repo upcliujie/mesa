@@ -1614,10 +1614,13 @@ static void si_emit_draw_packets(struct si_context *sctx, const struct pipe_draw
    EMIT_SQTT_END_DRAW;
 }
 
-template <chip_class GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG> ALWAYS_INLINE
-static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx)
+template <chip_class GFX_VERSION, si_has_tess HAS_TESS, si_has_gs HAS_GS, si_has_ngg NGG,
+          si_has_prim_discard_cs ALLOW_PRIM_DISCARD_CS>
+static bool ALWAYS_INLINE si_upload_and_prefetch_VB_descriptors(struct si_context *sctx)
 {
    unsigned count = sctx->num_vertex_elements;
+   unsigned num_vbos_in_user_sgprs =
+      si_num_vbos_in_user_sgprs_inline(GFX_VERSION, ALLOW_PRIM_DISCARD_CS);
    bool pointer_dirty, user_sgprs_dirty;
 
    assert(count <= SI_MAX_ATTRIBS);
@@ -1654,7 +1657,6 @@ static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx)
       }
 
       unsigned first_vb_use_mask = velems->first_vb_use_mask;
-      unsigned num_vbos_in_user_sgprs = sctx->screen->num_vbos_in_user_sgprs;
 
       for (unsigned i = 0; i < count; i++) {
          struct pipe_vertex_buffer *vb;
@@ -1719,7 +1721,6 @@ static bool si_upload_and_prefetch_VB_descriptors(struct si_context *sctx)
 
    if (pointer_dirty || user_sgprs_dirty) {
       struct radeon_cmdbuf *cs = &sctx->gfx_cs;
-      unsigned num_vbos_in_user_sgprs = sctx->screen->num_vbos_in_user_sgprs;
       unsigned sh_base = si_get_user_data_base(GFX_VERSION, HAS_TESS, HAS_GS, NGG,
                                                PIPE_SHADER_VERTEX);
       assert(count);
@@ -2387,7 +2388,8 @@ static void si_draw_vbo(struct pipe_context *ctx,
       /* This uploads VBO descriptors, sets user SGPRs, and executes the L2 prefetch.
        * It should done after cache flushing.
        */
-      if (unlikely((!si_upload_and_prefetch_VB_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG>(sctx)))) {
+      if (unlikely((!si_upload_and_prefetch_VB_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG,
+                    ALLOW_PRIM_DISCARD_CS>(sctx)))) {
          DRAW_CLEANUP;
          return;
       }
@@ -2427,7 +2429,8 @@ static void si_draw_vbo(struct pipe_context *ctx,
       /* This uploads VBO descriptors, sets user SGPRs, and executes the L2 prefetch.
        * It should done after cache flushing and after the VS prefetch.
        */
-      if (unlikely((!si_upload_and_prefetch_VB_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG>(sctx)))) {
+      if (unlikely((!si_upload_and_prefetch_VB_descriptors<GFX_VERSION, HAS_TESS, HAS_GS, NGG,
+                    ALLOW_PRIM_DISCARD_CS>(sctx)))) {
          DRAW_CLEANUP;
          return;
       }
