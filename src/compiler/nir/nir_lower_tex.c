@@ -190,7 +190,7 @@ lower_offset(nir_builder *b, nir_tex_instr *tex)
    return true;
 }
 
-static void
+static bool
 lower_rect(nir_builder *b, nir_tex_instr *tex)
 {
    /* Set the sampler_dim to 2D here so that get_texture_size picks up the
@@ -208,10 +208,13 @@ lower_rect(nir_builder *b, nir_tex_instr *tex)
       nir_instr_rewrite_src(&tex->instr,
                             &tex->src[coord_index].src,
                             nir_src_for_ssa(nir_fmul(b, coords, scale)));
+      return true;
    }
+
+   return false;
 }
 
-static void
+static bool
 lower_rect_tex_scale(nir_builder *b, nir_tex_instr *tex)
 {
    b->cursor = nir_before_instr(&tex->instr);
@@ -226,7 +229,9 @@ lower_rect_tex_scale(nir_builder *b, nir_tex_instr *tex)
       nir_instr_rewrite_src(&tex->instr,
                             &tex->src[coord_index].src,
                             nir_src_for_ssa(nir_fmul(b, coords, scale)));
+      return true;
    }
+   return false;
 }
 
 static void
@@ -1191,252 +1196,234 @@ nir_lower_txs_cube_array(nir_builder *b, nir_tex_instr *tex)
    nir_ssa_def_rewrite_uses_after(&tex->dest.ssa, size, size->parent_instr);
 }
 
-static bool
-nir_lower_tex_block(nir_block *block, nir_builder *b,
-                    const nir_lower_tex_options *options,
-                    const struct nir_shader_compiler_options *compiler_options)
-{
-   bool progress = false;
-
-   nir_foreach_instr_safe(instr, block) {
-      if (instr->type != nir_instr_type_tex)
-         continue;
-
-      nir_tex_instr *tex = nir_instr_as_tex(instr);
-      bool lower_txp = !!(options->lower_txp & (1 << tex->sampler_dim));
-
-      /* mask of src coords to saturate (clamp): */
-      unsigned sat_mask = 0;
-
-      if ((1 << tex->sampler_index) & options->saturate_r)
-         sat_mask |= (1 << 2);    /* .z */
-      if ((1 << tex->sampler_index) & options->saturate_t)
-         sat_mask |= (1 << 1);    /* .y */
-      if ((1 << tex->sampler_index) & options->saturate_s)
-         sat_mask |= (1 << 0);    /* .x */
-
-      /* If we are clamping any coords, we must lower projector first
-       * as clamping happens *after* projection:
-       */
-      if (lower_txp || sat_mask) {
-         progress |= project_src(b, tex);
-      }
-
-      if ((tex->op == nir_texop_txf && options->lower_txf_offset) ||
-          (sat_mask && nir_tex_instr_src_index(tex, nir_tex_src_coord) >= 0) ||
-          (tex->sampler_dim == GLSL_SAMPLER_DIM_RECT &&
-           options->lower_rect_offset)) {
-         progress = lower_offset(b, tex) || progress;
-      }
-
-      if ((tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) && options->lower_rect &&
-          tex->op != nir_texop_txf && !nir_tex_instr_is_query(tex)) {
-
-         if (compiler_options->has_txs)
-            lower_rect(b, tex);
-         else
-            lower_rect_tex_scale(b, tex);
-
-         progress = true;
-      }
-
-      unsigned texture_index = tex->texture_index;
-      uint32_t texture_mask = 1u << texture_index;
-      int tex_index = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
-      if (tex_index >= 0) {
-         nir_deref_instr *deref = nir_src_as_deref(tex->src[tex_index].src);
-         nir_variable *var = nir_deref_instr_get_variable(deref);
-         texture_index = var ? var->data.binding : 0;
-         texture_mask = var ? (1u << texture_index) : 0u;
-      }
-
-      if (texture_mask & options->lower_y_uv_external) {
-         lower_y_uv_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (texture_mask & options->lower_y_u_v_external) {
-         lower_y_u_v_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (texture_mask & options->lower_yx_xuxv_external) {
-         lower_yx_xuxv_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (texture_mask & options->lower_xy_uxvx_external) {
-         lower_xy_uxvx_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (texture_mask & options->lower_ayuv_external) {
-         lower_ayuv_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (texture_mask & options->lower_xyuv_external) {
-         lower_xyuv_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (texture_mask & options->lower_yuv_external) {
-         lower_yuv_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if ((1 << tex->texture_index) & options->lower_yu_yv_external) {
-         lower_yu_yv_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if ((1 << tex->texture_index) & options->lower_y41x_external) {
-         lower_y41x_external(b, tex, options, texture_index);
-         progress = true;
-      }
-
-      if (sat_mask) {
-         tex = saturate_src(b, tex, sat_mask);
-         progress = true;
-      }
-
-      if (tex->op == nir_texop_tg4 && options->lower_tg4_broadcom_swizzle) {
-         swizzle_tg4_broadcom(b, tex);
-         progress = true;
-      }
-
-      if ((texture_mask & options->swizzle_result) &&
-          !nir_tex_instr_is_query(tex) &&
-          !(tex->is_shadow && tex->is_new_style_shadow)) {
-         swizzle_result(b, tex, options->swizzles[tex->texture_index]);
-         progress = true;
-      }
-
-      /* should be after swizzle so we know which channels are rgb: */
-      if ((texture_mask & options->lower_srgb) &&
-          !nir_tex_instr_is_query(tex) && !tex->is_shadow) {
-         linearize_srgb_result(b, tex);
-         progress = true;
-      }
-
-      const bool has_min_lod =
-         nir_tex_instr_src_index(tex, nir_tex_src_min_lod) >= 0;
-      const bool has_offset =
-         nir_tex_instr_src_index(tex, nir_tex_src_offset) >= 0;
-
-      if (tex->op == nir_texop_txb && tex->is_shadow && has_min_lod &&
-          options->lower_txb_shadow_clamp) {
-         lower_implicit_lod(b, tex);
-         progress = true;
-      }
-
-      if (options->lower_tex_packing[tex->sampler_index] !=
-          nir_lower_tex_packing_none &&
-          tex->op != nir_texop_txs &&
-          tex->op != nir_texop_query_levels &&
-          tex->op != nir_texop_texture_samples) {
-         lower_tex_packing(b, tex, options);
-         progress = true;
-      }
-
-      if (tex->op == nir_texop_txd &&
-          (options->lower_txd ||
-           (options->lower_txd_shadow && tex->is_shadow) ||
-           (options->lower_txd_shadow_clamp && tex->is_shadow && has_min_lod) ||
-           (options->lower_txd_offset_clamp && has_offset && has_min_lod) ||
-           (options->lower_txd_clamp_bindless_sampler && has_min_lod &&
-            nir_tex_instr_src_index(tex, nir_tex_src_sampler_handle) != -1) ||
-           (options->lower_txd_clamp_if_sampler_index_not_lt_16 &&
-            has_min_lod && !sampler_index_lt(tex, 16)) ||
-           (options->lower_txd_cube_map &&
-            tex->sampler_dim == GLSL_SAMPLER_DIM_CUBE) ||
-           (options->lower_txd_3d &&
-            tex->sampler_dim == GLSL_SAMPLER_DIM_3D))) {
-         lower_gradient(b, tex);
-         progress = true;
-         continue;
-      }
-
-      /* TXF, TXS and TXL require a LOD but not everything we implement using those
-       * three opcodes provides one.  Provide a default LOD of 0.
-       */
-      if ((nir_tex_instr_src_index(tex, nir_tex_src_lod) == -1) &&
-          (tex->op == nir_texop_txf || tex->op == nir_texop_txs ||
-           tex->op == nir_texop_txl || tex->op == nir_texop_query_levels)) {
-         b->cursor = nir_before_instr(&tex->instr);
-         nir_tex_instr_add_src(tex, nir_tex_src_lod, nir_src_for_ssa(nir_imm_int(b, 0)));
-         progress = true;
-         continue;
-      }
-
-      /* Only fragment and compute (in some cases) support implicit
-       * derivatives.  Lower those opcodes which use implicit derivatives to
-       * use an explicit LOD of 0.
-       */
-      bool shader_supports_implicit_lod =
-         b->shader->info.stage == MESA_SHADER_FRAGMENT ||
-         (b->shader->info.stage == MESA_SHADER_COMPUTE &&
-          b->shader->info.cs.derivative_group != DERIVATIVE_GROUP_NONE);
-
-      if (nir_tex_instr_has_implicit_derivative(tex) &&
-          !shader_supports_implicit_lod) {
-         lower_zero_lod(b, tex);
-         progress = true;
-      }
-
-      if (options->lower_txs_lod && tex->op == nir_texop_txs) {
-         progress |= nir_lower_txs_lod(b, tex);
-         continue;
-      }
-
-      if (options->lower_txs_cube_array && tex->op == nir_texop_txs &&
-          tex->sampler_dim == GLSL_SAMPLER_DIM_CUBE && tex->is_array) {
-         nir_lower_txs_cube_array(b, tex);
-         progress = true;
-         continue;
-      }
-
-      /* has to happen after all the other lowerings as the original tg4 gets
-       * replaced by 4 tg4 instructions.
-       */
-      if (tex->op == nir_texop_tg4 &&
-          nir_tex_instr_has_explicit_tg4_offsets(tex) &&
-          options->lower_tg4_offsets) {
-         progress |= lower_tg4_offsets(b, tex);
-         continue;
-      }
-   }
-
-   return progress;
-}
+struct lower_tex_params {
+   const nir_lower_tex_options *options;
+   const struct nir_shader_compiler_options *compiler_options;
+};
 
 static bool
-nir_lower_tex_impl(nir_function_impl *impl,
-                   const nir_lower_tex_options *options,
-                   const struct nir_shader_compiler_options *compiler_options)
+nir_lower_tex_instr(nir_builder *b, nir_instr *instr, void *cb_data)
 {
    bool progress = false;
-   nir_builder builder;
-   nir_builder_init(&builder, impl);
+   if (instr->type != nir_instr_type_tex)
+      return false;
 
-   nir_foreach_block(block, impl) {
-      progress |= nir_lower_tex_block(block, &builder, options, compiler_options);
+   const struct lower_tex_params *params = cb_data;
+   const nir_lower_tex_options *options = params->options;
+   const struct nir_shader_compiler_options *compiler_options =
+         params->compiler_options;
+
+   nir_tex_instr *tex = nir_instr_as_tex(instr);
+   bool lower_txp = !!(options->lower_txp & (1 << tex->sampler_dim));
+
+   /* mask of src coords to saturate (clamp): */
+   unsigned sat_mask = 0;
+
+   if ((1 << tex->sampler_index) & options->saturate_r)
+      sat_mask |= (1 << 2);    /* .z */
+   if ((1 << tex->sampler_index) & options->saturate_t)
+      sat_mask |= (1 << 1);    /* .y */
+   if ((1 << tex->sampler_index) & options->saturate_s)
+      sat_mask |= (1 << 0);    /* .x */
+
+   /* If we are clamping any coords, we must lower projector first
+    * as clamping happens *after* projection:
+    */
+   if (lower_txp || sat_mask) {
+      progress |= project_src(b, tex);
    }
 
-   nir_metadata_preserve(impl, nir_metadata_block_index |
-                               nir_metadata_dominance);
+   if ((tex->op == nir_texop_txf && options->lower_txf_offset) ||
+       (sat_mask && nir_tex_instr_src_index(tex, nir_tex_src_coord) >= 0) ||
+       (tex->sampler_dim == GLSL_SAMPLER_DIM_RECT &&
+        options->lower_rect_offset)) {
+      progress |= lower_offset(b, tex);
+   }
+
+   if ((tex->sampler_dim == GLSL_SAMPLER_DIM_RECT) && options->lower_rect &&
+       tex->op != nir_texop_txf && !nir_tex_instr_is_query(tex)) {
+
+      if (compiler_options->has_txs)
+         progress |= lower_rect(b, tex);
+      else
+         progress |= lower_rect_tex_scale(b, tex);
+   }
+
+   unsigned texture_index = tex->texture_index;
+   uint32_t texture_mask = 1u << texture_index;
+   int tex_index = nir_tex_instr_src_index(tex, nir_tex_src_texture_deref);
+   if (tex_index >= 0) {
+      nir_deref_instr *deref = nir_src_as_deref(tex->src[tex_index].src);
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      texture_index = var ? var->data.binding : 0;
+      texture_mask = var ? (1u << texture_index) : 0u;
+   }
+
+   if (texture_mask & options->lower_y_uv_external) {
+      lower_y_uv_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (texture_mask & options->lower_y_u_v_external) {
+      lower_y_u_v_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (texture_mask & options->lower_yx_xuxv_external) {
+      lower_yx_xuxv_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (texture_mask & options->lower_xy_uxvx_external) {
+      lower_xy_uxvx_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (texture_mask & options->lower_ayuv_external) {
+      lower_ayuv_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (texture_mask & options->lower_xyuv_external) {
+      lower_xyuv_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (texture_mask & options->lower_yuv_external) {
+      lower_yuv_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if ((1 << tex->texture_index) & options->lower_yu_yv_external) {
+      lower_yu_yv_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if ((1 << tex->texture_index) & options->lower_y41x_external) {
+      lower_y41x_external(b, tex, options, texture_index);
+      progress = true;
+   }
+
+   if (sat_mask) {
+      tex = saturate_src(b, tex, sat_mask);
+      progress = true;
+   }
+
+   if (tex->op == nir_texop_tg4 && options->lower_tg4_broadcom_swizzle) {
+      swizzle_tg4_broadcom(b, tex);
+      progress = true;
+   }
+
+   if ((texture_mask & options->swizzle_result) &&
+       !nir_tex_instr_is_query(tex) &&
+       !(tex->is_shadow && tex->is_new_style_shadow)) {
+      swizzle_result(b, tex, options->swizzles[tex->texture_index]);
+      progress = true;
+   }
+
+   /* should be after swizzle so we know which channels are rgb: */
+   if ((texture_mask & options->lower_srgb) &&
+       !nir_tex_instr_is_query(tex) && !tex->is_shadow) {
+      linearize_srgb_result(b, tex);
+      progress = true;
+   }
+
+   const bool has_min_lod =
+      nir_tex_instr_src_index(tex, nir_tex_src_min_lod) >= 0;
+   const bool has_offset =
+      nir_tex_instr_src_index(tex, nir_tex_src_offset) >= 0;
+
+   if (tex->op == nir_texop_txb && tex->is_shadow && has_min_lod &&
+       options->lower_txb_shadow_clamp) {
+      lower_implicit_lod(b, tex);
+      progress = true;
+   }
+
+   if (options->lower_tex_packing[tex->sampler_index] !=
+       nir_lower_tex_packing_none &&
+       tex->op != nir_texop_txs &&
+       tex->op != nir_texop_query_levels &&
+       tex->op != nir_texop_texture_samples) {
+      lower_tex_packing(b, tex, options);
+      progress = true;
+   }
+
+   if (tex->op == nir_texop_txd &&
+       (options->lower_txd ||
+        (options->lower_txd_shadow && tex->is_shadow) ||
+        (options->lower_txd_shadow_clamp && tex->is_shadow && has_min_lod) ||
+        (options->lower_txd_offset_clamp && has_offset && has_min_lod) ||
+        (options->lower_txd_clamp_bindless_sampler && has_min_lod &&
+         nir_tex_instr_src_index(tex, nir_tex_src_sampler_handle) != -1) ||
+        (options->lower_txd_clamp_if_sampler_index_not_lt_16 &&
+         has_min_lod && !sampler_index_lt(tex, 16)) ||
+        (options->lower_txd_cube_map &&
+         tex->sampler_dim == GLSL_SAMPLER_DIM_CUBE) ||
+        (options->lower_txd_3d &&
+         tex->sampler_dim == GLSL_SAMPLER_DIM_3D))) {
+      lower_gradient(b, tex);
+      return true;
+   }
+
+   /* TXF, TXS and TXL require a LOD but not everything we implement using those
+    * three opcodes provides one.  Provide a default LOD of 0.
+    */
+   if ((nir_tex_instr_src_index(tex, nir_tex_src_lod) == -1) &&
+       (tex->op == nir_texop_txf || tex->op == nir_texop_txs ||
+        tex->op == nir_texop_txl || tex->op == nir_texop_query_levels)) {
+      b->cursor = nir_before_instr(&tex->instr);
+      nir_tex_instr_add_src(tex, nir_tex_src_lod, nir_src_for_ssa(nir_imm_int(b, 0)));
+      return true;
+   }
+
+   /* Only fragment and compute (in some cases) support implicit
+    * derivatives.  Lower those opcodes which use implicit derivatives to
+    * use an explicit LOD of 0.
+    */
+   bool shader_supports_implicit_lod =
+      b->shader->info.stage == MESA_SHADER_FRAGMENT ||
+      (b->shader->info.stage == MESA_SHADER_COMPUTE &&
+       b->shader->info.cs.derivative_group != DERIVATIVE_GROUP_NONE);
+
+   if (nir_tex_instr_has_implicit_derivative(tex) &&
+       !shader_supports_implicit_lod) {
+      lower_zero_lod(b, tex);
+      progress = true;
+   }
+
+   if (options->lower_txs_lod && tex->op == nir_texop_txs) {
+      progress |= nir_lower_txs_lod(b, tex);
+      return progress;
+   }
+
+   if (options->lower_txs_cube_array && tex->op == nir_texop_txs &&
+       tex->sampler_dim == GLSL_SAMPLER_DIM_CUBE && tex->is_array) {
+      nir_lower_txs_cube_array(b, tex);
+      return true;
+   }
+
+   /* has to happen after all the other lowerings as the original tg4 gets
+    * replaced by 4 tg4 instructions.
+    */
+   if (tex->op == nir_texop_tg4 &&
+       nir_tex_instr_has_explicit_tg4_offsets(tex) &&
+       options->lower_tg4_offsets) {
+      progress |= lower_tg4_offsets(b, tex);
+   }
+
    return progress;
 }
 
 bool
 nir_lower_tex(nir_shader *shader, const nir_lower_tex_options *options)
 {
-   bool progress = false;
+   struct lower_tex_params params = {
+      .options = options,
+      .compiler_options = shader->options,
+   };
 
-   nir_foreach_function(function, shader) {
-      if (function->impl)
-         progress |= nir_lower_tex_impl(function->impl, options, shader->options);
-   }
-
-   return progress;
+   return nir_shader_instructions_pass(shader, nir_lower_tex_instr,
+                                       nir_metadata_block_index |
+                                       nir_metadata_dominance,
+                                       &params);
 }
