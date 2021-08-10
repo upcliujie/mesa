@@ -393,6 +393,7 @@ if with_tests
   )
 
   subdir('tests/cache')
+  subdir('tests/dag')
   subdir('tests/fast_idiv_by_const')
   subdir('tests/fast_urem_by_const')
   subdir('tests/hash_table')
