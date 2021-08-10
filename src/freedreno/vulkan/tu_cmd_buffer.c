@@ -3775,8 +3775,20 @@ tu_draw_initiator(struct tu_cmd_buffer *cmd, enum pc_di_src_sel src_sel)
    const struct tu_pipeline *pipeline = cmd->state.pipeline;
    enum pc_di_primtype primtype = pipeline->ia.primtype;
 
-   if (pipeline->dynamic_state_mask & BIT(TU_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY))
-      primtype = cmd->state.primtype;
+   if (pipeline->dynamic_state_mask & BIT(TU_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY)) {
+      if (primtype >= DI_PT_PATCHES0) {
+         /* If tesselation used, only VK_PRIMITIVE_TOPOLOGY_PATCH_LIST can be
+          * set via vkCmdSetPrimitiveTopologyEXT, otherwise it doesn't make
+          * sense at all.
+          *
+          * Just use the primtype as is for this case since the primtype is
+          * calculated already at the pipeline creation.
+          */
+         assert(cmd->state.primtype == DI_PT_PATCHES0);
+      } else {
+         primtype = cmd->state.primtype;
+      }
+   }
 
    uint32_t initiator =
       CP_DRAW_INDX_OFFSET_0_PRIM_TYPE(primtype) |
