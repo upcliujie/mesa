@@ -4063,6 +4063,8 @@ opt_vectorize_callback(const nir_instr *instr, const void *_)
    case nir_op_fsub:
    case nir_op_fmul:
    case nir_op_ffma:
+   case nir_op_fdiv:
+   case nir_op_flrp:
    case nir_op_fneg:
    case nir_op_fsat:
    case nir_op_fmin:
@@ -4071,6 +4073,7 @@ opt_vectorize_callback(const nir_instr *instr, const void *_)
    case nir_op_iadd_sat:
    case nir_op_uadd_sat:
    case nir_op_isub:
+   case nir_op_ineg:
    case nir_op_imul:
    case nir_op_imin:
    case nir_op_imax:
