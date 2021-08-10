@@ -384,7 +384,9 @@ namespace {
          #undef EXT
       }
 
-      return SPIRV::TranslatorOpts(maximum_spirv_version, spirv_extensions);
+      auto translator_opts = SPIRV::TranslatorOpts(maximum_spirv_version, spirv_extensions);
+      translator_opts.setPreserveOCLKernelArgTypeMetadataThroughString(true);
+      return translator_opts;
    }
 #endif
 }
