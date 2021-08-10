@@ -253,6 +253,28 @@ dri2_lookup_egl_image(struct dri_screen *screen, void *handle)
    return img;
 }
 
+boolean
+dri2_validate_egl_image(struct dri_screen *screen, void *handle)
+{
+   const __DRIimageLookupExtension *loader = screen->sPriv->dri2.image;
+
+   if (!loader->validateEGLImage)
+      return false;
+
+   return loader->validateEGLImage(handle, screen->sPriv->loaderPrivate);
+}
+
+__DRIimage *
+dri2_lookup_egl_image_validated(struct dri_screen *screen, void *handle)
+{
+   const __DRIimageLookupExtension *loader = screen->sPriv->dri2.image;
+
+   if (!loader->lookupEGLImageValidated)
+      return NULL;
+
+   return loader->lookupEGLImageValidated(handle, screen->sPriv->loaderPrivate);
+}
+
 __DRIimage *
 dri2_create_image_from_renderbuffer2(__DRIcontext *context,
 				     int renderbuffer, void *loaderPrivate,

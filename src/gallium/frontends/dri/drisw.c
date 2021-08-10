@@ -540,6 +540,8 @@ drisw_init_screen(__DRIscreen * sPriv)
    else
       sPriv->extensions = drisw_screen_extensions;
    screen->lookup_egl_image = dri2_lookup_egl_image;
+   screen->validate_egl_image = dri2_validate_egl_image;
+   screen->lookup_egl_image_validated = dri2_lookup_egl_image_validated;
 
    return configs;
 fail:
