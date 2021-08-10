@@ -2695,9 +2695,7 @@ crocus_create_uncompiled_shader(struct pipe_context *ctx,
       update_so_info(&ish->stream_output, nir->info.outputs_written);
    }
 
-   /* Save this now before potentially dropping nir->info.name */
-   if (nir->info.name && strncmp(nir->info.name, "ARB", 3) == 0)
-      ish->use_alt_mode = true;
+   ish->use_alt_mode = nir->info.is_arb_asm;
 
    if (screen->disk_cache) {
       /* Serialize the NIR to a binary blob that we can hash for the disk
