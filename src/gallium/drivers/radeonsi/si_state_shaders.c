@@ -1786,11 +1786,6 @@ void si_shader_selector_key_vs(struct si_context *sctx, struct si_shader_selecto
    prolog_key->instance_divisor_is_one = elts->instance_divisor_is_one;
    prolog_key->instance_divisor_is_fetched = elts->instance_divisor_is_fetched;
 
-   /* Prefer a monolithic shader to allow scheduling divisions around
-    * VBO loads. */
-   if (prolog_key->instance_divisor_is_fetched)
-      key->opt.prefer_mono = 1;
-
    unsigned count = MIN2(vs->info.num_inputs, elts->count);
    unsigned count_mask = (1 << count) - 1;
    unsigned fix = elts->fix_fetch_always & count_mask;
@@ -2109,6 +2104,7 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
       memset(&key->opt, 0, sizeof(key->opt));
 
       si_shader_selector_key_vs(sctx, sel, key, &key->part.vs.prolog);
+      key->opt.prefer_mono = sctx->vertex_elements->instance_divisor_is_fetched;
 
       if (!sctx->shader.tes.cso && !sctx->shader.gs.cso)
          si_shader_selector_key_hw_vs(sctx, sel, key);
