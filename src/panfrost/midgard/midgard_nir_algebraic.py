@@ -59,6 +59,11 @@ algebraic_late = [
     # Fuse clamp_positive. This should probably be shared with Utgard/bifrost
     (('fmax', a, 0.0), ('fclamp_pos_mali', a)),
 
+    # Reorder to enable modifier propagation. Notice if 0 <= a <= 1, both sides
+    # are a; if a >= 1 or a <= -1, both sides are 1; and if -1 <= a <= 0, both
+    # sides are -a.
+    (('fsat', ('fabs', a)), ('fabs', ('fsat_signed_mali', a))),
+
     (('ishl', 'a@16', b), ('u2u16', ('ishl', ('u2u32', a), b))),
     (('ishr', 'a@16', b), ('i2i16', ('ishr', ('i2i32', a), b))),
     (('ushr', 'a@16', b), ('u2u16', ('ushr', ('u2u32', a), b))),
