@@ -897,7 +897,7 @@ void gfx9_get_gs_info(struct si_shader_selector *es, struct si_shader_selector *
 
 /* Return the pointer to the main shader part's pointer. */
 static inline struct si_shader **si_get_main_shader_part(struct si_shader_selector *sel,
-                                                         struct si_shader_key *key)
+                                                         const struct si_shader_key *key)
 {
    if (key->as_ls)
       return &sel->main_shader_part_ls;
