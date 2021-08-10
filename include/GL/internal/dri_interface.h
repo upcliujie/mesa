@@ -1840,14 +1840,33 @@ struct __DRIimageExtensionRec {
  * with new lookup functions.
  */
 #define __DRI_IMAGE_LOOKUP "DRI_IMAGE_LOOKUP"
-#define __DRI_IMAGE_LOOKUP_VERSION 1
+#define __DRI_IMAGE_LOOKUP_VERSION 2
 
 typedef struct __DRIimageLookupExtensionRec __DRIimageLookupExtension;
 struct __DRIimageLookupExtensionRec {
     __DRIextension base;
 
+    /**
+     * Lookup EGLImage without validated.
+     *
+     * \since 1
+     */
     __DRIimage *(*lookupEGLImage)(__DRIscreen *screen, void *image,
 				  void *loaderPrivate);
+
+    /**
+     * Validate EGLImage before lookup with lookupEGLImageValidated.
+     *
+     * \since 2
+     */
+    GLboolean (*validateEGLImage)(void *image, void *loaderPrivate);
+
+    /**
+     * Lookup EGLImage after validateEGLImage.
+     *
+     * \since 2
+     */
+    __DRIimage *(*lookupEGLImageValidated)(void *image, void *loaderPrivate);
 };
 
 /**
