@@ -40,6 +40,8 @@ AluInstruction::AluInstruction(EAluOp opcode):
    Instruction (Instruction::alu),
    m_opcode(opcode),
    m_src(alu_ops.at(opcode).nsrc),
+   m_omod(omod_off),
+   m_pred_sel(pred_off),
    m_bank_swizzle(alu_vec_unknown),
    m_cf_type(cf_alu)
 {
@@ -53,6 +55,8 @@ AluInstruction::AluInstruction(EAluOp opcode, PValue dest,
    Instruction (Instruction::alu),
    m_opcode(opcode),
    m_dest(dest),
+   m_omod(omod_off),
+   m_pred_sel(pred_off),
    m_bank_swizzle(alu_vec_unknown),
    m_cf_type(cf_alu)
 {
