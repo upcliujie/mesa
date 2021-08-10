@@ -495,16 +495,7 @@ static bool si_shader_select_prim_discard_cs(struct si_context *sctx,
    sctx->cs_prim_discard_state.cso = sctx->shader.vs.cso;
    sctx->cs_prim_discard_state.current = NULL;
 
-   if (!sctx->compiler.passes)
-      si_init_compiler(sctx->screen, &sctx->compiler);
-
-   struct si_compiler_ctx_state compiler_state;
-   compiler_state.compiler = &sctx->compiler;
-   compiler_state.debug = sctx->debug;
-   compiler_state.is_debug_context = sctx->is_debug;
-
-   return si_shader_select_with_key(sctx->screen, &sctx->cs_prim_discard_state, &compiler_state,
-                                    &key, -1, true) == 0 &&
+   return si_shader_select_with_key(sctx, &sctx->cs_prim_discard_state, &key, -1, true) == 0 &&
           /* Disallow compute shaders using the scratch buffer. */
           sctx->cs_prim_discard_state.current->config.scratch_bytes_per_wave == 0;
 }
