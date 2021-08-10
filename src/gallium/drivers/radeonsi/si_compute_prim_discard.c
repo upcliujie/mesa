@@ -474,7 +474,7 @@ static bool si_shader_select_prim_discard_cs(struct si_context *sctx,
    struct si_shader_key key;
 
    memset(&key, 0, sizeof(key));
-   si_shader_selector_key_vs(sctx, sctx->shader.vs.cso, &key, &key.part.vs.prolog);
+   si_get_vs_key_inputs(sctx, &key, &key.part.vs.prolog);
    assert(!key.part.vs.prolog.instance_divisor_is_fetched);
 
    key.opt.vs_as_prim_discard_cs = 1;
