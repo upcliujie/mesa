@@ -76,6 +76,10 @@ static const struct debug_named_value debug_control[] = {
           "Dump register allocation failures" },
         { "dump_spirv",  V3D_DEBUG_DUMP_SPIRV,
           "Dump SPIR-V code" },
+        { "tmu32",  V3D_DEBUG_TMU_32BIT,
+          "Force 32-bit precission on all TMU operations" },
+        { "tmu16",  V3D_DEBUG_TMU_16BIT,
+          "Force 16-bit precission on all TMU operations" },
         { NULL }
 };
 
