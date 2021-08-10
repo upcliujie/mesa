@@ -540,6 +540,7 @@ _eglCreateExtensionsString(_EGLDisplay *disp)
    _EGL_CHECK_EXTENSION(MESA_drm_image);
    _EGL_CHECK_EXTENSION(MESA_image_dma_buf_export);
    _EGL_CHECK_EXTENSION(MESA_query_driver);
+   _EGL_CHECK_EXTENSION(MESA_swap_control_tear);
 
    _EGL_CHECK_EXTENSION(NOK_swap_region);
    _EGL_CHECK_EXTENSION(NOK_texture_from_pixmap);
@@ -1275,6 +1276,28 @@ eglReleaseTexImage(EGLDisplay dpy, EGLSurface surface, EGLint buffer)
    RETURN_EGL_EVAL(disp, ret);
 }
 
+EGLBoolean
+_eglSwapInterval(_EGLDisplay *disp, _EGLSurface *surf, EGLint interval)
+{
+   EGLBoolean ret;
+
+   interval = CLAMP(interval,
+                    surf->Config->MinSwapInterval,
+                    surf->Config->MaxSwapInterval);
+
+   if (disp->Extensions.MESA_swap_control_tear && surf->LateSwapsTear)
+      interval = -interval;
+
+   if (surf->SwapInterval != interval && disp->Driver->SwapInterval)
+      ret = disp->Driver->SwapInterval(disp, surf, interval);
+   else
+      ret = EGL_TRUE;
+
+   if (ret)
+      surf->SwapInterval = abs(interval);
+
+   return ret;
+}
 
 EGLBoolean EGLAPIENTRY
 eglSwapInterval(EGLDisplay dpy, EGLint interval)
@@ -1282,7 +1305,6 @@ eglSwapInterval(EGLDisplay dpy, EGLint interval)
    _EGLDisplay *disp = _eglLockDisplay(dpy);
    _EGLContext *ctx = _eglGetCurrentContext();
    _EGLSurface *surf = ctx ? ctx->DrawSurface : NULL;
-   EGLBoolean ret;
 
    _EGL_FUNC_START(disp, EGL_OBJECT_SURFACE_KHR, surf, EGL_FALSE);
    _EGL_CHECK_DISPLAY(disp, EGL_FALSE);
@@ -1297,19 +1319,7 @@ eglSwapInterval(EGLDisplay dpy, EGLint interval)
    if (surf->Type != EGL_WINDOW_BIT)
       RETURN_EGL_EVAL(disp, EGL_TRUE);
 
-   interval = CLAMP(interval,
-                    surf->Config->MinSwapInterval,
-                    surf->Config->MaxSwapInterval);
-
-   if (surf->SwapInterval != interval && disp->Driver->SwapInterval)
-      ret = disp->Driver->SwapInterval(disp, surf, interval);
-   else
-      ret = EGL_TRUE;
-
-   if (ret)
-      surf->SwapInterval = interval;
-
-   RETURN_EGL_EVAL(disp, ret);
+   RETURN_EGL_EVAL(disp, _eglSwapInterval(disp, surf, interval));
 }
 
 
