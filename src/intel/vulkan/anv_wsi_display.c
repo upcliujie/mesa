@@ -261,6 +261,9 @@ anv_RegisterDeviceEventEXT(VkDevice _device,
 
    fence->permanent.type = ANV_FENCE_TYPE_WSI;
 
+   /* Setup base.type for anv_fence_to_handle. */
+   fence->base.type = VK_OBJECT_TYPE_FENCE;
+
    ret = wsi_register_device_event(_device,
                                    &device->physical->wsi_device,
                                    device_event_info,
