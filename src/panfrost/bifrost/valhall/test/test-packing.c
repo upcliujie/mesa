@@ -196,5 +196,17 @@ main(int argc, const char **argv)
       CASE(I, 0x0128420610c080c0);
    }
 
+   CASE(bi_frexpm_f32_to(b, bi_register(1), bi_register(0), false, true),
+        0x0099c10001000000);
+
+   CASE(bi_frexpe_f32_to(b, bi_register(0), bi_discard(bi_register(0)), false, true),
+        0x0099c00001020040);
+
+   CASE(bi_frsq_f32_to(b, bi_register(2), bi_register(1)),
+        0x009cc20000020001);
+
+   CASE(bi_fma_rscale_f32_to(b, bi_register(0), bi_discard(bi_register(1)), bi_discard(bi_register(2)), bi_neg(zero), bi_discard(bi_register(0)), BI_ROUND_NONE, BI_SPECIAL_LEFT),
+        0x0162c00440c04241);
+
    TEST_END(nr_pass, nr_fail);
 }
