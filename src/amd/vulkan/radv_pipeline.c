@@ -1842,11 +1842,12 @@ gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline
 {
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
    struct radv_es_output_info *es_info;
+   bool has_tess = !!nir[MESA_SHADER_TESS_CTRL];
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9)
-      es_info = nir[MESA_SHADER_TESS_CTRL] ? &gs_info->tes.es_info : &gs_info->vs.es_info;
+      es_info = has_tess ? &gs_info->tes.es_info : &gs_info->vs.es_info;
    else
-      es_info = nir[MESA_SHADER_TESS_CTRL] ? &infos[MESA_SHADER_TESS_EVAL].tes.es_info
-                                           : &infos[MESA_SHADER_VERTEX].vs.es_info;
+      es_info = has_tess ? &infos[MESA_SHADER_TESS_EVAL].tes.es_info
+                         : &infos[MESA_SHADER_VERTEX].vs.es_info;
 
    unsigned gs_num_invocations = MAX2(gs_info->gs.invocations, 1);
    bool uses_adjacency;
@@ -1949,6 +1950,14 @@ gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline
    out->vgt_gs_max_prims_per_subgroup = S_028A94_MAX_PRIMS_PER_SUBGROUP(max_prims_per_subgroup);
    out->vgt_esgs_ring_itemsize = esgs_itemsize;
    assert(max_prims_per_subgroup <= max_out_prims);
+
+   gl_shader_stage es_stage = has_tess ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
+   unsigned workgroup_size =
+      ac_compute_esgs_workgroup_size(
+         pipeline->device->physical_device->rad_info.chip_class, infos[es_stage].wave_size,
+         es_verts_per_subgroup, gs_inst_prims_in_subgroup);
+   infos[es_stage].workgroup_size = workgroup_size;
+   infos[MESA_SHADER_GEOMETRY].workgroup_size = workgroup_size;
 }
 
 static void
@@ -2218,6 +2227,13 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
    }
 
    assert(ngg->hw_max_esverts >= min_esverts); /* HW limitation */
+
+   gl_shader_stage es_stage = nir[MESA_SHADER_TESS_CTRL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
+   unsigned workgroup_size =
+      ac_compute_ngg_workgroup_size(
+         max_esverts, max_gsprims * gs_num_invocations, max_out_vertices, prim_amp_factor);
+   infos[MESA_SHADER_GEOMETRY].workgroup_size = workgroup_size;
+   infos[es_stage].workgroup_size = workgroup_size;
 }
 
 static void
@@ -2895,6 +2911,15 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       filled_stages |= (1 << MESA_SHADER_FRAGMENT);
    }
 
+   if (nir[MESA_SHADER_COMPUTE]) {
+      /* Variable workgroup size is not supported by Vulkan. */
+      assert(!nir[MESA_SHADER_COMPUTE]->info.workgroup_size_variable);
+
+      infos[MESA_SHADER_COMPUTE].workgroup_size =
+         ac_compute_cs_workgroup_size(
+            nir[MESA_SHADER_COMPUTE]->info.workgroup_size, false, UINT32_MAX);
+   }
+
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9 &&
        nir[MESA_SHADER_TESS_CTRL]) {
       struct nir_shader *combined_nir[] = {nir[MESA_SHADER_VERTEX], nir[MESA_SHADER_TESS_CTRL]};
@@ -2939,6 +2964,7 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
    for (int i = 0; i < MESA_SHADER_STAGES; i++) {
       if (nir[i]) {
          infos[i].wave_size = radv_get_wave_size(pipeline->device, pStages[i], i, &keys[i], &infos[i]);
+         infos[i].workgroup_size = infos[i].wave_size;
          infos[i].ballot_bit_size =
             radv_get_ballot_bit_size(pipeline->device, pStages[i], i, &keys[i]);
       }
@@ -3021,6 +3047,8 @@ gather_tess_info(struct radv_device *device, nir_shader **nir, struct radv_shade
 
    infos[MESA_SHADER_TESS_EVAL].num_tess_patches = num_patches;
    infos[MESA_SHADER_GEOMETRY].num_tess_patches = num_patches;
+   infos[MESA_SHADER_VERTEX].num_tess_patches = num_patches;
+   infos[MESA_SHADER_VERTEX].tcs.tcs_vertices_out = infos[MESA_SHADER_TESS_CTRL].tcs.tcs_vertices_out;
 
    if (!radv_use_llvm_for_stage(device, MESA_SHADER_VERTEX)) {
       /* When the number of TCS input and output vertices are the same (typically 3):
@@ -3052,6 +3080,12 @@ gather_tess_info(struct radv_device *device, nir_shader **nir, struct radv_shade
       infos[MESA_SHADER_TESS_CTRL].vs.tcs_temp_only_input_mask =
          infos[MESA_SHADER_VERTEX].vs.tcs_temp_only_input_mask;
    }
+
+   for (gl_shader_stage s = MESA_SHADER_VERTEX; s <= MESA_SHADER_TESS_CTRL; ++s)
+      infos[s].workgroup_size =
+         ac_compute_lshs_workgroup_size(
+            device->physical_device->rad_info.chip_class, s,
+            num_patches, pipeline_key->tess_input_vertices, infos[s].tcs.tcs_vertices_out);
 }
 
 static void
@@ -3403,11 +3437,18 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
       struct gfx9_gs_info *gs_info = &infos[MESA_SHADER_GEOMETRY].gs_ring_info;
 
       gfx9_get_gs_info(pipeline_key, pipeline, nir, infos, gs_info);
+   } else {
+      gl_shader_stage hw_vs_api_stage =
+         nir[MESA_SHADER_TESS_EVAL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
+      infos[hw_vs_api_stage].workgroup_size = infos[hw_vs_api_stage].wave_size;
    }
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
       if (nir[i]) {
          radv_start_feedback(stage_feedbacks[i]);
+
+         /* Wave and workgroup size should already be filled. */
+         assert(infos[i].wave_size && infos[i].workgroup_size);
 
          if (!radv_use_llvm_for_stage(device, i)) {
             nir_lower_non_uniform_access_options options = {
