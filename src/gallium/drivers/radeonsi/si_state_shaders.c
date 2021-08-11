@@ -2157,7 +2157,6 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
          else
             si_clear_vs_key_outputs(sctx, sel, key);
       }
-      key->part.gs.prolog.tri_strip_adj_fix = sctx->gs_tri_strip_adj_fix;
       break;
    case MESA_SHADER_FRAGMENT:
       si_ps_key_update_primtype_shader_rasterizer_framebuffer(sctx);
