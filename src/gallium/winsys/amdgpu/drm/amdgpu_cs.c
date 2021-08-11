@@ -761,24 +761,6 @@ static bool amdgpu_ib_new_buffer(struct amdgpu_winsys *ws,
    return true;
 }
 
-static unsigned amdgpu_ib_max_submit_dwords(enum ib_type ib_type)
-{
-   /* The maximum IB size including all chained IBs. */
-   switch (ib_type) {
-   case IB_MAIN:
-      /* Smaller submits means the GPU gets busy sooner and there is less
-       * waiting for buffers and fences. Proof:
-       *   http://www.phoronix.com/scan.php?page=article&item=mesa-111-si&num=1
-       */
-      return 20 * 1024;
-   case IB_PARALLEL_COMPUTE:
-      /* Always chain this IB. */
-      return UINT_MAX;
-   default:
-      unreachable("bad ib_type");
-   }
-}
-
 static bool amdgpu_get_new_ib(struct amdgpu_winsys *ws,
                               struct radeon_cmdbuf *rcs,
                               struct amdgpu_ib *ib,
@@ -800,7 +782,7 @@ static bool amdgpu_get_new_ib(struct amdgpu_winsys *ws,
    if (!cs->has_chaining) {
       ib_size = MAX2(ib_size,
                      4 * MIN2(util_next_power_of_two(ib->max_ib_size),
-                              amdgpu_ib_max_submit_dwords(ib->ib_type)));
+                              ib->max_submit_dwords));
    }
 
    ib->max_ib_size = ib->max_ib_size - ib->max_ib_size / 32;
@@ -997,7 +979,14 @@ amdgpu_cs_create(struct radeon_cmdbuf *rcs,
    amdgpu_cs_chunk_fence_info_to_data(&fence_info, (void*)&cs->fence_chunk);
 
    cs->main.ib_type = IB_MAIN;
+   /* Smaller submits means the GPU gets busy sooner and there is less
+    * waiting for buffers and fences. Proof:
+    *   http://www.phoronix.com/scan.php?page=article&item=mesa-111-si&num=1
+    */
+   cs->main.max_submit_dwords = 20 * 1024;
+
    cs->compute_ib.ib_type = IB_PARALLEL_COMPUTE;
+   cs->compute_ib.max_submit_dwords = UINT_MAX; /* Always chain this IB. */
 
    if (!amdgpu_init_cs_context(ctx->ws, &cs->csc1, ring_type)) {
       FREE(cs);
@@ -1143,7 +1132,7 @@ static bool amdgpu_cs_check_space(struct radeon_cmdbuf *rcs, unsigned dw,
    if (!force_chaining) {
       unsigned requested_size = rcs->prev_dw + rcs->current.cdw + dw;
 
-      if (requested_size > amdgpu_ib_max_submit_dwords(ib->ib_type))
+      if (requested_size > ib->max_submit_dwords)
          return false;
 
       ib->max_ib_size = MAX2(ib->max_ib_size, requested_size);
