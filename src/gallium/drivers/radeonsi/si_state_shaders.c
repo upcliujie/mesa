@@ -1810,6 +1810,7 @@ void si_vs_key_update_inputs(struct si_context *sctx)
 
    key->part.vs.prolog.instance_divisor_is_one = elts->instance_divisor_is_one;
    key->part.vs.prolog.instance_divisor_is_fetched = elts->instance_divisor_is_fetched;
+   key->opt.prefer_mono = elts->instance_divisor_is_fetched;
 
    unsigned count_mask = (1 << vs->info.num_inputs) - 1;
    unsigned fix = elts->fix_fetch_always & count_mask;
@@ -2130,8 +2131,6 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
 
    switch (sel->info.stage) {
    case MESA_SHADER_VERTEX:
-      key->opt.prefer_mono = sctx->vertex_elements->instance_divisor_is_fetched;
-
       if (!sctx->shader.tes.cso && !sctx->shader.gs.cso)
          si_get_vs_key_outputs(sctx, sel, key);
       else
@@ -2150,11 +2149,6 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
           */
          key->part.tcs.ls_prolog.ls_vgpr_fix = sctx->ls_vgpr_fix;
 
-         /* The LS output / HS input layout can be communicated
-          * directly instead of via user SGPRs for merged LS-HS.
-          * This also enables jumping over the VS prolog for HS-only waves.
-          */
-         key->opt.prefer_mono = 1;
          key->opt.same_patch_vertices = sctx->same_patch_vertices;
       }
 
@@ -2188,9 +2182,6 @@ static inline void si_shader_selector_key(struct pipe_context *ctx, struct si_sh
             si_get_vs_key_outputs(sctx, sel, key);
          else
             si_clear_vs_key_outputs(sctx, sel, key);
-
-         /* This enables jumping over the VS prolog for GS-only waves. */
-         key->opt.prefer_mono = 1;
       }
       key->part.gs.prolog.tri_strip_adj_fix = sctx->gs_tri_strip_adj_fix;
       break;
