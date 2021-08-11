@@ -2481,6 +2481,12 @@ enum anv_pipe_bits {
     * must reinterpret this flush as ANV_PIPE_DATA_CACHE_FLUSH_BIT.
     */
    ANV_PIPE_HDC_PIPELINE_FLUSH_BIT           = (1 << 14),
+
+   /*
+    * This bit flush data-port's Untyped L1 data cache (LSC L1).
+    */
+   ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT = (1 << 15),
+
    ANV_PIPE_CS_STALL_BIT                     = (1 << 20),
    ANV_PIPE_END_OF_PIPE_SYNC_BIT             = (1 << 21),
 
@@ -2516,6 +2522,7 @@ enum anv_pipe_bits {
    ANV_PIPE_DEPTH_CACHE_FLUSH_BIT | \
    ANV_PIPE_DATA_CACHE_FLUSH_BIT | \
    ANV_PIPE_HDC_PIPELINE_FLUSH_BIT | \
+   ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT | \
    ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT | \
    ANV_PIPE_TILE_CACHE_FLUSH_BIT)
 
@@ -2529,6 +2536,7 @@ enum anv_pipe_bits {
    ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_VF_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_HDC_PIPELINE_FLUSH_BIT | \
+   ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT | \
    ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_AUX_TABLE_INVALIDATE_BIT)
@@ -2547,6 +2555,7 @@ anv_pipe_flush_bits_for_access_flags(struct anv_device *device,
           * to future operations, flush the hdc pipeline.
           */
          pipe_bits |= ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
+         pipe_bits |= ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT;
          break;
       case VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT:
          /* We're transitioning a buffer that was previously used as render
@@ -2646,10 +2655,12 @@ anv_pipe_invalidate_bits_for_access_flags(struct anv_device *device,
           * port) to avoid stale data.
           */
          pipe_bits |= ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT;
-         if (device->physical->compiler->indirect_ubos_use_sampler)
+         if (device->physical->compiler->indirect_ubos_use_sampler) {
             pipe_bits |= ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT;
-         else
+         } else {
             pipe_bits |= ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
+            pipe_bits |= ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT;
+         }
          break;
       case VK_ACCESS_SHADER_READ_BIT:
       case VK_ACCESS_INPUT_ATTACHMENT_READ_BIT:
