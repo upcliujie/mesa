@@ -805,9 +805,6 @@ void si_build_wrapper_function(struct si_shader_context *ctx, LLVMValueRef *part
        !same_thread_count && si_is_multi_part_shader(ctx->shader))
       ac_build_endif(&ctx->ac, 6507);
 
-   /* Return the value from the last part. It's non-void only for the prim
-    * discard compute shader.
-    */
    if (LLVMGetTypeKind(LLVMTypeOf(ret)) == LLVMVoidTypeKind)
       LLVMBuildRetVoid(builder);
    else
@@ -1117,9 +1114,6 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
       parts[num_parts++] = main_fn;
 
       si_build_wrapper_function(&ctx, parts, num_parts, first_is_prolog ? 1 : 0, 0, false);
-
-      if (ctx.shader->key.opt.vs_as_prim_discard_cs)
-         si_build_prim_discard_compute_shader(&ctx);
    } else if (shader->is_monolithic && ctx.stage == MESA_SHADER_TESS_EVAL && ngg_cull_main_fn) {
       LLVMValueRef parts[3], prolog, main_fn = ctx.main_fn;
 
@@ -1290,8 +1284,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
    }
 
    /* Make sure the input is a pointer and not integer followed by inttoptr. */
-   if (!shader->key.opt.vs_as_prim_discard_cs)
-      assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
+   assert(LLVMGetTypeKind(LLVMTypeOf(LLVMGetParam(ctx.main_fn, 0))) == LLVMPointerTypeKind);
 
    /* Compile to bytecode. */
    if (!si_compile_llvm(sscreen, &shader->binary, &shader->config, compiler, &ctx.ac, debug,

@@ -70,7 +70,7 @@ void si_get_ir_cache_key(struct si_shader_selector *sel, bool ngg, bool es,
       shader_variant_flags |= 1 << 0;
    if (sel->nir)
       shader_variant_flags |= 1 << 1;
-   if (si_get_wave_size(sel->screen, sel->info.stage, ngg, es, false, false) == 32)
+   if (si_get_wave_size(sel->screen, sel->info.stage, ngg, es, false) == 32)
       shader_variant_flags |= 1 << 2;
    if (sel->info.stage == MESA_SHADER_FRAGMENT &&
        /* Derivatives imply helper invocations so check for needs_quad_helper_invocations. */
@@ -78,12 +78,9 @@ void si_get_ir_cache_key(struct si_shader_selector *sel, bool ngg, bool es,
        sel->info.base.fs.uses_discard &&
        sel->screen->debug_flags & DBG(FS_CORRECT_DERIVS_AFTER_KILL))
       shader_variant_flags |= 1 << 3;
-   if (sel->info.stage == MESA_SHADER_VERTEX) {
-      /* This varies depending on whether compute-based culling is enabled. */
-      unsigned num_vbos_in_user_sgprs = si_num_vbos_in_user_sgprs(sel->screen);
-      assert(num_vbos_in_user_sgprs <= 7);
-      shader_variant_flags |= MIN2(num_vbos_in_user_sgprs, 7) << 4;
-   }
+
+   /* bit gap */
+
    if (sel->screen->options.no_infinite_interp)
       shader_variant_flags |= 1 << 7;
    if (sel->screen->options.clamp_div_by_zero)
@@ -2417,10 +2414,8 @@ current_not_ready:
 
    /* Compile the main shader part if it doesn't exist. This can happen
     * if the initial guess was wrong.
-    *
-    * The prim discard CS doesn't need the main shader part.
     */
-   if (!is_pure_monolithic && !key->opt.vs_as_prim_discard_cs) {
+   if (!is_pure_monolithic) {
       bool ok = true;
 
       /* Make sure the main shader part is present. This is needed
@@ -2475,8 +2470,7 @@ current_not_ready:
    shader->is_monolithic =
       is_pure_monolithic || memcmp(&key->opt, &zeroed.opt, sizeof(key->opt)) != 0;
 
-   /* The prim discard CS is always optimized. */
-   shader->is_optimized = (!is_pure_monolithic || key->opt.vs_as_prim_discard_cs) &&
+   shader->is_optimized = !is_pure_monolithic &&
                           memcmp(&key->opt, &zeroed.opt, sizeof(key->opt)) != 0;
 
    /* If it's an optimized shader, compile it asynchronously. */
@@ -2833,18 +2827,12 @@ static void *si_create_shader_selector(struct pipe_context *ctx,
          ? sel->info.num_inputs
          : 0;
    unsigned num_vbos_in_sgprs =
-      si_num_vbos_in_user_sgprs_inline(sscreen->info.chip_class, sscreen->allow_prim_discard_cs);
+      si_num_vbos_in_user_sgprs_inline(sscreen->info.chip_class);
    sel->num_vbos_in_user_sgprs = MIN2(sel->num_vs_inputs, num_vbos_in_sgprs);
 
    /* The prolog is a no-op if there are no inputs. */
    sel->vs_needs_prolog = sel->info.stage == MESA_SHADER_VERTEX && sel->info.num_inputs &&
                           !sel->info.base.vs.blit_sgprs_amd;
-
-   sel->prim_discard_cs_allowed =
-      sel->info.stage == MESA_SHADER_VERTEX && !sel->info.uses_bindless_images &&
-      !sel->info.uses_bindless_samplers && !sel->info.base.writes_memory &&
-      !sel->info.writes_viewport_index &&
-      !sel->info.base.vs.window_space_position && !sel->so.num_outputs;
 
    if (sel->info.stage == MESA_SHADER_VERTEX ||
        sel->info.stage == MESA_SHADER_TESS_CTRL ||
