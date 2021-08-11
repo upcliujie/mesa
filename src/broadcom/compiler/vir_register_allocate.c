@@ -277,8 +277,14 @@ v3d_spill_reg(struct v3d_compile *c, int spill_temp)
 
         struct qinst *start_of_tmu_sequence = NULL;
         struct qinst *postponed_spill = NULL;
+        bool last_thrsw_found = last_thrsw ? false : true;
         vir_for_each_block(block, c) {
                 vir_for_each_inst_safe(inst, block) {
+                        bool thrsw_emitted = false;
+
+                        if (inst == last_thrsw)
+                                last_thrsw_found = true;
+
                         /* Track when we're in between a TMU setup and the final
                          * LDTMU or TMUWT from that TMU setup. We can't spill/fill any
                          * temps during that time, because that involves inserting a
@@ -290,6 +296,7 @@ v3d_spill_reg(struct v3d_compile *c, int spill_temp)
                                 if (postponed_spill) {
                                         v3d_emit_tmu_spill(c, postponed_spill,
                                                            inst, spill_offset);
+                                        thrsw_emitted = true;
                                 }
 
                                 start_of_tmu_sequence = NULL;
@@ -330,6 +337,7 @@ v3d_spill_reg(struct v3d_compile *c, int spill_temp)
                                         vir_emit_thrsw(c);
                                         inst->src[i] = vir_LDTMU(c);
                                         c->fills++;
+                                        thrsw_emitted = true;
                                 }
                         }
 
@@ -340,27 +348,22 @@ v3d_spill_reg(struct v3d_compile *c, int spill_temp)
                                         c->cursor.link = NULL;
                                         vir_remove_instruction(c, inst);
                                 } else {
-                                        if (start_of_tmu_sequence)
+                                        if (start_of_tmu_sequence) {
                                                 postponed_spill = inst;
-                                        else
+                                        } else {
                                                 v3d_emit_tmu_spill(c, inst, inst,
                                                                    spill_offset);
+                                                thrsw_emitted = true;
+                                        }
                                 }
                         }
 
-                        /* If we didn't have a last-thrsw inserted by nir_to_vir and
-                         * we've been inserting thrsws, then insert a new last_thrsw
-                         * right before we start the vpm/tlb sequence for the last
-                         * thread segment.
-                         */
-                        if (!is_uniform && !last_thrsw && c->last_thrsw &&
-                            (v3d_qpu_writes_vpm(&inst->qpu) ||
-                             v3d_qpu_uses_tlb(&inst->qpu))) {
-                                c->cursor = vir_before_inst(inst);
-                                vir_emit_thrsw(c);
-
+                        /* Update the emitted thrsw if it is the last one */
+                        if (thrsw_emitted && last_thrsw_found) {
+                                c->last_thrsw->is_last_thrsw = true;
+                                if (last_thrsw)
+                                        last_thrsw->is_last_thrsw = false;
                                 last_thrsw = c->last_thrsw;
-                                last_thrsw->is_last_thrsw = true;
                         }
                 }
         }
