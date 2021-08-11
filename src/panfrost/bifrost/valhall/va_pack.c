@@ -399,6 +399,17 @@ va_pack_instr(const bi_instr *I, unsigned action)
       hex |= ((uint64_t) I->index) << 8;
       break;
 
+   case BI_OPCODE_CLPER_I32:
+      assert(I->inactive_result < 16);
+      assert(I->lane_op < 4);
+      assert(I->subgroup < 4);
+
+      hex |= va_pack_alu(I);
+      hex |= ((uint64_t) I->inactive_result) << 22;
+      hex |= ((uint64_t) I->lane_op) << 32;
+      hex |= ((uint64_t) I->subgroup) << 36;
+      break;
+
    case BI_OPCODE_BLEND:
    {
       /* Blend descriptor */
