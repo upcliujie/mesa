@@ -68,6 +68,9 @@ convert_pc_to_bits(struct GENX(PIPE_CONTROL) *pc) {
    bits |= (pc->StallAtPixelScoreboard) ?  ANV_PIPE_STALL_AT_SCOREBOARD_BIT : 0;
    bits |= (pc->DepthStallEnable) ?  ANV_PIPE_DEPTH_STALL_BIT : 0;
    bits |= (pc->CommandStreamerStallEnable) ?  ANV_PIPE_CS_STALL_BIT : 0;
+#if GFX_VERx10 == 125
+   bits |= (pc->UntypedDataPortCacheFlushEnable) ? ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT : 0;
+#endif
    return bits;
 }
 
@@ -2218,6 +2221,16 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
 #else
          /* Flushing HDC pipeline requires DC Flush on earlier HW. */
          pipe.DCFlushEnable |= bits & ANV_PIPE_HDC_PIPELINE_FLUSH_BIT;
+#endif
+#if GFX_VERx10 >= 125
+         /* This bit is functional and must be only set for GPGPU workloads,
+          * i.e when PIPELINE_SELECT command has set "Pipeline Select" mode set
+          * to "GPGPU".
+          */
+         pipe.UntypedDataPortCacheFlushEnable |=
+            (bits & ANV_PIPE_UNTYPED_DATAPORT_CACHE_FLUSH_BIT) &&
+            cmd_buffer->state.current_pipeline == GPGPU;
+         pipe.HDCPipelineFlushEnable |= pipe.UntypedDataPortCacheFlushEnable;
 #endif
          pipe.DepthCacheFlushEnable = bits & ANV_PIPE_DEPTH_CACHE_FLUSH_BIT;
          pipe.DCFlushEnable |= bits & ANV_PIPE_DATA_CACHE_FLUSH_BIT;
@@ -5435,6 +5448,13 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
       pc.RenderTargetCacheFlushEnable  = true;
       pc.DepthCacheFlushEnable         = true;
+#if GFX_VERx10 >= 125
+      /* This bit is functional and must be only set for GPGPU workloads, i.e
+       * when PIPELINE_SELECT command has set "Pipeline Select" mode set to
+       * "GPGPU".
+       */
+      pc.UntypedDataPortCacheFlushEnable = pipeline == GPGPU;
+#endif
 #if GFX_VER >= 12
       pc.HDCPipelineFlushEnable        = true;
 #else
