@@ -44,6 +44,7 @@ main(int argc, const char **argv)
    bi_builder *b = bit_builder(NULL);
    bi_index zero = bi_fau(BIR_FAU_IMMEDIATE | 0, false);
    bi_index one = bi_fau(BIR_FAU_IMMEDIATE | 8, false);
+   bi_index n4567 = bi_fau(BIR_FAU_IMMEDIATE | 4, true);
 
    CASE(bi_mov_i32_to(b, bi_register(1), bi_register(2)),
          0x0091c10000000002ULL);
@@ -55,6 +56,10 @@ main(int argc, const char **argv)
          0x00a4c02000000201ULL);
    CASE(bi_fadd_f32_to(b, bi_register(0), bi_register(1), bi_neg(bi_register(2)), BI_ROUND_NONE),
          0x00a4c01000000201ULL);
+
+   CASE(bi_clper_i32_to(b, bi_register(0), bi_register(0), bi_byte(n4567, 0),
+                        BI_INACTIVE_RESULT_F1, BI_LANE_OP_NONE, BI_SUBGROUP_SUBGROUP16),
+         0x00a0c030128fc900);
 
    {
       bi_instr *I = bi_fadd_f32_to(b, bi_register(0), bi_register(1),
