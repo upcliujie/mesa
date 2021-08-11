@@ -80,6 +80,7 @@ struct amdgpu_ib {
    uint32_t                *ptr_ib_size;
    bool                    ptr_ib_size_inside_ib;
    enum ib_type            ib_type;
+   unsigned                max_submit_dwords;
 };
 
 struct amdgpu_fence_list {
