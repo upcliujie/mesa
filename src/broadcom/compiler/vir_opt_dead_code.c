@@ -149,11 +149,12 @@ check_first_ldunifa(struct v3d_compile *c,
 }
 
 static bool
-increment_unifa_address(struct v3d_compile *c, struct qinst *unifa)
+increment_unifa_address(struct v3d_compile *c, struct qblock *block, struct qinst *unifa)
 {
         if (unifa->qpu.type == V3D_QPU_INSTR_TYPE_ALU &&
             unifa->qpu.alu.mul.op == V3D_QPU_M_MOV) {
                 c->cursor = vir_after_inst(unifa);
+                c->cur_block = block;
                 struct qreg unifa_reg = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_UNIFA);
                 vir_ADD_dest(c, unifa_reg, unifa->src[0], vir_uniform_ui(c, 4u));
                 vir_remove_instruction(c, unifa);
@@ -163,6 +164,7 @@ increment_unifa_address(struct v3d_compile *c, struct qinst *unifa)
         if (unifa->qpu.type == V3D_QPU_INSTR_TYPE_ALU &&
             unifa->qpu.alu.add.op == V3D_QPU_A_ADD) {
                 c->cursor = vir_after_inst(unifa);
+                c->cur_block = block;
                 struct qreg unifa_reg = vir_reg(QFILE_MAGIC, V3D_QPU_WADDR_UNIFA);
                 struct qreg tmp =
                         vir_ADD(c, unifa->src[1], vir_uniform_ui(c, 4u));
@@ -271,7 +273,7 @@ vir_opt_dead_code(struct v3d_compile *c)
                          */
                         if (is_first_ldunifa) {
                                 assert(unifa);
-                                if (!increment_unifa_address(c, unifa))
+                                if (!increment_unifa_address(c, block, unifa))
                                         continue;
                         }
 
