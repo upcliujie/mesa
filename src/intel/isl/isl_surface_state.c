@@ -508,6 +508,11 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
    s.MipTailStartLOD = 15;
 #endif
 
+#if GFX_VERx10 >= 125
+   /* Setting L1 caching policy to Write-back mode. */
+   s.L1CacheControl = L1CC_WB;
+#endif
+
 #if GFX_VER >= 6
    const struct isl_extent3d image_align = get_image_alignment(info->surf);
    s.SurfaceVerticalAlignment = isl_encode_valign(image_align.height);
@@ -973,6 +978,11 @@ isl_genX(buffer_fill_state_s)(const struct isl_device *dev, void *state,
    s.SurfaceBaseAddress = info->address;
 #if GFX_VER >= 6
    s.MOCS = info->mocs;
+#endif
+
+#if GFX_VERx10 >= 125
+   /* Setting L1 caching policy to Write-back mode. */
+   s.L1CacheControl = L1CC_WB;
 #endif
 
 #if (GFX_VERx10 >= 75)
