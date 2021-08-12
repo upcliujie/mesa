@@ -559,7 +559,7 @@ static LLVMValueRef exit_waterfall(struct ac_nir_context *ctx, struct waterfall_
 
 static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
 {
-   LLVMValueRef src[4], result = NULL;
+   LLVMValueRef src[16], result = NULL;
    unsigned num_components = instr->dest.dest.ssa.num_components;
    unsigned src_components;
    LLVMTypeRef def_type = get_def_type(ctx, &instr->dest.dest.ssa);
@@ -570,6 +570,8 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_vec3:
    case nir_op_vec4:
    case nir_op_vec5:
+   case nir_op_vec8:
+   case nir_op_vec16:
    case nir_op_unpack_32_2x16:
    case nir_op_unpack_64_2x32:
    case nir_op_unpack_64_4x16:
@@ -940,6 +942,8 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
    case nir_op_vec3:
    case nir_op_vec4:
    case nir_op_vec5:
+   case nir_op_vec8:
+   case nir_op_vec16:
       for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++)
          src[i] = ac_to_integer(&ctx->ac, src[i]);
       result = ac_build_gather_values(&ctx->ac, src, num_components);
