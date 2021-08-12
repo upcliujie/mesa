@@ -406,8 +406,6 @@ struct iris_uncompiled_shader {
    /** Should we use ALT mode for math?  Useful for ARB programs. */
    bool use_alt_mode;
 
-   bool needs_edge_flag;
-
    /* Whether shader uses atomic operations. */
    bool uses_atomic_load_store;
 
