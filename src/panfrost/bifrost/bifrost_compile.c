@@ -1579,6 +1579,40 @@ bi_lower_frsq_32(bi_builder *b, bi_index dst, bi_index s0)
                         BI_ROUND_NONE, BI_SPECIAL_N);
 }
 
+static void
+bi_lower_fsqrt_32(bi_builder *b, bi_index dst, bi_index s0)
+{
+        bi_index m  = bi_frexpm_f32(b, s0, false, true);
+        bi_index e  = bi_frexpe_f32(b, s0, false, true);
+        bi_index rcp = bi_temp(b->shader);
+        bi_lower_frsq_32(b, rcp, m);
+        bi_fma_rscale_f32_to(b, dst, m, rcp, bi_negzero(), e, BI_ROUND_NONE, BI_SPECIAL_LEFT);
+}
+
+static void
+bi_fsqrt_32(bi_builder *b, bi_index dst, bi_index s0)
+{
+        bi_index m  = bi_frexpm_f32(b, s0, false, true);
+        bi_index e  = bi_frexpe_f32(b, s0, false, true);
+        bi_index rcp = bi_frsq_f32(b, m);
+        bi_fma_rscale_f32_to(b, dst, m, rcp, bi_negzero(), e, BI_ROUND_NONE, BI_SPECIAL_LEFT);
+}
+
+static void
+bi_fsqrt_16(bi_builder *b, bi_index dst, bi_index s0)
+{
+        bi_index rsq = bi_frsq_f16(b, s0);
+
+        if (b->shader->arch <= 8) {
+                /* Bifrost has a 16-bit FMA_RSCALE */
+                bi_fma_rscale_v2f16_to(b, dst, s0, rsq, bi_negzero(), bi_zero(), BI_ROUND_NONE, BI_SPECIAL_LEFT);
+        } else {
+                /* Valhall does not, so we need to lower */
+                bi_index sqrt = bi_fma_v2f16(b, s0, rsq, bi_negzero(), BI_ROUND_NONE);
+                bi_csel_v2f16_to(b, dst, s0, bi_zero(), s0, sqrt, BI_CMPF_EQ);
+        }
+}
+
 /* More complex transcendentals, see
  * https://gitlab.freedesktop.org/panfrost/mali-isa-docs/-/blob/master/Bifrost.adoc
  * for documentation */
@@ -2326,6 +2360,15 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                         bi_lower_frcp_32(b, dst, s0);
                 else
                         bi_frcp_to(b, sz, dst, s0);
+                break;
+
+        case nir_op_fsqrt:
+                if (sz == 32 && b->shader->quirks & BIFROST_NO_FP32_TRANSCENDENTALS)
+                        bi_lower_fsqrt_32(b, dst, s0);
+                else if (sz == 32)
+                        bi_fsqrt_32(b, dst, s0);
+                else
+                        bi_fsqrt_16(b, dst, s0);
                 break;
 
         case nir_op_uclz:
@@ -3497,6 +3540,7 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
         switch (alu->op) {
         case nir_op_frcp:
         case nir_op_frsq:
+        case nir_op_fsqrt:
         case nir_op_ishl:
         case nir_op_ishr:
         case nir_op_ushr:
