@@ -803,6 +803,13 @@
       <value name="GPU coherent" value="0"/>
       <value name="IA coherent" value="1"/>
     </field>
+    <field name="L1 Cache Control" start="176" end="178" type="uint">
+      <value name="WBP" value="0"/>
+      <value name="UC" value="1"/>
+      <value name="WB" value="2"/>
+      <value name="WT" value="3"/>
+      <value name="WS" value="4"/>
+    </field>
     <field name="Tiled Resource Mode" start="178" end="179" type="uint">
       <value name="NONE" value="0"/>
       <value name="4KB" value="1"/>
