@@ -244,11 +244,11 @@ radv_use_dcc_for_image(struct radv_device *device, const struct radv_image *imag
        image->tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
       return false;
 
-   /* Do not enable DCC for mipmapped arrays because performance is worse. */
-   if (pCreateInfo->arrayLayers > 1 && pCreateInfo->mipLevels > 1)
-      return false;
-
    if (device->physical_device->rad_info.chip_class < GFX10) {
+      /* Do not enable DCC for mipmapped arrays because performance is worse. */
+      if (pCreateInfo->arrayLayers > 1 && pCreateInfo->mipLevels > 1)
+         return false;
+
       /* TODO: Add support for DCC MSAA on GFX8-9. */
       if (pCreateInfo->samples > 1 && !device->physical_device->dcc_msaa_allowed)
          return false;

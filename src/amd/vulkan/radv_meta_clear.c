@@ -1477,7 +1477,6 @@ radv_clear_dcc(struct radv_cmd_buffer *cmd_buffer, struct radv_image *image,
       uint64_t size;
 
       if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX10) {
-         /* DCC for mipmaps+layers is currently disabled. */
          offset += image->planes[0].surface.meta_slice_size * range->baseArrayLayer +
                    image->planes[0].surface.u.gfx9.meta_levels[level].offset * layer_count;
          size = image->planes[0].surface.u.gfx9.meta_levels[level].size * layer_count;
