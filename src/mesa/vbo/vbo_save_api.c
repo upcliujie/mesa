@@ -179,7 +179,7 @@ realloc_vertex_store(struct vbo_save_vertex_store *store, uint32_t vertex_size, 
    if (!store)
       store = CALLOC_STRUCT(vbo_save_vertex_store);
 
-   int new_size = MAX2(vertex_count * vertex_size, VBO_SAVE_BUFFER_SIZE) * sizeof(GLfloat);
+   int new_size = MAX2(vertex_count * vertex_size * sizeof(GLfloat), VBO_SAVE_BUFFER_SIZE);
    if (new_size > store->buffer_in_ram_size) {
       store->buffer_in_ram_size = new_size;
       store->buffer_in_ram = realloc(store->buffer_in_ram, store->buffer_in_ram_size);
@@ -894,7 +894,7 @@ end:
       save->current_bo = ctx->Driver.NewBufferObject(ctx, VBO_BUF_ID + 1);
       bool success = ctx->Driver.BufferData(ctx,
                                             GL_ELEMENT_ARRAY_BUFFER_ARB,
-                                            VBO_SAVE_BUFFER_SIZE * sizeof(uint32_t),
+                                            VBO_SAVE_BUFFER_SIZE,
                                             NULL,
                                             GL_STATIC_DRAW_ARB, GL_MAP_WRITE_BIT,
                                             save->current_bo);

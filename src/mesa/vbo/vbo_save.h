@@ -141,10 +141,9 @@ _vbo_save_get_vertex_count(const struct vbo_save_vertex_list *node)
  * likelyhood as it occurs.  No reason we couldn't change usage
  * internally even though this probably isn't allowed for client VBOs?
  */
-#define VBO_SAVE_BUFFER_SIZE (256*1024) /* dwords */
+#define VBO_SAVE_BUFFER_SIZE (8*1024*1024) /* bytes */
 #define VBO_SAVE_PRIM_SIZE   128
 #define VBO_SAVE_PRIM_MODE_MASK         0x3f
-#define VBO_SAVE_INDEX_SIZE (32 * 1024)
 
 struct vbo_save_vertex_store {
    fi_type *buffer_in_ram;
