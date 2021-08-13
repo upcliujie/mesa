@@ -618,7 +618,7 @@ print_instr_format_specific(const Instruction* instr, FILE* output)
          fprintf(output, " bank_mask:0x%.1x", dpp.bank_mask);
       if (dpp.bound_ctrl)
          fprintf(output, " bound_ctrl:1");
-   } else if (instr->isSDWA()) {
+   } else if (instr->isSDWA() && !instr->isVOPC()) {
       const SDWA_instruction& sdwa = instr->sdwa();
       switch (sdwa.omod) {
       case 1: fprintf(output, " *2"); break;
