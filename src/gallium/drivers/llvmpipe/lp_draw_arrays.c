@@ -57,6 +57,7 @@ llvmpipe_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
                   const struct pipe_draw_start_count_bias *draws,
                   unsigned num_draws)
 {
+   fprintf(stderr, "%s: indirect %p draws[0].count %d info->instance_count %d\n", __func__, indirect, draws[0].count, info->instance_count);
    if (!indirect && (!draws[0].count || !info->instance_count))
       return;
 
