@@ -728,6 +728,25 @@ ir_algebraic_visitor::handle_expression(ir_expression *ir)
          if (add->operands[0]->type != add->operands[1]->type)
             continue;
 
+         /* Negate only signed operands when non-equality operators are
+          * used because negation may change the value of the whole expression.
+          * E.g. 0 >= 1u + var would eventually become 0xffffffff >= var,
+          * which would always evaluate to true, when original expression
+          * was true only for var == 0xffffffff.
+          */
+         if (ir->operation != ir_binop_equal &&
+               ir->operation != ir_binop_nequal) {
+            switch (add->operands[1 - add_pos]->type->base_type) {
+            case GLSL_TYPE_INT:
+            case GLSL_TYPE_INT8:
+            case GLSL_TYPE_INT16:
+            case GLSL_TYPE_INT64:
+               break;
+            default:
+               continue;
+            }
+         }
+
          /* Depending of the zero position we want to optimize
           * (0 cmp x+y) into (-x cmp y) or (x+y cmp 0) into (x cmp -y)
           */
