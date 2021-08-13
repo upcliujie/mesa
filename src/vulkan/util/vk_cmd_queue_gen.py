@@ -35,6 +35,10 @@ from mako.template import Template
 # '{file_without_suffix}_depend_files'.
 from vk_dispatch_table_gen import get_entrypoints_from_xml, EntrypointParam
 
+MANUAL_COMMANDS = ['CmdPushDescriptorSetKHR',             # This script doesn't know how to copy arrays in structs in arrays
+                   'CmdPushDescriptorSetWithTemplateKHR', # pData's size cannot be calculated from the xml
+                  ]
+
 TEMPLATE_H = Template(COPYRIGHT + """\
 /* This file generated from ${filename}, don't edit directly. */
 
@@ -100,7 +104,7 @@ struct vk_cmd_queue_entry {
 };
 
 % for c in commands:
-% if c.name == "CmdPushDescriptorSetWithTemplateKHR": # pData's size cannot be calculated from the xml
+% if c.name in manual_commands:
 <% continue %>
 % endif
 % if c.guard is not None:
@@ -145,7 +149,7 @@ const char *vk_cmd_queue_type_names[] = {
 };
 
 % for c in commands:
-% if c.name == "CmdPushDescriptorSetWithTemplateKHR":
+% if c.name in manual_commands:
 <% continue %>
 % endif
 % if c.guard is not None:
@@ -302,6 +306,7 @@ def main():
         'get_array_copy': get_array_copy,
         'get_struct_copy': get_struct_copy,
         'types': types,
+        'manual_commands': MANUAL_COMMANDS,
     }
 
     # For outputting entrypoints.h we generate a anv_EntryPoint() prototype
