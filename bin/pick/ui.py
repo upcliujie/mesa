@@ -29,6 +29,7 @@ import attr
 import urwid
 
 from . import core
+import utils
 
 if typing.TYPE_CHECKING:
     WidgetType = typing.TypeVar('WidgetType', bound=urwid.Widget)
@@ -150,8 +151,8 @@ class UI:
 
     async def update(self) -> None:
         self.load()
-        with open('VERSION', 'r') as f:
-            version = '.'.join(f.read().split('.')[:2])
+        raw_version = await utils.project_version()
+        version = '.'.join(raw_version.split('.')[:2])
         if self.previous_commits:
             sha = self.previous_commits[0].sha
         else:
