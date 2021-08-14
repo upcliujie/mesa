@@ -1046,6 +1046,30 @@ fd_resource_get_handle(struct pipe_screen *pscreen, struct pipe_context *pctx,
                                   fd_resource_pitch(rsc, 0), handle);
 }
 
+static bool
+fd_resource_get_param(struct pipe_screen *pscreen,
+                      struct pipe_context *pctx, struct pipe_resource *prsc,
+                      unsigned plane, unsigned layer, unsigned level,
+                      enum pipe_resource_param param,
+                      unsigned usage, uint64_t *value)
+{
+   struct fd_resource *rsc = fd_resource(prsc);
+
+   switch (param) {
+   case PIPE_RESOURCE_PARAM_STRIDE:
+      *value = fd_resource_pitch(rsc, level);
+      return true;
+   case PIPE_RESOURCE_PARAM_OFFSET:
+      *value = fd_resource_offset(rsc, level, layer);
+      return true;
+   case PIPE_RESOURCE_PARAM_MODIFIER:
+      *value = fd_resource_modifier(rsc);
+      return true;
+   default:
+      return false;
+   }
+}
+
 /* special case to resize query buf after allocated.. */
 void
 fd_resource_resize(struct pipe_resource *prsc, uint32_t sz)
@@ -1574,6 +1598,7 @@ fd_resource_screen_init(struct pipe_screen *pscreen)
    pscreen->resource_create_with_modifiers = fd_resource_create_with_modifiers;
    pscreen->resource_from_handle = fd_resource_from_handle;
    pscreen->resource_get_handle = fd_resource_get_handle;
+   pscreen->resource_get_param = fd_resource_get_param;
    pscreen->resource_destroy = u_transfer_helper_resource_destroy;
 
    pscreen->transfer_helper =
