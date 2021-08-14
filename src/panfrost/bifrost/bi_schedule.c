@@ -1916,7 +1916,8 @@ bi_lower_fau(bi_context *ctx)
         }
 }
 
-/* On v6, ATEST cannot be the first clause of a shader, add a NOP if needed */
+/* On v6, ATEST or tilebuffer loads cannot be the first clause of a shader,
+ * add a NOP if needed */
 
 static void
 bi_add_nop_for_atest(bi_context *ctx)
@@ -1932,7 +1933,9 @@ bi_add_nop_for_atest(bi_context *ctx)
         bi_block *block = list_first_entry(&ctx->blocks, bi_block, link);
         bi_clause *clause = bi_next_clause(ctx, block, NULL);
 
-        if (!clause || clause->message_type != BIFROST_MESSAGE_ATEST)
+        if (!clause ||
+            !(clause->message_type == BIFROST_MESSAGE_ATEST ||
+              clause->message_type == BIFROST_MESSAGE_TILE))
                 return;
 
         /* Add a NOP so we can wait for the dependencies required for ATEST to
