@@ -1229,6 +1229,9 @@ intrinsic("rt_return_amd")
 # offset into scratch for the input callable data in a raytracing pipeline.
 system_value("rt_arg_scratch_offset_amd", 1)
 
+# Whether to call the anyhit shader for an intersection in an intersection shader.
+system_value("intersection_opaque_amd", 1, bit_sizes=[1])
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel
