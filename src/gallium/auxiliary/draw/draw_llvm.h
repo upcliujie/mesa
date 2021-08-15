@@ -548,6 +548,7 @@ struct draw_tes_llvm_variant_key
    unsigned nr_images:8;
    unsigned primid_output:7;
    unsigned primid_needed:1;
+   unsigned clamp_vertex_color:1;
    struct draw_sampler_static_state samplers[1];
    /* Followed by variable number of images.*/
 };

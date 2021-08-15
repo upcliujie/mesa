@@ -4073,6 +4073,31 @@ draw_tes_llvm_generate(struct draw_llvm *llvm,
                        outputs);
 
       lp_build_mask_end(&mask);
+
+      {
+         LLVMValueRef out;
+         unsigned chan, attrib;
+         struct lp_build_context bld;
+         struct tgsi_shader_info* info = &llvm->draw->tes.tess_eval_shader->info;
+         lp_build_context_init(&bld, variant->gallivm, tes_type);
+
+         for (attrib = 0; attrib < info->num_outputs; ++attrib) {
+            for (chan = 0; chan < TGSI_NUM_CHANNELS; ++chan) {
+               if (outputs[attrib][chan]) {
+                  switch (info->output_semantic_name[attrib]) {
+                  case TGSI_SEMANTIC_COLOR:
+                  case TGSI_SEMANTIC_BCOLOR:
+                     if (variant->key.clamp_vertex_color) {
+                        out = LLVMBuildLoad(builder, outputs[attrib][chan], "");
+                        out = lp_build_clamp(&bld, out, bld.zero, bld.one);
+                        LLVMBuildStore(builder, out, outputs[attrib][chan]);
+                     }
+                     break;
+                  }
+               }
+            }
+         }
+      }
       LLVMValueRef clipmask = lp_build_const_int_vec(gallivm,
                                                      lp_int_type(tes_type), 0);
 
@@ -4195,6 +4220,8 @@ draw_tes_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
       key->primid_output = primid_output;
       key->primid_needed = true;
    }
+
+   key->clamp_vertex_color = llvm->draw->rasterizer->clamp_vertex_color; /**/
 
    /* All variants of this shader will have the same value for
     * nr_samplers.  Not yet trying to compact away holes in the
