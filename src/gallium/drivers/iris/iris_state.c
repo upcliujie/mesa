@@ -736,6 +736,9 @@ init_state_base_address(struct iris_batch *batch)
       sba.IndirectObjectBufferSize = 0xfffff;
       sba.InstructionBufferSize    = 0xfffff;
       sba.DynamicStateBufferSize   = 0xfffff;
+#if GFX_VERx10 >= 125
+      sba.L1CacheControl = L1CC_WB;
+#endif
    }
 
    flush_after_state_base_change(batch);
@@ -5352,6 +5355,9 @@ iris_update_surface_base_address(struct iris_batch *batch,
       sba.SurfaceStateMOCS            = mocs;
 #if GFX_VER >= 9
       sba.BindlessSurfaceStateMOCS    = mocs;
+#endif
+#if GFX_VERx10 >= 125
+      sba.L1CacheControl = L1CC_WB;
 #endif
    }
 
