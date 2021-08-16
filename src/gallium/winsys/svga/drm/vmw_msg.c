@@ -61,7 +61,7 @@
 #define HIGH_WORD(X) ((X & 0xFFFF0000) >> 16)
 
 
-#if defined(PIPE_CC_GCC) && (PIPE_CC_GCC_VERSION > 502)
+#if defined(PIPE_CC_GCC) && (PIPE_CC_GCC_VERSION > 502) && (defined(PIPE_ARCH_X86) || defined(PIPE_ARCH_X86_64))
 
 /**
  * Hypervisor-specific bi-directional communication channel.  Should never
@@ -432,10 +432,6 @@ vmw_svga_winsys_host_log(struct svga_winsys_screen *sws, const char *log)
    int msg_len;
    int ret;
 
-#ifdef MSG_NOT_IMPLEMENTED
-   return;
-#endif
-
    if (!log)
       return;
 
@@ -459,10 +455,14 @@ vmw_svga_winsys_host_log(struct svga_winsys_screen *sws, const char *log)
                                 &msg_arg, sizeof(msg_arg));
 
    } else {
+#ifdef MSG_NOT_IMPLEMENTED
+      debug_printf("Old vmwgfx doesn't support message passing.\n");
+#else
       if (!(ret = vmw_open_channel(&channel, RPCI_PROTOCOL_NUM))) {
          ret = vmw_send_msg(&channel, msg);
          vmw_close_channel(&channel);
       }
+#endif
    }
 
    if (ret)
