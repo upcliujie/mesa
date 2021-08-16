@@ -163,6 +163,7 @@ dri2_drawable_get_buffers(struct dri_drawable *drawable,
       case PIPE_FORMAT_R10G10B10A2_UNORM:
       case PIPE_FORMAT_BGRA8888_UNORM:
       case PIPE_FORMAT_RGBA8888_UNORM:
+      case PIPE_FORMAT_RGBA8888_SRGB:
 	 depth = 32;
 	 break;
       case PIPE_FORMAT_R10G10B10X2_UNORM:
@@ -171,6 +172,7 @@ dri2_drawable_get_buffers(struct dri_drawable *drawable,
          break;
       case PIPE_FORMAT_BGRX8888_UNORM:
       case PIPE_FORMAT_RGBX8888_UNORM:
+      case PIPE_FORMAT_RGBX8888_SRGB:
 	 depth = 24;
 	 break;
       case PIPE_FORMAT_B5G6R5_UNORM:
@@ -255,9 +257,11 @@ dri_image_drawable_get_buffers(struct dri_drawable *drawable,
       case PIPE_FORMAT_BGRA8888_UNORM:
          image_format = __DRI_IMAGE_FORMAT_ARGB8888;
          break;
+      case PIPE_FORMAT_RGBX8888_SRGB:
       case PIPE_FORMAT_RGBX8888_UNORM:
          image_format = __DRI_IMAGE_FORMAT_XBGR8888;
          break;
+      case PIPE_FORMAT_RGBA8888_SRGB:
       case PIPE_FORMAT_RGBA8888_UNORM:
          image_format = __DRI_IMAGE_FORMAT_ABGR8888;
          break;
