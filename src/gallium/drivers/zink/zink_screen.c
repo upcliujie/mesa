@@ -907,6 +907,46 @@ vk_sample_count_flags(uint32_t sample_count)
 }
 
 static bool
+check_format_msaa(struct zink_screen *screen, VkFormat vkformat,
+                  unsigned bind, VkImageTiling tiling,
+                  VkSampleCountFlags samples, VkSampleCountFlags storage_samples)
+{
+   u_foreach_bit(bit, bind) {
+      /* this is a bit looser than the resource creation checks
+       * it's intended to provide an early-out for gallium, not to be exhaustive
+       */
+      VkImageUsageFlags usage = 0;
+      switch (1<<bit) {
+      case PIPE_BIND_RENDER_TARGET:
+         usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+         break;
+      case PIPE_BIND_DEPTH_STENCIL:
+         usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+         break;
+      case PIPE_BIND_SAMPLER_VIEW:
+         usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+         break;
+      case PIPE_BIND_SHADER_IMAGE:
+         usage = VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT;
+         break;
+      default: break;
+      }
+      if (usage) {
+         VkImageFormatProperties image_props;
+         VkResult ret = vkGetPhysicalDeviceImageFormatProperties(screen->pdev, vkformat,
+                                                                 VK_IMAGE_TYPE_2D,//gallium always checks 2d
+                                                                 tiling, usage, 0, &image_props);
+         if (ret != VK_SUCCESS)
+            return false;
+         VkSampleCountFlags sample_mask = usage == VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT ? storage_samples : samples;;
+         if (!(image_props.sampleCounts & sample_mask))
+            return false;
+      }
+   }
+   return true;
+}
+
+static bool
 zink_is_format_supported(struct pipe_screen *pscreen,
                          enum pipe_format format,
                          enum pipe_texture_target target,
@@ -934,6 +974,7 @@ zink_is_format_supported(struct pipe_screen *pscreen,
    if (vkformat == VK_FORMAT_UNDEFINED)
       return false;
 
+   VkFormatProperties props = screen->format_props[format];
    if (sample_count >= 1) {
       VkSampleCountFlagBits sample_mask = vk_sample_count_flags(sample_count);
       if (!sample_mask)
@@ -975,9 +1016,15 @@ zink_is_format_supported(struct pipe_screen *pscreen,
           if (!(screen->info.props.limits.storageImageSampleCounts & sample_mask))
              return false;
       }
+      VkSampleCountFlagBits storage_samples = vk_sample_count_flags(storage_sample_count);
+      for (unsigned i = 0; i < 2; i++) {
+         VkImageTiling tiling[] = {VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_TILING_LINEAR};
+         if (check_format_msaa(screen, vkformat, bind, tiling[i], sample_mask, storage_samples))
+            goto msaa_good;
+      }
+      return false;
    }
-
-   VkFormatProperties props = screen->format_props[format];
+msaa_good:
 
    if (target == PIPE_BUFFER) {
       if (bind & PIPE_BIND_VERTEX_BUFFER &&
