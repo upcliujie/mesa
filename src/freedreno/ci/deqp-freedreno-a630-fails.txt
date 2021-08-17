@@ -33,6 +33,11 @@ dEQP-VK.api.info.get_physical_device_properties2.properties,Fail
 dEQP-VK.api.object_management.alloc_callback_fail.device,Fail
 dEQP-VK.api.object_management.alloc_callback_fail.device_group,Fail
 
+# https://gitlab.freedesktop.org/mesa/mesa/-/issues/5243
+# [0] vkGetDeviceProcAddr(device, "vkCmdSetPatchControlPointsEXT") returned nullptr. Should return valid function address.
+# [1] vkGetDeviceProcAddr(device, "vkCmdSetLogicOpEXT") returned nullptr. Should return valid function address.
+dEQP-VK.api.version_check.entry_points,Fail
+
 # "MESA: error: ir3_ra() failed!"
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/33
 dEQP-VK.graphicsfuzz.spv-stable-maze-flatten-copy-composite,Fail
