@@ -804,6 +804,8 @@ panfrost_destroy(struct pipe_context *pipe)
 {
         struct panfrost_context *panfrost = pan_context(pipe);
 
+        _mesa_hash_table_destroy(panfrost->writers, NULL);
+
         if (panfrost->blitter)
                 util_blitter_destroy(panfrost->blitter);
 
@@ -1126,6 +1128,9 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
                         PAN_BO_EXECUTE, 4096, "Shaders", true, false);
 
         ctx->blitter = util_blitter_create(gallium);
+
+        ctx->writers = _mesa_hash_table_create(gallium, _mesa_hash_pointer,
+                                                        _mesa_key_pointer_equal);
 
         assert(ctx->blitter);
 
