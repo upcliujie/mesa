@@ -3012,7 +3012,7 @@ panfrost_draw_vbo(struct pipe_context *pipe,
          * of 65536 jobs, but we choose a smaller soft limit (arbitrary) to
          * avoid the risk of timeouts. This might not be a good idea. */
         if (unlikely(batch->scoreboard.job_index > 10000))
-                batch = panfrost_get_fresh_batch_for_fbo(ctx, "Too many draws");
+                panfrost_refresh_batch(ctx, "Too many draws");
 
         unsigned zs_draws = ctx->depth_stencil->draws;
         batch->draws |= zs_draws;

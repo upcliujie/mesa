@@ -211,25 +211,21 @@ panfrost_get_batch_for_fbo(struct panfrost_context *ctx)
         return batch;
 }
 
-struct panfrost_batch *
-panfrost_get_fresh_batch_for_fbo(struct panfrost_context *ctx, const char *reason)
+void
+panfrost_refresh_batch(struct panfrost_context *ctx, const char *reason)
 {
-        struct panfrost_batch *batch;
+        assert(ctx->batch != NULL);
 
-        batch = panfrost_get_batch(ctx, &ctx->pipe_framebuffer);
         panfrost_dirty_state_all(ctx);
 
         /* We only need to submit and get a fresh batch if there is no
          * draw/clear queued. Otherwise we may reuse the batch. */
 
-        if (batch->scoreboard.first_job) {
+        if (ctx->batch->scoreboard.first_job) {
                 perf_debug_ctx(ctx, "Flushing the current FBO due to: %s", reason);
-                panfrost_batch_submit(batch, 0, 0);
-                batch = panfrost_get_batch(ctx, &ctx->pipe_framebuffer);
+                panfrost_batch_submit(ctx->batch, 0, 0);
+                ctx->batch = panfrost_get_batch(ctx, &ctx->pipe_framebuffer);
         }
-
-        ctx->batch = batch;
-        return batch;
 }
 
 static void

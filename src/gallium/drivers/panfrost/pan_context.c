@@ -67,13 +67,14 @@ panfrost_clear(
         if (!panfrost_render_condition_check(ctx))
                 return;
 
-        /* TODO: panfrost_get_fresh_batch_for_fbo() instantiates a new batch if
+        /* TODO: panfrost_refresh_batch() instantiates a new batch if
          * the existing batch targeting this FBO has draws. We could probably
          * avoid that by replacing plain clears by quad-draws with a specific
          * color/depth/stencil value, thus avoiding the generation of extra
          * fragment jobs.
          */
-        struct panfrost_batch *batch = panfrost_get_fresh_batch_for_fbo(ctx, "Clear");
+        struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
+        panfrost_refresh_batch(ctx, "Clear");
         panfrost_batch_clear(batch, buffers, color, depth, stencil);
 }
 
