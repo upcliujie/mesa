@@ -205,3 +205,37 @@ vk_common_GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice
 
    return result;
 }
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_GetPhysicalDeviceSparseImageFormatProperties(VkPhysicalDevice physicalDevice,
+                                                       VkFormat format,
+                                                       VkImageType type,
+                                                       uint32_t samples,
+                                                       VkImageUsageFlags usage,
+                                                       VkImageTiling tiling,
+                                                       uint32_t *pNumProperties,
+                                                       VkSparseImageFormatProperties *pProperties)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   VkPhysicalDeviceSparseImageFormatInfo2 info = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SPARSE_IMAGE_FORMAT_INFO_2,
+      .format = format,
+      .type = type,
+      .samples = samples,
+      .usage = usage,
+      .tiling = tiling
+   };
+
+   /* Don't zero-init this struct since the driver fills it out entirely */
+   VkSparseImageFormatProperties2 props2;
+   props2.sType = VK_STRUCTURE_TYPE_SPARSE_IMAGE_FORMAT_PROPERTIES_2;
+   props2.pNext = NULL;
+
+   pdevice->dispatch_table.GetPhysicalDeviceSparseImageFormatProperties2(physicalDevice,
+                                                                         &info,
+                                                                         pNumProperties,
+                                                                         pProperties ? &props2 : NULL);
+   if (pProperties)
+      *pProperties = props2.properties;
+}
