@@ -1801,6 +1801,8 @@ tu_copy_image_to_image(struct tu_cmd_buffer *cmd,
       tu6_emit_event_write(cmd, cs, PC_CCU_FLUSH_COLOR_TS);
       tu6_emit_event_write(cmd, cs, CACHE_INVALIDATE);
 
+      tu_cs_emit_wfi(cs);
+
       tu_image_view_copy(&staging, &staging_image, dst_format,
                          &staging_subresource, 0, false);
 
@@ -2606,6 +2608,8 @@ tu_clear_sysmem_attachment(struct tu_cmd_buffer *cmd,
       tu6_emit_event_write(cmd, cs, PC_CCU_FLUSH_COLOR_TS);
       tu6_emit_event_write(cmd, cs, PC_CCU_INVALIDATE_COLOR);
    }
+
+   tu_cs_emit_wfi(cs);
 }
 
 void
@@ -2764,6 +2768,8 @@ store_cp_blit(struct tu_cmd_buffer *cmd,
     * results in sysmem, so we need to flush manually here.
     */
    tu6_emit_event_write(cmd, cs, PC_CCU_FLUSH_COLOR_TS);
+
+   tu_cs_emit_wfi(cs);
 }
 
 static void
@@ -2800,6 +2806,8 @@ store_3d_blit(struct tu_cmd_buffer *cmd,
     * writes to depth images as a color RT, so there's no need to flush depth.
     */
    tu6_emit_event_write(cmd, cs, PC_CCU_FLUSH_COLOR_TS);
+
+   tu_cs_emit_wfi(cs);
 }
 
 void
