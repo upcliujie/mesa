@@ -70,7 +70,7 @@ generate_compute(struct llvmpipe_context *lp,
    struct gallivm_state *gallivm = variant->gallivm;
    const struct lp_compute_shader_variant_key *key = &variant->key;
    char func_name[64], func_name_coro[64];
-   LLVMTypeRef arg_types[18];
+   LLVMTypeRef arg_types[19];
    LLVMTypeRef func_type, coro_func_type;
    LLVMTypeRef int32_type = LLVMInt32TypeInContext(gallivm->context);
    LLVMValueRef context_ptr;
@@ -121,10 +121,11 @@ generate_compute(struct llvmpipe_context *lp,
    arg_types[15] = int32_type;                         /* coro block_y_size */
    arg_types[16] = int32_type;                         /* coro block_z_size */
    arg_types[17] = int32_type;                         /* coro idx */
+   arg_types[18] = LLVMPointerType(LLVMInt8TypeInContext(gallivm->context), 0); /* coro mem */
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(gallivm->context),
-                                arg_types, ARRAY_SIZE(arg_types) - 6, 0);
+                                arg_types, ARRAY_SIZE(arg_types) - 7, 0);
 
-   coro_func_type = LLVMFunctionType(LLVMPointerType(LLVMInt8TypeInContext(gallivm->context), 0),
+   coro_func_type = LLVMFunctionType(LLVMVoidTypeInContext(gallivm->context),
                                      arg_types, ARRAY_SIZE(arg_types), 0);
 
    function = LLVMAddFunction(gallivm->module, func_name, func_type);
@@ -143,7 +144,8 @@ generate_compute(struct llvmpipe_context *lp,
    for(i = 0; i < ARRAY_SIZE(arg_types); ++i) {
       if(LLVMGetTypeKind(arg_types[i]) == LLVMPointerTypeKind) {
          lp_add_function_attr(coro, i + 1, LP_FUNC_ATTR_NOALIAS);
-         lp_add_function_attr(function, i + 1, LP_FUNC_ATTR_NOALIAS);
+         if (i < ARRAY_SIZE(arg_types) - 7)
+            lp_add_function_attr(function, i + 1, LP_FUNC_ATTR_NOALIAS);
       }
    }
 
@@ -193,11 +195,18 @@ generate_compute(struct llvmpipe_context *lp,
    num_x_loop = LLVMBuildUDiv(gallivm->builder, num_x_loop, vec_length, "");
    LLVMValueRef partials = LLVMBuildURem(gallivm->builder, x_size_arg, vec_length, "");
 
+   /* LLVM frame size for the coroutines this generates are 24-bytes on 64-bit,
+      however there is no nice way to check this doesn't change from here.
+      Just overallocate to 32 bytes per frame for now. */
+   /* we can't call the coro size intrinsic here because this code isn't inside a coroutine */
+   LLVMValueRef coro_size = lp_build_const_int32(gallivm, 32);
    LLVMValueRef coro_num_hdls = LLVMBuildMul(gallivm->builder, num_x_loop, y_size_arg, "");
    coro_num_hdls = LLVMBuildMul(gallivm->builder, coro_num_hdls, z_size_arg, "");
 
-   LLVMTypeRef hdl_ptr_type = LLVMPointerType(LLVMInt8TypeInContext(gallivm->context), 0);
-   LLVMValueRef coro_hdls = LLVMBuildArrayAlloca(gallivm->builder, hdl_ptr_type, coro_num_hdls, "coro_hdls");
+   LLVMValueRef coro_hdls_store = LLVMBuildMul(gallivm->builder, coro_num_hdls, coro_size, "");
+
+   LLVMTypeRef hdl_ptr_type = LLVMInt8TypeInContext(gallivm->context);
+   LLVMValueRef coro_hdls = LLVMBuildArrayAlloca(gallivm->builder, hdl_ptr_type, coro_hdls_store, "coro_hdls");
 
    unsigned end_coroutine = INT_MAX;
 
@@ -245,28 +254,29 @@ generate_compute(struct llvmpipe_context *lp,
                                   loop_state[0].counter, "");
 
       args[17] = coro_hdl_idx;
-      LLVMValueRef coro_entry = LLVMBuildGEP(gallivm->builder, coro_hdls, &coro_hdl_idx, 1, "");
 
-      LLVMValueRef coro_hdl = LLVMBuildLoad(gallivm->builder, coro_entry, "coro_hdl");
+      LLVMValueRef coro_mem_offset = LLVMBuildMul(gallivm->builder, coro_hdl_idx, coro_size, "");
+      LLVMValueRef coro_entry = LLVMBuildGEP(gallivm->builder, coro_hdls, &coro_mem_offset, 1, "");
+
+      args[18] = coro_entry;
 
       struct lp_build_if_state ifstate;
       LLVMValueRef cmp = LLVMBuildICmp(gallivm->builder, LLVMIntEQ, loop_state[3].counter,
                                        lp_build_const_int32(gallivm, 0), "");
       /* first time here - call the coroutine function entry point */
       lp_build_if(&ifstate, gallivm, cmp);
-      LLVMValueRef coro_ret = LLVMBuildCall(gallivm->builder, coro, args, 18, "");
-      LLVMBuildStore(gallivm->builder, coro_ret, coro_entry);
+      LLVMBuildCall(gallivm->builder, coro, args, 19, "");
       lp_build_else(&ifstate);
       /* subsequent calls for this invocation - check if done. */
-      LLVMValueRef coro_done = lp_build_coro_done(gallivm, coro_hdl);
+      LLVMValueRef coro_done = lp_build_coro_done(gallivm, coro_entry);
       struct lp_build_if_state ifstate2;
       lp_build_if(&ifstate2, gallivm, coro_done);
       /* if done destroy and force loop exit */
-      lp_build_coro_destroy(gallivm, coro_hdl);
+      lp_build_coro_destroy(gallivm, coro_entry);
       lp_build_loop_force_set_counter(&loop_state[3], lp_build_const_int32(gallivm, end_coroutine - 1));
       lp_build_else(&ifstate2);
       /* otherwise resume the coroutine */
-      lp_build_coro_resume(gallivm, coro_hdl);
+      lp_build_coro_resume(gallivm, coro_entry);
       lp_build_endif(&ifstate2);
       lp_build_endif(&ifstate);
       lp_build_loop_force_reload_counter(&loop_state[3]);
@@ -305,6 +315,7 @@ generate_compute(struct llvmpipe_context *lp,
    block_y_size_arg = LLVMGetParam(coro, 15);
    block_z_size_arg = LLVMGetParam(coro, 16);
    LLVMValueRef coro_idx = LLVMGetParam(coro, 17);
+   LLVMValueRef coro_mem = LLVMGetParam(coro, 18);
    block = LLVMAppendBasicBlockInContext(gallivm->context, coro, "entry");
    LLVMPositionBuilderAtEnd(builder, block);
    {
@@ -326,7 +337,8 @@ generate_compute(struct llvmpipe_context *lp,
 
       /* these are coroutine entrypoint necessities */
       LLVMValueRef coro_id = lp_build_coro_id(gallivm);
-      LLVMValueRef coro_hdl = lp_build_coro_begin_alloc_mem(gallivm, coro_id);
+
+      LLVMValueRef coro_hdl = lp_build_coro_begin(gallivm, coro_id, coro_mem);
 
       LLVMValueRef has_partials = LLVMBuildICmp(gallivm->builder, LLVMIntNE, partials, lp_build_const_int32(gallivm, 0), "");
       LLVMValueRef tid_vals[3];
@@ -422,13 +434,13 @@ generate_compute(struct llvmpipe_context *lp,
       lp_build_coro_suspend_switch(gallivm, &coro_info, NULL, true);
       LLVMPositionBuilderAtEnd(builder, clean_block);
 
-      lp_build_coro_free_mem(gallivm, coro_id, coro_hdl);
+      //      lp_build_coro_free_mem(gallivm, coro_id, coro_hdl);
 
       LLVMBuildBr(builder, sus_block);
       LLVMPositionBuilderAtEnd(builder, sus_block);
 
       lp_build_coro_end(gallivm, coro_hdl);
-      LLVMBuildRet(builder, coro_hdl);
+      LLVMBuildRetVoid(builder);
    }
 
    sampler->destroy(sampler);
