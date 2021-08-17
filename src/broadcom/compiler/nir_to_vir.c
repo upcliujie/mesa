@@ -3986,8 +3986,28 @@ v3d_nir_to_vir(struct v3d_compile *c)
 
         nir_to_vir(c);
 
+        struct qinst *last_thrsw = c->last_thrsw;
+
         /* Emit the last THRSW before STVPM and TLB writes. */
         vir_emit_last_thrsw(c);
+
+        struct qinst *last_thrsw_for_spills = NULL;
+        bool scoreboard_lock_on_first_thrsw = false;
+
+        /* If we didn't insert a last thrsw, then force inserting one so if
+         * later we need to spill, all the spilling will happen before this
+         * inserted last thrsw. If at the end we don't need to spill, we will
+         * remove this last thrsw and restore the real last one.
+         */
+        if (last_thrsw == c->last_thrsw && c->threads > 1) {
+                assert(!last_thrsw || last_thrsw->is_last_thrsw);
+                if (last_thrsw)
+                        last_thrsw->is_last_thrsw = false;
+                scoreboard_lock_on_first_thrsw = c->lock_scoreboard_on_first_thrsw;
+                vir_emit_thrsw(c);
+                c->last_thrsw->is_last_thrsw = true;
+                last_thrsw_for_spills = c->last_thrsw;
+        }
 
         switch (c->s->info.stage) {
         case MESA_SHADER_FRAGMENT:
@@ -4084,6 +4104,17 @@ v3d_nir_to_vir(struct v3d_compile *c)
 
                 if (c->threads == 1)
                         vir_remove_thrsw(c);
+        }
+
+        /* If we didn't spill, then remove the forced last thrsw (if any) and
+         * restore the actual one.
+         */
+        if (!c->spills && last_thrsw_for_spills) {
+                vir_remove_instruction(c, last_thrsw_for_spills);
+                if (last_thrsw)
+                        last_thrsw->is_last_thrsw = true;
+                c->last_thrsw = last_thrsw;
+                c->lock_scoreboard_on_first_thrsw = scoreboard_lock_on_first_thrsw;
         }
 
         if (c->spills &&
