@@ -97,6 +97,16 @@ struct fd_dev_info {
 
          bool has_8bpp_ubwc;
 
+         /* a650 seems to be affected by a bug where CCU_FLUSH_* doesn't
+          * properly signal completion. The symptom is that when a draw
+          * or blit is immediately followed by CCU_FLUSH_* + CACHE_INVALIDATE
+          * and then a subsequent draw/blit which samples from the texture
+          * written by the first one, the second draw/blit reads corrupted
+          * data. This means that every such flush needs to be followed
+          * eventually by a WFI before the data flushed is read.
+          */
+         bool has_ccu_flush_bug;
+
          struct {
             uint32_t RB_UNKNOWN_8E04_blit;
             uint32_t PC_POWER_CNTL;
