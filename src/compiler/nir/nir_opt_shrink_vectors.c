@@ -70,6 +70,20 @@ shrink_dest_to_read_mask(nir_ssa_def *def)
    return false;
 }
 
+static void
+reswizzle_alu_uses(nir_ssa_def *def, uint8_t *reswizzle)
+{
+   nir_foreach_use(use_src, def) {
+      /* all uses must be ALU instructions */
+      assert(use_src->parent_instr->type == nir_instr_type_alu);
+      nir_alu_src *alu_src = (nir_alu_src*)use_src;
+
+      /* reswizzle ALU sources */
+      for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++)
+         alu_src->swizzle[i] = reswizzle[alu_src->swizzle[i]];
+   }
+}
+
 static bool
 opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
 {
@@ -156,12 +170,7 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
    assert(index == num_components);
 
    /* update uses */
-   nir_foreach_use(use_src, def) {
-      assert(use_src->parent_instr->type == nir_instr_type_alu);
-      nir_alu_src *alu_src = (nir_alu_src*)use_src;
-      for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++)
-         alu_src->swizzle[i] = reswizzle[alu_src->swizzle[i]];
-   }
+   reswizzle_alu_uses(def, reswizzle);
 
    return true;
 }
@@ -257,7 +266,53 @@ opt_shrink_vectors_intrinsic(nir_builder *b, nir_intrinsic_instr *instr, bool sh
 static bool
 opt_shrink_vectors_load_const(nir_load_const_instr *instr)
 {
-   return shrink_dest_to_read_mask(&instr->def);
+   nir_ssa_def *def = &instr->def;
+
+   /* early out if there's nothing to do. */
+   if (def->num_components == 1)
+      return false;
+
+   /* don't remove any channels if used by non-ALU */
+   nir_foreach_use(use_src, def) {
+      if (use_src->parent_instr->type != nir_instr_type_alu)
+         return false;
+   }
+
+   unsigned mask = nir_ssa_def_components_read(def);
+
+   /* If nothing was read, leave it up to DCE. */
+   if (!mask)
+      return false;
+
+   uint8_t reswizzle[NIR_MAX_VEC_COMPONENTS] = { 0 };
+   unsigned index = 0;
+   for (unsigned i = 0; i < def->num_components; i++) {
+      /* skip unused components */
+      if (!((mask >> i) & 0x1))
+         continue;
+
+      /* remove duplicate constants */
+      for (unsigned j = i + 1; j < def->num_components; j++) {
+         if (instr->value[i].u64 == instr->value[j].u64) {
+            reswizzle[j] = index;
+            mask &= ~(1 << j);
+         }
+      }
+
+      instr->value[index] = instr->value[i];
+      reswizzle[i] = index++;
+   }
+
+   /* return if no component was removed */
+   if (mask == BITFIELD_MASK(def->num_components))
+       return false;
+
+   def->num_components = util_bitcount(mask);
+
+   /* update uses */
+   reswizzle_alu_uses(def, reswizzle);
+
+   return true;
 }
 
 static bool
