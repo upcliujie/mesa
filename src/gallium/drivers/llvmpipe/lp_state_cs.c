@@ -133,6 +133,11 @@ generate_compute(struct llvmpipe_context *lp,
    coro = LLVMAddFunction(gallivm->module, func_name_coro, coro_func_type);
    LLVMSetFunctionCallConv(coro, LLVMCCallConv);
 
+   const char *attr_name = "alwaysinline";
+   unsigned kind_id = LLVMGetEnumAttributeKindForName(attr_name,
+                                                      strlen(attr_name));
+   LLVMAttributeRef llvm_attr = LLVMCreateEnumAttribute(gallivm->context, kind_id, 0);
+   LLVMAddAttributeAtIndex(coro, -1, llvm_attr);
    variant->function = function;
 
    for(i = 0; i < ARRAY_SIZE(arg_types); ++i) {
