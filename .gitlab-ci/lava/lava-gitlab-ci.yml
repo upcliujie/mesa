@@ -64,7 +64,8 @@
   needs:
     - kernel+rootfs_arm64
     - debian/x86_build
-    - debian-arm64
+    - job: debian-arm64
+      artifacts: true
 
 .lava-test:amd64:
   variables:
