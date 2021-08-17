@@ -1629,20 +1629,21 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st, uint
                                 bi_message_type_for_instr(tuple->add);
                         clause->message = tuple->add;
 
-                        switch (tuple->add->op) {
-                        case BI_OPCODE_ATEST:
-                                clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_DEPTH);
-                                break;
-                        case BI_OPCODE_LD_TILE:
-                                if (!ctx->inputs->is_blend)
+                        if (!ctx->inputs->is_blend) {
+                                switch (tuple->add->op) {
+                                case BI_OPCODE_ATEST:
+                                        clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_DEPTH);
+                                        break;
+                                case BI_OPCODE_LD_TILE:
                                         clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_COLOUR);
-                                break;
-                        case BI_OPCODE_BLEND:
-                                clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_DEPTH);
-                                clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_COLOUR);
-                                break;
-                        default:
-                                break;
+                                        break;
+                                case BI_OPCODE_BLEND:
+                                        clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_DEPTH);
+                                        clause->dependencies |= (1 << BIFROST_SLOT_ELDEST_COLOUR);
+                                        break;
+                                default:
+                                        break;
+                                }
                         }
                 }
 
