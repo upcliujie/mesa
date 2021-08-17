@@ -31,6 +31,7 @@
 #include "util/u_idalloc.h"
 #include "util/u_suballoc.h"
 #include "util/u_threaded_context.h"
+#include "util/u_vertex_state_cache.h"
 #include "ac_sqtt.h"
 
 #ifdef __cplusplus
@@ -659,6 +660,7 @@ struct si_screen {
    unsigned ngg_subgroup_size;
 
    struct util_idalloc_mt buffer_ids;
+   struct util_vertex_state_cache vertex_state_cache;
 };
 
 struct si_sampler_view {
@@ -867,12 +869,24 @@ struct si_small_prim_cull_info {
    float small_prim_precision;
 };
 
+struct si_vertex_state {
+   struct pipe_vertex_state b;
+   struct si_vertex_elements velems;
+   uint32_t descriptors[4 * SI_MAX_ATTRIBS];
+};
+
 typedef void (*pipe_draw_vbo_func)(struct pipe_context *pipe,
                                    const struct pipe_draw_info *info,
                                    unsigned drawid_offset,
                                    const struct pipe_draw_indirect_info *indirect,
                                    const struct pipe_draw_start_count_bias *draws,
                                    unsigned num_draws);
+typedef void (*pipe_draw_vertex_state_func)(struct pipe_context *ctx,
+                                            struct pipe_vertex_state *vstate,
+                                            uint32_t partial_velem_mask,
+                                            struct pipe_draw_vertex_state_info info,
+                                            const struct pipe_draw_start_count_bias *draws,
+                                            unsigned num_draws);
 
 struct si_context {
    struct pipe_context b; /* base class */
@@ -1011,6 +1025,8 @@ struct si_context {
    struct si_vertex_elements *vertex_elements;
    unsigned num_vertex_elements;
    unsigned cs_max_waves_per_sh;
+   bool uses_nontrivial_vs_prolog;
+   bool force_trivial_vs_prolog;
    bool do_update_shaders;
    bool compute_shaderbuf_sgprs_dirty;
    bool compute_image_sgprs_dirty;
@@ -1219,6 +1235,7 @@ struct si_context {
    struct hash_table *dirty_implicit_resources;
 
    pipe_draw_vbo_func draw_vbo[2][2][2];
+   pipe_draw_vertex_state_func draw_vertex_state[2][2][2];
    /* When b.draw_vbo is a wrapper, real_draw_vbo is the real draw_vbo function */
    pipe_draw_vbo_func real_draw_vbo;
    void (*emit_spi_map[33])(struct si_context *sctx);
@@ -1936,6 +1953,12 @@ static inline void si_select_draw_vbo(struct si_context *sctx)
                                                [!!sctx->shader.gs.cso]
                                                [sctx->ngg];
    assert(draw_vbo);
+
+   sctx->b.draw_vertex_state = sctx->draw_vertex_state[!!sctx->shader.tes.cso]
+                                                      [!!sctx->shader.gs.cso]
+                                                      [sctx->ngg];
+   assert(sctx->b.draw_vertex_state);
+
    if (unlikely(sctx->real_draw_vbo))
       sctx->real_draw_vbo = draw_vbo;
    else

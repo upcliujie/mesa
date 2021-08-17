@@ -916,6 +916,7 @@ static void si_destroy_screen(struct pipe_screen *pscreen)
    disk_cache_destroy(sscreen->disk_shader_cache);
    util_live_shader_cache_deinit(&sscreen->live_shader_cache);
    util_idalloc_mt_fini(&sscreen->buffer_ids);
+   util_vertex_state_cache_deinit(&sscreen->vertex_state_cache);
 
    sscreen->ws->destroy(sscreen->ws);
    FREE(sscreen);
