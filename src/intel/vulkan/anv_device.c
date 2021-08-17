@@ -2098,7 +2098,7 @@ anv_get_physical_device_properties_1_1(struct anv_physical_device *pdevice,
     * the real limit.
     */
    p->maxPerSetDescriptors       = 1024;
-   p->maxMemoryAllocationSize    = MAX_MEMORY_ALLOCATION_SIZE;
+   p->maxMemoryAllocationSize    = pdevice->sys.size;
 }
 
 static void
@@ -3865,7 +3865,7 @@ VkResult anv_AllocateMemory(
    VkDeviceSize aligned_alloc_size =
       align_u64(pAllocateInfo->allocationSize, 4096);
 
-   if (aligned_alloc_size > MAX_MEMORY_ALLOCATION_SIZE)
+   if (aligned_alloc_size > pdevice->sys.size)
       return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
 
    assert(pAllocateInfo->memoryTypeIndex < pdevice->memory.type_count);
