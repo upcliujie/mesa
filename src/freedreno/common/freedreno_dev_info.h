@@ -86,6 +86,8 @@ struct fd_dev_info {
           */
          bool indirect_draw_wfm_quirk;
 
+         bool depth_bounds_without_depth_test_quirk;
+
          bool has_tex_filter_cubic;
 
          bool has_sample_locations;
