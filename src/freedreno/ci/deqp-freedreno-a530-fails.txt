@@ -142,9 +142,6 @@ KHR-GLES31.core.arrays_of_arrays.InteractionArgumentAliasing6,Crash
 KHR-GLES31.core.arrays_of_arrays.InteractionFunctionCalls1,Fail
 KHR-GLES31.core.arrays_of_arrays.InteractionFunctionCalls2,Fail
 
-# "gl_NumWorkGroups: Invalid data at index 0"
-KHR-GLES31.core.compute_shader.built-in-variables,Fail
-
 # "Got red: 1, expected 0.00392157, at (1, 0)"
 KHR-GLES31.core.compute_shader.resource-image,Fail
 
