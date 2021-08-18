@@ -168,11 +168,18 @@ validate_ir(Program* program)
             for (unsigned i = 0; i < std::min<unsigned>(2, instr->operands.size()); i++) {
                const Operand& op = instr->operands[i];
                check(op.bytes() <= 4, "SDWA operands must not be larger than 4 bytes", instr.get());
-               if (sdwa.sel[i] & sdwa_isra)
-                  check(op.bytes() >= (sdwa.sel[i] & sdwa_rasize),
-                        "SDWA selection size must be at most operand size", instr.get());
-               else
-                  check(op.bytes() == 4, "SDWA selection needs dword operand", instr.get());
+               unsigned sel = sdwa.sel[i];
+               unsigned byte_size = sel & sdwa_rasize;
+               if (!(sel & sdwa_isra)) {
+                  if ((sel & sdwa_udword) == sdwa_udword)
+                     byte_size = 4;
+                  else if (sel & sdwa_isword)
+                     byte_size = 2;
+                  else /* byte selection */
+                     byte_size = 1;
+               }
+               check(op.bytes() >= byte_size,
+                     "SDWA selection size must be at most operand size", instr.get());
             }
             if (instr->operands.size() >= 3) {
                check(instr->operands[2].isFixed() && instr->operands[2].physReg() == vcc,
@@ -690,7 +697,17 @@ validate_subdword_operand(chip_class chip, const aco_ptr<Instruction>& instr, un
    if (instr->isPseudo() && chip >= GFX8)
       return true;
    if (instr->isSDWA()) {
-      unsigned size = instr->sdwa().sel[index] & sdwa_rasize;
+      unsigned sel = instr->sdwa().sel[index];
+      unsigned size = sel & sdwa_rasize;
+      if (!(sel & sdwa_isra)) {
+         if ((sel & sdwa_udword) == sdwa_udword)
+            size = 4;
+         else if (sel & sdwa_isword)
+            size = 2;
+         else /* byte selection */
+            size = 1;
+      }
+
       return byte % size == 0;
    }
    if (byte == 2 && can_use_opsel(chip, instr->opcode, index, 1))

@@ -67,11 +67,16 @@ get_sdwa_sel(unsigned sel, PhysReg reg)
    if (sel & sdwa_isra) {
       unsigned size = sdwa_rasize & sel;
       if (size == 1)
-         return reg.byte();
+         sel = sdwa_ubyte0;
       else /* size == 2 */
-         return sdwa_isword | (reg.byte() >> 1);
+         sel = sdwa_uword0;
    }
-   return sel & sdwa_asuint;
+   if ((sel & sdwa_udword) == sdwa_udword)
+      return sdwa_udword;
+   else if (sel & sdwa_isword)
+      return (sel & sdwa_asuint) | reg.byte() >> 1;
+   else /* byte selection */
+      return (sel & sdwa_asuint) + reg.byte();
 }
 
 unsigned
