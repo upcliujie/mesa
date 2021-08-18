@@ -929,6 +929,7 @@ panfrost_batch_clear(struct panfrost_batch *batch,
                      double depth, unsigned stencil)
 {
         struct panfrost_context *ctx = batch->ctx;
+        struct panfrost_blend_state *blend = ctx->blend;
 
         if (buffers & PIPE_CLEAR_COLOR) {
                 for (unsigned i = 0; i < ctx->pipe_framebuffer.nr_cbufs; ++i) {
@@ -936,7 +937,8 @@ panfrost_batch_clear(struct panfrost_batch *batch,
                                 continue;
 
                         enum pipe_format format = ctx->pipe_framebuffer.cbufs[i]->format;
-                        pan_pack_color(batch->clear_color[i], color, format, false);
+                        bool dither = blend ? blend->base.dither : false;
+                        pan_pack_color(batch->clear_color[i], color, format, dither);
                 }
         }
 
