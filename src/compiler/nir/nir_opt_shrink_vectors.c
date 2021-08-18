@@ -43,6 +43,119 @@
 #include "nir_builder.h"
 
 static bool
+alu_per_component_dce_cb(nir_src *src, void *defs_live)
+{
+   /* if the def instr is not ALU: just set pass_flags */
+   if (src->ssa->parent_instr->type != nir_instr_type_alu) {
+      src->ssa->parent_instr->pass_flags = 1;
+      return true;
+   }
+
+   unsigned writemask = 0;
+   /* if the use instr is not ALU: set src write_mask for all channels */
+   if (src->parent_instr->type != nir_instr_type_alu) {
+      writemask = BITFIELD_MASK(src->ssa->num_components);
+      nir_instr_as_alu(src->ssa->parent_instr)->dest.write_mask |= writemask;
+      src->ssa->parent_instr->pass_flags = 1;
+      return true;
+   }
+
+   /* both instructions are ALU: set the write_mask for used channels */
+   nir_alu_instr *instr = nir_instr_as_alu(src->parent_instr);
+   nir_alu_src* alu_src = (nir_alu_src*)src;
+   assert(instr->dest.write_mask);
+   if (nir_op_infos[instr->op].output_size == 0) {
+      for (unsigned i = 0; i < instr->dest.dest.ssa.num_components; i++) {
+         if ((instr->dest.write_mask >> i) & 0x1)
+            writemask |= (1 << alu_src->swizzle[i]);
+      }
+   } else if (nir_op_is_vec(instr->op)) {
+      /* check if this component is live */
+      unsigned src_index = alu_src - &instr->src[0];
+      if ((instr->dest.write_mask >> src_index) & 0x1)
+         writemask = (1 << alu_src->swizzle[0]);
+      else
+         return true;
+   } else {
+      writemask = BITFIELD_MASK(src->ssa->num_components);
+   }
+   assert(writemask);
+
+   nir_instr_as_alu(src->ssa->parent_instr)->dest.write_mask |= writemask;
+   src->ssa->parent_instr->pass_flags = 1;
+   return true;
+}
+
+/* This function performs a per-component dead code analysis,
+ * in order to mask out unused channels from ALU instructions.
+ *
+ * The write mask is used to indicate used channels.
+ */
+static void
+alu_per_component_dce(nir_function_impl *impl)
+{
+   /* initialize pass flags and write_masks:
+    * pass_flags: indicates whether the definition is used at all
+    * write_mask: indicates which ALU def components are used
+    */
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr(instr, block) {
+         if (instr->type == nir_instr_type_intrinsic) {
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            const nir_intrinsic_info *info = &nir_intrinsic_infos[intrin->intrinsic];
+            instr->pass_flags = !(info->flags & NIR_INTRINSIC_CAN_ELIMINATE);
+         } else if (instr->type == nir_instr_type_alu) {
+            instr->pass_flags = 0;
+            nir_instr_as_alu(instr)->dest.write_mask = 0;
+         } else {
+            instr->pass_flags = 0;
+         }
+      }
+   }
+
+   /* iterate backwards: set pass_flags for used ssa-defs and
+    * the write_mask for used components
+    */
+   nir_block *block = nir_impl_last_block(impl);
+   while (block) {
+      bool repeat_loop = false;
+      nir_block *loop_preheader = NULL;
+
+      /* check if we are at a loop header */
+      if (nir_cf_node_is_first(&block->cf_node) &&
+          block->cf_node.parent->type == nir_cf_node_loop)
+         loop_preheader = nir_block_cf_tree_prev(block);
+
+      /* mark IF-conditions as live */
+      nir_if *nif = nir_block_get_following_if(block);
+      if (nif) {
+         nir_instr *parent = nif->condition.ssa->parent_instr;
+         parent->pass_flags = 1;
+         if (parent->type == nir_instr_type_alu)
+            nir_instr_as_alu(parent)->dest.write_mask = 1;
+      }
+
+      nir_foreach_instr_reverse(instr, block) {
+         if (instr->pass_flags) {
+            /* repeat the loop if loop header phi sources changed */
+            if (loop_preheader && instr->type == nir_instr_type_phi) {
+               nir_foreach_phi_src(src, nir_instr_as_phi(instr)) {
+                  repeat_loop |= src->pred != loop_preheader &&
+                                 src->src.ssa->parent_instr->pass_flags == 0;
+               }
+            }
+            nir_foreach_src(instr, alu_per_component_dce_cb, NULL);
+         }
+      }
+
+      if (repeat_loop)
+         block = nir_loop_last_block(nir_cf_node_as_loop(block->cf_node.parent));
+      else
+         block = nir_block_cf_tree_prev(block);
+   }
+}
+
+static bool
 shrink_dest_to_read_mask(nir_ssa_def *def)
 {
    /* early out if there's nothing to do. */
@@ -96,10 +209,9 @@ only_used_by_alu(nir_ssa_def *def)
 }
 
 static bool
-opt_shrink_vector(nir_builder *b, nir_alu_instr *instr)
+opt_shrink_vector(nir_builder *b, nir_alu_instr *instr, unsigned mask)
 {
    nir_ssa_def *def = &instr->dest.dest.ssa;
-   unsigned mask = nir_ssa_def_components_read(def);
 
    /* If nothing was read, leave it up to DCE. */
    if (mask == 0)
@@ -148,6 +260,14 @@ static bool
 opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
 {
    nir_ssa_def *def = &instr->dest.dest.ssa;
+   unsigned mask = instr->dest.write_mask;
+
+   /* restore the write_mask */
+   instr->dest.write_mask = BITFIELD_MASK(def->num_components);
+
+   /* If nothing was read, leave it up to DCE. */
+   if (mask == 0)
+      return false;
 
    /* Nothing to shrink */
    if (def->num_components == 1)
@@ -158,36 +278,25 @@ opt_shrink_vectors_alu(nir_builder *b, nir_alu_instr *instr)
       case nir_op_vec4:
       case nir_op_vec3:
       case nir_op_vec2:
-         return opt_shrink_vector(b, instr);
+         return opt_shrink_vector(b, instr, mask);
       default:
          if (nir_op_infos[instr->op].output_size != 0)
             return false;
          break;
    }
 
+   /* return if all components are used */
+   if (mask == BITFIELD_MASK(def->num_components))
+      return false;
+
    /* don't remove any channels if used by non-ALU */
    if (!only_used_by_alu(def))
       return false;
 
-   unsigned mask = nir_ssa_def_components_read(def);
-   unsigned last_bit = util_last_bit(mask);
    unsigned num_components = util_bitcount(mask);
-
-   /* return, if there is nothing to do */
-   if (mask == 0 || num_components == def->num_components)
-      return false;
-
-   const bool is_bitfield_mask = last_bit == num_components;
-   if (is_bitfield_mask) {
-      /* just reduce the number of components and return */
-      def->num_components = num_components;
-      instr->dest.write_mask = mask;
-      return true;
-   }
-
    uint8_t reswizzle[NIR_MAX_VEC_COMPONENTS] = { 0 };
    unsigned index = 0;
-   for (unsigned i = 0; i < last_bit; i++) {
+   for (unsigned i = 0; i < util_last_bit(mask); i++) {
       /* skip unused components */
       if (!((mask >> i) & 0x1))
          continue;
@@ -388,6 +497,8 @@ nir_opt_shrink_vectors(nir_shader *shader, bool shrink_image_store)
    nir_foreach_function(function, shader) {
       if (!function->impl)
          continue;
+
+      alu_per_component_dce(function->impl);
 
       nir_builder b;
       nir_builder_init(&b, function->impl);
