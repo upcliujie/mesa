@@ -305,13 +305,9 @@ get_device_extensions(const struct anv_physical_device *device,
 }
 
 static uint64_t
-anv_compute_heap_size(int fd, uint64_t gtt_size)
+anv_compute_sys_heap_size(struct anv_physical_device *device,
+                          uint64_t total_ram)
 {
-   /* Query the total ram from the system */
-   uint64_t total_ram;
-   if (!os_get_total_physical_memory(&total_ram))
-      return 0;
-
    /* We don't want to burn too much ram with the GPU.  If the user has 4GiB
     * or less, we use at most half.  If they have more than 4GiB, we use 3/4.
     */
@@ -324,24 +320,67 @@ anv_compute_heap_size(int fd, uint64_t gtt_size)
    /* We also want to leave some padding for things we allocate in the driver,
     * so don't go over 3/4 of the GTT either.
     */
-   uint64_t available_gtt = gtt_size * 3 / 4;
+   available_ram = MIN2(available_ram, device->gtt_size * 3 / 4);
 
-   return MIN2(available_ram, available_gtt);
+   if (available_ram > (2ull << 30) && !device->supports_48bit_addresses) {
+      /* When running with an overridden PCI ID, we may get a GTT size from
+       * the kernel that is greater than 2 GiB but the execbuf check for 48bit
+       * address support can still fail.  Just clamp the address space size to
+       * 2 GiB if we don't have 48-bit support.
+       */
+      mesa_logw("%s:%d: The kernel reported a GTT size larger than 2 GiB but "
+                "not support for 48-bit addresses",
+                __FILE__, __LINE__);
+      available_ram = 2ull << 30;
+   }
+
+   return available_ram;
 }
 
-static bool
-anv_get_query_meminfo(struct anv_physical_device *device, int fd)
+static VkResult
+anv_init_meminfo(struct anv_physical_device *device, int fd)
 {
+   char sys_mem_regions[sizeof(struct drm_i915_query_memory_regions) +
+	                sizeof(struct drm_i915_memory_region_info)];
+
    struct drm_i915_query_memory_regions *mem_regions =
       intel_i915_query_alloc(fd, DRM_I915_QUERY_MEMORY_REGIONS);
-   if (mem_regions == NULL)
-      return false;
+   if (mem_regions == NULL) {
+      if (device->info.has_local_mem) {
+         return vk_errorfi(device->instance, NULL,
+                           VK_ERROR_INCOMPATIBLE_DRIVER,
+                           "failed to memory regions: %m");
+      }
+
+      uint64_t total_phys;
+      if (!os_get_total_physical_memory(&total_phys)) {
+         return vk_errorfi(device->instance, NULL,
+                           VK_ERROR_INITIALIZATION_FAILED,
+                           "failed to get total physical memory: %m");
+      }
+
+      uint64_t available;
+      if (!os_get_available_system_memory(&available))
+         available = 0; /* Silently disable VK_EXT_memory_budget */
+
+      /* The kernel query failed.  Fake it using OS memory queries.  This
+       * should be roughly the same for integrated GPUs.
+       */
+      mem_regions = (void *)sys_mem_regions;
+      mem_regions->num_regions = 1;
+      mem_regions->regions[0] = (struct drm_i915_memory_region_info) {
+         .region.memory_class = I915_MEMORY_CLASS_SYSTEM,
+         .probed_size = total_phys,
+         .unallocated_size = available,
+      };
+   }
 
    for(int i = 0; i < mem_regions->num_regions; i++) {
       switch(mem_regions->regions[i].region.memory_class) {
       case I915_MEMORY_CLASS_SYSTEM:
          device->sys.region = mem_regions->regions[i].region;
-         device->sys.size = mem_regions->regions[i].probed_size;
+         device->sys.size = anv_compute_sys_heap_size(device,
+                                 mem_regions->regions[i].probed_size);
          break;
       case I915_MEMORY_CLASS_DEVICE:
          device->vram.region = mem_regions->regions[i].region;
@@ -352,31 +391,10 @@ anv_get_query_meminfo(struct anv_physical_device *device, int fd)
       }
    }
 
-   free(mem_regions);
-   return true;
-}
+   if (mem_regions != (void *)sys_mem_regions)
+      free(mem_regions);
 
-static void
-anv_init_meminfo(struct anv_physical_device *device, int fd)
-{
-   if (anv_get_query_meminfo(device, fd))
-      return;
-
-   uint64_t heap_size = anv_compute_heap_size(fd, device->gtt_size);
-
-   if (heap_size > (2ull << 30) && !device->supports_48bit_addresses) {
-      /* When running with an overridden PCI ID, we may get a GTT size from
-       * the kernel that is greater than 2 GiB but the execbuf check for 48bit
-       * address support can still fail.  Just clamp the address space size to
-       * 2 GiB if we don't have 48-bit support.
-       */
-      mesa_logw("%s:%d: The kernel reported a GTT size larger than 2 GiB but "
-                "not support for 48-bit addresses",
-                __FILE__, __LINE__);
-      heap_size = 2ull << 30;
-   }
-
-   device->sys.size = heap_size;
+   return VK_SUCCESS;
 }
 
 static VkResult
@@ -403,7 +421,10 @@ anv_physical_device_init_heaps(struct anv_physical_device *device, int fd)
    device->supports_48bit_addresses = (device->info.ver >= 8) &&
                                       device->gtt_size > (4ULL << 30 /* GiB */);
 
-   anv_init_meminfo(device, fd);
+   VkResult result = anv_init_meminfo(device, fd);
+   if (result != VK_SUCCESS)
+      return result;
+
    assert(device->sys.size != 0);
 
    if (device->vram.size > 0) {
