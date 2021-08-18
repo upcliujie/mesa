@@ -2339,11 +2339,16 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
       unsigned last = ordered_shaders[0]->info.stage;
 
       if (ordered_shaders[0]->info.stage == MESA_SHADER_FRAGMENT &&
-          ordered_shaders[1]->info.has_transform_feedback_varyings)
+          ordered_shaders[1]->info.has_transform_feedback_varyings) {
          nir_link_xfb_varyings(ordered_shaders[1], ordered_shaders[0]);
+         nir_validate_shader(ordered_shaders[0], "after nir_link_xfb_varyings");
+         nir_validate_shader(ordered_shaders[1], "after nir_link_xfb_varyings");
+      }
 
       for (int i = 1; i < shader_count; ++i) {
          nir_lower_io_arrays_to_elements(ordered_shaders[i], ordered_shaders[i - 1]);
+         nir_validate_shader(ordered_shaders[i], "after nir_lower_io_arrays_to_elements");
+         nir_validate_shader(ordered_shaders[i - 1], "after nir_lower_io_arrays_to_elements");
       }
 
       for (int i = 0; i < shader_count; ++i) {
@@ -2392,6 +2397,9 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
 
    for (int i = 1; !optimize_conservatively && (i < shader_count); ++i) {
       if (nir_link_opt_varyings(ordered_shaders[i], ordered_shaders[i - 1])) {
+         nir_validate_shader(ordered_shaders[i], "after nir_link_opt_varyings");
+         nir_validate_shader(ordered_shaders[i - 1], "after nir_link_opt_varyings");
+
          NIR_PASS(_, ordered_shaders[i - 1], nir_opt_constant_folding);
          NIR_PASS(_, ordered_shaders[i - 1], nir_opt_algebraic);
          NIR_PASS(_, ordered_shaders[i - 1], nir_opt_dce);
@@ -2403,6 +2411,8 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
       bool progress = nir_remove_unused_varyings(ordered_shaders[i], ordered_shaders[i - 1]);
 
       nir_compact_varyings(ordered_shaders[i], ordered_shaders[i - 1], true);
+      nir_validate_shader(ordered_shaders[i], "after nir_compact_varyings");
+      nir_validate_shader(ordered_shaders[i - 1], "after nir_compact_varyings");
 
       if (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_CTRL ||
           (ordered_shaders[i]->info.stage == MESA_SHADER_VERTEX && has_geom_tess) ||
