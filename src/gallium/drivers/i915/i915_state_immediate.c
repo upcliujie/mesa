@@ -29,6 +29,7 @@
  *   Keith Whitwell <keithw@vmware.com>
  */
 
+#include "util/log.h"
 #include "util/u_memory.h"
 #include "i915_context.h"
 #include "i915_reg.h"
@@ -129,13 +130,22 @@ upload_S5(struct i915_context *i915)
     */
    LIS5 |= i915->blend->LIS5;
 
-#if 0
-   /* I915_NEW_RASTERIZER
-    */
-   if (i915->rasterizer->LIS7) {
+   if (i915->rasterizer->templ.offset_point !=
+          i915->rasterizer->templ.offset_line ||
+       i915->rasterizer->templ.offset_point !=
+          i915->rasterizer->templ.offset_tri) {
+      static bool printed;
+      if (!printed) {
+         mesa_loge("i915g: Doesn't support different depth offset enable "
+                   "between point/line/tri");
+         printed = true;
+      }
+   }
+   if (i915->rasterizer->templ.offset_point ||
+       i915->rasterizer->templ.offset_line ||
+       i915->rasterizer->templ.offset_tri) {
       LIS5 |= S5_GLOBAL_DEPTH_OFFSET_ENABLE;
    }
-#endif
 
    set_immediate(i915, I915_IMMEDIATE_S5, LIS5);
 }
@@ -189,7 +199,6 @@ const struct i915_tracked_state i915_upload_S6 = {
 static void
 upload_S7(struct i915_context *i915)
 {
-#if 0
    unsigned LIS7;
 
    /* I915_NEW_RASTERIZER
@@ -197,7 +206,6 @@ upload_S7(struct i915_context *i915)
    LIS7 = i915->rasterizer->LIS7;
 
    set_immediate(i915, I915_IMMEDIATE_S7, LIS7);
-#endif
 }
 
 const struct i915_tracked_state i915_upload_S7 = {"imm S7", upload_S7,

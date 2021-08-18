@@ -914,7 +914,7 @@ i915_create_rasterizer_state(struct pipe_context *pipe,
    if (!rasterizer->flatshade_first)
       cso->LIS6 |= (2 << S6_TRISTRIP_PV_SHIFT);
 
-   cso->LIS7 = fui(rasterizer->offset_units);
+   cso->LIS7 = fui(rasterizer->offset_units * 2.0);
 
    return cso;
 }

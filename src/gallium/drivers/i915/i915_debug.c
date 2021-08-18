@@ -362,6 +362,10 @@ debug_load_immediate(struct debug_stream *stream, const char *name,
       BITS(stream, ptr[j], 1, 0, "provoking vertex");
       j++;
    }
+   if (bits & (1 << 7)) {
+      mesa_logi("\t  LIS7: 0x%08x (depth offset %f)", ptr[j], uif(ptr[j]));
+      j++;
+   }
 
    mesa_logi("%s", "");
 

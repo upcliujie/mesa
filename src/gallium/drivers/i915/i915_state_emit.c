@@ -107,7 +107,8 @@ validate_immediate(struct i915_context *i915, unsigned *batch_space)
    unsigned dirty = (1 << I915_IMMEDIATE_S0 | 1 << I915_IMMEDIATE_S1 |
                      1 << I915_IMMEDIATE_S2 | 1 << I915_IMMEDIATE_S3 |
                      1 << I915_IMMEDIATE_S3 | 1 << I915_IMMEDIATE_S4 |
-                     1 << I915_IMMEDIATE_S5 | 1 << I915_IMMEDIATE_S6) &
+                     1 << I915_IMMEDIATE_S5 | 1 << I915_IMMEDIATE_S6 |
+                     1 << I915_IMMEDIATE_S7) &
                     i915->immediate_dirty;
 
    if (i915->immediate_dirty & (1 << I915_IMMEDIATE_S0) && i915->vbo)
@@ -149,7 +150,8 @@ emit_immediate(struct i915_context *i915)
    unsigned dirty = (1 << I915_IMMEDIATE_S0 | 1 << I915_IMMEDIATE_S1 |
                      1 << I915_IMMEDIATE_S2 | 1 << I915_IMMEDIATE_S3 |
                      1 << I915_IMMEDIATE_S3 | 1 << I915_IMMEDIATE_S4 |
-                     1 << I915_IMMEDIATE_S5 | 1 << I915_IMMEDIATE_S6) &
+                     1 << I915_IMMEDIATE_S5 | 1 << I915_IMMEDIATE_S6 |
+                     1 << I915_IMMEDIATE_S7) &
                     i915->immediate_dirty;
    int i, num = util_bitcount(dirty);
    assert(num && num <= I915_MAX_IMMEDIATE);
