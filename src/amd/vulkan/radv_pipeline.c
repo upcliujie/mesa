@@ -2355,19 +2355,21 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
          if (ordered_shaders[i]->info.stage != last)
             mask = mask | nir_var_shader_out;
 
-         if (nir_lower_io_to_scalar_early(ordered_shaders[i], mask)) {
+         bool progress = false;
+         NIR_PASS(progress, ordered_shaders[i], nir_lower_io_to_scalar_early, mask);
+         if (progress) {
             /* Optimize the new vector code and then remove dead vars */
-            nir_copy_prop(ordered_shaders[i]);
-            nir_opt_shrink_vectors(ordered_shaders[i],
-                                   !pipeline->device->instance->disable_shrink_image_store);
+            NIR_PASS(_, ordered_shaders[i], nir_copy_prop);
+            NIR_PASS(_, ordered_shaders[i], nir_opt_shrink_vectors,
+                     !pipeline->device->instance->disable_shrink_image_store);
 
             if (ordered_shaders[i]->info.stage != last) {
                /* Optimize swizzled movs of load_const for
                 * nir_link_opt_varyings's constant propagation
                 */
-               nir_opt_constant_folding(ordered_shaders[i]);
+               NIR_PASS(_, ordered_shaders[i], nir_opt_constant_folding);
                /* For nir_link_opt_varyings's duplicate input opt */
-               nir_opt_cse(ordered_shaders[i]);
+               NIR_PASS(_, ordered_shaders[i], nir_opt_cse);
             }
 
             /* Run copy-propagation to help remove dead
@@ -2379,25 +2381,24 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
              * not have worked because the outputs were vector.
              */
             if (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_CTRL)
-               nir_opt_copy_prop_vars(ordered_shaders[i]);
+               NIR_PASS(_, ordered_shaders[i], nir_opt_copy_prop_vars);
 
-            nir_opt_dce(ordered_shaders[i]);
-            nir_remove_dead_variables(
-               ordered_shaders[i], nir_var_function_temp | nir_var_shader_in | nir_var_shader_out,
-               NULL);
+            NIR_PASS(_, ordered_shaders[i], nir_opt_dce);
+            NIR_PASS(_, ordered_shaders[i], nir_remove_dead_variables,
+                     nir_var_function_temp | nir_var_shader_in | nir_var_shader_out, NULL);
          }
       }
    }
 
    for (int i = 1; !optimize_conservatively && (i < shader_count); ++i) {
       if (nir_link_opt_varyings(ordered_shaders[i], ordered_shaders[i - 1])) {
-         nir_opt_constant_folding(ordered_shaders[i - 1]);
-         nir_opt_algebraic(ordered_shaders[i - 1]);
-         nir_opt_dce(ordered_shaders[i - 1]);
+         NIR_PASS(_, ordered_shaders[i - 1], nir_opt_constant_folding);
+         NIR_PASS(_, ordered_shaders[i - 1], nir_opt_algebraic);
+         NIR_PASS(_, ordered_shaders[i - 1], nir_opt_dce);
       }
 
-      nir_remove_dead_variables(ordered_shaders[i], nir_var_shader_out, NULL);
-      nir_remove_dead_variables(ordered_shaders[i - 1], nir_var_shader_in, NULL);
+      NIR_PASS(_, ordered_shaders[i], nir_remove_dead_variables, nir_var_shader_out, NULL);
+      NIR_PASS(_, ordered_shaders[i - 1], nir_remove_dead_variables, nir_var_shader_in, NULL);
 
       bool progress = nir_remove_unused_varyings(ordered_shaders[i], ordered_shaders[i - 1]);
 
@@ -2406,27 +2407,31 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
       if (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_CTRL ||
           (ordered_shaders[i]->info.stage == MESA_SHADER_VERTEX && has_geom_tess) ||
           (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_EVAL && merged_gs)) {
-         nir_lower_io_to_vector(ordered_shaders[i], nir_var_shader_out);
+         NIR_PASS(_, ordered_shaders[i], nir_lower_io_to_vector, nir_var_shader_out);
          if (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_CTRL)
-            nir_vectorize_tess_levels(ordered_shaders[i]);
-         nir_opt_combine_stores(ordered_shaders[i], nir_var_shader_out);
+            NIR_PASS(_, ordered_shaders[i], nir_vectorize_tess_levels);
+         NIR_PASS(_, ordered_shaders[i], nir_opt_combine_stores, nir_var_shader_out);
       }
       if (ordered_shaders[i - 1]->info.stage == MESA_SHADER_GEOMETRY ||
           ordered_shaders[i - 1]->info.stage == MESA_SHADER_TESS_CTRL ||
           ordered_shaders[i - 1]->info.stage == MESA_SHADER_TESS_EVAL) {
-         nir_lower_io_to_vector(ordered_shaders[i - 1], nir_var_shader_in);
+         NIR_PASS(_, ordered_shaders[i - 1], nir_lower_io_to_vector, nir_var_shader_in);
       }
 
       if (progress) {
-         if (nir_lower_global_vars_to_local(ordered_shaders[i])) {
+         progress = false;
+         NIR_PASS(progress, ordered_shaders[i], nir_lower_global_vars_to_local);
+         if (progress) {
             ac_nir_lower_indirect_derefs(ordered_shaders[i],
                                          pipeline->device->physical_device->rad_info.chip_class);
             /* remove dead writes, which can remove input loads */
-            nir_lower_vars_to_ssa(ordered_shaders[i]);
-            nir_opt_dce(ordered_shaders[i]);
+            NIR_PASS(_, ordered_shaders[i], nir_lower_vars_to_ssa);
+            NIR_PASS(_, ordered_shaders[i], nir_opt_dce);
          }
 
-         if (nir_lower_global_vars_to_local(ordered_shaders[i - 1])) {
+         progress = false;
+         NIR_PASS(progress, ordered_shaders[i - 1], nir_lower_global_vars_to_local);
+         if (progress) {
             ac_nir_lower_indirect_derefs(ordered_shaders[i - 1],
                                          pipeline->device->physical_device->rad_info.chip_class);
          }
@@ -3460,9 +3465,9 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
                .callback = &non_uniform_access_callback,
                .callback_data = NULL,
             };
-            NIR_PASS_V(nir[i], nir_lower_non_uniform_access, &options);
+            NIR_PASS(_, nir[i], nir_lower_non_uniform_access, &options);
          }
-         NIR_PASS_V(nir[i], nir_lower_memory_model);
+         NIR_PASS(_, nir[i], nir_lower_memory_model);
 
          bool lower_to_scalar = false;
 
@@ -3478,35 +3483,39 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
                nir_var_mem_ubo | nir_var_mem_ssbo | nir_var_mem_global | nir_var_mem_push_const;
          }
 
-         if (nir_opt_load_store_vectorize(nir[i], &vectorize_opts)) {
-            NIR_PASS_V(nir[i], nir_copy_prop);
+         bool progress = false;
+         NIR_PASS(progress, nir[i], nir_opt_load_store_vectorize, &vectorize_opts);
+         if (progress) {
+            NIR_PASS(_, nir[i], nir_copy_prop);
             lower_to_scalar = true;
 
             /* Gather info again, to update whether 8/16-bit are used. */
             nir_shader_gather_info(nir[i], nir_shader_get_entrypoint(nir[i]));
          }
 
-         lower_to_scalar |=
-            nir_opt_shrink_vectors(nir[i], !device->instance->disable_shrink_image_store);
+         NIR_PASS(lower_to_scalar, nir[i], nir_opt_shrink_vectors,
+                  !device->instance->disable_shrink_image_store);
 
          if (lower_to_scalar)
-            nir_lower_alu_to_scalar(nir[i], NULL, NULL);
+            NIR_PASS(_, nir[i], nir_lower_alu_to_scalar, NULL, NULL);
 
          /* lower ALU operations */
-         nir_lower_int64(nir[i]);
+         NIR_PASS(_, nir[i], nir_lower_int64);
 
          /* TODO: Implement nir_op_uadd_sat with LLVM. */
          if (!radv_use_llvm_for_stage(device, i))
-            nir_opt_idiv_const(nir[i], 8);
+            NIR_PASS(_, nir[i], nir_opt_idiv_const, 8);
 
-         nir_lower_idiv(nir[i],
-                        &(nir_lower_idiv_options){
-                           .imprecise_32bit_lowering = false,
-                           .allow_fp16 = device->physical_device->rad_info.chip_class >= GFX9,
-                        });
+         NIR_PASS(_, nir[i], nir_lower_idiv,
+                  &(nir_lower_idiv_options){
+                     .imprecise_32bit_lowering = false,
+                     .allow_fp16 = device->physical_device->rad_info.chip_class >= GFX9,
+                  });
 
-         nir_opt_sink(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
-         nir_opt_move(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
+         NIR_PASS(_, nir[i], nir_opt_sink,
+                  nir_move_load_input | nir_move_const_undef | nir_move_copies);
+         NIR_PASS(_, nir[i], nir_opt_move,
+                  nir_move_load_input | nir_move_const_undef | nir_move_copies);
 
          /* Lower I/O intrinsics to memory instructions. */
          bool io_to_mem = radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key);
@@ -3522,28 +3531,28 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
 
          if (nir[i]->info.bit_sizes_int & (8 | 16)) {
             if (device->physical_device->rad_info.chip_class >= GFX8) {
-               nir_convert_to_lcssa(nir[i], true, true);
+               NIR_PASS(_, nir[i], nir_convert_to_lcssa, true, true);
                nir_divergence_analysis(nir[i]);
             }
 
             if (nir_lower_bit_size(nir[i], lower_bit_size_callback, device)) {
-               NIR_PASS_V(nir[i], nir_opt_constant_folding);
-               NIR_PASS_V(nir[i], nir_opt_dce);
+               NIR_PASS(_, nir[i], nir_opt_constant_folding);
+               NIR_PASS(_, nir[i], nir_opt_dce);
             }
 
             if (device->physical_device->rad_info.chip_class >= GFX8)
-               nir_opt_remove_phis(nir[i]); /* cleanup LCSSA phis */
+               NIR_PASS(_, nir[i], nir_opt_remove_phis); /* cleanup LCSSA phis */
          }
          if (((nir[i]->info.bit_sizes_int | nir[i]->info.bit_sizes_float) & 16) &&
              device->physical_device->rad_info.chip_class >= GFX9)
-            NIR_PASS_V(nir[i], nir_opt_vectorize, opt_vectorize_callback, NULL);
+            NIR_PASS(_, nir[i], nir_opt_vectorize, opt_vectorize_callback, NULL);
 
          /* cleanup passes */
-         nir_lower_load_const_to_scalar(nir[i]);
+         NIR_PASS(_, nir[i], nir_lower_load_const_to_scalar);
          nir_move_options move_opts = nir_move_const_undef | nir_move_load_ubo |
                                       nir_move_load_input | nir_move_comparisons | nir_move_copies;
-         nir_opt_sink(nir[i], move_opts | nir_move_load_ssbo);
-         nir_opt_move(nir[i], move_opts);
+         NIR_PASS(_, nir[i], nir_opt_sink, move_opts | nir_move_load_ssbo);
+         NIR_PASS(_, nir[i], nir_opt_move, move_opts);
 
          radv_stop_feedback(stage_feedbacks[i], false);
       }

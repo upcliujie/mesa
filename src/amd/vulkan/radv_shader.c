@@ -124,7 +124,7 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
       NIR_PASS(progress, shader, nir_split_array_vars, nir_var_function_temp);
       NIR_PASS(progress, shader, nir_shrink_vec_array_vars, nir_var_function_temp);
 
-      NIR_PASS_V(shader, nir_lower_vars_to_ssa);
+      NIR_PASS(_, shader, nir_lower_vars_to_ssa);
 
       if (allow_copies) {
          /* Only run this pass in the first call to
@@ -140,8 +140,8 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
       NIR_PASS(progress, shader, nir_remove_dead_variables,
                nir_var_function_temp | nir_var_shader_in | nir_var_shader_out, NULL);
 
-      NIR_PASS_V(shader, nir_lower_alu_to_scalar, NULL, NULL);
-      NIR_PASS_V(shader, nir_lower_phis_to_scalar, true);
+      NIR_PASS(_, shader, nir_lower_alu_to_scalar, NULL, NULL);
+      NIR_PASS(_, shader, nir_lower_phis_to_scalar, true);
 
       NIR_PASS(progress, shader, nir_copy_prop);
       NIR_PASS(progress, shader, nir_opt_remove_phis);
@@ -177,15 +177,15 @@ radv_optimize_nir_algebraic(nir_shader *nir, bool opt_offsets)
    bool more_algebraic = true;
    while (more_algebraic) {
       more_algebraic = false;
-      NIR_PASS_V(nir, nir_copy_prop);
-      NIR_PASS_V(nir, nir_opt_dce);
-      NIR_PASS_V(nir, nir_opt_constant_folding);
-      NIR_PASS_V(nir, nir_opt_cse);
+      NIR_PASS(_, nir, nir_copy_prop);
+      NIR_PASS(_, nir, nir_opt_dce);
+      NIR_PASS(_, nir, nir_opt_constant_folding);
+      NIR_PASS(_, nir, nir_opt_cse);
       NIR_PASS(more_algebraic, nir, nir_opt_algebraic);
    }
 
    if (opt_offsets)
-      NIR_PASS_V(nir, nir_opt_offsets);
+      NIR_PASS(_, nir, nir_opt_offsets);
 
    /* Do late algebraic optimization to turn add(a,
     * neg(b)) back into subs, then the mandatory cleanup
@@ -197,10 +197,10 @@ radv_optimize_nir_algebraic(nir_shader *nir, bool opt_offsets)
    while (more_late_algebraic) {
       more_late_algebraic = false;
       NIR_PASS(more_late_algebraic, nir, nir_opt_algebraic_late);
-      NIR_PASS_V(nir, nir_opt_constant_folding);
-      NIR_PASS_V(nir, nir_copy_prop);
-      NIR_PASS_V(nir, nir_opt_dce);
-      NIR_PASS_V(nir, nir_opt_cse);
+      NIR_PASS(_, nir, nir_opt_constant_folding);
+      NIR_PASS(_, nir, nir_copy_prop);
+      NIR_PASS(_, nir, nir_opt_dce);
+      NIR_PASS(_, nir, nir_opt_cse);
    }
 }
 
@@ -343,6 +343,11 @@ lower_intrinsics(nir_shader *nir, const struct radv_pipeline_key *key,
          progress = true;
       }
    }
+
+   if (progress)
+      nir_metadata_preserve(entry, nir_metadata_block_index | nir_metadata_dominance);
+   else
+      nir_metadata_preserve(entry, nir_metadata_all);
 
    return progress;
 }
@@ -528,11 +533,11 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
        * inline functions.  That way they get properly initialized at the top
        * of the function and not at the top of its caller.
        */
-      NIR_PASS_V(nir, nir_lower_variable_initializers, nir_var_function_temp);
-      NIR_PASS_V(nir, nir_lower_returns);
-      NIR_PASS_V(nir, nir_inline_functions);
-      NIR_PASS_V(nir, nir_copy_prop);
-      NIR_PASS_V(nir, nir_opt_deref);
+      NIR_PASS(_, nir, nir_lower_variable_initializers, nir_var_function_temp);
+      NIR_PASS(_, nir, nir_lower_returns);
+      NIR_PASS(_, nir, nir_inline_functions);
+      NIR_PASS(_, nir, nir_copy_prop);
+      NIR_PASS(_, nir, nir_opt_deref);
 
       /* Pick off the single entrypoint that we want */
       foreach_list_typed_safe(nir_function, func, node, &nir->functions)
@@ -547,48 +552,48 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       /* Make sure we lower constant initializers on output variables so that
        * nir_remove_dead_variables below sees the corresponding stores
        */
-      NIR_PASS_V(nir, nir_lower_variable_initializers, nir_var_shader_out);
+      NIR_PASS(_, nir, nir_lower_variable_initializers, nir_var_shader_out);
 
       /* Now that we've deleted all but the main function, we can go ahead and
        * lower the rest of the constant initializers.
        */
-      NIR_PASS_V(nir, nir_lower_variable_initializers, ~0);
+      NIR_PASS(_, nir, nir_lower_variable_initializers, ~0);
 
       /* Split member structs.  We do this before lower_io_to_temporaries so that
        * it doesn't lower system values to temporaries by accident.
        */
-      NIR_PASS_V(nir, nir_split_var_copies);
-      NIR_PASS_V(nir, nir_split_per_member_structs);
+      NIR_PASS(_, nir, nir_split_var_copies);
+      NIR_PASS(_, nir, nir_split_per_member_structs);
 
       if (nir->info.stage == MESA_SHADER_FRAGMENT)
-         NIR_PASS_V(nir, nir_lower_io_to_vector, nir_var_shader_out);
+         NIR_PASS(_, nir, nir_lower_io_to_vector, nir_var_shader_out);
       if (nir->info.stage == MESA_SHADER_FRAGMENT)
-         NIR_PASS_V(nir, nir_lower_input_attachments,
-                    &(nir_input_attachment_options){
-                       .use_fragcoord_sysval = true,
-                       .use_layer_id_sysval = false,
-                    });
+         NIR_PASS(_, nir, nir_lower_input_attachments,
+                  &(nir_input_attachment_options){
+                     .use_fragcoord_sysval = true,
+                     .use_layer_id_sysval = false,
+                  });
 
-      NIR_PASS_V(nir, nir_remove_dead_variables,
-                 nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
-                 NULL);
+      NIR_PASS(_, nir, nir_remove_dead_variables,
+               nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
+               NULL);
 
       /* Variables can make nir_propagate_invariant more conservative
        * than it needs to be.
        */
-      NIR_PASS_V(nir, nir_lower_global_vars_to_local);
-      NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+      NIR_PASS(_, nir, nir_lower_global_vars_to_local);
+      NIR_PASS(_, nir, nir_lower_vars_to_ssa);
 
-      NIR_PASS_V(nir, nir_propagate_invariant,
-                 device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM);
+      NIR_PASS(_, nir, nir_propagate_invariant,
+               device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM);
 
-      NIR_PASS_V(nir, nir_lower_system_values);
-      NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
+      NIR_PASS(_, nir, nir_lower_system_values);
+      NIR_PASS(_, nir, nir_lower_compute_system_values, NULL);
 
-      NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
+      NIR_PASS(_, nir, nir_lower_clip_cull_distance_arrays);
 
-      NIR_PASS_V(nir, nir_lower_discard_or_demote,
-                 device->instance->debug_flags & RADV_DEBUG_DISCARD_TO_DEMOTE);
+      NIR_PASS(_, nir, nir_lower_discard_or_demote,
+               device->instance->debug_flags & RADV_DEBUG_DISCARD_TO_DEMOTE);
 
       nir_lower_doubles_options lower_doubles = nir->options->lower_doubles_options;
 
@@ -600,7 +605,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
          lower_doubles |= nir_lower_dfloor;
       }
 
-      NIR_PASS_V(nir, nir_lower_doubles, NULL, lower_doubles);
+      NIR_PASS(_, nir, nir_lower_doubles, NULL, lower_doubles);
    }
 
    /* Vulkan uses the separate-shader linking model */
@@ -618,7 +623,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
                          nir_lower_gs_intrinsics_overwrite_incomplete;
       }
 
-      nir_lower_gs_intrinsics(nir, nir_gs_flags);
+      NIR_PASS(_, nir, nir_lower_gs_intrinsics, nir_gs_flags);
    }
 
    static const nir_lower_tex_options tex_options = {
@@ -627,15 +632,15 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       .lower_txs_cube_array = true,
    };
 
-   nir_lower_tex(nir, &tex_options);
+   NIR_PASS(_, nir, nir_lower_tex, &tex_options);
 
    static const nir_lower_image_options image_options = {
       .lower_cube_size = true,
    };
 
-   nir_lower_image(nir, &image_options);
+   NIR_PASS(_, nir, nir_lower_image, &image_options);
 
-   nir_lower_vars_to_ssa(nir);
+   NIR_PASS(_, nir, nir_lower_vars_to_ssa);
 
    if (nir->info.stage == MESA_SHADER_VERTEX || nir->info.stage == MESA_SHADER_GEOMETRY ||
        nir->info.stage == MESA_SHADER_FRAGMENT) {
@@ -644,39 +649,40 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       NIR_PASS_V(nir, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(nir), true, false);
    }
 
-   nir_split_var_copies(nir);
+   NIR_PASS(_, nir, nir_split_var_copies);
 
-   nir_lower_global_vars_to_local(nir);
-   nir_remove_dead_variables(nir, nir_var_function_temp, NULL);
+   NIR_PASS(_, nir, nir_lower_global_vars_to_local);
+   NIR_PASS(_, nir, nir_remove_dead_variables, nir_var_function_temp, NULL);
    bool gfx7minus = device->physical_device->rad_info.chip_class <= GFX7;
-   nir_lower_subgroups(nir, &(struct nir_lower_subgroups_options){
-                               .subgroup_size = subgroup_size,
-                               .ballot_bit_size = ballot_bit_size,
-                               .ballot_components = 1,
-                               .lower_to_scalar = 1,
-                               .lower_subgroup_masks = 1,
-                               .lower_shuffle = 1,
-                               .lower_shuffle_to_32bit = 1,
-                               .lower_vote_eq = 1,
-                               .lower_quad_broadcast_dynamic = 1,
-                               .lower_quad_broadcast_dynamic_to_const = gfx7minus,
-                               .lower_shuffle_to_swizzle_amd = 1,
-                               .lower_elect = radv_use_llvm_for_stage(device, stage),
-                            });
+   NIR_PASS(_, nir, nir_lower_subgroups,
+            &(struct nir_lower_subgroups_options){
+               .subgroup_size = subgroup_size,
+               .ballot_bit_size = ballot_bit_size,
+               .ballot_components = 1,
+               .lower_to_scalar = 1,
+               .lower_subgroup_masks = 1,
+               .lower_shuffle = 1,
+               .lower_shuffle_to_32bit = 1,
+               .lower_vote_eq = 1,
+               .lower_quad_broadcast_dynamic = 1,
+               .lower_quad_broadcast_dynamic_to_const = gfx7minus,
+               .lower_shuffle_to_swizzle_amd = 1,
+               .lower_elect = radv_use_llvm_for_stage(device, stage),
+            });
 
-   nir_lower_load_const_to_scalar(nir);
+   NIR_PASS(_, nir, nir_lower_load_const_to_scalar);
 
    if (!(flags & VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT))
       radv_optimize_nir(device, nir, false, true);
 
    /* call radv_nir_lower_ycbcr_textures() late as there might still be
     * tex with undef texture/sampler before first optimization */
-   NIR_PASS_V(nir, radv_nir_lower_ycbcr_textures, layout);
+   NIR_PASS(_, nir, radv_nir_lower_ycbcr_textures, layout);
 
    /* We call nir_lower_var_copies() after the first radv_optimize_nir()
     * to remove any copies introduced by nir_opt_find_array_copies().
     */
-   nir_lower_var_copies(nir);
+   NIR_PASS(_, nir, nir_lower_var_copies);
 
    unsigned lower_flrp = (nir->options->lower_flrp16 ? 16 : 0) |
                          (nir->options->lower_flrp32 ? 32 : 0) |
@@ -690,42 +696,42 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       .is_vulkan = true,
       .infer_non_readable = true,
    };
-   NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
+   NIR_PASS(_, nir, nir_opt_access, &opt_access_options);
 
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_push_const, nir_address_format_32bit_offset);
+   NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_push_const, nir_address_format_32bit_offset);
 
-   NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo | nir_var_mem_ssbo,
-              nir_address_format_vec2_index_32bit_offset);
+   NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_ubo | nir_var_mem_ssbo,
+            nir_address_format_vec2_index_32bit_offset);
 
-   NIR_PASS_V(nir, lower_intrinsics, key, layout, device->physical_device);
+   NIR_PASS(_, nir, lower_intrinsics, key, layout, device->physical_device);
 
    /* Lower deref operations for compute shared memory. */
    if (nir->info.stage == MESA_SHADER_COMPUTE) {
       if (!nir->info.shared_memory_explicit_layout) {
-         NIR_PASS_V(nir, nir_lower_vars_to_explicit_types, nir_var_mem_shared, shared_var_info);
+         NIR_PASS(_, nir, nir_lower_vars_to_explicit_types, nir_var_mem_shared, shared_var_info);
       }
-      NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_shared, nir_address_format_32bit_offset);
+      NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_shared, nir_address_format_32bit_offset);
 
       if (nir->info.zero_initialize_shared_memory && nir->info.shared_size > 0) {
          const unsigned chunk_size = 16; /* max single store size */
          const unsigned shared_size = ALIGN(nir->info.shared_size, chunk_size);
-         NIR_PASS_V(nir, nir_zero_initialize_shared_memory, shared_size, chunk_size);
+         NIR_PASS(_, nir, nir_zero_initialize_shared_memory, shared_size, chunk_size);
       }
    }
 
-   nir_lower_explicit_io(nir, nir_var_mem_global, nir_address_format_64bit_global);
+   NIR_PASS(_, nir, nir_lower_explicit_io, nir_var_mem_global, nir_address_format_64bit_global);
 
    /* Lower large variables that are always constant with load_constant
     * intrinsics, which get turned into PC-relative loads from a data
     * section next to the shader.
     */
-   NIR_PASS_V(nir, nir_opt_large_constants, glsl_get_natural_size_align_bytes, 16);
+   NIR_PASS(_, nir, nir_opt_large_constants, glsl_get_natural_size_align_bytes, 16);
 
    /* Lower primitive shading rate to match HW requirements. */
    if ((nir->info.stage == MESA_SHADER_VERTEX ||
         nir->info.stage == MESA_SHADER_GEOMETRY) &&
        nir->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_SHADING_RATE)) {
-      NIR_PASS_V(nir, radv_lower_primitive_shading_rate);
+      NIR_PASS(_, nir, radv_lower_primitive_shading_rate);
    }
 
    /* Indirect lowering must be called after the radv_optimize_nir() loop
@@ -811,7 +817,7 @@ radv_lower_io(struct radv_device *device, nir_shader *nir)
       return;
 
    if (nir->info.stage == MESA_SHADER_FRAGMENT) {
-      NIR_PASS_V(nir, lower_view_index);
+      NIR_PASS(_, nir, lower_view_index);
       nir_assign_io_var_locations(nir, nir_var_shader_in, &nir->num_inputs, MESA_SHADER_FRAGMENT);
    }
 
@@ -819,12 +825,12 @@ radv_lower_io(struct radv_device *device, nir_shader *nir)
    nir_lower_io_options options =
       radv_use_llvm_for_stage(device, nir->info.stage) ? nir_lower_io_lower_64bit_to_32 : 0;
 
-   NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out, type_size_vec4, options);
+   NIR_PASS(_, nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out, type_size_vec4, options);
 
    /* This pass needs actual constants */
-   nir_opt_constant_folding(nir);
+   NIR_PASS(_, nir, nir_opt_constant_folding);
 
-   NIR_PASS_V(nir, nir_io_add_const_offset_to_base, nir_var_shader_in | nir_var_shader_out);
+   NIR_PASS(_, nir, nir_io_add_const_offset_to_base, nir_var_shader_in | nir_var_shader_out);
 }
 
 bool
@@ -833,40 +839,40 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
 {
    if (nir->info.stage == MESA_SHADER_VERTEX) {
       if (info->vs.as_ls) {
-         ac_nir_lower_ls_outputs_to_mem(nir, info->vs.tcs_in_out_eq,
-                                        info->vs.tcs_temp_only_input_mask,
-                                        info->vs.num_linked_outputs);
+         NIR_PASS_V(nir, ac_nir_lower_ls_outputs_to_mem, info->vs.tcs_in_out_eq,
+                    info->vs.tcs_temp_only_input_mask, info->vs.num_linked_outputs);
          return true;
       } else if (info->vs.as_es) {
-         ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
-                                        info->vs.num_linked_outputs);
+         NIR_PASS_V(nir, ac_nir_lower_es_outputs_to_mem,
+                    device->physical_device->rad_info.chip_class, info->vs.num_linked_outputs);
          return true;
       }
    } else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
-      ac_nir_lower_hs_inputs_to_mem(nir, info->vs.tcs_in_out_eq, info->tcs.num_linked_inputs);
-      ac_nir_lower_hs_outputs_to_mem(
-         nir, device->physical_device->rad_info.chip_class, info->tcs.tes_reads_tess_factors,
-         info->tcs.tes_inputs_read, info->tcs.tes_patch_inputs_read, info->tcs.num_linked_inputs,
-         info->tcs.num_linked_outputs, info->tcs.num_linked_patch_outputs, true);
-      ac_nir_lower_tess_to_const(nir, pl_key->tess_input_vertices, info->num_tess_patches,
-                                 ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
+      NIR_PASS_V(nir, ac_nir_lower_hs_inputs_to_mem, info->vs.tcs_in_out_eq,
+                 info->tcs.num_linked_inputs);
+      NIR_PASS_V(nir, ac_nir_lower_hs_outputs_to_mem, device->physical_device->rad_info.chip_class,
+                 info->tcs.tes_reads_tess_factors, info->tcs.tes_inputs_read,
+                 info->tcs.tes_patch_inputs_read, info->tcs.num_linked_inputs,
+                 info->tcs.num_linked_outputs, info->tcs.num_linked_patch_outputs, true);
+      NIR_PASS_V(nir, ac_nir_lower_tess_to_const, pl_key->tess_input_vertices,
+                 info->num_tess_patches, ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
 
       return true;
    } else if (nir->info.stage == MESA_SHADER_TESS_EVAL) {
-      ac_nir_lower_tes_inputs_to_mem(nir, info->tes.num_linked_inputs,
-                                     info->tes.num_linked_patch_inputs);
-      ac_nir_lower_tess_to_const(nir, nir->info.tess.tcs_vertices_out, info->num_tess_patches,
-                                 ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
+      NIR_PASS_V(nir, ac_nir_lower_tes_inputs_to_mem, info->tes.num_linked_inputs,
+                 info->tes.num_linked_patch_inputs);
+      NIR_PASS_V(nir, ac_nir_lower_tess_to_const, nir->info.tess.tcs_vertices_out,
+                 info->num_tess_patches, ac_nir_lower_patch_vtx_in | ac_nir_lower_num_patches);
 
       if (info->tes.as_es) {
-         ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
-                                        info->tes.num_linked_outputs);
+         NIR_PASS_V(nir, ac_nir_lower_es_outputs_to_mem,
+                    device->physical_device->rad_info.chip_class, info->tes.num_linked_outputs);
       }
 
       return true;
    } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
-      ac_nir_lower_gs_inputs_to_mem(nir, device->physical_device->rad_info.chip_class,
-                                    info->gs.num_linked_inputs);
+      NIR_PASS_V(nir, ac_nir_lower_gs_inputs_to_mem, device->physical_device->rad_info.chip_class,
+                 info->gs.num_linked_inputs);
       return true;
    }
 
@@ -962,18 +968,10 @@ void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
       if (consider_culling)
          radv_optimize_nir_algebraic(nir, false);
 
-      out_conf =
-         ac_nir_lower_ngg_nogs(
-            nir,
-            max_vtx_in,
-            num_vertices_per_prim,
-            info->workgroup_size,
-            info->wave_size,
-            consider_culling,
-            key->vs_common_out.as_ngg_passthrough,
-            key->vs_common_out.export_prim_id,
-            key->vs.provoking_vtx_last,
-            key->vs.instance_rate_inputs);
+      NIR_PASS_V(nir, out_conf = ac_nir_lower_ngg_nogs, max_vtx_in, num_vertices_per_prim,
+                 info->workgroup_size, info->wave_size, consider_culling,
+                 key->vs_common_out.as_ngg_passthrough, key->vs_common_out.export_prim_id,
+                 key->vs.provoking_vtx_last, key->vs.instance_rate_inputs);
 
       info->has_ngg_culling = out_conf.can_cull;
       info->has_ngg_early_prim_export = out_conf.early_prim_export;
@@ -982,12 +980,9 @@ void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
       key->vs_common_out.as_ngg_passthrough = out_conf.passthrough;
    } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       assert(info->is_ngg);
-      ac_nir_lower_ngg_gs(
-         nir, info->wave_size, info->workgroup_size,
-         info->ngg_info.esgs_ring_size,
-         info->gs.gsvs_vertex_size,
-         info->ngg_info.ngg_emit_size * 4u,
-         key->vs.provoking_vtx_last);
+      NIR_PASS_V(nir, ac_nir_lower_ngg_gs, info->wave_size, info->workgroup_size,
+                 info->ngg_info.esgs_ring_size, info->gs.gsvs_vertex_size,
+                 info->ngg_info.ngg_emit_size * 4u, key->vs.provoking_vtx_last);
    } else {
       unreachable("invalid SW stage passed to radv_lower_ngg");
    }
