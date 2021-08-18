@@ -131,11 +131,6 @@ bool gfx10_ngg_export_prim_early(struct si_shader *shader)
 
 void gfx10_ngg_build_sendmsg_gs_alloc_req(struct si_shader_context *ctx)
 {
-   /* Newer chips can use PRIMGEN_PASSTHRU_NO_MSG to skip gs_alloc_req for NGG passthrough. */
-   if (gfx10_is_ngg_passthrough(ctx->shader) &&
-       ctx->screen->info.family >= CHIP_DIMGREY_CAVEFISH)
-      return;
-
    ac_build_sendmsg_gs_alloc_req(&ctx->ac, get_wave_id_in_tg(ctx), ngg_get_vtx_cnt(ctx),
                                  ngg_get_prim_cnt(ctx));
 }
@@ -145,7 +140,7 @@ void gfx10_ngg_build_export_prim(struct si_shader_context *ctx, LLVMValueRef use
 {
    LLVMBuilderRef builder = ctx->ac.builder;
 
-   if (gfx10_is_ngg_passthrough(ctx->shader) || ctx->shader->key.opt.ngg_culling) {
+   if (ctx->shader->key.opt.ngg_culling) {
       ac_build_ifcc(&ctx->ac, si_is_gs_thread(ctx), 6001);
       {
          struct ac_ngg_prim prim = {};

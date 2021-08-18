@@ -1172,13 +1172,12 @@ static void gfx10_shader_ngg(struct si_screen *sscreen, struct si_shader *shader
     * pass edge flags for decomposed primitives (such as quads) to the PA
     * for the GL_LINE polygon mode to skip rendering lines on inner edges.
     */
-   if (gs_info->uses_invocationid ||
-       (gs_stage == MESA_SHADER_VERTEX && !gfx10_is_ngg_passthrough(shader)))
+   if (gs_info->uses_invocationid || gs_stage == MESA_SHADER_VERTEX)
       gs_vgpr_comp_cnt = 3; /* VGPR3 contains InvocationID, edge flags. */
    else if ((gs_stage == MESA_SHADER_GEOMETRY && gs_info->uses_primid) ||
             (gs_stage == MESA_SHADER_VERTEX && shader->key.mono.u.vs_export_prim_id))
       gs_vgpr_comp_cnt = 2; /* VGPR2 contains PrimitiveID. */
-   else if (input_prim >= PIPE_PRIM_TRIANGLES && !gfx10_is_ngg_passthrough(shader))
+   else if (input_prim >= PIPE_PRIM_TRIANGLES)
       gs_vgpr_comp_cnt = 1; /* VGPR1 contains offsets 2, 3 */
    else
       gs_vgpr_comp_cnt = 0; /* VGPR0 contains offsets 0, 1 */
@@ -1326,7 +1325,6 @@ static void gfx10_shader_ngg(struct si_screen *sscreen, struct si_shader *shader
 
    shader->ctx_reg.ngg.vgt_stages.u.ngg = 1;
    shader->ctx_reg.ngg.vgt_stages.u.streamout = gs_sel->so.num_outputs;
-   shader->ctx_reg.ngg.vgt_stages.u.ngg_passthrough = gfx10_is_ngg_passthrough(shader);
    shader->ctx_reg.ngg.vgt_stages.u.ngg_gs_fast_launch =
       !!(shader->key.opt.ngg_culling & SI_NGG_CULL_GS_FAST_LAUNCH_ALL);
 }
@@ -3977,10 +3975,7 @@ struct si_pm4_state *si_build_vgt_shader_config(struct si_screen *screen, union 
 
    if (key.u.ngg) {
       stages |= S_028B54_PRIMGEN_EN(1) | S_028B54_GS_FAST_LAUNCH(key.u.ngg_gs_fast_launch) |
-                S_028B54_NGG_WAVE_ID_EN(key.u.streamout) |
-                S_028B54_PRIMGEN_PASSTHRU_EN(key.u.ngg_passthrough) |
-                S_028B54_PRIMGEN_PASSTHRU_NO_MSG(key.u.ngg_passthrough &&
-                                                 screen->info.family >= CHIP_DIMGREY_CAVEFISH);
+                S_028B54_NGG_WAVE_ID_EN(key.u.streamout);
    } else if (key.u.gs)
       stages |= S_028B54_VS_EN(V_028B54_VS_STAGE_COPY_SHADER);
 
