@@ -1,7 +1,7 @@
 .softpipe-deqp-test:
   extends:
-    - .softpipe-rules
     - .test-gl
+    - .softpipe-rules
     - .deqp-test
   variables:
     GPU_VERSION: softpipe
