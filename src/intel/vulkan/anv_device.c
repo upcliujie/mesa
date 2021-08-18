@@ -2758,27 +2758,51 @@ anv_get_memory_budget(VkPhysicalDevice physicalDevice,
 {
    ANV_FROM_HANDLE(anv_physical_device, device, physicalDevice);
    uint64_t sys_available;
-   ASSERTED bool has_available_memory =
-      os_get_available_system_memory(&sys_available);
-   assert(has_available_memory);
+   uint64_t vram_available = 0;
+   if (device->vram.size > 0) {
+      sys_available = device->sys.size;
+      vram_available = device->vram.size;
+   } else {
+      ASSERTED bool has_available_memory =
+         os_get_available_system_memory(&sys_available);
+      assert(has_available_memory);
+   }
 
-   VkDeviceSize total_heaps_size = 0;
-   for (size_t i = 0; i < device->memory.heap_count; i++)
-         total_heaps_size += device->memory.heaps[i].size;
+   VkDeviceSize total_sys_heaps_size = 0, total_vram_heaps_size = 0;
+   for (size_t i = 0; i < device->memory.heap_count; i++) {
+      if (device->vram.size > 0) {
+         if (device->memory.heaps[i].is_local_mem) {
+            total_vram_heaps_size += device->memory.heaps[i].size;
+         } else {
+            total_sys_heaps_size += device->memory.heaps[i].size;
+         }
+      } else {
+         total_sys_heaps_size += device->memory.heaps[i].size;
+      }
+   }
 
    for (size_t i = 0; i < device->memory.heap_count; i++) {
       VkDeviceSize heap_size = device->memory.heaps[i].size;
       VkDeviceSize heap_used = device->memory.heaps[i].used;
-      VkDeviceSize heap_budget;
+      VkDeviceSize heap_budget, total_heaps_size;
+      uint64_t mem_available = 0;
+
+      if (device->memory.heaps[i].is_local_mem) {
+         total_heaps_size = total_vram_heaps_size;
+         mem_available = vram_available;
+      } else {
+         total_heaps_size = total_sys_heaps_size;
+         mem_available = sys_available;
+      }
 
       double heap_proportion = (double) heap_size / total_heaps_size;
-      VkDeviceSize sys_available_prop = sys_available * heap_proportion;
+      VkDeviceSize available_prop = mem_available * heap_proportion;
 
       /*
        * Let's not incite the app to starve the system: report at most 90% of
-       * available system memory.
+       * available system/local memory.
        */
-      uint64_t heap_available = sys_available_prop * 9 / 10;
+      uint64_t heap_available = available_prop * 9 / 10;
       heap_budget = MIN2(heap_size, heap_used + heap_available);
 
       /*
