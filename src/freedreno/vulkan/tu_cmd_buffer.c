@@ -2765,13 +2765,6 @@ vk2tu_access(VkAccessFlags flags, bool gmem)
       }
    }
 
-   /* When the dst access is a transfer read/write, it seems we sometimes need
-    * to insert a WFI after any flushes, to guarantee that the flushes finish
-    * before the 2D engine starts. However the opposite (i.e. a WFI after
-    * CP_BLIT and before any subsequent flush) does not seem to be needed, and
-    * the blob doesn't emit such a WFI.
-    */
-
    if (flags &
        (VK_ACCESS_TRANSFER_WRITE_BIT |
         VK_ACCESS_MEMORY_WRITE_BIT)) {
@@ -2780,13 +2773,12 @@ vk2tu_access(VkAccessFlags flags, bool gmem)
       } else {
          mask |= TU_ACCESS_CCU_COLOR_WRITE;
       }
-      mask |= TU_ACCESS_WFI_READ;
    }
 
    if (flags &
        (VK_ACCESS_TRANSFER_READ_BIT | /* Access performed by TP */
         VK_ACCESS_MEMORY_READ_BIT)) {
-      mask |= TU_ACCESS_UCHE_READ | TU_ACCESS_WFI_READ;
+      mask |= TU_ACCESS_UCHE_READ;
    }
 
    return mask;
