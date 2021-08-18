@@ -968,23 +968,6 @@ static void si_shader_gs(struct si_screen *sscreen, struct si_shader *shader)
    }
 }
 
-static void gfx10_emit_ge_pc_alloc(struct si_context *sctx, unsigned value)
-{
-   enum si_tracked_reg reg = SI_TRACKED_GE_PC_ALLOC;
-
-   if (((sctx->tracked_regs.reg_saved >> reg) & 0x1) != 0x1 ||
-       sctx->tracked_regs.reg_value[reg] != value) {
-      struct radeon_cmdbuf *cs = &sctx->gfx_cs;
-
-      radeon_begin(cs);
-      radeon_set_uconfig_reg(cs, R_030980_GE_PC_ALLOC, value);
-      radeon_end();
-
-      sctx->tracked_regs.reg_saved |= 0x1ull << reg;
-      sctx->tracked_regs.reg_value[reg] = value;
-   }
-}
-
 /* Common tail code for NGG primitive shaders. */
 static void gfx10_emit_shader_ngg_tail(struct si_context *sctx, struct si_shader *shader)
 {
@@ -1018,10 +1001,10 @@ static void gfx10_emit_shader_ngg_tail(struct si_context *sctx, struct si_shader
                                   SI_TRACKED_PA_CL_VS_OUT_CNTL__VS_MASK);
    radeon_end_update_context_roll(sctx);
 
-   /* GE_PC_ALLOC is not a context register, so it doesn't cause a context roll. */
-   gfx10_emit_ge_pc_alloc(sctx, shader->ctx_reg.ngg.ge_pc_alloc);
-
+   /* These don't cause a context roll. */
    radeon_begin_again(&sctx->gfx_cs);
+   radeon_opt_set_uconfig_reg(sctx, R_030980_GE_PC_ALLOC, SI_TRACKED_GE_PC_ALLOC,
+                              shader->ctx_reg.ngg.ge_pc_alloc);
    radeon_opt_set_sh_reg(sctx, R_00B21C_SPI_SHADER_PGM_RSRC3_GS,
                          SI_TRACKED_SPI_SHADER_PGM_RSRC3_GS,
                          shader->ctx_reg.ngg.spi_shader_pgm_rsrc3_gs);
@@ -1393,8 +1376,12 @@ static void si_emit_shader_vs(struct si_context *sctx)
    radeon_end_update_context_roll(sctx);
 
    /* GE_PC_ALLOC is not a context register, so it doesn't cause a context roll. */
-   if (sctx->chip_class >= GFX10)
-      gfx10_emit_ge_pc_alloc(sctx, shader->ctx_reg.vs.ge_pc_alloc);
+   if (sctx->chip_class >= GFX10) {
+      radeon_begin_again(&sctx->gfx_cs);
+      radeon_opt_set_uconfig_reg(sctx, R_030980_GE_PC_ALLOC, SI_TRACKED_GE_PC_ALLOC,
+                                 shader->ctx_reg.vs.ge_pc_alloc);
+      radeon_end();
+   }
 }
 
 /**
