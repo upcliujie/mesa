@@ -4495,7 +4495,7 @@ static inline bool should_print_nir(nir_shader *shader) { return false; }
    if (should_print_nir(nir))                                           \
       printf("%s\n", #pass);                                         \
    if (pass(nir, ##__VA_ARGS__)) {                                   \
-      nir_validate_shader(nir, "after " #pass);                      \
+      nir_validate_shader(nir, "after " #pass " in " __FILE__);      \
       UNUSED bool _;                                                 \
       progress = true;                                               \
       if (should_print_nir(nir))                                        \
@@ -4508,7 +4508,7 @@ static inline bool should_print_nir(nir_shader *shader) { return false; }
    if (should_print_nir(nir))                                           \
       printf("%s\n", #pass);                                         \
    pass(nir, ##__VA_ARGS__);                                         \
-   nir_validate_shader(nir, "after " #pass);                         \
+   nir_validate_shader(nir, "after " #pass " in " __FILE__);         \
    if (should_print_nir(nir))                                           \
       nir_print_shader(nir, stdout);                                 \
 )
