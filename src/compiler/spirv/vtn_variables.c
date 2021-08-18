@@ -1356,11 +1356,12 @@ var_decoration_cb(struct vtn_builder *b, struct vtn_value *val, int member,
                  vtn_var->mode == vtn_variable_mode_output) {
          location += vtn_var->var->data.patch ? VARYING_SLOT_PATCH0 : VARYING_SLOT_VAR0;
       } else if (vtn_var->mode == vtn_variable_mode_call_data ||
-                 vtn_var->mode == vtn_variable_mode_ray_payload) {
+                 vtn_var->mode == vtn_variable_mode_ray_payload ||
+                 vtn_var->mode == vtn_variable_mode_ray_payload_in) {
          /* This location is fine as-is */
       } else if (vtn_var->mode != vtn_variable_mode_uniform) {
-         vtn_warn("Location must be on input, output, uniform, sampler or "
-                  "image variable");
+         vtn_warn("Location must be on input, output, uniform, sampler, "
+                  "image variable, or callable data, ray payload");
          return;
       }
 
