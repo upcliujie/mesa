@@ -924,6 +924,11 @@ fd6_emit_streamout(struct fd_ringbuffer *ring, struct fd6_emit *emit) assert_dt
          OUT_RING(obj, 0);
 
          fd6_emit_take_group(emit, obj, FD6_GROUP_SO, ENABLE_ALL);
+
+         /* Make sure that any use of our TFB outputs (indirect draw source or
+          * shader UBO reads) comes after the TFB output is written.
+          */
+         fd_wfi(ctx->batch, ring);
       }
    }
 
