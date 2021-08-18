@@ -163,6 +163,7 @@ enum {
 #define ST_PIPELINE_COMPUTE_STATE_MASK (0xffull << ST_NEW_CS_STATE_INDEX)
 #define ST_PIPELINE_CLEAR_STATE_MASK (ST_NEW_FB_STATE | \
                                       ST_NEW_SCISSOR | \
+                                      ST_NEW_BLEND | \
                                       ST_NEW_WINDOW_RECTANGLES)
 #define ST_PIPELINE_META_STATE_MASK (ST_PIPELINE_RENDER_STATE_MASK & \
                                      ~ST_NEW_VERTEX_ARRAYS)
