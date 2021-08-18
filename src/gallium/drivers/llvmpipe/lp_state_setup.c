@@ -337,6 +337,7 @@ lp_do_offset_tri(struct gallivm_state *gallivm,
    zoffset = lp_build_broadcast_scalar(bld, zoffset);
 
    z0z1z2 = LLVMBuildFAdd(b, z0z1z2, zoffset, "");
+   z0z1z2 = lp_build_clamp(bld, z0z1z2, bld->zero, bld->one);
 
    /* insert into args->a0.z, a1.z, a2.z:
     */
