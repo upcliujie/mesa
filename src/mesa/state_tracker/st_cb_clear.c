@@ -546,6 +546,18 @@ st_Clear(struct gl_context *ctx, GLbitfield mask)
              scissor_state.miny >= scissor_state.maxy)
             return;
       }
+
+      if (clear_buffers & PIPE_CLEAR_COLOR) {
+         struct cso_context *cso = st->cso_context;
+         struct pipe_blend_state blend;
+         memset(&blend, 0, sizeof(blend));
+
+         if (ctx->Color.DitherFlag)
+            blend.dither = 1;
+
+         cso_set_blend(cso, &blend);
+      }
+
       /* We can't translate the clear color to the colorbuffer format,
        * because different colorbuffers may have different formats.
        */
