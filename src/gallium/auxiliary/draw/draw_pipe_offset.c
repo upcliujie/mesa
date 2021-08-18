@@ -184,10 +184,11 @@ static void offset_first_tri( struct draw_stage *stage,
        * to the primitive's maximum Z value. Retain the original depth bias
        * value until that stage.
        */
+      double units = rast->offset_units * 2;
       if (stage->draw->floating_point_depth) {
-         offset->units = (float) rast->offset_units;
+         offset->units = (float) units;
       } else {
-         offset->units = (float) (rast->offset_units * stage->draw->mrd * 2);
+         offset->units = (float) (units * stage->draw->mrd);
       }
    }
    else {

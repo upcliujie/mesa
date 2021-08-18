@@ -860,11 +860,12 @@ lp_make_setup_variant_key(struct llvmpipe_context *lp,
     */
    key->floating_point_depth = lp->floating_point_depth;
 
+   double units = lp->rasterizer->offset_units * 2;
    if (key->floating_point_depth) {
-      key->pgon_offset_units = (float) lp->rasterizer->offset_units;
+      key->pgon_offset_units = (float) units;
    } else {
       key->pgon_offset_units =
-         (float) (lp->rasterizer->offset_units * lp->mrd * 2);
+         (float) (units * lp->mrd);
    }
 
    key->pgon_offset_scale = lp->rasterizer->offset_scale;
