@@ -743,7 +743,7 @@ struct gfx9_gs_info {
    unsigned esgs_ring_size; /* in bytes */
 };
 
-#define SI_NUM_VGT_STAGES_KEY_BITS 6
+#define SI_NUM_VGT_STAGES_KEY_BITS 5
 #define SI_NUM_VGT_STAGES_STATES   (1 << SI_NUM_VGT_STAGES_KEY_BITS)
 
 /* The VGT_SHADER_STAGES key used to index the table of precomputed values.
@@ -755,7 +755,6 @@ union si_vgt_stages_key {
       uint8_t tess : 1;
       uint8_t gs : 1;
       uint8_t ngg_gs_fast_launch : 1;
-      uint8_t ngg_passthrough : 1;
       uint8_t ngg : 1;       /* gfx10+ */
       uint8_t streamout : 1; /* only used with NGG */
       uint8_t _pad : 8 - SI_NUM_VGT_STAGES_KEY_BITS;
@@ -763,7 +762,6 @@ union si_vgt_stages_key {
       uint8_t _pad : 8 - SI_NUM_VGT_STAGES_KEY_BITS;
       uint8_t streamout : 1;
       uint8_t ngg : 1;
-      uint8_t ngg_passthrough : 1;
       uint8_t ngg_gs_fast_launch : 1;
       uint8_t gs : 1;
       uint8_t tess : 1;
@@ -943,15 +941,6 @@ static inline struct si_shader **si_get_main_shader_part(struct si_shader_select
    if (key->as_ngg)
       return &sel->main_shader_part_ngg;
    return &sel->main_shader_part;
-}
-
-static inline bool gfx10_is_ngg_passthrough(struct si_shader *shader)
-{
-   struct si_shader_selector *sel = shader->selector;
-
-   return sel->info.stage != MESA_SHADER_GEOMETRY && !sel->so.num_outputs && !sel->info.writes_edgeflag &&
-          !shader->key.opt.ngg_culling &&
-          (sel->info.stage != MESA_SHADER_VERTEX || !shader->key.mono.u.vs_export_prim_id);
 }
 
 static inline bool si_shader_uses_bindless_samplers(struct si_shader_selector *selector)
