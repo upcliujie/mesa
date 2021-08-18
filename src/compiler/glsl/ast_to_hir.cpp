@@ -6912,8 +6912,11 @@ ast_case_statement::hir(exec_list *instructions,
       new(state) ir_dereference_variable(state->switch_state.is_fallthru_var);
    ir_if *const test_fallthru = new(state) ir_if(deref_fallthru_guard);
 
-   foreach_list_typed (ast_node, stmt, link, & this->stmts)
+   foreach_list_typed (ast_node, stmt, link, & this->stmts) {
+      state->symbols->push_scope();
       stmt->hir(& test_fallthru->then_instructions, state);
+      state->symbols->pop_scope();
+   }
 
    instructions->push_tail(test_fallthru);
 
