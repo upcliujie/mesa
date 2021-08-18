@@ -810,6 +810,11 @@ generate_fs_loop(struct gallivm_state *gallivm,
       if (key->depth_clamp) {
          z = lp_build_depth_clamp(gallivm, builder, type, context_ptr,
                                   thread_data_ptr, z);
+      } else if (key->depth_offset) {
+         struct lp_build_context f32_bld;
+         assert(type.floating);
+         lp_build_context_init(&f32_bld, gallivm, type);
+         z = lp_build_clamp(&f32_bld, z, f32_bld.zero, f32_bld.one);
       }
       lp_build_depth_stencil_load_swizzled(gallivm, type,
                                            zs_format_desc, key->resource_1d,
@@ -4131,6 +4136,14 @@ make_variant_key(struct llvmpipe_context *lp,
     *
     */
    key->depth_clamp = (lp->rasterizer->depth_clip_near == 0) ? 1 : 0;
+
+   /*
+    * Polygon offset can cause fragments outside of 0..1 range that needs
+    * clamping
+    */
+   key->depth_offset = !key->depth_clamp && (
+      lp->rasterizer->offset_units != 0 ||
+      lp->rasterizer->offset_scale != 0);
 
    /* alpha test only applies if render buffer 0 is non-integer (or does not exist) */
    if (!lp->framebuffer.nr_cbufs ||
