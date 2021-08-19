@@ -1195,6 +1195,8 @@ public:
    ast_node *condition;
    ast_expression *rest_expression;
 
+   unsigned scope_levels;
+
    ast_node *body;
 
    /**

@@ -1729,6 +1729,7 @@ ast_iteration_statement::ast_iteration_statement(int mode,
    this->condition = condition;
    this->rest_expression = rest_expression;
    this->body = body;
+   this->scope_levels = 0;
 }
 
 

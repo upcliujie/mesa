@@ -2259,6 +2259,12 @@ ir_rvalue *
 ast_compound_statement::hir(exec_list *instructions,
                             struct _mesa_glsl_parse_state *state)
 {
+   /* If we are inside a loop we need to track the scope levels as we inline
+    * the loop expression when coming across a continue in some cases.
+    */
+   if (state->loop_nesting_ast && new_scope)
+      state->loop_nesting_ast->scope_levels++;
+
    if (new_scope)
       state->symbols->push_scope();
 
@@ -2267,6 +2273,9 @@ ast_compound_statement::hir(exec_list *instructions,
 
    if (new_scope)
       state->symbols->pop_scope();
+
+   if (state->loop_nesting_ast && new_scope)
+      state->loop_nesting_ast->scope_levels--;
 
    /* Compound statements do not have r-values.
     */
@@ -6530,6 +6539,9 @@ ast_jump_statement::hir(exec_list *instructions,
           */
          if (state->loop_nesting_ast != NULL &&
              mode == ast_continue && !state->switch_state.is_switch_innermost) {
+            for (unsigned i = 0; i < state->loop_nesting_ast->scope_levels; i++)
+               state->symbols->pop_scope();
+
             if (state->loop_nesting_ast->rest_expression) {
                state->loop_nesting_ast->rest_expression->hir(instructions,
                                                              state);
@@ -6538,6 +6550,9 @@ ast_jump_statement::hir(exec_list *instructions,
                 ast_iteration_statement::ast_do_while) {
                state->loop_nesting_ast->condition_to_hir(instructions, state);
             }
+
+            for (unsigned i = 0; i < state->loop_nesting_ast->scope_levels; i++)
+               state->symbols->push_scope();
          }
 
          if (state->switch_state.is_switch_innermost &&
@@ -6626,13 +6641,25 @@ ast_selection_statement::hir(exec_list *instructions,
 
    if (then_statement != NULL) {
       state->symbols->push_scope();
+      if (state->loop_nesting_ast)
+         state->loop_nesting_ast->scope_levels++;
+
       then_statement->hir(& stmt->then_instructions, state);
+
+      if (state->loop_nesting_ast)
+         state->loop_nesting_ast->scope_levels--;
       state->symbols->pop_scope();
    }
 
    if (else_statement != NULL) {
       state->symbols->push_scope();
+      if (state->loop_nesting_ast)
+         state->loop_nesting_ast->scope_levels++;
+
       else_statement->hir(& stmt->else_instructions, state);
+
+      if (state->loop_nesting_ast)
+         state->loop_nesting_ast->scope_levels--;
       state->symbols->pop_scope();
    }
 
