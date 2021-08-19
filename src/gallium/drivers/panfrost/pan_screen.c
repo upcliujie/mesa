@@ -125,9 +125,21 @@ panfrost_get_param(struct pipe_screen *screen, enum pipe_cap param)
         case PIPE_CAP_FRAMEBUFFER_NO_ATTACHMENT:
                 return 1;
 
-        case PIPE_CAP_MAX_RENDER_TARGETS:
         case PIPE_CAP_FBFETCH:
         case PIPE_CAP_FBFETCH_COHERENT:
+                /* XXX: Disable blend_equation_advanced on Mali G31 to
+                 * workaround a timeout in
+                 * KHR-GLES31.core.blend_equation_advanced.test_coherency.mixedSequence.
+                 * Arguably this is a test bug but I don't believe this impacts
+                 * real use cases and it's not required for OpenGL ES 3.1.
+                 * Perhaps the kernel job timeout needs to be increased on
+                 * these platforms. */
+
+                if (dev->gpu_id == 0x7093)
+                        return 0;
+
+                FALLTHROUGH;
+        case PIPE_CAP_MAX_RENDER_TARGETS:
                 return has_mrt ? 8 : 1;
 
         case PIPE_CAP_MAX_DUAL_SOURCE_RENDER_TARGETS:
