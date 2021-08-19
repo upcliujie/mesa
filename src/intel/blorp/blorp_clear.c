@@ -303,7 +303,8 @@ get_fast_clear_rect(const struct isl_device *dev,
    unsigned int x_scaledown, y_scaledown;
 
    /* Only single sampled surfaces need to (and actually can) be resolved. */
-   if (aux_surf->usage == ISL_SURF_USAGE_CCS_BIT) {
+   if (aux_surf->usage & ISL_SURF_USAGE_CCS_BIT) {
+      assert((aux_surf->usage & ISL_SURF_USAGE_MCS_BIT) == 0);
       /* From the Ivy Bridge PRM, Vol2 Part1 11.7 "MCS Buffer for Render
        * Target(s)", beneath the "Fast Color Clear" bullet (p327):
        *
@@ -364,7 +365,7 @@ get_fast_clear_rect(const struct isl_device *dev,
          y_align *= 2;
       }
    } else {
-      assert(aux_surf->usage == ISL_SURF_USAGE_MCS_BIT);
+      assert(aux_surf->usage & ISL_SURF_USAGE_MCS_BIT);
 
       /* From the Ivy Bridge PRM, Vol2 Part1 11.7 "MCS Buffer for Render
        * Target(s)", beneath the "MSAA Compression" bullet (p326):
