@@ -4336,9 +4336,9 @@ radv_pipeline_generate_hw_vs(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf 
 {
    uint64_t va = radv_buffer_get_va(shader->bo) + shader->bo_offset;
 
-   radeon_set_sh_reg_seq(cs, R_00B120_SPI_SHADER_PGM_LO_VS, 4);
-   radeon_emit(cs, va >> 8);
-   radeon_emit(cs, S_00B124_MEM_BASE(va >> 40));
+   radeon_set_sh_reg(cs, R_00B120_SPI_SHADER_PGM_LO_VS, va >> 8);
+
+   radeon_set_sh_reg_seq(cs, R_00B128_SPI_SHADER_PGM_RSRC1_VS, 2);
    radeon_emit(cs, shader->config.rsrc1);
    radeon_emit(cs, shader->config.rsrc2);
 
@@ -4409,9 +4409,9 @@ radv_pipeline_generate_hw_es(struct radeon_cmdbuf *cs, const struct radv_pipelin
 {
    uint64_t va = radv_buffer_get_va(shader->bo) + shader->bo_offset;
 
-   radeon_set_sh_reg_seq(cs, R_00B320_SPI_SHADER_PGM_LO_ES, 4);
-   radeon_emit(cs, va >> 8);
-   radeon_emit(cs, S_00B324_MEM_BASE(va >> 40));
+   radeon_set_sh_reg(cs, R_00B320_SPI_SHADER_PGM_LO_ES, va >> 8);
+
+   radeon_set_sh_reg_seq(cs, R_00B328_SPI_SHADER_PGM_RSRC1_ES, 2);
    radeon_emit(cs, shader->config.rsrc1);
    radeon_emit(cs, shader->config.rsrc2);
 }
@@ -4424,9 +4424,7 @@ radv_pipeline_generate_hw_ls(struct radeon_cmdbuf *cs, const struct radv_pipelin
    uint64_t va = radv_buffer_get_va(shader->bo) + shader->bo_offset;
    uint32_t rsrc2 = shader->config.rsrc2;
 
-   radeon_set_sh_reg_seq(cs, R_00B520_SPI_SHADER_PGM_LO_LS, 2);
-   radeon_emit(cs, va >> 8);
-   radeon_emit(cs, S_00B524_MEM_BASE(va >> 40));
+   radeon_set_sh_reg(cs, R_00B520_SPI_SHADER_PGM_LO_LS, va >> 8);
 
    rsrc2 |= S_00B52C_LDS_SIZE(num_lds_blocks);
    if (pipeline->device->physical_device->rad_info.chip_class == GFX7 &&
@@ -4451,9 +4449,8 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
                                        : pipeline->shaders[MESA_SHADER_VERTEX];
    const struct gfx10_ngg_info *ngg_state = &shader->info.ngg_info;
 
-   radeon_set_sh_reg_seq(cs, R_00B320_SPI_SHADER_PGM_LO_ES, 2);
-   radeon_emit(cs, va >> 8);
-   radeon_emit(cs, S_00B324_MEM_BASE(va >> 40));
+   radeon_set_sh_reg(cs, R_00B320_SPI_SHADER_PGM_LO_ES, va >> 8);
+
    radeon_set_sh_reg_seq(cs, R_00B228_SPI_SHADER_PGM_RSRC1_GS, 2);
    radeon_emit(cs, shader->config.rsrc1);
    radeon_emit(cs, shader->config.rsrc2);
@@ -4596,22 +4593,18 @@ radv_pipeline_generate_hw_hs(struct radeon_cmdbuf *cs, const struct radv_pipelin
 
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9) {
       if (pipeline->device->physical_device->rad_info.chip_class >= GFX10) {
-         radeon_set_sh_reg_seq(cs, R_00B520_SPI_SHADER_PGM_LO_LS, 2);
-         radeon_emit(cs, va >> 8);
-         radeon_emit(cs, S_00B524_MEM_BASE(va >> 40));
+         radeon_set_sh_reg(cs, R_00B520_SPI_SHADER_PGM_LO_LS, va >> 8);
       } else {
-         radeon_set_sh_reg_seq(cs, R_00B410_SPI_SHADER_PGM_LO_LS, 2);
-         radeon_emit(cs, va >> 8);
-         radeon_emit(cs, S_00B414_MEM_BASE(va >> 40));
+         radeon_set_sh_reg(cs, R_00B410_SPI_SHADER_PGM_LO_LS, va >> 8);
       }
 
       radeon_set_sh_reg_seq(cs, R_00B428_SPI_SHADER_PGM_RSRC1_HS, 2);
       radeon_emit(cs, shader->config.rsrc1);
       radeon_emit(cs, shader->config.rsrc2);
    } else {
-      radeon_set_sh_reg_seq(cs, R_00B420_SPI_SHADER_PGM_LO_HS, 4);
-      radeon_emit(cs, va >> 8);
-      radeon_emit(cs, S_00B424_MEM_BASE(va >> 40));
+      radeon_set_sh_reg(cs, R_00B420_SPI_SHADER_PGM_LO_HS, va >> 8);
+
+      radeon_set_sh_reg_seq(cs, R_00B428_SPI_SHADER_PGM_RSRC1_HS, 2);
       radeon_emit(cs, shader->config.rsrc1);
       radeon_emit(cs, shader->config.rsrc2);
    }
@@ -4797,13 +4790,9 @@ radv_pipeline_generate_hw_gs(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf 
 
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9) {
       if (pipeline->device->physical_device->rad_info.chip_class >= GFX10) {
-         radeon_set_sh_reg_seq(cs, R_00B320_SPI_SHADER_PGM_LO_ES, 2);
-         radeon_emit(cs, va >> 8);
-         radeon_emit(cs, S_00B324_MEM_BASE(va >> 40));
+         radeon_set_sh_reg(cs, R_00B320_SPI_SHADER_PGM_LO_ES, va >> 8);
       } else {
-         radeon_set_sh_reg_seq(cs, R_00B210_SPI_SHADER_PGM_LO_ES, 2);
-         radeon_emit(cs, va >> 8);
-         radeon_emit(cs, S_00B214_MEM_BASE(va >> 40));
+         radeon_set_sh_reg(cs, R_00B210_SPI_SHADER_PGM_LO_ES, va >> 8);
       }
 
       radeon_set_sh_reg_seq(cs, R_00B228_SPI_SHADER_PGM_RSRC1_GS, 2);
@@ -4814,9 +4803,9 @@ radv_pipeline_generate_hw_gs(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf 
       radeon_set_context_reg(ctx_cs, R_028A94_VGT_GS_MAX_PRIMS_PER_SUBGROUP,
                              gs_state->vgt_gs_max_prims_per_subgroup);
    } else {
-      radeon_set_sh_reg_seq(cs, R_00B220_SPI_SHADER_PGM_LO_GS, 4);
-      radeon_emit(cs, va >> 8);
-      radeon_emit(cs, S_00B224_MEM_BASE(va >> 40));
+      radeon_set_sh_reg(cs, R_00B220_SPI_SHADER_PGM_LO_GS, va >> 8);
+
+      radeon_set_sh_reg_seq(cs, R_00B228_SPI_SHADER_PGM_RSRC1_GS, 2);
       radeon_emit(cs, gs->config.rsrc1);
       radeon_emit(cs, gs->config.rsrc2);
    }
@@ -5020,9 +5009,9 @@ radv_pipeline_generate_fragment_shader(struct radeon_cmdbuf *ctx_cs, struct rade
    ps = pipeline->shaders[MESA_SHADER_FRAGMENT];
    va = radv_buffer_get_va(ps->bo) + ps->bo_offset;
 
-   radeon_set_sh_reg_seq(cs, R_00B020_SPI_SHADER_PGM_LO_PS, 4);
-   radeon_emit(cs, va >> 8);
-   radeon_emit(cs, S_00B024_MEM_BASE(va >> 40));
+   radeon_set_sh_reg(cs, R_00B020_SPI_SHADER_PGM_LO_PS, va >> 8);
+
+   radeon_set_sh_reg_seq(cs, R_00B028_SPI_SHADER_PGM_RSRC1_PS, 2);
    radeon_emit(cs, ps->config.rsrc1);
    radeon_emit(cs, ps->config.rsrc2);
 
@@ -5580,9 +5569,7 @@ radv_pipeline_generate_hw_cs(struct radeon_cmdbuf *cs, const struct radv_pipelin
    uint64_t va = radv_buffer_get_va(shader->bo) + shader->bo_offset;
    struct radv_device *device = pipeline->device;
 
-   radeon_set_sh_reg_seq(cs, R_00B830_COMPUTE_PGM_LO, 2);
-   radeon_emit(cs, va >> 8);
-   radeon_emit(cs, S_00B834_DATA(va >> 40));
+   radeon_set_sh_reg(cs, R_00B830_COMPUTE_PGM_LO, va >> 8);
 
    radeon_set_sh_reg_seq(cs, R_00B848_COMPUTE_PGM_RSRC1, 2);
    radeon_emit(cs, shader->config.rsrc1);
