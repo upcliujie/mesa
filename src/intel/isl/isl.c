@@ -2001,7 +2001,7 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
                         .levels = 1,
                         .array_len = surf->logical_level0_px.array_len,
                         .samples = 1, /* MCS surfaces are really single-sampled */
-                        .usage = ISL_SURF_USAGE_MCS_BIT,
+                        .usage = ISL_SURF_USAGE_MCS_BIT | surf->usage,
                         .tiling_flags = ISL_TILING_Y0_BIT);
 }
 
@@ -2209,7 +2209,7 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
                        .array_len = 1,
                        .samples = 1,
                        .row_pitch_B = row_pitch_B,
-                       .usage = ISL_SURF_USAGE_CCS_BIT,
+                       .usage = ISL_SURF_USAGE_CCS_BIT | surf->usage,
                        .tiling_flags = ISL_TILING_GFX12_CCS_BIT);
       assert(!ok || ccs_surf->size_B == surf->size_B / 256);
       return ok;
@@ -2251,7 +2251,7 @@ isl_surf_get_ccs_surf(const struct isl_device *dev,
                            .array_len = surf->logical_level0_px.array_len,
                            .samples = 1,
                            .row_pitch_B = row_pitch_B,
-                           .usage = ISL_SURF_USAGE_CCS_BIT,
+                           .usage = ISL_SURF_USAGE_CCS_BIT | surf->usage,
                            .tiling_flags = ISL_TILING_CCS_BIT);
    }
 }
