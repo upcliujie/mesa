@@ -26,6 +26,7 @@
 #include <xcb/xcb.h>
 #include <xcb/dri3.h>
 #include <xcb/present.h>
+#include <xcb/xcb_image.h>
 
 #include "util/macros.h"
 #include <stdlib.h>
@@ -47,12 +48,18 @@
 #include "wsi_common_x11.h"
 #include "wsi_common_queue.h"
 
+#ifdef HAVE_SYS_SHM_H
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#endif
+
 struct wsi_x11_connection {
    bool has_dri3;
    bool has_dri3_modifiers;
    bool has_present;
    bool is_proprietary_x11;
    bool is_xwayland;
+   bool has_mit_shm;
 };
 
 struct wsi_x11 {
@@ -166,8 +173,8 @@ static struct wsi_x11_connection *
 wsi_x11_connection_create(struct wsi_device *wsi_dev,
                           xcb_connection_t *conn)
 {
-   xcb_query_extension_cookie_t dri3_cookie, pres_cookie, randr_cookie, amd_cookie, nv_cookie;
-   xcb_query_extension_reply_t *dri3_reply, *pres_reply, *randr_reply, *amd_reply, *nv_reply;
+   xcb_query_extension_cookie_t dri3_cookie, pres_cookie, randr_cookie, amd_cookie, nv_cookie, shm_cookie;
+   xcb_query_extension_reply_t *dri3_reply, *pres_reply, *randr_reply, *amd_reply, *nv_reply, *shm_reply;
    bool has_dri3_v1_2 = false;
    bool has_present_v1_2 = false;
 
@@ -180,6 +187,9 @@ wsi_x11_connection_create(struct wsi_device *wsi_dev,
    dri3_cookie = xcb_query_extension(conn, 4, "DRI3");
    pres_cookie = xcb_query_extension(conn, 7, "Present");
    randr_cookie = xcb_query_extension(conn, 5, "RANDR");
+
+   if (wsi_dev->sw)
+      shm_cookie = xcb_query_extension(conn, 7, "MIT-SHM");
 
    /* We try to be nice to users and emit a warning if they try to use a
     * Vulkan application on a system without DRI3 enabled.  However, this ends
@@ -198,12 +208,16 @@ wsi_x11_connection_create(struct wsi_device *wsi_dev,
    randr_reply = xcb_query_extension_reply(conn, randr_cookie, NULL);
    amd_reply = xcb_query_extension_reply(conn, amd_cookie, NULL);
    nv_reply = xcb_query_extension_reply(conn, nv_cookie, NULL);
+   if (wsi_dev->sw)
+      shm_reply = xcb_query_extension_reply(conn, shm_cookie, NULL);
    if (!dri3_reply || !pres_reply) {
       free(dri3_reply);
       free(pres_reply);
       free(randr_reply);
       free(amd_reply);
       free(nv_reply);
+      if (wsi_dev->sw)
+         free(shm_reply);
       vk_free(&wsi_dev->instance_alloc, wsi_conn);
       return NULL;
    }
@@ -247,6 +261,23 @@ wsi_x11_connection_create(struct wsi_device *wsi_dev,
       wsi_conn->is_proprietary_x11 = true;
    if (nv_reply && nv_reply->present)
       wsi_conn->is_proprietary_x11 = true;
+
+   wsi_conn->has_mit_shm = false;
+   if (wsi_dev->sw) {
+      bool has_mit_shm = shm_reply->present != 0;
+      xcb_void_cookie_t cookie;
+      xcb_generic_error_t *error;
+
+      if (has_mit_shm) {
+         cookie = xcb_shm_detach_checked(conn, 0);
+         if ((error = xcb_request_check(conn, cookie))) {
+            if (error->error_code != BadRequest)
+               wsi_conn->has_mit_shm = true;
+            free(error);
+         }
+      }
+      free(shm_reply);
+   }
 
    free(dri3_reply);
    free(pres_reply);
@@ -793,12 +824,15 @@ struct x11_image {
    struct xshmfence *                        shm_fence;
    uint32_t                                  sync_fence;
    uint32_t                                  serial;
+   xcb_image_t                               sw_image;
+   struct xcb_shm_segment_info_t             sw_shm_info;
 };
 
 struct x11_swapchain {
    struct wsi_swapchain                        base;
 
    bool                                         has_dri3_modifiers;
+   bool                                         has_mit_shm;
 
    xcb_connection_t *                           conn;
    xcb_window_t                                 window;
@@ -1147,7 +1181,26 @@ x11_present_to_x11_sw(struct x11_swapchain *chain, uint32_t image_index,
    struct x11_image *image = &chain->images[image_index];
 
    xcb_void_cookie_t cookie;
-   void *myptr;
+//   void *myptr;
+
+   xshmfence_reset(image->shm_fence);
+
+   ++chain->sent_image_count;
+   assert(chain->sent_image_count <= chain->base.image_count);
+
+   cookie = xcb_shm_put_image(chain->conn, chain->window,
+                              chain->gc,
+                              image->base.row_pitches[0] / 4,
+                              chain->extent.height,
+                              0, 0,
+                              chain->extent.width,
+                              chain->extent.height,
+                              0, 0,
+                              chain->depth,
+                              XCB_IMAGE_FORMAT_Z_PIXMAP, true, image->sw_shm_info.shmseg, 0);
+   xcb_sync_trigger_fence(chain->conn, image->sync_fence);
+   image->present_queued = true;
+#if 0
    chain->base.wsi->MapMemory(chain->base.device,
                               image->base.memory,
                               0, 0, 0, &myptr);
@@ -1155,13 +1208,14 @@ x11_present_to_x11_sw(struct x11_swapchain *chain, uint32_t image_index,
    cookie = xcb_put_image(chain->conn, XCB_IMAGE_FORMAT_Z_PIXMAP,
                           chain->window,
                           chain->gc,
-			  image->base.row_pitches[0] / 4,
+                          image->base.row_pitches[0] / 4,
                           chain->extent.height,
                           0,0,0,24,
                           image->base.row_pitches[0] * chain->extent.height,
                           myptr);
 
    chain->base.wsi->UnmapMemory(chain->base.device, image->base.memory);
+#endif
    xcb_discard_reply(chain->conn, cookie.sequence);
    xcb_flush(chain->conn);
    return x11_swapchain_result(chain, VK_SUCCESS);
@@ -1187,10 +1241,6 @@ x11_acquire_next_image(struct wsi_swapchain *anv_chain,
    if (chain->status < 0)
       return chain->status;
 
-   if (chain->base.wsi->sw) {
-      *image_index = 0;
-      return VK_SUCCESS;
-   }
    if (chain->has_acquire_queue) {
       return x11_acquire_next_image_from_queue(chain, image_index, timeout);
    } else {
@@ -1209,7 +1259,7 @@ x11_queue_present(struct wsi_swapchain *anv_chain,
    if (chain->status < 0)
       return chain->status;
 
-   chain->images[image_index].busy = true;
+   chain->images[image_index].busy = false;//true;
    if (chain->has_present_queue) {
       wsi_queue_push(&chain->present_queue, image_index);
       return chain->status;
@@ -1297,6 +1347,24 @@ fail:
    return NULL;
 }
 
+static char *
+alloc_shm(struct wsi_image *imagew, unsigned size)
+{
+   struct x11_image *image = (struct x11_image *)imagew;
+   image->sw_shm_info.shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0600);
+   if (image->sw_shm_info.shmid < 0)
+      return NULL;
+
+   char *addr = (char *)shmat(image->sw_shm_info.shmid, 0, 0);
+   /* mark the segment immediately for deletion to avoid leaks */
+   shmctl(image->sw_shm_info.shmid, IPC_RMID, 0);
+
+   if (addr == (char *) - 1)
+      return NULL;
+
+   return addr;
+}
+
 static VkResult
 x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                const VkSwapchainCreateInfoKHR *pCreateInfo,
@@ -1315,6 +1383,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    } else {
       result = wsi_create_native_image(&chain->base, pCreateInfo,
                                        num_tranches, num_modifiers, modifiers,
+                                       &alloc_shm,
                                        &image->base);
    }
    if (result < 0)
@@ -1322,9 +1391,28 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
 
    if (chain->base.wsi->sw) {
       image->busy = false;
-      return VK_SUCCESS;
-   }
-   image->pixmap = xcb_generate_id(chain->conn);
+      if (!chain->has_mit_shm)
+          return 0;
+
+      image->sw_shm_info.shmseg = xcb_generate_id(chain->conn);
+
+      xcb_shm_attach(chain->conn,
+                     image->sw_shm_info.shmseg,
+                     image->sw_shm_info.shmid,
+                     0);
+      image->pixmap = xcb_generate_id(chain->conn);
+
+      xcb_shm_create_pixmap(chain->conn,
+                            image->pixmap,
+                            0,
+                            pCreateInfo->imageExtent.width,
+                            pCreateInfo->imageExtent.height,
+                            chain->depth,
+                            image->sw_shm_info.shmseg, 0);
+      goto out_fence;
+   } else
+      image->pixmap = xcb_generate_id(chain->conn);
+
 
 #ifdef HAVE_DRI3_MODIFIERS
    if (image->base.drm_modifier != DRM_FORMAT_MOD_INVALID) {
@@ -1373,6 +1461,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    for (int i = 0; i < image->base.num_planes; i++)
       image->base.fds[i] = -1;
 
+out_fence:
    int fence_fd = xshmfence_alloc_shm();
    if (fence_fd < 0)
       goto fail_pixmap;
@@ -1632,6 +1721,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    chain->has_present_queue = false;
    chain->status = VK_SUCCESS;
    chain->has_dri3_modifiers = wsi_conn->has_dri3_modifiers;
+   chain->has_mit_shm = wsi_conn->has_mit_shm;
 
    if (chain->extent.width != cur_width || chain->extent.height != cur_height)
        chain->status = VK_SUBOPTIMAL_KHR;
@@ -1700,7 +1790,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
        chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ||
        chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
         (chain->base.present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-         wsi_conn->is_xwayland)) && !chain->base.wsi->sw) {
+         wsi_conn->is_xwayland))) {
       chain->has_present_queue = true;
 
       /* Initialize our queues.  We make them base.image_count + 1 because we will
@@ -1713,8 +1803,9 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
          goto fail_init_images;
       }
 
-      if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
-          chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
+      if ((chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
+           chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) &&
+         !chain->base.wsi->sw) {
          chain->has_acquire_queue = true;
 
          ret = wsi_queue_init(&chain->acquire_queue, chain->base.image_count + 1);
