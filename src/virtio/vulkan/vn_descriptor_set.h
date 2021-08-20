@@ -40,6 +40,8 @@ struct vn_descriptor_pool {
    VkAllocationCallbacks allocator;
    uint32_t max_sets;
    uint32_t max_sizes[VN_NUM_DESCRIPTOR_TYPES];
+   uint32_t used_sets;
+   uint32_t used_sizes[VN_NUM_DESCRIPTOR_TYPES];
 
    struct list_head descriptor_sets;
 };
