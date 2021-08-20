@@ -864,7 +864,8 @@ ir3_setup_const_state(nir_shader *nir, struct ir3_shader_variant *v,
    unsigned constoff = const_state->ubo_state.size / 16;
    unsigned ptrsz = ir3_pointer_size(compiler);
 
-   if (const_state->num_ubos > 0) {
+   /* On HW without LDC, UBO pointers get uploaded as constants for global loads. */
+   if (compiler->gen < 6 && const_state->num_ubos > 0) {
       const_state->offsets.ubo = constoff;
       constoff += align(const_state->num_ubos * ptrsz, 4) / 4;
    }
