@@ -609,6 +609,7 @@ iris_get_timestamp(struct pipe_screen *pscreen)
 void
 iris_screen_destroy(struct iris_screen *screen)
 {
+   iris_destroy_context(&screen->aux_context->ctx);
    iris_destroy_screen_measure(screen);
    util_queue_destroy(&screen->shader_compiler_queue);
    glsl_type_singleton_decref();
@@ -929,6 +930,12 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
                         UTIL_QUEUE_INIT_RESIZE_IF_FULL |
                         UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY,
                         NULL)) {
+      iris_screen_destroy(screen);
+      return NULL;
+   }
+
+   screen->aux_context = (void *) iris_create_context(pscreen, NULL, 0);
+   if (!screen->aux_context) {
       iris_screen_destroy(screen);
       return NULL;
    }
