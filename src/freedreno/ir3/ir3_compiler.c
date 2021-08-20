@@ -25,6 +25,7 @@
  */
 
 #include "util/ralloc.h"
+#include "util/u_math.h"
 
 #include "freedreno_dev_info.h"
 
@@ -71,7 +72,7 @@ ir3_compiler_destroy(struct ir3_compiler *compiler)
 
 struct ir3_compiler *
 ir3_compiler_create(struct fd_device *dev, const struct fd_dev_id *dev_id,
-                    bool robust_ubo_access)
+                    bool robust_ubo_access, uint8_t ssbo_element_size)
 {
    struct ir3_compiler *compiler = rzalloc(NULL, struct ir3_compiler);
 
@@ -126,6 +127,9 @@ ir3_compiler_create(struct fd_device *dev, const struct fd_dev_id *dev_id,
 
       compiler->tess_use_shared =
             fd_dev_info(compiler->dev_id)->a6xx.tess_use_shared;
+
+      compiler->ssbo_size_to_bytes_shift =
+         util_logbase2_ceil(ssbo_element_size);
    } else {
       compiler->max_const_pipeline = 512;
       compiler->max_const_geom = 512;

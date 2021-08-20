@@ -365,7 +365,7 @@ main(int argc, char **argv)
    struct fd_dev_id dev_id = {
          .gpu_id = gpu_id,
    };
-   compiler = ir3_compiler_create(NULL, &dev_id, false);
+   compiler = ir3_compiler_create(NULL, &dev_id, false, 4);
 
    if (from_tgsi) {
       struct tgsi_token toks[65536];

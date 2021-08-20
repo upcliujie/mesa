@@ -1339,8 +1339,10 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
       }
    }
 
+   uint8_t ssbo_element_size = physical_device->info->a6xx.storage_16bit ? 2 : 4;
    device->compiler = ir3_compiler_create(NULL, &physical_device->dev_id,
-                                          robust_buffer_access2);
+                                          robust_buffer_access2,
+                                          ssbo_element_size);
    if (!device->compiler) {
       result = vk_startup_errorf(physical_device->instance,
                                  VK_ERROR_INITIALIZATION_FAILED,

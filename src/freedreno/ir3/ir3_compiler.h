@@ -50,6 +50,11 @@ struct ir3_compiler {
     */
    bool robust_ubo_access;
 
+   /* On a6xx resinfo returns size in bytes divided by IBO_0_FMT format size,
+    * we have to shift it back to NIR meaning which is size in bytes.
+    */
+   uint8_t ssbo_size_to_bytes_shift;
+
    /*
     * Configuration options for things that are handled differently on
     * different generations:
@@ -161,7 +166,8 @@ struct ir3_compiler {
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
 struct ir3_compiler *ir3_compiler_create(struct fd_device *dev,
                                          const struct fd_dev_id *dev_id,
-                                         bool robust_ubo_access);
+                                         bool robust_ubo_access,
+                                         uint8_t ssbo_element_size);
 
 void ir3_disk_cache_init(struct ir3_compiler *compiler);
 void ir3_disk_cache_init_shader_key(struct ir3_compiler *compiler,
