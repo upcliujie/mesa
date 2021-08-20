@@ -36,17 +36,23 @@ static void
 vn_descriptor_set_layout_init(
    struct vn_device *dev,
    const VkDescriptorSetLayoutCreateInfo *create_info,
+   uint32_t max_binding,
    struct vn_descriptor_set_layout *layout)
 {
    VkDevice dev_handle = vn_device_to_handle(dev);
    VkDescriptorSetLayout layout_handle =
       vn_descriptor_set_layout_to_handle(layout);
 
+   layout->max_binding = max_binding;
+
    for (uint32_t i = 0; i < create_info->bindingCount; i++) {
       const VkDescriptorSetLayoutBinding *binding_info =
          &create_info->pBindings[i];
       struct vn_descriptor_set_layout_binding *binding =
          &layout->bindings[binding_info->binding];
+
+      binding->type = binding_info->descriptorType;
+      binding->count = binding_info->descriptorCount;
 
       switch (binding_info->descriptorType) {
       case VK_DESCRIPTOR_TYPE_SAMPLER:
@@ -122,7 +128,7 @@ vn_CreateDescriptorSetLayout(
    vn_object_base_init(&layout->base, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,
                        &dev->base);
 
-   vn_descriptor_set_layout_init(dev, pCreateInfo, layout);
+   vn_descriptor_set_layout_init(dev, pCreateInfo, max_binding, layout);
 
    vk_free(alloc, local_bindings);
 
