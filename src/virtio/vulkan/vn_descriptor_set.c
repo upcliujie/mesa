@@ -286,10 +286,54 @@ vn_ResetDescriptorPool(VkDevice device,
       vk_free(alloc, set);
    }
 
+   pool->used_sets = 0;
+   memset(pool->used_sizes, 0, sizeof(pool->used_sizes));
+
    return VK_SUCCESS;
 }
 
 /* descriptor set commands */
+
+static bool
+vn_descriptor_pool_resource_acquire(
+   struct vn_descriptor_pool *pool,
+   const struct vn_descriptor_set_layout *layout)
+{
+   uint32_t local_used_sizes[VN_NUM_DESCRIPTOR_TYPES];
+
+   if (pool->used_sets == pool->max_sets)
+      return false;
+
+   memcpy(local_used_sizes, pool->used_sizes, sizeof(local_used_sizes));
+   list_for_each_entry(struct vn_descriptor_set_layout_binding, binding,
+                       &layout->bindings, head) {
+      if (binding->count >
+          pool->max_sizes[binding->type] - local_used_sizes[binding->type])
+         return false;
+      else
+         local_used_sizes[binding->type] += binding->count;
+   }
+
+   ++pool->used_sets;
+
+   list_for_each_entry(struct vn_descriptor_set_layout_binding, binding,
+                       &layout->bindings, head)
+      pool->used_sizes[binding->type] += binding->count;
+
+   return true;
+}
+
+static void
+vn_descriptor_pool_resource_release(
+   struct vn_descriptor_pool *pool,
+   const struct vn_descriptor_set_layout *layout)
+{
+   list_for_each_entry(struct vn_descriptor_set_layout_binding, binding,
+                       &layout->bindings, head)
+      pool->used_sizes[binding->type] -= binding->count;
+
+   --pool->used_sets;
+}
 
 VkResult
 vn_AllocateDescriptorSets(VkDevice device,
@@ -303,10 +347,20 @@ vn_AllocateDescriptorSets(VkDevice device,
    VkResult result;
 
    for (uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-      struct vn_descriptor_set *set =
-         vk_zalloc(alloc, sizeof(*set), VN_DEFAULT_ALIGN,
-                   VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      struct vn_descriptor_set_layout *layout =
+         vn_descriptor_set_layout_from_handle(pAllocateInfo->pSetLayouts[i]);
+      struct vn_descriptor_set *set = NULL;
+
+      if (!vn_descriptor_pool_resource_acquire(pool, layout)) {
+         pDescriptorSets[i] = VK_NULL_HANDLE;
+         result = VK_ERROR_OUT_OF_POOL_MEMORY;
+         goto fail;
+      }
+
+      set = vk_zalloc(alloc, sizeof(*set), VN_DEFAULT_ALIGN,
+                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
       if (!set) {
+         vn_descriptor_pool_resource_release(pool, layout);
          pDescriptorSets[i] = VK_NULL_HANDLE;
          result = VK_ERROR_OUT_OF_HOST_MEMORY;
          goto fail;
@@ -314,8 +368,7 @@ vn_AllocateDescriptorSets(VkDevice device,
 
       vn_object_base_init(&set->base, VK_OBJECT_TYPE_DESCRIPTOR_SET,
                           &dev->base);
-      set->layout =
-         vn_descriptor_set_layout_from_handle(pAllocateInfo->pSetLayouts[i]);
+      set->layout = layout;
       list_addtail(&set->head, &pool->descriptor_sets);
 
       VkDescriptorSet set_handle = vn_descriptor_set_to_handle(set);
@@ -336,6 +389,7 @@ fail:
       if (!set)
          break;
 
+      vn_descriptor_pool_resource_release(pool, set->layout);
       list_del(&set->head);
       vn_object_base_fini(&set->base);
       vk_free(alloc, set);
@@ -368,6 +422,7 @@ vn_FreeDescriptorSets(VkDevice device,
       if (!set)
          continue;
 
+      vn_descriptor_pool_resource_release(pool, set->layout);
       list_del(&set->head);
 
       vn_object_base_fini(&set->base);
