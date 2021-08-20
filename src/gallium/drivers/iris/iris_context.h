@@ -718,7 +718,7 @@ struct iris_context {
 
       bool primitive_restart;
       unsigned cut_index;
-      enum pipe_prim_type prim_mode:8;
+      enum pipe_prim_type prim_mode;
       bool prim_is_points_or_lines;
       uint8_t vertices_per_patch;
 

@@ -96,7 +96,7 @@ struct svga_compile_key
    struct {
       unsigned vertices_per_patch:8;
       unsigned vertices_out:8;
-      enum pipe_prim_type prim_mode:8;
+      enum pipe_prim_type prim_mode;
       enum pipe_tess_spacing spacing:3;
       unsigned vertices_order_cw:1;
       unsigned point_mode:1;
@@ -251,7 +251,7 @@ struct svga_tes_variant
 {
    struct svga_shader_variant base;
 
-   enum pipe_prim_type prim_mode:8;
+   enum pipe_prim_type prim_mode;
    enum pipe_tess_spacing spacing:3;
    unsigned vertices_order_cw:1;
    unsigned point_mode:1;

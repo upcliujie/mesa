@@ -764,7 +764,7 @@ struct pipe_draw_start_count_bias {
  */
 struct pipe_draw_info
 {
-   enum pipe_prim_type mode:8;  /**< the mode of the primitive */
+   enum pipe_prim_type mode;  /**< the mode of the primitive */
    ubyte vertices_per_patch; /**< the number of vertices per patch */
    unsigned index_size:4;  /**< if 0, the draw is not indexed. */
    unsigned view_mask:6; /**< mask of multiviews for this draw */

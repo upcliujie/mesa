@@ -327,6 +327,18 @@ do {                       \
 #define ATTRIBUTE_NOINLINE
 #endif
 
+/* Use as: enum name ENUM8_BEGIN { X, Y } ENUM8_END; */
+#if defined(__GNUC__)
+#define ENUM8_BEGIN
+#define ENUM8_END __attribute__((packed))
+#elif defined(_MSC_VER)
+#define ENUM8_BEGIN : unsigned char
+#define ENUM8_END
+#elif
+#define ENUM8_BEGIN
+#define ENUM8_END
+#endif
+
 
 /**
  * Check that STRUCT::FIELD can hold MAXVAL.  We use a lot of bitfields
