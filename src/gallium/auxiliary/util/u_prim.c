@@ -21,12 +21,26 @@
  */
 
 #include "u_prim.h"
+#include "pipe/p_state.h"
 
 
 /** Return string name of given primitive type */
 const char *
 u_prim_name(enum pipe_prim_type prim)
 {
+#if defined(__GNUC__)
+   /* Check that the enum is packed: */
+   STATIC_ASSERT(sizeof(enum pipe_prim_type) == 1);
+#endif
+
+#if defined(__GNUC__) || defined(_MSC_VER)
+   /* Draw merging in u_threaded_context doesn't work if this fails.
+    * We are checking whether info.mode has 1 byte, but sizeof can't be used
+    * because it's a bitfield.
+    */
+   STATIC_ASSERT(offsetof(struct pipe_draw_info, vertices_per_patch) == 1);
+#endif
+
    static const struct debug_named_value names[] = {
       DEBUG_NAMED_VALUE(PIPE_PRIM_POINTS),
       DEBUG_NAMED_VALUE(PIPE_PRIM_LINES),
