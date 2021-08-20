@@ -51,6 +51,8 @@ struct vn_descriptor_pool {
    bool async_set_allocation;
    struct vn_descriptor_pool_state original_state;
 
+   struct vn_descriptor_pool_state current_state;
+
    struct list_head descriptor_sets;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_descriptor_pool,
