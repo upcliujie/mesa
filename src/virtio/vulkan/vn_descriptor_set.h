@@ -13,6 +13,8 @@
 
 #include "vn_common.h"
 
+#define VN_NUM_DESCRIPTOR_TYPES (VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT + 1)
+
 struct vn_descriptor_set_layout_binding {
    uint32_t binding;
    bool has_immutable_samplers;
@@ -34,6 +36,9 @@ struct vn_descriptor_pool {
    struct vn_object_base base;
 
    VkAllocationCallbacks allocator;
+   uint32_t max_sets;
+   uint32_t max_sizes[VN_NUM_DESCRIPTOR_TYPES];
+
    struct list_head descriptor_sets;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_descriptor_pool,
