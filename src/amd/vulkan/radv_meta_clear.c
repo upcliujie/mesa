@@ -318,8 +318,10 @@ finish_meta_clear_dcc_comp_to_single_state(struct radv_device *device)
 {
    struct radv_meta_state *state = &device->meta_state;
 
-   radv_DestroyPipeline(radv_device_to_handle(device), state->clear_dcc_comp_to_single_pipeline,
-                        &state->alloc);
+   for (uint32_t i = 0; i < MAX_SAMPLES_LOG2; i++) {
+      radv_DestroyPipeline(radv_device_to_handle(device),
+                           state->clear_dcc_comp_to_single_pipeline[i], &state->alloc);
+   }
    radv_DestroyPipelineLayout(radv_device_to_handle(device), state->clear_dcc_comp_to_single_p_layout,
                               &state->alloc);
    radv_DestroyDescriptorSetLayout(radv_device_to_handle(device), state->clear_dcc_comp_to_single_ds_layout,
@@ -1163,12 +1165,12 @@ fail:
 }
 
 static nir_shader *
-build_clear_dcc_comp_to_single_shader()
+build_clear_dcc_comp_to_single_shader(int samples)
 {
-   const struct glsl_type *img_type = glsl_image_type(GLSL_SAMPLER_DIM_2D, true, GLSL_TYPE_FLOAT);
+   const struct glsl_type *img_type = glsl_image_type(GLSL_SAMPLER_DIM_MS, true, GLSL_TYPE_FLOAT);
 
    nir_builder b =
-      nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_clear_dcc_comp_to_single");
+      nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_clear_dcc_comp_to_single-%d", samples);
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;
@@ -1205,19 +1207,21 @@ build_clear_dcc_comp_to_single_shader()
                                     nir_channel(&b, clear_values, 1));
 
    /* Store the clear color values. */
-   nir_image_deref_store(&b, &nir_build_deref_var(&b, output_img)->dest.ssa, coord,
-                         nir_imm_int(&b, 0), data, nir_imm_int(&b, 0),
-                         .image_dim = GLSL_SAMPLER_DIM_2D, .image_array = true);
+   for (uint32_t i = 0; i < samples; i++) {
+      nir_image_deref_store(&b, &nir_build_deref_var(&b, output_img)->dest.ssa, coord,
+                            nir_imm_int(&b, i), data, nir_imm_int(&b, 0),
+                            .image_dim = GLSL_SAMPLER_DIM_MS, .image_array = true);
+   }
 
    return b.shader;
 }
 
 static VkResult
-create_dcc_comp_to_single_pipeline(struct radv_device *device, VkPipeline *pipeline)
+create_dcc_comp_to_single_pipeline(struct radv_device *device, int samples, VkPipeline *pipeline)
 {
    struct radv_meta_state *state = &device->meta_state;
    VkResult result;
-   nir_shader *cs = build_clear_dcc_comp_to_single_shader();
+   nir_shader *cs = build_clear_dcc_comp_to_single_shader(samples);
 
    VkPipelineShaderStageCreateInfo shader_stage = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -1283,9 +1287,13 @@ init_meta_clear_dcc_comp_to_single_state(struct radv_device *device)
    if (result != VK_SUCCESS)
       goto fail;
 
-   result = create_dcc_comp_to_single_pipeline(device, &state->clear_dcc_comp_to_single_pipeline);
-   if (result != VK_SUCCESS)
-      goto fail;
+   for (uint32_t i = 0; i < MAX_SAMPLES_LOG2; i++) {
+      uint32_t samples = 1 << i;
+      result = create_dcc_comp_to_single_pipeline(device, samples,
+                                                  &state->clear_dcc_comp_to_single_pipeline[i]);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
 
 fail:
    return result;
@@ -1528,6 +1536,8 @@ radv_clear_dcc_comp_to_single(struct radv_cmd_buffer *cmd_buffer,
    unsigned bytes_per_pixel = vk_format_get_blocksize(image->vk_format);
    unsigned layer_count = radv_get_layerCount(image, range);
    struct radv_meta_saved_state saved_state;
+   uint32_t samples = image->info.samples;
+   uint32_t samples_log2 = ffs(samples) - 1;
    struct radv_image_view iview;
    VkFormat format;
 
@@ -1555,7 +1565,7 @@ radv_clear_dcc_comp_to_single(struct radv_cmd_buffer *cmd_buffer,
       &saved_state, cmd_buffer,
       RADV_META_SAVE_DESCRIPTORS | RADV_META_SAVE_COMPUTE_PIPELINE | RADV_META_SAVE_CONSTANTS);
 
-   VkPipeline pipeline = device->meta_state.clear_dcc_comp_to_single_pipeline;
+   VkPipeline pipeline = device->meta_state.clear_dcc_comp_to_single_pipeline[samples_log2];
 
    radv_CmdBindPipeline(radv_cmd_buffer_to_handle(cmd_buffer), VK_PIPELINE_BIND_POINT_COMPUTE,
                         pipeline);

@@ -486,7 +486,7 @@ struct radv_meta_state {
    VkDescriptorSetLayout copy_vrs_htile_ds_layout;
 
    /* Clear DCC with comp-to-single. */
-   VkPipeline clear_dcc_comp_to_single_pipeline;
+   VkPipeline clear_dcc_comp_to_single_pipeline[MAX_SAMPLES_LOG2];
    VkPipelineLayout clear_dcc_comp_to_single_p_layout;
    VkDescriptorSetLayout clear_dcc_comp_to_single_ds_layout;
 
