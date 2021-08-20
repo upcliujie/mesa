@@ -17,6 +17,8 @@
 
 struct vn_descriptor_set_layout_binding {
    uint32_t binding;
+   VkDescriptorType type;
+   uint32_t count;
    bool has_immutable_samplers;
 
    struct list_head head;

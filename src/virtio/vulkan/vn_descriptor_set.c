@@ -60,6 +60,8 @@ vn_descriptor_set_layout_init(
       }
 
       binding->binding = binding_info->binding;
+      binding->type = binding_info->descriptorType;
+      binding->count = binding_info->descriptorCount;
 
       switch (binding_info->descriptorType) {
       case VK_DESCRIPTOR_TYPE_SAMPLER:
