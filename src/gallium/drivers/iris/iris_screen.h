@@ -147,6 +147,8 @@ struct iris_address {
 struct iris_screen {
    struct pipe_screen base;
 
+   struct iris_context *aux_context;
+
    uint32_t refcount;
 
    /** Global slab allocator for iris_transfer_map objects */
