@@ -200,6 +200,23 @@ vn_CreateDescriptorPool(VkDevice device,
                        &dev->base);
 
    pool->allocator = *alloc;
+   pool->max_sets = pCreateInfo->maxSets;
+
+   for (uint32_t i = 0; i < pCreateInfo->poolSizeCount; i++) {
+      const VkDescriptorPoolSize *pool_size = &pCreateInfo->pPoolSizes[i];
+
+      assert(pool_size->type < VN_NUM_DESCRIPTOR_TYPES);
+
+      if (pool_size->descriptorCount >
+          UINT32_MAX - pool->max_sizes[pool_size->type]) {
+         vn_object_base_fini(&pool->base);
+         vk_free(alloc, pool);
+         return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      }
+
+      pool->max_sizes[pool_size->type] += pool_size->descriptorCount;
+   }
+
    list_inithead(&pool->descriptor_sets);
 
    VkDescriptorPool pool_handle = vn_descriptor_pool_to_handle(pool);
