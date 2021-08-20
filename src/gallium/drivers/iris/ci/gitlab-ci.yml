@@ -116,21 +116,6 @@ iris-amly-deqp:
     DEQP_SUITE: iris-amly
   parallel: 3
 
-iris-whl-deqp:
-  extends:
-    - .iris-whl-test
-  variables:
-    DEQP_VER: gles2 # for the renderer check
-    DEQP_SUITE: iris-amly
-
-iris-cml-deqp:
-  extends:
-    - .iris-cml-test
-  variables:
-    DEQP_VER: gles2 # for the renderer check
-    DEQP_SUITE: iris-amly
-  parallel: 2
-
 iris-kbl-deqp:
   extends:
     - .iris-kbl-test
@@ -138,6 +123,21 @@ iris-kbl-deqp:
     DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-kbl
   parallel: 4
+
+iris-whl-deqp:
+  extends:
+    - .iris-whl-test
+  variables:
+    DEQP_VER: gles2 # for the renderer check
+    DEQP_SUITE: iris-whl
+
+iris-cml-deqp:
+  extends:
+    - .iris-cml-test
+  variables:
+    DEQP_VER: gles2 # for the renderer check
+    DEQP_SUITE: iris-cml
+  parallel: 2
 
 iris-amly-egl:
   extends:
