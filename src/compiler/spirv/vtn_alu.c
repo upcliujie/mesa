@@ -892,9 +892,39 @@ vtn_handle_integer_dot(struct vtn_builder *b, SpvOp opcode,
                   spirv_op_to_string(opcode));
    }
 
+   if (glsl_type_is_vector(vtn_src[0]->type)) {
+      /* FINISHME: Is this actually as good or better for platforms that don't
+       * have the special instructions (i.e., one or both of has_dot_4x8 or
+       * has_sudot_4x8 is false)?
+       */
+      if (glsl_get_vector_elements(vtn_src[0]->type) == 4 &&
+          glsl_get_bit_size(vtn_src[0]->type) == 8 &&
+          glsl_get_bit_size(dest_type) <= 32) {
+         src[0] = nir_pack_32_4x8(&b->nb, src[0]);
+         src[1] = nir_pack_32_4x8(&b->nb, src[1]);
+      }
+   } else if (glsl_type_is_scalar(vtn_src[0]->type) &&
+              glsl_type_is_32bit(vtn_src[0]->type)) {
+      /* The SPV_KHR_integer_dot_product spec says:
+       *
+       *    When _Vector 1_ and _Vector 2_ are scalar integer types, _Packed
+       *    Vector Format_ must be specified to select how the integers are to
+       *    be interpreted as vectors.
+       *
+       * The "Packed Vector Format" value follows the last input.
+       */
+      vtn_assert(count == (num_inputs + 4));
+      const SpvPackedVectorFormat pack_format = w[num_inputs + 3];
+      vtn_fail_if(pack_format != SpvPackedVectorFormatPackedVectorFormat4x8BitKHR,
+                  "Unsupported vector packing format %d for opcode %s",
+                  pack_format, spirv_op_to_string(opcode));
+   } else {
+      vtn_fail_with_opcode("Invalid source types.", opcode);
+   }
+
    nir_ssa_def *dest = NULL;
 
-   if (glsl_type_is_vector(vtn_src[0]->type)) {
+   if (src[0]->num_components > 1) {
       const nir_op s_conversion_op =
          nir_type_conversion_op(nir_type_int, nir_type_int | dest_size,
                                 nir_rounding_mode_undef);
@@ -977,21 +1007,9 @@ vtn_handle_integer_dot(struct vtn_builder *b, SpvOp opcode,
             ? nir_uadd_sat(&b->nb, dest, src[2])
             : nir_iadd_sat(&b->nb, dest, src[2]);
       }
-   } else if (glsl_type_is_scalar(vtn_src[0]->type) &&
-              glsl_type_is_32bit(vtn_src[0]->type)) {
-      /* The SPV_KHR_integer_dot_product spec says:
-       *
-       *    When _Vector 1_ and _Vector 2_ are scalar integer types, _Packed
-       *    Vector Format_ must be specified to select how the integers are to
-       *    be interpreted as vectors.
-       *
-       * The "Packed Vector Format" value follows the last input.
-       */
-      vtn_assert(count == (num_inputs + 4));
-      const SpvPackedVectorFormat pack_format = w[num_inputs + 3];
-      vtn_fail_if(pack_format != SpvPackedVectorFormatPackedVectorFormat4x8BitKHR,
-                  "Unsupported vector packing format %d for opcode %s",
-                  pack_format, spirv_op_to_string(opcode));
+   } else {
+      assert(src[0]->num_components == 1 && src[1]->num_components == 1);
+      assert(src[0]->bit_size == 32 && src[1]->bit_size == 32);
 
       nir_ssa_def *const zero = nir_imm_zero(&b->nb, 1, 32);
       bool is_signed;
@@ -1070,8 +1088,6 @@ vtn_handle_integer_dot(struct vtn_builder *b, SpvOp opcode,
                : nir_u2u(&b->nb, dest, dest_size);
          }
       }
-   } else {
-      vtn_fail_with_opcode("Invalid source types.", opcode);
    }
 
    vtn_push_nir_ssa(b, w[2], dest);
