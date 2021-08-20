@@ -28,19 +28,7 @@ include:
       - '/templates/fedora.yml'
   - local: '.gitlab-ci/lava/lava-gitlab-ci.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
-  - local: 'src/amd/ci/gitlab-ci.yml'
-  - local: 'src/broadcom/ci/gitlab-ci.yml'
-  - local: 'src/freedreno/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/i915/ci/gitlab-ci.yml'
   - local: 'src/gallium/drivers/iris/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/panfrost/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/radeonsi/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/softpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/virgl/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/zink/ci/gitlab-ci.yml'
-  - local: 'src/gallium/frontends/lavapipe/ci/gitlab-ci.yml'
 
 stages:
   - sanity
@@ -289,6 +277,8 @@ debian/x86_build-base:
     - .container
   variables:
     MESA_IMAGE_TAG: &debian-x86_build-base "2021-07-26-python"
+  rules:
+    - when: always
 
 .use-debian/x86_build-base:
   extends:
@@ -391,6 +381,8 @@ debian/x86_test-base:
   extends: debian/x86_build-base
   variables:
     MESA_IMAGE_TAG: &debian-x86_test-base "2021-07-26-python"
+  rules:
+    - when: always
 
 .use-debian/x86_test-base:
   extends:
