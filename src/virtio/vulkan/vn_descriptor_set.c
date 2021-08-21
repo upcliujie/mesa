@@ -32,7 +32,7 @@ vn_GetDescriptorSetLayoutSupport(
                                            pSupport);
 }
 
-static void
+static VkResult
 vn_descriptor_set_layout_init(
    struct vn_device *dev,
    const VkDescriptorSetLayoutCreateInfo *create_info,
@@ -43,11 +43,23 @@ vn_descriptor_set_layout_init(
    VkDescriptorSetLayout layout_handle =
       vn_descriptor_set_layout_to_handle(layout);
 
+   list_inithead(&layout->bindings);
+
    for (uint32_t i = 0; i < create_info->bindingCount; i++) {
       const VkDescriptorSetLayoutBinding *binding_info =
          &create_info->pBindings[i];
       struct vn_descriptor_set_layout_binding *binding =
-         &layout->bindings[binding_info->binding];
+         vk_zalloc(alloc, sizeof(*binding), VN_DEFAULT_ALIGN,
+                   VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (!binding) {
+         list_for_each_entry_safe(struct vn_descriptor_set_layout_binding,
+                                  allocated_binding, &layout->bindings, head)
+            vk_free(alloc, allocated_binding);
+
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+      }
+
+      binding->binding = binding_info->binding;
 
       switch (binding_info->descriptorType) {
       case VK_DESCRIPTOR_TYPE_SAMPLER:
@@ -57,10 +69,14 @@ vn_descriptor_set_layout_init(
       default:
          break;
       }
+
+      list_addtail(&binding->head, &layout->bindings);
    }
 
    vn_async_vkCreateDescriptorSetLayout(dev->instance, device, create_info,
                                         NULL, &layout_handle);
+
+   return VK_SUCCESS;
 }
 
 VkResult
@@ -73,10 +89,12 @@ vn_CreateDescriptorSetLayout(
    struct vn_device *dev = vn_device_from_handle(device);
    const VkAllocationCallbacks *alloc =
       pAllocator ? pAllocator : &dev->base.base.alloc;
-
+   struct vn_descriptor_set_layout *layout = NULL;
    uint32_t max_binding = 0;
    VkDescriptorSetLayoutBinding *local_bindings = NULL;
    VkDescriptorSetLayoutCreateInfo local_create_info;
+   VkResult result;
+
    if (pCreateInfo->bindingCount) {
       /* the encoder does not ignore
        * VkDescriptorSetLayoutBinding::pImmutableSamplers when it should
@@ -110,11 +128,8 @@ vn_CreateDescriptorSetLayout(
       pCreateInfo = &local_create_info;
    }
 
-   const size_t layout_size =
-      offsetof(struct vn_descriptor_set_layout, bindings[max_binding + 1]);
-   struct vn_descriptor_set_layout *layout =
-      vk_zalloc(alloc, layout_size, VN_DEFAULT_ALIGN,
-                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   layout = vk_zalloc(alloc, sizeof(*layout), VN_DEFAULT_ALIGN,
+                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!layout) {
       vk_free(alloc, local_bindings);
       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
@@ -123,7 +138,13 @@ vn_CreateDescriptorSetLayout(
    vn_object_base_init(&layout->base, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT,
                        &dev->base);
 
-   vn_descriptor_set_layout_init(dev, pCreateInfo, alloc, layout);
+   result = vn_descriptor_set_layout_init(dev, pCreateInfo, alloc, layout);
+   if (result != VK_SUCCESS) {
+      vn_object_base_fini(&layout->base);
+      vk_free(alloc, layout);
+      vk_free(alloc, local_bindings);
+      return vn_error(dev->instance, result);
+   }
 
    vk_free(alloc, local_bindings);
 
@@ -148,6 +169,10 @@ vn_DestroyDescriptorSetLayout(VkDevice device,
 
    vn_async_vkDestroyDescriptorSetLayout(dev->instance, device,
                                          descriptorSetLayout, NULL);
+
+   list_for_each_entry_safe(struct vn_descriptor_set_layout_binding, binding,
+                            &layout->bindings, head)
+      vk_free(alloc, binding);
 
    vn_object_base_fini(&layout->base);
    vk_free(alloc, layout);
@@ -363,6 +388,19 @@ vn_update_descriptor_sets_alloc(uint32_t write_count,
    return update;
 }
 
+static inline struct vn_descriptor_set_layout_binding *
+vn_get_descriptor_set_layout_binding(
+   const struct vn_descriptor_set_layout *layout, uint32_t binding_index)
+{
+   list_for_each_entry(struct vn_descriptor_set_layout_binding, binding,
+                       &layout->bindings, head) {
+      if (binding->binding == binding_index)
+         return binding;
+   }
+
+   return NULL;
+}
+
 static struct vn_update_descriptor_sets *
 vn_update_descriptor_sets_parse_writes(uint32_t write_count,
                                        const VkWriteDescriptorSet *writes,
@@ -402,7 +440,11 @@ vn_update_descriptor_sets_parse_writes(uint32_t write_count,
       const struct vn_descriptor_set *set =
          vn_descriptor_set_from_handle(writes[i].dstSet);
       const struct vn_descriptor_set_layout_binding *binding =
-         &set->layout->bindings[writes[i].dstBinding];
+         vn_get_descriptor_set_layout_binding(set->layout,
+                                              writes[i].dstBinding);
+      if (!binding)
+         return NULL;
+
       VkWriteDescriptorSet *write = &update->writes[i];
       VkDescriptorImageInfo *imgs = &update->images[img_count];
 
@@ -669,7 +711,12 @@ vn_UpdateDescriptorSetWithTemplate(
       const struct vn_descriptor_update_template_entry *entry =
          &templ->entries[i];
       const struct vn_descriptor_set_layout_binding *binding =
-         &set->layout->bindings[update->writes[i].dstBinding];
+         vn_get_descriptor_set_layout_binding(set->layout,
+                                              update->writes[i].dstBinding);
+      if (!binding) {
+         unreachable("invalid descriptor set");
+      }
+
       VkWriteDescriptorSet *write = &update->writes[i];
 
       write->dstSet = vn_descriptor_set_to_handle(set);
