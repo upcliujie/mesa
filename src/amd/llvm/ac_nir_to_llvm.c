@@ -1236,6 +1236,12 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       break;
    }
 
+   case nir_op_sad_u8x4:
+      result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.sad.u8", ctx->ac.i32,
+                                  (LLVMValueRef[]){src[0], src[1], src[2]}, 3,
+                                  AC_FUNC_ATTR_READNONE);
+      break;
+
    default:
       fprintf(stderr, "Unknown NIR alu instr: ");
       nir_print_instr(&instr->instr, stderr);
@@ -2909,6 +2915,8 @@ static LLVMValueRef visit_load_subgroup_id(struct ac_nir_context *ctx)
       result = LLVMBuildAnd(ctx->ac.builder, ac_get_arg(&ctx->ac, ctx->args->tg_size),
                             LLVMConstInt(ctx->ac.i32, 0xfc0, false), "");
       return LLVMBuildLShr(ctx->ac.builder, result, LLVMConstInt(ctx->ac.i32, 6, false), "");
+   } else if (ctx->args->merged_wave_info.used) {
+      return ac_unpack_param(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args->merged_wave_info), 24, 4);
    } else {
       return LLVMConstInt(ctx->ac.i32, 0, false);
    }
@@ -4055,6 +4063,64 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
                                   cache_policy);
       break;
    }
+   case nir_intrinsic_load_initial_edgeflags_amd:
+      if (ctx->stage == MESA_SHADER_VERTEX && !ctx->info->vs.blit_sgprs_amd)
+         result = ac_pack_edgeflags_for_export(&ctx->ac, ctx->args);
+      else
+         result = ctx->ac.i32_0;
+      break;
+   case nir_intrinsic_has_input_vertex_amd: {
+      LLVMValueRef num =
+         ac_unpack_param(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args->merged_wave_info), 0, 8);
+      result = LLVMBuildICmp(ctx->ac.builder, LLVMIntULT, ac_get_thread_id(&ctx->ac), num, "");
+      break;
+   }
+   case nir_intrinsic_has_input_primitive_amd: {
+      LLVMValueRef num =
+         ac_unpack_param(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args->merged_wave_info), 8, 8);
+      result = LLVMBuildICmp(ctx->ac.builder, LLVMIntULT, ac_get_thread_id(&ctx->ac), num, "");
+      break;
+   }
+   case nir_intrinsic_load_workgroup_num_input_vertices_amd:
+      result = ac_unpack_param(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args->gs_tg_info), 12, 9);
+      break;
+   case nir_intrinsic_load_workgroup_num_input_primitives_amd:
+      result = ac_unpack_param(&ctx->ac, ac_get_arg(&ctx->ac, ctx->args->gs_tg_info), 22, 9);
+      break;
+   case nir_intrinsic_alloc_vertices_and_primitives_amd:
+      /* The caller should only call this conditionally for wave 0, so assume that the current
+       * wave is always wave 0.
+       */
+      ac_build_sendmsg_gs_alloc_req(&ctx->ac, ctx->ac.i32_0,
+                                    get_src(ctx, instr->src[0]),
+                                    get_src(ctx, instr->src[1]));
+      break;
+   case nir_intrinsic_export_primitive_amd: {
+      struct ac_ngg_prim prim = {};
+      prim.passthrough = get_src(ctx, instr->src[0]);
+      ac_build_export_prim(&ctx->ac, &prim);
+      break;
+   }
+   case nir_intrinsic_export_vertex_amd:
+      ctx->abi->export_vertex(ctx->abi);
+      break;
+   case nir_intrinsic_byte_permute_amd:
+      result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.perm", ctx->ac.i32,
+                                  (LLVMValueRef[]){get_src(ctx, instr->src[0]),
+                                                   get_src(ctx, instr->src[1]),
+                                                   get_src(ctx, instr->src[2])},
+                                  3, AC_FUNC_ATTR_READNONE);
+      break;
+   case nir_intrinsic_lane_permute_16_amd:
+      result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.permlane16", ctx->ac.i32,
+                                  (LLVMValueRef[]){get_src(ctx, instr->src[0]),
+                                                   get_src(ctx, instr->src[0]),
+                                                   get_src(ctx, instr->src[1]),
+                                                   get_src(ctx, instr->src[2]),
+                                                   ctx->ac.i1false,
+                                                   ctx->ac.i1false},
+                                  6, AC_FUNC_ATTR_READNONE | AC_FUNC_ATTR_CONVERGENT);
+      break;
    default:
       fprintf(stderr, "Unknown intrinsic: ");
       nir_print_instr(&instr->instr, stderr);
