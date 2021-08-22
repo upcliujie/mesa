@@ -372,6 +372,73 @@ ir3_nir_lower_io_to_temporaries(nir_shader *s)
    NIR_PASS_V(s, nir_lower_indirect_derefs, 0, UINT32_MAX);
 }
 
+/*
+ * Lowering for 64b intrinsics generated with OpenCL.  All our intrinsics
+ * from a hw standpoint are 32b, so we just need to combine in zero for
+ * the upper 32bits and let the other nir passes clean up the mess.
+ */
+
+static bool
+lower_64b_intrinsics_filter(const nir_instr *instr, const void *unused)
+{
+   (void)unused;
+
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   if (nir_intrinsic_dest_components(intr) == 0)
+      return false;
+
+   if (!intr->dest.is_ssa)
+      return false;
+
+   return nir_dest_bit_size(intr->dest) == 64;
+}
+
+static nir_ssa_def *
+lower_64b_intrinsics(nir_builder *b, nir_instr *instr, void *unused)
+{
+   (void)unused;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   unsigned num_comp = nir_intrinsic_dest_components(intr);
+
+   nir_ssa_def *def = &intr->dest.ssa;
+   def->bit_size = 32;
+
+   /* load_kernel_input is handled specially, lowering to two 32b inputs:
+    */
+   if (intr->intrinsic == nir_intrinsic_load_kernel_input) {
+      assert(num_comp == 1);
+
+      nir_ssa_def *offset = nir_iadd(b,
+            nir_ssa_for_src(b, intr->src[0], 1),
+            nir_imm_int(b, 4));
+
+      nir_ssa_def *upper = nir_build_load_kernel_input(
+            b, 1, 32, offset);
+
+      return nir_pack_64_2x32_split(b, def, upper);
+   }
+
+   nir_ssa_def *components[num_comp];
+   for (unsigned i = 0; i < num_comp; i++) {
+      nir_ssa_def *c = nir_channel(b, def, i);
+      components[i] = nir_pack_64_2x32_split(b, c, nir_imm_zero(b, 1, 32));
+   }
+
+   return nir_build_alu_src_arr(b, nir_op_vec(num_comp), components);
+}
+
+static bool
+ir3_nir_lower_64b_intrinsics(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(
+         shader, lower_64b_intrinsics_filter,
+         lower_64b_intrinsics, NULL);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -406,6 +473,8 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
    OPT_V(s, nir_lower_load_const_to_scalar);
    if (compiler->gen < 5)
       OPT_V(s, ir3_nir_lower_tg4_to_tex);
+
+   NIR_PASS_V(s, ir3_nir_lower_64b_intrinsics);
 
    ir3_optimize_loop(compiler, s);
 
