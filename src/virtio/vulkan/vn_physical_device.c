@@ -37,6 +37,16 @@ vn_instance_find_physical_device(struct vn_instance *instance,
 }
 
 static void
+vn_physical_device_fix_features(struct vn_physical_device *physical_dev)
+{
+   struct VkPhysicalDeviceVulkan12Features *vk12_feats =
+      &physical_dev->vulkan_1_2_features;
+
+   /* disable for enabling async descriptor set allocation */
+   vk12_feats->descriptorBindingVariableDescriptorCount = VK_FALSE;
+}
+
+static void
 vn_physical_device_init_features(struct vn_physical_device *physical_dev)
 {
    struct vn_instance *instance = physical_dev->instance;
@@ -347,6 +357,8 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
       vk12_feats->shaderOutputLayer = exts->EXT_shader_viewport_index_layer;
       vk12_feats->subgroupBroadcastDynamicId = false;
    }
+
+   vn_physical_device_fix_features(physical_dev);
 }
 
 static void
