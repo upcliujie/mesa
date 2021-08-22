@@ -372,6 +372,148 @@ ir3_nir_lower_io_to_temporaries(nir_shader *s)
    NIR_PASS_V(s, nir_lower_indirect_derefs, 0, UINT32_MAX);
 }
 
+/*
+ * Lowering for 64b intrinsics generated with OpenCL.  All our intrinsics
+ * from a hw standpoint are 32b, so we just need to combine in zero for
+ * the upper 32bits and let the other nir passes clean up the mess.
+ */
+
+static bool
+is_intrinsic_store(nir_intrinsic_op op)
+{
+   switch (op) {
+   case nir_intrinsic_store_global:
+   case nir_intrinsic_store_shared:
+   case nir_intrinsic_store_scratch:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static bool
+is_intrinsic_load(nir_intrinsic_op op)
+{
+   switch (op) {
+   case nir_intrinsic_load_global:
+   case nir_intrinsic_load_shared:
+   case nir_intrinsic_load_scratch:
+      return true;
+   default:
+      return false;
+   }
+}
+
+static bool
+lower_64b_intrinsics_filter(const nir_instr *instr, const void *unused)
+{
+   (void)unused;
+
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+   if (is_intrinsic_store(intr->intrinsic))
+      return nir_src_bit_size(intr->src[0]) == 64;
+
+   if (nir_intrinsic_dest_components(intr) == 0)
+      return false;
+
+   return nir_dest_bit_size(intr->dest) == 64;
+}
+
+static nir_ssa_def *
+lower_64b_intrinsics(nir_builder *b, nir_instr *instr, void *unused)
+{
+   (void)unused;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+   /* We could be *slightly* more clever and, for ex, turn a 64b vec4
+    * load into two 32b vec4 loads, rather than 4 32b vec2 loads.
+    */
+
+   if (is_intrinsic_store(intr->intrinsic)) {
+      unsigned num_comp = nir_intrinsic_src_components(intr, 0);
+      nir_ssa_def *val = nir_ssa_for_src(b, intr->src[0], num_comp);
+      nir_ssa_def *off = nir_ssa_for_src(b, intr->src[1], 1);
+
+      for (unsigned i = 0; i < num_comp; i++) {
+         nir_ssa_def *c64 = nir_channel(b, val, i);
+         nir_ssa_def *c32 = nir_unpack_64_2x32(b, c64);
+
+         nir_intrinsic_instr *store =
+               nir_intrinsic_instr_create(b->shader, intr->intrinsic);
+         store->num_components = 2;
+         store->src[0] = nir_src_for_ssa(c32);
+         store->src[1] = nir_src_for_ssa(off);
+         nir_intrinsic_set_align(store, nir_intrinsic_align(intr), 0);
+         nir_builder_instr_insert(b, &store->instr);
+
+         off = nir_iadd(b, off, nir_imm_intN_t(b, 8, off->bit_size));
+      }
+
+      return NIR_LOWER_INSTR_PROGRESS_REPLACE;
+   }
+
+   unsigned num_comp = nir_intrinsic_dest_components(intr);
+
+   nir_ssa_def *def = &intr->dest.ssa;
+   def->bit_size = 32;
+
+   /* load_kernel_input is handled specially, lowering to two 32b inputs:
+    */
+   if (intr->intrinsic == nir_intrinsic_load_kernel_input) {
+      assert(num_comp == 1);
+
+      nir_ssa_def *offset = nir_iadd(b,
+            nir_ssa_for_src(b, intr->src[0], 1),
+            nir_imm_int(b, 4));
+
+      nir_ssa_def *upper = nir_build_load_kernel_input(
+            b, 1, 32, offset);
+
+      return nir_pack_64_2x32_split(b, def, upper);
+   }
+
+   nir_ssa_def *components[num_comp];
+
+   if (is_intrinsic_load(intr->intrinsic)) {
+      nir_ssa_def *off = nir_ssa_for_src(b, intr->src[0], 1);
+
+      for (unsigned i = 0; i < num_comp; i++) {
+         nir_intrinsic_instr *load =
+            nir_intrinsic_instr_create(b->shader, intr->intrinsic);
+         load->num_components = 2;
+         load->src[0] = nir_src_for_ssa(off);
+         nir_intrinsic_set_align(load, nir_intrinsic_align(intr), 0);
+         nir_ssa_dest_init(&load->instr, &load->dest, 2, 32, NULL);
+         nir_builder_instr_insert(b, &load->instr);
+
+         components[i] = nir_pack_64_2x32(b, &load->dest.ssa);
+      }
+   } else {
+      /* The remaining (non load/store) intrinsics just get zero-
+       * extended from 32b to 64b:
+       */
+      for (unsigned i = 0; i < num_comp; i++) {
+         nir_ssa_def *c = nir_channel(b, def, i);
+         components[i] = nir_pack_64_2x32_split(b, c, nir_imm_zero(b, 1, 32));
+      }
+   }
+
+   return nir_build_alu_src_arr(b, nir_op_vec(num_comp), components);
+}
+
+static bool
+ir3_nir_lower_64b_intrinsics(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(
+         shader, lower_64b_intrinsics_filter,
+         lower_64b_intrinsics, NULL);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -406,6 +548,9 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
    OPT_V(s, nir_lower_load_const_to_scalar);
    if (compiler->gen < 5)
       OPT_V(s, ir3_nir_lower_tg4_to_tex);
+
+   if (OPT(s, ir3_nir_lower_64b_intrinsics))
+      OPT_V(s, nir_lower_int64);
 
    ir3_optimize_loop(compiler, s);
 
