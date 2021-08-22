@@ -193,16 +193,22 @@ void gfx10_ngg_build_export_prim(struct si_shader_context *ctx, LLVMValueRef use
       for (unsigned i = 0; i < 3; ++i)
          prim.index[i] = si_unpack_param(ctx, ctx->args.gs_vtx_offset[i / 2], (i & 1) * 16, 16);
 
-      for (unsigned i = 0; i < prim.num_vertices; ++i) {
-         prim.edgeflag[i] = ngg_get_initial_edgeflag(ctx, i);
+      if (ctx->stage == MESA_SHADER_VERTEX &&
+          !ctx->shader->selector->info.base.vs.blit_sgprs_amd) {
+         for (unsigned i = 0; i < prim.num_vertices; ++i) {
+            prim.edgeflag[i] = ngg_get_initial_edgeflag(ctx, i);
 
-         if (ctx->shader->selector->info.writes_edgeflag) {
-            LLVMValueRef edge;
+            if (ctx->shader->selector->info.writes_edgeflag) {
+               LLVMValueRef edge;
 
-            edge = LLVMBuildLoad(ctx->ac.builder, user_edgeflags[i], "");
-            edge = LLVMBuildAnd(ctx->ac.builder, prim.edgeflag[i], edge, "");
-            prim.edgeflag[i] = edge;
+               edge = LLVMBuildLoad(ctx->ac.builder, user_edgeflags[i], "");
+               edge = LLVMBuildAnd(ctx->ac.builder, prim.edgeflag[i], edge, "");
+               prim.edgeflag[i] = edge;
+            }
          }
+      } else {
+         for (unsigned i = 0; i < prim.num_vertices; ++i)
+            prim.edgeflag[i] = ctx->ac.i1false;
       }
 
       ac_build_export_prim(&ctx->ac, &prim);
@@ -1164,7 +1170,11 @@ void gfx10_emit_ngg_culling_epilogue(struct ac_shader_abi *abi, unsigned max_out
          prim.index[vtx] = LLVMBuildLoad(
             builder, si_build_gep_i8(ctx, gs_vtxptr[vtx], lds_byte1_new_thread_id), "");
          prim.index[vtx] = LLVMBuildZExt(builder, prim.index[vtx], ctx->ac.i32, "");
-         prim.edgeflag[vtx] = ngg_get_initial_edgeflag(ctx, vtx);
+
+         if (ctx->stage == MESA_SHADER_VERTEX)
+            prim.edgeflag[vtx] = ngg_get_initial_edgeflag(ctx, vtx);
+         else
+            prim.edgeflag[vtx] = ctx->ac.i1false;
       }
 
       /* Set the new GS input VGPR. */
