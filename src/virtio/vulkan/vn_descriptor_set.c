@@ -374,12 +374,8 @@ vn_AllocateDescriptorSets(VkDevice device,
       pDescriptorSets[i] = set_handle;
    }
 
-   result = vn_call_vkAllocateDescriptorSets(dev->instance, device,
-                                             pAllocateInfo, pDescriptorSets);
-   if (result != VK_SUCCESS) {
-      assert(false);
-      goto fail;
-   }
+   vn_async_vkAllocateDescriptorSets(dev->instance, device, pAllocateInfo,
+                                     pDescriptorSets);
 
    return VK_SUCCESS;
 
