@@ -51,7 +51,7 @@
 #include "util/u_pwr8.h"
 #endif
 
-#if !defined(PIPE_ARCH_SSE)
+#if 1//!defined(PIPE_ARCH_SSE)
 
 static inline int
 subpixel_snap(float a)
@@ -758,32 +758,33 @@ do_triangle_ccw(struct lp_setup_context *setup,
     */
    if (nr_planes > 3) {
       struct lp_rast_plane *plane_s = &plane[3];
-
+      float pixel_offset = setup->multisample ? 0.0 : setup->pixel_offset;
+      float adj = 0.5 + pixel_offset;
       if (s_planes[0]) {
          plane_s->dcdx = ~0U << 8;
          plane_s->dcdy = 0;
-         plane_s->c = (1-scissor->x0) << 8;
+         plane_s->c = subpixel_snap(adj-scissor->x0);
          plane_s->eo = 1 << 8;
          plane_s++;
       }
       if (s_planes[1]) {
          plane_s->dcdx = 1 << 8;
          plane_s->dcdy = 0;
-         plane_s->c = (scissor->x1+1) << 8;
+         plane_s->c = subpixel_snap(scissor->x1+adj);
          plane_s->eo = 0 << 8;
          plane_s++;
       }
       if (s_planes[2]) {
          plane_s->dcdx = 0;
          plane_s->dcdy = 1 << 8;
-         plane_s->c = (1-scissor->y0) << 8;
+         plane_s->c = subpixel_snap(adj-scissor->y0);
          plane_s->eo = 1 << 8;
          plane_s++;
       }
       if (s_planes[3]) {
          plane_s->dcdx = 0;
          plane_s->dcdy = ~0U << 8;
-         plane_s->c = (scissor->y1+1) << 8;
+         plane_s->c = subpixel_snap(scissor->y1+adj);
          plane_s->eo = 0;
          plane_s++;
       }
