@@ -758,32 +758,32 @@ do_triangle_ccw(struct lp_setup_context *setup,
     */
    if (nr_planes > 3) {
       struct lp_rast_plane *plane_s = &plane[3];
-
+      int ms_adj = setup->multisample ? 127 : 0;
       if (s_planes[0]) {
          plane_s->dcdx = ~0U << 8;
          plane_s->dcdy = 0;
-         plane_s->c = (1-scissor->x0) << 8;
+         plane_s->c = ((1 - scissor->x0) << 8) - ms_adj;
          plane_s->eo = 1 << 8;
          plane_s++;
       }
       if (s_planes[1]) {
          plane_s->dcdx = 1 << 8;
          plane_s->dcdy = 0;
-         plane_s->c = (scissor->x1+1) << 8;
+         plane_s->c = ((scissor->x1 + 1) << 8) - 1;
          plane_s->eo = 0 << 8;
          plane_s++;
       }
       if (s_planes[2]) {
          plane_s->dcdx = 0;
          plane_s->dcdy = 1 << 8;
-         plane_s->c = (1-scissor->y0) << 8;
+         plane_s->c = ((1 - scissor->y0) << 8) - ms_adj;
          plane_s->eo = 1 << 8;
          plane_s++;
       }
       if (s_planes[3]) {
          plane_s->dcdx = 0;
          plane_s->dcdy = ~0U << 8;
-         plane_s->c = (scissor->y1+1) << 8;
+         plane_s->c = ((scissor->y1 + 1) << 8) - 1;
          plane_s->eo = 0;
          plane_s++;
       }
