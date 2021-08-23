@@ -92,6 +92,7 @@
 #include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
+#include "indices/u_indices.h"
 #include "indices/u_primconvert.h"
 #include "util/u_prim_restart.h"
 #include "util/u_screen.h"
@@ -1395,6 +1396,9 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
    struct pipe_draw_info new_info;
    struct pipe_draw_start_count_bias new_draw;
    unsigned fixed_restart_index = info->index_size ? util_prim_restart_index_from_size(info->index_size) : 0;
+   enum pipe_prim_type new_mode = info->primitive_restart ?
+                                  u_index_prim_type_convert(mgr->caps.supported_restart_modes, info->mode, true) :
+                                  u_index_prim_type_convert(mgr->caps.supported_prim_modes, info->mode, true);
 
    /* Normal draw. No fallback and no user buffers. */
    if (!incompatible_vb_mask &&
@@ -1404,8 +1408,7 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
        (!info->primitive_restart ||
         info->restart_index == fixed_restart_index ||
         !mgr->caps.rewrite_restart_index) &&
-       (!info->primitive_restart || mgr->caps.supported_restart_modes & BITFIELD_BIT(info->mode)) &&
-       mgr->caps.supported_prim_modes & BITFIELD_BIT(info->mode)) {
+       info->mode == new_mode) {
 
       /* Set vertex buffers if needed. */
       if (mgr->dirty_real_vb_mask & used_vb_mask) {
@@ -1686,9 +1689,8 @@ void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
 
    if ((new_info.index_size == 1 && mgr->caps.rewrite_ubyte_ibs) ||
        (new_info.primitive_restart &&
-        ((new_info.restart_index != fixed_restart_index && mgr->caps.rewrite_restart_index) ||
-        !(mgr->caps.supported_restart_modes & BITFIELD_BIT(new_info.mode)))) ||
-       !(mgr->caps.supported_prim_modes & BITFIELD_BIT(new_info.mode))) {
+        new_info.restart_index != fixed_restart_index && mgr->caps.rewrite_restart_index) ||
+       new_info.mode != new_mode) {
       util_primconvert_save_flatshade_first(mgr->pc, mgr->flatshade_first);
       util_primconvert_draw_vbo(mgr->pc, &new_info, drawid_offset, indirect, &new_draw, 1);
    } else
