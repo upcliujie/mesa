@@ -1214,7 +1214,7 @@ static VkResult
 x11_present_to_x11(struct x11_swapchain *chain, uint32_t image_index,
                    uint64_t target_msc)
 {
-   if (chain->base.wsi->sw)
+   if (chain->base.wsi->sw && !chain->has_mit_shm)
       return x11_present_to_x11_sw(chain, image_index, target_msc);
    return x11_present_to_x11_dri3(chain, image_index, target_msc);
 }
@@ -1231,7 +1231,7 @@ x11_acquire_next_image(struct wsi_swapchain *anv_chain,
    if (chain->status < 0)
       return chain->status;
 
-   if (chain->base.wsi->sw) {
+   if (chain->base.wsi->sw && !chain->has_mit_shm) {
       *image_index = 0;
       return VK_SUCCESS;
    }
@@ -1385,8 +1385,27 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
       return result;
 
    if (chain->base.wsi->sw) {
-      image->busy = false;
-      return VK_SUCCESS;
+      if (!chain->has_mit_shm) {
+         image->busy = false;
+         return VK_SUCCESS;
+      }
+
+      image->shmseg = xcb_generate_id(chain->conn);
+
+      xcb_shm_attach(chain->conn,
+                     image->shmseg,
+                     image->shmid,
+                     0);
+      image->pixmap = xcb_generate_id(chain->conn);
+      cookie = xcb_shm_create_pixmap_checked(chain->conn,
+                                             image->pixmap,
+                                             chain->window,
+                                             image->base.row_pitches[0] / 4,
+                                             pCreateInfo->imageExtent.height,
+                                             chain->depth,
+                                             image->shmseg, 0);
+      xcb_discard_reply(chain->conn, cookie.sequence);
+      goto out_fence;
    }
    image->pixmap = xcb_generate_id(chain->conn);
 
@@ -1437,6 +1456,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    for (int i = 0; i < image->base.num_planes; i++)
       image->base.fds[i] = -1;
 
+out_fence:
    int fence_fd = xshmfence_alloc_shm();
    if (fence_fd < 0)
       goto fail_pixmap;
