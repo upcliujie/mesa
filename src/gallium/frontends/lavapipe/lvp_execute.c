@@ -822,22 +822,48 @@ static void handle_pipeline(struct vk_cmd_queue_entry *cmd,
       handle_graphics_pipeline(cmd, state);
 }
 
+static void vertex_buffers(uint32_t first_binding,
+                           uint32_t binding_count,
+                           const VkBuffer *buffers,
+                           const VkDeviceSize *offsets,
+                           struct rendering_state *state)
+{
+   int i;
+   for (i = 0; i < binding_count; i++) {
+      int idx = i + first_binding;
+
+      state->vb[idx].buffer_offset = offsets[i];
+      state->vb[idx].buffer.resource = buffers[i] ? lvp_buffer_from_handle(buffers[i])->bo : NULL;
+   }
+   if (first_binding < state->start_vb)
+      state->start_vb = first_binding;
+   if (first_binding + binding_count >= state->num_vb)
+      state->num_vb = first_binding + binding_count;
+   state->vb_dirty = true;
+}
+
 static void handle_vertex_buffers(struct vk_cmd_queue_entry *cmd,
                                   struct rendering_state *state)
 {
-   int i;
    struct vk_cmd_bind_vertex_buffers *vcb = &cmd->u.bind_vertex_buffers;
-   for (i = 0; i < vcb->binding_count; i++) {
-      int idx = i + vcb->first_binding;
 
-      state->vb[idx].buffer_offset = vcb->offsets[i];
-      state->vb[idx].buffer.resource = vcb->buffers[i] ? lvp_buffer_from_handle(vcb->buffers[i])->bo : NULL;
-   }
-   if (vcb->first_binding < state->start_vb)
-      state->start_vb = vcb->first_binding;
-   if (vcb->first_binding + vcb->binding_count >= state->num_vb)
-      state->num_vb = vcb->first_binding + vcb->binding_count;
-   state->vb_dirty = true;
+   vertex_buffers(vcb->first_binding,
+                  vcb->binding_count,
+                  vcb->buffers,
+                  vcb->offsets,
+                  state);
+}
+
+static void handle_vertex_buffers2(struct vk_cmd_queue_entry *cmd,
+                                   struct rendering_state *state)
+{
+   struct vk_cmd_bind_vertex_buffers2_ext *vcb = &cmd->u.bind_vertex_buffers2_ext;
+
+   vertex_buffers(vcb->first_binding,
+                  vcb->binding_count,
+                  vcb->buffers,
+                  vcb->offsets,
+                  state);
 }
 
 struct dyn_info {
@@ -1619,18 +1645,18 @@ static void begin_render_subpass(struct rendering_state *state,
       render_subpass_clear_fast(state);
 }
 
-static void handle_begin_render_pass2(struct vk_cmd_queue_entry *cmd,
-                                     struct rendering_state *state)
+static void begin_render_pass(const VkRenderPassBeginInfo *render_pass_begin,
+                              struct rendering_state *state)
 {
-   LVP_FROM_HANDLE(lvp_render_pass, pass, cmd->u.begin_render_pass2.render_pass_begin->renderPass);
-   LVP_FROM_HANDLE(lvp_framebuffer, framebuffer, cmd->u.begin_render_pass2.render_pass_begin->framebuffer);
+   LVP_FROM_HANDLE(lvp_render_pass, pass, render_pass_begin->renderPass);
+   LVP_FROM_HANDLE(lvp_framebuffer, framebuffer, render_pass_begin->framebuffer);
    const struct VkRenderPassAttachmentBeginInfo *attachment_info =
-      vk_find_struct_const(cmd->u.begin_render_pass2.render_pass_begin->pNext,
+      vk_find_struct_const(render_pass_begin->pNext,
                            RENDER_PASS_ATTACHMENT_BEGIN_INFO);
 
    state->pass = pass;
    state->vk_framebuffer = framebuffer;
-   state->render_area = cmd->u.begin_render_pass2.render_pass_begin->renderArea;
+   state->render_area = render_pass_begin->renderArea;
 
    if (attachment_info) {
       /* TODO: Free all this */
@@ -1675,12 +1701,25 @@ static void handle_begin_render_pass2(struct vk_cmd_queue_entry *cmd,
       }
       state->attachments[i].pending_clear_aspects = clear_aspects;
       if (clear_aspects)
-         state->attachments[i].clear_value = cmd->u.begin_render_pass2.render_pass_begin->pClearValues[i];
+         state->attachments[i].clear_value = render_pass_begin->pClearValues[i];
 
       state->pending_clear_aspects[i] = state->attachments[i].pending_clear_aspects;
       state->cleared_views[i] = 0;
    }
    begin_render_subpass(state, 0);
+}
+
+
+static void handle_begin_render_pass(struct vk_cmd_queue_entry *cmd,
+                                     struct rendering_state *state)
+{
+   begin_render_pass(cmd->u.begin_render_pass.render_pass_begin, state);
+}
+
+static void handle_begin_render_pass2(struct vk_cmd_queue_entry *cmd,
+                                      struct rendering_state *state)
+{
+   begin_render_pass(cmd->u.begin_render_pass2.render_pass_begin, state);
 }
 
 static void handle_end_render_pass2(struct vk_cmd_queue_entry *cmd,
@@ -3523,8 +3562,11 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
       case VK_CMD_BIND_INDEX_BUFFER:
          handle_index_buffer(cmd, state);
          break;
-      case VK_CMD_BIND_VERTEX_BUFFERS2_EXT:
+      case VK_CMD_BIND_VERTEX_BUFFERS:
          handle_vertex_buffers(cmd, state);
+         break;
+      case VK_CMD_BIND_VERTEX_BUFFERS2_EXT:
+         handle_vertex_buffers2(cmd, state);
          break;
       case VK_CMD_DRAW:
          emit_state(state);
@@ -3633,12 +3675,16 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
       case VK_CMD_PUSH_CONSTANTS:
          handle_push_constants(cmd, state);
          break;
+      case VK_CMD_BEGIN_RENDER_PASS:
+         handle_begin_render_pass(cmd, state);
+         break;
       case VK_CMD_BEGIN_RENDER_PASS2:
          handle_begin_render_pass2(cmd, state);
          break;
       case VK_CMD_NEXT_SUBPASS2:
          handle_next_subpass2(cmd, state);
          break;
+      case VK_CMD_END_RENDER_PASS:
       case VK_CMD_END_RENDER_PASS2:
          handle_end_render_pass2(cmd, state);
          break;
