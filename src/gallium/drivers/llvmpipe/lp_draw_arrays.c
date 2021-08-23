@@ -65,6 +65,9 @@ llvmpipe_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
    const void *mapped_indices = NULL;
    unsigned i;
 
+   for(i = 0; i < num_draws; i++)
+      fprintf(stderr, "%s: i %d start %d count %d index_bias %d info->instance_count %d\n", __func__, i, draws[i].start, draws[i].count, draws[i].index_bias, info->instance_count);
+
    if (!llvmpipe_check_render_cond(lp))
       return;
 
