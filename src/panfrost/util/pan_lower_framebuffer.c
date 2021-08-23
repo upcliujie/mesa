@@ -109,11 +109,6 @@ pan_format_class_load(const struct util_format_description *desc, unsigned quirk
         if (quirks & MIDGARD_MISSING_LOADS) {
                 switch (desc->format) {
                 case PIPE_FORMAT_R11G11B10_FLOAT:
-                case PIPE_FORMAT_R10G10B10A2_UNORM:
-                case PIPE_FORMAT_B10G10R10A2_UNORM:
-                case PIPE_FORMAT_R10G10B10X2_UNORM:
-                case PIPE_FORMAT_B10G10R10X2_UNORM:
-                case PIPE_FORMAT_R10G10B10A2_UINT:
                         return PAN_FORMAT_PACK;
                 default:
                         return PAN_FORMAT_NATIVE;
