@@ -204,6 +204,8 @@ st_draw_gallium_multimode(struct gl_context *ctx,
    unsigned i, first;
    struct cso_context *cso = st->cso_context;
 
+   if (st->vertdata_edgeflags)
+      cso_set_edgeflags_enabled(st->cso_context);
    /* Find consecutive draws where mode doesn't vary. */
    for (i = 0, first = 0; i <= num_draws; i++) {
       if (i == num_draws || mode[i] != mode[first]) {
@@ -261,6 +263,8 @@ st_indirect_draw_vbo(struct gl_context *ctx,
    info.mode = translate_prim(ctx, mode);
    indirect.buffer = st_buffer_object(indirect_data)->buffer;
    indirect.offset = indirect_offset;
+   if (st->vertdata_edgeflags)
+      cso_set_edgeflags_enabled(st->cso_context);
 
    if (!st->has_multi_draw_indirect) {
       int i;
@@ -305,7 +309,8 @@ st_draw_transform_feedback(struct gl_context *ctx, GLenum mode,
    /* Set info.count_from_stream_output. */
    if (!st_transform_feedback_draw_init(tfb_vertcount, stream, &indirect))
       return;
-
+   if (st->vertdata_edgeflags)
+      cso_set_edgeflags_enabled(st->cso_context);
    cso_draw_vbo(st->cso_context, &info, 0, &indirect, draw);
 }
 
@@ -422,7 +427,8 @@ st_draw_quad(struct st_context *st,
 
    cso_set_vertex_buffers(st->cso_context, 0, 1, &vb);
    st->last_num_vbuffers = MAX2(st->last_num_vbuffers, 1);
-
+   if (st->vertdata_edgeflags)
+      cso_set_edgeflags_enabled(st->cso_context);
    if (num_instances > 1) {
       cso_draw_arrays_instanced(st->cso_context, PIPE_PRIM_TRIANGLE_FAN, 0, 4,
                                 0, num_instances);

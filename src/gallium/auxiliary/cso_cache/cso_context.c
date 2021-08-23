@@ -109,6 +109,7 @@ struct cso_context {
    uint render_condition_mode, render_condition_mode_saved;
    boolean render_condition_cond, render_condition_cond_saved;
    bool flatshade_first, flatshade_first_saved;
+   bool edgeflags_enabled, edgeflags_enabled_saved;
 
    struct pipe_framebuffer_state fb, fb_saved;
    struct pipe_viewport_state vp, vp_saved;
@@ -642,8 +643,14 @@ void cso_set_vertex_shader_handle(struct cso_context *ctx, void *handle)
 {
    if (ctx->vertex_shader != handle) {
       ctx->vertex_shader = handle;
+      ctx->edgeflags_enabled = false;
       ctx->pipe->bind_vs_state(ctx->pipe, handle);
    }
+}
+
+void cso_set_edgeflags_enabled(struct cso_context *ctx)
+{
+   ctx->edgeflags_enabled = true;
 }
 
 static void
@@ -651,6 +658,7 @@ cso_save_vertex_shader(struct cso_context *ctx)
 {
    assert(!ctx->vertex_shader_saved);
    ctx->vertex_shader_saved = ctx->vertex_shader;
+   ctx->edgeflags_enabled_saved = ctx->edgeflags_enabled;
 }
 
 static void
@@ -659,8 +667,10 @@ cso_restore_vertex_shader(struct cso_context *ctx)
    if (ctx->vertex_shader_saved != ctx->vertex_shader) {
       ctx->pipe->bind_vs_state(ctx->pipe, ctx->vertex_shader_saved);
       ctx->vertex_shader = ctx->vertex_shader_saved;
+      ctx->edgeflags_enabled = ctx->edgeflags_enabled_saved;
    }
    ctx->vertex_shader_saved = NULL;
+   ctx->edgeflags_enabled_saved = false;
 }
 
 
@@ -1587,7 +1597,7 @@ cso_draw_vbo(struct cso_context *cso,
           indirect->count_from_stream_output == NULL);
 
    if (vbuf) {
-      u_vbuf_draw_vbo(vbuf, info, drawid_offset, indirect, draw);
+      u_vbuf_draw_vbo(vbuf, info, drawid_offset, indirect, draw, cso->edgeflags_enabled && !cso->geometry_shader);
    } else {
       struct pipe_context *pipe = cso->pipe;
       pipe->draw_vbo(pipe, info, drawid_offset, indirect, &draw, 1);
@@ -1613,7 +1623,7 @@ cso_multi_draw(struct cso_context *cso,
 
       unsigned drawid = drawid_offset;
       for (unsigned i = 0; i < num_draws; i++) {
-         u_vbuf_draw_vbo(vbuf, info, drawid, NULL, draws[i]);
+         u_vbuf_draw_vbo(vbuf, info, drawid, NULL, draws[i], cso->edgeflags_enabled && !cso->geometry_shader);
 
          if (info->increment_draw_id)
             drawid++;

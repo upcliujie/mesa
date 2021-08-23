@@ -773,6 +773,8 @@ st_DrawAtlasBitmaps(struct gl_context *ctx,
 
    cso_set_vertex_buffers(st->cso_context, 0, 1, &vb);
    st->last_num_vbuffers = MAX2(st->last_num_vbuffers, 1);
+   if (st->vertdata_edgeflags)
+      cso_set_edgeflags_enabled(st->cso_context);
 
    cso_draw_arrays(st->cso_context, PIPE_PRIM_QUADS, 0, num_verts);
 

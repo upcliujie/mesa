@@ -111,6 +111,7 @@ void cso_set_geometry_shader_handle(struct cso_context *ctx, void *handle);
 void cso_set_tessctrl_shader_handle(struct cso_context *ctx, void *handle);
 void cso_set_tesseval_shader_handle(struct cso_context *ctx, void *handle);
 void cso_set_compute_shader_handle(struct cso_context *ctx, void *handle);
+void cso_set_edgeflags_enabled(struct cso_context *ctx);
 
 
 void cso_set_framebuffer(struct cso_context *cso,

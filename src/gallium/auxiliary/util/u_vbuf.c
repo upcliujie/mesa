@@ -1374,14 +1374,15 @@ u_vbuf_split_indexed_multidraw(struct u_vbuf *mgr, struct pipe_draw_info *info,
       draw.index_bias = indirect_data[offset + 3];
       info->start_instance = indirect_data[offset + 4];
 
-      u_vbuf_draw_vbo(mgr, info, drawid_offset, NULL, draw);
+      u_vbuf_draw_vbo(mgr, info, drawid_offset, NULL, draw, false);
    }
 }
 
 void u_vbuf_draw_vbo(struct u_vbuf *mgr, const struct pipe_draw_info *info,
                      unsigned drawid_offset,
                      const struct pipe_draw_indirect_info *indirect,
-                     const struct pipe_draw_start_count_bias draw)
+                     const struct pipe_draw_start_count_bias draw,
+                     bool edgeflags_enabled)
 {
    struct pipe_context *pipe = mgr->pipe;
    int start_vertex;
