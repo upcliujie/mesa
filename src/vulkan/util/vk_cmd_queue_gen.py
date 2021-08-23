@@ -311,15 +311,12 @@ def main():
         'manual_commands': MANUAL_COMMANDS,
     }
 
-    # For outputting entrypoints.h we generate a anv_EntryPoint() prototype
-    # per entry point.
     try:
         with open(args.out_h, 'wb') as f:
             guard = os.path.basename(args.out_h).replace('.', '_').upper()
             f.write(TEMPLATE_H.render(guard=guard, **environment))
         with open(args.out_c, 'wb') as f:
             f.write(TEMPLATE_C.render(**environment))
-
     except Exception:
         # In the event there's an error, this imports some helpers from mako
         # to print a useful stack trace and prints it, then exits with
