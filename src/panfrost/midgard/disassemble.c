@@ -1912,6 +1912,8 @@ disassemble_midgard(FILE *fp, uint8_t *code, size_t size, unsigned gpu_id, bool 
                 unsigned next_tag = (words[i] >> 4) & 0xF;
                 unsigned num_quad_words = midgard_tag_props[tag].size;
 
+                fprintf(fp, "%X:\n", i * 4);
+
                 if (midg_tags[i] && midg_tags[i] != tag) {
                         fprintf(fp, "\t/* XXX: TAG ERROR branch, got %s expected %s */\n",
                                         midgard_tag_props[tag].name,
