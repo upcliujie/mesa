@@ -175,13 +175,7 @@ typedef struct _RGNDATA {
 
 /* Windows calling convention */
 #ifndef WINAPI
-  #if defined(__x86_64__) && !defined(__ILP32__)
-    #define WINAPI __attribute__((ms_abi))
-  #elif defined(__i386__)
-    #define WINAPI __attribute__((__stdcall__))
-  #else /* neither amd64 nor i386 */
     #define WINAPI
-  #endif
 #endif /* WINAPI */
 
 /* Implementation caps */
