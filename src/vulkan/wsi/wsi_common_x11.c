@@ -833,6 +833,9 @@ struct x11_image {
    struct xshmfence *                        shm_fence;
    uint32_t                                  sync_fence;
    uint32_t                                  serial;
+   xcb_shm_seg_t                             shmseg;
+   uint32_t                                  shmid;
+   uint8_t *                                 shmaddr;
 };
 
 struct x11_swapchain {
@@ -1338,6 +1341,25 @@ fail:
    return NULL;
 }
 
+static uint8_t *
+alloc_shm(struct wsi_image *imagew, unsigned size)
+{
+   struct x11_image *image = (struct x11_image *)imagew;
+   image->shmid = shmget(IPC_PRIVATE, size, IPC_CREAT | 0600);
+   if (image->shmid < 0)
+      return NULL;
+
+   uint8_t *addr = (uint8_t *)shmat(image->shmid, 0, 0);
+   /* mark the segment immediately for deletion to avoid leaks */
+   shmctl(image->shmid, IPC_RMID, 0);
+
+   if (addr == (uint8_t *) -1)
+      return NULL;
+
+   image->shmaddr = addr;
+   return addr;
+}
+
 static VkResult
 x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                const VkSwapchainCreateInfoKHR *pCreateInfo,
@@ -1356,6 +1378,7 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
    } else {
       result = wsi_create_native_image(&chain->base, pCreateInfo,
                                        num_tranches, num_modifiers, modifiers,
+                                       chain->has_mit_shm ? &alloc_shm : NULL,
                                        &image->base);
    }
    if (result < 0)
@@ -1463,6 +1486,8 @@ x11_image_finish(struct x11_swapchain *chain,
    }
 
    wsi_destroy_image(&chain->base, &image->base);
+   if (image->shmaddr)
+      shmdt(image->shmaddr);
 }
 
 static void
