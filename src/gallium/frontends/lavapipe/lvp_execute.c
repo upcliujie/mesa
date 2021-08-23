@@ -1619,18 +1619,18 @@ static void begin_render_subpass(struct rendering_state *state,
       render_subpass_clear_fast(state);
 }
 
-static void handle_begin_render_pass2(struct vk_cmd_queue_entry *cmd,
-                                     struct rendering_state *state)
+static void begin_render_pass(const VkRenderPassBeginInfo *render_pass_begin,
+                              struct rendering_state *state)
 {
-   LVP_FROM_HANDLE(lvp_render_pass, pass, cmd->u.begin_render_pass2.render_pass_begin->renderPass);
-   LVP_FROM_HANDLE(lvp_framebuffer, framebuffer, cmd->u.begin_render_pass2.render_pass_begin->framebuffer);
+   LVP_FROM_HANDLE(lvp_render_pass, pass, render_pass_begin->renderPass);
+   LVP_FROM_HANDLE(lvp_framebuffer, framebuffer, render_pass_begin->framebuffer);
    const struct VkRenderPassAttachmentBeginInfo *attachment_info =
-      vk_find_struct_const(cmd->u.begin_render_pass2.render_pass_begin->pNext,
+      vk_find_struct_const(render_pass_begin->pNext,
                            RENDER_PASS_ATTACHMENT_BEGIN_INFO);
 
    state->pass = pass;
    state->vk_framebuffer = framebuffer;
-   state->render_area = cmd->u.begin_render_pass2.render_pass_begin->renderArea;
+   state->render_area = render_pass_begin->renderArea;
 
    if (attachment_info) {
       /* TODO: Free all this */
@@ -1675,12 +1675,25 @@ static void handle_begin_render_pass2(struct vk_cmd_queue_entry *cmd,
       }
       state->attachments[i].pending_clear_aspects = clear_aspects;
       if (clear_aspects)
-         state->attachments[i].clear_value = cmd->u.begin_render_pass2.render_pass_begin->pClearValues[i];
+         state->attachments[i].clear_value = render_pass_begin->pClearValues[i];
 
       state->pending_clear_aspects[i] = state->attachments[i].pending_clear_aspects;
       state->cleared_views[i] = 0;
    }
    begin_render_subpass(state, 0);
+}
+
+
+static void handle_begin_render_pass(struct vk_cmd_queue_entry *cmd,
+                                     struct rendering_state *state)
+{
+   begin_render_pass(cmd->u.begin_render_pass.render_pass_begin, state);
+}
+
+static void handle_begin_render_pass2(struct vk_cmd_queue_entry *cmd,
+                                      struct rendering_state *state)
+{
+   begin_render_pass(cmd->u.begin_render_pass2.render_pass_begin, state);
 }
 
 static void handle_end_render_pass2(struct vk_cmd_queue_entry *cmd,
@@ -3523,6 +3536,7 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
       case VK_CMD_BIND_INDEX_BUFFER:
          handle_index_buffer(cmd, state);
          break;
+      case VK_CMD_BIND_VERTEX_BUFFERS:
       case VK_CMD_BIND_VERTEX_BUFFERS2_EXT:
          handle_vertex_buffers(cmd, state);
          break;
@@ -3633,12 +3647,17 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
       case VK_CMD_PUSH_CONSTANTS:
          handle_push_constants(cmd, state);
          break;
+      case VK_CMD_BEGIN_RENDER_PASS:
+         handle_begin_render_pass(cmd, state);
+         break;
       case VK_CMD_BEGIN_RENDER_PASS2:
          handle_begin_render_pass2(cmd, state);
          break;
+      case VK_CMD_NEXT_SUBPASS:
       case VK_CMD_NEXT_SUBPASS2:
          handle_next_subpass2(cmd, state);
          break;
+      case VK_CMD_END_RENDER_PASS:
       case VK_CMD_END_RENDER_PASS2:
          handle_end_render_pass2(cmd, state);
          break;
