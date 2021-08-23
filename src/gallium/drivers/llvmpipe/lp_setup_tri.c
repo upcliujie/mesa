@@ -51,7 +51,7 @@
 #include "util/u_pwr8.h"
 #endif
 
-#if !defined(PIPE_ARCH_SSE)
+#if 1//!defined(PIPE_ARCH_SSE)
 
 static inline int
 subpixel_snap(float a)
@@ -762,28 +762,28 @@ do_triangle_ccw(struct lp_setup_context *setup,
       if (s_planes[0]) {
          plane_s->dcdx = ~0U << 8;
          plane_s->dcdy = 0;
-         plane_s->c = (1-scissor->x0) << 8;
+         plane_s->c = subpixel_snap(0.5-scissor->x0);
          plane_s->eo = 1 << 8;
          plane_s++;
       }
       if (s_planes[1]) {
          plane_s->dcdx = 1 << 8;
          plane_s->dcdy = 0;
-         plane_s->c = (scissor->x1+1) << 8;
+         plane_s->c = subpixel_snap(scissor->x1+0.5);
          plane_s->eo = 0 << 8;
          plane_s++;
       }
       if (s_planes[2]) {
          plane_s->dcdx = 0;
          plane_s->dcdy = 1 << 8;
-         plane_s->c = (1-scissor->y0) << 8;
+         plane_s->c = subpixel_snap(0.5-scissor->y0);
          plane_s->eo = 1 << 8;
          plane_s++;
       }
       if (s_planes[3]) {
          plane_s->dcdx = 0;
          plane_s->dcdy = ~0U << 8;
-         plane_s->c = (scissor->y1+1) << 8;
+         plane_s->c = subpixel_snap(scissor->y1+0.5);
          plane_s->eo = 0;
          plane_s++;
       }
