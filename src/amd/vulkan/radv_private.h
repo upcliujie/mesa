@@ -1725,7 +1725,10 @@ struct radv_binning_state {
 
 enum radv_pipeline_type {
    RADV_PIPELINE_GRAPHICS,
+   /* Compute pipeline (incl raytracing pipeline) */
    RADV_PIPELINE_COMPUTE,
+   /* Pipeline library. This can't actually run and merely is a partial pipeline. */
+   RADV_PIPELINE_LIBRARY
 };
 
 struct radv_pipeline_group_handle {
@@ -1806,6 +1809,12 @@ struct radv_pipeline {
          struct radv_pipeline_group_handle *rt_group_handles;
          struct radv_pipeline_shader_stack_size *rt_stack_sizes;
       } compute;
+      struct {
+         unsigned stage_count;
+         VkPipelineShaderStageCreateInfo *stages;
+         unsigned group_count;
+         VkRayTracingShaderGroupCreateInfoKHR *groups;
+      } library;
    };
 
    unsigned max_waves;
