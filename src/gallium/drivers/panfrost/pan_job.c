@@ -258,15 +258,15 @@ panfrost_batch_update_access(struct panfrost_batch *batch,
         if (writes || ((writer != NULL) && (writer != batch))) {
                 unsigned i;
                 foreach_batch(ctx, i) {
-                        struct panfrost_batch *batch = &ctx->batches.slots[i];
+                        struct panfrost_batch *user = &ctx->batches.slots[i];
 
                         /* Skip the entry if this our batch. */
                         if (i == batch_idx)
                                 continue;
 
                         /* Submit if it's a user */
-                        if (_mesa_set_search(batch->resources, rsrc))
-                                panfrost_batch_submit(batch, 0, 0);
+                        if (_mesa_set_search(user->resources, rsrc))
+                                panfrost_batch_submit(user, 0, 0);
                 }
         }
 
