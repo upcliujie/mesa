@@ -458,6 +458,22 @@ radv_patch_image_dimensions(struct radv_device *device, struct radv_image *image
    return VK_SUCCESS;
 }
 
+static bool
+radv_use_display_dcc_for_image(struct radv_device *device, struct radv_image *image, unsigned plane)
+{
+   if (device->instance->debug_flags & RADV_DEBUG_NO_DISPLAY_DCC)
+      return false;
+
+   /* On NAVI12-14, DCC block sizes for storage and displayable DCC are incompatible. */
+   if ((device->physical_device->rad_info.family == CHIP_NAVI12 ||
+        device->physical_device->rad_info.family == CHIP_NAVI14) &&
+        (image->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
+       !(image->planes[plane].surface.flags & RADEON_SURF_DISABLE_DCC))
+      return false;
+
+   return true;
+}
+
 static VkResult
 radv_patch_image_from_extra_info(struct radv_device *device, struct radv_image *image,
                                  const struct radv_image_create_info *create_info,
@@ -475,7 +491,7 @@ radv_patch_image_from_extra_info(struct radv_device *device, struct radv_image *
 
       if (radv_surface_has_scanout(device, create_info)) {
          image->planes[plane].surface.flags |= RADEON_SURF_SCANOUT;
-         if (device->instance->debug_flags & RADV_DEBUG_NO_DISPLAY_DCC)
+         if (!radv_use_display_dcc_for_image(device, image, plane))
             image->planes[plane].surface.flags |= RADEON_SURF_DISABLE_DCC;
 
          image->info.surf_index = NULL;
