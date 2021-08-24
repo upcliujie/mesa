@@ -253,7 +253,7 @@ ir3_put_dst(struct ir3_context *ctx, nir_dest *dst)
    }
 
    /* Note: 1-bit bools are stored in 32-bit regs */
-   if (bit_size == 16) {
+   if ((bit_size <= 16) && (bit_size != 1)) {
       for (unsigned i = 0; i < ctx->last_dst_n; i++) {
          struct ir3_instruction *dst = ctx->last_dst[i];
          ir3_set_dst_type(dst, true);
