@@ -1636,7 +1636,7 @@ int v3d_shaderdb_dump(struct v3d_compile *c,
  * register allocation to any particular thread count). This is fine
  * because v3d_nir_to_vir will cap this to the actual minimum.
  */
-struct v3d_compiler_strategy {
+static struct v3d_compiler_strategy {
         const char *name;
         uint32_t max_threads;
         uint32_t min_threads;
@@ -1644,7 +1644,7 @@ struct v3d_compiler_strategy {
         bool disable_ubo_load_sorting;
         bool disable_tmu_pipelining;
         bool tmu_spilling_allowed;
-} static const strategies[] = {
+} const strategies[] = {
   /*0*/ { "default",                        4, 4, false, false, false, false },
   /*1*/ { "disable loop unrolling",         4, 4, true,  false, false, false },
   /*2*/ { "disable UBO load sorting",       4, 4, true,  true,  false, false },
