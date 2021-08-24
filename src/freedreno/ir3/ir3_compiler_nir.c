@@ -293,8 +293,7 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
    unsigned bs[info->num_inputs]; /* bit size */
    struct ir3_block *b = ctx->block;
    unsigned dst_sz, wrmask;
-   type_t dst_type =
-      nir_dest_bit_size(alu->dest.dest) == 16 ? TYPE_U16 : TYPE_U32;
+   type_t dst_type = type_uint_size(nir_dest_bit_size(alu->dest.dest));
 
    if (alu->dest.dest.is_ssa) {
       dst_sz = alu->dest.dest.ssa.num_components;
