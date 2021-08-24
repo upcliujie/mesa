@@ -861,9 +861,11 @@ panfrost_begin_query(struct pipe_context *pipe, struct pipe_query *q)
                 }
 
                 /* Default to 0 if nothing at all drawn. */
-                uint8_t *zeroes = alloca(size);
-                memset(zeroes, 0, size);
-                pipe_buffer_write(pipe, query->rsrc, 0, size, zeroes);
+                struct pipe_transfer *transfer;
+                void *map = pipe_buffer_map_range(pipe, query->rsrc, 0, size,
+                                                  PIPE_MAP_WRITE, &transfer);
+                memset(map, 0, size);
+                pipe_buffer_unmap(map, transfer);
 
                 query->msaa = (ctx->pipe_framebuffer.samples > 1);
                 ctx->occlusion_query = query;
