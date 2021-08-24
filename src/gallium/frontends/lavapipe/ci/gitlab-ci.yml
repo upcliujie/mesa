@@ -11,10 +11,9 @@
 
 lavapipe-vk:
   stage: software-renderer
+  parallel: 5
   extends:
     - .lavapipe-test
-  variables:
-    DEQP_FRACTION: 10
 
 lavapipe-nir-stress:
   extends:
