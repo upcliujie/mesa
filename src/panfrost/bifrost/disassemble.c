@@ -676,9 +676,9 @@ static void dump_clause(FILE *fp, uint32_t *words, unsigned *size, unsigned offs
         fprintf(fp, "}\n");
 
         if (verbose) {
-                for (unsigned i = 0; i < num_consts; i++) {
-                        fprintf(fp, "# const%d: %08" PRIx64 "\n", 2 * i, consts.raw[i] & 0xffffffff);
-                        fprintf(fp, "# const%d: %08" PRIx64 "\n", 2 * i + 1, consts.raw[i] >> 32);
+                for (unsigned j = 0; j < num_consts; j++) {
+                        fprintf(fp, "# const%d: %08" PRIx64 "\n", 2 * j, consts.raw[j] & 0xffffffff);
+                        fprintf(fp, "# const%d: %08" PRIx64 "\n", 2 * j + 1, consts.raw[j] >> 32);
                 }
         }
 
@@ -700,11 +700,11 @@ void disassemble_bifrost(FILE *fp, uint8_t *code, size_t size, bool verbose)
 
                 fprintf(fp, "clause_%u:\n", offset);
 
-                unsigned size;
-                dump_clause(fp, words, &size, offset, verbose);
+                unsigned clause_size;
+                dump_clause(fp, words, &clause_size, offset, verbose);
 
-                words += size * 4;
-                offset += size;
+                words += clause_size * 4;
+                offset += clause_size;
         }
 }
 

@@ -331,20 +331,20 @@ bi_pack_tuple(bi_clause *clause, bi_tuple *tuple, bi_tuple *prev, bool first_tup
                         0);
 
         if (tuple->add) {
-                bi_instr *add = tuple->add;
+                bi_instr *I = tuple->add;
 
-                bool sr_write = bi_opcode_props[add->op].sr_write &&
-                        !bi_is_null(add->dest[0]);
+                bool sr_write = bi_opcode_props[I->op].sr_write &&
+                        !bi_is_null(I->dest[0]);
 
-                if (sr_read && !bi_is_null(add->src[0])) {
-                        assert(add->src[0].type == BI_INDEX_REGISTER);
-                        clause->staging_register = add->src[0].value;
+                if (sr_read && !bi_is_null(I->src[0])) {
+                        assert(I->src[0].type == BI_INDEX_REGISTER);
+                        clause->staging_register = I->src[0].value;
 
                         if (sr_write)
-                                assert(bi_is_equiv(add->src[0], add->dest[0]));
+                                assert(bi_is_equiv(I->src[0], I->dest[0]));
                 } else if (sr_write) {
-                        assert(add->dest[0].type == BI_INDEX_REGISTER);
-                        clause->staging_register = add->dest[0].value;
+                        assert(I->dest[0].type == BI_INDEX_REGISTER);
+                        clause->staging_register = I->dest[0].value;
                 }
         }
 

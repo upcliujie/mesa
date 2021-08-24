@@ -1709,20 +1709,23 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st, uint
 
         /* Before merging, rewrite away any tuples that read only zero */
         for (unsigned i = max_tuples - clause->tuple_count; i < max_tuples; ++i) {
-                bi_tuple *tuple = &clause->tuples[i];
-                struct bi_const_state *st = &clause_state.consts[i];
+                bi_tuple *T = &clause->tuples[i];
+                struct bi_const_state *cons = &clause_state.consts[i];
 
-                if (st->constant_count == 0 || st->constants[0] || st->constants[1] || st->pcrel)
+                if (cons->constant_count == 0 ||
+                    cons->constants[0] || cons->constants[1] ||
+                    cons->pcrel)
                         continue;
 
-                bi_foreach_instr_in_tuple(tuple, ins)
+                bi_foreach_instr_in_tuple(T, ins) {
                         bi_rewrite_zero(ins, false);
+                }
 
                 /* Constant has been demoted to FAU, so don't pack it separately */
-                st->constant_count = 0;
+                cons->constant_count = 0;
 
                 /* Default */
-                assert(tuple->fau_idx == BIR_FAU_ZERO);
+                assert(T->fau_idx == BIR_FAU_ZERO);
         }
 
         uint64_t constant_pairs[8] = { 0 };
@@ -1737,14 +1740,14 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st, uint
         clause->pcrel_idx = pcrel_idx;
 
         for (unsigned i = max_tuples - clause->tuple_count; i < max_tuples; ++i) {
-                bi_tuple *tuple = &clause->tuples[i];
+                bi_tuple *T = &clause->tuples[i];
 
                 /* If no constants, leave FAU as it is, possibly defaulting to 0 */
                 if (clause_state.consts[i].constant_count == 0)
                         continue;
 
                 /* FAU is already handled */
-                assert(!tuple->fau_idx);
+                assert(!T->fau_idx);
 
                 unsigned word_idx = clause_state.consts[i].word_idx;
                 assert(word_idx <= 8);
@@ -1755,7 +1758,7 @@ bi_schedule_clause(bi_context *ctx, bi_block *block, struct bi_worklist st, uint
                 unsigned lo = pair & 0xF;
 
                 tuple->fau_idx = bi_constant_field(word_idx) | lo;
-                bi_rewrite_constants_to_pass(tuple, pair, word_idx == pcrel_idx);
+                bi_rewrite_constants_to_pass(T, pair, word_idx == pcrel_idx);
         }
 
         clause->constant_count = constant_words;
