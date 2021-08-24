@@ -1517,6 +1517,24 @@ v3d_attempt_compile(struct v3d_compile *c)
 
         v3d_optimize_nir(c, c->s);
 
+        const unsigned lower_flrp =
+                (c->s->options->lower_flrp16 ? 16 : 0) |
+                (c->s->options->lower_flrp32 ? 32 : 0) |
+                (c->s->options->lower_flrp64 ? 64 : 0);
+        if (!c->s->info.flrp_lowered && lower_flrp != 0) {
+           bool lower_flrp_progress = false;
+
+           NIR_PASS(lower_flrp_progress, c->s, nir_lower_flrp, lower_flrp,
+                    false /* always_precise */);
+           if (lower_flrp_progress)
+              NIR_PASS_V(c->s, nir_opt_constant_folding);
+
+           /* Nothing should rematerialize any flrps, so we only need to do
+            * this lowering once.
+            */
+           c->s->info.flrp_lowered = true;
+        }
+
         /* Do late algebraic optimization to turn add(a, neg(b)) back into
          * subs, then the mandatory cleanup after algebraic.  Note that it may
          * produce fnegs, and if so then we need to keep running to squash
