@@ -1728,10 +1728,7 @@ struct radv_binning_state {
 
 #define SI_GS_PER_ES 128
 
-enum radv_pipeline_type {
-   RADV_PIPELINE_GRAPHICS,
-   RADV_PIPELINE_COMPUTE,
-};
+enum radv_pipeline_type { RADV_PIPELINE_GRAPHICS, RADV_PIPELINE_COMPUTE, RADV_PIPELINE_LIBRARY };
 
 struct radv_pipeline_group_handle {
    uint32_t handles[2];
@@ -1811,6 +1808,12 @@ struct radv_pipeline {
          struct radv_pipeline_group_handle *rt_group_handles;
          struct radv_pipeline_shader_stack_size *rt_stack_sizes;
       } compute;
+      struct {
+         unsigned stage_count;
+         VkPipelineShaderStageCreateInfo *stages;
+         unsigned group_count;
+         VkRayTracingShaderGroupCreateInfoKHR *groups;
+      } library;
    };
 
    unsigned max_waves;
