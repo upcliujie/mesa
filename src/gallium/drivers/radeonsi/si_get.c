@@ -162,6 +162,7 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_PREFER_REAL_BUFFER_IN_CONSTBUF0:
    case PIPE_CAP_COMPUTE_SHADER_DERIVATIVES:
    case PIPE_CAP_TGSI_ATOMINC_WRAP:
+   case PIPE_CAP_PACK_DIFF_INTERPOLATION_LOCATION_VARYING:
       return 1;
 
    case PIPE_CAP_GLSL_ZERO_INIT:
