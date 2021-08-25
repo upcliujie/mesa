@@ -214,9 +214,13 @@ vn_CreateDescriptorPool(VkDevice device,
    /* Without VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT, the set
     * allocation must not fail due to a fragmented pool per spec. In this
     * case, set allocation can be asynchronous with pool resource tracking.
+    *
+    * ASYNC_SET_ALLOC debug option can force async set allocation.
     */
-   pool->async_set_allocation = !(
-      pCreateInfo->flags & VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
+   pool->async_set_allocation =
+      VN_DEBUG(ASYNC_SET_ALLOC) ||
+      !(pCreateInfo->flags &
+        VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT);
 
    pool->original_state.set_count = pCreateInfo->maxSets;
 
@@ -492,6 +496,11 @@ vn_FreeDescriptorSets(VkDevice device,
 
       if (!set)
          continue;
+
+      if (VN_DEBUG(ASYNC_SET_ALLOC)) {
+         vn_descriptor_pool_free_descriptors(
+            pool, set->layout, set->max_binding_descriptor_count);
+      }
 
       list_del(&set->head);
 

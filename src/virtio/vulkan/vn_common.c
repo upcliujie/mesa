@@ -22,6 +22,7 @@ static const struct debug_control vn_debug_options[] = {
    { "result", VN_DEBUG_RESULT },
    { "vtest", VN_DEBUG_VTEST },
    { "wsi", VN_DEBUG_WSI },
+   { "async_set_alloc", VN_DEBUG_ASYNC_SET_ALLOC },
    { NULL, 0 },
 };
 
