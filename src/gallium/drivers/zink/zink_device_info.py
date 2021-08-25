@@ -190,9 +190,7 @@ EXTENSIONS = [
 #
 #  - struct_version: Vulkan version, as tuple, to use with structures and macros
 VERSIONS = [
-    # VkPhysicalDeviceVulkan11Properties and VkPhysicalDeviceVulkan11Features is new from Vk 1.2, not Vk 1.1
-    # https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/vkspec.html#_new_structures
-    Version((1,2,0), (1,1)),
+    Version((1,1,0), (1,1)),
     Version((1,2,0), (1,2)),
 ]
 
@@ -366,7 +364,12 @@ zink_get_physical_device_info(struct zink_screen *screen)
       info->feats.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
 
 %for version in versions:
+%if version.device_version < (1,2,0):
+      if (VK_MAKE_VERSION(1,2,0) <= screen->vk_version) {
+         /* VkPhysicalDeviceVulkan11Features was added in 1.2, not 1.1 as one would think */
+%else:
       if (${version.version()} <= screen->vk_version) {
+%endif
          info->feats${version.struct()}.sType = ${version.stype("FEATURES")};
          info->feats${version.struct()}.pNext = info->feats.pNext;
          info->feats.pNext = &info->feats${version.struct()};
@@ -397,7 +400,12 @@ zink_get_physical_device_info(struct zink_screen *screen)
       props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 
 %for version in versions:
+%if version.device_version < (1,2,0):
+      if (VK_MAKE_VERSION(1,2,0) <= screen->vk_version) {
+         /* VkPhysicalDeviceVulkan11Properties was added in 1.2, not 1.1 as one would think */
+%else:
       if (${version.version()} <= screen->vk_version) {
+%endif
          info->props${version.struct()}.sType = ${version.stype("PROPERTIES")};
          info->props${version.struct()}.pNext = props.pNext;
          props.pNext = &info->props${version.struct()};
