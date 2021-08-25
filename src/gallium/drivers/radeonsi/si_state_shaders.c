@@ -1111,6 +1111,28 @@ static unsigned si_get_vs_out_cntl(const struct si_shader_selector *sel,
           S_02881C_VS_OUT_MISC_SIDE_BUS_ENA(misc_vec_ena);
 }
 
+bool gfx10_is_ngg_passthrough(struct si_shader *shader)
+{
+   struct si_shader_selector *sel = shader->selector;
+
+   /* Never use NGG passthrough if culling is possible even when it's not used by this shader,
+    * so that we don't get context rolls when enabling and disabling NGG passthrough.
+    */
+   if (sel->screen->use_ngg_culling)
+      return false;
+
+   /* These use LDS. */
+   if (sel->so.num_outputs || sel->info.writes_edgeflag ||
+       (sel->info.stage == MESA_SHADER_VERTEX && shader->key.mono.u.vs_export_prim_id))
+      return false;
+
+   /* This generates primitives. */
+   if (sel->info.stage == MESA_SHADER_GEOMETRY)
+      return false;
+
+   return true;
+}
+
 /**
  * Prepare the PM4 image for \p shader, which will run as a merged ESGS shader
  * in NGG mode.
