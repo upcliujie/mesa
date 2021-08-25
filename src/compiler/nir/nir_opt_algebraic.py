@@ -688,6 +688,7 @@ optimizations.extend([
    (('imax', a, ('ineg', a)), ('iabs', a), '!options->lower_iabs'),
    (('~fmax', ('fabs', a), 0.0), ('fabs', a)),
    (('fmin', ('fmax', a, 0.0), 1.0), ('fsat', a), '!options->lower_fsat'),
+   (('~fmin', ('fmul', ('fmax', a, 0.0), 'b(is_not_negative)'), 1.0), ('fsat', ('fmul', a, b)), '!options->lower_fsat'),
    # fmax(fmin(a, 1.0), 0.0) is inexact because it returns 1.0 on NaN, while
    # fsat(a) returns 0.0.
    (('~fmax', ('fmin', a, 1.0), 0.0), ('fsat', a), '!options->lower_fsat'),
