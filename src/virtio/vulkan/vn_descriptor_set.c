@@ -309,12 +309,42 @@ vn_AllocateDescriptorSets(VkDevice device,
    struct vn_descriptor_pool *pool =
       vn_descriptor_pool_from_handle(pAllocateInfo->descriptorPool);
    const VkAllocationCallbacks *alloc = &pool->allocator;
+   const VkDescriptorSetVariableDescriptorCountAllocateInfo *variable_info =
+      NULL;
    VkResult result;
 
+   /* 14.2.3. Allocation of Descriptor Sets
+    *
+    * If descriptorSetCount is zero or this structure is not included in
+    * the pNext chain, then the variable lengths are considered to be zero.
+    */
+   variable_info = vk_find_struct_const(
+      pAllocateInfo->pNext,
+      DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO);
+
+   if (variable_info && !variable_info->descriptorSetCount)
+      variable_info = NULL;
+
    for (uint32_t i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-      struct vn_descriptor_set *set =
-         vk_zalloc(alloc, sizeof(*set), VN_DEFAULT_ALIGN,
-                   VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      const struct vn_descriptor_set_layout *layout =
+         vn_descriptor_set_layout_from_handle(pAllocateInfo->pSetLayouts[i]);
+      uint32_t max_binding_descriptor_count = 0;
+      struct vn_descriptor_set *set = NULL;
+
+      /* 14.2.3. Allocation of Descriptor Sets
+       *
+       * If VkDescriptorSetAllocateInfo::pSetLayouts[i] does not include a
+       * variable count descriptor binding, then pDescriptorCounts[i] is
+       * ignored.
+       */
+      if (!layout->has_variable_descriptor_count)
+         max_binding_descriptor_count =
+            layout->bindings[layout->max_binding].count;
+      else if (variable_info)
+         max_binding_descriptor_count = variable_info->pDescriptorCounts[i];
+
+      set = vk_zalloc(alloc, sizeof(*set), VN_DEFAULT_ALIGN,
+                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
       if (!set) {
          pDescriptorSets[i] = VK_NULL_HANDLE;
          result = VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -323,8 +353,9 @@ vn_AllocateDescriptorSets(VkDevice device,
 
       vn_object_base_init(&set->base, VK_OBJECT_TYPE_DESCRIPTOR_SET,
                           &dev->base);
-      set->layout =
-         vn_descriptor_set_layout_from_handle(pAllocateInfo->pSetLayouts[i]);
+
+      set->layout = layout;
+      set->max_binding_descriptor_count = max_binding_descriptor_count;
       list_addtail(&set->head, &pool->descriptor_sets);
 
       VkDescriptorSet set_handle = vn_descriptor_set_to_handle(set);

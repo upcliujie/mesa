@@ -70,6 +70,10 @@ struct vn_descriptor_set {
    struct vn_object_base base;
 
    const struct vn_descriptor_set_layout *layout;
+
+   /* descriptor count of the max binding */
+   uint32_t max_binding_descriptor_count;
+
    struct list_head head;
 };
 VK_DEFINE_NONDISP_HANDLE_CASTS(vn_descriptor_set,
