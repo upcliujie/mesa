@@ -3734,6 +3734,12 @@ typedef struct nir_shader_compiler_options {
    nir_lower_int64_options lower_int64_options;
    nir_lower_doubles_options lower_doubles_options;
    nir_divergence_options divergence_analysis_options;
+
+   /**
+    * Support pack varyings with different interpolation location into
+    * same slot.
+    */
+   bool pack_varying_with_diff_interp_location;
 } nir_shader_compiler_options;
 
 typedef struct nir_shader {
