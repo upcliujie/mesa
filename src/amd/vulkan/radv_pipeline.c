@@ -2381,7 +2381,7 @@ radv_link_shaders(struct radv_pipeline *pipeline, nir_shader **shaders,
 
       bool progress = nir_remove_unused_varyings(ordered_shaders[i], ordered_shaders[i - 1]);
 
-      nir_compact_varyings(ordered_shaders[i], ordered_shaders[i - 1], true);
+      nir_compact_varyings(ordered_shaders[i], ordered_shaders[i - 1], true, false);
 
       if (ordered_shaders[i]->info.stage == MESA_SHADER_TESS_CTRL ||
           (ordered_shaders[i]->info.stage == MESA_SHADER_VERTEX && has_geom_tess) ||

@@ -675,7 +675,8 @@ assign_remap_locations(struct varying_loc (*remap)[4],
                        struct assigned_comps *assigned_comps,
                        struct varying_component *info,
                        unsigned *cursor, unsigned *comp,
-                       unsigned max_location)
+                       unsigned max_location,
+                       bool pack_diff_interp_loc_varying)
 {
    unsigned tmp_cursor = *cursor;
    unsigned tmp_comp = *comp;
@@ -683,21 +684,18 @@ assign_remap_locations(struct varying_loc (*remap)[4],
    for (; tmp_cursor < max_location; tmp_cursor++) {
 
       if (assigned_comps[tmp_cursor].comps) {
-         /* We can only pack varyings with matching interpolation types,
-          * interpolation loc must match also.
-          * TODO: i965 can handle interpolation locations that don't match,
-          * but the radeonsi nir backend handles everything as vec4s and so
-          * expects this to be the same for all components. We could make this
-          * check driver specfific or drop it if NIR ever become the only
-          * radeonsi backend.
-          * TODO2: The radeonsi comment above is not true. Only "flat" is per
-          * vec4 (128-bit granularity), all other interpolation qualifiers are
-          * per component (16-bit granularity for float16, 32-bit granularity
-          * otherwise). Each vec4 (128 bits) must be either vec4 or f16vec8.
-          */
+         /* We can only pack varyings with matching interpolation types. */
          if (assigned_comps[tmp_cursor].interp_type != info->interp_type ||
-             assigned_comps[tmp_cursor].interp_loc != info->interp_loc ||
              assigned_comps[tmp_cursor].is_mediump != info->is_mediump) {
+            tmp_comp = 0;
+            continue;
+         }
+
+         /* We can only pack varyings with matching interpolation locations
+          * if driver does not support it.
+          */
+         if (!pack_diff_interp_loc_varying &&
+             assigned_comps[tmp_cursor].interp_loc != info->interp_loc) {
             tmp_comp = 0;
             continue;
          }
@@ -749,7 +747,8 @@ assign_remap_locations(struct varying_loc (*remap)[4],
 static void
 compact_components(nir_shader *producer, nir_shader *consumer,
                    struct assigned_comps *assigned_comps,
-                   bool default_to_smooth_interp)
+                   bool default_to_smooth_interp,
+                   bool pack_diff_interp_loc_varying)
 {
    struct varying_loc remap[MAX_VARYINGS_INCL_PATCH][4] = {{{0}, {0}}};
    struct varying_component *varying_comp_info;
@@ -783,10 +782,12 @@ compact_components(nir_shader *producer, nir_shader *consumer,
          }
 
          assign_remap_locations(remap, assigned_comps, info,
-                                &cursor, &comp, MAX_VARYINGS_INCL_PATCH);
+                                &cursor, &comp, MAX_VARYINGS_INCL_PATCH,
+                                pack_diff_interp_loc_varying);
       } else {
          assign_remap_locations(remap, assigned_comps, info,
-                                &cursor, &comp, MAX_VARYING);
+                                &cursor, &comp, MAX_VARYING,
+                                pack_diff_interp_loc_varying);
 
          /* Check if we failed to assign a remap location. This can happen if
           * for example there are a bunch of unmovable components with
@@ -799,7 +800,8 @@ compact_components(nir_shader *producer, nir_shader *consumer,
             cursor = 0;
             comp = 0;
             assign_remap_locations(remap, assigned_comps, info,
-                                   &cursor, &comp, MAX_VARYING);
+                                   &cursor, &comp, MAX_VARYING,
+                                   pack_diff_interp_loc_varying);
          }
       }
    }
@@ -830,7 +832,8 @@ compact_components(nir_shader *producer, nir_shader *consumer,
  */
 void
 nir_compact_varyings(nir_shader *producer, nir_shader *consumer,
-                     bool default_to_smooth_interp)
+                     bool default_to_smooth_interp,
+                     bool pack_diff_interp_loc_varying)
 {
    assert(producer->info.stage != MESA_SHADER_FRAGMENT);
    assert(consumer->info.stage != MESA_SHADER_VERTEX);
@@ -847,7 +850,8 @@ nir_compact_varyings(nir_shader *producer, nir_shader *consumer,
                                    default_to_smooth_interp);
 
    compact_components(producer, consumer, assigned_comps,
-                      default_to_smooth_interp);
+                      default_to_smooth_interp,
+                      pack_diff_interp_loc_varying);
 }
 
 /*

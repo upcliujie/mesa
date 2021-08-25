@@ -820,6 +820,10 @@ st_link_nir(struct gl_context *ctx,
       nir_build_program_resource_list(ctx, shader_program, false);
    }
 
+   struct pipe_screen *screen = st->screen;
+   bool pack_diff_interp_loc_varying = screen->get_param(
+      screen, PIPE_CAP_PACK_DIFF_INTERPOLATION_LOCATION_VARYING);
+
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];
       nir_shader *nir = shader->Program->nir;
@@ -874,7 +878,8 @@ st_link_nir(struct gl_context *ctx,
          if (!(prev_shader->sh.LinkedTransformFeedback &&
                prev_shader->sh.LinkedTransformFeedback->NumVarying > 0))
             nir_compact_varyings(prev_shader->nir,
-                                 nir, ctx->API != API_OPENGL_COMPAT);
+                                 nir, ctx->API != API_OPENGL_COMPAT,
+                                 pack_diff_interp_loc_varying);
 
          if (ctx->Const.ShaderCompilerOptions[shader->Stage].NirOptions->vectorize_io)
             st_nir_vectorize_io(prev_shader->nir, nir);
