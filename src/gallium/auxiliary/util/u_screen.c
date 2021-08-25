@@ -472,6 +472,9 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_EMULATE_NONFIXED_PRIMITIVE_RESTART:
       return 0;
 
+   case PIPE_CAP_PACK_DIFF_INTERPOLATION_LOCATION_VARYING:
+      return 0;
+
    default:
       unreachable("bad PIPE_CAP_*");
    }

@@ -618,6 +618,7 @@ The integer capabilities:
 * ``PIPE_CAP_EMULATE_NONFIXED_PRIMITIVE_RESTART``: Driver requests all draws using a non-fixed restart index to be rewritten to use a fixed restart index.
 * ``PIPE_CAP_SUPPORTED_PRIM_MODES``: A bitmask of the ``pipe_prim_type`` enum values that the driver can natively support.
 * ``PIPE_CAP_SUPPORTED_PRIM_MODES_WITH_RESTART``: A bitmask of the ``pipe_prim_type`` enum values that the driver can natively support for primitive restart. Only useful if ``PIPE_CAP_PRIMITIVE_RESTART`` is also exported.
+* ``PIPE_CAP_PACK_DIFF_INTERPOLATION_LOCATION_VARYING``: Driver support pack varyings with different interpolation location into same slot.
 
 .. _pipe_capf:
 
