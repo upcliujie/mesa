@@ -107,7 +107,8 @@ vn_instance_init_renderer_versions(struct vn_instance *instance)
 static VkResult
 vn_instance_init_ring(struct vn_instance *instance)
 {
-   const size_t buf_size = 2 * 1024;
+   const size_t buf_size =
+      (instance->experimental.largeRing ? 256 : 2) * 1024;
    /* 32-bit seqno for renderer roundtrips */
    const size_t extra_size = sizeof(uint32_t);
    struct vn_ring_layout layout;
