@@ -461,6 +461,7 @@ get_query_result(struct pipe_context *pctx,
          if (!xfb_results) {
             if (wait)
                debug_printf("zink: xfb qbo read failed!");
+            return false;
          }
       }
       check_query_results(query, result, is_timestamp ? 1 : qbo->num_results, results, xfb_results);
