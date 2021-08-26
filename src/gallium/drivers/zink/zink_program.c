@@ -336,7 +336,9 @@ equals_gfx_pipeline_state(const void *a, const void *b)
       if (sa->front_face != sb->front_face)
          return false;
       if (!!sa->depth_stencil_alpha_state != !!sb->depth_stencil_alpha_state ||
-          memcmp(sa->depth_stencil_alpha_state, sb->depth_stencil_alpha_state, sizeof(struct zink_depth_stencil_alpha_hw_state)))
+          (sa->depth_stencil_alpha_state &&
+           memcmp(sa->depth_stencil_alpha_state, sb->depth_stencil_alpha_state,
+                  sizeof(struct zink_depth_stencil_alpha_hw_state))))
          return false;
    }
    if (!sa->have_EXT_extended_dynamic_state2) {
