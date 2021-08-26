@@ -37,6 +37,9 @@
 void
 st_get_program_binary_driver_sha1(struct gl_context *ctx, uint8_t *sha1)
 {
+   if (!ctx->Cache)
+      return;
+
    disk_cache_compute_key(ctx->Cache, NULL, 0, sha1);
 }
 

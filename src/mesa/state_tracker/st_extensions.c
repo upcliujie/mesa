@@ -509,8 +509,7 @@ void st_init_limits(struct pipe_screen *screen,
       screen->get_param(screen, PIPE_CAP_TGSI_FS_FACE_IS_INTEGER_SYSVAL);
 
    /* GL_ARB_get_program_binary */
-   if (screen->get_disk_shader_cache && screen->get_disk_shader_cache(screen))
-      c->NumProgramBinaryFormats = 1;
+   c->NumProgramBinaryFormats = 1;
 
    c->MaxAtomicBufferBindings =
       MAX2(c->Program[MESA_SHADER_FRAGMENT].MaxAtomicBuffers,
