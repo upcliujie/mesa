@@ -116,6 +116,8 @@ anv_shader_compile_to_nir(struct anv_device *device,
                                pdevice->info.has_lsc,
          .float32_atomic_min_max = pdevice->info.ver >= 9,
          .float64 = pdevice->info.ver >= 8,
+         .float64_atomic_min_max = pdevice->info.verx10 >= 125 &&
+                                   pdevice->info.has_lsc,
          .fragment_shader_sample_interlock = pdevice->info.ver >= 9,
          .fragment_shader_pixel_interlock = pdevice->info.ver >= 9,
          .geometry_streams = true,
