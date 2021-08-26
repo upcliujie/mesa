@@ -884,6 +884,7 @@ fs_inst::components_read(unsigned i) const
 
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT16_LOGICAL:
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT32_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT64_LOGICAL:
       assert(src[2].file == IMM);
       if (i == 1) {
          /* Data source */
@@ -6284,6 +6285,7 @@ lower_lsc_a64_logical_send(const fs_builder &bld, fs_inst *inst)
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT64_LOGICAL: {
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT16_LOGICAL:
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT32_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT64_LOGICAL:
       /* Bspec: Atomic instruction -> Cache section:
        *
        *    Atomic messages are always forced to "un-cacheable" in the L1
@@ -6919,6 +6921,7 @@ fs_visitor::lower_logical_sends()
       case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT64_LOGICAL:
       case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT16_LOGICAL:
       case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT32_LOGICAL:
+      case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT64_LOGICAL:
          if (devinfo->has_lsc) {
             lower_lsc_a64_logical_send(ibld, inst);
             break;
@@ -7546,6 +7549,7 @@ get_lowered_simd_width(const struct intel_device_info *devinfo,
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT64_LOGICAL:
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT16_LOGICAL:
    case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT32_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT64_LOGICAL:
       return 8;
 
    case SHADER_OPCODE_URB_READ_SIMD8:
