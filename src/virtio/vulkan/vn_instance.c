@@ -176,6 +176,22 @@ vn_instance_init_experimental_features(struct vn_instance *instance)
              instance->experimental.memoryResourceAllocationSize,
              instance->experimental.globalFencing);
    }
+
+   if (instance->experimental.largeRing) {
+      uint32_t destroy_ring_data[4];
+      struct vn_cs_encoder local_enc = VN_CS_ENCODER_INITIALIZER_LOCAL(
+         destroy_ring_data, sizeof(destroy_ring_data));
+      vn_encode_vkDestroyRingMESA(&local_enc, 0, instance->ring.id);
+      vn_renderer_submit_simple(instance->renderer, destroy_ring_data,
+                                vn_cs_encoder_get_len(&local_enc));
+
+      vn_cs_encoder_fini(&instance->ring.upload);
+      vn_renderer_shmem_unref(instance->renderer, instance->ring.shmem);
+      vn_ring_fini(&instance->ring.ring);
+      mtx_destroy(&instance->ring.mutex);
+
+      vn_instance_init_ring(instance);
+   }
 }
 
 static VkResult
