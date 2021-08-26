@@ -871,6 +871,11 @@ apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_info&
          instr->vop3().opsel |= 1 << idx;
    }
 
+   for (Operand& op : instr->operands) {
+      op.set16bit(false);
+      op.set24bit(false);
+   }
+
    ctx.info[tmp.id()].label &= ~label_insert;
    /* label_vopc seems to be the only one worth keeping at the moment */
    for (Definition& def : instr->definitions)
