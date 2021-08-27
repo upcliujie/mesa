@@ -43,10 +43,6 @@
 #endif
 #endif
 
-#ifdef __HAIKU__
-#include <OS.h>
-#endif
-
 #if DETECT_OS_LINUX && !defined(ANDROID)
 #include <sched.h>
 #elif defined(_WIN32) && !defined(__CYGWIN__) && _WIN32_WINNT >= 0x0600
@@ -59,6 +55,11 @@
  */
 #undef ALIGN
 #define cpu_set_t cpuset_t
+#endif
+
+#ifdef __HAIKU__
+#include <OS.h>
+#undef ALIGN
 #endif
 
 /* For util_set_thread_affinity to size the mask. */
@@ -361,7 +362,7 @@ static inline void util_barrier_wait(util_barrier *barrier)
 
 #ifdef _WIN32
 typedef DWORD thread_id;
-#else
+#elif !defined(__HAIKU__)
 typedef thrd_t thread_id;
 #endif
 
@@ -377,6 +378,8 @@ util_get_thread_id(void)
     */
 #ifdef _WIN32
    return GetCurrentThreadId();
+#elif defined(__HAIKU__)
+   return find_thread(NULL);
 #else
    return thrd_current();
 #endif
@@ -386,7 +389,7 @@ util_get_thread_id(void)
 static inline int
 util_thread_id_equal(thread_id t1, thread_id t2)
 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__HAIKU__)
    return t1 == t2;
 #else
    return thrd_equal(t1, t2);
