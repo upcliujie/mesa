@@ -52,3 +52,11 @@ panvk_per_arch(cmd_alloc_fb_desc)(struct panvk_cmd_buffer *cmdbuf);
 
 void
 panvk_per_arch(cmd_alloc_tls_desc)(struct panvk_cmd_buffer *cmdbuf);
+
+void
+panvk_per_arch(cmd_prepare_fragment_job)(struct panvk_cmd_buffer *cmdbuf,
+                                         const struct pan_fb_info *fbinfo);
+
+void
+panvk_per_arch(cmd_preload_fb)(struct panvk_cmd_buffer *cmdbuf,
+                               struct pan_fb_info *fbinfo);
