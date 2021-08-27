@@ -368,9 +368,6 @@ fd_context_destroy(struct pipe_context *pctx)
       if (ctx->clear_rs_state[i])
          pctx->delete_rasterizer_state(pctx, ctx->clear_rs_state[i]);
 
-   if (ctx->primconvert)
-      util_primconvert_destroy(ctx->primconvert);
-
    slab_destroy_child(&ctx->transfer_pool);
    slab_destroy_child(&ctx->transfer_pool_unsync);
 
