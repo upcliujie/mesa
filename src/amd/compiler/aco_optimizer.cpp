@@ -1688,6 +1688,13 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       }
       break;
    }
+   case aco_opcode::ds_read_u8:
+   case aco_opcode::ds_read_u8_d16:
+   case aco_opcode::ds_read_u16:
+   case aco_opcode::ds_read_u16_d16: {
+      ctx.info[instr->definitions[0].tempId()].set_usedef(instr.get());
+      break;
+   }
    default: break;
    }
 
@@ -2893,6 +2900,48 @@ apply_insert(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    return true;
 }
 
+bool
+apply_ds_extract(opt_ctx& ctx, aco_ptr<Instruction>& extract, Instruction *ds)
+{
+   /* This shouldn't be called if DS has multiple uses. */
+   assert(ctx.uses[ds->definitions[0].tempId()] == 1);
+
+   unsigned extract_idx = extract->operands[1].constantValue();
+   unsigned bits_extracted = extract->operands[2].constantValue();
+   unsigned sign_ext = extract->operands[3].constantValue();
+
+   /* TODO: These are doable, but probably don't occour too often. */
+   if (extract_idx || sign_ext || extract->definitions[0].bytes() != 4)
+      return false;
+
+   unsigned bits_loaded = 0;
+   if (ds->opcode == aco_opcode::ds_read_u8 ||
+       ds->opcode == aco_opcode::ds_read_u8_d16)
+      bits_loaded = 8;
+   else if (ds->opcode == aco_opcode::ds_read_u16 ||
+            ds->opcode == aco_opcode::ds_read_u16_d16)
+      bits_loaded = 16;
+   else
+      return false;
+
+   if (bits_loaded != bits_extracted)
+      return false;
+
+   /* Change the DS opcode so it writes the full register. */
+   if (bits_loaded == 8)
+      ds->opcode = aco_opcode::ds_read_u8;
+   else if (bits_loaded == 16)
+      ds->opcode = aco_opcode::ds_read_u16;
+   else
+      unreachable("Forgot to add DS opcode above.");
+
+   /* The DS now produces the exact same thing as the extract, remove the extract. */
+   std::swap(ds->definitions[0], extract->definitions[0]);
+   ctx.uses[extract->definitions[0].tempId()] = 0;
+   ctx.info[ds->definitions[0].tempId()].label = 0;
+   return true;
+}
+
 /* v_and(a, v_subbrev_co(0, 0, vcc)) -> v_cndmask(0, a, vcc) */
 bool
 combine_and_subbrev(opt_ctx& ctx, aco_ptr<Instruction>& instr)
@@ -3474,6 +3523,16 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    /* do this after combine_salu_n2() */
    if (instr->opcode == aco_opcode::s_andn2_b32 || instr->opcode == aco_opcode::s_andn2_b64)
       combine_inverse_comparison(ctx, instr);
+
+   if (instr->opcode == aco_opcode::p_extract &&
+       instr->operands[0].isTemp() &&
+       ctx.info[instr->operands[0].tempId()].is_usedef() &&
+       ctx.uses[instr->operands[0].tempId()] == 1) {
+
+      Instruction* usedef = ctx.info[instr->operands[0].tempId()].instr;
+      if (usedef->isDS())
+         apply_ds_extract(ctx, instr, usedef);
+   }
 }
 
 bool
