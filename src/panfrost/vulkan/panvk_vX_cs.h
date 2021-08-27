@@ -85,7 +85,7 @@ panvk_per_arch(emit_tiler_job)(const struct panvk_pipeline *pipeline,
                                void *job);
 
 void
-panvk_per_arch(emit_fragment_job)(const struct panvk_framebuffer *fb,
+panvk_per_arch(emit_fragment_job)(const struct pan_fb_info *fbinfo,
                                   mali_ptr fbdesc,
                                   void *job);
 
