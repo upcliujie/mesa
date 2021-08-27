@@ -43,6 +43,59 @@ panvk_per_arch(meta_close_batch)(struct panvk_cmd_buffer *cmdbuf)
 }
 
 void
+panvk_per_arch(meta_emit_tls)(struct panvk_cmd_buffer *cmdbuf,
+                              const struct pan_tls_info *info)
+{
+#if PAN_ARCH >= 6
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+
+   assert(batch && !batch->tls.gpu);
+
+   batch->tls =
+      pan_pool_alloc_aligned(&cmdbuf->desc_pool.base, pan_size(LOCAL_STORAGE), 64);
+   pan_emit_tls(pdev, info, batch->tls.cpu);
+#endif
+}
+
+void
+panvk_per_arch(meta_blit_emit_fb)(struct panvk_cmd_buffer *cmdbuf,
+                                  struct pan_fb_info *fbinfo,
+                                  const struct pan_tls_info *tlsinfo)
+{
+   const struct panfrost_device *pdev =
+      &cmdbuf->device->physical_device->pdev;
+   struct panvk_batch *batch = cmdbuf->state.batch;
+   unsigned zs_ext = (fbinfo->zs.view.zs || fbinfo->zs.view.s) ? 1 : 0;
+
+#if PAN_ARCH <= 5
+   panvk_per_arch(cmd_get_polygon_list)(cmdbuf,
+                                        fbinfo->width,
+                                        fbinfo->height,
+                                        true);
+#else
+   panvk_per_arch(cmd_get_tiler_context)(cmdbuf,
+                                         fbinfo->width,
+                                         fbinfo->height);
+#endif
+
+   batch->fb.desc =
+      pan_pool_alloc_desc_aggregate(&cmdbuf->desc_pool.base,
+                                    PAN_DESC(MULTI_TARGET_FRAMEBUFFER),
+                                    PAN_DESC_ARRAY(zs_ext, ZS_CRC_EXTENSION),
+                                    PAN_DESC_ARRAY(1, RENDER_TARGET));
+
+   batch->fb.desc.gpu |=
+      pan_emit_fbd(pdev, fbinfo, tlsinfo,
+                   &cmdbuf->state.batch->tiler.ctx,
+                   cmdbuf->state.batch->fb.desc.cpu);
+#if PAN_ARCH < 6
+   batch->tls = batch->fb.desc;
+#endif
+}
+
+void
 panvk_per_arch(CmdBlitImage)(VkCommandBuffer commandBuffer,
                              VkImage srcImage,
                              VkImageLayout srcImageLayout,
@@ -76,7 +129,13 @@ panvk_per_arch(CmdCopyBufferToImage)(VkCommandBuffer commandBuffer,
                                      uint32_t regionCount,
                                      const VkBufferImageCopy *pRegions)
 {
-   panvk_stub();
+   VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, commandBuffer);
+   VK_FROM_HANDLE(panvk_buffer, buf, srcBuffer);
+   VK_FROM_HANDLE(panvk_image, img, destImage);
+
+   for (unsigned i = 0; i < regionCount; i++) {
+      panvk_per_arch(meta_copy_buf2img)(cmdbuf, buf, img, &pRegions[i]);
+   }
 }
 
 void
@@ -209,6 +268,7 @@ panvk_per_arch(meta_init)(struct panvk_physical_device *dev)
                     &dev->meta.blitter.desc_pool.base);
    panvk_per_arch(meta_clear_attachment_init)(dev);
    panvk_per_arch(meta_copy_img2buf_init)(dev);
+   panvk_per_arch(meta_copy_buf2img_init)(dev);
 }
 
 void
