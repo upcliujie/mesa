@@ -40,8 +40,9 @@
 #include "util/u_pack_color.h"
 #include "vk_format.h"
 
-static void
-panvk_cmd_prepare_fragment_job(struct panvk_cmd_buffer *cmdbuf)
+void
+panvk_per_arch(cmd_prepare_fragment_job)(struct panvk_cmd_buffer *cmdbuf,
+                                         const struct pan_fb_info *fbinfo)
 {
    assert(cmdbuf->state.bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS);
 
@@ -49,7 +50,7 @@ panvk_cmd_prepare_fragment_job(struct panvk_cmd_buffer *cmdbuf)
    struct panfrost_ptr job_ptr =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, FRAGMENT_JOB);
 
-   panvk_per_arch(emit_fragment_job)(cmdbuf->state.framebuffer,
+   panvk_per_arch(emit_fragment_job)(fbinfo,
                                      cmdbuf->state.batch->fb.desc.gpu,
                                      job_ptr.cpu);
    cmdbuf->state.batch->fragment_job = job_ptr.gpu;
@@ -214,7 +215,12 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
              pan_size(TILER_CONTEXT));
 #endif
 
-      panvk_cmd_prepare_fragment_job(cmdbuf);
+      struct pan_fb_info fbinfo = {
+         .width = cmdbuf->state.framebuffer->width,
+         .height = cmdbuf->state.framebuffer->height,
+      };
+
+      panvk_per_arch(cmd_prepare_fragment_job)(cmdbuf, &fbinfo);
    }
 
    cmdbuf->state.batch = NULL;
@@ -1017,6 +1023,23 @@ panvk_create_cmdbuf(struct panvk_device *device,
    cmdbuf->status = PANVK_CMD_BUFFER_STATUS_INITIAL;
    *cmdbuf_out = cmdbuf;
    return VK_SUCCESS;
+}
+
+void
+panvk_per_arch(cmd_preload_fb)(struct panvk_cmd_buffer *cmdbuf,
+                               struct pan_fb_info *fbinfo)
+{
+   struct panvk_batch *batch = cmdbuf->state.batch;
+   struct panfrost_ptr jobs[2];
+   unsigned njobs =
+      pan_preload_fb(&cmdbuf->desc_pool.base, &batch->scoreboard, fbinfo,
+                     batch->tls.gpu,
+                     PAN_ARCH >= 6 ? batch->tiler.descs.gpu : 0,
+                     jobs);
+
+   assert(njobs <= 2);
+   for (unsigned i = 0; i < njobs; i++)
+      util_dynarray_append(&batch->jobs, void *, jobs[i].cpu);
 }
 
 VkResult
