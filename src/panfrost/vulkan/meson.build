@@ -86,6 +86,7 @@ foreach arch : ['5', '6', '7']
       dep_libdrm,
       dep_valgrind,
     ],
+    depend_files: ['panvk_entrypoints.h'],
     c_args : [no_override_init_args, panvk_flags, '-DPAN_ARCH=@0@'.format(arch)],
   )
 endforeach
