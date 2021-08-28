@@ -400,6 +400,7 @@ is_intrinsic_load(nir_intrinsic_op op)
 {
    switch (op) {
    case nir_intrinsic_load_global:
+   case nir_intrinsic_load_global_constant:
    case nir_intrinsic_load_shared:
    case nir_intrinsic_load_scratch:
       return true;
@@ -526,6 +527,99 @@ ir3_nir_lower_64b_intrinsics(nir_shader *shader)
 }
 
 /*
+ * Lowering for wide (larger than vec4) load/store
+ */
+
+static bool
+lower_wide_load_store_filter(const nir_instr *instr, const void *unused)
+{
+   (void)unused;
+
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+   if (is_intrinsic_store(intr->intrinsic))
+      return nir_intrinsic_src_components(intr, 0) > 4;
+
+   if (is_intrinsic_load(intr->intrinsic))
+      return nir_intrinsic_dest_components(intr) > 4;
+
+   return false;
+}
+
+static nir_ssa_def *
+lower_wide_load_store(nir_builder *b, nir_instr *instr, void *unused)
+{
+   (void)unused;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
+   if (is_intrinsic_store(intr->intrinsic)) {
+      unsigned num_comp = nir_intrinsic_src_components(intr, 0);
+      unsigned wrmask = nir_intrinsic_write_mask(intr);
+      nir_ssa_def *val = nir_ssa_for_src(b, intr->src[0], num_comp);
+      nir_ssa_def *addr = nir_ssa_for_src(b, intr->src[1], 1);
+
+      for (unsigned off = 0; off < num_comp; off += 4) {
+         unsigned c = MIN2(num_comp - off, 4);
+         nir_ssa_def *v = nir_channels(b, val, BITFIELD_MASK(c) << off);
+
+         nir_intrinsic_instr *store =
+               nir_intrinsic_instr_create(b->shader, intr->intrinsic);
+         store->num_components = c;
+         store->src[0] = nir_src_for_ssa(v);
+         store->src[1] = nir_src_for_ssa(addr);
+         nir_intrinsic_set_align(store, nir_intrinsic_align(intr), 0);
+         nir_intrinsic_set_write_mask(store, (wrmask >> off) & 0xf);
+         nir_builder_instr_insert(b, &store->instr);
+
+         addr = nir_iadd(b,
+               nir_imm_intN_t(b, (c * val->bit_size) / 8, addr->bit_size),
+               addr);
+      }
+
+      return NIR_LOWER_INSTR_PROGRESS_REPLACE;
+   } else {
+      unsigned num_comp = nir_intrinsic_dest_components(intr);
+      unsigned bit_size = nir_dest_bit_size(intr->dest);
+      nir_ssa_def *addr = nir_ssa_for_src(b, intr->src[0], 1);
+      nir_ssa_def *components[num_comp];
+
+      for (unsigned off = 0; off < num_comp;) {
+         unsigned c = MIN2(num_comp - off, 4);
+
+         nir_intrinsic_instr *load =
+            nir_intrinsic_instr_create(b->shader, intr->intrinsic);
+         load->num_components = c;
+         load->src[0] = nir_src_for_ssa(addr);
+         nir_intrinsic_set_align(load, nir_intrinsic_align(intr), 0);
+         nir_ssa_dest_init(&load->instr, &load->dest, c, bit_size, NULL);
+         nir_builder_instr_insert(b, &load->instr);
+
+         addr = nir_iadd(b,
+               nir_imm_intN_t(b, (c * bit_size) / 8, addr->bit_size),
+               addr);
+
+         for (unsigned i = 0; i < c; i++) {
+            components[off++] = nir_channel(b, &load->dest.ssa, i);
+         }
+      }
+
+      return nir_build_alu_src_arr(b, nir_op_vec(num_comp), components);
+   }
+}
+
+static bool
+ir3_nir_lower_wide_load_store(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(
+         shader, lower_wide_load_store_filter,
+         lower_wide_load_store, NULL);
+}
+
+/*
  * Lowering for load_global/store_global to ir3 variants:
  */
 
@@ -632,7 +726,9 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
    if (compiler->gen < 5)
       OPT_V(s, ir3_nir_lower_tg4_to_tex);
 
-   if (OPT(s, ir3_nir_lower_64b_intrinsics))
+   /* Note bitwise OR intentional: */
+   if (OPT(s, ir3_nir_lower_64b_intrinsics) |
+       OPT(s, ir3_nir_lower_wide_load_store))
       OPT_V(s, nir_lower_int64);
 
    OPT_V(s, ir3_nir_lower_load_store_global);
