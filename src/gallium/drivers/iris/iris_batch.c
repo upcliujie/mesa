@@ -102,17 +102,19 @@ dump_validation_list(struct iris_batch *batch)
    fprintf(stderr, "Validation list (length %d):\n", batch->exec_count);
 
    for (int i = 0; i < batch->exec_count; i++) {
+      struct iris_bo *bo = batch->exec_bos[i];
       uint64_t flags = batch->validation_list[i].flags;
-      assert(batch->validation_list[i].handle ==
-             batch->exec_bos[i]->gem_handle);
-      fprintf(stderr, "[%2d]: %2d %-14s @ 0x%"PRIx64" (%"PRIu64"B)\t %2d refs %s\n",
+      assert(batch->validation_list[i].handle == bo->gem_handle);
+      fprintf(stderr, "[%3d]: %4d %-14s @ 0x%016"PRIx64" (%8"PRIu64"B)  %2d refs %s%s%s\n",
               i,
               batch->validation_list[i].handle,
-              batch->exec_bos[i]->name,
+              bo->name,
               (uint64_t)batch->validation_list[i].offset,
-              batch->exec_bos[i]->size,
-              batch->exec_bos[i]->refcount,
-              (flags & EXEC_OBJECT_WRITE) ? " (write)" : "");
+              bo->size,
+              bo->refcount,
+              (flags & EXEC_OBJECT_ASYNC) ? " async" : "",
+              (flags & EXEC_OBJECT_WRITE) ? " write" : "",
+              iris_bo_is_external(bo) ? " external" : "");
    }
 }
 
