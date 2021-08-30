@@ -2096,6 +2096,9 @@ vn_GetPhysicalDeviceImageFormatProperties2(
 
    if (external_info->handleType ==
        VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) {
+      VkAndroidHardwareBufferUsageANDROID *vk_ahb_usage = NULL;
+      uint64_t ahb_usage = 0;
+
       /* AHB backed image requires renderer to support import bit */
       if (!(mem_props->externalMemoryFeatures &
             VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT))
@@ -2111,13 +2114,15 @@ vn_GetPhysicalDeviceImageFormatProperties2(
       mem_props->compatibleHandleTypes =
          VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 
-      VkAndroidHardwareBufferUsageANDROID *ahb_usage =
-         vk_find_struct(pImageFormatProperties->pNext,
-                        ANDROID_HARDWARE_BUFFER_USAGE_ANDROID);
-      if (ahb_usage) {
-         ahb_usage->androidHardwareBufferUsage = vn_android_get_ahb_usage(
-            pImageFormatInfo->usage, pImageFormatInfo->flags);
-      }
+      ahb_usage = vn_android_get_ahb_usage(pImageFormatInfo->usage,
+                                           pImageFormatInfo->flags);
+      if (!vn_android_ahb_usage_has_mipmap(ahb_usage))
+         pImageFormatProperties->imageFormatProperties.maxMipLevels = 1;
+
+      vk_ahb_usage = vk_find_struct(pImageFormatProperties->pNext,
+                                    ANDROID_HARDWARE_BUFFER_USAGE_ANDROID);
+      if (vk_ahb_usage)
+         vk_ahb_usage->androidHardwareBufferUsage = ahb_usage;
    } else {
       mem_props->compatibleHandleTypes = supported_handle_types;
       mem_props->exportFromImportedHandleTypes =

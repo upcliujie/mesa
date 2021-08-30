@@ -1192,3 +1192,9 @@ vn_android_buffer_from_ahb(struct vn_device *dev,
 
    return VK_SUCCESS;
 }
+
+bool
+vn_android_ahb_usage_has_mipmap(uint64_t ahb_usage)
+{
+   return ahb_usage & AHARDWAREBUFFER_USAGE_GPU_MIPMAP_COMPLETE;
+}
