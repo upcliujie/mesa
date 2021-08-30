@@ -19,6 +19,8 @@
 #include "vn_physical_device.h"
 #include "vn_renderer.h"
 
+#define VN_INSTANCE_RING_DIRECT_THRESHOLD (256)
+
 /*
  * Instance extensions add instance-level or physical-device-level
  * functionalities.  It seems renderer support is either unnecessary or
@@ -322,18 +324,22 @@ vn_instance_wait_roundtrip(struct vn_instance *instance,
 }
 
 struct vn_instance_submission {
-   uint32_t local_cs_data[64];
-
-   void *cs_data;
-   size_t cs_size;
+   const struct vn_cs_encoder *cs;
    struct vn_ring_submit *submit;
+
+   struct vn_cs_encoder indirect_cs;
+   struct vn_cs_encoder_buffer indirect_buffer;
+   uint32_t indirect_data[64];
 };
 
-static void *
-vn_instance_submission_indirect_cs(struct vn_instance_submission *submit,
-                                   const struct vn_cs_encoder *cs,
-                                   size_t *cs_size)
+static const struct vn_cs_encoder *
+vn_instance_submission_get_cs(struct vn_instance_submission *submit,
+                              const struct vn_cs_encoder *cs,
+                              bool direct)
 {
+   if (direct)
+      return cs;
+
    VkCommandStreamDescriptionMESA local_descs[8];
    VkCommandStreamDescriptionMESA *descs = local_descs;
    if (cs->buffer_count > ARRAY_SIZE(local_descs)) {
@@ -357,47 +363,27 @@ vn_instance_submission_indirect_cs(struct vn_instance_submission *submit,
 
    const size_t exec_size = vn_sizeof_vkExecuteCommandStreamsMESA(
       desc_count, descs, NULL, 0, NULL, 0);
-   void *exec_data = submit->local_cs_data;
-   if (exec_size > sizeof(submit->local_cs_data)) {
+   void *exec_data = submit->indirect_data;
+   if (exec_size > sizeof(submit->indirect_data)) {
       exec_data = malloc(exec_size);
-      if (!exec_data)
-         goto out;
+      if (!exec_data) {
+         if (descs != local_descs)
+            free(descs);
+         return NULL;
+      }
    }
 
-   struct vn_cs_encoder local_enc =
-      VN_CS_ENCODER_INITIALIZER_LOCAL(exec_data, exec_size);
-   vn_encode_vkExecuteCommandStreamsMESA(&local_enc, 0, desc_count, descs,
-                                         NULL, 0, NULL, 0);
+   submit->indirect_buffer = VN_CS_ENCODER_BUFFER_INITIALIZER(exec_data);
+   submit->indirect_cs =
+      VN_CS_ENCODER_INITIALIZER(&submit->indirect_buffer, exec_size);
+   vn_encode_vkExecuteCommandStreamsMESA(&submit->indirect_cs, 0, desc_count,
+                                         descs, NULL, 0, NULL, 0);
+   vn_cs_encoder_commit(&submit->indirect_cs);
 
-   *cs_size = vn_cs_encoder_get_len(&local_enc);
-
-out:
    if (descs != local_descs)
       free(descs);
 
-   return exec_data;
-}
-
-static void *
-vn_instance_submission_direct_cs(struct vn_instance_submission *submit,
-                                 const struct vn_cs_encoder *cs,
-                                 size_t *cs_size)
-{
-   if (cs->buffer_count == 1) {
-      *cs_size = cs->buffers[0].committed_size;
-      return cs->buffers[0].base;
-   }
-
-   assert(vn_cs_encoder_get_len(cs) <= sizeof(submit->local_cs_data));
-   void *dst = submit->local_cs_data;
-   for (uint32_t i = 0; i < cs->buffer_count; i++) {
-      const struct vn_cs_encoder_buffer *buf = &cs->buffers[i];
-      memcpy(dst, buf->base, buf->committed_size);
-      dst += buf->committed_size;
-   }
-
-   *cs_size = dst - (void *)submit->local_cs_data;
-   return submit->local_cs_data;
+   return &submit->indirect_cs;
 }
 
 static struct vn_ring_submit *
@@ -431,9 +417,9 @@ static void
 vn_instance_submission_cleanup(struct vn_instance_submission *submit,
                                const struct vn_cs_encoder *cs)
 {
-   if (submit->cs_data != submit->local_cs_data &&
-       submit->cs_data != cs->buffers[0].base)
-      free(submit->cs_data);
+   if (submit->cs == &submit->indirect_cs &&
+       submit->indirect_buffer.base != submit->indirect_data)
+      free(submit->indirect_buffer.base);
 }
 
 static VkResult
@@ -443,14 +429,8 @@ vn_instance_submission_prepare(struct vn_instance_submission *submit,
                                struct vn_renderer_shmem *extra_shmem,
                                bool direct)
 {
-   if (direct) {
-      submit->cs_data =
-         vn_instance_submission_direct_cs(submit, cs, &submit->cs_size);
-   } else {
-      submit->cs_data =
-         vn_instance_submission_indirect_cs(submit, cs, &submit->cs_size);
-   }
-   if (!submit->cs_data)
+   submit->cs = vn_instance_submission_get_cs(submit, cs, direct);
+   if (!submit->cs)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    submit->submit =
@@ -466,8 +446,7 @@ vn_instance_submission_prepare(struct vn_instance_submission *submit,
 static bool
 vn_instance_submission_can_direct(const struct vn_cs_encoder *cs)
 {
-   struct vn_instance_submission submit;
-   return vn_cs_encoder_get_len(cs) <= sizeof(submit.local_cs_data);
+   return vn_cs_encoder_get_len(cs) <= VN_INSTANCE_RING_DIRECT_THRESHOLD;
 }
 
 static struct vn_cs_encoder *
@@ -515,8 +494,7 @@ vn_instance_ring_submit_locked(struct vn_instance *instance,
       return result;
 
    uint32_t seqno;
-   const bool notify = vn_ring_submit(ring, submit.submit, submit.cs_data,
-                                      submit.cs_size, &seqno);
+   const bool notify = vn_ring_submit(ring, submit.submit, submit.cs, &seqno);
    if (notify) {
       uint32_t notify_ring_data[8];
       struct vn_cs_encoder local_enc = VN_CS_ENCODER_INITIALIZER_LOCAL(
