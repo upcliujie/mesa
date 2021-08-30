@@ -225,7 +225,7 @@ static bool si_update_shaders(struct si_context *sctx)
    union si_vgt_stages_key key;
    key.index = 0;
 
-   /* Update VGT_SHADER_CONFIG. */
+   /* Update VGT_SHADER_STAGES_EN. */
    if (HAS_TESS)
       key.u.tess = 1;
    if (HAS_GS)
@@ -2166,7 +2166,7 @@ static void si_draw_vbo(struct pipe_context *ctx,
           * A draw must have at least 1 full primitive.
           * The fast launch doesn't work with tessellation.
           *
-          * Since NGG fast launch is enabled by VGT_SHADER_CONFIG, which causes a context roll,
+          * Since NGG fast launch is enabled by VGT_SHADER_STAGES_EN, which causes a context roll,
           * which decreases performance, decrease the frequency of switching it on/off using
           * a high vertex count threshold.
           */
