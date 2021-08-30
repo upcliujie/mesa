@@ -1022,6 +1022,131 @@ replace_duplicate_input(nir_shader *shader, nir_variable *input_var,
    return progress;
 }
 
+static bool
+is_static_uniform(nir_ssa_def *def, nir_ssa_scalar *s)
+{
+   /* Uniform load may hide behind some move instruction for converting
+    * vector to scalar:
+    *
+    *     vec1 32 ssa_1 = deref_var &color (uniform vec3)
+    *     vec3 32 ssa_2 = intrinsic load_deref (ssa_1) (0)
+    *     vec1 32 ssa_3 = mov ssa_2.x
+    *     vec1 32 ssa_4 = deref_var &color_out (shader_out float)
+    *     intrinsic store_deref (ssa_4, ssa_3) (1, 0)
+    */
+   *s = nir_ssa_scalar_resolved(def, 0);
+
+   nir_ssa_def *ssa = s->def;
+   if (ssa->parent_instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(ssa->parent_instr);
+   if (intr->intrinsic != nir_intrinsic_load_deref)
+      return false;
+
+   nir_deref_instr *deref = nir_src_as_deref(intr->src[0]);
+   if (!nir_deref_mode_is(deref, nir_var_uniform))
+      return false;
+
+   /* Does not support dynamic uniform load. */
+   switch (deref->deref_type) {
+   case nir_deref_type_var:
+   case nir_deref_type_struct:
+      return true;
+   case nir_deref_type_array:
+      return nir_src_is_const(deref->arr.index);
+   default:
+      return false;
+   }
+}
+
+static nir_variable *
+get_uniform_var(nir_shader *shader, nir_variable *var)
+{
+   /* Find if uniform already exists in shader. */
+   nir_variable *new_var = NULL;
+   nir_foreach_uniform_variable(v, shader) {
+      if (!strcmp(var->name, v->name)) {
+         new_var = v;
+         break;
+      }
+   }
+
+   /* Create a variable if not exist. */
+   if (!new_var) {
+      new_var = nir_variable_clone(var, shader);
+      nir_shader_add_variable(shader, new_var);
+   }
+
+   return new_var;
+}
+
+static bool
+replace_uniform_input(nir_shader *shader, nir_intrinsic_instr *store_intr,
+                      nir_ssa_scalar *scalar)
+{
+   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
+
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
+   nir_variable *out_var =
+      nir_deref_instr_get_variable(nir_src_as_deref(store_intr->src[0]));
+
+   nir_intrinsic_instr *load = nir_instr_as_intrinsic(scalar->def->parent_instr);
+   nir_deref_instr *deref = nir_src_as_deref(load->src[0]);
+   nir_variable *uni_var = nir_deref_instr_get_variable(deref);
+   uni_var = get_uniform_var(shader, uni_var);
+
+   bool progress = false;
+   nir_foreach_block(block, impl) {
+      nir_foreach_instr(instr, block) {
+         if (instr->type != nir_instr_type_intrinsic)
+            continue;
+
+         nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+         if (intr->intrinsic != nir_intrinsic_load_deref)
+            continue;
+
+         nir_deref_instr *in_deref = nir_src_as_deref(intr->src[0]);
+         if (!nir_deref_mode_is(in_deref, nir_var_shader_in))
+            continue;
+
+         nir_variable *in_var = nir_deref_instr_get_variable(in_deref);
+
+         if (!does_varying_match(out_var, in_var))
+            continue;
+
+         b.cursor = nir_before_instr(instr);
+
+         nir_deref_instr *uni_deref = nir_build_deref_var(&b, uni_var);
+
+         if (deref->deref_type == nir_deref_type_array) {
+            nir_load_const_instr *index =
+               nir_instr_as_load_const(deref->arr.index.ssa->parent_instr);
+            uni_deref = nir_build_deref_array_imm(&b, uni_deref, index->value->i64);
+         } else if (deref->deref_type == nir_deref_type_struct)
+            uni_deref = nir_build_deref_struct(&b, uni_deref, deref->strct.index);
+
+         nir_ssa_def *uni_def = nir_load_deref(&b, uni_deref);
+
+         /* Add a vector to scalar move if uniform is a vector. */
+         if (uni_def->num_components > 1) {
+            nir_alu_src src = {0};
+            src.src = nir_src_for_ssa(uni_def);
+            src.swizzle[0] = scalar->comp;
+            uni_def = nir_mov_alu(&b, src, 1);
+         }
+
+         nir_ssa_def_rewrite_uses(&intr->dest.ssa, uni_def);
+
+         progress = true;
+      }
+   }
+
+   return progress;
+}
+
 /* The GLSL ES 3.20 spec says:
  *
  * "The precision of a vertex output does not need to match the precision of
@@ -1123,11 +1248,15 @@ nir_link_opt_varyings(nir_shader *producer, nir_shader *consumer)
       if (!can_replace_varying(out_var))
          continue;
 
-      if (intr->src[1].ssa->parent_instr->type == nir_instr_type_load_const) {
+      nir_ssa_scalar uni_scalar;
+      nir_ssa_def *ssa = intr->src[1].ssa;
+      if (ssa->parent_instr->type == nir_instr_type_load_const) {
          progress |= replace_constant_input(consumer, intr);
+      } else if (is_static_uniform(ssa, &uni_scalar)) {
+         progress |= replace_uniform_input(consumer, intr, &uni_scalar);
       } else {
          struct hash_entry *entry =
-               _mesa_hash_table_search(varying_values, intr->src[1].ssa);
+               _mesa_hash_table_search(varying_values, ssa);
          if (entry) {
             progress |= replace_duplicate_input(consumer,
                                                 (nir_variable *) entry->data,
@@ -1135,8 +1264,7 @@ nir_link_opt_varyings(nir_shader *producer, nir_shader *consumer)
          } else {
             nir_variable *in_var = get_matching_input_var(consumer, out_var);
             if (in_var) {
-               _mesa_hash_table_insert(varying_values, intr->src[1].ssa,
-                                       in_var);
+               _mesa_hash_table_insert(varying_values, ssa, in_var);
             }
          }
       }
