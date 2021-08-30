@@ -39,6 +39,9 @@ struct vn_instance {
    struct vn_renderer *renderer;
    struct vn_renderer_info renderer_info;
 
+   /* XXX staged features to be merged to core venus protocol */
+   VkVenusExperimentalFeatures100000MESA experimental;
+
    struct {
       mtx_t mutex;
       struct vn_renderer_shmem *shmem;
@@ -74,9 +77,6 @@ struct vn_instance {
    mtx_t physical_device_mutex;
    struct vn_physical_device *physical_devices;
    uint32_t physical_device_count;
-
-   /* XXX staged features to be merged to core venus protocol */
-   VkVenusExperimentalFeatures100000MESA experimental;
 };
 VK_DEFINE_HANDLE_CASTS(vn_instance,
                        base.base.base,
