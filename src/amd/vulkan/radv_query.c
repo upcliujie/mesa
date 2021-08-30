@@ -1226,6 +1226,8 @@ radv_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer, VkQueryPool queryPoo
     */
    emit_query_flush(cmd_buffer, pool);
 
+   stride = queryCount == 1 ? pool->stride : stride;
+
    switch (pool->type) {
    case VK_QUERY_TYPE_OCCLUSION:
       if (flags & VK_QUERY_RESULT_WAIT_BIT) {
