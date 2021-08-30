@@ -245,6 +245,12 @@ try_optimize_scc_nocompare(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
           wr_instr->definitions[1].physReg() != scc)
          return;
 
+      /* Don't use SCC when the instruction's first definition writes exec.
+       * These writes are potentially removed by jump_threading.
+       */
+      if (wr_instr->definitions[0].physReg() == exec)
+         return;
+
       /* Look for instructions which set SCC := (D != 0) */
       switch (wr_instr->opcode) {
       case aco_opcode::s_bfe_i32:
