@@ -338,8 +338,14 @@ eliminate_useless_exec_writes_in_block(ssa_elimination_ctx& ctx, Block& block)
       bool needs_exec = needs_exec_mask(instr.get());
       bool writes_exec = instr_writes_exec(instr.get());
 
+      /* Don't remove instructions whose exec definition isn't the first definition,
+       * for example s_and_saveexec and similar. These can't be removed without making
+       * sure their other definitions aren't used.
+       */
+      bool exec_is_def0 = writes_exec && instr->definitions[0].physReg() == exec;
+
       /* See if we found an unused exec write. */
-      if (writes_exec && !exec_write_used) {
+      if (writes_exec && !exec_write_used && exec_is_def0) {
          instr.reset();
          continue;
       }
