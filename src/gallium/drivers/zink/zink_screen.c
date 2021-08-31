@@ -1708,8 +1708,7 @@ check_base_requirements(struct zink_screen *screen)
        !(screen->info.feats12.scalarBlockLayout ||
          screen->info.have_EXT_scalar_block_layout) ||
        !screen->info.have_KHR_maintenance1 ||
-       !screen->info.have_EXT_custom_border_color ||
-       !screen->info.have_EXT_line_rasterization) {
+       !screen->info.have_EXT_custom_border_color) {
       fprintf(stderr, "WARNING: Some incorrect rendering "
               "might occur because the selected Vulkan device (%s) doesn't support "
               "base Zink requirements: ", screen->info.props.deviceName);
@@ -1724,7 +1723,6 @@ check_base_requirements(struct zink_screen *screen)
          printf("scalarBlockLayout OR EXT_scalar_block_layout ");
       CHECK_OR_PRINT(have_KHR_maintenance1);
       CHECK_OR_PRINT(have_EXT_custom_border_color);
-      CHECK_OR_PRINT(have_EXT_line_rasterization);
       fprintf(stderr, "\n");
    }
 }
