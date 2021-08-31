@@ -409,26 +409,25 @@ radv_CmdCopyBuffer2KHR(VkCommandBuffer commandBuffer, const VkCopyBufferInfo2KHR
 }
 
 void
-radv_CmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
-                     VkDeviceSize dataSize, const void *pData)
+radv_update_buffer(struct radv_cmd_buffer *cmd_buffer, struct radeon_winsys_bo *bo, uint64_t offset,
+                   const void *data, size_t size)
 {
-   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
-   RADV_FROM_HANDLE(radv_buffer, dst_buffer, dstBuffer);
    bool mec = radv_cmd_buffer_uses_mec(cmd_buffer);
-   uint64_t words = dataSize / 4;
-   uint64_t va = radv_buffer_get_va(dst_buffer->bo);
-   va += dstOffset + dst_buffer->offset;
+   uint64_t words = size / 4;
+   uint64_t va = bo ? radv_buffer_get_va(bo) : 0;
+   va += offset;
 
-   assert(!(dataSize & 3));
+   assert(!(size & 3));
    assert(!(va & 3));
 
-   if (!dataSize)
+   if (!size)
       return;
 
-   if (dataSize < RADV_BUFFER_UPDATE_THRESHOLD) {
+   if (size < RADV_BUFFER_UPDATE_THRESHOLD) {
       si_emit_cache_flush(cmd_buffer);
 
-      radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs, dst_buffer->bo);
+      if (bo)
+         radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs, bo);
 
       radeon_check_space(cmd_buffer->device->ws, cmd_buffer->cs, words + 4);
 
@@ -437,14 +436,23 @@ radv_CmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDevice
                                      S_370_WR_CONFIRM(1) | S_370_ENGINE_SEL(V_370_ME));
       radeon_emit(cmd_buffer->cs, va);
       radeon_emit(cmd_buffer->cs, va >> 32);
-      radeon_emit_array(cmd_buffer->cs, pData, words);
+      radeon_emit_array(cmd_buffer->cs, data, words);
 
       if (unlikely(cmd_buffer->device->trace_bo))
          radv_cmd_buffer_trace_emit(cmd_buffer);
    } else {
       uint32_t buf_offset;
-      radv_cmd_buffer_upload_data(cmd_buffer, dataSize, pData, &buf_offset);
-      radv_copy_buffer(cmd_buffer, cmd_buffer->upload.upload_bo, dst_buffer->bo, buf_offset,
-                       dstOffset + dst_buffer->offset, dataSize);
+      radv_cmd_buffer_upload_data(cmd_buffer, size, data, &buf_offset);
+      radv_copy_buffer(cmd_buffer, cmd_buffer->upload.upload_bo, bo, buf_offset, offset, size);
    }
+}
+
+void
+radv_CmdUpdateBuffer(VkCommandBuffer commandBuffer, VkBuffer dstBuffer, VkDeviceSize dstOffset,
+                     VkDeviceSize dataSize, const void *pData)
+{
+   RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
+   RADV_FROM_HANDLE(radv_buffer, dst_buffer, dstBuffer);
+
+   radv_update_buffer(cmd_buffer, dst_buffer->bo, dstOffset + dst_buffer->offset, pData, dataSize);
 }
