@@ -40,6 +40,7 @@ struct iris_syncobj {
 
 struct iris_syncobj *iris_create_syncobj(struct iris_screen *screen);
 void iris_syncobj_destroy(struct iris_screen *, struct iris_syncobj *);
+void iris_syncobj_signal(struct iris_screen *, struct iris_syncobj *);
 
 void iris_batch_add_syncobj(struct iris_batch *batch,
                             struct iris_syncobj *syncobj,

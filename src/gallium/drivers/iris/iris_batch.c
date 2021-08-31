@@ -735,6 +735,17 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
 
    int ret = submit_batch(batch);
 
+   /* We're either going to retry in case of -EIO or -ENOMEM or simply
+    * abort(). In case we decide to retry, if any of the future batches depend
+    * on the one that failed, the execbuf ioctl will fail with
+    * -EINVAL because the syncobj from the batch that failed was never
+    *  submitted, leading to an abort(). So here we signal the syncobj to
+    *  allow further progress to be made, knowing we may have broken our
+    *  dependency tracking.
+    */
+   if (ret < 0)
+      iris_syncobj_signal(screen, iris_batch_get_signal_syncobj(batch));
+
    batch->exec_count = 0;
    batch->aperture_space = 0;
 
