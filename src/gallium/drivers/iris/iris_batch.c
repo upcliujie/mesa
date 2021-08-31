@@ -188,6 +188,7 @@ iris_init_batch(struct iris_context *ice,
    batch->name = name;
    batch->ice = ice;
    batch->contains_fence_signal = false;
+   batch->exec_flags = I915_EXEC_RENDER;
 
    batch->fine_fences.uploader =
       u_upload_create(&ice->ctx, 4096, PIPE_BIND_CUSTOM,
@@ -827,7 +828,7 @@ submit_batch(struct iris_batch *batch)
       .batch_start_offset = 0,
       /* This must be QWord aligned. */
       .batch_len = ALIGN(batch->primary_batch_size, 8),
-      .flags = I915_EXEC_RENDER |
+      .flags = batch->exec_flags |
                I915_EXEC_NO_RELOC |
                I915_EXEC_BATCH_FIRST |
                I915_EXEC_HANDLE_LUT,
