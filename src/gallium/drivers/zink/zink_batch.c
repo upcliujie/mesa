@@ -37,7 +37,7 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
    set_foreach_remove(bs->resources, entry) {
       struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
       zink_resource_object_usage_unset(obj, bs);
-      zink_resource_object_reference(screen, &obj, NULL);
+      util_dynarray_append(&bs->unref_resources, struct zink_resource_object*, obj);
    }
 
    set_foreach_remove(bs->active_queries, entry) {
@@ -97,11 +97,21 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
    bs->usage.usage = 0;
 }
 
+static void
+unref_resources(struct zink_screen *screen, struct zink_batch_state *bs)
+{
+   while (util_dynarray_contains(&bs->unref_resources, struct zink_resource_object*)) {
+      struct zink_resource_object *obj = util_dynarray_pop(&bs->unref_resources, struct zink_resource_object*);
+      zink_resource_object_reference(screen, &obj, NULL);
+   }
+}
+
 void
 zink_clear_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 {
    bs->fence.completed = true;
    zink_reset_batch_state(ctx, bs);
+   unref_resources(zink_screen(ctx->base.screen), bs);
 }
 
 void
@@ -189,6 +199,7 @@ create_batch_state(struct zink_context *ctx)
    util_dynarray_init(&bs->zombie_samplers, NULL);
    util_dynarray_init(&bs->dead_framebuffers, NULL);
    util_dynarray_init(&bs->persistent_resources, NULL);
+   util_dynarray_init(&bs->unref_resources, NULL);
 
    cnd_init(&bs->usage.flush);
    mtx_init(&bs->usage.mtx, mtx_plain);
@@ -391,6 +402,7 @@ end:
    cnd_broadcast(&bs->usage.flush);
 
    p_atomic_set(&bs->fence.submitted, true);
+   unref_resources(screen, bs);
 }
 
 
