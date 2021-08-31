@@ -80,6 +80,7 @@ struct iris_batch {
    uint64_t last_surface_base_address;
 
    uint32_t hw_ctx_id;
+   uint32_t exec_flags;
 
    /** The validation list */
    struct drm_i915_gem_exec_object2 *validation_list;
