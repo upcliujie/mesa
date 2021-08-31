@@ -606,10 +606,6 @@ should_defer(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
    return false;
 }
 
-static struct ir3_sched_node *choose_instr_inc(struct ir3_sched_ctx *ctx,
-                                               struct ir3_sched_notes *notes,
-                                               bool defer, bool avoid_output);
-
 enum choose_instr_dec_rank {
    DEC_NEUTRAL,
    DEC_NEUTRAL_READY,
@@ -701,7 +697,7 @@ choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
       return chosen;
    }
 
-   return choose_instr_inc(ctx, notes, defer, true);
+   return NULL;
 }
 
 enum choose_instr_inc_rank {
@@ -846,6 +842,14 @@ choose_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes)
       return chosen->instr;
 
    chosen = choose_instr_dec(ctx, notes, false);
+   if (chosen)
+      return chosen->instr;
+
+   chosen = choose_instr_inc(ctx, notes, true, true);
+   if (chosen)
+      return chosen->instr;
+
+   chosen = choose_instr_inc(ctx, notes, false, true);
    if (chosen)
       return chosen->instr;
 
