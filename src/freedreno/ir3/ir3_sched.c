@@ -176,6 +176,18 @@ is_scheduled(struct ir3_instruction *instr)
    return !!(instr->flags & IR3_INSTR_MARK);
 }
 
+static int
+outstanding_sfu(struct ir3_sched_ctx *ctx)
+{
+   return ctx->sfu_index - ctx->first_outstanding_sfu_index;
+}
+
+static int
+outstanding_tex(struct ir3_sched_ctx *ctx)
+{
+   return ctx->tex_index - ctx->first_outstanding_tex_index;
+}
+
 /* check_src_cond() passing a ir3_sched_ctx. */
 static bool
 sched_check_src_cond(struct ir3_instruction *instr,
@@ -335,6 +347,9 @@ schedule(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
    } else if (ctx->tex_delay > 0) {
       ctx->tex_delay -= MIN2(cycles, ctx->tex_delay);
    }
+
+   d("outstanding_tex=%d, outstanding_sfu=%d",
+     outstanding_tex(ctx), outstanding_sfu(ctx));
 }
 
 struct ir3_sched_notes {
@@ -582,10 +597,10 @@ should_defer(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
     * and prevents unacceptably large increases in register pressure from too
     * many outstanding texture instructions.
     */
-   if (ctx->tex_index - ctx->first_outstanding_tex_index >= 8 && is_tex(instr))
+   if (is_tex(instr) && (outstanding_tex(ctx) >= 8))
       return true;
 
-   if (ctx->sfu_index - ctx->first_outstanding_sfu_index >= 8 && is_sfu(instr))
+   if (is_sfu(instr) && (outstanding_sfu(ctx) >= 8))
       return true;
 
    return false;
