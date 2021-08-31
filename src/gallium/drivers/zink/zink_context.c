@@ -1869,6 +1869,14 @@ zink_update_descriptor_refs(struct zink_context *ctx, bool compute)
 }
 
 static void
+stall(struct zink_context *ctx)
+{
+   sync_flush(ctx, zink_batch_state(ctx->last_fence));
+   zink_vkfence_wait(zink_screen(ctx->base.screen), ctx->last_fence, PIPE_TIMEOUT_INFINITE);
+   zink_batch_reset_all(ctx);
+}
+
+static void
 flush_batch(struct zink_context *ctx, bool sync)
 {
    struct zink_batch *batch = &ctx->batch;
@@ -1893,7 +1901,7 @@ flush_batch(struct zink_context *ctx, bool sync)
       zink_select_launch_grid(ctx);
 
       if (ctx->oom_stall)
-         zink_fence_wait(&ctx->base);
+         stall(ctx);
       ctx->oom_flush = false;
       ctx->oom_stall = false;
    }
@@ -2560,11 +2568,8 @@ zink_fence_wait(struct pipe_context *pctx)
 
    if (ctx->batch.has_work)
       pctx->flush(pctx, NULL, PIPE_FLUSH_HINT_FINISH);
-   if (ctx->last_fence) {
-      sync_flush(ctx, zink_batch_state(ctx->last_fence));
-      zink_vkfence_wait(zink_screen(ctx->base.screen), ctx->last_fence, PIPE_TIMEOUT_INFINITE);
-      zink_batch_reset_all(ctx);
-   }
+   if (ctx->last_fence)
+      stall(ctx);
 }
 
 void
