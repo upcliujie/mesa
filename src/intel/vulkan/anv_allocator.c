@@ -1710,6 +1710,9 @@ anv_device_alloc_bo(struct anv_device *device,
    /* The kernel is going to give us whole pages anyway */
    size = align_u64(size, 4096);
 
+   if (!device->physical->use_softpin && size > MAX_MEMORY_ALLOCATION_SIZE)
+      return vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
    const uint32_t align = anv_device_get_bo_align(device, alloc_flags);
 
    uint64_t ccs_size = 0;
