@@ -576,7 +576,7 @@ live_effect(struct ir3_instruction *instr)
 static bool
 should_avoid(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
 {
-   if (is_tex(instr) && (outstanding_tex(ctx) >= 8))
+   if (is_tex(instr) && (outstanding_tex(ctx) >= 4))
       return true;
 
    if (is_sfu(instr) && (outstanding_sfu(ctx) >= 8))
