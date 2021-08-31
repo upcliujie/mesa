@@ -81,6 +81,7 @@ struct iris_batch {
 
    uint32_t hw_ctx_id;
    uint32_t exec_flags;
+   bool engines_context;
 
    /** The validation list */
    struct drm_i915_gem_exec_object2 *validation_list;

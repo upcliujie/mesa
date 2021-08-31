@@ -235,15 +235,63 @@ iris_init_legacy_contexts(struct iris_context *ice, int priority)
       struct iris_batch *batch = &ice->batches[i];
       batch->hw_ctx_id = iris_create_hw_context(screen->bufmgr);
       batch->exec_flags = I915_EXEC_RENDER;
+      batch->engines_context = false;
       assert(batch->hw_ctx_id);
       iris_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);
    }
 }
 
+static bool
+iris_init_engines_context(struct iris_context *ice, int priority)
+{
+   struct iris_screen *screen = (void *) ice->ctx.screen;
+   int fd = iris_bufmgr_get_fd(screen->bufmgr);
+
+   struct drm_i915_query_engine_info *engines_info =
+      intel_i915_query_alloc(fd, DRM_I915_QUERY_ENGINE_INFO);
+
+   if (!engines_info)
+      return false;
+
+   if (intel_gem_count_engines(engines_info, I915_ENGINE_CLASS_RENDER) == 0) {
+      free(engines_info);
+      return false;
+   }
+
+   int engines_ctx = -1;
+   if (intel_gem_count_engines(engines_info, I915_ENGINE_CLASS_RENDER) > 0) {
+      uint16_t engine_classes[IRIS_BATCH_COUNT];
+      for (int i = 0; i < IRIS_BATCH_COUNT; i++)
+         engine_classes[i] = I915_ENGINE_CLASS_RENDER;
+
+      engines_ctx =
+         intel_gem_create_context_engines(fd, engines_info, IRIS_BATCH_COUNT,
+                                          engine_classes);
+   }
+
+   if (engines_ctx < 0) {
+      free(engines_info);
+      return false;
+   }
+
+   iris_hw_context_set_priority(screen->bufmgr, engines_ctx, priority);
+
+   for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
+      struct iris_batch *batch = &ice->batches[i];
+      batch->hw_ctx_id = engines_ctx;
+      batch->exec_flags = i;
+      batch->engines_context = true;
+   }
+
+   free(engines_info);
+   return true;
+}
+
 void
 iris_init_batches(struct iris_context *ice, int priority)
 {
-   iris_init_legacy_contexts(ice, priority);
+   if (!iris_init_engines_context(ice, priority))
+      iris_init_legacy_contexts(ice, priority);
    for (int i = 0; i < IRIS_BATCH_COUNT; i++)
       iris_init_batch(ice, (enum iris_batch_name) i);
 }
@@ -473,7 +521,8 @@ iris_batch_free(struct iris_batch *batch)
    batch->map = NULL;
    batch->map_next = NULL;
 
-   iris_destroy_hw_context(bufmgr, batch->hw_ctx_id);
+   if (batch->name == 0 || !batch->engines_context)
+      iris_destroy_hw_context(bufmgr, batch->hw_ctx_id);
 
    iris_destroy_batch_measure(batch->measure);
    batch->measure = NULL;
