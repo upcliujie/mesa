@@ -1714,8 +1714,9 @@ _anv_combine_address(struct anv_batch *batch, void *location,
       return anv_address_physical(anv_address_add(address, delta));
    } else {
       assert(batch->start <= location && location < batch->end);
-      /* i915 relocations are signed. */
-      assert(INT32_MIN <= address.offset && address.offset <= INT32_MAX);
+      /* i915 relocations are signed. Skip if we're softpinning. */
+      assert(ANV_ALWAYS_SOFTPIN ||
+             (INT32_MIN <= address.offset && address.offset <= INT32_MAX));
       return anv_batch_emit_reloc(batch, location, address.bo, address.offset + delta);
    }
 }
