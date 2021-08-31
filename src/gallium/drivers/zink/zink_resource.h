@@ -31,6 +31,7 @@ struct zink_context;
 struct zink_bo;
 #define ZINK_RESOURCE_USAGE_STREAMOUT (1 << 10) //much greater than ZINK_DESCRIPTOR_TYPES
 
+#include "util/hash_table.h"
 #include "util/simple_mtx.h"
 #include "util/u_transfer.h"
 #include "util/u_range.h"
@@ -118,6 +119,17 @@ struct zink_resource {
    uint16_t image_bind_count[2]; //gfx, compute
    uint16_t write_bind_count[2]; //gfx, compute
    uint16_t bind_count[2]; //gfx, compute
+
+   union {
+      struct {
+         struct hash_table bufferview_cache;
+         simple_mtx_t bufferview_mtx;
+      };
+      struct {
+         struct hash_table surface_cache;
+         simple_mtx_t surface_mtx;
+      };
+   };
 
    struct sw_displaytarget *dt;
    unsigned dt_stride;
