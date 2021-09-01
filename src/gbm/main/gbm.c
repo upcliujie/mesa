@@ -487,7 +487,7 @@ gbm_bo_create(struct gbm_device *gbm,
       return NULL;
    }
 
-   return gbm->v0.bo_create(gbm, width, height, format, usage, NULL, 0);
+   return gbm->v0.bo_create(gbm, width, height, format, usage | GBM_BO_USE_LINEAR, NULL, 0);
 }
 
 GBM_EXPORT struct gbm_bo *
