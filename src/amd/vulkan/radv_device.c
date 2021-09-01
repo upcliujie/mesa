@@ -6244,7 +6244,7 @@ radv_WaitSemaphores(VkDevice _device, const VkSemaphoreWaitInfo *pWaitInfo, uint
    if (radv_device_is_lost(device))
       return VK_ERROR_DEVICE_LOST;
 
-   uint64_t abs_timeout = radv_get_absolute_timeout(timeout);
+   uint64_t abs_timeout = timeout == UINT64_MAX ? timeout : radv_get_absolute_timeout(timeout);
 
    if (radv_semaphore_from_handle(pWaitInfo->pSemaphores[0])->permanent.kind ==
        RADV_SEMAPHORE_TIMELINE)
