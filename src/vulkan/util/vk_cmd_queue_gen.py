@@ -232,14 +232,24 @@ vk_free_queue(struct vk_cmd_queue *queue)
 
 """, output_encoding='utf-8')
 
+def remove_prefix(text, prefix):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
+
+def remove_suffix(text, suffix):
+    if text.endswith(suffix):
+        return text[:-len(suffix)]
+    return text
+
 def to_underscore(name):
-    return re.sub('([A-Z]+)', r'_\1', name).lower().removeprefix('_')
+    return remove_prefix(re.sub('([A-Z]+)', r'_\1', name).lower(), '_')
 
 def to_struct_field_name(name):
     return to_underscore(name).replace('cmd_', '')
 
 def to_field_name(name):
-    return to_underscore(name).replace('cmd_', '').removeprefix('p_')
+    return remove_prefix(to_underscore(name).replace('cmd_', ''), 'p_')
 
 def to_field_decl(decl):
     decl = decl.replace('const ', '')
@@ -262,7 +272,7 @@ def get_array_copy(command, param):
     else:
         field_size = "sizeof(*%s)" % field_name
     allocation = "%s = vk_zalloc(queue->alloc, %s * %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);" % (field_name, field_size, param.len)
-    const_cast = param.decl.replace("const", "").removesuffix(param.name)
+    const_cast = remove_suffix(param.decl.replace("const", ""), param.name)
     copy = "memcpy((%s)%s, %s, %s * %s);" % (const_cast, field_name, param.name, field_size, param.len)
     return "%s\n   %s" % (allocation, copy)
 
@@ -270,7 +280,7 @@ def get_array_member_copy(command, param, member):
     field_name = "cmd->u.%s.%s->%s" % (to_struct_field_name(command.name), to_field_name(param.name), member.name)
     len_field_name = "cmd->u.%s.%s->%s" % (to_struct_field_name(command.name), to_field_name(param.name), member.len)
     allocation = "%s = vk_zalloc(queue->alloc, sizeof(*%s) * %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);" % (field_name, field_name, len_field_name)
-    const_cast = member.decl.replace("const", "").removesuffix(member.name)
+    const_cast = remove_suffix(member.decl.replace("const", ""), member.name)
     copy = "memcpy((%s)%s, %s->%s, sizeof(*%s) * %s);" % (const_cast, field_name, param.name, member.name, field_name, len_field_name)
     return "%s\n   %s\n" % (allocation, copy)
     
@@ -278,7 +288,7 @@ def get_struct_copy(command, param, types):
     field_name = "cmd->u.%s.%s" % (to_struct_field_name(command.name), to_field_name(param.name))
 
     if param.type == "void":
-        const_cast = param.decl.replace("const", "").removesuffix(param.name)
+        const_cast = remove_suffix(param.decl.replace("const", ""), param.name)
         return "%s = (%s) %s;" % (field_name, const_cast, param.name)
 
     allocation = "%s = vk_zalloc(queue->alloc, sizeof(*%s), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);" % (field_name, field_name)
@@ -296,7 +306,7 @@ def get_struct_copy(command, param, types):
 
 def get_struct_free(command, param, types):
     field_name = "cmd->u.%s.%s" % (to_struct_field_name(command.name), to_field_name(param.name))
-    const_cast = param.decl.replace("const", "").removesuffix(param.name)
+    const_cast = remove_suffix(param.decl.replace("const", ""), param.name)
     driver_data_free = "vk_free(queue->alloc, cmd->driver_data);\n"
     struct_free = "vk_free(queue->alloc, (%s)%s);" % (const_cast, field_name)
     member_frees = ""
@@ -304,7 +314,7 @@ def get_struct_free(command, param, types):
         for member in types[param.type]:
             if member.len and member.len != 'null-terminated':
                 member_name = "cmd->u.%s.%s->%s" % (to_struct_field_name(command.name), to_field_name(param.name), member.name)
-                const_cast = member.decl.replace("const", "").removesuffix(member.name)
+                const_cast = remove_suffix(member.decl.replace("const", ""), member.name)
                 member_frees += "vk_free(queue->alloc, (%s)%s);\n" % (const_cast, member_name)
     return "%s      %s      %s\n" % (member_frees, driver_data_free, struct_free)
 
