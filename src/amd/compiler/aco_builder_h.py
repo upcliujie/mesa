@@ -576,6 +576,12 @@ formats = [(f if len(f) == 5 else f + ('',)) for f in formats]
             ${f.get_builder_initialization(num_operands)}
         % endfor
        ${extra_field_setup}
+        % if name == 'ds':
+            /* LDS instructions don't need m0 on GFX9+. */
+            if (!gds && program->chip_class >= GFX9 &&
+                instr->operands.back().isFixed() && instr->operands.back().physReg() == ::aco::m0)
+               instr->operands.pop_back();
+        % endif
       return insert(instr);
    }
 
