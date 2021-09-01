@@ -1,4 +1,4 @@
-# Copyright © 2018 Intel Corporation
+# Copyright © Microsoft Corporation
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -18,39 +18,30 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-inc_wgl = include_directories('.')
-_c_args_wgl = []
-if not with_shared_glapi
-  # prevent _glapi_* from being declared __declspec(dllimport)
-  _c_args_wgl += '-D_GLAPI_NO_EXPORTS'
+
+gallium_wgl_link_args = []
+if cc.get_id() == 'gcc' and host_machine.cpu_family() != 'x86_64'
+  gallium_wgl_link_args += ['-Wl,--enable-stdcall-fixup']
 endif
 
-libwgl = static_library(
-  'wgl',
-  files(
-    'stw_context.c',
-    'stw_device.c',
-    'stw_ext_context.c',
-    'stw_ext_extensionsstring.c',
-    'stw_ext_pbuffer.c',
-    'stw_ext_pixelformat.c',
-    'stw_ext_rendertexture.c',
-    'stw_ext_swapinterval.c',
-    'stw_framebuffer.c',
-    'stw_getprocaddress.c',
-    'stw_nopfuncs.c',
-    'stw_nopfuncs.h',
-    'stw_pixelformat.c',
-    'stw_st.c',
-    'stw_tls.c',
-  ),
-  c_args : [
-    '-D_GDI32_',             # prevent wgl* being declared __declspec(dllimport)
-    '-DWIN32_LEAN_AND_MEAN', # http://msdn2.microsoft.com/en-us/library/6dwk3a1z.aspx
-    _c_args_wgl
-  ],
+wgldef = files('gallium_wgl.def')[0]
+
+libgallium_wgl = shared_library(
+  'gallium_wgl',
+  ['wgl.c'],
+  vs_module_defs : wgldef,
   include_directories : [
-    inc_include, inc_src, inc_gallium, inc_gallium_aux, inc_mapi, inc_mesa,
+    inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_wgl, inc_gallium_winsys, inc_gallium_winsys_sw, inc_gallium_drivers,
   ],
-  dependencies : [idep_xmlconfig],
+  link_whole : [libwgl],
+  link_with : [
+    libgallium, libglsl, libmesa_gallium, libwsgdi, libglapi_static, libglapi
+  ],
+  dependencies : [
+    dep_ws2_32, idep_nir, idep_mesautil, driver_swrast, driver_swr,
+    driver_d3d12, driver_zink, winsys_d3d12_wgl
+  ],
+  link_args : gallium_wgl_link_args,
+  name_prefix : 'lib',
+  install : true,
 )
