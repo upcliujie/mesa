@@ -1430,6 +1430,14 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
    return cmd_buffer->record_result;
 }
 
+static void
+tu_reset_last_vs_params(struct tu_cmd_buffer *cmd)
+{
+   cmd->state.last_vs_params.first_instance = -1;
+   cmd->state.last_vs_params.params_offset = -1;
+   cmd->state.last_vs_params.vertex_offset = -1;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 tu_AllocateCommandBuffers(VkDevice _device,
                           const VkCommandBufferAllocateInfo *pAllocateInfo,
@@ -1540,9 +1548,7 @@ tu_BeginCommandBuffer(VkCommandBuffer commandBuffer,
    memset(&cmd_buffer->state, 0, sizeof(cmd_buffer->state));
    cmd_buffer->state.index_size = 0xff; /* dirty restart index */
 
-   cmd_buffer->state.last_vs_params.first_instance = -1;
-   cmd_buffer->state.last_vs_params.params_offset = -1;
-   cmd_buffer->state.last_vs_params.vertex_offset = -1;
+   tu_reset_last_vs_params(cmd_buffer);
 
    tu_cache_init(&cmd_buffer->state.cache);
    tu_cache_init(&cmd_buffer->state.renderpass_cache);
@@ -2920,6 +2926,8 @@ tu_CmdExecuteCommands(VkCommandBuffer commandBuffer,
       cmd->state.index_size = secondary->state.index_size; /* for restart index update */
    }
    cmd->state.dirty = ~0u; /* TODO: set dirty only what needs to be */
+
+   tu_reset_last_vs_params(cmd);
 
    if (cmd->state.pass) {
       /* After a secondary command buffer is executed, LRZ is not valid
