@@ -2356,6 +2356,12 @@ fill_surface_state(struct isl_device *isl_dev,
    if (aux_usage != ISL_AUX_USAGE_NONE) {
       f.aux_surf = &res->aux.surf;
       f.aux_usage = aux_usage;
+
+      enum pipe_format aux_pfmt = res->external_format != PIPE_FORMAT_NONE ?
+                                  res->external_format : res->internal_format;
+      f.mc_format =
+         iris_format_for_usage(isl_dev->info, aux_pfmt, surf->usage).fmt;
+
       f.clear_color = res->aux.clear_color;
 
       if (res->aux.bo)
