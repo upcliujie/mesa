@@ -232,14 +232,19 @@ vk_free_queue(struct vk_cmd_queue *queue)
 
 """, output_encoding='utf-8')
 
+def remove_prefix(text, prefix):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
+
 def to_underscore(name):
-    return re.sub('([A-Z]+)', r'_\1', name).lower().removeprefix('_')
+    return remove_prefix(re.sub('([A-Z]+)', r'_\1', name).lower(), '_')
 
 def to_struct_field_name(name):
     return to_underscore(name).replace('cmd_', '')
 
 def to_field_name(name):
-    return to_underscore(name).replace('cmd_', '').removeprefix('p_')
+    return remove_prefix(to_underscore(name).replace('cmd_', ''), 'p_')
 
 def to_field_decl(decl):
     decl = decl.replace('const ', '')
