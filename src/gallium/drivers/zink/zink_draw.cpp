@@ -179,6 +179,9 @@ update_gfx_program(struct zink_context *ctx)
    if (ctx->last_vertex_stage_dirty) {
       enum pipe_shader_type pstage = pipe_shader_type_from_mesa(ctx->last_vertex_stage->nir->info.stage);
       ctx->dirty_shader_stages |= BITFIELD_BIT(pstage);
+      memcpy(&ctx->gfx_pipeline_state.shader_keys.key[pstage].key.vs_base,
+             &ctx->gfx_pipeline_state.shader_keys.last_vertex.key.vs_base,
+             sizeof(struct zink_vs_key_base));
       ctx->last_vertex_stage_dirty = false;
    }
    unsigned bits = BITFIELD_MASK(PIPE_SHADER_COMPUTE);
@@ -456,14 +459,13 @@ zink_draw_vbo(struct pipe_context *pctx,
    uint8_t vertices_per_patch = ctx->gfx_pipeline_state.patch_vertices ? ctx->gfx_pipeline_state.patch_vertices - 1 : 0;
    if (ctx->gfx_pipeline_state.vertices_per_patch != vertices_per_patch)
       ctx->gfx_pipeline_state.dirty = true;
-   bool drawid_broken = ctx->gfx_pipeline_state.drawid_broken;
-   ctx->gfx_pipeline_state.drawid_broken = false;
+   bool drawid_broken = false;
    if (reads_drawid && (!dindirect || !dindirect->buffer))
-      ctx->gfx_pipeline_state.drawid_broken = (drawid_offset != 0 ||
-                           (!HAS_MULTIDRAW && num_draws > 1) ||
-                           (HAS_MULTIDRAW && num_draws > 1 && !dinfo->increment_draw_id));
-   if (drawid_broken != ctx->gfx_pipeline_state.drawid_broken)
-      ctx->dirty_shader_stages |= BITFIELD_BIT(PIPE_SHADER_VERTEX);
+      drawid_broken = (drawid_offset != 0 ||
+                      (!HAS_MULTIDRAW && num_draws > 1) ||
+                      (HAS_MULTIDRAW && num_draws > 1 && !dinfo->increment_draw_id));
+   if (drawid_broken != zink_get_last_vertex_key(ctx)->push_drawid)
+      zink_set_last_vertex_key(ctx)->push_drawid = drawid_broken;
    ctx->gfx_pipeline_state.vertices_per_patch = vertices_per_patch;
    if (mode_changed) {
       bool points_changed = false;
@@ -475,7 +477,7 @@ zink_draw_vbo(struct pipe_context *pctx,
          points_changed = true;
       }
       if (points_changed && ctx->rast_state->base.point_quad_rasterization)
-         ctx->dirty_shader_stages |= BITFIELD_BIT(PIPE_SHADER_FRAGMENT);
+         zink_set_fs_point_coord_key(ctx);
    }
    ctx->gfx_pipeline_state.gfx_prim_mode = mode;
 
@@ -729,7 +731,7 @@ zink_draw_vbo(struct pipe_context *pctx,
                          offsetof(struct zink_gfx_push_constant, default_inner_level), sizeof(float) * 6,
                          &ctx->tess_levels[0]);
 
-   bool needs_drawid = reads_drawid && ctx->gfx_pipeline_state.drawid_broken;
+   bool needs_drawid = reads_drawid && zink_get_last_vertex_key(ctx)->push_drawid;
    work_count += num_draws;
    if (index_size > 0) {
       if (dindirect && dindirect->buffer) {
