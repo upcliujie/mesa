@@ -3859,7 +3859,10 @@ emit_load(isel_context* ctx, Builder& bld, const LoadEmitInfo& info,
 Operand
 load_lds_size_m0(Builder& bld)
 {
-   /* TODO: m0 does not need to be initialized on GFX9+ */
+   /* m0 does not need to be initialized on GFX9+ */
+   if (bld.program->chip_class >= GFX9)
+      return Operand(m0, s1);
+
    return bld.m0((Temp)bld.copy(bld.def(s1, m0), Operand::c32(0xffffffffu)));
 }
 

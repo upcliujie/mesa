@@ -576,6 +576,14 @@ formats = [(f if len(f) == 5 else f + ('',)) for f in formats]
             ${f.get_builder_initialization(num_operands)}
         % endfor
        ${extra_field_setup}
+        % if name == 'ds':
+            /* LDS instructions don't need m0 on GFX9+, only the addtid variants. */
+            if (!gds && program->chip_class >= GFX9 &&
+                instr->opcode != ::aco_opcode::ds_write_addtid_b32 &&
+                instr->opcode != ::aco_opcode::ds_read_addtid_b32 &&
+                instr->operands.back().isFixed() && instr->operands.back().physReg() == ::aco::m0)
+               instr->operands.pop_back();
+        % endif
       return insert(instr);
    }
 
