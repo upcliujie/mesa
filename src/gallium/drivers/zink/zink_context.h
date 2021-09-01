@@ -191,6 +191,8 @@ struct zink_context {
    pipe_draw_vertex_state_func draw_state[2]; //batch changed
    pipe_launch_grid_func launch_grid[2]; //batch changed
 
+   struct util_queue prog_queue;
+
    struct pipe_device_reset_callback reset;
 
    simple_mtx_t batch_mtx;
@@ -215,6 +217,7 @@ struct zink_context {
    struct zink_framebuffer *(*get_framebuffer)(struct zink_context*);
    void (*init_framebuffer)(struct zink_screen *screen, struct zink_framebuffer *fb, struct zink_render_pass *rp);
    struct hash_table framebuffer_cache;
+   struct zink_render_pass *dummy_rp;
 
    struct zink_vertex_elements_state *element_state;
    struct zink_rasterizer_state *rast_state;

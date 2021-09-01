@@ -97,6 +97,8 @@ struct zink_program {
 struct zink_gfx_program {
    struct zink_program base;
 
+   struct util_queue_fence async;
+
    uint32_t stages_present; //mask of stages present in this program
    struct nir_shader *nir[ZINK_SHADER_COUNT];
 

@@ -89,7 +89,9 @@ zink_context_destroy(struct pipe_context *pctx)
    if (screen->queue && !screen->device_lost && VKSCR(QueueWaitIdle)(screen->queue) != VK_SUCCESS)
       debug_printf("vkQueueWaitIdle failed\n");
 
+   zink_destroy_render_pass(screen, ctx->dummy_rp);
    util_blitter_destroy(ctx->blitter);
+   util_queue_destroy(&ctx->prog_queue);
    for (unsigned i = 0; i < ctx->fb_state.nr_cbufs; i++)
       pipe_surface_release(&ctx->base, &ctx->fb_state.cbufs[i]);
    pipe_surface_release(&ctx->base, &ctx->fb_state.zsbuf);
@@ -4098,6 +4100,7 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    if (!ctx)
       goto fail;
    ctx->have_timelines = screen->info.have_KHR_timeline_semaphore;
+   util_queue_init(&ctx->prog_queue, "zpq", 8, 1, UTIL_QUEUE_INIT_RESIZE_IF_FULL, ctx);
 
    ctx->pipeline_changed[0] = ctx->pipeline_changed[1] = true;
    ctx->gfx_pipeline_state.dirty = true;
@@ -4220,6 +4223,12 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
                                                     equals_render_pass_state);
    if (!ctx->render_pass_cache)
       goto fail;
+
+   {
+      struct zink_render_pass_state state = {0};
+      struct zink_render_pass_pipeline_state pstate = {0};
+      ctx->dummy_rp = zink_create_render_pass(screen, &state, &pstate);
+   }
 
    const uint8_t data[] = {0};
    ctx->dummy_vertex_buffer = pipe_buffer_create(&screen->base,

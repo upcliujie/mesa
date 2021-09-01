@@ -451,6 +451,7 @@ zink_create_gfx_program(struct zink_context *ctx,
       goto fail;
 
    zink_screen_get_pipeline_cache(screen, &prog->base);
+   util_queue_fence_init(&prog->async);
    return prog;
 
 fail:
@@ -1080,6 +1081,61 @@ zink_create_cached_shader_state(struct pipe_context *pctx, const struct pipe_sha
    bool cache_hit;
    struct zink_screen *screen = zink_screen(pctx->screen);
    return util_live_shader_cache_get(pctx, &screen->shaders, shader, &cache_hit);
+}
+
+static void
+precompile_job(void *data, void *gdata, int thread_index)
+{
+   struct zink_context *ctx = gdata;
+   struct zink_gfx_program *prog = data;
+
+   util_queue_fence_wait(&prog->base.cache_fence);
+   /* already compiled */
+   if (prog->base.pipeline_cache_size)
+      return;
+
+   struct zink_gfx_pipeline_state state = {0};
+   struct zink_rasterizer_hw_state *rast_state = (void*)&state;
+   rast_state->pv_last = true;
+   struct zink_shader *fs = prog->shaders[PIPE_SHADER_FRAGMENT];
+   bool need_ms = fs->nir->info.outputs_written & (1 << FRAG_RESULT_SAMPLE_MASK) ||
+                  BITSET_TEST(fs->nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_ID) ||
+                  BITSET_TEST(fs->nir->info.system_values_read, SYSTEM_VALUE_SAMPLE_POS);
+   unsigned max_samples = need_ms ? 16 : 1;
+   state.render_pass = ctx->dummy_rp;
+   state.vertices_per_patch = 2; //default of 3
+   unsigned prim_types[3];
+   unsigned num_prim_types;
+   if (prog->last_vertex_stage->nir->info.stage == MESA_SHADER_TESS_EVAL) {
+      num_prim_types = 1;
+      prim_types[0] = PIPE_PRIM_PATCHES;
+   } else {
+      num_prim_types = 3;
+      prim_types[0] = PIPE_PRIM_POINTS;
+      prim_types[1] = PIPE_PRIM_LINES;
+      prim_types[2] = PIPE_PRIM_TRIANGLES;
+   }
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   update_shader_modules(NULL, screen, prog, prog->stages_present, &state);
+   for (unsigned i = 0; i < num_prim_types; i++) {
+      for (unsigned j = 1; j <= max_samples; j *= 2) {
+         VkPipeline pipeline = zink_create_gfx_pipeline(screen, prog, &state, zink_primitive_topology(prim_types[i]));
+      }
+   }
+   zink_screen_update_pipeline_cache(screen, &prog->base);
+}
+
+static void
+zink_precompile_program(struct pipe_context *pctx, void **shaders, unsigned shader_mask)
+{
+   struct zink_context *ctx = zink_context(pctx);
+   if (!zink_screen(ctx->base.screen)->info.have_EXT_vertex_input_dynamic_state)
+      return;
+   /* TODO? */
+   if (shaders[PIPE_SHADER_TESS_EVAL] && !shaders[PIPE_SHADER_TESS_CTRL])
+      return;
+   //struct zink_gfx_program *prog = zink_create_gfx_program(ctx, shaders, 3);
+   //util_queue_add_job(&ctx->prog_queue, prog, &prog->async, precompile_job, NULL, 0);
 }
 
 #if 1
