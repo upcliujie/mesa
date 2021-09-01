@@ -3515,7 +3515,13 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
       Temp tmp;
       if (ctx->program->chip_class >= GFX8) {
          Temp tl = bld.vop1_dpp(aco_opcode::v_mov_b32, bld.def(v1), src, dpp_ctrl1);
-         tmp = bld.vop2_dpp(aco_opcode::v_sub_f32, bld.def(v1), src, tl, dpp_ctrl2);
+
+         if (src.regClass() == v1) {
+            tmp = bld.vop2_dpp(aco_opcode::v_sub_f32, bld.def(v1), src, tl, dpp_ctrl2);
+         } else {
+            assert(src.regClass() == v2b);
+            tmp = bld.vop2_dpp(aco_opcode::v_sub_f16, bld.def(v2b), src, tl, dpp_ctrl2);
+         }
       } else {
          Temp tl = bld.ds(aco_opcode::ds_swizzle_b32, bld.def(v1), src, (1 << 15) | dpp_ctrl1);
          Temp tr = bld.ds(aco_opcode::ds_swizzle_b32, bld.def(v1), src, (1 << 15) | dpp_ctrl2);
