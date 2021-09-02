@@ -239,7 +239,7 @@ get_hash_flags(const struct radv_device *device, bool stats)
 }
 
 static void
-radv_pipeline_init_scratch(const struct radv_device *device, struct radv_pipeline *pipeline)
+radv_pipeline_init_scratch(struct radv_device *device, struct radv_pipeline *pipeline)
 {
    unsigned scratch_bytes_per_wave = 0;
    unsigned max_waves = 0;
@@ -254,7 +254,7 @@ radv_pipeline_init_scratch(const struct radv_device *device, struct radv_pipelin
 
          max_stage_waves =
             MIN2(max_stage_waves, 4 * device->physical_device->rad_info.num_good_compute_units *
-                                     (256 / pipeline->shaders[i]->config.num_vgprs));
+                 radv_get_max_waves(device, pipeline->shaders[i], i));
          max_waves = MAX2(max_waves, max_stage_waves);
       }
    }
