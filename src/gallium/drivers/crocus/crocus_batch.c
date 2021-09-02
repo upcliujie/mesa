@@ -267,15 +267,63 @@ crocus_init_legacy_contexts(struct crocus_context *ice, int priority)
       struct crocus_batch *batch = &ice->batches[i];
       batch->hw_ctx_id = crocus_create_hw_context(screen->bufmgr);
       batch->exec_flags = I915_EXEC_RENDER;
+      batch->engines_context = false;
       assert(batch->hw_ctx_id);
       crocus_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);
    }
 }
 
+static bool
+crocus_init_engines_context(struct crocus_context *ice, int priority)
+{
+   struct crocus_screen *screen = (void *) ice->ctx.screen;
+   int fd = crocus_bufmgr_get_fd(screen->bufmgr);
+
+   struct drm_i915_query_engine_info *engines_info =
+      intel_i915_query_alloc(fd, DRM_I915_QUERY_ENGINE_INFO);
+
+   if (!engines_info)
+      return false;
+
+   if (intel_gem_count_engines(engines_info, I915_ENGINE_CLASS_RENDER) == 0) {
+      free(engines_info);
+      return false;
+   }
+
+   int engines_ctx = -1;
+   if (intel_gem_count_engines(engines_info, I915_ENGINE_CLASS_RENDER) > 0) {
+      uint16_t engine_classes[CROCUS_BATCH_COUNT];
+      for (int i = 0; i < ice->batch_count; i++)
+         engine_classes[i] = I915_ENGINE_CLASS_RENDER;
+
+      engines_ctx =
+         intel_gem_create_context_engines(fd, engines_info, ice->batch_count,
+                                          engine_classes);
+   }
+
+   if (engines_ctx < 0) {
+      free(engines_info);
+      return false;
+   }
+
+   crocus_hw_context_set_priority(screen->bufmgr, engines_ctx, priority);
+
+   for (int i = 0; i < ice->batch_count; i++) {
+      struct crocus_batch *batch = &ice->batches[i];
+      batch->hw_ctx_id = engines_ctx;
+      batch->exec_flags = i;
+      batch->engines_context = true;
+   }
+
+   free(engines_info);
+   return true;
+}
+
 void
 crocus_init_batches(struct crocus_context *ice, int priority)
 {
-   crocus_init_legacy_contexts(ice, priority);
+   if (!crocus_init_engines_context(ice, priority))
+      crocus_init_legacy_contexts(ice, priority);
    for (int i = 0; i < ice->batch_count; i++)
       crocus_init_batch(ice, (enum crocus_batch_name) i);
 }
@@ -583,7 +631,8 @@ crocus_batch_free(struct crocus_batch *batch)
    batch->command.map = NULL;
    batch->command.map_next = NULL;
 
-   crocus_destroy_hw_context(bufmgr, batch->hw_ctx_id);
+   if (batch->name == 0 || !batch->engines_context)
+      crocus_destroy_hw_context(bufmgr, batch->hw_ctx_id);
 
    _mesa_hash_table_destroy(batch->cache.render, NULL);
    _mesa_set_destroy(batch->cache.depth, NULL);

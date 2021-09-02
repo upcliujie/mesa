@@ -100,6 +100,7 @@ struct crocus_batch {
 
    uint32_t hw_ctx_id;
    uint32_t exec_flags;
+   bool engines_context;
 
    uint32_t valid_reloc_flags;
 
