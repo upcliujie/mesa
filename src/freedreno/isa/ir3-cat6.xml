@@ -436,7 +436,6 @@ SOFTWARE.
 	<field   low="9"  high="10" name="D_MINUS_ONE" type="uint"/>
 	<field   pos="11"           name="TYPED" type="#cat6-typed"/>
 	<field   low="12" high="13" name="TYPE_SIZE_MINUS_ONE" type="uint"/>
-	<pattern low="14" high="22">xxxxxxxxx</pattern>
 	<field   pos="23"           name="SRC2_IM" type="bool"/>
 	<field   low="24" high="31" name="SRC2" type="#cat6-src">
 		<param name="SRC2_IM" as="SRC_IM"/>
@@ -465,12 +464,37 @@ SOFTWARE.
 	</encode>
 </bitset>
 
-<bitset name="stgb" extends="#instruction-cat6-a3xx-ibo">
+<bitset name="#instruction-cat6-a3xx-ibo-nodst" extends="#instruction-cat6-a3xx-ibo">
+	<pattern low="14" high="22">xxxxxxxxx</pattern>
+</bitset>
+
+<bitset name="stgb" extends="#instruction-cat6-a3xx-ibo-nodst">
 	<pattern low="54" high="58">11100</pattern>  <!-- OPC -->
 </bitset>
 
-<bitset name="stib" extends="#instruction-cat6-a3xx-ibo">
+<bitset name="stib" extends="#instruction-cat6-a3xx-ibo-nodst">
 	<pattern low="54" high="58">11101</pattern>  <!-- OPC -->
+</bitset>
+
+<bitset name="ldib" extends="#instruction-cat6-a3xx-ibo">
+	<pattern low="54" high="58">00110</pattern>  <!-- OPC -->
+
+	<display>
+		{SY}{JP}{NAME}.{TYPED}.{D}d.{TYPE}.{TYPE_SIZE} {SRC3}, g[{SSBO}], {SRC0}, {SRC2}
+	</display>
+	<field   low="14" high="21" name="SRC0" type="#cat6-src">
+		<param name="SRC0_IM" as="SRC_IM"/>
+	</field>
+	<field   pos="22"           name="SRC0_IM" type="bool"/>
+	<encode>
+		<map name="SRC0">src->srcs[1]</map>
+		<map name="SRC0_IM">!!(src->srcs[1]->flags &amp; IR3_REG_IMMED)</map>
+		<!-- SRC1 field seems to be unused? -->
+		<map name="SRC2">src->srcs[2]</map>
+		<map name="SRC2_IM">!!(src->srcs[2]->flags &amp; IR3_REG_IMMED)</map>
+		<map name="SRC3">src->dsts[0]</map>
+		<map name="SRC3_IM">!!(src->dsts[0]->flags &amp; IR3_REG_IMMED)</map>
+	</encode>
 </bitset>
 
 <bitset name="#instruction-cat6-a3xx-atomic" extends="#instruction-cat6-a3xx">
