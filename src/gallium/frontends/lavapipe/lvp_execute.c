@@ -1710,7 +1710,7 @@ static void begin_render_pass(const VkRenderPassBeginInfo *render_pass_begin,
 {
    LVP_FROM_HANDLE(lvp_render_pass, pass, render_pass_begin->renderPass);
    LVP_FROM_HANDLE(lvp_framebuffer, framebuffer, render_pass_begin->framebuffer);
-   const struct VkRenderPassAttachmentBeginInfo *attachment_info =
+   VkRenderPassAttachmentBeginInfo *attachment_info = (void*)
       vk_find_struct_const(render_pass_begin->pNext,
                            RENDER_PASS_ATTACHMENT_BEGIN_INFO);
 
