@@ -186,8 +186,7 @@ init_reloc_list(struct crocus_reloc_list *rlist, int count)
 
 static void
 crocus_init_batch(struct crocus_context *ice,
-                  enum crocus_batch_name name,
-                  int priority)
+                  enum crocus_batch_name name)
 {
    struct crocus_batch *batch = &ice->batches[name];
    struct crocus_screen *screen = (struct crocus_screen *)ice->ctx.screen;
@@ -206,11 +205,6 @@ crocus_init_batch(struct crocus_context *ice,
                          PIPE_USAGE_STAGING, 0);
    }
    crocus_fine_fence_init(batch);
-
-   batch->hw_ctx_id = crocus_create_hw_context(screen->bufmgr);
-   assert(batch->hw_ctx_id);
-
-   crocus_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);
 
    batch->valid_reloc_flags = EXEC_OBJECT_WRITE;
    if (devinfo->ver == 6)
@@ -264,13 +258,25 @@ crocus_init_batch(struct crocus_context *ice,
    crocus_batch_reset(batch);
 }
 
+static void
+crocus_init_legacy_contexts(struct crocus_context *ice, int priority)
+{
+   struct crocus_screen *screen = (void *) ice->ctx.screen;
+
+   for (int i = 0; i < ice->batch_count; i++) {
+      struct crocus_batch *batch = &ice->batches[i];
+      batch->hw_ctx_id = crocus_create_hw_context(screen->bufmgr);
+      assert(batch->hw_ctx_id);
+      crocus_hw_context_set_priority(screen->bufmgr, batch->hw_ctx_id, priority);
+   }
+}
+
 void
 crocus_init_batches(struct crocus_context *ice, int priority)
 {
-   for (int i = 0; i < ice->batch_count; i++) {
-      crocus_init_batch(ice, (enum crocus_batch_name) i,
-                        priority);
-   }
+   crocus_init_legacy_contexts(ice, priority);
+   for (int i = 0; i < ice->batch_count; i++)
+      crocus_init_batch(ice, (enum crocus_batch_name) i);
 }
 
 static struct drm_i915_gem_exec_object2 *
