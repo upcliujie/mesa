@@ -1719,9 +1719,12 @@ static void begin_render_pass(const VkRenderPassBeginInfo *render_pass_begin,
    state->render_area = render_pass_begin->renderArea;
 
    if (attachment_info) {
-      state->imageless_views = realloc(state->imageless_views, sizeof(*state->imageless_views) * attachment_info->attachmentCount);
-      for (unsigned i = 0; i < attachment_info->attachmentCount; i++)
-         state->imageless_views[i] = lvp_image_view_from_handle(attachment_info->pAttachments[i]);
+      if (attachment_info->attachmentCount) {
+         state->imageless_views = realloc(state->imageless_views, sizeof(*state->imageless_views) * attachment_info->attachmentCount);
+         for (unsigned i = 0; i < attachment_info->attachmentCount; i++)
+            state->imageless_views[i] = lvp_image_view_from_handle(attachment_info->pAttachments[i]);
+      } else
+         state->imageless_views = NULL;
    }
 
    state->framebuffer.width = state->vk_framebuffer->width;

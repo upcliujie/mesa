@@ -286,8 +286,10 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginRenderPass2(
          att->sType = VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO;
          att->attachmentCount = attachment_info->attachmentCount;
          /* I hate everything. */
-         att->pAttachments = (void*)((uint8_t*)att + sizeof(VkRenderPassAttachmentBeginInfo));
-         memcpy((void*)att->pAttachments, attachment_info->pAttachments, att->attachmentCount * sizeof(void*));
+         if (att->attachmentCount) {
+            att->pAttachments = (void*)((uint8_t*)att + sizeof(VkRenderPassAttachmentBeginInfo));
+            memcpy((void*)att->pAttachments, attachment_info->pAttachments, att->attachmentCount * sizeof(void*));
+         }
          att->pNext = NULL;
          cmd->u.begin_render_pass2.render_pass_begin->pNext = att;
       }
