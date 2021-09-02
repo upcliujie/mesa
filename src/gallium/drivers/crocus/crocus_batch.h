@@ -182,9 +182,7 @@ batch_has_fine_fence(struct crocus_batch *batch)
 }
 
 #define BATCH_HAS_FINE_FENCES(batch) (!!(batch)->fine_fences.uploader)
-void crocus_init_batch(struct crocus_context *ctx,
-                       enum crocus_batch_name name,
-                       int priority);
+void crocus_init_batches(struct crocus_context *ctx, int priority);
 void crocus_batch_free(struct crocus_batch *batch);
 void crocus_batch_maybe_flush(struct crocus_batch *batch, unsigned estimate);
 
