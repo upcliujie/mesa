@@ -1824,7 +1824,10 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
       emit_intrinsic_store_scratch(ctx, intr);
       break;
    case nir_intrinsic_image_load:
-      emit_intrinsic_load_image(ctx, intr, dst);
+      if (nir_intrinsic_access(intr) & ACCESS_COHERENT && ctx->compiler->gen >= 6)
+         ctx->funcs->emit_intrinsic_load_image(ctx, intr, dst);
+      else
+         emit_intrinsic_load_image(ctx, intr, dst);
       break;
    case nir_intrinsic_bindless_image_load:
       /* Bindless uses the IBO state, which doesn't have swizzle filled out,
