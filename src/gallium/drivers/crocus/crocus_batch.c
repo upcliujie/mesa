@@ -184,7 +184,7 @@ init_reloc_list(struct crocus_reloc_list *rlist, int count)
                           sizeof(struct drm_i915_gem_relocation_entry));
 }
 
-void
+static void
 crocus_init_batch(struct crocus_context *ice,
                   enum crocus_batch_name name,
                   int priority)
@@ -262,6 +262,15 @@ crocus_init_batch(struct crocus_context *ice,
    }
 
    crocus_batch_reset(batch);
+}
+
+void
+crocus_init_batches(struct crocus_context *ice, int priority)
+{
+   for (int i = 0; i < ice->batch_count; i++) {
+      crocus_init_batch(ice, (enum crocus_batch_name) i,
+                        priority);
+   }
 }
 
 static struct drm_i915_gem_exec_object2 *

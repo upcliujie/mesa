@@ -309,10 +309,7 @@ crocus_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
       priority = INTEL_CONTEXT_LOW_PRIORITY;
 
    ice->batch_count = devinfo->ver >= 7 ? CROCUS_BATCH_COUNT : 1;
-   for (int i = 0; i < ice->batch_count; i++) {
-      crocus_init_batch(ice, (enum crocus_batch_name) i,
-                        priority);
-   }
+   crocus_init_batches(ice, priority);
 
    ice->urb.size = devinfo->urb.size;
    screen->vtbl.init_render_context(&ice->batches[CROCUS_BATCH_RENDER]);
