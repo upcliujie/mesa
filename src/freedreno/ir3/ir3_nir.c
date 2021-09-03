@@ -754,12 +754,12 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
 
    nir_sweep(s);
 
-   /* Binning pass variants re-use  the const_state of the corresponding
-    * draw pass shader, so that same const emit can be re-used for both
-    * passes:
+   /* Binning pass variants re-use the const_state of the corresponding draw
+    * pass shader (set up at create_variant() time), so that same const emit can
+    * be re-used for both passes on a6xx:
     */
    if (!so->binning_pass)
-      ir3_setup_const_state(s, so, ir3_const_state(so));
+      ir3_setup_const_state(s, so, so->const_state);
 }
 
 static void
@@ -867,7 +867,8 @@ ir3_setup_const_state(nir_shader *nir, struct ir3_shader_variant *v,
    unsigned constoff = const_state->ubo_state.size / 16;
    unsigned ptrsz = ir3_pointer_size(compiler);
 
-   if (const_state->num_ubos > 0) {
+   /* On HW without LDC, UBO pointers get uploaded as constants for global loads. */
+   if (compiler->gen < 6 && const_state->num_ubos > 0) {
       const_state->offsets.ubo = constoff;
       constoff += align(const_state->num_ubos * ptrsz, 4) / 4;
    }

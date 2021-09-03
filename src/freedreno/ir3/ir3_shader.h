@@ -162,6 +162,7 @@ struct ir3_ubo_analysis_state {
 struct ir3_const_state {
    unsigned num_ubos;
    unsigned num_driver_params; /* scalar */
+   unsigned num_primitive_map;
 
    /* UBO that should be mapped to the NIR shader's constant_data (or -1). */
    int32_t constant_data_ubo;
@@ -749,16 +750,9 @@ struct ir3_shader {
    struct ir3_shader_key key_mask;
 };
 
-/**
- * In order to use the same cmdstream, in particular constlen setup and const
- * emit, for both binning and draw pass (a6xx+), the binning pass re-uses it's
- * corresponding draw pass shaders const_state.
- */
 static inline struct ir3_const_state *
 ir3_const_state(const struct ir3_shader_variant *v)
 {
-   if (v->binning_pass)
-      return v->nonbinning->const_state;
    return v->const_state;
 }
 
