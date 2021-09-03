@@ -2170,6 +2170,29 @@ static LLVMValueRef visit_global_atomic(struct ac_nir_context *ctx,
       LLVMValueRef data1 = get_src(ctx, instr->src[2]);
       result = ac_build_atomic_cmp_xchg(&ctx->ac, addr, data, data1, sync_scope);
       result = LLVMBuildExtractValue(ctx->ac.builder, result, 0, "");
+   } else if (instr->intrinsic == nir_intrinsic_global_atomic_fmin ||
+              instr->intrinsic == nir_intrinsic_global_atomic_fmax) {
+      const char *op = instr->intrinsic == nir_intrinsic_global_atomic_fmin ? "fmin" : "fmax";
+      char name[64], type[8];
+      LLVMValueRef params[2];
+      LLVMTypeRef data_type;
+      int arg_count = 0;
+
+      data = ac_to_float(&ctx->ac, data);
+      data_type = LLVMTypeOf(data);
+
+      LLVMTypeRef ptr_type =
+         LLVMPointerType(data_type, LLVMGetPointerAddressSpace(LLVMTypeOf(addr)));
+      addr = LLVMBuildBitCast(ctx->ac.builder, addr, ptr_type, "");
+
+      params[arg_count++] = addr;
+      params[arg_count++] = data;
+
+      ac_build_type_name_for_intr(data_type, type, sizeof(type));
+      snprintf(name, sizeof(name), "llvm.amdgcn.global.atomic.%s.%s.p1%s.%s", op, type, type, type);
+
+      result = ac_build_intrinsic(&ctx->ac, name, data_type, params, arg_count, 0);
+      result = ac_to_integer(&ctx->ac, result);
    } else {
       switch (instr->intrinsic) {
       case nir_intrinsic_global_atomic_add:
@@ -3698,6 +3721,8 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
    case nir_intrinsic_global_atomic_xor:
    case nir_intrinsic_global_atomic_exchange:
    case nir_intrinsic_global_atomic_comp_swap:
+   case nir_intrinsic_global_atomic_fmin:
+   case nir_intrinsic_global_atomic_fmax:
       result = visit_global_atomic(ctx, instr);
       break;
    case nir_intrinsic_ssbo_atomic_add:
