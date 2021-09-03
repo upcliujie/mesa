@@ -1101,10 +1101,7 @@ vn_physical_device_init(struct vn_physical_device *physical_dev)
 {
    struct vn_instance *instance = physical_dev->instance;
    const VkAllocationCallbacks *alloc = &instance->base.base.alloc;
-
-   VkResult result = vn_physical_device_init_renderer_version(physical_dev);
-   if (result != VK_SUCCESS)
-      return result;
+   VkResult result;
 
    result = vn_physical_device_init_renderer_extensions(physical_dev);
    if (result != VK_SUCCESS)
@@ -1323,6 +1320,30 @@ out:
    return result;
 }
 
+static uint32_t
+filter_physical_devices(struct vn_physical_device *physical_devs,
+                        uint32_t count)
+{
+   uint32_t supported_count = 0;
+   for (uint32_t i = 0; i < count; i++) {
+      struct vn_physical_device *physical_dev = &physical_devs[i];
+
+      /* init renderer version and discard unsupported devices */
+      VkResult result =
+         vn_physical_device_init_renderer_version(physical_dev);
+      if (result != VK_SUCCESS) {
+         vn_physical_device_base_fini(&physical_dev->base);
+         continue;
+      }
+
+      if (supported_count < i)
+         physical_devs[supported_count] = *physical_dev;
+      supported_count++;
+   }
+
+   return supported_count;
+}
+
 static VkResult
 vn_instance_enumerate_physical_devices(struct vn_instance *instance)
 {
@@ -1341,44 +1362,35 @@ vn_instance_enumerate_physical_devices(struct vn_instance *instance)
    if (result != VK_SUCCESS)
       goto out;
 
-   /* fully initialize physical devices and discard unsupported ones */
-   uint32_t supported_count = 0;
+   count = filter_physical_devices(physical_devs, count);
+   if (!count)
+      goto out;
+
+   /* fully initialize physical devices */
    for (uint32_t i = 0; i < count; i++) {
       struct vn_physical_device *physical_dev = &physical_devs[i];
 
       result = vn_physical_device_init(physical_dev);
       if (result != VK_SUCCESS) {
-         vn_physical_device_base_fini(&physical_dev->base);
-         continue;
-      }
-
-      if (supported_count < i)
-         physical_devs[supported_count] = *physical_dev;
-      supported_count++;
-   }
-
-   count = supported_count;
-   if (count) {
-      result = vn_instance_enumerate_physical_device_groups_locked(
-         instance, physical_devs, count);
-      if (result != VK_SUCCESS) {
-         for (uint32_t i = 0; i < count; i++)
-            vn_physical_device_fini(&physical_devs[i]);
+         count = i;
          goto out;
       }
-   } else {
-      /* no supported physical device is not an error */
-      result = VK_SUCCESS;
-      vk_free(alloc, physical_devs);
-      physical_devs = NULL;
    }
+
+   result = vn_instance_enumerate_physical_device_groups_locked(
+      instance, physical_devs, count);
+   if (result != VK_SUCCESS)
+      goto out;
 
    instance->physical_device.devices = physical_devs;
    instance->physical_device.device_count = count;
 
 out:
-   if (result != VK_SUCCESS && physical_devs)
+   if (physical_devs && (result != VK_SUCCESS || !count)) {
+      for (uint32_t i = 0; i < count; i++)
+         vn_physical_device_fini(&physical_devs[i]);
       vk_free(alloc, physical_devs);
+   }
 
    mtx_unlock(&instance->physical_device.mutex);
    return result;
