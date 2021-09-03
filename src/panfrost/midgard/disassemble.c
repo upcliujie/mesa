@@ -623,8 +623,6 @@ print_vector_constants(FILE *fp, unsigned src_binary,
                         /* We work on twos, actually */
                         if (i & 1)
                                 c++;
-                } else {
-                        printf(" (%u)", src->expand_mode);
                 }
 
                 if (first)
