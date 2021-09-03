@@ -60,7 +60,11 @@ bool ac_is_sgpr_param(LLVMValueRef arg)
    llvm::Argument *A = llvm::unwrap<llvm::Argument>(arg);
    llvm::AttributeList AS = A->getParent()->getAttributes();
    unsigned ArgNo = A->getArgNo();
+#if LLVM_VERSION_MAJOR >= 14
+   return AS.hasParamAttr(ArgNo + 1, llvm::Attribute::InReg);
+#else
    return AS.hasAttribute(ArgNo + 1, llvm::Attribute::InReg);
+#endif
 }
 
 LLVMValueRef ac_llvm_get_called_value(LLVMValueRef call)
