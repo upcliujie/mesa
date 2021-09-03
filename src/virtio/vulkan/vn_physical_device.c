@@ -1261,6 +1261,9 @@ vn_instance_enumerate_physical_device_groups_locked(
 static VkResult
 vn_instance_enumerate_physical_devices(struct vn_instance *instance)
 {
+   /* TODO enumerate physical device groups without enumerating physical
+    * devices first
+    */
    const VkAllocationCallbacks *alloc = &instance->base.base.alloc;
    struct vn_physical_device *physical_devs = NULL;
    VkResult result;
@@ -1346,11 +1349,13 @@ vn_instance_enumerate_physical_devices(struct vn_instance *instance)
          count = 0;
          goto out;
       }
-   } else {
+   } else if (result == VK_ERROR_INITIALIZATION_FAILED) {
       /* no supported physical device is not an error */
       result = VK_SUCCESS;
       vk_free(alloc, physical_devs);
       physical_devs = NULL;
+   } else {
+      goto out;
    }
 
    instance->physical_device.devices = physical_devs;
