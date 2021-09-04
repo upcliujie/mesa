@@ -688,6 +688,85 @@ ir3_nir_lower_load_store_global(nir_shader *shader)
          lower_load_store_global, NULL);
 }
 
+/*
+ * Pass to lower 64b phi to vec2_32
+ */
+
+static bool
+lower_64b_phi(nir_builder *b, nir_phi_instr *phi)
+{
+   assert(phi->dest.is_ssa);
+   assert(phi->dest.ssa.num_components == 1);
+
+   if (phi->dest.ssa.bit_size != 64)
+      return false;
+
+   nir_phi_instr *new_phi = nir_phi_instr_create(b->shader);
+   nir_ssa_dest_init(&new_phi->instr, &new_phi->dest, 2, 32, NULL);
+
+   /* Push the conversion to vec2_32 into the new phi sources: */
+   nir_foreach_phi_src (src, phi) {
+      assert(src->src.is_ssa);
+
+      /* insert conversion to vec2_32 in block of original phi src: */
+      b->cursor = nir_after_instr_and_phis(src->src.ssa->parent_instr);
+      nir_ssa_def *old_src = src->src.ssa;
+      nir_ssa_def *new_src = nir_unpack_64_2x32(b, old_src);
+
+      /* and add corresponding phi_src to the new_phi: */
+      nir_phi_instr_add_src(new_phi, src->pred, nir_src_for_ssa(new_src));
+   }
+
+   /* Then insert the new phi after all sources are in place: */
+   b->cursor = nir_after_instr(&phi->instr);
+   nir_builder_instr_insert(b, &new_phi->instr);
+
+   /* And finally add conversion back to 64b after the phi, and re-write
+    * the original phi's uses.  If the phi's consumers have been lowered
+    * from 64b, then the other opt passes should clean up the conversion
+    * back, leaving only 32b instructions remaining.
+    */
+   b->cursor = nir_after_instr_and_phis(&new_phi->instr);
+   nir_ssa_def *def = nir_pack_64_2x32(b, &new_phi->dest.ssa);
+
+   nir_ssa_def_rewrite_uses(&phi->dest.ssa, def);
+
+   return true;
+}
+
+static bool
+ir3_nir_lower_64b_phi(nir_shader *shader)
+{
+   bool progress = false;
+
+   nir_foreach_function (function, shader) {
+      if (!function->impl)
+         continue;
+
+      nir_builder b;
+      nir_builder_init(&b, function->impl);
+
+      nir_foreach_block (block, function->impl) {
+         nir_foreach_instr_safe (instr, block) {
+            if (instr->type != nir_instr_type_phi)
+               break;
+
+            progress |= lower_64b_phi(&b, nir_instr_as_phi(instr));
+         }
+      }
+
+      if (progress) {
+         nir_metadata_preserve(function->impl,
+                               nir_metadata_block_index |
+                               nir_metadata_dominance);
+      } else {
+         nir_metadata_preserve(function->impl, nir_metadata_all);
+      }
+   }
+
+   return progress;
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -729,6 +808,9 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
       OPT_V(s, nir_lower_int64);
 
    OPT_V(s, ir3_nir_lower_load_store_global);
+
+   if (OPT(s, ir3_nir_lower_64b_phi))
+      ; // probably need to scalarize phis...
 
    ir3_optimize_loop(compiler, s);
 
