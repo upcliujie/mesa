@@ -65,6 +65,12 @@
 #include <gbm.h>
 #endif
 
+#if defined(HAVE_WAYLAND_PLATFORM) || defined(HAVE_DRM_PLATFORM)
+#define CAN_TRY_DETECT_DISPLAY 1
+#else
+#define CAN_TRY_DETECT_DISPLAY 0
+#endif
+
 
 /**
  * Map build-system platform names to platform types.
@@ -128,6 +134,7 @@ _eglNativePlatformDetectNativeDisplay(void *nativeDisplay)
    if (nativeDisplay == EGL_DEFAULT_DISPLAY)
       return _EGL_INVALID_PLATFORM;
 
+#if CAN_TRY_DETECT_DISPLAY
    if (_eglPointerIsDereferencable(nativeDisplay)) {
       void *first_pointer = *(void **) nativeDisplay;
 
@@ -146,6 +153,7 @@ _eglNativePlatformDetectNativeDisplay(void *nativeDisplay)
          return _EGL_PLATFORM_DRM;
 #endif
    }
+#endif
 
    return _EGL_INVALID_PLATFORM;
 }
