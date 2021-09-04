@@ -360,6 +360,24 @@ DrvDeleteContext(DHGLRC dhglrc)
    return ret;
 }
 
+BOOL
+stw_unbind_context(struct stw_context *ctx)
+{
+   if (!ctx)
+      return FALSE;
+
+   /* The expectation is that ctx is the same context which is
+    * current for this thread.  We should check that and return False
+    * if not the case.
+    */
+   if (ctx != stw_current_context())
+      return FALSE;
+
+   if (stw_make_current(NULL, NULL, NULL) == FALSE)
+      return FALSE;
+
+   return TRUE;
+}
 
 BOOL APIENTRY
 DrvReleaseContext(DHGLRC dhglrc)
@@ -373,20 +391,7 @@ DrvReleaseContext(DHGLRC dhglrc)
    ctx = stw_lookup_context_locked( dhglrc );
    stw_unlock_contexts(stw_dev);
 
-   if (!ctx)
-      return FALSE;
-
-   /* The expectation is that ctx is the same context which is
-    * current for this thread.  We should check that and return False
-    * if not the case.
-    */
-   if (ctx != stw_current_context())
-      return FALSE;
-
-   if (stw_make_current( NULL, NULL, NULL ) == FALSE)
-      return FALSE;
-
-   return TRUE;
+   return stw_unbind_context(ctx);
 }
 
 
