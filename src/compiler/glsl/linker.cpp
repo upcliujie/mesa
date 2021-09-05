@@ -982,12 +982,26 @@ cross_validate_globals(struct gl_context *ctx, struct gl_shader_program *prog,
                      existing->data.mode == ir_var_shader_storage &&
                      existing->data.from_ssbo_unsized_array &&
                      var->type->gl_type == existing->type->gl_type)) {
-                  linker_error(prog, "%s `%s' declared as type "
-                                 "`%s' and type `%s'\n",
-                                 mode_string(var),
-                                 var->name, var->type->name,
-                                 existing->type->name);
-                  return;
+                  /* after precision lowering for constants this can
+                     catch an GLES1.0 case where unused uniforms can
+                     mismatch and some apps allow this, drop to a
+                     warning in that case. */
+                  if (!ctx->Const.AllowGLSLRelaxedES && prog->IsES &&
+                      !var->get_interface_type() &&
+                      !(existing->data.used && var->data.used) && prog->data->Version < 300) {
+                     linker_warning(prog, "%s `%s' declared as type "
+                                    "`%s' and type `%s'\n",
+                                    mode_string(var),
+                                    var->name, var->type->name,
+                                    existing->type->name);
+                  } else {
+                     linker_error(prog, "%s `%s' declared as type "
+                                  "`%s' and type `%s'\n",
+                                  mode_string(var),
+                                  var->name, var->type->name,
+                                  existing->type->name);
+                     return;
+                  }
                }
             }
          }
