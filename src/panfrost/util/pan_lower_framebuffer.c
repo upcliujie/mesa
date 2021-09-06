@@ -446,13 +446,14 @@ pan_lower_fb_store(nir_shader *shader,
                 nir_builder *b,
                 nir_intrinsic_instr *intr,
                 const struct util_format_description *desc,
+                unsigned base,
                 unsigned quirks)
 {
         /* For stores, add conversion before */
         nir_ssa_def *unpacked = nir_ssa_for_src(b, intr->src[1], 4);
         nir_ssa_def *packed = pan_pack(b, desc, unpacked);
 
-        nir_store_raw_output_pan(b, packed);
+        nir_store_raw_output_pan(b, packed, .base = base);
 }
 
 static nir_ssa_def *
@@ -556,7 +557,7 @@ pan_lower_framebuffer(nir_shader *shader, const enum pipe_format *rt_fmts,
 
                                 if (is_store) {
                                         b.cursor = nir_before_instr(instr);
-                                        pan_lower_fb_store(shader, &b, intr, desc, quirks);
+                                        pan_lower_fb_store(shader, &b, intr, desc, base, quirks);
                                 } else {
                                         b.cursor = nir_after_instr(instr);
                                         pan_lower_fb_load(shader, &b, intr, desc, base, sample, quirks);

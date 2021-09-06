@@ -120,7 +120,7 @@ panfrost_sysval_for_instr(nir_instr *instr, nir_dest *dest);
 
 struct panfrost_compile_inputs {
         unsigned gpu_id;
-        bool is_blend, is_blit;
+        bool is_blend, is_blit, lowered_blend;
         struct {
                 unsigned rt;
                 unsigned nr_samples;

@@ -1116,7 +1116,7 @@ intrinsic("shared_atomic_comp_swap_dxil", src_comp=[1, 1, 1], dest_comp=1)
 # raw_output_pan and the hardware handles linear->sRGB.
 
 # src[] = { value }
-store("raw_output_pan", [], [])
+store("raw_output_pan", [], [BASE])
 store("combined_output_pan", [1, 1, 1], [BASE, COMPONENT, SRC_TYPE])
 load("raw_output_pan", [1], [BASE], [CAN_ELIMINATE, CAN_REORDER])
 
