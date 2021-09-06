@@ -50,6 +50,7 @@
 #include "compiler/nir/nir.h"
 #include "compiler/nir/nir_builder.h"
 #include "compiler/nir/nir_format_convert.h"
+#include "compiler/nir/nir_conversion_builder.h"
 #include "util/format/u_format.h"
 #include "pan_lower_framebuffer.h"
 #include "panfrost-quirks.h"
@@ -68,9 +69,13 @@ pan_unpacked_type_for_format(const struct util_format_description *desc)
         bool large = (desc->channel[c].size > 16);
         bool large_norm = (desc->channel[c].size > 8);
         bool bit8 = (desc->channel[c].size == 8);
+        bool is_scaled =
+                !desc->channel[c].pure_integer &&
+                (desc->channel[c].type == UTIL_FORMAT_TYPE_SIGNED ||
+                 desc->channel[c].type == UTIL_FORMAT_TYPE_UNSIGNED);
         assert(desc->channel[c].size <= 32);
 
-        if (desc->channel[c].normalized)
+        if (desc->channel[c].normalized || is_scaled)
                 return large_norm ? nir_type_float32 : nir_type_float16;
 
         switch (desc->channel[c].type) {
@@ -412,6 +417,29 @@ pan_linear_to_srgb(nir_builder *b, nir_ssa_def *linear)
         return nir_vec(b, comp, 4);
 }
 
+static nir_ssa_def *
+pan_scaled_to_int(nir_builder *b, nir_ssa_def *v,
+                  unsigned src_sz, unsigned dst_sz,
+                  bool is_signed)
+{
+        return nir_convert_with_rounding(b, v, nir_type_float | src_sz,
+                                         (is_signed ? nir_type_int : nir_type_uint) | dst_sz,
+                                         nir_rounding_mode_undef,
+                                         true);
+}
+
+static nir_ssa_def *
+pan_int_to_scaled(nir_builder *b, nir_ssa_def *v,
+                  unsigned src_sz, unsigned dst_sz,
+                  bool is_signed)
+{
+        return nir_convert_with_rounding(b, v,
+                                         (is_signed ? nir_type_int : nir_type_uint) | src_sz,
+                                         nir_type_float | dst_sz,
+                                         nir_rounding_mode_undef,
+                                         false);
+}
+
 /* Generic dispatches for un/pack regardless of format */
 
 static nir_ssa_def *
@@ -445,6 +473,14 @@ pan_unpack(nir_builder *b,
         case PIPE_FORMAT_R10G10B10A2_SINT:
         case PIPE_FORMAT_B10G10R10A2_SINT:
                 return pan_unpack_int_1010102(b, packed, true);
+        case PIPE_FORMAT_R10G10B10A2_USCALED:
+        case PIPE_FORMAT_B10G10R10A2_USCALED:
+                return pan_int_to_scaled(b, pan_unpack_int_1010102(b, packed, false),
+                                         32, 32, false);
+        case PIPE_FORMAT_R10G10B10A2_SSCALED:
+        case PIPE_FORMAT_B10G10R10A2_SSCALED:
+                return pan_int_to_scaled(b, pan_unpack_int_1010102(b, packed, true),
+                                         32, 32, true);
         case PIPE_FORMAT_R11G11B10_FLOAT:
                 return pan_unpack_r11g11b10(b, packed);
         default:
@@ -512,6 +548,16 @@ pan_pack(nir_builder *b,
         case PIPE_FORMAT_R10G10B10A2_SINT:
         case PIPE_FORMAT_B10G10R10A2_SINT:
                 return pan_pack_int_1010102(b, unpacked, true);
+        case PIPE_FORMAT_R10G10B10A2_USCALED:
+        case PIPE_FORMAT_B10G10R10A2_USCALED:
+                return pan_pack_int_1010102(b,
+                                            pan_scaled_to_int(b, unpacked, 32, 32, false),
+                                            false);
+        case PIPE_FORMAT_R10G10B10A2_SSCALED:
+        case PIPE_FORMAT_B10G10R10A2_SSCALED:
+                return pan_pack_int_1010102(b,
+                                            pan_scaled_to_int(b, unpacked, 32, 32, true),
+                                            true);
         case PIPE_FORMAT_R11G11B10_FLOAT:
                 return pan_pack_r11g11b10(b, unpacked);
         default:
