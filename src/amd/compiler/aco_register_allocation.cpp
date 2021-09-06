@@ -1939,6 +1939,33 @@ void
 get_regs_for_phis(ra_ctx& ctx, Block& block, RegisterFile& register_file,
                   std::vector<aco_ptr<Instruction>>& instructions, IDSet& live_in)
 {
+   /* assign phis with matching registers to that register */
+   for (aco_ptr<Instruction>& phi : block.instructions) {
+      if (!is_phi(phi))
+         break;
+      Definition& definition = phi->definitions[0];
+      if (definition.isKill() || definition.isFixed())
+         continue;
+
+      if (!phi->operands[0].isTemp())
+         continue;
+
+      auto OpsSame = [&](const Operand& op) -> bool
+      { return op.isTemp() && (!op.isFixed() || op.physReg() == phi->operands[0].physReg()); };
+      bool all_same = std::all_of(phi->operands.cbegin() + 1, phi->operands.cend(), OpsSame);
+      if (!all_same)
+         continue;
+
+      if (!get_reg_specified(ctx, register_file, definition.regClass(), phi,
+                             phi->operands[0].physReg()))
+         continue;
+
+      assert(!register_file.test(phi->operands[0].physReg(), definition.bytes()));
+      definition.setFixed(phi->operands[0].physReg());
+      register_file.fill(definition);
+      ctx.assignments[definition.tempId()].set(definition);
+   }
+
    /* look up the affinities */
    for (aco_ptr<Instruction>& phi : block.instructions) {
       if (!is_phi(phi))
@@ -1952,15 +1979,6 @@ get_regs_for_phis(ra_ctx& ctx, Block& block, RegisterFile& register_file,
          assignment& affinity = ctx.assignments[ctx.assignments[definition.tempId()].affinity];
          assert(affinity.rc == definition.regClass());
          PhysReg reg = affinity.reg;
-         if (reg == scc) {
-            /* only use scc if all operands are already placed there */
-            bool use_scc = std::all_of(phi->operands.begin(), phi->operands.end(),
-                                       [](const Operand& op) {
-                                          return op.isTemp() && op.isFixed() && op.physReg() == scc;
-                                       });
-            if (!use_scc)
-               continue;
-         }
 
          /* only assign if register is still free */
          if (!register_file.test(reg, definition.bytes())) {
