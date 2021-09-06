@@ -194,6 +194,7 @@ merge_state(struct ra_val_ctx *ctx, struct reaching_state *dst,
    bool progress = false;
    progress |= merge_file(&dst->full, &src->full, ctx->full_size);
    progress |= merge_file(&dst->half, &src->half, ctx->half_size);
+   progress |= merge_file(&dst->shared, &src->shared, RA_SHARED_SIZE);
    return progress;
 }
 
