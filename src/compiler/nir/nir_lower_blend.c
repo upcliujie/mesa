@@ -364,7 +364,8 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
 
    if (options->logicop_enable)
       blended = nir_blend_logicop(b, *options, rt, src, dst);
-   else if (!util_format_is_pure_integer(options->format[rt]))
+   else if (!util_format_is_pure_integer(options->format[rt]) &&
+            !util_format_is_scaled(options->format[rt]))
       blended = nir_blend(b, *options, rt, src, options->src1, dst);
 
    /* Apply a colormask */
