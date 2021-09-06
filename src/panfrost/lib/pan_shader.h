@@ -39,7 +39,7 @@ pan_shader_get_compiler_options(const struct panfrost_device *dev);
 void
 pan_shader_compile(const struct panfrost_device *dev,
                    nir_shader *nir,
-                   const struct panfrost_compile_inputs *inputs,
+                   struct panfrost_compile_inputs *inputs,
                    struct util_dynarray *binary,
                    struct pan_shader_info *info);
 

@@ -24,6 +24,7 @@
 
 #include "pan_device.h"
 #include "pan_shader.h"
+#include "pan_format.h"
 
 #include "panfrost/midgard/midgard_compile.h"
 #include "panfrost/bifrost/bifrost_compile.h"
@@ -172,11 +173,19 @@ bifrost_blend_type_from_nir(nir_alu_type nir_type)
 void
 pan_shader_compile(const struct panfrost_device *dev,
                    nir_shader *s,
-                   const struct panfrost_compile_inputs *inputs,
+                   struct panfrost_compile_inputs *inputs,
                    struct util_dynarray *binary,
                    struct pan_shader_info *info)
 {
         memset(info, 0, sizeof(*info));
+
+        for (unsigned i = 0; i < ARRAY_SIZE(inputs->rt_formats); i++) {
+                enum pipe_format fmt = inputs->rt_formats[i];
+                unsigned wb_fmt = panfrost_blendable_formats_v6[fmt].writeback;
+
+                if (wb_fmt <= MALI_MFBD_COLOR_FORMAT_RAW2048)
+                        inputs->raw_fmt_mask |= BITFIELD_BIT(i);
+        }
 
         if (pan_is_bifrost(dev))
                 bifrost_compile_shader_nir(s, inputs, binary, info);
