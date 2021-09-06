@@ -1766,7 +1766,7 @@ mir_get_branch_cond(nir_src *src, bool *invert)
 }
 
 static uint8_t
-output_load_rt_addr(compiler_context *ctx, nir_intrinsic_instr *instr)
+output_ldst_rt_addr(compiler_context *ctx, nir_intrinsic_instr *instr)
 {
         if (ctx->inputs->is_blend)
                 return MIDGARD_COLOR_RT0 + ctx->inputs->blend.rt;
@@ -1919,7 +1919,7 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
 
                 midgard_instruction ld = m_ld_tilebuffer_raw(reg, 0);
 
-                unsigned target = output_load_rt_addr(ctx, instr);
+                unsigned target = output_ldst_rt_addr(ctx, instr);
                 ld.load_store.index_comp = target & 0x3;
                 ld.load_store.index_reg = target >> 2;
 
@@ -1955,7 +1955,7 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                 else
                         ld = m_ld_tilebuffer_32f(reg, 0);
 
-                unsigned index = output_load_rt_addr(ctx, instr);
+                unsigned index = output_ldst_rt_addr(ctx, instr);
                 ld.load_store.index_comp = index & 0x3;
                 ld.load_store.index_reg = index >> 2;
 
@@ -2091,14 +2091,15 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                 break;
 
         /* Special case of store_output for lowered blend shaders */
-        case nir_intrinsic_store_raw_output_pan:
+        case nir_intrinsic_store_raw_output_pan: {
                 assert (ctx->stage == MESA_SHADER_FRAGMENT);
+
+                unsigned rt = output_ldst_rt_addr(ctx, instr);
                 reg = nir_src_index(ctx, &instr->src[0]);
-                for (unsigned s = 0; s < ctx->blend_sample_iterations; s++)
-                        emit_fragment_store(ctx, reg, ~0, ~0,
-                                            ctx->inputs->blend.rt + MIDGARD_COLOR_RT0,
-                                            s);
+                for (unsigned s = 0; s < ctx->blend_sample_iterations[rt]; s++)
+                        emit_fragment_store(ctx, reg, ~0, ~0, rt, s);
                 break;
+        }
 
         case nir_intrinsic_store_global:
         case nir_intrinsic_store_shared:
@@ -3166,8 +3167,20 @@ midgard_compile_shader_nir(nir_shader *nir,
                         util_format_description(inputs->rt_formats[inputs->blend.rt]);
 
                 /* We have to split writeout in 128 bit chunks */
-                ctx->blend_sample_iterations =
+                ctx->blend_sample_iterations[inputs->blend.rt] =
                         DIV_ROUND_UP(desc->block.bits * nr_samples, 128);
+        } else if (inputs->lowered_blend) {
+                assert(ctx->stage == MESA_SHADER_FRAGMENT);
+
+                unsigned nr_samples = MAX2(inputs->blend.nr_samples, 1);
+                for (unsigned rt = 0; rt < ARRAY_SIZE(inputs->rt_formats); rt++) {
+                        const struct util_format_description *desc =
+                                util_format_description(inputs->rt_formats[rt]);
+
+                        /* We have to split writeout in 128 bit chunks */
+                        ctx->blend_sample_iterations[rt] =
+                                DIV_ROUND_UP(desc->block.bits * nr_samples, 128);
+                }
         }
         ctx->blend_input = ~0;
         ctx->blend_src1 = ~0;
@@ -3198,7 +3211,9 @@ midgard_compile_shader_nir(nir_shader *nir,
 
         unsigned pan_quirks = panfrost_get_quirks(inputs->gpu_id, 0);
         NIR_PASS_V(nir, pan_lower_framebuffer,
-                   inputs->rt_formats, inputs->is_blend, pan_quirks);
+                   inputs->rt_formats,
+                   inputs->is_blend || inputs->lowered_blend,
+                   pan_quirks);
 
         NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
                         glsl_type_size, 0);
