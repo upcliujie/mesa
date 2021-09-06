@@ -247,7 +247,7 @@ if [ "x$PIGLIT_PROFILES" = "xreplay" ] \
     __MINIO_TRACES_PREFIX="traces"
 
     if [ "x$PIGLIT_REPLAY_SUBCOMMAND" != "xprofile" ]; then
-        quiet replay_minio_upload_images
+        replay_minio_upload_images
     fi
 fi
 
