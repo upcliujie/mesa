@@ -77,7 +77,7 @@
  * SM3.0 requires 24 (most likely per subroutine too)
  * add 2 more (some translation could add one more)
  */
-#define LP_MAX_TGSI_NESTING 66
+#define LP_MAX_TGSI_NESTING 80
 
 /**
  * Maximum iterations before loop termination
