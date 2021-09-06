@@ -213,7 +213,7 @@ radv_DestroyPipeline(VkDevice _device, VkPipeline _pipeline,
 }
 
 uint32_t
-radv_get_hash_flags(const struct radv_device *device, bool stats)
+radv_get_hash_flags(const struct radv_device *device, bool stats, bool no_opt)
 {
    uint32_t hash_flags = 0;
 
@@ -247,6 +247,8 @@ radv_get_hash_flags(const struct radv_device *device, bool stats)
       hash_flags |= RADV_HASH_SHADER_ROBUST_BUFFER_ACCESS;
    if (device->robust_buffer_access2) /* affects load/store vectorizer */
       hash_flags |= RADV_HASH_SHADER_ROBUST_BUFFER_ACCESS2;
+   if (no_opt)
+      hash_flags |= RADV_HASH_SHADER_NO_OPT;
    return hash_flags;
 }
 
@@ -3391,7 +3393,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
       memcpy(hash, custom_hash, 20);
    else {
       radv_hash_shaders(hash, pStages, pipeline->layout, pipeline_key,
-                        radv_get_hash_flags(device, keep_statistic_info));
+                        radv_get_hash_flags(device, keep_statistic_info, disable_optimizations));
    }
    memcpy(gs_copy_hash, hash, 20);
    gs_copy_hash[0] ^= 1;

@@ -1684,6 +1684,7 @@ struct radv_event {
 #define RADV_HASH_SHADER_FORCE_NGG_CULLING (1 << 13)
 #define RADV_HASH_SHADER_ROBUST_BUFFER_ACCESS (1 << 14)
 #define RADV_HASH_SHADER_ROBUST_BUFFER_ACCESS2 (1 << 15)
+#define RADV_HASH_SHADER_NO_OPT                (1 << 16)
 
 void radv_hash_shaders(unsigned char *hash, const VkPipelineShaderStageCreateInfo **stages,
                        const struct radv_pipeline_layout *layout,
@@ -1692,7 +1693,7 @@ void radv_hash_shaders(unsigned char *hash, const VkPipelineShaderStageCreateInf
 void radv_hash_rt_shaders(unsigned char *hash, const VkRayTracingPipelineCreateInfoKHR *pCreateInfo,
                           uint32_t flags);
 
-uint32_t radv_get_hash_flags(const struct radv_device *device, bool stats);
+uint32_t radv_get_hash_flags(const struct radv_device *device, bool stats, bool no_opt);
 
 bool radv_rt_pipeline_has_dynamic_stack_size(const VkRayTracingPipelineCreateInfoKHR *pCreateInfo);
 

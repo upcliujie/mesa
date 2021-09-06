@@ -1916,7 +1916,8 @@ radv_rt_pipeline_create(VkDevice _device, VkPipelineCache _cache,
       goto fail;
    }
 
-   radv_hash_rt_shaders(hash, &local_create_info, radv_get_hash_flags(device, keep_statistic_info));
+   radv_hash_rt_shaders(hash, &local_create_info,
+                        radv_get_hash_flags(device, keep_statistic_info, false));
    struct vk_shader_module module = {.base.type = VK_OBJECT_TYPE_SHADER_MODULE};
 
    VkComputePipelineCreateInfo compute_info = {
