@@ -90,6 +90,7 @@ typedef uint32_t xcb_window_t;
 #include "tu_entrypoints.h"
 
 #include "vk_format.h"
+#include "vk_image.h"
 
 #define MAX_VBS 32
 #define MAX_VERTEX_ATTRIBS 32
