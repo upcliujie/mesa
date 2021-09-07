@@ -39,6 +39,7 @@
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #include "util/hash_table.h"
+#include "util/u_debug.h"
 #include "util/u_thread.h"
 #include "util/xmlconfig.h"
 
@@ -1293,7 +1294,7 @@ x11_manage_fifo_queues(void *state)
 
       if (chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
           (chain->base.present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-           wsi_conn->is_xwayland)) {
+           wsi_conn->is_xwayland && chain->base.wsi->x11.xwaylandWaitReady)) {
          result = chain->base.wsi->WaitForFences(chain->base.device, 1,
                                         &chain->base.fences[image_index],
                                         true, UINT64_MAX);
@@ -1681,7 +1682,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       num_images = pCreateInfo->minImageCount;
    else if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
             (present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-             wsi_conn->is_xwayland))
+             wsi_conn->is_xwayland && wsi_device->x11.xwaylandWaitReady))
       num_images = MAX2(num_images, 5);
    else if (wsi_device->x11.ensure_minImageCount)
       num_images = MAX2(num_images, x11_get_min_image_count(wsi_device));
@@ -1791,10 +1792,11 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    }
 
    if ((chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
-       chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ||
-       chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
+        chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ||
+        chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
         (chain->base.present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-         wsi_conn->is_xwayland)) && !chain->base.wsi->sw) {
+         wsi_conn->is_xwayland && wsi_device->x11.xwaylandWaitReady)) &&
+       !chain->base.wsi->sw) {
       chain->has_present_queue = true;
 
       /* Initialize our queues.  We make them base.image_count + 1 because we will
@@ -1912,7 +1914,11 @@ wsi_x11_init_wsi(struct wsi_device *wsi_device,
          wsi_device->x11.ensure_minImageCount =
             driQueryOptionb(dri_options, "vk_x11_ensure_min_image_count");
       }
-
+      wsi_device->x11.xwaylandWaitReady = true;
+      if (driCheckOption(dri_options, "vk_xwayland_wait_ready", DRI_BOOL)) {
+         wsi_device->x11.xwaylandWaitReady =
+            driQueryOptionb(dri_options, "vk_xwayland_wait_ready");
+      }
    }
 
    wsi->base.get_support = x11_surface_get_support;
