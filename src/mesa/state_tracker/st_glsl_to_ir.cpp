@@ -50,7 +50,7 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
    bool use_nir = preferred_ir == PIPE_SHADER_IR_NIR;
 
    /* Return early if we are loading the shader from on-disk cache */
-   if (st_load_ir_from_disk_cache(ctx, prog, use_nir)) {
+   if (st_load_nir_from_disk_cache(ctx, prog)) {
       return GL_TRUE;
    }
 
