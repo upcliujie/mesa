@@ -32,6 +32,10 @@
 #include <unordered_map>
 #include <vector>
 
+#ifdef ACO_RA_CHECK_OOB
+#include <execinfo.h>
+#endif
+
 namespace aco {
 namespace {
 
@@ -83,6 +87,44 @@ struct ra_ctx {
       vgpr_limit = get_addr_sgpr_from_waves(program, program->min_waves);
    }
 };
+
+using aco_ra_array_base = std::array<uint32_t, 512>;
+
+#ifdef ACO_RA_CHECK_OOB
+class aco_ra_array : private aco_ra_array_base
+{
+private:
+   void check_oob(size_t i) const
+   {
+      if (i >= aco_ra_array_base::size()) {
+         fprintf(stderr, "aco_ra_array: out of bounds access: %u\n", (unsigned) i);
+         void *bt_array[20];
+         size_t size = backtrace(bt_array, 20);
+         backtrace_symbols_fd(bt_array, size, STDERR_FILENO);
+      }
+   }
+
+public:
+   const uint32_t& operator[](size_t i) const
+   {
+      check_oob(i);
+      return aco_ra_array_base::operator[](i);
+   }
+
+   uint32_t& operator[](size_t i)
+   {
+      check_oob(i);
+      return aco_ra_array_base::operator[](i);
+   }
+
+   void fill(uint32_t val)
+   {
+      aco_ra_array_base::fill(val);
+   }
+};
+#else
+using aco_ra_array = aco_ra_array_base;
+#endif
 
 /* Iterator type for making PhysRegInterval compatible with range-based for */
 struct PhysRegIterator {
@@ -221,7 +263,7 @@ class RegisterFile {
 public:
    RegisterFile() { regs.fill(0); }
 
-   std::array<uint32_t, 512> regs;
+   aco_ra_array regs;
    std::map<uint32_t, std::array<uint32_t, 4>> subdword_regs;
 
    const uint32_t& operator[](PhysReg index) const { return regs[index]; }

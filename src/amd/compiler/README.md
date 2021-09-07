@@ -260,6 +260,20 @@ Most notable are the glibc++ debug flags, which you can use by adding the `-D_GL
 To see the full list of downstream compiler flags, you can use eg. `rpm --eval "%optflags"`
 on Red Hat based distros like Fedora.
 
+### Register allocation out of bounds array access
+
+If you compile ACO with `ACO_RA_CHECK_OOB` it will automatically check out of bounds accesses to the array
+used by `aco_register_allocation`. This relies on a `glibc` header called `execinfo.h` and prints a stack
+trace in runtime. The printed stack trace contains addresses only. To get the lines, you need
+to give these addresses to the `addr2line` command, for example:
+
+```
+# Find the line number corresponding to 0x5336bb
+addr2line -e libvulkan_radeon.so 0x5336bb
+# You can also ask for several addresses at once
+addr2line -e libvulkan_radeon.so 0x5336bb 0x53379b 0x534044
+```
+
 ### Good practices
 
 Here are some good practices we learned while debugging visual corruption and hangs.
