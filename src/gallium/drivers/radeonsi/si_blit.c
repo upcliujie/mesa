@@ -1203,9 +1203,24 @@ resolve_to_temp:
 static void si_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
 {
    struct si_context *sctx = (struct si_context *)ctx;
+   struct si_texture *sdst = (struct si_texture *)info->dst.resource;
 
    if (do_hardware_msaa_resolve(ctx, info)) {
       return;
+   }
+
+   if (info->is_dri_blit_image && sdst->surface.is_linear &&
+       sctx->chip_class >= GFX7 && sdst->surface.flags & RADEON_SURF_IMPORTED) {
+      struct si_texture *ssrc = (struct si_texture *)info->src.resource;
+      /* Use SDMA when copying to a DRI_PRIME imported linear surface. */
+      bool try_sdma = info->dst.box.x == 0 && info->dst.box.y == 0 && info->dst.box.z == 0 &&
+                      info->src.box.x == 0 && info->src.box.y == 0 && info->src.box.z == 0 &&
+                      info->dst.level == 0 && info->src.level == 0 &&
+                      info->src.box.width == info->dst.resource->width0 &&
+                      info->src.box.height == info->dst.resource->height0 &&
+                      info->src.box.depth == 1;
+      if (try_sdma && si_sdma_copy_image(sctx, sdst, ssrc))
+         return;
    }
 
    if (unlikely(sctx->thread_trace_enabled))
