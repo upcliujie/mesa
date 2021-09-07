@@ -495,6 +495,78 @@ vk_image_layout_is_read_only(VkImageLayout layout,
    unreachable("Invalid image layout.");
 }
 
+bool
+vk_image_layout_depth_only(VkImageLayout layout)
+{
+   switch (layout) {
+   case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL:
+   case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+      return true;
+
+   default:
+      return false;
+   }
+}
+
+/* From the Vulkan Specification 1.2.166 - VkAttachmentReference2:
+ *
+ *   "If layout only specifies the layout of the depth aspect of the
+ *    attachment, the layout of the stencil aspect is specified by the
+ *    stencilLayout member of a VkAttachmentReferenceStencilLayout structure
+ *    included in the pNext chain. Otherwise, layout describes the layout for
+ *    all relevant image aspects."
+ */
+VkImageLayout
+vk_image_stencil_ref_layout(const VkAttachmentReference2KHR *att_ref)
+{
+   if (!vk_image_layout_depth_only(att_ref->layout))
+      return att_ref->layout;
+
+   const VkAttachmentReferenceStencilLayoutKHR *stencil_ref =
+      vk_find_struct_const(att_ref->pNext,
+                           ATTACHMENT_REFERENCE_STENCIL_LAYOUT_KHR);
+   if (!stencil_ref)
+      return VK_IMAGE_LAYOUT_UNDEFINED;
+   return stencil_ref->stencilLayout;
+}
+
+/* From the Vulkan Specification 1.2.184:
+ *
+ *   "If the pNext chain includes a VkAttachmentDescriptionStencilLayout structure, then the
+ *    stencilInitialLayout and stencilFinalLayout members specify the initial and final layouts of the
+ *    stencil aspect of a depth/stencil format, and initialLayout and finalLayout only apply to the
+ *    depth aspect. For depth-only formats, the VkAttachmentDescriptionStencilLayout structure is
+ *    ignored. For stencil-only formats, the initial and final layouts of the stencil aspect are taken
+ *    from the VkAttachmentDescriptionStencilLayout structure if present, or initialLayout and
+ *    finalLayout if not present."
+ *
+ *   "If format is a depth/stencil format, and either initialLayout or finalLayout does not specify a
+ *    layout for the stencil aspect, then the application must specify the initial and final layouts
+ *    of the stencil aspect by including a VkAttachmentDescriptionStencilLayout structure in the pNext
+ *    chain."
+ */
+VkImageLayout
+vk_image_stencil_desc_layout(const VkAttachmentDescription2KHR *att_desc,
+                             bool final)
+{
+   if (!vk_format_has_stencil(att_desc->format))
+      return VK_IMAGE_LAYOUT_UNDEFINED;
+
+   const VkImageLayout main_layout =
+      final ? att_desc->finalLayout : att_desc->initialLayout;
+   if (!vk_image_layout_depth_only(main_layout))
+      return main_layout;
+
+   const VkAttachmentDescriptionStencilLayoutKHR *stencil_desc =
+      vk_find_struct_const(att_desc->pNext,
+                           ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT_KHR);
+   assert(stencil_desc);
+   return final ?
+      stencil_desc->stencilFinalLayout :
+      stencil_desc->stencilInitialLayout;
+}
+
+
 VkImageUsageFlags
 vk_image_layout_to_usage_flags(VkImageLayout layout,
                                VkImageAspectFlagBits aspect)

@@ -221,8 +221,15 @@ void vk_image_view_destroy(struct vk_device *device,
 
 bool vk_image_layout_is_read_only(VkImageLayout layout,
                                   VkImageAspectFlagBits aspect);
+
+bool vk_image_layout_depth_only(VkImageLayout layout);
+
 VkImageUsageFlags vk_image_layout_to_usage_flags(VkImageLayout layout,
                                                  VkImageAspectFlagBits aspect);
+
+VkImageLayout vk_image_stencil_ref_layout(const VkAttachmentReference2KHR *att_ref);
+VkImageLayout vk_image_stencil_desc_layout(const VkAttachmentDescription2KHR *att_desc,
+                                           bool final);
 
 #ifdef __cplusplus
 }
