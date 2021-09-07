@@ -906,7 +906,28 @@ void si_resource_copy_region(struct pipe_context *ctx, struct pipe_resource *dst
        (!vi_dcc_enabled(sdst, dst_level) || sctx->chip_class >= GFX10) &&
        !(dst->target != src->target &&
          (src->target == PIPE_TEXTURE_1D_ARRAY || dst->target == PIPE_TEXTURE_1D_ARRAY))) {
-      si_compute_copy_image(sctx, dst, dst_level, src, src_level, dstx, dsty, dstz,
+
+      /* Use SDMA when copying to a DRI_PRIME imported linear surface. */
+      if (sdst->surface.flags & RADEON_SURF_IMPORTED &&
+          sdst->surface.is_linear &&
+          sctx->chip_class >= GFX7) {
+         bool try_sdma = dstx == 0 && dsty == 0 && dstz == 0 && dst_level == 0 &&
+                         src_box->x == 0 && src_box->y == 0 && src_box->z == 0 && src_level == 0 &&
+                         src_box->width == dst->width0 && src_box->height == dst->height0 && src_box->depth == 1;
+         if (try_sdma) {
+            if (vi_dcc_enabled(ssrc, 0) && sctx->chip_class < GFX10)
+               si_decompress_dcc(sctx, ssrc);
+
+            /* Always flush the gfx queue to get the winsys to handle the dependencies for us. */
+            si_flush_gfx_cs(sctx, 0, NULL);
+
+            if (si_sdma_copy_image(sctx, sdst, ssrc))
+               return;
+         }
+      }
+      /* Fallback: copy using compute */
+      si_compute_copy_image(sctx,
+                            dst, dst_level, src, src_level, dstx, dsty, dstz,
                             src_box, false, SI_OP_SYNC_BEFORE_AFTER);
       return;
    }
