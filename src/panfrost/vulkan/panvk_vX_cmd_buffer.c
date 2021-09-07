@@ -280,7 +280,7 @@ panvk_per_arch(cmd_alloc_fb_desc)(struct panvk_cmd_buffer *cmdbuf)
 }
 
 void
-panvk_per_arch(cmd_alloc_tls_desc)(struct panvk_cmd_buffer *cmdbuf)
+panvk_per_arch(cmd_alloc_tls_desc)(struct panvk_cmd_buffer *cmdbuf, bool gfx)
 {
    struct panvk_batch *batch = cmdbuf->state.batch;
 
@@ -288,8 +288,7 @@ panvk_per_arch(cmd_alloc_tls_desc)(struct panvk_cmd_buffer *cmdbuf)
    if (batch->tls.gpu)
       return;
 
-   if (PAN_ARCH == 5 &&
-       cmdbuf->state.bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+   if (PAN_ARCH == 5 && gfx) {
       panvk_per_arch(cmd_alloc_fb_desc)(cmdbuf);
       batch->tls = batch->fb.desc;
       batch->tls.gpu &= ~63ULL;
@@ -705,7 +704,7 @@ panvk_per_arch(CmdDraw)(VkCommandBuffer commandBuffer,
    if (cmdbuf->state.pipeline->fs.required)
       panvk_per_arch(cmd_alloc_fb_desc)(cmdbuf);
 
-   panvk_per_arch(cmd_alloc_tls_desc)(cmdbuf);
+   panvk_per_arch(cmd_alloc_tls_desc)(cmdbuf, true);
    panvk_cmd_prepare_ubos(cmdbuf);
    panvk_cmd_prepare_textures(cmdbuf);
    panvk_cmd_prepare_samplers(cmdbuf);
