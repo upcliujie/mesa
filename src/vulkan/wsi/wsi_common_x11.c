@@ -39,6 +39,7 @@
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #include "util/hash_table.h"
+#include "util/u_debug.h"
 #include "util/u_thread.h"
 #include "util/xmlconfig.h"
 
@@ -60,6 +61,7 @@ struct wsi_x11_connection {
    bool is_proprietary_x11;
    bool is_xwayland;
    bool has_mit_shm;
+   bool xwayland_wait_ready;
 };
 
 struct wsi_x11 {
@@ -254,6 +256,9 @@ wsi_x11_connection_create(struct wsi_device *wsi_dev,
       wsi_conn->is_xwayland = wsi_x11_detect_xwayland(conn);
    else
       wsi_conn->is_xwayland = false;
+
+   wsi_conn->xwayland_wait_ready =
+      debug_get_bool_option("MESA_VK_WSI_XWAYLAND_WAIT_READY", true);
 
    wsi_conn->has_dri3_modifiers = has_dri3_v1_2 && has_present_v1_2;
    wsi_conn->is_proprietary_x11 = false;
@@ -1293,7 +1298,7 @@ x11_manage_fifo_queues(void *state)
 
       if (chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
           (chain->base.present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-           wsi_conn->is_xwayland)) {
+           wsi_conn->is_xwayland && wsi_conn->xwayland_wait_ready)) {
          result = chain->base.wsi->WaitForFences(chain->base.device, 1,
                                         &chain->base.fences[image_index],
                                         true, UINT64_MAX);
@@ -1681,7 +1686,7 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       num_images = pCreateInfo->minImageCount;
    else if (present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
             (present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-             wsi_conn->is_xwayland))
+             wsi_conn->is_xwayland && wsi_conn->xwayland_wait_ready))
       num_images = MAX2(num_images, 5);
    else if (wsi_device->x11.ensure_minImageCount)
       num_images = MAX2(num_images, x11_get_min_image_count(wsi_device));
@@ -1791,10 +1796,11 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    }
 
    if ((chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
-       chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ||
-       chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
+        chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ||
+        chain->base.present_mode == VK_PRESENT_MODE_MAILBOX_KHR ||
         (chain->base.present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
-         wsi_conn->is_xwayland)) && !chain->base.wsi->sw) {
+         wsi_conn->is_xwayland && wsi_conn->xwayland_wait_ready)) &&
+       !chain->base.wsi->sw) {
       chain->has_present_queue = true;
 
       /* Initialize our queues.  We make them base.image_count + 1 because we will

@@ -188,6 +188,9 @@ Core Mesa environment variables
    overrides the WSI present mode clients specify in
    ``VkSwapchainCreateInfoKHR::presentMode``. Values can be ``fifo``,
    ``relaxed``, ``mailbox`` or ``immediate``.
+:envvar:`MESA_VK_WSI_XWAYLAND_WAIT_READY`
+   if set to false, doesn't wait for fences before submitting buffers to
+   Xwayland
 :envvar:`MESA_LOADER_DRIVER_OVERRIDE`
    chooses a different driver binary such as ``etnaviv`` or ``zink``.
 
