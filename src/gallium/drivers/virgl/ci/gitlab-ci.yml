@@ -12,19 +12,15 @@ virgl-on-gl:
   variables:
     DEQP_SUITE: virgl-gl
     GPU_VERSION: virgl-gl
-    # Speed rendering a bit, as crosvm is processing requests serially
-    LP_NUM_THREADS: 8
-    FDO_CI_CONCURRENT: 3
-    CROSVM_TEST_SCRIPT: "/install/deqp-runner.sh"
-  parallel: 6
+    LP_NUM_THREADS: 1   # There will be FDO_CI_CONCURRENT Crosvm processes, so each should use a single thread
+  parallel: 2
   tags:
     - kvm
-  script:
-    - install/crosvm-runner.sh
   extends:
     - .deqp-test
     - .virgl-test
 
+# Manual for now due to some timeouts that seem to confuse Crosvm/deqp-runner
 virgl-on-gles:
   variables:
     VIRGL_HOST_API: GLES
@@ -44,9 +40,10 @@ virgl-traces:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-virgl.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "gl-virgl"
     PIGLIT_RESULTS: "virgl-replay"
-    CROSVM_TEST_SCRIPT: "/install/piglit/run.sh"
+    LD_LIBRARY_PATH: "${CI_PROJECT_DIR}/install/lib/"     # For Crosvm
+    LP_NUM_THREADS: ${FDO_CI_CONCURRENT} # Use all threads for rendering
+    FDO_CI_CONCURRENT: 1                 # And only run one job at a time
   tags:
     - kvm
   script:
-    - install/crosvm-runner.sh
-
+    - install/crosvm-runner.sh install/piglit/run.sh
