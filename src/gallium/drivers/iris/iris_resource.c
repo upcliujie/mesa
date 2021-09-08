@@ -932,10 +932,6 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
    switch (res->mod_info->modifier) {
    case I915_FORMAT_MOD_Y_TILED_CCS:
    case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS:
-      assert(num_main_planes == 1 && num_planes == 2);
-      import_aux_info(r[0], r[1]);
-      map_aux_addresses(screen, r[0], format, 0);
-
       /* Add on a clear color BO. */
       if (iris_get_aux_clear_color_state_size(screen) > 0) {
          res->aux.clear_color_bo =
@@ -943,17 +939,12 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
                           iris_get_aux_clear_color_state_size(screen), 1,
                           IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
       }
-      break;
+      FALLTHROUGH;
    case I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS:
-      if (num_main_planes == 1 && num_planes == 2) {
-         import_aux_info(r[0], r[1]);
-         map_aux_addresses(screen, r[0], format, 0);
-      } else {
-         assert(num_main_planes == 2 && num_planes == 4);
-         import_aux_info(r[0], r[2]);
-         import_aux_info(r[1], r[3]);
-         map_aux_addresses(screen, r[0], format, 0);
-         map_aux_addresses(screen, r[1], format, 1);
+      assert(num_planes == 2 * num_main_planes);
+      for (int p = 0; p < num_main_planes; p++) {
+         import_aux_info(r[p], r[p + num_main_planes]);
+         map_aux_addresses(screen, r[p], format, p);
       }
       break;
    case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC:
