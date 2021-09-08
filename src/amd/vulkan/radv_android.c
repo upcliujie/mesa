@@ -196,7 +196,7 @@ radv_image_from_gralloc(VkDevice device_h, const VkImageCreateInfo *base_info,
 
    radv_image_override_offset_stride(device, image, 0, gralloc_info->stride);
 
-   radv_BindImageMemory(device_h, image_h, memory_h, 0);
+   vk_common_BindImageMemory(device_h, image_h, memory_h, 0);
 
    image->owned_memory = memory_h;
    /* Don't clobber the out-parameter until success is certain. */
@@ -606,8 +606,8 @@ get_ahb_buffer_format_properties(VkDevice device_h, const struct AHardwareBuffer
    p->externalFormat = (uint64_t)(uintptr_t)p->format;
 
    VkFormatProperties format_properties;
-   radv_GetPhysicalDeviceFormatProperties(radv_physical_device_to_handle(device->physical_device),
-                                          p->format, &format_properties);
+   vk_common_GetPhysicalDeviceFormatProperties(radv_physical_device_to_handle(device->physical_device),
+                                               p->format, &format_properties);
 
    if (desc.usage & AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER)
       p->formatFeatures = format_properties.linearTilingFeatures;
