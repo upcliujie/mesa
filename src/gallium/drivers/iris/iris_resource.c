@@ -942,7 +942,9 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
    }
 
    /* Combine main and aux plane information. */
-   if (num_main_planes == 1 && num_planes == 2) {
+   switch (res->mod_info->modifier) {
+   case I915_FORMAT_MOD_Y_TILED_CCS:
+   case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS:
       import_aux_planes(screen, r, num_main_planes, num_planes);
 
       /* Add on a clear color BO. */
@@ -952,7 +954,8 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
                           iris_get_aux_clear_color_state_size(screen), 1,
                           IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
       }
-   } else if (num_main_planes == 1 && num_planes == 3) {
+      break;
+   case I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC:
       import_aux_planes(screen, r, num_main_planes, num_planes - 1);
 
       /* Import the clear color BO. */
@@ -960,9 +963,14 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       r[0]->aux.clear_color_bo = r[2]->aux.clear_color_bo;
       r[0]->aux.clear_color_offset = r[2]->aux.clear_color_offset;
       r[0]->aux.clear_color_unknown = true;
-   } else {
-      assert(num_main_planes == 2 && num_planes == 4);
+      break;
+   case I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS:
       import_aux_planes(screen, r, num_main_planes, num_planes);
+      assert(!isl_aux_usage_has_fast_clears(res->mod_info->aux_usage));
+      break;
+   default:
+      assert(res->mod_info->aux_usage == ISL_AUX_USAGE_NONE);
+      break;
    }
 }
 
