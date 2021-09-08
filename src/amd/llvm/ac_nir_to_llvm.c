@@ -4266,6 +4266,18 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       ac_build_export_prim(&ctx->ac, &prim);
       break;
    }
+   case nir_intrinsic_gds_atomic_add_amd: {
+      assert(nir_src_is_const(instr->src[2]));
+      unsigned gds_size = nir_src_as_uint(instr->src[2]);
+      ac_llvm_add_target_dep_function_attr(ctx->main_function, "amdgpu-gds-size", gds_size);
+
+      LLVMValueRef store_val = get_src(ctx, instr->src[0]);
+      LLVMValueRef addr = get_src(ctx, instr->src[1]);
+      LLVMTypeRef gds_ptr_type = LLVMPointerType(ctx->ac.i32, AC_ADDR_SPACE_GDS);
+      LLVMValueRef gds_base = LLVMBuildIntToPtr(ctx->ac.builder, addr, gds_ptr_type, "");
+      ac_build_atomic_rmw(&ctx->ac, LLVMAtomicRMWBinOpAdd, gds_base, store_val, "workgroup-one-as");
+      break;
+   }
    case nir_intrinsic_export_vertex_amd:
       ctx->abi->export_vertex(ctx->abi);
       break;
