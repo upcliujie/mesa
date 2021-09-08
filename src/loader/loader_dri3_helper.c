@@ -677,7 +677,7 @@ loader_dri3_wait_for_sbc(struct loader_dri3_drawable *draw,
  * wait for a present idle notify event from the X server
  */
 static int
-dri3_find_back(struct loader_dri3_drawable *draw)
+dri3_find_back(struct loader_dri3_drawable *draw, bool prefer_a_different)
 {
    int b;
    int num_to_consider;
@@ -699,12 +699,23 @@ dri3_find_back(struct loader_dri3_drawable *draw)
       max_num = draw->max_num_back;
    }
 
+   /* In a DRI_PRIME situation, first try to find an idle buffer that is not
+    * the last used one.
+    * This is useful if we receive a XCB_PRESENT_EVENT_IDLE_NOTIFY event
+    * for a pixmap but it's not actually idle (eg: the DRI_PRIME blit is
+    * still in progress).
+    * Unigine Superposition hits this and this allows to use 2 back buffers
+    * instead of reusing the same one all the time, causing the next frame
+    * to wait for the copy to finish.
+    */
+   int current_back_id = draw->cur_back;
    for (;;) {
       for (b = 0; b < num_to_consider; b++) {
          int id = LOADER_DRI3_BACK_ID((b + draw->cur_back) % draw->cur_num_back);
          struct loader_dri3_buffer *buffer = draw->buffers[id];
 
-         if (!buffer || !buffer->busy) {
+         if (!buffer || (!buffer->busy &&
+                         (!prefer_a_different || id != current_back_id))) {
             draw->cur_back = id;
             mtx_unlock(&draw->mtx);
             return id;
@@ -713,6 +724,8 @@ dri3_find_back(struct loader_dri3_drawable *draw)
 
       if (num_to_consider < max_num) {
          num_to_consider = ++draw->cur_num_back;
+      } else if (prefer_a_different) {
+         prefer_a_different = false;
       } else if (!dri3_wait_for_event_locked(draw, NULL)) {
          mtx_unlock(&draw->mtx);
          return -1;
@@ -1919,7 +1932,7 @@ dri3_get_buffer(__DRIdrawable *driDrawable,
    if (buffer_type == loader_dri3_buffer_back) {
       draw->back_format = format;
 
-      buf_id = dri3_find_back(draw);
+      buf_id = dri3_find_back(draw, draw->is_different_gpu);
 
       if (buf_id < 0)
          return NULL;
@@ -2244,7 +2257,7 @@ dri3_find_back_alloc(struct loader_dri3_drawable *draw)
    struct loader_dri3_buffer *back;
    int id;
 
-   id = dri3_find_back(draw);
+   id = dri3_find_back(draw, false);
    if (id < 0)
       return NULL;
 
