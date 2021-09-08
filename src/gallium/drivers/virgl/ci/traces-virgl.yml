@@ -232,7 +232,7 @@ traces:
   - path: supertuxkart/supertuxkart-mansion-egl-gles.trace
     expectations:
       - device: gl-virgl
-        checksum: 54847eaf8a2f1b6b45cc323be67417d3
+        checksum: 321a81e24c943d51dae8135e2b379739
   - path: xonotic/xonotic-keybench-high.trace
     expectations:
       - device: gl-virgl
