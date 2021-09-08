@@ -128,6 +128,11 @@ _eglNativePlatformDetectNativeDisplay(void *nativeDisplay)
    if (nativeDisplay == EGL_DEFAULT_DISPLAY)
       return _EGL_INVALID_PLATFORM;
 
+#ifdef HAVE_WINDOWS_PLATFORM
+   if (GetObjectType(nativeDisplay) == OBJ_DC)
+      return _EGL_PLATFORM_WINDOWS;
+#endif
+
 #if defined(HAVE_WAYLAND_PLATFORM) || defined(HAVE_DRM_PLATFORM)
    if (_eglPointerIsDereferencable(nativeDisplay)) {
       void *first_pointer = *(void **) nativeDisplay;
