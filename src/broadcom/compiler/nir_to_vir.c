@@ -3913,9 +3913,19 @@ vir_remove_thrsw(struct v3d_compile *c)
         c->last_thrsw = NULL;
 }
 
+/**
+ * Injects the "last thread switch" of the program that signals the sart of the
+ * last thread section and returns a pointer to the previous "last thread
+ * switch", if any, so it can be restored if we don't have todo any spillilng in
+ * the end.
+ */
 static void
-vir_emit_last_thrsw(struct v3d_compile *c)
+vir_emit_last_thrsw(struct v3d_compile *c,
+                    struct qinst **restore_last_thrsw,
+                    bool *restore_scoreboard_lock)
 {
+        *restore_last_thrsw = c->last_thrsw;
+
         /* On V3D before 4.1, we need a TMU op to be outstanding when thread
          * switching, so disable threads if we didn't do any TMU ops (each of
          * which would have emitted a THRSW).
@@ -3924,7 +3934,7 @@ vir_emit_last_thrsw(struct v3d_compile *c)
                 c->threads = 1;
                 if (c->last_thrsw)
                         vir_remove_thrsw(c);
-                return;
+                *restore_last_thrsw = NULL;
         }
 
         /* If we're threaded and the last THRSW was in conditional code, then
@@ -3947,8 +3957,35 @@ vir_emit_last_thrsw(struct v3d_compile *c)
                 vir_emit_thrsw(c);
         }
 
+        /* Always insert a last thrsw here. We don't allow spilling after the
+         * last thread switch, so this will ensure that any spilling happens
+         * before this, making last thread switch signaling a lot easier if we
+         * spill. If we don't spill, we will remove it and restore the previous
+         * last thread switch.
+         */
+        if (*restore_last_thrsw == c->last_thrsw) {
+                if (*restore_last_thrsw)
+                        (*restore_last_thrsw)->is_last_thrsw = false;
+                *restore_scoreboard_lock = c->lock_scoreboard_on_first_thrsw;
+                vir_emit_thrsw(c);
+        } else {
+                *restore_last_thrsw = c->last_thrsw;
+        }
+
+        assert(c->last_thrsw);
+        c->last_thrsw->is_last_thrsw = true;
+}
+
+static void
+vir_restore_last_thrsw(struct v3d_compile *c,
+                       struct qinst *thrsw,
+                       bool scoreboard_lock)
+{
+        vir_remove_instruction(c, c->last_thrsw);
+        c->last_thrsw = thrsw;
         if (c->last_thrsw)
                 c->last_thrsw->is_last_thrsw = true;
+        c->lock_scoreboard_on_first_thrsw = scoreboard_lock;
 }
 
 /* There's a flag in the shader for "center W is needed for reasons other than
@@ -3986,8 +4023,14 @@ v3d_nir_to_vir(struct v3d_compile *c)
 
         nir_to_vir(c);
 
+        bool restore_scoreboard_lock = false;
+        struct qinst *restore_last_thrsw;
+
         /* Emit the last THRSW before STVPM and TLB writes. */
-        vir_emit_last_thrsw(c);
+        vir_emit_last_thrsw(c,
+                            &restore_last_thrsw,
+                            &restore_scoreboard_lock);
+
 
         switch (c->s->info.stage) {
         case MESA_SHADER_FRAGMENT:
@@ -4085,6 +4128,12 @@ v3d_nir_to_vir(struct v3d_compile *c)
                 if (c->threads == 1)
                         vir_remove_thrsw(c);
         }
+
+        /* If we didn't spill, then remove the forced last thrsw (if any) and
+         * restore the actual one.
+         */
+        if (!c->spills && c->last_thrsw != restore_last_thrsw)
+                vir_restore_last_thrsw(c, restore_last_thrsw, restore_scoreboard_lock);
 
         if (c->spills &&
             (V3D_DEBUG & (V3D_DEBUG_VIR |
