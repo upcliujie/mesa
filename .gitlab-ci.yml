@@ -306,7 +306,7 @@ debian/x86_build:
   extends:
     - .use-debian/x86_build-base
   variables:
-    MESA_IMAGE_TAG: &debian-x86_build "2021-07-02-bump-libdrm"
+    MESA_IMAGE_TAG: &debian-x86_build "2021-09-08-keep-gbm"
 
 .use-debian/x86_build:
   extends:
