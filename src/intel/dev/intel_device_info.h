@@ -165,6 +165,7 @@ struct intel_device_info
     */
    uint8_t subslice_masks[INTEL_DEVICE_MAX_SLICES *
                           DIV_ROUND_UP(INTEL_DEVICE_MAX_SUBSLICES, 8)];
+   unsigned subslice_total;
 
    /**
     * An array of bit mask of EUs available, use eu_slice_stride &
@@ -330,17 +331,6 @@ intel_device_info_eu_available(const struct intel_device_info *devinfo,
       subslice * devinfo->eu_subslice_stride;
 
    return (devinfo->eu_masks[subslice_offset + eu / 8] & (1U << eu % 8)) != 0;
-}
-
-static inline uint32_t
-intel_device_info_subslice_total(const struct intel_device_info *devinfo)
-{
-   uint32_t total = 0;
-
-   for (uint32_t i = 0; i < devinfo->num_slices; i++)
-      total += __builtin_popcount(devinfo->subslice_masks[i]);
-
-   return total;
 }
 
 static inline uint32_t
