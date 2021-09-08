@@ -4266,6 +4266,14 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       ac_build_export_prim(&ctx->ac, &prim);
       break;
    }
+   case nir_intrinsic_gds_atomic_add_amd: {
+      LLVMValueRef store_val = get_src(ctx, instr->src[0]);
+      LLVMValueRef offset = get_src(ctx, instr->src[2]);
+      LLVMTypeRef gds_ptr = LLVMPointerType(ctx->ac.i32, AC_ADDR_SPACE_GDS);
+      LLVMValueRef ptr = LLVMBuildIntToPtr(ctx->ac.builder, offset, gds_ptr, "");
+      ac_build_atomic_rmw(&ctx->ac, LLVMAtomicRMWBinOpAdd, ptr, store_val, "workgroup-one-as");
+      break;
+   }
    case nir_intrinsic_export_vertex_amd:
       ctx->abi->export_vertex(ctx->abi);
       break;
