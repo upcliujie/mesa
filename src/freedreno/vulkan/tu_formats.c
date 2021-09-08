@@ -253,12 +253,15 @@ tu_physical_device_get_format_properties(
       optimal |= VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
    if (vk_format == VK_FORMAT_G8B8G8R8_422_UNORM ||
+       vk_format == VK_FORMAT_B8G8R8G8_422_UNORM) {
+      /* no tiling for special UBWC formats */
+      optimal = 0;
+   }
+
+   if (vk_format == VK_FORMAT_G8B8G8R8_422_UNORM ||
        vk_format == VK_FORMAT_B8G8R8G8_422_UNORM ||
        vk_format == VK_FORMAT_G8_B8R8_2PLANE_420_UNORM ||
        vk_format == VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM) {
-      /* no tiling for special UBWC formats */
-      optimal = 0;
-
       /* Disable buffer texturing of subsampled (422) and planar YUV textures.
        * The subsampling requirement comes from "If format is a block-compressed
        * format, then bufferFeatures must not support any features for the
