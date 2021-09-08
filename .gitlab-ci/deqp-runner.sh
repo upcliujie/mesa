@@ -2,6 +2,9 @@
 
 set -ex
 
+# Needed so configuration files can contain paths to files in /install
+ln -sf $CI_PROJECT_DIR/install /install
+
 DEQP_WIDTH=${DEQP_WIDTH:-256}
 DEQP_HEIGHT=${DEQP_HEIGHT:-256}
 DEQP_CONFIG=${DEQP_CONFIG:-rgba8888d24s8ms0}
