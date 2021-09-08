@@ -10,19 +10,15 @@
 
 virgl-on-gl:
   variables:
-    DEQP_VER: gles2 # For renderer check
     DEQP_SUITE: virgl-gl
     GPU_VERSION: virgl-gl
-    # Speed rendering a bit, as crosvm is processing requests serially
-    LP_NUM_THREADS: 8
-    DEQP_PARALLEL: 3
-    DEQP_EXPECTED_RENDERER: virgl
-    CROSVM_TEST_SCRIPT: "/install/deqp-runner.sh"
-  parallel: 6
+    DEQP_EXPECTED_RENDERER: llvmpipe  # For renderer check, remove once it moves into deqp-runner
+    DEQP_VER: gles2 # For renderer check, remove once it moves into deqp-runner
+    LIBGL_ALWAYS_SOFTWARE: "true" # For renderer check, remove once it moves into deqp-runner
+    GALLIUM_DRIVER: "llvmpipe" # For renderer check, remove once it moves into deqp-runner
+  parallel: 3
   tags:
     - kvm
-  script:
-    - install/crosvm-runner.sh
   extends:
     - .deqp-test
     - .virgl-test
@@ -35,7 +31,6 @@ virgl-on-gles:
     CROSVM_GPU_ARGS: "gles=true,backend=virglrenderer,egl=true,surfaceless=true"
   extends:
     - virgl-on-gl
-    - .test-manual
 
 virgl-traces:
   extends:
@@ -46,9 +41,9 @@ virgl-traces:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "${CI_PROJECT_DIR}/install/traces-virgl.yml"
     PIGLIT_REPLAY_DEVICE_NAME: "gl-virgl"
     PIGLIT_RESULTS: "virgl-replay"
-    CROSVM_TEST_SCRIPT: "/install/piglit/run.sh"
+    LD_LIBRARY_PATH: "${CI_PROJECT_DIR}/install/lib/"     # For Crosvm
   tags:
     - kvm
   script:
-    - install/crosvm-runner.sh
+    - install/crosvm-runner.sh install/piglit/run.sh
 
