@@ -4170,6 +4170,11 @@ static void visit_intrinsic(struct ac_nir_context *ctx, nir_intrinsic_instr *ins
       ac_build_atomic_rmw(&ctx->ac, LLVMAtomicRMWBinOpAdd, ptr, store_val, "workgroup-one-as");
       break;
    }
+   case nir_intrinsic_load_shader_query_enabled_amd: {
+      /* TODO */
+      result = ctx->ac.i1false;
+      break;
+   }
    case nir_intrinsic_export_vertex_amd:
       ctx->abi->export_vertex(ctx->abi);
       break;
