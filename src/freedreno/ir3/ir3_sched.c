@@ -703,7 +703,9 @@ choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
        * highest latency-to-end-of-program instruction.
        */
       if (!chosen || rank > chosen_rank ||
-          (rank == chosen_rank && chosen->max_delay < n->max_delay)) {
+          (rank == chosen_rank && chosen->max_delay < n->max_delay) ||
+          (rank == chosen_rank && chosen->max_delay == n->max_delay &&
+           ir3_instr_rank(n->instr) > ir3_instr_rank(chosen->instr))) {
          chosen = n;
          chosen_rank = rank;
       }
@@ -780,7 +782,9 @@ choose_instr_inc(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
       unsigned distance = nearest_use(n->instr);
 
       if (!chosen || rank > chosen_rank ||
-          (rank == chosen_rank && distance < chosen_distance)) {
+          (rank == chosen_rank && distance < chosen_distance) ||
+          (rank == chosen_rank && distance == chosen_distance &&
+           ir3_instr_rank(n->instr) > ir3_instr_rank(chosen->instr))) {
          chosen = n;
          chosen_distance = distance;
          chosen_rank = rank;

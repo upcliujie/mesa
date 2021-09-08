@@ -1482,6 +1482,21 @@ ir3_try_swap_signedness(opc_t opc, bool *can_swap)
    }
 }
 
+static inline unsigned
+ir3_instr_rank(struct ir3_instruction *instr)
+{
+   switch (instr->opc) {
+   /* Prefer varying fetch instructions, when everything else is equal,
+    * as they have the secondary benefit of releasing varying storage:
+    */
+   case OPC_BARY_F:
+   case OPC_LDLV:
+      return 1;
+   default:
+      return 0;
+   }
+}
+
 #define MASK(n) ((1 << (n)) - 1)
 
 /* iterator for an instructions's sources (reg), also returns src #: */

@@ -175,6 +175,29 @@ would_sync(struct ir3_postsched_ctx *ctx, struct ir3_instruction *instr)
    return false;
 }
 
+/* Do we prefer node candidate node 'n' over the already 'chosen' node?
+ */
+static bool
+node_preferred(struct ir3_postsched_node *chosen, struct ir3_postsched_node *n)
+{
+   /* If we don't already have a chosen node, we prefer the candidate node: */
+   if (!chosen)
+      return true;
+
+   /* If the candidate node has a greater delay, we prefer it: */
+   if (chosen->max_delay < n->max_delay)
+      return true;
+
+   /* In case of a tie, is the candidate something we'd prefer to schedule
+    * earlier?
+    */
+   if ((chosen->max_delay == n->max_delay) &&
+       (ir3_instr_rank(n->instr) > ir3_instr_rank(chosen->instr)))
+      return true;
+
+   return false;
+}
+
 /* find instruction to schedule: */
 static struct ir3_instruction *
 choose_instr(struct ir3_postsched_ctx *ctx)
@@ -187,7 +210,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
       if (!is_meta(n->instr))
          continue;
 
-      if (!chosen || (chosen->max_delay < n->max_delay))
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
@@ -204,7 +227,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
       if (!is_input(n->instr))
          continue;
 
-      if (!chosen || (chosen->max_delay < n->max_delay))
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
@@ -224,7 +247,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
       if (!is_kill_or_demote(n->instr))
          continue;
 
-      if (!chosen || (chosen->max_delay < n->max_delay))
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
@@ -244,7 +267,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
       if (!(is_sfu(n->instr) || is_tex(n->instr)))
          continue;
 
-      if (!chosen || (chosen->max_delay < n->max_delay))
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
@@ -272,7 +295,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
          if (d > delay)
             continue;
 
-         if (!chosen || (chosen->max_delay < n->max_delay))
+         if (node_preferred(chosen, n))
             chosen = n;
       }
 
@@ -294,7 +317,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
       if (d > 0)
          continue;
 
-      if (!chosen || (chosen->max_delay < n->max_delay))
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
@@ -314,7 +337,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
       if (d > 0)
          continue;
 
-      if (!chosen || (chosen->max_delay < n->max_delay))
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
@@ -329,7 +352,7 @@ choose_instr(struct ir3_postsched_ctx *ctx)
     * a balance between now-nop's and future-nop's?
     */
    foreach_sched_node (n, &ctx->dag->heads) {
-      if (!chosen || chosen->max_delay < n->max_delay)
+      if (node_preferred(chosen, n))
          chosen = n;
    }
 
