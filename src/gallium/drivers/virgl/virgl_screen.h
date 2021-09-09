@@ -35,6 +35,7 @@ enum virgl_debug_flags {
    VIRGL_DEBUG_NO_BGRA_DEST_SWIZZLE = 1 << 3,
    VIRGL_DEBUG_SYNC                 = 1 << 4,
    VIRGL_DEBUG_XFER                 = 1 << 5,
+   VIRGL_DEBUG_NIR                  = 1 << 6,
 };
 
 extern int virgl_debug;
