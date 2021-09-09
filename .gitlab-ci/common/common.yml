@@ -8,7 +8,7 @@ variables:
    DEBIAN_X86_TEST_BASE_IMAGE: "debian/x86_test-base"
 
    DEBIAN_X86_TEST_IMAGE: "debian/x86_test-base"
-   DEBIAN_X86_TEST_GL_TAG: "2021-08-04-latest-virglrenderer"
+   DEBIAN_X86_TEST_GL_TAG: "2021-09-09-keep-wget"
    DEBIAN_X86_TEST_VK_TAG: "2021-07-30-piglit-2"
 
 
