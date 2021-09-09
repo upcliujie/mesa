@@ -907,24 +907,6 @@ void si_resource_copy_region(struct pipe_context *ctx, struct pipe_resource *dst
        !(dst->target != src->target &&
          (src->target == PIPE_TEXTURE_1D_ARRAY || dst->target == PIPE_TEXTURE_1D_ARRAY))) {
 
-      /* Use SDMA when copying to a DRI_PRIME imported linear surface. */
-      if (sdst->surface.flags & RADEON_SURF_IMPORTED &&
-          sdst->surface.is_linear &&
-          sctx->chip_class >= GFX7) {
-         bool try_sdma = dstx == 0 && dsty == 0 && dstz == 0 && dst_level == 0 &&
-                         src_box->x == 0 && src_box->y == 0 && src_box->z == 0 && src_level == 0 &&
-                         src_box->width == dst->width0 && src_box->height == dst->height0 && src_box->depth == 1;
-         if (try_sdma) {
-            if (vi_dcc_enabled(ssrc, 0) && sctx->chip_class < GFX10)
-               si_decompress_dcc(sctx, ssrc);
-
-            /* Always flush the gfx queue to get the winsys to handle the dependencies for us. */
-            si_flush_gfx_cs(sctx, 0, NULL);
-
-            if (si_sdma_copy_image(sctx, sdst, ssrc))
-               return;
-         }
-      }
       /* Fallback: copy using compute */
       si_compute_copy_image(sctx,
                             dst, dst_level, src, src_level, dstx, dsty, dstz,
@@ -1224,6 +1206,7 @@ resolve_to_temp:
 static void si_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
 {
    struct si_context *sctx = (struct si_context *)ctx;
+   struct si_texture *sdst = (struct si_texture *)info->dst.resource;
 
    if (do_hardware_msaa_resolve(ctx, info)) {
       return;
@@ -1231,6 +1214,29 @@ static void si_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
 
    if (unlikely(sctx->thread_trace_enabled))
       sctx->sqtt_next_event = EventCmdCopyImage;
+
+   if (info->is_dri_blit_image && sdst->surface.is_linear &&
+       sctx->chip_class >= GFX7 && sdst->surface.flags & RADEON_SURF_IMPORTED) {
+      /* Use SDMA when copying to a DRI_PRIME imported linear surface. */
+      bool try_sdma = info->dst.box.x == 0 && info->dst.box.y == 0 && info->dst.box.z == 0 &&
+                      info->dst.level == 0 && info->src.level == 0 &&
+                      info->src.box.x == 0 && info->src.box.y == 0 && info->src.box.z == 0 &&
+                      info->src.box.width == info->dst.resource->width0 &&
+                      info->src.box.height == info->dst.resource->height0 &&
+                      info->src.box.depth == 1;
+      if (try_sdma) {
+         struct si_texture *ssrc = (struct si_texture *)info->src.resource;
+
+         if (vi_dcc_enabled(ssrc, 0) && sctx->chip_class < GFX10)
+            si_decompress_dcc(sctx, ssrc);
+
+         /* Always flush the gfx queue to get the winsys to handle the dependencies for us. */
+         si_flush_gfx_cs(sctx, 0, NULL);
+
+         if (si_sdma_copy_image(sctx, sdst, ssrc))
+            return;
+      }
+   }
 
    /* Using compute for copying to a linear texture in GTT is much faster than
     * going through RBs (render backends). This improves DRI PRIME performance.
