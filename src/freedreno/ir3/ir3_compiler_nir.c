@@ -3805,6 +3805,16 @@ emit_instructions(struct ir3_context *ctx)
    nir_foreach_register (reg, &fxn->registers) {
       ir3_declare_array(ctx, reg);
    }
+
+   if (ctx->so->type == MESA_SHADER_TESS_CTRL &&
+       ctx->compiler->tess_use_shared) {
+      struct ir3_instruction *barrier = ir3_BAR(ctx->block);
+      barrier->cat7.g = true;
+      barrier->flags = IR3_INSTR_SS | IR3_INSTR_SY;
+      barrier->barrier_class = IR3_BARRIER_EVERYTHING;
+      array_insert(ctx->block, ctx->block->keeps, barrier);
+   }
+
    /* And emit the body: */
    ctx->impl = fxn;
    emit_function(ctx, fxn);
