@@ -585,6 +585,13 @@ should_avoid(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
    return false;
 }
 
+enum deferred {
+   DEFER_NONE = 0x0,
+   DEFER_SY   = 0x1,
+   DEFER_SS   = 0x2,
+   DEFER_ALL  = DEFER_SY | DEFER_SS,
+};
+
 /* Determine if this is an instruction that we'd prefer not to schedule
  * yet, in order to avoid an (ss)/(sy) sync.  This is limited by the
  * sfu_delay/tex_delay counters, ie. the more cycles it has been since
@@ -592,9 +599,13 @@ should_avoid(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
  * outstanding SFU/tex instructions to prevent a blowup in register pressure.
  */
 static bool
-should_defer(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
+should_defer(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr,
+             enum deferred deferred)
 {
-   if (ctx->sfu_delay) {
+   if (!deferred)
+      return false;
+
+   if ((deferred & DEFER_SS) & ctx->sfu_delay) {
       if (sched_check_src_cond(instr, is_outstanding_sfu, ctx))
          return true;
    }
@@ -604,12 +615,24 @@ should_defer(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
     * limit this rule to cases where there are remaining texture
     * fetches
     */
-   if (ctx->tex_delay && ctx->remaining_tex) {
+   if ((deferred & DEFER_SY) && ctx->tex_delay && ctx->remaining_tex) {
       if (sched_check_src_cond(instr, is_outstanding_tex_or_prefetch, ctx))
          return true;
    }
 
    return should_avoid(ctx, instr);
+}
+
+static const char *
+defer_mode(enum deferred deferred)
+{
+   switch (deferred) {
+   case DEFER_NONE: return "";
+   case DEFER_SY:   return "-d-sy";
+   case DEFER_SS:   return "-d-ss";
+   case DEFER_ALL:  return "-d";
+   }
+   return NULL;
 }
 
 enum choose_instr_dec_rank {
@@ -648,14 +671,14 @@ dec_rank_name(enum choose_instr_dec_rank rank)
  */
 static struct ir3_sched_node *
 choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
-                 bool defer)
+                 enum deferred deferred)
 {
-   const char *mode = defer ? "-d" : "";
+   const char *mode = defer_mode(deferred);
    struct ir3_sched_node *chosen = NULL;
    enum choose_instr_dec_rank chosen_rank = DEC_NEUTRAL;
 
    foreach_sched_node (n, &ctx->dag->heads) {
-      if (defer && should_defer(ctx, n->instr))
+      if (should_defer(ctx, n->instr, deferred))
          continue;
 
       /* Note: mergedregs is only used post-RA, just set it to false */
@@ -744,9 +767,9 @@ inc_rank_name(enum choose_instr_inc_rank rank)
  */
 static struct ir3_sched_node *
 choose_instr_inc(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
-                 bool defer, bool avoid_output)
+                 enum deferred deferred, bool avoid_output)
 {
-   const char *mode = defer ? "-d" : "";
+   const char *mode = defer_mode(deferred);
    struct ir3_sched_node *chosen = NULL;
    enum choose_instr_inc_rank chosen_rank = INC_DISTANCE;
 
@@ -762,7 +785,7 @@ choose_instr_inc(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
       if (avoid_output && n->output)
          continue;
 
-      if (defer && should_defer(ctx, n->instr))
+      if (should_defer(ctx, n->instr, deferred))
          continue;
 
       if (!check_instr(ctx, notes, n->instr))
@@ -862,23 +885,27 @@ choose_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes)
    if (chosen)
       return chosen->instr;
 
-   chosen = choose_instr_dec(ctx, notes, true);
+   chosen = choose_instr_dec(ctx, notes, DEFER_ALL);
    if (chosen)
       return chosen->instr;
 
-   chosen = choose_instr_dec(ctx, notes, false);
+   chosen = choose_instr_dec(ctx, notes, DEFER_SS);
    if (chosen)
       return chosen->instr;
 
-   chosen = choose_instr_inc(ctx, notes, true, true);
+   chosen = choose_instr_inc(ctx, notes, DEFER_ALL, true);
    if (chosen)
       return chosen->instr;
 
-   chosen = choose_instr_inc(ctx, notes, false, true);
+   chosen = choose_instr_dec(ctx, notes, DEFER_NONE);
    if (chosen)
       return chosen->instr;
 
-   chosen = choose_instr_inc(ctx, notes, false, false);
+   chosen = choose_instr_inc(ctx, notes, DEFER_NONE, true);
+   if (chosen)
+      return chosen->instr;
+
+   chosen = choose_instr_inc(ctx, notes, DEFER_NONE, false);
    if (chosen)
       return chosen->instr;
 
