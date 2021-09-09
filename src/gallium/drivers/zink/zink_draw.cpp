@@ -434,6 +434,20 @@ zink_draw_vbo(struct pipe_context *pctx,
    unsigned work_count = ctx->batch.work_count;
    enum pipe_prim_type mode = (enum pipe_prim_type)dinfo->mode;
 
+   if (unlikely(!screen->info.have_EXT_conditional_rendering)) {
+      struct zink_batch_state *bs = batch->state;
+      if (!zink_check_conditional_render(ctx))
+         return;
+      if (bs != batch->state) {
+         bool prev = ctx->render_condition_active;
+         ctx->render_condition_active = false;
+         zink_select_draw_vbo(ctx);
+         pctx->draw_vbo(pctx, dinfo, drawid_offset, dindirect, draws, num_draws);
+         ctx->render_condition_active = prev;
+         return;
+      }
+   }
+
    zink_flush_memory_barrier(ctx, false);
    update_barriers(ctx, false);
 
