@@ -2423,12 +2423,6 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
 
    ctx.max_workgroup_size = args->shader_info->workgroup_size;
 
-   if (ctx.ac.chip_class >= GFX10) {
-      if (is_pre_gs_stage(shaders[0]->info.stage) && args->options->key.vs_common_out.as_ngg) {
-         ctx.max_workgroup_size = 128;
-      }
-   }
-
    create_function(&ctx, shaders[shader_count - 1]->info.stage, shader_count >= 2);
 
    ctx.abi.emit_outputs = handle_shader_outputs_post;
