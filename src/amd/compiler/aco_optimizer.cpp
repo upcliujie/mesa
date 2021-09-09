@@ -2937,9 +2937,12 @@ combine_and_subbrev(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 }
 
 /* v_add_co(c, s_lshl(a, b)) -> v_mad_u32_u24(a, 1<<b, c)
- * v_add_co(c, v_lshlrev(a, b)) -> v_mad_u32_u24(b, 1<<a, c) */
+ * v_add_co(c, v_lshlrev(a, b)) -> v_mad_u32_u24(b, 1<<a, c)
+ * v_sub(c, s_lshl(a, b)) -> v_mad_i32_i24(b, -1<<a, c)
+ * v_sub(c, v_lshlrev(a, b)) -> v_mad_i32_i24(b, -1<<a, c)
+ */
 bool
-combine_add_lshl(opt_ctx& ctx, aco_ptr<Instruction>& instr)
+combine_add_lshl(opt_ctx& ctx, aco_ptr<Instruction>& instr, bool is_sub)
 {
    if (instr->usesModifiers())
       return false;
@@ -2964,11 +2967,14 @@ combine_add_lshl(opt_ctx& ctx, aco_ptr<Instruction>& instr)
           (op_instr->operands[!shift_op_idx].is24bit() ||
            op_instr->operands[!shift_op_idx].is16bit())) {
          uint32_t multiplier = 1 << op_instr->operands[shift_op_idx].constantValue();
+         if (is_sub)
+            multiplier = (uint32_t)(-((int32_t)multiplier));
 
          ctx.uses[instr->operands[i].tempId()]--;
 
+         aco_opcode mad_op = is_sub ? aco_opcode::v_mad_i32_i24 : aco_opcode::v_mad_u32_u24;
          aco_ptr<VOP3_instruction> new_instr{
-            create_instruction<VOP3_instruction>(aco_opcode::v_mad_u32_u24, Format::VOP3, 3, 1)};
+            create_instruction<VOP3_instruction>(mad_op, Format::VOP3, 3, 1)};
          new_instr->operands[0] = op_instr->operands[!shift_op_idx];
          new_instr->operands[1] = Operand::c32(multiplier);
          new_instr->operands[2] = instr->operands[!i];
@@ -3432,11 +3438,15 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       } else if (!carry_out && combine_add_bcnt(ctx, instr)) {
       } else if (!carry_out && combine_three_valu_op(ctx, instr, aco_opcode::v_mul_u32_u24,
                                                      aco_opcode::v_mad_u32_u24, "120", 1 | 2)) {
-      } else if (!carry_out && combine_add_lshl(ctx, instr)) {
+      } else if (!carry_out && combine_add_lshl(ctx, instr, false)) {
       }
    } else if (instr->opcode == aco_opcode::v_sub_u32 || instr->opcode == aco_opcode::v_sub_co_u32 ||
               instr->opcode == aco_opcode::v_sub_co_u32_e64) {
-      combine_add_sub_b2i(ctx, instr, aco_opcode::v_subbrev_co_u32, 2);
+      bool carry_out = instr->opcode != aco_opcode::v_sub_u32 &&
+                       ctx.uses[instr->definitions[1].tempId()] > 0;
+      if (combine_add_sub_b2i(ctx, instr, aco_opcode::v_subbrev_co_u32, 2)) {
+      } else if (!carry_out && combine_add_lshl(ctx, instr, true)) {
+      }
    } else if (instr->opcode == aco_opcode::v_subrev_u32 ||
               instr->opcode == aco_opcode::v_subrev_co_u32 ||
               instr->opcode == aco_opcode::v_subrev_co_u32_e64) {
