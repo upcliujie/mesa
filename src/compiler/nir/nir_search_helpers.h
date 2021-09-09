@@ -457,6 +457,17 @@ is_finite(UNUSED struct hash_table *ht, const nir_alu_instr *instr,
    return v.is_finite;
 }
 
+static inline bool
+is_finite_not_zero(UNUSED struct hash_table *ht, const nir_alu_instr *instr,
+                   unsigned src, UNUSED unsigned num_components,
+                   UNUSED const uint8_t *swizzle)
+{
+   const struct ssa_result_range v = nir_analyze_range(ht, instr, src);
+
+   return v.is_finite &&
+          (v.range == lt_zero || v.range == gt_zero || v.range == ne_zero);
+}
+
 
 #define RELATION(r)                                                     \
 static inline bool                                                      \

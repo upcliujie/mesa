@@ -176,6 +176,11 @@ optimizations = [
    # If a != a: fsign(a)*a*a => 0*NaN*NaN => abs(NaN)*NaN
    (('fmul', ('fsign', a), ('fmul', a, a)), ('fmul', ('fabs', a), a)),
    (('fmul', ('fmul', ('fsign', a), a), a), ('fmul', ('fabs', a), a)),
+
+   (('fmulz', a, 0.0), 0.0),
+   (('fmulz', a, 'b(is_finite_not_zero)'), ('fmul', a, b)),
+   (('fmulz', 'a(is_finite)', 'b(is_finite)'), ('fmul', a, b)),
+
    (('~ffma', 0.0, a, b), b),
    (('ffma@16(is_only_used_as_float)', 0.0, a, b), b, '!'+signed_zero_inf_nan_preserve_16),
    (('ffma@32(is_only_used_as_float)', 0.0, a, b), b, '!'+signed_zero_inf_nan_preserve_32),

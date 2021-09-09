@@ -675,6 +675,13 @@ binop("imul", tint, _2src_commutative + associative, """
    dst = (uint64_t)src0 * (uint64_t)src1;
 """)
 
+binop("fmulz", tfloat, _2src_commutative + associative, """
+if (src0 == 0.0 || src1 == 0.0)
+   dst = 0.0;
+else
+   dst = src0 * src1;
+""")
+
 # Generate 64 bit result from 2 32 bits quantity
 binop_convert("imul_2x32_64", tint64, tint32, _2src_commutative,
               "(int64_t)src0 * (int64_t)src1")
