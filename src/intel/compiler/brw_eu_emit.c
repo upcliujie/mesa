@@ -3272,9 +3272,15 @@ gfx12_set_memory_fence_message(struct brw_codegen *p,
       enum lsc_fence_scope scope = lsc_fence_msg_desc_scope(p->devinfo, desc);
       enum lsc_flush_type flush_type = lsc_fence_msg_desc_flush_type(p->devinfo, desc);
 
-      if (sfid == GFX12_SFID_TGM) {
-         scope = LSC_FENCE_TILE;
-         flush_type = LSC_FLUSH_TYPE_EVICT;
+      /* Wa_14014435656
+       *
+       * For any fence greater than local scope, always set flush type to at
+       * least invalidate so that fence goes on properly.
+       */
+      if (intel_device_info_is_dg2(p->devinfo) &&
+          scope > LSC_FENCE_LOCAL &&
+          flush_type < LSC_FLUSH_TYPE_INVALIDATE) {
+         flush_type = LSC_FLUSH_TYPE_INVALIDATE;
       }
 
       brw_set_desc(p, insn, lsc_fence_msg_desc(p->devinfo, scope,
