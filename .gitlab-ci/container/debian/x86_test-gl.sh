@@ -46,7 +46,6 @@ STABLE_EPHEMERAL=" \
       pkg-config \
       python3-distutils \
       wayland-protocols \
-      wget \
       xz-utils \
       "
 
@@ -67,7 +66,8 @@ apt-get install -y --no-remove \
       python3-renderdoc \
       python3-simplejson \
       spirv-tools \
-      sysvinit-core
+      sysvinit-core \
+      wget
 
 
 . .gitlab-ci/container/container_pre_build.sh
