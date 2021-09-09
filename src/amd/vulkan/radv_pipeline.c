@@ -3511,8 +3511,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
 
          /* Lower I/O intrinsics to memory instructions. */
          bool io_to_mem = radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key);
-         bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage &&
-                            !radv_use_llvm_for_stage(device, i);
+         bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage;
          if (lowered_ngg) {
             uint64_t ps_inputs_read = nir[MESA_SHADER_FRAGMENT] ? nir[MESA_SHADER_FRAGMENT]->info.inputs_read : 0;
             bool consider_culling = radv_consider_culling(device, nir[i], ps_inputs_read);
