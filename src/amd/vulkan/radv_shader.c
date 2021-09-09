@@ -621,8 +621,8 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
    if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       unsigned nir_gs_flags = nir_lower_gs_intrinsics_per_stream;
 
-      if (device->physical_device->use_ngg && !radv_use_llvm_for_stage(device, stage)) {
-         /* ACO needs NIR to do some of the hard lifting */
+      if (device->physical_device->use_ngg) {
+         /* Needed by ac_nir_lower_ngg. */
          nir_gs_flags |= nir_lower_gs_intrinsics_count_primitives |
                          nir_lower_gs_intrinsics_count_vertices_per_primitive |
                          nir_lower_gs_intrinsics_overwrite_incomplete;
