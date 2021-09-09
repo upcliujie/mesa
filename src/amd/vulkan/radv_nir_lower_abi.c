@@ -269,9 +269,6 @@ radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
                const struct radv_pipeline_key *pl_key,
                struct radv_shader_args *args)
 {
-   /* TODO: support the LLVM backend with the NIR lowering */
-   assert(!radv_use_llvm_for_stage(device, nir->info.stage));
-
    assert(nir->info.stage == MESA_SHADER_VERTEX ||
           nir->info.stage == MESA_SHADER_TESS_EVAL ||
           nir->info.stage == MESA_SHADER_GEOMETRY);
