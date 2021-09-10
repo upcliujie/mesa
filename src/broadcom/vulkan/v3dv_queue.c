@@ -39,7 +39,8 @@ v3dv_clif_dump(struct v3dv_device *device,
 
    struct clif_dump *clif = clif_dump_init(&device->devinfo,
                                            stderr,
-                                           V3D_DEBUG & V3D_DEBUG_CL);
+                                           V3D_DEBUG & V3D_DEBUG_CL,
+                                           V3D_DEBUG & V3D_DEBUG_CL_NO_BINARIES);
 
    set_foreach(job->bos, entry) {
       struct v3dv_bo *bo = (void *)entry->key;

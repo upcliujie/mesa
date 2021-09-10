@@ -86,6 +86,8 @@ static const struct debug_named_value debug_control[] = {
           "Force 16-bit precision on all TMU operations" },
         { "noloopunroll",  V3D_DEBUG_NO_LOOP_UNROLL,
           "Disable loop unrolling" },
+        { "cl_nobinaries",  V3D_DEBUG_CL_NO_BINARIES,
+          "Don't dump binaries on command list dump" },
         { NULL }
 };
 
