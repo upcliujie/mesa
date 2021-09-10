@@ -1386,6 +1386,64 @@ tu_create_copy_timestamp_cs(struct tu_cmd_buffer *cmdbuf, struct tu_cs** cs,
    return VK_SUCCESS;
 }
 
+VkResult
+tu_u_trace_cmd_data_create(struct tu_device *device,
+                           const VkCommandBuffer *cmd_buffers,
+                           uint32_t cmd_buffer_count,
+                           struct tu_u_trace_cmd_data **data)
+{
+   struct tu_u_trace_cmd_data *cmd_buffer_trace_data =
+      vk_zalloc(&device->vk.alloc,
+                cmd_buffer_count * sizeof(struct tu_u_trace_cmd_data), 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
+   if (!cmd_buffer_trace_data) {
+      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   bool has_points = false;
+
+   for (uint32_t i = 0; i < cmd_buffer_count; ++i) {
+      TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, cmd_buffers[i]);
+
+      if (!u_trace_has_points(&cmdbuf->trace))
+         continue;
+
+      has_points = true;
+
+      if (!(cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)) {
+         /* A single command buffer could be submitted several times, but we
+          * already baked timestamp iova addresses and trace points are
+          * single-use. Therefor we have to copy trace points and create
+          * a new timestamp buffer on every submit of reusable command buffer.
+          */
+         if (tu_create_copy_timestamp_cs(cmdbuf,
+               &cmd_buffer_trace_data[i].timestamp_copy_cs,
+               &cmd_buffer_trace_data[i].trace) != VK_SUCCESS) {
+            goto fail_create_copy_cs;
+         }
+
+         assert(cmd_buffer_trace_data[i].timestamp_copy_cs->entry_count == 1);
+      } else {
+         cmd_buffer_trace_data[i].trace = &cmdbuf->trace;
+      }
+   }
+
+   if (!has_points) {
+      vk_free(&device->vk.alloc, cmd_buffer_trace_data);
+      *data = NULL;
+   } else {
+      *data = cmd_buffer_trace_data;
+   }
+
+   return VK_SUCCESS;
+
+fail_create_copy_cs:
+   tu_u_trace_cmd_data_finish(device, cmd_buffer_trace_data, cmd_buffer_count);
+
+   return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+}
+
 void
 tu_u_trace_cmd_data_finish(struct tu_device *device,
                            struct tu_u_trace_cmd_data *trace_data,

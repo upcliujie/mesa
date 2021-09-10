@@ -1748,6 +1748,12 @@ struct tu_u_trace_cmd_data
    struct u_trace *trace;
 };
 
+VkResult
+tu_u_trace_cmd_data_create(struct tu_device *device,
+                           const VkCommandBuffer *cmd_buffers,
+                           uint32_t cmd_buffer_count,
+                           struct tu_u_trace_cmd_data **data);
+
 void
 tu_u_trace_cmd_data_finish(struct tu_device *device,
                            struct tu_u_trace_cmd_data *trace_data,

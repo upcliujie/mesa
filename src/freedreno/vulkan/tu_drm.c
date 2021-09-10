@@ -971,35 +971,13 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
    }
 
    if (has_trace_points) {
-      new_submit->cmd_buffer_trace_data = vk_zalloc(&queue->device->vk.alloc,
-            new_submit->cmd_buffer_count * sizeof(struct tu_u_trace_cmd_data), 8,
-            VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      result =
+         tu_u_trace_cmd_data_create(queue->device, new_submit->cmd_buffers,
+                                    new_submit->cmd_buffer_count,
+                                    &new_submit->cmd_buffer_trace_data);
 
-      if (new_submit->cmd_buffer_trace_data == NULL) {
-         result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      if (result != VK_SUCCESS) {
          goto fail_cmd_trace_data;
-      }
-
-      for (uint32_t i = 0; i < new_submit->cmd_buffer_count; ++i) {
-         TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, new_submit->cmd_buffers[i]);
-
-         if (!(cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT) &&
-             u_trace_has_points(&cmdbuf->trace)) {
-            /* A single command buffer could be submitted several times, but we
-             * already backed timestamp iova addresses and trace points are
-             * single-use. Therefor we have to copy trace points and create
-             * a new timestamp buffer on every submit of reusable command buffer.
-             */
-            if (tu_create_copy_timestamp_cs(cmdbuf,
-                  &new_submit->cmd_buffer_trace_data[i].timestamp_copy_cs,
-                  &new_submit->cmd_buffer_trace_data[i].trace) != VK_SUCCESS) {
-               result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
-               goto fail_copy_timestamp_cs;
-            }
-            assert(new_submit->cmd_buffer_trace_data[i].timestamp_copy_cs->entry_count == 1);
-         } else {
-            new_submit->cmd_buffer_trace_data[i].trace = &cmdbuf->trace;
-         }
       }
    }
 
@@ -1041,8 +1019,6 @@ fail_in_syncobjs:
    if (new_submit->cmd_buffer_trace_data)
       tu_u_trace_cmd_data_finish(queue->device, new_submit->cmd_buffer_trace_data,
                                  new_submit->cmd_buffer_count);
-fail_copy_timestamp_cs:
-   vk_free(&queue->device->vk.alloc, new_submit->cmd_buffer_trace_data);
 fail_cmd_trace_data:
    vk_free(&queue->device->vk.alloc, new_submit->cmds);
 fail_cmds:
