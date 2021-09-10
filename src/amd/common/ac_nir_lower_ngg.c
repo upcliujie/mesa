@@ -1195,9 +1195,13 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       unreachable("Should be VS or TES.");
 }
 
-static bool
-can_use_deferred_attribute_culling(nir_shader *shader)
+bool
+ac_nir_can_use_ngg_culling(nir_shader *shader, unsigned num_vertices_per_primitive)
 {
+   /* Only triangle culling is supported. */
+   if (num_vertices_per_primitive != 3)
+      return false;
+
    /* When the shader writes memory, it is difficult to guarantee correctness.
     * Future work:
     * - if only write-only SSBOs are used
@@ -1222,7 +1226,7 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
                       unsigned num_vertices_per_primitives,
                       unsigned max_workgroup_size,
                       unsigned wave_size,
-                      bool consider_culling,
+                      bool can_cull,
                       bool consider_passthrough,
                       bool export_prim_id,
                       bool provoking_vtx_last,
@@ -1232,8 +1236,6 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
    assert(impl);
    assert(max_num_es_vertices && max_workgroup_size && wave_size);
 
-   bool can_cull = consider_culling && (num_vertices_per_primitives == 3) &&
-                   can_use_deferred_attribute_culling(shader);
    bool passthrough = consider_passthrough && !can_cull &&
                       !(shader->info.stage == MESA_SHADER_VERTEX && export_prim_id);
 
@@ -1380,7 +1382,6 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
 
    ac_nir_ngg_config ret = {
       .lds_bytes_if_culling_off = lds_bytes_if_culling_off,
-      .can_cull = can_cull,
       .passthrough = passthrough,
       .early_prim_export = state.early_prim_export,
       .nggc_inputs_read_by_pos = state.inputs_needed_by_pos,
