@@ -922,8 +922,7 @@ radv_consider_culling(struct radv_device *device, struct nir_shader *nir,
 
 void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
                     struct radv_shader_info *info,
-                    const struct radv_pipeline_key *pl_key,
-                    bool consider_culling)
+                    const struct radv_pipeline_key *pl_key)
 {
    /* TODO: support the LLVM backend with the NIR lowering */
    assert(!radv_use_llvm_for_stage(device, nir->info.stage));
@@ -970,7 +969,7 @@ void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
 
       assert(info->is_ngg);
 
-      if (consider_culling)
+      if (info->has_ngg_culling)
          radv_optimize_nir_algebraic(nir, false);
 
       if (nir->info.stage == MESA_SHADER_VERTEX) {
@@ -986,14 +985,13 @@ void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
             num_vertices_per_prim,
             info->workgroup_size,
             info->wave_size,
-            consider_culling,
+            info->has_ngg_culling,
             info->is_ngg_passthrough,
             export_prim_id,
             pl_key->vs.provoking_vtx_last,
             false,
             pl_key->vs.instance_rate_inputs);
 
-      info->has_ngg_culling = out_conf.can_cull;
       info->has_ngg_early_prim_export = out_conf.early_prim_export;
       info->num_lds_blocks_when_not_culling = DIV_ROUND_UP(out_conf.lds_bytes_if_culling_off, device->physical_device->rad_info.lds_encode_granularity);
       info->is_ngg_passthrough = out_conf.passthrough;
