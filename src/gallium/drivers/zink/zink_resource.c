@@ -42,7 +42,7 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_upload_mgr.h"
-
+#include "util/os_file.h"
 #include "frontend/sw_winsys.h"
 
 #ifndef _WIN32
@@ -636,7 +636,11 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    if (whandle && whandle->type == WINSYS_HANDLE_TYPE_FD) {
       imfi.pNext = NULL;
       imfi.handleType = external;
-      imfi.fd = whandle->handle;
+      imfi.fd = os_dupfd_cloexec(whandle->handle);
+      if (imfi.fd < 0) {
+         mesa_loge("ZINK: failed to dup dmabuf fd: %s\n", strerror(errno));
+         goto fail1;
+      }
 
       imfi.pNext = mai.pNext;
       emai.pNext = &imfi;
