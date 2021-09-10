@@ -24,7 +24,11 @@
 #ifndef INSTR_A3XX_H_
 #define INSTR_A3XX_H_
 
+#ifdef HAVE_FUNC_ATTRIBUTE_PACKED
 #define PACKED __attribute__((__packed__))
+#else
+#define PACKED
+#endif
 
 #include <assert.h>
 #include <stdbool.h>

@@ -24,6 +24,7 @@
 #ifndef DISK_CACHE_H
 #define DISK_CACHE_H
 
+#define HAVE_DLFCN_H 1
 #ifdef HAVE_DLFCN_H
 #include <dlfcn.h>
 #include <stdio.h>

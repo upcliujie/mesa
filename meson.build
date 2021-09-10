@@ -965,7 +965,6 @@ if with_platform_android
       dependency('cutils'),
       dependency('hardware'),
       dependency('sync'),
-      dependency('backtrace')
     ]
     if get_option('platform-sdk-version') >= 26
       dep_android += dependency('nativewindow')
@@ -1592,11 +1591,7 @@ foreach d : _libdrm_checks
 endforeach
 
 with_gallium_drisw_kms = false
-dep_libdrm = dependency(
-  'libdrm', version : '>=' + _drm_ver,
-  # GNU/Hurd includes egl_dri2, without drm.
-  required : (with_dri2 and host_machine.system() != 'gnu') or with_dri3
-)
+dep_libdrm = null_dep
 if dep_libdrm.found()
   pre_args += '-DHAVE_LIBDRM'
   if with_dri_platform == 'drm' and with_dri
