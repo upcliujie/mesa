@@ -73,7 +73,6 @@ KHR-GL32.transform_feedback_overflow_query_ARB.multiple-streams-one-buffer-per-s
 KHR-GL32.transform_feedback.query_vertex_interleaved_test,Fail
 KHR-GL32.transform_feedback.query_vertex_separate_test,Fail
 KHR-GL43.compute_shader.resource-subroutine,Fail
-KHR-GL43.compute_shader.shared-struct,Fail
 KHR-GL43.gpu_shader_fp64.fp64.varyings,Crash
 KHR-GL43.map_buffer_alignment.functional,Crash
 KHR-GL43.shader_atomic_counters.advanced-usage-switch-programs,Fail
