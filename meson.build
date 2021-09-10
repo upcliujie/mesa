@@ -533,7 +533,7 @@ endif
 
 # GNU/Hurd includes egl_dri2, without drm.
 with_dri2 = (with_dri or with_any_vk) and (with_dri_platform == 'drm' or
-  host_machine.system() == 'gnu')
+  host_machine.system() == 'gnu') and not with_freedreno_kgsl
 _dri3 = get_option('dri3')
 if _dri3 == 'true'
   _dri3 = 'enabled'

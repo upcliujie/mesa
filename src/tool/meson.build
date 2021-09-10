@@ -3,6 +3,6 @@
 #
 # SPDX-License-Identifier: MIT
 
-if with_perfetto
+if with_perfetto and not with_platform_android
   subdir('pps')
 endif
