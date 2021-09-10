@@ -52,7 +52,7 @@ clif_dump_add_address_to_worklist(struct clif_dump *clif,
 
 struct clif_dump *
 clif_dump_init(const struct v3d_device_info *devinfo,
-               FILE *out, bool pretty)
+               FILE *out, bool pretty, bool nobinaries)
 {
         struct clif_dump *clif = rzalloc(NULL, struct clif_dump);
 
@@ -60,6 +60,7 @@ clif_dump_init(const struct v3d_device_info *devinfo,
         clif->out = out;
         clif->spec = v3d_spec_load(devinfo);
         clif->pretty = pretty;
+        clif->nobinaries = nobinaries;
 
         list_inithead(&clif->worklist);
 
@@ -246,6 +247,9 @@ clif_dump_binary(struct clif_dump *clif, struct clif_bo *bo,
 
         out(clif, "@format binary /* [%s+0x%08x] */\n",
             bo->name, start);
+
+        if (clif->pretty && clif->nobinaries)
+                return;
 
         uint32_t offset = start;
         int dumped_in_line = 0;

@@ -54,6 +54,11 @@ struct clif_dump {
          * output.
          */
         bool pretty;
+
+        /**
+         * Flag to no dump the binary resources.
+         */
+        bool nobinaries;
 };
 
 enum reloc_worklist_type {
