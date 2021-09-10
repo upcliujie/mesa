@@ -246,9 +246,11 @@ rewrite_intrinsics(nir_block *block, struct state *state)
       nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
       switch (intrin->intrinsic) {
       case nir_intrinsic_emit_vertex:
+      case nir_intrinsic_emit_vertex_with_counter:
          rewrite_emit_vertex(intrin, state);
          break;
       case nir_intrinsic_end_primitive:
+      case nir_intrinsic_end_primitive_with_counter:
          rewrite_end_primitive(intrin, state);
          break;
       default:
