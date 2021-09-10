@@ -1466,6 +1466,9 @@ const struct function common_desktop_functions_possible[] = {
    { "glInternalBufferSubDataCopyMESA", 11, -1 },
    { "glInternalSetError", 20, -1 },
 
+   /* ARB_ES3_2_compatibility */
+   { "glPrimitiveBoundingBox", 45, -1 },
+
    { NULL, 0, -1 }
 };
 
