@@ -538,7 +538,7 @@ iris_get_aux_clear_color_state_size(struct iris_screen *screen)
 
 static void
 map_aux_addresses(struct iris_screen *screen, struct iris_resource *res,
-                  enum isl_format format, unsigned plane)
+                  unsigned plane)
 {
    const struct intel_device_info *devinfo = &screen->devinfo;
    if (devinfo->ver >= 12 && isl_aux_usage_has_ccs(res->aux.usage)) {
@@ -546,8 +546,20 @@ map_aux_addresses(struct iris_screen *screen, struct iris_resource *res,
       assert(aux_map_ctx);
       const unsigned aux_offset = res->aux.extra_aux.surf.size_B > 0 ?
          res->aux.extra_aux.offset : res->aux.offset;
+
+      enum isl_format format;
+      switch (res->external_format) {
+      case PIPE_FORMAT_NV12: format = ISL_FORMAT_PLANAR_420_8; break;
+      case PIPE_FORMAT_P010: format = ISL_FORMAT_PLANAR_420_10; break;
+      case PIPE_FORMAT_P012: format = ISL_FORMAT_PLANAR_420_12; break;
+      case PIPE_FORMAT_P016: format = ISL_FORMAT_PLANAR_420_16; break;
+      case PIPE_FORMAT_YUYV: format = ISL_FORMAT_YCRCB_NORMAL; break;
+      case PIPE_FORMAT_UYVY: format = ISL_FORMAT_YCRCB_SWAPY; break;
+      default:               format = res->surf.format; break;
+      }
       const uint64_t format_bits =
          intel_aux_map_format_bits(res->surf.tiling, format, plane);
+
       intel_aux_map_add_mapping(aux_map_ctx, res->bo->address + res->offset,
                                 res->aux.bo->address + aux_offset,
                                 res->surf.size_B, format_bits);
@@ -916,22 +928,10 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       num_main_planes += r[num_planes++]->bo != NULL;
    }
 
-   /* Get an ISL format to use with the aux-map. */
-   enum isl_format format;
-   switch (res->external_format) {
-   case PIPE_FORMAT_NV12: format = ISL_FORMAT_PLANAR_420_8; break;
-   case PIPE_FORMAT_P010: format = ISL_FORMAT_PLANAR_420_10; break;
-   case PIPE_FORMAT_P012: format = ISL_FORMAT_PLANAR_420_12; break;
-   case PIPE_FORMAT_P016: format = ISL_FORMAT_PLANAR_420_16; break;
-   case PIPE_FORMAT_YUYV: format = ISL_FORMAT_YCRCB_NORMAL; break;
-   case PIPE_FORMAT_UYVY: format = ISL_FORMAT_YCRCB_SWAPY; break;
-   default: format = res->surf.format; break;
-   }
-
    /* Combine main and aux plane information. */
    if (num_main_planes == 1 && num_planes == 2) {
       import_aux_info(r[0], r[1]);
-      map_aux_addresses(screen, r[0], format, 0);
+      map_aux_addresses(screen, r[0], 0);
 
       /* Add on a clear color BO. */
       if (iris_get_aux_clear_color_state_size(screen) > 0) {
@@ -942,7 +942,7 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       }
    } else if (num_main_planes == 1 && num_planes == 3) {
       import_aux_info(r[0], r[1]);
-      map_aux_addresses(screen, r[0], format, 0);
+      map_aux_addresses(screen, r[0], 0);
 
       /* Import the clear color BO. */
       iris_bo_reference(r[2]->aux.clear_color_bo);
@@ -953,8 +953,8 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       assert(num_main_planes == 2 && num_planes == 4);
       import_aux_info(r[0], r[2]);
       import_aux_info(r[1], r[3]);
-      map_aux_addresses(screen, r[0], format, 0);
-      map_aux_addresses(screen, r[1], format, 1);
+      map_aux_addresses(screen, r[0], 0);
+      map_aux_addresses(screen, r[1], 1);
    }
 }
 
@@ -1091,7 +1091,7 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
          iris_get_aux_clear_color_state_size(screen);
       if (!iris_resource_init_aux_buf(res, clear_color_state_size))
          goto fail;
-      map_aux_addresses(screen, res, res->surf.format, 0);
+      map_aux_addresses(screen, res, 0);
    }
 
    if (templ->bind & PIPE_BIND_SHARED) {
