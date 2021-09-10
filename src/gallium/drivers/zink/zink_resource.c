@@ -50,6 +50,7 @@
 #endif
 
 #ifdef ZINK_USE_DMABUF
+#include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #else
 /* these won't actually be used */
@@ -890,7 +891,7 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
                          struct winsys_handle *whandle,
                          unsigned usage)
 {
-   if (whandle->type == WINSYS_HANDLE_TYPE_FD) {
+   if (whandle->type == WINSYS_HANDLE_TYPE_FD || whandle->type == WINSYS_HANDLE_TYPE_KMS) {
 #ifdef ZINK_USE_DMABUF
       struct zink_resource *res = zink_resource(tex);
       struct zink_screen *screen = zink_screen(pscreen);
@@ -902,10 +903,20 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
       fd_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR;
       //TODO: remove for wsi
       fd_info.memory = zink_bo_get_mem(obj->bo);
-      fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+      if (whandle->type == WINSYS_HANDLE_TYPE_FD)
+         fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
+      else
+         fd_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
       VkResult result = VKSCR(GetMemoryFdKHR)(screen->dev, &fd_info, &fd);
       if (result != VK_SUCCESS)
          return false;
+      if (whandle->type == WINSYS_HANDLE_TYPE_KMS) {
+         uint32_t h;
+         if (drmPrimeFDToHandle(screen->drm_fd, fd, &h)) {
+            return false;
+         }
+         fd = h;
+      }
       whandle->handle = fd;
       uint64_t value;
       zink_resource_get_param(pscreen, context, tex, 0, 0, 0, PIPE_RESOURCE_PARAM_MODIFIER, 0, &value);
