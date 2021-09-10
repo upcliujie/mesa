@@ -134,7 +134,7 @@ panfrost-g52-gl:arm64:
   tags:
     - mesa-ci-x86-64-lava-acer-mt8183-cp311-3h-jacuzzi
 
-.panfrost-g72-gl:arm64:
+panfrost-g72-gl:arm64:
   parallel: 3
   extends:
     - .lava-test:arm64
