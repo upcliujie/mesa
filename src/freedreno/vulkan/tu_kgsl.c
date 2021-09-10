@@ -25,6 +25,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <poll.h>
 #include <stdint.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
@@ -36,6 +37,12 @@ struct tu_syncobj {
    struct vk_object_base base;
    uint32_t timestamp;
    bool timestamp_valid;
+};
+
+struct tu_u_trace_syncobj
+{
+   uint32_t timestamp;
+   uint32_t msm_queue_id;
 };
 
 static int
@@ -342,6 +349,9 @@ tu_QueueSubmit(VkQueue _queue,
    TU_FROM_HANDLE(tu_syncobj, fence, _fence);
    VkResult result = VK_SUCCESS;
 
+   bool u_trace_enabled = u_trace_context_tracing(&queue->device->trace_context);
+   bool has_trace_points = false;
+
    uint32_t max_entry_count = 0;
    for (uint32_t i = 0; i < submitCount; ++i) {
       const VkSubmitInfo *submit = pSubmits + i;
@@ -356,6 +366,13 @@ tu_QueueSubmit(VkQueue _queue,
          entry_count += cmdbuf->cs.entry_count;
          if (perf_info)
             entry_count++;
+
+         if (u_trace_enabled && u_trace_has_points(&cmdbuf->trace)) {
+            if (!(cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT))
+               entry_count++;
+
+            has_trace_points = true;
+         }
       }
 
       max_entry_count = MAX2(max_entry_count, entry_count);
@@ -368,13 +385,46 @@ tu_QueueSubmit(VkQueue _queue,
    if (cmds == NULL)
       return vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   struct tu_u_trace_cmd_data **submits_cmd_buffer_trace_data = NULL;
+   if (has_trace_points) {
+      submits_cmd_buffer_trace_data = vk_zalloc(&queue->device->vk.alloc,
+            submitCount * sizeof(struct tu_u_trace_cmd_data *), 8,
+            VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+
+      if (!submits_cmd_buffer_trace_data) {
+         result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+         goto fail_cmds;
+      }
+
+      for (uint32_t i = 0; i < submitCount; ++i) {
+         const VkSubmitInfo *submit = pSubmits + i;
+
+         result = tu_u_trace_cmd_data_create(queue->device, submit->pCommandBuffers,
+                                             submit->commandBufferCount,
+                                             &submits_cmd_buffer_trace_data[i]);
+
+         if (result != VK_SUCCESS) {
+            goto fail_trace_data;
+         }
+      }
+   }
+
    for (uint32_t i = 0; i < submitCount; ++i) {
+      queue->device->submit_count++;
+
+      #if HAVE_PERFETTO
+         tu_perfetto_submit(queue->device, queue->device->submit_count);
+      #endif
+
       const VkSubmitInfo *submit = pSubmits + i;
       uint32_t entry_idx = 0;
       const VkPerformanceQuerySubmitInfoKHR *perf_info =
          vk_find_struct_const(pSubmits[i].pNext,
                               PERFORMANCE_QUERY_SUBMIT_INFO_KHR);
 
+      struct tu_u_trace_cmd_data *cmd_buffer_trace_data = NULL;
+      if (has_trace_points)
+         cmd_buffer_trace_data = submits_cmd_buffer_trace_data[i];
 
       for (uint32_t j = 0; j < submit->commandBufferCount; j++) {
          TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, submit->pCommandBuffers[j]);
@@ -400,6 +450,18 @@ tu_QueueSubmit(VkQueue _queue,
                .size = cs->entries[k].size,
                .flags = KGSL_CMDLIST_IB,
                .id = cs->entries[k].bo->gem_handle,
+            };
+         }
+
+         if (cmd_buffer_trace_data && cmd_buffer_trace_data[j].timestamp_copy_cs) {
+            struct tu_cs_entry *trace_cs_entry =
+               &cmd_buffer_trace_data[j].timestamp_copy_cs->entries[0];
+            cmds[entry_idx++] = (struct kgsl_command_object) {
+               .offset = trace_cs_entry->offset,
+               .gpuaddr = trace_cs_entry->bo->iova,
+               .size = trace_cs_entry->size,
+               .flags = KGSL_CMDLIST_IB,
+               .id = trace_cs_entry->bo->gem_handle,
             };
          }
       }
@@ -434,13 +496,43 @@ tu_QueueSubmit(VkQueue _queue,
       if (ret) {
          result = tu_device_set_lost(queue->device,
                                      "submit failed: %s\n", strerror(errno));
-         goto fail;
+         goto fail_trace_data;
       }
 
       for (uint32_t i = 0; i < submit->signalSemaphoreCount; i++) {
          TU_FROM_HANDLE(tu_syncobj, sem, submit->pSignalSemaphores[i]);
          sem->timestamp = req.timestamp;
          sem->timestamp_valid = true;
+      }
+
+      if (cmd_buffer_trace_data) {
+         struct tu_u_trace_flush_data *flush_data =
+            vk_alloc(&queue->device->vk.alloc, sizeof(struct tu_u_trace_flush_data),
+                  8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+         if (!flush_data) {
+            result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+            goto fail_trace_data;
+         }
+
+         flush_data->submission_id = queue->device->submit_count;
+         flush_data->syncobj =
+            vk_alloc(&queue->device->vk.alloc, sizeof(struct tu_u_trace_syncobj),
+                  8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+         if (!flush_data->syncobj) {
+            vk_free(&queue->device->vk.alloc, flush_data);
+            result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+            goto fail_trace_data;
+         }
+
+         flush_data->syncobj->timestamp = req.timestamp;
+         flush_data->syncobj->msm_queue_id = queue->msm_queue_id;
+         flush_data->cmd_trace_data = cmd_buffer_trace_data;
+         flush_data->trace_count = submit->commandBufferCount;
+
+         for (uint32_t j = 0; j < submit->commandBufferCount; j++) {
+            TU_FROM_HANDLE(tu_cmd_buffer, cmdbuf, submit->pCommandBuffers[j]);
+            u_trace_flush(&cmdbuf->trace, flush_data, j == (submit->commandBufferCount - 1));
+         }
       }
 
       /* no need to merge fences as queue execution is serialized */
@@ -450,7 +542,7 @@ tu_QueueSubmit(VkQueue _queue,
             result = tu_device_set_lost(queue->device,
                                         "Failed to create sync file for timestamp: %s\n",
                                         strerror(errno));
-            goto fail;
+            goto fail_trace_data;
          }
 
          if (queue->fence >= 0)
@@ -463,7 +555,26 @@ tu_QueueSubmit(VkQueue _queue,
          }
       }
    }
-fail:
+
+   u_trace_context_process(&queue->device->trace_context, true);
+
+   vk_free(&queue->device->vk.alloc, submits_cmd_buffer_trace_data);
+   vk_free(&queue->device->vk.alloc, cmds);
+
+   return VK_SUCCESS;
+
+fail_trace_data:
+   if (has_trace_points) {
+      for (uint32_t i = 0; i < submitCount; ++i) {
+         const VkSubmitInfo *submit = pSubmits + i;
+         tu_u_trace_cmd_data_finish(queue->device,
+                                    submits_cmd_buffer_trace_data[i],
+                                    submit->commandBufferCount);
+      }
+   }
+
+   vk_free(&queue->device->vk.alloc, submits_cmd_buffer_trace_data);
+fail_cmds:
    vk_free(&queue->device->vk.alloc, cmds);
 
    return result;
@@ -654,6 +765,44 @@ tu_device_submit_deferred_locked(struct tu_device *dev)
    tu_finishme("tu_device_submit_deferred_locked");
 
    return VK_SUCCESS;
+}
+
+VkResult
+tu_device_wait_u_trace(struct tu_device *dev, struct tu_u_trace_syncobj *syncobj)
+{
+   int ret = ioctl(dev->fd, IOCTL_KGSL_DEVICE_WAITTIMESTAMP_CTXTID,
+                   &(struct kgsl_device_waittimestamp_ctxtid) {
+      .context_id = syncobj->msm_queue_id,
+      .timestamp = syncobj->timestamp,
+      .timeout = 5000, // 5s
+   });
+
+   if (ret) {
+      assert(errno == ETIME);
+      return VK_TIMEOUT;
+   }
+
+   return VK_SUCCESS;
+}
+
+int
+tu_drm_get_timestamp(struct tu_physical_device *device, uint64_t *ts)
+{
+   struct kgsl_perfcounter_read_group perf = {
+      .groupid = KGSL_PERFCOUNTER_GROUP_ALWAYSON,
+      .countable = KGSL_PERFCOUNTER_NOT_USED,
+      .value = 0
+   };
+
+   int ret = ioctl(device->local_fd, IOCTL_KGSL_PERFCOUNTER_READ,
+                   &(struct kgsl_perfcounter_read) {
+      .reads = &perf,
+      .count = 1,
+   });
+
+   *ts = perf.value;
+
+   return ret;
 }
 
 #ifdef ANDROID
