@@ -94,12 +94,14 @@ ac_nir_lower_indirect_derefs(nir_shader *shader,
 typedef struct
 {
    unsigned lds_bytes_if_culling_off;
-   bool can_cull;
    bool passthrough;
    bool early_prim_export;
    uint64_t nggc_inputs_read_by_pos;
    uint64_t nggc_inputs_read_by_others;
 } ac_nir_ngg_config;
+
+bool
+ac_nir_can_use_ngg_culling(nir_shader *shader, unsigned num_vertices_per_primitive);
 
 ac_nir_ngg_config
 ac_nir_lower_ngg_nogs(nir_shader *shader,
@@ -107,7 +109,7 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
                       unsigned num_vertices_per_primitive,
                       unsigned max_workgroup_size,
                       unsigned wave_size,
-                      bool consider_culling,
+                      bool can_cull,
                       bool consider_passthrough,
                       bool export_prim_id,
                       bool provoking_vtx_last,
