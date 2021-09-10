@@ -910,6 +910,19 @@ import_aux_info(struct iris_resource *res,
    res->aux.offset = aux_res->aux.offset;
 }
 
+static void
+import_aux_planes(struct iris_screen *screen,
+                  struct iris_resource *r[],
+                  unsigned num_main_planes,
+                  ASSERTED unsigned num_non_cc_planes)
+{
+   assert(num_non_cc_planes == 2 * num_main_planes);
+   for (int p = 0; p < num_main_planes; p++) {
+      import_aux_info(r[p], r[p + num_main_planes]);
+      map_aux_addresses(screen, r[p], p);
+   }
+}
+
 void
 iris_resource_finish_aux_import(struct pipe_screen *pscreen,
                                 struct iris_resource *res)
@@ -930,8 +943,7 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
 
    /* Combine main and aux plane information. */
    if (num_main_planes == 1 && num_planes == 2) {
-      import_aux_info(r[0], r[1]);
-      map_aux_addresses(screen, r[0], 0);
+      import_aux_planes(screen, r, num_main_planes, num_planes);
 
       /* Add on a clear color BO. */
       if (iris_get_aux_clear_color_state_size(screen) > 0) {
@@ -941,8 +953,7 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
                           IRIS_MEMZONE_OTHER, BO_ALLOC_ZEROED);
       }
    } else if (num_main_planes == 1 && num_planes == 3) {
-      import_aux_info(r[0], r[1]);
-      map_aux_addresses(screen, r[0], 0);
+      import_aux_planes(screen, r, num_main_planes, num_planes - 1);
 
       /* Import the clear color BO. */
       iris_bo_reference(r[2]->aux.clear_color_bo);
@@ -951,10 +962,7 @@ iris_resource_finish_aux_import(struct pipe_screen *pscreen,
       r[0]->aux.clear_color_unknown = true;
    } else {
       assert(num_main_planes == 2 && num_planes == 4);
-      import_aux_info(r[0], r[2]);
-      import_aux_info(r[1], r[3]);
-      map_aux_addresses(screen, r[0], 0);
-      map_aux_addresses(screen, r[1], 1);
+      import_aux_planes(screen, r, num_main_planes, num_planes);
    }
 }
 
