@@ -2803,6 +2803,8 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
 
       struct vtn_ssa_value *coord_val = vtn_ssa_value(b, w[idx++]);
       coord = coord_val->def;
+      vtn_fail_if(coord->num_components < coord_components,
+                  "Coordinate value passed does not have enough components for sampler dimensionality.");
       p->src = nir_src_for_ssa(nir_channels(&b->nb, coord,
                                             (1 << coord_components) - 1));
 
