@@ -26,6 +26,13 @@
 #include "wsi_common.h"
 #include "vulkan/util/vk_object.h"
 
+struct wsi_timing {
+   bool complete;
+   bool consumed;
+   uint64_t target_msc;
+   VkPastPresentationTimingGOOGLE timing;
+};
+
 struct wsi_image {
    VkImage image;
    VkDeviceMemory memory;
@@ -42,7 +49,17 @@ struct wsi_image {
    uint32_t offsets[4];
    uint32_t row_pitches[4];
    int fds[4];
+
+   VkQueryPool query_pool;
+
+   VkCommandBuffer timestamp_buffer;
+
+   struct wsi_timing *timing;
+
+   uint64_t present_id;
 };
+
+#define WSI_TIMING_HISTORY      16
 
 struct wsi_swapchain {
    struct vk_object_base base;
@@ -57,6 +74,22 @@ struct wsi_swapchain {
 
    bool use_prime_blit;
 
+   uint32_t timing_insert;
+   uint32_t timing_count;
+
+   struct wsi_timing timing[WSI_TIMING_HISTORY];
+
+   uint64_t frame_msc;
+   uint64_t frame_ust;
+
+   float timestamp_period;
+
+   pthread_mutex_t present_id_mutex;
+   pthread_cond_t present_id_cond;
+
+   uint64_t present_id;
+   bool out_of_date;
+
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
 
@@ -70,10 +103,17 @@ struct wsi_swapchain {
    VkResult (*queue_present)(struct wsi_swapchain *swap_chain,
                              uint32_t image_index,
                              const VkPresentRegionKHR *damage);
+   VkResult (*get_refresh_cycle_duration)(struct wsi_swapchain *swap_chain,
+                                          VkRefreshCycleDurationGOOGLE
+                                          *pDisplayTimingProperties);
+
 };
 
 bool
 wsi_device_matches_drm_fd(const struct wsi_device *wsi, int drm_fd);
+
+bool
+wsi_init_pthread_cond_monotonic(pthread_cond_t *cond);
 
 VkResult
 wsi_swapchain_init(const struct wsi_device *wsi,
@@ -103,10 +143,23 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
                        bool use_modifier,
                        struct wsi_image *image);
 
+VkResult
+wsi_image_init_timestamp(const struct wsi_swapchain *chain,
+                         struct wsi_image *image);
+
 void
 wsi_destroy_image(const struct wsi_swapchain *chain,
                   struct wsi_image *image);
 
+
+void
+wsi_present_complete(struct wsi_swapchain *swapchain,
+                     struct wsi_image *image,
+                     uint64_t ust,
+                     uint64_t msc);
+
+void
+wsi_swapchain_out_of_date(struct wsi_swapchain *swapchain);
 
 struct wsi_interface {
    VkResult (*get_support)(VkIcdSurfaceBase *surface,
