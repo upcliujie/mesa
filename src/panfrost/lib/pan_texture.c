@@ -93,9 +93,9 @@ panfrost_needs_explicit_stride(const struct panfrost_device *dev,
  * in the hardware, but in fact can be parametrized to have various widths and
  * heights for the so-called "stretch factor". It turns out these parameters
  * are stuffed in the bottom bits of the payload pointers. This functions
- * computes these magic stuffing constants based on the ASTC format in use. The
- * constant in a given dimension is 3-bits, and two are stored side-by-side for
- * each active dimension.
+ * computes these magic stuffing constants based on the ASTC format in use. For
+ * 2D, the two constants are 3-bits, and are stored side-by-side. 3D textures
+ * use 2-bit constants.
  */
 
 static unsigned
@@ -103,6 +103,13 @@ panfrost_astc_stretch(unsigned dim)
 {
         assert(dim >= 4 && dim <= 12);
         return MIN2(dim, 11) - 4;
+}
+
+static unsigned
+panfrost_astc_3d_stretch(unsigned dim)
+{
+        assert(dim >= 3 && dim <= 6);
+        return dim & 3;
 }
 
 /* Texture addresses are tagged with information about compressed formats.
@@ -140,8 +147,13 @@ panfrost_compression_tag(const struct panfrost_device *dev,
 
                 return flags;
         } else if (desc->layout == UTIL_FORMAT_LAYOUT_ASTC) {
-                return (panfrost_astc_stretch(desc->block.height) << 3) |
-                        panfrost_astc_stretch(desc->block.width);
+                if (desc->block.depth == 1)
+                        return panfrost_astc_stretch(desc->block.width) |
+                                (panfrost_astc_stretch(desc->block.height) << 3);
+                else
+                        return panfrost_astc_3d_stretch(desc->block.width) |
+                                (panfrost_astc_3d_stretch(desc->block.height) << 2) |
+                                (panfrost_astc_3d_stretch(desc->block.depth) << 4);
         } else {
                 return 0;
         }
