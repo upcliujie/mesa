@@ -272,7 +272,7 @@ etna_resource_alloc(struct pipe_screen *pscreen, unsigned layout,
 
    size = setup_miptree(rsc, paddingX, paddingY, msaa_xscale, msaa_yscale);
 
-   if (unlikely(templat->bind & PIPE_BIND_SCANOUT) && screen->ro) {
+   if (unlikely(templat->bind & PIPE_BIND_SCANOUT) && screen->ro && screen->ro->kms_fd >= 0) {
       struct pipe_resource scanout_templat = *templat;
       struct winsys_handle handle;
 
