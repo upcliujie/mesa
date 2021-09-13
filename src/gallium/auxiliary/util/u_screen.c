@@ -231,6 +231,7 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_DEPTH_BOUNDS_TEST:
    case PIPE_CAP_TGSI_TXQS:
    case PIPE_CAP_FORCE_PERSAMPLE_INTERP:
+   case PIPE_CAP_AVOID_BACK_BUFFER_REUSE:
       return 0;
 
    /* All drivers should expose this cap, as it is required for applications to
