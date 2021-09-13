@@ -463,7 +463,8 @@ get_main(gl_linked_shader *sh)
 bool
 lower_blend_equation_advanced(struct gl_linked_shader *sh, bool coherent)
 {
-   if (sh->Program->info.fs.advanced_blend_modes == 0)
+   if (sh->Stage != MESA_SHADER_FRAGMENT ||
+       sh->Program->info.fs.advanced_blend_modes == 0)
       return false;
 
    /* Lower early returns in main() so there's a single exit point
