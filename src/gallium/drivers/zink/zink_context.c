@@ -2731,6 +2731,7 @@ zink_texture_barrier(struct pipe_context *pctx, unsigned flags)
       0, NULL,
       0, NULL
    );
+   ctx->fbfetch_barrier = true;
 }
 
 static inline void

@@ -323,6 +323,7 @@ zink_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    }
 
    case PIPE_CAP_FBFETCH:
+   case PIPE_CAP_FBFETCH_COHERENT:
       return 1;
 
    case PIPE_CAP_QUERY_MEMORY_INFO:

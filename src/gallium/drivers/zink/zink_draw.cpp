@@ -451,6 +451,9 @@ zink_draw_vbo(struct pipe_context *pctx,
    enum pipe_prim_type mode = (enum pipe_prim_type)dinfo->mode;
 
    zink_flush_memory_barrier(ctx, false);
+   /* coherent fbfetch */
+   if (ctx->fbfetch_outputs && !ctx->fbfetch_barrier)
+      pctx->texture_barrier(pctx, 0);
    update_barriers(ctx, false);
 
    if (unlikely(ctx->buffer_rebind_counter < screen->buffer_rebind_counter)) {
@@ -795,6 +798,8 @@ zink_draw_vbo(struct pipe_context *pctx,
       }
       VKCTX(CmdEndTransformFeedbackEXT)(batch->state->cmdbuf, 0, ctx->num_so_targets, counter_buffers, counter_buffer_offsets);
    }
+   assert(!ctx->fbfetch_outputs || ctx->fbfetch_barrier);
+   ctx->fbfetch_barrier = false;
    batch->has_work = true;
    batch->last_was_compute = false;
    ctx->batch.work_count = work_count;

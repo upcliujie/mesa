@@ -246,6 +246,7 @@ struct zink_context {
    uint16_t clears_enabled;
    uint16_t rp_clears_enabled;
    uint16_t fbfetch_outputs;
+   bool fbfetch_barrier;
 
    VkBuffer vbufs[PIPE_MAX_ATTRIBS];
    unsigned vbuf_offsets[PIPE_MAX_ATTRIBS];
