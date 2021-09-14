@@ -2770,6 +2770,20 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
                    A6XX_GRAS_SU_POINT_MINMAX(.min = 1.0f / 16.0f, .max = 4092.0f),
                    A6XX_GRAS_SU_POINT_SIZE(1.0f));
 
+   /* These started showing up in a6xx gen3, but so far I haven't found
+    * any example of blob setting them to anything other than zero.
+    *
+    * Probably not related to tess_use_shared, but that is a convenient
+    * thing to key off of until we find whatever new feature gen3 added
+    * that uses these registers.
+    */
+   if (builder->device->physical_device->info->a6xx.tess_use_shared) {
+      tu_cs_emit_regs(&cs, A6XX_RB_UNKNOWN_8A00());
+      tu_cs_emit_regs(&cs, A6XX_RB_UNKNOWN_8A10());
+      tu_cs_emit_regs(&cs, A6XX_RB_UNKNOWN_8A20());
+      tu_cs_emit_regs(&cs, A6XX_RB_UNKNOWN_8A30());
+   }
+
    /* If samples count couldn't be devised from the subpass, we should emit it here.
     * It happens when subpass doesn't use any color/depth attachment.
     */
