@@ -4625,8 +4625,22 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
       S_00B204_CU_EN(0xffff) | S_00B204_SPI_SHADER_LATE_ALLOC_GS_GFX10(late_alloc_wave64));
 
    uint32_t oversub_pc_lines = late_alloc_wave64 ? pipeline->device->physical_device->rad_info.pc_lines / 4 : 0;
-   if (shader->info.has_ngg_culling)
-      oversub_pc_lines *= 3;
+   if (shader->info.has_ngg_culling) {
+      const struct radv_shader_variant *ps = pipeline->shaders[MESA_SHADER_FRAGMENT];
+      unsigned num_params = ps ? ps->info.ps.num_interp : 0;
+      unsigned oversub_factor = 2;
+
+      if (num_params > 4)
+         oversub_factor = 4;
+      else if (num_params > 2)
+         oversub_factor = 3;
+
+      /* Smaller oversubscription performs slightly better on Van Gogh. */
+      if (pipeline->device->physical_device->rad_info.num_good_compute_units <= 8)
+         oversub_factor = MIN2(oversub_factor - 1, 3);
+
+      oversub_pc_lines *= oversub_factor;
+   }
 
    gfx10_emit_ge_pc_alloc(cs, pipeline->device->physical_device->rad_info.chip_class, oversub_pc_lines);
 }
