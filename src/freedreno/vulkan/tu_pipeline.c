@@ -734,11 +734,22 @@ tu6_setup_streamout(struct tu_cs *cs,
 
    /* no streamout: */
    if (info->num_outputs == 0) {
-      tu_cs_emit_pkt7(cs, CP_CONTEXT_REG_BUNCH, 4);
+      unsigned sizedw = 4;
+
+      if (cs->device->physical_device->info->a6xx.tess_use_shared)
+         sizedw += 2;
+
+      tu_cs_emit_pkt7(cs, CP_CONTEXT_REG_BUNCH, sizedw);
       tu_cs_emit(cs, REG_A6XX_VPC_SO_CNTL);
       tu_cs_emit(cs, 0);
       tu_cs_emit(cs, REG_A6XX_VPC_SO_STREAM_CNTL);
       tu_cs_emit(cs, 0);
+
+      if (cs->device->physical_device->info->a6xx.tess_use_shared) {
+         tu_cs_emit(cs, REG_A6XX_PC_SO_STREAM_CNTL);
+         tu_cs_emit(cs, 0);
+      }
+
       return;
    }
 
@@ -791,7 +802,12 @@ tu6_setup_streamout(struct tu_cs *cs,
       prog_count += end - start + 1;
    }
 
-   tu_cs_emit_pkt7(cs, CP_CONTEXT_REG_BUNCH, 10 + 2 * prog_count);
+   unsigned sizedw = 10 + 2 * prog_count;
+
+   if (cs->device->physical_device->info->a6xx.tess_use_shared)
+      sizedw += 2;
+
+   tu_cs_emit_pkt7(cs, CP_CONTEXT_REG_BUNCH, sizedw);
    tu_cs_emit(cs, REG_A6XX_VPC_SO_STREAM_CNTL);
    tu_cs_emit(cs, A6XX_VPC_SO_STREAM_CNTL_STREAM_ENABLE(info->streams_written) |
                   COND(ncomp[0] > 0,
@@ -817,6 +833,14 @@ tu6_setup_streamout(struct tu_cs *cs,
          tu_cs_emit(cs, prog[i]);
       }
       first = false;
+   }
+
+   if (cs->device->physical_device->info->a6xx.tess_use_shared) {
+      /* Possibly not tess_use_shared related, but the combination of
+       * tess + xfb fails some tests if we don't emit this.
+       */
+      tu_cs_emit(cs, REG_A6XX_PC_SO_STREAM_CNTL);
+      tu_cs_emit(cs, A6XX_PC_SO_STREAM_CNTL_STREAM_ENABLE);
    }
 }
 
