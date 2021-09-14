@@ -81,7 +81,7 @@ struct zink_program {
    struct zink_program_descriptor_data *dd;
 
    VkPipelineLayout layout;
-   VkDescriptorSetLayout dsl[ZINK_DESCRIPTOR_TYPES + 1]; // one for each type + push
+   VkDescriptorSetLayout dsl[ZINK_DESCRIPTOR_TYPES + 2]; // one for each type + push + bindless
    unsigned num_dsl;
 
    /* the shader cache stores a mapping of zink_shader_key::VkShaderModule */
