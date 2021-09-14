@@ -3184,6 +3184,299 @@ check_physical_device_features(VkPhysicalDevice physicalDevice,
    return VK_SUCCESS;
 }
 
+static VkResult
+check_physical_device_features2(VkPhysicalDevice physicalDevice,
+                                const VkPhysicalDeviceFeatures2 *features)
+{
+   VkResult result =
+      check_physical_device_features(physicalDevice, &features->features);
+   if (result != VK_SUCCESS)
+      return result;
+
+   /* Query the device what kind of features are supported. */
+   VkPhysicalDeviceFeatures2 supported_features2 = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+   };
+
+#define APPEND(type, name) \
+   __vk_append_struct(&supported_features2, &(name) { .sType = type });
+
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+          VkPhysicalDeviceVulkan11Features);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+          VkPhysicalDeviceVulkan12Features);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT,
+          VkPhysicalDevice4444FormatsFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR,
+          VkPhysicalDevice8BitStorageFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
+          VkPhysicalDevice16BitStorageFeatures);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+          VkPhysicalDeviceAccelerationStructureFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT,
+          VkPhysicalDeviceBufferDeviceAddressFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR,
+          VkPhysicalDeviceBufferDeviceAddressFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,
+          VkPhysicalDeviceColorWriteEnableFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV,
+          VkPhysicalDeviceComputeShaderDerivativesFeaturesNV);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT,
+          VkPhysicalDeviceConditionalRenderingFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT,
+          VkPhysicalDeviceCustomBorderColorFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT,
+          VkPhysicalDeviceDepthClipEnableFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR,
+          VkPhysicalDeviceFloat16Int8FeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT,
+          VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT,
+          VkPhysicalDeviceHostQueryResetFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
+          VkPhysicalDeviceDescriptorIndexingFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR,
+          VkPhysicalDeviceFragmentShadingRateFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT,
+          VkPhysicalDeviceImageRobustnessFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT,
+          VkPhysicalDeviceIndexTypeUint8FeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
+          VkPhysicalDeviceInlineUniformBlockFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
+          VkPhysicalDeviceLineRasterizationFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
+          VkPhysicalDeviceMultiviewFeatures);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGELESS_FRAMEBUFFER_FEATURES_KHR,
+          VkPhysicalDeviceImagelessFramebufferFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR,
+          VkPhysicalDevicePerformanceQueryFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT,
+          VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR,
+          VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES_EXT,
+          VkPhysicalDevicePrivateDataFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
+          VkPhysicalDeviceProtectedMemoryFeatures);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT,
+          VkPhysicalDeviceProvokingVertexFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
+          VkPhysicalDeviceRobustness2FeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+          VkPhysicalDeviceSamplerYcbcrConversionFeatures);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
+          VkPhysicalDeviceScalarBlockLayoutFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES_KHR,
+          VkPhysicalDeviceSeparateDepthStencilLayoutsFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
+          VkPhysicalDeviceShaderAtomicFloatFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT,
+          VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR,
+          VkPhysicalDeviceShaderAtomicInt64FeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
+          VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR,
+          VkPhysicalDeviceShaderClockFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES,
+          VkPhysicalDeviceShaderDrawParametersFeatures);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL,
+          VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR,
+          VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR,
+          VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR,
+          VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR,
+          VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT,
+          VkPhysicalDeviceSubgroupSizeControlFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT,
+          VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR,
+          VkPhysicalDeviceTimelineSemaphoreFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES,
+          VkPhysicalDeviceVariablePointersFeatures);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT,
+          VkPhysicalDeviceTransformFeedbackFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR,
+          VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT,
+          VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR,
+          VkPhysicalDeviceVulkanMemoryModelFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR,
+          VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_YCBCR_IMAGE_ARRAYS_FEATURES_EXT,
+          VkPhysicalDeviceYcbcrImageArraysFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+          VkPhysicalDeviceExtendedDynamicStateFeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT,
+          VkPhysicalDeviceExtendedDynamicState2FeaturesEXT);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ZERO_INITIALIZE_WORKGROUP_MEMORY_FEATURES_KHR,
+          VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR);
+   APPEND(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT,
+          VkPhysicalDeviceMultiDrawFeaturesEXT);
+#undef APPEND
+
+   anv_GetPhysicalDeviceFeatures2(physicalDevice, &supported_features2);
+
+   /* Iterate through additional feature structs from VkPhysicalDeviceFeatures2 */
+   vk_foreach_struct_const(feat, features->pNext) {
+
+      const void *device_feature = NULL;
+      vk_foreach_struct_const(feature, supported_features2.pNext) {
+         if (feature->sType == feat->sType) {
+           device_feature = feature;
+           break;
+         }
+      }
+
+      if (!device_feature)
+         continue;
+
+/* Check each feature boolean for given structure. */
+#define CHECK_FEATURES(name, amount) \
+   uint32_t offset = offsetof(name, pNext) + sizeof(void *); \
+   VkBool32 *a = (VkBool32 *) ((char *) device_feature + offset); \
+   VkBool32 *b = (VkBool32 *) ((char *) feat + offset); \
+   for (uint32_t i = 0; i < amount; i++) \
+      if (b[i] && !a[i]) return vk_error(VK_ERROR_FEATURE_NOT_PRESENT);
+
+#define HANDLE_CASE(type, name, num_features) \
+   case type : { CHECK_FEATURES(name, num_features); break; }
+
+      switch (feat->sType) {
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES,
+                  VkPhysicalDeviceVulkan11Features, 12);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+                  VkPhysicalDeviceVulkan12Features, 47);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT,
+                  VkPhysicalDevice4444FormatsFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR,
+                  VkPhysicalDevice8BitStorageFeaturesKHR, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES,
+                  VkPhysicalDevice16BitStorageFeatures, 4);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+                  VkPhysicalDeviceAccelerationStructureFeaturesKHR, 5);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_EXT,
+                  VkPhysicalDeviceBufferDeviceAddressFeaturesEXT, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES_KHR,
+                  VkPhysicalDeviceBufferDeviceAddressFeaturesKHR, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,
+                  VkPhysicalDeviceColorWriteEnableFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COMPUTE_SHADER_DERIVATIVES_FEATURES_NV,
+                  VkPhysicalDeviceComputeShaderDerivativesFeaturesNV, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONDITIONAL_RENDERING_FEATURES_EXT,
+                  VkPhysicalDeviceConditionalRenderingFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT,
+                  VkPhysicalDeviceCustomBorderColorFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_ENABLE_FEATURES_EXT,
+                  VkPhysicalDeviceDepthClipEnableFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR,
+                  VkPhysicalDeviceFloat16Int8FeaturesKHR, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT,
+                  VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT,
+                  VkPhysicalDeviceHostQueryResetFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES_EXT,
+                  VkPhysicalDeviceDescriptorIndexingFeaturesEXT, 20);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR,
+                  VkPhysicalDeviceFragmentShadingRateFeaturesKHR, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT,
+                  VkPhysicalDeviceImageRobustnessFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT,
+                  VkPhysicalDeviceIndexTypeUint8FeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT,
+                  VkPhysicalDeviceInlineUniformBlockFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT,
+                  VkPhysicalDeviceLineRasterizationFeaturesEXT, 6);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES,
+                  VkPhysicalDeviceMultiviewFeatures, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGELESS_FRAMEBUFFER_FEATURES_KHR,
+                  VkPhysicalDeviceImagelessFramebufferFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PERFORMANCE_QUERY_FEATURES_KHR,
+                  VkPhysicalDevicePerformanceQueryFeaturesKHR, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_CREATION_CACHE_CONTROL_FEATURES_EXT,
+                  VkPhysicalDevicePipelineCreationCacheControlFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR,
+                  VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIVATE_DATA_FEATURES_EXT,
+                  VkPhysicalDevicePrivateDataFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
+                  VkPhysicalDeviceProtectedMemoryFeatures, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT,
+                  VkPhysicalDeviceProvokingVertexFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT,
+                  VkPhysicalDeviceRobustness2FeaturesEXT, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES,
+                  VkPhysicalDeviceSamplerYcbcrConversionFeatures, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT,
+                  VkPhysicalDeviceScalarBlockLayoutFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SEPARATE_DEPTH_STENCIL_LAYOUTS_FEATURES_KHR,
+                  VkPhysicalDeviceSeparateDepthStencilLayoutsFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_FEATURES_EXT,
+                  VkPhysicalDeviceShaderAtomicFloatFeaturesEXT, 12);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_FLOAT_2_FEATURES_EXT,
+                  VkPhysicalDeviceShaderAtomicFloat2FeaturesEXT, 12);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES_KHR,
+                  VkPhysicalDeviceShaderAtomicInt64FeaturesKHR, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT,
+                  VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CLOCK_FEATURES_KHR,
+                  VkPhysicalDeviceShaderClockFeaturesKHR, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES,
+                  VkPhysicalDeviceShaderDrawParametersFeatures, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL,
+                  VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_DOT_PRODUCT_FEATURES_KHR,
+                  VkPhysicalDeviceShaderIntegerDotProductFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_EXTENDED_TYPES_FEATURES_KHR,
+                  VkPhysicalDeviceShaderSubgroupExtendedTypesFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR,
+                  VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_TERMINATE_INVOCATION_FEATURES_KHR,
+                  VkPhysicalDeviceShaderTerminateInvocationFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_SIZE_CONTROL_FEATURES_EXT,
+                  VkPhysicalDeviceSubgroupSizeControlFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT,
+                  VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES_KHR,
+                  VkPhysicalDeviceTimelineSemaphoreFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTERS_FEATURES,
+                  VkPhysicalDeviceVariablePointersFeatures, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT,
+                  VkPhysicalDeviceTransformFeedbackFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR,
+                  VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT,
+                  VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT, 2);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_MEMORY_MODEL_FEATURES_KHR,
+                  VkPhysicalDeviceVulkanMemoryModelFeaturesKHR, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR,
+                  VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR, 4);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_YCBCR_IMAGE_ARRAYS_FEATURES_EXT,
+                  VkPhysicalDeviceYcbcrImageArraysFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT,
+                  VkPhysicalDeviceExtendedDynamicStateFeaturesEXT, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_2_FEATURES_EXT,
+                  VkPhysicalDeviceExtendedDynamicState2FeaturesEXT, 3);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ZERO_INITIALIZE_WORKGROUP_MEMORY_FEATURES_KHR,
+                  VkPhysicalDeviceZeroInitializeWorkgroupMemoryFeaturesKHR, 1);
+      HANDLE_CASE(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTI_DRAW_FEATURES_EXT,
+                  VkPhysicalDeviceMultiDrawFeaturesEXT, 1);
+      default:
+         unreachable("unhandled structure type");
+      }
+#undef HANDLE_CASE
+#undef CHECK_FEATURES
+   } // for each extension structure
+
+   return VK_SUCCESS;
+}
+
 VkResult anv_CreateDevice(
     VkPhysicalDevice                            physicalDevice,
     const VkDeviceCreateInfo*                   pCreateInfo,
@@ -3212,8 +3505,8 @@ VkResult anv_CreateDevice(
       switch (ext->sType) {
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2: {
          const VkPhysicalDeviceFeatures2 *features = (const void *)ext;
-         result = check_physical_device_features(physicalDevice,
-                                                 &features->features);
+         result = check_physical_device_features2(physicalDevice,
+                                                  features);
          if (result != VK_SUCCESS)
             return result;
 
