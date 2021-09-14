@@ -1320,22 +1320,24 @@ tu_queue_submit_deferred_locked(struct tu_queue *queue, uint32_t *advance)
 VkResult
 tu_device_submit_deferred_locked(struct tu_device *dev)
 {
-    VkResult result = VK_SUCCESS;
+   VkResult result = VK_SUCCESS;
 
-    uint32_t advance = 0;
-    do {
-       advance = 0;
-       for (uint32_t i = 0; i < dev->queue_count[0]; i++) {
-          /* Try again if there's signaled submission. */
-          result = tu_queue_submit_deferred_locked(&dev->queues[0][i],
-                &advance);
-          if (result != VK_SUCCESS)
-             return result;
-       }
+   uint32_t advance = 0;
+   do {
+      advance = 0;
+      for (uint32_t i = 0; i < dev->queue_count[0]; i++) {
+         /* Try again if there's signaled submission. */
+         result =
+            tu_queue_submit_deferred_locked(&dev->queues[0][i], &advance);
+         if (result != VK_SUCCESS)
+            return result;
+      }
 
-    } while(advance);
+   } while (advance);
 
-    return result;
+   u_trace_context_process(&dev->trace_context, true);
+
+   return result;
 }
 
 static inline void
