@@ -9,7 +9,7 @@
 
 virgl-on-gl:
   variables:
-    DEQP_VER: gles2 # For renderer check
+    DEQP_VER: gl43 # For renderer check
     DEQP_SUITE: virgl-gl
     GPU_VERSION: virgl-gl
     # Speed rendering a bit, as crosvm is processing requests serially
@@ -28,6 +28,7 @@ virgl-on-gl:
 
 virgl-on-gles:
   variables:
+    DEQP_VER: gles2 # For renderer check
     VIRGL_HOST_API: GLES
     DEQP_SUITE: virgl-gles
     GPU_VERSION: virgl-gles
