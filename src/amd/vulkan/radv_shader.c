@@ -906,8 +906,9 @@ radv_consider_culling(struct radv_device *device, struct nir_shader *nir,
 
    if (max_render_backends < 2)
       return false; /* Don't use NGG culling on 1 RB chips. */
-   else if (max_render_backends / max_se == 4)
-      max_ps_params = 6; /* Sienna Cichlid and other GFX10.3 dGPUs. */
+   else if (max_render_backends / max_se == 4 ||
+            device->physical_device->rad_info.family == CHIP_VANGOGH)
+      max_ps_params = 6; /* Sienna Cichlid and other GFX10.3 dGPUs + Van Gogh */
    else
       max_ps_params = 4; /* Navi 1x. */
 
