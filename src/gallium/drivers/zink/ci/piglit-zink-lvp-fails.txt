@@ -813,6 +813,7 @@ spec@oes_texture_view@rendering-formats@clear GL_RGBA8_SNORM as GL_RGBA8,Fail
 spec@oes_texture_view@rendering-formats@clear GL_RGBA8_SNORM as GL_RGBA8I,Fail
 spec@oes_texture_view@rendering-formats@clear GL_RGBA8_SNORM as GL_RGBA8UI,Fail
 
+spec@glsl-1.20@execution@tex-miplevel-selection gl2:texture(bias) 3d,Crash
 
 #literally no driver can pass these
 spec@!opengl 1.0@rasterpos,Fail
