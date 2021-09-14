@@ -484,6 +484,8 @@ print_var_decl(nir_variable *var, print_state *state)
 
    fprintf(fp, "decl_var ");
 
+   if (var->data.bindless)
+      fprintf(fp, "bindless ");
    const char *const cent = (var->data.centroid) ? "centroid " : "";
    const char *const samp = (var->data.sample) ? "sample " : "";
    const char *const patch = (var->data.patch) ? "patch " : "";
