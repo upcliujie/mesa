@@ -139,7 +139,11 @@ _eglPointerIsDereferencable(void *p)
    uintptr_t addr = (uintptr_t) p;
    const long page_size = getpagesize();
 #ifdef HAVE_MINCORE
+#ifdef __APPLE__
+   char valid = 0;
+#else
    unsigned char valid = 0;
+#endif
 
    if (p == NULL)
       return EGL_FALSE;

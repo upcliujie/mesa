@@ -3363,8 +3363,10 @@ dri2_create_sync(_EGLDisplay *disp, EGLenum type, const EGLAttrib *attrib_list)
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
    struct dri2_egl_context *dri2_ctx = dri2_egl_context(ctx);
    struct dri2_egl_sync *dri2_sync;
+#ifndef __APPLE__
    EGLint ret;
    pthread_condattr_t attr;
+#endif
 
    dri2_sync = calloc(1, sizeof(struct dri2_egl_sync));
    if (!dri2_sync) {
@@ -3408,6 +3410,11 @@ dri2_create_sync(_EGLDisplay *disp, EGLenum type, const EGLAttrib *attrib_list)
       break;
 
    case EGL_SYNC_REUSABLE_KHR:
+#ifdef __APPLE__
+      _eglError(EGL_BAD_ATTRIBUTE, "eglCreateSyncKHR");
+      free(dri2_sync);
+      return NULL;
+#else
       /* intialize attr */
       ret = pthread_condattr_init(&attr);
 
@@ -3437,6 +3444,7 @@ dri2_create_sync(_EGLDisplay *disp, EGLenum type, const EGLAttrib *attrib_list)
       /* initial status of reusable sync must be "unsignaled" */
       dri2_sync->base.SyncStatus = EGL_UNSIGNALED_KHR;
       break;
+#endif
 
    case EGL_SYNC_NATIVE_FENCE_ANDROID:
       if (dri2_dpy->fence->create_fence_fd) {

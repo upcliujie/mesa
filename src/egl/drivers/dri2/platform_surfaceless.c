@@ -26,7 +26,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef HAVE_LIBDRM
 #include <xf86drm.h>
+#endif
 #include <dlfcn.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -206,6 +208,7 @@ static const __DRIimageLoaderExtension image_loader_extension = {
    .getCapability    = surfaceless_get_capability,
 };
 
+#ifdef HAVE_LIBDRM
 static const __DRIextension *image_loader_extensions[] = {
    &image_loader_extension.base,
    &image_lookup_extension.base,
@@ -213,6 +216,7 @@ static const __DRIextension *image_loader_extensions[] = {
    &background_callable_extension.base,
    NULL,
 };
+#endif
 
 static const __DRIextension *swrast_loader_extensions[] = {
    &swrast_pbuffer_loader_extension.base,
@@ -225,6 +229,7 @@ static const __DRIextension *swrast_loader_extensions[] = {
 static bool
 surfaceless_probe_device(_EGLDisplay *disp, bool swrast)
 {
+#ifdef HAVE_LIBDRM
 #define MAX_DRM_DEVICES 64
    const unsigned node_type = swrast ? DRM_NODE_PRIMARY : DRM_NODE_RENDER;
    struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
@@ -288,6 +293,9 @@ surfaceless_probe_device(_EGLDisplay *disp, bool swrast)
       dri2_dpy->loader_extensions = image_loader_extensions;
 
    return true;
+#else
+   return false;
+#endif
 }
 
 static bool

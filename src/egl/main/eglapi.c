@@ -368,8 +368,13 @@ eglGetDisplay(EGLNativeDisplayType nativeDisplay)
 
    _EGL_FUNC_START(NULL, EGL_OBJECT_THREAD_KHR, NULL, EGL_NO_DISPLAY);
 
-   STATIC_ASSERT(sizeof(void*) == sizeof(nativeDisplay));
-   native_display_ptr = (void*) nativeDisplay;
+   if (sizeof(void*) != sizeof(nativeDisplay)) {
+      return EGL_NO_DISPLAY;
+   }
+
+   // Cast to intptr_t first because clang-1200.0.32.29 emits
+   // Wint-to-void-pointer-cast even though we check the size beforehand.
+   native_display_ptr = (void*) (intptr_t) nativeDisplay;
 
    plat = _eglGetNativePlatform(native_display_ptr);
    disp = _eglFindDisplay(plat, native_display_ptr, NULL);

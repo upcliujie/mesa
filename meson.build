@@ -440,13 +440,17 @@ if _egl == 'auto'
   )
 elif _egl == 'enabled'
   if not with_dri and not with_platform_haiku
-    error('EGL requires dri')
+    if with_gallium
+      with_dri = true
+    else
+      error('EGL requires dri')
+    endif
   elif not with_shared_glapi
     error('EGL requires shared-glapi')
   elif not ['disabled', 'dri'].contains(with_glx)
     error('EGL requires dri, but a GLX is being built without dri')
-  elif ['darwin', 'windows'].contains(host_machine.system())
-    error('EGL is not available on Windows or MacOS')
+  elif host_machine.system() == 'windows'
+    error('EGL is not available on Windows')
   endif
   with_egl = true
 else
@@ -531,9 +535,9 @@ if with_vulkan_icd_dir == ''
   with_vulkan_icd_dir = join_paths(get_option('datadir'), 'vulkan/icd.d')
 endif
 
-# GNU/Hurd includes egl_dri2, without drm.
+# GNU/Hurd and macOS include egl_dri2, without drm.
 with_dri2 = (with_dri or with_any_vk) and (with_dri_platform == 'drm' or
-  host_machine.system() == 'gnu')
+  ['darwin', 'gnu'].contains(host_machine.system()))
 _dri3 = get_option('dri3')
 if _dri3 == 'true'
   _dri3 = 'enabled'
@@ -1570,8 +1574,8 @@ endforeach
 with_gallium_drisw_kms = false
 dep_libdrm = dependency(
   'libdrm', version : '>=' + _drm_ver,
-  # GNU/Hurd includes egl_dri2, without drm.
-  required : (with_dri2 and host_machine.system() != 'gnu') or with_dri3
+  # GNU/Hurd and macOS include egl_dri2, without drm.
+  required : (with_dri2 and not ['darwin', 'gnu'].contains(host_machine.system())) or with_dri3
 )
 if dep_libdrm.found()
   pre_args += '-DHAVE_LIBDRM'
