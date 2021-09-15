@@ -1767,14 +1767,15 @@ dri2_get_capabilities(__DRIscreen *_screen)
 
 static void
 dri2_invalidate_unsynchronized_image(__DRIscreen *_screen,
-                                     __DRIimage *image)
+                                     __DRIimage *image,
+                                     const int *rects,
+                                     unsigned int n_rects)
 {
    struct pipe_screen *screen = dri_screen(_screen)->base.screen;
-   struct pipe_resource *texture = image->texture;
 
-   int rectangle[4] = { 0, 0, texture->width0, texture->height0 };
-
-   screen->invalidate_unsynchronized_resource(screen, texture, rectangle, 1);
+   screen->invalidate_unsynchronized_resource(screen,
+                                              image->texture,
+                                              rects, n_rects);
 }
 
 /* The extension is modified during runtime if DRI_PRIME is detected */
