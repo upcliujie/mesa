@@ -882,14 +882,20 @@ dri2_query_driver_config(_EGLDisplay *disp)
 }
 
 static void
-dri2_invalidate_unsynchronized_image_mesa(_EGLDisplay *disp, _EGLImage *img)
+dri2_invalidate_unsynchronized_image_mesa(_EGLDisplay *disp,
+                                          _EGLImage *img,
+                                          const EGLint *rects,
+                                          EGLint n_rects)
 {
     struct dri2_egl_display *dri2_dpy = dri2_egl_display(disp);
     const __DRIimageExtension *ext = dri2_dpy->image;
    __DRIimage *image = dri2_egl_image(img)->dri_image;
 
-    if (ext->base.version >= 20)
-        ext->invalidateUnsynchronizedImage(dri2_dpy->dri_screen, image);
+   if (ext->base.version >= 20) {
+      ext->invalidateUnsynchronizedImage(dri2_dpy->dri_screen, image,
+                                         rects,
+                                         n_rects);
+   }
 }
 
 void
