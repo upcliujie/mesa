@@ -814,10 +814,10 @@ static void blitter_set_rectangle(struct blitter_context_priv *ctx,
    ctx->vertices[1][0][0] = (float)x2 / ctx->dst_width * 2.0f - 1.0f; /*v1.x*/
    ctx->vertices[1][0][1] = (float)y1 / ctx->dst_height * 2.0f - 1.0f; /*v1.y*/
 
-   ctx->vertices[2][0][0] = (float)x2 / ctx->dst_width * 2.0f - 1.0f; /*v2.x*/
+   ctx->vertices[2][0][0] = (float)x1 / ctx->dst_width * 2.0f - 1.0f; /*v2.x*/
    ctx->vertices[2][0][1] = (float)y2 / ctx->dst_height * 2.0f - 1.0f; /*v2.y*/
 
-   ctx->vertices[3][0][0] = (float)x1 / ctx->dst_width * 2.0f - 1.0f; /*v3.x*/
+   ctx->vertices[3][0][0] = (float)x2 / ctx->dst_width * 2.0f - 1.0f; /*v3.x*/
    ctx->vertices[3][0][1] = (float)y2 / ctx->dst_height * 2.0f - 1.0f; /*v3.y*/
 
    /* viewport */
@@ -925,10 +925,10 @@ static void set_texcoords_in_vertices(const union blitter_attrib *attrib,
    out[0] = attrib->texcoord.x2;
    out[1] = attrib->texcoord.y1;
    out += stride;
-   out[0] = attrib->texcoord.x2;
+   out[0] = attrib->texcoord.x1;
    out[1] = attrib->texcoord.y2;
    out += stride;
-   out[0] = attrib->texcoord.x1;
+   out[0] = attrib->texcoord.x2;
    out[1] = attrib->texcoord.y2;
 }
 
@@ -1361,19 +1361,8 @@ static void blitter_draw(struct blitter_context_priv *ctx,
    pipe->bind_vertex_elements_state(pipe, vertex_elements_cso);
    pipe->bind_vs_state(pipe, get_vs(&ctx->base));
 
-   if (ctx->base.use_index_buffer) {
-      /* Note that for V3D,
-       * dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_* require
-       * that the last vert of the two tris be the same.
-       */
-      static uint8_t indices[6] = { 0, 1, 2, 0, 3, 2 };
-      util_draw_elements_instanced(pipe, indices, 1, 0,
-                                   PIPE_PRIM_TRIANGLES, 0, 6,
-                                   0, num_instances);
-   } else {
-      util_draw_arrays_instanced(pipe, PIPE_PRIM_TRIANGLE_FAN, 0, 4,
-                                 0, num_instances);
-   }
+   util_draw_arrays_instanced(pipe, PIPE_PRIM_TRIANGLE_STRIP, 0, 4,
+                              0, num_instances);
    pipe_resource_reference(&vb.buffer.resource, NULL);
 }
 
