@@ -91,18 +91,22 @@ panfrost_needs_explicit_stride(const struct panfrost_device *dev,
 
 /* A Scalable Texture Compression (ASTC) corresponds to just a few texture type
  * in the hardware, but in fact can be parametrized to have various widths and
- * heights for the so-called "stretch factor". It turns out these parameters
- * are stuffed in the bottom bits of the payload pointers. This functions
- * computes these magic stuffing constants based on the ASTC format in use. The
- * constant in a given dimension is 3-bits, and two are stored side-by-side for
- * each active dimension.
+ * heights for the so-called "stretch factor" tagging payload pointers. For 2D
+ * ASTC, the constant is 3-bits, consuming 6-bits for width and height.
  */
 
-static unsigned
+static enum mali_astc_2d
 panfrost_astc_stretch(unsigned dim)
 {
-        assert(dim >= 4 && dim <= 12);
-        return MIN2(dim, 11) - 4;
+        switch (dim) {
+        case  4: return MALI_ASTC_2D_4;
+        case  5: return MALI_ASTC_2D_5;
+        case  6: return MALI_ASTC_2D_6;
+        case  8: return MALI_ASTC_2D_8;
+        case 10: return MALI_ASTC_2D_10;
+        case 12: return MALI_ASTC_2D_12;
+        default: unreachable("Invalid ASTC dimension");
+        }
 }
 
 /* Texture addresses are tagged with information about compressed formats.
