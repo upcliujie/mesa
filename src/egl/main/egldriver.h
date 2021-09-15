@@ -196,7 +196,10 @@ struct _egl_driver
    char *(*QueryDriverConfig)(_EGLDisplay *disp);
 
    /* for EGL_MESA_unsynchronized_image */
-   void (*InvalidateUnsynchronizedImageMESA)(_EGLDisplay *disp, _EGLImage *img);
+   void (*InvalidateUnsynchronizedImageMESA)(_EGLDisplay *disp,
+                                             _EGLImage *img,
+                                             const EGLint *rects,
+                                             EGLint n_rects);
 
    /* for OpenGL-OpenCL interop; see include/GL/mesa_glinterop.h */
    int (*GLInteropQueryDeviceInfo)(_EGLDisplay *disp, _EGLContext *ctx,

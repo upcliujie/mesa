@@ -2717,7 +2717,10 @@ eglGetDisplayDriverName(EGLDisplay dpy)
 }
 
 static EGLBoolean EGLAPIENTRY
-eglInvalidateUnsynchronizedImageMESA(EGLDisplay dpy, EGLImage image)
+eglInvalidateUnsynchronizedImageMESA(EGLDisplay dpy,
+                                     EGLImage image,
+                                     const EGLint *rects,
+                                     EGLint n_rects)
 {
     _EGLDisplay *disp = _eglLockDisplay(dpy);
     _EGLImage *img = _eglLookupImage(image, disp);
@@ -2730,7 +2733,7 @@ eglInvalidateUnsynchronizedImageMESA(EGLDisplay dpy, EGLImage image)
     if (!img)
         RETURN_EGL_ERROR(disp, EGL_BAD_PARAMETER, EGL_FALSE);
 
-    disp->Driver->InvalidateUnsynchronizedImageMESA(disp, img);
+    disp->Driver->InvalidateUnsynchronizedImageMESA(disp, img, rects, n_rects);
 
     RETURN_EGL_EVAL(disp, EGL_TRUE);
 }

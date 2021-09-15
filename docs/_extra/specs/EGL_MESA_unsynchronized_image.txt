@@ -25,7 +25,7 @@ Status
 
 Version
 
-    Version 1, 2021-07-09
+    Version 2, 2021-07-28
 
 Number
 
@@ -54,7 +54,9 @@ Overview
 New Procedures and Functions
 
     EGLBoolean eglInvalidateUnsynchronizedImageMESA(EGLDisplay dpy,
-                                                    EGLimageKHR image);
+                                                    EGLimageKHR image,
+                                                    const EGLint *rects,
+                                                    EGLint n_rects);
 
 Description
 
@@ -73,6 +75,18 @@ Description
     repeatedly whenever necessary. The function would typically be
     called for example in response to damage events on a pixmap that
     the image points to.
+
+    <rects> points to a list of integers in groups of four that each
+    describe a rectangle in this layout: {x, y, width, height}. The
+    rectangles are specified relative to the bottom-left of the
+    image and the x and y components of each rectangle specify the
+    bottom-left position of that rectangle. <n_rects> determines how
+    many groups of 4 integers can be read from <rects>. It is not
+    necessary to avoid overlaps of the specified rectangles.
+
+    If <n_rects> is 0 then <rects> is ignored and the entire image is
+    considered to need updating. This is equivalent to passing a
+    single rectangle with the entire size of the image.
 
 Errors
 
@@ -95,3 +109,4 @@ Issues
 Revision History
 
     Version 1, 2021-07-09 - First draft (Neil Roberts)
+    Version 2, 2021-07-28 - Add rectangle parameters (Neil Roberts)

@@ -47,6 +47,8 @@
             <proto>EGLBoolean <name>eglInvalidateUnsynchronizedImageMESA</name></proto>
             <param><ptype>EGLDisplay</ptype> <name>display</name></param>
             <param><ptype>EGLImageKHR</ptype> <name>image</name></param>
+            <param>const <ptype>EGLint</ptype> *<name>rects</name></param>
+            <param><ptype>EGLint</ptype> <name>n_rects</name></param>
         </command>
     </commands>
 </registry>
