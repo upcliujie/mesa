@@ -36,18 +36,40 @@ struct virgl_transform_context {
    bool cull_enabled;
    bool has_precise;
    bool fake_fp64;
+
+   unsigned next_temp;
+
+   unsigned clipdist0_out;
+   unsigned clipdist1_out;
+   unsigned clipdist_out_temp;
 };
 
 static void
 virgl_tgsi_transform_declaration(struct tgsi_transform_context *ctx,
                                  struct tgsi_full_declaration *decl)
 {
+   struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
+
    switch (decl->Declaration.File) {
    case TGSI_FILE_CONSTANT:
       if (decl->Declaration.Dimension) {
          if (decl->Dim.Index2D == 0)
             decl->Declaration.Dimension = 0;
       }
+      break;
+   case TGSI_FILE_OUTPUT:
+      if (decl->Semantic.Name == TGSI_SEMANTIC_CLIPDIST) {
+         if (decl->Semantic.Index == 0) {
+            vtctx->clipdist0_out = decl->Range.First;
+            if (decl->Range.Last != decl->Range.First)
+               vtctx->clipdist1_out = decl->Range.Last;
+         } else {
+            vtctx->clipdist1_out = decl->Range.First;
+         }
+      }
+      break;
+   case TGSI_FILE_TEMPORARY:
+      vtctx->next_temp = MAX2(vtctx->next_temp, decl->Range.Last + 1);
       break;
    default:
       break;
@@ -78,6 +100,17 @@ virgl_tgsi_transform_property(struct tgsi_transform_context *ctx,
 }
 
 static void
+virgl_tgsi_transform_prolog(struct tgsi_transform_context * ctx)
+{
+   struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
+
+   if (vtctx->clipdist0_out != ~0 || vtctx->clipdist1_out != ~0) {
+      vtctx->clipdist_out_temp = vtctx->next_temp += 2;
+      tgsi_transform_temps_decl(ctx, vtctx->clipdist_out_temp, vtctx->clipdist_out_temp + 1);
+   }
+}
+
+static void
 virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
 				 struct tgsi_full_instruction *inst)
 {
@@ -92,6 +125,23 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
    if (!vtctx->has_precise && inst->Instruction.Precise)
       inst->Instruction.Precise = 0;
 
+   for (unsigned i = 0; i < inst->Instruction.NumDstRegs; i++) {
+      /* virglrenderer would fail to compile on clipdist writes without a full
+       * writemask.  So, we write our clipdist writes to a temp and store that
+       * temp with a full writemask.
+       *
+       * https://gitlab.freedesktop.org/virgl/virglrenderer/-/merge_requests/616
+       */
+      if (inst->Dst[i].Register.File == TGSI_FILE_OUTPUT &&
+         (inst->Dst[i].Register.Index == vtctx->clipdist0_out ||
+          inst->Dst[i].Register.Index == vtctx->clipdist1_out)) {
+         int index = inst->Dst[i].Register.Index == vtctx->clipdist1_out;
+
+         inst->Dst[i].Register.File = TGSI_FILE_TEMPORARY;
+         inst->Dst[i].Register.Index = vtctx->clipdist_out_temp + index;
+      }
+   }
+
    for (unsigned i = 0; i < inst->Instruction.NumSrcRegs; i++) {
       if (inst->Src[i].Register.File == TGSI_FILE_CONSTANT &&
           inst->Src[i].Register.Dimension &&
@@ -99,12 +149,28 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
          inst->Src[i].Register.Dimension = 0;
    }
    ctx->emit_instruction(ctx, inst);
+
+   for (unsigned i = 0; i < inst->Instruction.NumDstRegs; i++) {
+      /* Emit the fixup MOV from the clipdist temporary to the real output. */
+      if (inst->Dst[i].Register.File == TGSI_FILE_TEMPORARY &&
+         inst->Dst[i].Register.Index >= vtctx->clipdist_out_temp &&
+         inst->Dst[i].Register.Index <= vtctx->clipdist_out_temp + 1) {
+         tgsi_transform_op1_inst(ctx, TGSI_OPCODE_MOV,
+                                 TGSI_FILE_OUTPUT,
+                                 (inst->Dst[i].Register.Index == vtctx->clipdist_out_temp ?
+                                  vtctx->clipdist0_out :
+                                  vtctx->clipdist1_out),
+                                 TGSI_WRITEMASK_XYZW,
+                                 inst->Dst[i].Register.File,
+                                 inst->Dst[i].Register.Index);
+      }
+   }
 }
 
 struct tgsi_token *virgl_tgsi_transform(struct virgl_screen *vscreen, const struct tgsi_token *tokens_in)
 {
    struct virgl_transform_context transform;
-   const uint newLen = tgsi_num_tokens(tokens_in);
+   const uint newLen = tgsi_num_tokens(tokens_in) * 2 /* XXX: how many to allocate? */;
    struct tgsi_token *new_tokens;
 
    new_tokens = tgsi_alloc_tokens(newLen);
@@ -115,10 +181,16 @@ struct tgsi_token *virgl_tgsi_transform(struct virgl_screen *vscreen, const stru
    transform.base.transform_declaration = virgl_tgsi_transform_declaration;
    transform.base.transform_property = virgl_tgsi_transform_property;
    transform.base.transform_instruction = virgl_tgsi_transform_instruction;
+   transform.base.prolog = virgl_tgsi_transform_prolog;
    transform.cull_enabled = vscreen->caps.caps.v1.bset.has_cull;
    transform.has_precise = vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_TGSI_PRECISE;
    transform.fake_fp64 =
       vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_FAKE_FP64;
+
+   transform.clipdist0_out = ~0;
+   transform.clipdist1_out = ~0;
+   transform.clipdist_out_temp = ~0;
+
    tgsi_transform_shader(tokens_in, new_tokens, newLen, &transform.base);
 
    return new_tokens;
