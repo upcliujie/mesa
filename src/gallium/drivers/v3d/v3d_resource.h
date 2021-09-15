@@ -27,6 +27,7 @@
 
 #include "v3d_screen.h"
 #include "util/u_transfer.h"
+#include "util/u_rect.h"
 
 #include "broadcom/common/v3d_tiling.h"
 
@@ -134,6 +135,11 @@ struct v3d_resource {
          * texture. This is the case for imports from GLX TFP for example.
          */
         bool unsynchronized_external;
+        /**
+         * Bounding rectangle of the damage done to the original texture. This
+         * is the minimum region that we need to update in the shadow texture.
+         */
+        struct u_rect damaged_region;
 };
 
 static inline struct v3d_resource *

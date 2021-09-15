@@ -783,7 +783,32 @@ v3d_screen_invalidate_unsynchronized_resource(struct pipe_screen *screen,
         if (n_rects < 1)
                 return;
 
-        rsc->writes++;
+        /* If the damaged region is empty then replace it with the first
+         * rectangle.
+         */
+        if (u_rect_is_empty(&rsc->damaged_region)) {
+                rsc->damaged_region.x0 = rects[0];
+                rsc->damaged_region.y0 = rects[1];
+                rsc->damaged_region.x1 = rects[0] + rects[2];
+                rsc->damaged_region.y1 = rects[1] + rects[3];
+                rects++;
+                n_rects--;
+        }
+
+        for (unsigned i = 0; i < n_rects; i++) {
+                struct u_rect other = {
+                        .x0 = rects[0],
+                        .y0 = rects[1],
+                        .x1 = rects[0] + rects[2],
+                        .y1 = rects[1] + rects[3],
+                };
+
+                u_rect_union(&rsc->damaged_region,
+                             &rsc->damaged_region,
+                             &other);
+
+                rects += 4;
+        }
 }
 
 struct pipe_screen *

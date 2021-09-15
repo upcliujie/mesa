@@ -992,45 +992,69 @@ v3d_update_shadow_texture(struct pipe_context *pctx,
         struct v3d_sampler_view *view = v3d_sampler_view(pview);
         struct v3d_resource *shadow = v3d_resource(view->texture);
         struct v3d_resource *orig = v3d_resource(pview->texture);
+        struct u_rect damaged_region = {
+                .x0 = 0, .y0 = 0,
+                .x1 = orig->base.width0, .y1 = orig->base.height0
+        };
 
         assert(view->texture != pview->texture);
 
-        if (shadow->writes == orig->writes &&
-            (orig->bo->private || orig->unsynchronized_external))
-                return;
+        if (shadow->writes == orig->writes) {
+                if (orig->bo->private)
+                        return;
+                if (orig->unsynchronized_external) {
+                        if (u_rect_is_empty(&orig->damaged_region))
+                                return;
+                        damaged_region = orig->damaged_region;
+                        memset(&orig->damaged_region, 0, sizeof(struct u_rect));
 
-        perf_debug("Updating %dx%d@%d shadow for linear texture\n",
+                        /* Align the blit to tile boundaries so we can use the
+                         * tlb blit.
+                         */
+                        damaged_region.x0 =
+                                ROUND_DOWN_TO(damaged_region.x0, 64);
+                        damaged_region.x1 = ALIGN(damaged_region.x1, 64);
+                        damaged_region.y0 =
+                                ROUND_DOWN_TO(damaged_region.y0, 64);
+                        damaged_region.y1 = ALIGN(damaged_region.y1, 64);
+                }
+        }
+
+        perf_debug("Updating region [%ix%i@%i,%i] of %dx%d@%d shadow "
+                   "for linear texture\n",
+                   damaged_region.x1 - damaged_region.x0,
+                   damaged_region.y1 - damaged_region.y0,
+                   damaged_region.x0,
+                   damaged_region.y0,
                    orig->base.width0, orig->base.height0,
                    pview->u.tex.first_level);
 
         for (int i = 0; i <= shadow->base.last_level; i++) {
-                unsigned width = u_minify(shadow->base.width0, i);
-                unsigned height = u_minify(shadow->base.height0, i);
+                struct pipe_box box = {
+                        .x = 0,
+                        .y = 0,
+                        .z = 0,
+                        .width = u_minify(shadow->base.width0, i),
+                        .height = u_minify(shadow->base.height0, i),
+                        .depth = 1,
+                };
+                if (i == 0) {
+                        box.x = damaged_region.x0;
+                        box.y = damaged_region.y0;
+                        box.width = damaged_region.x1 - damaged_region.x0;
+                        box.height = damaged_region.y1 - damaged_region.y0;
+                }
                 struct pipe_blit_info info = {
                         .dst = {
                                 .resource = &shadow->base,
                                 .level = i,
-                                .box = {
-                                        .x = 0,
-                                        .y = 0,
-                                        .z = 0,
-                                        .width = width,
-                                        .height = height,
-                                        .depth = 1,
-                                },
+                                .box = box,
                                 .format = shadow->base.format,
                         },
                         .src = {
                                 .resource = &orig->base,
                                 .level = pview->u.tex.first_level + i,
-                                .box = {
-                                        .x = 0,
-                                        .y = 0,
-                                        .z = 0,
-                                        .width = width,
-                                        .height = height,
-                                        .depth = 1,
-                                },
+                                .box = box,
                                 .format = orig->base.format,
                         },
                         .mask = util_format_get_mask(orig->base.format),
