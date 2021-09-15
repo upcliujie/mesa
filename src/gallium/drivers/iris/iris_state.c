@@ -4880,6 +4880,18 @@ update_clear_value(struct iris_context *ice,
 #endif
 }
 
+static uint32_t
+use_surface_state(struct iris_batch *batch,
+                  struct iris_surface_state *surf_state,
+                  enum isl_aux_usage aux_usage)
+{
+   iris_use_pinned_bo(batch, iris_resource_bo(surf_state->ref.res), false,
+                      IRIS_DOMAIN_NONE);
+
+   return surf_state->ref.offset +
+          surf_state_offset_for_aux(surf_state->aux_usages, aux_usage);
+}
+
 /**
  * Add a surface to the validation list, as well as the buffer containing
  * the corresponding SURFACE_STATE.
@@ -4897,7 +4909,6 @@ use_surface(struct iris_context *ice,
 {
    struct iris_surface *surf = (void *) p_surf;
    struct iris_resource *res = (void *) p_surf->texture;
-   uint32_t offset = 0;
 
    if (GFX_VER == 8 && is_read_surface && !surf->surface_state_read.ref.res) {
       upload_surface_states(ice->state.surface_uploader,
@@ -4928,22 +4939,10 @@ use_surface(struct iris_context *ice,
    iris_use_pinned_bo(batch, res->bo, writeable, access);
 
    if (GFX_VER == 8 && is_read_surface) {
-      iris_use_pinned_bo(batch, iris_resource_bo(surf->surface_state_read.ref.res), false,
-                         IRIS_DOMAIN_NONE);
+      return use_surface_state(batch, &surf->surface_state_read, aux_usage);
    } else {
-      iris_use_pinned_bo(batch, iris_resource_bo(surf->surface_state.ref.res), false,
-                         IRIS_DOMAIN_NONE);
+      return use_surface_state(batch, &surf->surface_state, aux_usage);
    }
-
-   offset = (GFX_VER == 8 && is_read_surface)
-               ? surf->surface_state_read.ref.offset
-               : surf->surface_state.ref.offset;
-
-   return offset +
-          surf_state_offset_for_aux((GFX_VER == 8 && is_read_surface)
-                                       ? surf->surface_state_read.aux_usages
-                                       : surf->surface_state.aux_usages,
-                                    aux_usage);
 }
 
 static uint32_t
@@ -4975,11 +4974,8 @@ use_sampler_view(struct iris_context *ice,
    }
 
    iris_use_pinned_bo(batch, isv->res->bo, false, IRIS_DOMAIN_OTHER_READ);
-   iris_use_pinned_bo(batch, iris_resource_bo(isv->surface_state.ref.res), false,
-                      IRIS_DOMAIN_NONE);
 
-   return isv->surface_state.ref.offset +
-          surf_state_offset_for_aux(isv->surface_state.aux_usages, aux_usage);
+   return use_surface_state(batch, &isv->surface_state, aux_usage);
 }
 
 static uint32_t
@@ -5013,8 +5009,6 @@ use_image(struct iris_batch *batch, struct iris_context *ice,
    bool write = iv->base.shader_access & PIPE_IMAGE_ACCESS_WRITE;
 
    iris_use_pinned_bo(batch, res->bo, write, IRIS_DOMAIN_NONE);
-   iris_use_pinned_bo(batch, iris_resource_bo(iv->surface_state.ref.res),
-                      false, IRIS_DOMAIN_NONE);
 
    if (res->aux.bo)
       iris_use_pinned_bo(batch, res->aux.bo, write, IRIS_DOMAIN_NONE);
@@ -5022,8 +5016,7 @@ use_image(struct iris_batch *batch, struct iris_context *ice,
    enum isl_aux_usage aux_usage =
       iris_image_view_aux_usage(ice, &iv->base, info);
 
-   return iv->surface_state.ref.offset +
-      surf_state_offset_for_aux(iv->surface_state.aux_usages, aux_usage);
+   return use_surface_state(batch, &iv->surface_state, aux_usage);
 }
 
 #define push_bt_entry(addr) \
