@@ -1191,13 +1191,22 @@ add_all_surfaces_explicit_layout(
 
 static const struct isl_drm_modifier_info *
 choose_drm_format_mod(const struct anv_physical_device *device,
-                      uint32_t modifier_count, const uint64_t *modifiers)
+                      uint32_t modifier_count, const uint64_t *modifiers,
+                      bool legacy_scanout)
 {
    uint64_t best_mod = UINT64_MAX;
    uint32_t best_score = 0;
+   isl_tiling_flags_t legacy_mask = ISL_TILING_LINEAR_BIT;
+   if (device->info.has_tiling_uapi)
+      legacy_mask |= ISL_TILING_X_BIT;
 
    for (uint32_t i = 0; i < modifier_count; ++i) {
       uint32_t score = isl_drm_modifier_get_score(&device->info, modifiers[i]);
+      if (score) {
+         const struct isl_drm_modifier_info *isl_mod_info = isl_drm_modifier_get_info(modifiers[i]);
+         if (legacy_scanout && !(legacy_mask & BITFIELD_BIT(isl_mod_info->tiling)))
+            continue;
+      }
       if (score > best_score) {
          best_mod = modifiers[i];
          best_score = score;
@@ -1286,7 +1295,8 @@ anv_image_create(VkDevice _device,
                                  IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT);
          isl_mod_info = choose_drm_format_mod(device->physical,
                                               mod_list_info->drmFormatModifierCount,
-                                              mod_list_info->pDrmFormatModifiers);
+                                              mod_list_info->pDrmFormatModifiers,
+                                              image->vk.wsi_legacy_scanout);
       }
 
       assert(isl_mod_info);
