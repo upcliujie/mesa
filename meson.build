@@ -328,7 +328,7 @@ if host_machine.system() == 'darwin'
   pre_args += '-DBUILDING_MESA'
 elif ['windows', 'cygwin'].contains(host_machine.system())
   with_dri_platform = 'windows'
-elif system_has_kms_drm
+elif system_has_kms_drm and not with_freedreno_kgsl
   with_dri_platform = 'drm'
 else
   # FIXME: haiku doesn't use dri, and xlib doesn't use dri, probably should
