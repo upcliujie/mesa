@@ -89,26 +89,32 @@ panfrost_needs_explicit_stride(const struct panfrost_device *dev,
         return false;
 }
 
-/* A Scalable Texture Compression (ASTC) corresponds to just a few texture type
- * in the hardware, but in fact can be parametrized to have various widths and
- * heights for the so-called "stretch factor". It turns out these parameters
- * are stuffed in the bottom bits of the payload pointers. This functions
- * computes these magic stuffing constants based on the ASTC format in use. The
- * constant in a given dimension is 3-bits, and two are stored side-by-side for
- * each active dimension.
+/* Arm Scalable Texture Compression (ASTC) corresponds to just a few texture
+ * type in the hardware, but are parametrized by block dimensions tagging
+ * payload pointers.
+ *
+ * For 2D ASTC, the constant is 3-bits, consuming 6-bits for width and height.
  */
 
-static unsigned
-panfrost_astc_stretch(unsigned dim)
+static enum mali_astc_2d_dimension
+panfrost_astc_dim(unsigned dim)
 {
-        assert(dim >= 4 && dim <= 12);
-        return MIN2(dim, 11) - 4;
+        switch (dim) {
+        case  4: return MALI_ASTC_2D_DIMENSION_4;
+        case  5: return MALI_ASTC_2D_DIMENSION_5;
+        case  6: return MALI_ASTC_2D_DIMENSION_6;
+        case  8: return MALI_ASTC_2D_DIMENSION_8;
+        case 10: return MALI_ASTC_2D_DIMENSION_10;
+        case 12: return MALI_ASTC_2D_DIMENSION_12;
+        default: unreachable("Invalid ASTC dimension");
+        }
 }
 
 /* Texture addresses are tagged with information about compressed formats.
  * AFBC uses a bit for whether the colorspace transform is enabled (RGB and
  * RGBA only).
- * For ASTC, this is a "stretch factor" encoding the block size. */
+ *
+ * For ASTC, this encodes the block dimensions. */
 
 static unsigned
 panfrost_compression_tag(const struct panfrost_device *dev,
@@ -140,8 +146,8 @@ panfrost_compression_tag(const struct panfrost_device *dev,
 
                 return flags;
         } else if (desc->layout == UTIL_FORMAT_LAYOUT_ASTC) {
-                return (panfrost_astc_stretch(desc->block.height) << 3) |
-                        panfrost_astc_stretch(desc->block.width);
+                return (panfrost_astc_dim(desc->block.height) << 3) |
+                        panfrost_astc_dim(desc->block.width);
         } else {
                 return 0;
         }
