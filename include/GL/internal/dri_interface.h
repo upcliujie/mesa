@@ -1815,7 +1815,9 @@ struct __DRIimageExtensionRec {
     * \since 20
     */
    void (*invalidateUnsynchronizedImage)(__DRIscreen *screen,
-                                         __DRIimage *image);
+                                         __DRIimage *image,
+                                         const int *rects,
+                                         unsigned int n_rects);
 };
 
 
