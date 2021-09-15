@@ -107,6 +107,12 @@ u_rect_union(struct u_rect *d, const struct u_rect *a, const struct u_rect *b)
    d->y1 = MAX2(a->y1, b->y1);
 }
 
+static inline bool
+u_rect_is_empty(struct u_rect *r)
+{
+   return r->x1 <= r->x0 || r->y1 <= r->y0;
+}
+
 #ifdef __cplusplus
 }
 #endif
