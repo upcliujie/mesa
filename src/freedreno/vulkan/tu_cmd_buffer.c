@@ -306,10 +306,10 @@ tu6_emit_mrt(struct tu_cmd_buffer *cmd,
 }
 
 void
-tu6_emit_msaa(struct tu_cs *cs, VkSampleCountFlagBits vk_samples)
+tu6_emit_msaa(struct tu_cs *cs, VkSampleCountFlagBits vk_samples, bool bresenham_line)
 {
    const enum a3xx_msaa_samples samples = tu_msaa_samples(vk_samples);
-   bool msaa_disable = samples == MSAA_ONE;
+   bool msaa_disable = (samples == MSAA_ONE) || bresenham_line;
 
    tu_cs_emit_regs(cs,
                    A6XX_SP_TP_RAS_MSAA_CNTL(samples),
@@ -3153,7 +3153,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    tu6_emit_zs(cmd, cmd->state.subpass, &cmd->draw_cs);
    tu6_emit_mrt(cmd, cmd->state.subpass, &cmd->draw_cs);
    if (cmd->state.subpass->samples)
-      tu6_emit_msaa(&cmd->draw_cs, cmd->state.subpass->samples);
+      tu6_emit_msaa(&cmd->draw_cs, cmd->state.subpass->samples, false);
    tu6_emit_render_cntl(cmd, cmd->state.subpass, &cmd->draw_cs, false);
 
    tu_set_input_attachments(cmd, cmd->state.subpass);
@@ -3222,7 +3222,7 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
    tu6_emit_zs(cmd, cmd->state.subpass, cs);
    tu6_emit_mrt(cmd, cmd->state.subpass, cs);
    if (cmd->state.subpass->samples)
-      tu6_emit_msaa(cs, cmd->state.subpass->samples);
+      tu6_emit_msaa(cs, cmd->state.subpass->samples, false);
    tu6_emit_render_cntl(cmd, cmd->state.subpass, cs, false);
 
    tu_set_input_attachments(cmd, cmd->state.subpass);
@@ -3842,6 +3842,12 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
    }
 
    if (cmd->state.dirty & TU_CMD_DIRTY_GRAS_SU_CNTL) {
+      if (cmd->state.gras_su_cntl | A6XX_GRAS_SU_CNTL_BRESLINE_DISABLE) {
+         /* Disable MSAA when bresenham lines are specified to be used. */
+         if (tu6_primtype_line(pipeline->ia.primtype))
+            tu6_emit_msaa(&cmd->draw_cs, cmd->state.subpass->samples, true);
+      }
+
       struct tu_cs cs = tu_cmd_dynamic_state(cmd, TU_DYNAMIC_STATE_GRAS_SU_CNTL, 2);
       tu_cs_emit_regs(&cs, A6XX_GRAS_SU_CNTL(.dword = cmd->state.gras_su_cntl));
    }

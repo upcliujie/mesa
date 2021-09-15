@@ -1955,7 +1955,7 @@ tu6_emit_sample_locations(struct tu_cs *cs, const VkSampleLocationsInfoEXT *samp
 
 static uint32_t
 tu6_gras_su_cntl(const VkPipelineRasterizationStateCreateInfo *rast_info,
-                 VkSampleCountFlagBits samples,
+                 bool bresenham_line,
                  bool multiview)
 {
    uint32_t gras_su_cntl = 0;
@@ -1974,7 +1974,7 @@ tu6_gras_su_cntl(const VkPipelineRasterizationStateCreateInfo *rast_info,
    if (rast_info->depthBiasEnable)
       gras_su_cntl |= A6XX_GRAS_SU_CNTL_POLY_OFFSET;
 
-   if (samples > VK_SAMPLE_COUNT_1_BIT)
+   if (!bresenham_line)
       gras_su_cntl |= A6XX_GRAS_SU_CNTL_BRESLINE_DISABLE;
 
    if (multiview) {
@@ -2744,6 +2744,24 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
    if (depth_clip_state)
       depth_clip_disable = !depth_clip_state->depthClipEnable;
 
+   bool bresenham = false;
+   const VkPipelineRasterizationLineStateCreateInfoEXT *rast_line_state =
+      vk_find_struct_const(rast_info->pNext,
+                           PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
+
+   if (rast_line_state && rast_line_state->lineRasterizationMode ==
+             VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT) {
+      bresenham = true;
+
+      /* Use the rasterization dynamic state to see if this feature is used.
+       * This is needed to disable MSAA dynamically when drawing.
+       */
+      pipeline->dynamic_state_mask |= BIT(TU_DYNAMIC_STATE_GRAS_SU_CNTL);
+      pipeline->gras_su_cntl_mask &= ~A6XX_GRAS_SU_CNTL_BRESLINE_DISABLE;
+
+      assert(tu6_primtype_line(pipeline->ia.primtype));
+   }
+
    struct tu_cs cs;
    uint32_t cs_size = 9 + (builder->emit_msaa_state ? 11 : 0);
    pipeline->rast_state = tu_cs_draw_state(&pipeline->cs, &cs, cs_size);
@@ -2772,7 +2790,7 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
     * It happens when subpass doesn't use any color/depth attachment.
     */
    if (builder->emit_msaa_state)
-      tu6_emit_msaa(&cs, builder->samples);
+      tu6_emit_msaa(&cs, builder->samples, bresenham);
 
    const VkPipelineRasterizationStateStreamCreateInfoEXT *stream_info =
       vk_find_struct_const(rast_info->pNext,
@@ -2792,7 +2810,7 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
    }
 
    pipeline->gras_su_cntl =
-      tu6_gras_su_cntl(rast_info, builder->samples, builder->multiview_mask != 0);
+      tu6_gras_su_cntl(rast_info, bresenham, builder->multiview_mask != 0);
 
    if (tu_pipeline_static_state(pipeline, &cs, TU_DYNAMIC_STATE_GRAS_SU_CNTL, 2))
       tu_cs_emit_regs(&cs, A6XX_GRAS_SU_CNTL(.dword = pipeline->gras_su_cntl));
