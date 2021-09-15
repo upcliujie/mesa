@@ -130,6 +130,13 @@ anv_device_finish_blorp(struct anv_device *device)
 }
 
 static void
+anv_blorp_batch_init(struct anv_cmd_buffer *cmd_buffer,
+                     struct blorp_batch *batch, enum blorp_batch_flags flags)
+{
+   blorp_batch_init(&cmd_buffer->device->blorp, batch, cmd_buffer, flags);
+}
+
+static void
 get_blorp_surf_for_anv_buffer(struct anv_device *device,
                               struct anv_buffer *buffer, uint64_t offset,
                               uint32_t width, uint32_t height,
@@ -423,7 +430,7 @@ void anv_CmdCopyImage2KHR(
    ANV_FROM_HANDLE(anv_image, dst_image, pCopyImageInfo->dstImage);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    for (unsigned r = 0; r < pCopyImageInfo->regionCount; r++) {
       copy_image(cmd_buffer, &batch,
@@ -596,7 +603,7 @@ void anv_CmdCopyBufferToImage2KHR(
    ANV_FROM_HANDLE(anv_image, dst_image, pCopyBufferToImageInfo->dstImage);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    for (unsigned r = 0; r < pCopyBufferToImageInfo->regionCount; r++) {
       copy_buffer_to_image(cmd_buffer, &batch, src_buffer, dst_image,
@@ -616,7 +623,7 @@ void anv_CmdCopyImageToBuffer2KHR(
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    for (unsigned r = 0; r < pCopyImageToBufferInfo->regionCount; r++) {
       copy_buffer_to_image(cmd_buffer, &batch, dst_buffer, src_image,
@@ -777,7 +784,7 @@ void anv_CmdBlitImage2KHR(
    ANV_FROM_HANDLE(anv_image, dst_image, pBlitImageInfo->dstImage);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    for (unsigned r = 0; r < pBlitImageInfo->regionCount; r++) {
       blit_image(cmd_buffer, &batch,
@@ -842,7 +849,7 @@ void anv_CmdCopyBuffer2KHR(
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, pCopyBufferInfo->dstBuffer);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    for (unsigned r = 0; r < pCopyBufferInfo->regionCount; r++) {
       copy_buffer(cmd_buffer->device, &batch, src_buffer, dst_buffer,
@@ -866,7 +873,7 @@ void anv_CmdUpdateBuffer(
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, dstBuffer);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    /* We can't quite grab a full block because the state stream needs a
     * little data at the top to build its linked list.
@@ -929,7 +936,7 @@ void anv_CmdFillBuffer(
    struct isl_surf isl_surf;
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    fillSize = anv_buffer_get_range(dst_buffer, dstOffset, fillSize);
 
@@ -1017,8 +1024,7 @@ void anv_CmdClearColorImage(
    ANV_FROM_HANDLE(anv_image, image, _image);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
-
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    for (unsigned r = 0; r < rangeCount; r++) {
       if (pRanges[r].aspectMask == 0)
@@ -1080,7 +1086,7 @@ void anv_CmdClearDepthStencilImage(
    ANV_FROM_HANDLE(anv_image, image, image_h);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    struct blorp_surf depth, stencil, stencil_shadow;
    if (image->vk.aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
@@ -1351,7 +1357,7 @@ void anv_CmdClearAttachments(
       anv_cmd_emit_conditional_render_predicate(cmd_buffer);
       flags |= BLORP_BATCH_PREDICATE_ENABLE;
    }
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, flags);
+   anv_blorp_batch_init(cmd_buffer, &batch, flags);
 
    for (uint32_t a = 0; a < attachmentCount; ++a) {
       if (pAttachments[a].aspectMask & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) {
@@ -1391,7 +1397,7 @@ anv_image_msaa_resolve(struct anv_cmd_buffer *cmd_buffer,
                        enum blorp_filter filter)
 {
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    assert(src_image->vk.image_type == VK_IMAGE_TYPE_2D);
    assert(src_image->vk.samples > 1);
@@ -1514,7 +1520,7 @@ anv_image_copy_to_shadow(struct anv_cmd_buffer *cmd_buffer,
                          uint32_t base_layer, uint32_t layer_count)
 {
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    /* We don't know who touched the main surface last so flush a bunch of
     * caches to ensure we get good data.
@@ -1578,7 +1584,7 @@ anv_image_clear_color(struct anv_cmd_buffer *cmd_buffer,
    assert(image->n_planes == 1);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    struct blorp_surf surf;
    get_blorp_surf_for_anv_image(cmd_buffer->device, image, aspect,
@@ -1612,7 +1618,7 @@ anv_image_clear_depth_stencil(struct anv_cmd_buffer *cmd_buffer,
                                VK_IMAGE_ASPECT_STENCIL_BIT));
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    struct blorp_surf depth = {};
    if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
@@ -1694,7 +1700,7 @@ anv_image_hiz_op(struct anv_cmd_buffer *cmd_buffer,
    assert(plane == 0);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    struct blorp_surf surf;
    get_blorp_surf_for_anv_image(cmd_buffer->device,
@@ -1719,7 +1725,7 @@ anv_image_hiz_clear(struct anv_cmd_buffer *cmd_buffer,
                                VK_IMAGE_ASPECT_STENCIL_BIT));
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer, 0);
+   anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
    struct blorp_surf depth = {};
    if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
@@ -1814,9 +1820,9 @@ anv_image_mcs_op(struct anv_cmd_buffer *cmd_buffer,
    assert(image->n_planes == 1);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer,
-                    BLORP_BATCH_PREDICATE_ENABLE * predicate +
-                    BLORP_BATCH_NO_UPDATE_CLEAR_COLOR * !clear_value);
+   anv_blorp_batch_init(cmd_buffer, &batch,
+                        BLORP_BATCH_PREDICATE_ENABLE * predicate +
+                        BLORP_BATCH_NO_UPDATE_CLEAR_COLOR * !clear_value);
 
    struct blorp_surf surf;
    get_blorp_surf_for_anv_image(cmd_buffer->device, image, aspect,
@@ -1895,9 +1901,9 @@ anv_image_ccs_op(struct anv_cmd_buffer *cmd_buffer,
    const uint32_t plane = anv_image_aspect_to_plane(image, aspect);
 
    struct blorp_batch batch;
-   blorp_batch_init(&cmd_buffer->device->blorp, &batch, cmd_buffer,
-                    BLORP_BATCH_PREDICATE_ENABLE * predicate +
-                    BLORP_BATCH_NO_UPDATE_CLEAR_COLOR * !clear_value);
+   anv_blorp_batch_init(cmd_buffer, &batch,
+                        BLORP_BATCH_PREDICATE_ENABLE * predicate +
+                        BLORP_BATCH_NO_UPDATE_CLEAR_COLOR * !clear_value);
 
    struct blorp_surf surf;
    get_blorp_surf_for_anv_image(cmd_buffer->device, image, aspect,
