@@ -141,7 +141,8 @@ lower_deref(nir_builder *b, struct lower_samplers_as_deref_state *state,
    nir_variable *var = nir_deref_instr_get_variable(deref);
    gl_shader_stage stage = state->shader->info.stage;
 
-   if (var->data.bindless || var->data.mode != nir_var_uniform)
+   if (!(var->data.mode & (nir_var_uniform | nir_var_mem_image)) ||
+       var->data.bindless)
       return NULL;
 
    nir_deref_path path;
