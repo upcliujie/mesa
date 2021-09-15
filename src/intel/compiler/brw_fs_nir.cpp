@@ -4411,7 +4411,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
    case nir_intrinsic_memory_barrier:
    case nir_intrinsic_begin_invocation_interlock:
    case nir_intrinsic_end_invocation_interlock: {
-      bool l3_fence, slm_fence, tgm_fence = false;
+      bool ugm_fence, slm_fence, tgm_fence, urb_fence;
       const enum opcode opcode =
          instr->intrinsic == nir_intrinsic_begin_invocation_interlock ?
          SHADER_OPCODE_INTERLOCK : SHADER_OPCODE_MEMORY_FENCE;
@@ -4419,14 +4419,10 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       switch (instr->intrinsic) {
       case nir_intrinsic_scoped_barrier: {
          nir_variable_mode modes = nir_intrinsic_memory_modes(instr);
-         l3_fence = modes & (nir_var_shader_out |
-                             nir_var_mem_ssbo |
-                             nir_var_mem_global);
+         ugm_fence = modes & (nir_var_mem_ssbo | nir_var_mem_global);
          slm_fence = modes & nir_var_mem_shared;
-
-         /* NIR currently doesn't have an image mode */
-         if (devinfo->has_lsc)
-            tgm_fence = modes & nir_var_mem_ssbo;
+         tgm_fence = modes & nir_var_mem_ssbo;
+         urb_fence = modes & nir_var_shader_out;
          break;
       }
 
@@ -4448,16 +4444,21 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
           * Handling them here will allow the logic for IVB render cache (see
           * below) to be reused.
           */
-         l3_fence = true;
-         slm_fence = false;
+         assert(stage == MESA_SHADER_FRAGMENT);
+         ugm_fence = tgm_fence = true;
+         slm_fence = urb_fence = false;
          break;
 
       default:
-         l3_fence = instr->intrinsic != nir_intrinsic_memory_barrier_shared;
+         ugm_fence = instr->intrinsic != nir_intrinsic_memory_barrier_shared &&
+                     instr->intrinsic != nir_intrinsic_memory_barrier_image;
          slm_fence = instr->intrinsic == nir_intrinsic_group_memory_barrier ||
                      instr->intrinsic == nir_intrinsic_memory_barrier ||
                      instr->intrinsic == nir_intrinsic_memory_barrier_shared;
-         tgm_fence = instr->intrinsic == nir_intrinsic_memory_barrier_image;
+         tgm_fence = instr->intrinsic == nir_intrinsic_group_memory_barrier ||
+                     instr->intrinsic == nir_intrinsic_memory_barrier ||
+                     instr->intrinsic == nir_intrinsic_memory_barrier_image;
+         urb_fence = instr->intrinsic == nir_intrinsic_memory_barrier;
          break;
       }
 
@@ -4474,95 +4475,134 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
           slm_fence && workgroup_size() <= dispatch_width)
          slm_fence = false;
 
-      /* Prior to Gfx11, there's only L3 fence, so emit that instead. */
-      if (slm_fence && devinfo->ver < 11) {
-         slm_fence = false;
-         l3_fence = true;
-      }
-
-      /* IVB does typed surface access through the render cache, so we need
-       * to flush it too.
-       */
-      const bool needs_render_fence =
-         devinfo->verx10 == 70;
-
-      /* Be conservative in Gfx11+ and always stall in a fence.  Since there
-       * are two different fences, and shader might want to synchronize
-       * between them.
-       *
-       * TODO: Use scope and visibility information for the barriers from NIR
-       * to make a better decision on whether we need to stall.
-       */
-      const bool stall = devinfo->ver >= 11 || needs_render_fence ||
-         instr->intrinsic == nir_intrinsic_end_invocation_interlock;
-
-      const bool commit_enable = stall ||
-         devinfo->ver >= 10; /* HSD ES # 1404612949 */
+      if (stage != MESA_SHADER_TESS_CTRL)
+         urb_fence = false;
 
       unsigned fence_regs_count = 0;
       fs_reg fence_regs[3] = {};
 
       const fs_builder ubld = bld.group(8, 0);
 
-      if (l3_fence) {
-         fs_inst *fence =
-            ubld.emit(opcode,
-                      ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                      brw_vec8_grf(0, 0),
-                      brw_imm_ud(commit_enable),
-                      brw_imm_ud(0 /* BTI; ignored for LSC */));
-
-         fence->sfid = devinfo->has_lsc ?
-                       GFX12_SFID_UGM :
-                       GFX7_SFID_DATAPORT_DATA_CACHE;
-
-         fence_regs[fence_regs_count++] = fence->dst;
-
-         if (needs_render_fence) {
-            fs_inst *render_fence =
+      if (devinfo->has_lsc) {
+         assert(devinfo->verx10 >= 125);
+         if (ugm_fence) {
+            fs_inst *fence =
                ubld.emit(opcode,
                          ubld.vgrf(BRW_REGISTER_TYPE_UD),
                          brw_vec8_grf(0, 0),
-                         brw_imm_ud(commit_enable),
-                         brw_imm_ud(/* bti */ 0));
-            render_fence->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-
-            fence_regs[fence_regs_count++] = render_fence->dst;
+                         brw_imm_ud(true /* commit_enable */),
+                         brw_imm_ud(0 /* BTI; ignored for LSC */));
+            fence->sfid = GFX12_SFID_UGM;
+            fence_regs[fence_regs_count++] = fence->dst;
          }
 
-         /* Translate l3_fence into untyped and typed fence on XeHP */
-         if (devinfo->has_lsc && tgm_fence) {
+         if (tgm_fence) {
+            fs_inst *fence =
+               ubld.emit(opcode,
+                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
+                         brw_vec8_grf(0, 0),
+                         brw_imm_ud(true /* commit_enable */),
+                         brw_imm_ud(0 /* BTI; ignored for LSC */));
+            fence->sfid = GFX12_SFID_TGM;
+            fence_regs[fence_regs_count++] = fence->dst;
+         }
+
+         if (slm_fence) {
+            assert(opcode == SHADER_OPCODE_MEMORY_FENCE);
+            fs_inst *fence =
+               ubld.emit(opcode,
+                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
+                         brw_vec8_grf(0, 0),
+                         brw_imm_ud(true /* commit_enable */),
+                         brw_imm_ud(0 /* BTI; ignored for LSC */));
+            fence->sfid = GFX12_SFID_SLM;
+            fence_regs[fence_regs_count++] = fence->dst;
+         }
+
+         if (urb_fence) {
+            unreachable("TODO: Emit a URB barrier message");
+         }
+      } else if (devinfo->ver >= 11) {
+         if (tgm_fence || ugm_fence || urb_fence) {
+            fs_inst *fence =
+               ubld.emit(opcode,
+                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
+                         brw_vec8_grf(0, 0),
+                         brw_imm_ud(true /* commit_enable HSD ES # 1404612949 */),
+                         brw_imm_ud(0 /* BTI = 0 means data cache */));
+
+            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
+            fence_regs[fence_regs_count++] = fence->dst;
+         }
+
+         if (slm_fence) {
+            assert(opcode == SHADER_OPCODE_MEMORY_FENCE);
+            fs_inst *fence =
+               ubld.emit(opcode,
+                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
+                         brw_vec8_grf(0, 0),
+                         brw_imm_ud(true /* commit_enable HSD ES # 1404612949 */),
+                         brw_imm_ud(GFX7_BTI_SLM));
+            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
+            fence_regs[fence_regs_count++] = fence->dst;
+         }
+      } else {
+         /* Prior to Icelake, they're all lumped into a single cache except on
+          * Ivy Bridge and Bay Trail where typed messages actually go through
+          * the render cache.  There, we need both fences because we may
+          * access storage images as either typed or untyped.
+          */
+         const bool render_fence = tgm_fence && devinfo->verx10 == 70;
+
+         const bool commit_enable = render_fence ||
+            instr->intrinsic == nir_intrinsic_end_invocation_interlock;
+
+         if (tgm_fence || ugm_fence || slm_fence || urb_fence) {
             fs_inst *fence =
                ubld.emit(opcode,
                          ubld.vgrf(BRW_REGISTER_TYPE_UD),
                          brw_vec8_grf(0, 0),
                          brw_imm_ud(commit_enable),
-                         brw_imm_ud(/* ignored */0));
+                         brw_imm_ud(0 /* BTI */));
+            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
+            fence_regs[fence_regs_count++] = fence->dst;
+         }
 
-            fence->sfid = GFX12_SFID_TGM;
+         /* Except on Ivy Bridge and Bay Trail where typed messages actually
+          * go through the render cache.  There, we need both fences because
+          * we may access storage images as either typed or untyped.
+          */
+         if (render_fence) {
+            fs_inst *fence =
+               ubld.emit(opcode,
+                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
+                         brw_vec8_grf(0, 0),
+                         brw_imm_ud(commit_enable),
+                         brw_imm_ud(/* bti */ 0));
+            fence->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
             fence_regs[fence_regs_count++] = fence->dst;
          }
       }
 
-      if (slm_fence) {
-         assert(opcode == SHADER_OPCODE_MEMORY_FENCE);
-         fs_inst *fence =
-            ubld.emit(opcode,
-                      ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                      brw_vec8_grf(0, 0),
-                      brw_imm_ud(commit_enable),
-                      brw_imm_ud(GFX7_BTI_SLM /* ignored for LSC */));
-         if (devinfo->has_lsc)
-            fence->sfid = GFX12_SFID_SLM;
-         else
-            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
+      assert(fence_regs_count <= ARRAY_SIZE(fence_regs));
 
-         fence_regs[fence_regs_count++] = fence->dst;
-      }
-
-      assert(fence_regs_count <= 3);
-
-      if (stall || fence_regs_count == 0) {
+      /* There are three cases where we want to insert a stall:
+       *
+       *  1. If we're a nir_intrinsic_end_invocation_interlock.  This is
+       *     required to ensure that the shader EOT doesn't happen until
+       *     after the fence returns.  Otherwise, we might end up with the
+       *     next shader invocation for that pixel not respecting our fence
+       *     because it may happen on a different HW thread.
+       *
+       *  2. If we have multiple fences.  This is required to ensure that
+       *     they all complete and nothing gets weirdly out-of-order.
+       *
+       *  3. If we have no fences.  In this case, we need at least a
+       *     scheduling barrier to keep the compiler from moving things
+       *     around in an invalid way.
+       */
+      if (instr->intrinsic == nir_intrinsic_end_invocation_interlock ||
+          fence_regs_count != 1) {
          ubld.exec_all().group(1, 0).emit(
             FS_OPCODE_SCHEDULING_FENCE, ubld.null_reg_ud(),
             fence_regs, fence_regs_count);
