@@ -103,6 +103,8 @@ struct find_variable {
 
 /**
  * Visitor that determines whether or not a variable is ever written.
+ * Note: this is only considering if the variable is statically written
+ * (= regardless of the runtime flow of control)
  *
  * Use \ref find_assignments for convenience.
  */
@@ -622,6 +624,11 @@ analyze_clip_cull_usage(struct gl_shader_program *prog,
                         struct gl_context *ctx,
                         struct shader_info *info)
 {
+   /* Remove dead functions to avoid raising an error (eg: dead function
+    * writes to gl_ClipVertex, and main() writes to gl_ClipDistance).
+    */
+   do_dead_functions(shader->ir);
+
    info->clip_distance_array_size = 0;
    info->cull_distance_array_size = 0;
 
