@@ -33,3 +33,4 @@ EXPORTS
 	stw_framebuffer_release_locked = stw_framebuffer_release_locked@4
 	stw_framebuffer_unlock = stw_framebuffer_unlock@4
 	stw_framebuffer_swap_locked = stw_framebuffer_swap_locked@8
+	stw_pbuffer_create = stw_pbuffer_create@12
