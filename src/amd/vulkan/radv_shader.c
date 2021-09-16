@@ -166,6 +166,9 @@ radv_optimize_nir(const struct radv_device *device, struct nir_shader *shader,
       NIR_PASS(progress, shader, nir_opt_constant_folding);
       NIR_PASS(progress, shader, nir_opt_algebraic);
 
+      if (shader->info.stage == MESA_SHADER_FRAGMENT)
+         NIR_PASS_V(shader, nir_opt_move_discards_to_top);
+
       NIR_PASS(progress, shader, nir_opt_undef);
       NIR_PASS(progress, shader, nir_opt_shrink_vectors,
                !device->instance->disable_shrink_image_store);
