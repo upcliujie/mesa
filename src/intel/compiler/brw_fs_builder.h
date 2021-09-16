@@ -779,6 +779,46 @@ namespace brw {
          return inst;
       }
 
+      /**
+       * Collect a number of registers in a contiguous range of registers.
+       */
+      instruction *
+      LOAD_PAYLOAD(const dst_reg &dst, const src_reg *src,
+                   unsigned sources, unsigned header_size,
+                   enum brw_reg_type payload_type) const
+      {
+         /* In order to support SIMD8 half float payloads, alternate a 8-wide
+          * half float vector and a null vector. To support padding we have to
+          * account for additional sources as well.
+          */
+         if (dispatch_width() == 8 && type_sz(payload_type) == 2)
+            sources *= 2;
+
+         src_reg src_comps[sources];
+         for (unsigned i = 0; i < sources; i++) {
+            if (dispatch_width() == 8 && type_sz(payload_type) == 2) {
+               src_comps[i] = (i % 2 == 0) ? src[i/2] : retype(src_comps[i],
+                                                               payload_type);
+            } else {
+               src_comps[i] = src[i];
+            }
+         }
+
+         instruction *inst = emit(SHADER_OPCODE_LOAD_PAYLOAD, dst, src_comps,
+                                  sources);
+         inst->header_size = header_size;
+         inst->size_written = header_size * REG_SIZE;
+         for (unsigned i = header_size; i < sources; i++) {
+            if (src_comps[i].file != BAD_FILE) {
+               inst->size_written +=
+                  ALIGN(dispatch_width() * type_sz(src_comps[i].type) *
+                        dst.stride, REG_SIZE);
+            }
+         }
+
+         return inst;
+      }
+
       instruction *
       UNDEF(const dst_reg &dst) const
       {
