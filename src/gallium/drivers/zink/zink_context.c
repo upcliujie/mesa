@@ -3265,7 +3265,7 @@ rebind_ibo(struct zink_context *ctx, enum pipe_shader_type shader, unsigned slot
 }
 
 static unsigned
-rebind_buffer(struct zink_context *ctx, struct zink_resource *res, const uint32_t rebind_mask, const unsigned expected_num_rebinds)
+rebind_buffer(struct zink_context *ctx, struct zink_resource *res, uint32_t rebind_mask, const unsigned expected_num_rebinds)
 {
    unsigned num_rebinds = 0;
    bool has_write = false;
@@ -3280,8 +3280,9 @@ rebind_buffer(struct zink_context *ctx, struct zink_resource *res, const uint32_
             }
          }
       }
+      rebind_mask &= ~BITFIELD_BIT(TC_BINDING_STREAMOUT_BUFFER);
    }
-   if (num_rebinds && expected_num_rebinds == num_rebinds)
+   if (num_rebinds && expected_num_rebinds >= num_rebinds && !rebind_mask)
       goto end;
 
    if ((rebind_mask & BITFIELD_BIT(TC_BINDING_VERTEX_BUFFER)) || (!rebind_mask && res->vbo_bind_mask)) {
@@ -3291,9 +3292,10 @@ rebind_buffer(struct zink_context *ctx, struct zink_resource *res, const uint32_
          set_vertex_buffer_clamped(ctx, slot);
          num_rebinds++;
       }
+      rebind_mask &= ~BITFIELD_BIT(TC_BINDING_VERTEX_BUFFER);
       ctx->vertex_buffers_dirty = true;
    }
-   if (num_rebinds && expected_num_rebinds == num_rebinds)
+   if (num_rebinds && expected_num_rebinds >= num_rebinds && !rebind_mask)
       goto end;
 
    const uint32_t ubo_mask = rebind_mask ?
@@ -3308,7 +3310,8 @@ rebind_buffer(struct zink_context *ctx, struct zink_resource *res, const uint32_
          num_rebinds++;
       }
    }
-   if (num_rebinds && expected_num_rebinds == num_rebinds)
+   rebind_mask &= ~BITFIELD_RANGE(TC_BINDING_UBO_VS, PIPE_SHADER_TYPES);
+   if (num_rebinds && expected_num_rebinds >= num_rebinds && !rebind_mask)
       goto end;
 
    const unsigned ssbo_mask = rebind_mask ?
@@ -3324,7 +3327,8 @@ rebind_buffer(struct zink_context *ctx, struct zink_resource *res, const uint32_
          num_rebinds++;
       }
    }
-   if (num_rebinds && expected_num_rebinds == num_rebinds)
+   rebind_mask &= ~BITFIELD_RANGE(TC_BINDING_SSBO_VS, PIPE_SHADER_TYPES);
+   if (num_rebinds && expected_num_rebinds >= num_rebinds && !rebind_mask)
       goto end;
    const unsigned sampler_mask = rebind_mask ?
                                  rebind_mask & BITFIELD_RANGE(TC_BINDING_SAMPLERVIEW_VS, PIPE_SHADER_TYPES) :
@@ -3338,7 +3342,8 @@ rebind_buffer(struct zink_context *ctx, struct zink_resource *res, const uint32_
          num_rebinds++;
       }
    }
-   if (num_rebinds && expected_num_rebinds == num_rebinds)
+   rebind_mask &= ~BITFIELD_RANGE(TC_BINDING_SAMPLERVIEW_VS, PIPE_SHADER_TYPES);
+   if (num_rebinds && expected_num_rebinds >= num_rebinds && !rebind_mask)
       goto end;
 
    const unsigned image_mask = rebind_mask ?
@@ -3483,7 +3488,7 @@ zink_context_replace_buffer_storage(struct pipe_context *pctx, struct pipe_resou
    d->obj = s->obj;
    /* force counter buffer reset */
    d->so_valid = false;
-   if (num_rebinds && rebind_buffer(ctx, d, rebind_mask, num_rebinds) != num_rebinds)
+   if (num_rebinds && rebind_buffer(ctx, d, rebind_mask, num_rebinds) < num_rebinds)
       ctx->buffer_rebind_counter = p_atomic_inc_return(&screen->buffer_rebind_counter);
 }
 
