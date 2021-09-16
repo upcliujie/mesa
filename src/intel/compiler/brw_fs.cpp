@@ -5164,6 +5164,44 @@ sampler_msg_type(const intel_device_info *devinfo,
    }
 }
 
+/**
+ * In order to support SIMD8 half float payloads, alternate a 8-wide
+ * half float vector and a null vector.
+ */
+static void
+emit_load_payload_with_padding(const fs_builder &bld, const fs_reg &dst,
+                               const fs_reg *src, unsigned sources,
+                               unsigned header_size,
+                               enum brw_reg_type requested_payload_type)
+{
+   unsigned length = 0;
+   unsigned requested_payload_sz =
+      brw_reg_type_to_size(requested_payload_type) * 8;
+
+   /* Double the number of sources to record padded sources. */
+   fs_reg src_comps[sources * 2];
+
+   for (unsigned i = 0; i < sources; i++) {
+      unsigned src_sz =
+         retype(dst, src[i].type).component_size(bld.dispatch_width());
+      const enum brw_reg_type padding_payload_type =
+         brw_reg_type_from_bit_size(src_sz, requested_payload_type);
+
+      src_comps[length++] = src[i];
+
+      /* Expand the real sources if component of requested payload type is
+       * larger than real source component.
+       */
+      if (src_sz < requested_payload_sz) {
+         int nr = bld.shader->alloc.allocate(bld.dispatch_width() / 8);
+         fs_reg padded_src = fs_reg(BAD_FILE, nr, padding_payload_type);
+         src_comps[length++] = padded_src;
+      }
+   }
+
+   bld.LOAD_PAYLOAD(dst, src_comps, length, header_size);
+}
+
 static void
 lower_sampler_logical_send_gfx7(const fs_builder &bld, fs_inst *inst, opcode op,
                                 const fs_reg &coordinate,
