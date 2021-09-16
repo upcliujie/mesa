@@ -107,3 +107,8 @@ debug_describe_so_target(char* buf,
    sprintf(buf, "pipe_stream_output_target<%s,%u,%u>", res,
                 ptr->buffer_offset, ptr->buffer_size);
 }
+
+void
+debug_describe_vertex_state(char* buf, const struct pipe_vertex_state *ptr)
+{
+}
