@@ -26,6 +26,7 @@
 
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
+#include "tegra_resource.h"
 
 struct tegra_screen;
 
@@ -61,7 +62,9 @@ tegra_sampler_view_unwrap(struct pipe_sampler_view *view)
    if (!view)
       return NULL;
 
-   return to_tegra_sampler_view(view)->gpu;
+   struct pipe_sampler_view *gpu = to_tegra_sampler_view(view)->gpu;
+   fix_refcount(&view->reference, &gpu->reference);
+   return gpu;
 }
 
 struct tegra_transfer {

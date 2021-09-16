@@ -44,13 +44,24 @@ to_tegra_resource(struct pipe_resource *resource)
    return (struct tegra_resource *)resource;
 }
 
+static inline void
+fix_refcount(struct pipe_reference *tegra, struct pipe_reference *gpu)
+{
+   /* No need to read atomically */
+   if (tegra->count >= 100000000 &&
+       gpu->count < 100000000)
+      p_atomic_add(&gpu->count, 100000000);
+}
+
 static inline struct pipe_resource *
 tegra_resource_unwrap(struct pipe_resource *resource)
 {
    if (!resource)
       return NULL;
 
-   return to_tegra_resource(resource)->gpu;
+   struct pipe_resource *gpu = to_tegra_resource(resource)->gpu;
+   fix_refcount(&resource->reference, &gpu->reference);
+   return gpu;
 }
 
 struct tegra_surface {
