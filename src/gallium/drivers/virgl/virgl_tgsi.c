@@ -42,6 +42,11 @@ struct virgl_transform_context {
    unsigned writemask_fixup_outs[5];
    unsigned writemask_fixup_temps;
    unsigned num_writemask_fixups;
+
+   unsigned layer_in;
+   unsigned layer_in_temp;
+   unsigned viewport_in;
+   unsigned viewport_in_temp;
 };
 
 static void
@@ -56,6 +61,12 @@ virgl_tgsi_transform_declaration(struct tgsi_transform_context *ctx,
          if (decl->Dim.Index2D == 0)
             decl->Declaration.Dimension = 0;
       }
+      break;
+   case TGSI_FILE_INPUT:
+      if (decl->Semantic.Name == TGSI_SEMANTIC_LAYER)
+         vtctx->layer_in = decl->Range.First;
+      if (decl->Semantic.Name == TGSI_SEMANTIC_VIEWPORT_INDEX)
+         vtctx->viewport_in = decl->Range.First;
       break;
    case TGSI_FILE_OUTPUT:
       switch (decl->Semantic.Name) {
@@ -118,6 +129,36 @@ virgl_tgsi_transform_prolog(struct tgsi_transform_context * ctx)
                                 vtctx->writemask_fixup_temps,
                                 vtctx->writemask_fixup_temps + vtctx->num_writemask_fixups - 1);
    }
+
+   if (vtctx->layer_in != ~0) {
+      vtctx->layer_in_temp = vtctx->next_temp++;
+      tgsi_transform_temp_decl(ctx, vtctx->layer_in_temp);
+   }
+
+   if (vtctx->viewport_in != ~0) {
+      vtctx->viewport_in_temp = vtctx->next_temp++;
+      tgsi_transform_temp_decl(ctx, vtctx->viewport_in_temp);
+   }
+
+   /* virglrenderer makes mistakes in the types of layer/viewport input
+    * references from unsigned ops, so we use a temp that we do a no-op unsigned
+    * op to at the top of the shader.
+    *
+    * https://gitlab.freedesktop.org/virgl/virglrenderer/-/merge_requests/615
+    */
+   if (vtctx->layer_in != ~0) {
+         tgsi_transform_op2_inst(ctx, TGSI_OPCODE_IMAX,
+                                 TGSI_FILE_TEMPORARY, vtctx->layer_in_temp, TGSI_WRITEMASK_XYZW,
+                                 TGSI_FILE_INPUT, vtctx->layer_in,
+                                 TGSI_FILE_INPUT, vtctx->layer_in, 0);
+   }
+
+   if (vtctx->viewport_in != ~0) {
+         tgsi_transform_op2_inst(ctx, TGSI_OPCODE_IMAX,
+                                 TGSI_FILE_TEMPORARY, vtctx->viewport_in_temp, TGSI_WRITEMASK_XYZW,
+                                 TGSI_FILE_INPUT, vtctx->viewport_in,
+                                 TGSI_FILE_INPUT, vtctx->viewport_in, 0);
+   }
 }
 
 static void
@@ -158,6 +199,17 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
           inst->Src[i].Register.Dimension &&
           inst->Src[i].Dimension.Index == 0)
          inst->Src[i].Register.Dimension = 0;
+
+      if (inst->Src[i].Register.File == TGSI_FILE_INPUT) {
+         if (inst->Src[i].Register.Index == vtctx->layer_in) {
+            inst->Src[i].Register.File = TGSI_FILE_TEMPORARY;
+            inst->Src[i].Register.Index = vtctx->layer_in_temp;
+         }
+         if (inst->Src[i].Register.Index == vtctx->viewport_in) {
+            inst->Src[i].Register.File = TGSI_FILE_TEMPORARY;
+            inst->Src[i].Register.Index = vtctx->viewport_in_temp;
+         }
+      }
    }
    ctx->emit_instruction(ctx, inst);
 
@@ -196,6 +248,11 @@ struct tgsi_token *virgl_tgsi_transform(struct virgl_screen *vscreen, const stru
       vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_FAKE_FP64;
 
    transform.num_writemask_fixups = 0;
+
+   transform.layer_in = ~0;
+   transform.viewport_in = ~0;
+   transform.layer_in_temp = ~0;
+   transform.viewport_in_temp = ~0;
 
    tgsi_transform_shader(tokens_in, new_tokens, newLen, &transform.base);
 
