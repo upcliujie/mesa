@@ -319,6 +319,29 @@ util_bitcount(unsigned n)
 #endif
 }
 
+/**
+ * Return number of bits set in n.
+ *
+ * This is an asm version that guarantees that popcnt will be selected if
+ * use_asm == true. This function is necessary because popcnt is never used
+ * on x86_64 by default.
+ *
+ * use_asm can be a compile-time C++ template parameter to eliminate
+ * the conditional after inlining.
+ */
+static inline unsigned
+util_bitcount_asm(unsigned n, bool use_asm)
+{
+#if defined(USE_X86_64_ASM)
+   if (use_asm) {
+      uint32_t out;
+      __asm volatile("popcnt %1, %0" : "=r"(out) : "r"(n));
+      return out;
+   }
+#endif
+   return util_bitcount(n);
+}
+
 static inline unsigned
 util_bitcount64(uint64_t n)
 {
