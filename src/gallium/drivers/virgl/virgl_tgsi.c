@@ -31,6 +31,16 @@
 #include "virgl_context.h"
 #include "virgl_screen.h"
 
+struct virgl_input_temp {
+   enum tgsi_file_type file;
+
+   /* Index within in the INPUT or SV files, or ~0 if no DCL of this input */
+   unsigned index;
+
+   /* TGSI_FILE_TEMPORARY index it will be mapped to. */
+   unsigned temp;
+};
+
 struct virgl_transform_context {
    struct tgsi_transform_context base;
    bool cull_enabled;
@@ -42,6 +52,10 @@ struct virgl_transform_context {
    unsigned writemask_fixup_outs[5];
    unsigned writemask_fixup_temps;
    unsigned num_writemask_fixups;
+
+   struct virgl_input_temp layer_in;
+   struct virgl_input_temp viewport_in;
+   struct virgl_input_temp block_id_sv;
 };
 
 static void
@@ -56,6 +70,16 @@ virgl_tgsi_transform_declaration(struct tgsi_transform_context *ctx,
          if (decl->Dim.Index2D == 0)
             decl->Declaration.Dimension = 0;
       }
+      break;
+   case TGSI_FILE_INPUT:
+      if (decl->Semantic.Name == TGSI_SEMANTIC_LAYER)
+         vtctx->layer_in.index = decl->Range.First;
+      if (decl->Semantic.Name == TGSI_SEMANTIC_VIEWPORT_INDEX)
+         vtctx->viewport_in.index = decl->Range.First;
+      break;
+   case TGSI_FILE_SYSTEM_VALUE:
+      if (decl->Semantic.Name == TGSI_SEMANTIC_BLOCK_ID)
+         vtctx->block_id_sv.index = decl->Range.First;
       break;
    case TGSI_FILE_OUTPUT:
       switch (decl->Semantic.Name) {
@@ -107,6 +131,22 @@ virgl_tgsi_transform_property(struct tgsi_transform_context *ctx,
 }
 
 static void
+virgl_tgsi_get_input_temp_decl(struct tgsi_transform_context * ctx,
+                               struct virgl_input_temp *temp,
+                               enum tgsi_file_type file)
+{
+   struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
+
+   temp->file = file;
+
+   if (temp->index == ~0)
+      return;
+
+   temp->temp = vtctx->next_temp++;
+   tgsi_transform_temp_decl(ctx, temp->temp);
+}
+
+static void
 virgl_tgsi_transform_prolog(struct tgsi_transform_context * ctx)
 {
    struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
@@ -117,6 +157,60 @@ virgl_tgsi_transform_prolog(struct tgsi_transform_context * ctx)
       tgsi_transform_temps_decl(ctx,
                                 vtctx->writemask_fixup_temps,
                                 vtctx->writemask_fixup_temps + vtctx->num_writemask_fixups - 1);
+   }
+
+   virgl_tgsi_get_input_temp_decl(ctx, &vtctx->layer_in, TGSI_FILE_INPUT);
+   virgl_tgsi_get_input_temp_decl(ctx, &vtctx->viewport_in, TGSI_FILE_INPUT);
+   virgl_tgsi_get_input_temp_decl(ctx, &vtctx->block_id_sv, TGSI_FILE_SYSTEM_VALUE);
+
+   /* virglrenderer makes mistakes in the types of layer/viewport input
+    * references from unsigned ops, so we use a temp that we do a no-op unsigned
+    * op to at the top of the shader.
+    *
+    * https://gitlab.freedesktop.org/virgl/virglrenderer/-/merge_requests/615
+    */
+   if (vtctx->layer_in.index != ~0) {
+         tgsi_transform_op2_inst(ctx, TGSI_OPCODE_IMAX,
+                                 TGSI_FILE_TEMPORARY, vtctx->layer_in.temp, TGSI_WRITEMASK_XYZW,
+                                 vtctx->layer_in.file, vtctx->layer_in.index,
+                                 vtctx->layer_in.file, vtctx->layer_in.index, 0);
+   }
+
+   if (vtctx->viewport_in.index != ~0) {
+         tgsi_transform_op2_inst(ctx, TGSI_OPCODE_IMAX,
+                                 TGSI_FILE_TEMPORARY, vtctx->viewport_in.temp, TGSI_WRITEMASK_XYZW,
+                                 vtctx->viewport_in.file, vtctx->viewport_in.index,
+                                 vtctx->viewport_in.file, vtctx->viewport_in.index, 0);
+   }
+
+   /* virglrenderer also makes mistakes in the types of block id input
+    * references from signed ops, so we use a temp that we do a plain MOV to at
+    * the top of the shader.  Also, it falls over if an unused channel's swizzle
+    * uses the .w of the block id.
+    */
+   if (vtctx->block_id_sv.index != ~0) {
+      struct tgsi_full_instruction inst = tgsi_default_full_instruction();
+      inst.Instruction.Opcode = TGSI_OPCODE_MOV;
+      inst.Instruction.NumDstRegs = 1;
+      inst.Dst[0].Register.File = TGSI_FILE_TEMPORARY,
+      inst.Dst[0].Register.Index = vtctx->block_id_sv.temp;
+      inst.Dst[0].Register.WriteMask = TGSI_WRITEMASK_XYZ;
+      inst.Instruction.NumSrcRegs = 1;
+      tgsi_transform_src_reg_xyzw(&inst.Src[0], vtctx->block_id_sv.file, vtctx->block_id_sv.index);
+      inst.Src[0].Register.SwizzleX = TGSI_SWIZZLE_X;
+      inst.Src[0].Register.SwizzleY = TGSI_SWIZZLE_Y;
+      inst.Src[0].Register.SwizzleZ = TGSI_SWIZZLE_Z;
+      inst.Src[0].Register.SwizzleW = TGSI_SWIZZLE_Z;
+      ctx->emit_instruction(ctx, &inst);
+   }
+}
+
+static void
+virgl_tgsi_rewrite_src_for_input_temp(struct virgl_input_temp *temp, struct tgsi_full_src_register *src)
+{
+   if (src->Register.File == temp->file && src->Register.Index == temp->index) {
+      src->Register.File = TGSI_FILE_TEMPORARY;
+      src->Register.Index = temp->temp;
    }
 }
 
@@ -158,6 +252,10 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
           inst->Src[i].Register.Dimension &&
           inst->Src[i].Dimension.Index == 0)
          inst->Src[i].Register.Dimension = 0;
+
+      virgl_tgsi_rewrite_src_for_input_temp(&vtctx->layer_in, &inst->Src[i]);
+      virgl_tgsi_rewrite_src_for_input_temp(&vtctx->viewport_in, &inst->Src[i]);
+      virgl_tgsi_rewrite_src_for_input_temp(&vtctx->block_id_sv, &inst->Src[i]);
    }
    ctx->emit_instruction(ctx, inst);
 
@@ -196,6 +294,10 @@ struct tgsi_token *virgl_tgsi_transform(struct virgl_screen *vscreen, const stru
       vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_FAKE_FP64;
 
    transform.num_writemask_fixups = 0;
+
+   transform.layer_in.index = ~0;
+   transform.viewport_in.index = ~0;
+   transform.block_id_sv.index = ~0;
 
    tgsi_transform_shader(tokens_in, new_tokens, newLen, &transform.base);
 
