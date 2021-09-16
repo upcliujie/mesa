@@ -160,19 +160,10 @@ etna_dump_shader(const struct etna_shader_variant *shader);
 
 bool
 etna_link_shader(struct etna_shader_link_info *info,
-                 const struct etna_shader_variant *vs, const struct etna_shader_variant *fs);
+                 const struct etna_shader_variant *vs,
+                 const struct etna_shader_variant *fs);
 
 void
 etna_destroy_shader(struct etna_shader_variant *shader);
-
-/* NIR compiler */
-
-bool
-etna_compile_shader_nir(struct etna_shader_variant *shader);
-
-bool
-etna_link_shader_nir(struct etna_shader_link_info *info,
-                     const struct etna_shader_variant *vs,
-                     const struct etna_shader_variant *fs);
 
 #endif
