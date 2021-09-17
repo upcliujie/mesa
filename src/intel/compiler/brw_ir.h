@@ -183,6 +183,13 @@ struct backend_instruction {
 
    /** The number of hardware registers used for a message header. */
    uint8_t header_size;
+
+   /* Wa_22013689345
+    *
+    * We need to emit UGM fence message before EOT, if shader has any UGM
+    * write or atomic message.
+    */
+   bool enable_ugm_fence_before_eot:1;
 };
 
 #endif
