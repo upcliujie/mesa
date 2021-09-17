@@ -75,7 +75,7 @@ build_resolve_compute_shader(struct radv_device *dev, bool is_integer, bool is_s
    input_img->data.descriptor_set = 0;
    input_img->data.binding = 0;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
    nir_ssa_def *invoc_id = nir_load_local_invocation_id(&b);
@@ -146,7 +146,7 @@ build_depth_stencil_resolve_compute_shader(struct radv_device *dev, int samples,
    input_img->data.descriptor_set = 0;
    input_img->data.binding = 0;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
    nir_ssa_def *invoc_id = nir_load_local_invocation_id(&b);
