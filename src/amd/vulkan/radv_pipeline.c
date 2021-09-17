@@ -4635,18 +4635,13 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
       S_028B90_CNT(gs_num_invocations) | S_028B90_ENABLE(gs_num_invocations > 1) |
          S_028B90_EN_MAX_VERT_OUT_PER_GS_INSTANCE(ngg_state->max_vert_out_per_gs_instance));
 
-   /* User edge flags are set by the pos exports. If user edge flags are
-    * not used, we must use hw-generated edge flags and pass them via
-    * the prim export to prevent drawing lines on internal edges of
+   /* Vulkan doesn't support user edge flags and it also doesn't
+    * need to prevent drawing lines on internal edges of
     * decomposed primitives (such as quads) with polygon mode = lines.
-    *
-    * TODO: We should combine hw-generated edge flags with user edge
-    *       flags in the shader.
     */
    radeon_set_context_reg(
       ctx_cs, R_028838_PA_CL_NGG_CNTL,
-      S_028838_INDEX_BUF_EDGE_FLAG_ENA(!radv_pipeline_has_tess(pipeline) &&
-                                       !radv_pipeline_has_gs(pipeline)) |
+      S_028838_INDEX_BUF_EDGE_FLAG_ENA(0) |
          /* Reuse for NGG. */
          S_028838_VERTEX_REUSE_DEPTH(
             pipeline->device->physical_device->rad_info.chip_class >= GFX10_3 ? 30 : 0));
