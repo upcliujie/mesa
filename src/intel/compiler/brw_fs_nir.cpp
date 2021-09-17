@@ -4462,8 +4462,10 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          break;
       }
 
-      if (stage != MESA_SHADER_COMPUTE && stage != MESA_SHADER_KERNEL)
+      if (nir->info.shared_size > 0)
          slm_fence = false;
+      else
+         assert(stage != MESA_SHADER_COMPUTE && stage != MESA_SHADER_KERNEL);
 
       /* If the workgroup fits in a single HW thread, the messages for SLM are
        * processed in-order and the shader itself is already synchronized so
