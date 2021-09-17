@@ -3256,7 +3256,8 @@ brw_set_memory_fence_message(struct brw_codegen *p,
 static void
 gfx12_set_memory_fence_message(struct brw_codegen *p,
                                struct brw_inst *insn,
-                               enum brw_message_target sfid)
+                               enum brw_message_target sfid,
+                               bool is_dummy_fence)
 {
    const unsigned mlen = 1; /* g0 header */
     /* Completion signaled by write to register. No data returned. */
@@ -3281,6 +3282,15 @@ gfx12_set_memory_fence_message(struct brw_codegen *p,
          flush_type = intel_device_info_is_dg2(p->devinfo) ?
                       LSC_FLUSH_TYPE_INVALIDATE : LSC_FLUSH_TYPE_EVICT;
       }
+
+      /* Wa_22013689345
+       *
+       * We need to emit UGM fence message before EOT, if shader has any UGM
+       * write or atomic message with SCOPE=TILE, FLUSH_TYPE=6(NONE),
+       * SFID=UGM.
+       */
+      if (sfid == GFX12_SFID_UGM && is_dummy_fence)
+         scope = LSC_FENCE_TILE;
 
       brw_set_desc(p, insn, lsc_fence_msg_desc(p->devinfo, scope,
                                                flush_type, false) |
@@ -3313,7 +3323,7 @@ brw_memory_fence(struct brw_codegen *p,
 
    /* All DG2 hardware requires LSC for fence messages, even A-step */
    if (devinfo->has_lsc)
-      gfx12_set_memory_fence_message(p, insn, sfid);
+      gfx12_set_memory_fence_message(p, insn, sfid, is_dummy_fence);
    else
       brw_set_memory_fence_message(p, insn, sfid, commit_enable, bti);
 }

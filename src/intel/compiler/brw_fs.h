@@ -136,6 +136,7 @@ public:
    void setup_cs_payload();
    bool fixup_sends_duplicate_payload();
    void fixup_3src_null_dest();
+   void emit_dummy_memory_fence_before_eot();
    bool fixup_nomask_control_flow();
    void assign_curb_setup();
    void assign_urb_setup();
@@ -540,6 +541,8 @@ private:
                                       struct brw_reg dst,
                                       struct brw_reg x,
                                       struct brw_reg y);
+
+   void generate_dummy_memory_fence(fs_inst *dummy_fence_inst);
 
    void generate_mov_indirect(fs_inst *inst,
                               struct brw_reg dst,

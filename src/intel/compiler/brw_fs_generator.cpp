@@ -1845,6 +1845,26 @@ fs_generator::enable_debug(const char *shader_name)
    this->shader_name = shader_name;
 }
 
+void
+fs_generator::generate_dummy_memory_fence(fs_inst *dummy_fence_inst)
+{
+   struct brw_reg src[4], dst;
+   for (unsigned int i = 0; i < dummy_fence_inst->sources; i++) {
+      src[i] = brw_reg_from_fs_reg(devinfo, dummy_fence_inst,
+                                   &dummy_fence_inst->src[i], false);
+      assert(!dummy_fence_inst->conditional_mod ||
+             dummy_fence_inst->src[i].type != BRW_REGISTER_TYPE_UD ||
+             !dummy_fence_inst->src[i].negate);
+   }
+   dst = brw_reg_from_fs_reg(devinfo, dummy_fence_inst, &dummy_fence_inst->dst,
+                             false);
+   brw_memory_fence(p, dst, src[0], BRW_OPCODE_SEND,
+                    brw_message_target(dummy_fence_inst->sfid),
+                    /* commit_enable */ src[1].ud,
+                    /* bti */ src[2].ud,
+                    /* is_dummy_fence */ true);
+}
+
 int
 fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
                             struct shader_stats shader_stats,
@@ -1867,6 +1887,7 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
    int spill_count = 0, fill_count = 0;
    int loop_count = 0, send_count = 0, nop_count = 0;
    bool is_accum_used = false;
+   fs_inst *dummy_fence_inst = NULL;
 
    struct disasm_info *disasm_info = disasm_initialize(devinfo, cfg);
 
@@ -1938,6 +1959,20 @@ fs_generator::generate_code(const cfg_t *cfg, int dispatch_width,
          }
 
          swsb = tgl_swsb_dst_dep(swsb, 1);
+      }
+
+      if (inst->eot && dummy_fence_inst && intel_device_info_is_dg2(devinfo) &&
+          devinfo->revision >= 4) {
+         brw_set_default_swsb(p, tgl_swsb_src_dep(swsb));
+         generate_dummy_memory_fence(dummy_fence_inst);
+         swsb = tgl_swsb_dst_dep(swsb, 1);
+         send_count++;
+      }
+
+      if (dummy_fence_inst == NULL &&
+          inst->opcode == SHADER_OPCODE_DUMMY_MEMORY_FENCE) {
+         dummy_fence_inst = inst;
+         continue;
       }
 
       if (unlikely(debug_flag))

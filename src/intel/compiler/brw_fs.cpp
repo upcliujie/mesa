@@ -88,6 +88,7 @@ fs_inst::init(enum opcode opcode, uint8_t exec_size, const fs_reg &dst,
    }
 
    this->writes_accumulator = false;
+   this->enable_ugm_fence_before_eot = false;
 }
 
 fs_inst::fs_inst()
@@ -5804,6 +5805,36 @@ lsc_bits_to_data_size(unsigned bit_size)
    }
 }
 
+static bool
+has_ugm_write_or_atomic(const intel_device_info *devinfo, fs_inst *inst)
+{
+   bool ugm_write = false;
+   if (inst->sfid != GFX12_SFID_UGM ||
+       !(intel_device_info_is_dg2(devinfo) && devinfo->revision >= 4))
+      return ugm_write;
+
+   switch(inst->opcode) {
+   case SHADER_OPCODE_UNTYPED_SURFACE_WRITE_LOGICAL:
+   case SHADER_OPCODE_UNTYPED_ATOMIC_LOGICAL:
+   case SHADER_OPCODE_UNTYPED_ATOMIC_FLOAT_LOGICAL:
+   case SHADER_OPCODE_BYTE_SCATTERED_WRITE_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_WRITE_LOGICAL:
+   case SHADER_OPCODE_A64_BYTE_SCATTERED_WRITE_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT16_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_INT64_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT16_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT32_LOGICAL:
+   case SHADER_OPCODE_A64_UNTYPED_ATOMIC_FLOAT64_LOGICAL:
+      ugm_write = true;
+      break;
+   default:
+      break;
+   }
+
+   return ugm_write;
+}
+
 static void
 lower_lsc_surface_logical_send(const fs_builder &bld, fs_inst *inst)
 {
@@ -5949,6 +5980,14 @@ lower_lsc_surface_logical_send(const fs_builder &bld, fs_inst *inst)
    default:
       unreachable("Unknown surface type");
    }
+
+   /* Wa_22013689345
+    *
+    * We need to emit UGM fence message before EOT, if shader has any UGM
+    * write or atomic message.
+    */
+   inst->enable_ugm_fence_before_eot =
+      has_ugm_write_or_atomic(devinfo, inst);
 
    /* Update the original instruction. */
    inst->opcode = SHADER_OPCODE_SEND;
@@ -6162,6 +6201,14 @@ lower_lsc_a64_logical_send(const fs_builder &bld, fs_inst *inst)
    inst->src[1] = brw_imm_ud(0); /* ex_desc */
    inst->src[2] = payload;
    inst->src[3] = payload2;
+
+   /* Wa_22013689345
+    *
+    * We need to emit UGM fence message before EOT, if shader has any UGM
+    * write or atomic message.
+    */
+   inst->enable_ugm_fence_before_eot =
+      has_ugm_write_or_atomic(devinfo, inst);
 }
 
 static void
@@ -8528,6 +8575,42 @@ fs_visitor::fixup_3src_null_dest()
                           DEPENDENCY_VARIABLES);
 }
 
+/* Wa_22013689345
+ *
+ * We need to emit UGM fence message before EOT, if shader has any UGM
+ * write or atomic message.
+ */
+void
+fs_visitor::emit_dummy_memory_fence_before_eot()
+{
+   bool progress = false;
+   bool has_ugm_write_or_atomic = false;
+
+   foreach_block_and_inst_safe (block, fs_inst, inst, cfg) {
+      const fs_builder ibld(this, block, inst);
+      const fs_builder ubld = ibld.exec_all().group(1, 0);
+      if (inst->enable_ugm_fence_before_eot && !has_ugm_write_or_atomic)
+         has_ugm_write_or_atomic = true;
+
+      if (inst->eot && has_ugm_write_or_atomic) {
+         fs_reg dst = fs_reg(VGRF, alloc.allocate(dispatch_width / 8),
+                             BRW_REGISTER_TYPE_UD);
+         fs_inst *inst = ubld.emit(SHADER_OPCODE_DUMMY_MEMORY_FENCE,
+                                   dst, brw_vec8_grf(0, 0),
+                                   /* commit enable */ brw_imm_ud(1),
+                                   /* bti */ brw_imm_ud(0));
+         inst->sfid = GFX12_SFID_UGM;
+         progress = true;
+         break;
+      }
+   }
+
+   if (progress) {
+      invalidate_analysis(DEPENDENCY_INSTRUCTION_DETAIL |
+                          DEPENDENCY_VARIABLES);
+   }
+}
+
 /**
  * Find the first instruction in the program that might start a region of
  * divergent control flow due to a HALT jump.  There is no
@@ -8832,6 +8915,7 @@ fs_visitor::run_vs()
    assign_vs_urb_setup();
 
    fixup_3src_null_dest();
+   emit_dummy_memory_fence_before_eot();
    allocate_registers(true /* allow_spilling */);
 
    return !failed;
@@ -8954,6 +9038,7 @@ fs_visitor::run_tcs()
    assign_tcs_urb_setup();
 
    fixup_3src_null_dest();
+   emit_dummy_memory_fence_before_eot();
    allocate_registers(true /* allow_spilling */);
 
    return !failed;
@@ -8982,6 +9067,7 @@ fs_visitor::run_tes()
    assign_tes_urb_setup();
 
    fixup_3src_null_dest();
+   emit_dummy_memory_fence_before_eot();
    allocate_registers(true /* allow_spilling */);
 
    return !failed;
@@ -9025,6 +9111,7 @@ fs_visitor::run_gs()
    assign_gs_urb_setup();
 
    fixup_3src_null_dest();
+   emit_dummy_memory_fence_before_eot();
    allocate_registers(true /* allow_spilling */);
 
    return !failed;
@@ -9125,6 +9212,7 @@ fs_visitor::run_fs(bool allow_spilling, bool do_rep_send)
       assign_urb_setup();
 
       fixup_3src_null_dest();
+      emit_dummy_memory_fence_before_eot();
 
       allocate_registers(allow_spilling);
 
@@ -9163,6 +9251,7 @@ fs_visitor::run_cs(bool allow_spilling)
    assign_curb_setup();
 
    fixup_3src_null_dest();
+   emit_dummy_memory_fence_before_eot();
    allocate_registers(allow_spilling);
 
    if (failed)
@@ -9194,6 +9283,7 @@ fs_visitor::run_bs(bool allow_spilling)
    assign_curb_setup();
 
    fixup_3src_null_dest();
+   emit_dummy_memory_fence_before_eot();
    allocate_registers(allow_spilling);
 
    if (failed)

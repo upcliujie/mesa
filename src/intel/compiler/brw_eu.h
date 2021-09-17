@@ -1785,6 +1785,9 @@ brw_memory_fence(struct brw_codegen *p,
                  unsigned bti, bool is_dummy_fence);
 
 void
+gfx12_dummy_ugm_fence(struct brw_codegen *p);
+
+void
 brw_pixel_interpolator_query(struct brw_codegen *p,
                              struct brw_reg dest,
                              struct brw_reg mrf,
