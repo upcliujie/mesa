@@ -1184,7 +1184,7 @@ build_clear_dcc_comp_to_single_shader(bool is_msaa)
                         layer_id,
                         nir_ssa_undef(&b, 1, 32));
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 0;
 

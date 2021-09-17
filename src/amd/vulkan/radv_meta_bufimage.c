@@ -47,7 +47,7 @@ build_nir_itob_compute_shader(struct radv_device *dev, bool is_3d)
    input_img->data.descriptor_set = 0;
    input_img->data.binding = 0;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
 
@@ -235,7 +235,7 @@ build_nir_btoi_compute_shader(struct radv_device *dev, bool is_3d)
    input_img->data.descriptor_set = 0;
    input_img->data.binding = 0;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
 
@@ -417,7 +417,7 @@ build_nir_btoi_r32g32b32_compute_shader(struct radv_device *dev)
    input_img->data.descriptor_set = 0;
    input_img->data.binding = 0;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
 
@@ -579,7 +579,7 @@ build_nir_itoi_compute_shader(struct radv_device *dev, bool is_3d, int samples)
    input_img->data.descriptor_set = 0;
    input_img->data.binding = 0;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
 
@@ -781,7 +781,7 @@ build_nir_itoi_r32g32b32_compute_shader(struct radv_device *dev)
    input_img->data.binding = 0;
 
    nir_variable *output_img =
-      nir_variable_create(b.shader, nir_var_uniform, img_type, "output_img");
+      nir_variable_create(b.shader, nir_var_mem_image, img_type, "output_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 1;
 
@@ -947,7 +947,7 @@ build_nir_cleari_compute_shader(struct radv_device *dev, bool is_3d, int samples
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 0;
 
@@ -1113,7 +1113,7 @@ build_nir_cleari_r32g32b32_compute_shader(struct radv_device *dev)
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;
 
-   nir_variable *output_img = nir_variable_create(b.shader, nir_var_uniform, img_type, "out_img");
+   nir_variable *output_img = nir_variable_create(b.shader, nir_var_mem_image, img_type, "out_img");
    output_img->data.descriptor_set = 0;
    output_img->data.binding = 0;
 
