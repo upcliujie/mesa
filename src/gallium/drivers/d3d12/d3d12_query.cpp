@@ -376,7 +376,8 @@ end_query(struct d3d12_context *ctx, struct d3d12_query *q)
    d3d12_batch_reference_resource(batch, res);
 
    assert(q->curr_query < q->num_queries);
-   q->curr_query++;
+   if (q->type != PIPE_QUERY_TIMESTAMP)
+      q->curr_query++;
 }
 
 static bool
