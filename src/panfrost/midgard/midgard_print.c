@@ -281,6 +281,12 @@ mir_print_instruction(midgard_instruction *ins)
         printf("\n");
 }
 
+static int
+mdg_compare_block_name(const void *a, const void *b)
+{
+        return *(const unsigned *)a - *(const unsigned *)b;
+}
+
 /* Dumps MIR for a block or entire shader respective */
 
 void
@@ -304,15 +310,31 @@ mir_print_block(midgard_block *block)
         printf("}");
 
         if (block->base.successors[0]) {
-                printf(" -> ");
+                printf(" ->");
                 pan_foreach_successor((&block->base), succ)
-                        printf(" block%u ", succ->name);
+                        printf(" block%u", succ->name);
         }
 
-        printf(" from { ");
-        mir_foreach_predecessor(block, pred)
-                printf("block%u ", pred->base.name);
-        printf("}");
+        unsigned num_pred = block->base.predecessors->entries;
+        if (num_pred) {
+                printf(" from {");
+
+                unsigned *predecessors = malloc(num_pred * sizeof(unsigned));
+
+                unsigned num = 0;
+                mir_foreach_predecessor(block, pred)
+                        predecessors[num++] = pred->base.name;
+
+                /* Iteration order is non-deterministic, so sort to be
+                 * consistent between executions */
+                qsort(predecessors, num_pred, sizeof(unsigned),
+                      mdg_compare_block_name);
+
+                for (unsigned i = 0; i < num_pred; ++i)
+                        printf(" block%u", predecessors[i]);
+
+                printf(" }");
+        }
 
         printf("\n\n");
 }
