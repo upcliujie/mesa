@@ -26,6 +26,7 @@
 #include "vk_common_entrypoints.h"
 #include "vk_instance.h"
 #include "vk_physical_device.h"
+#include "vk_physdev_features.h"
 #include "vk_util.h"
 #include "util/hash_table.h"
 #include "util/ralloc.h"
@@ -73,6 +74,15 @@ vk_device_init(struct vk_device *device,
 
       device->enabled_extensions.extensions[idx] = true;
    }
+
+   VkPhysicalDevice vk_physical_device =
+      vk_physical_device_to_handle(physical_device);
+
+   VkResult result =
+      vk_util_check_physical_device_features(vk_physical_device,
+                                             pCreateInfo);
+   if (result != VK_SUCCESS)
+      return result;
 
    p_atomic_set(&device->private_data_next_index, 0);
 
