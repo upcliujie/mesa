@@ -35,3 +35,6 @@ EXPORTS
 	stw_framebuffer_swap_locked = stw_framebuffer_swap_locked@8
 	stw_get_framebuffer_resource = stw_get_framebuffer_resource@8
 	stw_pbuffer_create = stw_pbuffer_create@12
+	stw_create_image_from_texture = stw_create_image_from_texture@24
+	stw_create_image_from_renderbuffer = stw_create_image_from_renderbuffer@12
+	stw_destroy_image = stw_destroy_image@4
