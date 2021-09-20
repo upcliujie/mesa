@@ -1188,6 +1188,14 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          props->maxTimelineSemaphoreValueDifference = UINT64_MAX;
          break;
       }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_PROPERTIES: {
+         VkPhysicalDeviceProtectedMemoryProperties *properties =
+            (VkPhysicalDeviceProtectedMemoryProperties *)ext;
+         CORE_PROPERTY(1, 1, protectedNoFault);
+         break;
+      }
+
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_PROPERTIES_EXT: {
          VkPhysicalDeviceProvokingVertexPropertiesEXT *properties =
             (VkPhysicalDeviceProvokingVertexPropertiesEXT *)ext;
