@@ -127,6 +127,12 @@ bi_print_clause(bi_clause *clause, FILE *fp)
         fprintf(fp, "\n");
 }
 
+static int
+bi_compare_block_name(const void *a, const void *b)
+{
+        return *(const unsigned *)a - *(const unsigned *)b;
+}
+
 void
 bi_print_block(bi_block *block, FILE *fp)
 {
@@ -149,11 +155,23 @@ bi_print_block(bi_block *block, FILE *fp)
                         fprintf(fp, "block%u ", succ->name);
         }
 
-        if (block->predecessors->entries) {
+        unsigned num_pred = block->predecessors->entries;
+        if (num_pred) {
                 fprintf(fp, " from");
 
+                unsigned *predecessors = malloc(num_pred * sizeof(unsigned));
+
+                unsigned num = 0;
                 bi_foreach_predecessor(block, pred)
-                        fprintf(fp, " block%u", pred->name);
+                        predecessors[num++] = pred->name;
+
+                /* Iteration order is non-deterministic, so sort to be
+                 * consistent between executions */
+                qsort(predecessors, num_pred, sizeof(unsigned),
+                      bi_compare_block_name);
+
+                for (unsigned i = 0; i < num_pred; ++i)
+                        fprintf(fp, " block%u", predecessors[i]);
         }
 
         fprintf(fp, "\n\n");
