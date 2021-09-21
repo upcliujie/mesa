@@ -2752,6 +2752,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseSampleDrefImplicitLod:
    case SpvOpImageSampleProjImplicitLod:
    case SpvOpImageSampleProjDrefImplicitLod:
+      vtn_assert(sampler_dim != GLSL_SAMPLER_DIM_BUF);
       texop = nir_texop_tex;
       break;
 
@@ -2761,6 +2762,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseSampleDrefExplicitLod:
    case SpvOpImageSampleProjExplicitLod:
    case SpvOpImageSampleProjDrefExplicitLod:
+      vtn_assert(sampler_dim != GLSL_SAMPLER_DIM_BUF);
       texop = nir_texop_txl;
       break;
 
@@ -2777,6 +2779,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseGather:
    case SpvOpImageDrefGather:
    case SpvOpImageSparseDrefGather:
+      vtn_assert(sampler_dim != GLSL_SAMPLER_DIM_BUF);
       texop = nir_texop_tg4;
       break;
 
