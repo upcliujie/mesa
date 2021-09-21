@@ -2755,8 +2755,19 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseSampleImplicitLod:
    case SpvOpImageSampleDrefImplicitLod:
    case SpvOpImageSparseSampleDrefImplicitLod:
+      vtn_assert(sampler_dim != GLSL_SAMPLER_DIM_BUF &&
+                 sampler_dim != GLSL_SAMPLER_DIM_MS &&
+                 sampler_dim != GLSL_SAMPLER_DIM_SUBPASS_MS);
+      texop = nir_texop_tex;
+      break;
+
    case SpvOpImageSampleProjImplicitLod:
    case SpvOpImageSampleProjDrefImplicitLod:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_1D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_3D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_RECT);
+      vtn_assert(!is_array);
       texop = nir_texop_tex;
       break;
 
@@ -2764,13 +2775,25 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseSampleExplicitLod:
    case SpvOpImageSampleDrefExplicitLod:
    case SpvOpImageSparseSampleDrefExplicitLod:
+      vtn_assert(sampler_dim != GLSL_SAMPLER_DIM_BUF &&
+                 sampler_dim != GLSL_SAMPLER_DIM_MS &&
+                 sampler_dim != GLSL_SAMPLER_DIM_SUBPASS_MS);
+      texop = nir_texop_txl;
+      break;
+
    case SpvOpImageSampleProjExplicitLod:
    case SpvOpImageSampleProjDrefExplicitLod:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_1D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_3D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_RECT);
+      vtn_assert(!is_array);
       texop = nir_texop_txl;
       break;
 
    case SpvOpImageFetch:
    case SpvOpImageSparseFetch:
+      vtn_assert(sampler_dim != GLSL_SAMPLER_DIM_CUBE);
       if (sampler_dim == GLSL_SAMPLER_DIM_MS) {
          texop = nir_texop_txf_ms;
       } else {
@@ -2782,26 +2805,55 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseGather:
    case SpvOpImageDrefGather:
    case SpvOpImageSparseDrefGather:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_CUBE ||
+                 sampler_dim == GLSL_SAMPLER_DIM_RECT);
       texop = nir_texop_tg4;
       break;
 
    case SpvOpImageQuerySizeLod:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_1D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_3D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_CUBE);
+      texop = nir_texop_txs;
+      dest_type = nir_type_int32;
+      break;
+
    case SpvOpImageQuerySize:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_1D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_3D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_CUBE ||
+                 sampler_dim == GLSL_SAMPLER_DIM_RECT ||
+                 sampler_dim == GLSL_SAMPLER_DIM_MS ||
+                 sampler_dim == GLSL_SAMPLER_DIM_BUF);
       texop = nir_texop_txs;
       dest_type = nir_type_int32;
       break;
 
    case SpvOpImageQueryLod:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_1D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_3D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_CUBE ||
+                 sampler_dim == GLSL_SAMPLER_DIM_MS);
       texop = nir_texop_lod;
       dest_type = nir_type_float32;
       break;
 
    case SpvOpImageQueryLevels:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_1D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_2D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_3D ||
+                 sampler_dim == GLSL_SAMPLER_DIM_CUBE ||
+                 sampler_dim == GLSL_SAMPLER_DIM_MS);
       texop = nir_texop_query_levels;
       dest_type = nir_type_int32;
       break;
 
    case SpvOpImageQuerySamples:
+      vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_MS);
       texop = nir_texop_texture_samples;
       dest_type = nir_type_int32;
       break;
