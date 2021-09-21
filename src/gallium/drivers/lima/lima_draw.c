@@ -85,6 +85,26 @@ lima_clip_scissor_to_viewport(struct lima_context *ctx)
       cscissor->miny = cscissor->maxy;
 }
 
+static void
+lima_extend_viewport(struct lima_context *ctx, const struct pipe_draw_info *info)
+{
+   if (info->mode != PIPE_PRIM_LINES)
+      return;
+
+   if (!ctx->rasterizer || !ctx->rasterizer->base.point_tri_clip)
+      return;
+
+   if (ctx->rasterizer->base.line_width <= 1.0f)
+      return;
+
+   struct lima_context_framebuffer *fb = &ctx->framebuffer;
+
+   ctx->viewport.left = MAX2(ctx->viewport.left - 1.0f, 0.0f);
+   ctx->viewport.right = MIN2(ctx->viewport.right + 1.0f, fb->base.width);
+   ctx->viewport.bottom = MAX2(ctx->viewport.bottom - 1.0f, 0.0f);
+   ctx->viewport.top = MIN2(ctx->viewport.top + 1.0f, fb->base.height);
+}
+
 static bool
 lima_is_scissor_zero(struct lima_context *ctx)
 {
@@ -1170,6 +1190,8 @@ lima_draw_vbo(struct pipe_context *pctx,
    lima_clip_scissor_to_viewport(ctx);
    if (lima_is_scissor_zero(ctx))
       return;
+
+   lima_extend_viewport(ctx, info);
 
    if (!lima_update_fs_state(ctx) || !lima_update_vs_state(ctx))
       return;
