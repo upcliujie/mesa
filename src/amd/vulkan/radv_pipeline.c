@@ -1852,20 +1852,28 @@ radv_pipeline_init_depth_stencil_state(struct radv_pipeline *pipeline,
    pipeline->graphics.db_depth_control = db_depth_control;
 }
 
+static unsigned
+radv_compute_esgs_itemsize(gl_shader_stage stage, const struct radv_shader_info *info)
+{
+   uint32_t num_outputs_written;
+
+   if (stage == MESA_SHADER_VERTEX) {
+      num_outputs_written = info->vs.num_linked_outputs;
+   } else {
+      num_outputs_written = info->tes.num_linked_outputs;
+   }
+
+   return num_outputs_written * 4;
+}
+
 static void
 gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline *pipeline,
                  nir_shader **nir, struct radv_shader_info *infos, struct gfx9_gs_info *out)
 {
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
-   struct radv_es_output_info *es_info;
-   bool has_tess = !!nir[MESA_SHADER_TESS_CTRL];
-   if (pipeline->device->physical_device->rad_info.chip_class >= GFX9)
-      es_info = has_tess ? &gs_info->tes.es_info : &gs_info->vs.es_info;
-   else
-      es_info = has_tess ? &infos[MESA_SHADER_TESS_EVAL].tes.es_info
-                         : &infos[MESA_SHADER_VERTEX].vs.es_info;
-
+   gl_shader_stage es_stage = nir[MESA_SHADER_TESS_CTRL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
    unsigned gs_num_invocations = MAX2(gs_info->gs.invocations, 1);
+   unsigned esgs_itemsize;
    bool uses_adjacency;
    switch (key->topology) {
    case VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY:
@@ -1879,11 +1887,12 @@ gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline
       break;
    }
 
+   esgs_itemsize = radv_compute_esgs_itemsize(es_stage, &infos[es_stage]);
+
    /* All these are in dwords: */
    /* We can't allow using the whole LDS, because GS waves compete with
     * other shader stages for LDS space. */
    const unsigned max_lds_size = 8 * 1024;
-   const unsigned esgs_itemsize = es_info->esgs_itemsize / 4;
    unsigned esgs_lds_size;
 
    /* All these are per subgroup: */
@@ -1967,7 +1976,6 @@ gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline
    out->vgt_esgs_ring_itemsize = esgs_itemsize;
    assert(max_prims_per_subgroup <= max_out_prims);
 
-   gl_shader_stage es_stage = has_tess ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
    unsigned workgroup_size =
       ac_compute_esgs_workgroup_size(
          pipeline->device->physical_device->rad_info.chip_class, infos[es_stage].wave_size,
@@ -2021,12 +2029,12 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
                    nir_shader **nir, struct radv_shader_info *infos, struct gfx10_ngg_info *ngg)
 {
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
-   struct radv_es_output_info *es_info =
-      nir[MESA_SHADER_TESS_CTRL] ? &gs_info->tes.es_info : &gs_info->vs.es_info;
+   gl_shader_stage es_stage = nir[MESA_SHADER_TESS_CTRL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
    unsigned gs_type = nir[MESA_SHADER_GEOMETRY] ? MESA_SHADER_GEOMETRY : MESA_SHADER_VERTEX;
    unsigned max_verts_per_prim = radv_get_num_input_vertices(nir);
    unsigned min_verts_per_prim = gs_type == MESA_SHADER_GEOMETRY ? max_verts_per_prim : 1;
    unsigned gs_num_invocations = nir[MESA_SHADER_GEOMETRY] ? MAX2(gs_info->gs.invocations, 1) : 1;
+   unsigned esgs_itemsize;
    bool uses_adjacency;
    switch (key->topology) {
    case VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY:
@@ -2039,6 +2047,8 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
       uses_adjacency = false;
       break;
    }
+
+   esgs_itemsize = radv_compute_esgs_itemsize(es_stage, &infos[es_stage]);
 
    /* All these are in dwords: */
    /* We can't allow using the whole LDS, because GS waves compete with
@@ -2086,7 +2096,7 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
          max_out_verts_per_gsprim = gs_info->gs.vertices_out;
       }
 
-      esvert_lds_size = es_info->esgs_itemsize / 4;
+      esvert_lds_size = esgs_itemsize;
       gsprim_lds_size = (gs_info->gs.gsvs_vertex_size / 4 + 1) * max_out_verts_per_gsprim;
    } else {
       /* VS and TES. */
@@ -2231,14 +2241,13 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
    ngg->esgs_ring_size = MIN2(max_esverts, max_gsprims * max_verts_per_prim) * esvert_lds_size * 4;
 
    if (gs_type == MESA_SHADER_GEOMETRY) {
-      ngg->vgt_esgs_ring_itemsize = es_info->esgs_itemsize / 4;
+      ngg->vgt_esgs_ring_itemsize = esgs_itemsize;
    } else {
       ngg->vgt_esgs_ring_itemsize = 1;
    }
 
    assert(ngg->hw_max_esverts >= min_esverts); /* HW limitation */
 
-   gl_shader_stage es_stage = nir[MESA_SHADER_TESS_CTRL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
    unsigned workgroup_size =
       ac_compute_ngg_workgroup_size(
          max_esverts, max_gsprims * gs_num_invocations, max_out_vertices, prim_amp_factor);
