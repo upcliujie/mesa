@@ -29,12 +29,12 @@ EXPORTS
 	stw_unbind_context = stw_unbind_context@4
 	stw_current_context = stw_current_context@0
 	stw_make_current = stw_make_current@12
-	stw_framebuffer_create = stw_framebuffer_create@12
+	stw_framebuffer_create = stw_framebuffer_create@16
 	stw_framebuffer_release_locked = stw_framebuffer_release_locked@4
 	stw_framebuffer_unlock = stw_framebuffer_unlock@4
 	stw_framebuffer_swap_locked = stw_framebuffer_swap_locked@8
 	stw_get_framebuffer_resource = stw_get_framebuffer_resource@8
-	stw_pbuffer_create = stw_pbuffer_create@12
+	stw_pbuffer_create = stw_pbuffer_create@16
 	stw_create_image_from_texture = stw_create_image_from_texture@24
 	stw_create_image_from_renderbuffer = stw_create_image_from_renderbuffer@12
 	stw_destroy_image = stw_destroy_image@4
