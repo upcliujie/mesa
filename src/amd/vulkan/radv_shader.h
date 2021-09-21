@@ -218,10 +218,6 @@ struct radv_vs_output_info {
    unsigned pos_exports;
 };
 
-struct radv_es_output_info {
-   uint32_t esgs_itemsize;
-};
-
 struct gfx9_gs_info {
    uint32_t vgt_gs_onchip_cntl;
    uint32_t vgt_gs_max_prims_per_subgroup;
@@ -275,7 +271,6 @@ struct radv_shader_info {
       bool needs_draw_id;
       bool needs_instance_id;
       struct radv_vs_output_info outinfo;
-      struct radv_es_output_info es_info;
       bool as_es;
       bool as_ls;
       bool export_prim_id;
@@ -303,7 +298,6 @@ struct radv_shader_info {
    struct {
       uint8_t output_usage_mask[VARYING_SLOT_VAR31 + 1];
       struct radv_vs_output_info outinfo;
-      struct radv_es_output_info es_info;
       bool as_es;
       unsigned primitive_mode;
       enum gl_tess_spacing spacing;
