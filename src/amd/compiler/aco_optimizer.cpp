@@ -1437,7 +1437,8 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       break;
    case aco_opcode::v_mul_f64: ctx.info[instr->definitions[0].tempId()].set_mul(instr.get()); break;
    case aco_opcode::v_mul_f16:
-   case aco_opcode::v_mul_f32: { /* omod */
+   case aco_opcode::v_mul_f32:
+   case aco_opcode::v_mul_legacy_f32: { /* omod */
       ctx.info[instr->definitions[0].tempId()].set_mul(instr.get());
 
       /* TODO: try to move the negate/abs modifier to the consumer instead */
@@ -1479,8 +1480,9 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
                        (fp16 ? 0x3800 : 0x3f000000)) { /* 0.5 */
                ctx.info[instr->operands[i].tempId()].set_omod5(instr.get());
             } else if (instr->operands[!i].constantValue() == 0u &&
-                       !(fp16 ? ctx.fp_mode.preserve_signed_zero_inf_nan16_64
-                              : ctx.fp_mode.preserve_signed_zero_inf_nan32)) { /* 0.0 */
+                       (!(fp16 ? ctx.fp_mode.preserve_signed_zero_inf_nan16_64
+                               : ctx.fp_mode.preserve_signed_zero_inf_nan32) ||
+                        instr->opcode == aco_opcode::v_mul_legacy_f32)) { /* 0.0 */
                ctx.info[instr->definitions[0].tempId()].set_constant(ctx.program->chip_class, 0u);
             } else {
                continue;
@@ -1490,9 +1492,6 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       }
       break;
    }
-   case aco_opcode::v_mul_legacy_f32:
-      ctx.info[instr->definitions[0].tempId()].set_mul(instr.get());
-      break;
    case aco_opcode::v_mul_lo_u16:
    case aco_opcode::v_mul_lo_u16_e64:
    case aco_opcode::v_mul_u32_u24:
@@ -3313,7 +3312,8 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          return;
       if (mul_instr->isSDWA() || mul_instr->isDPP())
          return;
-      if (mul_instr->opcode == aco_opcode::v_mul_legacy_f32)
+      if (mul_instr->opcode == aco_opcode::v_mul_legacy_f32 &&
+          ctx.fp_mode.preserve_signed_zero_inf_nan32)
          return;
 
       /* convert to mul(neg(a), b) */
@@ -3466,7 +3466,9 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       }
    }
    /* v_mul_f32(v_cndmask_b32(0, 1.0, cond), a) -> v_cndmask_b32(0, a, cond) */
-   else if (instr->opcode == aco_opcode::v_mul_f32 && !ctx.fp_mode.preserve_signed_zero_inf_nan32 &&
+   else if (((instr->opcode == aco_opcode::v_mul_f32 &&
+              !ctx.fp_mode.preserve_signed_zero_inf_nan32) ||
+             instr->opcode == aco_opcode::v_mul_legacy_f32) &&
             !instr->usesModifiers() && !ctx.fp_mode.must_flush_denorms32) {
       for (unsigned i = 0; i < 2; i++) {
          if (instr->operands[i].isTemp() && ctx.info[instr->operands[i].tempId()].is_b2f() &&
