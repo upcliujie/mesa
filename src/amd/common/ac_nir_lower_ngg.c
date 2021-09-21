@@ -849,11 +849,13 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *nogs_state)
    assert(vec_ok);
 
    unsigned loop_depth = 0;
+   unsigned divergent_if_depth = 0;
 
    nir_foreach_block_safe(block, b->impl) {
-      /* Check whether we're in a loop. */
       nir_cf_node *next_cf_node = nir_cf_node_next(&block->cf_node);
       nir_cf_node *prev_cf_node = nir_cf_node_prev(&block->cf_node);
+
+      /* Check whether we're in a loop. */
       if (next_cf_node && next_cf_node->type == nir_cf_node_loop)
          loop_depth++;
       if (prev_cf_node && prev_cf_node->type == nir_cf_node_loop)
@@ -861,6 +863,29 @@ save_reusable_variables(nir_builder *b, lower_ngg_nogs_state *nogs_state)
 
       /* The following code doesn't make sense in loops, so just skip it then. */
       if (loop_depth)
+         continue;
+
+      /* Check whether we're in divergent control flow. */
+      if (next_cf_node && next_cf_node->type == nir_cf_node_if) {
+         nir_if *if_node = nir_cf_node_as_if(next_cf_node);
+         if (divergent_if_depth || if_node->condition.ssa->divergent)
+            divergent_if_depth++;
+      }
+      if (prev_cf_node && prev_cf_node->type == nir_cf_node_if) {
+         nir_if *if_node = nir_cf_node_as_if(prev_cf_node);
+         if (divergent_if_depth)
+            divergent_if_depth--;
+      }
+
+      /* Skip the reuse if we're in divergent control flow.
+       * This is necessary because of vertex repacking. In the bottom part,
+       * the same shader invocation may process a different vertex and hence
+       * take a different divergent code path.
+       * Therefore, variables that come from divergent control flow may
+       * be undefined in the bottom shader part when it takes a different
+       * code path.
+       */
+      if (divergent_if_depth)
          continue;
 
       nir_foreach_instr_safe(instr, block) {
