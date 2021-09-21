@@ -4478,7 +4478,26 @@ get_variable_being_redeclared(ir_variable **var_ptr, YYLTYPE loc,
       /* Allow verbatim redeclarations of built-in variables. Not explicitly
        * valid, but some applications do it.
        */
-   } else {
+   } else if (!state->is_version(130, 0) &&
+      /*  GLSL 4.60, sections
+       *  - 7.5. Redeclaring Built-In Blocks
+       *  - 7.1.7. Compatibility Profile Built-In Language Variables
+       * 
+       *  The gl_PerVertex block can be redeclared in a shader to explicitly indicate
+       *  what subset of the fixed pipeline interface will be used.
+       *  This is necessary to establish the interface between multiple programs. For example:
+
+          out gl_PerVertex {
+              vec4 gl_Position;   // will use gl_Position
+              float gl_PointSize; // will use gl_PointSize
+              vec4 t;             // error, only gl_PerVertex members allowed
+          }; // no other members of gl_PerVertex will be used
+       */
+              strcmp(var->name, "gl_Position") &&
+              strcmp(var->name, "gl_FrontColor") &&
+              strcmp(var->name, "gl_BackColor") &&
+              strcmp(var->name, "gl_TexCoord")) {
+      /* only trigger errors if the redeclared variable isn't one of the above */
       _mesa_glsl_error(&loc, state, "`%s' redeclared", var->name);
    }
 
