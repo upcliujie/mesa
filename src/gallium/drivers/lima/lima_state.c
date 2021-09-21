@@ -217,6 +217,13 @@ lima_set_viewport_states(struct pipe_context *pctx,
    ctx->viewport.bottom = viewport->translate[1] - fabsf(viewport->scale[1]);
    ctx->viewport.top = viewport->translate[1] + fabsf(viewport->scale[1]);
 
+   if (ctx->rasterizer && ctx->rasterizer->base.line_width > 1.0f) {
+     ctx->viewport.left = MAX2(ctx->viewport.left - 1.0f, 0.0f);
+     ctx->viewport.right = MIN2(ctx->viewport.right + 1.0f, fb->base.width);
+     ctx->viewport.bottom = MAX2(ctx->viewport.bottom - 1.0f, 0.0f);
+     ctx->viewport.top = MIN2(ctx->viewport.top + 1.0f,  fb->base.height);
+   }
+
    /* reverse calculate the parameter of glDepthRange */
    float near, far;
    bool halfz = ctx->rasterizer && ctx->rasterizer->base.clip_halfz;
