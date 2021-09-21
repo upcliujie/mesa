@@ -349,6 +349,7 @@ static const struct opc_info {
    OPC(6, OPC_GETSPID,      getspid),
    OPC(6, OPC_GETWID,       getwid),
    OPC(6, OPC_STC,          stc),
+   OPC(6, OPC_LDC_K,        ldc.k),
 
    OPC(6, OPC_SPILL_MACRO,  spill.macro),
    OPC(6, OPC_RELOAD_MACRO, reload.macro),
