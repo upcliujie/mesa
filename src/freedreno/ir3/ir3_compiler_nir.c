@@ -2099,6 +2099,10 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
        */
       ctx->max_stack = MAX2(ctx->max_stack, ctx->stack + 1);
       break;
+   case nir_intrinsic_preamble_start_ir3:
+      dst[0] = ir3_SHPS_MACRO(ctx->block);
+      ctx->max_stack = MAX2(ctx->max_stack, ctx->stack + 1);
+      break;
 
    case nir_intrinsic_read_invocation_cond_ir3: {
       struct ir3_instruction *src = ir3_get_src(ctx, &intr->src[0])[0];
@@ -2147,6 +2151,12 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
    case nir_intrinsic_bindless_resource_ir3:
       dst[0] = ir3_get_src(ctx, &intr->src[0])[0];
       break;
+   case nir_intrinsic_preamble_end_ir3: {
+      struct ir3_instruction *instr = ir3_SHPE(ctx->block);
+      instr->barrier_class = instr->barrier_conflict = IR3_BARRIER_CONST_W;
+      array_insert(b, b->keeps, instr);
+      break;
+   }
    default:
       ir3_context_error(ctx, "Unhandled intrinsic type: %s\n",
                         nir_intrinsic_infos[intr->intrinsic].name);
@@ -3040,6 +3050,14 @@ emit_if(struct ir3_context *ctx, nir_if *nif)
               condition->block == ctx->block) {
       ctx->block->condition = NULL;
       ctx->block->brtype = IR3_BRANCH_GETONE;
+   } else if (condition->opc == OPC_SHPS_MACRO &&
+              condition->block == ctx->block) {
+      /* TODO: technically this only works if the block is the only user of the
+       * shps, but we only use it in very constrained scenarios so this should
+       * be ok.
+       */
+      ctx->block->condition = NULL;
+      ctx->block->brtype = IR3_BRANCH_SHPS;
    } else {
       ctx->block->condition = ir3_get_predicate(ctx, condition);
       ctx->block->brtype = IR3_BRANCH_COND;
