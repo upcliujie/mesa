@@ -338,7 +338,7 @@ struct ir3_instruction {
           * handled.
           */
          int dst_offset;
-         int iim_val   : 3; /* for ldgb/stgb, # of components */
+         int iim_val   : 9; /* for ldgb/stgb, # of components */
          unsigned d    : 3; /* for ldc, component offset */
          bool typed    : 1;
          unsigned base : 3;
@@ -2193,6 +2193,7 @@ INSTR2(ATOMIC_AND)
 INSTR2(ATOMIC_OR)
 INSTR2(ATOMIC_XOR)
 INSTR2(LDC)
+INSTR2NODST(LDC_K)
 INSTR2NODST(STC)
 #if GPU >= 600
 INSTR3NODST(STIB);
