@@ -1458,6 +1458,9 @@ tu_reset_cmd_buffer(struct tu_cmd_buffer *cmd_buffer)
    for (unsigned i = 0; i < MAX_BIND_POINTS; i++) {
       memset(&cmd_buffer->descriptors[i].sets, 0, sizeof(cmd_buffer->descriptors[i].sets));
       memset(&cmd_buffer->descriptors[i].push_set, 0, sizeof(cmd_buffer->descriptors[i].push_set));
+      vk_object_base_init(&cmd_buffer->device->vk,
+                          &cmd_buffer->descriptors[i].push_set.base,
+                          VK_OBJECT_TYPE_DESCRIPTOR_SET);
    }
 
    u_trace_fini(&cmd_buffer->trace);
