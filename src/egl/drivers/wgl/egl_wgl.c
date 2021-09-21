@@ -198,7 +198,17 @@ wgl_add_configs(_EGLDisplay *disp)
 static void
 wgl_display_destroy(_EGLDisplay *disp)
 {
-   free(disp);
+   struct wgl_egl_display *wgl_dpy = wgl_egl_display(disp);
+   if (wgl_dpy->base.destroy)
+      wgl_dpy->base.destroy(&wgl_dpy->base);
+   free(wgl_dpy);
+}
+
+static int
+wgl_egl_st_get_param(struct st_manager *smapi, enum st_manager_param param)
+{
+   /* no-op */
+   return 0;
 }
 
 static EGLBoolean
@@ -212,6 +222,7 @@ wgl_initialize_impl(_EGLDisplay *disp, HDC hdc)
       return _eglError(EGL_BAD_ALLOC, "eglInitialize");
 
    disp->DriverData = (void *)wgl_dpy;
+   wgl_dpy->parent = disp;
 
    if (!stw_init_screen(hdc)) {
       err = "wgl: failed to initialize screen";
@@ -220,7 +231,9 @@ wgl_initialize_impl(_EGLDisplay *disp, HDC hdc)
 
    struct stw_device *stw_dev = stw_get_device();
    wgl_dpy->screen = stw_dev->screen;
-   wgl_dpy->smapi = stw_dev->smapi;
+
+   wgl_dpy->base.screen = stw_dev->screen;
+   wgl_dpy->base.get_param = wgl_egl_st_get_param;
 
    disp->ClientAPIs = 0;
    if (_eglIsApiValid(EGL_OPENGL_API))
@@ -442,7 +455,7 @@ wgl_create_context(_EGLDisplay *disp, _EGLConfig *conf,
    if (wgl_ctx->base.Flags & EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR)
       flags |= WGL_CONTEXT_DEBUG_BIT_ARB;
    wgl_ctx->ctx = stw_create_context_attribs(disp->PlatformDisplay, 0, shared,
-      wgl_dpy->smapi,
+      &wgl_dpy->base,
       wgl_ctx->base.ClientMajorVersion,
       wgl_ctx->base.ClientMinorVersion,
       flags,
@@ -675,7 +688,7 @@ wgl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    const struct stw_pixelformat_info *stw_conf = wgl_conf->stw_config[1] ?
       wgl_conf->stw_config[1] : wgl_conf->stw_config[0];
-   wgl_surf->fb = stw_framebuffer_create(native_window, stw_conf->iPixelFormat, STW_FRAMEBUFFER_EGL_WINDOW, wgl_dpy->smapi);
+   wgl_surf->fb = stw_framebuffer_create(native_window, stw_conf->iPixelFormat, STW_FRAMEBUFFER_EGL_WINDOW, &wgl_dpy->base);
    if (!wgl_surf->fb) {
       free(wgl_surf);
       return NULL;
@@ -705,7 +718,7 @@ wgl_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    const struct stw_pixelformat_info *stw_conf = wgl_conf->stw_config[1] ?
       wgl_conf->stw_config[1] : wgl_conf->stw_config[0];
-   wgl_surf->fb = stw_pbuffer_create(stw_conf->iPixelFormat, wgl_surf->base.Width, wgl_surf->base.Height, wgl_dpy->smapi);
+   wgl_surf->fb = stw_pbuffer_create(stw_conf->iPixelFormat, wgl_surf->base.Width, wgl_surf->base.Height, &wgl_dpy->base);
    if (!wgl_surf->fb) {
       free(wgl_surf);
       return NULL;
