@@ -24,7 +24,7 @@ EXPORTS
 	stw_pixelformat_choose = stw_pixelformat_choose@8
 	stw_pixelformat_get = stw_pixelformat_get@4
 	stw_override_opengl32_entry_points = stw_override_opengl32_entry_points@8
-	stw_create_context_attribs = stw_create_context_attribs@32
+	stw_create_context_attribs = stw_create_context_attribs@36
 	stw_destroy_context = stw_destroy_context@4
 	stw_unbind_context = stw_unbind_context@4
 	stw_current_context = stw_current_context@0

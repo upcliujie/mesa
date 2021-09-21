@@ -53,6 +53,7 @@ struct stw_context
 
 struct stw_context *stw_create_context_attribs(HDC hdc, INT iLayerPlane,
                                                struct stw_context *shareCtx,
+                                               struct st_manager *smapi,
                                                int majorVersion, int minorVersion,
                                                int contextFlags, int profileMask,
                                                int iPixelFormat);
