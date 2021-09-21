@@ -210,12 +210,20 @@ lima_set_viewport_states(struct pipe_context *pctx,
                          const struct pipe_viewport_state *viewport)
 {
    struct lima_context *ctx = lima_context(pctx);
+   struct lima_context_framebuffer *fb = &ctx->framebuffer;
 
    /* reverse calculate the parameter of glViewport */
    ctx->viewport.left = viewport->translate[0] - fabsf(viewport->scale[0]);
    ctx->viewport.right = viewport->translate[0] + fabsf(viewport->scale[0]);
    ctx->viewport.bottom = viewport->translate[1] - fabsf(viewport->scale[1]);
    ctx->viewport.top = viewport->translate[1] + fabsf(viewport->scale[1]);
+
+   if (ctx->rasterizer && ctx->rasterizer->base.line_width > 1.0f) {
+     ctx->viewport.left = MAX2(ctx->viewport.left - 1.0f, 0.0f);
+     ctx->viewport.right = MIN2(ctx->viewport.right + 1.0f, fb->base.width);
+     ctx->viewport.bottom = MAX2(ctx->viewport.bottom - 1.0f, 0.0f);
+     ctx->viewport.top = MIN2(ctx->viewport.top + 1.0f,  fb->base.height);
+   }
 
    /* reverse calculate the parameter of glDepthRange */
    float near, far;
