@@ -260,10 +260,17 @@ vk_common_GetImageSparseMemoryRequirements(VkDevice _device,
    STACK_ARRAY_FINISH(mem_reqs2);
 }
 
+static void
+copy_vk_struct_guts(VkBaseOutStructure *dst, VkBaseInStructure *src, size_t struct_size)
+{
+   STATIC_ASSERT(sizeof(*dst) == sizeof(*src));
+   memcpy(dst + 1, src + 1, struct_size - sizeof(VkBaseOutStructure));
+}
+
 bool
-vk_device_get_physical_device_core_feature_ext(struct VkBaseOutStructure *ext,
-                                               const VkPhysicalDeviceVulkan11Features *core_1_1,
-                                               const VkPhysicalDeviceVulkan12Features *core_1_2)
+vk_get_physical_device_core_feature_ext(struct VkBaseOutStructure *ext,
+                                        const VkPhysicalDeviceVulkan11Features *core_1_1,
+                                        const VkPhysicalDeviceVulkan12Features *core_1_2)
 {
 #define CORE_FEATURE(major, minor, feature) \
    features->feature = core_##major##_##minor->feature
@@ -414,6 +421,14 @@ vk_device_get_physical_device_core_feature_ext(struct VkBaseOutStructure *ext,
       CORE_FEATURE(1, 2, vulkanMemoryModelDeviceScope);
       CORE_FEATURE(1, 2, vulkanMemoryModelAvailabilityVisibilityChains);
       return true;
+
+   case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES:
+      copy_vk_struct_guts(ext, (void *)core_1_1, sizeof(*core_1_1));
+      return true;
+
+   case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES:
+      copy_vk_struct_guts(ext, (void *)core_1_2, sizeof(*core_1_2));
+      return true;
    }
 
    default:
@@ -422,9 +437,9 @@ vk_device_get_physical_device_core_feature_ext(struct VkBaseOutStructure *ext,
 #undef CORE_FEATURE
 }
 
-bool vk_device_get_physical_device_core_property_ext(struct VkBaseOutStructure *ext,
-                                                     const VkPhysicalDeviceVulkan11Properties *core_1_1,
-                                                     const VkPhysicalDeviceVulkan12Properties *core_1_2)
+bool vk_get_physical_device_core_property_ext(struct VkBaseOutStructure *ext,
+                                              const VkPhysicalDeviceVulkan11Properties *core_1_1,
+                                              const VkPhysicalDeviceVulkan12Properties *core_1_2)
 {
 #define CORE_RENAMED_PROPERTY(major, minor, ext_property, core_property) \
    memcpy(&properties->ext_property, &core_##major##_##minor->core_property, \
@@ -564,6 +579,14 @@ bool vk_device_get_physical_device_core_property_ext(struct VkBaseOutStructure *
       CORE_PROPERTY(1, 2, maxTimelineSemaphoreValueDifference);
       return true;
    }
+
+   case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES:
+      copy_vk_struct_guts(ext, (void *)core_1_1, sizeof(*core_1_1));
+      return true;
+
+   case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES:
+      copy_vk_struct_guts(ext, (void *)core_1_2, sizeof(*core_1_2));
+      return true;
 
    default:
       return false;
