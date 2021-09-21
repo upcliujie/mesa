@@ -41,3 +41,4 @@ EXPORTS
 	stw_create_image_from_texture
 	stw_create_image_from_renderbuffer
 	stw_destroy_image
+	stw_translate_image
