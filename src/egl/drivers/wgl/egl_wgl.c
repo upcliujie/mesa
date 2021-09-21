@@ -495,7 +495,7 @@ wgl_create_context(_EGLDisplay *disp, _EGLConfig *conf,
       wgl_ctx->base.ClientMinorVersion,
       flags,
       profile_mask,
-      stw_config->iPixelFormat);
+      stw_config);
 
    if (!wgl_ctx->ctx)
       goto cleanup;
@@ -723,7 +723,7 @@ wgl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    const struct stw_pixelformat_info *stw_conf = wgl_conf->stw_config[1] ?
       wgl_conf->stw_config[1] : wgl_conf->stw_config[0];
-   wgl_surf->fb = stw_framebuffer_create(native_window, stw_conf->iPixelFormat, STW_FRAMEBUFFER_EGL_WINDOW, &wgl_dpy->base);
+   wgl_surf->fb = stw_framebuffer_create(native_window, stw_conf, STW_FRAMEBUFFER_EGL_WINDOW, &wgl_dpy->base);
    if (!wgl_surf->fb) {
       free(wgl_surf);
       return NULL;
@@ -753,7 +753,7 @@ wgl_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    const struct stw_pixelformat_info *stw_conf = wgl_conf->stw_config[1] ?
       wgl_conf->stw_config[1] : wgl_conf->stw_config[0];
-   wgl_surf->fb = stw_pbuffer_create(stw_conf->iPixelFormat, wgl_surf->base.Width, wgl_surf->base.Height, &wgl_dpy->base);
+   wgl_surf->fb = stw_pbuffer_create(stw_conf, wgl_surf->base.Width, wgl_surf->base.Height, &wgl_dpy->base);
    if (!wgl_surf->fb) {
       free(wgl_surf);
       return NULL;
