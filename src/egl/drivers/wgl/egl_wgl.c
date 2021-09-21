@@ -661,6 +661,7 @@ static _EGLSurface*
 wgl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
                           void *native_window, const EGLint *attrib_list)
 {
+   struct wgl_egl_display *wgl_dpy = wgl_egl_display(disp);
    struct wgl_egl_config *wgl_conf = wgl_egl_config(conf);
 
    struct wgl_egl_surface *wgl_surf = calloc(1, sizeof(*wgl_surf));
@@ -674,7 +675,7 @@ wgl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    const struct stw_pixelformat_info *stw_conf = wgl_conf->stw_config[1] ?
       wgl_conf->stw_config[1] : wgl_conf->stw_config[0];
-   wgl_surf->fb = stw_framebuffer_create(native_window, stw_conf->iPixelFormat, STW_FRAMEBUFFER_EGL_WINDOW);
+   wgl_surf->fb = stw_framebuffer_create(native_window, stw_conf->iPixelFormat, STW_FRAMEBUFFER_EGL_WINDOW, wgl_dpy->smapi);
    if (!wgl_surf->fb) {
       free(wgl_surf);
       return NULL;
@@ -690,6 +691,7 @@ static _EGLSurface*
 wgl_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf,
                            const EGLint *attrib_list)
 {
+   struct wgl_egl_display *wgl_dpy = wgl_egl_display(disp);
    struct wgl_egl_config *wgl_conf = wgl_egl_config(conf);
 
    struct wgl_egl_surface *wgl_surf = calloc(1, sizeof(*wgl_surf));
@@ -703,7 +705,7 @@ wgl_create_pbuffer_surface(_EGLDisplay *disp, _EGLConfig *conf,
 
    const struct stw_pixelformat_info *stw_conf = wgl_conf->stw_config[1] ?
       wgl_conf->stw_config[1] : wgl_conf->stw_config[0];
-   wgl_surf->fb = stw_pbuffer_create(stw_conf->iPixelFormat, wgl_surf->base.Width, wgl_surf->base.Height);
+   wgl_surf->fb = stw_pbuffer_create(stw_conf->iPixelFormat, wgl_surf->base.Width, wgl_surf->base.Height, wgl_dpy->smapi);
    if (!wgl_surf->fb) {
       free(wgl_surf);
       return NULL;
