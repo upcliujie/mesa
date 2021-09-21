@@ -55,3 +55,6 @@ stw_create_image_from_renderbuffer(struct stw_context *ctx, GLuint renderbuffer,
 
 void
 stw_destroy_image(struct stw_image *img);
+
+void
+stw_translate_image(struct stw_image *in, struct st_egl_image *out);
