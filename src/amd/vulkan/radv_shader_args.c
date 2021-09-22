@@ -186,11 +186,11 @@ allocate_user_sgprs(struct radv_shader_args *args, gl_shader_stage stage, bool h
 
    switch (stage) {
    case MESA_SHADER_COMPUTE:
-      if (args->shader_info->cs.uses_sbt)
+      if (args->options->key.cs.uses_sbt)
          user_sgpr_count += 1;
-      if (args->shader_info->cs.uses_grid_size)
+      if (args->options->key.cs.uses_grid_size)
          user_sgpr_count += 3;
-      if (args->shader_info->cs.uses_ray_launch_size)
+      if (args->options->key.cs.uses_ray_launch_size)
          user_sgpr_count += 3;
       break;
    case MESA_SHADER_FRAGMENT:
@@ -491,25 +491,25 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
    case MESA_SHADER_COMPUTE:
       declare_global_input_sgprs(args, &user_sgpr_info);
 
-      if (args->shader_info->cs.uses_sbt) {
+      if (args->options->key.cs.uses_sbt) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_CONST_DESC_PTR, &args->ac.sbt_descriptors);
       }
 
-      if (args->shader_info->cs.uses_grid_size) {
+      if (args->options->key.cs.uses_grid_size) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 3, AC_ARG_INT, &args->ac.num_work_groups);
       }
 
-      if (args->shader_info->cs.uses_ray_launch_size) {
+      if (args->options->key.cs.uses_ray_launch_size) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 3, AC_ARG_INT, &args->ac.ray_launch_size);
       }
 
       for (int i = 0; i < 3; i++) {
-         if (args->shader_info->cs.uses_block_id[i]) {
+         if (args->options->key.cs.uses_block_id[i]) {
             ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.workgroup_ids[i]);
          }
       }
 
-      if (args->shader_info->cs.uses_local_invocation_idx) {
+      if (args->options->key.cs.uses_local_invocation_idx) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.tg_size);
       }
 
@@ -715,13 +715,13 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 
    switch (stage) {
    case MESA_SHADER_COMPUTE:
-      if (args->shader_info->cs.uses_sbt) {
+      if (args->options->key.cs.uses_sbt) {
          set_loc_shader_ptr(args, AC_UD_CS_SBT_DESCRIPTORS, &user_sgpr_idx);
       }
-      if (args->shader_info->cs.uses_grid_size) {
+      if (args->options->key.cs.uses_grid_size) {
          set_loc_shader(args, AC_UD_CS_GRID_SIZE, &user_sgpr_idx, 3);
       }
-      if (args->shader_info->cs.uses_ray_launch_size) {
+      if (args->options->key.cs.uses_ray_launch_size) {
          set_loc_shader(args, AC_UD_CS_RAY_LAUNCH_SIZE, &user_sgpr_idx, 3);
       }
       break;

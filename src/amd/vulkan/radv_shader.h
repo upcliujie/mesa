@@ -103,6 +103,14 @@ struct radv_fs_variant_key {
 
 struct radv_cs_variant_key {
    uint8_t subgroup_size;
+
+   bool uses_grid_size;
+   bool uses_block_id[3];
+   bool uses_thread_id[3];
+   bool uses_local_invocation_idx;
+
+   bool uses_sbt;
+   bool uses_ray_launch_size;
 };
 
 struct radv_shader_variant_key {
@@ -340,14 +348,7 @@ struct radv_shader_info {
       bool allow_flat_shading;
    } ps;
    struct {
-      bool uses_grid_size;
-      bool uses_block_id[3];
-      bool uses_thread_id[3];
-      bool uses_local_invocation_idx;
       unsigned block_size[3];
-
-      bool uses_sbt;
-      bool uses_ray_launch_size;
    } cs;
    struct {
       uint64_t tes_inputs_read;
@@ -455,6 +456,7 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device 
 
 struct radv_shader_variant *radv_shader_variant_create(struct radv_device *device,
                                                        const struct radv_shader_binary *binary,
+                                                       const struct radv_shader_variant_key *key,
                                                        bool keep_shader_info, bool from_cache);
 struct radv_shader_variant *radv_shader_variant_compile(
    struct radv_device *device, struct vk_shader_module *module, struct nir_shader *const *shaders,

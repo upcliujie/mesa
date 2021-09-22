@@ -1113,7 +1113,8 @@ radv_should_use_wgp_mode(const struct radv_device *device, gl_shader_stage stage
 
 static void
 radv_postprocess_config(const struct radv_device *device, const struct ac_shader_config *config_in,
-                        const struct radv_shader_info *info, gl_shader_stage stage,
+                        const struct radv_shader_info *info,
+                        const struct radv_shader_variant_key *key, gl_shader_stage stage,
                         struct ac_shader_config *config_out)
 {
    const struct radv_physical_device *pdevice = device->physical_device;
@@ -1258,13 +1259,13 @@ radv_postprocess_config(const struct radv_device *device, const struct ac_shader
    case MESA_SHADER_COMPUTE:
       config_out->rsrc1 |=
          S_00B848_MEM_ORDERED(pdevice->rad_info.chip_class >= GFX10) | S_00B848_WGP_MODE(wgp_mode);
-      config_out->rsrc2 |= S_00B84C_TGID_X_EN(info->cs.uses_block_id[0]) |
-                           S_00B84C_TGID_Y_EN(info->cs.uses_block_id[1]) |
-                           S_00B84C_TGID_Z_EN(info->cs.uses_block_id[2]) |
-                           S_00B84C_TIDIG_COMP_CNT(info->cs.uses_thread_id[2]   ? 2
-                                                   : info->cs.uses_thread_id[1] ? 1
+      config_out->rsrc2 |= S_00B84C_TGID_X_EN(key->cs.uses_block_id[0]) |
+                           S_00B84C_TGID_Y_EN(key->cs.uses_block_id[1]) |
+                           S_00B84C_TGID_Z_EN(key->cs.uses_block_id[2]) |
+                           S_00B84C_TIDIG_COMP_CNT(key->cs.uses_thread_id[2]   ? 2
+                                                   : key->cs.uses_thread_id[1] ? 1
                                                                                 : 0) |
-                           S_00B84C_TG_SIZE_EN(info->cs.uses_local_invocation_idx) |
+                           S_00B84C_TG_SIZE_EN(key->cs.uses_local_invocation_idx) |
                            S_00B84C_LDS_SIZE(config_in->lds_size) | S_00B84C_EXCP_EN(excp_en);
       config_out->rsrc3 |= S_00B8A0_SHARED_VGPR_CNT(num_shared_vgpr_blocks);
 
@@ -1355,6 +1356,7 @@ radv_postprocess_config(const struct radv_device *device, const struct ac_shader
 
 struct radv_shader_variant *
 radv_shader_variant_create(struct radv_device *device, const struct radv_shader_binary *binary,
+                           const struct radv_shader_variant_key *key,
                            bool keep_shader_info, bool from_cache)
 {
    struct ac_shader_config config = {0};
@@ -1434,7 +1436,7 @@ radv_shader_variant_create(struct radv_device *device, const struct radv_shader_
       /* Copy the shader binary configuration from the cache. */
       memcpy(&variant->config, &binary->config, sizeof(variant->config));
    } else {
-      radv_postprocess_config(device, &config, &binary->info, binary->stage, &variant->config);
+      radv_postprocess_config(device, &config, &binary->info, key, binary->stage, &variant->config);
    }
 
    void *dest_ptr = radv_alloc_shader_memory(device, variant);
@@ -1597,7 +1599,7 @@ shader_variant_compile(struct radv_device *device, struct vk_shader_module *modu
    binary->info = *info;
 
    struct radv_shader_variant *variant =
-      radv_shader_variant_create(device, binary, keep_shader_info, false);
+      radv_shader_variant_create(device, binary, &options->key, keep_shader_info, false);
    if (!variant) {
       free(binary);
       return NULL;

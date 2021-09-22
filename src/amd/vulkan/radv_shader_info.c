@@ -123,7 +123,7 @@ gather_push_constant_info(const nir_shader *nir, const nir_intrinsic_instr *inst
 
 static void
 gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
-                      struct radv_shader_info *info)
+                      struct radv_shader_info *info, struct radv_shader_variant_key *key)
 {
    switch (instr->intrinsic) {
    case nir_intrinsic_load_barycentric_sample:
@@ -159,10 +159,10 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
       info->vs.needs_instance_id = true;
       break;
    case nir_intrinsic_load_num_workgroups:
-      info->cs.uses_grid_size = true;
+      key->cs.uses_grid_size = true;
       break;
    case nir_intrinsic_load_ray_launch_size:
-      info->cs.uses_ray_launch_size = true;
+      key->cs.uses_ray_launch_size = true;
       break;
    case nir_intrinsic_load_local_invocation_id:
    case nir_intrinsic_load_workgroup_id: {
@@ -171,16 +171,16 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
          unsigned i = u_bit_scan(&mask);
 
          if (instr->intrinsic == nir_intrinsic_load_workgroup_id)
-            info->cs.uses_block_id[i] = true;
+            key->cs.uses_block_id[i] = true;
          else
-            info->cs.uses_thread_id[i] = true;
+            key->cs.uses_thread_id[i] = true;
       }
       break;
    }
    case nir_intrinsic_load_local_invocation_index:
    case nir_intrinsic_load_subgroup_id:
    case nir_intrinsic_load_num_subgroups:
-      info->cs.uses_local_invocation_idx = true;
+      key->cs.uses_local_invocation_idx = true;
       break;
    case nir_intrinsic_load_sample_mask_in:
       info->ps.reads_sample_mask_in = true;
@@ -278,7 +278,7 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
       gather_intrinsic_store_output_info(nir, instr, info);
       break;
    case nir_intrinsic_load_sbt_amd:
-      info->cs.uses_sbt = true;
+      key->cs.uses_sbt = true;
       break;
    default:
       break;
@@ -303,12 +303,13 @@ gather_tex_info(const nir_shader *nir, const nir_tex_instr *instr, struct radv_s
 }
 
 static void
-gather_info_block(const nir_shader *nir, const nir_block *block, struct radv_shader_info *info)
+gather_info_block(const nir_shader *nir, const nir_block *block, struct radv_shader_info *info,
+                  struct radv_shader_variant_key *key)
 {
    nir_foreach_instr (instr, block) {
       switch (instr->type) {
       case nir_instr_type_intrinsic:
-         gather_intrinsic_info(nir, nir_instr_as_intrinsic(instr), info);
+         gather_intrinsic_info(nir, nir_instr_as_intrinsic(instr), info, key);
          break;
       case nir_instr_type_tex:
          gather_tex_info(nir, nir_instr_as_tex(instr), info);
@@ -556,7 +557,7 @@ radv_nir_shader_info_init(struct radv_shader_info *info)
 void
 radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *nir,
                           const struct radv_pipeline_layout *layout,
-                          const struct radv_shader_variant_key *key, struct radv_shader_info *info)
+                          struct radv_shader_variant_key *key, struct radv_shader_info *info)
 {
    struct nir_function *func = (struct nir_function *)exec_list_get_head_const(&nir->functions);
 
@@ -577,7 +578,7 @@ radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *n
       gather_info_input_decl(nir, variable, info, key);
 
    nir_foreach_block (block, func->impl) {
-      gather_info_block(nir, block, info);
+      gather_info_block(nir, block, info, key);
    }
 
    nir_foreach_shader_out_variable(variable, nir) gather_info_output_decl(nir, variable, info, key);
