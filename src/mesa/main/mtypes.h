@@ -3828,6 +3828,15 @@ struct gl_constants
    GLuint MaxProgramMatrices;
    GLuint MaxProgramMatrixStackDepth;
 
+   /**
+    * Add flow control to loops to implement correct GLSL 1.30 discards
+    *
+    * Drivers that implement discard by demoting the fragment to a helper
+    * invocation should set this flag.  This flag is only used for GLSL 1.30+
+    * or GLSL ES 3.00+ shaders.
+    */
+   GLboolean LowerDiscardFlow;
+
    struct {
       GLuint SamplesPassed;
       GLuint TimeElapsed;
