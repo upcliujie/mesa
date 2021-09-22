@@ -176,6 +176,8 @@ struct vk_multialloc {
     size_t size;
     size_t align;
 
+    char *ptr;
+
     uint32_t ptr_count;
     void **ptrs[8];
 };
@@ -185,6 +187,9 @@ struct vk_multialloc {
 
 #define VK_MULTIALLOC(_name) \
    struct vk_multialloc _name = VK_MULTIALLOC_INIT
+
+#define VK_MULTIALLOC_FREE(_name) \
+   free(_name.ptr);
 
 static ALWAYS_INLINE void
 vk_multialloc_add_size_align(struct vk_multialloc *ma,
@@ -230,8 +235,8 @@ vk_multialloc_alloc(struct vk_multialloc *ma,
                     const VkAllocationCallbacks *alloc,
                     VkSystemAllocationScope scope)
 {
-   char *ptr = (char *)vk_alloc(alloc, ma->size, ma->align, scope);
-   if (!ptr)
+   ma->ptr = (char *)vk_alloc(alloc, ma->size, ma->align, scope);
+   if (!ma->ptr)
       return NULL;
 
    /* Fill out each of the pointers with their final value.
@@ -246,7 +251,7 @@ vk_multialloc_alloc(struct vk_multialloc *ma,
    STATIC_ASSERT(ARRAY_SIZE(ma->ptrs) == 8);
 #define _VK_MULTIALLOC_UPDATE_POINTER(_i) \
    if ((_i) < ma->ptr_count) \
-      *ma->ptrs[_i] = ptr + (uintptr_t)*ma->ptrs[_i]
+      *ma->ptrs[_i] = ma->ptr + (uintptr_t)*ma->ptrs[_i]
    _VK_MULTIALLOC_UPDATE_POINTER(0);
    _VK_MULTIALLOC_UPDATE_POINTER(1);
    _VK_MULTIALLOC_UPDATE_POINTER(2);
@@ -257,7 +262,7 @@ vk_multialloc_alloc(struct vk_multialloc *ma,
    _VK_MULTIALLOC_UPDATE_POINTER(7);
 #undef _VK_MULTIALLOC_UPDATE_POINTER
 
-   return ptr;
+   return ma->ptr;
 }
 
 static ALWAYS_INLINE void *
