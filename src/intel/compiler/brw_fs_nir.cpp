@@ -3590,13 +3590,11 @@ fs_visitor::nir_emit_fs_intrinsic(const fs_builder &bld,
       jump->flag_subreg = sample_mask_flag_subreg(this);
       jump->predicate_inverse = true;
 
-      if (instr->intrinsic == nir_intrinsic_terminate ||
-          instr->intrinsic == nir_intrinsic_terminate_if) {
+      if (instr->intrinsic != nir_intrinsic_demote &&
+          instr->intrinsic != nir_intrinsic_demote_if) {
          jump->predicate = BRW_PREDICATE_NORMAL;
       } else {
-         /* Only jump when the whole quad is demoted.  For historical
-          * reasons this is also used for discard.
-          */
+         /* Only jump when the whole quad is demoted. */
          jump->predicate = BRW_PREDICATE_ALIGN1_ANY4H;
       }
 
