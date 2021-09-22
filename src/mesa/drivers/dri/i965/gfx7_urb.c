@@ -72,7 +72,8 @@ gfx7_allocate_push_constants(struct brw_context *brw)
 
    unsigned avail_size = 16;
    unsigned multiplier =
-      (devinfo->ver >= 8 || (devinfo->is_haswell && devinfo->gt == 3)) ? 2 : 1;
+      (devinfo->ver >= 8 ||
+       (devinfo->platform == INTEL_PLATFORM_HSW && devinfo->gt == 3)) ? 2 : 1;
 
    int stages = 2 + gs_present + 2 * tess_present;
 
@@ -139,9 +140,9 @@ gfx7_emit_push_constant_state(struct brw_context *brw, unsigned vs_size,
         * We've also seen some intermittent failures from SKL GT4 and BXT in
         * the past.
         */
-      if (!devinfo->is_skylake &&
-          !devinfo->is_broxton &&
-          !devinfo->is_geminilake)
+      if (devinfo->platform != INTEL_PLATFORM_SKL &&
+          devinfo->platform != INTEL_PLATFORM_BXT &&
+          devinfo->platform != INTEL_PLATFORM_GLK)
          return;
    }
 
@@ -173,7 +174,7 @@ gfx7_emit_push_constant_state(struct brw_context *brw, unsigned vs_size,
     *
     * No such restriction exists for Haswell or Baytrail.
     */
-   if (devinfo->verx10 <= 70 && !devinfo->is_baytrail)
+   if (devinfo->verx10 <= 70 && devinfo->platform != INTEL_PLATFORM_BYT)
       gfx7_emit_cs_stall_flush(brw);
 }
 
@@ -252,7 +253,7 @@ gfx7_upload_urb(struct brw_context *brw, unsigned vs_size,
                         tess_present, gs_present, entry_size,
                         entries, start, NULL, &constrained);
 
-   if (devinfo->verx10 == 70 && !devinfo->is_baytrail)
+   if (devinfo->platform == INTEL_PLATFORM_IVB)
       gfx7_emit_vs_workaround_flush(brw);
 
    BEGIN_BATCH(8);
