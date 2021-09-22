@@ -4865,7 +4865,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
     *
     * This rule also applies to GLSL ES 3.00.
     */
-   if (max_version >= (prog->IsES ? 300 : 130)) {
+   if (max_version >= (prog->IsES ? 300 : 130) && ctx->Const.LowerDiscardFlow) {
       struct gl_linked_shader *sh = prog->_LinkedShaders[MESA_SHADER_FRAGMENT];
       if (sh) {
          lower_discard_flow(sh->ir);
