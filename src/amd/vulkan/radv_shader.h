@@ -81,6 +81,9 @@ struct radv_vs_variant_key {
 
    /* Provoking vertex mode. */
    bool provoking_vtx_last;
+
+   uint64_t tcs_temp_only_input_mask;
+   bool tcs_in_out_eq;
 };
 
 struct radv_tes_variant_key {
@@ -274,8 +277,6 @@ struct radv_shader_info {
       bool as_es;
       bool as_ls;
       bool export_prim_id;
-      bool tcs_in_out_eq;
-      uint64_t tcs_temp_only_input_mask;
       uint8_t num_linked_outputs;
       bool needs_base_instance;
       bool use_per_attribute_vb_descs;
@@ -559,7 +560,8 @@ get_tcs_num_patches(unsigned tcs_num_input_vertices, unsigned tcs_num_output_ver
 void radv_lower_io(struct radv_device *device, nir_shader *nir);
 
 bool radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
-                          struct radv_shader_info *info, const struct radv_pipeline_key *pl_key);
+                          struct radv_shader_info *info, const struct radv_pipeline_key *pl_key,
+                          const struct radv_shader_variant_key *key);
 
 void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
                     struct radv_shader_info *info,

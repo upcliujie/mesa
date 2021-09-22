@@ -3064,7 +3064,8 @@ merge_tess_info(struct shader_info *tes_info, struct shader_info *tcs_info)
 
 static void
 gather_tess_info(struct radv_device *device, nir_shader **nir, struct radv_shader_info *infos,
-                 const struct radv_pipeline_key *pipeline_key)
+                 const struct radv_pipeline_key *pipeline_key,
+                 struct radv_shader_variant_key *keys)
 {
    merge_tess_info(&nir[MESA_SHADER_TESS_EVAL]->info, &nir[MESA_SHADER_TESS_CTRL]->info);
 
@@ -3111,24 +3112,19 @@ gather_tess_info(struct radv_device *device, nir_shader **nir, struct radv_shade
        * involve different float modes for the same block and our optimizer
        * doesn't handle a instruction dominating another with a different mode.
        */
-      infos[MESA_SHADER_VERTEX].vs.tcs_in_out_eq =
+      keys[MESA_SHADER_VERTEX].vs.tcs_in_out_eq =
          device->physical_device->rad_info.chip_class >= GFX9 &&
          tess_in_patch_size == tess_out_patch_size &&
          nir[MESA_SHADER_VERTEX]->info.float_controls_execution_mode ==
             nir[MESA_SHADER_TESS_CTRL]->info.float_controls_execution_mode;
 
-      if (infos[MESA_SHADER_VERTEX].vs.tcs_in_out_eq)
-         infos[MESA_SHADER_VERTEX].vs.tcs_temp_only_input_mask =
+      if (keys[MESA_SHADER_VERTEX].vs.tcs_in_out_eq)
+         keys[MESA_SHADER_VERTEX].vs.tcs_temp_only_input_mask =
             nir[MESA_SHADER_TESS_CTRL]->info.inputs_read &
             nir[MESA_SHADER_VERTEX]->info.outputs_written &
             ~nir[MESA_SHADER_TESS_CTRL]->info.tess.tcs_cross_invocation_inputs_read &
             ~nir[MESA_SHADER_TESS_CTRL]->info.inputs_read_indirectly &
             ~nir[MESA_SHADER_VERTEX]->info.outputs_accessed_indirectly;
-
-      /* Copy data to TCS so it can be accessed by the backend if they are merged. */
-      infos[MESA_SHADER_TESS_CTRL].vs.tcs_in_out_eq = infos[MESA_SHADER_VERTEX].vs.tcs_in_out_eq;
-      infos[MESA_SHADER_TESS_CTRL].vs.tcs_temp_only_input_mask =
-         infos[MESA_SHADER_VERTEX].vs.tcs_temp_only_input_mask;
    }
 
    for (gl_shader_stage s = MESA_SHADER_VERTEX; s <= MESA_SHADER_TESS_CTRL; ++s)
@@ -3474,7 +3470,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
    if (nir[MESA_SHADER_TESS_CTRL]) {
       nir_lower_patch_vertices(nir[MESA_SHADER_TESS_EVAL],
                                nir[MESA_SHADER_TESS_CTRL]->info.tess.tcs_vertices_out, NULL);
-      gather_tess_info(device, nir, infos, pipeline_key);
+      gather_tess_info(device, nir, infos, pipeline_key, keys);
    }
 
    radv_fill_shader_keys(device, keys, pipeline_key, nir);
@@ -3565,7 +3561,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
          nir_opt_move(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
 
          /* Lower I/O intrinsics to memory instructions. */
-         bool io_to_mem = radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key);
+         bool io_to_mem = radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key, &keys[i]);
          bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage &&
                             !radv_use_llvm_for_stage(device, i);
          if (lowered_ngg) {
