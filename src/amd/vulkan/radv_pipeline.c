@@ -2508,12 +2508,10 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
    bool has_gs = shaders[MESA_SHADER_GEOMETRY];
 
    /* Merged stage for VS and TES */
-   unsigned vs_info_idx = MESA_SHADER_VERTEX;
    unsigned tes_info_idx = MESA_SHADER_TESS_EVAL;
 
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9) {
       /* These are merged into the next stage */
-      vs_info_idx = has_tess ? MESA_SHADER_TESS_CTRL : MESA_SHADER_GEOMETRY;
       tes_info_idx = has_gs ? MESA_SHADER_GEOMETRY : MESA_SHADER_TESS_EVAL;
    }
 
@@ -2535,7 +2533,6 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
       infos[MESA_SHADER_TESS_EVAL].tes.num_linked_patch_inputs = tcs2tes.num_linked_patch_io_vars;
 
       /* Copy data to merged stage */
-      infos[vs_info_idx].vs.num_linked_outputs = vs2tcs.num_linked_io_vars;
       infos[tes_info_idx].tes.num_linked_inputs = tcs2tes.num_linked_io_vars;
       infos[tes_info_idx].tes.num_linked_patch_inputs = tcs2tes.num_linked_patch_io_vars;
 
@@ -2545,9 +2542,6 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
 
          infos[MESA_SHADER_TESS_EVAL].tes.num_linked_outputs = tes2gs.num_linked_io_vars;
          infos[MESA_SHADER_GEOMETRY].gs.num_linked_inputs = tes2gs.num_linked_io_vars;
-
-         /* Copy data to merged stage */
-         infos[tes_info_idx].tes.num_linked_outputs = tes2gs.num_linked_io_vars;
       }
    } else if (has_gs) {
       nir_linked_io_var_info vs2gs = nir_assign_linked_io_var_locations(
@@ -2555,9 +2549,6 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
 
       infos[MESA_SHADER_VERTEX].vs.num_linked_outputs = vs2gs.num_linked_io_vars;
       infos[MESA_SHADER_GEOMETRY].gs.num_linked_inputs = vs2gs.num_linked_io_vars;
-
-      /* Copy data to merged stage */
-      infos[vs_info_idx].vs.num_linked_outputs = vs2gs.num_linked_io_vars;
    }
 
    assert(pipeline->graphics.last_vgt_api_stage != MESA_SHADER_NONE);
