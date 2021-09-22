@@ -27,9 +27,122 @@ traces:
   - path: overcooked2/Overcooked2-trim--f3301-v20201203.trace
     expectations:
       - device: freedreno-a630
-        checksum: 358c723a5f1807fafea2d68bcd32040e
+        checksum: f5cf383154f328e626baf7c4515e170b
+
+# Renders all black
+  - path: plague-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: b98f319ebcfe36f416c0b7d9281f85ff
+
+  - path: AmnesiaTDD/Amnesia-f700.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: d65b15a48cc7488020a1d4ae3d5dd583
+
 # Crashes
-#  - path: plaugue-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
-#    expectations:
-#      - device: freedreno-a630
-#        checksum: 59da6ef5c9509616d595d1613fdac42e
+# - path: Anna/Anna-f692.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: 0
+
+# Crashes
+# - path: Antichamber/antichamber-f240.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: 0
+
+# Crashes
+# - path: Cradle/cradle-f3000.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: 0
+
+  - path: ICEDarkness/ICEDarkness-f230.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 64ac14b2a04d510e470fb2e06b039b42
+
+  - path: LifelessPlanet/LifelessPlanet-f420.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 67694d4c5ddd2e353786b7400f26eae9
+
+# Crashes with:
+# metro.bin: ../src/gallium/drivers/freedreno/freedreno_resource.c:274: fd_replace_buffer_storage: Assertion `!fd_batch_references(batch, src)' failed.
+# - path: MetroLLRedux/metro-ll-redux-kf480.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: 0
+
+# Hangs the machine after:
+# msm ae00000.mdss: [drm:adreno_wait_ring] *ERROR* timeout waiting for space in ringbuffer 0
+# - path: OilRush/OilRush-f14000.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: 0
+
+  - path: Osmos/Osmos-f2660.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: cea8067f4538fd73e3505f58f0b7044e
+  - path: PenumbraOverture/penumbra-ov-s0-2-864-f1500.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: a3cc3e461c15d0469d258c5c6dcd6cbb
+
+# Very flaky, at each rendering some pixels in the shrubs along the path change slightly
+# - path: ShadowWarrior/ShadowWarrior-f3952.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: b529f6ca057c3475acb3eb156bf4f82e
+
+  - path: SirYouAreBeingHunted/sir-f750.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 3f6d0626b9ebe1d73860fc9faa0475b5
+
+# Black screen, with this message:
+# 933377: warning: could not infer drawable size (glViewport never called)
+  - path: slime-rancher/SlimeRancher-trim--f970-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 803a5b74ca684def0737fe9d96f6f66e
+
+# Hangs the machine after (note the fsr):
+# arm-smmu 5040000.iommu: Unhandled context fault: fsr=0x402, iova=0x68de31e8da00, fsynr=0x0, cbfrsynra=0x0, cb=0
+# - path: SpecOps/specops-s0-1088-f1300.trace
+#   expectations:
+#     - device: freedreno-a630
+#       checksum: 0
+
+  # - path: stellaris/Stellaris-trim--f722-v20201203.trace
+  #   expectations:
+  #     - device: freedreno-a630
+  #       checksum: 0
+  - path: Superhot/superhot-f8100.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 21a4901a1e4fc1664ddd314c956625ea
+  - path: TheRavenRemastered/Raven-f10900.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 94de06734f428368c7e21d692bc937f8
+
+  # Crashes somewhere in apitrace:
+  # apitrace: warning: caught signal 11
+  # 250: error: caught an unhandled exception
+  # eglretrace+0x2b6173
+  # linux-vdso.so.1+0x79f
+  # ?+0x0
+  - path: TombRaider2013/TombRaider-f1430.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
+
+  # The lower-right quarter of the screen is covered by a version of the top-left
+  # quarter with more bright colors.
+  - path: Witcher2/witcher2-s0-1970-f2038.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 9e5a15117a751d146f1303a8d3f8e0aa
