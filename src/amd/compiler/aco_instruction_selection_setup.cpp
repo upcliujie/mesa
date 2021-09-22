@@ -379,8 +379,8 @@ setup_gs_variables(isel_context* ctx, nir_shader* nir)
 void
 setup_tcs_info(isel_context* ctx, nir_shader* nir, nir_shader* vs)
 {
-   ctx->tcs_in_out_eq = ctx->args->shader_info->vs.tcs_in_out_eq;
-   ctx->tcs_temp_only_inputs = ctx->args->shader_info->vs.tcs_temp_only_input_mask;
+   ctx->tcs_in_out_eq = ctx->args->options->key.vs.tcs_in_out_eq;
+   ctx->tcs_temp_only_inputs = ctx->args->options->key.vs.tcs_temp_only_input_mask;
    ctx->tcs_num_patches = ctx->args->shader_info->num_tess_patches;
    ctx->program->config->lds_size = ctx->args->shader_info->tcs.num_lds_blocks;
 }
