@@ -88,7 +88,8 @@ intel_get_urb_config(const struct intel_device_info *devinfo,
       urb_size_kB -= 4 * devinfo->l3_banks;
 
    const unsigned push_constant_kB =
-      (devinfo->ver >= 8 || (devinfo->is_haswell && devinfo->gt == 3)) ? 32 : 16;
+      (devinfo->ver >= 8 ||
+       (devinfo->platform == INTEL_PLATFORM_HSW && devinfo->gt == 3)) ? 32 : 16;
 
    const bool active[4] = { true, tess_present, tess_present, gs_present };
 
