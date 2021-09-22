@@ -2,11 +2,10 @@ traces-db:
   download-url: "http://10.42.0.1:8888/cache/?uri=https://minio-packet.freedesktop.org/mesa-tracie-private/"
 
 traces:
-# Crashes
-#  - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
-#    expectations:
-#      - device: freedreno-a630
-#        checksum: 4ae01533a347796097e3cefff10b029e
+  - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 4ae01533a347796097e3cefff10b029e
   - path: civilization-v/CivilizationV-trim--s705-761-f762-v20201203.trace
     expectations:
       - device: freedreno-a630
@@ -19,17 +18,143 @@ traces:
     expectations:
       - device: freedreno-a630
         checksum: e72925568412a8ebdbac68c929972a55
-# Crashes
-#  - path: ksp/KSP-trim--f4800-v20201203.trace
-#    expectations:
-#      - device: freedreno-a630
-#        checksum: 59da6ef5c9509616d595d1613fdac42e
+  - path: ksp/KSP-trim--f4800-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 2f60f3514e1717e26b03ed3b685a0ad8
   - path: overcooked2/Overcooked2-trim--f3301-v20201203.trace
     expectations:
       - device: freedreno-a630
         checksum: 358c723a5f1807fafea2d68bcd32040e
+
+# Renders all black
+  - path: plague-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: b98f319ebcfe36f416c0b7d9281f85ff
+
+  - path: AmnesiaTDD/Amnesia-f700.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: d65b15a48cc7488020a1d4ae3d5dd583
+
 # Crashes
-#  - path: plaugue-inc-evolved/PlagueIncEvolved-trim--f1200-v20201203.trace
+#  - path: Anna/Anna-f692.trace
 #    expectations:
 #      - device: freedreno-a630
-#        checksum: 59da6ef5c9509616d595d1613fdac42e
+#        checksum: 0
+
+  - path: Antichamber/antichamber-f240.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 2df47f6dffc78e01ba94ff6600e54bfa
+
+# Crashes
+#  - path: Cradle/cradle-f3000.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
+
+  - path: ICEDarkness/ICEDarkness-f230.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 64ac14b2a04d510e470fb2e06b039b42
+
+  - path: LifelessPlanet/LifelessPlanet-f420.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 67694d4c5ddd2e353786b7400f26eae9
+
+  - path: MetroLLRedux/metro-ll-redux-kf480.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 93e55922e9925255c27770c2ba727524
+
+# Hangs the GPU, though it eventually recovers:
+# [  534.818899] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
+# [  534.828579] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     completed fence: 41747
+# [  534.837423] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     submitted fence: 41755
+# [  534.846403] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: hangcheck recover!
+# [  534.854335] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: offending task: eglretrace:sq0 (eglretrace --headless --snapshot=27827909 --snapshot-prefix=/results/trace/freedreno-a630/OilRush/OilRush-f14000.trace- /builds/tomeu/mesa/replayer-db/OilRush/OilRush-f14000.trace)
+# [  534.880842] *** gpu fault: ttbr0=00000001ac9e4000 iova=000000010dcab5e0 dir=READ type=TRANSLATION source=CP (0,0,0,1)
+#
+#  - path: OilRush/OilRush-f14000.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
+
+  - path: Osmos/Osmos-f2660.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: cea8067f4538fd73e3505f58f0b7044e
+  - path: PenumbraOverture/penumbra-ov-s0-2-864-f1500.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: a3cc3e461c15d0469d258c5c6dcd6cbb
+
+# Very flaky, at each rendering some pixels in the shrubs along the path change slightly
+#  - path: ShadowWarrior/ShadowWarrior-f3952.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 805c120051acc74629d50bcd595a348f
+
+  - path: SirYouAreBeingHunted/sir-f750.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 3f6d0626b9ebe1d73860fc9faa0475b5
+
+# Black screen, with this message:
+# 933377: warning: could not infer drawable size (glViewport never called)
+  - path: slime-rancher/SlimeRancher-trim--f970-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 803a5b74ca684def0737fe9d96f6f66e
+
+# Very flaky, but haven't figured out what the difference is
+#  - path: SpecOps/specops-s0-1088-f1300.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: ade980d9679297221aacf0567e38c2de
+
+# Causes the machine to hang and reboot with:
+# [ 1492.803666] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630: hangcheck detected gpu lockup rb 0!
+# [ 1492.813343] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     completed fence: 71555
+# [ 1492.822187] msm ae00000.mdss: [drm:hangcheck_handler] *ERROR* A630:     submitted fence: 71557
+# [ 1492.831138] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: hangcheck recover!
+# [ 1492.839073] msm ae00000.mdss: [drm:recover_worker] *ERROR* A630: offending task: eglretrace:sq0 (eglretrace --headless --snapshot=1341336 --snapshot-prefix=/results/trace/freedreno-a630/stellaris/Stellaris-trim--f722-v20201203.trace- /builds/tomeu/mesa/replayer-db/stellaris/Stellaris-trim--f722-v20201203.trace)
+# [1537.403070 power state 3 = S0, in 0x001c]
+# [1537.403747 power state 3 = S0, in 0x001d]
+# [1537.471816 power state 3 = S0, in 0x001c]
+# [1537.472445 power state 3 = S0, in 0x001e]
+# coreboot-0.0.20 Tue Jan 15 22:01:37 UTC 2019 bootblock starting...
+#   - path: stellaris/Stellaris-trim--f722-v20201203.trace
+#     expectations:
+#       - device: freedreno-a630
+#         checksum: 0
+
+  - path: Superhot/superhot-f8100.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 21a4901a1e4fc1664ddd314c956625ea
+  - path: TheRavenRemastered/Raven-f10900.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 8ed1975d6914142dd0cc7b1cf9cf9434
+
+# Crashes somewhere in apitrace:
+# apitrace: warning: caught signal 11
+# 250: error: caught an unhandled exception
+# eglretrace+0x2b6173
+# linux-vdso.so.1+0x79f
+# ?+0x0
+#  - path: TombRaider2013/TombRaider-f1430.trace
+#    expectations:
+#      - device: freedreno-a630
+#        checksum: 0
+
+  # The lower-right quarter of the screen is covered by a version of the top-left
+  # quarter with more bright colors.
+  - path: Witcher2/witcher2-s0-1970-f2038.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 3c766640f3ceaead9395ec2ece01e55f
