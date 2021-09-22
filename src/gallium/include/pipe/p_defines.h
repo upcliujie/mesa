@@ -994,6 +994,12 @@ enum pipe_cap
    PIPE_CAP_SUPPORTED_PRIM_MODES,
    PIPE_CAP_SUPPORTED_PRIM_MODES_WITH_RESTART,
 
+   /**
+    * Discard instruction causes the fragment to terminate rather than be
+    * demoted to helper invocation.
+    */
+   PIPE_CAP_GLSL_DISCARD_IS_TERMINATE,
+
    PIPE_CAP_LAST,
    /* XXX do not add caps after PIPE_CAP_LAST! */
 };
