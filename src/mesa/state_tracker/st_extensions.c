@@ -413,6 +413,8 @@ void st_init_limits(struct pipe_screen *screen,
       screen->get_param(screen, PIPE_CAP_PREFER_IMM_ARRAYS_AS_CONSTBUF);
    c->GLSLTessLevelsAsInputs =
       screen->get_param(screen, PIPE_CAP_GLSL_TESS_LEVELS_AS_INPUTS);
+   c->LowerDiscardFlow =
+      screen->get_param(screen, PIPE_CAP_GLSL_DISCARD_IS_TERMINATE) == 0;
    c->LowerTessLevel =
       !screen->get_param(screen, PIPE_CAP_NIR_COMPACT_ARRAYS);
    c->LowerCsDerivedVariables =

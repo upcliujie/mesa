@@ -536,6 +536,7 @@ _mesa_init_constants(struct gl_constants *consts, gl_api api)
    consts->GLSLVersionCompat = consts->GLSLVersion;
 
    consts->GLSLLowerConstArrays = true;
+   consts->LowerDiscardFlow = true;
 
    /* Assume that if GLSL 1.30+ (or GLSL ES 3.00+) is supported that
     * gl_VertexID is implemented using a native hardware register with OpenGL
