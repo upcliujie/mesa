@@ -300,16 +300,14 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
    if (!res)
       return NULL;
 
-   res->base = *templ;
    pipe_reference_init(&res->base.reference, 1);
    res->base.screen = pscreen;
-   res->dxgi_format = templ->target == PIPE_BUFFER ? DXGI_FORMAT_UNKNOWN :
-                 d3d12_get_format(templ->format);
+
+   ID3D12Resource *d3d12_res = nullptr;
    if (handle->type == WINSYS_HANDLE_TYPE_D3D12_RES) {
-      res->bo = d3d12_bo_wrap_res((ID3D12Resource *)handle->com_obj, templ->format);
+      d3d12_res = (ID3D12Resource *)handle->com_obj;
    } else {
       struct d3d12_screen *screen = d3d12_screen(pscreen);
-      ID3D12Resource *d3d12_res = nullptr;
 
 #ifdef _WIN32
       HANDLE d3d_handle = handle->handle;
@@ -317,15 +315,130 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
       HANDLE d3d_handle = (HANDLE)(intptr_t)handle->handle;
 #endif
       screen->dev->OpenSharedHandle(d3d_handle, IID_PPV_ARGS(&d3d12_res));
-      if (!d3d12_res) {
-         FREE(res);
-         return NULL;
+   }
+
+   D3D12_PLACED_SUBRESOURCE_FOOTPRINT placed_footprint = {};
+   D3D12_SUBRESOURCE_FOOTPRINT *footprint = &placed_footprint.Footprint;
+   D3D12_RESOURCE_DESC incoming_res_desc;
+
+   if (!d3d12_res)
+      goto invalid;
+
+   incoming_res_desc = d3d12_res->GetDesc();
+   if (incoming_res_desc.Width > UINT32_MAX ||
+       incoming_res_desc.Height > UINT16_MAX) {
+      debug_printf("d3d12: Importing resource too large\n");
+      goto invalid;
+   }
+   res->base.format = d3d12_get_pipe_format(incoming_res_desc.Format);
+   res->base.width0 = incoming_res_desc.Width;
+   res->base.height0 = incoming_res_desc.Height;
+   res->base.depth0 = 1;
+   res->base.array_size = 1;
+
+   switch (incoming_res_desc.Dimension) {
+   case D3D12_RESOURCE_DIMENSION_BUFFER:
+      res->base.target = PIPE_BUFFER;
+      res->base.bind = PIPE_BIND_VERTEX_BUFFER | PIPE_BIND_CONSTANT_BUFFER |
+         PIPE_BIND_INDEX_BUFFER | PIPE_BIND_STREAM_OUTPUT | PIPE_BIND_SHADER_BUFFER |
+         PIPE_BIND_COMMAND_ARGS_BUFFER | PIPE_BIND_QUERY_BUFFER;
+      break;
+   case D3D12_RESOURCE_DIMENSION_TEXTURE1D:
+      res->base.target = incoming_res_desc.DepthOrArraySize > 1 ?
+         PIPE_TEXTURE_1D_ARRAY : PIPE_TEXTURE_1D;
+      res->base.array_size = incoming_res_desc.DepthOrArraySize;
+      break;
+   case D3D12_RESOURCE_DIMENSION_TEXTURE2D:
+      res->base.target = incoming_res_desc.DepthOrArraySize > 1 ?
+         PIPE_TEXTURE_2D_ARRAY : PIPE_TEXTURE_2D;
+      res->base.array_size = incoming_res_desc.DepthOrArraySize;
+      break;
+   case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
+      res->base.target = PIPE_TEXTURE_3D;
+      res->base.depth0 = incoming_res_desc.DepthOrArraySize;
+      break;
+
+   }
+   res->base.nr_samples = incoming_res_desc.SampleDesc.Count;
+   if (res->base.nr_samples == 1)
+      res->base.nr_samples = 0; /* Gallium uses 0 to mean not MSAA */
+   res->base.last_level = incoming_res_desc.MipLevels - 1;
+   res->base.usage = PIPE_USAGE_DEFAULT;
+   if (incoming_res_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)
+      res->base.bind |= PIPE_BIND_RENDER_TARGET | PIPE_BIND_BLENDABLE | PIPE_BIND_DISPLAY_TARGET;
+   if (incoming_res_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL)
+      res->base.bind |= PIPE_BIND_DEPTH_STENCIL;
+   if (incoming_res_desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)
+      res->base.bind |= PIPE_BIND_SHADER_IMAGE;
+   if ((incoming_res_desc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE) == D3D12_RESOURCE_FLAG_NONE)
+      res->base.bind |= PIPE_BIND_SAMPLER_VIEW;
+
+   if (templ) {
+      if (res->base.target == PIPE_TEXTURE_2D_ARRAY &&
+            (templ->target == PIPE_TEXTURE_CUBE ||
+             templ->target == PIPE_TEXTURE_CUBE_ARRAY)) {
+         if (res->base.array_size < 6) {
+            debug_printf("d3d12: Importing cube resource with too few array layers\n");
+            goto invalid;
+         }
+         res->base.target = templ->target;
+         res->base.array_size /= 6;
+      }
+      if (res->base.target != templ->target ||
+          res->base.width0 != templ->width0 ||
+          res->base.height0 != templ->height0 ||
+          res->base.depth0 != templ->depth0 ||
+          res->base.array_size != templ->array_size ||
+          res->base.nr_samples != templ->nr_samples ||
+          res->base.last_level != templ->last_level) {
+         debug_printf("d3d12: Importing resource with mismatched dimensions: "
+            "plane: %d, target: %d vs %d, width: %d vs %d, height: %d vs %d, "
+            "depth: %d vs %d, array_size: %d vs %d, samples: %d vs %d, mips: %d vs %d\n",
+            handle->plane,
+            res->base.target, templ->target,
+            res->base.width0, templ->width0,
+            res->base.height0, templ->height0,
+            res->base.depth0, templ->depth0,
+            res->base.array_size, templ->array_size,
+            res->base.nr_samples, templ->nr_samples,
+            res->base.last_level + 1, templ->last_level + 1);
+         goto invalid;
+      }
+      if (res->base.format != PIPE_FORMAT_NONE &&
+          d3d12_get_format(res->base.format) != d3d12_get_format(templ->format)) {
+         debug_printf("d3d12: Importing resource with mismatched format: "
+            "detected format %d, told %d\n",
+            res->base.format, templ->format);
+         goto invalid;
+      }
+      if (templ->bind & ~res->base.bind) {
+         debug_printf("d3d12: Imported resource doesn't have necessary bind flags\n");
+         goto invalid;
       }
 
-      res->bo = d3d12_bo_wrap_res(d3d12_res, templ->format);
+      /* The incoming resource might have a typless format, but the template might
+       * have type information. 
+       */
+      res->base.format = templ->format;
+   } else if (res->base.format == PIPE_FORMAT_NONE) {
+      /* Convert from typeless to a reasonable default */
+      res->base.format = d3d12_get_default_pipe_format(incoming_res_desc.Format);
+      if (res->base.format == PIPE_FORMAT_NONE) {
+         debug_printf("d3d12: Unable to deduce non-typeless resource format\n");
+         goto invalid;
+      }
    }
+
+   res->dxgi_format = d3d12_get_format(res->base.format);
+   res->bo = d3d12_bo_wrap_res(d3d12_res, res->base.format);
    init_valid_range(res);
    return &res->base;
+
+invalid:
+   if (d3d12_res)
+      d3d12_res->Release();
+   FREE(res);
+   return NULL;
 }
 
 static bool
