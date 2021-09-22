@@ -479,6 +479,9 @@ u_pipe_screen_get_param_defaults(struct pipe_screen *pscreen,
    case PIPE_CAP_PREFER_POT_ALIGNED_VARYINGS:
       return 0;
 
+   case PIPE_CAP_GLSL_DISCARD_IS_TERMINATE:
+      return 0;
+
    default:
       unreachable("bad PIPE_CAP_*");
    }

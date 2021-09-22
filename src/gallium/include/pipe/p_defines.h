@@ -1000,6 +1000,12 @@ enum pipe_cap
    PIPE_CAP_DRAW_VERTEX_STATE,
    PIPE_CAP_PREFER_POT_ALIGNED_VARYINGS,
 
+   /**
+    * Discard instruction causes the fragment to terminate rather than be
+    * demoted to helper invocation.
+    */
+   PIPE_CAP_GLSL_DISCARD_IS_TERMINATE,
+
    PIPE_CAP_LAST,
    /* XXX do not add caps after PIPE_CAP_LAST! */
 };
