@@ -1010,7 +1010,7 @@ scandir_filter(const struct dirent *ent)
 }
 
 /** \brief Parse configuration files in a directory */
-static void
+static int
 parseConfigDir(struct OptConfData *data, const char *dirname)
 {
    int i, count;
@@ -1018,7 +1018,7 @@ parseConfigDir(struct OptConfData *data, const char *dirname)
 
    count = scandir(dirname, &entries, scandir_filter, alphasort);
    if (count < 0)
-      return;
+      return errno;
 
    for (i = 0; i < count; i++) {
       char filename[PATH_MAX];
@@ -1030,6 +1030,7 @@ parseConfigDir(struct OptConfData *data, const char *dirname)
    }
 
    free(entries);
+   return 0;
 }
 #else
 #  include "driconf_static.h"
@@ -1176,7 +1177,14 @@ driParseConfigFiles(driOptionCache *cache, const driOptionCache *info,
 #if WITH_XMLCONFIG
    char *home;
 
-   parseConfigDir(&userData, datadir);
+   if (parseConfigDir(&userData, datadir) == ENOENT) {
+      /* check for wine chroot relocated path:
+       * fixes detection for native GL games like RAGE
+       * https://gitlab.freedesktop.org/mesa/mesa/-/issues/5380
+       */
+      if (parseConfigDir(&userData, "/run/host" DATADIR "/drirc.d") == 0)
+         parseOneConfigFile(&userData, "/run/host/" SYSCONFDIR "/drirc");
+   }
    parseOneConfigFile(&userData, SYSCONFDIR "/drirc");
 
    if ((home = getenv("HOME"))) {
