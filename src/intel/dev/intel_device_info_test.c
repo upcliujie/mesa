@@ -31,6 +31,11 @@ main(int argc, char *argv[])
       assert(devinfo.cs_prefetch_size > 0);
 
       assert(devinfo.ver < 7 || devinfo.max_constant_urb_size_kb > 0);
+
+      /* There a few platform for which we don't have name prior to Gfx6.
+       * Everything above that should have a name.
+       */
+      assert(devinfo.ver < 6 || devinfo.platform >= 1);
    }
 
    return 0;
