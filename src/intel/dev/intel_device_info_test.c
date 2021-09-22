@@ -28,6 +28,10 @@ main(int argc, char *argv[])
       assert(devinfo.num_thread_per_eu != 0);
       assert(devinfo.timestamp_frequency != 0);
       assert(devinfo.cs_prefetch_size > 0);
+      /* There a few platform for which we don't have name prior to Gfx6.
+       * Everything above that should have a name.
+       */
+      assert(devinfo.ver < 6 || devinfo.platform >= 1);
    }
 
    return 0;
