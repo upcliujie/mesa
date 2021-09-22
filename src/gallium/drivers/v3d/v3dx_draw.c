@@ -1485,6 +1485,42 @@ v3d_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 #endif
 
 /**
+ * Clamp the color to the allowed values.
+ */
+static union pipe_color_union
+clamp_clear_color(enum pipe_format format,
+                  const union pipe_color_union *color)
+{
+        union pipe_color_union clamp_color = *color;
+        int i;
+
+        for (i = 0; i < util_format_get_nr_components(format); i++) {
+                if (util_format_is_unorm(format)) {
+                        clamp_color.f[i] = SATURATE(clamp_color.f[i]);
+                } else if (util_format_is_snorm(format)) {
+                        clamp_color.f[i] = CLAMP(clamp_color.f[i], -1.0f, 1.0f);
+                } else if (util_format_is_pure_uint(format)) {
+                        uint8_t bits =
+                            util_format_get_component_bits(format,
+                                                           UTIL_FORMAT_COLORSPACE_RGB,
+                                                           i);
+                        uint32_t max_color = u_uintN_max(bits);
+                        clamp_color.ui[i] = MIN2(clamp_color.ui[i], max_color);
+                } else if (util_format_is_pure_sint(format)) {
+                        uint8_t bits =
+                            util_format_get_component_bits(format,
+                                                           UTIL_FORMAT_COLORSPACE_RGB,
+                                                           i);
+                        int32_t min_color = u_intN_min(bits);
+                        int32_t max_color = u_intN_max(bits);
+                        clamp_color.i[i] = CLAMP(clamp_color.i[i], min_color, max_color);
+                }
+        }
+
+        return clamp_color;
+}
+
+/**
  * Implements gallium's clear() hook (glClear()) by drawing a pair of triangles.
  */
 static void
@@ -1561,6 +1597,10 @@ v3d_tlb_clear(struct v3d_job *job, unsigned buffers,
                         swapped_color.f[3] = color->f[3];
                         color = &swapped_color;
                 }
+
+                union pipe_color_union clamped_color =
+                        clamp_clear_color(psurf->format, color);
+                color = &clamped_color;
 
                 switch (surf->internal_type) {
                 case V3D_INTERNAL_TYPE_8:
