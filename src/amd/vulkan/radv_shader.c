@@ -914,6 +914,12 @@ radv_consider_culling(struct radv_device *device, struct nir_shader *nir,
    else
       max_ps_params = 4; /* Navi 1x. */
 
+   /* If the VS uses textures, increase the limit in the hopes that
+    * we gain more from culling by reducing bandwidth use.
+    */
+   if (nir->info.textures_used)
+      max_ps_params += 2;
+
    /* TODO: consider other heuristics here, such as PS execution time */
 
    return util_bitcount64(ps_inputs_read & ~VARYING_BIT_POS) <= max_ps_params;
