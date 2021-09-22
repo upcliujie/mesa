@@ -84,10 +84,13 @@ struct radv_vs_variant_key {
 
    uint64_t tcs_temp_only_input_mask;
    bool tcs_in_out_eq;
+
+   uint8_t num_linked_outputs;
 };
 
 struct radv_tes_variant_key {
    struct radv_vs_out_key out;
+   uint8_t num_linked_outputs;
 };
 
 struct radv_tcs_variant_key {
@@ -277,7 +280,6 @@ struct radv_shader_info {
       bool as_es;
       bool as_ls;
       bool export_prim_id;
-      uint8_t num_linked_outputs;
       bool needs_base_instance;
       bool use_per_attribute_vb_descs;
       uint32_t vb_desc_usage_mask;
@@ -307,7 +309,6 @@ struct radv_shader_info {
       bool export_prim_id;
       uint8_t num_linked_inputs;
       uint8_t num_linked_patch_inputs;
-      uint8_t num_linked_outputs;
    } tes;
    struct {
       bool uses_sample_shading;
