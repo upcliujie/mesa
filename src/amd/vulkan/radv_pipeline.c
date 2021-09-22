@@ -1853,14 +1853,14 @@ radv_pipeline_init_depth_stencil_state(struct radv_pipeline *pipeline,
 }
 
 static unsigned
-radv_compute_esgs_itemsize(gl_shader_stage stage, const struct radv_shader_info *info)
+radv_compute_esgs_itemsize(gl_shader_stage stage, const struct radv_shader_variant_key *key)
 {
    uint32_t num_outputs_written;
 
    if (stage == MESA_SHADER_VERTEX) {
-      num_outputs_written = info->vs.num_linked_outputs;
+      num_outputs_written = key->vs.num_linked_outputs;
    } else {
-      num_outputs_written = info->tes.num_linked_outputs;
+      num_outputs_written = key->tes.num_linked_outputs;
    }
 
    return num_outputs_written * 4;
@@ -1868,7 +1868,8 @@ radv_compute_esgs_itemsize(gl_shader_stage stage, const struct radv_shader_info 
 
 static void
 gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline *pipeline,
-                 nir_shader **nir, struct radv_shader_info *infos, struct gfx9_gs_info *out)
+                 nir_shader **nir, struct radv_shader_info *infos,
+                 struct radv_shader_variant_key *keys, struct gfx9_gs_info *out)
 {
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
    gl_shader_stage es_stage = nir[MESA_SHADER_TESS_CTRL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
@@ -1887,7 +1888,7 @@ gfx9_get_gs_info(const struct radv_pipeline_key *key, const struct radv_pipeline
       break;
    }
 
-   esgs_itemsize = radv_compute_esgs_itemsize(es_stage, &infos[es_stage]);
+   esgs_itemsize = radv_compute_esgs_itemsize(es_stage, &keys[es_stage]);
 
    /* All these are in dwords: */
    /* We can't allow using the whole LDS, because GS waves compete with
@@ -2026,7 +2027,8 @@ gfx10_emit_ge_pc_alloc(struct radeon_cmdbuf *cs, enum chip_class chip_class, uin
 
 static void
 gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pipeline,
-                   nir_shader **nir, struct radv_shader_info *infos, struct gfx10_ngg_info *ngg)
+                   nir_shader **nir, struct radv_shader_info *infos,
+                   struct radv_shader_variant_key *keys, struct gfx10_ngg_info *ngg)
 {
    struct radv_shader_info *gs_info = &infos[MESA_SHADER_GEOMETRY];
    gl_shader_stage es_stage = nir[MESA_SHADER_TESS_CTRL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
@@ -2048,7 +2050,7 @@ gfx10_get_ngg_info(const struct radv_pipeline_key *key, struct radv_pipeline *pi
       break;
    }
 
-   esgs_itemsize = radv_compute_esgs_itemsize(es_stage, &infos[es_stage]);
+   esgs_itemsize = radv_compute_esgs_itemsize(es_stage, &keys[es_stage]);
 
    /* All these are in dwords: */
    /* We can't allow using the whole LDS, because GS waves compete with
@@ -2492,7 +2494,8 @@ radv_link_shaders(struct radv_pipeline *pipeline,
 
 static void
 radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
-                          struct radv_shader_info infos[MESA_SHADER_STAGES])
+                          struct radv_shader_info infos[MESA_SHADER_STAGES],
+                          struct radv_shader_variant_key *keys)
 {
    if (shaders[MESA_SHADER_FRAGMENT]) {
       nir_foreach_shader_out_variable(var, shaders[MESA_SHADER_FRAGMENT])
@@ -2525,7 +2528,7 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
       nir_linked_io_var_info tcs2tes = nir_assign_linked_io_var_locations(
          shaders[MESA_SHADER_TESS_CTRL], shaders[MESA_SHADER_TESS_EVAL]);
 
-      infos[MESA_SHADER_VERTEX].vs.num_linked_outputs = vs2tcs.num_linked_io_vars;
+      keys[MESA_SHADER_VERTEX].vs.num_linked_outputs = vs2tcs.num_linked_io_vars;
       infos[MESA_SHADER_TESS_CTRL].tcs.num_linked_inputs = vs2tcs.num_linked_io_vars;
       infos[MESA_SHADER_TESS_CTRL].tcs.num_linked_outputs = tcs2tes.num_linked_io_vars;
       infos[MESA_SHADER_TESS_CTRL].tcs.num_linked_patch_outputs = tcs2tes.num_linked_patch_io_vars;
@@ -2540,14 +2543,14 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
          nir_linked_io_var_info tes2gs = nir_assign_linked_io_var_locations(
             shaders[MESA_SHADER_TESS_EVAL], shaders[MESA_SHADER_GEOMETRY]);
 
-         infos[MESA_SHADER_TESS_EVAL].tes.num_linked_outputs = tes2gs.num_linked_io_vars;
+         keys[MESA_SHADER_TESS_EVAL].tes.num_linked_outputs = tes2gs.num_linked_io_vars;
          infos[MESA_SHADER_GEOMETRY].gs.num_linked_inputs = tes2gs.num_linked_io_vars;
       }
    } else if (has_gs) {
       nir_linked_io_var_info vs2gs = nir_assign_linked_io_var_locations(
          shaders[MESA_SHADER_VERTEX], shaders[MESA_SHADER_GEOMETRY]);
 
-      infos[MESA_SHADER_VERTEX].vs.num_linked_outputs = vs2gs.num_linked_io_vars;
+      keys[MESA_SHADER_VERTEX].vs.num_linked_outputs = vs2gs.num_linked_io_vars;
       infos[MESA_SHADER_GEOMETRY].gs.num_linked_inputs = vs2gs.num_linked_io_vars;
    }
 
@@ -3447,7 +3450,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
    bool optimize_conservatively = flags & VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT;
 
    radv_link_shaders(pipeline, pipeline_key, nir, optimize_conservatively);
-   radv_set_driver_locations(pipeline, nir, infos);
+   radv_set_driver_locations(pipeline, nir, infos, keys);
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
       if (nir[i]) {
@@ -3489,11 +3492,11 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
       else
          ngg_info = &infos[MESA_SHADER_VERTEX].ngg_info;
 
-      gfx10_get_ngg_info(pipeline_key, pipeline, nir, infos, ngg_info);
+      gfx10_get_ngg_info(pipeline_key, pipeline, nir, infos, keys, ngg_info);
    } else if (nir[MESA_SHADER_GEOMETRY]) {
       struct gfx9_gs_info *gs_info = &infos[MESA_SHADER_GEOMETRY].gs_ring_info;
 
-      gfx9_get_gs_info(pipeline_key, pipeline, nir, infos, gs_info);
+      gfx9_get_gs_info(pipeline_key, pipeline, nir, infos, keys, gs_info);
    } else {
       gl_shader_stage hw_vs_api_stage =
          nir[MESA_SHADER_TESS_EVAL] ? MESA_SHADER_TESS_EVAL : MESA_SHADER_VERTEX;
