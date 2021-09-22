@@ -838,12 +838,13 @@ radv_lower_io(struct radv_device *device, nir_shader *nir)
 
 bool
 radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
-                     struct radv_shader_info *info, const struct radv_pipeline_key *pl_key)
+                     struct radv_shader_info *info, const struct radv_pipeline_key *pl_key,
+                     const struct radv_shader_variant_key *key)
 {
    if (nir->info.stage == MESA_SHADER_VERTEX) {
       if (info->vs.as_ls) {
-         ac_nir_lower_ls_outputs_to_mem(nir, info->vs.tcs_in_out_eq,
-                                        info->vs.tcs_temp_only_input_mask,
+         ac_nir_lower_ls_outputs_to_mem(nir, key->vs.tcs_in_out_eq,
+                                        key->vs.tcs_temp_only_input_mask,
                                         info->vs.num_linked_outputs);
          return true;
       } else if (info->vs.as_es) {
@@ -852,7 +853,7 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
          return true;
       }
    } else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
-      ac_nir_lower_hs_inputs_to_mem(nir, info->vs.tcs_in_out_eq, info->tcs.num_linked_inputs);
+      ac_nir_lower_hs_inputs_to_mem(nir, key->vs.tcs_in_out_eq, info->tcs.num_linked_inputs);
       ac_nir_lower_hs_outputs_to_mem(
          nir, device->physical_device->rad_info.chip_class, info->tcs.tes_reads_tess_factors,
          info->tcs.tes_inputs_read, info->tcs.tes_patch_inputs_read, info->tcs.num_linked_inputs,
