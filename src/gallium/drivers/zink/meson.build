@@ -88,6 +88,18 @@ if with_moltenvk_dir != ''
   zink_c_args += ['-iframework' , 'Foundation']
 endif
 
+if with_platform_x11
+  zink_c_args += '-DVK_USE_PLATFORM_XCB_KHR=1'
+endif
+
+if with_platform_wayland
+  zink_c_args += '-DVK_USE_PLATFORM_WAYLAND_KHR=1'
+endif
+
+if with_platform_windows
+  zink_c_args += '-DVK_USE_PLATFORM_WIN32_KHR=1'
+endif
+
 libzink = static_library(
   'zink',
   [files_libzink, zink_device_info, zink_instance, zink_nir_algebraic_c, vk_dispatch_table],
