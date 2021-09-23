@@ -292,6 +292,7 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
                           const struct pipe_resource *templ,
                           struct winsys_handle *handle, unsigned usage)
 {
+   struct d3d12_screen *screen = d3d12_screen(pscreen);
    if (handle->type != WINSYS_HANDLE_TYPE_D3D12_RES &&
        handle->type != WINSYS_HANDLE_TYPE_FD)
       return NULL;
@@ -300,11 +301,22 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
    if (!res)
       return NULL;
 
+   if (templ && templ->next) {
+      struct d3d12_resource* next = d3d12_resource(templ->next);
+      if (next->bo) {
+         res->base = *templ;
+         res->bo = next->bo;
+         d3d12_bo_reference(res->bo);
+      }
+   }
+
    pipe_reference_init(&res->base.reference, 1);
    res->base.screen = pscreen;
 
    ID3D12Resource *d3d12_res = nullptr;
-   if (handle->type == WINSYS_HANDLE_TYPE_D3D12_RES) {
+   if (res->bo) {
+      d3d12_res = res->bo->res;
+   } else if (handle->type == WINSYS_HANDLE_TYPE_D3D12_RES) {
       d3d12_res = (ID3D12Resource *)handle->com_obj;
    } else {
       struct d3d12_screen *screen = d3d12_screen(pscreen);
@@ -325,14 +337,21 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
       goto invalid;
 
    incoming_res_desc = d3d12_res->GetDesc();
-   if (incoming_res_desc.Width > UINT32_MAX ||
-       incoming_res_desc.Height > UINT16_MAX) {
+
+   /* Get a description for this plane */
+   {
+      unsigned subresource = handle->plane * incoming_res_desc.MipLevels * incoming_res_desc.DepthOrArraySize;
+      screen->dev->GetCopyableFootprints(&incoming_res_desc, subresource, 1, 0, &placed_footprint, nullptr, nullptr, nullptr);
+   }
+
+   if (footprint->Width > UINT32_MAX ||
+       footprint->Height > UINT16_MAX) {
       debug_printf("d3d12: Importing resource too large\n");
       goto invalid;
    }
-   res->base.format = d3d12_get_pipe_format(incoming_res_desc.Format);
-   res->base.width0 = incoming_res_desc.Width;
-   res->base.height0 = incoming_res_desc.Height;
+   res->base.format = d3d12_get_pipe_format(footprint->Format);
+   res->base.width0 = footprint->Width;
+   res->base.height0 = footprint->Height;
    res->base.depth0 = 1;
    res->base.array_size = 1;
 
@@ -355,10 +374,11 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
       break;
    case D3D12_RESOURCE_DIMENSION_TEXTURE3D:
       res->base.target = PIPE_TEXTURE_3D;
-      res->base.depth0 = incoming_res_desc.DepthOrArraySize;
+      res->base.depth0 = footprint->Depth;
       break;
 
    }
+   res->overall_format = d3d12_get_pipe_format(incoming_res_desc.Format);
    res->base.nr_samples = incoming_res_desc.SampleDesc.Count;
    if (res->base.nr_samples == 1)
       res->base.nr_samples = 0; /* Gallium uses 0 to mean not MSAA */
@@ -404,11 +424,15 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
             res->base.last_level + 1, templ->last_level + 1);
          goto invalid;
       }
-      if (res->base.format != PIPE_FORMAT_NONE &&
-          d3d12_get_format(res->base.format) != d3d12_get_format(templ->format)) {
+      if ((res->base.format != PIPE_FORMAT_NONE &&
+           d3d12_get_format(res->base.format) != d3d12_get_format(templ->format)) ||
+          (res->overall_format != PIPE_FORMAT_NONE &&
+           d3d12_get_format(res->overall_format) != d3d12_get_format((enum pipe_format)handle->format))) {
          debug_printf("d3d12: Importing resource with mismatched format: "
-            "detected format %d, told %d\n",
-            res->base.format, templ->format);
+            "detected plane %d, told %d,"
+            "detected overall %d, told %d\n",
+            res->base.format, templ->format,
+            res->overall_format, (unsigned)handle->format);
          goto invalid;
       }
       if (templ->bind & ~res->base.bind) {
@@ -420,6 +444,7 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
        * have type information. 
        */
       res->base.format = templ->format;
+      res->overall_format = (enum pipe_format)handle->format;
    } else if (res->base.format == PIPE_FORMAT_NONE) {
       /* Convert from typeless to a reasonable default */
       res->base.format = d3d12_get_default_pipe_format(incoming_res_desc.Format);
@@ -427,15 +452,25 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
          debug_printf("d3d12: Unable to deduce non-typeless resource format\n");
          goto invalid;
       }
+
+      res->overall_format = res->base.format;
    }
 
-   res->dxgi_format = d3d12_get_format(res->base.format);
-   res->bo = d3d12_bo_wrap_res(d3d12_res, res->base.format);
+   if (!templ)
+      handle->format = res->overall_format;
+
+   res->dxgi_format = d3d12_get_format(res->overall_format);
+
+   if (!res->bo) {
+      res->bo = d3d12_bo_wrap_res(d3d12_res, res->overall_format);
+   }
    init_valid_range(res);
    return &res->base;
 
 invalid:
-   if (d3d12_res)
+   if (res->bo)
+      d3d12_bo_unreference(res->bo);
+   else if (d3d12_res)
       d3d12_res->Release();
    FREE(res);
    return NULL;
