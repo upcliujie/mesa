@@ -51,6 +51,9 @@ panvk_spirv_to_nir(const void *code,
       .caps = { false },
       .ubo_addr_format = nir_address_format_32bit_index_offset,
       .ssbo_addr_format = nir_address_format_32bit_index_offset,
+      .frag_coord_is_sysval = PAN_ARCH >= 6,
+      .point_coord_is_sysval = PAN_ARCH >= 6,
+      .front_facing_is_varying = PAN_ARCH <= 5,
    };
 
    /* convert VkSpecializationInfo */
