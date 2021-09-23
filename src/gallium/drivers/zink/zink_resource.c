@@ -825,14 +825,14 @@ static struct pipe_resource *
 zink_resource_create(struct pipe_screen *pscreen,
                      const struct pipe_resource *templ)
 {
-   return resource_create(pscreen, templ, NULL, 0, NULL, 0);
+   return resource_create(pscreen, templ, NULL, 0, NULL, 0, NULL);
 }
 
 static struct pipe_resource *
 zink_resource_create_with_modifiers(struct pipe_screen *pscreen, const struct pipe_resource *templ,
                                     const uint64_t *modifiers, int modifiers_count)
 {
-   return resource_create(pscreen, templ, NULL, 0, modifiers, modifiers_count);
+   return resource_create(pscreen, templ, NULL, 0, modifiers, modifiers_count, NULL);
 }
 
 static struct pipe_resource *
@@ -856,7 +856,7 @@ zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
    struct zink_screen *screen = zink_screen(pscreen);
    struct zink_resource *res = zink_resource(pres);
    //TODO: remove for wsi
-   struct zink_resource_object *obj = res->scanout_obj ? res->scanout_obj : res->obj;
+   struct zink_resource_object *obj = res->obj;
    VkImageAspectFlags aspect = obj->modifier_aspect ? obj->modifier_aspect : res->aspect;
    struct winsys_handle whandle;
    switch (param) {
@@ -864,9 +864,6 @@ zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
       /* not yet implemented */
       *value = 1;
       break;
-=======
-   struct zink_resource_object *obj = res->obj;
->>>>>>> 01a0de14530 (penny: and again for something completely different)
 
    case PIPE_RESOURCE_PARAM_STRIDE: {
       VkImageSubresource sub_res = {0};
@@ -1011,7 +1008,7 @@ zink_resource_from_handle(struct pipe_screen *pscreen,
       modifier = whandle->modifier;
       modifier_count = 1;
    }
-   return resource_create(pscreen, templ, whandle, usage, &modifier, modifier_count);
+   return resource_create(pscreen, templ, whandle, usage, &modifier, modifier_count, NULL);
 #else
    return NULL;
 #endif
