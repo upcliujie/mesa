@@ -841,7 +841,8 @@ util_format_get_blocksize(enum pipe_format format)
    uint bytes = bits / 8;
 
    assert(bits % 8 == 0);
-   assert(bytes > 0);
+
+   /* for planar formats with bits being zero */
    if (bytes == 0) {
       bytes = 1;
    }
