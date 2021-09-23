@@ -148,11 +148,12 @@ vk_common_GetDeviceQueue(VkDevice _device,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-vk_common_GetBufferMemoryRequirements(VkDevice _device,
+vk_common_GetBufferMemoryRequirements(VkDevice device,
                                       VkBuffer buffer,
                                       VkMemoryRequirements *pMemoryRequirements)
 {
-   VK_FROM_HANDLE(vk_device, device, _device);
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_device_handle(device);
 
    VkBufferMemoryRequirementsInfo2 info = {
       .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,
@@ -161,18 +162,19 @@ vk_common_GetBufferMemoryRequirements(VkDevice _device,
    VkMemoryRequirements2 reqs = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
    };
-   device->dispatch_table.GetBufferMemoryRequirements2(_device, &info, &reqs);
+   disp->GetBufferMemoryRequirements2(device, &info, &reqs);
 
    *pMemoryRequirements = reqs.memoryRequirements;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-vk_common_BindBufferMemory(VkDevice _device,
+vk_common_BindBufferMemory(VkDevice device,
                            VkBuffer buffer,
                            VkDeviceMemory memory,
                            VkDeviceSize memoryOffset)
 {
-   VK_FROM_HANDLE(vk_device, device, _device);
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_device_handle(device);
 
    VkBindBufferMemoryInfo bind = {
       .sType         = VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO,
@@ -181,15 +183,16 @@ vk_common_BindBufferMemory(VkDevice _device,
       .memoryOffset  = memoryOffset,
    };
 
-   return device->dispatch_table.BindBufferMemory2(_device, 1, &bind);
+   return disp->BindBufferMemory2(device, 1, &bind);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-vk_common_GetImageMemoryRequirements(VkDevice _device,
+vk_common_GetImageMemoryRequirements(VkDevice device,
                                      VkImage image,
                                      VkMemoryRequirements *pMemoryRequirements)
 {
-   VK_FROM_HANDLE(vk_device, device, _device);
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_device_handle(device);
 
    VkImageMemoryRequirementsInfo2 info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2,
@@ -198,18 +201,19 @@ vk_common_GetImageMemoryRequirements(VkDevice _device,
    VkMemoryRequirements2 reqs = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,
    };
-   device->dispatch_table.GetImageMemoryRequirements2(_device, &info, &reqs);
+   disp->GetImageMemoryRequirements2(device, &info, &reqs);
 
    *pMemoryRequirements = reqs.memoryRequirements;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-vk_common_BindImageMemory(VkDevice _device,
+vk_common_BindImageMemory(VkDevice device,
                           VkImage image,
                           VkDeviceMemory memory,
                           VkDeviceSize memoryOffset)
 {
-   VK_FROM_HANDLE(vk_device, device, _device);
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_device_handle(device);
 
    VkBindImageMemoryInfo bind = {
       .sType         = VK_STRUCTURE_TYPE_BIND_IMAGE_MEMORY_INFO,
@@ -218,16 +222,17 @@ vk_common_BindImageMemory(VkDevice _device,
       .memoryOffset  = memoryOffset,
    };
 
-   return device->dispatch_table.BindImageMemory2(_device, 1, &bind);
+   return disp->BindImageMemory2(device, 1, &bind);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-vk_common_GetImageSparseMemoryRequirements(VkDevice _device,
+vk_common_GetImageSparseMemoryRequirements(VkDevice device,
                                            VkImage image,
                                            uint32_t *pSparseMemoryRequirementCount,
                                            VkSparseImageMemoryRequirements *pSparseMemoryRequirements)
 {
-   VK_FROM_HANDLE(vk_device, device, _device);
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_device_handle(device);
 
    VkImageSparseMemoryRequirementsInfo2 info = {
       .sType = VK_STRUCTURE_TYPE_IMAGE_SPARSE_MEMORY_REQUIREMENTS_INFO_2,
@@ -235,10 +240,10 @@ vk_common_GetImageSparseMemoryRequirements(VkDevice _device,
    };
 
    if (!pSparseMemoryRequirements) {
-      device->dispatch_table.GetImageSparseMemoryRequirements2(_device,
-                                                               &info,
-                                                               pSparseMemoryRequirementCount,
-                                                               NULL);
+      disp->GetImageSparseMemoryRequirements2(device,
+                                              &info,
+                                              pSparseMemoryRequirementCount,
+                                              NULL);
       return;
    }
 
@@ -249,10 +254,10 @@ vk_common_GetImageSparseMemoryRequirements(VkDevice _device,
       mem_reqs2[i].pNext = NULL;
    }
 
-   device->dispatch_table.GetImageSparseMemoryRequirements2(_device,
-                                                            &info,
-                                                            pSparseMemoryRequirementCount,
-                                                            mem_reqs2);
+   disp->GetImageSparseMemoryRequirements2(device,
+                                           &info,
+                                           pSparseMemoryRequirementCount,
+                                           mem_reqs2);
 
    for (unsigned i = 0; i < *pSparseMemoryRequirementCount; ++i)
       pSparseMemoryRequirements[i] = mem_reqs2[i].memoryRequirements;
