@@ -2586,7 +2586,8 @@ anv_CreateImageView(VkDevice _device,
              * these invalid cases, we give them a NULL descriptor.
              */
             assert(isl_format_supports_typed_writes(&device->info,
-                                                    format.isl_format));
+                                                    format.isl_format) ||
+                   image->vk.create_flags & VK_IMAGE_CREATE_EXTENDED_USAGE_BIT);
             iview->planes[vplane].storage_surface_state.state =
                device->null_surface_state;
          }
