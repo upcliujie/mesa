@@ -2584,9 +2584,15 @@ anv_CreateImageView(VkDevice _device,
              * SPIR-V format specifier corresponding to it, we only support
              * NonReadable (writeonly in GLSL) access.  Instead of hanging in
              * these invalid cases, we give them a NULL descriptor.
+             *
+             * VK_IMAGE_CREATE_EXTENDED_USAGE_BIT specifies that the image can be
+             * created with usage flags that are not supported for the format the
+             * image is created with but are supported for at least one format a
+             * VkImageView created from the image can have.
              */
             assert(isl_format_supports_typed_writes(&device->info,
-                                                    format.isl_format));
+                                                    format.isl_format) ||
+                   image->vk.create_flags & VK_IMAGE_CREATE_EXTENDED_USAGE_BIT);
             iview->planes[vplane].storage_surface_state.state =
                device->null_surface_state;
          }
