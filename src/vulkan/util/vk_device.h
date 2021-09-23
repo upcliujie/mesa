@@ -66,6 +66,22 @@ PFN_vkVoidFunction
 vk_device_get_proc_addr(const struct vk_device *device,
                         const char *name);
 
+static inline const struct vk_device_dispatch_table *
+vk_device_dispatch_table_from_device_handle(VkDevice _device)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   return &device->dispatch_table;
+}
+
+static inline const struct vk_device_dispatch_table *
+vk_device_dispatch_table_from_command_buffer_handle(VkCommandBuffer handle)
+{
+   struct vk_object_base *obj =
+      vk_object_base_from_u64_handle((uint64_t)handle,
+                                     VK_OBJECT_TYPE_COMMAND_BUFFER);
+   return &obj->device->dispatch_table;
+}
+
 bool vk_get_physical_device_core_1_1_feature_ext(struct VkBaseOutStructure *ext,
                                                  const VkPhysicalDeviceVulkan11Features *core);
 bool vk_get_physical_device_core_1_2_feature_ext(struct VkBaseOutStructure *ext,
