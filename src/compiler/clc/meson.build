@@ -19,15 +19,11 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-clang_ver_dir = dep_clang.version()
-if clang_ver_dir.endswith('git')
-  clang_ver_dir = clang_ver_dir.substring(0, -3)
-endif
+llvm_libdir = dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir')
 
-clang_resource_dir = join_paths(
-  dep_clang.get_variable(cmake: 'CLANG_INCLUDE_DIRS'), '..',
-  'lib', 'clang', clang_ver_dir, 'include'
-)
+dep_clang = cpp.find_library('clang-cpp', dirs : llvm_libdir, required : true)
+
+clang_resource_dir = join_paths(llvm_libdir, 'clang', dep_llvm.version(), 'include')
 
 opencl_c_h = custom_target(
   'opencl-c.h',
