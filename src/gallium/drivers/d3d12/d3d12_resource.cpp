@@ -345,16 +345,26 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
       return NULL;
 
    if (templ && templ->next) {
+      res->base.next = templ->next;
       struct d3d12_resource* next = d3d12_resource(templ->next);
       if (next->bo) {
-         res->base = *templ;
          res->bo = next->bo;
          d3d12_bo_reference(res->bo);
       }
    }
 
+   unsigned num_planes = util_format_get_num_planes((enum pipe_format)handle->format);
+
    pipe_reference_init(&res->base.reference, 1);
    res->base.screen = pscreen;
+
+   if (handle->plane >= num_planes) {
+      /* We may have additional fds that Gallium attempts to import. These may even be the
+       * real fds to the D3D resource. In that case, allow these resources to be created,
+       * but don't put anything in them.
+       */
+      return &res->base;
+   }
 
    ID3D12Resource *d3d12_res = nullptr;
    if (res->bo) {
@@ -376,8 +386,10 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
    D3D12_SUBRESOURCE_FOOTPRINT *footprint = &placed_footprint.Footprint;
    D3D12_RESOURCE_DESC incoming_res_desc;
 
-   if (!d3d12_res)
+   if (!d3d12_res) {
+      debug_printf("d3d12: Expected resource for plane %d but didn't get one\n", handle->plane);
       goto invalid;
+   }
 
    incoming_res_desc = d3d12_res->GetDesc();
 
@@ -566,6 +578,30 @@ d3d12_resource_get_handle(struct pipe_screen *pscreen,
    }
 }
 
+static bool
+d3d12_is_dmabuf_modifier_supported(struct pipe_screen *pscreen, uint64_t modifier,
+                                   enum pipe_format format, bool *external_only)
+{
+   assert(modifier == 0 || format == PIPE_FORMAT_NV12);
+   if (external_only)
+      *external_only = modifier == 1;
+   return modifier <= 1;
+}
+
+static uint32_t
+d3d12_get_dmabuf_modifier_planes(struct pipe_screen *pscreen, uint64_t modifier,
+                                 enum pipe_format format)
+{
+   assert(modifier == 0 || format == PIPE_FORMAT_NV12);
+   if (format == PIPE_FORMAT_NV12) {
+      if (modifier)
+         return 3;
+      else
+         return 2;
+   }
+   return 1;
+}
+
 void
 d3d12_screen_resource_init(struct pipe_screen *pscreen)
 {
@@ -573,6 +609,8 @@ d3d12_screen_resource_init(struct pipe_screen *pscreen)
    pscreen->resource_from_handle = d3d12_resource_from_handle;
    pscreen->resource_get_handle = d3d12_resource_get_handle;
    pscreen->resource_destroy = d3d12_resource_destroy;
+   pscreen->is_dmabuf_modifier_supported = d3d12_is_dmabuf_modifier_supported;
+   pscreen->get_dmabuf_modifier_planes = d3d12_get_dmabuf_modifier_planes;
 }
 
 unsigned int
