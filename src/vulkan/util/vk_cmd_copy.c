@@ -32,10 +32,8 @@ vk_common_CmdCopyBuffer(VkCommandBuffer commandBuffer,
                         uint32_t regionCount,
                         const VkBufferCopy *pRegions)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_command_buffer_handle(commandBuffer);
 
    STACK_ARRAY(VkBufferCopy2KHR, region2s, regionCount);
 
@@ -56,7 +54,7 @@ vk_common_CmdCopyBuffer(VkCommandBuffer commandBuffer,
       .pRegions      = region2s,
    };
 
-   disp->device->dispatch_table.CmdCopyBuffer2KHR(commandBuffer, &info);
+   disp->CmdCopyBuffer2KHR(commandBuffer, &info);
 
    STACK_ARRAY_FINISH(region2s);
 }
@@ -70,10 +68,8 @@ vk_common_CmdCopyImage(VkCommandBuffer commandBuffer,
                        uint32_t regionCount,
                        const VkImageCopy *pRegions)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_command_buffer_handle(commandBuffer);
 
    STACK_ARRAY(VkImageCopy2KHR, region2s, regionCount);
 
@@ -98,7 +94,7 @@ vk_common_CmdCopyImage(VkCommandBuffer commandBuffer,
       .pRegions         = region2s,
    };
 
-   disp->device->dispatch_table.CmdCopyImage2KHR(commandBuffer, &info);
+   disp->CmdCopyImage2KHR(commandBuffer, &info);
 
    STACK_ARRAY_FINISH(region2s);
 }
@@ -111,10 +107,8 @@ vk_common_CmdCopyBufferToImage(VkCommandBuffer commandBuffer,
                                uint32_t regionCount,
                                const VkBufferImageCopy *pRegions)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_command_buffer_handle(commandBuffer);
 
    STACK_ARRAY(VkBufferImageCopy2KHR, region2s, regionCount);
 
@@ -139,7 +133,7 @@ vk_common_CmdCopyBufferToImage(VkCommandBuffer commandBuffer,
       .pRegions         = region2s,
    };
 
-   disp->device->dispatch_table.CmdCopyBufferToImage2KHR(commandBuffer, &info);
+   disp->CmdCopyBufferToImage2KHR(commandBuffer, &info);
 
    STACK_ARRAY_FINISH(region2s);
 }
@@ -152,10 +146,8 @@ vk_common_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
                                uint32_t regionCount,
                                const VkBufferImageCopy *pRegions)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_command_buffer_handle(commandBuffer);
 
    STACK_ARRAY(VkBufferImageCopy2KHR, region2s, regionCount);
 
@@ -180,7 +172,7 @@ vk_common_CmdCopyImageToBuffer(VkCommandBuffer commandBuffer,
       .pRegions         = region2s,
    };
 
-   disp->device->dispatch_table.CmdCopyImageToBuffer2KHR(commandBuffer, &info);
+   disp->CmdCopyImageToBuffer2KHR(commandBuffer, &info);
 
    STACK_ARRAY_FINISH(region2s);
 }
@@ -195,10 +187,8 @@ vk_common_CmdBlitImage(VkCommandBuffer commandBuffer,
                        const VkImageBlit *pRegions,
                        VkFilter filter)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_command_buffer_handle(commandBuffer);
 
    STACK_ARRAY(VkImageBlit2KHR, region2s, regionCount);
 
@@ -229,7 +219,7 @@ vk_common_CmdBlitImage(VkCommandBuffer commandBuffer,
       .filter           = filter,
    };
 
-   disp->device->dispatch_table.CmdBlitImage2KHR(commandBuffer, &info);
+   disp->CmdBlitImage2KHR(commandBuffer, &info);
 
    STACK_ARRAY_FINISH(region2s);
 }
@@ -243,10 +233,8 @@ vk_common_CmdResolveImage(VkCommandBuffer commandBuffer,
                           uint32_t regionCount,
                           const VkImageResolve *pRegions)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   const struct vk_device_dispatch_table *disp =
+      vk_device_dispatch_table_from_command_buffer_handle(commandBuffer);
 
    STACK_ARRAY(VkImageResolve2KHR, region2s, regionCount);
 
@@ -271,7 +259,7 @@ vk_common_CmdResolveImage(VkCommandBuffer commandBuffer,
       .pRegions         = region2s,
    };
 
-   disp->device->dispatch_table.CmdResolveImage2KHR(commandBuffer, &info);
+   disp->CmdResolveImage2KHR(commandBuffer, &info);
 
    STACK_ARRAY_FINISH(region2s);
 }
