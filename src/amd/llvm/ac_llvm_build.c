@@ -1150,7 +1150,7 @@ void ac_build_buffer_store_format(struct ac_llvm_context *ctx, LLVMValueRef rsrc
    ac_build_buffer_store_common(ctx, rsrc, data, vindex, voffset, NULL, cache_policy, true, true);
 }
 
-/* TBUFFER_STORE_FORMAT_{X,XY,XYZ,XYZW} <- the suffix is selected by num_channels=1..4.
+/* buffer_store_dword(,x2,x3,x4) <- the suffix is selected by num_channels=1..4.
  * The type of vdata must be one of i32 (num_channels=1), v2i32 (num_channels=2),
  * or v4i32 (num_channels=3,4).
  */
@@ -1173,30 +1173,11 @@ void ac_build_buffer_store_dword(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
       return;
    }
 
-   /* SWIZZLE_ENABLE requires that soffset isn't folded into voffset
-    * (voffset is swizzled, but soffset isn't swizzled).
-    * llvm.amdgcn.buffer.store doesn't have a separate soffset parameter.
-    */
-   if (!(cache_policy & ac_swizzled)) {
-      LLVMValueRef offset = soffset;
+   if (inst_offset)
+      soffset = LLVMBuildAdd(ctx->builder, soffset, LLVMConstInt(ctx->i32, inst_offset, 0), "");
 
-      if (inst_offset)
-         offset = LLVMBuildAdd(ctx->builder, offset, LLVMConstInt(ctx->i32, inst_offset, 0), "");
-
-      ac_build_buffer_store_common(ctx, rsrc, ac_to_float(ctx, vdata), ctx->i32_0, voffset, offset,
-                                   cache_policy, false, false);
-      return;
-   }
-
-   static const unsigned dfmts[] = {V_008F0C_BUF_DATA_FORMAT_32, V_008F0C_BUF_DATA_FORMAT_32_32,
-                                    V_008F0C_BUF_DATA_FORMAT_32_32_32,
-                                    V_008F0C_BUF_DATA_FORMAT_32_32_32_32};
-   unsigned dfmt = dfmts[num_channels - 1];
-   unsigned nfmt = V_008F0C_BUF_NUM_FORMAT_UINT;
-   LLVMValueRef immoffset = LLVMConstInt(ctx->i32, inst_offset, 0);
-
-   ac_build_raw_tbuffer_store(ctx, rsrc, vdata, voffset, soffset, immoffset, num_channels, dfmt,
-                              nfmt, cache_policy);
+   ac_build_buffer_store_common(ctx, rsrc, ac_to_float(ctx, vdata), ctx->i32_0, voffset, soffset,
+                                cache_policy, false, false);
 }
 
 static LLVMValueRef ac_build_buffer_load_common(struct ac_llvm_context *ctx, LLVMValueRef rsrc,
