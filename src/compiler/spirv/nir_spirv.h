@@ -63,6 +63,11 @@ struct spirv_to_nir_options {
     */
    bool frag_coord_is_sysval;
 
+   /* Whether to make PointCoord a system value, same purpose as
+    * GLSLPointCoordIsSysVal in GLSL.
+    */
+   bool point_coord_is_sysval;
+
    /* Whether to keep ViewIndex as an input instead of rewriting to a sysval.
     */
    bool view_index_is_input;
