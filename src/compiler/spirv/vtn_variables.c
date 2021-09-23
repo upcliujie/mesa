@@ -896,8 +896,13 @@ vtn_get_builtin_location(struct vtn_builder *b,
       }
       break;
    case SpvBuiltInFrontFacing:
-      *location = SYSTEM_VALUE_FRONT_FACE;
-      set_mode_system_value(b, mode);
+      vtn_assert(*mode == nir_var_shader_in);
+      if (b->options && b->options->front_facing_is_varying) {
+         *location = VARYING_SLOT_FACE;
+      } else {
+         *location = SYSTEM_VALUE_FRONT_FACE;
+         set_mode_system_value(b, mode);
+      }
       break;
    case SpvBuiltInSampleId:
       *location = SYSTEM_VALUE_SAMPLE_ID;

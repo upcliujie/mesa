@@ -68,6 +68,11 @@ struct spirv_to_nir_options {
     */
    bool point_coord_is_sysval;
 
+   /* Whether to make FrontFacing a varying value, same purpose as
+    * GLSLFrontFacingIsSysVal in GLSL, except we use a sysval by default.
+    */
+   bool front_facing_is_varying;
+
    /* Whether to keep ViewIndex as an input instead of rewriting to a sysval.
     */
    bool view_index_is_input;
