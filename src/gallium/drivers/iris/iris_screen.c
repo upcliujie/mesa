@@ -606,24 +606,20 @@ iris_get_timestamp(struct pipe_screen *pscreen)
    return result;
 }
 
-void
-iris_screen_destroy(struct iris_screen *screen)
+static void
+iris_screen_destroy(struct pipe_screen *pscreen)
 {
+   struct iris_screen *screen = (void *) pscreen;
+
    iris_destroy_screen_measure(screen);
    util_queue_destroy(&screen->shader_compiler_queue);
    glsl_type_singleton_decref();
    iris_bo_unreference(screen->workaround_bo);
-   u_transfer_helper_destroy(screen->base.transfer_helper);
-   iris_bufmgr_unref(screen->bufmgr);
+   u_transfer_helper_destroy(pscreen->transfer_helper);
+   iris_bufmgr_destroy(screen->bufmgr);
    disk_cache_destroy(screen->disk_cache);
-   close(screen->winsys_fd);
+   close(screen->fd);
    ralloc_free(screen);
-}
-
-static void
-iris_screen_unref(struct pipe_screen *pscreen)
-{
-   iris_pscreen_unref(pscreen);
 }
 
 static void
@@ -769,6 +765,8 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    if (!screen)
       return NULL;
 
+   screen->fd = fd;
+
    if (!intel_get_device_info_from_fd(fd, &screen->devinfo))
       return NULL;
    screen->pci_id = screen->devinfo.chipset_id;
@@ -791,12 +789,9 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
       break;
    }
 
-   screen->bufmgr = iris_bufmgr_get_for_fd(&screen->devinfo, fd, bo_reuse);
+   screen->bufmgr = iris_bufmgr_create(&screen->devinfo, fd, bo_reuse);
    if (!screen->bufmgr)
       return NULL;
-
-   screen->fd = iris_bufmgr_get_fd(screen->bufmgr);
-   screen->winsys_fd = fd;
 
    screen->id = iris_bufmgr_create_screen_id(screen->bufmgr);
 
@@ -848,7 +843,7 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
    iris_init_screen_resource_functions(pscreen);
    iris_init_screen_measure(screen);
 
-   pscreen->destroy = iris_screen_unref;
+   pscreen->destroy = iris_screen_destroy;
    pscreen->get_name = iris_get_name;
    pscreen->get_vendor = iris_get_vendor;
    pscreen->get_device_vendor = iris_get_device_vendor;
@@ -893,7 +888,7 @@ iris_screen_create(int fd, const struct pipe_screen_config *config)
                         UTIL_QUEUE_INIT_RESIZE_IF_FULL |
                         UTIL_QUEUE_INIT_SET_FULL_THREAD_AFFINITY,
                         NULL)) {
-      iris_screen_destroy(screen);
+      iris_screen_destroy(pscreen);
       return NULL;
    }
 

@@ -458,7 +458,6 @@ iris_resource_destroy(struct pipe_screen *screen,
 
    threaded_resource_deinit(p_res);
    iris_bo_unreference(res->bo);
-   iris_pscreen_unref(res->orig_screen);
 
    free(res);
 }
@@ -473,7 +472,6 @@ iris_alloc_resource(struct pipe_screen *pscreen,
 
    res->base.b = *templ;
    res->base.b.screen = pscreen;
-   res->orig_screen = iris_pscreen_ref(pscreen);
    pipe_reference_init(&res->base.b.reference, 1);
    threaded_resource_init(&res->base.b);
 
@@ -1465,13 +1463,8 @@ iris_resource_get_param(struct pipe_screen *pscreen,
       if (!wants_aux)
          iris_gem_set_tiling(bo, &res->surf);
 
-      /* Because we share the same drm file across multiple iris_screen, when
-       * we export a GEM handle we must make sure it is valid in the DRM file
-       * descriptor the caller is using (this is the FD given at screen
-       * creation).
-       */
       uint32_t handle;
-      if (iris_bo_export_gem_handle_for_device(bo, screen->winsys_fd, &handle))
+      if (iris_bo_export_gem_handle_for_device(bo, screen->fd, &handle))
          return false;
       *value = handle;
       return true;
@@ -1545,13 +1538,8 @@ iris_resource_get_handle(struct pipe_screen *pscreen,
    case WINSYS_HANDLE_TYPE_KMS: {
       iris_gem_set_tiling(bo, &res->surf);
 
-      /* Because we share the same drm file across multiple iris_screen, when
-       * we export a GEM handle we must make sure it is valid in the DRM file
-       * descriptor the caller is using (this is the FD given at screen
-       * creation).
-       */
       uint32_t handle;
-      if (iris_bo_export_gem_handle_for_device(bo, screen->winsys_fd, &handle))
+      if (iris_bo_export_gem_handle_for_device(bo, screen->fd, &handle))
          return false;
       whandle->handle = handle;
       return true;

@@ -171,13 +171,6 @@ struct iris_memregion {
 };
 
 struct iris_bufmgr {
-   /**
-    * List into the list of bufmgr.
-    */
-   struct list_head link;
-
-   uint32_t refcount;
-
    int fd;
 
    simple_mtx_t lock;
@@ -217,12 +210,6 @@ struct iris_bufmgr {
    bool bo_reuse:1;
 
    struct intel_aux_map_context *aux_map_ctx;
-};
-
-static simple_mtx_t global_bufmgr_list_mutex = _SIMPLE_MTX_INITIALIZER_NP;
-static struct list_head global_bufmgr_list = {
-   .next = &global_bufmgr_list,
-   .prev = &global_bufmgr_list,
 };
 
 static void bo_free(struct iris_bo *bo);
@@ -1299,7 +1286,7 @@ iris_bo_wait(struct iris_bo *bo, int64_t timeout_ns)
    return ret;
 }
 
-static void
+void
 iris_bufmgr_destroy(struct iris_bufmgr *bufmgr)
 {
    /* Free aux-map buffers */
@@ -1335,8 +1322,6 @@ iris_bufmgr_destroy(struct iris_bufmgr *bufmgr)
       if (z != IRIS_MEMZONE_BINDER)
          util_vma_heap_finish(&bufmgr->vma_allocator[z]);
    }
-
-   close(bufmgr->fd);
 
    free(bufmgr);
 }
@@ -1863,7 +1848,7 @@ iris_bufmgr_query_meminfo(struct iris_bufmgr *bufmgr)
  *
  * \param fd File descriptor of the opened DRM device.
  */
-static struct iris_bufmgr *
+struct iris_bufmgr *
 iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
 {
    uint64_t gtt_size = iris_gtt_size(fd);
@@ -1883,9 +1868,7 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
     * Don't do this! Ensure that each library/bufmgr has its own device
     * fd so that its namespace does not clash with another.
     */
-   bufmgr->fd = os_dupfd_cloexec(fd);
-
-   p_atomic_set(&bufmgr->refcount, 1);
+   bufmgr->fd = fd;
 
    simple_mtx_init(&bufmgr->lock, mtx_plain);
    simple_mtx_init(&bufmgr->bo_deps_lock, mtx_plain);
@@ -1953,67 +1936,11 @@ iris_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
    return bufmgr;
 }
 
-static struct iris_bufmgr *
-iris_bufmgr_ref(struct iris_bufmgr *bufmgr)
-{
-   p_atomic_inc(&bufmgr->refcount);
-   return bufmgr;
-}
-
-void
-iris_bufmgr_unref(struct iris_bufmgr *bufmgr)
-{
-   simple_mtx_lock(&global_bufmgr_list_mutex);
-   if (p_atomic_dec_zero(&bufmgr->refcount)) {
-      list_del(&bufmgr->link);
-      iris_bufmgr_destroy(bufmgr);
-   }
-   simple_mtx_unlock(&global_bufmgr_list_mutex);
-}
-
 /** Returns a new unique id, to be used by screens. */
 int
 iris_bufmgr_create_screen_id(struct iris_bufmgr *bufmgr)
 {
    return p_atomic_inc_return(&bufmgr->next_screen_id) - 1;
-}
-
-/**
- * Gets an already existing GEM buffer manager or create a new one.
- *
- * \param fd File descriptor of the opened DRM device.
- */
-struct iris_bufmgr *
-iris_bufmgr_get_for_fd(struct intel_device_info *devinfo, int fd, bool bo_reuse)
-{
-   struct stat st;
-
-   if (fstat(fd, &st))
-      return NULL;
-
-   struct iris_bufmgr *bufmgr = NULL;
-
-   simple_mtx_lock(&global_bufmgr_list_mutex);
-   list_for_each_entry(struct iris_bufmgr, iter_bufmgr, &global_bufmgr_list, link) {
-      struct stat iter_st;
-      if (fstat(iter_bufmgr->fd, &iter_st))
-         continue;
-
-      if (st.st_rdev == iter_st.st_rdev) {
-         assert(iter_bufmgr->bo_reuse == bo_reuse);
-         bufmgr = iris_bufmgr_ref(iter_bufmgr);
-         goto unlock;
-      }
-   }
-
-   bufmgr = iris_bufmgr_create(devinfo, fd, bo_reuse);
-   if (bufmgr)
-      list_addtail(&bufmgr->link, &global_bufmgr_list);
-
- unlock:
-   simple_mtx_unlock(&global_bufmgr_list_mutex);
-
-   return bufmgr;
 }
 
 int

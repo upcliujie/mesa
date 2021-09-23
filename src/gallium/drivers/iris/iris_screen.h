@@ -148,18 +148,13 @@ struct iris_screen {
    struct pipe_screen base;
 
    uint32_t refcount;
+   void *loader_priv;
 
    /** Global slab allocator for iris_transfer_map objects */
    struct slab_parent_pool transfer_pool;
 
-   /** drm device file descriptor, shared with bufmgr, do not close. */
+   /** drm device file descriptor */
    int fd;
-
-   /**
-    * drm device file descriptor to used for window system integration, owned
-    * by iris_screen, can be a different DRM instance than fd.
-    */
-   int winsys_fd;
 
    /** PCI ID for our GPU device */
    int pci_id;
@@ -228,26 +223,6 @@ struct iris_screen {
 
 struct pipe_screen *
 iris_screen_create(int fd, const struct pipe_screen_config *config);
-
-void iris_screen_destroy(struct iris_screen *screen);
-
-UNUSED static inline struct pipe_screen *
-iris_pscreen_ref(struct pipe_screen *pscreen)
-{
-   struct iris_screen *screen = (struct iris_screen *) pscreen;
-
-   p_atomic_inc(&screen->refcount);
-   return pscreen;
-}
-
-UNUSED static inline void
-iris_pscreen_unref(struct pipe_screen *pscreen)
-{
-   struct iris_screen *screen = (struct iris_screen *) pscreen;
-
-   if (p_atomic_dec_zero(&screen->refcount))
-      iris_screen_destroy(screen);
-}
 
 bool
 iris_is_format_supported(struct pipe_screen *pscreen,

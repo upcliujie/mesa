@@ -23,7 +23,8 @@ libiriswinsys = static_library(
   files('iris_drm_winsys.c'),
   include_directories : [
     inc_src, inc_include,
-    inc_gallium, inc_gallium_aux, inc_gallium_drivers,
+    inc_gallium, inc_gallium_aux, inc_gallium_drivers, inc_intel,
   ],
   gnu_symbol_visibility : 'hidden',
+  dependencies : [dep_valgrind],
 )
