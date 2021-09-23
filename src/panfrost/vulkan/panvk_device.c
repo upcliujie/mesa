@@ -908,24 +908,25 @@ panvk_GetPhysicalDeviceMemoryProperties2(VkPhysicalDevice physicalDevice,
 static VkResult
 panvk_queue_init(struct panvk_device *device,
                  struct panvk_queue *queue,
-                 uint32_t queue_family_index,
                  int idx,
-                 VkDeviceQueueCreateFlags flags)
+                 const VkDeviceQueueCreateInfo *create_info)
 {
    const struct panfrost_device *pdev = &device->physical_device->pdev;
 
-   vk_object_base_init(&device->vk, &queue->base, VK_OBJECT_TYPE_QUEUE);
+   VkResult result = vk_queue_init(&queue->vk, &device->vk, create_info, idx);
+   if (result != VK_SUCCESS)
+      return result;
    queue->device = device;
-   queue->queue_family_index = queue_family_index;
-   queue->flags = flags;
 
    struct drm_syncobj_create create = {
       .flags = DRM_SYNCOBJ_CREATE_SIGNALED,
    };
 
    int ret = drmIoctl(pdev->fd, DRM_IOCTL_SYNCOBJ_CREATE, &create);
-   if (ret)
+   if (ret) {
+      vk_queue_finish(&queue->vk);
       return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
 
    queue->sync = create.handle;
    return VK_SUCCESS;
@@ -934,6 +935,7 @@ panvk_queue_init(struct panvk_device *device,
 static void
 panvk_queue_finish(struct panvk_queue *queue)
 {
+   vk_queue_finish(&queue->vk);
 }
 
 VkResult
@@ -1020,8 +1022,8 @@ panvk_CreateDevice(VkPhysicalDevice physicalDevice,
       device->queue_count[qfi] = queue_create->queueCount;
 
       for (unsigned q = 0; q < queue_create->queueCount; q++) {
-         result = panvk_queue_init(device, &device->queues[qfi][q], qfi, q,
-                                   queue_create->flags);
+         result = panvk_queue_init(device, &device->queues[qfi][q], q,
+                                   queue_create);
          if (result != VK_SUCCESS)
             goto fail;
       }
@@ -1077,7 +1079,7 @@ panvk_GetDeviceQueue2(VkDevice _device,
    struct panvk_queue *queue;
 
    queue = &device->queues[pQueueInfo->queueFamilyIndex][pQueueInfo->queueIndex];
-   if (pQueueInfo->flags != queue->flags) {
+   if (pQueueInfo->flags != queue->vk.flags) {
       /* From the Vulkan 1.1.70 spec:
        *
        * "The queue returned by vkGetDeviceQueue2 must have the same
