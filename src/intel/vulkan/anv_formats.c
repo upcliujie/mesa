@@ -921,7 +921,6 @@ anv_get_image_format_properties(
    uint32_t maxMipLevels;
    uint32_t maxArraySize;
    VkSampleCountFlags sampleCounts;
-   struct anv_instance *instance = physical_device->instance;
    const struct intel_device_info *devinfo = &physical_device->info;
    const struct anv_format *format = anv_get_format(info->format);
    const struct isl_drm_modifier_info *isl_mod_info = NULL;
@@ -1010,10 +1009,9 @@ anv_get_image_format_properties(
        * non-mipmapped single-sample) 2D images.
        */
       if (info->type != VK_IMAGE_TYPE_2D) {
-         anv_errorfi(instance, &physical_device->vk.base,
-                    VK_ERROR_FORMAT_NOT_SUPPORTED,
-                    "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT "
-                    "requires VK_IMAGE_TYPE_2D");
+         vk_errorf(physical_device, VK_ERROR_FORMAT_NOT_SUPPORTED,
+                   "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT "
+                   "requires VK_IMAGE_TYPE_2D");
          goto unsupported;
       }
 
@@ -1270,7 +1268,6 @@ VkResult anv_GetPhysicalDeviceImageFormatProperties2(
     VkImageFormatProperties2*                   base_props)
 {
    ANV_FROM_HANDLE(anv_physical_device, physical_device, physicalDevice);
-   struct anv_instance *instance = physical_device->instance;
    const VkPhysicalDeviceExternalImageFormatInfo *external_info = NULL;
    VkExternalImageFormatProperties *external_props = NULL;
    VkSamplerYcbcrConversionImageFormatProperties *ycbcr_props = NULL;
@@ -1406,11 +1403,10 @@ VkResult anv_GetPhysicalDeviceImageFormatProperties2(
           * and therefore requires explicit memory layout.
           */
          if (!tiling_has_explicit_layout) {
-            result = anv_errorfi(instance, &physical_device->vk.base,
-                                VK_ERROR_FORMAT_NOT_SUPPORTED,
-                                "VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT "
-                                "requires VK_IMAGE_TILING_LINEAR or "
-                                "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT");
+            result = vk_errorf(physical_device, VK_ERROR_FORMAT_NOT_SUPPORTED,
+                               "VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT "
+                               "requires VK_IMAGE_TILING_LINEAR or "
+                               "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT");
             goto fail;
          }
 
@@ -1426,11 +1422,10 @@ VkResult anv_GetPhysicalDeviceImageFormatProperties2(
           * and therefore requires explicit memory layout.
           */
          if (!tiling_has_explicit_layout) {
-            result = anv_errorfi(instance, &physical_device->vk.base,
-                                VK_ERROR_FORMAT_NOT_SUPPORTED,
-                                "VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT "
-                                "requires VK_IMAGE_TILING_LINEAR or "
-                                "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT");
+            result = vk_errorf(physical_device, VK_ERROR_FORMAT_NOT_SUPPORTED,
+                               "VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT "
+                               "requires VK_IMAGE_TILING_LINEAR or "
+                               "VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT");
             goto fail;
          }
 
@@ -1456,10 +1451,9 @@ VkResult anv_GetPhysicalDeviceImageFormatProperties2(
           *    vkGetPhysicalDeviceImageFormatProperties2 returns
           *    VK_ERROR_FORMAT_NOT_SUPPORTED.
           */
-         result = anv_errorfi(instance, &physical_device->vk.base,
-                             VK_ERROR_FORMAT_NOT_SUPPORTED,
-                             "unsupported VkExternalMemoryTypeFlagBits 0x%x",
-                             external_info->handleType);
+         result = vk_errorf(physical_device, VK_ERROR_FORMAT_NOT_SUPPORTED,
+                            "unsupported VkExternalMemoryTypeFlagBits 0x%x",
+                            external_info->handleType);
          goto fail;
       }
    }
@@ -1581,7 +1575,7 @@ VkResult anv_CreateSamplerYcbcrConversion(
    conversion = vk_object_zalloc(&device->vk, pAllocator, sizeof(*conversion),
                                  VK_OBJECT_TYPE_SAMPLER_YCBCR_CONVERSION);
    if (!conversion)
-      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    conversion->format = anv_get_format(pCreateInfo->format);
    conversion->ycbcr_model = pCreateInfo->ycbcrModel;
