@@ -24,6 +24,7 @@
  */
 
 #include "tu_private.h"
+#include "freedreno/fdl/fd6_format_table.h"
 
 #include "adreno_common.xml.h"
 #include "a6xx.xml.h"
@@ -294,9 +295,106 @@ static const struct tu_native_format tu6_format_table[] = {
          .supported = valid,                    \
       }; break;
 
+static void
+check_format_table(void)
+{
+   for (int i = 0; i < ARRAY_SIZE(tu6_format_table); i++) {
+      if (i == VK_FORMAT_UNDEFINED)
+         continue;
+
+      struct tu_native_format fmt = tu6_format_table[i];
+
+      enum pipe_format format = vk_format_to_pipe_format(i);
+      const char *name = util_format_short_name(format);
+
+      if (!fmt.supported) {
+         if (fd6_pipe2vtx(format) != FMT6_NONE)
+            printf("%s: vk missing vtx support\n", name);
+         if (fd6_pipe2tex(format) != FMT6_NONE)
+            printf("%s: vk missing tex support\n", name);
+         if (fd6_pipe2color(format) != FMT6_NONE)
+            printf("%s: vk missing color support\n", name);
+         continue;
+      }
+
+      if (format == PIPE_FORMAT_NONE) {
+         printf("VK format %d unmapped\n", format);
+         continue;
+      }
+
+      {
+         enum a6xx_format fd_fmt = fd6_pipe2vtx(format);
+         bool vk_supp = fmt.supported & FMT_VERTEX;
+         if (vk_supp != (fd_fmt != FMT6_NONE)) {
+            printf("%s: vk and fd disagree on vtx support (vk %d)\n", name, vk_supp);
+         } else if (vk_supp) {
+            enum a6xx_format vk_fmt = tu6_format_vtx(i).fmt;
+            if (vk_fmt != fd_fmt) {
+               printf("%s: vk and fd disagree on vtx fmt (fd %d vs vk %d)\n", name, fd_fmt, vk_fmt);
+            }
+         }
+      }
+
+      const char *swaps[] = {
+         [WZYX] = "WZYX",
+         [WXYZ] = "WXYZ",
+         [XYZW] = "XYZW",
+         [ZYXW] = "ZYXW",
+      };
+
+      enum a3xx_color_swap fd_swap = fd6_pipe2swap(format);
+
+      /* tex */
+      if (!util_format_is_plain(format) ||
+         util_is_power_of_two_or_zero(util_format_get_blocksize(format))) {
+         enum a6xx_format fd_fmt = fd6_pipe2tex(format);
+         bool vk_supp = fmt.supported & FMT_TEXTURE;
+         if (vk_supp != (fd_fmt != FMT6_NONE)) {
+            printf("%s: vk and fd disagree on tex support (vk %d)\n", name, vk_supp);
+         } else if (vk_supp) {
+            enum a6xx_format vk_fmt = tu6_format_texture(i, false).fmt;
+            if (vk_fmt != fd_fmt) {
+               printf("%s: vk and fd disagree on tex fmt (fd %d vs vk %d)\n", name, fd_fmt, vk_fmt);
+            }
+
+            if (tu6_format_texture(i, true).swap != fd_swap) {
+               printf("%s: vk and fd disagree on tex swap (fd %s vs vk %s)\n",
+                     name, swaps[fd_swap], swaps[tu6_format_texture(i, true).swap]);
+            }
+         }
+      }
+
+      /* color */
+      if (!util_format_is_plain(format) ||
+         util_is_power_of_two_or_zero(util_format_get_blocksize(format))) {
+         enum a6xx_format fd_fmt = fd6_pipe2color(format);
+         bool vk_supp = fmt.supported & FMT_COLOR;
+         if (vk_supp != (fd_fmt != FMT6_NONE)) {
+            printf("%s: vk and fd disagree on color support (vk %d)\n", name, vk_supp);
+         } else if (vk_supp) {
+            enum a6xx_format vk_fmt = tu6_format_color(i, false).fmt;
+            if (vk_fmt != fd_fmt) {
+               printf("%s: vk and fd disagree on color fmt (fd %d vs vk %d)\n", name, fd_fmt, vk_fmt);
+            }
+
+            if (tu6_format_color(i, true).swap != fd_swap) {
+               printf("%s: vk and fd disagree on color swap (fd %s vs vk %s)\n",
+                     name, swaps[fd_swap], swaps[tu6_format_color(i, false).swap]);
+            }
+         }
+      }
+   }
+}
+
 static struct tu_native_format
 tu6_get_native_format(VkFormat format)
 {
+   static bool checked = false;
+   if (!checked) {
+      checked = true;
+      check_format_table();
+   }
+
    struct tu_native_format fmt = {};
 
    if (format < ARRAY_SIZE(tu6_format_table)) {
