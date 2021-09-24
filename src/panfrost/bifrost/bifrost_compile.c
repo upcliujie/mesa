@@ -925,11 +925,32 @@ bi_promote_atom_c1(enum bi_atom_opc op, bi_index arg, enum bi_atom_opc *out)
 /* Coordinates are 16-bit integers in Bifrost but 32-bit in NIR */
 
 static bi_index
-bi_emit_image_coord(bi_builder *b, bi_index coord)
+bi_emit_image_coord(bi_builder *b, bi_index coord, unsigned src_idx,
+                    enum glsl_sampler_dim dim, bool is_array)
 {
-        return bi_mkvec_v2i16(b,
-                        bi_half(bi_word(coord, 0), false),
-                        bi_half(bi_word(coord, 1), false));
+        bi_index lo, hi;
+
+        if (!src_idx) {
+                lo = bi_half(bi_word(coord, 0), false);
+                if (dim == GLSL_SAMPLER_DIM_1D || dim == GLSL_SAMPLER_DIM_BUF)
+                        hi = bi_half(bi_zero(), false);
+                else
+                        hi = bi_half(bi_word(coord, 1), false);
+        } else {
+                hi = bi_half(bi_zero(), false);
+                if (dim == GLSL_SAMPLER_DIM_3D || dim == GLSL_SAMPLER_DIM_CUBE) {
+                        lo = bi_half(bi_word(coord, 2), false);
+                } else if (is_array) {
+                        unsigned array_idx_comp =
+                                (dim == GLSL_SAMPLER_DIM_1D || dim == GLSL_SAMPLER_DIM_BUF) ?
+                                1 : 2;
+                        lo = bi_half(bi_word(coord, array_idx_comp), false);
+                } else {
+                        lo = bi_half(bi_zero(), false);
+                }
+        }
+
+        return bi_mkvec_v2i16(b, lo, hi);
 }
 
 static bi_index
@@ -955,6 +976,7 @@ static void
 bi_emit_image_load(bi_builder *b, nir_intrinsic_instr *instr)
 {
         enum glsl_sampler_dim dim = nir_intrinsic_image_dim(instr);
+        bool array = nir_intrinsic_image_array(instr);
         ASSERTED unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
 
         bi_index coords = bi_src_index(&instr->src[1]);
@@ -962,8 +984,8 @@ bi_emit_image_load(bi_builder *b, nir_intrinsic_instr *instr)
         assert(nr_dim != GLSL_SAMPLER_DIM_MS && "MSAA'd images not supported");
 
         bi_ld_attr_tex_to(b, bi_dest_index(&instr->dest),
-                          bi_emit_image_coord(b, coords),
-                          bi_emit_image_coord(b, bi_word(coords, 2)),
+                          bi_emit_image_coord(b, coords, 0, dim, array),
+                          bi_emit_image_coord(b, coords, 1, dim, array),
                           bi_emit_image_index(b, instr),
                           bi_reg_fmt_for_nir(nir_intrinsic_dest_type(instr)),
                           instr->num_components - 1);
@@ -973,6 +995,7 @@ static bi_index
 bi_emit_lea_image(bi_builder *b, nir_intrinsic_instr *instr)
 {
         enum glsl_sampler_dim dim = nir_intrinsic_image_dim(instr);
+        bool array = nir_intrinsic_image_array(instr);
         ASSERTED unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
 
         /* TODO: MSAA */
@@ -983,8 +1006,8 @@ bi_emit_lea_image(bi_builder *b, nir_intrinsic_instr *instr)
                 BI_REGISTER_FORMAT_AUTO;
 
         bi_index coords = bi_src_index(&instr->src[1]);
-        bi_index xy = bi_emit_image_coord(b, coords);
-        bi_index zw = bi_emit_image_coord(b, bi_word(coords, 2));
+        bi_index xy = bi_emit_image_coord(b, coords, 0, dim, array);
+        bi_index zw = bi_emit_image_coord(b, coords, 1, dim, array);
 
         bi_instr *I = bi_lea_attr_tex_to(b, bi_temp(b->shader), xy, zw,
                         bi_emit_image_index(b, instr), type);
