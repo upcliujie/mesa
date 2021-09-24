@@ -1635,7 +1635,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_AllocateMemory(
    mem = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*mem), 8,
                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (mem == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &mem->base,
                        VK_OBJECT_TYPE_DEVICE_MEMORY);
@@ -1644,7 +1644,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_AllocateMemory(
       mem->pmem = device->pscreen->allocate_memory(device->pscreen, pAllocateInfo->allocationSize);
       if (!mem->pmem) {
          vk_free2(&device->vk.alloc, pAllocator, mem);
-         return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       }
       mem->is_user_ptr = false;
    } else {
@@ -1893,7 +1893,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_BindImageMemory2(VkDevice _device,
              * report this as the *closest* allowed error-code. It's not ideal,
              * but it's unlikely that anyone will care too much.
              */
-            return vk_error(device->instance, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+            return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
          }
          image->pmem = mem->pmem;
          image->memory_offset = bind_info->memoryOffset;
@@ -1924,7 +1924,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateFence(
    fence = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*fence), 8,
                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (fence == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    vk_object_base_init(&device->vk, &fence->base, VK_OBJECT_TYPE_FENCE);
    util_queue_fence_init(&fence->fence);
    fence->signalled = (pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT) == VK_FENCE_CREATE_SIGNALED_BIT;
@@ -2027,7 +2027,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateFramebuffer(
    framebuffer = vk_alloc2(&device->vk.alloc, pAllocator, size, 8,
                            VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (framebuffer == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &framebuffer->base,
                        VK_OBJECT_TYPE_FRAMEBUFFER);
@@ -2134,7 +2134,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateSemaphore(
                                           VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
 
    if (!sema)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    vk_object_base_init(&device->vk, &sema->base,
                        VK_OBJECT_TYPE_SEMAPHORE);
 
@@ -2229,7 +2229,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateEvent(
                                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
 
    if (!event)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &event->base, VK_OBJECT_TYPE_EVENT);
    *pEvent = lvp_event_to_handle(event);
@@ -2303,7 +2303,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateSampler(
    sampler = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*sampler), 8,
                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!sampler)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &sampler->base,
                        VK_OBJECT_TYPE_SAMPLER);
