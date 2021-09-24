@@ -1965,6 +1965,7 @@ vtn_handle_constant(struct vtn_builder *b, SpvOp opcode,
 
       nir_constant **elems = ralloc_array(b, nir_constant *, elem_count);
       val->is_null_constant = true;
+      val->is_undef_constant = true;
       for (unsigned i = 0; i < elem_count; i++) {
          struct vtn_value *eval = vtn_untyped_value(b, w[i + 3]);
 
@@ -1972,6 +1973,8 @@ vtn_handle_constant(struct vtn_builder *b, SpvOp opcode,
             elems[i] = eval->constant;
             val->is_null_constant = val->is_null_constant &&
                                     eval->is_null_constant;
+            val->is_undef_constant = val->is_undef_constant &&
+                                     eval->is_undef_constant;
          } else {
             vtn_fail_if(eval->value_type != vtn_value_type_undef,
                         "only constants or undefs allowed for "
