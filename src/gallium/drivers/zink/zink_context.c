@@ -25,6 +25,7 @@
 
 #include "zink_batch.h"
 #include "zink_compiler.h"
+#include "zink_copper.h"
 #include "zink_fence.h"
 #include "zink_format.h"
 #include "zink_framebuffer.h"
@@ -2067,6 +2068,10 @@ prep_fb_attachment(struct zink_context *ctx, struct zink_surface *surf, unsigned
    struct zink_resource *res = zink_resource(surf->base.texture);
    VkAccessFlags access;
    VkPipelineStageFlags pipeline;
+   if (res->obj->dt) {
+      zink_copper_acquire(zink_screen(ctx->base.screen), res, UINT64_MAX);
+      zink_surface_swapchain_update(zink_screen(ctx->base.screen), surf);
+   }
    VkImageLayout layout = zink_render_pass_attachment_get_barrier_info(ctx->gfx_pipeline_state.render_pass,
                                                                        i, &pipeline, &access);
    zink_resource_image_barrier(ctx, res, layout, access, pipeline);
@@ -2569,7 +2574,11 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
          struct zink_surface *transient = zink_transient_surface(surf);
          if (!samples)
             samples = MAX3(transient ? transient->base.nr_samples : 1, surf->texture->nr_samples, 1);
-         zink_resource(surf->texture)->fb_binds++;
+         struct zink_resource *res = zink_resource(surf->texture);
+         /* try for quick acquire */
+         if (res->obj->dt)
+            zink_copper_acquire(zink_screen(ctx->base.screen), res, 0);
+         res->fb_binds++;
          ctx->gfx_pipeline_state.void_alpha_attachments |= util_format_has_alpha1(surf->format) ? BITFIELD_BIT(i) : 0;
       }
    }
@@ -3345,11 +3354,12 @@ zink_flush_resource(struct pipe_context *pctx,
                     struct pipe_resource *pres)
 {
    struct zink_context *ctx = zink_context(pctx);
-   /* TODO: this is not futureproof and should be updated once proper
-    * WSI support is added
-    */
-   //if (pres->bind & (PIPE_BIND_SHARED | PIPE_BIND_SCANOUT))
-      //pipe_resource_reference(&ctx->batch.state->flush_res, pres);
+   struct zink_resource *res = zink_resource(pres);
+   if (pres->bind & PIPE_BIND_DISPLAY_TARGET) {
+      zink_batch_resource_usage_set(&ctx->batch, res, true);
+      zink_resource_image_barrier(ctx, res, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+      ctx->batch.present = true;
+   }
 }
 
 void

@@ -95,7 +95,7 @@ struct __DRIcopperExtensionRec {
 struct __DRIcopperLoaderExtensionRec {
     __DRIextension base;
 
-    VkResult (*SetSurfaceCreateInfo)(void *draw,
+    void (*SetSurfaceCreateInfo)(void *draw,
                                      VkBaseOutStructure *out);
     void (*GetDrawableInfo)(__DRIdrawable *draw, int *w, int *h,
                             void *closure);

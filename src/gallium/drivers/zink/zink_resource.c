@@ -28,6 +28,7 @@
 #include "zink_fence.h"
 #include "zink_program.h"
 #include "zink_screen.h"
+#include "zink_copper.h"
 
 #ifdef VK_USE_PLATFORM_METAL_EXT
 #include "QuartzCore/CAMetalLayer.h"
@@ -89,13 +90,19 @@ zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_ob
       util_dynarray_foreach(&obj->tmp, VkBuffer, buffer)
          VKSCR(DestroyBuffer)(screen->dev, *buffer, NULL);
       VKSCR(DestroyBuffer)(screen->dev, obj->buffer, NULL);
+   } else if (obj->dt) {
+      struct sw_winsys *winsys = &screen->winsys;
+      winsys->displaytarget_destroy(winsys, obj->dt);
    } else {
       VKSCR(DestroyImage)(screen->dev, obj->image, NULL);
    }
 
    util_dynarray_fini(&obj->tmp);
    zink_descriptor_set_refs_clear(&obj->desc_set_refs, obj);
-   zink_bo_unref(screen, obj->bo);
+   if (obj->dt)
+      FREE(obj->bo); //this is a dummy struct
+   else
+      zink_bo_unref(screen, obj->bo);
    FREE(obj);
 }
 
@@ -459,8 +466,6 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
          unreachable("unknown handle type");
    }
 
-   /* TODO: remove linear for wsi */
-   bool scanout = templ->bind & PIPE_BIND_SCANOUT;
    bool shared = templ->bind & PIPE_BIND_SHARED;
    if (shared && screen->info.have_EXT_external_memory_dma_buf)
       export_types |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
@@ -469,7 +474,10 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    util_dynarray_init(&obj->tmp, NULL);
    util_dynarray_init(&obj->desc_set_refs.refs, NULL);
    if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
-      // do this elsewhere
+      obj->bo = CALLOC_STRUCT(zink_bo);
+      obj->vkusage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                     VK_IMAGE_USAGE_SAMPLED_BIT |
+                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       return obj;
    } else if (templ->target == PIPE_BUFFER) {
       VkBufferCreateInfo bci = create_bci(screen, templ, templ->bind);
@@ -539,10 +547,8 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
             idfmlci.pDrmFormatModifiers = modifiers;
             ici.pNext = &idfmlci;
          } else if (ici.tiling == VK_IMAGE_TILING_OPTIMAL) {
-            // TODO: remove for wsi
             if (!external)
                ici.pNext = NULL;
-            scanout = false;
             shared = false;
          }
       }
@@ -555,18 +561,6 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
 
       if (ici.tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT)
          obj->modifier_aspect = VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT;
-
-      struct wsi_image_create_info image_wsi_info = {
-         VK_STRUCTURE_TYPE_WSI_IMAGE_CREATE_INFO_MESA,
-         NULL,
-         .scanout = true,
-      };
-
-      if ((screen->needs_mesa_wsi || screen->needs_mesa_flush_wsi) && scanout &&
-          ici.tiling != VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
-         image_wsi_info.pNext = ici.pNext;
-         ici.pNext = &image_wsi_info;
-      }
 
       VkResult result = VKSCR(CreateImage)(screen->dev, &ici, NULL, &obj->image);
       if (result != VK_SUCCESS) {
@@ -675,18 +669,6 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
 
       imfi.pNext = mai.pNext;
       mai.pNext = &imfi;
-   }
-
-   struct wsi_memory_allocate_info memory_wsi_info = {
-      VK_STRUCTURE_TYPE_WSI_MEMORY_ALLOCATE_INFO_MESA,
-      NULL,
-   };
-
-   if (screen->needs_mesa_wsi && scanout) {
-      memory_wsi_info.implicit_sync = true;
-
-      memory_wsi_info.pNext = mai.pNext;
-      mai.pNext = &memory_wsi_info;
    }
 
    unsigned alignment = MAX2(reqs.alignment, 256);
@@ -801,14 +783,15 @@ resource_create(struct pipe_screen *pscreen,
 
    if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
       struct sw_winsys *winsys = &screen->winsys;
-      res->dt = winsys->displaytarget_create(winsys,
-                                             res->base.b.bind,
-                                             res->base.b.format,
-                                             templ->width0,
-                                             templ->height0,
-                                             64, loader_private,
-                                             &res->dt_stride);
-      // hook up the swapchain images
+      res->obj->dt = winsys->displaytarget_create(winsys,
+                                                  res->base.b.bind,
+                                                  res->base.b.format,
+                                                  templ->width0,
+                                                  templ->height0,
+                                                  64, loader_private,
+                                                  &res->dt_stride);
+      assert(res->obj->dt);
+      zink_copper_acquire(screen, res, UINT64_MAX);
    }
    if (res->obj->is_buffer) {
       res->base.buffer_id_unique = util_idalloc_mt_alloc(&screen->buffer_ids);

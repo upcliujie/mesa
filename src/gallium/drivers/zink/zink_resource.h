@@ -79,6 +79,7 @@ struct zink_resource_object {
    VkImageAspectFlags modifier_aspect;
 
    struct zink_bo *bo;
+   void *dt;
    VkDeviceSize offset, size, alignment;
    VkImageCreateFlags vkflags;
    VkImageUsageFlags vkusage;
@@ -133,7 +134,6 @@ struct zink_resource {
    };
 
    bool dmabuf_acquire;
-   struct sw_displaytarget *dt;
    unsigned dt_stride;
 
    uint8_t modifiers_count;

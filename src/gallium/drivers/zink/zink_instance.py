@@ -40,6 +40,9 @@ EXTENSIONS = [
     Extension("VK_MVK_moltenvk",
         nonstandard=True),
     Extension("VK_KHR_surface"),
+    Extension("VK_EXT_headless_surface"),
+    Extension("VK_KHR_wayland_surface"),
+    Extension("VK_KHR_xcb_surface"),
 ]
 
 # constructor: Layer(name, conditions=[])
@@ -89,9 +92,6 @@ zink_create_instance(struct zink_instance_info *instance_info);
 
 void
 zink_verify_instance_extensions(struct zink_screen *screen);
-
-VkInstance
-zink_screen_get_instance(struct pipe_screen *screen);
 
 /* stub functions that get inserted into the dispatch table if they are not
  * properly loaded.

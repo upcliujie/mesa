@@ -42,11 +42,13 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_xcb.h>
 
-struct copper_surface {
-   VkSurfaceKHR surface;
-   VkSwapchainKHR swapchain;
 
-   // ...
+struct copper_drawable {
+   struct dri_drawable base;
+   union {
+      VkBaseOutStructure bos;
+      VkXcbSurfaceCreateInfoKHR xcb;
+   } sci;
 };
 
 #if 0
@@ -74,7 +76,8 @@ static const __DRIextension *drivk_screen_extensions[] = {
 static const __DRIconfig **
 copper_init_screen(__DRIscreen * sPriv)
 {
-   // const __DRIcopperLoaderExtension *loader = sPriv->copper.loader;
+   const __DRIcopperLoaderExtension *loader = sPriv->copper_loader;
+   assert(loader);
    const __DRIconfig **configs;
    struct dri_screen *screen;
    struct pipe_screen *pscreen = NULL;
@@ -89,9 +92,8 @@ copper_init_screen(__DRIscreen * sPriv)
    sPriv->driverPrivate = (void *)screen;
 
    if (pipe_loader_sw_probe_dri(&screen->dev, NULL /* ooookay */)) {
-      dri_init_options(screen);
-
       pscreen = pipe_loader_create_screen(screen->dev);
+      dri_init_options(screen);
    }
 
    if (!pscreen)
@@ -124,72 +126,6 @@ drisw_present_texture(struct pipe_context *pipe, __DRIdrawable *dPriv,
    screen->base.screen->flush_frontbuffer(screen->base.screen, pipe, ptex, 0, 0, drawable, sub_box);
 }
 
-#if 0
-static inline void
-drisw_invalidate_drawable(__DRIdrawable *dPriv)
-{
-   struct dri_drawable *drawable = dri_drawable(dPriv);
-
-   drawable->texture_stamp = dPriv->lastStamp - 1;
-
-   p_atomic_inc(&drawable->base.stamp);
-}
-
-static inline void
-drisw_copy_to_front(struct pipe_context *pipe,
-                    __DRIdrawable * dPriv,
-                    struct pipe_resource *ptex)
-{
-   drisw_present_texture(pipe, dPriv, ptex, NULL);
-
-   drisw_invalidate_drawable(dPriv);
-}
-#endif
-
-/*
- * Backend functions for st_framebuffer interface and swap_buffers.
- */
-
-UNUSED static int64_t
-copperSwapBuffers(__DRIdrawable *draw, int64_t target_msc, int64_t divisor,
-                  int64_t remainder, const int *rects, int n_rects,
-                  int force_copy)
-{
-   struct dri_context *ctx = dri_get_current(draw->driScreenPriv);
-   struct dri_drawable *drawable = dri_drawable(draw);
-   struct pipe_resource *ptex;
-    
-   if (!ctx)
-      return 0;
-    
-   ptex = drawable->textures[ST_ATTACHMENT_BACK_LEFT];
-    
-   if (ptex) {
-      if (ctx->pp)
-         pp_run(ctx->pp, ptex, ptex, drawable->textures[ST_ATTACHMENT_DEPTH_STENCIL]);
-    
-      if (ctx->hud)
-         hud_run(ctx->hud, ctx->st->cso_context, ptex);
-    
-      ctx->st->flush(ctx->st, ST_FLUSH_FRONT, NULL, NULL, NULL);
-    
-#if 0
-      if (drawable->stvis.samples > 1) {
-         /* Resolve the back buffer. */
-         dri_pipe_blit(ctx->st->pipe,
-                       drawable->textures[ST_ATTACHMENT_BACK_LEFT],
-                       drawable->msaa_textures[ST_ATTACHMENT_BACK_LEFT]);
-      }
-
-      drisw_copy_to_front(ctx->st->pipe, draw, ptex);
-#endif
-
-      // zink_queue_present(drawable); or something
-   }
-
-   return 0;
-}
-
 static void
 copper_allocate_textures(struct dri_context *ctx,
                          struct dri_drawable *drawable,
@@ -201,6 +137,7 @@ copper_allocate_textures(struct dri_context *ctx,
    unsigned width, height;
    boolean resized;
    unsigned i;
+   struct copper_drawable *cdraw = (struct copper_drawable *)drawable;
 
    width  = drawable->dPriv->w;
    height = drawable->dPriv->h;
@@ -252,11 +189,11 @@ copper_allocate_textures(struct dri_context *ctx,
           screen->base.screen->resource_create_front &&
           loader->base.version >= 3) {
          drawable->textures[statts[i]] =
-            screen->base.screen->resource_create_front(screen->base.screen, &templ, (const void *)drawable);
+            screen->base.screen->resource_create_front(screen->base.screen, &templ, drawable);
       } else
 #endif
          drawable->textures[statts[i]] =
-            screen->base.screen->resource_create(screen->base.screen, &templ);
+            screen->base.screen->resource_create_drawable(screen->base.screen, &templ, &cdraw->sci);
 
       if (drawable->stvis.samples > 1) {
          templ.bind = templ.bind &
@@ -276,11 +213,54 @@ copper_allocate_textures(struct dri_context *ctx,
    drawable->old_h = height;
 }
 
+static inline void
+get_drawable_info(__DRIdrawable *dPriv, int *x, int *y, int *w, int *h)
+{
+   __DRIscreen *sPriv = dPriv->driScreenPriv;
+   const __DRIswrastLoaderExtension *loader = sPriv->swrast_loader;
+
+   loader->getDrawableInfo(dPriv,
+                           x, y, w, h,
+                           dPriv->loaderPrivate);
+}
+
 static void
 copper_update_drawable_info(struct dri_drawable *drawable)
 {
-   // __DRIdrawable *dPriv = drawable->dPriv;
-   // ...
+   __DRIdrawable *dPriv = drawable->dPriv;
+   int x, y;
+
+   get_drawable_info(dPriv, &x, &y, &dPriv->w, &dPriv->h);
+}
+
+static inline void
+copper_present_texture(struct pipe_context *pipe, __DRIdrawable *dPriv,
+                      struct pipe_resource *ptex, struct pipe_box *sub_box)
+{
+   struct dri_drawable *drawable = dri_drawable(dPriv);
+   struct dri_screen *screen = dri_screen(drawable->sPriv);
+
+   screen->base.screen->flush_frontbuffer(screen->base.screen, pipe, ptex, 0, 0, drawable, sub_box);
+}
+
+static inline void
+copper_invalidate_drawable(__DRIdrawable *dPriv)
+{
+   struct dri_drawable *drawable = dri_drawable(dPriv);
+
+   drawable->texture_stamp = dPriv->lastStamp - 1;
+
+   p_atomic_inc(&drawable->base.stamp);
+}
+
+static inline void
+copper_copy_to_front(struct pipe_context *pipe,
+                    __DRIdrawable * dPriv,
+                    struct pipe_resource *ptex)
+{
+   copper_present_texture(pipe, dPriv, ptex, NULL);
+
+   copper_invalidate_drawable(dPriv);
 }
 
 static bool
@@ -288,8 +268,24 @@ copper_flush_frontbuffer(struct dri_context *ctx,
                          struct dri_drawable *drawable,
                          enum st_attachment_type statt)
 {
-   *(int *)0 = 0;
-   return false;
+   struct pipe_resource *ptex;
+
+   if (!ctx || statt != ST_ATTACHMENT_FRONT_LEFT)
+      return false;
+
+   if (drawable->stvis.samples > 1) {
+      /* Resolve the front buffer. */
+      dri_pipe_blit(ctx->st->pipe,
+                    drawable->textures[ST_ATTACHMENT_FRONT_LEFT],
+                    drawable->msaa_textures[ST_ATTACHMENT_FRONT_LEFT]);
+   }
+   ptex = drawable->textures[statt];
+
+   if (ptex) {
+      copper_copy_to_front(ctx->st->pipe, ctx->dPriv, ptex);
+   }
+
+   return true;
 }
 
 static void
@@ -306,16 +302,6 @@ copper_flush_swapbuffers(struct dri_context *ctx,
 {
    *(int *)0 = 0;
 }
-
-struct copper_drawable {
-   struct dri_drawable base;
-   VkSurfaceKHR surface;
-   union {
-      VkBaseOutStructure bos;
-      VkXcbSurfaceCreateInfoKHR xcb;
-   } sci;
-   VkSwapchainCreateInfoKHR scci;
-};
 
 // XXX this frees its second argument as a side effect - regardless of success
 // - since the point is to use it as the superclass initializer before we add
@@ -355,7 +341,6 @@ copper_create_buffer(__DRIscreen * sPriv,
                      const struct gl_config *visual, boolean isPixmap)
 {
    struct copper_drawable *drawable = NULL;
-   VkResult error;
 
    if (!dri_create_buffer(sPriv, dPriv, visual, isPixmap))
       return FALSE;
@@ -364,24 +349,29 @@ copper_create_buffer(__DRIscreen * sPriv,
    if (!drawable)
       return FALSE;
 
-   error = sPriv->copper_loader->SetSurfaceCreateInfo(dPriv->loaderPrivate,
-                                                      &drawable->sci.bos);
-   if (error != VK_SUCCESS) {
-      free(drawable);
-      return FALSE;
-   }
-
-   struct dri_screen *screen = sPriv->driverPrivate;
-   struct pipe_screen *pscreen = screen->base.screen;
-
-   VkStructureType type = drawable->sci.bos.sType;
-   if (type == VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR)
-      error = vkCreateXcbSurfaceKHR(zink_screen_get_instance(pscreen),
-                                    &drawable->sci.xcb, NULL,
-                                    &drawable->surface);
-   // else if (etc.) {
+   sPriv->copper_loader->SetSurfaceCreateInfo(dPriv->loaderPrivate,
+                                              &drawable->sci.bos);
 
    return TRUE;
+}
+
+static void
+copper_swap_buffers(__DRIdrawable *dPriv)
+{
+   struct dri_context *ctx = dri_get_current(dPriv->driScreenPriv);
+   struct dri_drawable *drawable = dri_drawable(dPriv);
+   struct pipe_resource *ptex;
+
+   if (!ctx)
+      return;
+
+   ptex = drawable->textures[ST_ATTACHMENT_BACK_LEFT];
+   if (!ptex)
+      return;
+
+   drawable->texture_stamp = dPriv->lastStamp - 1;
+   dri_flush(dPriv->driContextPriv, dPriv, __DRI2_FLUSH_DRAWABLE | __DRI2_FLUSH_CONTEXT, __DRI2_THROTTLE_SWAPBUFFER);
+   copper_present_texture(ctx->st->pipe, dPriv, ptex, NULL);
 }
 
 const __DRIcopperExtension driCopperExtension = {
@@ -395,8 +385,8 @@ const struct __DriverAPIRec galliumvk_driver_api = {
    .CreateContext = dri_create_context,
    .DestroyContext = dri_destroy_context,
    .CreateBuffer = copper_create_buffer,
-   .DestroyBuffer = dri_destroy_buffer, // XXX cuprify
-   .SwapBuffers = NULL,
+   .DestroyBuffer = dri_destroy_buffer,
+   .SwapBuffers = copper_swap_buffers,
    .MakeCurrent = dri_make_current,
    .UnbindContext = dri_unbind_context,
    .CopySubBuffer = NULL, //copper_copy_sub_buffer,

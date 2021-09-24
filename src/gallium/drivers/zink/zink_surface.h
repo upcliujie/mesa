@@ -45,6 +45,7 @@ struct zink_surface {
    struct zink_surface_info info; //TODO: union with fb refs
    uint32_t info_hash;
    VkImageView image_view;
+   VkImageView *swapchain;
    VkImageView simage_view;//old iview after storage replacement/rebind
    void *obj; //backing resource object
    uint32_t hash;
@@ -141,4 +142,7 @@ zink_rebind_ctx_surface(struct zink_context *ctx, struct pipe_surface **psurface
 
 struct pipe_surface *
 zink_surface_create_null(struct zink_context *ctx, enum pipe_texture_target target, unsigned width, unsigned height, unsigned samples);
+
+void
+zink_surface_swapchain_update(struct zink_screen *screen, struct zink_surface *surface);
 #endif

@@ -1,6 +1,7 @@
 #include "zink_batch.h"
 
 #include "zink_context.h"
+#include "zink_copper.h"
 #include "zink_fence.h"
 #include "zink_framebuffer.h"
 #include "zink_query.h"
@@ -95,12 +96,15 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 
    bs->resource_size = 0;
 
+   VKSCR(DestroySemaphore)(screen->dev, bs->present, NULL);
+   bs->present = bs->acquire = VK_NULL_HANDLE;
+   bs->swapchain = NULL;
+
    /* only reset submitted here so that tc fence desync can pick up the 'completed' flag
     * before the state is reused
     */
    bs->fence.submitted = false;
    bs->has_barriers = false;
-   bs->scanout_flush = false;
    if (bs->fence.batch_id)
       zink_screen_update_last_finished(screen, bs->fence.batch_id);
    bs->submit_count++;
@@ -370,7 +374,7 @@ submit_queue(void *data, void *gdata, int thread_index)
    struct zink_batch_state *bs = data;
    struct zink_context *ctx = bs->ctx;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
-   VkSubmitInfo si = {0};
+   VkSubmitInfo si[2] = {0};
 
    while (!bs->fence.batch_id)
       bs->fence.batch_id = p_atomic_inc_return(&screen->curr_batch);
@@ -387,33 +391,27 @@ submit_queue(void *data, void *gdata, int thread_index)
    VKSCR(ResetFences)(screen->dev, 1, &bs->fence.fence);
 
    uint64_t batch_id = bs->fence.batch_id;
-   si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-   si.waitSemaphoreCount = 0;
-   si.pWaitSemaphores = NULL;
-   si.signalSemaphoreCount = 0;
-   si.pSignalSemaphores = NULL;
-   si.pWaitDstStageMask = NULL;
-   si.commandBufferCount = bs->has_barriers ? 2 : 1;
+   si[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+   si[0].waitSemaphoreCount = !!bs->acquire;
+   si[0].pWaitSemaphores = &bs->acquire;
+   VkPipelineStageFlags mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+   si[0].pWaitDstStageMask = &mask;
+   si[0].commandBufferCount = bs->has_barriers ? 2 : 1;
    VkCommandBuffer cmdbufs[2] = {
       bs->barrier_cmdbuf,
       bs->cmdbuf,
    };
-   si.pCommandBuffers = bs->has_barriers ? cmdbufs : &cmdbufs[1];
+   si[0].pCommandBuffers = bs->has_barriers ? cmdbufs : &cmdbufs[1];
 
    VkTimelineSemaphoreSubmitInfo tsi = {0};
    if (bs->have_timelines) {
       tsi.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-      si.pNext = &tsi;
+      si[0].pNext = &tsi;
       tsi.signalSemaphoreValueCount = 1;
       tsi.pSignalSemaphoreValues = &batch_id;
-      si.signalSemaphoreCount = 1;
-      si.pSignalSemaphores = &screen->sem;
+      si[0].signalSemaphoreCount = 1;
+      si[0].pSignalSemaphores = &screen->sem;
    }
-
-   struct wsi_memory_signal_submit_info mem_signal = {
-      .sType = VK_STRUCTURE_TYPE_WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA,
-      .pNext = si.pNext,
-   };
 
    if (VKSCR(EndCommandBuffer)(bs->cmdbuf) != VK_SUCCESS) {
       debug_printf("vkEndCommandBuffer failed\n");
@@ -432,8 +430,14 @@ submit_queue(void *data, void *gdata, int thread_index)
        VKSCR(FlushMappedMemoryRanges)(screen->dev, 1, &range);
    }
 
+   if (bs->present) {
+      si[1].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+      si[1].signalSemaphoreCount = 1;
+      si[1].pSignalSemaphores = &bs->present;
+   }
+
    simple_mtx_lock(&screen->queue_lock);
-   if (VKSCR(QueueSubmit)(bs->queue, 1, &si, bs->fence.fence) != VK_SUCCESS) {
+   if (VKSCR(QueueSubmit)(bs->queue, bs->present ? 2 : 1, si, bs->fence.fence) != VK_SUCCESS) {
       debug_printf("ZINK: vkQueueSubmit() failed\n");
       bs->is_device_lost = true;
    }
@@ -490,7 +494,14 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
    simple_mtx_unlock(&ctx->batch_mtx);
    batch->work_count = 0;
 
-
+   if (batch->swapchain) {
+      bs->acquire = zink_copper_acquire_submit(screen, batch->swapchain);
+      if (batch->present)
+         bs->present = zink_copper_present(screen, batch->swapchain);
+      bs->swapchain = batch->swapchain;
+      batch->swapchain = NULL;
+      batch->present = false;
+   }
 
    if (screen->device_lost)
       return;
@@ -505,7 +516,7 @@ zink_end_batch(struct zink_context *ctx, struct zink_batch *batch)
       post_submit(bs, NULL, 0);
    }
 #ifndef _WIN32
-   if (screen->renderdoc_api && batch->state->scanout_flush && capturing && frame >= screen->renderdoc_capture_start && frame <= screen->renderdoc_capture_end) {
+   if (screen->renderdoc_api && batch->state->present && capturing && frame >= screen->renderdoc_capture_start && frame <= screen->renderdoc_capture_end) {
       screen->renderdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(screen->instance), NULL);
       capturing = false;
    }
@@ -516,8 +527,10 @@ void
 zink_batch_resource_usage_set(struct zink_batch *batch, struct zink_resource *res, bool write)
 {
    zink_resource_usage_set(res, batch->state, write);
-   if (write && res->dt)
-      batch->state->scanout_flush = true;
+   if (write && res->obj->dt) {
+      assert(!batch->swapchain || batch->swapchain == res);
+      batch->swapchain = res;
+   }
    /* multiple array entries are fine */
    if (!res->obj->coherent && res->obj->persistent_maps)
       util_dynarray_append(&batch->state->persistent_resources, struct zink_resource_object*, res->obj);

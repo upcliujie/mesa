@@ -368,8 +368,8 @@ static const __DRIswrastLoaderExtension swrastLoaderExtension = {
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_xcb.h>
 
-// void?
-static VkResult
+
+static void
 copperSetSurfaceCreateInfo(void *_draw, VkBaseOutStructure *out)
 {
     __GLXDRIdrawable *draw = _draw;
@@ -380,7 +380,6 @@ copperSetSurfaceCreateInfo(void *_draw, VkBaseOutStructure *out)
     xsci->flags = 0;
     xsci->connection = XGetXCBConnection(draw->psc->dpy);
     xsci->window = draw->xDrawable; // i think?
-    return VK_SUCCESS;
 }
 
 static const __DRIcopperLoaderExtension copperLoaderExtension = {
