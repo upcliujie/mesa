@@ -892,7 +892,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
          VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
    if (new_submit->cmd_buffers == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_cmd_buffers;
    }
 
@@ -903,7 +903,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
          submit_info->waitSemaphoreCount * sizeof(*new_submit->wait_semaphores),
          8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
    if (new_submit->wait_semaphores == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_wait_semaphores;
    }
    new_submit->wait_semaphore_count = submit_info->waitSemaphoreCount;
@@ -912,7 +912,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
          submit_info->signalSemaphoreCount *sizeof(*new_submit->signal_semaphores),
          8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
    if (new_submit->signal_semaphores == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_signal_semaphores;
    }
    new_submit->signal_semaphore_count = submit_info->signalSemaphoreCount;
@@ -966,7 +966,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
          VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
    if (new_submit->cmds == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_cmds;
    }
 
@@ -976,7 +976,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
             VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
       if (new_submit->cmd_buffer_trace_data == NULL) {
-         result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+         result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
          goto fail_cmd_trace_data;
       }
 
@@ -993,7 +993,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
             if (tu_create_copy_timestamp_cs(cmdbuf,
                   &new_submit->cmd_buffer_trace_data[i].timestamp_copy_cs,
                   &new_submit->cmd_buffer_trace_data[i].trace) != VK_SUCCESS) {
-               result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+               result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
                goto fail_copy_timestamp_cs;
             }
             assert(new_submit->cmd_buffer_trace_data[i].timestamp_copy_cs->entry_count == 1);
@@ -1009,7 +1009,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
          sizeof(*new_submit->in_syncobjs), 8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
    if (new_submit->in_syncobjs == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_in_syncobjs;
    }
 
@@ -1019,7 +1019,7 @@ tu_queue_submit_create_locked(struct tu_queue *queue,
          VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
    if (new_submit->out_syncobjs == NULL) {
-      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY)
+      result = vk_error(queue->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_out_syncobjs;
    }
 
