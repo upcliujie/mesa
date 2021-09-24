@@ -150,7 +150,7 @@ legalize_block(struct ir3_legalize_ctx *ctx, struct ir3_block *block)
          ctx->max_bary = MAX2(ctx->max_bary, inloc->iim_val);
       }
 
-      if (last_n && is_barrier(last_n)) {
+      if ((last_n && is_barrier(last_n)) || n->opc == OPC_SHPE) {
          n->flags |= IR3_INSTR_SS | IR3_INSTR_SY;
          last_input_needs_ss = false;
          regmask_init(&state->needs_ss_war, mergedregs);
