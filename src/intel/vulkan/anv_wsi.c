@@ -96,6 +96,8 @@ anv_init_wsi(struct anv_physical_device *physical_device)
    physical_device->wsi_device.signal_fence_for_memory =
       anv_wsi_signal_fence_for_memory;
 
+   wsi_device_setup_syncobj_fd(&physical_device->wsi_device, physical_device->local_fd);
+
    return VK_SUCCESS;
 }
 
