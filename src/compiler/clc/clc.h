@@ -47,6 +47,11 @@ struct clc_compile_args {
    const char * const *args;
    unsigned num_args;
 
+   /* SPIRV version to target (as defined in src/compiler/spirv/spirv.h),
+    * ignored if 0.
+    */
+   unsigned spirv_version;
+
    /* Allowed extensions, use -1 in num_allowed_extensions to allow all
     * extensions known by the translator.
     */
