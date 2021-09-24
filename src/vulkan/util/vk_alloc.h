@@ -91,6 +91,40 @@ vk_strdup(const VkAllocationCallbacks *alloc, const char *s,
    return copy;
 }
 
+static inline char *
+vk_vasprintf(const VkAllocationCallbacks *alloc, VkSystemAllocationScope scope,
+            const char *format, va_list ap)
+{
+   va_list ap_copy;
+
+   /* Compute length of output string first */
+   va_copy(ap_copy, ap);
+   int r = vsnprintf(NULL, 0, format, ap_copy);
+   va_end(ap_copy);
+
+   if (r < 0)
+      return NULL;
+
+   char *ret = (char *) vk_alloc(alloc, r + 1, 1, scope);
+   if (!ret)
+      return NULL;
+
+   /* Print to buffer */
+   vsnprintf(ret, r + 1, format, ap);
+
+   return ret;
+}
+
+static inline char *
+vk_asprintf(const VkAllocationCallbacks *alloc, VkSystemAllocationScope scope, const char *format, ...)
+{
+   va_list args;
+   va_start(args, format);
+   char *ret = vk_vasprintf(alloc, scope, format, args);
+   va_end(args);
+   return ret;
+}
+
 static inline void *
 vk_alloc2(const VkAllocationCallbacks *parent_alloc,
           const VkAllocationCallbacks *alloc,
