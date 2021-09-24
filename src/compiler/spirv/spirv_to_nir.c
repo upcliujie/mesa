@@ -1964,17 +1964,21 @@ vtn_handle_constant(struct vtn_builder *b, SpvOp opcode,
                   spirv_op_to_string(opcode), elem_count, val->type->length);
 
       nir_constant **elems = ralloc_array(b, nir_constant *, elem_count);
+      val->is_null_constant = true;
       for (unsigned i = 0; i < elem_count; i++) {
          struct vtn_value *eval = vtn_untyped_value(b, w[i + 3]);
 
          if (eval->value_type == vtn_value_type_constant) {
             elems[i] = eval->constant;
+            val->is_null_constant = val->is_null_constant &&
+                                    eval->is_null_constant;
          } else {
             vtn_fail_if(eval->value_type != vtn_value_type_undef,
                         "only constants or undefs allowed for "
                         "SpvOpConstantComposite");
             /* to make it easier, just insert a NULL constant for now */
             elems[i] = vtn_null_constant(b, eval->type);
+            val->is_null_constant = false;
          }
       }
 
