@@ -345,6 +345,7 @@ static int parse_w(const char *str)
 "ldlv"                            return TOKEN(T_OP_LDLV);
 "getspid"                         return TOKEN(T_OP_GETSPID);
 "getwid"                          return TOKEN(T_OP_GETWID);
+"stc"                             return TOKEN(T_OP_STC);
 
                                   /* category 7: */
 "bar"                             return TOKEN(T_OP_BAR);
