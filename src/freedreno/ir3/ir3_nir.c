@@ -691,10 +691,26 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
          32 /* bytes */);
    OPT_V(s, ir3_nir_lower_load_constant, so);
 
+   /* Cleanup code leftover from lowering passes before opt_preamble */
+   if (progress) {
+      progress |= OPT(s, nir_opt_constant_folding);
+   }
+
+
+   /* Do the preamble before analysing UBO ranges, because it's usually
+    * higher-value and because it can result in eliminating some indirect UBO
+    * accesses where otherwise we'd have to push the whole range.
+    */
+   if (so->shader->compiler->has_preamble &&
+       !(ir3_shader_debug & IR3_DBG_NOPREAMBLE))
+      progress |= OPT(s, ir3_nir_opt_preamble, so);
+
    if (!so->binning_pass)
       OPT_V(s, ir3_nir_analyze_ubo_ranges, so);
 
    progress |= OPT(s, ir3_nir_lower_ubo_loads, so);
+
+   progress |= OPT(s, ir3_nir_lower_preamble, so);
 
    /* Lower large temporaries to scratch, which in Qualcomm terms is private
     * memory, to avoid excess register pressure. This should happen after
@@ -866,7 +882,8 @@ ir3_setup_const_state(nir_shader *nir, struct ir3_shader_variant *v,
    const_state->num_ubos = nir->info.num_ubos;
 
    debug_assert((const_state->ubo_state.size % 16) == 0);
-   unsigned constoff = const_state->ubo_state.size / 16;
+   unsigned constoff = const_state->ubo_state.size / 16 +
+      const_state->preamble_size;
    unsigned ptrsz = ir3_pointer_size(compiler);
 
    if (const_state->num_ubos > 0) {
