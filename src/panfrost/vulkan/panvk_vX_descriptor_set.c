@@ -190,14 +190,6 @@ err_free_sets:
 }
 
 static void
-panvk_set_texel_buffer_view_desc(struct panvk_descriptor *desc,
-                                 const VkBufferView *pTexelBufferView)
-{
-   VK_FROM_HANDLE(panvk_buffer_view, buffer_view, *pTexelBufferView);
-   desc->buffer_view = buffer_view;
-}
-
-static void
 panvk_set_buffer_desc(struct panvk_buffer_desc *bdesc,
                       const VkDescriptorBufferInfo *pBufferInfo)
 {
@@ -259,6 +251,27 @@ panvk_set_img_desc(struct panvk_device *dev,
 }
 
 static void
+panvk_set_texel_buf_desc(struct panvk_device *dev,
+                         struct panvk_descriptor_set *set,
+                         unsigned img_idx, unsigned tex_idx,
+                         const VkBufferView bufferView)
+{
+   const struct panfrost_device *pdev = &dev->physical_device->pdev;
+   VK_FROM_HANDLE(panvk_buffer_view, view, bufferView);
+   void *attrib_buf = (uint8_t *)set->img_attrib_bufs + (pan_size(ATTRIBUTE_BUFFER) * 2 * img_idx);
+
+   set->img_fmts[img_idx] = pdev->formats[view->fmt].hw;
+   memcpy(attrib_buf, view->descs.img_attrib_buf, pan_size(ATTRIBUTE_BUFFER) * 2);
+
+#if PAN_ARCH > 5
+   memcpy(&((struct mali_texture_packed *)set->textures)[tex_idx],
+          view->descs.tex, pan_size(TEXTURE));
+#else
+   ((mali_ptr *)set->textures)[tex_idx] = view->bo->ptr.gpu;
+#endif
+}
+
+static void
 panvk_per_arch(write_descriptor_set)(struct panvk_device *dev,
                                      const VkWriteDescriptorSet *pDescriptorWrite)
 {
@@ -284,7 +297,6 @@ panvk_per_arch(write_descriptor_set)(struct panvk_device *dev,
       assert(pDescriptorWrite->descriptorType == binding_layout->type);
       unsigned ndescs = MIN2(pDescriptorWrite->descriptorCount - src_offset,
                              binding_layout->array_size - dest_offset);
-      struct panvk_descriptor *descs = &set->descs[binding_layout->desc_idx + dest_offset];
       assert(binding_layout->desc_idx + dest_offset + ndescs <= set->layout->num_descs);
 
       switch (pDescriptorWrite->descriptorType) {
@@ -323,8 +335,12 @@ panvk_per_arch(write_descriptor_set)(struct panvk_device *dev,
 
       case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
       case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-         for (unsigned i = 0; i < ndescs; i++)
-            panvk_set_texel_buffer_view_desc(&descs[i], &pDescriptorWrite->pTexelBufferView[src_offset + i]);
+         for (unsigned i = 0; i < ndescs; i++) {
+            unsigned img = binding_layout->img_idx + dest_offset + i;
+            unsigned tex = binding_layout->tex_idx + dest_offset + i;
+            panvk_set_texel_buf_desc(dev, set, img, tex,
+                                     pDescriptorWrite->pTexelBufferView[src_offset + i]);
+         }
          break;
 
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
