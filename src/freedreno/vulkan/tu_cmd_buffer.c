@@ -1829,7 +1829,9 @@ tu_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
       hlsq_invalidate_value = A6XX_HLSQ_INVALIDATE_CMD_GFX_BINDLESS(0x1f);
 
       cmd->state.desc_sets = tu_cs_draw_state(&cmd->sub_cs, &state_cs, 24);
-      cmd->state.dirty |= TU_CMD_DIRTY_DESC_SETS_LOAD | TU_CMD_DIRTY_SHADER_CONSTS;
+      cmd->state.dirty |= TU_CMD_DIRTY_DESC_SETS_LOAD;
+      if (ir3_shader_debug & IR3_DBG_NOLDCK)
+         cmd->state.dirty |= TU_CMD_DIRTY_SHADER_CONSTS;
       cs = &state_cs;
    } else {
       assert(pipelineBindPoint == VK_PIPELINE_BIND_POINT_COMPUTE);
@@ -3335,6 +3337,9 @@ tu6_emit_user_consts(struct tu_cs *cs, const struct tu_pipeline *pipeline,
       for (unsigned i = 0; i < num_units * 4; i++)
          tu_cs_emit(cs, push_constants[i + offset * 4]);
    }
+
+   if (!(ir3_shader_debug & IR3_DBG_NOLDCK))
+      return;
 
    for (uint32_t i = 0; i < state->num_enabled; i++) {
       uint32_t size = state->range[i].end - state->range[i].start;
