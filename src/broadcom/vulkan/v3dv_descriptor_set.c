@@ -697,7 +697,7 @@ out_of_pool_memory(const struct v3dv_device *device,
     * by allocating a new pool, so they don't point to real issues.
     */
    if (!pool->is_driver_internal)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_POOL_MEMORY)
+      return vk_error(device->instance, VK_ERROR_OUT_OF_POOL_MEMORY);
    else
       return VK_ERROR_OUT_OF_POOL_MEMORY;
 }
