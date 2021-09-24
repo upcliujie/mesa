@@ -2015,7 +2015,9 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       unreachable("Should have been caught before");
    }
 
-   if (initializer) {
+   /* Ignore incorrectly generated Undef initializers. */
+   if (initializer && (!b->wa_llvm_spirv_undef_initializer ||
+                       !initializer->is_undef_constant)) {
       switch (storage_class) {
       case SpvStorageClassWorkgroup:
          /* VK_KHR_zero_initialize_workgroup_memory. */
@@ -2328,6 +2330,7 @@ vtn_handle_variables(struct vtn_builder *b, SpvOp opcode,
    case SpvOpUndef: {
       struct vtn_value *val = vtn_push_value(b, w[2], vtn_value_type_undef);
       val->type = vtn_get_type(b, w[1]);
+      val->is_undef_constant = true;
       break;
    }
 

@@ -1964,11 +1964,14 @@ vtn_handle_constant(struct vtn_builder *b, SpvOp opcode,
                   spirv_op_to_string(opcode), elem_count, val->type->length);
 
       nir_constant **elems = ralloc_array(b, nir_constant *, elem_count);
+      val->is_undef_constant = true;
       for (unsigned i = 0; i < elem_count; i++) {
          struct vtn_value *elem_val = vtn_untyped_value(b, w[i + 3]);
 
          if (elem_val->value_type == vtn_value_type_constant) {
             elems[i] = elem_val->constant;
+            val->is_undef_constant = val->is_undef_constant &&
+                                     elem_val->is_undef_constant;
          } else {
             vtn_fail_if(elem_val->value_type != vtn_value_type_undef,
                         "only constants or undefs allowed for "
@@ -6038,6 +6041,24 @@ vtn_create_builder(const uint32_t *words, size_t word_count,
    b->wa_glslang_cs_barrier =
       (b->generator_id == vtn_generator_glslang_reference_front_end &&
        generator_version < 3);
+
+   /* The LLVM-SPIRV translator generates Undef initializers for _local
+    * variables [1].
+    *
+    * Unfortunately, we can't identify the version of the LLVM-SPIRV
+    * translator that emits this [2]. This is further complicated by our use
+    * case in which the generated SPIRV from the LLVM-SPIRV translator is
+    * passed over the SPIRV-Tools linker which replaces the generator ID with
+    * its own. SPIRV-Tools also does not use the right generator ID [3].
+    *
+    * [1] : https://github.com/KhronosGroup/SPIRV-LLVM-Translator/issues/1224
+    * [2] : https://github.com/KhronosGroup/SPIRV-LLVM-Translator/pull/1223
+    * [3] : https://github.com/KhronosGroup/SPIRV-Tools/pull/4549
+    */
+   b->wa_llvm_spirv_undef_initializer =
+      (b->generator_id == 0 &&
+       generator_version == vtn_generator_spirv_tools_linker) ||
+      b->generator_id == vtn_generator_spirv_tools_linker;
 
    /* words[2] == generator magic */
    unsigned value_id_bound = words[3];
