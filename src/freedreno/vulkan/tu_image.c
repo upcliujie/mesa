@@ -138,12 +138,13 @@ tu6_texswiz(const VkComponentMapping *comps,
          if (!has_z24uint_s8uint) {
             /* using FMT6_8_8_8_8_UINT */
             swiz[0] = A6XX_TEX_W;
-            swiz[1] = A6XX_TEX_ZERO;
          } else {
             /* using FMT6_Z24_UINT_S8_UINT */
             swiz[0] = A6XX_TEX_Y;
-            swiz[1] = A6XX_TEX_ZERO;
          }
+         swiz[1] = A6XX_TEX_ZERO;
+         swiz[2] = A6XX_TEX_ZERO;
+         swiz[3] = A6XX_TEX_ONE;
       }
       break;
    default:
