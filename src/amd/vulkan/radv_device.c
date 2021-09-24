@@ -2747,8 +2747,7 @@ _radv_device_set_lost(struct radv_device *device, const char *file, int line, co
 
    va_start(ap, msg);
    err =
-      __vk_errorv(device->physical_device->instance, device, VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT,
-                  VK_ERROR_DEVICE_LOST, file, line, msg, ap);
+      __vk_errorv(device, VK_ERROR_DEVICE_LOST, file, line, msg, ap);
    va_end(ap);
 
    return err;
