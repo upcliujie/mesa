@@ -167,7 +167,7 @@ anv_timeline_add_point_locked(struct anv_device *device,
          vk_zalloc(&device->vk.alloc, sizeof(**point),
                    8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
       if (!(*point))
-         result = vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         result = anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
       if (result == VK_SUCCESS) {
          result = anv_device_alloc_bo(device, "timeline-semaphore", 4096,
                                       ANV_BO_ALLOC_EXTERNAL |
@@ -499,15 +499,15 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
     */
    if (device->has_thread_submit) {
       if (pthread_mutex_init(&queue->mutex, NULL) != 0) {
-         result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+         result = anv_error(VK_ERROR_INITIALIZATION_FAILED);
          goto fail_queue;
       }
       if (pthread_cond_init(&queue->cond, NULL) != 0) {
-         result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+         result = anv_error(VK_ERROR_INITIALIZATION_FAILED);
          goto fail_mutex;
       }
       if (pthread_create(&queue->thread, NULL, anv_queue_task, queue)) {
-         result = vk_error(VK_ERROR_INITIALIZATION_FAILED);
+         result = anv_error(VK_ERROR_INITIALIZATION_FAILED);
          goto fail_cond;
       }
    }
@@ -555,7 +555,7 @@ anv_queue_submit_add_fence_bo(struct anv_queue_submit *submit,
                     submit->fence_bos, new_len * sizeof(*submit->fence_bos),
                     8, submit->alloc_scope);
       if (new_fence_bos == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->fence_bos = new_fence_bos;
       submit->fence_bo_array_length = new_len;
@@ -587,7 +587,7 @@ anv_queue_submit_add_syncobj(struct anv_queue_submit* submit,
                        new_len * sizeof(*submit->wait_timeline_syncobjs),
                        8, submit->alloc_scope);
          if (new_wait_timeline_syncobjs == NULL)
-            return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+            return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
          submit->wait_timeline_syncobjs = new_wait_timeline_syncobjs;
 
@@ -596,7 +596,7 @@ anv_queue_submit_add_syncobj(struct anv_queue_submit* submit,
                        submit->wait_timeline_values, new_len * sizeof(*submit->wait_timeline_values),
                        8, submit->alloc_scope);
          if (new_wait_timeline_values == NULL)
-            return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+            return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
          submit->wait_timeline_values = new_wait_timeline_values;
          submit->wait_timeline_array_length = new_len;
@@ -615,7 +615,7 @@ anv_queue_submit_add_syncobj(struct anv_queue_submit* submit,
                     submit->fences, new_len * sizeof(*submit->fences),
                     8, submit->alloc_scope);
       if (new_fences == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->fences = new_fences;
 
@@ -624,7 +624,7 @@ anv_queue_submit_add_syncobj(struct anv_queue_submit* submit,
                     submit->fence_values, new_len * sizeof(*submit->fence_values),
                     8, submit->alloc_scope);
       if (new_fence_values == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->fence_values = new_fence_values;
       submit->fence_array_length = new_len;
@@ -653,7 +653,7 @@ anv_queue_submit_add_timeline_wait(struct anv_queue_submit* submit,
                     submit->wait_timelines, new_len * sizeof(*submit->wait_timelines),
                     8, submit->alloc_scope);
       if (new_wait_timelines == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->wait_timelines = new_wait_timelines;
 
@@ -662,7 +662,7 @@ anv_queue_submit_add_timeline_wait(struct anv_queue_submit* submit,
                     submit->wait_timeline_values, new_len * sizeof(*submit->wait_timeline_values),
                     8, submit->alloc_scope);
       if (new_wait_timeline_values == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->wait_timeline_values = new_wait_timeline_values;
 
@@ -692,7 +692,7 @@ anv_queue_submit_add_timeline_signal(struct anv_queue_submit* submit,
                     submit->signal_timelines, new_len * sizeof(*submit->signal_timelines),
                     8, submit->alloc_scope);
       if (new_signal_timelines == NULL)
-            return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+            return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->signal_timelines = new_signal_timelines;
 
@@ -701,7 +701,7 @@ anv_queue_submit_add_timeline_signal(struct anv_queue_submit* submit,
                     submit->signal_timeline_values, new_len * sizeof(*submit->signal_timeline_values),
                     8, submit->alloc_scope);
       if (new_signal_timeline_values == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->signal_timeline_values = new_signal_timeline_values;
 
@@ -745,7 +745,7 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
    struct anv_device *device = queue->device;
    struct anv_queue_submit *submit = anv_queue_submit_alloc(device);
    if (!submit)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    bool has_syncobj_wait = device->physical->has_syncobj_wait;
    VkResult result;
@@ -755,7 +755,7 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
    if (has_syncobj_wait) {
       syncobj = anv_gem_syncobj_create(device, 0);
       if (!syncobj) {
-         result = vk_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
+         result = anv_error(VK_ERROR_OUT_OF_DEVICE_MEMORY);
          goto err_free_submit;
       }
 
@@ -868,7 +868,7 @@ maybe_transfer_temporary_semaphore(struct anv_queue_submit *submit,
                     new_len * sizeof(*submit->temporary_semaphores),
                     8, submit->alloc_scope);
       if (new_array == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->temporary_semaphores = new_array;
       submit->temporary_semaphore_array_length = new_len;
@@ -1125,7 +1125,7 @@ anv_queue_submit_add_cmd_buffer(struct anv_queue_submit *submit,
                     submit->cmd_buffers, new_len * sizeof(*submit->cmd_buffers),
                     8, submit->alloc_scope);
       if (new_cmd_buffers == NULL)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       submit->cmd_buffers = new_cmd_buffers;
       submit->cmd_buffer_array_length = new_len;
@@ -1214,7 +1214,7 @@ anv_queue_submit_post_and_alloc_new(struct anv_queue *queue,
 
    *submit = anv_queue_submit_alloc(queue->device);
    if (!*submit)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
    return VK_SUCCESS;
 }
 
@@ -1244,7 +1244,7 @@ VkResult anv_QueueSubmit(
 
    struct anv_queue_submit *submit = anv_queue_submit_alloc(device);
    if (!submit)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    for (uint32_t i = 0; i < submitCount; i++) {
       const struct wsi_memory_signal_submit_info *mem_signal_info =
@@ -1391,7 +1391,7 @@ VkResult anv_CreateFence(
    fence = vk_object_zalloc(&device->vk, pAllocator, sizeof(*fence),
                             VK_OBJECT_TYPE_FENCE);
    if (fence == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    if (device->physical->has_syncobj_wait) {
       fence->permanent.type = ANV_FENCE_TYPE_SYNCOBJ;
@@ -1402,7 +1402,7 @@ VkResult anv_CreateFence(
 
       fence->permanent.syncobj = anv_gem_syncobj_create(device, create_flags);
       if (!fence->permanent.syncobj)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
    } else {
       fence->permanent.type = ANV_FENCE_TYPE_BO;
 
@@ -1607,7 +1607,7 @@ anv_wait_for_syncobj_fences(struct anv_device *device,
                                   sizeof(*syncobjs) * fenceCount, 8,
                                   VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
    if (!syncobjs)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    for (uint32_t i = 0; i < fenceCount; i++) {
       ANV_FROM_HANDLE(anv_fence, fence, pFences[i]);
@@ -1924,7 +1924,7 @@ VkResult anv_ImportFenceFdKHR(
 
       new_impl.syncobj = anv_gem_syncobj_fd_to_handle(device, fd);
       if (!new_impl.syncobj)
-         return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+         return anv_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
 
       break;
 
@@ -1947,19 +1947,19 @@ VkResult anv_ImportFenceFdKHR(
 
       new_impl.syncobj = anv_gem_syncobj_create(device, create_flags);
       if (!new_impl.syncobj)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       if (fd != -1 &&
           anv_gem_syncobj_import_sync_file(device, new_impl.syncobj, fd)) {
          anv_gem_syncobj_destroy(device, new_impl.syncobj);
-         return vk_errorf(device, NULL, VK_ERROR_INVALID_EXTERNAL_HANDLE,
+         return anv_errorf(device, NULL, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                           "syncobj sync file import failed: %m");
       }
       break;
    }
 
    default:
-      return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      return anv_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
    }
 
    /* From the Vulkan 1.0.53 spec:
@@ -2029,7 +2029,7 @@ VkResult anv_GetFenceFdKHR(
    case VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_FD_BIT: {
       int fd = anv_gem_syncobj_handle_to_fd(device, impl->syncobj);
       if (fd < 0)
-         return vk_error(VK_ERROR_TOO_MANY_OBJECTS);
+         return anv_error(VK_ERROR_TOO_MANY_OBJECTS);
 
       *pFd = fd;
       break;
@@ -2042,7 +2042,7 @@ VkResult anv_GetFenceFdKHR(
 
       int fd = anv_gem_syncobj_export_sync_file(device, impl->syncobj);
       if (fd < 0)
-         return vk_error(VK_ERROR_TOO_MANY_OBJECTS);
+         return anv_error(VK_ERROR_TOO_MANY_OBJECTS);
 
       *pFd = fd;
       break;
@@ -2089,7 +2089,7 @@ binary_semaphore_create(struct anv_device *device,
    impl->type = ANV_SEMAPHORE_TYPE_DRM_SYNCOBJ;
    impl->syncobj = anv_gem_syncobj_create(device, 0);
    if (!impl->syncobj)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
    return VK_SUCCESS;
 }
 
@@ -2102,13 +2102,13 @@ timeline_semaphore_create(struct anv_device *device,
       impl->type = ANV_SEMAPHORE_TYPE_DRM_SYNCOBJ_TIMELINE;
       impl->syncobj = anv_gem_syncobj_create(device, 0);
       if (!impl->syncobj)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
       if (initial_value) {
          if (anv_gem_syncobj_timeline_signal(device,
                                              &impl->syncobj,
                                              &initial_value, 1)) {
             anv_gem_syncobj_destroy(device, impl->syncobj);
-            return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+            return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
          }
       }
    } else {
@@ -2136,7 +2136,7 @@ VkResult anv_CreateSemaphore(
    semaphore = vk_object_alloc(&device->vk, NULL, sizeof(*semaphore),
                                VK_OBJECT_TYPE_SEMAPHORE);
    if (semaphore == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    const VkExportSemaphoreCreateInfo *export =
       vk_find_struct_const(pCreateInfo->pNext, EXPORT_SEMAPHORE_CREATE_INFO);
@@ -2170,12 +2170,12 @@ VkResult anv_CreateSemaphore(
       semaphore->permanent.syncobj = anv_gem_syncobj_create(device, 0);
       if (!semaphore->permanent.syncobj) {
          vk_object_free(&device->vk, pAllocator, semaphore);
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
       }
    } else {
       assert(!"Unknown handle type");
       vk_object_free(&device->vk, pAllocator, semaphore);
-      return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      return anv_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
    }
 
    semaphore->temporary.type = ANV_SEMAPHORE_TYPE_NONE;
@@ -2318,7 +2318,7 @@ VkResult anv_ImportSemaphoreFdKHR(
 
       new_impl.syncobj = anv_gem_syncobj_fd_to_handle(device, fd);
       if (!new_impl.syncobj)
-         return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+         return anv_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
 
       /* From the Vulkan spec:
        *
@@ -2344,12 +2344,12 @@ VkResult anv_ImportSemaphoreFdKHR(
       };
 
       if (!new_impl.syncobj)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
       if (fd != -1) {
          if (anv_gem_syncobj_import_sync_file(device, new_impl.syncobj, fd)) {
             anv_gem_syncobj_destroy(device, new_impl.syncobj);
-            return vk_errorf(device, NULL, VK_ERROR_INVALID_EXTERNAL_HANDLE,
+            return anv_errorf(device, NULL, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                              "syncobj sync file import failed: %m");
          }
          /* Ownership of the FD is transfered to Anv. Since we don't need it
@@ -2362,7 +2362,7 @@ VkResult anv_ImportSemaphoreFdKHR(
    }
 
    default:
-      return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      return anv_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
    }
 
    if (pImportSemaphoreFdInfo->flags & VK_SEMAPHORE_IMPORT_TEMPORARY_BIT) {
@@ -2404,7 +2404,7 @@ VkResult anv_GetSemaphoreFdKHR(
          fd = anv_gem_syncobj_handle_to_fd(device, impl->syncobj);
       }
       if (fd < 0)
-         return vk_error(VK_ERROR_TOO_MANY_OBJECTS);
+         return anv_error(VK_ERROR_TOO_MANY_OBJECTS);
       *pFd = fd;
       break;
 
@@ -2412,12 +2412,12 @@ VkResult anv_GetSemaphoreFdKHR(
       assert(pGetFdInfo->handleType == VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT);
       fd = anv_gem_syncobj_handle_to_fd(device, impl->syncobj);
       if (fd < 0)
-         return vk_error(VK_ERROR_TOO_MANY_OBJECTS);
+         return anv_error(VK_ERROR_TOO_MANY_OBJECTS);
       *pFd = fd;
       break;
 
    default:
-      return vk_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      return anv_error(VK_ERROR_INVALID_EXTERNAL_HANDLE);
    }
 
    /* From the Vulkan 1.0.53 spec:
@@ -2597,7 +2597,7 @@ VkResult anv_WaitSemaphores(
 
    if (!vk_multialloc_alloc(&ma, &device->vk.alloc,
                             VK_SYSTEM_ALLOCATION_SCOPE_COMMAND))
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return anv_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
    uint32_t handle_count = 0;
    for (uint32_t i = 0; i < pWaitInfo->semaphoreCount; i++) {
