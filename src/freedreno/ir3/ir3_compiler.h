@@ -177,6 +177,9 @@ struct ir3_compiler {
 
    /* Type to use for 1b nir bools: */
    type_t bool_type;
+
+   /* True if preamble instructions (shps, shpe, etc.) are supported */
+   bool has_preamble;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
@@ -219,6 +222,7 @@ enum ir3_shader_debug {
    IR3_DBG_NOFP16 = BITFIELD_BIT(10),
    IR3_DBG_NOCACHE = BITFIELD_BIT(11),
    IR3_DBG_SPILLALL = BITFIELD_BIT(12),
+   IR3_DBG_NOPREAMBLE = BITFIELD_BIT(13),
 
    /* DEBUG-only options: */
    IR3_DBG_SCHEDMSGS = BITFIELD_BIT(20),
