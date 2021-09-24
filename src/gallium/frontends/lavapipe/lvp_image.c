@@ -40,7 +40,7 @@ lvp_image_create(VkDevice _device,
    image = vk_zalloc2(&device->vk.alloc, alloc, sizeof(*image), 8,
                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (image == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &image->base, VK_OBJECT_TYPE_IMAGE);
    image->alignment = 16;
@@ -103,7 +103,7 @@ lvp_image_create(VkDevice _device,
                                                             &template,
                                                             &image->size);
       if (!image->bo)
-         return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
    *pImage = lvp_image_to_handle(image);
 
@@ -196,7 +196,7 @@ lvp_CreateImageView(VkDevice _device,
    view = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*view), 8,
                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (view == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &view->base,
                        VK_OBJECT_TYPE_IMAGE_VIEW);
@@ -307,7 +307,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateBuffer(
    buffer = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*buffer), 8,
                        VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (buffer == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &buffer->base, VK_OBJECT_TYPE_BUFFER);
    buffer->size = pCreateInfo->size;
@@ -340,7 +340,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateBuffer(
                                                              &buffer->total_size);
       if (!buffer->bo) {
          vk_free2(&device->vk.alloc, pAllocator, buffer);
-         return vk_error(device->instance, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+         return vk_error(device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
       }
    }
    *pBuffer = lvp_buffer_to_handle(buffer);
@@ -399,7 +399,7 @@ lvp_CreateBufferView(VkDevice _device,
    view = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*view), 8,
                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!view)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &view->base,
                        VK_OBJECT_TYPE_BUFFER_VIEW);
