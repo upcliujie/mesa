@@ -859,7 +859,7 @@ llvm_mod_to_spirv(std::unique_ptr<::llvm::Module> mod,
 
    const std::string spv_out = spv_stream.str();
    out_spirv->size = spv_out.size();
-   out_spirv->data = malloc(out_spirv->size);
+   out_spirv->data = static_cast<uint32_t*>(malloc(out_spirv->size));
    memcpy(out_spirv->data, spv_out.data(), out_spirv->size);
 
    return 0;
@@ -907,7 +907,7 @@ clc_spir_to_spirv(const struct clc_binary *in_spir,
    LLVMInitializeAllAsmPrinters();
 
    std::unique_ptr<LLVMContext> llvm_ctx{ new LLVMContext };
-   ::llvm::StringRef spir_ref(static_cast<const char*>(in_spir->data), in_spir->size);
+   ::llvm::StringRef spir_ref(reinterpret_cast<const char*>(in_spir->data), in_spir->size);
    auto mod = ::llvm::parseBitcodeFile(::llvm::MemoryBufferRef(spir_ref, "<spir>"), *llvm_ctx);
    if (!mod)
       return -1;
@@ -1018,6 +1018,9 @@ clc_spirv_specialize(const struct clc_binary *in_spirv,
          words.resize(2);
          memcpy(words.data(), &consts->specializations[i].value.u64, 8);
          break;
+      case CLC_SPEC_CONSTANT_UNKNOWN:
+         assert(0);
+         break;
       }
 
       ASSERTED auto ret = spec_const_map.emplace(id, std::move(words));
@@ -1032,7 +1035,7 @@ clc_spirv_specialize(const struct clc_binary *in_spirv,
       return false;
 
    out_spirv->size = result.size() * 4;
-   out_spirv->data = malloc(out_spirv->size);
+   out_spirv->data = static_cast<uint32_t*>(malloc(out_spirv->size));
    memcpy(out_spirv->data, result.data(), out_spirv->size);
    return true;
 }
