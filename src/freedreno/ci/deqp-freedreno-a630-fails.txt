@@ -72,9 +72,6 @@ dEQP-VK.texture.filtering.2d_array.formats.d24_unorm_s8_uint_stencil.d24_unorm_s
 dEQP-VK.texture.filtering.cube.formats.d24_unorm_s8_uint_stencil.nearest,Fail
 dEQP-VK.texture.filtering.unnormal.formats.d24_unorm_s8_uint_stencil.nearest,Fail
 
-# Broken on all drivers: https://gitlab.freedesktop.org/mesa/mesa/-/issues/4582
-dEQP-VK.wsi.display_control.register_device_event,Fail
-
 # https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/3052
 # fixed by https://gerrit.khronos.org/c/vk-gl-cts/+/7837
 bypass-dEQP-VK.renderpass.suballocation.subpass_dependencies.separate_channels.r8g8b8a8_unorm,Fail
