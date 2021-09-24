@@ -103,6 +103,7 @@ static const struct intel_device_info intel_device_info_i965 = {
    .urb = {
       .size = 256,
    },
+   .max_constant_buffer_size = 16,
    .timestamp_frequency = 12500000,
    .simulator_id = -1,
    .cs_prefetch_size = 512,
@@ -125,6 +126,7 @@ static const struct intel_device_info intel_device_info_g4x = {
    .urb = {
       .size = 384,
    },
+   .max_constant_buffer_size = 16,
    .timestamp_frequency = 12500000,
    .simulator_id = -1,
    .cs_prefetch_size = 512,
@@ -145,6 +147,7 @@ static const struct intel_device_info intel_device_info_ilk = {
    .urb = {
       .size = 1024,
    },
+   .max_constant_buffer_size = 16,
    .timestamp_frequency = 12500000,
    .simulator_id = -1,
    .cs_prefetch_size = 512,
@@ -175,6 +178,7 @@ static const struct intel_device_info intel_device_info_snb_gt1 = {
          [MESA_SHADER_GEOMETRY] = 256,
       },
    },
+   .max_constant_buffer_size = 16,
    .timestamp_frequency = 12500000,
    .simulator_id = -1,
    .cs_prefetch_size = 512,
@@ -205,6 +209,7 @@ static const struct intel_device_info intel_device_info_snb_gt2 = {
          [MESA_SHADER_GEOMETRY] = 256,
       },
    },
+   .max_constant_buffer_size = 16,
    .timestamp_frequency = 12500000,
    .simulator_id = -1,
    .cs_prefetch_size = 512,
@@ -219,6 +224,7 @@ static const struct intel_device_info intel_device_info_snb_gt2 = {
    .has_64bit_float = true,                         \
    .has_surface_tile_offset = true,                 \
    .timestamp_frequency = 12500000,                 \
+   .max_constant_buffer_size = 16,                    \
    .cs_prefetch_size = 512
 
 static const struct intel_device_info intel_device_info_ivb_gt1 = {
@@ -394,6 +400,7 @@ static const struct intel_device_info intel_device_info_hsw_gt3 = {
          [MESA_SHADER_GEOMETRY]  = 640,
       },
    },
+   .max_constant_buffer_size = 32,
    .simulator_id = 9,
 };
 
@@ -419,6 +426,7 @@ static const struct intel_device_info intel_device_info_hsw_gt3 = {
    .max_gs_threads = 504,                           \
    .max_wm_threads = 384,                           \
    .timestamp_frequency = 12500000,                 \
+   .max_constant_buffer_size = 32,                  \
    .cs_prefetch_size = 512
 
 static const struct intel_device_info intel_device_info_bdw_gt1 = {

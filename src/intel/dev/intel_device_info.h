@@ -265,6 +265,11 @@ struct intel_device_info
       unsigned max_entries[4];
    } urb;
 
+   /* Maximum Constant Buffer size in KB, this is divided among the stages for
+    * usage with push constants.  See 3DSTATE_PUSH_CONSTANT_ALLOC_*.
+    */
+   unsigned max_constant_buffer_size;
+
    /**
     * Size of the command streamer prefetch. This is important to know for
     * self modifying batches.

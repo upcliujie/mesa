@@ -925,6 +925,10 @@ gfx12_upload_pixel_hashing_tables(struct iris_batch *batch)
 static void
 iris_alloc_push_constants(struct iris_batch *batch)
 {
+   const struct intel_device_info *devinfo = &batch->screen->devinfo;
+   const unsigned push_constant_kb = devinfo->max_constant_buffer_size;
+   const unsigned size_per_stage = push_constant_kb / 5;
+
    /* For now, we set a static partitioning of the push constant area,
     * assuming that all stages could be in use.
     *
@@ -937,8 +941,8 @@ iris_alloc_push_constants(struct iris_batch *batch)
    for (int i = 0; i <= MESA_SHADER_FRAGMENT; i++) {
       iris_emit_cmd(batch, GENX(3DSTATE_PUSH_CONSTANT_ALLOC_VS), alloc) {
          alloc._3DCommandSubOpcode = 18 + i;
-         alloc.ConstantBufferOffset = 6 * i;
-         alloc.ConstantBufferSize = i == MESA_SHADER_FRAGMENT ? 8 : 6;
+         alloc.ConstantBufferOffset = size_per_stage * i;
+         alloc.ConstantBufferSize = i == MESA_SHADER_FRAGMENT ? (push_constant_kb - 4 * size_per_stage) : size_per_stage;
       }
    }
 }
