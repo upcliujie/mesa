@@ -159,6 +159,9 @@ struct ir3_compiler {
 
    /* True if 16-bit descriptors are used for both 16-bit and 32-bit access. */
    bool storage_16bit;
+
+   /* True if preamble instructions (shps, shpe, etc.) are supported */
+   bool has_preamble;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
@@ -198,6 +201,7 @@ enum ir3_shader_debug {
    IR3_DBG_NOFP16 = BITFIELD_BIT(10),
    IR3_DBG_NOCACHE = BITFIELD_BIT(11),
    IR3_DBG_SPILLALL = BITFIELD_BIT(12),
+   IR3_DBG_NOPREAMBLE = BITFIELD_BIT(13),
 
    /* DEBUG-only options: */
    IR3_DBG_SCHEDMSGS = BITFIELD_BIT(20),
