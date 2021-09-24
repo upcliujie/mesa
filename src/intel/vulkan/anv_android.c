@@ -470,8 +470,7 @@ anv_image_from_gralloc(VkDevice device_h,
    };
 
    if (gralloc_info->handle->numFds != 1) {
-      return anv_errorf(device, &device->vk.base,
-                       VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      return vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                        "VkNativeBufferANDROID::handle::numFds is %d, "
                        "expected 1", gralloc_info->handle->numFds);
    }
@@ -497,7 +496,7 @@ anv_image_from_gralloc(VkDevice device_h,
                                  0 /* client_address */,
                                  &bo);
    if (result != VK_SUCCESS) {
-      return anv_errorf(device, &device->vk.base, result,
+      return vk_errorf(device, result,
                        "failed to import dma-buf from VkNativeBufferANDROID");
    }
 
@@ -513,14 +512,12 @@ anv_image_from_gralloc(VkDevice device_h,
       anv_info.isl_tiling_flags = ISL_TILING_Y0_BIT;
       break;
    case -1:
-      result = anv_errorf(device, &device->vk.base,
-                         VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "DRM_IOCTL_I915_GEM_GET_TILING failed for "
                          "VkNativeBufferANDROID");
       goto fail_tiling;
    default:
-      result = anv_errorf(device, &device->vk.base,
-                         VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "DRM_IOCTL_I915_GEM_GET_TILING returned unknown "
                          "tiling %d for VkNativeBufferANDROID", i915_tiling);
       goto fail_tiling;
@@ -553,8 +550,7 @@ anv_image_from_gralloc(VkDevice device_h,
                 mem_reqs.memoryRequirements.alignment);
 
    if (bo->size < aligned_image_size) {
-      result = anv_errorf(device, &device->vk.base,
-                         VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "dma-buf from VkNativeBufferANDROID is too small for "
                          "VkImage: %"PRIu64"B < %"PRIu64"B",
                          bo->size, aligned_image_size);
@@ -611,13 +607,13 @@ anv_image_bind_from_gralloc(struct anv_device *device,
                                           0 /* client_address */,
                                           &bo);
    if (result != VK_SUCCESS) {
-      return anv_errorf(device, &device->vk.base, result,
+      return vk_errorf(device, result,
                        "failed to import dma-buf from VkNativeBufferANDROID");
    }
 
    uint64_t img_size = image->bindings[ANV_IMAGE_MEMORY_BINDING_MAIN].memory_range.size;
    if (img_size < bo->size) {
-      result = anv_errorf(device, &device->vk.base, VK_ERROR_INVALID_EXTERNAL_HANDLE,
+      result = vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
                          "dma-buf from VkNativeBufferANDROID is too small for "
                          "VkImage: %"PRIu64"B < %"PRIu64"B",
                          bo->size, img_size);
@@ -661,7 +657,7 @@ format_supported_with_usage(VkDevice device_h, VkFormat format,
    result = anv_GetPhysicalDeviceImageFormatProperties2(phys_dev_h,
                &image_format_info, &image_format_props);
    if (result != VK_SUCCESS) {
-      return anv_errorf(device, &device->vk.base, result,
+      return vk_errorf(device, result,
                        "anv_GetPhysicalDeviceImageFormatProperties2 failed "
                        "inside %s", __func__);
    }
@@ -700,7 +696,7 @@ setup_gralloc0_usage(struct anv_device *device, VkFormat format,
     * gralloc swapchains.
     */
    if (imageUsage != 0) {
-      return anv_errorf(device, &device->vk.base, VK_ERROR_FORMAT_NOT_SUPPORTED,
+      return vk_errorf(device, VK_ERROR_FORMAT_NOT_SUPPORTED,
                        "unsupported VkImageUsageFlags(0x%x) for gralloc "
                        "swapchain", imageUsage);
    }
@@ -805,6 +801,7 @@ anv_AcquireImageANDROID(
       VkSemaphore         semaphore_h,
       VkFence             fence_h)
 {
+   ANV_FROM_HANDLE(anv_device, device, device_h);
    VkResult result = VK_SUCCESS;
 
    /* From https://source.android.com/devices/graphics/implement-vulkan :
@@ -829,7 +826,7 @@ anv_AcquireImageANDROID(
             VkResult err = (errno == EMFILE) ? VK_ERROR_TOO_MANY_OBJECTS :
                                                VK_ERROR_OUT_OF_HOST_MEMORY;
             close(nativeFenceFd);
-            return anv_error(err);
+            return vk_error(device, err);
          }
       } else if (semaphore_h != VK_NULL_HANDLE) {
          semaphore_fd = nativeFenceFd;
