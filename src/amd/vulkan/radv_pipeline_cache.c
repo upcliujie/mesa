@@ -243,7 +243,7 @@ radv_pipeline_cache_grow(struct radv_pipeline_cache *cache)
 
    table = malloc(byte_size);
    if (table == NULL)
-      return vk_error(cache->device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(cache, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    cache->hash_table = table;
    cache->table_size = table_size;
@@ -545,7 +545,7 @@ radv_CreatePipelineCache(VkDevice _device, const VkPipelineCacheCreateInfo *pCre
    cache = vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*cache), 8,
                      VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (cache == NULL)
-      return vk_error(device->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_object_base_init(&device->vk, &cache->base, VK_OBJECT_TYPE_PIPELINE_CACHE);
 
