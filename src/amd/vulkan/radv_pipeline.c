@@ -3472,8 +3472,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
    radv_fill_shader_keys(device, keys, pipeline_key, nir);
    radv_fill_shader_info(pipeline, pStages, keys, infos, nir);
 
-   bool pipeline_has_ngg = (nir[MESA_SHADER_VERTEX] && keys[MESA_SHADER_VERTEX].vs_common_out.as_ngg) ||
-                           (nir[MESA_SHADER_TESS_EVAL] && keys[MESA_SHADER_TESS_EVAL].vs_common_out.as_ngg);
+   bool pipeline_has_ngg = (nir[MESA_SHADER_VERTEX] && infos[MESA_SHADER_VERTEX].is_ngg) ||
+                           (nir[MESA_SHADER_TESS_EVAL] && infos[MESA_SHADER_TESS_EVAL].is_ngg);
 
    if (pipeline_has_ngg) {
       struct gfx10_ngg_info *ngg_info;

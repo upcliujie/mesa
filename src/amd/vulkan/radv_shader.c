@@ -966,7 +966,7 @@ void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
 
    if (nir->info.stage == MESA_SHADER_VERTEX ||
        nir->info.stage == MESA_SHADER_TESS_EVAL) {
-      assert(key->vs_common_out.as_ngg);
+      assert(info->is_ngg);
 
       if (consider_culling)
          radv_optimize_nir_algebraic(nir, false);
