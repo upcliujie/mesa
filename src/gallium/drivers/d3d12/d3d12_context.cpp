@@ -807,7 +807,7 @@ d3d12_create_sampler_view(struct pipe_context *pctx,
    sampler_view->array_size = texture->array_size;
 
    D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
-   struct d3d12_format_info format_info = d3d12_get_format_info(state->format, state->target);
+   struct d3d12_format_info format_info = d3d12_get_format_info(res->overall_format, state->format, state->target);
    pipe_swizzle swizzle[4] = {
       format_info.swizzle[sampler_view->base.swizzle_r],
       format_info.swizzle[sampler_view->base.swizzle_g],
