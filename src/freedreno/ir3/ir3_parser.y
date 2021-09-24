@@ -575,6 +575,7 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 %token <tok> T_OP_LDLV
 %token <tok> T_OP_GETSPID
 %token <tok> T_OP_GETWID
+%token <tok> T_OP_STC
 
 /* category 7: */
 %token <tok> T_OP_BAR
@@ -1129,6 +1130,12 @@ cat6_bindless_ldc: cat6_bindless_ldc_opc '.' T_OFFSET '.' cat6_immed '.' cat6_bi
                       swap(instr->srcs[0], instr->srcs[1]);
                    }
 
+stc_dst:          integer { new_src(0, IR3_REG_IMMED)->iim_val = $1; }
+|                 T_A1 { new_src(0, IR3_REG_IMMED)->iim_val = 0; instr->flags |= IR3_INSTR_A1EN; }
+|                 T_A1 '+' integer { new_src(0, IR3_REG_IMMED)->iim_val = $3; instr->flags |= IR3_INSTR_A1EN; }
+
+cat6_stc: T_OP_STC { new_instr(OPC_STC); } cat6_type 'c' '[' stc_dst ']' ',' src_reg ',' cat6_immed
+
 cat6_todo:         T_OP_G2L                 { new_instr(OPC_G2L); }
 |                  T_OP_L2G                 { new_instr(OPC_L2G); }
 |                  T_OP_RESFMT              { new_instr(OPC_RESFMT); }
@@ -1143,6 +1150,7 @@ cat6_instr:        cat6_load
 |                  cat6_id
 |                  cat6_bindless_ldc
 |                  cat6_bindless_ibo
+|                  cat6_stc
 |                  cat6_todo
 
 cat7_scope:        '.' 'w'  { instr->cat7.w = true; }
