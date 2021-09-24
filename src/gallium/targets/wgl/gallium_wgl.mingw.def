@@ -19,8 +19,17 @@ EXPORTS
 	DrvSwapLayerBuffers = DrvSwapLayerBuffers@8
 	DrvValidateVersion = DrvValidateVersion@4
 
-	stw_get_current_context = stw_get_current_context@0
-	stw_get_current_dc = stw_get_current_dc@0
-	stw_pixelformat_choose = stw_pixelformat_choose@8
-	stw_pixelformat_get = stw_pixelformat_get@4
-	stw_override_opengl32_entry_points = stw_override_opengl32_entry_points@8
+	stw_get_current_context = stw_get_current_context
+	stw_get_current_dc = stw_get_current_dc
+	stw_pixelformat_choose = stw_pixelformat_choose
+	stw_pixelformat_get = stw_pixelformat_get
+	stw_override_opengl32_entry_points = stw_override_opengl32_entry_points
+	stw_create_context_attribs = stw_create_context_attribs
+	stw_destroy_context = stw_destroy_context
+	stw_unbind_context = stw_unbind_context
+	stw_current_context = stw_current_context
+	stw_make_current = stw_make_current
+	stw_framebuffer_create = stw_framebuffer_create
+	stw_framebuffer_release_locked = stw_framebuffer_release_locked
+	stw_framebuffer_unlock = stw_framebuffer_unlock
+	stw_framebuffer_swap_locked = stw_framebuffer_swap_locked
