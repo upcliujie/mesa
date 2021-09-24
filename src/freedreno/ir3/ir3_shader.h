@@ -154,6 +154,7 @@ struct ir3_ubo_analysis_state {
  * that pointer size (ubo, etc) changes depending on generation.
  *
  *    user consts
+ *    preamble consts
  *    UBO addresses
  *    SSBO sizes
  *    image dimensions
@@ -205,6 +206,8 @@ struct ir3_const_state {
    unsigned immediates_count;
    unsigned immediates_size;
    uint32_t *immediates;
+
+   unsigned preamble_size;
 
    /* State of ubo access lowered to push consts: */
    struct ir3_ubo_analysis_state ubo_state;
