@@ -45,7 +45,6 @@ enum {
    RADV_DEBUG_NO_DYNAMIC_BOUNDS = 1ull << 14,
    RADV_DEBUG_NO_OUT_OF_ORDER = 1ull << 15,
    RADV_DEBUG_INFO = 1ull << 16,
-   RADV_DEBUG_ERRORS = 1ull << 17,
    RADV_DEBUG_STARTUP = 1ull << 18,
    RADV_DEBUG_CHECKIR = 1ull << 19,
    RADV_DEBUG_NOBINNING = 1ull << 20,
