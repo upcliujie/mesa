@@ -587,6 +587,8 @@ make_variant_key(struct llvmpipe_context *lp,
    struct lp_sampler_static_state *cs_sampler;
 
    cs_sampler = key->samplers;
+
+   memset(cs_sampler, 0, MAX2(key->nr_samplers, key->nr_sampler_views) * sizeof *cs_sampler);
    for(i = 0; i < key->nr_samplers; ++i) {
       if(shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
          lp_sampler_static_sampler_state(&cs_sampler[i].sampler_state,
