@@ -43,9 +43,6 @@ spec@!opengl 1.0@gl-1.0-bitmap-heart-dance,Fail
 # "MESA: error: Empty fragment shader"
 spec@!opengl 1.0@gl-1.0-drawbuffer-modes,Fail
 
-# "../src/gallium/drivers/i915/i915_prim_vbuf.c:470: draw_arrays_fallback: Assertion `0' failed."
-spec@!opengl 1.0@gl-1.0-long-line-loop,Crash
-
 # "Probe color at (74,4)
 #    Expected: 1.000000 1.000000 1.000000
 #    Observed: 0.000000 0.000000 0.000000
@@ -59,9 +56,6 @@ spec@!opengl 1.0@gl-1.0-long-line-loop,Crash
 #    Observed: 1.000000 1.000000 1.000000
 #  Failure with Scissor Test set to fail mode."
 spec@!opengl 1.0@gl-1.0-no-op-paths,Fail
-
-# "../src/gallium/drivers/i915/i915_prim_vbuf.c:470: draw_arrays_fallback: Assertion `0' failed."
-spec@!opengl 1.0@gl-1.0-ortho-pos,Crash
 
 spec@!opengl 1.0@gl-1.0-scissor-offscreen,Fail
 spec@!opengl 1.0@gl-1.0-swapbuffers-behavior,Fail
@@ -96,9 +90,6 @@ spec@!opengl 1.1@linestipple@Factor 2x,Fail
 spec@!opengl 1.1@linestipple@Factor 3x,Fail
 spec@!opengl 1.1@linestipple@Line loop,Fail
 spec@!opengl 1.1@linestipple@Line strip,Fail
-
-# longprim: ../src/gallium/drivers/i915/i915_prim_vbuf.c:470: draw_arrays_fallback: Assertion `0' failed.
-spec@!opengl 1.1@longprim,Crash
 
 # "../src/compiler/nir/nir_lower_int_to_float.c:102: lower_alu_instr: Assertion `nir_alu_type_get_base_type(info->output_type) != nir_type_int && nir_alu_type_get_base_type(info->output_type) != nir_type_uint' failed."
 spec@!opengl 1.1@point-line-no-cull,Crash
