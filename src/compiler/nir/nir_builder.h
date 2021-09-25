@@ -1232,10 +1232,11 @@ nir_ssa_for_src(nir_builder *build, nir_src src, int num_components)
    if (src.is_ssa && src.ssa->num_components == num_components)
       return src.ssa;
 
+   int max_src_comp = nir_src_num_components(src) - 1;
    nir_alu_src alu = { NIR_SRC_INIT };
    alu.src = src;
    for (int j = 0; j < NIR_MAX_VEC_COMPONENTS; j++)
-      alu.swizzle[j] = j;
+      alu.swizzle[j] = MIN2(j, max_src_comp);
 
    return nir_mov_alu(build, alu, num_components);
 }
