@@ -371,6 +371,15 @@ nir_lower_blend_instr(nir_builder *b, nir_instr *instr, void *data)
    /* Apply a colormask */
    blended = nir_color_mask(b, options->rt[rt].colormask, blended, dst);
 
+   if (nir_src_num_components(intr->src[1]) != 4) {
+      nir_ssa_def *comps[4] = {
+         nir_channel(b, blended, 0), nir_channel(b, blended, 1),
+         nir_channel(b, blended, 2), nir_channel(b, blended, 3),
+      };
+
+      blended = nir_vec(b, comps, nir_src_num_components(intr->src[1]));
+   }
+
    /* Write out the final color instead of the input */
    nir_instr_rewrite_src_ssa(instr, &intr->src[1], blended);
    return true;
