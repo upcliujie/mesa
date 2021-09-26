@@ -143,8 +143,8 @@ clCreateProgramWithBinary(cl_context d_ctx, cl_uint n,
       throw error(CL_INVALID_DEVICE);
 
    // Deserialize the provided binaries,
-   std::vector<std::pair<cl_int, module>> result = map(
-      [](const unsigned char *p, size_t l) -> std::pair<cl_int, module> {
+   std::vector<std::pair<cl_int, binary>> result = map(
+      [](const unsigned char *p, size_t l) -> std::pair<cl_int, binary> {
          if (!p || !l)
             return { CL_INVALID_VALUE, {} };
 
@@ -152,7 +152,7 @@ clCreateProgramWithBinary(cl_context d_ctx, cl_uint n,
             std::stringbuf bin( std::string{ (char*)p, l } );
             std::istream s(&bin);
 
-            return { CL_SUCCESS, module::deserialize(s) };
+            return { CL_SUCCESS, binary::deserialize(s) };
 
          } catch (std::istream::failure &) {
             return { CL_INVALID_BINARY, {} };
@@ -527,7 +527,7 @@ clGetProgramInfo(cl_program d_prog, cl_program_info param,
       break;
 
    case CL_PROGRAM_KERNEL_NAMES:
-      buf.as_string() = fold([](const std::string &a, const module::symbol &s) {
+      buf.as_string() = fold([](const std::string &a, const binary::symbol &s) {
             return ((a.empty() ? "" : a + ";") + s.name);
          }, std::string(), prog.symbols());
       break;
