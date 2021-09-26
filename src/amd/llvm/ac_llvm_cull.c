@@ -52,7 +52,7 @@ struct ac_position_w_info {
 };
 
 static void ac_analyze_position_w(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
-                                  struct ac_position_w_info *w)
+                                  struct ac_position_w_info *w, bool prim_is_line)
 {
    LLVMBuilderRef builder = ctx->builder;
    LLVMValueRef all_w_negative = ctx->i1true;
@@ -60,7 +60,7 @@ static void ac_analyze_position_w(struct ac_llvm_context *ctx, LLVMValueRef pos[
    w->w_reflection = ctx->i1false;
    w->any_w_negative = ctx->i1false;
 
-   for (unsigned i = 0; i < 3; i++) {
+   for (unsigned i = 0; i < (prim_is_line ? 2 : 3); i++) {
       LLVMValueRef neg_w;
 
       neg_w = LLVMBuildFCmp(builder, LLVMRealOLT, pos[i][3], ctx->f32_0, "");
@@ -138,10 +138,12 @@ static void cull_bbox(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
       for (unsigned chan = 0; chan < (options->cull_view_near_z ||
                                       options->cull_view_far_z ? 3 : 2); chan++) {
          bbox_min[chan] = ac_build_fmin(ctx, pos[0][chan], pos[1][chan]);
-         bbox_min[chan] = ac_build_fmin(ctx, bbox_min[chan], pos[2][chan]);
-
          bbox_max[chan] = ac_build_fmax(ctx, pos[0][chan], pos[1][chan]);
-         bbox_max[chan] = ac_build_fmax(ctx, bbox_max[chan], pos[2][chan]);
+
+         if (!options->prim_is_line) {
+            bbox_min[chan] = ac_build_fmin(ctx, bbox_min[chan], pos[2][chan]);
+            bbox_max[chan] = ac_build_fmax(ctx, bbox_max[chan], pos[2][chan]);
+         }
       }
 
       /* View culling. */
@@ -231,7 +233,7 @@ void ac_cull_primitive(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
                        void *userdata)
 {
    struct ac_position_w_info w;
-   ac_analyze_position_w(ctx, pos, &w);
+   ac_analyze_position_w(ctx, pos, &w, options->prim_is_line);
 
    /* W culling. */
    LLVMValueRef accepted = options->cull_w ? w.w_accepted : ctx->i1true;
