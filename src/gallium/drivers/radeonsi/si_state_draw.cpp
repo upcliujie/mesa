@@ -2135,11 +2135,14 @@ static void si_draw_vbo(struct pipe_context *ctx,
 
       if (util_rast_prim_is_triangles(prim)) {
          rast_prim = PIPE_PRIM_TRIANGLES;
+      } else if (util_prim_is_lines(prim)) {
+         rast_prim = PIPE_PRIM_LINE_STRIP;
       } else {
-         /* Only possibilities, POINTS, LINE*, RECTANGLES */
-         rast_prim = prim;
+         assert(prim == PIPE_PRIM_POINTS || prim == SI_PRIM_RECTANGLE_LIST);
+         rast_prim = prim; /* Either POINTS or RECTANGLES */
       }
 
+      /* Only possibilities: POINTS, LINE_STRIP, TRIANGLES, RECTANGLES. */
       if (rast_prim != sctx->current_rast_prim) {
          if (util_prim_is_points_or_lines(sctx->current_rast_prim) !=
              util_prim_is_points_or_lines(rast_prim))
@@ -2157,8 +2160,10 @@ static void si_draw_vbo(struct pipe_context *ctx,
 
       if (NGG && !HAS_GS &&
           /* Tessellation sets ngg_cull_vert_threshold to UINT_MAX if the prim type
-           * is not triangles, so this check is only needed without tessellation. */
-          (HAS_TESS || sctx->current_rast_prim == PIPE_PRIM_TRIANGLES) &&
+           * is not points, so this check is only needed without tessellation. */
+          (HAS_TESS ||
+           sctx->current_rast_prim == PIPE_PRIM_TRIANGLES ||
+           sctx->current_rast_prim == PIPE_PRIM_LINE_STRIP) &&
           /* Only the first draw for a shader starts with culling disabled and it's disabled
            * until we pass the total_direct_count check and then it stays enabled until
            * the shader is changed. This eliminates most culling on/off state changes. */
@@ -2169,6 +2174,11 @@ static void si_draw_vbo(struct pipe_context *ctx,
          uint8_t ngg_culling = sctx->viewport0_y_inverted ? rs->ngg_cull_flags_y_inverted :
                                                             rs->ngg_cull_flags;
          assert(ngg_culling); /* rasterizer state should always set this to non-zero */
+
+         if (sctx->current_rast_prim == PIPE_PRIM_LINE_STRIP) {
+            /* Overwrite it to mask out face cull flags. */
+            ngg_culling = SI_NGG_CULL_ENABLED | SI_NGG_CULL_LINES;
+         }
 
          /* Use NGG fast launch for certain primitive types.
           * A draw must have at least 1 full primitive.
