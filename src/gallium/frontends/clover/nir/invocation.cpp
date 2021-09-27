@@ -90,7 +90,8 @@ clover_nir_lower_images(nir_shader *shader)
 
    ASSERTED int last_loc = -1;
    int num_rd_images = 0, num_wr_images = 0, num_samplers = 0;
-   nir_foreach_uniform_variable(var, shader) {
+   nir_foreach_variable_with_modes_safe(var, shader, nir_var_uniform |
+                                                     nir_var_mem_image) {
       if (glsl_type_is_image(var->type) || glsl_type_is_sampler(var->type)) {
          /* Assume they come in order */
          assert(var->data.location > last_loc);
