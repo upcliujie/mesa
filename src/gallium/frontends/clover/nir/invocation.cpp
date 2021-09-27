@@ -392,8 +392,16 @@ nir_shader *clover::nir::load_libclc_nir(const device &dev, std::string &r_log)
    spirv_to_nir_options spirv_options = create_spirv_options(dev, r_log);
    auto *compiler_options = dev_get_nir_compiler_options(dev);
 
-   return nir_load_libclc_shader(dev.address_bits(), dev.clc_cache,
-				 &spirv_options, compiler_options);
+   auto *nir = nir_load_libclc_shader(dev.address_bits(), dev.clc_cache,
+				      &spirv_options, compiler_options);
+
+   const struct nir_sysvals_to_varyings_options sysvals_to_varyings = {
+      .frag_coord = true,
+      .point_coord = true,
+   };
+   nir_sysvals_to_varyings(nir, &sysvals_to_varyings);
+
+   return nir;
 }
 
 static bool
