@@ -283,7 +283,7 @@ copper_flush_frontbuffer(struct dri_context *ctx,
 
    if (ptex) {
       ctx->st->pipe->flush_resource(ctx->st->pipe, drawable->textures[ST_ATTACHMENT_FRONT_LEFT]);
-      ctx->st->flush(ctx->st, 0, NULL, NULL, NULL);
+      copper_copy_to_front(ctx->st->pipe, ctx->dPriv, ptex);
    }
 
    return true;
