@@ -238,6 +238,7 @@ zink_create_surface(struct pipe_context *pctx,
          struct copper_displaytarget *cdt = res->obj->dt;
          surface->swapchain = calloc(cdt->num_images, sizeof(VkImageView));
          surface->swapchain[cdt->curr_image] = surface->image_view;
+         surface->is_swapchain = true;
          psurf = &surface->base;
       }
    } else
@@ -300,8 +301,7 @@ zink_destroy_surface(struct zink_screen *screen, struct pipe_surface *psurface)
 {
    struct zink_surface *surface = zink_surface(psurface);
    struct zink_resource *res = zink_resource(psurface->texture);
-   struct zink_resource_object *obj = surface->obj;
-   if (!psurface->nr_samples && !obj->dt) {
+   if (!psurface->nr_samples && !surface->is_swapchain) {
       simple_mtx_lock(&res->surface_mtx);
       if (psurface->reference.count) {
          /* got a cache hit during deletion */
@@ -318,16 +318,16 @@ zink_destroy_surface(struct zink_screen *screen, struct pipe_surface *psurface)
       surface_clear_fb_refs(screen, psurface);
    zink_descriptor_set_refs_clear(&surface->desc_set_refs, surface);
    util_dynarray_fini(&surface->framebuffer_refs);
-   pipe_resource_reference(&psurface->texture, NULL);
    if (surface->simage_view)
       VKSCR(DestroyImageView)(screen->dev, surface->simage_view, NULL);
-   if (obj->dt) {
-      struct copper_displaytarget *cdt = obj->dt;
+   if (surface->is_swapchain) {
+      struct copper_displaytarget *cdt = res->obj->dt;
       for (unsigned i = 0; i < cdt->num_images; i++)
          VKSCR(DestroyImageView)(screen->dev, surface->swapchain[i], NULL);
       free(surface->swapchain);
    } else
       VKSCR(DestroyImageView)(screen->dev, surface->image_view, NULL);
+   pipe_resource_reference(&psurface->texture, NULL);
    FREE(surface);
 }
 

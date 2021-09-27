@@ -44,6 +44,7 @@ struct zink_surface {
    VkImageViewCreateInfo ivci;
    struct zink_surface_info info; //TODO: union with fb refs
    uint32_t info_hash;
+   bool is_swapchain;
    VkImageView image_view;
    VkImageView *swapchain;
    VkImageView simage_view;//old iview after storage replacement/rebind
