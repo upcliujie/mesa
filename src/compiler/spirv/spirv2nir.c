@@ -179,6 +179,12 @@ int main(int argc, char **argv)
                                   shader_stage, entry_point,
                                   &spirv_opts, NULL);
 
+   const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
+      .frag_coord = true,
+      .point_coord = true,
+   };
+   NIR_PASS_V(nir, nir_lower_sysvals_to_varyings, &sysvals_to_varyings);
+
    if (nir)
       nir_print_shader(nir, stderr);
    else
