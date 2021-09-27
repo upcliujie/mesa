@@ -70,9 +70,9 @@ struct zink_batch_state {
    VkCommandBuffer barrier_cmdbuf;
 
    VkQueue queue; //duplicated from batch for threading
-   VkSemaphore acquire;
    VkSemaphore present;
    struct zink_resource *swapchain;
+   struct util_dynarray acquires;
 
    struct util_queue_fence flush_completed;
 
@@ -114,7 +114,6 @@ struct zink_batch {
    bool has_work;
    bool last_was_compute;
    bool in_rp; //renderpass is currently active
-   bool present;
 };
 
 

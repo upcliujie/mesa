@@ -99,7 +99,7 @@ copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *
         cdt->scci.imageFormat = zink_get_format(screen, cdt->format);
         cdt->scci.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
         cdt->scci.imageArrayLayers = 1;        // XXX stereo
-        cdt->scci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+        cdt->scci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                VK_IMAGE_USAGE_SAMPLED_BIT |
                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         cdt->scci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;        // XXX no idea
@@ -188,7 +188,6 @@ copper_displaytarget_destroy(struct sw_winsys *ws, struct sw_displaytarget *dt)
    free(cdt->images);
    for (unsigned i = 0; i < cdt->num_images; i++)
       VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[i], NULL);
-   VKSCR(DestroySemaphore)(screen->dev, cdt->present, NULL);
    free(cdt->acquires);
    FREE(dt);
 }
@@ -263,15 +262,6 @@ zink_copper_present(struct zink_screen *screen, struct zink_resource *res)
    //error checking
    VkResult ret = VKSCR(CreateSemaphore)(screen->dev, &sci, NULL, &cdt->present);
    return cdt->present;
-}
-
-static void
-acquire_next(struct zink_screen *screen, struct zink_resource *res)
-{
-   assert(res->obj->dt);
-   struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
-   cdt->acquire = VK_NULL_HANDLE;
-   zink_copper_acquire(screen, res, 0);
 }
 
 struct copper_present_info {

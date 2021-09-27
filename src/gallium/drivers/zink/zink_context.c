@@ -2062,19 +2062,19 @@ prep_fb_attachment(struct zink_context *ctx, struct zink_surface *surf, unsigned
    if (!surf)
       return zink_csurface(ctx->dummy_surface[util_logbase2_ceil(ctx->fb_state.samples)])->image_view;
 
-   zink_batch_resource_usage_set(&ctx->batch, zink_resource(surf->base.texture), true);
-   zink_batch_usage_set(&surf->batch_uses, ctx->batch.state);
-
    struct zink_resource *res = zink_resource(surf->base.texture);
    VkAccessFlags access;
    VkPipelineStageFlags pipeline;
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
    if (res->obj->dt) {
-      zink_copper_acquire(zink_screen(ctx->base.screen), res, UINT64_MAX);
-      zink_surface_swapchain_update(zink_screen(ctx->base.screen), surf);
+      zink_copper_acquire(screen, res, UINT64_MAX);
+      zink_surface_swapchain_update(screen, surf);
    }
    VkImageLayout layout = zink_render_pass_attachment_get_barrier_info(ctx->gfx_pipeline_state.render_pass,
                                                                        i, &pipeline, &access);
    zink_resource_image_barrier(ctx, res, layout, access, pipeline);
+   zink_batch_resource_usage_set(&ctx->batch, res, true);
+   zink_batch_usage_set(&surf->batch_uses, ctx->batch.state);
    return surf->image_view;
 }
 
@@ -3356,9 +3356,9 @@ zink_flush_resource(struct pipe_context *pctx,
    struct zink_context *ctx = zink_context(pctx);
    struct zink_resource *res = zink_resource(pres);
    if (pres->bind & PIPE_BIND_DISPLAY_TARGET) {
-      zink_batch_resource_usage_set(&ctx->batch, res, true);
       zink_resource_image_barrier(ctx, res, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-      ctx->batch.present = true;
+      zink_batch_reference_resource_rw(&ctx->batch, res, true);
+      ctx->batch.swapchain = res;
    }
 }
 
