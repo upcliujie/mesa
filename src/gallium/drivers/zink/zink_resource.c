@@ -447,11 +447,12 @@ create_ici(struct zink_screen *screen, VkImageCreateInfo *ici, const struct pipe
 
 static struct zink_resource_object *
 resource_object_create(struct zink_screen *screen, const struct pipe_resource *templ, struct winsys_handle *whandle, bool *optimal_tiling,
-                       const uint64_t *modifiers, int modifiers_count)
+                       const uint64_t *modifiers, int modifiers_count, const void *loader_private)
 {
    struct zink_resource_object *obj = CALLOC_STRUCT(zink_resource_object);
    if (!obj)
       return NULL;
+   obj->dt_idx = UINT32_MAX; //TODO: unionize
 
    VkMemoryRequirements reqs;
    VkMemoryPropertyFlags flags;
@@ -473,7 +474,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    pipe_reference_init(&obj->reference, 1);
    util_dynarray_init(&obj->tmp, NULL);
    util_dynarray_init(&obj->desc_set_refs.refs, NULL);
-   if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
+   if (loader_private) {
       obj->bo = CALLOC_STRUCT(zink_bo);
       obj->transfer_dst = true;
       obj->vkusage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
@@ -752,7 +753,7 @@ resource_create(struct pipe_screen *pscreen,
    unsigned scanout_flags = templ->bind & (PIPE_BIND_SCANOUT | PIPE_BIND_SHARED);
    if (!(templ->bind & PIPE_BIND_LINEAR))
       templ2.bind &= ~scanout_flags;
-   res->obj = resource_object_create(screen, &templ2, whandle, &optimal_tiling, NULL, 0);
+   res->obj = resource_object_create(screen, &templ2, whandle, &optimal_tiling, NULL, 0, loader_private);
    if (!res->obj) {
       free(res->modifiers);
       FREE_CL(res);
@@ -782,17 +783,29 @@ resource_create(struct pipe_screen *pscreen,
       res->aspect = aspect_from_format(templ->format);
    }
 
-   if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
-      struct sw_winsys *winsys = &screen->winsys;
-      res->obj->dt = winsys->displaytarget_create(winsys,
-                                                  res->base.b.bind,
-                                                  res->base.b.format,
-                                                  templ->width0,
-                                                  templ->height0,
-                                                  64, loader_private,
-                                                  &res->dt_stride);
-      assert(res->obj->dt);
-      zink_copper_acquire(screen, res, UINT64_MAX);
+   if (loader_private) {
+      if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
+         /* backbuffer */
+         struct sw_winsys *winsys = &screen->winsys;
+         res->obj->dt = winsys->displaytarget_create(winsys,
+                                                     res->base.b.bind,
+                                                     res->base.b.format,
+                                                     templ->width0,
+                                                     templ->height0,
+                                                     64, loader_private,
+                                                     &res->dt_stride);
+         assert(res->obj->dt);
+         zink_copper_acquire(screen, res, UINT64_MAX);
+      } else {
+         /* frontbuffer */
+         struct zink_resource *back = (void*)loader_private;
+         struct copper_displaytarget *cdt = back->obj->dt;
+         cdt->refcount++;
+         assert(back->obj->dt);
+         res->obj->dt = back->obj->dt;
+         /* try for quick acquire */
+         zink_copper_acquire(screen, res, 0);
+      }
    }
    if (res->obj->is_buffer) {
       res->base.buffer_id_unique = util_idalloc_mt_alloc(&screen->buffer_ids);
@@ -1021,7 +1034,7 @@ invalidate_buffer(struct zink_context *ctx, struct zink_resource *res)
       return false;
 
    struct zink_resource_object *old_obj = res->obj;
-   struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, NULL, NULL, 0);
+   struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, NULL, NULL, 0, NULL);
    if (!new_obj) {
       debug_printf("new backing resource alloc failed!");
       return false;
@@ -1603,11 +1616,12 @@ zink_resource_object_init_storage(struct zink_context *ctx, struct zink_resource
       res->obj->buffer = buffer;
       res->base.b.bind |= PIPE_BIND_SHADER_IMAGE;
    } else {
+      assert(!res->obj->dt);
       zink_fb_clears_apply_region(ctx, &res->base.b, (struct u_rect){0, res->base.b.width0, 0, res->base.b.height0});
       zink_resource_image_barrier(ctx, res, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0);
       res->base.b.bind |= PIPE_BIND_SHADER_IMAGE;
       struct zink_resource_object *old_obj = res->obj;
-      struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, &res->optimal_tiling, res->modifiers, res->modifiers_count);
+      struct zink_resource_object *new_obj = resource_object_create(screen, &res->base.b, NULL, &res->optimal_tiling, res->modifiers, res->modifiers_count, NULL);
       if (!new_obj) {
          debug_printf("new backing resource alloc failed!");
          res->base.b.bind &= ~PIPE_BIND_SHADER_IMAGE;

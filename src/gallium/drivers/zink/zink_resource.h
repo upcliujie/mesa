@@ -78,8 +78,17 @@ struct zink_resource_object {
    bool is_buffer;
    VkImageAspectFlags modifier_aspect;
 
+   /* TODO: this should be a union */
    struct zink_bo *bo;
+   // struct {
    void *dt;
+   uint32_t dt_idx;
+   VkSemaphore acquire;
+   VkSemaphore present;
+   bool acquired;
+   // }
+
+
    VkDeviceSize offset, size, alignment;
    VkImageCreateFlags vkflags;
    VkImageUsageFlags vkusage;

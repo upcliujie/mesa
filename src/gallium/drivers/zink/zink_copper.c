@@ -151,10 +151,10 @@ copper_displaytarget_create(struct sw_winsys *ws, unsigned tex_usage,
    if (!cdt)
       return NULL;
 
+   cdt->refcount = 1;
    cdt->format = format;
    cdt->extent.width = width;
    cdt->extent.height = height;
-   cdt->curr_image = 999999;
    cdt->loader_private = (void*)loader_private;
 
    cdt->surface = copper_CreateSurface(screen, cdt, info);
@@ -167,8 +167,6 @@ copper_displaytarget_create(struct sw_winsys *ws, unsigned tex_usage,
 
    if (!copper_GetSwapchainImages(screen, cdt))
       goto out;
-
-   cdt->acquires = calloc(cdt->num_images, sizeof(VkSemaphore));
 
    *stride = cdt->stride;
    return (struct sw_displaytarget *)cdt;
@@ -183,12 +181,11 @@ copper_displaytarget_destroy(struct sw_winsys *ws, struct sw_displaytarget *dt)
 {
    struct zink_screen *screen = copper_winsys_screen(ws);
    struct copper_displaytarget *cdt = copper_displaytarget(dt);
+   if (!p_atomic_dec_zero(&cdt->refcount))
+      return;
    VKSCR(DestroySwapchainKHR)(screen->dev, cdt->swapchain, NULL);
    VKSCR(DestroySurfaceKHR)(screen->instance, cdt->surface, NULL);
    free(cdt->images);
-   for (unsigned i = 0; i < cdt->num_images; i++)
-      VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[i], NULL);
-   free(cdt->acquires);
    FREE(dt);
 }
 
@@ -209,29 +206,29 @@ zink_copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint6
 {
    assert(res->obj->dt);
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
-   if (cdt->acquire)
+   if (res->obj->acquire)
       return true;
    VkSemaphoreCreateInfo sci = {
       VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
       NULL,
       0
    };
-   VkResult ret = VKSCR(CreateSemaphore)(screen->dev, &sci, NULL, &cdt->acquire);
-   assert(cdt->acquire);
+   VkSemaphore acquire;
+   VkResult ret = VKSCR(CreateSemaphore)(screen->dev, &sci, NULL, &acquire);
+   assert(acquire);
    if (ret != VK_SUCCESS)
       return false;
-   unsigned prev = cdt->curr_image;
-   ret = VKSCR(AcquireNextImageKHR)(screen->dev, cdt->swapchain, timeout, cdt->acquire, VK_NULL_HANDLE, &cdt->curr_image);
+   unsigned prev = res->obj->dt_idx;
+   ret = VKSCR(AcquireNextImageKHR)(screen->dev, cdt->swapchain, timeout, acquire, VK_NULL_HANDLE, &res->obj->dt_idx);
    if (ret != VK_SUCCESS && ret != VK_SUBOPTIMAL_KHR) {
-      VKSCR(DestroySemaphore)(screen->dev, cdt->acquire, NULL);
-      cdt->acquire = VK_NULL_HANDLE;
+      VKSCR(DestroySemaphore)(screen->dev, acquire, NULL);
       return false;
    }
-   assert(prev != cdt->curr_image);
-   VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[cdt->curr_image], NULL);
-   cdt->acquires[cdt->curr_image] = cdt->acquire;
-   res->obj->image = cdt->images[cdt->curr_image];
-   cdt->acquired = false;
+   assert(prev != res->obj->dt_idx);
+   VKSCR(DestroySemaphore)(screen->dev, res->obj->acquire, NULL);
+   res->obj->acquire = acquire;
+   res->obj->image = cdt->images[res->obj->dt_idx];
+   res->obj->acquired = false;
    return ret == VK_SUCCESS;
 }
 
@@ -240,11 +237,11 @@ zink_copper_acquire_submit(struct zink_screen *screen, struct zink_resource *res
 {
    assert(res->obj->dt);
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
-   if (cdt->acquired)
+   if (res->obj->acquired)
       return VK_NULL_HANDLE;
-   assert(cdt->acquire);
-   cdt->acquired = true;
-   return cdt->acquire;
+   assert(res->obj->acquire);
+   res->obj->acquired = true;
+   return res->obj->acquire;
 }
 
 VkSemaphore
@@ -252,16 +249,16 @@ zink_copper_present(struct zink_screen *screen, struct zink_resource *res)
 {
    assert(res->obj->dt);
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
-   assert(!cdt->present);
+   assert(!res->obj->present);
    VkSemaphoreCreateInfo sci = {
       VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
       NULL,
       0
    };
-   assert(cdt->acquired);
+   assert(res->obj->acquired);
    //error checking
-   VkResult ret = VKSCR(CreateSemaphore)(screen->dev, &sci, NULL, &cdt->present);
-   return cdt->present;
+   VkResult ret = VKSCR(CreateSemaphore)(screen->dev, &sci, NULL, &res->obj->present);
+   return res->obj->present;
 }
 
 struct copper_present_info {
@@ -287,11 +284,11 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
 {
    assert(res->obj->dt);
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
-   assert(cdt->present);
-   assert(cdt->acquired);
+   assert(res->obj->present);
+   assert(res->obj->acquired);
    struct copper_present_info *cpi = malloc(sizeof(struct copper_present_info));
-   cpi->sem = cdt->present;
-   cpi->image = cdt->curr_image;
+   cpi->sem = res->obj->present;
+   cdt->last_image = cpi->image = res->obj->dt_idx;
    cpi->info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
    cpi->info.pNext = NULL;
    cpi->info.waitSemaphoreCount = 1;
@@ -300,7 +297,7 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
    cpi->info.pSwapchains = &cdt->swapchain;
    cpi->info.pImageIndices = &cpi->image;
    cpi->info.pResults = NULL;
-   cdt->present = NULL;
+   res->obj->present = NULL;
    if (screen->threaded
 #ifndef _WIN32
        && !screen->renderdoc_api
@@ -311,6 +308,6 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
    } else {
       copper_present(cpi, screen, 0);
    }
-   cdt->acquire = VK_NULL_HANDLE;
-   cdt->acquired = false;
+   res->obj->acquire = VK_NULL_HANDLE;
+   res->obj->acquired = false;
 }

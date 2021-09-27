@@ -171,8 +171,7 @@ copper_allocate_textures(struct dri_context *ctx,
 
       dri_drawable_get_format(drawable, statts[i], &format, &bind);
 
-      /* if we don't do any present, no need for display targets */
-      if (statts[i] != ST_ATTACHMENT_DEPTH_STENCIL)
+      if (statts[i] == ST_ATTACHMENT_BACK_LEFT)
          bind |= PIPE_BIND_DISPLAY_TARGET;
 
       if (format == PIPE_FORMAT_NONE)
@@ -183,17 +182,18 @@ copper_allocate_textures(struct dri_context *ctx,
       templ.nr_samples = 0;
       templ.nr_storage_samples = 0;
 
-      // XXX port the drisw thing here!
-#if 0
-      if (statts[i] == ST_ATTACHMENT_FRONT_LEFT &&
-          screen->base.screen->resource_create_front &&
-          loader->base.version >= 3) {
+      if (statts[i] < ST_ATTACHMENT_DEPTH_STENCIL) {
+         void *data;
+         if (statts[i] == ST_ATTACHMENT_BACK_LEFT)
+            data = &cdraw->sci;
+         else
+            data = drawable->textures[ST_ATTACHMENT_BACK_LEFT];
+         assert(data);
          drawable->textures[statts[i]] =
-            screen->base.screen->resource_create_front(screen->base.screen, &templ, drawable);
+            screen->base.screen->resource_create_drawable(screen->base.screen, &templ, data);
       } else
-#endif
          drawable->textures[statts[i]] =
-            screen->base.screen->resource_create_drawable(screen->base.screen, &templ, &cdraw->sci);
+            screen->base.screen->resource_create(screen->base.screen, &templ);
 
       if (drawable->stvis.samples > 1) {
          templ.bind = templ.bind &

@@ -232,12 +232,13 @@ zink_create_surface(struct pipe_context *pctx,
 
    struct pipe_surface *psurf = NULL;
    if (res->obj->dt) {
+      zink_copper_acquire(zink_screen(pctx->screen), res, UINT64_MAX);
       /* don't cache swapchain surfaces. that's weird. */
       struct zink_surface *surface = do_create_surface(pctx, pres, templ, &ivci, 0);
       if (surface) {
          struct copper_displaytarget *cdt = res->obj->dt;
          surface->swapchain = calloc(cdt->num_images, sizeof(VkImageView));
-         surface->swapchain[cdt->curr_image] = surface->image_view;
+         surface->swapchain[res->obj->dt_idx] = surface->image_view;
          surface->is_swapchain = true;
          psurf = &surface->base;
       }
@@ -431,11 +432,11 @@ zink_surface_swapchain_update(struct zink_screen *screen, struct zink_surface *s
 {
    struct zink_resource *res = zink_resource(surface->base.texture);
    struct copper_displaytarget *cdt = res->obj->dt;
-   if (!surface->swapchain[cdt->curr_image]) {
-      assert(res->obj->image && cdt->images[cdt->curr_image] == res->obj->image);
+   if (!surface->swapchain[res->obj->dt_idx]) {
+      assert(res->obj->image && cdt->images[res->obj->dt_idx] == res->obj->image);
       surface->ivci.image = res->obj->image;
       assert(surface->ivci.image);
-      VKSCR(CreateImageView)(screen->dev, &surface->ivci, NULL, &surface->swapchain[cdt->curr_image]);
+      VKSCR(CreateImageView)(screen->dev, &surface->ivci, NULL, &surface->swapchain[res->obj->dt_idx]);
    }
-   surface->image_view = surface->swapchain[cdt->curr_image];
+   surface->image_view = surface->swapchain[res->obj->dt_idx];
 }

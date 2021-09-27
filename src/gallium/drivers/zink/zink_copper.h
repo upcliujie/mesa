@@ -31,6 +31,7 @@
 
 struct copper_displaytarget
 {
+   unsigned refcount;
    VkFormat format;
    VkExtent2D extent;
    unsigned width;
@@ -42,11 +43,7 @@ struct copper_displaytarget
    VkSwapchainKHR swapchain;
    VkImage *images;
    unsigned num_images;
-   uint32_t curr_image;
-   bool acquired;
-   VkSemaphore acquire;
-   VkSemaphore *acquires;
-   VkSemaphore present;
+   uint32_t last_image;
 
    union {
        VkBaseOutStructure bos;
