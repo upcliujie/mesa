@@ -475,7 +475,8 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    util_dynarray_init(&obj->desc_set_refs.refs, NULL);
    if (templ->bind & PIPE_BIND_DISPLAY_TARGET) {
       obj->bo = CALLOC_STRUCT(zink_bo);
-      obj->vkusage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+      obj->transfer_dst = true;
+      obj->vkusage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                      VK_IMAGE_USAGE_SAMPLED_BIT |
                      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       return obj;
