@@ -142,6 +142,10 @@ pan_shader_prepare_bifrost_rsd(const struct pan_shader_info *info,
                 rsd->properties.bifrost.shader_wait_dependency_7 = info->bifrost.wait_7;
 #endif
 
+                /* Match the mesa/st convention. If this needs to be flipped,
+                 * nir_lower_pntc_ytransform will do so. */
+                rsd->properties.bifrost.point_sprite_coord_origin_max_y = true;
+
                 rsd->properties.bifrost.allow_forward_pixel_to_be_killed =
                         !info->fs.sidefx;
 
