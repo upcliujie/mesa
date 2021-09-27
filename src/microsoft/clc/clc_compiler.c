@@ -516,6 +516,12 @@ clc_libclc_new(const struct clc_logger *logger, const struct clc_libclc_options 
       return NULL;
    }
 
+   const struct nir_sysvals_to_varyings_options sysvals_to_varyings = {
+      .frag_coord = true,
+      .point_coord = true,
+   };
+   nir_sysvals_to_varyings(nir, &sysvals_to_varyings);
+
    if (options && options->optimize)
       clc_libclc_optimize(s);
 

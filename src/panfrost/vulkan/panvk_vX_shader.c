@@ -67,6 +67,13 @@ panvk_spirv_to_nir(const void *code,
    assert(nir->info.stage == stage);
    nir_validate_shader(nir, "after spirv_to_nir");
 
+   const struct nir_sysvals_to_varyings_options sysvals_to_varyings = {
+      .frag_coord = PAN_ARCH <= 5,
+      .point_coord = PAN_ARCH <= 5,
+      .front_face = PAN_ARCH <= 5,
+   };
+   nir_sysvals_to_varyings(nir, &sysvals_to_varyings);
+
    return nir;
 }
 
