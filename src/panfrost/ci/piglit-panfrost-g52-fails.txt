@@ -90,7 +90,6 @@ spec@arb_depth_texture@texwrap formats bordercolor-swizzled@GL_DEPTH_COMPONENT32
 spec@arb_direct_state_access@gettextureimage-formats,Crash
 spec@arb_direct_state_access@gettextureimage-formats init-by-rendering,Fail
 spec@arb_direct_state_access@texture-buffer,Fail
-spec@arb_draw_buffers@fbo-mrt-new-bind,Crash
 spec@arb_es2_compatibility@fbo-blending-formats,Fail
 spec@arb_es2_compatibility@fbo-blending-formats@GL_RGB565,Fail
 spec@arb_es2_compatibility@texwrap formats bordercolor,Fail

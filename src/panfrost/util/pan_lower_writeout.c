@@ -143,7 +143,15 @@ pan_nir_lower_zs_store(nir_shader *nir)
                                 nir_instr_remove(instr);
 
                                 replaced = true;
+                                break;
                         }
+
+                        /* Only replace a single RT. Otherwise we'll emit
+                         * multiple ZS_EMIT instructions on Bifrost, which
+                         * violates an architectural invariant (Piglit:
+                         * fbo-mrt-new-bind) */
+                        if (replaced)
+                                break;
                 }
 
                 /* Insert a store to the depth RT (0xff) if needed */
