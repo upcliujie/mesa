@@ -636,8 +636,9 @@ panfrost_batch_submit_ioctl(struct panfrost_batch *batch,
         if (ret)
                 return errno;
 
-        /* Trace the job if we're doing that */
-        if (dev->debug & (PAN_DBG_TRACE | PAN_DBG_SYNC)) {
+        /* Trace the job if we're doing that. There's nothing to wait on for
+         * INTEL_blackhole_render, though, so don't crash in that case. */
+        if (!ctx->is_noop && dev->debug & (PAN_DBG_TRACE | PAN_DBG_SYNC)) {
                 /* Wait so we can get errors reported back */
                 drmSyncobjWait(dev->fd, &out_sync, 1,
                                INT64_MAX, 0, NULL);
