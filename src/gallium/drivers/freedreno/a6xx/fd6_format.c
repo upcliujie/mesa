@@ -57,26 +57,35 @@ fd6_tex_swiz(enum pipe_format format, unsigned char *swiz, unsigned swizzle_r,
 {
    const struct util_format_description *desc = util_format_description(format);
    const unsigned char uswiz[4] = {swizzle_r, swizzle_g, swizzle_b, swizzle_a};
+   uint8_t format_swizzle[4];
 
-   /* Gallium expects stencil sampler to return (s,s,s,s), so massage
-    * the swizzle to do so.
-    */
    if (format == PIPE_FORMAT_X24S8_UINT) {
-      const unsigned char stencil_swiz[4] = {PIPE_SWIZZLE_W, PIPE_SWIZZLE_W,
-                                             PIPE_SWIZZLE_W, PIPE_SWIZZLE_W};
-      util_format_compose_swizzles(stencil_swiz, uswiz, swiz);
-   } else if (fd6_pipe2swap(format) != WZYX) {
-      /* Formats with a non-pass-through swap are permutations of RGBA
-       * formats. We program the permutation using the swap and don't
-       * need to compose the format swizzle with the user swizzle.
+      /* Gallium expects stencil sampler to return (s,s,s,s), so massage
+       * the swizzle to do so.
        */
-      memcpy(swiz, uswiz, sizeof(uswiz));
+      for (int i = 0; i < 4; i++)
+         format_swizzle[i] = PIPE_SWIZZLE_W;
+   } else if (fd6_pipe2swap(format) != WZYX) {
+      /* Formats with a non-pass-through swap are permutations of RGBA formats.
+       * We program the permutation using the swap and don't need to compose the
+       * format swizzle with the user swizzle.  However, sometimes for unswapped
+       * RGBx formats, we still need to force alpha to 1.
+       */
+      for (int i = 0; i < 4; i++) {
+         if (desc->swizzle[i] == PIPE_SWIZZLE_0 || desc->swizzle[i] == PIPE_SWIZZLE_1)
+            format_swizzle[i] = desc->swizzle[i];
+         else
+            format_swizzle[i] = i;
+      }
+
    } else {
       /* Otherwise, it's an unswapped RGBA format or a format like L8 where
        * we need the XXX1 swizzle from the gallium format description.
        */
-      util_format_compose_swizzles(desc->swizzle, uswiz, swiz);
+      memcpy(format_swizzle, desc->swizzle, sizeof(format_swizzle));
    }
+
+   util_format_compose_swizzles(format_swizzle, uswiz, swiz);
 }
 
 /* Compute the TEX_CONST_0 value for texture state, including SWIZ/SWAP/etc: */
