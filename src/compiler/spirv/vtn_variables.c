@@ -2021,7 +2021,10 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
        storage_class == SpvStorageClassWorkgroup)
       initializer = NULL;
 
-   if (initializer) {
+   /* Only initialize variable when there is an initializer and it's not
+    * undef.
+    */
+   if (initializer && !initializer->is_undef_constant) {
       switch (storage_class) {
       case SpvStorageClassWorkgroup:
          /* VK_KHR_zero_initialize_workgroup_memory. */
