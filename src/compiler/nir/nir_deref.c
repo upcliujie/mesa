@@ -408,12 +408,16 @@ nir_fixup_deref_modes(nir_shader *shader)
                continue;
 
             nir_deref_instr *deref = nir_instr_as_deref(instr);
-            if (deref->deref_type == nir_deref_type_cast)
-               continue;
-
             nir_variable_mode parent_modes;
             if (deref->deref_type == nir_deref_type_var) {
                parent_modes = deref->var->data.mode;
+            } else if (deref->deref_type == nir_deref_type_cast) {
+               assert(deref->parent.is_ssa);
+               nir_deref_instr *parent =
+                  nir_src_as_deref(deref->parent);
+               if (!parent)
+                  continue;
+               parent_modes = parent->modes;
             } else {
                assert(deref->parent.is_ssa);
                nir_deref_instr *parent =
