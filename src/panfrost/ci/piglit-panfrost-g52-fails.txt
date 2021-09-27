@@ -21,8 +21,6 @@ glx@glx-visuals-stencil -pixmap,Crash
 shaders@glsl-arb-fragment-coord-conventions,Fail
 shaders@glsl-bug-110796,Fail
 shaders@glsl-fs-pointcoord,Fail
-shaders@glsl-max-varyings,Crash
-shaders@glsl-max-varyings >max_varying_components,Crash
 shaders@glsl-uniform-interstage-limits@subdivide 5,Crash
 shaders@glsl-uniform-interstage-limits@subdivide 5- statechanges,Crash
 shaders@glsl-vs-if-bool,Fail
