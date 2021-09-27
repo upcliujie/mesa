@@ -27,6 +27,7 @@
 
 #include "adreno_common.xml.h"
 #include "a6xx.xml.h"
+#include "fdl/fd6_format_table.h"
 
 #include "vk_format.h"
 #include "vk_util.h"
@@ -331,13 +332,29 @@ tu6_format_vtx(VkFormat format)
 }
 
 struct tu_native_format
-tu6_format_color(VkFormat format, enum a6xx_tile_mode tile_mode)
+tu6_format_color(VkFormat vk_format, enum a6xx_tile_mode tile_mode)
 {
-   struct tu_native_format fmt = tu6_get_native_format(format);
+   struct tu_native_format fmt = tu6_get_native_format(vk_format);
    assert(fmt.supported & FMT_COLOR);
+
+   enum pipe_format format = vk_format_to_pipe_format(vk_format);
+   enum a3xx_color_swap swap = fd6_pipe2swap(format);
+   enum a6xx_format fd_format = fd6_pipe2color(format);
+
+   switch (format) {
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      fd_format = FMT6_8_8_8_8_UNORM;
+      break;
+   default:
+      break;
+   }
 
    if (fmt.fmt == FMT6_10_10_10_2_UNORM)
       fmt.fmt = FMT6_10_10_10_2_UNORM_DEST;
+
+   assert(swap == fmt.swap);
+   assert(fd_format == fmt.fmt);
 
    if (tile_mode)
       fmt.swap = WZYX;
@@ -351,6 +368,49 @@ tu6_format_texture(VkFormat vk_format, enum a6xx_tile_mode tile_mode)
    enum pipe_format format = vk_format_to_pipe_format(vk_format);
    struct tu_native_format fmt = tu6_get_native_format(vk_format);
    assert(fmt.supported & FMT_TEXTURE);
+
+   enum a3xx_color_swap swap = fd6_pipe2swap(format);
+   enum a6xx_format fd_format = fd6_pipe2tex(format);
+
+   switch (format) {
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      /* freedreno uses Z24_UNORM_S8_UINT (sampling) or
+       * FMT6_Z24_UNORM_S8_UINT_AS_R8G8B8A8 (blits) for this format, while we use
+       * FMT6_8_8_8_8_UNORM or FMT6_Z24_UNORM_S8_UINT_AS_R8G8B8A8
+       */
+      fd_format = FMT6_8_8_8_8_UNORM;
+      break;
+
+   /* vk_format_to_pipe_format maps the RGB planar formats to YUV pipe formats,
+    * but we don't actually support sampling YUV pipe formats with colorspace
+    * conversion in the sampler.  We can't just set up the YUV pipe formats with
+    * the rgb tex format, because then mesa/st would skip doing shader
+    * colorspace conversion for them.
+    */
+   case PIPE_FORMAT_YUYV:
+      fd_format = FMT6_R8G8R8B8_422_UNORM;
+      swap = WZYX;
+      break;
+   case PIPE_FORMAT_UYVY:
+      fd_format = FMT6_G8R8B8R8_422_UNORM;
+      swap = WZYX;
+      break;
+   case PIPE_FORMAT_IYUV:
+      fd_format = FMT6_R8_G8_B8_3PLANE_420_UNORM;
+      swap = WZYX;
+      break;
+   case PIPE_FORMAT_NV12:
+      fd_format = FMT6_R8_G8B8_2PLANE_420_UNORM;
+      swap = WZYX;
+      break;
+
+   default:
+      break;
+   }
+
+   assert(swap == fmt.swap);
+   assert(fd_format == fmt.fmt);
 
    if (!tile_mode) {
       /* different from format table when used as linear src */
@@ -375,6 +435,33 @@ tu_physical_device_get_format_properties(
    enum pipe_format format = vk_format_to_pipe_format(vk_format);
    const struct util_format_description *desc = util_format_description(format);
    const struct tu_native_format native_fmt = tu6_get_native_format(vk_format);
+
+   bool fd_supported_vtx = fd6_pipe2vtx(format) != FMT6_NONE;
+   bool fd_supported_color = fd6_pipe2color(format) != FMT6_NONE;
+   bool fd_supported_tex = fd6_pipe2tex(format) != FMT6_NONE;
+
+   switch (vk_format) {
+   case VK_FORMAT_G8B8G8R8_422_UNORM:
+   case VK_FORMAT_B8G8R8G8_422_UNORM:
+   case VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM:
+   case VK_FORMAT_G8_B8R8_2PLANE_420_UNORM:
+      fd_supported_tex = true;
+      break;
+   default:
+      break;
+   }
+
+   /* No texturing support for NPOT textures yet.  See
+    * https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/5536
+    */
+   if (util_format_is_plain(format) &&
+       !util_is_power_of_two_nonzero(util_format_get_blocksize(format))) {
+      fd_supported_tex = false;
+   }
+
+   assert(fd_supported_vtx == !!(native_fmt.supported & FMT_VERTEX));
+   assert(fd_supported_color == !!(native_fmt.supported & FMT_COLOR));
+   assert(fd_supported_tex == !!(native_fmt.supported & FMT_TEXTURE));
    if (format == PIPE_FORMAT_NONE || !native_fmt.supported) {
       goto end;
    }
