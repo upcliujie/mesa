@@ -26,6 +26,7 @@
  */
 
 #include "tu_private.h"
+#include "fdl/fd6_format_table.h"
 
 #include "util/debug.h"
 #include "util/u_atomic.h"
@@ -379,7 +380,7 @@ tu_image_view_init(struct tu_image_view *iview,
    /* Don't set fields that are only used for attachments/blit dest if COLOR
     * is unsupported.
     */
-   if (!(fmt.supported & FMT_COLOR))
+   if (fd6_pipe2color(vk_format_to_pipe_format(format)) == FMT6_NONE)
       return;
 
    struct tu_native_format cfmt = tu6_format_color(format, layout->tile_mode);
