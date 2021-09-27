@@ -264,6 +264,7 @@ files_libnir = files(
   'nir_split_var_copies.c',
   'nir_split_vars.c',
   'nir_sweep.c',
+  'nir_sysvals_to_varyings.c',
   'nir_to_lcssa.c',
   'nir_validate.c',
   'nir_vla.h',
