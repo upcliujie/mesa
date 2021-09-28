@@ -795,7 +795,6 @@ resource_create(struct pipe_screen *pscreen,
                                                      64, loader_private,
                                                      &res->dt_stride);
          assert(res->obj->dt);
-         zink_copper_acquire(screen, res, UINT64_MAX);
       } else {
          /* frontbuffer */
          struct zink_resource *back = (void*)loader_private;
@@ -804,7 +803,6 @@ resource_create(struct pipe_screen *pscreen,
          assert(back->obj->dt);
          res->obj->dt = back->obj->dt;
          /* try for quick acquire */
-         zink_copper_acquire(screen, res, 0);
       }
       res->base.b.bind |= PIPE_BIND_DISPLAY_TARGET;
    }

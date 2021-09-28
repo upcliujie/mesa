@@ -2511,13 +2511,21 @@ rebind_fb_state(struct zink_context *ctx, struct zink_resource *match_res, bool 
 }
 
 static void
-unbind_fb_surface(struct zink_context *ctx, struct pipe_surface *surf, bool changed)
+unbind_fb_surface(struct zink_context *ctx, struct pipe_surface *surf, unsigned idx, bool changed)
 {
    if (!surf)
       return;
    struct zink_surface *transient = zink_transient_surface(surf);
+   struct zink_resource *res = zink_resource(surf->texture);
    if (changed) {
-      zink_fb_clears_apply(ctx, surf->texture);
+      if (zink_fb_clear_enabled(ctx, idx)) {
+         if (res->obj->dt) {
+            struct zink_screen *screen = zink_screen(ctx->base.screen);
+            zink_copper_acquire(screen, res, UINT64_MAX);
+            zink_surface_swapchain_update(screen, zink_csurface(surf));
+         }
+         zink_fb_clears_apply(ctx, surf->texture);
+      }
       if (zink_batch_usage_exists(zink_csurface(surf)->batch_uses)) {
          zink_batch_reference_surface(&ctx->batch, zink_csurface(surf));
          if (transient)
@@ -2525,7 +2533,6 @@ unbind_fb_surface(struct zink_context *ctx, struct pipe_surface *surf, bool chan
       }
       ctx->rp_changed = true;
    }
-   struct zink_resource *res = zink_resource(surf->texture);
    res->fb_binds--;
    if (!res->fb_binds)
       check_resource_for_batch_ref(ctx, res);
@@ -2542,13 +2549,13 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
       struct pipe_surface *surf = ctx->fb_state.cbufs[i];
       if (i < state->nr_cbufs)
          ctx->rp_changed |= !!zink_transient_surface(surf) != !!zink_transient_surface(state->cbufs[i]);
-      unbind_fb_surface(ctx, surf, i >= state->nr_cbufs || surf != state->cbufs[i]);
+      unbind_fb_surface(ctx, surf, i, i >= state->nr_cbufs || surf != state->cbufs[i]);
    }
    if (ctx->fb_state.zsbuf) {
       struct pipe_surface *surf = ctx->fb_state.zsbuf;
       struct zink_resource *res = zink_resource(surf->texture);
       bool changed = surf != state->zsbuf;
-      unbind_fb_surface(ctx, surf, changed);
+      unbind_fb_surface(ctx, surf, PIPE_MAX_COLOR_BUFS, changed);
       if (!changed)
          ctx->rp_changed |= !!zink_transient_surface(surf) != !!zink_transient_surface(state->zsbuf);
       if (changed && unlikely(res->obj->needs_zs_evaluate))
@@ -2575,9 +2582,6 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
          if (!samples)
             samples = MAX3(transient ? transient->base.nr_samples : 1, surf->texture->nr_samples, 1);
          struct zink_resource *res = zink_resource(surf->texture);
-         /* try for quick acquire */
-         if (res->obj->dt)
-            zink_copper_acquire(zink_screen(ctx->base.screen), res, 0);
          res->fb_binds++;
          ctx->gfx_pipeline_state.void_alpha_attachments |= util_format_has_alpha1(surf->format) ? BITFIELD_BIT(i) : 0;
       }
