@@ -3103,6 +3103,7 @@ gather_tess_info(struct radv_device *device, nir_shader **nir, struct radv_shade
    infos[MESA_SHADER_VERTEX].num_tess_patches = num_patches;
    infos[MESA_SHADER_TESS_CTRL].tcs.tcs_vertices_out = tess_out_patch_size;
    infos[MESA_SHADER_VERTEX].tcs.tcs_vertices_out = tess_out_patch_size;
+   infos[MESA_SHADER_VERTEX].tcs.num_lds_blocks = tcs_lds_size;
 
    if (!radv_use_llvm_for_stage(device, MESA_SHADER_VERTEX)) {
       /* When the number of TCS input and output vertices are the same (typically 3):
@@ -4515,20 +4516,17 @@ static void
 radv_pipeline_generate_hw_ls(struct radeon_cmdbuf *cs, const struct radv_pipeline *pipeline,
                              const struct radv_shader_variant *shader)
 {
-   unsigned num_lds_blocks = pipeline->shaders[MESA_SHADER_TESS_CTRL]->info.tcs.num_lds_blocks;
    uint64_t va = radv_buffer_get_va(shader->bo) + shader->bo_offset;
-   uint32_t rsrc2 = shader->config.rsrc2;
 
    radeon_set_sh_reg(cs, R_00B520_SPI_SHADER_PGM_LO_LS, va >> 8);
 
-   rsrc2 |= S_00B52C_LDS_SIZE(num_lds_blocks);
    if (pipeline->device->physical_device->rad_info.chip_class == GFX7 &&
        pipeline->device->physical_device->rad_info.family != CHIP_HAWAII)
-      radeon_set_sh_reg(cs, R_00B52C_SPI_SHADER_PGM_RSRC2_LS, rsrc2);
+      radeon_set_sh_reg(cs, R_00B52C_SPI_SHADER_PGM_RSRC2_LS, shader->config.rsrc2);
 
    radeon_set_sh_reg_seq(cs, R_00B528_SPI_SHADER_PGM_RSRC1_LS, 2);
    radeon_emit(cs, shader->config.rsrc1);
-   radeon_emit(cs, rsrc2);
+   radeon_emit(cs, shader->config.rsrc2);
 }
 
 static void
