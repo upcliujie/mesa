@@ -806,6 +806,7 @@ resource_create(struct pipe_screen *pscreen,
          /* try for quick acquire */
          zink_copper_acquire(screen, res, 0);
       }
+      res->base.b.bind |= PIPE_BIND_DISPLAY_TARGET;
    }
    if (res->obj->is_buffer) {
       res->base.buffer_id_unique = util_idalloc_mt_alloc(&screen->buffer_ids);

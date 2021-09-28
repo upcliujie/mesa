@@ -273,6 +273,14 @@ copper_flush_frontbuffer(struct dri_context *ctx,
    if (!ctx || statt != ST_ATTACHMENT_FRONT_LEFT)
       return false;
 
+   if (drawable) {
+      /* prevent recursion */
+      if (drawable->flushing)
+         return true;
+
+      drawable->flushing = true;
+   }
+
    if (drawable->stvis.samples > 1) {
       /* Resolve the front buffer. */
       dri_pipe_blit(ctx->st->pipe,
@@ -283,7 +291,24 @@ copper_flush_frontbuffer(struct dri_context *ctx,
 
    if (ptex) {
       ctx->st->pipe->flush_resource(ctx->st->pipe, drawable->textures[ST_ATTACHMENT_FRONT_LEFT]);
-      copper_copy_to_front(ctx->st->pipe, ctx->dPriv, ptex);
+      struct pipe_screen *screen = drawable->screen->base.screen;
+      struct st_context_iface *st;
+      struct pipe_fence_handle *new_fence = NULL;
+      st = ctx->st;
+      if (st->thread_finish)
+         st->thread_finish(st);
+
+      st->flush(st, ST_FLUSH_FRONT, &new_fence, NULL, NULL);
+      if (drawable) {
+         drawable->flushing = false;
+      }
+      /* throttle on the previous fence */
+      if (drawable->throttle_fence) {
+         screen->fence_finish(screen, NULL, drawable->throttle_fence, PIPE_TIMEOUT_INFINITE);
+         screen->fence_reference(screen, &drawable->throttle_fence, NULL);
+      }
+      drawable->throttle_fence = new_fence;
+      copper_copy_to_front(st->pipe, ctx->dPriv, ptex);
    }
 
    return true;

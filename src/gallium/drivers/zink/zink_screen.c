@@ -1298,6 +1298,14 @@ zink_flush_frontbuffer(struct pipe_screen *pscreen,
 {
    struct zink_screen *screen = zink_screen(pscreen);
    struct zink_resource *res = zink_resource(pres);
+   struct zink_context *ctx = zink_context(pctx);
+   if (ctx->batch.swapchain) {
+      pctx->flush(pctx, NULL, 0);
+      if (ctx->last_fence && screen->threaded) {
+         struct zink_batch_state *bs = zink_batch_state(ctx->last_fence);
+         util_queue_fence_wait(&bs->flush_completed);
+      }
+   }
 
    zink_copper_present_queue(screen, res);
 }
