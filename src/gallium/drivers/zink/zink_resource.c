@@ -452,7 +452,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    struct zink_resource_object *obj = CALLOC_STRUCT(zink_resource_object);
    if (!obj)
       return NULL;
-   obj->dt_idx = UINT32_MAX; //TODO: unionize
+   obj->last_dt_idx = obj->dt_idx = UINT32_MAX; //TODO: unionize
 
    VkMemoryRequirements reqs;
    VkMemoryPropertyFlags flags;

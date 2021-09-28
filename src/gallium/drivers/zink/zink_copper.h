@@ -43,7 +43,6 @@ struct copper_displaytarget
    VkSwapchainKHR swapchain;
    VkImage *images;
    unsigned num_images;
-   uint32_t last_image;
 
    union {
        VkBaseOutStructure bos;
@@ -67,5 +66,8 @@ VkSemaphore
 zink_copper_present(struct zink_screen *screen, struct zink_resource *res); 
 void
 zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res);
-
+void
+zink_copper_acquire_readback(struct zink_screen *screen, struct zink_resource *res);
+bool
+zink_copper_present_readback(struct zink_screen *screen, struct zink_resource *res);
 #endif

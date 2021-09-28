@@ -284,11 +284,11 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
 {
    assert(res->obj->dt);
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
-   assert(res->obj->present);
    assert(res->obj->acquired);
+   assert(res->obj->present);
    struct copper_present_info *cpi = malloc(sizeof(struct copper_present_info));
    cpi->sem = res->obj->present;
-   cdt->last_image = cpi->image = res->obj->dt_idx;
+   res->obj->last_dt_idx = cpi->image = res->obj->dt_idx;
    cpi->info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
    cpi->info.pNext = NULL;
    cpi->info.waitSemaphoreCount = 1;
@@ -310,4 +310,51 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
    }
    res->obj->acquire = VK_NULL_HANDLE;
    res->obj->acquired = false;
+   res->obj->dt_idx = UINT32_MAX;
+}
+
+void
+zink_copper_acquire_readback(struct zink_screen *screen, struct zink_resource *res)
+{
+   assert(res->obj->dt);
+   if (res->obj->last_dt_idx == UINT32_MAX)
+      return;
+   uint32_t last_dt_idx = res->obj->last_dt_idx;
+   if (!res->obj->acquire)
+      zink_copper_acquire(screen, res, UINT64_MAX);
+
+   while (res->obj->dt_idx != last_dt_idx) {
+      if (!zink_copper_present_readback(screen, res))
+         break;
+      while (!zink_copper_acquire(screen, res, 0));
+   }
+}
+
+bool
+zink_copper_present_readback(struct zink_screen *screen, struct zink_resource *res)
+{
+   VkSubmitInfo si = {0};
+   if (res->obj->last_dt_idx == UINT32_MAX)
+      return true;
+   si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+   si.signalSemaphoreCount = 1;
+   VkPipelineStageFlags mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+   si.pWaitDstStageMask = &mask;
+   VkSemaphore acquire = zink_copper_acquire_submit(screen, res);
+   VkSemaphore present = zink_copper_present(screen, res);
+   if (screen->threaded)
+      util_queue_finish(&screen->flush_queue);
+   si.waitSemaphoreCount = !!acquire;
+   si.pWaitSemaphores = &acquire;
+   si.pSignalSemaphores = &present;
+   VkResult error = VKSCR(QueueSubmit)(screen->thread_queue, 1, &si, NULL);
+   if (!zink_screen_handle_vkresult(screen, error))
+      return false;
+
+   zink_copper_present_queue(screen, res);
+   error = VKSCR(QueueWaitIdle)(screen->queue);
+   if (!zink_screen_handle_vkresult(screen, error))
+      return false;
+   VKSCR(DestroySemaphore)(screen->dev, present, NULL);
+   return true;
 }

@@ -1,4 +1,5 @@
 #include "zink_context.h"
+#include "zink_copper.h"
 #include "zink_helpers.h"
 #include "zink_query.h"
 #include "zink_resource.h"
@@ -100,6 +101,9 @@ blit_resolve(struct zink_context *ctx, const struct pipe_blit_info *info)
    VKCTX(CmdResolveImage)(batch->state->cmdbuf, src->obj->image, src->layout,
                      dst->obj->image, dst->layout,
                      1, &region);
+
+   if (src->obj->dt)
+      zink_copper_present_readback(screen, src);
 
    return true;
 }
@@ -249,6 +253,9 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
                   1, &region,
                   zink_filter(info->filter));
 
+   if (src->obj->dt)
+      zink_copper_present_readback(screen, src);
+
    return true;
 }
 
@@ -263,6 +270,10 @@ zink_blit(struct pipe_context *pctx,
    if (info->render_condition_enable &&
        unlikely(!zink_screen(pctx->screen)->info.have_EXT_conditional_rendering && !zink_check_conditional_render(ctx)))
       return;
+
+   struct zink_resource *res = zink_resource(info->src.resource);
+   if (res->obj->dt)
+      zink_copper_acquire_readback(zink_screen(pctx->screen), res);
 
    if (src_desc == dst_desc ||
        src_desc->nr_channels != 4 || src_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN ||
@@ -313,6 +324,8 @@ zink_blit(struct pipe_context *pctx,
    zink_blit_begin(ctx, ZINK_BLIT_SAVE_FB | ZINK_BLIT_SAVE_FS | ZINK_BLIT_SAVE_TEXTURES);
 
    util_blitter_blit(ctx->blitter, info);
+   if (res->obj->dt)
+      zink_copper_present_readback(zink_screen(pctx->screen), res);
 }
 
 /* similar to radeonsi */
