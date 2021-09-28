@@ -161,6 +161,11 @@ copper_allocate_textures(struct dri_context *ctx,
    templ.array_size = 1;
    templ.last_level = 0;
 
+   uint32_t attachments = 0;
+   for (i = 0; i < statts_count; i++)
+      attachments |= BITFIELD_BIT(statts[i]);
+   bool front_only = attachments & ST_ATTACHMENT_FRONT_LEFT_MASK && !(attachments & ST_ATTACHMENT_BACK_LEFT_MASK);
+
    for (i = 0; i < statts_count; i++) {
       enum pipe_format format;
       unsigned bind;
@@ -171,7 +176,8 @@ copper_allocate_textures(struct dri_context *ctx,
 
       dri_drawable_get_format(drawable, statts[i], &format, &bind);
 
-      if (statts[i] == ST_ATTACHMENT_BACK_LEFT)
+      if (statts[i] == ST_ATTACHMENT_BACK_LEFT || 
+          (statts[i] == ST_ATTACHMENT_FRONT_LEFT && front_only))
          bind |= PIPE_BIND_DISPLAY_TARGET;
 
       if (format == PIPE_FORMAT_NONE)
@@ -184,7 +190,7 @@ copper_allocate_textures(struct dri_context *ctx,
 
       if (statts[i] < ST_ATTACHMENT_DEPTH_STENCIL) {
          void *data;
-         if (statts[i] == ST_ATTACHMENT_BACK_LEFT)
+         if (statts[i] == ST_ATTACHMENT_BACK_LEFT || (statts[i] == ST_ATTACHMENT_FRONT_LEFT && front_only))
             data = &cdraw->sci;
          else
             data = drawable->textures[ST_ATTACHMENT_BACK_LEFT];
