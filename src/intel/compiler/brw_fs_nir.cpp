@@ -4219,6 +4219,21 @@ increment_a64_address(const fs_builder &bld, fs_reg address, uint32_t v)
    }
 }
 
+static fs_reg
+emit_fence(const fs_builder &bld, enum opcode opcode,
+           uint8_t sfid, bool commit_enable, uint8_t bti)
+{
+   assert(opcode == SHADER_OPCODE_INTERLOCK ||
+          opcode == SHADER_OPCODE_MEMORY_FENCE);
+
+   fs_reg dst = bld.vgrf(BRW_REGISTER_TYPE_UD);
+   fs_inst *fence = bld.emit(opcode, dst, brw_vec8_grf(0, 0),
+                             brw_imm_ud(commit_enable),
+                             brw_imm_ud(bti));
+   fence->sfid = sfid;
+   return dst;
+}
+
 void
 fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr)
 {
@@ -4486,37 +4501,25 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       if (devinfo->has_lsc) {
          assert(devinfo->verx10 >= 125);
          if (ugm_fence) {
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(true /* commit_enable */),
-                         brw_imm_ud(0 /* BTI; ignored for LSC */));
-            fence->sfid = GFX12_SFID_UGM;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX12_SFID_UGM,
+                          true /* commit_enable */,
+                          0 /* bti; ignored for LSC */);
          }
 
          if (tgm_fence) {
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(true /* commit_enable */),
-                         brw_imm_ud(0 /* BTI; ignored for LSC */));
-            fence->sfid = GFX12_SFID_TGM;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX12_SFID_TGM,
+                          true /* commit_enable */,
+                          0 /* bti; ignored for LSC */);
          }
 
          if (slm_fence) {
             assert(opcode == SHADER_OPCODE_MEMORY_FENCE);
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(true /* commit_enable */),
-                         brw_imm_ud(0 /* BTI; ignored for LSC */));
-            fence->sfid = GFX12_SFID_SLM;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX12_SFID_SLM,
+                          true /* commit_enable */,
+                          0 /* BTI; ignored for LSC */);
          }
 
          if (urb_fence) {
@@ -4524,27 +4527,18 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          }
       } else if (devinfo->ver >= 11) {
          if (tgm_fence || ugm_fence || urb_fence) {
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(true /* commit_enable HSD ES # 1404612949 */),
-                         brw_imm_ud(0 /* BTI = 0 means data cache */));
-
-            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX7_SFID_DATAPORT_DATA_CACHE,
+                          true /* commit_enable HSD ES # 1404612949 */,
+                          0 /* BTI = 0 means data cache */);
          }
 
          if (slm_fence) {
             assert(opcode == SHADER_OPCODE_MEMORY_FENCE);
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(true /* commit_enable HSD ES # 1404612949 */),
-                         brw_imm_ud(GFX7_BTI_SLM));
-            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX7_SFID_DATAPORT_DATA_CACHE,
+                          true /* commit_enable HSD ES # 1404612949 */,
+                          GFX7_BTI_SLM);
          }
       } else {
          /* Prior to Icelake, they're all lumped into a single cache except on
@@ -4558,14 +4552,9 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
             instr->intrinsic == nir_intrinsic_end_invocation_interlock;
 
          if (tgm_fence || ugm_fence || slm_fence || urb_fence) {
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(commit_enable),
-                         brw_imm_ud(0 /* BTI */));
-            fence->sfid = GFX7_SFID_DATAPORT_DATA_CACHE;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX7_SFID_DATAPORT_DATA_CACHE,
+                          commit_enable, 0 /* BTI */);
          }
 
          /* Except on Ivy Bridge and Bay Trail where typed messages actually
@@ -4573,14 +4562,9 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
           * we may access storage images as either typed or untyped.
           */
          if (render_fence) {
-            fs_inst *fence =
-               ubld.emit(opcode,
-                         ubld.vgrf(BRW_REGISTER_TYPE_UD),
-                         brw_vec8_grf(0, 0),
-                         brw_imm_ud(commit_enable),
-                         brw_imm_ud(/* bti */ 0));
-            fence->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-            fence_regs[fence_regs_count++] = fence->dst;
+            fence_regs[fence_regs_count++] =
+               emit_fence(ubld, opcode, GFX6_SFID_DATAPORT_RENDER_CACHE,
+                          commit_enable, /* bti */ 0);
          }
       }
 
