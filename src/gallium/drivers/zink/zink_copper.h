@@ -43,6 +43,7 @@ struct copper_displaytarget
    VkSwapchainKHR swapchain;
    VkImage *images;
    unsigned num_images;
+   VkSemaphore *acquires; //these can only be destroyed when the same image is reacquired
 
    union {
        VkBaseOutStructure bos;

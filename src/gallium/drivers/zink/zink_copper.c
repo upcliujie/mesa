@@ -129,8 +129,10 @@ static bool
 copper_GetSwapchainImages(struct zink_screen *screen, struct copper_displaytarget *cdt)
 {
    free(cdt->images);
+   free(cdt->acquires);
    VkResult error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cdt->swapchain, &cdt->num_images, NULL);
    cdt->images = malloc(sizeof(VkImage) * cdt->num_images);
+   cdt->acquires = calloc(cdt->num_images, sizeof(VkSemaphore));
    error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cdt->swapchain, &cdt->num_images, cdt->images);
    return zink_screen_handle_vkresult(screen, error);
 
@@ -186,6 +188,9 @@ copper_displaytarget_destroy(struct sw_winsys *ws, struct sw_displaytarget *dt)
    VKSCR(DestroySwapchainKHR)(screen->dev, cdt->swapchain, NULL);
    VKSCR(DestroySurfaceKHR)(screen->instance, cdt->surface, NULL);
    free(cdt->images);
+   for (unsigned i = 0; i < cdt->num_images; i++)
+      VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[i], NULL);
+   free(cdt->acquires);
    FREE(dt);
 }
 
@@ -225,8 +230,8 @@ zink_copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint6
       return false;
    }
    assert(prev != res->obj->dt_idx);
-   VKSCR(DestroySemaphore)(screen->dev, res->obj->acquire, NULL);
-   res->obj->acquire = acquire;
+   VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[res->obj->dt_idx], NULL);
+   cdt->acquires[res->obj->dt_idx] = res->obj->acquire = acquire;
    res->obj->image = cdt->images[res->obj->dt_idx];
    res->obj->acquired = false;
    return ret == VK_SUCCESS;
