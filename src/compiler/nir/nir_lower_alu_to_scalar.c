@@ -333,11 +333,12 @@ lower_alu_instr_scalar(nir_builder *b, nir_instr *instr, void *_data)
    if (!instr)
       return NULL;
 
-   for (chan = 0; chan < num_components; chan = chan + target_width) {
-      unsigned components = MIN2(target_width, num_components - chan);
-      // TODO: handle swizzles outside of target_width
-
+   unsigned swizzle_mask = ~BITFIELD_MASK(target_width);
+   unsigned components;
+   for (chan = 0; chan < num_components; chan = chan + components) {
+      components = MIN2(target_width, num_components - chan);
       nir_alu_instr *lower = nir_alu_instr_create(b->shader, alu->op);
+
       for (i = 0; i < num_src; i++) {
          nir_alu_src_copy(&lower->src[i], &alu->src[i]);
 
@@ -345,9 +346,23 @@ lower_alu_instr_scalar(nir_builder *b, nir_instr *instr, void *_data)
           * args (input_sizes[] == 1).
           */
          assert(nir_op_infos[alu->op].input_sizes[i] < 2);
-         for (int j = 0; j < components; j++) {
-            unsigned src_chan = nir_op_infos[alu->op].input_sizes[i] == 1 ? 0 : chan + j;
-            lower->src[i].swizzle[j] = alu->src[i].swizzle[src_chan];
+         if (nir_op_infos[alu->op].input_sizes[i] == 1) {
+            for (int j = 0; j < components; j++)
+               lower->src[i].swizzle[j] = alu->src[i].swizzle[0];
+
+         } else {
+            lower->src[i].swizzle[0] = alu->src[i].swizzle[chan];
+            unsigned masked_swizzle = lower->src[i].swizzle[0] & swizzle_mask;
+
+            for (int j = 1; j < components; j++) {
+               lower->src[i].swizzle[j] = alu->src[i].swizzle[chan + j];
+
+               /* handle swizzles outside vectorization width:
+                * reduce number of components on swizzle mismatches
+                */
+               if ((lower->src[i].swizzle[j] & swizzle_mask) != masked_swizzle)
+                  components = j;
+            }
          }
       }
 
