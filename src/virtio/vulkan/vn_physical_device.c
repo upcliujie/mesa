@@ -2256,6 +2256,8 @@ vn_GetPhysicalDeviceExternalBufferProperties(
       physical_dev->external_memory.renderer_handle_type;
    const VkExternalMemoryHandleTypeFlags supported_handle_types =
       physical_dev->external_memory.supported_handle_types;
+   const VkExternalMemoryHandleTypeFlags external_handle_type =
+      pExternalBufferInfo->handleType;
 
    VkExternalMemoryProperties *props =
       &pExternalBufferProperties->externalMemoryProperties;
@@ -2278,7 +2280,7 @@ vn_GetPhysicalDeviceExternalBufferProperties(
       physical_dev->instance, physicalDevice, pExternalBufferInfo,
       pExternalBufferProperties);
 
-   if (pExternalBufferInfo->handleType ==
+   if (external_handle_type ==
        VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID) {
       props->compatibleHandleTypes =
          VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
