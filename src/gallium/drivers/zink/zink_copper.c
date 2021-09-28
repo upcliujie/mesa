@@ -30,6 +30,7 @@
 union copper_loader_info {
    VkBaseOutStructure bos;
    VkXcbSurfaceCreateInfoKHR xcb;
+   VkWaylandSurfaceCreateInfoKHR wl;
 };
 
 struct copper_winsys
@@ -59,6 +60,9 @@ copper_CreateSurface(struct zink_screen *screen, struct copper_displaytarget *cd
     switch (type) {
     case VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR:
        error = VKSCR(CreateXcbSurfaceKHR)(screen->instance, &info->xcb, NULL, &surface);
+       break;
+    case VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR:
+       error = VKSCR(CreateWaylandSurfaceKHR)(screen->instance, &info->wl, NULL, &surface);
        break;
     default:
        unreachable("unsupported!");
