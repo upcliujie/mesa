@@ -246,6 +246,8 @@ ir3_collect_info(struct ir3_shader_variant *v)
    info->size = MAX2(v->instrlen * compiler->instr_align, instr_count + 4) * 8;
    info->sizedwords = info->size / 4;
 
+   bool in_preamble = false;
+
    foreach_block (block, &shader->block_list) {
       int sfu_delay = 0;
 
@@ -276,43 +278,56 @@ ir3_collect_info(struct ir3_shader_variant *v)
          if ((instr->opc == OPC_BARY_F) && (instr->dsts[0]->flags & IR3_REG_EI))
             info->last_baryf = info->instrs_count;
 
-         unsigned instrs_count = 1 + instr->repeat + instr->nop;
-         unsigned nops_count = instr->nop;
+         if (instr->opc == OPC_SHPS)
+            in_preamble = true;
 
-         if (instr->opc == OPC_NOP) {
-            nops_count = 1 + instr->repeat;
-            info->instrs_per_cat[0] += nops_count;
-         } else {
-            info->instrs_per_cat[opc_cat(instr->opc)] += 1 + instr->repeat;
-            info->instrs_per_cat[0] += nops_count;
-         }
+         /* Don't count instructions in the preamble for instruction-count type
+          * stats, because their effect should be much smaller.
+          * TODO: we should probably have separate stats for preamble
+          * instructions, but that would blow up the amount of stats...
+          */
+         if (!in_preamble) {
+            unsigned instrs_count = 1 + instr->repeat + instr->nop;
+            unsigned nops_count = instr->nop;
 
-         if (instr->opc == OPC_MOV) {
-            if (instr->cat1.src_type == instr->cat1.dst_type) {
-               info->mov_count += 1 + instr->repeat;
+            if (instr->opc == OPC_NOP) {
+               nops_count = 1 + instr->repeat;
+               info->instrs_per_cat[0] += nops_count;
             } else {
-               info->cov_count += 1 + instr->repeat;
+               info->instrs_per_cat[opc_cat(instr->opc)] += 1 + instr->repeat;
+               info->instrs_per_cat[0] += nops_count;
+            }
+
+            if (instr->opc == OPC_MOV) {
+               if (instr->cat1.src_type == instr->cat1.dst_type) {
+                  info->mov_count += 1 + instr->repeat;
+               } else {
+                  info->cov_count += 1 + instr->repeat;
+               }
+            }
+
+            info->instrs_count += instrs_count;
+            info->nops_count += nops_count;
+
+            if (instr->flags & IR3_INSTR_SS) {
+               info->ss++;
+               info->sstall += sfu_delay;
+               sfu_delay = 0;
+            }
+
+            if (instr->flags & IR3_INSTR_SY)
+               info->sy++;
+
+            if (is_sfu(instr)) {
+               sfu_delay = 10;
+            } else {
+               int n = MIN2(sfu_delay, 1 + instr->repeat + instr->nop);
+               sfu_delay -= n;
             }
          }
 
-         info->instrs_count += instrs_count;
-         info->nops_count += nops_count;
-
-         if (instr->flags & IR3_INSTR_SS) {
-            info->ss++;
-            info->sstall += sfu_delay;
-            sfu_delay = 0;
-         }
-
-         if (instr->flags & IR3_INSTR_SY)
-            info->sy++;
-
-         if (is_sfu(instr)) {
-            sfu_delay = 10;
-         } else {
-            int n = MIN2(sfu_delay, 1 + instr->repeat + instr->nop);
-            sfu_delay -= n;
-         }
+         if (instr->opc == OPC_SHPE)
+            in_preamble = false;
       }
    }
 
