@@ -210,7 +210,7 @@ FAILURES_CSV=$RESULTS/failures.csv
 export LD_PRELOAD=$TEST_LD_PRELOAD
 
 if [ -z "$DEQP_SUITE" ]; then
-    deqp-runner \
+    $HANG_DETECTION_CMD deqp-runner \
         run \
         --deqp $DEQP \
         --output $RESULTS \
@@ -224,7 +224,7 @@ if [ -z "$DEQP_SUITE" ]; then
         -- \
         $DEQP_OPTIONS
 else
-    deqp-runner \
+    $HANG_DETECTION_CMD deqp-runner \
         suite \
         --suite $INSTALL/deqp-$DEQP_SUITE.toml \
         --output $RESULTS \
@@ -255,7 +255,7 @@ find $RESULTS -name \*.xml \
     -exec cp /deqp/testlog.css /deqp/testlog.xsl "$RESULTS/" ";" \
     -quit
 
-$HANG_DETECTION_CMD deqp-runner junit \
+deqp-runner junit \
    --testsuite $DEQP_VER \
    --results $RESULTS/failures.csv \
    --output $RESULTS/junit.xml \
