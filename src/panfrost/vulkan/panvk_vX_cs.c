@@ -232,23 +232,63 @@ panvk_emit_attrib_buf(const struct panvk_attribs_info *info,
 
    assert(idx < buf_count);
    const struct panvk_attrib_buf *buf = &bufs[idx];
-   unsigned divisor = buf_info->per_instance ?
-                      draw->padded_vertex_count : 0;
-   unsigned stride = divisor && draw->instance_count == 1 ?
-                     0 : buf_info->stride;
    mali_ptr addr = buf->address & ~63ULL;
    unsigned size = buf->size + (buf->address & 63);
+   unsigned divisor =
+      draw->padded_vertex_count * buf_info->instance_divisor;
 
    /* TODO: support instanced arrays */
-   pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
-      if (draw->instance_count > 1 && divisor) {
+   if (draw->instance_count <= 1) {
+      pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
+         cfg.type = MALI_ATTRIBUTE_TYPE_1D;
+         cfg.stride = buf_info->per_instance ? 0 : buf_info->stride;
+         cfg.pointer = addr;
+         cfg.size = size;
+      }
+   } else if (!buf_info->per_instance) {
+      pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
          cfg.type = MALI_ATTRIBUTE_TYPE_1D_MODULUS;
-         cfg.divisor = divisor;
+         cfg.divisor = draw->padded_vertex_count;
+         cfg.stride = buf_info->stride;
+         cfg.pointer = addr;
+         cfg.size = size;
+      }
+   } else if (!divisor) {
+      /* instance_divisor == 0 means all instances share the same value.
+       * Make it a 1D array with a zero stride.
+       */
+      pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
+         cfg.type = MALI_ATTRIBUTE_TYPE_1D;
+         cfg.stride = 0;
+         cfg.pointer = addr;
+         cfg.size = size;
+      }
+   } else if (util_is_power_of_two_or_zero(divisor)) {
+      pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
+         cfg.type = MALI_ATTRIBUTE_TYPE_1D_POT_DIVISOR;
+         cfg.stride = buf_info->stride;
+         cfg.pointer = addr;
+         cfg.size = size;
+         cfg.divisor_r = __builtin_ctz(divisor);
+      }
+   } else {
+      unsigned divisor_r = 0, divisor_e = 0;
+      unsigned divisor_num =
+         panfrost_compute_magic_divisor(divisor, &divisor_r, &divisor_e);
+      pan_pack(desc, ATTRIBUTE_BUFFER, cfg) {
+         cfg.type = MALI_ATTRIBUTE_TYPE_1D_NPOT_DIVISOR;
+         cfg.stride = buf_info->stride;
+         cfg.pointer = addr;
+         cfg.size = size;
+         cfg.divisor_r = divisor_r;
+         cfg.divisor_e = divisor_e;
       }
 
-      cfg.pointer = addr;
-      cfg.stride = stride;
-      cfg.size = size;
+      desc += pan_size(ATTRIBUTE_BUFFER);
+      pan_pack(desc, ATTRIBUTE_BUFFER_CONTINUATION_NPOT, cfg) {
+         cfg.divisor_numerator = divisor_num;
+         cfg.divisor = buf_info->instance_divisor;
+      }
    }
 }
 
@@ -261,8 +301,10 @@ panvk_per_arch(emit_attrib_bufs)(const struct panvk_attribs_info *info,
 {
    struct mali_attribute_buffer_packed *buf = descs;
 
-   for (unsigned i = 0; i < info->buf_count; i++)
-      panvk_emit_attrib_buf(info, draw, bufs, buf_count, i, buf++);
+   for (unsigned i = 0; i < info->buf_count; i++) {
+      panvk_emit_attrib_buf(info, draw, bufs, buf_count, i, buf);
+      buf += 2;
+   }
 }
 
 void
@@ -303,7 +345,7 @@ panvk_emit_attrib(const struct panvk_device *dev,
    const struct panfrost_device *pdev = &dev->physical_device->pdev;
 
    pan_pack(attrib, ATTRIBUTE, cfg) {
-      cfg.buffer_index = attribs->attrib[idx].buf;
+      cfg.buffer_index = attribs->attrib[idx].buf * 2;
       cfg.offset = attribs->attrib[idx].offset +
                    (bufs[cfg.buffer_index].address & 63);
       cfg.format = pdev->formats[attribs->attrib[idx].format].hw;
