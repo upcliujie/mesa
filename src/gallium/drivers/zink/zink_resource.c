@@ -92,6 +92,7 @@ zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_ob
       VKSCR(DestroyBuffer)(screen->dev, obj->buffer, NULL);
    } else if (obj->dt) {
       struct sw_winsys *winsys = &screen->winsys;
+      util_queue_fence_wait(&obj->present_fence);
       winsys->displaytarget_destroy(winsys, obj->dt);
    } else {
       VKSCR(DestroyImage)(screen->dev, obj->image, NULL);
@@ -99,9 +100,10 @@ zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_ob
 
    util_dynarray_fini(&obj->tmp);
    zink_descriptor_set_refs_clear(&obj->desc_set_refs, obj);
-   if (obj->dt)
+   if (obj->dt) {
+      util_queue_fence_destroy(&obj->present_fence);
       FREE(obj->bo); //this is a dummy struct
-   else
+   } else
       zink_bo_unref(screen, obj->bo);
    FREE(obj);
 }
@@ -477,9 +479,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    if (loader_private) {
       obj->bo = CALLOC_STRUCT(zink_bo);
       obj->transfer_dst = true;
-      obj->vkusage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                     VK_IMAGE_USAGE_SAMPLED_BIT |
-                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+      util_queue_fence_init(&obj->present_fence);
       return obj;
    } else if (templ->target == PIPE_BUFFER) {
       VkBufferCreateInfo bci = create_bci(screen, templ, templ->bind);
@@ -804,6 +804,12 @@ resource_create(struct pipe_screen *pscreen,
          res->obj->dt = back->obj->dt;
          /* try for quick acquire */
       }
+      struct copper_displaytarget *cdt = res->obj->dt;
+      if (zink_copper_has_srgb(cdt))
+         res->obj->vkflags |= VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+      if (cdt->swapchain->scci.flags == VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR)
+         res->obj->vkflags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT | VK_IMAGE_CREATE_EXTENDED_USAGE_BIT_KHR;
+      res->obj->vkusage = cdt->swapchain->scci.imageUsage;
       res->base.b.bind |= PIPE_BIND_DISPLAY_TARGET;
    }
    if (res->obj->is_buffer) {

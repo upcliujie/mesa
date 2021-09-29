@@ -148,7 +148,11 @@ copper_allocate_textures(struct dri_context *ctx,
    /* remove outdated textures */
    if (resized) {
       for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
-         pipe_resource_reference(&drawable->textures[i], NULL);
+         if (drawable->textures[i] && i < ST_ATTACHMENT_DEPTH_STENCIL) {
+            drawable->textures[i]->width0 = width;
+            drawable->textures[i]->height0 = height;
+         } else
+            pipe_resource_reference(&drawable->textures[i], NULL);
          pipe_resource_reference(&drawable->msaa_textures[i], NULL);
       }
    }
@@ -403,12 +407,10 @@ copper_swap_buffers(__DRIdrawable *dPriv)
 
    drawable->texture_stamp = dPriv->lastStamp - 1;
    dri_flush(dPriv->driContextPriv, dPriv, __DRI2_FLUSH_DRAWABLE | __DRI2_FLUSH_CONTEXT, __DRI2_THROTTLE_SWAPBUFFER);
+   copper_copy_to_front(ctx->st->pipe, dPriv, ptex);
    if (!drawable->textures[ST_ATTACHMENT_FRONT_LEFT]) {
-      /* this is single-buffered: don't invalidate the drawable */
-      copper_present_texture(ctx->st->pipe, dPriv, ptex, NULL);
       return;
    }
-   copper_copy_to_front(ctx->st->pipe, dPriv, ptex);
    /* have to manually swap the pointers here to make frontbuffer readback work */
    drawable->textures[ST_ATTACHMENT_BACK_LEFT] = drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
    drawable->textures[ST_ATTACHMENT_FRONT_LEFT] = ptex;

@@ -1311,8 +1311,10 @@ zink_flush_frontbuffer(struct pipe_screen *pscreen,
       zink_copper_present_queue(screen, res);
    else {
       assert(res->obj->last_dt_idx != UINT32_MAX);
-      zink_copper_acquire_readback(screen, res);
-      zink_copper_present_readback(screen, res);
+      if (!zink_copper_last_present_eq(res->obj->dt, res->obj->last_dt_idx)) {
+         zink_copper_acquire_readback(ctx, res);
+         zink_copper_present_readback(screen, res);
+      }
    }
 }
 

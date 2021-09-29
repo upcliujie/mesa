@@ -112,7 +112,12 @@ init_surface_info(struct zink_surface *surface, struct zink_resource *res, VkIma
    surface->info.width = surface->base.width;
    surface->info.height = surface->base.height;
    surface->info.layerCount = ivci->subresourceRange.layerCount;
-   surface->info.format = ivci->format;
+   surface->info.format[0] = ivci->format;
+   if (res->obj->dt) {
+      struct copper_displaytarget *cdt = res->obj->dt;
+      if (zink_copper_has_srgb(cdt))
+         surface->info.format[1] = ivci->format == cdt->formats[0] ? cdt->formats[1] : cdt->formats[0];
+   }
    surface->info_hash = _mesa_hash_data(&surface->info, sizeof(surface->info));
 }
 
@@ -238,8 +243,6 @@ zink_create_surface(struct pipe_context *pctx,
       /* don't cache swapchain surfaces. that's weird. */
       struct zink_surface *surface = do_create_surface(pctx, pres, templ, &ivci, 0, false);
       if (surface) {
-         struct copper_displaytarget *cdt = res->obj->dt;
-         surface->swapchain = calloc(cdt->num_images, sizeof(VkImageView));
          surface->is_swapchain = true;
          psurf = &surface->base;
       }
@@ -323,8 +326,9 @@ zink_destroy_surface(struct zink_screen *screen, struct pipe_surface *psurface)
    if (surface->simage_view)
       VKSCR(DestroyImageView)(screen->dev, surface->simage_view, NULL);
    if (surface->is_swapchain) {
-      struct copper_displaytarget *cdt = res->obj->dt;
-      for (unsigned i = 0; i < cdt->num_images; i++)
+      for (unsigned i = 0; i < surface->old_swapchain_size; i++)
+         VKSCR(DestroyImageView)(screen->dev, surface->old_swapchain[i], NULL);
+      for (unsigned i = 0; i < surface->swapchain_size; i++)
          VKSCR(DestroyImageView)(screen->dev, surface->swapchain[i], NULL);
       free(surface->swapchain);
    } else
@@ -433,8 +437,18 @@ zink_surface_swapchain_update(struct zink_screen *screen, struct zink_surface *s
 {
    struct zink_resource *res = zink_resource(surface->base.texture);
    struct copper_displaytarget *cdt = res->obj->dt;
+   if (res->obj->dt != surface->dt) {
+      /* new swapchain: clear out previous old_swapchain and move current swapchain there */
+      for (unsigned i = 0; i < surface->old_swapchain_size; i++)
+         VKSCR(DestroyImageView)(screen->dev, surface->old_swapchain[i], NULL);
+      surface->old_swapchain = surface->swapchain;
+      surface->old_swapchain_size = surface->swapchain_size;
+      surface->swapchain_size = cdt->swapchain->num_images;
+      surface->swapchain = calloc(surface->swapchain_size, sizeof(VkImageView));
+      init_surface_info(surface, res, &surface->ivci);
+   }
    if (!surface->swapchain[res->obj->dt_idx]) {
-      assert(res->obj->image && cdt->images[res->obj->dt_idx] == res->obj->image);
+      assert(res->obj->image && cdt->swapchain->images[res->obj->dt_idx] == res->obj->image);
       surface->ivci.image = res->obj->image;
       assert(surface->ivci.image);
       VKSCR(CreateImageView)(screen->dev, &surface->ivci, NULL, &surface->swapchain[res->obj->dt_idx]);

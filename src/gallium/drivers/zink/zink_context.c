@@ -1923,7 +1923,7 @@ get_render_pass(struct zink_context *ctx)
          state.rts[i].samples = MAX3(transient ? transient->base.nr_samples : 0, surf->texture->nr_samples, 1);
          state.rts[i].clear_color = zink_fb_clear_enabled(ctx, i) && !zink_fb_clear_first_needs_explicit(&ctx->fb_clears[i]);
          clears |= !!state.rts[i].clear_color ? PIPE_CLEAR_COLOR0 << i : 0;
-         state.rts[i].swapchain = surf->texture->bind & PIPE_BIND_SCANOUT;
+         state.rts[i].swapchain = surf->texture->bind & PIPE_BIND_DISPLAY_TARGET;
          if (transient) {
             state.num_cresolves++;
             state.rts[i].resolve = true;
@@ -2012,6 +2012,40 @@ equals_framebuffer_imageless(const void *a, const void *b)
 }
 
 static void
+update_framebuffer_state(struct zink_context *ctx, int old_w, int old_h)
+{
+   if (ctx->fb_state.width != old_w || ctx->fb_state.height != old_h)
+      ctx->scissor_changed = true;
+   /* get_framebuffer adds a ref if the fb is reused or created;
+    * always do get_framebuffer first to avoid deleting the same fb
+    * we're about to use
+    */
+   struct zink_framebuffer *fb = ctx->get_framebuffer(ctx);
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
+   if (ctx->framebuffer && !screen->info.have_KHR_imageless_framebuffer) {
+      simple_mtx_lock(&screen->framebuffer_mtx);
+      struct hash_entry *he = _mesa_hash_table_search(&screen->framebuffer_cache, &ctx->framebuffer->state);
+      if (ctx->framebuffer && !ctx->framebuffer->state.num_attachments) {
+         /* if this has no attachments then its lifetime has ended */
+         _mesa_hash_table_remove(&screen->framebuffer_cache, he);
+         he = NULL;
+         /* ensure an unflushed fb doesn't get destroyed by deferring it */
+         util_dynarray_append(&ctx->batch.state->dead_framebuffers, struct zink_framebuffer*, ctx->framebuffer);
+         ctx->framebuffer = NULL;
+      }
+      /* a framebuffer loses 1 ref every time we unset it;
+       * we do NOT add refs here, as the ref has already been added in
+       * get_framebuffer()
+       */
+      if (zink_framebuffer_reference(screen, &ctx->framebuffer, NULL) && he)
+         _mesa_hash_table_remove(&screen->framebuffer_cache, he);
+      simple_mtx_unlock(&screen->framebuffer_mtx);
+   }
+   ctx->fb_changed |= ctx->framebuffer != fb;
+   ctx->framebuffer = fb;
+}
+
+static void
 setup_framebuffer(struct zink_context *ctx)
 {
    struct zink_screen *screen = zink_screen(ctx->base.screen);
@@ -2052,9 +2086,17 @@ setup_framebuffer(struct zink_context *ctx)
          continue;
       struct zink_resource *res = zink_resource(ctx->fb_state.cbufs[i]->texture);
       if (res->obj->dt) {
-         zink_copper_acquire(screen, res, UINT64_MAX);
-         zink_surface_swapchain_update(screen, surf);
+         zink_copper_acquire(ctx, res, UINT64_MAX);
+         zink_surface_swapchain_update(screen, zink_csurface(ctx->fb_state.cbufs[i]));
       }
+   }
+   if (ctx->swapchain_size.width || ctx->swapchain_size.height) {
+      unsigned old_w = ctx->fb_state.width;
+      unsigned old_h = ctx->fb_state.height;
+      ctx->fb_state.width = ctx->swapchain_size.width;
+      ctx->fb_state.height = ctx->swapchain_size.height;
+      update_framebuffer_state(ctx, old_w, old_h);
+      ctx->swapchain_size.width = ctx->swapchain_size.height = 0;
    }
 
    if (!ctx->fb_changed)
@@ -2076,7 +2118,7 @@ prep_fb_attachment(struct zink_context *ctx, struct zink_surface *surf, unsigned
    VkPipelineStageFlags pipeline;
    struct zink_screen *screen = zink_screen(ctx->base.screen);
    if (res->obj->dt) {
-      zink_copper_acquire(screen, res, UINT64_MAX);
+      zink_copper_acquire(ctx, res, UINT64_MAX);
       zink_surface_swapchain_update(screen, surf);
    }
    VkImageLayout layout = zink_render_pass_attachment_get_barrier_info(ctx->gfx_pipeline_state.render_pass,
@@ -2113,40 +2155,6 @@ prep_fb_attachments(struct zink_context *ctx, VkImageView *att)
          att[ctx->fb_state.nr_cbufs] = prep_fb_attachment(ctx, surf, ctx->fb_state.nr_cbufs);
       }
    }
-}
-
-static void
-update_framebuffer_state(struct zink_context *ctx, int old_w, int old_h)
-{
-   if (ctx->fb_state.width != old_w || ctx->fb_state.height != old_h)
-      ctx->scissor_changed = true;
-   /* get_framebuffer adds a ref if the fb is reused or created;
-    * always do get_framebuffer first to avoid deleting the same fb
-    * we're about to use
-    */
-   struct zink_framebuffer *fb = ctx->get_framebuffer(ctx);
-   struct zink_screen *screen = zink_screen(ctx->base.screen);
-   if (ctx->framebuffer && !screen->info.have_KHR_imageless_framebuffer) {
-      simple_mtx_lock(&screen->framebuffer_mtx);
-      struct hash_entry *he = _mesa_hash_table_search(&screen->framebuffer_cache, &ctx->framebuffer->state);
-      if (ctx->framebuffer && !ctx->framebuffer->state.num_attachments) {
-         /* if this has no attachments then its lifetime has ended */
-         _mesa_hash_table_remove(&screen->framebuffer_cache, he);
-         he = NULL;
-         /* ensure an unflushed fb doesn't get destroyed by deferring it */
-         util_dynarray_append(&ctx->batch.state->dead_framebuffers, struct zink_framebuffer*, ctx->framebuffer);
-         ctx->framebuffer = NULL;
-      }
-      /* a framebuffer loses 1 ref every time we unset it;
-       * we do NOT add refs here, as the ref has already been added in
-       * get_framebuffer()
-       */
-      if (zink_framebuffer_reference(screen, &ctx->framebuffer, NULL) && he)
-         _mesa_hash_table_remove(&screen->framebuffer_cache, he);
-      simple_mtx_unlock(&screen->framebuffer_mtx);
-   }
-   ctx->fb_changed |= ctx->framebuffer != fb;
-   ctx->framebuffer = fb;
 }
 
 static unsigned
@@ -2530,7 +2538,7 @@ unbind_fb_surface(struct zink_context *ctx, struct pipe_surface *surf, unsigned 
       if (zink_fb_clear_enabled(ctx, idx)) {
          if (res->obj->dt) {
             struct zink_screen *screen = zink_screen(ctx->base.screen);
-            zink_copper_acquire(screen, res, UINT64_MAX);
+            zink_copper_acquire(ctx, res, UINT64_MAX);
             zink_surface_swapchain_update(screen, zink_csurface(surf));
          }
          zink_fb_clears_apply(ctx, surf->texture);
@@ -3408,12 +3416,12 @@ zink_copy_image_buffer(struct zink_context *ctx, struct zink_resource *dst, stru
 
    if (buf2img) {
       if (img->obj->dt)
-         zink_copper_acquire(zink_screen(ctx->base.screen), img, UINT64_MAX);
+         zink_copper_acquire(ctx, img, UINT64_MAX);
       zink_resource_image_barrier(ctx, img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0);
       zink_resource_buffer_barrier(ctx, buf, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
    } else {
       if (img->obj->dt)
-         zink_copper_acquire_readback(zink_screen(ctx->base.screen), img);
+         zink_copper_acquire_readback(ctx, img);
       zink_resource_image_barrier(ctx, img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0);
       zink_resource_buffer_barrier(ctx, buf, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
       util_range_add(&dst->base.b, &dst->valid_buffer_range, dstx, dstx + src_box->width);

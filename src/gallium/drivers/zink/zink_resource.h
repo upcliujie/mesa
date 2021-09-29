@@ -87,6 +87,9 @@ struct zink_resource_object {
    VkSemaphore acquire;
    VkSemaphore present;
    bool acquired;
+   bool new_dt;
+   bool indefinite_acquire;
+   struct util_queue_fence present_fence;
    // }
 
 

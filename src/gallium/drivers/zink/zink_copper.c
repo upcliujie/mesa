@@ -23,6 +23,7 @@
  */
 
 
+#include "zink_context.h"
 #include "zink_screen.h"
 #include "zink_resource.h"
 #include "zink_copper.h"
@@ -79,88 +80,98 @@ copper_CreateSurface(struct zink_screen *screen, struct copper_displaytarget *cd
        return VK_NULL_HANDLE;
     }
 
-    error = VKSCR(GetPhysicalDeviceSurfaceCapabilitiesKHR)(screen->pdev, surface, &cdt->caps);
-    if (!zink_screen_handle_vkresult(screen, error)) {
-       VKSCR(DestroySurfaceKHR)(screen->instance, surface, NULL);
-       return VK_NULL_HANDLE;
-    }
-
     return surface;
 }
 
-static VkSwapchainKHR
-copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *cdt)
+static void
+destroy_swapchain(struct zink_screen *screen, struct copper_swapchain *cswap)
 {
-    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
-    VkResult error = VK_SUCCESS;
-    enum pipe_format srgb = PIPE_FORMAT_NONE;
-    if (screen->info.have_KHR_swapchain_mutable_format) {
-       srgb = util_format_is_srgb(cdt->format) ? util_format_linear(cdt->format) : util_format_srgb(cdt->format);
-       /* why do these helpers have different default return values? */
-       if (srgb == cdt->format)
-          srgb = PIPE_FORMAT_NONE;
-    }
+   if (!cswap)
+      return;
+   free(cswap->images);
+   for (unsigned i = 0; i < cswap->num_images; i++)
+      VKSCR(DestroySemaphore)(screen->dev, cswap->acquires[i], NULL);
+   free(cswap->acquires);
+   VKSCR(DestroySwapchainKHR)(screen->dev, cswap->swapchain, NULL);
+   free(cswap);
+}
 
-    /* static init */
-    if (cdt->swapchain == VK_NULL_HANDLE) {
-        cdt->scci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-        cdt->scci.pNext = NULL;
-        cdt->scci.flags = srgb ? VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR : 0;
-        cdt->scci.minImageCount = cdt->caps.minImageCount;   // n-buffering
-        cdt->scci.imageFormat = zink_get_format(screen, cdt->format);
-        cdt->scci.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-        cdt->scci.imageArrayLayers = 1;        // XXX stereo
-        cdt->scci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+static struct copper_swapchain *
+copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *cdt, unsigned w, unsigned h)
+{
+   VkResult error = VK_SUCCESS;
+   struct copper_swapchain *cswap = CALLOC_STRUCT(copper_swapchain);
+   if (!cswap)
+      return NULL;
+
+   if (cdt->swapchain) {
+      cswap->scci = cdt->swapchain->scci;
+      cswap->scci.oldSwapchain = cdt->swapchain->swapchain;
+   } else {
+      cswap->scci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+      cswap->scci.pNext = NULL;
+      cswap->scci.surface = cdt->surface;
+      cswap->scci.flags = zink_copper_has_srgb(cdt) ? VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR : 0;
+      cswap->scci.imageFormat = cdt->formats[0];
+      cswap->scci.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+      cswap->scci.imageArrayLayers = 1;        // XXX stereo
+      cswap->scci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                VK_IMAGE_USAGE_SAMPLED_BIT |
                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        cdt->scci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        cdt->scci.queueFamilyIndexCount = 0;
-        cdt->scci.pQueueFamilyIndices = NULL;
-        cdt->scci.preTransform = cdt->caps.currentTransform;
-        cdt->scci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;  // XXX handle 
-        cdt->scci.presentMode = VK_PRESENT_MODE_FIFO_KHR;              // XXX swapint
-        cdt->scci.clipped = VK_TRUE;                                   // XXX hmm
-    }
-    VkImageFormatListCreateInfoKHR flci;
-    VkFormat formats[2];
-    if (srgb) {
-       flci.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO;
-       flci.pNext = NULL;
-       flci.viewFormatCount = 2;
-       flci.pViewFormats = formats;
+      cswap->scci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      cswap->scci.queueFamilyIndexCount = 0;
+      cswap->scci.pQueueFamilyIndices = NULL;
+      cswap->scci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;  // XXX handle 
+      cswap->scci.presentMode = VK_PRESENT_MODE_FIFO_KHR;              // XXX swapint
+      cswap->scci.clipped = VK_TRUE;                                   // XXX hmm
+   }
+   cswap->scci.minImageCount = cdt->caps.minImageCount;
+   cswap->scci.preTransform = cdt->caps.currentTransform;
+   if (cdt->formats[1])
+      cswap->scci.pNext = &cdt->format_list;
 
-       formats[0] = cdt->scci.imageFormat;
-       formats[1] = zink_get_format(screen, srgb);
+   cswap->scci.imageExtent.width = MIN2(MAX3(w, cdt->caps.currentExtent.width, cdt->caps.minImageExtent.width), cdt->caps.maxImageExtent.width);
+   cswap->scci.imageExtent.height = MIN2(MAX3(h, cdt->caps.currentExtent.height, cdt->caps.minImageExtent.height), cdt->caps.maxImageExtent.height);
 
-       cdt->scci.pNext = &flci;
-    }
+   error = VKSCR(CreateSwapchainKHR)(screen->dev, &cswap->scci, NULL,
+                                &cswap->swapchain);
+   if (error != VK_SUCCESS) {
+       // do something
+       free(cswap);
+       return NULL;
+   }
+   cswap->max_acquires = cswap->scci.minImageCount - cdt->caps.minImageCount;
+   cswap->last_present = UINT32_MAX;
 
-
-    cdt->scci.surface = cdt->surface;
-    cdt->scci.imageExtent.width = MAX3(cdt->extent.width, cdt->caps.currentExtent.width, cdt->caps.minImageExtent.width);
-    cdt->scci.imageExtent.height = MAX3(cdt->extent.height, cdt->caps.currentExtent.height, cdt->caps.minImageExtent.height);
-    cdt->scci.oldSwapchain = cdt->swapchain;
-
-    error = VKSCR(CreateSwapchainKHR)(screen->dev, &cdt->scci, NULL,
-                                 &swapchain);
-    if (error != VK_SUCCESS) {
-        // do something
-    }
-
-    return swapchain;
+   return cswap;
 }
 
 static bool
-copper_GetSwapchainImages(struct zink_screen *screen, struct copper_displaytarget *cdt)
+copper_GetSwapchainImages(struct zink_screen *screen, struct copper_swapchain *cswap)
 {
-   free(cdt->images);
-   free(cdt->acquires);
-   VkResult error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cdt->swapchain, &cdt->num_images, NULL);
-   cdt->images = malloc(sizeof(VkImage) * cdt->num_images);
-   cdt->acquires = calloc(cdt->num_images, sizeof(VkSemaphore));
-   error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cdt->swapchain, &cdt->num_images, cdt->images);
+   VkResult error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cswap->swapchain, &cswap->num_images, NULL);
+   if (!zink_screen_handle_vkresult(screen, error))
+      return false;
+   cswap->images = malloc(sizeof(VkImage) * cswap->num_images);
+   cswap->acquires = calloc(cswap->num_images, sizeof(VkSemaphore));
+   error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cswap->swapchain, &cswap->num_images, cswap->images);
    return zink_screen_handle_vkresult(screen, error);
+}
 
+static bool
+update_swapchain(struct zink_screen *screen, struct copper_displaytarget *cdt, unsigned w, unsigned h)
+{
+   VkResult error = VKSCR(GetPhysicalDeviceSurfaceCapabilitiesKHR)(screen->pdev, cdt->surface, &cdt->caps);
+   if (!zink_screen_handle_vkresult(screen, error))
+      return false;
+   struct copper_swapchain *cswap = copper_CreateSwapchain(screen, cdt, w, h);
+   if (!cswap)
+      return false;
+   destroy_swapchain(screen, cdt->old_swapchain);
+   cdt->old_swapchain = cdt->swapchain;
+   cdt->swapchain = cswap;
+
+   return copper_GetSwapchainImages(screen, cdt->swapchain);
 }
 
 static struct sw_displaytarget *
@@ -179,20 +190,30 @@ copper_displaytarget_create(struct sw_winsys *ws, unsigned tex_usage,
       return NULL;
 
    cdt->refcount = 1;
-   cdt->format = format;
-   cdt->extent.width = width;
-   cdt->extent.height = height;
    cdt->loader_private = (void*)loader_private;
+
+   enum pipe_format srgb = PIPE_FORMAT_NONE;
+   if (screen->info.have_KHR_swapchain_mutable_format) {
+      srgb = util_format_is_srgb(format) ? util_format_linear(format) : util_format_srgb(format);
+      /* why do these helpers have different default return values? */
+      if (srgb == format)
+         srgb = PIPE_FORMAT_NONE;
+   }
+   cdt->formats[0] = zink_get_format(screen, format);
+   if (srgb) {
+      cdt->format_list.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO;
+      cdt->format_list.pNext = NULL;
+      cdt->format_list.viewFormatCount = 2;
+      cdt->format_list.pViewFormats = cdt->formats;
+
+      cdt->formats[1] = zink_get_format(screen, srgb);
+   }
 
    cdt->surface = copper_CreateSurface(screen, cdt, info);
    if (!cdt->surface)
       goto out;
 
-   cdt->swapchain = copper_CreateSwapchain(screen, cdt);
-   if (!cdt->swapchain)
-      goto out;
-
-   if (!copper_GetSwapchainImages(screen, cdt))
+   if (!update_swapchain(screen, cdt, width, height))
       goto out;
 
    *stride = cdt->stride;
@@ -210,12 +231,9 @@ copper_displaytarget_destroy(struct sw_winsys *ws, struct sw_displaytarget *dt)
    struct copper_displaytarget *cdt = copper_displaytarget(dt);
    if (!p_atomic_dec_zero(&cdt->refcount))
       return;
-   VKSCR(DestroySwapchainKHR)(screen->dev, cdt->swapchain, NULL);
+   destroy_swapchain(screen, cdt->swapchain);
+   destroy_swapchain(screen, cdt->old_swapchain);
    VKSCR(DestroySurfaceKHR)(screen->instance, cdt->surface, NULL);
-   free(cdt->images);
-   for (unsigned i = 0; i < cdt->num_images; i++)
-      VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[i], NULL);
-   free(cdt->acquires);
    FREE(dt);
 }
 
@@ -231,13 +249,25 @@ struct sw_winsys zink_copper = {
    .displaytarget_destroy = copper_displaytarget_destroy,
 };
 
-bool
-zink_copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint64_t timeout)
+static bool
+copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint64_t timeout)
 {
-   assert(res->obj->dt);
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
    if (res->obj->acquire)
       return true;
+   if (res->obj->new_dt) {
+      if (!update_swapchain(screen, cdt, res->base.b.width0, res->base.b.height0)) {
+         //???
+      }
+      res->obj->new_dt = false;
+      res->layout = VK_IMAGE_LAYOUT_UNDEFINED;
+      res->obj->access = 0;
+      res->obj->access_stage = 0;
+   }
+   if (timeout == UINT64_MAX && util_queue_is_initialized(&screen->flush_queue) &&
+       p_atomic_read_relaxed(&cdt->swapchain->num_acquires) > cdt->swapchain->max_acquires) {
+      util_queue_fence_wait(&res->obj->present_fence);
+   }
    VkSemaphoreCreateInfo sci = {
       VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
       NULL,
@@ -249,17 +279,33 @@ zink_copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint6
    if (ret != VK_SUCCESS)
       return false;
    unsigned prev = res->obj->dt_idx;
-   ret = VKSCR(AcquireNextImageKHR)(screen->dev, cdt->swapchain, timeout, acquire, VK_NULL_HANDLE, &res->obj->dt_idx);
+   ret = VKSCR(AcquireNextImageKHR)(screen->dev, cdt->swapchain->swapchain, timeout, acquire, VK_NULL_HANDLE, &res->obj->dt_idx);
    if (ret != VK_SUCCESS && ret != VK_SUBOPTIMAL_KHR) {
       VKSCR(DestroySemaphore)(screen->dev, acquire, NULL);
       return false;
    }
    assert(prev != res->obj->dt_idx);
-   VKSCR(DestroySemaphore)(screen->dev, cdt->acquires[res->obj->dt_idx], NULL);
-   cdt->acquires[res->obj->dt_idx] = res->obj->acquire = acquire;
-   res->obj->image = cdt->images[res->obj->dt_idx];
+   VKSCR(DestroySemaphore)(screen->dev, cdt->swapchain->acquires[res->obj->dt_idx], NULL);
+   cdt->swapchain->acquires[res->obj->dt_idx] = res->obj->acquire = acquire;
+   res->obj->image = cdt->swapchain->images[res->obj->dt_idx];
    res->obj->acquired = false;
+   if (timeout == UINT64_MAX) {
+      res->obj->indefinite_acquire = true;
+      p_atomic_inc(&cdt->swapchain->num_acquires);
+   }
    return ret == VK_SUCCESS;
+}
+
+bool
+zink_copper_acquire(struct zink_context *ctx, struct zink_resource *res, uint64_t timeout)
+{
+   assert(res->obj->dt);
+   struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
+   const struct copper_swapchain *cswap = cdt->swapchain;
+   bool ret = copper_acquire(zink_screen(ctx->base.screen), res, timeout);
+   if (cswap != cdt->swapchain)
+      ctx->swapchain_size = cdt->swapchain->scci.imageExtent;
+   return ret;
 }
 
 VkSemaphore
@@ -294,18 +340,27 @@ zink_copper_present(struct zink_screen *screen, struct zink_resource *res)
 struct copper_present_info {
    VkPresentInfoKHR info;
    uint32_t image;
+   struct zink_resource *res;
    VkSemaphore sem;
+   bool indefinite_acquire;
 };
 
 static void
 copper_present(void *data, void *gdata, int thread_idx)
 {
    struct copper_present_info *cpi = data;
+   struct copper_displaytarget *cdt = cpi->res->obj->dt;
    struct zink_screen *screen = gdata;
    VkResult error;
    cpi->info.pResults = &error;
 
    VkResult error2 = VKSCR(QueuePresentKHR)(screen->thread_queue, &cpi->info);
+   unsigned num = 0;
+   cdt->swapchain->last_present = cpi->image;
+   if (cpi->indefinite_acquire)
+      num = p_atomic_dec_return(&cdt->swapchain->num_acquires);
+   if (error2 == VK_SUBOPTIMAL_KHR)
+      cpi->res->obj->new_dt = true;
    free(cpi);
 }
 
@@ -318,45 +373,48 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
    assert(res->obj->present);
    struct copper_present_info *cpi = malloc(sizeof(struct copper_present_info));
    cpi->sem = res->obj->present;
+   cpi->res = res;
+   cpi->indefinite_acquire = res->obj->indefinite_acquire;
    res->obj->last_dt_idx = cpi->image = res->obj->dt_idx;
    cpi->info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
    cpi->info.pNext = NULL;
    cpi->info.waitSemaphoreCount = 1;
    cpi->info.pWaitSemaphores = &cpi->sem;
    cpi->info.swapchainCount = 1;
-   cpi->info.pSwapchains = &cdt->swapchain;
+   cpi->info.pSwapchains = &cdt->swapchain->swapchain;
    cpi->info.pImageIndices = &cpi->image;
    cpi->info.pResults = NULL;
    res->obj->present = NULL;
-   if (screen->threaded
-#ifndef _WIN32
-       && !screen->renderdoc_api
-#endif
-       ) {
-      util_queue_add_job(&screen->flush_queue, cpi, NULL,
+   if (util_queue_is_initialized(&screen->flush_queue)) {
+      util_queue_add_job(&screen->flush_queue, cpi, &res->obj->present_fence,
                          copper_present, NULL, 0);
    } else {
       copper_present(cpi, screen, 0);
    }
    res->obj->acquire = VK_NULL_HANDLE;
-   res->obj->acquired = false;
+   res->obj->indefinite_acquire = res->obj->acquired = false;
    res->obj->dt_idx = UINT32_MAX;
 }
 
 void
-zink_copper_acquire_readback(struct zink_screen *screen, struct zink_resource *res)
+zink_copper_acquire_readback(struct zink_context *ctx, struct zink_resource *res)
 {
+   struct zink_screen *screen = zink_screen(ctx->base.screen);
    assert(res->obj->dt);
+   struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
+   const struct copper_swapchain *cswap = cdt->swapchain;
    uint32_t last_dt_idx = res->obj->last_dt_idx;
    if (!res->obj->acquire)
-      zink_copper_acquire(screen, res, UINT64_MAX);
+      copper_acquire(screen, res, UINT64_MAX);
    if (res->obj->last_dt_idx == UINT32_MAX)
       return;
    while (res->obj->dt_idx != last_dt_idx) {
       if (!zink_copper_present_readback(screen, res))
          break;
-      while (!zink_copper_acquire(screen, res, 0));
+      while (!copper_acquire(screen, res, 0));
    }
+   if (cswap != cdt->swapchain)
+      ctx->swapchain_size = cdt->swapchain->scci.imageExtent;
 }
 
 bool

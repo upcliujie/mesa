@@ -275,9 +275,9 @@ zink_blit(struct pipe_context *pctx,
    struct zink_resource *dst = zink_resource(info->dst.resource);
    struct zink_screen *screen = zink_screen(pctx->screen);
    if (src->obj->dt)
-      zink_copper_acquire_readback(screen, src);
+      zink_copper_acquire_readback(ctx, src);
    if (dst->obj->dt)
-      zink_copper_acquire(screen, dst, UINT64_MAX);
+      zink_copper_acquire(ctx, dst, UINT64_MAX);
 
    if (src_desc == dst_desc ||
        src_desc->nr_channels != 4 || src_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN ||

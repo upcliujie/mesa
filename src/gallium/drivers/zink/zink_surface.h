@@ -36,7 +36,7 @@ struct zink_surface_info {
    uint32_t width;
    uint32_t height;
    uint32_t layerCount;
-   VkFormat format;
+   VkFormat format[2];
 };
 
 struct zink_surface {
@@ -46,7 +46,11 @@ struct zink_surface {
    uint32_t info_hash;
    bool is_swapchain;
    VkImageView image_view;
+   void *dt;
    VkImageView *swapchain;
+   unsigned swapchain_size;
+   VkImageView *old_swapchain;
+   unsigned old_swapchain_size;
    VkImageView simage_view;//old iview after storage replacement/rebind
    void *obj; //backing resource object
    uint32_t hash;

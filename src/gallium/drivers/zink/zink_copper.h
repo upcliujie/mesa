@@ -29,21 +29,29 @@
 
 #include <vulkan/vulkan.h>
 
+struct copper_swapchain {
+   VkSwapchainKHR swapchain;
+   VkImage *images;
+   unsigned last_present;
+   unsigned num_images;
+   VkSemaphore *acquires; //these can only be destroyed when the same image is reacquired
+   VkSwapchainCreateInfoKHR scci;
+   unsigned num_acquires;
+   unsigned max_acquires;
+};
+
 struct copper_displaytarget
 {
    unsigned refcount;
-   enum pipe_format format;
-   VkExtent2D extent;
+   VkFormat formats[2];
    unsigned width;
    unsigned height;
    unsigned stride;
    void *loader_private;
 
    VkSurfaceKHR surface;
-   VkSwapchainKHR swapchain;
-   VkImage *images;
-   unsigned num_images;
-   VkSemaphore *acquires; //these can only be destroyed when the same image is reacquired
+   struct copper_swapchain *swapchain;
+   struct copper_swapchain *old_swapchain;
 
    union {
        VkBaseOutStructure bos;
@@ -52,15 +60,27 @@ struct copper_displaytarget
 #endif
    } sci;
 
-   VkSwapchainCreateInfoKHR scci;
    VkSurfaceCapabilitiesKHR caps;
+   VkImageFormatListCreateInfoKHR format_list;
 };
 
 struct zink_screen;
 struct zink_resource;
 
+static inline bool
+zink_copper_has_srgb(const struct copper_displaytarget *cdt)
+{
+   return cdt->formats[1] != VK_FORMAT_UNDEFINED;
+}
+
+static inline bool
+zink_copper_last_present_eq(const struct copper_displaytarget *cdt, uint32_t idx)
+{
+   return cdt->swapchain->last_present == idx;
+}
+
 bool
-zink_copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint64_t timeout);
+zink_copper_acquire(struct zink_context *ctx, struct zink_resource *res, uint64_t timeout);
 VkSemaphore
 zink_copper_acquire_submit(struct zink_screen *screen, struct zink_resource *res);
 VkSemaphore
@@ -68,7 +88,7 @@ zink_copper_present(struct zink_screen *screen, struct zink_resource *res);
 void
 zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res);
 void
-zink_copper_acquire_readback(struct zink_screen *screen, struct zink_resource *res);
+zink_copper_acquire_readback(struct zink_context *ctx, struct zink_resource *res);
 bool
 zink_copper_present_readback(struct zink_screen *screen, struct zink_resource *res);
 #endif
