@@ -15,18 +15,6 @@ DEQP_OPTIONS="$DEQP_OPTIONS --deqp-surface-type=${DEQP_SURFACE_TYPE:-pbuffer}"
 DEQP_OPTIONS="$DEQP_OPTIONS --deqp-gl-config-name=$DEQP_CONFIG"
 DEQP_OPTIONS="$DEQP_OPTIONS --deqp-visibility=hidden"
 
-if [ -z "$DEQP_VER" ]; then
-   echo 'DEQP_VER must be set to something like "gles2", "gles31-khr" or "vk" for the test run'
-   exit 1
-fi
-
-if [ "$DEQP_VER" = "vk" ]; then
-   if [ -z "$VK_DRIVER" ]; then
-      echo 'VK_DRIVER must be to something like "radeon" or "intel" for the test run'
-      exit 1
-   fi
-fi
-
 if [ -z "$GPU_VERSION" ]; then
    echo 'GPU_VERSION must be set to something like "llvmpipe" or "freedreno-a630" (the name used in .gitlab-ci/deqp-gpu-version-*.txt)'
    exit 1
@@ -47,27 +35,38 @@ RESULTS=`pwd`/${DEQP_RESULTS_DIR:-results}
 mkdir -p $RESULTS
 
 HANG_DETECTION_CMD=""
-
-# Generate test case list file.
-if [ "$DEQP_VER" = "vk" ]; then
-   MUSTPASS=/deqp/mustpass/vk-$DEQP_VARIANT.txt
-   DEQP=/deqp/external/vulkancts/modules/vulkan/deqp-vk
-   HANG_DETECTION_CMD="/parallel-deqp-runner/build/bin/hang-detection"
-elif [ "$DEQP_VER" = "gles2" -o "$DEQP_VER" = "gles3" -o "$DEQP_VER" = "gles31" -o "$DEQP_VER" = "egl" ]; then
-   MUSTPASS=/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt
-   DEQP=/deqp/modules/$DEQP_VER/deqp-$DEQP_VER
-   SUITE=dEQP
-elif [ "$DEQP_VER" = "gles2-khr" -o "$DEQP_VER" = "gles3-khr" -o "$DEQP_VER" = "gles31-khr" -o "$DEQP_VER" = "gles32-khr" ]; then
-   MUSTPASS=/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt
-   DEQP=/deqp/external/openglcts/modules/glcts
-   SUITE=dEQP
-else
-   MUSTPASS=/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt
-   DEQP=/deqp/external/openglcts/modules/glcts
-   SUITE=KHR
+if [ -n "$VK_DRIVER" ]; then
+    HANG_DETECTION_CMD="/parallel-deqp-runner/build/bin/hang-detection"
 fi
 
 if [ -z "$DEQP_SUITE" ]; then
+    if [ -z "$DEQP_VER" ]; then
+        echo 'DEQP_VER must be set to something like "gles2", "gles31-khr" or "vk" for the test run'
+        exit 1
+    fi
+
+    if [ "$DEQP_VER" = "vk" ]; then
+        if [ -z "$VK_DRIVER" ]; then
+            echo 'VK_DRIVER must be to something like "radeon" or "intel" for the test run'
+            exit 1
+        fi
+    fi
+
+    # Generate test case list file.
+    if [ "$DEQP_VER" = "vk" ]; then
+        MUSTPASS=/deqp/mustpass/vk-$DEQP_VARIANT.txt
+        DEQP=/deqp/external/vulkancts/modules/vulkan/deqp-vk
+    elif [ "$DEQP_VER" = "gles2" -o "$DEQP_VER" = "gles3" -o "$DEQP_VER" = "gles31" -o "$DEQP_VER" = "egl" ]; then
+        MUSTPASS=/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt
+        DEQP=/deqp/modules/$DEQP_VER/deqp-$DEQP_VER
+    elif [ "$DEQP_VER" = "gles2-khr" -o "$DEQP_VER" = "gles3-khr" -o "$DEQP_VER" = "gles31-khr" -o "$DEQP_VER" = "gles32-khr" ]; then
+        MUSTPASS=/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt
+        DEQP=/deqp/external/openglcts/modules/glcts
+    else
+        MUSTPASS=/deqp/mustpass/$DEQP_VER-$DEQP_VARIANT.txt
+        DEQP=/deqp/external/openglcts/modules/glcts
+    fi
+
     cp $MUSTPASS /tmp/case-list.txt
 
     # If the caselist is too long to run in a reasonable amount of time, let the job
@@ -131,46 +130,6 @@ else
    JOB="--jobs 4"
 fi
 
-parse_renderer() {
-    RENDERER=`grep -A1 TestCaseResult.\*info.renderer $RESULTS/deqp-info.qpa | grep '<Text' | sed 's|.*<Text>||g' | sed 's|</Text>||g'`
-    VERSION=`grep -A1 TestCaseResult.\*info.version $RESULTS/deqp-info.qpa | grep '<Text' | sed 's|.*<Text>||g' | sed 's|</Text>||g'`
-    echo "Renderer: $RENDERER"
-    echo "Version: $VERSION "
-
-    if ! echo $RENDERER | grep -q $DEQP_EXPECTED_RENDERER; then
-        echo "Expected GL_RENDERER $DEQP_EXPECTED_RENDERER"
-        exit 1
-    fi
-}
-
-check_renderer() {
-    if echo $DEQP_VER | grep -q egl; then
-        return
-    fi
-    echo "Capturing renderer info for GLES driver sanity checks"
-    # If you're having trouble loading your driver, uncommenting this may help
-    # debug.
-    # export EGL_LOG_LEVEL=debug
-    VERSION=`echo $DEQP_VER | cut -d '-' -f1 | tr '[a-z]' '[A-Z]'`
-    export LD_PRELOAD=$TEST_LD_PRELOAD
-    $DEQP $DEQP_OPTIONS --deqp-case=$SUITE-$VERSION.info.\* --deqp-log-filename=$RESULTS/deqp-info.qpa
-    export LD_PRELOAD=
-    parse_renderer
-}
-
-check_vk_device_name() {
-    echo "Capturing device info for VK driver sanity checks"
-    export LD_PRELOAD=$TEST_LD_PRELOAD
-    $DEQP $DEQP_OPTIONS --deqp-case=dEQP-VK.info.device --deqp-log-filename=$RESULTS/deqp-info.qpa
-    export LD_PRELOAD=
-    DEVICENAME=`grep deviceName $RESULTS/deqp-info.qpa | sed 's|deviceName: ||g'`
-    echo "deviceName: $DEVICENAME"
-    if ! echo $DEVICENAME | grep -q "$DEQP_EXPECTED_RENDERER"; then
-        echo "Expected deviceName $DEQP_EXPECTED_RENDERER"
-        exit 1
-    fi
-}
-
 report_load() {
     echo "System load: $(cut -d' ' -f1-3 < /proc/loadavg)"
     echo "# of CPU cores: $(cat /proc/cpuinfo | grep processor | wc -l)"
@@ -198,18 +157,14 @@ if [ "$GALLIUM_DRIVER" = "virpipe" ]; then
     sleep 1
 fi
 
-if [ $DEQP_VER = vk ]; then
-    quiet check_vk_device_name
-else
-    quiet check_renderer
-fi
-
 RESULTS_CSV=$RESULTS/results.csv
 FAILURES_CSV=$RESULTS/failures.csv
 
 export LD_PRELOAD=$TEST_LD_PRELOAD
 
 if [ -z "$DEQP_SUITE" ]; then
+    MESA_VERSION=$(head -1 "$INSTALL/VERSION" | sed 's/(/\\(/g' | sed 's/)/\\)/g')
+
     $HANG_DETECTION_CMD deqp-runner \
         run \
         --deqp $DEQP \
@@ -218,6 +173,8 @@ if [ -z "$DEQP_SUITE" ]; then
         --skips $INSTALL/deqp-all-skips.txt $DEQP_SKIPS \
         --flakes $INSTALL/deqp-$GPU_VERSION-flakes.txt \
         --testlog-to-xml /deqp/executor/testlog-to-xml \
+        --renderer-check "$DEQP_EXPECTED_RENDERER" \
+        --version-check "$MESA_VERSION" \
         $JOB \
         $SUMMARY_LIMIT \
 	$DEQP_RUNNER_OPTIONS \
@@ -256,7 +213,7 @@ find $RESULTS -name \*.xml \
     -quit
 
 deqp-runner junit \
-   --testsuite $DEQP_VER \
+   --testsuite ${DEQP_SUITE:-$DEQP_VER} \
    --results $RESULTS/failures.csv \
    --output $RESULTS/junit.xml \
    --limit 50 \

@@ -26,7 +26,6 @@ vc4-rpi3-gles:armhf:
   variables:
     HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
     DEQP_SUITE: vc4-rpi3-gles
-    DEQP_VER: gles2
 
 vc4-rpi3-egl:armhf:
   extends:
@@ -92,7 +91,6 @@ v3d-rpi4-gles:armhf:
   parallel: 8
   variables:
     DEQP_SUITE: v3d-rpi4-gles
-    DEQP_VER: gles31
 
 v3d-rpi4-egl:armhf:
   extends:
