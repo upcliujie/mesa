@@ -32,7 +32,7 @@
 struct copper_displaytarget
 {
    unsigned refcount;
-   VkFormat format;
+   enum pipe_format format;
    VkExtent2D extent;
    unsigned width;
    unsigned height;

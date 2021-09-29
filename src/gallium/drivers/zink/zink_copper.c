@@ -93,12 +93,19 @@ copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *
 {
     VkSwapchainKHR swapchain = VK_NULL_HANDLE;
     VkResult error = VK_SUCCESS;
+    enum pipe_format srgb = PIPE_FORMAT_NONE;
+    if (screen->info.have_KHR_swapchain_mutable_format) {
+       srgb = util_format_is_srgb(cdt->format) ? util_format_linear(cdt->format) : util_format_srgb(cdt->format);
+       /* why do these helpers have different default return values? */
+       if (srgb == cdt->format)
+          srgb = PIPE_FORMAT_NONE;
+    }
 
     /* static init */
     if (cdt->swapchain == VK_NULL_HANDLE) {
         cdt->scci.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
         cdt->scci.pNext = NULL;
-        cdt->scci.flags = 0;                   // probably not that interesting...
+        cdt->scci.flags = srgb ? VK_SWAPCHAIN_CREATE_MUTABLE_FORMAT_BIT_KHR : 0;
         cdt->scci.minImageCount = cdt->caps.minImageCount;   // n-buffering
         cdt->scci.imageFormat = zink_get_format(screen, cdt->format);
         cdt->scci.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -106,7 +113,7 @@ copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *
         cdt->scci.imageUsage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                VK_IMAGE_USAGE_SAMPLED_BIT |
                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-        cdt->scci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;        // XXX no idea
+        cdt->scci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         cdt->scci.queueFamilyIndexCount = 0;
         cdt->scci.pQueueFamilyIndices = NULL;
         cdt->scci.preTransform = cdt->caps.currentTransform;
@@ -114,6 +121,20 @@ copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *
         cdt->scci.presentMode = VK_PRESENT_MODE_FIFO_KHR;              // XXX swapint
         cdt->scci.clipped = VK_TRUE;                                   // XXX hmm
     }
+    VkImageFormatListCreateInfoKHR flci;
+    VkFormat formats[2];
+    if (srgb) {
+       flci.sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO;
+       flci.pNext = NULL;
+       flci.viewFormatCount = 2;
+       flci.pViewFormats = formats;
+
+       formats[0] = cdt->scci.imageFormat;
+       formats[1] = zink_get_format(screen, srgb);
+
+       cdt->scci.pNext = &flci;
+    }
+
 
     cdt->scci.surface = cdt->surface;
     cdt->scci.imageExtent.width = MAX3(cdt->extent.width, cdt->caps.currentExtent.width, cdt->caps.minImageExtent.width);
