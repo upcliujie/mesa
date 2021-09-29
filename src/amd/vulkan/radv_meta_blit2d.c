@@ -389,6 +389,9 @@ radv_meta_blit2d_normal_dst(struct radv_cmd_buffer *cmd_buffer,
          radv_CmdDraw(radv_cmd_buffer_to_handle(cmd_buffer), 3, 1, 0, 0);
          radv_cmd_buffer_end_render_pass(cmd_buffer);
 
+         if (src_type == BLIT2D_SRC_TYPE_BUFFER)
+            radv_buffer_view_finish(&src_temps.bview);
+
       fail_pipeline:
          /* At the point where we emit the draw call, all data from the
           * descriptor sets, etc. has been used.  We are free to delete it.
