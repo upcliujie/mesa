@@ -108,9 +108,13 @@ bool ac_modifier_has_dcc_retile(uint64_t modifier)
 bool ac_modifier_supports_dcc_image_stores(uint64_t modifier)
 {
    return ac_modifier_has_dcc(modifier) &&
-         !AMD_FMT_MOD_GET(DCC_INDEPENDENT_64B, modifier) &&
-          AMD_FMT_MOD_GET(DCC_INDEPENDENT_128B, modifier) &&
-          AMD_FMT_MOD_GET(DCC_MAX_COMPRESSED_BLOCK, modifier) == AMD_FMT_MOD_DCC_BLOCK_128B;
+          ((!AMD_FMT_MOD_GET(DCC_INDEPENDENT_64B, modifier) &&
+            AMD_FMT_MOD_GET(DCC_INDEPENDENT_128B, modifier) &&
+            AMD_FMT_MOD_GET(DCC_MAX_COMPRESSED_BLOCK, modifier) == AMD_FMT_MOD_DCC_BLOCK_128B) ||
+           (AMD_FMT_MOD_GET(TILE_VERSION, modifier) >= AMD_FMT_MOD_TILE_VER_GFX10_RBPLUS && /* gfx10.3 */
+            AMD_FMT_MOD_GET(DCC_INDEPENDENT_64B, modifier) &&
+            AMD_FMT_MOD_GET(DCC_INDEPENDENT_128B, modifier) &&
+            AMD_FMT_MOD_GET(DCC_MAX_COMPRESSED_BLOCK, modifier) == AMD_FMT_MOD_DCC_BLOCK_64B));
 }
 
 static
@@ -1423,7 +1427,8 @@ ASSERTED static bool is_dcc_supported_by_L2(const struct radeon_info *info,
 
    /* 128B is recommended, but 64B can be set too if needed for 4K by DCN.
     * Since there is no reason to ever disable 128B, require it.
-    * If 64B is used, DCC image stores are unsupported.
+    * DCC image stores are supported with a subset of this,
+    * see ac_modifier_supports_dcc_image_stores.
     */
    return surf->u.gfx9.color.dcc.independent_128B_blocks &&
           surf->u.gfx9.color.dcc.max_compressed_block_size <= V_028C78_MAX_BLOCK_SIZE_128B;
