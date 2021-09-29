@@ -455,17 +455,6 @@ ntt_setup_uniforms(struct ntt_compile *c)
                target, ret_type, ret_type, ret_type, ret_type);
             ureg_DECL_sampler(c->ureg, var->data.binding + i);
          }
-      } else if (glsl_type_is_image(var->type)) {
-         enum tgsi_texture_type tex_type =
-               tgsi_texture_type_from_sampler_dim(glsl_get_sampler_dim(var->type),
-                                                  glsl_sampler_type_is_array(var->type), false);
-
-         c->images[var->data.binding] = ureg_DECL_image(c->ureg,
-                                                        var->data.binding,
-                                                        tex_type,
-                                                        var->data.image.format,
-                                                        !(var->data.access & ACCESS_NON_WRITEABLE),
-                                                        false);
       } else if (glsl_contains_atomic(var->type)) {
          uint32_t offset = var->data.offset / 4;
          uint32_t size = glsl_atomic_size(var->type) / 4;
@@ -475,6 +464,19 @@ ntt_setup_uniforms(struct ntt_compile *c)
       /* lower_uniforms_to_ubo lowered non-sampler uniforms to UBOs, so CB0
        * size declaration happens with other UBOs below.
        */
+   }
+
+   nir_foreach_image_variable(var, c->s) {
+      enum tgsi_texture_type tex_type =
+            tgsi_texture_type_from_sampler_dim(glsl_get_sampler_dim(var->type),
+                                               glsl_sampler_type_is_array(var->type), false);
+
+      c->images[var->data.binding] = ureg_DECL_image(c->ureg,
+                                                     var->data.binding,
+                                                     tex_type,
+                                                     var->data.image.format,
+                                                     !(var->data.access & ACCESS_NON_WRITEABLE),
+                                                     false);
    }
 
    unsigned ubo_sizes[PIPE_MAX_CONSTANT_BUFFERS] = {0};
