@@ -15,7 +15,6 @@ i915-g33-deqp:
     - .anholt-g33-test
     - .deqp-test
   variables:
-    DEQP_VER: gles2
     DEQP_SUITE: i915g
 
 i915-g33-piglit:
