@@ -1424,6 +1424,8 @@ x11_image_init(VkDevice device_h, struct x11_swapchain *chain,
                                        num_tranches, num_modifiers, modifiers,
                                        chain->has_mit_shm ? &alloc_shm : NULL,
                                        &image->base);
+      if (!chain->has_mit_shm)
+         image->shmaddr = NULL;
    }
    if (result < 0)
       return result;
