@@ -326,12 +326,11 @@ void
 zink_copper_acquire_readback(struct zink_screen *screen, struct zink_resource *res)
 {
    assert(res->obj->dt);
-   if (res->obj->last_dt_idx == UINT32_MAX)
-      return;
    uint32_t last_dt_idx = res->obj->last_dt_idx;
    if (!res->obj->acquire)
       zink_copper_acquire(screen, res, UINT64_MAX);
-
+   if (res->obj->last_dt_idx == UINT32_MAX)
+      return;
    while (res->obj->dt_idx != last_dt_idx) {
       if (!zink_copper_present_readback(screen, res))
          break;

@@ -271,9 +271,13 @@ zink_blit(struct pipe_context *pctx,
        unlikely(!zink_screen(pctx->screen)->info.have_EXT_conditional_rendering && !zink_check_conditional_render(ctx)))
       return;
 
-   struct zink_resource *res = zink_resource(info->src.resource);
-   if (res->obj->dt)
-      zink_copper_acquire_readback(zink_screen(pctx->screen), res);
+   struct zink_resource *src = zink_resource(info->src.resource);
+   struct zink_resource *dst = zink_resource(info->dst.resource);
+   struct zink_screen *screen = zink_screen(pctx->screen);
+   if (src->obj->dt)
+      zink_copper_acquire_readback(screen, src);
+   if (dst->obj->dt)
+      zink_copper_acquire(screen, dst, UINT64_MAX);
 
    if (src_desc == dst_desc ||
        src_desc->nr_channels != 4 || src_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN ||
@@ -291,8 +295,6 @@ zink_blit(struct pipe_context *pctx,
       }
    }
 
-   struct zink_resource *src = zink_resource(info->src.resource);
-   struct zink_resource *dst = zink_resource(info->dst.resource);
    /* if we're copying between resources with matching aspects then we can probably just copy_region */
    if (src->aspect == dst->aspect) {
       struct pipe_blit_info new_info = *info;
@@ -324,8 +326,8 @@ zink_blit(struct pipe_context *pctx,
    zink_blit_begin(ctx, ZINK_BLIT_SAVE_FB | ZINK_BLIT_SAVE_FS | ZINK_BLIT_SAVE_TEXTURES);
 
    util_blitter_blit(ctx->blitter, info);
-   if (res->obj->dt)
-      zink_copper_present_readback(zink_screen(pctx->screen), res);
+   if (src->obj->dt)
+      zink_copper_present_readback(screen, src);
 }
 
 /* similar to radeonsi */

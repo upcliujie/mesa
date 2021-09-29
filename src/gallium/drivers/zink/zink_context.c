@@ -3398,9 +3398,13 @@ zink_copy_image_buffer(struct zink_context *ctx, struct zink_resource *dst, stru
    bool buf2img = buf == src;
 
    if (buf2img) {
+      if (img->obj->dt)
+         zink_copper_acquire(zink_screen(ctx->base.screen), img, UINT64_MAX);
       zink_resource_image_barrier(ctx, img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0);
       zink_resource_buffer_barrier(ctx, buf, VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
    } else {
+      if (img->obj->dt)
+         zink_copper_acquire_readback(zink_screen(ctx->base.screen), img);
       zink_resource_image_barrier(ctx, img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0);
       zink_resource_buffer_barrier(ctx, buf, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
       util_range_add(&dst->base.b, &dst->valid_buffer_range, dstx, dstx + src_box->width);
@@ -3479,6 +3483,8 @@ zink_copy_image_buffer(struct zink_context *ctx, struct zink_resource *dst, stru
       else
          VKCTX(CmdCopyImageToBuffer)(batch->state->cmdbuf, img->obj->image, img->layout, buf->obj->buffer, 1, &region);
    }
+   if (!buf2img && img->obj->dt)
+      zink_copper_present_readback(zink_screen(ctx->base.screen), img);
 }
 
 static void
