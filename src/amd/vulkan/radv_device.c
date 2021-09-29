@@ -2878,12 +2878,6 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
    device->robust_buffer_access = robust_buffer_access || robust_buffer_access2;
    device->robust_buffer_access2 = robust_buffer_access2;
 
-   device->adjust_frag_coord_z =
-      (vrs_enabled || device->vk.enabled_extensions.KHR_fragment_shading_rate ||
-       device->force_vrs != RADV_FORCE_VRS_NONE) &&
-      (device->physical_device->rad_info.family == CHIP_SIENNA_CICHLID ||
-       device->physical_device->rad_info.family == CHIP_NAVY_FLOUNDER ||
-       device->physical_device->rad_info.family == CHIP_VANGOGH);
    device->attachment_vrs_enabled = attachment_vrs_enabled;
 
    device->image_float32_atomics = image_float32_atomics;
@@ -3053,6 +3047,13 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          fprintf(stderr, "radv: Invalid VRS rates specified "
                          "(valid values are 2x2, 2x1 and 1x2)\n");
    }
+
+   device->adjust_frag_coord_z =
+      (vrs_enabled || device->vk.enabled_extensions.KHR_fragment_shading_rate ||
+       device->force_vrs != RADV_FORCE_VRS_NONE) &&
+      (device->physical_device->rad_info.family == CHIP_SIENNA_CICHLID ||
+       device->physical_device->rad_info.family == CHIP_NAVY_FLOUNDER ||
+       device->physical_device->rad_info.family == CHIP_VANGOGH);
 
    device->keep_shader_info = keep_shader_info;
    result = radv_device_init_meta(device);
