@@ -919,7 +919,6 @@
     <field name="ZS Preload Base" size="64" start="12:0" type="address"/>
     <field name="ZS Preload Row Stride" size="32" start="14:0" type="uint"/>
     <field name="ZS Preload Surface Stride" size="32" start="15:0" type="uint"/>
-    <field name="CRC Clear Color" size="64" start="12:0" type="uint"/>
   </struct>
 
   <enum name="RT Endianness">
