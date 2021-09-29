@@ -1070,7 +1070,6 @@
     <field name="ZS Write Format" size="4" start="3:0" type="ZS Format"/>
     <field name="ZS Block Format" size="4" start="3:4" type="Block Format"/>
     <field name="ZS MSAA" size="2" start="3:8" default="Single" type="MSAA"/>
-    <field name="ZS Big Endian" size="1" start="3:8" type="bool"/>
     <field name="ZS Clean Pixel Write Enable" size="1" start="3:10" type="bool"/>
     <field name="CRC Render Target" size="4" start="3:11" type="uint"/>
     <field name="S Write Format" size="4" start="3:16" type="S Format"/>
@@ -1085,16 +1084,8 @@
     <field name="ZS AFBC Header" size="64" start="4:0" type="address"/>
     <field name="ZS AFBC Row Stride" size="13" start="6:0" type="uint"/>
     <field name="ZS AFBC Body" size="64" start="8:0" type="address"/>
-    <field name="ZS AFBC Body Size" size="32" start="10:0" type="uint"/>
     <field name="CRC Clear Color" size="64" start="12:0" type="uint"/>
   </struct>
-
-  <enum name="RT Endianness">
-    <value name="Little Endian" value="0"/>
-    <value name="Big Endian 2B" value="1"/>
-    <value name="Big Endian 4B" value="2"/>
-    <value name="Big Endian 8B" value="3"/>
-  </enum>
 
   <enum name="YUV Conv K6">
     <value name="0" value="0"/>
