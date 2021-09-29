@@ -148,6 +148,10 @@ mv /piglit /lava-files/rootfs-${DEBIAN_ARCH}/.
 EXTRA_MESON_ARGS+=" -D prefix=/libdrm"
 . .gitlab-ci/container/build-libdrm.sh
 
+############### Build parallel-deqp-runner's hang-detection tool
+
+. .gitlab-ci/container/build-hang-detection.sh
+
 ############### Build kernel
 . .gitlab-ci/container/build-kernel.sh
 
