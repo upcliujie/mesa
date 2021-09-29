@@ -196,14 +196,24 @@ lower_tex_prefetch_block(nir_block *block)
 static bool
 lower_tex_prefetch_func(nir_function_impl *impl)
 {
-   /* Only instructions in the the outer-most block are considered
-    * eligible for pre-dispatch, because they need to be move-able
-    * to the beginning of the shader to avoid locking down the
-    * register holding the pre-fetched result for too long.
+   /* Only instructions in the the outer-most block are considered eligible for
+    * pre-dispatch, because they need to be move-able to the beginning of the
+    * shader to avoid locking down the register holding the pre-fetched result
+    * for too long. However we should skip the preamble or else shaders with
+    * preambles can't have prefetching.
     */
    nir_block *block = nir_start_block(impl);
-   if (!block)
-      return false;
+
+   nir_cf_node *next = nir_cf_node_next(&block->cf_node);
+   if (next && next->type == nir_cf_node_if) {
+      nir_if *nif = nir_cf_node_as_if(next);
+      nir_instr *cond = nif->condition.ssa->parent_instr;
+      if (cond->type == nir_instr_type_intrinsic &&
+          nir_instr_as_intrinsic(cond)->intrinsic ==
+          nir_intrinsic_preamble_start_ir3) {
+         block = nir_cf_node_as_block(nir_cf_node_next(&nif->cf_node));
+      }
+   }
 
    bool progress = lower_tex_prefetch_block(block);
 
