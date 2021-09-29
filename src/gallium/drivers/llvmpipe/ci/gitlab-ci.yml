@@ -92,14 +92,12 @@ llvmpipe-traces:
 
 llvmpipe-deqp:
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: llvmpipe
   parallel: 2
   extends: .llvmpipe-deqp-test
 
 llvmpipe-deqp-asan:
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: llvmpipe-asan
     GPU_VERSION: llvmpipe-asan
     DEQP_FRACTION: 10
