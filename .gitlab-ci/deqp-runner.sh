@@ -149,7 +149,7 @@ if [ -z "$DEQP_SUITE" ]; then
         export DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --version-check `cat $INSTALL/VERSION | sed 's/[() ]/./g'`"
     fi
 
-    deqp-runner \
+    $HANG_DETECTION_CMD deqp-runner \
         run \
         --deqp $DEQP \
         --output $RESULTS \
@@ -162,7 +162,7 @@ if [ -z "$DEQP_SUITE" ]; then
         -- \
         $DEQP_OPTIONS
 else
-    deqp-runner \
+    $HANG_DETECTION_CMD deqp-runner \
         suite \
         --suite $INSTALL/deqp-$DEQP_SUITE.toml \
         --output $RESULTS \
