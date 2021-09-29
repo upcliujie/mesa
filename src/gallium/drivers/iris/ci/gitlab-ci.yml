@@ -85,7 +85,6 @@ iris-apl-deqp:
   extends:
     - .iris-apl-test
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-apl
   parallel: 3
 
@@ -101,7 +100,6 @@ iris-glk-deqp:
   extends:
     - .iris-glk-test
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-glk
   parallel: 2
 
@@ -117,7 +115,6 @@ iris-amly-deqp:
   extends:
     - .iris-amly-test
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-amly
   parallel: 3
 
@@ -125,7 +122,6 @@ iris-kbl-deqp:
   extends:
     - .iris-kbl-test
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-kbl
   parallel: 3
 
@@ -133,14 +129,12 @@ iris-whl-deqp:
   extends:
     - .iris-whl-test
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-whl
 
 iris-cml-deqp:
   extends:
     - .iris-cml-test
   variables:
-    DEQP_VER: gles2 # for the renderer check
     DEQP_SUITE: iris-cml
   parallel: 2
 
