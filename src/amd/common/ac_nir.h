@@ -52,6 +52,9 @@ enum
 struct nir_builder;
 typedef struct nir_builder nir_builder;
 
+nir_ssa_def *
+ac_nir_load_arg(nir_builder *b, const struct ac_shader_args *ac_args, struct ac_arg arg);
+
 void
 ac_nir_lower_ls_outputs_to_mem(nir_shader *ls,
                                bool tcs_in_out_eq,
