@@ -332,7 +332,7 @@ static void
 copper_flush_swapbuffers(struct dri_context *ctx,
                          struct dri_drawable *drawable)
 {
-   *(int *)0 = 0;
+   /* does this actually need to do anything? */
 }
 
 // XXX this frees its second argument as a side effect - regardless of success
