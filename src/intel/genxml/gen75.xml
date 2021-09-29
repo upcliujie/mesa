@@ -1268,7 +1268,7 @@
       <value name="DUAL_INSTANCE" value="1"/>
       <value name="DUAL_OBJECT" value="2"/>
     </field>
-    <field name="Default StreamID" start="173" end="174" type="uint"/>
+    <field name="Default Stream Id" start="173" end="174" type="uint"/>
     <field name="Instance Control" start="175" end="179" type="uint"/>
     <field name="Control Data Header Size" start="180" end="183" type="uint"/>
     <field name="Maximum Number of Threads" start="184" end="191" type="uint"/>
