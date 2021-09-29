@@ -586,7 +586,7 @@
     <field name="Indices" size="64" start="4:0" type="address"/>
   </struct>
 
-  <struct name="Draw" size="30" align="64">
+  <struct name="Draw" size="32" align="64">
     <field name="Four Components Per Vertex" size="1" start="0:0" type="bool"/>
     <field name="Draw Descriptor Is 64b" size="1" start="0:1" type="bool"/>
     <field name="Occlusion query" size="2" start="0:3" type="Occlusion Mode" default="Disabled"/>
@@ -615,9 +615,6 @@
     <field name="Occlusion" size="64" start="26:0" type="address"/>
     <field name="Thread Storage" size="64" start="28:0" type="address"/>
     <field name="FBD" size="64" start="28:0" type="address"/>
-  </struct>
-
-  <struct name="Draw Padding" size="2" align="8">
   </struct>
 
   <struct name="Surface" align="8">
