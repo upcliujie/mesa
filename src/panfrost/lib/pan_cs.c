@@ -250,13 +250,13 @@ pan_prepare_crc(const struct pan_fb_info *fb, int rt_crc,
 
 #if PAN_ARCH >= 7
         ext->crc_render_target = rt_crc;
-#endif
 
         if (fb->rts[rt_crc].clear) {
                 uint32_t clear_val = fb->rts[rt_crc].clear_value[0];
                 ext->crc_clear_color = clear_val | 0xc000000000000000 |
                                        (((uint64_t)clear_val & 0xffff) << 32);
         }
+#endif
 }
 
 static void

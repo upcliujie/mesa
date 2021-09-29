@@ -1030,7 +1030,6 @@
     <field name="S Write Format" size="4" start="3:16" type="S Format"/>
     <field name="S Block Format" size="2" start="3:20" type="Block Format"/>
     <field name="S MSAA" size="2" start="3:22" default="Single" type="MSAA"/>
-    <field name="ZS Preload Format" size="4" start="3:28" type="ZS Preload Format"/>
     <field name="ZS Writeback Base" size="64" start="4:0" type="address"/>
     <field name="ZS Writeback Row Stride" size="32" start="6:0" type="uint"/>
     <field name="ZS Writeback Surface Stride" size="32" start="7:0" type="uint"/>
@@ -1039,14 +1038,7 @@
     <field name="S Writeback Surface Stride" size="32" start="11:0" type="uint"/>
     <field name="ZS AFBC Header" size="64" start="4:0" type="address"/>
     <field name="ZS AFBC Row Stride" size="13" start="6:0" type="uint"/>
-    <field name="ZS AFBC Chunk Size" size="12" start="7:0" type="uint"/>
-    <field name="ZS AFBC Sparse" size="1" start="7:16" type="bool"/>
     <field name="ZS AFBC Body" size="64" start="8:0" type="address"/>
-    <field name="ZS AFBC Body Size" size="32" start="10:0" type="uint"/>
-    <field name="ZS Preload Base" size="64" start="12:0" type="address"/>
-    <field name="ZS Preload Row Stride" size="32" start="14:0" type="uint"/>
-    <field name="ZS Preload Surface Stride" size="32" start="15:0" type="uint"/>
-    <field name="CRC Clear Color" size="64" start="12:0" type="uint"/>
   </struct>
 
   <enum name="RT Endianness">
