@@ -167,6 +167,8 @@ radv_expand_fmask_image_inplace(struct radv_cmd_buffer *cmd_buffer, struct radv_
 
    radv_meta_restore(&saved_state, cmd_buffer);
 
+   radv_image_view_finish(&iview);
+
    cmd_buffer->state.flush_bits |=
       RADV_CMD_FLAG_CS_PARTIAL_FLUSH |
       radv_src_access_flush(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, image);
