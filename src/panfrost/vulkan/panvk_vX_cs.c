@@ -337,23 +337,38 @@ panvk_per_arch(emit_sampler)(const VkSamplerCreateInfo *pCreateInfo,
 
 static void
 panvk_emit_attrib(const struct panvk_device *dev,
+                  const struct panvk_draw_info *draw,
                   const struct panvk_attribs_info *attribs,
                   const struct panvk_attrib_buf *bufs,
                   unsigned buf_count,
                   unsigned idx, void *attrib)
 {
    const struct panfrost_device *pdev = &dev->physical_device->pdev;
+   unsigned buf_idx = attribs->attrib[idx].buf;
+   const struct panvk_attrib_buf_info *buf_info = &attribs->buf[buf_idx];
 
    pan_pack(attrib, ATTRIBUTE, cfg) {
-      cfg.buffer_index = attribs->attrib[idx].buf * 2;
+      cfg.buffer_index = buf_idx * 2;
       cfg.offset = attribs->attrib[idx].offset +
-                   (bufs[cfg.buffer_index].address & 63);
+                   (bufs[buf_idx].address & 63);
+
+      if (buf_info->per_instance && buf_info->instance_divisor) {
+         if (draw->first_instance > 0) {
+            cfg.offset += (draw->first_instance * buf_info->stride) /
+                          buf_info->instance_divisor;
+         }
+
+         if (draw->instance_count > 1)
+            cfg.offset -= buf_info->stride * draw->offset_start;
+      }
+
       cfg.format = pdev->formats[attribs->attrib[idx].format].hw;
    }
 }
 
 void
 panvk_per_arch(emit_attribs)(const struct panvk_device *dev,
+                             const struct panvk_draw_info *draw,
                              const struct panvk_attribs_info *attribs,
                              const struct panvk_attrib_buf *bufs,
                              unsigned buf_count,
@@ -362,7 +377,7 @@ panvk_per_arch(emit_attribs)(const struct panvk_device *dev,
    struct mali_attribute_packed *attrib = descs;
 
    for (unsigned i = 0; i < attribs->attrib_count; i++)
-      panvk_emit_attrib(dev, attribs, bufs, buf_count, i, attrib++);
+      panvk_emit_attrib(dev, draw, attribs, bufs, buf_count, i, attrib++);
 }
 
 void
@@ -505,8 +520,22 @@ panvk_emit_tiler_primitive(const struct panvk_pipeline *pipeline,
       if (pipeline->ia.primitive_restart)
          cfg.primitive_restart = MALI_PRIMITIVE_RESTART_IMPLICIT;
       cfg.job_task_split = 6;
-      /* TODO: indexed draws */
-      cfg.index_count = draw->vertex_count;
+
+      cfg.index_count = draw->index_size ?
+                        draw->index_count :
+                        draw->vertex_count;
+
+      switch (draw->index_size) {
+      case 32: cfg.index_type = MALI_INDEX_TYPE_UINT32; break;
+      case 16: cfg.index_type = MALI_INDEX_TYPE_UINT16; break;
+      case 8: cfg.index_type = MALI_INDEX_TYPE_UINT8; break;
+      default: cfg.index_type = MALI_INDEX_TYPE_NONE; break;
+      }
+
+      if (draw->index_size) {
+         cfg.indices = draw->indices;
+         cfg.base_vertex_offset = draw->vertex_offset - draw->offset_start;
+      }
    }
 }
 
