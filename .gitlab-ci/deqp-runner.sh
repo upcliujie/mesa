@@ -162,6 +162,9 @@ FAILURES_CSV=$RESULTS/failures.csv
 
 export LD_PRELOAD=$TEST_LD_PRELOAD
 
+apt-get update
+apt-get install -y strace
+
 if [ -z "$DEQP_SUITE" ]; then
     MESA_VERSION=$(head -1 "$INSTALL/VERSION" | sed 's/(/\\(/g' | sed 's/)/\\)/g')
 
@@ -181,7 +184,8 @@ if [ -z "$DEQP_SUITE" ]; then
         -- \
         $DEQP_OPTIONS
 else
-    $HANG_DETECTION_CMD deqp-runner \
+    mkdir -p /builds/tomeu/mesa/results/
+    deqp-runner \
         suite \
         --suite $INSTALL/deqp-$DEQP_SUITE.toml \
         --output $RESULTS \
