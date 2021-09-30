@@ -3613,7 +3613,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
          nir_opt_move(nir[i], nir_move_load_input | nir_move_const_undef | nir_move_copies);
 
          /* Lower I/O intrinsics to memory instructions. */
-         bool io_to_mem = radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key);
+         bool io_to_mem = radv_lower_io_to_mem(device, nir[i], &infos[i], pipeline_key, &args[i]);
          bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage &&
                             !radv_use_llvm_for_stage(device, i);
          if (lowered_ngg)
