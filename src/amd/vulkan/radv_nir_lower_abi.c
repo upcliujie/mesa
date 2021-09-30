@@ -57,9 +57,23 @@ radv_nir_load_tess_factors_descriptor(nir_builder *b, const void *user)
    return nir_build_load_smem_amd(b, 4, ring_offsets, nir_imm_int(b, RING_HS_TESS_FACTOR * 16u), .align_mul = 4u);
 }
 
+static nir_ssa_def *
+radv_nir_load_esgs_ring_descriptor(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   nir_ssa_def *ring_offsets = ac_nir_load_arg(b, &st->args->ac, st->args->ring_offsets);
+   ring_offsets = nir_pack_64_2x32_split(b, nir_channel(b, ring_offsets, 0), nir_channel(b, ring_offsets, 1));
+   unsigned ring = st->stage == MESA_SHADER_GEOMETRY ? RING_ESGS_GS : RING_ESGS_VS;
+   return nir_build_load_smem_amd(b, 4, ring_offsets, nir_imm_int(b, ring * 16u), .align_mul = 4u);
+}
+
 static ac_nir_tess_io_abi radv_tess_io_abi = {
    .load_tess_offchip_descriptor = radv_nir_load_tess_offchip_descriptor,
    .load_tess_factors_descriptor = radv_nir_load_tess_factors_descriptor,
+};
+
+static ac_nir_esgs_io_abi radv_esgs_io_abi = {
+   .load_esgs_ring_descriptor = radv_nir_load_esgs_ring_descriptor,
 };
 
 bool
@@ -84,7 +98,8 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
          return true;
       } else if (info->vs.as_es) {
          ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
-                                        info->vs.num_linked_outputs);
+                                        info->vs.num_linked_outputs,
+                                        &args->ac, &radv_esgs_io_abi, &abi_state);
          return true;
       }
    } else if (nir->info.stage == MESA_SHADER_TESS_CTRL) {
@@ -108,13 +123,15 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
 
       if (info->tes.as_es) {
          ac_nir_lower_es_outputs_to_mem(nir, device->physical_device->rad_info.chip_class,
-                                        info->tes.num_linked_outputs);
+                                        info->tes.num_linked_outputs,
+                                        &args->ac, &radv_esgs_io_abi, &abi_state);
       }
 
       return true;
    } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       ac_nir_lower_gs_inputs_to_mem(nir, device->physical_device->rad_info.chip_class,
-                                    info->gs.num_linked_inputs);
+                                    info->gs.num_linked_inputs,
+                                    &args->ac, &radv_esgs_io_abi, &abi_state);
       return true;
    }
 

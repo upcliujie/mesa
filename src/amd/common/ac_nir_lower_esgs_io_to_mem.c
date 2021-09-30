@@ -41,6 +41,11 @@
  */
 
 typedef struct {
+
+   const struct ac_shader_args *args;
+   const ac_nir_esgs_io_abi *abi;
+   void *user;
+
    /* Which hardware generation we're dealing with */
    enum chip_class chip_class;
 
@@ -129,7 +134,7 @@ lower_es_output_store(nir_builder *b,
 
    if (st->chip_class <= GFX8) {
       /* GFX6-8: ES is a separate HW stage, data is passed from ES to GS in VRAM. */
-      nir_ssa_def *ring = nir_build_load_ring_esgs_amd(b);
+      nir_ssa_def *ring = st->abi->load_esgs_ring_descriptor(b, st->user);
       nir_ssa_def *es2gs_off = nir_build_load_ring_es2gs_offset_amd(b);
       emit_split_buffer_store(b, intrin->src[0].ssa, ring, io_off, es2gs_off, 4u,
                               intrin->src[0].ssa->num_components, intrin->src[0].ssa->bit_size,
@@ -217,7 +222,7 @@ lower_gs_per_vertex_input_load(nir_builder *b,
                                    .align_mul = 16u, .align_offset = (nir_intrinsic_component(intrin) * 4u) % 16u);
 
    unsigned wave_size = 64u; /* GFX6-8 only support wave64 */
-   nir_ssa_def *ring = nir_build_load_ring_esgs_amd(b);
+   nir_ssa_def *ring = st->abi->load_esgs_ring_descriptor(b, st->user);
    return emit_split_buffer_load(b, ring, off, nir_imm_zero(b, 1, 32), 4u * wave_size,
                                  intrin->dest.ssa.num_components, intrin->dest.ssa.bit_size);
 }
@@ -231,11 +236,17 @@ filter_load_per_vertex_input(const nir_instr *instr, UNUSED const void *state)
 void
 ac_nir_lower_es_outputs_to_mem(nir_shader *shader,
                                enum chip_class chip_class,
-                               unsigned num_reserved_es_outputs)
+                               unsigned num_reserved_es_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_esgs_io_abi *abi,
+                               void *user)
 {
    lower_esgs_io_state state = {
       .chip_class = chip_class,
       .num_reserved_es_outputs = num_reserved_es_outputs,
+      .args = args,
+      .abi = abi,
+      .user = user,
    };
 
    nir_shader_instructions_pass(shader,
@@ -247,11 +258,17 @@ ac_nir_lower_es_outputs_to_mem(nir_shader *shader,
 void
 ac_nir_lower_gs_inputs_to_mem(nir_shader *shader,
                               enum chip_class chip_class,
-                              unsigned num_reserved_es_outputs)
+                              unsigned num_reserved_es_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_esgs_io_abi *abi,
+                               void *user)
 {
    lower_esgs_io_state state = {
       .chip_class = chip_class,
       .num_reserved_es_outputs = num_reserved_es_outputs,
+      .args = args,
+      .abi = abi,
+      .user = user,
    };
 
    nir_shader_lower_instructions(shader,
