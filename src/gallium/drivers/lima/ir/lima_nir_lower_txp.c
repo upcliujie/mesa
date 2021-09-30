@@ -1,0 +1,174 @@
+/*
+ * Copyright (c) 2021 Lima Project
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice (including the next
+ * paragraph) shall be included in all copies or substantial portions of the
+ * Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+
+#include "nir.h"
+#include "nir_builder.h"
+#include "lima_ir.h"
+
+static nir_ssa_def *
+get_proj_index(nir_instr *coord_instr, nir_instr *proj_instr, int *proj_idx)
+{
+   *proj_idx = -1;
+   if (coord_instr->type != nir_instr_type_alu ||
+       proj_instr->type != nir_instr_type_alu)
+      return NULL;
+
+   nir_alu_instr *coord_alu = nir_instr_as_alu(coord_instr);
+   nir_alu_instr *proj_alu = nir_instr_as_alu(proj_instr);
+
+   if (coord_alu->op != nir_op_mov ||
+       proj_alu->op != nir_op_mov)
+      return NULL;
+
+   if (!coord_alu->dest.dest.is_ssa ||
+       !proj_alu->dest.dest.is_ssa)
+      return NULL;
+
+   if (!coord_alu->src[0].src.is_ssa ||
+       !proj_alu->src[0].src.is_ssa)
+      return NULL;
+
+   nir_ssa_def *coord_src_ssa = coord_alu->src[0].src.ssa;
+   nir_ssa_def *proj_src_ssa = proj_alu->src[0].src.ssa;
+
+   if (coord_src_ssa != proj_src_ssa)
+      return NULL;
+
+   if (coord_src_ssa->parent_instr->type != nir_instr_type_intrinsic)
+      return NULL;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(coord_src_ssa->parent_instr);
+   if (intrin->intrinsic != nir_intrinsic_load_input)
+      return NULL;
+
+   if (nir_dest_num_components(intrin->dest) != 4)
+      return NULL;
+
+   /* Coords must be in .xy */
+   if (coord_alu->src[0].swizzle[0] != 0 ||
+       coord_alu->src[0].swizzle[1] != 1)
+      return NULL;
+
+   *proj_idx = proj_alu->src[0].swizzle[0];
+
+   return coord_src_ssa;
+}
+
+static bool
+lima_nir_lower_txp_block(nir_block *block, nir_builder *b)
+{
+   bool progress = false;
+
+   nir_foreach_instr_safe (instr, block) {
+      if (instr->type != nir_instr_type_tex)
+         continue;
+
+      nir_tex_instr *tex = nir_instr_as_tex(instr);
+
+      int proj_idx = nir_tex_instr_src_index(tex, nir_tex_src_projector);
+      int coords_idx = nir_tex_instr_src_index(tex, nir_tex_src_coord);
+
+      if (proj_idx < 0)
+         continue;
+
+      /* Handle only 2D samplers */
+      switch (tex->sampler_dim) {
+      case GLSL_SAMPLER_DIM_RECT:
+      case GLSL_SAMPLER_DIM_2D:
+         break;
+      default:
+         continue;
+      }
+
+      b->cursor = nir_before_instr(&tex->instr);
+
+      /* Merge coords and projector into single backend-specific source
+       * it's easy if texture2DProj argument is vec3, it's more tricky with
+       * vec4 since NIR just drops Z component that we need, so we have to
+       * step back and use load_input SSA instead of mov as a source for
+       * newly constructed vec4
+       */
+      nir_ssa_def *proj_ssa = nir_ssa_for_src(b, tex->src[proj_idx].src, 1);
+      nir_ssa_def *coords_ssa = nir_ssa_for_src(b, tex->src[coords_idx].src,
+                                                nir_tex_instr_src_size(tex, coords_idx));
+
+      int proj_idx_in_vec = -1;
+      nir_ssa_def *load_input = get_proj_index(coords_ssa->parent_instr,
+                                               proj_ssa->parent_instr,
+                                               &proj_idx_in_vec);
+      nir_ssa_def *combined;
+      if (load_input && proj_idx_in_vec == 3) {
+         unsigned xyzw[] = { 0, 1, 2, 3 };
+         combined = nir_swizzle(b, load_input, xyzw, 4);
+         tex->coord_components = 4;
+      } else if (load_input && proj_idx_in_vec == 2) {
+         unsigned xyz[] = { 0, 1, 2 };
+         combined = nir_swizzle(b, load_input, xyz, 3);
+         tex->coord_components = 3;
+      } else {
+         combined = nir_vec3(b,
+                             nir_channel(b, coords_ssa, 0),
+                             nir_channel(b, coords_ssa, 1),
+                             nir_channel(b, proj_ssa, 0));
+         tex->coord_components = 3;
+      }
+
+      nir_tex_instr_remove_src(tex, nir_tex_instr_src_index(tex, nir_tex_src_coord));
+      nir_tex_instr_remove_src(tex, nir_tex_instr_src_index(tex, nir_tex_src_projector));
+      nir_tex_instr_add_src(tex, nir_tex_src_backend1, nir_src_for_ssa(combined));
+
+      progress = true;
+   }
+
+   return progress;
+}
+
+static bool
+lima_nir_lower_txp_impl(nir_function_impl *impl)
+{
+   bool progress = false;
+   nir_builder builder;
+   nir_builder_init (&builder, impl);
+
+   nir_foreach_block(block, impl) {
+      progress |= lima_nir_lower_txp_block(block, &builder);
+   }
+
+   nir_metadata_preserve(impl, nir_metadata_block_index |
+                               nir_metadata_dominance);
+
+   return progress;
+}
+
+bool
+lima_nir_lower_txp(nir_shader *shader)
+{
+   bool progress = false;
+
+   nir_foreach_function(function, shader) {
+      if (function->impl)
+         progress |= lima_nir_lower_txp_impl(function->impl);
+   }
+
+   return progress;
+}
