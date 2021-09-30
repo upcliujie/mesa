@@ -520,6 +520,9 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       ac_add_arg(&args->ac, AC_ARG_VGPR, 3, AC_ARG_INT, &args->ac.local_invocation_ids);
       break;
    case MESA_SHADER_VERTEX:
+      /* NGG is handled by the GS case */
+      assert(!args->shader_info->is_ngg);
+
       declare_global_input_sgprs(args, &user_sgpr_info);
 
       declare_vs_specific_input_sgprs(args, stage, has_previous_stage, previous_stage);
@@ -538,9 +541,6 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 
       if (args->options->explicit_scratch_args) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
-      }
-      if (args->shader_info->is_ngg) {
-         declare_ngg_sgprs(args, stage);
       }
 
       declare_vs_input_vgprs(args);
@@ -585,6 +585,9 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       }
       break;
    case MESA_SHADER_TESS_EVAL:
+      /* NGG is handled by the GS case */
+      assert(!args->shader_info->is_ngg);
+
       declare_global_input_sgprs(args, &user_sgpr_info);
 
       if (needs_view_index)
@@ -600,9 +603,6 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       }
       if (args->options->explicit_scratch_args) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.scratch_offset);
-      }
-      if (args->shader_info->is_ngg) {
-         declare_ngg_sgprs(args, stage);
       }
       declare_tes_input_vgprs(args);
       break;
@@ -729,8 +729,6 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
       set_vs_specific_input_locs(args, stage, has_previous_stage, previous_stage, &user_sgpr_idx);
       if (args->ac.view_index.used)
          set_loc_shader(args, AC_UD_VIEW_INDEX, &user_sgpr_idx, 1);
-      if (args->shader_info->is_ngg)
-         set_ngg_sgprs_locs(args, stage, &user_sgpr_idx);
       break;
    case MESA_SHADER_TESS_CTRL:
       set_vs_specific_input_locs(args, stage, has_previous_stage, previous_stage, &user_sgpr_idx);
@@ -740,8 +738,6 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
    case MESA_SHADER_TESS_EVAL:
       if (args->ac.view_index.used)
          set_loc_shader(args, AC_UD_VIEW_INDEX, &user_sgpr_idx, 1);
-      if (args->shader_info->is_ngg)
-         set_ngg_sgprs_locs(args, stage, &user_sgpr_idx);
       break;
    case MESA_SHADER_GEOMETRY:
       if (has_previous_stage) {
