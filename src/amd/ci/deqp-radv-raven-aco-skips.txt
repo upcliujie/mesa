@@ -1,3 +1,5 @@
 # This subset of CTS seems to randomly hang on RAVEN and BONAIRE.
 # This needs to be investigated and fixed!
 dEQP-VK.synchronization.*
+
+dEQP-VK.api.object_management.multithreaded_per_thread_device.image_2d
