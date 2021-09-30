@@ -1218,6 +1218,8 @@ copperSetSurfaceCreateInfo(void *_draw, const struct gl_config *visual, void *ou
     struct dri2_egl_display *dri2_dpy = dri2_egl_display(dri2_surf->base.Resource.Display);
     struct copper_info *ci = out;
 
+    if (dri2_surf->base.Type != EGL_WINDOW_BIT)
+       return;
     ci->xsci.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
     ci->xsci.pNext = NULL;
     ci->xsci.flags = 0;

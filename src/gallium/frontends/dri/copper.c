@@ -170,6 +170,7 @@ copper_allocate_textures(struct dri_context *ctx,
    templ.depth0 = 1;
    templ.array_size = 1;
    templ.last_level = 0;
+   bool is_window = cdraw->info.bos.sType != 0;
 
    uint32_t attachments = 0;
    for (i = 0; i < statts_count; i++)
@@ -198,7 +199,7 @@ copper_allocate_textures(struct dri_context *ctx,
       templ.nr_samples = 0;
       templ.nr_storage_samples = 0;
 
-      if (statts[i] < ST_ATTACHMENT_DEPTH_STENCIL) {
+      if (statts[i] < ST_ATTACHMENT_DEPTH_STENCIL && is_window) {
          void *data;
          if (statts[i] == ST_ATTACHMENT_BACK_LEFT || (statts[i] == ST_ATTACHMENT_FRONT_LEFT && front_only))
             data = &cdraw->info;
@@ -335,7 +336,7 @@ copper_update_tex_buffer(struct dri_drawable *drawable,
                          struct dri_context *ctx,
                          struct pipe_resource *res)
 {
-   *(int *)0 = 0;
+
 }
 
 static void
