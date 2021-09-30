@@ -39,6 +39,18 @@ extern "C" {
 struct nir_builder;
 typedef struct nir_builder nir_builder;
 
+typedef nir_ssa_def *(*ac_nir_abi_callback)(nir_builder *, const void *);
+
+typedef struct
+{
+   /* Descriptor where TCS outputs are stored for TES. */
+   ac_nir_abi_callback load_tess_offchip_descriptor;
+
+   /* Descriptor where TCS outputs are stored for the HW tessellator. */
+   ac_nir_abi_callback load_tess_factors_descriptor;
+
+} ac_nir_tess_io_abi;
+
 nir_ssa_def *
 ac_nir_load_arg(nir_builder *b, const struct ac_shader_args *ac_args, struct ac_arg arg);
 
@@ -46,12 +58,18 @@ void
 ac_nir_lower_ls_outputs_to_mem(nir_shader *ls,
                                bool tcs_in_out_eq,
                                uint64_t tcs_temp_only_inputs,
-                               unsigned num_reserved_ls_outputs);
+                               unsigned num_reserved_ls_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_tess_io_abi *abi,
+                               void *user);
 
 void
 ac_nir_lower_hs_inputs_to_mem(nir_shader *shader,
                               bool tcs_in_out_eq,
-                              unsigned num_reserved_tcs_inputs);
+                              unsigned num_reserved_tcs_inputs,
+                              const struct ac_shader_args *args,
+                              const ac_nir_tess_io_abi *abi,
+                              void *user);
 
 void
 ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
@@ -62,12 +80,18 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
                                unsigned num_reserved_tcs_inputs,
                                unsigned num_reserved_tcs_outputs,
                                unsigned num_reserved_tcs_patch_outputs,
-                               bool emit_tess_factor_write);
+                               bool emit_tess_factor_write,
+                               const struct ac_shader_args *args,
+                               const ac_nir_tess_io_abi *abi,
+                               void *user);
 
 void
 ac_nir_lower_tes_inputs_to_mem(nir_shader *shader,
                                unsigned num_reserved_tcs_outputs,
-                               unsigned num_reserved_tcs_patch_outputs);
+                               unsigned num_reserved_tcs_patch_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_tess_io_abi *abi,
+                               void *user);
 
 enum ac_nir_tess_to_const_options {
     ac_nir_lower_patch_vtx_in = 1 << 0,
