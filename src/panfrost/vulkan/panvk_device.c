@@ -656,6 +656,8 @@ panvk_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .shaderSampledImageArrayDynamicIndexing = true,
       .shaderStorageBufferArrayDynamicIndexing = true,
       .shaderStorageImageArrayDynamicIndexing = true,
+      .shaderClipDistance = true,
+      .fillModeNonSolid = true,
    };
 }
 
