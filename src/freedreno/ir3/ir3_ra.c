@@ -757,8 +757,13 @@ try_evict_regs(struct ra_ctx *ctx, struct ra_file *file,
    memcpy(available_to_evict, file->available_to_evict,
           sizeof(available_to_evict));
 
-   for (unsigned i = 0; i < reg_size(reg); i++)
+   BITSET_DECLARE(available, RA_MAX_FILE_SIZE);
+   memcpy(available, file->available, sizeof(available));
+
+   for (unsigned i = 0; i < reg_size(reg); i++) {
       BITSET_CLEAR(available_to_evict, physreg + i);
+      BITSET_CLEAR(available, physreg + i);
+   }
 
    unsigned eviction_count = 0;
    /* Iterate over each range conflicting with physreg */
@@ -796,6 +801,49 @@ try_evict_regs(struct ra_ctx *ctx, struct ra_file *file,
                conflicting->physreg_end - conflicting->physreg_start;
             if (!speculative)
                ra_move_interval(ctx, file, conflicting, avail_start);
+            evicted = true;
+            break;
+         }
+      }
+
+      if (evicted)
+         continue;
+
+      /* If we couldn't evict this range, we may be able to swap it with a
+       * killed range to acheive the same effect.
+       */
+      foreach_interval (killed, file) {
+         if (!killed->is_killed)
+            continue;
+
+         if (killed->physreg_end - killed->physreg_start ==
+             conflicting->physreg_end - conflicting->physreg_start &&
+             BITSET_TEST(available, killed->physreg_start)) {
+
+            /* Check for alignment if one is a full reg */
+            if ((!(killed->interval.reg->flags & IR3_REG_HALF) ||
+                 !(conflicting->interval.reg->flags & IR3_REG_HALF)) &&
+                (killed->physreg_start % 2 != 0 ||
+                 conflicting->physreg_start % 2 != 0))
+               continue;
+
+            for (unsigned i = killed->physreg_start; i < killed->physreg_end; i++) {
+               BITSET_CLEAR(available, i);
+            }
+            /* Because this will generate swaps instead of moves, multiply the
+             * cost by 2.
+             */
+            eviction_count += (killed->physreg_end - killed->physreg_start) * 2;
+            if (!speculative) {
+               physreg_t killed_start = killed->physreg_start,
+                         conflicting_start = conflicting->physreg_start;
+               struct ra_removed_interval killed_removed =
+                  ra_pop_interval(ctx, file, killed);
+               struct ra_removed_interval conflicting_removed =
+                  ra_pop_interval(ctx, file, conflicting);
+               ra_push_interval(ctx, file, &killed_removed, conflicting_start);
+               ra_push_interval(ctx, file, &conflicting_removed, killed_start);
+            }
             evicted = true;
             break;
          }
