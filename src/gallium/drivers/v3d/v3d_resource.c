@@ -890,7 +890,7 @@ v3d_resource_from_handle(struct pipe_screen *pscreen,
                 rsc->tiled = true;
                 break;
         case DRM_FORMAT_MOD_INVALID:
-                rsc->tiled = screen->ro == NULL;
+                rsc->tiled = false;
                 break;
         default:
                 switch(fourcc_mod_broadcom_mod(whandle->modifier)) {
