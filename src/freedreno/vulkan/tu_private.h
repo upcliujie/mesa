@@ -1022,6 +1022,7 @@ struct tu_cmd_state
    bool has_subpass_predication;
    bool predication_active;
    bool disable_gmem;
+   bool bresenham_lines;
 
    struct tu_lrz_state lrz;
 
@@ -1282,7 +1283,7 @@ tu6_emit_depth_bias(struct tu_cs *cs,
                     float clamp,
                     float slope_factor);
 
-void tu6_emit_msaa(struct tu_cs *cs, VkSampleCountFlagBits samples);
+void tu6_emit_msaa(struct tu_cs *cs, VkSampleCountFlagBits samples, bool bresenham_line);
 
 void tu6_emit_window_scissor(struct tu_cs *cs, uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2);
 
