@@ -27,7 +27,7 @@ unset XDG_RUNTIME_DIR
       echo 1 > /proc/sys/net/ipv4/ip_forward
 
       syslogd > /dev/null &  # Crosvm requires syslogd
-      sleep 1
+      sleep 6
   fi
 ) 9>/var/lock/crosvm_lock
 
