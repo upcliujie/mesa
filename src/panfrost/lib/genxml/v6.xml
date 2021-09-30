@@ -1014,7 +1014,7 @@
     <field name="Tiler" size="64" start="14:0" type="address"/>
   </struct>
 
-  <struct name="ZS CRC Extension" align="64">
+  <struct name="ZS CRC Extension" align="64" size="16">
     <field name="CRC Base" size="64" start="0:0" type="address"/>
     <field name="CRC Row Stride" size="32" start="2:0" type="uint"/>
     <field name="ZS Write Format" size="4" start="3:0" type="ZS Format"/>
