@@ -1111,7 +1111,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
     * by the following NIR intrinsic.
     */
 
-   nir_if *if_cull_en = nir_push_if(b, nir_build_load_cull_any_enabled_amd(b));
+   nir_if *if_cull_en = nir_push_if(b, nogs_state->abi->cull.cull_any_enabled(b, nogs_state->user));
    {
       nir_ssa_def *invocation_index = nir_build_load_local_invocation_index(b);
       nir_ssa_def *es_vertex_lds_addr = pervertex_lds_addr(b, invocation_index, pervertex_lds_bytes);
@@ -1164,7 +1164,8 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
          }
 
          /* See if the current primitive is accepted */
-         nir_ssa_def *accepted = ac_nir_cull_triangle(b, nir_imm_bool(b, true), pos);
+         nir_ssa_def *accepted = ac_nir_cull_triangle(b, nir_imm_bool(b, true), pos,
+                                                      &nogs_state->abi->cull, nogs_state->user);
          nir_store_var(b, gs_accepted_var, accepted, 0x1u);
 
          nir_if *if_gs_accepted = nir_push_if(b, accepted);

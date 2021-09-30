@@ -62,6 +62,21 @@ typedef struct
 
 typedef struct
 {
+   ac_nir_abi_callback cull_front_face_enabled;
+   ac_nir_abi_callback cull_back_face_enabled;
+   ac_nir_abi_callback cull_small_primitives_enabled;
+   ac_nir_abi_callback cull_any_enabled;
+   ac_nir_abi_callback small_primitive_precision;
+   ac_nir_abi_callback ccw;
+   ac_nir_abi_callback viewport_x_scale;
+   ac_nir_abi_callback viewport_y_scale;
+   ac_nir_abi_callback viewport_x_offset;
+   ac_nir_abi_callback viewport_y_offset;
+
+} ac_nir_cull_abi;
+
+typedef struct
+{
    /* Descriptor where ES outputs are stored and GS inputs are loaded from.
     * Only used by legacy GS on GFX6-8.
     */
@@ -73,6 +88,9 @@ typedef struct
 {
    /* Used by NGG GS to tell whether it should save shader query info to GDS. */
    ac_nir_abi_callback shader_query_enabled;
+
+   /* Passed to ac_nir_cull_triangle. */
+   ac_nir_cull_abi cull;
 
 } ac_nir_ngg_abi;
 
@@ -170,7 +188,9 @@ ac_nir_lower_ngg_gs(nir_shader *shader,
 nir_ssa_def *
 ac_nir_cull_triangle(nir_builder *b,
                      nir_ssa_def *initially_accepted,
-                     nir_ssa_def *pos[3][4]);
+                     nir_ssa_def *pos[3][4],
+                     const ac_nir_cull_abi *abi,
+                     const void *user);
 
 #ifdef __cplusplus
 }
