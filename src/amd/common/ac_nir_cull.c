@@ -36,6 +36,12 @@ typedef struct
    nir_ssa_def *any_w_negative;
 } position_w_info;
 
+typedef struct
+{
+   const ac_nir_cull_abi *abi;
+   const void *user;
+} ac_nir_cull_state;
+
 static void
 analyze_position_w(nir_builder *b, nir_ssa_def *pos[3][4], position_w_info *w_info)
 {
@@ -56,7 +62,8 @@ analyze_position_w(nir_builder *b, nir_ssa_def *pos[3][4], position_w_info *w_in
 }
 
 static nir_ssa_def *
-cull_face(nir_builder *b, nir_ssa_def *pos[3][4], const position_w_info *w_info)
+cull_face(nir_builder *b, nir_ssa_def *pos[3][4], const position_w_info *w_info,
+          ac_nir_cull_state *st)
 {
    nir_ssa_def *det_t0 = nir_fsub(b, pos[2][0], pos[0][0]);
    nir_ssa_def *det_t1 = nir_fsub(b, pos[1][1], pos[0][1]);
@@ -70,16 +77,17 @@ cull_face(nir_builder *b, nir_ssa_def *pos[3][4], const position_w_info *w_info)
 
    nir_ssa_def *front_facing_cw = nir_flt(b, det, nir_imm_float(b, 0.0f));
    nir_ssa_def *front_facing_ccw = nir_flt(b, nir_imm_float(b, 0.0f), det);
-   nir_ssa_def *ccw = nir_build_load_cull_ccw_amd(b);
+   nir_ssa_def *ccw = st->abi->ccw(b, st->user);
    nir_ssa_def *front_facing = nir_bcsel(b, ccw, front_facing_ccw, front_facing_cw);
-   nir_ssa_def *cull_front = nir_build_load_cull_front_face_enabled_amd(b);
-   nir_ssa_def *cull_back = nir_build_load_cull_back_face_enabled_amd(b);
+   nir_ssa_def *cull_front = st->abi->cull_front_face_enabled(b, st->user);
+   nir_ssa_def *cull_back = st->abi->cull_back_face_enabled(b, st->user);
 
    return nir_inot(b, nir_bcsel(b, front_facing, cull_front, cull_back));
 }
 
 static nir_ssa_def *
-cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const position_w_info *w_info)
+cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const position_w_info *w_info,
+          ac_nir_cull_state *st)
 {
    nir_ssa_def *bbox_accepted = NULL;
    nir_ssa_def *try_cull_bbox = nir_iand(b, accepted, w_info->all_w_positive);
@@ -93,8 +101,14 @@ cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const p
          bbox_max[chan] = nir_fmax(b, pos[0][chan], nir_fmax(b, pos[1][chan], pos[2][chan]));
       }
 
-      nir_ssa_def *vp_scale[2] = { nir_build_load_viewport_x_scale(b), nir_build_load_viewport_y_scale(b), };
-      nir_ssa_def *vp_translate[2] = { nir_build_load_viewport_x_offset(b), nir_build_load_viewport_y_offset(b), };
+      nir_ssa_def *vp_scale[2] = {
+         st->abi->viewport_x_scale(b, st->user),
+         st->abi->viewport_y_scale(b, st->user),
+      };
+      nir_ssa_def *vp_translate[2] = {
+         st->abi->viewport_x_offset(b, st->user),
+         st->abi->viewport_y_offset(b, st->user),
+      };
       nir_ssa_def *prim_outside_view = nir_imm_false(b);
 
       /* Frustrum culling - eliminate triangles that are fully outside the view. */
@@ -107,9 +121,9 @@ cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const p
       nir_ssa_def *prim_is_small_else = nir_imm_false(b);
 
       /* Small primitive filter - eliminate triangles that are too small to affect a sample. */
-      nir_if *if_cull_small_prims = nir_push_if(b, nir_build_load_cull_small_primitives_enabled_amd(b));
+      nir_if *if_cull_small_prims = nir_push_if(b, st->abi->cull_small_primitives_enabled(b, st->user));
       {
-         nir_ssa_def *small_prim_precision = nir_build_load_cull_small_prim_precision_amd(b);
+         nir_ssa_def *small_prim_precision = st->abi->small_primitive_precision(b, st->user);
          prim_is_small = nir_imm_false(b);
 
          for (unsigned chan = 0; chan < 2; ++chan) {
@@ -143,15 +157,22 @@ cull_bbox(nir_builder *b, nir_ssa_def *pos[3][4], nir_ssa_def *accepted, const p
 nir_ssa_def *
 ac_nir_cull_triangle(nir_builder *b,
                      nir_ssa_def *initially_accepted,
-                     nir_ssa_def *pos[3][4])
+                     nir_ssa_def *pos[3][4],
+                     const ac_nir_cull_abi *abi,
+                     const void *user)
 {
+   ac_nir_cull_state state = {
+      .abi = abi,
+      .user = user,
+   };
+
    position_w_info w_info = {0};
    analyze_position_w(b, pos, &w_info);
 
    nir_ssa_def *accepted = initially_accepted;
    accepted = nir_iand(b, accepted, w_info.w_accepted);
-   accepted = nir_iand(b, accepted, cull_face(b, pos, &w_info));
-   accepted = nir_iand(b, accepted, cull_bbox(b, pos, accepted, &w_info));
+   accepted = nir_iand(b, accepted, cull_face(b, pos, &w_info, &state));
+   accepted = nir_iand(b, accepted, cull_bbox(b, pos, accepted, &w_info, &state));
 
    return accepted;
 }

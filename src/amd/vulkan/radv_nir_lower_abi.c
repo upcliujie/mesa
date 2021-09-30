@@ -96,6 +96,89 @@ radv_nir_shader_query_enabled(nir_builder *b, const void *user)
    return nir_ieq_imm(b, ngg_gs_state, 1);
 }
 
+static nir_ssa_def *
+radv_nir_nggc_bool_setting(nir_builder *b, const void *user, unsigned pattern)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   nir_ssa_def *settings = ac_nir_load_arg(b, &st->args->ac, st->args->ngg_culling_settings);
+   nir_ssa_def *x = nir_iand_imm(b, settings, pattern);
+   return nir_ine(b, x, nir_imm_int(b, 0));
+}
+
+static nir_ssa_def *
+radv_nir_cull_any_enabled(nir_builder *b, const void *user)
+{
+   unsigned mask = radv_nggc_front_face | radv_nggc_back_face | radv_nggc_small_primitives;
+   return radv_nir_nggc_bool_setting(b, user, mask);
+}
+
+static nir_ssa_def *
+radv_nir_cull_front_face_enabled(nir_builder *b, const void *user)
+{
+   return radv_nir_nggc_bool_setting(b, user, radv_nggc_front_face);
+}
+
+static nir_ssa_def *
+radv_nir_cull_back_face_enabled(nir_builder *b, const void *user)
+{
+   return radv_nir_nggc_bool_setting(b, user, radv_nggc_back_face);
+}
+
+static nir_ssa_def *
+radv_nir_ccw(nir_builder *b, const void *user)
+{
+   return radv_nir_nggc_bool_setting(b, user, radv_nggc_face_is_ccw);
+}
+
+static nir_ssa_def *
+radv_nir_cull_small_primitives_enabled(nir_builder *b, const void *user)
+{
+   return radv_nir_nggc_bool_setting(b, user, radv_nggc_small_primitives);
+}
+
+static nir_ssa_def *
+radv_nir_small_primitive_precision(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+
+   /* To save space, only the exponent is stored in the high 8 bits.
+    * We calculate the precision from those 8 bits:
+    * exponent = nggc_settings >> 24
+    * 1.0 * 2 ^ exponent
+    */
+   nir_ssa_def *settings = ac_nir_load_arg(b, &st->args->ac, st->args->ngg_culling_settings);
+   nir_ssa_def *exponent = nir_ishr_imm(b, settings, 24u);
+   return nir_ldexp(b, nir_imm_float(b, 1.0f), exponent);
+}
+
+static nir_ssa_def *
+radv_nir_viewport_x_scale(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return ac_nir_load_arg(b, &st->args->ac, st->args->ngg_viewport_scale[0]);
+}
+
+static nir_ssa_def *
+radv_nir_viewport_y_scale(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return ac_nir_load_arg(b, &st->args->ac, st->args->ngg_viewport_scale[1]);
+}
+
+static nir_ssa_def *
+radv_nir_viewport_x_offset(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return ac_nir_load_arg(b, &st->args->ac, st->args->ngg_viewport_translate[0]);
+}
+
+static nir_ssa_def *
+radv_nir_viewport_y_offset(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return ac_nir_load_arg(b, &st->args->ac, st->args->ngg_viewport_translate[1]);
+}
+
 static ac_nir_tess_io_abi radv_tess_io_abi = {
    .load_tess_offchip_descriptor = radv_nir_load_tess_offchip_descriptor,
    .load_tess_factors_descriptor = radv_nir_load_tess_factors_descriptor,
@@ -110,6 +193,18 @@ static ac_nir_esgs_io_abi radv_esgs_io_abi = {
 
 static ac_nir_ngg_abi radv_ngg_abi = {
    .shader_query_enabled = radv_nir_shader_query_enabled,
+   .cull = {
+      .cull_front_face_enabled = radv_nir_cull_front_face_enabled,
+      .cull_back_face_enabled = radv_nir_cull_back_face_enabled,
+      .cull_small_primitives_enabled = radv_nir_cull_small_primitives_enabled,
+      .cull_any_enabled = radv_nir_cull_any_enabled,
+      .small_primitive_precision = radv_nir_small_primitive_precision,
+      .ccw = radv_nir_ccw,
+      .viewport_x_scale = radv_nir_viewport_x_scale,
+      .viewport_y_scale = radv_nir_viewport_y_scale,
+      .viewport_x_offset = radv_nir_viewport_x_offset,
+      .viewport_y_offset = radv_nir_viewport_y_offset,
+   },
 };
 
 bool
