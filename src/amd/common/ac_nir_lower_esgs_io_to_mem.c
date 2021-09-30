@@ -135,7 +135,7 @@ lower_es_output_store(nir_builder *b,
    if (st->chip_class <= GFX8) {
       /* GFX6-8: ES is a separate HW stage, data is passed from ES to GS in VRAM. */
       nir_ssa_def *ring = st->abi->load_esgs_ring_descriptor(b, st->user);
-      nir_ssa_def *es2gs_off = nir_build_load_ring_es2gs_offset_amd(b);
+      nir_ssa_def *es2gs_off = ac_nir_load_arg(b, st->args, st->args->es2gs_offset);
       emit_split_buffer_store(b, intrin->src[0].ssa, ring, io_off, es2gs_off, 4u,
                               intrin->src[0].ssa->num_components, intrin->src[0].ssa->bit_size,
                               write_mask, true, true);
@@ -153,16 +153,16 @@ lower_es_output_store(nir_builder *b,
 }
 
 static nir_ssa_def *
-gs_per_vertex_input_vertex_offset_gfx6(nir_builder *b, nir_src *vertex_src)
+gs_per_vertex_input_vertex_offset_gfx6(nir_builder *b, nir_src *vertex_src, lower_esgs_io_state *st)
 {
    if (nir_src_is_const(*vertex_src))
-      return nir_build_load_gs_vertex_offset_amd(b, .base = nir_src_as_uint(*vertex_src));
+      return ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[nir_src_as_uint(*vertex_src)]);
 
-   nir_ssa_def *vertex_offset = nir_build_load_gs_vertex_offset_amd(b, .base = 0);
+   nir_ssa_def *vertex_offset = ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[0]);
 
    for (unsigned i = 1; i < b->shader->info.gs.vertices_in; ++i) {
       nir_ssa_def *cond = nir_ieq_imm(b, vertex_src->ssa, i);
-      nir_ssa_def *elem = nir_build_load_gs_vertex_offset_amd(b, .base = i);
+      nir_ssa_def *elem = ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[i]);
       vertex_offset = nir_bcsel(b, cond, elem, vertex_offset);
    }
 
@@ -170,19 +170,19 @@ gs_per_vertex_input_vertex_offset_gfx6(nir_builder *b, nir_src *vertex_src)
 }
 
 static nir_ssa_def *
-gs_per_vertex_input_vertex_offset_gfx9(nir_builder *b, nir_src *vertex_src)
+gs_per_vertex_input_vertex_offset_gfx9(nir_builder *b, nir_src *vertex_src, lower_esgs_io_state *st)
 {
    if (nir_src_is_const(*vertex_src)) {
       unsigned vertex = nir_src_as_uint(*vertex_src);
-      return nir_ubfe(b, nir_build_load_gs_vertex_offset_amd(b, .base = vertex / 2u),
+      return nir_ubfe(b, ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[vertex / 2u]),
                       nir_imm_int(b, (vertex & 1u) * 16u), nir_imm_int(b, 16u));
    }
 
-   nir_ssa_def *vertex_offset = nir_build_load_gs_vertex_offset_amd(b, .base = 0);
+   nir_ssa_def *vertex_offset = ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[0]);
 
    for (unsigned i = 1; i < b->shader->info.gs.vertices_in; i++) {
       nir_ssa_def *cond = nir_ieq_imm(b, vertex_src->ssa, i);
-      nir_ssa_def *elem = nir_build_load_gs_vertex_offset_amd(b, .base = i / 2u * 2u);
+      nir_ssa_def *elem = ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[i / 2u * 2u]);;
       if (i % 2u)
          elem = nir_ishr_imm(b, elem, 16u);
 
@@ -199,8 +199,8 @@ gs_per_vertex_input_offset(nir_builder *b,
 {
    nir_src *vertex_src = nir_get_io_vertex_index_src(instr);
    nir_ssa_def *vertex_offset = st->chip_class >= GFX9
-                                ? gs_per_vertex_input_vertex_offset_gfx9(b, vertex_src)
-                                : gs_per_vertex_input_vertex_offset_gfx6(b, vertex_src);
+                                ? gs_per_vertex_input_vertex_offset_gfx9(b, vertex_src, st)
+                                : gs_per_vertex_input_vertex_offset_gfx6(b, vertex_src, st);
 
    unsigned base_stride = st->chip_class >= GFX9 ? 1 : 64 /* Wave size on GFX6-8 */;
    nir_ssa_def *io_off = nir_build_calc_io_offset(b, instr, nir_imm_int(b, base_stride * 4u), base_stride);
