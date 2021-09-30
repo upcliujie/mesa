@@ -159,7 +159,8 @@ radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
 void
 radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
                const struct radv_shader_info *info,
-               const struct radv_pipeline_key *pl_key)
+               const struct radv_pipeline_key *pl_key,
+               const struct radv_shader_args *args)
 {
    /* TODO: support the LLVM backend with the NIR lowering */
    assert(!radv_use_llvm_for_stage(device, nir->info.stage));
