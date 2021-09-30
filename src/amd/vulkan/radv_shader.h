@@ -533,7 +533,8 @@ get_tcs_num_patches(unsigned tcs_num_input_vertices, unsigned tcs_num_output_ver
 void radv_lower_io(struct radv_device *device, nir_shader *nir);
 
 bool radv_lower_io_to_mem(struct radv_device *device, struct nir_shader *nir,
-                          const struct radv_shader_info *info, const struct radv_pipeline_key *pl_key);
+                          const struct radv_shader_info *info, const struct radv_pipeline_key *pl_key,
+                          const struct radv_shader_args *args);
 
 void radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
                     const struct radv_shader_info *info,
