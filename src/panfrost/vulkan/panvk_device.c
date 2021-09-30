@@ -151,6 +151,7 @@ panvk_get_device_extensions(const struct panvk_physical_device *device,
       .KHR_swapchain = true,
 #endif
       .EXT_custom_border_color = true,
+      .EXT_index_type_uint8 = true,
    };
 }
 
@@ -656,6 +657,8 @@ panvk_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       .shaderSampledImageArrayDynamicIndexing = true,
       .shaderStorageBufferArrayDynamicIndexing = true,
       .shaderStorageImageArrayDynamicIndexing = true,
+      .shaderClipDistance = true,
+      .fillModeNonSolid = true,
    };
 }
 
