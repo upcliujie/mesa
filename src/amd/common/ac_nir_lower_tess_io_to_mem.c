@@ -120,6 +120,11 @@
  */
 
 typedef struct {
+
+   const struct ac_shader_args *args;
+   const ac_nir_tess_io_abi *abi;
+   const void *user;
+
    /* Which hardware generation we're dealing with */
    enum chip_class chip_class;
 
@@ -404,7 +409,7 @@ lower_hs_output_store(nir_builder *b,
                             ? hs_per_vertex_output_vmem_offset(b, st, intrin)
                             : hs_per_patch_output_vmem_offset(b, st, intrin, 0);
 
-      nir_ssa_def *hs_ring_tess_offchip = nir_build_load_ring_tess_offchip_amd(b);
+      nir_ssa_def *hs_ring_tess_offchip = st->abi->load_tess_offchip_descriptor(b, st->user);
       nir_ssa_def *offchip_offset = nir_build_load_ring_tess_offchip_offset_amd(b);
       nir_build_store_buffer_amd(b, store_val, hs_ring_tess_offchip, vmem_off, offchip_offset, .write_mask = write_mask, .memory_modes = nir_var_shader_out);
    }
@@ -513,7 +518,7 @@ hs_emit_write_tess_factors(nir_shader *shader,
    nir_if *invocation_id_zero = nir_push_if(b, nir_ieq_imm(b, invocation_id, 0));
 
    /* The descriptor where tess factors have to be stored by the shader. */
-   nir_ssa_def *tessfactor_ring = nir_build_load_ring_tess_factors_amd(b);
+   nir_ssa_def *tessfactor_ring = st->abi->load_tess_factors_descriptor(b, st->user);
 
    /* Base LDS address of per-patch outputs in the current patch. */
    nir_ssa_def *lds_base = hs_output_lds_offset(b, st, NULL);
@@ -556,7 +561,7 @@ hs_emit_write_tess_factors(nir_shader *shader,
 
    if (st->tes_reads_tessfactors) {
       /* Store to offchip for TES to read - only if TES actually reads them */
-      nir_ssa_def *hs_ring_tess_offchip = nir_build_load_ring_tess_offchip_amd(b);
+      nir_ssa_def *hs_ring_tess_offchip = st->abi->load_tess_offchip_descriptor(b, st->user);
       nir_ssa_def *offchip_offset = nir_build_load_ring_tess_offchip_offset_amd(b);
 
       nir_ssa_def *vmem_off_outer = hs_per_patch_output_vmem_offset(b, st, NULL, st->tcs_tess_lvl_out_loc);
@@ -581,7 +586,7 @@ lower_tes_input_load(nir_builder *b,
    lower_tess_io_state *st = (lower_tess_io_state *) state;
    nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
 
-   nir_ssa_def *offchip_ring = nir_build_load_ring_tess_offchip_amd(b);
+   nir_ssa_def *offchip_ring = st->abi->load_tess_offchip_descriptor(b, st->user);
    nir_ssa_def *offchip_offset = nir_build_load_ring_tess_offchip_offset_amd(b);
    nir_ssa_def *off = intrin->intrinsic == nir_intrinsic_load_per_vertex_input
                     ? hs_per_vertex_output_vmem_offset(b, st, intrin)
@@ -621,7 +626,10 @@ void
 ac_nir_lower_ls_outputs_to_mem(nir_shader *shader,
                                bool tcs_in_out_eq,
                                uint64_t tcs_temp_only_inputs,
-                               unsigned num_reserved_ls_outputs)
+                               unsigned num_reserved_ls_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_tess_io_abi *abi,
+                               void *user)
 {
    assert(shader->info.stage == MESA_SHADER_VERTEX);
 
@@ -629,6 +637,9 @@ ac_nir_lower_ls_outputs_to_mem(nir_shader *shader,
       .tcs_num_reserved_inputs = num_reserved_ls_outputs,
       .tcs_in_out_eq = tcs_in_out_eq,
       .tcs_temp_only_inputs = tcs_in_out_eq ? tcs_temp_only_inputs : 0,
+      .args = args,
+      .abi = abi,
+      .user = user,
    };
 
    nir_shader_instructions_pass(shader,
@@ -640,13 +651,19 @@ ac_nir_lower_ls_outputs_to_mem(nir_shader *shader,
 void
 ac_nir_lower_hs_inputs_to_mem(nir_shader *shader,
                               bool tcs_in_out_eq,
-                              unsigned num_reserved_tcs_inputs)
+                              unsigned num_reserved_tcs_inputs,
+                              const struct ac_shader_args *args,
+                              const ac_nir_tess_io_abi *abi,
+                              void *user)
 {
    assert(shader->info.stage == MESA_SHADER_TESS_CTRL);
 
    lower_tess_io_state state = {
       .tcs_in_out_eq = tcs_in_out_eq,
       .tcs_num_reserved_inputs = num_reserved_tcs_inputs,
+      .args = args,
+      .abi = abi,
+      .user = user,
    };
 
    nir_shader_lower_instructions(shader,
@@ -664,7 +681,10 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
                                unsigned num_reserved_tcs_inputs,
                                unsigned num_reserved_tcs_outputs,
                                unsigned num_reserved_tcs_patch_outputs,
-                               bool emit_tess_factor_write)
+                               bool emit_tess_factor_write,
+                               const struct ac_shader_args *args,
+                               const ac_nir_tess_io_abi *abi,
+                               void *user)
 {
    assert(shader->info.stage == MESA_SHADER_TESS_CTRL);
 
@@ -676,6 +696,9 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
       .tcs_num_reserved_inputs = num_reserved_tcs_inputs,
       .tcs_num_reserved_outputs = num_reserved_tcs_outputs,
       .tcs_num_reserved_patch_outputs = num_reserved_tcs_patch_outputs,
+      .args = args,
+      .abi = abi,
+      .user = user,
    };
 
    nir_shader_lower_instructions(shader,
@@ -690,13 +713,19 @@ ac_nir_lower_hs_outputs_to_mem(nir_shader *shader,
 void
 ac_nir_lower_tes_inputs_to_mem(nir_shader *shader,
                                unsigned num_reserved_tcs_outputs,
-                               unsigned num_reserved_tcs_patch_outputs)
+                               unsigned num_reserved_tcs_patch_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_tess_io_abi *abi,
+                               void *user)
 {
    assert(shader->info.stage == MESA_SHADER_TESS_EVAL);
 
    lower_tess_io_state state = {
       .tcs_num_reserved_outputs = num_reserved_tcs_outputs,
       .tcs_num_reserved_patch_outputs = num_reserved_tcs_patch_outputs,
+      .args = args,
+      .abi = abi,
+      .user = user,
    };
 
    nir_shader_lower_instructions(shader,
