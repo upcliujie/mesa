@@ -1040,6 +1040,30 @@ trace_screen_get_dmabuf_modifier_planes(struct pipe_screen *_screen, uint64_t mo
    return ret;
 }
 
+static struct pipe_vertex_state *
+trace_screen_create_vertex_state(struct pipe_screen *_screen,
+                                 struct pipe_vertex_buffer *buffer,
+                                 const struct pipe_vertex_element *elements,
+                                 unsigned num_elements,
+                                 struct pipe_resource *indexbuf,
+                                 uint32_t full_velem_mask)
+{
+   struct trace_screen *tr_scr = trace_screen(_screen);
+   struct pipe_screen *screen = tr_scr->screen;
+
+   return screen->create_vertex_state(screen, buffer, elements, num_elements,
+                                      indexbuf, full_velem_mask);
+}
+
+static void trace_screen_vertex_state_destroy(struct pipe_screen *_screen,
+                                              struct pipe_vertex_state *state)
+{
+   struct trace_screen *tr_scr = trace_screen(_screen);
+   struct pipe_screen *screen = tr_scr->screen;
+
+   screen->vertex_state_destroy(screen, state);
+}
+
 bool
 trace_enabled(void)
 {
@@ -1134,6 +1158,8 @@ trace_screen_create(struct pipe_screen *screen)
    SCR_INIT(get_driver_uuid);
    SCR_INIT(get_device_uuid);
    SCR_INIT(finalize_nir);
+   SCR_INIT(create_vertex_state);
+   SCR_INIT(vertex_state_destroy);
    tr_scr->base.transfer_helper = screen->transfer_helper;
 
    tr_scr->screen = screen;
