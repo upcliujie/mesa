@@ -2404,11 +2404,11 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
    cmd_buffer->state.pending_pipe_bits = bits;
 }
 
-/* Return the stages the barrier operation is waiting on. */
-static VkPipelineStageFlags2KHR
-cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
-                   const VkDependencyInfoKHR *dep_info,
-                   const char *reason)
+static void
+accumulate_dependency_flags(const VkDependencyInfoKHR *dep_info,
+                            VkAccessFlags2KHR *out_src_flags,
+                            VkAccessFlags2KHR *out_dst_flags,
+                            VkPipelineStageFlags2KHR *out_src_stages)
 {
    /* XXX: Right now, we're really dumb and just flush whatever categories
     * the app asks for.  One of these days we may make this a bit better
@@ -2430,14 +2430,25 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
       dst_flags |= dep_info->pBufferMemoryBarriers[i].dstAccessMask;
    }
 
+   for (uint32_t i = 0; i < dep_info->imageMemoryBarrierCount; i++)
+      src_stages |= dep_info->pImageMemoryBarriers[i].srcStageMask;
+
+   if (out_src_flags)
+      *out_src_flags = src_flags;
+   if (out_dst_flags)
+      *out_dst_flags = dst_flags;
+   if (out_src_stages)
+      *out_src_stages = src_stages;
+
+}
+
+static void
+cmd_buffer_transition_images(struct anv_cmd_buffer *cmd_buffer,
+                             const VkDependencyInfoKHR *dep_info)
+{
    for (uint32_t i = 0; i < dep_info->imageMemoryBarrierCount; i++) {
       const VkImageMemoryBarrier2KHR *img_barrier =
          &dep_info->pImageMemoryBarriers[i];
-
-      src_stages |= img_barrier->srcStageMask;
-      src_flags |= img_barrier->srcAccessMask;
-      dst_flags |= img_barrier->dstAccessMask;
-
       ANV_FROM_HANDLE(anv_image, image, img_barrier->image);
       const VkImageSubresourceRange *range = &img_barrier->subresourceRange;
 
@@ -2484,14 +2495,6 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
          }
       }
    }
-
-   enum anv_pipe_bits bits =
-      anv_pipe_flush_bits_for_access_flags(cmd_buffer->device, src_flags) |
-      anv_pipe_invalidate_bits_for_access_flags(cmd_buffer->device, dst_flags);
-
-   anv_add_pending_pipe_bits(cmd_buffer, bits, reason);
-
-   return src_stages;
 }
 
 void genX(CmdPipelineBarrier2KHR)(
@@ -2500,7 +2503,20 @@ void genX(CmdPipelineBarrier2KHR)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer_barrier(cmd_buffer, pDependencyInfo, "pipe barrier");
+   cmd_buffer_transition_images(cmd_buffer, pDependencyInfo);
+
+   VkAccessFlags2KHR src_flags, dst_flags;
+   VkPipelineStageFlags2KHR src_stages;
+   accumulate_dependency_flags(pDependencyInfo,
+                               &src_flags,
+                               &dst_flags,
+                               &src_stages);
+
+   enum anv_pipe_bits bits =
+   anv_pipe_flush_bits_for_access_flags(cmd_buffer->device, src_flags) |
+   anv_pipe_invalidate_bits_for_access_flags(cmd_buffer->device, dst_flags);
+
+   anv_add_pending_pipe_bits(cmd_buffer, bits, "pipe barrier");
 }
 
 static void
@@ -6903,14 +6919,18 @@ void genX(CmdSetEvent2KHR)(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_event, event, _event);
 
-   VkPipelineStageFlags2KHR src_stages = 0;
+   cmd_buffer_transition_images(cmd_buffer, pDependencyInfo);
 
-   for (uint32_t i = 0; i < pDependencyInfo->memoryBarrierCount; i++)
-      src_stages |= pDependencyInfo->pMemoryBarriers[i].srcStageMask;
-   for (uint32_t i = 0; i < pDependencyInfo->bufferMemoryBarrierCount; i++)
-      src_stages |= pDependencyInfo->pBufferMemoryBarriers[i].srcStageMask;
-   for (uint32_t i = 0; i < pDependencyInfo->imageMemoryBarrierCount; i++)
-      src_stages |= pDependencyInfo->pImageMemoryBarriers[i].srcStageMask;
+   VkAccessFlags2KHR src_flags;
+   VkPipelineStageFlags2KHR src_stages;
+   accumulate_dependency_flags(pDependencyInfo,
+                               &src_flags,
+                               NULL /* out_dst_flags*/,
+                               &src_stages);
+
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             anv_pipe_flush_bits_for_access_flags(cmd_buffer->device, src_flags),
+                             "set event flush");
 
    cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_POST_SYNC_BIT;
    genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
@@ -6986,7 +7006,14 @@ void genX(CmdWaitEvents2KHR)(
    anv_finishme("Implement events on gfx7");
 #endif
 
-   cmd_buffer_barrier(cmd_buffer, pDependencyInfos, "wait event");
+   VkAccessFlags2KHR dst_flags;
+   accumulate_dependency_flags(pDependencyInfos,
+                               NULL /* out_src_flags*/,
+                               &dst_flags,
+                               NULL /* out_src_stages */);
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             anv_pipe_invalidate_bits_for_access_flags(cmd_buffer->device, dst_flags),
+                             "wait event invalidate");
 }
 
 VkResult genX(CmdSetPerformanceOverrideINTEL)(
