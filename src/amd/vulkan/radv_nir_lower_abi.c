@@ -88,6 +88,14 @@ radv_nir_load_esgs_ring_descriptor(nir_builder *b, const void *user)
    return nir_build_load_smem_amd(b, 4, ring_offsets, nir_imm_int(b, ring * 16u), .align_mul = 4u);
 }
 
+static nir_ssa_def *
+radv_nir_shader_query_enabled(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   nir_ssa_def *ngg_gs_state = ac_nir_load_arg(b, &st->args->ac, st->args->ngg_gs_state);
+   return nir_ieq_imm(b, ngg_gs_state, 1);
+}
+
 static ac_nir_tess_io_abi radv_tess_io_abi = {
    .load_tess_offchip_descriptor = radv_nir_load_tess_offchip_descriptor,
    .load_tess_factors_descriptor = radv_nir_load_tess_factors_descriptor,
@@ -98,6 +106,10 @@ static ac_nir_tess_io_abi radv_tess_io_abi = {
 
 static ac_nir_esgs_io_abi radv_esgs_io_abi = {
    .load_esgs_ring_descriptor = radv_nir_load_esgs_ring_descriptor,
+};
+
+static ac_nir_ngg_abi radv_ngg_abi = {
+   .shader_query_enabled = radv_nir_shader_query_enabled,
 };
 
 bool
@@ -169,6 +181,14 @@ radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
           nir->info.stage == MESA_SHADER_TESS_EVAL ||
           nir->info.stage == MESA_SHADER_GEOMETRY);
 
+   struct radv_nir_abi_state abi_state = {
+      .stage = nir->info.stage,
+      .info = info,
+      .args = args,
+      .pl_key = pl_key,
+      .nir = nir,
+   };
+
    const struct gfx10_ngg_info *ngg_info = &info->ngg_info;
    unsigned num_vertices_per_prim = 3;
 
@@ -227,7 +247,8 @@ radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
          export_prim_id,
          pl_key->vs.provoking_vtx_last,
          false,
-         pl_key->vs.instance_rate_inputs);
+         pl_key->vs.instance_rate_inputs,
+         &args->ac, &radv_ngg_abi, &abi_state);
    } else if (nir->info.stage == MESA_SHADER_GEOMETRY) {
       assert(info->is_ngg);
       ac_nir_lower_ngg_gs(
@@ -235,7 +256,8 @@ radv_lower_ngg(struct radv_device *device, struct nir_shader *nir,
          info->ngg_info.esgs_ring_size,
          info->gs.gsvs_vertex_size,
          info->ngg_info.ngg_emit_size * 4u,
-         pl_key->vs.provoking_vtx_last);
+         pl_key->vs.provoking_vtx_last,
+         &args->ac, &radv_ngg_abi, &abi_state);
    } else {
       unreachable("invalid SW stage passed to radv_lower_ngg");
    }
