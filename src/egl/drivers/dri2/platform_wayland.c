@@ -2064,7 +2064,7 @@ static const __DRIswrastLoaderExtension swrast_loader_extension = {
 #include <vulkan/vulkan_wayland.h>
  
 static void
-copperSetSurfaceCreateInfo(void *_draw, VkBaseOutStructure *out)
+copperSetSurfaceCreateInfo(void *_draw, const struct gl_config *visual, void *out)
 {
     struct dri2_egl_surface *dri2_surf = _draw;
     struct dri2_egl_display *dri2_dpy = dri2_egl_display(dri2_surf->base.Resource.Display);

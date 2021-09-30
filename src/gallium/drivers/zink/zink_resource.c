@@ -92,7 +92,6 @@ zink_destroy_resource_object(struct zink_screen *screen, struct zink_resource_ob
       VKSCR(DestroyBuffer)(screen->dev, obj->buffer, NULL);
    } else if (obj->dt) {
       struct sw_winsys *winsys = &screen->winsys;
-      util_queue_fence_wait(&obj->present_fence);
       winsys->displaytarget_destroy(winsys, obj->dt);
    } else {
       VKSCR(DestroyImage)(screen->dev, obj->image, NULL);

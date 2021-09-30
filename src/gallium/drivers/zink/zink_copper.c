@@ -28,12 +28,6 @@
 #include "zink_resource.h"
 #include "zink_copper.h"
 
-union copper_loader_info {
-   VkBaseOutStructure bos;
-   VkXcbSurfaceCreateInfoKHR xcb;
-   VkWaylandSurfaceCreateInfoKHR wl;
-};
-
 struct copper_winsys
 {
    // probably just embed this all in the pipe_screen
@@ -52,19 +46,19 @@ copper_winsys_screen(struct sw_winsys *ws)
 }
 
 static VkSurfaceKHR
-copper_CreateSurface(struct zink_screen *screen, struct copper_displaytarget *cdt, const union copper_loader_info *info)
+copper_CreateSurface(struct zink_screen *screen, struct copper_displaytarget *cdt)
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkResult error = VK_SUCCESS;
 
-    VkStructureType type = info->bos.sType;
+    VkStructureType type = cdt->info.bos.sType;
     switch (type) {
     case VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR:
-       error = VKSCR(CreateXcbSurfaceKHR)(screen->instance, &info->xcb, NULL, &surface);
+       error = VKSCR(CreateXcbSurfaceKHR)(screen->instance, &cdt->info.xcb, NULL, &surface);
        cdt->type = COPPER_X11;
        break;
     case VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR:
-       error = VKSCR(CreateWaylandSurfaceKHR)(screen->instance, &info->wl, NULL, &surface);
+       error = VKSCR(CreateWaylandSurfaceKHR)(screen->instance, &cdt->info.wl, NULL, &surface);
        cdt->type = COPPER_WAYLAND;
        break;
     default:
@@ -123,7 +117,7 @@ copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *
       cswap->scci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
       cswap->scci.queueFamilyIndexCount = 0;
       cswap->scci.pQueueFamilyIndices = NULL;
-      cswap->scci.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;  // XXX handle 
+      cswap->scci.compositeAlpha = cdt->info.has_alpha ? VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR : VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
       cswap->scci.presentMode = VK_PRESENT_MODE_FIFO_KHR;              // XXX swapint
       cswap->scci.clipped = VK_TRUE;                                   // XXX hmm
    }
@@ -205,7 +199,7 @@ copper_displaytarget_create(struct sw_winsys *ws, unsigned tex_usage,
 {
    struct zink_screen *screen = copper_winsys_screen(ws);
    struct copper_displaytarget *cdt;
-   const union copper_loader_info *info = loader_private;
+   const struct copper_loader_info *info = loader_private;
    unsigned nblocksy, size, format_stride;
 
    cdt = CALLOC_STRUCT(copper_displaytarget);
@@ -214,6 +208,7 @@ copper_displaytarget_create(struct sw_winsys *ws, unsigned tex_usage,
 
    cdt->refcount = 1;
    cdt->loader_private = (void*)loader_private;
+   cdt->info = *info;
 
    enum pipe_format srgb = PIPE_FORMAT_NONE;
    if (screen->info.have_KHR_swapchain_mutable_format) {
@@ -232,7 +227,7 @@ copper_displaytarget_create(struct sw_winsys *ws, unsigned tex_usage,
       cdt->formats[1] = zink_get_format(screen, srgb);
    }
 
-   cdt->surface = copper_CreateSurface(screen, cdt, info);
+   cdt->surface = copper_CreateSurface(screen, cdt);
    if (!cdt->surface)
       goto out;
 

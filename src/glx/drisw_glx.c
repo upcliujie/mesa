@@ -370,7 +370,7 @@ static const __DRIswrastLoaderExtension swrastLoaderExtension = {
 
 
 static void
-copperSetSurfaceCreateInfo(void *_draw, VkBaseOutStructure *out)
+copperSetSurfaceCreateInfo(void *_draw, const struct gl_config *visual, void *out)
 {
     __GLXDRIdrawable *draw = _draw;
     VkXcbSurfaceCreateInfoKHR *xsci = (VkXcbSurfaceCreateInfoKHR *)out;

@@ -38,17 +38,23 @@
 #include "dri_helpers.h"
 #include "dri_query_renderer.h"
 
-#include <xcb/xcb.h>
 #include <vulkan/vulkan.h>
-#include <vulkan/vulkan_xcb.h>
 
 
 struct copper_drawable {
    struct dri_drawable base;
-   union {
-      VkBaseOutStructure bos;
-      VkXcbSurfaceCreateInfoKHR xcb;
-   } sci;
+   struct {
+      union {
+         VkBaseOutStructure bos;
+#ifdef VK_USE_PLATFORM_XCB_KHR
+         VkXcbSurfaceCreateInfoKHR xcb;
+#endif
+#ifdef VK_USE_PLATFORM_WAYLAND
+         VkWaylandSurfaceCreateInfoKHR wl;
+#endif
+      };
+      bool has_alpha;
+   } info;
 };
 
 #if 0
@@ -195,7 +201,7 @@ copper_allocate_textures(struct dri_context *ctx,
       if (statts[i] < ST_ATTACHMENT_DEPTH_STENCIL) {
          void *data;
          if (statts[i] == ST_ATTACHMENT_BACK_LEFT || (statts[i] == ST_ATTACHMENT_FRONT_LEFT && front_only))
-            data = &cdraw->sci;
+            data = &cdraw->info;
          else
             data = drawable->textures[ST_ATTACHMENT_BACK_LEFT];
          assert(data);
@@ -385,8 +391,10 @@ copper_create_buffer(__DRIscreen * sPriv,
    if (!drawable)
       return FALSE;
 
+   drawable->info.has_alpha = visual->alphaBits > 0;
    sPriv->copper_loader->SetSurfaceCreateInfo(dPriv->loaderPrivate,
-                                              &drawable->sci.bos);
+                                              visual,
+                                              &drawable->info);
 
    return TRUE;
 }

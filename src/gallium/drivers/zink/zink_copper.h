@@ -45,6 +45,19 @@ enum copper_type {
    COPPER_WAYLAND,
 };
 
+struct copper_loader_info {
+   union {
+      VkBaseOutStructure bos;
+#ifdef VK_USE_PLATFORM_XCB_KHR
+      VkXcbSurfaceCreateInfoKHR xcb;
+#endif
+#ifdef VK_USE_PLATFORM_WAYLAND_KHR
+      VkWaylandSurfaceCreateInfoKHR wl;
+#endif
+   };
+   bool has_alpha;
+};
+
 struct copper_displaytarget
 {
    unsigned refcount;
@@ -58,12 +71,7 @@ struct copper_displaytarget
    struct copper_swapchain *swapchain;
    struct copper_swapchain *old_swapchain;
 
-   union {
-       VkBaseOutStructure bos;
-#ifdef VK_USE_PLATFORM_XCB_KHR
-       VkXcbSurfaceCreateInfoKHR xcb;
-#endif
-   } sci;
+   struct copper_loader_info info;
 
    VkSurfaceCapabilitiesKHR caps;
    VkImageFormatListCreateInfoKHR format_list;
