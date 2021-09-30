@@ -79,8 +79,6 @@ static void
 genX(emit_slice_hashing_state)(struct anv_device *device,
                                struct anv_batch *batch)
 {
-   device->slice_hash = (struct anv_state) { 0 };
-
 #if GFX_VER == 11
    assert(device->info.ppipe_subslices[2] == 0);
 
@@ -88,8 +86,9 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
      return;
 
    unsigned size = GENX(SLICE_HASH_TABLE_length) * 4;
-   device->slice_hash =
-      anv_state_pool_alloc(&device->dynamic_state_pool, size, 64);
+   if (!device->slice_hash.alloc_size)
+      device->slice_hash =
+         anv_state_pool_alloc(&device->dynamic_state_pool, size, 64);
 
    const bool flip = device->info.ppipe_subslices[0] <
                      device->info.ppipe_subslices[1];
@@ -333,6 +332,7 @@ genX(init_device_state)(struct anv_device *device)
 {
    VkResult res;
 
+   device->slice_hash = (struct anv_state) { 0 };
    for (uint32_t i = 0; i < device->queue_count; i++) {
       struct anv_queue *queue = &device->queues[i];
       switch (queue->family->engine_class) {
