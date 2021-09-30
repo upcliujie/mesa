@@ -158,6 +158,18 @@ typedef struct {
 
 } lower_tess_io_state;
 
+static nir_ssa_def *
+load_rel_patch_id(nir_builder *b, lower_tess_io_state *st)
+{
+   if (b->shader->info.stage == MESA_SHADER_TESS_EVAL)
+      return ac_nir_load_arg(b, st->args, st->args->tes_rel_patch_id);
+   else if (b->shader->info.stage == MESA_SHADER_TESS_CTRL)
+      return nir_ubfe(b, ac_nir_load_arg(b, st->args, st->args->tcs_rel_ids),
+                         nir_imm_int(b, 0), nir_imm_int(b, 8));
+   else
+      unreachable("Invalid tessellation shader stage.");
+}
+
 static bool
 match_mask(gl_shader_stage stage,
            nir_intrinsic_instr *intrin,
@@ -275,7 +287,7 @@ hs_per_vertex_input_lds_offset(nir_builder *b,
 {
    unsigned tcs_in_vertex_stride = st->tcs_num_reserved_inputs * 16u;
    nir_ssa_def *tcs_in_vtxcnt = nir_build_load_patch_vertices_in(b);
-   nir_ssa_def *rel_patch_id = nir_build_load_tess_rel_patch_id_amd(b);
+   nir_ssa_def *rel_patch_id = load_rel_patch_id(b, st);
 
    nir_ssa_def *tcs_in_patch_stride = nir_imul_imm(b, tcs_in_vtxcnt, tcs_in_vertex_stride);
    nir_ssa_def *tcs_in_current_patch_offset = nir_imul(b, rel_patch_id, tcs_in_patch_stride);
@@ -310,7 +322,7 @@ hs_output_lds_offset(nir_builder *b,
                     ? nir_build_calc_io_offset(b, intrin, nir_imm_int(b, 16u), 4u)
                     : nir_imm_int(b, 0);
 
-   nir_ssa_def *rel_patch_id = nir_build_load_tess_rel_patch_id_amd(b);
+   nir_ssa_def *rel_patch_id = load_rel_patch_id(b, st);
    nir_ssa_def *patch_offset = nir_imul_imm(b, rel_patch_id, output_patch_stride);
    nir_ssa_def *output_patch_offset = nir_iadd_nuw(b, patch_offset, output_patch0_offset);
 
@@ -339,7 +351,7 @@ hs_per_vertex_output_vmem_offset(nir_builder *b,
    nir_ssa_def *attr_stride = nir_imul(b, tcs_num_patches, nir_imul_imm(b, out_vertices_per_patch, 16u));
    nir_ssa_def *io_offset = nir_build_calc_io_offset(b, intrin, attr_stride, 4u);
 
-   nir_ssa_def *rel_patch_id = nir_build_load_tess_rel_patch_id_amd(b);
+   nir_ssa_def *rel_patch_id = load_rel_patch_id(b, st);
    nir_ssa_def *patch_offset = nir_imul(b, rel_patch_id, nir_imul_imm(b, out_vertices_per_patch, 16u));
 
    nir_ssa_def *vertex_index = nir_ssa_for_src(b, *nir_get_io_vertex_index_src(intrin), 1);
@@ -369,7 +381,7 @@ hs_per_patch_output_vmem_offset(nir_builder *b,
    if (const_base_offset)
       off = nir_iadd_nuw(b, off, nir_imul_imm(b, tcs_num_patches, const_base_offset));
 
-   nir_ssa_def *rel_patch_id = nir_build_load_tess_rel_patch_id_amd(b);
+   nir_ssa_def *rel_patch_id = load_rel_patch_id(b, st);
    nir_ssa_def *patch_offset = nir_imul_imm(b, rel_patch_id, 16u);
    off = nir_iadd_nuw(b, off, per_patch_data_offset);
    return nir_iadd_nuw(b, off, patch_offset);
@@ -410,7 +422,7 @@ lower_hs_output_store(nir_builder *b,
                             : hs_per_patch_output_vmem_offset(b, st, intrin, 0);
 
       nir_ssa_def *hs_ring_tess_offchip = st->abi->load_tess_offchip_descriptor(b, st->user);
-      nir_ssa_def *offchip_offset = nir_build_load_ring_tess_offchip_offset_amd(b);
+      nir_ssa_def *offchip_offset = ac_nir_load_arg(b, st->args, st->args->tess_offchip_offset);
       nir_build_store_buffer_amd(b, store_val, hs_ring_tess_offchip, vmem_off, offchip_offset, .write_mask = write_mask, .memory_modes = nir_var_shader_out);
    }
 
@@ -531,8 +543,8 @@ hs_emit_write_tess_factors(nir_shader *shader,
                                                             .align_mul = 16u, .align_offset = st->tcs_tess_lvl_in_loc % 16u)
                                     : NULL;
 
-   nir_ssa_def *rel_patch_id = nir_build_load_tess_rel_patch_id_amd(b);
-   nir_ssa_def *tess_factors_base = nir_build_load_ring_tess_factors_offset_amd(b);
+   nir_ssa_def *rel_patch_id = load_rel_patch_id(b, st);
+   nir_ssa_def *tess_factors_base = ac_nir_load_arg(b, st->args, st->args->tcs_factor_offset);
    nir_ssa_def *tess_factors_offset = nir_imul_imm(b, rel_patch_id, (inner_comps + outer_comps) * 4u);
    unsigned tess_factors_const_offset = 0;
 
@@ -562,7 +574,7 @@ hs_emit_write_tess_factors(nir_shader *shader,
    if (st->tes_reads_tessfactors) {
       /* Store to offchip for TES to read - only if TES actually reads them */
       nir_ssa_def *hs_ring_tess_offchip = st->abi->load_tess_offchip_descriptor(b, st->user);
-      nir_ssa_def *offchip_offset = nir_build_load_ring_tess_offchip_offset_amd(b);
+      nir_ssa_def *offchip_offset = ac_nir_load_arg(b, st->args, st->args->tess_offchip_offset);
 
       nir_ssa_def *vmem_off_outer = hs_per_patch_output_vmem_offset(b, st, NULL, st->tcs_tess_lvl_out_loc);
       nir_build_store_buffer_amd(b, tessfactors_outer, hs_ring_tess_offchip, vmem_off_outer, offchip_offset, .write_mask = 0xfu, .memory_modes = nir_var_shader_out);
@@ -587,7 +599,7 @@ lower_tes_input_load(nir_builder *b,
    nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
 
    nir_ssa_def *offchip_ring = st->abi->load_tess_offchip_descriptor(b, st->user);
-   nir_ssa_def *offchip_offset = nir_build_load_ring_tess_offchip_offset_amd(b);
+   nir_ssa_def *offchip_offset = ac_nir_load_arg(b, st->args, st->args->tess_offchip_offset);
    nir_ssa_def *off = intrin->intrinsic == nir_intrinsic_load_per_vertex_input
                     ? hs_per_vertex_output_vmem_offset(b, st, intrin)
                     : hs_per_patch_output_vmem_offset(b, st, intrin, 0);
