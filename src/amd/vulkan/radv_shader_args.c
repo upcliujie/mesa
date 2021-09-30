@@ -370,9 +370,9 @@ declare_tes_input_vgprs(struct radv_shader_args *args)
 }
 
 static void
-declare_ngg_sgprs(struct radv_shader_args *args, gl_shader_stage stage)
+declare_ngg_sgprs(struct radv_shader_args *args, bool nogs)
 {
-   if (stage == MESA_SHADER_GEOMETRY) {
+   if (!nogs) {
       ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ngg_gs_state);
    }
 
@@ -435,10 +435,9 @@ set_vs_specific_input_locs(struct radv_shader_args *args, gl_shader_stage stage,
 }
 
 static void
-set_ngg_sgprs_locs(struct radv_shader_args *args, gl_shader_stage stage, uint8_t *user_sgpr_idx)
+set_ngg_sgprs_locs(struct radv_shader_args *args, uint8_t *user_sgpr_idx)
 {
-   if (stage == MESA_SHADER_GEOMETRY) {
-      assert(args->ngg_gs_state.used);
+   if (args->ngg_gs_state.used) {
       set_loc_shader(args, AC_UD_NGG_GS_STATE, user_sgpr_idx, 1);
    }
 
@@ -465,6 +464,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
 {
    struct user_sgpr_info user_sgpr_info;
    bool needs_view_index = needs_view_index_sgpr(args, stage);
+   bool ngg_nogs = false;
 
    if (args->options->chip_class >= GFX10) {
       if (is_pre_gs_stage(stage) && args->shader_info->is_ngg) {
@@ -472,6 +472,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          previous_stage = stage;
          stage = MESA_SHADER_GEOMETRY;
          has_previous_stage = true;
+         ngg_nogs = true;
       }
    }
 
@@ -633,7 +634,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          }
 
          if (args->shader_info->is_ngg) {
-            declare_ngg_sgprs(args, stage);
+            declare_ngg_sgprs(args, ngg_nogs);
          }
 
          ac_add_arg(&args->ac, AC_ARG_VGPR, 1, AC_ARG_INT, &args->ac.gs_vtx_offset[0]);
@@ -749,7 +750,7 @@ radv_declare_shader_args(struct radv_shader_args *args, gl_shader_stage stage,
          set_loc_shader(args, AC_UD_VIEW_INDEX, &user_sgpr_idx, 1);
 
       if (args->shader_info->is_ngg)
-         set_ngg_sgprs_locs(args, stage, &user_sgpr_idx);
+         set_ngg_sgprs_locs(args, &user_sgpr_idx);
       break;
    case MESA_SHADER_FRAGMENT:
       break;
