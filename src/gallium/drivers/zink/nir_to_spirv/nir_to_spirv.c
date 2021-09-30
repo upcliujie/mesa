@@ -1004,7 +1004,8 @@ emit_uniform(struct ntv_context *ctx, struct nir_variable *var)
    if (var->data.mode == nir_var_mem_ubo || var->data.mode == nir_var_mem_ssbo)
       emit_bo(ctx, var, 0);
    else {
-      assert(var->data.mode == nir_var_uniform);
+      assert(var->data.mode == nir_var_uniform ||
+             var->data.mode == nir_var_mem_image);
       const struct glsl_type *type = glsl_without_array(var->type);
       if (glsl_type_is_sampler(type) || glsl_type_is_image(type))
          emit_image(ctx, var, false);
@@ -3944,6 +3945,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info, uint32_t 
    /* we have to reverse iterate to match what's done in zink_compiler.c */
    foreach_list_typed_reverse(nir_variable, var, node, &s->variables)
       if (_nir_shader_variable_has_mode(var, nir_var_uniform |
+                                        nir_var_mem_image |
                                         nir_var_mem_ubo |
                                         nir_var_mem_ssbo))
          emit_uniform(&ctx, var);
