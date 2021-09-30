@@ -402,7 +402,7 @@ zink_copper_present_queue(struct zink_screen *screen, struct zink_resource *res)
    cpi->info.pSwapchains = &cdt->swapchain->swapchain;
    cpi->info.pImageIndices = &cpi->image;
    cpi->info.pResults = NULL;
-   res->obj->present = NULL;
+   res->obj->present = VK_NULL_HANDLE;
    if (util_queue_is_initialized(&screen->flush_queue)) {
       util_queue_add_job(&screen->flush_queue, cpi, &res->obj->present_fence,
                          copper_present, NULL, 0);
@@ -452,7 +452,7 @@ zink_copper_present_readback(struct zink_screen *screen, struct zink_resource *r
    si.waitSemaphoreCount = !!acquire;
    si.pWaitSemaphores = &acquire;
    si.pSignalSemaphores = &present;
-   VkResult error = VKSCR(QueueSubmit)(screen->thread_queue, 1, &si, NULL);
+   VkResult error = VKSCR(QueueSubmit)(screen->thread_queue, 1, &si, VK_NULL_HANDLE);
    if (!zink_screen_handle_vkresult(screen, error))
       return false;
 
