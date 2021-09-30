@@ -74,18 +74,11 @@ TEMPLATE_C = Template(COPYRIGHT + """
 #include "vk_util.h"
 
 static VkResult
-check_physical_device_features(VkPhysicalDevice _physical_device,
-                               const VkPhysicalDeviceFeatures *features)
+check_physical_device_features(const VkPhysicalDeviceFeatures *supported,
+                               const VkPhysicalDeviceFeatures *enabled)
 {
-   VK_FROM_HANDLE(vk_physical_device, physical_device, _physical_device);
-
-   VkPhysicalDeviceFeatures supported_features;
-
-   physical_device->dispatch_table.GetPhysicalDeviceFeatures(
-      _physical_device, &supported_features);
-
-   VkBool32 *supported_feature = (VkBool32 *)&supported_features;
-   VkBool32 *enabled_feature = (VkBool32 *)features;
+   const VkBool32 *supported_feature = (const VkBool32 *)&supported;
+   const VkBool32 *enabled_feature = (const VkBool32 *)&enabled;
    unsigned num_features = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
    for (uint32_t i = 0; i < num_features; i++) {
       if (enabled_feature[i] && !supported_feature[i])
@@ -100,23 +93,6 @@ vk_util_check_physical_device_features(VkPhysicalDevice _physical_device,
                                        const VkDeviceCreateInfo *pCreateInfo)
 {
    VK_FROM_HANDLE(vk_physical_device, physical_device, _physical_device);
-
-   if (pCreateInfo->pEnabledFeatures) {
-      VkResult result =
-         check_physical_device_features(_physical_device,
-                                        pCreateInfo->pEnabledFeatures);
-      if (result != VK_SUCCESS)
-         return result;
-   }
-
-   const VkPhysicalDeviceFeatures2 *features2 =
-      vk_find_struct_const(pCreateInfo->pNext, PHYSICAL_DEVICE_FEATURES_2);
-   if (features2) {
-      VkResult result =
-         check_physical_device_features(_physical_device, &features2->features);
-      if (result != VK_SUCCESS)
-         return result;
-   }
 
    /* Query the device what kind of features are supported. */
    VkPhysicalDeviceFeatures2 supported_features2 = {
@@ -154,10 +130,27 @@ vk_util_check_physical_device_features(VkPhysicalDevice _physical_device,
    physical_device->dispatch_table.GetPhysicalDeviceFeatures2(
       _physical_device, &supported_features2);
 
+   if (pCreateInfo->pEnabledFeatures) {
+      VkResult result =
+        check_physical_device_features(&supported_features2.features,
+                                       pCreateInfo->pEnabledFeatures);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
    /* Iterate through additional feature structs */
    vk_foreach_struct_const(feat, pCreateInfo->pNext) {
       /* Check each feature boolean for given structure. */
       switch (feat->sType) {
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2: {
+         const VkPhysicalDeviceFeatures2 *features2 = (const void *)feat;
+         VkResult result =
+            check_physical_device_features(&supported_features2.features,
+                                           &features2->features);
+         if (result != VK_SUCCESS)
+            return result;
+         break;
+      }
 % for f in features:
       case ${f.vk_type} : {
          ${f.name} *a = &supported_${f.name};
