@@ -286,7 +286,7 @@ hs_per_vertex_input_lds_offset(nir_builder *b,
                                nir_intrinsic_instr *instr)
 {
    unsigned tcs_in_vertex_stride = st->tcs_num_reserved_inputs * 16u;
-   nir_ssa_def *tcs_in_vtxcnt = nir_build_load_patch_vertices_in(b);
+   nir_ssa_def *tcs_in_vtxcnt = st->abi->load_tcs_in_patch_size(b, st->user);
    nir_ssa_def *rel_patch_id = load_rel_patch_id(b, st);
 
    nir_ssa_def *tcs_in_patch_stride = nir_imul_imm(b, tcs_in_vtxcnt, tcs_in_vertex_stride);
@@ -313,8 +313,8 @@ hs_output_lds_offset(nir_builder *b,
    unsigned pervertex_output_patch_size = b->shader->info.tess.tcs_vertices_out * output_vertex_size;
    unsigned output_patch_stride = pervertex_output_patch_size + st->tcs_num_reserved_patch_outputs * 16u;
 
-   nir_ssa_def *tcs_in_vtxcnt = nir_build_load_patch_vertices_in(b);
-   nir_ssa_def *tcs_num_patches = nir_build_load_tcs_num_patches_amd(b);
+   nir_ssa_def *tcs_in_vtxcnt = st->abi->load_tcs_in_patch_size(b, st->user);
+   nir_ssa_def *tcs_num_patches = st->abi->load_tcs_num_patches(b, st->user);
    nir_ssa_def *input_patch_size = nir_imul_imm(b, tcs_in_vtxcnt, st->tcs_num_reserved_inputs * 16u);
    nir_ssa_def *output_patch0_offset = nir_imul(b, input_patch_size, tcs_num_patches);
 
@@ -345,9 +345,9 @@ hs_per_vertex_output_vmem_offset(nir_builder *b,
 {
    nir_ssa_def *out_vertices_per_patch = b->shader->info.stage == MESA_SHADER_TESS_CTRL
                                          ? nir_imm_int(b, b->shader->info.tess.tcs_vertices_out)
-                                         : nir_build_load_patch_vertices_in(b);
+                                         : st->abi->load_tcs_out_patch_size(b, st->user);
 
-   nir_ssa_def *tcs_num_patches = nir_build_load_tcs_num_patches_amd(b);
+   nir_ssa_def *tcs_num_patches = st->abi->load_tcs_num_patches(b, st->user);
    nir_ssa_def *attr_stride = nir_imul(b, tcs_num_patches, nir_imul_imm(b, out_vertices_per_patch, 16u));
    nir_ssa_def *io_offset = nir_build_calc_io_offset(b, intrin, attr_stride, 4u);
 
@@ -368,9 +368,9 @@ hs_per_patch_output_vmem_offset(nir_builder *b,
 {
    nir_ssa_def *out_vertices_per_patch = b->shader->info.stage == MESA_SHADER_TESS_CTRL
                                          ? nir_imm_int(b, b->shader->info.tess.tcs_vertices_out)
-                                         : nir_build_load_patch_vertices_in(b);
+                                         : st->abi->load_tcs_out_patch_size(b, st->user);
 
-   nir_ssa_def *tcs_num_patches = nir_build_load_tcs_num_patches_amd(b);
+   nir_ssa_def *tcs_num_patches = st->abi->load_tcs_num_patches(b, st->user);
    nir_ssa_def *per_vertex_output_patch_size = nir_imul_imm(b, out_vertices_per_patch, st->tcs_num_reserved_outputs * 16u);
    nir_ssa_def *per_patch_data_offset = nir_imul(b, tcs_num_patches, per_vertex_output_patch_size);
 

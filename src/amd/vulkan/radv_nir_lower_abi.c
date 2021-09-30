@@ -58,6 +58,27 @@ radv_nir_load_tess_factors_descriptor(nir_builder *b, const void *user)
 }
 
 static nir_ssa_def *
+radv_nir_load_tcs_num_patches(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return nir_imm_int(b, st->info->num_tess_patches);
+}
+
+static nir_ssa_def *
+radv_nir_load_tcs_in_patch_size(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return nir_imm_int(b, st->pl_key->tcs.tess_input_vertices);
+}
+
+static nir_ssa_def *
+radv_nir_load_tcs_out_patch_size(nir_builder *b, const void *user)
+{
+   const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
+   return nir_imm_int(b, st->nir->info.tess.tcs_vertices_out);
+}
+
+static nir_ssa_def *
 radv_nir_load_esgs_ring_descriptor(nir_builder *b, const void *user)
 {
    const struct radv_nir_abi_state *st = (const struct radv_nir_abi_state *) user;
@@ -70,6 +91,9 @@ radv_nir_load_esgs_ring_descriptor(nir_builder *b, const void *user)
 static ac_nir_tess_io_abi radv_tess_io_abi = {
    .load_tess_offchip_descriptor = radv_nir_load_tess_offchip_descriptor,
    .load_tess_factors_descriptor = radv_nir_load_tess_factors_descriptor,
+   .load_tcs_num_patches = radv_nir_load_tcs_num_patches,
+   .load_tcs_in_patch_size = radv_nir_load_tcs_in_patch_size,
+   .load_tcs_out_patch_size = radv_nir_load_tcs_out_patch_size,
 };
 
 static ac_nir_esgs_io_abi radv_esgs_io_abi = {
