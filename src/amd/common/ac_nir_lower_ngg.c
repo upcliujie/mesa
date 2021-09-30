@@ -41,6 +41,10 @@ typedef struct
 
 typedef struct
 {
+   const struct ac_shader_args *args;
+   const ac_nir_ngg_abi *abi;
+   const void *user;
+
    nir_variable *position_value_var;
    nir_variable *prim_exp_arg_var;
    nir_variable *es_accepted_var;
@@ -77,6 +81,10 @@ typedef struct
 
 typedef struct
 {
+   const struct ac_shader_args *args;
+   const ac_nir_ngg_abi *abi;
+   const void *user;
+
    nir_variable *output_vars[VARYING_SLOT_MAX][4];
    nir_variable *current_clear_primflag_idx_var;
    int const_out_vtxcnt[4];
@@ -1266,7 +1274,10 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
                       bool export_prim_id,
                       bool provoking_vtx_last,
                       bool use_edgeflags,
-                      uint32_t instance_rate_inputs)
+                      uint32_t instance_rate_inputs,
+                      const struct ac_shader_args *args,
+                      const ac_nir_ngg_abi *abi,
+                      const void *user)
 {
    nir_function_impl *impl = nir_shader_get_entrypoint(shader);
    assert(impl);
@@ -1279,6 +1290,9 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
    nir_variable *gs_accepted_var = can_cull ? nir_local_variable_create(impl, glsl_bool_type(), "gs_accepted") : NULL;
 
    lower_ngg_nogs_state state = {
+      .args = args,
+      .abi = abi,
+      .user = user,
       .passthrough = passthrough,
       .export_prim_id = export_prim_id,
       .early_prim_export = early_prim_export,
@@ -1466,7 +1480,7 @@ ngg_gs_clear_primflags(nir_builder *b, nir_ssa_def *num_vertices, unsigned strea
 static void
 ngg_gs_shader_query(nir_builder *b, nir_intrinsic_instr *intrin, lower_ngg_gs_state *s)
 {
-   nir_if *if_shader_query = nir_push_if(b, nir_build_load_shader_query_enabled_amd(b));
+   nir_if *if_shader_query = nir_push_if(b, s->abi->shader_query_enabled(b, s->user));
    nir_ssa_def *num_prims_in_wave = NULL;
 
    /* Calculate the "real" number of emitted primitives from the emitted GS vertices and primitives.
@@ -1840,12 +1854,18 @@ ac_nir_lower_ngg_gs(nir_shader *shader,
                     unsigned esgs_ring_lds_bytes,
                     unsigned gs_out_vtx_bytes,
                     unsigned gs_total_out_vtx_bytes,
-                    bool provoking_vertex_last)
+                    bool provoking_vertex_last,
+                    const struct ac_shader_args *args,
+                    const ac_nir_ngg_abi *abi,
+                    const void *user)
 {
    nir_function_impl *impl = nir_shader_get_entrypoint(shader);
    assert(impl);
 
    lower_ngg_gs_state state = {
+      .args = args,
+      .abi = abi,
+      .user = user,
       .max_num_waves = DIV_ROUND_UP(max_workgroup_size, wave_size),
       .wave_size = wave_size,
       .lds_addr_gs_out_vtx = esgs_ring_lds_bytes,

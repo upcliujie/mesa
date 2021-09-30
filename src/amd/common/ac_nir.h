@@ -69,6 +69,12 @@ typedef struct
 
 } ac_nir_esgs_io_abi;
 
+typedef struct
+{
+   /* Used by NGG GS to tell whether it should save shader query info to GDS. */
+   ac_nir_abi_callback shader_query_enabled;
+
+} ac_nir_ngg_abi;
 
 nir_ssa_def *
 ac_nir_load_arg(nir_builder *b, const struct ac_shader_args *ac_args, struct ac_arg arg);
@@ -144,7 +150,10 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
                       bool export_prim_id,
                       bool provoking_vtx_last,
                       bool use_edgeflags,
-                      uint32_t instance_rate_inputs);
+                      uint32_t instance_rate_inputs,
+                      const struct ac_shader_args *args,
+                      const ac_nir_ngg_abi *abi,
+                      const void *user);
 
 void
 ac_nir_lower_ngg_gs(nir_shader *shader,
@@ -153,7 +162,10 @@ ac_nir_lower_ngg_gs(nir_shader *shader,
                     unsigned esgs_ring_lds_bytes,
                     unsigned gs_out_vtx_bytes,
                     unsigned gs_total_out_vtx_bytes,
-                    bool provoking_vtx_last);
+                    bool provoking_vtx_last,
+                    const struct ac_shader_args *args,
+                    const ac_nir_ngg_abi *abi,
+                    const void *user);
 
 nir_ssa_def *
 ac_nir_cull_triangle(nir_builder *b,
