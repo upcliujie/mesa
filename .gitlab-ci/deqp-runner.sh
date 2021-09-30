@@ -162,9 +162,9 @@ FAILURES_CSV=$RESULTS/failures.csv
 
 export LD_PRELOAD=$TEST_LD_PRELOAD
 
-MESA_VERSION=$(head -1 "$INSTALL/VERSION" | sed 's/(/\\(/g' | sed 's/)/\\)/g')
-
 if [ -z "$DEQP_SUITE" ]; then
+    MESA_VERSION=$(head -1 "$INSTALL/VERSION" | sed 's/(/\\(/g' | sed 's/)/\\)/g')
+
     $HANG_DETECTION_CMD deqp-runner \
         run \
         --deqp $DEQP \
@@ -188,8 +188,6 @@ else
         --skips $INSTALL/deqp-all-skips.txt $DEQP_SKIPS \
         --flakes $INSTALL/deqp-$GPU_VERSION-flakes.txt \
         --testlog-to-xml /deqp/executor/testlog-to-xml \
-        --renderer-check "$DEQP_EXPECTED_RENDERER" \
-        --version-check "$MESA_VERSION" \
         --fraction-start $CI_NODE_INDEX \
         --fraction $CI_NODE_TOTAL \
         $JOB \

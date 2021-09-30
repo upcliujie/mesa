@@ -42,6 +42,9 @@ find . -path \*/ci/\*.txt \
     -o -path \*/ci/\*traces\*.yml \
     | xargs -I '{}' cp -p '{}' install/
 
+# Set the value for the version check in deqp-runner
+sed -i "s/\$VERSION/`cat VERSION`/" install/*.toml
+
 # Tar up the install dir so that symlinks and hardlinks aren't each
 # packed separately in the zip file.
 mkdir -p artifacts/

@@ -12,7 +12,6 @@ virgl-on-gl:
   variables:
     DEQP_SUITE: virgl-gl
     GPU_VERSION: virgl-gl
-    DEQP_EXPECTED_RENDERER: virgl
   parallel: 3
   tags:
     - kvm

@@ -1,5 +1,7 @@
 [[deqp]]
 deqp = "/install/crosvm-runner.sh"
+renderer_check = "virgl.*llvmpipe"
+version_check = "OpenGL ES 3.2 Mesa $VERSION"
 caselists = ["/deqp/mustpass/gles2-master.txt"]
 deqp_args = [
     "/deqp/modules/gles2/deqp-gles2",
