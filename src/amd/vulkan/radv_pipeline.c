@@ -3617,7 +3617,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
          bool lowered_ngg = pipeline_has_ngg && i == pipeline->graphics.last_vgt_api_stage &&
                             !radv_use_llvm_for_stage(device, i);
          if (lowered_ngg)
-            radv_lower_ngg(device, nir[i], &infos[i], pipeline_key);
+            radv_lower_ngg(device, nir[i], &infos[i], pipeline_key, &args[i]);
 
          radv_optimize_nir_algebraic(nir[i], io_to_mem || lowered_ngg || i == MESA_SHADER_COMPUTE);
 
