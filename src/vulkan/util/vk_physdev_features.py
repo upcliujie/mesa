@@ -41,7 +41,7 @@ TEMPLATE_H = Template(COPYRIGHT + """\
 
 #pragma once
 
-#include "util/list.h"
+#include "vk_log.h"
 
 #define VK_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -74,16 +74,16 @@ TEMPLATE_C = Template(COPYRIGHT + """
 #include "vk_util.h"
 
 static VkResult
-check_physical_device_features(const VkPhysicalDeviceFeatures *supported,
-                               const VkPhysicalDeviceFeatures *enabled)
+check_physical_device_features(struct vk_physical_device *physical_device,
+                               const VkPhysicalDeviceFeatures *supported,
+                               const VkPhysicalDeviceFeatures *enabled,
+                               const char *struct_name)
 {
-   const VkBool32 *supported_feature = (const VkBool32 *)&supported;
-   const VkBool32 *enabled_feature = (const VkBool32 *)&enabled;
-   unsigned num_features = sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32);
-   for (uint32_t i = 0; i < num_features; i++) {
-      if (enabled_feature[i] && !supported_feature[i])
-         return VK_ERROR_FEATURE_NOT_PRESENT;
-   }
+% for flag in pdev_features:
+   if (enabled->${flag} && !supported->${flag})
+      return vk_errorf(physical_device, VK_ERROR_FEATURE_NOT_PRESENT,
+                       "%s.%s not supported", struct_name, "${flag}");
+% endfor
 
    return VK_SUCCESS;
 }
@@ -128,12 +128,14 @@ vk_util_check_physical_device_features(VkPhysicalDevice _physical_device,
    }
 
    physical_device->dispatch_table.GetPhysicalDeviceFeatures2(
-      _physical_device, &supported_features2);
+      vk_physical_device_to_handle(physical_device), &supported_features2);
 
    if (pCreateInfo->pEnabledFeatures) {
       VkResult result =
-        check_physical_device_features(&supported_features2.features,
-                                       pCreateInfo->pEnabledFeatures);
+        check_physical_device_features(physical_device,
+                                       &supported_features2.features,
+                                       pCreateInfo->pEnabledFeatures,
+                                       "VkPhysicalDeviceFeatures");
       if (result != VK_SUCCESS)
          return result;
    }
@@ -145,8 +147,10 @@ vk_util_check_physical_device_features(VkPhysicalDevice _physical_device,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2: {
          const VkPhysicalDeviceFeatures2 *features2 = (const void *)feat;
          VkResult result =
-            check_physical_device_features(&supported_features2.features,
-                                           &features2->features);
+            check_physical_device_features(physical_device,
+                                           &supported_features2.features,
+                                           &features2->features,
+                                           "VkPhysicalDeviceFeatures2.features");
          if (result != VK_SUCCESS)
             return result;
          break;
@@ -157,7 +161,8 @@ vk_util_check_physical_device_features(VkPhysicalDevice _physical_device,
          ${f.name} *b = (${f.name} *) feat;
 % for flag in f.vk_flags:
          if (b->${flag} && !a->${flag})
-            return VK_ERROR_FEATURE_NOT_PRESENT;
+            return vk_errorf(physical_device, VK_ERROR_FEATURE_NOT_PRESENT,
+                             "%s.%s not supported", "${f.name}", "${flag}");
 % endfor
          break;
       }
@@ -172,6 +177,21 @@ vk_util_check_physical_device_features(VkPhysicalDevice _physical_device,
 """, output_encoding='utf-8')
 
 Feature = namedtuple('Feature', 'name vk_type vk_flags')
+
+def get_pdev_features(doc):
+    for _type in doc.findall('./types/type'):
+        if _type.attrib.get('name') != 'VkPhysicalDeviceFeatures':
+            continue
+
+        flags = []
+
+        for p in _type.findall('./member'):
+            assert p.find('./type').text == 'VkBool32'
+            flags.append(p.find('./name').text)
+
+        return flags
+
+    return None
 
 def get_features(doc):
     features = OrderedDict()
@@ -218,13 +238,16 @@ def get_features(doc):
     return features.values()
 
 def get_features_from_xml(xml_files):
+    pdev_features = None
     features = []
 
     for filename in xml_files:
         doc = et.parse(filename)
         features += get_features(doc)
+        if not pdev_features:
+            pdev_features = get_pdev_features(doc)
 
-    return features
+    return pdev_features, features
 
 
 def main():
@@ -236,13 +259,14 @@ def main():
                         required=True, action='append', dest='xml_files')
     args = parser.parse_args()
 
-    features = get_features_from_xml(args.xml_files)
+    pdev_features, features = get_features_from_xml(args.xml_files)
 
     assert os.path.dirname(args.out_c) == os.path.dirname(args.out_h)
 
     environment = {
         'header': os.path.basename(args.out_h),
         'filename': os.path.basename(__file__),
+        'pdev_features': pdev_features,
         'features': features,
     }
 
