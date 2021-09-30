@@ -51,6 +51,16 @@ typedef struct
 
 } ac_nir_tess_io_abi;
 
+typedef struct
+{
+   /* Descriptor where ES outputs are stored and GS inputs are loaded from.
+    * Only used by legacy GS on GFX6-8.
+    */
+   ac_nir_abi_callback load_esgs_ring_descriptor;
+
+} ac_nir_esgs_io_abi;
+
+
 nir_ssa_def *
 ac_nir_load_arg(nir_builder *b, const struct ac_shader_args *ac_args, struct ac_arg arg);
 
@@ -107,12 +117,18 @@ ac_nir_lower_tess_to_const(nir_shader *shader,
 void
 ac_nir_lower_es_outputs_to_mem(nir_shader *shader,
                                enum chip_class chip_class,
-                               unsigned num_reserved_es_outputs);
+                               unsigned num_reserved_es_outputs,
+                               const struct ac_shader_args *args,
+                               const ac_nir_esgs_io_abi *abi,
+                               void *user);
 
 void
 ac_nir_lower_gs_inputs_to_mem(nir_shader *shader,
                               enum chip_class chip_class,
-                              unsigned num_reserved_es_outputs);
+                              unsigned num_reserved_es_outputs,
+                              const struct ac_shader_args *args,
+                              const ac_nir_esgs_io_abi *abi,
+                              void *user);
 
 bool
 ac_nir_lower_indirect_derefs(nir_shader *shader,
