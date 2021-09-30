@@ -49,6 +49,15 @@ typedef struct
    /* Descriptor where TCS outputs are stored for the HW tessellator. */
    ac_nir_abi_callback load_tess_factors_descriptor;
 
+   /* Number of patches processed by each TCS workgroup. */
+   ac_nir_abi_callback load_tcs_num_patches;
+
+   /* Number of input vertices per patch. */
+   ac_nir_abi_callback load_tcs_in_patch_size;
+
+   /* Number of output vertices per patch. */
+   ac_nir_abi_callback load_tcs_out_patch_size;
+
 } ac_nir_tess_io_abi;
 
 typedef struct
