@@ -40,6 +40,11 @@ struct copper_swapchain {
    unsigned max_acquires;
 };
 
+enum copper_type {
+   COPPER_X11,
+   COPPER_WAYLAND,
+};
+
 struct copper_displaytarget
 {
    unsigned refcount;
@@ -62,6 +67,7 @@ struct copper_displaytarget
 
    VkSurfaceCapabilitiesKHR caps;
    VkImageFormatListCreateInfoKHR format_list;
+   enum copper_type type;
 };
 
 struct zink_screen;

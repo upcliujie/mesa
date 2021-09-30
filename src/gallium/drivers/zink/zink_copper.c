@@ -61,9 +61,11 @@ copper_CreateSurface(struct zink_screen *screen, struct copper_displaytarget *cd
     switch (type) {
     case VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR:
        error = VKSCR(CreateXcbSurfaceKHR)(screen->instance, &info->xcb, NULL, &surface);
+       cdt->type = COPPER_X11;
        break;
     case VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR:
        error = VKSCR(CreateWaylandSurfaceKHR)(screen->instance, &info->wl, NULL, &surface);
+       cdt->type = COPPER_WAYLAND;
        break;
     default:
        unreachable("unsupported!");
@@ -130,8 +132,29 @@ copper_CreateSwapchain(struct zink_screen *screen, struct copper_displaytarget *
    if (cdt->formats[1])
       cswap->scci.pNext = &cdt->format_list;
 
-   cswap->scci.imageExtent.width = MIN2(MAX3(w, cdt->caps.currentExtent.width, cdt->caps.minImageExtent.width), cdt->caps.maxImageExtent.width);
-   cswap->scci.imageExtent.height = MIN2(MAX3(h, cdt->caps.currentExtent.height, cdt->caps.minImageExtent.height), cdt->caps.maxImageExtent.height);
+   /* different display platforms have, by vulkan spec, different sizing methodologies */
+   switch (cdt->type) {
+   case COPPER_X11:
+      /* With Xcb, minImageExtent, maxImageExtent, and currentExtent must always equal the window size.
+       * ...
+       * Due to above restrictions, it is only possible to create a new swapchain on this
+       * platform with imageExtent being equal to the current size of the window.
+       */
+      cswap->scci.imageExtent.width = cdt->caps.currentExtent.width;
+      cswap->scci.imageExtent.height = cdt->caps.currentExtent.height;
+      break;
+   case COPPER_WAYLAND:
+      /* On Wayland, currentExtent is the special value (0xFFFFFFFF, 0xFFFFFFFF), indicating that the
+       * surface size will be determined by the extent of a swapchain targeting the surface. Whatever the
+       * application sets a swapchain’s imageExtent to will be the size of the window, after the first image is
+       * presented.
+       */
+      cswap->scci.imageExtent.width = w;
+      cswap->scci.imageExtent.height = h;
+      break;
+   default:
+      unreachable("unknown display platform");
+   }
 
    error = VKSCR(CreateSwapchainKHR)(screen->dev, &cswap->scci, NULL,
                                 &cswap->swapchain);
