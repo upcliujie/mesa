@@ -2047,6 +2047,15 @@ setup_framebuffer(struct zink_context *ctx)
    }
 
    ctx->rp_changed = false;
+   for (unsigned i = 0; i < ctx->fb_state.nr_cbufs; i++) {
+      if (!ctx->fb_state.cbufs[i])
+         continue;
+      struct zink_resource *res = zink_resource(ctx->fb_state.cbufs[i]->texture);
+      if (res->obj->dt) {
+         zink_copper_acquire(screen, res, UINT64_MAX);
+         zink_surface_swapchain_update(screen, surf);
+      }
+   }
 
    if (!ctx->fb_changed)
       return;
