@@ -3469,6 +3469,9 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
       infos[es_stage].has_ngg_culling =
          radv_consider_culling(device, nir[es_stage], ps_inputs_read) &&
          ac_nir_can_use_ngg_culling(nir[es_stage], num_vertices_per_prim);
+
+      nir_function_impl *impl = nir_shader_get_entrypoint(nir[es_stage]);
+      infos[es_stage].has_ngg_early_prim_export = exec_list_is_singular(&impl->body);
    }
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
