@@ -329,16 +329,16 @@ uint32_t
 i915_num_coords(uint32_t tex)
 {
    switch (tex) {
-   case TGSI_TEXTURE_SHADOW1D:
    case TGSI_TEXTURE_1D:
       return 1;
 
-   case TGSI_TEXTURE_SHADOW2D:
+   case TGSI_TEXTURE_SHADOW1D:
    case TGSI_TEXTURE_2D:
-   case TGSI_TEXTURE_SHADOWRECT:
    case TGSI_TEXTURE_RECT:
       return 2;
 
+   case TGSI_TEXTURE_SHADOW2D:
+   case TGSI_TEXTURE_SHADOWRECT:
    case TGSI_TEXTURE_3D:
    case TGSI_TEXTURE_CUBE:
       return 3;
