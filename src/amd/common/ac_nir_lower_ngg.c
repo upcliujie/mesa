@@ -343,7 +343,7 @@ load_initial_edgeflags(nir_builder *b, lower_ngg_nogs_state *st)
     * and arranges the bits in a manner that suits the primitive export.
     */
 
-   if (st->use_edgeflags)
+   if (!st->use_edgeflags)
       return NULL;
 
    nir_ssa_def *gs_invocation_id = ac_nir_load_arg(b, st->args, st->args->gs_invocation_id);
