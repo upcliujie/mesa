@@ -196,6 +196,11 @@ ac_nir_lower_ngg_gs(nir_shader *shader,
                     const ac_nir_ngg_abi *abi,
                     const void *user);
 
+unsigned
+ac_nir_ngg_cull_lds_size(nir_shader *shader, unsigned *repacked_dwords,
+                         unsigned *scratch_addr, unsigned *pervertex_bytes,
+                         unsigned max_es_num_vertices, unsigned max_num_waves);
+
 nir_ssa_def *
 ac_nir_cull_triangle(nir_builder *b,
                      nir_ssa_def *initially_accepted,
