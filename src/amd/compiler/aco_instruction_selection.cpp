@@ -8993,11 +8993,22 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    }
    case nir_intrinsic_load_scalar_arg_amd:
    case nir_intrinsic_load_vector_arg_amd: {
-      assert(nir_intrinsic_base(instr) < AC_MAX_ARGS);
+      unsigned arg_idx = nir_intrinsic_base(instr);
+      assert(arg_idx < AC_MAX_ARGS);
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      Temp src = ctx->arg_temps[nir_intrinsic_base(instr)];
+      Temp src = ctx->arg_temps[arg_idx];
       assert(src.id());
       bld.copy(Definition(dst), src);
+
+      if (ctx->args->ac.tes_rel_patch_id.used &&
+          arg_idx == ctx->args->ac.tes_rel_patch_id.arg_index) {
+         /* Manually insert into the hash table used by nir_unsigned_upper_bound.
+          * This ensures that cheaper multiplications can be emitted for this value.
+          */
+         void *key = (void *)(uintptr_t)(((instr->dest.ssa.index + 1) << 4) | 0);
+         _mesa_hash_table_insert(ctx->range_ht, key, (void*)(uintptr_t)255);
+      }
+
       break;
    }
    default:
