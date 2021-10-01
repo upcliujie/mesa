@@ -156,6 +156,7 @@ libvulkan_freedreno = shared_library(
     idep_nir,
     tu_deps,
     idep_vulkan_util,
+    idep_vulkan_runtime,
     idep_mesautil,
   ],
   c_args : [no_override_init_args, tu_flags],

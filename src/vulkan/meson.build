@@ -63,6 +63,7 @@ endif
 
 
 subdir('util')
+subdir('runtime')
 subdir('wsi')
 if with_vulkan_overlay_layer
   subdir('overlay-layer')
