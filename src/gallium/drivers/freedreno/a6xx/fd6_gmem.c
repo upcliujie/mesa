@@ -102,7 +102,7 @@ emit_mrt(struct fd_ringbuffer *ring, struct pipe_framebuffer_state *pfb,
 
       uint32_t base = gmem ? gmem->cbuf_base[i] : 0;
       slice = fd_resource_slice(rsc, psurf->u.tex.level);
-      format = fd6_pipe2color(pformat);
+      format = fd6_color_format(pformat, tile_mode);
       sint = util_format_is_pure_sint(pformat);
       uint = util_format_is_pure_uint(pformat);
 
@@ -114,7 +114,7 @@ emit_mrt(struct fd_ringbuffer *ring, struct pipe_framebuffer_state *pfb,
 
       stride = fd_resource_pitch(rsc, psurf->u.tex.level);
       array_stride = fd_resource_layer_stride(rsc, psurf->u.tex.level);
-      swap = fd6_resource_swap(rsc, pformat);
+      swap = fd6_color_swap(pformat, rsc->layout.tile_mode);
 
       tile_mode = fd_resource_tile_mode(psurf->texture, psurf->u.tex.level);
       max_layer_index = psurf->u.tex.last_layer - psurf->u.tex.first_layer;
@@ -987,12 +987,12 @@ emit_blit(struct fd_batch *batch, struct fd_ringbuffer *ring, uint32_t base,
 
    debug_assert(psurf->u.tex.first_layer == psurf->u.tex.last_layer);
 
-   enum a6xx_format format = fd6_pipe2color(pfmt);
+   uint32_t tile_mode = fd_resource_tile_mode(&rsc->b.b, psurf->u.tex.level);
+   enum a6xx_format format = fd6_color_format(pfmt, tile_mode);
    uint32_t stride = fd_resource_pitch(rsc, psurf->u.tex.level);
    uint32_t size = fd_resource_slice(rsc, psurf->u.tex.level)->size0;
-   enum a3xx_color_swap swap = fd6_resource_swap(rsc, pfmt);
+   enum a3xx_color_swap swap = fd6_color_swap(pfmt, rsc->layout.tile_mode);
    enum a3xx_msaa_samples samples = fd_msaa_samples(rsc->b.b.nr_samples);
-   uint32_t tile_mode = fd_resource_tile_mode(&rsc->b.b, psurf->u.tex.level);
 
    OUT_REG(ring,
            A6XX_RB_BLIT_DST_INFO(.tile_mode = tile_mode, .samples = samples,
@@ -1052,7 +1052,7 @@ emit_clears(struct fd_batch *batch, struct fd_ringbuffer *ring)
 
          // XXX I think RB_CLEAR_COLOR_DWn wants to take into account SWAP??
          union pipe_color_union swapped;
-         switch (fd6_pipe2swap(pfmt)) {
+         switch (fd6_color_swap(pfmt, TILE6_LINEAR)) {
          case WZYX:
             swapped.ui[0] = color->ui[0];
             swapped.ui[1] = color->ui[1];
@@ -1085,7 +1085,7 @@ emit_clears(struct fd_batch *batch, struct fd_ringbuffer *ring)
          OUT_RING(ring,
                   A6XX_RB_BLIT_DST_INFO_TILE_MODE(TILE6_LINEAR) |
                      A6XX_RB_BLIT_DST_INFO_SAMPLES(samples) |
-                     A6XX_RB_BLIT_DST_INFO_COLOR_FORMAT(fd6_pipe2color(pfmt)));
+                     A6XX_RB_BLIT_DST_INFO_COLOR_FORMAT(fd6_color_format(pfmt, TILE6_LINEAR)));
 
          OUT_PKT4(ring, REG_A6XX_RB_BLIT_INFO, 1);
          OUT_RING(ring,
@@ -1137,7 +1137,7 @@ emit_clears(struct fd_batch *batch, struct fd_ringbuffer *ring)
       OUT_RING(ring,
                A6XX_RB_BLIT_DST_INFO_TILE_MODE(TILE6_LINEAR) |
                   A6XX_RB_BLIT_DST_INFO_SAMPLES(samples) |
-                  A6XX_RB_BLIT_DST_INFO_COLOR_FORMAT(fd6_pipe2color(pfmt)));
+                  A6XX_RB_BLIT_DST_INFO_COLOR_FORMAT(fd6_color_format(pfmt, TILE6_LINEAR)));
 
       OUT_PKT4(ring, REG_A6XX_RB_BLIT_INFO, 1);
       OUT_RING(ring, A6XX_RB_BLIT_INFO_GMEM |
