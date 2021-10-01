@@ -1770,9 +1770,9 @@ private:
     */
    enum packing_order_enum {
       PACKING_ORDER_VEC4,
+      PACKING_ORDER_VEC3,
       PACKING_ORDER_VEC2,
       PACKING_ORDER_SCALAR,
-      PACKING_ORDER_VEC3,
    };
 
    static unsigned compute_packing_class(const ir_variable *var);
