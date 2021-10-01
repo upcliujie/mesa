@@ -525,7 +525,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderInputAttachmentArrayNonUniformIndexing       = false;
          features->shaderUniformTexelBufferArrayNonUniformIndexing    = true;
          features->shaderStorageTexelBufferArrayNonUniformIndexing    = true;
-         features->descriptorBindingUniformBufferUpdateAfterBind      = false;
+         features->descriptorBindingUniformBufferUpdateAfterBind      = true;
          features->descriptorBindingSampledImageUpdateAfterBind       = true;
          features->descriptorBindingStorageImageUpdateAfterBind       = true;
          features->descriptorBindingStorageBufferUpdateAfterBind      = true;
@@ -609,7 +609,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->shaderInputAttachmentArrayNonUniformIndexing = false;
          features->shaderUniformTexelBufferArrayNonUniformIndexing = true;
          features->shaderStorageTexelBufferArrayNonUniformIndexing = true;
-         features->descriptorBindingUniformBufferUpdateAfterBind = false;
+         features->descriptorBindingUniformBufferUpdateAfterBind = true;
          features->descriptorBindingSampledImageUpdateAfterBind = true;
          features->descriptorBindingStorageImageUpdateAfterBind = true;
          features->descriptorBindingStorageBufferUpdateAfterBind = true;
