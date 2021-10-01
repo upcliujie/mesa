@@ -681,12 +681,14 @@ cleanup_culling_shader_after_dce(nir_shader *shader,
          case nir_intrinsic_load_tess_coord:
             uses_tes_u = uses_tes_v = true;
             break;
-         case nir_intrinsic_load_tess_rel_patch_id_amd:
-            uses_tes_rel_patch_id = true;
-            break;
          case nir_intrinsic_load_primitive_id:
             if (shader->info.stage == MESA_SHADER_TESS_EVAL)
                uses_tes_patch_id = true;
+            break;
+         case nir_intrinsic_load_scalar_arg_amd:
+         case nir_intrinsic_load_vector_arg_amd:
+            if (nir_intrinsic_base(intrin) == state->args->tes_rel_patch_id.arg_index)
+               uses_tes_rel_patch_id = true;
             break;
          default:
             break;
@@ -1134,7 +1136,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
          nir_ssa_def *tess_coord = nir_build_load_tess_coord(b);
          nir_store_var(b, repacked_arg_vars[0], nir_channel(b, tess_coord, 0), 0x1u);
          nir_store_var(b, repacked_arg_vars[1], nir_channel(b, tess_coord, 1), 0x1u);
-         nir_store_var(b, repacked_arg_vars[2], nir_build_load_tess_rel_patch_id_amd(b), 0x1u);
+         nir_store_var(b, repacked_arg_vars[2], ac_nir_load_arg(b, nogs_state->args, nogs_state->args->tes_rel_patch_id), 0x1u);
          if (uses_tess_primitive_id)
             nir_store_var(b, repacked_arg_vars[3], nir_build_load_primitive_id(b), 0x1u);
       } else {
