@@ -92,16 +92,20 @@ typedef bool (*nir_instr_pass_cb)(struct nir_builder *, nir_instr *, void *);
  * cursor is unset.
  */
 static inline bool
-nir_shader_instructions_pass(nir_shader *shader,
-                             nir_instr_pass_cb pass,
-                             nir_metadata preserved,
-                             void *cb_data)
+nir_shader_instructions_pass_require_metadata(nir_shader *shader,
+                                               nir_instr_pass_cb pass,
+                                               nir_metadata preserved,
+                                               nir_metadata required,
+                                               void *cb_data)
 {
    bool progress = false;
 
    nir_foreach_function(function, shader) {
       if (!function->impl)
          continue;
+
+      if (required != nir_metadata_none)
+         nir_metadata_require(function->impl, required);
 
       bool func_progress = false;
       nir_builder b;
@@ -122,6 +126,17 @@ nir_shader_instructions_pass(nir_shader *shader,
    }
 
    return progress;
+}
+
+static inline bool
+nir_shader_instructions_pass(nir_shader *shader,
+                             nir_instr_pass_cb pass,
+                             nir_metadata preserved,
+                             void *cb_data)
+{
+   return nir_shader_instructions_pass_require_metadata(shader, pass, preserved,
+                                                        nir_metadata_none,
+                                                        cb_data);
 }
 
 static inline void
