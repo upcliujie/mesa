@@ -1154,23 +1154,6 @@ intrinsic("store_buffer_amd", src_comp=[0, 4, 1, 1], indices=[BASE, WRITE_MASK, 
 # Same as shared_atomic_add, but with GDS. src[] = {store_val, gds_addr, m0}
 intrinsic("gds_atomic_add_amd",  src_comp=[1, 1, 1], dest_comp=1, indices=[BASE])
 
-# Descriptor where TCS outputs are stored for TES
-system_value("ring_tess_offchip_amd", 4)
-system_value("ring_tess_offchip_offset_amd", 1)
-# Descriptor where TCS outputs are stored for the HW tessellator
-system_value("ring_tess_factors_amd", 4)
-system_value("ring_tess_factors_offset_amd", 1)
-# Descriptor where ES outputs are stored for GS to read on GFX6-8
-system_value("ring_esgs_amd", 4)
-system_value("ring_es2gs_offset_amd", 1)
-
-# Number of patches processed by each TCS workgroup
-system_value("tcs_num_patches_amd", 1)
-# Relative tessellation patch ID within the current workgroup
-system_value("tess_rel_patch_id_amd", 1)
-# Vertex offsets used for GS per-vertex inputs
-system_value("gs_vertex_offset_amd", 1, [BASE])
-
 # AMD merged shader intrinsics
 
 # Whether the current invocation has an input vertex / primitive to process (also known as "ES thread" or "GS thread").
@@ -1181,28 +1164,6 @@ intrinsic("has_input_primitive_amd", src_comp=[], dest_comp=1, bit_sizes=[1], in
 
 # AMD NGG intrinsics
 
-# Number of initial input vertices in the current workgroup.
-system_value("workgroup_num_input_vertices_amd", 1)
-# Number of initial input primitives in the current workgroup.
-system_value("workgroup_num_input_primitives_amd", 1)
-# For NGG passthrough mode only. Pre-packed argument for export_primitive_amd.
-system_value("packed_passthrough_primitive_amd", 1)
-# Whether NGG GS should execute shader query.
-system_value("shader_query_enabled_amd", dest_comp=1, bit_sizes=[1])
-# Whether the shader should cull front facing triangles.
-intrinsic("load_cull_front_face_enabled_amd", dest_comp=1, bit_sizes=[1], flags=[CAN_ELIMINATE])
-# Whether the shader should cull back facing triangles.
-intrinsic("load_cull_back_face_enabled_amd", dest_comp=1, bit_sizes=[1], flags=[CAN_ELIMINATE])
-# True if face culling should use CCW (false if CW).
-intrinsic("load_cull_ccw_amd", dest_comp=1, bit_sizes=[1], flags=[CAN_ELIMINATE])
-# Whether the shader should cull small primitives that are not visible in a pixel.
-intrinsic("load_cull_small_primitives_enabled_amd", dest_comp=1, bit_sizes=[1], flags=[CAN_ELIMINATE])
-# Whether any culling setting is enabled in the shader.
-intrinsic("load_cull_any_enabled_amd", dest_comp=1, bit_sizes=[1], flags=[CAN_ELIMINATE])
-# Small primitive culling precision
-intrinsic("load_cull_small_prim_precision_amd", dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE, CAN_REORDER])
-# Initial edge flags in a Vertex Shader, packed into the format the HW needs for primitive export.
-intrinsic("load_initial_edgeflags_amd", src_comp=[], dest_comp=1, bit_sizes=[32], indices=[])
 # Exports the current invocation's vertex. This is a placeholder where all vertex attribute export instructions should be emitted.
 intrinsic("export_vertex_amd", src_comp=[], indices=[])
 # Exports the current invocation's primitive. src[] = {packed_primitive_data}.
