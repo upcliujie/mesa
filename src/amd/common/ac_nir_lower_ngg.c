@@ -1279,7 +1279,7 @@ ac_nir_can_use_ngg_culling(nir_shader *shader, unsigned num_vertices_per_primiti
    return true;
 }
 
-ac_nir_ngg_config
+void
 ac_nir_lower_ngg_nogs(nir_shader *shader,
                       unsigned max_num_es_vertices,
                       unsigned num_vertices_per_primitives,
@@ -1435,13 +1435,6 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
    } while (progress);
 
    shader->info.shared_size = state.total_lds_bytes;
-
-   ac_nir_ngg_config ret = {
-      .nggc_inputs_read_by_pos = state.inputs_needed_by_pos,
-      .nggc_inputs_read_by_others = state.inputs_needed_by_others,
-   };
-
-   return ret;
 }
 
 static nir_ssa_def *

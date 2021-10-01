@@ -91,16 +91,10 @@ bool
 ac_nir_lower_indirect_derefs(nir_shader *shader,
                              enum chip_class chip_class);
 
-typedef struct
-{
-   uint64_t nggc_inputs_read_by_pos;
-   uint64_t nggc_inputs_read_by_others;
-} ac_nir_ngg_config;
-
 bool
 ac_nir_can_use_ngg_culling(nir_shader *shader, unsigned num_vertices_per_primitive);
 
-ac_nir_ngg_config
+void
 ac_nir_lower_ngg_nogs(nir_shader *shader,
                       unsigned max_num_es_vertices,
                       unsigned num_vertices_per_primitive,
