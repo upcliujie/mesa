@@ -364,9 +364,12 @@ emit_pack_ngg_prim_exp_arg(nir_builder *b, unsigned num_vertices_per_primitives,
 }
 
 static nir_ssa_def *
-ngg_input_primitive_vertex_index(nir_builder *b, unsigned vertex)
+ngg_nogs_input_primitive_vertex_index(nir_builder *b, unsigned vertex, lower_ngg_nogs_state *st)
 {
-   return nir_ubfe(b, nir_build_load_gs_vertex_offset_amd(b, .base = vertex / 2u),
+   /* This works because VGT_ESGS_RING_ITEMSIZE is set to 1 when API GS is not used,
+    * so the GS vertex offset shader arguments contain the vertex indices.
+    */
+   return nir_ubfe(b, ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[vertex / 2u]),
                       nir_imm_int(b, (vertex & 1u) * 16u), nir_imm_int(b, 16u));
 }
 
@@ -375,16 +378,20 @@ emit_ngg_nogs_prim_exp_arg(nir_builder *b, lower_ngg_nogs_state *st)
 {
    if (st->passthrough) {
       assert(!st->export_prim_id || b->shader->info.stage != MESA_SHADER_VERTEX);
-      return nir_build_load_packed_passthrough_primitive_amd(b);
+
+      /* In passthrough mode, the full export primitive value
+       * is packed in a single register.
+       */
+      return ac_nir_load_arg(b, st->args, st->args->gs_vtx_offset[0]);
    } else {
       nir_ssa_def *vtx_idx[3] = {0};
 
-      vtx_idx[0] = ngg_input_primitive_vertex_index(b, 0);
+      vtx_idx[0] = ngg_nogs_input_primitive_vertex_index(b, 0, st);
       vtx_idx[1] = st->num_vertices_per_primitives >= 2
-               ? ngg_input_primitive_vertex_index(b, 1)
+               ? ngg_nogs_input_primitive_vertex_index(b, 1, st)
                : nir_imm_zero(b, 1, 32);
       vtx_idx[2] = st->num_vertices_per_primitives >= 3
-               ? ngg_input_primitive_vertex_index(b, 2)
+               ? ngg_nogs_input_primitive_vertex_index(b, 2, st)
                : nir_imm_zero(b, 1, 32);
 
       nir_ssa_def *initial_val = load_initial_edgeflags(b, st);
@@ -407,7 +414,7 @@ emit_ngg_nogs_prim_export(nir_builder *b, lower_ngg_nogs_state *st, nir_ssa_def 
       if (st->export_prim_id && b->shader->info.stage == MESA_SHADER_VERTEX) {
          /* Copy Primitive IDs from GS threads to the LDS address corresponding to the ES thread of the provoking vertex. */
          nir_ssa_def *prim_id = nir_build_load_primitive_id(b);
-         nir_ssa_def *provoking_vtx_idx = ngg_input_primitive_vertex_index(b, st->provoking_vtx_idx);
+         nir_ssa_def *provoking_vtx_idx = ngg_nogs_input_primitive_vertex_index(b, st->provoking_vtx_idx, st);
          nir_ssa_def *addr = pervertex_lds_addr(b, provoking_vtx_idx, 4u);
 
          nir_build_store_shared(b,  prim_id, addr, .write_mask = 1u, .align_mul = 4u);
@@ -1184,7 +1191,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
          /* Load vertex indices from input VGPRs */
          nir_ssa_def *vtx_idx[3] = {0};
          for (unsigned vertex = 0; vertex < 3; ++vertex)
-            vtx_idx[vertex] = ngg_input_primitive_vertex_index(b, vertex);
+            vtx_idx[vertex] = ngg_nogs_input_primitive_vertex_index(b, vertex, nogs_state);
 
          nir_ssa_def *vtx_addr[3] = {0};
          nir_ssa_def *pos[3][4] = {0};
