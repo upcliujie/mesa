@@ -79,6 +79,13 @@ lima_dump_blob(FILE *fp, void *data, int size, bool is_float)
 }
 
 void
+lima_dump_fragment_shader(struct lima_dump *dump, void *data, int size)
+{
+   if (dump)
+      lima_parse_fragment_shader(dump->fp, (uint32_t *)data, size);
+}
+
+void
 lima_dump_vs_command_stream_print(struct lima_dump *dump, void *data,
                                   int size, uint32_t start)
 {

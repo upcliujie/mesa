@@ -32,6 +32,8 @@
 #include "lima_parser.h"
 #include "lima_texture.h"
 
+#include "lima/ir/pp/codegen.h"
+
 typedef struct {
    char *info;
 } render_state_info;
@@ -431,6 +433,27 @@ lima_parse_plbu(FILE *fp, uint32_t *data, int size, uint32_t start)
    }
    fprintf(fp, "/* ============ PLBU CMD STREAM END =============== */\n");
    fprintf(fp, "\n");
+}
+
+void
+lima_parse_fragment_shader(FILE *fp, uint32_t *data, int size)
+{
+   uint32_t *bin = &data[0];
+   uint32_t offt = 0;
+   uint32_t next_instr_length = 0;
+
+   fprintf(fp, "/* ============ FS DISASSEMBLY BEGIN ============== */\n");
+
+   do {
+      ppir_codegen_ctrl *ctrl = (ppir_codegen_ctrl *)bin;
+      fprintf(fp, "@%6d: ", offt);
+      ppir_disassemble_instr(bin, offt, fp);
+      bin += ctrl->count;
+      offt += ctrl->count;
+      next_instr_length = ctrl->next_count;
+   } while (next_instr_length);
+
+   fprintf(fp, "/* ============ FS DISASSEMBLY END ================= */\n");
 }
 
 static void

@@ -1185,6 +1185,8 @@ lima_draw_vbo(struct pipe_context *pctx,
       job->dump, ctx->fs->bo->map, ctx->fs->state.shader_size, false,
       "add fs at va %x\n", ctx->fs->bo->va);
 
+   lima_dump_fragment_shader(job->dump, ctx->fs->bo->map, ctx->fs->state.shader_size);
+
    lima_job_add_bo(job, LIMA_PIPE_GP, ctx->vs->bo, LIMA_SUBMIT_BO_READ);
    lima_job_add_bo(job, LIMA_PIPE_PP, ctx->fs->bo, LIMA_SUBMIT_BO_READ);
 

@@ -183,7 +183,7 @@ main(int argc, char **argv)
       do {
          ppir_codegen_ctrl *ctrl = (ppir_codegen_ctrl *)bin;
          printf("@%6d: ", offset);
-         ppir_disassemble_instr(bin, offset);
+         ppir_disassemble_instr(bin, offset, stdout);
          bin += ctrl->count;
          offset += ctrl->count;
          size -= ctrl->count;
