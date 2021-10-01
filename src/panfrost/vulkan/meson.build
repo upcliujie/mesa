@@ -85,6 +85,7 @@ foreach arch : ['5', '6', '7']
       idep_nir_headers,
       idep_pan_packers,
       idep_vulkan_util_headers,
+      idep_vulkan_runtime_headers,
       idep_vulkan_wsi_headers,
       dep_libdrm,
       dep_valgrind,
@@ -129,7 +130,11 @@ libvulkan_panfrost = shared_library(
     idep_pan_packers,
     panvk_deps,
     idep_vulkan_util,
+<<<<<<< HEAD
     idep_vulkan_wsi,
+=======
+    idep_vulkan_runtime,
+>>>>>>> dd702bc0cc4 (vulkan: Move all the common object code to runtime/)
     idep_mesautil,
   ],
   c_args : [no_override_init_args, panvk_flags],
