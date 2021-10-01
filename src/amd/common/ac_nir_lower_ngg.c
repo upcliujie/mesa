@@ -752,7 +752,7 @@ compact_vertices_after_culling(nir_builder *b,
                                nir_ssa_def *fully_culled,
                                unsigned ngg_scratch_lds_base_addr,
                                unsigned pervertex_lds_bytes,
-                               unsigned max_exported_args)
+                               unsigned num_repacked_dwords)
 {
    nir_variable *es_accepted_var = nogs_state->es_accepted_var;
    nir_variable *gs_accepted_var = nogs_state->gs_accepted_var;
@@ -771,7 +771,7 @@ compact_vertices_after_culling(nir_builder *b,
       nir_build_store_shared(b, pos, exporter_addr, .base = lds_es_pos_x, .align_mul = 4u, .write_mask = 0xfu);
 
       /* Store the current thread's repackable arguments to the exporter thread's LDS space */
-      for (unsigned i = 0; i < max_exported_args; ++i) {
+      for (unsigned i = 0; i < num_repacked_dwords; ++i) {
          nir_ssa_def *arg_val = nir_load_var(b, repacked_arg_vars[i]);
          nir_intrinsic_instr *store = nir_build_store_shared(b, arg_val, exporter_addr, .base = lds_es_arg_0 + 4u * i, .align_mul = 4u, .write_mask = 0x1u);
 
@@ -795,7 +795,7 @@ compact_vertices_after_culling(nir_builder *b,
       nir_store_var(b, position_value_var, exported_pos, 0xfu);
 
       /* Read the repacked arguments */
-      for (unsigned i = 0; i < max_exported_args; ++i) {
+      for (unsigned i = 0; i < num_repacked_dwords; ++i) {
          nir_ssa_def *arg_val = nir_build_load_shared(b, 1, 32, es_vertex_lds_addr, .base = lds_es_arg_0 + 4u * i, .align_mul = 4u);
          nir_store_var(b, repacked_arg_vars[i], arg_val, 0x1u);
       }
@@ -1078,6 +1078,36 @@ apply_reusable_variables(nir_builder *b, lower_ngg_nogs_state *nogs_state)
    u_vector_finish(&nogs_state->saved_uniforms);
 }
 
+unsigned
+ac_nir_ngg_cull_lds_size(nir_shader *shader, unsigned *repacked_dwords,
+                         unsigned *scratch_addr, unsigned *pervertex_bytes,
+                         unsigned max_es_num_vertices, unsigned max_num_waves)
+{
+   bool uses_instance_id = BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
+   bool uses_tess_primitive_id = BITSET_TEST(shader->info.system_values_read, SYSTEM_VALUE_PRIMITIVE_ID);
+
+   unsigned num_dwords = shader->info.stage == MESA_SHADER_VERTEX ? 2 : 4;
+   if (shader->info.stage == MESA_SHADER_VERTEX && !uses_instance_id)
+      num_dwords--;
+   else if (shader->info.stage == MESA_SHADER_TESS_EVAL && !uses_tess_primitive_id)
+      num_dwords--;
+
+   unsigned pervertex_lds_bytes = lds_es_arg_0 + num_dwords * 4u;
+   unsigned total_es_lds_bytes = pervertex_lds_bytes * max_es_num_vertices;
+   unsigned ngg_scratch_lds_base_addr = ALIGN(total_es_lds_bytes, 8u);
+   unsigned ngg_scratch_lds_bytes = DIV_ROUND_UP(max_num_waves, 4u);
+   unsigned total_lds_bytes = ngg_scratch_lds_base_addr + ngg_scratch_lds_bytes;
+
+   if (repacked_dwords)
+      *repacked_dwords = num_dwords;
+   if (scratch_addr)
+      *scratch_addr = ngg_scratch_lds_base_addr;
+   if (pervertex_bytes)
+      *pervertex_bytes = pervertex_lds_bytes;
+
+   return total_lds_bytes;
+}
+
 static void
 add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_cf, lower_ngg_nogs_state *nogs_state)
 {
@@ -1086,18 +1116,14 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
    bool uses_instance_id = BITSET_TEST(b->shader->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
    bool uses_tess_primitive_id = BITSET_TEST(b->shader->info.system_values_read, SYSTEM_VALUE_PRIMITIVE_ID);
 
-   unsigned max_exported_args = b->shader->info.stage == MESA_SHADER_VERTEX ? 2 : 4;
-   if (b->shader->info.stage == MESA_SHADER_VERTEX && !uses_instance_id)
-      max_exported_args--;
-   else if (b->shader->info.stage == MESA_SHADER_TESS_EVAL && !uses_tess_primitive_id)
-      max_exported_args--;
+   unsigned num_repacked_dwords;
+   unsigned ngg_scratch_lds_base_addr;
+   unsigned pervertex_lds_bytes;
 
-   unsigned pervertex_lds_bytes = lds_es_arg_0 + max_exported_args * 4u;
-   unsigned total_es_lds_bytes = pervertex_lds_bytes * nogs_state->max_es_num_vertices;
-   unsigned max_num_waves = nogs_state->max_num_waves;
-   unsigned ngg_scratch_lds_base_addr = ALIGN(total_es_lds_bytes, 8u);
-   unsigned ngg_scratch_lds_bytes = DIV_ROUND_UP(max_num_waves, 4u);
-   nogs_state->total_lds_bytes = ngg_scratch_lds_base_addr + ngg_scratch_lds_bytes;
+   nogs_state->total_lds_bytes =
+      ac_nir_ngg_cull_lds_size(
+         b->shader, &num_repacked_dwords, &ngg_scratch_lds_base_addr, &pervertex_lds_bytes,
+         nogs_state->max_es_num_vertices, nogs_state->max_num_waves);
 
    nir_function_impl *impl = nir_shader_get_entrypoint(b->shader);
 
@@ -1280,7 +1306,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
                                      repacked_arg_vars, gs_vtxaddr_vars,
                                      invocation_index, es_vertex_lds_addr,
                                      es_exporter_tid, num_live_vertices_in_workgroup, fully_culled,
-                                     ngg_scratch_lds_base_addr, pervertex_lds_bytes, max_exported_args);
+                                     ngg_scratch_lds_base_addr, pervertex_lds_bytes, num_repacked_dwords);
    }
    nir_push_else(b, if_cull_en);
    {
