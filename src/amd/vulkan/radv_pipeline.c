@@ -3484,6 +3484,11 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_device *device,
       infos[es_stage].num_lds_blocks_when_not_culling =
          DIV_ROUND_UP(lds_bytes_if_culling_off,
                       device->physical_device->rad_info.lds_encode_granularity);
+
+      infos[es_stage].is_ngg_passthrough = infos[es_stage].is_ngg_passthrough &&
+                                           !infos[es_stage].has_ngg_culling &&
+                                           !(es_stage == MESA_SHADER_VERTEX &&
+                                             infos[es_stage].vs.outinfo.export_prim_id);
    }
 
    for (int i = 0; i < MESA_SHADER_STAGES; ++i) {
