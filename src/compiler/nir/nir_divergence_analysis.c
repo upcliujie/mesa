@@ -138,23 +138,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_line_width:
    case nir_intrinsic_load_aa_line_width:
    case nir_intrinsic_load_fb_layers_v3d:
-   case nir_intrinsic_load_tcs_num_patches_amd:
-   case nir_intrinsic_load_ring_tess_factors_amd:
-   case nir_intrinsic_load_ring_tess_offchip_amd:
-   case nir_intrinsic_load_ring_tess_factors_offset_amd:
-   case nir_intrinsic_load_ring_tess_offchip_offset_amd:
-   case nir_intrinsic_load_ring_esgs_amd:
-   case nir_intrinsic_load_ring_es2gs_offset_amd:
    case nir_intrinsic_load_sample_positions_pan:
-   case nir_intrinsic_load_workgroup_num_input_vertices_amd:
-   case nir_intrinsic_load_workgroup_num_input_primitives_amd:
-   case nir_intrinsic_load_shader_query_enabled_amd:
-   case nir_intrinsic_load_cull_front_face_enabled_amd:
-   case nir_intrinsic_load_cull_back_face_enabled_amd:
-   case nir_intrinsic_load_cull_ccw_amd:
-   case nir_intrinsic_load_cull_small_primitives_enabled_amd:
-   case nir_intrinsic_load_cull_any_enabled_amd:
-   case nir_intrinsic_load_cull_small_prim_precision_amd:
    case nir_intrinsic_load_scalar_arg_amd:
    case nir_intrinsic_load_smem_amd:
       is_divergent = false;
@@ -527,12 +511,8 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_lane_permute_16_amd:
    case nir_intrinsic_elect:
    case nir_intrinsic_load_tlb_color_v3d:
-   case nir_intrinsic_load_tess_rel_patch_id_amd:
-   case nir_intrinsic_load_gs_vertex_offset_amd:
    case nir_intrinsic_has_input_vertex_amd:
    case nir_intrinsic_has_input_primitive_amd:
-   case nir_intrinsic_load_packed_passthrough_primitive_amd:
-   case nir_intrinsic_load_initial_edgeflags_amd:
    case nir_intrinsic_gds_atomic_add_amd:
    case nir_intrinsic_load_rt_arg_scratch_offset_amd:
    case nir_intrinsic_load_intersection_opaque_amd:
