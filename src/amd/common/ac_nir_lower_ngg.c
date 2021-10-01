@@ -296,6 +296,20 @@ repack_invocations_in_workgroup(nir_builder *b, nir_ssa_def *input_bool,
 }
 
 static nir_ssa_def *
+load_workgroup_num_input_vertices(nir_builder *b, const struct ac_shader_args *args)
+{
+   nir_ssa_def *gs_tg_info = ac_nir_load_arg(b, args, args->gs_tg_info);
+   return nir_ubfe(b, gs_tg_info, nir_imm_int(b, 12), nir_imm_int(b, 9));
+}
+
+static nir_ssa_def *
+load_workgroup_num_input_primitives(nir_builder *b, const struct ac_shader_args *args)
+{
+   nir_ssa_def *gs_tg_info = ac_nir_load_arg(b, args, args->gs_tg_info);
+   return nir_ubfe(b, gs_tg_info, nir_imm_int(b, 22), nir_imm_int(b, 9));
+}
+
+static nir_ssa_def *
 pervertex_lds_addr(nir_builder *b, nir_ssa_def *vertex_idx, unsigned per_vtx_bytes)
 {
    return nir_imul_imm(b, vertex_idx, per_vtx_bytes);
@@ -1250,7 +1264,7 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       nir_ssa_def *es_exporter_tid = rep.repacked_invocation_index;
 
       /* If all vertices are culled, set primitive count to 0 as well. */
-      nir_ssa_def *num_exported_prims = nir_build_load_workgroup_num_input_primitives_amd(b);
+      nir_ssa_def *num_exported_prims = load_workgroup_num_input_primitives(b, nogs_state->args);
       nir_ssa_def *fully_culled = nir_ieq_imm(b, num_live_vertices_in_workgroup, 0u);
       num_exported_prims = nir_bcsel(b, fully_culled, nir_imm_int(b, 0u), num_exported_prims);
 
@@ -1273,8 +1287,8 @@ add_deferred_attribute_culling(nir_builder *b, nir_cf_list *original_extracted_c
       /* When culling is disabled, we do the same as we would without culling. */
       nir_if *if_wave_0 = nir_push_if(b, nir_ieq(b, nir_build_load_subgroup_id(b), nir_imm_int(b, 0)));
       {
-         nir_ssa_def *vtx_cnt = nir_build_load_workgroup_num_input_vertices_amd(b);
-         nir_ssa_def *prim_cnt = nir_build_load_workgroup_num_input_primitives_amd(b);
+         nir_ssa_def *vtx_cnt = load_workgroup_num_input_vertices(b, nogs_state->args);
+         nir_ssa_def *prim_cnt = load_workgroup_num_input_primitives(b, nogs_state->args);
          nir_build_alloc_vertices_and_primitives_amd(b, vtx_cnt, prim_cnt);
       }
       nir_pop_if(b, if_wave_0);
@@ -1382,8 +1396,8 @@ ac_nir_lower_ngg_nogs(nir_shader *shader,
       /* Allocate export space on wave 0 - confirm to the HW that we want to use all possible space */
       nir_if *if_wave_0 = nir_push_if(b, nir_ieq(b, nir_build_load_subgroup_id(b), nir_imm_int(b, 0)));
       {
-         nir_ssa_def *vtx_cnt = nir_build_load_workgroup_num_input_vertices_amd(b);
-         nir_ssa_def *prim_cnt = nir_build_load_workgroup_num_input_primitives_amd(b);
+         nir_ssa_def *vtx_cnt = load_workgroup_num_input_vertices(b, args);
+         nir_ssa_def *prim_cnt = load_workgroup_num_input_primitives(b, args);
          nir_build_alloc_vertices_and_primitives_amd(b, vtx_cnt, prim_cnt);
       }
       nir_pop_if(b, if_wave_0);
@@ -1841,7 +1855,7 @@ static void
 ngg_gs_finale(nir_builder *b, lower_ngg_gs_state *s)
 {
    nir_ssa_def *tid_in_tg = nir_build_load_local_invocation_index(b);
-   nir_ssa_def *max_vtxcnt = nir_build_load_workgroup_num_input_vertices_amd(b);
+   nir_ssa_def *max_vtxcnt = load_workgroup_num_input_vertices(b, s->args);
    nir_ssa_def *max_prmcnt = max_vtxcnt; /* They are currently practically the same; both RADV and RadeonSI do this. */
    nir_ssa_def *out_vtx_lds_addr = ngg_gs_out_vertex_addr(b, tid_in_tg, s);
 
