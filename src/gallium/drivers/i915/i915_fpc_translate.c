@@ -326,26 +326,28 @@ translate_tex_src_target(struct i915_fp_compile *p, uint32_t tex)
  * Return the number of coords needed to access a given TGSI_TEXTURE_*
  */
 uint32_t
-i915_num_coords(uint32_t tex)
+i915_coord_mask(uint32_t tex)
 {
    switch (tex) {
-   case TGSI_TEXTURE_SHADOW1D:
    case TGSI_TEXTURE_1D:
-      return 1;
+      return TGSI_WRITEMASK_X;
+
+   case TGSI_TEXTURE_SHADOW1D:
+      return TGSI_WRITEMASK_XZ;
+
+   case TGSI_TEXTURE_2D:
+   case TGSI_TEXTURE_RECT:
+      return TGSI_WRITEMASK_XY;
 
    case TGSI_TEXTURE_SHADOW2D:
-   case TGSI_TEXTURE_2D:
    case TGSI_TEXTURE_SHADOWRECT:
-   case TGSI_TEXTURE_RECT:
-      return 2;
-
    case TGSI_TEXTURE_3D:
    case TGSI_TEXTURE_CUBE:
-      return 3;
+      return TGSI_WRITEMASK_XYZ;
 
    default:
       debug_printf("Unknown texture target for num coords");
-      return 2;
+      return TGSI_WRITEMASK_XY;
    }
 }
 
@@ -362,9 +364,17 @@ emit_tex(struct i915_fp_compile *p, const struct i915_full_instruction *inst,
    uint32_t sampler = i915_emit_decl(p, REG_TYPE_S, unit, tex);
    uint32_t coord = src_vector(p, &inst->Src[0], fs);
 
+   /* For 1D textures, make sure that the Y coordinate is actually
+    * initialized. It seems that if the channel is never written during the
+    * program, texturing returns undefined results (even if the Y wrap is
+    * REPEAT).
+    */
+   if (texture == TGSI_TEXTURE_1D)
+      coord = swizzle(coord, X, X, Z, W);
+
    i915_emit_texld(p, get_result_vector(p, &inst->Dst[0]),
                    get_result_flags(inst), sampler, coord, opcode,
-                   i915_num_coords(texture));
+                   i915_coord_mask(texture));
 }
 
 /**
@@ -521,7 +531,7 @@ i915_translate_instruction(struct i915_fp_compile *p,
                       0,                   /* sampler */
                       src0,                /* coord*/
                       T0_TEXKILL,          /* opcode */
-                      4);                  /* num_coord */
+                      TGSI_WRITEMASK_XYZW);/* num_coord */
       break;
 
    case TGSI_OPCODE_KILL:
@@ -534,7 +544,7 @@ i915_translate_instruction(struct i915_fp_compile *p,
                       negate(swizzle(UREG(REG_TYPE_R, 0), ONE, ONE, ONE, ONE),
                              1, 1, 1, 1), /* coord */
                       T0_TEXKILL,         /* opcode */
-                      1);                 /* num_coord */
+                      TGSI_WRITEMASK_X);  /* coord_mask */
       break;
 
    case TGSI_OPCODE_LG2:
