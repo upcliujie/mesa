@@ -79,10 +79,10 @@ lima_dump_blob(FILE *fp, void *data, int size, bool is_float)
 }
 
 void
-lima_dump_fragment_shader(struct lima_dump *dump, void *data, int size)
+lima_dump_shader(struct lima_dump *dump, void *data, int size, bool is_frag)
 {
    if (dump)
-      lima_parse_fragment_shader(dump->fp, (uint32_t *)data, size);
+      lima_parse_shader(dump->fp, (uint32_t *)data, size, is_frag);
 }
 
 void

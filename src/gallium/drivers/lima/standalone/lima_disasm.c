@@ -189,7 +189,7 @@ main(int argc, char **argv)
          size -= ctrl->count;
       } while (size);
    } else {
-      gpir_disassemble_program((gpir_codegen_instr *)prog, size / (sizeof(gpir_codegen_instr)));
+      gpir_disassemble_program((gpir_codegen_instr *)prog, size / (sizeof(gpir_codegen_instr)), stdout);
    }
 
    ralloc_free(prog);

@@ -32,6 +32,7 @@
 #include "lima_parser.h"
 #include "lima_texture.h"
 
+#include "lima/ir/gp/codegen.h"
 #include "lima/ir/pp/codegen.h"
 
 typedef struct {
@@ -436,24 +437,32 @@ lima_parse_plbu(FILE *fp, uint32_t *data, int size, uint32_t start)
 }
 
 void
-lima_parse_fragment_shader(FILE *fp, uint32_t *data, int size)
+lima_parse_shader(FILE *fp, uint32_t *data, int size, bool is_frag)
 {
-   uint32_t *bin = &data[0];
-   uint32_t offt = 0;
-   uint32_t next_instr_length = 0;
+   uint32_t *value = &data[0];
 
-   fprintf(fp, "/* ============ FS DISASSEMBLY BEGIN ============== */\n");
+   if (is_frag) {
+      uint32_t *bin = value;
+      uint32_t offt = 0;
+      uint32_t next_instr_length = 0;
 
-   do {
-      ppir_codegen_ctrl *ctrl = (ppir_codegen_ctrl *)bin;
-      fprintf(fp, "@%6d: ", offt);
-      ppir_disassemble_instr(bin, offt, fp);
-      bin += ctrl->count;
-      offt += ctrl->count;
-      next_instr_length = ctrl->next_count;
-   } while (next_instr_length);
+      fprintf(fp, "/* ============ FS DISASSEMBLY BEGIN ============== */\n");
 
-   fprintf(fp, "/* ============ FS DISASSEMBLY END ================= */\n");
+      do {
+         ppir_codegen_ctrl *ctrl = (ppir_codegen_ctrl *)bin;
+         fprintf(fp, "@%6d: ", offt);
+         ppir_disassemble_instr(bin, offt, fp);
+         bin += ctrl->count;
+         offt += ctrl->count;
+         next_instr_length = ctrl->next_count;
+      } while (next_instr_length);
+
+      fprintf(fp, "/* ============ FS DISASSEMBLY END ================= */\n");
+   } else {
+      fprintf(fp, "/* ============ VS DISASSEMBLY BEGIN ============== */\n");
+      gpir_disassemble_program((gpir_codegen_instr *)value, size / sizeof(gpir_codegen_instr), fp);
+      fprintf(fp, "/* ============ VS DISASSEMBLY END ================= */\n");
+   }
 }
 
 static void
