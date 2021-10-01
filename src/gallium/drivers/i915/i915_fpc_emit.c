@@ -201,6 +201,10 @@ i915_emit_texld(struct i915_fp_compile *p, uint32_t dest, uint32_t destmask,
       ignore |= (0xf << UREG_CHANNEL_W_SHIFT);
    }
 
+
+   if (opcode == T0_TEXLDB || opcode == T0_TEXLDP)
+      ignore &= ~(0xf << UREG_CHANNEL_W_SHIFT);
+
    if ((coord & ~ignore) != (k & ~ignore) ||
        GET_UREG_TYPE(coord) == REG_TYPE_CONST) {
       /* texcoord is swizzled or negated.  Need to allocate a new temporary
