@@ -410,22 +410,24 @@ update_local_next_uses(spill_ctx& ctx, Block* block,
          if (op.regClass().type() == RegType::vgpr && op.regClass().is_linear())
             continue;
          if (op.isTemp()) {
-            auto it = std::find_if(local_next_uses[idx].begin(), local_next_uses[idx].end(),
-                                   [op](auto& pair) { return pair.first == op.getTemp(); });
-            if (it == local_next_uses[idx].end()) {
+            if (op.isFirstKill()) {
                local_next_uses[idx].push_back(std::make_pair<Temp, uint32_t>(op.getTemp(), idx));
+            } else if (op.isKill()) {
+               /* already handled: ignore same operands on a single instruction */
             } else {
+               auto it = std::find_if(local_next_uses[idx].begin(), local_next_uses[idx].end(),
+                                      [op](auto& pair) { return pair.first == op.getTemp(); });
+               assert (it != local_next_uses[idx].end());
                it->second = idx;
             }
          }
       }
       for (const Definition& def : instr->definitions) {
-         if (def.isTemp()) {
+         if (def.isTemp() && !def.isKill()) {
             auto it = std::find_if(local_next_uses[idx].begin(), local_next_uses[idx].end(),
                                    [def](auto& pair) { return pair.first == def.getTemp(); });
-            if (it != local_next_uses[idx].end()) {
-               local_next_uses[idx].erase(it);
-            }
+            assert (it != local_next_uses[idx].end());
+            local_next_uses[idx].erase(it);
          }
       }
    }
