@@ -100,7 +100,10 @@ get_time(void)
 #define VG_DEFINED(ptr, size) VG(VALGRIND_MAKE_MEM_DEFINED(ptr, size))
 #define VG_NOACCESS(ptr, size) VG(VALGRIND_MAKE_MEM_NOACCESS(ptr, size))
 
+/* PAGE_SIZE is defined on FreeBSD */
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#endif
 
 #define WARN_ONCE(cond, fmt...) do {                            \
    if (unlikely(cond)) {                                        \
@@ -483,8 +486,20 @@ crocus_bo_create_userptr(struct crocus_bufmgr *bufmgr, const char *name,
       .user_ptr = (uintptr_t)ptr,
       .user_size = size,
    };
-   if (intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_USERPTR, &arg))
-      goto err_free;
+
+   int ret;
+retry:
+   ret = intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_USERPTR, &arg);
+   if (ret) {
+       if (errno == ENODEV && arg.flags == 0) {
+           arg.flags = I915_USERPTR_UNSYNCHRONIZED;
+           goto retry;
+       }
+       if (geteuid() != 0) {
+           fprintf(stderr, "%s", "ioctl(I915_GEM_USERPTR) failed. Try running as root but expect poor stability.\n");
+       }
+       goto err_free;
+   }
    bo->gem_handle = arg.handle;
 
    /* Check the buffer for validity before we try and use it in a batch */
