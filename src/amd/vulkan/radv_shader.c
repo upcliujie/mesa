@@ -1259,7 +1259,7 @@ radv_shader_variant_create(struct radv_device *device, const struct radv_shader_
    variant->ref_count = 1;
 
    if (binary->type == RADV_BINARY_TYPE_RTLD) {
-      struct ac_rtld_symbol lds_symbols[2];
+      struct ac_rtld_symbol lds_symbols[2] = {0};
       unsigned num_lds_symbols = 0;
       const char *elf_data = (const char *)((struct radv_shader_binary_rtld *)binary)->data;
       size_t elf_size = ((struct radv_shader_binary_rtld *)binary)->elf_size;
@@ -1278,6 +1278,13 @@ radv_shader_variant_create(struct radv_device *device, const struct radv_shader_
          sym->name = "ngg_emit";
          sym->size = binary->info.ngg_info.ngg_emit_size * 4;
          sym->align = 4;
+      }
+
+      if (binary->info.has_ngg_culling) {
+         struct ac_rtld_symbol *sym = &lds_symbols[num_lds_symbols++];
+         sym->name = "ngg_cull";
+         sym->size = binary->info.ngg_cull_lds_bytes;
+         sym->align = 64 * 1024;
       }
 
       struct ac_rtld_open_info open_info = {
@@ -1304,12 +1311,15 @@ radv_shader_variant_create(struct radv_device *device, const struct radv_shader_
 
       if (rtld_binary.lds_size > 0) {
          unsigned encode_granularity = device->physical_device->rad_info.lds_encode_granularity;
-         config.lds_size = align(rtld_binary.lds_size, encode_granularity) / encode_granularity;
+         config.lds_size = DIV_ROUND_UP(rtld_binary.lds_size, encode_granularity);
       }
       if (!config.lds_size && binary->stage == MESA_SHADER_TESS_CTRL) {
          /* This is used for reporting LDS statistics */
          config.lds_size = binary->info.tcs.num_lds_blocks;
       }
+
+      if (binary->info.has_ngg_culling)
+         assert(config.lds_size);
 
       variant->code_size = rtld_binary.rx_size;
       variant->exec_size = rtld_binary.exec_size;

@@ -2792,18 +2792,29 @@ radv_determine_ngg_settings(struct radv_pipeline *pipeline,
       const struct gfx10_ngg_info *ngg_info = &infos[es_stage].ngg_info;
       unsigned max_vtx_in = MIN2(256, ngg_info->enable_vertex_grouping ? ngg_info->hw_max_esverts : num_vertices_per_prim * ngg_info->max_gsprims);
 
-      unsigned lds_bytes_if_culling_off = 0;
-      /* We need LDS space when VS needs to export the primitive ID. */
-      if (es_stage == MESA_SHADER_VERTEX && infos[es_stage].vs.outinfo.export_prim_id)
-         lds_bytes_if_culling_off = max_vtx_in * 4u;
-      infos[es_stage].num_lds_blocks_when_not_culling =
-         DIV_ROUND_UP(lds_bytes_if_culling_off,
-                      device->physical_device->rad_info.lds_encode_granularity);
-
       infos[es_stage].is_ngg_passthrough = infos[es_stage].is_ngg_passthrough &&
                                            !infos[es_stage].has_ngg_culling &&
                                            !(es_stage == MESA_SHADER_VERTEX &&
                                              infos[es_stage].vs.outinfo.export_prim_id);
+
+      if (infos[es_stage].has_ngg_culling) {
+         /* Manually mark the instance ID used, so it is calculated into the LDS size. */
+         if (pipeline_key->vs.instance_rate_inputs)
+            BITSET_SET(nir[es_stage]->info.system_values_read, SYSTEM_VALUE_INSTANCE_ID);
+
+         unsigned max_num_waves = infos[es_stage].workgroup_size / infos[es_stage].wave_size;
+         infos[es_stage].ngg_cull_lds_bytes =
+            ac_nir_ngg_cull_lds_size(nir[es_stage], NULL, NULL, NULL, max_vtx_in, max_num_waves);
+
+         /* We need LDS space when VS needs to export the primitive ID. */
+         unsigned lds_bytes_if_culling_off = 0;
+         if (es_stage == MESA_SHADER_VERTEX && infos[es_stage].vs.outinfo.export_prim_id)
+            lds_bytes_if_culling_off = max_vtx_in * 4u;
+
+         infos[es_stage].num_lds_blocks_when_not_culling =
+            DIV_ROUND_UP(lds_bytes_if_culling_off,
+                         device->physical_device->rad_info.lds_encode_granularity);
+      }
    }
 }
 
