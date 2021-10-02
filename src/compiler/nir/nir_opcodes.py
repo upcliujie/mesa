@@ -326,6 +326,14 @@ unop("fddy_fine", tfloat, "0.0")
 unop("fddx_coarse", tfloat, "0.0")
 unop("fddy_coarse", tfloat, "0.0")
 
+# Unsigned derivatives. Magnitude equal to signed counterparts, sign undefined.
+unop("fabs_ddx", tfloat, "0.0")
+unop("fabs_ddy", tfloat, "0.0")
+unop("fabs_ddx_fine", tfloat, "0.0")
+unop("fabs_ddy_fine", tfloat, "0.0")
+unop("fabs_ddx_coarse", tfloat, "0.0")
+unop("fabs_ddy_coarse", tfloat, "0.0")
+
 
 # Floating point pack and unpack operations.
 
