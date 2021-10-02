@@ -1763,6 +1763,7 @@ anv_device_import_bo_from_host_ptr(struct anv_device *device,
                                    uint64_t client_address,
                                    struct anv_bo **bo_out)
 {
+   assert(host_ptr);
    assert(!(alloc_flags & (ANV_BO_ALLOC_MAPPED |
                            ANV_BO_ALLOC_SNOOPED |
                            ANV_BO_ALLOC_FIXED_ADDRESS)));

@@ -1104,8 +1104,20 @@ iris_bo_create_userptr(struct iris_bufmgr *bufmgr, const char *name,
       .user_size = size,
       .flags = bufmgr->has_userptr_probe ? I915_USERPTR_PROBE : 0,
    };
-   if (intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_USERPTR, &arg))
-      goto err_free;
+
+   int ret;
+retry:
+   ret = intel_ioctl(bufmgr->fd, DRM_IOCTL_I915_GEM_USERPTR, &arg);
+   if (ret) {
+       if (errno == ENODEV && arg.flags == 0) {
+           arg.flags = I915_USERPTR_UNSYNCHRONIZED;
+           goto retry;
+       }
+       if (geteuid() != 0) {
+           fprintf(stderr, "%s", "ioctl(I915_GEM_USERPTR) failed. Try running as root but expect poor stability.\n");
+       }
+       goto err_free;
+   }
    bo->gem_handle = arg.handle;
 
    if (!bufmgr->has_userptr_probe) {
