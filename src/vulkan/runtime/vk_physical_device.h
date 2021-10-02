@@ -31,6 +31,7 @@
 extern "C" {
 #endif
 
+struct disk_cache;
 struct wsi_device;
 
 struct vk_physical_device {
@@ -40,6 +41,8 @@ struct vk_physical_device {
    struct vk_device_extension_table supported_extensions;
 
    struct vk_physical_device_dispatch_table dispatch_table;
+
+   struct disk_cache *disk_cache;
 
    struct wsi_device *wsi_device;
 };
