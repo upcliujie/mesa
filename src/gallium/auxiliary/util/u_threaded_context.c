@@ -2592,7 +2592,6 @@ tc_texture_subdata(struct pipe_context *_pipe,
       return pipe->func(pipe); \
    }
 
-TC_FUNC_SYNC_RET0(enum pipe_reset_status, get_device_reset_status)
 TC_FUNC_SYNC_RET0(uint64_t, get_timestamp)
 
 static void
@@ -2606,6 +2605,15 @@ tc_get_sample_position(struct pipe_context *_pipe,
    tc_sync(tc);
    pipe->get_sample_position(pipe, sample_count, sample_index,
                              out_value);
+}
+
+static enum pipe_reset_status
+tc_get_device_reset_status(struct pipe_context *_pipe)
+{
+   struct threaded_context *tc = threaded_context(_pipe);
+   struct pipe_context *pipe = tc->pipe;
+
+   return pipe->get_device_reset_status(pipe);
 }
 
 static void
