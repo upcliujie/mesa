@@ -2728,7 +2728,6 @@ ADDR_E_RETURNCODE EgBasedLib::HwlComputeBaseSwizzle(
         { 0, 7, 14, 5, 12, 3, 10, 1, 8, 15, 6, 13, 4, 11, 2, 9 }, // ADDR_SURF_16_BANK
     };
 
-    UINT_32 pipes = HwlGetPipes(pTileInfo);
     UINT_32 banks = pTileInfo ? pTileInfo->banks : 2;
     UINT_32 hwNumBanks;
 
