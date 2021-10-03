@@ -3246,21 +3246,18 @@ UINT_32 SiLib::HwlComputeFmaskBits(
                 ADDR_ASSERT(numSamples >= 4);
 
                 bpp          = 2;
-                numSamples   = numSamples;
             }
             else if (numFrags == 4)
             {
                 ADDR_ASSERT(numSamples >= 4);
 
                 bpp          = 4;
-                numSamples   = numSamples;
             }
             else // numFrags == 8
             {
                 ADDR_ASSERT(numSamples == 16);
 
                 bpp          = 4;
-                numSamples   = numSamples;
             }
         }
         else
