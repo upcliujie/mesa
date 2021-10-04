@@ -105,7 +105,7 @@ libvulkan_runtime = static_library(
   [files_vulkan_runtime, vk_common_entrypoints, vk_cmd_queue,
    vk_dispatch_trampolines, vk_physical_device_features],
   include_directories : [inc_include, inc_src, inc_gallium],
-  dependencies : [vulkan_wsi_deps, idep_mesautil, idep_nir_headers,
+  dependencies : [vulkan_wsi_deps, idep_mesautil, idep_nir,
                   idep_vulkan_util],
   # For glsl_type_singleton
   link_with : libcompiler,
