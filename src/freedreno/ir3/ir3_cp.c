@@ -303,6 +303,41 @@ try_swap_mad_two_srcs(struct ir3_instruction *instr, unsigned new_flags)
    return valid_swap;
 }
 
+/* Can this integer immediate be encoded in the given instruction? */
+static bool
+immedate_fits(int32_t immed, struct ir3_instruction *instr)
+{
+   if (instr->opc == OPC_MOV || is_meta(instr))
+      return true;
+
+   if (is_mem(instr)) {
+      /* Some load/store instructions have a 13-bit offset and size which must
+       * always be an immediate and the rest of the sources cannot be
+       * immediates, so the frontend is responsible for checking the size:
+       */
+      switch (instr->opc) {
+      case OPC_LDL:
+      case OPC_STL:
+      case OPC_LDP:
+      case OPC_STP:
+      case OPC_LDG:
+      case OPC_STG:
+      case OPC_LDG_A:
+      case OPC_STG_A:
+      case OPC_LDLW:
+      case OPC_STLW:
+      case OPC_LDLV:
+         return true;
+      default:
+         /* most cat6 src immediates can only encode 8 bits: */
+         return !(immed & ~0xff);
+      }
+   }
+
+   /* Other than cat1 (mov) we can only encode up to 10 bits, sign-extended: */
+   return !(immed & ~0x1ff) || !(-immed & ~0x1ff);
+}
+
 /**
  * Handle cp for a given src register.  This additionally handles
  * the cases of collapsing immedate/const (which replace the src
@@ -467,10 +502,8 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
          if (new_flags & IR3_REG_BNOT)
             iim_val = ~iim_val;
 
-         /* other than category 1 (mov) we can only encode up to 10 bits: */
          if (ir3_valid_flags(instr, n, new_flags) &&
-             ((instr->opc == OPC_MOV) || is_meta(instr) ||
-              !((iim_val & ~0x1ff) && (-iim_val & ~0x1ff)))) {
+             immedate_fits(iim_val, instr)) {
             new_flags &= ~(IR3_REG_SABS | IR3_REG_SNEG | IR3_REG_BNOT);
             src_reg = ir3_reg_clone(instr->block->shader, src_reg);
             src_reg->flags = new_flags;
