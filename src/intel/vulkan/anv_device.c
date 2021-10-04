@@ -1118,9 +1118,6 @@ VkResult anv_CreateInstance(
    instance->physical_devices_enumerated = false;
    list_inithead(&instance->physical_devices);
 
-   instance->pipeline_cache_enabled =
-      env_var_as_boolean("ANV_ENABLE_PIPELINE_CACHE", true);
-
    VG(VALGRIND_CREATE_MEMPOOL(instance, 0, false));
 
    anv_init_dri_options(instance);
@@ -3209,14 +3206,19 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_trivial_batch_bo_and_scratch_pool;
 
-   anv_pipeline_cache_init(&device->default_pipeline_cache, device,
-                           true /* cache_enabled */, false /* external_sync */);
+   device->default_pipeline_cache =
+      vk_pipeline_cache_create(&device->vk, NULL, NULL, false);
+   if (!device->default_pipeline_cache) {
+      result = vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      goto fail_trivial_batch_bo_and_scratch_pool;
+   }
 
    result = anv_device_init_rt_shaders(device);
    if (result != VK_SUCCESS)
       goto fail_default_pipeline_cache;
 
-   anv_device_init_blorp(device);
+   if (!anv_device_init_blorp(device))
+      goto fail_rt_shaders;
 
    anv_device_init_border_colors(device);
 
@@ -3226,8 +3228,10 @@ VkResult anv_CreateDevice(
 
    return VK_SUCCESS;
 
+ fail_rt_shaders:
+   anv_device_finish_rt_shaders(device);
  fail_default_pipeline_cache:
-   anv_pipeline_cache_finish(&device->default_pipeline_cache);
+   vk_pipeline_cache_destroy(device->default_pipeline_cache, NULL);
  fail_trivial_batch_bo_and_scratch_pool:
    anv_scratch_pool_finish(device, &device->scratch_pool);
    anv_device_release_bo(device, device->trivial_batch_bo);
@@ -3293,7 +3297,7 @@ void anv_DestroyDevice(
 
    anv_device_finish_rt_shaders(device);
 
-   anv_pipeline_cache_finish(&device->default_pipeline_cache);
+   vk_pipeline_cache_destroy(device->default_pipeline_cache, NULL);
 
 #ifdef HAVE_VALGRIND
    /* We only need to free these to prevent valgrind errors.  The backing
