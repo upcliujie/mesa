@@ -29,6 +29,8 @@
 #include "vk_log.h"
 #include "vk_physical_device.h"
 
+#include "compiler/nir/nir_serialize.h"
+
 #include "util/blob.h"
 #include "util/debug.h"
 #include "util/disk_cache.h"
@@ -316,13 +318,11 @@ vk_pipeline_cache_lookup_object(struct vk_pipeline_cache *cache,
       return NULL;
    }
 
-   if (unlikely(object->ops == &blob_ops)) {
+   if (unlikely(object->ops == &blob_ops) && ops != &blob_ops) {
       /* The object isn't fully formed yet and we need to deserialize it into
        * a real object before it can be used.
        */
       struct blob_object *blob = container_of(object, struct blob_object, base);
-
-      assert(ops != &blob_ops);
 
       struct vk_pipeline_cache_object *real_object =
          vk_pipeline_cache_object_deserialize(cache, blob->data,
@@ -393,6 +393,59 @@ vk_pipeline_cache_add_object(struct vk_pipeline_cache *cache,
 
       return object;
    }
+}
+
+nir_shader *
+vk_pipeline_cache_lookup_nir(struct vk_pipeline_cache *cache,
+                             const void *key_data, size_t key_size,
+                             const struct nir_shader_compiler_options *nir_options,
+                             bool *cache_hit, void *mem_ctx)
+{
+   struct vk_pipeline_cache_object *object =
+      vk_pipeline_cache_lookup_object(cache, key_data, key_size,
+                                      &blob_ops, cache_hit);
+   if (object == NULL)
+      return NULL;
+
+   struct blob_object *blob_object =
+      container_of(object, struct blob_object, base);
+
+   struct blob_reader blob;
+   blob_reader_init(&blob, blob_object->data, blob_object->data_size);
+
+   nir_shader *nir = nir_deserialize(mem_ctx, nir_options, &blob);
+   vk_pipeline_cache_object_unref(object);
+
+   if (blob.overrun) {
+      ralloc_free(nir);
+      return NULL;
+   }
+
+   return nir;
+}
+
+void
+vk_pipeline_cache_add_nir(struct vk_pipeline_cache *cache,
+                          const void *key_data, size_t key_size,
+                          const nir_shader *nir)
+{
+   struct blob blob;
+   blob_init(&blob);
+
+   nir_serialize(&blob, nir, false);
+   if (blob.out_of_memory) {
+      vk_logw(VK_LOG_OBJS(cache), "Ran out of memory serializing NIR shader");
+      blob_finish(&blob);
+      return;
+   }
+
+   struct blob_object *blob_object =
+      blob_object_create(cache->base.device, key_data, key_size,
+                         blob.data, blob.size);
+
+   struct vk_pipeline_cache_object *cached =
+      vk_pipeline_cache_add_object(cache, &blob_object->base);
+   vk_pipeline_cache_object_unref(cached);
 }
 
 static void
