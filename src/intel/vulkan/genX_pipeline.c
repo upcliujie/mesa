@@ -2458,10 +2458,6 @@ genX(graphics_pipeline_create)(
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
 
-   /* Use the default pipeline cache if none is specified */
-   if (cache == NULL)
-      cache = device->default_pipeline_cache;
-
    pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
                          VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (pipeline == NULL)
@@ -2719,10 +2715,6 @@ compute_pipeline_create(
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO);
 
-   /* Use the default pipeline cache if none is specified */
-   if (cache == NULL)
-      cache = device->default_pipeline_cache;
-
    pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
                          VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (pipeline == NULL)
@@ -2863,10 +2855,6 @@ ray_tracing_pipeline_create(
    VkResult result;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR);
-
-   /* Use the default pipeline cache if none is specified */
-   if (cache == NULL)
-      cache = device->default_pipeline_cache;
 
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, struct anv_ray_tracing_pipeline, pipeline, 1);
