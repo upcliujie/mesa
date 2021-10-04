@@ -161,15 +161,20 @@ copy_vertices(struct gl_context *ctx,
    struct _mesa_prim *prim = &node->cold->prims[node->cold->prim_count - 1];
    GLuint sz = save->vertex_size;
 
-   if (prim->end || !prim->count || !sz)
+   if (!sz || !prim->count || prim->end)
       return 0;
 
    const fi_type *src = src_buffer + prim->start * sz;
    assert(save->copied.buffer == NULL);
    save->copied.buffer = malloc(sizeof(fi_type) * sz * prim->count);
 
-   return vbo_copy_vertices(ctx, prim->mode, prim->start, &prim->count,
-                            prim->begin, sz, true, save->copied.buffer, src);
+   unsigned r = vbo_copy_vertices(ctx, prim->mode, prim->start, &prim->count,
+                                  prim->begin, sz, true, save->copied.buffer, src);
+   if (!r) {
+      free(save->copied.buffer);
+      save->copied.buffer = NULL;
+   }
+   return r;
 }
 
 
