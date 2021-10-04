@@ -2782,7 +2782,7 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
 static VkResult
 genX(graphics_pipeline_create)(
     VkDevice                                    _device,
-    struct anv_pipeline_cache *                 cache,
+    struct vk_pipeline_cache *                  cache,
     const VkGraphicsPipelineCreateInfo*         pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
     VkPipeline*                                 pPipeline)
@@ -2794,8 +2794,8 @@ genX(graphics_pipeline_create)(
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
 
    /* Use the default pipeline cache if none is specified */
-   if (cache == NULL && device->physical->instance->pipeline_cache_enabled)
-      cache = &device->default_pipeline_cache;
+   if (cache == NULL)
+      cache = device->default_pipeline_cache;
 
    pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
                          VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
@@ -3090,7 +3090,7 @@ emit_compute_state(struct anv_compute_pipeline *pipeline,
 static VkResult
 compute_pipeline_create(
     VkDevice                                    _device,
-    struct anv_pipeline_cache *                 cache,
+    struct vk_pipeline_cache *                  cache,
     const VkComputePipelineCreateInfo*          pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
     VkPipeline*                                 pPipeline)
@@ -3102,8 +3102,8 @@ compute_pipeline_create(
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO);
 
    /* Use the default pipeline cache if none is specified */
-   if (cache == NULL && device->physical->instance->pipeline_cache_enabled)
-      cache = &device->default_pipeline_cache;
+   if (cache == NULL)
+      cache = device->default_pipeline_cache;
 
    pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
                          VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
@@ -3149,7 +3149,7 @@ VkResult genX(CreateGraphicsPipelines)(
     const VkAllocationCallbacks*                pAllocator,
     VkPipeline*                                 pPipelines)
 {
-   ANV_FROM_HANDLE(anv_pipeline_cache, pipeline_cache, pipelineCache);
+   VK_FROM_HANDLE(vk_pipeline_cache, pipeline_cache, pipelineCache);
 
    VkResult result = VK_SUCCESS;
 
@@ -3188,7 +3188,7 @@ VkResult genX(CreateComputePipelines)(
     const VkAllocationCallbacks*                pAllocator,
     VkPipeline*                                 pPipelines)
 {
-   ANV_FROM_HANDLE(anv_pipeline_cache, pipeline_cache, pipelineCache);
+   VK_FROM_HANDLE(vk_pipeline_cache, pipeline_cache, pipelineCache);
 
    VkResult result = VK_SUCCESS;
 
@@ -3236,7 +3236,7 @@ assert_rt_stage_index_valid(const VkRayTracingPipelineCreateInfoKHR* pCreateInfo
 static VkResult
 ray_tracing_pipeline_create(
     VkDevice                                    _device,
-    struct anv_pipeline_cache *                 cache,
+    struct vk_pipeline_cache *                  cache,
     const VkRayTracingPipelineCreateInfoKHR*    pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
     VkPipeline*                                 pPipeline)
@@ -3247,8 +3247,8 @@ ray_tracing_pipeline_create(
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR);
 
    /* Use the default pipeline cache if none is specified */
-   if (cache == NULL && device->physical->instance->pipeline_cache_enabled)
-      cache = &device->default_pipeline_cache;
+   if (cache == NULL)
+      cache = device->default_pipeline_cache;
 
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, struct anv_ray_tracing_pipeline, pipeline, 1);
@@ -3372,7 +3372,7 @@ genX(CreateRayTracingPipelinesKHR)(
     const VkAllocationCallbacks*                pAllocator,
     VkPipeline*                                 pPipelines)
 {
-   ANV_FROM_HANDLE(anv_pipeline_cache, pipeline_cache, pipelineCache);
+   VK_FROM_HANDLE(vk_pipeline_cache, pipeline_cache, pipelineCache);
 
    VkResult result = VK_SUCCESS;
 
