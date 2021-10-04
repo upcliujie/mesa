@@ -1033,6 +1033,9 @@ x11_acquire_next_image_poll_x11(struct x11_swapchain *chain,
    xcb_generic_event_t *event;
    struct pollfd pfds;
    uint64_t atimeout;
+
+   x11_handle_present_events(chain);
+
    while (1) {
       for (uint32_t i = 0; i < chain->base.image_count; i++) {
          if (!chain->images[i].busy) {
