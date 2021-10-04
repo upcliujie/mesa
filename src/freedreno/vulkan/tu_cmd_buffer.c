@@ -306,10 +306,11 @@ tu6_emit_mrt(struct tu_cmd_buffer *cmd,
 }
 
 void
-tu6_emit_msaa(struct tu_cs *cs, VkSampleCountFlagBits vk_samples)
+tu6_emit_msaa(struct tu_cs *cs, VkSampleCountFlagBits vk_samples,
+              enum a5xx_line_mode line_mode)
 {
    const enum a3xx_msaa_samples samples = tu_msaa_samples(vk_samples);
-   bool msaa_disable = samples == MSAA_ONE;
+   bool msaa_disable = (samples == MSAA_ONE) || (line_mode == BRESENHAM);
 
    tu_cs_emit_regs(cs,
                    A6XX_SP_TP_RAS_MSAA_CNTL(samples),
@@ -2254,6 +2255,17 @@ tu_CmdBindPipeline(VkCommandBuffer commandBuffer,
 
    if (pipeline->rb_depth_cntl_disable)
       cmd->state.dirty |= TU_CMD_DIRTY_RB_DEPTH_CNTL;
+
+   if (pipeline->gras_su_cntl & A6XX_GRAS_SU_CNTL_LINE_MODE(RECTANGULAR)) {
+      if (cmd->state.line_mode == BRESENHAM) {
+         /* To enable msaa back when drawing if necessary */
+         cmd->state.gras_su_cntl |= A6XX_GRAS_SU_CNTL_LINE_MODE__MASK;
+         cmd->state.dirty |= TU_CMD_DIRTY_GRAS_SU_CNTL;
+      }
+      cmd->state.line_mode = RECTANGULAR;
+   } else {
+      cmd->state.line_mode = BRESENHAM;
+   }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3170,7 +3182,7 @@ tu_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    tu6_emit_zs(cmd, cmd->state.subpass, &cmd->draw_cs);
    tu6_emit_mrt(cmd, cmd->state.subpass, &cmd->draw_cs);
    if (cmd->state.subpass->samples)
-      tu6_emit_msaa(&cmd->draw_cs, cmd->state.subpass->samples);
+      tu6_emit_msaa(&cmd->draw_cs, cmd->state.subpass->samples, RECTANGULAR);
    tu6_emit_render_cntl(cmd, cmd->state.subpass, &cmd->draw_cs, false);
 
    tu_set_input_attachments(cmd, cmd->state.subpass);
@@ -3239,7 +3251,7 @@ tu_CmdNextSubpass2(VkCommandBuffer commandBuffer,
    tu6_emit_zs(cmd, cmd->state.subpass, cs);
    tu6_emit_mrt(cmd, cmd->state.subpass, cs);
    if (cmd->state.subpass->samples)
-      tu6_emit_msaa(cs, cmd->state.subpass->samples);
+      tu6_emit_msaa(cs, cmd->state.subpass->samples, RECTANGULAR);
    tu6_emit_render_cntl(cmd, cmd->state.subpass, cs, false);
 
    tu_set_input_attachments(cmd, cmd->state.subpass);
@@ -3859,6 +3871,19 @@ tu6_draw_common(struct tu_cmd_buffer *cmd,
    }
 
    if (cmd->state.dirty & TU_CMD_DIRTY_GRAS_SU_CNTL) {
+      if (cmd->state.gras_su_cntl | A6XX_GRAS_SU_CNTL_LINE_MODE__MASK) {
+         /* Disable MSAA when bresenham lines are used.
+          *
+          * Spec says:
+          *    When Bresenham lines are being rasterized, sample locations may
+          *    all be treated as being at the pixel center (this may affect
+          *    attribute and depth interpolation).
+          */
+         if (tu6_primtype_line(pipeline->ia.primtype)) {
+            tu6_emit_msaa(&cmd->draw_cs, cmd->state.subpass->samples, cmd->state.line_mode);
+         }
+      }
+
       struct tu_cs cs = tu_cmd_dynamic_state(cmd, TU_DYNAMIC_STATE_GRAS_SU_CNTL, 2);
       tu_cs_emit_regs(&cs, A6XX_GRAS_SU_CNTL(.dword = cmd->state.gras_su_cntl));
    }
