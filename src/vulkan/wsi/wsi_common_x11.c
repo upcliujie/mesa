@@ -1030,6 +1030,16 @@ x11_acquire_next_image_poll_x11(struct x11_swapchain *chain,
    xcb_generic_event_t *event;
    struct pollfd pfds;
    uint64_t atimeout;
+
+   while ((event = xcb_poll_for_special_event(chain->conn, chain->special_event))) {
+      VkResult result = x11_handle_dri3_present_event(chain, (void *)event);
+      /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
+      result = x11_swapchain_result(chain, result);
+      free(event);
+      if (result < 0)
+         return result;
+   }
+
    while (1) {
       for (uint32_t i = 0; i < chain->base.image_count; i++) {
          if (!chain->images[i].busy) {
