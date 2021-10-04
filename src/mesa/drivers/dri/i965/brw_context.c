@@ -972,8 +972,7 @@ brw_create_context(gl_api api,
     * provides us with context reset notifications.
     */
    uint32_t allowed_flags = __DRI_CTX_FLAG_DEBUG |
-                            __DRI_CTX_FLAG_FORWARD_COMPATIBLE |
-                            __DRI_CTX_FLAG_NO_ERROR;
+                            __DRI_CTX_FLAG_FORWARD_COMPATIBLE;
 
    if (screen->has_context_reset_notification)
       allowed_flags |= __DRI_CTX_FLAG_ROBUST_BUFFER_ACCESS;

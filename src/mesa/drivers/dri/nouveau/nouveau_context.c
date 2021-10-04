@@ -60,7 +60,7 @@ nouveau_context_create(gl_api api,
 	struct nouveau_context *nctx;
 	struct gl_context *ctx;
 
-	if (ctx_config->flags & ~(__DRI_CTX_FLAG_DEBUG | __DRI_CTX_FLAG_NO_ERROR)) {
+	if (ctx_config->flags & ~(__DRI_CTX_FLAG_DEBUG)) {
 		*error = __DRI_CTX_ERROR_UNKNOWN_FLAG;
 		return false;
 	}
