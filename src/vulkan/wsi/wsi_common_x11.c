@@ -861,11 +861,9 @@ struct x11_swapchain {
    int                                          sent_image_count;
 
    bool                                         has_present_queue;
-   bool                                         has_acquire_queue;
    VkResult                                     status;
    bool                                         copy_is_suboptimal;
    struct wsi_queue                             present_queue;
-   struct wsi_queue                             acquire_queue;
    pthread_t                                    queue_manager;
 
    struct x11_image                             images[0];
@@ -957,8 +955,6 @@ x11_handle_dri3_present_event(struct x11_swapchain *chain,
             chain->images[i].busy = false;
             chain->sent_image_count--;
             assert(chain->sent_image_count >= 0);
-            if (chain->has_acquire_queue)
-               wsi_queue_push(&chain->acquire_queue, i);
             break;
          }
       }
@@ -1099,33 +1095,6 @@ x11_acquire_next_image_poll_x11(struct x11_swapchain *chain,
 }
 
 static VkResult
-x11_acquire_next_image_from_queue(struct x11_swapchain *chain,
-                                  uint32_t *image_index_out, uint64_t timeout)
-{
-   assert(chain->has_acquire_queue);
-
-   uint32_t image_index;
-   VkResult result = wsi_queue_pull(&chain->acquire_queue,
-                                    &image_index, timeout);
-   if (result < 0 || result == VK_TIMEOUT) {
-      /* On error, the thread has shut down, so safe to update chain->status.
-       * Calling x11_swapchain_result with VK_TIMEOUT won't modify
-       * chain->status so that is also safe.
-       */
-      return x11_swapchain_result(chain, result);
-   } else if (chain->status < 0) {
-      return chain->status;
-   }
-
-   assert(image_index < chain->base.image_count);
-   xshmfence_await(chain->images[image_index].shm_fence);
-
-   *image_index_out = image_index;
-
-   return chain->status;
-}
-
-static VkResult
 x11_present_to_x11_dri3(struct x11_swapchain *chain, uint32_t image_index,
                         uint64_t target_msc)
 {
@@ -1251,11 +1220,8 @@ x11_acquire_next_image(struct wsi_swapchain *anv_chain,
       *image_index = 0;
       return VK_SUCCESS;
    }
-   if (chain->has_acquire_queue) {
-      return x11_acquire_next_image_from_queue(chain, image_index, timeout);
-   } else {
-      return x11_acquire_next_image_poll_x11(chain, image_index, timeout);
-   }
+
+   return x11_acquire_next_image_poll_x11(chain, image_index, timeout);
 }
 
 static VkResult
@@ -1338,41 +1304,17 @@ x11_manage_fifo_queues(void *state)
       }
 
       uint64_t target_msc = 0;
-      if (chain->has_acquire_queue)
+      if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
+          chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR)
          target_msc = chain->last_present_msc + 1;
 
       result = x11_present_to_x11(chain, image_index, target_msc);
       if (result < 0)
          goto fail;
-
-      if (chain->has_acquire_queue) {
-         /* Wait for our presentation to occur and ensure we have at least one
-          * image that can be acquired by the client afterwards. This ensures we
-          * can pull on the present-queue on the next loop.
-          */
-         while (chain->images[image_index].present_queued ||
-                chain->sent_image_count == chain->base.image_count) {
-            xcb_generic_event_t *event =
-               xcb_wait_for_special_event(chain->conn, chain->special_event);
-            if (!event) {
-               result = VK_ERROR_OUT_OF_DATE_KHR;
-               goto fail;
-            }
-
-            result = x11_handle_dri3_present_event(chain, (void *)event);
-            /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
-            result = x11_swapchain_result(chain, result);
-            free(event);
-            if (result < 0)
-               goto fail;
-         }
-      }
    }
 
 fail:
    x11_swapchain_result(chain, result);
-   if (chain->has_acquire_queue)
-      wsi_queue_push(&chain->acquire_queue, UINT32_MAX);
 
    return NULL;
 }
@@ -1643,8 +1585,6 @@ x11_swapchain_destroy(struct wsi_swapchain *anv_chain,
       wsi_queue_push(&chain->present_queue, UINT32_MAX);
       pthread_join(chain->queue_manager, NULL);
 
-      if (chain->has_acquire_queue)
-         wsi_queue_destroy(&chain->acquire_queue);
       wsi_queue_destroy(&chain->present_queue);
    }
 
@@ -1755,7 +1695,6 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    chain->send_sbc = 0;
    chain->sent_image_count = 0;
    chain->last_present_msc = 0;
-   chain->has_acquire_queue = false;
    chain->has_present_queue = false;
    chain->status = VK_SUCCESS;
    chain->has_dri3_modifiers = wsi_conn->has_dri3_modifiers;
@@ -1841,32 +1780,16 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
          goto fail_init_images;
       }
 
-      if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
-          chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
-         chain->has_acquire_queue = true;
-
-         ret = wsi_queue_init(&chain->acquire_queue, chain->base.image_count + 1);
-         if (ret) {
-            wsi_queue_destroy(&chain->present_queue);
-            goto fail_init_images;
-         }
-
-         for (unsigned i = 0; i < chain->base.image_count; i++)
-            wsi_queue_push(&chain->acquire_queue, i);
-      }
-
       ret = pthread_create(&chain->queue_manager, NULL,
                            x11_manage_fifo_queues, chain);
       if (ret) {
          wsi_queue_destroy(&chain->present_queue);
-         if (chain->has_acquire_queue)
-            wsi_queue_destroy(&chain->acquire_queue);
 
          goto fail_init_images;
       }
    }
 
-   assert(chain->has_present_queue || !chain->has_acquire_queue);
+   // assert(chain->has_present_queue || !chain->has_acquire_queue);
 
    for (int i = 0; i < ARRAY_SIZE(modifiers); i++)
       vk_free(pAllocator, modifiers[i]);
