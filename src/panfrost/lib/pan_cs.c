@@ -551,6 +551,53 @@ pan_emit_rt(const struct pan_fb_info *fb,
         }
 }
 
+#if PAN_ARCH >= 6
+/* TSIX-2033 workaround */
+static enum mali_pre_post_frame_shader_mode
+pan_fix_frame_shader_mode(enum mali_pre_post_frame_shader_mode mode, bool force_clean_tile)
+{
+        /* Cannot force clean_tile_write with INTERSECT */
+        if (force_clean_tile && mode == MALI_PRE_POST_FRAME_SHADER_MODE_INTERSECT)
+                return MALI_PRE_POST_FRAME_SHADER_MODE_ALWAYS;
+        else
+                return mode;
+}
+
+/*
+ * Regardless of clean_tile_write_enable, the hardware writes clean tiles if
+ * the effective tile size differs from the superblock size of any enabled AFBC
+ * render target. Check this condition.
+ */
+static bool
+pan_force_clean_write(const struct pan_fb_info *fb, unsigned tile_size)
+{
+        /* Maximum tile size */
+        assert(tile_size <= 16*16);
+
+        for (unsigned i = 0; i < fb->rt_count; ++i) {
+                const struct pan_image_view *rt = fb->rts[i].view;
+
+                if (!rt || fb->rts[i].discard)
+                        continue;
+
+                if (!drm_is_afbc(rt->image->layout.modifier))
+                        continue;
+
+                unsigned superblock = panfrost_block_dim(rt->image->layout.modifier, true, 0);
+                assert(superblock >= 16);
+
+                /* Max tile size is 16x16 and minimum superblock size is 16x16.
+                 * We differ if either one differs from 16x16. */
+                if ((superblock > 16) || (tile_size < 16*16))
+                        return true;
+        }
+
+        return false;
+}
+
+
+#endif
+
 static unsigned
 pan_emit_mfbd(const struct panfrost_device *dev,
               const struct pan_fb_info *fb,
@@ -574,11 +621,13 @@ pan_emit_mfbd(const struct panfrost_device *dev,
 
         pan_section_pack(fbd, FRAMEBUFFER, PARAMETERS, cfg) {
 #if PAN_ARCH >= 6
+                bool force_clean_write = pan_force_clean_write(fb, tile_size);
+
                 cfg.sample_locations =
                         panfrost_sample_positions(dev, pan_sample_pattern(fb->nr_samples));
-                cfg.pre_frame_0 = fb->bifrost.pre_post.modes[0];
-                cfg.pre_frame_1 = fb->bifrost.pre_post.modes[1];
-                cfg.post_frame = fb->bifrost.pre_post.modes[2];
+                cfg.pre_frame_0 = pan_fix_frame_shader_mode(fb->bifrost.pre_post.modes[0], force_clean_write);
+                cfg.pre_frame_1 = pan_fix_frame_shader_mode(fb->bifrost.pre_post.modes[1], force_clean_write);
+                cfg.post_frame  = pan_fix_frame_shader_mode(fb->bifrost.pre_post.modes[2], force_clean_write);
                 cfg.frame_shader_dcds = fb->bifrost.pre_post.dcds.gpu;
                 cfg.tiler = tiler_ctx->bifrost;
 #endif
