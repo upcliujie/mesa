@@ -392,18 +392,17 @@ pan_prepare_rt(const struct pan_fb_info *fb, unsigned idx,
                unsigned cbuf_offset,
                struct MALI_RENDER_TARGET *cfg)
 {
-        cfg->clean_pixel_write_enable = fb->rts[idx].clear;
-        cfg->internal_buffer_offset = cbuf_offset;
-        if (fb->rts[idx].clear) {
-                cfg->clear.color_0 = fb->rts[idx].clear_value[0];
-                cfg->clear.color_1 = fb->rts[idx].clear_value[1];
-                cfg->clear.color_2 = fb->rts[idx].clear_value[2];
-                cfg->clear.color_3 = fb->rts[idx].clear_value[3];
-        }
-
         const struct pan_image_view *rt = fb->rts[idx].view;
         if (!rt || fb->rts[idx].discard)
                 return;
+
+        cfg->clean_pixel_write_enable = fb->rts[idx].clear;
+        cfg->internal_buffer_offset = cbuf_offset;
+
+        cfg->clear.color_0 = fb->rts[idx].clear_value[0];
+        cfg->clear.color_1 = fb->rts[idx].clear_value[1];
+        cfg->clear.color_2 = fb->rts[idx].clear_value[2];
+        cfg->clear.color_3 = fb->rts[idx].clear_value[3];
 
         cfg->write_enable = true;
         cfg->dithering_enable = true;
