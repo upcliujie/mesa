@@ -3318,10 +3318,6 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
         struct panfrost_zsa_state *so = CALLOC_STRUCT(panfrost_zsa_state);
         so->base = *zsa;
 
-        /* Normalize (there's no separate enable) */
-        if (!zsa->alpha_enabled)
-                so->base.alpha_func = MALI_FUNC_ALWAYS;
-
         /* Prepack relevant parts of the Renderer State Descriptor. They will
          * be ORed in at draw-time */
         pan_pack(&so->rsd_depth, MULTISAMPLE_MISC, cfg) {
@@ -3339,8 +3335,8 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
                         zsa->stencil[1].writemask : zsa->stencil[0].writemask;
 
 #if PAN_ARCH <= 5
-                cfg.alpha_test_compare_function =
-                        (enum mali_func) so->base.alpha_func;
+                cfg.alpha_test_compare_function = zsa->alpha_enabled ?
+                        (enum mali_func) zsa->alpha_func : MALI_FUNC_ALWAYS;
 #endif
         }
 
