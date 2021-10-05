@@ -197,6 +197,10 @@ with_dri_nouveau = dri_drivers.contains('nouveau')
 
 with_dri = dri_drivers.length() != 0
 
+if with_dri and not with_any_opengl
+  error('dri requires opengl')
+endif
+
 gallium_drivers = get_option('gallium-drivers')
 if gallium_drivers.contains('auto')
   if system_has_kms_drm
@@ -250,6 +254,10 @@ with_gallium_asahi = gallium_drivers.contains('asahi')
 
 with_gallium = gallium_drivers.length() != 0
 with_gallium_kmsro = with_gallium_v3d or with_gallium_vc4 or with_gallium_etnaviv or with_gallium_panfrost or with_gallium_lima or with_gallium_freedreno
+
+if with_gallium and not with_any_opengl
+  error('gallium requires opengl')
+endif
 
 if with_gallium and system_has_kms_drm
   _glx = get_option('glx')

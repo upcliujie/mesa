@@ -100,5 +100,7 @@ endif
 if with_clc
   subdir('clc')
 endif
-subdir('glsl')
+if with_any_opengl
+  subdir('glsl')
+endif
 subdir('isaspec')
