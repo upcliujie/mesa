@@ -8148,7 +8148,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    }
    case nir_intrinsic_load_workgroup_id: {
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      struct ac_arg* args = ctx->args->ac.workgroup_ids;
+      const struct ac_arg* args = ctx->args->ac.workgroup_ids;
       bld.pseudo(aco_opcode::p_create_vector, Definition(dst),
                  args[0].used ? Operand(get_arg(ctx, args[0])) : Operand::zero(),
                  args[1].used ? Operand(get_arg(ctx, args[1])) : Operand::zero(),
@@ -10754,9 +10754,9 @@ create_vs_exports(isel_context* ctx)
 {
    assert(ctx->stage.hw == HWStage::VS || ctx->stage.hw == HWStage::NGG);
 
-   radv_vs_output_info* outinfo = (ctx->stage.has(SWStage::TES) && !ctx->stage.has(SWStage::GS))
-                                     ? &ctx->program->info->tes.outinfo
-                                     : &ctx->program->info->vs.outinfo;
+   const radv_vs_output_info* outinfo = (ctx->stage.has(SWStage::TES) && !ctx->stage.has(SWStage::GS))
+                                        ? &ctx->program->info->tes.outinfo
+                                        : &ctx->program->info->vs.outinfo;
 
    ctx->block->kind |= block_kind_export_end;
 
@@ -11237,7 +11237,7 @@ emit_streamout(isel_context* ctx, unsigned stream)
    }
 
    for (unsigned i = 0; i < ctx->program->info->so.num_outputs; i++) {
-      struct radv_stream_output* output = &ctx->program->info->so.outputs[i];
+      const struct radv_stream_output* output = &ctx->program->info->so.outputs[i];
       if (stream != output->stream)
          continue;
 
@@ -11552,7 +11552,7 @@ ngg_emit_sendmsg_gs_alloc_req(isel_context* ctx, Temp vtx_cnt, Temp prm_cnt)
 
 void
 select_program(Program* program, unsigned shader_count, struct nir_shader* const* shaders,
-               ac_shader_config* config, struct radv_shader_args* args)
+               ac_shader_config* config, const struct radv_shader_args* args)
 {
    isel_context ctx = setup_isel_context(program, shader_count, shaders, config, args, false);
    if_context ic_merged_wave_info;
@@ -11670,7 +11670,7 @@ select_program(Program* program, unsigned shader_count, struct nir_shader* const
 
 void
 select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_config* config,
-                      struct radv_shader_args* args)
+                      const struct radv_shader_args* args)
 {
    isel_context ctx = setup_isel_context(program, 1, &gs_shader, config, args, true);
 
@@ -11767,7 +11767,7 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
 
 void
 select_trap_handler_shader(Program* program, struct nir_shader* shader, ac_shader_config* config,
-                           struct radv_shader_args* args)
+                           const struct radv_shader_args* args)
 {
    assert(args->options->chip_class == GFX8);
 
