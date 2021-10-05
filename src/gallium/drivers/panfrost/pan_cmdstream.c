@@ -235,10 +235,12 @@ panfrost_fs_required(
         if (fs->info.fs.sidefx)
                 return true;
 
+#if PAN_ARCH <= 5
         /* Using an empty FS requires early-z to be enabled, but alpha test
          * needs it disabled */
-        if ((enum mali_func) zsa->base.alpha_func != MALI_FUNC_ALWAYS)
+        if (zsa->alpha_enabled)
                 return true;
+#endif
 
         /* If colour is written we need to execute */
         for (unsigned i = 0; i < state->nr_cbufs; ++i) {
@@ -434,7 +436,7 @@ panfrost_prepare_fs_state(struct panfrost_context *ctx,
 #else
                         cfg.properties.force_early_z =
                                 fs->info.fs.can_early_z && !alpha_to_coverage &&
-                                ((enum mali_func) zsa->base.alpha_func == MALI_FUNC_ALWAYS);
+                                !zsa->alpha_enabled;
 
                         /* TODO: Reduce this limit? */
                         if (has_blend_shader)
@@ -3318,10 +3320,6 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
         struct panfrost_zsa_state *so = CALLOC_STRUCT(panfrost_zsa_state);
         so->base = *zsa;
 
-        /* Normalize (there's no separate enable) */
-        if (!zsa->alpha_enabled)
-                so->base.alpha_func = MALI_FUNC_ALWAYS;
-
         /* Prepack relevant parts of the Renderer State Descriptor. They will
          * be ORed in at draw-time */
         pan_pack(&so->rsd_depth, MULTISAMPLE_MISC, cfg) {
@@ -3339,8 +3337,11 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
                         zsa->stencil[1].writemask : zsa->stencil[0].writemask;
 
 #if PAN_ARCH <= 5
-                cfg.alpha_test_compare_function =
-                        (enum mali_func) so->base.alpha_func;
+                /* We'll check the enable bit for early-Z testing */
+                so->base.alpha_enabled &= (zsa->alpha_func != PIPE_FUNC_ALWAYS);
+
+                cfg.alpha_test_compare_function = zsa->alpha_enabled ?
+                        (enum mali_func) zsa->alpha_func : MALI_FUNC_ALWAYS;
 #endif
         }
 
