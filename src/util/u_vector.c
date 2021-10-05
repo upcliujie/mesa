@@ -35,16 +35,18 @@
  */
 
 int
-u_vector_init(struct u_vector *vector, uint32_t element_size, uint32_t size)
+u_vector_init_pot(struct u_vector *vector,
+                  uint32_t initial_element_count,
+                  uint32_t element_size)
 {
-   assert(util_is_power_of_two_nonzero(size));
-   assert(element_size < size && util_is_power_of_two_nonzero(element_size));
+   assert(util_is_power_of_two_nonzero(initial_element_count));
+   assert(util_is_power_of_two_nonzero(element_size));
 
    vector->head = 0;
    vector->tail = 0;
    vector->element_size = element_size;
-   vector->size = size;
-   vector->data = malloc(size);
+   vector->size = element_size * initial_element_count;
+   vector->data = malloc(vector->size);
 
    return vector->data != NULL;
 }
