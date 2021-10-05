@@ -695,6 +695,7 @@ fd_context_init_tc(struct pipe_context *pctx, unsigned flags)
          .create_fence = fd_fence_create_unflushed,
          .is_resource_busy = fd_resource_busy,
          .unsynchronized_get_device_reset_status = true,
+         .flush_on_framebuffer_change = true,
       },
       &ctx->tc);
 

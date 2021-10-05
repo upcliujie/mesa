@@ -423,6 +423,14 @@ struct threaded_context_options {
     * safe to call without synchronizing with driver thread.
     */
    bool unsynchronized_get_device_reset_status;
+
+   /**
+    * If set, flush on ctx->set_framebuffer_state().  For tilers an FBO
+    * switch can be a heavyweight operation (ie. introduce a new render-
+    * pass), so it may be beneficial to just go ahead and flush on new
+    * framebuffer state.
+    */
+   bool flush_on_framebuffer_change;
 };
 
 struct threaded_context {

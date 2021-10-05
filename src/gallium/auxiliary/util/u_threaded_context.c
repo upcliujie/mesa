@@ -1076,6 +1076,9 @@ tc_set_framebuffer_state(struct pipe_context *_pipe,
    }
    p->state.zsbuf = NULL;
    pipe_surface_reference(&p->state.zsbuf, fb->zsbuf);
+
+   if (tc->options.flush_on_framebuffer_change)
+      tc_batch_flush(tc);
 }
 
 struct tc_tess_state {
