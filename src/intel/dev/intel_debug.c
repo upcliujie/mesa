@@ -98,6 +98,7 @@ static const struct debug_control debug_control[] = {
                     DEBUG_TES | DEBUG_GS | DEBUG_CS |
                     DEBUG_RT },
    { "rt",          DEBUG_RT },
+   { "annotate",    DEBUG_ANNOTATE },
    { NULL,    0 }
 };
 
@@ -157,16 +158,26 @@ intel_debug_identifier_size(void)
 }
 
 uint32_t
+intel_debug_write(void *_output, uint32_t output_size)
+{
+   void *output = _output;
+
+   assert(output_size > intel_debug_identifier_size());
+
+   memcpy(output, intel_debug_identifier(), intel_debug_identifier_size());
+   output += intel_debug_identifier_size();
+
+   return output - _output;
+}
+
+uint32_t
 intel_debug_write_identifiers(void *_output,
                               uint32_t output_size,
                               const char *driver_name)
 {
    void *output = _output, *output_end = _output + output_size;
 
-   assert(output_size > intel_debug_identifier_size());
-
-   memcpy(output, intel_debug_identifier(), intel_debug_identifier_size());
-   output += intel_debug_identifier_size();
+   output += intel_debug_write(output, output_size);
 
    for (uint32_t id = INTEL_DEBUG_BLOCK_TYPE_DRIVER; id < INTEL_DEBUG_BLOCK_TYPE_MAX; id++) {
       switch (id) {
@@ -198,6 +209,10 @@ intel_debug_write_identifiers(void *_output,
          break;
       }
 
+      case INTEL_DEBUG_BLOCK_TYPE_MEM_ANNOTATE:
+         /* Skip */
+         break;
+
       default:
          unreachable("Missing identifier write");
       }
@@ -221,15 +236,16 @@ intel_debug_write_identifiers(void *_output,
 }
 
 void *
-intel_debug_get_identifier_block(void *_buffer,
-                                 uint32_t buffer_size,
-                                 enum intel_debug_block_type type)
+intel_debug_get_next_block(void *_buffer,
+                           uint32_t buffer_size,
+                           enum intel_debug_block_type type)
 {
-   void *buffer = _buffer + intel_debug_identifier_size(),
-      *end_buffer = _buffer + buffer_size;
+   void *buffer = _buffer, *end_buffer = _buffer + buffer_size;
 
    while (buffer < end_buffer) {
       struct intel_debug_block_base *item = buffer;
+
+      assert(item->length > 0);
 
       if (item->type == type)
          return item;
@@ -240,4 +256,14 @@ intel_debug_get_identifier_block(void *_buffer,
    }
 
    return NULL;
+}
+
+void *
+intel_debug_get_identifier_block(void *buffer,
+                                 uint32_t buffer_size,
+                                 enum intel_debug_block_type type)
+{
+   uint32_t id_size = intel_debug_identifier_size();
+
+   return intel_debug_get_next_block(buffer + id_size, buffer_size - id_size, type);
 }

@@ -1511,6 +1511,16 @@ VkResult anv_reloc_list_add_bo(struct anv_reloc_list *list,
                                const VkAllocationCallbacks *alloc,
                                struct anv_bo *target_bo);
 
+struct anv_annotation_list {
+   struct anv_device *                          device;
+   uint32_t                                     num_bos;
+   uint32_t                                     array_length;
+   struct anv_bo **                             bos;
+
+   void *                                       next;
+   void *                                       end;
+};
+
 struct anv_batch_bo {
    /* Link in the anv_cmd_buffer.owned_batch_bos list */
    struct list_head                             link;
@@ -1541,6 +1551,7 @@ struct anv_batch {
    void *                                       next;
 
    struct anv_reloc_list *                      relocs;
+   struct anv_annotation_list *                 annotations;
 
    /* This callback is called (with the associated user data) in the event
     * that the batch runs out of space.
@@ -1561,6 +1572,10 @@ struct anv_batch {
 void *anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords);
 void anv_batch_emit_batch(struct anv_batch *batch, struct anv_batch *other);
 struct anv_address anv_batch_address(struct anv_batch *batch, void *batch_location);
+void anv_batch_annotatev(struct anv_batch *batch,
+                         struct anv_address address,
+                         enum intel_debug_annotation type,
+                         const char *fmt, ...);
 
 static inline void
 anv_batch_set_storage(struct anv_batch *batch, struct anv_address addr,
@@ -1609,6 +1624,43 @@ anv_batch_emit_reloc(struct anv_batch *batch,
    return address_u64;
 }
 
+
+
+#define anv_batch_annotate(batch, ...)                                  \
+   do {                                                                 \
+      if (INTEL_DEBUG & DEBUG_ANNOTATE &&                               \
+          unlikely((batch)->annotations)) {                             \
+         anv_batch_annotatev(                                           \
+            batch,                                                      \
+            anv_batch_address(batch, (batch)->next),                    \
+            INTEL_DEBUG_ANNOTATION_DESCRIPTION,                         \
+            __VA_ARGS__);                                               \
+      }                                                                 \
+   } while (0)
+
+#define anv_batch_annotate_begin(batch, ...)                            \
+   do {                                                                 \
+      if (INTEL_DEBUG & DEBUG_ANNOTATE &&                               \
+          unlikely((batch)->annotations)) {                             \
+         anv_batch_annotatev(                                           \
+            batch,                                                      \
+            anv_batch_address(batch, (batch)->next),                    \
+            INTEL_DEBUG_ANNOTATION_BEGIN,                               \
+            __VA_ARGS__);                                               \
+      }                                                                 \
+   } while (0)
+
+#define anv_batch_annotate_end(batch, ...)                              \
+   do {                                                                 \
+      if (INTEL_DEBUG & DEBUG_ANNOTATE &&                               \
+          unlikely((batch)->annotations)) {                             \
+         anv_batch_annotatev(                                           \
+            batch,                                                      \
+            anv_batch_address(batch, (batch)->next),                    \
+            INTEL_DEBUG_ANNOTATION_END,                                 \
+            __VA_ARGS__);                                               \
+      }                                                                 \
+   } while (0)
 
 #define ANV_NULL_ADDRESS ((struct anv_address) { NULL, 0 })
 
@@ -3075,6 +3127,12 @@ enum anv_cmd_buffer_exec_mode {
 
 struct anv_measure_batch;
 
+struct anv_cmd_buffer_annotation {
+   struct list_head pool_link;
+
+   struct anv_bo *bo;
+};
+
 struct anv_cmd_buffer {
    struct vk_command_buffer                     vk;
 
@@ -3157,6 +3215,8 @@ struct anv_cmd_buffer {
     * Used to increase allocation size for long command buffers.
     */
    uint32_t                                     total_batch_size;
+
+   struct anv_annotation_list                   annotations;
 };
 
 /* Determine whether we can chain a given cmd_buffer to another one. We need
@@ -3240,6 +3300,10 @@ anv_cmd_buffer_alloc_blorp_binding_table(struct anv_cmd_buffer *cmd_buffer,
 void anv_cmd_buffer_dump(struct anv_cmd_buffer *cmd_buffer);
 
 void anv_cmd_emit_conditional_render_predicate(struct anv_cmd_buffer *cmd_buffer);
+
+void anv_cmd_buffer_annotate(struct anv_cmd_buffer *cmd_buffer, const char *fmt, ...);
+
+
 
 enum anv_fence_type {
    ANV_FENCE_TYPE_NONE = 0,
