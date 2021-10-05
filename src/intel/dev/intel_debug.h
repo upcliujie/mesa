@@ -93,6 +93,7 @@ extern uint64_t intel_debug;
 #define DEBUG_NO_FAST_CLEAR       (1ull << 46)
 #define DEBUG_NO32                (1ull << 47)
 #define DEBUG_RT                  (1ull << 48)
+#define DEBUG_ANNOTATE            (1ull << 49)
 
 /* These flags are not compatible with the disk shader cache */
 #define DEBUG_DISK_CACHE_DISABLE_MASK DEBUG_SHADER_TIME
@@ -141,6 +142,9 @@ enum intel_debug_block_type {
    /* Frame identifier (struct intel_debug_block_frame) */
    INTEL_DEBUG_BLOCK_TYPE_FRAME,
 
+   /* Memory annotation identifier (struct intel_debug_mem_annotate) */
+   INTEL_DEBUG_BLOCK_TYPE_MEM_ANNOTATE,
+
    /* Internal, never to be written out */
    INTEL_DEBUG_BLOCK_TYPE_MAX,
 };
@@ -160,16 +164,66 @@ struct intel_debug_block_frame {
    uint64_t frame_id;
 };
 
+enum intel_debug_annotation {
+   /* Annotation for an address */
+   INTEL_DEBUG_ANNOTATION_DESCRIPTION,
+   /* Annotation for an address describing the beginning of a block */
+   INTEL_DEBUG_ANNOTATION_BEGIN,
+   /* Annotation for an address describing the end of a block */
+   INTEL_DEBUG_ANNOTATION_END,
+};
+
+struct intel_debug_mem_annotate {
+   struct intel_debug_block_base base;
+   uint64_t address; /* Address being annotated */
+   uint16_t annotation_type; /* enum intel_debug_annotation */
+   uint8_t description[];
+};
+
 extern void *intel_debug_identifier(void);
 extern uint32_t intel_debug_identifier_size(void);
 
+/* Write a debug identifier */
+uint32_t intel_debug_write(void *_output, uint32_t output_size);
+
+/* Write a debug identifier + other driver informations */
 extern uint32_t intel_debug_write_identifiers(void *output,
                                               uint32_t output_size,
                                               const char *driver_name);
 
+/* Look for a particular debug identifier in a buffer */
 extern void *intel_debug_get_identifier_block(void *buffer,
                                               uint32_t buffer_size,
                                               enum intel_debug_block_type type);
+
+/* Look for a particular debug identifier pass the initial debug identifier */
+extern void *intel_debug_get_next_block(void *_buffer,
+                                        uint32_t buffer_size,
+                                        enum intel_debug_block_type type);
+
+
+static inline uint32_t intel_debug_block_length(void *_block)
+{
+   struct intel_debug_block_base *block =
+      (struct intel_debug_block_base *) _block;
+
+   return block->length;
+}
+
+#define intel_debug_foreach_block(__type, __name, __block_type, __start, __end) \
+   for (__type *__name =                                                \
+           intel_debug_get_identifier_block(__start,                    \
+                                            (uint8_t *)__end -          \
+                                            (uint8_t *) __start,        \
+                                            __block_type);              \
+        __name != NULL;                                                 \
+        __name = intel_debug_get_next_block((uint8_t *)__name +   \
+                                            intel_debug_block_length(__name), \
+                                            (uint8_t *)__name -         \
+                                            (uint8_t *)__end -          \
+                                            intel_debug_block_length(__name), \
+                                            __block_type))
+
 
 #ifdef __cplusplus
 }

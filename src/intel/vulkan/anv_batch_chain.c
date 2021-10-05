@@ -46,6 +46,104 @@
  */
 
 /*-----------------------------------------------------------------------*
+ * Functions related to anv_annotation_list
+ *-----------------------------------------------------------------------*/
+
+static void
+anv_annotation_list_init(struct anv_annotation_list *list,
+                         struct anv_device *device)
+{
+   memset(list, 0, sizeof(*list));
+   list->device = device;
+}
+
+static void
+anv_annotation_finish_bo(void *ptr)
+{
+   struct intel_debug_block_base *end = ptr;
+   *end = (struct intel_debug_block_base) {
+      .type = INTEL_DEBUG_BLOCK_TYPE_END,
+      .length = sizeof(struct intel_debug_block_base),
+   };
+}
+
+static void
+anv_annotation_list_add(struct anv_annotation_list *list,
+                        struct anv_address address,
+                        enum intel_debug_annotation type,
+                        const char *message)
+{
+
+   if (list->num_bos >= list->array_length) {
+      uint32_t new_length = MAX2(2 * list->array_length, 1);
+      list->bos =
+         vk_realloc(&list->device->vk.alloc, list->bos,
+                    new_length, 8,
+                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (!list->bos) {
+         vk_logw(VK_LOG_OBJS(&list->device->vk.base), "Unable to allocate annotation mem");
+         return;
+      }
+      list->array_length = new_length;
+   }
+
+   uint32_t msg_len = strlen(message) + 1;
+   uint32_t write_len = align_u32(sizeof(struct intel_debug_mem_annotate) + msg_len, 4);
+   if (write_len > (list->end - list->next)) {
+      if (list->next)
+         anv_annotation_finish_bo(list->next);
+
+      VkResult result = anv_device_alloc_bo(list->device, "annotation", 8192,
+                                            ANV_BO_ALLOC_CAPTURE |
+                                            ANV_BO_ALLOC_MAPPED,
+                                            0 /* explicit_address */,
+                                            &list->bos[list->num_bos]);
+      if (result != VK_SUCCESS) {
+         vk_logw(VK_LOG_OBJS(&list->device->vk.base), "Unable to allocate annotation BO");
+         return;
+      }
+
+      struct anv_bo *bo = list->bos[list->num_bos++];
+
+      list->next = bo->map + intel_debug_write(bo->map, bo->size);
+      list->end = bo->map + bo->size - sizeof(struct intel_debug_block_base);
+
+      assert((list->end - list->next) > write_len);
+   }
+
+   struct intel_debug_mem_annotate *annotate = list->next;
+   *annotate = (struct intel_debug_mem_annotate) {
+      .base = {
+         .type = INTEL_DEBUG_BLOCK_TYPE_MEM_ANNOTATE,
+         .length = write_len,
+      },
+      .address = anv_address_physical(address),
+      .annotation_type = type,
+   };
+   memcpy(annotate->description, message, msg_len);
+
+   list->next += write_len;
+}
+
+static void
+anv_annotation_list_end(struct anv_annotation_list *list)
+{
+   if (!list->next)
+      return;
+   anv_annotation_finish_bo(list->next);
+}
+
+static void
+anv_annotation_list_fini(struct anv_annotation_list *list)
+{
+   if (!list->device)
+      return;
+   for (uint32_t i = 0; i < list->num_bos; i++)
+      anv_device_release_bo(list->device, list->bos[i]);
+   vk_free(&list->device->vk.alloc, list->bos);
+}
+
+/*-----------------------------------------------------------------------*
  * Functions related to anv_reloc_list
  *-----------------------------------------------------------------------*/
 
@@ -273,6 +371,24 @@ anv_reloc_list_append(struct anv_reloc_list *list,
  * Functions related to anv_batch
  *-----------------------------------------------------------------------*/
 
+void anv_batch_annotatev(struct anv_batch *batch,
+                         struct anv_address address,
+                         enum intel_debug_annotation type,
+                         const char *fmt, ...)
+{
+   assert(&batch->annotations);
+
+   va_list ap;
+   va_start(ap, fmt);
+   char *str = NULL;
+   UNUSED int ret = vasprintf(&str, fmt, ap);
+   va_end(ap);
+   assert(str);
+
+   anv_annotation_list_add(batch->annotations, address, type, str);
+   free(str);
+}
+
 void *
 anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
 {
@@ -295,7 +411,7 @@ anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
 struct anv_address
 anv_batch_address(struct anv_batch *batch, void *batch_location)
 {
-   assert(batch->start < batch_location);
+   assert(batch->start <= batch_location);
 
    /* Allow a jump at the current location of the batch. */
    assert(batch->next >= batch_location);
@@ -883,6 +999,10 @@ anv_cmd_buffer_init_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
    if (result != VK_SUCCESS)
       goto fail_bt_blocks;
 
+   anv_annotation_list_init(&cmd_buffer->annotations, cmd_buffer->device);
+
+   cmd_buffer->batch.annotations = &cmd_buffer->annotations;
+
    return VK_SUCCESS;
 
  fail_bt_blocks:
@@ -907,6 +1027,8 @@ anv_cmd_buffer_fini_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
 
    u_vector_finish(&cmd_buffer->seen_bbos);
 
+   anv_annotation_list_fini(&cmd_buffer->annotations);
+
    /* Destroy all of the batch buffers */
    list_for_each_entry_safe(struct anv_batch_bo, bbo,
                             &cmd_buffer->batch_bos, link) {
@@ -918,6 +1040,9 @@ anv_cmd_buffer_fini_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
 void
 anv_cmd_buffer_reset_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
 {
+   anv_annotation_list_fini(&cmd_buffer->annotations);
+   anv_annotation_list_init(&cmd_buffer->annotations, cmd_buffer->device);
+
    /* Delete all but the first batch bo */
    assert(!list_is_empty(&cmd_buffer->batch_bos));
    while (cmd_buffer->batch_bos.next != cmd_buffer->batch_bos.prev) {
@@ -960,6 +1085,8 @@ void
 anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
 {
    struct anv_batch_bo *batch_bo = anv_cmd_buffer_current_batch_bo(cmd_buffer);
+
+   anv_annotation_list_end(&cmd_buffer->annotations);
 
    if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
       /* When we start a batch buffer, we subtract a certain amount of
@@ -1582,6 +1709,16 @@ setup_execbuf_for_cmd_buffer(struct anv_execbuf *execbuf,
                                   &cmd_buffer->surface_relocs, 0);
       if (result != VK_SUCCESS)
          return result;
+   }
+
+   if (INTEL_DEBUG & DEBUG_ANNOTATE) {
+      for (uint32_t i = 0; i < cmd_buffer->annotations.num_bos; i++) {
+         result = anv_execbuf_add_bo(cmd_buffer->device, execbuf,
+                                     cmd_buffer->annotations.bos[i],
+                                     NULL, 0);
+         if (result != VK_SUCCESS)
+            return result;
+      }
    }
 
    /* First, we walk over all of the bos we've seen and add them and their
