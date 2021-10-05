@@ -1000,6 +1000,22 @@ x11_handle_dri3_present_event(struct x11_swapchain *chain,
    return VK_SUCCESS;
 }
 
+/* Run through our special event queue and update the swapchain if necessary.
+ * Destroying the window and/or swapchain is handled elsewhere, this can only
+ * change the swapchain status.
+ */
+static void
+x11_handle_present_events(struct x11_swapchain *chain)
+{
+   xcb_generic_event_t *event;
+
+   assert(chain->status >= VK_SUCCESS);
+   while ((event = xcb_poll_for_special_event(chain->conn, chain->special_event))) {
+      VkResult result = x11_handle_dri3_present_event(chain, (void *)event);
+      result = x11_swapchain_result(chain, result);
+      free(event);
+   }
+}
 
 static uint64_t wsi_get_absolute_timeout(uint64_t timeout)
 {
@@ -1135,15 +1151,7 @@ x11_present_to_x11_dri3(struct x11_swapchain *chain, uint32_t image_index,
     * update the status of the swapchain to SUBOPTIMAL or OUT_OF_DATE if the
     * associated X11 surface has been resized.
     */
-   xcb_generic_event_t *event;
-   while ((event = xcb_poll_for_special_event(chain->conn, chain->special_event))) {
-      VkResult result = x11_handle_dri3_present_event(chain, (void *)event);
-      /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
-      result = x11_swapchain_result(chain, result);
-      free(event);
-      if (result < 0)
-         return result;
-   }
+   x11_handle_present_events(chain);
 
    xshmfence_reset(image->shm_fence);
 
