@@ -402,15 +402,8 @@ pan_prepare_rt(const struct pan_fb_info *fb, unsigned idx,
         }
 
         const struct pan_image_view *rt = fb->rts[idx].view;
-        if (!rt || fb->rts[idx].discard) {
-                cfg->internal_format = MALI_COLOR_BUFFER_INTERNAL_FORMAT_R8G8B8A8;
-                cfg->internal_buffer_offset = cbuf_offset;
-#if PAN_ARCH >= 7
-                cfg->writeback_block_format = MALI_BLOCK_FORMAT_TILED_U_INTERLEAVED;
-                cfg->dithering_enable = true;
-#endif
+        if (!rt || fb->rts[idx].discard)
                 return;
-        }
 
         cfg->write_enable = true;
         cfg->dithering_enable = true;
