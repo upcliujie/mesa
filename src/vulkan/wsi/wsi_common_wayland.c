@@ -455,8 +455,10 @@ wsi_wl_display_init(struct wsi_wayland *wsi_wl,
    VkResult result = VK_SUCCESS;
    memset(display, 0, sizeof(*display));
 
+   const size_t size_pow2 =
+      util_next_power_of_two(sizeof(struct wsi_wl_format));
    if (!u_vector_init(&display->formats, sizeof(struct wsi_wl_format),
-                      8 * sizeof(struct wsi_wl_format)))
+                      8 * size_pow2))
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
    display->wsi_wl = wsi_wl;
