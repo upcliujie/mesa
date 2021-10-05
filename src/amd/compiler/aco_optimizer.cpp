@@ -527,6 +527,7 @@ pseudo_propagate_temp(opt_ctx& ctx, aco_ptr<Instruction>& instr, Temp temp, unsi
          return false;
       break;
    case aco_opcode::p_extract_vector:
+   case aco_opcode::p_extract:
       if (temp.type() == RegType::sgpr && !can_accept_sgpr)
          return false;
       break;
@@ -844,9 +845,20 @@ can_apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_i
               can_use_opsel(ctx.program->chip_class, instr->opcode, idx, sel.offset()) &&
               !(instr->vop3().opsel & (1 << idx))) {
       return true;
-   } else {
-      return false;
+   } else if (instr->opcode == aco_opcode::p_extract) {
+      SubdwordSel instrSel = parse_extract(instr.get());
+
+      if ((instrSel.offset() + sel.offset()) % instrSel.size() != 0)
+         return false;
+      /* if we extract a subsection, we can drop the previous zero/sign-extension */
+      if ((instrSel.size() + instrSel.offset()) <= sel.size())
+         return true;
+      /* if sign/zero-extension is the same, we can use the minimum */
+      if (instrSel.sign_extend() == sel.sign_extend())
+         return true;
    }
+
+   return false;
 }
 
 /* Combine an p_extract (or p_insert, in some cases) instruction with instr.
@@ -886,6 +898,12 @@ apply_extract(opt_ctx& ctx, aco_ptr<Instruction>& instr, unsigned idx, ssa_info&
    } else if (instr->isVOP3()) {
       if (sel.offset())
          instr->vop3().opsel |= 1 << idx;
+   } else if (instr->opcode == aco_opcode::p_extract) {
+      SubdwordSel instrSel = parse_extract(instr.get());
+      if (instrSel.sign_extend() == sel.sign_extend())
+         instr->operands[2] = Operand::c32(std::min(sel.size(), instrSel.size()) * 8u);
+      instr->operands[1] = Operand::c32((sel.offset() + instrSel.offset()) / instrSel.size());
+      return;
    }
 
    /* output modifier and label_vopc seem to be the only one worth keeping at the moment */
@@ -3292,8 +3310,16 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    if (instr->isSDWA() || instr->isDPP())
       return;
 
-   if (instr->opcode == aco_opcode::p_extract)
+   if (instr->opcode == aco_opcode::p_extract) {
+      ssa_info& info = ctx.info[instr->operands[0].tempId()];
+      if (info.is_extract() && can_apply_extract(ctx, instr, 0, info)) {
+         apply_extract(ctx, instr, 0, info);
+         ctx.uses[instr->operands[0].tempId()]--;
+         instr->operands[0].setTemp(info.instr->operands[0].getTemp());
+      }
+
       apply_ds_extract(ctx, instr);
+   }
 
    /* TODO: There are still some peephole optimizations that could be done:
     * - abs(a - b) -> s_absdiff_i32
