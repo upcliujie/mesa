@@ -176,10 +176,16 @@ copper_GetSwapchainImages(struct zink_screen *screen, struct copper_swapchain *c
 }
 
 static bool
-update_swapchain(struct zink_screen *screen, struct copper_displaytarget *cdt, unsigned w, unsigned h)
+update_caps(struct zink_screen *screen, struct copper_displaytarget *cdt)
 {
    VkResult error = VKSCR(GetPhysicalDeviceSurfaceCapabilitiesKHR)(screen->pdev, cdt->surface, &cdt->caps);
-   if (!zink_screen_handle_vkresult(screen, error))
+   return zink_screen_handle_vkresult(screen, error);
+}
+
+static bool
+update_swapchain(struct zink_screen *screen, struct copper_displaytarget *cdt, unsigned w, unsigned h)
+{
+   if (!update_caps(screen, cdt))
       return false;
    struct copper_swapchain *cswap = copper_CreateSwapchain(screen, cdt, w, h);
    if (!cswap)
@@ -461,5 +467,26 @@ zink_copper_present_readback(struct zink_screen *screen, struct zink_resource *r
    if (!zink_screen_handle_vkresult(screen, error))
       return false;
    VKSCR(DestroySemaphore)(screen->dev, present, NULL);
+   return true;
+}
+
+bool
+zink_copper_update(struct pipe_screen *pscreen, struct pipe_resource *pres, int *w, int *h)
+{
+   struct zink_resource *res = zink_resource(pres);
+   struct zink_screen *screen = zink_screen(pscreen);
+   assert(res->obj->dt);
+   struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
+   if (cdt->type != COPPER_X11) {
+      *w = res->base.b.width0;
+      *h = res->base.b.height0;
+      return true;
+   }
+   if (!update_caps(screen, cdt)) {
+      debug_printf("zink: failed to update swapchain capabilities");
+      return false;
+   }
+   *w = cdt->caps.currentExtent.width;
+   *h = cdt->caps.currentExtent.height;
    return true;
 }
