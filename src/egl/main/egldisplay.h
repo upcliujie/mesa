@@ -197,6 +197,8 @@ struct _egl_display
 
    /* KHR_display_reference */
    EGLBoolean TrackReferences;
+   /* TODO: some drivers (dri2, wgl) have their own refcounting;
+    * remove those in favour of this one */
    EGLint RefCount;
 };
 
