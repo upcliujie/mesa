@@ -285,8 +285,7 @@ print_sampler(void *code, unsigned offset)
       printf(".b");
 
    switch (sampler->type) {
-   case ppir_codegen_sampler_type_2d:
-      printf(".2d");
+   case ppir_codegen_sampler_type_generic:
       break;
    case ppir_codegen_sampler_type_cube:
       printf(".cube");
