@@ -26,7 +26,8 @@
 #include "lima_ir.h"
 
 static nir_ssa_def *
-get_proj_index(nir_instr *coord_instr, nir_instr *proj_instr, int *proj_idx)
+get_proj_index(nir_instr *coord_instr, nir_instr *proj_instr,
+               int coord_components, int *proj_idx)
 {
    *proj_idx = -1;
    if (coord_instr->type != nir_instr_type_alu ||
@@ -64,10 +65,11 @@ get_proj_index(nir_instr *coord_instr, nir_instr *proj_instr, int *proj_idx)
    if (nir_dest_num_components(intrin->dest) != 4)
       return NULL;
 
-   /* Coords must be in .xy */
-   if (coord_alu->src[0].swizzle[0] != 0 ||
-       coord_alu->src[0].swizzle[1] != 1)
-      return NULL;
+   /* Coords must be in .xyz */
+   for (int i = 0; i < coord_components; i++) {
+      if (coord_alu->src[0].swizzle[i] != i)
+         return NULL;
+   }
 
    *proj_idx = proj_alu->src[0].swizzle[0];
 
@@ -94,7 +96,9 @@ lima_nir_lower_txp_block(nir_block *block, nir_builder *b)
       /* Handle only 2D samplers */
       switch (tex->sampler_dim) {
       case GLSL_SAMPLER_DIM_RECT:
+      case GLSL_SAMPLER_DIM_1D:
       case GLSL_SAMPLER_DIM_2D:
+      case GLSL_SAMPLER_DIM_3D:
          break;
       default:
          continue;
@@ -115,6 +119,7 @@ lima_nir_lower_txp_block(nir_block *block, nir_builder *b)
       int proj_idx_in_vec = -1;
       nir_ssa_def *load_input = get_proj_index(coords_ssa->parent_instr,
                                                proj_ssa->parent_instr,
+                                               tex->coord_components,
                                                &proj_idx_in_vec);
       nir_ssa_def *combined;
       if (load_input && proj_idx_in_vec == 3) {
@@ -126,11 +131,31 @@ lima_nir_lower_txp_block(nir_block *block, nir_builder *b)
          combined = nir_swizzle(b, load_input, xyz, 3);
          tex->coord_components = 3;
       } else {
-         combined = nir_vec3(b,
-                             nir_channel(b, coords_ssa, 0),
-                             nir_channel(b, coords_ssa, 1),
-                             nir_channel(b, proj_ssa, 0));
-         tex->coord_components = 3;
+         switch (tex->coord_components) {
+         default:
+         case 1:
+            /* We still need vec3 for 1D textures, so duplicate coordinate */
+            combined = nir_vec3(b,
+                                nir_channel(b, coords_ssa, 0),
+                                nir_channel(b, coords_ssa, 0),
+                                nir_channel(b, proj_ssa, 0));
+            tex->coord_components = 3;
+            break;
+         case 2:
+            combined = nir_vec3(b,
+                                nir_channel(b, coords_ssa, 0),
+                                nir_channel(b, coords_ssa, 1),
+                                nir_channel(b, proj_ssa, 0));
+            tex->coord_components = 3;
+            break;
+         case 3:
+            combined = nir_vec4(b,
+                                nir_channel(b, coords_ssa, 0),
+                                nir_channel(b, coords_ssa, 1),
+                                nir_channel(b, coords_ssa, 2),
+                                nir_channel(b, proj_ssa, 0));
+            tex->coord_components = 4;
+         }
       }
 
       nir_tex_instr_remove_src(tex, nir_tex_instr_src_index(tex, nir_tex_src_coord));
