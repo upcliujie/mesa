@@ -36,11 +36,20 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
 
 #include "mesa-sha1.h"
 #include "u_math.h"
 #include "os_memory.h"
+
+#ifndef HAVE_MEMFD_CREATE
+#include <sys/syscall.h>
+
+static inline int
+memfd_create(const char *name, unsigned int flags)
+{
+   return syscall(SYS_memfd_create, name, flags);
+}
+#endif
 
 /* (Re)define UUID_SIZE to avoid including vulkan.h (or p_defines.h) here. */
 #define UUID_SIZE 16
@@ -106,7 +115,7 @@ os_malloc_aligned_fd(size_t size, size_t alignment, int *fd, char const *fd_name
    size_t alloc_size, offset;
 
    *fd = -1;
-   mem_fd = syscall(__NR_memfd_create, fd_name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+   mem_fd = memfd_create(fd_name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
 
    if(mem_fd < 0)
       return NULL;
