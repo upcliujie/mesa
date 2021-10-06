@@ -32,6 +32,11 @@
 
 #if DETECT_OS_UNIX
 
+/* for memfd_create to be visible */
+#ifndef __BSD_VISIBLE
+#define __BSD_VISIBLE 1
+#endif
+
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -106,7 +111,11 @@ os_malloc_aligned_fd(size_t size, size_t alignment, int *fd, char const *fd_name
    size_t alloc_size, offset;
 
    *fd = -1;
+#if defined(__FreeBSD__)
+   mem_fd = memfd_create(fd_name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#else
    mem_fd = syscall(__NR_memfd_create, fd_name, MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#endif
 
    if(mem_fd < 0)
       return NULL;
