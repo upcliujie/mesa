@@ -44,7 +44,9 @@ LOCAL_HEADER_LIBRARIES := libnativebase_headers hwvulkan_headers libbacktrace_he
 MESON_GEN_PKGCONFIGS := backtrace cutils expat hardware libdrm:$(LIBDRM_VERSION) nativewindow sync zlib:1.2.11 libelf
 
 ifneq ($(filter swr swrast,$(BOARD_MESA3D_GALLIUM_DRIVERS) $(BOARD_MESA3D_VULKAN_DRIVERS)),)
+ifeq ($(BOARD_MESA3D_FORCE_SOFTPIPE),)
 MESON_GEN_LLVM_STUB := true
+endif
 endif
 
 ifneq ($(filter zink,$(BOARD_MESA3D_GALLIUM_DRIVERS)),)
