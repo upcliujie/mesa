@@ -8031,12 +8031,6 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       }
       FALLTHROUGH;
    }
-   case nir_intrinsic_load_layer_id: {
-      unsigned idx = nir_intrinsic_base(instr);
-      bld.vintrp(aco_opcode::v_interp_mov_f32, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
-                 Operand::c32(2u), bld.m0(get_arg(ctx, ctx->args->ac.prim_mask)), idx, 0);
-      break;
-   }
    case nir_intrinsic_load_frag_coord: {
       emit_load_frag_coord(ctx, get_ssa_temp(ctx, &instr->dest.ssa), 4);
       break;
