@@ -79,7 +79,7 @@ endif
 
 if tu_wsi
   libtu_files += 'tu_wsi.c'
-  tu_link_with += libvulkan_wsi
+  tu_deps += idep_vulkan_wsi
 endif
 
 if with_platform_android
@@ -129,7 +129,6 @@ libvulkan_freedreno = shared_library(
     inc_gallium,
     inc_gallium_aux,
     inc_compiler,
-    inc_vulkan_wsi,
     inc_freedreno,
   ],
   link_with : [
@@ -148,6 +147,7 @@ libvulkan_freedreno = shared_library(
     idep_nir,
     tu_deps,
     idep_vulkan_util,
+    idep_vulkan_wsi_headers,
     idep_mesautil,
   ],
   c_args : [no_override_init_args, tu_flags],
