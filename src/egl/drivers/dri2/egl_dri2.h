@@ -205,6 +205,7 @@ struct dri2_egl_display
 
    /* dri2_initialize/dri2_terminate increment/decrement this count, so does
     * dri2_make_current (tracks if there are active contexts/surfaces). */
+   /* TODO: remove this in favour of _EGLDisplay::RefCount */
    int                       ref_count;
 
    bool                      own_device;
