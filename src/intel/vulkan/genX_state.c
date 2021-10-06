@@ -114,6 +114,36 @@ genX(emit_slice_hashing_state)(struct anv_device *device,
       p.SubsliceHashingTableEnable = true;
       p.SubsliceHashingTableEnableMask = true;
    }
+#elif GFX_VERx10 == 125
+   uint32_t ppipe_mask = 0;
+   for (unsigned p = 0; p < ARRAY_SIZE(device->info.ppipe_subslices); p++) {
+      if (device->info.ppipe_subslices[p])
+         ppipe_mask |= (1u << p);
+   }
+   assert(ppipe_mask);
+
+   if (!device->slice_hash.alloc_size) {
+      unsigned size = GENX(SLICE_HASH_TABLE_length) * 4;
+      device->slice_hash =
+         anv_state_pool_alloc(&device->dynamic_state_pool, size, 64);
+
+      struct GENX(SLICE_HASH_TABLE) table;
+
+      for (unsigned i = 0; i < 7; i++)
+         intel_compute_pixel_hash_table_nway(16, 16, ppipe_mask, table.Entry[i][0]);
+
+      GENX(SLICE_HASH_TABLE_pack)(NULL, device->slice_hash.map, &table);
+   }
+
+   anv_batch_emit(batch, GENX(3DSTATE_SLICE_TABLE_STATE_POINTERS), ptr) {
+      ptr.SliceHashStatePointerValid = true;
+      ptr.SliceHashTableStatePointer = device->slice_hash.offset;
+   }
+
+   anv_batch_emit(batch, GENX(3DSTATE_3D_MODE), mode) {
+      mode.SliceHashingTableEnable = true;
+      mode.SliceHashingTableEnableMask = true;
+   }
 #endif
 }
 
