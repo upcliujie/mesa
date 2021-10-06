@@ -246,8 +246,15 @@ copper_update_drawable_info(struct dri_drawable *drawable)
 {
    __DRIdrawable *dPriv = drawable->dPriv;
    int x, y;
+   struct dri_screen *screen = dri_screen(drawable->sPriv);
+   struct pipe_resource *ptex = drawable->textures[ST_ATTACHMENT_BACK_LEFT] ?
+                                drawable->textures[ST_ATTACHMENT_BACK_LEFT] :
+                                drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
 
-   get_drawable_info(dPriv, &x, &y, &dPriv->w, &dPriv->h);
+   if (ptex)
+      zink_copper_update(screen->base.screen, ptex, &dPriv->w, &dPriv->h);
+   else
+      get_drawable_info(dPriv, &x, &y, &dPriv->w, &dPriv->h);
 }
 
 static inline void
