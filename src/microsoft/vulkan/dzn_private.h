@@ -27,6 +27,7 @@
 #include "vk_command_buffer.h"
 #include "vk_debug_report.h"
 #include "vk_device.h"
+#include "vk_image.h"
 #include "vk_physical_device.h"
 #include "vk_queue.h"
 #include "wsi_common.h"
@@ -367,10 +368,7 @@ struct dzn_graphics_pipeline {
 #define MAX_MIP_LEVELS 14
 
 struct dzn_image {
-   struct vk_object_base base;
-
-   VkImageType type;
-   VkFormat vk_format;
+   struct vk_image vk;
 
    struct {
       uint32_t row_stride;
@@ -379,16 +377,6 @@ struct dzn_image {
    D3D12_RESOURCE_DESC desc;
    ID3D12Resource *res;
    struct dzn_device_memory *mem;
-
-   VkImageAspectFlags aspects;
-   VkExtent3D extent;
-   uint32_t levels;
-   uint32_t array_size;
-   uint32_t samples;
-   uint32_t n_planes;
-   VkImageUsageFlags usage;
-   VkImageCreateFlags create_flags;
-   VkImageTiling tiling;
 };
 
 struct dzn_image_view {
@@ -445,7 +433,7 @@ struct dzn_sampler {
  */
 #define dzn_get_layerCount(_image, _range) \
    ((_range)->layerCount == VK_REMAINING_ARRAY_LAYERS ? \
-    (_image)->array_size - (_range)->baseArrayLayer : (_range)->layerCount)
+    (_image)->vk.array_layers - (_range)->baseArrayLayer : (_range)->layerCount)
 
 
 #ifdef __cplusplus

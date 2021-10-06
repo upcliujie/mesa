@@ -456,9 +456,9 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
          &pImageMemoryBarriers[i].subresourceRange;
 
       uint32_t base_layer, layer_count;
-      if (image->type == VK_IMAGE_TYPE_3D) {
+      if (image->vk.image_type == VK_IMAGE_TYPE_3D) {
          base_layer = 0;
-         layer_count = u_minify(image->extent.depth, range->baseMipLevel);
+         layer_count = u_minify(image->vk.extent.depth, range->baseMipLevel);
       } else {
          base_layer = range->baseArrayLayer;
          layer_count = dzn_get_layerCount(image, range);
@@ -635,10 +635,10 @@ dzn_fill_image_copy_loc(const dzn_image *img,
       assert(subres->mipLevel == 0);
       loc->Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
       loc->PlacedFootprint.Offset = 0;
-      loc->PlacedFootprint.Footprint.Format = dzn_get_format(img->vk_format);
-      loc->PlacedFootprint.Footprint.Width = img->extent.width;
-      loc->PlacedFootprint.Footprint.Height = img->extent.height;
-      loc->PlacedFootprint.Footprint.Depth = img->extent.depth;
+      loc->PlacedFootprint.Footprint.Format = dzn_get_format(img->vk.format);
+      loc->PlacedFootprint.Footprint.Width = img->vk.extent.width;
+      loc->PlacedFootprint.Footprint.Height = img->vk.extent.height;
+      loc->PlacedFootprint.Footprint.Depth = img->vk.extent.depth;
       loc->PlacedFootprint.Footprint.RowPitch = img->linear.row_stride;
    } else {
       loc->Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
@@ -662,10 +662,10 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
 
-   assert(src->samples == dst->samples);
+   assert(src->vk.samples == dst->vk.samples);
 
    /* TODO: MS copies */
-   assert(src->samples == 1);
+   assert(src->vk.samples == 1);
 
    for (int i = 0; i < pCopyImageInfo->regionCount; i++) {
       const VkImageCopy2KHR *region = &pCopyImageInfo->pRegions[i];
@@ -712,21 +712,21 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
       .Format = img->desc.Format,
    };
 
-   switch (img->type) {
+   switch (img->vk.image_type) {
    case VK_IMAGE_TYPE_1D:
       desc.ViewDimension =
-         img->array_size > 1 ?
+         img->vk.array_layers > 1 ?
          D3D12_RTV_DIMENSION_TEXTURE1DARRAY : D3D12_RTV_DIMENSION_TEXTURE1D;
       break;
    case VK_IMAGE_TYPE_2D:
-      if (img->array_size > 1) {
+      if (img->vk.array_layers > 1) {
          desc.ViewDimension =
-            img->samples > 1 ?
+            img->vk.samples > 1 ?
             D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY :
             D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
       } else {
          desc.ViewDimension =
-            img->samples > 1 ?
+            img->vk.samples > 1 ?
             D3D12_RTV_DIMENSION_TEXTURE2DMS :
             D3D12_RTV_DIMENSION_TEXTURE2D;
       }

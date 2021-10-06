@@ -28,22 +28,6 @@
 #include "vk_format.h"
 #include "vk_util.h"
 
-static inline VkExtent3D
-dzn_sanitize_image_extent(const VkImageType imageType,
-                          const VkExtent3D imageExtent)
-{
-   switch (imageType) {
-   case VK_IMAGE_TYPE_1D:
-      return VkExtent3D { imageExtent.width, 1, 1 };
-   case VK_IMAGE_TYPE_2D:
-      return VkExtent3D { imageExtent.width, imageExtent.height, 1 };
-   case VK_IMAGE_TYPE_3D:
-      return imageExtent;
-   default:
-      unreachable("invalid image type");
-   }
-}
-
 VkResult
 dzn_image_create(VkDevice _device,
                  const VkImageCreateInfo *pCreateInfo,
@@ -51,36 +35,15 @@ dzn_image_create(VkDevice _device,
                  VkImage *pImage)
 {
    DZN_FROM_HANDLE(dzn_device, device, _device);
-   dzn_image *image = NULL;
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO);
-   assert(pCreateInfo->mipLevels > 0);
-   assert(pCreateInfo->arrayLayers > 0);
-   assert(pCreateInfo->samples > 0);
-   assert(pCreateInfo->extent.width > 0);
-   assert(pCreateInfo->extent.height > 0);
-   assert(pCreateInfo->extent.depth > 0);
-
-   image = (dzn_image *)
-      vk_object_alloc(&device->vk, alloc, sizeof(*image),
-                      VK_OBJECT_TYPE_IMAGE);
+   dzn_image *image = (dzn_image *)
+      vk_zalloc2(&device->vk.alloc, alloc, sizeof(*image), 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!image)
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   image->type = pCreateInfo->imageType;
-   image->extent = dzn_sanitize_image_extent(pCreateInfo->imageType,
-                                             pCreateInfo->extent);
-   image->vk_format = pCreateInfo->format;
-   // image->format = dzn_get_format(pCreateInfo->format);
-   image->aspects = vk_format_aspects(image->vk_format);
-   image->levels = pCreateInfo->mipLevels;
-   image->array_size = pCreateInfo->arrayLayers;
-   image->samples = pCreateInfo->samples;
-   image->usage = pCreateInfo->usage;
-   image->create_flags = pCreateInfo->flags;
-   image->tiling = pCreateInfo->tiling;
+   vk_image_init(&device->vk, &image->vk, pCreateInfo);
 
-   if (image->tiling == VK_IMAGE_TILING_LINEAR) {
+   if (image->vk.tiling == VK_IMAGE_TILING_LINEAR) {
       /* Treat linear images as buffers: they should only be used as copy
        * src/dest, and CopyTextureResource() can manipulate buffers.
        * We only support linear tiling on things strictly required by the spec:
@@ -106,8 +69,8 @@ dzn_image_create(VkDevice _device,
       D3D12_RESOURCE_DESC desc = {
          .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
          .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
-         .Width = image->extent.width,
-         .Height = image->extent.height,
+         .Width = image->vk.extent.width,
+         .Height = image->vk.extent.height,
          .DepthOrArraySize = 1,
          .MipLevels = 1,
          .Format = dzn_get_format(pCreateInfo->format),
@@ -133,10 +96,10 @@ dzn_image_create(VkDevice _device,
    } else {
       image->desc.Format = dzn_get_format(pCreateInfo->format);
       image->desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
-      image->desc.Width = image->extent.width;
-      image->desc.Height = image->extent.height;
+      image->desc.Width = image->vk.extent.width;
+      image->desc.Height = image->vk.extent.height;
       image->desc.DepthOrArraySize = pCreateInfo->imageType == VK_IMAGE_TYPE_3D ?
-                                     image->extent.depth :
+                                     image->vk.extent.depth :
                                      pCreateInfo->arrayLayers;
       image->desc.MipLevels = pCreateInfo->mipLevels;
       image->desc.SampleDesc.Count = pCreateInfo->samples;
@@ -152,17 +115,17 @@ dzn_image_create(VkDevice _device,
 
    image->desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-   if (image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+   if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
       image->desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 
-   if (image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+   if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       image->desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-      if (!(image->usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)))
+      if (!(image->vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)))
          image->desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
    }
 
-   if (image->usage & VK_IMAGE_USAGE_STORAGE_BIT)
+   if (image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)
       image->desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
    *pImage = dzn_image_to_handle(image);
@@ -217,7 +180,8 @@ dzn_DestroyImage(VkDevice _device, VkImage _image,
 
    // TODO: release image
 
-   vk_object_free(&device->vk, pAllocator, image);
+   vk_image_finish(&image->vk);
+   vk_free2(&device->vk.alloc, pAllocator, image);
 }
 
 static dzn_image *
@@ -261,7 +225,7 @@ VkResult dzn_BindImageMemory2(
                dzn_swapchain_get_image(swapchain_info->swapchain,
                                        swapchain_info->imageIndex);
             assert(swapchain_image);
-            assert(image->aspects == swapchain_image->aspects);
+            assert(image->vk.aspects == swapchain_image->vk.aspects);
             assert(mem == NULL);
 
             /* TODO: something something binding the image memory */
@@ -491,25 +455,25 @@ dzn_CreateImageView(VkDevice _device,
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
 
    assert(range->layerCount > 0);
-   assert(range->baseMipLevel < image->levels);
+   assert(range->baseMipLevel < image->vk.mip_levels);
 
    /* View usage should be a subset of image usage */
-   assert(image->usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
-                          VK_IMAGE_USAGE_STORAGE_BIT |
-                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                          VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
-                          VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT));
+   assert(image->vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
+                             VK_IMAGE_USAGE_STORAGE_BIT |
+                             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                             VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT));
 
-   switch (image->type) {
+   switch (image->vk.image_type) {
    default:
       unreachable("bad VkImageType");
    case VK_IMAGE_TYPE_1D:
    case VK_IMAGE_TYPE_2D:
-      assert(range->baseArrayLayer + dzn_get_layerCount(image, range) - 1 <= image->array_size);
+      assert(range->baseArrayLayer + dzn_get_layerCount(image, range) - 1 <= image->vk.array_layers);
       break;
    case VK_IMAGE_TYPE_3D:
       assert(range->baseArrayLayer + dzn_get_layerCount(image, range) - 1
-             <= u_minify(image->extent.depth, range->baseMipLevel));
+             <= u_minify(image->vk.extent.depth, range->baseMipLevel));
       break;
    }
 
@@ -521,9 +485,9 @@ dzn_CreateImageView(VkDevice _device,
     */
 
    iview->extent = VkExtent3D {
-      .width  = u_minify(image->extent.width , range->baseMipLevel),
-      .height = u_minify(image->extent.height, range->baseMipLevel),
-      .depth  = u_minify(image->extent.depth , range->baseMipLevel),
+      .width  = u_minify(image->vk.extent.width , range->baseMipLevel),
+      .height = u_minify(image->vk.extent.height, range->baseMipLevel),
+      .depth  = u_minify(image->vk.extent.depth , range->baseMipLevel),
    };
 
    /* TODO: have a shader-invisible pool for iview descs, and copy those with
@@ -531,7 +495,7 @@ dzn_CreateImageView(VkDevice _device,
     */
    iview->desc.Format = dzn_get_format(pCreateInfo->format);
    iview->desc.ViewDimension =
-      translate_view_type_to_srv_dim(pCreateInfo->viewType, image->samples);
+      translate_view_type_to_srv_dim(pCreateInfo->viewType, image->vk.samples);
    iview->desc.Shader4ComponentMapping =
       D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
          translate_swizzle(pCreateInfo->components.r, 0),
@@ -604,12 +568,12 @@ dzn_CreateImageView(VkDevice _device,
    default: unreachable("Invalid dimension");
    }
 
-   if (image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+   if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
       D3D12_RENDER_TARGET_VIEW_DESC desc = {};
       desc.Format = iview->desc.Format;
 
       desc.ViewDimension =
-         translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->samples);
+         translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->vk.samples);
 
       assert(range->levelCount == 1);
 
@@ -649,11 +613,11 @@ dzn_CreateImageView(VkDevice _device,
                                           iview->rt_handle.cpu_handle);
    }
 
-   if (image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+   if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       D3D12_DEPTH_STENCIL_VIEW_DESC desc = { };
       desc.Format = iview->desc.Format;
       desc.ViewDimension =
-         translate_view_type_to_dsv_dim(pCreateInfo->viewType, image->samples);
+         translate_view_type_to_dsv_dim(pCreateInfo->viewType, image->vk.samples);
 
       switch (desc.ViewDimension) {
       case D3D12_DSV_DIMENSION_TEXTURE1D:
@@ -704,13 +668,13 @@ dzn_DestroyImageView(VkDevice _device,
    if (!iview)
       return;
 
-   if (iview->image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+   if (iview->image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
       mtx_lock(&device->pools_lock);
       d3d12_descriptor_handle_free(&iview->rt_handle);
       mtx_unlock(&device->pools_lock);
    }
 
-   if (iview->image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+   if (iview->image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       mtx_lock(&device->pools_lock);
       d3d12_descriptor_handle_free(&iview->zs_handle);
       mtx_unlock(&device->pools_lock);
