@@ -100,7 +100,10 @@ get_time(void)
 #define VG_DEFINED(ptr, size) VG(VALGRIND_MAKE_MEM_DEFINED(ptr, size))
 #define VG_NOACCESS(ptr, size) VG(VALGRIND_MAKE_MEM_NOACCESS(ptr, size))
 
+/* page size is already defined in case of FreeBSD */
+#ifndef PAGE_SIZE
 #define PAGE_SIZE 4096
+#endif
 
 #define WARN_ONCE(cond, fmt...) do {                            \
    if (unlikely(cond)) {                                        \
