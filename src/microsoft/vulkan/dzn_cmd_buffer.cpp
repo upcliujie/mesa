@@ -83,7 +83,9 @@ dzn_cmd_buffer_destroy(struct dzn_cmd_buffer *cmd_buffer)
       (*heap)->Release();
 
    util_dynarray_fini(&cmd_buffer->heaps);
-   vk_object_free(&cmd_buffer->device->vk, &cmd_buffer->pool->alloc, cmd_buffer);
+   vk_command_buffer_finish(&cmd_buffer->vk);
+   vk_free2(&cmd_buffer->device->vk.alloc, &cmd_buffer->pool->alloc,
+            cmd_buffer);
 }
 
 void
@@ -165,14 +167,17 @@ dzn_create_cmd_buffer(struct dzn_device *device,
                       VkCommandBufferLevel level,
                       VkCommandBuffer *pCommandBuffer)
 {
-   dzn_cmd_buffer *cmd_buffer;
    VkResult result;
 
-   cmd_buffer = (dzn_cmd_buffer *)
-      vk_object_zalloc(&device->vk, &pool->alloc, sizeof(*cmd_buffer),
-                       VK_OBJECT_TYPE_COMMAND_BUFFER);
+   dzn_cmd_buffer *cmd_buffer = (dzn_cmd_buffer *)
+      vk_zalloc2(&device->vk.alloc, &pool->alloc, sizeof(*cmd_buffer), 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (cmd_buffer == NULL)
       return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+
+   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
+   if (result != VK_SUCCESS)
+      goto fail;
 
    util_dynarray_init(&cmd_buffer->heaps, NULL);
    cmd_buffer->device = device;
@@ -190,18 +195,21 @@ dzn_create_cmd_buffer(struct dzn_device *device,
    if (FAILED(device->dev->CreateCommandAllocator(cmd_buffer->type,
                                                   IID_PPV_ARGS(&cmd_buffer->alloc)))) {
       result = vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
-      goto fail;
+      goto fail_cmd_buffer;
    }
 
    result = dzn_cmd_open_batch(cmd_buffer);
    if (result != VK_SUCCESS)
-      goto fail;
+      goto fail_cmd_buffer;
 
    list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
 
    *pCommandBuffer = dzn_cmd_buffer_to_handle(cmd_buffer);
 
    return VK_SUCCESS;
+
+fail_cmd_buffer:
+   vk_command_buffer_finish(&cmd_buffer->vk);
 
  fail:
    if (cmd_buffer->alloc)
@@ -277,6 +285,7 @@ dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmd_buffer)
    util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
       (*heap)->Release();
    util_dynarray_clear(&cmd_buffer->heaps);
+   vk_command_buffer_reset(&cmd_buffer->vk);
 
    return VK_SUCCESS;
 }

@@ -24,6 +24,7 @@
 #ifndef DZN_PRIVATE_H
 #define DZN_PRIVATE_H
 
+#include "vk_command_buffer.h"
 #include "vk_debug_report.h"
 #include "vk_device.h"
 #include "vk_physical_device.h"
@@ -194,7 +195,7 @@ struct dzn_batch {
 };
 
 struct dzn_cmd_buffer {
-   struct vk_object_base base;
+   struct vk_command_buffer vk;
 
    struct dzn_device *device;
 
