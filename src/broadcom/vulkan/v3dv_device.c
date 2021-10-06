@@ -186,6 +186,8 @@ v3dv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    struct vk_instance_dispatch_table dispatch_table;
    vk_instance_dispatch_table_from_entrypoints(
       &dispatch_table, &v3dv_instance_entrypoints, true);
+   vk_instance_dispatch_table_from_entrypoints(
+      &dispatch_table, &wsi_instance_entrypoints, false);
 
    result = vk_instance_init(&instance->vk,
                              &instance_extensions,
@@ -691,6 +693,8 @@ physical_device_init(struct v3dv_physical_device *device,
    struct vk_physical_device_dispatch_table dispatch_table;
    vk_physical_device_dispatch_table_from_entrypoints
       (&dispatch_table, &v3dv_physical_device_entrypoints, true);
+   vk_physical_device_dispatch_table_from_entrypoints(
+      &dispatch_table, &wsi_physical_device_entrypoints, false);
 
    result = vk_physical_device_init(&device->vk, &instance->vk, NULL,
                                     &dispatch_table);
@@ -1750,6 +1754,8 @@ v3dv_CreateDevice(VkPhysicalDevice physicalDevice,
    struct vk_device_dispatch_table dispatch_table;
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
                                              &v3dv_device_entrypoints, true);
+   vk_device_dispatch_table_from_entrypoints(&dispatch_table,
+                                             &wsi_device_entrypoints, false);
    result = vk_device_init(&device->vk, &physical_device->vk,
                            &dispatch_table, pCreateInfo, pAllocator);
    if (result != VK_SUCCESS) {
