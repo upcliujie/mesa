@@ -32,6 +32,7 @@
 
 struct wgl_egl_display
 {
+   /* TODO: remove this in favour of _EGLDisplay::RefCount */
    int ref_count;
    struct pipe_screen *screen;
 };
