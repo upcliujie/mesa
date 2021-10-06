@@ -95,6 +95,7 @@ lima_nir_lower_txp_block(nir_block *block, nir_builder *b)
       switch (tex->sampler_dim) {
       case GLSL_SAMPLER_DIM_RECT:
       case GLSL_SAMPLER_DIM_2D:
+      case GLSL_SAMPLER_DIM_3D:
          break;
       default:
          continue;
