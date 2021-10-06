@@ -222,7 +222,7 @@ struct radv_shader_info {
    uint8_t num_inline_push_consts;
    uint8_t base_inline_push_consts;
    uint32_t desc_set_used_mask;
-   bool needs_multiview_view_index;
+   bool uses_view_index;
    bool uses_invocation_id;
    bool uses_prim_id;
    uint8_t wave_size;

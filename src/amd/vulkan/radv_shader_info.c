@@ -188,7 +188,7 @@ gather_intrinsic_info(const nir_shader *nir, const nir_intrinsic_instr *instr,
       info->ps.reads_sample_mask_in = true;
       break;
    case nir_intrinsic_load_view_index:
-      info->needs_multiview_view_index = true;
+      info->uses_view_index = true;
       break;
    case nir_intrinsic_load_invocation_id:
       info->uses_invocation_id = true;
