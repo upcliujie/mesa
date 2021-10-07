@@ -139,9 +139,21 @@ TEST_F(SIMDSelectionCS, WorkgroupSizeVariable)
    prog_data->local_size[1] = 0;
    prog_data->local_size[2] = 0;
 
-   /* Just ensure that we should compile all the shader variants, since the
-    * actual selection will happen later at dispatch time.
-    */
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD32));
+   brw_simd_mark_compiled(SIMD32, prog_data, not_spilled);
+
+   ASSERT_EQ(prog_data->prog_mask, 1 << SIMD8 | 1 << SIMD16 | 1 << SIMD32);
+}
+
+TEST_F(SIMDSelectionCS, WorkgroupSizeVariableSpilled)
+{
+   prog_data->local_size[0] = 0;
+   prog_data->local_size[1] = 0;
+   prog_data->local_size[2] = 0;
 
    ASSERT_TRUE(should_compile(SIMD8));
    brw_simd_mark_compiled(SIMD8, prog_data, spilled);
@@ -150,7 +162,7 @@ TEST_F(SIMDSelectionCS, WorkgroupSizeVariable)
    ASSERT_TRUE(should_compile(SIMD32));
    brw_simd_mark_compiled(SIMD32, prog_data, spilled);
 
-   ASSERT_EQ(prog_data->prog_mask, 1 << 0 | 1 << 1 | 1 << 2);
+   ASSERT_EQ(prog_data->prog_mask, 1 << SIMD8 | 1 << SIMD16 | 1 << SIMD32);
 }
 
 TEST_F(SIMDSelectionCS, SpillAtSIMD8)
