@@ -3116,6 +3116,56 @@ combine_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       }
    }
 
+   /* canonicalize constants */
+   for (unsigned i = 0; i < instr->operands.size(); i++) {
+      if (!instr->operands[i].isTemp())
+         continue;
+
+      bool opsel_lo = (vop3p->opsel_lo >> i) & 1;
+      bool opsel_hi = (vop3p->opsel_hi >> i) & 1;
+      if (opsel_lo == opsel_hi)
+         continue;
+
+      ssa_info& info = ctx.info[instr->operands[i].tempId()];
+      if (!info.is_literal(32))
+         continue;
+
+      Operand const_lo = Operand::c16(info.val);
+      Operand const_hi = Operand::c16(info.val >> 16);
+      if (const_lo.isLiteral() || const_hi.isLiteral())
+         continue;
+
+      /* check if we can trim the literal to a constant */
+      bool is_fp_instr = instr_info.can_use_input_modifiers[(int)instr->opcode];
+      if (const_lo == const_hi) {
+         instr->operands[i] = const_lo;
+         /* opsel must point to lo for both halves */
+         vop3p->opsel_lo &= ~(1 << i);
+         vop3p->opsel_hi &= ~(1 << i);
+      } else if (const_lo == Operand::c16(0)) {
+         /* don't inline FP constants into integer instructions */
+         if (!is_fp_instr && const_hi.physReg() >= PhysReg{240})
+            continue;
+
+         instr->operands[i] = const_hi;
+         /* redirect opsel selection */
+         vop3p->opsel_lo ^= (1 << i);
+         vop3p->opsel_hi ^= (1 << i);
+      } else if (is_fp_instr) {
+         /* const_lo == -const_hi */
+         if (const_lo.constantValue() == (const_hi.constantValue() ^ (1 << 15))) {
+            instr->operands[i] = Operand::c16(const_lo.constantValue() & 0x7FFF);
+            bool neg_lo = const_lo.constantValue() & (1 << 15);
+            vop3p->neg_lo[i] ^= ((vop3p->opsel_lo >> i) & 1) ^ neg_lo;
+            vop3p->neg_hi[i] ^= ((vop3p->opsel_hi >> i) & 1) ^ neg_lo;
+
+            /* opsel must point to lo for both operands */
+            vop3p->opsel_lo &= ~(1 << i);
+            vop3p->opsel_hi &= ~(1 << i);
+         }
+      }
+   }
+
    /* check for fneg modifiers */
    if (instr_info.can_use_input_modifiers[(int)instr->opcode]) {
       /* at this point, we only have 2-operand instructions */
