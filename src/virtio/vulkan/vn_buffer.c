@@ -25,6 +25,8 @@ vn_buffer_create(struct vn_device *dev,
                  const VkAllocationCallbacks *alloc,
                  struct vn_buffer **out_buf)
 {
+   VN_TRACE_FUNC();
+
    VkDevice device = vn_device_to_handle(dev);
    struct vn_buffer *buf = NULL;
    VkBuffer buffer = VK_NULL_HANDLE;

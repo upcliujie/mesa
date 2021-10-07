@@ -49,6 +49,42 @@
 #define vn_result(instance, result)                                          \
    ((result) >= VK_SUCCESS ? (result) : vn_error((instance), (result)))
 
+#ifdef ANDROID
+
+#include <cutils/trace.h>
+
+#undef ATRACE_TAG
+#define ATRACE_TAG ATRACE_TAG_GRAPHICS
+
+#define VN_TRACE_BEGIN(name) ATRACE_BEGIN(name)
+
+#define VN_TRACE_END() ATRACE_END()
+
+static inline void
+vn_trace_scope_end(void *scope)
+{
+   VN_TRACE_END();
+}
+
+#define VN_TRACE_SCOPE(name)                                                 \
+   ATRACE_BEGIN(name);                                                       \
+   void *atrace_scoped_event_##__LINE__                                      \
+      __attribute__((cleanup(vn_trace_scope_end), unused));
+
+#define VN_TRACE_FUNC() VN_TRACE_SCOPE(__FUNCTION__)
+
+#else
+
+#define VN_TRACE_BEGIN(...)
+
+#define VN_TRACE_END()
+
+#define VN_TRACE_SCOPE(...)
+
+#define VN_TRACE_FUNC()
+
+#endif
+
 struct vn_instance;
 struct vn_physical_device;
 struct vn_device;
