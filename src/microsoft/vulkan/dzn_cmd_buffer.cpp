@@ -641,6 +641,15 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
 
    cmd_buffer->state.bindpoint[pipelineBindPoint].pipeline = pipeline;
    cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+   if (pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+      const dzn_graphics_pipeline *gfx = (const dzn_graphics_pipeline *)pipeline;
+
+      memcpy(cmd_buffer->state.viewports, gfx->vp.desc,
+             gfx->vp.count * sizeof(cmd_buffer->state.viewports[0]));
+      memcpy(cmd_buffer->state.scissors, gfx->scissor.desc,
+             gfx->scissor.count * sizeof(cmd_buffer->state.scissors[0]));
+      cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
+   }
 }
 
 static void
