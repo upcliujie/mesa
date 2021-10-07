@@ -100,7 +100,7 @@ dzn_CreateDescriptorSetLayout(VkDevice _device,
                                 pCreateInfo->bindingCount,
                                 &bindings);
    if (ret != VK_SUCCESS)
-      return vk_error(ret);
+      return vk_error(device, ret);
 
    uint32_t binding_count =
       pCreateInfo->bindingCount ?
@@ -267,7 +267,7 @@ dzn_CreateDescriptorSetLayout(VkDevice _device,
 
 err_free_bindings:
    free(bindings);
-   return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+   return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 }
 
 void
@@ -334,7 +334,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
       range_descs = (D3D12_DESCRIPTOR_RANGE1 *)
          calloc(range_desc_count, sizeof(*range_descs));
       if (!range_descs)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
    D3D12_STATIC_SAMPLER_DESC *static_sampler_descs = NULL;
@@ -342,7 +342,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
       static_sampler_descs = (D3D12_STATIC_SAMPLER_DESC *)
          calloc(static_sampler_count, sizeof(*static_sampler_descs));
       if (!static_sampler_descs)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
    D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS * 2] = { };
@@ -439,7 +439,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
       vk_object_zalloc(&device->vk, pAllocator, sizeof(*layout),
                        VK_OBJECT_TYPE_PIPELINE_LAYOUT);
    if (layout == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    if (FAILED(device->dev->CreateRootSignature(0,
                                                sig->GetBufferPointer(),
@@ -464,7 +464,7 @@ out:
    free(static_sampler_descs);
 
    if (ret != VK_SUCCESS)
-      return vk_error(ret);
+      return vk_error(device, ret);
 
    return VK_SUCCESS;
 }
@@ -521,7 +521,7 @@ dzn_CreateDescriptorPool(VkDevice _device,
                        sizeof(struct dzn_descriptor_pool),
                        VK_OBJECT_TYPE_DESCRIPTOR_POOL);
    if (!pool)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    *pDescriptorPool = dzn_descriptor_pool_to_handle(pool);
    return VK_SUCCESS;
@@ -560,7 +560,7 @@ dzn_descriptor_set_create(struct dzn_device *device,
 
    if (!vk_object_multizalloc(&device->vk, &ma, NULL,
                               VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)) {
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
    SIZE_T view_desc_base = 0, sampler_desc_base = 0;

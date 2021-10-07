@@ -30,49 +30,6 @@
 
 #include <directx/d3d12sdklayers.h>
 
-VkResult
-__vk_errorv(dzn_instance *instance,
-            const vk_object_base *object, VkResult error,
-            const char *file, int line, const char *format, va_list ap)
-{
-   char buffer[256];
-   char report[512];
-
-   const char *error_str = vk_Result_to_str(error);
-
-   if (format) {
-      vsnprintf(buffer, sizeof(buffer), format, ap);
-
-      snprintf(report, sizeof(report), "%s:%d: %s (%s)", file, line, buffer,
-               error_str);
-   } else {
-      snprintf(report, sizeof(report), "%s:%d: %s", file, line, error_str);
-   }
-
-   if (instance) {
-      vk_debug_report(&instance->vk, VK_DEBUG_REPORT_ERROR_BIT_EXT,
-                      object, line, 0, "dzn", report);
-   }
-
-   mesa_loge("%s", report);
-
-   return error;
-}
-
-VkResult
-__vk_errorf(dzn_instance *instance,
-            const vk_object_base *object, VkResult error,
-            const char *file, int line, const char *format, ...)
-{
-   va_list ap;
-
-   va_start(ap, format);
-   __vk_errorv(instance, object, error, file, line, format, ap);
-   va_end(ap);
-
-   return error;
-}
-
 IDXGIFactory4 *
 dxgi_get_factory(bool debug)
 {

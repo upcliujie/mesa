@@ -68,7 +68,7 @@ dzn_CreateRenderPass2(VkDevice _device,
 
    if (!vk_object_multizalloc(&device->vk, &ma, pAllocator,
                               VK_OBJECT_TYPE_RENDER_PASS))
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    pass->subpass_count = pCreateInfo->subpassCount;
    pass->subpasses = subpasses;

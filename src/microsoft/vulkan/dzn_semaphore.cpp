@@ -43,7 +43,7 @@ dzn_CreateSemaphore(VkDevice _device,
       vk_alloc2(&device->vk.alloc, pAllocator, sizeof(dzn_semaphore), 8,
                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (sem == NULL)
-      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    /* TODO: do something useful ;) */
 

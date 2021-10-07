@@ -43,7 +43,7 @@ dzn_CreateFence(VkDevice _device,
       vk_object_alloc(&device->vk, pAllocator, sizeof(*fence),
                       VK_OBJECT_TYPE_FENCE);
    if (fence == NULL)
-      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    BOOL initial_state = FALSE;
    if (pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT) {
@@ -57,7 +57,7 @@ dzn_CreateFence(VkDevice _device,
    if (FAILED(device->dev->CreateFence(initial_state ? 1 : 0, D3D12_FENCE_FLAG_NONE,
                                        IID_PPV_ARGS(&fence->fence)))) {
       vk_object_free(&device->vk, pAllocator, fence);
-      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
    fence->event = CreateEventA(NULL, TRUE, initial_state, NULL);

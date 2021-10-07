@@ -41,7 +41,7 @@ dzn_CreatePipelineCache(VkDevice _device,
                 sizeof(*cache), 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (cache == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    /* TODO: cache-ism! */
 

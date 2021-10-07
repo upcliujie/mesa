@@ -39,7 +39,7 @@ dzn_image_create(VkDevice _device,
       vk_zalloc2(&device->vk.alloc, alloc, sizeof(*image), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!image)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_image_init(&device->vk, &image->vk, pCreateInfo);
 
@@ -450,7 +450,7 @@ dzn_CreateImageView(VkDevice _device,
       vk_object_zalloc(&device->vk, pAllocator, sizeof(*iview),
                        VK_OBJECT_TYPE_IMAGE_VIEW);
    if (iview == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
 

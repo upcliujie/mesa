@@ -39,7 +39,7 @@ dzn_CreateCommandPool(VkDevice _device,
       vk_object_alloc(&device->vk, pAllocator, sizeof(*pool),
                       VK_OBJECT_TYPE_COMMAND_POOL);
    if (pool == NULL)
-      vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    if (pAllocator)
       pool->alloc = *pAllocator;
@@ -133,11 +133,11 @@ dzn_cmd_open_batch(dzn_cmd_buffer *cmd_buffer)
    util_dynarray_init(&batch->events.signal, NULL);
 
    if (!batch)
-      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    if (FAILED(device->dev->CreateCommandList(0, cmd_buffer->type, cmd_buffer->alloc, NULL,
                                              IID_PPV_ARGS(&batch->cmdlist))))
-      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    cmd_buffer->batch = batch;
    return VK_SUCCESS;
@@ -173,7 +173,7 @@ dzn_create_cmd_buffer(struct dzn_device *device,
       vk_zalloc2(&device->vk.alloc, &pool->alloc, sizeof(*cmd_buffer), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (cmd_buffer == NULL)
-      return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
    if (result != VK_SUCCESS)
@@ -194,7 +194,7 @@ dzn_create_cmd_buffer(struct dzn_device *device,
 
    if (FAILED(device->dev->CreateCommandAllocator(cmd_buffer->type,
                                                   IID_PPV_ARGS(&cmd_buffer->alloc)))) {
-      result = vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_cmd_buffer;
    }
 

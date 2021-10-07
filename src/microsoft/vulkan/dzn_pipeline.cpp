@@ -153,7 +153,7 @@ dzn_pipeline_compile_shader(dzn_device *device,
       spec = (struct dxil_spirv_specialization *)
          malloc(sizeof(*spec) * spec_info->mapEntryCount);
       if (!spec)
-         return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
       for (uint32_t i = 0; i < spec_info->mapEntryCount; i++) {
          const VkSpecializationMapEntry *entry = &spec_info->pMapEntries[i];
@@ -199,7 +199,7 @@ dzn_pipeline_compile_shader(dzn_device *device,
                       spec, num_spec,
                       to_dxil_shader_stage(stage_info->stage),
                       stage_info->pName, &dbg_opts, &conf, &dxil_object))
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    ShaderBlob blob(dxil_object.binary.buffer, dxil_object.binary.size);
    ComPtr<IDxcOperationResult> result;
@@ -240,7 +240,7 @@ dzn_pipeline_compile_shader(dzn_device *device,
          }
       }
 
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
    slot->pShaderBytecode = dxil_object.binary.buffer;
@@ -279,7 +279,7 @@ dzn_pipeline_translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
    D3D12_INPUT_ELEMENT_DESC *inputs = (D3D12_INPUT_ELEMENT_DESC *)
       calloc(vi->vertexAttributeDescriptionCount, sizeof(*inputs));
    if (!inputs)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(pipeline, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    D3D12_INPUT_CLASSIFICATION slot_class[MAX_VBS];
 
@@ -663,7 +663,7 @@ graphics_pipeline_create(dzn_device *device,
       vk_object_zalloc(&device->vk, pAllocator,
                        sizeof(*pipeline), VK_OBJECT_TYPE_PIPELINE);
    if (pipeline == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    pipeline->base.layout = layout;
 

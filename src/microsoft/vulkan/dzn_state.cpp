@@ -59,7 +59,7 @@ dzn_CreateSampler(VkDevice _device,
       vk_object_zalloc(&device->vk, pAllocator, sizeof(*sampler),
                        VK_OBJECT_TYPE_SAMPLER);
    if (!sampler)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    /* TODO: have a sampler pool to allocate shader-invisible descs which we
     * can copy to the desc_set when UpdateDescriptorSets() is called.

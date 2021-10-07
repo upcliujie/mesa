@@ -80,7 +80,7 @@ dzn_EnumerateInstanceExtensionProperties(const char *pLayerName,
 {
    /* We don't support any layers  */
    if (pLayerName)
-      return vk_error(VK_ERROR_LAYER_NOT_PRESENT);
+      return vk_error(NULL, VK_ERROR_LAYER_NOT_PRESENT);
 
    return vk_enumerate_instance_extension_properties(
       &instance_extensions, pPropertyCount, pProperties);
@@ -111,7 +111,7 @@ dzn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
       pAllocator, sizeof(*instance), 8,
       VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
    if (!instance)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_instance_dispatch_table dispatch_table;
    vk_instance_dispatch_table_from_entrypoints(
@@ -121,7 +121,7 @@ dzn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
                              &dispatch_table, pCreateInfo, pAllocator);
    if (result != VK_SUCCESS) {
       vk_free(pAllocator, instance);
-      return vk_error(result);
+      return vk_error(NULL, result);
    }
 
    instance->physical_devices_enumerated = false;
@@ -175,7 +175,7 @@ create_pysical_device(dzn_instance *instance,
       &instance->vk.alloc, sizeof(*device), 8,
       VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
    if (device == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    vk_physical_device_dispatch_table dispatch_table;
    vk_physical_device_dispatch_table_from_entrypoints(
@@ -188,7 +188,7 @@ create_pysical_device(dzn_instance *instance,
                                     NULL, /* We set up extensions later */
                                     &dispatch_table);
    if (result != VK_SUCCESS) {
-      vk_error(result);
+      vk_error(instance, result);
       goto fail;
    }
    device->instance = instance;
@@ -247,7 +247,7 @@ create_pysical_device(dzn_instance *instance,
 
    result = dzn_wsi_init(device);
    if (result != VK_SUCCESS) {
-      vk_errorfi(instance, NULL, result, NULL);
+      vk_error(instance, result);
       goto fail;
    }
 
@@ -755,7 +755,7 @@ dzn_EnumerateInstanceLayerProperties(uint32_t *pPropertyCount,
       return VK_SUCCESS;
    }
 
-   return vk_error(VK_ERROR_LAYER_NOT_PRESENT);
+   return vk_error(NULL, VK_ERROR_LAYER_NOT_PRESENT);
 }
 
 static VkResult
@@ -778,12 +778,12 @@ queue_init(dzn_device *device, dzn_queue *queue,
    if (FAILED(device->dev->CreateCommandQueue(&queue_desc,
                                               IID_PPV_ARGS(&queue->cmdqueue)))) {
       vk_queue_finish(&queue->vk);
-      return vk_errorfi(device->instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
+      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
    }
 
    if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
                                        IID_PPV_ARGS(&queue->fence))))
-      return vk_errorfi(device->instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
+      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
 
    queue->fence_point = 0;
    return VK_SUCCESS;
@@ -834,7 +834,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
       result = check_physical_device_features(physicalDevice,
                                               pCreateInfo->pEnabledFeatures);
       if (result != VK_SUCCESS)
-         return vk_errorfi(instance, NULL, result, NULL);
+         return vk_error(instance, result);
    }
 
    /* Check requested queues and fail if we are requested to create any
@@ -843,14 +843,14 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
    assert(pCreateInfo->queueCreateInfoCount > 0);
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       if (pCreateInfo->pQueueCreateInfos[i].flags != 0)
-         return vk_errorfi(instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
+         return vk_error(instance, VK_ERROR_INITIALIZATION_FAILED);
    }
 
    dzn_device *device = (dzn_device *)vk_zalloc2(
       &physical_device->instance->vk.alloc, pAllocator,
       sizeof(*device), 8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
    if (!device)
-      return vk_errorfi(instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
+      return vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    mtx_init(&device->pools_lock, mtx_plain);
    vk_device_dispatch_table dispatch_table;
@@ -862,7 +862,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
    result = vk_device_init(&device->vk, &physical_device->vk,
                            &dispatch_table, pCreateInfo, pAllocator);
    if (result != VK_SUCCESS) {
-      vk_errorfi(instance, NULL, result, NULL);
+      vk_error(instance, result);
       goto fail;
    }
 
@@ -873,7 +873,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
 
    device->dev = d3d12_create_device(physical_device->adapter, false);
    if (!device->dev) {
-      vk_errorfi(instance, NULL, VK_ERROR_UNKNOWN, NULL);
+      vk_error(instance, VK_ERROR_UNKNOWN);
       goto fail;
    }
 
@@ -985,7 +985,7 @@ dzn_QueueWaitIdle(VkQueue _queue)
    DZN_FROM_HANDLE(dzn_queue, queue, _queue);
 
    if (FAILED(queue->fence->SetEventOnCompletion(queue->fence_point, NULL)))
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    return VK_SUCCESS;
 }
@@ -1053,7 +1053,7 @@ dzn_AllocateMemory(VkDevice _device,
       vk_object_alloc(&device->vk, pAllocator, sizeof(*mem),
                       VK_OBJECT_TYPE_DEVICE_MEMORY);
    if (mem == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    mem->size = pAllocateInfo->allocationSize;
    mem->map = NULL;
@@ -1092,7 +1092,7 @@ dzn_AllocateMemory(VkDevice _device,
    }
 
    if (FAILED(device->dev->CreateHeap(&heap_desc, IID_PPV_ARGS(&mem->heap)))) {
-      result = vk_errorfi(device->instance, NULL, VK_ERROR_UNKNOWN, NULL);
+      result = vk_error(device, VK_ERROR_UNKNOWN);
       goto fail;
    }
 
@@ -1114,7 +1114,7 @@ dzn_AllocateMemory(VkDevice _device,
                                                      mem->initial_state,
                                                      NULL, IID_PPV_ARGS(&mem->map_res));
       if (FAILED(hr)) {
-         result = vk_errorfi(device->instance, NULL, VK_ERROR_UNKNOWN, NULL);
+         result = vk_error(device, VK_ERROR_UNKNOWN);
          goto fail;
       }
    } else
@@ -1202,7 +1202,7 @@ dzn_MapMemory(VkDevice _device,
    range.End = offset + size;
    void *map = NULL;
    if (FAILED(mem->map_res->Map(0, &range, &map)))
-      return vk_error(VK_ERROR_MEMORY_MAP_FAILED);
+      return vk_error(device, VK_ERROR_MEMORY_MAP_FAILED);
 
    mem->map = map;
    mem->map_size = size;
@@ -1260,7 +1260,7 @@ dzn_CreateBuffer(VkDevice _device,
       vk_object_alloc(&device->vk, pAllocator, sizeof(*buffer),
                       VK_OBJECT_TYPE_BUFFER);
    if (buffer == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    buffer->create_flags = pCreateInfo->flags;
    buffer->size = pCreateInfo->size;
@@ -1390,7 +1390,7 @@ dzn_CreateFramebuffer(VkDevice _device,
       vk_object_alloc(&device->vk, pAllocator, size,
                       VK_OBJECT_TYPE_FRAMEBUFFER);
    if (framebuffer == NULL)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    framebuffer->width = pCreateInfo->width;
    framebuffer->height = pCreateInfo->height;
@@ -1435,7 +1435,7 @@ dzn_CreateEvent(VkDevice _device,
 
    if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
                                        IID_PPV_ARGS(&event->fence))))
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    *pEvent = dzn_event_to_handle(event);
    return VK_SUCCESS;

@@ -28,6 +28,7 @@
 #include "vk_debug_report.h"
 #include "vk_device.h"
 #include "vk_image.h"
+#include "vk_log.h"
 #include "vk_physical_device.h"
 #include "vk_queue.h"
 #include "wsi_common.h"
@@ -74,33 +75,6 @@ struct dzn_physical_device {
 
    VkPhysicalDeviceMemoryProperties memory;
 };
-
-VkResult __vk_errorv(struct dzn_instance *instance,
-                     const struct vk_object_base *object, VkResult error,
-                     const char *file, int line, const char *format,
-                     va_list args);
-
-VkResult __vk_errorf(struct dzn_instance *instance,
-                     const struct vk_object_base *object, VkResult error,
-                     const char *file, int line, const char *format, ...)
-   PRINTFLIKE(6, 7);
-
-#ifdef DEBUG
-#define vk_error(error) __vk_errorf(NULL, NULL, error, __FILE__, __LINE__, NULL)
-#define vk_errorfi(instance, obj, error, format, ...)\
-    __vk_errorf(instance, obj, error,\
-                __FILE__, __LINE__, format, ## __VA_ARGS__)
-#else
-
-static inline VkResult __dummy_vk_error(VkResult error, UNUSED const void *ignored)
-{
-   return error;
-}
-
-#define vk_error(error) __dummy_vk_error(error, NULL)
-#define vk_errorfi(instance, obj, error, format, ...) __dummy_vk_error(error, instance)
-#define vk_errorf(device, obj, error, format, ...) __dummy_vk_error(error, device)
-#endif
 
 #define dzn_debug_ignored_stype(sType) \
    mesa_logd("%s: ignored VkStructureType %u\n", __func__, (sType))
