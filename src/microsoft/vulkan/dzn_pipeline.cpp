@@ -629,12 +629,15 @@ dzn_pipeline_translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
 }
 
 static void
-graphics_pipeline_destroy(struct dzn_device *device,
-                          struct dzn_graphics_pipeline *pipeline,
-                          const VkAllocationCallbacks *pAllocator)
+dzn_pipeline_destroy(struct dzn_device *device,
+                     struct dzn_pipeline *pipeline,
+                     const VkAllocationCallbacks *pAllocator)
 {
-   if (pipeline->base.state)
-      pipeline->base.state->Release();
+   if (!pipeline)
+      return;
+
+   if (pipeline->state)
+      pipeline->state->Release();
 
    vk_object_free(&device->vk, pAllocator, pipeline);
 }
@@ -726,7 +729,7 @@ out:
    free((void *)desc.InputLayout.pInputElementDescs);
 
    if (ret != VK_SUCCESS)
-      graphics_pipeline_destroy(device, pipeline, pAllocator);
+      dzn_pipeline_destroy(device, &pipeline->base, pAllocator);
 
    return ret;
 }
@@ -768,4 +771,15 @@ dzn_CreateGraphicsPipelines(VkDevice _device,
       pPipelines[i] = VK_NULL_HANDLE;
 
    return result;
+}
+
+void
+dzn_DestroyPipeline(VkDevice _device,
+                    VkPipeline _pipeline,
+                    const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
+
+   dzn_pipeline_destroy(device, pipeline, pAllocator);
 }
