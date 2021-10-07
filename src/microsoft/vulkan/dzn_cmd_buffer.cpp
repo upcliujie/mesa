@@ -323,11 +323,36 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 {
    DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   /* no idea what this really means in D3D12... */
-   assert(memoryBarrierCount == 0);
+   /* Global memory barriers can be emulated with NULL UAV/Aliasing barriers.
+    * Scopes are not taken into account, but that's inherent to the current
+    * D3D12 barrier API.
+    */
+   if (memoryBarrierCount) {
+      D3D12_RESOURCE_BARRIER barriers[2];
 
-   /* TODO: use D3D12_RESOURCE_BARRIER_TYPE_UAV */
-   assert(bufferMemoryBarrierCount == 0);
+      barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+      barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+      barriers[0].UAV.pResource = NULL;
+      barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+      barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+      barriers[1].Aliasing.pResourceBefore = NULL;
+      barriers[1].Aliasing.pResourceAfter = NULL;
+      cmd_buffer->cmdlist->ResourceBarrier(2, barriers);
+   }
+
+   for (uint32_t i = 0; i < bufferMemoryBarrierCount; i++) {
+      DZN_FROM_HANDLE(dzn_buffer, buf, pBufferMemoryBarriers[i].buffer);
+      D3D12_RESOURCE_BARRIER barrier;
+
+      /* UAV are used only for storage buffers, skip all other buffers. */
+      if (!(buf->usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
+         continue;
+
+      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+      barrier.UAV.pResource = buf->res;
+      cmd_buffer->cmdlist->ResourceBarrier(1, &barrier);
+   }
 
    for (uint32_t i = 0; i < imageMemoryBarrierCount; i++) {
       /* D3D12_RESOURCE_BARRIER_TYPE_TRANSITION */
