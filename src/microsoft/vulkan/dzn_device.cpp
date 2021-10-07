@@ -1208,6 +1208,22 @@ dzn_UnmapMemory(VkDevice _device,
 }
 
 VkResult
+dzn_FlushMappedMemoryRanges(VkDevice _device,
+                            uint32_t memoryRangeCount,
+                            const VkMappedMemoryRange *pMemoryRanges)
+{
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_InvalidateMappedMemoryRanges(VkDevice _device,
+                                 uint32_t memoryRangeCount,
+                                 const VkMappedMemoryRange *pMemoryRanges)
+{
+   return VK_SUCCESS;
+}
+
+VkResult
 dzn_CreateBuffer(VkDevice _device,
                  const VkBufferCreateInfo *pCreateInfo,
                  const VkAllocationCallbacks *pAllocator,
