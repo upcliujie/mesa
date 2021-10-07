@@ -562,3 +562,50 @@ dzn_DestroyImageView(VkDevice _device,
 
    vk_object_free(&device->vk, pAllocator, iview);
 }
+
+VkResult
+dzn_CreateBufferView(VkDevice _device,
+                     const VkBufferViewCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator,
+                     VkBufferView *pView)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_buffer, buf, pCreateInfo->buffer);
+   enum pipe_format pfmt = vk_format_to_pipe_format(pCreateInfo->format);
+   unsigned blksz = util_format_get_blocksize(pfmt);
+   VkDeviceSize size =
+      pCreateInfo->range == VK_WHOLE_SIZE ?
+      buf->size - pCreateInfo->offset : pCreateInfo->range;
+   dzn_buffer_view *bview;
+
+   bview = (dzn_buffer_view *)
+      vk_object_zalloc(&device->vk, pAllocator, sizeof(*bview),
+                       VK_OBJECT_TYPE_BUFFER_VIEW);
+
+   bview->buffer = buf;
+   bview->desc.Format = dzn_get_format(pCreateInfo->format);
+   bview->desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+   bview->desc.Shader4ComponentMapping =
+      D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+   bview->desc.Buffer.FirstElement = pCreateInfo->offset / blksz;
+   bview->desc.Buffer.NumElements = size / blksz;
+   bview->desc.Buffer.StructureByteStride = blksz;
+   bview->desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+   *pView = dzn_buffer_view_to_handle(bview);
+   return VK_SUCCESS;
+}
+
+void
+dzn_DestroyBufferView(VkDevice _device,
+                      VkBufferView bufferView,
+                      const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_buffer_view, bview, bufferView);
+
+   if (!bview)
+      return;
+
+   vk_object_free(&device->vk, pAllocator, bview);
+}

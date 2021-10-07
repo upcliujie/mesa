@@ -374,6 +374,14 @@ struct dzn_image_view {
    struct d3d12_descriptor_handle zs_handle;
 };
 
+struct dzn_buffer_view {
+   struct vk_object_base base;
+
+   const struct dzn_buffer *buffer;
+
+   D3D12_SHADER_RESOURCE_VIEW_DESC desc;
+};
+
 struct dzn_framebuffer {
    struct vk_object_base base;
 
