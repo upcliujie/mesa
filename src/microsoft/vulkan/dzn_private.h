@@ -30,6 +30,7 @@
 #include "vk_queue.h"
 #include "wsi_common.h"
 
+#include "util/bitset.h"
 #include "util/blob.h"
 #include "util/u_dynarray.h"
 #include "util/log.h"
@@ -189,6 +190,10 @@ struct dzn_cmd_buffer {
       const struct dzn_pipeline *pipeline;
       ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
       struct dzn_render_pass *pass;
+      struct {
+         BITSET_DECLARE(dirty, MAX_VBS);
+         D3D12_VERTEX_BUFFER_VIEW views[MAX_VBS];
+      } vb;
       D3D12_VIEWPORT viewports[MAX_VP];
       D3D12_RECT scissors[MAX_SCISSOR];
       uint32_t dirty;
@@ -309,8 +314,10 @@ struct dzn_pipeline {
 struct dzn_graphics_pipeline {
    struct dzn_pipeline base;
    struct {
+      unsigned count;
       uint32_t strides[MAX_VBS];
    } vb;
+
    struct {
       D3D_PRIMITIVE_TOPOLOGY topology;
    } ia;

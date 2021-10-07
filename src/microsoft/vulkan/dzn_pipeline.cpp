@@ -279,16 +279,18 @@ dzn_pipeline_translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
 
    D3D12_INPUT_CLASSIFICATION slot_class[MAX_VBS];
 
+   pipeline->vb.count = 0;
    for (uint32_t i = 0; i < vi->vertexBindingDescriptionCount; i++) {
       const struct VkVertexInputBindingDescription *bdesc =
          &vi->pVertexBindingDescriptions[i];
 
-      pipeline->vb.strides[i] = bdesc->stride;
+      pipeline->vb.count = MAX2(pipeline->vb.count, bdesc->binding + 1);
+      pipeline->vb.strides[bdesc->binding] = bdesc->stride;
       if (bdesc->inputRate == VK_VERTEX_INPUT_RATE_INSTANCE) {
-         slot_class[i] = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
+         slot_class[bdesc->binding] = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
       } else {
          assert(bdesc->inputRate == VK_VERTEX_INPUT_RATE_VERTEX);
-         slot_class[i] = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
+         slot_class[bdesc->binding] = D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA;
       }
    }
 

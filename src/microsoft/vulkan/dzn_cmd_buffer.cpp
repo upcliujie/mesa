@@ -649,6 +649,12 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
       memcpy(cmd_buffer->state.scissors, gfx->scissor.desc,
              gfx->scissor.count * sizeof(cmd_buffer->state.scissors[0]));
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
+
+      for (uint32_t vb = 0; vb < gfx->vb.count; vb++)
+         cmd_buffer->state.vb.views[vb].StrideInBytes = gfx->vb.strides[vb];
+
+      if (gfx->vb.count > 0)
+         BITSET_SET_RANGE(cmd_buffer->state.vb.dirty, 0, gfx->vb.count - 1);
    }
 }
 
@@ -838,6 +844,19 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
 }
 
+static void
+update_vbviews(dzn_cmd_buffer *cmd_buffer)
+{
+   struct dzn_graphics_pipeline *pipeline =
+      container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
+   unsigned start, end;
+
+   BITSET_FOREACH_RANGE(start, end, cmd_buffer->state.vb.dirty, MAX_VBS)
+      cmd_buffer->cmdlist->IASetVertexBuffers(start, end - start, cmd_buffer->state.vb.views);
+
+   BITSET_CLEAR_RANGE(cmd_buffer->state.vb.dirty, 0, MAX_VBS);
+}
+
 void
 dzn_CmdDraw(VkCommandBuffer commandBuffer,
             uint32_t vertexCount,
@@ -851,6 +870,31 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
    update_heaps(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
    update_viewports(cmd_buffer);
    update_scissors(cmd_buffer);
+   update_vbviews(cmd_buffer);
 
    cmd_buffer->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void
+dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
+                         uint32_t firstBinding,
+                         uint32_t bindingCount,
+                         const VkBuffer *pBuffers,
+                         const VkDeviceSize *pOffsets)
+{
+   if (!bindingCount)
+      return;
+
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   D3D12_VERTEX_BUFFER_VIEW *vbviews = cmd_buffer->state.vb.views;
+
+   for (uint32_t i = 0; i < bindingCount; i++) {
+      DZN_FROM_HANDLE(dzn_buffer, buf, pBuffers[i]);
+
+      vbviews[firstBinding + i].BufferLocation = buf->res->GetGPUVirtualAddress() + pOffsets[i];
+      vbviews[firstBinding + i].SizeInBytes = buf->size - pOffsets[i];
+   }
+
+   BITSET_SET_RANGE(cmd_buffer->state.vb.dirty, firstBinding,
+                    firstBinding + bindingCount - 1);
 }
