@@ -196,8 +196,7 @@ struct ssa_info {
       add_label(label_literal);
       val = constant;
 
-      /* check that no upper bits are lost in case of packed 16bit constants */
-      if (chip >= GFX8 && !op16.isLiteral() && op16.constantValue64() == constant)
+      if (chip >= GFX8 && !op16.isLiteral() && op16.constantValue64() == uint16_t(constant))
          add_label(label_constant_16bit);
 
       if (!op32.isLiteral())
@@ -765,9 +764,16 @@ get_operand_size(aco_ptr<Instruction>& instr, unsigned index)
    else if (instr->opcode == aco_opcode::v_mad_u64_u32 ||
             instr->opcode == aco_opcode::v_mad_i64_i32)
       return index == 2 ? 64 : 32;
-   else if (instr->isVALU() || instr->isSALU())
-      return instr_info.operand_size[(int)instr->opcode];
-   else
+   else if (instr->isVALU() || instr->isSALU()) {
+      unsigned size = instr_info.operand_size[(int)instr->opcode];
+
+      /* check that no upper bits are lost in case of packed 16bit constants */
+      if (size == 16 && instr->isVOP3P() &&
+          (instr->vop3p().opsel_lo | instr->vop3p().opsel_hi) & (1 << index))
+         return 32;
+
+      return size;
+   } else
       return 0;
 }
 
