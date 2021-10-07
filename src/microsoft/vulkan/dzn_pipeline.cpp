@@ -151,10 +151,8 @@ dzn_pipeline_compile_shader(dzn_device *device,
    if (spec_info && spec_info->mapEntryCount) {
       spec = (struct dxil_spirv_specialization *)
          malloc(sizeof(*spec) * spec_info->mapEntryCount);
-      if (!spec) {
-         assert(0);
+      if (!spec)
          return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
-      }
 
       for (uint32_t i = 0; i < spec_info->mapEntryCount; i++) {
          const VkSpecializationMapEntry *entry = &spec_info->pMapEntries[i];
@@ -196,10 +194,8 @@ dzn_pipeline_compile_shader(dzn_device *device,
    if (!spirv_to_dxil(module->code, module->code_size / sizeof(uint32_t),
                       spec, num_spec,
                       to_dxil_shader_stage(stage_info->stage),
-                      stage_info->pName, &dbg_opts, &conf, &dxil_object)) {
-      assert(0);
+                      stage_info->pName, &dbg_opts, &conf, &dxil_object))
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
 
    ShaderBlob blob(dxil_object.binary.buffer, dxil_object.binary.size);
    ComPtr<IDxcOperationResult> result;
@@ -600,7 +596,6 @@ dzn_pipeline_translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
       blend->logicOpEnable ?
       translate_logic_op(blend->logicOp) : D3D12_LOGIC_OP_NOOP;
    desc->BlendState.AlphaToCoverageEnable = ms->alphaToCoverageEnable;
-   fprintf(stdout, "%s:%i blend->attachmentCount %d\n", __func__, __LINE__, blend->attachmentCount); fflush(stdout);
    for (uint32_t i = 0; i < blend->attachmentCount; i++) {
       if (i > 0 &&
           !memcmp(&blend->pAttachments[i - 1], &blend->pAttachments[i],
@@ -609,8 +604,6 @@ dzn_pipeline_translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
 
       desc->BlendState.RenderTarget[i].BlendEnable =
          blend->pAttachments[i].blendEnable;
-      fprintf(stdout, "%s:%i RT %d desc->BlendState.RenderTarget[i].BlendEnable %d\n", __func__, __LINE__, i, desc->BlendState.RenderTarget[i].BlendEnable); fflush(stdout);
-      desc->BlendState.RenderTarget[i].LogicOpEnable =
          blend->logicOpEnable;
       desc->BlendState.RenderTarget[i].RenderTargetWriteMask =
          blend->pAttachments[i].colorWriteMask;
@@ -630,12 +623,6 @@ dzn_pipeline_translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
             translate_blend_factor(blend->pAttachments[i].dstAlphaBlendFactor);
          desc->BlendState.RenderTarget[i].BlendOpAlpha =
             translate_blend_op(blend->pAttachments[i].alphaBlendOp);
-         fprintf(stdout, "%s:%i RT %d SrcBlend %d DestBlend %d BlendOp %d SrcBlendAlpha %d DestBlendAlpha %d BlendOpAlpha %d RenderTargetWriteMask %d\n",
-                 __func__, __LINE__, i,
-		 desc->BlendState.RenderTarget[i].SrcBlend, desc->BlendState.RenderTarget[i].DestBlend, desc->BlendState.RenderTarget[i].BlendOp,
-		 desc->BlendState.RenderTarget[i].SrcBlendAlpha, desc->BlendState.RenderTarget[i].DestBlendAlpha, desc->BlendState.RenderTarget[i].BlendOpAlpha,
-		 desc->BlendState.RenderTarget[i].RenderTargetWriteMask);
-         fflush(stdout);
       }
    }
 }
@@ -662,6 +649,7 @@ graphics_pipeline_create(dzn_device *device,
    DZN_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
    const dzn_subpass *subpass = &pass->subpasses[pCreateInfo->subpass];
    VkResult ret;
+   HRESULT hres = 0;
 
    dzn_graphics_pipeline *pipeline = (dzn_graphics_pipeline *)
       vk_object_zalloc(&device->vk, pAllocator,
@@ -717,8 +705,9 @@ graphics_pipeline_create(dzn_device *device,
       desc.DSVFormat = attachment->format;
    }
 
-   if (FAILED(device->dev->CreateGraphicsPipelineState(&desc,
-                                                       IID_PPV_ARGS(&pipeline->base.state)))) {
+   hres = device->dev->CreateGraphicsPipelineState(&desc,
+                                                   IID_PPV_ARGS(&pipeline->base.state));
+   if (FAILED(hres)) {
       ret = VK_ERROR_OUT_OF_HOST_MEMORY;
       goto out;
    }

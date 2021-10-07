@@ -596,7 +596,6 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
       barrier.Transition.StateAfter = att->after;
 
       cmd_buffer->cmdlist->ResourceBarrier(1, &barrier);
-      fprintf(stdout, "%s:%i res %p transition %d -> %d\n", __func__, __LINE__, image->res, att->during, att->after);fflush(stdout);
    }
 
    cmd_buffer->state.framebuffer = NULL;
@@ -631,7 +630,6 @@ update_pipeline(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
          struct dzn_graphics_pipeline *gfx =
             container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
          cmd_buffer->cmdlist->IASetPrimitiveTopology(gfx->ia.topology);
-         fprintf(stdout, "%s:%i prim topo %d\n", __func__, __LINE__, gfx->ia.topology);fflush(stdout);
       }
    }
 }
@@ -721,7 +719,6 @@ set_heaps:
                .ptr = heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
             };
 
-            fprintf(stdout, "%s:%i type %d handle %llx\n", __func__, __LINE__, type, handle.ptr);fflush(stdout);
             cmd_buffer->cmdlist->SetGraphicsRootDescriptorTable(r, handle);
          }
       }
@@ -759,16 +756,6 @@ update_viewports(dzn_cmd_buffer *cmd_buffer)
        !pipeline->vp.count)
       return;
 
-
-   for (uint32_t i = 0; i < pipeline->vp.count; i++) {
-      fprintf(stdout, "%s:%i VP %d { %f, %f, %f, %f, %f, %f}\n", __func__, __LINE__, i,
-              cmd_buffer->state.viewports[i].TopLeftX,
-	      cmd_buffer->state.viewports[i].TopLeftY,
-              cmd_buffer->state.viewports[i].Width,
-              cmd_buffer->state.viewports[i].Height,
-              cmd_buffer->state.viewports[i].MinDepth,
-              cmd_buffer->state.viewports[i].MaxDepth);fflush(stdout);
-   }
    cmd_buffer->cmdlist->RSSetViewports(pipeline->vp.count,
                                        cmd_buffer->state.viewports);
 }
@@ -798,13 +785,6 @@ update_scissors(dzn_cmd_buffer *cmd_buffer)
        !pipeline->scissor.count)
       return;
 
-   for (uint32_t i = 0; i < pipeline->scissor.count; i++) {
-      fprintf(stdout, "%s:%i VP %d { %d, %d, %d, %d}\n", __func__, __LINE__, i,
-              cmd_buffer->state.scissors[i].left,
-	      cmd_buffer->state.scissors[i].top,
-              cmd_buffer->state.scissors[i].right,
-              cmd_buffer->state.scissors[i].bottom);fflush(stdout);
-   }
    cmd_buffer->cmdlist->RSSetScissorRects(pipeline->scissor.count,
                                           cmd_buffer->state.scissors);
 }

@@ -985,42 +985,6 @@ dzn_QueueSubmit(VkQueue _queue,
 
          ID3D12CommandList *cmdlists[] = { cmd_buffer->cmdlist };
          queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
-/*
-         HANDLE event = CreateEventA(NULL, FALSE, FALSE, NULL);
-         if (!event)
-            return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
-
-         ID3D12Fence *cmdqueue_fence;
-         int fence_value = 1;
-         if (FAILED(queue->device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-                                                    __uuidof(cmdqueue_fence),
-                                                    (void **)&cmdqueue_fence)))
-            return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
-         cmdqueue_fence->SetEventOnCompletion(fence_value, event);
-         queue->cmdqueue->Signal(cmdqueue_fence, fence_value);
-         fence_value++;
-         WaitForSingleObject(event, INFINITE);
-         cmdqueue_fence->Release();
-         CloseHandle(event);
-
-         if (cmd_buffer->rt0) {
-            void *map;
-            D3D12_RANGE range = { 0, 4096 };
-            if (FAILED(cmd_buffer->rt0->Map(0, &range, &map)))
-               return vk_error(VK_ERROR_MEMORY_MAP_FAILED);
-
-            uint8_t *bytes = (uint8_t *)map;
-            for (unsigned i = 0; i < 4096; i += 16) {
-               fprintf(stdout, "%02x %02x %02x %02x %02x %02x %02x %02x%02x %02x %02x %02x %02x %02x %02x %02x\n",
-                       bytes[i + 0], bytes[i + 1], bytes[i + 2], bytes[i + 3],
-                       bytes[i + 4], bytes[i + 5], bytes[i + 6], bytes[i + 7],
-                       bytes[i + 8], bytes[i + 9], bytes[i + 10], bytes[i + 11],
-                       bytes[i + 12], bytes[i + 13], bytes[i + 14], bytes[i + 15]);
-               fflush(stdout);
-            }
-            assert(0);
-         }
-*/
       }
    }
 
