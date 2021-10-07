@@ -99,3 +99,17 @@ dzn_CreateSampler(VkDevice _device,
 
    return VK_SUCCESS;
 }
+
+void
+dzn_DestroySampler(VkDevice _device,
+                   VkSampler _sampler,
+                   const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_sampler, sampler, _sampler);
+
+   if (!sampler)
+      return;
+
+   vk_object_free(&device->vk, pAllocator, sampler);
+}
