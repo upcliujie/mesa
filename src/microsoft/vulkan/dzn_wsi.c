@@ -31,6 +31,13 @@ dzn_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
    return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
 }
 
+void
+dzn_wsi_finish(struct dzn_physical_device *physical_device)
+{
+   wsi_device_finish(&physical_device->wsi_device,
+		     &physical_device->vk.instance->alloc);
+}
+
 VkResult
 dzn_wsi_init(struct dzn_physical_device *physical_device)
 {

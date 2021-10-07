@@ -135,9 +135,13 @@ dzn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 }
 
 static void
-physical_device_finish(dzn_physical_device *device)
+dzn_physical_device_destroy(dzn_physical_device *device)
 {
-   unreachable("unimplemented");
+   dzn_instance *instance = device->instance;
+
+   dzn_wsi_finish(device);
+   device->adapter->Release();
+   vk_free(&instance->vk.alloc, device);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -149,11 +153,11 @@ dzn_DestroyInstance(VkInstance _instance,
    if (!instance)
       return;
 
-#if 0
    list_for_each_entry_safe(dzn_physical_device, pdevice,
-                            &instance->physical_devices, link)
+                            &instance->physical_devices, link) {
+      list_del(&pdevice->link);
       dzn_physical_device_destroy(pdevice);
-#endif
+   }
 
    vk_instance_finish(&instance->vk);
    vk_free(&instance->vk.alloc, instance);
