@@ -18,7 +18,7 @@ timeout = 300
 include = ["dEQP-VK.renderpass.*"]
 prefix = "bypass-"
 [deqp.env]
-TU_DEBUG = "sysmem"
+TU_DEBUG = "nogmem"
 
 # Partial test with neither force-bin nor force-sysmem.  We don't expect trouble
 # here if both of those work, but it is the default so we should do at least a
