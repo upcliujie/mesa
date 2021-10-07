@@ -573,7 +573,7 @@ static bool
 use_sysmem_rendering(struct tu_cmd_buffer *cmd,
                      struct tu_renderpass_result **autotune_result)
 {
-   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_SYSMEM))
+   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_NOGMEM))
       return true;
 
    /* can't fit attachments into gmem */
@@ -593,6 +593,9 @@ use_sysmem_rendering(struct tu_cmd_buffer *cmd,
 
    if (cmd->state.disable_gmem)
       return true;
+
+   if (unlikely(cmd->device->physical_device->instance->debug_flags & TU_DEBUG_GMEM))
+      return false;
 
    bool use_autotuner = cmd->usage_flags &
       VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
