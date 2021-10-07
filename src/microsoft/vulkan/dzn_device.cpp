@@ -88,6 +88,7 @@ dzn_EnumerateInstanceExtensionProperties(const char *pLayerName,
 
 static const struct debug_control dzn_debug_options[] = {
    { "nir", DZN_DEBUG_NIR },
+   { "dxil", DZN_DEBUG_DXIL },
    { NULL, 0 }
 };
 

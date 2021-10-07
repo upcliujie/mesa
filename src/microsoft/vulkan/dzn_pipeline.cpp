@@ -205,38 +205,39 @@ dzn_pipeline_compile_shader(dzn_device *device,
    ComPtr<IDxcOperationResult> result;
    validator->Validate(&blob, DxcValidatorFlags_InPlaceEdit, &result);
 
-   {
+   if (device->physical_device->instance->debug_flags & DZN_DEBUG_DXIL) {
       IDxcBlobEncoding *disassembly;
       compiler->Disassemble(&blob, &disassembly);
       ComPtr<IDxcBlobEncoding> blobUtf8;
       library->GetBlobAsUtf8(disassembly, blobUtf8.GetAddressOf());
       char *disasm = reinterpret_cast<char*>(blobUtf8->GetBufferPointer());
       disasm[blobUtf8->GetBufferSize() - 1] = 0;
-      fprintf(stdout, "== BEGIN SHADER ============================================\n"
+      fprintf(stderr, "== BEGIN SHADER ============================================\n"
               "%s\n"
               "== END SHADER ==============================================\n",
               disasm);
-      fflush(stdout);
       disassembly->Release();
    }
 
    HRESULT validationStatus;
    result->GetStatus(&validationStatus);
    if (FAILED(validationStatus)) {
-      debug_printf("validationStatus %d\n", validationStatus);
-      ComPtr<IDxcBlobEncoding> printBlob, printBlobUtf8;
-      result->GetErrorBuffer(&printBlob);
-      library->GetBlobAsUtf8(printBlob.Get(), printBlobUtf8.GetAddressOf());
+      if (device->physical_device->instance->debug_flags & DZN_DEBUG_DXIL) {
+         ComPtr<IDxcBlobEncoding> printBlob, printBlobUtf8;
+         result->GetErrorBuffer(&printBlob);
+         library->GetBlobAsUtf8(printBlob.Get(), printBlobUtf8.GetAddressOf());
  
-      char *errorString;
-      if (printBlobUtf8) {
-         errorString = reinterpret_cast<char*>(printBlobUtf8->GetBufferPointer());
+         char *errorString;
+         if (printBlobUtf8) {
+            errorString = reinterpret_cast<char*>(printBlobUtf8->GetBufferPointer());
 
-         errorString[printBlobUtf8->GetBufferSize() - 1] = 0;
-         fprintf(stdout, "== VALIDATION ERROR =============================================\n%s\n"
-                      "== END ==========================================================\n",
-                      errorString);
-         fflush(stdout);
+            errorString[printBlobUtf8->GetBufferSize() - 1] = 0;
+            fprintf(stderr,
+                    "== VALIDATION ERROR =============================================\n"
+		    "%s\n"
+                    "== END ==========================================================\n",
+                    errorString);
+         }
       }
 
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);

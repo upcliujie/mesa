@@ -423,6 +423,7 @@ struct dzn_app_info {
 
 enum dzn_debug_flags {
    DZN_DEBUG_NIR = 1 << 1,
+   DZN_DEBUG_DXIL = 1 << 2,
 };
 
 struct dzn_instance {
