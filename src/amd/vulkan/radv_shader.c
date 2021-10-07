@@ -135,6 +135,7 @@ radv_vectorize_callback(const nir_instr *instr, const void *_)
    case nir_op_ffma:
    case nir_op_fdiv:
    case nir_op_flrp:
+   case nir_op_fabs:
    case nir_op_fneg:
    case nir_op_fsat:
    case nir_op_fmin:
