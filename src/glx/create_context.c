@@ -24,6 +24,7 @@
 #include <limits.h>
 #include "glxclient.h"
 #include "glx_error.h"
+#include "GL/internal/dri_interface.h"
 #include <xcb/glx.h>
 #include <X11/Xlib-xcb.h>
 
@@ -91,6 +92,17 @@ glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config,
       return NULL;
 
    assert(screen == psc->scr);
+
+   /* Some application may request an indirect context but we may want to force a direct
+    * one because Xorg only allows indirect contexts if they were enabled.
+    */
+   if (!direct &&
+       psc->vtable->query_renderer_integer) {
+      unsigned forceDirect;
+      if (psc->vtable->query_renderer_integer(psc, __DRI2_RENDERER_FORCE_DIRECT_GLX_CONTEXT, &forceDirect) == 0)
+         direct = forceDirect != 0;
+   }
+
 
    if (direct && psc->vtable->create_context_attribs) {
       /* GLX drops the error returned by the driver.  The expectation is that

@@ -55,6 +55,7 @@
 #include <xcb/xcb.h>
 #include <xcb/glx.h>
 #include "GL/mesa_glinterop.h"
+#include "GL/internal/dri_interface.h"
 
 static const char __glXGLXClientVendorName[] = "Mesa Project and SGI";
 static const char __glXGLXClientVersion[] = "1.4";
@@ -338,6 +339,16 @@ CreateContext(Display *dpy, int generic_id, struct glx_config *config,
 
    if (generic_id == None)
       return NULL;
+
+   /* Some application may request an indirect context but we may want to force a direct
+    * one because Xorg only allows indirect contexts if they were enabled.
+    */
+   if (!allowDirect &&
+       psc->vtable->query_renderer_integer) {
+      unsigned forceDirect;
+      if (psc->vtable->query_renderer_integer(psc, __DRI2_RENDERER_FORCE_DIRECT_GLX_CONTEXT, &forceDirect) == 0)
+         allowDirect = forceDirect != 0;
+   }
 
    gc = NULL;
 #ifdef GLX_USE_APPLEGL
