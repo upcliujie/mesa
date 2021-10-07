@@ -455,6 +455,21 @@ out:
    return VK_SUCCESS;
 }
 
+void
+dzn_DestroyPipelineLayout(VkDevice _device,
+                          VkPipelineLayout _layout,
+                          const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
+
+   if (!layout)
+      return;
+
+   layout->root.sig->Release();
+   vk_object_free(&device->vk, pAllocator, layout);
+}
+
 static D3D12_DESCRIPTOR_HEAP_TYPE
 desc_type_to_heap_type(VkDescriptorType in)
 {
