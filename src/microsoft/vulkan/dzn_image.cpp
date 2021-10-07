@@ -334,7 +334,7 @@ dzn_GetImageSubresourceLayout(VkDevice _device,
 }
 
 static D3D12_SRV_DIMENSION
-translate_view_type(VkImageViewType in, uint32_t samples)
+translate_view_type_to_srv_dim(VkImageViewType in, uint32_t samples)
 {
    switch (in) {
    case VK_IMAGE_VIEW_TYPE_1D: return D3D12_SRV_DIMENSION_TEXTURE1D;
@@ -349,6 +349,47 @@ translate_view_type(VkImageViewType in, uint32_t samples)
              D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY :
              D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
    case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY: return D3D12_SRV_DIMENSION_TEXTURECUBEARRAY;
+   default: unreachable("Invalid type");
+   }
+}
+
+static D3D12_RTV_DIMENSION
+translate_view_type_to_rtv_dim(VkImageViewType in, uint32_t samples)
+{
+   switch (in) {
+   case VK_IMAGE_VIEW_TYPE_1D: return D3D12_RTV_DIMENSION_TEXTURE1D;
+   case VK_IMAGE_VIEW_TYPE_2D:
+      return samples > 1 ?
+             D3D12_RTV_DIMENSION_TEXTURE2DMS : D3D12_RTV_DIMENSION_TEXTURE2D;
+   case VK_IMAGE_VIEW_TYPE_3D: return D3D12_RTV_DIMENSION_TEXTURE3D;
+   case VK_IMAGE_VIEW_TYPE_1D_ARRAY: return D3D12_RTV_DIMENSION_TEXTURE1DARRAY;
+   case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+      return samples > 1 ?
+             D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY :
+             D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+   case VK_IMAGE_VIEW_TYPE_CUBE:
+   case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+      return D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+   default: unreachable("Invalid type");
+   }
+}
+
+static D3D12_DSV_DIMENSION
+translate_view_type_to_dsv_dim(VkImageViewType in, uint32_t samples)
+{
+   switch (in) {
+   case VK_IMAGE_VIEW_TYPE_1D: return D3D12_DSV_DIMENSION_TEXTURE1D;
+   case VK_IMAGE_VIEW_TYPE_2D:
+      return samples > 1 ?
+             D3D12_DSV_DIMENSION_TEXTURE2DMS : D3D12_DSV_DIMENSION_TEXTURE2D;
+   case VK_IMAGE_VIEW_TYPE_1D_ARRAY: return D3D12_DSV_DIMENSION_TEXTURE1DARRAY;
+   case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+      return samples > 1 ?
+             D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY :
+             D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+   case VK_IMAGE_VIEW_TYPE_CUBE:
+   case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+      return D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
    default: unreachable("Invalid type");
    }
 }
@@ -435,7 +476,7 @@ dzn_CreateImageView(VkDevice _device,
     */
    iview->desc.Format = dzn_get_format(pCreateInfo->format);
    iview->desc.ViewDimension =
-      translate_view_type(pCreateInfo->viewType, image->samples);
+      translate_view_type_to_srv_dim(pCreateInfo->viewType, image->samples);
    iview->desc.Shader4ComponentMapping =
       D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
          translate_swizzle(pCreateInfo->components.r, 0),
@@ -509,16 +550,42 @@ dzn_CreateImageView(VkDevice _device,
    }
 
    if (image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-      D3D12_RENDER_TARGET_VIEW_DESC desc;
+      D3D12_RENDER_TARGET_VIEW_DESC desc = {};
       desc.Format = iview->desc.Format;
 
-      /* TODO: fill these out based on stuff above */
-      assert(image->type == VK_IMAGE_TYPE_2D);
-      desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE2D;
-      assert(range->baseMipLevel == 0);
-      assert(range->layerCount == 1);
-      desc.Texture2D.MipSlice = 0;
-      desc.Texture2D.PlaneSlice = 0;
+      desc.ViewDimension =
+         translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->samples);
+
+      assert(range->levelCount == 1);
+
+      switch (desc.ViewDimension) {
+      case D3D12_RTV_DIMENSION_TEXTURE1D:
+         desc.Texture1D.MipSlice = range->baseMipLevel;
+         break;
+      case D3D12_RTV_DIMENSION_TEXTURE2D:
+         desc.Texture2D.MipSlice = range->baseMipLevel;
+         break;
+      case D3D12_RTV_DIMENSION_TEXTURE2DMS:
+         break;
+      case D3D12_RTV_DIMENSION_TEXTURE3D:
+         desc.Texture3D.MipSlice = range->baseMipLevel;
+         break;
+      case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
+         desc.Texture1DArray.MipSlice = range->baseMipLevel;
+         desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
+         desc.Texture1DArray.ArraySize = range->layerCount;
+         break;
+      case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
+         desc.Texture2DArray.MipSlice = range->baseMipLevel;
+         desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
+         desc.Texture2DArray.ArraySize = range->layerCount;
+         break;
+      case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
+         desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
+         desc.Texture2DMSArray.ArraySize = range->layerCount;
+         break;
+      default: unreachable("Invalid dimension");
+      }
 
       d3d12_descriptor_pool_alloc_handle(device->rtv_pool, &iview->rt_handle);
       device->dev->CreateRenderTargetView(image->res, &desc,
@@ -528,11 +595,35 @@ dzn_CreateImageView(VkDevice _device,
    if (image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       D3D12_DEPTH_STENCIL_VIEW_DESC desc = { };
       desc.Format = iview->desc.Format;
+      desc.ViewDimension =
+         translate_view_type_to_dsv_dim(pCreateInfo->viewType, image->samples);
 
-      /* TODO: fill these out based on stuff above */
-      assert(image->type == VK_IMAGE_TYPE_2D);
-      desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
-      desc.Texture2D.MipSlice = 0;
+      switch (desc.ViewDimension) {
+      case D3D12_DSV_DIMENSION_TEXTURE1D:
+         desc.Texture1D.MipSlice = range->baseMipLevel;
+         break;
+      case D3D12_DSV_DIMENSION_TEXTURE2D:
+         desc.Texture2D.MipSlice = range->baseMipLevel;
+         break;
+      case D3D12_DSV_DIMENSION_TEXTURE2DMS:
+         break;
+      case D3D12_DSV_DIMENSION_TEXTURE1DARRAY:
+         desc.Texture1DArray.MipSlice = range->baseMipLevel;
+         desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
+         desc.Texture1DArray.ArraySize = range->layerCount;
+         break;
+      case D3D12_DSV_DIMENSION_TEXTURE2DARRAY:
+         desc.Texture2DArray.MipSlice = range->baseMipLevel;
+         desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
+         desc.Texture2DArray.ArraySize = range->layerCount;
+         break;
+      case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY:
+         desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
+         desc.Texture2DMSArray.ArraySize = range->layerCount;
+         break;
+      default: unreachable("Invalid dimension");
+      }
+
       d3d12_descriptor_pool_alloc_handle(device->dsv_pool, &iview->zs_handle);
       device->dev->CreateDepthStencilView(image->res, &desc,
                                           iview->zs_handle.cpu_handle);
