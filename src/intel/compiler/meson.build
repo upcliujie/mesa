@@ -105,6 +105,8 @@ libintel_compiler_files = files(
   'brw_schedule_instructions.cpp',
   'brw_shader.cpp',
   'brw_shader.h',
+  'brw_simd_selector.cpp',
+  'brw_simd_selector.h',
   'brw_vec4_builder.h',
   'brw_vec4_cmod_propagation.cpp',
   'brw_vec4_copy_propagation.cpp',
@@ -163,7 +165,8 @@ if with_tests
                'fs_saturate_propagation', 'vf_float_conversions',
                'vec4_register_coalesce', 'vec4_copy_propagation',
                'vec4_cmod_propagation', 'vec4_dead_code_eliminate',
-               'eu_compact', 'eu_validate', 'fs_scoreboard']
+               'eu_compact', 'eu_validate', 'fs_scoreboard',
+	       'simd_selector']
     test(
       t,
       executable(
