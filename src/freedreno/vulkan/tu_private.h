@@ -243,7 +243,7 @@ enum tu_debug_flags
    TU_DEBUG_STARTUP = 1 << 0,
    TU_DEBUG_NIR = 1 << 1,
    TU_DEBUG_NOBIN = 1 << 3,
-   TU_DEBUG_SYSMEM = 1 << 4,
+   TU_DEBUG_NOGMEM = 1 << 4,
    TU_DEBUG_FORCEBIN = 1 << 5,
    TU_DEBUG_NOUBWC = 1 << 6,
    TU_DEBUG_NOMULTIPOS = 1 << 7,
@@ -252,6 +252,7 @@ enum tu_debug_flags
    TU_DEBUG_FLUSHALL = 1 << 10,
    TU_DEBUG_SYNCDRAW = 1 << 11,
    TU_DEBUG_DONT_CARE_AS_LOAD = 1 << 12,
+   TU_DEBUG_NOBYPASS = 1 << 13,
 };
 
 struct tu_instance

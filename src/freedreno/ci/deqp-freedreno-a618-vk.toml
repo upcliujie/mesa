@@ -20,7 +20,7 @@ include = ["dEQP-VK.renderpass.*"]
 prefix = "bypass-"
 fraction = 15
 [deqp.env]
-TU_DEBUG = "sysmem"
+TU_DEBUG = "nogmem"
 
 [[deqp]]
 deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
