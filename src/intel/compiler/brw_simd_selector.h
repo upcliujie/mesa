@@ -32,30 +32,20 @@ struct shader_info;
 
 namespace brw {
 
-class simd_selector {
-public:
-   simd_selector(void *mem_ctx,
-                 const struct intel_device_info *devinfo,
-                 const struct shader_info *info,
-                 enum brw_subgroup_size_type subgroup_size_type);
+int brw_simd_select(const struct brw_cs_prog_data *prog_data);
 
-   bool should_compile(unsigned simd);
-   void passed(unsigned simd, bool spilled);
-   int result();
+bool brw_simd_should_compile(void *mem_ctx,
+                             unsigned simd,
+                             const struct intel_device_info *devinfo,
+                             struct brw_cs_prog_data *prog_data,
+                             unsigned required,
+                             const char **error);
+void brw_simd_mark_compiled(unsigned simd,
+                            struct brw_cs_prog_data *prog_data,
+                            bool spilled);
 
-const char *error[3];
-
-private:
-   void *mem_ctx;
-   const struct intel_device_info *devinfo;
-   const struct shader_info *info;
-   unsigned required;
-
-   unsigned next_simd;
-   bool should[3];
-   bool pass[3];
-   bool spill[3];
-};
+unsigned brw_required_dispatch_width(const struct shader_info *info,
+                                     enum brw_subgroup_size_type subgroup_size_type);
 
 } // namespace brw
 

@@ -46,234 +46,223 @@ protected:
    SIMDSelectorTest() {
       mem_ctx = ralloc_context(NULL);
       devinfo = rzalloc(mem_ctx, intel_device_info);
-      info = rzalloc(mem_ctx, shader_info);
+      prog_data = rzalloc(mem_ctx, struct brw_cs_prog_data);
+      required_dispatch_width = 0;
    }
 
    ~SIMDSelectorTest() {
       ralloc_free(mem_ctx);
    };
 
+   bool should_compile(unsigned simd) {
+      return brw_simd_should_compile(mem_ctx, simd, devinfo, prog_data,
+                                     required_dispatch_width, &error[simd]);
+   }
+
    void *mem_ctx;
    intel_device_info *devinfo;
-   shader_info *info;
+   struct brw_cs_prog_data *prog_data;
+   const char *error[3];
+   unsigned required_dispatch_width;
 };
 
 class SIMDSelectorCS : public SIMDSelectorTest {
 protected:
    SIMDSelectorCS() {
-      info->stage = MESA_SHADER_COMPUTE;
-      info->workgroup_size[0] = 32;
-      info->workgroup_size[1] = 1;
-      info->workgroup_size[2] = 1;
+      prog_data->base.stage = MESA_SHADER_COMPUTE;
+      prog_data->local_size[0] = 32;
+      prog_data->local_size[1] = 1;
+      prog_data->local_size[2] = 1;
 
       devinfo->max_cs_workgroup_threads = 64;
    }
 };
 
-TEST_F(SIMDSelectorCS, VaryingDefaultsToSIMD16)
+TEST_F(SIMDSelectorCS, DefaultsToSIMD16)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
-   ASSERT_FALSE(s.should_compile(SIMD32));
-
-   ASSERT_EQ(s.result(), SIMD16);
-}
-
-TEST_F(SIMDSelectorCS, APIConstantDefaultsToSIMD16)
-{
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
-
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
-   ASSERT_FALSE(s.should_compile(SIMD32));
-
-   ASSERT_EQ(s.result(), SIMD16);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD16);
 }
 
 TEST_F(SIMDSelectorCS, TooBigFor16)
 {
-   info->workgroup_size[0] = devinfo->max_cs_workgroup_threads;
-   info->workgroup_size[1] = 32;
-   info->workgroup_size[2] = 1;
+   prog_data->local_size[0] =  devinfo->max_cs_workgroup_threads;
+   prog_data->local_size[1] = 32;
+   prog_data->local_size[2] = 1;
 
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_FALSE(should_compile(SIMD8));
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_TRUE(should_compile(SIMD32));
+   brw_simd_mark_compiled(SIMD32, prog_data, spilled);
 
-   ASSERT_FALSE(s.should_compile(SIMD8));
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_TRUE(s.should_compile(SIMD32));
-   s.passed(SIMD32, spilled);
-   ASSERT_EQ(s.result(), SIMD32);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD32);
 }
 
 TEST_F(SIMDSelectorCS, WorkgroupSize1)
 {
-   info->workgroup_size[0] = 1;
-   info->workgroup_size[1] = 1;
-   info->workgroup_size[2] = 1;
+   prog_data->local_size[0] = 1;
+   prog_data->local_size[1] = 1;
+   prog_data->local_size[2] = 1;
 
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD8);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, WorkgroupSize8)
 {
-   info->workgroup_size[0] = 8;
-   info->workgroup_size[1] = 1;
-   info->workgroup_size[2] = 1;
+   prog_data->local_size[0] = 8;
+   prog_data->local_size[1] = 1;
+   prog_data->local_size[2] = 1;
 
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD8);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, WorkgroupSizeVariable)
 {
-   info->workgroup_size_variable = true;
-   info->workgroup_size[0] = 0;
-   info->workgroup_size[1] = 0;
-   info->workgroup_size[2] = 0;
-
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_API_CONSTANT);
+   prog_data->local_size[0] = 0;
+   prog_data->local_size[1] = 0;
+   prog_data->local_size[2] = 0;
 
    /* Just ensure that we should compile all the shader variants, since the
     * actual selection will happen later at dispatch time.
     */
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, spilled);
-   ASSERT_TRUE(s.should_compile(SIMD32));
-   s.passed(SIMD32, spilled);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, spilled);
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, spilled);
+   ASSERT_TRUE(should_compile(SIMD32));
+   brw_simd_mark_compiled(SIMD32, prog_data, spilled);
 }
 
 TEST_F(SIMDSelectorCS, SpillAtSIMD8)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, spilled);
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, spilled);
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD8);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, SpillAtSIMD16)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, spilled);
+   ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, spilled);
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD8);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, EnvironmentVariable32)
 {
    intel_debug |= DEBUG_DO32;
 
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD32));
+   brw_simd_mark_compiled(SIMD32, prog_data, not_spilled);
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD32));
-   s.passed(SIMD32, not_spilled);
-   ASSERT_EQ(s.result(), SIMD32);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD32);
 }
 
 TEST_F(SIMDSelectorCS, EnvironmentVariable32ButSpills)
 {
    intel_debug |= DEBUG_DO32;
 
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_VARYING);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_TRUE(should_compile(SIMD32));
+   brw_simd_mark_compiled(SIMD32, prog_data, spilled);
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD32));
-   s.passed(SIMD32, spilled);
-   ASSERT_EQ(s.result(), SIMD16);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD16);
 }
 
 TEST_F(SIMDSelectorCS, Require8)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_REQUIRE_8);
+   required_dispatch_width = 8;
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   s.passed(SIMD8, not_spilled);
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD8);
+   ASSERT_TRUE(should_compile(SIMD8));
+   brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_FALSE(should_compile(SIMD32));
+
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, Require8ErrorWhenNotCompile)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_REQUIRE_8);
+   required_dispatch_width = 8;
 
-   ASSERT_TRUE(s.should_compile(SIMD8));
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), -1);
+   ASSERT_TRUE(should_compile(SIMD8));
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_FALSE(should_compile(SIMD32));
+
+   ASSERT_EQ(brw_simd_select(prog_data), -1);
 }
 
 TEST_F(SIMDSelectorCS, Require16)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_REQUIRE_16);
+   required_dispatch_width = 16;
 
-   ASSERT_FALSE(s.should_compile(SIMD8));
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD16);
+   ASSERT_FALSE(should_compile(SIMD8));
+   ASSERT_TRUE(should_compile(SIMD16));
+   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD32));
+
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD16);
 }
 
 TEST_F(SIMDSelectorCS, Require16ErrorWhenNotCompile)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_REQUIRE_16);
+   required_dispatch_width = 16;
 
-   ASSERT_FALSE(s.should_compile(SIMD8));
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), -1);
+   ASSERT_FALSE(should_compile(SIMD8));
+   ASSERT_TRUE(should_compile(SIMD16));
+   ASSERT_FALSE(should_compile(SIMD32));
+
+   ASSERT_EQ(brw_simd_select(prog_data), -1);
 }
 
 TEST_F(SIMDSelectorCS, Require32)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_REQUIRE_32);
+   required_dispatch_width = 32;
 
-   ASSERT_FALSE(s.should_compile(SIMD8));
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_TRUE(s.should_compile(SIMD32));
-   s.passed(SIMD32, not_spilled);
-   ASSERT_EQ(s.result(), SIMD32);
+   ASSERT_FALSE(should_compile(SIMD8));
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_TRUE(should_compile(SIMD32));
+   brw_simd_mark_compiled(SIMD32, prog_data, not_spilled);
+
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD32);
 }
 
 TEST_F(SIMDSelectorCS, Require32ErrorWhenNotCompile)
 {
-   simd_selector s(mem_ctx, devinfo, info, BRW_SUBGROUP_SIZE_REQUIRE_32);
+   required_dispatch_width = 32;
 
-   ASSERT_FALSE(s.should_compile(SIMD8));
-   ASSERT_FALSE(s.should_compile(SIMD16));
-   ASSERT_TRUE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), -1);
+   ASSERT_FALSE(should_compile(SIMD8));
+   ASSERT_FALSE(should_compile(SIMD16));
+   ASSERT_TRUE(should_compile(SIMD32));
+
+   ASSERT_EQ(brw_simd_select(prog_data), -1);
 }

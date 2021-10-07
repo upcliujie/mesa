@@ -28,20 +28,13 @@
 #include "intel/dev/intel_device_info.h"
 #include "util/ralloc.h"
 
-using namespace brw;
+namespace brw {
 
-simd_selector::simd_selector(void *mem_ctx,
-                             const struct intel_device_info *devinfo,
-                             const struct shader_info *info,
-                             enum brw_subgroup_size_type subgroup_size_type)
-   : mem_ctx(mem_ctx),
-     devinfo(devinfo),
-     info(info),
-     required(0),
-     next_simd(0)
+unsigned
+brw_required_dispatch_width(const struct shader_info *info,
+                                 enum brw_subgroup_size_type subgroup_size_type)
 {
-   for (unsigned i = 0; i < ARRAY_SIZE(pass); i++)
-      should[i] = pass[i] = spill[i] = false;
+   unsigned required = 0;
 
    if ((int)subgroup_size_type >= (int)BRW_SUBGROUP_SIZE_REQUIRE_8) {
       assert(gl_shader_stage_uses_workgroup(info->stage));
@@ -55,53 +48,62 @@ simd_selector::simd_selector(void *mem_ctx,
       assert(required == 0 || required == info->cs.subgroup_size);
       required = info->cs.subgroup_size;
    }
+
+   return required;
 }
 
 bool
-simd_selector::should_compile(unsigned simd)
-{
-   assert(!pass[simd]);
-   assert(next_simd == simd);
+brw_simd_should_compile(void *mem_ctx,
+                             unsigned simd,
+                             const struct intel_device_info *devinfo,
+                             struct brw_cs_prog_data *prog_data,
+                             unsigned required,
+                             const char **error)
 
-   next_simd++;
+{
+   assert(!(prog_data->prog_mask & (1 << simd)));
+   assert(error);
 
    const unsigned width = 8 << simd;
 
    /* For shaders with variable size workgroup, we will always compile all the
     * variants, since the choice will happen only at dispatch time.
     */
+   const bool workgroup_size_variable = prog_data->local_size[0] == 0;
 
-   if (!info->workgroup_size_variable) {
-      unsigned workgroup_size = info->workgroup_size[0] *
-                                info->workgroup_size[1] *
-                                info->workgroup_size[2];
-
-      /* TODO: Handle other stages. */
-      assert(gl_shader_stage_uses_workgroup(info->stage));
-      unsigned max_threads = devinfo->max_cs_workgroup_threads;
-
-      if (spill[simd]) {
-         error[simd] = ralloc_asprintf(
+   if (!workgroup_size_variable) {
+      if (prog_data->prog_spilled & (1 << simd)) {
+         *error = ralloc_asprintf(
             mem_ctx, "SIMD%d skipped because would spill", width);
          return false;
       }
 
+      const unsigned workgroup_size = prog_data->local_size[0] *
+                                      prog_data->local_size[1] *
+                                      prog_data->local_size[2];
+
+      /* TODO: Handle other stages. */
+      assert(gl_shader_stage_uses_workgroup(prog_data->base.stage));
+      unsigned max_threads = devinfo->max_cs_workgroup_threads;
+
       if (required && required != width) {
-         error[simd] = ralloc_asprintf(
+         *error = ralloc_asprintf(
             mem_ctx, "SIMD%d skipped because required dispatch width is %d",
             width, required);
          return false;
       }
 
-      if (simd > 0 && pass[simd - 1] && workgroup_size <= (width / 2)) {
-         error[simd] = ralloc_asprintf(
+      if (simd > 0 &&
+          (prog_data->prog_mask & (1 << (simd - 1))) &&
+          workgroup_size <= (width / 2)) {
+         *error = ralloc_asprintf(
             mem_ctx, "SIMD%d skipped because workgroup size %d already fits in SIMD%d",
             width, workgroup_size, width / 2);
          return false;
       }
 
       if (DIV_ROUND_UP(workgroup_size, width) > max_threads) {
-         error[simd] = ralloc_asprintf(
+         *error = ralloc_asprintf(
             mem_ctx, "SIMD%d can't fit all %d invocations in %d threads",
             width, workgroup_size, max_threads);
          return false;
@@ -112,8 +114,8 @@ simd_selector::should_compile(unsigned simd)
        * TODO: Use performance_analysis and drop this rule.
        */
       if (width == 32) {
-         if (!(INTEL_DEBUG & DEBUG_DO32) && (pass[0] || pass[1])) {
-            error[simd] = ralloc_strdup(
+         if (!(INTEL_DEBUG & DEBUG_DO32) && prog_data->prog_mask) {
+            *error = ralloc_strdup(
                mem_ctx, "SIMD32 skipped because not required");
             return false;
          }
@@ -127,43 +129,43 @@ simd_selector::should_compile(unsigned simd)
    };
 
    if (unlikely(env_skip[simd])) {
-      error[simd] = ralloc_asprintf(
+      *error = ralloc_asprintf(
          mem_ctx, "SIMD%d skipped because INTEL_DEBUG=no%d",
          width, width);
       return false;
    }
 
-   should[simd] = true;
    return true;
 }
 
 void
-simd_selector::passed(unsigned simd, bool spilled)
+brw_simd_mark_compiled(unsigned simd, struct brw_cs_prog_data *prog_data, bool spilled)
 {
-   assert(next_simd == simd + 1);
-   assert(should[simd]);
-   assert(!pass[simd]);
+   assert(!(prog_data->prog_mask & (1 << simd)));
 
-   pass[simd] = true;
+   prog_data->prog_mask |= 1 << simd;
 
    /* If a SIMD spilled, all the larger ones would spill too. */
-   for (unsigned i = simd; i < ARRAY_SIZE(spill); i++)
-      spill[i] = spilled;
+   if (spilled) {
+      for (unsigned i = simd; i < 3; i++)
+         prog_data->prog_spilled |= 1 << i;
+   }
 }
 
 int
-simd_selector::result()
+brw_simd_select(const struct brw_cs_prog_data *prog_data)
 {
-   assert(next_simd == ARRAY_SIZE(pass));
    int r = -1;
-   if (pass[0] || pass[1] || pass[2]) {
+   if (prog_data->prog_mask) {
       /* Pick the largest one that doesn't spill, unless there's only one. */
-      for (unsigned i = 0; i < ARRAY_SIZE(pass); i++) {
-         if (pass[i] && (r == -1 || !spill[i])) {
-            assert(should[i]);
+      for (unsigned i = 0; i < 3; i++) {
+         if ((prog_data->prog_mask & (1 << i)) &&
+             (r == -1 || !(prog_data->prog_spilled & (1 << i)))) {
             r = i;
          }
       }
    }
    return r;
 }
+
+} // namespace brw

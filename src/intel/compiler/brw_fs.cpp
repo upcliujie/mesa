@@ -10091,14 +10091,16 @@ brw_compile_cs(const struct brw_compiler *compiler,
       prog_data->local_size[2] = nir->info.workgroup_size[2];
    }
 
-   simd_selector s(mem_ctx, compiler->devinfo, &nir->info,
-                   key->base.subgroup_size_type);
+   const unsigned required_dispatch_width =
+      brw_required_dispatch_width(&nir->info, key->base.subgroup_size_type);
 
-   fs_visitor *v[3] = {0};
-   fs_visitor *last = NULL;
+   fs_visitor *v[3]     = {0};
+   fs_visitor *last     = NULL;
+   const char *error[3] = {0};
 
    for (unsigned simd = 0; simd < 3; simd++) {
-      if (!s.should_compile(simd))
+      if (!brw_simd_should_compile(mem_ctx, simd, compiler->devinfo, prog_data,
+                                   required_dispatch_width, &error[simd]))
          continue;
 
       const unsigned dispatch_width = 8 << simd;
@@ -10130,13 +10132,11 @@ brw_compile_cs(const struct brw_compiler *compiler,
          assert(v[simd]->max_dispatch_width >= 32);
 
          last = v[simd];
-         prog_data->prog_mask |= 1 << simd;
          cs_fill_push_const_info(compiler->devinfo, prog_data);
 
-         s.passed(simd, v[simd]->spilled_any_registers);
-         prog_data->prog_spilled |= 1 << simd;
+         brw_simd_mark_compiled(simd, prog_data, v[simd]->spilled_any_registers);
       } else {
-         s.error[simd] = ralloc_strdup(mem_ctx, v[simd]->fail_msg);
+         error[simd] = ralloc_strdup(mem_ctx, v[simd]->fail_msg);
          if (simd > 0) {
             brw_shader_perf_log(compiler, params->log_data,
                                 "SIMD%d shader failed to compile: %s\n",
@@ -10145,14 +10145,13 @@ brw_compile_cs(const struct brw_compiler *compiler,
       }
    }
 
-   const int selected_simd = s.result();
-   if (selected_simd < 0) {
+   if (!prog_data->prog_mask) {
       params->error_str = ralloc_asprintf(mem_ctx, "Can't compile shader: %s, %s and %s.\n",
-                                          s.error[0], s.error[1], s.error[2]);;
+                                          error[0], error[1], error[2]);;
       return NULL;
    }
 
-   assert(selected_simd < 3);
+   unsigned selected_simd = brw_simd_select(prog_data);
    fs_visitor *selected = v[selected_simd];
 
    if (!nir->info.workgroup_size_variable) {
