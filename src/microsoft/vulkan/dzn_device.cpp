@@ -1367,3 +1367,17 @@ dzn_CreateFramebuffer(VkDevice _device,
    *pFramebuffer = dzn_framebuffer_to_handle(framebuffer);
    return VK_SUCCESS;
 }
+
+void
+dzn_DestroyFramebuffer(VkDevice _device,
+                       VkFramebuffer _fb,
+                       const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_framebuffer, fb, _fb);
+
+   if (!fb)
+      return;
+
+   vk_object_free(&device->vk, pAllocator, fb);
+}
