@@ -2699,6 +2699,32 @@ radv_lower_multiview(nir_shader *nir)
    return progress;
 }
 
+static bool
+radv_lower_primitive_id(nir_shader *nir)
+{
+   nir_function_impl *impl = nir_shader_get_entrypoint(nir);
+   nir_builder b;
+   nir_builder_init(&b, impl);
+
+   nir_block *last_block = nir_impl_last_block(impl);
+   nir_instr *last_instr = nir_block_last_instr(last_block);
+
+   b.cursor = nir_after_instr(last_instr);
+
+   nir_variable *var = nir_variable_create(nir, nir_var_shader_out, glsl_int_type(), NULL);
+   var->data.location = VARYING_SLOT_PRIMITIVE_ID;
+   var->data.interpolation = INTERP_MODE_NONE;
+
+   nir_store_var(&b, var, nir_load_primitive_id(&b), 1);
+
+   /* Update outputs_written to reflect that the pass added a new output. */
+   nir->info.outputs_written |= BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_ID);
+
+   nir_metadata_preserve(impl, nir_metadata_block_index | nir_metadata_dominance);
+
+   return true;
+}
+
 static void
 radv_link_shaders(struct radv_pipeline *pipeline,
                   const struct radv_pipeline_key *pipeline_key,
@@ -2798,6 +2824,16 @@ radv_link_shaders(struct radv_pipeline *pipeline,
                NULL);
          }
       }
+   }
+
+   /* Lower the primitive ID when the last vertex stage doesn't export it (except GS). */
+   if (stages[MESA_SHADER_FRAGMENT].nir &&
+       (stages[MESA_SHADER_FRAGMENT].nir->info.inputs_read & VARYING_BIT_PRIMITIVE_ID) &&
+       !(stages[pipeline->graphics.last_vgt_api_stage].nir->info.outputs_written & VARYING_BIT_PRIMITIVE_ID) &&
+       (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_VERTEX ||
+        pipeline->graphics.last_vgt_api_stage == MESA_SHADER_TESS_EVAL ||
+        pipeline->graphics.last_vgt_api_stage == MESA_SHADER_MESH)) {
+      radv_lower_primitive_id(stages[pipeline->graphics.last_vgt_api_stage].nir);
    }
 
    if (!optimize_conservatively) {
@@ -3324,17 +3360,10 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       }
 
       /* Add PS input requirements to the output of the pre-PS stage. */
-      bool ps_prim_id_in = stages[MESA_SHADER_FRAGMENT].info.ps.prim_id_input;
       bool ps_clip_dists_in = !!stages[MESA_SHADER_FRAGMENT].info.ps.num_input_clips_culls;
 
       assert(outinfo);
       outinfo->export_clip_dists |= ps_clip_dists_in;
-      if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_MESH) {
-         outinfo->export_prim_id_per_primitive |= ps_prim_id_in;
-      } else if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_VERTEX ||
-                 pipeline->graphics.last_vgt_api_stage == MESA_SHADER_TESS_EVAL) {
-         outinfo->export_prim_id |= ps_prim_id_in;
-      }
 
       filled_stages |= (1 << MESA_SHADER_FRAGMENT);
    }

@@ -514,11 +514,13 @@ radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *n
       outinfo->writes_viewport_index = per_vtx_mask & VARYING_BIT_VIEWPORT;
       outinfo->writes_layer = per_vtx_mask & VARYING_BIT_LAYER;
       outinfo->writes_primitive_shading_rate = per_vtx_mask & VARYING_BIT_PRIMITIVE_SHADING_RATE;
+      outinfo->export_prim_id = per_vtx_mask & VARYING_BIT_PRIMITIVE_ID;
 
       /* Per primitive outputs. */
       outinfo->writes_viewport_index_per_primitive = per_prim_mask & VARYING_BIT_VIEWPORT;
       outinfo->writes_layer_per_primitive = per_prim_mask & VARYING_BIT_LAYER;
       outinfo->writes_primitive_shading_rate_per_primitive = per_prim_mask & VARYING_BIT_PRIMITIVE_SHADING_RATE;
+      outinfo->export_prim_id_per_primitive = per_prim_mask & VARYING_BIT_PRIMITIVE_ID;
 
       /* Clip/cull distances. */
       outinfo->clip_dist_mask = (1 << nir->info.clip_distance_array_size) - 1;
