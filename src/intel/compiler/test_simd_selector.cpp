@@ -121,15 +121,14 @@ TEST_F(SIMDSelectorCS, WorkgroupSize1)
 
    ASSERT_TRUE(s.should_compile(SIMD8));
    s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
+   ASSERT_FALSE(s.should_compile(SIMD16));
    ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD16);
+   ASSERT_EQ(s.result(), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, WorkgroupSize8)
 {
-   info->workgroup_size[0] = 1;
+   info->workgroup_size[0] = 8;
    info->workgroup_size[1] = 1;
    info->workgroup_size[2] = 1;
 
@@ -137,10 +136,9 @@ TEST_F(SIMDSelectorCS, WorkgroupSize8)
 
    ASSERT_TRUE(s.should_compile(SIMD8));
    s.passed(SIMD8, not_spilled);
-   ASSERT_TRUE(s.should_compile(SIMD16));
-   s.passed(SIMD16, not_spilled);
+   ASSERT_FALSE(s.should_compile(SIMD16));
    ASSERT_FALSE(s.should_compile(SIMD32));
-   ASSERT_EQ(s.result(), SIMD16);
+   ASSERT_EQ(s.result(), SIMD8);
 }
 
 TEST_F(SIMDSelectorCS, WorkgroupSizeVariable)
