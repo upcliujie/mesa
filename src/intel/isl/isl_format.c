@@ -740,8 +740,14 @@ isl_format_supports_sampling(const struct intel_device_info *devinfo,
        * so we handle it as yet another special case.
        *
        * See HSD 1408144932
+       *
+       * FXT1 support was also removed.
+       *
+       * See HSD 1407633611
+       *
        */
-      if (fmtl->txc == ISL_TXC_ASTC)
+      if (fmtl->txc == ISL_TXC_ASTC ||
+          fmtl->txc == ISL_TXC_FXT1)
          return false;
    }
 
