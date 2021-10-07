@@ -87,10 +87,13 @@ vn_CreateBuffer(VkDevice device,
       external_info->handleTypes ==
          VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID;
 
-   if (ahb_info)
+   if (ahb_info) {
       result = vn_android_buffer_from_ahb(dev, pCreateInfo, alloc, &buf);
-   else
+   } else {
+      vn_android_atrace_begin("vn_buffer_create");
       result = vn_buffer_create(dev, pCreateInfo, alloc, &buf);
+      vn_android_atrace_end();
+   }
 
    if (result != VK_SUCCESS)
       return vn_error(dev->instance, result);
