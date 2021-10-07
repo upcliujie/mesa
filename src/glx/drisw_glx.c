@@ -33,6 +33,7 @@
 #include "drisw_priv.h"
 #include <X11/extensions/shmproto.h>
 #include <assert.h>
+#include "util/debug.h"
 
 static int xshm_error = 0;
 static int xshm_opcode = -1;
@@ -741,13 +742,11 @@ driswDestroyScreen(struct glx_screen *base)
    free(psc);
 }
 
-// probably not right but for now
-#define SWRAST_DRIVER_NAME "zink"
-
 static char *
 drisw_get_driver_name(struct glx_screen *glx_screen)
 {
-    return strdup(SWRAST_DRIVER_NAME);
+   struct drisw_screen *psc = (struct drisw_screen *) glx_screen;
+   return strdup(psc->name);
 }
 
 static const struct glx_screen_vtable drisw_screen_vtable = {
@@ -837,7 +836,8 @@ check_xshm(Display *dpy)
 }
 
 static struct glx_screen *
-driswCreateScreen(int screen, struct glx_display *priv)
+driswCreateScreenDriver(int screen, struct glx_display *priv,
+                        const char *driver)
 {
    __GLXDRIscreen *psp;
    const __DRIconfig **driver_configs;
@@ -856,9 +856,10 @@ driswCreateScreen(int screen, struct glx_display *priv)
       return NULL;
    }
 
-   extensions = driOpenDriver(SWRAST_DRIVER_NAME, &psc->driver);
+   extensions = driOpenDriver(driver, &psc->driver);
    if (extensions == NULL)
       goto handle_error;
+   psc->name = driver;
 
    if (!check_xshm(psc->base.dpy))
       loader_extensions_local = loader_extensions_noshm;
@@ -941,9 +942,28 @@ driswCreateScreen(int screen, struct glx_display *priv)
    glx_screen_cleanup(&psc->base);
    free(psc);
 
-   CriticalErrorMessageF("failed to load driver: %s\n", SWRAST_DRIVER_NAME);
+   CriticalErrorMessageF("failed to load driver: %s\n", driver);
 
    return NULL;
+}
+
+static struct glx_screen *
+driswCreateScreen(int screen, struct glx_display *priv)
+{
+#if 1
+   if (!env_var_as_boolean("LIBGL_COPPER_DISABLE", false)) {
+      struct glx_screen *zink = NULL;
+      void *libvulkan = dlopen("libvulkan.so.1", RTLD_LAZY);
+
+      if (libvulkan)
+         zink = driswCreateScreenDriver(screen, priv, "zink");
+
+      if (zink)
+         return zink;
+   }
+#endif
+
+    return driswCreateScreenDriver(screen, priv, "swrast");
 }
 
 /* Called from __glXFreeDisplayPrivate.
