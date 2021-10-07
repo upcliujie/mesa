@@ -146,8 +146,12 @@ spec/ext_shader_framebuffer_fetch_non_coherent/execution/gles3/nonuniform-ms8: s
 spec/ext_shader_framebuffer_fetch_non_coherent/execution/gles3/simple-ms16: skip
 spec/ext_shader_framebuffer_fetch_non_coherent/execution/gles3/simple-ms8: skip
 spec/ext_shader_image_load_formatted/execution/image_checkerboard: skip
+spec/glsl-1.10/linker/glsl-uniform-linking-1: fail
 spec/glsl-1.10/preprocessor/extension-defined-test: skip
 spec/glsl-1.10/preprocessor/extension-if-1: skip
+spec/glsl-1.30/execution/interpolation/fs-int-interpolation: fail
+spec/glsl-1.30/execution/interpolation/fs-uint-interpolation: fail
+spec/glsl-1.30/execution/varying-packing-mixed-types: fail
 spec/glsl-4.00/execution/conversion/frag-conversion-explicit-dmat2-mat2: fail
 spec/glsl-4.00/execution/conversion/frag-conversion-explicit-dmat2x3-mat2x3: fail
 spec/glsl-4.00/execution/conversion/frag-conversion-explicit-dmat2x4-mat2x4: fail
