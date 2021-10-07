@@ -98,6 +98,7 @@ libintel_compiler_files = files(
   'brw_nir_clamp_image_1d_2d_array_sizes.c',
   'brw_packed_float.c',
   'brw_predicated_break.cpp',
+  'brw_private.h',
   'brw_reg.h',
   'brw_reg_type.c',
   'brw_reg_type.h',
@@ -105,6 +106,7 @@ libintel_compiler_files = files(
   'brw_schedule_instructions.cpp',
   'brw_shader.cpp',
   'brw_shader.h',
+  'brw_simd_selection.cpp',
   'brw_vec4_builder.h',
   'brw_vec4_cmod_propagation.cpp',
   'brw_vec4_copy_propagation.cpp',
@@ -163,7 +165,8 @@ if with_tests
                'fs_saturate_propagation', 'vf_float_conversions',
                'vec4_register_coalesce', 'vec4_copy_propagation',
                'vec4_cmod_propagation', 'vec4_dead_code_eliminate',
-               'eu_compact', 'eu_validate', 'fs_scoreboard']
+               'eu_compact', 'eu_validate', 'fs_scoreboard',
+	       'simd_selection']
     test(
       t,
       executable(
