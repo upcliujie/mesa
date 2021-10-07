@@ -542,3 +542,23 @@ dzn_CreateImageView(VkDevice _device,
 
    return VK_SUCCESS;
 }
+
+void
+dzn_DestroyImageView(VkDevice _device,
+                     VkImageView imageView,
+                     const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_image_view, iview, imageView);
+
+   if (!iview)
+      return;
+
+   if (iview->image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+      d3d12_descriptor_handle_free(&iview->rt_handle);
+
+   if (iview->image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      d3d12_descriptor_handle_free(&iview->zs_handle);
+
+   vk_object_free(&device->vk, pAllocator, iview);
+}
