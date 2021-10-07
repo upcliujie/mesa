@@ -272,7 +272,9 @@ vn_CreateImage(VkDevice device,
    } else if (ahb_info) {
       result = vn_android_image_from_ahb(dev, pCreateInfo, alloc, &img);
    } else {
+      vn_android_atrace_begin("vn_image_create");
       result = vn_image_create(dev, pCreateInfo, alloc, &img);
+      vn_android_atrace_end();
    }
 
    if (result != VK_SUCCESS)

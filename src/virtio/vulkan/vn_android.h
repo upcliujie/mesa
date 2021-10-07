@@ -22,6 +22,20 @@
 
 #ifdef ANDROID
 
+#include <cutils/trace.h>
+
+static inline void
+vn_android_atrace_begin(const char *name)
+{
+   atrace_begin(ATRACE_TAG_GRAPHICS, name);
+}
+
+static inline void
+vn_android_atrace_end()
+{
+   atrace_end(ATRACE_TAG_GRAPHICS);
+}
+
 static inline const VkNativeBufferANDROID *
 vn_android_find_native_buffer(const VkImageCreateInfo *create_info)
 {
@@ -79,6 +93,18 @@ VkResult
 vn_android_init_ahb_buffer_memory_type_bits(struct vn_device *dev);
 
 #else
+
+static inline void
+vn_android_atrace_begin(const char *name)
+{
+   return;
+}
+
+static inline void
+vn_android_atrace_end()
+{
+   return;
+}
 
 static inline const VkNativeBufferANDROID *
 vn_android_find_native_buffer(UNUSED const VkImageCreateInfo *create_info)
