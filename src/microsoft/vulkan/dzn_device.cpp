@@ -87,6 +87,7 @@ dzn_EnumerateInstanceExtensionProperties(const char *pLayerName,
 }
 
 static const struct debug_control dzn_debug_options[] = {
+   { "sync", DZN_DEBUG_SYNC },
    { "nir", DZN_DEBUG_NIR },
    { "dxil", DZN_DEBUG_DXIL },
    { "warp", DZN_DEBUG_WARP },
@@ -776,6 +777,11 @@ queue_init(dzn_device *device, dzn_queue *queue,
       return vk_errorfi(device->instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
    }
 
+   if (FAILED(queue->device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
+                                              IID_PPV_ARGS(&queue->fence))))
+      return vk_errorfi(device->instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
+
+   queue->fence_point = 0;
    return VK_SUCCESS;
 }
 
@@ -967,6 +973,17 @@ dzn_DeviceWaitIdle(VkDevice _device)
 }
 
 VkResult
+dzn_QueueWaitIdle(VkQueue _queue)
+{
+   DZN_FROM_HANDLE(dzn_queue, queue, _queue);
+
+   if (FAILED(queue->fence->SetEventOnCompletion(queue->fence_point, NULL)))
+      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   return VK_SUCCESS;
+}
+
+VkResult
 dzn_QueueSubmit(VkQueue _queue,
                 uint32_t submitCount,
                 const VkSubmitInfo *pSubmits,
@@ -988,24 +1005,10 @@ dzn_QueueSubmit(VkQueue _queue,
       }
    }
 
-   /* HACK: to avoid having to figure out real timing primitives yet, let's just make all of this stuff wait! */
-   ID3D12Fence *cmdqueue_fence;
-   int fence_value = 1;
-   if (FAILED(queue->device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-                                              __uuidof(cmdqueue_fence),
-                                              (void **)&cmdqueue_fence)))
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+   queue->cmdqueue->Signal(queue->fence, ++queue->fence_point);
 
-   HANDLE event = CreateEventA(NULL, FALSE, FALSE, NULL);
-   if (!event)
-      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   cmdqueue_fence->SetEventOnCompletion(fence_value, event);
-   queue->cmdqueue->Signal(cmdqueue_fence, fence_value);
-   fence_value++;
-   WaitForSingleObject(event, INFINITE);
-   cmdqueue_fence->Release();
-   CloseHandle(event);
+   if (queue->device->physical_device->instance->debug_flags & DZN_DEBUG_SYNC)
+      dzn_QueueWaitIdle(_queue);
 
    return VK_SUCCESS;
 }

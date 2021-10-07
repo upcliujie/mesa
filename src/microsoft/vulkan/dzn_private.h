@@ -125,6 +125,8 @@ struct dzn_queue {
    struct dzn_device *device;
 
    ID3D12CommandQueue *cmdqueue;
+   ID3D12Fence *fence;
+   uint64_t fence_point;
 };
 
 struct dzn_device {
@@ -430,6 +432,7 @@ struct dzn_app_info {
 };
 
 enum dzn_debug_flags {
+   DZN_DEBUG_SYNC = 1 << 0,
    DZN_DEBUG_NIR = 1 << 1,
    DZN_DEBUG_DXIL = 1 << 2,
    DZN_DEBUG_WARP = 1 << 3,
