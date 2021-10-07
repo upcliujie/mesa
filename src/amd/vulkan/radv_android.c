@@ -499,10 +499,12 @@ radv_QueueSignalReleaseImageANDROID(VkQueue _queue, uint32_t waitSemaphoreCount,
 
 #if RADV_SUPPORT_ANDROID_HARDWARE_BUFFER
 
+#if ANDROID_API_LEVEL < 32
 enum {
    /* Usage bit equal to GRALLOC_USAGE_HW_CAMERA_MASK */
    AHARDWAREBUFFER_USAGE_CAMERA_MASK = 0x00060000U,
 };
+#endif
 
 static inline VkFormat
 vk_format_from_android(unsigned android_format, unsigned android_usage)
