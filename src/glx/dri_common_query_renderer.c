@@ -84,19 +84,21 @@ dri2_query_renderer_integer(struct glx_screen *base, int attribute,
    int ret;
    struct dri2_screen *const psc = (struct dri2_screen *) base;
 
-   /* Even though there are invalid values (and
-    * dri2_convert_glx_query_renderer_attribs may return -1), the higher level
-    * GLX code is required to perform the filtering.  Assume that we got a
-    * good value.
+   /* The higher level GLX code is required to perform the filtering and only
+    * call us with valid GLX_RENDERER_* attributes.
+    * If dri2_convert_glx_query_renderer_attribs returns -1, this means that
+    * attribute is a __DRI2_RENDERER_*.
     */
    const int dri_attribute = dri2_convert_glx_query_renderer_attribs(attribute);
 
    if (psc->rendererQuery == NULL)
       return -1;
 
-   ret = psc->rendererQuery->queryInteger(psc->driScreen, dri_attribute,
+   ret = psc->rendererQuery->queryInteger(psc->driScreen,
+                                          dri_attribute >= 0 ? dri_attribute : attribute,
                                           value);
-   dri_convert_context_profile_bits(attribute, value);
+   if (dri_attribute >= 0)
+      dri_convert_context_profile_bits(attribute, value);
 
    return ret;
 }
@@ -127,19 +129,21 @@ dri3_query_renderer_integer(struct glx_screen *base, int attribute,
    int ret;
    struct dri3_screen *const psc = (struct dri3_screen *) base;
 
-   /* Even though there are invalid values (and
-    * dri2_convert_glx_query_renderer_attribs may return -1), the higher level
-    * GLX code is required to perform the filtering.  Assume that we got a
-    * good value.
+   /* The higher level GLX code is required to perform the filtering and only
+    * call us with valid GLX_RENDERER_* attributes.
+    * If dri2_convert_glx_query_renderer_attribs returns -1, this means that
+    * attribute is a __DRI2_RENDERER_*.
     */
    const int dri_attribute = dri2_convert_glx_query_renderer_attribs(attribute);
 
    if (psc->rendererQuery == NULL)
       return -1;
 
-   ret = psc->rendererQuery->queryInteger(psc->driScreen, dri_attribute,
+   ret = psc->rendererQuery->queryInteger(psc->driScreen,
+                                          dri_attribute >= 0 ? dri_attribute : attribute,
                                           value);
-   dri_convert_context_profile_bits(attribute, value);
+   if (dri_attribute >= 0)
+      dri_convert_context_profile_bits(attribute, value);
 
    return ret;
 }
