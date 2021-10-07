@@ -304,7 +304,6 @@ dzn_pipeline_translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
       inputs[i].InstanceDataStepRate =
          inputs[i].InputSlot == VK_VERTEX_INPUT_RATE_INSTANCE ? 1 : 0;
       inputs[i].AlignedByteOffset = attr->offset;
-         inputs[i].InstanceDataStepRate = 1;
    }
 
    desc->InputLayout.pInputElementDescs = inputs;
