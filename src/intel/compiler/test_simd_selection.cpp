@@ -30,6 +30,8 @@
 
 #include <gtest/gtest.h>
 
+#include <iostream>
+
 using namespace brw;
 
 enum {
@@ -174,7 +176,9 @@ TEST_F(SIMDSelectionCS, SpillAtSIMD16)
 
 TEST_F(SIMDSelectionCS, EnvironmentVariable32)
 {
+   std::cout << "BEFORE intel_debug " << std::hex << intel_debug << "    INTEL_DEBUG " << INTEL_DEBUG << "\n";
    intel_debug |= DEBUG_DO32;
+   std::cout << "BEFORE intel_debug " << intel_debug << "    INTEL_DEBUG " << INTEL_DEBUG << "\n";
 
    ASSERT_TRUE(should_compile(SIMD8));
    brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);

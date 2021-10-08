@@ -42,7 +42,8 @@ extern "C" {
 
 extern uint64_t intel_debug;
 
-#define INTEL_DEBUG __builtin_expect(intel_debug, 0)
+/* #define INTEL_DEBUG __builtin_expect(intel_debug, 0) */
+#define INTEL_DEBUG intel_debug
 
 #define DEBUG_TEXTURE             (1ull <<  0)
 #define DEBUG_STATE               (1ull <<  1)
