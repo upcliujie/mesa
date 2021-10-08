@@ -71,11 +71,17 @@ convert_pc_to_bits(struct GENX(PIPE_CONTROL) *pc) {
    return bits;
 }
 
-#define anv_debug_dump_pc(pc) \
-   if (INTEL_DEBUG & DEBUG_PIPE_CONTROL) { \
-      fputs("pc: emit PC=( ", stderr); \
-      anv_dump_pipe_bits(convert_pc_to_bits(&(pc))); \
-      fprintf(stderr, ") reason: %s\n", __FUNCTION__); \
+#define anv_debug_dump_pc(batch, pc) {                           \
+      if (INTEL_DEBUG & DEBUG_PIPE_CONTROL) {                   \
+         anv_dump_pipe_bits("emit",                             \
+                            convert_pc_to_bits(&(pc)),          \
+                            __FUNCTION__);                      \
+      }                                                         \
+      if (INTEL_DEBUG & DEBUG_BATCH) {                          \
+         anv_batch_annotate_pc(batch, "previous pc emitted",   \
+                               convert_pc_to_bits(&(pc)),       \
+                            __FUNCTION__);                      \
+      }                                                         \
    }
 
 static bool
@@ -123,7 +129,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       if (devinfo->revision == 0 /* A0 */)
          pc.HDCPipelineFlushEnable = true;
 #endif
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 
 #if GFX_VER == 12
@@ -273,7 +279,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       pc.TextureCacheInvalidationEnable = true;
       pc.ConstantCacheInvalidationEnable = true;
       pc.StateCacheInvalidationEnable = true;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 }
 
@@ -1744,6 +1750,8 @@ genX(BeginCommandBuffer)(
     */
    anv_cmd_buffer_reset(cmd_buffer);
 
+   anv_batch_annotate_begin(&cmd_buffer->batch, "BeginCommandBuffer");
+
    cmd_buffer->usage_flags = pBeginInfo->flags;
 
    /* VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT must be ignored for
@@ -1902,12 +1910,12 @@ emit_isp_disable(struct anv_cmd_buffer *cmd_buffer)
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
          pc.StallAtPixelScoreboard = true;
          pc.CommandStreamerStallEnable = true;
-         anv_debug_dump_pc(pc);
+         anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
          pc.IndirectStatePointersDisable = true;
          pc.CommandStreamerStallEnable = true;
-         anv_debug_dump_pc(pc);
+         anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 }
 
@@ -1931,6 +1939,8 @@ genX(EndCommandBuffer)(
 
    emit_isp_disable(cmd_buffer);
 
+   anv_batch_annotate_end(&cmd_buffer->batch, "EndCommandBuffer");
+
    anv_cmd_buffer_end_batch_buffer(cmd_buffer);
 
    return VK_SUCCESS;
@@ -1948,6 +1958,8 @@ genX(CmdExecuteCommands)(
 
    if (anv_batch_has_error(&primary->batch))
       return;
+
+   anv_batch_annotate_begin(&primary->batch, "CmdExecuteCommands");
 
    /* The secondary command buffers will assume that the PMA fix is disabled
     * when they begin executing.  Make sure this is true.
@@ -1992,6 +2004,7 @@ genX(CmdExecuteCommands)(
          struct anv_state dst_state = secondary->state.attachment_states;
          assert(src_state.alloc_size == dst_state.alloc_size);
 
+         anv_batch_annotate_begin(&primary->batch, "SO memcpy attachments");
          genX(cmd_buffer_so_memcpy)(primary,
                                     (struct anv_address) {
                                        .bo = ss_bo,
@@ -2002,6 +2015,7 @@ genX(CmdExecuteCommands)(
                                        .offset = src_state.offset,
                                     },
                                     src_state.alloc_size);
+         anv_batch_annotate_end(&primary->batch, "SO memcpy attachments");
       }
 
       anv_cmd_buffer_add_secondary(primary, secondary);
@@ -2044,6 +2058,8 @@ genX(CmdExecuteCommands)(
     * address calls?
     */
    genX(cmd_buffer_emit_state_base_address)(primary);
+
+   anv_batch_annotate_end(&primary->batch, "CmdExecuteCommands");
 }
 
 /**
@@ -2076,7 +2092,7 @@ genX(cmd_buffer_config_l3)(struct anv_cmd_buffer *cmd_buffer,
       pc.DCFlushEnable = true;
       pc.PostSyncOperation = NoWrite;
       pc.CommandStreamerStallEnable = true;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 
    /* ...followed by a second pipelined PIPE_CONTROL that initiates
@@ -2099,7 +2115,7 @@ genX(cmd_buffer_config_l3)(struct anv_cmd_buffer *cmd_buffer,
       pc.InstructionCacheInvalidateEnable = true;
       pc.StateCacheInvalidationEnable = true;
       pc.PostSyncOperation = NoWrite;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 
    /* Now send a third stalling flush to make sure that invalidation is
@@ -2109,7 +2125,7 @@ genX(cmd_buffer_config_l3)(struct anv_cmd_buffer *cmd_buffer,
       pc.DCFlushEnable = true;
       pc.PostSyncOperation = NoWrite;
       pc.CommandStreamerStallEnable = true;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 
    genX(emit_l3_config)(&cmd_buffer->batch, cmd_buffer->device, cfg);
@@ -2295,7 +2311,7 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
              !pipe.DepthStallEnable &&
              !pipe.DCFlushEnable)
             pipe.StallAtPixelScoreboard = true;
-         anv_debug_dump_pc(pipe);
+         anv_debug_dump_pc(&cmd_buffer->batch, pipe);
       }
 
       /* If a render target flush was emitted, then we can toggle off the bit
@@ -2384,7 +2400,7 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
             pipe.PostSyncOperation = WriteImmediateData;
             pipe.Address = cmd_buffer->device->workaround_address;
          }
-         anv_debug_dump_pc(pipe);
+         anv_debug_dump_pc(&cmd_buffer->batch, pipe);
       }
 
 #if GFX_VER == 12
@@ -3718,7 +3734,7 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
          pc.DepthStallEnable  = true;
          pc.PostSyncOperation = WriteImmediateData;
          pc.Address           = cmd_buffer->device->workaround_address;
-         anv_debug_dump_pc(pc);
+         anv_debug_dump_pc(&cmd_buffer->batch, pc);
       }
    }
 #endif
@@ -3920,6 +3936,8 @@ void genX(CmdDraw)(
                         INTEL_SNAPSHOT_DRAW,
                         "draw", count);
 
+   anv_batch_annotate(&cmd_buffer->batch, "Draw");
+
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    if (cmd_buffer->state.conditional_render_enabled)
@@ -3963,6 +3981,8 @@ void genX(CmdDrawMultiEXT)(
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
+
+   anv_batch_annotate(&cmd_buffer->batch, "DrawMultiEXT");
 
    const uint32_t count = (drawCount *
                            instanceCount *
@@ -4019,6 +4039,11 @@ void genX(CmdDrawIndexed)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   anv_batch_annotate(&cmd_buffer->batch,
+                      "DrawIndexed indexes=%u-%u instances=%u-%u voffset=%i",
+                      firstIndex, indexCount,
+                      firstInstance, instanceCount, vertexOffset);
+
    const uint32_t count = (indexCount *
                            instanceCount *
                            (pipeline->use_primitive_replication ?
@@ -4070,6 +4095,8 @@ void genX(CmdDrawMultiIndexedEXT)(
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDrawMultiIndexed");
 
    const uint32_t count = (drawCount *
                            instanceCount *
@@ -4196,6 +4223,8 @@ void genX(CmdDrawIndirectByteCountEXT)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDrawIndirectByteCount");
+
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
                         "draw indirect byte count",
@@ -4298,6 +4327,8 @@ void genX(CmdDrawIndirect)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDrawIndirect");
+
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    if (cmd_buffer->state.conditional_render_enabled)
@@ -4346,6 +4377,8 @@ void genX(CmdDrawIndexedIndirect)(
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDrawIndexedIndirect");
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -4506,6 +4539,8 @@ void genX(CmdDrawIndirectCount)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDrawIndirectCount");
+
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    struct mi_builder b;
@@ -4566,6 +4601,8 @@ void genX(CmdDrawIndexedIndirectCount)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDrawIndexedIndirectCount");
+
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    struct mi_builder b;
@@ -4621,6 +4658,8 @@ void genX(CmdBeginTransformFeedbackEXT)(
    assert(counterBufferCount <= MAX_XFB_BUFFERS);
    assert(firstCounterBuffer + counterBufferCount <= MAX_XFB_BUFFERS);
 
+   anv_batch_annotate_begin(&cmd_buffer->batch, "CmdBeginTransformFeedback");
+
    /* From the SKL PRM Vol. 2c, SO_WRITE_OFFSET:
     *
     *    "Ssoftware must ensure that no HW stream output operations can be in
@@ -4671,6 +4710,8 @@ void genX(CmdEndTransformFeedbackEXT)(
     const VkDeviceSize*                         pCounterBufferOffsets)
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
+
+   anv_batch_annotate_end(&cmd_buffer->batch, "CmdEndTransformFeedback");
 
    assert(firstCounterBuffer < MAX_XFB_BUFFERS);
    assert(counterBufferCount <= MAX_XFB_BUFFERS);
@@ -4972,6 +5013,9 @@ void genX(CmdDispatchBase)(
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdDispatchBase %ux%ux%u",
+                      groupCountX, groupCountY, groupCountZ);
 
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_COMPUTE,
@@ -5451,7 +5495,7 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
        */
       pc.DepthStallEnable = true;
 #endif
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pc) {
@@ -5460,7 +5504,7 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
       pc.StateCacheInvalidationEnable     = true;
       pc.InstructionCacheInvalidateEnable = true;
       pc.PostSyncOperation                = NoWrite;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPELINE_SELECT), ps) {
@@ -5523,18 +5567,18 @@ genX(cmd_buffer_emit_gfx7_depth_flush)(struct anv_cmd_buffer *cmd_buffer)
     */
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pipe) {
       pipe.DepthStallEnable = true;
-      anv_debug_dump_pc(pipe);
+      anv_debug_dump_pc(&cmd_buffer->batch, pipe);
    }
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pipe) {
       pipe.DepthCacheFlushEnable = true;
 #if GFX_VER >= 12
       pipe.TileCacheFlushEnable = true;
 #endif
-      anv_debug_dump_pc(pipe);
+      anv_debug_dump_pc(&cmd_buffer->batch, pipe);
    }
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pipe) {
       pipe.DepthStallEnable = true;
-      anv_debug_dump_pc(pipe);
+      anv_debug_dump_pc(&cmd_buffer->batch, pipe);
    }
 }
 
@@ -6907,7 +6951,7 @@ void genX(CmdSetEvent2KHR)(
          event->state.offset
       };
       pc.ImmediateData           = VK_EVENT_SET;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 }
 
@@ -6935,7 +6979,7 @@ void genX(CmdResetEvent2KHR)(
          event->state.offset
       };
       pc.ImmediateData           = VK_EVENT_RESET;
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(&cmd_buffer->batch, pc);
    }
 }
 
@@ -7028,6 +7072,6 @@ void genX(cmd_emit_timestamp)(struct anv_batch *batch,
       pc.CommandStreamerStallEnable = true;
       pc.PostSyncOperation       = WriteTimestamp;
       pc.Address = (struct anv_address) {bo, offset};
-      anv_debug_dump_pc(pc);
+      anv_debug_dump_pc(batch, pc);
    }
 }

@@ -633,6 +633,8 @@ void anv_CmdCopyImageToBuffer2KHR(
    ANV_FROM_HANDLE(anv_image, src_image, pCopyImageToBufferInfo->srcImage);
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdCopyImageToBuffer");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -794,6 +796,8 @@ void anv_CmdBlitImage2KHR(
    ANV_FROM_HANDLE(anv_image, src_image, pBlitImageInfo->srcImage);
    ANV_FROM_HANDLE(anv_image, dst_image, pBlitImageInfo->dstImage);
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdBlitImage");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -859,6 +863,8 @@ void anv_CmdCopyBuffer2KHR(
    ANV_FROM_HANDLE(anv_buffer, src_buffer, pCopyBufferInfo->srcBuffer);
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, pCopyBufferInfo->dstBuffer);
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdCopyBuffer");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -882,6 +888,8 @@ void anv_CmdUpdateBuffer(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, dstBuffer);
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdUpdateBuffer");
 
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
@@ -945,6 +953,8 @@ void anv_CmdFillBuffer(
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, dstBuffer);
    struct blorp_surf surf;
    struct isl_surf isl_surf;
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdFillBuffer");
 
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
@@ -1034,6 +1044,8 @@ void anv_CmdClearColorImage(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_image, image, _image);
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdClearColorImage");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -1095,6 +1107,8 @@ void anv_CmdClearDepthStencilImage(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_image, image, image_h);
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdClearDepthStencilImage");
 
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
@@ -1360,6 +1374,8 @@ void anv_CmdClearAttachments(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
 
+   anv_batch_annotate(&cmd_buffer->batch, "CmdClearAttachments");
+
    /* Because this gets called within a render pass, we tell blorp not to
     * trash our depth and stencil buffers.
     */
@@ -1516,6 +1532,8 @@ void anv_CmdResolveImage2KHR(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_image, src_image, pResolveImageInfo->srcImage);
    ANV_FROM_HANDLE(anv_image, dst_image, pResolveImageInfo->dstImage);
+
+   anv_batch_annotate(&cmd_buffer->batch, "CmdResolveImage");
 
    for (uint32_t r = 0; r < pResolveImageInfo->regionCount; r++) {
       resolve_image(cmd_buffer,
