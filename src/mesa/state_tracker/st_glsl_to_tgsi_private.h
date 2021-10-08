@@ -125,7 +125,7 @@ class glsl_to_tgsi_instruction : public exec_node {
 public:
    DECLARE_RALLOC_CXX_OPERATORS(glsl_to_tgsi_instruction)
 
-   st_dst_reg dst[2];
+   st_dst_reg dst[1];
    st_src_reg src[4];
    st_src_reg resource; /**< sampler or buffer register */
    st_src_reg *tex_offsets;
@@ -195,6 +195,7 @@ is_resource_instruction(unsigned opcode)
 inline static unsigned
 num_inst_dst_regs(const glsl_to_tgsi_instruction *op)
 {
+   assert(op->info->num_dst <= 1);
    return op->info->num_dst;
 }
 

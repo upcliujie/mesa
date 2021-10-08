@@ -382,7 +382,6 @@ public:
    int eliminate_dead_code(void);
 
    void split_arrays(void);
-   void merge_two_dsts(void);
    void merge_registers(void);
    void renumber_registers(void);
 
@@ -5591,58 +5590,6 @@ glsl_to_tgsi_visitor::eliminate_dead_code(void)
    return removed;
 }
 
-/* merge DFRACEXP instructions into one. */
-void
-glsl_to_tgsi_visitor::merge_two_dsts(void)
-{
-   /* We never delete inst, but we may delete its successor. */
-   foreach_in_list(glsl_to_tgsi_instruction, inst, &this->instructions) {
-      glsl_to_tgsi_instruction *inst2;
-      unsigned defined;
-
-      if (num_inst_dst_regs(inst) != 2)
-         continue;
-
-      if (inst->dst[0].file != PROGRAM_UNDEFINED &&
-          inst->dst[1].file != PROGRAM_UNDEFINED)
-         continue;
-
-      assert(inst->dst[0].file != PROGRAM_UNDEFINED ||
-             inst->dst[1].file != PROGRAM_UNDEFINED);
-
-      if (inst->dst[0].file == PROGRAM_UNDEFINED)
-         defined = 1;
-      else
-         defined = 0;
-
-      inst2 = (glsl_to_tgsi_instruction *) inst->next;
-      while (!inst2->is_tail_sentinel()) {
-         if (inst->op == inst2->op &&
-             inst2->dst[defined].file == PROGRAM_UNDEFINED &&
-             inst->src[0].file == inst2->src[0].file &&
-             inst->src[0].index == inst2->src[0].index &&
-             inst->src[0].type == inst2->src[0].type &&
-             inst->src[0].swizzle == inst2->src[0].swizzle)
-            break;
-         inst2 = (glsl_to_tgsi_instruction *) inst2->next;
-      }
-
-      if (inst2->is_tail_sentinel()) {
-         /* Undefined destinations are not allowed, substitute with an unused
-          * temporary register.
-          */
-         st_src_reg tmp = get_temp(glsl_type::vec4_type);
-         inst->dst[defined ^ 1] = st_dst_reg(tmp);
-         inst->dst[defined ^ 1].writemask = 0;
-         continue;
-      }
-
-      inst->dst[defined ^ 1] = inst2->dst[defined ^ 1];
-      inst2->remove();
-      delete inst2;
-   }
-}
-
 template <typename st_reg>
 void test_indirect_access(const st_reg& reg, bool *has_indirect_access)
 {
@@ -7143,8 +7090,6 @@ get_mesa_program_tgsi(struct gl_context *ctx,
    v->copy_propagate();
 
    while (v->eliminate_dead_code());
-
-   v->merge_two_dsts();
 
    if (!skip_merge_registers) {
       v->split_arrays();
