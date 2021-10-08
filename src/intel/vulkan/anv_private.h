@@ -2382,6 +2382,8 @@ enum anv_pipe_bits {
     * implement a workaround for Gfx9.
     */
    ANV_PIPE_POST_SYNC_BIT                    = (1 << 25),
+
+   ANV_PIPE_PSS_STALL_SYNC_BIT               = (1 << 26),
 };
 
 #define ANV_PIPE_FLUSH_BITS ( \
