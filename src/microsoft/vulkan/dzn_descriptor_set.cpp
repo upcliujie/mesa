@@ -270,6 +270,20 @@ err_free_bindings:
    return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
 }
 
+void
+dzn_DestroyDescriptorSetLayout(VkDevice _device,
+                               VkDescriptorSetLayout descriptorSetLayout,
+                               const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, descriptorSetLayout);
+
+   if (!set_layout)
+      return;
+
+   vk_object_free(&device->vk, pAllocator, set_layout);
+}
+
 static PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE
 dxil_get_serialize_root_sig(void)
 {
