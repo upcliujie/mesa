@@ -882,21 +882,6 @@ TEST_F(LifetimeEvaluatorExactTest, UseSwitchCase)
    run (code, temp_lt_expect({{-1,-1}, {0,5}, {1,4}, {2,3}}));
 }
 
-/* With two destinations, if one result is thrown away, the
- * register must be kept past the writing instructions.
- */
-TEST_F(LifetimeEvaluatorExactTest, WriteTwoOnlyUseOne)
-{
-   const vector<FakeCodeline> code = {
-      { TGSI_OPCODE_DFRACEXP , {1,2}, {in0}, {}},
-      { TGSI_OPCODE_ADD , {3}, {2,in0}, {}},
-      { TGSI_OPCODE_MOV, {out1}, {3}, {}},
-      { TGSI_OPCODE_END},
-
-   };
-   run (code, temp_lt_expect({{-1,-1}, {0,1}, {0,1}, {1,2}}));
-}
-
 /* If a break is in the loop, all variables written after the
  * break and used outside the loop must be maintained for the
  * whole loop
@@ -1401,17 +1386,6 @@ TEST_F(LifetimeEvaluatorExactTest, SimpleReadForIf)
    run (code, temp_lt_expect({{-1,-1}, {0,2}}));
 }
 
-TEST_F(LifetimeEvaluatorExactTest, WriteTwoReadOne)
-{
-   const vector<FakeCodeline> code = {
-      { TGSI_OPCODE_DFRACEXP , {1,2}, {in0}, {}},
-      { TGSI_OPCODE_ADD , {3}, {2,in0}, {}},
-      { TGSI_OPCODE_MOV, {out1}, {3}, {}},
-      { TGSI_OPCODE_END},
-   };
-   run (code, temp_lt_expect({{-1,-1}, {0,1}, {0,1}, {1,2}}));
-}
-
 TEST_F(LifetimeEvaluatorExactTest, ReadOnly)
 {
    const vector<FakeCodeline> code = {
@@ -1447,17 +1421,6 @@ TEST_F(LifetimeEvaluatorExactTest, SerialReadWrite)
       { TGSI_OPCODE_END},
    };
    run (code, temp_lt_expect({{-1,-1}, {0,1}, {1,2}, {2,3}}));
-}
-
-/* Check that two destination registers are used */
-TEST_F(LifetimeEvaluatorExactTest, TwoDestRegisters)
-{
-   const vector<FakeCodeline> code = {
-      { TGSI_OPCODE_DFRACEXP , {1,2}, {in0}, {}},
-      { TGSI_OPCODE_ADD, {out0}, {1,2}, {}},
-      { TGSI_OPCODE_END}
-   };
-   run (code, temp_lt_expect({{-1,-1}, {0,1}, {0,1}}));
 }
 
 /* Check that writing within a loop in a conditional is propagated
@@ -1519,37 +1482,6 @@ TEST_F(LifetimeEvaluatorExactTest, ReadWriteInLoopInCondReadInCondOutsideLoop)
       { TGSI_OPCODE_END}
    };
    run (code, temp_lt_expect({{-1,-1}, {0,7}, {0,8}}));
-}
-
-/* With two destinations if one value is thrown away, we must
- * ensure that the two output registers don't merge. In this test
- * case the last access for 2 and 3 is in line 4, but 4 can only
- * be merged with 3 because it is read,2 on the other hand is written
- * to, and merging it with 4 would result in a bug.
- */
-TEST_F(LifetimeEvaluatorExactTest, WritePastLastRead2)
-{
-   const vector<FakeCodeline> code = {
-      { TGSI_OPCODE_MOV, {1}, {in0}, {}},
-      { TGSI_OPCODE_MOV, {2}, {in0}, {}},
-      { TGSI_OPCODE_ADD, {3}, {1,2}, {}},
-      { TGSI_OPCODE_DFRACEXP , {2,4}, {3}, {}},
-      { TGSI_OPCODE_MOV, {out1}, {4}, {}},
-      { TGSI_OPCODE_END}
-   };
-   run (code, temp_lt_expect({{-1,-1}, {0,2}, {1,4}, {2,3}, {3,4}}));
-}
-
-/* Check that three source registers are used */
-TEST_F(LifetimeEvaluatorExactTest, ThreeSourceRegisters)
-{
-   const vector<FakeCodeline> code = {
-      { TGSI_OPCODE_DFRACEXP , {1,2}, {in0}, {}},
-      { TGSI_OPCODE_ADD , {3}, {in0,in1}, {}},
-      { TGSI_OPCODE_MAD, {out0}, {1,2,3}, {}},
-      { TGSI_OPCODE_END}
-   };
-   run (code, temp_lt_expect({{-1,-1}, {0,2}, {0,2}, {1,2}}));
 }
 
 /* Check minimal lifetime for registers only written to */

@@ -962,7 +962,6 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
       [nir_op_imax] = { TGSI_OPCODE_IMAX, TGSI_OPCODE_I64MAX },
       [nir_op_umax] = { TGSI_OPCODE_UMAX, TGSI_OPCODE_U64MAX },
       [nir_op_ffma] = { TGSI_OPCODE_MAD, TGSI_OPCODE_DMAD },
-      [nir_op_ldexp] = { TGSI_OPCODE_LDEXP, 0 },
    };
 
    /* TGSI's 64 bit compares storing to 32-bit are weird and write .xz instead
@@ -1172,48 +1171,6 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
           * instructions to do the abs.
           */
          ureg_CMP(c->ureg, dst, ureg_negate(src[0]), src[1], src[2]);
-         break;
-
-         /* It would be nice if we could get this left as scalar in NIR, since
-          * the TGSI op is scalar.
-          */
-      case nir_op_frexp_sig:
-      case nir_op_frexp_exp: {
-         assert(src_64);
-         struct ureg_dst temp = ureg_DECL_temporary(c->ureg);
-
-         for (int chan = 0; chan < 2; chan++) {
-            int wm = 1 << chan;
-
-            if (!(instr->dest.write_mask & wm))
-               continue;
-
-            struct ureg_dst dsts[2] = { temp, temp };
-            if (instr->op == nir_op_frexp_sig) {
-               dsts[0] = ureg_writemask(dst, ntt_64bit_write_mask(wm));
-            } else {
-               dsts[1] = ureg_writemask(dst, wm);
-            }
-
-            struct ureg_src chan_src = ureg_swizzle(src[0],
-                                                    chan * 2, chan * 2 + 1,
-                                                    chan * 2, chan * 2 + 1);
-
-            ureg_insn(c->ureg, TGSI_OPCODE_DFRACEXP,
-                      dsts, 2,
-                      &chan_src, 1, false);
-         }
-
-         ureg_release_temporary(c->ureg, temp);
-         break;
-      }
-
-      case nir_op_ldexp:
-         assert(dst_64); /* 32bit handled in table. */
-         ureg_DLDEXP(c->ureg, dst, src[0],
-                     ureg_swizzle(src[1],
-                                  TGSI_SWIZZLE_X, TGSI_SWIZZLE_X,
-                                  TGSI_SWIZZLE_Y, TGSI_SWIZZLE_Y));
          break;
 
       case nir_op_vec4:

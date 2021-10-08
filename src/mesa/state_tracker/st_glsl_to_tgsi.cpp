@@ -736,7 +736,6 @@ glsl_to_tgsi_visitor::emit_asm(ir_instruction *ir, enum tgsi_opcode op,
                if (op == TGSI_OPCODE_F2D || op == TGSI_OPCODE_U2D ||
                    op == TGSI_OPCODE_I2D ||
                    op == TGSI_OPCODE_I2I64 || op == TGSI_OPCODE_U2I64 ||
-                   op == TGSI_OPCODE_DLDEXP || op == TGSI_OPCODE_LDEXP ||
                    (op == TGSI_OPCODE_UCMP && dst_is_64bit[0])) {
                   dinst->src[j].swizzle = MAKE_SWIZZLE4(swz, swz, swz, swz);
                }
@@ -1642,14 +1641,6 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
       break;
    }
 
-   case ir_unop_frexp_sig:
-      emit_asm(ir, TGSI_OPCODE_DFRACEXP, result_dst, undef_dst, op[0]);
-      break;
-
-   case ir_unop_frexp_exp:
-      emit_asm(ir, TGSI_OPCODE_DFRACEXP, undef_dst, result_dst, op[0]);
-      break;
-
    case ir_binop_add:
       emit_asm(ir, TGSI_OPCODE_ADD, result_dst, op[0], op[1]);
       break;
@@ -2290,16 +2281,6 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
       emit_asm(ir, TGSI_OPCODE_MOV, result_dst, op[0]);
       break;
 
-   case ir_binop_ldexp:
-      if (ir->operands[0]->type->is_double()) {
-         emit_asm(ir, TGSI_OPCODE_DLDEXP, result_dst, op[0], op[1]);
-      } else if (ir->operands[0]->type->is_float()) {
-         emit_asm(ir, TGSI_OPCODE_LDEXP, result_dst, op[0], op[1]);
-      } else {
-         assert(!"Invalid ldexp for non-double opcode in glsl_to_tgsi_visitor::visit()");
-      }
-      break;
-
    case ir_unop_pack_half_2x16:
       emit_asm(ir, TGSI_OPCODE_PK2H, result_dst, op[0]);
       break;
@@ -2462,6 +2443,9 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
    case ir_unop_atan:
    case ir_binop_atan2:
    case ir_unop_clz:
+   case ir_unop_frexp_sig:
+   case ir_unop_frexp_exp:
+   case ir_binop_ldexp:
    case ir_binop_add_sat:
    case ir_binop_sub_sat:
    case ir_binop_abs_sub:

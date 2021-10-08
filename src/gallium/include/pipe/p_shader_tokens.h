@@ -363,7 +363,7 @@ enum tgsi_opcode {
    TGSI_OPCODE_LRP                = 18,
    TGSI_OPCODE_FMA                = 19,
    TGSI_OPCODE_SQRT               = 20,
-   TGSI_OPCODE_LDEXP              = 21,
+   /* gap */
    TGSI_OPCODE_F2U64              = 22,
    TGSI_OPCODE_F2I64              = 23,
    TGSI_OPCODE_FRC                = 24,
@@ -566,8 +566,7 @@ enum tgsi_opcode {
    TGSI_OPCODE_DSQRT              = 208 /* eg, cayman also has DRSQ */,
    TGSI_OPCODE_DMAD               = 209,
    TGSI_OPCODE_DFRAC              = 210 /* eg, cayman */,
-   TGSI_OPCODE_DLDEXP             = 211 /* eg, cayman */,
-   TGSI_OPCODE_DFRACEXP           = 212 /* eg, cayman */,
+   /* gap */
    TGSI_OPCODE_D2I                = 213,
    TGSI_OPCODE_I2D                = 214,
    TGSI_OPCODE_D2U                = 215,
