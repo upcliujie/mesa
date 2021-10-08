@@ -2210,8 +2210,7 @@ handle_shader_outputs_post(struct ac_shader_abi *abi)
 }
 
 static void
-ac_llvm_finalize_module(struct radv_shader_context *ctx, LLVMPassManagerRef passmgr,
-                        const struct radv_nir_compiler_options *options)
+ac_llvm_finalize_module(struct radv_shader_context *ctx, LLVMPassManagerRef passmgr)
 {
    LLVMRunPassManager(passmgr, ctx->ac.module);
    LLVMDisposeBuilder(ctx->ac.builder);
@@ -2583,7 +2582,7 @@ ac_translate_nir_to_llvm(struct ac_llvm_compiler *ac_llvm, struct nir_shader *co
       fprintf(stderr, "\n");
    }
 
-   ac_llvm_finalize_module(&ctx, ac_llvm->passmgr, args->options);
+   ac_llvm_finalize_module(&ctx, ac_llvm->passmgr);
 
    if (shader_count == 1)
       ac_nir_eliminate_const_vs_outputs(&ctx);
@@ -2803,7 +2802,7 @@ radv_compile_gs_copy_shader(struct ac_llvm_compiler *ac_llvm, struct nir_shader 
 
    LLVMBuildRetVoid(ctx.ac.builder);
 
-   ac_llvm_finalize_module(&ctx, ac_llvm->passmgr, args->options);
+   ac_llvm_finalize_module(&ctx, ac_llvm->passmgr);
 
    ac_compile_llvm_module(ac_llvm, ctx.ac.module, rbinary, MESA_SHADER_VERTEX, "GS Copy Shader",
                           args->options);
@@ -2811,9 +2810,8 @@ radv_compile_gs_copy_shader(struct ac_llvm_compiler *ac_llvm, struct nir_shader 
 }
 
 void
-llvm_compile_shader(struct radv_device *device, unsigned shader_count,
-                    struct nir_shader *const *shaders, struct radv_shader_binary **binary,
-                    struct radv_shader_args *args)
+llvm_compile_shader(unsigned shader_count, struct nir_shader *const *shaders,
+                    struct radv_shader_binary **binary, struct radv_shader_args *args)
 {
    enum ac_target_machine_options tm_options = 0;
    struct ac_llvm_compiler ac_llvm;
