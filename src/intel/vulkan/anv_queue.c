@@ -589,6 +589,7 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
                                   stderr, decode_flags, NULL,
                                   decode_get_bo,
                                   NULL /* get_state_size */,
+                                  NULL /* get_annotation */,
                                   queue);
    }
 

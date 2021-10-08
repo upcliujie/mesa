@@ -28,6 +28,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include "dev/intel_debug.h"
 #include "dev/intel_device_info.h"
 #include "util/hash_table.h"
 #include "util/bitset.h"
@@ -234,6 +235,9 @@ struct intel_batch_decode_ctx {
    unsigned (*get_state_size)(void *user_data,
                               uint64_t address,
                               uint64_t base_address);
+   const struct intel_debug_mem_annotate *(*get_annotation)(void *user_data,
+                                                            uint64_t address);
+
    void *user_data;
 
    FILE *fp;
@@ -264,6 +268,8 @@ void intel_batch_decode_ctx_init(struct intel_batch_decode_ctx *ctx,
                                                                         uint64_t),
                                  unsigned (*get_state_size)(void *, uint64_t,
                                                             uint64_t),
+                                 const struct intel_debug_mem_annotate *
+                                 (get_annotation)(void *, uint64_t),
                                  void *user_data);
 void intel_batch_decode_ctx_finish(struct intel_batch_decode_ctx *ctx);
 
