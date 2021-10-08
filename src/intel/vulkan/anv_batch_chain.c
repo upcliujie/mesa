@@ -2081,6 +2081,28 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
    if (INTEL_DEBUG & DEBUG_BATCH) {
       fprintf(stderr, "Batch on queue %d\n", (int)(queue - device->queues));
       if (submit->cmd_buffer_count) {
+         if (INTEL_DEBUG & DEBUG_ANNOTATE) {
+            /* Build a hashmap of annotations, going through all BOs looking
+             * for annotations.
+             */
+            for (uint32_t b = 0; b < execbuf.bo_count; b++) {
+               struct anv_bo *bo = execbuf.bos[b];
+
+               if (!bo->map)
+                  continue;
+
+               if (memcmp(bo->map, intel_debug_identifier(), intel_debug_identifier_size()))
+                  continue;
+
+               intel_debug_foreach_block(struct intel_debug_mem_annotate, annot,
+                                      INTEL_DEBUG_BLOCK_TYPE_MEM_ANNOTATE,
+                                         bo->map, bo->map + bo->size) {
+                  _mesa_hash_table_u64_insert(queue->annotation_map,
+                                              annot->address, annot);
+               }
+            }
+         }
+
          if (has_perf_query) {
             struct anv_query_pool *query_pool = submit->perf_query_pool;
             struct anv_bo *pass_batch_bo = query_pool->bo;
@@ -2100,6 +2122,11 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
             intel_print_batch(&queue->decoder_ctx, (*bo)->bo->map,
                               (*bo)->bo->size, (*bo)->bo->offset, false);
             device->cmd_buffer_being_decoded = NULL;
+         }
+
+         if (INTEL_DEBUG & DEBUG_ANNOTATE) {
+            /* Clear annotations */
+            _mesa_hash_table_u64_clear(queue->annotation_map);
          }
       } else if (submit->simple_bo) {
          intel_print_batch(&queue->decoder_ctx, submit->simple_bo->map,

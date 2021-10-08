@@ -1073,6 +1073,7 @@ struct anv_queue {
    bool                                      quit;
 
    struct intel_batch_decode_ctx             decoder_ctx;
+   struct hash_table_u64 *                   annotation_map;
 };
 
 struct anv_pipeline_cache {
