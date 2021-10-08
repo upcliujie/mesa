@@ -5494,12 +5494,12 @@ visit_load_push_constant(isel_context* ctx, nir_intrinsic_instr* instr)
    nir_const_value* index_cv = nir_src_as_const_value(instr->src[0]);
 
    if (index_cv && instr->dest.ssa.bit_size == 32) {
-      struct radv_userdata_info *loc =
-         &ctx->args->shader_info->user_sgprs_locs.shader_data[AC_UD_INLINE_PUSH_CONSTANTS];
+      const struct radv_userdata_info *loc =
+         &ctx->program->info->user_sgprs_locs.shader_data[AC_UD_INLINE_PUSH_CONSTANTS];
       unsigned start = (offset + index_cv->u32) / 4u;
       unsigned num_inline_push_consts = loc->sgpr_idx != -1 ? loc->num_sgprs : 0;
 
-      start -= ctx->args->shader_info->min_push_constant_used / 4;
+      start -= ctx->program->info->min_push_constant_used / 4;
       if (start + count <= num_inline_push_consts) {
          std::array<Temp, NIR_MAX_VEC_COMPONENTS> elems;
          aco_ptr<Pseudo_instruction> vec{create_instruction<Pseudo_instruction>(
@@ -8813,7 +8813,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
              ctx->shader->info.stage == MESA_SHADER_TESS_EVAL);
 
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      bld.copy(Definition(dst), Operand::c32(ctx->args->options->key.tcs.tess_input_vertices));
+      bld.copy(Definition(dst), Operand::c32(ctx->options->key.tcs.tess_input_vertices));
       break;
    }
    case nir_intrinsic_emit_vertex_with_counter: {
@@ -11575,7 +11575,7 @@ select_program(Program* program, unsigned shader_count, struct nir_shader* const
          Pseudo_instruction* startpgm = add_startpgm(&ctx);
          append_logical_start(ctx.block);
 
-         if (unlikely(args->options->has_ls_vgpr_init_bug && ctx.stage == vertex_tess_control_hs))
+         if (unlikely(ctx.options->has_ls_vgpr_init_bug && ctx.stage == vertex_tess_control_hs))
             fix_ls_vgpr_init_bug(&ctx, startpgm);
 
          split_arguments(&ctx, startpgm);
@@ -11691,7 +11691,7 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
                              program->private_segment_buffer, Operand::c32(RING_GSVS_VS * 16u));
 
    Operand stream_id = Operand::zero();
-   if (args->shader_info->so.num_outputs)
+   if (program->info->so.num_outputs)
       stream_id = bld.sop2(aco_opcode::s_bfe_u32, bld.def(s1), bld.def(s1, scc),
                            get_arg(&ctx, ctx.args->ac.streamout_config), Operand::c32(0x20018u));
 
@@ -11704,8 +11704,8 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
       if (stream_id.isConstant() && stream != stream_id.constantValue())
          continue;
 
-      unsigned num_components = args->shader_info->gs.num_stream_output_components[stream];
-      if (stream > 0 && (!num_components || !args->shader_info->so.num_outputs))
+      unsigned num_components = program->info->gs.num_stream_output_components[stream];
+      if (stream > 0 && (!num_components || !program->info->so.num_outputs))
          continue;
 
       memset(ctx.outputs.mask, 0, sizeof(ctx.outputs.mask));
@@ -11720,17 +11720,17 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
 
       unsigned offset = 0;
       for (unsigned i = 0; i <= VARYING_SLOT_VAR31; ++i) {
-         if (args->shader_info->gs.output_streams[i] != stream)
+         if (program->info->gs.output_streams[i] != stream)
             continue;
 
-         unsigned output_usage_mask = args->shader_info->gs.output_usage_mask[i];
+         unsigned output_usage_mask = program->info->gs.output_usage_mask[i];
          unsigned length = util_last_bit(output_usage_mask);
          for (unsigned j = 0; j < length; ++j) {
             if (!(output_usage_mask & (1 << j)))
                continue;
 
             Temp val = bld.tmp(v1);
-            unsigned const_offset = offset * args->shader_info->gs.vertices_out * 16 * 4;
+            unsigned const_offset = offset * program->info->gs.vertices_out * 16 * 4;
             load_vmem_mubuf(&ctx, val, gsvs_ring, vtx_offset, Temp(), const_offset, 4, 1, 0u, true,
                             true, true);
 
@@ -11741,7 +11741,7 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
          }
       }
 
-      if (args->shader_info->so.num_outputs) {
+      if (program->info->so.num_outputs) {
          emit_streamout(&ctx, stream);
          bld.reset(ctx.block);
       }
