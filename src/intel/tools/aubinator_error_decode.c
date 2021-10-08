@@ -675,7 +675,11 @@ read_data_file(FILE *file)
 
    struct intel_batch_decode_ctx batch_ctx;
    intel_batch_decode_ctx_init(&batch_ctx, &devinfo, stdout, batch_flags,
-                               xml_path, get_intel_batch_bo, NULL, NULL);
+                               xml_path,
+                               get_intel_batch_bo,
+                               NULL /* get_state_size */,
+                               NULL /* get_annotation */,
+                               NULL /* user_ptr */);
    batch_ctx.acthd = acthd;
 
 

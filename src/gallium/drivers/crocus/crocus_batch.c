@@ -257,7 +257,9 @@ crocus_init_batch(struct crocus_context *ice,
 
       intel_batch_decode_ctx_init(&batch->decoder, &screen->devinfo, stderr,
                                   decode_flags, NULL, decode_get_bo,
-                                  decode_get_state_size, batch);
+                                  decode_get_state_size,
+                                  NULL /* get_annotation */,
+                                  batch);
       batch->decoder.max_vbo_decoded_lines = 32;
    }
 

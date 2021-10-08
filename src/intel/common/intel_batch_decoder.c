@@ -38,6 +38,8 @@ intel_batch_decode_ctx_init(struct intel_batch_decode_ctx *ctx,
                                                                    uint64_t),
                             unsigned (*get_state_size)(void *, uint64_t,
                                                        uint64_t),
+                            const struct intel_debug_mem_annotate *
+                            (get_annotation)(void *, uint64_t),
                             void *user_data)
 {
    memset(ctx, 0, sizeof(*ctx));
@@ -45,6 +47,7 @@ intel_batch_decode_ctx_init(struct intel_batch_decode_ctx *ctx,
    ctx->devinfo = *devinfo;
    ctx->get_bo = get_bo;
    ctx->get_state_size = get_state_size;
+   ctx->get_annotation = get_annotation;
    ctx->user_data = user_data;
    ctx->fp = fp;
    ctx->flags = flags;
@@ -1408,6 +1411,24 @@ intel_print_batch(struct intel_batch_decode_ctx *ctx,
          reset_color = "";
       }
 
+      const struct intel_debug_mem_annotate *annotation =
+         ctx->get_annotation ? ctx->get_annotation(ctx->user_data, offset) : NULL;
+      if (annotation) {
+         switch (annotation->annotation_type) {
+         case INTEL_DEBUG_ANNOTATION_BEGIN:
+            fprintf(ctx->fp, "%sBEGIN ANNOTATION: %-62s%s\n",
+                    color, annotation->description, reset_color);
+            break;
+         case INTEL_DEBUG_ANNOTATION_END:
+            fprintf(ctx->fp, "%sEND   ANNOTATION: %-62s%s\n",
+                    color, annotation->description, reset_color);
+            break;
+         case INTEL_DEBUG_ANNOTATION_DESCRIPTION:
+            fprintf(ctx->fp, "%sDESC  ANNOTATION: %-62s%s\n",
+                    color, annotation->description, reset_color);
+            break;
+         }
+      }
       fprintf(ctx->fp, "%s0x%08"PRIx64"%s:  0x%08x:  %-80s%s\n", color, offset,
               ctx->acthd && offset == ctx->acthd ? " (ACTHD)" : "", p[0],
               inst_name, reset_color);

@@ -92,7 +92,11 @@ aubinator_init(void *user_data, int aub_pci_id, const char *app_name)
    batch_flags |= INTEL_BATCH_DECODE_FLOATS;
 
    intel_batch_decode_ctx_init(&batch_ctx, &devinfo, outfile, batch_flags,
-                               xml_path, NULL, NULL, NULL);
+                               xml_path,
+                               NULL /* get_bo */,
+                               NULL /* get_state_size */,
+                               NULL /* get_annotation */,
+                               NULL /* user_ptr */);
 
    /* Check for valid spec instance, if wrong xml_path is passed then spec
     * instance is not initialized properly
