@@ -1,2 +1,5 @@
 # Sometimes crashes, e.g. https://gitlab.freedesktop.org/kusma/mesa/-/jobs/4109419
 dEQP-GLES31.functional.compute.basic.empty
+
+# Timeouts in CI, as on many other drivers.
+dEQP-GLES31.functional.ssbo.layout.random.all_shared_buffer.36
