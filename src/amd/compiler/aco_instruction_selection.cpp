@@ -11558,9 +11558,11 @@ ngg_emit_sendmsg_gs_alloc_req(isel_context* ctx, Temp vtx_cnt, Temp prm_cnt)
 
 void
 select_program(Program* program, unsigned shader_count, struct nir_shader* const* shaders,
-               ac_shader_config* config, const struct radv_shader_args* args)
+               ac_shader_config* config, const struct radv_nir_compiler_options* options,
+               const struct radv_shader_info* info,
+               const struct radv_shader_args* args)
 {
-   isel_context ctx = setup_isel_context(program, shader_count, shaders, config, args, false);
+   isel_context ctx = setup_isel_context(program, shader_count, shaders, config, options, info, args, false);
    if_context ic_merged_wave_info;
    bool ngg_gs = ctx.stage.hw == HWStage::NGG && ctx.stage.has(SWStage::GS);
 
@@ -11676,9 +11678,11 @@ select_program(Program* program, unsigned shader_count, struct nir_shader* const
 
 void
 select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_config* config,
+                      const struct radv_nir_compiler_options* options,
+                      const struct radv_shader_info* info,
                       const struct radv_shader_args* args)
 {
-   isel_context ctx = setup_isel_context(program, 1, &gs_shader, config, args, true);
+   isel_context ctx = setup_isel_context(program, 1, &gs_shader, config, options, info, args, true);
 
    ctx.block->fp_mode = program->next_fp_mode;
 
@@ -11773,17 +11777,19 @@ select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_
 
 void
 select_trap_handler_shader(Program* program, struct nir_shader* shader, ac_shader_config* config,
+                           const struct radv_nir_compiler_options* options,
+                           const struct radv_shader_info* info,
                            const struct radv_shader_args* args)
 {
-   assert(args->options->chip_class == GFX8);
+   assert(options->chip_class == GFX8);
 
-   init_program(program, compute_cs, args->shader_info, args->options->chip_class,
-                args->options->family, args->options->wgp_mode, config);
+   init_program(program, compute_cs, info, options->chip_class,
+                options->family, options->wgp_mode, config);
 
    isel_context ctx = {};
    ctx.program = program;
    ctx.args = args;
-   ctx.options = args->options;
+   ctx.options = options;
    ctx.stage = program->stage;
 
    ctx.block = ctx.program->create_and_insert_block();
