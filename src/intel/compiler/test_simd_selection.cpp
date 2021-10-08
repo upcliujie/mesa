@@ -111,11 +111,10 @@ TEST_F(SIMDSelectionCS, WorkgroupSize1)
 
    ASSERT_TRUE(should_compile(SIMD8));
    brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
-   ASSERT_TRUE(should_compile(SIMD16));
-   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD16));
    ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_EQ(brw_simd_select(prog_data), SIMD16);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectionCS, WorkgroupSize8)
@@ -126,11 +125,10 @@ TEST_F(SIMDSelectionCS, WorkgroupSize8)
 
    ASSERT_TRUE(should_compile(SIMD8));
    brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
-   ASSERT_TRUE(should_compile(SIMD16));
-   brw_simd_mark_compiled(SIMD16, prog_data, not_spilled);
+   ASSERT_FALSE(should_compile(SIMD16));
    ASSERT_FALSE(should_compile(SIMD32));
 
-   ASSERT_EQ(brw_simd_select(prog_data), SIMD16);
+   ASSERT_EQ(brw_simd_select(prog_data), SIMD8);
 }
 
 TEST_F(SIMDSelectionCS, WorkgroupSizeVariable)
