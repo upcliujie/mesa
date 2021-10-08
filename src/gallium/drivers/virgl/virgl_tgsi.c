@@ -39,6 +39,8 @@ struct virgl_transform_context {
 
    unsigned next_temp;
 
+   unsigned tex_temp;
+
    unsigned clipdist0_out;
    unsigned clipdist1_out;
    unsigned clipvert_out;
@@ -135,6 +137,9 @@ virgl_tgsi_transform_prolog(struct tgsi_transform_context * ctx)
 {
    struct virgl_transform_context *vtctx = (struct virgl_transform_context *)ctx;
 
+   vtctx->tex_temp = vtctx->next_temp++;
+   tgsi_transform_temp_decl(ctx, vtctx->tex_temp);
+
    if (vtctx->clipdist0_out != ~0 || vtctx->clipdist1_out != ~0 || vtctx->clipvert_out != ~0) {
       vtctx->clip_out_temps = vtctx->next_temp += 3;
       tgsi_transform_temps_decl(ctx, vtctx->clip_out_temps, vtctx->clip_out_temps + 2);
@@ -185,6 +190,23 @@ virgl_tgsi_transform_instruction(struct tgsi_transform_context *ctx,
 
    if (!vtctx->has_precise && inst->Instruction.Precise)
       inst->Instruction.Precise = 0;
+
+   /* virglrenderer can run out of space in internal buffers for immediates as
+    * tex operands.  Move the first immediate tex arg to a temp to save space in
+    * the buffer.
+    *
+    * https://gitlab.freedesktop.org/virgl/virglrenderer/-/merge_requests/582
+    */
+   if (tgsi_get_opcode_info(inst->Instruction.Opcode)->is_tex &&
+       inst->Src[0].Register.File == TGSI_FILE_IMMEDIATE) {
+      tgsi_transform_op1_inst(ctx, TGSI_OPCODE_MOV,
+                              TGSI_FILE_TEMPORARY, vtctx->tex_temp,
+                              TGSI_WRITEMASK_XYZW,
+                              inst->Src[0].Register.File,
+                              inst->Src[0].Register.Index);
+      inst->Src[0].Register.File = TGSI_FILE_TEMPORARY;
+      inst->Src[0].Register.Index = vtctx->tex_temp;
+   }
 
    for (unsigned i = 0; i < inst->Instruction.NumDstRegs; i++) {
       /* virglrenderer would fail to compile on clipdist writes without a full
