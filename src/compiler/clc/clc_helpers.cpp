@@ -874,6 +874,19 @@ spirv_version_to_llvm_spirv_translator_version(enum clc_spirv_version version)
    }
 }
 
+static void
+append_translator_ops_extensions(SPIRV::TranslatorOpts::ExtensionsStatusMap &ext_map,
+                                 const char *const *extensions)
+{
+   for (int i = 0; extensions[i]; i++) {
+#define EXT(X) \
+      if (strcmp(#X, extensions[i]) == 0) \
+         ext_map.insert(std::make_pair(SPIRV::ExtensionID::X, true));
+#include "LLVMSPIRVLib/LLVMSPIRVExtensions.inc"
+#undef EXT
+   }
+}
+
 static int
 llvm_mod_to_spirv(std::unique_ptr<::llvm::Module> mod,
                   std::unique_ptr<LLVMContext> context,
@@ -890,28 +903,20 @@ llvm_mod_to_spirv(std::unique_ptr<::llvm::Module> mod,
       return -1;
    }
 
-   const char *const *extensions = NULL;
-   if (args)
-      extensions = args->allowed_spirv_extensions;
-   if (!extensions) {
-      /* The SPIR-V parser doesn't handle all extensions */
-      static const char *default_extensions[] = {
-         "SPV_EXT_shader_atomic_float_add",
-         "SPV_EXT_shader_atomic_float_min_max",
-         "SPV_KHR_float_controls",
-         NULL,
-      };
-      extensions = default_extensions;
-   }
+   /* The SPIR-V parser doesn't handle all extensions, but these are some
+    * basic ones we need for OpenCL.
+    */
+   static const char *base_extensions[] = {
+      "SPV_EXT_shader_atomic_float_add",
+      "SPV_EXT_shader_atomic_float_min_max",
+      "SPV_KHR_float_controls",
+      NULL,
+   };
 
    SPIRV::TranslatorOpts::ExtensionsStatusMap ext_map;
-   for (int i = 0; extensions[i]; i++) {
-#define EXT(X) \
-      if (strcmp(#X, extensions[i]) == 0) \
-         ext_map.insert(std::make_pair(SPIRV::ExtensionID::X, true));
-#include "LLVMSPIRVLib/LLVMSPIRVExtensions.inc"
-#undef EXT
-   }
+   append_translator_ops_extensions(ext_map, base_extensions);
+   if (args->allowed_spirv_extensions)
+      append_translator_ops_extensions(ext_map, args->allowed_spirv_extensions);
    SPIRV::TranslatorOpts spirv_opts = SPIRV::TranslatorOpts(version, ext_map);
 
 #if LLVM_VERSION_MAJOR >= 13
