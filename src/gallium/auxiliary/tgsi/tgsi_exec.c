@@ -388,28 +388,6 @@ micro_dflr(union tgsi_double_channel *dst,
 }
 
 static void
-micro_dldexp(union tgsi_double_channel *dst,
-             const union tgsi_double_channel *src0,
-             union tgsi_exec_channel *src1)
-{
-   dst->d[0] = ldexp(src0->d[0], src1->i[0]);
-   dst->d[1] = ldexp(src0->d[1], src1->i[1]);
-   dst->d[2] = ldexp(src0->d[2], src1->i[2]);
-   dst->d[3] = ldexp(src0->d[3], src1->i[3]);
-}
-
-static void
-micro_dfracexp(union tgsi_double_channel *dst,
-               union tgsi_exec_channel *dst_exp,
-               const union tgsi_double_channel *src)
-{
-   dst->d[0] = frexp(src->d[0], &dst_exp->i[0]);
-   dst->d[1] = frexp(src->d[1], &dst_exp->i[1]);
-   dst->d[2] = frexp(src->d[2], &dst_exp->i[2]);
-   dst->d[3] = frexp(src->d[3], &dst_exp->i[3]);
-}
-
-static void
 micro_exp2(union tgsi_exec_channel *dst,
            const union tgsi_exec_channel *src)
 {
@@ -1387,17 +1365,6 @@ micro_pow(
    dst->f[1] = powf( src0->f[1], src1->f[1] );
    dst->f[2] = powf( src0->f[2], src1->f[2] );
    dst->f[3] = powf( src0->f[3], src1->f[3] );
-}
-
-static void
-micro_ldexp(union tgsi_exec_channel *dst,
-            const union tgsi_exec_channel *src0,
-            const union tgsi_exec_channel *src1)
-{
-   dst->f[0] = ldexpf(src0->f[0], src1->i[0]);
-   dst->f[1] = ldexpf(src0->f[1], src1->i[1]);
-   dst->f[2] = ldexpf(src0->f[2], src1->i[2]);
-   dst->f[3] = ldexpf(src0->f[3], src1->i[3]);
 }
 
 static void
@@ -3595,51 +3562,6 @@ exec_double_trinary(struct tgsi_exec_machine *mach,
 }
 
 static void
-exec_dldexp(struct tgsi_exec_machine *mach,
-            const struct tgsi_full_instruction *inst)
-{
-   union tgsi_double_channel src0;
-   union tgsi_exec_channel src1;
-   union tgsi_double_channel dst;
-   int wmask;
-
-   wmask = inst->Dst[0].Register.WriteMask;
-   if (wmask & TGSI_WRITEMASK_XY) {
-      fetch_double_channel(mach, &src0, &inst->Src[0], TGSI_CHAN_X, TGSI_CHAN_Y);
-      fetch_source(mach, &src1, &inst->Src[1], TGSI_CHAN_X, TGSI_EXEC_DATA_INT);
-      micro_dldexp(&dst, &src0, &src1);
-      store_double_channel(mach, &dst, &inst->Dst[0], inst, TGSI_CHAN_X, TGSI_CHAN_Y);
-   }
-
-   if (wmask & TGSI_WRITEMASK_ZW) {
-      fetch_double_channel(mach, &src0, &inst->Src[0], TGSI_CHAN_Z, TGSI_CHAN_W);
-      fetch_source(mach, &src1, &inst->Src[1], TGSI_CHAN_Z, TGSI_EXEC_DATA_INT);
-      micro_dldexp(&dst, &src0, &src1);
-      store_double_channel(mach, &dst, &inst->Dst[0], inst, TGSI_CHAN_Z, TGSI_CHAN_W);
-   }
-}
-
-static void
-exec_dfracexp(struct tgsi_exec_machine *mach,
-              const struct tgsi_full_instruction *inst)
-{
-   union tgsi_double_channel src;
-   union tgsi_double_channel dst;
-   union tgsi_exec_channel dst_exp;
-
-   fetch_double_channel(mach, &src, &inst->Src[0], TGSI_CHAN_X, TGSI_CHAN_Y);
-   micro_dfracexp(&dst, &dst_exp, &src);
-   if ((inst->Dst[0].Register.WriteMask & TGSI_WRITEMASK_XY) == TGSI_WRITEMASK_XY)
-      store_double_channel(mach, &dst, &inst->Dst[0], inst, TGSI_CHAN_X, TGSI_CHAN_Y);
-   if ((inst->Dst[0].Register.WriteMask & TGSI_WRITEMASK_ZW) == TGSI_WRITEMASK_ZW)
-      store_double_channel(mach, &dst, &inst->Dst[0], inst, TGSI_CHAN_Z, TGSI_CHAN_W);
-   for (unsigned chan = 0; chan < TGSI_NUM_CHANNELS; chan++) {
-      if (inst->Dst[1].Register.WriteMask & (1 << chan))
-         store_dest(mach, &dst_exp, &inst->Dst[1], inst, chan);
-   }
-}
-
-static void
 exec_arg0_64_arg1_32(struct tgsi_exec_machine *mach,
             const struct tgsi_full_instruction *inst,
             micro_dop_sop op)
@@ -5105,10 +5027,6 @@ exec_instruction(
       exec_scalar_binary(mach, inst, micro_pow, TGSI_EXEC_DATA_FLOAT);
       break;
 
-   case TGSI_OPCODE_LDEXP:
-      exec_vector_binary(mach, inst, micro_ldexp, TGSI_EXEC_DATA_FLOAT);
-      break;
-
    case TGSI_OPCODE_COS:
       exec_scalar_unary(mach, inst, micro_cos, TGSI_EXEC_DATA_FLOAT);
       break;
@@ -5868,14 +5786,6 @@ exec_instruction(
 
    case TGSI_OPCODE_DFLR:
       exec_double_unary(mach, inst, micro_dflr);
-      break;
-
-   case TGSI_OPCODE_DLDEXP:
-      exec_dldexp(mach, inst);
-      break;
-
-   case TGSI_OPCODE_DFRACEXP:
-      exec_dfracexp(mach, inst);
       break;
 
    case TGSI_OPCODE_I2D:
