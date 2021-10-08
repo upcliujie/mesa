@@ -273,7 +273,7 @@ setup_vs_variables(isel_context* ctx, nir_shader* nir)
 
       /* TODO: NGG streamout */
       if (ctx->stage.hw == HWStage::NGG)
-         assert(!ctx->args->shader_info->so.num_outputs);
+         assert(!ctx->program->info->so.num_outputs);
    }
 
    if (ctx->stage == vertex_ngg) {
@@ -301,23 +301,23 @@ setup_gs_variables(isel_context* ctx, nir_shader* nir)
 void
 setup_tcs_info(isel_context* ctx, nir_shader* nir, nir_shader* vs)
 {
-   ctx->tcs_in_out_eq = ctx->args->shader_info->vs.tcs_in_out_eq;
-   ctx->tcs_temp_only_inputs = ctx->args->shader_info->vs.tcs_temp_only_input_mask;
-   ctx->tcs_num_patches = ctx->args->shader_info->num_tess_patches;
-   ctx->program->config->lds_size = ctx->args->shader_info->tcs.num_lds_blocks;
+   ctx->tcs_in_out_eq = ctx->program->info->vs.tcs_in_out_eq;
+   ctx->tcs_temp_only_inputs = ctx->program->info->vs.tcs_temp_only_input_mask;
+   ctx->tcs_num_patches = ctx->program->info->num_tess_patches;
+   ctx->program->config->lds_size = ctx->program->info->tcs.num_lds_blocks;
 }
 
 void
 setup_tes_variables(isel_context* ctx, nir_shader* nir)
 {
-   ctx->tcs_num_patches = ctx->args->shader_info->num_tess_patches;
+   ctx->tcs_num_patches = ctx->program->info->num_tess_patches;
 
    if (ctx->stage == tess_eval_vs || ctx->stage == tess_eval_ngg) {
       setup_vs_output_info(ctx, nir, &ctx->program->info->tes.outinfo);
 
       /* TODO: NGG streamout */
       if (ctx->stage.hw == HWStage::NGG)
-         assert(!ctx->args->shader_info->so.num_outputs);
+         assert(!ctx->program->info->so.num_outputs);
    }
 
    if (ctx->stage == tess_eval_ngg) {
@@ -388,9 +388,9 @@ init_context(isel_context* ctx, nir_shader* shader)
    ctx->range_ht = _mesa_pointer_hash_table_create(NULL);
    ctx->ub_config.min_subgroup_size = 64;
    ctx->ub_config.max_subgroup_size = 64;
-   if (ctx->shader->info.stage == MESA_SHADER_COMPUTE && ctx->args->shader_info->cs.subgroup_size) {
-      ctx->ub_config.min_subgroup_size = ctx->args->shader_info->cs.subgroup_size;
-      ctx->ub_config.max_subgroup_size = ctx->args->shader_info->cs.subgroup_size;
+   if (ctx->shader->info.stage == MESA_SHADER_COMPUTE && ctx->program->info->cs.subgroup_size) {
+      ctx->ub_config.min_subgroup_size = ctx->program->info->cs.subgroup_size;
+      ctx->ub_config.max_subgroup_size = ctx->program->info->cs.subgroup_size;
    }
    ctx->ub_config.max_workgroup_invocations = 2048;
    ctx->ub_config.max_workgroup_count[0] = 65535;
@@ -797,8 +797,8 @@ init_context(isel_context* ctx, nir_shader* shader)
       }
    }
 
-   ctx->program->config->spi_ps_input_ena = ctx->args->shader_info->ps.spi_ps_input;
-   ctx->program->config->spi_ps_input_addr = ctx->args->shader_info->ps.spi_ps_input;
+   ctx->program->config->spi_ps_input_ena = ctx->program->info->ps.spi_ps_input;
+   ctx->program->config->spi_ps_input_addr = ctx->program->info->ps.spi_ps_input;
 
    ctx->cf_info.nir_to_aco = std::move(nir_to_aco);
 
@@ -884,7 +884,7 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
    ctx.options = args->options;
    ctx.stage = program->stage;
 
-   program->workgroup_size = args->shader_info->workgroup_size;
+   program->workgroup_size = program->info->workgroup_size;
    assert(program->workgroup_size);
 
    if (ctx.stage == tess_control_hs)
@@ -897,7 +897,7 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
    unsigned scratch_size = 0;
    if (program->stage == gs_copy_vs) {
       assert(shader_count == 1);
-      setup_vs_output_info(&ctx, shaders[0], &args->shader_info->vs.outinfo);
+      setup_vs_output_info(&ctx, shaders[0], &program->info->vs.outinfo);
    } else {
       for (unsigned i = 0; i < shader_count; i++) {
          nir_shader* nir = shaders[i];
