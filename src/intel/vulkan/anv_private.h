@@ -4738,7 +4738,11 @@ const struct vk_device_dispatch_table *
 anv_get_device_dispatch_table(const struct intel_device_info *devinfo);
 
 void
-anv_dump_pipe_bits(enum anv_pipe_bits bits);
+anv_dump_pipe_bits(const char *event, enum anv_pipe_bits bits, const char *reason);
+
+void
+anv_batch_annotate_pc(struct anv_batch *batch, const char *event,
+                      enum anv_pipe_bits bits, const char *reason);
 
 static inline void
 anv_add_pending_pipe_bits(struct anv_cmd_buffer* cmd_buffer,
@@ -4747,11 +4751,9 @@ anv_add_pending_pipe_bits(struct anv_cmd_buffer* cmd_buffer,
 {
    cmd_buffer->state.pending_pipe_bits |= bits;
    if ((INTEL_DEBUG & DEBUG_PIPE_CONTROL) && bits)
-   {
-      fputs("pc: add ", stderr);
-      anv_dump_pipe_bits(bits);
-      fprintf(stderr, "reason: %s\n", reason);
-   }
+      anv_dump_pipe_bits("add", bits, reason);
+   if ((INTEL_DEBUG & DEBUG_ANNOTATE) && bits)
+      anv_batch_annotate_pc(&cmd_buffer->batch, "pc queue", bits, reason);
 }
 
 static inline uint32_t
