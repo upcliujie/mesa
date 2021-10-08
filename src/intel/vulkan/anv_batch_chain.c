@@ -1950,7 +1950,7 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
                khr_perf_query_preamble_offset(query_pool,
                                               submit->perf_query_pass);
 
-            intel_print_batch(&device->decoder_ctx,
+            intel_print_batch(&queue->decoder_ctx,
                               pass_batch_bo->map + pass_batch_offset, 64,
                               pass_batch_bo->offset + pass_batch_offset, false);
          }
@@ -1959,15 +1959,15 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
             struct anv_batch_bo **bo =
                u_vector_tail(&submit->cmd_buffers[i]->seen_bbos);
             device->cmd_buffer_being_decoded = submit->cmd_buffers[i];
-            intel_print_batch(&device->decoder_ctx, (*bo)->bo->map,
+            intel_print_batch(&queue->decoder_ctx, (*bo)->bo->map,
                               (*bo)->bo->size, (*bo)->bo->offset, false);
             device->cmd_buffer_being_decoded = NULL;
          }
       } else if (submit->simple_bo) {
-         intel_print_batch(&device->decoder_ctx, submit->simple_bo->map,
+         intel_print_batch(&queue->decoder_ctx, submit->simple_bo->map,
                            submit->simple_bo->size, submit->simple_bo->offset, false);
       } else {
-         intel_print_batch(&device->decoder_ctx,
+         intel_print_batch(&queue->decoder_ctx,
                            device->trivial_batch_bo->map,
                            device->trivial_batch_bo->size,
                            device->trivial_batch_bo->offset, false);

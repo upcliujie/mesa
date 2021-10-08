@@ -1071,6 +1071,8 @@ struct anv_queue {
 
    /* Set to true to stop the submission thread */
    bool                                      quit;
+
+   struct intel_batch_decode_ctx             decoder_ctx;
 };
 
 struct anv_pipeline_cache {
@@ -1217,7 +1219,6 @@ struct anv_device {
     int                                         _lost;
     int                                         lost_reported;
 
-    struct intel_batch_decode_ctx               decoder_ctx;
     /*
      * When decoding a anv_cmd_buffer, we might need to search for BOs through
      * the cmd_buffer's list.
