@@ -1612,7 +1612,7 @@ shader_variant_compile(struct radv_device *device, struct vk_shader_module *modu
       ac_init_llvm_once();
 
    if (radv_use_llvm_for_stage(device, stage)) {
-      llvm_compile_shader(device, shader_count, shaders, &binary, &args);
+      llvm_compile_shader(shader_count, shaders, &binary, &args);
 #else
    if (false) {
 #endif
