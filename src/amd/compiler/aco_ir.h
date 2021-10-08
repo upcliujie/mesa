@@ -2140,11 +2140,18 @@ void init_program(Program* program, Stage stage, const struct radv_shader_info* 
                   ac_shader_config* config);
 
 void select_program(Program* program, unsigned shader_count, struct nir_shader* const* shaders,
-                    ac_shader_config* config, const struct radv_shader_args* args);
+                    ac_shader_config* config, const struct radv_nir_compiler_options* options,
+                    const struct radv_shader_info* info,
+                    const struct radv_shader_args* args);
 void select_gs_copy_shader(Program* program, struct nir_shader* gs_shader, ac_shader_config* config,
+                           const struct radv_nir_compiler_options* options,
+                           const struct radv_shader_info* info,
                            const struct radv_shader_args* args);
 void select_trap_handler_shader(Program* program, struct nir_shader* shader,
-                                ac_shader_config* config, const struct radv_shader_args* args);
+                                ac_shader_config* config,
+                                const struct radv_nir_compiler_options* options,
+                                const struct radv_shader_info* info,
+                                const struct radv_shader_args* args);
 
 void lower_phis(Program* program);
 void calc_min_waves(Program* program);

@@ -819,7 +819,9 @@ cleanup_context(isel_context* ctx)
 
 isel_context
 setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* const* shaders,
-                   ac_shader_config* config, const struct radv_shader_args* args, bool is_gs_copy_shader)
+                   ac_shader_config* config, const struct radv_nir_compiler_options* options,
+                   const struct radv_shader_info* info,
+                   const struct radv_shader_args* args, bool is_gs_copy_shader)
 {
    SWStage sw_stage = SWStage::None;
    for (unsigned i = 0; i < shader_count; i++) {
@@ -835,12 +837,12 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
       default: unreachable("Shader stage not implemented");
       }
    }
-   bool gfx9_plus = args->options->chip_class >= GFX9;
-   bool ngg = args->shader_info->is_ngg && args->options->chip_class >= GFX10;
+   bool gfx9_plus = options->chip_class >= GFX9;
+   bool ngg = info->is_ngg && options->chip_class >= GFX10;
    HWStage hw_stage{};
-   if (sw_stage == SWStage::VS && args->shader_info->vs.as_es && !ngg)
+   if (sw_stage == SWStage::VS && info->vs.as_es && !ngg)
       hw_stage = HWStage::ES;
-   else if (sw_stage == SWStage::VS && !args->shader_info->vs.as_ls && !ngg)
+   else if (sw_stage == SWStage::VS && !info->vs.as_ls && !ngg)
       hw_stage = HWStage::VS;
    else if (sw_stage == SWStage::VS && ngg)
       hw_stage = HWStage::NGG; /* GFX10/NGG: VS without GS uses the HW GS stage */
@@ -856,17 +858,17 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
       hw_stage = HWStage::GS; /* GFX6-9: VS+GS merged into a GS (and GFX10/legacy) */
    else if (sw_stage == SWStage::VS_GS && ngg)
       hw_stage = HWStage::NGG; /* GFX10+: VS+GS merged into an NGG GS */
-   else if (sw_stage == SWStage::VS && args->shader_info->vs.as_ls)
+   else if (sw_stage == SWStage::VS && info->vs.as_ls)
       hw_stage = HWStage::LS; /* GFX6-8: VS is a Local Shader, when tessellation is used */
    else if (sw_stage == SWStage::TCS)
       hw_stage = HWStage::HS; /* GFX6-8: TCS is a Hull Shader */
    else if (sw_stage == SWStage::VS_TCS)
       hw_stage = HWStage::HS; /* GFX9-10: VS+TCS merged into a Hull Shader */
-   else if (sw_stage == SWStage::TES && !args->shader_info->tes.as_es && !ngg)
+   else if (sw_stage == SWStage::TES && !info->tes.as_es && !ngg)
       hw_stage = HWStage::VS; /* GFX6-9: TES without GS uses the HW VS stage (and GFX10/legacy) */
-   else if (sw_stage == SWStage::TES && !args->shader_info->tes.as_es && ngg)
+   else if (sw_stage == SWStage::TES && !info->tes.as_es && ngg)
       hw_stage = HWStage::NGG; /* GFX10/NGG: TES without GS */
-   else if (sw_stage == SWStage::TES && args->shader_info->tes.as_es && !ngg)
+   else if (sw_stage == SWStage::TES && info->tes.as_es && !ngg)
       hw_stage = HWStage::ES; /* GFX6-8: TES is an Export Shader */
    else if (sw_stage == SWStage::TES_GS && gfx9_plus && !ngg)
       hw_stage = HWStage::GS; /* GFX9: TES+GS merged into a GS (and GFX10/legacy) */
@@ -875,13 +877,13 @@ setup_isel_context(Program* program, unsigned shader_count, struct nir_shader* c
    else
       unreachable("Shader stage not implemented");
 
-   init_program(program, Stage{hw_stage, sw_stage}, args->shader_info, args->options->chip_class,
-                args->options->family, args->options->wgp_mode, config);
+   init_program(program, Stage{hw_stage, sw_stage}, info, options->chip_class,
+                options->family, options->wgp_mode, config);
 
    isel_context ctx = {};
    ctx.program = program;
    ctx.args = args;
-   ctx.options = args->options;
+   ctx.options = options;
    ctx.stage = program->stage;
 
    program->workgroup_size = program->info->workgroup_size;
