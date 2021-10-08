@@ -298,9 +298,11 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
 
    if (alu->dest.dest.is_ssa) {
       dst_sz = alu->dest.dest.ssa.num_components;
+      dst_sz *= (alu->dest.dest.ssa.bit_size == 64 ? 2 : 1);
       wrmask = (1 << dst_sz) - 1;
    } else {
       dst_sz = alu->dest.dest.reg.reg->num_components;
+      dst_sz *= (alu->dest.dest.reg.reg->bit_size == 64 ? 2 : 1);
       wrmask = alu->dest.write_mask;
    }
 
@@ -719,6 +721,16 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
    case nir_op_bitfield_reverse:
       dst[0] = ir3_BFREV_B(b, src[0], 0);
       break;
+   case nir_op_pack_64_2x32_split:
+      dst[0] = src[0];
+      dst[1] = src[1];
+      break;
+   case nir_op_unpack_64_2x32_split_x:
+      dst[0] = src[0];
+      break;
+   case nir_op_unpack_64_2x32_split_y:
+      dst[0] = ir3_get_src(ctx, &alu->src[0].src)[1];
+      break;
 
    default:
       ir3_context_error(ctx, "Unhandled ALU op: %s\n",
@@ -744,6 +756,9 @@ emit_alu(struct ir3_context *ctx, nir_alu_instr *alu)
          compile_assert(ctx, nir_dest_bit_size(alu->dest.dest) != 1);
       }
    }
+
+   assert(alu->op == nir_op_pack_64_2x32_split ||
+          nir_dest_bit_size(alu->dest.dest) != 64);
 
    ir3_put_dst(ctx, &alu->dest.dest);
 }
