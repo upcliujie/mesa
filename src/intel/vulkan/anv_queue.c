@@ -98,6 +98,13 @@ decode_get_bo(void *v_batch, bool ppgtt, uint64_t address)
    return (struct intel_batch_decode_bo) { };
 }
 
+static const struct intel_debug_mem_annotate *
+decode_get_annotation(void *v_batch, uint64_t address)
+{
+   struct anv_queue *queue = v_batch;
+   return _mesa_hash_table_u64_search(queue->annotation_map, address);
+}
+
 /**/
 
 uint64_t anv_gettime_ns(void)
@@ -589,8 +596,9 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
                                   stderr, decode_flags, NULL,
                                   decode_get_bo,
                                   NULL /* get_state_size */,
-                                  NULL /* get_annotation */,
+                                  decode_get_annotation,
                                   queue);
+      queue->annotation_map = _mesa_hash_table_u64_create(NULL);
    }
 
    return VK_SUCCESS;
@@ -621,8 +629,11 @@ anv_queue_finish(struct anv_queue *queue)
       pthread_mutex_destroy(&queue->mutex);
    }
 
-   if (INTEL_DEBUG & DEBUG_BATCH)
+   if (INTEL_DEBUG & DEBUG_BATCH) {
       intel_batch_decode_ctx_finish(&queue->decoder_ctx);
+      _mesa_hash_table_u64_destroy(queue->annotation_map);
+   }
+
    vk_queue_finish(&queue->vk);
 }
 
