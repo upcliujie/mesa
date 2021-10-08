@@ -527,6 +527,20 @@ dzn_CreateDescriptorPool(VkDevice _device,
    return VK_SUCCESS;
 }
 
+void
+dzn_DestroyDescriptorPool(VkDevice _device,
+                          VkDescriptorPool descriptorPool,
+                          const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_descriptor_pool, dpool, descriptorPool);
+
+   if (!dpool)
+      return;
+
+   vk_object_free(&device->vk, pAllocator, dpool);
+}
+
 static VkResult
 dzn_descriptor_set_create(struct dzn_device *device,
                           struct dzn_descriptor_pool *pool,
