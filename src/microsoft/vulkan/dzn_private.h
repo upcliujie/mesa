@@ -180,6 +180,19 @@ enum dzn_cmd_dirty {
 #define NUM_BIND_POINT VK_PIPELINE_BIND_POINT_COMPUTE + 1
 #define NUM_POOL_TYPES D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1
 
+struct dzn_cmd_event_signal {
+   struct dzn_event *event;
+   bool value;
+};
+
+struct dzn_batch {
+   struct {
+      struct util_dynarray wait;
+      struct util_dynarray signal;
+   } events;
+   ID3D12GraphicsCommandList *cmdlist;
+};
+
 struct dzn_cmd_buffer {
    struct vk_object_base base;
 
@@ -216,7 +229,9 @@ struct dzn_cmd_buffer {
    VkCommandBufferLevel level;
 
    ID3D12CommandAllocator *alloc;
-   ID3D12GraphicsCommandList *cmdlist;
+   D3D12_COMMAND_LIST_TYPE type;
+   struct dzn_batch *batch;
+   struct util_dynarray batches;
    ID3D12Resource *rt0;
 };
 
@@ -478,6 +493,12 @@ struct dzn_fence {
 
    ID3D12Fence *fence;
    HANDLE event;
+};
+
+struct dzn_event {
+   struct vk_object_base base;
+
+   ID3D12Fence *fence;
 };
 
 struct dzn_shader_module {

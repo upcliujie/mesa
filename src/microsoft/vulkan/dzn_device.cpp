@@ -781,8 +781,8 @@ queue_init(dzn_device *device, dzn_queue *queue,
       return vk_errorfi(device->instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
    }
 
-   if (FAILED(queue->device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-                                              IID_PPV_ARGS(&queue->fence))))
+   if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
+                                       IID_PPV_ARGS(&queue->fence))))
       return vk_errorfi(device->instance, NULL, VK_ERROR_INITIALIZATION_FAILED, NULL);
 
    queue->fence_point = 0;
@@ -1007,8 +1007,17 @@ dzn_QueueSubmit(VkQueue _queue,
                          pSubmits[i].pCommandBuffers[j]);
          assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-         ID3D12CommandList *cmdlists[] = { cmd_buffer->cmdlist };
-         queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
+         util_dynarray_foreach(&cmd_buffer->batches, dzn_batch *, batch) {
+            ID3D12CommandList *cmdlists[] = { (*batch)->cmdlist };
+
+            util_dynarray_foreach(&(*batch)->events.wait, dzn_event *, event)
+               queue->cmdqueue->Wait((*event)->fence, 1);
+
+            queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
+
+            util_dynarray_foreach(&(*batch)->events.wait, dzn_cmd_event_signal, signal)
+               queue->cmdqueue->Signal(signal->event->fence, signal->value ? 1 : 0);
+         }
       }
    }
 
@@ -1409,4 +1418,63 @@ dzn_DestroyFramebuffer(VkDevice _device,
       return;
 
    vk_object_free(&device->vk, pAllocator, fb);
+}
+
+VkResult
+dzn_CreateEvent(VkDevice _device,
+                const VkEventCreateInfo *pCreateInfo,
+                const VkAllocationCallbacks *pAllocator,
+                VkEvent *pEvent)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   dzn_event *event;
+
+   event = (struct dzn_event *)
+      vk_object_alloc(&device->vk, pAllocator, sizeof(*event),
+                      VK_OBJECT_TYPE_EVENT);
+
+   if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
+                                       IID_PPV_ARGS(&event->fence))))
+      return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   *pEvent = dzn_event_to_handle(event);
+   return VK_SUCCESS;
+}
+
+void
+dzn_DestroyEvent(VkDevice _device,
+                 VkEvent _event,
+                 const VkAllocationCallbacks *pAllocator)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_event, event, _event);
+
+   if (!event)
+      return;
+
+   event->fence->Release();
+   vk_object_free(&device->vk, pAllocator, event);
+}
+
+VkResult
+dzn_ResetEvent(VkDevice _device,
+               VkEvent _event)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_event, event, _event);
+
+   event->fence->Signal(0);
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_GetEventStatus(VkDevice _device,
+                   VkEvent _event)
+{
+   DZN_FROM_HANDLE(dzn_device, device, _device);
+   DZN_FROM_HANDLE(dzn_event, event, _event);
+
+   return event->fence->GetCompletedValue() ?
+          VK_EVENT_SET : VK_EVENT_RESET;
+   return VK_SUCCESS;
 }
