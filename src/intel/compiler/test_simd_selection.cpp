@@ -174,7 +174,9 @@ TEST_F(SIMDSelectionCS, SpillAtSIMD16)
 
 TEST_F(SIMDSelectionCS, EnvironmentVariable32)
 {
+   printf("BEFORE intel_debug=%" PRIx64 "  INTEL_DEBUG=%" PRIx64 "\n", intel_debug, INTEL_DEBUG);
    intel_debug |= DEBUG_DO32;
+   printf("AFTER  intel_debug=%" PRIx64 "  INTEL_DEBUG=%" PRIx64 "\n", intel_debug, INTEL_DEBUG);
 
    ASSERT_TRUE(should_compile(SIMD8));
    brw_simd_mark_compiled(SIMD8, prog_data, not_spilled);
