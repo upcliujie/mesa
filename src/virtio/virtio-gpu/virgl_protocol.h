@@ -117,6 +117,7 @@ enum virgl_context_cmd {
    VIRGL_CCMD_GET_MEMORY_INFO,
    VIRGL_CCMD_EMIT_STRING_MARKER,
    VIRGL_CCMD_LINK_SHADER,
+   VIRGL_CCMD_QUERY_HOST_STATUS,
    VIRGL_MAX_COMMANDS
 };
 
@@ -686,5 +687,10 @@ enum vrend_tweak_type {
 #define VIRGL_LINK_SHADER_TESS_CTRL_HANDLE 4
 #define VIRGL_LINK_SHADER_TESS_EVAL_HANDLE 5
 #define VIRGL_LINK_SHADER_COMPUTE_HANDLE 6
+
+enum vrend_host_status_id {
+   virgl_host_query_reset_status,
+   virgl_host_query_undefined,
+};
 
 #endif

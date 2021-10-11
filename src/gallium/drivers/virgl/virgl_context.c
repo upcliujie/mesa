@@ -1615,6 +1615,12 @@ static bool virgl_context_init(struct virgl_context *vctx, struct virgl_screen *
    return true;
 }
 
+void virgl_context_reset(struct virgl_context *vctx)
+{
+   virgl_teardown_context(vctx);
+   virgl_context_init(vctx, virgl_screen(vctx->base.screen));
+}
+
 struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
                                           void *priv,
                                           unsigned flags)
