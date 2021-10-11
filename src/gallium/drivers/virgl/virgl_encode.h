@@ -314,5 +314,14 @@ void virgl_encode_get_memory_info(struct virgl_context *ctx, struct virgl_resour
 void virgl_encode_emit_string_marker(struct virgl_context *ctx, const char *message,
                                        int len);
 
+int virgl_encoder_create_reset_status_obj(struct virgl_context *ctx,
+                                           uint32_t handle,
+                                           struct virgl_resource *res);
+
+int virgl_encoder_query_host_status(struct virgl_context *ctx,
+                                    uint32_t handle, enum vrend_host_status_id id);
+
 enum virgl_formats pipe_to_virgl_format(enum pipe_format format);
+
+
 #endif

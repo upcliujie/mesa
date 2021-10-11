@@ -673,4 +673,9 @@ enum vrend_tweak_type {
 #define VIRGL_SEND_STRING_MARKER_STRING_SIZE 1
 #define VIRGL_SEND_STRING_MARKER_OFFSET 2
 
+enum vrend_host_status_id {
+   virgl_host_query_reset_status,
+   virgl_host_query_undefined,
+};
+
 #endif

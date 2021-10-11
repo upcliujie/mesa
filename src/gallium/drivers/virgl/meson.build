@@ -23,6 +23,7 @@ files_libvirgl = files(
   'virgl_context.c',
   'virgl_encode.c',
   'virgl_query.c',
+  'virgl_reset_status.c',
   'virgl_resource.c',
   'virgl_screen.c',
   'virgl_staging_mgr.c',

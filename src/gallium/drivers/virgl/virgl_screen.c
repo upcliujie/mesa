@@ -306,6 +306,8 @@ virgl_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return (vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_ARB_BUFFER_STORAGE) &&
              (vscreen->caps.caps.v2.host_feature_check_version >= 4) &&
               vscreen->vws->supports_coherent && !vscreen->no_coherent;
+   case PIPE_CAP_DEVICE_RESET_STATUS_QUERY:
+      return 0;
    case PIPE_CAP_PCI_GROUP:
    case PIPE_CAP_PCI_BUS:
    case PIPE_CAP_PCI_DEVICE:

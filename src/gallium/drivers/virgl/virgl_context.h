@@ -36,6 +36,7 @@ struct tgsi_token;
 struct u_upload_mgr;
 struct virgl_cmd_buf;
 struct virgl_vertex_elements_state;
+struct virgl_reset_status_query_object;
 
 struct virgl_sampler_view {
    struct pipe_sampler_view base;
@@ -102,6 +103,8 @@ struct virgl_context {
 
    /* The total size of staging resources used in queued copy transfers. */
    uint64_t queued_staging_res_size;
+
+   struct virgl_reset_status_query_object *reset_status;
 };
 
 static inline struct virgl_sampler_view *
@@ -127,6 +130,8 @@ struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
 void virgl_init_blit_functions(struct virgl_context *vctx);
 void virgl_init_query_functions(struct virgl_context *vctx);
 void virgl_init_so_functions(struct virgl_context *vctx);
+void virgl_init_reset_status_functions(struct virgl_context *vctx);
+void virgl_context_reset(struct virgl_context *vctx);
 
 struct tgsi_token *virgl_tgsi_transform(struct virgl_screen *vscreen, const struct tgsi_token *tokens_in);
 
