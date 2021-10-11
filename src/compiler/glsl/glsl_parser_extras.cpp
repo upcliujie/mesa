@@ -2093,11 +2093,13 @@ opt_shader_and_create_symbol_table(struct gl_context *ctx,
    if (ctx->Const.GLSLOptimizeConservatively) {
       /* Run it just once. */
       do_common_optimization(shader->ir, false, false, options,
-                             ctx->Const.NativeIntegers);
+                             ctx->Const.NativeIntegers,
+                             ctx->Const.UseNIRGLSLLinker);
    } else {
       /* Repeat it until it stops making changes. */
       while (do_common_optimization(shader->ir, false, false, options,
-                                    ctx->Const.NativeIntegers))
+                                    ctx->Const.NativeIntegers,
+                                    ctx->Const.UseNIRGLSLLinker))
          ;
    }
 
@@ -2323,7 +2325,7 @@ bool
 do_common_optimization(exec_list *ir, bool linked,
 		       bool uniform_locations_assigned,
                        const struct gl_shader_compiler_options *options,
-                       bool native_integers)
+                       bool native_integers, bool using_nir_linker)
 {
    const bool debug = false;
    bool progress = false;
@@ -2353,7 +2355,15 @@ do_common_optimization(exec_list *ir, bool linked,
    OPT(do_if_simplification, ir);
    OPT(opt_flatten_nested_if_blocks, ir);
    OPT(opt_conditional_discard, ir);
-   OPT(do_copy_propagation_elements, ir);
+
+   /* do_copy_propagation_elements() has a flaw where the time it takes to
+    * complete grows exponentially slowers as the number of nested loops
+    * increases. It can also hurt rather than help verses just letting NIR
+    * optimise the code. So if the NIR linker is enabled we let it handle it
+    * instead.
+    */
+   if (!using_nir_linker)
+      OPT(do_copy_propagation_elements, ir);
 
    if (options->OptimizeForAOS && !linked)
       OPT(opt_flip_matrices, ir);
