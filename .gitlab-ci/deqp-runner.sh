@@ -145,8 +145,6 @@ if [ "$GALLIUM_DRIVER" = "virpipe" ]; then
     sleep 1
 fi
 
-export LD_PRELOAD=$TEST_LD_PRELOAD
-
 if [ -z "$DEQP_SUITE" ]; then
     if [ $DEQP_VER != vk -a $DEQP_VER != egl ]; then
         export DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --version-check `cat $INSTALL/VERSION | sed 's/[() ]/./g'`"
@@ -176,12 +174,12 @@ else
         --fraction-start $CI_NODE_INDEX \
         --fraction $CI_NODE_TOTAL \
         --jobs ${FDO_CI_CONCURRENT:-4} \
+        --env "LD_PRELOAD=$TEST_LD_PRELOAD" \
 	$DEQP_RUNNER_OPTIONS
 fi
 
 DEQP_EXITCODE=$?
 
-export LD_PRELOAD=
 quiet report_load
 
 # Remove all but the first 50 individual XML files uploaded as artifacts, to
