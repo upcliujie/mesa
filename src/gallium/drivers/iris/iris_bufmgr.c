@@ -1083,7 +1083,9 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
    return bo;
 
 err_free:
+   simple_mtx_lock(&bufmgr->lock);
    bo_free(bo);
+   simple_mtx_unlock(&bufmgr->lock);
    return NULL;
 }
 
@@ -1188,8 +1190,12 @@ iris_bo_gem_create_from_name(struct iris_bufmgr *bufmgr,
       goto out;
 
    bo = bo_calloc();
-   if (!bo)
-      goto out;
+   if (!bo) {
+      simple_mtx_unlock(&bufmgr->lock);
+      struct drm_gem_close close = { .handle = open_arg.handle, };
+      intel_ioctl(bufmgr->fd, DRM_IOCTL_GEM_CLOSE, &close);
+      return NULL;
+   }
 
    p_atomic_set(&bo->refcount, 1);
 
@@ -1203,6 +1209,12 @@ iris_bo_gem_create_from_name(struct iris_bufmgr *bufmgr,
    bo->real.mmap_mode = IRIS_MMAP_NONE;
    bo->real.kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
    bo->address = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 1);
+
+   if (bo->address == 0ull) {
+      bo_free(bo);
+      simple_mtx_unlock(&bufmgr->lock);
+      return NULL;
+   }
 
    _mesa_hash_table_insert(bufmgr->handle_table, &bo->gem_handle, bo);
    _mesa_hash_table_insert(bufmgr->name_table, &bo->real.global_name, bo);
@@ -1784,6 +1796,7 @@ iris_bo_import_dmabuf(struct iris_bufmgr *bufmgr, int prime_fd)
    bo->real.imported = true;
    bo->real.mmap_mode = IRIS_MMAP_NONE;
    bo->real.kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
+   bo->gem_handle = handle;
 
    /* From the Bspec, Memory Compression - Gfx12:
     *
@@ -1795,10 +1808,14 @@ iris_bo_import_dmabuf(struct iris_bufmgr *bufmgr, int prime_fd)
     * in case. We always align to 64KB even on platforms where we don't need
     * to, because it's a fairly reasonable thing to do anyway.
     */
-   bo->address =
-      vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 64 * 1024);
+   bo->address = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 64 * 1024);
 
-   bo->gem_handle = handle;
+   if (bo->address == 0ull) {
+      bo_free(bo);
+      simple_mtx_unlock(&bufmgr->lock);
+      return NULL;
+   }
+
    _mesa_hash_table_insert(bufmgr->handle_table, &bo->gem_handle, bo);
 
 out:
@@ -2144,10 +2161,21 @@ intel_aux_map_buffer_alloc(void *driver_ctx, uint32_t size)
    size = MAX2(ALIGN(size, page_size), page_size);
 
    struct iris_bo *bo = alloc_fresh_bo(bufmgr, size, local);
+   if (!bo) {
+      free(buf);
+      return NULL;
+   }
 
    simple_mtx_lock(&bufmgr->lock);
+
    bo->address = vma_alloc(bufmgr, IRIS_MEMZONE_OTHER, bo->size, 64 * 1024);
-   assert(bo->address != 0ull);
+   if (bo->address == 0ull) {
+      free(buf);
+      bo_free(bo);
+      simple_mtx_unlock(&bufmgr->lock);
+      return NULL;
+   }
+
    simple_mtx_unlock(&bufmgr->lock);
 
    bo->name = "aux-map";
