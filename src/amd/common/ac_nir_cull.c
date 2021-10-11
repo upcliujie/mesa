@@ -75,7 +75,12 @@ cull_face(nir_builder *b, nir_ssa_def *pos[3][4], const position_w_info *w_info)
    nir_ssa_def *cull_front = nir_build_load_cull_front_face_enabled_amd(b);
    nir_ssa_def *cull_back = nir_build_load_cull_back_face_enabled_amd(b);
 
-   return nir_inot(b, nir_bcsel(b, front_facing, cull_front, cull_back));
+   nir_ssa_def *face_accepted = nir_inot(b, nir_bcsel(b, front_facing, cull_front, cull_back));
+
+   /* Accept NaN and +/- inf, our formula doesn't handle them properly.
+    * Just trust fixed-function HW to handle these cases correctly.
+    */
+   return nir_ior(b, nir_inot(b, nir_fisfinite(b, det)), face_accepted);
 }
 
 static nir_ssa_def *
