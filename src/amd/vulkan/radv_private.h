@@ -2589,7 +2589,7 @@ struct radv_shader_info;
 void llvm_compile_shader(const struct radv_nir_compiler_options *options,
                          struct radv_shader_info *info, unsigned shader_count,
                          struct nir_shader *const *shaders, struct radv_shader_binary **binary,
-                         struct radv_shader_args *args);
+                         const struct radv_shader_args *args);
 
 /* radv_shader_info.h */
 struct radv_shader_info;

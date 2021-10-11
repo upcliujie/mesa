@@ -2824,7 +2824,7 @@ void
 llvm_compile_shader(const struct radv_nir_compiler_options *options,
                     struct radv_shader_info *info, unsigned shader_count,
                     struct nir_shader *const *shaders, struct radv_shader_binary **binary,
-                    struct radv_shader_args *args)
+                    const struct radv_shader_args *args)
 {
    enum ac_target_machine_options tm_options = 0;
    struct ac_llvm_compiler ac_llvm;
