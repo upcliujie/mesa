@@ -175,7 +175,8 @@ update_array_sizes(struct gl_shader_program *prog, nir_variable *var,
 
 static void
 nir_setup_uniform_remap_tables(struct gl_context *ctx,
-                               struct gl_shader_program *prog)
+                               struct gl_shader_program *prog,
+                               unsigned num_uniform_storage)
 {
    unsigned total_entries = prog->NumExplicitUniformLocations;
 
@@ -206,8 +207,11 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    unsigned data_pos = 0;
 
    /* Reserve all the explicit locations of the active uniforms. */
-   for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
+   for (unsigned i = 0; i < num_uniform_storage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (uniform->hidden)
+         continue;
 
       if (uniform->is_shader_storage ||
           glsl_get_base_type(uniform->type) == GLSL_TYPE_SUBROUTINE)
@@ -235,8 +239,11 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    if (prog->data->spirv)
       link_util_update_empty_uniform_locations(prog);
 
-   for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
+   for (unsigned i = 0; i < num_uniform_storage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (uniform->hidden)
+         continue;
 
       if (uniform->is_shader_storage ||
           glsl_get_base_type(uniform->type) == GLSL_TYPE_SUBROUTINE)
@@ -303,8 +310,11 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    }
 
    /* Reserve all the explicit locations of the active subroutine uniforms. */
-   for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
+   for (unsigned i = 0; i < num_uniform_storage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (uniform->hidden)
+         continue;
 
       if (glsl_get_base_type(uniform->type) != GLSL_TYPE_SUBROUTINE)
          continue;
@@ -340,8 +350,11 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    }
 
    /* reserve subroutine locations */
-   for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
+   for (unsigned i = 0; i < num_uniform_storage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (uniform->hidden)
+         continue;
 
       if (glsl_get_base_type(uniform->type) != GLSL_TYPE_SUBROUTINE)
          continue;
@@ -380,6 +393,23 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
             p->sh.NumSubroutineUniformRemapTable;
          p->sh.NumSubroutineUniformRemapTable += entries;
       }
+   }
+
+   /* assign storage to hidden uniforms */
+   for (unsigned i = 0; i < num_uniform_storage; i++) {
+      struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (!uniform->hidden)
+         continue;
+
+      const unsigned entries =
+         MAX2(1, prog->data->UniformStorage[i].array_elements);
+
+      uniform->storage = &data[data_pos];
+
+      unsigned num_slots = glsl_get_component_slots(uniform->type);
+      for (unsigned k = 0; k < entries; k++)
+         data_pos += num_slots;
    }
 }
 
@@ -603,6 +633,7 @@ struct nir_link_uniforms_state {
    unsigned num_hidden_uniforms;
    unsigned num_values;
    unsigned max_uniform_location;
+   unsigned num_uniform_storage;
 
    /* per-shader stage */
    unsigned next_bindless_image_index;
@@ -1299,15 +1330,14 @@ nir_link_uniform(struct gl_context *ctx,
             reralloc(prog->data,
                      prog->data->UniformStorage,
                      struct gl_uniform_storage,
-                     prog->data->NumUniformStorage + 1);
+                     state->num_uniform_storage + 1);
          if (!prog->data->UniformStorage) {
             linker_error(prog, "Out of memory during linking.\n");
             return -1;
          }
       }
 
-      uniform = &prog->data->UniformStorage[prog->data->NumUniformStorage];
-      prog->data->NumUniformStorage++;
+      uniform = &prog->data->UniformStorage[state->num_uniform_storage];
 
       /* Initialize its members */
       memset(uniform, 0x00, sizeof(struct gl_uniform_storage));
@@ -1342,9 +1372,6 @@ nir_link_uniform(struct gl_context *ctx,
       }
 
       uniform->hidden = state->current_var->data.how_declared == nir_var_hidden;
-      if (uniform->hidden)
-         state->num_hidden_uniforms++;
-
       uniform->is_shader_storage = nir_variable_is_in_ssbo(state->current_var);
       uniform->is_bindless = state->current_var->data.bindless;
 
@@ -1481,13 +1508,19 @@ nir_link_uniform(struct gl_context *ctx,
 
       if (name) {
          _mesa_hash_table_insert(state->uniform_hash, strdup(*name),
-                                 (void *) (intptr_t)
-                                    (prog->data->NumUniformStorage - 1));
+                                 (void *) (intptr_t) state->num_uniform_storage);
       }
 
       if (!is_gl_identifier(uniform->name) && !uniform->is_shader_storage &&
           !state->var_is_in_block)
          state->num_values += values;
+
+      if (uniform->hidden)
+         state->num_hidden_uniforms++;
+      else
+         prog->data->NumUniformStorage++;
+
+      state->num_uniform_storage++;
 
       return MAX2(uniform->array_elements, 1);
    }
@@ -1810,7 +1843,7 @@ gl_nir_link_uniforms(struct gl_context *ctx,
 
          /* From now on the variable’s location will be its uniform index */
          if (!state.var_is_in_block)
-            var->data.location = prog->data->NumUniformStorage;
+            var->data.location = state.num_uniform_storage;
          else
             location = -1;
 
@@ -1864,12 +1897,14 @@ gl_nir_link_uniforms(struct gl_context *ctx,
    prog->data->NumHiddenUniforms = state.num_hidden_uniforms;
    prog->data->NumUniformDataSlots = state.num_values;
 
-   assert(prog->data->spirv || prog->data->NumUniformStorage == storage_size);
+   assert(prog->data->spirv ||
+          prog->data->NumUniformStorage + prog->data->NumHiddenUniforms ==
+             storage_size);
 
    if (prog->data->spirv)
       prog->NumUniformRemapTable = state.max_uniform_location;
 
-   nir_setup_uniform_remap_tables(ctx, prog);
+   nir_setup_uniform_remap_tables(ctx, prog, storage_size);
    gl_nir_set_uniform_initializers(ctx, prog);
 
    _mesa_hash_table_destroy(state.uniform_hash, hash_free_uniform_name);

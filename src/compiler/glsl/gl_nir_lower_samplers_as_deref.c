@@ -165,7 +165,8 @@ lower_deref(nir_builder *b, struct lower_samplers_as_deref_state *state,
 
    if (state->shader_program && var->data.how_declared != nir_var_hidden) {
       /* For GLSL programs, look up the bindings in the uniform storage. */
-      assert(location < state->shader_program->data->NumUniformStorage &&
+      assert(location < (state->shader_program->data->NumUniformStorage +
+                         state->shader_program->data->NumHiddenUniforms) &&
              state->shader_program->data->UniformStorage[location].opaque[stage].active);
 
       binding = state->shader_program->data->UniformStorage[location].opaque[stage].index;
