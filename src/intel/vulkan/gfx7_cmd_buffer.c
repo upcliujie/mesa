@@ -419,14 +419,6 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       bool dirty_color_blend =
          cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE;
 
-      /* Blend states of each RT */
-      uint32_t surface_count = 0;
-      struct anv_pipeline_bind_map *map;
-      if (anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT)) {
-         map = &pipeline->shaders[MESA_SHADER_FRAGMENT]->bind_map;
-         surface_count = map->surface_count;
-      }
-
       uint32_t blend_dws[GENX(BLEND_STATE_length) +
                          MAX_RTS * GENX(BLEND_STATE_ENTRY_length)];
       uint32_t *dws = blend_dws;
@@ -438,10 +430,9 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       bool dirty_logic_op =
          cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP;
 
-      for (uint32_t i = 0; i < surface_count; i++) {
-         struct anv_pipeline_binding *binding = &map->surface_to_descriptor[i];
-         bool write_disabled =
-            dirty_color_blend && (color_writes & (1u << binding->index)) == 0;
+      for (uint32_t i = 0; i < MAX_RTS; i++) {
+         bool write_disabled = dirty_color_blend &&
+            (color_writes & BITFIELD_BIT(i)) == 0;
          struct GENX(BLEND_STATE_ENTRY) entry = {
             .WriteDisableAlpha = write_disabled,
             .WriteDisableRed   = write_disabled,
@@ -455,7 +446,7 @@ genX(cmd_buffer_flush_dynamic_state)(struct anv_cmd_buffer *cmd_buffer)
       }
 
       uint32_t num_dwords = GENX(BLEND_STATE_length) +
-         GENX(BLEND_STATE_ENTRY_length) * surface_count;
+         GENX(BLEND_STATE_ENTRY_length) * MAX_RTS;
 
       struct anv_state blend_states =
          anv_cmd_buffer_merge_dynamic(cmd_buffer, blend_dws,
