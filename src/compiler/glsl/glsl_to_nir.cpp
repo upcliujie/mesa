@@ -230,6 +230,12 @@ glsl_to_nir(const struct gl_constants *consts,
 
    nir_validate_shader(shader, "after glsl to nir, before function inline");
 
+   nir_opt_copy_prop_vars(shader);
+   if (consts->GLSLLowerConstArrays) {
+      nir_lower_const_arrays_to_uniforms(shader,
+                                         consts->Program[stage].MaxUniformComponents);
+   }
+
    /* We have to lower away local constant initializers right before we
     * inline functions.  That way they get properly initialized at the top
     * of the function and not at the top of its caller.
