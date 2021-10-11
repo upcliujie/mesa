@@ -1552,3 +1552,26 @@ void virgl_encode_emit_string_marker(struct virgl_context *ctx,
    virgl_encoder_write_dword(ctx->cbuf, len);
    virgl_encoder_write_block(ctx->cbuf, (const uint8_t *)message, len);
 }
+
+int virgl_encoder_create_reset_status_obj(struct virgl_context *ctx,
+                                           uint32_t handle,
+                                           struct virgl_resource *res)
+{
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_CREATE_OBJECT,
+                                                 VIRGL_OBJECT_HOST_STATUS_BUFFER,
+                                                 VIRGL_OBJ_HOST_STATUS_SIZE));
+   virgl_encoder_write_dword(ctx->cbuf, handle);
+   virgl_encoder_write_res(ctx, res);
+   return 0;
+}
+
+int virgl_encoder_query_host_status(struct virgl_context *ctx,
+                                    uint32_t handle, enum vrend_host_status_id id)
+{
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_QUERY_HOST_STATUS,
+                                                 0, VIRGL_QUERY_HOST_STATUS_SIZE));
+   virgl_encoder_write_dword(ctx->cbuf, handle);
+   virgl_encoder_write_dword(ctx->cbuf, id);
+   return 0;
+}
+
