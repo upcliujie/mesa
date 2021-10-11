@@ -363,6 +363,7 @@ dzn_get_states(VkImageLayout layout)
    switch (layout) {
    case VK_IMAGE_LAYOUT_PREINITIALIZED:
    case VK_IMAGE_LAYOUT_UNDEFINED:
+   case VK_IMAGE_LAYOUT_GENERAL:
       /* YOLO! */
    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
       return D3D12_RESOURCE_STATE_COMMON;
