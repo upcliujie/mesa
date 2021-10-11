@@ -1458,10 +1458,9 @@ virgl_emit_string_marker(struct pipe_context *ctx, const char *message,  int len
 }
 
 static void
-virgl_context_destroy( struct pipe_context *ctx )
+virgl_teardown_context(struct virgl_context *vctx)
 {
-   struct virgl_context *vctx = virgl_context(ctx);
-   struct virgl_screen *rs = virgl_screen(ctx->screen);
+   struct virgl_screen *rs = virgl_screen(vctx->base.screen);
    enum pipe_shader_type shader_type;
 
    vctx->framebuffer.zsbuf = NULL;
@@ -1486,6 +1485,13 @@ virgl_context_destroy( struct pipe_context *ctx )
    virgl_transfer_queue_fini(&vctx->queue);
 
    slab_destroy_child(&vctx->transfer_pool);
+}
+
+static void
+virgl_context_destroy( struct pipe_context *ctx )
+{
+   struct virgl_context *vctx = virgl_context(ctx);
+   virgl_teardown_context(vctx);
    FREE(vctx);
 }
 
@@ -1540,6 +1546,60 @@ static void virgl_send_tweaks(struct virgl_context *vctx, struct virgl_screen *r
                          rs->tweak_gles_tf3_value);
 }
 
+static bool
+virgl_context_init(struct virgl_context *vctx, struct virgl_screen *rs)
+{
+   const char *host_debug_flagstring;
+   vctx->cbuf = rs->vws->cmd_buf_create(rs->vws, VIRGL_MAX_CMDBUF_DWORDS);
+   if (!vctx->cbuf) {
+      FREE(vctx);
+      return false;
+   }
+
+   virgl_init_context_resource_functions(&vctx->base);
+   virgl_init_query_functions(vctx);
+   virgl_init_so_functions(vctx);
+
+   slab_create_child(&vctx->transfer_pool, &rs->transfer_pool);
+   virgl_transfer_queue_init(&vctx->queue, vctx);
+
+   /* Reserve some space for transfers. */
+   if (vctx->encoded_transfers)
+      vctx->cbuf->cdw = VIRGL_MAX_TBUF_DWORDS;
+
+
+   vctx->primconvert = util_primconvert_create(&vctx->base, rs->caps.caps.v1.prim_mask);
+   vctx->uploader = u_upload_create(&vctx->base, 1024 * 1024,
+                                     PIPE_BIND_INDEX_BUFFER, PIPE_USAGE_STREAM, 0);
+   if (!vctx->uploader)
+           return false;
+
+   vctx->base.stream_uploader = vctx->uploader;
+   vctx->base.const_uploader = vctx->uploader;
+
+   /* We use a special staging buffer as the source of copy transfers. */
+   if ((rs->caps.caps.v2.capability_bits & VIRGL_CAP_COPY_TRANSFER) &&
+       vctx->encoded_transfers) {
+      virgl_staging_init(&vctx->staging, &vctx->base, 1024 * 1024);
+      vctx->supports_staging = true;
+   }
+
+   vctx->hw_sub_ctx_id = p_atomic_inc_return(&rs->sub_ctx_id);
+   virgl_encoder_create_sub_ctx(vctx, vctx->hw_sub_ctx_id);
+
+   virgl_encoder_set_sub_ctx(vctx, vctx->hw_sub_ctx_id);
+
+   if (rs->caps.caps.v2.capability_bits & VIRGL_CAP_GUEST_MAY_INIT_LOG) {
+      host_debug_flagstring = getenv("VIRGL_HOST_DEBUG");
+      if (host_debug_flagstring)
+         virgl_encode_host_debug_flagstring(vctx, host_debug_flagstring);
+   }
+
+   if (rs->caps.caps.v2.capability_bits & VIRGL_CAP_APP_TWEAK_SUPPORT)
+      virgl_send_tweaks(vctx, rs);
+   return true;
+}
+
 struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
                                           void *priv,
                                           unsigned flags)
@@ -1547,13 +1607,6 @@ struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
    struct virgl_context *vctx;
    struct virgl_screen *rs = virgl_screen(pscreen);
    vctx = CALLOC_STRUCT(virgl_context);
-   const char *host_debug_flagstring;
-
-   vctx->cbuf = rs->vws->cmd_buf_create(rs->vws, VIRGL_MAX_CMDBUF_DWORDS);
-   if (!vctx->cbuf) {
-      FREE(vctx);
-      return NULL;
-   }
 
    vctx->base.destroy = virgl_context_destroy;
    vctx->base.create_surface = virgl_create_surface;
@@ -1638,50 +1691,12 @@ struct pipe_context *virgl_context_create(struct pipe_screen *pscreen,
    vctx->base.memory_barrier = virgl_memory_barrier;
    vctx->base.emit_string_marker = virgl_emit_string_marker;
 
-   virgl_init_context_resource_functions(&vctx->base);
-   virgl_init_query_functions(vctx);
-   virgl_init_so_functions(vctx);
-
-   slab_create_child(&vctx->transfer_pool, &rs->transfer_pool);
-   virgl_transfer_queue_init(&vctx->queue, vctx);
    vctx->encoded_transfers = (rs->vws->supports_encoded_transfers &&
                        (rs->caps.caps.v2.capability_bits & VIRGL_CAP_TRANSFER));
 
-   /* Reserve some space for transfers. */
-   if (vctx->encoded_transfers)
-      vctx->cbuf->cdw = VIRGL_MAX_TBUF_DWORDS;
+   if (virgl_context_init(vctx, rs))
+       return &vctx->base;
 
-   vctx->primconvert = util_primconvert_create(&vctx->base, rs->caps.caps.v1.prim_mask);
-   vctx->uploader = u_upload_create(&vctx->base, 1024 * 1024,
-                                     PIPE_BIND_INDEX_BUFFER, PIPE_USAGE_STREAM, 0);
-   if (!vctx->uploader)
-           goto fail;
-   vctx->base.stream_uploader = vctx->uploader;
-   vctx->base.const_uploader = vctx->uploader;
-
-   /* We use a special staging buffer as the source of copy transfers. */
-   if ((rs->caps.caps.v2.capability_bits & VIRGL_CAP_COPY_TRANSFER) &&
-       vctx->encoded_transfers) {
-      virgl_staging_init(&vctx->staging, &vctx->base, 1024 * 1024);
-      vctx->supports_staging = true;
-   }
-
-   vctx->hw_sub_ctx_id = p_atomic_inc_return(&rs->sub_ctx_id);
-   virgl_encoder_create_sub_ctx(vctx, vctx->hw_sub_ctx_id);
-
-   virgl_encoder_set_sub_ctx(vctx, vctx->hw_sub_ctx_id);
-
-   if (rs->caps.caps.v2.capability_bits & VIRGL_CAP_GUEST_MAY_INIT_LOG) {
-      host_debug_flagstring = getenv("VIRGL_HOST_DEBUG");
-      if (host_debug_flagstring)
-         virgl_encode_host_debug_flagstring(vctx, host_debug_flagstring);
-   }
-
-   if (rs->caps.caps.v2.capability_bits & VIRGL_CAP_APP_TWEAK_SUPPORT)
-      virgl_send_tweaks(vctx, rs);
-
-   return &vctx->base;
-fail:
    virgl_context_destroy(&vctx->base);
    return NULL;
 }
