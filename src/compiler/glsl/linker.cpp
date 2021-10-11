@@ -4578,12 +4578,14 @@ linker_optimisation_loop(struct gl_context *ctx, exec_list *ir,
          /* Run it just once. */
          do_common_optimization(ir, true, false,
                                 &ctx->Const.ShaderCompilerOptions[stage],
-                                ctx->Const.NativeIntegers);
+                                ctx->Const.NativeIntegers,
+                                ctx->Const.UseNIRGLSLLinker);
       } else {
          /* Repeat it until it stops making changes. */
          while (do_common_optimization(ir, true, false,
                                        &ctx->Const.ShaderCompilerOptions[stage],
-                                       ctx->Const.NativeIntegers))
+                                       ctx->Const.NativeIntegers,
+                                       ctx->Const.UseNIRGLSLLinker))
             ;
       }
 }
@@ -4930,7 +4932,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
       linker_optimisation_loop(ctx, prog->_LinkedShaders[i]->ir, i);
 
       /* Call opts after lowering const arrays to copy propagate things. */
-      if (ctx->Const.GLSLLowerConstArrays &&
+      if (ctx->Const.GLSLLowerConstArrays && !ctx->Const.UseNIRGLSLLinker &&
           lower_const_arrays_to_uniforms(prog->_LinkedShaders[i]->ir, i,
                                          ctx->Const.Program[i].MaxUniformComponents))
          linker_optimisation_loop(ctx, prog->_LinkedShaders[i]->ir, i);
