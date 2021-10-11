@@ -559,6 +559,37 @@ ir3_nir_lower_64b_intrinsics(nir_shader *shader)
          lower_64b_intrinsics, NULL);
 }
 
+static nir_ssa_def *
+lower_64b_undef(nir_builder *b, nir_instr *instr, void *unused)
+{
+   (void)unused;
+
+   nir_ssa_undef_instr *undef = nir_instr_as_ssa_undef(instr);
+   assert(undef->def.num_components == 1);
+
+   nir_ssa_def *lowered = nir_ssa_undef(b, 2, 32);
+
+   return nir_pack_64_2x32_split(b, nir_channel(b, lowered, 0),
+                                 nir_channel(b, lowered, 1));
+}
+
+static bool
+lower_64b_undef_filter(const nir_instr *instr, const void *unused)
+{
+   (void)unused;
+
+   return instr->type == nir_instr_type_ssa_undef &&
+      nir_instr_as_ssa_undef(instr)->def.bit_size == 64;
+}
+
+static bool
+ir3_nir_lower_64b_undef(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(
+         shader, lower_64b_undef_filter,
+         lower_64b_undef, NULL);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -890,6 +921,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
    progress |= OPT(s, nir_lower_wrmasks, should_split_wrmask, s);
 
    progress |= OPT(s, ir3_nir_lower_64b_intrinsics);
+   progress |= OPT(s, ir3_nir_lower_64b_undef);
    progress |= OPT(s, nir_lower_int64);
 
    if (!so->binning_pass)
