@@ -549,7 +549,7 @@ standalone_compile_shader(const struct standalone_options *_options,
                                                  false,
                                                  false,
                                                  compiler_options,
-                                                 true)
+                                                 true, false)
                   && progress;
             } while(progress);
          }
