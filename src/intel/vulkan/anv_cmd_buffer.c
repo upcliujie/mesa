@@ -1587,7 +1587,7 @@ void anv_CmdSetColorWriteEnableEXT(
 
    uint8_t color_writes = 0;
    for (uint32_t i = 0; i < attachmentCount; i++)
-      color_writes |= pColorWriteEnables[i] ? (1 << i) : 0;
+      color_writes |= pColorWriteEnables[i] ? BITFIELD_BIT(i) : 0;
 
    if (cmd_buffer->state.gfx.dynamic.color_writes != color_writes) {
       cmd_buffer->state.gfx.dynamic.color_writes = color_writes;
