@@ -559,6 +559,62 @@ ir3_nir_lower_64b_intrinsics(nir_shader *shader)
          lower_64b_intrinsics, NULL);
 }
 
+static nir_ssa_def *
+lower_64b_const_and_undef(nir_builder *b, nir_instr *instr, void *unused)
+{
+   (void)unused;
+
+   if (instr->type == nir_instr_type_load_const) {
+      nir_load_const_instr *load = nir_instr_as_load_const(instr);
+      assert(load->def.num_components == 1);
+
+      nir_const_value val[2] = {0};
+      uint64_t v = load->value[0].u64;
+      val[0].u32 = v & 0xffffffff;
+      val[1].u32 = (v >> 32) & 0xffffffff;
+
+      nir_ssa_def *unpacked_const =
+         nir_build_imm(b, 2 * load->def.num_components, 32, val);
+      nir_ssa_def *packed =
+         nir_pack_64_2x32(b, nir_vec2(b, nir_channel(b, unpacked_const, 0),
+                                      nir_channel(b, unpacked_const, 1)));
+
+      return packed;
+   } else {
+      nir_ssa_undef_instr *undef = nir_instr_as_ssa_undef(instr);
+      assert(undef->def.num_components == 1);
+
+      undef->def.num_components *= 2;
+      undef->def.bit_size = 32;
+
+      return NIR_LOWER_INSTR_PROGRESS;
+   }
+}
+
+static bool
+lower_64b_const_and_undef_filter(const nir_instr *instr, const void *unused)
+{
+   (void)unused;
+
+   if (instr->type == nir_instr_type_load_const &&
+       nir_instr_as_load_const(instr)->def.bit_size == 64)
+      return true;
+
+   if (instr->type == nir_instr_type_ssa_undef &&
+       nir_instr_as_ssa_undef(instr)->def.bit_size == 64)
+      return true;
+
+   return false;
+}
+
+static bool
+ir3_nir_lower_64b_const_and_undef(nir_shader *shader)
+{
+   return nir_shader_lower_instructions(
+         shader, lower_64b_const_and_undef_filter,
+         lower_64b_const_and_undef, NULL);
+}
+
 void
 ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 {
@@ -890,6 +946,7 @@ ir3_nir_lower_variant(struct ir3_shader_variant *so, nir_shader *s)
    progress |= OPT(s, nir_lower_wrmasks, should_split_wrmask, s);
 
    progress |= OPT(s, ir3_nir_lower_64b_intrinsics);
+   progress |= OPT(s, ir3_nir_lower_64b_const_and_undef);
    progress |= OPT(s, nir_lower_int64);
 
    if (!so->binning_pass)
