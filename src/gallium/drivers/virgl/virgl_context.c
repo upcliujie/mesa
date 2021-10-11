@@ -1597,6 +1597,9 @@ virgl_context_init(struct virgl_context *vctx, struct virgl_screen *rs)
 
    if (rs->caps.caps.v2.capability_bits & VIRGL_CAP_APP_TWEAK_SUPPORT)
       virgl_send_tweaks(vctx, rs);
+
+   if (rs->caps.caps.v2.capability_bits & VIRGL_CAP_V2_RESET_STATUS)
+       virgl_init_reset_status_functions(vctx);
    return true;
 }
 
