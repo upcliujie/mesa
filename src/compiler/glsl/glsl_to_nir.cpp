@@ -213,7 +213,8 @@ glsl_to_nir(const struct gl_constants *consts,
     */
    while (has_unsupported_function_param(sh->ir)) {
       do_common_optimization(sh->ir, true, true, gl_options,
-                             consts->NativeIntegers);
+                             consts->NativeIntegers,
+                             consts->UseNIRGLSLLinker);
    }
 
    nir_shader *shader = nir_shader_create(NULL, stage, options,
@@ -229,6 +230,12 @@ glsl_to_nir(const struct gl_constants *consts,
    sh->ir = NULL;
 
    nir_validate_shader(shader, "after glsl to nir, before function inline");
+
+   nir_opt_copy_prop_vars(shader);
+   if (consts->GLSLLowerConstArrays && consts->UseNIRGLSLLinker) {
+      nir_lower_const_arrays_to_uniforms(shader,
+                                         consts->Program[stage].MaxUniformComponents);
+   }
 
    /* We have to lower away local constant initializers right before we
     * inline functions.  That way they get properly initialized at the top
