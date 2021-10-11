@@ -7323,7 +7323,7 @@ st_link_tgsi(struct gl_context *ctx, struct gl_shader_program *prog)
          /* Do it once and repeat only if there's unsupported control flow. */
          do {
             do_common_optimization(ir, true, true, options,
-                                   ctx->Const.NativeIntegers);
+                                   ctx->Const.NativeIntegers, false);
             lower_if_to_cond_assign((gl_shader_stage)i, ir,
                                     options->MaxIfDepth, if_threshold);
          } while (has_unsupported_control_flow(ir, options));
@@ -7332,7 +7332,7 @@ st_link_tgsi(struct gl_context *ctx, struct gl_shader_program *prog)
          bool progress;
          do {
             progress = do_common_optimization(ir, true, true, options,
-                                              ctx->Const.NativeIntegers);
+                                              ctx->Const.NativeIntegers, false);
             progress |= lower_if_to_cond_assign((gl_shader_stage)i, ir,
                                                 options->MaxIfDepth, if_threshold);
          } while (progress);

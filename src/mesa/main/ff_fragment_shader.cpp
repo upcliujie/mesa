@@ -1102,7 +1102,7 @@ create_new_program(struct gl_context *ctx, struct state_key *key)
    /* Conservative approach: Don't optimize here, the linker does it too. */
    if (!ctx->Const.GLSLOptimizeConservatively) {
       while (do_common_optimization(p.shader->ir, false, false, options,
-                                    ctx->Const.NativeIntegers))
+                                    ctx->Const.NativeIntegers, false))
          ;
    }
 

@@ -3032,7 +3032,8 @@ _mesa_ir_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
 				 | ((options->EmitNoPow) ? POW_TO_EXP2 : 0)));
 
 	 progress = do_common_optimization(ir, true, true,
-                                           options, ctx->Const.NativeIntegers)
+                                           options, ctx->Const.NativeIntegers,
+                                           false)
 	   || progress;
 
 	 progress = lower_quadop_vector(ir, true) || progress;
