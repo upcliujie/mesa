@@ -1241,7 +1241,11 @@ void genX(CmdWriteTimestamp2KHR)(
    struct mi_builder b;
    mi_builder_init(&b, &cmd_buffer->device->info, &cmd_buffer->batch);
 
-   if (stage == VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR) {
+   /* If there is no synchronization stage or only stages that are not
+    * pipelined, we can just snapshot the timestamp register without stalling.
+    */
+   if (stage == VK_PIPELINE_STAGE_2_NONE_KHR ||
+       (stage & ANV_PIPELINE_STAGE_PIPELINED_BITS) == 0) {
       mi_store(&b, mi_mem64(anv_address_add(query_addr, 8)),
                    mi_reg64(TIMESTAMP));
    } else {

@@ -2492,6 +2492,15 @@ enum anv_pipe_bits {
    ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT | \
    ANV_PIPE_AUX_TABLE_INVALIDATE_BIT)
 
+/* Set of stage bits for which are pipelined, i.e. they get queued
+ * by the command streamer for later execution.
+ */
+#define ANV_PIPELINE_STAGE_PIPELINED_BITS \
+   ~(VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR | \
+     VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT_KHR | \
+     VK_PIPELINE_STAGE_2_HOST_BIT_KHR | \
+     VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT)
+
 static inline enum anv_pipe_bits
 anv_pipe_flush_bits_for_access_flags(struct anv_device *device,
                                      VkAccessFlags2KHR flags)
