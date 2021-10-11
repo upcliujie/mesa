@@ -317,8 +317,8 @@ void virgl_encode_emit_string_marker(struct virgl_context *ctx, const char *mess
                                        int len);
 
 int virgl_encoder_create_reset_status_obj(struct virgl_context *ctx,
-                                           uint32_t handle,
-                                           struct virgl_resource *res);
+                                          uint32_t handle,
+                                          struct virgl_resource *res);
 
 int virgl_encoder_query_host_status(struct virgl_context *ctx,
                                     uint32_t handle, enum vrend_host_status_id id);

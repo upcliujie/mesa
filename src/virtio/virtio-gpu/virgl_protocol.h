@@ -58,6 +58,7 @@ enum virgl_object_type {
    VIRGL_OBJECT_QUERY,
    VIRGL_OBJECT_STREAMOUT_TARGET,
    VIRGL_OBJECT_MSAA_SURFACE,
+   VIRGL_OBJECT_HOST_STATUS_BUFFER,
    VIRGL_MAX_OBJECTS,
 };
 
@@ -692,5 +693,16 @@ enum vrend_host_status_id {
    virgl_host_query_reset_status,
    virgl_host_query_undefined,
 };
+
+/* Query host reset status */
+#define VIRGL_QUERY_HOST_STATUS_SIZE 2
+#define VIRGL_QUERY_HOST_STATUS_RESOURCE_HANDLE 1
+#define VIRGL_QUERY_HOST_STATUS_STATUSID 2
+
+/* Create host statue buffer */
+#define VIRGL_OBJ_HOST_STATUS_SIZE 2
+#define VIRGL_OBJ_HOST_STATUS_HANDLE 1
+#define VIRGL_OBJ_HOST_STATUS_RESOURCE_HANDLE 2
+
 
 #endif
