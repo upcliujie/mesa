@@ -867,6 +867,16 @@ gl_nir_link_glsl(const struct gl_constants *consts,
    if (prog->NumShaders == 0)
       return true;
 
+   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
+      struct gl_linked_shader *shader = prog->_LinkedShaders[i];
+      if (shader) {
+         if (consts->GLSLLowerConstArrays) {
+            nir_lower_const_arrays_to_uniforms(shader->Program->nir,
+                                               consts->Program[i].MaxUniformComponents);
+         }
+      }
+   }
+
    if (!gl_nir_link_varyings(consts, exts, api, prog))
       return false;
 
