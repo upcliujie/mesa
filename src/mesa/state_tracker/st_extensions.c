@@ -1197,6 +1197,8 @@ void st_init_extensions(struct pipe_screen *screen,
 
    consts->AllowGLSLBuiltinVariableRedeclaration = options->allow_glsl_builtin_variable_redeclaration;
 
+   consts->AllowGLSLNonConstSamplerArrayIndex = options->allow_glsl_non_const_sampler_array_index;
+
    consts->dri_config_options_sha1 = options->config_options_sha1;
 
    consts->AllowGLSLCrossStageInterpolationMismatch = options->allow_glsl_cross_stage_interpolation_mismatch;

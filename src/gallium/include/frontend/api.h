@@ -226,6 +226,7 @@ struct st_config_options
    bool allow_glsl_builtin_const_expression;
    bool allow_glsl_relaxed_es;
    bool allow_glsl_builtin_variable_redeclaration;
+   bool allow_glsl_non_const_sampler_array_index;
    bool allow_higher_compat_version;
    bool glsl_ignore_write_to_readonly_var;
    bool glsl_zero_init;

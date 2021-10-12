@@ -3935,6 +3935,11 @@ struct gl_constants
    GLboolean AllowGLSLBuiltinVariableRedeclaration;
 
    /**
+    * Allow GLSL sampler array to be indexed with non-constant expression
+    */
+   GLboolean AllowGLSLNonConstSamplerArrayIndex;
+
+   /**
     * Allow GLSL interpolation qualifier mismatch across shader stages.
     */
    GLboolean AllowGLSLCrossStageInterpolationMismatch;

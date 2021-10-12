@@ -49,6 +49,7 @@ u_driconf_fill_st_options(struct st_config_options *options,
    query_bool_option(allow_glsl_builtin_const_expression);
    query_bool_option(allow_glsl_relaxed_es);
    query_bool_option(allow_glsl_builtin_variable_redeclaration);
+   query_bool_option(allow_glsl_non_const_sampler_array_index);
    query_bool_option(allow_higher_compat_version);
    query_bool_option(glsl_ignore_write_to_readonly_var);
    query_bool_option(glsl_zero_init);

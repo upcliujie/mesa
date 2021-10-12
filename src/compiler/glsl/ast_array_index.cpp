@@ -24,6 +24,7 @@
 #include "ast.h"
 #include "compiler/glsl_types.h"
 #include "ir.h"
+#include "main/mtypes.h"
 
 void
 ast_array_specifier::print(void) const
@@ -310,7 +311,8 @@ _mesa_ast_array_index_to_hir(void *mem_ctx,
              !state->ARB_gpu_shader5_enable &&
              !state->EXT_gpu_shader5_enable &&
              !state->OES_gpu_shader5_enable &&
-             !state->has_bindless()) {
+             !state->has_bindless() &&
+             !state->ctx->Const.AllowGLSLNonConstSamplerArrayIndex) {
             if (state->is_version(130, 300))
                _mesa_glsl_error(&loc, state,
                                 "sampler arrays indexed with non-constant "
