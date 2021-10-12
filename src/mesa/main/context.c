@@ -268,7 +268,7 @@ one_time_fini(void)
  */
 
 static void
-one_time_init(void)
+one_time_init(const char *extensions_override)
 {
    GLuint i;
 
@@ -281,7 +281,11 @@ one_time_init(void)
 
    _mesa_locale_init();
 
-   _mesa_one_time_init_extension_overrides();
+   const char *env_const = os_get_option("MESA_EXTENSION_OVERRIDE");
+   if (env_const)
+      extensions_override = env_const;
+
+   _mesa_one_time_init_extension_overrides(extensions_override);
 
    _mesa_get_cpu_features();
 
@@ -322,11 +326,11 @@ static mtx_t init_once_lock = _MTX_INITIALIZER_NP;
  * defined.
  */
 void
-_mesa_initialize(void)
+_mesa_initialize(const char *extensions_override)
 {
    mtx_lock(&init_once_lock);
    if (!init_done) {
-      one_time_init();
+      one_time_init(extensions_override);
       init_done = true;
    }
    mtx_unlock(&init_once_lock);
@@ -1113,7 +1117,7 @@ _mesa_initialize_context(struct gl_context *ctx,
    _mesa_override_gl_version(ctx);
 
    /* misc one-time initializations */
-   _mesa_initialize();
+   _mesa_initialize(NULL);
 
    /* Plug in driver functions and context pointer here.
     * This is important because when we call alloc_shared_state() below
