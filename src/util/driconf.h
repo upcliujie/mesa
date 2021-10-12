@@ -192,6 +192,10 @@
    DRI_CONF_OPT_B(allow_glsl_builtin_variable_redeclaration, def, \
                   "Allow GLSL built-in variables to be redeclared verbatim")
 
+#define DRI_CONF_ALLOW_GLSL_NON_CONST_SAMPLER_ARRAY_INDEX(def) \
+   DRI_CONF_OPT_B(allow_glsl_non_const_sampler_array_index, def, \
+                  "Allow GLSL sampler array to be indexed with non-constant expression")
+
 #define DRI_CONF_ALLOW_HIGHER_COMPAT_VERSION(def) \
    DRI_CONF_OPT_B(allow_higher_compat_version, def, \
                   "Allow a higher compat profile (version 3.1+) for apps that request it")
