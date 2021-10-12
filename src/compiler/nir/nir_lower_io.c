@@ -120,6 +120,29 @@ shared_atomic_for_deref(nir_intrinsic_op deref_op)
    }
 }
 
+static nir_op
+nir_alu_op_for_deref_atomic(nir_intrinsic_op deref_op)
+{
+   switch (deref_op) {
+#define OP(I, A) case nir_intrinsic_deref_atomic_##I: return nir_op_##A;
+   OP(exchange,   mov)
+   OP(add,        iadd)
+   OP(imin,       imin)
+   OP(umin,       umin)
+   OP(imax,       imax)
+   OP(umax,       umax)
+   OP(and,        iand)
+   OP(or,         ior)
+   OP(xor,        ixor)
+   OP(fadd,       fadd)
+   OP(fmin,       fmin)
+   OP(fmax,       fmax)
+#undef OP
+   default:
+      unreachable("Invalid deref atomic");
+   }
+}
+
 void
 nir_assign_var_locations(nir_shader *shader, nir_variable_mode mode,
                          unsigned *size,
@@ -1637,6 +1660,35 @@ build_explicit_io_atomic(nir_builder *b, nir_intrinsic_instr *intrin,
 
    nir_intrinsic_op op;
    switch (mode) {
+   case nir_var_function_temp: {
+      uint32_t align_mul = intrin->dest.ssa.bit_size / 8;
+      nir_ssa_def *old_val =
+         build_explicit_io_load(b, intrin, addr, addr_format, mode,
+                                align_mul, 0, 1);
+      if (intrin->intrinsic == nir_intrinsic_deref_atomic_comp_swap ||
+          intrin->intrinsic == nir_intrinsic_deref_atomic_fcomp_swap) {
+         assert(num_data_srcs == 2);
+         nir_ssa_def *cmp_val = intrin->src[1].ssa;
+         nir_ssa_def *new_val = intrin->src[2].ssa;
+         nir_ssa_def *cmp =
+            intrin->intrinsic == nir_intrinsic_deref_atomic_comp_swap ?
+            nir_ieq(b, old_val, cmp_val) : nir_feq(b, old_val, cmp_val);
+         nir_push_if(b, cmp);
+         build_explicit_io_store(b, intrin, addr, addr_format, mode,
+                                 align_mul, 0, new_val, 0x1);
+         nir_pop_if(b, NULL);
+      } else {
+         assert(num_data_srcs > 0 && num_data_srcs <= 2);
+         nir_ssa_def *src0 = intrin->src[1].ssa;
+         nir_ssa_def *src1 = num_data_srcs >= 2 ? intrin->src[2].ssa : NULL;
+         nir_ssa_def *new_val =
+            nir_build_alu(b, nir_alu_op_for_deref_atomic(intrin->intrinsic),
+                          src0, src1, NULL, NULL);
+         build_explicit_io_store(b, intrin, addr, addr_format, mode,
+                                 align_mul, 0, new_val, 0x1);
+      }
+      return old_val;
+   }
    case nir_var_mem_ssbo:
       if (addr_format_is_global(addr_format, mode))
          op = global_atomic_for_deref(intrin->intrinsic);
