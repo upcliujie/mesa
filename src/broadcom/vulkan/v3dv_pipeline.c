@@ -1412,7 +1412,14 @@ pipeline_stage_create_binning(const struct v3dv_pipeline_stage *src,
    p_stage->stage = bin_stage;
    p_stage->entrypoint = src->entrypoint;
    p_stage->module = src->module;
-   p_stage->nir = src->nir ? nir_shader_clone(NULL, src->nir) : NULL;
+   /* Even if we have a nir shader available at src, we don't want to clone
+    * the nir shader yet. This is because calls to pipeline_lower_nir (that
+    * calls nir_shader_gather_info), lower_gs_io, etc. were not called yet.
+    *
+    * Setting to NULL now would do the clone later, at
+    * pipeline_compile_xxx_shader.
+    */
+   p_stage->nir = NULL;
    p_stage->spec_info = src->spec_info;
    p_stage->feedback = (VkPipelineCreationFeedbackEXT) { 0 };
    memcpy(p_stage->shader_sha1, src->shader_sha1, 20);
