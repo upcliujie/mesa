@@ -163,7 +163,8 @@ if with_tests
                'fs_saturate_propagation', 'vf_float_conversions',
                'vec4_register_coalesce', 'vec4_copy_propagation',
                'vec4_cmod_propagation', 'vec4_dead_code_eliminate',
-               'eu_compact', 'eu_validate', 'fs_scoreboard']
+               'eu_compact', 'eu_validate', 'fs_scoreboard',
+               'fs_register_coalesce']
     test(
       t,
       executable(
