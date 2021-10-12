@@ -2474,11 +2474,13 @@ wsi_get_randr_output_display(VkPhysicalDevice physical_device,
    struct wsi_display_connector *connector =
       wsi_display_get_output(wsi_device, connection, (xcb_randr_output_t) output);
 
-   if (connector)
+   if (connector) {
       *display = wsi_display_connector_to_handle(connector);
-   else
+      return VK_SUCCESS;
+   } else {
       *display = VK_NULL_HANDLE;
-   return VK_SUCCESS;
+      return VK_ERROR_INITIALIZATION_FAILED;
+   }
 }
 
 #endif
