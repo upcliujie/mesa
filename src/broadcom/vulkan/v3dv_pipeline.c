@@ -1937,7 +1937,15 @@ pipeline_compile_geometry_shader(struct v3dv_pipeline *pipeline,
    if (vk_result != VK_SUCCESS)
       return vk_result;
 
+   bool gs_per_vertex_point_size = key.per_vertex_point_size;
    pipeline_populate_v3d_gs_key(&key, pCreateInfo, pipeline->gs_bin);
+
+   /* FIXME: forcing gs and gs_bin to have the same value for
+    * per_vertex_point_size. Pending investigate why happens.
+    */
+   if (gs_per_vertex_point_size != key.per_vertex_point_size)
+      key.per_vertex_point_size = gs_per_vertex_point_size;
+
    pipeline->shared_data->variants[BROADCOM_SHADER_GEOMETRY_BIN] =
       pipeline_compile_shader_variant(pipeline->gs_bin, &key.base, sizeof(key),
                                       pAllocator, &vk_result);
