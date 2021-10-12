@@ -209,6 +209,9 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
 
+      if (uniform->hidden)
+         continue;
+
       if (uniform->is_shader_storage ||
           glsl_get_base_type(uniform->type) == GLSL_TYPE_SUBROUTINE)
          continue;
@@ -237,6 +240,9 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
 
    for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (uniform->hidden)
+         continue;
 
       if (uniform->is_shader_storage ||
           glsl_get_base_type(uniform->type) == GLSL_TYPE_SUBROUTINE)
@@ -306,6 +312,9 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
 
+      if (uniform->hidden)
+         continue;
+
       if (glsl_get_base_type(uniform->type) != GLSL_TYPE_SUBROUTINE)
          continue;
 
@@ -342,6 +351,9 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
    /* reserve subroutine locations */
    for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
       struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (uniform->hidden)
+         continue;
 
       if (glsl_get_base_type(uniform->type) != GLSL_TYPE_SUBROUTINE)
          continue;
@@ -380,6 +392,23 @@ nir_setup_uniform_remap_tables(struct gl_context *ctx,
             p->sh.NumSubroutineUniformRemapTable;
          p->sh.NumSubroutineUniformRemapTable += entries;
       }
+   }
+
+   /* assign storage to hidden uniforms */
+   for (unsigned i = 0; i < prog->data->NumUniformStorage; i++) {
+      struct gl_uniform_storage *uniform = &prog->data->UniformStorage[i];
+
+      if (!uniform->hidden)
+         continue;
+
+      const unsigned entries =
+         MAX2(1, prog->data->UniformStorage[i].array_elements);
+
+      uniform->storage = &data[data_pos];
+
+      unsigned num_slots = glsl_get_component_slots(uniform->type);
+      for (unsigned k = 0; k < entries; k++)
+         data_pos += num_slots;
    }
 }
 
