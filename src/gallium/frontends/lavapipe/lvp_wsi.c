@@ -292,3 +292,22 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetPhysicalDevicePresentRectanglesKHR(
                                             surface,
                                             pRectCount, pRects);
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateHeadlessSurfaceEXT(
+   VkInstance                                   _instance,
+   const VkHeadlessSurfaceCreateInfoEXT*        pCreateInfo,
+   const VkAllocationCallbacks*                 pAllocator,
+   VkSurfaceKHR*                                pSurface)
+{
+   LVP_FROM_HANDLE(lvp_instance, instance, _instance);
+   const VkAllocationCallbacks *alloc;
+
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT);
+
+   if (pAllocator)
+     alloc = pAllocator;
+   else
+     alloc = &instance->vk.alloc;
+
+   return wsi_create_headless_surface(alloc, pCreateInfo, pSurface);
+}

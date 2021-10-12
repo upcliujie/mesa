@@ -86,7 +86,7 @@ struct wsi_interface;
 
 struct driOptionCache;
 
-#define VK_ICD_WSI_PLATFORM_MAX (VK_ICD_WSI_PLATFORM_DISPLAY + 1)
+#define VK_ICD_WSI_PLATFORM_MAX (VK_ICD_WSI_PLATFORM_HEADLESS + 1)
 
 struct wsi_device {
    /* Allocator for the instance */
@@ -316,4 +316,9 @@ wsi_common_queue_present(const struct wsi_device *wsi,
 uint64_t
 wsi_common_get_current_time(void);
 
+
+VkResult
+wsi_create_headless_surface(const VkAllocationCallbacks *pAllocator,
+                            const VkHeadlessSurfaceCreateInfoEXT *pCreateInfo,
+                            VkSurfaceKHR *pSurface);
 #endif

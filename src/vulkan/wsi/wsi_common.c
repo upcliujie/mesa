@@ -129,6 +129,10 @@ wsi_device_init(struct wsi_device *wsi,
       goto fail;
 #endif
 
+   result = wsi_headless_init_wsi(wsi, alloc, pdevice);
+   if (result != VK_SUCCESS)
+      goto fail;
+
    present_mode = getenv("MESA_VK_WSI_PRESENT_MODE");
    if (present_mode) {
       if (!strcmp(present_mode, "fifo")) {
@@ -170,6 +174,7 @@ void
 wsi_device_finish(struct wsi_device *wsi,
                   const VkAllocationCallbacks *alloc)
 {
+   wsi_headless_finish_wsi(wsi, alloc);
 #ifdef VK_USE_PLATFORM_DISPLAY_KHR
    wsi_display_finish_wsi(wsi, alloc);
 #endif
