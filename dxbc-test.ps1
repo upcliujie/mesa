@@ -31,11 +31,13 @@ foreach ($file in $files) {
         # Compile HLSL to DXBC via SPIR-V using spirv2dxbc
         & $dxc_path -T vs_6_0 -E $vs_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.vs.spv"
         & $dxc_path -T ps_6_0 -E $ps_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.ps.spv"
+        Write-Host "$spirv2dxbc_path $shader_output_dir\$file_name.vs.spv -s vertex -e $vs_entry_name -o $shader_output_dir\$file_name.vs.mesa.dxbc"
         & $spirv2dxbc_path "$shader_output_dir\$file_name.vs.spv" -s vertex -e $vs_entry_name -o "$shader_output_dir\$file_name.vs.mesa.dxbc"
         if ($LASTEXITCODE) {
                 Write-Error "compiling shader_dir\$file_name.vs.spv failed"
                 exit 1
         }
+        Write-Host "$spirv2dxbc_path $shader_output_dir\$file_name.ps.spv -s fragment -e $ps_entry_name -o $shader_output_dir\$file_name.ps.mesa.dxbc"
         & $spirv2dxbc_path "$shader_output_dir\$file_name.ps.spv" -s fragment -e $ps_entry_name -o "$shader_output_dir\$file_name.ps.mesa.dxbc"
         if ($LASTEXITCODE) {
                 Write-Error "compiling shader_dir\$file_name.ps.spv failed"
