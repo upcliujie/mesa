@@ -1522,6 +1522,13 @@ void st_init_extensions(struct pipe_screen *screen,
       extensions->ARB_texture_buffer_object_rgb32 &&
       extensions->ARB_shader_image_load_store;
 
+   /* Always enable these extensions. We can't use dummy_true in
+    * extensions_table.h because this would render these extensions
+    * non-disablable through MESA_EXTENSION_OVERRIDE.
+    */ 
+   extensions->MESA_pack_invert = GL_TRUE;
+   extensions->MESA_window_pos = GL_TRUE;
+
    extensions->EXT_framebuffer_sRGB =
          screen->get_param(screen, PIPE_CAP_DEST_SURFACE_SRGB_CONTROL) &&
          extensions->EXT_sRGB;
