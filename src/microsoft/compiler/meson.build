@@ -70,3 +70,24 @@ if with_tests
     suite: 'd3d12'
   )
 endif
+
+files_libdxbc_compiler = files(
+  'nir_to_dxbc.c',
+)
+
+libdxbc_compiler = static_library(
+  'dxbc_compiler',
+  [files_libdxbc_compiler, sha1_h],
+  include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_gallium],
+  dependencies: [
+    idep_nir_headers, 
+    idep_libdxil_compiler, # TODO: split out shared functions into a separate dependency
+  ],
+  gnu_symbol_visibility : 'hidden',
+)
+
+idep_libdxbc_compiler = declare_dependency(
+  link_with : libdxbc_compiler,
+  dependencies : [idep_mesautil],
+  include_directories : include_directories('.')
+)

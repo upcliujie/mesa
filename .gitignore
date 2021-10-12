@@ -2,3 +2,7 @@
 *.pyo
 *.out
 build
+
+# For clangd, should be replaced with local-only .gitignores
+compile_commands.json
+.cache/
