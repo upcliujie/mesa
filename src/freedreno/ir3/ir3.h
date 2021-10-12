@@ -1463,8 +1463,14 @@ ir3_output_conv_src_type(struct ir3_instruction *instr, type_t base_type)
        * This may be fp16 on older gen's depending on some register
        * settings, but it's probably not worth plumbing that through for a
        * small improvement that NIR would hopefully handle for us anyway.
+       *
+       * Treat the input data as u32 if not using interpolation.
        */
-      return TYPE_F32;
+      if (instr->cat2.interp == IR3_INTERP_FLAT) {
+         return TYPE_U32;
+      } else {
+         return TYPE_F32;
+      }
 
    default:
       return (instr->srcs[0]->flags & IR3_REG_HALF) ? half_type(base_type)
