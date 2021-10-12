@@ -310,7 +310,8 @@ one_time_init(void)
  *
  * \sa Used by _mesa_initialize().
  */
-static once_flag init_once = ONCE_FLAG_INIT;
+static bool init_done = false;
+static mtx_t init_once_lock = _MTX_INITIALIZER_NP;
 
 
 /**
@@ -319,13 +320,16 @@ static once_flag init_once = ONCE_FLAG_INIT;
  * While holding a global mutex lock, calls several initialization functions,
  * and sets the glapi callbacks if the \c MESA_DEBUG environment variable is
  * defined.
- *
- * \sa _math_init().
  */
 void
 _mesa_initialize(void)
 {
-   call_once(&init_once, one_time_init);
+   mtx_lock(&init_once_lock);
+   if (!init_done) {
+      one_time_init();
+      init_done = true;
+   }
+   mtx_unlock(&init_once_lock);
 }
 
 
