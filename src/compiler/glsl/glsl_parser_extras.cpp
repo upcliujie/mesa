@@ -2377,7 +2377,10 @@ do_common_optimization(exec_list *ir, bool linked,
    else
       OPT(do_dead_code_unlinked, ir);
    OPT(do_dead_code_local, ir);
-   OPT(do_tree_grafting, ir);
+
+   if (!using_nir_linker)
+      OPT(do_tree_grafting, ir);
+
    OPT(do_constant_propagation, ir);
    if (linked)
       OPT(do_constant_variable, ir);
