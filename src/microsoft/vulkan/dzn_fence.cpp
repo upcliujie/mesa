@@ -50,18 +50,18 @@ dzn_CreateFence(VkDevice _device,
       initial_state = TRUE;
    }
 
-   fence->value = 0;
    /* I suspect that this approach is bunk, and we should instead create the actual
     * fence object on the cmdqueue and just signal things on the dzn_fence object
     * instead. But I don't know yet, so let's just leave it like this for now...
     */
-   if (FAILED(device->dev->CreateFence(fence->value, D3D12_FENCE_FLAG_NONE,
+   if (FAILED(device->dev->CreateFence(initial_state ? 1 : 0, D3D12_FENCE_FLAG_NONE,
                                        IID_PPV_ARGS(&fence->fence)))) {
       vk_object_free(&device->vk, pAllocator, fence);
       return vk_errorfi(device->instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
    }
 
    fence->event = CreateEventA(NULL, TRUE, initial_state, NULL);
+   fence->fence->SetEventOnCompletion(1, fence->event);
 
    *pFence = dzn_fence_to_handle(fence);
 
@@ -91,7 +91,7 @@ dzn_GetFenceStatus(VkDevice _device,
 {
    DZN_FROM_HANDLE(dzn_fence, fence, _fence);
 
-   if (fence->fence->GetCompletedValue() < fence->value)
+   if (fence->fence->GetCompletedValue() != 1)
       return VK_NOT_READY;
 
    return VK_SUCCESS;
@@ -106,7 +106,9 @@ dzn_ResetFences(VkDevice _device,
 
    for (uint32_t i = 0; i < fenceCount; i++) {
       DZN_FROM_HANDLE(dzn_fence, fence, pFences[i]);
+      fence->fence->Signal(0);
       ResetEvent(fence->event);
+      fence->fence->SetEventOnCompletion(1, fence->event);
    }
 
    return VK_SUCCESS;
@@ -125,7 +127,7 @@ dzn_WaitForFences(VkDevice _device,
    HANDLE handles[MAXIMUM_WAIT_OBJECTS];
    for (int i = 0; i < fenceCount; ++i) {
       DZN_FROM_HANDLE(dzn_fence, fence, pFences[i]);
-      handles[i] = fence;
+      handles[i] = fence->event;
    }
    HRESULT hr = WaitForMultipleObjects(fenceCount, handles, waitAll, timeout / 1000000);
 

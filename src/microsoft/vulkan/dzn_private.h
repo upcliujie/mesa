@@ -463,7 +463,6 @@ struct dzn_fence {
    struct vk_object_base base;
 
    ID3D12Fence *fence;
-   UINT64 value;
    HANDLE event;
 };
 

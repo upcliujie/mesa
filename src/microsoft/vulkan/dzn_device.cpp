@@ -1012,6 +1012,9 @@ dzn_QueueSubmit(VkQueue _queue,
       }
    }
 
+   if (fence)
+      queue->cmdqueue->Signal(fence->fence, 1);
+
    queue->cmdqueue->Signal(queue->fence, ++queue->fence_point);
 
    if (queue->device->physical_device->instance->debug_flags & DZN_DEBUG_SYNC)
