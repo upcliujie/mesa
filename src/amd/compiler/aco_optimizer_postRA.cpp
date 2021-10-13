@@ -501,8 +501,8 @@ try_recolor_copy(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
       if (!op.isTemp() || ctx.uses[op.tempId()] > 1)
          continue;
 
-      /* TODO: Handle VGPRs. */
-      if (op.physReg() > 107 && op.physReg() != exec)
+      /* Don't mess with special registers. */
+      if (op.physReg() > 107 && op.physReg() < 256 && op.physReg() != exec)
          continue;
       if (op.regClass() != def.regClass())
          continue;
@@ -541,10 +541,10 @@ try_recolor_copy(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
       if (op_wr_instr->isSOPC() || op_wr_instr->isSOPP() || op_wr_instr->isSOPK())
          continue; /* These don't benefit. */
 
-      /* TODO: Handle VALU instructions.
+      /* TODO: Handle VOPC instructions.
        * For example, if VOPC result is copied to exec, convert to v_cmpx, etc.
        */
-      if (op_wr_instr->isVALU())
+      if (op_wr_instr->isVOPC())
          continue;
 
       /* At the operand's writer, find the definition that writes the operand. */
