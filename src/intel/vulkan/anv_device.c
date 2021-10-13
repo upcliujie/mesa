@@ -3075,7 +3075,7 @@ VkResult anv_CreateDevice(
                                           I915_CONTEXT_PARAM_PRIORITY,
                                           vk_priority_to_gen(priority));
       if (err != 0 && priority > VK_QUEUE_GLOBAL_PRIORITY_MEDIUM_EXT) {
-         result = vk_error(device, VK_ERROR_NOT_PERMITTED_EXT);
+         result = vk_error(physical_device, VK_ERROR_NOT_PERMITTED_EXT);
          goto fail_vmas;
       }
    }
