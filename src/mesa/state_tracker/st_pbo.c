@@ -418,6 +418,7 @@ static void *
 create_fs(struct st_context *st, bool download,
           enum pipe_texture_target target,
           enum st_pbo_conversion conversion,
+          enum pipe_format format,
           bool need_layer)
 {
    struct pipe_screen *screen = st->screen;
@@ -563,6 +564,7 @@ create_fs(struct st_context *st, bool download,
       img_var->data.access = ACCESS_NON_READABLE;
       img_var->data.explicit_binding = true;
       img_var->data.binding = 0;
+      img_var->data.image.format = format;
       nir_deref_instr *img_deref = nir_build_deref_var(&b, img_var);
 
       nir_image_deref_store(&b, &img_deref->dest.ssa,
@@ -612,7 +614,7 @@ st_pbo_get_upload_fs(struct st_context *st,
    enum st_pbo_conversion conversion = get_pbo_conversion(src_format, dst_format);
 
    if (!st->pbo.upload_fs[conversion][need_layer])
-      st->pbo.upload_fs[conversion][need_layer] = create_fs(st, false, 0, conversion, need_layer);
+      st->pbo.upload_fs[conversion][need_layer] = create_fs(st, false, 0, conversion, PIPE_FORMAT_NONE, need_layer);
 
    return st->pbo.upload_fs[conversion][need_layer];
 }
@@ -628,10 +630,10 @@ st_pbo_get_download_fs(struct st_context *st, enum pipe_texture_target target,
 
    enum st_pbo_conversion conversion = get_pbo_conversion(src_format, dst_format);
 
-   if (!st->pbo.download_fs[conversion][target][need_layer])
-      st->pbo.download_fs[conversion][target][need_layer] = create_fs(st, true, target, conversion, need_layer);
+   if (!st->pbo.download_fs[conversion][target][dst_format][need_layer])
+      st->pbo.download_fs[conversion][target][dst_format][need_layer] = create_fs(st, true, target, conversion, dst_format, need_layer);
 
-   return st->pbo.download_fs[conversion][target][need_layer];
+   return st->pbo.download_fs[conversion][target][dst_format][need_layer];
 }
 
 void
@@ -693,9 +695,11 @@ st_destroy_pbo_helpers(struct st_context *st)
    for (i = 0; i < ARRAY_SIZE(st->pbo.download_fs); ++i) {
       for (unsigned j = 0; j < ARRAY_SIZE(st->pbo.download_fs[0]); ++j) {
          for (unsigned k = 0; k < ARRAY_SIZE(st->pbo.download_fs[0][0]); k++) {
-            if (st->pbo.download_fs[i][j][k]) {
-               st->pipe->delete_fs_state(st->pipe, st->pbo.download_fs[i][j][k]);
-               st->pbo.download_fs[i][j][k] = NULL;
+            for (unsigned l = 0; l < ARRAY_SIZE(st->pbo.download_fs[0][0][0]); l++) {
+               if (st->pbo.download_fs[i][j][k][l]) {
+                  st->pipe->delete_fs_state(st->pipe, st->pbo.download_fs[i][j][k][l]);
+                  st->pbo.download_fs[i][j][k][l] = NULL;
+               }
             }
          }
       }
