@@ -1,4 +1,0 @@
-# This file is from the WDK (https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk), which we cannot commit due to licensing restrictions on the file. This file mostly codifies the DXBC bytecode format with documentation--we could potentially re-implement the writers and enums and lost the documentation.
-d3d12TokenizedProgramFormat.hpp
-
-
