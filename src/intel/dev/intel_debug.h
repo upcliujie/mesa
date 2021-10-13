@@ -126,9 +126,9 @@ extern uint64_t intel_debug;
 #define dbg_printf(...)	fprintf(stderr, __VA_ARGS__)
 #endif /* HAVE_ANDROID_PLATFORM */
 
-#define DBG(...) do {						\
-	if (INTEL_DEBUG & FILE_DEBUG_FLAG)		\
-		dbg_printf(__VA_ARGS__);			\
+#define DBG(...) do {                  \
+   if (INTEL_DBG(FILE_DEBUG_FLAG))     \
+      dbg_printf(__VA_ARGS__);         \
 } while(0)
 
 extern uint64_t intel_debug_flag_for_shader_stage(gl_shader_stage stage);

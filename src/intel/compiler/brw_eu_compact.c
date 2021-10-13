@@ -2447,7 +2447,7 @@ void
 brw_compact_instructions(struct brw_codegen *p, int start_offset,
                          struct disasm_info *disasm)
 {
-   if (INTEL_DEBUG & DEBUG_NO_COMPACTION)
+   if (INTEL_DBG(DEBUG_NO_COMPACTION))
       return;
 
    const struct intel_device_info *devinfo = p->devinfo;
