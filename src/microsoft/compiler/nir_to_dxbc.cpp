@@ -45,6 +45,22 @@
 #include <stdint.h>
 #include <vector>
 
+#define NIR_INSTR_UNSUPPORTED(instr) \
+   if (true) \
+   do { \
+      fprintf(stderr, "Unsupported instruction:"); \
+      nir_print_instr(instr, stderr); \
+      fprintf(stderr, "\n"); \
+   } while (0)
+
+#define TRACE_CONVERSION(instr) \
+   if (true) \
+      do { \
+         fprintf(stderr, "Convert '"); \
+         nir_print_instr(instr, stderr); \
+         fprintf(stderr, "'\n"); \
+      } while (0)
+
 const nir_shader_compiler_options*
 dxbc_get_nir_compiler_options(void)
 {
@@ -99,90 +115,201 @@ struct DxbcModule {
    D3D10ShaderBinary::CShaderAsm shader;
 };
 
+struct ntd_context {
+   void* ralloc_ctx;
+   const struct nir_to_dxbc_options* opts{};
+   struct nir_shader* shader{};
+   DxbcModule mod{};
+   ntd_context() : ralloc_ctx(nullptr) {}
+   ~ntd_context() { ralloc_free(ralloc_ctx); }
+};
+
+class ScopedDxilContainer {
+public:
+   ScopedDxilContainer() { dxil_container_init(&inner); }
+   ~ScopedDxilContainer() { dxil_container_finish(&inner); }
+   dxil_container* get() { return &inner; }
+
+private:
+   dxil_container inner{};
+};
+
+static bool
+emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
+{
+   assert(instr->deref_type == nir_deref_type_var ||
+          instr->deref_type == nir_deref_type_array);
+
+   /* In the non-Vulkan environment, there's nothing to emit. Any references to
+    * derefs will emit the necessary logic to handle scratch/shared GEP addressing
+    */
+   if (!ctx->opts->vulkan_environment)
+      return true;
+
+   /* In the Vulkan environment, we don't have cached handles for textures or
+    * samplers, so let's use the opportunity of walking through the derefs to
+    * emit those.
+    */
+   nir_variable *var = nir_deref_instr_get_variable(instr);
+   assert(var);
+
+   if (!glsl_type_is_sampler(glsl_without_array(var->type)) &&
+       !glsl_type_is_image(glsl_without_array(var->type)))
+      return true;
+
+   assert("unimplemented!");
+   return false;
+}
+
+static bool
+emit_instr(struct ntd_context *ctx, struct nir_instr* instr)
+{
+   switch (instr->type) {
+   // case nir_instr_type_alu:
+   //    return emit_alu(ctx, nir_instr_as_alu(instr));
+   // case nir_instr_type_intrinsic:
+   //    return emit_intrinsic(ctx, nir_instr_as_intrinsic(instr));
+   // case nir_instr_type_load_const:
+   //    return emit_load_const(ctx, nir_instr_as_load_const(instr));
+   case nir_instr_type_deref:
+      return emit_deref(ctx, nir_instr_as_deref(instr));
+   // case nir_instr_type_jump:
+   //    return emit_jump(ctx, nir_instr_as_jump(instr));
+   // case nir_instr_type_phi:
+   //    return emit_phi(ctx, nir_instr_as_phi(instr));
+   // case nir_instr_type_tex:
+   //    return emit_tex(ctx, nir_instr_as_tex(instr));
+   // case nir_instr_type_ssa_undef:
+   //    return emit_undefined(ctx, nir_instr_as_ssa_undef(instr));
+   default:
+      NIR_INSTR_UNSUPPORTED(instr);
+      unreachable("Unimplemented instruction type");
+      return false;
+   }
+}
+
+static bool
+emit_block(struct ntd_context *ctx, struct nir_block *block)
+{
+   // assert(block->index < ctx->mod.num_basic_block_ids);
+   // ctx->mod.basic_block_ids[block->index] = ctx->mod.curr_block;
+
+   nir_foreach_instr(instr, block) {
+      TRACE_CONVERSION(instr);
+
+      if (!emit_instr(ctx, instr))  {
+         return false;
+      }
+   }
+   return true;
+}
+
+static bool
+emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
+{
+   foreach_list_typed(nir_cf_node, node, node, list) {
+      switch (node->type) {
+      case nir_cf_node_block:
+         if (!emit_block(ctx, nir_cf_node_as_block(node)))
+            return false;
+         break;
+
+      // case nir_cf_node_if:
+      //    if (!emit_if(ctx, nir_cf_node_as_if(node)))
+      //       return false;
+      //    break;
+
+      // case nir_cf_node_loop:
+      //    if (!emit_loop(ctx, nir_cf_node_as_loop(node)))
+      //       return false;
+      //    break;
+
+      default:
+         unreachable("unsupported cf-list node");
+         break;
+      }
+   }
+}
+
 bool
 nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
             struct blob *blob)
 {
    assert(opts);
-   bool retval = true;
    blob_init(blob);
 
-   // TODO: Lower SSAs to registers (nir_convert_from_ssa)
    // NOTE: do not run scalarization passes
-
+   // TODO:
    // NIR_PASS_V(s, nir_convert_from_ssa, false);
 
-   DxbcModule module;
-   module.shader.Init(1024);
-   module.shader.StartShader(D3D10_SB_VERTEX_SHADER, 5, 1);
+   ntd_context ctx;
+   ctx.shader = s;
+   ctx.opts = opts;
+
+   nir_function_impl *entry = nir_shader_get_entrypoint(ctx.shader);
+   nir_metadata_require(entry, nir_metadata_block_index);
+   if (!emit_cf_list(&ctx, &entry->body)) {
+      return false;
+   }
+
+   DxbcModule& mod = ctx.mod;
+   mod.shader.Init(1024);
+   mod.shader.StartShader(D3D10_SB_VERTEX_SHADER, 5, 1);
    D3D10ShaderBinary::COperandBase nil;
    D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, nil, nil);
-   module.shader.EmitInstruction(mov);
-   module.shader.EndShader();
+   mod.shader.EmitInstruction(mov);
+   mod.shader.EndShader();
 
-   module.inputs[0].elements[0].stream = 0;
-   module.inputs[0].elements[0].semantic_name_offset = 11;
-   module.inputs[0].elements[0].semantic_index = 0;
-   module.inputs[0].elements[0].system_value = DXIL_PROG_SEM_POSITION;
-   module.inputs[0].elements[0].comp_type = DXIL_PROG_SIG_COMP_TYPE_FLOAT32;
-   module.inputs[0].elements[0].reg = 0;
-   module.inputs[0].elements[0].mask = 0b1111;
-   module.inputs[0].elements[0].always_reads_mask = 0b1111;
-   module.inputs[0].elements[0].pad = 0;
-   module.inputs[0].elements[0].min_precision = DXIL_MIN_PREC_DEFAULT;
-   module.inputs[0].num_elements = 1;
-   module.inputs[0].name = const_cast<char*>("SV_Position");
-   module.inputs[0].sysvalue = "POS";
+   mod.inputs[0].elements[0].stream = 0;
+   mod.inputs[0].elements[0].semantic_name_offset = 11;
+   mod.inputs[0].elements[0].semantic_index = 0;
+   mod.inputs[0].elements[0].system_value = DXIL_PROG_SEM_POSITION;
+   mod.inputs[0].elements[0].comp_type = DXIL_PROG_SIG_COMP_TYPE_FLOAT32;
+   mod.inputs[0].elements[0].reg = 0;
+   mod.inputs[0].elements[0].mask = 0b1111;
+   mod.inputs[0].elements[0].pad = 0;
+   mod.inputs[0].elements[0].min_precision = DXIL_MIN_PREC_DEFAULT;
+   mod.inputs[0].num_elements = 1;
+   mod.inputs[0].name = const_cast<char*>("SV_Position");
+   mod.inputs[0].sysvalue = "POS";
 
-// never_writes_mask
+   // never_writes_mask
 
-   module.outputs[0].num_elements = 1;
-   module.outputs[0].name = const_cast<char*>("TARGET");
-   module.outputs[0].sysvalue = "TARGET";
+   mod.outputs[0].num_elements = 1;
+   mod.outputs[0].name = const_cast<char*>("TARGET");
+   mod.outputs[0].sysvalue = "TARGET";
 
-   dxil_container c;
-   dxil_container_init(&c);
+   ScopedDxilContainer container;
 
-   if (!dxil_container_add_io_signature(&c, DXIL_ISG1, 1, module.inputs)) {
-     debug_printf("D3D12: dxil_container_add_io_signature failed\n");
-     retval = false;
-     goto out;
+   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, 1,
+                                          mod.inputs)) {
+      debug_printf("D3D12: dxil_container_add_io_signature failed\n");
+      return false;
    }
 
-   if (!dxil_container_add_io_signature(&c, DXIL_OSG1, 1, module.outputs)) {
-     debug_printf("D3D12: dxil_container_add_io_signature failed\n");
-     retval = false;
-     goto out;
+   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1, 1,
+                                          mod.outputs)) {
+      debug_printf("D3D12: dxil_container_add_io_signature failed\n");
+      return false;
    }
 
-   if (!dxil_container_add_features(&c, &module.feats)) {
-     debug_printf("D3D12: dxil_container_add_features failed\n");
-     retval = false;
-     goto out;
+   if (!dxil_container_add_features(container.get(), &mod.feats)) {
+      debug_printf("D3D12: dxil_container_add_features failed\n");
+      return false;
    }
 
    if (!dxil_container_add_shader_blob(
-           &c, static_cast<const void*>(module.shader.GetShader()),
-           static_cast<uint32_t>(module.shader.ShaderSizeInDWORDs() *
+            container.get(), static_cast<const void*>(mod.shader.GetShader()),
+            static_cast<uint32_t>(mod.shader.ShaderSizeInDWORDs() *
                                  sizeof(UINT)))) {
-     debug_printf("D3D12: dxil_container_add_shader_blob failed\n");
-     retval = false;
-     goto out;
+      debug_printf("D3D12: dxil_container_add_shader_blob failed\n");
+      return false;
    }
 
-   if (!dxil_container_write(&c, blob)) {
-     debug_printf("D3D12: dxil_container_write failed\n");
-     retval = false;
-     goto out;
+   if (!dxil_container_write(container.get(), blob)) {
+      debug_printf("D3D12: dxil_container_write failed\n");
+      return false;
    }
 
-   dxil_container_finish(&c);
-
-   // retval = false;
-   // assert("nir_to_dxbc unimplemented");
-
-out:
-   // ralloc_free(ctx->ralloc_ctx);
-   // free(ctx);
-   return retval;
+   return true;
 }

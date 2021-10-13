@@ -1,0 +1,26 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "Debug",
+            "program": "build/debug/src/microsoft/spirv_to_dxil/spirv2dxbc.exe",
+            "args": [
+                "build/debug/_shaders/trivial.hlsl.vs.spv",
+                "-s",
+                "vertex",
+                "-e",
+                "VSMain",
+                "-o",
+                "build/debug/_shaders/trivial.hlsl.vs.mesa.dxbc",
+            ],
+            "environment": [{ "name": "NIR_PRINT", "value": "1" }],
+            "preLaunchTask": "build spirv2dxbc",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
