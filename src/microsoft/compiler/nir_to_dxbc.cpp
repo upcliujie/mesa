@@ -23,7 +23,13 @@
 
 #include "nir_to_dxbc.h"
 
+#include "blob.h"
+#include "dxil_container.h"
+#include "dxil_enums.h"
+#include "dxil_module.h"
+#include "nir.h"
 #include "nir/nir_builder.h"
+#include "ralloc.h"
 #include "util/u_debug.h"
 #include "util/u_dynarray.h"
 #include "util/u_math.h"
@@ -33,9 +39,11 @@
 #include "vulkan/vulkan_core.h"
 
 #include "d3d12TokenizedProgramFormat.hpp"
+#include "DxbcBuilder.hpp"
 #include "ShaderBinary.h"
 
 #include <stdint.h>
+#include <vector>
 
 const nir_shader_compiler_options*
 dxbc_get_nir_compiler_options(void)
@@ -82,6 +90,15 @@ dxbc_get_nir_compiler_options(void)
    return &nir_options;
 }
 
+struct DxbcModule {
+   struct dxil_signature_record inputs[DXIL_SHADER_MAX_IO_ROWS];
+   struct dxil_signature_record outputs[DXIL_SHADER_MAX_IO_ROWS];
+
+   struct dxil_features feats;
+
+   D3D10ShaderBinary::CShaderAsm shader;
+};
+
 bool
 nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
             struct blob *blob)
@@ -93,16 +110,73 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
    // TODO: Lower SSAs to registers (nir_convert_from_ssa)
    // NOTE: do not run scalarization passes
 
-   D3D10ShaderBinary::CShaderAsm a;
-   a.Init(1024);
-   a.StartShader(D3D10_SB_VERTEX_SHADER, 5, 1);
+   // NIR_PASS_V(s, nir_convert_from_ssa, false);
+
+   DxbcModule module;
+   module.shader.Init(1024);
+   module.shader.StartShader(D3D10_SB_VERTEX_SHADER, 5, 1);
    D3D10ShaderBinary::COperandBase nil;
    D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, nil, nil);
-   a.EmitInstruction(mov);
-   a.EndShader();
+   module.shader.EmitInstruction(mov);
+   module.shader.EndShader();
 
-   blob_write_bytes(blob, static_cast<const void*>(a.GetShader()),
-                    a.ShaderSizeInDWORDs() * sizeof(UINT));
+   module.inputs[0].elements[0].stream = 0;
+   module.inputs[0].elements[0].semantic_name_offset = 11;
+   module.inputs[0].elements[0].semantic_index = 0;
+   module.inputs[0].elements[0].system_value = DXIL_PROG_SEM_POSITION;
+   module.inputs[0].elements[0].comp_type = DXIL_PROG_SIG_COMP_TYPE_FLOAT32;
+   module.inputs[0].elements[0].reg = 0;
+   module.inputs[0].elements[0].mask = 0b1111;
+   module.inputs[0].elements[0].always_reads_mask = 0b1111;
+   module.inputs[0].elements[0].pad = 0;
+   module.inputs[0].elements[0].min_precision = DXIL_MIN_PREC_DEFAULT;
+   module.inputs[0].num_elements = 1;
+   module.inputs[0].name = const_cast<char*>("SV_Position");
+   module.inputs[0].sysvalue = "POS";
+
+// never_writes_mask
+
+   module.outputs[0].num_elements = 1;
+   module.outputs[0].name = const_cast<char*>("TARGET");
+   module.outputs[0].sysvalue = "TARGET";
+
+   dxil_container c;
+   dxil_container_init(&c);
+
+   if (!dxil_container_add_io_signature(&c, DXIL_ISG1, 1, module.inputs)) {
+     debug_printf("D3D12: dxil_container_add_io_signature failed\n");
+     retval = false;
+     goto out;
+   }
+
+   if (!dxil_container_add_io_signature(&c, DXIL_OSG1, 1, module.outputs)) {
+     debug_printf("D3D12: dxil_container_add_io_signature failed\n");
+     retval = false;
+     goto out;
+   }
+
+   if (!dxil_container_add_features(&c, &module.feats)) {
+     debug_printf("D3D12: dxil_container_add_features failed\n");
+     retval = false;
+     goto out;
+   }
+
+   if (!dxil_container_add_shader_blob(
+           &c, static_cast<const void*>(module.shader.GetShader()),
+           static_cast<uint32_t>(module.shader.ShaderSizeInDWORDs() *
+                                 sizeof(UINT)))) {
+     debug_printf("D3D12: dxil_container_add_shader_blob failed\n");
+     retval = false;
+     goto out;
+   }
+
+   if (!dxil_container_write(&c, blob)) {
+     debug_printf("D3D12: dxil_container_write failed\n");
+     retval = false;
+     goto out;
+   }
+
+   dxil_container_finish(&c);
 
    // retval = false;
    // assert("nir_to_dxbc unimplemented");
