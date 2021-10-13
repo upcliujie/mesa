@@ -216,7 +216,7 @@ iris_init_batch(struct iris_context *ice,
          batch->other_batches[j++] = &ice->batches[i];
    }
 
-   if (INTEL_DEBUG) {
+   if (INTEL_DBG(DEBUG_ANY)) {
       const unsigned decode_flags =
          INTEL_BATCH_DECODE_FULL |
          ((INTEL_DBG(DEBUG_COLOR)) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
@@ -463,7 +463,7 @@ iris_batch_free(struct iris_batch *batch)
 
    _mesa_hash_table_destroy(batch->cache.render, NULL);
 
-   if (INTEL_DEBUG)
+   if (INTEL_DBG(DEBUG_ANY))
       intel_batch_decode_ctx_finish(&batch->decoder);
 }
 

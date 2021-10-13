@@ -9714,7 +9714,7 @@ brw_compile_fs(const struct brw_compiler *compiler,
    struct brw_wm_prog_data *prog_data = params->prog_data;
    bool allow_spilling = params->allow_spilling;
    const bool debug_enabled =
-      INTEL_DEBUG & (params->debug_flag ? params->debug_flag : DEBUG_WM);
+      INTEL_DBG(params->debug_flag ? params->debug_flag : DEBUG_WM);
 
    prog_data->base.stage = MESA_SHADER_FRAGMENT;
 
@@ -10102,7 +10102,7 @@ brw_compile_cs(const struct brw_compiler *compiler,
    int shader_time_index = params->shader_time ? params->shader_time_index : -1;
 
    const bool debug_enabled =
-      INTEL_DEBUG & (params->debug_flag ? params->debug_flag : DEBUG_CS);
+      INTEL_DBG(params->debug_flag ? params->debug_flag : DEBUG_CS);
 
    prog_data->base.stage = MESA_SHADER_COMPUTE;
    prog_data->base.total_shared = nir->info.shared_size;

@@ -689,7 +689,7 @@ brw_upload_pipeline_state(struct brw_context *brw,
       brw_get_pipeline_atoms(brw, pipeline);
    const int num_atoms = brw->num_atoms[pipeline];
 
-   if (INTEL_DEBUG) {
+   if (INTEL_DBG(DEBUG_ANY)) {
       /* Debug version which enforces various sanity checks on the
        * state flags which are generated and checked to help ensure
        * state atoms are ordered correctly in the list.

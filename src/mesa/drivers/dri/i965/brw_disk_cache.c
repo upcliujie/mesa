@@ -49,7 +49,7 @@ debug_enabled_for_stage(gl_shader_stage stage)
       DEBUG_VS, DEBUG_TCS, DEBUG_TES, DEBUG_GS, DEBUG_WM, DEBUG_CS,
    };
    assert((int)stage >= 0 && stage < ARRAY_SIZE(stage_debug_flags));
-   return (INTEL_DEBUG & stage_debug_flags[stage]) != 0;
+   return INTEL_DBG(stage_debug_flags[stage]);
 }
 
 static void
