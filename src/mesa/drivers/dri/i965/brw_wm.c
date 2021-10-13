@@ -164,7 +164,7 @@ brw_codegen_wm_prog(struct brw_context *brw,
 
    brw_alloc_stage_scratch(brw, &brw->wm.base, prog_data.base.total_scratch);
 
-   if (((INTEL_DBG(DEBUG_WM)) && fp->program.info.is_arb_asm))
+   if (INTEL_DBG(DEBUG_WM) && fp->program.info.is_arb_asm)
       fprintf(stderr, "\n");
 
    /* The param and pull_param arrays will be freed by the shader cache. */

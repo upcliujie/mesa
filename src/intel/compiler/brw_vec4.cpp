@@ -2748,7 +2748,7 @@ vec4_visitor::run()
       pass_num++;                                                      \
       bool this_progress = pass(args);                                 \
                                                                        \
-      if ((INTEL_DBG(DEBUG_OPTIMIZER)) && this_progress) {  \
+      if (INTEL_DBG(DEBUG_OPTIMIZER) && this_progress) {  \
          char filename[64];                                            \
          snprintf(filename, 64, "%s-%s-%02d-%02d-" #pass,              \
                   stage_abbrev, nir->info.name, iteration, pass_num); \

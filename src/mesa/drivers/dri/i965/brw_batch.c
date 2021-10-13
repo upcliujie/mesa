@@ -163,7 +163,7 @@ brw_batch_init(struct brw_context *brw)
 
       const unsigned decode_flags =
          INTEL_BATCH_DECODE_FULL |
-         ((INTEL_DBG(DEBUG_COLOR)) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
+         (INTEL_DBG(DEBUG_COLOR) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
          INTEL_BATCH_DECODE_OFFSETS |
          INTEL_BATCH_DECODE_FLOATS;
 
