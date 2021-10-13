@@ -34,8 +34,8 @@ extern "C" {
 #endif
 
 #define MAX_INLINABLE_UNIFORMS 4
-#define MAX_SHADER_IMAGES 32
-#define MAX_SHADER_TEXTURES 32
+#define MAX_SHADER_IMAGES 64
+#define MAX_SHADER_TEXTURES 128
 
 struct spirv_supported_capabilities {
    bool address;
