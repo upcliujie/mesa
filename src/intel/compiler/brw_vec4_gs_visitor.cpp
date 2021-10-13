@@ -853,7 +853,7 @@ brw_compile_gs(const struct brw_compiler *compiler, void *log_data,
        * dual object mode.
        */
       if (prog_data->invocations <= 1 &&
-          !(INTEL_DBG(DEBUG_NO_DUAL_OBJECT_GS))) {
+          !INTEL_DBG(DEBUG_NO_DUAL_OBJECT_GS)) {
          prog_data->base.dispatch_mode = DISPATCH_MODE_4X2_DUAL_OBJECT;
 
          brw::vec4_gs_visitor v(compiler, log_data, &c, prog_data, nir,

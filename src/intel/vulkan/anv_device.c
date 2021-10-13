@@ -921,7 +921,7 @@ anv_physical_device_try_create(struct anv_instance *instance,
    device->has_reg_timestamp = anv_gem_reg_read(fd, TIMESTAMP | I915_REG_READ_8B_WA,
                                                 &u64_ignore) == 0;
 
-   device->always_flush_cache = (INTEL_DBG(DEBUG_SYNC)) ||
+   device->always_flush_cache = INTEL_DBG(DEBUG_SYNC) ||
       driQueryOptionb(&instance->dri_options, "always_flush_cache");
 
    device->has_mmap_offset =
@@ -2946,7 +2946,7 @@ VkResult anv_CreateDevice(
    if (INTEL_DBG(DEBUG_BATCH)) {
       const unsigned decode_flags =
          INTEL_BATCH_DECODE_FULL |
-         ((INTEL_DBG(DEBUG_COLOR)) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
+         (INTEL_DBG(DEBUG_COLOR) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
          INTEL_BATCH_DECODE_OFFSETS |
          INTEL_BATCH_DECODE_FLOATS;
 

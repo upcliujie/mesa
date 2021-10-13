@@ -254,9 +254,9 @@ iris_fence_flush(struct pipe_context *ctx,
 
       if (INTEL_DBG(DEBUG_SUBMIT)) {
          fprintf(stderr, "%s ::: FRAME %-10u (ctx %p)%-35c%s\n",
-                 (INTEL_DBG(DEBUG_COLOR)) ? BLUE_HEADER : "",
+                 INTEL_DBG(DEBUG_COLOR) ? BLUE_HEADER : "",
                  ice->frame, ctx, ' ',
-                 (INTEL_DBG(DEBUG_COLOR)) ? NORMAL : "");
+                 INTEL_DBG(DEBUG_COLOR) ? NORMAL : "");
       }
    }
 

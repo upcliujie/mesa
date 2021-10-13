@@ -2564,7 +2564,7 @@ __DRIconfig **brw_init_screen(__DRIscreen *dri_screen)
 
    brw_process_intel_debug_variable();
 
-   if ((INTEL_DBG(DEBUG_SHADER_TIME)) && devinfo->ver < 7) {
+   if (INTEL_DBG(DEBUG_SHADER_TIME) && devinfo->ver < 7) {
       fprintf(stderr,
               "shader_time debugging requires gfx7 (Ivybridge) or better.\n");
       intel_debug &= ~DEBUG_SHADER_TIME;

@@ -2009,7 +2009,7 @@ anv_queue_execbuf_locked(struct anv_queue *queue,
       /* Some performance queries just the pipeline statistic HW, no need for
        * OA in that case, so no need to reconfigure.
        */
-      if ((INTEL_DBG(DEBUG_NO_OACONFIG)) == 0 &&
+      if (!INTEL_DBG(DEBUG_NO_OACONFIG) &&
           (query_info->kind == INTEL_PERF_QUERY_TYPE_OA ||
            query_info->kind == INTEL_PERF_QUERY_TYPE_RAW)) {
          int ret = intel_ioctl(device->perf_fd, I915_PERF_IOCTL_CONFIG,
