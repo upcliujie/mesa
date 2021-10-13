@@ -31,6 +31,13 @@
 
 #include "compiler/spirv/nir_spirv.h"
 
+#ifdef _MSC_VER
+void vk_entrypoint_stub(void)
+{
+   unreachable(!"Entrypoint not implemented\n");
+}
+#endif
+
 uint32_t vk_get_driver_version(void)
 {
    const char *minor_string = strchr(PACKAGE_VERSION, '.');
