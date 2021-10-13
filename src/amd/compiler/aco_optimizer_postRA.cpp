@@ -68,6 +68,7 @@ struct pr_opt_ctx {
    uint32_t current_instr_idx;
    std::vector<uint16_t> uses;
    std::vector<std::array<Idx, max_reg_cnt>> instr_idx_by_regs;
+   std::vector<std::bitset<max_reg_cnt>> regs_read;
 
    void reset_block(Block* block)
    {
@@ -77,6 +78,9 @@ struct pr_opt_ctx {
       if ((block->kind & block_kind_loop_header) || block->linear_preds.empty()) {
          std::fill(instr_idx_by_regs[block->index].begin(), instr_idx_by_regs[block->index].end(),
                    not_written_in_block);
+
+         /* We don't look ahead to see which registers are read, so just assume all of them are. */
+         regs_read[block->index].set();
       } else {
          unsigned first_pred = block->linear_preds[0];
          for (unsigned i = 0; i < max_reg_cnt; i++) {
@@ -89,6 +93,11 @@ struct pr_opt_ctx {
                instr_idx_by_regs[block->index][i] = instr_idx_by_regs[first_pred][i];
             else
                instr_idx_by_regs[block->index][i] = not_written_in_block;
+         }
+
+         /* Update registers read from predecessor blocks. */
+         for (unsigned p = 0; p < block->linear_preds.size(); ++p) {
+            regs_read[block->index] |= regs_read[block->linear_preds[p]];
          }
       }
    }
@@ -114,7 +123,46 @@ save_reg_writes(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
       assert(def.size() == dw_size || def.regClass().is_subdword());
       std::fill(ctx.instr_idx_by_regs[ctx.current_block->index].begin() + r,
                 ctx.instr_idx_by_regs[ctx.current_block->index].begin() + r + dw_size, idx);
+
+      /* The registers just written are not yet read after the current instruction. */
+      for (unsigned dw = 0; dw < dw_size; ++dw)
+         ctx.regs_read[ctx.current_block->index].reset(r + dw);
    }
+}
+
+void
+save_reg_reads(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
+{
+   for (const Operand& op : instr->operands) {
+      if (op.isConstant() || op.isUndefined())
+         continue;
+
+      assert(op.regClass().type() != RegType::sgpr || op.physReg().reg() <= 255);
+      assert(op.regClass().type() != RegType::vgpr || op.physReg().reg() >= 256);
+
+      unsigned dw_size = DIV_ROUND_UP(op.bytes(), 4u);
+      unsigned r = op.physReg().reg();
+
+      for (unsigned dw = 0; dw < dw_size; ++dw)
+         ctx.regs_read[ctx.current_block->index].set(r + dw);
+   }
+}
+
+bool
+test_reg_read(const pr_opt_ctx& ctx, unsigned reg, unsigned dw_size)
+{
+   for (unsigned dw = 0; dw < dw_size; ++dw)
+      if (ctx.regs_read[ctx.current_block->index].test(reg + dw))
+         return true;
+
+   return false;
+}
+
+template<typename T>
+bool
+test_reg_read(const pr_opt_ctx& ctx, const T& t)
+{
+   return test_reg_read(ctx, t.physReg().reg(), t.size());
 }
 
 Idx
@@ -404,8 +452,10 @@ process_instruction(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
 
    try_combine_dpp(ctx, instr);
 
-   if (instr)
+   if (instr) {
+      save_reg_reads(ctx, instr);
       save_reg_writes(ctx, instr);
+   }
 
    ctx.current_instr_idx++;
 }
@@ -419,6 +469,7 @@ optimize_postRA(Program* program)
    ctx.program = program;
    ctx.uses = dead_code_analysis(program);
    ctx.instr_idx_by_regs.resize(program->blocks.size());
+   ctx.regs_read.resize(program->blocks.size());
 
    /* Forward pass
     * Goes through each instruction exactly once, and can transform
