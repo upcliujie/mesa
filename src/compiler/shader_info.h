@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #define MAX_INLINABLE_UNIFORMS 4
+#define MAX_SHADER_TEXTURES 32
 
 struct spirv_supported_capabilities {
    bool address;
@@ -189,10 +190,10 @@ typedef struct shader_info {
    uint64_t patch_outputs_accessed_indirectly;
 
    /** Bitfield of which textures are used */
-   BITSET_DECLARE(textures_used, 32);
+   BITSET_DECLARE(textures_used, MAX_SHADER_TEXTURES);
 
    /** Bitfield of which textures are used by texelFetch() */
-   BITSET_DECLARE(textures_used_by_txf, 32);
+   BITSET_DECLARE(textures_used_by_txf, MAX_SHADER_TEXTURES);
 
    /** Bitfield of which images are used */
    uint32_t images_used;
