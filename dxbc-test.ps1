@@ -3,6 +3,10 @@ param(
         [String]
         $dxc_with_spirv_support_path,
 
+        # This is a program that is a trivial wrapper around https://www.nuget.org/packages/Microsoft.Direct3D.DxbcSigner.
+        [String]
+        $dxbc_signer_path,
+
         [String]
         $fxc_path = "fxc"
 )
@@ -47,6 +51,12 @@ foreach ($file in $files) {
         if ($LASTEXITCODE) {
                 Write-Error "compiling shader_dir\$file_name.ps.spv failed"
                 exit 1
+        }
+
+        if ($dxbc_signer_path) {
+                Write-Host -ForegroundColor Green "...signing dxbc"
+                & $dxbc_signer_path "$shader_output_dir\$file_name.vs.mesa.dxbc" "$shader_output_dir\$file_name.vs.mesa.dxbc"
+                & $dxbc_signer_path "$shader_output_dir\$file_name.ps.mesa.dxbc" "$shader_output_dir\$file_name.ps.mesa.dxbc"
         }
 
         # Dump DXBC assembly listing from FXC directly
