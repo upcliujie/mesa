@@ -444,6 +444,143 @@ try_combine_dpp(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
 }
 
 void
+try_recolor_copy(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
+{
+   /* Post-RA register recoloring (backwards copy propagation).
+    * The main motivation of this optimization is to write exec without copying an SGPR.
+    * It may also be useful for eliminating some unlucky RA shuffle instructions.
+    *
+    * We're looking for the following pattern:
+    *
+    * sN = ...                  ; can be any instruction writing a non-special SGPR
+    * (...sM must not be read or written here...)
+    * sM = p_parallelcopy sN    ; copies the aforementioned SGPR into another SGPR
+    *
+    * If possible, the above is optimized into:
+    *
+    * sM = ...                  ; instruction is altered to write the other SGPR instead
+    *
+    */
+
+   if (instr->opcode != aco_opcode::p_parallelcopy)
+      return;
+
+   assert(instr->operands.size() == instr->definitions.size());
+
+   /* Record the registers that we copy from and to. */
+   std::bitset<max_reg_cnt> regs_copied_from;
+   std::bitset<max_reg_cnt> regs_copied_to;
+   for (const Operand& op : instr->operands)
+      for (unsigned dw = 0; dw < op.size(); ++dw)
+         regs_copied_from.set(op.physReg() + dw, true);
+   for (const Definition& def : instr->definitions)
+      for (unsigned dw = 0; dw < def.size(); ++dw)
+         regs_copied_to.set(def.physReg() + dw, true);
+
+   for (unsigned i = 0; i < instr->definitions.size(); ++i) {
+      Definition& def = instr->definitions[i];
+      Operand& op = instr->operands[i];
+      assert(def.bytes() == op.bytes());
+
+      /* Make sure not to disturb shuffles. Skip recoloring when
+       * the same register is copied both to and from by the current instruction.
+       * Recoloring such a copy could eg. mess up a swap.
+       */
+      bool disturbs_shuffle = false;
+      for (unsigned dw = 0; dw < op.size(); ++dw) {
+         if (regs_copied_to.test(op.physReg() + dw) ||
+             regs_copied_from.test(def.physReg() + dw)) {
+            disturbs_shuffle = true;
+            break;
+         }
+      }
+      if (disturbs_shuffle)
+         continue;
+
+      /* Only propagate if the current parallelcopy is the only use. */
+      if (!op.isTemp() || ctx.uses[op.tempId()] > 1)
+         continue;
+
+      /* TODO: Handle VGPRs. */
+      if (op.physReg() > 107 && op.physReg() != exec)
+         continue;
+      if (op.regClass() != def.regClass())
+         continue;
+      if (def.physReg() == scc)
+         continue;
+
+      /* Make sure we can find the instruction that wrote the current operand's register. */
+      Idx op_wr_idx = last_writer_idx(ctx, op);
+      if (!op_wr_idx.found())
+         continue;
+      /* This is currently not safe accross blocks (it may break loops). */
+      if (op_wr_idx.block != ctx.current_block->index)
+         continue;
+
+      /* Make sure the definition's register isn't used between the operand's instruction and the
+       * copy. */
+      if (test_reg_read(ctx, def) || test_reg_read(ctx, op))
+         continue;
+
+      /* Make sure the definition register isn't written after op_wr_instr. */
+      Idx def_wr_idx = last_writer_idx(ctx, def.physReg(), def.regClass());
+      if (def_wr_idx.found() && def_wr_idx.block == op_wr_idx.block &&
+          def_wr_idx.instr > op_wr_idx.instr)
+         continue;
+
+      Instruction* op_wr_instr = ctx.get(op_wr_idx);
+
+      /* Only propagate to definitions of certain instruction types. */
+      if (is_phi(op_wr_instr))
+         continue; /* Don't mess with phis. */
+      if (op_wr_instr->opcode == aco_opcode::p_startpgm)
+         continue; /* p_startpgm definitions are shader arguments, we can't change those. */
+      if (op_wr_instr->isSALU() && op_wr_instr->definitions.size() == 3 &&
+          op_wr_instr->definitions[2].physReg() == op.physReg())
+         continue; /* We can't change the 3rd definition of s_and/or_saveexec and similar. */
+      if (op_wr_instr->isSOPC() || op_wr_instr->isSOPP() || op_wr_instr->isSOPK())
+         continue; /* These don't benefit. */
+
+      /* TODO: Handle VALU instructions.
+       * For example, if VOPC result is copied to exec, convert to v_cmpx, etc.
+       */
+      if (op_wr_instr->isVALU())
+         continue;
+
+      /* At the operand's writer, find the definition that writes the operand. */
+      for (unsigned j = 0; j < op_wr_instr->definitions.size(); ++j) {
+         if (op_wr_instr->definitions[j].physReg() != op.physReg())
+            continue;
+
+         /* If the definition of the writer doesn't cover the operand entirely,
+          * don't do anything.
+          */
+         if (op_wr_instr->definitions[j].bytes() != op.bytes())
+            break;
+
+         assert(ctx.uses[op_wr_instr->definitions[j].tempId()] == 1);
+
+         /* Move the copy's definition up to the instruction whose def being copied. */
+         op_wr_instr->definitions[j] = def;
+
+         /* Compact the copy's operands and definitions and remove the propagated ones. */
+         std::copy(std::next(instr->definitions.begin(), i + 1), instr->definitions.end(),
+                   std::next(instr->definitions.begin(), i));
+         instr->definitions.pop_back();
+         std::copy(std::next(instr->operands.begin(), i + 1), instr->operands.end(),
+                   std::next(instr->operands.begin(), i));
+         instr->operands.pop_back();
+         i--;
+         break;
+      }
+   }
+
+   /* If nothing is being copied anymore, delete the copy instruction */
+   if (instr->definitions.size() == 0)
+      instr.reset();
+}
+
+void
 process_instruction(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
 {
    try_apply_branch_vcc(ctx, instr);
@@ -451,6 +588,8 @@ process_instruction(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
    try_optimize_scc_nocompare(ctx, instr);
 
    try_combine_dpp(ctx, instr);
+
+   try_recolor_copy(ctx, instr);
 
    if (instr) {
       save_reg_reads(ctx, instr);
