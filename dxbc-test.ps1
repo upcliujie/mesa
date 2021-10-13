@@ -1,17 +1,19 @@
 param(
         [Parameter(Mandatory)]
         [String]
-        $dxc_path,
+        $dxc_with_spirv_support_path,
 
         [String]
-        $fxc_path = "fxc",
-
-        [String]
-        $build_dir = "build\debug"
+        $fxc_path = "fxc"
 )
 
+$build_dir = "build\debug"
 $vs_entry_name = "VSMain"
 $ps_entry_name = "PSMain"
+
+if (-not (Test-Path $build_dir)) {
+        & meson setup --buildtype=debug -Dopengl=false -Dgles1=disabled -Dgles2=disabled -Ddri-drivers= -Dgallium-drivers= -Dvulkan-drivers= -Dzlib=disabled -Dzstd=disabled -Dshader-cache=disabled -Dspirv-to-dxil=true $build_dir
+}
 
 & meson compile -C $build_dir src/microsoft/spirv_to_dxil/spirv2dxbc
 if ($LASTEXITCODE) {
@@ -22,6 +24,7 @@ $spirv2dxbc_path = "$build_dir\src\microsoft\spirv_to_dxil\spirv2dxbc.exe"
 
 $shader_dir = "src\microsoft\spirv_to_dxil\test_shaders"
 $shader_output_dir = "$build_dir\_shaders"
+New-Item $shader_output_dir -ErrorAction SilentlyContinue
 
 $files = @(Get-ChildItem "$shader_dir\*.hlsl")
 foreach ($file in $files) {
@@ -29,8 +32,8 @@ foreach ($file in $files) {
         $file_name = $file.Name;
 
         # Compile HLSL to DXBC via SPIR-V using spirv2dxbc
-        & $dxc_path -T vs_6_0 -E $vs_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.vs.spv"
-        & $dxc_path -T ps_6_0 -E $ps_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.ps.spv"
+        & $dxc_with_spirv_support_path -T vs_6_0 -E $vs_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.vs.spv"
+        & $dxc_with_spirv_support_path -T ps_6_0 -E $ps_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.ps.spv"
         Write-Host "$spirv2dxbc_path $shader_output_dir\$file_name.vs.spv -s vertex -e $vs_entry_name -o $shader_output_dir\$file_name.vs.mesa.dxbc"
         & $spirv2dxbc_path "$shader_output_dir\$file_name.vs.spv" -s vertex -e $vs_entry_name -o "$shader_output_dir\$file_name.vs.mesa.dxbc"
         if ($LASTEXITCODE) {

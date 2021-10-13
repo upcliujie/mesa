@@ -57,7 +57,7 @@ using std::max;
 
 #include <evntrace.h>
 #include <traceloggingprovider.h>
-#include <MicrosoftTelemetry.h>
+// #include <MicrosoftTelemetry.h>
 
 #define INITGUID
 #include <guiddef.h>

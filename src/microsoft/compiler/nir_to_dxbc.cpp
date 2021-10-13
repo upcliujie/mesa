@@ -32,7 +32,6 @@
 
 #include "vulkan/vulkan_core.h"
 
-#define SHADER_CONV_ASSERT(x) assert(x)
 #include "d3d12TokenizedProgramFormat.hpp"
 #include "ShaderBinary.h"
 
@@ -94,10 +93,19 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
    // TODO: Lower SSAs to registers (nir_convert_from_ssa)
    // NOTE: do not run scalarization passes
 
-   debug_printf("test = %d", ENCODE_D3D10_SB_TOKENIZED_PROGRAM_VERSION_TOKEN(D3D10_SB_VERTEX_SHADER, 5, 1));
+   D3D10ShaderBinary::CShaderAsm a;
+   a.Init(1024);
+   a.StartShader(D3D10_SB_VERTEX_SHADER, 5, 1);
+   D3D10ShaderBinary::COperandBase nil;
+   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, nil, nil);
+   a.EmitInstruction(mov);
+   a.EndShader();
 
-   retval = false;
-   assert("nir_to_dxbc unimplemented");
+   blob_write_bytes(blob, static_cast<const void*>(a.GetShader()),
+                    a.ShaderSizeInDWORDs() * sizeof(UINT));
+
+   // retval = false;
+   // assert("nir_to_dxbc unimplemented");
 
 out:
    // ralloc_free(ctx->ralloc_ctx);

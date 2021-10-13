@@ -4,6 +4,7 @@
 #ifndef _SHADERBINARY_H
 #define _SHADERBINARY_H
 
+#include <strsafe.h>
 #include <d3d12tokenizedprogramformat.hpp>
 
 typedef UINT CShaderToken;
