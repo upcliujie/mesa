@@ -78,11 +78,11 @@ struct zink_batch_state {
 
    struct set *programs;
 
-   struct set *resources;
    struct set *surfaces;
    struct set *bufferviews;
 
-   struct util_dynarray unref_resources;
+   unsigned idx;
+   struct util_dynarray resources[2];
    struct util_dynarray bindless_releases[2];
 
    struct util_dynarray persistent_resources;
@@ -153,11 +153,12 @@ void
 zink_batch_reference_resource_rw(struct zink_batch *batch,
                                  struct zink_resource *res,
                                  bool write);
-void
-zink_batch_reference_resource(struct zink_batch *batch, struct zink_resource *res);
 
 void
 zink_batch_reference_resource_move(struct zink_batch *batch, struct zink_resource *res);
+
+void
+zink_batch_reference_resource(struct zink_batch *batch, struct zink_resource *res);
 
 void
 zink_batch_reference_sampler_view(struct zink_batch *batch,

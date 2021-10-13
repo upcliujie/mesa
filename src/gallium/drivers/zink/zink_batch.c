@@ -35,14 +35,13 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
       debug_printf("vkResetCommandPool failed\n");
 
    /* unref all used resources */
-   set_foreach_remove(bs->resources, entry) {
-      struct zink_resource_object *obj = (struct zink_resource_object *)entry->key;
+   util_dynarray_foreach(&bs->resources[bs->idx], struct zink_resource_object *, pobj) {
+      struct zink_resource_object *obj = (struct zink_resource_object *)*pobj;
       if (!zink_resource_object_usage_unset(obj, bs)) {
          obj->unordered_barrier = false;
          obj->access = 0;
          obj->access_stage = 0;
       }
-      util_dynarray_append(&bs->unref_resources, struct zink_resource_object*, obj);
    }
 
    for (unsigned i = 0; i < 2; i++) {
@@ -94,6 +93,7 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
       }
    }
 
+
    bs->resource_size = 0;
 
    bs->present = VK_NULL_HANDLE;
@@ -106,8 +106,13 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
     */
    bs->fence.submitted = false;
    bs->has_barriers = false;
-   if (bs->fence.batch_id)
+   if (bs->fence.batch_id) {
       zink_screen_update_last_finished(screen, bs->fence.batch_id);
+      /* only flip the resource idx after completing a submission
+       * to avoid pinning the wrong array repeatedly
+       */
+      bs->idx = !bs->idx;
+   }
    bs->submit_count++;
    bs->fence.batch_id = 0;
    bs->usage.usage = 0;
@@ -117,8 +122,8 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 static void
 unref_resources(struct zink_screen *screen, struct zink_batch_state *bs)
 {
-   while (util_dynarray_contains(&bs->unref_resources, struct zink_resource_object*)) {
-      struct zink_resource_object *obj = util_dynarray_pop(&bs->unref_resources, struct zink_resource_object*);
+   while (util_dynarray_contains(&bs->resources[!bs->idx], struct zink_resource_object*)) {
+      struct zink_resource_object *obj = util_dynarray_pop(&bs->resources[!bs->idx], struct zink_resource_object*);
       zink_resource_object_reference(screen, &obj, NULL);
    }
 }
@@ -178,7 +183,6 @@ zink_batch_state_destroy(struct zink_screen *screen, struct zink_batch_state *bs
 
    util_dynarray_fini(&bs->zombie_samplers);
    util_dynarray_fini(&bs->dead_framebuffers);
-   util_dynarray_fini(&bs->unref_resources);
    util_dynarray_fini(&bs->bindless_releases[0]);
    util_dynarray_fini(&bs->bindless_releases[1]);
    util_dynarray_fini(&bs->acquires);
@@ -221,7 +225,6 @@ create_batch_state(struct zink_context *ctx)
 
    bs->ctx = ctx;
 
-   SET_CREATE_OR_FAIL(bs->resources);
    SET_CREATE_OR_FAIL(bs->surfaces);
    SET_CREATE_OR_FAIL(bs->bufferviews);
    SET_CREATE_OR_FAIL(bs->programs);
@@ -229,10 +232,11 @@ create_batch_state(struct zink_context *ctx)
    util_dynarray_init(&bs->zombie_samplers, NULL);
    util_dynarray_init(&bs->dead_framebuffers, NULL);
    util_dynarray_init(&bs->persistent_resources, NULL);
-   util_dynarray_init(&bs->unref_resources, NULL);
    util_dynarray_init(&bs->acquires, NULL);
    util_dynarray_init(&bs->bindless_releases[0], NULL);
    util_dynarray_init(&bs->bindless_releases[1], NULL);
+   util_dynarray_init(&bs->resources[0], bs);
+   util_dynarray_init(&bs->resources[1], bs);
 
    cnd_init(&bs->usage.flush);
    mtx_init(&bs->usage.mtx, mtx_plain);
@@ -576,8 +580,7 @@ check_oom_flush(struct zink_context *ctx, const struct zink_batch *batch)
 void
 zink_batch_reference_resource(struct zink_batch *batch, struct zink_resource *res)
 {
-   if (!batch_ptr_add_usage(batch, batch->state->resources, res->obj))
-      return;
+   util_dynarray_append(&batch->state->resources[batch->state->idx], struct zink_resource_object*, res->obj);
    pipe_reference(NULL, &res->obj->reference);
    batch->state->resource_size += res->obj->size;
    check_oom_flush(batch->state->ctx, batch);
@@ -587,8 +590,7 @@ zink_batch_reference_resource(struct zink_batch *batch, struct zink_resource *re
 void
 zink_batch_reference_resource_move(struct zink_batch *batch, struct zink_resource *res)
 {
-   if (!batch_ptr_add_usage(batch, batch->state->resources, res->obj))
-      return;
+   util_dynarray_append(&batch->state->resources[batch->state->idx], struct zink_resource_object*, res->obj);
    batch->state->resource_size += res->obj->size;
    check_oom_flush(batch->state->ctx, batch);
    batch->has_work = true;
