@@ -219,7 +219,7 @@ iris_init_batch(struct iris_context *ice,
    if (INTEL_DEBUG) {
       const unsigned decode_flags =
          INTEL_BATCH_DECODE_FULL |
-         ((INTEL_DEBUG & DEBUG_COLOR) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
+         ((INTEL_DBG(DEBUG_COLOR)) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
          INTEL_BATCH_DECODE_OFFSETS |
          INTEL_BATCH_DECODE_FLOATS;
 
@@ -784,12 +784,12 @@ submit_batch(struct iris_batch *batch)
 
    free(index_for_handle);
 
-   if (INTEL_DEBUG & (DEBUG_BATCH | DEBUG_SUBMIT)) {
+   if (INTEL_DBG(DEBUG_BATCH | DEBUG_SUBMIT)) {
       dump_fence_list(batch);
       dump_bo_list(batch);
    }
 
-   if (INTEL_DEBUG & DEBUG_BATCH) {
+   if (INTEL_DBG(DEBUG_BATCH)) {
       decode_batch(batch);
    }
 
@@ -875,7 +875,7 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
 
    update_batch_syncobjs(batch);
 
-   if (INTEL_DEBUG & (DEBUG_BATCH | DEBUG_SUBMIT | DEBUG_PIPE_CONTROL)) {
+   if (INTEL_DBG(DEBUG_BATCH | DEBUG_SUBMIT | DEBUG_PIPE_CONTROL)) {
       const char *basefile = strstr(file, "iris/");
       if (basefile)
          file = basefile + 5;
@@ -917,7 +917,7 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
 
    util_dynarray_clear(&batch->exec_fences);
 
-   if (INTEL_DEBUG & DEBUG_SYNC) {
+   if (INTEL_DBG(DEBUG_SYNC)) {
       dbg_printf("waiting for idle\n");
       iris_bo_wait_rendering(batch->bo); /* if execbuf failed; this is a nop */
    }
@@ -942,7 +942,7 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
 
    if (ret < 0) {
 #ifdef DEBUG
-      const bool color = INTEL_DEBUG & DEBUG_COLOR;
+      const bool color = INTEL_DBG(DEBUG_COLOR);
       fprintf(stderr, "%siris: Failed to submit batchbuffer: %-80s%s\n",
               color ? "\e[1;41m" : "", strerror(-ret), color ? "\e[0m" : "");
 #endif
