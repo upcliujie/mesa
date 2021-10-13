@@ -1,0 +1,6 @@
+[wrap-git]
+directory = D3D12TranslationLayer
+url = https://github.com/microsoft/D3D12TranslationLayer.git
+revision = head
+
+patch_directory = D3D12TranslationLayer

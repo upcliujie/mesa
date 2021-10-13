@@ -1,3 +1,4 @@
-*
+/*
 !*.wrap
 !.gitignore
+!packagefiles/
