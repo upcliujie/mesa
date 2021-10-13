@@ -71,17 +71,18 @@ pb_slab_reclaim(struct pb_slabs *slabs, struct pb_slab_entry *entry)
    }
 }
 
+#define NUM_RECLAIM_ATTEMPTS 2
+
 static void
 pb_slabs_reclaim_locked(struct pb_slabs *slabs)
 {
-   while (!list_is_empty(&slabs->reclaim)) {
-      struct pb_slab_entry *entry =
-         LIST_ENTRY(struct pb_slab_entry, slabs->reclaim.next, head);
-
-      if (!slabs->can_reclaim(slabs->priv, entry))
+   struct pb_slab_entry *entry, *next;
+   unsigned i = 0;
+   LIST_FOR_EACH_ENTRY_SAFE(entry, next, &slabs->reclaim, head) {
+      if (slabs->can_reclaim(slabs->priv, entry)) {
+         pb_slab_reclaim(slabs, entry);
+      } else if (i++ > NUM_RECLAIM_ATTEMPTS)
          break;
-
-      pb_slab_reclaim(slabs, entry);
    }
 }
 
