@@ -326,7 +326,7 @@ struct st_context
       void *vs;
       void *gs;
       void *upload_fs[5][2];
-      void *download_fs[5][PIPE_MAX_TEXTURE_TYPES][2];
+      void *download_fs[5][PIPE_MAX_TEXTURE_TYPES][PIPE_FORMAT_COUNT][2];
       struct hash_table *shaders;
       bool upload_enabled;
       bool download_enabled;
