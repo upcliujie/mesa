@@ -4555,7 +4555,10 @@ link_varyings_and_uniforms(unsigned first, unsigned last,
       const struct gl_shader_compiler_options *options =
          &ctx->Const.ShaderCompilerOptions[i];
 
-      if (options->LowerBufferInterfaceBlocks)
+      /* Only lower buffer object access here if driver doesn't use NIR */
+      if (!ctx->Const.ShaderCompilerOptions[i].NirOptions &&
+          (ctx->Extensions.ARB_uniform_buffer_object ||
+           ctx->Extensions.ARB_shader_storage_buffer_object))
          lower_ubo_reference(prog->_LinkedShaders[i],
                              options->ClampBlockIndicesToArrayBounds,
                              ctx->Const.UseSTD430AsDefaultPacking);

@@ -374,11 +374,6 @@ void st_init_limits(struct pipe_screen *screen,
       if (!screen->get_param(screen, PIPE_CAP_NIR_COMPACT_ARRAYS))
          options->LowerCombinedClipCullDistance = true;
 
-      /* NIR can do the lowering on our behalf and we'll get better results
-       * because it can actually optimize SSBO access.
-       */
-      options->LowerBufferInterfaceBlocks = !prefer_nir;
-
       if (sh == PIPE_SHADER_VERTEX || sh == PIPE_SHADER_GEOMETRY) {
          if (screen->get_param(screen, PIPE_CAP_VIEWPORT_TRANSFORM_LOWERED))
             options->LowerBuiltinVariablesXfb |= VARYING_BIT_POS;
