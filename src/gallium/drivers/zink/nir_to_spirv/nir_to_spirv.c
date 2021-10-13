@@ -3771,7 +3771,7 @@ nir_to_spirv(struct nir_shader *s, const struct zink_so_info *so_info, uint32_t 
       goto fail;
 
    spirv_builder_emit_cap(&ctx.builder, SpvCapabilityShader);
-   if (s->info.image_buffers != 0)
+   if (BITSET_COUNT(s->info.image_buffers) != 0)
       spirv_builder_emit_cap(&ctx.builder, SpvCapabilityImageBuffer);
    spirv_builder_emit_cap(&ctx.builder, SpvCapabilitySampledBuffer);
 
