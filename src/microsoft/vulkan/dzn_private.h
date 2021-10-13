@@ -139,6 +139,7 @@ struct dzn_device {
 
    ID3D12Device *dev;
    struct d3d12_descriptor_pool *rtv_pool, *dsv_pool;
+   D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
 };
 
 struct dzn_device_memory {

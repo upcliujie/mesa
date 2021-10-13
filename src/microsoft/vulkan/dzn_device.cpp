@@ -232,6 +232,10 @@ create_pysical_device(dzn_instance *instance,
          .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
          .heapIndex = mem->memoryTypeCount,
       };
+   } else {
+      mem->memoryHeaps[0].flags |= VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
+      mem->memoryTypes[0].propertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+      mem->memoryTypes[1].propertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
    }
 
    /* TODO: something something queue families */
@@ -898,6 +902,9 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
    if (!device->rtv_pool || !device->dsv_pool)
       goto fail;
 
+   device->dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1,
+      &device->arch, sizeof(device->arch));
+
    *pDevice = dzn_device_to_handle(device);
 
    return VK_SUCCESS;
@@ -1082,20 +1089,20 @@ dzn_AllocateMemory(VkDevice _device,
    // TODO: fix all of these:
    heap_desc.SizeInBytes = pAllocateInfo->allocationSize;
    heap_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-   heap_desc.Properties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-   heap_desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
    heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
    /* TODO: Unsure about this logic??? */
-   if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
-      heap_desc.Properties = device->dev->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_DEFAULT);
-      mem->initial_state = D3D12_RESOURCE_STATE_COMMON;
-   } else if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
-      heap_desc.Properties = device->dev->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_READBACK);
-      mem->initial_state = D3D12_RESOURCE_STATE_COPY_DEST;
+   mem->initial_state = D3D12_RESOURCE_STATE_COMMON;
+   heap_desc.Properties.Type = D3D12_HEAP_TYPE_CUSTOM;
+   heap_desc.Properties.MemoryPoolPreference =
+      ((mem_type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) && !device->arch.UMA) ?
+      D3D12_MEMORY_POOL_L1 : D3D12_MEMORY_POOL_L0;
+   if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
+      heap_desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+   } else if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+      heap_desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_COMBINE;
    } else {
-      heap_desc.Properties = device->dev->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_UPLOAD);
-      mem->initial_state = D3D12_RESOURCE_STATE_GENERIC_READ;
+      heap_desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE;
    }
 
    if (FAILED(device->dev->CreateHeap(&heap_desc, IID_PPV_ARGS(&mem->heap)))) {
