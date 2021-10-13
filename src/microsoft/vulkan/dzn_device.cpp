@@ -89,6 +89,7 @@ dzn_EnumerateInstanceExtensionProperties(const char *pLayerName,
 static const struct debug_control dzn_debug_options[] = {
    { "nir", DZN_DEBUG_NIR },
    { "dxil", DZN_DEBUG_DXIL },
+   { "warp", DZN_DEBUG_WARP },
    { NULL, 0 }
 };
 
@@ -264,6 +265,15 @@ dzn_enumerate_physical_devices(dzn_instance *instance)
    IDXGIAdapter1 *adapter;
    VkResult result = VK_SUCCESS;
    for (UINT i = 0; SUCCEEDED(factory->EnumAdapters1(i, &adapter)); ++i) {
+      if (instance->debug_flags & DZN_DEBUG_WARP) {
+         DXGI_ADAPTER_DESC1 desc;
+         adapter->GetDesc1(&desc);
+         if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0) {
+            adapter->Release();
+            continue;
+         }
+      }
+
       dzn_physical_device *pdevice;
       result = create_pysical_device(instance, adapter, &pdevice);
       if (result != VK_SUCCESS)
