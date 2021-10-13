@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 #define MAX_INLINABLE_UNIFORMS 4
+#define MAX_SHADER_IMAGES 32
 #define MAX_SHADER_TEXTURES 32
 
 struct spirv_supported_capabilities {
@@ -196,11 +197,13 @@ typedef struct shader_info {
    BITSET_DECLARE(textures_used_by_txf, MAX_SHADER_TEXTURES);
 
    /** Bitfield of which images are used */
-   uint32_t images_used;
+   BITSET_DECLARE(images_used, MAX_SHADER_IMAGES);
+
    /** Bitfield of which images are buffers. */
-   uint32_t image_buffers;
+   BITSET_DECLARE(image_buffers, MAX_SHADER_IMAGES);
+
    /** Bitfield of which images are MSAA. */
-   uint32_t msaa_images;
+   BITSET_DECLARE(msaa_images, MAX_SHADER_IMAGES);
 
    /* SPV_KHR_float_controls: execution mode for floating point ops */
    uint16_t float_controls_execution_mode;
