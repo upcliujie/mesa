@@ -784,15 +784,14 @@ lower_tess_eval_block(nir_block *block, nir_builder *b, struct state *state)
             assert(intr->dest.ssa.num_components == 1);
             address = nir_load_tess_factor_base_ir3(b);
             offset = build_tessfactor_base(b, location, state);
+            offset = nir_iadd(b, offset,
+                              nir_imm_int(b, nir_intrinsic_component(intr)));
          } else {
             address = nir_load_tess_param_base_ir3(b);
             offset = build_patch_offset(b, state, location,
                                         nir_intrinsic_component(intr),
                                         intr->src[0].ssa);
          }
-
-         offset =
-            nir_iadd(b, offset, nir_imm_int(b, nir_intrinsic_component(intr)));
 
          replace_intrinsic(b, intr, nir_intrinsic_load_global_ir3, address,
                            offset, NULL);
