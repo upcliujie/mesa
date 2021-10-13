@@ -490,8 +490,15 @@ void vk_${type}_dispatch_table_from_entrypoints(
     } else {
         for (unsigned i = 0; i < ARRAY_SIZE(${type}_compaction_table); i++) {
             unsigned disp_index = ${type}_compaction_table[i];
-            if (disp[disp_index] == NULL)
+            if (disp[disp_index] == NULL) {
+#ifdef _MSC_VER
+                const uintptr_t zero = 0;
+                disp[disp_index] = (entry[i] == NULL ||
+                    memcmp(entry[i], &zero, sizeof(zero)) == 0) ? NULL : entry[i];
+#else
                 disp[disp_index] = entry[i];
+#endif
+            }
         }
     }
 }
