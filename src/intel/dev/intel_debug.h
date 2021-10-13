@@ -42,7 +42,15 @@ extern "C" {
 
 extern uint64_t intel_debug;
 
+/* Deprecated, do not use. */
+#ifdef __LP64__
 #define INTEL_DEBUG __builtin_expect(intel_debug, 0)
+#else
+#define INTEL_DEBUG intel_debug
+#endif
+
+/* Returns 0/1, not the matching bit mask. */
+#define INTEL_DBG(flags)          unlikely(intel_debug & (flags))
 
 #define DEBUG_TEXTURE             (1ull <<  0)
 #define DEBUG_STATE               (1ull <<  1)
