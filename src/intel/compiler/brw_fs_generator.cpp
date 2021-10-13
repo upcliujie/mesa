@@ -1074,7 +1074,7 @@ fs_generator::generate_get_buffer_size(fs_inst *inst,
               inst->mlen,
               inst->header_size > 0,
               simd_mode,
-              BRW_SAMPLER_RETURN_FORMAT_SINT32);
+              devinfo->ver >= 8 ? 0 : BRW_SAMPLER_RETURN_FORMAT_SINT32);
 }
 
 void
