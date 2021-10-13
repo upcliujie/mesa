@@ -2484,7 +2484,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
       if (try_compact_instruction(&c, dst, &inst)) {
          compacted_count++;
 
-         if (INTEL_DEBUG) {
+         if (INTEL_DBG(DEBUG_ANY)) {
             brw_inst uncompacted;
             uncompact_instruction(&c, &uncompacted, dst);
             if (memcmp(&saved, &uncompacted, sizeof(uncompacted))) {

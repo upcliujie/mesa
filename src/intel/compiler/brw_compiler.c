@@ -226,11 +226,10 @@ brw_get_compiler_config_value(const struct brw_compiler *compiler)
       insert_u64_bit(&config, compiler->scalar_stage[MESA_SHADER_TESS_EVAL]);
       insert_u64_bit(&config, compiler->scalar_stage[MESA_SHADER_GEOMETRY]);
    }
-   uint64_t debug_bits = INTEL_DEBUG;
    uint64_t mask = DEBUG_DISK_CACHE_MASK;
    while (mask != 0) {
       const uint64_t bit = 1ULL << (ffsll(mask) - 1);
-      insert_u64_bit(&config, (debug_bits & bit) != 0);
+      insert_u64_bit(&config, INTEL_DBG(bit));
       mask &= ~bit;
    }
    return config;
