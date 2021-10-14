@@ -438,12 +438,13 @@ create_fs(struct st_context *st, bool download,
    nir_ssa_def *coord = nir_load_var(&b, fragcoord);
 
    nir_ssa_def *layer = NULL;
-   if (st->pbo.layers && (!download || target == PIPE_TEXTURE_1D_ARRAY ||
-                                       target == PIPE_TEXTURE_2D_ARRAY ||
-                                       target == PIPE_TEXTURE_3D ||
-                                       target == PIPE_TEXTURE_CUBE ||
-                                       target == PIPE_TEXTURE_CUBE_ARRAY)) {
+   if (!download || target == PIPE_TEXTURE_1D_ARRAY ||
+                    target == PIPE_TEXTURE_2D_ARRAY ||
+                    target == PIPE_TEXTURE_3D ||
+                    target == PIPE_TEXTURE_CUBE ||
+                    target == PIPE_TEXTURE_CUBE_ARRAY) {
       if (need_layer) {
+         assert(st->pbo.layers);
          nir_variable *var = nir_variable_create(b.shader, nir_var_shader_in,
                                                 glsl_int_type(), "gl_Layer");
          var->data.location = VARYING_SLOT_LAYER;
@@ -465,7 +466,7 @@ create_fs(struct st_context *st, bool download,
       nir_iadd(&b, nir_channel(&b, offset_pos, 0),
                nir_imul(&b, nir_channel(&b, offset_pos, 1),
                         nir_channel(&b, param, 2)));
-   if (layer) {
+   if (layer && layer != zero) {
       /* pbo_addr += image_height * layer */
       pbo_addr = nir_iadd(&b, pbo_addr,
                           nir_imul(&b, layer, nir_channel(&b, param, 3)));
