@@ -369,25 +369,33 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
          layer_count = dzn_get_layerCount(image, range);
       }
 
-      D3D12_RESOURCE_BARRIER barrier;
-      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+      D3D12_RESOURCE_BARRIER barriers[2];
+      /* We use placed resource's simple model, in which only one resource
+       * pointing to a given heap is active at a given time. To make the
+       * resource active we need to add an aliasing barrier.
+       */
+      barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
+      barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+      barriers[0].Aliasing.pResourceBefore = NULL;
+      barriers[0].Aliasing.pResourceAfter = image->res;
+      barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+      barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
-      barrier.Transition.pResource = image->res;
+      barriers[1].Transition.pResource = image->res;
       assert(base_layer == 0 && layer_count == 1);
-      barrier.Transition.Subresource = 0; // YOLO
+      barriers[1].Transition.Subresource = 0; // YOLO
 
       if (pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
           pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
-         barrier.Transition.StateBefore = image->mem->initial_state;
+         barriers[1].Transition.StateBefore = image->mem->initial_state;
       else
-         barrier.Transition.StateBefore = dzn_get_states(pImageMemoryBarriers[i].oldLayout);
+         barriers[1].Transition.StateBefore = dzn_get_states(pImageMemoryBarriers[i].oldLayout);
 
-      barrier.Transition.StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout);
+      barriers[1].Transition.StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout);
 
       /* some layouts map to the states, and NOP-barriers are illegal */
-      if (barrier.Transition.StateBefore != barrier.Transition.StateAfter)
-         cmd_buffer->cmdlist->ResourceBarrier(1, &barrier);
+      unsigned nbarriers = 1 + barriers[1].Transition.StateBefore != barriers[1].Transition.StateAfter;
+      cmd_buffer->cmdlist->ResourceBarrier(nbarriers, barriers);
    }
 }
 
