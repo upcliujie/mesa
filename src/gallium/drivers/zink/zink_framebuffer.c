@@ -160,7 +160,7 @@ zink_get_framebuffer_imageless(struct zink_context *ctx)
       }
    }
 
-   state.num_attachments = ctx->fb_state.nr_cbufs;
+   unsigned num_attachments = ctx->fb_state.nr_cbufs;
    const unsigned zsresolve_offset = cresolve_offset + num_resolves;
    if (ctx->fb_state.zsbuf) {
       struct pipe_surface *psurf = ctx->fb_state.zsbuf;
@@ -173,12 +173,12 @@ zink_get_framebuffer_imageless(struct zink_context *ctx)
       } else {
          memcpy(&state.infos[state.num_attachments], &surface->info, sizeof(surface->info));
       }
-      state.num_attachments++;
+      num_attachments++;
    }
 
    /* avoid bitfield explosion */
-   assert(state.num_attachments + num_resolves < 16);
-   state.num_attachments += num_resolves;
+   assert(num_attachments + num_resolves < 16);
+   state.num_attachments = num_attachments + num_resolves;
    state.width = MAX2(ctx->fb_state.width, 1);
    state.height = MAX2(ctx->fb_state.height, 1);
    state.layers = MAX2(util_framebuffer_get_num_layers(&ctx->fb_state), 1) - 1;
