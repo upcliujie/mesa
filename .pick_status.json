@@ -1,0 +1,218 @@
+[
+    {
+        "sha": "1c0eb7aa78bac4494dbff0c502a8c09e23a4c123",
+        "description": "ir3/freedreno: account for component in build_tessfactor_base",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f839b9599f863fa5bb1a6a6c24bbb621b7a1b4c9",
+        "description": "loader: Avoid enumerating drm devices just to get an fd's PCI ID.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b79e978ae48c2c4a7059a7f5eb695c6b0362ac60",
+        "description": "vulkan/wsi/win32: Delete the wrapper entrypoints",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f769f34680d516850c6efd64669bf601efcd4425",
+        "description": "nir/print: print bindless info as applicable",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "116e23e3855a28e74e09517d0005200fd139dc88",
+        "description": "vulkan/log: Don't assert on non-client-visible objects",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "071437d29d9ebe5f1dbc4e14e63fd8a3861ce6f9",
+        "description": "vulkan/log: Tweak our handling of a couple error enums",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "0cad3beb2a0dda7a8f6c6a1e8c9d253b9c988a9f"
+    },
+    {
+        "sha": "fd467492349ee32cd196a8bd747269404965e3b1",
+        "description": "vulkan: Set unused entrypoints to vk_entrypoint_stub when compiling with MSVC",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "6d44b21d4fdea89673541de265f69258747c5499"
+    },
+    {
+        "sha": "b4aa5a3fdd0ec2b3ac3c019e1c323208c0fa1faf",
+        "description": "radv: Fix modifier property query.",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "5dee0d9da961b9a027910ce7e8e16a2f849d9b8d"
+    },
+    {
+        "sha": "8e6f5aab336d3bf84aae604b51e07529380b5019",
+        "description": "v3dv: fix TLB buffer to image copy path for 3D images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6d44b21d4fdea89673541de265f69258747c5499",
+        "description": "vulkan: Fix weak symbol emulation when compiling with MSVC",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "98c622a96e28020640517cb5499a1d7bd56553b0"
+    },
+    {
+        "sha": "ae99ea6f4ddb90f7120b4986709a9e9064037f94",
+        "description": "nir/loop_unroll: Always unroll loops that iterate at most once",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c4323dc846d1b894ab86ce7d0eb98409085c6a18",
+        "description": "brw/nir: remove unused function prototypes.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a98ece61e9109963da525592a6890ad1166a0993",
+        "description": "anv: Enable tessellation redistribution",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "20c0ca75f55409f279a23a415f5c7dd70a012665",
+        "description": "iris: Enable tessellation redistribution",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "867e2e0716ed4a753a5591542a91cca31613f46f",
+        "description": "anv: Enable geometry distribution",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "efa27572a15b1bb6ee88d0556c2af06dc501215d",
+        "description": "iris: Enable geometry distribution",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1d224e7f14e366534d3942976801f959b963d540",
+        "description": "genxml/gen125: Update 3DSTATE_TE fields",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9a7e54b87f399f387048e5e21be9ee45f4ddb398",
+        "description": "intel/genxml: Update genxml to support tessellation/geometry distribution",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3eadb03db775cc41bbc58e67b37115540eb480e0",
+        "description": "ci/lvp: Skip some slow tests under ASan.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ec51c8774d0f87e0a8d0ca8d8818bb13056641c2",
+        "description": "v3d/clif: add support for dumping GS shader state",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "19894bec1fdd85b394c71442854878db2a51ee71",
+        "description": "v3dv/pipeline: don't clone the nir shader at pipeline_state_create_binning",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c7c484d7f4a1f80197c45d4b766ac3a3d6f3c394",
+        "description": "VERSION: bump to 22.0",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7d9950e924fe0e8b90aa69fa8f696008a2e34643",
+        "description": "docs: reset new_features.txt",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "91009cbaa84c0faad98c128d0d54ef9aba569381",
+        "description": "VERSION: bump to 21.4",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    }
+]
