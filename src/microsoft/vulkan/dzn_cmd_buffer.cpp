@@ -526,6 +526,77 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
    }
 }
 
+static void
+dzn_fill_image_copy_loc(const dzn_image *img,
+                        const VkImageSubresourceLayers *subres,
+                        D3D12_TEXTURE_COPY_LOCATION *loc)
+{
+   loc->pResource = img->res;
+   if (img->desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
+      assert(subres->baseArrayLayer == 0);
+      assert(subres->mipLevel == 0);
+      loc->Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+      loc->PlacedFootprint.Offset = 0;
+      loc->PlacedFootprint.Footprint.Format = dzn_get_format(img->vk_format);
+      loc->PlacedFootprint.Footprint.Width = img->extent.width;
+      loc->PlacedFootprint.Footprint.Height = img->extent.height;
+      loc->PlacedFootprint.Footprint.Depth = img->extent.depth;
+      loc->PlacedFootprint.Footprint.RowPitch = img->linear.row_stride;
+   } else {
+      loc->Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+      loc->SubresourceIndex =
+         dzn_get_subresource_index(&img->desc,
+                                   subres->aspectMask,
+                                   subres->mipLevel,
+                                   subres->baseArrayLayer);
+   }
+}
+
+void
+dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
+                     const VkCopyImageInfo2KHR *pCopyImageInfo)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   DZN_FROM_HANDLE(dzn_image, src, pCopyImageInfo->srcImage);
+   DZN_FROM_HANDLE(dzn_image, dst, pCopyImageInfo->dstImage);
+
+   ID3D12Device *dev = cmd_buffer->device->dev;
+   ID3D12GraphicsCommandList *cmdlist = cmd_buffer->cmdlist;
+
+   assert(src->samples == dst->samples);
+
+   /* TODO: MS copies */
+   assert(src->samples == 1);
+
+   for (int i = 0; i < pCopyImageInfo->regionCount; i++) {
+      const VkImageCopy2KHR *region = &pCopyImageInfo->pRegions[i];
+      VkImageSubresourceLayers src_subres = region->srcSubresource;
+      VkImageSubresourceLayers dst_subres = region->dstSubresource;
+
+      assert(src_subres.layerCount == dst_subres.layerCount);
+
+      for (uint32_t l = 0; l < src_subres.layerCount; l++) {
+         D3D12_TEXTURE_COPY_LOCATION dst_loc = { 0 }, src_loc = { 0 };
+
+         dzn_fill_image_copy_loc(src, &src_subres, &src_loc);
+         dzn_fill_image_copy_loc(dst, &dst_subres, &dst_loc);
+
+         D3D12_BOX src_box = {
+            .left = (UINT)MAX2(region->srcOffset.x, 0),
+            .top = (UINT)MAX2(region->srcOffset.y, 0),
+            .front = (UINT)MAX2(region->srcOffset.z, 0),
+            .right = (UINT)region->srcOffset.x + region->extent.width,
+            .bottom = (UINT)region->srcOffset.y + region->extent.height,
+            .back = (UINT)region->srcOffset.z + region->extent.depth,
+         };
+
+         cmdlist->CopyTextureRegion(&dst_loc, region->dstOffset.x,
+                                    region->dstOffset.y, region->dstOffset.z,
+                                    &src_loc, &src_box);
+      }
+   }
+}
+
 void
 dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
                         const VkRenderPassBeginInfo *pRenderPassBeginInfo,
