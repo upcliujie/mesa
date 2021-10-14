@@ -347,12 +347,18 @@ struct dzn_graphics_pipeline {
    } zsa;
 };
 
+#define MAX_MIP_LEVELS 14
+
 struct dzn_image {
    struct vk_object_base base;
 
    VkImageType type;
    VkFormat vk_format;
 
+   struct {
+      uint32_t row_stride;
+      uint32_t size;
+   } linear;
    D3D12_RESOURCE_DESC desc;
    ID3D12Resource *res;
    struct dzn_device_memory *mem;

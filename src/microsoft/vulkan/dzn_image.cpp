@@ -80,30 +80,75 @@ dzn_image_create(VkDevice _device,
    image->create_flags = pCreateInfo->flags;
    image->tiling = pCreateInfo->tiling;
 
-   image->desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
+   if (image->tiling == VK_IMAGE_TILING_LINEAR) {
+      /* Treat linear images as buffers: they should only be used as copy
+       * src/dest, and CopyTextureResource() can manipulate buffers.
+       * We only support linear tiling on things strictly required by the spec:
+       * "Images created with tiling equal to VK_IMAGE_TILING_LINEAR have
+       * further restrictions on their limits and capabilities compared to
+       * images created with tiling equal to VK_IMAGE_TILING_OPTIMAL. Creation
+       * of images with tiling VK_IMAGE_TILING_LINEAR may not be supported
+       * unless other parameters meet all of the constraints:
+       * - imageType is VK_IMAGE_TYPE_2D
+       * - format is not a depth/stencil format
+       * - mipLevels is 1
+       * - arrayLayers is 1
+       * - samples is VK_SAMPLE_COUNT_1_BIT
+       * - usage only includes VK_IMAGE_USAGE_TRANSFER_SRC_BIT and/or VK_IMAGE_USAGE_TRANSFER_DST_BIT
+       * "
+       */
+      assert(pCreateInfo->imageType == VK_IMAGE_TYPE_2D);
+      assert(!vk_format_is_depth_or_stencil(pCreateInfo->format));
+      assert(pCreateInfo->mipLevels == 1);
+      assert(pCreateInfo->arrayLayers == 1);
+      assert(pCreateInfo->samples == 1);
+      assert(!(pCreateInfo->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)));
+      D3D12_RESOURCE_DESC desc = {
+         .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+         .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+         .Width = image->extent.width,
+         .Height = image->extent.height,
+         .DepthOrArraySize = 1,
+         .MipLevels = 1,
+         .Format = dzn_get_format(pCreateInfo->format),
+         .SampleDesc = { .Count = 1, .Quality = 0 },
+         .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+         .Flags = D3D12_RESOURCE_FLAG_NONE
+      };
+      D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+      uint64_t row_stride = 0, size = 0;
+      device->dev->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, NULL, &row_stride, &size);
 
-   image->desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-   if (pCreateInfo->samples > 1)
+      image->linear.row_stride = row_stride;
+      image->linear.size = size;
+      size *= pCreateInfo->arrayLayers;
+      image->desc.Format = DXGI_FORMAT_UNKNOWN;
+      image->desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+      image->desc.Width = size;
+      image->desc.Height = 1;
+      image->desc.DepthOrArraySize = 1;
+      image->desc.MipLevels = 1;
+      image->desc.SampleDesc.Count = 1;
+      image->desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+   } else {
+      image->desc.Format = dzn_get_format(pCreateInfo->format);
+      image->desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
+      image->desc.Width = image->extent.width;
+      image->desc.Height = image->extent.height;
+      image->desc.DepthOrArraySize = pCreateInfo->imageType == VK_IMAGE_TYPE_3D ?
+                                     image->extent.depth :
+                                     pCreateInfo->arrayLayers;
+      image->desc.MipLevels = pCreateInfo->mipLevels;
+      image->desc.SampleDesc.Count = pCreateInfo->samples;
+      image->desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+   }
+
+   if (image->desc.SampleDesc.Count > 1)
       image->desc.Alignment = D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
+   else
+      image->desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 
-   image->desc.Width = image->extent.width;
-   image->desc.Height = image->extent.height;
-   image->desc.DepthOrArraySize = pCreateInfo->imageType == VK_IMAGE_TYPE_3D ?
-                                  image->extent.depth :
-                                  pCreateInfo->arrayLayers;
-   image->desc.MipLevels = pCreateInfo->mipLevels;
-   image->desc.Format = dzn_get_format(pCreateInfo->format);
-   image->desc.SampleDesc.Count = pCreateInfo->samples;
    image->desc.SampleDesc.Quality = 0;
-
-   /* PROBLEM: D3D12 requires D3D12_TEXTURE_LAYOUT_ROW_MAJOR resources
-    * to be allocated on a heap with the D3D12_HEAP_FLAG_SHARED_CROSS_ADAPTER
-    * flag. We can't reasonably know this up-front, and using the flag always
-    * comes with a bunch more limitations. So we have to stop using it, full
-    * stop. That's going to be hairy, as we'll have to use buffer resources
-    * instead.
-    */
-   image->desc.Layout = (D3D12_TEXTURE_LAYOUT)pCreateInfo->tiling;
 
    image->desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
@@ -314,23 +359,33 @@ dzn_GetImageSubresourceLayout(VkDevice _device,
    DZN_FROM_HANDLE(dzn_device, device, _device);
    DZN_FROM_HANDLE(dzn_image, image, _image);
 
-   UINT subres_index = get_subresource_index(&image->desc, subresource);
 
-   D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
-   UINT num_rows;
-   UINT64 row_size, total_size;
-   device->dev->GetCopyableFootprints(&image->desc,
-                                      subres_index, 1,
-                                      0, // base-offset?
-                                      &footprint,
-                                      &num_rows, &row_size,
-                                      &total_size);
+   if (image->desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
+      assert(subresource->arrayLayer == 0);
+      assert(subresource->mipLevel == 0);
+      layout->offset = 0;
+      layout->rowPitch = image->linear.row_stride;
+      layout->depthPitch = 0;
+      layout->arrayPitch = 0;
+      layout->size = image->linear.size;
+   } else {
+      UINT subres_index = get_subresource_index(&image->desc, subresource);
+      D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+      UINT num_rows;
+      UINT64 row_size, total_size;
+      device->dev->GetCopyableFootprints(&image->desc,
+                                         subres_index, 1,
+                                         0, // base-offset?
+                                         &footprint,
+                                         &num_rows, &row_size,
+                                         &total_size);
 
-   layout->offset = footprint.Offset;
-   layout->rowPitch = footprint.Footprint.RowPitch;
-   layout->depthPitch = layout->rowPitch * footprint.Footprint.Height;
-   layout->arrayPitch = layout->depthPitch; // uuuh... why is this even here?
-   layout->size = total_size;
+      layout->offset = footprint.Offset;
+      layout->rowPitch = footprint.Footprint.RowPitch;
+      layout->depthPitch = layout->rowPitch * footprint.Footprint.Height;
+      layout->arrayPitch = layout->depthPitch; // uuuh... why is this even here?
+      layout->size = total_size;
+   }
 }
 
 static D3D12_SRV_DIMENSION
