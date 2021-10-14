@@ -399,8 +399,10 @@ submit_queue(void *data, void *gdata, int thread_index)
    while (util_dynarray_contains(&bs->acquires, VkSemaphore))
       acquires[si[0].waitSemaphoreCount++] = util_dynarray_pop(&bs->acquires, VkSemaphore);
    si[0].pWaitSemaphores = acquires;
-   VkPipelineStageFlags mask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-   si[0].pWaitDstStageMask = &mask;
+   VkPipelineStageFlags mask[32];
+   for (unsigned i = 0; i < ARRAY_SIZE(mask); i++)
+      mask[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+   si[0].pWaitDstStageMask = mask;
    si[0].commandBufferCount = bs->has_barriers ? 2 : 1;
    VkCommandBuffer cmdbufs[2] = {
       bs->barrier_cmdbuf,
