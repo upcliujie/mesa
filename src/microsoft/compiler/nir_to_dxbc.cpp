@@ -41,7 +41,6 @@
 #include "vulkan/vulkan_core.h"
 
 #include "d3d12TokenizedProgramFormat.hpp"
-#include "DxbcBuilder.hpp"
 #include "ShaderBinary.h"
 
 #include <stdint.h>

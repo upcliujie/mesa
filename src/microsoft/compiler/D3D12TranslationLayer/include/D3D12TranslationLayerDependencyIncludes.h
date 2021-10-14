@@ -21,15 +21,15 @@
 // This defines NTSTATUS and other types that are needed for kernel headers
 #include <wincrypt.h>
 
-#define INITGUID
-#include <guiddef.h>
-#include <directx/d3d12video.h>
-#include <directx/dxcore.h>
-#undef INITGUID
-#include <directx/d3d12compatibility.h>
-#include <directx/d3dx12.h>
-#include <d3d11_3.h>
-#include <dxgi1_5.h>
+// #define INITGUID
+// #include <guiddef.h>
+// #include <directx/d3d12video.h>
+// #include <directx/dxcore.h>
+// #undef INITGUID
+// #include <directx/d3d12compatibility.h>
+// #include <directx/d3dx12.h>
+// #include <d3d11_3.h>
+// #include <dxgi1_5.h>
 
 //STL
 #include <utility>
