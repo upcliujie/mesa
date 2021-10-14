@@ -520,4 +520,12 @@
    DRI_CONF_OPT_B(radv_report_apu_as_dgpu, def, \
                   "Report APUs as discrete GPUs instead of integrated GPUs")
 
+/**
+ * \brief Turnip specific configuration options
+ */
+
+#define DRI_CONF_TU_DONT_CARE_AS_LOAD(def) \
+   DRI_CONF_OPT_B(tu_dont_care_as_load, def, \
+                  "Treat VK_ATTACHMENT_LOAD_OP_DONT_CARE as LOAD_OP_LOAD")
+
 #endif
