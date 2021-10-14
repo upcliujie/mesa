@@ -35,6 +35,22 @@ foreach ($file in $files) {
         Write-Host -ForegroundColor Green "compiling $file"
         $file_name = $file.Name;
 
+        # Dump DXBC assembly listing from FXC directly
+        Write-Host -ForegroundColor Green "...to dxbc via fxc"
+        & $fxc_path /nologo /T vs_5_1 /E $vs_entry_name $file -Fo "$shader_output_dir\$file_name.vs.fxc.dxbc"
+        if ($LASTEXITCODE) {
+                Write-Error "compiling vs via fxc failed"
+                exit 1
+        }
+        & $fxc_path /nologo /T ps_5_1 /E $ps_entry_name $file -Fo "$shader_output_dir\$file_name.ps.fxc.dxbc"
+        if ($LASTEXITCODE) {
+                Write-Error "compiling ps via fxc failed"
+                exit 1
+        }
+        & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.vs.fxc.dxbc" -Fc "$shader_output_dir\$file_name.vs.fxc.disasm"
+        & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.ps.fxc.dxbc" -Fc "$shader_output_dir\$file_name.ps.fxc.disasm"
+
+
         # Compile HLSL to DXBC via SPIR-V using spirv2dxbc
         Write-Host -ForegroundColor Green "...to spir-v"
         & $dxc_with_spirv_support_path -nologo -T vs_6_0 -E $vs_entry_name -spirv $file -Fo "$shader_output_dir\$file_name.vs.spv"
@@ -43,13 +59,13 @@ foreach ($file in $files) {
         Write-Host -ForegroundColor Yellow "$spirv2dxbc_path $shader_output_dir\$file_name.vs.spv -s vertex -e $vs_entry_name -o $shader_output_dir\$file_name.vs.mesa.dxbc"
         & $spirv2dxbc_path "$shader_output_dir\$file_name.vs.spv" -s vertex -e $vs_entry_name -o "$shader_output_dir\$file_name.vs.mesa.dxbc"
         if ($LASTEXITCODE) {
-                Write-Error "compiling shader_dir\$file_name.vs.spv failed"
+                Write-Error "compiling vs via mesa failed"
                 exit 1
         }
         Write-Host -ForegroundColor Yellow "$spirv2dxbc_path $shader_output_dir\$file_name.ps.spv -s fragment -e $ps_entry_name -o $shader_output_dir\$file_name.ps.mesa.dxbc"
         & $spirv2dxbc_path "$shader_output_dir\$file_name.ps.spv" -s fragment -e $ps_entry_name -o "$shader_output_dir\$file_name.ps.mesa.dxbc"
         if ($LASTEXITCODE) {
-                Write-Error "compiling shader_dir\$file_name.ps.spv failed"
+                Write-Error "compiling ps via mesa failed"
                 exit 1
         }
 
@@ -57,17 +73,9 @@ foreach ($file in $files) {
                 Write-Host -ForegroundColor Green "...signing dxbc"
                 & $dxbc_signer_path "$shader_output_dir\$file_name.vs.mesa.dxbc" "$shader_output_dir\$file_name.vs.mesa.dxbc"
                 & $dxbc_signer_path "$shader_output_dir\$file_name.ps.mesa.dxbc" "$shader_output_dir\$file_name.ps.mesa.dxbc"
+                & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.vs.mesa.dxbc" -Fc "$shader_output_dir\$file_name.vs.mesa.disasm"
+                & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.ps.mesa.dxbc" -Fc "$shader_output_dir\$file_name.ps.mesa.disasm"
+        } else {
+                Write-Host -ForegroundColor Red "need dxbcsigner to dump disassembly!"
         }
-
-        # Dump DXBC assembly listing from FXC directly
-        Write-Host -ForegroundColor Green "...to dxbc via fxc"
-        & $fxc_path /nologo /T vs_5_1 /E $vs_entry_name $file -Fo "$shader_output_dir\$file_name.vs.fxc.dxbc"
-        & $fxc_path /nologo /T ps_5_1 /E $ps_entry_name $file -Fo "$shader_output_dir\$file_name.ps.fxc.dxbc"
-
-        # Dump DXBC assembly listing for outputted shaders
-        Write-Host -ForegroundColor Green "...dumping dxbc disassembly"
-        & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.vs.mesa.dxbc" -Fc "$shader_output_dir\$file_name.vs.mesa.disasm"
-        & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.ps.mesa.dxbc" -Fc "$shader_output_dir\$file_name.ps.mesa.disasm"
-        & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.vs.fxc.dxbc" -Fc "$shader_output_dir\$file_name.vs.fxc.disasm"
-        & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.ps.fxc.dxbc" -Fc "$shader_output_dir\$file_name.ps.fxc.disasm"
 }
