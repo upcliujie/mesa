@@ -28,7 +28,7 @@ $spirv2dxbc_path = "$build_dir\src\microsoft\spirv_to_dxil\spirv2dxbc.exe"
 
 $shader_dir = "src\microsoft\spirv_to_dxil\test_shaders"
 $shader_output_dir = "$build_dir\_shaders"
-New-Item $shader_output_dir -ErrorAction SilentlyContinue
+New-Item -ItemType Directory $shader_output_dir -ErrorAction SilentlyContinue
 
 $files = @(Get-ChildItem "$shader_dir\*.hlsl")
 foreach ($file in $files) {
