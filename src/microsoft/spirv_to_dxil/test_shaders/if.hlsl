@@ -13,5 +13,9 @@ PSInput VSMain(float4 position : POSITION) {
 }
 
 float4 PSMain(PSInput input) : SV_TARGET {
-  return float4(1.0, 0.0, 1.0, 1.0);
+  float output = 0.0;
+  for (int i = 0; i < int(input.pos.x); i++) {
+    output += 1.0;
+  }
+  return float4(output, 0.0, 1.0, 1.0);
 }
