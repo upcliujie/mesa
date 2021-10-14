@@ -887,6 +887,7 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
    update_viewports(cmd_buffer);
    update_scissors(cmd_buffer);
    update_vbviews(cmd_buffer);
+   cmd_buffer->state.dirty = 0;
 
    cmd_buffer->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
 }
