@@ -157,6 +157,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
               struct dxil_spirv_specialization *specializations,
               unsigned int num_specializations, dxil_spirv_shader_stage stage,
               const char *entry_point_name,
+              const struct dxil_spirv_debug_options *dgb_opts,
               const struct dxil_spirv_runtime_conf *conf,
               struct dxil_spirv_object *out_dxil)
 {
@@ -319,8 +320,9 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    struct nir_to_dxil_options opts = {.vulkan_environment = true};
 
-   nir_print_shader(nir, stdout);
-   fflush(stdout);
+   if (dgb_opts->dump_nir)
+      nir_print_shader(nir, stderr);
+
    struct blob dxil_blob;
    if (!nir_to_dxil(nir, &opts, &dxil_blob)) {
       if (dxil_blob.allocated)
