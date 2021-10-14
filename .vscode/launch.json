@@ -7,7 +7,7 @@
         {
             "type": "cppvsdbg",
             "request": "launch",
-            "name": "Debug",
+            "name": "Debug trivial VS",
             "program": "build/debug/src/microsoft/spirv_to_dxil/spirv2dxbc.exe",
             "args": [
                 "build/debug/_shaders/trivial.hlsl.vs.spv",
@@ -17,6 +17,24 @@
                 "VSMain",
                 "-o",
                 "build/debug/_shaders/trivial.hlsl.vs.mesa.dxbc",
+            ],
+            "environment": [{ "name": "NIR_PRINT", "value": "1" }],
+            "preLaunchTask": "build spirv2dxbc",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "Debug trivial PS",
+            "program": "build/debug/src/microsoft/spirv_to_dxil/spirv2dxbc.exe",
+            "args": [
+                "build/debug/_shaders/trivial.hlsl.ps.spv",
+                "-s",
+                "fragment",
+                "-e",
+                "PSMain",
+                "-o",
+                "build/debug/_shaders/trivial.hlsl.ps.mesa.dxbc",
             ],
             "environment": [{ "name": "NIR_PRINT", "value": "1" }],
             "preLaunchTask": "build spirv2dxbc",

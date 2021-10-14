@@ -29,6 +29,7 @@
 #include "dxil_module.h"
 #include "nir.h"
 #include "nir/nir_builder.h"
+#include "nir_intrinsics.h"
 #include "ralloc.h"
 #include "util/u_debug.h"
 #include "util/u_dynarray.h"
@@ -112,12 +113,15 @@ struct DxbcModule {
 
    struct dxil_features feats;
 
+   D3D10_SB_TOKENIZED_PROGRAM_TYPE shader_kind;
+   uint32_t major_version;
+   uint32_t minor_version;
    D3D10ShaderBinary::CShaderAsm shader;
 };
 
 struct ntd_context {
    void* ralloc_ctx;
-   const struct nir_to_dxbc_options* opts{};
+   const struct nir_to_dxil_options* opts{};
    struct nir_shader* shader{};
    DxbcModule mod{};
    ntd_context() : ralloc_ctx(nullptr) {}
@@ -133,6 +137,81 @@ public:
 private:
    dxil_container inner{};
 };
+
+static bool
+emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+  /* todo immediate values? */
+  D3D10ShaderBinary::COperand src;
+  if (intr->src[0].is_ssa) {
+    assert(intr->src[0].ssa->num_components == 4);
+    src = D3D10ShaderBinary::COperand(
+        static_cast<float>(nir_src_comp_as_float(intr->src[0], 0)),
+        static_cast<float>(nir_src_comp_as_float(intr->src[0], 1)),
+        static_cast<float>(nir_src_comp_as_float(intr->src[0], 2)),
+        static_cast<float>(nir_src_comp_as_float(intr->src[0], 3)));
+  } else {
+    // nir doesn't ever have a direct load from an input to an output, so in
+    // load_input we move the value to a temp
+    src = D3D10ShaderBinary::COperand(
+        D3D10_SB_OPERAND_TYPE_TEMP, intr->src[0].reg.reg->index,
+        D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
+        D3D10_SB_4_COMPONENT_W);
+  }
+
+   D3D10ShaderBinary::COperand dst(
+      D3D10_SB_OPERAND_TYPE_OUTPUT,nir_src_as_uint(intr->src[1]),
+      D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
+      D3D10_SB_4_COMPONENT_W);
+
+   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+   ctx->mod.shader.EmitInstruction(mov);
+
+  return true;
+}
+
+static bool
+emit_load_input(struct ntd_context* ctx,
+                nir_intrinsic_instr* intr) {
+  D3D10ShaderBinary::COperand src(
+      D3D10_SB_OPERAND_TYPE_INPUT, nir_src_as_uint(intr->src[0]),
+      D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
+      D3D10_SB_4_COMPONENT_W);
+
+   assert(!intr->dest.is_ssa);
+   D3D10ShaderBinary::COperand dst(
+      D3D10_SB_OPERAND_TYPE_TEMP, intr->dest.reg.reg->index,
+      D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
+      D3D10_SB_4_COMPONENT_W);
+
+  D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+  ctx->mod.shader.EmitInstruction(mov);
+
+  return true;
+}
+
+static bool
+emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   switch (intr->intrinsic) {
+   case nir_intrinsic_load_input:
+      return emit_load_input(ctx, intr);
+   case nir_intrinsic_store_output:
+      return emit_store_output(ctx, intr);
+
+   default:
+      NIR_INSTR_UNSUPPORTED(&intr->instr);
+      assert(!"Unimplemented intrinsic instruction");
+      return false;
+   }
+}
+
+static bool
+emit_load_const(struct ntd_context *ctx, nir_load_const_instr *load_const)
+{
+   // No-op since we can always chase SSAs in concrete instructions.
+   return true;
+}
 
 static bool
 emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
@@ -157,7 +236,7 @@ emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
        !glsl_type_is_image(glsl_without_array(var->type)))
       return true;
 
-   assert("unimplemented!");
+   assert(!"todo: unimplemented!");
    return false;
 }
 
@@ -167,10 +246,10 @@ emit_instr(struct ntd_context *ctx, struct nir_instr* instr)
    switch (instr->type) {
    // case nir_instr_type_alu:
    //    return emit_alu(ctx, nir_instr_as_alu(instr));
-   // case nir_instr_type_intrinsic:
-   //    return emit_intrinsic(ctx, nir_instr_as_intrinsic(instr));
-   // case nir_instr_type_load_const:
-   //    return emit_load_const(ctx, nir_instr_as_load_const(instr));
+   case nir_instr_type_intrinsic:
+      return emit_intrinsic(ctx, nir_instr_as_intrinsic(instr));
+   case nir_instr_type_load_const:
+      return emit_load_const(ctx, nir_instr_as_load_const(instr));
    case nir_instr_type_deref:
       return emit_deref(ctx, nir_instr_as_deref(instr));
    // case nir_instr_type_jump:
@@ -229,22 +308,70 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
          break;
       }
    }
+   return true;
+}
+
+static D3D10_SB_TOKENIZED_PROGRAM_TYPE
+get_dxbc_shader_kind(struct nir_shader *s)
+{
+   switch (s->info.stage) {
+   case MESA_SHADER_VERTEX:
+      return D3D10_SB_VERTEX_SHADER;
+   case MESA_SHADER_GEOMETRY:
+      return D3D10_SB_GEOMETRY_SHADER;
+   case MESA_SHADER_FRAGMENT:
+      return D3D10_SB_PIXEL_SHADER;
+   case MESA_SHADER_KERNEL:
+   case MESA_SHADER_COMPUTE:
+      return D3D11_SB_COMPUTE_SHADER;
+   default:
+      unreachable("unknown shader stage in nir_to_dxbc");
+      return D3D11_SB_COMPUTE_SHADER;
+   }
+}
+
+static int
+get_glsl_type_size(const struct glsl_type * type, bool is_bindless)
+{
+   return glsl_count_attribute_slots(type, false);
 }
 
 bool
-nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
+nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
             struct blob *blob)
 {
    assert(opts);
    blob_init(blob);
 
+   NIR_PASS_V(s, nir_lower_pack);
+   NIR_PASS_V(s, nir_lower_frexp);
+   NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
+
    // NOTE: do not run scalarization passes
-   // TODO:
-   // NIR_PASS_V(s, nir_convert_from_ssa, false);
+   optimize_nir(s, opts, false);
+
+   NIR_PASS_V(s, nir_remove_dead_variables,
+              nir_var_function_temp | nir_var_shader_temp, NULL);
+
+   nir_lower_io_options options{};
+   NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out | nir_var_uniform, get_glsl_type_size, options);
+   // NIR_PASS_V(s, nir_lower_locals_to_regs);
+   // NIR_PASS_V(s, nir_move_vec_src_uses_to_dest);
+   // NIR_PASS_V(s, nir_lower_vec_to_movs, NULL, NULL);
+   NIR_PASS_V(s, nir_opt_dce);
+   // NIR_PASS_V(s, nir_remove_dead_variables, nir_var_function_temp, NULL);
+   NIR_PASS_V(s, nir_convert_from_ssa, false);
 
    ntd_context ctx;
    ctx.shader = s;
    ctx.opts = opts;
+   ctx.mod.shader_kind = get_dxbc_shader_kind(s);
+   ctx.mod.major_version = 5;
+   ctx.mod.minor_version = 1;
+
+   DxbcModule& mod = ctx.mod;
+   mod.shader.Init(1024);
+   mod.shader.StartShader(mod.shader_kind, mod.major_version, mod.minor_version);
 
    nir_function_impl *entry = nir_shader_get_entrypoint(ctx.shader);
    nir_metadata_require(entry, nir_metadata_block_index);
@@ -252,12 +379,9 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
       return false;
    }
 
-   DxbcModule& mod = ctx.mod;
-   mod.shader.Init(1024);
-   mod.shader.StartShader(D3D10_SB_VERTEX_SHADER, 5, 1);
-   D3D10ShaderBinary::COperandBase nil;
-   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, nil, nil);
-   mod.shader.EmitInstruction(mov);
+   D3D10ShaderBinary::CInstruction ret(D3D10_SB_OPCODE_RET);
+   mod.shader.EmitInstruction(ret);
+
    mod.shader.EndShader();
 
    mod.inputs[0].elements[0].stream = 0;

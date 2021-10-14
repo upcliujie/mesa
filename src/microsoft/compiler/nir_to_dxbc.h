@@ -27,6 +27,7 @@
 #include <stdbool.h>
 
 #include "nir.h"
+#include "nir_to_dxil.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,18 +44,18 @@ enum dxbc_sysvalue_type {
 enum dxbc_sysvalue_type
 nir_var_to_dxbc_sysvalue_type(nir_variable *var, uint64_t other_stage_mask);
 
-struct nir_to_dxbc_options {
-   bool interpolate_at_vertex;
-   bool lower_int16;
-   bool disable_math_refactoring;
-   unsigned ubo_binding_offset;
-   unsigned provoking_vertex;
-   unsigned num_kernel_globals;
-   bool vulkan_environment;
-};
+// struct nir_to_dxbc_options {
+//    bool interpolate_at_vertex;
+//    bool lower_int16;
+//    bool disable_math_refactoring;
+//    unsigned ubo_binding_offset;
+//    unsigned provoking_vertex;
+//    unsigned num_kernel_globals;
+//    bool vulkan_environment;
+// };
 
 bool
-nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxbc_options *opts,
+nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
             struct blob *blob);
 
 const nir_shader_compiler_options*

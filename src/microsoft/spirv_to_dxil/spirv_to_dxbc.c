@@ -304,7 +304,7 @@ spirv_to_dxbc(const uint32_t *words, size_t word_count,
       dxil_sort_ps_outputs(nir);
    }
 
-   struct nir_to_dxbc_options opts = {.vulkan_environment = true};
+   struct nir_to_dxil_options opts = {.vulkan_environment = true};
 
    struct blob dxil_blob;
    if (!nir_to_dxbc(nir, &opts, &dxil_blob)) {
