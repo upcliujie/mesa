@@ -136,6 +136,7 @@ dzn_pipeline_compile_shader(dzn_device *device,
                             ComPtr<IDxcLibrary> &library,
                             ComPtr<IDxcCompiler> &compiler,
                             const VkPipelineShaderStageCreateInfo *stage_info,
+                            bool apply_yflip,
                             D3D12_SHADER_BYTECODE *slot)
 {
    const VkSpecializationInfo *spec_info = stage_info->pSpecializationInfo;
@@ -185,6 +186,9 @@ dzn_pipeline_compile_shader(dzn_device *device,
 
    memset(&conf, 0, sizeof(conf));
    conf.zero_based_vertex_instance_id = true;
+   conf.y_flip = apply_yflip ?
+                 DXIL_SPIRV_YFLIP_UNCONDITIONAL :
+                 DXIL_SPIRV_YFLIP_NONE;
 
    struct dxil_spirv_debug_options dbg_opts = {
       .dump_nir = !!(device->instance->debug_flags & DZN_DEBUG_NIR),
@@ -671,12 +675,21 @@ graphics_pipeline_create(dzn_device *device,
    ComPtr<IDxcLibrary> library = dxc_get_library();
    ComPtr<IDxcCompiler> compiler = dxc_get_compiler();
 
+   uint32_t stage_mask = 0;
+   for (uint32_t i = 0; i < pCreateInfo->stageCount; i++)
+      stage_mask |= pCreateInfo->pStages[i].stage;
+
    for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
       D3D12_SHADER_BYTECODE *slot =
          dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
+      bool apply_yflip =
+         pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_GEOMETRY_BIT ||
+         (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
+          !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT));
 
       ret = dzn_pipeline_compile_shader(device, validator, library, compiler,
-                                        &pCreateInfo->pStages[i], slot);
+                                        &pCreateInfo->pStages[i], apply_yflip,
+                                        slot);
       if (ret != VK_SUCCESS)
          goto out;
    }
