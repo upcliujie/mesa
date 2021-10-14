@@ -378,6 +378,21 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu) {
           get_intr_1_args(D3D10_SB_OPCODE_ROUND_PI, alu));
       return true;
 
+    case nir_op_fround_even:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D10_SB_OPCODE_ROUND_NE, alu));
+      return true;
+
+    case nir_op_ffract:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D10_SB_OPCODE_FRC, alu));
+      return true;
+
+    case nir_op_ftrunc:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D10_SB_OPCODE_ROUND_Z, alu));
+      return true;
+
     case nir_op_fabs: {
       D3D10ShaderBinary::CInstruction intr =
           get_intr_1_args(D3D10_SB_OPCODE_MOV, alu);
@@ -420,6 +435,36 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu) {
           D3D10_SB_OPCODE_SINCOS, dst, null_operand, a));
       return true;
     }
+
+    case nir_op_fddx:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D10_SB_OPCODE_DERIV_RTX, alu));
+      return true;
+
+    case nir_op_fddy:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D10_SB_OPCODE_DERIV_RTY, alu));
+      return true;
+
+    case nir_op_fddx_fine:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTX_FINE, alu));
+      return true;
+
+    case nir_op_fddy_fine:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTY_FINE, alu));
+      return true;
+
+    case nir_op_fddx_coarse:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTX_COARSE, alu));
+      return true;
+
+    case nir_op_fddy_coarse:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTY_COARSE, alu));
+      return true;
 
     default:
       NIR_INSTR_UNSUPPORTED(&alu->instr);
