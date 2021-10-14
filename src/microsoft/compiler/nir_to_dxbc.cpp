@@ -126,7 +126,7 @@ struct ntd_context {
    const struct nir_to_dxil_options* opts{};
    struct nir_shader* shader{};
    DxbcModule mod{};
-   ntd_context() : ralloc_ctx(nullptr) {}
+   ntd_context() { ralloc_ctx = ralloc_context(NULL); }
    ~ntd_context() { ralloc_free(ralloc_ctx); }
 };
 
@@ -138,6 +138,16 @@ public:
 
 private:
    dxil_container inner{};
+};
+
+class ScopedDxilModule {
+public:
+   ScopedDxilModule(void* ralloc_ctx) { dxil_module_init(&inner, ralloc_ctx); }
+   ~ScopedDxilModule() { dxil_module_release(&inner); }
+   dxil_module* get() { return &inner; }
+
+private:
+   dxil_module inner{};
 };
 
 // After running `nir_convert_from_ssa`, we're out of SSA land, with the exception of literal values. This function converts a `nir_src` to either a temporary register value or a literal, based on the `ssa`-ness of it.
@@ -296,6 +306,7 @@ emit_load_frag_coord(struct ntd_context* ctx,
 
   return true;
 }
+
 
 static bool
 emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
@@ -509,36 +520,19 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    emit_module(&ctx);
 
    mod.shader.EndShader();
-
-   mod.inputs[0].elements[0].stream = 0;
-   mod.inputs[0].elements[0].semantic_name_offset = 11;
-   mod.inputs[0].elements[0].semantic_index = 0;
-   mod.inputs[0].elements[0].system_value = DXIL_PROG_SEM_POSITION;
-   mod.inputs[0].elements[0].comp_type = DXIL_PROG_SIG_COMP_TYPE_FLOAT32;
-   mod.inputs[0].elements[0].reg = 0;
-   mod.inputs[0].elements[0].mask = 0b1111;
-   mod.inputs[0].elements[0].pad = 0;
-   mod.inputs[0].elements[0].min_precision = DXIL_MIN_PREC_DEFAULT;
-   mod.inputs[0].num_elements = 1;
-   mod.inputs[0].name = const_cast<char*>("SV_Position");
-   mod.inputs[0].sysvalue = "POS";
-
-   // never_writes_mask
-
-   mod.outputs[0].num_elements = 1;
-   mod.outputs[0].name = const_cast<char*>("TARGET");
-   mod.outputs[0].sysvalue = "TARGET";
+   ScopedDxilModule dxil_mod(ctx.ralloc_ctx);
+   get_signatures(dxil_mod.get(), s, ctx.opts->vulkan_environment);
 
    ScopedDxilContainer container;
 
-   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, 1,
-                                          mod.inputs)) {
+   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, dxil_mod.get()->num_sig_inputs,
+                                          dxil_mod.get()->inputs)) {
       debug_printf("D3D12: dxil_container_add_io_signature failed\n");
       return false;
    }
 
-   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1, 1,
-                                          mod.outputs)) {
+   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1, dxil_mod.get()->num_sig_outputs,
+                                          dxil_mod.get()->outputs)) {
       debug_printf("D3D12: dxil_container_add_io_signature failed\n");
       return false;
    }
