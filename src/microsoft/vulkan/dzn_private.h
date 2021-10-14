@@ -293,6 +293,13 @@ struct dzn_subpass {
 struct dzn_attachment {
    DXGI_FORMAT format;
    uint32_t samples;
+   union {
+      bool color;
+      struct {
+         bool depth;
+         bool stencil;
+      };
+   } clear;
    D3D12_RESOURCE_STATES before, during, after;
 };
 

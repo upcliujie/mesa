@@ -587,15 +587,23 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       pRenderPassBeginInfo->renderArea.offset.y + pRenderPassBeginInfo->renderArea.extent.height
    };
 
-   assert(pRenderPassBeginInfo->clearValueCount == framebuffer->attachment_count);
-   for (int i = 0; i < framebuffer->attachment_count; ++i) {
+   assert(pRenderPassBeginInfo->clearValueCount <= framebuffer->attachment_count);
+   for (int i = 0; i < pRenderPassBeginInfo->clearValueCount; ++i) {
       if (vk_format_is_depth_or_stencil(framebuffer->attachments[i]->vk_format)) {
-         cmd_buffer->cmdlist->ClearDepthStencilView(framebuffer->attachments[i]->zs_handle.cpu_handle,
-                                                    D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL,
-                                                    pRenderPassBeginInfo->pClearValues[i].depthStencil.depth,
-                                                    pRenderPassBeginInfo->pClearValues[i].depthStencil.stencil,
-                                                    1, &rect);
-      } else {
+         D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
+
+         if (pass->attachments[i].clear.depth)
+            flags |= D3D12_CLEAR_FLAG_DEPTH;
+         if (pass->attachments[i].clear.stencil)
+            flags |= D3D12_CLEAR_FLAG_STENCIL;
+
+         if (flags != 0)
+            cmd_buffer->cmdlist->ClearDepthStencilView(framebuffer->attachments[i]->zs_handle.cpu_handle,
+                                                       flags,
+                                                       pRenderPassBeginInfo->pClearValues[i].depthStencil.depth,
+                                                       pRenderPassBeginInfo->pClearValues[i].depthStencil.stencil,
+                                                       1, &rect);
+      } else if (pass->attachments[i].clear.color) {
          cmd_buffer->cmdlist->ClearRenderTargetView(framebuffer->attachments[i]->rt_handle.cpu_handle,
                                                    pRenderPassBeginInfo->pClearValues[i].color.float32,
                                                    1, &rect);

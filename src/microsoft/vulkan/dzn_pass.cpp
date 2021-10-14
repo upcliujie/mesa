@@ -93,11 +93,19 @@ dzn_CreateRenderPass2(VkDevice _device,
 
       attachments[i].format = dzn_get_format(attachment->format);
       assert(attachments[i].format);
+      if (vk_format_is_depth_or_stencil(attachment->format)) {
+         attachments[i].during = D3D12_RESOURCE_STATE_DEPTH_WRITE;
+         attachments[i].clear.depth =
+            attachment->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
+         attachments[i].clear.stencil =
+            attachment->stencilLoadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
+      } else {
+         attachments[i].during = D3D12_RESOURCE_STATE_RENDER_TARGET;
+         attachments[i].clear.color =
+            attachment->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
+      }
       attachments[i].samples = attachment->samples;
       attachments[i].before = dzn_get_states(attachment->initialLayout);
-      attachments[i].during = vk_format_is_depth_or_stencil(attachment->format) ?
-                              D3D12_RESOURCE_STATE_DEPTH_WRITE :
-                              D3D12_RESOURCE_STATE_RENDER_TARGET;
       attachments[i].after = dzn_get_states(attachment->finalLayout);
    }
 
