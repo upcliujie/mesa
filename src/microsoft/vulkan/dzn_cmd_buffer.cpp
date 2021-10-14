@@ -942,18 +942,26 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
 void
 dzn_cmd_buffer::update_pipeline(uint32_t bindpoint)
 {
+   const dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
    dzn_batch *batch = get_batch();
 
-   if (state.bindpoint[bindpoint].pipeline &&
-       state.bindpoint[bindpoint].pipeline != state.pipeline) {
-      state.pipeline = state.bindpoint[bindpoint].pipeline;
-      batch->cmdlist->SetGraphicsRootSignature(state.pipeline->layout->root.sig.Get());
-      batch->cmdlist->SetPipelineState(state.pipeline->state.Get());
+   if (!pipeline)
+      return;
+
+   if (state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_PIPELINE) {
       if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
          const dzn_graphics_pipeline *gfx =
-            reinterpret_cast<const dzn_graphics_pipeline *>(state.pipeline);
+            reinterpret_cast<const dzn_graphics_pipeline *>(pipeline);
+         batch->cmdlist->SetGraphicsRootSignature(pipeline->layout->root.sig.Get());
          batch->cmdlist->IASetPrimitiveTopology(gfx->ia.topology);
+      } else {
+         batch->cmdlist->SetComputeRootSignature(pipeline->layout->root.sig.Get());
       }
+   }
+
+   if (state.pipeline != pipeline) {
+      batch->cmdlist->SetPipelineState(pipeline->state.Get());
+      state.pipeline = pipeline;
    }
 }
 
@@ -1039,14 +1047,15 @@ set_heaps:
          state.heaps[h] = new_heaps[h];
 
       for (uint32_t r = 0; r < pipeline->layout->root.sets_param_count; r++) {
-         if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
-            D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->layout->root.type[r];
-            D3D12_GPU_DESCRIPTOR_HANDLE handle = {
-               .ptr = new_heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
-            };
+         D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->layout->root.type[r];
+         D3D12_GPU_DESCRIPTOR_HANDLE handle = {
+            .ptr = new_heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
+         };
 
+         if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS)
             batch->cmdlist->SetGraphicsRootDescriptorTable(r, handle);
-         }
+         else
+            batch->cmdlist->SetComputeRootDescriptorTable(r, handle);
       }
    }
 }
@@ -1431,4 +1440,38 @@ dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
 
       batch->wait.push_back(event);
    }
+}
+
+void
+dzn_cmd_buffer::prepare_dispatch()
+{
+   update_pipeline(VK_PIPELINE_BIND_POINT_COMPUTE);
+   update_heaps(VK_PIPELINE_BIND_POINT_COMPUTE);
+   update_sysvals(VK_PIPELINE_BIND_POINT_COMPUTE);
+
+   /* Reset the dirty states */
+   state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty = 0;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDispatch(VkCommandBuffer commandBuffer,
+                uint32_t groupCountX,
+                uint32_t groupCountY,
+                uint32_t groupCountZ)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   dzn_batch *batch = cmd_buffer->get_batch();
+
+   if (groupCountX != cmd_buffer->state.sysvals.compute.group_count_x ||
+       groupCountY != cmd_buffer->state.sysvals.compute.group_count_y ||
+       groupCountZ != cmd_buffer->state.sysvals.compute.group_count_z) {
+      cmd_buffer->state.sysvals.compute.group_count_x = groupCountX;
+      cmd_buffer->state.sysvals.compute.group_count_y = groupCountY;
+      cmd_buffer->state.sysvals.compute.group_count_z = groupCountZ;
+      cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+   }
+
+   cmd_buffer->prepare_dispatch();
+   batch->cmdlist->Dispatch(groupCountX, groupCountY, groupCountZ);
 }

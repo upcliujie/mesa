@@ -710,6 +710,78 @@ dzn_CreateGraphicsPipelines(VkDevice device,
    return result;
 }
 
+dzn_compute_pipeline::dzn_compute_pipeline(dzn_device *device,
+                                           VkPipelineCache cache,
+                                           const VkComputePipelineCreateInfo *pCreateInfo,
+                                           const VkAllocationCallbacks *pAllocator) :
+                                          base(device, VK_PIPELINE_BIND_POINT_COMPUTE)
+{
+   VK_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
+
+   base.layout = layout;
+
+   D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {
+      .pRootSignature = layout->root.sig.Get(),
+      .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
+   };
+
+   VkResult ret =
+      dzn_pipeline::compile_shader(device,
+                                   &pCreateInfo->stage, false,
+                                   &desc.CS);
+   if (ret != VK_SUCCESS)
+      throw ret;
+
+   HRESULT hres =
+      device->dev->CreateComputePipelineState(&desc,
+                                              IID_PPV_ARGS(&base.state));
+   if (FAILED(hres)) {
+      free((void *)desc.CS.pShaderBytecode);
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+}
+
+dzn_compute_pipeline::~dzn_compute_pipeline()
+{
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateComputePipelines(VkDevice device,
+                           VkPipelineCache pipelineCache,
+                           uint32_t count,
+                           const VkComputePipelineCreateInfo *pCreateInfos,
+                           const VkAllocationCallbacks *pAllocator,
+                           VkPipeline *pPipelines)
+{
+   VkResult result = VK_SUCCESS;
+
+   unsigned i;
+   for (i = 0; i < count; i++) {
+      result = dzn_compute_pipeline_factory::create(device,
+                                                     pipelineCache,
+                                                     &pCreateInfos[i],
+                                                     pAllocator,
+                                                     &pPipelines[i]);
+      if (result != VK_SUCCESS) {
+         pPipelines[i] = VK_NULL_HANDLE;
+
+         /* Bail out on the first error != VK_PIPELINE_COMPILE_REQUIRED_EX as it
+          * is not obvious what error should be report upon 2 different failures.
+          */
+         if (result != VK_PIPELINE_COMPILE_REQUIRED_EXT)
+            break;
+
+         if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_EARLY_RETURN_ON_FAILURE_BIT_EXT)
+            break;
+      }
+   }
+
+   for (; i < count; i++)
+      pPipelines[i] = VK_NULL_HANDLE;
+
+   return result;
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyPipeline(VkDevice device,
                     VkPipeline pipeline,
@@ -721,6 +793,6 @@ dzn_DestroyPipeline(VkDevice device,
       dzn_graphics_pipeline_factory::destroy(device, pipeline, pAllocator);
    } else {
       assert(pipe->type == VK_PIPELINE_BIND_POINT_COMPUTE);
-      unreachable("Compute pipelines not yet supported");
+      dzn_compute_pipeline_factory::destroy(device, pipeline, pAllocator);
    }
 }

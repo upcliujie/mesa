@@ -413,6 +413,7 @@ struct dzn_cmd_buffer {
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
    void prepare_draw(bool indexed);
+   void prepare_dispatch();
 
 private:
    void update_pipeline(uint32_t bindpoint);
@@ -643,6 +644,19 @@ private:
                         const VkGraphicsPipelineCreateInfo *in);
 };
 
+struct dzn_compute_pipeline {
+   dzn_pipeline base;
+   struct {
+      uint32_t x, y, z;
+   } local_size;
+
+   dzn_compute_pipeline(dzn_device *device,
+                        VkPipelineCache cache,
+                        const VkComputePipelineCreateInfo *pCreateInfo,
+                        const VkAllocationCallbacks *pAllocator);
+   ~dzn_compute_pipeline();
+};
+
 #define MAX_MIP_LEVELS 14
 
 struct dzn_image {
@@ -867,6 +881,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline, base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_graphics_pipeline, base.base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_compute_pipeline, base.base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_cache, base, VkPipelineCache, VK_OBJECT_TYPE_PIPELINE_CACHE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, base, VkPipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
@@ -1050,6 +1065,7 @@ DZN_OBJ_FACTORY(dzn_buffer, VkBuffer, VkDevice, const VkBufferCreateInfo *);
 DZN_OBJ_FACTORY(dzn_buffer_view, VkBufferView, VkDevice, const VkBufferViewCreateInfo *);
 DZN_OBJ_FACTORY(dzn_cmd_buffer, VkCommandBuffer, VkDevice, dzn_cmd_pool *, VkCommandBufferLevel);
 DZN_OBJ_FACTORY(dzn_cmd_pool, VkCommandPool, VkDevice, const VkCommandPoolCreateInfo *);
+DZN_OBJ_FACTORY(dzn_compute_pipeline, VkPipeline, VkDevice, VkPipelineCache, const VkComputePipelineCreateInfo *);
 DZN_OBJ_FACTORY(dzn_descriptor_pool, VkDescriptorPool, VkDevice, const VkDescriptorPoolCreateInfo *);
 DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_pool *, VkDescriptorSetLayout);
 DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);
