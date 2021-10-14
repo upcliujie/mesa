@@ -385,7 +385,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
 
          memcpy(range_ptr, set_layout->ranges[i].samplers,
                 set_layout->ranges[i].sampler_count * sizeof(D3D12_DESCRIPTOR_RANGE1));
-         for (uint32_t k = 0; k < set_layout->ranges[i].view_count; k++) {
+         for (uint32_t k = 0; k < set_layout->ranges[i].sampler_count; k++) {
             range_ptr[k].RegisterSpace = j;
             range_ptr[k].OffsetInDescriptorsFromTableStart +=
                heap_offsets[j][D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
