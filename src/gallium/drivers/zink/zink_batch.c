@@ -96,7 +96,6 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 
    bs->resource_size = 0;
 
-   VKSCR(DestroySemaphore)(screen->dev, bs->present, NULL);
    bs->present = VK_NULL_HANDLE;
    while (util_dynarray_contains(&bs->acquires, VkSemaphore))
       VKSCR(DestroySemaphore)(screen->dev, util_dynarray_pop(&bs->acquires, VkSemaphore), NULL);

@@ -34,7 +34,9 @@ struct copper_swapchain {
    VkImage *images;
    unsigned last_present;
    unsigned num_images;
-   VkSemaphore *acquires; //these can only be destroyed when the same image is reacquired
+   VkSemaphore *acquires;
+   uint32_t last_present_prune;
+   struct hash_table *presents;
    VkSwapchainCreateInfoKHR scci;
    unsigned num_acquires;
    unsigned max_acquires;

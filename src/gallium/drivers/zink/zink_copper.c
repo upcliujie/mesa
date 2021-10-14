@@ -85,9 +85,18 @@ destroy_swapchain(struct zink_screen *screen, struct copper_swapchain *cswap)
    if (!cswap)
       return;
    free(cswap->images);
-   for (unsigned i = 0; i < cswap->num_images; i++)
+   for (unsigned i = 0; i < cswap->num_images; i++) {
       VKSCR(DestroySemaphore)(screen->dev, cswap->acquires[i], NULL);
+   }
    free(cswap->acquires);
+   hash_table_foreach(cswap->presents, he) {
+      struct util_dynarray *arr = he->data;
+      while (util_dynarray_contains(arr, VkSemaphore))
+         VKSCR(DestroySemaphore)(screen->dev, util_dynarray_pop(arr, VkSemaphore), NULL);
+      util_dynarray_fini(arr);
+      free(arr);
+   }
+   _mesa_hash_table_destroy(cswap->presents, NULL);
    VKSCR(DestroySwapchainKHR)(screen->dev, cswap->swapchain, NULL);
    free(cswap);
 }
@@ -171,6 +180,7 @@ copper_GetSwapchainImages(struct zink_screen *screen, struct copper_swapchain *c
       return false;
    cswap->images = malloc(sizeof(VkImage) * cswap->num_images);
    cswap->acquires = calloc(cswap->num_images, sizeof(VkSemaphore));
+   cswap->presents = _mesa_hash_table_create_u32_keys(NULL);
    error = VKSCR(GetSwapchainImagesKHR)(screen->dev, cswap->swapchain, &cswap->num_images, cswap->images);
    return zink_screen_handle_vkresult(screen, error);
 }
@@ -387,6 +397,39 @@ copper_present(void *data, void *gdata, int thread_idx)
       num = p_atomic_dec_return(&cdt->swapchain->num_acquires);
    if (error2 == VK_SUBOPTIMAL_KHR)
       cpi->res->obj->new_dt = true;
+
+   /* it's illegal to destroy semaphores if they're in use by a cmdbuf.
+    * but what does "in use" actually mean?
+    * in truth, when using timelines, nobody knows. especially not VVL.
+    *
+    * thus, to avoid infinite error spam and thread-related races,
+    * present semaphores need their own free queue based on the
+    * last-known completed timeline id so that the semaphore persists through
+    * normal cmdbuf submit/signal and then also exists here when it's needed for the present operation
+    */
+   struct util_dynarray *arr;
+   for (; cdt->swapchain->last_present_prune != screen->last_finished; cdt->swapchain->last_present_prune++) {
+      struct hash_entry *he = _mesa_hash_table_search(cdt->swapchain->presents,
+                                                      (void*)(uintptr_t)cdt->swapchain->last_present_prune);
+      if (he) {
+         arr = he->data;
+         while (util_dynarray_contains(arr, VkSemaphore))
+            VKSCR(DestroySemaphore)(screen->dev, util_dynarray_pop(arr, VkSemaphore), NULL);
+         util_dynarray_fini(arr);
+         free(arr);
+         _mesa_hash_table_remove(cdt->swapchain->presents, he);
+      }
+   }
+   /* queue this wait semaphore for deletion on completion of the next batch */
+   uint32_t next = screen->curr_batch + 1;
+   struct hash_entry *he = _mesa_hash_table_search(cdt->swapchain->presents, (void*)(uintptr_t)next);
+   if (he)
+      arr = he->data;
+   else {
+      arr = malloc(sizeof(struct util_dynarray));
+      util_dynarray_init(arr, NULL);
+   }
+   util_dynarray_append(arr, VkSemaphore, cpi->sem);
    free(cpi);
 }
 
@@ -466,10 +509,7 @@ zink_copper_present_readback(struct zink_screen *screen, struct zink_resource *r
 
    zink_copper_present_queue(screen, res);
    error = VKSCR(QueueWaitIdle)(screen->queue);
-   if (!zink_screen_handle_vkresult(screen, error))
-      return false;
-   VKSCR(DestroySemaphore)(screen->dev, present, NULL);
-   return true;
+   return zink_screen_handle_vkresult(screen, error);
 }
 
 bool
