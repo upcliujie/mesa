@@ -131,7 +131,8 @@ to_dxil_shader_stage(VkShaderStageFlagBits in)
 }
 
 static VkResult
-dzn_pipeline_compile_shader(ComPtr<IDxcValidator> &validator,
+dzn_pipeline_compile_shader(dzn_device *device,
+                            ComPtr<IDxcValidator> &validator,
                             ComPtr<IDxcLibrary> &library,
                             ComPtr<IDxcCompiler> &compiler,
                             const VkPipelineShaderStageCreateInfo *stage_info,
@@ -187,11 +188,15 @@ dzn_pipeline_compile_shader(ComPtr<IDxcValidator> &validator,
    memset(&conf, 0, sizeof(conf));
    conf.zero_based_vertex_instance_id = true;
 
+   struct dxil_spirv_debug_options dbg_opts = {
+      .dump_nir = !!(device->instance->debug_flags & DZN_DEBUG_NIR),
+   };
+
    /* TODO: Extend spirv_to_dxil() to allow passing a custom allocator */
    if (!spirv_to_dxil(module->code, module->code_size / sizeof(uint32_t),
                       spec, num_spec,
                       to_dxil_shader_stage(stage_info->stage),
-                      stage_info->pName, &conf, &dxil_object)) {
+                      stage_info->pName, &dbg_opts, &conf, &dxil_object)) {
       assert(0);
       return vk_error(VK_ERROR_OUT_OF_HOST_MEMORY);
    }
@@ -677,7 +682,7 @@ graphics_pipeline_create(dzn_device *device,
       D3D12_SHADER_BYTECODE *slot =
          dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
 
-      ret = dzn_pipeline_compile_shader(validator, library, compiler,
+      ret = dzn_pipeline_compile_shader(device, validator, library, compiler,
                                         &pCreateInfo->pStages[i], slot);
       if (ret != VK_SUCCESS)
          goto out;
