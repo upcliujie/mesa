@@ -448,12 +448,13 @@ create_fs(struct st_context *st, bool download,
    nir_ssa_def *coord = nir_load_var(&b, fragcoord);
 
    nir_ssa_def *layer = NULL;
-   if (st->pbo.layers && (!download || target == PIPE_TEXTURE_1D_ARRAY ||
-                                       target == PIPE_TEXTURE_2D_ARRAY ||
-                                       target == PIPE_TEXTURE_3D ||
-                                       target == PIPE_TEXTURE_CUBE ||
-                                       target == PIPE_TEXTURE_CUBE_ARRAY)) {
+   if (!download || target == PIPE_TEXTURE_1D_ARRAY ||
+                    target == PIPE_TEXTURE_2D_ARRAY ||
+                    target == PIPE_TEXTURE_3D ||
+                    target == PIPE_TEXTURE_CUBE ||
+                    target == PIPE_TEXTURE_CUBE_ARRAY) {
       if (need_layer) {
+         assert(st->pbo.layers);
          nir_variable *var = nir_variable_create(b.shader, nir_var_shader_in,
                                                 glsl_int_type(), "gl_Layer");
          var->data.location = VARYING_SLOT_LAYER;
