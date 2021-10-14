@@ -126,8 +126,17 @@ struct ntd_context {
    const struct nir_to_dxil_options* opts{};
    struct nir_shader* shader{};
    DxbcModule mod{};
-   ntd_context() { ralloc_ctx = ralloc_context(NULL); }
-   ~ntd_context() { ralloc_free(ralloc_ctx); }
+   dxil_module dxil_mod{};
+
+   ntd_context() { 
+      ralloc_ctx = ralloc_context(NULL); 
+      if(ralloc_ctx)
+         dxil_module_init(&dxil_mod, ralloc_ctx);
+   }
+   ~ntd_context() { 
+      dxil_module_release(&dxil_mod);
+      ralloc_free(ralloc_ctx); 
+   }
 };
 
 class ScopedDxilContainer {
@@ -138,16 +147,6 @@ public:
 
 private:
    dxil_container inner{};
-};
-
-class ScopedDxilModule {
-public:
-   ScopedDxilModule(void* ralloc_ctx) { dxil_module_init(&inner, ralloc_ctx); }
-   ~ScopedDxilModule() { dxil_module_release(&inner); }
-   dxil_module* get() { return &inner; }
-
-private:
-   dxil_module inner{};
 };
 
 // After running `nir_convert_from_ssa`, we're out of SSA land, with the exception of literal values. This function converts a `nir_src` to either a temporary register value or a literal, based on the `ssa`-ness of it.
@@ -520,19 +519,18 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    emit_module(&ctx);
 
    mod.shader.EndShader();
-   ScopedDxilModule dxil_mod(ctx.ralloc_ctx);
-   get_signatures(dxil_mod.get(), s, ctx.opts->vulkan_environment);
+   get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
 
    ScopedDxilContainer container;
 
-   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, dxil_mod.get()->num_sig_inputs,
-                                          dxil_mod.get()->inputs)) {
+   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, ctx.dxil_mod.num_sig_inputs,
+                                          ctx.dxil_mod.inputs)) {
       debug_printf("D3D12: dxil_container_add_io_signature failed\n");
       return false;
    }
 
-   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1, dxil_mod.get()->num_sig_outputs,
-                                          dxil_mod.get()->outputs)) {
+   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1, ctx.dxil_mod.num_sig_outputs,
+                                          ctx.dxil_mod.outputs)) {
       debug_printf("D3D12: dxil_container_add_io_signature failed\n");
       return false;
    }
