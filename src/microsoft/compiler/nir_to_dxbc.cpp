@@ -159,13 +159,11 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
         D3D10_SB_4_COMPONENT_W);
   }
 
-   D3D10ShaderBinary::COperand dst(
-      D3D10_SB_OPERAND_TYPE_OUTPUT,nir_src_as_uint(intr->src[1]),
-      D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
-      D3D10_SB_4_COMPONENT_W);
+  D3D10ShaderBinary::COperand4 dst(D3D10_SB_OPERAND_TYPE_OUTPUT,
+                                   nir_src_as_uint(intr->src[1]));
 
-   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
-   ctx->mod.shader.EmitInstruction(mov);
+  D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+  ctx->mod.shader.EmitInstruction(mov);
 
   return true;
 }
@@ -173,16 +171,12 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 static bool
 emit_load_input(struct ntd_context* ctx,
                 nir_intrinsic_instr* intr) {
-  D3D10ShaderBinary::COperand src(
-      D3D10_SB_OPERAND_TYPE_INPUT, nir_src_as_uint(intr->src[0]),
-      D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
-      D3D10_SB_4_COMPONENT_W);
+  D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
+                                   nir_src_as_uint(intr->src[0]));
 
-   assert(!intr->dest.is_ssa);
-   D3D10ShaderBinary::COperand dst(
-      D3D10_SB_OPERAND_TYPE_TEMP, intr->dest.reg.reg->index,
-      D3D10_SB_4_COMPONENT_X, D3D10_SB_4_COMPONENT_Y, D3D10_SB_4_COMPONENT_Z,
-      D3D10_SB_4_COMPONENT_W);
+  assert(!intr->dest.is_ssa);
+  D3D10ShaderBinary::COperand4 dst(D3D10_SB_OPERAND_TYPE_TEMP,
+                                   intr->dest.reg.reg->index);
 
   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
   ctx->mod.shader.EmitInstruction(mov);
@@ -280,6 +274,10 @@ emit_block(struct ntd_context *ctx, struct nir_block *block)
          return false;
       }
    }
+
+   D3D10ShaderBinary::CInstruction ret(D3D10_SB_OPCODE_RET);
+   ctx->mod.shader.EmitInstruction(ret);
+
    return true;
 }
 
@@ -308,6 +306,25 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
          break;
       }
    }
+   return true;
+}
+
+static bool
+emit_module(struct ntd_context *ctx) {
+   // TODO
+   ctx->mod.shader.EmitGlobalFlagsDecl(
+      D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
+   ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, 0,
+                                 D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
+   ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
+      0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL, D3D10_SB_NAME_POSITION);
+
+  nir_function_impl* entry = nir_shader_get_entrypoint(ctx->shader);
+  nir_metadata_require(entry, nir_metadata_block_index);
+  if (!emit_cf_list(ctx, &entry->body)) {
+    return false;
+   }
+
    return true;
 }
 
@@ -373,14 +390,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    mod.shader.Init(1024);
    mod.shader.StartShader(mod.shader_kind, mod.major_version, mod.minor_version);
 
-   nir_function_impl *entry = nir_shader_get_entrypoint(ctx.shader);
-   nir_metadata_require(entry, nir_metadata_block_index);
-   if (!emit_cf_list(&ctx, &entry->body)) {
-      return false;
-   }
-
-   D3D10ShaderBinary::CInstruction ret(D3D10_SB_OPCODE_RET);
-   mod.shader.EmitInstruction(ret);
+   emit_module(&ctx);
 
    mod.shader.EndShader();
 
