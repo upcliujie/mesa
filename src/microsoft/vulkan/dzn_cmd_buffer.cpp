@@ -60,6 +60,9 @@ dzn_cmd_buffer_destroy(struct dzn_cmd_buffer *cmd_buffer)
 {
    list_del(&cmd_buffer->pool_link);
 
+   d3d12_descriptor_pool_free(cmd_buffer->rtv_pool);
+   cmd_buffer->rtv_pool = NULL;
+
    util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
       (*heap)->Release();
 
@@ -106,7 +109,11 @@ dzn_create_cmd_buffer(struct dzn_device *device,
    cmd_buffer->pool = pool;
    cmd_buffer->level = level;
 
+   cmd_buffer->rtv_pool =
+      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+
    D3D12_COMMAND_LIST_TYPE type;
+
    if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       type = D3D12_COMMAND_LIST_TYPE_DIRECT;
    else
@@ -190,6 +197,11 @@ dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmd_buffer)
 {
    HRESULT hr = cmd_buffer->cmdlist->Reset(cmd_buffer->alloc, NULL);
    assert(hr == S_OK);
+
+   /* TODO: Return heaps to the command pool instead of freeing them */
+   d3d12_descriptor_pool_free(cmd_buffer->rtv_pool);
+   cmd_buffer->rtv_pool =
+      d3d12_descriptor_pool_new(cmd_buffer->device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
    util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
       (*heap)->Release();
@@ -593,6 +605,102 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
          cmdlist->CopyTextureRegion(&dst_loc, region->dstOffset.x,
                                     region->dstOffset.y, region->dstOffset.z,
                                     &src_loc, &src_box);
+      }
+   }
+}
+
+void
+dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
+                       VkImage image,
+                       VkImageLayout imageLayout,
+                       const VkClearColorValue *pColor,
+                       uint32_t rangeCount,
+                       const VkImageSubresourceRange *pRanges)
+{
+   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   dzn_device *device = cmd_buffer->device;
+   DZN_FROM_HANDLE(dzn_image, img, image);
+   D3D12_RENDER_TARGET_VIEW_DESC desc = {
+      .Format = img->desc.Format,
+   };
+
+   switch (img->type) {
+   case VK_IMAGE_TYPE_1D:
+      desc.ViewDimension =
+         img->array_size > 1 ?
+         D3D12_RTV_DIMENSION_TEXTURE1DARRAY : D3D12_RTV_DIMENSION_TEXTURE1D;
+      break;
+   case VK_IMAGE_TYPE_2D:
+      if (img->array_size > 1) {
+         desc.ViewDimension =
+            img->samples > 1 ?
+            D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY :
+            D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+      } else {
+         desc.ViewDimension =
+            img->samples > 1 ?
+            D3D12_RTV_DIMENSION_TEXTURE2DMS :
+            D3D12_RTV_DIMENSION_TEXTURE2D;
+      }
+      break;
+   case VK_IMAGE_TYPE_3D:
+      desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
+      break;
+   default: unreachable("Invalid image type\n");
+   }
+
+   for (uint32_t r = 0; r < rangeCount; r++) {
+      const VkImageSubresourceRange *range = &pRanges[r];
+
+      for (uint32_t l = 0; l < range->levelCount; l++) {
+         switch (desc.ViewDimension) {
+         case D3D12_RTV_DIMENSION_TEXTURE1D:
+            desc.Texture1D.MipSlice = range->baseMipLevel + l;
+            break;
+         case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
+            desc.Texture1DArray.MipSlice = range->baseMipLevel + l;
+            desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
+            desc.Texture1DArray.ArraySize = range->layerCount;
+            break;
+         case D3D12_RTV_DIMENSION_TEXTURE2D:
+            desc.Texture2D.MipSlice = range->baseMipLevel + l;
+            if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_1_BIT)
+               desc.Texture2D.PlaneSlice = 1;
+            else if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_2_BIT)
+               desc.Texture2D.PlaneSlice = 2;
+            else
+               desc.Texture2D.PlaneSlice = 0;
+            break;
+         case D3D12_RTV_DIMENSION_TEXTURE2DMS:
+            break;
+         case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
+            desc.Texture2DArray.MipSlice = range->baseMipLevel + l;
+            desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
+            desc.Texture2DArray.ArraySize = range->layerCount;
+            if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_1_BIT)
+               desc.Texture2DArray.PlaneSlice = 1;
+            else if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_2_BIT)
+               desc.Texture2DArray.PlaneSlice = 2;
+            else
+               desc.Texture2DArray.PlaneSlice = 0;
+            break;
+         case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
+            desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
+            desc.Texture2DMSArray.ArraySize = range->layerCount;
+            break;
+         case D3D12_RTV_DIMENSION_TEXTURE3D:
+            desc.Texture3D.MipSlice = range->baseMipLevel + l;
+            desc.Texture3D.FirstWSlice = range->baseArrayLayer;
+            desc.Texture3D.WSize = range->layerCount;
+            break;
+         }
+
+         struct d3d12_descriptor_handle handle;
+         d3d12_descriptor_pool_alloc_handle(cmd_buffer->rtv_pool, &handle);
+         device->dev->CreateRenderTargetView(img->res, &desc,
+                                            handle.cpu_handle);
+         cmd_buffer->cmdlist->ClearRenderTargetView(handle.cpu_handle,
+                                                    pColor->float32, 0, NULL);
       }
    }
 }

@@ -185,6 +185,7 @@ struct dzn_cmd_buffer {
 
    struct dzn_device *device;
 
+   struct d3d12_descriptor_pool *rtv_pool;
    struct dzn_cmd_pool *pool;
    struct list_head pool_link;
 
