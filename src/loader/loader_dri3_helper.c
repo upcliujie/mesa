@@ -1546,14 +1546,15 @@ dri3_alloc_render_buffer(struct loader_dri3_drawable *draw, unsigned int format,
        * need to make it visible to render GPU
        */
       buffer->linear_buffer =
-         draw->ext->image->createImageFromFds(draw->dri_screen,
-                                              width,
-                                              height,
-                                              image_format_to_fourcc(format),
-                                              &buffer_fds[0], num_planes,
-                                              &buffer->strides[0],
-                                              &buffer->offsets[0],
-                                              buffer);
+         draw->ext->image->createImageFromFds2(draw->dri_screen,
+                                               width,
+                                               height,
+                                               image_format_to_fourcc(format),
+                                               &buffer_fds[0], num_planes,
+                                               __DRI_IMAGE_PRIME_LINEAR_BUFFER,
+                                               &buffer->strides[0],
+                                               &buffer->offsets[0],
+                                               buffer);
       if (!buffer->linear_buffer)
          goto no_buffer_attrib;
 
