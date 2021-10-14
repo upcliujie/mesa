@@ -98,7 +98,8 @@ zink_reset_batch_state(struct zink_context *ctx, struct zink_batch_state *bs)
 
    VKSCR(DestroySemaphore)(screen->dev, bs->present, NULL);
    bs->present = VK_NULL_HANDLE;
-   util_dynarray_clear(&bs->acquires);
+   while (util_dynarray_contains(&bs->acquires, VkSemaphore))
+      VKSCR(DestroySemaphore)(screen->dev, util_dynarray_pop(&bs->acquires, VkSemaphore), NULL);
    bs->swapchain = NULL;
 
    /* only reset submitted here so that tc fence desync can pick up the 'completed' flag
@@ -396,8 +397,8 @@ submit_queue(void *data, void *gdata, int thread_index)
    uint64_t batch_id = bs->fence.batch_id;
    si[0].sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
    VkSemaphore acquires[32]; //can't imagine having more dumbass than this
-   while (util_dynarray_contains(&bs->acquires, VkSemaphore))
-      acquires[si[0].waitSemaphoreCount++] = util_dynarray_pop(&bs->acquires, VkSemaphore);
+   util_dynarray_foreach(&bs->acquires, VkSemaphore, wait_sem)
+      acquires[si[0].waitSemaphoreCount++] = *wait_sem;
    si[0].pWaitSemaphores = acquires;
    VkPipelineStageFlags mask[32];
    for (unsigned i = 0; i < ARRAY_SIZE(mask); i++)

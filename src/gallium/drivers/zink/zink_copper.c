@@ -279,6 +279,7 @@ copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint64_t t
    struct copper_displaytarget *cdt = copper_displaytarget(res->obj->dt);
    if (res->obj->acquire)
       return true;
+   res->obj->acquire = VK_NULL_HANDLE;
    if (res->obj->new_dt) {
       if (!update_swapchain(screen, cdt, res->base.b.width0, res->base.b.height0)) {
          //???
@@ -309,7 +310,6 @@ copper_acquire(struct zink_screen *screen, struct zink_resource *res, uint64_t t
       return false;
    }
    assert(prev != res->obj->dt_idx);
-   VKSCR(DestroySemaphore)(screen->dev, cdt->swapchain->acquires[res->obj->dt_idx], NULL);
    cdt->swapchain->acquires[res->obj->dt_idx] = res->obj->acquire = acquire;
    res->obj->image = cdt->swapchain->images[res->obj->dt_idx];
    res->obj->acquired = false;
@@ -341,6 +341,8 @@ zink_copper_acquire_submit(struct zink_screen *screen, struct zink_resource *res
       return VK_NULL_HANDLE;
    assert(res->obj->acquire);
    res->obj->acquired = true;
+   /* this is now owned by the batch */
+   cdt->swapchain->acquires[res->obj->dt_idx] = VK_NULL_HANDLE;
    return res->obj->acquire;
 }
 
