@@ -225,7 +225,9 @@ iris_init_batch(struct iris_context *ice,
 
       intel_batch_decode_ctx_init(&batch->decoder, &screen->devinfo,
                                   stderr, decode_flags, NULL,
-                                  decode_get_bo, decode_get_state_size, batch);
+                                  decode_get_bo, decode_get_state_size,
+                                  NULL /* get_annotation */,
+                                  batch);
       batch->decoder.dynamic_base = IRIS_MEMZONE_DYNAMIC_START;
       batch->decoder.instruction_base = IRIS_MEMZONE_SHADER_START;
       batch->decoder.max_vbo_decoded_lines = 32;

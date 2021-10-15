@@ -2790,64 +2790,6 @@ vk_priority_to_gen(int priority)
    }
 }
 
-static bool
-get_bo_from_pool(struct intel_batch_decode_bo *ret,
-                 struct anv_block_pool *pool,
-                 uint64_t address)
-{
-   anv_block_pool_foreach_bo(bo, pool) {
-      uint64_t bo_address = intel_48b_address(bo->offset);
-      if (address >= bo_address && address < (bo_address + bo->size)) {
-         *ret = (struct intel_batch_decode_bo) {
-            .addr = bo_address,
-            .size = bo->size,
-            .map = bo->map,
-         };
-         return true;
-      }
-   }
-   return false;
-}
-
-/* Finding a buffer for batch decoding */
-static struct intel_batch_decode_bo
-decode_get_bo(void *v_batch, bool ppgtt, uint64_t address)
-{
-   struct anv_device *device = v_batch;
-   struct intel_batch_decode_bo ret_bo = {};
-
-   assert(ppgtt);
-
-   if (get_bo_from_pool(&ret_bo, &device->dynamic_state_pool.block_pool, address))
-      return ret_bo;
-   if (get_bo_from_pool(&ret_bo, &device->instruction_state_pool.block_pool, address))
-      return ret_bo;
-   if (get_bo_from_pool(&ret_bo, &device->binding_table_pool.block_pool, address))
-      return ret_bo;
-   if (get_bo_from_pool(&ret_bo, &device->surface_state_pool.block_pool, address))
-      return ret_bo;
-
-   if (!device->cmd_buffer_being_decoded)
-      return (struct intel_batch_decode_bo) { };
-
-   struct anv_batch_bo **bo;
-
-   u_vector_foreach(bo, &device->cmd_buffer_being_decoded->seen_bbos) {
-      /* The decoder zeroes out the top 16 bits, so we need to as well */
-      uint64_t bo_address = (*bo)->bo->offset & (~0ull >> 16);
-
-      if (address >= bo_address && address < bo_address + (*bo)->bo->size) {
-         return (struct intel_batch_decode_bo) {
-            .addr = bo_address,
-            .size = (*bo)->bo->size,
-            .map = (*bo)->bo->map,
-         };
-      }
-   }
-
-   return (struct intel_batch_decode_bo) { };
-}
-
 struct intel_aux_map_buffer {
    struct intel_buffer base;
    struct anv_state state;
@@ -2959,19 +2901,6 @@ VkResult anv_CreateDevice(
                            &dispatch_table, pCreateInfo, pAllocator);
    if (result != VK_SUCCESS)
       goto fail_alloc;
-
-   if (INTEL_DEBUG & DEBUG_BATCH) {
-      const unsigned decode_flags =
-         INTEL_BATCH_DECODE_FULL |
-         ((INTEL_DEBUG & DEBUG_COLOR) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
-         INTEL_BATCH_DECODE_OFFSETS |
-         INTEL_BATCH_DECODE_FLOATS;
-
-      intel_batch_decode_ctx_init(&device->decoder_ctx,
-                                  &physical_device->info,
-                                  stderr, decode_flags, NULL,
-                                  decode_get_bo, NULL, device);
-   }
 
    device->physical = physical_device;
    device->_lost = false;
@@ -3380,9 +3309,6 @@ void anv_DestroyDevice(
    vk_free(&device->vk.alloc, device->queues);
 
    anv_gem_destroy_context(device, device->context_id);
-
-   if (INTEL_DEBUG & DEBUG_BATCH)
-      intel_batch_decode_ctx_finish(&device->decoder_ctx);
 
    close(device->fd);
 

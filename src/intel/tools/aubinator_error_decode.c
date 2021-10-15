@@ -291,6 +291,7 @@ struct section {
 #define MAX_SECTIONS 256
 static unsigned num_sections;
 static struct section sections[MAX_SECTIONS];
+struct hash_table_u64 *annotation_map;
 
 static int zlib_inflate(uint32_t **ptr, int len)
 {
@@ -389,7 +390,7 @@ static int qsort_hw_context_first(const void *a, const void *b)
 }
 
 static struct intel_batch_decode_bo
-get_intel_batch_bo(void *user_data, bool ppgtt, uint64_t address)
+get_batch_bo(void *user_data, bool ppgtt, uint64_t address)
 {
    for (int s = 0; s < num_sections; s++) {
       if (sections[s].gtt_offset <= address &&
@@ -403,6 +404,12 @@ get_intel_batch_bo(void *user_data, bool ppgtt, uint64_t address)
    }
 
    return (struct intel_batch_decode_bo) { .map = NULL };
+}
+
+static const struct intel_debug_mem_annotate *
+get_annotation(void *v_batch, uint64_t address)
+{
+   return _mesa_hash_table_u64_search(annotation_map, address);
 }
 
 static void
@@ -648,6 +655,8 @@ read_data_file(FILE *file)
       sections[s].dword_count = (ring_tail - ring_head) / sizeof(uint32_t);
    }
 
+   annotation_map = _mesa_hash_table_u64_create(NULL);
+
    for (int s = 0; s < num_sections; s++) {
       if (sections[s].dword_count * 4 > intel_debug_identifier_size() &&
           memcmp(sections[s].data, intel_debug_identifier(),
@@ -660,7 +669,14 @@ read_data_file(FILE *file)
             printf("Driver identifier: %s\n",
                    (const char *) driver_desc->description);
          }
-         break;
+
+         intel_debug_foreach_block(struct intel_debug_mem_annotate, annot,
+                                   INTEL_DEBUG_BLOCK_TYPE_MEM_ANNOTATE,
+                                   sections[s].data, sections[s].data +
+                                   sections[s].dword_count) {
+            _mesa_hash_table_u64_insert(annotation_map,
+                                        annot->address, annot);
+         }
       }
    }
 
@@ -675,7 +691,11 @@ read_data_file(FILE *file)
 
    struct intel_batch_decode_ctx batch_ctx;
    intel_batch_decode_ctx_init(&batch_ctx, &devinfo, stdout, batch_flags,
-                               xml_path, get_intel_batch_bo, NULL, NULL);
+                               xml_path,
+                               get_batch_bo,
+                               NULL /* get_state_size */,
+                               get_annotation,
+                               NULL /* user_ptr */);
    batch_ctx.acthd = acthd;
 
 
@@ -710,6 +730,8 @@ read_data_file(FILE *file)
       free(sections[s].ring_name);
       free(sections[s].data);
    }
+
+   _mesa_hash_table_u64_destroy(annotation_map);
 }
 
 static void

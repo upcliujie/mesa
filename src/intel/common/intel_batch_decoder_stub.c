@@ -34,6 +34,7 @@ intel_batch_decode_ctx_init(struct intel_batch_decode_ctx *ctx,
                                                                    uint64_t),
                             unsigned (*get_state_size)(void *, uint64_t,
                                                        uint64_t),
+                            const char *(get_annotation)(void *, uint64_t),
                             void *user_data)
 {
    /* Clear ctx to play safe. */

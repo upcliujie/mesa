@@ -37,6 +37,76 @@
 
 #include "genxml/gen7_pack.h"
 
+/**/
+
+static bool
+get_bo_from_pool(struct intel_batch_decode_bo *ret,
+                 struct anv_block_pool *pool,
+                 uint64_t address)
+{
+   anv_block_pool_foreach_bo(bo, pool) {
+      uint64_t bo_address = intel_48b_address(bo->offset);
+      if (address >= bo_address && address < (bo_address + bo->size)) {
+         *ret = (struct intel_batch_decode_bo) {
+            .addr = bo_address,
+            .size = bo->size,
+            .map = bo->map,
+         };
+         return true;
+      }
+   }
+   return false;
+}
+
+/* Finding a buffer for batch decoding */
+static struct intel_batch_decode_bo
+decode_get_bo(void *v_batch, bool ppgtt, uint64_t address)
+{
+   struct anv_queue *queue = v_batch;
+   struct anv_device *device = queue->device;
+   struct intel_batch_decode_bo ret_bo = {};
+
+   assert(ppgtt);
+
+   if (get_bo_from_pool(&ret_bo, &device->dynamic_state_pool.block_pool, address))
+      return ret_bo;
+   if (get_bo_from_pool(&ret_bo, &device->instruction_state_pool.block_pool, address))
+      return ret_bo;
+   if (get_bo_from_pool(&ret_bo, &device->binding_table_pool.block_pool, address))
+      return ret_bo;
+   if (get_bo_from_pool(&ret_bo, &device->surface_state_pool.block_pool, address))
+      return ret_bo;
+
+   if (!device->cmd_buffer_being_decoded)
+      return (struct intel_batch_decode_bo) { };
+
+   struct anv_batch_bo **bo;
+
+   u_vector_foreach(bo, &device->cmd_buffer_being_decoded->seen_bbos) {
+      /* The decoder zeroes out the top 16 bits, so we need to as well */
+      uint64_t bo_address = (*bo)->bo->offset & (~0ull >> 16);
+
+      if (address >= bo_address && address < bo_address + (*bo)->bo->size) {
+         return (struct intel_batch_decode_bo) {
+            .addr = bo_address,
+            .size = (*bo)->bo->size,
+            .map = (*bo)->bo->map,
+         };
+      }
+   }
+
+   return (struct intel_batch_decode_bo) { };
+}
+
+static const struct intel_debug_mem_annotate *
+decode_get_annotation(void *v_batch, uint64_t address)
+{
+   struct anv_queue *queue = v_batch;
+   return _mesa_hash_table_u64_search(queue->annotation_map, address);
+}
+
+/**/
+
 uint64_t anv_gettime_ns(void)
 {
    struct timespec current;
@@ -514,6 +584,24 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
       }
    }
 
+   if (INTEL_DEBUG & DEBUG_BATCH) {
+      const unsigned decode_flags =
+         INTEL_BATCH_DECODE_FULL |
+         ((INTEL_DEBUG & DEBUG_COLOR) ? INTEL_BATCH_DECODE_IN_COLOR : 0) |
+         INTEL_BATCH_DECODE_OFFSETS |
+         INTEL_BATCH_DECODE_FLOATS;
+
+      intel_batch_decode_ctx_init(&queue->decoder_ctx,
+                                  &device->physical->info,
+                                  stderr, decode_flags, NULL,
+                                  decode_get_bo,
+                                  NULL /* get_state_size */,
+                                  decode_get_annotation,
+                                  queue);
+   }
+   if (INTEL_DEBUG & DEBUG_ANNOTATE)
+      queue->annotation_map = _mesa_hash_table_u64_create(NULL);
+
    return VK_SUCCESS;
 
  fail_cond:
@@ -541,6 +629,11 @@ anv_queue_finish(struct anv_queue *queue)
       pthread_cond_destroy(&queue->cond);
       pthread_mutex_destroy(&queue->mutex);
    }
+
+   if (INTEL_DEBUG & DEBUG_BATCH)
+      intel_batch_decode_ctx_finish(&queue->decoder_ctx);
+   if (INTEL_DEBUG & DEBUG_ANNOTATE)
+      _mesa_hash_table_u64_destroy(queue->annotation_map);
 
    vk_queue_finish(&queue->vk);
 }

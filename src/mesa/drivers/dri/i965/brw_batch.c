@@ -169,7 +169,9 @@ brw_batch_init(struct brw_context *brw)
 
       intel_batch_decode_ctx_init(&batch->decoder, devinfo, stderr,
                                   decode_flags, NULL, decode_get_bo,
-                                  decode_get_state_size, brw);
+                                  decode_get_state_size,
+                                  NULL /* get_annotation */,
+                                  brw);
       batch->decoder.max_vbo_decoded_lines = 100;
    }
 
