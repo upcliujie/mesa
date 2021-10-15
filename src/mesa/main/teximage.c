@@ -3734,6 +3734,27 @@ texturesubimage(struct gl_context *ctx, GLuint dims,
          return;
       }
 
+      if (dims == 3 && texObj->Target == GL_TEXTURE_CUBE_MAP &&
+          ctx->API == API_OPENGL_CORE) {
+         /* The OpenGL spec says:
+          *     For TextureSubImage3D and CopyTextureSubImage3D only, texture
+          *     may be a cube map texture. In this case, zoffset is interpreted
+          *     as specifying the cube map face for the corresponding layer in
+          *     table 9.3 and depth is the number of successive faces to update.
+          *
+          * ARB_direct_state_access says TextureSubImage*D functions behave
+          * like the TexSubImage*D versions, don't apply this to compatibility
+          * profiles.
+          */
+         if (zoffset < GL_TEXTURE_CUBE_MAP_POSITIVE_X ||
+             zoffset > GL_TEXTURE_CUBE_MAP_NEGATIVE_Z) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "%s(target=%s, zoffset=%x)",
+                        callerName, _mesa_enum_to_string(texObj->Target), zoffset);
+            return;
+         }
+         zoffset -= GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+      }
+
       if (texsubimage_error_check(ctx, dims, texObj, texObj->Target, level,
                                   xoffset, yoffset, zoffset,
                                   width, height, depth, format, type,
@@ -4854,9 +4875,22 @@ _mesa_CopyTextureSubImage3D(GLuint texture, GLint level,
    }
 
    if (texObj->Target == GL_TEXTURE_CUBE_MAP) {
+      /* The OpenGL spec says:
+       *     For TextureSubImage3D and CopyTextureSubImage3D only, texture
+       *     may be a cube map texture. In this case, zoffset is interpreted
+       *     as specifying the cube map face for the corresponding layer in
+       *     table 9.3 and depth is the number of successive faces to update.
+       *
+       * ARB_direct_state_access says CopyTexSubImage*D functions behave
+       * like the CopyTexSubImage*D versions, so only add
+       * GL_TEXTURE_CUBE_MAP_POSITIVE_X to compatibility profiles.
+       */
+      if (ctx->API == API_OPENGL_COMPAT)
+         zoffset += GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+
       /* Act like CopyTexSubImage2D */
       copy_texture_sub_image_err(ctx, 2, texObj,
-                                GL_TEXTURE_CUBE_MAP_POSITIVE_X + zoffset,
+                                zoffset,
                                 level, xoffset, yoffset, 0, x, y, width, height,
                                 self);
    }
