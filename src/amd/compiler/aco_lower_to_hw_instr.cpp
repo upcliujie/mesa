@@ -1997,32 +1997,28 @@ lower_to_hw_instr(Program* program)
                break;
             }
             case aco_opcode::p_exit_early_if: {
-               /* don't bother with an early exit near the end of the program */
-               if ((block->instructions.size() - 1 - instr_idx) <= 4 &&
-                   block->instructions.back()->opcode == aco_opcode::s_endpgm) {
-                  unsigned null_exp_dest =
-                     (ctx.program->stage.hw == HWStage::FS) ? 9 /* NULL */ : V_008DFC_SQ_EXP_POS;
-                  bool ignore_early_exit = true;
+               unsigned null_exp_dest =
+                  (ctx.program->stage.hw == HWStage::FS) ? 9 /* NULL */ : V_008DFC_SQ_EXP_POS;
+               bool ignore_early_exit = true;
 
-                  for (unsigned k = instr_idx + 1; k < block->instructions.size(); ++k) {
-                     const aco_ptr<Instruction>& instr2 = block->instructions[k];
-                     if (instr2->opcode == aco_opcode::s_endpgm ||
-                         instr2->opcode == aco_opcode::p_logical_end)
-                        continue;
-                     else if (instr2->opcode == aco_opcode::exp &&
-                              instr2->exp().dest == null_exp_dest)
-                        continue;
-                     else if (instr2->opcode == aco_opcode::p_parallelcopy &&
-                              instr2->definitions[0].isFixed() &&
-                              instr2->definitions[0].physReg() == exec)
-                        continue;
+               for (unsigned k = instr_idx + 1; k < block->instructions.size(); ++k) {
+                  const aco_ptr<Instruction>& instr2 = block->instructions[k];
+                  if (instr2->opcode == aco_opcode::s_endpgm ||
+                        instr2->opcode == aco_opcode::p_logical_end)
+                     continue;
+                  else if (instr2->opcode == aco_opcode::exp &&
+                           instr2->exp().dest == null_exp_dest)
+                     continue;
+                  else if (instr2->opcode == aco_opcode::p_parallelcopy &&
+                           instr2->definitions[0].isFixed() &&
+                           instr2->definitions[0].physReg() == exec)
+                     continue;
 
-                     ignore_early_exit = false;
-                  }
-
-                  if (ignore_early_exit)
-                     break;
+                  ignore_early_exit = false;
                }
+
+               if (ignore_early_exit)
+                  break;
 
                if (!discard_block) {
                   discard_block = program->create_and_insert_block();
