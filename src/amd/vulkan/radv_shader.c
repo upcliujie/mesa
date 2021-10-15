@@ -1935,6 +1935,7 @@ upload_vs_prolog(struct radv_device *device, struct radv_prolog_binary *bin, uns
    prolog->rsrc1 = S_00B848_VGPRS((bin->num_vgprs - 1) / (wave_size == 32 ? 8 : 4)) |
                    S_00B228_SGPRS((bin->num_sgprs - 1) / 8);
    prolog->num_preserved_sgprs = bin->num_preserved_sgprs;
+   prolog->disasm_string = NULL;
 
    return prolog;
 }
@@ -1949,6 +1950,7 @@ radv_create_vs_prolog(struct radv_device *device, const struct radv_vs_prolog_ke
    options.info = &device->physical_device->rad_info;
    options.address32_hi = device->physical_device->rad_info.address32_hi;
    options.dump_shader = device->instance->debug_flags & RADV_DEBUG_DUMP_PROLOGS;
+   options.record_ir = device->instance->debug_flags & RADV_DEBUG_HANG;
 
    struct radv_shader_info info = {0};
    info.wave_size = key->wave32 ? 32 : 64;
@@ -1968,14 +1970,25 @@ radv_create_vs_prolog(struct radv_device *device, const struct radv_vs_prolog_ke
                             MESA_SHADER_VERTEX);
 
 #ifdef LLVM_AVAILABLE
-   if (options.dump_shader)
+   if (options.dump_shader || options.record_ir)
       ac_init_llvm_once();
 #endif
 
    struct radv_prolog_binary *binary = NULL;
    aco_compile_vs_prolog(key, &binary, &args);
    struct radv_shader_prolog *prolog = upload_vs_prolog(device, binary, info.wave_size);
+
+   if (prolog) {
+      prolog->disasm_string =
+         binary->disasm_size ? strdup((const char *)(binary->data + binary->code_size)) : NULL;
+   }
+
    free(binary);
+
+   if (options.dump_shader) {
+      fprintf(stderr, "Vertex prolog");
+      fprintf(stderr, "\ndisasm:\n%s\n", prolog->disasm_string);
+   }
 
    return prolog;
 }
@@ -2003,6 +2016,7 @@ radv_prolog_destroy(struct radv_device *device, struct radv_shader_prolog *prolo
       return;
 
    free_shader_memory(device, prolog->alloc);
+   free(prolog->disasm_string);
    free(prolog);
 }
 
