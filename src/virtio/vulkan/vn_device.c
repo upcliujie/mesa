@@ -20,6 +20,79 @@
 /* device commands */
 
 static void
+vn_device_destroy_buffer_caches(struct vn_device *dev,
+                                struct vn_buffer_cache *caches)
+{
+   const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+
+   if (caches)
+      vk_free(alloc, caches);
+}
+
+const struct vn_buffer_cache *
+vn_device_get_buffer_cache(struct vn_device *dev,
+                           const VkBufferCreateInfo *create_info)
+{
+   return NULL;
+}
+
+static VkResult
+vn_device_create_buffer_caches(struct vn_device *dev,
+                               struct vn_buffer_cache **out_caches,
+                               uint32_t *out_cache_count)
+{
+   *out_caches = NULL;
+   *out_cache_count = 0;
+   return VK_SUCCESS;
+}
+
+static VkResult
+vn_device_get_max_buffer_size(struct vn_device *dev,
+                              uint64_t *out_max_buffer_size)
+{
+   *out_max_buffer_size = 0;
+   return VK_SUCCESS;
+}
+
+static void
+vn_device_fini_buffer_requirements(struct vn_device *dev)
+{
+   vn_device_destroy_buffer_caches(dev, dev->buffer_requirements.caches);
+}
+
+static VkResult
+vn_device_init_buffer_requirements(struct vn_device *dev)
+{
+   uint32_t ahb_mem_type_bits = 0;
+   uint64_t max_buffer_size = 0;
+   struct vn_buffer_cache *caches = NULL;
+   uint32_t cache_count = 0;
+   VkResult result;
+
+   if (dev->base.base.enabled_extensions
+          .ANDROID_external_memory_android_hardware_buffer) {
+      result =
+         vn_android_get_ahb_buffer_memory_type_bits(dev, &ahb_mem_type_bits);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   result = vn_device_get_max_buffer_size(dev, &max_buffer_size);
+   if (result != VK_SUCCESS)
+      return result;
+
+   result = vn_device_create_buffer_caches(dev, &caches, &cache_count);
+   if (result != VK_SUCCESS)
+      return result;
+
+   dev->buffer_requirements.ahb_mem_type_bits = ahb_mem_type_bits;
+   dev->buffer_requirements.max_buffer_size = max_buffer_size;
+   dev->buffer_requirements.caches = caches;
+   dev->buffer_requirements.cache_count = cache_count;
+   return VK_SUCCESS;
+}
+
+static void
 vn_queue_fini(struct vn_queue *queue)
 {
    if (queue->wait_fence != VK_NULL_HANDLE) {
@@ -302,16 +375,9 @@ vn_device_init(struct vn_device *dev,
       mtx_init(&pool->mutex, mtx_plain);
    }
 
-   if (dev->base.base.enabled_extensions
-          .ANDROID_external_memory_android_hardware_buffer) {
-      uint32_t mem_type_bits = 0;
-      result =
-         vn_android_get_ahb_buffer_memory_type_bits(dev, &mem_type_bits);
-      if (result != VK_SUCCESS)
-         goto fail;
-
-      dev->ahb_buffer_memory_type_bits = mem_type_bits;
-   }
+   result = vn_device_init_buffer_requirements(dev);
+   if (result != VK_SUCCESS)
+      goto fail;
 
    return VK_SUCCESS;
 
@@ -380,6 +446,8 @@ vn_DestroyDevice(VkDevice device, const VkAllocationCallbacks *pAllocator)
 
    if (!dev)
       return;
+
+   vn_device_fini_buffer_requirements(dev);
 
    for (uint32_t i = 0; i < ARRAY_SIZE(dev->memory_pools); i++)
       vn_device_memory_pool_fini(dev, i);

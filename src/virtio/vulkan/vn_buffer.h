@@ -13,6 +13,13 @@
 
 #include "vn_common.h"
 
+struct vn_buffer_cache {
+   VkBufferCreateInfo create_info;
+
+   VkMemoryRequirements2 memory_requirements;
+   VkMemoryDedicatedRequirements dedicated_requirements;
+};
+
 struct vn_buffer {
    struct vn_object_base base;
 

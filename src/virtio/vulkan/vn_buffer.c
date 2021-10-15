@@ -19,6 +19,33 @@
 
 /* buffer commands */
 
+static bool
+vn_buffer_init_from_cache(struct vn_device *dev,
+                          const VkBufferCreateInfo *create_info,
+                          struct vn_buffer *buf)
+{
+   VkDevice dev_handle = vn_device_to_handle(dev);
+   VkBuffer buf_handle = vn_buffer_to_handle(buf);
+   const struct vn_buffer_cache *cache;
+
+   cache = vn_device_get_buffer_cache(dev, create_info);
+   if (!cache)
+      return false;
+
+   vn_async_vkCreateBuffer(dev->instance, dev_handle, create_info, NULL,
+                           &buf_handle);
+
+   buf->memory_requirements = cache->memory_requirements;
+   buf->dedicated_requirements = cache->dedicated_requirements;
+
+   /* align with the queried alignment, and over-align is fine */
+   buf->memory_requirements.memoryRequirements.size =
+      align64(create_info->size,
+              buf->memory_requirements.memoryRequirements.alignment);
+
+   return true;
+}
+
 static VkResult
 vn_buffer_init(struct vn_device *dev,
                const VkBufferCreateInfo *create_info,
@@ -57,7 +84,6 @@ vn_buffer_create(struct vn_device *dev,
                  struct vn_buffer **out_buf)
 {
    struct vn_buffer *buf = NULL;
-   VkResult result;
 
    buf = vk_zalloc(alloc, sizeof(*buf), VN_DEFAULT_ALIGN,
                    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
@@ -66,11 +92,14 @@ vn_buffer_create(struct vn_device *dev,
 
    vn_object_base_init(&buf->base, VK_OBJECT_TYPE_BUFFER, &dev->base);
 
-   result = vn_buffer_init(dev, create_info, buf);
-   if (result != VK_SUCCESS) {
-      vn_object_base_fini(&buf->base);
-      vk_free(alloc, buf);
-      return result;
+   /* fallback to init from host driver upon failing to init from cache */
+   if (!vn_buffer_init_from_cache(dev, create_info, buf)) {
+      VkResult result = vn_buffer_init(dev, create_info, buf);
+      if (result != VK_SUCCESS) {
+         vn_object_base_fini(&buf->base);
+         vk_free(alloc, buf);
+         return result;
+      }
    }
 
    *out_buf = buf;
