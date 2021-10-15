@@ -445,6 +445,7 @@ dri2_wl_create_window_surface(_EGLDisplay *disp, _EGLConfig *conf,
        goto cleanup_surf_wrapper;
 
    dri2_surf->base.SwapInterval = dri2_dpy->default_swap_interval;
+   dri2_surf->swap_state = dri2_dpy->default_swap_interval;
 
    return &dri2_surf->base;
 
@@ -887,6 +888,12 @@ static const __DRIimageLoaderExtension image_loader_extension = {
    .getCapability       = dri2_wl_get_capability,
 };
 
+static void wayland_throttle_callback(void *, struct wl_callback *, uint32_t);
+
+static const struct wl_callback_listener throttle_listener = {
+   .done = wayland_throttle_callback
+};
+
 static void
 wayland_throttle_callback(void *data,
                           struct wl_callback *callback,
@@ -894,13 +901,19 @@ wayland_throttle_callback(void *data,
 {
    struct dri2_egl_surface *dri2_surf = data;
 
-   dri2_surf->throttle_callback = NULL;
    wl_callback_destroy(callback);
-}
 
-static const struct wl_callback_listener throttle_listener = {
-   .done = wayland_throttle_callback
-};
+   if (--dri2_surf->swap_state > 0) {
+      dri2_surf->throttle_callback =
+            wl_surface_frame(dri2_surf->wl_surface_wrapper);
+      wl_callback_add_listener(dri2_surf->throttle_callback,
+                               &throttle_listener, dri2_surf);
+      wl_surface_commit(dri2_surf->wl_surface_wrapper);
+   } else {
+      dri2_surf->swap_state = dri2_surf->base.SwapInterval;
+      dri2_surf->throttle_callback = NULL;
+   }
+}
 
 static EGLBoolean
 get_fourcc(struct dri2_egl_display *dri2_dpy,
@@ -1406,12 +1419,9 @@ static const struct wl_registry_listener registry_listener_drm = {
 static void
 dri2_wl_setup_swap_interval(_EGLDisplay *disp)
 {
-   /* We can't use values greater than 1 on Wayland because we are using the
-    * frame callback to synchronise the frame and the only way we be sure to
-    * get a frame callback is to attach a new buffer. Therefore we can't just
-    * sit drawing nothing to wait until the next ‘n’ frame callbacks */
+   int arbitrary_max_interval = 1000;
 
-   dri2_setup_swap_interval(disp, 1);
+   dri2_setup_swap_interval(disp, arbitrary_max_interval);
 }
 
 static const struct dri2_egl_display_vtbl dri2_wl_display_vtbl = {
