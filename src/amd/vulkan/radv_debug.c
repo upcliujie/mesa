@@ -488,6 +488,25 @@ radv_dump_vertex_descriptors(struct radv_pipeline *pipeline, FILE *f)
    }
 }
 
+static struct radv_shader_prolog *
+radv_get_saved_vs_prolog(struct radv_device *device)
+{
+   uint64_t *ptr = (uint64_t *)device->trace_id_ptr;
+   return *(struct radv_shader_prolog **)(ptr + 4);
+}
+
+static void
+radv_dump_vs_prolog(struct radv_pipeline *pipeline, FILE *f)
+{
+   struct radv_shader_prolog *vs_prolog = radv_get_saved_vs_prolog(pipeline->device);
+
+   if (!vs_prolog)
+      return;
+
+   fprintf(f, "Vertex prolog:\n\n");
+   fprintf(f, "DISASM:\n%s\n", vs_prolog->disasm_string);
+}
+
 static struct radv_pipeline *
 radv_get_saved_pipeline(struct radv_device *device, enum ring_type ring)
 {
@@ -507,6 +526,7 @@ radv_dump_queue_state(struct radv_queue *queue, const char *dump_dir, FILE *f)
 
    pipeline = radv_get_saved_pipeline(queue->device, ring);
    if (pipeline) {
+      radv_dump_vs_prolog(pipeline, f);
       radv_dump_shaders(pipeline, pipeline->active_stages, dump_dir, f);
       if (!(queue->device->instance->debug_flags & RADV_DEBUG_NO_UMR))
          radv_dump_annotated_shaders(pipeline, pipeline->active_stages, f);
