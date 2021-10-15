@@ -303,6 +303,7 @@ namespace {
             types[id] = { binary::argument::scalar, size, size, size,
                           binary::argument::zero_ext };
             types[id].info.address_qualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
          }
 
@@ -376,6 +377,7 @@ namespace {
             types[id] = { binary::argument::scalar, size, size, size,
                           binary::argument::zero_ext };
             types[id].info.address_qualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
          }
 
@@ -403,13 +405,18 @@ namespace {
                           alignment,
                           binary::argument::zero_ext };
             types[id].info.address_qualifier = convert_storage_class_to_cl(storage_class);
+            types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
          }
 
-         case SpvOpTypeSampler:
-            types[get<SpvId>(inst, 1)] = { binary::argument::sampler,
-                                             sizeof(cl_sampler) };
+         case SpvOpTypeSampler: {
+            const auto id = get<SpvId>(inst, 1);
+            types[id] = { binary::argument::sampler,
+                          sizeof(cl_sampler) };
+            types[id].info.address_qualifier = CL_KERNEL_ARG_ADDRESS_PRIVATE;
+            types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_NONE;
             break;
+         }
 
          case SpvOpTypeImage: {
             const auto id = get<SpvId>(inst, 1);
@@ -418,6 +425,19 @@ namespace {
             types[id] = { convert_image_type(id, dim, access, err),
                           sizeof(cl_mem), sizeof(cl_mem), sizeof(cl_mem),
                           binary::argument::zero_ext };
+            types[id].info.address_qualifier = CL_KERNEL_ARG_ADDRESS_GLOBAL;
+            switch (access) {
+            default:
+            case SpvAccessQualifierReadOnly:
+               types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_READ_ONLY;
+               break;
+            case SpvAccessQualifierWriteOnly:
+               types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_WRITE_ONLY;
+               break;
+            case SpvAccessQualifierReadWrite:
+               types[id].info.access_qualifier = CL_KERNEL_ARG_ACCESS_READ_WRITE;
+               break;
+            }
             break;
          }
 
@@ -486,7 +506,7 @@ namespace {
 
             arg.info.type_qualifier |= qualifiers[id];
             arg.info.address_qualifier = types[type_id].info.address_qualifier;
-            arg.info.access_qualifier = CL_KERNEL_ARG_ACCESS_NONE;
+            arg.info.access_qualifier = types[type_id].info.access_qualifier;
             args.emplace_back(arg);
             break;
          }
