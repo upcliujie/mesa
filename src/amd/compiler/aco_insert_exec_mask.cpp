@@ -473,8 +473,21 @@ transition_to_WQM(exec_ctx& ctx, Builder bld, unsigned idx)
    assert(ctx.info[idx].exec.back().second & mask_type_wqm);
    assert(ctx.info[idx].exec.back().first.size() == bld.lm.size());
    assert(ctx.info[idx].exec.back().first.isTemp());
-   ctx.info[idx].exec.back().first = bld.pseudo(
-      aco_opcode::p_parallelcopy, Definition(exec, bld.lm), ctx.info[idx].exec.back().first);
+
+   Definition copy_to(exec, bld.lm);
+   Operand copy_from = ctx.info[idx].exec.back().first;
+
+   /* Short-circuit if the value is copied from the previous instruction. */
+   if (bld.instructions->size() && bld.instructions->back()->definitions.size() &&
+       bld.instructions->back()->isSALU() &&
+       ctx.info[idx].exec.back().first.tempId() ==
+          bld.instructions->back()->definitions[0].tempId()) {
+      copy_to = bld.instructions->back()->definitions[0];
+      copy_from = Operand(exec, bld.lm);
+      bld.instructions->back()->definitions[0] = Definition(exec, bld.lm);
+   }
+
+   ctx.info[idx].exec.back().first = bld.copy(copy_to, copy_from);
 }
 
 void
@@ -491,8 +504,21 @@ transition_to_Exact(exec_ctx& ctx, Builder bld, unsigned idx)
       assert(ctx.info[idx].exec.back().second & mask_type_exact);
       assert(ctx.info[idx].exec.back().first.size() == bld.lm.size());
       assert(ctx.info[idx].exec.back().first.isTemp());
-      ctx.info[idx].exec.back().first = bld.pseudo(
-         aco_opcode::p_parallelcopy, Definition(exec, bld.lm), ctx.info[idx].exec.back().first);
+
+      Definition copy_to(exec, bld.lm);
+      Operand copy_from = ctx.info[idx].exec.back().first;
+
+      /* Short-circuit if the value is copied from the previous instruction. */
+      if (bld.instructions->size() && bld.instructions->back()->definitions.size() &&
+          bld.instructions->back()->isSALU() &&
+          ctx.info[idx].exec.back().first.tempId() ==
+             bld.instructions->back()->definitions[0].tempId()) {
+         copy_to = bld.instructions->back()->definitions[0];
+         copy_from = Operand(exec, bld.lm);
+         bld.instructions->back()->definitions[0] = Definition(exec, bld.lm);
+      }
+
+      ctx.info[idx].exec.back().first = bld.copy(copy_to, copy_from);
       return;
    }
    /* otherwise, we create an exact mask and push to the stack */
