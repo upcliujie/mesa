@@ -406,7 +406,7 @@ match_expression(const nir_search_expression *expr, nir_alu_instr *instr,
       return false;
 
    state->inexact_match = expr->inexact || state->inexact_match;
-   state->has_exact_alu = instr->exact || state->has_exact_alu;
+   state->has_exact_alu = (instr->exact && !expr->ignore_exact) || state->has_exact_alu;
    if (state->inexact_match && state->has_exact_alu)
       return false;
 
