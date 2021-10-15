@@ -1221,7 +1221,7 @@ vn_android_buffer_from_ahb(struct vn_device *dev,
     * properties.
     */
    (*out_buf)->requirements.memory.memoryRequirements.memoryTypeBits &=
-      dev->ahb_buffer_memory_type_bits;
+      dev->buffer_cache.ahb_mem_type_bits;
 
    assert((*out_buf)->requirements.memory.memoryRequirements.memoryTypeBits);
 
