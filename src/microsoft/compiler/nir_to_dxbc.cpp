@@ -522,6 +522,83 @@ emit_load_frag_coord(struct ntd_context* ctx,
   return true;
 }
 
+static bool
+emit_vulkan_resource_index(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   unsigned int binding = nir_intrinsic_binding(intr);
+
+   bool const_index = nir_src_is_const(intr->src[0]);
+   if (const_index) {
+      binding += nir_src_as_const_value(intr->src[0])->u32;
+   }
+
+   // const struct dxil_value *index_value = dxil_module_get_int32_const(&ctx->mod, binding);
+   // if (!index_value)
+   //    return false;
+
+   // if (!const_index) {
+   //    const struct dxil_value *offset = get_src(ctx, &intr->src[0], 0, nir_type_uint32);
+   //    if (!offset)
+   //       return false;
+
+   //    index_value = dxil_emit_binop(&ctx->mod, DXIL_BINOP_ADD, index_value, offset, 0);
+   //    if (!index_value)
+   //       return false;
+   // }
+
+   // store_dest(ctx, &intr->dest, 0, index_value, nir_type_uint32);
+   // store_dest(ctx, &intr->dest, 1, dxil_module_get_int32_const(&ctx->mod, 0), nir_type_uint32);
+   assert(!"unimplemented");
+   return true;
+}
+
+static bool
+emit_load_vulkan_descriptor(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   // nir_intrinsic_instr* index = nir_src_as_intrinsic(intr->src[0]);
+   // /* We currently do not support reindex */
+   // assert(index && index->intrinsic == nir_intrinsic_vulkan_resource_index);
+
+   // unsigned binding = nir_intrinsic_binding(index);
+   // unsigned space = nir_intrinsic_desc_set(index);
+
+   // /* The descriptor_set field for variables is only 5 bits. We shouldn't have intrinsics trying to go beyond that. */
+   // assert(space < 32);
+
+   // nir_variable *var = nir_get_binding_variable(ctx->shader, nir_chase_binding(intr->src[0]));
+
+   // const struct dxil_value *handle = NULL;
+   // enum dxil_resource_class resource_class;
+
+   // switch (nir_intrinsic_desc_type(intr)) {
+   // case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+   //    resource_class = DXIL_RESOURCE_CLASS_CBV;
+   //    break;
+   // case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+   //    if (var->data.access & ACCESS_NON_WRITEABLE)
+   //       resource_class = DXIL_RESOURCE_CLASS_SRV;
+   //    else
+   //       resource_class = DXIL_RESOURCE_CLASS_UAV;
+   //    break;
+   // default:
+   //    unreachable("unknown descriptor type");
+   //    return false;
+   // }
+
+   // const struct dxil_value *index_value = get_src(ctx, &intr->src[0], 0, nir_type_uint32);
+   // if (!index_value)
+   //    return false;
+
+   // handle = emit_createhandle_call(ctx, resource_class,
+   //    get_resource_id(ctx, resource_class, space, binding),
+   //    index_value, false);
+
+   // store_dest_value(ctx, &intr->dest, 0, handle);
+   // store_dest(ctx, &intr->dest, 1, get_src(ctx, &intr->src[0], 1, nir_type_uint32), nir_type_uint32);
+
+   assert(!"unimplemented");
+   return true;
+}
 
 static bool
 emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
@@ -534,6 +611,11 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 
    case nir_intrinsic_load_frag_coord:
       return emit_load_frag_coord(ctx, intr);
+
+   case nir_intrinsic_vulkan_resource_index:
+      return emit_vulkan_resource_index(ctx, intr);
+   case nir_intrinsic_load_vulkan_descriptor:
+      return emit_load_vulkan_descriptor(ctx, intr);
 
    default:
       NIR_INSTR_UNSUPPORTED(&intr->instr);
