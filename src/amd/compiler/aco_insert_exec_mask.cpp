@@ -96,6 +96,113 @@ struct exec_ctx {
    exec_ctx(Program* program_) : program(program_), info(program->blocks.size()) {}
 };
 
+aco_opcode
+v_cmp_to_cmpx(aco_opcode c)
+{
+   switch (c) {
+   case aco_opcode::v_cmp_class_f16: return aco_opcode::v_cmpx_class_f16;
+   case aco_opcode::v_cmp_class_f32: return aco_opcode::v_cmpx_class_f32;
+   case aco_opcode::v_cmp_class_f64: return aco_opcode::v_cmpx_class_f64;
+   case aco_opcode::v_cmp_eq_f16: return aco_opcode::v_cmpx_eq_f16;
+   case aco_opcode::v_cmp_eq_f32: return aco_opcode::v_cmpx_eq_f32;
+   case aco_opcode::v_cmp_eq_f64: return aco_opcode::v_cmpx_eq_f64;
+   case aco_opcode::v_cmp_eq_i16: return aco_opcode::v_cmpx_eq_i16;
+   case aco_opcode::v_cmp_eq_i32: return aco_opcode::v_cmpx_eq_i32;
+   case aco_opcode::v_cmp_eq_i64: return aco_opcode::v_cmpx_eq_i64;
+   case aco_opcode::v_cmp_eq_u16: return aco_opcode::v_cmpx_eq_u16;
+   case aco_opcode::v_cmp_eq_u32: return aco_opcode::v_cmpx_eq_u32;
+   case aco_opcode::v_cmp_eq_u64: return aco_opcode::v_cmpx_eq_u64;
+   case aco_opcode::v_cmp_f_f16: return aco_opcode::v_cmpx_f_f16;
+   case aco_opcode::v_cmp_f_f32: return aco_opcode::v_cmpx_f_f32;
+   case aco_opcode::v_cmp_f_f64: return aco_opcode::v_cmpx_f_f64;
+   case aco_opcode::v_cmp_f_i16: return aco_opcode::v_cmpx_f_i16;
+   case aco_opcode::v_cmp_f_i32: return aco_opcode::v_cmpx_f_i32;
+   case aco_opcode::v_cmp_f_i64: return aco_opcode::v_cmpx_f_i64;
+   case aco_opcode::v_cmp_f_u16: return aco_opcode::v_cmpx_f_u16;
+   case aco_opcode::v_cmp_f_u32: return aco_opcode::v_cmpx_f_u32;
+   case aco_opcode::v_cmp_f_u64: return aco_opcode::v_cmpx_f_u64;
+   case aco_opcode::v_cmp_ge_f16: return aco_opcode::v_cmpx_ge_f16;
+   case aco_opcode::v_cmp_ge_f32: return aco_opcode::v_cmpx_ge_f32;
+   case aco_opcode::v_cmp_ge_f64: return aco_opcode::v_cmpx_ge_f64;
+   case aco_opcode::v_cmp_ge_i16: return aco_opcode::v_cmpx_ge_i16;
+   case aco_opcode::v_cmp_ge_i32: return aco_opcode::v_cmpx_ge_i32;
+   case aco_opcode::v_cmp_ge_i64: return aco_opcode::v_cmpx_ge_i64;
+   case aco_opcode::v_cmp_ge_u16: return aco_opcode::v_cmpx_ge_u16;
+   case aco_opcode::v_cmp_ge_u32: return aco_opcode::v_cmpx_ge_u32;
+   case aco_opcode::v_cmp_ge_u64: return aco_opcode::v_cmpx_ge_u64;
+   case aco_opcode::v_cmp_gt_f16: return aco_opcode::v_cmpx_gt_f16;
+   case aco_opcode::v_cmp_gt_f32: return aco_opcode::v_cmpx_gt_f32;
+   case aco_opcode::v_cmp_gt_f64: return aco_opcode::v_cmpx_gt_f64;
+   case aco_opcode::v_cmp_gt_i16: return aco_opcode::v_cmpx_gt_i16;
+   case aco_opcode::v_cmp_gt_i32: return aco_opcode::v_cmpx_gt_i32;
+   case aco_opcode::v_cmp_gt_i64: return aco_opcode::v_cmpx_gt_i64;
+   case aco_opcode::v_cmp_gt_u16: return aco_opcode::v_cmpx_gt_u16;
+   case aco_opcode::v_cmp_gt_u32: return aco_opcode::v_cmpx_gt_u32;
+   case aco_opcode::v_cmp_gt_u64: return aco_opcode::v_cmpx_gt_u64;
+   case aco_opcode::v_cmp_le_f16: return aco_opcode::v_cmpx_le_f16;
+   case aco_opcode::v_cmp_le_f32: return aco_opcode::v_cmpx_le_f32;
+   case aco_opcode::v_cmp_le_f64: return aco_opcode::v_cmpx_le_f64;
+   case aco_opcode::v_cmp_le_i16: return aco_opcode::v_cmpx_le_i16;
+   case aco_opcode::v_cmp_le_i32: return aco_opcode::v_cmpx_le_i32;
+   case aco_opcode::v_cmp_le_i64: return aco_opcode::v_cmpx_le_i64;
+   case aco_opcode::v_cmp_le_u16: return aco_opcode::v_cmpx_le_u16;
+   case aco_opcode::v_cmp_le_u32: return aco_opcode::v_cmpx_le_u32;
+   case aco_opcode::v_cmp_le_u64: return aco_opcode::v_cmpx_le_u64;
+   case aco_opcode::v_cmp_lg_f16: return aco_opcode::v_cmpx_lg_f16;
+   case aco_opcode::v_cmp_lg_f32: return aco_opcode::v_cmpx_lg_f32;
+   case aco_opcode::v_cmp_lg_f64: return aco_opcode::v_cmpx_lg_f64;
+   case aco_opcode::v_cmp_lg_i16: return aco_opcode::v_cmpx_lg_i16;
+   case aco_opcode::v_cmp_lg_i32: return aco_opcode::v_cmpx_lg_i32;
+   case aco_opcode::v_cmp_lg_i64: return aco_opcode::v_cmpx_lg_i64;
+   case aco_opcode::v_cmp_lg_u16: return aco_opcode::v_cmpx_lg_u16;
+   case aco_opcode::v_cmp_lg_u32: return aco_opcode::v_cmpx_lg_u32;
+   case aco_opcode::v_cmp_lg_u64: return aco_opcode::v_cmpx_lg_u64;
+   case aco_opcode::v_cmp_lt_f16: return aco_opcode::v_cmpx_lt_f16;
+   case aco_opcode::v_cmp_lt_f32: return aco_opcode::v_cmpx_lt_f32;
+   case aco_opcode::v_cmp_lt_f64: return aco_opcode::v_cmpx_lt_f64;
+   case aco_opcode::v_cmp_lt_i16: return aco_opcode::v_cmpx_lt_i16;
+   case aco_opcode::v_cmp_lt_i32: return aco_opcode::v_cmpx_lt_i32;
+   case aco_opcode::v_cmp_lt_i64: return aco_opcode::v_cmpx_lt_i64;
+   case aco_opcode::v_cmp_lt_u16: return aco_opcode::v_cmpx_lt_u16;
+   case aco_opcode::v_cmp_lt_u32: return aco_opcode::v_cmpx_lt_u32;
+   case aco_opcode::v_cmp_lt_u64: return aco_opcode::v_cmpx_lt_u64;
+   case aco_opcode::v_cmp_neq_f16: return aco_opcode::v_cmpx_neq_f16;
+   case aco_opcode::v_cmp_neq_f32: return aco_opcode::v_cmpx_neq_f32;
+   case aco_opcode::v_cmp_neq_f64: return aco_opcode::v_cmpx_neq_f64;
+   case aco_opcode::v_cmp_nge_f16: return aco_opcode::v_cmpx_nge_f16;
+   case aco_opcode::v_cmp_nge_f32: return aco_opcode::v_cmpx_nge_f32;
+   case aco_opcode::v_cmp_nge_f64: return aco_opcode::v_cmpx_nge_f64;
+   case aco_opcode::v_cmp_ngt_f16: return aco_opcode::v_cmpx_ngt_f16;
+   case aco_opcode::v_cmp_ngt_f32: return aco_opcode::v_cmpx_ngt_f32;
+   case aco_opcode::v_cmp_ngt_f64: return aco_opcode::v_cmpx_ngt_f64;
+   case aco_opcode::v_cmp_nle_f16: return aco_opcode::v_cmpx_nle_f16;
+   case aco_opcode::v_cmp_nle_f32: return aco_opcode::v_cmpx_nle_f32;
+   case aco_opcode::v_cmp_nle_f64: return aco_opcode::v_cmpx_nle_f64;
+   case aco_opcode::v_cmp_nlg_f16: return aco_opcode::v_cmpx_nlg_f16;
+   case aco_opcode::v_cmp_nlg_f32: return aco_opcode::v_cmpx_nlg_f32;
+   case aco_opcode::v_cmp_nlg_f64: return aco_opcode::v_cmpx_nlg_f64;
+   case aco_opcode::v_cmp_nlt_f16: return aco_opcode::v_cmpx_nlt_f16;
+   case aco_opcode::v_cmp_nlt_f32: return aco_opcode::v_cmpx_nlt_f32;
+   case aco_opcode::v_cmp_nlt_f64: return aco_opcode::v_cmpx_nlt_f64;
+   case aco_opcode::v_cmp_o_f16: return aco_opcode::v_cmpx_o_f16;
+   case aco_opcode::v_cmp_o_f32: return aco_opcode::v_cmpx_o_f32;
+   case aco_opcode::v_cmp_o_f64: return aco_opcode::v_cmpx_o_f64;
+   case aco_opcode::v_cmp_tru_f16: return aco_opcode::v_cmpx_tru_f16;
+   case aco_opcode::v_cmp_tru_f32: return aco_opcode::v_cmpx_tru_f32;
+   case aco_opcode::v_cmp_tru_f64: return aco_opcode::v_cmpx_tru_f64;
+   case aco_opcode::v_cmp_tru_i16: return aco_opcode::v_cmpx_tru_i16;
+   case aco_opcode::v_cmp_tru_i32: return aco_opcode::v_cmpx_tru_i32;
+   case aco_opcode::v_cmp_tru_i64: return aco_opcode::v_cmpx_tru_i64;
+   case aco_opcode::v_cmp_tru_u16: return aco_opcode::v_cmpx_tru_u16;
+   case aco_opcode::v_cmp_tru_u32: return aco_opcode::v_cmpx_tru_u32;
+   case aco_opcode::v_cmp_tru_u64: return aco_opcode::v_cmpx_tru_u64;
+   case aco_opcode::v_cmp_u_f16: return aco_opcode::v_cmpx_u_f16;
+   case aco_opcode::v_cmp_u_f32: return aco_opcode::v_cmpx_u_f32;
+   case aco_opcode::v_cmp_u_f64: return aco_opcode::v_cmpx_u_f64;
+   default: return aco_opcode::num_opcodes;
+   }
+}
+
 bool
 needs_exact(aco_ptr<Instruction>& instr)
 {
@@ -1016,7 +1123,10 @@ add_branch_code(exec_ctx& ctx, Block* block)
          if (block->instructions.size() > 2) {
             assert(block->instructions.back()->opcode == aco_opcode::p_logical_end);
             aco_ptr<Instruction>& last_instr = *(block->instructions.end() - 2);
-            bool can_propagate_exec = last_instr->isSALU();
+            aco_opcode v_cmpx_op = v_cmp_to_cmpx(last_instr->opcode);
+            bool can_propagate_exec =
+               last_instr->isSALU() || (last_instr->isVOPC() && ctx.program->chip_class >= GFX10 &&
+                                        v_cmpx_op != aco_opcode::num_opcodes);
             if (can_propagate_exec && !last_instr->definitions.empty() &&
                 last_instr->definitions[0].tempId() == cond.id()) {
                /* The last instruction before p_logical_end produces the condition,
@@ -1037,6 +1147,15 @@ add_branch_code(exec_ctx& ctx, Block* block)
                copy_to = last_instr->definitions[0];
                copy_from = Operand(exec, bld.lm);
                last_instr->definitions[0] = Definition(exec, bld.lm);
+
+               if (last_instr->isVOPC()) {
+                  /* Set v_cmpx opcode and strip VOP3 encoding if it's unneeded.
+                   * Don't use v_cmpx on GFX6-9 because there it writes both exec and vcc.
+                   */
+                  last_instr->opcode = v_cmpx_op;
+                  if (!last_instr->isDPP() && !last_instr->isSDWA())
+                     last_instr->format = Format::VOPC;
+               }
             }
          }
 
