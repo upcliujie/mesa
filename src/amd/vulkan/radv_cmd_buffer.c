@@ -2905,10 +2905,11 @@ emit_prolog_regs(struct radv_cmd_buffer *cmd_buffer, struct radv_shader_variant 
 
 static void
 emit_prolog_inputs(struct radv_cmd_buffer *cmd_buffer, struct radv_shader_variant *vs_shader,
-                   uint32_t nontrivial_divisors, bool pipeline_is_dirty)
+                   struct radv_shader_prolog *prolog, uint32_t nontrivial_divisors,
+                   bool pipeline_is_dirty)
 {
    /* no need to re-emit anything in this case */
-   if (!nontrivial_divisors && !pipeline_is_dirty)
+   if (cmd_buffer->state.emitted_vs_prolog == prolog && !pipeline_is_dirty)
       return;
 
    struct radv_vs_input_state *state = &cmd_buffer->state.dynamic_vs_input;
@@ -2969,7 +2970,7 @@ radv_emit_vertex_state(struct radv_cmd_buffer *cmd_buffer, bool pipeline_is_dirt
       return;
    }
    emit_prolog_regs(cmd_buffer, vs_shader, prolog, pipeline_is_dirty);
-   emit_prolog_inputs(cmd_buffer, vs_shader, nontrivial_divisors, pipeline_is_dirty);
+   emit_prolog_inputs(cmd_buffer, vs_shader, prolog, nontrivial_divisors, pipeline_is_dirty);
 
    cmd_buffer->state.emitted_vs_prolog = prolog;
 }
