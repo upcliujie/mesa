@@ -215,6 +215,7 @@ class Opcode(object):
       self.is_atomic = "1" if is_atomic else "0"
       self.format = format
       self.cls = cls
+      self.is_v_cmpx = "1" if 'v_cmpx_' in name else "0"
 
       parts = name.replace('_e64', '').rsplit('_', 2)
       op_dtype = parts[-1]

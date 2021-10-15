@@ -2237,6 +2237,7 @@ typedef struct {
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_input_modifiers;
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> can_use_output_modifiers;
    const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_atomic;
+   const std::bitset<static_cast<int>(aco_opcode::num_opcodes)> is_v_cmpx;
    const char* name[static_cast<int>(aco_opcode::num_opcodes)];
    const aco::Format format[static_cast<int>(aco_opcode::num_opcodes)];
    /* sizes used for input/output modifiers and constants */

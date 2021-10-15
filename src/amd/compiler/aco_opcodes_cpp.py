@@ -34,6 +34,7 @@ opcode_names = sorted(opcodes.keys())
 can_use_input_modifiers = "".join([opcodes[name].input_mod for name in reversed(opcode_names)])
 can_use_output_modifiers = "".join([opcodes[name].output_mod for name in reversed(opcode_names)])
 is_atomic = "".join([opcodes[name].is_atomic for name in reversed(opcode_names)])
+is_v_cmpx = "".join([opcodes[name].is_v_cmpx for name in reversed(opcode_names)])
 %>
 
 extern const aco::Info instr_info = {
@@ -55,6 +56,7 @@ extern const aco::Info instr_info = {
    .can_use_input_modifiers = std::bitset<${len(opcode_names)}>("${can_use_input_modifiers}"),
    .can_use_output_modifiers = std::bitset<${len(opcode_names)}>("${can_use_output_modifiers}"),
    .is_atomic = std::bitset<${len(opcode_names)}>("${is_atomic}"),
+   .is_v_cmpx = std::bitset<${len(opcode_names)}>("${is_v_cmpx}"),
    .name = {
       % for name in opcode_names:
       "${name}",
