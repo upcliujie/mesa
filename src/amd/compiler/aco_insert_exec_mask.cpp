@@ -1010,7 +1010,37 @@ add_branch_code(exec_ctx& ctx, Block* block)
 
       uint8_t mask_type = ctx.info[idx].exec.back().second & (mask_type_wqm | mask_type_exact);
       if (ctx.info[idx].exec.back().first.constantEquals(-1u)) {
-         bld.pseudo(aco_opcode::p_parallelcopy, Definition(exec, bld.lm), cond);
+         Definition copy_to(exec, bld.lm);
+         Operand copy_from(cond);
+
+         if (block->instructions.size() > 2) {
+            assert(block->instructions.back()->opcode == aco_opcode::p_logical_end);
+            aco_ptr<Instruction>& last_instr = *(block->instructions.end() - 2);
+            bool can_propagate_exec = last_instr->isSALU();
+            if (can_propagate_exec && !last_instr->definitions.empty() &&
+                last_instr->definitions[0].tempId() == cond.id()) {
+               /* The last instruction before p_logical_end produces the condition,
+                * and exec mask is constant. In this case, we can edit the instruction
+                * to write exec, and emit a copy to its original definition afterwards.
+                * This is beneficial for two reasons:
+                * 1. The post-RA optimizer can remove the copy if it's not needed.
+                * 2. When the copy can't be removed, latency is still slightly better.
+                *
+                * Example before:
+                * sN = ...
+                * exec = p_parallelcopy sN
+                *
+                * Example after:
+                * exec = ...
+                * sN = p_parallelcopy exec
+                */
+               copy_to = last_instr->definitions[0];
+               copy_from = Operand(exec, bld.lm);
+               last_instr->definitions[0] = Definition(exec, bld.lm);
+            }
+         }
+
+         bld.pseudo(aco_opcode::p_parallelcopy, copy_to, copy_from);
       } else {
          Temp old_exec = bld.sop1(Builder::s_and_saveexec, bld.def(bld.lm), bld.def(s1, scc),
                                   Definition(exec, bld.lm), cond, Operand(exec, bld.lm));
