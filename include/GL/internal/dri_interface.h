@@ -48,7 +48,13 @@ typedef unsigned int drm_drawable_t;
 typedef struct drm_clip_rect drm_clip_rect_t;
 #endif
 
+#ifndef USE_LIBGLVND
 #include <GL/gl.h>
+#else
+typedef unsigned char GLboolean;
+typedef int GLint;
+typedef unsigned int GLuint;
+#endif
 
 #include <stdint.h>
 
