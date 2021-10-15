@@ -3734,6 +3734,22 @@ texturesubimage(struct gl_context *ctx, GLuint dims,
          return;
       }
 
+      if (dims == 3 && texObj->Target == GL_TEXTURE_CUBE_MAP) {
+         /* The OpenGL spec says:
+          *     For TextureSubImage3D and CopyTextureSubImage3D only, texture
+          *     may be a cube map texture. In this case, zoffset is interpreted
+          *     as specifying the cube map face for the corresponding layer in
+          *     table 9.3 and depth is the number of successive faces to update.
+          *
+          * So zoffset should be [0..5] but some applications incorrectly pass
+          * a GL_TEXTURE_CUBE_MAP_* value. Detect these mistakes and fixup the
+          * value.
+          */
+         if (GL_TEXTURE_CUBE_MAP_POSITIVE_X <= zoffset &&
+             zoffset <= GL_TEXTURE_CUBE_MAP_NEGATIVE_Z)
+            zoffset -= GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+      }
+
       if (texsubimage_error_check(ctx, dims, texObj, texObj->Target, level,
                                   xoffset, yoffset, zoffset,
                                   width, height, depth, format, type,
