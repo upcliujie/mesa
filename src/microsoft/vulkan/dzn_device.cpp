@@ -852,6 +852,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
    if (!device)
       return vk_errorfi(instance, NULL, VK_ERROR_OUT_OF_HOST_MEMORY, NULL);
 
+   mtx_init(&device->pools_lock, mtx_plain);
    vk_device_dispatch_table dispatch_table;
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
       &dzn_device_entrypoints, true);
@@ -926,6 +927,7 @@ fail:
    if (device->dsv_pool)
       d3d12_descriptor_pool_free(device->dsv_pool);
 
+   mtx_destroy(&device->pools_lock);
    vk_free(&device->vk.alloc, device);
 
    return result;
@@ -948,6 +950,7 @@ dzn_DestroyDevice(VkDevice _device,
       d3d12_descriptor_pool_free(device->dsv_pool);
 
    vk_device_finish(&device->vk);
+   mtx_destroy(&device->pools_lock);
    vk_free(&device->vk.alloc, device);
 }
 

@@ -141,6 +141,7 @@ struct dzn_device {
    struct vk_device_dispatch_table dispatch;
 
    ID3D12Device *dev;
+   mtx_t pools_lock;
    struct d3d12_descriptor_pool *rtv_pool, *dsv_pool;
    D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
 };

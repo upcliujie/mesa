@@ -587,7 +587,9 @@ dzn_CreateImageView(VkDevice _device,
       default: unreachable("Invalid dimension");
       }
 
+      mtx_lock(&device->pools_lock);
       d3d12_descriptor_pool_alloc_handle(device->rtv_pool, &iview->rt_handle);
+      mtx_unlock(&device->pools_lock);
       device->dev->CreateRenderTargetView(image->res, &desc,
                                           iview->rt_handle.cpu_handle);
    }
@@ -624,7 +626,9 @@ dzn_CreateImageView(VkDevice _device,
       default: unreachable("Invalid dimension");
       }
 
+      mtx_lock(&device->pools_lock);
       d3d12_descriptor_pool_alloc_handle(device->dsv_pool, &iview->zs_handle);
+      mtx_lock(&device->pools_lock);
       device->dev->CreateDepthStencilView(image->res, &desc,
                                           iview->zs_handle.cpu_handle);
    }
@@ -645,11 +649,17 @@ dzn_DestroyImageView(VkDevice _device,
    if (!iview)
       return;
 
-   if (iview->image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+   if (iview->image->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+      mtx_lock(&device->pools_lock);
       d3d12_descriptor_handle_free(&iview->rt_handle);
+      mtx_unlock(&device->pools_lock);
+   }
 
-   if (iview->image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+   if (iview->image->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+      mtx_lock(&device->pools_lock);
       d3d12_descriptor_handle_free(&iview->zs_handle);
+      mtx_unlock(&device->pools_lock);
+   }
 
    vk_object_free(&device->vk, pAllocator, iview);
 }
