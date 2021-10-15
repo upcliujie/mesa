@@ -513,14 +513,12 @@ emit_load_input(struct ntd_context* ctx,
 static bool
 emit_load_frag_coord(struct ntd_context* ctx,
                 nir_intrinsic_instr* intr) {
-  D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
-                                   0 /* todo: search input signature for POS register */);
-
+   // ctx->dxil_mod.inputs->sysvalue
+   UINT pos_reg_index = 0; /* todo: search input signature for POS register */
+  D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT, pos_reg_index);
   D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(intr->dest, 0b1111);
-
   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
   ctx->mod.shader.EmitInstruction(mov);
-
   return true;
 }
 
@@ -721,24 +719,76 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
 }
 
 static bool
-emit_module(struct ntd_context *ctx) {
+emit_dcl(struct ntd_context *ctx)
+{
    // TODO?
    ctx->mod.shader.EmitGlobalFlagsDecl(
-       D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
+      D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
 
-   // TODO: this hard-codes the `dcl_*` statements for `hello_triangle.hlsl`. we should implement it based off the `ctx->dxil_mod`.
-   if (ctx->mod.shader_kind == D3D10_SB_VERTEX_SHADER) {
-     ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, 0,
-                                   D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
-     ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, 1,
-                                   D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
-     ctx->mod.shader.EmitOutputDecl(0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
-     ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
-         1, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL, D3D10_SB_NAME_POSITION);
-   } else {
-     ctx->mod.shader.EmitPSInputDecl(0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL,
-                                     D3D10_SB_INTERPOLATION_LINEAR);
-     ctx->mod.shader.EmitOutputDecl(0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
+   for (int i = 0; i < ctx->dxil_mod.num_sig_inputs; i++) {
+     struct dxil_signature_record& input = ctx->dxil_mod.inputs[i];
+     for (int e = 0; e < input.num_elements; e++) {
+       struct dxil_signature_element& elem = input.elements[e];
+       UINT write_mask = elem.mask << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
+
+       // TODO: If this trips it's probably because we need to handle SIVs or SGVs
+       assert(elem.system_value == 0);
+
+       if (ctx->mod.shader_kind == D3D10_SB_VERTEX_SHADER) {
+         ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, elem.reg,
+                                       write_mask);
+       } else {
+         ctx->mod.shader.EmitPSInputDecl(elem.reg, write_mask,
+                                         D3D10_SB_INTERPOLATION_LINEAR  // TODO?
+         );
+       }
+     }
+   }
+
+   for (int i = 0; i < ctx->dxil_mod.num_sig_outputs; i++) {
+     struct dxil_signature_record& output = ctx->dxil_mod.outputs[i];
+     for (int e = 0; e < output.num_elements; e++) {
+       struct dxil_signature_element& elem = output.elements[e];
+       UINT write_mask = elem.mask << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
+
+       // elem.system_value is `enum dxil_prog_sig_semantic`
+       // https://gitlab.freedesktop.org/mesa/mesa/blob/4a3395f35aeeb90f4613922dfe761dae62572f4b/src/microsoft/compiler/dxil_signature.c#L405
+       enum dxil_prog_sig_semantic sem =
+           static_cast<enum dxil_prog_sig_semantic>(elem.system_value);
+       switch (sem) {
+         case DXIL_PROG_SEM_UNDEFINED:
+         case DXIL_PROG_SEM_TARGET:
+           // emit as normal
+           ctx->mod.shader.EmitOutputDecl(elem.reg, write_mask);
+           break;
+
+         case DXIL_PROG_SEM_POSITION:
+           ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
+               elem.reg, write_mask, D3D10_SB_NAME_POSITION);
+           break;
+
+         default:
+           unreachable("unhandled dxil_prog_sig_semantic");
+           return false;
+       }
+     }
+   }
+
+   uint32_t num_temps = 0;
+   nir_foreach_register(reg, &nir_shader_get_entrypoint(ctx->shader)->registers) {
+      num_temps = std::max(num_temps, reg->index + 1);
+   }
+   if (num_temps > 0) {
+     ctx->mod.shader.EmitTempsDecl(num_temps);
+   }
+
+   return true;
+}
+
+static bool
+emit_module(struct ntd_context *ctx) {
+  if (!emit_dcl(ctx)) {
+    return false;
    }
 
   nir_function_impl* entry = nir_shader_get_entrypoint(ctx->shader);
@@ -810,6 +860,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    ctx.mod.major_version = 5;
    ctx.mod.minor_version = 1;
 
+   // TODO SV_Position doesn't make it into dxil_module's inputs?
    get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
 
    DxbcModule& mod = ctx.mod;
