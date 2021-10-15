@@ -41,32 +41,32 @@
 
 #include "vulkan/vulkan_core.h"
 
-#include "d3d12TokenizedProgramFormat.hpp"
 #include "ShaderBinary.h"
+#include "d3d12TokenizedProgramFormat.hpp"
 
 #include <stdint.h>
 #include <vector>
 
-#define NIR_INSTR_UNSUPPORTED(instr) \
-   if (true) \
-   do { \
-      fprintf(stderr, "Unsupported instruction:"); \
-      nir_print_instr(instr, stderr); \
-      fprintf(stderr, "\n"); \
+#define NIR_INSTR_UNSUPPORTED(instr)                                         \
+   if (true)                                                                 \
+      do {                                                                   \
+         fprintf(stderr, "Unsupported instruction:");                        \
+         nir_print_instr(instr, stderr);                                     \
+         fprintf(stderr, "\n");                                              \
    } while (0)
 
-#define TRACE_CONVERSION(instr) \
-   if (true) \
-      do { \
-         fprintf(stderr, "Convert '"); \
-         nir_print_instr(instr, stderr); \
-         fprintf(stderr, "'\n"); \
-      } while (0)
+#define TRACE_CONVERSION(instr)                                              \
+   if (true)                                                                 \
+      do {                                                                   \
+         fprintf(stderr, "Convert '");                                       \
+         nir_print_instr(instr, stderr);                                     \
+         fprintf(stderr, "'\n");                                             \
+   } while (0)
 
-const nir_shader_compiler_options*
+const nir_shader_compiler_options *
 dxbc_get_nir_compiler_options(void)
 {
-   static  nir_shader_compiler_options nir_options{};
+   static nir_shader_compiler_options nir_options{};
    nir_options.lower_ffma16 = true;
    nir_options.lower_ffma32 = true;
    nir_options.lower_flrp16 = true;
@@ -106,7 +106,9 @@ dxbc_get_nir_compiler_options(void)
    nir_options.has_txs = true;
    nir_options.use_scoped_barrier = true;
 
-   // TODO: fxc turns `mul(float4,float4)` into `dp4`, but we're running a pass somewhere that converts the `fdot` from SPIR-V's `OpDot` to `fmul`/`fadd`.
+   // TODO: fxc turns `mul(float4,float4)` into `dp4`, but we're running a
+   // pass somewhere that converts the `fdot` from SPIR-V's `OpDot` to
+   // `fmul`/`fadd`.
    return &nir_options;
 }
 
@@ -123,111 +125,127 @@ struct DxbcModule {
 };
 
 struct ntd_context {
-   void* ralloc_ctx;
-   const struct nir_to_dxil_options* opts{};
-   struct nir_shader* shader{};
+   void *ralloc_ctx;
+   const struct nir_to_dxil_options *opts{};
+   struct nir_shader *shader{};
    DxbcModule mod{};
    dxil_module dxil_mod{};
 
-   ntd_context() { 
-      ralloc_ctx = ralloc_context(NULL); 
-      if(ralloc_ctx)
+   ntd_context()
+   {
+      ralloc_ctx = ralloc_context(NULL);
+      if (ralloc_ctx)
          dxil_module_init(&dxil_mod, ralloc_ctx);
    }
-   ~ntd_context() { 
+   ~ntd_context()
+   {
       dxil_module_release(&dxil_mod);
-      ralloc_free(ralloc_ctx); 
+      ralloc_free(ralloc_ctx);
    }
 };
 
 class ScopedDxilContainer {
-public:
+ public:
    ScopedDxilContainer() { dxil_container_init(&inner); }
    ~ScopedDxilContainer() { dxil_container_finish(&inner); }
-   dxil_container* get() { return &inner; }
+   dxil_container *
+   get()
+   {
+      return &inner;
+   }
 
-private:
+ private:
    dxil_container inner{};
 };
 
 static D3D10ShaderBinary::COperandDst
 nir_dest_as_register(nir_dest dest, uint32_t write_mask)
 {
-  assert(!dest.is_ssa);
-   return D3D10ShaderBinary::COperandDst(D3D10_SB_OPERAND_TYPE_TEMP,
-                                       dest.reg.reg->index,
-                                    write_mask << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+   assert(!dest.is_ssa);
+   return D3D10ShaderBinary::COperandDst(
+       D3D10_SB_OPERAND_TYPE_TEMP, dest.reg.reg->index,
+       write_mask << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
 }
 
-// After running `nir_convert_from_ssa`, we're out of SSA land, with the exception of literal values. This function converts a `nir_src` to either a temporary register value or a literal, based on the `ssa`-ness of it.
+// After running `nir_convert_from_ssa`, we're out of SSA land, with the
+// exception of literal values. This function converts a `nir_src` to either a
+// temporary register value or a literal, based on the `ssa`-ness of it.
 static D3D10ShaderBinary::COperandBase
-nir_src_as_const_value_or_register(nir_src src, uint32_t num_write_components, uint8_t swizzle[NIR_MAX_VEC_COMPONENTS])
+nir_src_as_const_value_or_register(nir_src src, uint32_t num_write_components,
+                                   uint8_t swizzle[NIR_MAX_VEC_COMPONENTS])
 {
-  uint32_t num_components =
-      std::min(num_write_components, nir_src_num_components(src));
+   uint32_t num_components =
+       std::min(num_write_components, nir_src_num_components(src));
 
-  if (src.is_ssa) {
-    // TODO immediate operand type?
-    switch (num_components) {
+   if (src.is_ssa) {
+      // TODO immediate operand type?
+      switch (num_components) {
       case 1:
-        return D3D10ShaderBinary::COperand(
-            static_cast<float>(nir_src_comp_as_float(src, 0)));
+         return D3D10ShaderBinary::COperand(
+             static_cast<float>(nir_src_comp_as_float(src, 0)));
 
       case 2:
-        return D3D10ShaderBinary::COperand(
-            static_cast<float>(nir_src_comp_as_float(src, 0)),
-            static_cast<float>(nir_src_comp_as_float(src, 1)));
+         return D3D10ShaderBinary::COperand(
+             static_cast<float>(nir_src_comp_as_float(src, 0)),
+             static_cast<float>(nir_src_comp_as_float(src, 1)));
+
+      case 3:
+         return D3D10ShaderBinary::COperand(
+             static_cast<float>(nir_src_comp_as_float(src, 0)),
+             static_cast<float>(nir_src_comp_as_float(src, 1)),
+             static_cast<float>(nir_src_comp_as_float(src, 2)), 0.0);
 
       case 4:
-        return D3D10ShaderBinary::COperand(
-            static_cast<float>(nir_src_comp_as_float(src, 0)),
-            static_cast<float>(nir_src_comp_as_float(src, 1)),
-            static_cast<float>(nir_src_comp_as_float(src, 2)),
-            static_cast<float>(nir_src_comp_as_float(src, 3)));
+         return D3D10ShaderBinary::COperand(
+             static_cast<float>(nir_src_comp_as_float(src, 0)),
+             static_cast<float>(nir_src_comp_as_float(src, 1)),
+             static_cast<float>(nir_src_comp_as_float(src, 2)),
+             static_cast<float>(nir_src_comp_as_float(src, 3)));
 
       default:
-        unreachable("unhandled number of components");
-    }
-  } else {
-    // nir doesn't ever have a direct load from an input to a usage, so in
-    // load_input we move the value to a temp, so we can assume all `nir_src`s
-    // that point to registers are to temps.
-    D3D10_SB_OPERAND_TYPE temp = D3D10_SB_OPERAND_TYPE_TEMP;
-    switch (num_components) {
+         unreachable("unhandled number of components");
+      }
+   } else {
+      // nir doesn't ever have a direct load from an input to a usage, so in
+      // load_input we move the value to a temp, so we can assume all
+      // `nir_src`s that point to registers are to temps.
+      D3D10_SB_OPERAND_TYPE temp = D3D10_SB_OPERAND_TYPE_TEMP;
+      switch (num_components) {
       case 1: {
-        if (swizzle) {
-          return D3D10ShaderBinary::COperand4(
-              temp, src.reg.reg->index,
-              static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[0]));
-        } else {
-          return D3D10ShaderBinary::COperand4(temp, src.reg.reg->index,
-                                              D3D10_SB_4_COMPONENT_X);
-        }
+         if (swizzle) {
+            return D3D10ShaderBinary::COperand4(
+                temp, src.reg.reg->index,
+                static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[0]));
+         } else {
+            return D3D10ShaderBinary::COperand4(temp, src.reg.reg->index,
+                                                D3D10_SB_4_COMPONENT_X);
+         }
       }
 
       case 4:
-        if (swizzle) {
-          return D3D10ShaderBinary::COperand(
-              temp, src.reg.reg->index,
-              static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[0]),
-              static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[1]),
-              static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[2]),
-              static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[3]));
-        } else {
-          return D3D10ShaderBinary::COperand4(temp, src.reg.reg->index);
-        }
+         if (swizzle) {
+            return D3D10ShaderBinary::COperand(
+                temp, src.reg.reg->index,
+                static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[0]),
+                static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[1]),
+                static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[2]),
+                static_cast<D3D10_SB_4_COMPONENT_NAME>(swizzle[3]));
+         } else {
+            return D3D10ShaderBinary::COperand4(temp, src.reg.reg->index);
+         }
 
       default:
-        unreachable("unhandled number of components");
-    }
-  }
+         unreachable("unhandled number of components");
+      }
+   }
 }
 
 static uint32_t
-count_write_components(uint32_t write_mask) {
+count_write_components(uint32_t write_mask)
+{
    uint32_t count = 0;
    for (int i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
-      if ((write_mask & (1<<i)) != 0) {
+      if ((write_mask & (1 << i)) != 0) {
          count += 1;
       }
    }
@@ -235,190 +253,212 @@ count_write_components(uint32_t write_mask) {
 }
 
 static D3D10ShaderBinary::CInstruction
-get_intr_1_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu) {
-   uint32_t num_write_components = count_write_components(alu->dest.write_mask);
-   D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   D3D10ShaderBinary::COperandBase a = nir_src_as_const_value_or_register(alu->src[0].src, num_write_components, alu->src[0].swizzle);
+get_intr_1_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
+{
+   uint32_t num_write_components =
+       count_write_components(alu->dest.write_mask);
+   D3D10ShaderBinary::COperandBase dst =
+       nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
+   D3D10ShaderBinary::COperandBase a = nir_src_as_const_value_or_register(
+       alu->src[0].src, num_write_components, alu->src[0].swizzle);
    return D3D10ShaderBinary::CInstruction(opcode, dst, a);
 }
 
 static D3D10ShaderBinary::CInstruction
-get_intr_2_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu) {
-   uint32_t num_write_components = count_write_components(alu->dest.write_mask);
-   D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   D3D10ShaderBinary::COperandBase lhs = nir_src_as_const_value_or_register(alu->src[0].src, num_write_components, alu->src[0].swizzle);
-   D3D10ShaderBinary::COperandBase rhs = nir_src_as_const_value_or_register(alu->src[1].src, num_write_components, alu->src[1].swizzle);
+get_intr_2_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
+{
+   uint32_t num_write_components =
+       count_write_components(alu->dest.write_mask);
+   D3D10ShaderBinary::COperandBase dst =
+       nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
+   D3D10ShaderBinary::COperandBase lhs = nir_src_as_const_value_or_register(
+       alu->src[0].src, num_write_components, alu->src[0].swizzle);
+   D3D10ShaderBinary::COperandBase rhs = nir_src_as_const_value_or_register(
+       alu->src[1].src, num_write_components, alu->src[1].swizzle);
    return D3D10ShaderBinary::CInstruction(opcode, dst, lhs, rhs);
 }
 
 static D3D10ShaderBinary::CInstruction
-get_intr_3_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu) {
-   uint32_t num_write_components = count_write_components(alu->dest.write_mask);
-   D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   D3D10ShaderBinary::COperandBase arg0 = nir_src_as_const_value_or_register(alu->src[0].src, num_write_components, alu->src[0].swizzle);
-   D3D10ShaderBinary::COperandBase arg1 = nir_src_as_const_value_or_register(alu->src[1].src, num_write_components, alu->src[1].swizzle);
-   D3D10ShaderBinary::COperandBase arg2 = nir_src_as_const_value_or_register(alu->src[2].src, num_write_components, alu->src[2].swizzle);
+get_intr_3_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
+{
+   uint32_t num_write_components =
+       count_write_components(alu->dest.write_mask);
+   D3D10ShaderBinary::COperandBase dst =
+       nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
+   D3D10ShaderBinary::COperandBase arg0 = nir_src_as_const_value_or_register(
+       alu->src[0].src, num_write_components, alu->src[0].swizzle);
+   D3D10ShaderBinary::COperandBase arg1 = nir_src_as_const_value_or_register(
+       alu->src[1].src, num_write_components, alu->src[1].swizzle);
+   D3D10ShaderBinary::COperandBase arg2 = nir_src_as_const_value_or_register(
+       alu->src[2].src, num_write_components, alu->src[2].swizzle);
    return D3D10ShaderBinary::CInstruction(opcode, dst, arg0, arg1, arg2);
 }
 
 static bool
-emit_alu(struct ntd_context *ctx, nir_alu_instr *alu) {
-  D3D10ShaderBinary::COperand null_operand(D3D10_SB_OPERAND_TYPE_NULL);
+emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
+{
+   D3D10ShaderBinary::COperand null_operand(D3D10_SB_OPERAND_TYPE_NULL);
 
-  switch (alu->op) {
-    case nir_op_vec2:
-    case nir_op_vec3:
-    case nir_op_vec4: {
+   switch (alu->op) {
+   case nir_op_vec2:
+   case nir_op_vec3:
+   case nir_op_vec4: {
       // TODO: coalesce like-sourced `mov`s together
       for (int chan = 0; chan < alu->dest.dest.reg.reg->num_components;
            chan++) {
-        D3D10ShaderBinary::COperand4 dst(
-            D3D10_SB_OPERAND_TYPE_TEMP, alu->dest.dest.reg.reg->index,
-            static_cast<D3D10_SB_4_COMPONENT_NAME>(chan));
-        D3D10ShaderBinary::COperandBase src =
-            nir_src_as_const_value_or_register(
-                alu->src[chan].src,
-                count_write_components(alu->dest.write_mask),
-                alu->src[chan].swizzle);
-        D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
-        ctx->mod.shader.EmitInstruction(mov);
+         D3D10ShaderBinary::COperandDst dst(
+             D3D10_SB_OPERAND_TYPE_TEMP, alu->dest.dest.reg.reg->index,
+             (1 << chan) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+         D3D10ShaderBinary::COperandBase src =
+             nir_src_as_const_value_or_register(alu->src[chan].src, 1,
+                                                alu->src[chan].swizzle);
+         D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+         ctx->mod.shader.EmitInstruction(mov);
       }
       return true;
-    }
+   }
 
-    case nir_op_fmax:
+   case nir_op_fmax:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_MAX, alu));
       return true;
 
-    case nir_op_fsat: {
+   case nir_op_fsat: {
       D3D10ShaderBinary::CInstruction intr =
           get_intr_1_args(D3D10_SB_OPCODE_MOV, alu);
       intr.m_bSaturate = true;
       ctx->mod.shader.EmitInstruction(intr);
       return true;
-    }
+   }
 
-    case nir_op_fmul:
+   case nir_op_fmul:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_MUL, alu));
       return true;
 
-    case nir_op_fdiv:
+   case nir_op_fdiv:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_DIV, alu));
       return true;
 
-    case nir_op_fadd:
+   case nir_op_fadd:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_ADD, alu));
       return true;
 
-    case nir_op_fsub: {
+   case nir_op_fsub: {
       D3D10ShaderBinary::CInstruction intr =
           get_intr_2_args(D3D10_SB_OPCODE_ADD, alu);
       intr.m_Operands[2].SetModifier(D3D10_SB_OPERAND_MODIFIER_NEG);
       ctx->mod.shader.EmitInstruction(intr);
       return true;
-    }
+   }
 
-    case nir_op_bcsel:
+   case nir_op_bcsel:
       ctx->mod.shader.EmitInstruction(
           get_intr_3_args(D3D10_SB_OPCODE_MOVC, alu));
       return true;
 
-    case nir_op_feq:
-      ctx->mod.shader.EmitInstruction(get_intr_2_args(D3D10_SB_OPCODE_EQ, alu));
+   case nir_op_feq:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_2_args(D3D10_SB_OPCODE_EQ, alu));
       return true;
 
-    case nir_op_mov:
+   case nir_op_mov:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_MOV, alu));
       return true;
 
-    case nir_op_ige:
+   case nir_op_ige:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_IGE, alu));
       return true;
 
-    case nir_op_ieq:
+   case nir_op_ieq:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_IEQ, alu));
       return true;
 
-    case nir_op_ior:
-      ctx->mod.shader.EmitInstruction(get_intr_2_args(D3D10_SB_OPCODE_OR, alu));
+   case nir_op_ior:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_2_args(D3D10_SB_OPCODE_OR, alu));
       return true;
 
-    case nir_op_iand:
+   case nir_op_iand:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_AND, alu));
       return true;
 
-    case nir_op_iadd:
+   case nir_op_iadd:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_IADD, alu));
       return true;
 
-    case nir_op_ushr:
+   case nir_op_ushr:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_USHR, alu));
       return true;
 
-    case nir_op_flt:
-      ctx->mod.shader.EmitInstruction(get_intr_2_args(D3D10_SB_OPCODE_LT, alu));
+   case nir_op_flt:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_2_args(D3D10_SB_OPCODE_LT, alu));
       return true;
 
-    case nir_op_fsqrt:
+   case nir_op_fsqrt:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_SQRT, alu));
       return true;
 
-    case nir_op_ffloor:
+   case nir_op_ffloor:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ROUND_NI, alu));
       return true;
 
-    case nir_op_fceil:
+   case nir_op_fceil:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ROUND_PI, alu));
       return true;
 
-    case nir_op_fround_even:
+   case nir_op_fround_even:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ROUND_NE, alu));
       return true;
 
-    case nir_op_ffract:
+   case nir_op_ffract:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_FRC, alu));
       return true;
 
-    case nir_op_ftrunc:
+   case nir_op_ftrunc:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ROUND_Z, alu));
       return true;
 
-    case nir_op_fabs: {
+   case nir_op_fabs: {
       D3D10ShaderBinary::CInstruction intr =
           get_intr_1_args(D3D10_SB_OPCODE_MOV, alu);
       intr.m_Operands[1].SetModifier(D3D10_SB_OPERAND_MODIFIER_ABS);
       ctx->mod.shader.EmitInstruction(intr);
       return true;
-    }
+   }
 
-    case nir_op_f2i32:
+   case nir_op_f2i32:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_FTOI, alu));
       return true;
 
-    case nir_op_b2f32:
+   case nir_op_i2f32:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_1_args(D3D10_SB_OPCODE_ITOF, alu));
+      return true;
+
+   case nir_op_b2f32:
       // TODO: is a bool an int in this instruction's eyes?
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ITOF, alu));
       return true;
 
-    case nir_op_fcos: {
+   case nir_op_fcos: {
       uint32_t num_write_components =
           count_write_components(alu->dest.write_mask);
       D3D10ShaderBinary::COperandBase dst =
@@ -428,9 +468,9 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu) {
       ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(
           D3D10_SB_OPCODE_SINCOS, null_operand, dst, a));
       return true;
-    }
+   }
 
-    case nir_op_fsin: {
+   case nir_op_fsin: {
       uint32_t num_write_components =
           count_write_components(alu->dest.write_mask);
       D3D10ShaderBinary::COperandBase dst =
@@ -440,86 +480,91 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu) {
       ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(
           D3D10_SB_OPCODE_SINCOS, dst, null_operand, a));
       return true;
-    }
+   }
 
-    case nir_op_fddx:
+   case nir_op_fddx:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_DERIV_RTX, alu));
       return true;
 
-    case nir_op_fddy:
+   case nir_op_fddy:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_DERIV_RTY, alu));
       return true;
 
-    case nir_op_fddx_fine:
+   case nir_op_fddx_fine:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTX_FINE, alu));
       return true;
 
-    case nir_op_fddy_fine:
+   case nir_op_fddy_fine:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTY_FINE, alu));
       return true;
 
-    case nir_op_fddx_coarse:
+   case nir_op_fddx_coarse:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTX_COARSE, alu));
       return true;
 
-    case nir_op_fddy_coarse:
+   case nir_op_fddy_coarse:
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D11_SB_OPCODE_DERIV_RTY_COARSE, alu));
       return true;
 
-    default:
+   default:
       NIR_INSTR_UNSUPPORTED(&alu->instr);
       assert(!"Unimplemented ALU instruction");
       return false;
-  }
-  return true;
+   }
+   return true;
 }
 
 static bool
 emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
-  D3D10ShaderBinary::COperandBase src = nir_src_as_const_value_or_register(intr->src[0], 4,nullptr);
-  D3D10ShaderBinary::COperandDst dst(D3D10_SB_OPERAND_TYPE_OUTPUT,
-                                 //   nir_src_as_uint(intr->src[1]) // TODO is `base` the output we care about?
-                                 nir_intrinsic_base(intr)
-                                   );
-  D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
-  ctx->mod.shader.EmitInstruction(mov);
+   D3D10ShaderBinary::COperandBase src =
+       nir_src_as_const_value_or_register(intr->src[0], 4, nullptr);
+   D3D10ShaderBinary::COperandDst dst(
+       D3D10_SB_OPERAND_TYPE_OUTPUT,
+       //   nir_src_as_uint(intr->src[1]) // TODO is `base` the output we care
+       //   about?
+       nir_intrinsic_base(intr));
+   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+   ctx->mod.shader.EmitInstruction(mov);
 
-  return true;
+   return true;
 }
 
 static bool
-emit_load_input(struct ntd_context* ctx,
-                nir_intrinsic_instr* intr) {
-  D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
-                                 //   nir_src_as_uint(intr->src[0]) // TODO is `base` the input we care about?
-                                 nir_intrinsic_base(intr)
-                                   );
+emit_load_input(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
+                                    //   nir_src_as_uint(intr->src[0]) // TODO
+                                    //   is `base` the input we care about?
+                                    nir_intrinsic_base(intr));
 
-  D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(intr->dest, 0b1111);
+   D3D10ShaderBinary::COperandBase dst =
+       nir_dest_as_register(intr->dest, 0b1111);
 
-  D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
-  ctx->mod.shader.EmitInstruction(mov);
+   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+   ctx->mod.shader.EmitInstruction(mov);
 
-  return true;
+   return true;
 }
 
 static bool
-emit_load_frag_coord(struct ntd_context* ctx,
-                nir_intrinsic_instr* intr) {
+emit_load_frag_coord(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
    // ctx->dxil_mod.inputs->sysvalue
    UINT pos_reg_index = 0; /* todo: search input signature for POS register */
-  D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT, pos_reg_index);
-  D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(intr->dest, 0b1111);
-  D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
-  ctx->mod.shader.EmitInstruction(mov);
-  return true;
+   D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
+                                    pos_reg_index);
+   D3D10ShaderBinary::COperandBase dst =
+       nir_dest_as_register(intr->dest, 0b1111);
+   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+   ctx->mod.shader.EmitInstruction(mov);
+   return true;
 }
 
 static bool
@@ -553,7 +598,8 @@ emit_vulkan_resource_index(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
-emit_load_vulkan_descriptor(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+emit_load_vulkan_descriptor(struct ntd_context *ctx,
+                            nir_intrinsic_instr *intr)
 {
    // nir_intrinsic_instr* index = nir_src_as_intrinsic(intr->src[0]);
    // /* We currently do not support reindex */
@@ -638,13 +684,15 @@ emit_jump(struct ntd_context *ctx, nir_jump_instr *instr)
    case nir_jump_break:
       assert(instr->instr.block->successors[0]);
       assert(!instr->instr.block->successors[1]);
-      ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_BREAK));
+      ctx->mod.shader.EmitInstruction(
+          D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_BREAK));
       return true;
 
    case nir_jump_continue:
       assert(instr->instr.block->successors[0]);
       assert(!instr->instr.block->successors[1]);
-      ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_CONTINUE));
+      ctx->mod.shader.EmitInstruction(
+          D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_CONTINUE));
       return true;
 
    default:
@@ -652,9 +700,8 @@ emit_jump(struct ntd_context *ctx, nir_jump_instr *instr)
    }
 }
 
-
 static bool
-emit_instr(struct ntd_context *ctx, struct nir_instr* instr)
+emit_instr(struct ntd_context *ctx, struct nir_instr *instr)
 {
    switch (instr->type) {
    case nir_instr_type_alu:
@@ -686,10 +733,11 @@ emit_block(struct ntd_context *ctx, struct nir_block *block)
    // assert(block->index < ctx->mod.num_basic_block_ids);
    // ctx->mod.basic_block_ids[block->index] = ctx->mod.curr_block;
 
-   nir_foreach_instr(instr, block) {
+   nir_foreach_instr(instr, block)
+   {
       TRACE_CONVERSION(instr);
 
-      if (!emit_instr(ctx, instr))  {
+      if (!emit_instr(ctx, instr)) {
          return false;
       }
    }
@@ -704,10 +752,13 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list);
 static bool
 emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
 {
-   D3D10ShaderBinary::COperandBase cond = nir_src_as_const_value_or_register(if_stmt->condition, 4, nullptr);
-   ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_IF, cond, /* todo? is it ever ZERO? */D3D10_SB_INSTRUCTION_TEST_NONZERO));
+   D3D10ShaderBinary::COperandBase cond =
+       nir_src_as_const_value_or_register(if_stmt->condition, 4, nullptr);
+   ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(
+       D3D10_SB_OPCODE_IF, cond,
+       /* todo? is it ever ZERO? */ D3D10_SB_INSTRUCTION_TEST_NONZERO));
 
-    nir_block *then_block = nir_if_first_then_block(if_stmt);
+   nir_block *then_block = nir_if_first_then_block(if_stmt);
    assert(nir_if_last_then_block(if_stmt)->successors[0]);
    assert(!nir_if_last_then_block(if_stmt)->successors[1]);
    int then_succ = nir_if_last_then_block(if_stmt)->successors[0]->index;
@@ -726,25 +777,25 @@ emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
    //    return false;
 
    /* handle then-block */
-   if (!emit_cf_list(ctx, &if_stmt->then_list) 
-      // ||
-      // (!nir_block_ends_in_jump(nir_if_last_then_block(if_stmt)) &&
-      // !emit_branch(ctx, then_succ))
-      )
+   if (!emit_cf_list(ctx, &if_stmt->then_list)
+       // ||
+       // (!nir_block_ends_in_jump(nir_if_last_then_block(if_stmt)) &&
+       // !emit_branch(ctx, then_succ))
+   )
       return false;
 
    if (else_block) {
       /* handle else-block */
       if (!emit_cf_list(ctx, &if_stmt->else_list)
-         // ||
-         // (!nir_block_ends_in_jump(nir_if_last_else_block(if_stmt)) &&
-         // !emit_branch(ctx, else_succ))
-         )
+          // ||
+          // (!nir_block_ends_in_jump(nir_if_last_else_block(if_stmt)) &&
+          // !emit_branch(ctx, else_succ))
+      )
          return false;
    }
 
-
-   ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_ENDIF));
+   ctx->mod.shader.EmitInstruction(
+       D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_ENDIF));
    return true;
 }
 
@@ -756,7 +807,8 @@ emit_loop(struct ntd_context *ctx, nir_loop *loop)
    assert(nir_loop_last_block(loop)->successors[0]);
    assert(!nir_loop_last_block(loop)->successors[1]);
 
-   ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_LOOP));
+   ctx->mod.shader.EmitInstruction(
+       D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_LOOP));
 
    // if (!emit_branch(ctx, first_block->index))
    //    return false;
@@ -767,7 +819,8 @@ emit_loop(struct ntd_context *ctx, nir_loop *loop)
    // if (!emit_branch(ctx, first_block->index))
    //    return false;
 
-   ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_ENDLOOP));
+   ctx->mod.shader.EmitInstruction(
+       D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_ENDLOOP));
 
    return true;
 }
@@ -775,7 +828,8 @@ emit_loop(struct ntd_context *ctx, nir_loop *loop)
 static bool
 emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
 {
-   foreach_list_typed(nir_cf_node, node, node, list) {
+   foreach_list_typed(nir_cf_node, node, node, list)
+   {
       switch (node->type) {
       case nir_cf_node_block:
          if (!emit_block(ctx, nir_cf_node_as_block(node)))
@@ -803,83 +857,93 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
 static bool
 emit_dcl(struct ntd_context *ctx)
 {
+   // TODO pare the write_masks down to just what is used in the shader?
+
    // TODO?
    ctx->mod.shader.EmitGlobalFlagsDecl(
-      D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
+       D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
 
    for (int i = 0; i < ctx->dxil_mod.num_sig_inputs; i++) {
-     struct dxil_signature_record& input = ctx->dxil_mod.inputs[i];
-     for (int e = 0; e < input.num_elements; e++) {
-       struct dxil_signature_element& elem = input.elements[e];
-       UINT write_mask = elem.mask << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
+      struct dxil_signature_record &input = ctx->dxil_mod.inputs[i];
+      for (int e = 0; e < input.num_elements; e++) {
+         struct dxil_signature_element &elem = input.elements[e];
+         UINT write_mask = elem.mask
+                           << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
 
-       // TODO: If this trips it's probably because we need to handle SIVs or SGVs
-       assert(elem.system_value == 0);
+         // TODO: If this trips it's probably because we need to handle SIVs
+         // or SGVs
+         assert(elem.system_value == 0);
 
-       if (ctx->mod.shader_kind == D3D10_SB_VERTEX_SHADER) {
-         ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, elem.reg,
-                                       write_mask);
-       } else {
-         ctx->mod.shader.EmitPSInputDecl(elem.reg, write_mask,
-                                         D3D10_SB_INTERPOLATION_LINEAR  // TODO?
-         );
-       }
-     }
+         if (ctx->mod.shader_kind == D3D10_SB_VERTEX_SHADER) {
+            ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT,
+                                          elem.reg, write_mask);
+         } else {
+            ctx->mod.shader.EmitPSInputDecl(
+                elem.reg, write_mask,
+                D3D10_SB_INTERPOLATION_LINEAR // TODO?
+            );
+         }
+      }
    }
 
    for (int i = 0; i < ctx->dxil_mod.num_sig_outputs; i++) {
-     struct dxil_signature_record& output = ctx->dxil_mod.outputs[i];
-     for (int e = 0; e < output.num_elements; e++) {
-       struct dxil_signature_element& elem = output.elements[e];
-       UINT write_mask = elem.mask << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
+      struct dxil_signature_record &output = ctx->dxil_mod.outputs[i];
+      for (int e = 0; e < output.num_elements; e++) {
+         struct dxil_signature_element &elem = output.elements[e];
+         UINT write_mask = elem.mask
+                           << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
 
-       // elem.system_value is `enum dxil_prog_sig_semantic`
-       // https://gitlab.freedesktop.org/mesa/mesa/blob/4a3395f35aeeb90f4613922dfe761dae62572f4b/src/microsoft/compiler/dxil_signature.c#L405
-       enum dxil_prog_sig_semantic sem =
-           static_cast<enum dxil_prog_sig_semantic>(elem.system_value);
-       switch (sem) {
+         // elem.system_value is `enum dxil_prog_sig_semantic`
+         // https://gitlab.freedesktop.org/mesa/mesa/blob/4a3395f35aeeb90f4613922dfe761dae62572f4b/src/microsoft/compiler/dxil_signature.c#L405
+         enum dxil_prog_sig_semantic sem =
+             static_cast<enum dxil_prog_sig_semantic>(elem.system_value);
+         switch (sem) {
          case DXIL_PROG_SEM_UNDEFINED:
          case DXIL_PROG_SEM_TARGET:
-           // emit as normal
-           ctx->mod.shader.EmitOutputDecl(elem.reg, write_mask);
-           break;
+            // emit as normal
+            ctx->mod.shader.EmitOutputDecl(elem.reg, write_mask);
+            break;
 
          case DXIL_PROG_SEM_POSITION:
-           ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
-               elem.reg, write_mask, D3D10_SB_NAME_POSITION);
-           break;
+            ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
+                elem.reg, write_mask, D3D10_SB_NAME_POSITION);
+            break;
 
          default:
-           unreachable("unhandled dxil_prog_sig_semantic");
-           return false;
-       }
-     }
+            unreachable("unhandled dxil_prog_sig_semantic");
+            return false;
+         }
+      }
    }
 
    uint32_t num_temps = 0;
-   nir_foreach_register(reg, &nir_shader_get_entrypoint(ctx->shader)->registers) {
+   nir_foreach_register(reg,
+                        &nir_shader_get_entrypoint(ctx->shader)->registers)
+   {
       num_temps = std::max(num_temps, reg->index + 1);
    }
    if (num_temps > 0) {
-     ctx->mod.shader.EmitTempsDecl(num_temps);
+      ctx->mod.shader.EmitTempsDecl(num_temps);
    }
 
    return true;
 }
 
 static bool
-emit_module(struct ntd_context *ctx) {
-  if (!emit_dcl(ctx)) {
-    return false;
+emit_module(struct ntd_context *ctx)
+{
+   if (!emit_dcl(ctx)) {
+      return false;
    }
 
-  nir_function_impl* entry = nir_shader_get_entrypoint(ctx->shader);
-  nir_metadata_require(entry, nir_metadata_block_index);
-  if (!emit_cf_list(ctx, &entry->body)) {
-    return false;
+   nir_function_impl *entry = nir_shader_get_entrypoint(ctx->shader);
+   nir_metadata_require(entry, nir_metadata_block_index);
+   if (!emit_cf_list(ctx, &entry->body)) {
+      return false;
    }
 
-   ctx->mod.shader.EmitInstruction(D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_RET));
+   ctx->mod.shader.EmitInstruction(
+       D3D10ShaderBinary::CInstruction(D3D10_SB_OPCODE_RET));
 
    return true;
 }
@@ -904,7 +968,7 @@ get_dxbc_shader_kind(struct nir_shader *s)
 }
 
 static int
-get_glsl_type_size(const struct glsl_type * type, bool is_bindless)
+get_glsl_type_size(const struct glsl_type *type, bool is_bindless)
 {
    return glsl_count_attribute_slots(type, false);
 }
@@ -927,12 +991,16 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
               nir_var_function_temp | nir_var_shader_temp, NULL);
 
    nir_lower_io_options options{};
-   NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out | nir_var_uniform, get_glsl_type_size, options);
+   NIR_PASS_V(s, nir_lower_io,
+              nir_var_shader_in | nir_var_shader_out | nir_var_uniform,
+              get_glsl_type_size, options);
    // NIR_PASS_V(s, nir_lower_locals_to_regs);
    // NIR_PASS_V(s, nir_move_vec_src_uses_to_dest);
    // NIR_PASS_V(s, nir_lower_vec_to_movs, NULL, NULL);
    NIR_PASS_V(s, nir_opt_dce);
    // NIR_PASS_V(s, nir_remove_dead_variables, nir_var_function_temp, NULL);
+
+   // TODO register allocator that can reuse registers?
    NIR_PASS_V(s, nir_convert_from_ssa, false);
 
    ntd_context ctx;
@@ -945,9 +1013,10 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    // TODO SV_Position doesn't make it into dxil_module's inputs?
    get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
 
-   DxbcModule& mod = ctx.mod;
+   DxbcModule &mod = ctx.mod;
    mod.shader.Init(1024);
-   mod.shader.StartShader(mod.shader_kind, mod.major_version, mod.minor_version);
+   mod.shader.StartShader(mod.shader_kind, mod.major_version,
+                          mod.minor_version);
 
    emit_module(&ctx);
 
@@ -957,14 +1026,16 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
 
    // RDEF is only used for reflection?
 
-   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, ctx.dxil_mod.num_sig_inputs,
-                                          ctx.dxil_mod.inputs)) {
+   if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1,
+                                        ctx.dxil_mod.num_sig_inputs,
+                                        ctx.dxil_mod.inputs)) {
       debug_printf("D3D12: dxil_container_add_io_signature failed\n");
       return false;
    }
 
-   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1, ctx.dxil_mod.num_sig_outputs,
-                                          ctx.dxil_mod.outputs)) {
+   if (!dxil_container_add_io_signature(container.get(), DXIL_OSG1,
+                                        ctx.dxil_mod.num_sig_outputs,
+                                        ctx.dxil_mod.outputs)) {
       debug_printf("D3D12: dxil_container_add_io_signature failed\n");
       return false;
    }
@@ -975,8 +1046,8 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    // }
 
    if (!dxil_container_add_shader_blob(
-            container.get(), static_cast<const void*>(mod.shader.GetShader()),
-            static_cast<uint32_t>(mod.shader.ShaderSizeInDWORDs() *
+           container.get(), static_cast<const void *>(mod.shader.GetShader()),
+           static_cast<uint32_t>(mod.shader.ShaderSizeInDWORDs() *
                                  sizeof(UINT)))) {
       debug_printf("D3D12: dxil_container_add_shader_blob failed\n");
       return false;

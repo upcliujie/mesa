@@ -73,7 +73,7 @@ enum dxil_part_fourcc {
    DXIL_RDAT = DXIL_FOURCC('R', 'D', 'A', 'T'),
    DXIL_HASH = DXIL_FOURCC('H', 'A', 'S', 'H'),
 
-   DXBC_SHEX = DXIL_FOURCC('S','H','E','X'),
+   DXBC_SHEX = DXIL_FOURCC('S', 'H', 'E', 'X'),
 };
 
 struct dxil_resource {
@@ -118,8 +118,8 @@ dxil_container_add_module(struct dxil_container *c,
                           const struct dxil_module *m);
 
 bool
-dxil_container_add_shader_blob(struct dxil_container* c,
-                               const void* blob,
+dxil_container_add_shader_blob(struct dxil_container *c,
+                               const void *blob,
                                uint32_t size);
 
 bool
