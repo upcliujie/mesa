@@ -27,6 +27,7 @@
 #include "dxil_container.h"
 #include "dxil_enums.h"
 #include "dxil_module.h"
+#include "dxil_signature.h"
 #include "nir.h"
 #include "nir/nir_builder.h"
 #include "nir_intrinsics.h"
@@ -359,6 +360,11 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu) {
           get_intr_2_args(D3D10_SB_OPCODE_IADD, alu));
       return true;
 
+    case nir_op_ushr:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_2_args(D3D10_SB_OPCODE_USHR, alu));
+      return true;
+
     case nir_op_flt:
       ctx->mod.shader.EmitInstruction(get_intr_2_args(D3D10_SB_OPCODE_LT, alu));
       return true;
@@ -478,8 +484,10 @@ static bool
 emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
   D3D10ShaderBinary::COperandBase src = nir_src_as_const_value_or_register(intr->src[0], 4,nullptr);
-  D3D10ShaderBinary::COperand4 dst(D3D10_SB_OPERAND_TYPE_OUTPUT,
-                                   nir_src_as_uint(intr->src[1]));
+  D3D10ShaderBinary::COperandDst dst(D3D10_SB_OPERAND_TYPE_OUTPUT,
+                                 //   nir_src_as_uint(intr->src[1]) // TODO is `base` the output we care about?
+                                 nir_intrinsic_base(intr)
+                                   );
   D3D10ShaderBinary::CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
   ctx->mod.shader.EmitInstruction(mov);
 
@@ -490,7 +498,9 @@ static bool
 emit_load_input(struct ntd_context* ctx,
                 nir_intrinsic_instr* intr) {
   D3D10ShaderBinary::COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
-                                   nir_src_as_uint(intr->src[0]));
+                                 //   nir_src_as_uint(intr->src[0]) // TODO is `base` the input we care about?
+                                 nir_intrinsic_base(intr)
+                                   );
 
   D3D10ShaderBinary::COperandBase dst = nir_dest_as_register(intr->dest, 0b1111);
 
@@ -712,13 +722,24 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
 
 static bool
 emit_module(struct ntd_context *ctx) {
-   // TODO
+   // TODO?
    ctx->mod.shader.EmitGlobalFlagsDecl(
-      D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
-   ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, 0,
-                                 D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
-   ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
-      0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL, D3D10_SB_NAME_POSITION);
+       D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
+
+   // TODO: this hard-codes the `dcl_*` statements for `hello_triangle.hlsl`. we should implement it based off the `ctx->dxil_mod`.
+   if (ctx->mod.shader_kind == D3D10_SB_VERTEX_SHADER) {
+     ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, 0,
+                                   D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
+     ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT, 1,
+                                   D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
+     ctx->mod.shader.EmitOutputDecl(0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
+     ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
+         1, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL, D3D10_SB_NAME_POSITION);
+   } else {
+     ctx->mod.shader.EmitPSInputDecl(0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL,
+                                     D3D10_SB_INTERPOLATION_LINEAR);
+     ctx->mod.shader.EmitOutputDecl(0, D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL);
+   }
 
   nir_function_impl* entry = nir_shader_get_entrypoint(ctx->shader);
   nir_metadata_require(entry, nir_metadata_block_index);
@@ -789,6 +810,8 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    ctx.mod.major_version = 5;
    ctx.mod.minor_version = 1;
 
+   get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
+
    DxbcModule& mod = ctx.mod;
    mod.shader.Init(1024);
    mod.shader.StartShader(mod.shader_kind, mod.major_version, mod.minor_version);
@@ -796,9 +819,10 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    emit_module(&ctx);
 
    mod.shader.EndShader();
-   get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
 
    ScopedDxilContainer container;
+
+   // RDEF is only used for reflection?
 
    if (!dxil_container_add_io_signature(container.get(), DXIL_ISG1, ctx.dxil_mod.num_sig_inputs,
                                           ctx.dxil_mod.inputs)) {
@@ -812,10 +836,10 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
       return false;
    }
 
-   if (!dxil_container_add_features(container.get(), &mod.feats)) {
-      debug_printf("D3D12: dxil_container_add_features failed\n");
-      return false;
-   }
+   // if (!dxil_container_add_features(container.get(), &ctx.dxil_mod.feats)) {
+   //    debug_printf("D3D12: dxil_container_add_features failed\n");
+   //    return false;
+   // }
 
    if (!dxil_container_add_shader_blob(
             container.get(), static_cast<const void*>(mod.shader.GetShader()),
@@ -824,6 +848,8 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
       debug_printf("D3D12: dxil_container_add_shader_blob failed\n");
       return false;
    }
+
+   // STAT is only used for reflection?
 
    if (!dxil_container_write(container.get(), blob)) {
       debug_printf("D3D12: dxil_container_write failed\n");

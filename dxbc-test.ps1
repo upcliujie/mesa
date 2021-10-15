@@ -7,6 +7,10 @@ param(
         [String]
         $dxbc_signer_path,
 
+        # single shader to build
+        [String]
+        $shader,
+
         [String]
         $fxc_path = "fxc"
 )
@@ -30,8 +34,12 @@ $shader_dir = "src\microsoft\spirv_to_dxil\test_shaders"
 $shader_output_dir = "$build_dir\_shaders"
 New-Item -ItemType Directory $shader_output_dir -ErrorAction SilentlyContinue
 
-$files = @(Get-ChildItem "$shader_dir\*.hlsl")
-foreach ($file in $files) {
+
+function Build-Shader {
+        Param(
+                $file
+        )
+
         Write-Host -ForegroundColor Green "compiling $file"
         $file_name = $file.Name;
 
@@ -75,7 +83,18 @@ foreach ($file in $files) {
                 & $dxbc_signer_path "$shader_output_dir\$file_name.ps.mesa.dxbc" "$shader_output_dir\$file_name.ps.mesa.dxbc"
                 & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.vs.mesa.dxbc" -Fc "$shader_output_dir\$file_name.vs.mesa.disasm"
                 & $fxc_path /nologo /dumpbin "$shader_output_dir\$file_name.ps.mesa.dxbc" -Fc "$shader_output_dir\$file_name.ps.mesa.disasm"
-        } else {
+        }
+        else {
                 Write-Host -ForegroundColor Red "need dxbcsigner to dump disassembly!"
+        }
+}
+
+if ($shader) {
+        $file = Get-Item $shader
+        Build-Shader -file $file
+} else {
+        $files = @(Get-ChildItem "$shader_dir\*.hlsl")
+        foreach ($file in $files) {
+                Build-Shader -file $file
         }
 }
