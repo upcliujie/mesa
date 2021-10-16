@@ -97,6 +97,10 @@ panfrost_afbc_format(const struct panfrost_device *dev, enum pipe_format format)
         }
 
         switch (format) {
+        case PIPE_FORMAT_R8_UNORM:
+                return PIPE_FORMAT_R8_UNORM;
+
+        case PIPE_FORMAT_R8G8_UNORM:
         case PIPE_FORMAT_Z16_UNORM:
                 return PIPE_FORMAT_R8G8_UNORM;
 
