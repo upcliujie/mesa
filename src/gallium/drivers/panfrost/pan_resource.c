@@ -218,9 +218,19 @@ panfrost_create_surface(struct pipe_context *pipe,
                         struct pipe_resource *pt,
                         const struct pipe_surface *surf_tmpl)
 {
+        struct panfrost_context *ctx = pan_context(pipe);
+        struct panfrost_resource *rsrc = pan_resource(pt);
         struct pipe_surface *ps = NULL;
 
         ps = CALLOC_STRUCT(pipe_surface);
+
+        /* AFBC is specialized to the format. If the sampler format differs
+         * from the resource's format, we may need to decompress. */
+        if (drm_is_afbc(rsrc->image.layout.modifier) && pt->format != surf_tmpl->format) {
+                pan_resource_modifier_convert(ctx, rsrc,
+                                DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED,
+                                "Incompatible AFBC formats when rendering");
+        }
 
         if (ps) {
                 pipe_reference_init(&ps->reference, 1);

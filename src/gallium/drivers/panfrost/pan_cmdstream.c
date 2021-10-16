@@ -3374,7 +3374,17 @@ panfrost_create_sampler_view(
         struct pipe_resource *texture,
         const struct pipe_sampler_view *template)
 {
+        struct panfrost_context *ctx = pan_context(pctx);
+        struct panfrost_resource *rsrc = pan_resource(texture);
         struct panfrost_sampler_view *so = rzalloc(pctx, struct panfrost_sampler_view);
+
+        /* AFBC is specialized to the format. If the sampler view format
+         * differs from the resource's format, we may need to decompress. */
+        if (drm_is_afbc(rsrc->image.layout.modifier) && texture->format != template->format) {
+                pan_resource_modifier_convert(ctx, rsrc,
+                                DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED,
+                                "Incompatible AFBC formats when sampling");
+        }
 
         pipe_reference(NULL, &texture->reference);
 
