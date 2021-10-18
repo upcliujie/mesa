@@ -88,6 +88,9 @@ struct fd6_context {
    uint16_t tex_seqno;
    struct hash_table *tex_cache;
 
+   uint32_t ssbo_descriptors[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES][FDL6_TEX_CONST_DWORDS];
+   struct fdl6_view image_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+
    struct {
       /* previous binning/draw lrz state, which is a function of multiple
        * gallium stateobjs, but doesn't necessarily change as frequently:
