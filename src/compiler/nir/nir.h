@@ -725,17 +725,50 @@ _nir_shader_variable_has_mode(nir_variable *var, unsigned modes)
 #define nir_foreach_uniform_variable_safe(var, shader) \
    nir_foreach_variable_with_modes_safe(var, shader, nir_var_uniform)
 
+static inline bool
+_nir_variable_is_texture(nir_variable *var)
+{
+   if (var->data.mode == nir_var_texture)
+      return true;
+
+   if (var->data.mode != nir_var_uniform)
+      return false;
+
+   return glsl_type_is_sampler(glsl_without_array(var->type)) ||
+          glsl_type_is_texture(glsl_without_array(var->type));
+}
+
 #define nir_foreach_texture_variable(var, shader) \
-   nir_foreach_variable_with_modes(var, shader, nir_var_texture)
+   nir_foreach_variable_with_modes(var, shader, nir_var_uniform | \
+                                                nir_var_texture) \
+      if (_nir_variable_is_texture(var))
 
 #define nir_foreach_texture_variable_safe(var, shader) \
-   nir_foreach_variable_with_modes_safe(var, shader, nir_var_texture)
+   nir_foreach_variable_with_modes_safe(var, shader, nir_var_uniform | \
+                                                     nir_var_texture) \
+      if (_nir_variable_is_texture(var))
+
+static inline bool
+_nir_variable_is_atomic_counter(nir_variable *var)
+{
+   if (var->data.mode == nir_var_atomic_counter)
+      return true;
+
+   if (var->data.mode != nir_var_uniform)
+      return false;
+
+   return glsl_contains_atomic(var->type);
+}
 
 #define nir_foreach_atomic_counter_variable(var, shader) \
-   nir_foreach_variable_with_modes(var, shader, nir_var_atomic_counter)
+   nir_foreach_variable_with_modes(var, shader, nir_var_uniform | \
+                                                nir_var_atomic_counter) \
+      if (_nir_variable_is_atomic_counter(var))
 
 #define nir_foreach_atomic_counter_variable_safe(var, shader) \
-   nir_foreach_variable_with_modes_safe(var, shader, nir_var_atomic_counter)
+   nir_foreach_variable_with_modes_safe(var, shader, nir_var_uniform | \
+                                                     nir_var_atomic_counter) \
+      if (_nir_variable_is_atomic_counter(var))
 
 #define nir_foreach_image_variable(var, shader) \
    nir_foreach_variable_with_modes(var, shader, nir_var_image)
