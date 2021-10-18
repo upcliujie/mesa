@@ -59,10 +59,11 @@ SOFTWARE.
 	</doc>
 
 	<display>
-		{SY}{JP}{NAME}.{TYPE} {DST}, g[{SRC1}{OFF}], {SIZE}
+		{SY}{JP}{NAME}.{TYPE} {DST_HALF}{DST}, g[{SRC1}{OFF}], {SIZE}
 	</display>
 
 	<field low="1" high="13" name="OFF" type="offset"/>
+	<derived name="DST_HALF" expr="#type-half" type="bool" display="h"/>
 	<pattern pos="22"          >0</pattern> <!-- Imm offset ldg form -->
 
 	<encode>
@@ -79,15 +80,17 @@ SOFTWARE.
 	<gen min="600"/>
 
 	<display>
-		{SY}{JP}{NAME}.{TYPE} {DST}, g[{SRC1}+({SRC2}{OFF})&lt;&lt;{SRC2_BYTE_SHIFT}], {SIZE}
+		{SY}{JP}{NAME}.{TYPE} {DST_HALF}{DST}, g[{SRC1}+({SRC2}{OFF})&lt;&lt;{SRC2_BYTE_SHIFT}], {SIZE}
 	</display>
 
 	<override>
 		<display>
-			{SY}{JP}{NAME}.{TYPE} {DST}, g[{SRC1}+{SRC2}&lt;&lt;{SRC2_BYTE_SHIFT}{OFF}&lt;&lt;2], {SIZE}
+			{SY}{JP}{NAME}.{TYPE} {DST_HALF}{DST}, g[{SRC1}+{SRC2}&lt;&lt;{SRC2_BYTE_SHIFT}{OFF}&lt;&lt;2], {SIZE}
 		</display>
 		<expr>{SRC2_ADD_DWORD_SHIFT} > 0</expr>
 	</override>
+
+	<derived name="DST_HALF" expr="#type-half" type="bool" display="h"/>
 
 	<field   low="1"  high="8"  name="SRC2"  type="#reg-gpr"/>
 	<field   low="9"  high="10" name="OFF" type="uoffset"/>
@@ -129,12 +132,13 @@ SOFTWARE.
 	</doc>
 
 	<display>
-		{SY}{JP}{NAME}.{TYPE} g[{SRC1}{OFF}], {SRC3}, {SIZE}
+		{SY}{JP}{NAME}.{TYPE} g[{SRC1}{OFF}], {SRC_HALF}{SRC3}, {SIZE}
 	</display>
 
 	<derived name="OFF" width="13" type="offset">
 		<expr>({OFF_HI} &lt;&lt; 8) | {OFF_LO}</expr>
 	</derived>
+	<derived name="SRC_HALF" expr="#type-half" type="bool" display="h"/>
 
 	<field   low="9"  high="13" name="OFF_HI" type="int"/>
 	<field   low="32" high="39" name="OFF_LO" type="uint"/>
@@ -156,12 +160,12 @@ SOFTWARE.
 	<gen min="600"/>
 
 	<display>
-		{SY}{JP}{NAME}.{TYPE} g[{SRC1}+({SRC2}{OFF})&lt;&lt;{DST_BYTE_SHIFT}], {SRC3}, {SIZE}
+		{SY}{JP}{NAME}.{TYPE} g[{SRC1}+({SRC2}{OFF})&lt;&lt;{DST_BYTE_SHIFT}], {SRC_HALF}{SRC3}, {SIZE}
 	</display>
 
 	<override>
 		<display>
-			{SY}{JP}{NAME}.{TYPE} g[{SRC1}+{SRC2}&lt;&lt;{DST_BYTE_SHIFT}{OFF}&lt;&lt;2], {SRC3}, {SIZE}
+			{SY}{JP}{NAME}.{TYPE} g[{SRC1}+{SRC2}&lt;&lt;{DST_BYTE_SHIFT}{OFF}&lt;&lt;2], {SRC_HALF}{SRC3}, {SIZE}
 		</display>
 		<expr>{SRC2_ADD_DWORD_SHIFT} > 0</expr>
 	</override>
@@ -169,6 +173,7 @@ SOFTWARE.
 	<derived name="DST_BYTE_SHIFT" width="3" type="uint">
 		<expr>{SRC2_ADD_DWORD_SHIFT} + 2</expr>
 	</derived>
+	<derived name="SRC_HALF" expr="#type-half" type="bool" display="h"/>
 
 	<field   low="9"  high="10" name="OFF" type="uoffset"/>
 	<assert  pos="11"          >0</assert>
