@@ -170,6 +170,13 @@ init_render_queue_state(struct anv_queue *queue)
       ps.PipelineSelection = _3D;
    }
 
+#if GFX_VERx10 >= 125
+   anv_batch_emit(&batch, GENX(3DSTATE_3D_MODE), p) {
+      p.FastClearOptimizationEnable = false;
+      p.FastClearOptimizationEnableMask = false;
+   }
+#endif
+
 #if GFX_VER == 9
    anv_batch_write_reg(&batch, GENX(CACHE_MODE_1), cm1) {
       cm1.FloatBlendOptimizationEnable = true;
