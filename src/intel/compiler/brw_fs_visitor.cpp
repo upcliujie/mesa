@@ -1047,7 +1047,7 @@ void
 fs_visitor::emit_barrier()
 {
    /* We are getting the barrier ID from the compute shader header */
-   assert(stage == MESA_SHADER_COMPUTE || stage == MESA_SHADER_KERNEL);
+   assert(gl_shader_stage_is_compute(stage));
 
    fs_reg payload = fs_reg(VGRF, alloc.allocate(1), BRW_REGISTER_TYPE_UD);
 

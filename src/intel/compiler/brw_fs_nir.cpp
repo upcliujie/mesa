@@ -107,8 +107,7 @@ fs_visitor::nir_setup_uniforms()
 
    uniforms = nir->num_uniforms / 4;
 
-   if ((stage == MESA_SHADER_COMPUTE || stage == MESA_SHADER_KERNEL) &&
-       devinfo->verx10 < 125) {
+   if (gl_shader_stage_is_compute(stage) && devinfo->verx10 < 125) {
       /* Add uniforms for builtins after regular NIR uniforms. */
       assert(uniforms == prog_data->nr_params);
 
@@ -192,8 +191,7 @@ emit_system_values_block(nir_block *block, fs_visitor *v)
          break;
 
       case nir_intrinsic_load_workgroup_id:
-         assert(v->stage == MESA_SHADER_COMPUTE ||
-                v->stage == MESA_SHADER_KERNEL);
+         assert(gl_shader_stage_is_compute(v->stage));
          reg = &v->nir_system_values[SYSTEM_VALUE_WORKGROUP_ID];
          if (reg->file == BAD_FILE)
             *reg = *v->emit_cs_work_group_id_setup();
@@ -3802,7 +3800,7 @@ void
 fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
                                   nir_intrinsic_instr *instr)
 {
-   assert(stage == MESA_SHADER_COMPUTE || stage == MESA_SHADER_KERNEL);
+   assert(gl_shader_stage_is_compute(stage));
    struct brw_cs_prog_data *cs_prog_data = brw_cs_prog_data(prog_data);
 
    fs_reg dest;
@@ -3885,7 +3883,7 @@ fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
 
    case nir_intrinsic_load_shared: {
       assert(devinfo->ver >= 7);
-      assert(stage == MESA_SHADER_COMPUTE || stage == MESA_SHADER_KERNEL);
+      assert(gl_shader_stage_is_compute(stage));
 
       const unsigned bit_size = nir_dest_bit_size(instr->dest);
       fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];
@@ -3922,7 +3920,7 @@ fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
 
    case nir_intrinsic_store_shared: {
       assert(devinfo->ver >= 7);
-      assert(stage == MESA_SHADER_COMPUTE || stage == MESA_SHADER_KERNEL);
+      assert(gl_shader_stage_is_compute(stage));
 
       const unsigned bit_size = nir_src_bit_size(instr->src[0]);
       fs_reg srcs[SURFACE_LOGICAL_NUM_SRCS];

@@ -265,8 +265,7 @@ lower_cs_intrinsics_convert_impl(struct lower_intrinsics_state *state)
 bool
 brw_nir_lower_cs_intrinsics(nir_shader *nir)
 {
-   assert(nir->info.stage == MESA_SHADER_COMPUTE ||
-          nir->info.stage == MESA_SHADER_KERNEL);
+   assert(gl_shader_stage_is_compute(nir->info.stage));
 
    struct lower_intrinsics_state state = {
       .nir = nir,
