@@ -33,6 +33,33 @@ const struct vn_buffer_cache *
 vn_device_get_buffer_cache(struct vn_device *dev,
                            const VkBufferCreateInfo *create_info)
 {
+   /* cache only VK_SHARING_MODE_EXCLUSIVE and without pNext for simplicity */
+   if (create_info->pNext ||
+       create_info->sharingMode != VK_SHARING_MODE_EXCLUSIVE)
+      return NULL;
+
+   /* 12.7. Resource Memory Association
+    *
+    * The memoryTypeBits member is identical for all VkBuffer objects created
+    * with the same value for the flags and usage members in the
+    * VkBufferCreateInfo structure and the handleTypes member of the
+    * VkExternalMemoryBufferCreateInfo structure passed to vkCreateBuffer.
+    * Further, if usage1 and usage2 of type VkBufferUsageFlags are such that
+    * the bits set in usage2 are a subset of the bits set in usage1, and they
+    * have the same flags and VkExternalMemoryBufferCreateInfo::handleTypes,
+    * then the bits set in memoryTypeBits returned for usage1 must be a subset
+    * of the bits set in memoryTypeBits returned for usage2, for all values of
+    * flags.
+    */
+   for (uint32_t i = 0; i < dev->buffer_requirements.cache_count; i++) {
+      const struct vn_buffer_cache *cache =
+         &dev->buffer_requirements.caches[i];
+      if ((cache->create_info.flags == create_info->flags) &&
+          ((cache->create_info.usage & create_info->usage) ==
+           create_info->usage))
+         return cache;
+   }
+
    return NULL;
 }
 
