@@ -2285,6 +2285,22 @@ get_vs_output_info(const struct radv_pipeline *pipeline)
       return &pipeline->shaders[MESA_SHADER_VERTEX]->info.vs.outinfo;
 }
 
+static bool
+radv_nir_stage_uses_xfb(const nir_shader *nir)
+{
+   bool uses_xfb = false;
+
+   if (nir->info.stage == MESA_SHADER_VERTEX ||
+       nir->info.stage == MESA_SHADER_TESS_EVAL ||
+       nir->info.stage == MESA_SHADER_GEOMETRY) {
+      nir_xfb_info *xfb = nir_gather_xfb_info(nir, NULL);
+      uses_xfb = !!xfb;
+      ralloc_free(xfb);
+   }
+
+   return uses_xfb;
+}
+
 static void
 radv_link_shaders(struct radv_pipeline *pipeline,
                   const struct radv_pipeline_key *pipeline_key,
@@ -2379,6 +2395,9 @@ radv_link_shaders(struct radv_pipeline *pipeline,
       for (unsigned i = 0; i < shader_count; ++i) {
          shader_info *info = &ordered_shaders[i]->info;
          if (!(info->outputs_written & VARYING_BIT_PSIZ))
+            continue;
+
+         if (radv_nir_stage_uses_xfb(ordered_shaders[i]))
             continue;
 
          bool next_stage_needs_psiz =
@@ -2701,16 +2720,6 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
    key.use_ngg = pipeline->device->physical_device->use_ngg;
 
    return key;
-}
-
-static bool
-radv_nir_stage_uses_xfb(const nir_shader *nir)
-{
-   nir_xfb_info *xfb = nir_gather_xfb_info(nir, NULL);
-   bool uses_xfb = !!xfb;
-
-   ralloc_free(xfb);
-   return uses_xfb;
 }
 
 static uint8_t
