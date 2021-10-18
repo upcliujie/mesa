@@ -260,7 +260,7 @@ zink_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_type,
       RET((uint64_t []) { screen->info.props.limits.maxComputeSharedMemorySize });
 
    case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-      RET((uint32_t []) { 1 });
+      RET((uint32_t []) { 0 });
 
    case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:
       RET((uint32_t []) { screen->info.props11.subgroupSize });
