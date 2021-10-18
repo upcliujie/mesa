@@ -1070,8 +1070,7 @@ static bool amdgpu_cs_validate(struct radeon_cmdbuf *rcs)
    return true;
 }
 
-static bool amdgpu_cs_check_space(struct radeon_cmdbuf *rcs, unsigned dw,
-                                  bool force_chaining)
+static bool amdgpu_cs_check_space(struct radeon_cmdbuf *rcs, unsigned dw)
 {
    struct amdgpu_cs *cs = amdgpu_cs(rcs);
    struct amdgpu_ib *ib = &cs->main;
@@ -1086,17 +1085,15 @@ static bool amdgpu_cs_check_space(struct radeon_cmdbuf *rcs, unsigned dw,
                                    safe_byte_size);
 
    /* If force_chaining is true, we can't return. We have to chain. */
-   if (!force_chaining) {
-      unsigned requested_size = rcs->prev_dw + rcs->current.cdw + dw;
+   unsigned requested_size = rcs->prev_dw + rcs->current.cdw + dw;
 
-      if (requested_size > IB_MAX_SUBMIT_DWORDS)
-         return false;
+   if (requested_size > IB_MAX_SUBMIT_DWORDS)
+      return false;
 
-      ib->max_ib_size = MAX2(ib->max_ib_size, requested_size);
+   ib->max_ib_size = MAX2(ib->max_ib_size, requested_size);
 
-      if (rcs->current.max_dw - rcs->current.cdw >= dw)
-         return true;
-   }
+   if (rcs->current.max_dw - rcs->current.cdw >= dw)
+      return true;
 
    if (!cs->has_chaining) {
       assert(!force_chaining);
