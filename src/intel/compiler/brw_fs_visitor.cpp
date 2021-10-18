@@ -978,8 +978,8 @@ fs_visitor::emit_urb_writes(const fs_reg &gs_vertex_count)
       inst->mlen = 2;
       inst->offset = 1;
       return;
-   } 
- 
+   }
+
    /* ICL WA 1805992985:
     *
     * ICLLP GPU hangs on one of tessellation vkcts tests with DS not done. The
