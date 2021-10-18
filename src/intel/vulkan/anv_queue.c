@@ -25,7 +25,6 @@
  * This file implements VkQueue, VkFence, and VkSemaphore
  */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -396,9 +395,9 @@ anv_queue_task(void *_queue)
                   submit->wait_timeline_values, submit->wait_timeline_count,
                   anv_get_absolute_timeout(UINT64_MAX) /* wait forever */,
                   true /* wait for all */, true /* wait for materialize */);
-            if (ret) {
+            if (ret < 0) {
                result = anv_queue_set_lost(queue, "timeline timeout: %s",
-                                           strerror(errno));
+                                           strerror(-ret));
             }
          }
 
@@ -799,7 +798,8 @@ anv_queue_submit_simple_batch(struct anv_queue *queue,
    if (result == VK_SUCCESS) {
       if (has_syncobj_wait) {
          if (anv_gem_syncobj_wait(device, &syncobj, 1,
-                                  anv_get_absolute_timeout(INT64_MAX), true))
+                                  anv_get_absolute_timeout(INT64_MAX),
+                                  true) < 0)
             result = anv_device_set_lost(device, "anv_gem_syncobj_wait failed: %m");
          anv_gem_syncobj_destroy(device, syncobj);
       } else {
@@ -1553,25 +1553,21 @@ VkResult anv_GetFenceStatus(
                                              &binary_value, 1, 0,
                                              true /* wait_all */,
                                              false /* wait_materialize */);
-         if (ret == -1) {
-            if (errno == ETIME) {
-               return VK_NOT_READY;
-            } else {
-               /* We don't know the real error. */
-               return anv_device_set_lost(device, "drm_syncobj_wait failed: %m");
-            }
+         if (ret == -ETIME) {
+            return VK_NOT_READY;
+         } else if (ret < 0) {
+            /* We don't know the real error. */
+            return anv_device_set_lost(device, "drm_syncobj_wait failed: %m");
          } else {
             return VK_SUCCESS;
          }
       } else {
          int ret = anv_gem_syncobj_wait(device, &impl->syncobj, 1, 0, false);
-         if (ret == -1) {
-            if (errno == ETIME) {
-               return VK_NOT_READY;
-            } else {
-               /* We don't know the real error. */
-               return anv_device_set_lost(device, "drm_syncobj_wait failed: %m");
-            }
+         if (ret == -ETIME) {
+            return VK_NOT_READY;
+         } else if (ret < 0) {
+            /* We don't know the real error. */
+            return anv_device_set_lost(device, "drm_syncobj_wait failed: %m");
          } else {
             return VK_SUCCESS;
          }
@@ -1616,17 +1612,15 @@ anv_wait_for_syncobj_fences(struct anv_device *device,
    do {
       ret = anv_gem_syncobj_wait(device, syncobjs, fenceCount,
                                  abs_timeout_ns, waitAll);
-   } while (ret == -1 && errno == ETIME && anv_gettime_ns() < abs_timeout_ns);
+   } while (ret == -ETIME && anv_gettime_ns() < abs_timeout_ns);
 
    vk_free(&device->vk.alloc, syncobjs);
 
-   if (ret == -1) {
-      if (errno == ETIME) {
-         return VK_TIMEOUT;
-      } else {
-         /* We don't know the real error. */
-         return anv_device_set_lost(device, "drm_syncobj_wait failed: %m");
-      }
+   if (ret == -ETIME) {
+      return VK_TIMEOUT;
+   } else if (ret < 0) {
+      /* We don't know the real error. */
+      return anv_device_set_lost(device, "drm_syncobj_wait failed: %m");
    } else {
       return VK_SUCCESS;
    }
@@ -1991,7 +1985,7 @@ wait_syncobj_materialize(struct anv_device *device,
    if (anv_gem_syncobj_timeline_wait(device, &syncobj, &binary_value, 1,
                                      anv_get_absolute_timeout(5ull * NSEC_PER_SEC),
                                      true /* wait_all */,
-                                     true /* wait_materialize */))
+                                     true /* wait_materialize */) < 0)
       return anv_device_set_lost(device, "anv_gem_syncobj_timeline_wait failed: %m");
 
    return VK_SUCCESS;
@@ -2616,9 +2610,11 @@ VkResult anv_WaitSemaphores(
                                           anv_get_absolute_timeout(timeout),
                                           !(pWaitInfo->flags & VK_SEMAPHORE_WAIT_ANY_BIT_KHR),
                                           false);
-         if (ret != 0)
-            result = errno == ETIME ? VK_TIMEOUT :
-               anv_device_set_lost(device, "unable to wait on timeline syncobj");
+         if (ret == -ETIME) {
+            result = VK_TIMEOUT;
+         } else if (ret < 0) {
+            result = anv_device_set_lost(device, "unable to wait on timeline syncobj");
+         }
       } else {
          result =
             anv_timelines_wait(device, timelines, values, handle_count,

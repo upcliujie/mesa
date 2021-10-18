@@ -1424,7 +1424,7 @@ uint32_t anv_gem_create_regions(struct anv_device *device, uint64_t anv_bo_size,
                                 struct drm_i915_gem_memory_class_instance *regions);
 uint32_t anv_gem_userptr(struct anv_device *device, void *mem, size_t size);
 int anv_gem_busy(struct anv_device *device, uint32_t gem_handle);
-int anv_gem_wait(struct anv_device *device, uint32_t gem_handle, int64_t *timeout_ns);
+int MUST_CHECK anv_gem_wait(struct anv_device *device, uint32_t gem_handle, int64_t *timeout_ns);
 int anv_gem_execbuffer(struct anv_device *device,
                        struct drm_i915_gem_execbuffer2 *execbuf);
 int anv_gem_set_tiling(struct anv_device *device, uint32_t gem_handle,
@@ -1435,7 +1435,7 @@ int anv_gem_create_context_engines(struct anv_device *device,
                                    int num_engines,
                                    uint16_t *engine_classes);
 bool anv_gem_has_context_priority(int fd);
-int anv_gem_destroy_context(struct anv_device *device, int context);
+void anv_gem_destroy_context(struct anv_device *device, int context);
 int anv_gem_set_context_param(int fd, int context, uint32_t param,
                               uint64_t value);
 int anv_gem_get_context_param(int fd, int context, uint32_t param,
@@ -1463,13 +1463,15 @@ int anv_gem_syncobj_import_sync_file(struct anv_device *device,
                                      uint32_t handle, int fd);
 void anv_gem_syncobj_reset(struct anv_device *device, uint32_t handle);
 bool anv_gem_supports_syncobj_wait(int fd);
-int anv_gem_syncobj_wait(struct anv_device *device,
-                         const uint32_t *handles, uint32_t num_handles,
-                         int64_t abs_timeout_ns, bool wait_all);
-int anv_gem_syncobj_timeline_wait(struct anv_device *device,
-                                  const uint32_t *handles, const uint64_t *points,
-                                  uint32_t num_items, int64_t abs_timeout_ns,
-                                  bool wait_all, bool wait_materialize);
+int MUST_CHECK
+anv_gem_syncobj_wait(struct anv_device *device,
+                     const uint32_t *handles, uint32_t num_handles,
+                     int64_t abs_timeout_ns, bool wait_all);
+int MUST_CHECK
+anv_gem_syncobj_timeline_wait(struct anv_device *device,
+                              const uint32_t *handles, const uint64_t *points,
+                              uint32_t num_items, int64_t abs_timeout_ns,
+                              bool wait_all, bool wait_materialize);
 int anv_gem_syncobj_timeline_signal(struct anv_device *device,
                                     const uint32_t *handles, const uint64_t *points,
                                     uint32_t num_items);

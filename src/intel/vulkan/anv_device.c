@@ -3527,9 +3527,9 @@ anv_device_wait(struct anv_device *device, struct anv_bo *bo,
                 int64_t timeout)
 {
    int ret = anv_gem_wait(device, bo->gem_handle, &timeout);
-   if (ret == -1 && errno == ETIME) {
+   if (ret == -ETIME) {
       return VK_TIMEOUT;
-   } else if (ret == -1) {
+   } else if (ret < 0) {
       /* We don't know the real error. */
       return anv_device_set_lost(device, "gem wait failed: %m");
    }

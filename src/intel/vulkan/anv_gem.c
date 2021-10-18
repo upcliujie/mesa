@@ -33,6 +33,7 @@
 #include "common/intel_defines.h"
 #include "common/intel_gem.h"
 #include "drm-uapi/sync_file.h"
+#include "util/u_ioctl.h"
 
 /**
  * Wrapper around DRM_IOCTL_I915_GEM_CREATE.
@@ -62,7 +63,7 @@ anv_gem_close(struct anv_device *device, uint32_t gem_handle)
       .handle = gem_handle,
    };
 
-   intel_ioctl(device->fd, DRM_IOCTL_GEM_CLOSE, &close);
+   u_ioctl_assert(device->fd, DRM_IOCTL_GEM_CLOSE, &close);
 }
 
 uint32_t
@@ -237,7 +238,7 @@ anv_gem_wait(struct anv_device *device, uint32_t gem_handle, int64_t *timeout_ns
       .flags = 0,
    };
 
-   int ret = intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_WAIT, &wait);
+   int ret = u_ioctl_retry(device->fd, DRM_IOCTL_I915_GEM_WAIT, &wait);
    *timeout_ns = wait.timeout_ns;
 
    return ret;
@@ -380,7 +381,7 @@ close_and_return:
 
    memset(&close, 0, sizeof(close));
    close.handle = gem_create.handle;
-   intel_ioctl(fd, DRM_IOCTL_GEM_CLOSE, &close);
+   u_ioctl_assert(fd, DRM_IOCTL_GEM_CLOSE, &close);
 
    return swizzled;
 }
@@ -488,14 +489,14 @@ anv_gem_create_context_engines(struct anv_device *device,
    return create.ctx_id;
 }
 
-int
+void
 anv_gem_destroy_context(struct anv_device *device, int context)
 {
    struct drm_i915_gem_context_destroy destroy = {
       .ctx_id = context,
    };
 
-   return intel_ioctl(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_DESTROY, &destroy);
+   u_ioctl_assert(device->fd, DRM_IOCTL_I915_GEM_CONTEXT_DESTROY, &destroy);
 }
 
 int
@@ -625,7 +626,7 @@ anv_gem_syncobj_destroy(struct anv_device *device, uint32_t handle)
       .handle = handle,
    };
 
-   intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY, &args);
+   u_ioctl_assert(device->fd, DRM_IOCTL_SYNCOBJ_DESTROY, &args);
 }
 
 int
@@ -692,7 +693,7 @@ anv_gem_syncobj_reset(struct anv_device *device, uint32_t handle)
       .count_handles = 1,
    };
 
-   intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_RESET, &args);
+   u_ioctl_assert(device->fd, DRM_IOCTL_SYNCOBJ_RESET, &args);
 }
 
 bool
@@ -716,7 +717,7 @@ anv_gem_syncobj_wait(struct anv_device *device,
    if (wait_all)
       args.flags |= DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL;
 
-   return intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_WAIT, &args);
+   return u_ioctl_retry(device->fd, DRM_IOCTL_SYNCOBJ_WAIT, &args);
 }
 
 int
@@ -740,7 +741,7 @@ anv_gem_syncobj_timeline_wait(struct anv_device *device,
    if (wait_materialize)
       args.flags |= DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE;
 
-   return intel_ioctl(device->fd, DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT, &args);
+   return u_ioctl_retry(device->fd, DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT, &args);
 }
 
 int
