@@ -2812,6 +2812,8 @@ struct gl_uniform_block
     */
    enum glsl_interface_packing _Packing;
    GLboolean _RowMajor;
+
+   GLboolean ContainsSamplers;
 };
 
 /**

@@ -109,6 +109,7 @@ write_buffer_block(struct blob *metadata, struct gl_uniform_block *b)
    blob_write_uint32(metadata, b->Binding);
    blob_write_uint32(metadata, b->UniformBufferSize);
    blob_write_uint32(metadata, b->stageref);
+   blob_write_uint32(metadata, b->ContainsSamplers);
 
    for (unsigned j = 0; j < b->NumUniforms; j++) {
       blob_write_string(metadata, b->Uniforms[j].Name);
@@ -165,6 +166,7 @@ read_buffer_block(struct blob_reader *metadata, struct gl_uniform_block *b,
       b->Binding = blob_read_uint32(metadata);
       b->UniformBufferSize = blob_read_uint32(metadata);
       b->stageref = blob_read_uint32(metadata);
+      b->ContainsSamplers = blob_read_uint32(metadata);
 
       b->Uniforms =
          rzalloc_array(prog->data, struct gl_uniform_buffer_variable,

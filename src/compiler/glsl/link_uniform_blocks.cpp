@@ -295,6 +295,7 @@ process_block_array_leaf(const char *name,
    parcel->process(type, b->has_instance_name ? blocks[i].Name : "");
 
    blocks[i].UniformBufferSize = parcel->buffer_size;
+   blocks[i].ContainsSamplers = type->contains_sampler();
 
    /* Check SSBO size is lower than maximum supported size for SSBO */
    if (b->is_shader_storage &&
