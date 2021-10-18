@@ -6151,7 +6151,7 @@ vtn_emit_kernel_entry_point_wrapper(struct vtn_builder *b,
          in_var->data.access =
             spirv_to_gl_access_qualifier(b, param_type->access_qualifier);
       } else if (param_type->base_type == vtn_base_type_sampler) {
-         in_var->data.mode = nir_var_uniform;
+         in_var->data.mode = nir_var_texture;
          in_var->type = glsl_bare_sampler_type();
       } else {
          in_var->data.mode = nir_var_uniform;

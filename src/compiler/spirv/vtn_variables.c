@@ -1506,10 +1506,40 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
        */
       if (interface_type) {
          interface_type = vtn_type_without_array(interface_type);
-         if (interface_type->base_type == vtn_base_type_image &&
-             glsl_type_is_image(interface_type->glsl_image)) {
-            mode = vtn_variable_mode_image;
-            nir_mode = nir_var_image;
+         if (interface_type->base_type == vtn_base_type_image) {
+            if (glsl_type_is_image(interface_type->glsl_image)) {
+               mode = vtn_variable_mode_image;
+               nir_mode = nir_var_image;
+            } else {
+               vtn_assert(glsl_type_is_texture(interface_type->glsl_image));
+               if (b->options->environment == NIR_SPIRV_OPENGL) {
+                  /* In OpenGL SPIR-V, textures and samplers can live in
+                   * structs so we need to leave them in nir_var_uniform.
+                   * They'll get converted to nir_var_texture later by
+                   * nir_lower_samplers_as_deref().
+                   */
+                  mode = vtn_variable_mode_image;
+                  nir_mode = nir_var_uniform;
+               } else {
+                  mode = vtn_variable_mode_image;
+                  nir_mode = nir_var_texture;
+               }
+            }
+            break;
+         } else if (interface_type->base_type == vtn_base_type_sampler ||
+                    interface_type->base_type == vtn_base_type_sampled_image) {
+            if (b->options->environment == NIR_SPIRV_OPENGL) {
+               /* In OpenGL SPIR-V, textures and samplers can live in
+                * structs so we need to leave them in nir_var_uniform.
+                * They'll get converted to nir_var_texture later by
+                * nir_lower_samplers_as_deref().
+                */
+               mode = vtn_variable_mode_uniform;
+               nir_mode = nir_var_uniform;
+            } else {
+               mode = vtn_variable_mode_uniform;
+               nir_mode = nir_var_texture;
+            }
             break;
          } else if (interface_type->base_type == vtn_base_type_accel_struct) {
             mode = vtn_variable_mode_accel_struct;
