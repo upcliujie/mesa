@@ -195,6 +195,9 @@ clCreateImageWithProperties(cl_context d_ctx,
    if (desc->num_mip_levels || desc->num_samples)
       throw error(CL_INVALID_IMAGE_DESCRIPTOR);
 
+   if (bool(desc->buffer) && (desc->image_type == CL_MEM_OBJECT_IMAGE2D))
+      throw error(CL_INVALID_OPERATION);
+
    if (bool(desc->buffer) != (desc->image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER))
       throw error(CL_INVALID_IMAGE_DESCRIPTOR);
 
