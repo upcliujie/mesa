@@ -4703,6 +4703,7 @@ struct gl_display_list
     * beginning.
     */
    bool begins_with_a_nop;
+   bool execute_glthread;
    GLchar *Label;     /**< GL_KHR_debug */
    /** The dlist commands are in a linked list of nodes */
    union {

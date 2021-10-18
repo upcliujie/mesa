@@ -2054,6 +2054,8 @@ save_CallList(GLuint list)
     */
    invalidate_saved_current_state( ctx );
 
+   ctx->ListState.CurrentList->execute_glthread = true;
+
    if (ctx->ExecuteFlag) {
       _mesa_CallList(list);
    }
@@ -2111,6 +2113,8 @@ save_CallLists(GLsizei num, GLenum type, const GLvoid * lists)
     * cached information previously gathered:
     */
    invalidate_saved_current_state( ctx );
+
+   ctx->ListState.CurrentList->execute_glthread = true;
 
    if (ctx->ExecuteFlag) {
       CALL_CallLists(ctx->Exec, (num, type, lists));
@@ -2629,6 +2633,7 @@ save_Disable(GLenum cap)
    if (n) {
       n[1].e = cap;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_Disable(ctx->Exec, (cap));
    }
@@ -2704,6 +2709,7 @@ save_Enable(GLenum cap)
    if (n) {
       n[1].e = cap;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_Enable(ctx->Exec, (cap));
    }
@@ -3146,6 +3152,7 @@ save_ListBase(GLuint base)
    if (n) {
       n[1].ui = base;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_ListBase(ctx->Exec, (base));
    }
@@ -3404,6 +3411,7 @@ save_MatrixMode(GLenum mode)
    if (n) {
       n[1].e = mode;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_MatrixMode(ctx->Exec, (mode));
    }
@@ -3760,6 +3768,7 @@ save_PopAttrib(void)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_SAVE_BEGIN_END_AND_FLUSH(ctx);
    (void) alloc_instruction(ctx, OPCODE_POP_ATTRIB, 0);
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_PopAttrib(ctx->Exec, ());
    }
@@ -3772,6 +3781,7 @@ save_PopMatrix(void)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_SAVE_BEGIN_END_AND_FLUSH(ctx);
    (void) alloc_instruction(ctx, OPCODE_POP_MATRIX, 0);
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_PopMatrix(ctx->Exec, ());
    }
@@ -3822,6 +3832,7 @@ save_PushAttrib(GLbitfield mask)
    if (n) {
       n[1].bf = mask;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_PushAttrib(ctx->Exec, (mask));
    }
@@ -3834,6 +3845,7 @@ save_PushMatrix(void)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_SAVE_BEGIN_END_AND_FLUSH(ctx);
    (void) alloc_instruction(ctx, OPCODE_PUSH_MATRIX, 0);
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_PushMatrix(ctx->Exec, ());
    }
@@ -5049,6 +5061,7 @@ save_ActiveTextureARB(GLenum target)
    if (n) {
       n[1].e = target;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_ActiveTexture(ctx->Exec, (target));
    }
@@ -9546,6 +9559,7 @@ save_MatrixPushEXT(GLenum matrixMode)
    if (n) {
       n[1].e = matrixMode;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_MatrixPushEXT(ctx->Exec, (matrixMode));
    }
@@ -9561,6 +9575,7 @@ save_MatrixPopEXT(GLenum matrixMode)
    if (n) {
       n[1].e = matrixMode;
    }
+   ctx->ListState.CurrentList->execute_glthread = true;
    if (ctx->ExecuteFlag) {
       CALL_MatrixPopEXT(ctx->Exec, (matrixMode));
    }
@@ -15037,6 +15052,9 @@ _mesa_glthread_execute_list(struct gl_context *ctx, GLuint list)
 
    if (list == 0 ||
        !_mesa_get_list(ctx, list, &dlist, true))
+      return;
+
+   if (!dlist->execute_glthread)
       return;
 
    Node *n = get_list_head(ctx, dlist);
