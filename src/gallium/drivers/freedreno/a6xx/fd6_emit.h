@@ -293,6 +293,7 @@ void fd6_emit_restore(struct fd_batch *batch, struct fd_ringbuffer *ring);
 
 void fd6_emit_init_screen(struct pipe_screen *pscreen);
 void fd6_emit_init(struct pipe_context *pctx);
+void fd6_emit_single_plane_descriptor(struct fd_ringbuffer *ring, struct pipe_resource *prsc, uint32_t *descriptor);
 
 static inline void
 fd6_emit_ib(struct fd_ringbuffer *ring, struct fd_ringbuffer *target)

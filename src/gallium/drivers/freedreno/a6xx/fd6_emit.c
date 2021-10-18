@@ -269,6 +269,30 @@ fd6_emit_fb_tex(struct fd_ringbuffer *state, struct fd_context *ctx) assert_dt
    OUT_RING(state, 0);
 }
 
+void
+fd6_emit_single_plane_descriptor(struct fd_ringbuffer *ring, struct pipe_resource *prsc, uint32_t *descriptor)
+{
+   /* If the resource isn't present (holes are allowed), zero-fill the slot. */
+   if (!prsc) {
+      for (int i = 0; i < 16; i++)
+         OUT_RING(ring, 0);
+      return;
+   }
+
+   struct fd_resource *rsc = fd_resource(prsc);
+   for (int i = 0; i < 4; i++)
+      OUT_RING(ring, descriptor[i]);
+
+   OUT_RELOC(ring, rsc->bo, descriptor[4], (uint64_t)descriptor[5] << 32, 0);
+
+   OUT_RING(ring, descriptor[6]);
+
+   OUT_RELOC(ring, rsc->bo, descriptor[7], (uint64_t)descriptor[8] << 32, 0);
+
+   for (int i = 9; i < FDL6_TEX_CONST_DWORDS; i++)
+      OUT_RING(ring, descriptor[i]);
+}
+
 bool
 fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
                   enum pipe_shader_type type, struct fd_texture_stateobj *tex,
@@ -276,6 +300,7 @@ fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
                   /* can be NULL if no image/SSBO/fb state to merge in: */
                   const struct ir3_shader_variant *v)
 {
+   struct fd6_context *fd6_ctx = fd6_context(ctx);
    bool needs_border = false;
    unsigned opcode, tex_samp_reg, tex_const_reg, tex_count_reg;
    enum a6xx_state_block sb;
@@ -432,9 +457,10 @@ fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
          for (unsigned i = 0; i < mapping->num_tex; i++) {
             unsigned idx = mapping->tex_to_image[i];
             if (idx & IBO_SSBO) {
-               fd6_emit_ssbo_tex(state, &buf->sb[idx & ~IBO_SSBO]);
+               idx &= ~IBO_SSBO;
+               fd6_emit_single_plane_descriptor(state, buf->sb[idx].buffer, fd6_ctx->ssbo_descriptors[type][idx]);
             } else {
-               fd6_emit_image_tex(state, &img->si[idx]);
+               fd6_emit_single_plane_descriptor(state,  img->si[idx].resource, fd6_ctx->image_views[type][idx].descriptor);
             }
          }
 
