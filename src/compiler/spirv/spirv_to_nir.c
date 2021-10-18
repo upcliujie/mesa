@@ -368,7 +368,7 @@ vtn_get_image(struct vtn_builder *b, uint32_t value_id,
    if (access)
       *access |= spirv_to_gl_access_qualifier(b, type->access_qualifier);
    nir_variable_mode mode = glsl_type_is_image(type->glsl_image) ?
-                            nir_var_image : nir_var_uniform;
+                            nir_var_image : nir_var_texture;
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
                                mode, type->glsl_image, 0);
 }
@@ -389,7 +389,7 @@ vtn_get_sampler(struct vtn_builder *b, uint32_t value_id)
    struct vtn_type *type = vtn_get_value_type(b, value_id);
    vtn_assert(type->base_type == vtn_base_type_sampler);
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
-                               nir_var_uniform, glsl_bare_sampler_type(), 0);
+                               nir_var_texture, glsl_bare_sampler_type(), 0);
 }
 
 nir_ssa_def *
@@ -422,13 +422,13 @@ vtn_get_sampled_image(struct vtn_builder *b, uint32_t value_id)
     */
    const struct glsl_type *image_type = type->image->glsl_image;
    nir_variable_mode image_mode = glsl_type_is_image(image_type) ?
-                                  nir_var_image : nir_var_uniform;
+                                  nir_var_image : nir_var_texture;
 
    struct vtn_sampled_image si = { NULL, };
    si.image = nir_build_deref_cast(&b->nb, nir_channel(&b->nb, si_vec2, 0),
                                    image_mode, image_type, 0);
    si.sampler = nir_build_deref_cast(&b->nb, nir_channel(&b->nb, si_vec2, 1),
-                                     nir_var_uniform,
+                                     nir_var_texture,
                                      glsl_bare_sampler_type(), 0);
    return si;
 }
@@ -6138,7 +6138,7 @@ vtn_emit_kernel_entry_point_wrapper(struct vtn_builder *b,
          in_var->data.access =
             spirv_to_gl_access_qualifier(b, param_type->access_qualifier);
       } else if (param_type->base_type == vtn_base_type_sampler) {
-         in_var->data.mode = nir_var_uniform;
+         in_var->data.mode = nir_var_texture;
          in_var->type = glsl_bare_sampler_type();
       } else {
          in_var->data.mode = nir_var_uniform;
