@@ -1562,7 +1562,7 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
       break;
    case SpvStorageClassAtomicCounter:
       mode = vtn_variable_mode_atomic_counter;
-      nir_mode = nir_var_uniform;
+      nir_mode = nir_var_atomic_counter;
       break;
    case SpvStorageClassCrossWorkgroup:
       mode = vtn_variable_mode_cross_workgroup;
