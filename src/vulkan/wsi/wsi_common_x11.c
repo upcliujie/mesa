@@ -873,11 +873,9 @@ struct x11_swapchain {
    uint32_t                                     stamp;
    int                                          sent_image_count;
 
-   bool                                         has_present_queue;
-   bool                                         has_acquire_queue;
    VkResult                                     status;
+   bool                                         is_fifo;
    bool                                         copy_is_suboptimal;
-   struct wsi_queue                             present_queue;
    struct wsi_queue                             acquire_queue;
    pthread_t                                    queue_manager;
 
@@ -894,6 +892,8 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(x11_swapchain, base.base, VkSwapchainKHR,
  * We make sure to 'stick' more pessimistic statuses: an out-of-date error
  * is permanent once seen, and every subsequent call will return this. If
  * this has not been seen, success will be returned.
+ *
+ * XXX This probably needs a mutex?
  */
 static VkResult
 _x11_swapchain_result(struct x11_swapchain *chain, VkResult result,
@@ -970,8 +970,7 @@ x11_handle_dri3_present_event(struct x11_swapchain *chain,
             chain->images[i].busy = false;
             chain->sent_image_count--;
             assert(chain->sent_image_count >= 0);
-            if (chain->has_acquire_queue)
-               wsi_queue_push(&chain->acquire_queue, i);
+            wsi_queue_push(&chain->acquire_queue, i);
             break;
          }
       }
@@ -1026,87 +1025,10 @@ x11_handle_dri3_present_event(struct x11_swapchain *chain,
    return VK_SUCCESS;
 }
 
-
-static uint64_t wsi_get_absolute_timeout(uint64_t timeout)
-{
-   uint64_t current_time = wsi_common_get_current_time();
-
-   timeout = MIN2(UINT64_MAX - current_time, timeout);
-
-   return current_time + timeout;
-}
-
-static VkResult
-x11_acquire_next_image_poll_x11(struct x11_swapchain *chain,
-                                uint32_t *image_index, uint64_t timeout)
-{
-   xcb_generic_event_t *event;
-   struct pollfd pfds;
-   uint64_t atimeout;
-   while (1) {
-      for (uint32_t i = 0; i < chain->base.image_count; i++) {
-         if (!chain->images[i].busy) {
-            /* We found a non-busy image */
-            xshmfence_await(chain->images[i].shm_fence);
-            *image_index = i;
-            chain->images[i].busy = true;
-            return x11_swapchain_result(chain, VK_SUCCESS);
-         }
-      }
-
-      xcb_flush(chain->conn);
-
-      if (timeout == UINT64_MAX) {
-         event = xcb_wait_for_special_event(chain->conn, chain->special_event);
-         if (!event)
-            return x11_swapchain_result(chain, VK_ERROR_OUT_OF_DATE_KHR);
-      } else {
-         event = xcb_poll_for_special_event(chain->conn, chain->special_event);
-         if (!event) {
-            int ret;
-            if (timeout == 0)
-               return x11_swapchain_result(chain, VK_NOT_READY);
-
-            atimeout = wsi_get_absolute_timeout(timeout);
-
-            pfds.fd = xcb_get_file_descriptor(chain->conn);
-            pfds.events = POLLIN;
-            ret = poll(&pfds, 1, timeout / 1000 / 1000);
-            if (ret == 0)
-               return x11_swapchain_result(chain, VK_TIMEOUT);
-            if (ret == -1)
-               return x11_swapchain_result(chain, VK_ERROR_OUT_OF_DATE_KHR);
-
-            /* If a non-special event happens, the fd will still
-             * poll. So recalculate the timeout now just in case.
-             */
-            uint64_t current_time = wsi_common_get_current_time();
-            if (atimeout > current_time)
-               timeout = atimeout - current_time;
-            else
-               timeout = 0;
-            continue;
-         }
-      }
-
-      /* Update the swapchain status here. We may catch non-fatal errors here,
-       * in which case we need to update the status and continue.
-       */
-      VkResult result = x11_handle_dri3_present_event(chain, (void *)event);
-      /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
-      result = x11_swapchain_result(chain, result);
-      free(event);
-      if (result < 0)
-         return result;
-   }
-}
-
 static VkResult
 x11_acquire_next_image_from_queue(struct x11_swapchain *chain,
                                   uint32_t *image_index_out, uint64_t timeout)
 {
-   assert(chain->has_acquire_queue);
-
    uint32_t image_index;
    VkResult result = wsi_queue_pull(&chain->acquire_queue,
                                     &image_index, timeout);
@@ -1156,20 +1078,6 @@ x11_present_to_x11_dri3(struct x11_swapchain *chain, uint32_t image_index,
    if (chain->has_dri3_modifiers)
       options |= XCB_PRESENT_OPTION_SUBOPTIMAL;
 #endif
-
-   /* Poll for any available event and update the swapchain status. This could
-    * update the status of the swapchain to SUBOPTIMAL or OUT_OF_DATE if the
-    * associated X11 surface has been resized.
-    */
-   xcb_generic_event_t *event;
-   while ((event = xcb_poll_for_special_event(chain->conn, chain->special_event))) {
-      VkResult result = x11_handle_dri3_present_event(chain, (void *)event);
-      /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
-      result = x11_swapchain_result(chain, result);
-      free(event);
-      if (result < 0)
-         return result;
-   }
 
    xshmfence_reset(image->shm_fence);
 
@@ -1229,14 +1137,6 @@ x11_present_to_x11_sw(struct x11_swapchain *chain, uint32_t image_index,
    xcb_flush(chain->conn);
    return x11_swapchain_result(chain, VK_SUCCESS);
 }
-static VkResult
-x11_present_to_x11(struct x11_swapchain *chain, uint32_t image_index,
-                   uint64_t target_msc)
-{
-   if (chain->base.wsi->sw && !chain->has_mit_shm)
-      return x11_present_to_x11_sw(chain, image_index, target_msc);
-   return x11_present_to_x11_dri3(chain, image_index, target_msc);
-}
 
 static VkResult
 x11_acquire_next_image(struct wsi_swapchain *anv_chain,
@@ -1251,34 +1151,11 @@ x11_acquire_next_image(struct wsi_swapchain *anv_chain,
       return chain->status;
 
    if (chain->base.wsi->sw && !chain->has_mit_shm) {
+      // XXX this is... a choice
       *image_index = 0;
       return VK_SUCCESS;
    }
-   if (chain->has_acquire_queue) {
-      return x11_acquire_next_image_from_queue(chain, image_index, timeout);
-   } else {
-      return x11_acquire_next_image_poll_x11(chain, image_index, timeout);
-   }
-}
-
-static VkResult
-x11_queue_present(struct wsi_swapchain *anv_chain,
-                  uint32_t image_index,
-                  const VkPresentRegionKHR *damage)
-{
-   struct x11_swapchain *chain = (struct x11_swapchain *)anv_chain;
-
-   /* If the swapchain is in an error state, don't go any further. */
-   if (chain->status < 0)
-      return chain->status;
-
-   chain->images[image_index].busy = true;
-   if (chain->has_present_queue) {
-      wsi_queue_push(&chain->present_queue, image_index);
-      return chain->status;
-   } else {
-      return x11_present_to_x11(chain, image_index, 0);
-   }
+   return x11_acquire_next_image_from_queue(chain, image_index, timeout);
 }
 
 static bool
@@ -1300,82 +1177,65 @@ x11_needs_wait_for_fences(const struct wsi_device *wsi_device,
    }
 }
 
-static void *
-x11_manage_fifo_queues(void *state)
+static VkResult
+x11_queue_present(struct wsi_swapchain *anv_chain,
+                  uint32_t image_index,
+                  const VkPresentRegionKHR *damage)
 {
-   struct x11_swapchain *chain = state;
+   struct x11_swapchain *chain = (struct x11_swapchain *)anv_chain;
    struct wsi_x11_connection *wsi_conn =
       wsi_x11_get_connection((struct wsi_device*)chain->base.wsi, chain->conn);
-   VkResult result = VK_SUCCESS;
+   uint64_t target_msc = 0;
 
-   assert(chain->has_present_queue);
+   /* If the swapchain is in an error state, don't go any further. */
+   if (chain->status < 0)
+      return chain->status;
 
-   u_thread_setname("WSI swapchain queue");
-
-   while (chain->status >= 0) {
-      /* We can block here unconditionally because after an image was sent to
-       * the server (later on in this loop) we ensure at least one image is
-       * acquirable by the consumer or wait there on such an event.
-       */
-      uint32_t image_index = 0;
-      result = wsi_queue_pull(&chain->present_queue, &image_index, INT64_MAX);
-      assert(result != VK_TIMEOUT);
-      if (result < 0) {
-         goto fail;
-      } else if (chain->status < 0) {
-         /* The status can change underneath us if the swapchain is destroyed
-          * from another thread.
-          */
-         return NULL;
-      }
-
-      if (x11_needs_wait_for_fences(chain->base.wsi, wsi_conn,
-                                    chain->base.present_mode)) {
-         result = chain->base.wsi->WaitForFences(chain->base.device, 1,
-                                        &chain->base.fences[image_index],
-                                        true, UINT64_MAX);
-         if (result != VK_SUCCESS) {
-            result = VK_ERROR_OUT_OF_DATE_KHR;
-            goto fail;
-         }
-      }
-
-      uint64_t target_msc = 0;
-      if (chain->has_acquire_queue)
-         target_msc = chain->last_present_msc + 1;
-
-      result = x11_present_to_x11(chain, image_index, target_msc);
-      if (result < 0)
-         goto fail;
-
-      if (chain->has_acquire_queue) {
-         /* Wait for our presentation to occur and ensure we have at least one
-          * image that can be acquired by the client afterwards. This ensures we
-          * can pull on the present-queue on the next loop.
-          */
-         while (chain->images[image_index].present_queued ||
-                chain->sent_image_count == chain->base.image_count) {
-            xcb_generic_event_t *event =
-               xcb_wait_for_special_event(chain->conn, chain->special_event);
-            if (!event) {
-               result = VK_ERROR_OUT_OF_DATE_KHR;
-               goto fail;
-            }
-
-            result = x11_handle_dri3_present_event(chain, (void *)event);
-            /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
-            result = x11_swapchain_result(chain, result);
-            free(event);
-            if (result < 0)
-               goto fail;
-         }
-      }
+   chain->images[image_index].busy = true;
+   if (x11_needs_wait_for_fences(chain->base.wsi, wsi_conn,
+                                 chain->base.present_mode)) {
+      int result = chain->base.wsi->WaitForFences(chain->base.device, 1,
+                                                  &chain->base.fences[image_index],
+                                                  true, UINT64_MAX);
+      if (result != VK_SUCCESS)
+         return VK_ERROR_OUT_OF_DATE_KHR;
    }
 
-fail:
-   x11_swapchain_result(chain, result);
-   if (chain->has_acquire_queue)
-      wsi_queue_push(&chain->acquire_queue, UINT32_MAX);
+   if (chain->is_fifo)
+      target_msc = chain->last_present_msc + 1;
+
+   if (chain->base.wsi->sw && !chain->has_mit_shm)
+      return x11_present_to_x11_sw(chain, image_index, target_msc);
+
+   return x11_present_to_x11_dri3(chain, image_index, target_msc);
+}
+
+static void *
+x11_handle_present_events(void *state)
+{
+   struct x11_swapchain *chain = state;
+   VkResult result = VK_SUCCESS;
+   xcb_generic_event_t *event = NULL;
+
+   u_thread_setname("WSI event handler");
+
+   while (chain->status >= 0) {
+      event = xcb_wait_for_special_event(chain->conn, chain->special_event);
+      if (!event)
+          break;
+
+      // lock chain
+      result = x11_handle_dri3_present_event(chain, (void *)event);
+      /* Ensure that VK_SUBOPTIMAL_KHR is reported to the application */
+      result = x11_swapchain_result(chain, result);
+      free(event);
+   }
+
+   /* If we get here either the connection was closed, or the app thread
+    * unregistered the special event listener. Either way, we're done.
+    */
+   x11_swapchain_result(chain, VK_ERROR_OUT_OF_DATE_KHR);
+   wsi_queue_push(&chain->acquire_queue, UINT32_MAX);
 
    return NULL;
 }
@@ -1640,21 +1500,16 @@ x11_swapchain_destroy(struct wsi_swapchain *anv_chain,
    struct x11_swapchain *chain = (struct x11_swapchain *)anv_chain;
    xcb_void_cookie_t cookie;
 
-   if (chain->has_present_queue) {
+   if (chain->queue_manager) {
       chain->status = VK_ERROR_OUT_OF_DATE_KHR;
-      /* Push a UINT32_MAX to wake up the manager */
-      wsi_queue_push(&chain->present_queue, UINT32_MAX);
+      xcb_unregister_for_special_event(chain->conn, chain->special_event);
       pthread_join(chain->queue_manager, NULL);
-
-      if (chain->has_acquire_queue)
-         wsi_queue_destroy(&chain->acquire_queue);
-      wsi_queue_destroy(&chain->present_queue);
+      wsi_queue_destroy(&chain->acquire_queue);
    }
 
    for (uint32_t i = 0; i < chain->base.image_count; i++)
       x11_image_finish(chain, pAllocator, &chain->images[i]);
 
-   xcb_unregister_for_special_event(chain->conn, chain->special_event);
    cookie = xcb_present_select_input_checked(chain->conn, chain->event_id,
                                              chain->window,
                                              XCB_PRESENT_EVENT_MASK_NO_EVENT);
@@ -1758,11 +1613,11 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
    chain->send_sbc = 0;
    chain->sent_image_count = 0;
    chain->last_present_msc = 0;
-   chain->has_acquire_queue = false;
-   chain->has_present_queue = false;
    chain->status = VK_SUCCESS;
    chain->has_dri3_modifiers = wsi_conn->has_dri3_modifiers;
    chain->has_mit_shm = wsi_conn->has_mit_shm;
+   chain->is_fifo = (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
+                     chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
 
    if (chain->extent.width != cur_width || chain->extent.height != cur_height)
        chain->status = VK_SUBOPTIMAL_KHR;
@@ -1827,49 +1682,25 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
          goto fail_init_images;
    }
 
-   if ((chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
-        chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR ||
-        x11_needs_wait_for_fences(wsi_device, wsi_conn,
-                                  chain->base.present_mode)) &&
-       !chain->base.wsi->sw) {
-      chain->has_present_queue = true;
-
+   if (!wsi_device->sw || !chain->has_mit_shm) {
       /* Initialize our queues.  We make them base.image_count + 1 because we will
        * occasionally use UINT32_MAX to signal the other thread that an error
        * has occurred and we don't want an overflow.
        */
-      int ret;
-      ret = wsi_queue_init(&chain->present_queue, chain->base.image_count + 1);
-      if (ret) {
+      int ret = wsi_queue_init(&chain->acquire_queue, chain->base.image_count + 1);
+      if (ret)
          goto fail_init_images;
-      }
 
-      if (chain->base.present_mode == VK_PRESENT_MODE_FIFO_KHR ||
-          chain->base.present_mode == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
-         chain->has_acquire_queue = true;
-
-         ret = wsi_queue_init(&chain->acquire_queue, chain->base.image_count + 1);
-         if (ret) {
-            wsi_queue_destroy(&chain->present_queue);
-            goto fail_init_images;
-         }
-
-         for (unsigned i = 0; i < chain->base.image_count; i++)
-            wsi_queue_push(&chain->acquire_queue, i);
-      }
+      for (unsigned i = 0; i < chain->base.image_count; i++)
+         wsi_queue_push(&chain->acquire_queue, i);
 
       ret = pthread_create(&chain->queue_manager, NULL,
-                           x11_manage_fifo_queues, chain);
+                           x11_handle_present_events, chain);
       if (ret) {
-         wsi_queue_destroy(&chain->present_queue);
-         if (chain->has_acquire_queue)
-            wsi_queue_destroy(&chain->acquire_queue);
-
+         wsi_queue_destroy(&chain->acquire_queue);
          goto fail_init_images;
       }
    }
-
-   assert(chain->has_present_queue || !chain->has_acquire_queue);
 
    for (int i = 0; i < ARRAY_SIZE(modifiers); i++)
       vk_free(pAllocator, modifiers[i]);
