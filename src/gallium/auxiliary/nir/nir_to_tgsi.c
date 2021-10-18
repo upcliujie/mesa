@@ -1421,7 +1421,7 @@ ntt_emit_mem(struct ntt_compile *c, nir_intrinsic_instr *instr,
       memory = ureg_src_register(TGSI_FILE_MEMORY, 0);
       nir_src = 0;
       break;
-   case nir_var_uniform: { /* HW atomic buffers */
+   case nir_var_atomic_counter: { /* HW atomic buffers */
       memory = ureg_src_register(TGSI_FILE_HW_ATOMIC, 0);
       /* ntt_ureg_src_indirect, except dividing by 4 */
       if (nir_src_is_const(instr->src[0])) {
@@ -1979,7 +1979,7 @@ ntt_emit_intrinsic(struct ntt_compile *c, nir_intrinsic_instr *instr)
    case nir_intrinsic_atomic_counter_xor:
    case nir_intrinsic_atomic_counter_exchange:
    case nir_intrinsic_atomic_counter_comp_swap:
-      ntt_emit_mem(c, instr, nir_var_uniform);
+      ntt_emit_mem(c, instr, nir_var_atomic_counter);
       break;
    case nir_intrinsic_atomic_counter_pre_dec:
       unreachable("Should be lowered by ntt_lower_atomic_pre_dec()");
