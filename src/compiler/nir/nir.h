@@ -124,25 +124,27 @@ typedef enum {
    nir_var_uniform         = (1 << 1),
    nir_var_shader_in       = (1 << 2),
    nir_var_shader_out      = (1 << 3),
-   nir_var_image           = (1 << 4),
+   nir_var_texture         = (1 << 4),
+   nir_var_atomic_counter  = (1 << 5),
+   nir_var_image           = (1 << 6),
    /** Incoming call or ray payload data for ray-tracing shaders */
-   nir_var_shader_call_data = (1 << 5),
+   nir_var_shader_call_data = (1 << 7),
    /** Ray hit attributes */
-   nir_var_ray_hit_attrib  = (1 << 6),
+   nir_var_ray_hit_attrib  = (1 << 8),
 
    /* Modes named nir_var_mem_* have explicit data layout */
-   nir_var_mem_ubo         = (1 << 7),
-   nir_var_mem_push_const  = (1 << 8),
-   nir_var_mem_ssbo        = (1 << 9),
-   nir_var_mem_constant    = (1 << 10),
+   nir_var_mem_ubo         = (1 << 9),
+   nir_var_mem_push_const  = (1 << 10),
+   nir_var_mem_ssbo        = (1 << 11),
+   nir_var_mem_constant    = (1 << 12),
 
    /* Generic modes intentionally come last. See encode_dref_modes() in
     * nir_serialize.c for more details.
     */
-   nir_var_shader_temp     = (1 << 11),
-   nir_var_function_temp   = (1 << 12),
-   nir_var_mem_shared      = (1 << 13),
-   nir_var_mem_global      = (1 << 14),
+   nir_var_shader_temp     = (1 << 13),
+   nir_var_function_temp   = (1 << 14),
+   nir_var_mem_shared      = (1 << 15),
+   nir_var_mem_global      = (1 << 16),
 
    nir_var_mem_generic     = (nir_var_shader_temp |
                               nir_var_function_temp |
@@ -156,7 +158,7 @@ typedef enum {
    nir_var_vec_indexable_modes = nir_var_mem_ubo | nir_var_mem_ssbo |
                                  nir_var_mem_shared | nir_var_mem_global |
                                  nir_var_mem_push_const,
-   nir_num_variable_modes  = 15,
+   nir_num_variable_modes  = 17,
    nir_var_all             = (1 << nir_num_variable_modes) - 1,
 } nir_variable_mode;
 MESA_DEFINE_CPP_ENUM_BITFIELD_OPERATORS(nir_variable_mode)
@@ -365,7 +367,7 @@ typedef struct nir_variable {
        *
        * \sa nir_variable_mode
        */
-      unsigned mode:15;
+      unsigned mode:17;
 
       /**
        * Is the variable read-only?
@@ -722,6 +724,18 @@ _nir_shader_variable_has_mode(nir_variable *var, unsigned modes)
 
 #define nir_foreach_uniform_variable_safe(var, shader) \
    nir_foreach_variable_with_modes_safe(var, shader, nir_var_uniform)
+
+#define nir_foreach_texture_variable(var, shader) \
+   nir_foreach_variable_with_modes(var, shader, nir_var_texture)
+
+#define nir_foreach_texture_variable_safe(var, shader) \
+   nir_foreach_variable_with_modes_safe(var, shader, nir_var_texture)
+
+#define nir_foreach_atomic_counter_variable(var, shader) \
+   nir_foreach_variable_with_modes(var, shader, nir_var_atomic_counter)
+
+#define nir_foreach_atomic_counter_variable_safe(var, shader) \
+   nir_foreach_variable_with_modes_safe(var, shader, nir_var_atomic_counter)
 
 #define nir_foreach_image_variable(var, shader) \
    nir_foreach_variable_with_modes(var, shader, nir_var_image)

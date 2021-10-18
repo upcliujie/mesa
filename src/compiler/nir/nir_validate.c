@@ -1519,6 +1519,15 @@ validate_var_decl(nir_variable *var, nir_variable_mode valid_modes,
    if (var->constant_initializer)
       validate_constant(var->constant_initializer, var->type, state);
 
+   if (var->data.mode == nir_var_texture) {
+      validate_assert(state, !var->data.bindless);
+      validate_assert(state, glsl_type_is_texture(glsl_without_array(var->type)) ||
+                             glsl_type_is_sampler(glsl_without_array(var->type)));
+   }
+
+   if (var->data.mode == nir_var_atomic_counter)
+      validate_assert(state, glsl_contains_atomic(glsl_without_array(var->type)));
+
    if (var->data.mode == nir_var_image) {
       validate_assert(state, !var->data.bindless);
       validate_assert(state, glsl_type_is_image(glsl_without_array(var->type)));
@@ -1748,6 +1757,8 @@ nir_validate_shader(nir_shader *shader, const char *when)
       nir_var_shader_out |
       nir_var_shader_temp |
       nir_var_uniform |
+      nir_var_texture |
+      nir_var_atomic_counter |
       nir_var_mem_ubo |
       nir_var_system_value |
       nir_var_mem_ssbo |

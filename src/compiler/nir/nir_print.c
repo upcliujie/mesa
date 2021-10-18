@@ -450,6 +450,10 @@ get_variable_mode_str(nir_variable_mode mode, bool want_local_global_mode)
       return "shader_out";
    case nir_var_uniform:
       return "uniform";
+   case nir_var_texture:
+      return "texture";
+   case nir_var_atomic_counter:
+      return "atomic";
    case nir_var_mem_ubo:
       return "ubo";
    case nir_var_system_value:
