@@ -1,5 +1,401 @@
 [
     {
+        "sha": "be6d584de43966ee58bf1fcac156ebf8040081d1",
+        "description": "st: Fix 64-bit vertex attrib index for TGSI path",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "77c2b022a0c52d84b289bc836f30ce186a374d0d"
+    },
+    {
+        "sha": "e65d6f45d29fe2b78e1689f5bcb33e84f94cbb27",
+        "description": "radeonsi: reorder and don't print patch level DRM version in the renderer string",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f9d7db02629df364dc96668c8954bd42a78e1dfe",
+        "description": "ac,radeonsi: print a lowercase codename in the renderer string",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cbcdcd42fcd43dd0c60f6805e3fdd03c817ca265",
+        "description": "radeonsi: enable shader culling on Navi1x consumer SKUs as well",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8cf802e8effeaa324fcb1864048cfdaff5c7acfb",
+        "description": "radeonsi: replace the GS prolog with a monolithic shader variant",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "62798d2c1f1f11e86058018c6a94c1ac50a6ca24",
+        "description": "radeonsi: don't pass NULL into si_get_nir_shader",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3350957f3cf7c9c883e49a868016b83aeca52c77",
+        "description": "drirc: Apply vk_dont_care_as_load workaround to Forsaken Remastered",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ebca227db15b8642be51f2dbefbad804c948c7dc",
+        "description": "turnip: implement vk_dont_care_as_load workaround",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3d69800a0b111daabf51266a815be3be639af80c",
+        "description": "driconf: add vk_dont_care_as_load workaround option",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fd31989ecb4b1cca52a2eaa386770e93198f11bc",
+        "description": "turnip: add support for dirconf",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5b797bd48555ea70a4313d68e34a0899e568b30b",
+        "description": "radv: fix OpImageQuerySamples with non-zero descriptor set",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "de568c3b2c75778b4bf3513e85588614a5714990",
+        "description": "tu/clear_blit: Stop creating a franken-image for staging blits",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9803c1aa1004ce2c2ee11ecbc92dcbfdce5611e7",
+        "description": "tu: Remove cross-check scaffolding",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d785aea530958d50b1db4468b14a4498287f35fb",
+        "description": "tu: Switch clear/blit to fdl6_view and cross-check",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1874e12f195c88d41977fa80ca087dfcf33ab97f",
+        "description": "tu: Use fdl6_view in tu_image_view and cross-check",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5509132a807a6cf14f6e240394b9e52ef0240bef",
+        "description": "freedreno/fdl: Add fdl6_view",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "464b9d6bf10a336ac76701c58828b85a4946940e",
+        "description": "freedreno/fdl: Add mip_level to fdl_layout",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7bcccd1f085ba778c1cc95e0ce0e80bba96f02b8",
+        "description": "freedreno/fdl: Constify fdl6_get_ubwc_blockwidth()",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7a90aa8d2e36ed65d0be14eaa03aeaa943a2c00b",
+        "description": "vk/format, v3dv: Add a vulkan -> pipe swizzle helper",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7a2e40df5e8490de739c66865f90fa6804e41f6d",
+        "description": "Revert \"gallium: add a is_dri_blit_image bool to pipe_blit_info\"",
+        "nominated": true,
+        "nomination_type": 2,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "22a1b7c5b3a9cdbf05a0fd97fb193763a525b732"
+    },
+    {
+        "sha": "ec2eff8f3897f78b027742a47d1a8b705965f655",
+        "description": "radeonsi: use PIPE_BIND_DRI_PRIME instead of is_dri_blit_image",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1863b761a6f533abbf55dbec0a8846f28b0159e0",
+        "description": "radeonsi/gfx10.3: enable SDMA for DRI_PRIME copies",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8791e831b115b916f39ed46b497a2bcaada8b10a",
+        "description": "winsys/amdgpu: add uncached flag to the imported DRI_PRIME buffer",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a90507252172bb0e353dd0e368d8fb773a1069af",
+        "description": "radeon_winsys.h: add a parameter to buffer_from_handle",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e9c3dbd046137aebcc18e1d7a1040dc669a0c140",
+        "description": "gallium/dri: let the driver know if the imported image is DRI_PRIME buffer",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7a5de842499b31161f5db702446d1fe8081d7956",
+        "description": "gallium/dri: add createImageFromFds2",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "48551a1807d69f104f6a4dd8fd75d6c53f833925",
+        "description": "gallium/dri: replace bool with flag parameter",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ae525da0e45b6d1a7c6921576f63380ae5e8ac95",
+        "description": "zink: Fully initialize VkBufferViewCreateInfo for hashing",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4878e351593a35c4c80bae644d5e136bc044e4ea",
+        "description": "v3dv/ci: update expected results",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "234c69f60097d01b2c31a51421abc5a39321130c",
+        "description": "radeonsi: use viewport offset in quant_mode determination",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9eb010ee1e14feeaa43a5b538023b7b4352236e1",
+        "description": "anv: Fix assertion.",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "35315c68a574505a5b2cecaa64612fb8cffa8515"
+    },
+    {
+        "sha": "61be0bd34b34617e52211280878e71d9d1f174eb",
+        "description": "radv: fix removing PSIZ when it's not emitted by the last VGT stage",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "92e1981a8005c0ca7f48f38ddf8ff2b99ce95e7e"
+    },
+    {
+        "sha": "91ff83b6c871dcfc33629924a7ebfb0d8b17be98",
+        "description": "clover/image: add dimension property",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "786987c4478ea1bdae9ab79a642e0f78c5364948",
+        "description": "clover: Implement CL_MEM_OBJECT_IMAGE1D_ARRAY",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3200669c2b6189cdfa1ae056e1a8234951742928",
+        "description": "clover: Implement CL_MEM_OBJECT_IMAGE1D_BUFFER",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0ec5e50d8afaf5a0ffee0c87437907fa642008d7",
+        "description": "clover: Implement CL_MEM_OBJECT_IMAGE2D_ARRAY",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0abfbb76ffb949af71c79db5354e36a639f01d0f",
+        "description": "clover: implement CL_IMAGE_BUFFER",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3298ee546e85f80d63ccee9f81a92b0f075232af",
+        "description": "clover/images: Add array_size to implement CL_IMAGE_ARRAY_SIZE",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "029f22e430f74a5d26eb7e69a08fe703ccc4e77a",
+        "description": "clover/image: add templated basic_image class to simplify image subclassing",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f6ecd284e5dee852a87bdc77a1fab625d061b440",
+        "description": "spirv: Don't add 0.5 to array indicies for OpImageSampleExplicitLod",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "589d918a4f9da83e3ae441aa674372a141d23349"
+    },
+    {
+        "sha": "ab2cfeba4823a48c4abfe2a574082d483a88962d",
+        "description": "vc4/ci: update expected results",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "17a565e0cfb79fb8078fcf7f7cc7b6be0ef887ba",
+        "description": "llvmpipe: fix userptr for texture resources.",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "9a57dceeb760a1d4f7d9d1666bec0844ee41852e"
+    },
+    {
+        "sha": "d31ca63527e3eb5bf271267c2a60a9b5af83bd89",
+        "description": "panfrost: Don't allow rendering/texturing 48-bit",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "28d12716e8ff04b50a443ecaa6c7b519117303a5",
+        "description": "egl/wayland: Properly clear stale buffers on resize",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
         "sha": "885f9b3b7540485af5dff65475078bfceaa6daa5",
         "description": "radeonsi: don't memcmp inlined uniform values if uniform inlining is disabled",
         "nominated": false,
