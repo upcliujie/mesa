@@ -57,6 +57,18 @@ vulkan_runtime_files = files(
   'vk_synchronization2.c',
 )
 
+vulkan_runtime_deps = [
+  vulkan_wsi_deps,
+  idep_mesautil,
+  idep_nir_headers,
+  idep_vulkan_util
+]
+
+if dep_libdrm.found()
+  vulkan_runtime_files += files('vk_drm_syncobj.c', 'vk_drm_syncobj.h')
+  vulkan_runtime_deps += dep_libdrm
+endif
+
 vk_common_entrypoints = custom_target(
   'vk_common_entrypoints',
   input : [vk_entrypoints_gen, vk_api_xml],
