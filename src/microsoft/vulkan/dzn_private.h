@@ -313,6 +313,7 @@ enum dzn_cmd_bindpoint_dirty {
 enum dzn_cmd_dirty {
    DZN_CMD_DIRTY_VIEWPORTS = 1 << 0,
    DZN_CMD_DIRTY_SCISSORS = 1 << 1,
+   DZN_CMD_DIRTY_IB = 1 << 2,
 };
 
 #define MAX_VBS 16
@@ -364,6 +365,9 @@ struct dzn_cmd_buffer {
          BITSET_DECLARE(dirty, MAX_VBS);
          D3D12_VERTEX_BUFFER_VIEW views[MAX_VBS];
       } vb;
+      struct {
+         D3D12_INDEX_BUFFER_VIEW view;
+      } ib;
       D3D12_VIEWPORT viewports[MAX_VP];
       D3D12_RECT scissors[MAX_SCISSOR];
       uint32_t dirty;
@@ -408,7 +412,7 @@ struct dzn_cmd_buffer {
    void close_batch();
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
-   void prepare_draw();
+   void prepare_draw(bool indexed);
 
 private:
    void update_pipeline(uint32_t bindpoint);
@@ -416,6 +420,7 @@ private:
    void update_viewports();
    void update_scissors();
    void update_vbviews();
+   void update_ibview();
    void update_sysvals(uint32_t bindpoint);
    void *alloc_sysval_mem(uint32_t size, uint32_t align,
                           D3D12_GPU_VIRTUAL_ADDRESS *gpu_ptr);

@@ -1241,7 +1241,18 @@ dzn_cmd_buffer::update_vbviews()
 }
 
 void
-dzn_cmd_buffer::prepare_draw()
+dzn_cmd_buffer::update_ibview()
+{
+   if (!(state.dirty & DZN_CMD_DIRTY_IB))
+      return;
+
+   dzn_batch *batch = get_batch();
+
+   batch->cmdlist->IASetIndexBuffer(&state.ib.view);
+}
+
+void
+dzn_cmd_buffer::prepare_draw(bool indexed)
 {
    update_pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
    update_heaps(VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -1249,6 +1260,9 @@ dzn_cmd_buffer::prepare_draw()
    update_viewports();
    update_scissors();
    update_vbviews();
+
+   if (indexed)
+      update_ibview();
 
    /* Reset the dirty states */
    state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty = 0;
@@ -1276,9 +1290,36 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
          DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
    }
 
-   cmd_buffer->prepare_draw();
+   cmd_buffer->prepare_draw(false);
 
    batch->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
+                   uint32_t indexCount,
+                   uint32_t instanceCount,
+                   uint32_t firstIndex,
+                   int32_t vertexOffset,
+                   uint32_t firstInstance)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   dzn_batch *batch = cmd_buffer->get_batch();
+
+   if (cmd_buffer->state.sysvals.gfx.first_vertex != vertexOffset ||
+       cmd_buffer->state.sysvals.gfx.base_instance != firstInstance ||
+       cmd_buffer->state.sysvals.gfx.is_indexed_draw != (instanceCount > 1)) {
+      cmd_buffer->state.sysvals.gfx.first_vertex = vertexOffset;
+      cmd_buffer->state.sysvals.gfx.base_instance = firstInstance;
+      cmd_buffer->state.sysvals.gfx.is_indexed_draw = instanceCount > 1;
+      cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+   }
+
+   cmd_buffer->prepare_draw(true);
+
+   batch->cmdlist->DrawIndexedInstanced(indexCount, instanceCount, firstIndex,
+                                        vertexOffset, firstInstance);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1303,6 +1344,33 @@ dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
 
    BITSET_SET_RANGE(cmd_buffer->state.vb.dirty, firstBinding,
                     firstBinding + bindingCount - 1);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
+                       VkBuffer buffer,
+                       VkDeviceSize offset,
+                       VkIndexType indexType)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
+
+   cmd_buffer->state.ib.view.BufferLocation = buf->res->GetGPUVirtualAddress() + offset;
+   cmd_buffer->state.ib.view.SizeInBytes = buf->size - offset;
+   switch (indexType) {
+   case VK_INDEX_TYPE_UINT16:
+      cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R16_UINT;
+      break;
+   case VK_INDEX_TYPE_UINT32:
+      cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R32_UINT;
+      break;
+   case VK_INDEX_TYPE_UINT8_EXT:
+      cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R8_UINT;
+      break;
+   default: unreachable("Invalid index type");
+   }
+
+   cmd_buffer->state.dirty |= DZN_CMD_DIRTY_IB;
 }
 
 VKAPI_ATTR void VKAPI_CALL
