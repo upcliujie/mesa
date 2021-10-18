@@ -36,14 +36,141 @@ vn_buffer_create_info_can_be_cached(struct vn_buffer_cache *cache,
           (create_info->sharingMode == VK_SHARING_MODE_EXCLUSIVE);
 }
 
+static inline bool
+vn_buffer_cache_entry_can_be_merged(const struct vn_buffer_cache_entry *entry,
+                                    const VkBufferCreateInfo *create_info,
+                                    const struct vn_buffer *buf)
+{
+   /* Below check can lead to advertising more cache coverage given we merge
+    * the buffer usage if the other params match. It's safe to do so because
+    * it doesn't make any sense for a combined usage flags to be supported by
+    * additional memory types. Even if that happens, it's ok to ignore that.
+    */
+   return (entry->create_info.flags == create_info->flags) &&
+          (entry->requirements.memory.memoryRequirements.alignment ==
+           buf->requirements.memory.memoryRequirements.alignment) &&
+          (entry->requirements.memory.memoryRequirements.memoryTypeBits ==
+           buf->requirements.memory.memoryRequirements.memoryTypeBits) &&
+          (entry->requirements.dedicated.prefersDedicatedAllocation ==
+           buf->requirements.dedicated.prefersDedicatedAllocation) &&
+          (entry->requirements.dedicated.requiresDedicatedAllocation ==
+           buf->requirements.dedicated.requiresDedicatedAllocation);
+}
+
+static uint32_t
+vn_buffer_cache_entry_append_or_merge(struct vn_buffer_cache_entry *entries,
+                                      uint32_t entry_count,
+                                      const VkBufferCreateInfo *create_info,
+                                      const struct vn_buffer *buf)
+{
+   for (uint32_t i = 0; i < entry_count; i++) {
+      if (vn_buffer_cache_entry_can_be_merged(&entries[i], create_info,
+                                              buf)) {
+         entries[i].create_info.usage |= create_info->usage;
+         return entry_count;
+      }
+   }
+
+   entries[entry_count].create_info = *create_info;
+   entries[entry_count].requirements.memory = buf->requirements.memory;
+   entries[entry_count].requirements.dedicated = buf->requirements.dedicated;
+   return entry_count + 1;
+}
+
 static VkResult
 vn_buffer_cache_entries_create(struct vn_device *dev,
                                struct vn_buffer_cache_entry **out_entries,
                                uint32_t *out_entry_count)
 {
-   *out_entries = NULL;
-   *out_entry_count = 0;
+   const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+   VkDevice dev_handle = vn_device_to_handle(dev);
+   struct vn_buffer_cache_entry *entries;
+   uint32_t entry_count = 0;
+   VkResult result;
+
+   /* mutually exclusive buffer allocation infos to cache */
+   static const VkBufferCreateInfo create_infos[] = {
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 1,
+         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 1,
+         .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 1,
+         .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 1,
+         .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+   };
+
+   /* allocate enough cache space initially and shrink later */
+   entries = vk_zalloc(alloc, sizeof(*entries) * ARRAY_SIZE(create_infos),
+                       VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   if (!entries)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   for (uint32_t i = 0; i < ARRAY_SIZE(create_infos); i++) {
+      VkBuffer buf_handle = VK_NULL_HANDLE;
+      struct vn_buffer *buf = NULL;
+
+      assert(vn_buffer_create_info_can_be_cached(&dev->buffer_cache,
+                                                 &create_infos[i]));
+
+      result =
+         vn_CreateBuffer(dev_handle, &create_infos[i], alloc, &buf_handle);
+      if (result != VK_SUCCESS)
+         goto out;
+
+      buf = vn_buffer_from_handle(buf_handle);
+      if (buf->requirements.memory.memoryRequirements.alignment <
+          buf->requirements.memory.memoryRequirements.size) {
+         /* implementation does not meet buffer cache assumption */
+         *out_entries = NULL;
+         *out_entry_count = 0;
+         result = VK_SUCCESS;
+         goto out;
+      }
+
+      entry_count = vn_buffer_cache_entry_append_or_merge(
+         entries, entry_count, &create_infos[i], buf);
+
+      vn_DestroyBuffer(dev_handle, buf_handle, alloc);
+   }
+
+   if (entry_count < ARRAY_SIZE(create_infos)) {
+      struct vn_buffer_cache_entry *resized_entries =
+         vk_realloc(alloc, entries, sizeof(*resized_entries) * entry_count,
+                    VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      if (!resized_entries) {
+         result = VK_ERROR_OUT_OF_HOST_MEMORY;
+         goto out;
+      }
+
+      entries = resized_entries;
+   }
+
+   *out_entries = entries;
+   *out_entry_count = entry_count;
    return VK_SUCCESS;
+
+out:
+   vk_free(alloc, entries);
+   return result;
 }
 
 static void
