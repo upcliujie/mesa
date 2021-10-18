@@ -85,6 +85,8 @@ vulkan_util_files = files(
   'vk_sync.c',
   'vk_sync.h',
   'vk_synchronization2.c',
+  'vk_timeline.c',
+  'vk_timeline.h',
   'vk_util.c',
   'vk_util.h',
 )
