@@ -154,14 +154,6 @@ lower_instr(nir_intrinsic_instr *instr, unsigned ssbo_offset, nir_builder *b)
    return true;
 }
 
-static bool
-is_atomic_uint(const struct glsl_type *type)
-{
-   if (glsl_get_base_type(type) == GLSL_TYPE_ARRAY)
-      return is_atomic_uint(glsl_get_array_element(type));
-   return glsl_get_base_type(type) == GLSL_TYPE_ATOMIC_UINT;
-}
-
 bool
 nir_lower_atomics_to_ssbo(nir_shader *shader)
 {
@@ -188,51 +180,49 @@ nir_lower_atomics_to_ssbo(nir_shader *shader)
    if (progress) {
       /* replace atomic_uint uniforms with ssbo's: */
       unsigned replaced = 0;
-      nir_foreach_uniform_variable_safe(var, shader) {
-         if (is_atomic_uint(var->type)) {
-            exec_node_remove(&var->node);
+      nir_foreach_atomic_counter_variable_safe(var, shader) {
+         exec_node_remove(&var->node);
 
-            if (replaced & (1 << var->data.binding))
-               continue;
+         if (replaced & (1 << var->data.binding))
+            continue;
 
-            nir_variable *ssbo;
-            char name[16];
+         nir_variable *ssbo;
+         char name[16];
 
-            /* A length of 0 is used to denote unsized arrays */
-            const struct glsl_type *type = glsl_array_type(glsl_uint_type(), 0, 0);
+         /* A length of 0 is used to denote unsized arrays */
+         const struct glsl_type *type = glsl_array_type(glsl_uint_type(), 0, 0);
 
-            snprintf(name, sizeof(name), "counter%d", var->data.binding);
+         snprintf(name, sizeof(name), "counter%d", var->data.binding);
 
-            ssbo = nir_variable_create(shader, nir_var_mem_ssbo, type, name);
-            ssbo->data.binding = ssbo_offset + var->data.binding;
-            ssbo->data.explicit_binding = var->data.explicit_binding;
+         ssbo = nir_variable_create(shader, nir_var_mem_ssbo, type, name);
+         ssbo->data.binding = ssbo_offset + var->data.binding;
+         ssbo->data.explicit_binding = var->data.explicit_binding;
 
-            /* We can't use num_abos, because it only represents the number of
-             * active atomic counters, and currently unlike SSBO's they aren't
-             * compacted so num_abos actually isn't a bound on the index passed
-             * to nir_intrinsic_atomic_counter_*. e.g. if we have a single atomic
-             * counter declared like:
-             *
-             * layout(binding=1) atomic_uint counter0;
-             *
-             * then when we lower accesses to it the atomic_counter_* intrinsics
-             * will have 1 as the index but num_abos will still be 1.
-             */
-            shader->info.num_ssbos = MAX2(shader->info.num_ssbos,
-                                          ssbo->data.binding + 1);
+         /* We can't use num_abos, because it only represents the number of
+          * active atomic counters, and currently unlike SSBO's they aren't
+          * compacted so num_abos actually isn't a bound on the index passed
+          * to nir_intrinsic_atomic_counter_*. e.g. if we have a single atomic
+          * counter declared like:
+          *
+          * layout(binding=1) atomic_uint counter0;
+          *
+          * then when we lower accesses to it the atomic_counter_* intrinsics
+          * will have 1 as the index but num_abos will still be 1.
+          */
+         shader->info.num_ssbos = MAX2(shader->info.num_ssbos,
+                                       ssbo->data.binding + 1);
 
-            struct glsl_struct_field field = {
-                  .type = type,
-                  .name = "counters",
-                  .location = -1,
-            };
+         struct glsl_struct_field field = {
+               .type = type,
+               .name = "counters",
+               .location = -1,
+         };
 
-            ssbo->interface_type =
-                  glsl_interface_type(&field, 1, GLSL_INTERFACE_PACKING_STD430,
-                                      false, "counters");
+         ssbo->interface_type =
+               glsl_interface_type(&field, 1, GLSL_INTERFACE_PACKING_STD430,
+                                   false, "counters");
 
-            replaced |= (1 << var->data.binding);
-         }
+         replaced |= (1 << var->data.binding);
       }
 
       shader->info.num_abos = 0;
