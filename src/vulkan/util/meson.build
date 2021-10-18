@@ -95,6 +95,11 @@ vulkan_util_deps = [
   idep_nir_headers,
 ]
 
+if dep_libdrm.found()
+  vulkan_util_files += files('vk_drm_syncobj.c', 'vk_drm_syncobj.h')
+  vulkan_util_deps += dep_libdrm
+endif
+
 vk_common_entrypoints = custom_target(
   'vk_common_entrypoints',
   input : [vk_entrypoints_gen, vk_api_xml],
