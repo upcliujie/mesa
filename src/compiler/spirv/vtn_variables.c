@@ -1504,30 +1504,26 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
        * OpTypeForwardPointer can only be used for struct types, not images or
        * acceleration structures.
        */
-      if (interface_type)
+      if (interface_type) {
          interface_type = vtn_type_without_array(interface_type);
+         if (interface_type->base_type == vtn_base_type_image &&
+             glsl_type_is_image(interface_type->glsl_image)) {
+            mode = vtn_variable_mode_image;
+            nir_mode = nir_var_image;
+            break;
+         } else if (interface_type->base_type == vtn_base_type_accel_struct) {
+            mode = vtn_variable_mode_accel_struct;
+            nir_mode = nir_var_uniform;
+            break;
+         }
+      }
 
-      if (interface_type &&
-          interface_type->base_type == vtn_base_type_image &&
-          glsl_type_is_image(interface_type->glsl_image)) {
-         mode = vtn_variable_mode_image;
-         nir_mode = nir_var_image;
-      } else if (b->shader->info.stage == MESA_SHADER_KERNEL) {
+      if (b->shader->info.stage == MESA_SHADER_KERNEL) {
          mode = vtn_variable_mode_constant;
          nir_mode = nir_var_mem_constant;
       } else {
-         /* interface_type is only NULL when OpTypeForwardPointer is used and
-          * OpTypeForwardPointer cannot be used with the UniformConstant
-          * storage class.
-          */
-         assert(interface_type != NULL);
-         if (interface_type->base_type == vtn_base_type_accel_struct) {
-            mode = vtn_variable_mode_accel_struct;
-            nir_mode = nir_var_uniform;
-         } else {
-            mode = vtn_variable_mode_uniform;
-            nir_mode = nir_var_uniform;
-         }
+         mode = vtn_variable_mode_uniform;
+         nir_mode = nir_var_uniform;
       }
       break;
    case SpvStorageClassPushConstant:
