@@ -1063,6 +1063,14 @@ _mesa_GetUniformBlockIndex(GLuint program,
    if (!res)
       return GL_INVALID_INDEX;
 
+   /* If UBO are used, we can't expect to be able to do samplers
+    * validation when glUniform is called. So mark SamplersValidated
+    * as true if the block contains a sampler.
+    */
+   struct gl_uniform_block *block = (struct gl_uniform_block *)res->Data;
+   if (block->ContainsSamplers)
+      shProg->SamplersValidated = true;
+
    return _mesa_program_resource_index(shProg, res);
 }
 
