@@ -1525,8 +1525,8 @@ validate_var_decl(nir_variable *var, nir_variable_mode valid_modes,
                              glsl_type_is_sampler(glsl_without_array(var->type)));
    }
 
-   if (var->data.mode == nir_var_atomic_counter)
-      validate_assert(state, glsl_contains_atomic(glsl_without_array(var->type)));
+   validate_assert(state, (var->data.mode == nir_var_atomic_counter) ==
+                          glsl_contains_atomic(glsl_without_array(var->type)));
 
    if (var->data.mode == nir_var_image) {
       validate_assert(state, !var->data.bindless);
