@@ -1250,7 +1250,7 @@ get_sampler_var(struct ttn_compile *c, int binding,
    if (!var) {
       const struct glsl_type *type =
          glsl_sampler_type(dim, is_shadow, is_array, base_type);
-      var = nir_variable_create(c->build.shader, nir_var_uniform, type,
+      var = nir_variable_create(c->build.shader, nir_var_texture, type,
                                 "sampler");
       var->data.binding = binding;
       var->data.explicit_binding = true;
