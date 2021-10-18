@@ -89,6 +89,10 @@ files_vulkan_util = files(
   'vk_util.h',
 )
 
+if dep_libdrm.found()
+  files_vulkan_util += files('vk_drm_syncobj.c', 'vk_drm_syncobj.h')
+endif
+
 vk_common_entrypoints = custom_target(
   'vk_common_entrypoints',
   input : [vk_entrypoints_gen, vk_api_xml],
