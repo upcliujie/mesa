@@ -179,8 +179,13 @@ lower_deref(nir_builder *b, struct lower_samplers_as_deref_state *state,
       binding = var->data.binding;
    }
 
+   nir_variable_mode mode = var->data.mode;
+   if (glsl_type_get_sampler_count(type) || glsl_type_get_texture_count(type))
+      mode = nir_var_texture;
+
    if (var->type == type) {
       /* Fast path: We did not encounter any struct derefs. */
+      var->data.mode = mode;
       var->data.binding = binding;
       return deref;
    }
@@ -192,7 +197,7 @@ lower_deref(nir_builder *b, struct lower_samplers_as_deref_state *state,
    if (h) {
       var = (nir_variable *)h->data;
    } else {
-      var = nir_variable_create(state->shader, var->data.mode, type, name);
+      var = nir_variable_create(state->shader, mode, type, name);
       var->data.binding = binding;
 
       /* Don't set var->data.location.  The old structure location could be
