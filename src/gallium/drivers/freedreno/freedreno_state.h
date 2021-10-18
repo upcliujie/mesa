@@ -61,6 +61,12 @@ fd_depth_clamp_enabled(struct fd_context *ctx) assert_dt
             ctx->rasterizer->depth_clip_far);
 }
 
+void fd_set_shader_buffers(struct pipe_context *pctx,
+                           enum pipe_shader_type shader, unsigned start,
+                           unsigned count,
+                           const struct pipe_shader_buffer *buffers,
+                           unsigned writable_bitmask);
+
 void fd_set_shader_images(struct pipe_context *pctx,
                           enum pipe_shader_type shader, unsigned start,
                           unsigned count, unsigned unbind_num_trailing_slots,
