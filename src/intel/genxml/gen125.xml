@@ -1339,6 +1339,8 @@
     <field name="3D Scoreboard Hashing Mode Mask" start="52" end="52" type="bool"/>
     <field name="Subslice Hashing Table Enable Mask" start="53" end="53" type="bool"/>
     <field name="Slice Hashing Table Enable Mask" start="54" end="54" type="bool"/>
+    <field name="Fast Clear Optimization Enable" start="106" end="106" type="bool"/>
+    <field name="Fast Clear Optimization Enable Mask" start="122" end="122" type="bool"/>
   </instruction>
 
   <instruction name="3DSTATE_AA_LINE_PARAMETERS" bias="2" length="3" engine="render">
