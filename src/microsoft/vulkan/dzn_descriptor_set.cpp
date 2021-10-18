@@ -791,6 +791,25 @@ dzn_write_descriptor_set(struct dzn_device *dev,
                dev->dev->CreateConstantBufferView(&cbv_desc, view_handle);
             }
             break;
+         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+            VK_FROM_HANDLE(dzn_buffer, buf, pDescriptorWrite->pBufferInfo->buffer);
+            uint32_t size = pDescriptorWrite->pBufferInfo->range == VK_WHOLE_SIZE ?
+                            buf->size - pDescriptorWrite->pBufferInfo->offset :
+                            pDescriptorWrite->pBufferInfo->range;
+
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
+              .Format = DXGI_FORMAT_R32_TYPELESS,
+              .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
+              .Buffer = {
+                 .FirstElement = pDescriptorWrite->pBufferInfo->offset / sizeof(uint32_t),
+                 .NumElements = size / sizeof(uint32_t),
+                 .Flags = D3D12_BUFFER_UAV_FLAG_RAW,
+              },
+            };
+
+            dev->dev->CreateUnorderedAccessView(buf->res.Get(), NULL, &uav_desc, view_handle);
+            break;
+         }
          default:
             // TODO: support all types
             unreachable("Unsupported descriptor type\n");
