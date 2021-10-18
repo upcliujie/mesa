@@ -444,7 +444,7 @@ struct dzn_descriptor_pool {
    ~dzn_descriptor_pool();
 };
 
-#define MAX_ROOT_PARAMS D3D12_SHADER_VISIBILITY_PIXEL + 1
+#define MAX_SHADER_VISIBILITIES (D3D12_SHADER_VISIBILITY_PIXEL + 1)
 
 struct dzn_descriptor_set_layout_binding {
    D3D12_SHADER_VISIBILITY visibility;
@@ -460,7 +460,7 @@ struct dzn_descriptor_set_layout {
       const D3D12_DESCRIPTOR_RANGE1 *views;
       uint32_t sampler_count;
       const D3D12_DESCRIPTOR_RANGE1 *samplers;
-   } ranges[MAX_ROOT_PARAMS];
+   } ranges[MAX_SHADER_VISIBILITIES];
    uint32_t static_sampler_count;
    const D3D12_STATIC_SAMPLER_DESC *static_samplers;
    uint32_t view_desc_count, sampler_desc_count;
@@ -497,7 +497,7 @@ struct dzn_pipeline_layout {
    uint32_t desc_count[NUM_POOL_TYPES];
    struct {
       uint32_t param_count;
-      D3D12_DESCRIPTOR_HEAP_TYPE type[MAX_ROOT_PARAMS];
+      D3D12_DESCRIPTOR_HEAP_TYPE type[MAX_SHADER_VISIBILITIES];
       ComPtr<ID3D12RootSignature> sig;
    } root;
 

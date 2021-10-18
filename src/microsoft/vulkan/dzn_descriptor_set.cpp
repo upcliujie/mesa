@@ -103,8 +103,8 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
           (pCreateInfo->bindingCount ?
 	   (ordered_bindings[pCreateInfo->bindingCount - 1].binding + 1) : 0));
 
-   uint32_t sampler_range_idx[MAX_ROOT_PARAMS] = {};
-   uint32_t view_range_idx[MAX_ROOT_PARAMS] = {};
+   uint32_t sampler_range_idx[MAX_SHADER_VISIBILITIES] = {};
+   uint32_t view_range_idx[MAX_SHADER_VISIBILITIES] = {};
    uint32_t static_sampler_idx = 0;
 
    for (uint32_t i = 0; i < binding_count; i++) {
@@ -198,8 +198,8 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
 
    const VkDescriptorSetLayoutBinding *bindings = pCreateInfo->pBindings;
    uint32_t binding_count = 0, immutable_sampler_count = 0, total_ranges = 0;
-   uint32_t sampler_ranges[MAX_ROOT_PARAMS] = {};
-   uint32_t view_ranges[MAX_ROOT_PARAMS] = {};
+   uint32_t sampler_ranges[MAX_SHADER_VISIBILITIES] = {};
+   uint32_t view_ranges[MAX_SHADER_VISIBILITIES] = {};
 
    for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
       D3D12_SHADER_VISIBILITY visibility =
@@ -323,7 +323,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
       static_sampler_count += set_layout->static_sampler_count;
-      for (uint32_t i = 0; i < MAX_ROOT_PARAMS; i++) {
+      for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
          range_desc_count += set_layout->ranges[i].sampler_count +
                              set_layout->ranges[i].view_count;
       }
@@ -348,10 +348,10 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    if (static_sampler_count && !static_sampler_descs.get())
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS * 2] = { };
+   D3D12_ROOT_PARAMETER1 root_params[MAX_SHADER_VISIBILITIES * 2] = { };
    D3D12_DESCRIPTOR_RANGE1 *range_ptr = range_descs.get();
 
-   for (uint32_t i = 0; i < MAX_ROOT_PARAMS; i++) {
+   for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
       uint32_t range_count = 0;
       D3D12_ROOT_PARAMETER1 *root_param = &root_params[root.param_count];
 
