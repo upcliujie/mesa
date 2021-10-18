@@ -221,12 +221,14 @@ device::vendor_id() const {
 
 size_t
 device::max_images_read() const {
-   return PIPE_MAX_SHADER_SAMPLER_VIEWS;
+   return get_compute_param<uint32_t>(pipe, ir_format(),
+                                      PIPE_COMPUTE_CAP_IMAGES_SUPPORTED)[0];
 }
 
 size_t
 device::max_images_write() const {
-   return PIPE_MAX_SHADER_IMAGES;
+   return get_compute_param<uint32_t>(pipe, ir_format(),
+                                      PIPE_COMPUTE_CAP_IMAGES_SUPPORTED)[1];
 }
 
 size_t
@@ -317,7 +319,7 @@ device::max_printf_buffer_size() const {
 bool
 device::image_support() const {
    return get_compute_param<uint32_t>(pipe, ir_format(),
-                                      PIPE_COMPUTE_CAP_IMAGES_SUPPORTED)[0];
+                                      PIPE_COMPUTE_CAP_IMAGES_SUPPORTED)[0] > 0;
 }
 
 bool

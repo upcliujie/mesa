@@ -781,7 +781,9 @@ pipe_screen::get_compute_param.
 * ``PIPE_COMPUTE_CAP_MAX_COMPUTE_UNITS``: Maximum number of compute units
   Value type: ``uint32_t``
 * ``PIPE_COMPUTE_CAP_IMAGES_SUPPORTED``: Whether images are supported
-  non-zero means yes, zero means no. Value type: ``uint32_t``
+  zero means no. First integer is max number of sampler view images, second
+  integer is max number of shader images.
+  Value type: ``2 x uint32_t``
 * ``PIPE_COMPUTE_CAP_SUBGROUP_SIZE``: The size of a basic execution unit in
   threads. Also known as wavefront size, warp size or SIMD width.
 * ``PIPE_COMPUTE_CAP_ADDRESS_BITS``: The default compute device address space

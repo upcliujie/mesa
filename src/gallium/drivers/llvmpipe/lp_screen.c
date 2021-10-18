@@ -527,9 +527,10 @@ llvmpipe_get_compute_param(struct pipe_screen *_screen,
    case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
       if (ret) {
          uint32_t *images = ret;
-         *images = LP_MAX_TGSI_SHADER_IMAGES;
+         images[0] = PIPE_MAX_SHADER_SAMPLER_VIEWS;
+         images[1] = LP_MAX_TGSI_SHADER_IMAGES;
       }
-      return sizeof(uint32_t);
+      return 2 * sizeof(uint32_t);
    case PIPE_COMPUTE_CAP_MAX_VARIABLE_THREADS_PER_BLOCK:
       return 0;
    case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:

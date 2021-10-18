@@ -690,7 +690,7 @@ panfrost_get_compute_param(struct pipe_screen *pscreen, enum pipe_shader_ir ir_t
 		RET((uint32_t []) { 9999 });  // TODO
 
 	case PIPE_COMPUTE_CAP_IMAGES_SUPPORTED:
-		RET((uint32_t []) { 0 });
+		RET(((uint32_t []) { 0, 0 }));
 
 	case PIPE_COMPUTE_CAP_SUBGROUP_SIZE:
 		RET((uint32_t []) { dev->arch >= 7 ? 8 : 4 });
