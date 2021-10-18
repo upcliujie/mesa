@@ -66,6 +66,8 @@ files_vulkan_util = files(
   'vk_descriptors.h',
   'vk_device.c',
   'vk_device.h',
+  'vk_drm_syncobj.c',
+  'vk_drm_syncobj.h',
   'vk_format.c',
   'vk_image.c',
   'vk_image.h',
