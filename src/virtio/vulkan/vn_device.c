@@ -19,6 +19,50 @@
 
 /* device commands */
 
+static inline bool
+vn_deivce_can_merge_buffer_cache(const struct vn_buffer_cache *cache,
+                                 const VkBufferCreateInfo *info,
+                                 const struct vn_buffer *buf)
+{
+   /* cache only VK_SHARING_MODE_EXCLUSIVE and without pNext for simplicity */
+   assert(info->pNext == NULL);
+   assert(info->sharingMode == VK_SHARING_MODE_EXCLUSIVE);
+
+   /* Below check can lead to advertising more cache coverage given we merge
+    * the buffer usage if the other params match. It's safe to do so because
+    * it doesn't make any sense for a combined usage flags to be supported by
+    * additional memory types. Even if that happens, it's ok to ignore that.
+    */
+   return (cache->create_info.flags == info->flags) &&
+          (cache->memory_requirements.memoryRequirements.alignment ==
+           buf->memory_requirements.memoryRequirements.alignment) &&
+          (cache->memory_requirements.memoryRequirements.memoryTypeBits ==
+           buf->memory_requirements.memoryRequirements.memoryTypeBits) &&
+          (cache->dedicated_requirements.prefersDedicatedAllocation ==
+           buf->dedicated_requirements.prefersDedicatedAllocation) &&
+          (cache->dedicated_requirements.requiresDedicatedAllocation ==
+           buf->dedicated_requirements.requiresDedicatedAllocation);
+}
+
+static uint32_t
+vn_device_append_or_update_buffer_cache(struct vn_buffer_cache *caches,
+                                        uint32_t cache_count,
+                                        const VkBufferCreateInfo *info,
+                                        const struct vn_buffer *buf)
+{
+   for (uint32_t i = 0; i < cache_count; i++) {
+      if (vn_deivce_can_merge_buffer_cache(&caches[i], info, buf)) {
+         caches[i].create_info.usage |= info->usage;
+         return cache_count;
+      }
+   }
+
+   caches[cache_count].create_info = *info;
+   caches[cache_count].memory_requirements = buf->memory_requirements;
+   caches[cache_count].dedicated_requirements = buf->dedicated_requirements;
+   return cache_count + 1;
+}
+
 static void
 vn_device_destroy_buffer_caches(struct vn_device *dev,
                                 struct vn_buffer_cache *caches)
@@ -68,9 +112,80 @@ vn_device_create_buffer_caches(struct vn_device *dev,
                                struct vn_buffer_cache **out_caches,
                                uint32_t *out_cache_count)
 {
-   *out_caches = NULL;
-   *out_cache_count = 0;
+   const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+   VkDevice dev_handle = vn_device_to_handle(dev);
+   struct vn_buffer_cache *caches;
+   uint32_t cache_count = 0;
+   VkResult result;
+
+   /* mutually exclusive buffer allocation infos to cache */
+   static const VkBufferCreateInfo cache_infos[] = {
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 4096,
+         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 4096,
+         .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 4096,
+         .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+      {
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .size = 4096,
+         .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+      },
+   };
+
+   /* allocate enough cache space initially and shrink later */
+   caches = vk_zalloc(alloc, sizeof(*caches) * ARRAY_SIZE(cache_infos),
+                      VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   if (!caches)
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+
+   for (uint32_t i = 0; i < ARRAY_SIZE(cache_infos); i++) {
+      VkBuffer buf_handle = VK_NULL_HANDLE;
+
+      result =
+         vn_CreateBuffer(dev_handle, &cache_infos[i], alloc, &buf_handle);
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      cache_count = vn_device_append_or_update_buffer_cache(
+         caches, cache_count, &cache_infos[i],
+         vn_buffer_from_handle(buf_handle));
+
+      vn_DestroyBuffer(dev_handle, buf_handle, alloc);
+   }
+
+   if (cache_count < ARRAY_SIZE(cache_infos)) {
+      struct vn_buffer_cache *resized_caches =
+         vk_realloc(alloc, caches, sizeof(*resized_caches) * cache_count,
+                    VN_DEFAULT_ALIGN, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      if (!resized_caches)
+         goto fail;
+
+      caches = resized_caches;
+   }
+
+   *out_caches = caches;
+   *out_cache_count = cache_count;
    return VK_SUCCESS;
+
+fail:
+   vk_free(alloc, caches);
+   return result;
 }
 
 static VkResult
