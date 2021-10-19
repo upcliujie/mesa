@@ -26,12 +26,21 @@
 
 #include "vk_object.h"
 
+#include "c11/threads.h"
+
 #include "util/list.h"
 #include "util/u_dynarray.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct vk_command_buffer;
+struct vk_queue_submit;
+struct vk_sync;
+struct vk_sync_wait;
+struct vk_sync_signal;
+struct vk_timeline_point;
 
 struct vk_queue {
    struct vk_object_base base;
@@ -47,6 +56,9 @@ struct vk_queue {
 
    /* Which queue this is within the queue family */
    uint32_t index_in_family;
+
+   VkResult (*submit)(struct vk_queue *queue,
+                      struct vk_queue_submit *submit);
 
    struct {
       /* Only set once atomically by the queue */
@@ -95,6 +107,18 @@ struct vk_queue {
     */
    struct util_dynarray labels;
    bool region_begin;
+
+   struct {
+      bool run;
+      bool has_thread;
+
+      thrd_t thread;
+      mtx_t mutex;
+      cnd_t push;
+      cnd_t pop;
+
+      struct list_head submits;
+   } threaded;
 };
 
 VK_DEFINE_HANDLE_CASTS(vk_queue, base, VkQueue, VK_OBJECT_TYPE_QUEUE)
@@ -106,6 +130,12 @@ vk_queue_init(struct vk_queue *queue, struct vk_device *device,
 
 void
 vk_queue_finish(struct vk_queue *queue);
+
+static inline bool
+vk_queue_has_submit_thread(struct vk_queue *queue)
+{
+   return queue->threaded.has_thread;
+}
 
 VkResult PRINTFLIKE(4, 5)
 _vk_queue_set_lost(struct vk_queue *queue,
@@ -126,6 +156,25 @@ vk_queue_is_lost(struct vk_queue *queue)
 
 #define vk_foreach_queue_safe(queue, device) \
    list_for_each_entry_safe(struct vk_queue, queue, &(device)->queues, link)
+
+struct vk_queue_submit {
+   struct list_head link;
+
+   uint32_t wait_count;
+   uint32_t command_buffer_count;
+   uint32_t signal_count;
+
+   struct vk_sync_wait *waits;
+   struct vk_command_buffer **command_buffers;
+   struct vk_sync_signal *signals;
+
+   uint32_t perf_pass_index;
+
+   /* Used internally; should be ignored by drivers */
+   struct vk_sync **_wait_temps;
+   struct vk_timeline_point **_wait_points;
+   struct vk_timeline_point **_signal_points;
+};
 
 #ifdef __cplusplus
 }
