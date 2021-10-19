@@ -1356,8 +1356,6 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
       bool flushed = false;
       bool any_changed = false;
 
-      shProg->SamplersValidated = GL_TRUE;
-
       for (int i = 0; i < MESA_SHADER_STAGES; i++) {
          struct gl_linked_shader *const sh = shProg->_LinkedShaders[i];
 
@@ -1400,6 +1398,7 @@ _mesa_uniform(GLint location, GLsizei count, const GLvoid *values,
 
          if (changed) {
             struct gl_program *const prog = sh->Program;
+            shProg->SamplersValidated = GL_TRUE;
             _mesa_update_shader_textures_used(shProg, prog);
             if (ctx->Driver.SamplerUniformChange)
                ctx->Driver.SamplerUniformChange(ctx, prog->Target, prog);
