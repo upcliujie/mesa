@@ -282,8 +282,13 @@ one_time_init(const char *extensions_override)
    _mesa_locale_init();
 
    const char *env_const = os_get_option("MESA_EXTENSION_OVERRIDE");
-   if (env_const)
+   if (env_const) {
+      if (extensions_override &&
+          strcmp(extensions_override, env_const)) {
+         printf("Warning: MESA_EXTENSION_OVERRIDE used instead of driconf setting\n");
+      }
       extensions_override = env_const;
+   }
 
    _mesa_one_time_init_extension_overrides(extensions_override);
 
