@@ -5547,6 +5547,7 @@ emit_push_constant_packet_all(struct iris_context *ice,
    if (!push_bos) {
       iris_emit_cmd(batch, GENX(3DSTATE_CONSTANT_ALL), pc) {
          pc.ShaderUpdateEnable = shader_mask;
+         pc.MOCS = isl_mocs(isl_dev, 0, false);
       }
       return;
    }
