@@ -63,7 +63,13 @@
     - *ignore_scheduled_pipelines
     - changes: &gallium_core_file_list
       - src/gallium/*
-      - src/gallium/auxiliary/**/*
+      - src/gallium/auxiliary/cso_cache/*
+      - src/gallium/auxiliary/indices/*
+      - src/gallium/auxiliary/os/*
+      - src/gallium/auxiliary/pipe-loader/*
+      - src/gallium/auxiliary/target-helpers/*
+      - src/gallium/auxiliary/util/*
+      - src/gallium/auxiliary/*
       - src/gallium/drivers/*
       - src/gallium/include/**/*
       - src/gallium/frontends/dri/*
@@ -101,6 +107,8 @@
     - changes: &llvmpipe_file_list
       - src/gallium/drivers/llvmpipe/**/*
       - src/gallium/winsys/sw/**/*
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
       when: on_success
     - when: never
 
@@ -118,6 +126,8 @@
       - src/gallium/drivers/llvmpipe/**/*
       - src/gallium/frontends/lavapipe/**/*
       - src/gallium/winsys/sw/**/*
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
       when: on_success
     - changes:
         *vulkan_file_list
@@ -390,6 +400,7 @@
     - changes: &radeonsi_file_list
       - src/gallium/drivers/radeonsi/**/*
       - src/gallium/winsys/amdgpu/**/*
+      - src/gallium/auxiliary/pipebuffer/*
       - src/amd/*
       - src/amd/addrlib/**/*
       - src/amd/common/**/*
@@ -409,6 +420,8 @@
         *gallium_core_file_list
       when: on_success
     - changes:
+      - src/gallium/auxiliary/nir/*
+      - src/gallium/auxiliary/tgsi/*
       - src/gallium/drivers/i915/**/*
       - src/gallium/winsys/i915/**/*
       - src/intel/**/*
@@ -426,6 +439,7 @@
         *gallium_core_file_list
       when: on_success
     - changes: &iris_file_list
+      - src/gallium/auxiliary/pipebuffer/*
       - src/gallium/drivers/iris/**/*
       - src/gallium/winsys/iris/**/*
       - src/intel/**/*
@@ -481,6 +495,7 @@
         *lavapipe_file_list
       when: on_success
     - changes: &zink_file_list
+      - src/gallium/auxiliary/pipebuffer/*
       - src/gallium/drivers/zink/**/*
       when: on_success
     - when: never
@@ -503,6 +518,7 @@
         *vulkan_file_list
       when: on_success
     - changes: &d3d12_file_list
+      - src/gallium/auxiliary/pipebuffer/*
       - src/gallium/drivers/d3d12/**/*
       - src/microsoft/**/*
       - src/gallium/frontends/wgl/*
