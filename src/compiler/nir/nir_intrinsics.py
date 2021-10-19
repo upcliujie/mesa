@@ -43,7 +43,7 @@ class Intrinsic(object):
    NOTE: this must be kept in sync with nir_intrinsic_info.
    """
    def __init__(self, name, src_components, dest_components,
-                indices, flags, sysval, bit_sizes, src_names):
+                indices, flags, sysval, bit_sizes, sources):
        """Parameters:
 
        - name: the intrinsic name
@@ -57,7 +57,7 @@ class Intrinsic(object):
        - flags: list of semantic flags
        - sysval: is this a system-value intrinsic
        - bit_sizes: allowed dest bit_sizes or the source it must match
-       - src_names: names of source arguments
+       - sources: list of source arguments
        """
        assert isinstance(name, str)
        assert isinstance(src_components, list)
@@ -89,7 +89,7 @@ class Intrinsic(object):
        self.sysval = sysval
        self.bit_sizes = bit_sizes if isinstance(bit_sizes, list) else []
        self.bit_size_src = bit_sizes[1] if isinstance(bit_sizes, tuple) else -1
-       self.src_names = src_names
+       self.sources = sources
 
 #
 # Possible flags:
@@ -104,7 +104,12 @@ INTR_OPCODES = {}
 def index(c_data_type, name):
     idx = Index(c_data_type, name)
     INTR_INDICES.append(idx)
+    assert name.upper() not in globals().keys()
     globals()[name.upper()] = idx
+
+def source(name):
+    assert name.upper() not in globals().keys()
+    globals()[name.upper()] = name
 
 # Defines a new NIR intrinsic.  By default, the intrinsic will have no sources
 # and no destination.
@@ -118,10 +123,10 @@ def index(c_data_type, name):
 # only one source.  If a component count is 0, it will be as many components as
 # the intrinsic has based on the dest_comp.
 def intrinsic(name, src_comp=[], dest_comp=-1, indices=[],
-              flags=[], sysval=False, bit_sizes=[], src_names=[]):
+              flags=[], sysval=False, bit_sizes=[], sources=[]):
     assert name not in INTR_OPCODES
     INTR_OPCODES[name] = Intrinsic(name, src_comp, dest_comp,
-                                   indices, flags, sysval, bit_sizes, src_names)
+                                   indices, flags, sysval, bit_sizes, sources)
 
 #
 # Possible indices:
@@ -255,6 +260,34 @@ index("nir_rounding_mode", "rounding_mode")
 
 # Whether or not to saturate in conversions
 index("unsigned", "saturate")
+
+source("address")
+source("barycoord")
+source("base_address")
+source("block_index")
+source("bound")
+source("btd_record")
+source("buffer_index")
+source("deref_var")
+source("descriptor")
+source("gds_addr")
+source("global_arg_addr")
+source("index")
+source("m0")
+source("mask")
+source("offset")
+source("payload")
+source("predicate")
+source("primitive")
+source("render_target")
+source("sampler_index")
+source("scalar_offset")
+source("sbt_index")
+source("set")
+source("store_val")
+source("value")
+source("vertex")
+source("vertex_id")
 
 intrinsic("nop", flags=[CAN_ELIMINATE])
 
@@ -491,7 +524,7 @@ intrinsic("report_ray_intersection", src_comp=[1, 1], dest_comp=1)
 intrinsic("ignore_ray_intersection")
 intrinsic("accept_ray_intersection") # Not in SPIR-V; useful for lowering
 intrinsic("terminate_ray")
-intrinsic("execute_callable", src_comp=[1, -1], src_names=["sbt_index", "payload"])
+intrinsic("execute_callable", src_comp=[1, -1], sources=[SBT_INDEX, PAYLOAD])
 
 # Driver independent raytracing helpers
 
@@ -895,53 +928,53 @@ intrinsic("load_fs_input_interp_deltas", src_comp=[1], dest_comp=3,
 # varying slots and float units for fragment shader inputs.  UBO and SSBO
 # offsets are always in bytes.
 
-def load(name, src_comp, indices=[], flags=[], src_names=[]):
+def load(name, src_comp, indices=[], flags=[], sources=[]):
     intrinsic("load_" + name, src_comp, dest_comp=0, indices=indices,
-              flags=flags, src_names=src_names)
+              flags=flags, sources=sources)
 
-load("uniform", [1], [BASE, RANGE, DEST_TYPE], [CAN_ELIMINATE, CAN_REORDER], ["offset"])
-load("ubo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET, RANGE_BASE, RANGE], [CAN_ELIMINATE, CAN_REORDER], ["buffer_index", "offset"])
-load("ubo_vec4", [-1, 1], [ACCESS, COMPONENT], [CAN_ELIMINATE, CAN_REORDER], ["buffer_index", "offset[vec4]"])
-load("input", [1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], ["offset"])
-load("input_vertex", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], ["vertex_id", "offset"])
-load("per_vertex_input", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], ["vertex", "offset"])
-load("interpolated_input", [2, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], ["barycoord", "offset"])
+load("uniform", [1], [BASE, RANGE, DEST_TYPE], [CAN_ELIMINATE, CAN_REORDER], [OFFSET])
+load("ubo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET, RANGE_BASE, RANGE], [CAN_ELIMINATE, CAN_REORDER], [BUFFER_INDEX, OFFSET])
+load("ubo_vec4", [-1, 1], [ACCESS, COMPONENT], [CAN_ELIMINATE, CAN_REORDER], [BUFFER_INDEX, OFFSET])
+load("input", [1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], [OFFSET])
+load("input_vertex", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], [VERTEX_ID, OFFSET])
+load("per_vertex_input", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], [VERTEX, OFFSET])
+load("interpolated_input", [2, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE, CAN_REORDER], [BARYCOORD, OFFSET])
 
-load("ssbo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["buffer_index", "offset"])
-load("ssbo_address", [1], [], [CAN_ELIMINATE, CAN_REORDER], ["buffer_index"])
-load("output", [1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE], ["offset"])
-load("per_vertex_output", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE], ["vertex", "offset"])
-load("per_primitive_output", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE], ["primitive", "offset"])
-load("shared", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["offset"])
-load("push_constant", [1], [BASE, RANGE], [CAN_ELIMINATE, CAN_REORDER], ["offset"])
+load("ssbo", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [BUFFER_INDEX, OFFSET])
+load("ssbo_address", [1], [], [CAN_ELIMINATE, CAN_REORDER], [BUFFER_INDEX])
+load("output", [1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE], [OFFSET])
+load("per_vertex_output", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE], [VERTEX, OFFSET])
+load("per_primitive_output", [1, 1], [BASE, COMPONENT, DEST_TYPE, IO_SEMANTICS], [CAN_ELIMINATE], [PRIMITIVE, OFFSET])
+load("shared", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [OFFSET])
+load("push_constant", [1], [BASE, RANGE], [CAN_ELIMINATE, CAN_REORDER], [OFFSET])
 load("constant", [1], [BASE, RANGE, ALIGN_MUL, ALIGN_OFFSET],
-     [CAN_ELIMINATE, CAN_REORDER], ["offset"])
-load("global", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["address"])
+     [CAN_ELIMINATE, CAN_REORDER], [OFFSET])
+load("global", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [ADDRESS])
 load("global_constant", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET],
-     [CAN_ELIMINATE, CAN_REORDER], ["address"])
+     [CAN_ELIMINATE, CAN_REORDER], [ADDRESS])
 load("global_constant_offset", [1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET],
-     [CAN_ELIMINATE, CAN_REORDER], ["base_address", "offset"])
+     [CAN_ELIMINATE, CAN_REORDER], [BASE_ADDRESS, OFFSET])
 load("global_constant_bounded", [1, 1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET],
-     [CAN_ELIMINATE, CAN_REORDER], ["base_address", "offset", "bound"])
-load("kernel_input", [1], [BASE, RANGE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE, CAN_REORDER], ["address"])
-load("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["offset"])
+     [CAN_ELIMINATE, CAN_REORDER], [BASE_ADDRESS, OFFSET, BOUND])
+load("kernel_input", [1], [BASE, RANGE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE, CAN_REORDER], [ADDRESS])
+load("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [OFFSET])
 
 # Stores work the same way as loads, except now the first source is the value
 # to store and the second (and possibly third) source specify where to store
 # the value.  SSBO and shared memory stores also have a
 # nir_intrinsic_write_mask()
 
-def store(name, srcs, indices=[], flags=[], src_names=[]):
+def store(name, srcs, indices=[], flags=[], sources=[]):
     intrinsic("store_" + name, [0] + srcs, indices=indices, flags=flags,
-              src_names=["value"] + src_names)
+              sources=[VALUE] + sources)
 
-store("output", [1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], ["offset"])
-store("per_vertex_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], ["vertex", "offset"])
-store("per_primitive_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], ["primitive", "offset"])
-store("ssbo", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], ["block_index", "offset"])
-store("shared", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET], [], ["offset"])
-store("global", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], ["address"])
-store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRITE_MASK], [], ["offset"])
+store("output", [1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [OFFSET])
+store("per_vertex_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [VERTEX, OFFSET])
+store("per_primitive_output", [1, 1], [BASE, WRITE_MASK, COMPONENT, SRC_TYPE, IO_SEMANTICS], [], [PRIMITIVE, OFFSET])
+store("ssbo", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [BLOCK_INDEX, OFFSET])
+store("shared", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET], [], [OFFSET])
+store("global", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [ADDRESS])
+store("scratch", [1], [ALIGN_MUL, ALIGN_OFFSET, WRITE_MASK], [], [OFFSET])
 
 # A bit field to implement SPIRV FragmentShadingRateKHR
 # bit | name              | description
@@ -1015,8 +1048,8 @@ intrinsic("end_patch_ir3")
 # IR3-specific load/store intrinsics. These access a buffer used to pass data
 # between geometry stages - perhaps it's explicit access to the vertex cache.
 
-store("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [], ["offset"])
-load("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["offset"])
+store("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [], [OFFSET])
+load("shared_ir3", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [OFFSET])
 
 # IR3-specific load/store global intrinsics. They take a 64-bit base address
 # and a 32-bit offset.  The hardware will add the base and the offset, which
@@ -1036,14 +1069,14 @@ load("global_ir3", [2, 1], indices=[ACCESS, ALIGN_MUL, ALIGN_OFFSET], flags=[CAN
 intrinsic("bindless_resource_ir3", [1], dest_comp=1, indices=[DESC_SET], flags=[CAN_ELIMINATE, CAN_REORDER])
 
 # DXIL specific intrinsics
-intrinsic("store_ssbo_masked_dxil", [1, 1, 1, 1], src_names=["value", "mask", "index", "offset"])
-intrinsic("store_shared_dxil", [1, 1], src_names=["value", "index"])
-intrinsic("store_shared_masked_dxil", [1, 1, 1], src_names=["value", "mask", "index"])
-intrinsic("store_scratch_dxil", [1, 1], src_names=["value", "index"])
-load("shared_dxil", [1], [], [CAN_ELIMINATE], ["index"])
-load("scratch_dxil", [1], [], [CAN_ELIMINATE], ["index"])
-load("ptr_dxil", [1, 1], [], [], ["deref_var", "offset"])
-load("ubo_dxil", [1, 1], [], [CAN_ELIMINATE, CAN_REORDER], ["index", "16-byte-based-offset"])
+intrinsic("store_ssbo_masked_dxil", [1, 1, 1, 1], sources=[VALUE, MASK, INDEX, OFFSET])
+intrinsic("store_shared_dxil", [1, 1], sources=[VALUE, INDEX])
+intrinsic("store_shared_masked_dxil", [1, 1, 1], sources=[VALUE, MASK, INDEX])
+intrinsic("store_scratch_dxil", [1, 1], sources=[VALUE, INDEX])
+load("shared_dxil", [1], [], [CAN_ELIMINATE], [INDEX])
+load("scratch_dxil", [1], [], [CAN_ELIMINATE], [INDEX])
+load("ptr_dxil", [1, 1], [], [], [DEREF_VAR, OFFSET])
+load("ubo_dxil", [1, 1], [], [CAN_ELIMINATE, CAN_REORDER], [INDEX, OFFSET])
 
 # DXIL Shared atomic intrinsics
 #
@@ -1084,7 +1117,7 @@ store("combined_output_pan", [1, 1, 1], [BASE, COMPONENT, SRC_TYPE])
 load("raw_output_pan", [1], [BASE], [CAN_ELIMINATE, CAN_REORDER])
 
 # Loads the sampler paramaters <min_lod, max_lod, lod_bias>
-load("sampler_lod_parameters_pan", [1], flags=[CAN_ELIMINATE, CAN_REORDER], src_names=["sampler_index"])
+load("sampler_lod_parameters_pan", [1], flags=[CAN_ELIMINATE, CAN_REORDER], sources=[SAMPLER_INDEX])
 
 # Loads the sample position array on Bifrost, in a packed Arm-specific format
 system_value("sample_positions_pan", 1, bit_sizes=[64])
@@ -1109,12 +1142,12 @@ store("tf_r600", [])
 # AMD GCN/RDNA specific intrinsics
 
 intrinsic("load_buffer_amd", src_comp=[4, 1, 1], dest_comp=0, indices=[BASE, IS_SWIZZLED, SLC_AMD, MEMORY_MODES], flags=[CAN_ELIMINATE],
-          src_names=["descriptor", "base address", "scalar offset"])
+          sources=[DESCRIPTOR, BASE_ADDRESS, SCALAR_OFFSET])
 intrinsic("store_buffer_amd", src_comp=[0, 4, 1, 1], indices=[BASE, WRITE_MASK, IS_SWIZZLED, SLC_AMD, MEMORY_MODES],
-          src_names=["store value", "descriptor", "base address", "scalar offset"])
+          sources=[VALUE, DESCRIPTOR, BASE_ADDRESS, SCALAR_OFFSET])
 
 # Same as shared_atomic_add, but with GDS.
-intrinsic("gds_atomic_add_amd",  src_comp=[1, 1, 1], dest_comp=1, indices=[BASE], src_names=["store_val", "gds_addr", "m0"])
+intrinsic("gds_atomic_add_amd",  src_comp=[1, 1, 1], dest_comp=1, indices=[BASE], sources=[STORE_VAL, GDS_ADDR, M0])
 
 # Descriptor where TCS outputs are stored for TES
 system_value("ring_tess_offchip_amd", 4)
@@ -1204,7 +1237,7 @@ system_value("intersection_opaque_amd", 1, bit_sizes=[1])
 # in order, so we cannot eliminate or remove any loads in a sequence.
 #
 # BASE = sample index
-load("tlb_color_v3d", [1], [BASE, COMPONENT], [], ["render_target"])
+load("tlb_color_v3d", [1], [BASE, COMPONENT], [], [RENDER_TARGET])
 
 # V3D-specific instrinc for per-sample tile buffer color writes.
 #
@@ -1236,7 +1269,7 @@ image("store_raw_intel", src_comp=[1, 0])
 # The second source is a predicate which indicates whether or not to actually
 # do the load.
 intrinsic("load_global_const_block_intel", src_comp=[1, 1], dest_comp=0,
-          bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER], src_names=["address", "predicate"])
+          bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER], sources=[ADDRESS, PREDICATE])
 
 # Number of data items being operated on for a SIMD program.
 system_value("simd_width_intel", 1)
@@ -1247,19 +1280,19 @@ intrinsic("load_reloc_const_intel", dest_comp=1, bit_sizes=[32],
 
 # 64-bit global address for a Vulkan descriptor set
 intrinsic("load_desc_set_address_intel", dest_comp=1, bit_sizes=[64],
-          src_comp=[1], flags=[CAN_ELIMINATE, CAN_REORDER], src_names=["set"])
+          src_comp=[1], flags=[CAN_ELIMINATE, CAN_REORDER], sources=[SET])
 
 # OpSubgroupBlockReadINTEL and OpSubgroupBlockWriteINTEL from SPV_INTEL_subgroups.
 intrinsic("load_deref_block_intel", dest_comp=0, src_comp=[-1],
           indices=[ACCESS], flags=[CAN_ELIMINATE])
 intrinsic("store_deref_block_intel", src_comp=[-1, 0], indices=[WRITE_MASK, ACCESS])
 
-load("global_block_intel", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["address"])
-load("ssbo_block_intel", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["buffer_index", "offset"])
-load("shared_block_intel", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], ["offset"])
-store("global_block_intel", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], ["address"])
-store("ssbo_block_intel", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], ["block_index", "offset"])
-store("shared_block_intel", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET], [], ["offset"])
+load("global_block_intel", [1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [ADDRESS])
+load("ssbo_block_intel", [-1, 1], [ACCESS, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [BUFFER_INDEX, OFFSET])
+load("shared_block_intel", [1], [BASE, ALIGN_MUL, ALIGN_OFFSET], [CAN_ELIMINATE], [OFFSET])
+store("global_block_intel", [1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [ADDRESS])
+store("ssbo_block_intel", [-1, 1], [WRITE_MASK, ACCESS, ALIGN_MUL, ALIGN_OFFSET], [], [BLOCK_INDEX, OFFSET])
+store("shared_block_intel", [1], [BASE, WRITE_MASK, ALIGN_MUL, ALIGN_OFFSET], [], [OFFSET])
 
 # Intrinsics for Intel bindless thread dispatch
 system_value("btd_dss_id_intel", 1)
@@ -1267,7 +1300,7 @@ system_value("btd_stack_id_intel", 1)
 system_value("btd_global_arg_addr_intel", 1, bit_sizes=[64])
 system_value("btd_local_arg_addr_intel", 1, bit_sizes=[64])
 system_value("btd_resume_sbt_addr_intel", 1, bit_sizes=[64])
-intrinsic("btd_spawn_intel", src_comp=[1, 1], src_names=["global_arg_addr", "btd_record"])
+intrinsic("btd_spawn_intel", src_comp=[1, 1], sources=[GLOBAL_ARG_ADDR, BTD_RECORD])
 # RANGE=stack_size
 intrinsic("btd_stack_push_intel", indices=[STACK_SIZE])
 # src[] = { }
