@@ -3477,6 +3477,8 @@ iris_set_vertex_buffers(struct pipe_context *ctx,
 #endif
          } else {
             vb.NullVertexBuffer = true;
+            vb.MOCS = isl_mocs(&screen->isl_dev,
+                               ISL_SURF_USAGE_VERTEX_BUFFER_BIT, 0);
          }
       }
    }
