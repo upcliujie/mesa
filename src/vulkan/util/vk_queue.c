@@ -76,7 +76,7 @@ _vk_queue_set_lost(struct vk_queue *queue,
 
    p_atomic_inc(&queue->base.device->_lost.lost);
 
-   if (env_var_as_boolean("VK_ABORT_ON_DEVICE_LOSS", false))
+   if (env_var_as_boolean("MESA_VK_ABORT_ON_DEVICE_LOSS", false))
       abort();
 
    return VK_ERROR_DEVICE_LOST;
