@@ -28,6 +28,8 @@
 #include "vk_log.h"
 #include "vk_physical_device.h"
 #include "vk_queue.h"
+#include "vk_sync.h"
+#include "vk_timeline.h"
 #include "vk_util.h"
 #include "util/debug.h"
 #include "util/hash_table.h"
@@ -95,6 +97,17 @@ vk_device_init(struct vk_device *device,
 
    device->drm_fd = -1;
 
+   for (const struct vk_sync_type *const *t =
+        physical_device->supported_sync_types; *t; t++) {
+      if (vk_sync_type_is_vk_timeline(*t))
+         device->submit.has_emulated_timelines = true;
+      else if ((*t)->is_timeline)
+         device->submit.has_real_timelines = true;
+   }
+   /* You can't have both */
+   assert(!device->submit.has_emulated_timelines ||
+          !device->submit.has_real_timelines);
+
 #ifdef ANDROID
    mtx_init(&device->swapchain_private_mtx, mtx_plain);
    device->swapchain_private = NULL;
@@ -118,6 +131,30 @@ vk_device_finish(UNUSED struct vk_device *device)
 #endif /* ANDROID */
 
    vk_object_base_finish(&device->base);
+}
+
+VkResult
+vk_device_flush(struct vk_device *device)
+{
+   if (!device->submit.has_emulated_timelines)
+      return VK_SUCCESS;
+
+   bool progress;
+   do {
+      progress = false;
+
+      vk_foreach_queue(queue, device) {
+         uint32_t queue_submit_count;
+         VkResult result = vk_queue_flush(queue, &queue_submit_count);
+         if (unlikely(result != VK_SUCCESS))
+            return result;
+
+         if (queue_submit_count)
+            progress = true;
+      }
+   } while (progress);
+
+   return VK_SUCCESS;
 }
 
 void
