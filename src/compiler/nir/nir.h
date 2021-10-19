@@ -1914,6 +1914,8 @@ typedef struct {
 
    /** semantic flags for calls to this intrinsic */
    nir_intrinsic_semantic_flag flags;
+
+   const char *src_names[NIR_INTRINSIC_MAX_INPUTS];
 } nir_intrinsic_info;
 
 extern const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics];

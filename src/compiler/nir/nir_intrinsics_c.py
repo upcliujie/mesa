@@ -54,6 +54,13 @@ const nir_intrinsic_info nir_intrinsic_infos[nir_num_intrinsics] = {
     },
 % endif
    .flags = ${"0" if len(opcode.flags) == 0 else " | ".join(opcode.flags)},
+% if opcode.src_components:
+   .src_names = {
+% for i in range(len(opcode.src_components)):
+      "${ opcode.src_names[i] if i < len(opcode.src_names) else "" }",
+% endfor
+   },
+% endif
 },
 % endfor
 };

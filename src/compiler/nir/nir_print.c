@@ -815,6 +815,9 @@ print_intrinsic_instr(nir_intrinsic_instr *instr, print_state *state)
       if (i != 0)
          fprintf(fp, ", ");
 
+      const char *name = info->src_names[i];
+      if (name[0])
+         fprintf(fp, "%s=", name);
       print_src(&instr->src[i], state);
    }
 
