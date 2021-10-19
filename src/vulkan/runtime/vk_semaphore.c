@@ -129,6 +129,9 @@ vk_common_CreateSemaphore(VkDevice _device,
    const VkSemaphoreType semaphore_type =
       get_semaphore_type(pCreateInfo->pNext, &initial_value);
 
+   if (semaphore_type == VK_SEMAPHORE_TYPE_TIMELINE)
+      assert(device->timeline_mode != VK_DEVICE_TIMELINE_MODE_NONE);
+
    const VkExportSemaphoreCreateInfo *export =
       vk_find_struct_const(pCreateInfo->pNext, EXPORT_SEMAPHORE_CREATE_INFO);
    VkExternalSemaphoreHandleTypeFlags handle_types =
@@ -143,6 +146,15 @@ vk_common_CreateSemaphore(VkDevice _device,
                        "Combination of external handle types is unsupported "
                        "for VkSemaphore creation.");
    }
+
+   /* If the timeline mode is ASSISTED, then any permanent binary semaphore
+    * types need to be able to support move.  We don't require this for
+    * temporary unless that temporary is also used as a semaphore signal
+    * operation which is much trickier to assert early.
+    */
+   if (semaphore_type == VK_SEMAPHORE_TYPE_BINARY &&
+       device->timeline_mode == VK_DEVICE_TIMELINE_MODE_ASSISTED)
+      assert(sync_type->move);
 
    size_t size = offsetof(struct vk_semaphore, permanent) + sync_type->size;
    semaphore = vk_object_zalloc(device, pAllocator, size,
@@ -334,6 +346,12 @@ vk_common_SignalSemaphore(VkDevice _device,
    if (unlikely(result != VK_SUCCESS))
       return result;
 
+   if (device->timeline_mode == VK_DEVICE_TIMELINE_MODE_EMULATED) {
+      result = vk_device_flush(device);
+      if (unlikely(result != VK_SUCCESS))
+         return result;
+   }
+
    return VK_SUCCESS;
 }
 
@@ -451,6 +469,27 @@ vk_common_GetSemaphoreFdKHR(VkDevice _device,
        *    VkSemaphoreType of VK_SEMAPHORE_TYPE_BINARY."
        */
       assert(semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+
+      /* From the Vulkan 1.2.194 spec:
+       *
+       *    "If handleType refers to a handle type with copy payload
+       *    transference semantics, semaphore must have an associated
+       *    semaphore signal operation that has been submitted for execution
+       *    and any semaphore signal operations on which it depends (if any)
+       *    must have also been submitted for execution."
+       *
+       * If we have real timelines, it's possible that the time point doesn't
+       * exist yet and is waiting for one of our submit threads to trigger.
+       * However, thanks to the above bit of spec text, that wait should never
+       * block for long.
+       */
+      if (device->timeline_mode == VK_DEVICE_TIMELINE_MODE_ASSISTED) {
+         result = vk_sync_wait(device, sync, 0,
+                               VK_SYNC_WAIT_PENDING,
+                               UINT64_MAX);
+         if (unlikely(result != VK_SUCCESS))
+            return result;
+      }
 
       result = vk_sync_export_sync_file(device, sync, pFd);
       if (unlikely(result != VK_SUCCESS))
