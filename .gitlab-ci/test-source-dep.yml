@@ -59,7 +59,15 @@
     - *ignore_scheduled_pipelines
     - changes: &gallium_core_file_list
       - src/gallium/*
-      - src/gallium/auxiliary/**/*
+      - src/gallium/auxiliary/cso_cache/*
+      - src/gallium/auxiliary/indices/*
+      - src/gallium/auxiliary/nir/*
+      - src/gallium/auxiliary/os/*
+      - src/gallium/auxiliary/pipe-loader/*
+      - src/gallium/auxiliary/target-helpers/*
+      - src/gallium/auxiliary/tgsi/*
+      - src/gallium/auxiliary/util/*
+      - src/gallium/auxiliary/*
       - src/gallium/drivers/*
       - src/gallium/include/**/*
       - src/gallium/frontends/dri/*
@@ -81,6 +89,9 @@
     - changes: &softpipe_file_list
       - src/gallium/drivers/softpipe/**/*
       - src/gallium/winsys/sw/**/*
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
+      - src/gallium/auxiliary/tessellator/*
       when: on_success
     - when: never
 
@@ -97,6 +108,9 @@
     - changes: &llvmpipe_file_list
       - src/gallium/drivers/llvmpipe/**/*
       - src/gallium/winsys/sw/**/*
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
+      - src/gallium/auxiliary/tessellator/*
       when: on_success
     - when: never
 
@@ -114,6 +128,9 @@
       - src/gallium/drivers/llvmpipe/**/*
       - src/gallium/frontends/lavapipe/**/*
       - src/gallium/winsys/sw/**/*
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
+      - src/gallium/auxiliary/tessellator/*
       when: on_success
     - changes:
         *vulkan_file_list
@@ -447,6 +464,8 @@
       - src/gallium/drivers/radeonsi/**/*
       - src/gallium/include/winsys/**/*
       - src/gallium/winsys/amdgpu/**/*
+      - src/gallium/auxiliary/pipebuffer/*
+      - src/gallium/auxiliary/vl/*
       - src/amd/*
       - src/amd/addrlib/**/*
       - src/amd/common/**/*
@@ -488,6 +507,9 @@
     - changes:
       - src/gallium/drivers/i915/**/*
       - src/gallium/winsys/i915/**/*
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
+      - src/gallium/auxiliary/tessellator/*
       - src/intel/**/*
       when: on_success
     - when: never
@@ -522,6 +544,7 @@
         *gallium_core_file_list
       when: on_success
     - changes: &iris_file_list
+      - src/gallium/auxiliary/pipebuffer/*
       - src/gallium/drivers/iris/**/*
       - src/gallium/winsys/iris/**/*
       - src/intel/**/*
@@ -581,6 +604,7 @@
         *lavapipe_file_list
       when: on_success
     - changes: &zink_file_list
+      - src/gallium/auxiliary/pipebuffer/*
       - src/gallium/drivers/zink/**/*
       when: on_success
     - when: never
@@ -608,6 +632,7 @@
         *vulkan_file_list
       when: on_success
     - changes: &d3d12_file_list
+      - src/gallium/auxiliary/pipebuffer/*
       - src/gallium/drivers/d3d12/**/*
       - src/gallium/frontends/wgl/*
       - src/gallium/winsys/d3d12/wgl/*
