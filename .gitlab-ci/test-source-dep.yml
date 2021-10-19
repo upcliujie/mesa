@@ -59,7 +59,16 @@
     - *ignore_scheduled_pipelines
     - changes: &gallium_core_file_list
       - src/gallium/*
-      - src/gallium/auxiliary/**/*
+      - src/gallium/auxiliary/cso_cache/*
+      - src/gallium/auxiliary/indices/*
+      - src/gallium/auxiliary/nir/*
+      - src/gallium/auxiliary/os/*
+      - src/gallium/auxiliary/pipebuffer/*
+      - src/gallium/auxiliary/pipe-loader/*
+      - src/gallium/auxiliary/target-helpers/*
+      - src/gallium/auxiliary/tgsi/*
+      - src/gallium/auxiliary/util/*
+      - src/gallium/auxiliary/*
       - src/gallium/drivers/*
       - src/gallium/include/**/*
       - src/gallium/frontends/dri/*
@@ -67,6 +76,15 @@
       - src/gallium/targets/**/*
       - src/gallium/tests/**/*
       - src/gallium/winsys/*
+
+# dependencies for direct users of gallivm
+.draw-rules:
+  rules:
+    - *ignore_scheduled_pipelines
+    - changes: &draw_file_list
+      - src/gallium/auxiliary/gallivm/*
+      - src/gallium/auxiliary/draw/*
+      - src/gallium/auxiliary/tessellator/*
 
 .softpipe-rules:
   stage: software-renderer
@@ -77,6 +95,9 @@
       when: on_success
     - changes:
         *gallium_core_file_list
+      when: on_success
+    - changes:
+        *draw_file_list
       when: on_success
     - changes: &softpipe_file_list
       - src/gallium/drivers/softpipe/**/*
@@ -94,6 +115,9 @@
     - changes:
         *gallium_core_file_list
       when: on_success
+    - changes:
+        *draw_file_list
+      when: on_success
     - changes: &llvmpipe_file_list
       - src/gallium/drivers/llvmpipe/**/*
       - src/gallium/winsys/sw/**/*
@@ -109,6 +133,9 @@
       when: on_success
     - changes:
         *gallium_core_file_list
+      when: on_success
+    - changes:
+        *draw_file_list
       when: on_success
     - changes: &lavapipe_file_list
       - src/gallium/drivers/llvmpipe/**/*
@@ -447,6 +474,7 @@
       - src/gallium/drivers/radeonsi/**/*
       - src/gallium/include/winsys/**/*
       - src/gallium/winsys/amdgpu/**/*
+      - src/gallium/auxiliary/vl/*
       - src/amd/*
       - src/amd/addrlib/**/*
       - src/amd/common/**/*
@@ -484,6 +512,9 @@
       when: on_success
     - changes:
         *gallium_core_file_list
+      when: on_success
+    - changes:
+        *draw_file_list
       when: on_success
     - changes:
       - src/gallium/drivers/i915/**/*
