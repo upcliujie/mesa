@@ -2,8 +2,8 @@
 [[deqp]]
 deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
 caselists = ["/deqp/mustpass/vk-master.txt"]
-timeout = 300
-renderer_check = "Turnip Adreno .* 630"
+skips = ["install/deqp-freedreno-a618-skips.txt"]
+renderer_check = "Turnip Adreno .* 618"
 [deqp.env]
 # Force binning in the main run, which makes sure we render at
 # least 2 bins.  This is the path that impacts the most different
@@ -14,11 +14,20 @@ TU_DEBUG = "forcebin"
 [[deqp]]
 deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
 caselists = ["/deqp/mustpass/vk-master.txt"]
-timeout = 300
+skips = ["install/deqp-freedreno-a618-premerge-skips.txt"]
 include = ["dEQP-VK.renderpass.*"]
 prefix = "bypass-"
 [deqp.env]
 TU_DEBUG = "sysmem"
+
+[[deqp]]
+deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
+caselists = ["/deqp/mustpass/vk-master.txt"]
+skips = ["install/deqp-freedreno-a618-premerge-skips.txt"]
+include = ["dEQP-VK.graphicsfuzz.*"]
+prefix = "spill-"
+[deqp.env]
+IR3_SHADER_DEBUG = "spillall"
 
 # Partial test with neither force-bin nor force-sysmem.  We don't expect trouble
 # here if both of those work, but it is the default so we should do at least a
