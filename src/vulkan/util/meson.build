@@ -66,6 +66,8 @@ vulkan_util_files = files(
   'vk_descriptors.h',
   'vk_device.c',
   'vk_device.h',
+  'vk_fence.c',
+  'vk_fence.h',
   'vk_format.c',
   'vk_image.c',
   'vk_image.h',
