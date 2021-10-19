@@ -151,7 +151,7 @@ _vk_device_set_lost(struct vk_device *device,
    __vk_errorv(device, VK_ERROR_DEVICE_LOST, file, line, msg, ap);
    va_end(ap);
 
-   if (env_var_as_boolean("VK_ABORT_ON_DEVICE_LOSS", false))
+   if (env_var_as_boolean("MESA_VK_ABORT_ON_DEVICE_LOSS", false))
       abort();
 
    return VK_ERROR_DEVICE_LOST;
