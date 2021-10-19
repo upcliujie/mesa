@@ -3116,7 +3116,10 @@ iris_set_framebuffer_state(struct pipe_context *ctx,
       .swizzle = ISL_SWIZZLE_IDENTITY,
    };
 
-   struct isl_depth_stencil_hiz_emit_info info = { .view = &view };
+   struct isl_depth_stencil_hiz_emit_info info = {
+      .view = &view,
+      .mocs = isl_mocs(isl_dev, ISL_SURF_USAGE_DEPTH_BIT, false),
+   };
 
    if (cso->zsbuf) {
       iris_get_depth_stencil_resources(cso->zsbuf->texture, &zres,
