@@ -26,12 +26,21 @@
 
 #include "vk_object.h"
 
+#include "c11/threads.h"
+
 #include "util/list.h"
 #include "util/u_dynarray.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct vk_command_buffer;
+struct vk_queue_submit;
+struct vk_sync;
+struct vk_sync_wait;
+struct vk_sync_signal;
+struct vk_timeline_point;
 
 struct vk_queue {
    struct vk_object_base base;
@@ -47,6 +56,9 @@ struct vk_queue {
 
    /* Which queue this is within the queue family */
    uint32_t index_in_family;
+
+   VkResult (*submit)(struct vk_queue *queue,
+                      struct vk_queue_submit *submit);
 
    /**
     * VK_EXT_debug_utils
@@ -87,6 +99,16 @@ struct vk_queue {
     */
    struct util_dynarray labels;
    bool region_begin;
+
+   struct {
+      bool has_thread;
+
+      thrd_t thread;
+      mtx_t mutex;
+      cnd_t cond;
+
+      struct list_head submits;
+   } threaded;
 };
 
 VK_DEFINE_HANDLE_CASTS(vk_queue, base, VkQueue, VK_OBJECT_TYPE_QUEUE)
@@ -104,6 +126,23 @@ vk_queue_finish(struct vk_queue *queue);
 
 #define vk_foreach_queue_safe(queue, device) \
    list_for_each_entry_safe(struct vk_queue, queue, &(device)->queues, link)
+
+struct vk_queue_submit {
+   struct list_head link;
+
+   uint32_t temp_sync_count;
+   uint32_t wait_count;
+   uint32_t command_buffer_count;
+   uint32_t signal_count;
+   uint32_t timeline_point_count;
+
+   struct vk_sync **temp_syncs;
+   struct vk_sync_wait *waits;
+   struct vk_timeline_point **wait_points;
+   struct vk_command_buffer **command_buffers;
+   struct vk_sync_signal *signals;
+   struct vk_timeline_point **signal_points;
+};
 
 #ifdef __cplusplus
 }
