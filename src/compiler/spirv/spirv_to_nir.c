@@ -367,8 +367,10 @@ vtn_get_image(struct vtn_builder *b, uint32_t value_id,
    vtn_assert(type->base_type == vtn_base_type_image);
    if (access)
       *access |= spirv_to_gl_access_qualifier(b, type->access_qualifier);
-   nir_variable_mode mode = glsl_type_is_image(type->glsl_image) ?
-                            nir_var_image : nir_var_uniform;
+
+   nir_variable_mode mode;
+   vtn_storage_class_to_mode(b, SpvStorageClassUniformConstant, type, &mode);
+
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
                                mode, type->glsl_image, 0);
 }
@@ -388,8 +390,12 @@ vtn_get_sampler(struct vtn_builder *b, uint32_t value_id)
 {
    struct vtn_type *type = vtn_get_value_type(b, value_id);
    vtn_assert(type->base_type == vtn_base_type_sampler);
+
+   nir_variable_mode mode;
+   vtn_storage_class_to_mode(b, SpvStorageClassUniformConstant, type, &mode);
+
    return nir_build_deref_cast(&b->nb, vtn_get_nir_ssa(b, value_id),
-                               nir_var_uniform, glsl_bare_sampler_type(), 0);
+                               mode, glsl_bare_sampler_type(), 0);
 }
 
 nir_ssa_def *
@@ -420,16 +426,23 @@ vtn_get_sampled_image(struct vtn_builder *b, uint32_t value_id)
    /* Even though this is a sampled image, we can end up here with a storage
     * image because OpenCL doesn't distinguish between the two.
     */
-   const struct glsl_type *image_type = type->image->glsl_image;
-   nir_variable_mode image_mode = glsl_type_is_image(image_type) ?
-                                  nir_var_image : nir_var_uniform;
+   nir_variable_mode image_mode;
+   vtn_storage_class_to_mode(b, SpvStorageClassUniformConstant,
+                             type->image, &image_mode);
+
+   struct vtn_type sampler_type = {
+      .base_type = vtn_base_type_sampler,
+      .type = glsl_channel_type(type->type),
+   };
+   nir_variable_mode sampler_mode;
+   vtn_storage_class_to_mode(b, SpvStorageClassUniformConstant,
+                             &sampler_type, &sampler_mode);
 
    struct vtn_sampled_image si = { NULL, };
    si.image = nir_build_deref_cast(&b->nb, nir_channel(&b->nb, si_vec2, 0),
-                                   image_mode, image_type, 0);
+                                   image_mode, type->image->glsl_image, 0);
    si.sampler = nir_build_deref_cast(&b->nb, nir_channel(&b->nb, si_vec2, 1),
-                                     nir_var_uniform,
-                                     glsl_bare_sampler_type(), 0);
+                                     sampler_mode, glsl_bare_sampler_type(), 0);
    return si;
 }
 
