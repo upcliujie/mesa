@@ -84,6 +84,8 @@ files_vulkan_util = files(
   'vk_queue.c',
   'vk_queue.h',
   'vk_render_pass.c',
+  'vk_semaphore.c',
+  'vk_semaphore.h',
   'vk_shader_module.c',
   'vk_shader_module.h',
   'vk_sync.c',
