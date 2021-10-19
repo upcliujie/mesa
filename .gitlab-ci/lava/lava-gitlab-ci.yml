@@ -67,6 +67,16 @@
     - debian/x86_build
     - debian-arm64
 
+.lava-arm64-asan-test:
+  variables:
+    TEST_LD_PRELOAD: libasan.so.6
+    MINIO_ARTIFACT_NAME: mesa-arm64-asan
+  needs:
+    - kernel+rootfs_arm64
+    - debian/x86_build
+    - job: debian-arm64-asan
+      artifacts: false
+
 .lava-test:amd64:
   variables:
     ARCH: amd64
