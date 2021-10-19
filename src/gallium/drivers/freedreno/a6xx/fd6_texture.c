@@ -254,16 +254,6 @@ fd6_sampler_view_update(struct fd_context *ctx,
          .chroma_offsets = {FDL_CHROMA_LOCATION_COSITED_EVEN,
                             FDL_CHROMA_LOCATION_COSITED_EVEN},
       };
-      /* u_format defines depth/stencil to return only an x and/or y channel,
-       * yet u_blitter tries to fetch depth from .z.  Smash references to Z over
-       * to the depth channel.
-       */
-      if (util_format_is_depth_or_stencil(format)) {
-         for (int i = 0; i < 4; i++) {
-            if (args.swiz[i] == PIPE_SWIZZLE_Z)
-               args.swiz[i] = PIPE_SWIZZLE_X;
-         }
-      }
       struct fd_resource *plane1 = fd_resource(rsc->b.b.next);
       struct fd_resource *plane2 =
          plane1 ? fd_resource(plane1->b.b.next) : NULL;
