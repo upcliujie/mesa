@@ -3657,6 +3657,8 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
                sob.SurfaceEndAddress = anv_address_add(xfb->buffer->address,
                                                        xfb->offset + xfb->size);
 #endif
+            } else {
+               sob.MOCS = isl_mocs(&cmd_buffer->device->isl_dev, 0, false);
             }
          }
       }
