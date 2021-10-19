@@ -316,7 +316,7 @@ vk_timeline_signal(struct vk_device *device,
    if (ret == thrd_error)
       return vk_errorf(device, VK_ERROR_UNKNOWN, "cnd_broadcast failed");
 
-   return VK_SUCCESS;
+   return vk_device_flush(device);
 }
 
 VkResult vk_timeline_get_value(struct vk_device *device,

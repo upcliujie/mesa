@@ -56,6 +56,11 @@ struct vk_device {
    /* Set by vk_device_set_drm_fd() */
    int drm_fd;
 
+   struct {
+      bool has_real_timelines;
+      bool has_emulated_timelines;
+   } submit;
+
 #ifdef ANDROID
    mtx_t swapchain_private_mtx;
    struct hash_table *swapchain_private;
@@ -80,6 +85,8 @@ vk_device_set_drm_fd(struct vk_device *device, int drm_fd)
 
 void
 vk_device_finish(struct vk_device *device);
+
+VkResult vk_device_flush(struct vk_device *device);
 
 VkResult PRINTFLIKE(4, 5)
 _vk_device_set_lost(struct vk_device *device,

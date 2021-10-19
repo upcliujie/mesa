@@ -351,6 +351,27 @@ vk_common_GetSemaphoreFdKHR(VkDevice _device,
        */
       assert(semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
 
+      /* From the Vulkan 1.2.194 spec:
+       *
+       *    "If handleType refers to a handle type with copy payload
+       *    transference semantics, semaphore must have an associated
+       *    semaphore signal operation that has been submitted for execution
+       *    and any semaphore signal operations on which it depends (if any)
+       *    must have also been submitted for execution."
+       *
+       * If we have real timelines, it's possible that the time point doesn't
+       * exist yet and is waiting for one of our submit threads to trigger.
+       * However, thanks to the above bit of spec text, that wait should never
+       * block for long.
+       */
+      if (device->submit.has_real_timelines) {
+         result = vk_sync_wait(device, sync, 0,
+                               VK_SYNC_WAIT_PENDING,
+                               UINT64_MAX);
+         if (unlikely(result != VK_SUCCESS))
+            return result;
+      }
+
       result = vk_sync_export_sync_file(device, sync, pFd);
       if (unlikely(result != VK_SUCCESS))
          return result;

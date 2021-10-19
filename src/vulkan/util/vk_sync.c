@@ -280,12 +280,5 @@ vk_sync_export_sync_file(struct vk_device *device,
                          int *sync_file)
 {
    assert(!sync->type->is_timeline);
-
-   VkResult result = vk_sync_wait(device, sync, 0,
-                                  VK_SYNC_WAIT_PENDING,
-                                  UINT64_MAX);
-   if (result != VK_SUCCESS)
-      return result;
-
    return sync->type->export_sync_file(device, sync, sync_file);
 }
