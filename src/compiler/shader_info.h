@@ -210,6 +210,11 @@ typedef struct shader_info {
    unsigned shared_size;
 
    /**
+    * Ray tracing queries
+    */
+   unsigned ray_queries;
+
+   /**
     * Local workgroup size used by compute/task/mesh shaders.
     */
    uint16_t workgroup_size[3];
