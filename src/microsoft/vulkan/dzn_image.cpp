@@ -647,7 +647,7 @@ dzn_CreateImageView(VkDevice _device,
 
       mtx_lock(&device->pools_lock);
       d3d12_descriptor_pool_alloc_handle(device->dsv_pool, &iview->zs_handle);
-      mtx_lock(&device->pools_lock);
+      mtx_unlock(&device->pools_lock);
       device->dev->CreateDepthStencilView(image->res, &desc,
                                           iview->zs_handle.cpu_handle);
    }
