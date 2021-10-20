@@ -284,6 +284,7 @@ index("nir_rounding_mode", "rounding_mode")
 index("unsigned", "saturate")
 
 source("address", 1)
+source("addition", 1)
 source("barycoord", 2)
 source("base_address", 1)
 source("block_index", -1)
@@ -294,17 +295,26 @@ source("deref_var", 1)
 source("descriptor", 4)
 source("gds_addr", 1)
 source("global_arg_addr", 1)
+source("hit_t", 1)
+source("hit_kind", 1)
 source("index", 1)
+source("in_bytes_hi", 1)
+source("in_bytes_lo", 1)
+source("lanesel_lo", 1)
+source("lanesel_hi", 1)
 source("m0", 1)
 source("mask", 1)
 source("offset", 1)
+source("offset_xy", 2)
 source("payload", -1)
 source("predicate", 1)
 source("primitive", 1)
 source("render_target", 1)
 source("sampler_index", 1)
+source("sample_id", 1)
 source("scalar_offset", 1)
 source("sbt_index", 1)
+source("selector", 1)
 source("set", 1)
 source("store_val", 1)
 source("value", 0)
@@ -346,9 +356,9 @@ intrinsic("deref_buffer_array_length", sources=[-1], dest_comp=1,
 
 # Ask the driver for the size of a given SSBO. It takes the buffer index
 # as source.
-intrinsic("get_ssbo_size", sources=[-1], dest_comp=1, bit_sizes=[32],
+intrinsic("get_ssbo_size", sources=[BUFFER_INDEX], dest_comp=1, bit_sizes=[32],
           indices=[ACCESS], flags=[CAN_ELIMINATE, CAN_REORDER])
-intrinsic("get_ubo_size", sources=[-1], dest_comp=1,
+intrinsic("get_ubo_size", sources=[BUFFER_INDEX], dest_comp=1,
           flags=[CAN_ELIMINATE, CAN_REORDER])
 
 # Intrinsics which provide a run-time mode-check.  Unlike the compile-time
@@ -496,12 +506,11 @@ intrinsic("masked_swizzle_amd", sources=[0], dest_comp=0, bit_sizes=src0,
           indices=[SWIZZLE_MASK], flags=[CAN_ELIMINATE])
 intrinsic("write_invocation_amd", sources=[0, 0, 1], dest_comp=0, bit_sizes=src0,
           flags=[CAN_ELIMINATE])
-# src = [ mask, addition ]
-intrinsic("mbcnt_amd", sources=[1, 1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
-# Compiled to v_perm_b32. src = [ in_bytes_hi, in_bytes_lo, selector ]
-intrinsic("byte_permute_amd", sources=[1, 1, 1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE, CAN_REORDER])
-# Compiled to v_permlane16_b32. src = [ value, lanesel_lo, lanesel_hi ]
-intrinsic("lane_permute_16_amd", sources=[1, 1, 1], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
+intrinsic("mbcnt_amd", sources=[MASK, ADDITION], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
+# Compiled to v_perm_b32.
+intrinsic("byte_permute_amd", sources=[IN_BYTES_HI, IN_BYTES_LO, SELECTOR], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE, CAN_REORDER])
+# Compiled to v_permlane16_b32.
+intrinsic("lane_permute_16_amd", sources=[(VALUE, 1), LANESEL_LO, LANESEL_HI], dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE])
 
 # Basic Geometry Shader intrinsics.
 #
@@ -541,8 +550,7 @@ intrinsic("set_vertex_and_primitive_count", sources=[1, 1], indices=[STREAM_ID])
 #   9. Ray Tmax
 #   10. Payload
 intrinsic("trace_ray", sources=[-1, 1, 1, 1, 1, 1, 3, 1, 3, 1, -1])
-# src[] = { hit_t, hit_kind }
-intrinsic("report_ray_intersection", sources=[1, 1], dest_comp=1)
+intrinsic("report_ray_intersection", sources=[HIT_T, HIT_KIND], dest_comp=1)
 intrinsic("ignore_ray_intersection")
 intrinsic("accept_ray_intersection") # Not in SPIR-V; useful for lowering
 intrinsic("terminate_ray")
@@ -560,8 +568,7 @@ intrinsic("rt_resume", indices=[CALL_IDX, STACK_SIZE])
 # Lowered version of execute_callabe that includes the index of the resume
 # shader, and the amount of scratch space needed for this call (.ie. how much
 # to increase a stack pointer by).
-# src[] = { sbt_index, payload }
-intrinsic("rt_execute_callable", sources=[1, -1], indices=[CALL_IDX,STACK_SIZE])
+intrinsic("rt_execute_callable", sources=[SBT_INDEX, PAYLOAD], indices=[CALL_IDX,STACK_SIZE])
 
 # Lowered version of trace_ray in a similar vein to rt_execute_callable.
 # src same as trace_ray
@@ -891,10 +898,8 @@ barycentric("pixel", 2)
 barycentric("centroid", 2)
 barycentric("sample", 2)
 barycentric("model", 3)
-# src[] = { sample_id }.
-barycentric("at_sample", 2, [1])
-# src[] = { offset.xy }.
-barycentric("at_offset", 2, [2])
+barycentric("at_sample", 2, [SAMPLE_ID])
+barycentric("at_offset", 2, [OFFSET_XY])
 
 # Load sample position:
 #
@@ -1263,9 +1268,8 @@ load("tlb_color_v3d", [RENDER_TARGET], [BASE, COMPONENT])
 # The driver backend needs to identify per-sample color writes and emit
 # specific code for them.
 #
-# src[] = { value, render_target }
 # BASE = sample index
-store("tlb_sample_color_v3d", [1], [BASE, COMPONENT, SRC_TYPE], [])
+store("tlb_sample_color_v3d", [RENDER_TARGET], [BASE, COMPONENT, SRC_TYPE], [])
 
 # V3D-specific intrinsic to load the number of layers attached to
 # the target framebuffer
