@@ -275,6 +275,7 @@ compute_version(const struct gl_extensions *extensions,
                          extensions->EXT_texture_sRGB);
    const bool ver_3_0 = (ver_2_1 &&
                          consts->GLSLVersion >= 130 &&
+                         consts->MaxColorAttachments >= 8 &&
                          (consts->MaxSamples >= 4 || consts->FakeSWMSAA) &&
                          (api == API_OPENGL_CORE ||
                           extensions->ARB_color_buffer_float) &&
@@ -539,7 +540,8 @@ compute_version_es2(const struct gl_extensions *extensions,
                          (extensions->NV_primitive_restart ||
                           consts->PrimitiveRestartFixedIndex) &&
                          extensions->OES_depth_texture_cube_map &&
-                         extensions->EXT_texture_type_2_10_10_10_REV);
+                         extensions->EXT_texture_type_2_10_10_10_REV &&
+                         consts->MaxColorAttachments >= 4);
    const bool es31_compute_shader =
       consts->MaxComputeWorkGroupInvocations >= 128 &&
       consts->Program[MESA_SHADER_COMPUTE].MaxShaderStorageBlocks &&
