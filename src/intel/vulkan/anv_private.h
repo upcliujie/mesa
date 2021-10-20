@@ -1476,8 +1476,6 @@ int anv_gem_syncobj_timeline_signal(struct anv_device *device,
 int anv_gem_syncobj_timeline_query(struct anv_device *device,
                                    const uint32_t *handles, uint64_t *points,
                                    uint32_t num_items);
-int anv_i915_query(int fd, uint64_t query_id, void *buffer,
-                   int32_t *buffer_len);
 struct drm_i915_query_engine_info *anv_gem_get_engine_info(int fd);
 int anv_gem_count_engines(const struct drm_i915_query_engine_info *info,
                           uint16_t engine_class);

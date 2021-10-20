@@ -254,13 +254,6 @@ anv_gem_supports_syncobj_wait(int fd)
 }
 
 int
-anv_i915_query(int fd, uint64_t query_id, void *buffer,
-               int32_t *buffer_len)
-{
-   unreachable("Unused");
-}
-
-int
 anv_gem_create_context_engines(struct anv_device *device,
                                const struct drm_i915_query_engine_info *info,
                                int num_engines,
