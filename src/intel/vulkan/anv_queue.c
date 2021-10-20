@@ -2177,7 +2177,6 @@ anv_semaphore_impl_cleanup(struct anv_device *device,
 {
    switch (impl->type) {
    case ANV_SEMAPHORE_TYPE_NONE:
-   case ANV_SEMAPHORE_TYPE_DUMMY:
       /* Dummy.  Nothing to do */
       break;
 
