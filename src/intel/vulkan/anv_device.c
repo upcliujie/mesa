@@ -52,6 +52,7 @@
 #include "git_sha1.h"
 #include "vk_util.h"
 #include "vk_deferred_operation.h"
+#include "vk_drm_syncobj.h"
 #include "common/intel_aux_map.h"
 #include "common/intel_defines.h"
 #include "common/intel_uuid.h"
@@ -904,8 +905,22 @@ anv_physical_device_try_create(struct anv_instance *instance,
    if (env_var_as_boolean("ANV_QUEUE_THREAD_DISABLE", false))
       device->has_exec_timeline = false;
 
-   device->has_thread_submit =
-      device->has_syncobj_wait_available && device->has_exec_timeline;
+   unsigned st_idx = 0;
+   if (device->has_syncobj_wait) {
+      device->sync_types[st_idx++] = &vk_drm_binary_syncobj_type;
+   } else {
+      device->sync_types[st_idx++] = &vk_drm_binary_syncobj_no_wait_type;
+      device->sync_types[st_idx++] = &anv_bo_sync_type;
+   }
+
+   if (device->has_syncobj_wait_available && device->has_exec_timeline) {
+      device->sync_types[st_idx++] = &vk_drm_timeline_syncobj_type;
+   } else {
+      device->sync_types[st_idx++] = &anv_bo_timeline_type.sync;
+   }
+   device->sync_types[st_idx++] = NULL;
+   assert(st_idx <= ARRAY_SIZE(device->sync_types));
+   device->vk.supported_sync_types = device->sync_types;
 
    device->always_use_bindless =
       env_var_as_boolean("ANV_ALWAYS_BINDLESS", false);
@@ -3030,6 +3045,8 @@ VkResult anv_CreateDevice(
       goto fail_device;
    }
 
+   vk_device_set_drm_fd(&device->vk, device->fd);
+
    uint32_t num_queues = 0;
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++)
       num_queues += pCreateInfo->pQueueCreateInfos[i].queueCount;
@@ -3072,8 +3089,6 @@ VkResult anv_CreateDevice(
     */
    anv_gem_set_context_param(device->fd, device->context_id,
                              I915_CONTEXT_PARAM_RECOVERABLE, false);
-
-   device->has_thread_submit = physical_device->has_thread_submit;
 
    device->queues =
       vk_zalloc(&device->vk.alloc, num_queues * sizeof(*device->queues), 8,
