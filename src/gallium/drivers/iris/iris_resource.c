@@ -707,6 +707,10 @@ iris_resource_configure_main(const struct iris_screen *screen,
    return true;
 }
 
+/**
+ * Returns true if CCS is supported for the given surface configuration.
+ * Also, returns a CCS surface if it can be mapped by the CPU.
+ */
 static bool
 iris_get_ccs_surf(const struct isl_device *dev,
                   const struct isl_surf *surf,
@@ -727,7 +731,11 @@ iris_get_ccs_surf(const struct isl_device *dev,
       ccs_surf = aux_surf;
    }
 
-   return isl_surf_get_ccs_surf(dev, surf, hiz_or_mcs_surf, ccs_surf, 0);
+   if (dev->info->verx10 >= 125) {
+      return isl_surf_supports_ccs(dev, surf, hiz_or_mcs_surf);
+   } else  {
+      return isl_surf_get_ccs_surf(dev, surf, hiz_or_mcs_surf, ccs_surf, 0);
+   }
 }
 
 /**
