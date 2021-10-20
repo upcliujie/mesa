@@ -4513,10 +4513,15 @@ VkResult anv_GetPhysicalDeviceCalibrateableTimeDomainsEXT(
    uint32_t                                     *pTimeDomainCount,
    VkTimeDomainEXT                              *pTimeDomains)
 {
+   ANV_FROM_HANDLE(anv_physical_device, pdevice, physicalDevice);
    int d;
    VK_OUTARRAY_MAKE(out, pTimeDomains, pTimeDomainCount);
 
    for (d = 0; d < ARRAY_SIZE(anv_time_domains); d++) {
+      if (anv_time_domains[d] == VK_TIME_DOMAIN_CLOCK_MONOTONIC_RAW_EXT &&
+          !pdevice->instance->has_clock_monotonic_raw)
+         continue;
+
       vk_outarray_append(&out, i) {
          *i = anv_time_domains[d];
       }
