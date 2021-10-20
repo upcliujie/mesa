@@ -1019,10 +1019,6 @@ struct anv_queue_submit {
    uint32_t                                  signal_timeline_array_length;
    uint64_t *                                signal_timeline_values;
 
-   int                                       in_fence;
-   bool                                      need_out_fence;
-   int                                       out_fence;
-
    uint32_t                                  fence_bo_count;
    uint32_t                                  fence_bo_array_length;
    /* An array of struct anv_bo pointers with lower bit used as a flag to
