@@ -139,9 +139,8 @@ anv_bo_sync_wait(struct vk_device *vk_device,
              */
             result = anv_device_wait(device, sync->bo,
                                      anv_get_relative_timeout(abs_timeout_ns));
-            if (result == VK_TIMEOUT)
-               return VK_TIMEOUT;
-            else if (result != VK_SUCCESS)
+            /* This also covers VK_TIMEOUT */
+            if (result != VK_SUCCESS)
                return result;
 
             sync->state = ANV_BO_SYNC_STATE_SIGNALED;
