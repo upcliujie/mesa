@@ -479,7 +479,7 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
    /* TODO: have a shader-invisible pool for iview descs, and copy those with
     * CopyDescriptors() when UpdateDescriptorSets() is called.
     */
-   desc.Format = dzn_get_format(pCreateInfo->format);
+   desc.Format = dzn_get_srv_format(pCreateInfo->format);
    desc.ViewDimension =
       translate_view_type_to_srv_dim(pCreateInfo->viewType, image->vk.samples);
    desc.Shader4ComponentMapping =
@@ -556,7 +556,7 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
 
    if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
       D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-      rtv_desc.Format = desc.Format;
+      rtv_desc.Format = dzn_get_rtv_format(image->vk.format);
 
       rtv_desc.ViewDimension =
          translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->vk.samples);
@@ -599,7 +599,7 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
 
    if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = { };
-      dsv_desc.Format = desc.Format;
+      dsv_desc.Format = dzn_get_dsv_format(image->vk.format);
       dsv_desc.ViewDimension =
          translate_view_type_to_dsv_dim(pCreateInfo->viewType, image->vk.samples);
 

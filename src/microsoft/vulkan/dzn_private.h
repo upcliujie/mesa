@@ -1000,6 +1000,10 @@ struct dzn_query_pool {
 DXGI_FORMAT
 dzn_get_format(VkFormat format);
 DXGI_FORMAT
+dzn_get_rtv_format(VkFormat format);
+DXGI_FORMAT
+dzn_get_srv_format(VkFormat format);
+DXGI_FORMAT
 dzn_get_dsv_format(VkFormat format);
 
 D3D12_RESOURCE_STATES

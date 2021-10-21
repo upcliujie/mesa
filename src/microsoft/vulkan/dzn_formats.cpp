@@ -35,6 +35,51 @@ dzn_get_format(VkFormat format)
 }
 
 DXGI_FORMAT
+dzn_get_rtv_format(VkFormat format)
+{
+   enum pipe_format f = vk_format_to_pipe_format(format);
+   switch (f) {
+   case PIPE_FORMAT_Z16_UNORM:
+      return DXGI_FORMAT_D16_UNORM;
+   case PIPE_FORMAT_Z32_FLOAT:
+      return DXGI_FORMAT_D32_FLOAT;
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_X24S8_UINT:
+      return DXGI_FORMAT_D24_UNORM_S8_UINT;
+   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+   case PIPE_FORMAT_X32_S8X24_UINT:
+      return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      return DXGI_FORMAT_D24_UNORM_S8_UINT;
+   default:
+      return dzn_pipe_to_dxgi_format(f);
+   }
+}
+
+DXGI_FORMAT
+dzn_get_srv_format(VkFormat format)
+{
+   enum pipe_format f = vk_format_to_pipe_format(format);
+   switch (f) {
+   case PIPE_FORMAT_Z16_UNORM:
+      return DXGI_FORMAT_R16_UNORM;
+   case PIPE_FORMAT_Z32_FLOAT:
+      return DXGI_FORMAT_R32_FLOAT;
+   case PIPE_FORMAT_Z24X8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+   case PIPE_FORMAT_X24S8_UINT:
+      return DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+      return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+   case PIPE_FORMAT_X32_S8X24_UINT:
+      return DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+   default:
+      return dzn_pipe_to_dxgi_format(f);
+   }
+}
+
+DXGI_FORMAT
 dzn_get_dsv_format(VkFormat format)
 {
    enum pipe_format f = vk_format_to_pipe_format(format);
