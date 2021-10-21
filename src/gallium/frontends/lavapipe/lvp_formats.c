@@ -218,7 +218,7 @@ static VkResult lvp_get_image_format_properties(struct lvp_physical_device *phys
       if (info->tiling == VK_IMAGE_TILING_OPTIMAL &&
           !(info->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) &&
           !util_format_is_compressed(pformat) &&
-          (format_feature_flags & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)))
+          (format_feature_flags & (VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT)))
          sampleCounts |= VK_SAMPLE_COUNT_4_BIT;
       break;
    case VK_IMAGE_TYPE_3D:
