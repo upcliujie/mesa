@@ -8948,7 +8948,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    }
    case nir_intrinsic_export_primitive_amd: {
       assert(ctx->stage.hw == HWStage::NGG);
-      Temp prim_exp_arg = get_ssa_temp(ctx, instr->src[0].ssa);
+      Temp prim_exp_arg = as_vgpr(ctx, get_ssa_temp(ctx, instr->src[0].ssa));
       bld.exp(aco_opcode::exp, prim_exp_arg, Operand(v1), Operand(v1), Operand(v1),
               1 /* enabled mask */, V_008DFC_SQ_EXP_PRIM /* dest */, false /* compressed */,
               true /* done */, false /* valid mask */);
