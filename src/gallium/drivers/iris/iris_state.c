@@ -4424,6 +4424,7 @@ iris_store_tes_state(const struct intel_device_info *devinfo,
    struct brw_stage_prog_data *prog_data = shader->prog_data;
    struct brw_vue_prog_data *vue_prog_data = (void *) prog_data;
    struct brw_tes_prog_data *tes_prog_data = (void *) prog_data;
+   struct brw_tcs_prog_data *tcs_prog_data = (void *) prog_data;
 
    uint32_t *ds_state = (void *) shader->derived_data;
    uint32_t *te_state = ds_state + GENX(3DSTATE_DS_length);
@@ -4435,7 +4436,9 @@ iris_store_tes_state(const struct intel_device_info *devinfo,
       ds.MaximumNumberofThreads = devinfo->max_tes_threads - 1;
       ds.ComputeWCoordinateEnable =
          tes_prog_data->domain == BRW_TESS_DOMAIN_TRI;
-
+#if GFX_VERx10 >= 120
+      ds.PrimitiveIDNotRequired = !tcs_prog_data->include_primitive_id;
+#endif
       ds.UserClipDistanceCullTestEnableBitmask =
          vue_prog_data->cull_distance_mask;
    }
