@@ -484,7 +484,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       barriers[1].Transition.StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout);
 
       /* some layouts map to the states, and NOP-barriers are illegal */
-      unsigned nbarriers = 1 + barriers[1].Transition.StateBefore != barriers[1].Transition.StateAfter;
+      unsigned nbarriers = 1 + (barriers[1].Transition.StateBefore != barriers[1].Transition.StateAfter);
       batch->cmdlist->ResourceBarrier(nbarriers, barriers);
    }
 }
