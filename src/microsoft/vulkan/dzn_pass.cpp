@@ -41,7 +41,7 @@ dzn_CreateRenderPass2(VkDevice _device,
                       const VkAllocationCallbacks *pAllocator,
                       VkRenderPass *pRenderPass)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2_KHR);
 
@@ -119,8 +119,8 @@ dzn_DestroyRenderPass(VkDevice _device,
                       VkRenderPass _pass,
                       const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_render_pass, pass, _pass);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_render_pass, pass, _pass);
 
    if (!pass)
       return;

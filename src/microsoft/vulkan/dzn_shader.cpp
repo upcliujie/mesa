@@ -31,7 +31,7 @@ dzn_CreateShaderModule(VkDevice _device,
                        const VkAllocationCallbacks *pAllocator,
                        VkShaderModule *pShaderModule)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_shader_module *module;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO);
@@ -58,8 +58,8 @@ dzn_DestroyShaderModule(VkDevice _device,
                         VkShaderModule _module,
                         const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_shader_module, module, _module);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_shader_module, module, _module);
 
    if (!module)
       return;

@@ -27,7 +27,7 @@
 static PFN_vkVoidFunction VKAPI_PTR
 dzn_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
    return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
 }
 

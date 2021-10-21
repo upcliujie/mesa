@@ -107,9 +107,9 @@ dzn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    if (pAllocator == NULL)
       pAllocator = vk_default_allocator();
 
-   instance = (dzn_instance *)vk_alloc(
-      pAllocator, sizeof(*instance), 8,
-      VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+   instance = (dzn_instance *)
+      vk_zalloc(pAllocator, sizeof(*instance), 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
    if (!instance)
       return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -148,7 +148,7 @@ VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyInstance(VkInstance _instance,
                     const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_instance, instance, _instance);
+   VK_FROM_HANDLE(dzn_instance, instance, _instance);
 
    if (!instance)
       return;
@@ -299,7 +299,7 @@ dzn_EnumeratePhysicalDevices(VkInstance _instance,
                              uint32_t *pPhysicalDeviceCount,
                              VkPhysicalDevice *pPhysicalDevices)
 {
-   DZN_FROM_HANDLE(dzn_instance, instance, _instance);
+   VK_FROM_HANDLE(dzn_instance, instance, _instance);
    VK_OUTARRAY_MAKE_TYPED(VkPhysicalDevice, out, pPhysicalDevices,
                           pPhysicalDeviceCount);
 
@@ -404,7 +404,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 dzn_GetInstanceProcAddr(VkInstance _instance,
                         const char *pName)
 {
-   DZN_FROM_HANDLE(dzn_instance, instance, _instance);
+   VK_FROM_HANDLE(dzn_instance, instance, _instance);
    return vk_instance_get_proc_addr(&instance->vk,
                                     &dzn_instance_entrypoints,
                                     pName);
@@ -441,7 +441,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
 vk_icdGetPhysicalDeviceProcAddr(VkInstance  _instance,
                                 const char* pName)
 {
-   DZN_FROM_HANDLE(dzn_instance, instance, _instance);
+   VK_FROM_HANDLE(dzn_instance, instance, _instance);
    return vk_instance_get_physical_device_proc_addr(&instance->vk, pName);
 }
 
@@ -496,7 +496,7 @@ VKAPI_ATTR void VKAPI_CALL
 dzn_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
                                 VkPhysicalDeviceProperties *pProperties)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
 
    /* minimum from the spec */
    const VkSampleCountFlags supported_sample_counts =
@@ -655,7 +655,7 @@ VKAPI_ATTR void VKAPI_CALL
 dzn_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
                                  VkPhysicalDeviceProperties2 *pProperties)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
 
    dzn_GetPhysicalDeviceProperties(physicalDevice, &pProperties->properties);
 
@@ -693,7 +693,7 @@ dzn_GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice,
                                            uint32_t *pCount,
                                            VkQueueFamilyProperties *pQueueFamilyProperties)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
    VK_OUTARRAY_MAKE_TYPED(VkQueueFamilyProperties, out, pQueueFamilyProperties, pCount);
    vk_outarray_append_typed(VkQueueFamilyProperties, &out, p) {
       *p = dzn_queue_family_properties;
@@ -705,7 +705,7 @@ dzn_GetPhysicalDeviceQueueFamilyProperties2(VkPhysicalDevice physicalDevice,
                                             uint32_t *pQueueFamilyPropertyCount,
                                             VkQueueFamilyProperties2 *pQueueFamilyProperties)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, pdevice, physicalDevice);
    VK_OUTARRAY_MAKE_TYPED(VkQueueFamilyProperties2, out,
                           pQueueFamilyProperties, pQueueFamilyPropertyCount);
 
@@ -730,7 +730,7 @@ VKAPI_ATTR void VKAPI_CALL
 dzn_GetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice,
                                       VkPhysicalDeviceMemoryProperties *pMemoryProperties)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, device, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, device, physicalDevice);
    *pMemoryProperties = device->memory;
 }
 
@@ -822,7 +822,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
                  const VkAllocationCallbacks *pAllocator,
                  VkDevice *pDevice)
 {
-   DZN_FROM_HANDLE(dzn_physical_device, physical_device, physicalDevice);
+   VK_FROM_HANDLE(dzn_physical_device, physical_device, physicalDevice);
    dzn_instance *instance = physical_device->instance;
    VkResult result;
 
@@ -937,7 +937,7 @@ VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyDevice(VkDevice _device,
                   const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    dzn_DeviceWaitIdle(_device);
 
@@ -960,7 +960,7 @@ dzn_GetDeviceQueue(VkDevice _device,
                    uint32_t queueIndex,
                    VkQueue *pQueue)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    assert(queueIndex == 0);
    assert(queueFamilyIndex == 0);
@@ -972,7 +972,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 dzn_DeviceWaitIdle(VkDevice _device)
 {
 #if 0
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    return dzn_QueueWaitIdle(dzn_queue_to_handle(&device->queue));
 #else
    return VK_SUCCESS;
@@ -982,7 +982,7 @@ dzn_DeviceWaitIdle(VkDevice _device)
 VkResult
 dzn_QueueWaitIdle(VkQueue _queue)
 {
-   DZN_FROM_HANDLE(dzn_queue, queue, _queue);
+   VK_FROM_HANDLE(dzn_queue, queue, _queue);
 
    if (FAILED(queue->fence->SetEventOnCompletion(queue->fence_point, NULL)))
       return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
@@ -996,14 +996,14 @@ dzn_QueueSubmit(VkQueue _queue,
                 const VkSubmitInfo *pSubmits,
                 VkFence _fence)
 {
-   DZN_FROM_HANDLE(dzn_queue, queue, _queue);
-   DZN_FROM_HANDLE(dzn_fence, fence, _fence);
+   VK_FROM_HANDLE(dzn_queue, queue, _queue);
+   VK_FROM_HANDLE(dzn_fence, fence, _fence);
    struct dzn_device *device = queue->device;
 
    /* TODO: execute an array of these instead of one at the time */
    for (uint32_t i = 0; i < submitCount; i++) {
       for (uint32_t j = 0; j < pSubmits[i].commandBufferCount; j++) {
-         DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer,
+         VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer,
                          pSubmits[i].pCommandBuffers[j]);
          assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
@@ -1039,7 +1039,7 @@ dzn_AllocateMemory(VkDevice _device,
                    const VkAllocationCallbacks *pAllocator,
                    VkDeviceMemory *pMem)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_physical_device *pdevice = device->physical_device;
    struct dzn_device_memory *mem;
    VkResult result = VK_SUCCESS;
@@ -1141,8 +1141,8 @@ dzn_FreeMemory(VkDevice _device,
                VkDeviceMemory _mem,
                const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_device_memory, mem, _mem);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device_memory, mem, _mem);
 
    if (mem == NULL)
       return;
@@ -1175,8 +1175,8 @@ dzn_MapMemory(VkDevice _device,
               VkMemoryMapFlags flags,
               void **ppData)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_device_memory, mem, _memory);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device_memory, mem, _memory);
 
    if (mem == NULL) {
       *ppData = NULL;
@@ -1216,8 +1216,8 @@ void
 dzn_UnmapMemory(VkDevice _device,
                 VkDeviceMemory _memory)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_device_memory, mem, _memory);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device_memory, mem, _memory);
 
    if (mem == NULL)
       return;
@@ -1251,7 +1251,7 @@ dzn_CreateBuffer(VkDevice _device,
                  const VkAllocationCallbacks *pAllocator,
                  VkBuffer *pBuffer)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    dzn_buffer *buffer;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
@@ -1291,8 +1291,8 @@ dzn_DestroyBuffer(VkDevice _device,
                   VkBuffer _buffer,
                   const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_buffer, buffer, _buffer);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_buffer, buffer, _buffer);
 
    if (!buffer)
       return;
@@ -1305,8 +1305,8 @@ dzn_GetBufferMemoryRequirements2(VkDevice _device,
                                  const VkBufferMemoryRequirementsInfo2 *pInfo,
                                  VkMemoryRequirements2 *pMemoryRequirements)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_buffer, buffer, pInfo->buffer);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_buffer, buffer, pInfo->buffer);
 
    /* uh, this is grossly over-estimating things */
    uint32_t alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
@@ -1352,13 +1352,13 @@ dzn_BindBufferMemory2(VkDevice _device,
                       uint32_t bindInfoCount,
                       const VkBindBufferMemoryInfo *pBindInfos)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    for (uint32_t i = 0; i < bindInfoCount; i++) {
       assert(pBindInfos[i].sType == VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_INFO);
 
-      DZN_FROM_HANDLE(dzn_device_memory, mem, pBindInfos[i].memory);
-      DZN_FROM_HANDLE(dzn_buffer, buffer, pBindInfos[i].buffer);
+      VK_FROM_HANDLE(dzn_device_memory, mem, pBindInfos[i].memory);
+      VK_FROM_HANDLE(dzn_buffer, buffer, pBindInfos[i].buffer);
 
       HRESULT hr = device->dev->CreatePlacedResource(mem->heap,
                                                      pBindInfos[i].memoryOffset,
@@ -1378,7 +1378,7 @@ dzn_CreateFramebuffer(VkDevice _device,
                         const VkAllocationCallbacks *pAllocator,
                         VkFramebuffer *pFramebuffer)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_framebuffer *framebuffer;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO);
@@ -1397,7 +1397,7 @@ dzn_CreateFramebuffer(VkDevice _device,
    framebuffer->layers = pCreateInfo->layers;
 
    for (uint32_t i = 0; i < pCreateInfo->attachmentCount; i++) {
-      DZN_FROM_HANDLE(dzn_image_view, iview, pCreateInfo->pAttachments[i]);
+      VK_FROM_HANDLE(dzn_image_view, iview, pCreateInfo->pAttachments[i]);
       framebuffer->attachments[i] = iview;
    }
    framebuffer->attachment_count = pCreateInfo->attachmentCount;
@@ -1411,8 +1411,8 @@ dzn_DestroyFramebuffer(VkDevice _device,
                        VkFramebuffer _fb,
                        const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_framebuffer, fb, _fb);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_framebuffer, fb, _fb);
 
    if (!fb)
       return;
@@ -1426,7 +1426,7 @@ dzn_CreateEvent(VkDevice _device,
                 const VkAllocationCallbacks *pAllocator,
                 VkEvent *pEvent)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    dzn_event *event;
 
    event = (struct dzn_event *)
@@ -1446,8 +1446,8 @@ dzn_DestroyEvent(VkDevice _device,
                  VkEvent _event,
                  const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_event, event, _event);
 
    if (!event)
       return;
@@ -1460,8 +1460,8 @@ VkResult
 dzn_ResetEvent(VkDevice _device,
                VkEvent _event)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_event, event, _event);
 
    event->fence->Signal(0);
    return VK_SUCCESS;
@@ -1471,8 +1471,8 @@ VkResult
 dzn_GetEventStatus(VkDevice _device,
                    VkEvent _event)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_event, event, _event);
 
    return event->fence->GetCompletedValue() ?
           VK_EVENT_SET : VK_EVENT_RESET;

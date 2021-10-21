@@ -653,8 +653,8 @@ graphics_pipeline_create(dzn_device *device,
                          const VkAllocationCallbacks *pAllocator,
                          VkPipeline *pPipeline)
 {
-   DZN_FROM_HANDLE(dzn_render_pass, pass, pCreateInfo->renderPass);
-   DZN_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
+   VK_FROM_HANDLE(dzn_render_pass, pass, pCreateInfo->renderPass);
+   VK_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
    const dzn_subpass *subpass = &pass->subpasses[pCreateInfo->subpass];
    VkResult ret;
    HRESULT hres = 0;
@@ -755,8 +755,8 @@ dzn_CreateGraphicsPipelines(VkDevice _device,
                             const VkAllocationCallbacks *pAllocator,
                             VkPipeline *pPipelines)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_pipeline_cache, pipeline_cache, pipelineCache);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_pipeline_cache, pipeline_cache, pipelineCache);
 
    VkResult result = VK_SUCCESS;
 
@@ -791,8 +791,8 @@ dzn_DestroyPipeline(VkDevice _device,
                     VkPipeline _pipeline,
                     const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
 
    dzn_pipeline_destroy(device, pipeline, pAllocator);
 }

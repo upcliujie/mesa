@@ -34,7 +34,7 @@ dzn_CreateCommandPool(VkDevice _device,
                       const VkAllocationCallbacks *pAllocator,
                       VkCommandPool *pCmdPool)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_cmd_pool *pool = (struct dzn_cmd_pool *)
       vk_object_alloc(&device->vk, pAllocator, sizeof(*pool),
                       VK_OBJECT_TYPE_COMMAND_POOL);
@@ -93,8 +93,8 @@ dzn_DestroyCommandPool(VkDevice _device,
                        VkCommandPool commandPool,
                        const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
 
    if (!pool)
       return;
@@ -225,8 +225,8 @@ dzn_AllocateCommandBuffers(VkDevice _device,
                            const VkCommandBufferAllocateInfo *pAllocateInfo,
                            VkCommandBuffer *pCommandBuffers)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_cmd_pool, pool, pAllocateInfo->commandPool);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_cmd_pool, pool, pAllocateInfo->commandPool);
 
    VkResult result = VK_SUCCESS;
    uint32_t i;
@@ -255,7 +255,7 @@ dzn_FreeCommandBuffers(VkDevice device,
                        const VkCommandBuffer *pCommandBuffers)
 {
    for (uint32_t i = 0; i < commandBufferCount; i++) {
-      DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, pCommandBuffers[i]);
+      VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, pCommandBuffers[i]);
 
       if (!cmd_buffer)
          continue;
@@ -294,7 +294,7 @@ VkResult
 dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
                        VkCommandBufferResetFlags flags)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    return dzn_cmd_buffer_reset(cmd_buffer);
 }
 
@@ -303,7 +303,7 @@ dzn_BeginCommandBuffer(
     VkCommandBuffer commandBuffer,
     const VkCommandBufferBeginInfo *pBeginInfo)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    /* If this is the first vkBeginCommandBuffer, we must *initialize* the
     * command buffer's state. Otherwise, we must *reset* its state. In both
@@ -341,11 +341,11 @@ dzn_BeginCommandBuffer(
    if (cmd_buffer->usage_flags &
        VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
       assert(pBeginInfo->pInheritanceInfo);
-      DZN_FROM_HANDLE(dzn_render_pass, pass,
+      VK_FROM_HANDLE(dzn_render_pass, pass,
                       pBeginInfo->pInheritanceInfo->renderPass);
       struct dzn_subpass *subpass =
          &pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
-      DZN_FROM_HANDLE(dzn_framebuffer, framebuffer,
+      VK_FROM_HANDLE(dzn_framebuffer, framebuffer,
                       pBeginInfo->pInheritanceInfo->framebuffer);
 
       cmd_buffer->state.pass = pass;
@@ -359,7 +359,7 @@ dzn_BeginCommandBuffer(
 VkResult
 dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    dzn_cmd_close_batch(cmd_buffer);
 
@@ -414,7 +414,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
                        uint32_t imageMemoryBarrierCount,
                        const VkImageMemoryBarrier *pImageMemoryBarriers)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
 
@@ -436,7 +436,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
    }
 
    for (uint32_t i = 0; i < bufferMemoryBarrierCount; i++) {
-      DZN_FROM_HANDLE(dzn_buffer, buf, pBufferMemoryBarriers[i].buffer);
+      VK_FROM_HANDLE(dzn_buffer, buf, pBufferMemoryBarriers[i].buffer);
       D3D12_RESOURCE_BARRIER barrier;
 
       /* UAV are used only for storage buffers, skip all other buffers. */
@@ -451,7 +451,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 
    for (uint32_t i = 0; i < imageMemoryBarrierCount; i++) {
       /* D3D12_RESOURCE_BARRIER_TYPE_TRANSITION */
-      DZN_FROM_HANDLE(dzn_image, image, pImageMemoryBarriers[i].image);
+      VK_FROM_HANDLE(dzn_image, image, pImageMemoryBarriers[i].image);
       const VkImageSubresourceRange *range =
          &pImageMemoryBarriers[i].subresourceRange;
 
@@ -497,9 +497,9 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 void dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
                                   const VkCopyBufferToImageInfo2KHR *pCopyBufferToImageInfo)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_buffer, src_buffer, pCopyBufferToImageInfo->srcBuffer);
-   DZN_FROM_HANDLE(dzn_image, dst_image, pCopyBufferToImageInfo->dstImage);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, src_buffer, pCopyBufferToImageInfo->srcBuffer);
+   VK_FROM_HANDLE(dzn_image, dst_image, pCopyBufferToImageInfo->dstImage);
 
    D3D12_TEXTURE_COPY_LOCATION src_buf_loc = {
       .pResource = src_buffer->res,
@@ -563,9 +563,9 @@ void
 dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
                              const VkCopyImageToBufferInfo2KHR *pCopyImageToBufferInfo)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_image, src_image, pCopyImageToBufferInfo->srcImage);
-   DZN_FROM_HANDLE(dzn_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_image, src_image, pCopyImageToBufferInfo->srcImage);
+   VK_FROM_HANDLE(dzn_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
 
    D3D12_TEXTURE_COPY_LOCATION dst_buf_loc = {
       .pResource = dst_buffer->res,
@@ -654,9 +654,9 @@ void
 dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
                      const VkCopyImageInfo2KHR *pCopyImageInfo)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_image, src, pCopyImageInfo->srcImage);
-   DZN_FROM_HANDLE(dzn_image, dst, pCopyImageInfo->dstImage);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_image, src, pCopyImageInfo->srcImage);
+   VK_FROM_HANDLE(dzn_image, dst, pCopyImageInfo->dstImage);
 
    ID3D12Device *dev = cmd_buffer->device->dev;
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
@@ -704,10 +704,10 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
                        uint32_t rangeCount,
                        const VkImageSubresourceRange *pRanges)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
    dzn_device *device = cmd_buffer->device;
-   DZN_FROM_HANDLE(dzn_image, img, image);
+   VK_FROM_HANDLE(dzn_image, img, image);
    D3D12_RENDER_TARGET_VIEW_DESC desc = {
       .Format = img->desc.Format,
    };
@@ -798,9 +798,9 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
                         const VkRenderPassBeginInfo *pRenderPassBeginInfo,
                         const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
-   DZN_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
+   VK_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
    const struct dzn_subpass *subpass = &pass->subpasses[0];
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
 
@@ -883,7 +883,7 @@ void
 dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
                       const VkSubpassEndInfoKHR *pSubpassEndInfo)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
 
    assert(cmd_buffer->state.pass->attachment_count ==
@@ -921,8 +921,8 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
                     VkPipelineBindPoint pipelineBindPoint,
                     VkPipeline _pipeline)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
 
    cmd_buffer->state.bindpoint[pipelineBindPoint].pipeline = pipeline;
    cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
@@ -1063,11 +1063,11 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
                           uint32_t dynamicOffsetCount,
                           const uint32_t *pDynamicOffsets)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
 
    for (uint32_t i = 0; i < descriptorSetCount; i++) {
-      DZN_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
+      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
       cmd_buffer->state.bindpoint[pipelineBindPoint].sets[firstSet + i] = set;
    }
 
@@ -1095,7 +1095,7 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
                    uint32_t viewportCount,
                    const VkViewport *pViewports)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    for (uint32_t i = firstViewport; i < firstViewport + viewportCount; i++)
       dzn_translate_viewport(&cmd_buffer->state.viewports[i], &pViewports[i]);
@@ -1125,7 +1125,7 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
                   uint32_t scissorCount,
                   const VkRect2D *pScissors)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    for (uint32_t i = firstScissor; i < firstScissor + scissorCount; i++)
       dzn_translate_scissor(&cmd_buffer->state.scissors[i], &pScissors[i]);
@@ -1155,7 +1155,7 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
             uint32_t firstVertex,
             uint32_t firstInstance)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
 
    update_pipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -1178,11 +1178,11 @@ dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
    if (!bindingCount)
       return;
 
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    D3D12_VERTEX_BUFFER_VIEW *vbviews = cmd_buffer->state.vb.views;
 
    for (uint32_t i = 0; i < bindingCount; i++) {
-      DZN_FROM_HANDLE(dzn_buffer, buf, pBuffers[i]);
+      VK_FROM_HANDLE(dzn_buffer, buf, pBuffers[i]);
 
       vbviews[firstBinding + i].BufferLocation = buf->res->GetGPUVirtualAddress() + pOffsets[i];
       vbviews[firstBinding + i].SizeInBytes = buf->size - pOffsets[i];
@@ -1197,8 +1197,8 @@ dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
                   VkEvent _event,
                   VkPipelineStageFlags stageMask)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_event, event, _event);
 
    struct dzn_cmd_event_signal signal = {
       .event = event,
@@ -1216,8 +1216,8 @@ dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
                 VkEvent _event,
                 VkPipelineStageFlags stageMask)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   DZN_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_event, event, _event);
 
    struct dzn_cmd_event_signal signal = {
       .event = event,
@@ -1243,12 +1243,12 @@ dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
                   uint32_t imageMemoryBarrierCount,
                   const VkImageMemoryBarrier *pImageMemoryBarriers)
 {
-   DZN_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
 
    for (uint32_t i = 0; i < eventCount; i++) {
-      DZN_FROM_HANDLE(dzn_event, event, pEvents[i]);
+      VK_FROM_HANDLE(dzn_event, event, pEvents[i]);
 
       util_dynarray_append(&batch->events.signal,
                            dzn_event *, event);

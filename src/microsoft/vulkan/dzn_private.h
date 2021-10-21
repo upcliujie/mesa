@@ -470,68 +470,41 @@ struct dzn_shader_module {
    uint32_t code[0];
 };
 
+struct dzn_query_pool {
+   struct vk_object_base base;
+};
+
 DXGI_FORMAT
 dzn_get_format(VkFormat format);
 
 D3D12_RESOURCE_STATES
 dzn_get_states(VkImageLayout layout);
 
-#define DZN_DEFINE_HANDLE_CASTS(__dzn_type, __VkType)   \
-                                                        \
-   static inline struct __dzn_type *                    \
-   __dzn_type ## _from_handle(__VkType _handle)         \
-   {                                                    \
-      return (struct __dzn_type *) _handle;             \
-   }                                                    \
-                                                        \
-   static inline __VkType                               \
-   __dzn_type ## _to_handle(struct __dzn_type *_obj)    \
-   {                                                    \
-      return (__VkType) _obj;                           \
-   }
+VK_DEFINE_HANDLE_CASTS(dzn_cmd_buffer, vk.base, VkCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER)
+VK_DEFINE_HANDLE_CASTS(dzn_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
+VK_DEFINE_HANDLE_CASTS(dzn_instance, vk.base, VkInstance, VK_OBJECT_TYPE_INSTANCE)
+VK_DEFINE_HANDLE_CASTS(dzn_physical_device, vk.base, VkPhysicalDevice, VK_OBJECT_TYPE_PHYSICAL_DEVICE)
+VK_DEFINE_HANDLE_CASTS(dzn_queue, vk.base, VkQueue, VK_OBJECT_TYPE_QUEUE)
 
-#define DZN_DEFINE_NONDISP_HANDLE_CASTS(__dzn_type, __VkType)              \
-                                                                           \
-   static inline struct __dzn_type *                                       \
-   __dzn_type ## _from_handle(__VkType _handle)                            \
-   {                                                                       \
-      return (struct __dzn_type *)(uintptr_t) _handle;                     \
-   }                                                                       \
-                                                                           \
-   static inline __VkType                                                  \
-   __dzn_type ## _to_handle(struct __dzn_type *_obj)                       \
-   {                                                                       \
-      return (__VkType)(uintptr_t) _obj;                                   \
-   }
-
-#define DZN_FROM_HANDLE(__dzn_type, __name, __handle)			\
-   struct __dzn_type *__name = __dzn_type ## _from_handle(__handle)
-
-DZN_DEFINE_HANDLE_CASTS(dzn_cmd_buffer, VkCommandBuffer)
-DZN_DEFINE_HANDLE_CASTS(dzn_device, VkDevice)
-DZN_DEFINE_HANDLE_CASTS(dzn_instance, VkInstance)
-DZN_DEFINE_HANDLE_CASTS(dzn_physical_device, VkPhysicalDevice)
-DZN_DEFINE_HANDLE_CASTS(dzn_queue, VkQueue)
-
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_cmd_pool, VkCommandPool)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_buffer, VkBuffer)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_buffer_view, VkBufferView)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_device_memory, VkDeviceMemory)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_pool, VkDescriptorPool)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set, VkDescriptorSet)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set_layout, VkDescriptorSetLayout)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_event, VkEvent)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_fence, VkFence)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_framebuffer, VkFramebuffer)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, VkImage)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, VkImageView)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline, VkPipeline)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_cache, VkPipelineCache)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, VkPipelineLayout)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, VkQueryPool)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_render_pass, VkRenderPass)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, VkSampler)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_semaphore, VkSemaphore)
-DZN_DEFINE_NONDISP_HANDLE_CASTS(dzn_shader_module, VkShaderModule)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_cmd_pool, base, VkCommandPool, VK_OBJECT_TYPE_COMMAND_POOL)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_buffer, base, VkBuffer, VK_OBJECT_TYPE_BUFFER)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_buffer_view, base, VkBufferView, VK_OBJECT_TYPE_BUFFER_VIEW)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_device_memory, base, VkDeviceMemory, VK_OBJECT_TYPE_DEVICE_MEMORY)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_pool, base, VkDescriptorPool, VK_OBJECT_TYPE_DESCRIPTOR_POOL)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set, base, VkDescriptorSet, VK_OBJECT_TYPE_DESCRIPTOR_SET)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set_layout, base, VkDescriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_fence, base, VkFence, VK_OBJECT_TYPE_FENCE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_framebuffer, base, VkFramebuffer, VK_OBJECT_TYPE_FRAMEBUFFER)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline, base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_cache, base, VkPipelineCache, VK_OBJECT_TYPE_PIPELINE_CACHE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, base, VkPipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_render_pass, base, VkRenderPass, VK_OBJECT_TYPE_RENDER_PASS)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, base, VkSampler, VK_OBJECT_TYPE_SAMPLER)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_semaphore, base, VkSemaphore, VK_OBJECT_TYPE_SEMAPHORE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_shader_module, base, VkShaderModule, VK_OBJECT_TYPE_SHADER_MODULE)
 
 #endif /* DZN_PRIVATE_H */

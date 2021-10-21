@@ -90,7 +90,7 @@ dzn_CreateDescriptorSetLayout(VkDevice _device,
                               const VkAllocationCallbacks *pAllocator,
                               VkDescriptorSetLayout *pSetLayout)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
 
@@ -275,8 +275,8 @@ dzn_DestroyDescriptorSetLayout(VkDevice _device,
                                VkDescriptorSetLayout descriptorSetLayout,
                                const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, descriptorSetLayout);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, descriptorSetLayout);
 
    if (!set_layout)
       return;
@@ -303,7 +303,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
                          const VkAllocationCallbacks *pAllocator,
                          VkPipelineLayout *pPipelineLayout)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    dzn_pipeline_layout *layout;
    VkResult ret;
 
@@ -315,7 +315,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
    D3D12_DESCRIPTOR_HEAP_TYPE root_types[MAX_ROOT_PARAMS] = { };
 
    for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
-      DZN_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+      VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
       static_sampler_count += set_layout->static_sampler_count;
       for (uint32_t i = 0; i < MAX_ROOT_PARAMS; i++) {
@@ -358,7 +358,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
       root_param->ShaderVisibility = (D3D12_SHADER_VISIBILITY)i;
 
       for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
-         DZN_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+         VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
          memcpy(range_ptr, set_layout->ranges[i].views,
                 set_layout->ranges[i].view_count * sizeof(D3D12_DESCRIPTOR_RANGE1));
@@ -381,7 +381,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
       root_param->ShaderVisibility = (D3D12_SHADER_VISIBILITY)i;
 
       for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
-         DZN_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+         VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
          memcpy(range_ptr, set_layout->ranges[i].samplers,
                 set_layout->ranges[i].sampler_count * sizeof(D3D12_DESCRIPTOR_RANGE1));
@@ -403,7 +403,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
 
    D3D12_STATIC_SAMPLER_DESC *static_sampler_ptr = static_sampler_descs;
    for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
-      DZN_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+      VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
       memcpy(static_sampler_ptr, set_layout->static_samplers,
              set_layout->static_sampler_count * sizeof(*set_layout->static_samplers));
@@ -474,8 +474,8 @@ dzn_DestroyPipelineLayout(VkDevice _device,
                           VkPipelineLayout _layout,
                           const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
 
    if (!layout)
       return;
@@ -512,7 +512,7 @@ dzn_CreateDescriptorPool(VkDevice _device,
                          const VkAllocationCallbacks *pAllocator,
                          VkDescriptorPool *pDescriptorPool)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_descriptor_pool *pool;
    uint32_t num_descs[NUM_POOL_TYPES] = { 0 };
 
@@ -532,8 +532,8 @@ dzn_DestroyDescriptorPool(VkDevice _device,
                           VkDescriptorPool descriptorPool,
                           const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_descriptor_pool, dpool, descriptorPool);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_descriptor_pool, dpool, descriptorPool);
 
    if (!dpool)
       return;
@@ -559,7 +559,7 @@ dzn_descriptor_set_create(struct dzn_device *device,
                       bindings, layout->binding_count);
 
    if (!vk_object_multizalloc(&device->vk, &ma, NULL,
-                              VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)) {
+                              VK_OBJECT_TYPE_DESCRIPTOR_SET)) {
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
@@ -650,13 +650,13 @@ dzn_AllocateDescriptorSets(VkDevice _device,
                            const VkDescriptorSetAllocateInfo *pAllocateInfo,
                            VkDescriptorSet *pDescriptorSets)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_descriptor_pool, pool, pAllocateInfo->descriptorPool);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_descriptor_pool, pool, pAllocateInfo->descriptorPool);
    VkResult result;
    unsigned i;
 
    for (i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-      DZN_FROM_HANDLE(dzn_descriptor_set_layout, layout,
+      VK_FROM_HANDLE(dzn_descriptor_set_layout, layout,
                       pAllocateInfo->pSetLayouts[i]);
       struct dzn_descriptor_set *set = NULL;
 
@@ -683,11 +683,11 @@ dzn_FreeDescriptorSets(VkDevice _device,
                        uint32_t count,
                        const VkDescriptorSet *pDescriptorSets)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_descriptor_pool, pool, descriptorPool);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_descriptor_pool, pool, descriptorPool);
 
    for (unsigned i = 0; i < count; i++) {
-      DZN_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
+      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
 
       if (set)
          dzn_descriptor_set_destroy(device, pool, set);
@@ -700,7 +700,7 @@ static void
 dzn_write_descriptor_set(struct dzn_device *dev,
                          const VkWriteDescriptorSet *pDescriptorWrite)
 {
-   DZN_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorWrite->dstSet);
+   VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorWrite->dstSet);
    const dzn_descriptor_set_layout *layout = set->layout;
 
    uint32_t view_desc_sz =
@@ -748,7 +748,7 @@ dzn_write_descriptor_set(struct dzn_device *dev,
       };
 
       if (sampler_handle.ptr && pDescriptorWrite->pImageInfo) {
-         DZN_FROM_HANDLE(dzn_sampler, sampler, pDescriptorWrite->pImageInfo->sampler);
+         VK_FROM_HANDLE(dzn_sampler, sampler, pDescriptorWrite->pImageInfo->sampler);
          dev->dev->CreateSampler(&sampler->desc, sampler_handle);
       }
 
@@ -757,12 +757,12 @@ dzn_write_descriptor_set(struct dzn_device *dev,
          case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
             if (pDescriptorWrite->pImageInfo) {
-               DZN_FROM_HANDLE(dzn_image_view, iview, pDescriptorWrite->pImageInfo->imageView);
+               VK_FROM_HANDLE(dzn_image_view, iview, pDescriptorWrite->pImageInfo->imageView);
                dev->dev->CreateShaderResourceView(iview->image->res, &iview->desc, view_handle);
             }
             break;
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-               DZN_FROM_HANDLE(dzn_buffer, buf, pDescriptorWrite->pBufferInfo->buffer);
+               VK_FROM_HANDLE(dzn_buffer, buf, pDescriptorWrite->pBufferInfo->buffer);
 	       uint32_t size = pDescriptorWrite->pBufferInfo->range == VK_WHOLE_SIZE ?
 	                       buf->size - pDescriptorWrite->pBufferInfo->offset :
                                pDescriptorWrite->pBufferInfo->range;
@@ -802,7 +802,7 @@ dzn_UpdateDescriptorSets(VkDevice _device,
                          uint32_t descriptorCopyCount,
                          const VkCopyDescriptorSet *pDescriptorCopies)
 {
-   DZN_FROM_HANDLE(dzn_device, dev, _device);
+   VK_FROM_HANDLE(dzn_device, dev, _device);
 
    for (unsigned i = 0; i < descriptorWriteCount; i++)
       dzn_write_descriptor_set(dev, &pDescriptorWrites[i]);

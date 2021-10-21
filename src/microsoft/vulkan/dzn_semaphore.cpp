@@ -35,13 +35,13 @@ dzn_CreateSemaphore(VkDevice _device,
                     const VkAllocationCallbacks *pAllocator,
                     VkSemaphore *pSemaphore)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
 
    dzn_semaphore *sem = (dzn_semaphore *)
-      vk_alloc2(&device->vk.alloc, pAllocator, sizeof(dzn_semaphore), 8,
-               VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      vk_object_alloc(&device->vk, pAllocator,
+                      sizeof(*sem), VK_OBJECT_TYPE_SEMAPHORE);
    if (sem == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -57,13 +57,13 @@ dzn_DestroySemaphore(VkDevice _device,
                      VkSemaphore semaphore,
                      const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_semaphore, sem, semaphore);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_semaphore, sem, semaphore);
 
    if (sem == NULL)
       return;
 
    /* TODO: do something useful ;) */
 
-   vk_free2(&device->vk.alloc, pAllocator, sem);
+   vk_object_free(&device->vk, pAllocator, sem);
 }

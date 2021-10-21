@@ -31,7 +31,7 @@ dzn_CreatePipelineCache(VkDevice _device,
                         const VkAllocationCallbacks *pAllocator,
                         VkPipelineCache *pPipelineCache)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    dzn_pipeline_cache *cache;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);

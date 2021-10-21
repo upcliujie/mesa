@@ -35,7 +35,7 @@ dzn_CreateFence(VkDevice _device,
                 const VkAllocationCallbacks *pAllocator,
                 VkFence *pFence)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
 
@@ -73,8 +73,8 @@ dzn_DestroyFence(VkDevice _device,
                  VkFence _fence,
                  const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_fence, fence, _fence);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_fence, fence, _fence);
 
    if (fence == NULL)
       return;
@@ -89,7 +89,7 @@ VKAPI_ATTR VkResult VKAPI_CALL
 dzn_GetFenceStatus(VkDevice _device,
                    VkFence _fence)
 {
-   DZN_FROM_HANDLE(dzn_fence, fence, _fence);
+   VK_FROM_HANDLE(dzn_fence, fence, _fence);
 
    if (fence->fence->GetCompletedValue() != 1)
       return VK_NOT_READY;
@@ -102,10 +102,10 @@ dzn_ResetFences(VkDevice _device,
                 uint32_t fenceCount,
                 const VkFence *pFences)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    for (uint32_t i = 0; i < fenceCount; i++) {
-      DZN_FROM_HANDLE(dzn_fence, fence, pFences[i]);
+      VK_FROM_HANDLE(dzn_fence, fence, pFences[i]);
       fence->fence->Signal(0);
       ResetEvent(fence->event);
       fence->fence->SetEventOnCompletion(1, fence->event);
@@ -126,7 +126,7 @@ dzn_WaitForFences(VkDevice _device,
 
    HANDLE handles[MAXIMUM_WAIT_OBJECTS];
    for (int i = 0; i < fenceCount; ++i) {
-      DZN_FROM_HANDLE(dzn_fence, fence, pFences[i]);
+      VK_FROM_HANDLE(dzn_fence, fence, pFences[i]);
       handles[i] = fence->event;
    }
    HRESULT hr = WaitForMultipleObjects(fenceCount, handles, waitAll, timeout / 1000000);

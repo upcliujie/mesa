@@ -47,7 +47,7 @@ dzn_CreateSampler(VkDevice _device,
                   const VkAllocationCallbacks *pAllocator,
                   VkSampler *pSampler)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    dzn_sampler *sampler;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
@@ -105,8 +105,8 @@ dzn_DestroySampler(VkDevice _device,
                    VkSampler _sampler,
                    const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_sampler, sampler, _sampler);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_sampler, sampler, _sampler);
 
    if (!sampler)
       return;

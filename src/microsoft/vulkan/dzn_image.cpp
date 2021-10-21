@@ -34,7 +34,7 @@ dzn_image_create(VkDevice _device,
                  const VkAllocationCallbacks* alloc,
                  VkImage *pImage)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
    dzn_image *image = (dzn_image *)
       vk_zalloc2(&device->vk.alloc, alloc, sizeof(*image), 8,
                  VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
@@ -172,8 +172,8 @@ void
 dzn_DestroyImage(VkDevice _device, VkImage _image,
                  const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_image, image, _image);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_image, image, _image);
 
    if (!image)
       return;
@@ -197,7 +197,7 @@ dzn_swapchain_get_image(VkSwapchainKHR swapchain,
       return NULL;
    }
 
-   DZN_FROM_HANDLE(dzn_image, image, images[index]);
+   VK_FROM_HANDLE(dzn_image, image, images[index]);
    free(images);
 
    return image;
@@ -208,12 +208,12 @@ VkResult dzn_BindImageMemory2(
     uint32_t                                    bindInfoCount,
     const VkBindImageMemoryInfo*                pBindInfos)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, _device);
 
    for (uint32_t i = 0; i < bindInfoCount; i++) {
       const VkBindImageMemoryInfo *bind_info = &pBindInfos[i];
-      DZN_FROM_HANDLE(dzn_device_memory, mem, bind_info->memory);
-      DZN_FROM_HANDLE(dzn_image, image, bind_info->image);
+      VK_FROM_HANDLE(dzn_device_memory, mem, bind_info->memory);
+      VK_FROM_HANDLE(dzn_image, image, bind_info->image);
       bool did_bind = false;
 
       vk_foreach_struct_const(s, bind_info->pNext) {
@@ -260,8 +260,8 @@ dzn_GetImageMemoryRequirements2(VkDevice _device,
                                 const VkImageMemoryRequirementsInfo2 *pInfo,
                                 VkMemoryRequirements2 *pMemoryRequirements)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_image, image, pInfo->image);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_image, image, pInfo->image);
 
    vk_foreach_struct_const(ext, pInfo->pNext) {
       dzn_debug_ignored_stype(ext->sType);
@@ -320,8 +320,8 @@ dzn_GetImageSubresourceLayout(VkDevice _device,
                               const VkImageSubresource *subresource,
                               VkSubresourceLayout *layout)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_image, image, _image);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_image, image, _image);
 
 
    if (image->desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
@@ -442,8 +442,8 @@ dzn_CreateImageView(VkDevice _device,
                     const VkAllocationCallbacks *pAllocator,
                     VkImageView *pView)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_image, image, pCreateInfo->image);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_image, image, pCreateInfo->image);
    dzn_image_view *iview;
 
    iview = (dzn_image_view *)
@@ -662,8 +662,8 @@ dzn_DestroyImageView(VkDevice _device,
                      VkImageView imageView,
                      const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_image_view, iview, imageView);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_image_view, iview, imageView);
 
    if (!iview)
       return;
@@ -689,8 +689,8 @@ dzn_CreateBufferView(VkDevice _device,
                      const VkAllocationCallbacks *pAllocator,
                      VkBufferView *pView)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_buffer, buf, pCreateInfo->buffer);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_buffer, buf, pCreateInfo->buffer);
    enum pipe_format pfmt = vk_format_to_pipe_format(pCreateInfo->format);
    unsigned blksz = util_format_get_blocksize(pfmt);
    VkDeviceSize size =
@@ -721,8 +721,8 @@ dzn_DestroyBufferView(VkDevice _device,
                       VkBufferView bufferView,
                       const VkAllocationCallbacks *pAllocator)
 {
-   DZN_FROM_HANDLE(dzn_device, device, _device);
-   DZN_FROM_HANDLE(dzn_buffer_view, bview, bufferView);
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_buffer_view, bview, bufferView);
 
    if (!bview)
       return;
