@@ -170,7 +170,8 @@ mark_whole_variable(nir_shader *shader, nir_variable *var,
 {
    const struct glsl_type *type = var->type;
 
-   if (nir_is_arrayed_io(var, shader->info.stage)) {
+   if (nir_is_arrayed_io(var, shader->info.stage) ||
+       var->data.location == VARYING_SLOT_PRIMITIVE_INDICES) {
       assert(glsl_type_is_array(type));
       type = glsl_get_array_element(type);
    }
@@ -194,7 +195,8 @@ mark_whole_variable(nir_shader *shader, nir_variable *var,
 }
 
 static unsigned
-get_io_offset(nir_deref_instr *deref, nir_variable *var, bool is_arrayed)
+get_io_offset(nir_deref_instr *deref, nir_variable *var, bool is_arrayed,
+              bool skip_non_arrayed)
 {
    if (var->data.compact) {
       assert(deref->deref_type == nir_deref_type_array);
@@ -208,6 +210,9 @@ get_io_offset(nir_deref_instr *deref, nir_variable *var, bool is_arrayed)
    for (nir_deref_instr *d = deref; d; d = nir_deref_instr_parent(d)) {
       if (d->deref_type == nir_deref_type_array) {
          if (is_arrayed && nir_deref_instr_parent(d)->deref_type == nir_deref_type_var)
+            break;
+
+         if (!is_arrayed && skip_non_arrayed)
             break;
 
          if (!nir_src_is_const(d->arr.index))
@@ -240,6 +245,7 @@ try_mask_partial_io(nir_shader *shader, nir_variable *var,
 {
    const struct glsl_type *type = var->type;
    bool is_arrayed = nir_is_arrayed_io(var, shader->info.stage);
+   bool skip_non_arrayed = shader->info.stage == MESA_SHADER_MESH;
 
    if (is_arrayed) {
       assert(glsl_type_is_array(type));
@@ -250,7 +256,7 @@ try_mask_partial_io(nir_shader *shader, nir_variable *var,
    if (var->data.per_view)
       return false;
 
-   unsigned offset = get_io_offset(deref, var, is_arrayed);
+   unsigned offset = get_io_offset(deref, var, is_arrayed, skip_non_arrayed);
    if (offset == -1)
       return false;
 
