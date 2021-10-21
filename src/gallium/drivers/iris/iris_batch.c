@@ -281,6 +281,8 @@ add_bo_to_batch(struct iris_batch *batch, struct iris_bo *bo, bool writable)
 
    if (writable)
       BITSET_SET(batch->bos_written, batch->exec_count);
+   else
+      BITSET_CLEAR(batch->bos_written, batch->exec_count);
 
    bo->index = batch->exec_count;
    batch->exec_count++;
