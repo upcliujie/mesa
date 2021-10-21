@@ -170,7 +170,8 @@ mark_whole_variable(nir_shader *shader, nir_variable *var,
 {
    const struct glsl_type *type = var->type;
 
-   if (nir_is_arrayed_io(var, shader->info.stage)) {
+   if (nir_is_arrayed_io(var, shader->info.stage) ||
+       var->data.location == VARYING_SLOT_PRIMITIVE_INDICES) {
       assert(glsl_type_is_array(type));
       type = glsl_get_array_element(type);
    }

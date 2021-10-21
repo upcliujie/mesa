@@ -152,6 +152,15 @@ nir_is_arrayed_io(const nir_variable *var, gl_shader_stage stage)
    if (var->data.patch || !glsl_type_is_array(var->type))
       return false;
 
+   if (stage == MESA_SHADER_MESH) {
+      /* Currently implemented as a flat array for the whole workgroup. */
+      if (var->data.location == VARYING_SLOT_PRIMITIVE_INDICES)
+         return false;
+      /* A single unsigned integer for the entire workgroup. */
+      if (var->data.location == VARYING_SLOT_PRIMITIVE_COUNT)
+         return false;
+   }
+
    if (var->data.mode == nir_var_shader_in)
       return stage == MESA_SHADER_GEOMETRY ||
              stage == MESA_SHADER_TESS_CTRL ||
