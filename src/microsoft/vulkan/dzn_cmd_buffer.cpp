@@ -490,6 +490,26 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
+dzn_CmdCopyBuffer2KHR(VkCommandBuffer commandBuffer,
+                      const VkCopyBufferInfo2KHR* pCopyBufferInfo)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, src_buffer, pCopyBufferInfo->srcBuffer);
+   VK_FROM_HANDLE(dzn_buffer, dst_buffer, pCopyBufferInfo->dstBuffer);
+
+   dzn_batch *batch = cmd_buffer->get_batch();
+   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
+
+   for (int i = 0; i < pCopyBufferInfo->regionCount; i++) {
+      const VkBufferCopy2KHR *region = &pCopyBufferInfo->pRegions[i];
+
+      cmdlist->CopyBufferRegion(dst_buffer->res.Get(), region->dstOffset,
+                                src_buffer->res.Get(), region->srcOffset,
+                                region->size);
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
                              const VkCopyBufferToImageInfo2KHR *pCopyBufferToImageInfo)
 {
