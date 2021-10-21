@@ -2,6 +2,9 @@
 
 set -ex
 
+syslogd &
+sleep 5
+
 # Needed so configuration files can contain paths to files in /install
 ln -sf $CI_PROJECT_DIR/install /install
 
@@ -141,6 +144,9 @@ if [ "$GALLIUM_DRIVER" = "virpipe" ]; then
     sleep 1
 fi
 
+apt-get update
+apt-get install -y strace
+
 if [ -z "$DEQP_SUITE" ]; then
     if [ -n "$DEQP_EXPECTED_RENDERER" ]; then
         export DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --renderer-check "$DEQP_EXPECTED_RENDERER""
@@ -162,7 +168,7 @@ if [ -z "$DEQP_SUITE" ]; then
         -- \
         $DEQP_OPTIONS
 else
-    $HANG_DETECTION_CMD deqp-runner \
+    strace -s 1024 -ff -tt -e %process,%signal,write -o /builds/tomeu/mesa/results/strace.log deqp-runner \
         suite \
         --suite $INSTALL/deqp-$DEQP_SUITE.toml \
         --output $RESULTS \
