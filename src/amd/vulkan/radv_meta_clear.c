@@ -615,7 +615,13 @@ create_depthstencil_pipeline(struct radv_device *device, VkImageAspectFlags aspe
             .writeMask = UINT32_MAX,
             .reference = 0, /* dynamic */
          },
-      .back = {0 /* dont care */},
+      .back =
+         {
+            .passOp = VK_STENCIL_OP_REPLACE,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .writeMask = UINT32_MAX,
+            .reference = 0, /* dynamic */
+         },
    };
 
    const VkPipelineColorBlendStateCreateInfo cb_state = {
@@ -769,9 +775,10 @@ emit_depthstencil_clear(struct radv_cmd_buffer *cmd_buffer, const VkClearAttachm
                             4, &clear_value.depth);
    }
 
-   uint32_t prev_reference = cmd_buffer->state.dynamic.stencil_reference.front;
+   uint32_t prev_reference_front = cmd_buffer->state.dynamic.stencil_reference.front;
+   uint32_t prev_reference_back = cmd_buffer->state.dynamic.stencil_reference.back;
    if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
-      radv_CmdSetStencilReference(cmd_buffer_h, VK_STENCIL_FACE_FRONT_BIT, clear_value.stencil);
+      radv_CmdSetStencilReference(cmd_buffer_h, VK_STENCIL_FACE_FRONT_AND_BACK, clear_value.stencil);
    }
 
    VkPipeline pipeline =
@@ -811,7 +818,8 @@ emit_depthstencil_clear(struct radv_cmd_buffer *cmd_buffer, const VkClearAttachm
    }
 
    if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
-      radv_CmdSetStencilReference(cmd_buffer_h, VK_STENCIL_FACE_FRONT_BIT, prev_reference);
+      radv_CmdSetStencilReference(cmd_buffer_h, VK_STENCIL_FACE_FRONT_BIT, prev_reference_front);
+      radv_CmdSetStencilReference(cmd_buffer_h, VK_STENCIL_FACE_BACK_BIT, prev_reference_back);
    }
 
    radv_cmd_buffer_restore_subpass(cmd_buffer, subpass);
