@@ -91,6 +91,7 @@ struct gl_opaque_uniform_index {
 struct gl_resource_name
 {
    char *name;
+   int length;              /* strlen(name) or 0 */
 };
 
 struct gl_uniform_storage {

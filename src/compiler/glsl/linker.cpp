@@ -5032,4 +5032,9 @@ done:
 void
 resource_name_updated(struct gl_resource_name *name)
 {
+   if (name->name) {
+      name->length = strlen(name->name);
+   } else {
+      name->length = 0;
+   }
 }
