@@ -4698,11 +4698,6 @@ struct gl_display_list
 {
    GLuint Name;
    bool small_list;
-   /* If small_list and begins_with_a_nop are true, this means
-    * the 'start' has been incremented to skip a NOP at the
-    * beginning.
-    */
-   bool begins_with_a_nop;
    GLchar *Label;     /**< GL_KHR_debug */
    /** The dlist commands are in a linked list of nodes */
    union {
@@ -4726,6 +4721,7 @@ struct gl_dlist_state
    union gl_dlist_node *CurrentBlock; /**< Pointer to current block of nodes */
    GLuint CurrentPos;		/**< Index into current block of nodes */
    GLuint CallDepth;		/**< Current recursion calling depth */
+   GLuint LastInstSize;         /**< Size of the last node. */
 
    GLvertexformat ListVtxfmt;
 
