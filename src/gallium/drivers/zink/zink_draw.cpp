@@ -681,7 +681,31 @@ zink_draw_vbo(struct pipe_context *pctx,
       VKCTX(CmdSetLineStippleEXT)(batch->state->cmdbuf, rast_state->base.line_stipple_factor, rast_state->base.line_stipple_pattern);
 
    if (BATCH_CHANGED || ctx->rast_state_changed || mode_changed) {
-      enum pipe_prim_type reduced_prim = u_reduced_prim(mode);
+      enum pipe_prim_type reduced_prim;
+      if (ctx->gfx_stages[PIPE_SHADER_GEOMETRY]) {
+         switch (ctx->gfx_stages[PIPE_SHADER_GEOMETRY]->nir->info.gs.output_primitive) {
+         case GL_POINTS:
+            reduced_prim = PIPE_PRIM_POINTS;
+            break;
+         case GL_LINES:
+         case GL_LINE_LOOP:
+         case GL_LINE_STRIP:
+         case GL_LINES_ADJACENCY:
+         case GL_LINE_STRIP_ADJACENCY:
+         case GL_ISOLINES:
+            reduced_prim = PIPE_PRIM_LINES;
+            break;
+         default:
+            reduced_prim = PIPE_PRIM_TRIANGLES;
+            break;
+         }
+      } else if (mode == PIPE_PRIM_PATCHES) {
+         if (ctx->gfx_stages[PIPE_SHADER_TESS_EVAL]->nir->info.tess.primitive_mode == GL_ISOLINES)
+            reduced_prim = PIPE_PRIM_LINES;
+         else
+            reduced_prim = PIPE_PRIM_TRIANGLES;
+      } else
+         reduced_prim = u_reduced_prim(mode);
 
       bool depth_bias = false;
       switch (reduced_prim) {
