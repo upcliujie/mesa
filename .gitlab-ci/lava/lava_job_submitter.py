@@ -332,6 +332,7 @@ if __name__ == '__main__':
     parser.add_argument("--mesa-build-url")
     parser.add_argument("--job-rootfs-overlay-url")
     parser.add_argument("--job-artifacts-base")
+    parser.add_argument("--job-timeout")
     parser.add_argument("--first-stage-init")
     parser.add_argument("--ci-project-dir")
     parser.add_argument("--device-type")
