@@ -90,6 +90,7 @@ struct fd6_context {
 
    uint32_t ssbo_descriptors[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES][FDL6_TEX_CONST_DWORDS];
    struct fdl6_view image_views[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
+   uint16_t image_seqnos[PIPE_SHADER_TYPES][PIPE_MAX_SHADER_IMAGES];
 
    struct {
       /* previous binning/draw lrz state, which is a function of multiple

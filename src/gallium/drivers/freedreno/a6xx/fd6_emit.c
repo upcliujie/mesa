@@ -460,6 +460,11 @@ fd6_emit_textures(struct fd_context *ctx, struct fd_ringbuffer *ring,
                idx &= ~IBO_SSBO;
                fd6_emit_single_plane_descriptor(state, buf->sb[idx].buffer, fd6_ctx->ssbo_descriptors[type][idx]);
             } else {
+               /* If we ensured that tex happened after ibo, we could skip this check. */
+               struct fd_resource *rsc = fd_resource(img->si[idx].resource);
+               if (rsc && unlikely(fd6_ctx->image_seqnos[type][idx] != rsc->seqno))
+                  fd6_image_update(ctx, type, idx);
+
                fd6_emit_single_plane_descriptor(state,  img->si[idx].resource, fd6_ctx->image_views[type][idx].descriptor);
             }
          }

@@ -34,6 +34,8 @@ struct ir3_shader_variant;
 struct fd_ringbuffer *
 fd6_build_ibo_state(struct fd_context *ctx, const struct ir3_shader_variant *v,
                     enum pipe_shader_type shader) assert_dt;
+void fd6_image_update(struct fd_context *ctx, enum pipe_shader_type shader,
+                      unsigned i);
 
 void fd6_image_init(struct pipe_context *pctx);
 
