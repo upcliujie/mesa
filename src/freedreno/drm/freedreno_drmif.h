@@ -119,6 +119,14 @@ void fd_device_purge(struct fd_device *dev);
 void fd_device_del(struct fd_device *dev);
 int fd_device_fd(struct fd_device *dev);
 
+
+#define FD_SYSCALL_STATS 1
+#if FD_SYSCALL_STATS
+void fd_device_dump_stats(struct fd_device *dev);
+#else
+static inline void fd_device_dump_stats(struct fd_device *dev) {}
+#endif
+
 enum fd_version {
    FD_VERSION_MADVISE = 1,             /* kernel supports madvise */
    FD_VERSION_UNLIMITED_CMDS = 1,      /* submits w/ >4 cmd buffers (growable ringbuffer) */

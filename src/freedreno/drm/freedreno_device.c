@@ -169,6 +169,17 @@ fd_device_version(struct fd_device *dev)
    return dev->version;
 }
 
+#if FD_SYSCALL_STATS
+void
+fd_device_dump_stats(struct fd_device *dev)
+{
+#define FMT_STAT(stat) #stat"=%d "
+#define ARG_STAT(stat) , dev->stats.stat
+   printf(FD_STAT_LIST(FMT_STAT)"\n" FD_STAT_LIST(ARG_STAT));
+   memset(&dev->stats, 0, sizeof(dev->stats));
+}
+#endif
+
 bool
 fd_dbg(void)
 {

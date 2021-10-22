@@ -138,6 +138,9 @@ fd_context_flush(struct pipe_context *pctx, struct pipe_fence_handle **fencep,
 
    fd_bc_dump(ctx, "%p: remaining:\n", ctx);
 
+   if (flags & PIPE_FLUSH_END_OF_FRAME)
+      fd_device_dump_stats(ctx->screen->dev);
+
 out:
    if (fencep)
       fd_fence_ref(fencep, fence);

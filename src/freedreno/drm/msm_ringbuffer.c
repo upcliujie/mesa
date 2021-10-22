@@ -365,6 +365,7 @@ msm_submit_flush(struct fd_submit *submit, int in_fence_fd,
 
    DEBUG_MSG("nr_cmds=%u, nr_bos=%u", req.nr_cmds, req.nr_bos);
 
+   fd_stat(submit->pipe->dev, msm_gem_submit);
    ret = drmCommandWriteRead(submit->pipe->dev->fd, DRM_MSM_GEM_SUBMIT, &req,
                              sizeof(req));
    if (ret) {

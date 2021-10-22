@@ -70,6 +70,7 @@ bo_from_handle(struct fd_device *dev, uint32_t size, uint32_t handle)
       struct drm_gem_close req = {
          .handle = handle,
       };
+      fd_stat(dev, gem_close);
       drmIoctl(dev->fd, DRM_IOCTL_GEM_CLOSE, &req);
       return NULL;
    }
@@ -181,6 +182,7 @@ fd_bo_from_dmabuf(struct fd_device *dev, int fd)
    struct fd_bo *bo;
 
    simple_mtx_lock(&table_lock);
+   fd_stat(dev, prime_fd_to_handle);
    ret = drmPrimeFDToHandle(dev->fd, fd, &handle);
    if (ret) {
       simple_mtx_unlock(&table_lock);
@@ -220,6 +222,7 @@ fd_bo_from_name(struct fd_device *dev, uint32_t name)
    if (bo)
       goto out_unlock;
 
+   fd_stat(dev, gem_open);
    if (drmIoctl(dev->fd, DRM_IOCTL_GEM_OPEN, &req)) {
       ERROR_MSG("gem-open failed: %s", strerror(errno));
       goto out_unlock;
@@ -360,6 +363,7 @@ bo_del(struct fd_bo *bo)
       _mesa_hash_table_remove_key(bo->dev->handle_table, &bo->handle);
       if (bo->name)
          _mesa_hash_table_remove_key(bo->dev->name_table, &bo->name);
+      fd_stat(bo->dev, gem_close);
       drmIoctl(bo->dev->fd, DRM_IOCTL_GEM_CLOSE, &req);
    }
 
@@ -384,6 +388,7 @@ fd_bo_get_name(struct fd_bo *bo, uint32_t *name)
       };
       int ret;
 
+      fd_stat(bo->dev, gem_flink);
       ret = drmIoctl(bo->dev->fd, DRM_IOCTL_GEM_FLINK, &req);
       if (ret) {
          return ret;
@@ -416,6 +421,7 @@ fd_bo_dmabuf(struct fd_bo *bo)
 {
    int ret, prime_fd;
 
+   fd_stat(bo->dev, prime_handle_to_fd);
    ret = drmPrimeHandleToFD(bo->dev->fd, bo->handle, DRM_CLOEXEC, &prime_fd);
    if (ret) {
       ERROR_MSG("failed to get dmabuf fd: %d", ret);
@@ -453,6 +459,7 @@ fd_bo_map(struct fd_bo *bo)
          return NULL;
       }
 
+      fd_stat(bo->dev, mmap);
       bo->map = os_mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED,
                         bo->dev->fd, offset);
       if (bo->map == MAP_FAILED) {

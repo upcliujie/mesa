@@ -114,6 +114,38 @@ struct fd_device {
    enum fd_version version;
    int32_t refcnt;
 
+#if FD_SYSCALL_STATS
+#  define FD_STAT_LIST(_) \
+   _(mmap) \
+   _(gem_close) \
+   _(gem_open) \
+   _(gem_flink) \
+   _(prime_fd_to_handle) \
+   _(prime_handle_to_fd) \
+   _(msm_get_param) \
+   _(msm_gem_new) \
+   _(msm_gem_info) \
+   _(msm_gem_cpu_prep) \
+   _(msm_gem_cpu_fini) \
+   _(msm_gem_madvise_willneed) \
+   _(msm_gem_madvise_dontneed) \
+   _(msm_gem_submit) \
+   _(msm_submitqueue_close) \
+   _(msm_submitqueue_new) \
+   _(msm_submitqueue_query) \
+   _(msm_wait_fence) \
+
+#define DECL_STAT(stat) int stat;
+   struct {
+      FD_STAT_LIST(DECL_STAT)
+   } stats;
+#  define fd_stat(dev, stat) do {                \
+      (dev)->stats.stat++;                       \
+   } while (0)
+#else
+#  define fd_stat(dev, stat) do {} while (0)
+#endif
+
    /* tables to keep track of bo's, to avoid "evil-twin" fd_bo objects:
     *
     *   handle_table: maps handle to fd_bo
