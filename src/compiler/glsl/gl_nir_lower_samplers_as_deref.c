@@ -311,6 +311,11 @@ lower_intrinsic(nir_intrinsic_instr *instr,
       nir_instr_rewrite_src(&instr->instr, &instr->src[0],
                             nir_src_for_ssa(&deref->dest.ssa));
       return true;
+   } else if (instr->intrinsic == nir_intrinsic_image_deref_samples ||
+              instr->intrinsic == nir_intrinsic_image_deref_order ||
+              instr->intrinsic == nir_intrinsic_image_deref_format) {
+      record_images_used(&state->shader->info, instr);
+      return true;
    }
 
    return false;
