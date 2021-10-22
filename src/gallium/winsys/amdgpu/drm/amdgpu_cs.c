@@ -1226,9 +1226,9 @@ static void amdgpu_cs_add_fence_dependency(struct radeon_cmdbuf *rws,
 }
 
 static void amdgpu_add_bo_fence_dependencies(struct amdgpu_cs *acs,
+                                             struct amdgpu_cs_context *cs,
                                              struct amdgpu_cs_buffer *buffer)
 {
-   struct amdgpu_cs_context *cs = acs->csc;
    struct amdgpu_winsys_bo *bo = buffer->bo;
    unsigned new_num_fences = 0;
 
@@ -1296,7 +1296,15 @@ void amdgpu_add_fences(struct amdgpu_winsys_bo *bo,
    }
 }
 
+static void amdgpu_inc_bo_num_active_ioctls(unsigned num_buffers,
+                                            struct amdgpu_cs_buffer *buffers)
+{
+   for (unsigned i = 0; i < num_buffers; i++)
+      p_atomic_inc(&buffers[i].bo->num_active_ioctls);
+}
+
 static void amdgpu_add_fence_dependencies_bo_list(struct amdgpu_cs *acs,
+                                                  struct amdgpu_cs_context *cs,
                                                   struct pipe_fence_handle *fence,
                                                   unsigned num_buffers,
                                                   struct amdgpu_cs_buffer *buffers)
@@ -1305,8 +1313,7 @@ static void amdgpu_add_fence_dependencies_bo_list(struct amdgpu_cs *acs,
       struct amdgpu_cs_buffer *buffer = &buffers[i];
       struct amdgpu_winsys_bo *bo = buffer->bo;
 
-      amdgpu_add_bo_fence_dependencies(acs, buffer);
-      p_atomic_inc(&bo->num_active_ioctls);
+      amdgpu_add_bo_fence_dependencies(acs, cs, buffer);
       amdgpu_add_fences(bo, 1, &fence);
    }
 }
@@ -1314,13 +1321,12 @@ static void amdgpu_add_fence_dependencies_bo_list(struct amdgpu_cs *acs,
 /* Since the kernel driver doesn't synchronize execution between different
  * rings automatically, we have to add fence dependencies manually.
  */
-static void amdgpu_add_fence_dependencies_bo_lists(struct amdgpu_cs *acs)
+static void amdgpu_add_fence_dependencies_bo_lists(struct amdgpu_cs *acs,
+                                                   struct amdgpu_cs_context *cs)
 {
-   struct amdgpu_cs_context *cs = acs->csc;
-
-   amdgpu_add_fence_dependencies_bo_list(acs, cs->fence, cs->num_real_buffers, cs->real_buffers);
-   amdgpu_add_fence_dependencies_bo_list(acs, cs->fence, cs->num_slab_buffers, cs->slab_buffers);
-   amdgpu_add_fence_dependencies_bo_list(acs, cs->fence, cs->num_sparse_buffers, cs->sparse_buffers);
+   amdgpu_add_fence_dependencies_bo_list(acs, cs, cs->fence, cs->num_real_buffers, cs->real_buffers);
+   amdgpu_add_fence_dependencies_bo_list(acs, cs, cs->fence, cs->num_slab_buffers, cs->slab_buffers);
+   amdgpu_add_fence_dependencies_bo_list(acs, cs, cs->fence, cs->num_sparse_buffers, cs->sparse_buffers);
 }
 
 static void amdgpu_cs_add_syncobj_signal(struct radeon_cmdbuf *rws,
@@ -1379,6 +1385,10 @@ static void amdgpu_cs_submit_ib(void *job, void *gdata, int thread_index)
    bool use_bo_list_create = ws->info.drm_minor < 27;
    struct drm_amdgpu_bo_list_in bo_list_in;
    unsigned initial_num_real_buffers = cs->num_real_buffers;
+
+   simple_mtx_lock(&ws->bo_fence_lock);
+   amdgpu_add_fence_dependencies_bo_lists(acs, cs);
+   simple_mtx_unlock(&ws->bo_fence_lock);
 
 #if DEBUG
    /* Prepare the buffer list. */
@@ -1715,16 +1725,11 @@ static int amdgpu_cs_flush(struct radeon_cmdbuf *rcs,
       if (fence)
          amdgpu_fence_reference(fence, cur->fence);
 
-      amdgpu_cs_sync_flush(rcs);
+      amdgpu_inc_bo_num_active_ioctls(cur->num_real_buffers, cur->real_buffers);
+      amdgpu_inc_bo_num_active_ioctls(cur->num_slab_buffers, cur->slab_buffers);
+      amdgpu_inc_bo_num_active_ioctls(cur->num_sparse_buffers, cur->sparse_buffers);
 
-      /* Prepare buffers.
-       *
-       * This fence must be held until the submission is queued to ensure
-       * that the order of fence dependency updates matches the order of
-       * submissions.
-       */
-      simple_mtx_lock(&ws->bo_fence_lock);
-      amdgpu_add_fence_dependencies_bo_lists(cs);
+      amdgpu_cs_sync_flush(rcs);
 
       /* Swap command streams. "cst" is going to be submitted. */
       rcs->csc = cs->csc = cs->cst;
@@ -1738,9 +1743,6 @@ static int amdgpu_cs_flush(struct radeon_cmdbuf *rcs,
          cs->csc->secure = !cs->cst->secure;
       else
          cs->csc->secure = cs->cst->secure;
-
-      /* The submission has been queued, unlock the fence now. */
-      simple_mtx_unlock(&ws->bo_fence_lock);
 
       if (!(flags & PIPE_FLUSH_ASYNC)) {
          amdgpu_cs_sync_flush(rcs);
