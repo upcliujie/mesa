@@ -942,13 +942,18 @@ panfrost_ptr_map(struct pipe_context *pctx,
                         if (!(bo->flags & PAN_BO_SHARED))
                                 newbo = panfrost_bo_create(dev, bo->size,
                                                            flags, bo->label);
-
                         if (newbo) {
                                 if (copy_resource)
                                         memcpy(newbo->ptr.cpu, rsrc->image.data.bo->ptr.cpu, bo->size);
 
                                 panfrost_bo_unreference(bo);
                                 rsrc->image.data.bo = newbo;
+
+                                /* Swapping out the BO will invalidate batches
+                                 * accessing this resource, flush them but do
+                                 * not wait for them.
+                                 */
+                                panfrost_flush_batches_accessing_rsrc(ctx, rsrc, "Resource shadowing");
 
 	                        if (!copy_resource &&
                                     drm_is_afbc(rsrc->image.layout.modifier))
