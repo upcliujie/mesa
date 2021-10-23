@@ -54,6 +54,51 @@
 
 struct dzn_instance;
 
+template <typename T>
+class dzn_allocator {
+public:
+   using value_type = T;
+
+   template <typename U>
+   dzn_allocator(const dzn_allocator<U> &src) noexcept
+   {
+      allocator = src.allocator;
+      scope = src.scope;
+   }
+
+   dzn_allocator(const VkAllocationCallbacks *alloc = NULL,
+		 VkSystemAllocationScope scope = VK_SYSTEM_ALLOCATION_SCOPE_OBJECT) noexcept
+   {
+      this->allocator = alloc ? *alloc : *vk_default_allocator();
+      this->scope = scope;
+   }
+
+   T *allocate(size_t n)
+   {
+      return (T *)vk_alloc(&allocator, sizeof(T) * n, alignof(T), scope);
+   }
+
+   void deallocate(T *p, size_t n)
+   {
+      vk_free(&allocator, p);
+   }
+
+   VkAllocationCallbacks allocator;
+   VkSystemAllocationScope scope;
+};
+
+template <typename T, typename U>
+constexpr bool operator== (const dzn_allocator<T> &a, const dzn_allocator<U> &b) noexcept
+{
+  return !memcmp(a.allocator, b.allocator, sizeof(a.allocator)) && a.scope == b.scope;
+}
+
+template <typename T, typename U>
+constexpr bool operator!= (const dzn_allocator<T> &a, const dzn_allocator<U> &b) noexcept
+{
+  return a.scope != b.scope || memcmp(a.allocator, b.allocator, sizeof(a.allocator));
+}
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
