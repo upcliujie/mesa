@@ -21,7 +21,8 @@
  * IN THE SOFTWARE.
  */
 
-#include "dzn_private.h"
+#include <directx/d3d12.h>
+#include <vulkan/vulkan.h>
 
 #include "util/format/u_format.h"
 
