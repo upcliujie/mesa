@@ -934,13 +934,14 @@ panfrost_ptr_map(struct pipe_context *pctx,
                         if (!(bo->flags & PAN_BO_SHARED))
                                 newbo = panfrost_bo_create(dev, bo->size,
                                                            flags, bo->label);
-
                         if (newbo) {
                                 if (copy_resource)
                                         memcpy(newbo->ptr.cpu, rsrc->image.data.bo->ptr.cpu, bo->size);
 
                                 panfrost_bo_unreference(bo);
                                 rsrc->image.data.bo = newbo;
+                                rsrc->track.nr_users = 0;
+                                rsrc->track.nr_writers = 0;
 
 	                        if (!copy_resource &&
                                     drm_is_afbc(rsrc->image.layout.modifier))
