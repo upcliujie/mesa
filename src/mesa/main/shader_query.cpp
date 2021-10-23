@@ -654,9 +654,12 @@ search_resource_hash(struct gl_shader_program *shProg,
    struct program_resource_key key;
    key.name = name_copy;
    key.type = programInterface;
+   uint32_t hash =
+      _mesa_prehash_string_no_strlen_with_seed(key.name, len, key.type);
 
    struct hash_entry *entry =
-      _mesa_hash_table_search(shProg->data->ProgramResourceHash, &key);
+      _mesa_hash_table_search_pre_hashed(shProg->data->ProgramResourceHash,
+                                         hash, &key);
    if (!entry)
       return NULL;
 
@@ -2011,7 +2014,7 @@ hash_resource_key(const void *_key)
 {
    struct program_resource_key *key = (struct program_resource_key *)_key;
 
-   return _mesa_hash_data_with_seed(key->name, strlen(key->name), key->type);
+   return _mesa_hash_string_no_strlen_with_seed(key->name, key->type);
 }
 
 static bool

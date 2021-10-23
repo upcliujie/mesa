@@ -119,6 +119,11 @@ uint32_t _mesa_hash_int(const void *key);
 uint32_t _mesa_hash_uint(const void *key);
 uint32_t _mesa_hash_u32(const void *key);
 uint32_t _mesa_hash_string(const void *key);
+uint32_t _mesa_hash_string_no_strlen(const void *key);
+uint32_t _mesa_hash_string_no_strlen_with_seed(const void *key, uint32_t seed);
+uint32_t _mesa_prehash_string_no_strlen(const void *key, int size);
+uint32_t _mesa_prehash_string_no_strlen_with_seed(const void *key, int size,
+                                                  uint32_t seed);
 uint32_t _mesa_hash_pointer(const void *pointer);
 
 bool _mesa_key_int_equal(const void *a, const void *b);

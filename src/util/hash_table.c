@@ -670,6 +670,60 @@ _mesa_hash_string(const void *_key)
    return hash;
 }
 
+/**
+ * A string hashing function that doesn't use strlen.
+ */
+uint32_t _mesa_hash_string_no_strlen(const void *key)
+{
+   const uint8_t *s = (const uint8_t*)key;
+   uint16_t hash = 0;
+
+   /* Alternate xoring between low and high bits of the hash. */
+   while (s[0]) {
+      hash ^= s[0];
+      s++;
+
+      if (s[0]) {
+         hash ^= (uint16_t)s[0] << 8;
+         s++;
+      }
+   }
+
+   return hash;
+}
+
+uint32_t _mesa_hash_string_no_strlen_with_seed(const void *key, uint32_t seed)
+{
+   return _mesa_hash_string_no_strlen(key) ^ seed;
+}
+
+/**
+ * A slightly more efficient version of the above, used when the size is
+ * known.
+ */
+uint32_t _mesa_prehash_string_no_strlen(const void *key, int size)
+{
+   const uint8_t *s = (const uint8_t*)key;
+   uint16_t hash = 0;
+
+   while (size >= 2) {
+      hash ^= s[0] | ((uint16_t)s[1] << 8);
+      s += 2;
+      size -= 2;
+   }
+
+   if (size == 1)
+      hash ^= s[0]; /* odd size */
+
+   return hash;
+}
+
+uint32_t _mesa_prehash_string_no_strlen_with_seed(const void *key, int size,
+                                                  uint32_t seed)
+{
+   return _mesa_prehash_string_no_strlen(key, size) ^ seed;
+}
+
 uint32_t
 _mesa_hash_pointer(const void *pointer)
 {
