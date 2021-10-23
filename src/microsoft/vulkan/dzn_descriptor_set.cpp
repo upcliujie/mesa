@@ -84,32 +84,122 @@ num_descs_for_type(VkDescriptorType type, bool immutable_samplers)
    return num_descs;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateDescriptorSetLayout(VkDevice _device,
-                              const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
-                              const VkAllocationCallbacks *pAllocator,
-                              VkDescriptorSetLayout *pSetLayout)
+dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
+                                                     const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
+                                                     const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
-
-   VkDescriptorSetLayoutBinding *bindings;
+   VkDescriptorSetLayoutBinding *ordered_bindings;
    VkResult ret =
       vk_create_sorted_bindings(pCreateInfo->pBindings,
                                 pCreateInfo->bindingCount,
-                                &bindings);
+                                &ordered_bindings);
    if (ret != VK_SUCCESS)
-      return vk_error(device, ret);
+      throw vk_error(device, ret);
 
-   uint32_t binding_count =
-      pCreateInfo->bindingCount ?
-      bindings[pCreateInfo->bindingCount - 1].binding + 1 : 0;
-   uint32_t immutable_sampler_count = 0;
-   uint32_t sampler_ranges[MAX_ROOT_PARAMS] = { 0 };
-   uint32_t view_ranges[MAX_ROOT_PARAMS] = { 0 };
-   uint32_t total_ranges = 0, view_desc_count = 0, sampler_desc_count = 0;
-   uint32_t view_desc_idx = 0, sampler_desc_idx = 0;
+   struct dzn_descriptor_set_layout_binding *binfos =
+      (struct dzn_descriptor_set_layout_binding *)bindings;
+
+   assert(binding_count ==
+          (pCreateInfo->bindingCount ?
+	   (ordered_bindings[pCreateInfo->bindingCount - 1].binding + 1) : 0));
+
+   uint32_t sampler_range_idx[MAX_ROOT_PARAMS] = {};
+   uint32_t view_range_idx[MAX_ROOT_PARAMS] = {};
+   uint32_t static_sampler_idx = 0;
+
+   for (uint32_t i = 0; i < binding_count; i++) {
+      binfos[i].static_sampler_idx = ~0;
+      binfos[i].sampler_range_idx = ~0;
+      binfos[i].view_range_idx = ~0;
+   }
+
+   view_desc_count = 0;
+   sampler_desc_count = 0;
+
+   for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
+      VkDescriptorType desc_type = ordered_bindings[i].descriptorType;
+      uint32_t binding = ordered_bindings[i].binding;
+      bool has_sampler =
+         desc_type == VK_DESCRIPTOR_TYPE_SAMPLER ||
+	 desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+      bool immutable_samplers =
+         has_sampler &&
+         ordered_bindings[i].pImmutableSamplers != NULL;
+
+      if (immutable_samplers) {
+	 binfos[binding].static_sampler_idx = static_sampler_idx;
+         D3D12_STATIC_SAMPLER_DESC *sampler = (D3D12_STATIC_SAMPLER_DESC *)
+            &static_samplers[static_sampler_idx];
+         static_sampler_idx++;
+         assert(0);
+         /* FIXME: parse samplers */
+      }
+
+      unsigned num_descs =
+         num_descs_for_type(desc_type, immutable_samplers);
+      if (!num_descs) continue;
+
+      D3D12_DESCRIPTOR_RANGE1 *range;
+      D3D12_SHADER_VISIBILITY visibility =
+         translate_desc_visibility(ordered_bindings[i].stageFlags);
+
+      assert(visibility < ARRAY_SIZE(ranges));
+      binfos[binding].visibility = visibility;
+
+      if (has_sampler && !immutable_samplers) {
+         assert(sampler_range_idx[visibility] < ranges[visibility].sampler_count);
+         uint32_t range_idx = sampler_range_idx[visibility]++;
+
+         binfos[binding].sampler_range_idx = range_idx;
+         range = (D3D12_DESCRIPTOR_RANGE1 *)
+            &ranges[visibility].samplers[range_idx];
+         range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+         range->NumDescriptors = ordered_bindings[i].descriptorCount;
+         range->BaseShaderRegister = binding;
+         range->Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+         range->OffsetInDescriptorsFromTableStart = sampler_desc_count;
+         sampler_desc_count += range->NumDescriptors;
+      }
+
+      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
+         assert(view_range_idx[visibility] < ranges[visibility].view_count);
+         uint32_t range_idx = view_range_idx[visibility]++;
+
+         binfos[binding].view_range_idx = range_idx;
+         range = (D3D12_DESCRIPTOR_RANGE1 *)
+            &ranges[visibility].views[range_idx];
+         range->RangeType =
+            desc_type_to_range_type(ordered_bindings[i].descriptorType);
+         range->NumDescriptors = ordered_bindings[i].descriptorCount;
+         range->BaseShaderRegister = binding;
+         range->Flags =
+            D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS;
+         range->OffsetInDescriptorsFromTableStart = view_desc_count;
+         view_desc_count += range->NumDescriptors;
+      }
+   }
+
+   free(ordered_bindings);
+
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT);
+}
+
+dzn_descriptor_set_layout::~dzn_descriptor_set_layout()
+{
+   vk_object_base_finish(&base);
+}
+
+dzn_descriptor_set_layout *
+dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
+                                            const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
+                                            const VkAllocationCallbacks *pAllocator)
+{
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO);
+
+   const VkDescriptorSetLayoutBinding *bindings = pCreateInfo->pBindings;
+   uint32_t binding_count = 0, immutable_sampler_count = 0, total_ranges = 0;
+   uint32_t sampler_ranges[MAX_ROOT_PARAMS] = {};
+   uint32_t view_ranges[MAX_ROOT_PARAMS] = {};
 
    for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
       D3D12_SHADER_VISIBILITY visibility =
@@ -138,15 +228,14 @@ dzn_CreateDescriptorSetLayout(VkDevice _device,
          immutable_sampler_count += bindings[i].descriptorCount;
       } else if (has_sampler) {
          sampler_ranges[visibility]++;
-         sampler_desc_count += bindings[i].descriptorCount;
       }
 
       if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
          view_ranges[visibility]++;
-         view_desc_count += bindings[i].descriptorCount;
-      } 
+      }
 
       total_ranges += sampler_ranges[visibility] + view_ranges[visibility];
+      binding_count = MAX2(binding_count, bindings[i].binding + 1);
    }
 
    /* We need to allocate decriptor set layouts off the device allocator
@@ -156,132 +245,54 @@ dzn_CreateDescriptorSetLayout(VkDevice _device,
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, struct dzn_descriptor_set_layout, set_layout, 1);
    VK_MULTIALLOC_DECL(&ma, D3D12_DESCRIPTOR_RANGE1,
-                           ranges, total_ranges);
+                      ranges, total_ranges);
    VK_MULTIALLOC_DECL(&ma, D3D12_STATIC_SAMPLER_DESC, static_samplers,
-                           immutable_sampler_count);
+                      immutable_sampler_count);
    VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set_layout_binding, binfos,
-                           binding_count);
+                      binding_count);
 
-   if (!vk_object_multizalloc(&device->vk, &ma, NULL,
-                              VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)) {
-      ret = VK_ERROR_OUT_OF_HOST_MEMORY;
-      goto err_free_bindings;
-   }
+   if (!vk_multialloc_zalloc(&ma, &device->vk.alloc,
+                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+      return NULL;
 
    set_layout->static_samplers = static_samplers;
-   set_layout->binding_count = binding_count;
+   set_layout->static_sampler_count = immutable_sampler_count;
    set_layout->bindings = binfos;
-   set_layout->view_desc_count = view_desc_count;
-   set_layout->sampler_desc_count = sampler_desc_count;
+   set_layout->binding_count = binding_count;
 
-   for (uint32_t i = 0; i < MAX_ROOT_PARAMS; i++) {
+   for (uint32_t i = 0; i < ARRAY_SIZE(set_layout->ranges); i++) {
       if (sampler_ranges[i]) {
          set_layout->ranges[i].samplers = ranges;
+         set_layout->ranges[i].sampler_count = sampler_ranges[i];
          ranges += sampler_ranges[i];
       }
 
       if (view_ranges[i]) {
          set_layout->ranges[i].views = ranges;
+         set_layout->ranges[i].view_count = view_ranges[i];
          ranges += view_ranges[i];
       }
    }
 
-   for (uint32_t i = 0; i < binding_count; i++) {
-      binfos[i].static_sampler_idx = ~0;
-      binfos[i].sampler_range_idx = ~0;
-      binfos[i].view_range_idx = ~0;
-   }
+   return set_layout;
+}
 
-   for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
-      VkDescriptorType desc_type = bindings[i].descriptorType;
-      uint32_t binding = bindings[i].binding;
-      bool has_sampler =
-         desc_type == VK_DESCRIPTOR_TYPE_SAMPLER ||
-	 desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-      bool immutable_samplers =
-         has_sampler &&
-         bindings[i].pImmutableSamplers != NULL;
-
-      if (immutable_samplers) {
-         uint32_t static_sampler_idx =
-            set_layout->static_sampler_count++;
-
-	 binfos[binding].static_sampler_idx = static_sampler_idx;
-         D3D12_STATIC_SAMPLER_DESC *sampler = (D3D12_STATIC_SAMPLER_DESC *)
-            &static_samplers[static_sampler_idx];
-         assert(0);
-         /* FIXME: parse samplers */
-      }
-
-      unsigned num_descs =
-         num_descs_for_type(desc_type, immutable_samplers);
-      if (!num_descs) continue;
-
-      D3D12_DESCRIPTOR_RANGE1 *range;
-      D3D12_SHADER_VISIBILITY visibility =
-         translate_desc_visibility(bindings[i].stageFlags);
-
-      assert(visibility < ARRAY_SIZE(set_layout->ranges));
-      binfos[binding].visibility = visibility;
-
-      if (has_sampler && !immutable_samplers) {
-         uint32_t range_idx =
-            set_layout->ranges[visibility].sampler_count++;
-
-         assert(range_idx < sampler_ranges[visibility]);
-         binfos[binding].sampler_range_idx = range_idx;
-         range = (D3D12_DESCRIPTOR_RANGE1 *)
-            &set_layout->ranges[visibility].samplers[range_idx];
-         range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-         range->NumDescriptors = bindings[i].descriptorCount;
-         range->BaseShaderRegister = binding;
-         range->Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
-         range->OffsetInDescriptorsFromTableStart = sampler_desc_idx;
-         sampler_desc_idx += range->NumDescriptors;
-      }
-
-      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
-         uint32_t range_idx =
-            set_layout->ranges[visibility].view_count++;
-
-         assert(range_idx < view_ranges[visibility]);
-         binfos[binding].view_range_idx = range_idx;
-         range = (D3D12_DESCRIPTOR_RANGE1 *)
-            &set_layout->ranges[visibility].views[range_idx];
-         range->RangeType =
-            desc_type_to_range_type(bindings[i].descriptorType);
-
-         range->NumDescriptors = bindings[i].descriptorCount;
-         range->BaseShaderRegister = binding;
-         range->Flags =
-            D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS;
-         range->OffsetInDescriptorsFromTableStart = view_desc_idx;
-         view_desc_idx += range->NumDescriptors;
-      }
-   }
-
-   free(bindings);
-
-   *pSetLayout = dzn_descriptor_set_layout_to_handle(set_layout);
-   return VK_SUCCESS;
-
-err_free_bindings:
-   free(bindings);
-   return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateDescriptorSetLayout(VkDevice device,
+                              const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
+                              const VkAllocationCallbacks *pAllocator,
+                              VkDescriptorSetLayout *pSetLayout)
+{
+   return dzn_descriptor_set_layout_factory::create(device, pCreateInfo,
+                                                    pAllocator, pSetLayout);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyDescriptorSetLayout(VkDevice _device,
+dzn_DestroyDescriptorSetLayout(VkDevice device,
                                VkDescriptorSetLayout descriptorSetLayout,
                                const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, descriptorSetLayout);
-
-   if (!set_layout)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, set_layout);
+   dzn_descriptor_set_layout_factory::destroy(device, descriptorSetLayout, pAllocator);
 }
 
 static PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE
@@ -506,62 +517,91 @@ desc_type_to_heap_type(VkDescriptorType in)
    }
 }
 
+dzn_descriptor_pool::dzn_descriptor_pool(dzn_device *device,
+                                         const VkDescriptorPoolCreateInfo *pCreateInfo,
+                                         const VkAllocationCallbacks *pAllocator)
+{
+   alloc = pAllocator ? *pAllocator : device->vk.alloc;
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_POOL);
+}
+
+dzn_descriptor_pool::~dzn_descriptor_pool()
+{
+   vk_object_base_finish(&base);
+}
+
+VkResult
+dzn_descriptor_pool::allocate_sets(VkDevice device,
+                                   const VkDescriptorSetAllocateInfo *pAllocateInfo,
+                                   VkDescriptorSet *pDescriptorSets)
+{
+   VkResult result;
+   unsigned i;
+
+   for (i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
+      result = dzn_descriptor_set_factory::create(device, this,
+                                                  pAllocateInfo->pSetLayouts[i],
+                                                  &alloc,
+                                                  &pDescriptorSets[i]);
+      if (result != VK_SUCCESS)
+         goto err_free_sets;
+   }
+
+   return VK_SUCCESS;
+
+err_free_sets:
+   free_sets(device, i, pDescriptorSets);
+   for (i = 0; i < pAllocateInfo->descriptorSetCount; i++)
+      pDescriptorSets[i] = VK_NULL_HANDLE;
+
+   return result;
+}
+
+VkResult
+dzn_descriptor_pool::free_sets(VkDevice device,
+                               uint32_t count,
+                               const VkDescriptorSet *pDescriptorSets)
+{
+   for (uint32_t i = 0; i < count; i++)
+      dzn_descriptor_set_factory::destroy(device, pDescriptorSets[i], &alloc);
+
+   return VK_SUCCESS;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateDescriptorPool(VkDevice _device,
+dzn_CreateDescriptorPool(VkDevice device,
                          const VkDescriptorPoolCreateInfo *pCreateInfo,
                          const VkAllocationCallbacks *pAllocator,
                          VkDescriptorPool *pDescriptorPool)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   struct dzn_descriptor_pool *pool;
-   uint32_t num_descs[NUM_POOL_TYPES] = { 0 };
-
-   pool = (struct dzn_descriptor_pool *)
-      vk_object_zalloc(&device->vk, pAllocator,
-                       sizeof(struct dzn_descriptor_pool),
-                       VK_OBJECT_TYPE_DESCRIPTOR_POOL);
-   if (!pool)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   *pDescriptorPool = dzn_descriptor_pool_to_handle(pool);
-   return VK_SUCCESS;
+   return dzn_descriptor_pool_factory::create(device,
+                                              pCreateInfo,
+                                              pAllocator,
+                                              pDescriptorPool);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyDescriptorPool(VkDevice _device,
+dzn_DestroyDescriptorPool(VkDevice device,
                           VkDescriptorPool descriptorPool,
                           const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_descriptor_pool, dpool, descriptorPool);
-
-   if (!dpool)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, dpool);
+   return dzn_descriptor_pool_factory::destroy(device,
+                                               descriptorPool,
+                                               pAllocator);
 }
 
-static VkResult
-dzn_descriptor_set_create(struct dzn_device *device,
-                          struct dzn_descriptor_pool *pool,
-                          const struct dzn_descriptor_set_layout *layout,
-                          struct dzn_descriptor_set **out_set)
+dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
+                                       dzn_descriptor_pool *pool,
+                                       VkDescriptorSetLayout l,
+                                       const VkAllocationCallbacks *pAllocator)
 {
+   assert(bindings);
+   layout = dzn_descriptor_set_layout_from_handle(l);
+
    uint32_t view_desc_sz =
       device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
    uint32_t sampler_desc_sz =
       device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-
-   /* TODO: Allocate from the pool! */
-   VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set, set, 1);
-   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set_binding,
-                      bindings, layout->binding_count);
-
-   if (!vk_object_multizalloc(&device->vk, &ma, NULL,
-                              VK_OBJECT_TYPE_DESCRIPTOR_SET)) {
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
 
    SIZE_T view_desc_base = 0, sampler_desc_base = 0;
 
@@ -573,12 +613,12 @@ dzn_descriptor_set_create(struct dzn_device *device,
       };
 
       HRESULT ret;
-      ID3D12DescriptorHeap *heap;
+      ComPtr<ID3D12DescriptorHeap> heap;
       ret = device->dev->CreateDescriptorHeap(&desc,
                                               IID_PPV_ARGS(&heap));
       assert(!FAILED(ret));
       view_desc_base = heap->GetCPUDescriptorHandleForHeapStart().ptr;
-      set->heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
+      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
    }
 
    if (layout->sampler_desc_count) {
@@ -589,20 +629,20 @@ dzn_descriptor_set_create(struct dzn_device *device,
       };
 
       HRESULT ret;
-      ID3D12DescriptorHeap *heap;
+      ComPtr<ID3D12DescriptorHeap> heap;
       ret = device->dev->CreateDescriptorHeap(&desc,
                                               IID_PPV_ARGS(&heap));
       assert(!FAILED(ret));
       sampler_desc_base = heap->GetCPUDescriptorHandleForHeapStart().ptr;
-      set->heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = heap;
+      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = heap;
    }
 
-   set->layout = layout;
-   set->bindings = bindings;
    for (uint32_t i = 0; i < layout->binding_count; i++) {
       D3D12_SHADER_VISIBILITY visibility = layout->bindings[i].visibility;
       uint32_t view_range_idx = layout->bindings[i].view_range_idx;
       uint32_t sampler_range_idx = layout->bindings[i].sampler_range_idx;
+      struct dzn_descriptor_set_binding *b =
+         (struct dzn_descriptor_set_binding *)&bindings[i];
 
       assert(visibility < ARRAY_SIZE(layout->ranges));
       assert(view_range_idx == ~0 || view_range_idx < layout->ranges[visibility].view_count);
@@ -612,7 +652,7 @@ dzn_descriptor_set_create(struct dzn_device *device,
 	 const D3D12_DESCRIPTOR_RANGE1 *range =
             &layout->ranges[visibility].views[view_range_idx];
 
-         bindings[i].views.ptr =
+         b->views.ptr =
             view_desc_base + (range->OffsetInDescriptorsFromTableStart * view_desc_sz);
       }
 
@@ -620,80 +660,60 @@ dzn_descriptor_set_create(struct dzn_device *device,
 	 const D3D12_DESCRIPTOR_RANGE1 *range =
             &layout->ranges[visibility].samplers[sampler_range_idx];
 
-         bindings[i].samplers.ptr =
+         b->samplers.ptr =
             sampler_desc_base + (range->OffsetInDescriptorsFromTableStart * sampler_desc_sz);
       }
    }
 
-   *out_set = set;
-   return VK_SUCCESS;
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_SET);
 }
 
-static void
-dzn_descriptor_set_destroy(struct dzn_device *device,
-                           struct dzn_descriptor_pool *pool,
-                           struct dzn_descriptor_set *set)
+dzn_descriptor_set::~dzn_descriptor_set()
 {
-   const dzn_descriptor_set_layout *layout = set->layout;
-   const dzn_descriptor_set_binding *bindings = set->bindings;
+   vk_object_base_finish(&base);
+}
 
-   for (uint32_t i = 0; i < ARRAY_SIZE(set->heaps); i++) {
-      if (set->heaps[i])
-         set->heaps[i]->Release();
-   }
+dzn_descriptor_set *
+dzn_descriptor_set_factory::allocate(dzn_device *device,
+                                     dzn_descriptor_pool *pool,
+                                     VkDescriptorSetLayout l,
+                                     const VkAllocationCallbacks *alloc)
+{
+   VK_FROM_HANDLE(dzn_descriptor_set_layout, layout, l);
 
-   vk_object_free(&device->vk, NULL, set);
+   /* TODO: Allocate from the pool! */
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set, set, 1);
+   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set_binding,
+                      bindings, layout->binding_count);
+
+   if (!vk_multialloc_zalloc(&ma, &device->vk.alloc,
+                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+      return NULL;
+
+   set->bindings = bindings;
+   return set;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_AllocateDescriptorSets(VkDevice _device,
+dzn_AllocateDescriptorSets(VkDevice device,
                            const VkDescriptorSetAllocateInfo *pAllocateInfo,
                            VkDescriptorSet *pDescriptorSets)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
    VK_FROM_HANDLE(dzn_descriptor_pool, pool, pAllocateInfo->descriptorPool);
-   VkResult result;
-   unsigned i;
 
-   for (i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-      VK_FROM_HANDLE(dzn_descriptor_set_layout, layout,
-                      pAllocateInfo->pSetLayouts[i]);
-      struct dzn_descriptor_set *set = NULL;
-
-      result = dzn_descriptor_set_create(device, pool, layout, &set);
-      if (result != VK_SUCCESS)
-         goto err_free_sets;
-
-      pDescriptorSets[i] = dzn_descriptor_set_to_handle(set);
-   }
-
-   return VK_SUCCESS;
-
-err_free_sets:
-   dzn_FreeDescriptorSets(_device, pAllocateInfo->descriptorPool, i, pDescriptorSets);
-   for (i = 0; i < pAllocateInfo->descriptorSetCount; i++)
-      pDescriptorSets[i] = VK_NULL_HANDLE;
-
-   return result;
+   return pool->allocate_sets(device, pAllocateInfo, pDescriptorSets);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_FreeDescriptorSets(VkDevice _device,
+dzn_FreeDescriptorSets(VkDevice device,
                        VkDescriptorPool descriptorPool,
                        uint32_t count,
                        const VkDescriptorSet *pDescriptorSets)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
    VK_FROM_HANDLE(dzn_descriptor_pool, pool, descriptorPool);
 
-   for (unsigned i = 0; i < count; i++) {
-      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
-
-      if (set)
-         dzn_descriptor_set_destroy(device, pool, set);
-   }
-
-   return VK_SUCCESS;
+   return pool->free_sets(device, count, pDescriptorSets);
 }
 
 static void

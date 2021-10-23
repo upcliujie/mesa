@@ -330,6 +330,21 @@ struct dzn_cmd_pool {
 
 struct dzn_descriptor_pool {
    struct vk_object_base base;
+   VkAllocationCallbacks alloc;
+
+   VkResult
+   allocate_sets(VkDevice device,
+                 const VkDescriptorSetAllocateInfo *pAllocateInfo,
+                 VkDescriptorSet *pDescriptorSets);
+   VkResult
+   free_sets(VkDevice device,
+             uint32_t count,
+             const VkDescriptorSet *pDescriptorSets);
+
+   dzn_descriptor_pool(dzn_device *device,
+                       const VkDescriptorPoolCreateInfo *pCreateInfo,
+                       const VkAllocationCallbacks *pAllocator);
+   ~dzn_descriptor_pool();
 };
 
 #define MAX_ROOT_PARAMS D3D12_SHADER_VISIBILITY_PIXEL + 1
@@ -354,6 +369,11 @@ struct dzn_descriptor_set_layout {
    uint32_t view_desc_count, sampler_desc_count;
    uint32_t binding_count;
    const struct dzn_descriptor_set_layout_binding *bindings;
+
+   dzn_descriptor_set_layout(dzn_device *device,
+                             const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
+                             const VkAllocationCallbacks *pAllocator);
+   ~dzn_descriptor_set_layout();
 };
 
 struct dzn_descriptor_set_binding {
@@ -363,9 +383,15 @@ struct dzn_descriptor_set_binding {
 
 struct dzn_descriptor_set {
    struct vk_object_base base;
-   ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
+   ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
    const struct dzn_descriptor_set_layout *layout;
    const struct dzn_descriptor_set_binding *bindings;
+
+   dzn_descriptor_set(dzn_device *device,
+                      dzn_descriptor_pool *pool,
+                      VkDescriptorSetLayout layout,
+                      const VkAllocationCallbacks *pAllocator);
+   ~dzn_descriptor_set();
 };
 
 struct dzn_pipeline_layout {
@@ -796,6 +822,9 @@ public: \
 typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS__> \
         __drv_type ## _factory
 
+DZN_OBJ_FACTORY(dzn_descriptor_pool, VkDescriptorPool, VkDevice, const VkDescriptorPoolCreateInfo *);
+DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_pool *, VkDescriptorSetLayout);
+DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
