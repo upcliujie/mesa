@@ -5034,7 +5034,19 @@ resource_name_updated(struct gl_resource_name *name)
 {
    if (name->name) {
       name->length = strlen(name->name);
+
+      const char *last_square_bracket = strrchr(name->name, '[');
+      if (last_square_bracket) {
+         name->last_square_bracket = last_square_bracket - name->name;
+         name->suffix_is_zero_square_bracketed =
+            strcmp(last_square_bracket, "[0]") == 0;
+      } else {
+         name->last_square_bracket = -1;
+         name->suffix_is_zero_square_bracketed = false;
+      }
    } else {
       name->length = 0;
+      name->last_square_bracket = -1;
+      name->suffix_is_zero_square_bracketed = false;
    }
 }
