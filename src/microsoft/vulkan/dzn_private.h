@@ -140,15 +140,12 @@ public:
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
-   /* Link in dzn_instance::physical_devices */
-   struct list_head link;
-
    struct dzn_instance *instance;
 
    struct vk_device_extension_table supported_extensions;
    struct vk_physical_device_dispatch_table dispatch;
 
-   IDXGIAdapter1 *adapter;
+   ComPtr<IDXGIAdapter1> adapter;
 
    uint8_t pipeline_cache_uuid[VK_UUID_SIZE];
    uint8_t device_uuid[VK_UUID_SIZE];
@@ -157,6 +154,14 @@ struct dzn_physical_device {
    struct wsi_device wsi_device;
 
    VkPhysicalDeviceMemoryProperties memory;
+
+   dzn_physical_device(dzn_instance *instance,
+                       ComPtr<IDXGIAdapter1> &adapter,
+                       const VkAllocationCallbacks *alloc);
+   ~dzn_physical_device();
+   const VkAllocationCallbacks *get_vk_allocator();
+private:
+   void get_device_extensions();
 };
 
 #define dzn_debug_ignored_stype(sType) \
@@ -543,8 +548,16 @@ struct dzn_instance {
    struct vk_instance vk;
 
    bool physical_devices_enumerated;
-   struct list_head physical_devices;
    uint32_t debug_flags;
+
+   dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
+                const VkAllocationCallbacks *pAllocator);
+   ~dzn_instance();
+   VkResult enumerate_physical_devices(uint32_t *pPhysicalDeviceCount,
+                                       VkPhysicalDevice *pPhysicalDevices);
+private:
+   using physical_devices_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_physical_device>>;
+   dzn_object_vector<dzn_physical_device> physical_devices;
 };
 
 struct dzn_semaphore {
@@ -779,6 +792,8 @@ typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS_
         __drv_type ## _factory
 
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
+DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
+DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<IDXGIAdapter1> &);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */

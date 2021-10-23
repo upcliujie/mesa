@@ -62,11 +62,10 @@ static const vk_instance_extension_table instance_extensions = {
    .EXT_debug_report                         = true,
 };
 
-static void
-get_device_extensions(const dzn_physical_device *device,
-                      vk_device_extension_table *ext)
+void
+dzn_physical_device::get_device_extensions()
 {
-   *ext = vk_device_extension_table {
+   vk.supported_extensions = vk_device_extension_table {
 #ifdef DZN_USE_WSI_PLATFORM
       .KHR_swapchain                         = true,
 #endif
@@ -94,115 +93,86 @@ static const struct debug_control dzn_debug_options[] = {
    { NULL, 0 }
 };
 
+dzn_instance::dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
+                           const VkAllocationCallbacks *pAllocator) :
+                          physical_devices(physical_devices_allocator(pAllocator,
+                                                                      VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE))
+{
+   vk_instance_dispatch_table dispatch_table;
+   vk_instance_dispatch_table_from_entrypoints(&dispatch_table,
+                                               &dzn_instance_entrypoints,
+                                               true);
+
+   VkResult result =
+      vk_instance_init(&vk, &instance_extensions,
+                       &dispatch_table, pCreateInfo,
+                       pAllocator ? pAllocator : vk_default_allocator());
+   if (result != VK_SUCCESS)
+      throw result;
+
+   physical_devices_enumerated = false;
+   debug_flags =
+      parse_debug_string(getenv("DZN_DEBUG"), dzn_debug_options);
+}
+
+dzn_instance::~dzn_instance()
+{
+   vk_instance_finish(&vk);
+}
+
+dzn_instance *
+dzn_instance_factory::allocate(const VkInstanceCreateInfo *pCreateInfo,
+                               const VkAllocationCallbacks *pAllocator)
+{
+   return (dzn_instance *)
+      vk_zalloc2(vk_default_allocator(), pAllocator,
+                 sizeof(dzn_instance), 8,
+                 VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
                    const VkAllocationCallbacks *pAllocator,
                    VkInstance *pInstance)
 {
-   dzn_instance *instance;
-   VkResult result;
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO);
-
-   if (pAllocator == NULL)
-      pAllocator = vk_default_allocator();
-
-   instance = (dzn_instance *)
-      vk_zalloc(pAllocator, sizeof(*instance), 8,
-                VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-   if (!instance)
-      return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   vk_instance_dispatch_table dispatch_table;
-   vk_instance_dispatch_table_from_entrypoints(
-      &dispatch_table, &dzn_instance_entrypoints, true);
-
-   result = vk_instance_init(&instance->vk, &instance_extensions,
-                             &dispatch_table, pCreateInfo, pAllocator);
-   if (result != VK_SUCCESS) {
-      vk_free(pAllocator, instance);
-      return vk_error(NULL, result);
-   }
-
-   instance->physical_devices_enumerated = false;
-   list_inithead(&instance->physical_devices);
-   instance->debug_flags =
-      parse_debug_string(getenv("DZN_DEBUG"), dzn_debug_options);
-
-   *pInstance = dzn_instance_to_handle(instance);
-
-   return VK_SUCCESS;
-}
-
-static void
-dzn_physical_device_destroy(dzn_physical_device *device)
-{
-   dzn_instance *instance = device->instance;
-
-   dzn_wsi_finish(device);
-   device->adapter->Release();
-   vk_free(&instance->vk.alloc, device);
+   return dzn_instance_factory::create(pCreateInfo, pAllocator, pInstance);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyInstance(VkInstance _instance,
+dzn_DestroyInstance(VkInstance instance,
                     const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_instance, instance, _instance);
-
-   if (!instance)
-      return;
-
-   list_for_each_entry_safe(dzn_physical_device, pdevice,
-                            &instance->physical_devices, link) {
-      list_del(&pdevice->link);
-      dzn_physical_device_destroy(pdevice);
-   }
-
-   vk_instance_finish(&instance->vk);
-   vk_free(&instance->vk.alloc, instance);
+   return dzn_instance_factory::destroy(instance, pAllocator);
 }
 
-static VkResult
-create_pysical_device(dzn_instance *instance,
-                      IDXGIAdapter1 *adapter,
-                      dzn_physical_device **device_out)
+dzn_physical_device::dzn_physical_device(dzn_instance *inst,
+                                         ComPtr<IDXGIAdapter1> &adap,
+                                         const VkAllocationCallbacks *alloc) :
+                                        instance(inst), adapter(adap)
 {
-   VkResult result;
-   VkPhysicalDeviceMemoryProperties *mem;
-
-   dzn_physical_device *device = (dzn_physical_device *)vk_zalloc(
-      &instance->vk.alloc, sizeof(*device), 8,
-      VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
-   if (device == NULL)
-      return vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
    vk_physical_device_dispatch_table dispatch_table;
-   vk_physical_device_dispatch_table_from_entrypoints(
-      &dispatch_table, &dzn_physical_device_entrypoints, true);
+   vk_physical_device_dispatch_table_from_entrypoints(&dispatch_table,
+                                                      &dzn_physical_device_entrypoints,
+                                                      true);
    vk_physical_device_dispatch_table_from_entrypoints(&dispatch_table,
                                                       &wsi_physical_device_entrypoints,
                                                       false);
 
-   result = vk_physical_device_init(&device->vk, &instance->vk,
-                                    NULL, /* We set up extensions later */
-                                    &dispatch_table);
-   if (result != VK_SUCCESS) {
-      vk_error(instance, result);
-      goto fail;
-   }
-   device->instance = instance;
-   device->adapter = adapter;
+   VkResult result =
+      vk_physical_device_init(&vk, &instance->vk,
+                              NULL, /* We set up extensions later */
+                              &dispatch_table);
+   if (result != VK_SUCCESS)
+      throw vk_error(instance, result);
 
    vk_warn_non_conformant_implementation("dzn");
 
    /* TODO: correct UUIDs */
-   memset(device->pipeline_cache_uuid, 0, VK_UUID_SIZE);
-   memset(device->driver_uuid, 0, VK_UUID_SIZE);
-   memset(device->device_uuid, 0, VK_UUID_SIZE);
+   memset(pipeline_cache_uuid, 0, VK_UUID_SIZE);
+   memset(driver_uuid, 0, VK_UUID_SIZE);
+   memset(device_uuid, 0, VK_UUID_SIZE);
 
-   mem = &device->memory;
-
+   VkPhysicalDeviceMemoryProperties *mem = &memory;
    DXGI_ADAPTER_DESC1 desc;
    adapter->GetDesc1(&desc);
 
@@ -245,53 +215,82 @@ create_pysical_device(dzn_instance *instance,
 
    /* TODO: something something queue families */
 
-   result = dzn_wsi_init(device);
+   result = dzn_wsi_init(this);
    if (result != VK_SUCCESS) {
-      vk_error(instance, result);
-      goto fail;
+      vk_physical_device_finish(&vk);
+      throw vk_error(instance, result);
    }
 
-   get_device_extensions(device, &device->vk.supported_extensions);
-
-   *device_out = device;
-
-   return VK_SUCCESS;
-
-fail:
-   vk_free(&instance->vk.alloc, device);
-   return result;
+   get_device_extensions();
 }
 
-static VkResult
-dzn_enumerate_physical_devices(dzn_instance *instance)
+dzn_physical_device::~dzn_physical_device()
 {
-   if (instance->physical_devices_enumerated)
-      return VK_SUCCESS;
+   dzn_wsi_finish(this);
+   vk_physical_device_finish(&vk);
+}
 
-   instance->physical_devices_enumerated = true;
+const VkAllocationCallbacks *
+dzn_physical_device::get_vk_allocator()
+{
+   return &instance->vk.alloc;
+}
 
-   ComPtr<IDXGIFactory4> factory = dxgi_get_factory(false);
-   IDXGIAdapter1 *adapter;
-   VkResult result = VK_SUCCESS;
-   for (UINT i = 0; SUCCEEDED(factory->EnumAdapters1(i, &adapter)); ++i) {
-      if (instance->debug_flags & DZN_DEBUG_WARP) {
-         DXGI_ADAPTER_DESC1 desc;
-         adapter->GetDesc1(&desc);
-         if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0) {
-            adapter->Release();
-            continue;
+dzn_physical_device *
+dzn_physical_device_factory::allocate(dzn_instance *instance,
+                                      ComPtr<IDXGIAdapter1> &adapter,
+                                      const VkAllocationCallbacks *alloc)
+{
+   return (dzn_physical_device *)
+      vk_zalloc(&instance->vk.alloc, sizeof(dzn_physical_device), 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
+}
+
+void
+dzn_physical_device_factory::deallocate(dzn_physical_device *device,
+                                        const VkAllocationCallbacks *alloc)
+{
+   vk_free(&device->instance->vk.alloc, device);
+}
+
+VkResult
+dzn_instance::enumerate_physical_devices(uint32_t *pPhysicalDeviceCount,
+                                         VkPhysicalDevice *pPhysicalDevices)
+{
+   if (!physical_devices_enumerated) {
+      physical_devices_enumerated = true;
+
+      ComPtr<IDXGIFactory4> factory = dxgi_get_factory(false);
+      ComPtr<IDXGIAdapter1> adapter(NULL);
+      for (UINT i = 0; SUCCEEDED(factory->EnumAdapters1(i, &adapter)); ++i) {
+         if (debug_flags & DZN_DEBUG_WARP) {
+            DXGI_ADAPTER_DESC1 desc;
+            adapter->GetDesc1(&desc);
+            if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0)
+               continue;
          }
+
+         dzn_physical_device *pdev;
+         VkResult result =
+            dzn_physical_device_factory::create(this, adapter, NULL, &pdev);
+         if (result != VK_SUCCESS)
+            return result;
+
+         physical_devices.push_back(dzn_object_unique_ptr<dzn_physical_device>(pdev));
       }
-
-      dzn_physical_device *pdevice;
-      result = create_pysical_device(instance, adapter, &pdevice);
-      if (result != VK_SUCCESS)
-         break;
-
-      list_addtail(&pdevice->link, &instance->physical_devices);
    }
 
-   return result;
+   VK_OUTARRAY_MAKE_TYPED(VkPhysicalDevice, out, pPhysicalDevices,
+                          pPhysicalDeviceCount);
+
+   for (auto &pdevice : physical_devices) {
+      vk_outarray_append_typed(VkPhysicalDevice, &out, i)
+      {
+         *i = dzn_physical_device_to_handle(pdevice.get());
+      }
+   }
+
+   return vk_outarray_status(&out);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -300,22 +299,9 @@ dzn_EnumeratePhysicalDevices(VkInstance _instance,
                              VkPhysicalDevice *pPhysicalDevices)
 {
    VK_FROM_HANDLE(dzn_instance, instance, _instance);
-   VK_OUTARRAY_MAKE_TYPED(VkPhysicalDevice, out, pPhysicalDevices,
-                          pPhysicalDeviceCount);
 
-   VkResult result = dzn_enumerate_physical_devices(instance);
-   if (result != VK_SUCCESS)
-      return result;
-
-   list_for_each_entry(dzn_physical_device, pdevice, &instance->physical_devices, link)
-   {
-      vk_outarray_append_typed(VkPhysicalDevice, &out, i)
-      {
-         *i = dzn_physical_device_to_handle(pdevice);
-      }
-   }
-
-   return vk_outarray_status(&out);
+   return instance->enumerate_physical_devices(pPhysicalDeviceCount,
+                                               pPhysicalDevices);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -833,7 +819,7 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
 
    d3d12_enable_debug_layer();
 
-   dev = d3d12_create_device(physical_device->adapter, false);
+   dev = d3d12_create_device(physical_device->adapter.Get(), false);
    if (!dev) {
       vk_device_finish(&vk);
       throw vk_error(instance, VK_ERROR_UNKNOWN);
