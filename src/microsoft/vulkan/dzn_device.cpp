@@ -758,45 +758,41 @@ dzn_EnumerateInstanceLayerProperties(uint32_t *pPropertyCount,
    return vk_error(NULL, VK_ERROR_LAYER_NOT_PRESENT);
 }
 
-static VkResult
-queue_init(dzn_device *device, dzn_queue *queue,
-           const VkDeviceQueueCreateInfo *pCreateInfo)
+dzn_queue::dzn_queue(dzn_device *dev,
+                     const VkDeviceQueueCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *alloc)
 {
-   VkResult res;
-   queue->device = device;
+   VkResult result = vk_queue_init(&vk, &dev->vk, pCreateInfo, 0);
+   if (result != VK_SUCCESS)
+      throw result;
 
-   res = vk_queue_init(&queue->vk, &device->vk, pCreateInfo, 0);
-   if (res != VK_SUCCESS)
-      return res;
+   device = dev;
 
-   D3D12_COMMAND_QUEUE_DESC queue_desc = {};
-   queue_desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-   queue_desc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
-   queue_desc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-   queue_desc.NodeMask = 0;
+   D3D12_COMMAND_QUEUE_DESC queue_desc = {
+      .Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
+      .Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
+      .Flags = D3D12_COMMAND_QUEUE_FLAG_NONE,
+      .NodeMask = 0,
+   };
 
    if (FAILED(device->dev->CreateCommandQueue(&queue_desc,
-                                              IID_PPV_ARGS(&queue->cmdqueue)))) {
-      vk_queue_finish(&queue->vk);
-      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
-   }
+                                              IID_PPV_ARGS(&cmdqueue))))
+      throw vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
 
    if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-                                       IID_PPV_ARGS(&queue->fence))))
-      return vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
-
-   queue->fence_point = 0;
-   return VK_SUCCESS;
+                                       IID_PPV_ARGS(&fence))))
+      throw vk_error(device, VK_ERROR_INITIALIZATION_FAILED);
 }
 
-static void
-queue_finish(dzn_queue *queue)
+dzn_queue::~dzn_queue()
 {
-   if (!queue->cmdqueue)
-      return;
+   vk_queue_finish(&vk);
+}
 
-   queue->cmdqueue->Release();
-   vk_queue_finish(&queue->vk);
+const VkAllocationCallbacks *
+dzn_queue::get_vk_allocator()
+{
+   return &device->vk.alloc;
 }
 
 static VkResult
@@ -814,6 +810,140 @@ check_physical_device_features(VkPhysicalDevice physicalDevice,
    }
 
    return VK_SUCCESS;
+}
+
+dzn_device::dzn_device(VkPhysicalDevice pdev,
+                       const VkDeviceCreateInfo *pCreateInfo,
+                       const VkAllocationCallbacks *pAllocator)
+{
+   physical_device = dzn_physical_device_from_handle(pdev);
+   instance = physical_device->instance;
+
+   vk_device_dispatch_table dispatch_table;
+   vk_device_dispatch_table_from_entrypoints(&dispatch_table,
+      &dzn_device_entrypoints, true);
+   vk_device_dispatch_table_from_entrypoints(&dispatch_table,
+      &wsi_device_entrypoints, false);
+
+   VkResult result =
+      vk_device_init(&vk, &physical_device->vk,
+                     &dispatch_table, pCreateInfo, pAllocator);
+   if (result != VK_SUCCESS)
+      throw result;
+
+   d3d12_enable_debug_layer();
+
+   dev = d3d12_create_device(physical_device->adapter, false);
+   if (!dev) {
+      vk_device_finish(&vk);
+      throw vk_error(instance, VK_ERROR_UNKNOWN);
+   }
+
+   ID3D12InfoQueue *info_queue;
+   if (SUCCEEDED(dev->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
+      D3D12_MESSAGE_SEVERITY severities[] = {
+         D3D12_MESSAGE_SEVERITY_INFO,
+         D3D12_MESSAGE_SEVERITY_WARNING,
+      };
+
+      D3D12_MESSAGE_ID msg_ids[] = {
+         D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+      };
+
+      D3D12_INFO_QUEUE_FILTER NewFilter = {};
+      NewFilter.DenyList.NumSeverities = ARRAY_SIZE(severities);
+      NewFilter.DenyList.pSeverityList = severities;
+      NewFilter.DenyList.NumIDs = ARRAY_SIZE(msg_ids);
+      NewFilter.DenyList.pIDList = msg_ids;
+
+      info_queue->PushStorageFilter(&NewFilter);
+   }
+
+   assert(pCreateInfo->queueCreateInfoCount == 1);
+   dzn_queue *q;
+   result = dzn_queue_factory::create(this,
+                                      &pCreateInfo->pQueueCreateInfos[0],
+                                      NULL, &q);
+   if (result != VK_SUCCESS) {
+      vk_device_finish(&vk);
+      throw result;
+   }
+
+   queue = dzn_object_unique_ptr<dzn_queue>(q);
+
+   struct d3d12_descriptor_pool *pool =
+      d3d12_descriptor_pool_new(dev.Get(),
+                                D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+                                64);
+   if (!pool) {
+      vk_device_finish(&vk);
+      throw vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
+
+   pool = d3d12_descriptor_pool_new(dev.Get(),
+                                    D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+                                    64);
+   if (!pool) {
+      vk_device_finish(&vk);
+      throw vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
+
+   dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1,
+                            &arch, sizeof(arch));
+}
+
+dzn_device::~dzn_device()
+{
+   /* We need to explicitly reset the queue before calling vk_device_finish(),
+    * otherwise the queue list maintained by the vk_device object is not empty
+    * which makes vk_device_finish() unhappy.
+    */
+   queue.reset(NULL);
+   vk_device_finish(&vk);
+}
+
+void
+dzn_device::alloc_rtv_handle(struct d3d12_descriptor_handle *handle)
+{
+   std::lock_guard<std::mutex> lock(pools_lock);
+   d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), handle);
+}
+
+void
+dzn_device::alloc_dsv_handle(struct d3d12_descriptor_handle *handle)
+{
+   std::lock_guard<std::mutex> lock(pools_lock);
+   d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), handle);
+}
+
+void
+dzn_device::free_handle(struct d3d12_descriptor_handle *handle)
+{
+   std::lock_guard<std::mutex> lock(pools_lock);
+   d3d12_descriptor_handle_free(handle);
+}
+
+dzn_device *
+dzn_device_factory::allocate(VkPhysicalDevice physical_device,
+                             const VkDeviceCreateInfo *pCreateInfo,
+                             const VkAllocationCallbacks *pAllocator)
+{
+   VK_FROM_HANDLE(dzn_physical_device, pdev, physical_device);
+
+   return (dzn_device *)
+      vk_zalloc2(&pdev->instance->vk.alloc, pAllocator,
+                 sizeof(dzn_device), 8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+}
+
+void
+dzn_device_factory::deallocate(dzn_device *device,
+                               const VkAllocationCallbacks *pAllocator)
+{
+   vk_free2(&device->instance->vk.alloc, pAllocator, device);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -846,112 +976,19 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
          return vk_error(instance, VK_ERROR_INITIALIZATION_FAILED);
    }
 
-   dzn_device *device = (dzn_device *)vk_zalloc2(
-      &physical_device->instance->vk.alloc, pAllocator,
-      sizeof(*device), 8, VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
-   if (!device)
-      return vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   mtx_init(&device->pools_lock, mtx_plain);
-   vk_device_dispatch_table dispatch_table;
-   vk_device_dispatch_table_from_entrypoints(&dispatch_table,
-      &dzn_device_entrypoints, true);
-   vk_device_dispatch_table_from_entrypoints(&dispatch_table,
-      &wsi_device_entrypoints, false);
-
-   result = vk_device_init(&device->vk, &physical_device->vk,
-                           &dispatch_table, pCreateInfo, pAllocator);
-   if (result != VK_SUCCESS) {
-      vk_error(instance, result);
-      goto fail;
-   }
-
-   device->instance = instance;
-   device->physical_device = physical_device;
-
-   d3d12_enable_debug_layer();
-
-   device->dev = d3d12_create_device(physical_device->adapter, false);
-   if (!device->dev) {
-      vk_error(instance, VK_ERROR_UNKNOWN);
-      goto fail;
-   }
-
-   ID3D12InfoQueue *info_queue;
-   if (SUCCEEDED(device->dev->QueryInterface(IID_PPV_ARGS(&info_queue)))) {
-      D3D12_MESSAGE_SEVERITY severities[] = {
-         D3D12_MESSAGE_SEVERITY_INFO,
-         D3D12_MESSAGE_SEVERITY_WARNING,
-      };
-
-      D3D12_MESSAGE_ID msg_ids[] = {
-         D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
-      };
-
-      D3D12_INFO_QUEUE_FILTER NewFilter = {};
-      NewFilter.DenyList.NumSeverities = ARRAY_SIZE(severities);
-      NewFilter.DenyList.pSeverityList = severities;
-      NewFilter.DenyList.NumIDs = ARRAY_SIZE(msg_ids);
-      NewFilter.DenyList.pIDList = msg_ids;
-
-      info_queue->PushStorageFilter(&NewFilter);
-   }
-
-   assert(pCreateInfo->queueCreateInfoCount == 1);
-   result = queue_init(device, &device->queue, &pCreateInfo->pQueueCreateInfos[0]);
-   if (result != VK_SUCCESS)
-      goto fail;
-
-   device->rtv_pool =
-      d3d12_descriptor_pool_new(device->dev,
-                                D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                                64);
-   device->dsv_pool =
-      d3d12_descriptor_pool_new(device->dev,
-                                D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-                                64);
-   if (!device->rtv_pool || !device->dsv_pool)
-      goto fail;
-
-   device->dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1,
-      &device->arch, sizeof(device->arch));
-
-   *pDevice = dzn_device_to_handle(device);
-
-   return VK_SUCCESS;
-
-fail:
-   if (device->rtv_pool)
-      d3d12_descriptor_pool_free(device->rtv_pool);
-
-   if (device->dsv_pool)
-      d3d12_descriptor_pool_free(device->dsv_pool);
-
-   mtx_destroy(&device->pools_lock);
-   vk_free(&device->vk.alloc, device);
-
-   return result;
+   return dzn_device_factory::create(physicalDevice,
+                                     pCreateInfo, pAllocator, pDevice);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyDevice(VkDevice _device,
+dzn_DestroyDevice(VkDevice dev,
                   const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_device, device, dev);
 
-   dzn_DeviceWaitIdle(_device);
+   dzn_DeviceWaitIdle(dev);
 
-   queue_finish(&device->queue);
-
-   if (device->rtv_pool)
-      d3d12_descriptor_pool_free(device->rtv_pool);
-
-   if (device->dsv_pool)
-      d3d12_descriptor_pool_free(device->dsv_pool);
-
-   vk_device_finish(&device->vk);
-   mtx_destroy(&device->pools_lock);
-   vk_free(&device->vk.alloc, device);
+   dzn_device_factory::destroy(dev, pAllocator);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -965,7 +1002,7 @@ dzn_GetDeviceQueue(VkDevice _device,
    assert(queueIndex == 0);
    assert(queueFamilyIndex == 0);
 
-   *pQueue = dzn_queue_to_handle(&device->queue);
+   *pQueue = dzn_queue_to_handle(device->queue.get());
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1024,7 +1061,7 @@ dzn_QueueSubmit(VkQueue _queue,
    if (fence)
       queue->cmdqueue->Signal(fence->fence, 1);
 
-   queue->cmdqueue->Signal(queue->fence, ++queue->fence_point);
+   queue->cmdqueue->Signal(queue->fence.Get(), ++queue->fence_point);
 
    if (queue->device->physical_device->instance->debug_flags & DZN_DEBUG_SYNC)
       dzn_QueueWaitIdle(_queue);

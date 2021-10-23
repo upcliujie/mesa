@@ -112,7 +112,7 @@ d3d12_enable_gpu_validation()
       debug3->SetEnableGPUBasedValidation(true);
 }
 
-ID3D12Device *
+ComPtr<ID3D12Device>
 d3d12_create_device(IUnknown *adapter, bool experimental_features)
 {
    typedef HRESULT(WINAPI *PFN_D3D12CREATEDEVICE)(IUnknown*, D3D_FEATURE_LEVEL, REFIID, void**);
@@ -145,7 +145,7 @@ d3d12_create_device(IUnknown *adapter, bool experimental_features)
       return NULL;
    }
 
-   ID3D12Device *dev;
+   ComPtr<ID3D12Device> dev;
    if (SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0,
                  IID_PPV_ARGS(&dev))))
       return dev;

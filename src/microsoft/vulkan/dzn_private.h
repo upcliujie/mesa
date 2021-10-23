@@ -49,11 +49,15 @@
 
 #define D3D12_IGNORE_SDK_LAYERS
 #include <directx/d3d12.h>
+#include <wrl/client.h>
 
 #include "d3d12_descriptor_pool.h"
 
 #include <memory>
+#include <mutex>
 #include <vector>
+
+using Microsoft::WRL::ComPtr;
 
 struct dzn_instance;
 
@@ -167,7 +171,7 @@ d3d12_enable_debug_layer();
 void
 d3d12_enable_gpu_validation();
 
-ID3D12Device *
+ComPtr<ID3D12Device>
 d3d12_create_device(IUnknown *adapter, bool experimental_features);
 
 UINT
@@ -179,26 +183,42 @@ struct dzn_queue {
    struct vk_queue vk;
    struct dzn_device *device;
 
-   ID3D12CommandQueue *cmdqueue;
-   ID3D12Fence *fence;
-   uint64_t fence_point;
+   ComPtr<ID3D12CommandQueue> cmdqueue;
+   ComPtr<ID3D12Fence> fence;
+   uint64_t fence_point = 0;
+
+   dzn_queue(dzn_device *device,
+             const VkDeviceQueueCreateInfo *pCreateInfo,
+             const VkAllocationCallbacks *alloc);
+   ~dzn_queue();
+   const VkAllocationCallbacks *get_vk_allocator();
 };
 
 struct dzn_device {
    struct vk_device vk;
 
-   struct dzn_instance *instance;
-   struct dzn_physical_device *physical_device;
+   struct dzn_instance *instance = NULL;
+   struct dzn_physical_device *physical_device = NULL;
 
-   struct dzn_queue queue;
+   dzn_object_unique_ptr<dzn_queue> queue;
 
    struct vk_device_extension_table enabled_extensions;
    struct vk_device_dispatch_table dispatch;
 
-   ID3D12Device *dev;
-   mtx_t pools_lock;
-   struct d3d12_descriptor_pool *rtv_pool, *dsv_pool;
+   ComPtr<ID3D12Device> dev;
    D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
+
+   dzn_device(VkPhysicalDevice pdev,
+              const VkDeviceCreateInfo *pCreateInfo,
+              const VkAllocationCallbacks *pAllocator);
+   ~dzn_device();
+   void alloc_rtv_handle(struct d3d12_descriptor_handle *handle);
+   void alloc_dsv_handle(struct d3d12_descriptor_handle *handle);
+   void free_handle(struct d3d12_descriptor_handle *handle);
+private:
+   std::mutex pools_lock;
+   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
+   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> dsv_pool;
 };
 
 struct dzn_device_memory {
@@ -757,5 +777,8 @@ public: \
 \
 typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS__> \
         __drv_type ## _factory
+
+DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
+DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */

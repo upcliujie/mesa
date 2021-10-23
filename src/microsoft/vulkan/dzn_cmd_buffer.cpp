@@ -185,7 +185,7 @@ dzn_create_cmd_buffer(struct dzn_device *device,
    cmd_buffer->level = level;
 
    cmd_buffer->rtv_pool =
-      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+      d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
    if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       cmd_buffer->type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -280,7 +280,7 @@ dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmd_buffer)
    /* TODO: Return heaps to the command pool instead of freeing them */
    d3d12_descriptor_pool_free(cmd_buffer->rtv_pool);
    cmd_buffer->rtv_pool =
-      d3d12_descriptor_pool_new(cmd_buffer->device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+      d3d12_descriptor_pool_new(cmd_buffer->device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
    util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
       (*heap)->Release();
@@ -512,7 +512,7 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
       .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
    };
 
-   ID3D12Device *dev = cmd_buffer->device->dev;
+   ID3D12Device *dev = cmd_buffer->device->dev.Get();
 
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
@@ -578,7 +578,7 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
       .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
    };
 
-   ID3D12Device *dev = cmd_buffer->device->dev;
+   ID3D12Device *dev = cmd_buffer->device->dev.Get();
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
 
@@ -659,7 +659,7 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_image, src, pCopyImageInfo->srcImage);
    VK_FROM_HANDLE(dzn_image, dst, pCopyImageInfo->dstImage);
 
-   ID3D12Device *dev = cmd_buffer->device->dev;
+   ID3D12Device *dev = cmd_buffer->device->dev.Get();
    dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
 
