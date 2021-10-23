@@ -1055,32 +1055,16 @@ dzn_QueueSubmit(VkQueue _queue,
    return VK_SUCCESS;
 }
 
-
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_AllocateMemory(VkDevice _device,
-                   const VkMemoryAllocateInfo *pAllocateInfo,
-                   const VkAllocationCallbacks *pAllocator,
-                   VkDeviceMemory *pMem)
+dzn_device_memory::dzn_device_memory(dzn_device *device,
+                                     const VkMemoryAllocateInfo *pAllocateInfo,
+                                     const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_physical_device *pdevice = device->physical_device;
-   struct dzn_device_memory *mem;
-   VkResult result = VK_SUCCESS;
-
-   assert(pAllocateInfo->sType == VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO);
 
    /* The Vulkan 1.0.33 spec says "allocationSize must be greater than 0". */
    assert(pAllocateInfo->allocationSize > 0);
 
-   mem = (struct dzn_device_memory *)
-      vk_object_alloc(&device->vk, pAllocator, sizeof(*mem),
-                      VK_OBJECT_TYPE_DEVICE_MEMORY);
-   if (mem == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   mem->size = pAllocateInfo->allocationSize;
-   mem->map = NULL;
-   mem->map_size = 0;
+   size = pAllocateInfo->allocationSize;
 
 #if 0
    const VkExportMemoryAllocateInfo *export_info = NULL;
@@ -1101,7 +1085,7 @@ dzn_AllocateMemory(VkDevice _device,
    heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
    /* TODO: Unsure about this logic??? */
-   mem->initial_state = D3D12_RESOURCE_STATE_COMMON;
+   initial_state = D3D12_RESOURCE_STATE_COMMON;
    heap_desc.Properties.Type = D3D12_HEAP_TYPE_CUSTOM;
    heap_desc.Properties.MemoryPoolPreference =
       ((mem_type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) && !device->arch.UMA) ?
@@ -1114,10 +1098,8 @@ dzn_AllocateMemory(VkDevice _device,
       heap_desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_NOT_AVAILABLE;
    }
 
-   if (FAILED(device->dev->CreateHeap(&heap_desc, IID_PPV_ARGS(&mem->heap)))) {
-      result = vk_error(device, VK_ERROR_UNKNOWN);
-      goto fail;
-   }
+   if (FAILED(device->dev->CreateHeap(&heap_desc, IID_PPV_ARGS(&heap))))
+      throw vk_error(device, VK_ERROR_UNKNOWN);
 
    if (mem_type->propertyFlags &
        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
@@ -1133,15 +1115,12 @@ dzn_AllocateMemory(VkDevice _device,
       res_desc.SampleDesc.Quality = 0;
       res_desc.Flags = D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
       res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-      HRESULT hr = device->dev->CreatePlacedResource(mem->heap, 0, &res_desc,
-                                                     mem->initial_state,
-                                                     NULL, IID_PPV_ARGS(&mem->map_res));
-      if (FAILED(hr)) {
-         result = vk_error(device, VK_ERROR_UNKNOWN);
-         goto fail;
-      }
-   } else
-      mem->map_res = NULL;
+      HRESULT hr = device->dev->CreatePlacedResource(heap.Get(), 0, &res_desc,
+                                                     initial_state,
+                                                     NULL, IID_PPV_ARGS(&map_res));
+      if (FAILED(hr))
+         throw vk_error(device, VK_ERROR_UNKNOWN);
+   }
 
 #if 0
    pthread_mutex_lock(&device->mutex);
@@ -1149,45 +1128,46 @@ dzn_AllocateMemory(VkDevice _device,
    pthread_mutex_unlock(&device->mutex);
 #endif
 
-   *pMem = dzn_device_memory_to_handle(mem);
-
-   return VK_SUCCESS;
-
- fail:
-   vk_object_free(&device->vk, pAllocator, mem);
-
-   return result;
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DEVICE_MEMORY);
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_FreeMemory(VkDevice _device,
-               VkDeviceMemory _mem,
-               const VkAllocationCallbacks *pAllocator)
+dzn_device_memory::~dzn_device_memory()
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_device_memory, mem, _mem);
-
-   if (mem == NULL)
-      return;
-
 #if 0
    pthread_mutex_lock(&device->mutex);
-   list_del(&mem->link);
+   list_del(&link);
    pthread_mutex_unlock(&device->mutex);
 #endif
 
-   if (mem->map)
-      dzn_UnmapMemory(_device, _mem);
+   if (map) {
+      map_res->Unmap(0, NULL);
+      map = NULL;
+   }
 
 #if 0
    p_atomic_add(&device->physical->memory.heaps[mem->type->heapIndex].used,
                 -mem->bo->size);
 #endif
 
-   mem->map_res->Release();
-   mem->heap->Release();
+   vk_object_base_finish(&base);
+}
 
-   vk_object_free(&device->vk, pAllocator, mem);
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_AllocateMemory(VkDevice device,
+                   const VkMemoryAllocateInfo *pAllocateInfo,
+                   const VkAllocationCallbacks *pAllocator,
+                   VkDeviceMemory *pMem)
+{
+   return dzn_device_memory_factory::create(device, pAllocateInfo,
+                                            pAllocator, pMem);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_FreeMemory(VkDevice device,
+               VkDeviceMemory mem,
+               const VkAllocationCallbacks *pAllocator)
+{
+   dzn_device_memory_factory::destroy(device, mem, pAllocator);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1383,7 +1363,7 @@ dzn_BindBufferMemory2(VkDevice _device,
       VK_FROM_HANDLE(dzn_device_memory, mem, pBindInfos[i].memory);
       VK_FROM_HANDLE(dzn_buffer, buffer, pBindInfos[i].buffer);
 
-      HRESULT hr = device->dev->CreatePlacedResource(mem->heap,
+      HRESULT hr = device->dev->CreatePlacedResource(mem->heap.Get(),
                                                      pBindInfos[i].memoryOffset,
                                                      &buffer->desc,
                                                      mem->initial_state,

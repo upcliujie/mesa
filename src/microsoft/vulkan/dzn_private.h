@@ -231,15 +231,20 @@ struct dzn_device_memory {
 
    struct list_head link;
 
-   ID3D12Heap *heap;
+   ComPtr<ID3D12Heap> heap;
    VkDeviceSize size;
    D3D12_RESOURCE_STATES initial_state; /* initial state for this memory type */
 
    /* A buffer-resource spanning the entire heap, used for mapping memory */
-   ID3D12Resource *map_res;
+   ComPtr<ID3D12Resource> map_res;
 
-   VkDeviceSize map_size;
-   void *map;
+   VkDeviceSize map_size = 0;
+   void *map = NULL;
+
+   dzn_device_memory(dzn_device *device,
+                     const VkMemoryAllocateInfo *pAllocateInfo,
+                     const VkAllocationCallbacks *pAllocator);
+   ~dzn_device_memory();
 };
 
 enum dzn_cmd_bindpoint_dirty {
@@ -792,6 +797,7 @@ typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS_
         __drv_type ## _factory
 
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
+DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<IDXGIAdapter1> &);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
