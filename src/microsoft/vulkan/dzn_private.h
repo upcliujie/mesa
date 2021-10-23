@@ -508,4 +508,175 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, base, VkSampler, VK_OBJECT_TYPE_SAMP
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_semaphore, base, VkSemaphore, VK_OBJECT_TYPE_SEMAPHORE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_shader_module, base, VkShaderModule, VK_OBJECT_TYPE_SHADER_MODULE)
 
+template <typename DT, typename VH, typename Conv, typename... CreateArgs>
+class dzn_object_factory {
+public:
+   static VkResult
+   create(CreateArgs... args,
+          const VkAllocationCallbacks *alloc,
+          DT **obj_ptr)
+   {
+      DT *obj = allocate(std::forward<CreateArgs>(args)..., alloc);
+      if (obj == NULL)
+         return vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+      try {
+         std::construct_at(obj, std::forward<CreateArgs>(args)..., alloc);
+         *obj_ptr = obj;
+      } catch (VkResult error) {
+         deallocate(obj, alloc);
+         return error;
+      }
+
+      return VK_SUCCESS;
+   }
+
+   static VkResult
+   create(CreateArgs... args,
+          const VkAllocationCallbacks *alloc,
+          VH *handle)
+   {
+      DT *obj = NULL;
+      VkResult result =
+         create(std::forward<CreateArgs>(args)..., alloc, &obj);
+
+      if (result == VK_SUCCESS)
+         *handle = Conv::to_handle(obj);
+
+      return VK_SUCCESS;
+   }
+
+   static void
+   destroy(DT *obj,
+           const VkAllocationCallbacks *alloc)
+   {
+      if (obj) {
+         std::destroy_at(obj);
+         deallocate(obj, alloc);
+      }
+   }
+
+   static void
+   destroy(VH handle,
+           const VkAllocationCallbacks *alloc)
+   {
+      destroy(Conv::from_handle(handle), alloc);
+   }
+
+private:
+   static DT *
+   allocate(CreateArgs... args,
+            const VkAllocationCallbacks *allocator)
+   {
+      return (DT *)vk_zalloc(vk_default_allocator(), allocator,
+                             sizeof(DT), 8,
+                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   }
+
+   static void
+   deallocate(DT *obj,
+              const VkAllocationCallbacks *alloc)
+   {
+      vk_free2(vk_default_allocator(), alloc, obj);
+   }
+};
+
+template <typename DT, typename VH, typename Conv, typename... CreateArgs>
+class dzn_object_factory<DT, VH, Conv, VkDevice, CreateArgs...> {
+public:
+   static VkResult
+   create(dzn_device *device,
+          CreateArgs... args,
+          const VkAllocationCallbacks *alloc,
+          DT **obj_ptr)
+   {
+      DT *obj = allocate(device, std::forward<CreateArgs>(args)..., alloc);
+      if (obj == NULL)
+         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+      try {
+         std::construct_at(obj, device, std::forward<CreateArgs>(args)..., alloc);
+         *obj_ptr = obj;
+      } catch (VkResult error) {
+         deallocate(device, obj, alloc);
+         return error;
+      }
+
+      return VK_SUCCESS;
+   }
+
+   static VkResult
+   create(VkDevice dev,
+          CreateArgs... args,
+          const VkAllocationCallbacks *alloc,
+          VH *handle)
+   {
+      VK_FROM_HANDLE(dzn_device, device, dev);
+      DT *obj = NULL;
+      VkResult result =
+         create(device, std::forward<CreateArgs>(args)..., alloc, &obj);
+
+      if (result == VK_SUCCESS)
+         *handle = Conv::to_handle(obj);
+
+      return result;
+   }
+
+   static void
+   destroy(dzn_device *dev,
+           DT *obj,
+           const VkAllocationCallbacks *alloc)
+   {
+      if (obj) {
+         std::destroy_at(obj);
+         deallocate(dev, obj, alloc);
+      }
+   }
+
+   static void
+   destroy(VkDevice dev,
+           VH handle,
+           const VkAllocationCallbacks *alloc)
+   {
+      VK_FROM_HANDLE(dzn_device, device, dev);
+      DT *obj = Conv::from_handle(handle);
+
+      destroy(device, obj, alloc);
+   }
+
+private:
+   static DT *
+   allocate(dzn_device *device, CreateArgs... args,
+            const VkAllocationCallbacks *allocator)
+   {
+      return (DT *)vk_alloc2(&device->vk.alloc, allocator,
+                             sizeof(DT), alignof(DT),
+                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   }
+
+   static void
+   deallocate(dzn_device *device, DT *obj,
+              const VkAllocationCallbacks *alloc)
+   {
+      vk_free2(&device->vk.alloc, alloc, obj);
+   }
+};
+
+#define DZN_OBJ_FACTORY(__drv_type, __VkType, ...) \
+class __drv_type ## _conv \
+{ \
+public: \
+   static __drv_type *from_handle(__VkType handle) \
+   { \
+      return __drv_type ## _from_handle(handle); \
+   } \
+   static __VkType to_handle(__drv_type *obj) \
+   { \
+      return __drv_type ## _to_handle(obj); \
+   } \
+}; \
+\
+typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS__> \
+        __drv_type ## _factory
+
 #endif /* DZN_PRIVATE_H */
