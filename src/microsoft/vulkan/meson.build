@@ -45,7 +45,7 @@ libdzn_files = files(
   'dzn_state.cpp',
   'dzn_util.cpp',
   'dzn_util.c',
-  'dzn_wsi.c',
+  'dzn_wsi.cpp',
 )
 
 dzn_deps = [

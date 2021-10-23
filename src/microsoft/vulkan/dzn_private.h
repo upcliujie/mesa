@@ -413,8 +413,6 @@ struct dzn_sampler {
 #ifdef __cplusplus
 extern "C" {
 #endif
-VkResult dzn_wsi_init(struct dzn_physical_device *physical_device);
-void dzn_wsi_finish(struct dzn_physical_device *physical_device);
 DXGI_FORMAT dzn_pipe_to_dxgi_format(enum pipe_format in);
 D3D12_FILTER dzn_translate_sampler_filter(const VkSamplerCreateInfo *create_info);
 D3D12_COMPARISON_FUNC dzn_translate_compare_op(VkCompareOp in);
@@ -423,6 +421,9 @@ void dzn_translate_scissor(D3D12_RECT *out, const VkRect2D *in);
 #ifdef __cplusplus
 }
 #endif
+
+VkResult dzn_wsi_init(struct dzn_physical_device *physical_device);
+void dzn_wsi_finish(struct dzn_physical_device *physical_device);
 
 struct dzn_app_info {
    const char *app_name;
