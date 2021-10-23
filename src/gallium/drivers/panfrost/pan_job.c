@@ -124,7 +124,7 @@ panfrost_batch_cleanup(struct panfrost_context *ctx, struct panfrost_batch *batc
                 panfrost_bo_unreference(bo);
         }
 
-        set_foreach_remove(batch->resources, entry) {
+        set_foreach(batch->resources, entry) {
                 struct panfrost_resource *rsrc = (void *) entry->key;
 
                 if (_mesa_hash_table_search(ctx->writers, rsrc)) {
@@ -814,6 +814,26 @@ panfrost_flush_writer(struct panfrost_context *ctx,
                 perf_debug_ctx(ctx, "Flushing writer due to: %s", reason);
                 panfrost_batch_submit(ctx, entry->data, ctx->syncobj, ctx->syncobj);
         }
+}
+
+void
+panfrost_orphan_readers(struct panfrost_context *ctx,
+                        struct panfrost_resource *rsrc)
+{
+        unsigned i;
+        foreach_batch(ctx, i) {
+                struct panfrost_batch *batch = &ctx->batches.slots[i];
+                struct set_entry *ent =
+                        _mesa_set_search(batch->resources, rsrc);
+
+                if (ent) {
+                        _mesa_set_remove(batch->resources, ent);
+                        assert(rsrc->track.nr_users >= 1);
+                        rsrc->track.nr_users--;
+                        pipe_resource_reference((struct pipe_resource **) &rsrc, NULL);
+                }
+        }
+
 }
 
 void

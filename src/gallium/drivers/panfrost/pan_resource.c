@@ -940,8 +940,7 @@ panfrost_ptr_map(struct pipe_context *pctx,
 
                                 panfrost_bo_unreference(bo);
                                 rsrc->image.data.bo = newbo;
-                                rsrc->track.nr_users = 0;
-                                rsrc->track.nr_writers = 0;
+                                panfrost_orphan_readers(ctx, rsrc);
 
 	                        if (!copy_resource &&
                                     drm_is_afbc(rsrc->image.layout.modifier))

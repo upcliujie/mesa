@@ -166,6 +166,10 @@ void
 panfrost_flush_all_batches(struct panfrost_context *ctx, const char *reason);
 
 void
+panfrost_orphan_readers(struct panfrost_context *ctx,
+                        struct panfrost_resource *rsrc);
+
+void
 panfrost_flush_batches_accessing_rsrc(struct panfrost_context *ctx,
                                       struct panfrost_resource *rsrc,
                                       const char *reason);
