@@ -25,45 +25,52 @@
 
 #include "vk_alloc.h"
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateShaderModule(VkDevice _device,
-                       const VkShaderModuleCreateInfo *pCreateInfo,
-                       const VkAllocationCallbacks *pAllocator,
-                       VkShaderModule *pShaderModule)
+dzn_shader_module::dzn_shader_module(dzn_device *device,
+                                     const VkShaderModuleCreateInfo *pCreateInfo,
+                                     const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   struct dzn_shader_module *module;
-
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO);
    assert(pCreateInfo->flags == 0);
    assert(pCreateInfo->codeSize % 4 == 0);
 
-   module = (struct dzn_shader_module *)
-      vk_object_zalloc(&device->vk, pAllocator,
-                       sizeof(*module) + pCreateInfo->codeSize,
-                       VK_OBJECT_TYPE_SHADER_MODULE);
-   if (module == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+   code_size = pCreateInfo->codeSize;
+   memcpy(code, pCreateInfo->pCode, pCreateInfo->codeSize);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_SHADER_MODULE);
+}
 
-   module->code_size = pCreateInfo->codeSize;
-   memcpy(module->code, pCreateInfo->pCode, pCreateInfo->codeSize);
 
-   *pShaderModule = dzn_shader_module_to_handle(module);
+dzn_shader_module::~dzn_shader_module()
+{
+   vk_object_base_finish(&base);
+}
 
-   return VK_SUCCESS;
+dzn_shader_module *
+dzn_shader_module_factory::allocate(dzn_device *device,
+                                    const VkShaderModuleCreateInfo *pCreateInfo,
+                                    const VkAllocationCallbacks *pAllocator)
+{
+   return (dzn_shader_module *)
+      vk_alloc2(&device->vk.alloc, pAllocator,
+                sizeof(dzn_shader_module) + pCreateInfo->codeSize,
+                alignof(dzn_shader_module),
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateShaderModule(VkDevice device,
+                       const VkShaderModuleCreateInfo *pCreateInfo,
+                       const VkAllocationCallbacks *pAllocator,
+                       VkShaderModule *pShaderModule)
+{
+   return dzn_shader_module_factory::create(device, pCreateInfo,
+                                            pAllocator, pShaderModule);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyShaderModule(VkDevice _device,
-                        VkShaderModule _module,
+dzn_DestroyShaderModule(VkDevice device,
+                        VkShaderModule mod,
                         const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_shader_module, module, _module);
-
-   if (!module)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, module);
+   return dzn_shader_module_factory::destroy(device, mod, pAllocator);
 }
 

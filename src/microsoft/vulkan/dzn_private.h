@@ -670,6 +670,11 @@ struct dzn_shader_module {
    struct vk_object_base base;
    uint32_t code_size;
    uint32_t code[0];
+
+   dzn_shader_module(dzn_device *device,
+                     const VkShaderModuleCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator);
+   ~dzn_shader_module();
 };
 
 struct dzn_query_pool {
@@ -900,5 +905,6 @@ DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
 DZN_OBJ_FACTORY(dzn_sampler, VkSampler, VkDevice, const VkSamplerCreateInfo *);
 DZN_OBJ_FACTORY(dzn_semaphore, VkSemaphore, VkDevice, const VkSemaphoreCreateInfo *);
+DZN_OBJ_FACTORY(dzn_shader_module, VkShaderModule, VkDevice, const VkShaderModuleCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */
