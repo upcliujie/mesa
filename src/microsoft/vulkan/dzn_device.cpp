@@ -1045,7 +1045,7 @@ dzn_QueueSubmit(VkQueue _queue,
    }
 
    if (fence)
-      queue->cmdqueue->Signal(fence->fence, 1);
+      queue->cmdqueue->Signal(fence->fence.Get(), 1);
 
    queue->cmdqueue->Signal(queue->fence.Get(), ++queue->fence_point);
 

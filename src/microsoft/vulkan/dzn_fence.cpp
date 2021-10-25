@@ -29,60 +29,48 @@
 
 #include "util/macros.h"
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateFence(VkDevice _device,
-                const VkFenceCreateInfo *pCreateInfo,
-                const VkAllocationCallbacks *pAllocator,
-                VkFence *pFence)
+dzn_fence::dzn_fence(dzn_device *device,
+                     const VkFenceCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_FENCE_CREATE_INFO);
-
-   dzn_fence *fence = (dzn_fence *)
-      vk_object_alloc(&device->vk, pAllocator, sizeof(*fence),
-                      VK_OBJECT_TYPE_FENCE);
-   if (fence == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   BOOL initial_state = FALSE;
-   if (pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT) {
-      initial_state = TRUE;
-   }
+   BOOL initial_state =
+      pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT ? TRUE : FALSE;
 
    /* I suspect that this approach is bunk, and we should instead create the actual
     * fence object on the cmdqueue and just signal things on the dzn_fence object
     * instead. But I don't know yet, so let's just leave it like this for now...
     */
    if (FAILED(device->dev->CreateFence(initial_state ? 1 : 0, D3D12_FENCE_FLAG_NONE,
-                                       IID_PPV_ARGS(&fence->fence)))) {
-      vk_object_free(&device->vk, pAllocator, fence);
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
+                                       IID_PPV_ARGS(&fence))))
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   fence->event = CreateEventA(NULL, TRUE, initial_state, NULL);
-   fence->fence->SetEventOnCompletion(1, fence->event);
+   event = CreateEventA(NULL, TRUE, initial_state, NULL);
+   fence->SetEventOnCompletion(1, event);
 
-   *pFence = dzn_fence_to_handle(fence);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_FENCE);
+}
 
-   return VK_SUCCESS;
+dzn_fence::~dzn_fence()
+{
+   vk_object_base_finish(&base);
+   CloseHandle(event);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateFence(VkDevice device,
+                const VkFenceCreateInfo *pCreateInfo,
+                const VkAllocationCallbacks *pAllocator,
+                VkFence *pFence)
+{
+   return dzn_fence_factory::create(device, pCreateInfo, pAllocator, pFence);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyFence(VkDevice _device,
-                 VkFence _fence,
+dzn_DestroyFence(VkDevice device,
+                 VkFence fence,
                  const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_fence, fence, _fence);
-
-   if (fence == NULL)
-      return;
-
-   fence->fence->Release();
-   CloseHandle(fence->event);
-
-   vk_object_free(&device->vk, pAllocator, fence);
+   return dzn_fence_factory::destroy(device, fence, pAllocator);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

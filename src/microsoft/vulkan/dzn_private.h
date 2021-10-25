@@ -646,8 +646,13 @@ struct dzn_semaphore {
 struct dzn_fence {
    struct vk_object_base base;
 
-   ID3D12Fence *fence;
+   ComPtr<ID3D12Fence> fence;
    HANDLE event;
+
+   dzn_fence(dzn_device *device,
+             const VkFenceCreateInfo *pCreateInfo,
+             const VkAllocationCallbacks *pAllocator);
+   ~dzn_fence();
 };
 
 struct dzn_event {
@@ -877,6 +882,7 @@ DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_po
 DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
+DZN_OBJ_FACTORY(dzn_fence, VkFence, VkDevice, const VkFenceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_framebuffer, VkFramebuffer, VkDevice, const VkFramebufferCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image_view, VkImageView, VkDevice, const VkImageViewCreateInfo *);
