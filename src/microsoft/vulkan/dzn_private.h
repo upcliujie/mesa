@@ -52,6 +52,7 @@
 #include <dxcapi.h>
 #include <wrl/client.h>
 
+#include "spirv_to_dxil.h"
 #include "d3d12_descriptor_pool.h"
 
 #include <memory>
@@ -306,6 +307,7 @@ struct dzn_device_memory {
 enum dzn_cmd_bindpoint_dirty {
    DZN_CMD_BINDPOINT_DIRTY_PIPELINE = 1 << 0,
    DZN_CMD_BINDPOINT_DIRTY_HEAPS = 1 << 1,
+   DZN_CMD_BINDPOINT_DIRTY_SYSVALS = 1 << 2,
 };
 
 enum dzn_cmd_dirty {
@@ -350,6 +352,8 @@ struct dzn_cmd_buffer {
 
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
    struct dzn_cmd_pool *pool;
+   using sysval_bufs_allocator = dzn_allocator<ComPtr<ID3D12Resource>>;
+   std::vector<ComPtr<ID3D12Resource>, sysval_bufs_allocator> sysval_bufs;
 
    struct {
       struct dzn_framebuffer *framebuffer;
@@ -370,6 +374,16 @@ struct dzn_cmd_buffer {
          ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
          uint32_t dirty;
       } bindpoint[NUM_BIND_POINT];
+      struct {
+         ID3D12Resource *res;
+         void *cpu;
+         uint32_t offset;
+         uint32_t size;
+      } sysval_mem;
+      union {
+         struct dxil_spirv_vertex_runtime_data gfx;
+         struct dxil_spirv_compute_runtime_data compute;
+      } sysvals;
    } state = {};
 
    using heaps_allocator = dzn_allocator<ComPtr<ID3D12DescriptorHeap>>;
@@ -402,6 +416,9 @@ private:
    void update_viewports();
    void update_scissors();
    void update_vbviews();
+   void update_sysvals(uint32_t bindpoint);
+   void *alloc_sysval_mem(uint32_t size, uint32_t align,
+                          D3D12_GPU_VIRTUAL_ADDRESS *gpu_ptr);
 };
 
 struct dzn_cmd_pool {
@@ -497,6 +514,8 @@ struct dzn_pipeline_layout {
    uint32_t desc_count[NUM_POOL_TYPES];
    struct {
       uint32_t param_count;
+      uint32_t sets_param_count;
+      uint32_t sysval_cbv_param_idx;
       D3D12_DESCRIPTOR_HEAP_TYPE type[MAX_SHADER_VISIBILITIES];
       ComPtr<ID3D12RootSignature> sig;
    } root;
@@ -551,6 +570,10 @@ struct dzn_pipeline_cache {
                       const VkPipelineCacheCreateInfo *pCreateInfo,
                       const VkAllocationCallbacks *pAllocator);
    ~dzn_pipeline_cache();
+};
+
+enum dzn_register_space {
+   DZN_REGISTER_SPACE_SYSVALS = MAX_SETS,
 };
 
 struct dzn_pipeline {

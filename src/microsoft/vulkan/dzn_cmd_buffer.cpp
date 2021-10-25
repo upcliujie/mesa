@@ -117,6 +117,7 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
                                dzn_cmd_pool *cmd_pool,
                                VkCommandBufferLevel lvl,
                                const VkAllocationCallbacks *pAllocator) :
+                              sysval_bufs(sysval_bufs_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
                               heaps(heaps_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
                               batches(batches_allocator(pAllocator ? pAllocator : &cmd_pool->alloc))
 {
@@ -156,6 +157,14 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
 
 dzn_cmd_buffer::~dzn_cmd_buffer()
 {
+   if (state.sysval_mem.res) {
+      state.sysval_mem.res->Unmap(0, NULL);
+      state.sysval_mem.res = NULL;
+      state.sysval_mem.cpu = NULL;
+      state.sysval_mem.offset = 0;
+      state.sysval_mem.size = 0;
+   }
+
    vk_command_buffer_finish(&vk);
 }
 
@@ -200,6 +209,16 @@ dzn_cmd_buffer::reset()
       d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
    rtv_pool.reset(pool);
+
+   /* TODO: Return sysval buffers to the pool instead of freeing them. */
+   if (state.sysval_mem.res) {
+      state.sysval_mem.res->Unmap(0, NULL);
+      state.sysval_mem.res = NULL;
+      state.sysval_mem.cpu = NULL;
+      state.sysval_mem.offset = 0;
+      state.sysval_mem.size = 0;
+   }
+   sysval_bufs.clear();
 
    /* TODO: Return batches to the pool instead of freeing them. */
    batches.clear();
@@ -1019,7 +1038,7 @@ set_heaps:
       for (unsigned h = 0; h < ARRAY_SIZE(state.heaps); h++)
          state.heaps[h] = new_heaps[h];
 
-      for (uint32_t r = 0; r < pipeline->layout->root.param_count; r++) {
+      for (uint32_t r = 0; r < pipeline->layout->root.sets_param_count; r++) {
          if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
             D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->layout->root.type[r];
             D3D12_GPU_DESCRIPTOR_HANDLE handle = {
@@ -1029,6 +1048,103 @@ set_heaps:
             batch->cmdlist->SetGraphicsRootDescriptorTable(r, handle);
          }
       }
+   }
+}
+
+void *
+dzn_cmd_buffer::alloc_sysval_mem(uint32_t size, uint32_t align,
+                                 D3D12_GPU_VIRTUAL_ADDRESS *gpu_ptr)
+{
+   uint32_t offset = ALIGN_POT(state.sysval_mem.offset, align);
+   void *cpu_ptr;
+
+   if (state.sysval_mem.offset + size > state.sysval_mem.size) {
+      ComPtr<ID3D12Resource> res = state.sysval_mem.res;
+
+      if (res.Get()) {
+         res->Unmap(0, NULL);
+         res = ComPtr<ID3D12Resource>(NULL);
+      }
+
+      /* Align size on 64k (the default alignment) */
+      size = ALIGN_POT(size, 64 * 1024);
+
+      D3D12_HEAP_PROPERTIES hprops =
+         device->dev->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_UPLOAD);
+      D3D12_RESOURCE_DESC rdesc = {
+         .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+         .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+         .Width = size,
+         .Height = 1,
+         .DepthOrArraySize = 1,
+         .MipLevels = 1,
+         .Format = DXGI_FORMAT_UNKNOWN,
+         .SampleDesc = { .Count = 1, .Quality = 0 },
+         .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+         .Flags = D3D12_RESOURCE_FLAG_NONE,
+      };
+
+      HRESULT hres =
+         device->dev->CreateCommittedResource(&hprops, D3D12_HEAP_FLAG_NONE, &rdesc,
+			                      D3D12_RESOURCE_STATE_GENERIC_READ,
+			                      NULL, IID_PPV_ARGS(&res));
+      assert(!FAILED(hres));
+
+      sysval_bufs.push_back(res);
+      state.sysval_mem.res = res.Get();
+      state.sysval_mem.offset = 0;
+      state.sysval_mem.size = size;
+      hres = res->Map(0, NULL, &state.sysval_mem.cpu);
+      assert(!FAILED(hres));
+
+      dzn_batch *batch = get_batch();
+
+      /* Transition the buffer to CBV usage */
+      D3D12_RESOURCE_BARRIER barrier = {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = res.Get(),
+            .Subresource = 0,
+            .StateBefore = D3D12_RESOURCE_STATE_GENERIC_READ,
+            .StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER,
+         },
+      };
+
+      batch->cmdlist->ResourceBarrier(1, &barrier);
+   }
+
+   *gpu_ptr = state.sysval_mem.res->GetGPUVirtualAddress() + state.sysval_mem.offset;
+   cpu_ptr = (uint8_t *)state.sysval_mem.cpu + state.sysval_mem.offset;
+   state.sysval_mem.offset += size;
+   return cpu_ptr;
+}
+
+void
+dzn_cmd_buffer::update_sysvals(uint32_t bindpoint)
+{
+   if (!(state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_SYSVALS))
+      return;
+
+   const struct dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
+   uint32_t sysval_cbv_param_idx = pipeline->layout->root.sysval_cbv_param_idx;
+   dzn_batch *batch = get_batch();
+   D3D12_GPU_VIRTUAL_ADDRESS gpu_ptr = 0;
+
+   if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+      void *sysvals =
+         alloc_sysval_mem(sizeof(state.sysvals.gfx), 256, &gpu_ptr);
+
+      memcpy(sysvals, &state.sysvals.gfx, sizeof(state.sysvals.gfx));
+      batch->cmdlist->SetGraphicsRootConstantBufferView(sysval_cbv_param_idx,
+                                                        gpu_ptr);
+   } else {
+      void *sysvals =
+         alloc_sysval_mem(sizeof(state.sysvals.compute), 256, &gpu_ptr);
+
+      memcpy(sysvals, &state.sysvals.compute, sizeof(state.sysvals.compute));
+      batch->cmdlist->SetComputeRootConstantBufferView(sysval_cbv_param_idx,
+                                                       gpu_ptr);
    }
 }
 
@@ -1129,9 +1245,13 @@ dzn_cmd_buffer::prepare_draw()
 {
    update_pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
    update_heaps(VK_PIPELINE_BIND_POINT_GRAPHICS);
+   update_sysvals(VK_PIPELINE_BIND_POINT_GRAPHICS);
    update_viewports();
    update_scissors();
    update_vbviews();
+
+   /* Reset the dirty states */
+   state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty = 0;
    state.dirty = 0;
 }
 
@@ -1144,6 +1264,17 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    dzn_batch *batch = cmd_buffer->get_batch();
+
+   if (!cmd_buffer->state.sysval_mem.res ||
+       (cmd_buffer->state.sysvals.gfx.first_vertex != firstVertex ||
+        cmd_buffer->state.sysvals.gfx.base_instance != firstInstance ||
+        cmd_buffer->state.sysvals.gfx.is_indexed_draw != (instanceCount > 1))) {
+      cmd_buffer->state.sysvals.gfx.first_vertex = firstVertex;
+      cmd_buffer->state.sysvals.gfx.base_instance = firstInstance;
+      cmd_buffer->state.sysvals.gfx.is_indexed_draw = instanceCount > 1;
+      cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+   }
 
    cmd_buffer->prepare_draw();
 

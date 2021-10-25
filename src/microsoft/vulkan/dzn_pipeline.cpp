@@ -82,7 +82,6 @@ dzn_pipeline::compile_shader(dzn_device *device,
    const VkSpecializationInfo *spec_info = stage_info->pSpecializationInfo;
    const struct dzn_shader_module *module =
       dzn_shader_module_from_handle(stage_info->module);
-   struct dxil_spirv_runtime_conf conf;
    struct dxil_spirv_object dxil_object;
 
    /* convert VkSpecializationInfo */
@@ -124,11 +123,14 @@ dzn_pipeline::compile_shader(dzn_device *device,
       num_spec = spec_info->mapEntryCount;
    }
 
-   memset(&conf, 0, sizeof(conf));
-   conf.zero_based_vertex_instance_id = true;
-   conf.y_flip = apply_yflip ?
-                 DXIL_SPIRV_YFLIP_UNCONDITIONAL :
-                 DXIL_SPIRV_YFLIP_NONE;
+   struct dxil_spirv_runtime_conf conf = {
+      .runtime_data_cbv = {
+         .register_space = DZN_REGISTER_SPACE_SYSVALS,
+         .base_shader_register = 0,
+      },
+      .zero_based_vertex_instance_id = false,
+      .y_flip = apply_yflip ? DXIL_SPIRV_YFLIP_UNCONDITIONAL : DXIL_SPIRV_YFLIP_NONE,
+   };
 
    struct dxil_spirv_debug_options dbg_opts = {
       .dump_nir = !!(device->instance->debug_flags & DZN_DEBUG_NIR),

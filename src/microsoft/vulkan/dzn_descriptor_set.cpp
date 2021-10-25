@@ -308,6 +308,13 @@ dxil_get_serialize_root_sig(void)
       GetProcAddress(d3d12_mod, "D3D12SerializeVersionedRootSignature");
 }
 
+// Reserve one root parameter for the sysvals CBV.
+#define MAX_INTERNAL_ROOT_PARAMS 1
+
+// One root parameter for samplers and the other one for views, multiplied by
+// the number of visibility combinations, plus the internal root parameters.
+#define MAX_ROOT_PARAMS ((MAX_SHADER_VISIBILITIES * 2) + MAX_INTERNAL_ROOT_PARAMS)
+
 dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
                                          const VkPipelineLayoutCreateInfo *pCreateInfo,
                                          const VkAllocationCallbacks *pAllocator)
@@ -348,13 +355,14 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    if (static_sampler_count && !static_sampler_descs.get())
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   D3D12_ROOT_PARAMETER1 root_params[MAX_SHADER_VISIBILITIES * 2] = { };
+   D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS] = {};
    D3D12_DESCRIPTOR_RANGE1 *range_ptr = range_descs.get();
+   D3D12_ROOT_PARAMETER1 *root_param;
 
    for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
       uint32_t range_count = 0;
-      D3D12_ROOT_PARAMETER1 *root_param = &root_params[root.param_count];
 
+      root_param = &root_params[root.param_count];
       root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
       root_param->DescriptorTable.pDescriptorRanges = range_ptr;
       root_param->DescriptorTable.NumDescriptorRanges = 0;
@@ -401,6 +409,17 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
          root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
       }
    }
+
+   root.sets_param_count = root.param_count;
+
+   /* Add our sysval CBV, and make it visible to all shaders */
+   root.sysval_cbv_param_idx = root.param_count;
+   root_param = &root_params[root.param_count++];
+   root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+   root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+   root_param->Descriptor.RegisterSpace = MAX_SETS;
+   root_param->Descriptor.ShaderRegister = 0;
+   root_param->Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 
    assert(root.param_count <= ARRAY_SIZE(root_params));
 
