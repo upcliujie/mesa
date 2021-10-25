@@ -128,6 +128,10 @@ dzn_pipeline::compile_shader(dzn_device *device,
          .register_space = DZN_REGISTER_SPACE_SYSVALS,
          .base_shader_register = 0,
       },
+      .push_constant_cbv = {
+         .register_space = DZN_REGISTER_SPACE_PUSH_CONSTANT,
+         .base_shader_register = 0,
+      },
       .zero_based_vertex_instance_id = false,
       .y_flip = apply_yflip ? DXIL_SPIRV_YFLIP_UNCONDITIONAL : DXIL_SPIRV_YFLIP_NONE,
    };

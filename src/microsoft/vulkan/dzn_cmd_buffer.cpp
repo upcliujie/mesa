@@ -1261,6 +1261,48 @@ dzn_cmd_buffer::update_ibview()
 }
 
 void
+dzn_cmd_buffer::update_push_constants(uint32_t bindpoint)
+{
+   assert(bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS);
+
+   dzn_batch *batch = get_batch();
+
+   if (!(state.push_constant.stages & VK_SHADER_STAGE_ALL_GRAPHICS))
+      return;
+
+   uint32_t slot = state.pipeline->layout->root.push_constant_cbv_param_idx;
+   uint32_t offset = state.push_constant.offset / 4;
+   uint32_t end = ALIGN(state.push_constant.end, 4) / 4;
+
+   batch->cmdlist->SetGraphicsRoot32BitConstants(slot, end - offset,
+      state.push_constant.values + offset, offset);
+   state.push_constant.stages = 0;
+   state.push_constant.offset = 0;
+   state.push_constant.end = 0;
+}
+
+void
+dzn_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
+                     VkShaderStageFlags stageFlags, uint32_t offset, uint32_t size,
+                     const void *pValues)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   memcpy(((char *)cmd_buffer->state.push_constant.values) + offset, pValues, size);
+   cmd_buffer->state.push_constant.stages |= stageFlags;
+
+   uint32_t current_offset = cmd_buffer->state.push_constant.offset;
+   uint32_t current_end = cmd_buffer->state.push_constant.end;
+   uint32_t end = offset + size;
+   if (current_end != 0) {
+      offset = MIN2(current_offset, offset);
+      end = MAX2(current_end, end);
+   }
+   cmd_buffer->state.push_constant.offset = offset;
+   cmd_buffer->state.push_constant.end = end;
+}
+
+void
 dzn_cmd_buffer::prepare_draw(bool indexed)
 {
    update_pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -1269,6 +1311,7 @@ dzn_cmd_buffer::prepare_draw(bool indexed)
    update_viewports();
    update_scissors();
    update_vbviews();
+   update_push_constants(VK_PIPELINE_BIND_POINT_GRAPHICS);
 
    if (indexed)
       update_ibview();

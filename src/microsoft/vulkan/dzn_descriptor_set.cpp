@@ -308,8 +308,8 @@ dxil_get_serialize_root_sig(void)
       GetProcAddress(d3d12_mod, "D3D12SerializeVersionedRootSignature");
 }
 
-// Reserve one root parameter for the sysvals CBV.
-#define MAX_INTERNAL_ROOT_PARAMS 1
+// Reserve two root parameters for the push constants and sysvals CBVs.
+#define MAX_INTERNAL_ROOT_PARAMS 2
 
 // One root parameter for samplers and the other one for views, multiplied by
 // the number of visibility combinations, plus the internal root parameters.
@@ -417,7 +417,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    root_param = &root_params[root.param_count++];
    root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
    root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-   root_param->Descriptor.RegisterSpace = MAX_SETS;
+   root_param->Descriptor.RegisterSpace = DZN_REGISTER_SPACE_SYSVALS;
    root_param->Descriptor.ShaderRegister = 0;
    root_param->Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
 
@@ -434,6 +434,25 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
             static_sampler_ptr[k].RegisterSpace = j;
       }
       static_sampler_ptr += set_layout->static_sampler_count;
+   }
+
+   uint32_t push_constant_size = 0;
+   uint32_t push_constant_flags = 0;
+   for (uint32_t j = 0; j < pCreateInfo->pushConstantRangeCount; j++) {
+      const VkPushConstantRange* range = pCreateInfo->pPushConstantRanges + j;
+      push_constant_size = MAX2(push_constant_size, range->offset + range->size);
+      push_constant_flags |= range->stageFlags;
+   }
+
+   if (push_constant_size > 0) {
+      root.push_constant_cbv_param_idx = root.param_count;
+      D3D12_ROOT_PARAMETER1 *root_param = &root_params[root.param_count++];
+
+      root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+      root_param->Constants.ShaderRegister = 0;
+      root_param->Constants.Num32BitValues = ALIGN(push_constant_size, 4) / 4;
+      root_param->Constants.RegisterSpace = DZN_REGISTER_SPACE_PUSH_CONSTANT;
+      root_param->ShaderVisibility = translate_desc_visibility(push_constant_flags);
    }
 
    D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_sig_desc = {

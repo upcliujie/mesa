@@ -320,6 +320,7 @@ enum dzn_cmd_dirty {
 #define MAX_VP 16
 #define MAX_SCISSOR 16
 #define MAX_SETS 4
+#define MAX_PUSH_CONSTANT_DWORDS 32
 
 #define NUM_BIND_POINT VK_PIPELINE_BIND_POINT_COMPUTE + 1
 #define NUM_POOL_TYPES D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1
@@ -370,6 +371,12 @@ struct dzn_cmd_buffer {
       } ib;
       D3D12_VIEWPORT viewports[MAX_VP];
       D3D12_RECT scissors[MAX_SCISSOR];
+      struct {
+         uint32_t offset;
+         uint32_t end;
+         uint32_t values[MAX_PUSH_CONSTANT_DWORDS];
+         uint32_t stages;
+      } push_constant;
       uint32_t dirty;
       uint32_t subpass;
       struct {
@@ -422,6 +429,7 @@ private:
    void update_scissors();
    void update_vbviews();
    void update_ibview();
+   void update_push_constants(uint32_t bindpoint);
    void update_sysvals(uint32_t bindpoint);
    void *alloc_sysval_mem(uint32_t size, uint32_t align,
                           D3D12_GPU_VIRTUAL_ADDRESS *gpu_ptr);
@@ -522,6 +530,7 @@ struct dzn_pipeline_layout {
       uint32_t param_count;
       uint32_t sets_param_count;
       uint32_t sysval_cbv_param_idx;
+      uint32_t push_constant_cbv_param_idx;
       D3D12_DESCRIPTOR_HEAP_TYPE type[MAX_SHADER_VISIBILITIES];
       ComPtr<ID3D12RootSignature> sig;
    } root;
@@ -580,6 +589,7 @@ struct dzn_pipeline_cache {
 
 enum dzn_register_space {
    DZN_REGISTER_SPACE_SYSVALS = MAX_SETS,
+   DZN_REGISTER_SPACE_PUSH_CONSTANT,
 };
 
 struct dzn_pipeline {
