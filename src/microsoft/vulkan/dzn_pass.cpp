@@ -35,44 +35,13 @@ num_subpass_attachments2(const VkSubpassDescription2KHR *desc)
           (desc->pDepthStencilAttachment != NULL);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateRenderPass2(VkDevice _device,
-                      const VkRenderPassCreateInfo2KHR *pCreateInfo,
-                      const VkAllocationCallbacks *pAllocator,
-                      VkRenderPass *pRenderPass)
+dzn_render_pass::dzn_render_pass(dzn_device *device,
+                                 const VkRenderPassCreateInfo2KHR *pCreateInfo,
+                                 const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2_KHR);
-
-   VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, dzn_render_pass, pass, 1);
-   VK_MULTIALLOC_DECL(&ma, dzn_subpass, subpasses,
-                           pCreateInfo->subpassCount);
-   VK_MULTIALLOC_DECL(&ma, dzn_attachment, attachments,
-                           pCreateInfo->attachmentCount);
-#if 0
-   VK_MULTIALLOC_DECL(&ma, enum dzn_pipe_bits, subpass_flushes,
-                           pCreateInfo->subpassCount + 1);
-#endif
-
-   uint32_t subpass_attachment_count = 0;
-   for (uint32_t i = 0; i < pCreateInfo->subpassCount; i++) {
-      subpass_attachment_count +=
-         num_subpass_attachments2(&pCreateInfo->pSubpasses[i]);
-   }
-#if 0
-   VK_MULTIALLOC_DECL(&ma, dzn_subpass_attachment, subpass_attachments,
-                      subpass_attachment_count);
-#endif
-
-   if (!vk_object_multizalloc(&device->vk, &ma, pAllocator,
-                              VK_OBJECT_TYPE_RENDER_PASS))
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   pass->subpass_count = pCreateInfo->subpassCount;
-   pass->subpasses = subpasses;
-   for (uint32_t i = 0; i < pass->subpass_count; i++) {
+   subpass_count = pCreateInfo->subpassCount;
+   assert(subpasses);
+   for (uint32_t i = 0; i < subpass_count; i++) {
       const VkSubpassDescription2 *subpass = &pCreateInfo->pSubpasses[i];
 
       subpasses[i].color_count = subpass->colorAttachmentCount;
@@ -86,9 +55,9 @@ dzn_CreateRenderPass2(VkDevice _device,
       }
    }
 
-   pass->attachment_count = pCreateInfo->attachmentCount;
-   pass->attachments = attachments;
-   for (uint32_t i = 0; i < pass->attachment_count; i++) {
+   attachment_count = pCreateInfo->attachmentCount;
+   assert(!attachment_count || attachments);
+   for (uint32_t i = 0; i < attachment_count; i++) {
       const VkAttachmentDescription2 *attachment = &pCreateInfo->pAttachments[i];
 
       attachments[i].format = dzn_get_format(attachment->format);
@@ -109,21 +78,51 @@ dzn_CreateRenderPass2(VkDevice _device,
       attachments[i].after = dzn_get_states(attachment->finalLayout);
    }
 
-   *pRenderPass = dzn_render_pass_to_handle(pass);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_RENDER_PASS);
+}
 
-   return VK_SUCCESS;
+dzn_render_pass::~dzn_render_pass()
+{
+   vk_object_base_finish(&base);
+}
+
+dzn_render_pass *
+dzn_render_pass_factory::allocate(dzn_device *device,
+                                  const VkRenderPassCreateInfo2KHR *pCreateInfo,
+                                  const VkAllocationCallbacks *pAllocator)
+{
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2_KHR);
+
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, dzn_render_pass, pass, 1);
+   VK_MULTIALLOC_DECL(&ma, dzn_subpass, subpasses,
+                           pCreateInfo->subpassCount);
+   VK_MULTIALLOC_DECL(&ma, dzn_attachment, attachments,
+                           pCreateInfo->attachmentCount);
+
+   if (!vk_multialloc_zalloc2(&ma, &device->vk.alloc, pAllocator,
+                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+      return NULL;
+
+   pass->subpasses = subpasses;
+   pass->attachments = attachments;
+   return pass;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateRenderPass2(VkDevice device,
+                      const VkRenderPassCreateInfo2KHR *pCreateInfo,
+                      const VkAllocationCallbacks *pAllocator,
+                      VkRenderPass *pRenderPass)
+{
+   return dzn_render_pass_factory::create(device, pCreateInfo,
+                                          pAllocator, pRenderPass);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyRenderPass(VkDevice _device,
-                      VkRenderPass _pass,
+dzn_DestroyRenderPass(VkDevice device,
+                      VkRenderPass pass,
                       const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_render_pass, pass, _pass);
-
-   if (!pass)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, pass);
+   dzn_render_pass_factory::destroy(device, pass, pAllocator);
 }

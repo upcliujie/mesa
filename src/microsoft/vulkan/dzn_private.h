@@ -438,9 +438,14 @@ struct dzn_attachment {
 struct dzn_render_pass {
    struct vk_object_base base;
    uint32_t attachment_count;
-   const struct dzn_attachment *attachments;
+   struct dzn_attachment *attachments;
    uint32_t subpass_count;
-   const struct dzn_subpass *subpasses;
+   struct dzn_subpass *subpasses;
+
+   dzn_render_pass(dzn_device *device,
+                   const VkRenderPassCreateInfo2KHR *pCreateInfo,
+                   const VkAllocationCallbacks *pAllocator);
+   ~dzn_render_pass();
 };
 
 struct dzn_pipeline_cache {
@@ -841,5 +846,6 @@ DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<ID
 DZN_OBJ_FACTORY(dzn_pipeline_cache, VkPipelineCache, VkDevice, const VkPipelineCacheCreateInfo *);
 DZN_OBJ_FACTORY(dzn_pipeline_layout, VkPipelineLayout, VkDevice, const VkPipelineLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
+DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
 
 #endif /* DZN_PRIVATE_H */
