@@ -67,7 +67,7 @@ dxgi_get_factory(bool debug)
    return factory;
 }
 
-static ID3D12Debug *
+static ComPtr<ID3D12Debug>
 get_debug_interface()
 {
    typedef HRESULT(WINAPI *PFN_D3D12_GET_DEBUG_INTERFACE)(REFIID riid, void **ppFactory);
@@ -85,7 +85,7 @@ get_debug_interface()
       return NULL;
    }
 
-   ID3D12Debug *debug;
+   ComPtr<ID3D12Debug> debug;
    if (FAILED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) {
       mesa_loge("D3D12GetDebugInterface failed\n");
       return NULL;
@@ -97,7 +97,7 @@ get_debug_interface()
 void
 d3d12_enable_debug_layer()
 {
-   ID3D12Debug *debug = get_debug_interface();
+   ComPtr<ID3D12Debug> debug = get_debug_interface();
    if (debug)
       debug->EnableDebugLayer();
 }
@@ -105,8 +105,8 @@ d3d12_enable_debug_layer()
 void
 d3d12_enable_gpu_validation()
 {
-   ID3D12Debug *debug = get_debug_interface();
-   ID3D12Debug3 *debug3;
+   ComPtr<ID3D12Debug> debug = get_debug_interface();
+   ComPtr<ID3D12Debug3> debug3;
    if (debug &&
        SUCCEEDED(debug->QueryInterface(IID_PPV_ARGS(&debug3))))
       debug3->SetEnableGPUBasedValidation(true);
