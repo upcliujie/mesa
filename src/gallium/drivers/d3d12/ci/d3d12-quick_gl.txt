@@ -1353,8 +1353,6 @@ spec/arb_point_sprite/arb_point_sprite-mipmap: fail
 spec/arb_post_depth_coverage/arb_post_depth_coverage-basic: skip
 spec/arb_post_depth_coverage/arb_post_depth_coverage-multisampling: skip
 spec/arb_post_depth_coverage/arb_post_depth_coverage-sample-shading: skip
-spec/arb_program_interface_query/arb_program_interface_query-getprogramresourceindex/'vs_input2' on gl_program_input: fail
-spec/arb_program_interface_query/arb_program_interface_query-getprogramresourceindex/'vs_input2[1][0]' on gl_program_input: fail
 spec/arb_query_buffer_object/coherency: skip
 spec/arb_query_buffer_object/qbo: skip
 spec/arb_sample_locations/test: skip

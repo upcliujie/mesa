@@ -68,3 +68,18 @@ test(
   suite : ['st_mesa'],
   protocol : gtest_test_protocol,
 )
+
+test(
+  'st-is-variable-used-test',
+  executable(
+    'st_test_is_variable_used',
+    ['test_is_variable_used.cpp', ir_expression_operation_h],
+    include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
+    link_with : [
+      libmesa_st_test_common, libmesa, libglapi, libgallium,
+    ],
+    dependencies : [idep_nir_headers, idep_mesautil, idep_gtest],
+  ),
+  suite : ['st_mesa'],
+  protocol : gtest_test_protocol,
+)

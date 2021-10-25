@@ -5,8 +5,6 @@ glx@glx_ext_import_context@import context- single process,Fail
 glx@glx-visuals-stencil -pixmap,Crash
 spec@arb_direct_state_access@gettextureimage-formats,Crash
 spec@arb_es2_compatibility@texwrap formats bordercolor-swizzled,Fail
-spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceindex@'vs_input2[1][0]' on GL_PROGRAM_INPUT,Fail
-spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceindex,Fail
 spec@arb_shader_texture_lod@execution@arb_shader_texture_lod-texgradcube,Fail
 spec@arb_texture_compression_bptc@texwrap formats bordercolor-swizzled,Fail
 spec@arb_texture_compression_bptc@texwrap formats bordercolor-swizzled@GL_COMPRESSED_RGBA_BPTC_UNORM- swizzled- border color only,Fail

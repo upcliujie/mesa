@@ -105,9 +105,6 @@ spec@!opengl 3.2@layered-rendering@clear-color-mismatched-layer-count,Fail
 spec@arb_pipeline_statistics_query@arb_pipeline_statistics_query-frag,Fail
 spec@arb_post_depth_coverage@arb_post_depth_coverage-multisampling,Fail
 
-spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceindex,Fail
-spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceindex@'vs_input2[1][0]' on GL_PROGRAM_INPUT,Fail
-
 # Query result
 #  Expected: 1536
 #  Observed: 768

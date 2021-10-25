@@ -644,6 +644,129 @@ st_nir_lower_wpos_ytransform(struct nir_shader *nir,
    }
 }
 
+static int
+get_variable_location_offset(unsigned stage,
+                             const gl_shader_variable* variable)
+{
+   int offset = 0;
+
+   switch (stage) {
+   case MESA_SHADER_VERTEX:
+      offset = VERT_ATTRIB_GENERIC0;
+      break;
+
+   case MESA_SHADER_GEOMETRY:
+   case MESA_SHADER_FRAGMENT:
+      offset = VARYING_SLOT_VAR0;
+      break;
+
+   case MESA_SHADER_TESS_EVAL:
+   case MESA_SHADER_TESS_CTRL:
+      offset = variable->patch ? VARYING_SLOT_PATCH0 : 0;
+      break;
+   }
+
+   return offset;
+}
+
+bool
+st_is_variable_used(struct gl_shader_program *shader_program,
+                    struct gl_shader_variable const *variable)
+{
+   const int max_components = 4;
+   const unsigned stage = MESA_SHADER_VERTEX;
+
+   /* look for nir variables with intersected locations
+    */
+   struct gl_linked_shader *stage_shader =
+      shader_program->_LinkedShaders[stage];
+
+   if (!stage_shader)
+      return false;
+
+   int location_offset = get_variable_location_offset(stage, variable);
+   int shader_var_location = variable->location + location_offset +
+      util_bitcount64(stage_shader->Program->DualSlotInputs &
+      BITFIELD64_MASK(variable->location + location_offset));
+   unsigned shader_var_begin = variable->component +
+      shader_var_location * max_components;
+   unsigned num_slots = glsl_count_attribute_slots(variable->type, false);
+   unsigned num_comps = glsl_get_component_slots(variable->type);
+   unsigned shader_var_end = shader_var_begin +
+      (num_slots == 1 ? num_comps : (num_slots * max_components));
+
+   struct nir_shader* nir_shader = stage_shader->Program->nir;
+   const unsigned int modes = nir_var_shader_in | nir_var_shader_out;
+   nir_foreach_variable_with_modes(shader_variable, nir_shader, modes) {
+      int stage_var_location = shader_variable->data.location;
+      unsigned nir_var_begin = stage_var_location * max_components +
+                                 shader_variable->data.location_frac;
+      unsigned nir_var_end = nir_var_begin +
+         glsl_get_component_slots(shader_variable->type);
+
+      /* Check ranges intersection
+       */
+      if ((nir_var_begin < shader_var_end) && (nir_var_end > shader_var_begin))
+         return true;
+   }
+
+   return false;
+}
+
+static void
+remove_unused_vertex_inputs(struct gl_shader_program *shader_program)
+{
+   struct util_dynarray unused_resources;
+   util_dynarray_init(&unused_resources, shader_program->data);
+
+   unsigned num_resources = shader_program->data->NumProgramResourceList;
+   for (unsigned res_idx = 0; res_idx < num_resources; ++res_idx) {
+      struct gl_program_resource* program_resource =
+         shader_program->data->ProgramResourceList + res_idx;
+
+      if (program_resource->Type != GL_PROGRAM_INPUT)
+         continue;
+
+      struct gl_shader_variable const* variable =
+         (struct gl_shader_variable const*)program_resource->Data;
+      if (variable->mode != ir_var_shader_in || variable->location == -1)
+         continue;
+
+      if (!st_is_variable_used(shader_program, variable))
+         util_dynarray_append(&unused_resources, unsigned, res_idx);
+   }
+
+   unsigned num_unused = util_dynarray_num_elements(&unused_resources, unsigned);
+   if (num_unused == 0) {
+      util_dynarray_fini(&unused_resources);
+      return;
+   }
+
+   unsigned new_num = num_resources - num_unused;
+
+   gl_program_resource* new_resources =
+      reralloc(shader_program->data, NULL, gl_program_resource, new_num);
+
+   unsigned *unused_next = (unsigned *)util_dynarray_begin(&unused_resources);
+   unsigned *unused_end = unused_next + num_unused;
+   gl_program_resource *dst_res_next = new_resources;
+   for (unsigned src_idx = 0; src_idx < num_resources; ++src_idx) {
+      if ((unused_next != unused_end) && (*unused_next == src_idx)) {
+         ++unused_next;
+      } else {
+         memcpy(dst_res_next,
+               shader_program->data->ProgramResourceList + src_idx,
+               sizeof(gl_program_resource));
+         ++dst_res_next;
+      }
+   }
+
+   ralloc_free(shader_program->data->ProgramResourceList);
+   shader_program->data->NumProgramResourceList = new_num;
+   shader_program->data->ProgramResourceList = new_resources;
+   util_dynarray_fini(&unused_resources);
+}
+
 bool
 st_link_nir(struct gl_context *ctx,
             struct gl_shader_program *shader_program)
@@ -823,6 +946,9 @@ st_link_nir(struct gl_context *ctx,
       }
       prev_info = info;
    }
+
+   if (!shader_program->SeparateShader)
+      remove_unused_vertex_inputs(shader_program);
 
    for (unsigned i = 0; i < num_shaders; i++) {
       struct gl_linked_shader *shader = linked_shader[i];

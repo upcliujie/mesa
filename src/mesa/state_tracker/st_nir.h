@@ -50,6 +50,10 @@ bool
 st_link_nir(struct gl_context *ctx,
             struct gl_shader_program *shader_program);
 
+bool
+st_is_variable_used(struct gl_shader_program *shader_program,
+                    struct gl_shader_variable const *variable);
+
 void st_nir_assign_vs_in_locations(struct nir_shader *nir);
 void st_nir_assign_varying_locations(struct st_context *st,
                                      struct nir_shader *nir);
