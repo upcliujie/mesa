@@ -952,7 +952,7 @@ update_pipeline(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
    if (cmd_buffer->state.bindpoint[bindpoint].pipeline &&
        cmd_buffer->state.bindpoint[bindpoint].pipeline != cmd_buffer->state.pipeline) {
       cmd_buffer->state.pipeline = cmd_buffer->state.bindpoint[bindpoint].pipeline;
-      batch->cmdlist->SetGraphicsRootSignature(cmd_buffer->state.pipeline->layout->root.sig);
+      batch->cmdlist->SetGraphicsRootSignature(cmd_buffer->state.pipeline->layout->root.sig.Get());
       batch->cmdlist->SetPipelineState(cmd_buffer->state.pipeline->state);
       if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
          struct dzn_graphics_pipeline *gfx =

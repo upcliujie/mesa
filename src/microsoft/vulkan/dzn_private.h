@@ -401,8 +401,13 @@ struct dzn_pipeline_layout {
    struct {
       uint32_t param_count;
       D3D12_DESCRIPTOR_HEAP_TYPE type[MAX_ROOT_PARAMS];
-      ID3D12RootSignature *sig;
+      ComPtr<ID3D12RootSignature> sig;
    } root;
+
+   dzn_pipeline_layout(dzn_device *device,
+                       const VkPipelineLayoutCreateInfo *pCreateInfo,
+                       const VkAllocationCallbacks *pAllocator);
+   ~dzn_pipeline_layout();
 };
 
 struct dzn_attachment_ref {
@@ -829,6 +834,7 @@ DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<IDXGIAdapter1> &);
+DZN_OBJ_FACTORY(dzn_pipeline_layout, VkPipelineLayout, VkDevice, const VkPipelineLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */

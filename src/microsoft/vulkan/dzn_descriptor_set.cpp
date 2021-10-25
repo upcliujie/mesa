@@ -308,22 +308,16 @@ dxil_get_serialize_root_sig(void)
       GetProcAddress(d3d12_mod, "D3D12SerializeVersionedRootSignature");
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreatePipelineLayout(VkDevice _device,
-                         const VkPipelineLayoutCreateInfo *pCreateInfo,
-                         const VkAllocationCallbacks *pAllocator,
-                         VkPipelineLayout *pPipelineLayout)
+dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
+                                         const VkPipelineLayoutCreateInfo *pCreateInfo,
+                                         const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   dzn_pipeline_layout *layout;
-   VkResult ret;
-
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
 
-   uint32_t root_param_count = 0, range_desc_count = 0, static_sampler_count = 0;
+   uint32_t range_desc_count = 0, static_sampler_count = 0;
    uint32_t view_desc_count = 0, sampler_desc_count = 0;
-   uint32_t heap_offsets[MAX_SETS][NUM_POOL_TYPES] = { 0 };
-   D3D12_DESCRIPTOR_HEAP_TYPE root_types[MAX_ROOT_PARAMS] = { };
+
+   root.param_count = 0;
 
    for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
@@ -345,15 +339,17 @@ dzn_CreatePipelineLayout(VkDevice _device,
       range_descs = (D3D12_DESCRIPTOR_RANGE1 *)
          calloc(range_desc_count, sizeof(*range_descs));
       if (!range_descs)
-         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+         throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
    D3D12_STATIC_SAMPLER_DESC *static_sampler_descs = NULL;
    if (static_sampler_count) {
       static_sampler_descs = (D3D12_STATIC_SAMPLER_DESC *)
          calloc(static_sampler_count, sizeof(*static_sampler_descs));
-      if (!static_sampler_descs)
-         return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      if (!static_sampler_descs) {
+         free(range_descs);
+         throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      }
    }
 
    D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS * 2] = { };
@@ -361,7 +357,7 @@ dzn_CreatePipelineLayout(VkDevice _device,
 
    for (uint32_t i = 0; i < MAX_ROOT_PARAMS; i++) {
       uint32_t range_count = 0;
-      D3D12_ROOT_PARAMETER1 *root_param = &root_params[root_param_count];
+      D3D12_ROOT_PARAMETER1 *root_param = &root_params[root.param_count];
 
       root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
       root_param->DescriptorTable.pDescriptorRanges = range_ptr;
@@ -383,9 +379,9 @@ dzn_CreatePipelineLayout(VkDevice _device,
       }
 
       if (root_param->DescriptorTable.NumDescriptorRanges)
-         root_types[root_param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+         root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
-      root_param = &root_params[root_param_count];
+      root_param = &root_params[root.param_count];
       root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
       root_param->DescriptorTable.pDescriptorRanges = range_ptr;
       root_param->DescriptorTable.NumDescriptorRanges = 0;
@@ -406,11 +402,11 @@ dzn_CreatePipelineLayout(VkDevice _device,
       }
 
       if (root_param->DescriptorTable.NumDescriptorRanges) {
-         root_types[root_param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+         root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
       }
    }
 
-   assert(root_param_count <= ARRAY_SIZE(root_params));
+   assert(root.param_count <= ARRAY_SIZE(root_params));
 
    D3D12_STATIC_SAMPLER_DESC *static_sampler_ptr = static_sampler_descs;
    for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
@@ -428,8 +424,8 @@ dzn_CreatePipelineLayout(VkDevice _device,
    D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_sig_desc = {
       .Version = D3D_ROOT_SIGNATURE_VERSION_1_1,
       .Desc_1_1 = {
-         .NumParameters = root_param_count,
-         .pParameters = root_param_count ? root_params : NULL,
+         .NumParameters = root.param_count,
+         .pParameters = root.param_count ? root_params : NULL,
          .NumStaticSamplers = static_sampler_count,
          .pStaticSamplers = static_sampler_descs,
          /* TODO Only enable this flag when needed (optimization) */
@@ -442,57 +438,47 @@ dzn_CreatePipelineLayout(VkDevice _device,
    ComPtr<ID3DBlob> sig, error;
    if (FAILED(D3D12SerializeVersionedRootSignature(&root_sig_desc,
                                                    &sig, &error))) {
-      ret = VK_ERROR_OUT_OF_HOST_MEMORY;
-      goto out;
+      free(range_descs);
+      free(static_sampler_descs);
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
-
-   layout = (dzn_pipeline_layout *)
-      vk_object_zalloc(&device->vk, pAllocator, sizeof(*layout),
-                       VK_OBJECT_TYPE_PIPELINE_LAYOUT);
-   if (layout == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    if (FAILED(device->dev->CreateRootSignature(0,
                                                sig->GetBufferPointer(),
                                                sig->GetBufferSize(),
-                                               IID_PPV_ARGS(&layout->root.sig)))) {
-      ret = VK_ERROR_OUT_OF_HOST_MEMORY;
-      vk_object_free(&device->vk, pAllocator, layout);
-      goto out;
+                                               IID_PPV_ARGS(&root.sig)))) {
+      free(range_descs);
+      free(static_sampler_descs);
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
-   layout->root.param_count = root_param_count;
-   memcpy(layout->root.type, root_types, sizeof(layout->root.type));
-   layout->desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
-   layout->desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;
-   memcpy(layout->heap_offsets, heap_offsets, sizeof(layout->heap_offsets));
+   desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
+   desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;
 
-   *pPipelineLayout = dzn_pipeline_layout_to_handle(layout);
-   ret = VK_SUCCESS;
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
+}
 
-out:
-   free(range_descs);
-   free(static_sampler_descs);
+dzn_pipeline_layout::~dzn_pipeline_layout()
+{
+   vk_object_base_finish(&base);
+}
 
-   if (ret != VK_SUCCESS)
-      return vk_error(device, ret);
-
-   return VK_SUCCESS;
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreatePipelineLayout(VkDevice device,
+                         const VkPipelineLayoutCreateInfo *pCreateInfo,
+                         const VkAllocationCallbacks *pAllocator,
+                         VkPipelineLayout *pPipelineLayout)
+{
+   return dzn_pipeline_layout_factory::create(device, pCreateInfo,
+                                              pAllocator, pPipelineLayout);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyPipelineLayout(VkDevice _device,
-                          VkPipelineLayout _layout,
+dzn_DestroyPipelineLayout(VkDevice device,
+                          VkPipelineLayout layout,
                           const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
-
-   if (!layout)
-      return;
-
-   layout->root.sig->Release();
-   vk_object_free(&device->vk, pAllocator, layout);
+   dzn_pipeline_layout_factory::destroy(device, layout, pAllocator);
 }
 
 static D3D12_DESCRIPTOR_HEAP_TYPE

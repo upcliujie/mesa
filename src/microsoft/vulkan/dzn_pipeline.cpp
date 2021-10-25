@@ -668,7 +668,7 @@ graphics_pipeline_create(dzn_device *device,
    pipeline->base.layout = layout;
 
    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {
-      .pRootSignature = layout->root.sig,
+      .pRootSignature = layout->root.sig.Get(),
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
    };
    ComPtr<IDxcValidator> validator = dxil_get_validator();
