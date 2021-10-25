@@ -41,75 +41,69 @@ translate_addr_mode(VkSamplerAddressMode in)
    }
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateSampler(VkDevice _device,
-                  const VkSamplerCreateInfo *pCreateInfo,
-                  const VkAllocationCallbacks *pAllocator,
-                  VkSampler *pSampler)
+dzn_sampler::dzn_sampler(dzn_device *device,
+                         const VkSamplerCreateInfo *pCreateInfo,
+                         const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   dzn_sampler *sampler;
-
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO);
 
    const VkSamplerCustomBorderColorCreateInfoEXT *pBorderColor = (const VkSamplerCustomBorderColorCreateInfoEXT *)
       vk_find_struct_const(pCreateInfo->pNext, SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT);
 
-   sampler = (dzn_sampler *)
-      vk_object_zalloc(&device->vk, pAllocator, sizeof(*sampler),
-                       VK_OBJECT_TYPE_SAMPLER);
-   if (!sampler)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
    /* TODO: have a sampler pool to allocate shader-invisible descs which we
     * can copy to the desc_set when UpdateDescriptorSets() is called.
     */
-   sampler->desc.Filter = dzn_translate_sampler_filter(pCreateInfo);
-   sampler->desc.AddressU = translate_addr_mode(pCreateInfo->addressModeU);
-   sampler->desc.AddressV = translate_addr_mode(pCreateInfo->addressModeV);
-   sampler->desc.AddressW = translate_addr_mode(pCreateInfo->addressModeW);
-   sampler->desc.MipLODBias = pCreateInfo->mipLodBias;
-   sampler->desc.MaxAnisotropy = pCreateInfo->maxAnisotropy;
-   sampler->desc.MinLOD = pCreateInfo->minLod;
-   sampler->desc.MaxLOD = pCreateInfo->maxLod;
+   desc.Filter = dzn_translate_sampler_filter(pCreateInfo);
+   desc.AddressU = translate_addr_mode(pCreateInfo->addressModeU);
+   desc.AddressV = translate_addr_mode(pCreateInfo->addressModeV);
+   desc.AddressW = translate_addr_mode(pCreateInfo->addressModeW);
+   desc.MipLODBias = pCreateInfo->mipLodBias;
+   desc.MaxAnisotropy = pCreateInfo->maxAnisotropy;
+   desc.MinLOD = pCreateInfo->minLod;
+   desc.MaxLOD = pCreateInfo->maxLod;
 
    if (pCreateInfo->compareEnable)
-      sampler->desc.ComparisonFunc = dzn_translate_compare_op(pCreateInfo->compareOp);
+      desc.ComparisonFunc = dzn_translate_compare_op(pCreateInfo->compareOp);
 
    switch (pCreateInfo->borderColor) {
    case VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK:
    case VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK:
-      sampler->desc.BorderColor[0] = sampler->desc.BorderColor[1] = sampler->desc.BorderColor[2] = 0.0f;
-      sampler->desc.BorderColor[3] =
+      desc.BorderColor[0] = desc.BorderColor[1] = desc.BorderColor[2] = 0.0f;
+      desc.BorderColor[3] =
          pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK ? 0.0f : 1.0f;
       break;
    case VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE:
-      sampler->desc.BorderColor[0] = sampler->desc.BorderColor[1] =
-         sampler->desc.BorderColor[2] = sampler->desc.BorderColor[3] = 1.0f;
+      desc.BorderColor[0] = desc.BorderColor[1] = desc.BorderColor[2] = desc.BorderColor[3] = 1.0f;
       break;
    case VK_BORDER_COLOR_FLOAT_CUSTOM_EXT:
-      for (unsigned i = 0; i < ARRAY_SIZE(sampler->desc.BorderColor); i++)
-         sampler->desc.BorderColor[i] = pBorderColor->customBorderColor.float32[i];
+      for (unsigned i = 0; i < ARRAY_SIZE(desc.BorderColor); i++)
+         desc.BorderColor[i] = pBorderColor->customBorderColor.float32[i];
       break;
    default:
       unreachable("Unsupported border color");
    }
 
-   *pSampler = dzn_sampler_to_handle(sampler);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_SAMPLER);
+}
 
-   return VK_SUCCESS;
+dzn_sampler::~dzn_sampler()
+{
+   vk_object_base_finish(&base);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateSampler(VkDevice device,
+                  const VkSamplerCreateInfo *pCreateInfo,
+                  const VkAllocationCallbacks *pAllocator,
+                  VkSampler *pSampler)
+{
+   return dzn_sampler_factory::create(device, pCreateInfo, pAllocator, pSampler);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroySampler(VkDevice _device,
-                   VkSampler _sampler,
+dzn_DestroySampler(VkDevice device,
+                   VkSampler sampler,
                    const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_sampler, sampler, _sampler);
-
-   if (!sampler)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, sampler);
+   return dzn_sampler_factory::destroy(device, sampler, pAllocator);
 }

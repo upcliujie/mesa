@@ -573,6 +573,11 @@ struct dzn_framebuffer {
 struct dzn_sampler {
    struct vk_object_base base;
    D3D12_SAMPLER_DESC desc;
+
+   dzn_sampler(dzn_device *device,
+               const VkSamplerCreateInfo *pCreateInfo,
+               const VkAllocationCallbacks *pAllocator);
+   ~dzn_sampler();
 };
 
 /* This is defined as a macro so that it works for both
@@ -881,6 +886,7 @@ DZN_OBJ_FACTORY(dzn_pipeline_cache, VkPipelineCache, VkDevice, const VkPipelineC
 DZN_OBJ_FACTORY(dzn_pipeline_layout, VkPipelineLayout, VkDevice, const VkPipelineLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
+DZN_OBJ_FACTORY(dzn_sampler, VkSampler, VkDevice, const VkSamplerCreateInfo *);
 DZN_OBJ_FACTORY(dzn_semaphore, VkSemaphore, VkDevice, const VkSemaphoreCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */
