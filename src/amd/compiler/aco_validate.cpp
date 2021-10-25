@@ -256,8 +256,8 @@ validate_ir(Program* program)
          /* check subdword definitions */
          for (unsigned i = 0; i < instr->definitions.size(); i++) {
             if (instr->definitions[i].regClass().is_subdword())
-               check(instr->isPseudo() || instr->definitions[i].bytes() <= 4,
-                     "Only Pseudo instructions can write subdword registers larger than 4 bytes",
+               check(instr->isPseudo() || instr->isMIMG() || instr->definitions[i].bytes() <= 4,
+                     "Only Pseudo and Image instructions can write subdword registers larger than 4 bytes",
                      instr.get());
          }
 
@@ -744,6 +744,7 @@ validate_subdword_operand(chip_class chip, const aco_ptr<Instruction>& instr, un
       break;
    case aco_opcode::buffer_store_byte_d16_hi:
    case aco_opcode::buffer_store_short_d16_hi:
+   case aco_opcode::buffer_store_format_d16_hi_x:
       if (byte == 2 && index == 3)
          return true;
       break;
@@ -779,6 +780,7 @@ validate_subdword_definition(chip_class chip, const aco_ptr<Instruction>& instr)
    switch (instr->opcode) {
    case aco_opcode::buffer_load_ubyte_d16_hi:
    case aco_opcode::buffer_load_short_d16_hi:
+   case aco_opcode::buffer_load_format_d16_hi_x:
    case aco_opcode::flat_load_ubyte_d16_hi:
    case aco_opcode::flat_load_short_d16_hi:
    case aco_opcode::scratch_load_ubyte_d16_hi:
@@ -812,9 +814,15 @@ get_subdword_bytes_written(Program* program, const aco_ptr<Instruction>& instr, 
       return 4;
    }
 
+   if (instr->isMIMG()) {
+      assert(instr->mimg().d16);
+      return program->dev.sram_ecc_enabled ? def.size() * 4u : def.bytes();
+   }
+
    switch (instr->opcode) {
    case aco_opcode::buffer_load_ubyte_d16:
    case aco_opcode::buffer_load_short_d16:
+   case aco_opcode::buffer_load_format_d16_x:
    case aco_opcode::flat_load_ubyte_d16:
    case aco_opcode::flat_load_short_d16:
    case aco_opcode::scratch_load_ubyte_d16:
@@ -825,6 +833,7 @@ get_subdword_bytes_written(Program* program, const aco_ptr<Instruction>& instr, 
    case aco_opcode::ds_read_u16_d16:
    case aco_opcode::buffer_load_ubyte_d16_hi:
    case aco_opcode::buffer_load_short_d16_hi:
+   case aco_opcode::buffer_load_format_d16_hi_x:
    case aco_opcode::flat_load_ubyte_d16_hi:
    case aco_opcode::flat_load_short_d16_hi:
    case aco_opcode::scratch_load_ubyte_d16_hi:
