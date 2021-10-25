@@ -930,6 +930,56 @@ lower_baseinstance(nir_shader *shader)
    return nir_shader_instructions_pass(shader, lower_baseinstance_instr, nir_metadata_dominance, NULL);
 }
 
+/* spirv requires 32-bit derivative srcs and dests */
+static bool
+lower_derivatives_instr(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_alu)
+      return false;
+   nir_alu_instr *alu = nir_instr_as_alu(instr);
+   switch (alu->op) {
+   case nir_op_fddx:
+   case nir_op_fddx_coarse:
+   case nir_op_fddx_fine:
+   case nir_op_fddy:
+   case nir_op_fddy_coarse:
+   case nir_op_fddy_fine:
+      break;
+   default:
+      return false;
+   }
+   if (alu->dest.dest.ssa.bit_size == 32 && alu->src[0].src.ssa->bit_size == 32)
+      return false;
+   if (alu->src[0].src.ssa->bit_size != 32) {
+      b->cursor = nir_before_instr(instr);
+      /* The type of P must be the same as Result Type.
+       *
+       * - 3.37.16. Derivative Instructions
+       * */
+      nir_ssa_def *src = nir_f2f32(b, alu->src[0].src.ssa);
+      nir_instr_rewrite_src_ssa(instr, &alu->src[0].src, src);
+   }
+   if (alu->dest.dest.ssa.bit_size != 32) {
+      /* Result Type must be a scalar or vector of floating-point type.
+       * The component width must be 32 bits.
+       *
+       * - 3.37.16. Derivative Instructions
+       * */
+      unsigned bit_size = alu->dest.dest.ssa.bit_size;
+      b->cursor = nir_after_instr(instr);
+      alu->dest.dest.ssa.bit_size = 32;
+      nir_ssa_def *def = nir_f2fN(b, &alu->dest.dest.ssa, bit_size);
+      nir_ssa_def_rewrite_uses_after(&alu->dest.dest.ssa, def, def->parent_instr);
+   }
+   return true;
+}
+
+static bool
+lower_derivatives(nir_shader *shader)
+{
+   return nir_shader_instructions_pass(shader, lower_derivatives_instr, nir_metadata_dominance, NULL);
+}
+
 bool nir_lower_dynamic_bo_access(nir_shader *shader);
 
 /* gl_nir_lower_buffers makes variables unusable for all UBO/SSBO access
@@ -1326,6 +1376,7 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
    NIR_PASS_V(nir, lower_work_dim);
    NIR_PASS_V(nir, nir_lower_regs_to_ssa);
    NIR_PASS_V(nir, lower_baseinstance);
+   NIR_PASS_V(nir, lower_derivatives);
 
    {
       nir_lower_subgroups_options subgroup_options = {0};
