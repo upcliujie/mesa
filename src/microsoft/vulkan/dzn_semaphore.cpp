@@ -29,41 +29,33 @@
 
 #include "util/macros.h"
 
+dzn_semaphore::dzn_semaphore(dzn_device *device,
+                             const VkSemaphoreCreateInfo *pCreateInfo,
+                             const VkAllocationCallbacks *pAllocator)
+{
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_SEMAPHORE);
+   /* TODO: do something useful ;) */
+}
+
+dzn_semaphore::~dzn_semaphore()
+{
+   vk_object_base_finish(&base);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateSemaphore(VkDevice _device,
+dzn_CreateSemaphore(VkDevice device,
                     const VkSemaphoreCreateInfo *pCreateInfo,
                     const VkAllocationCallbacks *pAllocator,
                     VkSemaphore *pSemaphore)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO);
-
-   dzn_semaphore *sem = (dzn_semaphore *)
-      vk_object_alloc(&device->vk, pAllocator,
-                      sizeof(*sem), VK_OBJECT_TYPE_SEMAPHORE);
-   if (sem == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   /* TODO: do something useful ;) */
-
-   *pSemaphore = dzn_semaphore_to_handle(sem);
-
-   return VK_SUCCESS;
+   return dzn_semaphore_factory::create(device, pCreateInfo, pAllocator, pSemaphore);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroySemaphore(VkDevice _device,
+dzn_DestroySemaphore(VkDevice device,
                      VkSemaphore semaphore,
                      const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_semaphore, sem, semaphore);
-
-   if (sem == NULL)
-      return;
-
-   /* TODO: do something useful ;) */
-
-   vk_object_free(&device->vk, pAllocator, sem);
+   return dzn_semaphore_factory::destroy(device, semaphore, pAllocator);
 }

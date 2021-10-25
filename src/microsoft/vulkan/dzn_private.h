@@ -631,6 +631,11 @@ private:
 
 struct dzn_semaphore {
    struct vk_object_base base;
+
+   dzn_semaphore(dzn_device *device,
+                 const VkSemaphoreCreateInfo *pCreateInfo,
+                 const VkAllocationCallbacks *pAllocator);
+   ~dzn_semaphore();
 };
 
 struct dzn_fence {
@@ -876,5 +881,6 @@ DZN_OBJ_FACTORY(dzn_pipeline_cache, VkPipelineCache, VkDevice, const VkPipelineC
 DZN_OBJ_FACTORY(dzn_pipeline_layout, VkPipelineLayout, VkDevice, const VkPipelineLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
+DZN_OBJ_FACTORY(dzn_semaphore, VkSemaphore, VkDevice, const VkSemaphoreCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */
