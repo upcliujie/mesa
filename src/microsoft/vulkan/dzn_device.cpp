@@ -113,6 +113,10 @@ dzn_instance::dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
    physical_devices_enumerated = false;
    debug_flags =
       parse_debug_string(getenv("DZN_DEBUG"), dzn_debug_options);
+
+   dxc.validator = dxil_get_validator();
+   dxc.library = dxc_get_library();
+   dxc.compiler = dxc_get_compiler();
 }
 
 dzn_instance::~dzn_instance()

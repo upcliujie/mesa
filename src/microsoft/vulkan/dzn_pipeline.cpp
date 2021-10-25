@@ -56,66 +56,6 @@ public:
    size_t size;
 };
 
-static ComPtr<IDxcValidator>
-dxil_get_validator(void)
-{
-   ComPtr<IDxcValidator> ret(NULL);
-
-   HMODULE dxil_mod = LoadLibraryA("dxil.dll");
-   if (!dxil_mod) {
-      mesa_loge("failed to load dxil.dll\n");
-      return ret;
-   }
- 
-   DxcCreateInstanceProc CreateInstance = (DxcCreateInstanceProc)
-      GetProcAddress(dxil_mod, "DxcCreateInstance");
-   HRESULT hr = CreateInstance(CLSID_DxcValidator,  IID_PPV_ARGS(&ret));
-   if (FAILED(hr))
-      mesa_loge("DxcCreateInstance failed: %08x\n", hr);
-
-   return ret;
-}
-
-static ComPtr<IDxcLibrary>
-dxc_get_library(void)
-{
-   ComPtr<IDxcLibrary> ret(NULL);
-
-   HMODULE dxil_mod = LoadLibraryA("dxcompiler.dll");
-   if (!dxil_mod) {
-      mesa_loge("failed to load dxcompiler.dll\n");
-      return ret;
-   }
- 
-   DxcCreateInstanceProc CreateInstance = (DxcCreateInstanceProc)
-      GetProcAddress(dxil_mod, "DxcCreateInstance");
-   HRESULT hr = CreateInstance(CLSID_DxcLibrary,  IID_PPV_ARGS(&ret));
-   if (FAILED(hr))
-      mesa_loge("DxcCreateInstance failed: %08x\n", hr);
-
-   return ret;
-}
-
-static ComPtr<IDxcCompiler>
-dxc_get_compiler(void)
-{
-   ComPtr<IDxcCompiler> ret(NULL);
-
-   HMODULE dxil_mod = LoadLibraryA("dxcompiler.dll");
-   if (!dxil_mod) {
-      mesa_loge("failed to load dxcompiler.dll\n");
-      return ret;
-   }
- 
-   DxcCreateInstanceProc CreateInstance = (DxcCreateInstanceProc)
-      GetProcAddress(dxil_mod, "DxcCreateInstance");
-   HRESULT hr = CreateInstance(CLSID_DxcCompiler,  IID_PPV_ARGS(&ret));
-   if (FAILED(hr))
-      mesa_loge("DxcCreateInstance failed: %08x\n", hr);
-
-   return ret;
-}
-
 static dxil_spirv_shader_stage
 to_dxil_shader_stage(VkShaderStageFlagBits in)
 {
@@ -132,13 +72,13 @@ to_dxil_shader_stage(VkShaderStageFlagBits in)
 
 static VkResult
 dzn_pipeline_compile_shader(dzn_device *device,
-                            ComPtr<IDxcValidator> &validator,
-                            ComPtr<IDxcLibrary> &library,
-                            ComPtr<IDxcCompiler> &compiler,
                             const VkPipelineShaderStageCreateInfo *stage_info,
                             bool apply_yflip,
                             D3D12_SHADER_BYTECODE *slot)
 {
+   IDxcValidator *validator = device->instance->dxc.validator.Get();
+   IDxcLibrary *library = device->instance->dxc.library.Get();
+   IDxcCompiler *compiler = device->instance->dxc.compiler.Get();
    const VkSpecializationInfo *spec_info = stage_info->pSpecializationInfo;
    const struct dzn_shader_module *module =
       dzn_shader_module_from_handle(stage_info->module);
@@ -671,9 +611,6 @@ graphics_pipeline_create(dzn_device *device,
       .pRootSignature = layout->root.sig.Get(),
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
    };
-   ComPtr<IDxcValidator> validator = dxil_get_validator();
-   ComPtr<IDxcLibrary> library = dxc_get_library();
-   ComPtr<IDxcCompiler> compiler = dxc_get_compiler();
 
    uint32_t stage_mask = 0;
    for (uint32_t i = 0; i < pCreateInfo->stageCount; i++)
@@ -687,9 +624,8 @@ graphics_pipeline_create(dzn_device *device,
          (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
           !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT));
 
-      ret = dzn_pipeline_compile_shader(device, validator, library, compiler,
-                                        &pCreateInfo->pStages[i], apply_yflip,
-                                        slot);
+      ret = dzn_pipeline_compile_shader(device, &pCreateInfo->pStages[i],
+                                        apply_yflip, slot);
       if (ret != VK_SUCCESS)
          goto out;
    }

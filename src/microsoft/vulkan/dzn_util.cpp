@@ -153,3 +153,63 @@ d3d12_create_device(IUnknown *adapter, bool experimental_features)
    mesa_loge("D3D12CreateDevice failed\n");
    return NULL;
 }
+
+ComPtr<IDxcValidator>
+dxil_get_validator(void)
+{
+   ComPtr<IDxcValidator> ret(NULL);
+
+   HMODULE dxil_mod = LoadLibraryA("dxil.dll");
+   if (!dxil_mod) {
+      mesa_loge("failed to load dxil.dll\n");
+      return ret;
+   }
+
+   DxcCreateInstanceProc CreateInstance = (DxcCreateInstanceProc)
+      GetProcAddress(dxil_mod, "DxcCreateInstance");
+   HRESULT hr = CreateInstance(CLSID_DxcValidator,  IID_PPV_ARGS(&ret));
+   if (FAILED(hr))
+      mesa_loge("DxcCreateInstance failed: %08x\n", hr);
+
+   return ret;
+}
+
+ComPtr<IDxcLibrary>
+dxc_get_library(void)
+{
+   ComPtr<IDxcLibrary> ret(NULL);
+
+   HMODULE dxil_mod = LoadLibraryA("dxcompiler.dll");
+   if (!dxil_mod) {
+      mesa_loge("failed to load dxcompiler.dll\n");
+      return ret;
+   }
+
+   DxcCreateInstanceProc CreateInstance = (DxcCreateInstanceProc)
+      GetProcAddress(dxil_mod, "DxcCreateInstance");
+   HRESULT hr = CreateInstance(CLSID_DxcLibrary,  IID_PPV_ARGS(&ret));
+   if (FAILED(hr))
+      mesa_loge("DxcCreateInstance failed: %08x\n", hr);
+
+   return ret;
+}
+
+ComPtr<IDxcCompiler>
+dxc_get_compiler(void)
+{
+   ComPtr<IDxcCompiler> ret(NULL);
+
+   HMODULE dxil_mod = LoadLibraryA("dxcompiler.dll");
+   if (!dxil_mod) {
+      mesa_loge("failed to load dxcompiler.dll\n");
+      return ret;
+   }
+
+   DxcCreateInstanceProc CreateInstance = (DxcCreateInstanceProc)
+      GetProcAddress(dxil_mod, "DxcCreateInstance");
+   HRESULT hr = CreateInstance(CLSID_DxcCompiler,  IID_PPV_ARGS(&ret));
+   if (FAILED(hr))
+      mesa_loge("DxcCreateInstance failed: %08x\n", hr);
+
+   return ret;
+}

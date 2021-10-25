@@ -49,6 +49,7 @@
 
 #define D3D12_IGNORE_SDK_LAYERS
 #include <directx/d3d12.h>
+#include <dxcapi.h>
 #include <wrl/client.h>
 
 #include "d3d12_descriptor_pool.h"
@@ -169,6 +170,15 @@ private:
 
 ComPtr<IDXGIFactory4>
 dxgi_get_factory(bool debug);
+
+ComPtr<IDxcValidator>
+dxil_get_validator(void);
+
+ComPtr<IDxcLibrary>
+dxc_get_library(void);
+
+ComPtr<IDxcCompiler>
+dxc_get_compiler(void);
 
 void
 d3d12_enable_debug_layer();
@@ -662,6 +672,11 @@ enum dzn_debug_flags {
 struct dzn_instance {
    struct vk_instance vk;
 
+   struct {
+      ComPtr<IDxcValidator> validator;
+      ComPtr<IDxcLibrary> library;
+      ComPtr<IDxcCompiler> compiler;
+   } dxc;
    bool physical_devices_enumerated;
    uint32_t debug_flags;
 
