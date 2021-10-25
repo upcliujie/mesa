@@ -1372,52 +1372,62 @@ dzn_BindBufferMemory2(VkDevice _device,
    return VK_SUCCESS;
 }
 
+dzn_framebuffer::dzn_framebuffer(dzn_device *device,
+                                 const VkFramebufferCreateInfo *pCreateInfo,
+                                 const VkAllocationCallbacks *pAllocator)
+{
+   width = pCreateInfo->width;
+   height = pCreateInfo->height;
+   layers = pCreateInfo->layers;
+
+   attachment_count = pCreateInfo->attachmentCount;
+   for (uint32_t i = 0; i < attachment_count; i++) {
+      VK_FROM_HANDLE(dzn_image_view, iview, pCreateInfo->pAttachments[i]);
+      attachments[i] = iview;
+   }
+
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_FRAMEBUFFER);
+}
+
+dzn_framebuffer::~dzn_framebuffer()
+{
+   vk_object_base_finish(&base);
+}
+
+dzn_framebuffer *
+dzn_framebuffer_factory::allocate(dzn_device *device,
+                                  const VkFramebufferCreateInfo *pCreateInfo,
+                                  const VkAllocationCallbacks *pAllocator)
+{
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO);
+
+   struct dzn_framebuffer *framebuffer;
+   size_t size = sizeof(*framebuffer) +
+                 (sizeof(struct dzn_image_view *) *
+                  pCreateInfo->attachmentCount);
+
+   framebuffer = (struct dzn_framebuffer *)
+      vk_alloc2(&device->vk.alloc, pAllocator, size, alignof(dzn_framebuffer),
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   return framebuffer;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateFramebuffer(VkDevice _device,
+dzn_CreateFramebuffer(VkDevice device,
                       const VkFramebufferCreateInfo *pCreateInfo,
                       const VkAllocationCallbacks *pAllocator,
                       VkFramebuffer *pFramebuffer)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   struct dzn_framebuffer *framebuffer;
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO);
-
-   size_t size = sizeof(*framebuffer) + sizeof(struct dzn_image_view *) *
-                 pCreateInfo->attachmentCount;
-
-   framebuffer = (struct dzn_framebuffer *)
-      vk_object_alloc(&device->vk, pAllocator, size,
-                      VK_OBJECT_TYPE_FRAMEBUFFER);
-   if (framebuffer == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   framebuffer->width = pCreateInfo->width;
-   framebuffer->height = pCreateInfo->height;
-   framebuffer->layers = pCreateInfo->layers;
-
-   for (uint32_t i = 0; i < pCreateInfo->attachmentCount; i++) {
-      VK_FROM_HANDLE(dzn_image_view, iview, pCreateInfo->pAttachments[i]);
-      framebuffer->attachments[i] = iview;
-   }
-   framebuffer->attachment_count = pCreateInfo->attachmentCount;
-
-   *pFramebuffer = dzn_framebuffer_to_handle(framebuffer);
-   return VK_SUCCESS;
+   return dzn_framebuffer_factory::create(device, pCreateInfo,
+                                          pAllocator, pFramebuffer);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyFramebuffer(VkDevice _device,
-                       VkFramebuffer _fb,
+dzn_DestroyFramebuffer(VkDevice device,
+                       VkFramebuffer fb,
                        const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_framebuffer, fb, _fb);
-
-   if (!fb)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, fb);
+   dzn_framebuffer_factory::destroy(device, fb, pAllocator);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

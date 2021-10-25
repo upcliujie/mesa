@@ -563,6 +563,11 @@ struct dzn_framebuffer {
 
    uint32_t attachment_count;
    struct dzn_image_view *attachments[0];
+
+   dzn_framebuffer(dzn_device *device,
+                   const VkFramebufferCreateInfo *pCreateInfo,
+                   const VkAllocationCallbacks *pAllocator);
+   ~dzn_framebuffer();
 };
 
 struct dzn_sampler {
@@ -862,6 +867,7 @@ DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_po
 DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
+DZN_OBJ_FACTORY(dzn_framebuffer, VkFramebuffer, VkDevice, const VkFramebufferCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image_view, VkImageView, VkDevice, const VkImageViewCreateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
