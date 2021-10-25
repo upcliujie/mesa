@@ -28,224 +28,229 @@
 #include "vk_format.h"
 #include "vk_util.h"
 
+dzn_cmd_pool::dzn_cmd_pool(dzn_device *device,
+                           const VkCommandPoolCreateInfo *pCreateInfo,
+                           const VkAllocationCallbacks *pAllocator) :
+                          flags(pCreateInfo->flags)
+{
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_COMMAND_POOL);
+   alloc = pAllocator ? *pAllocator : device->vk.alloc;
+}
+
+dzn_cmd_pool::~dzn_cmd_pool()
+{
+   vk_object_base_finish(&base);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateCommandPool(VkDevice _device,
+dzn_CreateCommandPool(VkDevice device,
                       const VkCommandPoolCreateInfo *pCreateInfo,
                       const VkAllocationCallbacks *pAllocator,
                       VkCommandPool *pCmdPool)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   struct dzn_cmd_pool *pool = (struct dzn_cmd_pool *)
-      vk_object_alloc(&device->vk, pAllocator, sizeof(*pool),
-                      VK_OBJECT_TYPE_COMMAND_POOL);
-   if (pool == NULL)
-      vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   if (pAllocator)
-      pool->alloc = *pAllocator;
-   else
-      pool->alloc = device->vk.alloc;
-
-   list_inithead(&pool->cmd_buffers);
-
-   pool->flags = pCreateInfo->flags;
-
-   *pCmdPool = dzn_cmd_pool_to_handle(pool);
-
-   return VK_SUCCESS;
-}
-
-static void
-dzn_cmd_free_batch(dzn_cmd_buffer *cmd_buffer, dzn_batch *batch)
-{
-   util_dynarray_fini(&batch->events.wait);
-   util_dynarray_fini(&batch->events.signal);
-
-   if (batch->cmdlist)
-      batch->cmdlist->Release();
-
-   vk_free(&cmd_buffer->pool->alloc, batch);
-}
-
-static void
-dzn_cmd_buffer_destroy(struct dzn_cmd_buffer *cmd_buffer)
-{
-   list_del(&cmd_buffer->pool_link);
-
-   d3d12_descriptor_pool_free(cmd_buffer->rtv_pool);
-   cmd_buffer->rtv_pool = NULL;
-
-   util_dynarray_foreach(&cmd_buffer->batches, dzn_batch *, batch)
-      dzn_cmd_free_batch(cmd_buffer, *batch);
-   util_dynarray_fini(&cmd_buffer->batches);
-
-   util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
-      (*heap)->Release();
-
-   util_dynarray_fini(&cmd_buffer->heaps);
-   vk_command_buffer_finish(&cmd_buffer->vk);
-   vk_free2(&cmd_buffer->device->vk.alloc, &cmd_buffer->pool->alloc,
-            cmd_buffer);
+   return dzn_cmd_pool_factory::create(device,
+                                       pCreateInfo,
+                                       pAllocator,
+                                       pCmdPool);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyCommandPool(VkDevice _device,
+dzn_DestroyCommandPool(VkDevice device,
                        VkCommandPool commandPool,
                        const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
-
-   if (!pool)
-      return;
-
-   list_for_each_entry_safe(struct dzn_cmd_buffer, cmd_buffer,
-                            &pool->cmd_buffers, pool_link) {
-      dzn_cmd_buffer_destroy(cmd_buffer);
-   }
-
-   vk_object_free(&device->vk, pAllocator, pool);
+   dzn_cmd_pool_factory::destroy(device,
+                                 commandPool,
+                                 pAllocator);
 }
 
-static void
-dzn_cmd_close_batch(dzn_cmd_buffer *cmd_buffer)
+dzn_batch::dzn_batch(dzn_cmd_buffer *cmd_buffer):
+                    wait(wait_allocator(&cmd_buffer->pool->alloc)),
+                    signal(signal_allocator(&cmd_buffer->pool->alloc))
 {
-   dzn_batch *batch = cmd_buffer->batch;
-
-   if (!batch)
-      return;
-
-   batch->cmdlist->Close();
-   util_dynarray_append(&cmd_buffer->batches, dzn_batch *, batch);
-   cmd_buffer->batch = NULL;
+   pool = cmd_buffer->pool;
+   if (FAILED(cmd_buffer->device->dev->CreateCommandList(0, cmd_buffer->type,
+                                                         cmd_buffer->alloc.Get(), NULL,
+                                                         IID_PPV_ARGS(&cmdlist))))
+      throw vk_error(cmd_buffer->device, VK_ERROR_OUT_OF_HOST_MEMORY);
 }
 
-static VkResult
-dzn_cmd_open_batch(dzn_cmd_buffer *cmd_buffer)
+dzn_batch::~dzn_batch()
 {
-   dzn_device *device = cmd_buffer->device;
+}
+
+const VkAllocationCallbacks *
+dzn_batch::get_vk_allocator()
+{
+   return &pool->alloc;
+}
+
+dzn_batch *
+dzn_batch::create(dzn_cmd_buffer *cmd_buffer)
+{
    dzn_batch *batch = (dzn_batch *)
       vk_zalloc(&cmd_buffer->pool->alloc,
                 sizeof(*batch), 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
 
-   util_dynarray_init(&batch->events.wait, NULL);
-   util_dynarray_init(&batch->events.signal, NULL);
-
    if (!batch)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+      throw vk_error(cmd_buffer->device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   if (FAILED(device->dev->CreateCommandList(0, cmd_buffer->type, cmd_buffer->alloc, NULL,
-                                             IID_PPV_ARGS(&batch->cmdlist))))
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   cmd_buffer->batch = batch;
-   return VK_SUCCESS;
-}
-
-static dzn_batch *
-dzn_cmd_get_batch(dzn_cmd_buffer *cmd_buffer, bool signal_event)
-{
-   dzn_batch *batch = cmd_buffer->batch;
-
-   if (batch) {
-      if (batch->events.signal.size == 0 || signal_event)
-         return batch;
- 
-      /* Close the current batch if there are event signaling pending. */
-      dzn_cmd_close_batch(cmd_buffer);
+   try {
+      std::construct_at(batch, cmd_buffer);
+   } catch (VkResult result) {
+      vk_free(&cmd_buffer->pool->alloc, batch);
+      throw result;
    }
 
-   dzn_cmd_open_batch(cmd_buffer);
-   assert(cmd_buffer->batch);
-   return cmd_buffer->batch;
+   return batch;
 }
 
-static VkResult
-dzn_create_cmd_buffer(struct dzn_device *device,
-                      struct dzn_cmd_pool *pool,
-                      VkCommandBufferLevel level,
-                      VkCommandBuffer *pCommandBuffer)
+void
+dzn_batch::destroy(dzn_batch *batch, struct dzn_cmd_buffer *cmd_buffer)
 {
-   VkResult result;
+   std::destroy_at(batch);
+   vk_free(&cmd_buffer->pool->alloc, batch);
+}
 
-   dzn_cmd_buffer *cmd_buffer = (dzn_cmd_buffer *)
-      vk_zalloc2(&device->vk.alloc, &pool->alloc, sizeof(*cmd_buffer), 8,
-                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (cmd_buffer == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
+                               dzn_cmd_pool *cmd_pool,
+                               VkCommandBufferLevel lvl,
+                               const VkAllocationCallbacks *pAllocator) :
+                              heaps(heaps_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
+                              batches(batches_allocator(pAllocator ? pAllocator : &cmd_pool->alloc))
+{
+   device = dev;
+   level = lvl;
+   pool = cmd_pool;
 
-   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
+   VkResult result =
+      vk_command_buffer_init(&vk, &device->vk);
+
    if (result != VK_SUCCESS)
-      goto fail;
+      throw vk_error(device, result);
 
-   util_dynarray_init(&cmd_buffer->heaps, NULL);
-   cmd_buffer->device = device;
-   cmd_buffer->pool = pool;
-   cmd_buffer->level = level;
-
-   cmd_buffer->rtv_pool =
+   struct d3d12_descriptor_pool *pool =
       d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
-   if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-      cmd_buffer->type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-   else
-      cmd_buffer->type = D3D12_COMMAND_LIST_TYPE_BUNDLE;
+   rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
-   if (FAILED(device->dev->CreateCommandAllocator(cmd_buffer->type,
-                                                  IID_PPV_ARGS(&cmd_buffer->alloc)))) {
-      result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      goto fail_cmd_buffer;
+   if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+   else
+      type = D3D12_COMMAND_LIST_TYPE_BUNDLE;
+
+   if (FAILED(device->dev->CreateCommandAllocator(type,
+                                                  IID_PPV_ARGS(&alloc)))) {
+      vk_command_buffer_finish(&vk);
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
    }
 
-   result = dzn_cmd_open_batch(cmd_buffer);
-   if (result != VK_SUCCESS)
-      goto fail_cmd_buffer;
-
-   list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
-
-   *pCommandBuffer = dzn_cmd_buffer_to_handle(cmd_buffer);
-
-   return VK_SUCCESS;
-
-fail_cmd_buffer:
-   vk_command_buffer_finish(&cmd_buffer->vk);
-
- fail:
-   if (cmd_buffer->alloc)
-      cmd_buffer->alloc->Release();
-
-   vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
-
-   return result;
+   try {
+      open_batch();
+   } catch (VkResult error) {
+      vk_command_buffer_finish(&vk);
+      throw error;
+   }
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_AllocateCommandBuffers(VkDevice _device,
-                           const VkCommandBufferAllocateInfo *pAllocateInfo,
-                           VkCommandBuffer *pCommandBuffers)
+dzn_cmd_buffer::~dzn_cmd_buffer()
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_cmd_pool, pool, pAllocateInfo->commandPool);
+   vk_command_buffer_finish(&vk);
+}
 
+void
+dzn_cmd_buffer::close_batch()
+{
+   if (!batch.get())
+      return;
+
+   batch->cmdlist->Close();
+   batches.push_back(dzn_object_unique_ptr<dzn_batch>(batch.release()));
+   assert(batch.get() == NULL);
+}
+
+void
+dzn_cmd_buffer::open_batch()
+{
+   batch = dzn_object_unique_ptr<dzn_batch>(dzn_batch::create(this));
+}
+
+dzn_batch *
+dzn_cmd_buffer::get_batch(bool signal_event)
+{
+   if (batch.get()) {
+      if (batch->signal.size() == 0 || signal_event)
+         return batch.get();
+ 
+      /* Close the current batch if there are event signaling pending. */
+      close_batch();
+   }
+
+   open_batch();
+   assert(batch.get());
+   return batch.get();
+}
+
+void
+dzn_cmd_buffer::reset()
+{
+   /* TODO: Return heaps to the command pool instead of freeing them */
+   struct d3d12_descriptor_pool *pool =
+      d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+
+   rtv_pool.reset(pool);
+
+   /* TODO: Return batches to the pool instead of freeing them. */
+   batches.clear();
+   batch.reset(NULL);
+
+   vk_command_buffer_reset(&vk);
+}
+
+VkResult
+dzn_cmd_pool::allocate_cmd_buffers(VkDevice device,
+                                   const VkCommandBufferAllocateInfo *pAllocateInfo,
+                                   VkCommandBuffer *pCommandBuffers)
+{
    VkResult result = VK_SUCCESS;
    uint32_t i;
 
    for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
-      result = dzn_create_cmd_buffer(device, pool, pAllocateInfo->level,
-                                     &pCommandBuffers[i]);
+      result = dzn_cmd_buffer_factory::create(device, this,
+                                              pAllocateInfo->level,
+                                              &alloc,
+                                              &pCommandBuffers[i]);
       if (result != VK_SUCCESS)
          break;
    }
 
    if (result != VK_SUCCESS) {
-      dzn_FreeCommandBuffers(_device, pAllocateInfo->commandPool,
-                             i, pCommandBuffers);
+      dzn_cmd_pool::free_cmd_buffers(device, i, pCommandBuffers);
       for (i = 0; i < pAllocateInfo->commandBufferCount; i++)
          pCommandBuffers[i] = VK_NULL_HANDLE;
    }
 
    return result;
+}
+
+void
+dzn_cmd_pool::free_cmd_buffers(VkDevice device,
+                               uint32_t commandBufferCount,
+                               const VkCommandBuffer *pCommandBuffers)
+{
+   for (uint32_t i = 0; i < commandBufferCount; i++)
+      dzn_cmd_buffer_factory::destroy(device, pCommandBuffers[i], &alloc);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_AllocateCommandBuffers(VkDevice device,
+                           const VkCommandBufferAllocateInfo *pAllocateInfo,
+                           VkCommandBuffer *pCommandBuffers)
+{
+   VK_FROM_HANDLE(dzn_cmd_pool, pool, pAllocateInfo->commandPool);
+
+   return pool->allocate_cmd_buffers(device, pAllocateInfo, pCommandBuffers);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -254,40 +259,9 @@ dzn_FreeCommandBuffers(VkDevice device,
                        uint32_t commandBufferCount,
                        const VkCommandBuffer *pCommandBuffers)
 {
-   for (uint32_t i = 0; i < commandBufferCount; i++) {
-      VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, pCommandBuffers[i]);
+   VK_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
 
-      if (!cmd_buffer)
-         continue;
-
-      dzn_cmd_buffer_destroy(cmd_buffer);
-   }
-}
-
-VkResult
-dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmd_buffer)
-{
-   /* TODO: Return batches to the pool instead of freeing them. */
-   util_dynarray_foreach(&cmd_buffer->batches, dzn_batch *, batch)
-      dzn_cmd_free_batch(cmd_buffer, *batch);
-   util_dynarray_clear(&cmd_buffer->batches);
-
-   if (cmd_buffer->batch) {
-      dzn_cmd_free_batch(cmd_buffer, cmd_buffer->batch);
-      cmd_buffer->batch = NULL;
-   }
-
-   /* TODO: Return heaps to the command pool instead of freeing them */
-   d3d12_descriptor_pool_free(cmd_buffer->rtv_pool);
-   cmd_buffer->rtv_pool =
-      d3d12_descriptor_pool_new(cmd_buffer->device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
-
-   util_dynarray_foreach(&cmd_buffer->heaps, ID3D12DescriptorHeap *, heap)
-      (*heap)->Release();
-   util_dynarray_clear(&cmd_buffer->heaps);
-   vk_command_buffer_reset(&cmd_buffer->vk);
-
-   return VK_SUCCESS;
+   pool->free_cmd_buffers(device, commandBufferCount, pCommandBuffers);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -295,7 +269,9 @@ dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
                        VkCommandBufferResetFlags flags)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   return dzn_cmd_buffer_reset(cmd_buffer);
+
+   cmd_buffer->reset();
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -319,7 +295,7 @@ dzn_BeginCommandBuffer(
     *    VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT not set. It then puts
     *    the command buffer in the recording state.
     */
-   dzn_cmd_buffer_reset(cmd_buffer);
+   cmd_buffer->reset();
 
    cmd_buffer->usage_flags = pBeginInfo->flags;
 
@@ -361,7 +337,7 @@ dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   dzn_cmd_close_batch(cmd_buffer);
+   cmd_buffer->close_batch();
 
    return VK_SUCCESS;
 }
@@ -416,7 +392,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = cmd_buffer->get_batch();
 
    /* Global memory barriers can be emulated with NULL UAV/Aliasing barriers.
     * Scopes are not taken into account, but that's inherent to the current
@@ -514,8 +490,8 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
 
    ID3D12Device *dev = cmd_buffer->device->dev.Get();
 
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
-   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
+   dzn_batch *batch = cmd_buffer->get_batch();
+   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
 
    for (int i = 0; i < pCopyBufferToImageInfo->regionCount; i++) {
       const VkBufferImageCopy2KHR *region = &pCopyBufferToImageInfo->pRegions[i];
@@ -579,8 +555,8 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
    };
 
    ID3D12Device *dev = cmd_buffer->device->dev.Get();
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
-   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
+   dzn_batch *batch = cmd_buffer->get_batch();
+   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
 
    for (int i = 0; i < pCopyImageToBufferInfo->regionCount; i++) {
       const VkBufferImageCopy2KHR *region = &pCopyImageToBufferInfo->pRegions[i];
@@ -660,8 +636,8 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_image, dst, pCopyImageInfo->dstImage);
 
    ID3D12Device *dev = cmd_buffer->device->dev.Get();
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
-   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist;
+   dzn_batch *batch = cmd_buffer->get_batch();
+   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
 
    assert(src->vk.samples == dst->vk.samples);
 
@@ -706,7 +682,7 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
                        const VkImageSubresourceRange *pRanges)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = cmd_buffer->get_batch();
    dzn_device *device = cmd_buffer->device;
    VK_FROM_HANDLE(dzn_image, img, image);
    D3D12_RENDER_TARGET_VIEW_DESC desc = {
@@ -785,9 +761,9 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
          }
 
          struct d3d12_descriptor_handle handle;
-         d3d12_descriptor_pool_alloc_handle(cmd_buffer->rtv_pool, &handle);
+         d3d12_descriptor_pool_alloc_handle(cmd_buffer->rtv_pool.get(), &handle);
          device->dev->CreateRenderTargetView(img->res.Get(), &desc,
-                                            handle.cpu_handle);
+                                             handle.cpu_handle);
          batch->cmdlist->ClearRenderTargetView(handle.cpu_handle,
                                                pColor->float32, 0, NULL);
       }
@@ -803,7 +779,7 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
    VK_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
    const struct dzn_subpass *subpass = &pass->subpasses[0];
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = cmd_buffer->get_batch();
 
    cmd_buffer->state.framebuffer = framebuffer;
    cmd_buffer->state.pass = pass;
@@ -885,7 +861,7 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
                       const VkSubpassEndInfoKHR *pSubpassEndInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = cmd_buffer->get_batch();
 
    assert(cmd_buffer->state.pass->attachment_count ==
           cmd_buffer->state.framebuffer->attachment_count);
@@ -944,47 +920,46 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
    }
 }
 
-static void
-update_pipeline(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
+void
+dzn_cmd_buffer::update_pipeline(uint32_t bindpoint)
 {
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = get_batch();
 
-   if (cmd_buffer->state.bindpoint[bindpoint].pipeline &&
-       cmd_buffer->state.bindpoint[bindpoint].pipeline != cmd_buffer->state.pipeline) {
-      cmd_buffer->state.pipeline = cmd_buffer->state.bindpoint[bindpoint].pipeline;
-      batch->cmdlist->SetGraphicsRootSignature(cmd_buffer->state.pipeline->layout->root.sig.Get());
-      batch->cmdlist->SetPipelineState(cmd_buffer->state.pipeline->state);
+   if (state.bindpoint[bindpoint].pipeline &&
+       state.bindpoint[bindpoint].pipeline != state.pipeline) {
+      state.pipeline = state.bindpoint[bindpoint].pipeline;
+      batch->cmdlist->SetGraphicsRootSignature(state.pipeline->layout->root.sig.Get());
+      batch->cmdlist->SetPipelineState(state.pipeline->state);
       if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
-         struct dzn_graphics_pipeline *gfx =
-            container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
+         const dzn_graphics_pipeline *gfx =
+            reinterpret_cast<const dzn_graphics_pipeline *>(state.pipeline);
          batch->cmdlist->IASetPrimitiveTopology(gfx->ia.topology);
       }
    }
 }
 
-static void
-update_heaps(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
+void
+dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
 {
-   ID3D12DescriptorHeap **heaps = cmd_buffer->state.bindpoint[bindpoint].heaps;
-   const struct dzn_pipeline *pipeline = cmd_buffer->state.bindpoint[bindpoint].pipeline;
+   ComPtr<ID3D12DescriptorHeap> *new_heaps = state.bindpoint[bindpoint].heaps;
+   const struct dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
    uint32_t view_desc_sz =
-      cmd_buffer->device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+      device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
    uint32_t sampler_desc_sz =
-      cmd_buffer->device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+      device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+   dzn_batch *batch = get_batch();
 
-   if (!(cmd_buffer->state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_HEAPS))
+   if (!(state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_HEAPS))
       goto set_heaps;
 
    for (uint32_t type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; type++) {
-      if (heaps[type]) {
-         util_dynarray_append(&cmd_buffer->heaps, ID3D12DescriptorHeap *,
-                              cmd_buffer->state.bindpoint[bindpoint].heaps[type]);
-         heaps[type] = NULL;
+      if (new_heaps[type]) {
+         heaps.push_back(new_heaps[type]);
+         new_heaps[type] = ComPtr<ID3D12DescriptorHeap>(NULL);
       }
 
-      uint32_t desc_count = cmd_buffer->state.pipeline->layout->desc_count[type];
+      uint32_t desc_count = state.pipeline->layout->desc_count[type];
       if (!desc_count)
          continue;
 
@@ -995,17 +970,17 @@ update_heaps(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
       };
 
       HRESULT ret =
-         cmd_buffer->device->dev->CreateDescriptorHeap(&desc,
-                                                       IID_PPV_ARGS(&heaps[type]));
+         device->dev->CreateDescriptorHeap(&desc,
+                                           IID_PPV_ARGS(&new_heaps[type]));
       assert(!FAILED(ret));
 
       D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = {
-         .ptr = heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
+         .ptr = new_heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
       };
 
       for (uint32_t s = 0; s < MAX_SETS; s++) {
          const struct dzn_descriptor_set *set =
-            cmd_buffer->state.bindpoint[bindpoint].sets[s];
+            state.bindpoint[bindpoint].sets[s];
 
          if (!set) continue;
 
@@ -1022,30 +997,33 @@ update_heaps(dzn_cmd_buffer *cmd_buffer, uint32_t bindpoint)
             .ptr = set->heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
          };
 
-         cmd_buffer->device->dev->CopyDescriptorsSimple(set_desc_count,
-                                                        dst_handle,
-                                                        src_handle,
-						        desc.Type);
+         device->dev->CopyDescriptorsSimple(set_desc_count,
+                                            dst_handle,
+                                            src_handle,
+                                            desc.Type);
          dst_handle.ptr += (desc_sz * set_desc_count);
       }
    }
 
 set_heaps:
-   if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] != cmd_buffer->state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] ||
-       heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] != cmd_buffer->state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]) {
-      if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] && heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER])
-         batch->cmdlist->SetDescriptorHeaps(2, heaps);
-      else if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV])
-         batch->cmdlist->SetDescriptorHeaps(1, &heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]);
-      else if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER])
-         batch->cmdlist->SetDescriptorHeaps(1, &heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]);
-      memcpy(cmd_buffer->state.heaps, heaps, sizeof(cmd_buffer->state.heaps));
+   if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get() != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get() ||
+       new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get() != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get()) {
+      ID3D12DescriptorHeap *desc_heaps[2];
+      uint32_t num_desc_heaps = 0;
+      if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get())
+         desc_heaps[num_desc_heaps++] = new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get();
+      if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get())
+         desc_heaps[num_desc_heaps++] = new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get();
+      batch->cmdlist->SetDescriptorHeaps(num_desc_heaps, desc_heaps);
+
+      for (unsigned h = 0; h < ARRAY_SIZE(state.heaps); h++)
+         state.heaps[h] = new_heaps[h];
 
       for (uint32_t r = 0; r < pipeline->layout->root.param_count; r++) {
          if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
             D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->layout->root.type[r];
             D3D12_GPU_DESCRIPTOR_HANDLE handle = {
-               .ptr = heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
+               .ptr = new_heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
             };
 
             batch->cmdlist->SetGraphicsRootDescriptorTable(r, handle);
@@ -1075,19 +1053,18 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
    cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
 }
 
-static void
-update_viewports(dzn_cmd_buffer *cmd_buffer)
+void
+dzn_cmd_buffer::update_viewports()
 {
-   struct dzn_graphics_pipeline *pipeline =
-      container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   const dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<const dzn_graphics_pipeline *>(state.pipeline);
+   dzn_batch *batch = get_batch();
 
-   if (!(cmd_buffer->state.dirty & DZN_CMD_DIRTY_VIEWPORTS) ||
+   if (!(state.dirty & DZN_CMD_DIRTY_VIEWPORTS) ||
        !pipeline->vp.count)
       return;
 
-   batch->cmdlist->RSSetViewports(pipeline->vp.count,
-                                  cmd_buffer->state.viewports);
+   batch->cmdlist->RSSetViewports(pipeline->vp.count, state.viewports);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1105,19 +1082,17 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
 }
 
-static void
-update_scissors(dzn_cmd_buffer *cmd_buffer)
+void
+dzn_cmd_buffer::update_scissors()
 {
-   struct dzn_graphics_pipeline *pipeline =
-      container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   const dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<const dzn_graphics_pipeline *>(state.pipeline);
+   dzn_batch *batch = get_batch();
 
-   if (!(cmd_buffer->state.dirty & DZN_CMD_DIRTY_SCISSORS) ||
-       !pipeline->scissor.count)
+   if (!(state.dirty & DZN_CMD_DIRTY_SCISSORS) || !pipeline->scissor.count)
       return;
 
-   batch->cmdlist->RSSetScissorRects(pipeline->scissor.count,
-                                     cmd_buffer->state.scissors);
+   batch->cmdlist->RSSetScissorRects(pipeline->scissor.count, state.scissors);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1135,18 +1110,29 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
 }
 
-static void
-update_vbviews(dzn_cmd_buffer *cmd_buffer)
+void
+dzn_cmd_buffer::update_vbviews()
 {
-   struct dzn_graphics_pipeline *pipeline =
-      container_of(cmd_buffer->state.pipeline, struct dzn_graphics_pipeline, base);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   const dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<const dzn_graphics_pipeline *>(state.pipeline);
+   dzn_batch *batch = get_batch();
    unsigned start, end;
 
-   BITSET_FOREACH_RANGE(start, end, cmd_buffer->state.vb.dirty, MAX_VBS)
-      batch->cmdlist->IASetVertexBuffers(start, end - start, cmd_buffer->state.vb.views);
+   BITSET_FOREACH_RANGE(start, end, state.vb.dirty, MAX_VBS)
+      batch->cmdlist->IASetVertexBuffers(start, end - start, state.vb.views);
 
-   BITSET_CLEAR_RANGE(cmd_buffer->state.vb.dirty, 0, MAX_VBS);
+   BITSET_CLEAR_RANGE(state.vb.dirty, 0, MAX_VBS);
+}
+
+void
+dzn_cmd_buffer::prepare_draw()
+{
+   update_pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
+   update_heaps(VK_PIPELINE_BIND_POINT_GRAPHICS);
+   update_viewports();
+   update_scissors();
+   update_vbviews();
+   state.dirty = 0;
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1157,14 +1143,9 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
             uint32_t firstInstance)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = cmd_buffer->get_batch();
 
-   update_pipeline(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
-   update_heaps(cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS);
-   update_viewports(cmd_buffer);
-   update_scissors(cmd_buffer);
-   update_vbviews(cmd_buffer);
-   cmd_buffer->state.dirty = 0;
+   cmd_buffer->prepare_draw();
 
    batch->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
 }
@@ -1206,10 +1187,9 @@ dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
       .value = false,
    };
 
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, true);
+   dzn_batch *batch = cmd_buffer->get_batch(true);
 
-   util_dynarray_append(&batch->events.signal,
-                        struct dzn_cmd_event_signal, signal);
+   batch->signal.push_back(signal);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1225,10 +1205,9 @@ dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
       .value = true,
    };
 
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, true);
+   dzn_batch *batch = cmd_buffer->get_batch(true);
 
-   util_dynarray_append(&batch->events.signal,
-                        struct dzn_cmd_event_signal, signal);
+   batch->signal.push_back(signal);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1246,12 +1225,11 @@ dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   dzn_batch *batch = dzn_cmd_get_batch(cmd_buffer, false);
+   dzn_batch *batch = cmd_buffer->get_batch();
 
    for (uint32_t i = 0; i < eventCount; i++) {
       VK_FROM_HANDLE(dzn_event, event, pEvents[i]);
 
-      util_dynarray_append(&batch->events.signal,
-                           dzn_event *, event);
+      batch->wait.push_back(event);
    }
 }

@@ -270,27 +270,35 @@ struct dzn_cmd_event_signal {
    bool value;
 };
 
+struct dzn_cmd_buffer;
+
 struct dzn_batch {
-   struct {
-      struct util_dynarray wait;
-      struct util_dynarray signal;
-   } events;
-   ID3D12GraphicsCommandList *cmdlist;
+   using wait_allocator = dzn_allocator<dzn_event *>;
+   std::vector<dzn_event *, wait_allocator> wait;
+   using signal_allocator = dzn_allocator<dzn_cmd_event_signal>;
+   std::vector<dzn_cmd_event_signal, signal_allocator> signal;
+   ComPtr<ID3D12GraphicsCommandList> cmdlist;
+   struct dzn_cmd_pool *pool;
+
+   dzn_batch(struct dzn_cmd_buffer *cmd_buffer);
+   ~dzn_batch();
+   const VkAllocationCallbacks *get_vk_allocator();
+   static dzn_batch *create(struct dzn_cmd_buffer *cmd_buffer);
+   static void destroy(dzn_batch *batch, struct dzn_cmd_buffer *cmd_buffer);
 };
 
 struct dzn_cmd_buffer {
    struct vk_command_buffer vk;
 
-   struct dzn_device *device;
+   dzn_device *device;
 
-   struct d3d12_descriptor_pool *rtv_pool;
+   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
    struct dzn_cmd_pool *pool;
-   struct list_head pool_link;
 
    struct {
       struct dzn_framebuffer *framebuffer;
       const struct dzn_pipeline *pipeline;
-      ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
+      ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
       struct dzn_render_pass *pass;
       struct {
          BITSET_DECLARE(dirty, MAX_VBS);
@@ -303,29 +311,62 @@ struct dzn_cmd_buffer {
       struct {
          const struct dzn_pipeline *pipeline;
          const struct dzn_descriptor_set *sets[MAX_SETS];
-         ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
+         ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
          uint32_t dirty;
       } bindpoint[NUM_BIND_POINT];
-   } state;
+   } state = {};
 
-   struct util_dynarray heaps;
+   using heaps_allocator = dzn_allocator<ComPtr<ID3D12DescriptorHeap>>;
+   std::vector<ComPtr<ID3D12DescriptorHeap>, heaps_allocator> heaps;
 
    VkCommandBufferUsageFlags usage_flags;
    VkCommandBufferLevel level;
 
-   ID3D12CommandAllocator *alloc;
+   ComPtr<ID3D12CommandAllocator> alloc;
    D3D12_COMMAND_LIST_TYPE type;
-   struct dzn_batch *batch;
-   struct util_dynarray batches;
-   ID3D12Resource *rt0;
+   dzn_object_unique_ptr<dzn_batch> batch;
+   using batches_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_batch>>;
+   dzn_object_vector<dzn_batch> batches;
+   ComPtr<ID3D12Resource> rt0;
+
+   dzn_cmd_buffer(dzn_device *device,
+                  dzn_cmd_pool *pool,
+                  VkCommandBufferLevel lvl,
+                  const VkAllocationCallbacks *pAllocator);
+   ~dzn_cmd_buffer();
+   void open_batch();
+   void close_batch();
+   dzn_batch *get_batch(bool signal_event = false);
+   void reset();
+   void prepare_draw();
+
+private:
+   void update_pipeline(uint32_t bindpoint);
+   void update_heaps(uint32_t bindpoint);
+   void update_viewports();
+   void update_scissors();
+   void update_vbviews();
 };
 
 struct dzn_cmd_pool {
    struct vk_object_base base;
    VkAllocationCallbacks alloc;
-   struct list_head cmd_buffers;
 
    VkCommandPoolCreateFlags flags;
+
+   dzn_cmd_pool(dzn_device *device,
+                const VkCommandPoolCreateInfo *pCreateInfo,
+                const VkAllocationCallbacks *pAllocator);
+   ~dzn_cmd_pool();
+
+   VkResult
+   allocate_cmd_buffers(VkDevice device,
+                        const VkCommandBufferAllocateInfo *pAllocateInfo,
+                        VkCommandBuffer *pCommandBuffers);
+   void
+   free_cmd_buffers(VkDevice device,
+                    uint32_t commandBufferCount,
+                    const VkCommandBuffer *pCommandBuffers);
 };
 
 struct dzn_descriptor_pool {
@@ -887,6 +928,8 @@ typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS_
 
 DZN_OBJ_FACTORY(dzn_buffer, VkBuffer, VkDevice, const VkBufferCreateInfo *);
 DZN_OBJ_FACTORY(dzn_buffer_view, VkBufferView, VkDevice, const VkBufferViewCreateInfo *);
+DZN_OBJ_FACTORY(dzn_cmd_buffer, VkCommandBuffer, VkDevice, dzn_cmd_pool *, VkCommandBufferLevel);
+DZN_OBJ_FACTORY(dzn_cmd_pool, VkCommandPool, VkDevice, const VkCommandPoolCreateInfo *);
 DZN_OBJ_FACTORY(dzn_descriptor_pool, VkDescriptorPool, VkDevice, const VkDescriptorPoolCreateInfo *);
 DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_pool *, VkDescriptorSetLayout);
 DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);

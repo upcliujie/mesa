@@ -1030,16 +1030,16 @@ dzn_QueueSubmit(VkQueue _queue,
                          pSubmits[i].pCommandBuffers[j]);
          assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-         util_dynarray_foreach(&cmd_buffer->batches, dzn_batch *, batch) {
-            ID3D12CommandList *cmdlists[] = { (*batch)->cmdlist };
+         for (auto &batch : cmd_buffer->batches) {
+            ID3D12CommandList *cmdlists[] = { batch->cmdlist.Get() };
 
-            util_dynarray_foreach(&(*batch)->events.wait, dzn_event *, event)
-               queue->cmdqueue->Wait((*event)->fence.Get(), 1);
+            for (auto &event : batch->wait)
+               queue->cmdqueue->Wait(event->fence.Get(), 1);
 
             queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
 
-            util_dynarray_foreach(&(*batch)->events.wait, dzn_cmd_event_signal, signal)
-               queue->cmdqueue->Signal(signal->event->fence.Get(), signal->value ? 1 : 0);
+            for (auto &signal : batch->signal)
+               queue->cmdqueue->Signal(signal.event->fence.Get(), signal.value ? 1 : 0);
          }
       }
    }
