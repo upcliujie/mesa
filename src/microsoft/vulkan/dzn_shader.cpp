@@ -25,7 +25,7 @@
 
 #include "vk_alloc.h"
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateShaderModule(VkDevice _device,
                        const VkShaderModuleCreateInfo *pCreateInfo,
                        const VkAllocationCallbacks *pAllocator,
@@ -53,7 +53,7 @@ dzn_CreateShaderModule(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyShaderModule(VkDevice _device,
                         VkShaderModule _module,
                         const VkAllocationCallbacks *pAllocator)

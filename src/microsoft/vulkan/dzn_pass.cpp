@@ -35,7 +35,7 @@ num_subpass_attachments2(const VkSubpassDescription2KHR *desc)
           (desc->pDepthStencilAttachment != NULL);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateRenderPass2(VkDevice _device,
                       const VkRenderPassCreateInfo2KHR *pCreateInfo,
                       const VkAllocationCallbacks *pAllocator,
@@ -114,7 +114,7 @@ dzn_CreateRenderPass2(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyRenderPass(VkDevice _device,
                       VkRenderPass _pass,
                       const VkAllocationCallbacks *pAllocator)

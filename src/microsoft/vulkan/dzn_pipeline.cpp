@@ -747,7 +747,7 @@ out:
    return ret;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateGraphicsPipelines(VkDevice _device,
                             VkPipelineCache pipelineCache,
                             uint32_t count,
@@ -786,7 +786,7 @@ dzn_CreateGraphicsPipelines(VkDevice _device,
    return result;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyPipeline(VkDevice _device,
                     VkPipeline _pipeline,
                     const VkAllocationCallbacks *pAllocator)

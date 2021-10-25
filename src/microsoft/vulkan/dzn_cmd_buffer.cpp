@@ -28,7 +28,7 @@
 #include "vk_format.h"
 #include "vk_util.h"
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateCommandPool(VkDevice _device,
                       const VkCommandPoolCreateInfo *pCreateInfo,
                       const VkAllocationCallbacks *pAllocator,
@@ -88,7 +88,7 @@ dzn_cmd_buffer_destroy(struct dzn_cmd_buffer *cmd_buffer)
             cmd_buffer);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyCommandPool(VkDevice _device,
                        VkCommandPool commandPool,
                        const VkAllocationCallbacks *pAllocator)
@@ -220,7 +220,7 @@ fail_cmd_buffer:
    return result;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_AllocateCommandBuffers(VkDevice _device,
                            const VkCommandBufferAllocateInfo *pAllocateInfo,
                            VkCommandBuffer *pCommandBuffers)
@@ -248,7 +248,7 @@ dzn_AllocateCommandBuffers(VkDevice _device,
    return result;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_FreeCommandBuffers(VkDevice device,
                        VkCommandPool commandPool,
                        uint32_t commandBufferCount,
@@ -290,7 +290,7 @@ dzn_cmd_buffer_reset(struct dzn_cmd_buffer *cmd_buffer)
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
                        VkCommandBufferResetFlags flags)
 {
@@ -298,7 +298,7 @@ dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
    return dzn_cmd_buffer_reset(cmd_buffer);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_BeginCommandBuffer(
     VkCommandBuffer commandBuffer,
     const VkCommandBufferBeginInfo *pBeginInfo)
@@ -356,7 +356,7 @@ dzn_BeginCommandBuffer(
    return result;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
@@ -402,7 +402,7 @@ dzn_get_states(VkImageLayout layout)
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
                        VkPipelineStageFlags srcStageMask,
                        VkPipelineStageFlags destStageMask,
@@ -494,8 +494,9 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
    }
 }
 
-void dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
-                                  const VkCopyBufferToImageInfo2KHR *pCopyBufferToImageInfo)
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
+                             const VkCopyBufferToImageInfo2KHR *pCopyBufferToImageInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, src_buffer, pCopyBufferToImageInfo->srcBuffer);
@@ -559,7 +560,7 @@ void dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
                              const VkCopyImageToBufferInfo2KHR *pCopyImageToBufferInfo)
 {
@@ -650,7 +651,7 @@ dzn_fill_image_copy_loc(const dzn_image *img,
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
                      const VkCopyImageInfo2KHR *pCopyImageInfo)
 {
@@ -696,7 +697,7 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
                        VkImage image,
                        VkImageLayout imageLayout,
@@ -793,7 +794,7 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
                         const VkRenderPassBeginInfo *pRenderPassBeginInfo,
                         const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
@@ -879,7 +880,7 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
                       const VkSubpassEndInfoKHR *pSubpassEndInfo)
 {
@@ -916,7 +917,7 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
 #endif
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
                     VkPipelineBindPoint pipelineBindPoint,
                     VkPipeline _pipeline)
@@ -1053,7 +1054,7 @@ set_heaps:
    }
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
                           VkPipelineBindPoint pipelineBindPoint,
                           VkPipelineLayout _layout,
@@ -1089,7 +1090,7 @@ update_viewports(dzn_cmd_buffer *cmd_buffer)
                                   cmd_buffer->state.viewports);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
                    uint32_t firstViewport,
                    uint32_t viewportCount,
@@ -1119,7 +1120,7 @@ update_scissors(dzn_cmd_buffer *cmd_buffer)
                                      cmd_buffer->state.scissors);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
                   uint32_t firstScissor,
                   uint32_t scissorCount,
@@ -1148,7 +1149,7 @@ update_vbviews(dzn_cmd_buffer *cmd_buffer)
    BITSET_CLEAR_RANGE(cmd_buffer->state.vb.dirty, 0, MAX_VBS);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdDraw(VkCommandBuffer commandBuffer,
             uint32_t vertexCount,
             uint32_t instanceCount,
@@ -1168,7 +1169,7 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
    batch->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
                          uint32_t firstBinding,
                          uint32_t bindingCount,
@@ -1192,7 +1193,7 @@ dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
                     firstBinding + bindingCount - 1);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
                   VkEvent _event,
                   VkPipelineStageFlags stageMask)
@@ -1211,7 +1212,7 @@ dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
                         struct dzn_cmd_event_signal, signal);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
                 VkEvent _event,
                 VkPipelineStageFlags stageMask)
@@ -1230,7 +1231,7 @@ dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
                         struct dzn_cmd_event_signal, signal);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
                   uint32_t eventCount,
                   const VkEvent *pEvents,

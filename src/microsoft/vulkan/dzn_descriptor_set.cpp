@@ -84,7 +84,7 @@ num_descs_for_type(VkDescriptorType type, bool immutable_samplers)
    return num_descs;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateDescriptorSetLayout(VkDevice _device,
                               const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
                               const VkAllocationCallbacks *pAllocator,
@@ -270,7 +270,7 @@ err_free_bindings:
    return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyDescriptorSetLayout(VkDevice _device,
                                VkDescriptorSetLayout descriptorSetLayout,
                                const VkAllocationCallbacks *pAllocator)
@@ -297,7 +297,7 @@ dxil_get_serialize_root_sig(void)
       GetProcAddress(d3d12_mod, "D3D12SerializeVersionedRootSignature");
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreatePipelineLayout(VkDevice _device,
                          const VkPipelineLayoutCreateInfo *pCreateInfo,
                          const VkAllocationCallbacks *pAllocator,
@@ -469,7 +469,7 @@ out:
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyPipelineLayout(VkDevice _device,
                           VkPipelineLayout _layout,
                           const VkAllocationCallbacks *pAllocator)
@@ -506,7 +506,7 @@ desc_type_to_heap_type(VkDescriptorType in)
    }
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateDescriptorPool(VkDevice _device,
                          const VkDescriptorPoolCreateInfo *pCreateInfo,
                          const VkAllocationCallbacks *pAllocator,
@@ -527,7 +527,7 @@ dzn_CreateDescriptorPool(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyDescriptorPool(VkDevice _device,
                           VkDescriptorPool descriptorPool,
                           const VkAllocationCallbacks *pAllocator)
@@ -645,7 +645,7 @@ dzn_descriptor_set_destroy(struct dzn_device *device,
    vk_object_free(&device->vk, NULL, set);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_AllocateDescriptorSets(VkDevice _device,
                            const VkDescriptorSetAllocateInfo *pAllocateInfo,
                            VkDescriptorSet *pDescriptorSets)
@@ -677,7 +677,7 @@ err_free_sets:
    return result;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_FreeDescriptorSets(VkDevice _device,
                        VkDescriptorPool descriptorPool,
                        uint32_t count,
@@ -795,7 +795,7 @@ dzn_copy_descriptor_set(struct dzn_device *dev,
    assert(0);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_UpdateDescriptorSets(VkDevice _device,
                          uint32_t descriptorWriteCount,
                          const VkWriteDescriptorSet *pDescriptorWrites,

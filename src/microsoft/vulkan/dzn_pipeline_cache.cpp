@@ -25,7 +25,7 @@
 
 #include "vk_alloc.h"
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreatePipelineCache(VkDevice _device,
                         const VkPipelineCacheCreateInfo *pCreateInfo,
                         const VkAllocationCallbacks *pAllocator,

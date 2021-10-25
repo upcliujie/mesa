@@ -979,7 +979,7 @@ dzn_DeviceWaitIdle(VkDevice _device)
 #endif
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_QueueWaitIdle(VkQueue _queue)
 {
    VK_FROM_HANDLE(dzn_queue, queue, _queue);
@@ -990,7 +990,7 @@ dzn_QueueWaitIdle(VkQueue _queue)
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_QueueSubmit(VkQueue _queue,
                 uint32_t submitCount,
                 const VkSubmitInfo *pSubmits,
@@ -1033,7 +1033,7 @@ dzn_QueueSubmit(VkQueue _queue,
 }
 
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_AllocateMemory(VkDevice _device,
                    const VkMemoryAllocateInfo *pAllocateInfo,
                    const VkAllocationCallbacks *pAllocator,
@@ -1136,7 +1136,7 @@ dzn_AllocateMemory(VkDevice _device,
    return result;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_FreeMemory(VkDevice _device,
                VkDeviceMemory _mem,
                const VkAllocationCallbacks *pAllocator)
@@ -1167,7 +1167,7 @@ dzn_FreeMemory(VkDevice _device,
    vk_object_free(&device->vk, pAllocator, mem);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_MapMemory(VkDevice _device,
               VkDeviceMemory _memory,
               VkDeviceSize offset,
@@ -1212,7 +1212,7 @@ dzn_MapMemory(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_UnmapMemory(VkDevice _device,
                 VkDeviceMemory _memory)
 {
@@ -1229,7 +1229,7 @@ dzn_UnmapMemory(VkDevice _device,
    mem->map_size = 0;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_FlushMappedMemoryRanges(VkDevice _device,
                             uint32_t memoryRangeCount,
                             const VkMappedMemoryRange *pMemoryRanges)
@@ -1237,7 +1237,7 @@ dzn_FlushMappedMemoryRanges(VkDevice _device,
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_InvalidateMappedMemoryRanges(VkDevice _device,
                                  uint32_t memoryRangeCount,
                                  const VkMappedMemoryRange *pMemoryRanges)
@@ -1245,7 +1245,7 @@ dzn_InvalidateMappedMemoryRanges(VkDevice _device,
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateBuffer(VkDevice _device,
                  const VkBufferCreateInfo *pCreateInfo,
                  const VkAllocationCallbacks *pAllocator,
@@ -1286,7 +1286,7 @@ dzn_CreateBuffer(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyBuffer(VkDevice _device,
                   VkBuffer _buffer,
                   const VkAllocationCallbacks *pAllocator)
@@ -1300,7 +1300,7 @@ dzn_DestroyBuffer(VkDevice _device,
    vk_object_free(&device->vk, pAllocator, buffer);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_GetBufferMemoryRequirements2(VkDevice _device,
                                  const VkBufferMemoryRequirementsInfo2 *pInfo,
                                  VkMemoryRequirements2 *pMemoryRequirements)
@@ -1347,7 +1347,7 @@ dzn_GetBufferMemoryRequirements2(VkDevice _device,
 #endif
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_BindBufferMemory2(VkDevice _device,
                       uint32_t bindInfoCount,
                       const VkBindBufferMemoryInfo *pBindInfos)
@@ -1372,11 +1372,11 @@ dzn_BindBufferMemory2(VkDevice _device,
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateFramebuffer(VkDevice _device,
-                        const VkFramebufferCreateInfo *pCreateInfo,
-                        const VkAllocationCallbacks *pAllocator,
-                        VkFramebuffer *pFramebuffer)
+                      const VkFramebufferCreateInfo *pCreateInfo,
+                      const VkAllocationCallbacks *pAllocator,
+                      VkFramebuffer *pFramebuffer)
 {
    VK_FROM_HANDLE(dzn_device, device, _device);
    struct dzn_framebuffer *framebuffer;
@@ -1406,7 +1406,7 @@ dzn_CreateFramebuffer(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyFramebuffer(VkDevice _device,
                        VkFramebuffer _fb,
                        const VkAllocationCallbacks *pAllocator)
@@ -1420,7 +1420,7 @@ dzn_DestroyFramebuffer(VkDevice _device,
    vk_object_free(&device->vk, pAllocator, fb);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateEvent(VkDevice _device,
                 const VkEventCreateInfo *pCreateInfo,
                 const VkAllocationCallbacks *pAllocator,
@@ -1441,7 +1441,7 @@ dzn_CreateEvent(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyEvent(VkDevice _device,
                  VkEvent _event,
                  const VkAllocationCallbacks *pAllocator)
@@ -1456,7 +1456,7 @@ dzn_DestroyEvent(VkDevice _device,
    vk_object_free(&device->vk, pAllocator, event);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_ResetEvent(VkDevice _device,
                VkEvent _event)
 {
@@ -1467,7 +1467,7 @@ dzn_ResetEvent(VkDevice _device,
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_GetEventStatus(VkDevice _device,
                    VkEvent _event)
 {

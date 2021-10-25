@@ -41,7 +41,7 @@ translate_addr_mode(VkSamplerAddressMode in)
    }
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateSampler(VkDevice _device,
                   const VkSamplerCreateInfo *pCreateInfo,
                   const VkAllocationCallbacks *pAllocator,
@@ -100,7 +100,7 @@ dzn_CreateSampler(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroySampler(VkDevice _device,
                    VkSampler _sampler,
                    const VkAllocationCallbacks *pAllocator)

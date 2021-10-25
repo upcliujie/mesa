@@ -133,7 +133,7 @@ dzn_image_create(VkDevice _device,
    return VK_SUCCESS;
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateImage(VkDevice device,
                 const VkImageCreateInfo *pCreateInfo,
                 const VkAllocationCallbacks *pAllocator,
@@ -168,7 +168,7 @@ dzn_CreateImage(VkDevice device,
    return dzn_image_create(device, pCreateInfo, pAllocator, pImage);
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyImage(VkDevice _device, VkImage _image,
                  const VkAllocationCallbacks *pAllocator)
 {
@@ -203,7 +203,8 @@ dzn_swapchain_get_image(VkSwapchainKHR swapchain,
    return image;
 }
 
-VkResult dzn_BindImageMemory2(
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_BindImageMemory2(
     VkDevice                                    _device,
     uint32_t                                    bindInfoCount,
     const VkBindImageMemoryInfo*                pBindInfos)
@@ -255,7 +256,7 @@ VkResult dzn_BindImageMemory2(
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_GetImageMemoryRequirements2(VkDevice _device,
                                 const VkImageMemoryRequirementsInfo2 *pInfo,
                                 VkMemoryRequirements2 *pMemoryRequirements)
@@ -314,7 +315,7 @@ get_subresource_index(const D3D12_RESOURCE_DESC *desc,
 }
 
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_GetImageSubresourceLayout(VkDevice _device,
                               VkImage _image,
                               const VkImageSubresource *subresource,
@@ -436,7 +437,7 @@ translate_swizzle(VkComponentSwizzle in, uint32_t comp)
    }
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateImageView(VkDevice _device,
                     const VkImageViewCreateInfo *pCreateInfo,
                     const VkAllocationCallbacks *pAllocator,
@@ -657,7 +658,7 @@ dzn_CreateImageView(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyImageView(VkDevice _device,
                      VkImageView imageView,
                      const VkAllocationCallbacks *pAllocator)
@@ -683,7 +684,7 @@ dzn_DestroyImageView(VkDevice _device,
    vk_object_free(&device->vk, pAllocator, iview);
 }
 
-VkResult
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateBufferView(VkDevice _device,
                      const VkBufferViewCreateInfo *pCreateInfo,
                      const VkAllocationCallbacks *pAllocator,
@@ -716,7 +717,7 @@ dzn_CreateBufferView(VkDevice _device,
    return VK_SUCCESS;
 }
 
-void
+VKAPI_ATTR void VKAPI_CALL
 dzn_DestroyBufferView(VkDevice _device,
                       VkBufferView bufferView,
                       const VkAllocationCallbacks *pAllocator)
