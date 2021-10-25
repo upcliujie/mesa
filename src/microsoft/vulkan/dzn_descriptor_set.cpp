@@ -774,7 +774,6 @@ dzn_write_descriptor_set(struct dzn_device *dev,
                };
 
                dev->dev->CreateConstantBufferView(&cbv_desc, view_handle);
-	       fprintf(stdout, "%s:%i buf loc %llx view ptr %llx heap_base %llx view_desc_sz %x\n", __func__, __LINE__, cbv_desc.BufferLocation, view_handle.ptr, set->heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]->GetCPUDescriptorHandleForHeapStart().ptr, view_desc_sz);
             }
             break;
          default:
