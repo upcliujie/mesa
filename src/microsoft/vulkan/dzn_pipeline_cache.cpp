@@ -25,25 +25,35 @@
 
 #include "vk_alloc.h"
 
+dzn_pipeline_cache::dzn_pipeline_cache(dzn_device *device,
+                                       const VkPipelineCacheCreateInfo *pCreateInfo,
+                                       const VkAllocationCallbacks *pAllocator)
+{
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE_CACHE);
+   /* TODO: cache-ism! */
+}
+
+dzn_pipeline_cache::~dzn_pipeline_cache()
+{
+   vk_object_base_finish(&base);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreatePipelineCache(VkDevice _device,
+dzn_CreatePipelineCache(VkDevice device,
                         const VkPipelineCacheCreateInfo *pCreateInfo,
                         const VkAllocationCallbacks *pAllocator,
                         VkPipelineCache *pPipelineCache)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   dzn_pipeline_cache *cache;
+   return dzn_pipeline_cache_factory::create(device, pCreateInfo,
+                                             pAllocator, pPipelineCache);
+}
 
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
-
-   cache = (dzn_pipeline_cache *)
-      vk_alloc2(&device->vk.alloc, pAllocator,
-                sizeof(*cache), 8,
-                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (cache == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   /* TODO: cache-ism! */
-
-   return VK_SUCCESS;
+VKAPI_ATTR void VKAPI_CALL
+dzn_DestroyPipelineCache(VkDevice device,
+                         VkPipelineCache pipelineCache,
+                         const VkAllocationCallbacks *pAllocator)
+{
+   return dzn_pipeline_cache_factory::destroy(device, pipelineCache,
+                                              pAllocator);
 }
