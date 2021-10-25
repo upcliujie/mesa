@@ -28,120 +28,13 @@
 #include "vk_format.h"
 #include "vk_util.h"
 
-VkResult
-dzn_image_create(VkDevice _device,
-                 const VkImageCreateInfo *pCreateInfo,
-                 const VkAllocationCallbacks* alloc,
-                 VkImage *pImage)
-{
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   dzn_image *image = (dzn_image *)
-      vk_zalloc2(&device->vk.alloc, alloc, sizeof(*image), 8,
-                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (!image)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   vk_image_init(&device->vk, &image->vk, pCreateInfo);
-
-   if (image->vk.tiling == VK_IMAGE_TILING_LINEAR) {
-      /* Treat linear images as buffers: they should only be used as copy
-       * src/dest, and CopyTextureResource() can manipulate buffers.
-       * We only support linear tiling on things strictly required by the spec:
-       * "Images created with tiling equal to VK_IMAGE_TILING_LINEAR have
-       * further restrictions on their limits and capabilities compared to
-       * images created with tiling equal to VK_IMAGE_TILING_OPTIMAL. Creation
-       * of images with tiling VK_IMAGE_TILING_LINEAR may not be supported
-       * unless other parameters meet all of the constraints:
-       * - imageType is VK_IMAGE_TYPE_2D
-       * - format is not a depth/stencil format
-       * - mipLevels is 1
-       * - arrayLayers is 1
-       * - samples is VK_SAMPLE_COUNT_1_BIT
-       * - usage only includes VK_IMAGE_USAGE_TRANSFER_SRC_BIT and/or VK_IMAGE_USAGE_TRANSFER_DST_BIT
-       * "
-       */
-      assert(pCreateInfo->imageType == VK_IMAGE_TYPE_2D);
-      assert(!vk_format_is_depth_or_stencil(pCreateInfo->format));
-      assert(pCreateInfo->mipLevels == 1);
-      assert(pCreateInfo->arrayLayers == 1);
-      assert(pCreateInfo->samples == 1);
-      assert(!(pCreateInfo->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)));
-      D3D12_RESOURCE_DESC desc = {
-         .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
-         .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
-         .Width = image->vk.extent.width,
-         .Height = image->vk.extent.height,
-         .DepthOrArraySize = 1,
-         .MipLevels = 1,
-         .Format = dzn_get_format(pCreateInfo->format),
-         .SampleDesc = { .Count = 1, .Quality = 0 },
-         .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
-         .Flags = D3D12_RESOURCE_FLAG_NONE
-      };
-      D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
-      uint64_t row_stride = 0, size = 0;
-      device->dev->GetCopyableFootprints(&desc, 0, 1, 0, &footprint, NULL, &row_stride, &size);
-
-      image->linear.row_stride = row_stride;
-      image->linear.size = size;
-      size *= pCreateInfo->arrayLayers;
-      image->desc.Format = DXGI_FORMAT_UNKNOWN;
-      image->desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-      image->desc.Width = size;
-      image->desc.Height = 1;
-      image->desc.DepthOrArraySize = 1;
-      image->desc.MipLevels = 1;
-      image->desc.SampleDesc.Count = 1;
-      image->desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-   } else {
-      image->desc.Format = dzn_get_format(pCreateInfo->format);
-      image->desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
-      image->desc.Width = image->vk.extent.width;
-      image->desc.Height = image->vk.extent.height;
-      image->desc.DepthOrArraySize = pCreateInfo->imageType == VK_IMAGE_TYPE_3D ?
-                                     image->vk.extent.depth :
-                                     pCreateInfo->arrayLayers;
-      image->desc.MipLevels = pCreateInfo->mipLevels;
-      image->desc.SampleDesc.Count = pCreateInfo->samples;
-      image->desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-   }
-
-   if (image->desc.SampleDesc.Count > 1)
-      image->desc.Alignment = D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
-   else
-      image->desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-
-   image->desc.SampleDesc.Quality = 0;
-
-   image->desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-   if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
-      image->desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-
-   if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-      image->desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-
-      if (!(image->vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)))
-         image->desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-   }
-
-   if (image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)
-      image->desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
-
-   *pImage = dzn_image_to_handle(image);
-
-   return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateImage(VkDevice device,
-                const VkImageCreateInfo *pCreateInfo,
-                const VkAllocationCallbacks *pAllocator,
-                VkImage *pImage)
+dzn_image::dzn_image(dzn_device *device,
+                     const VkImageCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator)
 {
    const VkExternalMemoryImageCreateInfo *create_info =
-      (const VkExternalMemoryImageCreateInfo *)vk_find_struct_const(
-          pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
+      (const VkExternalMemoryImageCreateInfo *)
+      vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
 
 #if 0
     VkExternalMemoryHandleTypeFlags supported =
@@ -165,23 +58,113 @@ dzn_CreateImage(VkDevice device,
                                       pAllocator, pImage);
 #endif
 
-   return dzn_image_create(device, pCreateInfo, pAllocator, pImage);
+   vk_image_init(&device->vk, &vk, pCreateInfo);
+
+   if (vk.tiling == VK_IMAGE_TILING_LINEAR) {
+      /* Treat linear images as buffers: they should only be used as copy
+       * src/dest, and CopyTextureResource() can manipulate buffers.
+       * We only support linear tiling on things strictly required by the spec:
+       * "Images created with tiling equal to VK_IMAGE_TILING_LINEAR have
+       * further restrictions on their limits and capabilities compared to
+       * images created with tiling equal to VK_IMAGE_TILING_OPTIMAL. Creation
+       * of images with tiling VK_IMAGE_TILING_LINEAR may not be supported
+       * unless other parameters meet all of the constraints:
+       * - imageType is VK_IMAGE_TYPE_2D
+       * - format is not a depth/stencil format
+       * - mipLevels is 1
+       * - arrayLayers is 1
+       * - samples is VK_SAMPLE_COUNT_1_BIT
+       * - usage only includes VK_IMAGE_USAGE_TRANSFER_SRC_BIT and/or VK_IMAGE_USAGE_TRANSFER_DST_BIT
+       * "
+       */
+      assert(pCreateInfo->imageType == VK_IMAGE_TYPE_2D);
+      assert(!vk_format_is_depth_or_stencil(pCreateInfo->format));
+      assert(pCreateInfo->mipLevels == 1);
+      assert(pCreateInfo->arrayLayers == 1);
+      assert(pCreateInfo->samples == 1);
+      assert(!(pCreateInfo->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)));
+      D3D12_RESOURCE_DESC tmp_desc = {
+         .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+         .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+         .Width = vk.extent.width,
+         .Height = vk.extent.height,
+         .DepthOrArraySize = 1,
+         .MipLevels = 1,
+         .Format = dzn_get_format(pCreateInfo->format),
+         .SampleDesc = { .Count = 1, .Quality = 0 },
+         .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+         .Flags = D3D12_RESOURCE_FLAG_NONE
+      };
+      D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+      uint64_t row_stride = 0, size = 0;
+      device->dev->GetCopyableFootprints(&tmp_desc, 0, 1, 0, &footprint, NULL, &row_stride, &size);
+
+      linear.row_stride = row_stride;
+      linear.size = size;
+      size *= pCreateInfo->arrayLayers;
+      desc.Format = DXGI_FORMAT_UNKNOWN;
+      desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+      desc.Width = size;
+      desc.Height = 1;
+      desc.DepthOrArraySize = 1;
+      desc.MipLevels = 1;
+      desc.SampleDesc.Count = 1;
+      desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+   } else {
+      desc.Format = dzn_get_format(pCreateInfo->format);
+      desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
+      desc.Width = vk.extent.width;
+      desc.Height = vk.extent.height;
+      desc.DepthOrArraySize = pCreateInfo->imageType == VK_IMAGE_TYPE_3D ?
+                              vk.extent.depth :
+                              pCreateInfo->arrayLayers;
+      desc.MipLevels = pCreateInfo->mipLevels;
+      desc.SampleDesc.Count = pCreateInfo->samples;
+      desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+   }
+
+   if (desc.SampleDesc.Count > 1)
+      desc.Alignment = D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
+   else
+      desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+
+   desc.SampleDesc.Quality = 0;
+
+   desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+   if (vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+      desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+   if (vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+      desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+      if (!(vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)))
+         desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+   }
+
+   if (vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)
+      desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+}
+
+dzn_image::~dzn_image()
+{
+   vk_image_finish(&vk);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateImage(VkDevice device,
+                const VkImageCreateInfo *pCreateInfo,
+                const VkAllocationCallbacks *pAllocator,
+                VkImage *pImage)
+{
+   return dzn_image_factory::create(device, pCreateInfo, pAllocator, pImage);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyImage(VkDevice _device, VkImage _image,
+dzn_DestroyImage(VkDevice device, VkImage image,
                  const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_image, image, _image);
-
-   if (!image)
-      return;
-
-   // TODO: release image
-
-   vk_image_finish(&image->vk);
-   vk_free2(&device->vk.alloc, pAllocator, image);
+   dzn_image_factory::destroy(device, image, pAllocator);
 }
 
 static dzn_image *
@@ -437,23 +420,15 @@ translate_swizzle(VkComponentSwizzle in, uint32_t comp)
    }
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateImageView(VkDevice _device,
-                    const VkImageViewCreateInfo *pCreateInfo,
-                    const VkAllocationCallbacks *pAllocator,
-                    VkImageView *pView)
+dzn_image_view::dzn_image_view(dzn_device *dev,
+                               const VkImageViewCreateInfo *pCreateInfo,
+                               const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_image, image, pCreateInfo->image);
-   dzn_image_view *iview;
-
-   iview = (dzn_image_view *)
-      vk_object_zalloc(&device->vk, pAllocator, sizeof(*iview),
-                       VK_OBJECT_TYPE_IMAGE_VIEW);
-   if (iview == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
+   VK_FROM_HANDLE(dzn_image, img, pCreateInfo->image);
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
+
+   image = img;
+   device = dev;
 
    assert(range->layerCount > 0);
    assert(range->baseMipLevel < image->vk.mip_levels);
@@ -478,14 +453,13 @@ dzn_CreateImageView(VkDevice _device,
       break;
    }
 
-   iview->image = image;
-   iview->vk_format = pCreateInfo->format;
+   vk_format = pCreateInfo->format;
 
    /* Format is undefined, this can happen when using external formats. Set
     * view format from the passed conversion info.
     */
 
-   iview->extent = VkExtent3D {
+   extent = VkExtent3D {
       .width  = u_minify(image->vk.extent.width , range->baseMipLevel),
       .height = u_minify(image->vk.extent.height, range->baseMipLevel),
       .depth  = u_minify(image->vk.extent.depth , range->baseMipLevel),
@@ -494,231 +468,241 @@ dzn_CreateImageView(VkDevice _device,
    /* TODO: have a shader-invisible pool for iview descs, and copy those with
     * CopyDescriptors() when UpdateDescriptorSets() is called.
     */
-   iview->desc.Format = dzn_get_format(pCreateInfo->format);
-   iview->desc.ViewDimension =
+   desc.Format = dzn_get_format(pCreateInfo->format);
+   desc.ViewDimension =
       translate_view_type_to_srv_dim(pCreateInfo->viewType, image->vk.samples);
-   iview->desc.Shader4ComponentMapping =
+   desc.Shader4ComponentMapping =
       D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
          translate_swizzle(pCreateInfo->components.r, 0),
          translate_swizzle(pCreateInfo->components.g, 1),
          translate_swizzle(pCreateInfo->components.b, 2),
          translate_swizzle(pCreateInfo->components.a, 3));
-   switch (iview->desc.ViewDimension) {
+   switch (desc.ViewDimension) {
    case D3D12_SRV_DIMENSION_TEXTURE1D:
-      iview->desc.Texture1D.MostDetailedMip =
+      desc.Texture1D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.Texture1D.MipLevels =
+      desc.Texture1D.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2D:
-      iview->desc.Texture2D.MostDetailedMip =
+      desc.Texture2D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.Texture2D.MipLevels =
+      desc.Texture2D.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DMS:
       break;
    case D3D12_SRV_DIMENSION_TEXTURE3D:
-      iview->desc.Texture3D.MostDetailedMip =
+      desc.Texture3D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.Texture3D.MipLevels =
+      desc.Texture3D.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURECUBE:
-      iview->desc.TextureCube.MostDetailedMip =
+      desc.TextureCube.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.TextureCube.MipLevels =
+      desc.TextureCube.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE1DARRAY:
-      iview->desc.Texture1DArray.MostDetailedMip =
+      desc.Texture1DArray.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.Texture1DArray.MipLevels =
+      desc.Texture1DArray.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
-      iview->desc.Texture1DArray.FirstArraySlice =
+      desc.Texture1DArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      iview->desc.Texture1DArray.ArraySize =
+      desc.Texture1DArray.ArraySize =
          pCreateInfo->subresourceRange.layerCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DARRAY:
-      iview->desc.Texture2DArray.MostDetailedMip =
+      desc.Texture2DArray.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.Texture2DArray.MipLevels =
+      desc.Texture2DArray.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
-      iview->desc.Texture2DArray.FirstArraySlice =
+      desc.Texture2DArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      iview->desc.Texture2DArray.ArraySize =
+      desc.Texture2DArray.ArraySize =
          pCreateInfo->subresourceRange.layerCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY:
-      iview->desc.Texture2DMSArray.FirstArraySlice =
+      desc.Texture2DMSArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      iview->desc.Texture2DMSArray.ArraySize =
+      desc.Texture2DMSArray.ArraySize =
          pCreateInfo->subresourceRange.layerCount;
       break;
    case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY:
-      iview->desc.TextureCubeArray.MostDetailedMip =
+      desc.TextureCubeArray.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      iview->desc.TextureCubeArray.MipLevels =
+      desc.TextureCubeArray.MipLevels =
          pCreateInfo->subresourceRange.levelCount;
-      iview->desc.TextureCubeArray.First2DArrayFace =
+      desc.TextureCubeArray.First2DArrayFace =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      iview->desc.TextureCubeArray.NumCubes =
+      desc.TextureCubeArray.NumCubes =
          pCreateInfo->subresourceRange.layerCount / 6;
       break;
    default: unreachable("Invalid dimension");
    }
 
    if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-      D3D12_RENDER_TARGET_VIEW_DESC desc = {};
-      desc.Format = iview->desc.Format;
+      D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+      rtv_desc.Format = desc.Format;
 
-      desc.ViewDimension =
+      rtv_desc.ViewDimension =
          translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->vk.samples);
 
       assert(range->levelCount == 1);
 
-      switch (desc.ViewDimension) {
+      switch (rtv_desc.ViewDimension) {
       case D3D12_RTV_DIMENSION_TEXTURE1D:
-         desc.Texture1D.MipSlice = range->baseMipLevel;
+         rtv_desc.Texture1D.MipSlice = range->baseMipLevel;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE2D:
-         desc.Texture2D.MipSlice = range->baseMipLevel;
+         rtv_desc.Texture2D.MipSlice = range->baseMipLevel;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE2DMS:
          break;
       case D3D12_RTV_DIMENSION_TEXTURE3D:
-         desc.Texture3D.MipSlice = range->baseMipLevel;
+         rtv_desc.Texture3D.MipSlice = range->baseMipLevel;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
-         desc.Texture1DArray.MipSlice = range->baseMipLevel;
-         desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
-         desc.Texture1DArray.ArraySize = range->layerCount;
+         rtv_desc.Texture1DArray.MipSlice = range->baseMipLevel;
+         rtv_desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
+         rtv_desc.Texture1DArray.ArraySize = range->layerCount;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
-         desc.Texture2DArray.MipSlice = range->baseMipLevel;
-         desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
-         desc.Texture2DArray.ArraySize = range->layerCount;
+         rtv_desc.Texture2DArray.MipSlice = range->baseMipLevel;
+         rtv_desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
+         rtv_desc.Texture2DArray.ArraySize = range->layerCount;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
-         desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
-         desc.Texture2DMSArray.ArraySize = range->layerCount;
+         rtv_desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
+         rtv_desc.Texture2DMSArray.ArraySize = range->layerCount;
          break;
       default: unreachable("Invalid dimension");
       }
 
-      device->alloc_rtv_handle(&iview->rt_handle);
-      device->dev->CreateRenderTargetView(image->res, &desc,
-                                          iview->rt_handle.cpu_handle);
+      device->alloc_rtv_handle(&rt_handle);
+      device->dev->CreateRenderTargetView(image->res.Get(), &rtv_desc,
+                                          rt_handle.cpu_handle);
    }
 
    if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-      D3D12_DEPTH_STENCIL_VIEW_DESC desc = { };
-      desc.Format = iview->desc.Format;
-      desc.ViewDimension =
+      D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = { };
+      dsv_desc.Format = desc.Format;
+      dsv_desc.ViewDimension =
          translate_view_type_to_dsv_dim(pCreateInfo->viewType, image->vk.samples);
 
-      switch (desc.ViewDimension) {
+      switch (dsv_desc.ViewDimension) {
       case D3D12_DSV_DIMENSION_TEXTURE1D:
-         desc.Texture1D.MipSlice = range->baseMipLevel;
+         dsv_desc.Texture1D.MipSlice = range->baseMipLevel;
          break;
       case D3D12_DSV_DIMENSION_TEXTURE2D:
-         desc.Texture2D.MipSlice = range->baseMipLevel;
+         dsv_desc.Texture2D.MipSlice = range->baseMipLevel;
          break;
       case D3D12_DSV_DIMENSION_TEXTURE2DMS:
          break;
       case D3D12_DSV_DIMENSION_TEXTURE1DARRAY:
-         desc.Texture1DArray.MipSlice = range->baseMipLevel;
-         desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
-         desc.Texture1DArray.ArraySize = range->layerCount;
+         dsv_desc.Texture1DArray.MipSlice = range->baseMipLevel;
+         dsv_desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
+         dsv_desc.Texture1DArray.ArraySize = range->layerCount;
          break;
       case D3D12_DSV_DIMENSION_TEXTURE2DARRAY:
-         desc.Texture2DArray.MipSlice = range->baseMipLevel;
-         desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
-         desc.Texture2DArray.ArraySize = range->layerCount;
+         dsv_desc.Texture2DArray.MipSlice = range->baseMipLevel;
+         dsv_desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
+         dsv_desc.Texture2DArray.ArraySize = range->layerCount;
          break;
       case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY:
-         desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
-         desc.Texture2DMSArray.ArraySize = range->layerCount;
+         dsv_desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
+         dsv_desc.Texture2DMSArray.ArraySize = range->layerCount;
          break;
       default: unreachable("Invalid dimension");
       }
 
-      device->alloc_dsv_handle(&iview->zs_handle);
-      device->dev->CreateDepthStencilView(image->res, &desc,
-                                          iview->zs_handle.cpu_handle);
+      device->alloc_dsv_handle(&zs_handle);
+      device->dev->CreateDepthStencilView(image->res.Get(), &dsv_desc,
+                                          zs_handle.cpu_handle);
    }
 
-   *pView = dzn_image_view_to_handle(iview);
-
-   return VK_SUCCESS;
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_IMAGE_VIEW);
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyImageView(VkDevice _device,
-                     VkImageView imageView,
-                     const VkAllocationCallbacks *pAllocator)
+dzn_image_view::~dzn_image_view()
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_image_view, iview, imageView);
+   vk_object_base_finish(&base);
 
-   if (!iview)
-      return;
+   if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+      device->free_handle(&rt_handle);
 
-   if (iview->image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-      device->free_handle(&iview->rt_handle);
-   }
-
-   if (iview->image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-      device->free_handle(&iview->zs_handle);
-   }
-
-   vk_object_free(&device->vk, pAllocator, iview);
+   if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      device->free_handle(&zs_handle);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateBufferView(VkDevice _device,
-                     const VkBufferViewCreateInfo *pCreateInfo,
-                     const VkAllocationCallbacks *pAllocator,
-                     VkBufferView *pView)
+dzn_CreateImageView(VkDevice device,
+                    const VkImageViewCreateInfo *pCreateInfo,
+                    const VkAllocationCallbacks *pAllocator,
+                    VkImageView *pView)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
+   return dzn_image_view_factory::create(device, pCreateInfo,
+                                         pAllocator, pView);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_DestroyImageView(VkDevice device,
+                     VkImageView imageView,
+                     const VkAllocationCallbacks *pAllocator)
+{
+   dzn_image_view_factory::destroy(device, imageView, pAllocator);
+}
+
+dzn_buffer_view::dzn_buffer_view(dzn_device *device,
+                                 const VkBufferViewCreateInfo *pCreateInfo,
+                                 const VkAllocationCallbacks *pAllocator)
+{
    VK_FROM_HANDLE(dzn_buffer, buf, pCreateInfo->buffer);
+
    enum pipe_format pfmt = vk_format_to_pipe_format(pCreateInfo->format);
    unsigned blksz = util_format_get_blocksize(pfmt);
    VkDeviceSize size =
       pCreateInfo->range == VK_WHOLE_SIZE ?
       buf->size - pCreateInfo->offset : pCreateInfo->range;
-   dzn_buffer_view *bview;
 
-   bview = (dzn_buffer_view *)
-      vk_object_zalloc(&device->vk, pAllocator, sizeof(*bview),
-                       VK_OBJECT_TYPE_BUFFER_VIEW);
+   buffer = buf;
+   desc = D3D12_SHADER_RESOURCE_VIEW_DESC {
+      .Format = dzn_get_format(pCreateInfo->format),
+      .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+      .Shader4ComponentMapping =
+         D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+      .Buffer = {
+         .FirstElement = pCreateInfo->offset / blksz,
+         .NumElements = UINT(size / blksz),
+         .StructureByteStride = blksz,
+         .Flags = D3D12_BUFFER_SRV_FLAG_NONE,
+      },
+   };
 
-   bview->buffer = buf;
-   bview->desc.Format = dzn_get_format(pCreateInfo->format);
-   bview->desc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-   bview->desc.Shader4ComponentMapping =
-      D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-   bview->desc.Buffer.FirstElement = pCreateInfo->offset / blksz;
-   bview->desc.Buffer.NumElements = size / blksz;
-   bview->desc.Buffer.StructureByteStride = blksz;
-   bview->desc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_BUFFER_VIEW);
+}
 
-   *pView = dzn_buffer_view_to_handle(bview);
-   return VK_SUCCESS;
+dzn_buffer_view::~dzn_buffer_view()
+{
+   vk_object_base_finish(&base);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateBufferView(VkDevice device,
+                     const VkBufferViewCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator,
+                     VkBufferView *pView)
+{
+   return dzn_buffer_view_factory::create(device, pCreateInfo,
+                                          pAllocator, pView);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyBufferView(VkDevice _device,
+dzn_DestroyBufferView(VkDevice device,
                       VkBufferView bufferView,
                       const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_buffer_view, bview, bufferView);
-
-   if (!bview)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, bview);
+   dzn_buffer_view_factory::destroy(device, bufferView, pAllocator);
 }

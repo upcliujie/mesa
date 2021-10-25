@@ -1248,59 +1248,56 @@ dzn_InvalidateMappedMemoryRanges(VkDevice _device,
    return VK_SUCCESS;
 }
 
+dzn_buffer::dzn_buffer(dzn_device *device,
+                       const VkBufferCreateInfo *pCreateInfo,
+                       const VkAllocationCallbacks *pAllocator)
+{
+   create_flags = pCreateInfo->flags;
+   size = pCreateInfo->size;
+   usage = pCreateInfo->usage;
+
+   if (usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+      size = ALIGN_POT(size, 256);
+
+   desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+   desc.Format = DXGI_FORMAT_UNKNOWN;
+   desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+   desc.Width = size;
+   desc.Height = 1;
+   desc.DepthOrArraySize = 1;
+   desc.MipLevels = 1;
+   desc.SampleDesc.Count = 1;
+   desc.SampleDesc.Quality = 0;
+   desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+   desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+
+   if (usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+      desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_BUFFER);
+}
+
+dzn_buffer::~dzn_buffer()
+{
+   vk_object_base_finish(&base);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateBuffer(VkDevice _device,
+dzn_CreateBuffer(VkDevice device,
                  const VkBufferCreateInfo *pCreateInfo,
                  const VkAllocationCallbacks *pAllocator,
                  VkBuffer *pBuffer)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   dzn_buffer *buffer;
-
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
-
-   buffer = (dzn_buffer *)
-      vk_object_alloc(&device->vk, pAllocator, sizeof(*buffer),
-                      VK_OBJECT_TYPE_BUFFER);
-   if (buffer == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   buffer->create_flags = pCreateInfo->flags;
-   buffer->size = pCreateInfo->size;
-   buffer->usage = pCreateInfo->usage;
-
-   if (buffer->usage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
-      buffer->size = ALIGN_POT(buffer->size, 256);
-
-   buffer->desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-   buffer->desc.Format = DXGI_FORMAT_UNKNOWN;
-   buffer->desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-   buffer->desc.Width = buffer->size;
-   buffer->desc.Height = 1;
-   buffer->desc.DepthOrArraySize = 1;
-   buffer->desc.MipLevels = 1;
-   buffer->desc.SampleDesc.Count = 1;
-   buffer->desc.SampleDesc.Quality = 0;
-   buffer->desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-   buffer->desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-
-   *pBuffer = dzn_buffer_to_handle(buffer);
-
-   return VK_SUCCESS;
+   return dzn_buffer_factory::create(device, pCreateInfo,
+                                     pAllocator, pBuffer);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyBuffer(VkDevice _device,
-                  VkBuffer _buffer,
+dzn_DestroyBuffer(VkDevice device,
+                  VkBuffer buffer,
                   const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_buffer, buffer, _buffer);
-
-   if (!buffer)
-      return;
-
-   vk_object_free(&device->vk, pAllocator, buffer);
+   return dzn_buffer_factory::destroy(device, buffer, pAllocator);
 }
 
 VKAPI_ATTR void VKAPI_CALL

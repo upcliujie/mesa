@@ -764,7 +764,7 @@ dzn_write_descriptor_set(struct dzn_device *dev,
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
             if (pDescriptorWrite->pImageInfo) {
                VK_FROM_HANDLE(dzn_image_view, iview, pDescriptorWrite->pImageInfo->imageView);
-               dev->dev->CreateShaderResourceView(iview->image->res, &iview->desc, view_handle);
+               dev->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
             }
             break;
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {

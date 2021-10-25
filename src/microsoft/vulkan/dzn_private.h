@@ -494,34 +494,66 @@ struct dzn_image {
    struct vk_image vk;
 
    struct {
-      uint32_t row_stride;
-      uint32_t size;
+      uint32_t row_stride = 0;
+      uint32_t size = 0;
    } linear;
-   D3D12_RESOURCE_DESC desc;
-   ID3D12Resource *res;
-   struct dzn_device_memory *mem;
+   D3D12_RESOURCE_DESC desc = {};
+   ComPtr<ID3D12Resource> res;
+   dzn_device_memory *mem = NULL;
+
+   dzn_image(dzn_device *device,
+             const VkImageCreateInfo *pCreateInfo,
+             const VkAllocationCallbacks *alloc);
+   ~dzn_image();
 };
 
 struct dzn_image_view {
    struct vk_object_base base;
 
-   const struct dzn_image *image;
+   dzn_device *device;
+   const dzn_image *image;
 
    VkFormat vk_format;
    VkExtent3D extent;
 
-   D3D12_SHADER_RESOURCE_VIEW_DESC desc;
+   D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 
-   struct d3d12_descriptor_handle rt_handle;
-   struct d3d12_descriptor_handle zs_handle;
+   struct d3d12_descriptor_handle rt_handle = {};
+   struct d3d12_descriptor_handle zs_handle = {};
+
+   dzn_image_view(dzn_device *device,
+                  const VkImageViewCreateInfo *pCreateInfo,
+                  const VkAllocationCallbacks *pAllocator);
+   ~dzn_image_view();
+};
+
+struct dzn_buffer {
+   struct vk_object_base base;
+
+   VkDeviceSize size;
+
+   D3D12_RESOURCE_DESC desc;
+   ComPtr<ID3D12Resource> res;
+
+   VkBufferCreateFlags create_flags;
+   VkBufferUsageFlags usage;
+
+   dzn_buffer(dzn_device *device,
+              const VkBufferCreateInfo *pCreateInfo,
+              const VkAllocationCallbacks *pAllocator);
+   ~dzn_buffer();
 };
 
 struct dzn_buffer_view {
    struct vk_object_base base;
 
-   const struct dzn_buffer *buffer;
+   const dzn_buffer *buffer;
 
-   D3D12_SHADER_RESOURCE_VIEW_DESC desc;
+   D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+   dzn_buffer_view(dzn_device *device,
+                   const VkBufferViewCreateInfo *pCreateInfo,
+                   const VkAllocationCallbacks *pAllocator);
+   ~dzn_buffer_view();
 };
 
 struct dzn_framebuffer {
@@ -531,19 +563,6 @@ struct dzn_framebuffer {
 
    uint32_t attachment_count;
    struct dzn_image_view *attachments[0];
-};
-
-struct dzn_buffer {
-   struct vk_object_base base;
-
-   struct dzn_device *device;
-   VkDeviceSize size;
-
-   D3D12_RESOURCE_DESC desc;
-   ID3D12Resource *res;
-
-   VkBufferCreateFlags create_flags;
-   VkBufferUsageFlags usage;
 };
 
 struct dzn_sampler {
@@ -836,11 +855,15 @@ public: \
 typedef dzn_object_factory<__drv_type, __VkType, __drv_type ## _conv, __VA_ARGS__> \
         __drv_type ## _factory
 
+DZN_OBJ_FACTORY(dzn_buffer, VkBuffer, VkDevice, const VkBufferCreateInfo *);
+DZN_OBJ_FACTORY(dzn_buffer_view, VkBufferView, VkDevice, const VkBufferViewCreateInfo *);
 DZN_OBJ_FACTORY(dzn_descriptor_pool, VkDescriptorPool, VkDevice, const VkDescriptorPoolCreateInfo *);
 DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_pool *, VkDescriptorSetLayout);
 DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
+DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
+DZN_OBJ_FACTORY(dzn_image_view, VkImageView, VkDevice, const VkImageViewCreateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<IDXGIAdapter1> &);
 DZN_OBJ_FACTORY(dzn_pipeline_cache, VkPipelineCache, VkDevice, const VkPipelineCacheCreateInfo *);

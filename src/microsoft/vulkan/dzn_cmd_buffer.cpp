@@ -445,7 +445,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 
       barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
       barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-      barrier.UAV.pResource = buf->res;
+      barrier.UAV.pResource = buf->res.Get();
       batch->cmdlist->ResourceBarrier(1, &barrier);
    }
 
@@ -472,11 +472,11 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
       barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
       barriers[0].Aliasing.pResourceBefore = NULL;
-      barriers[0].Aliasing.pResourceAfter = image->res;
+      barriers[0].Aliasing.pResourceAfter = image->res.Get();
       barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
       barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
-      barriers[1].Transition.pResource = image->res;
+      barriers[1].Transition.pResource = image->res.Get();
       assert(base_layer == 0 && layer_count == 1);
       barriers[1].Transition.Subresource = 0; // YOLO
 
@@ -503,12 +503,12 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_image, dst_image, pCopyBufferToImageInfo->dstImage);
 
    D3D12_TEXTURE_COPY_LOCATION src_buf_loc = {
-      .pResource = src_buffer->res,
+      .pResource = src_buffer->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
    };
 
    D3D12_TEXTURE_COPY_LOCATION dst_img_loc = {
-      .pResource = dst_image->res,
+      .pResource = dst_image->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
    };
 
@@ -569,12 +569,12 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
 
    D3D12_TEXTURE_COPY_LOCATION dst_buf_loc = {
-      .pResource = dst_buffer->res,
+      .pResource = dst_buffer->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
    };
 
    D3D12_TEXTURE_COPY_LOCATION src_img_loc = {
-      .pResource = src_image->res,
+      .pResource = src_image->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
    };
 
@@ -630,7 +630,7 @@ dzn_fill_image_copy_loc(const dzn_image *img,
                         const VkImageSubresourceLayers *subres,
                         D3D12_TEXTURE_COPY_LOCATION *loc)
 {
-   loc->pResource = img->res;
+   loc->pResource = img->res.Get();
    if (img->desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
       assert(subres->baseArrayLayer == 0);
       assert(subres->mipLevel == 0);
@@ -786,7 +786,7 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
 
          struct d3d12_descriptor_handle handle;
          d3d12_descriptor_pool_alloc_handle(cmd_buffer->rtv_pool, &handle);
-         device->dev->CreateRenderTargetView(img->res, &desc,
+         device->dev->CreateRenderTargetView(img->res.Get(), &desc,
                                             handle.cpu_handle);
          batch->cmdlist->ClearRenderTargetView(handle.cpu_handle,
                                                pColor->float32, 0, NULL);
@@ -816,7 +816,7 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       if (subpass->colors[i].idx == VK_ATTACHMENT_UNUSED) continue;
 
       if (!i)
-         cmd_buffer->rt0 = framebuffer->attachments[subpass->colors[i].idx]->image->res;
+         cmd_buffer->rt0 = framebuffer->attachments[subpass->colors[i].idx]->image->res.Get();
       rt_handles[i] = framebuffer->attachments[subpass->colors[i].idx]->rt_handle.cpu_handle;
    }
 
@@ -837,7 +837,7 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
       barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
-      barrier.Transition.pResource = image->res;
+      barrier.Transition.pResource = image->res.Get();
       barrier.Transition.Subresource = 0; // YOLO
 
       barrier.Transition.StateBefore = att->before;
@@ -900,7 +900,7 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
       barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
       barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 
-      barrier.Transition.pResource = image->res;
+      barrier.Transition.pResource = image->res.Get();
       barrier.Transition.Subresource = 0; // YOLO
 
       barrier.Transition.StateBefore = att->during;
