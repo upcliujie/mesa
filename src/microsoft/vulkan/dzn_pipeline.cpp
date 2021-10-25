@@ -70,11 +70,11 @@ to_dxil_shader_stage(VkShaderStageFlagBits in)
    }
 }
 
-static VkResult
-dzn_pipeline_compile_shader(dzn_device *device,
-                            const VkPipelineShaderStageCreateInfo *stage_info,
-                            bool apply_yflip,
-                            D3D12_SHADER_BYTECODE *slot)
+VkResult
+dzn_pipeline::compile_shader(dzn_device *device,
+                             const VkPipelineShaderStageCreateInfo *stage_info,
+                             bool apply_yflip,
+                             D3D12_SHADER_BYTECODE *slot)
 {
    IDxcValidator *validator = device->instance->dxc.validator.Get();
    IDxcLibrary *library = device->instance->dxc.library.Get();
@@ -202,34 +202,33 @@ dzn_pipeline_get_gfx_shader_slot(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
    }
 }
 
-static VkResult
-dzn_pipeline_translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
-                          struct dzn_graphics_pipeline *pipeline,
-                          const VkGraphicsPipelineCreateInfo *pCreateInfo)
+VkResult
+dzn_graphics_pipeline::translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                                    const VkGraphicsPipelineCreateInfo *in)
 {
-   const VkPipelineVertexInputStateCreateInfo *vi =
-      pCreateInfo->pVertexInputState;
+   const VkPipelineVertexInputStateCreateInfo *in_vi =
+      in->pVertexInputState;
 
-   if (!vi->vertexAttributeDescriptionCount) {
-      desc->InputLayout.pInputElementDescs = NULL;
-      desc->InputLayout.NumElements = 0;
+   if (!in_vi->vertexAttributeDescriptionCount) {
+      out.InputLayout.pInputElementDescs = NULL;
+      out.InputLayout.NumElements = 0;
       return VK_SUCCESS;
    }
 
    D3D12_INPUT_ELEMENT_DESC *inputs = (D3D12_INPUT_ELEMENT_DESC *)
-      calloc(vi->vertexAttributeDescriptionCount, sizeof(*inputs));
+      calloc(in_vi->vertexAttributeDescriptionCount, sizeof(*inputs));
    if (!inputs)
-      return vk_error(pipeline, VK_ERROR_OUT_OF_HOST_MEMORY);
+      return vk_error(this, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    D3D12_INPUT_CLASSIFICATION slot_class[MAX_VBS];
 
-   pipeline->vb.count = 0;
-   for (uint32_t i = 0; i < vi->vertexBindingDescriptionCount; i++) {
+   vb.count = 0;
+   for (uint32_t i = 0; i < in_vi->vertexBindingDescriptionCount; i++) {
       const struct VkVertexInputBindingDescription *bdesc =
-         &vi->pVertexBindingDescriptions[i];
+         &in_vi->pVertexBindingDescriptions[i];
 
-      pipeline->vb.count = MAX2(pipeline->vb.count, bdesc->binding + 1);
-      pipeline->vb.strides[bdesc->binding] = bdesc->stride;
+      vb.count = MAX2(vb.count, bdesc->binding + 1);
+      vb.strides[bdesc->binding] = bdesc->stride;
       if (bdesc->inputRate == VK_VERTEX_INPUT_RATE_INSTANCE) {
          slot_class[bdesc->binding] = D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA;
       } else {
@@ -238,9 +237,9 @@ dzn_pipeline_translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
       }
    }
 
-   for (uint32_t i = 0; i < vi->vertexAttributeDescriptionCount; i++) {
+   for (uint32_t i = 0; i < in_vi->vertexAttributeDescriptionCount; i++) {
       const VkVertexInputAttributeDescription *attr =
-         &vi->pVertexAttributeDescriptions[i];
+         &in_vi->pVertexAttributeDescriptions[i];
 
       /* nir_to_dxil() name all vertex inputs as TEXCOORDx */
       inputs[i].SemanticName = "TEXCOORD";
@@ -252,8 +251,8 @@ dzn_pipeline_translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
       inputs[i].AlignedByteOffset = attr->offset;
    }
 
-   desc->InputLayout.pInputElementDescs = inputs;
-   desc->InputLayout.NumElements = vi->vertexAttributeDescriptionCount;
+   out.InputLayout.pInputElementDescs = inputs;
+   out.InputLayout.NumElements = in_vi->vertexAttributeDescriptionCount;
    return VK_SUCCESS;
 }
 
@@ -301,26 +300,25 @@ to_prim_topology(VkPrimitiveTopology in, unsigned patch_control_points)
    }
 }
 
-static void
-dzn_pipeline_translate_ia(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
-                          struct dzn_graphics_pipeline *pipeline,
-                          const VkGraphicsPipelineCreateInfo *pCreateInfo)
+void
+dzn_graphics_pipeline::translate_ia(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                                    const VkGraphicsPipelineCreateInfo *in)
 {
-   const VkPipelineInputAssemblyStateCreateInfo *ia =
-      pCreateInfo->pInputAssemblyState;
-   const VkPipelineTessellationStateCreateInfo *tes =
-      (desc->DS.pShaderBytecode && desc->HS.pShaderBytecode) ?
-      pCreateInfo->pTessellationState : NULL;
+   const VkPipelineInputAssemblyStateCreateInfo *in_ia =
+      in->pInputAssemblyState;
+   const VkPipelineTessellationStateCreateInfo *in_tes =
+      (out.DS.pShaderBytecode && out.HS.pShaderBytecode) ?
+      in->pTessellationState : NULL;
 
-   desc->PrimitiveTopologyType = to_prim_topology_type(ia->topology);
-   pipeline->ia.topology =
-      to_prim_topology(ia->topology, tes ? tes->patchControlPoints : 0);
+   out.PrimitiveTopologyType = to_prim_topology_type(in_ia->topology);
+   ia.topology =
+      to_prim_topology(in_ia->topology, in_tes ? in_tes->patchControlPoints : 0);
 
    /* FIXME: does that work for u16 index buffers? */
-   if (ia->primitiveRestartEnable)
-      desc->IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF;
+   if (in_ia->primitiveRestartEnable)
+      out.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFFFFFF;
    else
-      desc->IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
+      out.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_DISABLED;
 }
 
 static D3D12_FILL_MODE
@@ -344,58 +342,57 @@ translate_cull_mode(VkCullModeFlags in)
    }
 }
 
-static void
-dzn_pipeline_translate_rast(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
-                            struct dzn_graphics_pipeline *pipeline,
-                            const VkGraphicsPipelineCreateInfo *pCreateInfo)
+void
+dzn_graphics_pipeline::translate_rast(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                                      const VkGraphicsPipelineCreateInfo *in)
 {
-   const VkPipelineRasterizationStateCreateInfo *rast =
-      pCreateInfo->pRasterizationState;
-   const VkPipelineViewportStateCreateInfo *vp =
-      pCreateInfo->pViewportState;
+   const VkPipelineRasterizationStateCreateInfo *in_rast =
+      in->pRasterizationState;
+   const VkPipelineViewportStateCreateInfo *in_vp =
+      in->pViewportState;
 
-   if (vp) {
-      pipeline->vp.count = vp->viewportCount;
-      if (vp->pViewports) {
-         for (uint32_t i = 0; vp->pViewports && i < vp->viewportCount; i++)
-            dzn_translate_viewport(&pipeline->vp.desc[i], &vp->pViewports[i]);
+   if (in_vp) {
+      vp.count = in_vp->viewportCount;
+      if (in_vp->pViewports) {
+         for (uint32_t i = 0; in_vp->pViewports && i < in_vp->viewportCount; i++)
+            dzn_translate_viewport(&vp.desc[i], &in_vp->pViewports[i]);
       }
  
-      pipeline->scissor.count = vp->scissorCount;
-      if (vp->pScissors) {
-         for (uint32_t i = 0; i < vp->scissorCount; i++)
-            dzn_translate_scissor(&pipeline->scissor.desc[i], &vp->pScissors[i]);
+      scissor.count = in_vp->scissorCount;
+      if (in_vp->pScissors) {
+         for (uint32_t i = 0; i < in_vp->scissorCount; i++)
+            dzn_translate_scissor(&scissor.desc[i], &in_vp->pScissors[i]);
       }
    }
 
    /* TODO: rasterizerDiscardEnable */
-   desc->RasterizerState.DepthClipEnable = !rast->depthClampEnable;
-   desc->RasterizerState.FillMode = translate_polygon_mode(rast->polygonMode);
-   desc->RasterizerState.CullMode = translate_cull_mode(rast->cullMode);
-   desc->RasterizerState.FrontCounterClockwise =
-      rast->frontFace == VK_FRONT_FACE_COUNTER_CLOCKWISE;
-   if (rast->depthBiasEnable) {
-      desc->RasterizerState.DepthBias = rast->depthBiasConstantFactor;
-      desc->RasterizerState.SlopeScaledDepthBias = rast->depthBiasSlopeFactor;
-      desc->RasterizerState.DepthBiasClamp = rast->depthBiasClamp;
+   out.RasterizerState.DepthClipEnable = !in_rast->depthClampEnable;
+   out.RasterizerState.FillMode = translate_polygon_mode(in_rast->polygonMode);
+   out.RasterizerState.CullMode = translate_cull_mode(in_rast->cullMode);
+   out.RasterizerState.FrontCounterClockwise =
+      in_rast->frontFace == VK_FRONT_FACE_COUNTER_CLOCKWISE;
+   if (in_rast->depthBiasEnable) {
+      out.RasterizerState.DepthBias = in_rast->depthBiasConstantFactor;
+      out.RasterizerState.SlopeScaledDepthBias = in_rast->depthBiasSlopeFactor;
+      out.RasterizerState.DepthBiasClamp = in_rast->depthBiasClamp;
    }
 
-   assert(rast->lineWidth == 1.0f);
+   assert(in_rast->lineWidth == 1.0f);
 }
 
-static void
-dzn_pipeline_translate_ms(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
-                          const VkGraphicsPipelineCreateInfo *pCreateInfo)
+void
+dzn_graphics_pipeline::translate_ms(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                                    const VkGraphicsPipelineCreateInfo *in)
 {
-   const VkPipelineMultisampleStateCreateInfo *ms =
-      pCreateInfo->pMultisampleState;
+   const VkPipelineMultisampleStateCreateInfo *in_ms =
+      in->pMultisampleState;
 
    /* TODO: sampleShadingEnable, minSampleShading,
     *       alphaToOneEnable
     */
-   desc->SampleDesc.Count = ms->rasterizationSamples;
-   desc->SampleDesc.Quality = 0;
-   desc->SampleMask = ms->pSampleMask ? *ms->pSampleMask : 1;
+   out.SampleDesc.Count = in_ms->rasterizationSamples;
+   out.SampleDesc.Quality = 0;
+   out.SampleMask = in_ms->pSampleMask ? *in_ms->pSampleMask : 1;
 }
 
 static D3D12_STENCIL_OP
@@ -414,49 +411,48 @@ translate_stencil_op(VkStencilOp in)
    }
 }
 
-static void
-dzn_pipeline_translate_zsa(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
-                           struct dzn_graphics_pipeline *pipeline,
-                           const VkGraphicsPipelineCreateInfo *pCreateInfo)
+void
+dzn_graphics_pipeline::translate_zsa(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                                     const VkGraphicsPipelineCreateInfo *in)
 {
-   const VkPipelineDepthStencilStateCreateInfo *zsa =
-      pCreateInfo->pDepthStencilState;
+   const VkPipelineDepthStencilStateCreateInfo *in_zsa =
+      in->pDepthStencilState;
 
    /* TODO: depthBoundsTestEnable */
 
-   desc->DepthStencilState.DepthEnable = zsa->depthTestEnable;
-   desc->DepthStencilState.DepthWriteMask =
-      zsa->depthWriteEnable ?
+   out.DepthStencilState.DepthEnable = in_zsa->depthTestEnable;
+   out.DepthStencilState.DepthWriteMask =
+      in_zsa->depthWriteEnable ?
       D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-   desc->DepthStencilState.DepthFunc =
-      dzn_translate_compare_op(zsa->depthCompareOp);
-   desc->DepthStencilState.StencilEnable = zsa->stencilTestEnable;
-   if (zsa->stencilTestEnable && 0) {
-      desc->DepthStencilState.FrontFace.StencilFailOp =
-        translate_stencil_op(zsa->front.failOp);
-      desc->DepthStencilState.FrontFace.StencilDepthFailOp =
-        translate_stencil_op(zsa->front.depthFailOp);
-      desc->DepthStencilState.FrontFace.StencilPassOp =
-        translate_stencil_op(zsa->front.passOp);
-      desc->DepthStencilState.FrontFace.StencilFunc =
-        dzn_translate_compare_op(zsa->front.compareOp);
-      desc->DepthStencilState.BackFace.StencilFailOp =
-        translate_stencil_op(zsa->back.failOp);
-      desc->DepthStencilState.BackFace.StencilDepthFailOp =
-        translate_stencil_op(zsa->back.depthFailOp);
-      desc->DepthStencilState.BackFace.StencilPassOp =
-        translate_stencil_op(zsa->back.passOp);
-      desc->DepthStencilState.BackFace.StencilFunc =
-        dzn_translate_compare_op(zsa->back.compareOp);
+   out.DepthStencilState.DepthFunc =
+      dzn_translate_compare_op(in_zsa->depthCompareOp);
+   out.DepthStencilState.StencilEnable = in_zsa->stencilTestEnable;
+   if (in_zsa->stencilTestEnable) {
+      out.DepthStencilState.FrontFace.StencilFailOp =
+        translate_stencil_op(in_zsa->front.failOp);
+      out.DepthStencilState.FrontFace.StencilDepthFailOp =
+        translate_stencil_op(in_zsa->front.depthFailOp);
+      out.DepthStencilState.FrontFace.StencilPassOp =
+        translate_stencil_op(in_zsa->front.passOp);
+      out.DepthStencilState.FrontFace.StencilFunc =
+        dzn_translate_compare_op(in_zsa->front.compareOp);
+      out.DepthStencilState.BackFace.StencilFailOp =
+        translate_stencil_op(in_zsa->back.failOp);
+      out.DepthStencilState.BackFace.StencilDepthFailOp =
+        translate_stencil_op(in_zsa->back.depthFailOp);
+      out.DepthStencilState.BackFace.StencilPassOp =
+        translate_stencil_op(in_zsa->back.passOp);
+      out.DepthStencilState.BackFace.StencilFunc =
+        dzn_translate_compare_op(in_zsa->back.compareOp);
 
       /* FIXME: In vulkan, front/back readmask/writemask/ref can be
        * different.
        */
-      desc->DepthStencilState.StencilReadMask =
-        zsa->back.compareMask | zsa->front.compareMask;
-      desc->DepthStencilState.StencilWriteMask =
-        zsa->back.writeMask | zsa->front.writeMask;
-      pipeline->zsa.stencil_ref = zsa->back.reference | zsa->front.reference;
+      out.DepthStencilState.StencilReadMask =
+        in_zsa->back.compareMask | in_zsa->front.compareMask;
+      out.DepthStencilState.StencilWriteMask =
+        in_zsa->back.writeMask | in_zsa->front.writeMask;
+      zsa.stencil_ref = in_zsa->back.reference | in_zsa->front.reference;
    }
 }
 
@@ -527,71 +523,66 @@ translate_logic_op(VkLogicOp in)
    }
 }
 
-static void
-dzn_pipeline_translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
-                             struct dzn_graphics_pipeline *pipeline,
-                             const VkGraphicsPipelineCreateInfo *pCreateInfo)
+void
+dzn_graphics_pipeline::translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                                       const VkGraphicsPipelineCreateInfo *in)
 {
-   const VkPipelineColorBlendStateCreateInfo *blend =
-      pCreateInfo->pColorBlendState;
-   const VkPipelineMultisampleStateCreateInfo *ms =
-      pCreateInfo->pMultisampleState;
+   const VkPipelineColorBlendStateCreateInfo *in_blend =
+      in->pColorBlendState;
+   const VkPipelineMultisampleStateCreateInfo *in_ms =
+      in->pMultisampleState;
 
    D3D12_LOGIC_OP logicop =
-      blend->logicOpEnable ?
-      translate_logic_op(blend->logicOp) : D3D12_LOGIC_OP_NOOP;
-   desc->BlendState.AlphaToCoverageEnable = ms->alphaToCoverageEnable;
-   for (uint32_t i = 0; i < blend->attachmentCount; i++) {
+      in_blend->logicOpEnable ?
+      translate_logic_op(in_blend->logicOp) : D3D12_LOGIC_OP_NOOP;
+   out.BlendState.AlphaToCoverageEnable = in_ms->alphaToCoverageEnable;
+   for (uint32_t i = 0; i < in_blend->attachmentCount; i++) {
       if (i > 0 &&
-          !memcmp(&blend->pAttachments[i - 1], &blend->pAttachments[i],
-                  sizeof(*blend->pAttachments)))
-         desc->BlendState.IndependentBlendEnable = true;
+          !memcmp(&in_blend->pAttachments[i - 1], &in_blend->pAttachments[i],
+                  sizeof(*in_blend->pAttachments)))
+         out.BlendState.IndependentBlendEnable = true;
 
-      desc->BlendState.RenderTarget[i].BlendEnable =
-         blend->pAttachments[i].blendEnable;
-         blend->logicOpEnable;
-      desc->BlendState.RenderTarget[i].RenderTargetWriteMask =
-         blend->pAttachments[i].colorWriteMask;
-      if (blend->logicOpEnable) {
-         desc->BlendState.RenderTarget[i].LogicOpEnable = true;
-         desc->BlendState.RenderTarget[i].LogicOp = logicop;
+      out.BlendState.RenderTarget[i].BlendEnable =
+         in_blend->pAttachments[i].blendEnable;
+         in_blend->logicOpEnable;
+      out.BlendState.RenderTarget[i].RenderTargetWriteMask =
+         in_blend->pAttachments[i].colorWriteMask;
+      if (in_blend->logicOpEnable) {
+         out.BlendState.RenderTarget[i].LogicOpEnable = true;
+         out.BlendState.RenderTarget[i].LogicOp = logicop;
       } else {
-         desc->BlendState.RenderTarget[i].SrcBlend =
-            translate_blend_factor(blend->pAttachments[i].srcColorBlendFactor);
-         desc->BlendState.RenderTarget[i].DestBlend =
-            translate_blend_factor(blend->pAttachments[i].dstColorBlendFactor);
-         desc->BlendState.RenderTarget[i].BlendOp =
-            translate_blend_op(blend->pAttachments[i].colorBlendOp);
-         desc->BlendState.RenderTarget[i].SrcBlendAlpha =
-            translate_blend_factor(blend->pAttachments[i].srcAlphaBlendFactor);
-         desc->BlendState.RenderTarget[i].DestBlendAlpha =
-            translate_blend_factor(blend->pAttachments[i].dstAlphaBlendFactor);
-         desc->BlendState.RenderTarget[i].BlendOpAlpha =
-            translate_blend_op(blend->pAttachments[i].alphaBlendOp);
+         out.BlendState.RenderTarget[i].SrcBlend =
+            translate_blend_factor(in_blend->pAttachments[i].srcColorBlendFactor);
+         out.BlendState.RenderTarget[i].DestBlend =
+            translate_blend_factor(in_blend->pAttachments[i].dstColorBlendFactor);
+         out.BlendState.RenderTarget[i].BlendOp =
+            translate_blend_op(in_blend->pAttachments[i].colorBlendOp);
+         out.BlendState.RenderTarget[i].SrcBlendAlpha =
+            translate_blend_factor(in_blend->pAttachments[i].srcAlphaBlendFactor);
+         out.BlendState.RenderTarget[i].DestBlendAlpha =
+            translate_blend_factor(in_blend->pAttachments[i].dstAlphaBlendFactor);
+         out.BlendState.RenderTarget[i].BlendOpAlpha =
+            translate_blend_op(in_blend->pAttachments[i].alphaBlendOp);
       }
    }
 }
 
-static void
-dzn_pipeline_destroy(struct dzn_device *device,
-                     struct dzn_pipeline *pipeline,
-                     const VkAllocationCallbacks *pAllocator)
+dzn_pipeline::dzn_pipeline(dzn_device *device, VkPipelineBindPoint t) :
+   type(t)
 {
-   if (!pipeline)
-      return;
-
-   if (pipeline->state)
-      pipeline->state->Release();
-
-   vk_object_free(&device->vk, pAllocator, pipeline);
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE);
 }
 
-static VkResult
-graphics_pipeline_create(dzn_device *device,
-                         dzn_pipeline_cache *cache,
-                         const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                         const VkAllocationCallbacks *pAllocator,
-                         VkPipeline *pPipeline)
+dzn_pipeline::~dzn_pipeline()
+{
+   vk_object_base_finish(&base);
+}
+
+dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
+                                             VkPipelineCache cache,
+                                             const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                                             const VkAllocationCallbacks *pAllocator) :
+                                            base(device, VK_PIPELINE_BIND_POINT_GRAPHICS)
 {
    VK_FROM_HANDLE(dzn_render_pass, pass, pCreateInfo->renderPass);
    VK_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
@@ -599,13 +590,7 @@ graphics_pipeline_create(dzn_device *device,
    VkResult ret;
    HRESULT hres = 0;
 
-   dzn_graphics_pipeline *pipeline = (dzn_graphics_pipeline *)
-      vk_object_zalloc(&device->vk, pAllocator,
-                       sizeof(*pipeline), VK_OBJECT_TYPE_PIPELINE);
-   if (pipeline == NULL)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   pipeline->base.layout = layout;
+   base.layout = layout;
 
    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {
       .pRootSignature = layout->root.sig.Get(),
@@ -624,21 +609,21 @@ graphics_pipeline_create(dzn_device *device,
          (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
           !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT));
 
-      ret = dzn_pipeline_compile_shader(device, &pCreateInfo->pStages[i],
-                                        apply_yflip, slot);
+      ret = dzn_pipeline::compile_shader(device, &pCreateInfo->pStages[i],
+                                         apply_yflip, slot);
       if (ret != VK_SUCCESS)
          goto out;
    }
 
-   ret = dzn_pipeline_translate_vi(&desc, pipeline, pCreateInfo);
+   ret = translate_vi(desc, pCreateInfo);
    if (ret != VK_SUCCESS)
       goto out;
 
-   dzn_pipeline_translate_ia(&desc, pipeline, pCreateInfo);
-   dzn_pipeline_translate_rast(&desc, pipeline, pCreateInfo);
-   dzn_pipeline_translate_ms(&desc, pCreateInfo);
-   dzn_pipeline_translate_zsa(&desc, pipeline, pCreateInfo);
-   dzn_pipeline_translate_blend(&desc, pipeline, pCreateInfo);
+   translate_ia(desc, pCreateInfo);
+   translate_rast(desc, pCreateInfo);
+   translate_ms(desc, pCreateInfo);
+   translate_zsa(desc, pCreateInfo);
+   translate_blend(desc, pCreateInfo);
 
    desc.NumRenderTargets = subpass->color_count;
    for (uint32_t i = 0; i < subpass->color_count; i++) {
@@ -659,13 +644,12 @@ graphics_pipeline_create(dzn_device *device,
    }
 
    hres = device->dev->CreateGraphicsPipelineState(&desc,
-                                                   IID_PPV_ARGS(&pipeline->base.state));
+                                                   IID_PPV_ARGS(&base.state));
    if (FAILED(hres)) {
       ret = VK_ERROR_OUT_OF_HOST_MEMORY;
       goto out;
    }
 
-   *pPipeline = dzn_pipeline_to_handle(&pipeline->base);
    ret = VK_SUCCESS;
 
 out:
@@ -678,42 +662,42 @@ out:
    free((void *)desc.InputLayout.pInputElementDescs);
 
    if (ret != VK_SUCCESS)
-      dzn_pipeline_destroy(device, &pipeline->base, pAllocator);
+      throw ret;
+}
 
-   return ret;
+dzn_graphics_pipeline::~dzn_graphics_pipeline()
+{
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateGraphicsPipelines(VkDevice _device,
+dzn_CreateGraphicsPipelines(VkDevice device,
                             VkPipelineCache pipelineCache,
                             uint32_t count,
                             const VkGraphicsPipelineCreateInfo *pCreateInfos,
                             const VkAllocationCallbacks *pAllocator,
                             VkPipeline *pPipelines)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_pipeline_cache, pipeline_cache, pipelineCache);
-
    VkResult result = VK_SUCCESS;
 
    unsigned i;
    for (i = 0; i < count; i++) {
-      VkResult res = graphics_pipeline_create(device, pipeline_cache,
-                                              &pCreateInfos[i],
-                                              pAllocator, &pPipelines[i]);
+      result = dzn_graphics_pipeline_factory::create(device,
+                                                     pipelineCache,
+                                                     &pCreateInfos[i],
+                                                     pAllocator,
+                                                     &pPipelines[i]);
+      if (result != VK_SUCCESS) {
+         pPipelines[i] = VK_NULL_HANDLE;
 
-      if (res == VK_SUCCESS)
-         continue;
+         /* Bail out on the first error != VK_PIPELINE_COMPILE_REQUIRED_EX as it
+          * is not obvious what error should be report upon 2 different failures.
+          */
+         if (result != VK_PIPELINE_COMPILE_REQUIRED_EXT)
+            break;
 
-      /* Bail out on the first error != VK_PIPELINE_COMPILE_REQUIRED_EX as it
-       * is not obvious what error should be report upon 2 different failures.
-       * */
-      result = res;
-      if (res != VK_PIPELINE_COMPILE_REQUIRED_EXT)
-         break;
-
-      if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_EARLY_RETURN_ON_FAILURE_BIT_EXT)
-         break;
+         if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_EARLY_RETURN_ON_FAILURE_BIT_EXT)
+            break;
+      }
    }
 
    for (; i < count; i++)
@@ -723,12 +707,16 @@ dzn_CreateGraphicsPipelines(VkDevice _device,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyPipeline(VkDevice _device,
-                    VkPipeline _pipeline,
+dzn_DestroyPipeline(VkDevice device,
+                    VkPipeline pipeline,
                     const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
+   VK_FROM_HANDLE(dzn_pipeline, pipe, pipeline);
 
-   dzn_pipeline_destroy(device, pipeline, pAllocator);
+   if (pipe->type == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+      dzn_graphics_pipeline_factory::destroy(device, pipeline, pAllocator);
+   } else {
+      assert(pipe->type == VK_PIPELINE_BIND_POINT_COMPUTE);
+      unreachable("Compute pipelines not yet supported");
+   }
 }

@@ -509,34 +509,63 @@ struct dzn_pipeline_cache {
 
 struct dzn_pipeline {
    struct vk_object_base base;
-   const struct dzn_pipeline_layout *layout;
-   ID3D12PipelineState *state;
+   VkPipelineBindPoint type;
+   const dzn_pipeline_layout *layout = NULL;
+   ComPtr<ID3D12PipelineState> state;
+
+   dzn_pipeline(dzn_device *device, VkPipelineBindPoint type);
+   ~dzn_pipeline();
+
+   static VkResult compile_shader(dzn_device *device,
+                                  const VkPipelineShaderStageCreateInfo *stage_info,
+                                  bool apply_yflip,
+                                  D3D12_SHADER_BYTECODE *slot);
 };
 
 struct dzn_graphics_pipeline {
-   struct dzn_pipeline base;
+   dzn_pipeline base;
    struct {
       unsigned count;
       uint32_t strides[MAX_VBS];
-   } vb;
+   } vb = {};
 
    struct {
       D3D_PRIMITIVE_TOPOLOGY topology;
-   } ia;
+   } ia = {};
 
    struct {
       unsigned count;
       D3D12_VIEWPORT desc[MAX_VP];
-   } vp;
+   } vp = {};
 
    struct {
       unsigned count;
       D3D12_RECT desc[MAX_SCISSOR];
-   } scissor;
+   } scissor = {};
 
    struct {
       uint8_t stencil_ref;
-   } zsa;
+   } zsa = {};
+
+   dzn_graphics_pipeline(dzn_device *device,
+                         VkPipelineCache cache,
+                         const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                         const VkAllocationCallbacks *pAllocator);
+   ~dzn_graphics_pipeline();
+
+private:
+   VkResult translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                         const VkGraphicsPipelineCreateInfo *in);
+   void translate_ia(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                     const VkGraphicsPipelineCreateInfo *in);
+   void translate_rast(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                       const VkGraphicsPipelineCreateInfo *in);
+   void translate_ms(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                     const VkGraphicsPipelineCreateInfo *in);
+   void translate_zsa(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                      const VkGraphicsPipelineCreateInfo *in);
+   void translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
+                        const VkGraphicsPipelineCreateInfo *in);
 };
 
 #define MAX_MIP_LEVELS 14
@@ -762,6 +791,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_framebuffer, base, VkFramebuffer, VK_OBJECT_T
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline, base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_graphics_pipeline, base.base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_cache, base, VkPipelineCache, VK_OBJECT_TYPE_PIPELINE_CACHE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, base, VkPipelineLayout, VK_OBJECT_TYPE_PIPELINE_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
@@ -953,6 +983,7 @@ DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAlloc
 DZN_OBJ_FACTORY(dzn_event, VkEvent, VkDevice, const VkEventCreateInfo *);
 DZN_OBJ_FACTORY(dzn_fence, VkFence, VkDevice, const VkFenceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_framebuffer, VkFramebuffer, VkDevice, const VkFramebufferCreateInfo *);
+DZN_OBJ_FACTORY(dzn_graphics_pipeline, VkPipeline, VkDevice, VkPipelineCache, const VkGraphicsPipelineCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image_view, VkImageView, VkDevice, const VkImageViewCreateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
