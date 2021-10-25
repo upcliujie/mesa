@@ -162,7 +162,7 @@ struct dzn_physical_device {
 #define dzn_debug_ignored_stype(sType) \
    mesa_logd("%s: ignored VkStructureType %u\n", __func__, (sType))
 
-IDXGIFactory4 *
+ComPtr<IDXGIFactory4>
 dxgi_get_factory(bool debug);
 
 void

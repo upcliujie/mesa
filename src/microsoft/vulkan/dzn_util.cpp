@@ -30,7 +30,7 @@
 
 #include <directx/d3d12sdklayers.h>
 
-IDXGIFactory4 *
+ComPtr<IDXGIFactory4>
 dxgi_get_factory(bool debug)
 {
    static const GUID IID_IDXGIFactory4 = {
@@ -57,7 +57,7 @@ dxgi_get_factory(bool debug)
    if (debug)
       flags |= DXGI_CREATE_FACTORY_DEBUG;
 
-   IDXGIFactory4 *factory = NULL;
+   ComPtr<IDXGIFactory4> factory;
    HRESULT hr = CreateDXGIFactory2(flags, IID_IDXGIFactory4, (void **)&factory);
    if (FAILED(hr)) {
       mesa_loge("CreateDXGIFactory2 failed: %08x\n", hr);

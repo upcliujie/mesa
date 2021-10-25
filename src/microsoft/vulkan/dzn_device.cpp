@@ -270,7 +270,7 @@ dzn_enumerate_physical_devices(dzn_instance *instance)
 
    instance->physical_devices_enumerated = true;
 
-   IDXGIFactory4 *factory = dxgi_get_factory(false);
+   ComPtr<IDXGIFactory4> factory = dxgi_get_factory(false);
    IDXGIAdapter1 *adapter;
    VkResult result = VK_SUCCESS;
    for (UINT i = 0; SUCCEEDED(factory->EnumAdapters1(i, &adapter)); ++i) {
