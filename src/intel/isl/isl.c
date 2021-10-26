@@ -1520,32 +1520,49 @@ isl_calc_phys_total_extent_el(const struct isl_device *dev,
    unreachable("invalid value for dim_layout");
 }
 
+static bool
+surf_info_may_support_gfx12_ccs(const struct isl_device *dev,
+                                const struct isl_surf_init_info *surf_info,
+                                const struct isl_tile_info *tile_info)
+{
+   /* Compare conditions with isl_surf_supports_ccs */
+
+   if (ISL_GFX_VER(dev) != 12)
+      return false;
+
+   if (!isl_format_supports_ccs_e(dev->info, surf_info->format))
+      return false;
+
+   if (surf_info->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT)
+      return false;
+
+   if (surf_info->row_pitch_B % 512 != 0)
+      return false;
+
+   if (tile_info->tiling == ISL_TILING_LINEAR ||
+       tile_info->tiling == ISL_TILING_X)
+      return false;
+
+   return true;
+}
+
 static uint32_t
 isl_calc_row_pitch_alignment(const struct isl_device *dev,
                              const struct isl_surf_init_info *surf_info,
                              const struct isl_tile_info *tile_info)
 {
-   if (tile_info->tiling != ISL_TILING_LINEAR) {
-      /* According to BSpec: 44930, Gfx12's CCS-compressed surface pitches must
-       * be 512B-aligned. CCS is only support on Y tilings.
-       *
-       * Only consider 512B alignment when :
-       *    - AUX is not explicitly disabled
-       *    - the caller has specified no pitch
+   if (surf_info_may_support_gfx12_ccs(dev, surf_info, tile_info)) {
+      /* According to BSpec: 44930, Gfx12's CCS-compressed surface pitches
+       * must be 512B-aligned.
        *
        * isl_surf_get_ccs_surf() will check that the main surface alignment
        * matches CCS expectations.
        */
-      if (ISL_GFX_VER(dev) >= 12 &&
-          isl_format_supports_ccs_e(dev->info, surf_info->format) &&
-          tile_info->tiling != ISL_TILING_X &&
-          !(surf_info->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT) &&
-          surf_info->row_pitch_B == 0) {
-         return isl_align(tile_info->phys_extent_B.width, 512);
-      }
-
-      return tile_info->phys_extent_B.width;
+      return isl_align(tile_info->phys_extent_B.width, 512);
    }
+
+   if (tile_info->tiling != ISL_TILING_LINEAR)
+      return tile_info->phys_extent_B.width;
 
    /* From the Broadwel PRM >> Volume 2d: Command Reference: Structures >>
     * RENDER_SURFACE_STATE Surface Pitch (p349):
