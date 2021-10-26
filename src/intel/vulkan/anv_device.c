@@ -97,7 +97,7 @@ compiler_debug_log(void *data, UNUSED unsigned *id, const char *fmt, ...)
    (void) vsnprintf(str, MAX_DEBUG_MESSAGE_LENGTH, fmt, args);
    va_end(args);
 
-   vk_logd(VK_LOG_NO_OBJS(&instance->vk), "%s", str);
+   //vk_logd(VK_LOG_NO_OBJS(&instance->vk), "%s", str);
 }
 
 static void
