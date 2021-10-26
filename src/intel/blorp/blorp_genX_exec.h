@@ -1600,7 +1600,7 @@ blorp_setup_binding_table(struct blorp_batch *batch,
       }
    }
 
-#if GFX_VER >= 7
+#if GFX_VER >= 7 && GFX_VER < 10
    if (has_indirect_clear_color) {
       /* Updating a surface state object may require that the state cache be
        * invalidated. From the SKL PRM, Shared Functions -> State -> State

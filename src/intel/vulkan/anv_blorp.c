@@ -2001,7 +2001,10 @@ anv_image_ccs_op(struct anv_cmd_buffer *cmd_buffer,
 
    anv_add_pending_pipe_bits(cmd_buffer,
                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
-                             ANV_PIPE_END_OF_PIPE_SYNC_BIT,
+                             ANV_PIPE_END_OF_PIPE_SYNC_BIT |
+                             (cmd_buffer->device->info.ver == 11 &&
+                              ccs_op == ISL_AUX_OP_FAST_CLEAR ?
+                              ANV_PIPE_STATE_CACHE_INVALIDATE_BIT : 0),
                              "after fast clear ccs");
 
    anv_blorp_batch_finish(&batch);
