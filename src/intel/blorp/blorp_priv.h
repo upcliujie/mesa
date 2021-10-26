@@ -73,6 +73,16 @@ brw_blorp_surface_info_init(struct blorp_batch *batch,
                             const struct blorp_surf *surf,
                             unsigned int level, float layer,
                             enum isl_format format, bool is_dest);
+
+struct blt_axis {
+   double src0, src1, dst0, dst1;
+   bool mirror;
+};
+
+struct blt_coords {
+   struct blt_axis x, y;
+};
+
 void
 blorp_surf_convert_to_single_slice(const struct isl_device *isl_dev,
                                    struct brw_blorp_surface_info *info);
