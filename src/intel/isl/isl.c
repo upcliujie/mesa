@@ -1863,10 +1863,13 @@ isl_surf_init_s(const struct isl_device *dev,
        * that the CCS is indexed in 256B chunks. However, the
        * PLANE_AUX_DIST::Auxiliary Surface Distance field is in units of 4K
        * pages. We currently don't assign the usage field like we do for main
-       * surfaces, so just use 4K for now.
+       * surfaces, so just increase the alignment regardless of the usage.
+       *
+       * Bump the alignment to 64K because some kernels may expect this for
+       * modifiers. TODO: confirm.
        */
       if (tiling == ISL_TILING_GFX12_CCS)
-         base_alignment_B = MAX(base_alignment_B, 4096);
+         base_alignment_B = MAX(base_alignment_B, 16 * 4096);
 
       /* Gfx12+ requires that images be 64K-aligned if they're going to used
        * with CCS.  This is because the Aux translation table maps main
