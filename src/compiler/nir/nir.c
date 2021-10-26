@@ -187,6 +187,8 @@ nir_shader_add_variable(nir_shader *shader, nir_variable *var)
    case nir_var_shader_in:
    case nir_var_shader_out:
    case nir_var_uniform:
+   case nir_var_texture:
+   case nir_var_atomic_counter:
    case nir_var_mem_ubo:
    case nir_var_mem_ssbo:
    case nir_var_image:

@@ -470,35 +470,30 @@ tgsi_return_type_from_base_type(enum glsl_base_type type)
 static void
 ntt_setup_uniforms(struct ntt_compile *c)
 {
-   nir_foreach_uniform_variable(var, c->s) {
-      if (glsl_type_is_sampler(glsl_without_array(var->type)) ||
-          glsl_type_is_texture(glsl_without_array(var->type))) {
-         /* Don't use this size for the check for samplers -- arrays of structs
-          * containing samplers should be ignored, and just the separate lowered
-          * sampler uniform decl used.
-          */
-         int size = glsl_type_get_sampler_count(var->type) +
-                    glsl_type_get_texture_count(var->type);
-
-         const struct glsl_type *stype = glsl_without_array(var->type);
-         enum tgsi_texture_type target = tgsi_texture_type_from_sampler_dim(glsl_get_sampler_dim(stype),
-                                                                            glsl_sampler_type_is_array(stype),
-                                                                            glsl_sampler_type_is_shadow(stype));
-         enum tgsi_return_type ret_type = tgsi_return_type_from_base_type(glsl_get_sampler_result_type(stype));
-         for (int i = 0; i < size; i++) {
-            ureg_DECL_sampler_view(c->ureg, var->data.binding + i,
-               target, ret_type, ret_type, ret_type, ret_type);
-            ureg_DECL_sampler(c->ureg, var->data.binding + i);
-         }
-      } else if (glsl_contains_atomic(var->type)) {
-         uint32_t offset = var->data.offset / 4;
-         uint32_t size = glsl_atomic_size(var->type) / 4;
-         ureg_DECL_hw_atomic(c->ureg, offset, offset + size - 1, var->data.binding, 0);
-      }
-
-      /* lower_uniforms_to_ubo lowered non-sampler uniforms to UBOs, so CB0
-       * size declaration happens with other UBOs below.
+   nir_foreach_texture_variable(var, c->s) {
+      /* Don't use this size for the check for samplers -- arrays of structs
+       * containing samplers should be ignored, and just the separate lowered
+       * sampler uniform decl used.
        */
+      int size = glsl_type_get_sampler_count(var->type) +
+                 glsl_type_get_texture_count(var->type);
+
+      const struct glsl_type *stype = glsl_without_array(var->type);
+      enum tgsi_texture_type target = tgsi_texture_type_from_sampler_dim(glsl_get_sampler_dim(stype),
+                                                                         glsl_sampler_type_is_array(stype),
+                                                                         glsl_sampler_type_is_shadow(stype));
+      enum tgsi_return_type ret_type = tgsi_return_type_from_base_type(glsl_get_sampler_result_type(stype));
+      for (int i = 0; i < size; i++) {
+         ureg_DECL_sampler_view(c->ureg, var->data.binding + i,
+            target, ret_type, ret_type, ret_type, ret_type);
+         ureg_DECL_sampler(c->ureg, var->data.binding + i);
+      }
+   }
+
+   nir_foreach_atomic_counter_variable(var, c->s) {
+      uint32_t offset = var->data.offset / 4;
+      uint32_t size = glsl_atomic_size(var->type) / 4;
+      ureg_DECL_hw_atomic(c->ureg, offset, offset + size - 1, var->data.binding, 0);
    }
 
    nir_foreach_image_variable(var, c->s) {
@@ -1426,7 +1421,7 @@ ntt_emit_mem(struct ntt_compile *c, nir_intrinsic_instr *instr,
       memory = ureg_src_register(TGSI_FILE_MEMORY, 0);
       nir_src = 0;
       break;
-   case nir_var_uniform: { /* HW atomic buffers */
+   case nir_var_atomic_counter: { /* HW atomic buffers */
       memory = ureg_src_register(TGSI_FILE_HW_ATOMIC, 0);
       /* ntt_ureg_src_indirect, except dividing by 4 */
       if (nir_src_is_const(instr->src[0])) {
@@ -1984,7 +1979,7 @@ ntt_emit_intrinsic(struct ntt_compile *c, nir_intrinsic_instr *instr)
    case nir_intrinsic_atomic_counter_xor:
    case nir_intrinsic_atomic_counter_exchange:
    case nir_intrinsic_atomic_counter_comp_swap:
-      ntt_emit_mem(c, instr, nir_var_uniform);
+      ntt_emit_mem(c, instr, nir_var_atomic_counter);
       break;
    case nir_intrinsic_atomic_counter_pre_dec:
       unreachable("Should be lowered by ntt_lower_atomic_pre_dec()");

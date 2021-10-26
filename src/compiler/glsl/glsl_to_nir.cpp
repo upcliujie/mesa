@@ -536,6 +536,8 @@ nir_visitor::visit(ir_variable *ir)
          var->data.mode = nir_var_mem_ubo;
       else if (ir->type->contains_image() && !ir->data.bindless)
          var->data.mode = nir_var_image;
+      else if (ir->type->contains_atomic())
+         var->data.mode = nir_var_atomic_counter;
       else
          var->data.mode = nir_var_uniform;
       break;
