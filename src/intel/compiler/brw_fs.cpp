@@ -9781,6 +9781,7 @@ brw_compile_fs(const struct brw_compiler *compiler,
       INTEL_DEBUG(params->debug_flag ? params->debug_flag : DEBUG_WM);
 
    prog_data->base.stage = MESA_SHADER_FRAGMENT;
+   prog_data->base.ray_queries = nir->info.ray_queries;
 
    const struct intel_device_info *devinfo = compiler->devinfo;
    const unsigned max_subgroup_size = compiler->devinfo->ver >= 6 ? 32 : 16;
@@ -10147,6 +10148,7 @@ brw_compile_cs(const struct brw_compiler *compiler,
 
    prog_data->base.stage = MESA_SHADER_COMPUTE;
    prog_data->base.total_shared = nir->info.shared_size;
+   prog_data->base.ray_queries = nir->info.ray_queries;
 
    if (!nir->info.workgroup_size_variable) {
       prog_data->local_size[0] = nir->info.workgroup_size[0];
@@ -10407,6 +10409,7 @@ brw_compile_bs(const struct brw_compiler *compiler, void *log_data,
    const bool debug_enabled = INTEL_DEBUG(DEBUG_RT);
 
    prog_data->base.stage = shader->info.stage;
+   prog_data->base.ray_queries = shader->info.ray_queries;
    prog_data->max_stack_size = 0;
 
    fs_generator g(compiler, log_data, mem_ctx, &prog_data->base,
