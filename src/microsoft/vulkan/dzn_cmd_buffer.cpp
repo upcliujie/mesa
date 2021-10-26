@@ -127,7 +127,7 @@ dzn_cmd_open_batch(dzn_cmd_buffer *cmd_buffer)
    dzn_batch *batch = (dzn_batch *)
       vk_zalloc(&cmd_buffer->pool->alloc,
                 sizeof(*batch), 8,
-                VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
 
    util_dynarray_init(&batch->events.wait, NULL);
    util_dynarray_init(&batch->events.signal, NULL);
