@@ -68,6 +68,7 @@ struct tgsi_transform_context
     */
    void (*epilog)(struct tgsi_transform_context *ctx);
 
+   enum pipe_shader_type processor;
 
 /*** PRIVATE ***/
 
