@@ -37,6 +37,7 @@ extern "C" {
 
 struct blorp_batch;
 struct blorp_params;
+struct blt_coords;
 
 struct blorp_config {
    bool use_mesh_shading;
@@ -60,6 +61,9 @@ struct blorp_context {
                          uint32_t prog_data_size,
                          uint32_t *kernel_out, void *prog_data_out);
    void (*exec)(struct blorp_batch *batch, const struct blorp_params *params);
+   void (*xy_block_copy_blt)(struct blorp_batch *batch,
+                             const struct blorp_params *params,
+                             const struct blt_coords *coords);
 
    struct blorp_config config;
 };
@@ -89,6 +93,9 @@ enum blorp_batch_flags {
     * operation.
     */
    BLORP_BATCH_USE_COMPUTE = (1 << 3),
+
+   /** Use the hardware blitter to perform any operations in this batch */
+   BLORP_BATCH_USE_BLITTER = (1 << 4),
 };
 
 struct blorp_batch {
@@ -191,6 +198,13 @@ blorp_copy_supports_compute(struct blorp_context *blorp,
 
 bool
 blorp_blit_supports_compute(struct blorp_context *blorp,
+                            enum isl_aux_usage dst_aux_usage);
+
+bool
+blorp_copy_supports_blitter(struct blorp_context *blorp,
+                            const struct isl_surf *src_surf,
+                            const struct isl_surf *dst_surf,
+                            enum isl_aux_usage src_aux_usage,
                             enum isl_aux_usage dst_aux_usage);
 
 void

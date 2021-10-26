@@ -1779,15 +1779,6 @@ get_max_surface_size(const struct intel_device_info *devinfo,
       return max;
 }
 
-struct blt_axis {
-   double src0, src1, dst0, dst1;
-   bool mirror;
-};
-
-struct blt_coords {
-   struct blt_axis x, y;
-};
-
 static enum isl_format
 get_red_format_for_rgb_format(enum isl_format format)
 {
@@ -2433,6 +2424,58 @@ blorp_blit_supports_compute(struct blorp_context *blorp,
    }
 }
 
+static bool
+blitter_supports_aux(const struct intel_device_info *devinfo,
+                     enum isl_aux_usage aux_usage)
+{
+   switch (aux_usage) {
+   case ISL_AUX_USAGE_NONE:
+      return true;
+   case ISL_AUX_USAGE_CCS_E:
+   case ISL_AUX_USAGE_GFX12_CCS_E:
+      return devinfo->verx10 >= 125;
+   default:
+      return false;
+   }
+}
+
+bool
+blorp_copy_supports_blitter(struct blorp_context *blorp,
+                            const struct isl_surf *src_surf,
+                            const struct isl_surf *dst_surf,
+                            enum isl_aux_usage src_aux_usage,
+                            enum isl_aux_usage dst_aux_usage)
+{
+   const struct intel_device_info *devinfo = blorp->isl_dev->info;
+
+   if (devinfo->ver < 12)
+      return false;
+
+   if (dst_surf->samples > 1 || src_surf->samples > 1)
+      return false;
+
+   if (!blitter_supports_aux(devinfo, dst_aux_usage))
+      return false;
+
+   if (!blitter_supports_aux(devinfo, src_aux_usage))
+      return false;
+
+   const struct isl_format_layout *fmtl =
+      isl_format_get_layout(dst_surf->format);
+
+   /* We can only support linear tiling for 96bpp.  We can technically
+    * support aux modes, but not the clear color.  For now, we skip both.
+    */
+   if (fmtl->bpb == 96 &&
+       (src_surf->tiling != ISL_TILING_LINEAR ||
+        dst_surf->tiling != ISL_TILING_LINEAR ||
+        src_aux_usage != ISL_AUX_USAGE_NONE ||
+        dst_aux_usage != ISL_AUX_USAGE_NONE))
+      return false;
+
+   return true;
+}
+
 void
 blorp_blit(struct blorp_batch *batch,
            const struct blorp_surf *src_surf,
@@ -2776,6 +2819,7 @@ blorp_copy(struct blorp_batch *batch,
            uint32_t src_width, uint32_t src_height)
 {
    const struct isl_device *isl_dev = batch->blorp->isl_dev;
+   const struct intel_device_info *devinfo = isl_dev->info;
    struct blorp_params params;
 
    if (src_width == 0 || src_height == 0)
@@ -2911,6 +2955,16 @@ blorp_copy(struct blorp_batch *batch,
          .mirror = false
       }
    };
+
+   if (batch->flags & BLORP_BATCH_USE_BLITTER) {
+      if (devinfo->verx10 < 125) {
+         blorp_surf_convert_to_single_slice(isl_dev, &params.dst);
+         blorp_surf_convert_to_single_slice(isl_dev, &params.src);
+      }
+
+      batch->blorp->xy_block_copy_blt(batch, &params, &coords);
+      return;
+   }
 
    do_blorp_blit(batch, &params, &key, &coords);
 }
