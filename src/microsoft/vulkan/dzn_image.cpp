@@ -168,21 +168,21 @@ dzn_DestroyImage(VkDevice device, VkImage image,
 }
 
 static dzn_image *
-dzn_swapchain_get_image(VkSwapchainKHR swapchain,
+dzn_swapchain_get_image(dzn_device *device,
+                        VkSwapchainKHR swapchain,
                         uint32_t index)
 {
    uint32_t n_images = index + 1;
-   VkImage *images = (VkImage *)malloc(sizeof(*images) * n_images);
-   VkResult result = wsi_common_get_images(swapchain, &n_images, images);
+   auto images =
+      dzn_transient_alloc<VkImage>(n_images, &device->vk.alloc);
 
-   if (result != VK_SUCCESS && result != VK_INCOMPLETE) {
-      free(images);
+   assert(images.get());
+   VkResult result = wsi_common_get_images(swapchain, &n_images, images.get());
+
+   if (result != VK_SUCCESS && result != VK_INCOMPLETE)
       return NULL;
-   }
 
-   VK_FROM_HANDLE(dzn_image, image, images[index]);
-   free(images);
-
+   VK_FROM_HANDLE(dzn_image, image, images.get()[index]);
    return image;
 }
 
@@ -206,7 +206,8 @@ dzn_BindImageMemory2(
             const VkBindImageMemorySwapchainInfoKHR *swapchain_info =
                (const VkBindImageMemorySwapchainInfoKHR *) s;
             dzn_image *swapchain_image =
-               dzn_swapchain_get_image(swapchain_info->swapchain,
+               dzn_swapchain_get_image(device,
+                                       swapchain_info->swapchain,
                                        swapchain_info->imageIndex);
             assert(swapchain_image);
             assert(image->vk.aspects == swapchain_image->vk.aspects);

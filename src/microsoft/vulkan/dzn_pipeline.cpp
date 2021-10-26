@@ -204,7 +204,8 @@ dzn_pipeline_get_gfx_shader_slot(D3D12_GRAPHICS_PIPELINE_STATE_DESC *desc,
 
 VkResult
 dzn_graphics_pipeline::translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
-                                    const VkGraphicsPipelineCreateInfo *in)
+                                    const VkGraphicsPipelineCreateInfo *in,
+                                    dzn_transient_object<D3D12_INPUT_ELEMENT_DESC> &input_elems)
 {
    const VkPipelineVertexInputStateCreateInfo *in_vi =
       in->pVertexInputState;
@@ -215,11 +216,13 @@ dzn_graphics_pipeline::translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
       return VK_SUCCESS;
    }
 
-   D3D12_INPUT_ELEMENT_DESC *inputs = (D3D12_INPUT_ELEMENT_DESC *)
-      calloc(in_vi->vertexAttributeDescriptionCount, sizeof(*inputs));
-   if (!inputs)
+   input_elems =
+      dzn_transient_zalloc<D3D12_INPUT_ELEMENT_DESC>(in_vi->vertexAttributeDescriptionCount,
+                                                     &base.base.device->alloc);
+   if (!input_elems.get())
       return vk_error(this, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   D3D12_INPUT_ELEMENT_DESC *inputs = input_elems.get();
    D3D12_INPUT_CLASSIFICATION slot_class[MAX_VBS];
 
    vb.count = 0;
@@ -592,6 +595,7 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
 
    base.layout = layout;
 
+   dzn_transient_object<D3D12_INPUT_ELEMENT_DESC> inputs;
    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {
       .pRootSignature = layout->root.sig.Get(),
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
@@ -615,7 +619,7 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
          goto out;
    }
 
-   ret = translate_vi(desc, pCreateInfo);
+   ret = translate_vi(desc, pCreateInfo, inputs);
    if (ret != VK_SUCCESS)
       goto out;
 
@@ -658,8 +662,6 @@ out:
          dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
       free((void *)slot->pShaderBytecode);
    }
-
-   free((void *)desc.InputLayout.pInputElementDescs);
 
    if (ret != VK_SUCCESS)
       throw ret;

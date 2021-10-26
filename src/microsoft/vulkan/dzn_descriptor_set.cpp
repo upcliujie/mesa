@@ -334,26 +334,22 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       sampler_desc_count += set_layout->sampler_desc_count;
    }
 
-   D3D12_DESCRIPTOR_RANGE1 *range_descs = NULL;
-   if (range_desc_count) {
-      range_descs = (D3D12_DESCRIPTOR_RANGE1 *)
-         calloc(range_desc_count, sizeof(*range_descs));
-      if (!range_descs)
-         throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
+   auto range_descs =
+      dzn_transient_zalloc<D3D12_DESCRIPTOR_RANGE1>(range_desc_count,
+                                                    &device->vk.alloc,
+                                                    pAllocator);
+   if (range_desc_count && !range_descs.get())
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   D3D12_STATIC_SAMPLER_DESC *static_sampler_descs = NULL;
-   if (static_sampler_count) {
-      static_sampler_descs = (D3D12_STATIC_SAMPLER_DESC *)
-         calloc(static_sampler_count, sizeof(*static_sampler_descs));
-      if (!static_sampler_descs) {
-         free(range_descs);
-         throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-      }
-   }
+   auto static_sampler_descs =
+      dzn_transient_zalloc<D3D12_STATIC_SAMPLER_DESC>(range_desc_count,
+                                                      &device->vk.alloc,
+                                                      pAllocator);
+   if (static_sampler_count && !static_sampler_descs.get())
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS * 2] = { };
-   D3D12_DESCRIPTOR_RANGE1 *range_ptr = range_descs;
+   D3D12_DESCRIPTOR_RANGE1 *range_ptr = range_descs.get();
 
    for (uint32_t i = 0; i < MAX_ROOT_PARAMS; i++) {
       uint32_t range_count = 0;
@@ -408,7 +404,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 
    assert(root.param_count <= ARRAY_SIZE(root_params));
 
-   D3D12_STATIC_SAMPLER_DESC *static_sampler_ptr = static_sampler_descs;
+   D3D12_STATIC_SAMPLER_DESC *static_sampler_ptr = static_sampler_descs.get();
    for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
@@ -427,7 +423,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
          .NumParameters = root.param_count,
          .pParameters = root.param_count ? root_params : NULL,
          .NumStaticSamplers = static_sampler_count,
-         .pStaticSamplers = static_sampler_descs,
+         .pStaticSamplers = static_sampler_descs.get(),
          /* TODO Only enable this flag when needed (optimization) */
          .Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT,
       },
@@ -437,20 +433,14 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       dxil_get_serialize_root_sig();
    ComPtr<ID3DBlob> sig, error;
    if (FAILED(D3D12SerializeVersionedRootSignature(&root_sig_desc,
-                                                   &sig, &error))) {
-      free(range_descs);
-      free(static_sampler_descs);
+                                                   &sig, &error)))
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
 
    if (FAILED(device->dev->CreateRootSignature(0,
                                                sig->GetBufferPointer(),
                                                sig->GetBufferSize(),
-                                               IID_PPV_ARGS(&root.sig)))) {
-      free(range_descs);
-      free(static_sampler_descs);
+                                               IID_PPV_ARGS(&root.sig))))
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
 
    desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
    desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;

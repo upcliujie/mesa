@@ -138,6 +138,52 @@ public:
    }
 };
 
+struct dzn_transient_object_deleter {
+   const VkAllocationCallbacks *alloc;
+   template <typename T>
+   void operator()(T *ptr)
+   {
+      vk_free(alloc, ptr);
+   }
+};
+
+template <typename T>
+using dzn_transient_object = std::unique_ptr<T, dzn_transient_object_deleter>;
+
+template <typename T>
+dzn_transient_object<T>
+dzn_transient_alloc(size_t count,
+                    const VkAllocationCallbacks *parent_alloc,
+                    const VkAllocationCallbacks *alloc = NULL)
+{
+   dzn_transient_object_deleter deleter = { alloc ? alloc : parent_alloc };
+
+   if (!count)
+      return dzn_transient_object<T>(NULL, deleter);
+
+   T *ptr = (T *)
+      vk_alloc2(parent_alloc, alloc, count * sizeof(T), alignof(T),
+                VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+   return dzn_transient_object<T>(ptr, deleter);
+}
+
+template <typename T>
+dzn_transient_object<T>
+dzn_transient_zalloc(size_t count,
+                     const VkAllocationCallbacks *parent_alloc,
+                     const VkAllocationCallbacks *alloc = NULL)
+{
+   dzn_transient_object_deleter deleter = { alloc ? alloc : parent_alloc };
+
+   if (!count)
+      return dzn_transient_object<T>(NULL, deleter);
+
+   T *ptr = (T *)
+      vk_zalloc2(parent_alloc, alloc, count * sizeof(T), alignof(T),
+                 VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+   return dzn_transient_object<T>(ptr, deleter);
+}
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
@@ -555,7 +601,8 @@ struct dzn_graphics_pipeline {
 
 private:
    VkResult translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
-                         const VkGraphicsPipelineCreateInfo *in);
+                         const VkGraphicsPipelineCreateInfo *in,
+                         dzn_transient_object<D3D12_INPUT_ELEMENT_DESC> &inputs);
    void translate_ia(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
                      const VkGraphicsPipelineCreateInfo *in);
    void translate_rast(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
