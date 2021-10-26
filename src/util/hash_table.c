@@ -671,6 +671,19 @@ _mesa_hash_string(const void *_key)
 }
 
 uint32_t
+_mesa_hash_string_with_length(const void *_key, unsigned length)
+{
+   uint32_t hash = 0;
+   const char *key = _key;
+#if defined(_WIN64) || defined(__x86_64__)
+   hash = (uint32_t)XXH64(key, length, hash);
+#else
+   hash = XXH32(key, length, hash);
+#endif
+   return hash;
+}
+
+uint32_t
 _mesa_hash_pointer(const void *pointer)
 {
    uintptr_t num = (uintptr_t) pointer;
