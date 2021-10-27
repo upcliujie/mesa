@@ -2343,13 +2343,19 @@ dri2_init_screen(__DRIscreen * sPriv)
    struct dri_screen *screen;
    struct pipe_screen *pscreen = NULL;
 
+   fprintf(stderr, "** %s: %d\n", __func__, 1);
+
    screen = CALLOC_STRUCT(dri_screen);
    if (!screen)
       return NULL;
 
+   fprintf(stderr, "** %s: %d\n", __func__, 2);
+
    screen->sPriv = sPriv;
    screen->fd = sPriv->fd;
    (void) mtx_init(&screen->opencl_func_mutex, mtx_plain);
+
+   fprintf(stderr, "** %s: %d\n", __func__, 3);
 
    sPriv->driverPrivate = (void *)screen;
 
@@ -2358,21 +2364,31 @@ dri2_init_screen(__DRIscreen * sPriv)
       dri_init_options(screen);
    }
 
+   fprintf(stderr, "** %s: %d pscreen %p\n", __func__, 4, pscreen);
+
    if (!pscreen)
        goto release_pipe;
 
    screen->throttle = pscreen->get_param(pscreen, PIPE_CAP_THROTTLE);
 
+   fprintf(stderr, "** %s: %d\n", __func__, 5);
+
    dri2_init_screen_extensions(screen, pscreen, false);
+
+   fprintf(stderr, "** %s: %d\n", __func__, 6);
 
    configs = dri_init_screen_helper(screen, pscreen);
    if (!configs)
       goto destroy_screen;
 
+   fprintf(stderr, "** %s: %d\n", __func__, 7);
+
    screen->can_share_buffer = true;
    screen->auto_fake_front = dri_with_format(sPriv);
    screen->broken_invalidate = !sPriv->dri2.useInvalidate;
    screen->lookup_egl_image = dri2_lookup_egl_image;
+
+   fprintf(stderr, "** %s: %d\n", __func__, 8);
 
    const __DRIimageLookupExtension *loader = sPriv->dri2.image;
    if (loader &&
@@ -2382,6 +2398,8 @@ dri2_init_screen(__DRIscreen * sPriv)
       screen->validate_egl_image = dri2_validate_egl_image;
       screen->lookup_egl_image_validated = dri2_lookup_egl_image_validated;
    }
+
+   fprintf(stderr, "** %s: %d\n", __func__, 9);
 
    return configs;
 

@@ -18,7 +18,7 @@ mount -t tmpfs tmpfs /tmp
 cd $PWD
 
 set +e
-if sh $DEQP_TEMP_DIR/crosvm-script.sh 3>&1 1>&2 2>&3 3>&- | tee $CI_PROJECT_DIR/results/mesa-$$.log; then
+if sh $DEQP_TEMP_DIR/crosvm-script.sh 3>&1 1>&2 2>&3 3>&- | tee $CI_PROJECT_DIR/results/mesa-$(date +%s).log; then
     touch $CI_PROJECT_DIR/results/success
 fi
 set -e

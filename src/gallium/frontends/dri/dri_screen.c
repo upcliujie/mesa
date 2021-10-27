@@ -288,11 +288,14 @@ dri_fill_in_modes(struct dri_screen *screen)
          }
       }
    }
+   fprintf(stderr, "** %s: %d\n", __func__, 1);
 
    if (configs == NULL) {
+   fprintf(stderr, "** %s: %d\n", __func__, 2);
       debug_printf("%s: driCreateConfigs failed\n", __FUNCTION__);
       return NULL;
    }
+   fprintf(stderr, "** %s: %d\n", __func__, 3);
 
    return (const __DRIconfig **)configs;
 }
@@ -551,6 +554,8 @@ const __DRIconfig **
 dri_init_screen_helper(struct dri_screen *screen,
                        struct pipe_screen *pscreen)
 {
+   fprintf(stderr, "** %s: %d\n", __func__, 1);
+
    screen->base.screen = pscreen;
    screen->base.get_egl_image = dri_get_egl_image;
    screen->base.get_param = dri_get_param;
@@ -559,9 +564,12 @@ dri_init_screen_helper(struct dri_screen *screen,
    if (screen->validate_egl_image)
       screen->base.validate_egl_image = dri_validate_egl_image;
 
+   fprintf(stderr, "** %s: %d\n", __func__, 2);
    screen->st_api = st_gl_api_create();
    if (!screen->st_api)
       return NULL;
+
+   fprintf(stderr, "** %s: %d\n", __func__, 3);
 
    if(pscreen->get_param(pscreen, PIPE_CAP_NPOT_TEXTURES))
       screen->target = PIPE_TEXTURE_2D;
@@ -576,6 +584,7 @@ dri_init_screen_helper(struct dri_screen *screen,
                                   &screen->sPriv->max_gl_compat_version,
                                   &screen->sPriv->max_gl_es1_version,
                                   &screen->sPriv->max_gl_es2_version);
+   fprintf(stderr, "** %s: %d\n", __func__, 4);
 
    return dri_fill_in_modes(screen);
 }
