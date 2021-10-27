@@ -1782,7 +1782,7 @@ brw_memory_fence(struct brw_codegen *p,
                  enum opcode send_op,
                  enum brw_message_target sfid,
                  bool commit_enable,
-                 unsigned bti);
+                 unsigned bti, bool is_dummy_fence);
 
 void
 brw_pixel_interpolator_query(struct brw_codegen *p,

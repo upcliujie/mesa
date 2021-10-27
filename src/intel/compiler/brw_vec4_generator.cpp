@@ -1927,7 +1927,8 @@ generate_code(struct brw_codegen *p,
          brw_memory_fence(p, dst, src[0], BRW_OPCODE_SEND,
                           brw_message_target(inst->sfid),
                           /* commit_enable */ false,
-                          /* bti */ 0);
+                          /* bti */ 0,
+                          /* is_dummy_fence */ false);
          send_count++;
          break;
 
