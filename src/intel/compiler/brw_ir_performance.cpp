@@ -937,6 +937,7 @@ namespace {
          return calculate_desc(info, EU_UNIT_URB, 2, 0, 0, 0, 6 /* XXX */,
                                32 /* XXX */, 200 /* XXX */, 0, 0, 0, 0);
 
+      case SHADER_OPCODE_DUMMY_MEMORY_FENCE:
       case SHADER_OPCODE_MEMORY_FENCE:
       case SHADER_OPCODE_INTERLOCK:
          switch (info.sfid) {

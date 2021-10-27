@@ -341,6 +341,8 @@ brw_instruction_name(const struct intel_device_info *devinfo, enum opcode op)
       return "typed_surface_write_logical";
    case SHADER_OPCODE_MEMORY_FENCE:
       return "memory_fence";
+   case SHADER_OPCODE_DUMMY_MEMORY_FENCE:
+      return "dummy_memory_fence";
    case FS_OPCODE_SCHEDULING_FENCE:
       return "scheduling_fence";
    case SHADER_OPCODE_INTERLOCK:
@@ -1129,6 +1131,7 @@ backend_instruction::has_side_effects() const
    case SHADER_OPCODE_DWORD_SCATTERED_WRITE_LOGICAL:
    case SHADER_OPCODE_TYPED_ATOMIC_LOGICAL:
    case SHADER_OPCODE_TYPED_SURFACE_WRITE_LOGICAL:
+   case SHADER_OPCODE_DUMMY_MEMORY_FENCE:
    case SHADER_OPCODE_MEMORY_FENCE:
    case SHADER_OPCODE_INTERLOCK:
    case SHADER_OPCODE_URB_WRITE_SIMD8:

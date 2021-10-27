@@ -231,6 +231,7 @@ fs_inst::is_send_from_grf() const
    case SHADER_OPCODE_URB_READ_SIMD8:
    case SHADER_OPCODE_URB_READ_SIMD8_PER_SLOT:
    case SHADER_OPCODE_INTERLOCK:
+   case SHADER_OPCODE_DUMMY_MEMORY_FENCE:
    case SHADER_OPCODE_MEMORY_FENCE:
    case SHADER_OPCODE_BARRIER:
       return true;
@@ -312,6 +313,7 @@ fs_inst::is_payload(unsigned arg) const
    case FS_OPCODE_INTERPOLATE_AT_SAMPLE:
    case FS_OPCODE_INTERPOLATE_AT_SHARED_OFFSET:
    case SHADER_OPCODE_INTERLOCK:
+   case SHADER_OPCODE_DUMMY_MEMORY_FENCE:
    case SHADER_OPCODE_MEMORY_FENCE:
    case SHADER_OPCODE_BARRIER:
       return arg == 0;
