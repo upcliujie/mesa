@@ -3520,6 +3520,8 @@ struct anv_pipeline {
    struct util_dynarray                         executables;
 
    const struct intel_l3_config *               l3_config;
+
+   struct anv_bo *                              scratch_bos[MESA_SHADER_STAGES];
 };
 
 struct anv_graphics_pipeline {

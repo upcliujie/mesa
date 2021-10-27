@@ -538,6 +538,17 @@ void anv_CmdBindPipeline(
       assert(!"invalid bind point");
       break;
    }
+
+   /* Add the scratch buffer associated with the pipeline to the BO list for
+    * execbuffer.
+    */
+   for (uint32_t s = 0; s < ARRAY_SIZE(pipeline->scratch_bos); s++) {
+      if (pipeline->scratch_bos[s]) {
+         anv_reloc_list_add_bo(cmd_buffer->batch.relocs,
+                               cmd_buffer->batch.alloc,
+                               pipeline->scratch_bos[s]);
+      }
+   }
 }
 
 void anv_CmdSetRasterizerDiscardEnableEXT(
