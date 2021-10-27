@@ -1303,6 +1303,8 @@ virgl_drm_screen_create(int fd, const struct pipe_screen_config *config)
 {
    struct pipe_screen *pscreen = NULL;
 
+   fprintf(stderr, "** %s: %d\n", __func__, 1);
+
    mtx_lock(&virgl_screen_mutex);
    if (!fd_tab) {
       fd_tab = util_hash_table_create_fd_keys();
@@ -1310,12 +1312,15 @@ virgl_drm_screen_create(int fd, const struct pipe_screen_config *config)
          goto unlock;
    }
 
+   fprintf(stderr, "** %s: %d\n", __func__, 2);
    pscreen = util_hash_table_get(fd_tab, intptr_to_pointer(fd));
    if (pscreen) {
+   fprintf(stderr, "** %s: %d\n", __func__, 3);
       virgl_screen(pscreen)->refcnt++;
    } else {
       struct virgl_winsys *vws;
       int dup_fd = os_dupfd_cloexec(fd);
+   fprintf(stderr, "** %s: %d\n", __func__, 4);
 
       vws = virgl_drm_winsys_create(dup_fd);
       if (!vws) {
@@ -1323,10 +1328,12 @@ virgl_drm_screen_create(int fd, const struct pipe_screen_config *config)
          goto unlock;
       }
 
+   fprintf(stderr, "** %s: %d\n", __func__, 5);
       pscreen = virgl_create_screen(vws, config);
       if (pscreen) {
          _mesa_hash_table_insert(fd_tab, intptr_to_pointer(dup_fd), pscreen);
 
+   fprintf(stderr, "** %s: %d\n", __func__, 6);
          /* Bit of a hack, to avoid circular linkage dependency,
           * ie. pipe driver having to call in to winsys, we
           * override the pipe drivers screen->destroy():
@@ -1334,7 +1341,9 @@ virgl_drm_screen_create(int fd, const struct pipe_screen_config *config)
          virgl_screen(pscreen)->winsys_priv = pscreen->destroy;
          pscreen->destroy = virgl_drm_screen_destroy;
       }
+   fprintf(stderr, "** %s: %d\n", __func__, 7);
    }
+   fprintf(stderr, "** %s: %d\n", __func__, 8);
 
 unlock:
    mtx_unlock(&virgl_screen_mutex);
