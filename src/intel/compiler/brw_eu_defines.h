@@ -477,6 +477,8 @@ enum opcode {
     */
    SHADER_OPCODE_MEMORY_FENCE,
 
+   SHADER_OPCODE_DUMMY_MEMORY_FENCE,
+
    /**
     * Scheduling-only fence.
     *
