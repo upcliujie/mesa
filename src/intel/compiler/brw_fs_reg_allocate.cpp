@@ -1032,7 +1032,7 @@ fs_reg_alloc::spill_reg(unsigned spill_reg)
             inst = ubld.group(1, 0).AND(component(this->scratch_header, 0),
                                         retype(brw_vec1_grf(0, 5),
                                                BRW_REGISTER_TYPE_UD),
-                                        brw_imm_ud(INTEL_MASK(31, 10)));
+                                        brw_imm_ud(INTEL_MASK(27, 6)));
             _mesa_set_add(spill_insts, inst);
          } else {
             inst = ubld.emit(SHADER_OPCODE_SCRATCH_HEADER,
