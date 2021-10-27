@@ -546,7 +546,7 @@ iris_get_compute_param(struct pipe_screen *pscreen,
 
    case PIPE_COMPUTE_CAP_MAX_BLOCK_SIZE:
       /* MaxComputeWorkGroupSize[0..2] */
-      RET(((uint64_t []) {max_invocations, max_invocations, max_invocations}));
+      RET(((uint64_t []) { 1024, 1024, 1024 }));
 
    case PIPE_COMPUTE_CAP_MAX_THREADS_PER_BLOCK:
       /* MaxComputeWorkGroupInvocations */
