@@ -536,7 +536,7 @@ struct radv_shader_variant *radv_find_shader_variant(struct radv_device *device,
 unsigned radv_get_max_waves(const struct radv_device *device, struct radv_shader_variant *variant,
                             gl_shader_stage stage);
 
-const char *radv_get_shader_name(struct radv_shader_info *info, gl_shader_stage stage);
+const char *radv_get_shader_name(const struct radv_shader_info *info, gl_shader_stage stage);
 
 unsigned radv_compute_spi_ps_input(const struct radv_device *device,
                                    const struct radv_shader_info *info);
