@@ -1034,12 +1034,12 @@ dzn_QueueSubmit(VkQueue _queue,
             ID3D12CommandList *cmdlists[] = { (*batch)->cmdlist };
 
             util_dynarray_foreach(&(*batch)->events.wait, dzn_event *, event)
-               queue->cmdqueue->Wait((*event)->fence, 1);
+               queue->cmdqueue->Wait((*event)->fence.Get(), 1);
 
             queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
 
             util_dynarray_foreach(&(*batch)->events.wait, dzn_cmd_event_signal, signal)
-               queue->cmdqueue->Signal(signal->event->fence, signal->value ? 1 : 0);
+               queue->cmdqueue->Signal(signal->event->fence.Get(), signal->value ? 1 : 0);
          }
       }
    }
@@ -1430,40 +1430,37 @@ dzn_DestroyFramebuffer(VkDevice device,
    dzn_framebuffer_factory::destroy(device, fb, pAllocator);
 }
 
+dzn_event::dzn_event(dzn_device *device,
+                     const VkEventCreateInfo *pCreateInfo,
+                     const VkAllocationCallbacks *pAllocator)
+{
+   if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
+                                       IID_PPV_ARGS(&fence))))
+      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_EVENT);
+}
+
+dzn_event::~dzn_event()
+{
+   vk_object_base_finish(&base);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_CreateEvent(VkDevice _device,
+dzn_CreateEvent(VkDevice device,
                 const VkEventCreateInfo *pCreateInfo,
                 const VkAllocationCallbacks *pAllocator,
                 VkEvent *pEvent)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   dzn_event *event;
-
-   event = (struct dzn_event *)
-      vk_object_alloc(&device->vk, pAllocator, sizeof(*event),
-                      VK_OBJECT_TYPE_EVENT);
-
-   if (FAILED(device->dev->CreateFence(0, D3D12_FENCE_FLAG_NONE,
-                                       IID_PPV_ARGS(&event->fence))))
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   *pEvent = dzn_event_to_handle(event);
-   return VK_SUCCESS;
+   return dzn_event_factory::create(device, pCreateInfo, pAllocator, pEvent);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_DestroyEvent(VkDevice _device,
-                 VkEvent _event,
+dzn_DestroyEvent(VkDevice device,
+                 VkEvent event,
                  const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_event, event, _event);
-
-   if (!event)
-      return;
-
-   event->fence->Release();
-   vk_object_free(&device->vk, pAllocator, event);
+   return dzn_event_factory::destroy(device, event, pAllocator);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

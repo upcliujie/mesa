@@ -658,7 +658,12 @@ struct dzn_fence {
 struct dzn_event {
    struct vk_object_base base;
 
-   ID3D12Fence *fence;
+   ComPtr<ID3D12Fence> fence;
+
+   dzn_event(dzn_device *device,
+             const VkEventCreateInfo *pCreateInfo,
+             const VkAllocationCallbacks *pAllocator);
+   ~dzn_event();
 };
 
 struct dzn_shader_module {
@@ -882,6 +887,7 @@ DZN_OBJ_FACTORY(dzn_descriptor_set, VkDescriptorSet, VkDevice, dzn_descriptor_po
 DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, const VkDescriptorSetLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
+DZN_OBJ_FACTORY(dzn_event, VkEvent, VkDevice, const VkEventCreateInfo *);
 DZN_OBJ_FACTORY(dzn_fence, VkFence, VkDevice, const VkFenceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_framebuffer, VkFramebuffer, VkDevice, const VkFramebufferCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
