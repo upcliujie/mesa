@@ -141,6 +141,10 @@ if [ "$GALLIUM_DRIVER" = "virpipe" ]; then
     sleep 1
 fi
 
+/usr/sbin/iptables-legacy  -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+echo 1 > /proc/sys/net/ipv4/ip_forward
+syslogd > /dev/null  # Crosvm requires syslogd
+
 if [ -z "$DEQP_SUITE" ]; then
     if [ -n "$DEQP_EXPECTED_RENDERER" ]; then
         export DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --renderer-check "$DEQP_EXPECTED_RENDERER""

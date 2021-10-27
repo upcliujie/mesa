@@ -18,7 +18,7 @@ echo $@ > $DEQP_TEMP_DIR/crosvm-script.sh
 
 unset DISPLAY
 unset XDG_RUNTIME_DIR
-
+: '
 # One-time setup
 (
   flock 9
@@ -29,7 +29,7 @@ unset XDG_RUNTIME_DIR
       syslogd > /dev/null  # Crosvm requires syslogd
   fi
 ) 9>/var/lock/crosvm_lock
-
+'
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
 NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
