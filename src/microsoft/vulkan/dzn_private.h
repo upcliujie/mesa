@@ -52,6 +52,9 @@
 
 #include "d3d12_descriptor_pool.h"
 
+#include <memory>
+#include <vector>
+
 struct dzn_instance;
 
 template <typename T>
@@ -98,6 +101,26 @@ constexpr bool operator!= (const dzn_allocator<T> &a, const dzn_allocator<U> &b)
 {
   return a.scope != b.scope || memcmp(a.allocator, b.allocator, sizeof(a.allocator));
 }
+
+template <typename T>
+class dzn_object_deleter {
+public:
+   constexpr dzn_object_deleter() noexcept = default;
+   ~dzn_object_deleter() = default;
+
+   void operator()(T *obj)
+   {
+      const VkAllocationCallbacks *alloc = obj->get_vk_allocator();
+      std::destroy_at(obj);
+      vk_free(alloc, obj);
+   }
+};
+
+template <typename T>
+using dzn_object_unique_ptr = std::unique_ptr<T, dzn_object_deleter<T>>;
+
+template <typename T>
+using dzn_object_vector = std::vector<dzn_object_unique_ptr<T>, dzn_allocator<dzn_object_unique_ptr<T>>>;
 
 struct dzn_physical_device {
    struct vk_physical_device vk;
