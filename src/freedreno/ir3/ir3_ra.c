@@ -1106,11 +1106,12 @@ static physreg_t
 get_reg(struct ra_ctx *ctx, struct ra_file *file, struct ir3_register *reg,
         bool is_source)
 {
+   unsigned size = reg_size(reg);
    unsigned file_size = reg_file_size(file, reg);
    if (reg->merge_set && reg->merge_set->preferred_reg != (physreg_t)~0) {
       physreg_t preferred_reg =
          reg->merge_set->preferred_reg + reg->merge_set_offset;
-      if (preferred_reg < file_size &&
+      if ((preferred_reg + size) <= file_size &&
           preferred_reg % reg_elem_size(reg) == 0 &&
           get_reg_specified(file, reg, preferred_reg, is_source))
          return preferred_reg;
@@ -1120,7 +1121,6 @@ get_reg(struct ra_ctx *ctx, struct ra_file *file, struct ir3_register *reg,
     * register for, first try to allocate enough space for the entire merge
     * set.
     */
-   unsigned size = reg_size(reg);
    if (reg->merge_set && reg->merge_set->preferred_reg == (physreg_t)~0 &&
        size < reg->merge_set->size) {
       physreg_t best_reg = find_best_gap(file, file_size, reg->merge_set->size,
