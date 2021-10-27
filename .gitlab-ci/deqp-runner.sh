@@ -145,9 +145,6 @@ fi
 echo 1 > /proc/sys/net/ipv4/ip_forward
 syslogd > /dev/null  # Crosvm requires syslogd
 
-apt-get update
-apt-get install -y strace
-
 if [ -z "$DEQP_SUITE" ]; then
     if [ -n "$DEQP_EXPECTED_RENDERER" ]; then
         export DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --renderer-check "$DEQP_EXPECTED_RENDERER""
@@ -169,7 +166,7 @@ if [ -z "$DEQP_SUITE" ]; then
         -- \
         $DEQP_OPTIONS
 else
-    strace -s 4096 -ff -tt -e %process,%signal,write -o /builds/tomeu/mesa/results/strace.log deqp-runner \
+    $HANG_DETECTION_CMD deqp-runner \
         suite \
         --suite $INSTALL/deqp-$DEQP_SUITE.toml \
         --output $RESULTS \
