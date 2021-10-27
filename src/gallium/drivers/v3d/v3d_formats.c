@@ -44,10 +44,7 @@
 static const struct v3d_format *
 get_format(const struct v3d_device_info *devinfo, enum pipe_format f)
 {
-        if (devinfo->ver >= 41)
-                return v3d41_get_format_desc(f);
-        else
-                return v3d33_get_format_desc(f);
+        return v3d_X(devinfo, get_format_desc)(f);
 }
 
 bool
@@ -144,13 +141,7 @@ v3d_get_internal_type_bpp_for_output_format(const struct v3d_device_info *devinf
                                             uint32_t *type,
                                             uint32_t *bpp)
 {
-        if (devinfo->ver >= 41) {
-                return v3d41_get_internal_type_bpp_for_output_format(format,
-                                                                     type, bpp);
-        } else {
-                return v3d33_get_internal_type_bpp_for_output_format(format,
-                                                                     type, bpp);
-        }
+        return v3d_X(devinfo, get_internal_type_bpp_for_output_format)(format, type, bpp);
 }
 
 bool
@@ -158,11 +149,7 @@ v3d_tfu_supports_tex_format(const struct v3d_device_info *devinfo,
                             uint32_t tex_format,
                             bool for_mipmap)
 {
-        if (devinfo->ver >= 41) {
-                return v3d41_tfu_supports_tex_format(tex_format, for_mipmap);
-        } else {
-                return v3d33_tfu_supports_tex_format(tex_format, for_mipmap);
-        }
+        return v3d_X(devinfo, tfu_supports_tex_format)(tex_format, for_mipmap);
 }
 
 bool

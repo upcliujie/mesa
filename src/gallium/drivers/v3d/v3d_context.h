@@ -790,4 +790,13 @@ void v3d_get_tile_buffer_size(bool is_msaa,
 #  undef v3dX
 #endif
 
+#define v3d_X(devinfo, thing) ({                \
+        __typeof(&v3d41_##thing) v3d_X_thing;   \
+        if ((devinfo)->ver >= 41)               \
+                v3d_X_thing = &v3d41_##thing;   \
+        else                                    \
+                v3d_X_thing = &v3d33_##thing;   \
+        v3d_X_thing;                            \
+})
+
 #endif /* V3D_CONTEXT_H */
