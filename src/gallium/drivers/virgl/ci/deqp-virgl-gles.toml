@@ -10,6 +10,7 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0
+fraction = 4
 version_check = "GL ES 3.2.*git"
 renderer_check = "virgl.*llvmpipe"
 
@@ -25,6 +26,7 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0
+fraction = 4
 
 [[deqp]]
 deqp = "/install/crosvm-runner.sh"
@@ -55,3 +57,4 @@ deqp_args = [
     "--deqp-visibility=hidden"
 ]
 timeout = 360.0
+fraction = 4

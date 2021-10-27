@@ -4,6 +4,8 @@ set -e
 
 export DEQP_TEMP_DIR=$1
 
+export EGL_LOG_LEVEL=debug
+
 mount -t proc none /proc
 mount -t sysfs none /sys
 mount -t devtmpfs none /dev || echo possibly already mounted
