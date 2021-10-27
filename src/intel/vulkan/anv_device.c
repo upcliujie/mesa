@@ -1891,11 +1891,7 @@ void anv_GetPhysicalDeviceProperties(
       .maxComputeSharedMemorySize               = 64 * 1024,
       .maxComputeWorkGroupCount                 = { 65535, 65535, 65535 },
       .maxComputeWorkGroupInvocations           = max_workgroup_size,
-      .maxComputeWorkGroupSize = {
-         max_workgroup_size,
-         max_workgroup_size,
-         max_workgroup_size,
-      },
+      .maxComputeWorkGroupSize                  = { 1024, 1024, 1024 },
       .subPixelPrecisionBits                    = 8,
       .subTexelPrecisionBits                    = 8,
       .mipmapPrecisionBits                      = 8,
