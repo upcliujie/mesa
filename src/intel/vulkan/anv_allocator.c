@@ -1717,7 +1717,7 @@ anv_device_alloc_bo(struct anv_device *device,
 
    if (alloc_flags & ANV_BO_ALLOC_FIXED_ADDRESS) {
       new_bo.has_fixed_address = true;
-      new_bo.offset = explicit_address;
+      new_bo.offset = gen_canonical_address(explicit_address);
    } else if (new_bo.flags & EXEC_OBJECT_PINNED) {
       new_bo.offset = anv_vma_alloc(device, new_bo.size + new_bo._ccs_size,
                                     align, alloc_flags, explicit_address);
