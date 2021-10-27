@@ -122,6 +122,17 @@ using dzn_object_unique_ptr = std::unique_ptr<T, dzn_object_deleter<T>>;
 template <typename T>
 using dzn_object_vector = std::vector<dzn_object_unique_ptr<T>, dzn_allocator<dzn_object_unique_ptr<T>>>;
 
+class d3d12_descriptor_pool_deleter {
+public:
+   constexpr d3d12_descriptor_pool_deleter() noexcept = default;
+   ~d3d12_descriptor_pool_deleter() = default;
+
+   void operator()(d3d12_descriptor_pool *pool)
+   {
+      d3d12_descriptor_pool_free(pool);
+   }
+};
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
