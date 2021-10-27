@@ -436,7 +436,10 @@ v3d_resource_get_handle(struct pipe_screen *pscreen,
         case WINSYS_HANDLE_TYPE_SHARED:
                 return v3d_bo_flink(bo, &whandle->handle);
         case WINSYS_HANDLE_TYPE_KMS:
-                if (screen->ro) {
+                /* With renderonly setup we have the handle for scanout
+                 * resources in the display's fd.
+                 */
+                if (screen->ro && rsc->scanout) {
                         if (renderonly_get_handle(rsc->scanout, whandle)) {
                                 whandle->stride = rsc->slices[0].stride;
                                 return true;
@@ -815,11 +818,10 @@ v3d_resource_create_with_modifiers(struct pipe_screen *pscreen,
          * using CMA, and V3D can import from CMA but doesn't do CMA
          * allocations on its own.
          *
-         * We always allocate this way for SHARED, because get_handle will
-         * need a resource on the display fd.
+         * We always allocate this way for SCANOUT resources, because
+         * get_handle will need a resource on the display fd.
          */
-        if (screen->ro && (tmpl->bind & (PIPE_BIND_SCANOUT |
-                                         PIPE_BIND_SHARED))) {
+        if (screen->ro && (tmpl->bind & PIPE_BIND_SCANOUT)) {
                 struct winsys_handle handle;
                 struct pipe_resource scanout_tmpl = {
                         .target = prsc->target,
@@ -949,7 +951,11 @@ v3d_resource_from_handle(struct pipe_screen *pscreen,
                  }
         }
 
-        if (screen->ro) {
+        /* Allocated SCANOUT resources in a renderonly setup are linear.
+         * So we can infer that not tiled resources were allocated by
+         * the primary display.
+         */
+        if (screen->ro && !rsc->tiled) {
                 /* Make sure that renderonly has a handle to our buffer in the
                  * display's fd, so that a later renderonly_get_handle()
                  * returns correct handles or GEM names.
