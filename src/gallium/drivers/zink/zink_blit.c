@@ -172,11 +172,14 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
    region.srcSubresource.aspectMask = src->aspect;
    region.srcSubresource.mipLevel = info->src.level;
    region.srcOffsets[0].x = info->src.box.x;
-   region.srcOffsets[0].y = info->src.box.y;
+   region.srcOffsets[0].y = src->need_2D_zs ? info->src.box.z : info->src.box.y;
    region.srcOffsets[1].x = info->src.box.x + info->src.box.width;
-   region.srcOffsets[1].y = info->src.box.y + info->src.box.height;
+   region.srcOffsets[1].y = src->need_2D_zs ? info->src.box.z + info->src.box.depth : info->src.box.y + info->src.box.height;
 
-   switch (src->base.b.target) {
+   enum pipe_texture_target target = src->base.b.target;
+   if (src->need_2D_zs)
+      target = PIPE_TEXTURE_2D;
+   switch (target) {
    case PIPE_TEXTURE_CUBE:
    case PIPE_TEXTURE_CUBE_ARRAY:
    case PIPE_TEXTURE_2D_ARRAY:
@@ -205,13 +208,16 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
    region.dstSubresource.aspectMask = dst->aspect;
    region.dstSubresource.mipLevel = info->dst.level;
    region.dstOffsets[0].x = info->dst.box.x;
-   region.dstOffsets[0].y = info->dst.box.y;
+   region.dstOffsets[0].y = dst->need_2D_zs ? info->dst.box.z : info->dst.box.y;
    region.dstOffsets[1].x = info->dst.box.x + info->dst.box.width;
-   region.dstOffsets[1].y = info->dst.box.y + info->dst.box.height;
+   region.dstOffsets[1].y = dst->need_2D_zs ? info->dst.box.z + info->dst.box.depth : info->dst.box.y + info->dst.box.height;
    assert(region.dstOffsets[0].x != region.dstOffsets[1].x);
    assert(region.dstOffsets[0].y != region.dstOffsets[1].y);
 
-   switch (dst->base.b.target) {
+   target = dst->base.b.target;
+   if (dst->need_2D_zs)
+      target = PIPE_TEXTURE_2D;
+   switch (target) {
    case PIPE_TEXTURE_CUBE:
    case PIPE_TEXTURE_CUBE_ARRAY:
    case PIPE_TEXTURE_2D_ARRAY:

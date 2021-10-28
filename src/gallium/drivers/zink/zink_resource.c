@@ -335,10 +335,12 @@ create_ici(struct zink_screen *screen, VkImageCreateInfo *ici, const struct pipe
    ici->usage = 0;
    ici->queueFamilyIndexCount = 0;
 
+   bool need_2D_zs = false;
    switch (templ->target) {
    case PIPE_TEXTURE_1D:
    case PIPE_TEXTURE_1D_ARRAY:
-      ici->imageType = VK_IMAGE_TYPE_1D;
+      need_2D_zs = screen->need_2D_zs && util_format_is_depth_or_stencil(templ->format);
+      ici->imageType = need_2D_zs ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_1D;
       break;
 
    case PIPE_TEXTURE_CUBE:
@@ -369,10 +371,10 @@ create_ici(struct zink_screen *screen, VkImageCreateInfo *ici, const struct pipe
 
    ici->format = zink_get_format(screen, templ->format);
    ici->extent.width = templ->width0;
-   ici->extent.height = templ->height0;
+   ici->extent.height = need_2D_zs ? templ->array_size : templ->height0;
    ici->extent.depth = templ->depth0;
    ici->mipLevels = templ->last_level + 1;
-   ici->arrayLayers = MAX2(templ->array_size, 1);
+   ici->arrayLayers = need_2D_zs ? 1 : MAX2(templ->array_size, 1);
    ici->samples = templ->nr_samples ? templ->nr_samples : VK_SAMPLE_COUNT_1_BIT;
    ici->tiling = modifiers_count ? VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT : bind & PIPE_BIND_LINEAR ? VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
    ici->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -788,6 +790,8 @@ resource_create(struct pipe_screen *pscreen,
       }
    } else {
       res->format = zink_get_format(screen, templ->format);
+      res->need_2D_zs = screen->need_2D_zs && util_format_is_depth_or_stencil(templ->format) &&
+                        (templ->target == PIPE_TEXTURE_1D || templ->target == PIPE_TEXTURE_1D_ARRAY);
       res->dmabuf_acquire = whandle && whandle->type == WINSYS_HANDLE_TYPE_FD;
       res->layout = res->dmabuf_acquire ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;
       res->optimal_tiling = optimal_tiling;

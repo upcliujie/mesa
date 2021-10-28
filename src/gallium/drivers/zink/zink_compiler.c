@@ -1532,6 +1532,55 @@ get_shader_base_prim_type(struct nir_shader *nir)
    return PIPE_PRIM_MAX;
 }
 
+static bool
+convert_1d_shadow_tex(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_tex)
+      return false;
+   nir_tex_instr *tex = nir_instr_as_tex(instr);
+   if (tex->sampler_dim != GLSL_SAMPLER_DIM_1D || !tex->is_shadow)
+      return false;
+   tex->sampler_dim = GLSL_SAMPLER_DIM_2D;
+   tex->is_array = false;
+   b->cursor = nir_before_instr(instr);
+   tex->coord_components = 2;
+   unsigned srcs[] = {
+      nir_tex_src_coord,
+      nir_tex_src_offset,
+      nir_tex_src_ddx,
+      nir_tex_src_ddy,
+   };
+   for (unsigned i = 0; i < ARRAY_SIZE(srcs); i++) {
+      unsigned c = nir_tex_instr_src_index(tex, srcs[i]);
+      if (c == -1)
+         continue;
+      if (tex->src[c].src.ssa->num_components == 2)
+         continue;
+      nir_ssa_def *def = nir_vec2(b, tex->src[c].src.ssa, nir_imm_zero(b, 1, tex->src[c].src.ssa->bit_size));
+      nir_instr_rewrite_src_ssa(instr, &tex->src[c].src, def);
+   }
+   return true;
+}
+
+static bool
+lower_1d_shadow(nir_shader *shader)
+{
+   bool found = false;
+   nir_foreach_variable_with_modes(var, shader, nir_var_uniform | nir_var_image) {
+      const struct glsl_type *type = glsl_without_array(var->type);
+      unsigned length = glsl_get_length(var->type);
+      if (!glsl_type_is_sampler(type) || !glsl_sampler_type_is_shadow(type) || glsl_get_sampler_dim(type) != GLSL_SAMPLER_DIM_1D)
+         continue;
+      const struct glsl_type *sampler = glsl_sampler_type(GLSL_SAMPLER_DIM_2D, true, false, glsl_get_sampler_result_type(type));
+      var->type = type != var->type ? glsl_array_type(sampler, length, glsl_get_explicit_stride(var->type)) : sampler;
+
+      found = true;
+   }
+   if (found)
+      nir_shader_instructions_pass(shader, convert_1d_shadow_tex, nir_metadata_dominance, NULL);
+   return found;
+}
+
 struct zink_shader *
 zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
                    const struct pipe_stream_output_info *so_info)
@@ -1567,6 +1616,9 @@ zink_shader_create(struct zink_screen *screen, struct nir_shader *nir,
    NIR_PASS_V(nir, lower_work_dim);
    NIR_PASS_V(nir, nir_lower_regs_to_ssa);
    NIR_PASS_V(nir, lower_baseinstance);
+
+   if (screen->need_2D_zs)
+      NIR_PASS_V(nir, lower_1d_shadow);
 
    {
       nir_lower_subgroups_options subgroup_options = {0};
