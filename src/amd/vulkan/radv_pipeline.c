@@ -64,7 +64,6 @@ struct radv_blend_state {
 
    uint32_t commutative_4bit;
 
-   bool single_cb_enable;
    bool mrt0_is_dual_src;
 };
 
@@ -539,8 +538,7 @@ radv_pipeline_compute_spi_color_formats(const struct radv_pipeline *pipeline,
    unsigned num_targets;
 
    if (render_create_info) {
-      for (unsigned i = 0;
-           i < (blend->single_cb_enable ? 1 : render_create_info->colorAttachmentCount); ++i) {
+      for (unsigned i = 0; i < render_create_info->colorAttachmentCount; ++i) {
          unsigned cf;
          VkFormat fmt = render_create_info->pColorAttachmentFormats[i];
 
@@ -680,7 +678,6 @@ radv_pipeline_init_blend_state(struct radv_pipeline *pipeline,
    int i;
 
    if (extra && extra->custom_blend_mode) {
-      blend.single_cb_enable = true;
       mode = extra->custom_blend_mode;
    }
 
