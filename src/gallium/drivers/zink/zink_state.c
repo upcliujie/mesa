@@ -523,6 +523,8 @@ zink_bind_depth_stencil_alpha_state(struct pipe_context *pctx, void *cso)
       struct zink_gfx_pipeline_state *state = &ctx->gfx_pipeline_state;
       if (state->dyn_state1.depth_stencil_alpha_state != &ctx->dsa_state->hw_state) {
          state->dyn_state1.depth_stencil_alpha_state = &ctx->dsa_state->hw_state;
+         if (zink_get_fs_key(ctx)->depth_write != ctx->dsa_state->base.depth_writemask)
+            zink_set_fs_key(ctx)->depth_write = ctx->dsa_state->base.depth_writemask;
          state->dirty |= !zink_screen(pctx->screen)->info.have_EXT_extended_dynamic_state;
          ctx->dsa_state_changed = true;
       }
