@@ -46,8 +46,11 @@ enum {
    RADV_PREFETCH_TES = (1 << 3),
    RADV_PREFETCH_GS = (1 << 4),
    RADV_PREFETCH_PS = (1 << 5),
+   RADV_PREFETCH_TS = (1 << 6),
+   RADV_PREFETCH_MS = (1 << 7),
    RADV_PREFETCH_SHADERS = (RADV_PREFETCH_VS | RADV_PREFETCH_TCS | RADV_PREFETCH_TES |
-                            RADV_PREFETCH_GS | RADV_PREFETCH_PS)
+                            RADV_PREFETCH_GS | RADV_PREFETCH_PS | RADV_PREFETCH_TS |
+                            RADV_PREFETCH_MS)
 };
 
 enum {
@@ -1070,19 +1073,32 @@ radv_emit_shader_prefetch(struct radv_cmd_buffer *cmd_buffer, struct radv_shader
 
 static void
 radv_emit_prefetch_L2(struct radv_cmd_buffer *cmd_buffer, struct radv_pipeline *pipeline,
-                      bool vertex_stage_only)
+                      bool first_stage_only)
 {
    struct radv_cmd_state *state = &cmd_buffer->state;
    uint32_t mask = state->prefetch_L2_mask;
 
-   if (vertex_stage_only) {
-      /* Fast prefetch path for starting draws as soon as possible.
-       */
-      mask = state->prefetch_L2_mask & (RADV_PREFETCH_VS | RADV_PREFETCH_VBO_DESCRIPTORS);
+   if (first_stage_only) {
+      /* Fast prefetch path for starting draws as soon as possible. */
+      uint32_t fast_prefetch_mask = RADV_PREFETCH_VS | RADV_PREFETCH_VBO_DESCRIPTORS;
+
+      /* When a task shader is present, it will be executed first, so prefetch just that. */
+      if (pipeline->shaders[MESA_SHADER_TASK])
+         fast_prefetch_mask |= RADV_PREFETCH_TS;
+      else
+         fast_prefetch_mask |= RADV_PREFETCH_MS;
+
+      mask &= fast_prefetch_mask;
    }
 
    if (mask & RADV_PREFETCH_VS)
       radv_emit_shader_prefetch(cmd_buffer, pipeline->shaders[MESA_SHADER_VERTEX]);
+
+   if (mask & RADV_PREFETCH_TS)
+      radv_emit_shader_prefetch(cmd_buffer, pipeline->shaders[MESA_SHADER_TASK]);
+
+   if (mask & RADV_PREFETCH_MS)
+      radv_emit_shader_prefetch(cmd_buffer, pipeline->shaders[MESA_SHADER_MESH]);
 
    if (mask & RADV_PREFETCH_VBO_DESCRIPTORS)
       si_cp_dma_prefetch(cmd_buffer, state->vb_va, pipeline->vb_desc_alloc_size);
@@ -1374,7 +1390,7 @@ radv_emit_graphics_pipeline(struct radv_cmd_buffer *cmd_buffer)
 
    radv_emit_batch_break_on_new_ps(cmd_buffer);
 
-   for (unsigned i = 0; i < MESA_SHADER_COMPUTE; i++) {
+   for (unsigned i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
       if (!pipeline->shaders[i])
          continue;
 
@@ -1548,12 +1564,16 @@ static void
 radv_emit_primitive_topology(struct radv_cmd_buffer *cmd_buffer)
 {
    struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
+   unsigned primitive_topology = d->primitive_topology;
+
+   if (cmd_buffer->state.mesh_shading)
+      primitive_topology = V_008958_DI_PT_POINTLIST;
 
    if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX7) {
       radeon_set_uconfig_reg_idx(cmd_buffer->device->physical_device, cmd_buffer->cs,
-                                 R_030908_VGT_PRIMITIVE_TYPE, 1, d->primitive_topology);
+                                 R_030908_VGT_PRIMITIVE_TYPE, 1, primitive_topology);
    } else {
-      radeon_set_config_reg(cmd_buffer->cs, R_008958_VGT_PRIMITIVE_TYPE, d->primitive_topology);
+      radeon_set_config_reg(cmd_buffer->cs, R_008958_VGT_PRIMITIVE_TYPE, primitive_topology);
    }
 }
 
@@ -2962,6 +2982,8 @@ radv_emit_vertex_state(struct radv_cmd_buffer *cmd_buffer, bool pipeline_is_dirt
    struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
    struct radv_shader_variant *vs_shader = radv_get_shader(pipeline, MESA_SHADER_VERTEX);
 
+   assert(!cmd_buffer->state.mesh_shading);
+
    if (!vs_shader->info.vs.has_prolog)
       return;
 
@@ -3100,8 +3122,16 @@ radv_flush_indirect_descriptor_sets(struct radv_cmd_buffer *cmd_buffer,
          radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_VERTEX,
                                     AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
 
+      if (pipeline->shaders[MESA_SHADER_TASK])
+         radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_TASK,
+                                    AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
+
       if (pipeline->shaders[MESA_SHADER_FRAGMENT])
          radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_FRAGMENT,
+                                    AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
+
+      if (radv_pipeline_has_mesh(pipeline))
+         radv_emit_userdata_address(cmd_buffer, pipeline, MESA_SHADER_MESH,
                                     AC_UD_INDIRECT_DESCRIPTOR_SETS, va);
 
       if (radv_pipeline_has_gs(pipeline))
@@ -3295,6 +3325,9 @@ radv_flush_vertex_descriptors(struct radv_cmd_buffer *cmd_buffer, bool pipeline_
 {
    if ((pipeline_is_dirty || (cmd_buffer->state.dirty & RADV_CMD_DIRTY_VERTEX_BUFFER)) &&
        cmd_buffer->state.pipeline->vb_desc_usage_mask) {
+      /* Mesh shaders don't have vertex descriptors. */
+      assert(!cmd_buffer->state.mesh_shading);
+
       struct radv_pipeline *pipeline = cmd_buffer->state.pipeline;
       struct radv_shader_variant *vs_shader = radv_get_shader(pipeline, MESA_SHADER_VERTEX);
       enum chip_class chip = cmd_buffer->device->physical_device->rad_info.chip_class;
@@ -3580,9 +3613,11 @@ radv_upload_graphics_shader_descriptors(struct radv_cmd_buffer *cmd_buffer, bool
 {
    radv_flush_vertex_descriptors(cmd_buffer, pipeline_is_dirty);
    radv_flush_streamout_descriptors(cmd_buffer);
-   radv_flush_descriptors(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS, cmd_buffer->state.pipeline,
+
+   VkShaderStageFlags stages = VK_SHADER_STAGE_ALL_GRAPHICS | VK_SHADER_STAGE_MESH_BIT_NV | VK_SHADER_STAGE_TASK_BIT_NV;
+   radv_flush_descriptors(cmd_buffer, stages, cmd_buffer->state.pipeline,
                           VK_PIPELINE_BIND_POINT_GRAPHICS);
-   radv_flush_constants(cmd_buffer, VK_SHADER_STAGE_ALL_GRAPHICS, cmd_buffer->state.pipeline,
+   radv_flush_constants(cmd_buffer, stages, cmd_buffer->state.pipeline,
                         VK_PIPELINE_BIND_POINT_GRAPHICS);
    radv_flush_ngg_gs_state(cmd_buffer);
 }
@@ -3719,6 +3754,7 @@ radv_stage_flush(struct radv_cmd_buffer *cmd_buffer, VkPipelineStageFlags src_st
 {
    if (src_stage_mask &
        (VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT |
+        VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV |
         VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR |
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR | VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT |
         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT)) {
@@ -3734,6 +3770,7 @@ radv_stage_flush(struct radv_cmd_buffer *cmd_buffer, VkPipelineStageFlags src_st
    } else if (src_stage_mask &
               (VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
                VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+               VK_PIPELINE_STAGE_MESH_SHADER_BIT_NV |
                VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT |
                VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT |
                VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
@@ -4368,6 +4405,7 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
    cmd_buffer->state.last_sx_blend_opt_control = -1;
    cmd_buffer->state.last_nggc_settings = -1;
    cmd_buffer->state.last_nggc_settings_sgpr_idx = -1;
+   cmd_buffer->state.mesh_shading = false;
    cmd_buffer->usage_flags = pBeginInfo->flags;
 
    if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_SECONDARY &&
@@ -4875,6 +4913,12 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
       cmd_buffer->state.pipeline = pipeline;
       if (!pipeline)
          break;
+
+      bool had_mesh_shading = cmd_buffer->state.mesh_shading;
+      cmd_buffer->state.mesh_shading = radv_pipeline_has_mesh(pipeline);
+      bool mesh_shading_changed = cmd_buffer->state.mesh_shading != had_mesh_shading;
+      if (mesh_shading_changed)
+         cmd_buffer->state.dirty |= RADV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 
       cmd_buffer->state.dirty |= RADV_CMD_DIRTY_PIPELINE | RADV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT;
       cmd_buffer->push_constant_stages |= pipeline->active_stages;
@@ -7793,6 +7837,7 @@ write_event(struct radv_cmd_buffer *cmd_buffer, struct radv_event *event,
    /* Flags that only require signaling post PS. */
    VkPipelineStageFlags post_ps_flags =
       post_index_fetch_flags | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+      VK_PIPELINE_STAGE_MESH_SHADER_BIT_NV |
       VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT |
       VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT | VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
       VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT |
