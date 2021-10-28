@@ -273,6 +273,7 @@ with_virtio_vk = _vulkan_drivers.contains('virtio-experimental')
 with_freedreno_kgsl = get_option('freedreno-kgsl')
 with_broadcom_vk = _vulkan_drivers.contains('broadcom')
 with_any_vk = _vulkan_drivers.length() != 0
+with_vulkan_windows = false
 
 with_any_broadcom = with_gallium_vc4 or with_gallium_v3d or with_broadcom_vk
 with_any_intel = with_intel_vk or with_gallium_iris or with_gallium_crocus
@@ -662,7 +663,7 @@ if with_gallium_zink
 endif
 
 dep_dxheaders = null_dep
-if with_gallium_d3d12 or with_microsoft_clc
+if with_gallium_d3d12 or with_microsoft_clc or with_vulkan_windows
   dep_dxheaders = dependency('directx-headers', required : false)
   if not dep_dxheaders.found()
     dep_dxheaders = dependency('DirectX-Headers', fallback : ['DirectX-Headers', 'dep_dxheaders'],
