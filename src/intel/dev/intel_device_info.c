@@ -36,6 +36,12 @@
 
 #include "drm-uapi/i915_drm.h"
 
+/* XXX - Update DRM headers to latest version when this API is available. */
+#ifndef PRELIM_DRM_I915_QUERY_GEOMETRY_SLICES
+#define PRELIM_DRM_I915_QUERY                  (1 << 16)
+#define PRELIM_DRM_I915_QUERY_GEOMETRY_SLICES  (PRELIM_DRM_I915_QUERY | 7)
+#endif
+
 static const struct {
    const char *name;
    int pci_id;
@@ -1085,7 +1091,8 @@ reset_masks(struct intel_device_info *devinfo)
 
 static void
 update_from_topology(struct intel_device_info *devinfo,
-                     const struct drm_i915_query_topology_info *topology)
+                     const struct drm_i915_query_topology_info *topology,
+                     const struct drm_i915_query_topology_info *geom_topology)
 {
    reset_masks(devinfo);
 
@@ -1102,6 +1109,19 @@ update_from_topology(struct intel_device_info *devinfo,
       topology->max_slices * topology->subslice_stride;
    assert(sizeof(devinfo->subslice_masks) >= subslice_mask_len);
    memcpy(devinfo->subslice_masks, &topology->data[topology->subslice_offset],
+          subslice_mask_len);
+
+   /**
+    * Calculate an array of bit masks of the subslices available for
+    * 3D workloads, analogous to intel_device_info::subslice_masks.
+    * This may differ from the set of enabled subslices on XeHP+
+    * platforms with compute-only subslices.
+    */
+   uint8_t geom_subslice_masks[ARRAY_SIZE(devinfo->subslice_masks)] = { 0 };
+   assert(subslice_mask_len == geom_topology->max_slices *
+                               geom_topology->subslice_stride);
+   assert(sizeof(geom_subslice_masks) >= subslice_mask_len);
+   memcpy(geom_subslice_masks, &geom_topology->data[geom_topology->subslice_offset],
           subslice_mask_len);
 
    uint32_t n_subslices = 0;
@@ -1135,9 +1155,9 @@ update_from_topology(struct intel_device_info *devinfo,
          const unsigned offset = p * ppipe_bits;
          const unsigned ppipe_mask = BITFIELD_RANGE(offset % 8, ppipe_bits);
 
-         if (offset / 8 < ARRAY_SIZE(devinfo->subslice_masks))
+         if (offset / 8 < ARRAY_SIZE(geom_subslice_masks))
             devinfo->ppipe_subslices[p] =
-               __builtin_popcount(devinfo->subslice_masks[offset / 8] & ppipe_mask);
+               __builtin_popcount(geom_subslice_masks[offset / 8] & ppipe_mask);
          else
             devinfo->ppipe_subslices[p] = 0;
       }
@@ -1220,7 +1240,7 @@ update_from_masks(struct intel_device_info *devinfo, uint32_t slice_mask,
       }
    }
 
-   update_from_topology(devinfo, topology);
+   update_from_topology(devinfo, topology, topology);
    free(topology);
 
    return true;
@@ -1384,7 +1404,20 @@ query_topology(struct intel_device_info *devinfo, int fd)
    if (topo_info == NULL)
       return false;
 
-   update_from_topology(devinfo, topo_info);
+   if (devinfo->verx10 >= 125) {
+      struct drm_i915_query_topology_info *geom_topo_info =
+         intel_i915_query_alloc(fd, PRELIM_DRM_I915_QUERY_GEOMETRY_SLICES);
+      if (geom_topo_info == NULL) {
+         free(topo_info);
+         return false;
+      }
+
+      update_from_topology(devinfo, topo_info, geom_topo_info);
+
+      free(geom_topo_info);
+   } else {
+      update_from_topology(devinfo, topo_info, topo_info);
+   }
 
    free(topo_info);
 
