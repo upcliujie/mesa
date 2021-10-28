@@ -88,6 +88,7 @@ lower_discard_if_instr(nir_builder *b, nir_instr *instr_, UNUSED void *cb_data)
 
       nir_if *if_stmt = nir_push_if(b, nir_ssa_for_src(b, instr->src[0], 1));
       nir_discard(b);
+      b->shader->info.fs.uses_discard = true;
       nir_pop_if(b, if_stmt);
       nir_instr_remove(&instr->instr);
       return true;
@@ -142,6 +143,8 @@ lower_discard_if_instr(nir_builder *b, nir_instr *instr_, UNUSED void *cb_data)
 static bool
 lower_discard_if(nir_shader *shader)
 {
+   if (shader->info.stage != MESA_SHADER_FRAGMENT)
+      return false;
    return nir_shader_instructions_pass(shader,
                                        lower_discard_if_instr,
                                        nir_metadata_dominance,
@@ -834,6 +837,31 @@ remove_bo_access(nir_shader *shader)
 }
 
 static void
+check_early_frag(nir_shader *shader)
+{
+   if (shader->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_DEPTH) ||
+       shader->info.outputs_written & BITFIELD64_BIT(FRAG_RESULT_STENCIL))
+      return;
+
+   nir_foreach_function(function, shader) {
+      if (!function->impl)
+         continue;
+
+      nir_foreach_block(block, function->impl) {
+         nir_foreach_instr(instr, block) {
+            if (instr->type != nir_instr_type_intrinsic)
+               continue;
+
+            nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+            if (intr->intrinsic == nir_intrinsic_discard)
+               return;
+         }
+      }
+   }
+   shader->info.fs.early_fragment_tests = true;
+}
+
+static void
 assign_producer_var_io(gl_shader_stage stage, nir_variable *var, unsigned *reserved, unsigned char *slot_map)
 {
    unsigned slot = var->data.location;
@@ -1081,6 +1109,8 @@ zink_shader_compile(struct zink_screen *screen, struct zink_shader *zs, nir_shad
                                                        nir_var_shader_out);
    } else if (need_optimize)
       optimize_nir(nir);
+   if (nir->info.stage == MESA_SHADER_FRAGMENT)
+      check_early_frag(nir);
 
    NIR_PASS_V(nir, nir_convert_from_ssa, true);
 
