@@ -722,6 +722,8 @@ RADV driver environment variables
       enable rt extensions whose implementation is still experimental.
    ``sam``
       enable optimizations to move more driver internal objects to VRAM.
+   ``nv_ms``
+      enable unofficial experimental support for NV_mesh_shader.
 
 :envvar:`RADV_TEX_ANISO`
    force anisotropy filter (up to 16)
