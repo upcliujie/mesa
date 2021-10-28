@@ -2951,28 +2951,58 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
                                 pipeline_key, &infos[MESA_SHADER_FRAGMENT]);
 
       assert(pipeline->graphics.last_vgt_api_stage != MESA_SHADER_NONE);
-      if (infos[MESA_SHADER_FRAGMENT].ps.prim_id_input) {
-         if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_VERTEX) {
-            infos[MESA_SHADER_VERTEX].vs.outinfo.export_prim_id = true;
-         } else if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_TESS_EVAL) {
-            infos[MESA_SHADER_TESS_EVAL].tes.outinfo.export_prim_id = true;
-         } else {
-            assert(pipeline->graphics.last_vgt_api_stage == MESA_SHADER_GEOMETRY);
-         }
-      }
+      struct radv_shader_info *pre_ps_info = &infos[pipeline->graphics.last_vgt_api_stage];
+      struct radv_vs_output_info *outinfo = NULL;
+      if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_VERTEX ||
+          pipeline->graphics.last_vgt_api_stage == MESA_SHADER_GEOMETRY)
+         outinfo = &pre_ps_info->vs.outinfo;
+      else if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_TESS_EVAL)
+         outinfo = &pre_ps_info->tes.outinfo;
+      else if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_MESH)
+         outinfo = &pre_ps_info->ms.outinfo;
 
-      if (!!infos[MESA_SHADER_FRAGMENT].ps.num_input_clips_culls) {
-         if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_VERTEX) {
-            infos[MESA_SHADER_VERTEX].vs.outinfo.export_clip_dists = true;
-         } else if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_TESS_EVAL) {
-            infos[MESA_SHADER_TESS_EVAL].tes.outinfo.export_clip_dists = true;
-         } else {
-            assert(pipeline->graphics.last_vgt_api_stage == MESA_SHADER_GEOMETRY);
-            infos[MESA_SHADER_GEOMETRY].vs.outinfo.export_clip_dists = true;
-         }
-      }
+      /* Add PS input requirements to the output of the pre-PS stage. */
+      bool ps_prim_id_in = infos[MESA_SHADER_FRAGMENT].ps.prim_id_input;
+      bool ps_clip_dists_in = !!infos[MESA_SHADER_FRAGMENT].ps.num_input_clips_culls;
+
+      assert(outinfo);
+      outinfo->export_clip_dists |= ps_clip_dists_in;
+      if (pipeline->graphics.last_vgt_api_stage == MESA_SHADER_MESH)
+         outinfo->export_prim_id_per_primitive |= ps_prim_id_in;
+      else
+         outinfo->export_prim_id |= ps_prim_id_in;
 
       filled_stages |= (1 << MESA_SHADER_FRAGMENT);
+   }
+
+   if (nir[MESA_SHADER_MESH]) {
+      assert(pipeline->graphics.last_vgt_api_stage == MESA_SHADER_MESH);
+      radv_nir_shader_info_init(&infos[MESA_SHADER_MESH]);
+      radv_nir_shader_info_pass(pipeline->device, nir[MESA_SHADER_MESH], pipeline_layout,
+                                pipeline_key, &infos[MESA_SHADER_MESH]);
+
+      struct radv_vs_output_info *outinfo = &infos[MESA_SHADER_MESH].ms.outinfo;
+
+      /* Mark PS inputs as per-primitive when necessary. */
+      if (nir[MESA_SHADER_FRAGMENT]) {
+         uint64_t per_primitive_in_bits = 0;
+         if (outinfo->export_prim_id_per_primitive)
+            per_primitive_in_bits |= BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_ID);
+         if (outinfo->writes_layer_per_primitive)
+            per_primitive_in_bits |= BITFIELD64_BIT(VARYING_SLOT_LAYER);
+         if (outinfo->writes_viewport_index_per_primitive)
+            per_primitive_in_bits |= BITFIELD64_BIT(VARYING_SLOT_VIEWPORT);
+
+         per_primitive_in_bits &=
+            nir[MESA_SHADER_FRAGMENT]->info.inputs_read &
+            ~nir[MESA_SHADER_FRAGMENT]->info.per_primitive_inputs;
+         nir[MESA_SHADER_FRAGMENT]->info.per_primitive_inputs |= per_primitive_in_bits;
+         unsigned per_primitive_inputs_added = util_bitcount64(per_primitive_in_bits);
+         infos[MESA_SHADER_FRAGMENT].ps.num_interp -= per_primitive_inputs_added;
+         infos[MESA_SHADER_FRAGMENT].ps.num_prim_interp += per_primitive_inputs_added;
+      }
+
+      filled_stages |= (1 << MESA_SHADER_MESH);
    }
 
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX9 &&
