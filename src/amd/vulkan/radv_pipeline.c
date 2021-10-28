@@ -4566,7 +4566,6 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
    bool es_enable_prim_id = outinfo->export_prim_id || (es && es->info.uses_prim_id);
    bool break_wave_at_eoi = false;
    unsigned ge_cntl;
-   unsigned nparams;
 
    if (es_type == MESA_SHADER_TESS_EVAL) {
       struct radv_shader_variant *gs = pipeline->shaders[MESA_SHADER_GEOMETRY];
@@ -4575,10 +4574,14 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
          break_wave_at_eoi = true;
    }
 
-   nparams = MAX2(outinfo->param_exports, 1);
+   bool no_pc_export = outinfo->param_exports == 0 && outinfo->prim_param_exports == 0;
+   unsigned num_params = MAX2(outinfo->param_exports, 1);
+   unsigned num_prim_params = outinfo->prim_param_exports; //MAX2(outinfo->prim_param_exports, 1);
    radeon_set_context_reg(
       ctx_cs, R_0286C4_SPI_VS_OUT_CONFIG,
-      S_0286C4_VS_EXPORT_COUNT(nparams - 1) | S_0286C4_NO_PC_EXPORT(outinfo->param_exports == 0));
+      S_0286C4_VS_EXPORT_COUNT(num_params - 1) |
+      S_0286C4_PRIM_EXPORT_COUNT(num_prim_params) |
+      S_0286C4_NO_PC_EXPORT(no_pc_export));
 
    radeon_set_context_reg(ctx_cs, R_028708_SPI_SHADER_IDX_FORMAT,
                           S_028708_IDX0_EXPORT_FORMAT(V_028708_SPI_SHADER_1COMP));
@@ -5111,7 +5114,9 @@ radv_pipeline_generate_fragment_shader(struct radeon_cmdbuf *ctx_cs, struct rade
 
    radeon_set_context_reg(
       ctx_cs, R_0286D8_SPI_PS_IN_CONTROL,
-      S_0286D8_NUM_INTERP(ps->info.ps.num_interp) | S_0286D8_PS_W32_EN(ps->info.wave_size == 32));
+      S_0286D8_NUM_INTERP(ps->info.ps.num_interp) |
+      S_0286D8_NUM_PRIM_INTERP(ps->info.ps.num_prim_interp) |
+      S_0286D8_PS_W32_EN(ps->info.wave_size == 32));
 
    radeon_set_context_reg(ctx_cs, R_0286E0_SPI_BARYC_CNTL, pipeline->graphics.spi_baryc_cntl);
 
