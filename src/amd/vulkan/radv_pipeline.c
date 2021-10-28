@@ -5687,35 +5687,9 @@ gfx10_pipeline_generate_ge_cntl(struct radeon_cmdbuf *ctx_cs, struct radv_pipeli
 static void
 radv_pipeline_generate_vgt_gs_out(struct radeon_cmdbuf *ctx_cs,
                                   const struct radv_pipeline *pipeline,
-                                  const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                                  const struct radv_graphics_pipeline_create_info *extra)
+                                  uint32_t vgt_gs_out_prim_type)
 {
-   uint32_t gs_out;
-
-   if (radv_pipeline_has_gs(pipeline)) {
-      gs_out =
-         si_conv_gl_prim_to_gs_out(pipeline->shaders[MESA_SHADER_GEOMETRY]->info.gs.output_prim);
-   } else if (radv_pipeline_has_tess(pipeline)) {
-      if (pipeline->shaders[MESA_SHADER_TESS_EVAL]->info.tes.point_mode) {
-         gs_out = V_028A6C_POINTLIST;
-      } else {
-         gs_out = si_conv_tess_prim_to_gs_out(
-            pipeline->shaders[MESA_SHADER_TESS_EVAL]->info.tes._primitive_mode);
-      }
-   } else if (radv_pipeline_has_mesh(pipeline)) {
-      gs_out =
-         si_conv_gl_prim_to_gs_out(pipeline->shaders[MESA_SHADER_MESH]->info.ms.output_prim);
-   } else {
-      gs_out = si_conv_prim_to_gs_out(pCreateInfo->pInputAssemblyState->topology);
-   }
-
-   if (extra && extra->use_rectlist) {
-      gs_out = V_028A6C_TRISTRIP;
-      if (radv_pipeline_has_ngg(pipeline))
-         gs_out = V_028A6C_RECTLIST;
-   }
-
-   radeon_set_context_reg(ctx_cs, R_028A6C_VGT_GS_OUT_PRIM_TYPE, gs_out);
+   radeon_set_context_reg(ctx_cs, R_028A6C_VGT_GS_OUT_PRIM_TYPE, vgt_gs_out_prim_type);
 }
 
 static void
@@ -5803,9 +5777,9 @@ gfx103_pipeline_generate_vrs_state(struct radeon_cmdbuf *ctx_cs,
 static void
 radv_pipeline_generate_pm4(struct radv_pipeline *pipeline,
                            const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                           const struct radv_graphics_pipeline_create_info *extra,
                            const struct radv_blend_state *blend,
-                           const struct radv_depth_stencil_state *ds_state)
+                           const struct radv_depth_stencil_state *ds_state,
+                           uint32_t vgt_gs_out_prim_type)
 {
    struct radeon_cmdbuf *ctx_cs = &pipeline->ctx_cs;
    struct radeon_cmdbuf *cs = &pipeline->cs;
@@ -5834,7 +5808,7 @@ radv_pipeline_generate_pm4(struct radv_pipeline *pipeline,
    radv_pipeline_generate_vgt_vertex_reuse(ctx_cs, pipeline);
    radv_pipeline_generate_vgt_shader_config(ctx_cs, pipeline);
    radv_pipeline_generate_cliprect_rule(ctx_cs, pCreateInfo);
-   radv_pipeline_generate_vgt_gs_out(ctx_cs, pipeline, pCreateInfo, extra);
+   radv_pipeline_generate_vgt_gs_out(ctx_cs, pipeline, vgt_gs_out_prim_type);
 
    if (pipeline->device->physical_device->rad_info.chip_class >= GFX10 &&
        !radv_pipeline_has_ngg(pipeline))
@@ -5959,6 +5933,39 @@ radv_pipeline_init_shader_stages_state(struct radv_pipeline *pipeline)
    }
 }
 
+static uint32_t
+radv_pipeline_init_vgt_gs_out(struct radv_pipeline *pipeline,
+                              const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                              const struct radv_graphics_pipeline_create_info *extra)
+{
+   uint32_t gs_out;
+
+   if (radv_pipeline_has_gs(pipeline)) {
+      gs_out =
+         si_conv_gl_prim_to_gs_out(pipeline->shaders[MESA_SHADER_GEOMETRY]->info.gs.output_prim);
+   } else if (radv_pipeline_has_tess(pipeline)) {
+      if (pipeline->shaders[MESA_SHADER_TESS_EVAL]->info.tes.point_mode) {
+         gs_out = V_028A6C_POINTLIST;
+      } else {
+         gs_out = si_conv_tess_prim_to_gs_out(
+            pipeline->shaders[MESA_SHADER_TESS_EVAL]->info.tes._primitive_mode);
+      }
+   } else if (radv_pipeline_has_mesh(pipeline)) {
+      gs_out =
+         si_conv_gl_prim_to_gs_out(pipeline->shaders[MESA_SHADER_MESH]->info.ms.output_prim);
+   } else {
+      gs_out = si_conv_prim_to_gs_out(pCreateInfo->pInputAssemblyState->topology);
+   }
+
+   if (extra && extra->use_rectlist) {
+      gs_out = V_028A6C_TRISTRIP;
+      if (radv_pipeline_has_ngg(pipeline))
+         gs_out = V_028A6C_RECTLIST;
+   }
+
+   return gs_out;
+}
+
 static VkResult
 radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
                    struct radv_pipeline_cache *cache,
@@ -6062,6 +6069,8 @@ radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
    if (!radv_pipeline_has_mesh(pipeline))
       radv_pipeline_init_vertex_input_state(pipeline, pCreateInfo, &key);
 
+   uint32_t vgt_gs_out_prim_type = radv_pipeline_init_vgt_gs_out(pipeline, pCreateInfo, extra);
+
    radv_pipeline_init_binning_state(pipeline, pCreateInfo, &blend);
    radv_pipeline_init_shader_stages_state(pipeline);
    radv_pipeline_init_scratch(device, pipeline);
@@ -6077,7 +6086,7 @@ radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
    pipeline->push_constant_size = pipeline_layout->push_constant_size;
    pipeline->dynamic_offset_count = pipeline_layout->dynamic_offset_count;
 
-   radv_pipeline_generate_pm4(pipeline, pCreateInfo, extra, &blend, &ds_state);
+   radv_pipeline_generate_pm4(pipeline, pCreateInfo, &blend, &ds_state, vgt_gs_out_prim_type);
 
    return result;
 }
