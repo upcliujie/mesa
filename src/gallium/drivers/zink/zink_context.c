@@ -3383,7 +3383,10 @@ zink_copy_image_buffer(struct zink_context *ctx, struct zink_resource *dst, stru
    region.bufferRowLength = 0;
    region.bufferImageHeight = 0;
    region.imageSubresource.mipLevel = buf2img ? dst_level : src_level;
-   switch (img->base.b.target) {
+   enum pipe_texture_target target = img->base.b.target;
+   if (img->need_2D_zs)
+      target = PIPE_TEXTURE_2D;
+   switch (target) {
    case PIPE_TEXTURE_CUBE:
    case PIPE_TEXTURE_CUBE_ARRAY:
    case PIPE_TEXTURE_2D_ARRAY:
@@ -3409,10 +3412,16 @@ zink_copy_image_buffer(struct zink_context *ctx, struct zink_resource *dst, stru
       region.imageExtent.depth = 1;
    }
    region.imageOffset.x = buf2img ? dstx : src_box->x;
-   region.imageOffset.y = buf2img ? dsty : src_box->y;
+   if (img->need_2D_zs)
+      region.imageOffset.y = buf2img ? dstz : src_box->z;
+   else
+      region.imageOffset.y = buf2img ? dsty : src_box->y;
 
    region.imageExtent.width = src_box->width;
-   region.imageExtent.height = src_box->height;
+   if (img->need_2D_zs)
+      region.imageExtent.height = src_box->depth;
+   else
+      region.imageExtent.height = src_box->height;
 
    zink_batch_reference_resource_rw(batch, img, buf2img);
    zink_batch_reference_resource_rw(batch, buf, !buf2img);
@@ -3479,7 +3488,10 @@ zink_resource_copy_region(struct pipe_context *pctx,
 
       region.srcSubresource.aspectMask = src->aspect;
       region.srcSubresource.mipLevel = src_level;
-      switch (src->base.b.target) {
+      enum pipe_texture_target target = src->base.b.target;
+      if (src->need_2D_zs)
+         target = PIPE_TEXTURE_2D;
+      switch (target) {
       case PIPE_TEXTURE_CUBE:
       case PIPE_TEXTURE_CUBE_ARRAY:
       case PIPE_TEXTURE_2D_ARRAY:
@@ -3506,11 +3518,14 @@ zink_resource_copy_region(struct pipe_context *pctx,
       }
 
       region.srcOffset.x = src_box->x;
-      region.srcOffset.y = src_box->y;
+      region.srcOffset.y = src->need_2D_zs ? src_box->z : src_box->y;
 
       region.dstSubresource.aspectMask = dst->aspect;
       region.dstSubresource.mipLevel = dst_level;
-      switch (dst->base.b.target) {
+      target = dst->base.b.target;
+      if (dst->need_2D_zs)
+         target = PIPE_TEXTURE_2D;
+      switch (target) {
       case PIPE_TEXTURE_CUBE:
       case PIPE_TEXTURE_CUBE_ARRAY:
       case PIPE_TEXTURE_2D_ARRAY:
@@ -3534,9 +3549,9 @@ zink_resource_copy_region(struct pipe_context *pctx,
       }
 
       region.dstOffset.x = dstx;
-      region.dstOffset.y = dsty;
+      region.dstOffset.y = dst->need_2D_zs ? dstz : dsty;
       region.extent.width = src_box->width;
-      region.extent.height = src_box->height;
+      region.extent.height = src->need_2D_zs ? src_box->depth : src_box->height;
 
       struct zink_batch *batch = &ctx->batch;
       zink_batch_no_rp(ctx);
