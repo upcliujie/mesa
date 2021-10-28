@@ -2516,6 +2516,49 @@ radv_set_driver_locations(struct radv_pipeline *pipeline, nir_shader **shaders,
       }
    }
 
+   if (shaders[MESA_SHADER_MESH]) {
+      if (shaders[MESA_SHADER_TASK]) {
+         nir_linked_io_var_info ts2ms = nir_assign_linked_io_var_locations(
+            shaders[MESA_SHADER_TASK], shaders[MESA_SHADER_MESH]);
+
+         infos[MESA_SHADER_TASK].ts.num_linked_outputs = ts2ms.num_linked_io_vars;
+         infos[MESA_SHADER_MESH].ms.num_linked_inputs = ts2ms.num_linked_io_vars;
+      }
+
+      nir_shader *ms = shaders[MESA_SHADER_MESH];
+
+      /* Mesh shader output driver locations are set separately for per-vertex
+       * and per-primitive outputs, because they are stored in separate LDS regions.
+       */
+      uint64_t per_vertex_mask = ms->info.outputs_written & ~ms->info.per_primitive_outputs
+                                 & ~BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_COUNT)
+                                 & ~BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_INDICES);
+      uint64_t per_primitive_mask = ms->info.per_primitive_outputs & ms->info.outputs_written;
+
+      nir_foreach_shader_out_variable(var, shaders[MESA_SHADER_MESH])
+      {
+         /* These are not real outputs of the shader and require special handling.
+          * So it doesn't make sense to assign a driver location to them.
+          *
+          * TODO: We'll need to revise this in the future when:
+          * - primitive indices is changed to a proper per-primitive output
+          * - primitive count is replaced with set_vertex_and_primitive_count
+          */
+         if (var->data.location == VARYING_SLOT_PRIMITIVE_COUNT ||
+             var->data.location == VARYING_SLOT_PRIMITIVE_INDICES)
+            continue;
+
+         uint64_t loc_mask = u_bit_consecutive64(0, var->data.location);
+
+         if (var->data.per_primitive)
+            var->data.driver_location = util_bitcount64(per_primitive_mask & loc_mask);
+         else
+            var->data.driver_location = util_bitcount64(per_vertex_mask & loc_mask);
+      }
+
+      return;
+   }
+
    if (!shaders[MESA_SHADER_VERTEX])
       return;
 
