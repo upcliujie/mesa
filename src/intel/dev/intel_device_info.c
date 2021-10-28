@@ -1099,19 +1099,26 @@ update_l3_banks(struct intel_device_info *devinfo)
    if (devinfo->ver != 12)
       return;
 
-   if (devinfo->subslice_total > 16) {
-      assert(devinfo->subslice_total <= 32);
-      devinfo->l3_banks = 32;
-   } else if (devinfo->subslice_total > 8) {
-      devinfo->l3_banks = 16;
-   } else if (devinfo->subslice_total >= 6) {
-      assert(devinfo->subslice_total == 6 ||
-             intel_device_info_is_dg2(devinfo));
-      devinfo->l3_banks = 8;
-   } else if (devinfo->subslice_total > 2) {
-         devinfo->l3_banks = 6;
+   if (devinfo->verx10 >= 125) {
+      if (devinfo->subslice_total > 16) {
+         assert(devinfo->subslice_total <= 32);
+         devinfo->l3_banks = 32;
+      } else if (devinfo->subslice_total > 8) {
+         devinfo->l3_banks = 16;
+      } else {
+         devinfo->l3_banks = 8;
+      }
    } else {
-      devinfo->l3_banks = 4;
+      assert(devinfo->num_slices == 1);
+      if (devinfo->subslice_total >= 6) {
+         assert(devinfo->subslice_total == 6);
+         devinfo->l3_banks = 8;
+      } else if (devinfo->subslice_total > 2) {
+         devinfo->l3_banks = 6;
+      } else {
+         devinfo->l3_banks = 4;
+      }
+   }
 }
 
 static void
