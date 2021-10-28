@@ -672,6 +672,11 @@ if with_gallium_d3d12 or with_microsoft_clc or with_vulkan_windows
   endif
 endif
 
+dep_libdxg = null_dep
+if with_vulkan_windows
+  dep_libdxg = dependency('libdxg', fallback : ['libdxg'], required : true)
+endif
+
 if with_vulkan_overlay_layer or with_aco_tests
   prog_glslang = find_program('glslangValidator')
 endif
