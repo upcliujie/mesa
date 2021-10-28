@@ -45,11 +45,11 @@ create_ivci(struct zink_screen *screen,
 
    switch (target) {
    case PIPE_TEXTURE_1D:
-      ivci.viewType = VK_IMAGE_VIEW_TYPE_1D;
+      ivci.viewType = res->need_2D_zs ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_1D;
       break;
 
    case PIPE_TEXTURE_1D_ARRAY:
-      ivci.viewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY;
+      ivci.viewType = res->need_2D_zs ? VK_IMAGE_VIEW_TYPE_2D : VK_IMAGE_VIEW_TYPE_1D_ARRAY;
       break;
 
    case PIPE_TEXTURE_2D:
@@ -96,8 +96,13 @@ create_ivci(struct zink_screen *screen,
    ivci.subresourceRange.aspectMask = res->aspect;
    ivci.subresourceRange.baseMipLevel = templ->u.tex.level;
    ivci.subresourceRange.levelCount = 1;
-   ivci.subresourceRange.baseArrayLayer = templ->u.tex.first_layer;
-   ivci.subresourceRange.layerCount = 1 + templ->u.tex.last_layer - templ->u.tex.first_layer;
+   if (res->need_2D_zs) {
+      ivci.subresourceRange.baseArrayLayer = 0;
+      ivci.subresourceRange.layerCount = 1;
+   } else {
+      ivci.subresourceRange.baseArrayLayer = templ->u.tex.first_layer;
+      ivci.subresourceRange.layerCount = 1 + templ->u.tex.last_layer - templ->u.tex.first_layer;
+   }
    ivci.viewType = zink_surface_clamp_viewtype(ivci.viewType, templ->u.tex.first_layer, templ->u.tex.last_layer, res->base.b.array_size);
 
    return ivci;
