@@ -351,6 +351,14 @@ struct radv_shader_info {
       uint8_t num_linked_patch_outputs;
       bool tes_reads_tess_factors : 1;
    } tcs;
+   struct {
+      uint8_t num_linked_outputs;
+   } ts;
+   struct {
+      struct radv_vs_output_info outinfo;
+      unsigned output_prim;
+      uint8_t num_linked_inputs;
+   } ms;
 
    struct radv_streamout_info so;
 
