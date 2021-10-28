@@ -50,7 +50,7 @@ vk_extensions_gen = files('vk_extensions_gen.py')
 vk_icd_gen = files('vk_icd_gen.py')
 vk_commands_gen = files('vk_commands_gen.py')
 
-files_vulkan_util = files(
+vulkan_util_files = files(
   'vk_alloc.c',
   'vk_alloc.h',
   'vk_cmd_copy.c',
@@ -88,6 +88,12 @@ files_vulkan_util = files(
   'vk_util.c',
   'vk_util.h',
 )
+
+vulkan_util_deps = [
+  vulkan_wsi_deps,
+  idep_mesautil,
+  idep_nir_headers,
+]
 
 vk_common_entrypoints = custom_target(
   'vk_common_entrypoints',
@@ -156,10 +162,10 @@ vk_physical_device_features = custom_target(
 
 libvulkan_util = static_library(
   'vulkan_util',
-  [files_vulkan_util, vk_common_entrypoints, vk_dispatch_table,
+  [vulkan_util_files, vk_common_entrypoints, vk_dispatch_table,
    vk_enum_to_str, vk_extensions, vk_cmd_queue, vk_physical_device_features],
   include_directories : [inc_include, inc_src, inc_gallium],
-  dependencies : [vulkan_wsi_deps, idep_mesautil, idep_nir_headers],
+  dependencies : vulkan_util_deps,
   # For glsl_type_singleton
   link_with : libcompiler,
   c_args : [vulkan_wsi_args],
