@@ -18,15 +18,12 @@ mount -t tmpfs tmpfs /tmp
 cd $PWD
 
 set +e
-if sh $DEQP_TEMP_DIR/crosvm-script.sh 3>&1 1>&2 2>&3 3>&- | tee $CI_PROJECT_DIR/results/mesa-$(date +%s).log; then
-    touch $CI_PROJECT_DIR/results/success
-fi
+sh $DEQP_TEMP_DIR/crosvm-script.sh
+echo $? > $DEQP_TEMP_DIR/exit_code
 set -e
-
-sleep 5   # Leave some time to get the last output flushed out
 
 poweroff -d -n -f || true
 
-sleep 10   # Just in case init would exit before the kernel shuts down the VM
+sleep 1   # Just in case init would exit before the kernel shuts down the VM
 
 exit 1

@@ -41,4 +41,4 @@ NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIV
   -p "$CROSVM_KERNEL_ARGS" \
   /lava-files/bzImage | LC_ALL=C tr -dc '\0-\177'
 
-test -f $CI_PROJECT_DIR/results/success
+exit `cat $DEQP_TEMP_DIR/exit_code`
