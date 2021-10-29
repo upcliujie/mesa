@@ -14,7 +14,7 @@ mount -t tmpfs tmpfs /tmp
 
 cd $PWD
 
-dmesg -w >> $DEQP_TEMP_DIR/stderr &
+dmesg --level crit,err,warn -w >> $DEQP_TEMP_DIR/stderr &
 
 set +e
 stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh 2>> $DEQP_TEMP_DIR/stderr >> $DEQP_TEMP_DIR/stdout
