@@ -32,6 +32,13 @@
 
 using namespace brw;
 
+static inline struct brw_reg
+brw_intrinsic_allow_sample_mask(nir_intrinsic_instr *intrin)
+{
+   assert(nir_intrinsic_has_access(intrin));
+   return brw_imm_ud((nir_intrinsic_access(intrin) & ACCESS_INCLUDE_HELPERS) ? 0 : 1);
+}
+
 void
 fs_visitor::emit_nir_code()
 {
@@ -3946,7 +3953,7 @@ fs_visitor::nir_emit_cs_intrinsic(const fs_builder &bld,
       srcs[SURFACE_LOGICAL_SRC_SURFACE] = brw_imm_ud(GFX7_BTI_SLM);
       srcs[SURFACE_LOGICAL_SRC_ADDRESS] = get_nir_src(instr->src[1]);
       srcs[SURFACE_LOGICAL_SRC_IMM_DIMS] = brw_imm_ud(1);
-      srcs[SURFACE_LOGICAL_SRC_ALLOW_SAMPLE_MASK] = brw_imm_ud(1);
+      srcs[SURFACE_LOGICAL_SRC_ALLOW_SAMPLE_MASK] = brw_imm_ud(0);
 
       fs_reg data = get_nir_src(instr->src[0]);
       data.type = brw_reg_type_from_bit_size(bit_size, BRW_REGISTER_TYPE_UD);
@@ -4793,6 +4800,8 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
       fs_reg srcs[A64_LOGICAL_NUM_SRCS];
       srcs[A64_LOGICAL_ADDRESS] = get_nir_src(instr->src[0]);
       srcs[A64_LOGICAL_SRC] = fs_reg(); /* No source data */
+      srcs[A64_LOGICAL_ENABLE_HELPERS] =
+         brw_imm_ud(nir_intrinsic_access(instr) & ACCESS_INCLUDE_HELPERS);
 
       if (nir_dest_bit_size(instr->dest) == 32 &&
           nir_intrinsic_align(instr) >= 4) {
@@ -4829,6 +4838,8 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
 
       fs_reg srcs[A64_LOGICAL_NUM_SRCS];
       srcs[A64_LOGICAL_ADDRESS] = get_nir_src(instr->src[1]);
+      srcs[A64_LOGICAL_ENABLE_HELPERS] =
+         brw_imm_ud(nir_intrinsic_access(instr) & ACCESS_INCLUDE_HELPERS);
 
       if (nir_src_bit_size(instr->src[0]) == 32 &&
           nir_intrinsic_align(instr) >= 4) {
@@ -4913,6 +4924,10 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          srcs[A64_LOGICAL_ADDRESS] = addr;
          srcs[A64_LOGICAL_SRC] = fs_reg(); /* No source data */
          srcs[A64_LOGICAL_ARG] = brw_imm_ud(instr->num_components);
+         /* This intrinsics loads memory from memory from a uniform address.
+          * We never want to mask it on the vector mask.
+          */
+         srcs[A64_LOGICAL_ENABLE_HELPERS] = brw_imm_ud(0);
 
          fs_inst *load = ubld.emit(SHADER_OPCODE_A64_OWORD_BLOCK_READ_LOGICAL,
                                    load_val, srcs, A64_LOGICAL_NUM_SRCS);
@@ -5617,6 +5632,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          srcs[A64_LOGICAL_ADDRESS] = address;
          srcs[A64_LOGICAL_SRC] = fs_reg(); /* No source data */
          srcs[A64_LOGICAL_ARG] = brw_imm_ud(block);
+         srcs[A64_LOGICAL_ENABLE_HELPERS] = brw_imm_ud(1);
          ubld.emit(SHADER_OPCODE_A64_UNALIGNED_OWORD_BLOCK_READ_LOGICAL,
                    retype(byte_offset(dest, loaded * 4), BRW_REGISTER_TYPE_UD),
                    srcs, A64_LOGICAL_NUM_SRCS)->size_written = block_bytes;
@@ -5651,6 +5667,7 @@ fs_visitor::nir_emit_intrinsic(const fs_builder &bld, nir_intrinsic_instr *instr
          srcs[A64_LOGICAL_SRC] = retype(byte_offset(src, written * 4),
                                         BRW_REGISTER_TYPE_UD);
          srcs[A64_LOGICAL_ARG] = brw_imm_ud(block);
+         srcs[A64_LOGICAL_ENABLE_HELPERS] = brw_imm_ud(0);
 
          const fs_builder &ubld = block == 8 ? ubld8 : ubld16;
          ubld.emit(SHADER_OPCODE_A64_OWORD_BLOCK_WRITE_LOGICAL, fs_reg(),
@@ -6055,6 +6072,7 @@ fs_visitor::nir_emit_global_atomic(const fs_builder &bld,
    srcs[A64_LOGICAL_ADDRESS] = addr;
    srcs[A64_LOGICAL_SRC] = data;
    srcs[A64_LOGICAL_ARG] = brw_imm_ud(op);
+   srcs[A64_LOGICAL_ENABLE_HELPERS] = brw_imm_ud(0);
 
    switch (nir_dest_bit_size(instr->dest)) {
    case 16: {
@@ -6103,6 +6121,7 @@ fs_visitor::nir_emit_global_atomic_float(const fs_builder &bld,
    srcs[A64_LOGICAL_ADDRESS] = addr;
    srcs[A64_LOGICAL_SRC] = data;
    srcs[A64_LOGICAL_ARG] = brw_imm_ud(op);
+   srcs[A64_LOGICAL_ENABLE_HELPERS] = brw_imm_ud(0);
 
    switch (nir_dest_bit_size(instr->dest)) {
    case 16: {
