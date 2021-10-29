@@ -90,6 +90,7 @@ static const struct debug_control dzn_debug_options[] = {
    { "nir", DZN_DEBUG_NIR },
    { "dxil", DZN_DEBUG_DXIL },
    { "warp", DZN_DEBUG_WARP },
+   { "internal", DZN_DEBUG_INTERNAL },
    { NULL, 0 }
 };
 
