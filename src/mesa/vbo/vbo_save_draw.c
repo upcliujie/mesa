@@ -328,7 +328,7 @@ vbo_save_playback_vertex_list(struct gl_context *ctx, void *data, bool copy_to_c
       return;
    }
 
-   assert(ctx->NewState == 0);
+   assert((ctx->NewState & ~_NEW_PIXEL) == 0x0);
 
    struct pipe_draw_info *info = (struct pipe_draw_info *) &node->cold->info;
    void *gl_bo = info->index.gl_bo;

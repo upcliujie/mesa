@@ -1321,7 +1321,7 @@ st_DrawPixels(struct gl_context *ctx, GLint x, GLint y,
    struct pipe_resource *pt;
 
    /* Mesa state should be up to date by now */
-   assert(ctx->NewState == 0x0);
+   assert((ctx->NewState & ~_NEW_PIXEL) == 0x0);
 
    _mesa_update_draw_buffer_bounds(ctx, ctx->DrawBuffer);
 

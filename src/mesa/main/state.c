@@ -488,7 +488,7 @@ _mesa_update_state_locked( struct gl_context *ctx )
     * active modules (such as swrast_setup, swrast, tnl, etc).
     */
    ctx->Driver.UpdateState(ctx);
-   ctx->NewState = 0;
+   ctx->NewState = new_state & _NEW_PIXEL;
 }
 
 

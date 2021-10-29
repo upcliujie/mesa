@@ -324,7 +324,7 @@ vbo_exec_vtx_flush(struct vbo_exec_context *exec)
          if (!persistent_mapping)
             vbo_exec_vtx_unmap(exec);
 
-         assert(ctx->NewState == 0);
+         assert((ctx->NewState & ~_NEW_PIXEL) == 0x0);
 
          if (0)
             printf("%s %d %d\n", __func__, exec->vtx.prim_count,

@@ -91,7 +91,7 @@ prepare_draw(struct st_context *st, struct gl_context *ctx, uint64_t state_mask,
              enum st_pipeline pipeline)
 {
    /* Mesa core state should have been validated already */
-   assert(ctx->NewState == 0x0);
+   assert((ctx->NewState & ~_NEW_PIXEL) == 0x0);
 
    if (unlikely(!st->bitmap.cache.empty))
       st_flush_bitmap_cache(st);

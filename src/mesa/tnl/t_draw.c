@@ -445,7 +445,7 @@ void _tnl_draw_prims(struct gl_context *ctx,
                              false, 0);
 
    /* Mesa core state should have been validated already */
-   assert(ctx->NewState == 0x0);
+   assert((ctx->NewState & ~_NEW_PIXEL) == 0x0);
 
    if (!_mesa_check_conditional_render(ctx))
       return; /* don't draw */
