@@ -37,6 +37,7 @@ libdzn_files = files(
   'dzn_fence.cpp',
   'dzn_formats.cpp',
   'dzn_image.cpp',
+  'dzn_nir.c',
   'dzn_pass.cpp',
   'dzn_pipeline_cache.cpp',
   'dzn_pipeline.cpp',
