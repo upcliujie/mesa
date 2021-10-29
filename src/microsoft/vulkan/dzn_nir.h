@@ -56,8 +56,14 @@ struct dzn_indirect_draw_exec_params {
    };
 };
 
+enum dzn_indirect_draw_type {
+   DZN_INDIRECT_DRAW,
+   DZN_INDIRECT_INDEXED_DRAW,
+   DZN_NUM_INDIRECT_DRAW_TYPES,
+};
+
 struct nir_shader *
-dzn_nir_indirect_draw_shader(bool indexed);
+dzn_nir_indirect_draw_shader(enum dzn_indirect_draw_type type);
 
 #ifdef __cplusplus
 }

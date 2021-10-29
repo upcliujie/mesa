@@ -41,6 +41,7 @@
 #include "shader_enums.h"
 
 #include "dzn_entrypoints.h"
+#include "dzn_nir.h"
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_icd.h>
@@ -198,6 +199,27 @@ dzn_private_object_create(const VkAllocationCallbacks *parent_alloc,
    return dzn_object_unique_ptr<T>(obj);
 }
 
+struct dzn_meta {
+   dzn_meta(struct dzn_device *device);
+   ~dzn_meta() = default;
+
+   const VkAllocationCallbacks *get_vk_allocator();
+   static void
+   compile_shader(struct dzn_device *pdev,
+                  nir_shader *nir,
+                  D3D12_SHADER_BYTECODE *slot);
+
+   struct dzn_device *device;
+   ComPtr<ID3D12RootSignature> root_sig;
+   ComPtr<ID3D12PipelineState> pipeline_state;
+};
+
+struct dzn_meta_indirect_draw : public dzn_meta {
+   dzn_meta_indirect_draw(struct dzn_device *device,
+                          enum dzn_indirect_draw_type type);
+   ~dzn_meta_indirect_draw() = default;
+};
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
@@ -286,6 +308,8 @@ struct dzn_device {
    ComPtr<ID3D12Device> dev;
    D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
 
+   dzn_object_unique_ptr<dzn_meta_indirect_draw> indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
+
    dzn_device(VkPhysicalDevice pdev,
               const VkDeviceCreateInfo *pCreateInfo,
               const VkAllocationCallbacks *pAllocator);
@@ -372,6 +396,8 @@ struct dzn_cmd_buffer {
 
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
    struct dzn_cmd_pool *pool;
+   using bufs_allocator = dzn_allocator<ComPtr<ID3D12Resource>>;
+   std::vector<ComPtr<ID3D12Resource>, bufs_allocator> internal_bufs;
 
    struct {
       struct dzn_framebuffer *framebuffer;
@@ -396,7 +422,7 @@ struct dzn_cmd_buffer {
       uint32_t dirty;
       uint32_t subpass;
       struct {
-         const struct dzn_pipeline *pipeline;
+         struct dzn_pipeline *pipeline;
          const struct dzn_descriptor_set *sets[MAX_SETS];
          ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
          uint32_t dirty;
@@ -439,6 +465,11 @@ struct dzn_cmd_buffer {
              uint32_t first_index,
              int32_t vertex_offset,
              uint32_t first_instance);
+   void draw(struct dzn_buffer *draw_buf,
+             size_t draw_buf_offset,
+             uint32_t draw_count,
+             uint32_t draw_buf_stride,
+             bool indexed);
    void dispatch(uint32_t group_count_x,
                  uint32_t group_count_y,
                  uint32_t group_count_z);
@@ -454,6 +485,10 @@ private:
    void update_sysvals(uint32_t bindpoint);
    void prepare_draw(bool indexed);
    void prepare_dispatch();
+   ID3D12Resource *
+   alloc_internal_buf(uint32_t size,
+                      D3D12_HEAP_TYPE heap_type,
+                      D3D12_RESOURCE_STATES init_state);
 };
 
 struct dzn_cmd_pool {
@@ -635,6 +670,7 @@ struct dzn_pipeline {
    struct vk_object_base base;
    VkPipelineBindPoint type;
    const dzn_pipeline_layout *layout = NULL;
+   dzn_device *device;
    ComPtr<ID3D12PipelineState> state;
 
    dzn_pipeline(dzn_device *device, VkPipelineBindPoint type);
@@ -679,6 +715,14 @@ struct dzn_graphics_pipeline {
                          const VkAllocationCallbacks *pAllocator);
    ~dzn_graphics_pipeline();
 
+   enum indirect_cmd_sig_type {
+      INDIRECT_DRAW_CMD_SIG,
+      INDIRECT_INDEXED_DRAW_CMD_SIG,
+      NUM_INDIRECT_DRAW_CMD_SIGS,
+   };
+
+   ID3D12CommandSignature *get_indirect_cmd_sig(enum indirect_cmd_sig_type type);
+
 private:
    VkResult translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
                          const VkGraphicsPipelineCreateInfo *in,
@@ -693,6 +737,8 @@ private:
                       const VkGraphicsPipelineCreateInfo *in);
    void translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
                         const VkGraphicsPipelineCreateInfo *in);
+
+   ComPtr<ID3D12CommandSignature> indirect_cmd_sigs[NUM_INDIRECT_DRAW_CMD_SIGS];
 };
 
 struct dzn_compute_pipeline {

@@ -117,6 +117,7 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
                                dzn_cmd_pool *cmd_pool,
                                VkCommandBufferLevel lvl,
                                const VkAllocationCallbacks *pAllocator) :
+                              internal_bufs(bufs_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
                               heaps(heaps_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
                               batches(batches_allocator(pAllocator ? pAllocator : &cmd_pool->alloc))
 {
@@ -1318,6 +1319,155 @@ dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
 
    cmd_buffer->draw(indexCount, instanceCount, firstIndex, vertexOffset,
                     firstInstance);
+}
+
+ID3D12Resource *
+dzn_cmd_buffer::alloc_internal_buf(uint32_t size,
+                                   D3D12_HEAP_TYPE heap_type,
+                                   D3D12_RESOURCE_STATES init_state)
+{
+   ComPtr<ID3D12Resource> res;
+
+   /* Align size on 64k (the default alignment) */
+   size = ALIGN_POT(size, 64 * 1024);
+
+   D3D12_HEAP_PROPERTIES hprops =
+      device->dev->GetCustomHeapProperties(0, heap_type);
+   D3D12_RESOURCE_DESC rdesc = {
+      .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+      .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+      .Width = size,
+      .Height = 1,
+      .DepthOrArraySize = 1,
+      .MipLevels = 1,
+      .Format = DXGI_FORMAT_UNKNOWN,
+      .SampleDesc = { .Count = 1, .Quality = 0 },
+      .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+      .Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+   };
+
+   HRESULT hres =
+      device->dev->CreateCommittedResource(&hprops, D3D12_HEAP_FLAG_NONE, &rdesc,
+                                           init_state,
+                                           NULL, IID_PPV_ARGS(&res));
+   assert(!FAILED(hres));
+
+   internal_bufs.push_back(res);
+   return res.Get();
+}
+
+void
+dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
+                     size_t draw_buf_offset,
+                     uint32_t draw_count,
+                     uint32_t draw_buf_stride,
+                     bool indexed)
+{
+   dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
+   dzn_batch *batch = get_batch();
+   uint32_t min_draw_buf_stride =
+      indexed ?
+      sizeof(struct dzn_indirect_indexed_draw_params) :
+      sizeof(struct dzn_indirect_draw_params);
+
+   draw_buf_stride = draw_buf_stride ? draw_buf_stride : min_draw_buf_stride;
+   assert(draw_buf_stride >= min_draw_buf_stride);
+   assert((draw_buf_stride & 3) == 0);
+
+   uint32_t sysvals_stride = ALIGN_POT(sizeof(state.sysvals.gfx), 256);
+   uint32_t exec_buf_stride = 32;
+   ID3D12Resource *exec_buf =
+      alloc_internal_buf(draw_count * exec_buf_stride,
+                         D3D12_HEAP_TYPE_DEFAULT,
+                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+   D3D12_GPU_VIRTUAL_ADDRESS draw_buf_gpu =
+      draw_buf->res->GetGPUVirtualAddress() + draw_buf_offset;
+
+   enum dzn_indirect_draw_type draw_type =
+      indexed ? DZN_INDIRECT_INDEXED_DRAW : DZN_INDIRECT_DRAW;
+   dzn_meta_indirect_draw *indirect_draw =
+      device->indirect_draws[draw_type].get();
+
+   const dzn_pipeline *compute_pipeline =
+      state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline;
+
+   batch->cmdlist->SetComputeRootSignature(indirect_draw->root_sig.Get());
+   batch->cmdlist->SetPipelineState(indirect_draw->pipeline_state.Get());
+   batch->cmdlist->SetComputeRoot32BitConstant(0, draw_buf_stride, 0);
+   batch->cmdlist->SetComputeRootShaderResourceView(1, draw_buf_gpu);
+   batch->cmdlist->SetComputeRootUnorderedAccessView(2, exec_buf->GetGPUVirtualAddress());
+   batch->cmdlist->Dispatch(draw_count, 1, 1);
+
+   D3D12_RESOURCE_BARRIER post_barriers[] = {
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+          /* Transition the exec buffer to indirect arg so it can be
+           * pass to ExecuteIndirect() as an argument buffer.
+           */
+         .Transition = {
+            .pResource = exec_buf,
+            .Subresource = 0,
+            .StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            .StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
+         },
+      },
+   };
+
+   batch->cmdlist->ResourceBarrier(ARRAY_SIZE(post_barriers), post_barriers);
+
+   /* We don't mess up with the driver state when executing our internal
+    * compute shader, but we still change the D3D12 state, so let's mark
+    * things dirty if needed.
+    */
+   state.pipeline = NULL;
+   if (state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline) {
+      state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_PIPELINE | DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+   }
+
+   state.sysvals.gfx.first_vertex = 0;
+   state.sysvals.gfx.base_instance = 0;
+   state.sysvals.gfx.is_indexed_draw = indexed;
+   state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+
+   prepare_draw(indexed);
+
+   dzn_graphics_pipeline::indirect_cmd_sig_type cmd_sig_type =
+      indexed ?
+      dzn_graphics_pipeline::INDIRECT_INDEXED_DRAW_CMD_SIG :
+      dzn_graphics_pipeline::INDIRECT_DRAW_CMD_SIG;
+
+   batch->cmdlist->ExecuteIndirect(pipeline->get_indirect_cmd_sig(cmd_sig_type),
+                                   draw_count, exec_buf, 0, NULL, 0);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDrawIndirect(VkCommandBuffer commandBuffer,
+                    VkBuffer buffer,
+                    VkDeviceSize offset,
+                    uint32_t drawCount,
+                    uint32_t stride)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
+
+   cmd_buffer->draw(buf, offset, drawCount, stride, false);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
+                           VkBuffer buffer,
+                           VkDeviceSize offset,
+                           uint32_t drawCount,
+                           uint32_t stride)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
+
+   cmd_buffer->draw(buf, offset, drawCount, stride, true);
 }
 
 VKAPI_ATTR void VKAPI_CALL

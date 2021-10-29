@@ -886,6 +886,13 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
 
    dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1,
                             &arch, sizeof(arch));
+
+   for (uint32_t i = 0; i < ARRAY_SIZE(indirect_draws); i++) {
+      enum dzn_indirect_draw_type type = (enum dzn_indirect_draw_type)i;
+
+      indirect_draws[i] =
+         dzn_private_object_create<dzn_meta_indirect_draw>(&vk.alloc, this, type);
+   }
 }
 
 dzn_device::~dzn_device()

@@ -559,8 +559,8 @@ dzn_graphics_pipeline::translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
    }
 }
 
-dzn_pipeline::dzn_pipeline(dzn_device *device, VkPipelineBindPoint t) :
-   type(t)
+dzn_pipeline::dzn_pipeline(dzn_device *dev, VkPipelineBindPoint t) :
+   type(t), device(dev)
 {
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE);
 }
@@ -672,6 +672,49 @@ out:
 
 dzn_graphics_pipeline::~dzn_graphics_pipeline()
 {
+}
+
+ID3D12CommandSignature *
+dzn_graphics_pipeline::get_indirect_cmd_sig(enum indirect_cmd_sig_type type)
+{
+   assert(type < NUM_INDIRECT_DRAW_CMD_SIGS);
+
+   ComPtr<ID3D12CommandSignature> &cmdsig = indirect_cmd_sigs[type];
+
+   if (cmdsig.Get())
+      return cmdsig.Get();
+
+   bool indexed = type == INDIRECT_INDEXED_DRAW_CMD_SIG;
+
+   D3D12_INDIRECT_ARGUMENT_DESC cmd_args[] = {
+      {
+         .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
+         .Constant = {
+            .RootParameterIndex = base.layout->root.sysval_cbv_param_idx,
+            .DestOffsetIn32BitValues = offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) / 4,
+            .Num32BitValuesToSet = 2,
+         },
+      },
+      {
+         .Type = indexed ?
+                 D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED :
+                 D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+      },
+   };
+
+   assert(offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) == 0);
+
+   D3D12_COMMAND_SIGNATURE_DESC cmd_sig_desc = {
+      .ByteStride = sizeof(struct dzn_indirect_draw_exec_params),
+      .NumArgumentDescs = ARRAY_SIZE(cmd_args),
+      .pArgumentDescs = cmd_args,
+   };
+   HRESULT hres =
+      base.device->dev->CreateCommandSignature(&cmd_sig_desc,
+                                               base.layout->root.sig.Get(),
+                                               IID_PPV_ARGS(&cmdsig));
+   assert(!FAILED(hres));
+   return cmdsig.Get();
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

@@ -30,13 +30,21 @@
 #include "dzn_nir.h"
 
 nir_shader *
-dzn_nir_indirect_draw_shader(bool indexed)
+dzn_nir_indirect_draw_shader(enum dzn_indirect_draw_type type)
 {
+   const char *type_str[] = {
+      "draw",
+      "indexed_draw",
+   };
+
+   assert(type < ARRAY_SIZE(type_str));
+
+   bool indexed = type == DZN_INDIRECT_INDEXED_DRAW;
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE,
                                      dxil_get_nir_compiler_options(),
-                                     "dzn_meta_indirect_%sdraw()",
-                                     indexed ? "indexed_" : "");
+                                     "dzn_meta_indirect_%s()",
+                                     type_str[type]);
    b.shader->info.internal = true;
 
    nir_variable *uniforms_var =
