@@ -30,6 +30,90 @@
 
 using namespace brw;
 
+static inline int
+type_size_scalar_dwords(const struct glsl_type *type, bool bindless)
+{
+   return glsl_count_dword_slots(type, bindless);
+}
+
+static void
+brw_nir_lower_tue_outputs(nir_shader *nir, const brw_tue_map *map)
+{
+   nir_foreach_shader_out_variable(var, nir) {
+      int location = var->data.location;
+      assert(location >= 0);
+      assert(map->start_dw[location] != -1);
+      var->data.driver_location = map->start_dw[location];
+   }
+
+   nir_lower_io(nir, nir_var_shader_out, type_size_scalar_dwords,
+                nir_lower_io_lower_64bit_to_32);
+}
+
+static void
+brw_compute_tue_map(struct nir_shader *nir, struct brw_tue_map *map)
+{
+   memset(map, 0, sizeof(*map));
+
+   map->start_dw[VARYING_SLOT_TASK_COUNT] = 0;
+
+   /* Words 1-3 are used for "Dispatch Dimensions" feature, to allow mapping a
+    * 3D dispatch into the 1D dispatch supported by HW.  So ignore those.
+    */
+
+   /* From bspec: "It is suggested that SW reserve the 16 bytes following the
+    * TUE Header, and therefore start the SW-defined data structure at 32B
+    * alignment.  This allows the TUE Header to always be written as 32 bytes
+    * with 32B alignment, the most optimal write performance case."
+    */
+   map->per_task_data_start_dw = 8;
+
+
+   /* Compact the data: find the size associated with each location... */
+   nir_foreach_shader_out_variable(var, nir) {
+      const int location = var->data.location;
+      if (location == VARYING_SLOT_TASK_COUNT)
+         continue;
+      assert(location >= VARYING_SLOT_VAR0);
+      assert(location < VARYING_SLOT_MAX);
+
+      map->start_dw[location] += type_size_scalar_dwords(var->type, false);
+   }
+
+   /* ...then assign positions using those sizes. */
+   unsigned next = map->per_task_data_start_dw;
+   for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
+      if (i == VARYING_SLOT_TASK_COUNT)
+         continue;
+      if (map->start_dw[i] == 0) {
+         map->start_dw[i] = -1;
+      } else {
+         const unsigned size = map->start_dw[i];
+         map->start_dw[i] = next;
+         next += size;
+      }
+   }
+
+   map->size_dw = ALIGN(next, 8);
+}
+
+static void
+brw_print_tue_map(FILE *fp, const struct brw_tue_map *map)
+{
+   fprintf(fp, "TUE map (%d dwords)\n", map->size_dw);
+   fprintf(fp, "  %4d: VARYING_SLOT_TASK_COUNT\n",
+           map->start_dw[VARYING_SLOT_TASK_COUNT]);
+
+   for (int i = VARYING_SLOT_VAR0; i < VARYING_SLOT_MAX; i++) {
+      if (map->start_dw[i] != -1) {
+         fprintf(fp, "  %4d: VARYING_SLOT_VAR%d\n", map->start_dw[i],
+                 i - VARYING_SLOT_VAR0);
+      }
+   }
+
+   fprintf(fp, "\n");
+}
+
 const unsigned *
 brw_compile_task(const struct brw_compiler *compiler,
                  void *mem_ctx,
@@ -47,6 +131,8 @@ brw_compile_task(const struct brw_compiler *compiler,
    prog_data->base.local_size[1] = nir->info.workgroup_size[1];
    prog_data->base.local_size[2] = nir->info.workgroup_size[2];
 
+   brw_compute_tue_map(nir, &prog_data->map);
+
    const unsigned required_dispatch_width =
       brw_required_dispatch_width(&nir->info, key->base.subgroup_size_type);
 
@@ -63,6 +149,7 @@ brw_compile_task(const struct brw_compiler *compiler,
       nir_shader *shader = nir_shader_clone(mem_ctx, nir);
       brw_nir_apply_key(shader, compiler, &key->base, dispatch_width, true /* is_scalar */);
 
+      NIR_PASS_V(shader, brw_nir_lower_tue_outputs, &prog_data->map);
       NIR_PASS_V(shader, brw_nir_lower_simd, dispatch_width);
 
       brw_postprocess_nir(shader, compiler, true /* is_scalar */, debug_enabled,
@@ -95,6 +182,11 @@ brw_compile_task(const struct brw_compiler *compiler,
    fs_visitor *selected = v[selected_simd];
    prog_data->base.prog_mask = 1 << selected_simd;
 
+   if (unlikely(debug_enabled)) {
+      fprintf(stderr, "Task Output ");
+      brw_print_tue_map(stderr, &prog_data->map);
+   }
+
    fs_generator g(compiler, params->log_data, mem_ctx,
                   &prog_data->base.base, false, MESA_SHADER_TASK);
    if (unlikely(debug_enabled)) {
@@ -113,6 +205,23 @@ brw_compile_task(const struct brw_compiler *compiler,
    delete v[2];
 
    return g.get_assembly();
+}
+
+static void
+brw_nir_lower_tue_inputs(nir_shader *nir, const brw_tue_map *map)
+{
+   if (!map)
+      return;
+
+   nir_foreach_shader_in_variable(var, nir) {
+      int location = var->data.location;
+      assert(location >= 0);
+      assert(map->start_dw[location] != -1);
+      var->data.driver_location = map->start_dw[location];
+   }
+
+   nir_lower_io(nir, nir_var_shader_in, type_size_scalar_dwords,
+                nir_lower_io_lower_64bit_to_32);
 }
 
 const unsigned *
@@ -155,6 +264,7 @@ brw_compile_mesh(const struct brw_compiler *compiler,
       nir_shader *shader = nir_shader_clone(mem_ctx, nir);
       brw_nir_apply_key(shader, compiler, &key->base, dispatch_width, true /* is_scalar */);
 
+      NIR_PASS_V(shader, brw_nir_lower_tue_inputs, params->tue_map);
       NIR_PASS_V(shader, brw_nir_lower_simd, dispatch_width);
 
       brw_postprocess_nir(shader, compiler, true /* is_scalar */, debug_enabled,
@@ -187,6 +297,13 @@ brw_compile_mesh(const struct brw_compiler *compiler,
    fs_visitor *selected = v[selected_simd];
    prog_data->base.prog_mask = 1 << selected_simd;
 
+   if (unlikely(debug_enabled)) {
+      if (params->tue_map) {
+         fprintf(stderr, "Mesh Input ");
+         brw_print_tue_map(stderr, params->tue_map);
+      }
+   }
+
    fs_generator g(compiler, params->log_data, mem_ctx,
                   &prog_data->base.base, false, MESA_SHADER_MESH);
    if (unlikely(debug_enabled)) {
@@ -207,6 +324,267 @@ brw_compile_mesh(const struct brw_compiler *compiler,
    return g.get_assembly();
 }
 
+static fs_reg
+get_urb_handles(const fs_builder &bld, nir_intrinsic_op op)
+{
+   const unsigned subreg = op == nir_intrinsic_load_input ? 7 : 6;
+
+   fs_builder ubld8 = bld.group(8, 0).exec_all();
+
+   fs_reg h = ubld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+   ubld8.MOV(h, retype(brw_vec1_grf(0, subreg), BRW_REGISTER_TYPE_UD));
+   ubld8.AND(h, h, brw_imm_ud(0xFFFF));
+
+   return h;
+}
+
+static void
+emit_urb_direct_writes(const fs_builder &bld, unsigned dispatch_width,
+                       nir_intrinsic_instr *instr, const fs_reg &src)
+{
+   assert(nir_src_bit_size(instr->src[0]) == 32);
+
+   nir_src *offset_nir_src = nir_get_io_offset_src(instr);
+   assert(nir_src_is_const(*offset_nir_src));
+
+   fs_reg urb_handles = get_urb_handles(bld, instr->intrinsic);
+
+   const unsigned comps = nir_src_num_components(instr->src[0]);
+   assert(comps <= 4);
+
+   const unsigned mask = nir_intrinsic_write_mask(instr);
+   const unsigned offset_in_dwords =
+      nir_intrinsic_base(instr) + nir_src_as_uint(*offset_nir_src);
+
+   const unsigned offsets[] = {
+      offset_in_dwords / 4,
+      (offset_in_dwords + comps) / 4,
+   };
+
+   const unsigned comp_shift = offset_in_dwords % 4;
+   const unsigned masks[] = {
+      (mask << comp_shift) & 0xF,
+      (mask >> (4 - comp_shift)) & 0xF,
+   };
+
+   const unsigned first_comps = MIN2(comps, 4 - comp_shift);
+   const unsigned second_comps = comps - first_comps;
+
+   const unsigned all_comps[] = {
+      first_comps,
+      second_comps,
+   };
+
+   if (masks[1])
+      assert(offsets[0] != offsets[1]);
+
+   for (unsigned i = 0; i < 2; i++) {
+      if (!masks[i])
+         continue;
+
+      fs_reg payload_srcs[6];
+      int prefix = 0;
+      payload_srcs[prefix++] = urb_handles;
+      payload_srcs[prefix++] = brw_imm_ud(masks[i] << 16);
+
+      if (i == 0) {
+         for (unsigned j = 0; j < comp_shift; j++)
+            payload_srcs[prefix++] = reg_undef;
+      }
+
+      for (unsigned q = 0; q < dispatch_width / 8; q++) {
+         fs_builder bld8 = bld.group(8, q);
+         int x = prefix;
+
+         const unsigned adjust = i == 1 ? all_comps[0] : 0;
+         for (unsigned j = 0; j < all_comps[i]; j++) {
+            fs_reg src_comp = offset(src, bld, j + adjust);
+            payload_srcs[x++] = byte_offset(src_comp, q * 8 * 4);
+         }
+
+         fs_reg payload = bld8.vgrf(BRW_REGISTER_TYPE_UD, x);
+         bld8.LOAD_PAYLOAD(payload, payload_srcs, x, 2);
+
+         fs_inst *inst = bld8.emit(SHADER_OPCODE_URB_WRITE_SIMD8_MASKED, reg_undef, payload);
+         inst->mlen = x;
+         inst->offset = offsets[i];
+      }
+   }
+}
+
+static void
+emit_urb_indirect_writes(const fs_builder &bld, unsigned dispatch_width,
+                         nir_intrinsic_instr *instr, const fs_reg &src,
+                         const fs_reg &offset_src)
+{
+   assert(nir_src_bit_size(instr->src[0]) == 32);
+
+   const unsigned comps = nir_src_num_components(instr->src[0]);
+   assert(comps <= 4);
+
+   fs_reg urb_handles = get_urb_handles(bld, instr->intrinsic);
+
+   for (unsigned i = 0; i < comps; i++) {
+      if (((1 << i) & nir_intrinsic_write_mask(instr)) == 0)
+         continue;
+
+      for (unsigned q = 0; q < dispatch_width / 8; q++) {
+         fs_builder bld8 = bld.group(8, q);
+
+         fs_reg off = bld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+         bld8.MOV(off, byte_offset(offset_src, 8 * q * 4));
+         bld8.ADD(off, off, brw_imm_ud(i + nir_intrinsic_base(instr)));
+
+         fs_reg mask = bld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+         bld8.AND(mask, off, brw_imm_ud(0x3));
+
+         fs_reg one = bld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+         bld8.MOV(one, brw_imm_ud(1));
+         bld8.SHL(mask, one, mask);
+         bld8.SHL(mask, mask, brw_imm_ud(16));
+
+         bld8.SHR(off, off, brw_imm_ud(2));
+
+         fs_reg payload_srcs[7];
+         int x = 0;
+         payload_srcs[x++] = urb_handles;
+         payload_srcs[x++] = off;
+         payload_srcs[x++] = mask;
+
+         fs_reg src_comp = byte_offset(offset(src, bld, i), 8 * q * 4);
+         for (unsigned j = 0; j < 4; j++)
+            payload_srcs[x++] = src_comp;
+
+         fs_reg payload = bld8.vgrf(BRW_REGISTER_TYPE_UD, x);
+         bld8.LOAD_PAYLOAD(payload, payload_srcs, x, 3);
+
+         fs_inst *inst = bld8.emit(SHADER_OPCODE_URB_WRITE_SIMD8_MASKED_PER_SLOT, reg_undef, payload);
+         inst->mlen = x;
+         inst->offset = 0;
+      }
+   }
+}
+
+static void
+emit_urb_direct_reads(const fs_builder &bld, unsigned dispatch_width,
+                      nir_intrinsic_instr *instr, const fs_reg &dest)
+{
+   assert(nir_dest_bit_size(instr->dest) == 32);
+
+   nir_src *offset_nir_src = nir_get_io_offset_src(instr);
+   assert(nir_src_is_const(*offset_nir_src));
+
+   fs_reg urb_handles = get_urb_handles(bld, instr->intrinsic);
+
+   unsigned comps = MAX2(nir_dest_num_components(instr->dest), 1);
+   unsigned offset_in_dwords = nir_intrinsic_base(instr) + nir_src_as_uint(*offset_nir_src);
+
+   const unsigned comp_offset = offset_in_dwords % 4;
+   const unsigned num_regs = comp_offset + comps;
+
+   for (unsigned q = 0; q < dispatch_width / 8; q++) {
+      fs_builder bld8 = bld.group(8, q);
+      fs_reg data = bld8.vgrf(BRW_REGISTER_TYPE_UD, num_regs);
+
+      fs_inst *inst = bld8.emit(SHADER_OPCODE_URB_READ_SIMD8, data, urb_handles);
+      inst->mlen = 1;
+      inst->offset = offset_in_dwords / 4;
+      inst->size_written = num_regs * REG_SIZE;
+
+      for (unsigned j = 0; j < comps; j++) {
+         fs_reg dest_comp = offset(dest, bld, j);
+         bld8.MOV(retype(byte_offset(dest_comp, q * 8 * 4), BRW_REGISTER_TYPE_UD),
+                  offset(data, bld8, comp_offset + j));
+      }
+   }
+}
+
+static void
+emit_urb_indirect_reads(const fs_builder &bld, unsigned dispatch_width,
+                        nir_intrinsic_instr *instr, const fs_reg &dest,
+                        const fs_reg &offset_src)
+{
+   assert(nir_dest_bit_size(instr->dest) == 32);
+
+   fs_reg seq_ud;
+   {
+      fs_builder ubld8 = bld.group(8, 0).exec_all();
+      seq_ud = ubld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+      fs_reg seq_uw = ubld8.vgrf(BRW_REGISTER_TYPE_UW, 1);
+      ubld8.MOV(seq_uw, fs_reg(brw_imm_v(0x76543210)));
+      ubld8.MOV(seq_ud, seq_uw);
+      ubld8.MUL(seq_ud, seq_ud, brw_imm_ud(4));
+   }
+
+   fs_reg urb_handles = get_urb_handles(bld, instr->intrinsic);
+
+   unsigned comps = MAX2(nir_dest_num_components(instr->dest), 1);
+
+   for (unsigned i = 0; i < comps; i++) {
+      for (unsigned q = 0; q < dispatch_width / 8; q++) {
+         fs_builder bld8 = bld.group(8, q);
+
+         fs_reg off = bld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+         bld8.MOV(off, byte_offset(offset_src, 8 * q * 4));
+         bld8.ADD(off, off, brw_imm_ud(i + nir_intrinsic_base(instr)));
+
+         fs_reg comp = bld8.vgrf(BRW_REGISTER_TYPE_UD, 1);
+         bld8.AND(comp, off, brw_imm_ud(0x3));
+         bld8.MUL(comp, comp, brw_imm_ud(REG_SIZE));
+         bld8.ADD(comp, comp, seq_ud);
+
+         bld8.SHR(off, off, brw_imm_ud(2));
+
+         fs_reg payload_srcs[2];
+         payload_srcs[0] = urb_handles;
+         payload_srcs[1] = off;
+
+         fs_reg payload = bld8.vgrf(BRW_REGISTER_TYPE_UD, 2);
+         bld8.LOAD_PAYLOAD(payload, payload_srcs, 2, 2);
+
+         fs_reg data = bld8.vgrf(BRW_REGISTER_TYPE_UD, 4);
+
+         fs_inst *inst = bld8.emit(SHADER_OPCODE_URB_READ_SIMD8_PER_SLOT, data, payload);
+         inst->mlen = 2;
+         inst->offset = 0;
+         inst->size_written = 4 * REG_SIZE;
+
+         fs_reg dest_comp = offset(dest, bld, i);
+         bld8.emit(SHADER_OPCODE_MOV_INDIRECT,
+                   retype(byte_offset(dest_comp, q * 8 * 4), BRW_REGISTER_TYPE_UD),
+                   data,
+                   comp,
+                   brw_imm_ud(4));
+      }
+   }
+}
+
+void
+fs_visitor::emit_task_mesh_store(const fs_builder &bld, nir_intrinsic_instr *instr)
+{
+   fs_reg src = get_nir_src(instr->src[0]);
+   nir_src *offset_nir_src = nir_get_io_offset_src(instr);
+
+   if (nir_src_is_const(*offset_nir_src))
+      emit_urb_direct_writes(bld, dispatch_width, instr, src);
+   else
+      emit_urb_indirect_writes(bld, dispatch_width, instr, src,
+                               get_nir_src(*offset_nir_src));
+}
+
+void
+fs_visitor::emit_task_mesh_load(const fs_builder &bld, nir_intrinsic_instr *instr)
+{
+   fs_reg dest = get_nir_dest(instr->dest);
+   nir_src *offset_nir_src = nir_get_io_offset_src(instr);
+
+   if (nir_src_is_const(*offset_nir_src))
+      emit_urb_direct_reads(bld, dispatch_width, instr, dest);
+   else
+      emit_urb_indirect_reads(bld, dispatch_width, instr, dest,
+                              get_nir_src(*offset_nir_src));
+}
+
 void
 fs_visitor::nir_emit_task_intrinsic(const fs_builder &bld,
                                     nir_intrinsic_instr *instr)
@@ -215,8 +593,11 @@ fs_visitor::nir_emit_task_intrinsic(const fs_builder &bld,
 
    switch (instr->intrinsic) {
    case nir_intrinsic_store_output:
+      emit_task_mesh_store(bld, instr);
+      break;
+
    case nir_intrinsic_load_output:
-      /* TODO(mesh): Task Output. */
+      emit_task_mesh_load(bld, instr);
       break;
 
    default:
@@ -232,10 +613,6 @@ fs_visitor::nir_emit_mesh_intrinsic(const fs_builder &bld,
    assert(stage == MESA_SHADER_MESH);
 
    switch (instr->intrinsic) {
-   case nir_intrinsic_load_input:
-      /* TODO(mesh): Mesh Input. */
-      break;
-
    case nir_intrinsic_store_per_primitive_output:
    case nir_intrinsic_store_per_vertex_output:
    case nir_intrinsic_store_output:
@@ -243,6 +620,10 @@ fs_visitor::nir_emit_mesh_intrinsic(const fs_builder &bld,
    case nir_intrinsic_load_per_primitive_output:
    case nir_intrinsic_load_output:
       /* TODO(mesh): Mesh Output. */
+      break;
+
+   case nir_intrinsic_load_input:
+      emit_task_mesh_load(bld, instr);
       break;
 
    default:
