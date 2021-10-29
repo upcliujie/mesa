@@ -72,6 +72,12 @@ apt-get install -y --no-remove \
 
 . .gitlab-ci/container/container_pre_build.sh
 
+############### Build Crosvm
+
+. .gitlab-ci/container/build-rust.sh
+. .gitlab-ci/container/build-crosvm.sh
+rm -rf /root/.cargo
+
 ############### Build kernel
 
 export DEFCONFIG="arch/x86/configs/x86_64_defconfig"
@@ -97,12 +103,6 @@ mkdir -p /lava-files/
 ############### Build piglit
 
 PIGLIT_OPTS="-DPIGLIT_BUILD_CL_TESTS=ON -DPIGLIT_BUILD_DMA_BUF_TESTS=ON" . .gitlab-ci/container/build-piglit.sh
-
-############### Build Crosvm
-
-. .gitlab-ci/container/build-rust.sh
-. .gitlab-ci/container/build-crosvm.sh
-rm -rf /root/.cargo
 
 ############### Build dEQP GL
 
