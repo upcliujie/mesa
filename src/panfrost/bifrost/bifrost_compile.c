@@ -581,6 +581,7 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
 
         unsigned loc = var->data.location;
         bi_index src0 = bi_src_index(&instr->src[0]);
+        bi_index src1 = combined ? bi_src_index(&instr->src[4]) : bi_null();
 
         /* By ISA convention, the coverage mask is stored in R60. The store
          * itself will be handled by a subsequent ATEST instruction */
@@ -595,16 +596,14 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
 
         /* Dual-source blending is implemented by putting the color in
          * registers r4-r7. */
-        if (var->data.index) {
-                unsigned count = nir_src_num_components(instr->src[0]);
+        if (writeout & PAN_WRITEOUT_2) {
+                unsigned count = nir_src_num_components(instr->src[4]);
 
                 for (unsigned i = 0; i < count; ++i)
-                        bi_mov_i32_to(b, bi_register(4 + i), bi_word(src0, i));
+                        bi_mov_i32_to(b, bi_register(4 + i), bi_word(src1, i));
 
                 b->shader->info->bifrost.blend_src1_type =
-                        nir_intrinsic_src_type(instr);
-
-                return;
+                        nir_intrinsic_dest_type(instr);
         }
 
         /* Emit ATEST if we have to, note ATEST requires a floating-point alpha

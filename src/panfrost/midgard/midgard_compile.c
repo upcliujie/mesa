@@ -1882,25 +1882,6 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                                          nir_intrinsic_base(instr));
                         assert(var);
 
-                        /* Dual-source blend writeout is done by leaving the
-                         * value in r2 for the blend shader to use. */
-                        if (var->data.index) {
-                                if (instr->src[0].is_ssa) {
-                                        emit_explicit_constant(ctx, reg, reg);
-
-                                        unsigned out = make_compiler_temp(ctx);
-
-                                        midgard_instruction ins = v_mov(reg, out);
-                                        emit_mir_instruction(ctx, ins);
-
-                                        ctx->blend_src1 = out;
-                                } else {
-                                        ctx->blend_src1 = reg;
-                                }
-
-                                break;
-                        }
-
                         enum midgard_rt_id rt;
                         if (var->data.location >= FRAG_RESULT_DATA0)
                                 rt = MIDGARD_COLOR_RT0 + var->data.location -
@@ -1910,13 +1891,32 @@ emit_intrinsic(compiler_context *ctx, nir_intrinsic_instr *instr)
                         else
                                 unreachable("bad rt");
 
-                        unsigned reg_z = ~0, reg_s = ~0;
+                        unsigned reg_z = ~0, reg_s = ~0, reg_2 = ~0;
                         if (combined) {
                                 unsigned writeout = nir_intrinsic_component(instr);
                                 if (writeout & PAN_WRITEOUT_Z)
                                         reg_z = nir_src_index(ctx, &instr->src[2]);
                                 if (writeout & PAN_WRITEOUT_S)
                                         reg_s = nir_src_index(ctx, &instr->src[3]);
+                                if (writeout & PAN_WRITEOUT_2)
+                                        reg_2 = nir_src_index(ctx, &instr->src[4]);
+                        }
+
+                        /* Dual-source blend writeout is done by leaving the
+                         * value in r2 for the blend shader to use. */
+                        if (~reg_2) {
+                                if (instr->src[4].is_ssa) {
+                                        emit_explicit_constant(ctx, reg_2, reg_2);
+
+                                        unsigned out = make_compiler_temp(ctx);
+
+                                        midgard_instruction ins = v_mov(reg_2, out);
+                                        emit_mir_instruction(ctx, ins);
+
+                                        ctx->blend_src1 = out;
+                                } else {
+                                        ctx->blend_src1 = reg_2;
+                                }
                         }
 
                         emit_fragment_store(ctx, reg, reg_z, reg_s, rt, 0);
