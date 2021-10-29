@@ -41,10 +41,10 @@ virgl-traces:
     PIGLIT_REPLAY_DEVICE_NAME: "gl-virgl"
     PIGLIT_RESULTS: "virgl-replay"
     LD_LIBRARY_PATH: "${CI_PROJECT_DIR}/install/lib/"     # For Crosvm
-    LP_NUM_THREADS: ${FDO_CI_CONCURRENT} # Use all threads for rendering
-    FDO_CI_CONCURRENT: 1                 # And only run one job at a time
   tags:
     - kvm
   script:
     - printenv
-    - install/crosvm-runner.sh install/piglit/run.sh
+    # Use all threads for rendering and only run one job at a time
+    # Couldn't get GitLab CI to correctly substitute the variable in the yaml
+    - LP_NUM_THREADS=${FDO_CI_CONCURRENT} FDO_CI_CONCURRENT=1 install/crosvm-runner.sh install/piglit/run.sh
