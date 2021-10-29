@@ -295,19 +295,6 @@ dzn_DestroyDescriptorSetLayout(VkDevice device,
    dzn_descriptor_set_layout_factory::destroy(device, descriptorSetLayout, pAllocator);
 }
 
-static PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE
-dxil_get_serialize_root_sig(void)
-{
-   HMODULE d3d12_mod = LoadLibraryA("d3d12.dll");
-   if (!d3d12_mod) {
-      mesa_loge("failed to load d3d12.dll\n");
-      return NULL;
-   }
-
-   return (PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)
-      GetProcAddress(d3d12_mod, "D3D12SerializeVersionedRootSignature");
-}
-
 // Reserve two root parameters for the push constants and sysvals CBVs.
 #define MAX_INTERNAL_ROOT_PARAMS 2
 
@@ -480,11 +467,9 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       },
    };
 
-   PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE D3D12SerializeVersionedRootSignature =
-      dxil_get_serialize_root_sig();
    ComPtr<ID3DBlob> sig, error;
-   if (FAILED(D3D12SerializeVersionedRootSignature(&root_sig_desc,
-                                                   &sig, &error)))
+   if (FAILED(device->instance->d3d12.serialize_root_sig(&root_sig_desc,
+                                                         &sig, &error)))
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    if (FAILED(device->dev->CreateRootSignature(0,

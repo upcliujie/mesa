@@ -227,6 +227,9 @@ dxc_get_library(void);
 ComPtr<IDxcCompiler>
 dxc_get_compiler(void);
 
+PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE
+d3d12_get_serialize_root_sig(void);
+
 void
 d3d12_enable_debug_layer();
 
@@ -797,6 +800,9 @@ struct dzn_instance {
       ComPtr<IDxcLibrary> library;
       ComPtr<IDxcCompiler> compiler;
    } dxc;
+   struct {
+      PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE serialize_root_sig;
+   } d3d12;
    bool physical_devices_enumerated;
    uint32_t debug_flags;
 

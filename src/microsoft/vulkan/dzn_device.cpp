@@ -117,6 +117,7 @@ dzn_instance::dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
    dxc.validator = dxil_get_validator();
    dxc.library = dxc_get_library();
    dxc.compiler = dxc_get_compiler();
+   d3d12.serialize_root_sig = d3d12_get_serialize_root_sig();
 }
 
 dzn_instance::~dzn_instance()

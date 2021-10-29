@@ -174,6 +174,19 @@ dxil_get_validator(void)
    return ret;
 }
 
+PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE
+d3d12_get_serialize_root_sig(void)
+{
+   HMODULE d3d12_mod = LoadLibraryA("d3d12.dll");
+   if (!d3d12_mod) {
+      mesa_loge("failed to load d3d12.dll\n");
+      return NULL;
+   }
+
+   return (PFN_D3D12_SERIALIZE_VERSIONED_ROOT_SIGNATURE)
+      GetProcAddress(d3d12_mod, "D3D12SerializeVersionedRootSignature");
+}
+
 ComPtr<IDxcLibrary>
 dxc_get_library(void)
 {
