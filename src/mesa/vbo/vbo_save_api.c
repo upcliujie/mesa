@@ -864,6 +864,7 @@ compile_vertex_list(struct gl_context *ctx)
          node->modes = NULL;
       }
    }
+   node->draw_begins = node->cold->prims[0].begin;
 
    free(indices);
    free(merged_prims);
