@@ -38,24 +38,6 @@
 
 using Microsoft::WRL::ComPtr;
 
-class ShaderBlob : public IDxcBlob {
-public:
-   ShaderBlob(void *buf, size_t sz) : data(buf), size(sz) {}
-
-   LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override { return data; }
-
-   SIZE_T STDMETHODCALLTYPE GetBufferSize() override { return size; }
-
-   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override { return E_NOINTERFACE; }
-
-   ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
-
-   ULONG STDMETHODCALLTYPE Release() override { return 0; }
-
-   void *data;
-   size_t size;
-};
-
 static dxil_spirv_shader_stage
 to_dxil_shader_stage(VkShaderStageFlagBits in)
 {
@@ -147,7 +129,7 @@ dzn_pipeline::compile_shader(dzn_device *device,
                       stage_info->pName, &dbg_opts, &conf, &dxil_object))
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   ShaderBlob blob(dxil_object.binary.buffer, dxil_object.binary.size);
+   dzn_shader_blob blob(dxil_object.binary.buffer, dxil_object.binary.size);
    ComPtr<IDxcOperationResult> result;
    validator->Validate(&blob, DxcValidatorFlags_InPlaceEdit, &result);
 

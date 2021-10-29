@@ -585,6 +585,24 @@ enum dzn_register_space {
    DZN_REGISTER_SPACE_PUSH_CONSTANT,
 };
 
+class dzn_shader_blob : public IDxcBlob {
+public:
+   dzn_shader_blob(void *buf, size_t sz) : data(buf), size(sz) {}
+
+   LPVOID STDMETHODCALLTYPE GetBufferPointer(void) override { return data; }
+
+   SIZE_T STDMETHODCALLTYPE GetBufferSize() override { return size; }
+
+   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, void**) override { return E_NOINTERFACE; }
+
+   ULONG STDMETHODCALLTYPE AddRef() override { return 1; }
+
+   ULONG STDMETHODCALLTYPE Release() override { return 0; }
+
+   void *data;
+   size_t size;
+};
+
 struct dzn_pipeline {
    struct vk_object_base base;
    VkPipelineBindPoint type;
