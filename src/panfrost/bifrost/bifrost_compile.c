@@ -3720,8 +3720,6 @@ bifrost_compile_shader_nir(nir_shader *nir,
 
         bi_optimize_nir(nir, ctx->inputs->gpu_id, ctx->inputs->is_blend);
 
-        NIR_PASS_V(nir, pan_nir_reorder_writeout);
-
         bool skip_internal = nir->info.internal;
         skip_internal &= !(bifrost_debug & BIFROST_DBG_INTERNAL);
 
