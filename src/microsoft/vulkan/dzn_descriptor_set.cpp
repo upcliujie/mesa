@@ -315,6 +315,9 @@ dxil_get_serialize_root_sig(void)
 // the number of visibility combinations, plus the internal root parameters.
 #define MAX_ROOT_PARAMS ((MAX_SHADER_VISIBILITIES * 2) + MAX_INTERNAL_ROOT_PARAMS)
 
+// Maximum number of DWORDS (32-bit words) that can be used for a root signature
+#define MAX_ROOT_DWORDS 64
+
 dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
                                          const VkPipelineLayoutCreateInfo *pCreateInfo,
                                          const VkAllocationCallbacks *pAllocator)
@@ -358,6 +361,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS] = {};
    D3D12_DESCRIPTOR_RANGE1 *range_ptr = range_descs.get();
    D3D12_ROOT_PARAMETER1 *root_param;
+   uint32_t root_dwords = 0;
 
    for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
       uint32_t range_count = 0;
@@ -382,8 +386,10 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 	 range_ptr += set_layout->ranges[i].view_count;
       }
 
-      if (root_param->DescriptorTable.NumDescriptorRanges)
+      if (root_param->DescriptorTable.NumDescriptorRanges) {
          root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+         root_dwords++;
+      }
 
       root_param = &root_params[root.param_count];
       root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -407,6 +413,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 
       if (root_param->DescriptorTable.NumDescriptorRanges) {
          root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+         root_dwords++;
       }
    }
 
@@ -415,13 +422,15 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    /* Add our sysval CBV, and make it visible to all shaders */
    root.sysval_cbv_param_idx = root.param_count;
    root_param = &root_params[root.param_count++];
-   root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-   root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+   root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
    root_param->Descriptor.RegisterSpace = DZN_REGISTER_SPACE_SYSVALS;
-   root_param->Descriptor.ShaderRegister = 0;
-   root_param->Descriptor.Flags = D3D12_ROOT_DESCRIPTOR_FLAG_NONE;
-
-   assert(root.param_count <= ARRAY_SIZE(root_params));
+   root_param->Constants.ShaderRegister = 0;
+   root_param->Constants.Num32BitValues =
+       DIV_ROUND_UP(MAX2(sizeof(struct dxil_spirv_vertex_runtime_data),
+                         sizeof(struct dxil_spirv_compute_runtime_data)),
+                    4);
+   root_param->ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+   root_dwords += root_param->Constants.Num32BitValues;
 
    D3D12_STATIC_SAMPLER_DESC *static_sampler_ptr = static_sampler_descs.get();
    for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
@@ -453,7 +462,11 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       root_param->Constants.Num32BitValues = ALIGN(push_constant_size, 4) / 4;
       root_param->Constants.RegisterSpace = DZN_REGISTER_SPACE_PUSH_CONSTANT;
       root_param->ShaderVisibility = translate_desc_visibility(push_constant_flags);
+      root_dwords += root_param->Constants.Num32BitValues;
    }
+
+   assert(root.param_count <= ARRAY_SIZE(root_params));
+   assert(root_dwords <= MAX_ROOT_DWORDS);
 
    D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_sig_desc = {
       .Version = D3D_ROOT_SIGNATURE_VERSION_1_1,

@@ -354,8 +354,6 @@ struct dzn_cmd_buffer {
 
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
    struct dzn_cmd_pool *pool;
-   using sysval_bufs_allocator = dzn_allocator<ComPtr<ID3D12Resource>>;
-   std::vector<ComPtr<ID3D12Resource>, sysval_bufs_allocator> sysval_bufs;
 
    struct {
       struct dzn_framebuffer *framebuffer;
@@ -385,12 +383,6 @@ struct dzn_cmd_buffer {
          ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
          uint32_t dirty;
       } bindpoint[NUM_BIND_POINT];
-      struct {
-         ID3D12Resource *res;
-         void *cpu;
-         uint32_t offset;
-         uint32_t size;
-      } sysval_mem;
       union {
          struct dxil_spirv_vertex_runtime_data gfx;
          struct dxil_spirv_compute_runtime_data compute;
@@ -431,8 +423,6 @@ private:
    void update_ibview();
    void update_push_constants(uint32_t bindpoint);
    void update_sysvals(uint32_t bindpoint);
-   void *alloc_sysval_mem(uint32_t size, uint32_t align,
-                          D3D12_GPU_VIRTUAL_ADDRESS *gpu_ptr);
 };
 
 struct dzn_cmd_pool {
