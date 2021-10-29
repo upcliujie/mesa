@@ -77,6 +77,7 @@ typedef struct wsi_display_connector {
    struct wsi_display           *wsi;
    uint32_t                     id;
    uint32_t                     crtc_id;
+   uint32_t                     plane_id;
    char                         *name;
    bool                         connected;
    bool                         active;
@@ -84,6 +85,8 @@ typedef struct wsi_display_connector {
    wsi_display_mode             *current_mode;
    drmModeModeInfo              current_drm_mode;
    uint32_t                     dpms_property;
+   bool                         atomic_failed;
+   struct hash_table            *prop_names;
 #ifdef VK_USE_PLATFORM_XLIB_XRANDR_EXT
    xcb_randr_output_t           output;
 #endif
@@ -95,6 +98,8 @@ struct wsi_display {
    const VkAllocationCallbacks  *alloc;
 
    int                          fd;
+
+   bool                         atomic_modeset;
 
    pthread_mutex_t              wait_mutex;
    pthread_cond_t               wait_cond;
@@ -123,6 +128,7 @@ struct wsi_display_image {
    struct wsi_image             base;
    struct wsi_display_swapchain *chain;
    enum wsi_image_state         state;
+   VkExtent2D                   extent;
    uint32_t                     fb_id;
    uint32_t                     buffer[4];
    uint64_t                     flip_sequence;
@@ -275,13 +281,72 @@ wsi_display_alloc_connector(struct wsi_display *wsi,
       vk_zalloc(wsi->alloc, sizeof (struct wsi_display_connector),
                 8, VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
 
+   if (!connector)
+      return NULL;
    connector->id = connector_id;
    connector->wsi = wsi;
    connector->active = false;
    /* XXX use EDID name */
    connector->name = "monitor";
    list_inithead(&connector->display_modes);
+
+   connector->prop_names = _mesa_hash_table_create(NULL,
+                                                   _mesa_hash_string,
+                                                   _mesa_key_string_equal);
+   if (!connector->prop_names)
+   {
+      vk_free(wsi->alloc, connector);
+      return NULL;
+   }
+
    return connector;
+}
+
+static void
+wsi_display_free_connector(struct wsi_display_connector *connector)
+{
+   struct wsi_display *wsi = connector->wsi;
+
+   /* Free all names */
+   hash_table_foreach(connector->prop_names, entry) {
+      vk_free(wsi->alloc, (void *) entry->key);
+   }
+   /* names have all been freed already */
+   _mesa_hash_table_destroy(connector->prop_names, NULL);
+   vk_free(connector->wsi->alloc, connector);
+}
+
+static bool
+wsi_display_remember_prop(struct wsi_display_connector *connector,
+                          const char *name,
+                          uint32_t prop_id)
+{
+   struct wsi_display *wsi = connector->wsi;
+
+   /* don't insert if it's already present */
+   if (_mesa_hash_table_search(connector->prop_names, name) != NULL)
+      return true;
+
+   char *our_name = vk_strdup(wsi->alloc, name, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!our_name)
+      return false;
+
+   if (!_mesa_hash_table_insert(connector->prop_names, our_name, (void *) (uintptr_t) prop_id)) {
+      vk_free(wsi->alloc, our_name);
+      return false;
+   }
+
+   return true;
+}
+
+static uint32_t
+wsi_display_lookup_prop(struct wsi_display_connector *connector,
+                             const char *name)
+{
+   struct hash_entry *entry = _mesa_hash_table_search(connector->prop_names, name);
+   if (!entry)
+      return 0;
+   return (uint32_t) (uintptr_t) entry->data;
 }
 
 static struct wsi_display_connector *
@@ -294,6 +359,11 @@ wsi_display_get_connector(struct wsi_device *wsi_device,
 
    if (drm_fd < 0)
       return NULL;
+
+   /* Use atomic modesetting if available */
+   int ret = drmSetClientCap(wsi->fd, DRM_CLIENT_CAP_ATOMIC, 1);
+
+   wsi->atomic_modeset = (ret == 0);
 
    drmModeConnectorPtr drm_connector =
       drmModeGetConnector(drm_fd, connector_id);
@@ -1056,6 +1126,7 @@ wsi_display_image_init(VkDevice device_h,
    image->chain = chain;
    image->state = WSI_IMAGE_IDLE;
    image->fb_id = 0;
+   image->extent = create_info->imageExtent;
 
    int ret = drmModeAddFB2(wsi->fd,
                            create_info->imageExtent.width,
@@ -1410,6 +1481,128 @@ wsi_display_select_crtc(const struct wsi_display_connector *connector,
    return crtc_id;
 }
 
+/* Discover the index in the crtc array for a particular crtc_id */
+static int
+wsi_display_crtc_num(drmModeResPtr mode_res,
+                     uint32_t crtc_id)
+{
+   for (int c = 0; c < mode_res->count_crtcs; c++)
+      if (mode_res->crtcs[c] == crtc_id)
+         return c;
+   return -1;
+}
+
+/* Record the property name to id mapping for the given object */
+static void
+wsi_display_remember_props(struct wsi_display_connector *connector,
+                           uint32_t object_id,
+                           uint32_t object_type)
+{
+   struct wsi_display *wsi = connector->wsi;
+   drmModeObjectPropertiesPtr props
+      = drmModeObjectGetProperties(wsi->fd, object_id, object_type);
+   if (!props)
+      return;
+
+   for (uint32_t i = 0; i < props->count_props; i++) {
+      drmModePropertyPtr prop = drmModeGetProperty(wsi->fd, props->props[i]);
+
+      /* Remember all property names for later */
+      (void) wsi_display_remember_prop(connector, prop->name, prop->prop_id);
+      drmModeFreeProperty(prop);
+   }
+   drmModeFreeObjectProperties(props);
+}
+
+/* Find a DRM property, while also recording the property name to id mapping */
+static uint64_t
+wsi_display_get_property(struct wsi_display_connector *connector,
+                         uint32_t object_id,
+                         uint32_t object_type,
+                         const char *name,
+                         uint64_t value)
+{
+   struct wsi_display *wsi = connector->wsi;
+   drmModeObjectPropertiesPtr props
+      = drmModeObjectGetProperties(wsi->fd, object_id, object_type);
+   if (!props)
+      return false;
+
+   for (uint32_t i = 0; i < props->count_props; i++) {
+      drmModePropertyPtr prop = drmModeGetProperty(wsi->fd, props->props[i]);
+
+      /* Remember all property names for later */
+      (void) wsi_display_remember_prop(connector, prop->name, prop->prop_id);
+
+      if (strcmp(prop->name, name) == 0)
+         value = props->prop_values[i];
+
+      drmModeFreeProperty(prop);
+
+   }
+   drmModeFreeObjectProperties(props);
+      return value;
+}
+
+/* Discover if the specified plane is primary */
+static bool
+wsi_display_plane_is_primary(struct wsi_display_connector *connector,
+                             uint32_t plane_id)
+{
+   uint64_t type = wsi_display_get_property(connector, plane_id, DRM_MODE_OBJECT_PLANE,
+                                            "type", DRM_PLANE_TYPE_OVERLAY);
+
+   return type == DRM_PLANE_TYPE_PRIMARY;
+}
+
+/* Select a plane to use */
+static uint32_t
+wsi_display_select_plane(struct wsi_display_connector *connector,
+                         drmModeResPtr mode_res,
+                         uint32_t crtc_id)
+{
+   struct wsi_display *wsi = connector->wsi;
+   drmModePlaneResPtr plane_res = drmModeGetPlaneResources(wsi->fd);
+
+   if (!plane_res)
+      return 0;
+
+   int crtc_num = wsi_display_crtc_num(mode_res, crtc_id);
+
+   if (crtc_num < 0)
+      return 0;
+
+   uint32_t plane_id = 0;
+
+   for (int p = 0; plane_id == 0 && p < plane_res->count_planes; p++) {
+      drmModePlanePtr plane = drmModeGetPlane(wsi->fd, plane_res->planes[p]);
+
+      /* Something weird happened; skip it and try the next
+       * one.
+       */
+      if (!plane)
+         continue;
+
+      /* Make sure the plane is primary
+       */
+      if (!wsi_display_plane_is_primary(connector, plane->plane_id))
+         continue;
+
+      /* Check to see if the plane is already being used by this crtc,
+       * or if it is idle
+       */
+      if ((plane->crtc_id == crtc_id)
+          || (plane->crtc_id == 0
+              && (plane->possible_crtcs & ((uint32_t) 1 << crtc_num))))
+      {
+         plane_id = plane->plane_id;
+      }
+      drmModeFreePlane(plane);
+   }
+   drmModeFreePlaneResources(plane_res);
+   return plane_id;
+}
+
 static VkResult
 wsi_display_setup_connector(wsi_display_connector *connector,
                             wsi_display_mode *display_mode)
@@ -1446,6 +1639,17 @@ wsi_display_setup_connector(wsi_display_connector *connector,
       connector->crtc_id = wsi_display_select_crtc(connector,
                                                    mode_res, drm_connector);
       if (!connector->crtc_id) {
+         result = VK_ERROR_SURFACE_LOST_KHR;
+         goto bail_connector;
+      }
+      wsi_display_remember_props(connector, connector->crtc_id, DRM_MODE_OBJECT_CRTC);
+   }
+
+   /* Pick a plane if we're using atomic modesetting and don't have one */
+   if (wsi->atomic_modeset && !connector->plane_id) {
+      connector->plane_id = wsi_display_select_plane(connector, mode_res, connector->crtc_id);
+
+      if (!connector->plane_id) {
          result = VK_ERROR_SURFACE_LOST_KHR;
          goto bail_connector;
       }
@@ -1652,6 +1856,44 @@ wsi_register_vblank_event(struct wsi_display_fence *fence,
    }
 }
 
+/* Add a property to an atomic modeset. Remember failures in the connector
+ */
+static void
+wsi_display_atomic_add(wsi_display_connector *connector,
+                       drmModeAtomicReqPtr atomic,
+                       uint32_t object_id,
+                       const char *name,
+                       uint64_t value)
+{
+   uint32_t name_id = wsi_display_lookup_prop(connector, name);
+   if (!name_id) {
+      connector->atomic_failed = true;
+      return;
+   }
+
+   int ret = drmModeAtomicAddProperty(atomic, object_id, name_id, value);
+
+   if (ret < 0)
+      connector->atomic_failed = true;
+}
+
+/* Make a atomic 'blob' for the target mode */
+static uint32_t
+wsi_display_make_mode_blob(struct wsi_display_connector *connector)
+{
+   struct wsi_display *wsi = connector->wsi;
+   uint32_t blob_id;
+
+   int ret = drmModeCreatePropertyBlob(wsi->fd,
+                                       &connector->current_drm_mode,
+                                       sizeof(connector->current_drm_mode),
+                                       &blob_id);
+   if (ret < 0)
+      return 0;
+
+   return blob_id;
+}
+
 /*
  * Check to see if the kernel has no flip queued and if there's an image
  * waiting to be displayed.
@@ -1701,48 +1943,112 @@ _wsi_display_queue_next(struct wsi_swapchain *drv_chain)
          return VK_SUCCESS;
 
       int ret;
-      if (connector->active) {
-         ret = drmModePageFlip(wsi->fd, connector->crtc_id, image->fb_id,
-                                   DRM_MODE_PAGE_FLIP_EVENT, image);
-         if (ret == 0) {
-            image->state = WSI_IMAGE_FLIPPING;
-            return VK_SUCCESS;
-         }
-         wsi_display_debug("page flip err %d %s\n", ret, strerror(-ret));
-      } else {
-         ret = -EINVAL;
-      }
 
-      if (ret == -EINVAL) {
-         VkResult result = wsi_display_setup_connector(connector, display_mode);
+      if (wsi->atomic_modeset) {
+         drmModeAtomicReqPtr atomic = drmModeAtomicAlloc();
 
-         if (result != VK_SUCCESS) {
+         if (!atomic) {
             image->state = WSI_IMAGE_IDLE;
-            return result;
+            return VK_ERROR_OUT_OF_HOST_MEMORY;
          }
 
-         /* XXX allow setting of position */
-         ret = drmModeSetCrtc(wsi->fd, connector->crtc_id,
-                              image->fb_id, 0, 0,
-                              &connector->id, 1,
-                              &connector->current_drm_mode);
-         if (ret == 0) {
-            /* Disable the HW cursor as the app doesn't have a mechanism
-             * to control it.
-             * Refer to question 12 of the VK_KHR_display spec.
-             */
-            ret = drmModeSetCursor(wsi->fd, connector->crtc_id, 0, 0, 0 );
-            if (ret != 0) {
-               wsi_display_debug("failed to hide cursor err %d %s\n", ret, strerror(-ret));
+         if (!connector->active) {
+            VkResult result = wsi_display_setup_connector(connector, display_mode);
+
+            if (result != VK_SUCCESS) {
+               image->state = WSI_IMAGE_IDLE;
+               return result;
             }
 
-            /* Assume that the mode set is synchronous and that any
-             * previous image is now idle.
-             */
-            image->state = WSI_IMAGE_DISPLAYING;
-            wsi_display_idle_old_displaying(image);
+            connector->atomic_failed = false;
+            /* Add output properties */
+            wsi_display_atomic_add(connector, atomic, connector->id, "CRTC_ID", connector->crtc_id);
+
+            /* Add plane properties */
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "CRTC_ID", connector->crtc_id);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "SRC_X", 0);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "SRC_Y", 0);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "SRC_W", image->extent.width << 16);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "SRC_H", image->extent.height << 16);
+
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "CRTC_X", 0);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "CRTC_Y", 0);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "CRTC_W", display_mode->hdisplay);
+            wsi_display_atomic_add(connector, atomic, connector->plane_id, "CRTC_H", display_mode->vdisplay);
+
+            /* Add crtc properties */
+            wsi_display_atomic_add(connector, atomic, connector->crtc_id, "ACTIVE", 1);
+
+            uint32_t blob_id = wsi_display_make_mode_blob(connector);
+
+            if (blob_id == 0)
+               connector->atomic_failed = true;
+            else
+               wsi_display_atomic_add(connector, atomic, connector->crtc_id, "MODE_ID", blob_id);
+         }
+
+         /* Set FB */
+         wsi_display_atomic_add(connector, atomic, connector->plane_id, "FB_ID", image->fb_id);
+
+         if (connector->atomic_failed)
+            ret = -EINVAL;
+         else
+            ret = drmModeAtomicCommit(wsi->fd, atomic,
+                                      DRM_MODE_ATOMIC_ALLOW_MODESET|DRM_MODE_ATOMIC_NONBLOCK|DRM_MODE_PAGE_FLIP_EVENT,
+                                      image);
+
+         drmModeAtomicFree(atomic);
+
+         if (ret == 0) {
+            image->state = WSI_IMAGE_FLIPPING;
             connector->active = true;
             return VK_SUCCESS;
+         }
+      } else {
+
+         if (connector->active) {
+            ret = drmModePageFlip(wsi->fd, connector->crtc_id, image->fb_id,
+                                  DRM_MODE_PAGE_FLIP_EVENT, image);
+            if (ret == 0) {
+               image->state = WSI_IMAGE_FLIPPING;
+               return VK_SUCCESS;
+            }
+            wsi_display_debug("page flip err %d %s\n", ret, strerror(-ret));
+         } else {
+            ret = -EINVAL;
+         }
+
+         if (ret == -EINVAL) {
+            VkResult result = wsi_display_setup_connector(connector, display_mode);
+
+            if (result != VK_SUCCESS) {
+               image->state = WSI_IMAGE_IDLE;
+               return result;
+            }
+
+            /* XXX allow setting of position */
+            ret = drmModeSetCrtc(wsi->fd, connector->crtc_id,
+                                 image->fb_id, 0, 0,
+                                 &connector->id, 1,
+                                 &connector->current_drm_mode);
+            if (ret == 0) {
+               /* Disable the HW cursor as the app doesn't have a mechanism
+                * to control it.
+                * Refer to question 12 of the VK_KHR_display spec.
+                */
+               ret = drmModeSetCursor(wsi->fd, connector->crtc_id, 0, 0, 0 );
+               if (ret != 0) {
+                  wsi_display_debug("failed to hide cursor err %d %s\n", ret, strerror(-ret));
+               }
+
+               /* Assume that the mode set is synchronous and that any
+                * previous image is now idle.
+                */
+               image->state = WSI_IMAGE_DISPLAYING;
+               wsi_display_idle_old_displaying(image);
+               connector->active = true;
+               return VK_SUCCESS;
+            }
          }
       }
 
@@ -1973,7 +2279,7 @@ wsi_display_finish_wsi(struct wsi_device *wsi_device,
          wsi_for_each_display_mode(mode, connector) {
             vk_free(wsi->alloc, mode);
          }
-         vk_free(wsi->alloc, connector);
+         wsi_display_free_connector(connector);
       }
 
       wsi_display_stop_wait_thread(wsi);
