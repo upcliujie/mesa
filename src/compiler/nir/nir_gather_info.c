@@ -829,8 +829,8 @@ nir_shader_gather_info(nir_shader *shader, nir_function_impl *entrypoint)
 {
    shader->info.num_textures = 0;
    shader->info.num_images = 0;
-   shader->info.image_buffers = 0;
-   shader->info.msaa_images = 0;
+   BITSET_ZERO(shader->info.image_buffers);
+   BITSET_ZERO(shader->info.msaa_images);
    shader->info.bit_sizes_float = 0;
    shader->info.bit_sizes_int = 0;
 
@@ -849,12 +849,12 @@ nir_shader_gather_info(nir_shader *shader, nir_function_impl *entrypoint)
          const struct glsl_type *image_type = glsl_without_array(var->type);
 
          if (glsl_get_sampler_dim(image_type) == GLSL_SAMPLER_DIM_BUF) {
-            shader->info.image_buffers |=
-               BITFIELD_RANGE(shader->info.num_images, num_image_slots);
+            BITSET_SET_RANGE(shader->info.image_buffers, shader->info.num_images,
+                             shader->info.num_images + num_image_slots);
          }
          if (glsl_get_sampler_dim(image_type) == GLSL_SAMPLER_DIM_MS) {
-            shader->info.msaa_images |=
-               BITFIELD_RANGE(shader->info.num_images, num_image_slots);
+            BITSET_SET_RANGE(shader->info.msaa_images, shader->info.num_images,
+                             shader->info.num_images + num_image_slots);
          }
          shader->info.num_images += num_image_slots;
       }

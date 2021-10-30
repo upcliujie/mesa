@@ -128,9 +128,8 @@ record_images_used(struct shader_info *info,
    /* Structs have been lowered already, so get_aoa_size is sufficient. */
    const unsigned size =
       glsl_type_is_array(var->type) ? glsl_get_aoa_size(var->type) : 1;
-   unsigned mask = ((1ull << MAX2(size, 1)) - 1) << var->data.binding;
 
-   info->images_used |= mask;
+   BITSET_SET_RANGE_INSIDE_WORD(info->images_used, var->data.binding, var->data.binding + (MAX2(size, 1) - 1));
 }
 
 

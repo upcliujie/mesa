@@ -222,7 +222,8 @@ __bitset_set_range(BITSET_WORD *r, unsigned start, unsigned end)
 }
 
 #define BITSET_SET_RANGE(x, b, e) \
-   __bitset_set_range(x, b, e)
+   if ((b) < (sizeof(x) * 8) && (e) < (sizeof(x) * 8)) \
+      __bitset_set_range(x, b, e)
 
 static inline unsigned
 __bitset_prefix_sum(const BITSET_WORD *x, unsigned b, unsigned n)
