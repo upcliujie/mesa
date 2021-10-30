@@ -1226,8 +1226,10 @@ virgl_drm_winsys_create(int drmFD)
 
    if (params[param_context_init].value) {
       ret = virgl_init_context(drmFD);
-      if (ret)
+      if (ret) {
+         FREE(qdws);
          return NULL;
+      }
    }
 
    qdws->fd = drmFD;
