@@ -28,6 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "intel_device_info.h"
+#include "intel_hwconfig.h"
 #include "intel/common/intel_gem.h"
 #include "util/bitscan.h"
 #include "util/debug.h"
