@@ -28,6 +28,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "intel_device_info.h"
+#include "intel_hwconfig.h"
 #include "intel/common/intel_gem.h"
 #include "util/bitscan.h"
 #include "util/debug.h"
@@ -1731,6 +1732,8 @@ intel_get_device_info_from_fd(int fd, struct intel_device_info *devinfo)
    /* remaining initializion queries the kernel for device info */
    if (devinfo->no_hw)
       return true;
+
+   intel_get_and_process_hwconfig_table(fd, devinfo);
 
    int timestamp_frequency;
    if (getparam(fd, I915_PARAM_CS_TIMESTAMP_FREQUENCY,
