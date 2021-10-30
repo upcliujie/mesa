@@ -14,6 +14,22 @@
     - job: debian-armhf
       artifacts: false
 
+.etnaviv-arm64-test:
+  extends:
+    - .baremetal-test-arm64
+    - .use-debian/arm_test
+    - .etnaviv-rules
+  script:
+    - ./install/bare-metal/fastboot.sh
+  variables:
+    BM_CMDLINE: "ip=dhcp console=ttymxc0,115200n8 root=/dev/nfs rw nfsrootdebug init=/init $BM_KERNELARGS"
+    BM_KERNEL: /baremetal-files/Image
+    FLAKES_CHANNEL: "#etnaviv-ci"
+  needs:
+    - debian/arm_test
+    - job: debian-arm64
+      artifacts: false
+
 .etnaviv-armhf-gc2000:
   extends:
     - .etnaviv-armhf-test
@@ -23,6 +39,16 @@
     GPU_VERSION: "etnaviv-gc2000"
   tags:
     - etnaviv-gc2000
+
+.etnaviv-arm64-gc7000:
+  extends:
+    - .etnaviv-arm64-test
+  variables:
+    BM_DTB: /baremetal-files/imx8mq-nitrogen.dtb
+    DEQP_EXPECTED_RENDERER: GC7000
+    GPU_VERSION: "etnaviv-gc7000"
+  tags:
+    - etnaviv-gc7000
 
 gc2000_gles2:
   extends:
@@ -40,3 +66,11 @@ gc2000_piglit:
   variables:
     PIGLIT_PLATFORM: gbm
     PIGLIT_PROFILES: gpu
+
+gc7000_gles2:
+  extends:
+    - .etnaviv-arm64-gc7000
+    - .test-manual-mr
+  variables:
+    HWCI_TEST_SCRIPT: "/install/deqp-runner.sh"
+    DEQP_VER: gles2
