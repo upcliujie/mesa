@@ -157,11 +157,20 @@ get_uniform_inst_resource(nir_instr *instr)
    return NULL;
 }
 
+struct check_sources_state
+{
+   nir_block *block;
+   uint32_t first_index;
+};
+
 static bool
 has_only_sources_less_than(nir_src *src, void *data)
 {
+   struct check_sources_state *state = (struct check_sources_state *)data;
+
    /* true if nir_foreach_src should keep going */
-   return src->ssa->parent_instr->index < (uintptr_t)data;
+   return state->block != src->ssa->parent_instr->block ||
+          src->ssa->parent_instr->index < state->first_index;
 }
 
 static void
@@ -183,7 +192,8 @@ group_loads(nir_instr *first, nir_instr *last)
          bool all_uses_after_last = true;
 
          nir_foreach_use(use, def) {
-            if (use->parent_instr->index <= last->index) {
+            if (use->parent_instr->block == instr->block &&
+                use->parent_instr->index <= last->index) {
                all_uses_after_last = false;
                break;
             }
@@ -203,6 +213,10 @@ group_loads(nir_instr *first, nir_instr *last)
       }
    }
 
+   struct check_sources_state state;
+   state.block = first->block;
+   state.first_index = first->index;
+
    /* Walk the instruction range between the first and last forward, and move
     * those that have no sources within the range before the first one.
     */
@@ -214,8 +228,7 @@ group_loads(nir_instr *first, nir_instr *last)
       if (!can_move(instr, first->pass_flags))
          continue;
 
-      if (nir_foreach_src(instr, has_only_sources_less_than,
-                          (void*)(uintptr_t)first->index)) {
+      if (nir_foreach_src(instr, has_only_sources_less_than, &state)) {
          nir_instr *move_instr = instr;
          /* Set the last instruction because we'll delete the current one. */
          instr = exec_node_data_backward(nir_instr, instr->node.prev, node);
@@ -229,6 +242,16 @@ group_loads(nir_instr *first, nir_instr *last)
    }
 }
 
+static bool
+is_pseudo_inst(nir_instr *instr)
+{
+   /* Other instructions do not usually contribute to the shader binary size. */
+   return instr->type != nir_instr_type_alu &&
+          instr->type != nir_instr_type_call &&
+          instr->type != nir_instr_type_tex &&
+          instr->type != nir_instr_type_intrinsic;
+}
+
 static void
 number_instructions(nir_block *block)
 {
@@ -236,17 +259,23 @@ number_instructions(nir_block *block)
     * and will want to label it as 0.
     */
    unsigned counter = 1;
+   nir_instr *last = NULL;
 
    nir_foreach_instr(instr, block) {
+      /* Make sure grouped instructions don't have the same index as pseudo
+       * instructions.
+       */
+      if (last && is_pseudo_inst(last) && is_grouped_load(instr))
+          counter++;
+
       /* Set each instruction's index within the block. */
       instr->index = counter;
 
       /* Only count non-pseudo instructions. */
-      if (instr->type == nir_instr_type_alu ||
-          instr->type == nir_instr_type_call ||
-          instr->type == nir_instr_type_tex ||
-          instr->type == nir_instr_type_intrinsic)
+      if (!is_pseudo_inst(instr))
          counter++;
+
+      last = instr;
    }
 }
 
@@ -354,15 +383,15 @@ process_block(nir_block *block, nir_load_grouping grouping,
 
          /* pass_flags has only 8 bits */
          indirections = MIN2(indirections, 255);
-
-         max_indirection = MAX2(max_indirection, (int)indirections);
-         /* 255 contains all indirection levels >= 255, so ignore them. */
-         max_indirection = MIN2(max_indirection, 254);
-
          num_inst_per_level[indirections]++;
          instr->pass_flags = indirections;
+
+         max_indirection = MAX2(max_indirection, (int)indirections);
       }
    }
+
+   /* 255 contains all indirection levels >= 255, so ignore them. */
+   max_indirection = MIN2(max_indirection, 254);
 
    /* Each indirection level is grouped. */
    for (int level = 0; level <= max_indirection; level++) {
