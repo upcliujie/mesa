@@ -30,10 +30,8 @@
 /*
  * Lowers SSBOs to globals, for hardware that lack native SSBO support. When
  * lowering, *_ssbo_* instructions will become *_global_* instructions,
- * augmented with load_ssbo_address.
- *
- * DOES NOT PERFORM BOUNDS CHECKING. DO NOT USE IN PRODUCTION ON UNTRUSTED
- * CONTEXTS INCLUDING WEBGL 2.
+ * augmented with load_ssbo_address. If a robust mode is requested, accesses
+ * will be bounds-chcked to comply with KHR_robustness.
  */
 
 static nir_intrinsic_op
@@ -106,6 +104,7 @@ lower_ssbo_instr(nir_builder *b, nir_instr *instr, void *data)
    nir_intrinsic_op op = lower_ssbo_op(intr->intrinsic);
    bool is_store = op == nir_intrinsic_store_global;
    bool is_atomic = !is_store && op != nir_intrinsic_load_global;
+   enum nir_robustness mode = (uintptr_t) data;
 
    /* We have to calculate the address:
     *
@@ -115,6 +114,20 @@ lower_ssbo_instr(nir_builder *b, nir_instr *instr, void *data)
    nir_src index = intr->src[is_store ? 1 : 0];
    nir_src *offset_src = nir_get_io_offset_src(intr);
    nir_ssa_def *offset = nir_ssa_for_src(b, *offset_src, 1);
+   nir_ssa_def *ret = NIR_LOWER_INSTR_PROGRESS_REPLACE;
+
+   if (mode == NIR_ROBUSTNESS_ROBUST) {
+      unsigned bits = is_store ?
+         nir_src_bit_size(intr->src[0]) :
+         nir_dest_bit_size(intr->dest);
+
+      signed bytes = (intr->num_components * bits) / 8;
+
+      nir_ssa_def *size = nir_get_ssbo_size(b, nir_ssa_for_src(b, index, 1));
+      nir_ssa_def *max = nir_iadd_imm(b, size, -bytes);
+
+      nir_push_if(b, nir_uge(b, max, offset)); /* if (offset <= max) */
+   }
 
    nir_ssa_def *address =
       nir_iadd(b,
@@ -147,10 +160,26 @@ lower_ssbo_instr(nir_builder *b, nir_instr *instr, void *data)
          if (nir_intrinsic_infos[op].num_srcs > 2)
             nir_src_copy(&global->src[2], &intr->src[3]);
       }
+
+      ret = &global->dest.ssa;
    }
 
    nir_builder_instr_insert(b, &global->instr);
-   return is_store ? NIR_LOWER_INSTR_PROGRESS_REPLACE : &global->dest.ssa;
+
+   if (mode == NIR_ROBUSTNESS_ROBUST) {
+      nir_if *nif = nir_push_else(b, NULL);
+
+      nir_ssa_def *zero = is_store ? NULL :
+               nir_imm_zero(b, intr->dest.ssa.num_components,
+                               intr->dest.ssa.bit_size);
+
+      nir_pop_if(b, nif);
+
+      if (!is_store)
+         ret = nir_if_phi(b, ret, zero);
+   }
+
+   return ret;
 }
 
 static bool

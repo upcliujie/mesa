@@ -5517,6 +5517,9 @@ bool nir_lower_samplers(nir_shader *shader);
 enum nir_robustness {
    /* Not robust. OOB access may fault. */
    NIR_ROBUSTNESS_NONE = 0,
+
+   /* Robust. OOB access will be ignored. */
+   NIR_ROBUSTNESS_ROBUST,
 };
 
 bool nir_lower_ssbo(nir_shader *shader, enum nir_robustness mode);
