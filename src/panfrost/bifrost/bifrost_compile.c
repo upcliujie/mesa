@@ -3707,7 +3707,7 @@ bifrost_compile_shader_nir(nir_shader *nir,
                 _mesa_hash_table_u64_destroy(stores);
         }
 
-        NIR_PASS_V(nir, nir_lower_ssbo);
+        NIR_PASS_V(nir, nir_lower_ssbo, NIR_ROBUSTNESS_NONE);
         NIR_PASS_V(nir, pan_nir_lower_zs_store);
         NIR_PASS_V(nir, pan_lower_sample_pos);
         NIR_PASS_V(nir, nir_lower_bit_size, bi_lower_bit_size, NULL);

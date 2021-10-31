@@ -1411,7 +1411,7 @@ agx_compile_shader_nir(nir_shader *nir,
       NIR_PASS_V(nir, nir_lower_mediump_io,
             nir_var_shader_in | nir_var_shader_out, ~0, false);
    }
-   NIR_PASS_V(nir, nir_lower_ssbo);
+   NIR_PASS_V(nir, nir_lower_ssbo, NIR_ROBUSTNESS_NONE);
 
    /* Varying output is scalar, other I/O is vector */
    if (ctx->stage == MESA_SHADER_VERTEX) {

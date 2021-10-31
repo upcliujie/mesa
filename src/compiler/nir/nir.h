@@ -5509,7 +5509,17 @@ bool nir_lower_ssa_defs_to_regs_block(nir_block *block);
 bool nir_rematerialize_derefs_in_use_blocks_impl(nir_function_impl *impl);
 
 bool nir_lower_samplers(nir_shader *shader);
-bool nir_lower_ssbo(nir_shader *shader);
+
+/**
+ * Robustness mode for nir_lower_ssbo corresponding to the context
+ * mode. Defines out-of-bounds behaviour.
+ */
+enum nir_robustness {
+   /* Not robust. OOB access may fault. */
+   NIR_ROBUSTNESS_NONE = 0,
+};
+
+bool nir_lower_ssbo(nir_shader *shader, enum nir_robustness mode);
 
 typedef struct nir_lower_printf_options {
    bool treat_doubles_as_floats : 1;

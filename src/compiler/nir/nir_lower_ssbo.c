@@ -187,8 +187,9 @@ should_lower_ssbo_instr(const nir_instr *instr, const void *data)
 }
 
 bool
-nir_lower_ssbo(nir_shader *shader)
+nir_lower_ssbo(nir_shader *shader, enum nir_robustness mode)
 {
    return nir_shader_lower_instructions(shader, should_lower_ssbo_instr,
-                                        lower_ssbo_instr, NULL);
+                                        lower_ssbo_instr,
+                                        (void*) (uintptr_t) mode);
 }
