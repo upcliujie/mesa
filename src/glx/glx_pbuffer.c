@@ -33,6 +33,8 @@
 #include "glxclient.h"
 #include <X11/extensions/extutil.h>
 #include <X11/extensions/Xext.h>
+#include <X11/Xlib-xcb.h>
+#include <xcb/glx.h>
 #include <assert.h>
 #include <string.h>
 #include <limits.h>
@@ -393,6 +395,7 @@ __glXGetDrawableAttribute(Display * dpy, GLXDrawable drawable,
 
    return found;
 }
+
 
 static void
 protocolDestroyDrawable(Display *dpy, GLXDrawable drawable, CARD32 glxCode)
@@ -964,7 +967,27 @@ _GLX_PUBLIC void
 glXDestroyWindow(Display * dpy, GLXWindow win)
 {
 #ifndef GLX_USE_APPLEGL
-   DestroyDrawable(dpy, (GLXDrawable) win, X_GLXDestroyWindow);
+   if (!dpy || !win)
+      return;
+
+   xcb_connection_t *const conn = XGetXCBConnection(dpy);
+   xcb_generic_error_t *error =
+      xcb_request_check(conn, xcb_glx_delete_window_checked(conn, win));
+   if (error) {
+      struct glx_display *priv = __glXInitialize(dpy);
+
+      /* Viewperf2020/Sw calls XDestroyWindow(win) and then glXDestroyWindow(win),
+       * causing an X error and abort. This is the workaround.
+       */
+      if (error->error_code == priv->codes.first_error + GLXBadWindow &&
+          priv->screens[0] && priv->screens[0]->allow_invalid_glx_destroy_window)
+         free(error);
+      else
+         __glXSendErrorForXcb(dpy, error);
+   }
+
+   DestroyGLXDrawable(dpy, win);
+   DestroyDRIDrawable(dpy, win, GL_FALSE);
 #endif
 }
 
