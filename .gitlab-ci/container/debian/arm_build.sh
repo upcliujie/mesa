@@ -10,7 +10,6 @@ apt-get update
 
 apt-get -y install \
 	${EXTRA_LOCAL_PACKAGES} \
-	abootimg \
 	autoconf \
 	automake \
 	bc \
