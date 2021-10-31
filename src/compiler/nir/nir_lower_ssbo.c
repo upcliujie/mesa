@@ -100,8 +100,9 @@ nir_load_ssbo_prop(nir_builder *b, nir_intrinsic_op op,
    nir_load_ssbo_prop(b, nir_intrinsic_##prop, index, bitsize)
 
 static nir_ssa_def *
-lower_ssbo_instr(nir_builder *b, nir_intrinsic_instr *intr)
+lower_ssbo_instr(nir_builder *b, nir_instr *instr, void *data)
 {
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
    nir_intrinsic_op op = lower_ssbo_op(intr->intrinsic);
    bool is_store = op == nir_intrinsic_store_global;
    bool is_atomic = !is_store && op != nir_intrinsic_load_global;
@@ -149,11 +150,11 @@ lower_ssbo_instr(nir_builder *b, nir_intrinsic_instr *intr)
    }
 
    nir_builder_instr_insert(b, &global->instr);
-   return is_store ? NULL : &global->dest.ssa;
+   return is_store ? NIR_LOWER_INSTR_PROGRESS_REPLACE : &global->dest.ssa;
 }
 
 static bool
-should_lower_ssbo_instr(const nir_instr *instr)
+should_lower_ssbo_instr(const nir_instr *instr, const void *data)
 {
    if (instr->type != nir_instr_type_intrinsic)
       return false;
@@ -188,31 +189,6 @@ should_lower_ssbo_instr(const nir_instr *instr)
 bool
 nir_lower_ssbo(nir_shader *shader)
 {
-   bool progress = false;
-
-   nir_foreach_function(function, shader) {
-      nir_function_impl *impl = function->impl;
-      nir_builder b;
-      nir_builder_init(&b, impl);
-
-      nir_foreach_block(block, impl) {
-         nir_foreach_instr_safe(instr, block) {
-            if (!should_lower_ssbo_instr(instr)) continue;
-            progress = true;
-            b.cursor = nir_before_instr(instr);
-
-            nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-            nir_ssa_def *replace = lower_ssbo_instr(&b, intr);
-
-            if (replace)  {
-               nir_ssa_def_rewrite_uses(&intr->dest.ssa,
-                                     replace);
-            }
-
-            nir_instr_remove(instr);
-         }
-      }
-   }
-
-   return progress;
+   return nir_shader_lower_instructions(shader, should_lower_ssbo_instr,
+                                        lower_ssbo_instr, NULL);
 }
