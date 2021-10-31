@@ -1404,7 +1404,8 @@ static void
 insert_sorted(struct exec_list *var_list, nir_variable *new_var)
 {
    nir_foreach_variable_in_list(var, var_list) {
-      if (var->data.location > new_var->data.location) {
+      if (new_var->data.per_primitive < var->data.per_primitive ||
+          var->data.location > new_var->data.location) {
          exec_node_insert_node_before(&var->node, &new_var->node);
          return;
       }
