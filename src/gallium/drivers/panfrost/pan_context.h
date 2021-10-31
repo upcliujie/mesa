@@ -218,6 +218,9 @@ struct panfrost_context {
 
         /* Mask of active render targets */
         uint8_t fb_rt_mask;
+
+        /* Robust buffer access required */
+        bool robustness;
 };
 
 /* Corresponds to the CSO */
@@ -368,7 +371,8 @@ panfrost_shader_compile(struct pipe_screen *pscreen,
                         enum pipe_shader_ir ir_type,
                         const void *ir,
                         gl_shader_stage stage,
-                        struct panfrost_shader_state *state);
+                        struct panfrost_shader_state *state,
+                        bool robust);
 
 void
 panfrost_analyze_sysvals(struct panfrost_shader_state *ss);

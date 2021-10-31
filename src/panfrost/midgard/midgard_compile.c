@@ -3097,7 +3097,7 @@ midgard_compile_shader_nir(nir_shader *nir,
 
         NIR_PASS_V(nir, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
                         glsl_type_size, 0);
-        NIR_PASS_V(nir, nir_lower_ssbo, NIR_ROBUSTNESS_NONE);
+        NIR_PASS_V(nir, nir_lower_ssbo, inputs->robustness);
         NIR_PASS_V(nir, pan_nir_lower_zs_store);
 
         NIR_PASS_V(nir, pan_nir_lower_64bit_intrin);

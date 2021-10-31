@@ -46,7 +46,8 @@ panfrost_shader_compile(struct pipe_screen *pscreen,
                         enum pipe_shader_ir ir_type,
                         const void *ir,
                         gl_shader_stage stage,
-                        struct panfrost_shader_state *state)
+                        struct panfrost_shader_state *state,
+                        bool robust)
 {
         struct panfrost_screen *screen = pan_screen(pscreen);
         struct panfrost_device *dev = pan_device(pscreen);
@@ -70,6 +71,7 @@ panfrost_shader_compile(struct pipe_screen *pscreen,
         struct panfrost_compile_inputs inputs = {
                 .gpu_id = dev->gpu_id,
                 .shaderdb = !!(dev->debug & PAN_DBG_PRECOMPILE),
+                .robustness = robust ? NIR_ROBUSTNESS_ROBUST : NIR_ROBUSTNESS_NONE,
         };
 
         memcpy(inputs.rt_formats, state->rt_formats, sizeof(inputs.rt_formats));

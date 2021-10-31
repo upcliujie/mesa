@@ -318,7 +318,7 @@ panfrost_create_shader_state(
                                         PIPE_SHADER_IR_NIR,
                                         so->base.ir.nir,
                                         tgsi_processor_to_shader_stage(stage),
-                                        &state);
+                                        &state, ctx->robustness);
         }
 
         return so;
@@ -527,7 +527,7 @@ panfrost_bind_shader_state(
                                         variants->base.ir.nir :
                                         variants->base.tokens,
                                         tgsi_processor_to_shader_stage(type),
-                                        shader_state);
+                                        shader_state, ctx->robustness);
 
                 shader_state->compiled = true;
 
@@ -1135,6 +1135,8 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
          */
         ret = drmSyncobjCreate(dev->fd, DRM_SYNCOBJ_CREATE_SIGNALED, &ctx->syncobj);
         assert(!ret && ctx->syncobj);
+
+        ctx->robustness = !!(flags & PIPE_CONTEXT_ROBUST_BUFFER_ACCESS);
 
         return gallium;
 }

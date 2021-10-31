@@ -159,6 +159,7 @@ struct panfrost_compile_inputs {
         unsigned sysval_ubo;
         bool shaderdb;
         bool no_ubo_to_push;
+        enum nir_robustness robustness;
 
         enum pipe_format rt_formats[8];
         uint8_t raw_fmt_mask;

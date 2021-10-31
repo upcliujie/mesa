@@ -71,7 +71,7 @@ panfrost_create_compute_state(
 
         panfrost_shader_compile(pctx->screen, &ctx->shaders, &ctx->descs,
                         so->cbase.ir_type, so->cbase.prog, MESA_SHADER_COMPUTE,
-                        v);
+                        v, ctx->robustness);
 
         /* There are no variants so we won't need the NIR again */
         ralloc_free((void *)so->cbase.prog);
