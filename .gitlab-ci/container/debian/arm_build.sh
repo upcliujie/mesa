@@ -9,7 +9,6 @@ echo 'deb https://deb.debian.org/debian buster main' >/etc/apt/sources.list.d/bu
 apt-get update
 
 apt-get -y install \
-	abootimg \
 	autoconf \
 	automake \
 	bc \
