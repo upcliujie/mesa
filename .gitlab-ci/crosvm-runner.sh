@@ -30,6 +30,9 @@ unset XDG_RUNTIME_DIR
   fi
 ) 9>/var/lock/crosvm_lock
 
+tail -f $DEQP_TEMP_DIR/stdout &
+>&2 tail -f $DEQP_TEMP_DIR/stderr &
+
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
 NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
@@ -39,6 +42,6 @@ NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIV
   --shared-dir /:my_root:type=fs:writeback=true:timeout=60:cache=always \
   --host_ip=192.168.30.1 --netmask=255.255.255.0 --mac "AA:BB:CC:00:00:12" \
   -p "$CROSVM_KERNEL_ARGS" \
-  /lava-files/bzImage | LC_ALL=C tr -dc '\0-\177'
+  /lava-files/bzImage > /dev/null
 
 exit `cat $DEQP_TEMP_DIR/exit_code`
