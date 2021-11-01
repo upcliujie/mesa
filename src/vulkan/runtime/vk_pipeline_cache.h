@@ -48,7 +48,15 @@ struct vk_pipeline_cache_object;
 
 #define VK_PIPELINE_CACHE_BLOB_ALIGN 8
 
+enum vk_pipeline_cache_object_type {
+   VK_PIPELINE_CACHE_OBJECT_TYPE_RAW_DATA,
+   VK_PIPELINE_CACHE_OBJECT_TYPE_NIR,
+   VK_NUM_PIPELINE_CACHE_OBJECT_TYPES,
+};
+
 struct vk_pipeline_cache_object_ops {
+   enum vk_pipeline_cache_object_type type;
+
    /** Writes this cache object to the given blob
     *
     * Because the cache works with both raw blob data and driver object data
@@ -168,11 +176,27 @@ struct vk_pipeline_cache {
 VK_DEFINE_HANDLE_CASTS(vk_pipeline_cache, base, VkPipelineCache,
                        VK_OBJECT_TYPE_PIPELINE_CACHE)
 
+struct vk_pipeline_cache_create_info {
+   /* The pCreateInfo for this pipeline cache, if any.
+    *
+    * For driver-internal caches, this is allowed to be NULL.
+    */
+   const VkPipelineCacheCreateInfo *pCreateInfo;
+
+   /** Set of pipeline cache object types to be used for the initial import
+    *
+    * This array must be null-terminated.
+    */
+   const struct vk_pipeline_cache_object_ops *const *import_ops;
+
+   /** If true, ignore VK_ENABLE_PIPELINE_CACHE and enable anyway */
+   bool force_enable;
+};
+
 struct vk_pipeline_cache *
 vk_pipeline_cache_create(struct vk_device *device,
-                         const VkPipelineCacheCreateInfo *pCreateInfo,
-                         const VkAllocationCallbacks *pAllocator,
-                         bool force_enable);
+                         const struct vk_pipeline_cache_create_info *info,
+                         const VkAllocationCallbacks *pAllocator);
 void
 vk_pipeline_cache_destroy(struct vk_pipeline_cache *cache,
                           const VkAllocationCallbacks *pAllocator);

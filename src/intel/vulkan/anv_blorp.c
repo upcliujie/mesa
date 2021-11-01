@@ -92,8 +92,11 @@ anv_device_init_blorp(struct anv_device *device)
     * remain resident while it runs.  Therefore, we need a special cache just
     * for BLORP that's forced to always be enabled.
     */
+   struct vk_pipeline_cache_create_info pcc_info = {
+      .force_enable = true,
+   };
    device->blorp_cache =
-      vk_pipeline_cache_create(&device->vk, NULL, NULL, true);
+      vk_pipeline_cache_create(&device->vk, &pcc_info, NULL);
    if (device->blorp_cache == NULL)
       return false;
 

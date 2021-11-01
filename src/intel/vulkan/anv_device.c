@@ -3405,8 +3405,9 @@ VkResult anv_CreateDevice(
    if (result != VK_SUCCESS)
       goto fail_trivial_batch_bo_and_scratch_pool;
 
+   struct vk_pipeline_cache_create_info pcc_info = { };
    device->default_pipeline_cache =
-      vk_pipeline_cache_create(&device->vk, NULL, NULL, false);
+      vk_pipeline_cache_create(&device->vk, &pcc_info, NULL);
    if (!device->default_pipeline_cache) {
       result = vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
       goto fail_trivial_batch_bo_and_scratch_pool;
