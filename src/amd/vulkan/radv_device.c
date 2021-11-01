@@ -695,7 +695,7 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
    device->disk_cache = disk_cache_create(device->name, buf, 0);
 #endif
 
-   if (device->rad_info.chip_class < GFX8 || device->rad_info.chip_class > GFX10)
+   if (device->rad_info.chip_class < GFX8)
       vk_warn_non_conformant_implementation("radv");
 
    radv_get_driver_uuid(&device->driver_uuid);
@@ -1878,7 +1878,14 @@ radv_get_physical_device_properties_1_2(struct radv_physical_device *pdevice,
    snprintf(p->driverInfo, VK_MAX_DRIVER_INFO_SIZE, "Mesa " PACKAGE_VERSION MESA_GIT_SHA1 "%s",
             radv_get_compiler_string(pdevice));
 
-   if (pdevice->rad_info.chip_class >= GFX8 && pdevice->rad_info.chip_class <= GFX10) {
+   if (pdevice->rad_info.chip_class == GFX10_3) {
+      p->conformanceVersion = (VkConformanceVersion){
+         .major = 1,
+         .minor = 2,
+         .subminor = 7,
+         .patch = 1,
+      };
+   } else if (pdevice->rad_info.chip_class >= GFX8 && pdevice->rad_info.chip_class <= GFX10) {
       p->conformanceVersion = (VkConformanceVersion){
          .major = 1,
          .minor = 2,
