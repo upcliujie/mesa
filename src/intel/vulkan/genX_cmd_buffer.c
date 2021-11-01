@@ -4873,6 +4873,7 @@ emit_compute_walker(struct anv_cmd_buffer *cmd_buffer,
       cw.ThreadGroupIDYDimension        = groupCountY;
       cw.ThreadGroupIDZDimension        = groupCountZ;
       cw.ExecutionMask                  = dispatch.right_mask;
+      cw.PostSync.MOCS                  = pipeline->base.device->isl_dev.mocs.internal;
 
       cw.InterfaceDescriptor = (struct GENX(INTERFACE_DESCRIPTOR_DATA)) {
          .KernelStartPointer = cs_bin->kernel.offset,
