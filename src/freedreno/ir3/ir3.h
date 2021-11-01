@@ -963,6 +963,7 @@ is_input(struct ir3_instruction *instr)
    switch (instr->opc) {
    case OPC_LDLV:
    case OPC_BARY_F:
+   case OPC_FLAT_B:
       return true;
    default:
       return false;
@@ -1268,6 +1269,7 @@ ir3_cat2_int(opc_t opc)
    case OPC_GETBIT_B:
    case OPC_CBITS_B:
    case OPC_BARY_F:
+   case OPC_FLAT_B:
       return true;
 
    default:
@@ -1384,6 +1386,7 @@ ir3_output_conv_type(struct ir3_instruction *instr, bool *can_fold)
    case OPC_ADD_F:
    case OPC_MUL_F:
    case OPC_BARY_F:
+   case OPC_FLAT_B:
    case OPC_MAD_F32:
    case OPC_MAD_F16:
       return TYPE_F32;
@@ -2068,6 +2071,7 @@ INSTR2(SHL_B)
 INSTR2(SHR_B)
 INSTR2(ASHR_B)
 INSTR2(BARY_F)
+INSTR2(FLAT_B)
 INSTR2(MGEN_B)
 INSTR2(GETBIT_B)
 INSTR1(SETRM)
