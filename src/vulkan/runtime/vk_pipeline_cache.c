@@ -40,6 +40,8 @@
 struct raw_data_object {
    struct vk_pipeline_cache_object base;
 
+   enum vk_pipeline_cache_object_type type;
+
    const void *data;
    size_t data_size;
 };
@@ -66,12 +68,14 @@ raw_data_object_destroy(struct vk_pipeline_cache_object *object)
 }
 
 static const struct vk_pipeline_cache_object_ops raw_data_object_ops = {
+   .type = VK_PIPELINE_CACHE_OBJECT_TYPE_RAW_DATA,
    .serialize = raw_data_object_serialize,
    .destroy = raw_data_object_destroy,
 };
 
 static struct raw_data_object *
 raw_data_object_create(struct vk_device *device,
+                       enum vk_pipeline_cache_object_type type,
                        const void *key_data, size_t key_size,
                        const void *data, size_t data_size)
 {
@@ -87,6 +91,7 @@ raw_data_object_create(struct vk_device *device,
    vk_pipeline_cache_object_init(device, &data_obj->base,
                                  &raw_data_object_ops,
                                  obj_key_data, key_size);
+   data_obj->type = type;
    data_obj->data = obj_data;
    data_obj->data_size = data_size;
 
@@ -425,6 +430,8 @@ vk_pipeline_cache_lookup_nir(struct vk_pipeline_cache *cache,
    struct raw_data_object *data_obj =
       container_of(object, struct raw_data_object, base);
 
+   assert(data_obj->type == VK_PIPELINE_CACHE_OBJECT_TYPE_NIR);
+
    struct blob_reader blob;
    blob_reader_init(&blob, data_obj->data, data_obj->data_size);
 
@@ -456,6 +463,7 @@ vk_pipeline_cache_add_nir(struct vk_pipeline_cache *cache,
 
    struct raw_data_object *data_obj =
       raw_data_object_create(cache->base.device,
+                             VK_PIPELINE_CACHE_OBJECT_TYPE_NIR,
                              key_data, key_size,
                              blob.data, blob.size);
    blob_finish(&blob);
@@ -465,9 +473,25 @@ vk_pipeline_cache_add_nir(struct vk_pipeline_cache *cache,
    vk_pipeline_cache_object_unref(cached);
 }
 
+static const struct vk_pipeline_cache_object_ops *
+find_ops_for_type(enum vk_pipeline_cache_object_type type,
+                  const struct vk_pipeline_cache_object_ops *const *ops)
+{
+   for (; (*ops) != NULL; ops++) {
+      /* This type is reserved for vk_pipeline_cache internals */
+      assert((*ops)->type != VK_PIPELINE_CACHE_OBJECT_TYPE_RAW_DATA);
+
+      if ((*ops)->type == type)
+         return *ops;
+   }
+
+   return NULL;
+}
+
 static void
 vk_pipeline_cache_load(struct vk_pipeline_cache *cache,
-                       const void *data, size_t size)
+                       const void *data, size_t size,
+                       const struct vk_pipeline_cache_object_ops *const *import_ops)
 {
    struct blob_reader blob;
    blob_reader_init(&blob, data, size);
@@ -482,6 +506,7 @@ vk_pipeline_cache_load(struct vk_pipeline_cache *cache,
       return;
 
    for (uint32_t i = 0; i < count; i++) {
+      enum vk_pipeline_cache_object_type type = blob_read_uint32(&blob);
       uint32_t key_size = blob_read_uint32(&blob);
       uint32_t data_size = blob_read_uint32(&blob);
       const void *key_data = blob_read_bytes(&blob, key_size);
@@ -490,30 +515,40 @@ vk_pipeline_cache_load(struct vk_pipeline_cache *cache,
       if (blob.overrun)
          break;
 
-      struct raw_data_object *data_obj =
-         raw_data_object_create(cache->base.device, key_data, key_size,
-                                data, data_size);
-      if (data_obj) {
-         struct vk_pipeline_cache_object *cached =
-            vk_pipeline_cache_add_object(cache, &data_obj->base);
-         vk_pipeline_cache_object_unref(cached);
+      struct vk_pipeline_cache_object *object;
+      const struct vk_pipeline_cache_object_ops *ops =
+         find_ops_for_type(type, import_ops);
+      if (ops != NULL) {
+         object = vk_pipeline_cache_object_deserialize(cache,
+                                                       key_data, key_size,
+                                                       data, data_size, ops);
+      } else {
+         struct raw_data_object *data_obj =
+            raw_data_object_create(cache->base.device, type,
+                                   key_data, key_size,
+                                   data, data_size);
+         object = data_obj != NULL ? &data_obj->base : NULL;
       }
+      if (object == NULL)
+         continue;
+
+      object = vk_pipeline_cache_add_object(cache, object);
+      vk_pipeline_cache_object_unref(object);
    }
 }
 
 struct vk_pipeline_cache *
 vk_pipeline_cache_create(struct vk_device *device,
-                         const VkPipelineCacheCreateInfo *pCreateInfo,
-                         const VkAllocationCallbacks *pAllocator,
-                         bool force_enable)
+                         const struct vk_pipeline_cache_create_info *info,
+                         const VkAllocationCallbacks *pAllocator)
 {
    static const struct VkPipelineCacheCreateInfo default_create_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
    };
    struct vk_pipeline_cache *cache;
 
-   if (pCreateInfo == NULL)
-      pCreateInfo = &default_create_info;
+   const struct VkPipelineCacheCreateInfo *pCreateInfo =
+      info->pCreateInfo != NULL ? info->pCreateInfo : &default_create_info;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
    assert(pCreateInfo->flags == 0);
@@ -539,14 +574,16 @@ vk_pipeline_cache_create(struct vk_device *device,
 
    simple_mtx_init(&cache->lock, mtx_plain);
 
-   if (force_enable || env_var_as_boolean("VK_ENABLE_PIPELINE_CACHE", true)) {
+   if (info->force_enable ||
+       env_var_as_boolean("VK_ENABLE_PIPELINE_CACHE", true)) {
       cache->object_cache = _mesa_set_create(NULL, object_key_hash,
                                              object_keys_equal);
    }
 
    if (cache->object_cache && pCreateInfo->initialDataSize > 0) {
       vk_pipeline_cache_load(cache, pCreateInfo->pInitialData,
-                             pCreateInfo->initialDataSize);
+                             pCreateInfo->initialDataSize,
+                             info->import_ops);
    }
 
    return cache;
@@ -577,7 +614,10 @@ vk_common_CreatePipelineCache(VkDevice _device,
    VK_FROM_HANDLE(vk_device, device, _device);
    struct vk_pipeline_cache *cache;
 
-   cache = vk_pipeline_cache_create(device, pCreateInfo, pAllocator, false);
+   struct vk_pipeline_cache_create_info info = {
+      .pCreateInfo = pCreateInfo,
+   };
+   cache = vk_pipeline_cache_create(device, &info, pAllocator);
    if (cache == NULL)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
@@ -637,6 +677,7 @@ vk_common_GetPipelineCacheData(VkDevice device,
 
          size_t blob_size_save = blob.size;
 
+         blob_write_uint32(&blob, object->ops->type);
          blob_write_uint32(&blob, object->key_size);
          intptr_t data_size_resv = blob_reserve_uint32(&blob);
          blob_write_bytes(&blob, object->key_data, object->key_size);
