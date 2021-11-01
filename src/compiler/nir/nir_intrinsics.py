@@ -515,9 +515,15 @@ intrinsic("rt_trace_ray", src_comp=[-1, 1, 1, 1, 1, 1, 3, 1, 3, 1, -1],
 
 # Atomic counters
 #
-# The *_var variants take an atomic_uint nir_variable, while the other,
-# lowered, variants take a constant buffer index and register offset.
-
+# The *_deref variants take an atomic_uint nir_variable, while the other,
+# lowered, variants take a buffer index and register offset.  The buffer index
+# is always constant, as there's no way to declare an array of atomic counter
+# buffers.
+#
+# The register offset may be non-constant but must by dynamically uniform
+# ("Atomic counters aggregated into arrays within a shader can only be indexed
+# with dynamically uniform integral expressions, otherwise results are
+# undefined.")
 def atomic(name, flags=[]):
     intrinsic(name + "_deref", src_comp=[-1], dest_comp=1, flags=flags)
     intrinsic(name, src_comp=[1], dest_comp=1, indices=[BASE], flags=flags)
@@ -551,7 +557,9 @@ atomic3("atomic_counter_comp_swap")
 # In the first version, the image variable contains the memory and layout
 # qualifiers that influence the semantics of the intrinsic.  In the second and
 # third, the image format and access qualifiers are provided as constant
-# indices.
+# indices.  Up through GLSL ES 3.20, the image index source may not be a
+# non-constant array access.  Desktop GLSL does allow dynamic indexing
+# (including non-uniform access).
 #
 # All image intrinsics take a four-coordinate vector and a sample index as
 # 2nd and 3rd sources, determining the location within the image that will be
@@ -636,7 +644,7 @@ intrinsic("load_vulkan_descriptor", src_comp=[-1], dest_comp=0,
 # All SSBO operations take 3 sources except CompSwap that takes 4. These
 # sources represent:
 #
-# 0: The SSBO buffer index.
+# 0: The SSBO buffer index (dynamically uniform on desktop GLSL, XXX: need a GLSL ES citation).
 # 1: The offset into the SSBO buffer of the variable that the atomic
 #    operation will operate on.
 # 2: The data parameter to the atomic function (i.e. the value to add

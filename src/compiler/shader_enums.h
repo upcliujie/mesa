@@ -891,7 +891,20 @@ enum gl_access_qualifier
    /* The memory used by the access/variable is not written. */
    ACCESS_NON_WRITEABLE = (1 << 4),
 
-   /** The access may use a non-uniform buffer or image index */
+   /**
+    * The access may use a non-uniform buffer or image index
+    *
+    * Up to GLSL ES 3.20, this should not be set on images (XXX: what about buffers?), because
+    * "Opaque Types" says "When aggregated into arrays within a shader, opaque
+    * types can only be indexed with a dynamically uniform integral expression
+    * (see section 3.9.3) unless otherwise noted; otherwise, results are
+    * undefined."  Non-uniform access is allowed in GL_ARB_shader_image_load_store
+    * ("Images may be aggregated into arrays within a shader (using square
+    * brackets [ ]) and can be indexed with general integer expressions.").  This
+    * may not be set on desktop GL_ARB_shader_storage_buffer_objects ("A
+    * uniform or shader storage block array can only be indexed with a
+    * dynamically uniform integral expression, otherwise results are undefined").
+    */
    ACCESS_NON_UNIFORM   = (1 << 5),
 
    /* This has the same semantics as NIR_INTRINSIC_CAN_REORDER, only to be
