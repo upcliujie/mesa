@@ -469,10 +469,15 @@ prepare_shader_images(
          if (!img)
             continue;
 
-         unsigned width = u_minify(img->width0, view->u.tex.level);
-         unsigned height = u_minify(img->height0, view->u.tex.level);
+         unsigned width = img->width0;
+         unsigned height = img->height0;
          unsigned num_layers = img->depth0;
          unsigned num_samples = img->nr_samples;
+
+         width /= util_format_get_blockwidth(view->resource->format);
+         height /= util_format_get_blockheight(view->resource->format);
+         width = u_minify(width, view->u.tex.level);
+         height = u_minify(height, view->u.tex.level);
 
          if (!lp_img->dt) {
             /* regular texture - setup array of mipmap level offsets */
