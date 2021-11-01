@@ -44,6 +44,11 @@ struct raw_data_object {
    size_t data_size;
 };
 
+static struct raw_data_object *
+raw_data_object_create(struct vk_device *device,
+                       const void *key_data, size_t key_size,
+                       const void *data, size_t data_size);
+
 static bool
 raw_data_object_serialize(struct vk_pipeline_cache_object *object,
                           struct blob *blob)
@@ -56,6 +61,23 @@ raw_data_object_serialize(struct vk_pipeline_cache_object *object,
    return true;
 }
 
+static struct vk_pipeline_cache_object *
+raw_data_object_deserialize(struct vk_device *device,
+                            const void *key_data,
+                            size_t key_size,
+                            struct blob_reader *blob)
+{
+   /* This assumes that we always read the whole blob */
+   assert(blob->data <= blob->end);
+   size_t data_size = blob->data - blob->end;
+
+   struct raw_data_object *obj =
+      raw_data_object_create(device, key_data, key_size,
+                             blob_read_bytes(blob, data_size), data_size);
+
+   return obj != NULL ? &obj->base : NULL;
+}
+
 static void
 raw_data_object_destroy(struct vk_pipeline_cache_object *object)
 {
@@ -66,7 +88,9 @@ raw_data_object_destroy(struct vk_pipeline_cache_object *object)
 }
 
 static const struct vk_pipeline_cache_object_ops raw_data_object_ops = {
+   .type = VK_PIPELINE_CACHE_OBJECT_TYPE_RAW_DATA,
    .serialize = raw_data_object_serialize,
+   .deserialize = raw_data_object_deserialize,
    .destroy = raw_data_object_destroy,
 };
 
@@ -464,9 +488,29 @@ vk_pipeline_cache_add_nir(struct vk_pipeline_cache *cache,
    vk_pipeline_cache_object_unref(cached);
 }
 
+static const struct vk_pipeline_cache_object_ops *
+find_ops(enum vk_pipeline_cache_object_type type,
+         const struct vk_pipeline_cache_object_ops *const *import_ops)
+{
+   for (const struct vk_pipeline_cache_object_ops *const *ops = import_ops;
+        (*ops) != NULL; ops++) {
+      /* This type is reserved for vk_pipeline_cache internals */
+      assert((*ops)->type != VK_PIPELINE_CACHE_OBJECT_TYPE_RAW_DATA);
+
+      if ((*ops)->type == type)
+         return *ops;
+   }
+
+   /* If we don't know what it is, fall back to a raw data blob and we'll try
+    * go figure it out the first time it's fetched from the cache.
+    */
+   return &raw_data_object_ops;
+}
+
 static void
 vk_pipeline_cache_load(struct vk_pipeline_cache *cache,
-                       const void *data, size_t size)
+                       const void *data, size_t size,
+                       const struct vk_pipeline_cache_object_ops *const *import_ops)
 {
    struct blob_reader blob;
    blob_reader_init(&blob, data, size);
@@ -481,6 +525,7 @@ vk_pipeline_cache_load(struct vk_pipeline_cache *cache,
       return;
 
    for (uint32_t i = 0; i < count; i++) {
+      enum vk_pipeline_cache_object_type type = blob_read_uint32(&blob);
       uint32_t key_size = blob_read_uint32(&blob);
       uint32_t data_size = blob_read_uint32(&blob);
       const void *key_data = blob_read_bytes(&blob, key_size);
@@ -489,30 +534,31 @@ vk_pipeline_cache_load(struct vk_pipeline_cache *cache,
       if (blob.overrun)
          break;
 
-      struct raw_data_object *data_obj =
-         raw_data_object_create(cache->base.device, key_data, key_size,
-                                data, data_size);
-      if (data_obj) {
-         struct vk_pipeline_cache_object *cached =
-            vk_pipeline_cache_add_object(cache, &data_obj->base);
-         vk_pipeline_cache_object_unref(cached);
-      }
+      struct vk_pipeline_cache_object *object =
+         vk_pipeline_cache_object_deserialize(cache,
+                                              key_data, key_size,
+                                              data, data_size,
+                                              find_ops(type, import_ops));
+      if (object == NULL)
+         continue;
+
+      object = vk_pipeline_cache_add_object(cache, object);
+      vk_pipeline_cache_object_unref(object);
    }
 }
 
 struct vk_pipeline_cache *
 vk_pipeline_cache_create(struct vk_device *device,
-                         const VkPipelineCacheCreateInfo *pCreateInfo,
-                         const VkAllocationCallbacks *pAllocator,
-                         bool force_enable)
+                         const struct vk_pipeline_cache_create_info *info,
+                         const VkAllocationCallbacks *pAllocator)
 {
    static const struct VkPipelineCacheCreateInfo default_create_info = {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
    };
    struct vk_pipeline_cache *cache;
 
-   if (pCreateInfo == NULL)
-      pCreateInfo = &default_create_info;
+   const struct VkPipelineCacheCreateInfo *pCreateInfo =
+      info->pCreateInfo != NULL ? info->pCreateInfo : &default_create_info;
 
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO);
    assert(pCreateInfo->flags == 0);
@@ -538,14 +584,16 @@ vk_pipeline_cache_create(struct vk_device *device,
 
    simple_mtx_init(&cache->lock, mtx_plain);
 
-   if (force_enable || env_var_as_boolean("VK_ENABLE_PIPELINE_CACHE", true)) {
+   if (info->force_enable ||
+       env_var_as_boolean("VK_ENABLE_PIPELINE_CACHE", true)) {
       cache->object_cache = _mesa_set_create(NULL, object_key_hash,
                                              object_keys_equal);
    }
 
    if (cache->object_cache && pCreateInfo->initialDataSize > 0) {
       vk_pipeline_cache_load(cache, pCreateInfo->pInitialData,
-                             pCreateInfo->initialDataSize);
+                             pCreateInfo->initialDataSize,
+                             info->import_ops);
    }
 
    return cache;
@@ -576,7 +624,10 @@ vk_common_CreatePipelineCache(VkDevice _device,
    VK_FROM_HANDLE(vk_device, device, _device);
    struct vk_pipeline_cache *cache;
 
-   cache = vk_pipeline_cache_create(device, pCreateInfo, pAllocator, false);
+   struct vk_pipeline_cache_create_info info = {
+      .pCreateInfo = pCreateInfo,
+   };
+   cache = vk_pipeline_cache_create(device, &info, pAllocator);
    if (cache == NULL)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
