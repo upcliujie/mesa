@@ -194,8 +194,6 @@ spec@arb_texture_float@fbo-clear-formats@GL_INTENSITY16F_ARB,Fail
 spec@arb_texture_float@fbo-generatemipmap-formats,Fail
 spec@arb_texture_float@fbo-generatemipmap-formats@GL_INTENSITY16F_ARB,Fail
 spec@arb_texture_float@fbo-generatemipmap-formats@GL_INTENSITY16F_ARB NPOT,Fail
-spec@arb_texture_float@multisample-formats 2 gl_arb_texture_float,Crash
-spec@arb_texture_float@multisample-formats 4 gl_arb_texture_float,Crash
 spec@arb_texture_float@texwrap formats bordercolor,Fail
 spec@arb_texture_float@texwrap formats bordercolor@GL_ALPHA16F_ARB- border color only,Fail
 spec@arb_texture_float@texwrap formats bordercolor@GL_ALPHA32F_ARB- border color only,Fail
@@ -409,7 +407,6 @@ spec@arb_uniform_buffer_object@rendering,Fail
 spec@arb_uniform_buffer_object@rendering-offset,Fail
 spec@arb_vertex_program@clip-plane-transformation arb,Fail
 spec@egl 1.4@egl-copy-buffers,Crash
-spec@egl 1.4@egl-ext_egl_image_storage,Crash
 spec@egl 1.4@eglterminate then unbind context,Fail
 spec@egl_chromium_sync_control@conformance@eglGetSyncValuesCHROMIUM_msc_and_sbc_test,Fail
 spec@egl_chromium_sync_control@conformance,Fail
@@ -438,8 +435,6 @@ spec@ext_framebuffer_multisample@sample-alpha-to-coverage 2 depth,Fail
 spec@ext_framebuffer_multisample@sample-alpha-to-coverage 4 depth,Fail
 spec@ext_framebuffer_multisample@sample-alpha-to-one 2,Fail
 spec@ext_framebuffer_multisample@sample-alpha-to-one 4,Fail
-spec@ext_framebuffer_multisample@unaligned-blit 2 color upsample,Fail
-spec@ext_framebuffer_multisample@unaligned-blit 4 color upsample,Fail
 spec@ext_framebuffer_object@fbo-alphatest-formats,Fail
 spec@ext_framebuffer_object@fbo-alphatest-formats@GL_INTENSITY4,Fail
 spec@ext_framebuffer_object@fbo-alphatest-formats@GL_INTENSITY8,Fail
@@ -540,12 +535,6 @@ spec@ext_texture_array@copyteximage 1d_array samples=4,Fail
 spec@ext_texture_array@fbo-generatemipmap-array,Fail
 spec@ext_texture_array@fbo-generatemipmap-array rgb9_e5,Fail
 spec@ext_texture_array@texsubimage array,Fail
-spec@ext_texture_compression_rgtc@compressedteximage gl_compressed_red_green_rgtc2_ext,Crash
-spec@ext_texture_compression_rgtc@compressedteximage gl_compressed_red_rgtc1_ext,Crash
-spec@ext_texture_compression_rgtc@compressedteximage gl_compressed_signed_red_green_rgtc2_ext,Crash
-spec@ext_texture_compression_rgtc@compressedteximage gl_compressed_signed_red_rgtc1_ext,Crash
-spec@ext_texture_compression_rgtc@fbo-generatemipmap-formats,Crash
-spec@ext_texture_compression_rgtc@fbo-generatemipmap-formats-signed,Crash
 spec@ext_texture_compression_rgtc@rgtc-teximage-01,Fail
 spec@ext_texture_compression_rgtc@rgtc-teximage-02,Fail
 spec@ext_texture_compression_rgtc@texwrap formats bordercolor,Fail
@@ -946,6 +935,7 @@ spec@nv_copy_image@nv_copy_image-formats@Source: GL_COMPRESSED_SRGB_ALPHA_S3TC_D
 spec@nv_copy_image@nv_copy_image-formats@Source: GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT/Destination: GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,Fail
 spec@nv_copy_image@nv_copy_image-formats@Source: GL_COMPRESSED_SRGB_S3TC_DXT1_EXT/Destination: GL_COMPRESSED_SRGB_S3TC_DXT1_EXT,Fail
 spec@oes_egl_image_external_essl3@oes_egl_image_external_essl3,Crash
+spec@oes_point_sprite@arb_point_sprite-checkerboard_gles1,Fail
 spec@oes_texture_view@sampling-2d-array-as-cubemap,Crash
 spec@!opengl 1.0@gl-1.0-edgeflag-const,Fail
 spec@!opengl 1.0@gl-1.0-edgeflag,Fail
