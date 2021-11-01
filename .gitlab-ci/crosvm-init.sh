@@ -15,8 +15,11 @@ mount -t tmpfs tmpfs /tmp
 
 cd $PWD
 
+echo "stderr before deqp-gles" >> $DEQP_TEMP_DIR/stderr
+echo "stdout before deqp-gles" >> $DEQP_TEMP_DIR/stdout
+
 set +e
-sh $DEQP_TEMP_DIR/crosvm-script.sh > $DEQP_TEMP_DIR/stdout 2> $DEQP_TEMP_DIR/stderr
+sh $DEQP_TEMP_DIR/crosvm-script.sh >> $DEQP_TEMP_DIR/stdout 2>> $DEQP_TEMP_DIR/stderr
 echo $? > $DEQP_TEMP_DIR/exit_code
 set -e
 
