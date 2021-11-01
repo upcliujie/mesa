@@ -1877,12 +1877,22 @@ radv_get_physical_device_properties_1_2(struct radv_physical_device *pdevice,
    snprintf(p->driverName, VK_MAX_DRIVER_NAME_SIZE, "radv");
    snprintf(p->driverInfo, VK_MAX_DRIVER_INFO_SIZE, "Mesa " PACKAGE_VERSION MESA_GIT_SHA1 "%s",
             radv_get_compiler_string(pdevice));
-   p->conformanceVersion = (VkConformanceVersion){
-      .major = 1,
-      .minor = 2,
-      .subminor = 3,
-      .patch = 0,
-   };
+
+   if (pdevice->rad_info.chip_class >= GFX8 && pdevice->rad_info.chip_class <= GFX10) {
+      p->conformanceVersion = (VkConformanceVersion){
+         .major = 1,
+         .minor = 2,
+         .subminor = 3,
+         .patch = 0,
+      };
+   } else {
+      p->conformanceVersion = (VkConformanceVersion){
+         .major = 0,
+         .minor = 0,
+         .subminor = 0,
+         .patch = 0,
+      };
+   }
 
    /* On AMD hardware, denormals and rounding modes for fp16/fp64 are
     * controlled by the same config register.
