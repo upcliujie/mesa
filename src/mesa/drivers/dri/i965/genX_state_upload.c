@@ -4061,10 +4061,9 @@ genX(upload_ps)(struct brw_context *brw)
        *
        * In Gfx8 the format is U8-2 whereas in Gfx9+ it is U9-1.
        */
-#if GFX_VER >= 9
-      ps.MaximumNumberofThreadsPerPSD = 64 - 1;
-#elif GFX_VER >= 8
-      ps.MaximumNumberofThreadsPerPSD = 64 - 2;
+#if GFX_VER >= 8
+      ps.MaximumNumberofThreadsPerPSD =
+         devinfo->max_threads_per_psd - (GFX_VER == 8 ? 2 : 1);
 #else
       ps.MaximumNumberofThreads = devinfo->max_wm_threads - 1;
 #endif
