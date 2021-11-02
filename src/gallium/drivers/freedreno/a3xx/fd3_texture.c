@@ -149,7 +149,7 @@ static struct pipe_sampler_view *
 fd3_sampler_view_create(struct pipe_context *pctx, struct pipe_resource *prsc,
                         const struct pipe_sampler_view *cso)
 {
-   struct fd3_pipe_sampler_view *so = CALLOC_STRUCT(fd3_pipe_sampler_view);
+   struct fd3_pipe_sampler_view *so = CALLOC_STRUCT_CL(fd3_pipe_sampler_view);
    struct fd_resource *rsc = fd_resource(prsc);
    unsigned lvl;
 

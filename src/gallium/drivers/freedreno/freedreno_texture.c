@@ -45,7 +45,7 @@ fd_sampler_view_destroy(struct pipe_context *pctx,
                         struct pipe_sampler_view *view)
 {
    pipe_resource_reference(&view->texture, NULL);
-   FREE(view);
+   FREE_CL(view);
 }
 
 static void
