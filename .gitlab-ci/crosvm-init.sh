@@ -16,7 +16,7 @@ mount -t tmpfs tmpfs /tmp
 cd $PWD
 
 set +e
-sh $DEQP_TEMP_DIR/crosvm-script.sh
+stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh
 echo $? > $DEQP_TEMP_DIR/exit_code
 set -e
 

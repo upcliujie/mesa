@@ -31,7 +31,7 @@ unset XDG_RUNTIME_DIR
 ) 9>/var/lock/crosvm_lock
 
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
-NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" crosvm run \
+NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" stdbuf -oL crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
   -m 4096 \
   -c 2 \
