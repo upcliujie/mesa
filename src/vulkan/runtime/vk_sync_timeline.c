@@ -82,7 +82,7 @@ vk_sync_timeline_init(struct vk_device *device,
    return VK_SUCCESS;
 }
 
-void
+static void
 vk_sync_timeline_finish(struct vk_device *device,
                         struct vk_sync *sync)
 {
@@ -388,7 +388,7 @@ vk_sync_timeline_signal_locked(struct vk_device *device,
    return VK_SUCCESS;
 }
 
-VkResult
+static VkResult
 vk_sync_timeline_signal(struct vk_device *device,
                         struct vk_sync *sync,
                         uint64_t value)
@@ -402,7 +402,7 @@ vk_sync_timeline_signal(struct vk_device *device,
    return result;
 }
 
-VkResult
+static VkResult
 vk_sync_timeline_get_value(struct vk_device *device,
                            struct vk_sync *sync,
                            uint64_t *value)
@@ -527,7 +527,7 @@ vk_sync_timeline_wait_locked(struct vk_device *device,
    return VK_SUCCESS;
 }
 
-VkResult
+static VkResult
 vk_sync_timeline_wait(struct vk_device *device,
                       struct vk_sync *sync,
                       uint64_t wait_value,
@@ -543,4 +543,26 @@ vk_sync_timeline_wait(struct vk_device *device,
    mtx_unlock(&timeline->mutex);
 
    return result;
+}
+
+struct vk_sync_timeline_type
+vk_sync_timeline_get_type(const struct vk_sync_type *point_sync_type)
+{
+   return (struct vk_sync_timeline_type) {
+      .sync = {
+         .size = sizeof(struct vk_sync_timeline),
+         .features = VK_SYNC_FEATURE_TIMELINE |
+                     VK_SYNC_FEATURE_GPU_WAIT |
+                     VK_SYNC_FEATURE_CPU_WAIT |
+                     VK_SYNC_FEATURE_CPU_SIGNAL |
+                     VK_SYNC_FEATURE_WAIT_ANY |
+                     VK_SYNC_FEATURE_WAIT_PENDING,
+         .init = vk_sync_timeline_init,
+         .finish = vk_sync_timeline_finish,
+         .signal = vk_sync_timeline_signal,
+         .get_value = vk_sync_timeline_get_value,
+         .wait = vk_sync_timeline_wait,
+      },
+      .point_sync_type = point_sync_type,
+   };
 }
