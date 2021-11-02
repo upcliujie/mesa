@@ -77,7 +77,6 @@
 #include "vk_util.h"
 #include "vk_command_buffer.h"
 #include "vk_queue.h"
-#include "vk_sync.h"
 #include "vk_log.h"
 
 /* Pre-declarations needed for WSI entrypoints */
@@ -981,6 +980,7 @@ struct anv_physical_device {
     uint8_t                                     driver_uuid[VK_UUID_SIZE];
     uint8_t                                     device_uuid[VK_UUID_SIZE];
 
+    struct vk_sync_timeline_type                sync_timeline_type;
     const struct vk_sync_type *                 sync_types[4];
 
     struct disk_cache *                         disk_cache;
@@ -3202,7 +3202,6 @@ struct anv_bo_sync {
 };
 
 extern const struct vk_sync_type anv_bo_sync_type;
-extern const struct vk_sync_timeline_type anv_bo_timeline_type;
 
 VkResult anv_sync_create_for_bo(struct anv_device *device,
                                 struct anv_bo *bo,
