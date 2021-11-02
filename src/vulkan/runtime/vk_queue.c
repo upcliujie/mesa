@@ -352,10 +352,10 @@ vk_queue_flush(struct vk_queue *queue, uint32_t *submit_count_out)
             continue;
          }
 
-         result = vk_sync_timeline_wait(queue->base.device,
-                                        submit->waits[i].sync,
-                                        submit->waits[i].wait_value,
-                                        VK_SYNC_WAIT_PENDING, 0);
+         result = vk_sync_wait(queue->base.device,
+                               submit->waits[i].sync,
+                               submit->waits[i].wait_value,
+                               VK_SYNC_WAIT_PENDING, 0);
          if (result == VK_TIMEOUT) {
             /* This one's not ready yet */
             result = VK_SUCCESS;
