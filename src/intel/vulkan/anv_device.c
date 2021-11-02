@@ -918,7 +918,8 @@ anv_physical_device_try_create(struct anv_instance *instance,
    if (device->has_syncobj_wait_available && device->has_exec_timeline) {
       device->sync_types[st_idx++] = &vk_drm_timeline_syncobj_type;
    } else {
-      device->sync_types[st_idx++] = &anv_bo_timeline_type.sync;
+      device->sync_timeline_type = vk_sync_timeline_get_type(&anv_bo_sync_type);
+      device->sync_types[st_idx++] = &device->sync_timeline_type.sync;
    }
    device->sync_types[st_idx++] = NULL;
    assert(st_idx <= ARRAY_SIZE(device->sync_types));
