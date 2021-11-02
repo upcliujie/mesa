@@ -502,8 +502,7 @@ endif
 # Android uses emutls for versions <= P/28. For USE_ELF_TLS we need ELF TLS.
 use_elf_tls = false
 if (not ['freebsd', 'openbsd', 'haiku'].contains(host_machine.system()) and
-    (not with_platform_android or get_option('platform-sdk-version') >= 29) and
-    (not with_platform_windows or not with_shared_glapi))
+    (not with_platform_android or get_option('platform-sdk-version') >= 29))
   pre_args += '-DUSE_ELF_TLS'
   use_elf_tls = true
 
@@ -513,6 +512,13 @@ if (not ['freebsd', 'openbsd', 'haiku'].contains(host_machine.system()) and
     # ELF TLS instead.
     c_args += '-fno-emulated-tls'
     cpp_args += '-fno-emulated-tls'
+  endif
+  if with_platform_windows and with_shared_glapi
+    # Windows doesn't support DLL exports/imports being TLS variables. When using shared
+    # glapi, libglapi.dll hosts the TLS, but other DLLs need to use them. Instead of falling
+    # all the way back to using globals and manual per-thread data, keep using TLS but just
+    # put accesses to it behind a function so the variable doesn't need to be exported.
+    pre_args += '-DUSE_TLS_BEHIND_FUNCTIONS'
   endif
 endif
 
