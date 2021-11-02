@@ -239,6 +239,7 @@ vir_opt_copy_propagate(struct v3d_compile *c)
                 memset(movs, 0, sizeof(struct qinst *) * c->num_temps);
 
                 vir_for_each_inst(inst, block) {
+                        c->cur_block = block;
                         progress = try_copy_prop(c, inst, movs) || progress;
 
                         apply_kills(c, movs, inst);
