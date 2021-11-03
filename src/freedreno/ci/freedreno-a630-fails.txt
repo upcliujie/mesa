@@ -11,9 +11,6 @@ KHR-GL33.transform_feedback.draw_xfb_stream_instanced_test,Crash
 KHR-GL33.transform_feedback.query_vertex_interleaved_test,Fail
 KHR-GL33.transform_feedback.query_vertex_separate_test,Fail
 
-# "*** Color comparison failed"
-KHR-GLES3.packed_depth_stencil.verify_read_pixels.depth24_stencil8,Fail
-
 # Lots of errors like "[279] Check failed. Received: [3,0,0,2] instead of: [5,0,0,2]"
 KHR-GLES31.core.geometry_shader.layered_framebuffer.depth_support,Fail
 
