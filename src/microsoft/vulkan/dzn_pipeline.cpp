@@ -369,7 +369,7 @@ dzn_graphics_pipeline::translate_rast(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
       scissor.count = in_vp->scissorCount;
       if (in_vp->pScissors) {
          for (uint32_t i = 0; i < in_vp->scissorCount; i++)
-            dzn_translate_scissor(&scissor.desc[i], &in_vp->pScissors[i]);
+            dzn_translate_rect(&scissor.desc[i], &in_vp->pScissors[i]);
       }
    }
 

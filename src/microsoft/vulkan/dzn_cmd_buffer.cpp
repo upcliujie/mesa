@@ -1161,7 +1161,7 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
    for (uint32_t i = 0; i < scissorCount; i++)
-      dzn_translate_scissor(&cmd_buffer->state.scissors[i + firstScissor], &pScissors[i]);
+      dzn_translate_rect(&cmd_buffer->state.scissors[i + firstScissor], &pScissors[i]);
 
    if (scissorCount)
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;

@@ -220,8 +220,8 @@ dzn_translate_viewport(D3D12_VIEWPORT *out,
 }
 
 void
-dzn_translate_scissor(D3D12_RECT *out,
-                      const VkRect2D *in)
+dzn_translate_rect(D3D12_RECT *out,
+                   const VkRect2D *in)
 {
    out->left = in->offset.x;
    out->top = in->offset.y;
