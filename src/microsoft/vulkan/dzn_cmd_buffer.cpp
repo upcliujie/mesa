@@ -879,6 +879,73 @@ dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
    }
 }
 
+void
+dzn_cmd_buffer::clear_attachment(uint32_t idx,
+                                 const VkClearValue *pClearValue,
+                                 VkImageAspectFlags aspectMask,
+                                 uint32_t rectCount,
+                                 D3D12_RECT *rects)
+{
+   if (idx == VK_ATTACHMENT_UNUSED)
+      return;
+
+   dzn_image_view *view = state.framebuffer->attachments[idx];
+   dzn_batch *batch = get_batch();
+
+   if (vk_format_is_depth_or_stencil(view->vk_format)) {
+      D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
+
+      if (aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT)
+         flags |= D3D12_CLEAR_FLAG_DEPTH;
+      if (aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)
+         flags |= D3D12_CLEAR_FLAG_STENCIL;
+
+      if (flags != 0)
+         batch->cmdlist->ClearDepthStencilView(view->zs_handle.cpu_handle,
+                                                flags,
+                                                pClearValue->depthStencil.depth,
+                                                pClearValue->depthStencil.stencil,
+                                                rectCount, rects);
+   } else if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
+      batch->cmdlist->ClearRenderTargetView(view->rt_handle.cpu_handle,
+                                             pClearValue->color.float32,
+                                             rectCount, rects);
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
+                        uint32_t attachmentCount,
+                        const VkClearAttachment *pAttachments,
+                        uint32_t rectCount,
+                        const VkClearRect *pRects)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   struct dzn_render_pass *pass = cmd_buffer->state.pass;
+   const struct dzn_subpass *subpass = &pass->subpasses[cmd_buffer->state.subpass];
+   dzn_batch *batch = cmd_buffer->get_batch();
+
+   auto rects_elems =
+      dzn_transient_zalloc<D3D12_RECT>(rectCount, &cmd_buffer->device->vk.alloc);
+   D3D12_RECT *rects = rects_elems.get();
+   for (unsigned i = 0; i < rectCount; i++) {
+      assert(pRects[i].baseArrayLayer == 0 && pRects[i].layerCount == 1);
+      dzn_translate_rect(&rects[i], &pRects[i].rect);
+   }
+
+   for (unsigned i = 0; i < attachmentCount; i++) {
+      uint32_t idx;
+      if (pAttachments[i].aspectMask & VK_IMAGE_ASPECT_COLOR_BIT)
+         idx = subpass->colors[pAttachments[i].colorAttachment].idx;
+      else
+         idx = subpass->zs.idx;
+
+      cmd_buffer->clear_attachment(idx, &pAttachments[i].clearValue,
+                                   pAttachments[i].aspectMask,
+                                   rectCount, rects);
+   }
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
                         const VkRenderPassBeginInfo *pRenderPassBeginInfo,
@@ -943,25 +1010,12 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
 
    assert(pRenderPassBeginInfo->clearValueCount <= framebuffer->attachment_count);
    for (int i = 0; i < pRenderPassBeginInfo->clearValueCount; ++i) {
-      if (vk_format_is_depth_or_stencil(framebuffer->attachments[i]->vk_format)) {
-         D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
-
-         if (pass->attachments[i].clear.depth)
-            flags |= D3D12_CLEAR_FLAG_DEPTH;
-         if (pass->attachments[i].clear.stencil)
-            flags |= D3D12_CLEAR_FLAG_STENCIL;
-
-         if (flags != 0)
-            batch->cmdlist->ClearDepthStencilView(framebuffer->attachments[i]->zs_handle.cpu_handle,
-                                                  flags,
-                                                  pRenderPassBeginInfo->pClearValues[i].depthStencil.depth,
-                                                  pRenderPassBeginInfo->pClearValues[i].depthStencil.stencil,
-                                                  1, &rect);
-      } else if (pass->attachments[i].clear.color) {
-         batch->cmdlist->ClearRenderTargetView(framebuffer->attachments[i]->rt_handle.cpu_handle,
-                                               pRenderPassBeginInfo->pClearValues[i].color.float32,
-                                               1, &rect);
-      }
+      VkImageAspectFlags aspectMask =
+         (pass->attachments[i].clear.color ? VK_IMAGE_ASPECT_COLOR_BIT : 0) |
+         (pass->attachments[i].clear.depth ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) |
+         (pass->attachments[i].clear.stencil ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
+      cmd_buffer->clear_attachment(i, &pRenderPassBeginInfo->pClearValues[i],
+                                   aspectMask, 1, &rect);
    }
 }
 

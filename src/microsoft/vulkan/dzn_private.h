@@ -479,6 +479,11 @@ struct dzn_cmd_buffer {
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
 
+   void clear_attachment(uint32_t idx,
+                         const VkClearValue *pClearValue,
+                         VkImageAspectFlags aspectMask,
+                         uint32_t rectCount,
+                         D3D12_RECT *rects);
    void draw(uint32_t vertex_count,
              uint32_t instance_count,
              uint32_t first_vertex,
