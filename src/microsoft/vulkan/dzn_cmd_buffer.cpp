@@ -136,6 +136,9 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
 
    rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
+   pool = d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
+   dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
+
    if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       type = D3D12_COMMAND_LIST_TYPE_DIRECT;
    else
@@ -787,6 +790,91 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
                                              handle.cpu_handle);
          batch->cmdlist->ClearRenderTargetView(handle.cpu_handle,
                                                pColor->float32, 0, NULL);
+      }
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
+                             VkImage image,
+                             VkImageLayout imageLayout,
+                             const VkClearDepthStencilValue *pDepthStencil,
+                             uint32_t rangeCount,
+                             const VkImageSubresourceRange *pRanges)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   dzn_batch *batch = cmd_buffer->get_batch();
+   dzn_device *device = cmd_buffer->device;
+   VK_FROM_HANDLE(dzn_image, img, image);
+   D3D12_DEPTH_STENCIL_VIEW_DESC desc = {
+      .Format = dzn_get_dsv_format(img->vk.format),
+   };
+
+   switch (img->vk.image_type) {
+   case VK_IMAGE_TYPE_1D:
+      desc.ViewDimension =
+         img->vk.array_layers > 1 ?
+         D3D12_DSV_DIMENSION_TEXTURE1DARRAY : D3D12_DSV_DIMENSION_TEXTURE1D;
+      break;
+   case VK_IMAGE_TYPE_2D:
+      if (img->vk.array_layers > 1) {
+         desc.ViewDimension =
+            img->vk.samples > 1 ?
+            D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY :
+            D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+      } else {
+         desc.ViewDimension =
+            img->vk.samples > 1 ?
+            D3D12_DSV_DIMENSION_TEXTURE2DMS :
+            D3D12_DSV_DIMENSION_TEXTURE2D;
+      }
+      break;
+   default:
+      unreachable("Invalid image type\n");
+   }
+
+   for (uint32_t r = 0; r < rangeCount; r++) {
+      const VkImageSubresourceRange *range = &pRanges[r];
+      D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
+
+      for (uint32_t l = 0; l < range->levelCount; l++) {
+         switch (desc.ViewDimension) {
+         case D3D12_DSV_DIMENSION_TEXTURE1D:
+            desc.Texture1D.MipSlice = range->baseMipLevel + l;
+            break;
+         case D3D12_DSV_DIMENSION_TEXTURE1DARRAY:
+            desc.Texture1DArray.MipSlice = range->baseMipLevel + l;
+            desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
+            desc.Texture1DArray.ArraySize = range->layerCount;
+            break;
+         case D3D12_DSV_DIMENSION_TEXTURE2D:
+            desc.Texture2D.MipSlice = range->baseMipLevel + l;
+            break;
+         case D3D12_DSV_DIMENSION_TEXTURE2DMS:
+            break;
+         case D3D12_DSV_DIMENSION_TEXTURE2DARRAY:
+            desc.Texture2DArray.MipSlice = range->baseMipLevel + l;
+            desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
+            desc.Texture2DArray.ArraySize = range->layerCount;
+            break;
+         case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY:
+            desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
+            desc.Texture2DMSArray.ArraySize = range->layerCount;
+            break;
+         }
+
+         if (range->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT)
+            flags |= D3D12_CLEAR_FLAG_DEPTH;
+         if (range->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)
+            flags |= D3D12_CLEAR_FLAG_STENCIL;
+
+         struct d3d12_descriptor_handle handle;
+         d3d12_descriptor_pool_alloc_handle(cmd_buffer->dsv_pool.get(), &handle);
+         device->dev->CreateDepthStencilView(img->res.Get(), &desc,
+                                             handle.cpu_handle);
+         batch->cmdlist->ClearDepthStencilView(handle.cpu_handle, flags,
+                                               pDepthStencil->depth, pDepthStencil->stencil,
+                                               0, NULL);
       }
    }
 }

@@ -417,6 +417,7 @@ struct dzn_cmd_buffer {
    dzn_device *device;
 
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
+   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> dsv_pool;
    struct dzn_cmd_pool *pool;
    using bufs_allocator = dzn_allocator<ComPtr<ID3D12Resource>>;
    std::vector<ComPtr<ID3D12Resource>, bufs_allocator> internal_bufs;
@@ -993,6 +994,8 @@ struct dzn_query_pool {
 
 DXGI_FORMAT
 dzn_get_format(VkFormat format);
+DXGI_FORMAT
+dzn_get_dsv_format(VkFormat format);
 
 D3D12_RESOURCE_STATES
 dzn_get_states(VkImageLayout layout);
