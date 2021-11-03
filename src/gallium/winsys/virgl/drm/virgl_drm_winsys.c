@@ -1324,6 +1324,7 @@ virgl_drm_screen_create(int fd, const struct pipe_screen_config *config)
       }
 
       pscreen = virgl_create_screen(vws, config);
+      fprintf(stderr, "%s: %d pscreen %p\n", __func__, 1, pscreen)
       if (pscreen) {
          _mesa_hash_table_insert(fd_tab, intptr_to_pointer(dup_fd), pscreen);
 

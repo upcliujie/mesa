@@ -124,6 +124,8 @@ driCreateNewScreen2(int scrn, int fd,
     static const __DRIextension *emptyExtensionList[] = { NULL };
     __DRIscreen *psp;
 
+    fprintf(stderr, "%s: %d\n", __func__, 1)
+
     psp = calloc(1, sizeof(*psp));
     if (!psp)
 	return NULL;
@@ -158,6 +160,7 @@ driCreateNewScreen2(int scrn, int fd,
                         "dri2", NULL, NULL, NULL, 0, NULL, 0);
 
     *driver_configs = psp->driver->InitScreen(psp);
+    fprintf(stderr, "%s: %d *driver_configs %p\n", __func__, 2, *driver_configs)
     if (*driver_configs == NULL) {
 	free(psp);
 	return NULL;
