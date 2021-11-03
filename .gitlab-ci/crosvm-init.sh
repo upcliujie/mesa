@@ -18,11 +18,11 @@ cd $PWD
 sleep 1   # Give some time to Crosvm to initialize virtio-gpu
 
 set +e
-stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh
+stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh 2> $DEQP_TEMP_DIR/stderr
 echo $? > $DEQP_TEMP_DIR/exit_code
 set -e
 
-sleep 1   # Leave some time to get the last output flushed out
+sync
 
 poweroff -d -n -f || true
 
