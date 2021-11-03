@@ -1009,6 +1009,7 @@ static int virgl_drm_get_caps(struct virgl_winsys *vws,
 
    ret = drmIoctl(vdws->fd, DRM_IOCTL_VIRTGPU_GET_CAPS, &args);
    if (ret == -1 && errno == EINVAL) {
+      fprintf(stderr, "+++ %s: %d errno %d\n", __func__, 1, errno);
       /* Fallback to v1 */
       args.cap_set_id = 1;
       args.size = sizeof(struct virgl_caps_v1);
