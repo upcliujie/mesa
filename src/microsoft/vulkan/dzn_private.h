@@ -620,11 +620,13 @@ struct dzn_graphics_pipeline {
 
    struct {
       unsigned count;
+      bool dynamic;
       D3D12_VIEWPORT desc[MAX_VP];
    } vp = {};
 
    struct {
       unsigned count;
+      bool dynamic;
       D3D12_RECT desc[MAX_SCISSOR];
    } scissor = {};
 

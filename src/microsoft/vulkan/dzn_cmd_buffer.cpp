@@ -945,11 +945,17 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
    if (pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
       const dzn_graphics_pipeline *gfx = (const dzn_graphics_pipeline *)pipeline;
 
-      memcpy(cmd_buffer->state.viewports, gfx->vp.desc,
-             gfx->vp.count * sizeof(cmd_buffer->state.viewports[0]));
-      memcpy(cmd_buffer->state.scissors, gfx->scissor.desc,
-             gfx->scissor.count * sizeof(cmd_buffer->state.scissors[0]));
-      cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
+      if (!gfx->vp.dynamic) {
+         memcpy(cmd_buffer->state.viewports, gfx->vp.desc,
+                gfx->vp.count * sizeof(cmd_buffer->state.viewports[0]));
+         cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
+      }
+
+      if (!gfx->scissor.dynamic) {
+         memcpy(cmd_buffer->state.scissors, gfx->scissor.desc,
+                gfx->scissor.count * sizeof(cmd_buffer->state.scissors[0]));
+         cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+      }
 
       for (uint32_t vb = 0; vb < gfx->vb.count; vb++)
          cmd_buffer->state.vb.views[vb].StrideInBytes = gfx->vb.strides[vb];

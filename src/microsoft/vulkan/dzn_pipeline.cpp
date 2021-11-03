@@ -635,6 +635,20 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
    translate_zsa(desc, pCreateInfo);
    translate_blend(desc, pCreateInfo);
 
+   if (pCreateInfo->pDynamicState) {
+      for (uint32_t i = 0; i < pCreateInfo->pDynamicState->dynamicStateCount; i++) {
+         switch (pCreateInfo->pDynamicState->pDynamicStates[i]) {
+         case VK_DYNAMIC_STATE_VIEWPORT:
+            vp.dynamic = true;
+            break;
+         case VK_DYNAMIC_STATE_SCISSOR:
+            scissor.dynamic = true;
+            break;
+         default: unreachable("Unsupported dynamic state");
+         }
+      }
+   }
+
    desc.NumRenderTargets = subpass->color_count;
    for (uint32_t i = 0; i < subpass->color_count; i++) {
       uint32_t idx = subpass->colors[i].idx;
