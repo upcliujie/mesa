@@ -32,7 +32,7 @@ unset XDG_RUNTIME_DIR
 
 # Merge the guest's stderr with the host's
 touch $DEQP_TEMP_DIR/stderr
-tail -f $DEQP_TEMP_DIR/stderr > /dev/stderr
+tail -f $DEQP_TEMP_DIR/stderr > /dev/stderr &
 
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
 NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" stdbuf -oL crosvm run \
