@@ -226,5 +226,5 @@ dzn_translate_scissor(D3D12_RECT *out,
    out->left = in->offset.x;
    out->top = in->offset.y;
    out->right = in->offset.x + in->extent.width;
-   out->bottom = in->offset.x + in->extent.height;
+   out->bottom = in->offset.y + in->extent.height;
 }
