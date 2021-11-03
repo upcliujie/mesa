@@ -30,6 +30,10 @@ unset XDG_RUNTIME_DIR
   fi
 ) 9>/var/lock/crosvm_lock
 
+# Merge the guest's stderr with the host's
+touch $DEQP_TEMP_DIR/stderr
+tail -f $DEQP_TEMP_DIR/stderr > /dev/stderr
+
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
 NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" stdbuf -oL crosvm run \
   --gpu "$CROSVM_GPU_ARGS" \
@@ -40,11 +44,5 @@ NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIV
   --host_ip=192.168.30.1 --netmask=255.255.255.0 --mac "AA:BB:CC:00:00:12" \
   -p "$CROSVM_KERNEL_ARGS" \
   /lava-files/bzImage | LC_ALL=C tr -dc '\0-\177'
-
-if [ -s $DEQP_TEMP_DIR/stderr ]; then
-  echo "--- Guest stderr ---" > /dev/stderr
-  cat $DEQP_TEMP_DIR/stderr > /dev/stderr
-  echo "--------------------" > /dev/stderr
-fi
 
 exit `cat $DEQP_TEMP_DIR/exit_code`
