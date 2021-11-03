@@ -2355,6 +2355,8 @@ dri2_init_screen(__DRIscreen * sPriv)
 
    if (pipe_loader_drm_probe_fd(&screen->dev, screen->fd)) {
       pscreen = pipe_loader_create_screen(screen->dev);
+      if (!pscreen)
+         fprintf(stderr, "+++ %s: %d pscreen %p\n", __func__, 1, pscreen);
       dri_init_options(screen);
    }
 
@@ -2366,8 +2368,10 @@ dri2_init_screen(__DRIscreen * sPriv)
    dri2_init_screen_extensions(screen, pscreen, false);
 
    configs = dri_init_screen_helper(screen, pscreen);
-   if (!configs)
+   if (!configs) {
+      fprintf(stderr, "+++ %s: %d configs %p\n", __func__, 2, configs);
       goto destroy_screen;
+   }
 
    screen->can_share_buffer = true;
    screen->auto_fake_front = dri_with_format(sPriv);
