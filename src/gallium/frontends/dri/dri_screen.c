@@ -290,6 +290,7 @@ dri_fill_in_modes(struct dri_screen *screen)
    }
 
    if (configs == NULL) {
+      fprintf(stderr, "+++ %s: %d\n", __func__, 2);
       debug_printf("%s: driCreateConfigs failed\n", __FUNCTION__);
       return NULL;
    }
@@ -560,8 +561,10 @@ dri_init_screen_helper(struct dri_screen *screen,
       screen->base.validate_egl_image = dri_validate_egl_image;
 
    screen->st_api = st_gl_api_create();
-   if (!screen->st_api)
+   if (!screen->st_api) {
+      fprintf(stderr, "+++ %s: %d\n", __func__, 1);
       return NULL;
+   }
 
    if(pscreen->get_param(pscreen, PIPE_CAP_NPOT_TEXTURES))
       screen->target = PIPE_TEXTURE_2D;
