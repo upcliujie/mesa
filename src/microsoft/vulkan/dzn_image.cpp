@@ -142,6 +142,16 @@ dzn_image::dzn_image(dzn_device *device,
          desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
    }
 
+   /* TODO: Use UAV clears if the resource doesn't have the
+    * ALLOW_{RENDER_TARGET,DEPTH_STENCIL} cap.
+    */
+   if (vk.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT) {
+      if (vk_format_is_depth_or_stencil(pCreateInfo->format))
+         desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+      else
+         desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+   }
+
    if (vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)
       desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 }
