@@ -1873,10 +1873,6 @@ brw_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
       return NULL;
    }
 
-   uint64_t gtt_size;
-   if (gem_context_getparam(fd, 0, I915_CONTEXT_PARAM_GTT_SIZE, &gtt_size))
-      gtt_size = 0;
-
    bufmgr->has_llc = devinfo->has_llc;
    bufmgr->has_mmap_wc = gem_param(fd, I915_PARAM_MMAP_VERSION) > 0;
    bufmgr->bo_reuse = bo_reuse;
@@ -1887,7 +1883,7 @@ brw_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
    /* The STATE_BASE_ADDRESS size field can only hold 1 page shy of 4GB */
    const uint64_t _4GB_minus_1 = _4GB - PAGE_SIZE;
 
-   if (devinfo->ver >= 8 && gtt_size > _4GB) {
+   if (devinfo->ver >= 8 && devinfo->gtt_size > _4GB) {
       bufmgr->initial_kflags |= EXEC_OBJECT_SUPPORTS_48B_ADDRESS;
 
       /* Allocate VMA in userspace if we have softpin and full PPGTT. */
@@ -1902,7 +1898,7 @@ brw_bufmgr_create(struct intel_device_info *devinfo, int fd, bool bo_reuse)
           * base address + size can overflow 48 bits.
           */
          util_vma_heap_init(&bufmgr->vma_allocator[BRW_MEMZONE_OTHER],
-                            1 * _4GB, gtt_size - 2 * _4GB);
+                            1 * _4GB, devinfo->gtt_size - 2 * _4GB);
       } else if (devinfo->ver >= 10) {
          /* Softpin landed in 4.5, but GVT used an aliasing PPGTT until
           * kernel commit 6b3816d69628becb7ff35978aa0751798b4a940a in
