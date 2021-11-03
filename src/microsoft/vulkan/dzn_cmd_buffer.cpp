@@ -1226,8 +1226,8 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   for (uint32_t i = firstViewport; i < firstViewport + viewportCount; i++)
-      dzn_translate_viewport(&cmd_buffer->state.viewports[i], &pViewports[i]);
+   for (uint32_t i = 0; i < viewportCount; i++)
+      dzn_translate_viewport(&cmd_buffer->state.viewports[firstViewport + i], &pViewports[i]);
 
    if (viewportCount)
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
@@ -1254,8 +1254,8 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   for (uint32_t i = firstScissor; i < firstScissor + scissorCount; i++)
-      dzn_translate_scissor(&cmd_buffer->state.scissors[i], &pScissors[i]);
+   for (uint32_t i = 0; i < scissorCount; i++)
+      dzn_translate_scissor(&cmd_buffer->state.scissors[i + firstScissor], &pScissors[i]);
 
    if (scissorCount)
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
