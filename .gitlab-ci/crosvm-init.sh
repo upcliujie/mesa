@@ -6,7 +6,6 @@ export DEQP_TEMP_DIR=$1
 
 mount -t proc none /proc
 mount -t sysfs none /sys
-mount -t devtmpfs none /dev || echo possibly already mounted
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /tmp
@@ -15,14 +14,13 @@ mount -t tmpfs tmpfs /tmp
 
 cd $PWD
 
-sleep 2   # Give some time to Crosvm to initialize virtio-gpu
-
 set +e
-stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh 2> $DEQP_TEMP_DIR/stderr
+stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh 2>> $DEQP_TEMP_DIR/stderr >> $DEQP_TEMP_DIR/stdout
 echo $? > $DEQP_TEMP_DIR/exit_code
 set -e
 
 sync
+sleep 1
 
 poweroff -d -n -f || true
 

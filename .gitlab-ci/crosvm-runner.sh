@@ -12,7 +12,7 @@ fi
 
 export -p > $DEQP_TEMP_DIR/crosvm-env.sh
 
-CROSVM_KERNEL_ARGS="root=my_root rw rootfstype=virtiofs loglevel=3 init=$CI_PROJECT_DIR/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0 -- $DEQP_TEMP_DIR"
+CROSVM_KERNEL_ARGS="root=my_root rw rootfstype=virtiofs loglevel=4 init=$CI_PROJECT_DIR/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0 -- $DEQP_TEMP_DIR"
 
 echo $@ > $DEQP_TEMP_DIR/crosvm-script.sh
 
@@ -30,10 +30,12 @@ unset XDG_RUNTIME_DIR
   fi
 ) 9>/var/lock/crosvm_lock
 
-# Merge the guest's stderr with the host's
-touch $DEQP_TEMP_DIR/stderr
+# Send output from guest to host
+touch $DEQP_TEMP_DIR/stderr $DEQP_TEMP_DIR/stdout
 tail -f $DEQP_TEMP_DIR/stderr > /dev/stderr &
-TAIL_PID=$!
+ERR_TAIL_PID=$!
+tail -f $DEQP_TEMP_DIR/stdout > /dev/stdout &
+OUT_TAIL_PID=$!
 
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
 NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" stdbuf -oL crosvm run \
@@ -44,8 +46,9 @@ NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIV
   --shared-dir /:my_root:type=fs:writeback=true:timeout=60:cache=always \
   --host_ip=192.168.30.1 --netmask=255.255.255.0 --mac "AA:BB:CC:00:00:12" \
   -p "$CROSVM_KERNEL_ARGS" \
-  /lava-files/bzImage | LC_ALL=C tr -dc '\0-\177'
+  /lava-files/bzImage >> $DEQP_TEMP_DIR/stderr
 
-kill $TAIL_PID
+kill $ERR_TAIL_PID
+kill $OUT_TAIL_PID
 
 exit `cat $DEQP_TEMP_DIR/exit_code`
