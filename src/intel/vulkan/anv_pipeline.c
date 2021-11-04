@@ -331,6 +331,10 @@ void anv_DestroyPipeline(
          if (gfx_pipeline->shaders[s])
             anv_shader_bin_unref(device, gfx_pipeline->shaders[s]);
       }
+
+      if (gfx_pipeline->dynamic_pass) {
+         vk_free2(&device->vk.alloc, pAllocator, gfx_pipeline->dynamic_pass);
+      }
       break;
    }
 
@@ -2314,10 +2318,11 @@ anv_pipeline_validate_create_info(const VkGraphicsPipelineCreateInfo *info)
    assert(info->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
 
    renderpass = anv_render_pass_from_handle(info->renderPass);
-   assert(renderpass);
 
-   assert(info->subpass < renderpass->subpass_count);
-   subpass = &renderpass->subpasses[info->subpass];
+   if (renderpass) {
+      assert(info->subpass < renderpass->subpass_count);
+      subpass = &renderpass->subpasses[info->subpass];
+   }
 
    assert(info->stageCount >= 1);
    assert(info->pRasterizationState);
@@ -2417,8 +2422,26 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
                          pipeline->batch_data, sizeof(pipeline->batch_data));
 
    ANV_FROM_HANDLE(anv_render_pass, render_pass, pCreateInfo->renderPass);
-   assert(pCreateInfo->subpass < render_pass->subpass_count);
-   pipeline->subpass = &render_pass->subpasses[pCreateInfo->subpass];
+
+   if (render_pass) {
+      assert(pCreateInfo->subpass < render_pass->subpass_count);
+      pipeline->subpass = &render_pass->subpasses[pCreateInfo->subpass];
+   } else {
+      const VkPipelineRenderingCreateInfoKHR *rendering_create_info =
+         vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO_KHR);
+      struct anv_dynamic_pass_create_info info = {
+         .viewMask = rendering_create_info->viewMask,
+         .colorAttachmentCount = rendering_create_info->colorAttachmentCount,
+         .pColorAttachmentFormats = rendering_create_info->pColorAttachmentFormats,
+         .depthAttachmentFormat = rendering_create_info->depthAttachmentFormat,
+         .stencilAttachmentFormat = rendering_create_info->stencilAttachmentFormat,
+      };
+
+      render_pass = anv_dynamic_pass_alloc(device, alloc, &info);
+      pipeline->subpass = &render_pass->subpasses[0];
+      pipeline->dynamic_pass = render_pass;
+   }
+
 
    assert(pCreateInfo->pRasterizationState);
 
