@@ -15,10 +15,10 @@ mount -t tmpfs tmpfs /tmp
 
 cd $PWD
 
-sleep 2   # Give some time to Crosvm to initialize virtio-gpu
+dmesg | grep drm | grep cap >> $DEQP_TEMP_DIR/stderr
 
 set +e
-stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh 2> $DEQP_TEMP_DIR/stderr
+stdbuf -oL sh $DEQP_TEMP_DIR/crosvm-script.sh 2>> $DEQP_TEMP_DIR/stderr
 echo $? > $DEQP_TEMP_DIR/exit_code
 set -e
 
