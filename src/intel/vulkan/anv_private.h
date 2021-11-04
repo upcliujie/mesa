@@ -2930,6 +2930,8 @@ struct anv_cmd_state {
 
    bool                                         conditional_render_enabled;
 
+   bool                                         need_free_fake_pass;
+
    /**
     * Last rendering scale argument provided to
     * genX(cmd_buffer_emit_hashing_mode)().
