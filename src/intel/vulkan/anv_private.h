@@ -4423,6 +4423,22 @@ struct anv_query_pool {
    struct intel_perf_query_info                 **pass_query;
 };
 
+struct anv_dynamic_pass_create_info {
+   uint32_t                 viewMask;
+   uint32_t                 colorAttachmentCount;
+   const VkFormat*          pColorAttachmentFormats;
+   VkFormat                 depthAttachmentFormat;
+   VkFormat                 stencilAttachmentFormat;
+   VkSampleCountFlagBits    rasterizationSamples;
+};
+
+struct anv_render_pass *
+anv_dynamic_pass_alloc(struct anv_device *device, const VkAllocationCallbacks *alloc,
+                       const struct anv_dynamic_pass_create_info *info);
+struct anv_render_pass *
+anv_dynamic_pass_alloc_full(struct anv_device *device, const VkAllocationCallbacks *alloc,
+                            const VkRenderingInfoKHR *info);
+
 static inline uint32_t khr_perf_query_preamble_offset(const struct anv_query_pool *pool,
                                                       uint32_t pass)
 {
