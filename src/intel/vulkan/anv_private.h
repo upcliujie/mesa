@@ -3343,6 +3343,7 @@ struct anv_graphics_pipeline {
    uint32_t                                     rasterization_samples;
 
    struct anv_subpass *                         subpass;
+   struct anv_render_pass *                     dynamic_pass;
 
    struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
 
