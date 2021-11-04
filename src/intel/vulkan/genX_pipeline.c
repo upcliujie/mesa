@@ -2520,6 +2520,11 @@ genX(graphics_pipeline_create)(
       return result;
    }
 
+   if (pipeline->dynamic_pass) {
+      pass = pipeline->dynamic_pass;
+      subpass = pipeline->subpass;
+   }
+
    /* Information on which states are considered dynamic. */
    const VkPipelineDynamicStateCreateInfo *dyn_info =
       pCreateInfo->pDynamicState;
