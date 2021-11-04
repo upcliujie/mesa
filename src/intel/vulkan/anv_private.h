@@ -3472,6 +3472,7 @@ struct anv_graphics_pipeline {
    uint32_t                                     rasterization_samples;
 
    struct anv_subpass *                         subpass;
+   struct anv_render_pass *                     pass;
 
    struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
 
@@ -3526,6 +3527,8 @@ struct anv_graphics_pipeline {
    struct {
       uint32_t                                  wm_depth_stencil[4];
    } gfx9;
+
+   struct anv_dynamic_render_pass               dynamic_render_pass;
 };
 
 struct anv_compute_pipeline {
