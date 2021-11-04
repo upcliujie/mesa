@@ -3121,7 +3121,7 @@ combine_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 
          ssa_info& info = ctx.info[op.tempId()];
          if (info.is_vop3p() && info.instr->opcode == aco_opcode::v_pk_mul_f16 &&
-             info.instr->operands[1].constantEquals(0xBC00)) {
+             info.instr->operands[1].constantEquals(0x3C00)) {
             Operand ops[2] = {instr->operands[!i], info.instr->operands[0]};
             if (!check_vop3_operands(ctx, 2, ops))
                continue;
@@ -3137,8 +3137,8 @@ combine_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr)
              */
             bool opsel_lo = (vop3p->opsel_lo >> i) & 1;
             bool opsel_hi = (vop3p->opsel_hi >> i) & 1;
-            bool neg_lo = true ^ fneg->neg_lo[0] ^ fneg->neg_lo[1];
-            bool neg_hi = true ^ fneg->neg_hi[0] ^ fneg->neg_hi[1];
+            bool neg_lo = fneg->neg_lo[0] ^ fneg->neg_lo[1];
+            bool neg_hi = fneg->neg_hi[0] ^ fneg->neg_hi[1];
             vop3p->neg_lo[i] ^= opsel_lo ? neg_hi : neg_lo;
             vop3p->neg_hi[i] ^= opsel_hi ? neg_hi : neg_lo;
             vop3p->opsel_lo ^= ((opsel_lo ? ~fneg->opsel_hi : fneg->opsel_lo) & 1) << i;
