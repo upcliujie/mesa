@@ -254,9 +254,10 @@ dzn_graphics_pipeline::translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
       inputs[i].SemanticName = "TEXCOORD";
       inputs[i].SemanticIndex = attr->location;
       inputs[i].Format = dzn_get_format(attr->format);
-      inputs[i].InputSlot = slot_class[attr->binding];
+      inputs[i].InputSlot = attr->binding;
+      inputs[i].InputSlotClass = slot_class[attr->binding];
       inputs[i].InstanceDataStepRate =
-         inputs[i].InputSlot == VK_VERTEX_INPUT_RATE_INSTANCE ? 1 : 0;
+         inputs[i].InputSlotClass == D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA ? 1 : 0;
       inputs[i].AlignedByteOffset = attr->offset;
    }
 
