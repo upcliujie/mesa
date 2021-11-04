@@ -35,60 +35,7 @@ typedef SSIZE_T ssize_t;
 #include "blob.h"
 
 #include <gtest/gtest.h>
-
-static testing::AssertionResult
-bytes_equal_pred(const char *a_expr,
-                 const char *b_expr,
-                 const char *c_expr,
-                 const uint8_t *expected,
-                 const uint8_t *actual,
-                 size_t num_bytes)
-{
-   if (memcmp(expected, actual, num_bytes)) {
-      std::stringstream result;
-
-      result << a_expr << " and " << b_expr << " are different "
-             << "when comparing " << num_bytes << " bytes):\n";
-
-      for (size_t i = 0; i < num_bytes; i++) {
-         if (actual[i] != expected[i]) {
-            result << "Mismatch at index " << i << ": "
-                   << "0x" << std::setfill('0') << std::setw(2) << std::right << std::hex << unsigned(actual[i])
-                   << " != "
-                   << "0x" << std::setfill('0') << std::setw(2) << std::right << std::hex << unsigned(expected[i])
-                   << "\n";
-         }
-      }
-      result << "\n";
-
-      result << "  Actual: [";
-      for (size_t i = 0; i < num_bytes; i++) {
-         if (i % 16 == 0)
-            result << "\n";
-         unsigned v = actual[i];
-         result << " 0x" << std::setfill('0') << std::setw(2)
-                << std::right << std::hex << v;
-      }
-      result << "]\n";
-
-      result << "Expected: [";
-      for (size_t i = 0; i < num_bytes; i++) {
-         if (i % 16 == 0)
-            result << "\n";
-         unsigned v = expected[i];
-         result << " 0x" << std::setfill('0') << std::setw(2)
-                << std::right << std::hex << v;
-      }
-      result << "]\n";
-
-      return testing::AssertionFailure() << result.str();
-   } else {
-      return testing::AssertionSuccess();
-   }
-}
-
-#define EXPECT_BYTES_EQUAL(expected, actual, num_bytes) \
-   EXPECT_PRED_FORMAT3(bytes_equal_pred, expected, actual, num_bytes)
+#include "mesa-gtest-extras.h"
 
 #define bytes_test_str     "bytes_test"
 #define reserve_test_str   "reserve_test"
