@@ -12,7 +12,7 @@ fi
 
 export -p > $DEQP_TEMP_DIR/crosvm-env.sh
 
-CROSVM_KERNEL_ARGS="root=my_root rw rootfstype=virtiofs loglevel=4 init=$CI_PROJECT_DIR/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0 -- $DEQP_TEMP_DIR"
+CROSVM_KERNEL_ARGS="root=my_root rw rootfstype=virtiofs loglevel=5 init=$CI_PROJECT_DIR/install/crosvm-init.sh ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0 -- $DEQP_TEMP_DIR"
 
 echo $@ > $DEQP_TEMP_DIR/crosvm-script.sh
 
