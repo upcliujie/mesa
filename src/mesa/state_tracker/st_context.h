@@ -36,6 +36,7 @@
 #include "util/u_helpers.h"
 #include "util/u_inlines.h"
 #include "util/list.h"
+#include "indices/u_primconvert.h"
 #include "vbo/vbo.h"
 #include "util/list.h"
 #include "cso_cache/cso_context.h"
@@ -127,6 +128,7 @@ struct st_context
    struct pipe_screen *screen;
    struct pipe_context *pipe;
    struct cso_context *cso_context;
+   struct primconvert_context *pc;
 
    struct draw_context *draw;  /**< For selection/feedback/rastpos only */
    struct draw_stage *feedback_stage;  /**< For GL_FEEDBACK rendermode */
