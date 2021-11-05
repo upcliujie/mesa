@@ -336,24 +336,48 @@ st_draw_gallium_vertex_state(struct gl_context *ctx,
    struct pipe_context *pipe = st->pipe;
    uint32_t velem_mask = ctx->VertexProgram._Current->info.inputs_read;
 
-   if (!mode) {
-      pipe->draw_vertex_state(pipe, state, velem_mask, info, draws, num_draws);
+   if (st->pc) {
+      if (!mode) {
+         util_primconvert_draw_vertex_state(st->pc, state, velem_mask, info, draws, num_draws);
+      } else {
+         /* Find consecutive draws where mode doesn't vary. */
+         for (unsigned i = 0, first = 0; i <= num_draws; i++) {
+            if (i == num_draws || mode[i] != mode[first]) {
+               unsigned current_num_draws = i - first;
+
+               /* Increase refcount to be able to use take_vertex_state_ownership
+                * with all draws.
+                */
+               if (i != num_draws && info.take_vertex_state_ownership)
+                  p_atomic_inc(&state->reference.count);
+
+               info.mode = mode[first];
+               util_primconvert_draw_vertex_state(st->pc, state, velem_mask, info, &draws[first],
+                                                  current_num_draws);
+               first = i;
+            }
+         }
+      }
    } else {
-      /* Find consecutive draws where mode doesn't vary. */
-      for (unsigned i = 0, first = 0; i <= num_draws; i++) {
-         if (i == num_draws || mode[i] != mode[first]) {
-            unsigned current_num_draws = i - first;
+      if (!mode) {
+         pipe->draw_vertex_state(pipe, state, velem_mask, info, draws, num_draws);
+      } else {
+         /* Find consecutive draws where mode doesn't vary. */
+         for (unsigned i = 0, first = 0; i <= num_draws; i++) {
+            if (i == num_draws || mode[i] != mode[first]) {
+               unsigned current_num_draws = i - first;
 
-            /* Increase refcount to be able to use take_vertex_state_ownership
-             * with all draws.
-             */
-            if (i != num_draws && info.take_vertex_state_ownership)
-               p_atomic_inc(&state->reference.count);
+               /* Increase refcount to be able to use take_vertex_state_ownership
+                * with all draws.
+                */
+               if (i != num_draws && info.take_vertex_state_ownership)
+                  p_atomic_inc(&state->reference.count);
 
-            info.mode = mode[first];
-            pipe->draw_vertex_state(pipe, state, velem_mask, info, &draws[first],
-                                    current_num_draws);
-            first = i;
+               info.mode = mode[first];
+               pipe->draw_vertex_state(pipe, state, velem_mask, info, &draws[first],
+                                       current_num_draws);
+               first = i;
+            }
          }
       }
    }
