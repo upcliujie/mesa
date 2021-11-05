@@ -31,6 +31,7 @@
 #include "compiler/shader_enums.h"
 #include "util/u_dual_blend.h"
 #include "util/u_memory.h"
+#include "util/u_helpers.h"
 
 #include <math.h>
 
@@ -712,6 +713,61 @@ static void
 zink_delete_rasterizer_state(struct pipe_context *pctx, void *rs_state)
 {
    FREE(rs_state);
+}
+
+struct pipe_vertex_state *
+zink_create_vertex_state(struct pipe_screen *pscreen,
+                          struct pipe_vertex_buffer *buffer,
+                          const struct pipe_vertex_element *elements,
+                          unsigned num_elements,
+                          struct pipe_resource *indexbuf,
+                          uint32_t full_velem_mask)
+{
+   struct zink_vertex_state *zstate = CALLOC_STRUCT(zink_vertex_state);
+
+   util_init_pipe_vertex_state(pscreen, buffer, elements, num_elements, indexbuf, full_velem_mask,
+                               &zstate->b);
+
+   /* Initialize the vertex element state in state->element.
+    * Do it by creating a vertex element state object and copying it there.
+    */
+   struct zink_context ctx = {};
+   ctx.base.screen = pscreen;
+   struct zink_vertex_elements_state *velems = zink_create_vertex_elements_state(&ctx.base, num_elements, elements);
+   zstate->velems = *velems;
+   zink_delete_vertex_elements_state(&ctx.base, velems);
+
+   return &zstate->b;
+}
+
+void
+zink_vertex_state_destroy(struct pipe_screen *pscreen, struct pipe_vertex_state *vstate)
+{
+   pipe_vertex_buffer_unreference(&vstate->input.vbuffer);
+   pipe_resource_reference(&vstate->input.indexbuf, NULL);
+   FREE(vstate);
+}
+
+struct pipe_vertex_state *
+zink_cache_create_vertex_state(struct pipe_screen *pscreen,
+                               struct pipe_vertex_buffer *buffer,
+                               const struct pipe_vertex_element *elements,
+                               unsigned num_elements,
+                               struct pipe_resource *indexbuf,
+                               uint32_t full_velem_mask)
+{
+   struct zink_screen *screen = zink_screen(pscreen);
+
+   return util_vertex_state_cache_get(pscreen, buffer, elements, num_elements, indexbuf,
+                                      full_velem_mask, &screen->vertex_state_cache);
+}
+
+void
+zink_cache_vertex_state_destroy(struct pipe_screen *pscreen, struct pipe_vertex_state *vstate)
+{
+   struct zink_screen *screen = zink_screen(pscreen);
+
+   util_vertex_state_destroy(pscreen, &screen->vertex_state_cache, vstate);
 }
 
 void
