@@ -790,36 +790,38 @@ dzn_write_descriptor_set(struct dzn_device *dev,
          case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
             if (pDescriptorWrite->pImageInfo) {
-               VK_FROM_HANDLE(dzn_image_view, iview, pDescriptorWrite->pImageInfo->imageView);
+               const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
+               VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
                dev->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
             }
             break;
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-               VK_FROM_HANDLE(dzn_buffer, buf, pDescriptorWrite->pBufferInfo->buffer);
-	       uint32_t size = pDescriptorWrite->pBufferInfo->range == VK_WHOLE_SIZE ?
-	                       buf->size - pDescriptorWrite->pBufferInfo->offset :
-                               pDescriptorWrite->pBufferInfo->range;
+            const VkDescriptorBufferInfo* pBufferInfo = pDescriptorWrite->pBufferInfo + d;
+            VK_FROM_HANDLE(dzn_buffer, buf, pBufferInfo->buffer);
+            uint32_t size = pBufferInfo->range == VK_WHOLE_SIZE ?
+                              buf->size - pBufferInfo->offset :
+                              pBufferInfo->range;
 
-               D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-                 .BufferLocation = buf->res->GetGPUVirtualAddress() +
-                                   pDescriptorWrite->pBufferInfo->offset,
-                 .SizeInBytes = ALIGN_POT(size, 256),
-               };
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
+               .BufferLocation = buf->res->GetGPUVirtualAddress() + pBufferInfo->offset,
+               .SizeInBytes = ALIGN_POT(size, 256),
+            };
 
-               dev->dev->CreateConstantBufferView(&cbv_desc, view_handle);
-            }
+            dev->dev->CreateConstantBufferView(&cbv_desc, view_handle);
             break;
+         }
          case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-            VK_FROM_HANDLE(dzn_buffer, buf, pDescriptorWrite->pBufferInfo->buffer);
-            uint32_t size = pDescriptorWrite->pBufferInfo->range == VK_WHOLE_SIZE ?
-                            buf->size - pDescriptorWrite->pBufferInfo->offset :
-                            pDescriptorWrite->pBufferInfo->range;
+            const VkDescriptorBufferInfo* pBufferInfo = pDescriptorWrite->pBufferInfo + d;
+            VK_FROM_HANDLE(dzn_buffer, buf, pBufferInfo->buffer);
+            uint32_t size = pBufferInfo->range == VK_WHOLE_SIZE ?
+                              buf->size - pBufferInfo->offset :
+                              pBufferInfo->range;
 
             D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
               .Format = DXGI_FORMAT_R32_TYPELESS,
               .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
               .Buffer = {
-                 .FirstElement = pDescriptorWrite->pBufferInfo->offset / sizeof(uint32_t),
+                 .FirstElement = pBufferInfo->offset / sizeof(uint32_t),
                  .NumElements = size / sizeof(uint32_t),
                  .Flags = D3D12_BUFFER_UAV_FLAG_RAW,
               },
@@ -834,6 +836,7 @@ dzn_write_descriptor_set(struct dzn_device *dev,
          }
       }
 
+      offset++;
       d++;
    }
 }
