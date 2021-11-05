@@ -893,6 +893,13 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
       indirect_draws[i] =
          dzn_private_object_create<dzn_meta_indirect_draw>(&vk.alloc, this, type);
    }
+
+   for (uint32_t i = 0; i < ARRAY_SIZE(triangle_fan); i++) {
+      auto type = (dzn_meta_triangle_fan_rewrite_index::index_type)i;
+
+      triangle_fan[i] =
+         dzn_private_object_create<dzn_meta_triangle_fan_rewrite_index>(&vk.alloc, this, type);
+   }
 }
 
 dzn_device::~dzn_device()

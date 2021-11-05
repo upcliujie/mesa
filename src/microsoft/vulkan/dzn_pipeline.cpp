@@ -282,12 +282,13 @@ to_prim_topology(VkPrimitiveTopology in, unsigned patch_control_points)
    case VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY: return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP_ADJ;
    case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
    case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+   /* Triangle fans are emulated using an intermediate index buffer. */
+   case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
    case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST_ADJ;
    case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP_ADJ;
    case VK_PRIMITIVE_TOPOLOGY_PATCH_LIST:
       assert(patch_control_points);
       return (D3D12_PRIMITIVE_TOPOLOGY)(D3D_PRIMITIVE_TOPOLOGY_1_CONTROL_POINT_PATCHLIST + patch_control_points - 1);
-   case VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN: 
    default: unreachable("Invalid primitive topology");
    }
 }
@@ -303,6 +304,7 @@ dzn_graphics_pipeline::translate_ia(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
       in->pTessellationState : NULL;
 
    out.PrimitiveTopologyType = to_prim_topology_type(in_ia->topology);
+   ia.triangle_fan = in_ia->topology == VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN;
    ia.topology =
       to_prim_topology(in_ia->topology, in_tes ? in_tes->patchControlPoints : 0);
 
@@ -674,6 +676,8 @@ dzn_graphics_pipeline::~dzn_graphics_pipeline()
 {
 }
 
+#define INDIRECT_CMD_SIG_MAX_ARGS 3
+
 ID3D12CommandSignature *
 dzn_graphics_pipeline::get_indirect_cmd_sig(enum indirect_cmd_sig_type type)
 {
@@ -684,29 +688,42 @@ dzn_graphics_pipeline::get_indirect_cmd_sig(enum indirect_cmd_sig_type type)
    if (cmdsig.Get())
       return cmdsig.Get();
 
-   bool indexed = type == INDIRECT_INDEXED_DRAW_CMD_SIG;
+   bool triangle_fan = type == INDIRECT_DRAW_TRIANGLE_FAN_CMD_SIG;
+   bool indexed = type == INDIRECT_INDEXED_DRAW_CMD_SIG || triangle_fan;
 
-   D3D12_INDIRECT_ARGUMENT_DESC cmd_args[] = {
-      {
-         .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
-         .Constant = {
-            .RootParameterIndex = base.layout->root.sysval_cbv_param_idx,
-            .DestOffsetIn32BitValues = offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) / 4,
-            .Num32BitValuesToSet = 2,
-         },
-      },
-      {
-         .Type = indexed ?
-                 D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED :
-                 D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+   uint32_t cmd_arg_count = 0;
+   D3D12_INDIRECT_ARGUMENT_DESC cmd_args[INDIRECT_CMD_SIG_MAX_ARGS];
+
+   if (triangle_fan) {
+      cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+         .Type = D3D12_INDIRECT_ARGUMENT_TYPE_INDEX_BUFFER_VIEW,
+      };
+   }
+
+   cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+      .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
+      .Constant = {
+         .RootParameterIndex = base.layout->root.sysval_cbv_param_idx,
+         .DestOffsetIn32BitValues = offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) / 4,
+         .Num32BitValuesToSet = 2,
       },
    };
 
+   cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
+      .Type = indexed ?
+              D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED :
+              D3D12_INDIRECT_ARGUMENT_TYPE_DRAW,
+   };
+
+   assert(cmd_arg_count <= ARRAY_SIZE(cmd_args));
    assert(offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) == 0);
 
    D3D12_COMMAND_SIGNATURE_DESC cmd_sig_desc = {
-      .ByteStride = sizeof(struct dzn_indirect_draw_exec_params),
-      .NumArgumentDescs = ARRAY_SIZE(cmd_args),
+      .ByteStride =
+         triangle_fan ?
+         sizeof(struct dzn_indirect_triangle_fan_draw_exec_params) :
+         sizeof(struct dzn_indirect_draw_exec_params),
+      .NumArgumentDescs = cmd_arg_count,
       .pArgumentDescs = cmd_args,
    };
    HRESULT hres =

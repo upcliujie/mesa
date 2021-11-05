@@ -220,6 +220,27 @@ struct dzn_meta_indirect_draw : public dzn_meta {
    ~dzn_meta_indirect_draw() = default;
 };
 
+struct dzn_meta_triangle_fan_rewrite_index : public dzn_meta {
+   enum index_type {
+      NO_INDEX,
+      INDEX_2B,
+      INDEX_4B,
+      NUM_INDEX_TYPE,
+   };
+
+   dzn_meta_triangle_fan_rewrite_index(struct dzn_device *device,
+                                       enum index_type old_index_type);
+   ~dzn_meta_triangle_fan_rewrite_index() = default;
+
+   static index_type get_index_type(uint8_t index_size);
+   static index_type get_index_type(DXGI_FORMAT format);
+   static uint8_t get_index_size(enum index_type type);
+
+   ID3D12CommandSignature *get_indirect_cmd_sig();
+
+   ComPtr<ID3D12CommandSignature> cmd_sig;
+};
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
@@ -309,6 +330,7 @@ struct dzn_device {
    D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
 
    dzn_object_unique_ptr<dzn_meta_indirect_draw> indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
+   dzn_object_unique_ptr<dzn_meta_triangle_fan_rewrite_index> triangle_fan[dzn_meta_triangle_fan_rewrite_index::NUM_INDEX_TYPE];
 
    dzn_device(VkPhysicalDevice pdev,
               const VkDeviceCreateInfo *pCreateInfo,
@@ -489,6 +511,9 @@ private:
    alloc_internal_buf(uint32_t size,
                       D3D12_HEAP_TYPE heap_type,
                       D3D12_RESOURCE_STATES init_state);
+   void triangle_fan_create_index(uint32_t &vertex_count);
+   void triangle_fan_rewrite_index(uint32_t &index_count, uint32_t &first_index);
+   uint32_t triangle_fan_get_max_index_buf_size(bool indexed);
 };
 
 struct dzn_cmd_pool {
@@ -690,6 +715,7 @@ struct dzn_graphics_pipeline {
    } vb = {};
 
    struct {
+      bool triangle_fan;
       D3D_PRIMITIVE_TOPOLOGY topology;
    } ia = {};
 
@@ -718,6 +744,7 @@ struct dzn_graphics_pipeline {
    enum indirect_cmd_sig_type {
       INDIRECT_DRAW_CMD_SIG,
       INDIRECT_INDEXED_DRAW_CMD_SIG,
+      INDIRECT_DRAW_TRIANGLE_FAN_CMD_SIG,
       NUM_INDIRECT_DRAW_CMD_SIGS,
    };
 

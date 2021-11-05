@@ -1235,6 +1235,120 @@ dzn_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
 }
 
 void
+dzn_cmd_buffer::triangle_fan_create_index(uint32_t &vertex_count)
+{
+   uint8_t index_size = vertex_count <= 0xffff ? 2 : 4;
+   uint32_t triangle_count = MAX2(vertex_count, 2) - 2;
+
+   vertex_count = triangle_count * 3;
+   if (!vertex_count)
+      return;
+
+   ID3D12Resource *index_buf =
+      dzn_cmd_buffer::alloc_internal_buf(vertex_count * index_size,
+                                         D3D12_HEAP_TYPE_UPLOAD,
+                                         D3D12_RESOURCE_STATE_GENERIC_READ);
+   void *cpu_ptr;
+   index_buf->Map(0, NULL, &cpu_ptr);
+
+   /* TODO: VK_PROVOKING_VERTEX_MODE_LAST_VERTEX_EXT */
+   if (index_size == 2) {
+      uint16_t *indices = (uint16_t *)cpu_ptr;
+      for (uint32_t t = 0; t < triangle_count; t++) {
+         indices[t * 3] = t + 1;
+         indices[(t * 3) + 1] = t + 2;
+         indices[(t * 3) + 2] = 0;
+      }
+      state.ib.view.Format = DXGI_FORMAT_R16_UINT;
+   } else {
+      uint32_t *indices = (uint32_t *)cpu_ptr;
+      for (uint32_t t = 0; t < triangle_count; t++) {
+         indices[t * 3] = t + 1;
+         indices[(t * 3) + 1] = t + 2;
+         indices[(t * 3) + 2] = 0;
+      }
+      state.ib.view.Format = DXGI_FORMAT_R32_UINT;
+   }
+
+   state.ib.view.SizeInBytes = vertex_count * index_size;
+   state.ib.view.BufferLocation = index_buf->GetGPUVirtualAddress();
+   state.dirty |= DZN_CMD_DIRTY_IB;
+}
+
+void
+dzn_cmd_buffer::triangle_fan_rewrite_index(uint32_t &index_count,
+                                           uint32_t &first_index)
+{
+   uint32_t triangle_count = MAX2(index_count, 2) - 2;
+
+   index_count = triangle_count * 3;
+   if (!index_count)
+      return;
+
+   /* New index is always 32bit to make the compute shader rewriting the
+    * index simpler */
+   ID3D12Resource *new_index_buf =
+      dzn_cmd_buffer::alloc_internal_buf(index_count * 4,
+                                         D3D12_HEAP_TYPE_DEFAULT,
+                                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+   D3D12_GPU_VIRTUAL_ADDRESS old_index_buf_gpu = state.ib.view.BufferLocation;
+
+   auto index_type =
+      dzn_meta_triangle_fan_rewrite_index::get_index_type(state.ib.view.Format);
+   const dzn_meta_triangle_fan_rewrite_index *rewrite_index =
+      device->triangle_fan[index_type].get();
+
+   const dzn_pipeline *compute_pipeline =
+      state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline;
+
+   struct dzn_triangle_fan_rewrite_index_params params = {
+      .first_index = first_index,
+   };
+
+   batch->cmdlist->SetComputeRootSignature(rewrite_index->root_sig.Get());
+   batch->cmdlist->SetPipelineState(rewrite_index->pipeline_state.Get());
+   batch->cmdlist->SetComputeRootUnorderedAccessView(0, new_index_buf->GetGPUVirtualAddress());
+   batch->cmdlist->SetComputeRoot32BitConstants(1, sizeof(params) / 4,
+                                                &params, 0);
+   batch->cmdlist->SetComputeRootShaderResourceView(2, old_index_buf_gpu);
+   batch->cmdlist->Dispatch(triangle_count, 1, 1);
+
+   D3D12_RESOURCE_BARRIER post_barriers[] = {
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+          /* Transition the exec buffer to indirect arg so it can be
+           * pass to ExecuteIndirect() as an argument buffer.
+           */
+         .Transition = {
+            .pResource = new_index_buf,
+            .Subresource = 0,
+            .StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            .StateAfter = D3D12_RESOURCE_STATE_INDEX_BUFFER,
+         },
+      },
+   };
+
+   batch->cmdlist->ResourceBarrier(ARRAY_SIZE(post_barriers), post_barriers);
+
+   /* We don't mess up with the driver state when executing our internal
+    * compute shader, but we still change the D3D12 state, so let's mark
+    * things dirty if needed.
+    */
+   state.pipeline = NULL;
+   if (state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline) {
+      state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_PIPELINE | DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+   }
+
+   state.ib.view.SizeInBytes = index_count * 4;
+   state.ib.view.BufferLocation = new_index_buf->GetGPUVirtualAddress();
+   state.ib.view.Format = DXGI_FORMAT_R32_UINT;
+   state.dirty |= DZN_CMD_DIRTY_IB;
+   first_index = 0;
+}
+
+void
 dzn_cmd_buffer::prepare_draw(bool indexed)
 {
    update_pipeline(VK_PIPELINE_BIND_POINT_GRAPHICS);
@@ -1259,18 +1373,38 @@ dzn_cmd_buffer::draw(uint32_t vertex_count,
                      uint32_t first_vertex,
                      uint32_t first_instance)
 {
+   const dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<const dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
    dzn_batch *batch = get_batch();
 
    state.sysvals.gfx.first_vertex = first_vertex;
    state.sysvals.gfx.base_instance = first_instance;
-   state.sysvals.gfx.is_indexed_draw = false;
    state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
       DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
 
-   prepare_draw(false);
+   if (pipeline->ia.triangle_fan) {
+      D3D12_INDEX_BUFFER_VIEW ib_view = state.ib.view;
 
-   batch->cmdlist->DrawInstanced(vertex_count, instance_count,
-                                 first_vertex, first_instance);
+      triangle_fan_create_index(vertex_count);
+      if (!vertex_count)
+         return;
+
+      state.sysvals.gfx.is_indexed_draw = true;
+      prepare_draw(true);
+      batch->cmdlist->DrawIndexedInstanced(vertex_count, instance_count, 0,
+                                           first_vertex, first_instance);
+
+      /* Restore the IB view if we modified it when lowering triangle fans. */
+      if (ib_view.SizeInBytes > 0) {
+         state.ib.view = ib_view;
+         state.dirty |= DZN_CMD_DIRTY_IB;
+      }
+   } else {
+      state.sysvals.gfx.is_indexed_draw = false;
+      prepare_draw(false);
+      batch->cmdlist->DrawInstanced(vertex_count, instance_count,
+                                    first_vertex, first_instance);
+   }
 }
 
 void
@@ -1280,6 +1414,8 @@ dzn_cmd_buffer::draw(uint32_t index_count,
                      int32_t vertex_offset,
                      uint32_t first_instance)
 {
+   const dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<const dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
    dzn_batch *batch = get_batch();
 
    state.sysvals.gfx.first_vertex = vertex_offset;
@@ -1288,11 +1424,23 @@ dzn_cmd_buffer::draw(uint32_t index_count,
    state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
       DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
 
-   prepare_draw(true);
+   D3D12_INDEX_BUFFER_VIEW ib_view = state.ib.view;
 
-   batch->cmdlist->DrawIndexedInstanced(index_count, instance_count,
-                                        first_index, vertex_offset,
-                                        first_instance);
+   if (pipeline->ia.triangle_fan) {
+      triangle_fan_rewrite_index(index_count, first_index);
+      if (!index_count)
+         return;
+   }
+
+   prepare_draw(true);
+   batch->cmdlist->DrawIndexedInstanced(index_count, instance_count, first_index,
+                                        vertex_offset, first_instance);
+
+   /* Restore the IB view if we modified it when lowering triangle fans. */
+   if (pipeline->ia.triangle_fan && ib_view.SizeInBytes) {
+      state.ib.view = ib_view;
+      state.dirty |= DZN_CMD_DIRTY_IB;
+   }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1356,6 +1504,36 @@ dzn_cmd_buffer::alloc_internal_buf(uint32_t size,
    return res.Get();
 }
 
+uint32_t
+dzn_cmd_buffer::triangle_fan_get_max_index_buf_size(bool indexed)
+{
+   dzn_graphics_pipeline *pipeline =
+      reinterpret_cast<dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
+
+   if (!pipeline->ia.triangle_fan)
+      return 0;
+
+   uint32_t max_triangles;
+
+   if (indexed) {
+      uint32_t index_size = state.ib.view.Format == DXGI_FORMAT_R32_UINT ? 4 : 2;
+      uint32_t max_indices = state.ib.view.SizeInBytes / index_size;
+
+      max_triangles = MAX2(max_indices, 2) - 2;
+   } else {
+      uint32_t max_vertex = 0;
+      for (uint32_t i = 0; i < pipeline->vb.count; i++) {
+         max_vertex =
+            MAX2(max_vertex,
+                 state.vb.views[i].SizeInBytes / state.vb.views[i].StrideInBytes);
+      }
+
+      max_triangles = MAX2(max_vertex, 2) - 2;
+   }
+
+   return max_triangles * 3;
+}
+
 void
 dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
                      size_t draw_buf_offset,
@@ -1365,6 +1543,7 @@ dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
 {
    dzn_graphics_pipeline *pipeline =
       reinterpret_cast<dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
+   bool triangle_fan = pipeline->ia.triangle_fan;
    dzn_batch *batch = get_batch();
    uint32_t min_draw_buf_stride =
       indexed ?
@@ -1377,15 +1556,52 @@ dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
 
    uint32_t sysvals_stride = ALIGN_POT(sizeof(state.sysvals.gfx), 256);
    uint32_t exec_buf_stride = 32;
+   uint32_t triangle_fan_index_buf_stride =
+      triangle_fan_get_max_index_buf_size(indexed) * sizeof(uint32_t);
+   uint32_t triangle_fan_exec_buf_stride =
+      sizeof(struct dzn_indirect_triangle_fan_rewrite_index_exec_params);
    ID3D12Resource *exec_buf =
       alloc_internal_buf(draw_count * exec_buf_stride,
                          D3D12_HEAP_TYPE_DEFAULT,
                          D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
    D3D12_GPU_VIRTUAL_ADDRESS draw_buf_gpu =
       draw_buf->res->GetGPUVirtualAddress() + draw_buf_offset;
+   ID3D12Resource *triangle_fan_index_buf =
+      triangle_fan_index_buf_stride ?
+      alloc_internal_buf(draw_count * triangle_fan_index_buf_stride,
+                         D3D12_HEAP_TYPE_DEFAULT,
+                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS) :
+      NULL;
+   ID3D12Resource *triangle_fan_exec_buf =
+      triangle_fan_index_buf_stride ?
+      alloc_internal_buf(draw_count * triangle_fan_exec_buf_stride,
+                         D3D12_HEAP_TYPE_DEFAULT,
+                         D3D12_RESOURCE_STATE_UNORDERED_ACCESS) :
+      NULL;
 
-   enum dzn_indirect_draw_type draw_type =
-      indexed ? DZN_INDIRECT_INDEXED_DRAW : DZN_INDIRECT_DRAW;
+   struct dzn_indirect_draw_triangle_fan_rewrite_params params = {
+      .draw_buf_stride = draw_buf_stride,
+      .triangle_fan_index_buf_stride = triangle_fan_index_buf_stride,
+      .triangle_fan_index_buf_start =
+         triangle_fan_index_buf ?
+         triangle_fan_index_buf->GetGPUVirtualAddress() : 0,
+   };
+   uint32_t params_size =
+      triangle_fan_index_buf_stride > 0 ?
+      sizeof(struct dzn_indirect_draw_triangle_fan_rewrite_params) :
+      sizeof(struct dzn_indirect_draw_rewrite_params);
+
+   enum dzn_indirect_draw_type draw_type;
+
+   if (indexed && triangle_fan_index_buf_stride > 0)
+      draw_type = DZN_INDIRECT_INDEXED_DRAW_TRIANGLE_FAN;
+   else if (!indexed && triangle_fan_index_buf_stride > 0)
+      draw_type = DZN_INDIRECT_DRAW_TRIANGLE_FAN;
+   else if (indexed)
+      draw_type = DZN_INDIRECT_INDEXED_DRAW;
+   else
+      draw_type = DZN_INDIRECT_DRAW;
+
    dzn_meta_indirect_draw *indirect_draw =
       device->indirect_draws[draw_type].get();
 
@@ -1394,9 +1610,12 @@ dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
 
    batch->cmdlist->SetComputeRootSignature(indirect_draw->root_sig.Get());
    batch->cmdlist->SetPipelineState(indirect_draw->pipeline_state.Get());
-   batch->cmdlist->SetComputeRoot32BitConstant(0, draw_buf_stride, 0);
+   batch->cmdlist->SetComputeRoot32BitConstants(0, params_size / 4, (const void *)&params, 0);
    batch->cmdlist->SetComputeRootShaderResourceView(1, draw_buf_gpu);
    batch->cmdlist->SetComputeRootUnorderedAccessView(2, exec_buf->GetGPUVirtualAddress());
+   if (triangle_fan_exec_buf)
+      batch->cmdlist->SetComputeRootUnorderedAccessView(3, triangle_fan_exec_buf->GetGPUVirtualAddress());
+
    batch->cmdlist->Dispatch(draw_count, 1, 1);
 
    D3D12_RESOURCE_BARRIER post_barriers[] = {
@@ -1413,9 +1632,74 @@ dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
             .StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
          },
       },
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+          /* Transition the exec buffer to indirect arg so it can be
+           * pass to ExecuteIndirect() as an argument buffer.
+           */
+         .Transition = {
+            .pResource = triangle_fan_exec_buf,
+            .Subresource = 0,
+            .StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+            .StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
+         },
+      },
    };
 
-   batch->cmdlist->ResourceBarrier(ARRAY_SIZE(post_barriers), post_barriers);
+   uint32_t post_barrier_count = triangle_fan_exec_buf ? 2 : 1;
+
+   batch->cmdlist->ResourceBarrier(post_barrier_count, post_barriers);
+
+   D3D12_INDEX_BUFFER_VIEW ib_view = {};
+
+   if (triangle_fan_exec_buf) {
+      auto index_type =
+         indexed ?
+         dzn_meta_triangle_fan_rewrite_index::get_index_type(state.ib.view.Format) :
+         dzn_meta_triangle_fan_rewrite_index::NO_INDEX;
+      dzn_meta_triangle_fan_rewrite_index *rewrite_index =
+         device->triangle_fan[index_type].get();
+
+      struct dzn_triangle_fan_rewrite_index_params rewrite_index_params = {};
+
+      batch->cmdlist->SetComputeRootSignature(rewrite_index->root_sig.Get());
+      batch->cmdlist->SetPipelineState(rewrite_index->pipeline_state.Get());
+      batch->cmdlist->SetComputeRootUnorderedAccessView(0, triangle_fan_index_buf->GetGPUVirtualAddress());
+      batch->cmdlist->SetComputeRoot32BitConstants(1, sizeof(rewrite_index_params) / 4,
+                                                   (const void *)&rewrite_index_params, 0);
+
+      if (indexed)
+         batch->cmdlist->SetComputeRootShaderResourceView(2, state.ib.view.BufferLocation);
+
+      ID3D12CommandSignature *cmd_sig = rewrite_index->cmd_sig.Get();
+      batch->cmdlist->ExecuteIndirect(cmd_sig,
+                                      draw_count, triangle_fan_exec_buf,
+                                      0, NULL, 0);
+
+      D3D12_RESOURCE_BARRIER index_buf_barriers[] = {
+         {
+            .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            .Transition = {
+               .pResource = triangle_fan_index_buf,
+               .Subresource = 0,
+               .StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+               .StateAfter = D3D12_RESOURCE_STATE_INDEX_BUFFER,
+            },
+         },
+      };
+
+      batch->cmdlist->ResourceBarrier(ARRAY_SIZE(index_buf_barriers), index_buf_barriers);
+
+      /* After our triangle-fan lowering the draw is indexed */
+      indexed = true;
+      ib_view = state.ib.view;
+      state.ib.view.BufferLocation = triangle_fan_index_buf->GetGPUVirtualAddress();
+      state.ib.view.SizeInBytes = triangle_fan_index_buf_stride;
+      state.ib.view.Format = DXGI_FORMAT_R32_UINT;
+      state.dirty |= DZN_CMD_DIRTY_IB;
+   }
 
    /* We don't mess up with the driver state when executing our internal
     * compute shader, but we still change the D3D12 state, so let's mark
@@ -1435,12 +1719,22 @@ dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
 
    prepare_draw(indexed);
 
+   /* Restore the old IB view if we modified it during the triangle fan lowering */
+   if (ib_view.SizeInBytes) {
+      state.ib.view = ib_view;
+      state.dirty |= DZN_CMD_DIRTY_IB;
+   }
+
    dzn_graphics_pipeline::indirect_cmd_sig_type cmd_sig_type =
+      triangle_fan_index_buf_stride > 0 ?
+      dzn_graphics_pipeline::INDIRECT_DRAW_TRIANGLE_FAN_CMD_SIG :
       indexed ?
       dzn_graphics_pipeline::INDIRECT_INDEXED_DRAW_CMD_SIG :
       dzn_graphics_pipeline::INDIRECT_DRAW_CMD_SIG;
+   ID3D12CommandSignature *cmdsig =
+      pipeline->get_indirect_cmd_sig(cmd_sig_type);
 
-   batch->cmdlist->ExecuteIndirect(pipeline->get_indirect_cmd_sig(cmd_sig_type),
+   batch->cmdlist->ExecuteIndirect(cmdsig,
                                    draw_count, exec_buf, 0, NULL, 0);
 }
 

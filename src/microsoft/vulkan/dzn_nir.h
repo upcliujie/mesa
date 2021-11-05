@@ -24,6 +24,9 @@
 #ifndef DZN_NIR_H
 #define DZN_NIR_H
 
+#define D3D12_IGNORE_SDK_LAYERS
+#include <directx/d3d12.h>
+
 #include "nir.h"
 
 #ifdef __cplusplus
@@ -45,6 +48,16 @@ struct dzn_indirect_indexed_draw_params {
    uint32_t first_instance;
 };
 
+struct dzn_indirect_draw_rewrite_params {
+   uint32_t draw_buf_stride;
+};
+
+struct dzn_indirect_draw_triangle_fan_rewrite_params {
+   uint32_t draw_buf_stride;
+   uint32_t triangle_fan_index_buf_stride;
+   uint64_t triangle_fan_index_buf_start;
+};
+
 struct dzn_indirect_draw_exec_params {
    struct {
       uint32_t first_vertex;
@@ -56,14 +69,46 @@ struct dzn_indirect_draw_exec_params {
    };
 };
 
+struct dzn_indirect_triangle_fan_draw_exec_params {
+   D3D12_INDEX_BUFFER_VIEW ibview;
+   struct {
+      uint32_t first_vertex;
+      uint32_t base_instance;
+   } sysvals;
+   union {
+      struct dzn_indirect_draw_params draw;
+      struct dzn_indirect_indexed_draw_params indexed_draw;
+   };
+};
+
+struct dzn_triangle_fan_rewrite_index_params {
+   union {
+      uint32_t first_index;
+      uint32_t first_vertex;
+   };
+};
+
+struct dzn_indirect_triangle_fan_rewrite_index_exec_params {
+   uint64_t new_index_buf;
+   struct dzn_triangle_fan_rewrite_index_params params;
+   struct {
+      uint32_t x, y, z;
+   } group_count;
+};
+
 enum dzn_indirect_draw_type {
    DZN_INDIRECT_DRAW,
    DZN_INDIRECT_INDEXED_DRAW,
+   DZN_INDIRECT_DRAW_TRIANGLE_FAN,
+   DZN_INDIRECT_INDEXED_DRAW_TRIANGLE_FAN,
    DZN_NUM_INDIRECT_DRAW_TYPES,
 };
 
-struct nir_shader *
+nir_shader *
 dzn_nir_indirect_draw_shader(enum dzn_indirect_draw_type type);
+
+nir_shader *
+dzn_nir_triangle_fan_rewrite_index_shader(uint8_t old_index_size);
 
 #ifdef __cplusplus
 }
