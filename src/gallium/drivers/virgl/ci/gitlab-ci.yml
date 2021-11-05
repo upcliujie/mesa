@@ -56,4 +56,5 @@ virgl-test:
     - .virgl-test
   script:
     - ln -sf $CI_PROJECT_DIR/install /install
+    - syslogd > /dev/null
     - python3 install/crosvm_spawner.py

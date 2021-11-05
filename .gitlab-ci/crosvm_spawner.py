@@ -2,7 +2,7 @@ from multiprocessing import Process, Manager
 import subprocess
 import os
 
-NUM_THREADS = 8
+NUM_THREADS = 16
 NUM_ITERATIONS = 100
 
 def f(worker, iteration,return_dict):
@@ -19,7 +19,7 @@ def f(worker, iteration,return_dict):
             "--netmask=255.255.255.0",
             "--mac", "AA:BB:CC:00:00:12",
             "-p", "root=my_root rw rootfstype=virtiofs ip=192.168.30.2::192.168.30.1:255.255.255.0:crosvm:eth0 init=foo",
-            "/docker/bzImage"]
+            "/lava-files/bzImage"]
     env = os.environ.copy()
     env["NIR_VALIDATE"] = "0"
     env["LIBGL_ALWAYS_SOFTWARE"] = "true"
@@ -29,6 +29,7 @@ def f(worker, iteration,return_dict):
     out, err = process.communicate()
     triggered = False
     for line in out.decode('ascii', 'ignore').splitlines():
+        print(line)
         if "timed out waiting for cap set" in line:
             triggered = True
             print(line)
@@ -39,6 +40,9 @@ def f(worker, iteration,return_dict):
             if worker not in return_dict:
                 return_dict[worker] = 0
             return_dict[worker] = max(return_dict[worker], time)
+
+    for line in err.decode('ascii', 'ignore').splitlines():
+        print(line)
 
     if triggered:
         print("%d/%d %d/%d Got it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" % (worker, NUM_THREADS, iteration, NUM_ITERATIONS))
