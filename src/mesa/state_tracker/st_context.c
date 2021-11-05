@@ -899,6 +899,12 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    list_inithead(&st->zombie_shaders.list.node);
    simple_mtx_init(&st->zombie_shaders.mutex, mtx_plain);
 
+   if (screen->get_param(screen, PIPE_CAP_DRAW_VERTEX_STATE)) {
+      uint32_t supported_prim_modes = screen->get_param(screen, PIPE_CAP_SUPPORTED_PRIM_MODES);
+      if (supported_prim_modes != BITFIELD_MASK(PIPE_PRIM_MAX))
+         st->pc = util_primconvert_create(st->pipe, supported_prim_modes);
+   }
+
    return st;
 }
 
@@ -1141,6 +1147,8 @@ st_destroy_context(struct st_context *st)
    _mesa_glthread_destroy(ctx);
 
    _mesa_HashWalk(ctx->Shared->TexObjects, destroy_tex_sampler_cb, st);
+
+   util_primconvert_destroy(st->pc);
 
    /* For the fallback textures, free any sampler views belonging to this
     * context.
