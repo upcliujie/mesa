@@ -1252,6 +1252,48 @@ dzn_cmd_buffer::prepare_draw(bool indexed)
    state.dirty = 0;
 }
 
+void
+dzn_cmd_buffer::draw(uint32_t vertex_count,
+                     uint32_t instance_count,
+                     uint32_t first_vertex,
+                     uint32_t first_instance)
+{
+   dzn_batch *batch = get_batch();
+
+   state.sysvals.gfx.first_vertex = first_vertex;
+   state.sysvals.gfx.base_instance = first_instance;
+   state.sysvals.gfx.is_indexed_draw = false;
+   state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+
+   prepare_draw(false);
+
+   batch->cmdlist->DrawInstanced(vertex_count, instance_count,
+                                 first_vertex, first_instance);
+}
+
+void
+dzn_cmd_buffer::draw(uint32_t index_count,
+                     uint32_t instance_count,
+                     uint32_t first_index,
+                     int32_t vertex_offset,
+                     uint32_t first_instance)
+{
+   dzn_batch *batch = get_batch();
+
+   state.sysvals.gfx.first_vertex = vertex_offset;
+   state.sysvals.gfx.base_instance = first_instance;
+   state.sysvals.gfx.is_indexed_draw = true;
+   state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+
+   prepare_draw(true);
+
+   batch->cmdlist->DrawIndexedInstanced(index_count, instance_count,
+                                        first_index, vertex_offset,
+                                        first_instance);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdDraw(VkCommandBuffer commandBuffer,
             uint32_t vertexCount,
@@ -1260,17 +1302,8 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
             uint32_t firstInstance)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = cmd_buffer->get_batch();
 
-   cmd_buffer->state.sysvals.gfx.first_vertex = firstVertex;
-   cmd_buffer->state.sysvals.gfx.base_instance = firstInstance;
-   cmd_buffer->state.sysvals.gfx.is_indexed_draw = instanceCount > 1;
-   cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
-      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
-
-   cmd_buffer->prepare_draw(false);
-
-   batch->cmdlist->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
+   cmd_buffer->draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1282,18 +1315,9 @@ dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
                    uint32_t firstInstance)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = cmd_buffer->get_batch();
 
-   cmd_buffer->state.sysvals.gfx.first_vertex = vertexOffset;
-   cmd_buffer->state.sysvals.gfx.base_instance = firstInstance;
-   cmd_buffer->state.sysvals.gfx.is_indexed_draw = true;
-   cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
-      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
-
-   cmd_buffer->prepare_draw(true);
-
-   batch->cmdlist->DrawIndexedInstanced(indexCount, instanceCount, firstIndex,
-                                        vertexOffset, firstInstance);
+   cmd_buffer->draw(indexCount, instanceCount, firstIndex, vertexOffset,
+                    firstInstance);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1418,6 +1442,23 @@ dzn_cmd_buffer::prepare_dispatch()
    state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty = 0;
 }
 
+void
+dzn_cmd_buffer::dispatch(uint32_t group_count_x,
+                         uint32_t group_count_y,
+                         uint32_t group_count_z)
+{
+   dzn_batch *batch = get_batch();
+
+   state.sysvals.compute.group_count_x = group_count_x;
+   state.sysvals.compute.group_count_y = group_count_y;
+   state.sysvals.compute.group_count_z = group_count_z;
+   state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
+      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+
+   prepare_dispatch();
+   batch->cmdlist->Dispatch(group_count_x, group_count_y, group_count_z);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdDispatch(VkCommandBuffer commandBuffer,
                 uint32_t groupCountX,
@@ -1425,14 +1466,6 @@ dzn_CmdDispatch(VkCommandBuffer commandBuffer,
                 uint32_t groupCountZ)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = cmd_buffer->get_batch();
 
-   cmd_buffer->state.sysvals.compute.group_count_x = groupCountX;
-   cmd_buffer->state.sysvals.compute.group_count_y = groupCountY;
-   cmd_buffer->state.sysvals.compute.group_count_z = groupCountZ;
-   cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
-      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
-
-   cmd_buffer->prepare_dispatch();
-   batch->cmdlist->Dispatch(groupCountX, groupCountY, groupCountZ);
+   cmd_buffer->dispatch(groupCountX, groupCountY, groupCountZ);
 }

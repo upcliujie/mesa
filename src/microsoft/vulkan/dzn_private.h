@@ -414,8 +414,19 @@ struct dzn_cmd_buffer {
    void close_batch();
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
-   void prepare_draw(bool indexed);
-   void prepare_dispatch();
+
+   void draw(uint32_t vertex_count,
+             uint32_t instance_count,
+             uint32_t first_vertex,
+             uint32_t first_instance);
+   void draw(uint32_t index_count,
+             uint32_t instance_count,
+             uint32_t first_index,
+             int32_t vertex_offset,
+             uint32_t first_instance);
+   void dispatch(uint32_t group_count_x,
+                 uint32_t group_count_y,
+                 uint32_t group_count_z);
 
 private:
    void update_pipeline(uint32_t bindpoint);
@@ -426,6 +437,8 @@ private:
    void update_ibview();
    void update_push_constants(uint32_t bindpoint);
    void update_sysvals(uint32_t bindpoint);
+   void prepare_draw(bool indexed);
+   void prepare_dispatch();
 };
 
 struct dzn_cmd_pool {
