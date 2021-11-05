@@ -683,6 +683,190 @@ static const struct testcase
                      },
                },
          },
+
+         /* Easy 32x32x32 3d case */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_3,
+                  .ubwc = false,
+                  .width0 = 32,
+                  .height0 = 32,
+                  .depth0 = 32,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 256, .size0 = 8192},
+                        {.offset = 262144, .pitch = 256, .size0 = 4096},
+                        {.offset = 327680, .pitch = 256, .size0 = 4096},
+                        {.offset = 360448, .pitch = 256, .size0 = 4096},
+                        {.offset = 376832, .pitch = 256, .size0 = 4096},
+                        {.offset = 385024, .pitch = 256},
+                     },
+               },
+         },
+
+         /* Scale up a bit to 128x128x32 3d */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_3,
+                  .ubwc = false,
+                  .width0 = 128,
+                  .height0 = 128,
+                  .depth0 = 32,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 512, .size0 = 65536},
+                        {.offset = 2097152, .pitch = 256, .size0 = 16384},
+                        {.offset = 2359296, .pitch = 256, .size0 = 8192},
+                        {.offset = 2424832, .pitch = 256, .size0 = 8192},
+                        {.offset = 2457600, .pitch = 256, .size0 = 8192},
+                        {.offset = 2473984, .pitch = 256},
+                        {.offset = 2482176, .pitch = 256},
+                        {.offset = 2490368, .pitch = 256},
+                     },
+               },
+         },
+
+         /* Changing width to 1 changes where minimum layer size happens. */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_LINEAR,
+                  .ubwc = false,
+                  .width0 = 1,
+                  .height0 = 128,
+                  .depth0 = 32,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 256, .size0 = 32768},
+                        {.offset = 1048576, .pitch = 256, .size0 = 16384},
+                        {.offset = 1310720, .pitch = 256, .size0 = 16384},
+                        {.offset = 1441792, .pitch = 256, .size0 = 16384},
+                        {.offset = 1507328, .pitch = 256, .size0 = 16384},
+                        {.offset = 1540096, .pitch = 256},
+                        {.offset = 1556480, .pitch = 256},
+                        {.offset = 1572864, .pitch = 256},
+                     },
+               },
+         },
+
+         /* And increasing width makes it happen later. */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_3,
+                  .ubwc = false,
+                  .width0 = 1024,
+                  .height0 = 128,
+                  .depth0 = 32,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 4096, .size0 = 524288},
+                        {.offset = 16777216, .pitch = 2048, .size0 = 131072},
+                        {.offset = 18874368, .pitch = 1024, .size0 = 32768},
+                        {.offset = 19136512, .pitch = 512, .size0 = 8192},
+                        {.offset = 19169280, .pitch = 256, .size0 = 4096},
+                        {.offset = 19177472, .pitch = 256},
+                        {.offset = 19181568, .pitch = 256},
+                        {.offset = 19185664, .pitch = 256},
+                        {.offset = 19189760, .pitch = 256},
+                        {.offset = 19193856, .pitch = 256},
+                        {.offset = 19197952, .pitch = 256},
+                     },
+               },
+         },
+
+         /* NPOT height case that piglit was catching 3d texture failure in, we
+          * use a higher depth though to get more slice pitches detected from
+          * the blob.
+          */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_3,
+                  .ubwc = false,
+                  .width0 = 128,
+                  .height0 = 129,
+                  .depth0 = 16,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 512, .size0 = 73728},
+                        {.offset = 1179648, .pitch = 256, .size0 = 20480},
+                        {.offset = 1343488, .pitch = 256, .size0 = 20480},
+                        {.offset = 1425408, .pitch = 256, .size0 = 20480},
+                        {.offset = 1466368, .pitch = 256},
+                        {.offset = 1486848, .pitch = 256},
+                        {.offset = 1507328, .pitch = 256},
+                        {.offset = 1527808, .pitch = 256},
+                     },
+               },
+         },
+
+         /* NPOT height case that my first 3d layout ideas failed on. */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_3,
+                  .ubwc = false,
+                  .width0 = 128,
+                  .height0 = 132,
+                  .depth0 = 16,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 512, .size0 = 73728},
+                        {.offset = 1179648, .pitch = 256, .size0 = 20480},
+                        {.offset = 1343488, .pitch = 256, .size0 = 20480},
+                        {.offset = 1425408, .pitch = 256, .size0 = 20480},
+                        {.offset = 1466368, .pitch = 256},
+                        {.offset = 1486848, .pitch = 256},
+                        {.offset = 1507328, .pitch = 256},
+                        {.offset = 1527808, .pitch = 256},
+                     },
+               },
+         },
+
+         /* blob used MIN_LAYERSZ = 0x3000 here.
+          *
+          * This is an interesting case for 3d layout, since pitch stays NPOT for a while.
+          */
+         {
+            .format = PIPE_FORMAT_R9G9B9E5_FLOAT,
+            .is_3d = true,
+            .layout =
+               {
+                  .tile_mode = TILE6_3,
+                  .ubwc = false,
+                  .width0 = 768,
+                  .height0 = 32,
+                  .depth0 = 128,
+                  .slices =
+                     {
+                        {.offset = 0, .pitch = 3072, .size0 = 98304},
+                        {.offset = 12582912, .pitch = 1536, .size0 = 24576},
+                        {.offset = 14155776, .pitch = 768, .size0 = 12288},
+                        {.offset = 14548992, .pitch = 512, .size0 = 12288},
+                        {.offset = 14745600, .pitch = 256, .size0 = 12288},
+                        {.offset = 14843904, .pitch = 256, .size0 = 12288},
+                        {.offset = 14893056, .pitch = 256, .size0 = 12288},
+                        {.offset = 14917632, .pitch = 256},
+                        {.offset = 14929920, .pitch = 256},
+                        {.offset = 14942208, .pitch = 256},
+                     },
+               },
+         },
 };
 
 int
