@@ -47,3 +47,14 @@ virgl-traces:
     # Use all threads for rendering and only run one job at a time
     # Couldn't get GitLab CI to correctly substitute the variable in the yaml
     - LP_NUM_THREADS=${FDO_CI_CONCURRENT} FDO_CI_CONCURRENT=1 install/crosvm-runner.sh install/piglit/run.sh
+
+virgl-test:
+  tags:
+    - mesa-flatcar-test
+  extends:
+    - .deqp-test
+    - .virgl-test
+  script:
+    - ln -sf $CI_PROJECT_DIR/install /install
+    - syslogd > /dev/null
+    - python3 install/crosvm_spawner.py

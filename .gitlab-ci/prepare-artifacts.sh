@@ -36,6 +36,7 @@ cp -Rp .gitlab-ci/*.txt install/
 cp -Rp .gitlab-ci/report-flakes.py install/
 cp -Rp .gitlab-ci/vkd3d-proton install/
 cp -Rp .gitlab-ci/*-runner.sh install/
+cp -Rp .gitlab-ci/crosvm_spawner.py install/
 find . -path \*/ci/\*.txt \
     -o -path \*/ci/\*.toml \
     -o -path \*/ci/\*traces\*.yml \
