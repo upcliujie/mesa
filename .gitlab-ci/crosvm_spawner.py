@@ -2,7 +2,7 @@ from multiprocessing import Process, Manager
 import subprocess
 import os
 
-NUM_THREADS = 8
+NUM_THREADS = 16
 NUM_ITERATIONS = 100
 
 def f(worker, iteration,return_dict):
@@ -29,6 +29,7 @@ def f(worker, iteration,return_dict):
     out, err = process.communicate()
     triggered = False
     for line in out.decode('ascii', 'ignore').splitlines():
+        print(line)
         if "timed out waiting for cap set" in line:
             triggered = True
             print(line)
@@ -39,6 +40,9 @@ def f(worker, iteration,return_dict):
             if worker not in return_dict:
                 return_dict[worker] = 0
             return_dict[worker] = max(return_dict[worker], time)
+
+    for line in err.decode('ascii', 'ignore').splitlines():
+        print(line)
 
     if triggered:
         print("%d/%d %d/%d Got it!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" % (worker, NUM_THREADS, iteration, NUM_ITERATIONS))
