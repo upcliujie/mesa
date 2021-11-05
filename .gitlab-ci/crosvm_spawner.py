@@ -29,6 +29,7 @@ def f(worker, iteration,return_dict):
     out, err = process.communicate()
     triggered = False
     for line in out.decode('ascii', 'ignore').splitlines():
+        print(line)
         if "timed out waiting for cap set" in line:
             triggered = True
             print(line)
