@@ -185,6 +185,19 @@ dzn_transient_zalloc(size_t count,
    return dzn_transient_object<T>(ptr, deleter);
 }
 
+template <typename T, typename... CreateArgs>
+dzn_object_unique_ptr<T>
+dzn_private_object_create(const VkAllocationCallbacks *parent_alloc,
+                          CreateArgs... args)
+{
+   T *obj = (T *)
+      vk_alloc(parent_alloc, sizeof(T), alignof(T),
+               VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+   std::construct_at(obj, std::forward<CreateArgs>(args)...);
+   return dzn_object_unique_ptr<T>(obj);
+}
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
