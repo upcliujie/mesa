@@ -57,6 +57,9 @@ struct virgl_hw_res {
    /* false when the resource is known to be idle */
    int maybe_busy;
    uint32_t blob_mem;
+
+   /* The fence for the last cmdbuf referencing this resource */
+   struct virgl_drm_fence *last_written_fence;
 };
 
 
@@ -88,12 +91,14 @@ struct param params[] = { PARAM(VIRTGPU_PARAM_3D_FEATURES),
                           PARAM(VIRTGPU_PARAM_SUPPORTED_CAPSET_IDs)
 };
 
+
 struct virgl_drm_winsys
 {
    struct virgl_winsys base;
    int fd;
    struct virgl_resource_cache cache;
    mtx_t mutex;
+   mtx_t cmd_submit_mutex;
 
    int32_t blob_id;
    struct hash_table *bo_handles;
@@ -118,6 +123,7 @@ struct virgl_drm_cmd_buf {
    unsigned nres;
    unsigned cres;
    struct virgl_hw_res **res_bo;
+   boolean *res_written;
    struct virgl_winsys *ws;
    uint32_t *res_hlist;
 
