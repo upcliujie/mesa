@@ -59,7 +59,6 @@
 #define cache_entry_container_res(ptr) \
     (struct virgl_hw_res*)((char*)ptr - offsetof(struct virgl_hw_res, cache_entry))
 
-static inline boolean can_cache_resource(uint32_t bind);
 static void virgl_drm_fence_reference(struct virgl_winsys *vws,
                                   struct virgl_drm_fence **dfence,
                                   struct virgl_drm_fence *sfence);
@@ -68,7 +67,7 @@ static bool virgl_fence_wait_internal(struct virgl_winsys *vws,
                                       struct virgl_drm_fence *fence,
                                       uint64_t timeout);
 
-static inline boolean can_cache_resource_with_bind(uint32_t bind)
+static inline boolean can_cache_resource(uint32_t bind)
 {
    return bind == VIRGL_BIND_CONSTANT_BUFFER ||
           bind == VIRGL_BIND_INDEX_BUFFER ||
@@ -165,7 +164,7 @@ static void virgl_drm_resource_reference(struct virgl_winsys *qws,
 
    if (pipe_reference(&(*dres)->reference, &sres->reference)) {
 
-      if (!can_cache_resource_with_bind(old->bind) ||
+      if (!can_cache_resource(old->bind) ||
           p_atomic_read(&old->external)) {
          virgl_hw_res_destroy(qdws, old);
       } else {

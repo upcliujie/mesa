@@ -48,6 +48,12 @@ enum virgl_transfer_map_type {
    VIRGL_TRANSFER_MAP_REALLOC,
 };
 
+enum wait_type {
+   WAIT_NONE = 0,
+   WAIT_WRITES,
+   WAIT_ALL
+};
+
 /* We need to flush to properly sync the transfer with the current cmdbuf.
  * But there are cases where the flushing can be skipped:
  *
@@ -95,7 +101,8 @@ static bool virgl_res_needs_readback(struct virgl_context *vctx,
 
 static enum virgl_transfer_map_type
 virgl_resource_transfer_prepare(struct virgl_context *vctx,
-                                struct virgl_transfer *xfer)
+                                struct virgl_transfer *xfer,
+                                unsigned usage)
 {
    struct virgl_screen *vs = virgl_screen(vctx->base.screen);
    struct virgl_winsys *vws = vs->vws;
@@ -103,7 +110,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    enum virgl_transfer_map_type map_type = VIRGL_TRANSFER_MAP_HW_RES;
    bool flush;
    bool readback;
-   bool wait;
+   enum wait_type wait;
 
    /* there is no way to map the host storage currently */
    if (xfer->base.usage & PIPE_MAP_DIRECTLY)
@@ -123,7 +130,11 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    /* We need to wait for all cmdbufs, current or previous, that access the
     * resource to finish unless synchronization is disabled.
     */
-   wait = !(xfer->base.usage & PIPE_MAP_UNSYNCHRONIZED);
+   wait = WAIT_ALL;
+   if (usage == PIPE_MAP_READ)
+      wait = WAIT_WRITES;
+   if (xfer->base.usage & PIPE_MAP_UNSYNCHRONIZED)
+      wait = WAIT_NONE;
 
    /* When the transfer range consists of only uninitialized data, we can
     * assume the GPU is not accessing the range and readback is unnecessary.
@@ -136,7 +147,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
        likely(!(virgl_debug & VIRGL_DEBUG_XFER))) {
       flush = false;
       readback = false;
-      wait = false;
+      wait = WAIT_NONE;
    }
 
    /* When the resource is busy but its content can be discarded, we can
@@ -168,12 +179,13 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
          /* Both map types have some costs.  Do them only when the resource is
           * (or will be) busy for real.  Otherwise, set wait to false.
           */
-         wait = (flush || vws->resource_is_busy(vws, res->hw_res));
+         if (flush || vws->resource_is_busy(vws, res->hw_res))
+            wait = WAIT_ALL;
          if (wait) {
             map_type = (can_realloc) ?
                VIRGL_TRANSFER_MAP_REALLOC :
                VIRGL_TRANSFER_MAP_STAGING;
-            wait = false;
+            wait = WAIT_NONE;
 
             /* There is normally no need to flush either, unless the amount of
              * memory we are using for staging resources starts growing, in
@@ -192,7 +204,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
        * trackers.  It should be waited for in all cases, including when
        * PIPE_MAP_UNSYNCHRONIZED is set.
        */
-      wait = true;
+      wait = WAIT_ALL;
 
       /* When the transfer queue has pending writes to this transfer's region,
        * we have to flush before readback.
@@ -220,8 +232,10 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
                         xfer->l_stride, xfer->offset, xfer->base.level);
    }
 
-   if (wait)
+   if (wait == WAIT_ALL)
       vws->resource_wait(vws, res->hw_res);
+   else if (wait == WAIT_WRITES)
+      vws->resource_wait_writes(vws, res->hw_res);
 
    return map_type;
 }
@@ -392,7 +406,7 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
    trans = virgl_resource_create_transfer(vctx, resource,
                                           &vres->metadata, level, usage, box);
 
-   map_type = virgl_resource_transfer_prepare(vctx, trans);
+   map_type = virgl_resource_transfer_prepare(vctx, trans, usage);
    switch (map_type) {
    case VIRGL_TRANSFER_MAP_REALLOC:
       if (!virgl_resource_realloc(vctx, vres)) {
