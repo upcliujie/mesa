@@ -220,6 +220,22 @@ struct DefInfo {
                stride = DIV_ROUND_UP(stride, 4);
          }
          assert(stride > 0);
+      } else if (instr->isMIMG() && instr->mimg().d16 && ctx.program->chip_class <= GFX9) {
+         /* Workaround hardware bug for image instructions:
+          * FeatureImageStoreD16Bug - present on GFX8
+          * FeatureImageGather4D16Bug - present on GFX8/GFX9
+          *
+          * The register use is not calculated correctly, and the hardware assumes a
+          * full dword per component. Don't use the last registers of the register file.
+          * Otherwise, the instruction will be skipped
+          *
+          * https://reviews.llvm.org/D81172
+          */
+         bool imageGather4D16Bug = operand == -1 && rc == v2 && instr->mimg().dmask != 0xF;
+         bool imageStoreD16Bug = operand == 2 && ctx.program->chip_class == GFX8;
+
+         if (imageGather4D16Bug || imageStoreD16Bug)
+            bounds.size -= rc.bytes() / 4;
       }
    }
 };
