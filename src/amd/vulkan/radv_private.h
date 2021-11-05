@@ -250,6 +250,15 @@ const char *radv_get_instance_entry_name(int index);
 const char *radv_get_physical_device_entry_name(int index);
 const char *radv_get_device_entry_name(int index);
 
+/* queue types */
+enum radv_queue_family {
+   RADV_QUEUE_GENERAL,
+   RADV_QUEUE_COMPUTE,
+   RADV_QUEUE_TRANSFER,
+   RADV_MAX_QUEUE_FAMILIES,
+   RADV_QUEUE_FOREIGN = RADV_MAX_QUEUE_FAMILIES,
+};
+
 struct radv_physical_device {
    struct vk_physical_device vk;
 
@@ -313,6 +322,9 @@ struct radv_physical_device {
 #endif
 
    nir_shader_compiler_options nir_options[MESA_VULKAN_SHADER_STAGES];
+
+   enum radv_queue_family qfi_to_qf[RADV_MAX_QUEUE_FAMILIES];
+   int qf_to_qfi[RADV_MAX_QUEUE_FAMILIES];
 };
 
 struct radv_instance {
@@ -679,21 +691,27 @@ struct radv_meta_state {
    } etc_decode;
 };
 
-/* queue types */
-#define RADV_QUEUE_GENERAL  0
-#define RADV_QUEUE_COMPUTE  1
-#define RADV_QUEUE_TRANSFER 2
-
-/* Not a real queue family */
-#define RADV_QUEUE_FOREIGN 3
-
-#define RADV_MAX_QUEUE_FAMILIES 3
-
 #define RADV_NUM_HW_CTX (RADEON_CTX_PRIORITY_REALTIME + 1)
 
 struct radv_deferred_queue_submission;
 
-enum ring_type radv_queue_family_to_ring(int f);
+static inline enum radv_queue_family
+radv_qfi_to_qf(struct radv_physical_device *phys_dev,
+               int queue_family_index)
+{
+   assert(queue_family_index < RADV_MAX_QUEUE_FAMILIES);
+   return phys_dev->qfi_to_qf[queue_family_index];
+}
+
+static inline int
+radv_qf_to_qfi(struct radv_physical_device *phys_dev,
+               enum radv_queue_family qf)
+{
+   assert(qf < RADV_MAX_QUEUE_FAMILIES);
+   return phys_dev->qf_to_qfi[qf];
+}
+
+enum ring_type radv_queue_family_to_ring(enum radv_queue_family f);
 
 struct radv_queue {
    struct vk_queue vk;
@@ -701,6 +719,7 @@ struct radv_queue {
    struct radeon_winsys_ctx *hw_ctx;
    enum radeon_ctx_priority priority;
 
+   enum radv_queue_family qf;
    uint32_t scratch_size_per_wave;
    uint32_t scratch_waves;
    uint32_t compute_scratch_size_per_wave;
@@ -755,6 +774,7 @@ struct radv_device {
    struct radeon_winsys_ctx *hw_ctx[RADV_NUM_HW_CTX];
    struct radv_meta_state meta_state;
 
+   uint8_t qfi_to_qf[RADV_MAX_QUEUE_FAMILIES];
    struct radv_queue *queues[RADV_MAX_QUEUE_FAMILIES];
    int queue_count[RADV_MAX_QUEUE_FAMILIES];
 
@@ -1495,6 +1515,7 @@ struct radv_cmd_buffer {
    struct radv_vertex_binding vertex_bindings[MAX_VBS];
    struct radv_streamout_binding streamout_bindings[MAX_SO_BUFFERS];
    uint32_t queue_family_index;
+   enum radv_queue_family qf;
 
    uint8_t push_constants[MAX_PUSH_CONSTANTS_SIZE];
    VkShaderStageFlags push_constant_stages;

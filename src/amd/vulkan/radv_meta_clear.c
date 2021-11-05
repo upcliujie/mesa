@@ -2440,7 +2440,7 @@ radv_CmdClearColorImage(VkCommandBuffer commandBuffer, VkImage image_h, VkImageL
    struct radv_meta_saved_state saved_state;
    bool cs;
 
-   cs = cmd_buffer->queue_family_index == RADV_QUEUE_COMPUTE ||
+   cs = cmd_buffer->qf == RADV_QUEUE_COMPUTE ||
         !radv_image_is_renderable(cmd_buffer->device, image);
 
    if (cs) {

@@ -372,12 +372,12 @@ radv_bind_streamout_state(struct radv_cmd_buffer *cmd_buffer, struct radv_pipeli
 bool
 radv_cmd_buffer_uses_mec(struct radv_cmd_buffer *cmd_buffer)
 {
-   return cmd_buffer->queue_family_index == RADV_QUEUE_COMPUTE &&
+   return cmd_buffer->qf == RADV_QUEUE_COMPUTE &&
           cmd_buffer->device->physical_device->rad_info.chip_class >= GFX7;
 }
 
 enum ring_type
-radv_queue_family_to_ring(int f)
+radv_queue_family_to_ring(enum radv_queue_family f)
 {
    switch (f) {
    case RADV_QUEUE_GENERAL:
@@ -473,8 +473,9 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
 
    list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
    cmd_buffer->queue_family_index = pool->queue_family_index;
+   cmd_buffer->qf = radv_qfi_to_qf(device->physical_device, pool->queue_family_index);
 
-   ring = radv_queue_family_to_ring(cmd_buffer->queue_family_index);
+   ring = radv_queue_family_to_ring(cmd_buffer->qf);
 
    cmd_buffer->cs = device->ws->cs_create(device->ws, ring);
    if (!cmd_buffer->cs) {
@@ -543,7 +544,7 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
    }
 
    if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX9 &&
-       cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL) {
+       cmd_buffer->qf == RADV_QUEUE_GENERAL) {
       unsigned num_db = cmd_buffer->device->physical_device->rad_info.max_render_backends;
       unsigned fence_offset, eop_bug_offset;
       void *fence_ptr;
@@ -722,7 +723,7 @@ radv_save_pipeline(struct radv_cmd_buffer *cmd_buffer, struct radv_pipeline *pip
 
    va = radv_buffer_get_va(device->trace_bo);
 
-   ring = radv_queue_family_to_ring(cmd_buffer->queue_family_index);
+   ring = radv_queue_family_to_ring(cmd_buffer->qf);
 
    switch (ring) {
    case RING_GFX:
@@ -4936,7 +4937,7 @@ radv_EndCommandBuffer(VkCommandBuffer commandBuffer)
 
    radv_emit_mip_change_flush_default(cmd_buffer);
 
-   if (cmd_buffer->queue_family_index != RADV_QUEUE_TRANSFER) {
+   if (cmd_buffer->qf != RADV_QUEUE_TRANSFER) {
       if (cmd_buffer->device->physical_device->rad_info.chip_class == GFX6)
          cmd_buffer->state.flush_bits |=
             RADV_CMD_FLAG_CS_PARTIAL_FLUSH | RADV_CMD_FLAG_PS_PARTIAL_FLUSH | RADV_CMD_FLAG_WB_L2;
@@ -8202,10 +8203,10 @@ radv_handle_image_transition(struct radv_cmd_buffer *cmd_buffer, struct radv_ima
       if (src_family == VK_QUEUE_FAMILY_EXTERNAL || src_family == VK_QUEUE_FAMILY_FOREIGN_EXT)
          return;
 
-      if (cmd_buffer->queue_family_index == RADV_QUEUE_TRANSFER)
+      if (cmd_buffer->qf == RADV_QUEUE_TRANSFER)
          return;
 
-      if (cmd_buffer->queue_family_index == RADV_QUEUE_COMPUTE &&
+      if (cmd_buffer->qf == RADV_QUEUE_COMPUTE &&
           (src_family == RADV_QUEUE_GENERAL || dst_family == RADV_QUEUE_GENERAL))
          return;
    }
@@ -8524,7 +8525,7 @@ radv_CmdBeginConditionalRenderingEXT(
 
    si_emit_cache_flush(cmd_buffer);
 
-   if (cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL &&
+   if (cmd_buffer->qf == RADV_QUEUE_GENERAL &&
        !cmd_buffer->device->physical_device->rad_info.has_32bit_predication) {
       uint64_t pred_value = 0, pred_va;
       unsigned pred_offset;

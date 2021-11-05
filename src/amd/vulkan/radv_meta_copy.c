@@ -136,7 +136,7 @@ copy_buffer_to_image(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
     */
    assert(image->info.samples == 1);
 
-   cs = cmd_buffer->queue_family_index == RADV_QUEUE_COMPUTE ||
+   cs = cmd_buffer->qf == RADV_QUEUE_COMPUTE ||
         !radv_image_is_renderable(cmd_buffer->device, image);
 
    radv_meta_save(&saved_state, cmd_buffer,
@@ -420,7 +420,7 @@ copy_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *src_image,
     */
    assert(src_image->info.samples == dst_image->info.samples);
 
-   cs = cmd_buffer->queue_family_index == RADV_QUEUE_COMPUTE ||
+   cs = cmd_buffer->qf == RADV_QUEUE_COMPUTE ||
         !radv_image_is_renderable(cmd_buffer->device, dst_image);
 
    radv_meta_save(&saved_state, cmd_buffer,

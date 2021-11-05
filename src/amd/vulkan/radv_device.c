@@ -556,6 +556,24 @@ radv_is_conformant(const struct radv_physical_device *pdevice)
    return pdevice->rad_info.chip_class >= GFX8;
 }
 
+static void
+radv_physical_device_init_queue_table(struct radv_physical_device *pdevice)
+{
+   pdevice->qfi_to_qf[0] = RADV_QUEUE_GENERAL;
+   pdevice->qf_to_qfi[RADV_QUEUE_GENERAL] = 0;
+
+   for (unsigned i = 1; i < RADV_MAX_QUEUE_FAMILIES; i++) {
+      pdevice->qfi_to_qf[i] = RADV_MAX_QUEUE_FAMILIES + 1;
+      pdevice->qf_to_qfi[i] = RADV_MAX_QUEUE_FAMILIES + 1;
+   }
+
+   if (pdevice->rad_info.num_rings[RING_COMPUTE] > 0 &&
+       !(pdevice->instance->debug_flags & RADV_DEBUG_NO_COMPUTE_QUEUE)) {
+      pdevice->qfi_to_qf[1] = RADV_QUEUE_COMPUTE;
+      pdevice->qf_to_qfi[RADV_QUEUE_COMPUTE] = 1;
+   }
+}
+
 static VkResult
 radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm_device,
                                 struct radv_physical_device **device_out)
@@ -772,6 +790,8 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
 
    if ((device->instance->debug_flags & RADV_DEBUG_INFO))
       ac_print_gpu_info(&device->rad_info, stdout);
+
+   radv_physical_device_init_queue_table(device);
 
    /* The WSI is structured as a layer on top of the driver, so this has
     * to be the last part of initialization (at least until we get other
@@ -2652,6 +2672,7 @@ radv_queue_init(struct radv_device *device, struct radv_queue *queue, int idx,
    queue->device = device;
    queue->priority = radv_get_queue_global_priority(global_priority);
    queue->hw_ctx = device->hw_ctx[queue->priority];
+   queue->qf = radv_qfi_to_qf(device->physical_device, create_info->queueFamilyIndex);
 
    VkResult result = vk_queue_init(&queue->vk, &device->vk, create_info, idx);
    if (result != VK_SUCCESS)
@@ -3666,7 +3687,7 @@ radv_emit_graphics_scratch(struct radv_queue *queue, struct radeon_cmdbuf *cs,
                            uint32_t size_per_wave, uint32_t waves,
                            struct radeon_winsys_bo *scratch_bo)
 {
-   if (queue->vk.queue_family_index != RADV_QUEUE_GENERAL)
+   if (queue->qf != RADV_QUEUE_GENERAL)
       return;
 
    if (!scratch_bo)
@@ -3792,7 +3813,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    unsigned tess_offchip_ring_offset;
    uint32_t ring_bo_flags = RADEON_FLAG_NO_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING;
    VkResult result = VK_SUCCESS;
-   if (queue->vk.queue_family_index == RADV_QUEUE_TRANSFER)
+   if (queue->qf == RADV_QUEUE_TRANSFER)
       return VK_SUCCESS;
 
    if (!queue->has_tess_rings) {
@@ -3973,8 +3994,8 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    for (int i = 0; i < 3; ++i) {
       enum rgp_flush_bits sqtt_flush_bits = 0;
       struct radeon_cmdbuf *cs = NULL;
-      cs = queue->device->ws->cs_create(queue->device->ws,
-                                        queue->vk.queue_family_index ? RING_COMPUTE : RING_GFX);
+      enum ring_type rt = radv_queue_family_to_ring(queue->qf);
+      cs = queue->device->ws->cs_create(queue->device->ws, rt);
       if (!cs) {
          result = VK_ERROR_OUT_OF_HOST_MEMORY;
          goto fail;
@@ -3986,7 +4007,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
          radv_cs_add_buffer(queue->device->ws, cs, scratch_bo);
 
       /* Emit initial configuration. */
-      switch (queue->vk.queue_family_index) {
+      switch (queue->qf) {
       case RADV_QUEUE_GENERAL:
          radv_init_graphics_state(cs, queue);
          break;
@@ -3994,6 +4015,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
          radv_init_compute_state(cs, queue);
          break;
       case RADV_QUEUE_TRANSFER:
+      default:
          break;
       }
 
@@ -4021,9 +4043,9 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       if (i == 0) {
          si_cs_emit_cache_flush(
             cs, queue->device->physical_device->rad_info.chip_class, NULL, 0,
-            queue->vk.queue_family_index == RING_COMPUTE &&
+            queue->qf == RADV_QUEUE_COMPUTE &&
                queue->device->physical_device->rad_info.chip_class >= GFX7,
-            (queue->vk.queue_family_index == RADV_QUEUE_COMPUTE
+            (queue->qf == RADV_QUEUE_COMPUTE
                 ? RADV_CMD_FLAG_CS_PARTIAL_FLUSH
                 : (RADV_CMD_FLAG_CS_PARTIAL_FLUSH | RADV_CMD_FLAG_PS_PARTIAL_FLUSH)) |
                RADV_CMD_FLAG_INV_ICACHE | RADV_CMD_FLAG_INV_SCACHE | RADV_CMD_FLAG_INV_VCACHE |
@@ -4031,7 +4053,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
             &sqtt_flush_bits, 0);
       } else if (i == 1) {
          si_cs_emit_cache_flush(cs, queue->device->physical_device->rad_info.chip_class, NULL, 0,
-                                queue->vk.queue_family_index == RING_COMPUTE &&
+                                queue->qf == RADV_QUEUE_COMPUTE &&
                                    queue->device->physical_device->rad_info.chip_class >= GFX7,
                                 RADV_CMD_FLAG_INV_ICACHE | RADV_CMD_FLAG_INV_SCACHE |
                                    RADV_CMD_FLAG_INV_VCACHE | RADV_CMD_FLAG_INV_L2 |
@@ -4337,6 +4359,7 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
    struct radeon_cmdbuf *initial_preamble_cs = NULL;
    struct radeon_cmdbuf *initial_flush_preamble_cs = NULL;
    struct radeon_cmdbuf *continue_preamble_cs = NULL;
+   enum ring_type rt = radv_queue_family_to_ring(queue->qf);
 
    result =
       radv_get_preambles(queue, submission->command_buffers, submission->command_buffer_count,
@@ -4367,7 +4390,7 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
       return VK_SUCCESS;
 
    if (!submission->command_buffer_count) {
-      result = queue->device->ws->cs_submit(ctx, queue->vk.queue_family_index,
+      result = queue->device->ws->cs_submit(ctx, rt,
                                             queue->vk.index_in_family, NULL, 0, NULL, NULL,
                                             submission->wait_count, submission->waits,
                                             submission->signal_count, submission->signals, false);
@@ -4399,7 +4422,7 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
             *queue->device->trace_id_ptr = 0;
 
          result = queue->device->ws->cs_submit(
-            ctx, queue->vk.queue_family_index, queue->vk.index_in_family, cs_array + j, advance,
+            ctx, rt, queue->vk.index_in_family, cs_array + j, advance,
             initial_preamble, continue_preamble_cs, j == 0 ? submission->wait_count : 0,
             submission->waits, last_submit ? submission->signal_count : 0, submission->signals,
             can_patch);
@@ -4438,9 +4461,10 @@ bool
 radv_queue_internal_submit(struct radv_queue *queue, struct radeon_cmdbuf *cs)
 {
    struct radeon_winsys_ctx *ctx = queue->hw_ctx;
+   enum ring_type rt = radv_queue_family_to_ring(queue->qf);
 
    VkResult result =
-      queue->device->ws->cs_submit(ctx, queue->vk.queue_family_index, queue->vk.index_in_family,
+      queue->device->ws->cs_submit(ctx, rt, queue->vk.index_in_family,
                                    &cs, 1, NULL, NULL, 0, NULL, 0, NULL, false);
    if (result != VK_SUCCESS)
       return false;

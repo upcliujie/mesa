@@ -2191,6 +2191,7 @@ bool
 radv_layout_is_htile_compressed(const struct radv_device *device, const struct radv_image *image,
                                 VkImageLayout layout, bool in_render_loop, unsigned queue_mask)
 {
+   const int general_qfi = radv_qf_to_qfi(device->physical_device, RADV_QUEUE_GENERAL);
    switch (layout) {
    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
    case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
@@ -2199,7 +2200,7 @@ radv_layout_is_htile_compressed(const struct radv_device *device, const struct r
       return radv_image_has_htile(image);
    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
       return radv_image_is_tc_compat_htile(image) ||
-             (radv_image_has_htile(image) && queue_mask == (1u << RADV_QUEUE_GENERAL));
+             (radv_image_has_htile(image) && queue_mask == (1u << general_qfi));
    case VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR:
    case VK_IMAGE_LAYOUT_GENERAL:
       /* It should be safe to enable TC-compat HTILE with
@@ -2212,7 +2213,7 @@ radv_layout_is_htile_compressed(const struct radv_device *device, const struct r
       /* FIXME: Enabling TC-compat HTILE in GENERAL on the compute
        * queue is likely broken for eg. depth/stencil copies.
        */
-      if (radv_image_is_tc_compat_htile(image) && queue_mask & (1u << RADV_QUEUE_GENERAL) &&
+      if (radv_image_is_tc_compat_htile(image) && queue_mask & (1u << general_qfi) &&
           !in_render_loop && !device->instance->disable_tc_compat_htile_in_general) {
          return true;
       } else {
@@ -2240,6 +2241,7 @@ radv_layout_can_fast_clear(const struct radv_device *device, const struct radv_i
                            unsigned level, VkImageLayout layout, bool in_render_loop,
                            unsigned queue_mask)
 {
+   const int general_qfi = radv_qf_to_qfi(device->physical_device, RADV_QUEUE_GENERAL);
    if (radv_dcc_enabled(image, level) &&
        !radv_layout_dcc_compressed(device, image, level, layout, in_render_loop, queue_mask))
       return false;
@@ -2255,7 +2257,7 @@ radv_layout_can_fast_clear(const struct radv_device *device, const struct radv_i
     * images can only be fast-cleared if comp-to-single is supported because we don't yet support
     * FCE on the compute queue.
     */
-   return queue_mask == (1u << RADV_QUEUE_GENERAL) || radv_image_use_comp_to_single(device, image);
+   return queue_mask == (1u << general_qfi) || radv_image_use_comp_to_single(device, image);
 }
 
 bool
@@ -2273,9 +2275,10 @@ radv_layout_dcc_compressed(const struct radv_device *device, const struct radv_i
    if (!(image->usage & RADV_IMAGE_USAGE_WRITE_BITS))
       return true;
 
+   int compute_qfi = radv_qf_to_qfi(device->physical_device, RADV_QUEUE_COMPUTE);
    /* Don't compress compute transfer dst when image stores are not supported. */
    if ((layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL || layout == VK_IMAGE_LAYOUT_GENERAL) &&
-       (queue_mask & (1u << RADV_QUEUE_COMPUTE)) && !radv_image_use_dcc_image_stores(device, image))
+       (queue_mask & (1u << compute_qfi)) && !radv_image_use_dcc_image_stores(device, image))
       return false;
 
    return device->physical_device->rad_info.chip_class >= GFX10 || layout != VK_IMAGE_LAYOUT_GENERAL;
@@ -2291,13 +2294,15 @@ radv_layout_fmask_compressed(const struct radv_device *device, const struct radv
    /* Don't compress compute transfer dst because image stores ignore FMASK and it needs to be
     * expanded before.
     */
+   const int general_qfi = radv_qf_to_qfi(device->physical_device, RADV_QUEUE_GENERAL);
+   const int compute_qfi = radv_qf_to_qfi(device->physical_device, RADV_QUEUE_COMPUTE);
    if ((layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL || layout == VK_IMAGE_LAYOUT_GENERAL) &&
-       (queue_mask & (1u << RADV_QUEUE_COMPUTE)))
+       (queue_mask & (1u << compute_qfi)))
       return false;
 
    /* Only compress concurrent images if TC-compat CMASK is enabled (no FMASK decompression). */
    return layout != VK_IMAGE_LAYOUT_GENERAL &&
-          (queue_mask == (1u << RADV_QUEUE_GENERAL) || radv_image_is_tc_compat_cmask(image));
+          (queue_mask == (1u << general_qfi) || radv_image_is_tc_compat_cmask(image));
 }
 
 unsigned
