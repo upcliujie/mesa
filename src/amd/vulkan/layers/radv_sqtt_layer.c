@@ -148,10 +148,10 @@ radv_describe_begin_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
    marker.cb_id = 0;
    marker.device_id_low = device_id;
    marker.device_id_high = device_id >> 32;
-   marker.queue = cmd_buffer->queue_family_index;
+   marker.queue = cmd_buffer->qf;
    marker.queue_flags = VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT | VK_QUEUE_SPARSE_BINDING_BIT;
 
-   if (cmd_buffer->queue_family_index == RADV_QUEUE_GENERAL)
+   if (cmd_buffer->qf == RADV_QUEUE_GENERAL)
       marker.queue_flags |= VK_QUEUE_GRAPHICS_BIT;
 
    radv_emit_thread_trace_userdata(cmd_buffer->device, cs, &marker, sizeof(marker) / 4);
@@ -390,7 +390,7 @@ radv_handle_thread_trace(VkQueue _queue)
 
       if (frame_trigger || file_trigger || resize_trigger) {
          /* FIXME: SQTT on compute hangs. */
-         if (queue->vk.queue_family_index == RADV_QUEUE_COMPUTE) {
+         if (queue->qf == RADV_QUEUE_COMPUTE) {
             fprintf(stderr, "RADV: Capturing a SQTT trace on the compute "
                             "queue is currently broken and might hang! "
                             "Please, disable presenting on compute if "
