@@ -341,6 +341,47 @@ dxil_spirv_nir_lower_unconditional_yflip(nir_shader *shader)
                                        NULL);
 }
 
+static bool
+lower_vulkan_resource_index(struct nir_builder *builder, nir_instr *instr,
+                            void *cb_data)
+{
+   struct dxil_spirv_runtime_conf *conf =
+      (struct dxil_spirv_runtime_conf *)cb_data;
+
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+
+   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+
+   if (intrin->intrinsic != nir_intrinsic_vulkan_resource_index)
+      return false;
+
+   unsigned set = nir_intrinsic_desc_set(intrin);
+   unsigned binding = nir_intrinsic_binding(intrin);
+
+   if (set >= conf->descriptor_set_count)
+      return false;
+
+   binding = conf->descriptor_sets[set].bindings[binding].base_register;
+   nir_intrinsic_set_binding(intrin, binding);
+
+   return true;
+}
+
+static bool
+dxil_spirv_nir_lower_vulkan_resource_index(nir_shader *shader,
+                                           const struct dxil_spirv_runtime_conf *conf)
+{
+   nir_foreach_variable_with_modes(var, shader, nir_var_mem_ubo) {
+      if (var->data.descriptor_set >= conf->descriptor_set_count)
+         continue;
+      var->data.binding = conf->descriptor_sets[var->data.descriptor_set]
+                             .bindings[var->data.binding].base_register;
+   }
+   return nir_shader_instructions_pass(shader, lower_vulkan_resource_index,
+                                       nir_metadata_all, (void *)conf);
+}
+
 bool
 spirv_to_dxil(const uint32_t *words, size_t word_count,
               struct dxil_spirv_specialization *specializations,
@@ -402,6 +443,9 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
       NIR_PASS_V(nir, dxil_nir_lower_system_values_to_zero, system_values,
                  ARRAY_SIZE(system_values));
    }
+
+   if (conf->descriptor_set_count > 0)
+      NIR_PASS_V(nir, dxil_spirv_nir_lower_vulkan_resource_index, conf);
 
    bool requires_runtime_data = false;
    NIR_PASS(requires_runtime_data, nir,

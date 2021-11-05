@@ -108,6 +108,15 @@ enum dxil_spirv_yflip_mode {
    DXIL_SPIRV_YFLIP_CONDITIONAL,
 };
 
+struct dxil_spirv_vulkan_binding {
+   uint32_t base_register;
+};
+
+struct dxil_spirv_vulkan_descriptor_set {
+   uint32_t binding_count;
+   struct dxil_spirv_vulkan_binding *bindings;
+};
+
 struct dxil_spirv_runtime_conf {
    struct {
       uint32_t register_space;
@@ -118,6 +127,9 @@ struct dxil_spirv_runtime_conf {
       uint32_t register_space;
       uint32_t base_shader_register;
    } push_constant_cbv;
+
+   uint32_t descriptor_set_count;
+   struct dxil_spirv_vulkan_descriptor_set *descriptor_sets;
 
    // Set true if vertex and instance ids have already been converted to
    // zero-based. Otherwise, runtime_data will be required to lower them.

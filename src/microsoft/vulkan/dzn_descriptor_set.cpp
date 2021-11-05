@@ -106,6 +106,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
    uint32_t sampler_range_idx[MAX_SHADER_VISIBILITIES] = {};
    uint32_t view_range_idx[MAX_SHADER_VISIBILITIES] = {};
    uint32_t static_sampler_idx = 0;
+   uint32_t base_register = 0;
 
    for (uint32_t i = 0; i < binding_count; i++) {
       binfos[i].static_sampler_idx = ~0;
@@ -126,6 +127,13 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          has_sampler &&
          ordered_bindings[i].pImmutableSamplers != NULL;
 
+      D3D12_SHADER_VISIBILITY visibility =
+         translate_desc_visibility(ordered_bindings[i].stageFlags);
+      binfos[binding].visibility = visibility;
+      binfos[binding].base_shader_register = base_register;
+      assert(base_register + ordered_bindings[i].descriptorCount >= base_register);
+      base_register += ordered_bindings[i].descriptorCount;
+
       if (immutable_samplers) {
 	 binfos[binding].static_sampler_idx = static_sampler_idx;
          D3D12_STATIC_SAMPLER_DESC *sampler = (D3D12_STATIC_SAMPLER_DESC *)
@@ -140,11 +148,8 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
       if (!num_descs) continue;
 
       D3D12_DESCRIPTOR_RANGE1 *range;
-      D3D12_SHADER_VISIBILITY visibility =
-         translate_desc_visibility(ordered_bindings[i].stageFlags);
 
       assert(visibility < ARRAY_SIZE(ranges));
-      binfos[binding].visibility = visibility;
 
       if (has_sampler && !immutable_samplers) {
          assert(sampler_range_idx[visibility] < ranges[visibility].sampler_count);
@@ -155,7 +160,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
             &ranges[visibility].samplers[range_idx];
          range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
          range->NumDescriptors = ordered_bindings[i].descriptorCount;
-         range->BaseShaderRegister = binding;
+         range->BaseShaderRegister = binfos[binding].base_shader_register;
          range->Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
          range->OffsetInDescriptorsFromTableStart = sampler_desc_count;
          sampler_desc_count += range->NumDescriptors;
@@ -171,7 +176,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          range->RangeType =
             desc_type_to_range_type(ordered_bindings[i].descriptorType);
          range->NumDescriptors = ordered_bindings[i].descriptorCount;
-         range->BaseShaderRegister = binding;
+         range->BaseShaderRegister = binfos[binding].base_shader_register;
          range->Flags =
             D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS;
          range->OffsetInDescriptorsFromTableStart = view_desc_count;
@@ -316,7 +321,8 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 
    root.param_count = 0;
 
-   for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
+   set_count = pCreateInfo->setLayoutCount;
+   for (uint32_t j = 0; j < set_count; j++) {
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
       static_sampler_count += set_layout->static_sampler_count;
@@ -325,10 +331,12 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
                              set_layout->ranges[i].view_count;
       }
 
-      heap_offsets[j][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
-      heap_offsets[j][D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;
+      sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
+      sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;
       view_desc_count += set_layout->view_desc_count;
       sampler_desc_count += set_layout->sampler_desc_count;
+
+      sets[j].layout = set_layout;
    }
 
    auto range_descs =
@@ -367,7 +375,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
          for (uint32_t k = 0; k < set_layout->ranges[i].view_count; k++) {
             range_ptr[k].RegisterSpace = j;
             range_ptr[k].OffsetInDescriptorsFromTableStart +=
-               heap_offsets[j][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+               sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
          }
          root_param->DescriptorTable.NumDescriptorRanges += set_layout->ranges[i].view_count;
 	 range_ptr += set_layout->ranges[i].view_count;
@@ -392,7 +400,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
          for (uint32_t k = 0; k < set_layout->ranges[i].sampler_count; k++) {
             range_ptr[k].RegisterSpace = j;
             range_ptr[k].OffsetInDescriptorsFromTableStart +=
-               heap_offsets[j][D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
+               sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
          }
          root_param->DescriptorTable.NumDescriptorRanges += set_layout->ranges[i].sampler_count;
 	 range_ptr += set_layout->ranges[i].sampler_count;

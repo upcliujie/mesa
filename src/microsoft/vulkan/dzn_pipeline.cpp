@@ -54,6 +54,7 @@ to_dxil_shader_stage(VkShaderStageFlagBits in)
 
 VkResult
 dzn_pipeline::compile_shader(dzn_device *device,
+                             dzn_pipeline_layout *layout,
                              const VkPipelineShaderStageCreateInfo *stage_info,
                              bool apply_yflip,
                              D3D12_SHADER_BYTECODE *slot)
@@ -105,6 +106,17 @@ dzn_pipeline::compile_shader(dzn_device *device,
       num_spec = spec_info->mapEntryCount;
    }
 
+   struct dxil_spirv_vulkan_descriptor_set sets[MAX_SETS] = {};
+   dzn_transient_object<dxil_spirv_vulkan_binding> bindings[MAX_SETS];
+   for (uint32_t i = 0; i < layout->set_count; i++) {
+      const struct dzn_descriptor_set_layout *set_layout = layout->sets[i].layout;
+      bindings[i] = dzn_transient_zalloc<dxil_spirv_vulkan_binding>(set_layout->binding_count,
+                                                                    &device->vk.alloc);
+      sets[i].bindings = bindings[i].get();
+      for (uint32_t j = 0; i < set_layout->binding_count; j++)
+         sets[i].bindings[j].base_register = set_layout->bindings[j].base_shader_register;
+   }
+
    struct dxil_spirv_runtime_conf conf = {
       .runtime_data_cbv = {
          .register_space = DZN_REGISTER_SPACE_SYSVALS,
@@ -114,6 +126,8 @@ dzn_pipeline::compile_shader(dzn_device *device,
          .register_space = DZN_REGISTER_SPACE_PUSH_CONSTANT,
          .base_shader_register = 0,
       },
+      .descriptor_set_count = layout->set_count,
+      .descriptor_sets = sets,
       .zero_based_vertex_instance_id = false,
       .y_flip = apply_yflip ? DXIL_SPIRV_YFLIP_UNCONDITIONAL : DXIL_SPIRV_YFLIP_NONE,
    };
@@ -604,7 +618,7 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
          (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
           !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT));
 
-      ret = dzn_pipeline::compile_shader(device, &pCreateInfo->pStages[i],
+      ret = dzn_pipeline::compile_shader(device, layout, &pCreateInfo->pStages[i],
                                          apply_yflip, slot);
       if (ret != VK_SUCCESS)
          goto out;
@@ -787,7 +801,7 @@ dzn_compute_pipeline::dzn_compute_pipeline(dzn_device *device,
    };
 
    VkResult ret =
-      dzn_pipeline::compile_shader(device,
+      dzn_pipeline::compile_shader(device, layout,
                                    &pCreateInfo->stage, false,
                                    &desc.CS);
    if (ret != VK_SUCCESS)

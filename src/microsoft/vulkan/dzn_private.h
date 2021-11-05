@@ -560,6 +560,7 @@ struct dzn_descriptor_pool {
 
 struct dzn_descriptor_set_layout_binding {
    D3D12_SHADER_VISIBILITY visibility;
+   uint32_t base_shader_register;
    uint32_t view_range_idx;
    uint32_t sampler_range_idx;
    uint32_t static_sampler_idx;
@@ -605,7 +606,11 @@ struct dzn_descriptor_set {
 
 struct dzn_pipeline_layout {
    struct vk_object_base base;
-   uint32_t heap_offsets[MAX_SETS][NUM_POOL_TYPES];
+   struct {
+      uint32_t heap_offsets[NUM_POOL_TYPES];
+      const struct dzn_descriptor_set_layout *layout;
+   } sets[MAX_SETS];
+   uint32_t set_count;
    uint32_t desc_count[NUM_POOL_TYPES];
    struct {
       uint32_t param_count;
@@ -702,6 +707,7 @@ struct dzn_pipeline {
    ~dzn_pipeline();
 
    static VkResult compile_shader(dzn_device *device,
+                                  dzn_pipeline_layout *layout,
                                   const VkPipelineShaderStageCreateInfo *stage_info,
                                   bool apply_yflip,
                                   D3D12_SHADER_BYTECODE *slot);
