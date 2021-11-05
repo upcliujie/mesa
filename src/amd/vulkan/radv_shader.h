@@ -459,6 +459,8 @@ struct radv_shader {
 
    struct radeon_winsys_bo *bo;
    union radv_shader_arena_block *alloc;
+   uint32_t bo_offset;
+
    struct ac_shader_config config;
    uint8_t *code_ptr;
    uint32_t code_size;
@@ -516,6 +518,10 @@ struct radv_shader *radv_shader_compile(
 
 bool radv_shader_binary_upload(struct radv_device *device, const struct radv_shader_binary *binary,
                                struct radv_shader *shader);
+
+union radv_shader_arena_block *radv_alloc_shader_memory(struct radv_device *device, uint32_t size,
+                                                        void *ptr);
+void radv_free_shader_memory(struct radv_device *device, union radv_shader_arena_block *alloc);
 
 struct radv_shader *
 radv_create_gs_copy_shader(struct radv_device *device, struct nir_shader *nir,
