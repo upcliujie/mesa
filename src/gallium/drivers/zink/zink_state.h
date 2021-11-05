@@ -59,6 +59,11 @@ struct zink_vertex_elements_state {
    struct zink_vertex_elements_hw_state hw_state;
 };
 
+struct zink_vertex_state {
+   struct pipe_vertex_state b;
+   struct zink_vertex_elements_state velems;
+};
+
 struct zink_rasterizer_hw_state {
    unsigned polygon_mode : 2; //VkPolygonMode
    unsigned cull_mode : 2; //VkCullModeFlags
@@ -118,4 +123,23 @@ struct zink_depth_stencil_alpha_state {
 void
 zink_context_state_init(struct pipe_context *pctx);
 
+
+struct pipe_vertex_state *
+zink_create_vertex_state(struct pipe_screen *pscreen,
+                          struct pipe_vertex_buffer *buffer,
+                          const struct pipe_vertex_element *elements,
+                          unsigned num_elements,
+                          struct pipe_resource *indexbuf,
+                          uint32_t full_velem_mask);
+void
+zink_vertex_state_destroy(struct pipe_screen *pscreen, struct pipe_vertex_state *vstate);
+struct pipe_vertex_state *
+zink_cache_create_vertex_state(struct pipe_screen *pscreen,
+                               struct pipe_vertex_buffer *buffer,
+                               const struct pipe_vertex_element *elements,
+                               unsigned num_elements,
+                               struct pipe_resource *indexbuf,
+                               uint32_t full_velem_mask);
+void
+zink_cache_vertex_state_destroy(struct pipe_screen *pscreen, struct pipe_vertex_state *vstate);
 #endif
