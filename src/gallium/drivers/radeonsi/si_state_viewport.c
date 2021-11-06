@@ -45,11 +45,14 @@ static void si_get_small_prim_cull_info(struct si_context *sctx, struct si_small
    /* The viewport shouldn't flip the X axis for the small prim culling to work. */
    assert(-info.scale[0] + info.translate[0] <= info.scale[0] + info.translate[0]);
 
-   /* Determine the half line width that extends the line for view culling. */
-   float half_line_width = sctx->queued.named.rasterizer->line_width * 0.5;
-   float half_line_width_x = half_line_width / info.scale[0];
-   float half_line_width_y = half_line_width / info.scale[1];
-   info.clip_space_half_line_width = MAX2(half_line_width_x, half_line_width_y);
+   /* Compute the line width used by the rasterizer. */
+   float line_width = sctx->queued.named.rasterizer->line_width;
+   if (num_samples == 1)
+      line_width = roundf(line_width);
+   line_width = MAX2(line_width, 1);
+
+   info.clip_half_line_width[0] = line_width * 0.5 / fabs(info.scale[0]);
+   info.clip_half_line_width[1] = line_width * 0.5 / fabs(info.scale[1]);
 
    /* If the Y axis is inverted (OpenGL default framebuffer), reverse it.
     * This is because the viewport transformation inverts the clip space
@@ -66,6 +69,9 @@ static void si_get_small_prim_cull_info(struct si_context *sctx, struct si_small
       info.translate[0] += 0.5;
       info.translate[1] += 0.5;
    }
+
+   memcpy(info.scale_no_aa, info.scale, sizeof(info.scale));
+   memcpy(info.translate_no_aa, info.translate, sizeof(info.translate));
 
    /* Scale the framebuffer up, so that samples become pixels and small
     * primitive culling is the same for all sample counts.
@@ -84,11 +90,13 @@ static void si_get_small_prim_cull_info(struct si_context *sctx, struct si_small
    unsigned quant_mode = sctx->viewports.as_scissor[0].quant_mode;
 
    if (quant_mode == SI_QUANT_MODE_12_12_FIXED_POINT_1_4096TH)
-      info.small_prim_precision = num_samples / 4096.0;
+      info.small_prim_precision_no_aa = 1.0 / 4096.0;
    else if (quant_mode == SI_QUANT_MODE_14_10_FIXED_POINT_1_1024TH)
-      info.small_prim_precision = num_samples / 1024.0;
+      info.small_prim_precision_no_aa = 1.0 / 1024.0;
    else
-      info.small_prim_precision = num_samples / 256.0;
+      info.small_prim_precision_no_aa = 1.0 / 256.0;
+
+   info.small_prim_precision = num_samples * info.small_prim_precision_no_aa;
 
    *out = info;
 }
