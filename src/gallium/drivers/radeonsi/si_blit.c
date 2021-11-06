@@ -98,6 +98,8 @@ void si_blitter_end(struct si_context *sctx)
    /* Restore shader pointers because the VS blit shader changed all
     * non-global VS user SGPRs. */
    sctx->shader_pointers_dirty |= SI_DESCS_SHADER_MASK(VERTEX);
+   /* Reset SI_SGPR_SMALL_PRIM_CULL_INFO: */
+   si_mark_atom_dirty(sctx, &sctx->atoms.s.ngg_cull_state);
 
    unsigned num_vbos_in_user_sgprs = si_num_vbos_in_user_sgprs(sctx->screen);
    sctx->vertex_buffer_pointer_dirty = sctx->vb_descriptors_buffer != NULL &&
