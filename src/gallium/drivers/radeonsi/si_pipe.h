@@ -899,6 +899,8 @@ struct si_saved_cs {
 
 struct si_small_prim_cull_info {
    float scale[2], translate[2];
+   float clip_space_half_line_width;
+   /* The above fields are uploaded to memory. The below fields are passed via user SGPRs. */
    float small_prim_precision;
 };
 

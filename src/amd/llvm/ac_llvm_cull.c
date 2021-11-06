@@ -125,7 +125,8 @@ static LLVMValueRef ac_cull_face(struct ac_llvm_context *ctx, LLVMValueRef pos[3
 static void cull_bbox(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
                       LLVMValueRef initially_accepted, struct ac_position_w_info *w,
                       LLVMValueRef vp_scale[2], LLVMValueRef vp_translate[2],
-                      LLVMValueRef small_prim_precision, struct ac_cull_options *options,
+                      LLVMValueRef small_prim_precision, LLVMValueRef clip_half_line_width,
+                      struct ac_cull_options *options,
                       ac_cull_accept_func accept_func, void *userdata)
 {
    LLVMBuilderRef builder = ctx->builder;
@@ -152,6 +153,11 @@ static void cull_bbox(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
          if (options->num_vertices == 3) {
             bbox_min[chan] = ac_build_fmin(ctx, bbox_min[chan], pos[2][chan]);
             bbox_max[chan] = ac_build_fmax(ctx, bbox_max[chan], pos[2][chan]);
+         }
+
+         if (clip_half_line_width) {
+            bbox_min[chan] = LLVMBuildFSub(builder, bbox_min[chan], clip_half_line_width, "");
+            bbox_max[chan] = LLVMBuildFAdd(builder, bbox_max[chan], clip_half_line_width, "");
          }
       }
 
@@ -238,6 +244,7 @@ static void cull_bbox(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
 void ac_cull_primitive(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
                        LLVMValueRef initially_accepted, LLVMValueRef vp_scale[2],
                        LLVMValueRef vp_translate[2], LLVMValueRef small_prim_precision,
+                       LLVMValueRef clip_half_line_width,
                        struct ac_cull_options *options, ac_cull_accept_func accept_func,
                        void *userdata)
 {
@@ -255,6 +262,6 @@ void ac_cull_primitive(struct ac_llvm_context *ctx, LLVMValueRef pos[3][4],
       "");
 
    /* View culling and small primitive elimination. */
-   cull_bbox(ctx, pos, accepted, &w, vp_scale, vp_translate, small_prim_precision, options,
-             accept_func, userdata);
+   cull_bbox(ctx, pos, accepted, &w, vp_scale, vp_translate, small_prim_precision,
+             clip_half_line_width, options, accept_func, userdata);
 }
