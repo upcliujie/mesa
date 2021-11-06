@@ -971,7 +971,7 @@ void gfx10_emit_ngg_culling_epilogue(struct ac_shader_abi *abi)
       }
 
       /* Load the viewport state for small prim culling. */
-      LLVMValueRef vp = ac_build_load_invariant(
+      LLVMValueRef vp = ac_build_load_to_sgpr(
          &ctx->ac, ac_get_arg(&ctx->ac, ctx->small_prim_cull_info), ctx->ac.i32_0);
       vp = LLVMBuildBitCast(builder, vp, ctx->ac.v4f32, "");
       LLVMValueRef vp_scale[2], vp_translate[2];
