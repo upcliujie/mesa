@@ -786,7 +786,9 @@ emit_depthstencil_clear(struct radv_cmd_buffer *cmd_buffer, const VkClearAttachm
       .depth_stencil_attachment = ds_att,
    };
 
-   radv_cmd_buffer_set_subpass(cmd_buffer, &clear_subpass);
+   if (!subpass->depth_stencil_attachment ||
+       ds_att->attachment != subpass->depth_stencil_attachment->attachment)
+      radv_cmd_buffer_set_subpass(cmd_buffer, &clear_subpass);
 
    radv_CmdBindPipeline(cmd_buffer_h, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
@@ -814,7 +816,9 @@ emit_depthstencil_clear(struct radv_cmd_buffer *cmd_buffer, const VkClearAttachm
       radv_CmdSetStencilReference(cmd_buffer_h, VK_STENCIL_FACE_FRONT_BIT, prev_reference);
    }
 
-   radv_cmd_buffer_restore_subpass(cmd_buffer, subpass);
+   if (!subpass->depth_stencil_attachment ||
+       ds_att->attachment != subpass->depth_stencil_attachment->attachment)
+      radv_cmd_buffer_restore_subpass(cmd_buffer, subpass);
 }
 
 static uint32_t
