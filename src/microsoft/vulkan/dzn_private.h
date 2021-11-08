@@ -444,7 +444,7 @@ struct dzn_cmd_buffer {
    struct {
       struct dzn_framebuffer *framebuffer;
       const struct dzn_pipeline *pipeline;
-      ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
+      ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
       struct dzn_render_pass *pass;
       struct {
          BITSET_DECLARE(dirty, MAX_VBS);
@@ -466,7 +466,7 @@ struct dzn_cmd_buffer {
       struct {
          struct dzn_pipeline *pipeline;
          const struct dzn_descriptor_set *sets[MAX_SETS];
-         ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
+         ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
          uint32_t dirty;
       } bindpoint[NUM_BIND_POINT];
       union {

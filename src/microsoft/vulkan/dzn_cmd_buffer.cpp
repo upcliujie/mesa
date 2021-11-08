@@ -1150,7 +1150,7 @@ dzn_cmd_buffer::update_pipeline(uint32_t bindpoint)
 void
 dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
 {
-   ComPtr<ID3D12DescriptorHeap> *new_heaps = state.bindpoint[bindpoint].heaps;
+   ID3D12DescriptorHeap **new_heaps = state.bindpoint[bindpoint].heaps;
    const struct dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
    uint32_t view_desc_sz =
       device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -1163,11 +1163,6 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
 
    for (uint32_t type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; type++) {
-      if (new_heaps[type]) {
-         heaps.push_back(new_heaps[type]);
-         new_heaps[type] = ComPtr<ID3D12DescriptorHeap>(NULL);
-      }
-
       uint32_t desc_count = state.pipeline->layout->desc_count[type];
       if (!desc_count)
          continue;
@@ -1178,10 +1173,13 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
       };
 
+      ComPtr<ID3D12DescriptorHeap> new_heap;
       HRESULT ret =
          device->dev->CreateDescriptorHeap(&desc,
-                                           IID_PPV_ARGS(&new_heaps[type]));
+                                           IID_PPV_ARGS(&new_heap));
       assert(!FAILED(ret));
+      heaps.push_back(new_heap);
+      new_heaps[type] = new_heap.Get();
 
       D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = {
          .ptr = new_heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
@@ -1215,14 +1213,14 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
    }
 
 set_heaps:
-   if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get() != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get() ||
-       new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get() != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get()) {
+   if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] ||
+       new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]) {
       ID3D12DescriptorHeap *desc_heaps[2];
       uint32_t num_desc_heaps = 0;
-      if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get())
-         desc_heaps[num_desc_heaps++] = new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV].Get();
-      if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get())
-         desc_heaps[num_desc_heaps++] = new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER].Get();
+      if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV])
+         desc_heaps[num_desc_heaps++] = new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+      if (new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER])
+         desc_heaps[num_desc_heaps++] = new_heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
       batch->cmdlist->SetDescriptorHeaps(num_desc_heaps, desc_heaps);
 
       for (unsigned h = 0; h < ARRAY_SIZE(state.heaps); h++)
