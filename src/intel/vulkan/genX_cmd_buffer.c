@@ -6495,7 +6495,8 @@ vk_to_blorp_resolve_mode(VkResolveModeFlagBitsKHR vk_mode)
 }
 
 static void
-cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
+cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer,
+                       bool do_layout_transitions)
 {
    struct anv_cmd_state *cmd_state = &cmd_buffer->state;
    struct anv_subpass *subpass = cmd_state->subpass;
@@ -6804,60 +6805,62 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
    }
 #endif /* GFX_VER == 7 */
 
-   for (uint32_t i = 0; i < subpass->attachment_count; ++i) {
-      const uint32_t a = subpass->attachments[i].attachment;
-      if (a == VK_ATTACHMENT_UNUSED)
-         continue;
+   if (do_layout_transitions) {
+      for (uint32_t i = 0; i < subpass->attachment_count; ++i) {
+         const uint32_t a = subpass->attachments[i].attachment;
+         if (a == VK_ATTACHMENT_UNUSED)
+            continue;
 
-      if (cmd_state->pass->attachments[a].last_subpass_idx != subpass_id)
-         continue;
+         if (cmd_state->pass->attachments[a].last_subpass_idx != subpass_id)
+            continue;
 
-      assert(a < cmd_state->pass->attachment_count);
-      struct anv_attachment_state *att_state = &cmd_state->attachments[a];
-      struct anv_image_view *iview = cmd_state->attachments[a].image_view;
-      const struct anv_image *image = iview->image;
+         assert(a < cmd_state->pass->attachment_count);
+         struct anv_attachment_state *att_state = &cmd_state->attachments[a];
+         struct anv_image_view *iview = cmd_state->attachments[a].image_view;
+         const struct anv_image *image = iview->image;
 
-      /* Transition the image into the final layout for this render pass */
-      VkImageLayout target_layout =
-         cmd_state->pass->attachments[a].final_layout;
-      VkImageLayout target_stencil_layout =
-         cmd_state->pass->attachments[a].stencil_final_layout;
+         /* Transition the image into the final layout for this render pass */
+         VkImageLayout target_layout =
+            cmd_state->pass->attachments[a].final_layout;
+         VkImageLayout target_stencil_layout =
+            cmd_state->pass->attachments[a].stencil_final_layout;
 
-      uint32_t base_layer, layer_count;
-      if (image->vk.image_type == VK_IMAGE_TYPE_3D) {
-         base_layer = 0;
-         layer_count = anv_minify(iview->image->vk.extent.depth,
-                                  iview->planes[0].isl.base_level);
-      } else {
-         base_layer = iview->planes[0].isl.base_array_layer;
-         layer_count = fb->layers;
-      }
+         uint32_t base_layer, layer_count;
+         if (image->vk.image_type == VK_IMAGE_TYPE_3D) {
+            base_layer = 0;
+            layer_count = anv_minify(iview->image->vk.extent.depth,
+                                     iview->planes[0].isl.base_level);
+         } else {
+            base_layer = iview->planes[0].isl.base_array_layer;
+            layer_count = fb->layers;
+         }
 
-      if (image->vk.aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) {
-         assert(image->vk.aspects == VK_IMAGE_ASPECT_COLOR_BIT);
-         transition_color_buffer(cmd_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
-                                 iview->planes[0].isl.base_level, 1,
-                                 base_layer, layer_count,
-                                 att_state->current_layout, target_layout,
-                                 VK_QUEUE_FAMILY_IGNORED,
-                                 VK_QUEUE_FAMILY_IGNORED,
-                                 false /* will_full_fast_clear */);
-      }
+         if (image->vk.aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) {
+            assert(image->vk.aspects == VK_IMAGE_ASPECT_COLOR_BIT);
+            transition_color_buffer(cmd_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
+                                    iview->planes[0].isl.base_level, 1,
+                                    base_layer, layer_count,
+                                    att_state->current_layout, target_layout,
+                                    VK_QUEUE_FAMILY_IGNORED,
+                                    VK_QUEUE_FAMILY_IGNORED,
+                                    false /* will_full_fast_clear */);
+         }
 
-      if (image->vk.aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
-         transition_depth_buffer(cmd_buffer, image,
-                                 base_layer, layer_count,
-                                 att_state->current_layout, target_layout,
-                                 false /* will_full_fast_clear */);
-      }
+         if (image->vk.aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
+            transition_depth_buffer(cmd_buffer, image,
+                                    base_layer, layer_count,
+                                    att_state->current_layout, target_layout,
+                                    false /* will_full_fast_clear */);
+         }
 
-      if (image->vk.aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
-         transition_stencil_buffer(cmd_buffer, image,
-                                   iview->planes[0].isl.base_level, 1,
-                                   base_layer, layer_count,
-                                   att_state->current_stencil_layout,
-                                   target_stencil_layout,
-                                   false /* will_full_fast_clear */);
+         if (image->vk.aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
+            transition_stencil_buffer(cmd_buffer, image,
+                                      iview->planes[0].isl.base_level, 1,
+                                      base_layer, layer_count,
+                                      att_state->current_stencil_layout,
+                                      target_stencil_layout,
+                                      false /* will_full_fast_clear */);
+         }
       }
    }
 
@@ -6920,7 +6923,7 @@ void genX(CmdNextSubpass2)(
    assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
    uint32_t prev_subpass = anv_get_subpass_id(&cmd_buffer->state);
-   cmd_buffer_end_subpass(cmd_buffer);
+   cmd_buffer_end_subpass(cmd_buffer, true /* do_layout_transitions */);
    cmd_buffer_begin_subpass(cmd_buffer, prev_subpass + 1);
 }
 
@@ -6933,7 +6936,7 @@ void genX(CmdEndRenderPass2)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
-   cmd_buffer_end_subpass(cmd_buffer);
+   cmd_buffer_end_subpass(cmd_buffer, true /* do_layout_transitions */);
 
    trace_intel_end_render_pass(&cmd_buffer->trace, cmd_buffer,
                                cmd_buffer->state.render_area.extent.width,
