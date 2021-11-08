@@ -293,6 +293,8 @@ struct dzn_device {
    void alloc_rtv_handle(struct d3d12_descriptor_handle *handle);
    void alloc_dsv_handle(struct d3d12_descriptor_handle *handle);
    void free_handle(struct d3d12_descriptor_handle *handle);
+   ComPtr<ID3D12RootSignature>
+   create_root_sig(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC &desc);
 private:
    std::mutex pools_lock;
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
@@ -835,6 +837,7 @@ enum dzn_debug_flags {
    DZN_DEBUG_DXIL = 1 << 2,
    DZN_DEBUG_WARP = 1 << 3,
    DZN_DEBUG_INTERNAL = 1 << 4,
+   DZN_DEBUG_SIG = 1 << 5,
 };
 
 struct dzn_instance {

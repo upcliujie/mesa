@@ -467,16 +467,9 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       },
    };
 
-   ComPtr<ID3DBlob> sig, error;
-   if (FAILED(device->instance->d3d12.serialize_root_sig(&root_sig_desc,
-                                                         &sig, &error)))
-      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   if (FAILED(device->dev->CreateRootSignature(0,
-                                               sig->GetBufferPointer(),
-                                               sig->GetBufferSize(),
-                                               IID_PPV_ARGS(&root.sig))))
-      throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+   root.sig = device->create_root_sig(root_sig_desc);
+   if (!root.sig.Get())
+      throw vk_error(device, VK_ERROR_UNKNOWN);
 
    desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
    desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;

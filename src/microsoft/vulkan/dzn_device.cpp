@@ -919,6 +919,34 @@ dzn_device::free_handle(struct d3d12_descriptor_handle *handle)
    d3d12_descriptor_handle_free(handle);
 }
 
+ComPtr<ID3D12RootSignature>
+dzn_device::create_root_sig(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC &desc)
+{
+   ComPtr<ID3D12RootSignature> root_sig;
+   ComPtr<ID3DBlob> sig, error;
+
+   if (FAILED(instance->d3d12.serialize_root_sig(&desc,
+                                                 &sig, &error))) {
+      if (instance->debug_flags & DZN_DEBUG_SIG) {
+         const char* error_msg = (const char*)error->GetBufferPointer();
+         fprintf(stderr,
+                 "== SERIALIZE ROOT SIG ERROR =============================================\n"
+                 "%s\n"
+                 "== END ==========================================================\n",
+                 error_msg);
+      }
+
+      return root_sig;
+   }
+
+   dev->CreateRootSignature(0,
+                            sig->GetBufferPointer(),
+                            sig->GetBufferSize(),
+                            IID_PPV_ARGS(&root_sig));
+
+   return root_sig;
+}
+
 dzn_device *
 dzn_device_factory::allocate(VkPhysicalDevice physical_device,
                              const VkDeviceCreateInfo *pCreateInfo,
