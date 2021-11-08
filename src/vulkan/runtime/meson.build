@@ -53,6 +53,7 @@ files_vulkan_runtime = files(
   'vk_shader_module.c',
   'vk_shader_module.h',
   'vk_synchronization2.c',
+  'vk_video.c',
 )
 
 vk_common_entrypoints = custom_target(
