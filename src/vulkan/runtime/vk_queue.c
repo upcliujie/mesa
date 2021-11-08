@@ -957,9 +957,9 @@ vk_common_QueueWaitIdle(VkQueue _queue)
 
    vk_sync_destroy(queue->base.device, sync);
 
-   /* Check again, just in case */
-   if (vk_device_is_lost(queue->base.device))
-      return VK_ERROR_DEVICE_LOST;
+   VkResult device_status = vk_device_check_status(queue->base.device);
+   if (device_status != VK_SUCCESS)
+      return device_status;
 
    return result;
 }
