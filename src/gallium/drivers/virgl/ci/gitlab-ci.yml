@@ -50,7 +50,7 @@ virgl-traces:
 
 virgl-test:
   tags:
-    - kvm
+    - mesa-centos-test
   extends:
     - .deqp-test
     - .virgl-test
