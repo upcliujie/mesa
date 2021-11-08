@@ -209,6 +209,9 @@ dzn_cmd_buffer::reset()
    batches.clear();
    batch.reset(NULL);
 
+   /* Reset the state */
+   memset(&state, 0, sizeof(state));
+
    vk_command_buffer_reset(&vk);
 }
 
