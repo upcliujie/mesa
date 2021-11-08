@@ -50,7 +50,7 @@ virgl-traces:
 
 virgl-test:
   tags:
-    - mesa-centos-test
+    - mesa-flatcar-test
   extends:
     - .deqp-test
     - .virgl-test
