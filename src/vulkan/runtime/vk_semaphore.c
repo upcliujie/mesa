@@ -320,9 +320,9 @@ vk_common_WaitSemaphores(VkDevice _device,
 
    STACK_ARRAY_FINISH(waits);
 
-   /* Check again, just in case */
-   if (vk_device_is_lost(device))
-      return VK_ERROR_DEVICE_LOST;
+   VkResult device_status = vk_device_check_status(device);
+   if (device_status != VK_SUCCESS)
+      return device_status;
 
    return result;
 }
