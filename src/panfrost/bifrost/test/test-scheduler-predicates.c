@@ -60,7 +60,7 @@ int main(int argc, char **argv)
       BIT_ASSERT(bi_reads_t(load, i));
    }
 
-   bi_instr *blend = bi_blend_to(b, TMP(), TMP(), TMP(), TMP(), TMP(), 4);
+   bi_instr *blend = bi_blend_to(b, TMP(), TMP(), TMP(), TMP(), TMP(), TMP(), 4, 4);
    BIT_ASSERT(!bi_can_fma(load));
    BIT_ASSERT(bi_can_add(load));
    BIT_ASSERT(bi_must_message(blend));
