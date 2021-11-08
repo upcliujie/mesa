@@ -2953,6 +2953,8 @@ static struct intel_mapped_pinned_buffer_alloc aux_map_allocator = {
    .free = intel_aux_map_buffer_free,
 };
 
+static VkResult anv_device_check_status(struct vk_device *vk_device);
+
 VkResult anv_CreateDevice(
     VkPhysicalDevice                            physicalDevice,
     const VkDeviceCreateInfo*                   pCreateInfo,
@@ -3047,6 +3049,7 @@ VkResult anv_CreateDevice(
    }
 
    vk_device_set_drm_fd(&device->vk, device->fd);
+   device->vk.check_status = anv_device_check_status;
 
    uint32_t num_queues = 0;
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++)
@@ -3466,15 +3469,10 @@ VkResult anv_EnumerateInstanceLayerProperties(
    return vk_error(NULL, VK_ERROR_LAYER_NOT_PRESENT);
 }
 
-VkResult
-anv_device_query_status(struct anv_device *device)
+static VkResult
+anv_device_check_status(struct vk_device *vk_device)
 {
-   /* This isn't likely as most of the callers of this function already check
-    * for it.  However, it doesn't hurt to check and it potentially lets us
-    * avoid an ioctl.
-    */
-   if (vk_device_is_lost(&device->vk))
-      return VK_ERROR_DEVICE_LOST;
+   struct anv_device *device = container_of(vk_device, struct anv_device, vk);
 
    uint32_t active, pending;
    int ret = anv_gem_context_get_reset_stats(device->fd, device->context_id,
@@ -3503,14 +3501,9 @@ anv_device_wait(struct anv_device *device, struct anv_bo *bo,
    } else if (ret == -1) {
       /* We don't know the real error. */
       return vk_device_set_lost(&device->vk, "gem wait failed: %m");
+   } else {
+      return VK_SUCCESS;
    }
-
-   /* Query for device status after the wait.  If the BO we're waiting on got
-    * caught in a GPU hang we don't want to return VK_SUCCESS to the client
-    * because it clearly doesn't have valid data.  Yes, this most likely means
-    * an ioctl, but we just did an ioctl to wait so it's no great loss.
-    */
-   return anv_device_query_status(device);
 }
 
 uint64_t

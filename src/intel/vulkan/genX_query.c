@@ -422,7 +422,7 @@ wait_for_available(struct anv_device *device,
    while (os_time_get_nano() < abs_timeout_ns) {
       if (query_is_available(pool, query))
          return VK_SUCCESS;
-      VkResult status = anv_device_query_status(device);
+      VkResult status = vk_device_check_status(&device->vk);
       if (status != VK_SUCCESS)
          return status;
    }
