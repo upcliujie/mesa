@@ -685,6 +685,23 @@ iris_copy_region(struct blorp_context *blorp,
       iris_emit_buffer_barrier_for(batch, iris_resource_bo(dst),
                                    IRIS_DOMAIN_RENDER_WRITE);
 
+      if (dst_aux_usage == ISL_AUX_USAGE_GFX12_CCS_E && !dst_clear_supported) {
+         /* We are leaving compression enabled, but the intermediate format
+          * used for the blorp_copy() operation cannot represent the actual
+          * clear color for the surface.  So we need to disable the Tigerlake
+          * optimization that automatically marks blocks as clear, as it would
+          * interpret the clear color incorrectly, and mark the wrong blocks.
+          *
+          * Zeroing the clear color fields causes ISL to leave the "Clear
+          * Value Address Enable" field in RENDER_SURFACE_STATE unset, which
+          * empirically appears to disable the Tigerlake optimization without
+          * any ill effects.  This is hopefully safe because we performed a
+          * partial resolve above to eliminate any fast clear blocks.
+          */
+         dst_surf.clear_color_addr = (struct blorp_address) {};
+         dst_surf.clear_color = (union isl_color_value) {};
+      }
+
       blorp_batch_init(&ice->blorp, &blorp_batch, batch, 0);
 
       for (int slice = 0; slice < src_box->depth; slice++) {
