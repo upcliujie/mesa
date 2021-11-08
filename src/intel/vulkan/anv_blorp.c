@@ -1875,6 +1875,7 @@ anv_image_mcs_op(struct anv_cmd_buffer *cmd_buffer,
     * that it is completed before any additional drawing occurs.
     */
    anv_add_pending_pipe_bits(cmd_buffer,
+                             ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
                              ANV_PIPE_TILE_CACHE_FLUSH_BIT |
                              ANV_PIPE_DEPTH_STALL_BIT |
@@ -1966,6 +1967,7 @@ anv_image_ccs_op(struct anv_cmd_buffer *cmd_buffer,
     * that it is completed before any additional drawing occurs.
     */
    anv_add_pending_pipe_bits(cmd_buffer,
+                             ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
                              ANV_PIPE_TILE_CACHE_FLUSH_BIT |
                              ANV_PIPE_DEPTH_STALL_BIT |
