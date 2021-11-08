@@ -189,6 +189,35 @@ dzn_cmd_buffer::get_batch(bool signal_event)
  
       /* Close the current batch if there are event signaling pending. */
       close_batch();
+
+      /* We need to make sure the current state is re-applied on the new
+       * cmdlist, so mark things as dirty.
+       */
+      const dzn_graphics_pipeline * gfx_pipeline =
+         reinterpret_cast<const dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
+
+      if (gfx_pipeline) {
+         if (gfx_pipeline->vp.count)
+            state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
+         if (gfx_pipeline->scissor.count)
+            state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+
+         state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+            DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+      }
+
+      if (state.ib.view.SizeInBytes)
+         state.dirty |= DZN_CMD_DIRTY_IB;
+
+      const dzn_pipeline *compute_pipeline =
+         state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline;
+
+      if (compute_pipeline) {
+         state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
+            DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+      }
+
+      state.pipeline = NULL;
    }
 
    open_batch();
