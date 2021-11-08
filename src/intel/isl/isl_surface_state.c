@@ -815,7 +815,18 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
 #endif
 
 #if GFX_VER >= 12
-      assert(info->use_clear_address);
+      /* The RENDER_SURFACE_STATE::Clear Value Address Enable docs say that
+       * using an indirect clear color is required:
+       *
+       *   "This bit has to be programmed to 1 if clear buffer is attached to
+       *    the surface or if AUX_MODE is AUX_CCS_E. No support for explicit
+       *    clear values. Only hw managed clear values are supported."
+       *
+       * However, disabling it was suggested as a hardware workaround, and
+       * empirically seems to disable Tigerlake's auto-fast-clear behavior,
+       * which we sometimes need to when rendering via a different format
+       * which can't represent the actual clear color (e.g. blorp_copy()).
+       */
 #elif GFX_VER >= 9
       if (!info->use_clear_address) {
          s.RedClearColor = info->clear_color.u32[0];
