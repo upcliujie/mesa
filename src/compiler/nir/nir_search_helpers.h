@@ -414,6 +414,13 @@ is_only_used_as_float(const nir_alu_instr *instr)
             if (nir_alu_type_get_base_type(type) != nir_type_float)
                return false;
          }
+      } else if (user_instr->type == nir_instr_type_tex) {
+         nir_tex_instr *user_tex = nir_instr_as_tex(user_instr);
+         unsigned index = (nir_tex_src *)container_of(src, nir_tex_src, src) -
+            user_tex->src;
+
+         if (nir_tex_instr_src_type(user_tex, index) != nir_type_float)
+            return false;
       } else {
          return false;
       }
