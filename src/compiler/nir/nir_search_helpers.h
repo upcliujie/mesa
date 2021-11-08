@@ -388,15 +388,32 @@ is_only_used_as_float(const nir_alu_instr *instr)
 {
    nir_foreach_use(src, &instr->dest.dest.ssa) {
       const nir_instr *const user_instr = src->parent_instr;
-      if (user_instr->type != nir_instr_type_alu)
-         return false;
 
-      const nir_alu_instr *const user_alu = nir_instr_as_alu(user_instr);
-      assert(instr != user_alu);
+      if (user_instr->type == nir_instr_type_alu) {
+         const nir_alu_instr *const user_alu = nir_instr_as_alu(user_instr);
+         assert(instr != user_alu);
 
-      unsigned index = (nir_alu_src*)container_of(src, nir_alu_src, src) - user_alu->src;
-      if (nir_op_infos[user_alu->op].input_types[index] != nir_type_float)
+         unsigned index = (nir_alu_src *)container_of(src, nir_alu_src, src) - user_alu->src;
+
+         if (nir_op_is_vec(user_alu->op) ||
+             ((user_alu->op == nir_op_bcsel ||
+               user_alu->op == nir_op_b32csel ||
+               user_alu->op == nir_op_fcsel) &&
+              index > 0)) {
+            /* Apply transitively through the vecN and conditional selection
+             * operations.  That is, if the result of the user is only used as
+             * a float, then the original source might also only be used as a
+             * float.
+             */
+            if (!is_only_used_as_float(user_alu))
+               return false;
+         } else {
+            if (nir_op_infos[user_alu->op].input_types[index] != nir_type_float)
+               return false;
+         }
+      } else {
          return false;
+      }
    }
 
    return true;
