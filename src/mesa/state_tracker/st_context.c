@@ -548,15 +548,7 @@ st_init_driver_flags(struct st_context *st)
       f->NewFragClamp = ST_NEW_RASTERIZER;
    }
 
-   if (st->clamp_frag_depth_in_shader) {
-      f->NewClipControl |= ST_NEW_VS_STATE | ST_NEW_GS_STATE |
-                           ST_NEW_TES_STATE;
-
-      f->NewDepthClamp = ST_NEW_FS_STATE | ST_NEW_VS_STATE |
-                         ST_NEW_GS_STATE | ST_NEW_TES_STATE;
-   } else {
-      f->NewDepthClamp = ST_NEW_RASTERIZER;
-   }
+   f->NewDepthClamp = ST_NEW_RASTERIZER;
 
    if (st->lower_ucp)
       f->NewClipPlaneEnable = ST_NEW_VS_STATE | ST_NEW_GS_STATE;
@@ -781,9 +773,6 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
       }
    }
 
-   if (screen->get_param(screen, PIPE_CAP_DEPTH_CLIP_DISABLE) == 2)
-      st->clamp_frag_depth_in_shader = true;
-
    /* called after _mesa_create_context/_mesa_init_point, fix default user
     * settable max point size up
     */
@@ -816,7 +805,6 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    /* Set which shader types can be compiled at link time. */
    st->shader_has_one_variant[MESA_SHADER_VERTEX] =
          st->has_shareable_shaders &&
-         !st->clamp_frag_depth_in_shader &&
          !st->clamp_vert_color_in_shader &&
          !st->lower_point_size &&
          !st->lower_ucp;
@@ -826,7 +814,6 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
          !st->lower_flatshade &&
          !st->lower_alpha_test &&
          !st->clamp_frag_color_in_shader &&
-         !st->clamp_frag_depth_in_shader &&
          !st->force_persample_in_shader &&
          !st->lower_two_sided_color &&
          !st->lower_texcoord_replace;
@@ -834,14 +821,12 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    st->shader_has_one_variant[MESA_SHADER_TESS_CTRL] = st->has_shareable_shaders;
    st->shader_has_one_variant[MESA_SHADER_TESS_EVAL] =
          st->has_shareable_shaders &&
-         !st->clamp_frag_depth_in_shader &&
          !st->clamp_vert_color_in_shader &&
          !st->lower_point_size &&
          !st->lower_ucp;
 
    st->shader_has_one_variant[MESA_SHADER_GEOMETRY] =
          st->has_shareable_shaders &&
-         !st->clamp_frag_depth_in_shader &&
          !st->clamp_vert_color_in_shader &&
          !st->lower_point_size &&
          !st->lower_ucp;
