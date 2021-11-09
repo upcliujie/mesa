@@ -890,6 +890,7 @@ struct dzn_sampler {
 #ifdef __cplusplus
 extern "C" {
 #endif
+bool dzn_is_format_supported(enum pipe_format in);
 DXGI_FORMAT dzn_pipe_to_dxgi_format(enum pipe_format in);
 D3D12_FILTER dzn_translate_sampler_filter(const VkSamplerCreateInfo *create_info);
 D3D12_COMPARISON_FUNC dzn_translate_compare_op(VkCompareOp in);
