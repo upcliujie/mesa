@@ -40,8 +40,18 @@ image_format_features(VkFormat vk_format,
 {
    VkFormatFeatureFlags flags = 0;
 
-   if (tiling == VK_IMAGE_TILING_OPTIMAL)
+   enum pipe_format f = vk_format_to_pipe_format(vk_format);
+   if (!dzn_is_format_supported(f))
+      return 0;
+
+   flags |= VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+   if (tiling == VK_IMAGE_TILING_OPTIMAL) {
       flags |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+      if (vk_format_is_depth_or_stencil(vk_format))
+         flags |= VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT;
+      else
+         flags |= VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT;
+   }
 
    return flags;
 }
