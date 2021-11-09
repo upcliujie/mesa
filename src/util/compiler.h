@@ -76,9 +76,9 @@
 #  define __has_attribute(x) 0
 #endif
 
-#ifdef __has_cpp_attribute
+#if defined(__has_cpp_attribute) && defined(__clang__)
 /* We do not do the same trick as __has_attribute because parsing
- * clang::fallthrough in the preprocessor fails in C. */
+ * clang::fallthrough in the preprocessor fails in GCC. */
 #  define HAS_CLANG_FALLTHROUGH  __has_cpp_attribute(clang::fallthrough)
 #else
 #  define HAS_CLANG_FALLTHROUGH 0
