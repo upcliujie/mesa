@@ -1130,7 +1130,8 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
    D3D12_HEAP_DESC heap_desc = {};
    // TODO: fix all of these:
    heap_desc.SizeInBytes = pAllocateInfo->allocationSize;
-   heap_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+   heap_desc.Alignment =
+      D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
    heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
 
    /* TODO: Unsure about this logic??? */
@@ -1155,7 +1156,7 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
       D3D12_RESOURCE_DESC res_desc = {};
       res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
       res_desc.Format = DXGI_FORMAT_UNKNOWN;
-      res_desc.Alignment = heap_desc.Alignment;
+      res_desc.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
       res_desc.Width = heap_desc.SizeInBytes;
       res_desc.Height = 1;
       res_desc.DepthOrArraySize = 1;
