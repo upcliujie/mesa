@@ -97,6 +97,47 @@ const StdVideoH264PictureParameterSet *vk_video_find_h264_pps(const struct vk_vi
 const StdVideoH265SequenceParameterSet *vk_video_find_h265_sps(const struct vk_video_session_parameters *params, uint32_t sps_id);
 const StdVideoH265PictureParameterSet *vk_video_find_h265_pps(const struct vk_video_session_parameters *params, uint32_t pps_id);
 
+struct vk_video_h264_slice_params {
+   uint16_t slice_data_bit_offset;
+   uint16_t first_mb_in_slice;
+   StdVideoH264SliceType slice_type;
+   uint8_t direct_spatial_mv_pred_flag;
+   uint8_t num_ref_idx_l0_active_minus1;
+   uint8_t num_ref_idx_l1_active_minus1;
+   uint8_t cabac_init_idc;
+   int8_t slice_qp_delta;
+   uint8_t disable_deblocking_filter_idc;
+   int8_t slice_alpha_c0_offset_div2;
+   int8_t slice_beta_offset_div2;
+   uint8_t luma_log2_weight_denom;
+   uint8_t chroma_log2_weight_denom;
+   uint8_t luma_weight_l0_flag[32];
+   int16_t luma_weight_l0[32];
+   int16_t luma_offset_l0[32];
+   uint8_t chroma_weight_l0_flag[32];
+   int16_t chroma_weight_l0[32][2];
+   int16_t chroma_offset_l0[32][2];
+   uint8_t luma_weight_l1_flag[32];
+   int16_t luma_weight_l1[32];
+   int16_t luma_offset_l1[32];
+   uint8_t chroma_weight_l1_flag[32];
+   int16_t chroma_weight_l1[32][2];
+   int16_t chroma_offset_l1[32][2];
+
+   int16_t num_mod_l0;
+   int16_t mod_pic_nums_idc_l0[16];
+   int16_t mod_val_l0[16];
+   int16_t num_mod_l1;
+   int16_t mod_pic_nums_idc_l1[16];
+   int16_t mod_val_l1[16];
+};
+
+void vk_video_parse_h264_slice_header(const struct VkVideoDecodeInfoKHR *frame_info,
+                                      const StdVideoH264SequenceParameterSet *sps,
+                                      const StdVideoH264PictureParameterSet *pps,
+                                      void *slice_hdr,
+                                      struct vk_video_h264_slice_params *params);
+
 #ifdef __cplusplus
 }
 #endif
