@@ -129,7 +129,10 @@ dzn_pipeline::compile_shader(dzn_device *device,
       .descriptor_set_count = layout->set_count,
       .descriptor_sets = sets,
       .zero_based_vertex_instance_id = false,
-      .y_flip = apply_yflip ? DXIL_SPIRV_YFLIP_UNCONDITIONAL : DXIL_SPIRV_YFLIP_NONE,
+      .yz_flip = {
+         .mode = apply_yflip ? DXIL_SPIRV_Y_FLIP_UNCONDITIONAL : DXIL_SPIRV_YZ_FLIP_NONE,
+         .mask = apply_yflip ? 1UL : 0UL,
+      },
    };
 
    struct dxil_spirv_debug_options dbg_opts = {

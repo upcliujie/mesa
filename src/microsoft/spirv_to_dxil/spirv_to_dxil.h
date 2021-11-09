@@ -90,22 +90,32 @@ struct dxil_spirv_compute_runtime_data {
    uint32_t group_count_z;
 };
 
+#define DXIL_SPIRV_Y_FLIP_MASK BITFIELD_MASK(DXIL_SPIRV_MAX_VIEWPORT)
+#define DXIL_SPIRV_Z_FLIP_SHIFT DXIL_SPIRV_MAX_VIEWPORT
+#define DXIL_SPIRV_Z_FLIP_MASK BITFIELD_RANGE(DXIL_SPIRV_Z_FLIP_SHIFT, DXIL_SPIRV_MAX_VIEWPORT)
+
 /* This struct describes the layout of data expected in the CB bound to
  * runtime_data_cbv during vertex stages */
 struct dxil_spirv_vertex_runtime_data {
    uint32_t first_vertex;
    uint32_t base_instance;
    bool is_indexed_draw;
-   float y_flip_factor;
+   // The lower 16bits of this mask encode Y-flips (one bit per viewport)
+   // The higher 16bits of this maks encode Z-flips (one bit per viewport)
+   uint32_t yz_flip_mask;
 };
 
-enum dxil_spirv_yflip_mode {
-   DXIL_SPIRV_YFLIP_NONE,
+enum dxil_spirv_yz_flip_mode {
+   DXIL_SPIRV_YZ_FLIP_NONE = 0,
    // Y-flip is unconditional: pos.y = -pos.y
-   DXIL_SPIRV_YFLIP_UNCONDITIONAL,
-   // Y-flip is factor is passed through a sysval
-   // pos.y = pos.y * y_flip_factor
-   DXIL_SPIRV_YFLIP_CONDITIONAL,
+   // Z-flip is unconditional: pos.z = -pos.z + 1.0f
+   DXIL_SPIRV_Y_FLIP_UNCONDITIONAL = 1 << 0,
+   DXIL_SPIRV_Z_FLIP_UNCONDITIONAL = 1 << 1,
+   DXIL_SPIRV_YZ_FLIP_UNCONDITIONAL = DXIL_SPIRV_Y_FLIP_UNCONDITIONAL | DXIL_SPIRV_Z_FLIP_UNCONDITIONAL,
+   // Y-flip/Z-flip info are passed through a sysval
+   DXIL_SPIRV_Y_FLIP_CONDITIONAL = 1 << 2,
+   DXIL_SPIRV_Z_FLIP_CONDITIONAL = 1 << 3,
+   DXIL_SPIRV_YZ_FLIP_CONDITIONAL = DXIL_SPIRV_Y_FLIP_CONDITIONAL | DXIL_SPIRV_Z_FLIP_CONDITIONAL,
 };
 
 struct dxil_spirv_vulkan_binding {
@@ -116,6 +126,8 @@ struct dxil_spirv_vulkan_descriptor_set {
    uint32_t binding_count;
    struct dxil_spirv_vulkan_binding *bindings;
 };
+
+#define DXIL_SPIRV_MAX_VIEWPORT 16
 
 struct dxil_spirv_runtime_conf {
    struct {
@@ -135,9 +147,14 @@ struct dxil_spirv_runtime_conf {
    // zero-based. Otherwise, runtime_data will be required to lower them.
    bool zero_based_vertex_instance_id;
 
-   // Set to DXIL_SPIRV_YFLIP_[UN]CONDITIONAL if this stage requires a
-   // Y-flip (only valid on vertex/geometry stages).
-   enum dxil_spirv_yflip_mode y_flip;
+   struct {
+      // mode != DXIL_SPIRV_YZ_FLIP_NONE only valid on vertex/geometry stages.
+      enum dxil_spirv_yz_flip_mode mode;
+
+      // The lower 16bits of this mask encode Y-flips (one bit per viewport)
+      // The higher 16bits of this maks encode Z-flips (one bit per viewport)
+      uint32_t mask;
+   } yz_flip;
 };
 
 struct dxil_spirv_debug_options {
