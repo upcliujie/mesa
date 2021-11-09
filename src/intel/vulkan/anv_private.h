@@ -2761,7 +2761,6 @@ struct anv_attachment_state {
    VkImageLayout                                current_layout;
    VkImageLayout                                current_stencil_layout;
    VkImageAspectFlags                           pending_clear_aspects;
-   VkImageAspectFlags                           pending_load_aspects;
    bool                                         fast_clear;
    VkClearValue                                 clear_value;
 
