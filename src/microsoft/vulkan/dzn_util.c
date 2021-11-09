@@ -221,8 +221,8 @@ dzn_translate_viewport(D3D12_VIEWPORT *out,
    out->TopLeftY = in->y;
    out->Width = in->width;
    out->Height = in->height;
-   out->MinDepth = in->minDepth;
-   out->MaxDepth = in->maxDepth;
+   out->MinDepth = MIN2(in->minDepth, in->maxDepth);
+   out->MaxDepth = MAX2(in->maxDepth, in->minDepth);
 }
 
 void
