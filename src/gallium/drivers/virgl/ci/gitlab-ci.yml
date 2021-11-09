@@ -15,7 +15,7 @@ virgl-on-gl:
     LP_NUM_THREADS: 1   # There will be FDO_CI_CONCURRENT Crosvm processes, so each should use a single thread
   parallel: 3
   tags:
-    - kvm
+    - mesa-flatcar-test
   extends:
     - .deqp-test
     - .virgl-test
