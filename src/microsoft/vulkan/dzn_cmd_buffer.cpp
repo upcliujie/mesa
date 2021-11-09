@@ -1075,16 +1075,18 @@ dzn_cmd_buffer::begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
    assert(pass->attachment_count == framebuffer->attachment_count);
 
    state.framebuffer = framebuffer;
+   state.render_area = D3D12_RECT {
+      .left = pRenderPassBeginInfo->renderArea.offset.x,
+      .top = pRenderPassBeginInfo->renderArea.offset.y,
+      .right = (LONG)(pRenderPassBeginInfo->renderArea.offset.x + pRenderPassBeginInfo->renderArea.extent.width),
+      .bottom = (LONG)(pRenderPassBeginInfo->renderArea.offset.y + pRenderPassBeginInfo->renderArea.extent.height),
+   };
+
+   // The render area has an impact on the scissor state.
+   state.dirty |= DZN_CMD_DIRTY_SCISSORS;
    state.pass = pass;
    state.subpass = 0;
    begin_subpass();
-
-   D3D12_RECT rect = {
-      pRenderPassBeginInfo->renderArea.offset.x,
-      pRenderPassBeginInfo->renderArea.offset.y,
-      pRenderPassBeginInfo->renderArea.offset.x + pRenderPassBeginInfo->renderArea.extent.width,
-      pRenderPassBeginInfo->renderArea.offset.y + pRenderPassBeginInfo->renderArea.extent.height
-   };
 
    assert(pRenderPassBeginInfo->clearValueCount <= framebuffer->attachment_count);
    for (int i = 0; i < pRenderPassBeginInfo->clearValueCount; ++i) {
@@ -1092,7 +1094,8 @@ dzn_cmd_buffer::begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
          (pass->attachments[i].clear.color ? VK_IMAGE_ASPECT_COLOR_BIT : 0) |
          (pass->attachments[i].clear.depth ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) |
          (pass->attachments[i].clear.stencil ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
-      clear_attachment(i, &pRenderPassBeginInfo->pClearValues[i], aspectMask, 1, &rect);
+      clear_attachment(i, &pRenderPassBeginInfo->pClearValues[i], aspectMask,
+                       1, &state.render_area);
    }
 }
 
@@ -1384,10 +1387,27 @@ dzn_cmd_buffer::update_scissors()
       reinterpret_cast<const dzn_graphics_pipeline *>(state.pipeline);
    dzn_batch *batch = get_batch();
 
-   if (!(state.dirty & DZN_CMD_DIRTY_SCISSORS) || !pipeline->scissor.count)
+   if (!(state.dirty & DZN_CMD_DIRTY_SCISSORS))
       return;
 
-   batch->cmdlist->RSSetScissorRects(pipeline->scissor.count, state.scissors);
+   if (!pipeline->scissor.count) {
+      /* Apply a scissor delimiting the render area. */
+      batch->cmdlist->RSSetScissorRects(1, &state.render_area);
+      return;
+   }
+
+   D3D12_RECT scissors[MAX_SCISSOR];
+   uint32_t scissor_count = pipeline->scissor.count;
+
+   memcpy(scissors, state.scissors, sizeof(D3D12_RECT) * pipeline->scissor.count);
+   for (uint32_t i = 0; i < pipeline->scissor.count; i++) {
+      scissors[i].left = MAX2(scissors[i].left, state.render_area.left);
+      scissors[i].top = MAX2(scissors[i].top, state.render_area.top);
+      scissors[i].right = MIN2(scissors[i].right, state.render_area.right);
+      scissors[i].bottom = MIN2(scissors[i].bottom, state.render_area.bottom);
+   }
+
+   batch->cmdlist->RSSetScissorRects(pipeline->scissor.count, scissors);
 }
 
 VKAPI_ATTR void VKAPI_CALL

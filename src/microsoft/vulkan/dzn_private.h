@@ -443,6 +443,7 @@ struct dzn_cmd_buffer {
 
    struct {
       struct dzn_framebuffer *framebuffer;
+      D3D12_RECT render_area;
       const struct dzn_pipeline *pipeline;
       ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
       struct dzn_render_pass *pass;
