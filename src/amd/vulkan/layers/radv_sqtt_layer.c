@@ -344,6 +344,27 @@ radv_describe_pipeline_bind(struct radv_cmd_buffer *cmd_buffer,
    radv_emit_thread_trace_userdata(cmd_buffer->device, cs, &marker, sizeof(marker) / 4);
 }
 
+/* Workaround for https://gitlab.freedesktop.org/mesa/mesa/-/issues/5260 */
+static bool radv_vgh_rgp_hang_issue(struct radv_device *device)
+{
+   char path[128];
+   char data[128];
+   int n;
+
+   if (device->physical_device->rad_info.family != CHIP_VANGOGH)
+      return false;
+
+   snprintf(path, sizeof(path), "/sys/bus/pci/devices/%04x:%02x:%02x.%x/power_dpm_force_performance_level", device->physical_device->rad_info.pci_domain, device->physical_device->rad_info.pci_bus, device->physical_device->rad_info.pci_dev, device->physical_device->rad_info.pci_func);
+
+   FILE *f = fopen(path, "r");
+   if (!f)
+      return false; /* Unknown but optimistic. */
+   n = fread(data, 1, sizeof(data) - 1, f);
+   fclose(f);
+   data[n] = 0;
+   return strstr(data, "profile") == NULL;
+}
+
 /* TODO: Improve the way to trigger capture (overlay, etc). */
 static void
 radv_handle_thread_trace(VkQueue _queue)
@@ -395,6 +416,13 @@ radv_handle_thread_trace(VkQueue _queue)
                             "queue is currently broken and might hang! "
                             "Please, disable presenting on compute if "
                             "you can.\n");
+            return;
+         }
+
+         if (radv_vgh_rgp_hang_issue(queue->device)) {
+            fprintf(stderr, "RADV: Canceling RGP trace request as a hang condition with VanGogh "
+                            "hardware has been detected. Force the GPU into a profiling mode with "
+                            "e.g. \"echo profile_peak  > /sys/class/drm/card0/device/power_dpm_force_performance_level\"\n");
             return;
          }
 
