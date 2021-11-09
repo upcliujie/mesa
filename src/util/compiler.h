@@ -83,6 +83,7 @@
 /* Non-standard but supported by at least gcc and clang */
 #define FALLTHROUGH __attribute__((fallthrough))
 #else
+#error "no fallthrough"
 #define FALLTHROUGH do { } while(0)
 #endif
 
