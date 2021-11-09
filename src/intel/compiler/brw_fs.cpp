@@ -2111,7 +2111,7 @@ fs_visitor::assign_gs_urb_setup()
  * contiguous sets of GRFs.  If we split, we'll end up with reduced
  * live intervals and better dead code elimination and coalescing.
  */
-void
+bool
 fs_visitor::split_virtual_grfs()
 {
    /* Compact the register file so we eliminate dead vgrfs.  This
@@ -2182,6 +2182,10 @@ fs_visitor::split_virtual_grfs()
       }
    }
 
+   /* Bitset of which registers have been split */
+   BITSET_WORD has_split = new BITSET_WORD[BITSET_WORDS(num_vars)];
+   memset(has_split, 0, BITSET_WORDS(num_vars) * sizeof(BITSET_WORD));
+
    int *new_virtual_grf = new int[reg_count];
    int *new_reg_offset = new int[reg_count];
 
@@ -2201,6 +2205,7 @@ fs_visitor::split_virtual_grfs()
           * new virtual GRF for the previous offset many registers
           */
          if (split_points[reg]) {
+            BITSET_SET(has_splits, i);
             assert(offset <= MAX_VGRF_SIZE);
             int grf = alloc.allocate(offset);
             for (int k = reg - offset; k < reg; k++)
@@ -2220,40 +2225,61 @@ fs_visitor::split_virtual_grfs()
    }
    assert(reg == reg_count);
 
+   bool progress = false;
    foreach_block_and_inst_safe(block, fs_inst, inst, cfg) {
       if (inst->opcode == SHADER_OPCODE_UNDEF) {
-         const fs_builder ibld(this, block, inst);
-         assert(inst->size_written % REG_SIZE == 0);
-         unsigned reg_offset = 0;
-         while (reg_offset < inst->size_written / REG_SIZE) {
-            reg = vgrf_to_reg[inst->dst.nr] + reg_offset;
-            ibld.UNDEF(fs_reg(VGRF, new_virtual_grf[reg], inst->dst.type));
-            reg_offset += alloc.sizes[new_virtual_grf[reg]];
+         assert(inst->dst.file == VGRF);
+         if (BITSET_TEST(has_splits, inst->dst.nr)) {
+            const fs_builder ibld(this, block, inst);
+            assert(inst->size_written % REG_SIZE == 0);
+            unsigned reg_offset = 0;
+            while (reg_offset < inst->size_written / REG_SIZE) {
+               reg = vgrf_to_reg[inst->dst.nr] + reg_offset;
+               ibld.UNDEF(fs_reg(VGRF, new_virtual_grf[reg], inst->dst.type));
+               reg_offset += alloc.sizes[new_virtual_grf[reg]];
+            }
+            inst->remove();
+         } else {
+            assert(new_reg_offset[inst->dst.nr] == 0);
+            assert(new_virtual_grf[inst->dst.nr] == inst->dst.nr);
          }
-         inst->remove(block);
          continue;
       }
 
       if (inst->dst.file == VGRF) {
-         reg = vgrf_to_reg[inst->dst.nr] + inst->dst.offset / REG_SIZE;
-         inst->dst.nr = new_virtual_grf[reg];
-         inst->dst.offset = new_reg_offset[reg] * REG_SIZE +
-                            inst->dst.offset % REG_SIZE;
-         assert((unsigned)new_reg_offset[reg] < alloc.sizes[new_virtual_grf[reg]]);
+         if (BITSET_TEST(has_splits, inst->dst.nr)) {
+            reg = vgrf_to_reg[inst->dst.nr] + inst->dst.offset / REG_SIZE;
+            inst->dst.nr = new_virtual_grf[reg];
+            inst->dst.offset = new_reg_offset[reg] * REG_SIZE +
+                               inst->dst.offset % REG_SIZE;
+            assert((unsigned)new_reg_offset[reg] <
+                   alloc.sizes[new_virtual_grf[reg]]);
+         } else {
+            assert(new_reg_offset[inst->dst.nr] == 0);
+            assert(new_virtual_grf[inst->dst.nr] == inst->dst.nr);
+         }
       }
       for (int i = 0; i < inst->sources; i++) {
-	 if (inst->src[i].file == VGRF) {
+	 if (!inst->src[i].file == VGRF)
+            continue;
+
+         if (BITSET_TEST(has_splits, inst->src[i].nr)) {
             reg = vgrf_to_reg[inst->src[i].nr] + inst->src[i].offset / REG_SIZE;
             inst->src[i].nr = new_virtual_grf[reg];
             inst->src[i].offset = new_reg_offset[reg] * REG_SIZE +
                                   inst->src[i].offset % REG_SIZE;
-            assert((unsigned)new_reg_offset[reg] < alloc.sizes[new_virtual_grf[reg]]);
+            assert((unsigned)new_reg_offset[reg] <
+                   alloc.sizes[new_virtual_grf[reg]]);
+         } else {
+            assert(new_reg_offset[inst->src[i].nr] == 0);
+            assert(new_virtual_grf[inst->src[i].nr] == inst->src[i].nr);
          }
       }
    }
    invalidate_analysis(DEPENDENCY_INSTRUCTION_DETAIL | DEPENDENCY_VARIABLES);
 
    delete[] split_points;
+   delete[] has_split;
    delete[] new_virtual_grf;
    delete[] new_reg_offset;
 }
