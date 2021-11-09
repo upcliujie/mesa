@@ -6955,8 +6955,8 @@
   </register>
 
   <register name="COMMON_SLICE_CHICKEN3" length="1" num="0x7304">
-    <field name="PS Thread Panic Dispatch" start="6" end="7" type="uint"/>
-    <field name="PS Thread Panic Dispatch Mask" start="22" end="23" type="uint"/>
+    <field name="State Cache Perf Fix Disabled" start="13" end="13" type="bool"/>
+    <field name="State Cache Perf Fix Disabled Mask" start="29" end="29" type="bool"/>
   </register>
 
   <register name="COMMON_SLICE_CHICKEN4" length="1" num="0x7300">

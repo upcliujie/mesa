@@ -6302,10 +6302,12 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
     *     is set due to new association of BTI, PS Scoreboard Stall bit must
     *     be set in this packet."
     */
-   anv_add_pending_pipe_bits(cmd_buffer,
-                             ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
-                             ANV_PIPE_STALL_AT_SCOREBOARD_BIT,
-                             "change RT");
+   if (!cmd_buffer->device->state_cache_perf_fix_disabled) {
+      anv_add_pending_pipe_bits(cmd_buffer,
+                                ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
+                                ANV_PIPE_STALL_AT_SCOREBOARD_BIT,
+                                "change RT");
+   }
 #endif
 
    cmd_buffer_emit_depth_stencil(cmd_buffer);

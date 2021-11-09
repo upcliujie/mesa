@@ -278,10 +278,12 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
     *     is set due to new association of BTI, PS Scoreboard Stall bit must
     *     be set in this packet."
     */
-   iris_emit_pipe_control_flush(batch,
-                                "workaround: RT BTI change [blorp]",
-                                PIPE_CONTROL_RENDER_TARGET_FLUSH |
-                                PIPE_CONTROL_STALL_AT_SCOREBOARD);
+   if (!batch->state_cache_perf_fix_disabled) {
+      iris_emit_pipe_control_flush(batch,
+                                   "workaround: RT BTI change [blorp]",
+                                   PIPE_CONTROL_RENDER_TARGET_FLUSH |
+                                   PIPE_CONTROL_STALL_AT_SCOREBOARD);
+   }
 #endif
 
    if (params->depth.enabled &&

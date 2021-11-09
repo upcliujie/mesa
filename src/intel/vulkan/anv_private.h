@@ -1263,6 +1263,7 @@ struct anv_device {
     const struct intel_l3_config                *l3_config;
 
     struct intel_debug_block_frame              *debug_frame_desc;
+    bool                                        state_cache_perf_fix_disabled;
 };
 
 #if defined(GFX_VERx10) && GFX_VERx10 >= 90
@@ -1457,6 +1458,7 @@ VkResult anv_queue_submit_simple_batch(struct anv_queue *queue,
 
 uint64_t anv_gettime_ns(void);
 uint64_t anv_get_absolute_timeout(uint64_t timeout);
+int64_t anv_get_relative_timeout(uint64_t abs_timeout);
 
 void* anv_gem_mmap(struct anv_device *device,
                    uint32_t gem_handle, uint64_t offset, uint64_t size, uint32_t flags);
