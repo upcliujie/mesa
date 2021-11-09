@@ -339,10 +339,12 @@ driInferDrawableConfig(struct glx_screen *psc, GLXDrawable draw)
 _X_HIDDEN __GLXDRIdrawable *
 driFetchDrawable(struct glx_context *gc, GLXDrawable glxDrawable)
 {
-   struct glx_display *const priv = __glXInitialize(gc->psc->dpy);
+   Display *dpy = gc->psc->dpy;
+   struct glx_display *const priv = __glXInitialize(dpy);
    __GLXDRIdrawable *pdraw;
    struct glx_screen *psc;
    struct glx_config *config = gc->config;
+   unsigned int type;
 
    if (priv == NULL)
       return NULL;
@@ -364,6 +366,32 @@ driFetchDrawable(struct glx_context *gc, GLXDrawable glxDrawable)
       config = driInferDrawableConfig(gc->psc, glxDrawable);
    if (config == NULL)
       return NULL;
+
+   /* From the GLX spec:
+    *
+    *   Like other drawable types, GLXPbuffers are shared; any client which
+    *   knows the associated XID can use a GLXPbuffer.
+    *
+    * So client other than the creator of this glx drawable could use its
+    * XID to do something like glXMakeCurrent(). That's why we can't find
+    * existing glx drawable above and get here.
+    *
+    * But currently there is no way to find which X drawable (window or pixmap)
+    * this glx drawable uses, except pbuffer which use the same XID for both
+    * X pixmap and glx drawable. So currently only pbuffer works.
+    *
+    * TODO: add a glx drawable attribute query for GLXPixmap and GLXWindow to
+    * get its X drawble.
+    */
+   if (__glXGetDrawableAttribute(dpy, glxDrawable, GLX_DRAWABLE_TYPE, &type)) {
+      if (type != GLX_PBUFFER_BIT) {
+         ErrorMessageF("failed to create drawable\n");
+         return NULL;
+      }
+   } else {
+      /* xserver may not implement GLX_DRAWABLE_TYPE query yet. */
+      InfoMessageF("unknown glx drawable type, assume pbuffer\n");
+   }
 
    pdraw = psc->driScreen->createDrawable(psc, glxDrawable, glxDrawable,
                                           config);
