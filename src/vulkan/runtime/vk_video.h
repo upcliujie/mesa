@@ -91,6 +91,44 @@ void vk_video_session_parameters_update(struct vk_video_session_parameters *para
 void vk_video_session_parameters_finish(struct vk_device *device,
                                         struct vk_video_session_parameters *params);
 
+/* these may get defined in the std headers eventually */
+#define STD_VIDEO_H264_SLICE_TYPE_SP 3
+#define STD_VIDEO_H264_SLICE_TYPE_SI 4
+
+struct vk_video_h264_slice_params {
+   uint16_t slice_data_bit_offset;
+   uint16_t first_mb_in_slice;
+   StdVideoH264SliceType slice_type;
+   uint8_t direct_spatial_mv_pred_flag;
+   uint8_t num_ref_idx_l0_active_minus1;
+   uint8_t num_ref_idx_l1_active_minus1;
+   uint8_t cabac_init_idc;
+   int8_t slice_qp_delta;
+   uint8_t disable_deblocking_filter_idc;
+   int8_t slice_alpha_c0_offset_div2;
+   int8_t slice_beta_offset_div2;
+   uint8_t luma_log2_weight_denom;
+   uint8_t chroma_log2_weight_denom;
+   uint8_t luma_weight_l0_flag[32];
+   int16_t luma_weight_l0[32];
+   int16_t luma_offset_l0[32];
+   uint8_t chroma_weight_l0_flag[32];
+   int16_t chroma_weight_l0[32][2];
+   int16_t chroma_offset_l0[32][2];
+   uint8_t luma_weight_l1_flag[32];
+   int16_t luma_weight_l1[32];
+   int16_t luma_offset_l1[32];
+   uint8_t chroma_weight_l1_flag[32];
+   int16_t chroma_weight_l1[32][2];
+   int16_t chroma_offset_l1[32][2];
+};
+
+void vk_video_parse_h264_slice_header(const struct VkVideoDecodeInfoKHR *frame_info,
+                                      const StdVideoH264SequenceParameterSet *sps,
+                                      const StdVideoH264PictureParameterSet *pps,
+                                      void *slice_hdr,
+                                      struct vk_video_h264_slice_params *params);
+
 #ifdef __cplusplus
 }
 #endif
