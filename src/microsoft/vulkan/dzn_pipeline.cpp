@@ -56,7 +56,8 @@ VkResult
 dzn_pipeline::compile_shader(dzn_device *device,
                              dzn_pipeline_layout *layout,
                              const VkPipelineShaderStageCreateInfo *stage_info,
-                             bool apply_yflip,
+                             enum dxil_spirv_yz_flip_mode yz_flip_mode,
+                             uint32_t yz_flip_mask,
                              D3D12_SHADER_BYTECODE *slot)
 {
    IDxcValidator *validator = device->instance->dxc.validator.Get();
@@ -130,8 +131,8 @@ dzn_pipeline::compile_shader(dzn_device *device,
       .descriptor_sets = sets,
       .zero_based_vertex_instance_id = false,
       .yz_flip = {
-         .mode = apply_yflip ? DXIL_SPIRV_Y_FLIP_UNCONDITIONAL : DXIL_SPIRV_YZ_FLIP_NONE,
-         .mask = apply_yflip ? 1UL : 0UL,
+         .mode = yz_flip_mode,
+         .mask = yz_flip_mask,
       },
    };
 
@@ -609,27 +610,9 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
    };
 
-   uint32_t stage_mask = 0;
-   for (uint32_t i = 0; i < pCreateInfo->stageCount; i++)
-      stage_mask |= pCreateInfo->pStages[i].stage;
-
-   for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
-      D3D12_SHADER_BYTECODE *slot =
-         dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
-      bool apply_yflip =
-         pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_GEOMETRY_BIT ||
-         (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
-          !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT));
-
-      ret = dzn_pipeline::compile_shader(device, layout, &pCreateInfo->pStages[i],
-                                         apply_yflip, slot);
-      if (ret != VK_SUCCESS)
-         goto out;
-   }
-
    ret = translate_vi(desc, pCreateInfo, inputs);
    if (ret != VK_SUCCESS)
-      goto out;
+      throw ret;
 
    translate_ia(desc, pCreateInfo);
    translate_rast(desc, pCreateInfo);
@@ -668,6 +651,49 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
 
       desc.DSVFormat = dzn_get_dsv_format(attachment->format);
    }
+
+   uint32_t stage_mask = 0;
+   for (uint32_t i = 0; i < pCreateInfo->stageCount; i++)
+      stage_mask |= pCreateInfo->pStages[i].stage;
+
+   for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
+      D3D12_SHADER_BYTECODE *slot =
+         dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
+      enum dxil_spirv_yz_flip_mode yz_flip_mode = DXIL_SPIRV_YZ_FLIP_NONE;
+      uint32_t yz_flip_mask = 0;
+
+      if (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_GEOMETRY_BIT ||
+          (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_VERTEX_BIT &&
+          !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT))) {
+         if (vp.dynamic) {
+            yz_flip_mode = DXIL_SPIRV_YZ_FLIP_CONDITIONAL;
+         } else {
+            const VkPipelineViewportStateCreateInfo *vp_info =
+               pCreateInfo->pViewportState;
+
+            for (uint32_t i = 0; vp_info->pViewports && i < vp_info->viewportCount; i++) {
+               if (vp_info->pViewports[i].height > 0)
+                  yz_flip_mask |= BITFIELD_BIT(i);
+
+               if (vp_info->pViewports[i].minDepth > vp_info->pViewports[i].maxDepth)
+                  yz_flip_mask |= BITFIELD_BIT(i + DXIL_SPIRV_Z_FLIP_SHIFT);
+            }
+
+            if ((yz_flip_mask & DXIL_SPIRV_Y_FLIP_MASK) && (yz_flip_mask & DXIL_SPIRV_Z_FLIP_MASK))
+               yz_flip_mode = DXIL_SPIRV_YZ_FLIP_UNCONDITIONAL;
+            else if (yz_flip_mask & DXIL_SPIRV_Z_FLIP_MASK)
+               yz_flip_mode = DXIL_SPIRV_Z_FLIP_UNCONDITIONAL;
+            else if (yz_flip_mask & DXIL_SPIRV_Y_FLIP_MASK)
+               yz_flip_mode = DXIL_SPIRV_Y_FLIP_UNCONDITIONAL;
+         }
+      }
+
+      ret = dzn_pipeline::compile_shader(device, layout, &pCreateInfo->pStages[i],
+                                         yz_flip_mode, yz_flip_mask, slot);
+      if (ret != VK_SUCCESS)
+         goto out;
+   }
+
 
    hres = device->dev->CreateGraphicsPipelineState(&desc,
                                                    IID_PPV_ARGS(&base.state));
@@ -805,7 +831,8 @@ dzn_compute_pipeline::dzn_compute_pipeline(dzn_device *device,
 
    VkResult ret =
       dzn_pipeline::compile_shader(device, layout,
-                                   &pCreateInfo->stage, false,
+                                   &pCreateInfo->stage,
+                                   DXIL_SPIRV_YZ_FLIP_NONE, 0,
                                    &desc.CS);
    if (ret != VK_SUCCESS)
       throw ret;

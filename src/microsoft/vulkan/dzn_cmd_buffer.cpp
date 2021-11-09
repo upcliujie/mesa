@@ -1336,11 +1336,29 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   for (uint32_t i = 0; i < viewportCount; i++)
-      dzn_translate_viewport(&cmd_buffer->state.viewports[firstViewport + i], &pViewports[i]);
+   STATIC_ASSERT(MAX_VP <= DXIL_SPIRV_MAX_VIEWPORT);
 
-   if (viewportCount)
+   for (uint32_t i = 0; i < viewportCount; i++) {
+      uint32_t vp = i + firstViewport;
+
+      dzn_translate_viewport(&cmd_buffer->state.viewports[vp], &pViewports[i]);
+
+      if (pViewports[i].minDepth > pViewports[i].maxDepth)
+         cmd_buffer->state.sysvals.gfx.yz_flip_mask |= BITFIELD_BIT(vp + DXIL_SPIRV_Z_FLIP_SHIFT);
+      else
+         cmd_buffer->state.sysvals.gfx.yz_flip_mask &= ~BITFIELD_BIT(vp + DXIL_SPIRV_Z_FLIP_SHIFT);
+
+      if (pViewports[i].height > 0)
+         cmd_buffer->state.sysvals.gfx.yz_flip_mask |= BITFIELD_BIT(vp);
+      else
+         cmd_buffer->state.sysvals.gfx.yz_flip_mask &= ~BITFIELD_BIT(vp);
+   }
+
+   if (viewportCount) {
       cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
+      cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+   }
 }
 
 void

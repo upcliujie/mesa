@@ -723,7 +723,8 @@ struct dzn_pipeline {
    static VkResult compile_shader(dzn_device *device,
                                   dzn_pipeline_layout *layout,
                                   const VkPipelineShaderStageCreateInfo *stage_info,
-                                  bool apply_yflip,
+                                  enum dxil_spirv_yz_flip_mode yz_flip_mode,
+                                  uint32_t yz_flip_mask,
                                   D3D12_SHADER_BYTECODE *slot);
 };
 
