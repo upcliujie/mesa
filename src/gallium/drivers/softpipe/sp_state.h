@@ -64,7 +64,6 @@ struct vertex_info;
 
 struct sp_fragment_shader_variant_key
 {
-   boolean polygon_stipple;
 };
 
 
