@@ -391,10 +391,11 @@ driFetchDrawable(struct glx_context *gc, GLXDrawable glxDrawable)
    } else {
       /* xserver may not implement GLX_DRAWABLE_TYPE query yet. */
       InfoMessageF("unknown glx drawable type, assume pbuffer\n");
+      type = GLX_PBUFFER_BIT;
    }
 
    pdraw = psc->driScreen->createDrawable(psc, glxDrawable, glxDrawable,
-                                          config);
+                                          type, config);
 
    if (pdraw == NULL) {
       ErrorMessageF("failed to create drawable\n");
