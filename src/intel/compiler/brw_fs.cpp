@@ -8891,12 +8891,14 @@ fs_visitor::allocate_registers(bool allow_spilling)
    static const enum instruction_scheduler_mode pre_modes[] = {
       SCHEDULE_PRE,
       SCHEDULE_PRE_NON_LIFO,
+      SCHEDULE_NONE,
       SCHEDULE_PRE_LIFO,
    };
 
    static const char *scheduler_mode_name[] = {
       "top-down",
       "non-lifo",
+      "none",
       "lifo"
    };
 
@@ -8936,7 +8938,8 @@ fs_visitor::allocate_registers(bool allow_spilling)
          invalidate_analysis(DEPENDENCY_INSTRUCTIONS);
       }
 
-      schedule_instructions(pre_modes[i]);
+      if (pre_modes[i] != SCHEDULE_NONE)
+         schedule_instructions(pre_modes[i]);
       this->shader_stats.scheduler_mode = scheduler_mode_name[i];
 
       if (0) {
