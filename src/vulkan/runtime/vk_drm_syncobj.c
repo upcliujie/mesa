@@ -59,7 +59,7 @@ vk_drm_binary_syncobj_init(struct vk_device *device,
    return VK_SUCCESS;
 }
 
-static void
+void
 vk_drm_syncobj_finish(struct vk_device *device,
                       struct vk_sync *sync)
 {
@@ -372,14 +372,14 @@ vk_drm_syncobj_get_type(int drm_fd)
    }
 
    uint64_t cap;
-   err = drmGetCap(drm_fd, DRM_CAP_SYNCOBJ_TIMELINE);
+   err = drmGetCap(drm_fd, DRM_CAP_SYNCOBJ_TIMELINE, &cap);
    if (err == 0 && cap != 0) {
       type.get_value = vk_drm_syncobj_get_value;
       type.features |= VK_SYNC_FEATURE_TIMELINE |
                        VK_SYNC_FEATURE_WAIT_PENDING;
    }
 
-   ASSERTED int err = drmSyncobjDestroy(drm_fd, syncobj);
+   err = drmSyncobjDestroy(drm_fd, syncobj);
    assert(err == 0);
 
    return type;
