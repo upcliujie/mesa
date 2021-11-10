@@ -39,43 +39,70 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
                                  const VkRenderPassCreateInfo2KHR *pCreateInfo,
                                  const VkAllocationCallbacks *pAllocator)
 {
-   subpass_count = pCreateInfo->subpassCount;
-   assert(subpasses);
-   for (uint32_t i = 0; i < subpass_count; i++) {
-      const VkSubpassDescription2 *subpass = &pCreateInfo->pSubpasses[i];
-
-      subpasses[i].color_count = subpass->colorAttachmentCount;
-      for (uint32_t j = 0; j < subpasses[i].color_count; j++) {
-         subpasses[i].colors[j].idx = subpass->pColorAttachments[j].attachment;
-      }
-
-      subpasses[i].zs.idx = VK_ATTACHMENT_UNUSED;
-      if (subpass->pDepthStencilAttachment) {
-         subpasses[i].zs.idx = subpass->pDepthStencilAttachment->attachment;
-      }
-   }
-
    attachment_count = pCreateInfo->attachmentCount;
    assert(!attachment_count || attachments);
    for (uint32_t i = 0; i < attachment_count; i++) {
       const VkAttachmentDescription2 *attachment = &pCreateInfo->pAttachments[i];
 
-      attachments[i].format = dzn_get_format(attachment->format);
+      attachments[i].idx = i;
+      attachments[i].format = attachment->format;
       assert(attachments[i].format);
       if (vk_format_is_depth_or_stencil(attachment->format)) {
-         attachments[i].during = D3D12_RESOURCE_STATE_DEPTH_WRITE;
          attachments[i].clear.depth =
             attachment->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
          attachments[i].clear.stencil =
             attachment->stencilLoadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
       } else {
-         attachments[i].during = D3D12_RESOURCE_STATE_RENDER_TARGET;
          attachments[i].clear.color =
             attachment->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
       }
       attachments[i].samples = attachment->samples;
       attachments[i].before = dzn_get_states(attachment->initialLayout);
       attachments[i].after = dzn_get_states(attachment->finalLayout);
+      attachments[i].last = attachments[i].before;
+   }
+
+   subpass_count = pCreateInfo->subpassCount;
+   assert(subpasses);
+   for (uint32_t i = 0; i < subpass_count; i++) {
+      const VkSubpassDescription2 *subpass = &pCreateInfo->pSubpasses[i];
+      const VkSubpassDescription2 *subpass_after = NULL;
+
+      if (i + 1 < subpass_count)
+         subpass_after = &pCreateInfo->pSubpasses[i + 1];
+
+      subpasses[i].color_count = subpass->colorAttachmentCount;
+      for (uint32_t j = 0; j < subpasses[i].color_count; j++) {
+         uint32_t idx = subpass->pColorAttachments[j].attachment;
+         subpasses[i].colors[j].idx = idx;
+         if (idx != VK_ATTACHMENT_UNUSED) {
+            subpasses[i].colors[j].before = attachments[idx].last;
+            subpasses[i].colors[j].during = dzn_get_states(subpass->pColorAttachments[j].layout);
+            attachments[idx].last = subpasses[i].colors[j].during;
+         }
+      }
+
+      subpasses[i].zs.idx = VK_ATTACHMENT_UNUSED;
+      if (subpass->pDepthStencilAttachment) {
+         uint32_t idx = subpass->pDepthStencilAttachment->attachment;
+         subpasses[i].zs.idx = idx;
+         if (idx != VK_ATTACHMENT_UNUSED) {
+            subpasses[i].zs.before = attachments[idx].last;
+            subpasses[i].zs.during = dzn_get_states(subpass->pDepthStencilAttachment->layout);
+            attachments[idx].last = subpasses[i].zs.during;
+         }
+      }
+
+      subpasses[i].input_count = subpass->inputAttachmentCount;
+      for (uint32_t j = 0; j < subpasses[i].input_count; j++) {
+         uint32_t idx = subpass->pInputAttachments[j].attachment;
+         subpasses[i].inputs[j].idx = idx;
+         if (idx != VK_ATTACHMENT_UNUSED) {
+            subpasses[i].inputs[j].before = attachments[idx].last;
+            subpasses[i].inputs[j].during = dzn_get_states(subpass->pInputAttachments[j].layout);
+            attachments[idx].last = subpasses[i].inputs[j].during;
+         }
+      }
    }
 
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_RENDER_PASS);

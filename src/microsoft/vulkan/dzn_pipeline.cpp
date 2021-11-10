@@ -656,14 +656,14 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
 
       const struct dzn_attachment *attachment = &pass->attachments[idx];
 
-      desc.RTVFormats[i] = attachment->format;
+      desc.RTVFormats[i] = dzn_get_rtv_format(attachment->format);
    }
 
    if (subpass->zs.idx != VK_ATTACHMENT_UNUSED) {
       const struct dzn_attachment *attachment =
          &pass->attachments[subpass->zs.idx];
 
-      desc.DSVFormat = attachment->format;
+      desc.DSVFormat = dzn_get_dsv_format(attachment->format);
    }
 
    hres = device->dev->CreateGraphicsPipelineState(&desc,

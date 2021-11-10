@@ -946,20 +946,57 @@ dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
    }
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
-                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
-                        const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
+void
+dzn_cmd_buffer::attachment_transition(const dzn_attachment_ref &att)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   VK_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
-   VK_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
-   const struct dzn_subpass *subpass = &pass->subpasses[0];
-   dzn_batch *batch = cmd_buffer->get_batch();
+   dzn_batch *batch = get_batch();
+   const dzn_image *image = state.framebuffer->attachments[att.idx]->image;
 
-   cmd_buffer->state.framebuffer = framebuffer;
-   cmd_buffer->state.pass = pass;
-   cmd_buffer->state.subpass = 0;
+   if (att.before == att.during)
+      return;
+
+   D3D12_RESOURCE_BARRIER barrier = {
+      .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+      .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+      .Transition = {
+         .pResource = image->res.Get(),
+         .Subresource = 0, // YOLO
+         .StateBefore = att.before,
+         .StateAfter = att.during,
+      },
+   };
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+}
+
+void
+dzn_cmd_buffer::attachment_transition(const dzn_attachment &att)
+{
+   dzn_batch *batch = get_batch();
+   const dzn_image *image = state.framebuffer->attachments[att.idx]->image;
+
+   if (att.last == att.after)
+      return;
+
+   D3D12_RESOURCE_BARRIER barrier = {
+      .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+      .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+      .Transition = {
+         .pResource = image->res.Get(),
+         .Subresource = 0, // YOLO
+         .StateBefore = att.last,
+         .StateAfter = att.after,
+      },
+   };
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+}
+
+void
+dzn_cmd_buffer::begin_subpass()
+{
+   struct dzn_framebuffer *framebuffer = state.framebuffer;
+   struct dzn_render_pass *pass = state.pass;
+   const struct dzn_subpass *subpass = &pass->subpasses[state.subpass];
+   dzn_batch *batch = get_batch();
 
    D3D12_CPU_DESCRIPTOR_HANDLE rt_handles[MAX_RTS] = { };
    D3D12_CPU_DESCRIPTOR_HANDLE zs_handle = { 0 };
@@ -974,30 +1011,40 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       zs_handle = framebuffer->attachments[subpass->zs.idx]->zs_handle.cpu_handle;
    }
 
-   assert(pass->attachment_count == framebuffer->attachment_count);
-
-   for (uint32_t i = 0; i < pass->attachment_count; i++) {
-      const dzn_attachment *att = &pass->attachments[i];
-      const dzn_image *image = framebuffer->attachments[i]->image;
-
-      if (att->before == att->during)
-         continue;
-
-      D3D12_RESOURCE_BARRIER barrier;
-      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-
-      barrier.Transition.pResource = image->res.Get();
-      barrier.Transition.Subresource = 0; // YOLO
-
-      barrier.Transition.StateBefore = att->before;
-      barrier.Transition.StateAfter = att->during;
-
-      batch->cmdlist->ResourceBarrier(1, &barrier);
-   }
-
    assert(subpass->color_count > 0);
    batch->cmdlist->OMSetRenderTargets(subpass->color_count, rt_handles, FALSE, zs_handle.ptr ? &zs_handle : NULL);
+
+   for (uint32_t i = 0; i < subpass->color_count; i++)
+      attachment_transition(subpass->colors[i]);
+   for (uint32_t i = 0; i < subpass->input_count; i++)
+      attachment_transition(subpass->inputs[i]);
+   if (subpass->zs.idx != VK_ATTACHMENT_UNUSED)
+      attachment_transition(subpass->zs);
+}
+
+void
+dzn_cmd_buffer::next_subpass()
+{
+   assert(state.subpass + 1 < state.pass->subpass_count);
+   state.subpass++;
+   begin_subpass();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
+                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                        const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
+   VK_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
+
+   assert(pass->attachment_count == framebuffer->attachment_count);
+
+   cmd_buffer->state.framebuffer = framebuffer;
+   cmd_buffer->state.pass = pass;
+   cmd_buffer->state.subpass = 0;
+   cmd_buffer->begin_subpass();
 
    D3D12_RECT rect = {
       pRenderPassBeginInfo->renderArea.offset.x,
@@ -1022,36 +1069,23 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
                       const VkSubpassEndInfoKHR *pSubpassEndInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = cmd_buffer->get_batch();
 
-   assert(cmd_buffer->state.pass->attachment_count ==
-          cmd_buffer->state.framebuffer->attachment_count);
-   for (uint32_t i = 0; i < cmd_buffer->state.pass->attachment_count; i++) {
-      const dzn_attachment *att = &cmd_buffer->state.pass->attachments[i];
-      const dzn_image *image = cmd_buffer->state.framebuffer->attachments[i]->image;
-
-      if (att->during == att->after)
-         continue;
-
-      D3D12_RESOURCE_BARRIER barrier;
-      barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-      barrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-
-      barrier.Transition.pResource = image->res.Get();
-      barrier.Transition.Subresource = 0; // YOLO
-
-      barrier.Transition.StateBefore = att->during;
-      barrier.Transition.StateAfter = att->after;
-
-      batch->cmdlist->ResourceBarrier(1, &barrier);
-   }
+   for (uint32_t i = 0; i < cmd_buffer->state.pass->attachment_count; i++)
+      cmd_buffer->attachment_transition(cmd_buffer->state.pass->attachments[i]);
 
    cmd_buffer->state.framebuffer = NULL;
    cmd_buffer->state.pass = NULL;
+   cmd_buffer->state.subpass = 0;
+}
 
-#if 0
-   cmd_buffer->state.subpass = NULL;
-#endif
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdNextSubpass2(VkCommandBuffer commandBuffer,
+                    const VkSubpassBeginInfo *pSubpassBeginInfo,
+                    const VkSubpassEndInfo *pSubpassEndInfo)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->next_subpass();
 }
 
 VKAPI_ATTR void VKAPI_CALL

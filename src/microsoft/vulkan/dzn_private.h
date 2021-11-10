@@ -396,6 +396,25 @@ struct dzn_cmd_event_signal {
 
 struct dzn_cmd_buffer;
 
+struct dzn_attachment {
+   uint32_t idx;
+   VkFormat format;
+   uint32_t samples;
+   union {
+      bool color;
+      struct {
+         bool depth;
+         bool stencil;
+      };
+   } clear;
+   D3D12_RESOURCE_STATES before, last, after;
+};
+
+struct dzn_attachment_ref {
+   uint32_t idx;
+   D3D12_RESOURCE_STATES before, during;
+};
+
 struct dzn_batch {
    using wait_allocator = dzn_allocator<dzn_event *>;
    std::vector<dzn_event *, wait_allocator> wait;
@@ -477,6 +496,10 @@ struct dzn_cmd_buffer {
    void close_batch();
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
+   void attachment_transition(const dzn_attachment_ref &att);
+   void attachment_transition(const dzn_attachment &att);
+   void begin_subpass();
+   void next_subpass();
 
    void clear_attachment(uint32_t idx,
                          const VkClearValue *pClearValue,
@@ -632,29 +655,15 @@ struct dzn_pipeline_layout {
    ~dzn_pipeline_layout();
 };
 
-struct dzn_attachment_ref {
-   uint32_t idx;
-};
-
 #define MAX_RTS 8
+#define MAX_INPUT_ATTACHMENTS 4
 
 struct dzn_subpass {
    uint32_t color_count;
    struct dzn_attachment_ref colors[MAX_RTS];
    struct dzn_attachment_ref zs;
-};
-
-struct dzn_attachment {
-   DXGI_FORMAT format;
-   uint32_t samples;
-   union {
-      bool color;
-      struct {
-         bool depth;
-         bool stencil;
-      };
-   } clear;
-   D3D12_RESOURCE_STATES before, during, after;
+   uint32_t input_count;
+   struct dzn_attachment_ref inputs[MAX_INPUT_ATTACHMENTS];
 };
 
 struct dzn_render_pass {
