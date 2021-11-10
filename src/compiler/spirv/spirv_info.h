@@ -39,5 +39,10 @@ const char *spirv_memorymodel_to_string(SpvMemoryModel cap);
 const char *spirv_op_to_string(SpvOp op);
 const char *spirv_storageclass_to_string(SpvStorageClass sc);
 const char *spirv_fproundingmode_to_string(SpvFPRoundingMode sc);
+const char *spirv_functioncontrol_to_string(SpvFunctionControlMask fc);
+const char *spirv_memoryaccess_to_string(SpvMemoryAccessMask ma);
+const char *spirv_loopcontrol_to_string(SpvLoopControlMask lc);
+const char *spirv_selectioncontrol_to_string(SpvSelectionControlMask lc);
+const char *spirv_sourcelanguage_to_string(SpvSourceLanguage sl);
 
 #endif /* SPIRV_INFO_H */

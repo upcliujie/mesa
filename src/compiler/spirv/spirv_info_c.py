@@ -77,6 +77,11 @@ def parse_spirv_info(input):
         collect_data(spirv_info, "StorageClass"),
         collect_data(spirv_info, "ImageOperands"),
         collect_data(spirv_info, "FPRoundingMode"),
+        collect_data(spirv_info, "FunctionControl"),
+        collect_data(spirv_info, "MemoryAccess"),
+        collect_data(spirv_info, "LoopControl"),
+        collect_data(spirv_info, "SelectionControl"),
+        collect_data(spirv_info, "SourceLanguage"),
         collect_opcodes(spirv_info),
     ]
 
