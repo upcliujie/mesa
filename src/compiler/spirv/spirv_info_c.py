@@ -61,6 +61,27 @@ def collect_opcodes(spirv):
 
     return ("Op", values, None)
 
+def parse_spirv_info(input):
+    spirv_info = json.JSONDecoder().decode(input)
+
+    info = [
+        collect_data(spirv_info, "AddressingModel"),
+        collect_data(spirv_info, "BuiltIn"),
+        collect_data(spirv_info, "Capability"),
+        collect_data(spirv_info, "Decoration"),
+        collect_data(spirv_info, "Dim"),
+        collect_data(spirv_info, "ExecutionMode"),
+        collect_data(spirv_info, "ExecutionModel"),
+        collect_data(spirv_info, "ImageFormat"),
+        collect_data(spirv_info, "MemoryModel"),
+        collect_data(spirv_info, "StorageClass"),
+        collect_data(spirv_info, "ImageOperands"),
+        collect_data(spirv_info, "FPRoundingMode"),
+        collect_opcodes(spirv_info),
+    ]
+
+    return info
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("json")
@@ -110,23 +131,7 @@ spirv_${kind.lower()}_to_string(Spv${kind} v)
 if __name__ == "__main__":
     pargs = parse_args()
 
-    spirv_info = json.JSONDecoder().decode(open(pargs.json, "r").read())
-
-    info = [
-        collect_data(spirv_info, "AddressingModel"),
-        collect_data(spirv_info, "BuiltIn"),
-        collect_data(spirv_info, "Capability"),
-        collect_data(spirv_info, "Decoration"),
-        collect_data(spirv_info, "Dim"),
-        collect_data(spirv_info, "ExecutionMode"),
-        collect_data(spirv_info, "ExecutionModel"),
-        collect_data(spirv_info, "ImageFormat"),
-        collect_data(spirv_info, "MemoryModel"),
-        collect_data(spirv_info, "StorageClass"),
-        collect_data(spirv_info, "ImageOperands"),
-        collect_data(spirv_info, "FPRoundingMode"),
-        collect_opcodes(spirv_info),
-    ]
+    info = parse_spirv_info(open(pargs.json, "r").read())
 
     with open(pargs.out, 'w') as f:
         f.write(TEMPLATE.render(info=info))
