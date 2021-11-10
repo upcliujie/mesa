@@ -41,7 +41,7 @@ def collect_data(spirv, kind):
     for x in operands["enumerants"]:
         if x["value"] not in seen:
             seen.add(x["value"])
-            values.append(x["enumerant"])
+            values.append((x["enumerant"], None))
 
     return (kind, values, operands["category"])
 
@@ -56,7 +56,10 @@ def collect_opcodes(spirv):
         opcode = x["opcode"]
         name = x["opname"]
         assert name.startswith("Op")
-        values.append(name[2:])
+        operands = []
+        if "operands" in x:
+            operands = x["operands"]
+        values.append((name[2:], operands))
         seen.add(opcode)
 
     return ("Op", values, None)
@@ -105,7 +108,7 @@ const char *
 spirv_${kind.lower()}_to_string(Spv${kind}Mask v)
 {
    switch (v) {
-    % for name in values:
+    % for name,operands in values:
     %if name != "None":
    case Spv${kind}${name}Mask: return "Spv${kind}${name}";
     % else:
@@ -121,7 +124,7 @@ const char *
 spirv_${kind.lower()}_to_string(Spv${kind} v)
 {
    switch (v) {
-    % for name in values:
+    % for name,operands in values:
    case Spv${kind}${name}: return "Spv${kind}${name}";
     % endfor
    case Spv${kind}Max: break; /* silence warnings about unhandled enums. */
