@@ -31,10 +31,6 @@
 extern "C" {
 #endif
 
-extern const struct vk_sync_type vk_drm_binary_syncobj_no_wait_type;
-extern const struct vk_sync_type vk_drm_binary_syncobj_type;
-extern const struct vk_sync_type vk_drm_timeline_syncobj_type;
-
 struct vk_drm_syncobj {
    struct vk_sync base;
    uint32_t syncobj;
@@ -56,6 +52,8 @@ vk_sync_as_drm_syncobj(struct vk_sync *sync)
 
    return container_of(sync, struct vk_drm_syncobj, base);
 }
+
+struct vk_sync_type vk_drm_syncobj_get_type(int drm_fd);
 
 #ifdef __cplusplus
 }
