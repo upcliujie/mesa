@@ -117,6 +117,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "util/bitscan.h"
 #include "util/u_memory.h"
 #include "util/hash_table.h"
+#include "util/indices/u_indices.h"
 
 #include "gallium/include/pipe/p_state.h"
 
@@ -605,10 +606,12 @@ compile_vertex_list(struct gl_context *ctx)
    node->cold->min_index = node->cold->prims[0].start;
    node->cold->max_index = end - 1;
 
-   int max_index_count = total_vert_count * 2;
+   /* converting primitive types may result in many more indices */
+   int max_index_count = total_vert_count * (ctx->DriverSupportedPrimMask == UINT32_MAX ? 2 : 3);
 
    int size = max_index_count * sizeof(uint32_t);
    uint32_t* indices = (uint32_t*) malloc(size);
+   uint32_t *tmp_indices = ctx->DriverSupportedPrimMask == UINT32_MAX ? NULL : malloc(size);
    struct _mesa_prim *merged_prims = NULL;
 
    int idx = 0;
@@ -645,7 +648,8 @@ compile_vertex_list(struct gl_context *ctx)
                          mode == merged_prims[last_valid_prim].mode &&
                          mode != GL_LINE_LOOP && mode != GL_TRIANGLE_FAN &&
                          mode != GL_QUAD_STRIP && mode != GL_POLYGON &&
-                         mode != GL_PATCHES;
+                         mode != GL_PATCHES &&
+                         (ctx->DriverSupportedPrimMask & BITFIELD_BIT(mode));
 
       /* To be able to merge consecutive triangle strips we need to insert
        * a degenerate triangle.
@@ -697,6 +701,25 @@ compile_vertex_list(struct gl_context *ctx)
          for (unsigned j = 0; j < vertex_count; j++) {
             indices[idx++] = add_vertex(save, vertex_to_index, original_prims[i].start + j,
                                         temp_vertices_buffer, &max_index);
+         }
+
+         if (!(ctx->DriverSupportedPrimMask & BITFIELD_BIT(mode))) {
+            unsigned index_size;
+            unsigned new_count;
+            u_translate_func trans_func;
+            enum pipe_prim_type pmode = (enum pipe_prim_type)mode;
+            u_index_translator(ctx->DriverSupportedPrimMask,
+                               pmode, 4, vertex_count,
+                               PV_LAST, PV_LAST,
+                               PR_DISABLE,
+                               &pmode, &index_size, &new_count,
+                               &trans_func);
+            if (new_count > 0) {
+               trans_func(&indices[start], 0, vertex_count, new_count, 0xffffffff, tmp_indices);
+               memcpy(&indices[start], tmp_indices, new_count * sizeof(uint32_t));
+               idx = start + new_count;
+               mode = (GLubyte)pmode;
+            }
          }
       }
 
@@ -871,6 +894,7 @@ compile_vertex_list(struct gl_context *ctx)
    }
 
    free(indices);
+   free(tmp_indices);
    free(merged_prims);
 
 end:
