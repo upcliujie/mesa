@@ -52,6 +52,7 @@
 #include "tgsi/tgsi_info.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/log.h"
 #include "st_program.h"
 #include "st_format.h"
 #include "st_glsl_to_tgsi_temprename.h"
@@ -7340,12 +7341,12 @@ get_mesa_program_tgsi(struct gl_context *ctx,
    v->emit_asm(NULL, TGSI_OPCODE_END);
 
    if (ctx->_Shader->Flags & GLSL_DUMP) {
-      _mesa_log("\n");
-      _mesa_log("GLSL IR for linked %s program %d:\n",
-             _mesa_shader_stage_to_string(shader->Stage),
-             shader_program->Name);
-      _mesa_print_ir(_mesa_get_log_file(), shader->ir, NULL);
-      _mesa_log("\n\n");
+      mesa_logi("\n");
+      mesa_logi("GLSL IR for linked %s program %d:\n",
+                _mesa_shader_stage_to_string(shader->Stage),
+                shader_program->Name);
+      _mesa_print_ir(mesa_get_log_file(), shader->ir, NULL);
+      mesa_logi("\n\n");
    }
 
    do_set_program_inouts(shader->ir, prog, shader->Stage);
