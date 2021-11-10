@@ -3785,12 +3785,16 @@ emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
 
    assert(glsl_type_is_sampler(type) || glsl_type_is_image(type) || glsl_type_is_texture(type));
    enum dxil_resource_class res_class;
-   if (glsl_type_is_image(type))
-      res_class = DXIL_RESOURCE_CLASS_UAV;
-   else if (glsl_type_is_sampler(type))
+   if (glsl_type_is_image(type)) {
+      if (var->data.access & ACCESS_NON_WRITEABLE)
+         res_class = DXIL_RESOURCE_CLASS_SRV;
+      else
+         res_class = DXIL_RESOURCE_CLASS_UAV;
+   } else if (glsl_type_is_sampler(type)) {
       res_class = DXIL_RESOURCE_CLASS_SAMPLER;
-   else
+   } else {
       res_class = DXIL_RESOURCE_CLASS_SRV;
+   }
    
    const struct dxil_value *handle = emit_createhandle_call(ctx, res_class,
       get_resource_id(ctx, res_class, var->data.descriptor_set, var->data.binding), binding, false);
@@ -4547,10 +4551,14 @@ emit_module(struct ntd_context *ctx, const struct nir_to_dxil_options *opts)
 
    /* SRVs */
    nir_foreach_variable_with_modes(var, ctx->shader, nir_var_uniform) {
-      unsigned count = glsl_type_get_texture_count(var->type);
-      assert(count == 0 || glsl_type_is_texture(glsl_without_array(var->type)));
-      if (count > 0 && !emit_srv(ctx, var, count))
-         return false;
+      if (glsl_type_is_texture(glsl_without_array(var->type))) {
+         if (!emit_srv(ctx, var, glsl_type_get_texture_count(var->type)))
+            return false;
+      } else if (glsl_type_is_image(glsl_without_array(var->type)) &&
+               ((var->data.access & ACCESS_NON_WRITEABLE))) {
+         if (!emit_srv(ctx, var, glsl_type_get_image_count(var->type)))
+            return false;
+      }
    }
 
    /* Handle read-only SSBOs as SRVs */
@@ -4618,6 +4626,9 @@ emit_module(struct ntd_context *ctx, const struct nir_to_dxil_options *opts)
    }
 
    nir_foreach_image_variable(var, ctx->shader) {
+      if (var && var->data.access & ACCESS_NON_WRITEABLE)
+         continue; // already handled in SRV
+
       if (!emit_uav_var(ctx, var, glsl_type_get_image_count(var->type)))
          return false;
    }
