@@ -18,27 +18,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-vtn_gather_types_c = custom_target(
-  'vtn_gather_types.c',
-  input : files('vtn_gather_types_c.py', 'spirv.core.grammar.json'),
-  output : 'vtn_gather_types.c',
-  command : [prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'],
-)
-
-spirv_info_c = custom_target(
-  'spirv_info.c',
-  input : files('spirv_info_c.py', 'spirv.core.grammar.json'),
-  output : 'spirv_info.c',
-  command : [prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'],
-)
-
-vtn_generator_ids_h = custom_target(
-  'vtn_generator_ids.h',
-  input : files('vtn_generator_ids_h.py', 'spir-v.xml'),
-  output : 'vtn_generator_ids.h',
-  command : [prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'],
-)
-
 if with_tests
-  subdir('assembler')
+
+spirv_assembler_info_c = custom_target(
+  'spirv_assembler_info.c',
+  input : files('spirv_assembler_info_c.py', '../spirv.core.grammar.json', '../spirv_info_c.py'),
+  output : 'spirv_assembler_info.c',
+  command : [prog_python, '@INPUT0@', '@INPUT1@', '@OUTPUT@'],
+)
+
+_libspirv_assembler = static_library(
+  'spirv_assembler',
+  [spirv_assembler_info_c,
+   files(
+     'spirv_assembler.c',
+     'spirv_assembler.h',
+     'spirv_assembler_info.h',
+   )],
+  include_directories : [inc_include, inc_src, include_directories('..')],
+  c_args: [c_msvc_compat_args, no_override_init_args],
+  gnu_symbol_visibility : 'hidden',
+  dependencies : [],
+  link_with : libcompiler,
+  build_by_default : false,
+)
+
+idep_spirv_assembler = declare_dependency(
+  dependencies : [idep_mesautil],
+  link_with : _libspirv_assembler
+)
+
 endif

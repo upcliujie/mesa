@@ -75,6 +75,7 @@ if with_tests
     executable(
       'spirv_tests',
       files(
+        'spirv/tests/assembler_tests.cpp',
         'spirv/tests/helpers.h',
         'spirv/tests/avail_vis.cpp',
         'spirv/tests/volatile.cpp',
@@ -82,7 +83,7 @@ if with_tests
       c_args : [c_msvc_compat_args, no_override_init_args],
       gnu_symbol_visibility : 'hidden',
       include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux],
-      dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil],
+      dependencies : [dep_thread, idep_gtest, idep_nir, idep_mesautil, idep_spirv_assembler],
     ),
     suite : ['compiler', 'spirv'],
     protocol : gtest_test_protocol,
