@@ -36,12 +36,13 @@ struct vk_drm_syncobj {
    uint32_t syncobj;
 };
 
+void vk_drm_syncobj_finish(struct vk_device *device,
+                           struct vk_sync *sync);
+
 static inline bool
 vk_sync_type_is_drm_syncobj(const struct vk_sync_type *type)
 {
-   return type == &vk_drm_binary_syncobj_no_wait_type ||
-          type == &vk_drm_binary_syncobj_type ||
-          type == &vk_drm_timeline_syncobj_type;
+   return type->finish == vk_drm_syncobj_finish;
 }
 
 static inline struct vk_drm_syncobj *
