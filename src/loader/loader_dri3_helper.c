@@ -384,6 +384,7 @@ loader_dri3_drawable_fini(struct loader_dri3_drawable *draw)
 int
 loader_dri3_drawable_init(xcb_connection_t *conn,
                           xcb_drawable_t drawable,
+                          enum loader_dri3_drawable_type type,
                           __DRIscreen *dri_screen,
                           bool is_different_gpu,
                           bool multiplanes_available,
@@ -403,6 +404,7 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    draw->ext = ext;
    draw->vtable = vtable;
    draw->drawable = drawable;
+   draw->type = type;
    draw->region = 0;
    draw->dri_screen = dri_screen;
    draw->is_different_gpu = is_different_gpu;
@@ -833,7 +835,7 @@ loader_dri3_copy_sub_buffer(struct loader_dri3_drawable *draw,
    unsigned flags = __DRI2_FLUSH_DRAWABLE;
 
    /* Check we have the right attachments */
-   if (!draw->have_back || draw->is_pixmap)
+   if (!draw->have_back || draw->type != LOADER_DRI3_DRAWABLE_WINDOW)
       return;
 
    if (flush)
@@ -1033,7 +1035,7 @@ loader_dri3_swap_buffers_msc(struct loader_dri3_drawable *draw,
 
    dri3_flush_present_events(draw);
 
-   if (back && !draw->is_pixmap) {
+   if (back && draw->type == LOADER_DRI3_DRAWABLE_WINDOW) {
       dri3_fence_reset(draw->conn, back);
 
       /* Compute when we want the frame shown by taking the last known
@@ -1695,8 +1697,6 @@ dri3_update_drawable(struct loader_dri3_drawable *draw)
 
       free(geom_reply);
 
-      draw->is_pixmap = false;
-
       /* Check to see if our select input call failed. If it failed with a
        * BadWindow error, then assume the drawable is a pixmap. Destroy the
        * special event queue created above and mark the drawable as a pixmap
@@ -1711,12 +1711,11 @@ dri3_update_drawable(struct loader_dri3_drawable *draw)
             return false;
          }
          free(error);
-         draw->is_pixmap = true;
          xcb_unregister_for_special_event(draw->conn, draw->special_event);
          draw->special_event = NULL;
       }
 
-      if (draw->is_pixmap)
+      if (draw->type != LOADER_DRI3_DRAWABLE_WINDOW)
          draw->window = root_win;
       else
          draw->window = draw->drawable;
@@ -2137,7 +2136,8 @@ loader_dri3_get_buffers(__DRIdrawable *driDrawable,
    /* pixmaps always have front buffers.
     * Exchange swaps also mandate fake front buffers.
     */
-   if (draw->is_pixmap || draw->swap_method == __DRI_ATTRIB_SWAP_EXCHANGE)
+   if (draw->type != LOADER_DRI3_DRAWABLE_WINDOW ||
+       draw->swap_method == __DRI_ATTRIB_SWAP_EXCHANGE)
       buffer_mask |= __DRI_IMAGE_BUFFER_FRONT;
 
    if (buffer_mask & __DRI_IMAGE_BUFFER_FRONT) {
@@ -2149,7 +2149,7 @@ loader_dri3_get_buffers(__DRIdrawable *driDrawable,
        * content will get synced with the fake front
        * buffer.
        */
-      if (draw->is_pixmap && !draw->is_different_gpu)
+      if (draw->type != LOADER_DRI3_DRAWABLE_WINDOW && !draw->is_different_gpu)
          front = dri3_get_pixmap_buffer(driDrawable,
                                                format,
                                                loader_dri3_buffer_front,
@@ -2183,7 +2183,9 @@ loader_dri3_get_buffers(__DRIdrawable *driDrawable,
    if (front) {
       buffers->image_mask |= __DRI_IMAGE_BUFFER_FRONT;
       buffers->front = front->image;
-      draw->have_fake_front = draw->is_different_gpu || !draw->is_pixmap;
+      draw->have_fake_front =
+         draw->is_different_gpu ||
+         draw->type == LOADER_DRI3_DRAWABLE_WINDOW;
    }
 
    if (back) {
