@@ -575,12 +575,12 @@ st_glsl_to_nir_post_opts(struct st_context *st, struct gl_program *prog,
       msg = st_finalize_nir(st, prog, shader_program, nir, true, true);
 
    if (st->ctx->_Shader->Flags & GLSL_DUMP) {
-      _mesa_log("\n");
-      _mesa_log("NIR IR for linked %s program %d:\n",
-             _mesa_shader_stage_to_string(prog->info.stage),
-             shader_program->Name);
-      nir_print_shader(nir, _mesa_get_log_file());
-      _mesa_log("\n\n");
+      mesa_logi("\n");
+      mesa_logi("NIR IR for linked %s program %d:\n",
+                _mesa_shader_stage_to_string(prog->info.stage),
+                shader_program->Name);
+      nir_print_shader(nir, mesa_get_log_file());
+      mesa_logi("\n\n");
    }
 
    return msg;
@@ -754,12 +754,12 @@ st_link_nir(struct gl_context *ctx,
          validate_ir_tree(shader->ir);
 
          if (ctx->_Shader->Flags & GLSL_DUMP) {
-            _mesa_log("\n");
-            _mesa_log("GLSL IR for linked %s program %d:\n",
+            mesa_logd("\n");
+            mesa_logd("GLSL IR for linked %s program %d:\n",
                       _mesa_shader_stage_to_string(shader->Stage),
                       shader_program->Name);
-            _mesa_print_ir(_mesa_get_log_file(), shader->ir, NULL);
-            _mesa_log("\n\n");
+            _mesa_print_ir(mesa_get_log_file(), shader->ir, NULL);
+            mesa_logd("\n\n");
          }
 
          prog->nir = glsl_to_nir(st->ctx, shader_program, shader->Stage, options);

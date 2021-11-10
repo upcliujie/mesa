@@ -1248,9 +1248,9 @@ _mesa_compile_shader(struct gl_context *ctx, struct gl_shader *sh)
       sh->CompileStatus = COMPILE_FAILURE;
    } else {
       if (ctx->_Shader->Flags & GLSL_DUMP) {
-         _mesa_log("GLSL source for %s shader %d:\n",
-                 _mesa_shader_stage_to_string(sh->Stage), sh->Name);
-         _mesa_log("%s\n", sh->Source);
+         mesa_logi("GLSL source for %s shader %d:\n",
+                   _mesa_shader_stage_to_string(sh->Stage), sh->Name);
+         mesa_logi("%s\n", sh->Source);
       }
 
       ensure_builtin_types(ctx);
@@ -1267,29 +1267,29 @@ _mesa_compile_shader(struct gl_context *ctx, struct gl_shader *sh)
       if (ctx->_Shader->Flags & GLSL_DUMP) {
          if (sh->CompileStatus) {
             if (sh->ir) {
-               _mesa_log("GLSL IR for shader %d:\n", sh->Name);
-               _mesa_print_ir(_mesa_get_log_file(), sh->ir, NULL);
+               mesa_logi("GLSL IR for shader %d:\n", sh->Name);
+               _mesa_print_ir(mesa_get_log_file(), sh->ir, NULL);
             } else {
-               _mesa_log("No GLSL IR for shader %d (shader may be from "
+               mesa_logi("No GLSL IR for shader %d (shader may be from "
                          "cache)\n", sh->Name);
             }
-            _mesa_log("\n\n");
+            mesa_logd("\n\n");
          } else {
-            _mesa_log("GLSL shader %d failed to compile.\n", sh->Name);
+            mesa_logi("GLSL shader %d failed to compile.\n", sh->Name);
          }
          if (sh->InfoLog && sh->InfoLog[0] != 0) {
-            _mesa_log("GLSL shader %d info log:\n", sh->Name);
-            _mesa_log("%s\n", sh->InfoLog);
+            mesa_logi("GLSL shader %d info log:\n", sh->Name);
+            mesa_logi("%s\n", sh->InfoLog);
          }
       }
    }
 
    if (!sh->CompileStatus) {
       if (ctx->_Shader->Flags & GLSL_DUMP_ON_ERROR) {
-         _mesa_log("GLSL source for %s shader %d:\n",
-                 _mesa_shader_stage_to_string(sh->Stage), sh->Name);
-         _mesa_log("%s\n", sh->Source);
-         _mesa_log("Info Log:\n%s\n", sh->InfoLog);
+         mesa_logi("GLSL source for %s shader %d:\n",
+                   _mesa_shader_stage_to_string(sh->Stage), sh->Name);
+         mesa_logi("%s\n", sh->Source);
+         mesa_logi("Info Log:\n%s\n", sh->InfoLog);
       }
 
       if (ctx->_Shader->Flags & GLSL_REPORT_ERRORS) {
