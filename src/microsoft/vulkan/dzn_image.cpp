@@ -138,7 +138,9 @@ dzn_image::dzn_image(dzn_device *device,
    if (vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
 
-      if (!(vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT)))
+      if (!(vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
+                        VK_IMAGE_USAGE_STORAGE_BIT |
+                        VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)))
          desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
    }
 

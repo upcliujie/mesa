@@ -56,9 +56,9 @@ desc_type_to_range_type(VkDescriptorType in)
    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
    default:
       unreachable("Unsupported desc type");
    }
@@ -166,7 +166,8 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          sampler_desc_count += range->NumDescriptors;
       }
 
-      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
+      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER ||
+          desc_type != VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
          assert(view_range_idx[visibility] < ranges[visibility].view_count);
          uint32_t range_idx = view_range_idx[visibility]++;
 
@@ -521,10 +522,10 @@ desc_type_to_heap_type(VkDescriptorType in)
    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
      return D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
    default:
       unreachable("Unsupported desc type");
    }
@@ -789,6 +790,7 @@ dzn_write_descriptor_set(struct dzn_device *dev,
          switch (pDescriptorWrite->descriptorType) {
          case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
             if (pDescriptorWrite->pImageInfo) {
                const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
                VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
