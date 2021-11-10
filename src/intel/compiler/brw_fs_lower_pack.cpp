@@ -41,6 +41,7 @@ fs_visitor::lower_pack()
       fs_reg dst = inst->dst;
 
       const fs_builder ibld(this, block, inst);
+      ibld.UNDEF(dst);
       for (unsigned i = 0; i < inst->sources; i++)
          ibld.MOV(subscript(dst, inst->src[i].type, i), inst->src[i]);
 
