@@ -37,11 +37,17 @@ extern "C" {
 #endif
 
 enum mesa_log_level {
-   MESA_LOG_ERROR,
-   MESA_LOG_WARN,
-   MESA_LOG_INFO,
-   MESA_LOG_DEBUG,
+   MESA_LOG_ERROR = 1 << 0,
+   MESA_LOG_WARN = 1 << 1,
+   MESA_LOG_INFO = 1 << 2,
+   MESA_LOG_DEBUG = 1 << 3,
 };
+
+FILE *
+mesa_get_log_file(void);
+
+bool
+mesa_would_log(enum mesa_log_level l);
 
 void PRINTFLIKE(3, 4)
 mesa_log(enum mesa_log_level, const char *tag, const char *format, ...);
