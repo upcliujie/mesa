@@ -337,6 +337,54 @@ vk_drm_syncobj_move(struct vk_device *device,
    }
 }
 
+struct vk_sync_type
+vk_drm_syncobj_get_type(int drm_fd)
+{
+   uint32_t syncobj = 0;
+   int err = drmSyncobjCreate(drm_fd, DRM_SYNCOBJ_CREATE_SIGNALED, &syncobj);
+   if (err < 0)
+      return (struct vk_sync_type) { .features = 0 };
+
+   struct vk_sync_type type = {
+      .size = sizeof(struct vk_drm_syncobj),
+      .features = VK_SYNC_FEATURE_BINARY |
+                  VK_SYNC_FEATURE_GPU_WAIT |
+                  VK_SYNC_FEATURE_CPU_RESET |
+                  VK_SYNC_FEATURE_CPU_SIGNAL,
+      .init = vk_drm_binary_syncobj_init,
+      .finish = vk_drm_syncobj_finish,
+      .signal = vk_drm_syncobj_signal,
+      .reset = vk_drm_syncobj_reset,
+      .move = vk_drm_syncobj_move,
+      .import_opaque_fd = vk_drm_syncobj_import_opaque_fd,
+      .export_opaque_fd = vk_drm_syncobj_export_opaque_fd,
+      .import_sync_file = vk_drm_syncobj_import_sync_file,
+      .export_sync_file = vk_drm_syncobj_export_sync_file,
+   };
+
+   err = drmSyncobjWait(drm_fd, &syncobj, 1, 0,
+                        DRM_SYNCOBJ_WAIT_FLAGS_WAIT_ALL,
+                        NULL /* first_signaled */);
+   if (err == 0) {
+      type.wait_many = vk_drm_syncobj_wait_many;
+      type.features |= VK_SYNC_FEATURE_CPU_WAIT |
+                       VK_SYNC_FEATURE_WAIT_ANY;
+   }
+
+   uint64_t cap;
+   err = drmGetCap(drm_fd, DRM_CAP_SYNCOBJ_TIMELINE);
+   if (err == 0 && cap != 0) {
+      type.get_value = vk_drm_syncobj_get_value;
+      type.features |= VK_SYNC_FEATURE_TIMELINE |
+                       VK_SYNC_FEATURE_WAIT_PENDING;
+   }
+
+   ASSERTED int err = drmSyncobjDestroy(drm_fd, syncobj);
+   assert(err == 0);
+
+   return type;
+}
+
 const struct vk_sync_type vk_drm_binary_syncobj_no_wait_type = {
    .size = sizeof(struct vk_drm_syncobj),
    .features = VK_SYNC_FEATURE_BINARY |
