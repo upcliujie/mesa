@@ -1369,7 +1369,8 @@ dzn_cmd_buffer::update_pipeline(uint32_t bindpoint)
 void
 dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
 {
-   ID3D12DescriptorHeap **new_heaps = state.bindpoint[bindpoint].heaps;
+   struct dzn_descriptor_state *desc_state = &state.bindpoint[bindpoint].desc_state;
+   ID3D12DescriptorHeap **new_heaps = desc_state->heaps;
    const struct dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
    uint32_t view_desc_sz =
       device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -1405,9 +1406,7 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
       };
 
       for (uint32_t s = 0; s < MAX_SETS; s++) {
-         const struct dzn_descriptor_set *set =
-            state.bindpoint[bindpoint].sets[s];
-
+         const struct dzn_descriptor_set *set = desc_state->sets[s].set;
          if (!set) continue;
 
          uint32_t set_desc_count =
@@ -1495,7 +1494,7 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
 
    for (uint32_t i = 0; i < descriptorSetCount; i++) {
       VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
-      cmd_buffer->state.bindpoint[pipelineBindPoint].sets[firstSet + i] = set;
+      cmd_buffer->state.bindpoint[pipelineBindPoint].desc_state.sets[firstSet + i].set = set;
    }
 
    cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;

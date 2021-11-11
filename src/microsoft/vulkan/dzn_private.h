@@ -446,6 +446,13 @@ struct dzn_batch {
    static void destroy(dzn_batch *batch, struct dzn_cmd_buffer *cmd_buffer);
 };
 
+struct dzn_descriptor_state {
+   struct {
+      const struct dzn_descriptor_set *set;
+   } sets[MAX_SETS];
+   ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
+};
+
 struct dzn_cmd_buffer {
    struct vk_command_buffer vk;
 
@@ -482,8 +489,7 @@ struct dzn_cmd_buffer {
       uint32_t subpass;
       struct {
          struct dzn_pipeline *pipeline;
-         const struct dzn_descriptor_set *sets[MAX_SETS];
-         ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
+         struct dzn_descriptor_state desc_state;
          uint32_t dirty;
       } bindpoint[NUM_BIND_POINT];
       union {
