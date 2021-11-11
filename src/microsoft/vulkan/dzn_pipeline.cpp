@@ -113,7 +113,7 @@ dzn_pipeline::compile_shader(dzn_device *device,
       bindings[i] = dzn_transient_zalloc<dxil_spirv_vulkan_binding>(set_layout->binding_count,
                                                                     &device->vk.alloc);
       sets[i].bindings = bindings[i].get();
-      for (uint32_t j = 0; i < set_layout->binding_count; j++)
+      for (uint32_t j = 0; j < set_layout->binding_count; j++)
          sets[i].bindings[j].base_register = set_layout->bindings[j].base_shader_register;
    }
 
