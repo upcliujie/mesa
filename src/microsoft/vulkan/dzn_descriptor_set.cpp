@@ -283,6 +283,34 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
 }
 
 uint32_t
+dzn_descriptor_set_layout::get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYPE type) const
+{
+   assert(b < binding_count);
+   D3D12_SHADER_VISIBILITY visibility = bindings[b].visibility;
+   assert(visibility < ARRAY_SIZE(ranges));
+
+   if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
+      uint32_t view_range_idx = bindings[b].view_range_idx;
+
+      if (view_range_idx == ~0)
+         return ~0;
+
+      assert(view_range_idx < ranges[visibility].view_count);
+      return ranges[visibility].views[view_range_idx].OffsetInDescriptorsFromTableStart;
+   } else if (type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+      uint32_t sampler_range_idx = bindings[b].sampler_range_idx;
+
+      if (sampler_range_idx == ~0)
+         return ~0;
+
+      assert(sampler_range_idx < ranges[visibility].sampler_count);
+      return ranges[visibility].samplers[sampler_range_idx].OffsetInDescriptorsFromTableStart;
+   } else {
+      unreachable("invalid heap type");
+   }
+}
+
+uint32_t
 dzn_descriptor_set_layout::get_desc_count(uint32_t b) const
 {
    D3D12_SHADER_VISIBILITY visibility = bindings[b].visibility;
@@ -664,6 +692,72 @@ dzn_descriptor_heap::get_cpu_ptr(uint32_t desc_offset) const
 }
 
 void
+dzn_descriptor_heap::write_desc(uint32_t desc_offset,
+                                dzn_sampler *sampler)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE sampler_handle {
+      .ptr = get_cpu_ptr(desc_offset),
+   };
+
+   device->dev->CreateSampler(&sampler->desc, sampler_handle);
+}
+
+void
+dzn_descriptor_heap::write_desc(uint32_t desc_offset,
+                                dzn_image_view *iview)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
+      .ptr = get_cpu_ptr(desc_offset),
+   };
+
+   device->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
+}
+
+dzn_buffer_desc::dzn_buffer_desc(VkDescriptorType t,
+                                 const VkDescriptorBufferInfo *pBufferInfo)
+{
+   VK_FROM_HANDLE(dzn_buffer, buf, pBufferInfo->buffer);
+
+   type = t;
+   buffer = buf;
+   range = pBufferInfo->range;
+   offset = pBufferInfo->offset;
+}
+
+void
+dzn_descriptor_heap::write_desc(uint32_t desc_offset,
+                                const dzn_buffer_desc &info)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
+      .ptr = get_cpu_ptr(desc_offset),
+   };
+
+   VkDeviceSize size =
+      info.range == VK_WHOLE_SIZE ?
+      info.buffer->size - info.offset :
+      info.range;
+
+   if (info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+      D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
+         .BufferLocation = info.buffer->res->GetGPUVirtualAddress() + info.offset,
+         .SizeInBytes = ALIGN_POT(size, 256),
+      };
+      device->dev->CreateConstantBufferView(&cbv_desc, view_handle);
+   } else {
+      D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
+         .Format = DXGI_FORMAT_R32_TYPELESS,
+         .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
+         .Buffer = {
+            .FirstElement = info.offset / sizeof(uint32_t),
+            .NumElements = (UINT)size / sizeof(uint32_t),
+            .Flags = D3D12_BUFFER_UAV_FLAG_RAW,
+         },
+      };
+      device->dev->CreateUnorderedAccessView(info.buffer->res.Get(), NULL, &uav_desc, view_handle);
+   }
+}
+
+void
 dzn_descriptor_heap::copy(uint32_t dst_offset,
                           const dzn_descriptor_heap &src_heap,
                           uint32_t src_offset,
@@ -703,34 +797,6 @@ dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
                              layout->sampler_desc_count, false);
    }
 
-   for (uint32_t i = 0; i < layout->binding_count; i++) {
-      D3D12_SHADER_VISIBILITY visibility = layout->bindings[i].visibility;
-      uint32_t view_range_idx = layout->bindings[i].view_range_idx;
-      uint32_t sampler_range_idx = layout->bindings[i].sampler_range_idx;
-      struct dzn_descriptor_set_binding *b =
-         (struct dzn_descriptor_set_binding *)&bindings[i];
-
-      assert(visibility < ARRAY_SIZE(layout->ranges));
-      assert(view_range_idx == ~0 || view_range_idx < layout->ranges[visibility].view_count);
-      assert(sampler_range_idx == ~0 || sampler_range_idx < layout->ranges[visibility].sampler_count);
-
-      if (view_range_idx != ~0) {
-	 const D3D12_DESCRIPTOR_RANGE1 *range =
-            &layout->ranges[visibility].views[view_range_idx];
-         auto &heap = heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
-
-         b->views.ptr = heap.get_cpu_ptr(range->OffsetInDescriptorsFromTableStart);
-      }
-
-      if (sampler_range_idx != ~0) {
-	 const D3D12_DESCRIPTOR_RANGE1 *range =
-            &layout->ranges[visibility].samplers[sampler_range_idx];
-         auto &heap = heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
-
-         b->samplers.ptr = heap.get_cpu_ptr(range->OffsetInDescriptorsFromTableStart);
-      }
-   }
-
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_SET);
 }
 
@@ -750,14 +816,11 @@ dzn_descriptor_set_factory::allocate(dzn_device *device,
    /* TODO: Allocate from the pool! */
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set, set, 1);
-   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set_binding,
-                      bindings, layout->binding_count);
 
    if (!vk_multialloc_zalloc(&ma, &device->vk.alloc,
                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return NULL;
 
-   set->bindings = bindings;
    return set;
 }
 
@@ -782,17 +845,9 @@ dzn_FreeDescriptorSets(VkDevice device,
    return pool->free_sets(device, count, pDescriptorSets);
 }
 
-static void
-dzn_write_descriptor_set(struct dzn_device *dev,
-                         const VkWriteDescriptorSet *pDescriptorWrite)
+void
+dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
 {
-   VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorWrite->dstSet);
-   const dzn_descriptor_set_layout *layout = set->layout;
-
-   uint32_t view_desc_sz =
-      dev->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-   uint32_t sampler_desc_sz =
-      dev->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
    uint32_t b = pDescriptorWrite->dstBinding;
    uint32_t offset = pDescriptorWrite->dstArrayElement;
    uint32_t d = 0;
@@ -809,77 +864,61 @@ dzn_write_descriptor_set(struct dzn_device *dev,
          continue;
       }
 
-      D3D12_CPU_DESCRIPTOR_HANDLE view_handle = {
-         set->bindings[b].views.ptr ?
-         set->bindings[b].views.ptr + (offset * view_desc_sz) :
-         0
-      };
-      D3D12_CPU_DESCRIPTOR_HANDLE sampler_handle = {
-         set->bindings[b].samplers.ptr ?
-         set->bindings[b].samplers.ptr + (offset * sampler_desc_sz) :
-         0
-      };
-
-      if (sampler_handle.ptr && pDescriptorWrite->pImageInfo) {
-         VK_FROM_HANDLE(dzn_sampler, sampler, pDescriptorWrite->pImageInfo->sampler);
-         dev->dev->CreateSampler(&sampler->desc, sampler_handle);
+      switch (pDescriptorWrite->descriptorType) {
+      case VK_DESCRIPTOR_TYPE_SAMPLER: {
+         const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
+         VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
+         write_desc(b, offset, sampler);
+         break;
       }
-
-      if (view_handle.ptr) {
-         switch (pDescriptorWrite->descriptorType) {
-         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-         case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-            if (pDescriptorWrite->pImageInfo) {
-               const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
-               VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
-               dev->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
-            }
-            break;
-         case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: {
-            const VkDescriptorBufferInfo* pBufferInfo = pDescriptorWrite->pBufferInfo + d;
-            VK_FROM_HANDLE(dzn_buffer, buf, pBufferInfo->buffer);
-            uint32_t size = pBufferInfo->range == VK_WHOLE_SIZE ?
-                              buf->size - pBufferInfo->offset :
-                              pBufferInfo->range;
-
-            D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
-               .BufferLocation = buf->res->GetGPUVirtualAddress() + pBufferInfo->offset,
-               .SizeInBytes = ALIGN_POT(size, 256),
-            };
-
-            dev->dev->CreateConstantBufferView(&cbv_desc, view_handle);
-            break;
-         }
-         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
-            const VkDescriptorBufferInfo* pBufferInfo = pDescriptorWrite->pBufferInfo + d;
-            VK_FROM_HANDLE(dzn_buffer, buf, pBufferInfo->buffer);
-            uint32_t size = pBufferInfo->range == VK_WHOLE_SIZE ?
-                              buf->size - pBufferInfo->offset :
-                              pBufferInfo->range;
-
-            D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
-              .Format = DXGI_FORMAT_R32_TYPELESS,
-              .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
-              .Buffer = {
-                 .FirstElement = pBufferInfo->offset / sizeof(uint32_t),
-                 .NumElements = size / sizeof(uint32_t),
-                 .Flags = D3D12_BUFFER_UAV_FLAG_RAW,
-              },
-            };
-
-            dev->dev->CreateUnorderedAccessView(buf->res.Get(), NULL, &uav_desc, view_handle);
-            break;
-         }
-         default:
-            // TODO: support all types
-            unreachable("Unsupported descriptor type\n");
-         }
+      case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: {
+         const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
+         VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
+         write_desc(b, offset, sampler);
+         VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
+         write_desc(b, offset, iview);
+         break;
+      }
+      case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
+         const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
+         VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
+         write_desc(b, offset, iview);
+         break;
+      }
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+         const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
+                                    pDescriptorWrite->pBufferInfo + d);
+         write_desc(b, offset, desc);
+         break;
+      }
+      default:
+         unreachable("invalid descriptor type");
+         break;
       }
 
       offset++;
       d++;
    }
+}
+
+void
+dzn_descriptor_set::write_desc(uint32_t b, uint32_t desc, dzn_sampler *sampler)
+{
+   D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+   uint32_t heap_offset = layout->get_heap_offset(b, type);
+   if (heap_offset != ~0)
+      heaps[type].write_desc(heap_offset + desc, sampler);
+}
+
+template<typename ... Args> void
+dzn_descriptor_set::write_desc(uint32_t b, uint32_t desc, Args... args)
+{
+   D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+   uint32_t heap_offset = layout->get_heap_offset(b, type);
+   if (heap_offset != ~0)
+      heaps[type].write_desc(heap_offset + desc, args...);
 }
 
 static void
@@ -899,8 +938,10 @@ dzn_UpdateDescriptorSets(VkDevice _device,
 {
    VK_FROM_HANDLE(dzn_device, dev, _device);
 
-   for (unsigned i = 0; i < descriptorWriteCount; i++)
-      dzn_write_descriptor_set(dev, &pDescriptorWrites[i]);
+   for (unsigned i = 0; i < descriptorWriteCount; i++) {
+      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorWrites[i].dstSet);
+      set->write(&pDescriptorWrites[i]);
+   }
 
    for (unsigned i = 0; i < descriptorCopyCount; i++)
       dzn_copy_descriptor_set(dev, &pDescriptorCopies[i]);

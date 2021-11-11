@@ -453,6 +453,30 @@ struct dzn_descriptor_state {
    ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
 };
 
+struct dzn_sampler;
+struct dzn_image_view;
+
+struct dzn_buffer_desc {
+   dzn_buffer_desc(VkDescriptorType t,
+                   const VkDescriptorBufferInfo *pBufferInfo);
+   dzn_buffer_desc() = default;
+   dzn_buffer_desc(const dzn_buffer_desc &) = default;
+   ~dzn_buffer_desc() = default;
+
+   dzn_buffer_desc operator+(VkDeviceSize dyn_offset)
+   {
+      dzn_buffer_desc new_desc(*this);
+
+      new_desc.offset = offset + dyn_offset;
+      return new_desc;
+   }
+
+   VkDescriptorType type = (VkDescriptorType)0;
+   const struct dzn_buffer *buffer = NULL;
+   VkDeviceSize range = 0;
+   VkDeviceSize offset = 0;
+};
+
 struct dzn_descriptor_heap {
    dzn_descriptor_heap(struct dzn_device *device,
                        uint32_t type,
@@ -466,6 +490,13 @@ struct dzn_descriptor_heap {
 
    const VkAllocationCallbacks *get_vk_allocator();
    SIZE_T get_cpu_ptr(uint32_t desc_offset = 0) const;
+
+   void write_desc(uint32_t desc_offset,
+                   dzn_sampler *sampler);
+   void write_desc(uint32_t desc_offset,
+                   dzn_image_view *iview);
+   void write_desc(uint32_t desc_offset,
+                   const dzn_buffer_desc &info);
    void copy(uint32_t dst_offset,
              const dzn_descriptor_heap &src_heap,
              uint32_t src_offset,
@@ -670,25 +701,28 @@ struct dzn_descriptor_set_layout {
                              const VkAllocationCallbacks *pAllocator);
    ~dzn_descriptor_set_layout();
 
+   uint32_t get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYPE type) const;
    uint32_t get_desc_count(uint32_t b) const;
-};
-
-struct dzn_descriptor_set_binding {
-   D3D12_CPU_DESCRIPTOR_HANDLE views;
-   D3D12_CPU_DESCRIPTOR_HANDLE samplers;
 };
 
 struct dzn_descriptor_set {
    struct vk_object_base base;
    dzn_descriptor_heap heaps[NUM_POOL_TYPES];
    const struct dzn_descriptor_set_layout *layout;
-   const struct dzn_descriptor_set_binding *bindings;
 
    dzn_descriptor_set(dzn_device *device,
                       dzn_descriptor_pool *pool,
                       VkDescriptorSetLayout layout,
                       const VkAllocationCallbacks *pAllocator);
    ~dzn_descriptor_set();
+
+   void write(const VkWriteDescriptorSet *pDescriptorWrite);
+
+private:
+   void
+   write_desc(uint32_t b, uint32_t desc, dzn_sampler *sampler);
+   template<typename ... Args> void
+   write_desc(uint32_t b, uint32_t desc, Args... args);
 };
 
 struct dzn_pipeline_layout {
