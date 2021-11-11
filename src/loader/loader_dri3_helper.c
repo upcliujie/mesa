@@ -1688,11 +1688,19 @@ dri3_setup_present_event(struct loader_dri3_drawable *draw)
 
    draw->eid = xcb_generate_id(draw->conn);
 
-   if (!dri3_detect_drawable_is_window(draw))
-      return false;
+   if (draw->type == LOADER_DRI3_DRAWABLE_WINDOW) {
+      xcb_present_select_input(draw->conn, draw->eid, draw->drawable,
+                               XCB_PRESENT_EVENT_MASK_CONFIGURE_NOTIFY |
+                               XCB_PRESENT_EVENT_MASK_COMPLETE_NOTIFY |
+                               XCB_PRESENT_EVENT_MASK_IDLE_NOTIFY);
+   } else {
+      assert(draw->type == LOADER_DRI3_DRAWABLE_UNKNOW);
+      if (!dri3_detect_drawable_is_window(draw))
+         return false;
 
-   if (draw->type != LOADER_DRI3_DRAWABLE_WINDOW)
-      return true;
+      if (draw->type != LOADER_DRI3_DRAWABLE_WINDOW)
+         return true;
+   }
 
    /* Create an XCB event queue to hold present events outside of the usual
     * application event queue
