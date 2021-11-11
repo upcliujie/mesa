@@ -1391,10 +1391,19 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          if (!set) continue;
 
          uint32_t set_desc_count = set->layout->range_desc_count[type];
-         if (!set_desc_count) continue;
+         if (set_desc_count) {
+            dst_heap.copy(dst_offset, set->heaps[type], 0, set_desc_count);
+            dst_offset += set_desc_count;
+         }
 
-         dst_heap.copy(dst_offset, set->heaps[type], 0, set_desc_count);
-         dst_offset += set_desc_count;
+         if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
+            for (uint32_t o = 0; o < set->layout->dynamic_buffers.count; o++) {
+               dst_heap.write_desc(dst_offset,
+                                   set->dynamic_buffers[o] +
+                                   desc_state->sets[s].dynamic_offsets[o]);
+               dst_offset++;
+            }
+         }
       }
 
       new_heaps[type] = dst_heap;
@@ -1462,13 +1471,32 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
+   struct dzn_descriptor_state *desc_state =
+      &cmd_buffer->state.bindpoint[pipelineBindPoint].desc_state;
+   uint32_t dirty = 0;
 
    for (uint32_t i = 0; i < descriptorSetCount; i++) {
+      uint32_t idx = firstSet + i;
       VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
-      cmd_buffer->state.bindpoint[pipelineBindPoint].desc_state.sets[firstSet + i].set = set;
+
+      if (desc_state->sets[idx].set != set) {
+         desc_state->sets[idx].set = set;
+         dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+      }
+
+      if (set->layout->dynamic_buffers.count) {
+         assert(dynamicOffsetCount >= set->layout->dynamic_buffers.count);
+
+         for (uint32_t j = 0; j < set->layout->dynamic_buffers.count; j++)
+            desc_state->sets[idx].dynamic_offsets[j] = pDynamicOffsets[j];
+
+         dynamicOffsetCount -= set->layout->dynamic_buffers.count;
+         pDynamicOffsets += set->layout->dynamic_buffers.count;
+         dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+      }
    }
 
-   cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+   cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= dirty;
 }
 
 void

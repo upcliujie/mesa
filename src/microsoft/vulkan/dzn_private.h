@@ -400,6 +400,10 @@ enum dzn_cmd_dirty {
 #define MAX_VP 16
 #define MAX_SCISSOR 16
 #define MAX_SETS 4
+#define MAX_DYNAMIC_UNIFORM_BUFFERS 8
+#define MAX_DYNAMIC_STORAGE_BUFFERS 4
+#define MAX_DYNAMIC_BUFFERS                                                  \
+   (MAX_DYNAMIC_UNIFORM_BUFFERS + MAX_DYNAMIC_STORAGE_BUFFERS)
 #define MAX_PUSH_CONSTANT_DWORDS 32
 
 #define NUM_BIND_POINT VK_PIPELINE_BIND_POINT_COMPUTE + 1
@@ -453,6 +457,7 @@ struct dzn_batch {
 struct dzn_descriptor_state {
    struct {
       const struct dzn_descriptor_set *set;
+      uint32_t dynamic_offsets[MAX_DYNAMIC_BUFFERS];
    } sets[MAX_SETS];
    ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
 };
@@ -682,7 +687,10 @@ struct dzn_descriptor_set_layout_binding {
    D3D12_SHADER_VISIBILITY visibility;
    uint32_t base_shader_register;
    uint32_t range_idx[NUM_POOL_TYPES];
-   uint32_t static_sampler_idx;
+   union {
+      uint32_t static_sampler_idx;
+      uint32_t dynamic_buffer_idx;
+   };
 };
 
 struct dzn_descriptor_set_layout {
@@ -692,6 +700,11 @@ struct dzn_descriptor_set_layout {
    uint32_t range_desc_count[NUM_POOL_TYPES];
    uint32_t static_sampler_count;
    const D3D12_STATIC_SAMPLER_DESC *static_samplers;
+   struct {
+      uint32_t bindings[MAX_DYNAMIC_BUFFERS];
+      uint32_t count;
+      uint32_t range_offset;
+   } dynamic_buffers;
    uint32_t binding_count;
    const struct dzn_descriptor_set_layout_binding *bindings;
 
@@ -708,6 +721,7 @@ struct dzn_descriptor_set {
    struct vk_object_base base;
    dzn_descriptor_heap heaps[NUM_POOL_TYPES];
    const struct dzn_descriptor_set_layout *layout;
+   struct dzn_buffer_desc *dynamic_buffers;
 
    dzn_descriptor_set(dzn_device *device,
                       dzn_descriptor_pool *pool,
@@ -720,6 +734,8 @@ struct dzn_descriptor_set {
 private:
    void
    write_desc(uint32_t b, uint32_t desc, dzn_sampler *sampler);
+   void
+   write_dynamic_buffer_desc(uint32_t b, uint32_t desc, const dzn_buffer_desc &info);
    template<typename ... Args> void
    write_desc(uint32_t b, uint32_t desc, Args... args);
 };

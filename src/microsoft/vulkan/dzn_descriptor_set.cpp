@@ -57,11 +57,18 @@ desc_type_to_range_type(VkDescriptorType in)
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
    default:
       unreachable("Unsupported desc type");
    }
+}
+
+static bool
+is_dynamic_desc_type(VkDescriptorType desc_type)
+{
+   return (desc_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+           desc_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC);
 }
 
 static uint32_t
@@ -105,10 +112,12 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
 
    uint32_t range_idx[MAX_SHADER_VISIBILITIES][NUM_POOL_TYPES] = {};
    uint32_t static_sampler_idx = 0;
+   uint32_t dynamic_buffer_idx = 0;
    uint32_t base_register = 0;
 
    for (uint32_t i = 0; i < binding_count; i++) {
       binfos[i].static_sampler_idx = ~0;
+      binfos[i].dynamic_buffer_idx = ~0;
       dzn_foreach_pool_type (type)
          binfos[i].range_idx[type] = ~0;
    }
@@ -122,6 +131,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
       bool immutable_samplers =
          has_sampler &&
          ordered_bindings[i].pImmutableSamplers != NULL;
+      bool is_dynamic = is_dynamic_desc_type(desc_type);
 
       D3D12_SHADER_VISIBILITY visibility =
          translate_desc_visibility(ordered_bindings[i].stageFlags);
@@ -137,6 +147,14 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          static_sampler_idx++;
          assert(0);
          /* FIXME: parse samplers */
+      }
+
+      if (is_dynamic) {
+         binfos[binding].dynamic_buffer_idx = dynamic_buffer_idx;
+         for (uint32_t d = 0; d < ordered_bindings[i].descriptorCount; d++)
+            dynamic_buffers.bindings[dynamic_buffer_idx + d] = binding;
+         dynamic_buffer_idx += ordered_bindings[i].descriptorCount;
+         assert(dynamic_buffer_idx <= MAX_DYNAMIC_BUFFERS);
       }
 
       unsigned num_descs =
@@ -165,8 +183,14 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          range->Flags = type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ?
             D3D12_DESCRIPTOR_RANGE_FLAG_NONE :
             D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS;
-         range->OffsetInDescriptorsFromTableStart = range_desc_count[type];
-         range_desc_count[type] += range->NumDescriptors;
+         if (is_dynamic) {
+            range->OffsetInDescriptorsFromTableStart =
+               dynamic_buffers.range_offset + dynamic_buffers.count;
+            dynamic_buffers.count += range->NumDescriptors;
+         } else {
+            range->OffsetInDescriptorsFromTableStart = range_desc_count[type];
+            range_desc_count[type] += range->NumDescriptors;
+         }
       }
    }
 
@@ -189,6 +213,7 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
 
    const VkDescriptorSetLayoutBinding *bindings = pCreateInfo->pBindings;
    uint32_t binding_count = 0, immutable_sampler_count = 0, total_ranges = 0;
+   uint32_t dynamic_ranges_offset = 0;
    uint32_t range_count[MAX_SHADER_VISIBILITIES][NUM_POOL_TYPES] = {};
 
    for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
@@ -224,6 +249,8 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
       if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
          range_count[visibility][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]++;
          total_ranges++;
+         if (!is_dynamic_desc_type(desc_type))
+            dynamic_ranges_offset += bindings[i].descriptorCount;
       }
 
       binding_count = MAX2(binding_count, bindings[i].binding + 1);
@@ -250,6 +277,7 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
    set_layout->static_sampler_count = immutable_sampler_count;
    set_layout->bindings = binfos;
    set_layout->binding_count = binding_count;
+   set_layout->dynamic_buffers.range_offset = dynamic_ranges_offset;
 
    for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
       dzn_foreach_pool_type (type) {
@@ -348,6 +376,9 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
          for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++)
             range_count += set_layout->range_count[i][type];
       }
+
+      desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] +=
+         set_layout->dynamic_buffers.count;
 
       sets[j].layout = set_layout;
    }
@@ -676,7 +707,8 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
       info.buffer->size - info.offset :
       info.range;
 
-   if (info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
+   if (info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+       info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
       D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
          .BufferLocation = info.buffer->res->GetGPUVirtualAddress() + info.offset,
          .SizeInBytes = ALIGN_POT(size, 256),
@@ -749,11 +781,14 @@ dzn_descriptor_set_factory::allocate(dzn_device *device,
    /* TODO: Allocate from the pool! */
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set, set, 1);
+   VK_MULTIALLOC_DECL(&ma, dzn_buffer_desc,
+                      dynamic_buffers, layout->dynamic_buffers.count);
 
    if (!vk_multialloc_zalloc(&ma, &device->vk.alloc,
                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return NULL;
 
+   set->dynamic_buffers = dynamic_buffers;
    return set;
 }
 
@@ -826,6 +861,13 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
          write_desc(b, offset, desc);
          break;
       }
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
+         const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
+                                    pDescriptorWrite->pBufferInfo + d);
+         write_dynamic_buffer_desc(b, offset, desc);
+         break;
+      }
       default:
          unreachable("invalid descriptor type");
          break;
@@ -844,6 +886,17 @@ dzn_descriptor_set::write_desc(uint32_t b, uint32_t desc, dzn_sampler *sampler)
    if (heap_offset != ~0)
       heaps[type].write_desc(heap_offset + desc, sampler);
 }
+
+void
+dzn_descriptor_set::write_dynamic_buffer_desc(uint32_t b, uint32_t desc,
+                                              const dzn_buffer_desc &info)
+{
+   uint32_t dynamic_buffer_idx = layout->bindings[b].dynamic_buffer_idx;
+
+   assert(dynamic_buffer_idx < layout->dynamic_buffers.count);
+   dynamic_buffers[dynamic_buffer_idx + desc] = info;
+}
+
 
 template<typename ... Args> void
 dzn_descriptor_set::write_desc(uint32_t b, uint32_t desc, Args... args)
