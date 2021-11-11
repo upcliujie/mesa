@@ -467,7 +467,6 @@ struct dzn_cmd_buffer {
    dzn_object_unique_ptr<dzn_batch> batch;
    using batches_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_batch>>;
    dzn_object_vector<dzn_batch> batches;
-   ComPtr<ID3D12Resource> rt0;
 
    dzn_cmd_buffer(dzn_device *device,
                   dzn_cmd_pool *pool,

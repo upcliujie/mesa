@@ -967,8 +967,6 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
    for (uint32_t i = 0; i < subpass->color_count; i++) {
       if (subpass->colors[i].idx == VK_ATTACHMENT_UNUSED) continue;
 
-      if (!i)
-         cmd_buffer->rt0 = framebuffer->attachments[subpass->colors[i].idx]->image->res.Get();
       rt_handles[i] = framebuffer->attachments[subpass->colors[i].idx]->rt_handle.cpu_handle;
    }
 
