@@ -642,6 +642,8 @@ struct dzn_descriptor_set_layout {
                              const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
                              const VkAllocationCallbacks *pAllocator);
    ~dzn_descriptor_set_layout();
+
+   uint32_t get_desc_count(uint32_t b) const;
 };
 
 struct dzn_descriptor_set_binding {

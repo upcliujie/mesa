@@ -282,6 +282,24 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
    return set_layout;
 }
 
+uint32_t
+dzn_descriptor_set_layout::get_desc_count(uint32_t b) const
+{
+   D3D12_SHADER_VISIBILITY visibility = bindings[b].visibility;
+   uint32_t view_range_idx = bindings[b].view_range_idx;
+   uint32_t sampler_range_idx = bindings[b].sampler_range_idx;
+
+   assert(visibility < ARRAY_SIZE(ranges));
+   assert(view_range_idx == ~0 || view_range_idx < ranges[visibility].view_count);
+   assert(sampler_range_idx == ~0 || sampler_range_idx < ranges[visibility].sampler_count);
+   if (view_range_idx != ~0)
+      return ranges[visibility].views[view_range_idx].NumDescriptors;
+   else if (sampler_range_idx != ~0)
+      return ranges[visibility].samplers[sampler_range_idx].NumDescriptors;
+   else
+      return 0;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateDescriptorSetLayout(VkDevice device,
                               const VkDescriptorSetLayoutCreateInfo *pCreateInfo,
@@ -743,29 +761,16 @@ dzn_write_descriptor_set(struct dzn_device *dev,
    uint32_t b = pDescriptorWrite->dstBinding;
    uint32_t offset = pDescriptorWrite->dstArrayElement;
    uint32_t d = 0;
+   uint32_t desc_count = layout->get_desc_count(b);
 
    for (uint32_t d = 0; d < pDescriptorWrite->descriptorCount;) {
       if (b >= layout->binding_count)
          break;
 
-      D3D12_SHADER_VISIBILITY visibility =
-         layout->bindings[b].visibility;
-      uint32_t view_range_idx = layout->bindings[b].view_range_idx;
-      uint32_t sampler_range_idx = layout->bindings[b].sampler_range_idx;
-      unsigned desc_count;
-      assert(visibility < ARRAY_SIZE(layout->ranges));
-      assert(view_range_idx == ~0 || view_range_idx < layout->ranges[visibility].view_count);
-      assert(sampler_range_idx == ~0 || sampler_range_idx < layout->ranges[visibility].sampler_count);
-      if (view_range_idx != ~0)
-         desc_count = layout->ranges[visibility].views[view_range_idx].NumDescriptors;
-      else if (sampler_range_idx != ~0)
-         desc_count = layout->ranges[visibility].samplers[sampler_range_idx].NumDescriptors;
-      else
-         desc_count = 0;
-
       if (offset >= desc_count) {
          offset -= desc_count;
          b++;
+         desc_count = layout->get_desc_count(b);
          continue;
       }
 
