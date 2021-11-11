@@ -757,6 +757,44 @@ parse_base_offset(opt_ctx& ctx, Instruction* instr, unsigned op_index, Temp* bas
    return false;
 }
 
+void
+skip_offset_align(opt_ctx& ctx, Instruction* instr, unsigned op_index)
+{
+   Operand op = instr->operands[op_index];
+   if (!op.isTemp() || !ctx.info[op.tempId()].is_bitwise())
+      return;
+
+   Instruction* bitwise_instr = ctx.info[op.tempId()].instr;
+   if (bitwise_instr->operands[0].constantEquals(-4) &&
+       bitwise_instr->operands[1].isOfType(op.regClass().type()))
+      instr->operands[op_index].setTemp(bitwise_instr->operands[1].getTemp());
+   else if (bitwise_instr->operands[1].constantEquals(-4) &&
+            bitwise_instr->operands[0].isOfType(op.regClass().type()))
+      instr->operands[op_index].setTemp(bitwise_instr->operands[0].getTemp());
+}
+
+void
+skip_mubuf_offset_align(opt_ctx& ctx, MUBUF_instruction* mubuf)
+{
+   if (mubuf->offset % 4u || mubuf->idxen)
+      return;
+   if (!mubuf->offen)
+      skip_offset_align(ctx, mubuf, 2);
+   else if (mubuf->operands[2].isConstant() && mubuf->operands[2].constantValue() % 4u == 0)
+      skip_offset_align(ctx, mubuf, 1);
+}
+
+void
+skip_smem_offset_align(opt_ctx& ctx, SMEM_instruction* smem)
+{
+   bool soe = smem->operands.size() >= (!smem->definitions.empty() ? 3 : 4);
+   if (soe && !smem->operands[1].isConstant())
+      return;
+   if (smem->operands[1].isConstant() && smem->operands[1].constantValue() % 4u)
+      return;
+   skip_offset_align(ctx, smem, soe ? smem->operands.size() - 1 : 1);
+}
+
 unsigned
 get_operand_size(aco_ptr<Instruction>& instr, unsigned index)
 {
@@ -975,6 +1013,12 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       perfwarn(ctx.program, is_copy && !instr->usesModifiers(), "Use p_parallelcopy instead",
                instr.get());
    }
+
+   /* skip &-4 before offset additions: load((a + 16) & -4, 0) */
+   if (instr->isSMEM() && !instr->operands.empty())
+      skip_smem_offset_align(ctx, &instr->smem());
+   else if (instr->isMUBUF() && !instr->operands.empty())
+      skip_mubuf_offset_align(ctx, &instr->mubuf());
 
    for (unsigned i = 0; i < instr->operands.size(); i++) {
       if (!instr->operands[i].isTemp())
@@ -1228,6 +1272,12 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          }
       }
    }
+
+   /* skip &-4 after offset additions: load(a & -4, 16) */
+   if (instr->isSMEM() && !instr->operands.empty())
+      skip_smem_offset_align(ctx, &instr->smem());
+   else if (instr->isMUBUF() && !instr->operands.empty())
+      skip_mubuf_offset_align(ctx, &instr->mubuf());
 
    /* if this instruction doesn't define anything, return */
    if (instr->definitions.empty()) {
