@@ -239,6 +239,7 @@ dzn_physical_device::cache_caps(std::lock_guard<std::mutex>&)
    feature_level = levels.MaxSupportedFeatureLevel;
 
    dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1, &architecture, sizeof(architecture));
+   dev->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &options, sizeof(options));
 }
 
 void
@@ -279,6 +280,62 @@ dzn_physical_device::init_memory(std::lock_guard<std::mutex>&)
       mem->memoryTypes[0].propertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
       mem->memoryTypes[1].propertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
    }
+
+   constexpr unsigned MaxTier2MemoryTypes = 3;
+   assert(mem->memoryTypeCount <= MaxTier2MemoryTypes);
+
+   if (options.ResourceHeapTier == D3D12_RESOURCE_HEAP_TIER_1) {
+      unsigned oldMemoryTypeCount = mem->memoryTypeCount;
+      VkMemoryType oldMemoryTypes[MaxTier2MemoryTypes];
+      std::copy(mem->memoryTypes, mem->memoryTypes + oldMemoryTypeCount, oldMemoryTypes);
+
+      mem->memoryTypeCount = 0;
+      for (unsigned oldMemoryTypeIdx = 0; oldMemoryTypeIdx < oldMemoryTypeCount; ++oldMemoryTypeIdx) {
+         D3D12_HEAP_FLAGS flags[] = {
+            D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS,
+            D3D12_HEAP_FLAG_ALLOW_ONLY_RT_DS_TEXTURES,
+            /* Note: Vulkan requires *all* images to come from the same memory type as long as
+             * the tiling property (and a few other misc properties) are the same. So, this
+             * non-RT/DS texture flag will only be used for TILING_LINEAR textures, which
+             * can't be render targets.
+             */
+            D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES
+         };
+         for (D3D12_HEAP_FLAGS flag : flags) {
+            heap_flags_for_mem_type[mem->memoryTypeCount] = flag;
+            mem->memoryTypes[mem->memoryTypeCount] = oldMemoryTypes[oldMemoryTypeIdx];
+            mem->memoryTypeCount++;
+         }
+      }
+   }
+}
+
+D3D12_HEAP_FLAGS
+dzn_physical_device::get_heap_flags_for_mem_type(uint32_t mem_type) const
+{
+   return heap_flags_for_mem_type[mem_type];
+}
+
+uint32_t
+dzn_physical_device::get_mem_type_mask_for_resource(const D3D12_RESOURCE_DESC &desc) const
+{
+   if (options.ResourceHeapTier > D3D12_RESOURCE_HEAP_TIER_1)
+      return (1u << memory.memoryTypeCount) - 1;
+
+   D3D12_HEAP_FLAGS deny_flag;
+   if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER)
+      deny_flag = D3D12_HEAP_FLAG_DENY_BUFFERS;
+   else if (desc.Flags & (D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET | D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL))
+      deny_flag = D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES;
+   else
+      deny_flag = D3D12_HEAP_FLAG_DENY_NON_RT_DS_TEXTURES;
+
+   uint32_t mask = 0;
+   for (unsigned i = 0; i < memory.memoryTypeCount; ++i) {
+      if ((heap_flags_for_mem_type[i] & deny_flag) == D3D12_HEAP_FLAG_NONE)
+         mask |= (1 << i);
+   }
+   return mask;
 }
 
 ID3D12Device *
@@ -1185,7 +1242,7 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
    heap_desc.SizeInBytes = pAllocateInfo->allocationSize;
    heap_desc.Alignment =
       D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
-   heap_desc.Flags = D3D12_HEAP_FLAG_NONE;
+   heap_desc.Flags = device->physical_device->get_heap_flags_for_mem_type(pAllocateInfo->memoryTypeIndex);
 
    /* TODO: Unsure about this logic??? */
    initial_state = D3D12_RESOURCE_STATE_COMMON;
@@ -1204,8 +1261,8 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
    if (FAILED(device->dev->CreateHeap(&heap_desc, IID_PPV_ARGS(&heap))))
       throw vk_error(device, VK_ERROR_UNKNOWN);
 
-   if (mem_type->propertyFlags &
-       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+   if ((mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) &&
+       !(heap_desc.Flags & D3D12_HEAP_FLAG_DENY_BUFFERS)){
       D3D12_RESOURCE_DESC res_desc = {};
       res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
       res_desc.Format = DXGI_FORMAT_UNKNOWN;
@@ -1423,7 +1480,7 @@ dzn_GetBufferMemoryRequirements2(VkDevice _device,
    pMemoryRequirements->memoryRequirements.size = size;
    pMemoryRequirements->memoryRequirements.alignment = 0;
    pMemoryRequirements->memoryRequirements.memoryTypeBits =
-      (1ull << device->physical_device->get_memory().memoryTypeCount) - 1;
+      device->physical_device->get_mem_type_mask_for_resource(buffer->desc);
 
    vk_foreach_struct(ext, pMemoryRequirements->pNext) {
       switch (ext->sType) {

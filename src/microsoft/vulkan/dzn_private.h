@@ -269,6 +269,8 @@ struct dzn_physical_device {
    const D3D12_FEATURE_DATA_ARCHITECTURE1 &get_arch_caps() const;
    const VkPhysicalDeviceMemoryProperties &get_memory() const;
 
+   D3D12_HEAP_FLAGS get_heap_flags_for_mem_type(uint32_t mem_type) const;
+   uint32_t get_mem_type_mask_for_resource(const D3D12_RESOURCE_DESC &desc) const;
 private:
    void get_device_extensions();
    void cache_caps(std::lock_guard<std::mutex>&);
@@ -278,7 +280,9 @@ private:
    ComPtr<ID3D12Device> dev;
    D3D_FEATURE_LEVEL feature_level = (D3D_FEATURE_LEVEL)0;
    D3D12_FEATURE_DATA_ARCHITECTURE1 architecture = {};
+   D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
    VkPhysicalDeviceMemoryProperties memory = {};
+   D3D12_HEAP_FLAGS heap_flags_for_mem_type[VK_MAX_MEMORY_TYPES] = {};
 };
 
 #define dzn_debug_ignored_stype(sType) \
