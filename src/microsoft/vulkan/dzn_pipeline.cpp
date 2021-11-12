@@ -430,6 +430,9 @@ dzn_graphics_pipeline::translate_zsa(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
    const VkPipelineDepthStencilStateCreateInfo *in_zsa =
       in->pDepthStencilState;
 
+   if (!in_zsa)
+      return;
+
    /* TODO: depthBoundsTestEnable */
 
    out.DepthStencilState.DepthEnable = in_zsa->depthTestEnable;
