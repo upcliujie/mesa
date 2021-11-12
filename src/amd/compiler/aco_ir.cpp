@@ -525,11 +525,9 @@ get_reduction_identity(ReduceOp op, unsigned idx)
 bool
 needs_exec_mask(const Instruction* instr)
 {
-   if (instr->isSALU() || instr->isBranch())
-      return instr->reads_exec();
-   if (instr->isSMEM())
-      return false;
-   if (instr->isBarrier())
+   if (instr->reads_exec())
+      return true;
+   if (instr->isSALU() || instr->isBranch() || instr->isSMEM() || instr->isBarrier())
       return false;
 
    if (instr->isPseudo()) {
