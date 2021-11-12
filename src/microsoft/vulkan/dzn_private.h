@@ -257,24 +257,26 @@ struct dzn_physical_device {
 
    struct wsi_device wsi_device;
 
-   VkPhysicalDeviceMemoryProperties memory;
-
    dzn_physical_device(dzn_instance *instance,
                        ComPtr<IDXGIAdapter1> &adapter,
                        const VkAllocationCallbacks *alloc);
    ~dzn_physical_device();
    const VkAllocationCallbacks *get_vk_allocator();
    ID3D12Device *get_d3d12_dev();
+
    const D3D12_FEATURE_DATA_ARCHITECTURE1 &get_arch_caps() const;
+   const VkPhysicalDeviceMemoryProperties &get_memory() const;
 
 private:
    void get_device_extensions();
    void cache_caps(std::lock_guard<std::mutex>&);
+   void init_memory(std::lock_guard<std::mutex>&);
 
    std::mutex dev_lock;
    ComPtr<ID3D12Device> dev;
    D3D_FEATURE_LEVEL feature_level = (D3D_FEATURE_LEVEL)0;
    D3D12_FEATURE_DATA_ARCHITECTURE1 architecture = {};
+   VkPhysicalDeviceMemoryProperties memory = {};
 };
 
 #define dzn_debug_ignored_stype(sType) \

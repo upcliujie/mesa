@@ -179,6 +179,70 @@ dzn_physical_device::dzn_physical_device(dzn_instance *inst,
    memset(driver_uuid, 0, VK_UUID_SIZE);
    memset(device_uuid, 0, VK_UUID_SIZE);
 
+   /* TODO: something something queue families */
+
+   result = dzn_wsi_init(this);
+   if (result != VK_SUCCESS) {
+      vk_physical_device_finish(&vk);
+      throw vk_error(instance, result);
+   }
+
+   get_device_extensions();
+}
+
+dzn_physical_device::~dzn_physical_device()
+{
+   dzn_wsi_finish(this);
+   vk_physical_device_finish(&vk);
+}
+
+const VkAllocationCallbacks *
+dzn_physical_device::get_vk_allocator()
+{
+   return &instance->vk.alloc;
+}
+
+const D3D12_FEATURE_DATA_ARCHITECTURE1 &
+dzn_physical_device::get_arch_caps() const
+{
+   assert(dev);
+
+   return architecture;
+}
+
+const VkPhysicalDeviceMemoryProperties &
+dzn_physical_device::get_memory() const
+{
+   assert(dev);
+
+   return memory;
+}
+
+void
+dzn_physical_device::cache_caps(std::lock_guard<std::mutex>&)
+{
+   D3D_FEATURE_LEVEL checklist[] = {
+      D3D_FEATURE_LEVEL_11_0,
+      D3D_FEATURE_LEVEL_11_1,
+      D3D_FEATURE_LEVEL_12_0,
+      D3D_FEATURE_LEVEL_12_1,
+      D3D_FEATURE_LEVEL_12_2,
+   };
+
+   D3D12_FEATURE_DATA_FEATURE_LEVELS levels = {
+      .NumFeatureLevels = ARRAY_SIZE(checklist),
+      .pFeatureLevelsRequested = checklist,
+   };
+
+   dev->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &levels, sizeof(levels));
+   feature_level = levels.MaxSupportedFeatureLevel;
+
+   dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1, &architecture, sizeof(architecture));
+}
+
+void
+dzn_physical_device::init_memory(std::lock_guard<std::mutex>&)
+{
    VkPhysicalDeviceMemoryProperties *mem = &memory;
    DXGI_ADAPTER_DESC1 desc;
    adapter->GetDesc1(&desc);
@@ -219,58 +283,6 @@ dzn_physical_device::dzn_physical_device(dzn_instance *inst,
       mem->memoryTypes[0].propertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
       mem->memoryTypes[1].propertyFlags |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
    }
-
-   /* TODO: something something queue families */
-
-   result = dzn_wsi_init(this);
-   if (result != VK_SUCCESS) {
-      vk_physical_device_finish(&vk);
-      throw vk_error(instance, result);
-   }
-
-   get_device_extensions();
-}
-
-dzn_physical_device::~dzn_physical_device()
-{
-   dzn_wsi_finish(this);
-   vk_physical_device_finish(&vk);
-}
-
-const VkAllocationCallbacks *
-dzn_physical_device::get_vk_allocator()
-{
-   return &instance->vk.alloc;
-}
-
-const D3D12_FEATURE_DATA_ARCHITECTURE1 &
-dzn_physical_device::get_arch_caps() const
-{
-   assert(dev);
-
-   return architecture;
-}
-
-void
-dzn_physical_device::cache_caps(std::lock_guard<std::mutex>&)
-{
-   D3D_FEATURE_LEVEL checklist[] = {
-      D3D_FEATURE_LEVEL_11_0,
-      D3D_FEATURE_LEVEL_11_1,
-      D3D_FEATURE_LEVEL_12_0,
-      D3D_FEATURE_LEVEL_12_1,
-      D3D_FEATURE_LEVEL_12_2,
-   };
-
-   D3D12_FEATURE_DATA_FEATURE_LEVELS levels = {
-      .NumFeatureLevels = ARRAY_SIZE(checklist),
-      .pFeatureLevelsRequested = checklist,
-   };
-
-   dev->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &levels, sizeof(levels));
-   feature_level = levels.MaxSupportedFeatureLevel;
-
-   dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1, &architecture, sizeof(architecture));
 }
 
 ID3D12Device *
@@ -280,7 +292,9 @@ dzn_physical_device::get_d3d12_dev()
 
    if (!dev.Get()) {
       dev = d3d12_create_device(adapter.Get(), false);
+
       cache_caps(lock);
+      init_memory(lock);
    }
 
    return dev.Get();
@@ -767,7 +781,9 @@ dzn_GetPhysicalDeviceMemoryProperties(VkPhysicalDevice physicalDevice,
                                       VkPhysicalDeviceMemoryProperties *pMemoryProperties)
 {
    VK_FROM_HANDLE(dzn_physical_device, device, physicalDevice);
-   *pMemoryProperties = device->memory;
+   // Ensure memory caps are up-to-date
+   (void)device->get_d3d12_dev();
+   *pMemoryProperties = device->get_memory();
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1166,7 +1182,7 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
    }
 
    const VkMemoryType *mem_type =
-      &device->physical_device->memory.memoryTypes[pAllocateInfo->memoryTypeIndex];
+      &device->physical_device->get_memory().memoryTypes[pAllocateInfo->memoryTypeIndex];
 
    D3D12_HEAP_DESC heap_desc = {};
    // TODO: fix all of these:
@@ -1411,7 +1427,7 @@ dzn_GetBufferMemoryRequirements2(VkDevice _device,
    pMemoryRequirements->memoryRequirements.size = size;
    pMemoryRequirements->memoryRequirements.alignment = 0;
    pMemoryRequirements->memoryRequirements.memoryTypeBits =
-      (1ull << device->physical_device->memory.memoryTypeCount) - 1;
+      (1ull << device->physical_device->get_memory().memoryTypeCount) - 1;
 
    vk_foreach_struct(ext, pMemoryRequirements->pNext) {
       switch (ext->sType) {

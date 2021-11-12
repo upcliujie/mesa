@@ -286,7 +286,7 @@ dzn_GetImageMemoryRequirements2(VkDevice _device,
    pMemoryRequirements->memoryRequirements = VkMemoryRequirements {
       .size = info.SizeInBytes,
       .alignment = info.Alignment,
-      .memoryTypeBits = (1ull << device->physical_device->memory.memoryTypeCount) - 1,
+      .memoryTypeBits = (1ull << device->physical_device->get_memory().memoryTypeCount) - 1,
    };
 }
 
