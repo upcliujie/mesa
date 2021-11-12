@@ -80,6 +80,16 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
             subpasses[i].colors[j].during = dzn_get_states(subpass->pColorAttachments[j].layout);
             attachments[idx].last = subpasses[i].colors[j].during;
          }
+
+         idx = subpass->pResolveAttachments ?
+               subpass->pResolveAttachments[j].attachment :
+               VK_ATTACHMENT_UNUSED;
+         subpasses[i].resolve[j].idx = idx;
+         if (idx != VK_ATTACHMENT_UNUSED) {
+            subpasses[i].resolve[j].before = attachments[idx].last;
+            subpasses[i].resolve[j].during = dzn_get_states(subpass->pResolveAttachments[j].layout);
+            attachments[idx].last = subpasses[i].resolve[j].during;
+         }
       }
 
       subpasses[i].zs.idx = VK_ATTACHMENT_UNUSED;

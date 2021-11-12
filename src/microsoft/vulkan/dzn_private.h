@@ -508,6 +508,7 @@ struct dzn_cmd_buffer {
                          VkImageAspectFlags aspectMask,
                          uint32_t rectCount,
                          D3D12_RECT *rects);
+
    void draw(uint32_t vertex_count,
              uint32_t instance_count,
              uint32_t first_vertex,
@@ -527,9 +528,11 @@ struct dzn_cmd_buffer {
                  uint32_t group_count_z);
 
 private:
+   void resolve_attachment(uint32_t idx);
    void attachment_transition(const dzn_attachment_ref &att);
    void attachment_transition(const dzn_attachment &att);
    void begin_subpass();
+   void end_subpass();
    void update_pipeline(uint32_t bindpoint);
    void update_heaps(uint32_t bindpoint);
    void update_viewports();
@@ -666,6 +669,7 @@ struct dzn_pipeline_layout {
 struct dzn_subpass {
    uint32_t color_count;
    struct dzn_attachment_ref colors[MAX_RTS];
+   struct dzn_attachment_ref resolve[MAX_RTS];
    struct dzn_attachment_ref zs;
    uint32_t input_count;
    struct dzn_attachment_ref inputs[MAX_INPUT_ATTACHMENTS];

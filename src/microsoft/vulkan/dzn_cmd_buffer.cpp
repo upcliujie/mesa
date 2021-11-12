@@ -1124,6 +1124,62 @@ dzn_cmd_buffer::attachment_transition(const dzn_attachment &att)
 }
 
 void
+dzn_cmd_buffer::resolve_attachment(uint32_t i)
+{
+   const struct dzn_subpass *subpass = &state.pass->subpasses[state.subpass];
+
+   if (subpass->resolve[i].idx == VK_ATTACHMENT_UNUSED)
+      return;
+
+   dzn_batch *batch = get_batch();
+   const dzn_framebuffer *framebuffer = state.framebuffer;
+   struct dzn_image_view *src = framebuffer->attachments[subpass->colors[i].idx];
+   struct dzn_image_view *dst = framebuffer->attachments[subpass->resolve[i].idx];
+   D3D12_RESOURCE_BARRIER barriers[2];
+   uint32_t barrier_count = 0;
+
+   /* TODO: 2DArrays/3D */
+   if (subpass->colors[i].during != D3D12_RESOURCE_STATE_RESOLVE_SOURCE) {
+      barriers[barrier_count++] = D3D12_RESOURCE_BARRIER {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = src->image->res.Get(),
+            .Subresource = 0,
+            .StateBefore = subpass->colors[i].during,
+            .StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE,
+         },
+      };
+   }
+
+   if (subpass->resolve[i].during != D3D12_RESOURCE_STATE_RESOLVE_DEST) {
+      barriers[barrier_count++] = D3D12_RESOURCE_BARRIER {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = dst->image->res.Get(),
+            .Subresource = 0,
+            .StateBefore = subpass->resolve[i].during,
+            .StateAfter = D3D12_RESOURCE_STATE_RESOLVE_DEST,
+         },
+      };
+   }
+
+   if (barrier_count)
+      batch->cmdlist->ResourceBarrier(barrier_count, barriers);
+
+   batch->cmdlist->ResolveSubresource(dst->image->res.Get(), 0,
+                                      src->image->res.Get(), 0,
+                                      dst->desc.Format);
+
+   for (uint32_t b = 0; b < barrier_count; b++)
+      std::swap(barriers[b].Transition.StateBefore, barriers[b].Transition.StateAfter);
+
+   if (barrier_count)
+      batch->cmdlist->ResourceBarrier(barrier_count, barriers);
+}
+
+void
 dzn_cmd_buffer::begin_subpass()
 {
    struct dzn_framebuffer *framebuffer = state.framebuffer;
@@ -1157,8 +1213,18 @@ dzn_cmd_buffer::begin_subpass()
 }
 
 void
+dzn_cmd_buffer::end_subpass()
+{
+   const dzn_subpass *subpass = &state.pass->subpasses[state.subpass];
+
+   for (uint32_t i = 0; i < subpass->color_count; i++)
+      resolve_attachment(i);
+}
+
+void
 dzn_cmd_buffer::next_subpass()
 {
+   end_subpass();
    assert(state.subpass + 1 < state.pass->subpass_count);
    state.subpass++;
    begin_subpass();
@@ -1202,6 +1268,8 @@ dzn_cmd_buffer::begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
 void
 dzn_cmd_buffer::end_pass(const VkSubpassEndInfoKHR *pSubpassEndInfo)
 {
+   end_subpass();
+
    for (uint32_t i = 0; i < state.pass->attachment_count; i++)
       attachment_transition(state.pass->attachments[i]);
 
