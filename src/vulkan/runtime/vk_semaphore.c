@@ -36,38 +36,41 @@
 #include "vk_util.h"
 
 static VkExternalSemaphoreHandleTypeFlags
-vk_sync_semaphore_import_types(const struct vk_sync_type *type)
+vk_sync_semaphore_import_types(const struct vk_sync_type *type,
+                               VkSemaphoreType semaphore_type)
 {
    VkExternalSemaphoreHandleTypeFlags handle_types = 0;
 
    if (type->import_opaque_fd)
       handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
 
-   if (type->import_sync_file)
+   if (type->export_sync_file && semaphore_type == VK_SEMAPHORE_TYPE_BINARY)
       handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
 
    return handle_types;
 }
 
 static VkExternalSemaphoreHandleTypeFlags
-vk_sync_semaphore_export_types(const struct vk_sync_type *type)
+vk_sync_semaphore_export_types(const struct vk_sync_type *type,
+                               VkSemaphoreType semaphore_type)
 {
    VkExternalSemaphoreHandleTypeFlags handle_types = 0;
 
    if (type->export_opaque_fd)
       handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT;
 
-   if (type->export_sync_file)
+   if (type->export_sync_file && semaphore_type == VK_SEMAPHORE_TYPE_BINARY)
       handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
 
    return handle_types;
 }
 
 static VkExternalSemaphoreHandleTypeFlags
-vk_sync_semaphore_handle_types(const struct vk_sync_type *type)
+vk_sync_semaphore_handle_types(const struct vk_sync_type *type,
+                               VkSemaphoreType semaphore_type)
 {
-   return vk_sync_semaphore_export_types(type) &
-          vk_sync_semaphore_import_types(type);
+   return vk_sync_semaphore_export_types(type, semaphore_type) &
+          vk_sync_semaphore_import_types(type, semaphore_type);
 }
 
 static const struct vk_sync_type *
@@ -91,7 +94,7 @@ get_semaphore_sync_type(struct vk_physical_device *pdevice,
       if (req_features & ~(*t)->features)
          continue;
 
-      if (handle_types & ~vk_sync_semaphore_handle_types(*t))
+      if (handle_types & ~vk_sync_semaphore_handle_types(*t, semaphore_type))
          continue;
 
       return *t;
@@ -228,9 +231,9 @@ vk_common_GetPhysicalDeviceExternalSemaphoreProperties(
    }
 
    VkExternalSemaphoreHandleTypeFlagBits import =
-      vk_sync_semaphore_import_types(sync_type);
+      vk_sync_semaphore_import_types(sync_type, semaphore_type);
    VkExternalSemaphoreHandleTypeFlagBits export =
-      vk_sync_semaphore_export_types(sync_type);
+      vk_sync_semaphore_export_types(sync_type, semaphore_type);
 
    if (handle_type != VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT) {
       const struct vk_sync_type *opaque_sync_type =
@@ -400,7 +403,8 @@ vk_common_ImportSemaphoreFdKHR(VkDevice _device,
    } else {
       sync = &semaphore->permanent;
    }
-   assert(handle_type & vk_sync_semaphore_handle_types(sync->type));
+   assert(handle_type &
+          vk_sync_semaphore_handle_types(sync->type, semaphore->type));
 
    VkResult result;
    switch (pImportSemaphoreFdInfo->handleType) {
@@ -468,6 +472,16 @@ vk_common_GetSemaphoreFdKHR(VkDevice _device,
       break;
 
    case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT:
+      /* From the Vulkan 1.2.194 spec:
+       *
+       *    VUID-VkSemaphoreGetFdInfoKHR-handleType-03253
+       *
+       *    "If handleType refers to a handle type with copy payload
+       *    transference semantics, semaphore must have been created with a
+       *    VkSemaphoreType of VK_SEMAPHORE_TYPE_BINARY."
+       */
+      assert(semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+
       result = vk_sync_export_sync_file(device, sync, pFd);
       if (unlikely(result != VK_SUCCESS))
          return result;
