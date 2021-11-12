@@ -36,6 +36,11 @@ tail -f $DEQP_TEMP_DIR/stderr > /dev/stderr &
 ERR_TAIL_PID=$!
 tail -f $DEQP_TEMP_DIR/stdout > /dev/stdout &
 OUT_TAIL_PID=$!
+tail -f $DEQP_TEMP_DIR/stdout > /dev/stderr &
+OUT_TAIL_PID2=$!
+
+trap "exit \$exit_code" INT TERM
+trap "exit_code=\$?; kill $ERR_TAIL_PID $OUT_TAIL_PID $OUT_TAIL_PID2" EXIT
 
 # We aren't testing LLVMPipe here, so we don't need to validate NIR on the host
 NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIVER" stdbuf -oL crosvm run \
@@ -47,8 +52,5 @@ NIR_VALIDATE=0 LIBGL_ALWAYS_SOFTWARE="true" GALLIUM_DRIVER="$CROSVM_GALLIUM_DRIV
   --host_ip=192.168.30.1 --netmask=255.255.255.0 --mac "AA:BB:CC:00:00:12" \
   -p "$CROSVM_KERNEL_ARGS" \
   /lava-files/bzImage >> $DEQP_TEMP_DIR/stderr > /dev/null
-
-kill $ERR_TAIL_PID
-kill $OUT_TAIL_PID
 
 exit `cat $DEQP_TEMP_DIR/exit_code`
