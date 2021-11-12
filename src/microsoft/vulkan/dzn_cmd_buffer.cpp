@@ -1186,8 +1186,9 @@ dzn_cmd_buffer::begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
    state.subpass = 0;
    begin_subpass();
 
-   assert(pRenderPassBeginInfo->clearValueCount <= framebuffer->attachment_count);
-   for (int i = 0; i < pRenderPassBeginInfo->clearValueCount; ++i) {
+   uint32_t clear_count =
+      MIN2(pRenderPassBeginInfo->clearValueCount, framebuffer->attachment_count);
+   for (int i = 0; i < clear_count; ++i) {
       VkImageAspectFlags aspectMask =
          (pass->attachments[i].clear.color ? VK_IMAGE_ASPECT_COLOR_BIT : 0) |
          (pass->attachments[i].clear.depth ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) |
