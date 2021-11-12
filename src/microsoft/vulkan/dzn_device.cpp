@@ -92,6 +92,7 @@ static const struct debug_control dzn_debug_options[] = {
    { "warp", DZN_DEBUG_WARP },
    { "internal", DZN_DEBUG_INTERNAL },
    { "signature", DZN_DEBUG_SIG },
+   { "gbv", DZN_DEBUG_GBV },
    { NULL, 0 }
 };
 
@@ -122,7 +123,8 @@ dzn_instance::dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
    d3d12.serialize_root_sig = d3d12_get_serialize_root_sig();
 
    d3d12_enable_debug_layer();
-   d3d12_enable_gpu_validation();
+   if (debug_flags & DZN_DEBUG_GBV)
+      d3d12_enable_gpu_validation();
 }
 
 dzn_instance::~dzn_instance()

@@ -958,6 +958,7 @@ enum dzn_debug_flags {
    DZN_DEBUG_WARP = 1 << 3,
    DZN_DEBUG_INTERNAL = 1 << 4,
    DZN_DEBUG_SIG = 1 << 5,
+   DZN_DEBUG_GBV = 1 << 6,
 };
 
 struct dzn_instance {
