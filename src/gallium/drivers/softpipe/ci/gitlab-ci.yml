@@ -35,11 +35,9 @@ softpipe-piglit-quick:
     - .softpipe-rules
   variables:
     GALLIUM_DRIVER: softpipe
-    # rasterpos skipped until we uprev piglit (commit ff2a7650be7349)
     # triangle-rasterization skipped due to flakes thanks to it using a time-based random seed.
     # glx-multithread-texture is flaky, undiagnosed
     PIGLIT_TESTS: >
-      -x rasterpos
       -x triangle-rasterization
       -x glx-multithread-texture
       -x egl_ext_device_
@@ -52,7 +50,6 @@ softpipe-piglit-quick:
       -x fs-execution-ordering
       -x local-id-explosion
       -x arb_pipeline_statistics_query-comp
-      -x streaming-texture-leak
       -x longprim
       -x shader-mem-barrier
       -x arb_gpu_shader_fp64
