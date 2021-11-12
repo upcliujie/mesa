@@ -1,1 +1,11 @@
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/13617
+dEQP-VK.api.copy_and_blit.copy_commands2.blit_image.all_formats.color.2d.r64_sint.r8_sint.general_general_nearest,Fail
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.2d.r64_sint.b8g8r8a8_sint.optimal_general_nearest,Fail
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.2d.r64_sint.r16g16_sint.optimal_general_nearest,Fail
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.2d.r64_sint.r16g16b16a16_sint.general_general_nearest,Fail
+dEQP-VK.api.copy_and_blit.core.blit_image.all_formats.color.2d.r64_sint.r8_sint.optimal_general_nearest,Fail
+
 dEQP-VK.api.driver_properties.conformance_version,Fail
+
+# Vertex 0: Expected red, got (-0.372549, -0.372549, -0.372549, -0.372549) (Fail)
+dEQP-VK.rasterization.provoking_vertex.transform_feedback.first.line_strip_with_adjacency,Fail
