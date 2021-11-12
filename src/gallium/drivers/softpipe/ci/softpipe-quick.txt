@@ -98,6 +98,13 @@ shaders/useshaderprogram-bad-type: skip
 shaders/useshaderprogram-flushverts-1: skip
 spec/!opengl 1.0/gl-1.0-drawbuffer-modes: fail
 spec/!opengl 1.0/gl-1.0-swapbuffers-behavior: fail
+spec/!opengl 1.0/rasterpos/glsl_vs_gs_linked: fail
+spec/!opengl 1.0/rasterpos/glsl_vs_gs_sso: skip
+spec/!opengl 1.0/rasterpos/glsl_vs_image1d: skip
+spec/!opengl 1.0/rasterpos/glsl_vs_image_bo: skip
+spec/!opengl 1.0/rasterpos/glsl_vs_ssbo: skip
+spec/!opengl 1.0/rasterpos/glsl_vs_tes_linked: skip
+spec/!opengl 1.0/rasterpos/glsl_vs_tes_sso: skip
 spec/!opengl 1.1/depthstencil-default_fb-blit samples=16: skip
 spec/!opengl 1.1/depthstencil-default_fb-blit samples=2: skip
 spec/!opengl 1.1/depthstencil-default_fb-blit samples=32: skip

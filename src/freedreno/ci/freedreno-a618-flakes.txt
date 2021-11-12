@@ -9,6 +9,10 @@ dEQP-VK.pipeline.multisample.alpha_to_coverage_unused_attachment.samples_4.alpha
 dEQP-VK.api.command_buffers.record_many_draws_primary_2
 dEQP-VK.api.command_buffers.record_many_draws_secondary_2
 
+# faults during this test.
+dEQP-VK.image.sample_texture.64_bit_compressed_format,Fail
+dEQP-VK.image.sample_texture.64_bit_compressed_format_two_samplers,Fail
+
 # Sometimes hangchecks
 spill-dEQP-VK.graphicsfuzz.spv-stable-maze-O-dead-code
 
