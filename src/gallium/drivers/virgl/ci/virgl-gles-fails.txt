@@ -1,12 +1,10 @@
 dEQP-GLES2.functional.clipping.line.wide_line_clip_viewport_center,Fail
 dEQP-GLES2.functional.clipping.line.wide_line_clip_viewport_corner,Fail
-dEQP-GLES2.functional.clipping.point.wide_point_clip,Fail
 dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_center,Fail
 dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_corner,Fail
 dEQP-GLES3.functional.clipping.line.wide_line_clip_viewport_center,Fail
 dEQP-GLES3.functional.clipping.line.wide_line_clip_viewport_corner,Fail
 dEQP-GLES3.functional.clipping.point.wide_point_clip,Fail
-dEQP-GLES3.functional.clipping.point.wide_point_clip_viewport_center,Fail
 dEQP-GLES3.functional.clipping.point.wide_point_clip_viewport_corner,Fail
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_mag,Fail
 dEQP-GLES3.functional.fbo.blit.rect.nearest_consistency_mag_reverse_dst_x,Fail
@@ -40,6 +38,7 @@ dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bit_count_per_two
 dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bit_count_per_two_samples.multisample_texture_1,Fail
 dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bit_count_per_two_samples.multisample_texture_2,Fail
 dEQP-GLES31.functional.ssbo.layout.random.all_shared_buffer.36,Fail
+dEQP-GLES31.functional.ssbo.layout.random.nested_structs_arrays_instance_arrays.22,Fail
 # https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/2892
 KHR-GL30.shaders30.glsl_constructors.bvec4_from_mat4x2_vs,Crash
 KHR-GL30.transform_feedback.api_errors_test,Fail
@@ -51,6 +50,7 @@ KHR-GL30.transform_feedback.draw_xfb_stream_instanced_test,Crash
 KHR-GL30.transform_feedback.get_xfb_varying,Fail
 KHR-GL30.transform_feedback.query_vertex_interleaved_test,Fail
 KHR-GL30.transform_feedback.query_vertex_separate_test,Fail
+KHR-GL31.CommonBugs.CommonBug_ParenthesisInLayoutQualifierIntegerValue,Fail
 KHR-GL31.transform_feedback.capture_special_interleaved_test,Crash
 KHR-GL31.transform_feedback.capture_vertex_interleaved_test,Fail
 KHR-GL31.transform_feedback.capture_vertex_separate_test,Fail
@@ -59,6 +59,8 @@ KHR-GL31.transform_feedback.draw_xfb_instanced_test,Crash
 KHR-GL31.transform_feedback.draw_xfb_stream_instanced_test,Crash
 KHR-GL31.transform_feedback.query_vertex_interleaved_test,Fail
 KHR-GL31.transform_feedback.query_vertex_separate_test,Fail
+KHR-GL31.glsl_noperspective.functionaltest,Fail
+KHR-GL32.CommonBugs.CommonBug_ParenthesisInLayoutQualifierIntegerValue,Fail
 KHR-GL32.transform_feedback.capture_vertex_interleaved_test,Fail
 KHR-GL32.transform_feedback.capture_vertex_separate_test,Fail
 KHR-GL32.transform_feedback.discard_vertex_test,Fail
