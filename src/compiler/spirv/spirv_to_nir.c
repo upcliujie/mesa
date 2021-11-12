@@ -3042,6 +3042,8 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    if (sampler && (access & ACCESS_NON_UNIFORM))
       instr->sampler_non_uniform = true;
 
+   unsigned bit_size = 32;
+
    /* for non-query ops, get dest_type from SPIR-V return type */
    if (dest_type == nir_type_invalid) {
       /* the return type should match the image type, unless the image type is
@@ -3055,12 +3057,13 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
                   "for untyped images (OpenCL).");
       dest_type = nir_get_nir_type_for_glsl_base_type(ret_base);
       dest_type = get_image_type(b, dest_type, operands);
+      bit_size = glsl_base_type_get_bit_size(sampler_base);
    }
 
    instr->dest_type = dest_type;
 
    nir_ssa_dest_init(&instr->instr, &instr->dest,
-                     nir_tex_instr_dest_size(instr), 32, NULL);
+                     nir_tex_instr_dest_size(instr), bit_size, NULL);
 
    vtn_assert(glsl_get_vector_elements(ret_type->type) ==
               nir_tex_instr_result_size(instr));
