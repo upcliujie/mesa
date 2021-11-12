@@ -253,30 +253,26 @@ dzn_physical_device::init_memory(std::lock_guard<std::mutex>&)
       .flags = 0,
    };
 
-   mem->memoryTypeCount = 2;
-   mem->memoryTypes[0] = VkMemoryType {
-      /* TODO: This should also have VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-       * in the CacheCoherentUMA-case; we should probably use
-       * GetCustomHeapProperties to populate these flags instead.
-       */
+   mem->memoryTypes[mem->memoryTypeCount++] = VkMemoryType {
       .propertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                       VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       .heapIndex = 0,
    };
-   mem->memoryTypes[1] = VkMemoryType {
+   mem->memoryTypes[mem->memoryTypeCount++] = VkMemoryType {
       .propertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                       VK_MEMORY_PROPERTY_HOST_CACHED_BIT |
                        VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
      .heapIndex = 0,
    };
 
-   if (desc.DedicatedVideoMemory > 0) {
+   if (!architecture.UMA) {
       mem->memoryHeaps[mem->memoryHeapCount++] = VkMemoryHeap {
          .size = desc.DedicatedVideoMemory,
          .flags = VK_MEMORY_HEAP_DEVICE_LOCAL_BIT,
       };
       mem->memoryTypes[mem->memoryTypeCount++] = VkMemoryType {
          .propertyFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-         .heapIndex = mem->memoryTypeCount,
+         .heapIndex = mem->memoryHeapCount - 1,
       };
    } else {
       mem->memoryHeaps[0].flags |= VK_MEMORY_HEAP_DEVICE_LOCAL_BIT;
