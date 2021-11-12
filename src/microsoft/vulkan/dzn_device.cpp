@@ -349,7 +349,7 @@ dzn_physical_device::get_d3d12_dev()
    std::lock_guard<std::mutex> lock(dev_lock);
 
    if (!dev.Get()) {
-      dev = d3d12_create_device(adapter.Get(), false);
+      dev = d3d12_create_device(adapter.Get(), instance->dxc.validator.Get() == nullptr);
 
       cache_caps(lock);
       init_memory(lock);

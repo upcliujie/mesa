@@ -125,9 +125,7 @@ d3d12_create_device(IUnknown *adapter, bool experimental_features)
    }
 
 #ifdef _WIN32
-   if (!experimental_features) {
-      mesa_loge("failed to initialize validator with experimental shader models disabled\n");
-   } else
+   if (experimental_features)
 #endif
    {
       typedef HRESULT(WINAPI *PFN_D3D12ENABLEEXPERIMENTALFEATURES)(UINT, const IID*, void*, UINT*);
