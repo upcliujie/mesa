@@ -1,0 +1,5 @@
+# Note: skips lists for CI are just a list of lines that, when
+# non-zero-length and not starting with '#', will regex match to
+# delete lines from the test list.  Be careful.
+
+KHR-GL32.packed_pixels.varied_rectangle.depth*
