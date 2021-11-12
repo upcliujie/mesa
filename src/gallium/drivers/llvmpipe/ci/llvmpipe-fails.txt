@@ -34,10 +34,3 @@ dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_p
 dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_primitive.vertex_tessellation_fragment.fbo,Fail
 KHR-GL45.get_texture_sub_image.errors_test,Fail
 KHR-GL45.get_texture_sub_image.functional_test,Fail
-KHR-GL45.transform_feedback.capture_vertex_interleaved_test,Fail
-KHR-GL45.transform_feedback.capture_vertex_separate_test,Fail
-KHR-GL45.transform_feedback.discard_vertex_test,Fail
-KHR-GL45.transform_feedback.draw_xfb_instanced_test,Crash
-KHR-GL45.transform_feedback.draw_xfb_stream_instanced_test,Crash
-KHR-GL45.transform_feedback.query_vertex_interleaved_test,Fail
-KHR-GL45.transform_feedback.query_vertex_separate_test,Fail
