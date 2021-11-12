@@ -390,6 +390,29 @@ radv_queue_family_to_ring(int f)
 }
 
 static void
+radv_emit_write_data_packet(struct radv_cmd_buffer *cmd_buffer, uint64_t va, unsigned count,
+                            const uint32_t *data)
+{
+   struct radeon_cmdbuf *cs = cmd_buffer->cs;
+
+   radeon_check_space(cmd_buffer->device->ws, cs, 4 + count);
+
+   radeon_emit(cs, PKT3(PKT3_WRITE_DATA, 2 + count, 0));
+   radeon_emit(cs, S_370_DST_SEL(V_370_MEM) | S_370_WR_CONFIRM(1) | S_370_ENGINE_SEL(V_370_ME));
+   radeon_emit(cs, va);
+   radeon_emit(cs, va >> 32);
+   radeon_emit_array(cs, data, count);
+}
+
+static void
+radv_emit_clear_data(struct radv_cmd_buffer *cmd_buffer, uint64_t va, unsigned size)
+{
+   uint32_t zeroes[size / 4];
+   memset(zeroes, 0, sizeof(zeroes));
+   radv_emit_write_data_packet(cmd_buffer, va, size / 4, zeroes);
+}
+
+static void
 radv_destroy_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 {
    list_del(&cmd_buffer->pool_link);
@@ -516,12 +539,16 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
       cmd_buffer->gfx9_fence_va = radv_buffer_get_va(cmd_buffer->upload.upload_bo);
       cmd_buffer->gfx9_fence_va += fence_offset;
 
+      radv_emit_clear_data(cmd_buffer, cmd_buffer->gfx9_fence_va, 8);
+
       if (cmd_buffer->device->physical_device->rad_info.chip_class == GFX9) {
          /* Allocate a buffer for the EOP bug on GFX9. */
          radv_cmd_buffer_upload_alloc(cmd_buffer, 16 * num_db, &eop_bug_offset, &fence_ptr);
          memset(fence_ptr, 0, 16 * num_db);
          cmd_buffer->gfx9_eop_bug_va = radv_buffer_get_va(cmd_buffer->upload.upload_bo);
          cmd_buffer->gfx9_eop_bug_va += eop_bug_offset;
+
+         radv_emit_clear_data(cmd_buffer, cmd_buffer->gfx9_eop_bug_va, 16 * num_db);
       }
    }
 
@@ -622,21 +649,6 @@ radv_cmd_buffer_upload_data(struct radv_cmd_buffer *cmd_buffer, unsigned size, c
       memcpy(ptr, data, size);
 
    return true;
-}
-
-static void
-radv_emit_write_data_packet(struct radv_cmd_buffer *cmd_buffer, uint64_t va, unsigned count,
-                            const uint32_t *data)
-{
-   struct radeon_cmdbuf *cs = cmd_buffer->cs;
-
-   radeon_check_space(cmd_buffer->device->ws, cs, 4 + count);
-
-   radeon_emit(cs, PKT3(PKT3_WRITE_DATA, 2 + count, 0));
-   radeon_emit(cs, S_370_DST_SEL(V_370_MEM) | S_370_WR_CONFIRM(1) | S_370_ENGINE_SEL(V_370_ME));
-   radeon_emit(cs, va);
-   radeon_emit(cs, va >> 32);
-   radeon_emit_array(cs, data, count);
 }
 
 void
