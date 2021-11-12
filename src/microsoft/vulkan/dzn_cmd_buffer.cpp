@@ -1596,7 +1596,7 @@ dzn_cmd_buffer::triangle_fan_rewrite_index(uint32_t &index_count,
    state.pipeline = NULL;
    if (state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline) {
       state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
-         DZN_CMD_BINDPOINT_DIRTY_PIPELINE | DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+         DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
    }
 
    state.ib.view.SizeInBytes = index_count * 4;
@@ -1966,7 +1966,7 @@ dzn_cmd_buffer::draw(dzn_buffer *draw_buf,
    state.pipeline = NULL;
    if (state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline) {
       state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
-         DZN_CMD_BINDPOINT_DIRTY_PIPELINE | DZN_CMD_BINDPOINT_DIRTY_HEAPS;
+         DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
    }
 
    state.sysvals.gfx.first_vertex = 0;
