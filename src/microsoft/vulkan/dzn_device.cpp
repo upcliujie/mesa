@@ -120,6 +120,8 @@ dzn_instance::dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
    dxc.library = dxc_get_library();
    dxc.compiler = dxc_get_compiler();
    d3d12.serialize_root_sig = d3d12_get_serialize_root_sig();
+
+   d3d12_enable_debug_layer();
 }
 
 dzn_instance::~dzn_instance()
@@ -935,8 +937,6 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
                      &dispatch_table, pCreateInfo, pAllocator);
    if (result != VK_SUCCESS)
       throw result;
-
-   d3d12_enable_debug_layer();
 
    dev = physical_device->get_d3d12_dev();
    if (!dev) {
