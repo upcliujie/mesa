@@ -1144,8 +1144,9 @@ dzn_cmd_buffer::begin_subpass()
       zs_handle = framebuffer->attachments[subpass->zs.idx]->zs_handle.cpu_handle;
    }
 
-   assert(subpass->color_count > 0);
-   batch->cmdlist->OMSetRenderTargets(subpass->color_count, rt_handles, FALSE, zs_handle.ptr ? &zs_handle : NULL);
+   batch->cmdlist->OMSetRenderTargets(subpass->color_count,
+                                      subpass->color_count ? rt_handles : NULL,
+                                      FALSE, zs_handle.ptr ? &zs_handle : NULL);
 
    for (uint32_t i = 0; i < subpass->color_count; i++)
       attachment_transition(subpass->colors[i]);
