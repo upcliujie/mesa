@@ -1,5 +1,6 @@
 dEQP-VK.glsl.builtin.precision.pow.highp.vec2,Fail
 dEQP-VK.glsl.texture_functions.query.texturequerylod.sampler2d_fixed_fragment,Fail
+dEQP-VK.rasterization.provoking_vertex.transform_feedback.first.line_strip_with_adjacency,Fail
 
 # Memory leaks
 dEQP-VK.glsl.derivate.dfdxcoarse.texture.basic.float_highp,Fail

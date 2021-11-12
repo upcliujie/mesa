@@ -2,3 +2,4 @@
 dEQP-VK.api.version_check.version,Fail
 dEQP-VK.info.device_properties,Fail
 dEQP-VK.api.driver_properties.conformance_version,Fail
+dEQP-VK.pipeline.extended_dynamic_state.before_draw.stencil_state_face_front_gt_dec_clamp_clear_0_ref_1_depthfail,Fail

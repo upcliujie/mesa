@@ -51,7 +51,7 @@ dEQP-GLES2.functional.shaders.random.all_features.fragment.32,Fail
 dEQP-GLES2.functional.shaders.random.all_features.fragment.34,Fail
 dEQP-GLES2.functional.shaders.random.all_features.fragment.38,Fail
 dEQP-GLES2.functional.shaders.random.all_features.fragment.5,Fail
-dEQP-GLES2.functional.shaders.random.all_features.fragment.53,Fail
+dEQP-GLES2.functional.shaders.random.all_features.fragment.79,Fail
 dEQP-GLES2.functional.shaders.random.all_features.fragment.80,Fail
 dEQP-GLES2.functional.shaders.random.all_features.fragment.86,Fail
 dEQP-GLES2.functional.shaders.random.all_features.fragment.89,Fail
@@ -393,6 +393,9 @@ spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit stencil gl
 spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit stencil gl_stencil_index4,Fail
 spec@arb_framebuffer_object@arb_framebuffer_object-depth-stencil-blit stencil gl_stencil_index8,Fail
 spec@arb_framebuffer_object@fbo-attachments-blit-scaled-linear,Fail
+
+# Copying RGBA8 to GL_RGB10_A2 fails, nonzero miplevel
+spec@arb_framebuffer_object@fbo-mipmap-copypix,Fail
 
 # No derivatives support in the HW.
 spec@arb_framebuffer_object@fbo-deriv,Fail
