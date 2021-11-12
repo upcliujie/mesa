@@ -117,6 +117,37 @@ try_fold_load_store(nir_builder *b,
 }
 
 static bool
+try_fold_shared2(nir_builder *b,
+                    nir_intrinsic_instr *intrin,
+                    opt_offsets_state *state,
+                    unsigned offset_src_idx)
+{
+   unsigned offset0 = nir_intrinsic_offset0(intrin);
+   unsigned offset1 = nir_intrinsic_offset1(intrin);
+   nir_src *off_src = &intrin->src[offset_src_idx];
+   unsigned comp_size = (intrin->intrinsic == nir_intrinsic_load_shared2_amd ?
+                         intrin->dest.ssa.bit_size : intrin->src[0].ssa->bit_size) / 8;
+
+   if (!nir_src_is_const(*off_src))
+      return false;
+
+   unsigned const_offset = nir_src_as_uint(*off_src);
+   if (const_offset % comp_size ||
+       offset0 + const_offset / comp_size > 255 ||
+       offset1 + const_offset / comp_size > 255)
+      return false;
+
+   offset0 += const_offset / comp_size;
+   offset1 += const_offset / comp_size;
+   b->cursor = nir_before_instr(&intrin->instr);
+   nir_instr_rewrite_src(&intrin->instr, off_src, nir_src_for_ssa(nir_imm_zero(b, 1, 32)));
+   nir_intrinsic_set_offset0(intrin, offset0);
+   nir_intrinsic_set_offset1(intrin, offset1);
+
+   return true;
+}
+
+static bool
 process_instr(nir_builder *b, nir_instr *instr, void *s)
 {
    if (instr->type != nir_instr_type_intrinsic)
@@ -130,6 +161,10 @@ process_instr(nir_builder *b, nir_instr *instr, void *s)
       return try_fold_load_store(b, intrin, state, 0);
    case nir_intrinsic_store_shared:
       return try_fold_load_store(b, intrin, state, 1);
+   case nir_intrinsic_load_shared2_amd:
+      return try_fold_shared2(b, intrin, state, 0);
+   case nir_intrinsic_store_shared2_amd:
+      return try_fold_shared2(b, intrin, state, 1);
    case nir_intrinsic_load_buffer_amd:
       return try_fold_load_store(b, intrin, state, 1);
    case nir_intrinsic_store_buffer_amd:
