@@ -265,6 +265,7 @@ struct dzn_physical_device {
    ~dzn_physical_device();
    const VkAllocationCallbacks *get_vk_allocator();
    ID3D12Device *get_d3d12_dev();
+   const D3D12_FEATURE_DATA_ARCHITECTURE1 &get_arch_caps() const;
 
 private:
    void get_device_extensions();
@@ -273,6 +274,7 @@ private:
    std::mutex dev_lock;
    ComPtr<ID3D12Device> dev;
    D3D_FEATURE_LEVEL feature_level = (D3D_FEATURE_LEVEL)0;
+   D3D12_FEATURE_DATA_ARCHITECTURE1 architecture = {};
 };
 
 #define dzn_debug_ignored_stype(sType) \
@@ -334,7 +336,6 @@ struct dzn_device {
    struct vk_device_dispatch_table dispatch;
 
    ID3D12Device *dev;
-   D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
 
    dzn_object_unique_ptr<dzn_meta_indirect_draw> indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
    dzn_object_unique_ptr<dzn_meta_triangle_fan_rewrite_index> triangle_fan[dzn_meta_triangle_fan_rewrite_index::NUM_INDEX_TYPE];

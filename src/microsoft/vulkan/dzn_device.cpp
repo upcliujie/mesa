@@ -243,6 +243,14 @@ dzn_physical_device::get_vk_allocator()
    return &instance->vk.alloc;
 }
 
+const D3D12_FEATURE_DATA_ARCHITECTURE1 &
+dzn_physical_device::get_arch_caps() const
+{
+   assert(dev);
+
+   return architecture;
+}
+
 void
 dzn_physical_device::cache_caps(std::lock_guard<std::mutex>&)
 {
@@ -261,6 +269,8 @@ dzn_physical_device::cache_caps(std::lock_guard<std::mutex>&)
 
    dev->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &levels, sizeof(levels));
    feature_level = levels.MaxSupportedFeatureLevel;
+
+   dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1, &architecture, sizeof(architecture));
 }
 
 ID3D12Device *
@@ -918,9 +928,6 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
 
    dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
-   dev->CheckFeatureSupport(D3D12_FEATURE_ARCHITECTURE1,
-                            &arch, sizeof(arch));
-
    for (uint32_t i = 0; i < ARRAY_SIZE(indirect_draws); i++) {
       enum dzn_indirect_draw_type type = (enum dzn_indirect_draw_type)i;
 
@@ -1142,6 +1149,7 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
                                      const VkAllocationCallbacks *pAllocator)
 {
    struct dzn_physical_device *pdevice = device->physical_device;
+   auto& arch = pdevice->get_arch_caps();
 
    /* The Vulkan 1.0.33 spec says "allocationSize must be greater than 0". */
    assert(pAllocateInfo->allocationSize > 0);
@@ -1171,7 +1179,7 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
    initial_state = D3D12_RESOURCE_STATE_COMMON;
    heap_desc.Properties.Type = D3D12_HEAP_TYPE_CUSTOM;
    heap_desc.Properties.MemoryPoolPreference =
-      ((mem_type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) && !device->arch.UMA) ?
+      ((mem_type->propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) && !arch.UMA) ?
       D3D12_MEMORY_POOL_L1 : D3D12_MEMORY_POOL_L0;
    if (mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
       heap_desc.Properties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
