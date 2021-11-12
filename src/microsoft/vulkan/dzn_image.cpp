@@ -96,10 +96,10 @@ dzn_image::dzn_image(dzn_device *device,
          .Flags = D3D12_RESOURCE_FLAG_NONE
       };
       D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
-      uint64_t row_stride = 0, size = 0;
-      device->dev->GetCopyableFootprints(&tmp_desc, 0, 1, 0, &footprint, NULL, &row_stride, &size);
+      uint64_t size = 0;
+      device->dev->GetCopyableFootprints(&tmp_desc, 0, 1, 0, &footprint, NULL, NULL, &size);
 
-      linear.row_stride = row_stride;
+      linear.row_stride = footprint.Footprint.RowPitch;
       linear.size = size;
       size *= pCreateInfo->arrayLayers;
       desc.Format = DXGI_FORMAT_UNKNOWN;
