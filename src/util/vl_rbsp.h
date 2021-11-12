@@ -163,14 +163,14 @@ static inline bool vl_rbsp_more_data(struct vl_rbsp *rbsp)
    unsigned bits, value;
 
    if (vl_vlc_bits_left(&rbsp->nal) > 8)
-      return TRUE;
+      return true;
 
    bits = vl_vlc_valid_bits(&rbsp->nal);
    value = vl_vlc_peekbits(&rbsp->nal, bits);
    if (value == 0 || value == (1 << (bits - 1)))
-      return FALSE;
+      return false;
 
-   return TRUE;
+   return true;
 }
 
 #endif /* vl_rbsp_h */
