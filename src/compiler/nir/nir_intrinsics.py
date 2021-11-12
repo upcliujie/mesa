@@ -226,6 +226,14 @@ index("bool", "is_swizzled")
 # The SLC ("system level coherent") bit of load_buffer_amd/store_buffer_amd
 index("bool", "slc_amd")
 
+# Offsets for load_shared2_amd/store_shared2_amd
+index("uint8_t", "offset0")
+index("uint8_t", "offset1")
+
+# If true, both offsets have an additional stride of 64 dwords (ie. they are multiplied by 256 bytes
+# in hardware, instead of 4).
+index("bool", "st64")
+
 # Separate source/dest access flags for copies
 index("enum gl_access_qualifier", "dst_access")
 index("enum gl_access_qualifier", "src_access")
@@ -1286,6 +1294,12 @@ system_value("intersection_opaque_amd", 1, bit_sizes=[1])
 
 # Load forced VRS rates.
 intrinsic("load_force_vrs_rates_amd", dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE, CAN_REORDER])
+
+# src[] = { offset }.
+intrinsic("load_shared2_amd", [1], dest_comp=2, indices=[OFFSET0, OFFSET1, ST64], flags=[CAN_ELIMINATE])
+
+# src[] = { value, offset }.
+intrinsic("store_shared2_amd", [2, 1], indices=[OFFSET0, OFFSET1, ST64])
 
 # V3D-specific instrinc for tile buffer color reads.
 #
