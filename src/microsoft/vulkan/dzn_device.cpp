@@ -154,8 +154,9 @@ dzn_DestroyInstance(VkInstance instance,
 
 dzn_physical_device::dzn_physical_device(dzn_instance *inst,
                                          ComPtr<IDXGIAdapter1> &adap,
+                                         const DXGI_ADAPTER_DESC1 &desc,
                                          const VkAllocationCallbacks *alloc) :
-                                        instance(inst), adapter(adap)
+                                        instance(inst), adapter(adap), adapter_desc(desc)
 {
    vk_physical_device_dispatch_table dispatch_table;
    vk_physical_device_dispatch_table_from_entrypoints(&dispatch_table,
@@ -244,8 +245,7 @@ void
 dzn_physical_device::init_memory(std::lock_guard<std::mutex>&)
 {
    VkPhysicalDeviceMemoryProperties *mem = &memory;
-   DXGI_ADAPTER_DESC1 desc;
-   adapter->GetDesc1(&desc);
+   const DXGI_ADAPTER_DESC1 &desc = adapter_desc;
 
    mem->memoryHeapCount = 1;
    mem->memoryHeaps[0] = VkMemoryHeap {
@@ -303,6 +303,7 @@ dzn_physical_device::get_d3d12_dev()
 dzn_physical_device *
 dzn_physical_device_factory::allocate(dzn_instance *instance,
                                       ComPtr<IDXGIAdapter1> &adapter,
+                                      const DXGI_ADAPTER_DESC1 &adapter_desc,
                                       const VkAllocationCallbacks *alloc)
 {
    return (dzn_physical_device *)
@@ -327,16 +328,16 @@ dzn_instance::enumerate_physical_devices(uint32_t *pPhysicalDeviceCount,
       ComPtr<IDXGIFactory4> factory = dxgi_get_factory(false);
       ComPtr<IDXGIAdapter1> adapter(NULL);
       for (UINT i = 0; SUCCEEDED(factory->EnumAdapters1(i, &adapter)); ++i) {
+         DXGI_ADAPTER_DESC1 desc;
+         adapter->GetDesc1(&desc);
          if (debug_flags & DZN_DEBUG_WARP) {
-            DXGI_ADAPTER_DESC1 desc;
-            adapter->GetDesc1(&desc);
             if ((desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0)
                continue;
          }
 
          dzn_physical_device *pdev;
          VkResult result =
-            dzn_physical_device_factory::create(this, adapter, NULL, &pdev);
+            dzn_physical_device_factory::create(this, adapter, desc, NULL, &pdev);
          if (result != VK_SUCCESS)
             return result;
 
@@ -666,8 +667,7 @@ dzn_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       .nonCoherentAtomSize                      = 256,
    };
 
-   DXGI_ADAPTER_DESC1 desc;
-   HRESULT hr = pdevice->adapter->GetDesc1(&desc);
+   const DXGI_ADAPTER_DESC1& desc = pdevice->adapter_desc;
 
    VkPhysicalDeviceType devtype = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
    if (desc.Flags == DXGI_ADAPTER_FLAG_SOFTWARE)

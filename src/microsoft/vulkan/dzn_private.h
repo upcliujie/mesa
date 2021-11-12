@@ -249,7 +249,8 @@ struct dzn_physical_device {
    struct vk_device_extension_table supported_extensions;
    struct vk_physical_device_dispatch_table dispatch;
 
-   ComPtr<IDXGIAdapter1> adapter;
+   const ComPtr<IDXGIAdapter1> adapter;
+   const DXGI_ADAPTER_DESC1 adapter_desc;
 
    uint8_t pipeline_cache_uuid[VK_UUID_SIZE];
    uint8_t device_uuid[VK_UUID_SIZE];
@@ -259,6 +260,7 @@ struct dzn_physical_device {
 
    dzn_physical_device(dzn_instance *instance,
                        ComPtr<IDXGIAdapter1> &adapter,
+                       const DXGI_ADAPTER_DESC1 &adapter_desc,
                        const VkAllocationCallbacks *alloc);
    ~dzn_physical_device();
    const VkAllocationCallbacks *get_vk_allocator();
@@ -1254,7 +1256,7 @@ DZN_OBJ_FACTORY(dzn_graphics_pipeline, VkPipeline, VkDevice, VkPipelineCache, co
 DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image_view, VkImageView, VkDevice, const VkImageViewCreateInfo *);
 DZN_OBJ_FACTORY(dzn_instance, VkInstance, const VkInstanceCreateInfo *);
-DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<IDXGIAdapter1> &);
+DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<IDXGIAdapter1> &, const DXGI_ADAPTER_DESC1 &);
 DZN_OBJ_FACTORY(dzn_pipeline_cache, VkPipelineCache, VkDevice, const VkPipelineCacheCreateInfo *);
 DZN_OBJ_FACTORY(dzn_pipeline_layout, VkPipelineLayout, VkDevice, const VkPipelineLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
