@@ -91,6 +91,7 @@ static const struct debug_control dzn_debug_options[] = {
    { "dxil", DZN_DEBUG_DXIL },
    { "warp", DZN_DEBUG_WARP },
    { "internal", DZN_DEBUG_INTERNAL },
+   { "signature", DZN_DEBUG_SIG },
    { NULL, 0 }
 };
 
