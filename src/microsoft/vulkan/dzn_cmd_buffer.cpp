@@ -540,6 +540,11 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
    D3D12_TEXTURE_COPY_LOCATION src_buf_loc = {
       .pResource = src_buffer->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+      .PlacedFootprint = {
+         .Footprint = {
+            .Format = dzn_get_format(dst_image->vk.format),
+         },
+      },
    };
 
    D3D12_TEXTURE_COPY_LOCATION dst_img_loc = {
@@ -563,14 +568,19 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
          region->bufferImageHeight ?
          region->bufferImageHeight : region->imageExtent.height;
 
+      enum pipe_format pfmt = vk_format_to_pipe_format(dst_image->vk.format);
+      uint32_t blksz = util_format_get_blocksize(pfmt);
+
       /* prepare source details */
-      dev->GetCopyableFootprints(&dst_image->desc, 0, 1, 0,
-                                 &src_buf_loc.PlacedFootprint,
-                                 NULL, NULL, NULL);
-      src_buf_loc.PlacedFootprint.Footprint.Width = buffer_row_length;
-      src_buf_loc.PlacedFootprint.Footprint.Height = buffer_image_height;
-      src_buf_loc.PlacedFootprint.Footprint.Depth = 1;
-      src_buf_loc.PlacedFootprint.Offset += region->bufferOffset;
+      src_buf_loc.PlacedFootprint.Footprint.Depth = region->imageExtent.depth;
+      src_buf_loc.PlacedFootprint.Footprint.Height = region->imageExtent.height;
+      src_buf_loc.PlacedFootprint.Footprint.Width = region->imageExtent.width;
+      src_buf_loc.PlacedFootprint.Footprint.RowPitch = blksz * buffer_row_length;
+
+      uint32_t buffer_layer_stride =
+         src_buf_loc.PlacedFootprint.Footprint.RowPitch *
+         src_buf_loc.PlacedFootprint.Footprint.Height;
+
       D3D12_BOX src_box = {
          .left = 0,
          .top = 0,
@@ -580,18 +590,54 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
          .back = region->imageExtent.depth,
       };
 
-      /* prepare destination details */
-      dst_img_loc.SubresourceIndex =
-         dzn_get_subresource_index(&dst_image->desc,
-                                   region->imageSubresource.aspectMask,
-                                   region->imageSubresource.mipLevel,
-                                   region->imageSubresource.baseArrayLayer);
+      for (uint32_t l = 0; l < region->imageSubresource.layerCount; l++) {
+         dst_img_loc.SubresourceIndex =
+            dzn_get_subresource_index(&dst_image->desc,
+                                      region->imageSubresource.aspectMask,
+                                      region->imageSubresource.mipLevel,
+                                      region->imageSubresource.baseArrayLayer + l);
+         src_buf_loc.PlacedFootprint.Offset =
+            region->bufferOffset + (l * buffer_layer_stride);
 
-      assert(region->imageSubresource.layerCount == 1);
+         if (!(src_buf_loc.PlacedFootprint.Footprint.RowPitch & 255) &&
+             !(src_buf_loc.PlacedFootprint.Offset & 511)) {
+            /* RowPitch and Offset are properly aligned on 256 bytes, we can copy
+             * the whole thing in one call.
+             */
+            cmdlist->CopyTextureRegion(&dst_img_loc, region->imageOffset.x,
+                                       region->imageOffset.y, region->imageOffset.z,
+                                       &src_buf_loc, &src_box);
+         } else {
+            /* Copy line-by-line if things are not properly aligned. */
+            D3D12_TEXTURE_COPY_LOCATION src_buf_line_loc = src_buf_loc;
 
-      cmdlist->CopyTextureRegion(&dst_img_loc, region->imageOffset.x,
-                                 region->imageOffset.y, region->imageOffset.z,
-                                 &src_buf_loc, &src_box);
+            src_buf_line_loc.PlacedFootprint.Footprint.Height = 1;
+            src_buf_line_loc.PlacedFootprint.Footprint.Depth = 1;
+            src_box.bottom = 1;
+            src_box.back = 1;
+
+            for (uint32_t z = 0; z < region->imageExtent.depth; z++) {
+               for (uint32_t y = 0; y < region->imageExtent.height; y++) {
+                  UINT64 tex_offset =
+                     ((y * buffer_row_length) +
+                      (z * buffer_image_height * buffer_row_length)) * blksz;
+                  UINT64 offset = src_buf_loc.PlacedFootprint.Offset + tex_offset;
+
+                  src_buf_line_loc.PlacedFootprint.Offset = offset & ~511ULL;
+                  offset &= 511;
+                  assert(!(offset % blksz));
+                  src_box.left = offset / blksz;
+                  src_box.right = src_box.left + region->imageExtent.width;
+                  src_buf_line_loc.PlacedFootprint.Footprint.Width = src_box.right;
+                  src_buf_line_loc.PlacedFootprint.Footprint.RowPitch =
+                     ALIGN_POT(src_box.right * blksz, 256);
+                  cmdlist->CopyTextureRegion(&dst_img_loc, region->imageOffset.x,
+                                             region->imageOffset.y + y, region->imageOffset.z + z,
+                                             &src_buf_line_loc, &src_box);
+               }
+            }
+         }
+      }
    }
 }
 
@@ -606,6 +652,11 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
    D3D12_TEXTURE_COPY_LOCATION dst_buf_loc = {
       .pResource = dst_buffer->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+      .PlacedFootprint = {
+         .Footprint = {
+            .Format = dzn_get_format(src_image->vk.format),
+         },
+      },
    };
 
    D3D12_TEXTURE_COPY_LOCATION src_img_loc = {
@@ -628,35 +679,81 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
          region->bufferImageHeight ?
          region->bufferImageHeight : region->imageExtent.height;
 
+      enum pipe_format pfmt = vk_format_to_pipe_format(src_image->vk.format);
+      uint32_t blksz = util_format_get_blocksize(pfmt);
+
       /* prepare destination details */
-      dev->GetCopyableFootprints(&src_image->desc, 0, 1, 0,
-                                 &dst_buf_loc.PlacedFootprint,
-                                 NULL, NULL, NULL);
-      dst_buf_loc.PlacedFootprint.Footprint.Width = buffer_row_length;
-      dst_buf_loc.PlacedFootprint.Footprint.Height = buffer_image_height;
-      dst_buf_loc.PlacedFootprint.Footprint.Depth = 1;
-      dst_buf_loc.PlacedFootprint.Offset += region->bufferOffset;
+      dst_buf_loc.PlacedFootprint.Footprint.Depth = region->imageExtent.depth;
+      dst_buf_loc.PlacedFootprint.Footprint.Height = region->imageExtent.height;
+      dst_buf_loc.PlacedFootprint.Footprint.Width = region->imageExtent.width;
+      dst_buf_loc.PlacedFootprint.Footprint.RowPitch = buffer_row_length * blksz;
+
+      uint32_t buffer_layer_stride =
+         dst_buf_loc.PlacedFootprint.Footprint.RowPitch *
+         dst_buf_loc.PlacedFootprint.Footprint.Height;
+
       D3D12_BOX src_box = {
-         .left = 0,
-         .top = 0,
-         .front = 0,
-         .right = region->imageExtent.width,
-         .bottom = region->imageExtent.height,
-         .back = region->imageExtent.depth,
+         .left = (UINT)region->imageOffset.x,
+         .top = (UINT)region->imageOffset.y,
+         .front = (UINT)region->imageOffset.z,
+         .right = (UINT)(region->imageOffset.x + region->imageExtent.width),
+         .bottom = (UINT)(region->imageOffset.y + region->imageExtent.height),
+         .back = (UINT)(region->imageOffset.z + region->imageExtent.depth),
       };
 
-      /* prepare source details */
-      src_img_loc.SubresourceIndex =
-         dzn_get_subresource_index(&src_image->desc,
-                                   region->imageSubresource.aspectMask,
-                                   region->imageSubresource.mipLevel,
-                                   region->imageSubresource.baseArrayLayer);
+      for (uint32_t l = 0; l < MIN2(region->imageSubresource.layerCount, 1); l++) {
+         src_img_loc.SubresourceIndex =
+            dzn_get_subresource_index(&src_image->desc,
+                                      region->imageSubresource.aspectMask,
+                                      region->imageSubresource.mipLevel,
+                                      region->imageSubresource.baseArrayLayer + l);
+         dst_buf_loc.PlacedFootprint.Offset =
+            region->bufferOffset + (l * buffer_layer_stride);
 
-      assert(region->imageSubresource.layerCount == 1);
 
-      cmdlist->CopyTextureRegion(&dst_buf_loc, region->imageOffset.x,
-                                 region->imageOffset.y, region->imageOffset.z,
-                                 &src_img_loc, &src_box);
+         if (!(dst_buf_loc.PlacedFootprint.Footprint.RowPitch & 255) &&
+             !(dst_buf_loc.PlacedFootprint.Offset & 511)) {
+            /* RowPitch and Offset are properly aligned on 256 bytes, we can copy
+             * the whole thing in one call.
+             */
+            cmdlist->CopyTextureRegion(&dst_buf_loc, 0, 0, 0,
+                                       &src_img_loc, &src_box);
+         } else {
+            /* Copy line-by-line if things are not properly aligned. */
+            D3D12_TEXTURE_COPY_LOCATION dst_buf_line_loc = dst_buf_loc;
+
+            dst_buf_line_loc.PlacedFootprint.Footprint.Height = 1;
+            dst_buf_line_loc.PlacedFootprint.Footprint.Depth = 1;
+
+            for (uint32_t z = 0; z < region->imageExtent.depth; z++) {
+               src_box.front = region->imageOffset.z + z;
+               src_box.back = region->imageOffset.z + z + 1;
+               for (uint32_t y = 0; y < region->imageExtent.height; y++) {
+                  UINT64 tex_offset =
+                     ((y * buffer_row_length) +
+                      (z * buffer_image_height * buffer_row_length)) * blksz;
+                  UINT64 offset = dst_buf_loc.PlacedFootprint.Offset + tex_offset;
+
+                  dst_buf_line_loc.PlacedFootprint.Offset = offset & ~511ULL;
+                  offset &= 511;
+                  assert(!(offset % blksz));
+
+                  UINT dst_x = offset / blksz;
+
+                  dst_buf_line_loc.PlacedFootprint.Footprint.Width =
+                     dst_x + region->imageExtent.width;
+                  dst_buf_line_loc.PlacedFootprint.Footprint.RowPitch =
+                     ALIGN_POT(dst_buf_line_loc.PlacedFootprint.Footprint.Width * blksz, 256);
+
+                  src_box.top = region->imageOffset.y + y;
+                  src_box.bottom = region->imageOffset.y + y + 1;
+
+                  cmdlist->CopyTextureRegion(&dst_buf_line_loc, dst_x, 0, 0,
+                                             &src_img_loc, &src_box);
+               }
+            }
+         }
+      }
    }
 }
 
