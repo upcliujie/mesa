@@ -122,6 +122,7 @@ dzn_instance::dzn_instance(const VkInstanceCreateInfo *pCreateInfo,
    d3d12.serialize_root_sig = d3d12_get_serialize_root_sig();
 
    d3d12_enable_debug_layer();
+   d3d12_enable_gpu_validation();
 }
 
 dzn_instance::~dzn_instance()
@@ -1100,7 +1101,6 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
    dzn_instance *instance = physical_device->instance;
    VkResult result;
 
-   d3d12_enable_gpu_validation();
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
    /* Check enabled features */
