@@ -243,6 +243,17 @@ dzn_physical_device::get_vk_allocator()
    return &instance->vk.alloc;
 }
 
+ID3D12Device *
+dzn_physical_device::get_d3d12_dev()
+{
+   std::lock_guard<std::mutex> lock(dev_lock);
+
+   if (!dev.Get())
+      dev = d3d12_create_device(adapter.Get(), false);
+
+   return dev.Get();
+}
+
 dzn_physical_device *
 dzn_physical_device_factory::allocate(dzn_instance *instance,
                                       ComPtr<IDXGIAdapter1> &adapter,

@@ -264,8 +264,13 @@ struct dzn_physical_device {
                        const VkAllocationCallbacks *alloc);
    ~dzn_physical_device();
    const VkAllocationCallbacks *get_vk_allocator();
+   ID3D12Device *get_d3d12_dev();
+
 private:
    void get_device_extensions();
+
+   std::mutex dev_lock;
+   ComPtr<ID3D12Device> dev;
 };
 
 #define dzn_debug_ignored_stype(sType) \
