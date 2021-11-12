@@ -1,8 +1,5 @@
 dEQP-GLES2.functional.clipping.line.wide_line_clip_viewport_center,Fail
 dEQP-GLES2.functional.clipping.line.wide_line_clip_viewport_corner,Fail
-dEQP-GLES2.functional.clipping.point.wide_point_clip,Fail
-dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_center,Fail
-dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_corner,Fail
 dEQP-GLES2.functional.polygon_offset.default_displacement_with_units,Fail
 dEQP-GLES3.functional.clipping.line.wide_line_clip_viewport_center,Fail
 dEQP-GLES3.functional.clipping.line.wide_line_clip_viewport_corner,Fail
@@ -161,7 +158,7 @@ KHR-GL31.CommonBugs.CommonBug_ParenthesisInLayoutQualifierIntegerValue,Fail
 KHR-GL31.transform_feedback.capture_vertex_interleaved_test,Fail
 KHR-GL31.transform_feedback.capture_vertex_separate_test,Fail
 KHR-GL31.transform_feedback.discard_vertex_test,Fail
-KHR-GL31.transform_feedback.draw_xfb_instanced_test,Fail
+KHR-GL31.transform_feedback.draw_xfb_instanced_test,Crash
 KHR-GL31.transform_feedback.draw_xfb_stream_instanced_test,Crash
 KHR-GL31.transform_feedback.query_vertex_interleaved_test,Fail
 KHR-GL31.transform_feedback.query_vertex_separate_test,Fail
@@ -179,3 +176,6 @@ KHR-GL32.transform_feedback_overflow_query_ARB.multiple-streams-multiple-buffers
 KHR-GL32.transform_feedback_overflow_query_ARB.multiple-streams-one-buffer-per-stream,Fail
 KHR-GL32.transform_feedback.query_vertex_interleaved_test,Fail
 KHR-GL32.transform_feedback.query_vertex_separate_test,Fail
+KHR-GL30.glsl_noperspective.functionaltest,Fail
+KHR-GL31.glsl_noperspective.functionaltest,Fail
+KHR-GL32.glsl_noperspective.functionaltest,Fail
