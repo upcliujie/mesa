@@ -837,7 +837,7 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
 
    d3d12_enable_debug_layer();
 
-   dev = d3d12_create_device(physical_device->adapter.Get(), false);
+   dev = physical_device->get_d3d12_dev();
    if (!dev) {
       vk_device_finish(&vk);
       throw vk_error(instance, VK_ERROR_UNKNOWN);
@@ -876,7 +876,7 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
    queue = dzn_object_unique_ptr<dzn_queue>(q);
 
    struct d3d12_descriptor_pool *pool =
-      d3d12_descriptor_pool_new(dev.Get(),
+      d3d12_descriptor_pool_new(dev,
                                 D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
                                 64);
    if (!pool) {
@@ -886,7 +886,7 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
 
    rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
-   pool = d3d12_descriptor_pool_new(dev.Get(),
+   pool = d3d12_descriptor_pool_new(dev,
                                     D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
                                     64);
    if (!pool) {

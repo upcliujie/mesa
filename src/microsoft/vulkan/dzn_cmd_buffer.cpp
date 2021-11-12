@@ -132,11 +132,11 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
       throw vk_error(device, result);
 
    struct d3d12_descriptor_pool *pool =
-      d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
    rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
-   pool = d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
+   pool = d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
    dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
    if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
@@ -230,9 +230,9 @@ dzn_cmd_buffer::reset()
 {
    /* TODO: Return heaps to the command pool instead of freeing them */
    struct d3d12_descriptor_pool *new_rtv_pool =
-      d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
    struct d3d12_descriptor_pool *new_dsv_pool =
-      d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
+      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
 
    rtv_pool.reset(new_rtv_pool);
    dsv_pool.reset(new_dsv_pool);
@@ -552,7 +552,7 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
       .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
    };
 
-   ID3D12Device *dev = cmd_buffer->device->dev.Get();
+   ID3D12Device *dev = cmd_buffer->device->dev;
 
    dzn_batch *batch = cmd_buffer->get_batch();
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
@@ -664,7 +664,7 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
       .Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
    };
 
-   ID3D12Device *dev = cmd_buffer->device->dev.Get();
+   ID3D12Device *dev = cmd_buffer->device->dev;
    dzn_batch *batch = cmd_buffer->get_batch();
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
 
@@ -792,7 +792,7 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_image, src, pCopyImageInfo->srcImage);
    VK_FROM_HANDLE(dzn_image, dst, pCopyImageInfo->dstImage);
 
-   ID3D12Device *dev = cmd_buffer->device->dev.Get();
+   ID3D12Device *dev = cmd_buffer->device->dev;
    dzn_batch *batch = cmd_buffer->get_batch();
    ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
 

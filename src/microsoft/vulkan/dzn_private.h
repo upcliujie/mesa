@@ -331,7 +331,7 @@ struct dzn_device {
    struct vk_device_extension_table enabled_extensions;
    struct vk_device_dispatch_table dispatch;
 
-   ComPtr<ID3D12Device> dev;
+   ID3D12Device *dev;
    D3D12_FEATURE_DATA_ARCHITECTURE1 arch;
 
    dzn_object_unique_ptr<dzn_meta_indirect_draw> indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
