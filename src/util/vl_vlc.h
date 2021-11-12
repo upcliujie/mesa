@@ -32,10 +32,7 @@
 #ifndef vl_vlc_h
 #define vl_vlc_h
 
-#include "pipe/p_compiler.h"
-
 #include "util/u_math.h"
-#include "util/u_pointer.h"
 #include "util/u_debug.h"
 
 struct vl_vlc
@@ -116,7 +113,7 @@ static inline void
 vl_vlc_align_data_ptr(struct vl_vlc *vlc)
 {
    /* align the data pointer */
-   while (vlc->data != vlc->end && pointer_to_uintptr(vlc->data) & 3) {
+   while (vlc->data != vlc->end && ((uintptr_t)vlc->data) & 3) {
       vlc->buffer |= (uint64_t)*vlc->data << (24 + vlc->invalid_bits);
       ++vlc->data;
       vlc->invalid_bits -= 8;
