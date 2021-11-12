@@ -488,6 +488,16 @@ vk_common_GetSemaphoreFdKHR(VkDevice _device,
    case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT:
       /* From the Vulkan 1.2.194 spec:
        *
+       *    VUID-VkSemaphoreGetFdInfoKHR-handleType-03253
+       *
+       *    "If handleType refers to a handle type with copy payload
+       *    transference semantics, semaphore must have been created with a
+       *    VkSemaphoreType of VK_SEMAPHORE_TYPE_BINARY."
+       */
+      assert(semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+
+      /* From the Vulkan 1.2.194 spec:
+       *
        *    VUID-VkSemaphoreGetFdInfoKHR-handleType-03254
        *
        *    "If handleType refers to a handle type with copy payload
