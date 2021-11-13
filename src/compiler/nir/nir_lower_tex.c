@@ -1255,6 +1255,30 @@ nir_lower_samples_identical_to_fragment_fetch(nir_builder *b, nir_tex_instr *tex
    nir_instr_remove_v(&tex->instr);
 }
 
+static void
+nir_lower_64bit_tex(nir_builder *b, nir_tex_instr *tex)
+{
+   b->cursor = nir_after_instr(&tex->instr);
+
+   nir_tex_instr *new_tex = nir_instr_as_tex(nir_instr_clone(b->shader, &tex->instr));
+   new_tex->dest_type = nir_type_uint32;
+   nir_ssa_dest_init(&new_tex->instr, &new_tex->dest, tex->dest.ssa.num_components, 32, NULL);
+   nir_builder_instr_insert(b, &new_tex->instr);
+
+   assert(tex->dest.ssa.num_components == 4 + (tex->is_sparse ? 1 : 0));
+
+   nir_ssa_def *results[5] = {
+      nir_pack_64_2x32(b, nir_channels(b, &new_tex->dest.ssa, 0x3)),
+      nir_pack_64_2x32(b, nir_channels(b, &new_tex->dest.ssa, 0xc)),
+      nir_imm_int64(b, 0),
+      nir_imm_int64(b, 1),
+      tex->is_sparse ? nir_u2u64(b, nir_channel(b, &new_tex->dest.ssa, 4)) : NULL,
+   };
+
+   nir_ssa_def_rewrite_uses(&tex->dest.ssa, nir_vec(b, results, tex->is_sparse ? 5 : 4));
+   nir_instr_remove_v(&tex->instr);
+}
+
 static bool
 nir_lower_tex_block(nir_block *block, nir_builder *b,
                     const nir_lower_tex_options *options,
@@ -1473,6 +1497,12 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
 
       if (options->lower_to_fragment_fetch_amd && tex->op == nir_texop_samples_identical) {
          nir_lower_samples_identical_to_fragment_fetch(b, tex);
+         progress = true;
+         continue;
+      }
+
+      if (tex->dest.ssa.bit_size == 64 && options->lower_64bit_return) {
+         nir_lower_64bit_tex(b, tex);
          progress = true;
          continue;
       }

@@ -5268,6 +5268,11 @@ typedef struct nir_lower_tex_options {
     * Indexed by sampler-id.
     */
    enum nir_lower_tex_packing lower_tex_packing[32];
+
+   /**
+    * To lower (u)int64 return types to 2 x 32.
+    */
+    bool lower_64bit_return;
 } nir_lower_tex_options;
 
 /** Lowers complex texture instructions to simpler ones */
