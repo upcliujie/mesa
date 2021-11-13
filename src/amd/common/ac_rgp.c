@@ -1150,6 +1150,7 @@ static void ac_sqtt_dump_data(struct radeon_info *rad_info,
 
          clock_calibration.cpu_timestamp = record->cpu_timestamp;
          clock_calibration.gpu_timestamp = record->gpu_timestamp;
+         clock_calibration.reserved = 0;
 
          fwrite(&clock_calibration, sizeof(struct sqtt_file_chunk_clock_calibration), 1,
              output);
