@@ -1033,6 +1033,13 @@ emit_intrinsic_ssbo_size(struct ir3_context *ctx, nir_intrinsic_instr *intr,
       struct ir3_instruction *resinfo_dst[2];
       ir3_split_dest(b, resinfo_dst, resinfo, 0, 2);
       *dst = ir3_ADD_U(b, ir3_SHL_B(b, resinfo_dst[1], 0, create_immed(b, 16), 0), 0, resinfo_dst[0], 0);
+
+      /* On a4xx, resinfo returns the size in dwords, as that is the size we put
+       * into the descriptor.
+       */
+      if (ctx->compiler->gen == 4) {
+         *dst = ir3_SHL_B(b, *dst, 0, create_immed(b, 2), 0);
+      }
    }
 }
 
@@ -1396,7 +1403,7 @@ emit_intrinsic_load_image(struct ir3_context *ctx, nir_intrinsic_instr *intr,
    /* If the image can be written, must use LDIB to retrieve data, rather than
     * through ISAM (which uses the texture cache and won't get previous writes).
     */
-   if (!(nir_intrinsic_access(intr) & ACCESS_NON_WRITEABLE) && ctx->compiler->gen >= 5) {
+   if (!(nir_intrinsic_access(intr) & ACCESS_NON_WRITEABLE) && ctx->compiler->gen >= 4) {
       ctx->funcs->emit_intrinsic_load_image(ctx, intr, dst);
       return;
    }
