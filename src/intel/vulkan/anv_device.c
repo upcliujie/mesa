@@ -698,6 +698,10 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
    if (pdevice->engine_info) {
       int gc_count =
          anv_gem_count_engines(pdevice->engine_info, I915_ENGINE_CLASS_RENDER);
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+      int vid_count =
+         anv_gem_count_engines(pdevice->engine_info, I915_ENGINE_CLASS_VIDEO);
+#endif
       int g_count = 0;
       int c_count = 0;
 
@@ -728,6 +732,15 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
             .engine_class = I915_ENGINE_CLASS_RENDER,
          };
       }
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+      if (vid_count > 0) {
+         pdevice->queue.families[family_count++] = (struct anv_queue_family) {
+            .queueFlags = VK_QUEUE_VIDEO_DECODE_BIT_KHR,
+            .queueCount = vid_count,
+            .engine_class = I915_ENGINE_CLASS_VIDEO,
+         };
+      }
+#endif
       /* Increase count below when other families are added as a reminder to
        * increase the ANV_MAX_QUEUE_FAMILIES value.
        */
