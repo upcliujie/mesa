@@ -159,6 +159,11 @@ VkResult genX(CreateQueryPool)(
       break;
    }
 #endif
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+   case VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR:
+      uint64s_per_slot = 1;
+      break;
+#endif
    default:
       assert(!"Invalid query type");
    }
@@ -768,7 +773,10 @@ void genX(CmdResetQueryPool)(
          emit_query_mi_availability(&b, anv_query_address(pool, firstQuery + i), false);
       break;
    }
-
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+   case VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR:
+      break;
+#endif
    default:
       unreachable("Unsupported query type");
    }
@@ -1052,7 +1060,10 @@ void genX(CmdBeginQueryIndexedEXT)(
       emit_perf_intel_query(cmd_buffer, pool, &b, query_addr, false);
       break;
    }
-
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+   case VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR:
+      break;
+#endif
    default:
       unreachable("");
    }
@@ -1204,6 +1215,10 @@ void genX(CmdEndQueryIndexedEXT)(
       emit_perf_intel_query(cmd_buffer, pool, &b, query_addr, true);
       emit_query_mi_availability(&b, query_addr, true);
       break;
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+      case VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR:
+         break;
+#endif
    }
 
    default:
