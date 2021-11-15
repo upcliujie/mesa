@@ -171,6 +171,30 @@ SOFTWARE.
 	<pattern low="55" high="58">0000</pattern> <!-- OPC -->
 </bitset>
 
+<bitset name="getlast" extends="#instruction-cat0">
+	<gen min="600"/>
+
+	<display>
+		{SY}{SS}{JP}{NAME}.w{W} #{IMMED}
+	</display>
+	<derived name="W" type="uint">
+		<expr>
+			2 &lt;&lt; {REPEAT}
+		</expr>
+	</derived>
+	<pattern low="32" high="36">xxxxx</pattern> <!-- INDEX -->
+	<pattern low="37" high="39">xxx</pattern>  <!-- BRTYPE -->
+	<pattern low="45" high="47">xxx</pattern>  <!-- src1 -->
+	<pattern low="49" high="51">xx1</pattern>  <!-- OPC_HI -->
+	<pattern low="55" high="58">0100</pattern> <!-- OPC -->
+
+	<field name="REPEAT" low="52" high="54" type="uint"/>
+
+	<encode>
+		<map name="REPEAT">src->repeat &gt;&gt; 2</map>
+	</encode>
+</bitset>
+
 <bitset name="getone" extends="#instruction-cat0-immed">
 	<pattern low="49" high="51">xx1</pattern>  <!-- OPC_HI -->
 	<pattern low="55" high="58">0101</pattern> <!-- OPC -->

@@ -331,6 +331,7 @@ struct ir3_instruction {
       struct {
          unsigned samp, tex;
          unsigned tex_base : 3;
+         unsigned wxxx : 5;
          type_t type;
       } cat5;
       struct {
@@ -2158,6 +2159,7 @@ ir3_SAM(struct ir3_block *block, opc_t opc, type_t type, unsigned wrmask,
 }
 
 /* cat6 instructions: */
+INSTR0(GETFIBERID)
 INSTR2(LDLV)
 INSTR3(LDG)
 INSTR3(LDL)
