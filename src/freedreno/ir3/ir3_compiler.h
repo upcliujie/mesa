@@ -160,6 +160,9 @@ struct ir3_compiler {
    /* True if 16-bit descriptors are used for both 16-bit and 32-bit access. */
    bool storage_16bit;
 
+   /* True if instructions necessary for subgroup ops in FS are supported. */
+   bool fs_ballot;
+
    /* Type to use for 1b nir bools: */
    type_t bool_type;
 };
