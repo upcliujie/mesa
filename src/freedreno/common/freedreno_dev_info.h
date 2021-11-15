@@ -122,6 +122,8 @@ struct fd_dev_info {
 
          bool has_lpac;
 
+         bool fs_ballot;
+
          struct {
             uint32_t RB_UNKNOWN_8E04_blit;
             uint32_t PC_POWER_CNTL;
