@@ -460,6 +460,7 @@ lower_subgroup_id_filter(const nir_instr *instr, const void *unused)
       return false;
 
    nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+
    return intr->intrinsic == nir_intrinsic_load_subgroup_invocation ||
           intr->intrinsic == nir_intrinsic_load_subgroup_id ||
           intr->intrinsic == nir_intrinsic_load_num_subgroups;
