@@ -392,6 +392,32 @@ iris_blorp_exec(struct blorp_batch *blorp_batch,
 }
 
 static void
+iris_xy_block_copy_blt(struct blorp_batch *blorp_batch,
+                       const struct blorp_params *params,
+                       const struct blt_coords *coords)
+{
+   struct iris_batch *batch = blorp_batch->driver_batch;
+
+   iris_require_command_space(batch, 108);
+
+   iris_handle_always_flush_cache(batch);
+
+   blorp_xy_block_copy_blt(blorp_batch, params, coords);
+
+   iris_handle_always_flush_cache(batch);
+
+   if (params->src.enabled) {
+      iris_bo_bump_seqno(params->src.addr.buffer, batch->next_seqno,
+                         IRIS_DOMAIN_OTHER_READ);
+   }
+
+   if (params->dst.enabled) {
+      iris_bo_bump_seqno(params->dst.addr.buffer, batch->next_seqno,
+                         IRIS_DOMAIN_OTHER_WRITE);
+   }
+}
+
+static void
 blorp_measure_start(struct blorp_batch *blorp_batch,
                     const struct blorp_params *params)
 {
@@ -414,4 +440,5 @@ genX(init_blorp)(struct iris_context *ice)
    ice->blorp.lookup_shader = iris_blorp_lookup_shader;
    ice->blorp.upload_shader = iris_blorp_upload_shader;
    ice->blorp.exec = iris_blorp_exec;
+   ice->blorp.xy_block_copy_blt = iris_xy_block_copy_blt;
 }
