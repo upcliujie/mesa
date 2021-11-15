@@ -259,6 +259,7 @@ a6xx_gen4 = dict(
         has_8bpp_ubwc = False,
         has_lpac = True,
         has_shading_rate = True,
+        fs_ballot = True,
         magic = dict(
             TPL1_DBG_ECO_CNTL = 0x5008000,
         ),

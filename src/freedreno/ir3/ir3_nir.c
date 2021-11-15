@@ -452,15 +452,17 @@ ir3_finalize_nir(struct ir3_compiler *compiler, nir_shader *s)
 }
 
 static bool
-lower_subgroup_id_filter(const nir_instr *instr, const void *unused)
+lower_subgroup_id_filter(const nir_instr *instr, const void *data)
 {
-   (void)unused;
+   const struct ir3_compiler *compiler = data;
 
    if (instr->type != nir_instr_type_intrinsic)
       return false;
 
    nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
-   return intr->intrinsic == nir_intrinsic_load_subgroup_invocation ||
+
+   return (!compiler->fs_ballot &&
+           intr->intrinsic == nir_intrinsic_load_subgroup_invocation) ||
           intr->intrinsic == nir_intrinsic_load_subgroup_id ||
           intr->intrinsic == nir_intrinsic_load_num_subgroups;
 }
@@ -497,10 +499,10 @@ lower_subgroup_id(nir_builder *b, nir_instr *instr, void *unused)
 }
 
 static bool
-ir3_nir_lower_subgroup_id_cs(nir_shader *shader)
+ir3_nir_lower_subgroup_id_cs(nir_shader *shader, struct ir3_compiler *compiler)
 {
    return nir_shader_lower_instructions(shader, lower_subgroup_id_filter,
-                                        lower_subgroup_id, NULL);
+                                        lower_subgroup_id, compiler);
 }
 
 /**
@@ -542,7 +544,7 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
                });
 
       progress = false;
-      NIR_PASS(progress, s, ir3_nir_lower_subgroup_id_cs);
+      NIR_PASS(progress, s, ir3_nir_lower_subgroup_id_cs, compiler);
 
       /* ir3_nir_lower_subgroup_id_cs creates extra compute intrinsics which
        * we need to lower again.
