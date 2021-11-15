@@ -186,7 +186,7 @@ dzn_cmd_buffer::get_batch(bool signal_event)
    if (batch.get()) {
       if (batch->signal.size() == 0 || signal_event)
          return batch.get();
- 
+
       /* Close the current batch if there are event signaling pending. */
       close_batch();
 
