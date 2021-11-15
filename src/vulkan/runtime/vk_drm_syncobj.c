@@ -39,14 +39,14 @@ to_drm_syncobj(struct vk_sync *sync)
 }
 
 static VkResult
-vk_drm_binary_syncobj_init(struct vk_device *device,
-                           struct vk_sync *sync,
-                           uint64_t initial_value)
+vk_drm_syncobj_init(struct vk_device *device,
+                    struct vk_sync *sync,
+                    uint64_t initial_value)
 {
    struct vk_drm_syncobj *sobj = to_drm_syncobj(sync);
 
    uint32_t flags = 0;
-   if (initial_value)
+   if (!(sync->flags & VK_SYNC_IS_TIMELINE) && initial_value)
       flags |= DRM_SYNCOBJ_CREATE_SIGNALED;
 
    assert(device->drm_fd >= 0);
@@ -54,6 +54,16 @@ vk_drm_binary_syncobj_init(struct vk_device *device,
    if (err < 0) {
       return vk_errorf(device, VK_ERROR_OUT_OF_HOST_MEMORY,
                        "DRM_IOCTL_SYNCOBJ_CREATE failed: %m");
+   }
+
+   if ((sync->flags & VK_SYNC_IS_TIMELINE) && initial_value) {
+      err = drmSyncobjTimelineSignal(device->drm_fd, &sobj->syncobj,
+                                     &initial_value, 1);
+      if (err < 0) {
+         vk_drm_syncobj_finish(device, sync);
+         return vk_errorf(device, VK_ERROR_OUT_OF_HOST_MEMORY,
+                          "DRM_IOCTL_SYNCOBJ_CREATE failed: %m");
+      }
    }
 
    return VK_SUCCESS;
@@ -68,33 +78,6 @@ vk_drm_syncobj_finish(struct vk_device *device,
    assert(device->drm_fd >= 0);
    ASSERTED int err = drmSyncobjDestroy(device->drm_fd, sobj->syncobj);
    assert(err == 0);
-}
-
-static VkResult
-vk_drm_timeline_syncobj_init(struct vk_device *device,
-                             struct vk_sync *sync,
-                             uint64_t initial_value)
-{
-   struct vk_drm_syncobj *sobj = to_drm_syncobj(sync);
-
-   assert(device->drm_fd >= 0);
-   int err = drmSyncobjCreate(device->drm_fd, 0, &sobj->syncobj);
-   if (err < 0) {
-      return vk_errorf(device, VK_ERROR_OUT_OF_HOST_MEMORY,
-                       "DRM_IOCTL_SYNCOBJ_CREATE failed: %m");
-   }
-
-   if (initial_value) {
-      err = drmSyncobjTimelineSignal(device->drm_fd, &sobj->syncobj,
-                                     &initial_value, 1);
-      if (err < 0) {
-         vk_drm_syncobj_finish(device, sync);
-         return vk_errorf(device, VK_ERROR_OUT_OF_HOST_MEMORY,
-                          "DRM_IOCTL_SYNCOBJ_CREATE failed: %m");
-      }
-   }
-
-   return VK_SUCCESS;
 }
 
 static VkResult
@@ -351,7 +334,7 @@ vk_drm_syncobj_get_type(int drm_fd)
                   VK_SYNC_FEATURE_GPU_WAIT |
                   VK_SYNC_FEATURE_CPU_RESET |
                   VK_SYNC_FEATURE_CPU_SIGNAL,
-      .init = vk_drm_binary_syncobj_init,
+      .init = vk_drm_syncobj_init,
       .finish = vk_drm_syncobj_finish,
       .signal = vk_drm_syncobj_signal,
       .reset = vk_drm_syncobj_reset,
@@ -384,58 +367,3 @@ vk_drm_syncobj_get_type(int drm_fd)
 
    return type;
 }
-
-const struct vk_sync_type vk_drm_binary_syncobj_no_wait_type = {
-   .size = sizeof(struct vk_drm_syncobj),
-   .features = VK_SYNC_FEATURE_BINARY |
-               VK_SYNC_FEATURE_GPU_WAIT |
-               VK_SYNC_FEATURE_CPU_RESET |
-               VK_SYNC_FEATURE_CPU_SIGNAL,
-   .init = vk_drm_binary_syncobj_init,
-   .finish = vk_drm_syncobj_finish,
-   .signal = vk_drm_syncobj_signal,
-   .reset = vk_drm_syncobj_reset,
-   .move = vk_drm_syncobj_move,
-   .import_opaque_fd = vk_drm_syncobj_import_opaque_fd,
-   .export_opaque_fd = vk_drm_syncobj_export_opaque_fd,
-   .import_sync_file = vk_drm_syncobj_import_sync_file,
-   .export_sync_file = vk_drm_syncobj_export_sync_file,
-};
-
-const struct vk_sync_type vk_drm_binary_syncobj_type = {
-   .size = sizeof(struct vk_drm_syncobj),
-   .features = VK_SYNC_FEATURE_BINARY |
-               VK_SYNC_FEATURE_GPU_WAIT |
-               VK_SYNC_FEATURE_CPU_WAIT |
-               VK_SYNC_FEATURE_CPU_RESET |
-               VK_SYNC_FEATURE_CPU_SIGNAL |
-               VK_SYNC_FEATURE_WAIT_ANY |
-               VK_SYNC_FEATURE_WAIT_PENDING,
-   .init = vk_drm_binary_syncobj_init,
-   .finish = vk_drm_syncobj_finish,
-   .signal = vk_drm_syncobj_signal,
-   .reset = vk_drm_syncobj_reset,
-   .move = vk_drm_syncobj_move,
-   .wait_many = vk_drm_syncobj_wait_many,
-   .import_opaque_fd = vk_drm_syncobj_import_opaque_fd,
-   .export_opaque_fd = vk_drm_syncobj_export_opaque_fd,
-   .import_sync_file = vk_drm_syncobj_import_sync_file,
-   .export_sync_file = vk_drm_syncobj_export_sync_file,
-};
-
-const struct vk_sync_type vk_drm_timeline_syncobj_type = {
-   .size = sizeof(struct vk_drm_syncobj),
-   .features = VK_SYNC_FEATURE_TIMELINE |
-               VK_SYNC_FEATURE_GPU_WAIT |
-               VK_SYNC_FEATURE_CPU_WAIT |
-               VK_SYNC_FEATURE_CPU_SIGNAL |
-               VK_SYNC_FEATURE_WAIT_ANY |
-               VK_SYNC_FEATURE_WAIT_PENDING,
-   .init = vk_drm_timeline_syncobj_init,
-   .finish = vk_drm_syncobj_finish,
-   .signal = vk_drm_syncobj_signal,
-   .get_value = vk_drm_syncobj_get_value,
-   .wait_many = vk_drm_syncobj_wait_many,
-   .import_opaque_fd = vk_drm_syncobj_import_opaque_fd,
-   .export_opaque_fd = vk_drm_syncobj_export_opaque_fd,
-};
