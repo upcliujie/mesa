@@ -1065,21 +1065,19 @@ dzn_cmd_buffer::next_subpass()
    begin_subpass();
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
-                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
-                        const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
+void
+dzn_cmd_buffer::begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                           const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_render_pass, pass, pRenderPassBeginInfo->renderPass);
    VK_FROM_HANDLE(dzn_framebuffer, framebuffer, pRenderPassBeginInfo->framebuffer);
 
    assert(pass->attachment_count == framebuffer->attachment_count);
 
-   cmd_buffer->state.framebuffer = framebuffer;
-   cmd_buffer->state.pass = pass;
-   cmd_buffer->state.subpass = 0;
-   cmd_buffer->begin_subpass();
+   state.framebuffer = framebuffer;
+   state.pass = pass;
+   state.subpass = 0;
+   begin_subpass();
 
    D3D12_RECT rect = {
       pRenderPassBeginInfo->renderArea.offset.x,
@@ -1094,9 +1092,29 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
          (pass->attachments[i].clear.color ? VK_IMAGE_ASPECT_COLOR_BIT : 0) |
          (pass->attachments[i].clear.depth ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) |
          (pass->attachments[i].clear.stencil ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
-      cmd_buffer->clear_attachment(i, &pRenderPassBeginInfo->pClearValues[i],
-                                   aspectMask, 1, &rect);
+      clear_attachment(i, &pRenderPassBeginInfo->pClearValues[i], aspectMask, 1, &rect);
    }
+}
+
+void
+dzn_cmd_buffer::end_pass(const VkSubpassEndInfoKHR *pSubpassEndInfo)
+{
+   for (uint32_t i = 0; i < state.pass->attachment_count; i++)
+      attachment_transition(state.pass->attachments[i]);
+
+   state.framebuffer = NULL;
+   state.pass = NULL;
+   state.subpass = 0;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
+                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                        const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->begin_pass(pRenderPassBeginInfo, pSubpassBeginInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1105,12 +1123,7 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   for (uint32_t i = 0; i < cmd_buffer->state.pass->attachment_count; i++)
-      cmd_buffer->attachment_transition(cmd_buffer->state.pass->attachments[i]);
-
-   cmd_buffer->state.framebuffer = NULL;
-   cmd_buffer->state.pass = NULL;
-   cmd_buffer->state.subpass = 0;
+   cmd_buffer->end_pass(pSubpassEndInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL

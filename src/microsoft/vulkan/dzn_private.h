@@ -496,9 +496,10 @@ struct dzn_cmd_buffer {
    void close_batch();
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
-   void attachment_transition(const dzn_attachment_ref &att);
-   void attachment_transition(const dzn_attachment &att);
-   void begin_subpass();
+
+   void begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                   const VkSubpassBeginInfoKHR *pSubpassBeginInfo);
+   void end_pass(const VkSubpassEndInfoKHR *pSubpassEndInfo);
    void next_subpass();
 
    void clear_attachment(uint32_t idx,
@@ -525,6 +526,9 @@ struct dzn_cmd_buffer {
                  uint32_t group_count_z);
 
 private:
+   void attachment_transition(const dzn_attachment_ref &att);
+   void attachment_transition(const dzn_attachment &att);
+   void begin_subpass();
    void update_pipeline(uint32_t bindpoint);
    void update_heaps(uint32_t bindpoint);
    void update_viewports();
