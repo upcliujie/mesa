@@ -588,7 +588,6 @@ split_var_list_arrays(nir_shader *shader,
          exec_node_remove(&var->node);
          exec_list_push_tail(&split_vars, &var->node);
       } else {
-         assert(split_type == glsl_get_bare_type(var->type));
          /* If we're not modifying this variable, delete the info so we skip
           * it faster in later passes.
           */
