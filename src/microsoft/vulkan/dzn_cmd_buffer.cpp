@@ -760,11 +760,12 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
 static void
 dzn_fill_image_copy_loc(const dzn_image *img,
                         const VkImageSubresourceLayers *subres,
+                        uint32_t layer,
                         D3D12_TEXTURE_COPY_LOCATION *loc)
 {
    loc->pResource = img->res.Get();
    if (img->desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
-      assert(subres->baseArrayLayer == 0);
+      assert((subres->baseArrayLayer + layer) == 0);
       assert(subres->mipLevel == 0);
       loc->Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
       loc->PlacedFootprint.Offset = 0;
@@ -779,7 +780,7 @@ dzn_fill_image_copy_loc(const dzn_image *img,
          dzn_get_subresource_index(&img->desc,
                                    subres->aspectMask,
                                    subres->mipLevel,
-                                   subres->baseArrayLayer);
+                                   subres->baseArrayLayer + layer);
    }
 }
 
@@ -810,8 +811,8 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
       for (uint32_t l = 0; l < src_subres.layerCount; l++) {
          D3D12_TEXTURE_COPY_LOCATION dst_loc = { 0 }, src_loc = { 0 };
 
-         dzn_fill_image_copy_loc(src, &src_subres, &src_loc);
-         dzn_fill_image_copy_loc(dst, &dst_subres, &dst_loc);
+         dzn_fill_image_copy_loc(src, &src_subres, l, &src_loc);
+         dzn_fill_image_copy_loc(dst, &dst_subres, l, &dst_loc);
 
          D3D12_BOX src_box = {
             .left = (UINT)MAX2(region->srcOffset.x, 0),
