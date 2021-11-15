@@ -229,10 +229,13 @@ void
 dzn_cmd_buffer::reset()
 {
    /* TODO: Return heaps to the command pool instead of freeing them */
-   struct d3d12_descriptor_pool *pool =
+   struct d3d12_descriptor_pool *new_rtv_pool =
       d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
+   struct d3d12_descriptor_pool *new_dsv_pool =
+      d3d12_descriptor_pool_new(device->dev.Get(), D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
 
-   rtv_pool.reset(pool);
+   rtv_pool.reset(new_rtv_pool);
+   dsv_pool.reset(new_dsv_pool);
 
    /* TODO: Return batches to the pool instead of freeing them. */
    batches.clear();
