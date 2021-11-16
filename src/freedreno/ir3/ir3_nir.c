@@ -529,7 +529,8 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
    }
 
    if ((s->info.stage == MESA_SHADER_COMPUTE) ||
-       (s->info.stage == MESA_SHADER_KERNEL)) {
+       (s->info.stage == MESA_SHADER_KERNEL) ||
+       compiler->has_getfiberid) {
       bool progress = false;
       NIR_PASS(progress, s, nir_lower_subgroups,
                &(nir_lower_subgroups_options){
@@ -541,8 +542,11 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
                   .lower_subgroup_masks = true,
                   .lower_read_invocation_to_cond = true,
                });
+   }
 
-      progress = false;
+   if ((s->info.stage == MESA_SHADER_COMPUTE) ||
+       (s->info.stage == MESA_SHADER_KERNEL)) {
+      bool progress = false;
       NIR_PASS(progress, s, ir3_nir_lower_subgroup_id_cs);
 
       /* ir3_nir_lower_subgroup_id_cs creates extra compute intrinsics which
