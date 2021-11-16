@@ -655,12 +655,11 @@ compile_vertex_list(struct gl_context *ctx)
                            PV_LAST, PV_LAST,
                            &pmode, &index_size, &new_count,
                            &trans_func);
-         if (new_count > 0) {
+         if (new_count > 0)
             trans_func(original_prims[i].start, new_count, tmp_indices);
-            vertex_count = new_count;
-            mode = (GLubyte)pmode;
-            converted_prim = true;
-         }
+         vertex_count = new_count;
+         mode = (GLubyte)pmode;
+         converted_prim = true;
       }
 
       /* If 2 consecutive prims use the same mode => merge them. */
