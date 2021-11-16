@@ -807,6 +807,7 @@ tu_get_physical_device_properties_1_1(struct tu_physical_device *pdevice,
                                     VK_SUBGROUP_FEATURE_VOTE_BIT |
                                     VK_SUBGROUP_FEATURE_BALLOT_BIT;
    if (pdevice->info->a6xx.has_getfiberid) {
+      p->subgroupSupportedOperations |= VK_SUBGROUP_FEATURE_QUAD_BIT;
       p->subgroupSupportedStages |= VK_SHADER_STAGE_FRAGMENT_BIT;
    }
 
