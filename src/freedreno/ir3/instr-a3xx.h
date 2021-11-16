@@ -685,4 +685,19 @@ is_cat3_float(opc_t opc)
    }
 }
 
+static inline bool
+is_subgroup_shuffle(opc_t opc)
+{
+   switch (opc) {
+   case OPC_BRCST_ACTIVE:
+   case OPC_QUAD_SHUFFLE_BRCST:
+   case OPC_QUAD_SHUFFLE_HORIZ:
+   case OPC_QUAD_SHUFFLE_VERT:
+   case OPC_QUAD_SHUFFLE_DIAG:
+      return true;
+   default:
+      return false;
+   }
+}
+
 #endif /* INSTR_A3XX_H_ */
