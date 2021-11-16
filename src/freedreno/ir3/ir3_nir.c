@@ -530,7 +530,8 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
    }
 
    if ((s->info.stage == MESA_SHADER_COMPUTE) ||
-       (s->info.stage == MESA_SHADER_KERNEL)) {
+       (s->info.stage == MESA_SHADER_KERNEL) ||
+       (s->info.stage == MESA_SHADER_FRAGMENT)) {
       bool progress = false;
       NIR_PASS(progress, s, nir_lower_subgroups,
                &(nir_lower_subgroups_options){
