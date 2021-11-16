@@ -548,6 +548,9 @@ fs_visitor::try_copy_propagate(fs_inst *inst, int arg, acp_entry *entry)
                         devinfo))
       return false;
 
+   if (has_dst_src_region_restriction(devinfo, inst, arg, entry->src))
+      return false;
+
    /* From the Cherry Trail/Braswell PRMs, Volume 7: 3D Media GPGPU:
     *    EU Overview
     *       Register Region Restrictions
