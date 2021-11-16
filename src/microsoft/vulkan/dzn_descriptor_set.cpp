@@ -103,19 +103,15 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
           (pCreateInfo->bindingCount ?
            (ordered_bindings[pCreateInfo->bindingCount - 1].binding + 1) : 0));
 
-   uint32_t sampler_range_idx[MAX_SHADER_VISIBILITIES] = {};
-   uint32_t view_range_idx[MAX_SHADER_VISIBILITIES] = {};
+   uint32_t range_idx[MAX_SHADER_VISIBILITIES][NUM_POOL_TYPES] = {};
    uint32_t static_sampler_idx = 0;
    uint32_t base_register = 0;
 
    for (uint32_t i = 0; i < binding_count; i++) {
       binfos[i].static_sampler_idx = ~0;
-      binfos[i].sampler_range_idx = ~0;
-      binfos[i].view_range_idx = ~0;
+      dzn_foreach_pool_type (type)
+         binfos[i].range_idx[type] = ~0;
    }
-
-   view_desc_count = 0;
-   sampler_desc_count = 0;
 
    for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
       VkDescriptorType desc_type = ordered_bindings[i].descriptorType;
@@ -147,40 +143,30 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          num_descs_for_type(desc_type, immutable_samplers);
       if (!num_descs) continue;
 
-      D3D12_DESCRIPTOR_RANGE1 *range;
-
       assert(visibility < ARRAY_SIZE(ranges));
 
-      if (has_sampler && !immutable_samplers) {
-         assert(sampler_range_idx[visibility] < ranges[visibility].sampler_count);
-         uint32_t range_idx = sampler_range_idx[visibility]++;
+      bool has_range[NUM_POOL_TYPES] = {};
+      has_range[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] =
+         has_sampler && !immutable_samplers;
+      has_range[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] =
+         desc_type != VK_DESCRIPTOR_TYPE_SAMPLER;
 
-         binfos[binding].sampler_range_idx = range_idx;
-         range = (D3D12_DESCRIPTOR_RANGE1 *)
-            &ranges[visibility].samplers[range_idx];
-         range->RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+      dzn_foreach_pool_type (type) {
+         if (!has_range[type]) continue;
+
+         uint32_t idx = range_idx[visibility][type]++;
+         assert(idx < range_count[visibility][type]);
+
+         binfos[binding].range_idx[type] = idx;
+         auto range = (D3D12_DESCRIPTOR_RANGE1 *) &ranges[visibility][type][idx];
+         range->RangeType = desc_type_to_range_type(ordered_bindings[i].descriptorType);
          range->NumDescriptors = ordered_bindings[i].descriptorCount;
          range->BaseShaderRegister = binfos[binding].base_shader_register;
-         range->Flags = D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
-         range->OffsetInDescriptorsFromTableStart = sampler_desc_count;
-         sampler_desc_count += range->NumDescriptors;
-      }
-
-      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
-         assert(view_range_idx[visibility] < ranges[visibility].view_count);
-         uint32_t range_idx = view_range_idx[visibility]++;
-
-         binfos[binding].view_range_idx = range_idx;
-         range = (D3D12_DESCRIPTOR_RANGE1 *)
-            &ranges[visibility].views[range_idx];
-         range->RangeType =
-            desc_type_to_range_type(ordered_bindings[i].descriptorType);
-         range->NumDescriptors = ordered_bindings[i].descriptorCount;
-         range->BaseShaderRegister = binfos[binding].base_shader_register;
-         range->Flags =
+         range->Flags = type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ?
+            D3D12_DESCRIPTOR_RANGE_FLAG_NONE :
             D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS;
-         range->OffsetInDescriptorsFromTableStart = view_desc_count;
-         view_desc_count += range->NumDescriptors;
+         range->OffsetInDescriptorsFromTableStart = range_desc_count[type];
+         range_desc_count[type] += range->NumDescriptors;
       }
    }
 
@@ -203,8 +189,7 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
 
    const VkDescriptorSetLayoutBinding *bindings = pCreateInfo->pBindings;
    uint32_t binding_count = 0, immutable_sampler_count = 0, total_ranges = 0;
-   uint32_t sampler_ranges[MAX_SHADER_VISIBILITIES] = {};
-   uint32_t view_ranges[MAX_SHADER_VISIBILITIES] = {};
+   uint32_t range_count[MAX_SHADER_VISIBILITIES][NUM_POOL_TYPES] = {};
 
    for (uint32_t i = 0; i < pCreateInfo->bindingCount; i++) {
       D3D12_SHADER_VISIBILITY visibility =
@@ -232,14 +217,15 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
       if (immutable_samplers) {
          immutable_sampler_count += bindings[i].descriptorCount;
       } else if (has_sampler) {
-         sampler_ranges[visibility]++;
+         range_count[visibility][D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER]++;
+         total_ranges++;
       }
 
       if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
-         view_ranges[visibility]++;
+         range_count[visibility][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]++;
+         total_ranges++;
       }
 
-      total_ranges += sampler_ranges[visibility] + view_ranges[visibility];
       binding_count = MAX2(binding_count, bindings[i].binding + 1);
    }
 
@@ -265,17 +251,13 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
    set_layout->bindings = binfos;
    set_layout->binding_count = binding_count;
 
-   for (uint32_t i = 0; i < ARRAY_SIZE(set_layout->ranges); i++) {
-      if (sampler_ranges[i]) {
-         set_layout->ranges[i].samplers = ranges;
-         set_layout->ranges[i].sampler_count = sampler_ranges[i];
-         ranges += sampler_ranges[i];
-      }
-
-      if (view_ranges[i]) {
-         set_layout->ranges[i].views = ranges;
-         set_layout->ranges[i].view_count = view_ranges[i];
-         ranges += view_ranges[i];
+   for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
+      dzn_foreach_pool_type (type) {
+         if (range_count[i][type]) {
+            set_layout->ranges[i][type] = ranges;
+            set_layout->range_count[i][type] = range_count[i][type];
+            ranges += range_count[i][type];
+         }
       }
    }
 
@@ -288,44 +270,31 @@ dzn_descriptor_set_layout::get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYP
    assert(b < binding_count);
    D3D12_SHADER_VISIBILITY visibility = bindings[b].visibility;
    assert(visibility < ARRAY_SIZE(ranges));
+   assert(type < NUM_POOL_TYPES);
 
-   if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
-      uint32_t view_range_idx = bindings[b].view_range_idx;
+   uint32_t range_idx = bindings[b].range_idx[type];
 
-      if (view_range_idx == ~0)
-         return ~0;
+   if (range_idx == ~0)
+      return ~0;
 
-      assert(view_range_idx < ranges[visibility].view_count);
-      return ranges[visibility].views[view_range_idx].OffsetInDescriptorsFromTableStart;
-   } else if (type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
-      uint32_t sampler_range_idx = bindings[b].sampler_range_idx;
-
-      if (sampler_range_idx == ~0)
-         return ~0;
-
-      assert(sampler_range_idx < ranges[visibility].sampler_count);
-      return ranges[visibility].samplers[sampler_range_idx].OffsetInDescriptorsFromTableStart;
-   } else {
-      unreachable("invalid heap type");
-   }
+   assert(range_idx < range_count[visibility][type]);
+   return ranges[visibility][type][range_idx].OffsetInDescriptorsFromTableStart;
 }
 
 uint32_t
 dzn_descriptor_set_layout::get_desc_count(uint32_t b) const
 {
    D3D12_SHADER_VISIBILITY visibility = bindings[b].visibility;
-   uint32_t view_range_idx = bindings[b].view_range_idx;
-   uint32_t sampler_range_idx = bindings[b].sampler_range_idx;
-
    assert(visibility < ARRAY_SIZE(ranges));
-   assert(view_range_idx == ~0 || view_range_idx < ranges[visibility].view_count);
-   assert(sampler_range_idx == ~0 || sampler_range_idx < ranges[visibility].sampler_count);
-   if (view_range_idx != ~0)
-      return ranges[visibility].views[view_range_idx].NumDescriptors;
-   else if (sampler_range_idx != ~0)
-      return ranges[visibility].samplers[sampler_range_idx].NumDescriptors;
-   else
-      return 0;
+
+   dzn_foreach_pool_type (type) {
+      uint32_t range_idx = bindings[b].range_idx[type];
+      assert(range_idx == ~0 || range_idx < range_count[visibility][type]);
+
+      if (range_idx != ~0)
+         return ranges[visibility][type][range_idx].NumDescriptors;
+   }
+   return 0;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -363,24 +332,22 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
 
    uint32_t range_count = 0, static_sampler_count = 0;
-   uint32_t view_desc_count = 0, sampler_desc_count = 0;
 
    root.param_count = 0;
+   dzn_foreach_pool_type (type)
+      desc_count[type] = 0;
 
    set_count = pCreateInfo->setLayoutCount;
    for (uint32_t j = 0; j < set_count; j++) {
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
 
       static_sampler_count += set_layout->static_sampler_count;
-      for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
-         range_count += set_layout->ranges[i].sampler_count +
-                        set_layout->ranges[i].view_count;
+      dzn_foreach_pool_type (type) {
+         sets[j].heap_offsets[type] = desc_count[type];
+         desc_count[type] += set_layout->range_desc_count[type];
+         for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++)
+            range_count += set_layout->range_count[i][type];
       }
-
-      sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
-      sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;
-      view_desc_count += set_layout->view_desc_count;
-      sampler_desc_count += set_layout->sampler_desc_count;
 
       sets[j].layout = set_layout;
    }
@@ -405,54 +372,31 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    uint32_t root_dwords = 0;
 
    for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
-      root_param = &root_params[root.param_count];
-      root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-      root_param->DescriptorTable.pDescriptorRanges = range_ptr;
-      root_param->DescriptorTable.NumDescriptorRanges = 0;
-      root_param->ShaderVisibility = (D3D12_SHADER_VISIBILITY)i;
+      dzn_foreach_pool_type (type) {
+         root_param = &root_params[root.param_count];
+         root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+         root_param->DescriptorTable.pDescriptorRanges = range_ptr;
+         root_param->DescriptorTable.NumDescriptorRanges = 0;
+         root_param->ShaderVisibility = (D3D12_SHADER_VISIBILITY)i;
 
-      for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
-         VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+         for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
+            VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+            uint32_t range_count = set_layout->range_count[i][type];
 
-         memcpy(range_ptr, set_layout->ranges[i].views,
-                set_layout->ranges[i].view_count * sizeof(D3D12_DESCRIPTOR_RANGE1));
-         for (uint32_t k = 0; k < set_layout->ranges[i].view_count; k++) {
-            range_ptr[k].RegisterSpace = j;
-            range_ptr[k].OffsetInDescriptorsFromTableStart +=
-               sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+            memcpy(range_ptr, set_layout->ranges[i][type],
+                   range_count * sizeof(D3D12_DESCRIPTOR_RANGE1));
+            for (uint32_t k = 0; k < range_count; k++) {
+               range_ptr[k].RegisterSpace = j;
+               range_ptr[k].OffsetInDescriptorsFromTableStart += sets[j].heap_offsets[type];
+            }
+            root_param->DescriptorTable.NumDescriptorRanges += range_count;
+            range_ptr += range_count;
          }
-         root_param->DescriptorTable.NumDescriptorRanges += set_layout->ranges[i].view_count;
-         range_ptr += set_layout->ranges[i].view_count;
-      }
 
-      if (root_param->DescriptorTable.NumDescriptorRanges) {
-         root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-         root_dwords++;
-      }
-
-      root_param = &root_params[root.param_count];
-      root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-      root_param->DescriptorTable.pDescriptorRanges = range_ptr;
-      root_param->DescriptorTable.NumDescriptorRanges = 0;
-      root_param->ShaderVisibility = (D3D12_SHADER_VISIBILITY)i;
-
-      for (uint32_t j = 0; j < pCreateInfo->setLayoutCount; j++) {
-         VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
-
-         memcpy(range_ptr, set_layout->ranges[i].samplers,
-                set_layout->ranges[i].sampler_count * sizeof(D3D12_DESCRIPTOR_RANGE1));
-         for (uint32_t k = 0; k < set_layout->ranges[i].sampler_count; k++) {
-            range_ptr[k].RegisterSpace = j;
-            range_ptr[k].OffsetInDescriptorsFromTableStart +=
-               sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
+         if (root_param->DescriptorTable.NumDescriptorRanges) {
+            root.type[root.param_count++] = (D3D12_DESCRIPTOR_HEAP_TYPE)type;
+            root_dwords++;
          }
-         root_param->DescriptorTable.NumDescriptorRanges += set_layout->ranges[i].sampler_count;
-         range_ptr += set_layout->ranges[i].sampler_count;
-      }
-
-      if (root_param->DescriptorTable.NumDescriptorRanges) {
-         root.type[root.param_count++] = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-         root_dwords++;
       }
    }
 
@@ -522,9 +466,6 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    root.sig = device->create_root_sig(root_sig_desc);
    if (!root.sig.Get())
       throw vk_error(device, VK_ERROR_UNKNOWN);
-
-   desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
-   desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = sampler_desc_count;
 
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
 }
@@ -781,18 +722,12 @@ dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
 {
    layout = dzn_descriptor_set_layout_from_handle(l);
 
-   if (layout->view_desc_count) {
-      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] =
-         dzn_descriptor_heap(device,
-                             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-                             layout->view_desc_count, false);
-   }
+   dzn_foreach_pool_type (type) {
+      if (layout->range_desc_count[type] == 0)
+         continue;
 
-   if (layout->sampler_desc_count) {
-      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] =
-         dzn_descriptor_heap(device,
-                             D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-                             layout->sampler_desc_count, false);
+      heaps[type] =
+         dzn_descriptor_heap(device, type, layout->range_desc_count[type], false);
    }
 
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_SET);

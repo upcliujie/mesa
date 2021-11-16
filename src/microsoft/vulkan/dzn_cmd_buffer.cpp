@@ -1390,9 +1390,7 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          const struct dzn_descriptor_set *set = desc_state->sets[s].set;
          if (!set) continue;
 
-         uint32_t set_desc_count =
-            type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ?
-            set->layout->view_desc_count : set->layout->sampler_desc_count;
+         uint32_t set_desc_count = set->layout->range_desc_count[type];
          if (!set_desc_count) continue;
 
          dst_heap.copy(dst_offset, set->heaps[type], 0, set_desc_count);

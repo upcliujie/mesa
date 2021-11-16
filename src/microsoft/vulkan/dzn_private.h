@@ -681,22 +681,17 @@ struct dzn_descriptor_pool {
 struct dzn_descriptor_set_layout_binding {
    D3D12_SHADER_VISIBILITY visibility;
    uint32_t base_shader_register;
-   uint32_t view_range_idx;
-   uint32_t sampler_range_idx;
+   uint32_t range_idx[NUM_POOL_TYPES];
    uint32_t static_sampler_idx;
 };
 
 struct dzn_descriptor_set_layout {
    struct vk_object_base base;
-   struct {
-      uint32_t view_count;
-      const D3D12_DESCRIPTOR_RANGE1 *views;
-      uint32_t sampler_count;
-      const D3D12_DESCRIPTOR_RANGE1 *samplers;
-   } ranges[MAX_SHADER_VISIBILITIES];
+   uint32_t range_count[MAX_SHADER_VISIBILITIES][NUM_POOL_TYPES];
+   const D3D12_DESCRIPTOR_RANGE1 *ranges[MAX_SHADER_VISIBILITIES][NUM_POOL_TYPES];
+   uint32_t range_desc_count[NUM_POOL_TYPES];
    uint32_t static_sampler_count;
    const D3D12_STATIC_SAMPLER_DESC *static_samplers;
-   uint32_t view_desc_count, sampler_desc_count;
    uint32_t binding_count;
    const struct dzn_descriptor_set_layout_binding *bindings;
 
