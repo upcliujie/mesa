@@ -806,6 +806,10 @@ tu_get_physical_device_properties_1_1(struct tu_physical_device *pdevice,
    p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT |
                                     VK_SUBGROUP_FEATURE_VOTE_BIT |
                                     VK_SUBGROUP_FEATURE_BALLOT_BIT;
+   if (pdevice->info->a6xx.fs_ballot) {
+      p->subgroupSupportedStages |= VK_SHADER_STAGE_FRAGMENT_BIT;
+   }
+
    p->subgroupQuadOperationsInAllStages = false;
 
    p->pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES;
