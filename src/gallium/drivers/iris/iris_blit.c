@@ -540,6 +540,7 @@ iris_blit(struct pipe_context *ctx, const struct pipe_blit_info *info)
 
 static void
 get_copy_region_aux_settings(struct iris_context *ice,
+                             const struct iris_batch *batch,
                              struct iris_resource *res,
                              unsigned level,
                              enum isl_aux_usage *out_aux_usage,
@@ -591,11 +592,15 @@ get_copy_region_aux_settings(struct iris_context *ice,
        *   blorp_copy isn't guaranteed to access the same components as the
        *   original format (e.g. A8_UNORM/R8_UINT).
        */
-      *out_clear_supported = (devinfo->ver >= 11 && !is_dest) ||
-                             (res->aux.clear_color.u32[0] == 0 &&
-                              res->aux.clear_color.u32[1] == 0 &&
-                              res->aux.clear_color.u32[2] == 0 &&
-                              res->aux.clear_color.u32[3] == 0);
+      bool is_zero = res->aux.clear_color.u32[0] == 0 &&
+                     res->aux.clear_color.u32[1] == 0 &&
+                     res->aux.clear_color.u32[2] == 0 &&
+                     res->aux.clear_color.u32[3] == 0;
+
+      if (batch->name == IRIS_BATCH_BLITTER)
+         *out_clear_supported = is_zero;
+      else
+         *out_clear_supported = is_zero || (devinfo->ver >= 11 && !is_dest);
       break;
    default:
       *out_aux_usage = ISL_AUX_USAGE_NONE;
@@ -628,12 +633,16 @@ iris_copy_region(struct blorp_context *blorp,
    struct iris_resource *src_res = (void *) src;
    struct iris_resource *dst_res = (void *) dst;
 
+   enum iris_domain write_domain =
+      batch->name == IRIS_BATCH_BLITTER ? IRIS_DOMAIN_OTHER_WRITE
+                                        : IRIS_DOMAIN_RENDER_WRITE;
+
    enum isl_aux_usage src_aux_usage, dst_aux_usage;
    bool src_clear_supported, dst_clear_supported;
-   get_copy_region_aux_settings(ice, src_res, src_level, &src_aux_usage,
-                                &src_clear_supported, false);
-   get_copy_region_aux_settings(ice, dst_res, dst_level, &dst_aux_usage,
-                                &dst_clear_supported, true);
+   get_copy_region_aux_settings(ice, batch, src_res, src_level,
+                                &src_aux_usage, &src_clear_supported, false);
+   get_copy_region_aux_settings(ice, batch, dst_res, dst_level,
+                                &dst_aux_usage, &dst_clear_supported, true);
 
    if (iris_batch_references(batch, src_res->bo))
       tex_cache_flush_hack(batch, ISL_FORMAT_UNSUPPORTED, src_res->surf.format);
@@ -663,7 +672,7 @@ iris_copy_region(struct blorp_context *blorp,
       iris_emit_buffer_barrier_for(batch, iris_resource_bo(src),
                                    IRIS_DOMAIN_OTHER_READ);
       iris_emit_buffer_barrier_for(batch, iris_resource_bo(dst),
-                                   IRIS_DOMAIN_RENDER_WRITE);
+                                   write_domain);
 
       iris_batch_maybe_flush(batch, 1500);
 
@@ -689,7 +698,7 @@ iris_copy_region(struct blorp_context *blorp,
       iris_emit_buffer_barrier_for(batch, iris_resource_bo(src),
                                    IRIS_DOMAIN_OTHER_READ);
       iris_emit_buffer_barrier_for(batch, iris_resource_bo(dst),
-                                   IRIS_DOMAIN_RENDER_WRITE);
+                                   write_domain);
 
       for (int slice = 0; slice < src_box->depth; slice++) {
          iris_batch_maybe_flush(batch, 1500);
@@ -711,6 +720,39 @@ iris_copy_region(struct blorp_context *blorp,
    tex_cache_flush_hack(batch, ISL_FORMAT_UNSUPPORTED, src_res->surf.format);
 }
 
+struct iris_batch *
+iris_select_copy_method(struct iris_context *ice,
+                        const struct iris_resource *src_res,
+                        const struct iris_resource *dst_res)
+{
+   struct iris_batch *render  = &ice->batches[IRIS_BATCH_RENDER];
+   struct iris_batch *blitter = &ice->batches[IRIS_BATCH_BLITTER];
+
+   /* Note that the actual aux usage for this operation is a subset of
+    * res->aux.usage, so if we can support that, it should be enough.
+    */
+   if (blorp_copy_supports_blitter(&ice->blorp, &src_res->surf, &dst_res->surf,
+                                   src_res->aux.usage, dst_res->aux.usage)) {
+      /* Prefer the blitter for exported buffers, as we'd like to do any
+       * window system copies asynchronously if possible.
+       */
+      if (iris_bo_is_exported(dst_res->bo))
+         return blitter;
+
+      /* If the render batch references our destination, or reads our
+       * source, then any copy engine blits would be serialized with the
+       * rendering anyway, so we may as well do it on the render engine.
+       *
+       * Otherwise, the blitter may be able to do an asynchronous copy.
+       */
+      if (!iris_batch_writes(render, src_res->bo) &&
+          !iris_batch_references(render, dst_res->bo))
+         return blitter;
+   }
+
+   return render;
+}
+
 /**
  * The pipe->resource_copy_region() driver hook.
  *
@@ -727,7 +769,9 @@ iris_resource_copy_region(struct pipe_context *ctx,
                           const struct pipe_box *src_box)
 {
    struct iris_context *ice = (void *) ctx;
-   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+   struct iris_resource *dst_res = (void *) p_dst;
+   struct iris_resource *src_res = (void *) p_src;
+   struct iris_batch *batch = iris_select_copy_method(ice, src_res, dst_res);
 
    iris_copy_region(&ice->blorp, batch, p_dst, dst_level, dstx, dsty, dstz,
                     p_src, src_level, src_box);
