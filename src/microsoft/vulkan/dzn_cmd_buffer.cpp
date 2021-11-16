@@ -1377,8 +1377,7 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
    if (!(state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_HEAPS))
       goto set_heaps;
 
-   for (uint32_t type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-        type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; type++) {
+   dzn_foreach_pool_type (type) {
       uint32_t desc_count = state.pipeline->layout->desc_count[type];
       if (!desc_count)
          continue;

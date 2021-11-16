@@ -405,6 +405,10 @@ enum dzn_cmd_dirty {
 #define NUM_BIND_POINT VK_PIPELINE_BIND_POINT_COMPUTE + 1
 #define NUM_POOL_TYPES D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1
 
+#define dzn_foreach_pool_type(type) \
+   for (uint32_t type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; \
+        type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; type++)
+
 struct dzn_cmd_event_signal {
    struct dzn_event *event;
    bool value;
