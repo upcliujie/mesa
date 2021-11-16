@@ -285,6 +285,8 @@ legalize_block(struct ir3_legalize_ctx *ctx, struct ir3_block *block)
          }
       } else if (n->opc == OPC_GETFIBERID) {
          regmask_set(&state->needs_ss, n->dsts[0]);
+      } else if (is_subgroup_shuffle(n->opc)) {
+         regmask_set(&state->needs_sy, n->dsts[0]);
       }
 
       if (is_ssbo(n->opc) || (is_atomic(n->opc) && (n->flags & IR3_INSTR_G)))

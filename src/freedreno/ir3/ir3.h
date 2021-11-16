@@ -878,7 +878,7 @@ is_sfu(struct ir3_instruction *instr)
 static inline bool
 is_tex(struct ir3_instruction *instr)
 {
-   return (opc_cat(instr->opc) == 5);
+   return (opc_cat(instr->opc) == 5) && !is_subgroup_shuffle(instr->opc);
 }
 
 static inline bool
@@ -2183,6 +2183,10 @@ INSTR2(ATOMIC_AND)
 INSTR2(ATOMIC_OR)
 INSTR2(ATOMIC_XOR)
 INSTR2(LDC)
+INSTR2(QUAD_SHUFFLE_BRCST)
+INSTR1(QUAD_SHUFFLE_HORIZ)
+INSTR1(QUAD_SHUFFLE_VERT)
+INSTR1(QUAD_SHUFFLE_DIAG)
 #if GPU >= 600
 INSTR3NODST(STIB);
 INSTR2(LDIB);
