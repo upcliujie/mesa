@@ -389,7 +389,11 @@ vk_common_ImportSemaphoreFdKHR(VkDevice _device,
        *    from which handle or name was exported must not be
        *    VK_SEMAPHORE_TYPE_TIMELINE"
        */
-      assert(semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+      if (unlikely(semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE)) {
+         return vk_errorf(device, VK_ERROR_UNKNOWN,
+                          "Cannot temporarily import into a timeline "
+                          "semaphore");
+      }
 
       const struct vk_sync_type *sync_type =
          get_semaphore_sync_type(device->physical, semaphore->type, handle_type);
@@ -480,7 +484,10 @@ vk_common_GetSemaphoreFdKHR(VkDevice _device,
        *    transference semantics, semaphore must have been created with a
        *    VkSemaphoreType of VK_SEMAPHORE_TYPE_BINARY."
        */
-      assert(semaphore->type == VK_SEMAPHORE_TYPE_BINARY);
+      if (unlikely(semaphore->type != VK_SEMAPHORE_TYPE_BINARY)) {
+         return vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
+                          "Cannot export a timeline semaphore as SYNC_FD");
+      }
 
       result = vk_sync_export_sync_file(device, sync, pFd);
       if (unlikely(result != VK_SUCCESS))
