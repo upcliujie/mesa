@@ -621,51 +621,86 @@ dzn_DestroyDescriptorPool(VkDevice device,
                                                pAllocator);
 }
 
+dzn_descriptor_heap::dzn_descriptor_heap(dzn_device *device,
+                                         uint32_t heap_type,
+                                         uint32_t desc_count,
+                                         bool shader_visible)
+   : device(device)
+   , desc_count(desc_count)
+{
+   D3D12_DESCRIPTOR_HEAP_DESC desc = {
+      .Type = (D3D12_DESCRIPTOR_HEAP_TYPE)heap_type,
+      .NumDescriptors = desc_count,
+      .Flags = shader_visible ? D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE
+                              : D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+   };
+
+   HRESULT ret;
+   ret = device->dev->CreateDescriptorHeap(&desc,
+                                           IID_PPV_ARGS(&heap));
+   assert(!FAILED(ret));
+
+   type = desc.Type;
+   desc_sz = device->dev->GetDescriptorHandleIncrementSize(desc.Type);
+   cpu_base = heap->GetCPUDescriptorHandleForHeapStart().ptr;
+}
+
+const VkAllocationCallbacks *
+dzn_descriptor_heap::get_vk_allocator()
+{
+   return &device->vk.alloc;
+}
+
+dzn_descriptor_heap::operator ID3D12DescriptorHeap *()
+{
+   return heap.Get();
+}
+
+SIZE_T
+dzn_descriptor_heap::get_cpu_ptr(uint32_t desc_offset) const
+{
+   assert(desc_offset < desc_count);
+   return cpu_base + (desc_offset * desc_sz);
+}
+
+void
+dzn_descriptor_heap::copy(uint32_t dst_offset,
+                          const dzn_descriptor_heap &src_heap,
+                          uint32_t src_offset,
+                          uint32_t desc_count)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = {
+      .ptr = get_cpu_ptr(dst_offset),
+   };
+   D3D12_CPU_DESCRIPTOR_HANDLE src_handle = {
+      .ptr = src_heap.get_cpu_ptr(src_offset),
+   };
+
+   device->dev->CopyDescriptorsSimple(desc_count,
+                                      dst_handle,
+                                      src_handle,
+                                      type);
+}
+
 dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
                                        dzn_descriptor_pool *pool,
                                        VkDescriptorSetLayout l,
                                        const VkAllocationCallbacks *pAllocator)
 {
-   assert(bindings);
    layout = dzn_descriptor_set_layout_from_handle(l);
 
-   uint32_t view_desc_sz =
-      device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-   uint32_t sampler_desc_sz =
-      device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
-
-   SIZE_T view_desc_base = 0, sampler_desc_base = 0;
-
    if (layout->view_desc_count) {
-      D3D12_DESCRIPTOR_HEAP_DESC desc = {
-         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
-         .NumDescriptors = layout->view_desc_count,
-         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-      };
-
-      HRESULT ret;
-      ComPtr<ID3D12DescriptorHeap> heap;
-      ret = device->dev->CreateDescriptorHeap(&desc,
-                                              IID_PPV_ARGS(&heap));
-      assert(!FAILED(ret));
-      view_desc_base = heap->GetCPUDescriptorHandleForHeapStart().ptr;
-      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
+      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] =
+         dzn_descriptor_heap(device,
+                             D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                             layout->view_desc_count, false);
    }
 
    if (layout->sampler_desc_count) {
-      D3D12_DESCRIPTOR_HEAP_DESC desc = {
-         .Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
-         .NumDescriptors = layout->sampler_desc_count,
-         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
-      };
-
-      HRESULT ret;
-      ComPtr<ID3D12DescriptorHeap> heap;
-      ret = device->dev->CreateDescriptorHeap(&desc,
-                                              IID_PPV_ARGS(&heap));
-      assert(!FAILED(ret));
-      sampler_desc_base = heap->GetCPUDescriptorHandleForHeapStart().ptr;
-      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] = heap;
+      heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] =
+         dzn_descriptor_heap(device,
+                             D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+                             layout->sampler_desc_count, false);
    }
 
    for (uint32_t i = 0; i < layout->binding_count; i++) {
@@ -682,17 +717,17 @@ dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
       if (view_range_idx != ~0) {
 	 const D3D12_DESCRIPTOR_RANGE1 *range =
             &layout->ranges[visibility].views[view_range_idx];
+         auto &heap = heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
 
-         b->views.ptr =
-            view_desc_base + (range->OffsetInDescriptorsFromTableStart * view_desc_sz);
+         b->views.ptr = heap.get_cpu_ptr(range->OffsetInDescriptorsFromTableStart);
       }
 
       if (sampler_range_idx != ~0) {
 	 const D3D12_DESCRIPTOR_RANGE1 *range =
             &layout->ranges[visibility].samplers[sampler_range_idx];
+         auto &heap = heaps[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
 
-         b->samplers.ptr =
-            sampler_desc_base + (range->OffsetInDescriptorsFromTableStart * sampler_desc_sz);
+         b->samplers.ptr = heap.get_cpu_ptr(range->OffsetInDescriptorsFromTableStart);
       }
    }
 

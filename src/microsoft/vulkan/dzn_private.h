@@ -453,6 +453,33 @@ struct dzn_descriptor_state {
    ID3D12DescriptorHeap *heaps[NUM_POOL_TYPES];
 };
 
+struct dzn_descriptor_heap {
+   dzn_descriptor_heap(struct dzn_device *device,
+                       uint32_t type,
+                       uint32_t desc_count,
+                       bool shader_visible);
+   dzn_descriptor_heap() = default;
+   dzn_descriptor_heap(const dzn_descriptor_heap &) = default;
+   ~dzn_descriptor_heap() = default;
+
+   operator ID3D12DescriptorHeap *();
+
+   const VkAllocationCallbacks *get_vk_allocator();
+   SIZE_T get_cpu_ptr(uint32_t desc_offset = 0) const;
+   void copy(uint32_t dst_offset,
+             const dzn_descriptor_heap &src_heap,
+             uint32_t src_offset,
+             uint32_t desc_count);
+
+private:
+   dzn_device *device = NULL;
+   ComPtr<ID3D12DescriptorHeap> heap;
+   D3D12_DESCRIPTOR_HEAP_TYPE type = (D3D12_DESCRIPTOR_HEAP_TYPE)0;
+   SIZE_T cpu_base = 0;
+   uint32_t desc_count = 0;
+   uint32_t desc_sz = 0;
+};
+
 struct dzn_cmd_buffer {
    struct vk_command_buffer vk;
 
@@ -498,8 +525,8 @@ struct dzn_cmd_buffer {
       } sysvals;
    } state = {};
 
-   using heaps_allocator = dzn_allocator<ComPtr<ID3D12DescriptorHeap>>;
-   std::vector<ComPtr<ID3D12DescriptorHeap>, heaps_allocator> heaps;
+   using heaps_allocator = dzn_allocator<dzn_descriptor_heap>;
+   std::vector<dzn_descriptor_heap, heaps_allocator> heaps;
 
    VkCommandBufferUsageFlags usage_flags;
    VkCommandBufferLevel level;
@@ -653,7 +680,7 @@ struct dzn_descriptor_set_binding {
 
 struct dzn_descriptor_set {
    struct vk_object_base base;
-   ComPtr<ID3D12DescriptorHeap> heaps[NUM_POOL_TYPES];
+   dzn_descriptor_heap heaps[NUM_POOL_TYPES];
    const struct dzn_descriptor_set_layout *layout;
    const struct dzn_descriptor_set_binding *bindings;
 

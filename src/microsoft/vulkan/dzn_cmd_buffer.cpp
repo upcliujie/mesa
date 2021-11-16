@@ -1372,10 +1372,6 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
    struct dzn_descriptor_state *desc_state = &state.bindpoint[bindpoint].desc_state;
    ID3D12DescriptorHeap **new_heaps = desc_state->heaps;
    const struct dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
-   uint32_t view_desc_sz =
-      device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-   uint32_t sampler_desc_sz =
-      device->dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
    dzn_batch *batch = get_batch();
 
    if (!(state.bindpoint[bindpoint].dirty & DZN_CMD_BINDPOINT_DIRTY_HEAPS))
@@ -1387,23 +1383,9 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
       if (!desc_count)
          continue;
 
-      D3D12_DESCRIPTOR_HEAP_DESC desc = {
-         .Type = (D3D12_DESCRIPTOR_HEAP_TYPE)type,
-         .NumDescriptors = desc_count,
-         .Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
-      };
-
-      ComPtr<ID3D12DescriptorHeap> new_heap;
-      HRESULT ret =
-         device->dev->CreateDescriptorHeap(&desc,
-                                           IID_PPV_ARGS(&new_heap));
-      assert(!FAILED(ret));
-      heaps.push_back(new_heap);
-      new_heaps[type] = new_heap.Get();
-
-      D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = {
-         .ptr = new_heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
-      };
+      uint32_t dst_offset = 0;
+      auto dst_heap =
+         dzn_descriptor_heap(device, type, desc_count, true);
 
       for (uint32_t s = 0; s < MAX_SETS; s++) {
          const struct dzn_descriptor_set *set = desc_state->sets[s].set;
@@ -1412,22 +1394,14 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          uint32_t set_desc_count =
             type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ?
             set->layout->view_desc_count : set->layout->sampler_desc_count;
-         uint32_t desc_sz =
-            type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ?
-            view_desc_sz : sampler_desc_sz;
-
          if (!set_desc_count) continue;
 
-         D3D12_CPU_DESCRIPTOR_HANDLE src_handle = {
-            .ptr = set->heaps[type]->GetCPUDescriptorHandleForHeapStart().ptr,
-         };
-
-         device->dev->CopyDescriptorsSimple(set_desc_count,
-                                            dst_handle,
-                                            src_handle,
-                                            desc.Type);
-         dst_handle.ptr += (desc_sz * set_desc_count);
+         dst_heap.copy(dst_offset, set->heaps[type], 0, set_desc_count);
+         dst_offset += set_desc_count;
       }
+
+      new_heaps[type] = dst_heap;
+      heaps.push_back(dst_heap);
    }
 
 set_heaps:
