@@ -141,6 +141,9 @@ if [ "$GALLIUM_DRIVER" = "virpipe" ]; then
     sleep 1
 fi
 
+apt-get update
+apt-get install -y strace
+
 if [ -z "$DEQP_SUITE" ]; then
     if [ -n "$DEQP_EXPECTED_RENDERER" ]; then
         export DEQP_RUNNER_OPTIONS="$DEQP_RUNNER_OPTIONS --renderer-check "$DEQP_EXPECTED_RENDERER""
