@@ -404,6 +404,13 @@ iris_bo_is_exported(const struct iris_bo *bo)
    return bo->real.exported;
 }
 
+static inline bool
+iris_bo_is_local(const struct iris_bo *bo)
+{
+   bo = iris_get_backing_bo((struct iris_bo *) bo);
+   return bo->real.local;
+}
+
 static inline enum iris_mmap_mode
 iris_bo_mmap_mode(const struct iris_bo *bo)
 {

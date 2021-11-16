@@ -247,6 +247,7 @@ iris_blorp_surf_for_resource(struct isl_device *isl_dev,
          .mocs = iris_mocs(res->bo, isl_dev,
                            is_dest ? ISL_SURF_USAGE_RENDER_TARGET_BIT
                                    : ISL_SURF_USAGE_TEXTURE_BIT),
+         .local = iris_bo_is_local(res->bo),
       },
       .aux_usage = aux_usage,
    };
@@ -258,6 +259,7 @@ iris_blorp_surf_for_resource(struct isl_device *isl_dev,
          .offset = res->aux.offset,
          .reloc_flags = is_dest ? EXEC_OBJECT_WRITE : 0,
          .mocs = iris_mocs(res->bo, isl_dev, 0),
+         .local = true,
       };
       surf->clear_color = res->aux.clear_color;
       surf->clear_color_addr = (struct blorp_address) {
@@ -265,6 +267,7 @@ iris_blorp_surf_for_resource(struct isl_device *isl_dev,
          .offset = res->aux.clear_color_offset,
          .reloc_flags = 0,
          .mocs = iris_mocs(res->aux.clear_color_bo, isl_dev, 0),
+         .local = true,
       };
    }
 }
@@ -643,12 +646,14 @@ iris_copy_region(struct blorp_context *blorp,
          .buffer = iris_resource_bo(src), .offset = src_box->x,
          .mocs = iris_mocs(src_res->bo, &screen->isl_dev,
                            ISL_SURF_USAGE_RENDER_TARGET_BIT),
+         .local = iris_bo_is_local(src_res->bo),
       };
       struct blorp_address dst_addr = {
-         .buffer = iris_resource_bo(dst), .offset = dstx,
+         .buffer = dst_res->bo, .offset = dstx,
          .reloc_flags = EXEC_OBJECT_WRITE,
          .mocs = iris_mocs(dst_res->bo, &screen->isl_dev,
                            ISL_SURF_USAGE_TEXTURE_BIT),
+         .local = iris_bo_is_local(dst_res->bo),
       };
 
       iris_emit_buffer_barrier_for(batch, iris_resource_bo(src),

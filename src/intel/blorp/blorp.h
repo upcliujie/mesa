@@ -106,6 +106,7 @@ struct blorp_address {
    uint64_t offset;
    unsigned reloc_flags;
    uint32_t mocs;
+   bool local; /**< Is this buffer stored in device local memory? */
 };
 
 struct blorp_surf
