@@ -2331,8 +2331,17 @@ iris_transfer_map(struct pipe_context *ctx,
       /* If we need a synchronous mapping and the resource is busy, or needs
        * resolving, we copy to/from a linear temporary buffer using the GPU.
        */
-      map->batch = &ice->batches[IRIS_BATCH_RENDER];
       map->blorp = &ice->blorp;
+
+      /* We fudge the details a bit when selecting a copy method - we might
+       * copy data both ways between the staging buffer and actual resource.
+       * We pass the mapped resource as both the source and destination here,
+       * assuming that the staging buffer will also work in either place.
+       * This should be fine as it's linear and uncompressed, which has fewer
+       * restrictions than the actual resource.
+       */
+      map->batch = iris_select_copy_method(ice, res, res);
+
       iris_map_copy_region(map);
    } else {
       /* Otherwise we're free to map on the CPU. */
