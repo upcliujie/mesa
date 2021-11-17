@@ -349,6 +349,22 @@ ir3_tess_mode(unsigned gl_tess_mode)
    }
 }
 
+static inline uint32_t
+ir3_tess_factor_stride(unsigned patch_type)
+{
+   /* note: this matches the stride used by ir3's build_tessfactor_base */
+   switch (patch_type) {
+   case IR3_TESS_ISOLINES:
+      return 12;
+   case IR3_TESS_TRIANGLES:
+      return 20;
+   case IR3_TESS_QUADS:
+      return 28;
+   default:
+      unreachable("bad tessmode");
+   }
+}
+
 static inline bool
 ir3_shader_key_equal(const struct ir3_shader_key *a,
                      const struct ir3_shader_key *b)
