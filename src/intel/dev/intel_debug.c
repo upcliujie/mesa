@@ -92,6 +92,7 @@ static const struct debug_control debug_control[] = {
    { "rt",          DEBUG_RT },
    { "task",        DEBUG_TASK },
    { "mesh",        DEBUG_MESH },
+   { "c-cs",        DEBUG_COMPUTE_CS },
    { NULL,    0 }
 };
 

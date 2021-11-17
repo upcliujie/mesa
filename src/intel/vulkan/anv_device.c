@@ -683,9 +683,10 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
                                  I915_ENGINE_CLASS_RENDER);
       int g_count = 0;
       enum drm_i915_gem_engine_class compute_class = I915_ENGINE_CLASS_COMPUTE;
-      int c_count =
-         intel_gem_count_engines(pdevice->engine_info, compute_class);
-      c_count = 0; /* Disable for now. We will enable with INTEL_DEBUG. */
+      int c_count = 0;
+      /* Only enable compute command-streamer if INTEL_DEBUG=c-cs is set. */
+      if (INTEL_DEBUG(DEBUG_COMPUTE_CS))
+         c_count = intel_gem_count_engines(pdevice->engine_info, compute_class);
       if (c_count < 1)
          compute_class = I915_ENGINE_CLASS_RENDER;
 
