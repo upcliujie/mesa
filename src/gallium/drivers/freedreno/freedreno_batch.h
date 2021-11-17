@@ -256,17 +256,8 @@ struct fd_batch {
    /** set of dependent batches.. holds refs to dependent batches: */
    uint32_t dependents_mask;
 
-   /* Buffer for tessellation engine input
-    */
-   struct fd_bo *tessfactor_bo;
-   uint32_t tessfactor_size;
-
-   /* Buffer for passing parameters between TCS and TES
-    */
-   struct fd_bo *tessparam_bo;
-   uint32_t tessparam_size;
-
-   struct fd_ringbuffer *tess_addrs_constobj;
+   /* Whether we've emitted REG_A6XX_PC_TESSFACTOR_ADDR yet. */
+   bool tessfactor_addr_set;
 };
 
 struct fd_batch *fd_batch_create(struct fd_context *ctx, bool nondraw);
