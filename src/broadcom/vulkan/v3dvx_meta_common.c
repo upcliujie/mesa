@@ -25,6 +25,7 @@
 #include "v3dv_meta_common.h"
 
 #include "broadcom/common/v3d_macros.h"
+#include "broadcom/common/v3d_tfu.h"
 #include "broadcom/cle/v3dx_pack.h"
 #include "broadcom/compiler/v3d_compiler.h"
 

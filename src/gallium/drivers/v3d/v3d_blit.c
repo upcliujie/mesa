@@ -27,6 +27,7 @@
 #include "compiler/nir/nir_builder.h"
 #include "v3d_context.h"
 #include "broadcom/common/v3d_tiling.h"
+#include "broadcom/common/v3d_tfu.h"
 
 void
 v3d_blitter_save(struct v3d_context *v3d)
@@ -189,30 +190,6 @@ v3d_stencil_blit(struct pipe_context *ctx, struct pipe_blit_info *info)
 
         info->mask &= ~PIPE_MASK_S;
 }
-
-/* Disable level 0 write, just write following mipmaps */
-#define V3D_TFU_IOA_DIMTW (1 << 0)
-#define V3D_TFU_IOA_FORMAT_SHIFT 3
-#define V3D_TFU_IOA_FORMAT_LINEARTILE 3
-#define V3D_TFU_IOA_FORMAT_UBLINEAR_1_COLUMN 4
-#define V3D_TFU_IOA_FORMAT_UBLINEAR_2_COLUMN 5
-#define V3D_TFU_IOA_FORMAT_UIF_NO_XOR 6
-#define V3D_TFU_IOA_FORMAT_UIF_XOR 7
-
-#define V3D_TFU_ICFG_NUMMM_SHIFT 5
-#define V3D_TFU_ICFG_TTYPE_SHIFT 9
-
-#define V3D_TFU_ICFG_OPAD_SHIFT 22
-
-#define V3D_TFU_ICFG_FORMAT_SHIFT 18
-#define V3D_TFU_ICFG_FORMAT_RASTER 0
-#define V3D_TFU_ICFG_FORMAT_SAND_128 1
-#define V3D_TFU_ICFG_FORMAT_SAND_256 2
-#define V3D_TFU_ICFG_FORMAT_LINEARTILE 11
-#define V3D_TFU_ICFG_FORMAT_UBLINEAR_1_COLUMN 12
-#define V3D_TFU_ICFG_FORMAT_UBLINEAR_2_COLUMN 13
-#define V3D_TFU_ICFG_FORMAT_UIF_NO_XOR 14
-#define V3D_TFU_ICFG_FORMAT_UIF_XOR 15
 
 static bool
 v3d_tfu(struct pipe_context *pctx,
