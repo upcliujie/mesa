@@ -2077,7 +2077,10 @@ ntq_setup_gs_inputs(struct v3d_compile *c)
                 }
 
                 for (unsigned j = 0; j < array_len; j++) {
-                        unsigned num_elements = glsl_get_vector_elements(type);
+                        unsigned num_elements =
+                                glsl_type_is_struct(glsl_without_array(type))
+                                ? 4
+                                : glsl_get_vector_elements(type);
                         for (unsigned k = 0; k < num_elements; k++) {
                                 unsigned chan = var->data.location_frac + k;
                                 unsigned input_idx = c->num_inputs++;
@@ -2124,7 +2127,7 @@ ntq_setup_fs_inputs(struct v3d_compile *c)
                 } else if (var->data.compact) {
                         for (int j = 0; j < var_len; j++)
                                 emit_compact_fragment_input(c, loc, var, j);
-                } else if (glsl_type_is_struct(var->type)) {
+                } else if (glsl_type_is_struct(glsl_without_array(var->type))) {
                         for (int j = 0; j < var_len; j++) {
                            emit_fragment_input(c, loc, var, j, 4);
                         }

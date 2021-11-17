@@ -62,6 +62,43 @@
 extern "C" {
 #endif
 
+extern uint32_t NIR_DEBUG;
+
+#define NIR_DEBUG_CLONE (1 << 0)
+#define NIR_DEBUG_SERIALIZE (1 << 1)
+#define NIR_DEBUG_NOVALIDATE (1 << 2)
+#define NIR_DEBUG_VALIDATE_SSA_DOMINANCE (1 << 3)
+#define NIR_DEBUG_TGSI (1 << 4)
+#define NIR_DEBUG_PRINT_VS (1 << 5)
+#define NIR_DEBUG_PRINT_TCS (1 << 6)
+#define NIR_DEBUG_PRINT_TES (1 << 7)
+#define NIR_DEBUG_PRINT_GS (1 << 8)
+#define NIR_DEBUG_PRINT_FS (1 << 9)
+#define NIR_DEBUG_PRINT_CS (1 << 10)
+#define NIR_DEBUG_PRINT_TS (1 << 11)
+#define NIR_DEBUG_PRINT_MS (1 << 12)
+#define NIR_DEBUG_PRINT_RGS (1 << 13)
+#define NIR_DEBUG_PRINT_AHS (1 << 14)
+#define NIR_DEBUG_PRINT_CHS (1 << 15)
+#define NIR_DEBUG_PRINT_MHS (1 << 16)
+#define NIR_DEBUG_PRINT_IS (1 << 17)
+#define NIR_DEBUG_PRINT_CBS (1 << 18)
+
+#define NIR_DEBUG_PRINT (NIR_DEBUG_PRINT_VS  | \
+                         NIR_DEBUG_PRINT_TCS | \
+                         NIR_DEBUG_PRINT_TES | \
+                         NIR_DEBUG_PRINT_GS  | \
+                         NIR_DEBUG_PRINT_FS  | \
+                         NIR_DEBUG_PRINT_CS  | \
+                         NIR_DEBUG_PRINT_TS  | \
+                         NIR_DEBUG_PRINT_MS  | \
+                         NIR_DEBUG_PRINT_RGS | \
+                         NIR_DEBUG_PRINT_AHS | \
+                         NIR_DEBUG_PRINT_CHS | \
+                         NIR_DEBUG_PRINT_MHS | \
+                         NIR_DEBUG_PRINT_IS  | \
+                         NIR_DEBUG_PRINT_CBS)
+
 #define NIR_FALSE 0u
 #define NIR_TRUE (~0u)
 #define NIR_MAX_VEC_COMPONENTS 16
@@ -4492,36 +4529,43 @@ should_skip_nir(const char *name)
 }
 
 static inline bool
-should_clone_nir(void)
-{
-   static int should_clone = -1;
-   if (should_clone < 0)
-      should_clone = env_var_as_boolean("NIR_TEST_CLONE", false);
-
-   return should_clone;
-}
-
-static inline bool
-should_serialize_deserialize_nir(void)
-{
-   static int test_serialize = -1;
-   if (test_serialize < 0)
-      test_serialize = env_var_as_boolean("NIR_TEST_SERIALIZE", false);
-
-   return test_serialize;
-}
-
-static inline bool
 should_print_nir(nir_shader *shader)
 {
-   static int should_print = -1;
-   if (should_print < 0)
-      should_print = env_var_as_unsigned("NIR_PRINT", 0);
+   if (shader->info.internal)
+      return false;
 
-   if (should_print == 1)
-      return !shader->info.internal;
-
-   return should_print;
+   switch (shader->info.stage) {
+      case MESA_SHADER_VERTEX:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_VS);
+      case MESA_SHADER_TESS_CTRL:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_TCS);
+      case MESA_SHADER_TESS_EVAL:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_TES);
+      case MESA_SHADER_GEOMETRY:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_GS);
+      case MESA_SHADER_FRAGMENT:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_FS);
+      case MESA_SHADER_COMPUTE:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_CS);
+      case MESA_SHADER_TASK:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_TS);
+      case MESA_SHADER_MESH:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_MS);
+      case MESA_SHADER_RAYGEN:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_RGS);
+      case MESA_SHADER_ANY_HIT:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_AHS);
+      case MESA_SHADER_CLOSEST_HIT:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_CHS);
+      case MESA_SHADER_MISS:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_MHS);
+      case MESA_SHADER_INTERSECTION:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_IS);
+      case MESA_SHADER_CALLABLE:
+         return unlikely(NIR_DEBUG & NIR_DEBUG_PRINT_CBS);
+      default:
+         return false;
+   }
 }
 #else
 static inline void nir_validate_shader(nir_shader *shader, const char *when) { (void) shader; (void)when; }
@@ -4529,9 +4573,7 @@ static inline void nir_validate_ssa_dominance(nir_shader *shader, const char *wh
 static inline void nir_metadata_set_validation_flag(nir_shader *shader) { (void) shader; }
 static inline void nir_metadata_check_validation_flag(nir_shader *shader) { (void) shader; }
 static inline bool should_skip_nir(UNUSED const char *pass_name) { return false; }
-static inline bool should_clone_nir(void) { return false; }
-static inline bool should_serialize_deserialize_nir(void) { return false; }
-static inline bool should_print_nir(nir_shader *shader) { return false; }
+static inline bool should_print_nir(UNUSED nir_shader *shader) { return false; }
 #endif /* NDEBUG */
 
 #define _PASS(pass, nir, do_pass) do {                               \
@@ -4540,34 +4582,34 @@ static inline bool should_print_nir(nir_shader *shader) { return false; }
       break;                                                         \
    }                                                                 \
    do_pass                                                           \
-   if (should_clone_nir()) {                                         \
+   if (unlikely(NIR_DEBUG & NIR_DEBUG_CLONE)) {                      \
       nir_shader *clone = nir_shader_clone(ralloc_parent(nir), nir); \
       nir_shader_replace(nir, clone);                                \
    }                                                                 \
-   if (should_serialize_deserialize_nir()) {                         \
+   if (unlikely(NIR_DEBUG & NIR_DEBUG_SERIALIZE)) {                  \
       nir_shader_serialize_deserialize(nir);                         \
    }                                                                 \
 } while (0)
 
 #define NIR_PASS(progress, nir, pass, ...) _PASS(pass, nir,          \
    nir_metadata_set_validation_flag(nir);                            \
-   if (should_print_nir(nir))                                           \
+   if (should_print_nir(nir))                                        \
       printf("%s\n", #pass);                                         \
    if (pass(nir, ##__VA_ARGS__)) {                                   \
       nir_validate_shader(nir, "after " #pass);                      \
       progress = true;                                               \
-      if (should_print_nir(nir))                                        \
+      if (should_print_nir(nir))                                     \
          nir_print_shader(nir, stdout);                              \
       nir_metadata_check_validation_flag(nir);                       \
    }                                                                 \
 )
 
 #define NIR_PASS_V(nir, pass, ...) _PASS(pass, nir,                  \
-   if (should_print_nir(nir))                                           \
+   if (should_print_nir(nir))                                        \
       printf("%s\n", #pass);                                         \
    pass(nir, ##__VA_ARGS__);                                         \
    nir_validate_shader(nir, "after " #pass);                         \
-   if (should_print_nir(nir))                                           \
+   if (should_print_nir(nir))                                        \
       nir_print_shader(nir, stdout);                                 \
 )
 

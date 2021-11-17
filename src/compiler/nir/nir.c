@@ -38,6 +38,83 @@
 
 #include "main/menums.h" /* BITFIELD64_MASK */
 
+#ifndef NDEBUG
+uint32_t NIR_DEBUG = ~0;
+
+static const struct debug_named_value nir_debug_control[] = {
+   { "clone", NIR_DEBUG_CLONE,
+     "Test cloning a NIR shader at each successful NIR lowering/optimization "
+     "call" },
+   { "serialize", NIR_DEBUG_SERIALIZE,
+     "Test serialize and deserialize NIR shader at each successful NIR "
+     "lowering/optimization call" },
+   { "novalidate", NIR_DEBUG_NOVALIDATE,
+     "Disable NIR shader validation at each successful NIR "
+     "lowering/optimization call" },
+   { "validate_ssa_dominance", NIR_DEBUG_VALIDATE_SSA_DOMINANCE,
+     "Validate SSA dominace in NIR shader at each successful NIR "
+     "lowering/optimization call" },
+   { "tgsi", NIR_DEBUG_TGSI,
+     "Dump NIR/TGSI shaders when doing a NIR<->TGSI translation" },
+   { "print", NIR_DEBUG_PRINT,
+     "Dump resulting NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_vs", NIR_DEBUG_PRINT_VS,
+     "Dump resulting vertex NIR shader after each successful NIR"
+     "lowering/optimization call" },
+   { "print_tcs", NIR_DEBUG_PRINT_TCS,
+     "Dump resulting tessellation control NIR shader after each successful "
+     "NIR lowering/optimization call" },
+   { "print_tes", NIR_DEBUG_PRINT_TES,
+     "Dump resulting tessellation evaluation NIR shader after each "
+     "successful NIR lowering/optimization call" },
+   { "print_gs", NIR_DEBUG_PRINT_GS,
+     "Dump resulting geometry NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_fs", NIR_DEBUG_PRINT_FS,
+     "Dump resulting fragment NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_cs", NIR_DEBUG_PRINT_CS,
+     "Dump resulting compute NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_ts", NIR_DEBUG_PRINT_TS,
+     "Dump resulting task NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_ms", NIR_DEBUG_PRINT_MS,
+     "Dump resulting mesh NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_rgs", NIR_DEBUG_PRINT_RGS,
+     "Dump resulting raygen NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_ahs", NIR_DEBUG_PRINT_AHS,
+     "Dump resulting any-hit NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_chs", NIR_DEBUG_PRINT_CHS,
+     "Dump resulting closest-hit NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_mhs", NIR_DEBUG_PRINT_MHS,
+     "Dump resulting miss-hit NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_is", NIR_DEBUG_PRINT_IS,
+     "Dump resulting intersection NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { "print_cbs", NIR_DEBUG_PRINT_CBS,
+     "Dump resulting callable NIR shader after each successful NIR "
+     "lowering/optimization call" },
+   { NULL }
+};
+
+DEBUG_GET_ONCE_FLAGS_OPTION(nir_debug, "NIR_DEBUG", nir_debug_control, 0)
+
+static void
+nir_process_debug_variable(void)
+{
+   if (NIR_DEBUG == ~0)
+      NIR_DEBUG = debug_get_option_nir_debug();
+}
+#else
+uint32_t NIR_DEBUG = 0;
+#endif
 
 /** Return true if the component mask "mask" with bit size "old_bit_size" can
  * be re-interpreted to be used with "new_bit_size".
@@ -119,6 +196,10 @@ nir_shader_create(void *mem_ctx,
 {
    nir_shader *shader = rzalloc(mem_ctx, nir_shader);
    ralloc_set_destructor(shader, nir_shader_destructor);
+
+#ifndef NDEBUG
+   nir_process_debug_variable();
+#endif
 
    exec_list_make_empty(&shader->variables);
 
