@@ -176,6 +176,18 @@ is_scheduled(struct ir3_instruction *instr)
    return !!(instr->flags & IR3_INSTR_MARK);
 }
 
+static int
+outstanding_sfu(struct ir3_sched_ctx *ctx)
+{
+   return ctx->sfu_index - ctx->first_outstanding_sfu_index;
+}
+
+static int
+outstanding_tex(struct ir3_sched_ctx *ctx)
+{
+   return ctx->tex_index - ctx->first_outstanding_tex_index;
+}
+
 /* check_src_cond() passing a ir3_sched_ctx. */
 static bool
 sched_check_src_cond(struct ir3_instruction *instr,
@@ -335,6 +347,9 @@ schedule(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
    } else if (ctx->tex_delay > 0) {
       ctx->tex_delay -= MIN2(cycles, ctx->tex_delay);
    }
+
+   d("outstanding_tex=%d, outstanding_sfu=%d",
+     outstanding_tex(ctx), outstanding_sfu(ctx));
 }
 
 struct ir3_sched_notes {
@@ -552,6 +567,24 @@ live_effect(struct ir3_instruction *instr)
    return new_live - freed_live;
 }
 
+/* Avoid scheduling too many outstanding texture or sfu instructions at
+ * once by deferring further tex/SFU instructions. This both prevents
+ * stalls when the queue of texture/sfu instructions becomes too large,
+ * and prevents unacceptably large increases in register pressure from too
+ * many outstanding texture instructions.
+ */
+static bool
+should_avoid(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
+{
+   if (is_tex(instr) && (outstanding_tex(ctx) >= 4))
+      return true;
+
+   if (is_sfu(instr) && (outstanding_sfu(ctx) >= 8))
+      return true;
+
+   return false;
+}
+
 /* Determine if this is an instruction that we'd prefer not to schedule
  * yet, in order to avoid an (ss)/(sy) sync.  This is limited by the
  * sfu_delay/tex_delay counters, ie. the more cycles it has been since
@@ -576,26 +609,11 @@ should_defer(struct ir3_sched_ctx *ctx, struct ir3_instruction *instr)
          return true;
    }
 
-   /* Avoid scheduling too many outstanding texture or sfu instructions at
-    * once by deferring further tex/SFU instructions. This both prevents
-    * stalls when the queue of texture/sfu instructions becomes too large,
-    * and prevents unacceptably large increases in register pressure from too
-    * many outstanding texture instructions.
-    */
-   if (ctx->tex_index - ctx->first_outstanding_tex_index >= 8 && is_tex(instr))
-      return true;
-
-   if (ctx->sfu_index - ctx->first_outstanding_sfu_index >= 8 && is_sfu(instr))
-      return true;
-
-   return false;
+   return should_avoid(ctx, instr);
 }
 
-static struct ir3_sched_node *choose_instr_inc(struct ir3_sched_ctx *ctx,
-                                               struct ir3_sched_notes *notes,
-                                               bool defer, bool avoid_output);
-
 enum choose_instr_dec_rank {
+   DEC_NEUTRAL_DISFAVOR,
    DEC_NEUTRAL,
    DEC_NEUTRAL_READY,
    DEC_FREED,
@@ -606,6 +624,8 @@ static const char *
 dec_rank_name(enum choose_instr_dec_rank rank)
 {
    switch (rank) {
+   case DEC_NEUTRAL_DISFAVOR:
+      return "neutral+disfavor";
    case DEC_NEUTRAL:
       return "neutral";
    case DEC_NEUTRAL_READY:
@@ -663,12 +683,20 @@ choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
           * consuming a value will tend to block finding freeing that value.
           * This had a massive effect on reducing spilling on V3D.
           *
-          * XXX: Should this prioritize ready?
+          * Note, even in the !defer case, let the limits of # of outstanding
+          * sfu/tex instructions give higher priority to non-sfu/tex instrs,
+          * otherwise if we aren't able to pick something in the defer=true
+          * pass, we'll happily pick other ready sfu/tex instructions, even
+          * when we've exceeded the limit on outstanding sfu/tex that we try
+          * to abide by.
           */
-         if (d == 0)
+         if (should_avoid(ctx, n->instr)) {
+            rank = DEC_NEUTRAL_DISFAVOR;
+         } else if (d == 0) {
             rank = DEC_NEUTRAL_READY;
-         else
+         } else {
             rank = DEC_NEUTRAL;
+         }
       }
 
       /* Prefer higher-ranked instructions, or in the case of a rank tie, the
@@ -686,10 +714,11 @@ choose_instr_dec(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
       return chosen;
    }
 
-   return choose_instr_inc(ctx, notes, defer, true);
+   return NULL;
 }
 
 enum choose_instr_inc_rank {
+   INC_DISTANCE_DISFAVOR,
    INC_DISTANCE,
    INC_DISTANCE_READY,
 };
@@ -740,10 +769,13 @@ choose_instr_inc(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes,
       unsigned d = ir3_delay_calc_prera(ctx->block, n->instr);
 
       enum choose_instr_inc_rank rank;
-      if (d == 0)
+      if (should_avoid(ctx, n->instr)) {
+         rank = INC_DISTANCE_DISFAVOR;
+      } else if (d == 0) {
          rank = INC_DISTANCE_READY;
-      else
+      } else {
          rank = INC_DISTANCE;
+      }
 
       unsigned distance = nearest_use(n->instr);
 
@@ -831,6 +863,14 @@ choose_instr(struct ir3_sched_ctx *ctx, struct ir3_sched_notes *notes)
       return chosen->instr;
 
    chosen = choose_instr_dec(ctx, notes, false);
+   if (chosen)
+      return chosen->instr;
+
+   chosen = choose_instr_inc(ctx, notes, true, true);
+   if (chosen)
+      return chosen->instr;
+
+   chosen = choose_instr_inc(ctx, notes, false, true);
    if (chosen)
       return chosen->instr;
 
