@@ -266,25 +266,25 @@ v3d_tfu(struct pipe_context *pctx,
                                v3d_layer_offset(psrc, src_level, src_layer));
         tfu.iia |= src_offset;
         if (src_base_slice->tiling == V3D_TILING_RASTER) {
-                tfu.icfg |= (V3D_TFU_ICFG_FORMAT_RASTER <<
-                             V3D_TFU_ICFG_FORMAT_SHIFT);
+                tfu.icfg |= (V3D33_TFU_ICFG_FORMAT_RASTER <<
+                             V3D33_TFU_ICFG_FORMAT_SHIFT);
         } else {
-                tfu.icfg |= ((V3D_TFU_ICFG_FORMAT_LINEARTILE +
+                tfu.icfg |= ((V3D33_TFU_ICFG_FORMAT_LINEARTILE +
                               (src_base_slice->tiling - V3D_TILING_LINEARTILE)) <<
-                             V3D_TFU_ICFG_FORMAT_SHIFT);
+                             V3D33_TFU_ICFG_FORMAT_SHIFT);
         }
 
         uint32_t dst_offset = (dst->bo->offset +
                                v3d_layer_offset(pdst, base_level, dst_layer));
         tfu.ioa |= dst_offset;
         if (last_level != base_level)
-                tfu.ioa |= V3D_TFU_IOA_DIMTW;
-        tfu.ioa |= ((V3D_TFU_IOA_FORMAT_LINEARTILE +
+                tfu.ioa |= V3D33_TFU_IOA_DIMTW;
+        tfu.ioa |= ((V3D33_TFU_IOA_FORMAT_LINEARTILE +
                      (dst_base_slice->tiling - V3D_TILING_LINEARTILE)) <<
-                    V3D_TFU_IOA_FORMAT_SHIFT);
+                    V3D33_TFU_IOA_FORMAT_SHIFT);
 
-        tfu.icfg |= tex_format << V3D_TFU_ICFG_TTYPE_SHIFT;
-        tfu.icfg |= (last_level - base_level) << V3D_TFU_ICFG_NUMMM_SHIFT;
+        tfu.icfg |= tex_format << V3D33_TFU_ICFG_TTYPE_SHIFT;
+        tfu.icfg |= (last_level - base_level) << V3D33_TFU_ICFG_NUMMM_SHIFT;
 
         switch (src_base_slice->tiling) {
         case V3D_TILING_UIF_NO_XOR:
@@ -313,7 +313,7 @@ v3d_tfu(struct pipe_context *pctx,
 
                 tfu.icfg |= (((dst_base_slice->padded_height -
                                implicit_padded_height) / uif_block_h) <<
-                             V3D_TFU_ICFG_OPAD_SHIFT);
+                             V3D33_TFU_ICFG_OPAD_SHIFT);
         }
 
         int ret = v3d_ioctl(screen->fd, DRM_IOCTL_V3D_SUBMIT_TFU, &tfu);
