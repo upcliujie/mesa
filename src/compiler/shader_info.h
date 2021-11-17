@@ -122,7 +122,7 @@ typedef struct shader_info {
    /* Descriptive name provided by the client; may be NULL */
    const char *label;
 
-   /* Shader is internal, and should be ignored by things like NIR_PRINT */
+   /* Shader is internal, and should be ignored by things like NIR_DEBUG=print */
    bool internal;
 
    /** The shader stage, such as MESA_SHADER_VERTEX. */
