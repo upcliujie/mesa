@@ -1012,8 +1012,10 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
                       (bufmgr->vram.size > 0 && !local) ||
                       (flags & BO_ALLOC_COHERENT);
    bool is_scanout = (flags & BO_ALLOC_SCANOUT) != 0;
+   bool is_exported = (flags & BO_ALLOC_EXPORTED) != 0;
    enum iris_mmap_mode mmap_mode =
-      !local && is_coherent && !is_scanout ? IRIS_MMAP_WB : IRIS_MMAP_WC;
+      !local && is_coherent && !is_scanout && !is_exported ?
+      IRIS_MMAP_WB : IRIS_MMAP_WC;
 
    simple_mtx_lock(&bufmgr->lock);
 
@@ -1048,7 +1050,6 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
 
    bo->name = name;
    p_atomic_set(&bo->refcount, 1);
-   bo->real.reusable = bucket && bufmgr->bo_reuse;
    bo->index = -1;
    bo->real.kflags = EXEC_OBJECT_SUPPORTS_48B_ADDRESS | EXEC_OBJECT_PINNED;
 
@@ -1060,6 +1061,12 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
 
    assert(bo->real.map == NULL || bo->real.mmap_mode == mmap_mode);
    bo->real.mmap_mode = mmap_mode;
+
+   if (is_exported) {
+      bo->real.exported = true;
+      bo->real.reusable = false;
+   } else
+      bo->real.reusable = bucket && bufmgr->bo_reuse;
 
    /* On integrated GPUs, enable snooping to ensure coherency if needed.
     * For discrete, we instead use SMEM and avoid WB maps for coherency.
