@@ -122,7 +122,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetQueryPoolResults(
          if (ready || (flags & VK_QUERY_RESULT_PARTIAL_BIT)) {
             if (pool->type == VK_QUERY_TYPE_PIPELINE_STATISTICS) {
                uint32_t mask = pool->pipeline_stats;
-               uint64_t *pstats = (uint64_t *)&result.pipeline_statistics;
+               uint64_t *pstats = result.pipeline_statistics.array;
                while (mask) {
                   uint32_t i = u_bit_scan(&mask);
 
@@ -149,7 +149,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetQueryPoolResults(
          if (ready || (flags & VK_QUERY_RESULT_PARTIAL_BIT)) {
             if (pool->type == VK_QUERY_TYPE_PIPELINE_STATISTICS) {
                uint32_t mask = pool->pipeline_stats;
-               uint64_t *pstats = (uint64_t *)&result.pipeline_statistics;
+               uint64_t *pstats = result.pipeline_statistics.array;
                while (mask) {
                   uint32_t i = u_bit_scan(&mask);
 
