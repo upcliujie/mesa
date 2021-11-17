@@ -291,7 +291,7 @@ iris_create_engines_context(struct iris_context *ice, int priority)
    /* Blitter is only supported on Gfx12+ */
    unsigned num_batches = IRIS_BATCH_COUNT - (devinfo->ver >= 12 ? 0 : 1);
 
-   if (false /* Disable for now. We will enable with an env-var. */ &&
+   if (env_var_as_boolean("INTEL_COMPUTE_CLASS", false) &&
        intel_gem_count_engines(engines_info, I915_ENGINE_CLASS_COMPUTE) > 0)
       engine_classes[IRIS_BATCH_COMPUTE] = I915_ENGINE_CLASS_COMPUTE;
 
