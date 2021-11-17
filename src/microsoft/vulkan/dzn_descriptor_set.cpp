@@ -101,7 +101,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
 
    assert(binding_count ==
           (pCreateInfo->bindingCount ?
-	   (ordered_bindings[pCreateInfo->bindingCount - 1].binding + 1) : 0));
+           (ordered_bindings[pCreateInfo->bindingCount - 1].binding + 1) : 0));
 
    uint32_t sampler_range_idx[MAX_SHADER_VISIBILITIES] = {};
    uint32_t view_range_idx[MAX_SHADER_VISIBILITIES] = {};
@@ -122,7 +122,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
       uint32_t binding = ordered_bindings[i].binding;
       bool has_sampler =
          desc_type == VK_DESCRIPTOR_TYPE_SAMPLER ||
-	 desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+         desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
       bool immutable_samplers =
          has_sampler &&
          ordered_bindings[i].pImmutableSamplers != NULL;
@@ -135,7 +135,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
       base_register += ordered_bindings[i].descriptorCount;
 
       if (immutable_samplers) {
-	 binfos[binding].static_sampler_idx = static_sampler_idx;
+         binfos[binding].static_sampler_idx = static_sampler_idx;
          D3D12_STATIC_SAMPLER_DESC *sampler = (D3D12_STATIC_SAMPLER_DESC *)
             &static_samplers[static_sampler_idx];
          static_sampler_idx++;
@@ -212,7 +212,7 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
       VkDescriptorType desc_type = bindings[i].descriptorType;
       bool has_sampler =
          desc_type == VK_DESCRIPTOR_TYPE_SAMPLER ||
-	 desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+         desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
       /* From the Vulkan 1.1.97 spec for VkDescriptorSetLayoutBinding:
        *
@@ -422,7 +422,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
                sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
          }
          root_param->DescriptorTable.NumDescriptorRanges += set_layout->ranges[i].view_count;
-	 range_ptr += set_layout->ranges[i].view_count;
+         range_ptr += set_layout->ranges[i].view_count;
       }
 
       if (root_param->DescriptorTable.NumDescriptorRanges) {
@@ -447,7 +447,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
                sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER];
          }
          root_param->DescriptorTable.NumDescriptorRanges += set_layout->ranges[i].sampler_count;
-	 range_ptr += set_layout->ranges[i].sampler_count;
+         range_ptr += set_layout->ranges[i].sampler_count;
       }
 
       if (root_param->DescriptorTable.NumDescriptorRanges) {
