@@ -1317,10 +1317,10 @@ radv_CreateDescriptorUpdateTemplate(VkDevice _device,
                                     VkDescriptorUpdateTemplate *pDescriptorUpdateTemplate)
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_descriptor_set_layout, set_layout, pCreateInfo->descriptorSetLayout);
    const uint32_t entry_count = pCreateInfo->descriptorUpdateEntryCount;
    const size_t size = sizeof(struct radv_descriptor_update_template) +
                        sizeof(struct radv_descriptor_update_template_entry) * entry_count;
+   struct radv_descriptor_set_layout *set_layout = NULL;
    struct radv_descriptor_update_template *templ;
    uint32_t i;
 
@@ -1332,7 +1332,9 @@ radv_CreateDescriptorUpdateTemplate(VkDevice _device,
 
    templ->entry_count = entry_count;
 
-   if (pCreateInfo->templateType == VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR) {
+   if (pCreateInfo->templateType == VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET) {
+      set_layout = radv_descriptor_set_layout_from_handle(pCreateInfo->descriptorSetLayout);
+   } else if (pCreateInfo->templateType == VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_PUSH_DESCRIPTORS_KHR) {
       RADV_FROM_HANDLE(radv_pipeline_layout, pipeline_layout, pCreateInfo->pipelineLayout);
 
       /* descriptorSetLayout should be ignored for push descriptors
@@ -1347,7 +1349,7 @@ radv_CreateDescriptorUpdateTemplate(VkDevice _device,
    for (i = 0; i < entry_count; i++) {
       const VkDescriptorUpdateTemplateEntry *entry = &pCreateInfo->pDescriptorUpdateEntries[i];
       const struct radv_descriptor_set_binding_layout *binding_layout =
-         set_layout->binding + entry->dstBinding;
+         entry->dstBinding + (set_layout ? set_layout->binding : 0);
       const uint32_t buffer_offset = binding_layout->buffer_offset + entry->dstArrayElement;
       const uint32_t *immutable_samplers = NULL;
       uint32_t dst_offset;
