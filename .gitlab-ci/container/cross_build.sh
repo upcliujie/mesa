@@ -43,6 +43,8 @@ if [[ $arch != "armhf" ]]; then
         LLVM=11
     fi
 
+    apt-get remove -y glslang-tools spirv-tools
+
     # llvm-*-tools:$arch conflicts with python3:amd64. Install dependencies only
     # with apt-get, then force-install llvm-*-{dev,tools}:$arch with dpkg to get
     # around this.
@@ -53,6 +55,8 @@ if [[ $arch != "armhf" ]]; then
             libtinfo-dev:$arch \
             libz3-dev:$arch \
             llvm-${LLVM}:$arch \
+            libllvmspirvlib-dev:$arch \
+            spirv-tools:$arch \
             zlib1g
 fi
 
@@ -73,7 +77,7 @@ apt-get purge -y \
 
 # This needs to be done after container_post_build.sh, or apt-get breaks in there
 if [[ $arch != "armhf" ]]; then
-    apt-get download llvm-${LLVM}-{dev,tools}:$arch
+    apt-get download llvm-${LLVM}-{dev,tools}:$arch libclc-${LLVM}{-dev,}:$arch
     dpkg -i --force-depends llvm-${LLVM}-*_${arch}.deb
     rm llvm-${LLVM}-*_${arch}.deb
 fi
