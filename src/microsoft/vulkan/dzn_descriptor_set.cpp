@@ -166,8 +166,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
          sampler_desc_count += range->NumDescriptors;
       }
 
-      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER ||
-          desc_type != VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT) {
+      if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
          assert(view_range_idx[visibility] < ranges[visibility].view_count);
          uint32_t range_idx = view_range_idx[visibility]++;
 
