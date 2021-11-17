@@ -325,7 +325,7 @@ debian/i386_build:
   extends:
     - .use-debian/x86_build-base
   variables:
-    MESA_IMAGE_TAG: &debian-i386_build "2021-07-02-bump-libdrm"
+    MESA_IMAGE_TAG: &debian-i386_build "2021-11-17-bump-libdrm"
 
 .use-debian/i386_build:
   extends:
@@ -1137,7 +1137,7 @@ debian-i386:
     GALLIUM_DRIVERS: "iris,nouveau,r300,r600,radeonsi,swrast,virgl,zink,crocus"
     DRI_DRIVERS: "i915,i965,r100,r200,nouveau"
     EXTRA_OPTION: >
-      -D vulkan-layers=device-select,overlay
+      -D vulkan-layers=device-select
 
 debian-s390x:
   extends:
