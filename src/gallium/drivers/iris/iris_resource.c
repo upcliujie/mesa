@@ -445,7 +445,7 @@ iris_resource_alloc_flags(const struct iris_screen *screen,
 
    if ((templ->bind & PIPE_BIND_SHARED) ||
        util_format_get_num_planes(templ->format) > 1)
-      flags |= BO_ALLOC_NO_SUBALLOC;
+      flags |= BO_ALLOC_NO_SUBALLOC | BO_ALLOC_EXPORTED;
 
    return flags;
 }
@@ -1028,10 +1028,8 @@ iris_resource_create_for_buffer(struct pipe_screen *pscreen,
       return NULL;
    }
 
-   if (templ->bind & PIPE_BIND_SHARED) {
-      iris_bo_mark_exported(res->bo);
+   if (templ->bind & PIPE_BIND_SHARED)
       res->base.is_shared = true;
-   }
 
    return &res->base.b;
 }
@@ -1122,10 +1120,8 @@ iris_resource_create_with_modifiers(struct pipe_screen *pscreen,
       map_aux_addresses(screen, res, res->surf.format, 0);
    }
 
-   if (templ->bind & PIPE_BIND_SHARED) {
-      iris_bo_mark_exported(res->bo);
+   if (templ->bind & PIPE_BIND_SHARED)
       res->base.is_shared = true;
-   }
 
    return &res->base.b;
 
