@@ -362,7 +362,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 {
    assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO);
 
-   uint32_t range_desc_count = 0, static_sampler_count = 0;
+   uint32_t range_count = 0, static_sampler_count = 0;
    uint32_t view_desc_count = 0, sampler_desc_count = 0;
 
    root.param_count = 0;
@@ -373,8 +373,8 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 
       static_sampler_count += set_layout->static_sampler_count;
       for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
-         range_desc_count += set_layout->ranges[i].sampler_count +
-                             set_layout->ranges[i].view_count;
+         range_count += set_layout->ranges[i].sampler_count +
+                        set_layout->ranges[i].view_count;
       }
 
       sets[j].heap_offsets[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = view_desc_count;
@@ -385,28 +385,26 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       sets[j].layout = set_layout;
    }
 
-   auto range_descs =
-      dzn_transient_zalloc<D3D12_DESCRIPTOR_RANGE1>(range_desc_count,
+   auto ranges =
+      dzn_transient_zalloc<D3D12_DESCRIPTOR_RANGE1>(range_count,
                                                     &device->vk.alloc,
                                                     pAllocator);
-   if (range_desc_count && !range_descs.get())
+   if (range_count && !ranges.get())
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    auto static_sampler_descs =
-      dzn_transient_zalloc<D3D12_STATIC_SAMPLER_DESC>(range_desc_count,
+      dzn_transient_zalloc<D3D12_STATIC_SAMPLER_DESC>(static_sampler_count,
                                                       &device->vk.alloc,
                                                       pAllocator);
    if (static_sampler_count && !static_sampler_descs.get())
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    D3D12_ROOT_PARAMETER1 root_params[MAX_ROOT_PARAMS] = {};
-   D3D12_DESCRIPTOR_RANGE1 *range_ptr = range_descs.get();
+   D3D12_DESCRIPTOR_RANGE1 *range_ptr = ranges.get();
    D3D12_ROOT_PARAMETER1 *root_param;
    uint32_t root_dwords = 0;
 
    for (uint32_t i = 0; i < MAX_SHADER_VISIBILITIES; i++) {
-      uint32_t range_count = 0;
-
       root_param = &root_params[root.param_count];
       root_param->ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
       root_param->DescriptorTable.pDescriptorRanges = range_ptr;
