@@ -89,6 +89,7 @@ extern uint64_t intel_debug;
 #define DEBUG_RT                  (1ull << 41)
 #define DEBUG_TASK                (1ull << 42)
 #define DEBUG_MESH                (1ull << 43)
+#define DEBUG_COMPUTE_CS          (1ull << 44)
 
 #define DEBUG_ANY                 (~0ull)
 
