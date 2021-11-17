@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include "drm-uapi/i915_drm.h"
+#include "drm-uapi/i915_drm_prelim.h"
 #include "intel_device_info.h"
 #include "intel_hwconfig.h"
 #include "intel_hwconfig_types.h"
@@ -293,8 +294,12 @@ intel_get_and_process_hwconfig_table(int fd,
 {
    struct hwconfig *hwconfig;
    int32_t hwconfig_len = 0;
-   hwconfig = intel_i915_query_alloc(fd, DRM_I915_QUERY_HWCONFIG_TABLE,
+   hwconfig = intel_i915_query_alloc(fd, PRELIM_DRM_I915_QUERY_HWCONFIG_TABLE,
                                      &hwconfig_len);
+   if (!hwconfig) {
+      hwconfig = intel_i915_query_alloc(fd, DRM_I915_QUERY_HWCONFIG_TABLE,
+                                        &hwconfig_len);
+   }
    if (hwconfig) {
       intel_apply_hwconfig_table(devinfo, hwconfig, hwconfig_len);
       free(hwconfig);
@@ -325,8 +330,12 @@ intel_print_fd_hwconfig_table(int fd)
 {
    struct hwconfig *hwconfig;
    int32_t hwconfig_len = 0;
-   hwconfig = intel_i915_query_alloc(fd, DRM_I915_QUERY_HWCONFIG_TABLE,
+   hwconfig = intel_i915_query_alloc(fd, PRELIM_DRM_I915_QUERY_HWCONFIG_TABLE,
                                      &hwconfig_len);
+   if (!hwconfig) {
+      hwconfig = intel_i915_query_alloc(fd, DRM_I915_QUERY_HWCONFIG_TABLE,
+                                        &hwconfig_len);
+   }
    if (hwconfig) {
       intel_print_hwconfig_table(hwconfig, hwconfig_len);
       free(hwconfig);
