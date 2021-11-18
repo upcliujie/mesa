@@ -38,6 +38,8 @@
 
 #include "nir/nir_xfb_info.h"
 
+#include "anv_tracepoints.h"
+
 /* We reserve :
  *    - GPR 14 for secondary command buffer returns
  *    - GPR 15 for conditional rendering
@@ -1732,6 +1734,8 @@ genX(BeginCommandBuffer)(
    if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       cmd_buffer->usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
 
+   trace_begin_cmd_buffer(&cmd_buffer->trace, cmd_buffer);
+
    genX(cmd_buffer_emit_state_base_address)(cmd_buffer);
 
    /* We sometimes store vertex data in the dynamic state buffer for blorp
@@ -1904,6 +1908,8 @@ genX(EndCommandBuffer)(
    genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
    emit_isp_disable(cmd_buffer);
+
+   trace_end_cmd_buffer(&cmd_buffer->trace, cmd_buffer, cmd_buffer->level);
 
    anv_cmd_buffer_end_batch_buffer(cmd_buffer);
 
@@ -2365,6 +2371,9 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
       bits |= ANV_PIPE_FLUSH_BITS | ANV_PIPE_INVALIDATE_BITS;
    else if (bits == 0)
       return;
+
+   if (bits & (ANV_PIPE_FLUSH_BITS | ANV_PIPE_STALL_BITS | ANV_PIPE_INVALIDATE_BITS))
+      trace_stall(&cmd_buffer->trace, cmd_buffer, bits);
 
    if ((GFX_VER >= 8 && GFX_VER <= 9) &&
        (bits & ANV_PIPE_CS_STALL_BIT) &&
@@ -3912,6 +3921,7 @@ void genX(CmdDraw)(
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
                         "draw", count);
+   trace_begin_draw(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -3940,6 +3950,8 @@ void genX(CmdDraw)(
    }
 
    update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, SEQUENTIAL);
+
+   trace_end_draw(&cmd_buffer->trace, cmd_buffer, count);
 }
 
 void genX(CmdDrawMultiEXT)(
@@ -3964,6 +3976,7 @@ void genX(CmdDrawMultiEXT)(
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
                         "draw_multi", count);
+   trace_begin_draw_multi(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -3995,6 +4008,8 @@ void genX(CmdDrawMultiEXT)(
    }
 
    update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, SEQUENTIAL);
+
+   trace_end_draw_multi(&cmd_buffer->trace, cmd_buffer, count);
 }
 
 void genX(CmdDrawIndexed)(
@@ -4020,6 +4035,7 @@ void genX(CmdDrawIndexed)(
                         INTEL_SNAPSHOT_DRAW,
                         "draw indexed",
                         count);
+   trace_begin_draw_indexed(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -4046,6 +4062,8 @@ void genX(CmdDrawIndexed)(
    }
 
    update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, RANDOM);
+
+   trace_end_draw_indexed(&cmd_buffer->trace, cmd_buffer, count);
 }
 
 void genX(CmdDrawMultiIndexedEXT)(
@@ -4072,6 +4090,7 @@ void genX(CmdDrawMultiIndexedEXT)(
                         INTEL_SNAPSHOT_DRAW,
                         "draw indexed_multi",
                         count);
+   trace_begin_draw_indexed_multi(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -4158,6 +4177,8 @@ void genX(CmdDrawMultiIndexedEXT)(
    }
 
    update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, RANDOM);
+
+   trace_end_draw_indexed_multi(&cmd_buffer->trace, cmd_buffer, count);
 }
 
 /* Auto-Draw / Indirect Registers */
@@ -4193,6 +4214,7 @@ void genX(CmdDrawIndirectByteCountEXT)(
                         INTEL_SNAPSHOT_DRAW,
                         "draw indirect byte count",
                         instanceCount);
+   trace_begin_draw_indirect_byte_count(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -4235,6 +4257,9 @@ void genX(CmdDrawIndirectByteCountEXT)(
    }
 
    update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, SEQUENTIAL);
+
+   trace_end_draw_indirect_byte_count(&cmd_buffer->trace, cmd_buffer,
+                                      instanceCount);
 #endif /* GFX_VERx10 >= 75 */
 }
 
@@ -4291,6 +4316,8 @@ void genX(CmdDrawIndirect)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   trace_begin_draw_indirect(&cmd_buffer->trace, cmd_buffer);
+
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    if (cmd_buffer->state.conditional_render_enabled)
@@ -4323,6 +4350,8 @@ void genX(CmdDrawIndirect)(
 
       offset += stride;
    }
+
+   trace_end_draw_indirect(&cmd_buffer->trace, cmd_buffer, drawCount);
 }
 
 void genX(CmdDrawIndexedIndirect)(
@@ -4339,6 +4368,8 @@ void genX(CmdDrawIndexedIndirect)(
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
+
+   trace_begin_draw_indexed_indirect(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -4373,6 +4404,8 @@ void genX(CmdDrawIndexedIndirect)(
 
       offset += stride;
    }
+
+   trace_end_draw_indexed_indirect(&cmd_buffer->trace, cmd_buffer, drawCount);
 }
 
 static struct mi_value
@@ -4499,6 +4532,8 @@ void genX(CmdDrawIndirectCount)(
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
 
+   trace_begin_draw_indirect_count(&cmd_buffer->trace, cmd_buffer);
+
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    struct mi_builder b;
@@ -4538,6 +4573,8 @@ void genX(CmdDrawIndirectCount)(
    }
 
    mi_value_unref(&b, max);
+
+   trace_end_draw_indirect_count(&cmd_buffer->trace, cmd_buffer, maxDrawCount);
 }
 
 void genX(CmdDrawIndexedIndirectCount)(
@@ -4558,6 +4595,8 @@ void genX(CmdDrawIndexedIndirectCount)(
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
+
+   trace_begin_draw_indexed_indirect_count(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
@@ -4599,6 +4638,9 @@ void genX(CmdDrawIndexedIndirectCount)(
    }
 
    mi_value_unref(&b, max);
+
+   trace_end_draw_indexed_indirect_count(&cmd_buffer->trace, cmd_buffer, maxDrawCount);
+
 }
 
 void genX(CmdBeginTransformFeedbackEXT)(
@@ -4974,6 +5016,8 @@ void genX(CmdDispatchBase)(
                         prog_data->local_size[0] * prog_data->local_size[1] *
                         prog_data->local_size[2]);
 
+   trace_begin_compute(&cmd_buffer->trace, cmd_buffer);
+
    if (prog_data->uses_num_work_groups) {
       struct anv_state state =
          anv_cmd_buffer_alloc_dynamic_state(cmd_buffer, 12, 4);
@@ -4997,6 +5041,9 @@ void genX(CmdDispatchBase)(
 
    emit_cs_walker(cmd_buffer, pipeline, false, prog_data, groupCountX,
                   groupCountY, groupCountZ);
+
+   trace_end_compute(&cmd_buffer->trace, cmd_buffer,
+                     groupCountX, groupCountY, groupCountZ);
 }
 
 #define GPGPU_DISPATCHDIMX 0x2500
@@ -5030,6 +5077,7 @@ void genX(CmdDispatchIndirect)(
                         INTEL_SNAPSHOT_COMPUTE,
                         "compute indirect",
                         0);
+   trace_begin_compute(&cmd_buffer->trace, cmd_buffer);
 
    if (prog_data->uses_num_work_groups) {
       cmd_buffer->state.compute.num_workgroups = addr;
@@ -5103,6 +5151,8 @@ void genX(CmdDispatchIndirect)(
 #endif
 
    emit_cs_walker(cmd_buffer, pipeline, true, prog_data, 0, 0, 0);
+
+   trace_end_compute(&cmd_buffer->trace, cmd_buffer, 0, 0, 0);
 }
 
 #if GFX_VERx10 >= 125
@@ -6719,6 +6769,7 @@ void genX(CmdBeginRenderPass2)(
    cmd_buffer->state.render_area = pRenderPassBeginInfo->renderArea;
 
    anv_measure_beginrenderpass(cmd_buffer);
+   trace_begin_render_pass(&cmd_buffer->trace, cmd_buffer);
 
    result = genX(cmd_buffer_setup_attachments)(cmd_buffer, pass,
                                                framebuffer,
@@ -6760,6 +6811,14 @@ void genX(CmdEndRenderPass2)(
       return;
 
    cmd_buffer_end_subpass(cmd_buffer);
+
+   trace_end_render_pass(&cmd_buffer->trace, cmd_buffer,
+                         cmd_buffer->state.render_area.extent.width,
+                         cmd_buffer->state.render_area.extent.height,
+                         cmd_buffer->state.pass->attachment_count,
+                         cmd_buffer->state.pass->attachment_count > 0 ?
+                         cmd_buffer->state.pass->attachments[0].samples : 0,
+                         cmd_buffer->state.pass->subpass_count);
 
    cmd_buffer->state.hiz_enabled = false;
 
@@ -6999,13 +7058,21 @@ VkResult genX(CmdSetPerformanceStreamMarkerINTEL)(
    return VK_SUCCESS;
 }
 
+#define TIMESTAMP 0x2358
+
 void genX(cmd_emit_timestamp)(struct anv_batch *batch,
-                              struct anv_bo *bo,
-                              uint32_t offset) {
-   anv_batch_emit(batch, GENX(PIPE_CONTROL), pc) {
-      pc.CommandStreamerStallEnable = true;
-      pc.PostSyncOperation       = WriteTimestamp;
-      pc.Address = (struct anv_address) {bo, offset};
-      anv_debug_dump_pc(pc);
+                              struct anv_device *device,
+                              struct anv_address addr,
+                              bool end_of_pipe) {
+   if (end_of_pipe) {
+      anv_batch_emit(batch, GENX(PIPE_CONTROL), pc) {
+         pc.PostSyncOperation   = WriteTimestamp;
+         pc.Address             = addr;
+         anv_debug_dump_pc(pc);
+      }
+   } else {
+      struct mi_builder b;
+      mi_builder_init(&b, &device->info, batch);
+      mi_store(&b, mi_mem64(addr), mi_reg64(TIMESTAMP));
    }
 }
