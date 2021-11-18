@@ -582,6 +582,19 @@ pandecode_shader_disassemble(mali_ptr shader_ptr, int shader_no, int type,
 
         struct midgard_disasm_stats stats = { 0 };
 
+        /* Shader replacement */
+        const char *replace = getenv("PANWRAP_SHADER_REPLACE");
+
+        if (replace) {
+                FILE *fp = fopen(replace, "rb");
+                fseek(fp, 0L, SEEK_END);
+                unsigned size = ftell(fp);
+                rewind(fp);
+                fread(code, 1, size, fp);
+                fclose(fp);
+                memset(code + (size/sizeof(code[0])), 0, 64);
+        }
+
 #if PAN_ARCH >= 9
 	disassemble_valhall(pandecode_dump_stream, (const uint64_t *) code, sz);
 #elif PAN_ARCH >= 6 && PAN_ARCH <= 7
