@@ -134,6 +134,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
 
       D3D12_SHADER_VISIBILITY visibility =
          translate_desc_visibility(ordered_bindings[i].stageFlags);
+      binfos[binding].type = desc_type;
       binfos[binding].visibility = visibility;
       binfos[binding].base_shader_register = base_register;
       assert(base_register + ordered_bindings[i].descriptorCount >= base_register);
@@ -818,98 +819,222 @@ dzn_FreeDescriptorSets(VkDevice device,
    return pool->free_sets(device, count, pDescriptorSets);
 }
 
+dzn_descriptor_set::range::range(const dzn_descriptor_set_layout &l,
+                                 uint32_t binding,
+                                 uint32_t offset,
+                                 uint32_t count,
+                                 VkDescriptorType type) :
+   layout(l)
+{
+   first.binding = last.binding = ~0;
+   first.elem = last.elem = ~0;
+
+   if (binding >= layout.binding_count)
+      return;
+
+   for (; binding < layout.binding_count; ++binding) {
+      uint32_t desc_count = layout.get_desc_count(binding);
+
+      if (offset < desc_count)
+         break;
+
+      offset -= desc_count;
+   }
+
+   if (binding >= layout.binding_count ||
+       layout.bindings[binding].type != type)
+      return;
+
+   uint32_t first_binding = binding, first_elem = offset;
+
+   for (; binding < layout.binding_count; ++binding) {
+      uint32_t desc_count = layout.get_desc_count(binding);
+
+      if (count <= desc_count)
+         break;
+
+      count -= desc_count;
+   }
+
+   if (binding >= layout.binding_count ||
+       layout.bindings[binding].type != type)
+      return;
+
+   first.binding = first_binding;
+   first.elem = first_elem;
+   last.binding = binding;
+   last.elem = count - 1;
+}
+
+dzn_descriptor_set::range::iterator
+dzn_descriptor_set::range::begin()
+{
+   return iterator { first.binding, first.elem, *this };
+}
+
+dzn_descriptor_set::range::iterator
+dzn_descriptor_set::range::end()
+{
+   return iterator { ~0UL, ~0UL, *this };
+}
+
+dzn_descriptor_set::range::iterator &
+dzn_descriptor_set::range::iterator::operator+=(uint32_t count)
+{
+   if (binding == ~0)
+      return *this;
+
+   while (count) {
+      uint32_t desc_count = range.layout.get_desc_count(binding);
+
+      if (count >= desc_count - elem) {
+         count -= desc_count - elem;
+         binding++;
+         elem = 0;
+      } else {
+         elem += count;
+         count = 0;
+      }
+   }
+
+   if (binding > range.last.binding ||
+       (binding == range.last.binding && elem > range.last.elem)) {
+      binding = ~0;
+      elem = ~0;
+   }
+
+   return *this;
+}
+
+bool
+dzn_descriptor_set::range::iterator::operator!=(const iterator &iter) const
+{
+   return memcmp(this, &iter, sizeof(iter)) != 0;
+}
+
+uint32_t
+dzn_descriptor_set::range::iterator::get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type) const
+{
+   if (binding == ~0)
+      return ~0;
+
+   uint32_t base = range.layout.get_heap_offset(binding, type);
+   if (base == ~0)
+      return ~0;
+
+   return base + elem;
+}
+
+uint32_t
+dzn_descriptor_set::range::iterator::get_dynamic_buffer_idx() const
+{
+   if (binding == ~0)
+      return ~0;
+
+   uint32_t base = range.layout.bindings[binding].dynamic_buffer_idx;
+
+   if (base == ~0)
+      return ~0;
+
+   return base + elem;
+}
+
 void
 dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
 {
-   uint32_t b = pDescriptorWrite->dstBinding;
-   uint32_t offset = pDescriptorWrite->dstArrayElement;
+   range range(*this->layout, pDescriptorWrite->dstBinding,
+               pDescriptorWrite->dstArrayElement,
+               pDescriptorWrite->descriptorCount,
+               pDescriptorWrite->descriptorType);
    uint32_t d = 0;
-   uint32_t desc_count = layout->get_desc_count(b);
 
-   for (uint32_t d = 0; d < pDescriptorWrite->descriptorCount;) {
-      if (b >= layout->binding_count)
-         break;
-
-      if (offset >= desc_count) {
-         offset -= desc_count;
-         b++;
-         desc_count = layout->get_desc_count(b);
-         continue;
-      }
-
-      switch (pDescriptorWrite->descriptorType) {
-      case VK_DESCRIPTOR_TYPE_SAMPLER: {
+   switch (pDescriptorWrite->descriptorType) {
+   case VK_DESCRIPTOR_TYPE_SAMPLER:
+      for (auto iter : range) {
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
-         write_desc(b, offset, sampler);
-         break;
+         write_desc(iter, sampler);
+         d++;
       }
-      case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: {
+      break;
+   case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+      for (auto iter : range) {
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
-         write_desc(b, offset, sampler);
+         write_desc(iter, sampler);
          VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
-         write_desc(b, offset, iview);
-         break;
+         write_desc(iter, iview);
+         d++;
       }
-      case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
+      break;
+
+   case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+      for (auto iter : range) {
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
-         write_desc(b, offset, iview);
-         break;
+         write_desc(iter, iview);
+         d++;
       }
-      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+      break;
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+      for (auto iter : range) {
          const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
                                     pDescriptorWrite->pBufferInfo + d);
-         write_desc(b, offset, desc);
-         break;
+         write_desc(iter, desc);
+         d++;
       }
-      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: {
-         const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
-                                    pDescriptorWrite->pBufferInfo + d);
-         write_dynamic_buffer_desc(b, offset, desc);
-         break;
-      }
-      default:
-         unreachable("invalid descriptor type");
-         break;
-      }
+      break;
 
-      offset++;
-      d++;
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+      for (auto iter : range) {
+         const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
+                                    pDescriptorWrite->pBufferInfo + d);
+         write_dynamic_buffer_desc(iter, desc);
+         d++;
+      }
+      break;
+   default:
+      unreachable("invalid descriptor type");
+      break;
    }
+
+   assert(d == pDescriptorWrite->descriptorCount);
 }
 
 void
-dzn_descriptor_set::write_desc(uint32_t b, uint32_t desc, dzn_sampler *sampler)
+dzn_descriptor_set::write_desc(const range::iterator &iter,
+                               dzn_sampler *sampler)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-   uint32_t heap_offset = layout->get_heap_offset(b, type);
+   uint32_t heap_offset = iter.get_heap_offset(type);
    if (heap_offset != ~0)
-      heaps[type].write_desc(heap_offset + desc, sampler);
+      heaps[type].write_desc(heap_offset + iter.elem, sampler);
 }
 
 void
-dzn_descriptor_set::write_dynamic_buffer_desc(uint32_t b, uint32_t desc,
+dzn_descriptor_set::write_dynamic_buffer_desc(const range::iterator &iter,
                                               const dzn_buffer_desc &info)
 {
-   uint32_t dynamic_buffer_idx = layout->bindings[b].dynamic_buffer_idx;
+   uint32_t dynamic_buffer_idx = iter.get_dynamic_buffer_idx();
+   if (dynamic_buffer_idx == ~0)
+      return;
 
    assert(dynamic_buffer_idx < layout->dynamic_buffers.count);
-   dynamic_buffers[dynamic_buffer_idx + desc] = info;
+   dynamic_buffers[dynamic_buffer_idx] = info;
 }
 
 
 template<typename ... Args> void
-dzn_descriptor_set::write_desc(uint32_t b, uint32_t desc, Args... args)
+dzn_descriptor_set::write_desc(const range::iterator &iter,
+                               Args... args)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-   uint32_t heap_offset = layout->get_heap_offset(b, type);
+   uint32_t heap_offset = iter.get_heap_offset(type);
    if (heap_offset != ~0)
-      heaps[type].write_desc(heap_offset + desc, args...);
+      heaps[type].write_desc(heap_offset, args...);
 }
 
 static void

@@ -722,6 +722,7 @@ struct dzn_descriptor_pool {
 #define MAX_SHADER_VISIBILITIES (D3D12_SHADER_VISIBILITY_PIXEL + 1)
 
 struct dzn_descriptor_set_layout_binding {
+   VkDescriptorType type;
    D3D12_SHADER_VISIBILITY visibility;
    uint32_t base_shader_register;
    uint32_t range_idx[NUM_POOL_TYPES];
@@ -770,12 +771,41 @@ struct dzn_descriptor_set {
    void write(const VkWriteDescriptorSet *pDescriptorWrite);
 
 private:
+   struct range {
+      struct iterator {
+         uint32_t binding;
+         uint32_t elem;
+         const range &range;
+
+         iterator &operator+=(uint32_t count);
+         iterator &operator++() { return operator+=(1UL); }
+         bool operator!=(const iterator &iter) const;
+         iterator &operator*() { return *this; }
+         uint32_t get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type) const;
+         uint32_t get_dynamic_buffer_idx() const;
+      };
+
+      range(const dzn_descriptor_set_layout &layout,
+            uint32_t binding,
+            uint32_t desc_offset,
+            uint32_t desc_count,
+            VkDescriptorType type);
+
+      iterator begin();
+      iterator end();
+
+      const dzn_descriptor_set_layout &layout;
+      struct {
+         uint32_t binding, elem;
+      } first, last;
+   };
+
    void
-   write_desc(uint32_t b, uint32_t desc, dzn_sampler *sampler);
+   write_desc(const range::iterator &iter, dzn_sampler *sampler);
    void
-   write_dynamic_buffer_desc(uint32_t b, uint32_t desc, const dzn_buffer_desc &info);
+   write_dynamic_buffer_desc(const range::iterator &iter, const dzn_buffer_desc &info);
    template<typename ... Args> void
-   write_desc(uint32_t b, uint32_t desc, Args... args);
+   write_desc(const range::iterator &iter, Args... args);
 };
 
 struct dzn_pipeline_layout {
