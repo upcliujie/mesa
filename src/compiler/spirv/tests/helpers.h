@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "compiler/spirv/nir_spirv.h"
 #include "compiler/nir/nir.h"
+#include "spirv/assembler/spirv_assembler.h"
 
 class spirv_test : public ::testing::Test {
 protected:
@@ -68,6 +69,19 @@ protected:
                             MESA_SHADER_COMPUTE, "main", &spirv_options, &nir_options);
       ralloc_steal(mem_ctx, shader);
    }
+
+   void get_nir_from_asm(uint32_t version, const char *input,
+                         gl_shader_stage stage = MESA_SHADER_COMPUTE)
+   {
+      uint32_t words_count = 0;
+      uint32_t *words = spirv_assemble(mem_ctx, version, input, &words_count);
+      EXPECT_TRUE(words) << "Couldn't parse SPIR-V";
+
+      shader = spirv_to_nir(words, words_count, NULL, 0,
+                            stage, "main", &spirv_options, &nir_options);
+      ralloc_steal(mem_ctx, shader);
+   }
+
 
    nir_intrinsic_instr *find_intrinsic(nir_intrinsic_op op, unsigned index=0)
    {
