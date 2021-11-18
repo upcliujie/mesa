@@ -29,21 +29,18 @@
 
 class spirv_test : public ::testing::Test {
 protected:
+   void *mem_ctx;
+   spirv_to_nir_options spirv_options;
+   nir_shader_compiler_options nir_options;
+   nir_shader *shader;
+
    spirv_test()
-   : shader(NULL)
    {
       glsl_type_singleton_init_or_ref();
-   }
 
-   ~spirv_test()
-   {
-      ralloc_free(shader);
-      glsl_type_singleton_decref();
-   }
+      mem_ctx = ralloc_context(NULL);
+      shader = NULL;
 
-   void get_nir(size_t num_words, const uint32_t *words)
-   {
-      spirv_to_nir_options spirv_options;
       memset(&spirv_options, 0, sizeof(spirv_options));
       spirv_options.environment = NIR_SPIRV_VULKAN;
       spirv_options.caps.vk_memory_model = true;
@@ -54,12 +51,22 @@ protected:
       spirv_options.push_const_addr_format = nir_address_format_32bit_offset;
       spirv_options.shared_addr_format = nir_address_format_32bit_offset;
 
-      nir_shader_compiler_options nir_options;
       memset(&nir_options, 0, sizeof(nir_options));
       nir_options.use_scoped_barrier = true;
+   }
 
+   ~spirv_test()
+   {
+      ralloc_free(mem_ctx);
+
+      glsl_type_singleton_decref();
+   }
+
+   void get_nir(size_t num_words, const uint32_t *words)
+   {
       shader = spirv_to_nir(words, num_words, NULL, 0,
                             MESA_SHADER_COMPUTE, "main", &spirv_options, &nir_options);
+      ralloc_steal(mem_ctx, shader);
    }
 
    nir_intrinsic_instr *find_intrinsic(nir_intrinsic_op op, unsigned index=0)
@@ -79,8 +86,6 @@ protected:
 
       return NULL;
    }
-
-   nir_shader *shader;
 };
 
 #endif /* SPIRV_TEST_HELPERS_H */
