@@ -4459,7 +4459,6 @@ radv_CmdBindVertexBuffers2EXT(VkCommandBuffer commandBuffer, uint32_t firstBindi
       vb[idx].buffer = buffer;
       vb[idx].offset = pOffsets[i];
       vb[idx].size = size;
-      /* if pStrides=NULL, it shouldn't overwrite the strides specified by CmdSetVertexInputEXT */
 
       if (chip == GFX6 || chip >= GFX10) {
          const uint32_t bit = 1u << idx;
@@ -4480,6 +4479,7 @@ radv_CmdBindVertexBuffers2EXT(VkCommandBuffer commandBuffer, uint32_t firstBindi
          }
       }
 
+      /* if pStrides=NULL, it shouldn't overwrite the strides specified by CmdSetVertexInputEXT */
       if (pStrides)
          vb[idx].stride = stride;
 
