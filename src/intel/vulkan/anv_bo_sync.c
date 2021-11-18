@@ -224,6 +224,7 @@ anv_sync_create_for_bo(struct anv_device *device,
    if (bo_sync == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   bo_sync->sync.flags = 0;
    bo_sync->sync.type = &anv_bo_sync_type;
    bo_sync->state = ANV_BO_SYNC_STATE_SUBMITTED;
    bo_sync->bo = anv_bo_ref(bo);
