@@ -446,7 +446,7 @@ fedora/x86_build:
     - .container
   variables:
     FDO_DISTRIBUTION_VERSION: 34
-    MESA_IMAGE_TAG: &fedora-x86_build "2021-07-08-bump-libdrm"
+    MESA_IMAGE_TAG: &fedora-x86_build "2021-11-18-add-spirv-tools-3"
 
 .use-fedora/x86_build:
   extends:
