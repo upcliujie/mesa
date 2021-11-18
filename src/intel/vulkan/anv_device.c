@@ -3300,6 +3300,8 @@ VkResult anv_CreateDevice(
 
    anv_device_perf_init(device);
 
+   anv_device_utrace_init(device);
+
    *pDevice = anv_device_to_handle(device);
 
    return VK_SUCCESS;
@@ -3366,6 +3368,8 @@ void anv_DestroyDevice(
 
    if (!device)
       return;
+
+   anv_device_utrace_finish(device);
 
    anv_device_finish_blorp(device);
 
