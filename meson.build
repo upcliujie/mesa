@@ -1563,7 +1563,7 @@ _drm_amdgpu_ver = '2.4.107'
 _drm_radeon_ver = '2.4.71'
 _drm_nouveau_ver = '2.4.102'
 _drm_intel_ver = '2.4.75'
-_drm_ver = '2.4.109'
+_drm_ver = '2.4.107'
 
 _libdrm_checks = [
   ['intel', with_gallium_i915],
@@ -1964,7 +1964,7 @@ if with_platform_wayland
   else
     wl_scanner_arg = 'code'
   endif
-  dep_wl_protocols = dependency('wayland-protocols', version : '>= 1.24')
+  dep_wl_protocols = dependency('wayland-protocols', version : '>= 1.21')
   dep_wayland_client = dependency('wayland-client', version : '>=1.18')
   dep_wayland_server = dependency('wayland-server', version : '>=1.18')
   if with_egl
