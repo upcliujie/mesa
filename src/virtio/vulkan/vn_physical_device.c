@@ -728,6 +728,8 @@ vn_physical_device_init_memory_properties(
    struct vn_physical_device *physical_dev)
 {
    struct vn_instance *instance = physical_dev->instance;
+   VkPhysicalDeviceMemoryProperties *props =
+      &physical_dev->memory_properties.memoryProperties;
 
    physical_dev->memory_properties.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
@@ -736,9 +738,10 @@ vn_physical_device_init_memory_properties(
       instance, vn_physical_device_to_handle(physical_dev),
       &physical_dev->memory_properties);
 
+   memcpy(physical_dev->renderer_memory_types, props->memoryTypes,
+          sizeof(physical_dev->renderer_memory_types));
+
    if (!instance->renderer_info.has_cache_management) {
-      VkPhysicalDeviceMemoryProperties *props =
-         &physical_dev->memory_properties.memoryProperties;
       const uint32_t host_flags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
                                   VK_MEMORY_PROPERTY_HOST_CACHED_BIT;

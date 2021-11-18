@@ -52,6 +52,7 @@ struct vn_physical_device {
    uint32_t queue_family_count;
 
    VkPhysicalDeviceMemoryProperties2 memory_properties;
+   VkMemoryType renderer_memory_types[VK_MAX_MEMORY_TYPES];
 
    struct {
       VkExternalMemoryHandleTypeFlagBits renderer_handle_type;

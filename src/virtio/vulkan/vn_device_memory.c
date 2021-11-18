@@ -53,9 +53,8 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
       return result;
    }
 
-   const VkPhysicalDeviceMemoryProperties *mem_props =
-      &dev->physical_device->memory_properties.memoryProperties;
-   const VkMemoryType *mem_type = &mem_props->memoryTypes[mem_type_index];
+   const VkMemoryType *mem_type =
+      &dev->physical_device->renderer_memory_types[mem_type_index];
    result = vn_renderer_bo_create_from_device_memory(
       dev->renderer, mem->size, mem->base.id, mem_type->propertyFlags, 0,
       &mem->base_bo);
@@ -306,13 +305,16 @@ vn_AllocateMemory(VkDevice device,
                   VkDeviceMemory *pMemory)
 {
    struct vn_device *dev = vn_device_from_handle(device);
+   struct vn_physical_device *physical_dev = dev->physical_device;
    const VkAllocationCallbacks *alloc =
       pAllocator ? pAllocator : &dev->base.base.alloc;
 
    const VkPhysicalDeviceMemoryProperties *mem_props =
-      &dev->physical_device->memory_properties.memoryProperties;
+      &physical_dev->memory_properties.memoryProperties;
    const VkMemoryType *mem_type =
       &mem_props->memoryTypes[pAllocateInfo->memoryTypeIndex];
+   const VkMemoryType *renderer_mem_type =
+      &physical_dev->renderer_memory_types[pAllocateInfo->memoryTypeIndex];
 
    const VkExportMemoryAllocateInfo *export_info = NULL;
    const VkImportAndroidHardwareBufferInfoANDROID *import_ahb_info = NULL;
@@ -363,7 +365,8 @@ vn_AllocateMemory(VkDevice device,
       result = vn_device_memory_alloc(dev, mem, pAllocateInfo, true,
                                       mem_type->propertyFlags,
                                       export_info->handleTypes);
-   } else if (vn_device_memory_should_suballocate(pAllocateInfo, mem_type)) {
+   } else if (vn_device_memory_should_suballocate(pAllocateInfo,
+                                                  renderer_mem_type)) {
       result = vn_device_memory_pool_alloc(
          dev, pAllocateInfo->memoryTypeIndex, mem->size, &mem->base_memory,
          &mem->base_bo, &mem->base_offset);
