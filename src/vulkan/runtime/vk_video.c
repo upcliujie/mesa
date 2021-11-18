@@ -472,4 +472,18 @@ vk_video_parse_h264_slice_header(const struct VkVideoDecodeInfoKHR *frame_info,
       rbsp.nal.invalid_bits - ((rbsp.nal.invalid_bits < 0) ? 32 : 0) + 8;
 }
 
+void
+vk_fill_video_reference_info(const VkVideoDecodeInfoKHR *frame_info,
+                             struct vk_video_h264_reference *ref_slots)
+{
+   for (unsigned i = 0; i < frame_info->referenceSlotCount; i++) {
+      const VkVideoDecodeH264DpbSlotInfoEXT *dpb_slot_info = vk_find_struct_const(frame_info->pReferenceSlots[i].pNext, VIDEO_DECODE_H264_DPB_SLOT_INFO_EXT);
+      ref_slots[i].pPictureResource = frame_info->pReferenceSlots[i].pPictureResource;
+
+      ref_slots[i].frame_num = dpb_slot_info->pStdReferenceInfo->FrameNum;
+      ref_slots[i].flags = dpb_slot_info->pStdReferenceInfo->flags;
+      ref_slots[i].pic_order_cnt[0] = dpb_slot_info->pStdReferenceInfo->PicOrderCnt[0];
+      ref_slots[i].pic_order_cnt[1] = dpb_slot_info->pStdReferenceInfo->PicOrderCnt[1];
+   }
+}
 #endif
