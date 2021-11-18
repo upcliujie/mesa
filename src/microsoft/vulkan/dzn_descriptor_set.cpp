@@ -822,8 +822,7 @@ dzn_FreeDescriptorSets(VkDevice device,
 dzn_descriptor_set::range::range(const dzn_descriptor_set_layout &l,
                                  uint32_t binding,
                                  uint32_t offset,
-                                 uint32_t count,
-                                 VkDescriptorType type) :
+                                 uint32_t count) :
    layout(l)
 {
    first.binding = last.binding = ~0;
@@ -841,8 +840,7 @@ dzn_descriptor_set::range::range(const dzn_descriptor_set_layout &l,
       offset -= desc_count;
    }
 
-   if (binding >= layout.binding_count ||
-       layout.bindings[binding].type != type)
+   if (binding >= layout.binding_count)
       return;
 
    uint32_t first_binding = binding, first_elem = offset;
@@ -856,8 +854,7 @@ dzn_descriptor_set::range::range(const dzn_descriptor_set_layout &l,
       count -= desc_count;
    }
 
-   if (binding >= layout.binding_count ||
-       layout.bindings[binding].type != type)
+   if (binding >= layout.binding_count)
       return;
 
    first.binding = first_binding;
@@ -939,18 +936,36 @@ dzn_descriptor_set::range::iterator::get_dynamic_buffer_idx() const
    return base + elem;
 }
 
+VkDescriptorType
+dzn_descriptor_set::range::iterator::get_vk_type() const
+{
+   if (binding >= range.layout.binding_count)
+      return (VkDescriptorType)~0;
+
+   return range.layout.bindings[binding].type;
+}
+
+uint32_t
+dzn_descriptor_set::range::iterator::remaining_descs_in_binding() const
+{
+   if (binding == ~0)
+      return 0;
+
+   return range.layout.get_desc_count(binding) - elem;
+}
+
 void
 dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
 {
    range range(*this->layout, pDescriptorWrite->dstBinding,
                pDescriptorWrite->dstArrayElement,
-               pDescriptorWrite->descriptorCount,
-               pDescriptorWrite->descriptorType);
+               pDescriptorWrite->descriptorCount);
    uint32_t d = 0;
 
    switch (pDescriptorWrite->descriptorType) {
    case VK_DESCRIPTOR_TYPE_SAMPLER:
       for (auto iter : range) {
+         assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
          write_desc(iter, sampler);
@@ -959,6 +974,7 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
       break;
    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
       for (auto iter : range) {
+         assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
          write_desc(iter, sampler);
@@ -971,6 +987,7 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
       for (auto iter : range) {
+         assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
          write_desc(iter, iview);
@@ -980,6 +997,7 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
       for (auto iter : range) {
+         assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
          const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
                                     pDescriptorWrite->pBufferInfo + d);
          write_desc(iter, desc);
@@ -990,6 +1008,7 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
       for (auto iter : range) {
+         assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
          const dzn_buffer_desc desc(pDescriptorWrite->descriptorType,
                                     pDescriptorWrite->pBufferInfo + d);
          write_dynamic_buffer_desc(iter, desc);
@@ -1005,13 +1024,74 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
 }
 
 void
+dzn_descriptor_set::copy(const dzn_descriptor_set *src,
+                         const VkCopyDescriptorSet *pDescriptorCopy)
+{
+   range src_range(*src->layout,
+                   pDescriptorCopy->srcBinding,
+                   pDescriptorCopy->srcArrayElement,
+                   pDescriptorCopy->descriptorCount);
+   range dst_range(*this->layout,
+                   pDescriptorCopy->dstBinding,
+                   pDescriptorCopy->dstArrayElement,
+                   pDescriptorCopy->descriptorCount);
+   uint32_t copied_count = 0;
+
+   auto src_iter = src_range.begin();
+   auto src_end = src_range.end();
+   auto dst_iter = dst_range.begin();
+   auto dst_end = dst_range.end();
+
+   while (src_iter != src_end && dst_iter != dst_end) {
+      VkDescriptorType src_type = src_iter.get_vk_type();
+      VkDescriptorType dst_type = dst_iter.get_vk_type();
+      assert(copied_count < pDescriptorCopy->descriptorCount);
+      assert(src_type == dst_type);
+      uint32_t count =
+         MIN2(src_iter.remaining_descs_in_binding(),
+              dst_iter.remaining_descs_in_binding());
+
+      if (src_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+          src_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
+         uint32_t src_idx = src_iter.get_dynamic_buffer_idx();
+         uint32_t dst_idx = dst_iter.get_dynamic_buffer_idx();
+
+         memcpy(&dynamic_buffers[dst_idx],
+                &src->dynamic_buffers[src_idx],
+                sizeof(*dynamic_buffers) * count);
+      } else {
+         dzn_foreach_pool_type(type) {
+            uint32_t src_heap_offset = src_iter.get_heap_offset(type);
+            uint32_t dst_heap_offset = dst_iter.get_heap_offset(type);
+
+            if (src_heap_offset == ~0) {
+               assert(dst_heap_offset == ~0);
+               continue;
+            }
+
+            heaps[type].copy(dst_heap_offset,
+                             src->heaps[type],
+                             src_heap_offset,
+                             count);
+         }
+      }
+
+      src_iter += count;
+      dst_iter += count;
+      copied_count += count;
+   }
+
+   assert(copied_count == pDescriptorCopy->descriptorCount);
+}
+
+void
 dzn_descriptor_set::write_desc(const range::iterator &iter,
                                dzn_sampler *sampler)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
    uint32_t heap_offset = iter.get_heap_offset(type);
    if (heap_offset != ~0)
-      heaps[type].write_desc(heap_offset + iter.elem, sampler);
+      heaps[type].write_desc(heap_offset, sampler);
 }
 
 void
@@ -1037,14 +1117,6 @@ dzn_descriptor_set::write_desc(const range::iterator &iter,
       heaps[type].write_desc(heap_offset, args...);
 }
 
-static void
-dzn_copy_descriptor_set(struct dzn_device *dev,
-                        const VkCopyDescriptorSet *pDescriptorCopy)
-{
-   // TODO: support copies
-   assert(0);
-}
-
 VKAPI_ATTR void VKAPI_CALL
 dzn_UpdateDescriptorSets(VkDevice _device,
                          uint32_t descriptorWriteCount,
@@ -1059,6 +1131,9 @@ dzn_UpdateDescriptorSets(VkDevice _device,
       set->write(&pDescriptorWrites[i]);
    }
 
-   for (unsigned i = 0; i < descriptorCopyCount; i++)
-      dzn_copy_descriptor_set(dev, &pDescriptorCopies[i]);
+   for (unsigned i = 0; i < descriptorCopyCount; i++) {
+      VK_FROM_HANDLE(dzn_descriptor_set, src_set, pDescriptorCopies[i].srcSet);
+      VK_FROM_HANDLE(dzn_descriptor_set, dst_set, pDescriptorCopies[i].dstSet);
+      dst_set->copy(src_set, &pDescriptorCopies[i]);
+   }
 }

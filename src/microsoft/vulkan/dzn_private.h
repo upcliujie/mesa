@@ -417,8 +417,9 @@ enum dzn_cmd_dirty {
 #define NUM_POOL_TYPES D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER + 1
 
 #define dzn_foreach_pool_type(type) \
-   for (uint32_t type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; \
-        type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; type++)
+   for (D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV; \
+        type <= D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER; \
+        type = (D3D12_DESCRIPTOR_HEAP_TYPE)(type + 1))
 
 struct dzn_cmd_event_signal {
    struct dzn_event *event;
@@ -769,6 +770,7 @@ struct dzn_descriptor_set {
    ~dzn_descriptor_set();
 
    void write(const VkWriteDescriptorSet *pDescriptorWrite);
+   void copy(const dzn_descriptor_set *src, const VkCopyDescriptorSet *pDescriptorCopy);
 
 private:
    struct range {
@@ -783,13 +785,14 @@ private:
          iterator &operator*() { return *this; }
          uint32_t get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type) const;
          uint32_t get_dynamic_buffer_idx() const;
+         VkDescriptorType get_vk_type() const;
+         uint32_t remaining_descs_in_binding() const;
       };
 
       range(const dzn_descriptor_set_layout &layout,
             uint32_t binding,
             uint32_t desc_offset,
-            uint32_t desc_count,
-            VkDescriptorType type);
+            uint32_t desc_count);
 
       iterator begin();
       iterator end();
