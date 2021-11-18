@@ -66,6 +66,8 @@ dnf install -y --setopt=install_weak_deps=False \
     python3-devel \
     python3-mako \
     vulkan-headers \
+    spirv-tools-devel \
+    spirv-llvm-translator-devel \
     $EPHEMERAL
 
 
