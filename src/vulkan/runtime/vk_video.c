@@ -491,4 +491,135 @@ vk_fill_video_reference_info(const VkVideoDecodeInfoKHR *frame_info,
       ref_slots[i].pic_order_cnt[1] = dpb_slot_info->pStdReferenceInfo->PicOrderCnt[1];
    }
 }
+
+/* H.264 - 8.2.4.2.1 Initialisation process for the reference picture list
+ *  for P and SP slices in frames
+ * P frames are sorted by frame num.
+ */
+void
+vk_video_sort_p_ref_frames(uint32_t count,
+                           const struct vk_video_h264_reference *refs,
+                           int32_t *sorted_idxs)
+{
+   int32_t sorted_fn_refs[32];
+
+   /* sort the list by descending frame number */
+   for (unsigned i = 0; i < count; i++) {
+      int found_idx = -1;
+      int to_find = -1;
+      int limit;
+      if (i > 0)
+         limit = sorted_fn_refs[i - 1];
+      else
+         limit = INT_MAX;
+
+      for (unsigned j = 0; j < count; j++) {
+         if (refs[j].frame_num > to_find && refs[j].frame_num < limit) {
+            to_find = refs[j].frame_num;
+            found_idx = j;
+         }
+      }
+
+      if (found_idx >= 0 && found_idx < count) {
+         sorted_idxs[i] = found_idx;
+         sorted_fn_refs[i] = to_find;
+      }
+   }
+}
+
+static int
+do_descend_sort(const struct vk_video_h264_reference *refs,
+                int32_t count,
+                int32_t from, int32_t to,
+                int32_t *sorted_poc_idxs)
+{
+   int len = 0;
+   int32_t sorted_poc_refs[32];
+   /* sort the list by descending poc number for values under curr_poc */
+   for (unsigned i = 0; i < count; i++) {
+      int found_idx = -1;
+      int limit;
+
+      int to_find = from;
+      if (len > 0)
+         limit = sorted_poc_refs[len - 1];
+      else
+         limit = to;
+
+      /* find the first highest pic order cnt < curr_poc that hasn't
+         been processed */
+      for (unsigned j = 0; j < count; j++) {
+         if (refs[j].pic_order_cnt[0] > to_find && refs[j].pic_order_cnt[0] < limit) {
+            to_find = refs[j].pic_order_cnt[0];
+            found_idx = j;
+         }
+      }
+
+      if (found_idx >= 0 && found_idx < count) {
+         sorted_poc_idxs[len] = found_idx;
+         sorted_poc_refs[len] = to_find;
+         len++;
+      }
+   }
+   return len;
+}
+
+static int
+do_ascend_sort(const struct vk_video_h264_reference *refs,
+               int32_t count,
+               int32_t from, int32_t to,
+               int32_t *sorted_poc_idxs)
+{
+   int len = 0;
+   int32_t sorted_poc_refs[32];
+
+   for (unsigned i = 0; i < count; i++) {
+      int found_idx = -1;
+      int limit;
+
+      int to_find = to;
+      if (len > 0)
+         limit = sorted_poc_refs[len - 1];
+      else
+         limit = from;
+
+      for (unsigned j = 0; j < count; j++) {
+         if (refs[j].pic_order_cnt[0] < to_find && refs[j].pic_order_cnt[0] > limit) {
+            to_find = refs[j].pic_order_cnt[0];
+            found_idx = j;
+         }
+      }
+
+      if (found_idx >= 0 && found_idx < count) {
+         sorted_poc_idxs[len] = found_idx;
+         sorted_poc_refs[len] = to_find;
+         len++;
+      }
+   }
+   return len;
+}
+
+/* H.264 8.2.4.2.3 Initialisation process for reference picture lists for B slices in frames */
+int
+vk_video_sort_b_l0_ref_frames(uint32_t count,
+                              uint32_t curr_poc,
+                              const struct vk_video_h264_reference *refs,
+                              int32_t *sorted_poc_idxs)
+{
+   int len;
+
+   len = do_descend_sort(refs, count, INT_MIN, curr_poc, sorted_poc_idxs);
+   return do_ascend_sort(refs, count, curr_poc, INT_MAX, sorted_poc_idxs + len);
+}
+
+int
+vk_video_sort_b_l1_ref_frames(uint32_t count,
+                              uint32_t curr_poc,
+                              const struct vk_video_h264_reference *refs,
+                              int32_t *sorted_poc_idxs)
+{
+   int len;
+   len = do_ascend_sort(refs, count, curr_poc, INT_MAX, sorted_poc_idxs);
+   return do_descend_sort(refs, count, INT_MIN, curr_poc, sorted_poc_idxs + len);
+}
 #endif
