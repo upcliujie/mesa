@@ -136,6 +136,18 @@ struct vk_video_h264_reference {
 void vk_fill_video_reference_info(const VkVideoDecodeInfoKHR *frame_info,
                                   struct vk_video_h264_reference *ref_slots);
 
+void vk_video_sort_p_ref_frames(uint32_t count,
+                                const struct vk_video_h264_reference *refs,
+                                int32_t *sorted_idxs);
+int vk_video_sort_b_l0_ref_frames(uint32_t count,
+                                  uint32_t curr_poc,
+                                  const struct vk_video_h264_reference *refs,
+                                  int32_t *sorted_poc_idxs);
+int vk_video_sort_b_l1_ref_frames(uint32_t count,
+                                  uint32_t curr_poc,
+                                  const struct vk_video_h264_reference *refs,
+                                  int32_t *sorted_poc_idxs);
+
 #ifdef __cplusplus
 }
 #endif
