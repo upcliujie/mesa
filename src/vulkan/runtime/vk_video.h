@@ -125,6 +125,17 @@ void vk_video_parse_h264_slice_header(const struct VkVideoDecodeInfoKHR *frame_i
                                       void *slice_hdr,
                                       struct vk_video_h264_slice_params *params);
 
+struct vk_video_h264_reference {
+   const VkVideoPictureResourceKHR *pPictureResource;
+   StdVideoDecodeH264ReferenceInfoFlags flags;
+   int16_t frame_num;
+   int32_t pic_order_cnt[2];
+};
+
+/* fill out the needed info without having to chase pNext */
+void vk_fill_video_reference_info(const VkVideoDecodeInfoKHR *frame_info,
+                                  struct vk_video_h264_reference *ref_slots);
+
 #ifdef __cplusplus
 }
 #endif
