@@ -361,7 +361,8 @@ static bool ppir_emit_intrinsic(ppir_block *block, nir_instr *ni)
             break;
          default: {
             ppir_dest *dest = ppir_node_get_dest(node);
-            dest->ssa.out_type = ppir_nir_output_to_ppir(slot);
+            dest->ssa.out_type = ppir_nir_output_to_ppir(slot,
+               block->comp->dual_source_blend ? io.dual_source_blend_index : 0);
             node->is_out = 1;
             return true;
             }
@@ -377,7 +378,8 @@ static bool ppir_emit_intrinsic(ppir_block *block, nir_instr *ni)
       dest->ssa.num_components = instr->num_components;
       dest->ssa.index = 0;
       dest->write_mask = u_bit_consecutive(0, instr->num_components);
-      dest->ssa.out_type = ppir_nir_output_to_ppir(slot);
+      dest->ssa.out_type = ppir_nir_output_to_ppir(slot,
+         block->comp->dual_source_blend ? io.dual_source_blend_index : 0);
 
       alu_node->num_src = 1;
 
@@ -911,6 +913,7 @@ bool ppir_compile_nir(struct lima_fs_compiled_shader *prog, struct nir_shader *n
 
    comp->ra = ra;
    comp->uses_discard = nir->info.fs.uses_discard;
+   comp->dual_source_blend = nir->info.fs.color_is_dual_source;
 
    /* 1st pass: create ppir blocks */
    nir_foreach_function(function, nir) {

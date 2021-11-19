@@ -460,6 +460,8 @@ lima_blend_factor_has_alpha(enum pipe_blendfactor pipe)
    case PIPE_BLENDFACTOR_INV_SRC_ALPHA:
    case PIPE_BLENDFACTOR_INV_DST_ALPHA:
    case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
+   case PIPE_BLENDFACTOR_SRC1_ALPHA:
+   case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
       return 1;
 
    case PIPE_BLENDFACTOR_SRC_COLOR:
@@ -471,13 +473,9 @@ lima_blend_factor_has_alpha(enum pipe_blendfactor pipe)
    case PIPE_BLENDFACTOR_ZERO:
    case PIPE_BLENDFACTOR_ONE:
    case PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE:
-      return 0;
-
    case PIPE_BLENDFACTOR_SRC1_COLOR:
-   case PIPE_BLENDFACTOR_SRC1_ALPHA:
    case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
-   case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
-      return -1; /* not supported */
+      return 0;
    }
    return -1;
 }
@@ -494,6 +492,8 @@ lima_blend_factor_is_inv(enum pipe_blendfactor pipe)
    case PIPE_BLENDFACTOR_INV_CONST_COLOR:
    case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
    case PIPE_BLENDFACTOR_ONE:
+   case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
+   case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
       return 1;
 
    case PIPE_BLENDFACTOR_SRC_COLOR:
@@ -504,13 +504,9 @@ lima_blend_factor_is_inv(enum pipe_blendfactor pipe)
    case PIPE_BLENDFACTOR_CONST_ALPHA:
    case PIPE_BLENDFACTOR_ZERO:
    case PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE:
-      return 0;
-
    case PIPE_BLENDFACTOR_SRC1_COLOR:
    case PIPE_BLENDFACTOR_SRC1_ALPHA:
-   case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
-   case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
-      return -1; /* not supported */
+      return 0;
    }
    return -1;
 }
@@ -549,7 +545,7 @@ lima_blend_factor(enum pipe_blendfactor pipe)
    case PIPE_BLENDFACTOR_SRC1_ALPHA:
    case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
    case PIPE_BLENDFACTOR_INV_SRC1_ALPHA:
-      return -1; /* not supported */
+      return 5;
    }
    return -1;
 }
@@ -736,10 +732,10 @@ lima_pack_render_state(struct lima_context *ctx, const struct pipe_draw_info *in
       render->multi_sample |= 0x68;
 
    /* Set gl_FragColor register, need to specify it 4 times */
-   render->multi_sample |= (fs->state.frag_color_reg << 28) |
-                           (fs->state.frag_color_reg << 24) |
-                           (fs->state.frag_color_reg << 20) |
-                           (fs->state.frag_color_reg << 16);
+   render->multi_sample |= (fs->state.frag_color0_reg << 28) |
+                           (fs->state.frag_color0_reg << 24) |
+                           (fs->state.frag_color0_reg << 20) |
+                           (fs->state.frag_color0_reg << 16);
 
    /* alpha test */
    if (ctx->zsa->base.alpha_enabled) {
@@ -806,6 +802,10 @@ lima_pack_render_state(struct lima_context *ctx, const struct pipe_draw_info *in
       render->aux0 |= 0x80;
       render->aux1 |= 0x10000;
    }
+
+   /* Set secondary output color */
+   if (fs->state.frag_color1_reg != -1)
+      render->aux0 |= (fs->state.frag_color1_reg << 28);
 
    if (ctx->vs->state.num_varyings) {
       render->varying_types = 0x00000000;
