@@ -140,12 +140,7 @@ dzn_is_format_supported(enum pipe_format in)
 DXGI_FORMAT
 dzn_pipe_to_dxgi_format(enum pipe_format in)
 {
-   DXGI_FORMAT out = formats[in];
-
-   if (out == DXGI_FORMAT_UNKNOWN)
-      unreachable("unsupported format");
-
-   return out;
+   return formats[in];
 }
 
 struct dzn_sampler_filter_info {
