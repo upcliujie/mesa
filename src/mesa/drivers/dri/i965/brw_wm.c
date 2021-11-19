@@ -505,10 +505,10 @@ brw_wm_populate_key(struct brw_context *brw, struct brw_wm_prog_key *key)
    /* _NEW_BUFFERS _NEW_MULTISAMPLE */
    /* Ignore sample qualifier while computing this flag. */
    if (ctx->Multisample.Enabled) {
-      key->persample_interp =
-         ctx->Multisample.SampleShading &&
-         (ctx->Multisample.MinSampleShadingValue *
-          _mesa_geometric_samples(ctx->DrawBuffer) > 1);
+      if (ctx->Multisample.SampleShading &&
+          (ctx->Multisample.MinSampleShadingValue *
+           _mesa_geometric_samples(ctx->DrawBuffer) > 1))
+         key->persample_interp = BRW_ALWAYS;
 
       key->multisample_fbo = _mesa_geometric_samples(ctx->DrawBuffer) > 1;
    }
