@@ -953,6 +953,14 @@ struct dzn_image {
                 VkImageAspectFlagBits aspect,
                 uint32_t layer) const;
 
+   void create_rtv(dzn_device *device,
+	           const VkImageSubresourceRange &range,
+	           uint32_t level,
+	           D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+   void create_dsv(dzn_device *device,
+                   const VkImageSubresourceRange &range,
+                   uint32_t level,
+                   D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
 
    static DXGI_FORMAT
    get_dxgi_format(VkFormat format,

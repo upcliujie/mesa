@@ -321,6 +321,152 @@ dzn_image::get_copy_loc(const VkImageSubresourceLayers &subres,
    return loc;
 }
 
+void
+dzn_image::create_dsv(dzn_device *device,
+                      const VkImageSubresourceRange &range,
+                      uint32_t level,
+                      D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+{
+   uint32_t layer_count = dzn_get_layer_count(this, &range);
+   D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {
+      .Format =
+         get_dxgi_format(vk.format,
+                         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                         range.aspectMask),
+   };
+
+   switch (vk.image_type) {
+   case VK_IMAGE_TYPE_1D:
+      dsv_desc.ViewDimension =
+         vk.array_layers > 1 ?
+         D3D12_DSV_DIMENSION_TEXTURE1DARRAY :
+         D3D12_DSV_DIMENSION_TEXTURE1D;
+      break;
+   case VK_IMAGE_TYPE_2D:
+      if (vk.array_layers > 1) {
+         dsv_desc.ViewDimension =
+	    vk.samples > 1 ?
+	    D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY :
+	    D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
+      } else {
+         dsv_desc.ViewDimension =
+            vk.samples > 1 ?
+            D3D12_DSV_DIMENSION_TEXTURE2DMS :
+            D3D12_DSV_DIMENSION_TEXTURE2D;
+      }
+      break;
+   default:
+      unreachable("Invalid image type");
+   }
+
+   switch (dsv_desc.ViewDimension) {
+   case D3D12_DSV_DIMENSION_TEXTURE1D:
+      dsv_desc.Texture1D.MipSlice = range.baseMipLevel + level;
+      break;
+   case D3D12_DSV_DIMENSION_TEXTURE1DARRAY:
+      dsv_desc.Texture1DArray.MipSlice = range.baseMipLevel + level;
+      dsv_desc.Texture1DArray.FirstArraySlice = range.baseArrayLayer;
+      dsv_desc.Texture1DArray.ArraySize = layer_count;
+      break;
+   case D3D12_DSV_DIMENSION_TEXTURE2D:
+      dsv_desc.Texture2D.MipSlice = range.baseMipLevel + level;
+      break;
+   case D3D12_DSV_DIMENSION_TEXTURE2DMS:
+      break;
+   case D3D12_DSV_DIMENSION_TEXTURE2DARRAY:
+      dsv_desc.Texture2DArray.MipSlice = range.baseMipLevel + level;
+      dsv_desc.Texture2DArray.FirstArraySlice = range.baseArrayLayer;
+      dsv_desc.Texture2DArray.ArraySize = layer_count;
+      break;
+   }
+
+   device->dev->CreateDepthStencilView(res.Get(), &dsv_desc, handle);
+}
+
+void
+dzn_image::create_rtv(dzn_device *device,
+                      const VkImageSubresourceRange &range,
+                      uint32_t level,
+                      D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+{
+   uint32_t layer_count = dzn_get_layer_count(this, &range);
+   D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {
+      .Format =
+         get_dxgi_format(vk.format,
+                         VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                         VK_IMAGE_ASPECT_COLOR_BIT),
+   };
+
+   switch (vk.image_type) {
+   case VK_IMAGE_TYPE_1D:
+      rtv_desc.ViewDimension =
+         vk.array_layers > 1 ?
+         D3D12_RTV_DIMENSION_TEXTURE1DARRAY : D3D12_RTV_DIMENSION_TEXTURE1D;
+      break;
+   case VK_IMAGE_TYPE_2D:
+      if (vk.array_layers > 1) {
+         rtv_desc.ViewDimension =
+            vk.samples > 1 ?
+            D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY :
+            D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
+      } else {
+         rtv_desc.ViewDimension =
+            vk.samples > 1 ?
+            D3D12_RTV_DIMENSION_TEXTURE2DMS :
+            D3D12_RTV_DIMENSION_TEXTURE2D;
+      }
+      break;
+   case VK_IMAGE_TYPE_3D:
+      rtv_desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
+      break;
+   default: unreachable("Invalid image type\n");
+   }
+
+   switch (rtv_desc.ViewDimension) {
+   case D3D12_RTV_DIMENSION_TEXTURE1D:
+      rtv_desc.Texture1D.MipSlice = range.baseMipLevel + level;
+      break;
+   case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
+      rtv_desc.Texture1DArray.MipSlice = range.baseMipLevel + level;
+      rtv_desc.Texture1DArray.FirstArraySlice = range.baseArrayLayer;
+      rtv_desc.Texture1DArray.ArraySize = layer_count;
+      break;
+   case D3D12_RTV_DIMENSION_TEXTURE2D:
+      rtv_desc.Texture2D.MipSlice = range.baseMipLevel + level;
+      if (range.aspectMask & VK_IMAGE_ASPECT_PLANE_1_BIT)
+         rtv_desc.Texture2D.PlaneSlice = 1;
+      else if (range.aspectMask & VK_IMAGE_ASPECT_PLANE_2_BIT)
+         rtv_desc.Texture2D.PlaneSlice = 2;
+      else
+         rtv_desc.Texture2D.PlaneSlice = 0;
+      break;
+   case D3D12_RTV_DIMENSION_TEXTURE2DMS:
+      break;
+   case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
+      rtv_desc.Texture2DArray.MipSlice = range.baseMipLevel + level;
+      rtv_desc.Texture2DArray.FirstArraySlice = range.baseArrayLayer;
+      rtv_desc.Texture2DArray.ArraySize = layer_count;
+      if (range.aspectMask & VK_IMAGE_ASPECT_PLANE_1_BIT)
+         rtv_desc.Texture2DArray.PlaneSlice = 1;
+      else if (range.aspectMask & VK_IMAGE_ASPECT_PLANE_2_BIT)
+         rtv_desc.Texture2DArray.PlaneSlice = 2;
+      else
+         rtv_desc.Texture2DArray.PlaneSlice = 0;
+      break;
+   case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
+      rtv_desc.Texture2DMSArray.FirstArraySlice = range.baseArrayLayer;
+      rtv_desc.Texture2DMSArray.ArraySize = layer_count;
+      break;
+   case D3D12_RTV_DIMENSION_TEXTURE3D:
+      rtv_desc.Texture3D.MipSlice = range.baseMipLevel + level;
+      rtv_desc.Texture3D.FirstWSlice = range.baseArrayLayer;
+      rtv_desc.Texture3D.WSize = layer_count;
+      break;
+   }
+
+   device->dev->CreateRenderTargetView(res.Get(), &rtv_desc, handle);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateImage(VkDevice device,
                 const VkImageCreateInfo *pCreateInfo,
