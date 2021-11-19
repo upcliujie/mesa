@@ -327,6 +327,8 @@ va_pack_instr(const bi_instr *I, unsigned action)
    unsigned meta = fau_mode | (action << 2);
    uint64_t hex = info.exact | (((uint64_t) meta) << 57);
 
+   if (I->op == BI_OPCODE_MUX_I32) hex |= (uint64_t) I->mux << 32;
+
    /* Staging register count */
    switch (I->op) {
    case BI_OPCODE_LOAD_I8:
