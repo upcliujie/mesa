@@ -362,7 +362,9 @@ d3d12_resource_from_handle(struct pipe_screen *pscreen,
       res->base.b.target = PIPE_TEXTURE_3D;
       res->base.b.depth0 = incoming_res_desc.DepthOrArraySize;
       break;
-
+   default:
+      unreachable("Invalid dimension");
+      break;
    }
    res->base.b.nr_samples = incoming_res_desc.SampleDesc.Count;
    res->base.b.last_level = incoming_res_desc.MipLevels - 1;
