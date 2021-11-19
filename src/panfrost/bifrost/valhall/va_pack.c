@@ -304,6 +304,20 @@ va_pack_store(const bi_instr *I)
    return hex;
 }
 
+static unsigned
+va_pack_lod_mode(enum bi_va_lod_mode mode)
+{
+   switch (mode) {
+   case BI_VA_LOD_MODE_ZERO_LOD: return 0;
+   case BI_VA_LOD_MODE_COMPUTED_LOD: return 1;
+   case BI_VA_LOD_MODE_EXPLICIT: return 4;
+   case BI_VA_LOD_MODE_COMPUTED_BIAS: return 5;
+   case BI_VA_LOD_MODE_GRDESC: return 6;
+   }
+
+   unreachable("Invalid LOD mode");
+}
+
 uint64_t
 va_pack_instr(const bi_instr *I, unsigned action)
 {
@@ -429,7 +443,8 @@ va_pack_instr(const bi_instr *I, unsigned action)
       if (I->skip) hex |= (1ull << 39);
 
       /* LOD mode */
-      hex |= ((uint64_t) I->va_lod_mode) << 13;
+      assert(I->va_lod_mode < 8);
+      hex |= ((uint64_t) va_pack_lod_mode(I->va_lod_mode)) << 13;
 
       /* Staging register #1 - output */
       hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
@@ -488,10 +503,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LD_VAR_SPECIAL:
    case BI_OPCODE_LEA_ATTR_TEX:
    case BI_OPCODE_ST_CVT:
-   case BI_OPCODE_VAR_TEX_F32:
-   case BI_OPCODE_VAR_TEX_F16:
    case BI_OPCODE_ZS_EMIT:
-   case BI_OPCODE_CUBEFACE:
       /* TODO: Pack thse ops. For now, nop them out */
       hex |= (0xc0ull << 40);
       break;
