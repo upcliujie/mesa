@@ -526,12 +526,6 @@ private:
                                                  struct brw_reg index);
    void generate_mov_dispatch_to_flags(fs_inst *inst);
 
-   void generate_pixel_interpolator_query(fs_inst *inst,
-                                          struct brw_reg dst,
-                                          struct brw_reg src,
-                                          struct brw_reg msg_data,
-                                          unsigned msg_type);
-
    void generate_set_sample_id(fs_inst *inst,
                                struct brw_reg dst,
                                struct brw_reg src0,
