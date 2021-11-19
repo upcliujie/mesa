@@ -1794,6 +1794,101 @@ dzn_buffer::get_dxgi_format(VkFormat format)
    return dzn_pipe_to_dxgi_format(pfmt);
 }
 
+D3D12_TEXTURE_COPY_LOCATION
+dzn_buffer::get_copy_loc(VkFormat format,
+                         const VkBufferImageCopy2KHR &region,
+                         VkImageAspectFlagBits aspect,
+                         uint32_t layer)
+{
+   const uint32_t buffer_row_length =
+      region.bufferRowLength ? region.bufferRowLength : region.imageExtent.width;
+   const uint32_t buffer_image_height =
+      region.bufferImageHeight ? region.bufferImageHeight : region.imageExtent.height;
+
+   VkFormat plane_format = dzn_image::get_plane_format(format, aspect);
+
+   enum pipe_format pfmt = vk_format_to_pipe_format(plane_format);
+   uint32_t blksz = util_format_get_blocksize(pfmt);
+   uint32_t blkw = util_format_get_blockwidth(pfmt);
+   uint32_t blkh = util_format_get_blockheight(pfmt);
+
+   D3D12_TEXTURE_COPY_LOCATION loc = {
+     .pResource = res.Get(),
+     .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+     .PlacedFootprint = {
+        .Footprint = {
+           .Format =
+              dzn_image::get_placed_footprint_format(format, aspect),
+           .Width = region.imageExtent.width,
+           .Height = region.imageExtent.height,
+           .Depth = region.imageExtent.depth,
+           .RowPitch = blksz * DIV_ROUND_UP(buffer_row_length, blkw),
+        },
+     },
+   };
+
+   uint32_t buffer_layer_stride =
+      loc.PlacedFootprint.Footprint.RowPitch *
+      DIV_ROUND_UP(loc.PlacedFootprint.Footprint.Height, blkh);
+
+   loc.PlacedFootprint.Offset =
+      region.bufferOffset + (layer * buffer_layer_stride);
+
+   return loc;
+}
+
+D3D12_TEXTURE_COPY_LOCATION
+dzn_buffer::get_line_copy_loc(VkFormat format,
+                              const VkBufferImageCopy2KHR &region,
+                              const D3D12_TEXTURE_COPY_LOCATION &loc,
+                              uint32_t y, uint32_t z, uint32_t &start_x)
+{
+   uint32_t buffer_row_length =
+      region.bufferRowLength ? region.bufferRowLength : region.imageExtent.width;
+   uint32_t buffer_image_height =
+      region.bufferImageHeight ? region.bufferImageHeight : region.imageExtent.height;
+
+   format = dzn_image::get_plane_format(format, region.imageSubresource.aspectMask);
+
+   enum pipe_format pfmt = vk_format_to_pipe_format(format);
+   uint32_t blksz = util_format_get_blocksize(pfmt);
+   uint32_t blkw = util_format_get_blockwidth(pfmt);
+   uint32_t blkh = util_format_get_blockheight(pfmt);
+   uint32_t blkd = util_format_get_blockdepth(pfmt);
+   D3D12_TEXTURE_COPY_LOCATION new_loc = loc;
+   uint32_t buffer_row_stride =
+      DIV_ROUND_UP(buffer_row_length, blkw) * blksz;
+   uint32_t buffer_layer_stride =
+      buffer_row_stride *
+      DIV_ROUND_UP(buffer_image_height, blkh);
+
+   uint64_t tex_offset =
+      ((y / blkh) * buffer_row_stride) +
+      ((z / blkd) * buffer_layer_stride);
+   uint64_t offset = loc.PlacedFootprint.Offset + tex_offset;
+   uint32_t offset_alignment = D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+
+   while (offset_alignment % blksz)
+      offset_alignment += D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT;
+
+   new_loc.PlacedFootprint.Footprint.Height = blkh;
+   new_loc.PlacedFootprint.Footprint.Depth = 1;
+   new_loc.PlacedFootprint.Offset = (offset / offset_alignment) * offset_alignment;
+   start_x = ((offset % offset_alignment) / blksz) * blkw;
+   new_loc.PlacedFootprint.Footprint.Width = start_x + region.imageExtent.width;
+   new_loc.PlacedFootprint.Footprint.RowPitch =
+      ALIGN_POT(DIV_ROUND_UP(new_loc.PlacedFootprint.Footprint.Width, blkw) * blksz,
+                D3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
+   return new_loc;
+}
+
+bool
+dzn_buffer::supports_region_copy(const D3D12_TEXTURE_COPY_LOCATION &loc)
+{
+   return !(loc.PlacedFootprint.Offset & (D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - 1)) &&
+          !(loc.PlacedFootprint.Footprint.RowPitch & (D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1));
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateBuffer(VkDevice device,
                  const VkBufferCreateInfo *pCreateInfo,

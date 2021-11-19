@@ -287,6 +287,40 @@ dzn_image::get_subresource_index(const VkImageSubresource &subres,
           (planeSlice * desc.MipLevels * desc.DepthOrArraySize);
 }
 
+D3D12_TEXTURE_COPY_LOCATION
+dzn_image::get_copy_loc(const VkImageSubresourceLayers &subres,
+                        VkImageAspectFlagBits aspect,
+                        uint32_t layer) const
+{
+   D3D12_TEXTURE_COPY_LOCATION loc = {
+      .pResource = res.Get(),
+   };
+
+   assert((subres.aspectMask & aspect) != 0);
+   VkFormat format = dzn_image::get_plane_format(vk.format, aspect);
+
+   if (desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER) {
+      VkImageUsageFlags usage =
+         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+      assert((subres.baseArrayLayer + layer) == 0);
+      assert(subres.mipLevel == 0);
+      loc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+      loc.PlacedFootprint.Offset = 0;
+      loc.PlacedFootprint.Footprint.Format =
+         get_placed_footprint_format(vk.format, aspect);
+      loc.PlacedFootprint.Footprint.Width = vk.extent.width;
+      loc.PlacedFootprint.Footprint.Height = vk.extent.height;
+      loc.PlacedFootprint.Footprint.Depth = vk.extent.depth;
+      loc.PlacedFootprint.Footprint.RowPitch = linear.row_stride;
+   } else {
+      loc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+      loc.SubresourceIndex = get_subresource_index(subres, aspect, layer);
+   }
+
+   return loc;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateImage(VkDevice device,
                 const VkImageCreateInfo *pCreateInfo,

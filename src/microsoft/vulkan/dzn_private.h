@@ -948,6 +948,11 @@ struct dzn_image {
    get_subresource_index(const VkImageSubresourceRange &subres,
                          VkImageAspectFlagBits aspect,
                          uint32_t level, uint32_t layer) const;
+   D3D12_TEXTURE_COPY_LOCATION
+   get_copy_loc(const VkImageSubresourceLayers &subres,
+                VkImageAspectFlagBits aspect,
+                uint32_t layer) const;
+
 
    static DXGI_FORMAT
    get_dxgi_format(VkFormat format,
@@ -997,6 +1002,20 @@ struct dzn_buffer {
    ~dzn_buffer();
 
    static DXGI_FORMAT get_dxgi_format(VkFormat format);
+
+   D3D12_TEXTURE_COPY_LOCATION
+   get_copy_loc(VkFormat format,
+                const VkBufferImageCopy2KHR &info,
+                VkImageAspectFlagBits aspect,
+                uint32_t layer);
+
+   D3D12_TEXTURE_COPY_LOCATION
+   get_line_copy_loc(VkFormat format,
+                     const VkBufferImageCopy2KHR &region,
+                     const D3D12_TEXTURE_COPY_LOCATION &loc,
+                     uint32_t y, uint32_t z, uint32_t &start_x);
+
+   bool supports_region_copy(const D3D12_TEXTURE_COPY_LOCATION &loc);
 };
 
 struct dzn_buffer_view {
