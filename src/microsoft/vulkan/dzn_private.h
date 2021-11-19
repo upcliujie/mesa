@@ -1025,6 +1025,12 @@ void dzn_translate_rect(D3D12_RECT *out, const VkRect2D *in);
 }
 #endif
 
+#define dzn_foreach_aspect(aspect, mask) \
+        for (VkImageAspectFlagBits aspect = VK_IMAGE_ASPECT_COLOR_BIT; \
+             aspect <= VK_IMAGE_ASPECT_STENCIL_BIT; \
+             aspect = (VkImageAspectFlagBits)(aspect << 1)) \
+           if (mask & aspect)
+
 VkResult dzn_wsi_init(struct dzn_physical_device *physical_device);
 void dzn_wsi_finish(struct dzn_physical_device *physical_device);
 
