@@ -28,6 +28,10 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
                               struct vn_device_memory **out_mem)
 {
    const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
+   const VkPhysicalDeviceMemoryProperties *mem_props =
+      &dev->physical_device->memory_properties.memoryProperties;
+   const VkMemoryPropertyFlags mem_flags =
+      mem_props->memoryTypes[mem_type_index].propertyFlags;
 
    struct vn_device_memory *mem =
       vk_zalloc(alloc, sizeof(*mem), VN_DEFAULT_ALIGN,
@@ -37,6 +41,7 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
 
    vn_object_base_init(&mem->base, VK_OBJECT_TYPE_DEVICE_MEMORY, &dev->base);
    mem->size = size;
+   mem->flags = mem_flags;
 
    VkDeviceMemory mem_handle = vn_device_memory_to_handle(mem);
    VkResult result = vn_call_vkAllocateMemory(
@@ -53,12 +58,8 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
       return result;
    }
 
-   const VkPhysicalDeviceMemoryProperties *mem_props =
-      &dev->physical_device->memory_properties.memoryProperties;
-   const VkMemoryType *mem_type = &mem_props->memoryTypes[mem_type_index];
    result = vn_renderer_bo_create_from_device_memory(
-      dev->renderer, mem->size, mem->base.id, mem_type->propertyFlags, 0,
-      &mem->base_bo);
+      dev->renderer, mem->size, mem->base.id, mem->flags, 0, &mem->base_bo);
    if (result != VK_SUCCESS) {
       vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
                             mem_handle, NULL);
@@ -175,7 +176,7 @@ vn_device_memory_pool_free(struct vn_device *dev,
 
 static bool
 vn_device_memory_should_suballocate(const VkMemoryAllocateInfo *alloc_info,
-                                    const VkMemoryType *mem_type)
+                                    const VkMemoryPropertyFlags flags)
 {
    /* We should not support suballocations because apps can do better.  But
     * each BO takes up a KVM memslot currently and some CTS tests exhausts
@@ -184,7 +185,7 @@ vn_device_memory_should_suballocate(const VkMemoryAllocateInfo *alloc_info,
     */
 
    /* consider host-visible memory only */
-   if (!(mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
+   if (!(flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT))
       return false;
 
    /* reject larger allocations */
@@ -274,7 +275,6 @@ vn_device_memory_alloc(struct vn_device *dev,
                        struct vn_device_memory *mem,
                        const VkMemoryAllocateInfo *alloc_info,
                        bool need_bo,
-                       VkMemoryPropertyFlags flags,
                        VkExternalMemoryHandleTypeFlags external_handles)
 {
    VkDevice dev_handle = vn_device_to_handle(dev);
@@ -285,7 +285,7 @@ vn_device_memory_alloc(struct vn_device *dev,
       return result;
 
    result = vn_renderer_bo_create_from_device_memory(
-      dev->renderer, mem->size, mem->base.id, flags, external_handles,
+      dev->renderer, mem->size, mem->base.id, mem->flags, external_handles,
       &mem->base_bo);
    if (result != VK_SUCCESS) {
       vn_async_vkFreeMemory(dev->instance, dev_handle, mem_handle, NULL);
@@ -309,8 +309,8 @@ vn_AllocateMemory(VkDevice device,
 
    const VkPhysicalDeviceMemoryProperties *mem_props =
       &dev->physical_device->memory_properties.memoryProperties;
-   const VkMemoryType *mem_type =
-      &mem_props->memoryTypes[pAllocateInfo->memoryTypeIndex];
+   const VkMemoryPropertyFlags mem_flags =
+      mem_props->memoryTypes[pAllocateInfo->memoryTypeIndex].propertyFlags;
 
    const VkExportMemoryAllocateInfo *export_info = NULL;
    const VkImportAndroidHardwareBufferInfoANDROID *import_ahb_info = NULL;
@@ -346,6 +346,7 @@ vn_AllocateMemory(VkDevice device,
 
    vn_object_base_init(&mem->base, VK_OBJECT_TYPE_DEVICE_MEMORY, &dev->base);
    mem->size = pAllocateInfo->allocationSize;
+   mem->flags = mem_flags;
 
    VkDeviceMemory mem_handle = vn_device_memory_to_handle(mem);
    VkResult result;
@@ -359,17 +360,14 @@ vn_AllocateMemory(VkDevice device,
                                                import_fd_info->fd);
    } else if (export_info) {
       result = vn_device_memory_alloc(dev, mem, pAllocateInfo, true,
-                                      mem_type->propertyFlags,
                                       export_info->handleTypes);
-   } else if (vn_device_memory_should_suballocate(pAllocateInfo, mem_type)) {
+   } else if (vn_device_memory_should_suballocate(pAllocateInfo, mem_flags)) {
       result = vn_device_memory_pool_alloc(
          dev, pAllocateInfo->memoryTypeIndex, mem->size, &mem->base_memory,
          &mem->base_bo, &mem->base_offset);
    } else {
-      const bool need_bo =
-         mem_type->propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-      result = vn_device_memory_alloc(dev, mem, pAllocateInfo, need_bo,
-                                      mem_type->propertyFlags, 0);
+      const bool need_bo = mem_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+      result = vn_device_memory_alloc(dev, mem, pAllocateInfo, need_bo, 0);
    }
    if (result != VK_SUCCESS) {
       vn_object_base_fini(&mem->base);
