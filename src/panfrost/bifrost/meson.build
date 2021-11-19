@@ -21,7 +21,7 @@
 
 subdir('valhall')
 
-inc_valhall = include_directories('.', 'valhall')
+inc_valhall = include_directories(['.', 'valhall'])
 
 libpanfrost_bifrost_files = files(
   'bi_helper_invocations.c',
