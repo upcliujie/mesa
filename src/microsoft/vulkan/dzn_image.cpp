@@ -363,6 +363,7 @@ dzn_BindImageMemory2(
 
       if (!did_bind) {
          image->mem = mem;
+         image->mem_offset = bind_info->memoryOffset;
          HRESULT hr = device->dev->CreatePlacedResource(mem->heap.Get(),
                                                         bind_info->memoryOffset,
                                                         &image->desc,

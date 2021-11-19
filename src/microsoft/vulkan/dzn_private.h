@@ -930,6 +930,7 @@ struct dzn_image {
    D3D12_RESOURCE_DESC desc = {};
    ComPtr<ID3D12Resource> res;
    dzn_device_memory *mem = NULL;
+   VkDeviceSize mem_offset;
 
    dzn_image(dzn_device *device,
              const VkImageCreateInfo *pCreateInfo,
