@@ -86,7 +86,6 @@ SKIP = set([
         "TODO.ATOM_C",
         "TODO.ATOM_CX",
         "TEX_FETCH",
-        "TEX",
         "TODO.VAR_TEX",
         "BRANCHZI",
         "ST_IMAGE",

@@ -335,6 +335,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_STORE_I96:
    case BI_OPCODE_STORE_I128:
    case BI_OPCODE_BLEND:
+   case BI_OPCODE_TEX:
       hex |= ((uint64_t) bi_count_read_registers(I, 0) << 33);
       break;
    default:
@@ -412,6 +413,35 @@ va_pack_instr(const bi_instr *I, unsigned action)
       hex |= (0ull << 30);
 
       /* Staging register #2 - input colour */
+      hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
+      hex |= (0x40ull << 40); // flags
+
+      break;
+   }
+
+   case BI_OPCODE_TEX:
+   {
+      /* Image to read from */
+      hex |= ((uint64_t) va_pack_src(I->src[1])) << 0;
+
+      if (I->explicit_offset) hex |= (1ull << 11);
+      if (I->shadow) hex |= (1ull << 12);
+      if (I->skip) hex |= (1ull << 39);
+
+      /* LOD mode */
+      hex |= ((uint64_t) I->va_lod_mode) << 13;
+
+      /* Staging register #1 - output */
+      hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
+      hex |= (0xC0ull << 16); // flags
+
+      /* Dimension */
+      hex |= ((uint64_t) I->dimension) << 28;
+
+      /* Slot */
+      hex |= (0ull << 30);
+
+      /* Staging register #0 - inputs */
       hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
       hex |= (0x40ull << 40); // flags
 
