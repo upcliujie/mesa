@@ -148,14 +148,18 @@ dzn_image::dzn_image(dzn_device *device,
          desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
    }
 
-   /* TODO: Use UAV clears if the resource doesn't have the
-    * ALLOW_{RENDER_TARGET,DEPTH_STENCIL} cap.
+   /* Images with TRANSFER_DST can be cleared, add the RT/DS cap flags in
+    * that case (required by Clear{RenderTarget,DepthStencil}View()).
     */
-   if (vk.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT) {
-      if (vk_format_is_depth_or_stencil(pCreateInfo->format))
-         desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
-      else
+   if ((vk.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT) &&
+       vk.tiling == VK_IMAGE_TILING_OPTIMAL) {
+      VkFormatProperties props;
+
+      device->physical_device->get_format_properties(pCreateInfo->format, &props);
+      if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)
          desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+      if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+         desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
    }
 
    if (vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)
