@@ -3664,7 +3664,7 @@ panfrost_create_blend_state(struct pipe_context *pipe,
 }
 
 static void
-prepare_rsd(struct panfrost_shader_state *state,
+prepare_shader(struct panfrost_shader_state *state,
             struct panfrost_pool *pool, bool upload)
 {
 #if PAN_ARCH <= 7
@@ -3841,7 +3841,7 @@ GENX(panfrost_cmdstream_screen_init)(struct panfrost_screen *screen)
 {
         struct panfrost_device *dev = &screen->dev;
 
-        screen->vtbl.prepare_rsd = prepare_rsd;
+        screen->vtbl.prepare_shader = prepare_shader;
         screen->vtbl.emit_tls    = emit_tls;
         screen->vtbl.emit_fbd    = emit_fbd;
         screen->vtbl.emit_fragment_job = emit_fragment_job;
