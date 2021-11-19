@@ -110,6 +110,7 @@ Linux, FreeBSD, and other operating systems.
    release-calendar
    dispatch
    gallium/index
+   gbm
    nir/index
    isl/index
    android
