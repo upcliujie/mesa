@@ -344,6 +344,26 @@ dzn_physical_device::get_mem_type_mask_for_resource(const D3D12_RESOURCE_DESC &d
    return mask;
 }
 
+uint32_t
+dzn_physical_device::get_max_mip_levels(bool is_3d)
+{
+   return is_3d ? 11 : 14;
+}
+
+uint32_t
+dzn_physical_device::get_max_extent(bool is_3d)
+{
+   uint32_t max_mip = get_max_mip_levels(is_3d);
+
+   return 1 << max_mip;
+}
+
+uint32_t
+dzn_physical_device::get_max_array_layers()
+{
+   return get_max_extent(false);
+}
+
 ID3D12Device *
 dzn_physical_device::get_d3d12_dev()
 {
@@ -357,6 +377,327 @@ dzn_physical_device::get_d3d12_dev()
    }
 
    return dev.Get();
+}
+
+D3D12_FEATURE_DATA_FORMAT_SUPPORT
+dzn_physical_device::get_format_support(VkFormat format)
+{
+   VkImageUsageFlags usage =
+      vk_format_is_depth_or_stencil(format) ?
+      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT : 0;
+   VkImageAspectFlags aspects = 0;
+
+   if (vk_format_has_depth(format))
+      aspects = VK_IMAGE_ASPECT_DEPTH_BIT;
+   if (vk_format_has_stencil(format))
+      aspects = VK_IMAGE_ASPECT_STENCIL_BIT;
+
+   D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info = {
+     .Format = dzn_image::get_dxgi_format(format, usage, aspects),
+   };
+
+   ID3D12Device *dev = get_d3d12_dev();
+   HRESULT hres =
+      dev->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT,
+                               &dfmt_info, sizeof(dfmt_info));
+   assert(!FAILED(hres));
+
+   if (usage != VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      return dfmt_info;
+
+   /* Depth/stencil resources have different format when they're accessed
+    * as textures, query the capabilities for this format too.
+    */
+   dzn_foreach_aspect(aspect, aspects) {
+      D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info2 = {
+        .Format = dzn_image::get_dxgi_format(format, 0, aspect),
+      };
+
+      hres = dev->CheckFeatureSupport(D3D12_FEATURE_FORMAT_SUPPORT,
+                                      &dfmt_info2, sizeof(dfmt_info2));
+      assert(!FAILED(hres));
+
+#define DS_SRV_FORMAT_SUPPORT1_MASK \
+        (D3D12_FORMAT_SUPPORT1_SHADER_LOAD | \
+         D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE | \
+         D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE_COMPARISON | \
+         D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE_MONO_TEXT | \
+         D3D12_FORMAT_SUPPORT1_MULTISAMPLE_RESOLVE | \
+         D3D12_FORMAT_SUPPORT1_MULTISAMPLE_LOAD | \
+         D3D12_FORMAT_SUPPORT1_SHADER_GATHER | \
+         D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW | \
+         D3D12_FORMAT_SUPPORT1_SHADER_GATHER_COMPARISON)
+
+      dfmt_info.Support1 |= dfmt_info2.Support1 & DS_SRV_FORMAT_SUPPORT1_MASK;
+      dfmt_info.Support2 |= dfmt_info2.Support2;
+   }
+
+   return dfmt_info;
+}
+
+void
+dzn_physical_device::get_format_properties(VkFormat format,
+                                           VkFormatProperties *properties)
+{
+   D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info = get_format_support(format);
+
+   if (dfmt_info.Format == DXGI_FORMAT_UNKNOWN) {
+      *properties = VkFormatProperties { };
+      return;
+   }
+
+   ID3D12Device *dev = get_d3d12_dev();
+
+   *properties = VkFormatProperties {
+      .linearTilingFeatures = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
+      .optimalTilingFeatures = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
+      .bufferFeatures = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
+   };
+
+   if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_IA_VERTEX_BUFFER)
+      properties->bufferFeatures |= VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
+
+   if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE) {
+      properties->optimalTilingFeatures |=
+         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT;
+   }
+
+   /* Color/depth/stencil attachment cap implies input attachement cap, and input
+    * attachment loads are lowered to texture loads in dozen, hence the requirement
+    * to have shader-load support.
+    */
+   if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD) {
+      if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) {
+         properties->optimalTilingFeatures |=
+            VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
+      }
+
+      if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_BLENDABLE)
+         properties->optimalTilingFeatures |= VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT;
+
+      if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL) {
+         properties->optimalTilingFeatures |=
+            VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
+      }
+   }
+}
+
+void
+dzn_physical_device::get_format_properties(VkFormat format,
+                                           VkFormatProperties2 *properties)
+{
+   get_format_properties(format, &properties->formatProperties);
+
+   vk_foreach_struct(ext, properties->pNext) {
+      dzn_debug_ignored_stype(ext->sType);
+   }
+}
+
+VkResult
+dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageFormatInfo2 *info,
+                                                 VkImageFormatProperties2 *properties)
+{
+   const VkPhysicalDeviceExternalImageFormatInfo *external_info = NULL;
+   VkExternalImageFormatProperties *external_props = NULL;
+
+   *properties = VkImageFormatProperties2 { };
+
+   /* Extract input structs */
+   vk_foreach_struct_const(s, info->pNext) {
+      switch (s->sType) {
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO:
+         external_info = (const VkPhysicalDeviceExternalImageFormatInfo *)s;
+         break;
+      default:
+         dzn_debug_ignored_stype(s->sType);
+         break;
+      }
+   }
+
+   assert(info->tiling == VK_IMAGE_TILING_OPTIMAL || info->tiling == VK_IMAGE_TILING_LINEAR);
+
+   /* Extract output structs */
+   vk_foreach_struct(s, properties->pNext) {
+      switch (s->sType) {
+      case VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES:
+         external_props = (VkExternalImageFormatProperties *)s;
+         break;
+      default:
+         dzn_debug_ignored_stype(s->sType);
+         break;
+      }
+   }
+
+   assert((external_props != NULL) == (external_info != NULL));
+
+   /* TODO: support image import */
+   if (external_info && external_info->handleType != 0)
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   if (info->tiling != VK_IMAGE_TILING_OPTIMAL &&
+       (info->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info = get_format_support(info->format);
+   if (dfmt_info.Format == DXGI_FORMAT_UNKNOWN)
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   ID3D12Device *dev = get_d3d12_dev();
+
+   if ((info->type == VK_IMAGE_TYPE_1D && !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE1D)) ||
+       (info->type == VK_IMAGE_TYPE_2D && !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE2D)) ||
+       (info->type == VK_IMAGE_TYPE_3D && !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE3D)) ||
+       ((info->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) &&
+        !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURECUBE)))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   if ((info->usage & VK_IMAGE_USAGE_SAMPLED_BIT) &&
+       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   if ((info->usage & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) &&
+       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   if ((info->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) &&
+       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   if ((info->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) &&
+       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   if ((info->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
+       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
+   bool is_3d = info->type == VK_IMAGE_TYPE_3D;
+   uint32_t max_extent = get_max_extent(is_3d);
+
+   if (info->tiling == VK_IMAGE_TILING_OPTIMAL &&
+       dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_MIP)
+      properties->imageFormatProperties.maxMipLevels = get_max_mip_levels(is_3d);
+   else
+      properties->imageFormatProperties.maxMipLevels = 1;
+
+   properties->imageFormatProperties.maxArrayLayers = get_max_array_layers();
+   switch (info->type) {
+   case VK_IMAGE_TYPE_1D:
+      properties->imageFormatProperties.maxExtent.width = max_extent;
+      properties->imageFormatProperties.maxExtent.height = 1;
+      properties->imageFormatProperties.maxExtent.depth = 1;
+      break;
+   case VK_IMAGE_TYPE_2D:
+      properties->imageFormatProperties.maxExtent.width = max_extent;
+      properties->imageFormatProperties.maxExtent.height = max_extent;
+      properties->imageFormatProperties.maxExtent.depth = 1;
+      break;
+   case VK_IMAGE_TYPE_3D:
+      properties->imageFormatProperties.maxExtent.width = max_extent;
+      properties->imageFormatProperties.maxExtent.height = max_extent;
+      properties->imageFormatProperties.maxExtent.depth = max_extent;
+      break;
+   default:
+      unreachable("bad VkImageType");
+   }
+
+   /* From the Vulkan 1.0 spec, section 34.1.1. Supported Sample Counts:
+    *
+    * sampleCounts will be set to VK_SAMPLE_COUNT_1_BIT if at least one of the
+    * following conditions is true:
+    *
+    *   - tiling is VK_IMAGE_TILING_LINEAR
+    *   - type is not VK_IMAGE_TYPE_2D
+    *   - flags contains VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT
+    *   - neither the VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT flag nor the
+    *     VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT flag in
+    *     VkFormatProperties::optimalTilingFeatures returned by
+    *     vkGetPhysicalDeviceFormatProperties is set.
+    */
+   bool rt_or_ds_cap =
+      dfmt_info.Support1 &
+      (D3D12_FORMAT_SUPPORT1_RENDER_TARGET | D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL);
+
+   properties->imageFormatProperties.sampleCounts = VK_SAMPLE_COUNT_1_BIT;
+   if (info->tiling != VK_IMAGE_TILING_LINEAR &&
+       info->type == VK_IMAGE_TYPE_2D &&
+       !(info->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) &&
+       rt_or_ds_cap) {
+      for (uint32_t s = VK_SAMPLE_COUNT_2_BIT; s < VK_SAMPLE_COUNT_64_BIT; s <<= 1) {
+         D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS ms_info = {
+            .Format = dfmt_info.Format,
+            .SampleCount = s,
+         };
+
+         HRESULT hres =
+            dev->CheckFeatureSupport(D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS,
+                                     &ms_info, sizeof(ms_info));
+         if (!FAILED(hres) && ms_info.NumQualityLevels > 0)
+            properties->imageFormatProperties.sampleCounts |= s;
+      }
+   }
+
+   /* TODO: set correct value here */
+   properties->imageFormatProperties.maxResourceSize = UINT32_MAX;
+
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice,
+                                      VkFormat format,
+                                      VkFormatProperties *pFormatProperties)
+{
+   VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
+
+   pdev->get_format_properties(format, pFormatProperties);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetPhysicalDeviceFormatProperties2(VkPhysicalDevice physicalDevice,
+                                       VkFormat format,
+                                       VkFormatProperties2 *pFormatProperties)
+{
+   VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
+
+   pdev->get_format_properties(format, pFormatProperties);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_GetPhysicalDeviceImageFormatProperties2(VkPhysicalDevice physicalDevice,
+                                            const VkPhysicalDeviceImageFormatInfo2 *info,
+                                            VkImageFormatProperties2 *props)
+{
+   VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
+
+   return pdev->get_image_format_properties(info, props);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice,
+                                           VkFormat format,
+                                           VkImageType type,
+                                           VkImageTiling tiling,
+                                           VkImageUsageFlags usage,
+                                           VkImageCreateFlags createFlags,
+                                           VkImageFormatProperties *pImageFormatProperties)
+{
+   const VkPhysicalDeviceImageFormatInfo2 info = {
+      .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+      .format = format,
+      .type = type,
+      .tiling = tiling,
+      .usage = usage,
+      .flags = createFlags,
+   };
+
+   VkImageFormatProperties2 props = {};
+
+   VkResult result =
+      dzn_GetPhysicalDeviceImageFormatProperties2(physicalDevice, &info, &props);
+   *pImageFormatProperties = props.imageFormatProperties;
+
+   return result;
 }
 
 dzn_physical_device *

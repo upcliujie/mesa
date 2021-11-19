@@ -272,10 +272,21 @@ struct dzn_physical_device {
 
    D3D12_HEAP_FLAGS get_heap_flags_for_mem_type(uint32_t mem_type) const;
    uint32_t get_mem_type_mask_for_resource(const D3D12_RESOURCE_DESC &desc) const;
+
+   void get_format_properties(VkFormat format,
+                              VkFormatProperties *pFormatProperties);
+   void get_format_properties(VkFormat format,
+                              VkFormatProperties2 *pFormatProperties);
+   VkResult get_image_format_properties(const VkPhysicalDeviceImageFormatInfo2 *info,
+                                        VkImageFormatProperties2 *properties);
 private:
    void get_device_extensions();
    void cache_caps(std::lock_guard<std::mutex>&);
    void init_memory(std::lock_guard<std::mutex>&);
+   D3D12_FEATURE_DATA_FORMAT_SUPPORT get_format_support(VkFormat format);
+   uint32_t get_max_array_layers();
+   uint32_t get_max_mip_levels(bool is_3d);
+   uint32_t get_max_extent(bool is_3d);
 
    std::mutex dev_lock;
    ComPtr<ID3D12Device> dev;
@@ -1034,7 +1045,6 @@ struct dzn_sampler {
 #ifdef __cplusplus
 extern "C" {
 #endif
-bool dzn_is_format_supported(enum pipe_format in);
 DXGI_FORMAT dzn_pipe_to_dxgi_format(enum pipe_format in);
 D3D12_FILTER dzn_translate_sampler_filter(const VkSamplerCreateInfo *create_info);
 D3D12_COMPARISON_FUNC dzn_translate_compare_op(VkCompareOp in);

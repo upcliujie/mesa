@@ -131,12 +131,6 @@ static const DXGI_FORMAT formats[PIPE_FORMAT_COUNT] = {
    [PIPE_FORMAT_X32_S8X24_UINT] = DXGI_FORMAT_R32G8X24_TYPELESS,
 };
 
-bool
-dzn_is_format_supported(enum pipe_format in)
-{
-   return formats[in] != DXGI_FORMAT_UNKNOWN;
-}
-
 DXGI_FORMAT
 dzn_pipe_to_dxgi_format(enum pipe_format in)
 {
