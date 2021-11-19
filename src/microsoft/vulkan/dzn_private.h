@@ -268,9 +268,11 @@ struct dzn_physical_device {
 
 private:
    void get_device_extensions();
+   void cache_caps(std::lock_guard<std::mutex>&);
 
    std::mutex dev_lock;
    ComPtr<ID3D12Device> dev;
+   D3D_FEATURE_LEVEL feature_level = (D3D_FEATURE_LEVEL)0;
 };
 
 #define dzn_debug_ignored_stype(sType) \

@@ -243,13 +243,35 @@ dzn_physical_device::get_vk_allocator()
    return &instance->vk.alloc;
 }
 
+void
+dzn_physical_device::cache_caps(std::lock_guard<std::mutex>&)
+{
+   D3D_FEATURE_LEVEL checklist[] = {
+      D3D_FEATURE_LEVEL_11_0,
+      D3D_FEATURE_LEVEL_11_1,
+      D3D_FEATURE_LEVEL_12_0,
+      D3D_FEATURE_LEVEL_12_1,
+      D3D_FEATURE_LEVEL_12_2,
+   };
+
+   D3D12_FEATURE_DATA_FEATURE_LEVELS levels = {
+      .NumFeatureLevels = ARRAY_SIZE(checklist),
+      .pFeatureLevelsRequested = checklist,
+   };
+
+   dev->CheckFeatureSupport(D3D12_FEATURE_FEATURE_LEVELS, &levels, sizeof(levels));
+   feature_level = levels.MaxSupportedFeatureLevel;
+}
+
 ID3D12Device *
 dzn_physical_device::get_d3d12_dev()
 {
    std::lock_guard<std::mutex> lock(dev_lock);
 
-   if (!dev.Get())
+   if (!dev.Get()) {
       dev = d3d12_create_device(adapter.Get(), false);
+      cache_caps(lock);
+   }
 
    return dev.Get();
 }
