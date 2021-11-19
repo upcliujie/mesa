@@ -241,6 +241,8 @@ dzn_cmd_buffer::reset()
    batches.clear();
    batch.reset(NULL);
 
+   internal_bufs.clear();
+
    /* Reset the state */
    memset(&state, 0, sizeof(state));
 
