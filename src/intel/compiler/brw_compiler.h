@@ -500,7 +500,9 @@ struct brw_wm_prog_key {
     */
    enum brw_sometimes persample_interp:2;
 
-   bool multisample_fbo:1;
+   /* Whether or not we are running on a multisampled framebuffer */
+   enum brw_sometimes multisample_fbo:2;
+
    enum brw_sometimes line_aa:2;
    bool high_quality_derivatives:1;
    bool force_dual_color_blend:1;

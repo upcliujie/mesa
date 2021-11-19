@@ -504,16 +504,18 @@ brw_wm_populate_key(struct brw_context *brw, struct brw_wm_prog_key *key)
 
    /* _NEW_BUFFERS _NEW_MULTISAMPLE */
    /* Ignore sample qualifier while computing this flag. */
+   bool multisample_fbo = false;
    if (ctx->Multisample.Enabled) {
       if (ctx->Multisample.SampleShading &&
           (ctx->Multisample.MinSampleShadingValue *
            _mesa_geometric_samples(ctx->DrawBuffer) > 1))
          key->persample_interp = BRW_ALWAYS;
 
-      key->multisample_fbo = _mesa_geometric_samples(ctx->DrawBuffer) > 1;
+      multisample_fbo = _mesa_geometric_samples(ctx->DrawBuffer) > 1;
+      key->multisample_fbo = multisample_fbo ? BRW_ALWAYS : BRW_NEVER;
    }
 
-   key->ignore_sample_mask_out = !key->multisample_fbo;
+   key->ignore_sample_mask_out = !multisample_fbo;
 
    /* BRW_NEW_VUE_MAP_GEOM_OUT */
    if (devinfo->ver < 6 || util_bitcount64(prog->info.inputs_read &
