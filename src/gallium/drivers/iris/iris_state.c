@@ -4688,7 +4688,8 @@ iris_store_fs_state(const struct intel_device_info *devinfo,
       psx.AttributeEnable = wm_prog_data->num_varying_inputs != 0;
       psx.PixelShaderUsesSourceDepth = wm_prog_data->uses_src_depth;
       psx.PixelShaderUsesSourceW = wm_prog_data->uses_src_w;
-      psx.PixelShaderIsPerSample = wm_prog_data->persample_dispatch;
+      psx.PixelShaderIsPerSample =
+         brw_wm_prog_data_is_persample(wm_prog_data, 0);
       psx.oMaskPresenttoRenderTarget = wm_prog_data->uses_omask;
 
 #if GFX_VER >= 9
@@ -6142,7 +6143,7 @@ iris_upload_dirty_render_state(struct iris_context *ice,
                * 16x MSAA only exists on Gfx9+, so we can skip this on Gfx8.
                */
                if (GFX_VER >= 9 && cso_fb->samples == 16 &&
-                   !wm_prog_data->persample_dispatch) {
+                   !brw_wm_prog_data_is_persample(wm_prog_data, 0)) {
                   assert(ps._8PixelDispatchEnable || ps._16PixelDispatchEnable);
                   ps._32PixelDispatchEnable = false;
                }

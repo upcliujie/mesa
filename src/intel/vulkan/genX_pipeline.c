@@ -2350,7 +2350,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
       }
 
       if (multisample && multisample->rasterizationSamples > 1) {
-         if (wm_prog_data->persample_dispatch) {
+         if (brw_wm_prog_data_is_persample(wm_prog_data, 0)) {
             wm.MultisampleDispatchMode = MSDISPMODE_PERSAMPLE;
          } else {
             wm.MultisampleDispatchMode = MSDISPMODE_PERPIXEL;
@@ -2445,7 +2445,7 @@ emit_3dstate_ps(struct anv_graphics_pipeline *pipeline,
        * Since 16x MSAA is first introduced on SKL, we don't need to apply
        * the workaround on any older hardware.
        */
-      if (GFX_VER >= 9 && !wm_prog_data->persample_dispatch &&
+      if (GFX_VER >= 9 && !brw_wm_prog_data_is_persample(wm_prog_data, 0) &&
           multisample && multisample->rasterizationSamples == 16) {
          assert(ps._8PixelDispatchEnable || ps._16PixelDispatchEnable);
          ps._32PixelDispatchEnable = false;
@@ -2522,7 +2522,8 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
       ps.PixelShaderValid              = true;
       ps.AttributeEnable               = wm_prog_data->num_varying_inputs > 0;
       ps.oMaskPresenttoRenderTarget    = wm_prog_data->uses_omask;
-      ps.PixelShaderIsPerSample        = wm_prog_data->persample_dispatch;
+      ps.PixelShaderIsPerSample        =
+         brw_wm_prog_data_is_persample(wm_prog_data, 0);
       ps.PixelShaderComputedDepthMode  = wm_prog_data->computed_depth_mode;
       ps.PixelShaderUsesSourceDepth    = wm_prog_data->uses_src_depth;
       ps.PixelShaderUsesSourceW        = wm_prog_data->uses_src_w;
@@ -2545,7 +2546,7 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
       assert(!wm_prog_data->inner_coverage); /* Not available in SPIR-V */
       if (!wm_prog_data->uses_sample_mask)
          ps.InputCoverageMaskState = ICMS_NONE;
-      else if (wm_prog_data->per_coarse_pixel_dispatch)
+      else if (wm_prog_data->coarse_pixel_dispatch)
          ps.InputCoverageMaskState  = ICMS_NORMAL;
       else if (wm_prog_data->post_depth_coverage)
          ps.InputCoverageMaskState = ICMS_DEPTH_COVERAGE;
@@ -2558,7 +2559,7 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
 #if GFX_VER >= 11
       ps.PixelShaderRequiresSourceDepthandorWPlaneCoefficients =
          wm_prog_data->uses_depth_w_coefficients;
-      ps.PixelShaderIsPerCoarsePixel = wm_prog_data->per_coarse_pixel_dispatch;
+      ps.PixelShaderIsPerCoarsePixel = wm_prog_data->coarse_pixel_dispatch;
 #endif
 #if GFX_VERx10 >= 125
       /* TODO: We should only require this when the last geometry shader uses
