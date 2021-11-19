@@ -185,6 +185,14 @@ va_pack_alu(const bi_instr *I)
       if (I->sqrt) hex |= 1ull << 24;
       if (I->log) hex |= 1ull << 25;
       break;
+
+   /* Add mux type */
+   case BI_OPCODE_MUX_I32:
+   case BI_OPCODE_MUX_V2I16:
+   case BI_OPCODE_MUX_V4I8:
+      hex |= (uint64_t) I->mux << 32;
+      break;
+
    default:
       break;
    }
