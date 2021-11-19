@@ -1530,7 +1530,7 @@ brw_blorp_get_blit_kernel_fs(struct blorp_batch *batch,
    wm_key.base.tex.compressed_multisample_layout_mask =
       isl_aux_usage_has_mcs(key->tex_aux_usage);
    wm_key.base.tex.msaa_16 = key->tex_samples == 16;
-   wm_key.multisample_fbo = key->rt_samples > 1;
+   wm_key.multisample_fbo = key->rt_samples > 1 ? BRW_ALWAYS : BRW_NEVER;
 
    program = blorp_compile_fs(blorp, mem_ctx, nir, &wm_key, false,
                               &prog_data);
