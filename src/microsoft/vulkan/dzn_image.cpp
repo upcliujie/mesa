@@ -163,6 +163,44 @@ dzn_image::~dzn_image()
    vk_image_finish(&vk);
 }
 
+uint32_t
+dzn_image::get_subresource_index(const VkImageSubresourceLayers &subres,
+                                 VkImageAspectFlagBits aspect,
+                                 uint32_t layer) const
+{
+   int planeSlice =
+      aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? 1 : 0;
+
+   return subres.mipLevel +
+          ((subres.baseArrayLayer + layer) * desc.MipLevels) +
+          (planeSlice * desc.MipLevels * desc.DepthOrArraySize);
+}
+
+uint32_t
+dzn_image::get_subresource_index(const VkImageSubresourceRange &subres,
+                                 VkImageAspectFlagBits aspect,
+                                 uint32_t level, uint32_t layer) const
+{
+   int planeSlice =
+      aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? 1 : 0;
+
+   return subres.baseMipLevel + level +
+          ((subres.baseArrayLayer + layer) * desc.MipLevels) +
+          (planeSlice * desc.MipLevels * desc.DepthOrArraySize);
+}
+
+uint32_t
+dzn_image::get_subresource_index(const VkImageSubresource &subres,
+                                 VkImageAspectFlagBits aspect) const
+{
+   int planeSlice =
+      aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? 1 : 0;
+
+   return subres.mipLevel +
+          (subres.arrayLayer * desc.MipLevels) +
+          (planeSlice * desc.MipLevels * desc.DepthOrArraySize);
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateImage(VkDevice device,
                 const VkImageCreateInfo *pCreateInfo,
@@ -290,27 +328,6 @@ dzn_GetImageMemoryRequirements2(VkDevice _device,
    };
 }
 
-UINT
-dzn_get_subresource_index(const D3D12_RESOURCE_DESC *desc,
-                          VkImageAspectFlags aspectMask,
-                          unsigned mipLevel, unsigned arrayLayer)
-{
-   int planeSlice = aspectMask ==
-      VK_IMAGE_ASPECT_STENCIL_BIT ? 1 : 0;
-
-   return mipLevel +
-          arrayLayer * desc->MipLevels +
-          planeSlice * desc->MipLevels * desc->DepthOrArraySize;
-}
-
-static UINT
-get_subresource_index(const D3D12_RESOURCE_DESC *desc,
-                      const VkImageSubresource *subresource)
-{
-   return dzn_get_subresource_index(desc, subresource->aspectMask, subresource->mipLevel, subresource->arrayLayer);
-}
-
-
 VKAPI_ATTR void VKAPI_CALL
 dzn_GetImageSubresourceLayout(VkDevice _device,
                               VkImage _image,
@@ -330,7 +347,9 @@ dzn_GetImageSubresourceLayout(VkDevice _device,
       layout->arrayPitch = 0;
       layout->size = image->linear.size;
    } else {
-      UINT subres_index = get_subresource_index(&image->desc, subresource);
+      UINT subres_index =
+         image->get_subresource_index(*subresource,
+                                      (VkImageAspectFlagBits)subresource->aspectMask);
       D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
       UINT num_rows;
       UINT64 row_size, total_size;

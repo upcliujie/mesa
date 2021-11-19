@@ -592,10 +592,9 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
 
       for (uint32_t l = 0; l < region->imageSubresource.layerCount; l++) {
          dst_img_loc.SubresourceIndex =
-            dzn_get_subresource_index(&dst_image->desc,
-                                      region->imageSubresource.aspectMask,
-                                      region->imageSubresource.mipLevel,
-                                      region->imageSubresource.baseArrayLayer + l);
+            dst_image->get_subresource_index(region->imageSubresource,
+                                             (VkImageAspectFlagBits)region->imageSubresource.aspectMask,
+                                             l);
          src_buf_loc.PlacedFootprint.Offset =
             region->bufferOffset + (l * buffer_layer_stride);
 
@@ -703,10 +702,9 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
 
       for (uint32_t l = 0; l < MIN2(region->imageSubresource.layerCount, 1); l++) {
          src_img_loc.SubresourceIndex =
-            dzn_get_subresource_index(&src_image->desc,
-                                      region->imageSubresource.aspectMask,
-                                      region->imageSubresource.mipLevel,
-                                      region->imageSubresource.baseArrayLayer + l);
+            src_image->get_subresource_index(region->imageSubresource,
+                                             (VkImageAspectFlagBits)region->imageSubresource.aspectMask,
+                                             l);
          dst_buf_loc.PlacedFootprint.Offset =
             region->bufferOffset + (l * buffer_layer_stride);
 
@@ -777,10 +775,9 @@ dzn_fill_image_copy_loc(const dzn_image *img,
    } else {
       loc->Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
       loc->SubresourceIndex =
-         dzn_get_subresource_index(&img->desc,
-                                   subres->aspectMask,
-                                   subres->mipLevel,
-                                   subres->baseArrayLayer + layer);
+         img->get_subresource_index(*subres,
+                                    (VkImageAspectFlagBits)subres->aspectMask,
+                                    layer);
    }
 }
 

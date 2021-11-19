@@ -313,11 +313,6 @@ d3d12_enable_gpu_validation();
 ComPtr<ID3D12Device>
 d3d12_create_device(IUnknown *adapter, bool experimental_features);
 
-UINT
-dzn_get_subresource_index(const D3D12_RESOURCE_DESC *desc,
-                          VkImageAspectFlags aspectMask,
-                          unsigned mipLevel, unsigned arrayLayer);
-
 struct dzn_queue {
    struct vk_queue vk;
    struct dzn_device *device;
@@ -929,6 +924,18 @@ struct dzn_image {
              const VkImageCreateInfo *pCreateInfo,
              const VkAllocationCallbacks *alloc);
    ~dzn_image();
+
+   uint32_t
+   get_subresource_index(const VkImageSubresource &subres,
+                         VkImageAspectFlagBits aspect) const;
+   uint32_t
+   get_subresource_index(const VkImageSubresourceLayers &subres,
+                         VkImageAspectFlagBits aspect,
+                         uint32_t layer) const;
+   uint32_t
+   get_subresource_index(const VkImageSubresourceRange &subres,
+                         VkImageAspectFlagBits aspect,
+                         uint32_t level, uint32_t layer) const;
 };
 
 struct dzn_image_view {
