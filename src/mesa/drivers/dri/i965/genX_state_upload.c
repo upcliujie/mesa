@@ -2151,7 +2151,7 @@ genX(upload_wm)(struct brw_context *brw)
          else
             wm.MultisampleRasterizationMode = MSRASTMODE_OFF_PIXEL;
 
-         if (wm_prog_data->persample_dispatch)
+         if (brw_wm_prog_data_is_persample(wm_prog_data, 0))
             wm.MultisampleDispatchMode = MSDISPMODE_PERSAMPLE;
          else
             wm.MultisampleDispatchMode = MSDISPMODE_PERPIXEL;
@@ -4128,7 +4128,7 @@ genX(upload_ps)(struct brw_context *brw)
        *
        * BRW_NEW_NUM_SAMPLES
        */
-      if (GFX_VER >= 9 && !prog_data->persample_dispatch &&
+      if (GFX_VER >= 9 && !brw_wm_prog_data_is_persample(prog_data, 0) &&
           brw->num_samples == 16) {
          assert(ps._8PixelDispatchEnable || ps._16PixelDispatchEnable);
          ps._32PixelDispatchEnable = false;
@@ -4830,7 +4830,7 @@ genX(upload_ps_extra)(struct brw_context *brw)
       psx.AttributeEnable = prog_data->num_varying_inputs != 0;
       psx.PixelShaderUsesSourceDepth = prog_data->uses_src_depth;
       psx.PixelShaderUsesSourceW = prog_data->uses_src_w;
-      psx.PixelShaderIsPerSample = prog_data->persample_dispatch;
+      psx.PixelShaderIsPerSample = brw_wm_prog_data_is_persample(prog_data, 0);
 
       /* _NEW_MULTISAMPLE | BRW_NEW_CONSERVATIVE_RASTERIZATION */
       if (prog_data->uses_sample_mask) {
