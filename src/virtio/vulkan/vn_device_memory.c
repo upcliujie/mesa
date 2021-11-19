@@ -66,7 +66,6 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
       vk_free(alloc, mem);
       return result;
    }
-   vn_instance_roundtrip(dev->instance);
 
    *out_mem = mem;
 
@@ -293,8 +292,6 @@ vn_device_memory_alloc(struct vn_device *dev,
       vn_async_vkFreeMemory(dev->instance, dev_handle, mem_handle, NULL);
       return result;
    }
-
-   vn_instance_roundtrip(dev->instance);
 
    return VK_SUCCESS;
 }
