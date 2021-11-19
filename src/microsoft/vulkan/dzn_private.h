@@ -616,6 +616,11 @@ struct dzn_cmd_buffer {
               uint32_t range_count,
               const VkImageSubresourceRange *ranges);
 
+   void copy(const VkCopyBufferInfo2KHR *info);
+   void copy(const VkCopyImageToBufferInfo2KHR *info);
+   void copy(const VkCopyBufferToImageInfo2KHR *info);
+   void copy(const VkCopyImageInfo2KHR *info);
+
    void draw(uint32_t vertex_count,
              uint32_t instance_count,
              uint32_t first_vertex,
@@ -635,6 +640,21 @@ struct dzn_cmd_buffer {
                  uint32_t group_count_z);
 
 private:
+   void copy(const VkCopyImageToBufferInfo2KHR *info,
+             uint32_t region,
+             VkImageAspectFlagBits aspect,
+             uint32_t layer);
+   void copy(const VkCopyBufferToImageInfo2KHR *info,
+             uint32_t region,
+             VkImageAspectFlagBits aspect,
+             uint32_t layer);
+   void copy(const VkCopyImageInfo2KHR *info,
+             D3D12_RESOURCE_DESC &tmp_desc,
+             D3D12_TEXTURE_COPY_LOCATION &tmp_loc,
+             uint32_t region,
+             VkImageAspectFlagBits aspect,
+             uint32_t layer);
+
    void resolve_attachment(uint32_t idx);
    void attachment_transition(const dzn_attachment_ref &att);
    void attachment_transition(const dzn_attachment &att);
