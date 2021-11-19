@@ -668,6 +668,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
       mai.pNext = &emai;
    }
 
+#ifndef _WIN32
    VkImportMemoryFdInfoKHR imfi = {
       VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
       NULL,
@@ -685,6 +686,7 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
       imfi.pNext = mai.pNext;
       mai.pNext = &imfi;
    }
+#endif
 
    struct wsi_memory_allocate_info memory_wsi_info = {
       VK_STRUCTURE_TYPE_WSI_MEMORY_ALLOCATE_INFO_MESA,
@@ -931,6 +933,9 @@ zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
    case PIPE_RESOURCE_PARAM_HANDLE_TYPE_SHARED:
    case PIPE_RESOURCE_PARAM_HANDLE_TYPE_KMS:
    case PIPE_RESOURCE_PARAM_HANDLE_TYPE_FD: {
+#ifdef _WIN32
+      return false;
+#else
       memset(&whandle, 0, sizeof(whandle));
       if (param == PIPE_RESOURCE_PARAM_HANDLE_TYPE_SHARED)
          whandle.type = WINSYS_HANDLE_TYPE_SHARED;
@@ -944,6 +949,7 @@ zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
 
       *value = whandle.handle;
       break;
+#endif
    }
    }
    return true;
