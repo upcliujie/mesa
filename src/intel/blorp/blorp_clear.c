@@ -1339,7 +1339,7 @@ blorp_params_get_mcs_partial_resolve_kernel(struct blorp_batch *batch,
    brw_blorp_init_wm_prog_key(&wm_key);
    wm_key.base.tex.compressed_multisample_layout_mask = 1;
    wm_key.base.tex.msaa_16 = blorp_key.num_samples == 16;
-   wm_key.multisample_fbo = true;
+   wm_key.multisample_fbo = BRW_ALWAYS;
 
    struct brw_wm_prog_data prog_data;
    const unsigned *program =

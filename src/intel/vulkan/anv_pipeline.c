@@ -511,7 +511,8 @@ populate_wm_prog_key(const struct anv_graphics_pipeline *pipeline,
    if (ms_info) {
       key->persample_interp =
          is_sample_shading(ms_info) ? BRW_ALWAYS : BRW_NEVER;
-      key->multisample_fbo = ms_info->rasterizationSamples > 1;
+      key->multisample_fbo =
+         ms_info->rasterizationSamples > 1 ? BRW_ALWAYS : BRW_NEVER;
    }
 
    key->coarse_pixel =
