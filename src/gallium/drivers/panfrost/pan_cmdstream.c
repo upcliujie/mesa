@@ -3668,8 +3668,7 @@ prepare_shader(struct panfrost_shader_state *state,
             struct panfrost_pool *pool, bool upload)
 {
 #if PAN_ARCH <= 7
-        struct mali_renderer_state_packed *out =
-                (struct mali_renderer_state_packed *)&state->partial_rsd;
+        void *out = &state->partial_rsd;
 
         if (upload) {
                 struct panfrost_ptr ptr =
@@ -3681,6 +3680,36 @@ prepare_shader(struct panfrost_shader_state *state,
 
         pan_pack(out, RENDERER_STATE, cfg) {
                 pan_shader_prepare_rsd(&state->info, state->bin.gpu, &cfg);
+        }
+#else
+        assert(upload);
+
+        /* The address in the shader program descriptor must be non-null, but
+         * the entire shader program descriptor may be omitted.
+         *
+         * See dEQP-GLES31.functional.compute.basic.empty
+         */
+        if (!state->bin.gpu)
+                return;
+
+        bool secondary_enable = (state->info.stage == MESA_SHADER_VERTEX &&
+                                 state->info.vs.secondary_enable);
+
+        unsigned nr_variants = secondary_enable ? 2 : 1;
+        struct panfrost_ptr ptr = pan_pool_alloc_desc_array(&pool->base,
+                                                            nr_variants,
+                                                            SHADER_PROGRAM);
+
+        state->state = panfrost_pool_take_ref(pool, ptr.gpu);
+
+        pan_pack(ptr.cpu, SHADER_PROGRAM, cfg) {
+                cfg.stage = pan_shader_stage(&state->info);
+                cfg.primary_shader = true;
+                cfg.shader_contains_barrier = state->info.contains_barrier;
+                cfg.register_allocation = pan_register_allocation(state->info.work_reg_count);
+                cfg.binary = state->bin.gpu;
+
+                pan_make_preload(state->info.stage, state->info.preload, &cfg.preload);
         }
 #endif
 }
