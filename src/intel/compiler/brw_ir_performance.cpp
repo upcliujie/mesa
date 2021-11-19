@@ -1012,15 +1012,6 @@ namespace {
          return calculate_desc(info, unit_sampler, 2, 0, 0, 0, 16,
                                8, 750, 0, 0, 2, 0);
 
-      case FS_OPCODE_INTERPOLATE_AT_SAMPLE:
-      case FS_OPCODE_INTERPOLATE_AT_SHARED_OFFSET:
-      case FS_OPCODE_INTERPOLATE_AT_PER_SLOT_OFFSET:
-         if (devinfo->ver >= 7)
-            return calculate_desc(info, unit_pi, 2, 0, 0, 14 /* XXX */, 0,
-                                  0, 90 /* XXX */, 0, 0, 0, 0);
-         else
-            abort();
-
       case SHADER_OPCODE_BARRIER:
          if (devinfo->ver >= 7)
             return calculate_desc(info, unit_gateway, 90 /* XXX */, 0, 0,
@@ -1101,6 +1092,13 @@ namespace {
             } else {
                abort();
             }
+
+         case GFX7_SFID_PIXEL_INTERPOLATOR:
+            if (devinfo->ver >= 7)
+               return calculate_desc(info, unit_pi, 2, 0, 0, 14 /* XXX */, 0,
+                                     0, 90 /* XXX */, 0, 0, 0, 0);
+            else
+               abort();
 
          case GFX12_SFID_UGM:
          case GFX12_SFID_TGM:
