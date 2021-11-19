@@ -116,7 +116,7 @@ static const struct {
 };
 
 /**
- * \param line_aa  BRW_WM_AA_NEVER, BRW_WM_AA_ALWAYS or BRW_WM_AA_SOMETIMES
+ * \param line_aa  BRW_NEVER, BRW_ALWAYS or BRW_SOMETIMES
  * \param lookup  bitmask of BRW_WM_IZ_* flags
  */
 void fs_visitor::setup_fs_payload_gfx4()
@@ -153,10 +153,10 @@ void fs_visitor::setup_fs_payload_gfx4()
    if (wm_iz_table[lookup].sd_to_rt || kill_stats_promoted_workaround)
       source_depth_to_render_target = true;
 
-   if (wm_iz_table[lookup].ds_present || key->line_aa != BRW_WM_AA_NEVER) {
+   if (wm_iz_table[lookup].ds_present || key->line_aa != BRW_NEVER) {
       payload.aa_dest_stencil_reg[0] = reg;
       runtime_check_aads_emit =
-         !wm_iz_table[lookup].ds_present && key->line_aa == BRW_WM_AA_SOMETIMES;
+         !wm_iz_table[lookup].ds_present && key->line_aa == BRW_SOMETIMES;
       reg++;
    }
 
