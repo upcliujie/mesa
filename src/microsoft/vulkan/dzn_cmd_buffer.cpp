@@ -540,11 +540,6 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
    D3D12_TEXTURE_COPY_LOCATION src_buf_loc = {
       .pResource = src_buffer->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
-      .PlacedFootprint = {
-         .Footprint = {
-            .Format = dzn_get_format(dst_image->vk.format),
-         },
-      },
    };
 
    D3D12_TEXTURE_COPY_LOCATION dst_img_loc = {
@@ -576,6 +571,9 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
       src_buf_loc.PlacedFootprint.Footprint.Height = region->imageExtent.height;
       src_buf_loc.PlacedFootprint.Footprint.Width = region->imageExtent.width;
       src_buf_loc.PlacedFootprint.Footprint.RowPitch = blksz * buffer_row_length;
+      src_buf_loc.PlacedFootprint.Footprint.Format =
+         dzn_image::get_placed_footprint_format(dst_image->vk.format,
+                                                region->imageSubresource.aspectMask);
 
       uint32_t buffer_layer_stride =
          src_buf_loc.PlacedFootprint.Footprint.RowPitch *
@@ -651,11 +649,6 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
    D3D12_TEXTURE_COPY_LOCATION dst_buf_loc = {
       .pResource = dst_buffer->res.Get(),
       .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
-      .PlacedFootprint = {
-         .Footprint = {
-            .Format = dzn_get_format(src_image->vk.format),
-         },
-      },
    };
 
    D3D12_TEXTURE_COPY_LOCATION src_img_loc = {
@@ -686,6 +679,9 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
       dst_buf_loc.PlacedFootprint.Footprint.Height = region->imageExtent.height;
       dst_buf_loc.PlacedFootprint.Footprint.Width = region->imageExtent.width;
       dst_buf_loc.PlacedFootprint.Footprint.RowPitch = buffer_row_length * blksz;
+      dst_buf_loc.PlacedFootprint.Footprint.Format =
+         dzn_image::get_placed_footprint_format(src_image->vk.format,
+                                                region->imageSubresource.aspectMask);
 
       uint32_t buffer_layer_stride =
          dst_buf_loc.PlacedFootprint.Footprint.RowPitch *
@@ -767,7 +763,9 @@ dzn_fill_image_copy_loc(const dzn_image *img,
       assert(subres->mipLevel == 0);
       loc->Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
       loc->PlacedFootprint.Offset = 0;
-      loc->PlacedFootprint.Footprint.Format = dzn_get_format(img->vk.format);
+      loc->PlacedFootprint.Footprint.Format =
+         dzn_image::get_placed_footprint_format(img->vk.format,
+                                                subres->aspectMask);
       loc->PlacedFootprint.Footprint.Width = img->vk.extent.width;
       loc->PlacedFootprint.Footprint.Height = img->vk.extent.height;
       loc->PlacedFootprint.Footprint.Depth = img->vk.extent.depth;
@@ -937,7 +935,10 @@ dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
    dzn_device *device = cmd_buffer->device;
    VK_FROM_HANDLE(dzn_image, img, image);
    D3D12_DEPTH_STENCIL_VIEW_DESC desc = {
-      .Format = dzn_get_dsv_format(img->vk.format),
+      .Format =
+         dzn_image::get_dxgi_format(img->vk.format,
+                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                    VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT),
    };
 
    switch (img->vk.image_type) {

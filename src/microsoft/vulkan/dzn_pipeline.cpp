@@ -252,7 +252,7 @@ dzn_graphics_pipeline::translate_vi(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
       /* nir_to_dxil() name all vertex inputs as TEXCOORDx */
       inputs[i].SemanticName = "TEXCOORD";
       inputs[i].SemanticIndex = attr->location;
-      inputs[i].Format = dzn_get_format(attr->format);
+      inputs[i].Format = dzn_buffer::get_dxgi_format(attr->format);
       inputs[i].InputSlot = attr->binding;
       inputs[i].InputSlotClass = slot_class[attr->binding];
       inputs[i].InstanceDataStepRate =
@@ -644,14 +644,21 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
 
       const struct dzn_attachment *attachment = &pass->attachments[idx];
 
-      desc.RTVFormats[i] = dzn_get_rtv_format(attachment->format);
+      desc.RTVFormats[i] =
+         dzn_image::get_dxgi_format(attachment->format,
+	                            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                    VK_IMAGE_ASPECT_COLOR_BIT);
    }
 
    if (subpass->zs.idx != VK_ATTACHMENT_UNUSED) {
       const struct dzn_attachment *attachment =
          &pass->attachments[subpass->zs.idx];
 
-      desc.DSVFormat = dzn_get_dsv_format(attachment->format);
+      desc.DSVFormat =
+         dzn_image::get_dxgi_format(attachment->format,
+                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                    VK_IMAGE_ASPECT_DEPTH_BIT |
+                                    VK_IMAGE_ASPECT_STENCIL_BIT);
    }
 
    uint32_t stage_mask = 0;

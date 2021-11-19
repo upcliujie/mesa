@@ -90,7 +90,8 @@ dzn_image::dzn_image(dzn_device *device,
          .Height = vk.extent.height,
          .DepthOrArraySize = 1,
          .MipLevels = 1,
-         .Format = dzn_get_format(pCreateInfo->format),
+         .Format =
+            get_dxgi_format(pCreateInfo->format, pCreateInfo->usage, 0),
          .SampleDesc = { .Count = 1, .Quality = 0 },
          .Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
          .Flags = D3D12_RESOURCE_FLAG_NONE
@@ -111,7 +112,10 @@ dzn_image::dzn_image(dzn_device *device,
       desc.SampleDesc.Count = 1;
       desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
    } else {
-      desc.Format = dzn_get_format(pCreateInfo->format);
+      desc.Format =
+         get_dxgi_format(pCreateInfo->format,
+                         pCreateInfo->usage & ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                         0),
       desc.Dimension = (D3D12_RESOURCE_DIMENSION)(D3D12_RESOURCE_DIMENSION_TEXTURE1D + pCreateInfo->imageType);
       desc.Width = vk.extent.width;
       desc.Height = vk.extent.height;
@@ -161,6 +165,88 @@ dzn_image::dzn_image(dzn_device *device,
 dzn_image::~dzn_image()
 {
    vk_image_finish(&vk);
+}
+
+DXGI_FORMAT
+dzn_image::get_dxgi_format(VkFormat format,
+                           VkImageUsageFlags usage,
+                           VkImageAspectFlags aspects)
+{
+   enum pipe_format pfmt = vk_format_to_pipe_format(format);
+
+   if (!vk_format_is_depth_or_stencil(format))
+      return dzn_pipe_to_dxgi_format(pfmt);
+
+   switch (pfmt) {
+   case PIPE_FORMAT_Z16_UNORM:
+      return usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
+             DXGI_FORMAT_D16_UNORM : DXGI_FORMAT_R16_UNORM;
+
+   case PIPE_FORMAT_Z32_FLOAT:
+      return usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
+             DXGI_FORMAT_D32_FLOAT : DXGI_FORMAT_R32_FLOAT;
+
+   case PIPE_FORMAT_Z24X8_UNORM:
+      return usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
+             DXGI_FORMAT_D24_UNORM_S8_UINT : DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+
+   case PIPE_FORMAT_Z24_UNORM_S8_UINT:
+      if (usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+         return DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+      return (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) ?
+             DXGI_FORMAT_R24_UNORM_X8_TYPELESS :
+             DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+
+   case PIPE_FORMAT_X24S8_UINT:
+      return usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
+             DXGI_FORMAT_D24_UNORM_S8_UINT : DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+
+   case PIPE_FORMAT_Z32_FLOAT_S8X24_UINT:
+      if (usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+         return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
+
+      return (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) ?
+             DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS :
+             DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+
+   default:
+      return dzn_pipe_to_dxgi_format(pfmt);
+   }
+}
+
+DXGI_FORMAT
+dzn_image::get_placed_footprint_format(VkFormat format,
+                                       VkImageAspectFlags aspect)
+{
+   DXGI_FORMAT out =
+      dzn_image::get_dxgi_format(format,
+                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                                 aspect);
+
+   switch (out) {
+   case DXGI_FORMAT_R24_UNORM_X8_TYPELESS:
+   case DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS:
+      return DXGI_FORMAT_R32_TYPELESS;
+   case DXGI_FORMAT_X24_TYPELESS_G8_UINT:
+   case DXGI_FORMAT_X32_TYPELESS_G8X24_UINT:
+      return DXGI_FORMAT_R8_TYPELESS;
+   default:
+      return out;
+   }
+}
+
+VkFormat
+dzn_image::get_plane_format(VkFormat format,
+                            VkImageAspectFlags aspectMask)
+{
+   if (aspectMask == VK_IMAGE_ASPECT_STENCIL_BIT)
+      return vk_format_stencil_only(format);
+   else if (aspectMask == VK_IMAGE_ASPECT_DEPTH_BIT)
+      return vk_format_depth_only(format);
+   else
+      return format;
 }
 
 uint32_t
@@ -500,7 +586,10 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
    /* TODO: have a shader-invisible pool for iview descs, and copy those with
     * CopyDescriptors() when UpdateDescriptorSets() is called.
     */
-   desc.Format = dzn_get_srv_format(pCreateInfo->format);
+   desc.Format =
+      dzn_image::get_dxgi_format(pCreateInfo->format,
+                                 image->vk.usage & ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                 range->aspectMask);
    desc.ViewDimension =
       translate_view_type_to_srv_dim(pCreateInfo->viewType, image->vk.samples);
    desc.Shader4ComponentMapping =
@@ -577,7 +666,10 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
 
    if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
       D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
-      rtv_desc.Format = dzn_get_rtv_format(image->vk.format);
+      rtv_desc.Format =
+         dzn_image::get_dxgi_format(pCreateInfo->format,
+                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                    range->aspectMask);
 
       rtv_desc.ViewDimension =
          translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->vk.samples);
@@ -620,7 +712,10 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
 
    if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
       D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = { };
-      dsv_desc.Format = dzn_get_dsv_format(image->vk.format);
+      dsv_desc.Format =
+         dzn_image::get_dxgi_format(pCreateInfo->format,
+                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                                    range->aspectMask);
       dsv_desc.ViewDimension =
          translate_view_type_to_dsv_dim(pCreateInfo->viewType, image->vk.samples);
 
@@ -701,7 +796,7 @@ dzn_buffer_view::dzn_buffer_view(dzn_device *device,
 
    buffer = buf;
    desc = D3D12_SHADER_RESOURCE_VIEW_DESC {
-      .Format = dzn_get_format(pCreateInfo->format),
+      .Format = dzn_buffer::get_dxgi_format(pCreateInfo->format),
       .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
       .Shader4ComponentMapping =
          D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,

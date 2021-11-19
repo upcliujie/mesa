@@ -25,6 +25,7 @@
 
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
+#include "vk_format.h"
 #include "vk_util.h"
 
 #include "util/debug.h"
@@ -1442,6 +1443,14 @@ dzn_buffer::dzn_buffer(dzn_device *device,
 dzn_buffer::~dzn_buffer()
 {
    vk_object_base_finish(&base);
+}
+
+DXGI_FORMAT
+dzn_buffer::get_dxgi_format(VkFormat format)
+{
+   enum pipe_format pfmt = vk_format_to_pipe_format(format);
+
+   return dzn_pipe_to_dxgi_format(pfmt);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

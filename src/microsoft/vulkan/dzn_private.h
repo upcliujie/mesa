@@ -936,6 +936,16 @@ struct dzn_image {
    get_subresource_index(const VkImageSubresourceRange &subres,
                          VkImageAspectFlagBits aspect,
                          uint32_t level, uint32_t layer) const;
+
+   static DXGI_FORMAT
+   get_dxgi_format(VkFormat format,
+                   VkImageUsageFlags usage,
+                   VkImageAspectFlags aspects);
+   static DXGI_FORMAT
+   get_placed_footprint_format(VkFormat format,
+                               VkImageAspectFlags aspect);
+   static VkFormat
+   get_plane_format(VkFormat format, VkImageAspectFlags aspectMask);
 };
 
 struct dzn_image_view {
@@ -973,6 +983,8 @@ struct dzn_buffer {
               const VkBufferCreateInfo *pCreateInfo,
               const VkAllocationCallbacks *pAllocator);
    ~dzn_buffer();
+
+   static DXGI_FORMAT get_dxgi_format(VkFormat format);
 };
 
 struct dzn_buffer_view {
@@ -1118,15 +1130,6 @@ struct dzn_event {
 struct dzn_query_pool {
    struct vk_object_base base;
 };
-
-DXGI_FORMAT
-dzn_get_format(VkFormat format);
-DXGI_FORMAT
-dzn_get_rtv_format(VkFormat format);
-DXGI_FORMAT
-dzn_get_srv_format(VkFormat format);
-DXGI_FORMAT
-dzn_get_dsv_format(VkFormat format);
 
 D3D12_RESOURCE_STATES
 dzn_get_states(VkImageLayout layout);
