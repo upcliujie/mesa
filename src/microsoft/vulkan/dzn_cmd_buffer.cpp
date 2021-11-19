@@ -472,42 +472,53 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       const VkImageSubresourceRange *range =
          &pImageMemoryBarriers[i].subresourceRange;
 
-      uint32_t base_layer, layer_count;
-      if (image->vk.image_type == VK_IMAGE_TYPE_3D) {
-         base_layer = 0;
-         layer_count = u_minify(image->vk.extent.depth, range->baseMipLevel);
-      } else {
-         base_layer = range->baseArrayLayer;
-         layer_count = dzn_get_layerCount(image, range);
-      }
-
-      D3D12_RESOURCE_BARRIER barriers[2];
       /* We use placed resource's simple model, in which only one resource
        * pointing to a given heap is active at a given time. To make the
        * resource active we need to add an aliasing barrier.
        */
-      barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING;
-      barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-      barriers[0].Aliasing.pResourceBefore = NULL;
-      barriers[0].Aliasing.pResourceAfter = image->res.Get();
-      barriers[1].Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-      barriers[1].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+      D3D12_RESOURCE_BARRIER aliasing_barrier = {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_ALIASING,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Aliasing = {
+            .pResourceBefore = NULL,
+            .pResourceAfter = image->res.Get(),
+         },
+      };
 
-      barriers[1].Transition.pResource = image->res.Get();
-      assert(base_layer == 0 && layer_count == 1);
-      barriers[1].Transition.Subresource = 0; // YOLO
+      batch->cmdlist->ResourceBarrier(1, &aliasing_barrier);
+
+      D3D12_RESOURCE_BARRIER transition_barrier = {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = image->res.Get(),
+            .StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout),
+         },
+      };
 
       if (pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
           pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
-         barriers[1].Transition.StateBefore = image->mem->initial_state;
+         transition_barrier.Transition.StateBefore = image->mem->initial_state;
       else
-         barriers[1].Transition.StateBefore = dzn_get_states(pImageMemoryBarriers[i].oldLayout);
+         transition_barrier.Transition.StateBefore = dzn_get_states(pImageMemoryBarriers[i].oldLayout);
 
-      barriers[1].Transition.StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout);
+      if (transition_barrier.Transition.StateBefore == transition_barrier.Transition.StateAfter)
+         continue;
 
       /* some layouts map to the states, and NOP-barriers are illegal */
-      unsigned nbarriers = 1 + (barriers[1].Transition.StateBefore != barriers[1].Transition.StateAfter);
-      batch->cmdlist->ResourceBarrier(nbarriers, barriers);
+      uint32_t layer_count = dzn_get_layer_count(image, range);
+      uint32_t level_count = dzn_get_level_count(image, range);
+      for (uint32_t layer = range->baseArrayLayer;
+           layer < range->baseArrayLayer + layer_count; layer++) {
+         for (uint32_t lvl = range->baseMipLevel;
+              lvl < range->baseMipLevel + level_count; lvl++) {
+            dzn_foreach_aspect(aspect, range->aspectMask) {
+               transition_barrier.Transition.Subresource =
+                  image->get_subresource_index(*range, aspect, lvl, layer);
+               batch->cmdlist->ResourceBarrier(1, &transition_barrier);
+            }
+         }
+      }
    }
 }
 
