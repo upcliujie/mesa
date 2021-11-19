@@ -834,180 +834,23 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
                        const VkImageSubresourceRange *pRanges)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = cmd_buffer->get_batch();
-   dzn_device *device = cmd_buffer->device;
    VK_FROM_HANDLE(dzn_image, img, image);
-   D3D12_RENDER_TARGET_VIEW_DESC desc = {
-      .Format = img->desc.Format,
-   };
 
-   switch (img->vk.image_type) {
-   case VK_IMAGE_TYPE_1D:
-      desc.ViewDimension =
-         img->vk.array_layers > 1 ?
-         D3D12_RTV_DIMENSION_TEXTURE1DARRAY : D3D12_RTV_DIMENSION_TEXTURE1D;
-      break;
-   case VK_IMAGE_TYPE_2D:
-      if (img->vk.array_layers > 1) {
-         desc.ViewDimension =
-            img->vk.samples > 1 ?
-            D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY :
-            D3D12_RTV_DIMENSION_TEXTURE2DARRAY;
-      } else {
-         desc.ViewDimension =
-            img->vk.samples > 1 ?
-            D3D12_RTV_DIMENSION_TEXTURE2DMS :
-            D3D12_RTV_DIMENSION_TEXTURE2D;
-      }
-      break;
-   case VK_IMAGE_TYPE_3D:
-      desc.ViewDimension = D3D12_RTV_DIMENSION_TEXTURE3D;
-      break;
-   default: unreachable("Invalid image type\n");
-   }
-
-   for (uint32_t r = 0; r < rangeCount; r++) {
-      const VkImageSubresourceRange *range = &pRanges[r];
-
-      for (uint32_t l = 0; l < range->levelCount; l++) {
-         switch (desc.ViewDimension) {
-         case D3D12_RTV_DIMENSION_TEXTURE1D:
-            desc.Texture1D.MipSlice = range->baseMipLevel + l;
-            break;
-         case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
-            desc.Texture1DArray.MipSlice = range->baseMipLevel + l;
-            desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
-            desc.Texture1DArray.ArraySize = range->layerCount;
-            break;
-         case D3D12_RTV_DIMENSION_TEXTURE2D:
-            desc.Texture2D.MipSlice = range->baseMipLevel + l;
-            if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_1_BIT)
-               desc.Texture2D.PlaneSlice = 1;
-            else if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_2_BIT)
-               desc.Texture2D.PlaneSlice = 2;
-            else
-               desc.Texture2D.PlaneSlice = 0;
-            break;
-         case D3D12_RTV_DIMENSION_TEXTURE2DMS:
-            break;
-         case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
-            desc.Texture2DArray.MipSlice = range->baseMipLevel + l;
-            desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
-            desc.Texture2DArray.ArraySize = range->layerCount;
-            if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_1_BIT)
-               desc.Texture2DArray.PlaneSlice = 1;
-            else if (range->aspectMask & VK_IMAGE_ASPECT_PLANE_2_BIT)
-               desc.Texture2DArray.PlaneSlice = 2;
-            else
-               desc.Texture2DArray.PlaneSlice = 0;
-            break;
-         case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
-            desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
-            desc.Texture2DMSArray.ArraySize = range->layerCount;
-            break;
-         case D3D12_RTV_DIMENSION_TEXTURE3D:
-            desc.Texture3D.MipSlice = range->baseMipLevel + l;
-            desc.Texture3D.FirstWSlice = range->baseArrayLayer;
-            desc.Texture3D.WSize = range->layerCount;
-            break;
-         }
-
-         struct d3d12_descriptor_handle handle;
-         d3d12_descriptor_pool_alloc_handle(cmd_buffer->rtv_pool.get(), &handle);
-         device->dev->CreateRenderTargetView(img->res.Get(), &desc,
-                                             handle.cpu_handle);
-         batch->cmdlist->ClearRenderTargetView(handle.cpu_handle,
-                                               pColor->float32, 0, NULL);
-      }
-   }
+   cmd_buffer->clear(img, imageLayout, pColor, rangeCount, pRanges);
 }
 
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
-                             VkImage image,
-                             VkImageLayout imageLayout,
-                             const VkClearDepthStencilValue *pDepthStencil,
-                             uint32_t rangeCount,
-                             const VkImageSubresourceRange *pRanges)
+                              VkImage image,
+                              VkImageLayout imageLayout,
+                              const VkClearDepthStencilValue *pDepthStencil,
+                              uint32_t rangeCount,
+                              const VkImageSubresourceRange *pRanges)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   dzn_batch *batch = cmd_buffer->get_batch();
-   dzn_device *device = cmd_buffer->device;
    VK_FROM_HANDLE(dzn_image, img, image);
-   D3D12_DEPTH_STENCIL_VIEW_DESC desc = {
-      .Format =
-         dzn_image::get_dxgi_format(img->vk.format,
-                                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                                    VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT),
-   };
 
-   switch (img->vk.image_type) {
-   case VK_IMAGE_TYPE_1D:
-      desc.ViewDimension =
-         img->vk.array_layers > 1 ?
-         D3D12_DSV_DIMENSION_TEXTURE1DARRAY : D3D12_DSV_DIMENSION_TEXTURE1D;
-      break;
-   case VK_IMAGE_TYPE_2D:
-      if (img->vk.array_layers > 1) {
-         desc.ViewDimension =
-            img->vk.samples > 1 ?
-            D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY :
-            D3D12_DSV_DIMENSION_TEXTURE2DARRAY;
-      } else {
-         desc.ViewDimension =
-            img->vk.samples > 1 ?
-            D3D12_DSV_DIMENSION_TEXTURE2DMS :
-            D3D12_DSV_DIMENSION_TEXTURE2D;
-      }
-      break;
-   default:
-      unreachable("Invalid image type\n");
-   }
-
-   for (uint32_t r = 0; r < rangeCount; r++) {
-      const VkImageSubresourceRange *range = &pRanges[r];
-      D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
-
-      for (uint32_t l = 0; l < range->levelCount; l++) {
-         switch (desc.ViewDimension) {
-         case D3D12_DSV_DIMENSION_TEXTURE1D:
-            desc.Texture1D.MipSlice = range->baseMipLevel + l;
-            break;
-         case D3D12_DSV_DIMENSION_TEXTURE1DARRAY:
-            desc.Texture1DArray.MipSlice = range->baseMipLevel + l;
-            desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
-            desc.Texture1DArray.ArraySize = range->layerCount;
-            break;
-         case D3D12_DSV_DIMENSION_TEXTURE2D:
-            desc.Texture2D.MipSlice = range->baseMipLevel + l;
-            break;
-         case D3D12_DSV_DIMENSION_TEXTURE2DMS:
-            break;
-         case D3D12_DSV_DIMENSION_TEXTURE2DARRAY:
-            desc.Texture2DArray.MipSlice = range->baseMipLevel + l;
-            desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
-            desc.Texture2DArray.ArraySize = range->layerCount;
-            break;
-         case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY:
-            desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
-            desc.Texture2DMSArray.ArraySize = range->layerCount;
-            break;
-         }
-
-         if (range->aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT)
-            flags |= D3D12_CLEAR_FLAG_DEPTH;
-         if (range->aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)
-            flags |= D3D12_CLEAR_FLAG_STENCIL;
-
-         struct d3d12_descriptor_handle handle;
-         d3d12_descriptor_pool_alloc_handle(cmd_buffer->dsv_pool.get(), &handle);
-         device->dev->CreateDepthStencilView(img->res.Get(), &desc,
-                                             handle.cpu_handle);
-         batch->cmdlist->ClearDepthStencilView(handle.cpu_handle, flags,
-                                               pDepthStencil->depth, pDepthStencil->stencil,
-                                               0, NULL);
-      }
-   }
+   cmd_buffer->clear(img, imageLayout, pDepthStencil, rangeCount, pRanges);
 }
 
 void
@@ -1041,6 +884,152 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
       batch->cmdlist->ClearRenderTargetView(view->rt_handle.cpu_handle,
                                              pClearValue->color.float32,
                                              rectCount, rects);
+   }
+}
+
+void
+dzn_cmd_buffer::clear(const dzn_image *image,
+                      VkImageLayout layout,
+                      const VkClearColorValue *color,
+                      uint32_t range_count,
+                      const VkImageSubresourceRange *ranges)
+{
+   dzn_batch *batch = get_batch();
+
+   assert(image->desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+
+   float clear_vals[4];
+
+   enum pipe_format pfmt = vk_format_to_pipe_format(image->vk.format);
+
+   /* FIXME: precision loss for all 32-bit integer formats */
+   if (util_format_is_pure_sint(pfmt)) {
+      for (uint32_t c = 0; c < ARRAY_SIZE(clear_vals); c++)
+         clear_vals[c] = color->int32[c];
+   } else if (util_format_is_pure_uint(pfmt)) {
+      for (uint32_t c = 0; c < ARRAY_SIZE(clear_vals); c++)
+         clear_vals[c] = color->uint32[c];
+   } else {
+      memcpy(clear_vals, color->float32, sizeof(clear_vals));
+   }
+
+   for (uint32_t r = 0; r < range_count; r++) {
+      const VkImageSubresourceRange &range = ranges[r];
+      uint32_t layer_count = dzn_get_layer_count(image, &range);
+      uint32_t level_count = dzn_get_level_count(image, &range);
+
+      for (uint32_t lvl = range.baseMipLevel;
+           lvl < range.baseMipLevel + level_count; lvl++) {
+         struct d3d12_descriptor_handle handle;
+
+         D3D12_RESOURCE_BARRIER barrier = {
+            .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            .Transition = {
+               .pResource = image->res.Get(),
+               .StateBefore = dzn_get_states(layout),
+               .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+            },
+         };
+
+         if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
+            for (uint32_t layer = range.baseArrayLayer;
+                 layer < range.baseArrayLayer + layer_count; layer++) {
+               barrier.Transition.Subresource =
+                  image->get_subresource_index(range, VK_IMAGE_ASPECT_COLOR_BIT,
+                                               lvl, layer);
+               batch->cmdlist->ResourceBarrier(1, &barrier);
+            }
+         }
+
+         d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &handle);
+         image->create_rtv(device, range, lvl, handle.cpu_handle);
+         batch->cmdlist->ClearRenderTargetView(handle.cpu_handle,
+                                               clear_vals, 0, NULL);
+
+         if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
+            std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+
+            for (uint32_t layer = range.baseArrayLayer;
+                 layer < range.baseArrayLayer + layer_count; layer++) {
+               barrier.Transition.Subresource =
+                  image->get_subresource_index(range, VK_IMAGE_ASPECT_COLOR_BIT,
+                                               lvl + range.baseMipLevel,
+                                               layer + range.baseArrayLayer);
+               batch->cmdlist->ResourceBarrier(1, &barrier);
+            }
+         }
+      }
+   }
+}
+
+void
+dzn_cmd_buffer::clear(const dzn_image *image,
+                      VkImageLayout layout,
+                      const VkClearDepthStencilValue *zs,
+                      uint32_t range_count,
+                      const VkImageSubresourceRange *ranges)
+{
+   dzn_batch *batch = get_batch();
+
+   assert(image->desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+
+   for (uint32_t r = 0; r < range_count; r++) {
+      const VkImageSubresourceRange &range = ranges[r];
+      uint32_t layer_count = dzn_get_layer_count(image, &range);
+      uint32_t level_count = dzn_get_level_count(image, &range);
+
+      D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
+
+      if (range.aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT)
+         flags |= D3D12_CLEAR_FLAG_DEPTH;
+      if (range.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)
+         flags |= D3D12_CLEAR_FLAG_STENCIL;
+
+      for (uint32_t lvl = range.baseMipLevel;
+           lvl < range.baseMipLevel + level_count; lvl++) {
+         struct d3d12_descriptor_handle handle;
+
+         D3D12_RESOURCE_BARRIER barrier = {
+            .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+            .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+            .Transition = {
+               .pResource = image->res.Get(),
+               .StateBefore = dzn_get_states(layout),
+               .StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE,
+            },
+         };
+
+         if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
+            for (uint32_t layer = range.baseArrayLayer;
+                 layer < range.baseArrayLayer + layer_count; layer++) {
+               dzn_foreach_aspect(aspect, range.aspectMask) {
+                  barrier.Transition.Subresource =
+                     image->get_subresource_index(range, aspect, lvl, layer);
+                  batch->cmdlist->ResourceBarrier(1, &barrier);
+               }
+            }
+         }
+
+         d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), &handle);
+         image->create_dsv(device, range, lvl, handle.cpu_handle);
+         batch->cmdlist->ClearDepthStencilView(handle.cpu_handle, flags,
+                                               zs->depth, zs->stencil,
+                                               0, NULL);
+
+         if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
+            std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+
+            for (uint32_t layer = range.baseArrayLayer;
+                 layer < range.baseArrayLayer + layer_count; layer++) {
+               dzn_foreach_aspect(aspect, range.aspectMask) {
+                  barrier.Transition.Subresource =
+                     image->get_subresource_index(range, aspect, lvl, layer);
+                  batch->cmdlist->ResourceBarrier(1, &barrier);
+               }
+            }
+         }
+      }
    }
 }
 

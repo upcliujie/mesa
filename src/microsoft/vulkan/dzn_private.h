@@ -605,6 +605,17 @@ struct dzn_cmd_buffer {
                          uint32_t rectCount,
                          D3D12_RECT *rects);
 
+   void clear(const struct dzn_image *image,
+              VkImageLayout layout,
+              const VkClearColorValue *color,
+              uint32_t range_count,
+              const VkImageSubresourceRange *ranges);
+   void clear(const struct dzn_image *image,
+              VkImageLayout layout,
+              const VkClearDepthStencilValue *zs,
+              uint32_t range_count,
+              const VkImageSubresourceRange *ranges);
+
    void draw(uint32_t vertex_count,
              uint32_t instance_count,
              uint32_t first_vertex,
