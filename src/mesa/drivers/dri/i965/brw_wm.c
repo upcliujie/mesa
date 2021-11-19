@@ -440,28 +440,28 @@ brw_wm_populate_key(struct brw_context *brw, struct brw_wm_prog_key *key)
       key->iz_lookup = lookup;
    }
 
-   line_aa = BRW_WM_AA_NEVER;
+   line_aa = BRW_NEVER;
 
    /* _NEW_LINE, _NEW_POLYGON, BRW_NEW_REDUCED_PRIMITIVE */
    if (ctx->Line.SmoothFlag) {
       if (brw->reduced_primitive == GL_LINES) {
-         line_aa = BRW_WM_AA_ALWAYS;
+         line_aa = BRW_ALWAYS;
       }
       else if (brw->reduced_primitive == GL_TRIANGLES) {
          if (ctx->Polygon.FrontMode == GL_LINE) {
-            line_aa = BRW_WM_AA_SOMETIMES;
+            line_aa = BRW_SOMETIMES;
 
             if (ctx->Polygon.BackMode == GL_LINE ||
                 (ctx->Polygon.CullFlag &&
                  ctx->Polygon.CullFaceMode == GL_BACK))
-               line_aa = BRW_WM_AA_ALWAYS;
+               line_aa = BRW_ALWAYS;
          }
          else if (ctx->Polygon.BackMode == GL_LINE) {
-            line_aa = BRW_WM_AA_SOMETIMES;
+            line_aa = BRW_SOMETIMES;
 
             if ((ctx->Polygon.CullFlag &&
                  ctx->Polygon.CullFaceMode == GL_FRONT))
-               line_aa = BRW_WM_AA_ALWAYS;
+               line_aa = BRW_ALWAYS;
          }
       }
    }
