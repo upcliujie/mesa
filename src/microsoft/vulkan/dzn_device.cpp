@@ -700,6 +700,39 @@ dzn_GetPhysicalDeviceImageFormatProperties(VkPhysicalDevice physicalDevice,
    return result;
 }
 
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetPhysicalDeviceSparseImageFormatProperties(VkPhysicalDevice physicalDevice,
+                                                 VkFormat format,
+                                                 VkImageType type,
+                                                 VkSampleCountFlagBits samples,
+                                                 VkImageUsageFlags usage,
+                                                 VkImageTiling tiling,
+                                                 uint32_t *pPropertyCount,
+                                                 VkSparseImageFormatProperties *pProperties)
+{
+   *pPropertyCount = 0;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetPhysicalDeviceSparseImageFormatProperties2(VkPhysicalDevice physicalDevice,
+                                                  const VkPhysicalDeviceSparseImageFormatInfo2 *pFormatInfo,
+                                                  uint32_t *pPropertyCount,
+                                                  VkSparseImageFormatProperties2 *pProperties)
+{
+   *pPropertyCount = 0;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetPhysicalDeviceExternalBufferProperties(VkPhysicalDevice physicalDevice,
+                                              const VkPhysicalDeviceExternalBufferInfo *pExternalBufferInfo,
+                                              VkExternalBufferProperties *pExternalBufferProperties)
+{
+   pExternalBufferProperties->externalMemoryProperties =
+      VkExternalMemoryProperties {
+         .compatibleHandleTypes = (VkExternalMemoryHandleTypeFlags)pExternalBufferInfo->handleType,
+      };
+}
+
 dzn_physical_device *
 dzn_physical_device_factory::allocate(dzn_instance *instance,
                                       ComPtr<IDXGIAdapter1> &adapter,

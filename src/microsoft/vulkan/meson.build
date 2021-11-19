@@ -35,7 +35,6 @@ libdzn_files = files(
   'dzn_descriptor_set.cpp',
   'dzn_device.cpp',
   'dzn_fence.cpp',
-  'dzn_formats.cpp',
   'dzn_image.cpp',
   'dzn_meta.cpp',
   'dzn_nir.c',
