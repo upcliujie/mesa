@@ -189,6 +189,7 @@ void _iris_batch_flush(struct iris_batch *batch, const char *file, int line);
 #define iris_batch_flush(batch) _iris_batch_flush((batch), __FILE__, __LINE__)
 
 bool iris_batch_references(struct iris_batch *batch, struct iris_bo *bo);
+bool iris_batch_writes(struct iris_batch *batch, struct iris_bo *bo);
 
 bool iris_batch_prepare_noop(struct iris_batch *batch, bool noop_enable);
 

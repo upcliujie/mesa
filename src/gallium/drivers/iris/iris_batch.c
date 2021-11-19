@@ -981,6 +981,17 @@ iris_batch_references(struct iris_batch *batch, struct iris_bo *bo)
 }
 
 /**
+ * Does this batch write to the given BO?
+ */
+bool
+iris_batch_writes(struct iris_batch *batch, struct iris_bo *bo)
+{
+   int i = find_exec_index(batch, bo);
+
+   return i != -1 && BITSET_TEST(batch->bos_written, i);
+}
+
+/**
  * Updates the state of the noop feature.  Returns true if there was a noop
  * transition that led to state invalidation.
  */
