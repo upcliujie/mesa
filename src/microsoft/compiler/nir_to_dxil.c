@@ -962,6 +962,11 @@ emit_uav(struct ntd_context *ctx, unsigned binding, unsigned space, unsigned cou
       }
    }
 
+   if (ctx->shader->info.stage != MESA_SHADER_FRAGMENT &&
+       ctx->shader->info.stage != MESA_SHADER_COMPUTE &&
+       ctx->shader->info.stage != MESA_SHADER_KERNEL)
+      ctx->mod.feats.uavs_at_every_stage = true;
+
    return true;
 }
 
@@ -1233,6 +1238,8 @@ get_module_flags(struct ntd_context *ctx)
       flags |= (1 << 13);
    if (ctx->mod.feats.use_64uavs)
       flags |= (1 << 15);
+   if (ctx->mod.feats.uavs_at_every_stage)
+      flags |= (1 << 16);
    if (ctx->mod.feats.cs_4x_raw_sb)
       flags |= (1 << 17);
    if (ctx->mod.feats.wave_ops)
