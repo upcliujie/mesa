@@ -284,8 +284,7 @@ emit_load(struct lower_io_state *state,
             assert(array_index == NULL);
 
             nir_intrinsic_op bary_op;
-            if (var->data.sample ||
-                (state->options & nir_lower_io_force_sample_interpolation))
+            if (var->data.sample)
                bary_op = nir_intrinsic_load_barycentric_sample;
             else if (var->data.centroid)
                bary_op = nir_intrinsic_load_barycentric_centroid;
@@ -558,9 +557,7 @@ lower_interpolate_at(nir_intrinsic_instr *intrin, struct lower_io_state *state,
    nir_intrinsic_op bary_op;
    switch (intrin->intrinsic) {
    case nir_intrinsic_interp_deref_at_centroid:
-      bary_op = (state->options & nir_lower_io_force_sample_interpolation) ?
-                nir_intrinsic_load_barycentric_sample :
-                nir_intrinsic_load_barycentric_centroid;
+      bary_op = nir_intrinsic_load_barycentric_centroid;
       break;
    case nir_intrinsic_interp_deref_at_sample:
       bary_op = nir_intrinsic_load_barycentric_at_sample;
