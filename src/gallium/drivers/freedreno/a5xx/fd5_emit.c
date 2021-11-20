@@ -483,6 +483,10 @@ fd5_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd5_emit *emit)
          const struct pipe_vertex_buffer *vb =
             &vtx->vertexbuf.vb[elem->vertex_buffer_index];
          struct fd_resource *rsc = fd_resource(vb->buffer.resource);
+
+         if (rsc == NULL)
+            continue;
+
          enum pipe_format pfmt = elem->src_format;
          enum a5xx_vtx_fmt fmt = fd5_pipe2vtx(pfmt);
          bool isint = util_format_is_pure_integer(pfmt);
