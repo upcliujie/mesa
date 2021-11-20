@@ -630,6 +630,7 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
                .int16 = true,
                .int64 = true,
                .int64_atomics = true,
+               .integer_functions2 = true,
                .mesh_shading_nv = true,
                .min_lod = true,
                .multiview = true,
