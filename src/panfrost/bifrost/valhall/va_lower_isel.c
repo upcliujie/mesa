@@ -69,6 +69,15 @@ va_lower_isel(bi_instr *I)
       I->src[2] = bi_zero();
       break;
 
+   /* Integer CSEL must have a signedness */
+   case BI_OPCODE_CSEL_I32:
+   case BI_OPCODE_CSEL_V2I16:
+      assert(I->cmpf == BI_CMPF_EQ || I->cmpf == BI_CMPF_NE);
+
+      I->op = (I->op == BI_OPCODE_CSEL_I32) ? BI_OPCODE_CSEL_U32 :
+              BI_OPCODE_CSEL_V2U16;
+      break;
+
    /* Jump -> conditional branch with condition tied to true. */
    case BI_OPCODE_JUMP:
       I->op = BI_OPCODE_BRANCHZ_I16;
