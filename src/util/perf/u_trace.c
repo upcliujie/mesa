@@ -63,6 +63,9 @@ struct u_trace_event {
 struct u_trace_chunk {
    struct list_head node;
 
+   /* Trace containing this chunk or NULL once flushed to context. */
+   struct u_trace *ut;
+
    struct u_trace_context *utctx;
 
    /* The number of traces this chunk contains so far: */
@@ -81,7 +84,7 @@ struct u_trace_chunk {
     * hang off of the chunk's ralloc context, so they are automatically
     * free'd when the chunk is free'd
     */
-   uint8_t *payload_buf, *payload_end;
+   uint8_t *payload_buf, *payload_next, *payload_end;
 
    struct util_queue_fence fence;
 
@@ -138,6 +141,7 @@ get_chunk(struct u_trace *ut)
    chunk = rzalloc_size(NULL, sizeof(*chunk));
    ralloc_set_destructor(chunk, free_chunk);
 
+   chunk->ut = ut;
    chunk->utctx = ut->utctx;
    chunk->timestamps = ut->utctx->create_timestamp_buffer(ut->utctx, TIMESTAMP_BUF_SIZE);
    chunk->last = true;
@@ -145,6 +149,20 @@ get_chunk(struct u_trace *ut)
    list_addtail(&chunk->node, &ut->trace_chunks);
 
    return chunk;
+}
+
+static void
+ensure_chunk_payload(struct u_trace_chunk *chunk, uint32_t size)
+{
+   if (unlikely((chunk->payload_next + size) > chunk->payload_end)) {
+      const unsigned payload_chunk_sz = 0x100;  /* TODO arbitrary size? */
+
+      assert(size < payload_chunk_sz);
+
+      chunk->payload_buf = ralloc_size(chunk, payload_chunk_sz);
+      chunk->payload_end = chunk->payload_buf + payload_chunk_sz;
+      chunk->payload_next = chunk->payload_buf;
+   }
 }
 
 DEBUG_GET_ONCE_BOOL_OPTION(trace, "GPU_TRACE", false)
@@ -433,6 +451,19 @@ u_trace_clone_append(struct u_trace_iterator begin_it,
              &from_chunk->traces[from_idx],
              to_copy * sizeof(struct u_trace_event));
 
+      /* We can avoid the payload copy when we're copying into the same trace
+       * because the payload life cycle remains the same between from/to
+       * parameters.
+       */
+      if (to_chunk->ut != from_chunk->ut) {
+         uint32_t length = from_chunk->payload_next - from_chunk->payload_buf;
+
+         ensure_chunk_payload(to_chunk, length);
+
+         memcpy(to_chunk->payload_buf, from_chunk->payload_buf, length);
+         to_chunk->payload_next += length;
+      }
+
       to_chunk->num_traces += to_copy;
       from_idx += to_copy;
 
@@ -477,18 +508,11 @@ u_trace_append(struct u_trace *ut, void *cs, const struct u_tracepoint *tp)
 
    assert(tp->payload_sz == ALIGN_NPOT(tp->payload_sz, 8));
 
-   if (unlikely((chunk->payload_buf + tp->payload_sz) > chunk->payload_end)) {
-      const unsigned payload_chunk_sz = 0x100;  /* TODO arbitrary size? */
-
-      assert(tp->payload_sz < payload_chunk_sz);
-
-      chunk->payload_buf = ralloc_size(chunk, payload_chunk_sz);
-      chunk->payload_end = chunk->payload_buf + payload_chunk_sz;
-   }
+   ensure_chunk_payload(chunk, tp->payload_sz);
 
    /* sub-allocate storage for trace payload: */
-   void *payload = chunk->payload_buf;
-   chunk->payload_buf += tp->payload_sz;
+   void *payload = chunk->payload_next;
+   chunk->payload_next += tp->payload_sz;
 
    /* record a timestamp for the trace: */
    ut->utctx->record_timestamp(ut, cs, chunk->timestamps, chunk->num_traces);
@@ -507,6 +531,7 @@ void
 u_trace_flush(struct u_trace *ut, void *flush_data, bool free_data)
 {
    list_for_each_entry(struct u_trace_chunk, chunk, &ut->trace_chunks, node) {
+      chunk->ut = NULL;
       chunk->flush_data = flush_data;
       chunk->free_flush_data = false;
    }
