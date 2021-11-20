@@ -7265,7 +7265,7 @@ get_sampler_lowered_simd_width(const struct intel_device_info *devinfo,
     * message, it will push it over 5 arguments and we have to fall back to
     * SIMD8.
     */
-   if (inst->opcode != SHADER_OPCODE_TEX &&
+   if (inst->opcode != SHADER_OPCODE_TEX_LOGICAL &&
        inst->components_read(TEX_LOGICAL_SRC_MIN_LOD))
       return 8;
 
@@ -7286,8 +7286,8 @@ get_sampler_lowered_simd_width(const struct intel_device_info *devinfo,
     * variant of the TXL or TXF message.
     */
    const bool implicit_lod = devinfo->ver >= 9 &&
-                             (inst->opcode == SHADER_OPCODE_TXL ||
-                              inst->opcode == SHADER_OPCODE_TXF) &&
+                             (inst->opcode == SHADER_OPCODE_TXL_LOGICAL ||
+                              inst->opcode == SHADER_OPCODE_TXF_LOGICAL) &&
                              inst->src[TEX_LOGICAL_SRC_LOD].is_zero();
 
    /* Calculate the total number of argument components that need to be passed
