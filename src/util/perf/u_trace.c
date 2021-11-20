@@ -51,7 +51,9 @@ struct list_head ctx_list = { &ctx_list, &ctx_list };
 
 struct u_trace_event {
    const struct u_tracepoint *tp;
-   const void *payload;
+
+   /* Offset into u_trace_chunk::payload_buf */
+   uint32_t payload_offset;
 };
 
 /**
@@ -82,6 +84,11 @@ struct u_trace_chunk {
     * free'd when the chunk is free'd
     */
    uint8_t *payload_buf, *payload_end;
+
+   /**
+    * Where the tracepoints are going to write next into payload_buf.
+    */
+   uint32_t payload_buf_offset;
 
    struct util_queue_fence fence;
 
@@ -141,6 +148,7 @@ get_chunk(struct u_trace *ut)
    chunk->utctx = ut->utctx;
    chunk->timestamps = ut->utctx->create_timestamp_buffer(ut->utctx, TIMESTAMP_BUF_SIZE);
    chunk->last = true;
+   chunk->payload_buf_offset = 0;
 
    list_addtail(&chunk->node, &ut->trace_chunks);
 
@@ -282,17 +290,19 @@ process_chunk(void *job, void *gdata, int thread_index)
          delta = 0;
       }
 
+      const void *evt_payload = chunk->payload_buf + evt->payload_offset;
+
       if (utctx->out) {
          if (evt->tp->print) {
             fprintf(utctx->out, "%016"PRIu64" %+9d: %s: ", ns, delta, evt->tp->name);
-            evt->tp->print(utctx->out, evt->payload);
+            evt->tp->print(utctx->out, evt_payload);
          } else {
             fprintf(utctx->out, "%016"PRIu64" %+9d: %s\n", ns, delta, evt->tp->name);
          }
       }
 #ifdef HAVE_PERFETTO
       if (evt->tp->perfetto) {
-         evt->tp->perfetto(utctx->pctx, ns, chunk->flush_data, evt->payload);
+         evt->tp->perfetto(utctx->pctx, ns, chunk->flush_data, evt_payload);
       }
 #endif
    }
@@ -419,6 +429,11 @@ u_trace_clone_append(struct u_trace_iterator begin_it,
    while (from_chunk != end_it.chunk || from_idx != end_it.event_idx) {
       struct u_trace_chunk *to_chunk = get_chunk(into);
 
+      const unsigned payload_chunk_sz = 0x100;  /* TODO arbitrary size? */
+
+      to_chunk->payload_buf = ralloc_size(to_chunk, payload_chunk_sz);
+      to_chunk->payload_end = to_chunk->payload_buf + payload_chunk_sz;
+
       unsigned to_copy = MIN2(TRACES_PER_CHUNK - to_chunk->num_traces,
                               from_chunk->num_traces - from_idx);
       if (from_chunk == end_it.chunk)
@@ -432,6 +447,9 @@ u_trace_clone_append(struct u_trace_iterator begin_it,
       memcpy(&to_chunk->traces[to_chunk->num_traces],
              &from_chunk->traces[from_idx],
              to_copy * sizeof(struct u_trace_event));
+      memcpy(to_chunk->payload_buf, from_chunk->payload_buf,
+             from_chunk->payload_buf_offset);
+      to_chunk->payload_buf_offset = from_chunk->payload_buf_offset;
 
       to_chunk->num_traces += to_copy;
       from_idx += to_copy;
@@ -487,17 +505,17 @@ u_trace_append(struct u_trace *ut, void *cs, const struct u_tracepoint *tp)
    }
 
    /* sub-allocate storage for trace payload: */
-   void *payload = chunk->payload_buf;
-   chunk->payload_buf += tp->payload_sz;
+   void *payload = chunk->payload_buf + chunk->payload_buf_offset;
 
    /* record a timestamp for the trace: */
    ut->utctx->record_timestamp(ut, cs, chunk->timestamps, chunk->num_traces);
 
    chunk->traces[chunk->num_traces] = (struct u_trace_event) {
          .tp = tp,
-         .payload = payload,
+         .payload_offset = chunk->payload_buf_offset,
    };
 
+   chunk->payload_buf_offset += tp->payload_sz;
    chunk->num_traces++;
 
    return payload;
