@@ -34,7 +34,7 @@
 #include "common/intel_l3_config.h"
 #include "blorp/blorp_genX_exec.h"
 
-#include "anv_tracepoints.h"
+#include "ds/intel_tracepoints.h"
 
 static void blorp_measure_start(struct blorp_batch *_batch,
                                 const struct blorp_params *params)

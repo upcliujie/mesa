@@ -38,7 +38,7 @@
 
 #include "nir/nir_xfb_info.h"
 
-#include "anv_tracepoints.h"
+#include "ds/intel_tracepoints.h"
 
 /* We reserve :
  *    - GPR 14 for secondary command buffer returns
@@ -2405,8 +2405,10 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
    else if (bits == 0)
       return;
 
-   if (bits & (ANV_PIPE_FLUSH_BITS | ANV_PIPE_STALL_BITS | ANV_PIPE_INVALIDATE_BITS))
-      trace_stall(&cmd_buffer->trace, cmd_buffer, bits);
+   bool trace_flush =
+      (bits & (ANV_PIPE_FLUSH_BITS | ANV_PIPE_STALL_BITS | ANV_PIPE_INVALIDATE_BITS)) != 0;
+   if (trace_flush)
+      trace_begin_stall(&cmd_buffer->trace, cmd_buffer);
 
    if ((GFX_VER >= 8 && GFX_VER <= 9) &&
        (bits & ANV_PIPE_CS_STALL_BIT) &&
@@ -2425,6 +2427,11 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
                                     cmd_buffer->device,
                                     cmd_buffer->state.current_pipeline,
                                     bits);
+
+   if (trace_flush) {
+      trace_end_stall(&cmd_buffer->trace, cmd_buffer, bits,
+                      anv_pipe_flush_bit_to_ds_stall_flag, NULL);
+   }
 }
 
 static void
