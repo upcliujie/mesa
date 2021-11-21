@@ -86,3 +86,38 @@ anv_dump_pipe_bits(enum anv_pipe_bits bits)
    if (bits & ANV_PIPE_CS_STALL_BIT)
       fputs("+cs_stall ", stderr);
 }
+
+enum intel_ds_stall_flag
+anv_pipe_flush_bit_to_ds_stall_flag(enum anv_pipe_bits bits)
+{
+   enum intel_ds_stall_flag ret = 0;
+
+   if (bits & ANV_PIPE_DEPTH_CACHE_FLUSH_BIT)
+      ret |= INTEL_DS_DEPTH_CACHE_FLUSH_BIT;
+   if (bits & ANV_PIPE_STALL_AT_SCOREBOARD_BIT)
+      ret |= INTEL_DS_STALL_AT_SCOREBOARD_BIT;
+   if (bits & ANV_PIPE_STATE_CACHE_INVALIDATE_BIT)
+      ret |= INTEL_DS_STATE_CACHE_INVALIDATE_BIT;
+   if (bits & ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT)
+      ret |= INTEL_DS_CONSTANT_CACHE_INVALIDATE_BIT;
+   if (bits & ANV_PIPE_VF_CACHE_INVALIDATE_BIT)
+      ret |= INTEL_DS_VF_CACHE_INVALIDATE_BIT;
+   if (bits & ANV_PIPE_DATA_CACHE_FLUSH_BIT)
+      ret |= INTEL_DS_DATA_CACHE_FLUSH_BIT;
+   if (bits & ANV_PIPE_TILE_CACHE_FLUSH_BIT)
+      ret |= INTEL_DS_TILE_CACHE_FLUSH_BIT;
+   if (bits & ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT)
+      ret |= INTEL_DS_TEXTURE_CACHE_INVALIDATE_BIT;
+   if (bits & ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT)
+      ret |= INTEL_DS_INSTRUCTION_CACHE_INVALIDATE_BIT;
+   if (bits & ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT)
+      ret |= INTEL_DS_RENDER_TARGET_CACHE_FLUSH_BIT;
+   if (bits & ANV_PIPE_DEPTH_STALL_BIT)
+      ret |= INTEL_DS_DEPTH_STALL_BIT;
+   if (bits & ANV_PIPE_HDC_PIPELINE_FLUSH_BIT)
+      ret |= INTEL_DS_HDC_PIPELINE_FLUSH_BIT;
+   if (bits & ANV_PIPE_CS_STALL_BIT)
+      ret |= INTEL_DS_CS_STALL_BIT;
+
+   return ret;
+}
