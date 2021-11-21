@@ -1131,6 +1131,8 @@ VkResult anv_CreateInstance(
 
    anv_init_dri_options(instance);
 
+   intel_driver_ds_init();
+
    *pInstance = anv_instance_to_handle(instance);
 
    return VK_SUCCESS;
