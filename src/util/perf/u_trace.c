@@ -24,7 +24,6 @@
 #include <inttypes.h>
 
 #include "util/list.h"
-#include "util/ralloc.h"
 #include "util/u_debug.h"
 #include "util/u_inlines.h"
 #include "util/u_fifo.h"
@@ -34,6 +33,7 @@
 #define __NEEDS_TRACE_PRIV
 #include "u_trace_priv.h"
 
+#define CHUNK_SIZE 0x1000
 #define TIMESTAMP_BUF_SIZE 0x1000
 #define TRACES_PER_CHUNK   (TIMESTAMP_BUF_SIZE / sizeof(uint64_t))
 
@@ -56,6 +56,24 @@ struct u_trace_event {
    uint32_t payload_offset;
 };
 
+static inline struct u_trace_event *
+to_trace_event(void *ptr)
+{
+   return ptr;
+}
+
+static inline uint32_t
+trace_event_size(const struct u_tracepoint *tp)
+{
+   return sizeof(struct u_trace_event) + ALIGN(tp ? tp->payload_sz : 0, 8);
+}
+
+#define for_each_event_in_chunk(_idx, _evt_offset, _chunk) \
+   for (uint32_t _idx = 0, _evt_offset = 0; \
+        _idx < (_chunk)->num_traces; _idx++, \
+        _evt_offset += trace_event_size( \
+           to_trace_event((_chunk)->payload_buf + _evt_offset)->tp))
+
 /**
  * A "chunk" of trace-events and corresponding timestamp buffer.  As
  * trace events are emitted, additional trace chucks will be allocated
@@ -70,9 +88,6 @@ struct u_trace_chunk {
    /* The number of traces this chunk contains so far: */
    unsigned num_traces;
 
-   /* table of trace events: */
-   struct u_trace_event traces[TRACES_PER_CHUNK];
-
    /* table of driver recorded 64b timestamps, index matches index
     * into traces table
     */
@@ -82,13 +97,21 @@ struct u_trace_chunk {
     * For trace payload, we sub-allocate from ralloc'd buffers which
     * hang off of the chunk's ralloc context, so they are automatically
     * free'd when the chunk is free'd
+    *
+    * payload_buf is a series of (u_trace_event + payload) elements.
     */
-   uint8_t *payload_buf, *payload_end;
+   uint8_t *payload_buf;
 
    /**
-    * Where the tracepoints are going to write next into payload_buf.
+    * Size of payload_buf.
     */
-   uint32_t payload_buf_offset;
+   uint32_t payload_size;
+
+   /**
+    * Where the tracepoints are going to write next into payload_buf. Always
+    * inferior to payload_size.
+    */
+   uint32_t payload_offset;
 
    struct util_queue_fence fence;
 
@@ -105,27 +128,18 @@ struct u_trace_chunk {
 };
 
 static void
-free_chunk(void *ptr)
-{
-   struct u_trace_chunk *chunk = ptr;
-
-   chunk->utctx->delete_timestamp_buffer(chunk->utctx, chunk->timestamps);
-
-   list_del(&chunk->node);
-}
-
-static void
 free_chunks(struct list_head *chunks)
 {
    while (!list_is_empty(chunks)) {
       struct u_trace_chunk *chunk = list_first_entry(chunks,
             struct u_trace_chunk, node);
-      ralloc_free(chunk);
+      chunk->utctx->delete_timestamp_buffer(chunk->utctx, chunk->timestamps);
+      list_del(&chunk->node);
    }
 }
 
 static struct u_trace_chunk *
-get_chunk(struct u_trace *ut)
+get_chunk(struct u_trace *ut, uint32_t write_size, uint32_t num_traces)
 {
    struct u_trace_chunk *chunk;
 
@@ -133,8 +147,9 @@ get_chunk(struct u_trace *ut)
    if (!list_is_empty(&ut->trace_chunks)) {
            chunk = list_last_entry(&ut->trace_chunks,
                            struct u_trace_chunk, node);
-           if (chunk->num_traces < TRACES_PER_CHUNK)
-                   return chunk;
+           if (chunk->payload_offset + write_size < chunk->payload_size &&
+               chunk->num_traces + num_traces < TRACES_PER_CHUNK)
+              return chunk;
            /* we need to expand to add another chunk to the batch, so
             * the current one is no longer the last one of the batch:
             */
@@ -142,13 +157,15 @@ get_chunk(struct u_trace *ut)
    }
 
    /* .. if not, then create a new one: */
-   chunk = rzalloc_size(NULL, sizeof(*chunk));
-   ralloc_set_destructor(chunk, free_chunk);
+   chunk = malloc(CHUNK_SIZE);
+
+   memset(chunk, 0, sizeof(*chunk));
 
    chunk->utctx = ut->utctx;
    chunk->timestamps = ut->utctx->create_timestamp_buffer(ut->utctx, TIMESTAMP_BUF_SIZE);
    chunk->last = true;
-   chunk->payload_buf_offset = 0;
+   chunk->payload_buf = (uint8_t *)(chunk + 1);
+   chunk->payload_size = CHUNK_SIZE - sizeof(*chunk);
 
    list_addtail(&chunk->node, &ut->trace_chunks);
 
@@ -267,11 +284,16 @@ process_chunk(void *job, void *gdata, int thread_index)
       fprintf(utctx->out, "+----- NS -----+ +-- Δ --+  +----- MSG -----\n");
    }
 
+   uint32_t offset = 0;
    for (unsigned idx = 0; idx < chunk->num_traces; idx++) {
-      const struct u_trace_event *evt = &chunk->traces[idx];
+      const struct u_trace_event *evt =
+         (const struct u_trace_event *)(chunk->payload_buf + offset);
+      offset += trace_event_size(evt->tp);
 
       if (!evt->tp)
          continue;
+
+      const void *evt_payload = evt + 1;
 
       uint64_t ns = utctx->read_timestamp(utctx, chunk->timestamps, idx, chunk->flush_data);
       int32_t delta;
@@ -289,8 +311,6 @@ process_chunk(void *job, void *gdata, int thread_index)
          ns = utctx->last_time_ns;
          delta = 0;
       }
-
-      const void *evt_payload = chunk->payload_buf + evt->payload_offset;
 
       if (utctx->out) {
          if (evt->tp->print) {
@@ -329,7 +349,7 @@ process_chunk(void *job, void *gdata, int thread_index)
 static void
 cleanup_chunk(void *job, void *gdata, int thread_index)
 {
-   ralloc_free(job);
+   free(job);
 }
 
 void
@@ -427,32 +447,22 @@ u_trace_clone_append(struct u_trace_iterator begin_it,
    uint32_t from_idx = begin_it.event_idx;
 
    while (from_chunk != end_it.chunk || from_idx != end_it.event_idx) {
-      struct u_trace_chunk *to_chunk = get_chunk(into);
-
-      const unsigned payload_chunk_sz = 0x100;  /* TODO arbitrary size? */
-
-      to_chunk->payload_buf = ralloc_size(to_chunk, payload_chunk_sz);
-      to_chunk->payload_end = to_chunk->payload_buf + payload_chunk_sz;
-
-      unsigned to_copy = MIN2(TRACES_PER_CHUNK - to_chunk->num_traces,
-                              from_chunk->num_traces - from_idx);
-      if (from_chunk == end_it.chunk)
-         to_copy = MIN2(to_copy, end_it.event_idx - from_idx);
+      struct u_trace_chunk *to_chunk = get_chunk(into,
+                                                 from_chunk->payload_offset,
+                                                 from_chunk->num_traces);
 
       copy_ts_buffer(begin_it.ut->utctx, cmdstream,
                      from_chunk->timestamps, from_idx,
                      to_chunk->timestamps, to_chunk->num_traces,
-                     to_copy);
+                     from_chunk->num_traces);
 
-      memcpy(&to_chunk->traces[to_chunk->num_traces],
-             &from_chunk->traces[from_idx],
-             to_copy * sizeof(struct u_trace_event));
-      memcpy(to_chunk->payload_buf, from_chunk->payload_buf,
-             from_chunk->payload_buf_offset);
-      to_chunk->payload_buf_offset = from_chunk->payload_buf_offset;
+      memcpy(&to_chunk->payload_buf,
+             &from_chunk->payload_buf,
+             from_chunk->payload_offset);
+      to_chunk->payload_offset += from_chunk->payload_offset;
 
-      to_chunk->num_traces += to_copy;
-      from_idx += to_copy;
+      to_chunk->num_traces += from_chunk->num_traces;
+      from_idx += from_chunk->num_traces;
 
       assert(from_idx <= from_chunk->num_traces);
       if (from_idx == from_chunk->num_traces) {
@@ -469,18 +479,19 @@ void
 u_trace_disable_event_range(struct u_trace_iterator begin_it,
                             struct u_trace_iterator end_it)
 {
-   struct u_trace_chunk *current_chunk = begin_it.chunk;
-   uint32_t start_idx = begin_it.event_idx;
+   struct u_trace_chunk *current_chunk, *next_chunk = begin_it.chunk;
 
-   while(current_chunk != end_it.chunk) {
-      memset(&current_chunk->traces[start_idx], 0,
-             (current_chunk->num_traces - start_idx) * sizeof(struct u_trace_event));
-      start_idx = 0;
-      current_chunk = LIST_ENTRY(struct u_trace_chunk, current_chunk->node.next, node);
-   }
-
-   memset(&current_chunk->traces[start_idx], 0,
-          (end_it.event_idx - start_idx) * sizeof(struct u_trace_event));
+   do {
+      current_chunk = next_chunk;
+      for_each_event_in_chunk(idx, evt_offset, current_chunk) {
+         if (begin_it.chunk == current_chunk && idx < begin_it.event_idx)
+            continue;
+         if (end_it.chunk == current_chunk && idx >= end_it.event_idx)
+            break;
+         to_trace_event(current_chunk->payload_buf + evt_offset)->tp = NULL;
+      }
+      next_chunk = LIST_ENTRY(struct u_trace_chunk, current_chunk->node.next, node);
+   } while (current_chunk != end_it.chunk);
 }
 
 /**
@@ -491,31 +502,25 @@ u_trace_disable_event_range(struct u_trace_iterator begin_it,
 void *
 u_trace_append(struct u_trace *ut, void *cs, const struct u_tracepoint *tp)
 {
-   struct u_trace_chunk *chunk = get_chunk(ut);
+   uint32_t evt_size = trace_event_size(tp);
+   struct u_trace_chunk *chunk = get_chunk(ut, evt_size, 1);
 
    assert(tp->payload_sz == ALIGN_NPOT(tp->payload_sz, 8));
 
-   if (unlikely((chunk->payload_buf + tp->payload_sz) > chunk->payload_end)) {
-      const unsigned payload_chunk_sz = 0x100;  /* TODO arbitrary size? */
-
-      assert(tp->payload_sz < payload_chunk_sz);
-
-      chunk->payload_buf = ralloc_size(chunk, payload_chunk_sz);
-      chunk->payload_end = chunk->payload_buf + payload_chunk_sz;
-   }
-
    /* sub-allocate storage for trace payload: */
-   void *payload = chunk->payload_buf + chunk->payload_buf_offset;
+   struct u_trace_event *evt =
+      (struct u_trace_event *)(chunk->payload_buf + chunk->payload_offset);
+   *evt = (struct u_trace_event) {
+      .tp = tp,
+      .payload_offset = chunk->payload_offset,
+   };
+
+   void *payload = evt + 1;
 
    /* record a timestamp for the trace: */
    ut->utctx->record_timestamp(ut, cs, chunk->timestamps, chunk->num_traces);
 
-   chunk->traces[chunk->num_traces] = (struct u_trace_event) {
-         .tp = tp,
-         .payload_offset = chunk->payload_buf_offset,
-   };
-
-   chunk->payload_buf_offset += tp->payload_sz;
+   chunk->payload_offset += evt_size;
    chunk->num_traces++;
 
    return payload;
