@@ -37,6 +37,7 @@ struct deref_node {
    const struct glsl_type *type;
 
    bool lower_to_ssa;
+   bool relaxed_precision;
 
    /* Only valid for things that end up in the direct list.
     * Note that multiple nir_deref_instrs may correspond to this node, but
@@ -584,8 +585,18 @@ rename_variables(struct lower_variables_state *state)
             if (!node->lower_to_ssa)
                continue;
 
+            nir_op opcode = nir_op_mov;
+            if (node->relaxed_precision) {
+               /* convert value back to 32bit */
+               if (glsl_get_base_type(node->type) == GLSL_TYPE_INT)
+                  opcode = nir_op_i2i32;
+               else if (glsl_get_base_type(node->type) == GLSL_TYPE_UINT)
+                  opcode = nir_op_u2u32;
+               else
+                  opcode = nir_op_f2f32;
+            }
             nir_alu_instr *mov = nir_alu_instr_create(state->shader,
-                                                      nir_op_mov);
+                                                      opcode);
             mov->src[0].src = nir_src_for_ssa(
                nir_phi_builder_value_get_block_def(node->pb_value, block));
             for (unsigned i = intrin->num_components; i < NIR_MAX_VEC_COMPONENTS; i++)
@@ -634,6 +645,14 @@ rename_variables(struct lower_variables_state *state)
             nir_ssa_def *new_def;
             b.cursor = nir_before_instr(&intrin->instr);
 
+            if (node->relaxed_precision) {
+               /* convert value to 16bit */
+               if (glsl_type_is_integer(node->type))
+                  value = nir_i2imp(&b, value);
+               else
+                  value = nir_f2fmp(&b, value);
+            }
+
             unsigned wrmask = nir_intrinsic_write_mask(intrin);
             if (wrmask == (1 << intrin->num_components) - 1) {
                /* Whole variable store - just copy the source.  Note that
@@ -678,6 +697,17 @@ rename_variables(struct lower_variables_state *state)
    }
 
    return true;
+}
+
+static unsigned
+get_bit_size(struct deref_node *node)
+{
+   if (node->relaxed_precision) {
+      assert(glsl_get_bit_size(node->type) == 32);
+      return 16;
+   }
+
+   return glsl_get_bit_size(node->type);
 }
 
 /** Implements a pass to lower variable uses to SSA values
@@ -743,6 +773,10 @@ nir_lower_vars_to_ssa_impl(nir_function_impl *impl)
          continue;
       }
 
+      if (state.shader->options->support_16bit_alu)
+         node->relaxed_precision = path->path[0]->var->data.precision == GLSL_PRECISION_LOW ||
+                                   path->path[0]->var->data.precision == GLSL_PRECISION_MEDIUM;
+
       node->lower_to_ssa = true;
       progress = true;
 
@@ -791,7 +825,7 @@ nir_lower_vars_to_ssa_impl(nir_function_impl *impl)
       node->pb_value =
          nir_phi_builder_add_value(state.phi_builder,
                                    glsl_get_vector_elements(node->type),
-                                   glsl_get_bit_size(node->type),
+                                   get_bit_size(node),
                                    store_blocks);
    }
 
