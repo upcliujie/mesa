@@ -6067,7 +6067,8 @@ fs_visitor::nir_emit_texture(const fs_builder &bld, nir_tex_instr *instr)
           *
           * Compiler should send U,V,R parameters even if V,R are 0.
           */
-         if (instr->sampler_dim == GLSL_SAMPLER_DIM_CUBE && devinfo->verx10 == 125)
+         if (instr->sampler_dim == GLSL_SAMPLER_DIM_CUBE && devinfo->verx10 == 125 &&
+             instr->op != nir_texop_lod)
             assert(instr->coord_components == 3u + instr->is_array);
          break;
       case nir_tex_src_ddx:
