@@ -515,7 +515,7 @@ u_trace_append(struct u_trace *ut, void *cs, const struct u_tracepoint *tp)
    chunk->payload_next += tp->payload_sz;
 
    /* record a timestamp for the trace: */
-   ut->utctx->record_timestamp(ut, cs, chunk->timestamps, chunk->num_traces);
+   ut->utctx->record_timestamp(ut, cs, chunk->timestamps, chunk->num_traces, tp->end_of_pipe);
 
    chunk->traces[chunk->num_traces] = (struct u_trace_event) {
          .tp = tp,
