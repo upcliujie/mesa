@@ -886,9 +886,17 @@ vtn_handle_phis_first_pass(struct vtn_builder *b, SpvOp opcode,
     * algorithm all over again.  It's easier if we just let
     * lower_vars_to_ssa do that for us instead of repeating it here.
     */
-   struct vtn_type *type = vtn_get_type(b, w[1]);
-   nir_variable *phi_var =
-      nir_local_variable_create(b->nb.impl, type->type, "phi");
+   bool relaxed_precision = false;
+   if (b->shader->options->support_16bit_alu) {
+      struct vtn_value *phi_val = vtn_untyped_value(b, w[2]);
+      relaxed_precision = vtn_handle_relaxed_precision(b, phi_val);
+   }
+
+   const struct glsl_type *type = vtn_get_type(b, w[1])->type;
+   nir_variable *phi_var = nir_local_variable_create(b->nb.impl, type, "phi");
+   if (relaxed_precision)
+      phi_var->data.precision = GLSL_PRECISION_MEDIUM;
+
    _mesa_hash_table_insert(b->phi_table, w, phi_var);
 
    vtn_push_ssa_value(b, w[2],
