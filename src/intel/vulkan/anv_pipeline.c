@@ -1221,6 +1221,7 @@ anv_pipeline_compile_fs(const struct brw_compiler *compiler,
        * zero and disable the stage.
        */
       memset(&fs_stage->prog_data, 0, sizeof(fs_stage->prog_data));
+      memset(&fs_stage->bind_map, 0, sizeof(fs_stage->bind_map));
    }
 }
 
