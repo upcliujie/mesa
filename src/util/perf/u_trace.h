@@ -271,18 +271,20 @@ void u_trace_disable_event_range(struct u_trace_iterator begin_it,
 void u_trace_flush(struct u_trace *ut, void *flush_data, bool free_data);
 
 #ifdef HAVE_PERFETTO
-extern int ut_perfetto_enabled;
+extern bool ut_perfetto_enabled;
+extern int  ut_perfetto_running;
 
 void u_trace_perfetto_start(void);
 void u_trace_perfetto_stop(void);
 #else
-#  define ut_perfetto_enabled 0
+#  define ut_perfetto_enabled false
+#  define ut_perfetto_running 0
 #endif
 
 static inline bool
 u_trace_context_tracing(struct u_trace_context *utctx)
 {
-   return !!utctx->out || (ut_perfetto_enabled > 0);
+   return !!utctx->out || ut_perfetto_enabled || ut_perfetto_running > 0;
 }
 
 #ifdef  __cplusplus

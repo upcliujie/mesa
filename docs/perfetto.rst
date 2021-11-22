@@ -104,6 +104,22 @@ the steps above :
 
    # Back in the perfetto tmux, press enter to start the capture
 
+Vulkan data sources
+~~~~~~~~~~~~~~~~
+
+The Vulkan API gives control to the application of command buffers
+recording and of from their submission. This means that to ensure
+command buffers are properly instrumented for the perfetto driver data
+sources, we need to notify the application before Perfetto starts
+recording.
+
+This can be achieved by setting the ``PERFETTO_TRACE`` environment
+variable before starting a Vulkan application :
+
+.. code-block:: console
+
+   PERFETTO_TRACE=1 ./build/my_vulkan_app
+
 Driver Specifics
 ~~~~~~~~~~~~~~~~
 
