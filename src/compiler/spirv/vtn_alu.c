@@ -144,7 +144,7 @@ mat_times_scalar(struct vtn_builder *b,
 {
    struct vtn_ssa_value *dest = vtn_create_ssa_value(b, mat->type);
    for (unsigned i = 0; i < glsl_get_matrix_columns(mat->type); i++) {
-      if (glsl_base_type_is_integer(glsl_get_base_type(mat->type)))
+      if (glsl_type_is_integer(mat->type))
          dest->elems[i]->def = nir_imul(&b->nb, mat->elems[i]->def, scalar);
       else
          dest->elems[i]->def = nir_fmul(&b->nb, mat->elems[i]->def, scalar);
@@ -378,6 +378,17 @@ vtn_nir_alu_op_for_spirv_opcode(struct vtn_builder *b,
 }
 
 static void
+convert_to_32_bit(struct vtn_builder *b, struct vtn_ssa_value *val)
+{
+   if (glsl_get_base_type(val->type) == GLSL_TYPE_INT)
+      val->def = nir_i2i32(&b->nb, val->def);
+   else if (glsl_get_base_type(val->type) == GLSL_TYPE_UINT)
+      val->def = nir_u2u32(&b->nb, val->def);
+   else
+      val->def = nir_f2f32(&b->nb, val->def);
+}
+
+static void
 handle_no_contraction(struct vtn_builder *b, UNUSED struct vtn_value *val,
                       UNUSED int member, const struct vtn_decoration *dec,
                       UNUSED void *_void)
@@ -393,6 +404,32 @@ void
 vtn_handle_no_contraction(struct vtn_builder *b, struct vtn_value *val)
 {
    vtn_foreach_decoration(b, val, handle_no_contraction, NULL);
+}
+
+static void
+handle_relaxed_precision(struct vtn_builder *b, UNUSED struct vtn_value *val,
+                         UNUSED int member, const struct vtn_decoration *dec,
+                         void *_void)
+{
+   bool *relaxed_precision = (bool *)_void;
+   vtn_assert(dec->scope == VTN_DEC_DECORATION);
+   if (dec->decoration != SpvDecorationRelaxedPrecision)
+      return;
+
+   if (!glsl_type_is_32bit(val->type->type)) {
+      vtn_warn("Decoration only allowed on 32-bit instructions: %s",
+               spirv_decoration_to_string(dec->decoration));
+   }
+
+   *relaxed_precision = true;
+}
+
+bool
+vtn_handle_relaxed_precision(struct vtn_builder *b, struct vtn_value *val)
+{
+   bool relaxed_precision = false;
+   vtn_foreach_decoration(b, val, handle_relaxed_precision, &relaxed_precision);
+   return relaxed_precision;
 }
 
 nir_rounding_mode
@@ -465,6 +502,42 @@ handle_no_wrap(UNUSED struct vtn_builder *b, UNUSED struct vtn_value *val,
    }
 }
 
+static struct vtn_ssa_value *
+get_ssa_value(struct vtn_builder *b, uint32_t id, bool relaxed_precision)
+{
+   struct vtn_ssa_value *ssa = vtn_ssa_value(b, id);
+
+   if (!relaxed_precision || !glsl_type_is_32bit(ssa->type))
+      return ssa;
+
+   const struct glsl_type *type;
+   if (glsl_get_base_type(ssa->type) == GLSL_TYPE_INT)
+      type = glsl_int16_type(ssa->type);
+   else if (glsl_get_base_type(ssa->type) == GLSL_TYPE_UINT)
+      type = glsl_uint16_type(ssa->type);
+   else
+      type = glsl_float16_type(ssa->type);
+
+   struct vtn_ssa_value *new_ssa = vtn_create_ssa_value(b, type);
+   if (glsl_type_is_matrix(ssa->type)) {
+      for (unsigned i = 0; i < glsl_get_matrix_columns(ssa->type); i++) {
+         if (glsl_type_is_integer(ssa->type)) {
+            new_ssa->elems[i]->def = nir_i2imp(&b->nb, ssa->elems[i]->def);
+         } else {
+            new_ssa->elems[i]->def = nir_f2fmp(&b->nb, ssa->elems[i]->def);
+         }
+      }
+   } else {
+      vtn_assert(glsl_type_is_vector_or_scalar(ssa->type));
+      if (glsl_type_is_integer(ssa->type))
+         new_ssa->def = nir_i2imp(&b->nb, ssa->def);
+      else
+         new_ssa->def = nir_f2fmp(&b->nb, ssa->def);
+   }
+
+   return new_ssa;
+}
+
 void
 vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
                const uint32_t *w, unsigned count)
@@ -472,18 +545,27 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
    struct vtn_value *dest_val = vtn_untyped_value(b, w[2]);
    const struct glsl_type *dest_type = vtn_get_type(b, w[1])->type;
 
+   bool relaxed_precision = false;
+   if (b->shader->options->support_16bit_alu)
+      relaxed_precision = vtn_handle_relaxed_precision(b, dest_val);
    vtn_handle_no_contraction(b, dest_val);
 
    /* Collect the various SSA sources */
    const unsigned num_inputs = count - 3;
    struct vtn_ssa_value *vtn_src[4] = { NULL, };
    for (unsigned i = 0; i < num_inputs; i++)
-      vtn_src[i] = vtn_ssa_value(b, w[i + 3]);
+      vtn_src[i] = get_ssa_value(b, w[i + 3], relaxed_precision);
 
    if (glsl_type_is_matrix(vtn_src[0]->type) ||
        (num_inputs >= 2 && glsl_type_is_matrix(vtn_src[1]->type))) {
-      vtn_push_ssa_value(b, w[2],
-         vtn_handle_matrix_alu(b, opcode, vtn_src[0], vtn_src[1]));
+      struct vtn_ssa_value *dest =
+          vtn_handle_matrix_alu(b, opcode, vtn_src[0], vtn_src[1]);
+
+      if (relaxed_precision && glsl_type_is_32bit(dest_type)) {
+         dest->type = dest_type;
+         convert_to_32_bit(b, dest);
+      }
+      vtn_push_ssa_value(b, w[2], dest);
       b->nb.exact = b->exact;
       return;
    }
@@ -850,6 +932,9 @@ vtn_handle_alu(struct vtn_builder *b, SpvOp opcode,
       /* Do nothing. */
       break;
    }
+
+   if (relaxed_precision && glsl_type_is_32bit(dest->type))
+      convert_to_32_bit(b, dest);
 
    vtn_push_ssa_value(b, w[2], dest);
 
