@@ -1957,6 +1957,11 @@ struct iris_sampler_state {
    union pipe_color_union border_color;
    bool needs_border_color;
 
+   unsigned min_img_filter;
+   unsigned mag_img_filter;
+   unsigned min_mip_filter;
+   unsigned max_anisotropy;
+
    uint32_t sampler_state[GENX(SAMPLER_STATE_length)];
 };
 
@@ -2000,26 +2005,24 @@ iris_create_sampler_state(struct pipe_context *ctx,
       mag_img_filter = state->min_img_filter;
    }
 
+   cso->min_img_filter = state->min_img_filter;
+   cso->mag_img_filter = mag_img_filter;
+   cso->min_mip_filter = state->min_mip_filter;
+   cso->max_anisotropy = state->max_anisotropy;
+
    iris_pack_state(GENX(SAMPLER_STATE), cso->sampler_state, samp) {
       samp.TCXAddressControlMode = wrap_s;
       samp.TCYAddressControlMode = wrap_t;
       samp.TCZAddressControlMode = wrap_r;
       samp.CubeSurfaceControlMode = state->seamless_cube_map;
       samp.NonnormalizedCoordinateEnable = !state->normalized_coords;
-      samp.MinModeFilter = state->min_img_filter;
-      samp.MagModeFilter = mag_img_filter;
-      samp.MipModeFilter = translate_mip_filter(state->min_mip_filter);
       samp.MaximumAnisotropy = RATIO21;
 
+      /*.MinModeFilter, .MagModeFilter, .MipModeFilter are filled
+       * in dynamically by iris_bind_sampler_states.
+       */
+
       if (state->max_anisotropy >= 2) {
-         if (state->min_img_filter == PIPE_TEX_FILTER_LINEAR) {
-            samp.MinModeFilter = MAPFILTER_ANISOTROPIC;
-            samp.AnisotropicAlgorithm = EWAApproximation;
-         }
-
-         if (state->mag_img_filter == PIPE_TEX_FILTER_LINEAR)
-            samp.MagModeFilter = MAPFILTER_ANISOTROPIC;
-
          samp.MaximumAnisotropy =
             MIN2((state->max_anisotropy - 2) / 2, RATIO161);
       }
@@ -2128,11 +2131,63 @@ iris_upload_sampler_states(struct iris_context *ice, gl_shader_stage stage)
    for (int i = 0; i < count; i++) {
       struct iris_sampler_state *state = shs->samplers[i];
       struct iris_sampler_view *tex = shs->textures[i];
+      enum pipe_format internal_format = tex ? tex->res->internal_format :
+         PIPE_FORMAT_NONE;
+
+      /* Here we implement following 2 rules from Bspec
+       * (Structure SAMPLER_STATE):
+       *
+       * "Both Mag Mode Filter and Min Mode Filter must be set to
+       * MAPFILTER_NEAREST if Surface Format for the associated surface
+       * is UINT or SINT."
+       *
+       * "Mip Mode Filter must be set to MIPFILTER_NONE or MIPFILTER_NEAREST
+       * if Surface Format for the associated surface is UINT or SINT."
+       */
+      unsigned min_mode, mag_mode, mip_mode;
+      if (util_format_is_pure_integer(internal_format)) {
+         min_mode = PIPE_TEX_MIPFILTER_NEAREST;
+         mag_mode = PIPE_TEX_MIPFILTER_NEAREST;
+         mip_mode = translate_mip_filter(PIPE_TEX_MIPFILTER_NEAREST);
+      } else {
+         min_mode = state->min_img_filter;
+         mag_mode = state->mag_img_filter;
+         mip_mode = translate_mip_filter(state->min_mip_filter);
+      }
 
       if (!state) {
          memset(map, 0, 4 * GENX(SAMPLER_STATE_length));
       } else if (!state->needs_border_color) {
-         memcpy(map, state->sampler_state, 4 * GENX(SAMPLER_STATE_length));
+         /* Here we implement following 2 rules from Bspec
+          * (Structure SAMPLER_STATE):
+          *
+          * "Both Mag Mode Filter and Min Mode Filter must be set to
+          * MAPFILTER_NEAREST if Surface Format for the associated surface
+          * is UINT or SINT."
+          *
+          * "Mip Mode Filter must be set to MIPFILTER_NONE or MIPFILTER_NEAREST
+          * if Surface Format for the associated surface is UINT or SINT."
+          */
+
+         uint32_t dynamic[GENX(SAMPLER_STATE_length)];
+         iris_pack_state(GENX(SAMPLER_STATE), dynamic, dyns) {
+
+            dyns.MinModeFilter = min_mode;
+            dyns.MagModeFilter = mag_mode;
+            dyns.MipModeFilter = mip_mode;
+
+            if (state->max_anisotropy >= 2) {
+               if (state->min_img_filter == PIPE_TEX_FILTER_LINEAR) {
+                  dyns.MinModeFilter = MAPFILTER_ANISOTROPIC;
+                  dyns.AnisotropicAlgorithm = EWAApproximation;
+               }
+               if (state->mag_img_filter == PIPE_TEX_FILTER_LINEAR)
+                  dyns.MagModeFilter = MAPFILTER_ANISOTROPIC;
+            }
+         }
+
+         for (uint32_t j = 0; j < GENX(SAMPLER_STATE_length); j++)
+            map[j] = state->sampler_state[j] | dynamic[j];
       } else {
          ice->state.need_border_colors |= 1 << stage;
 
@@ -2170,6 +2225,20 @@ iris_upload_sampler_states(struct iris_context *ice, gl_shader_stage stage)
 
          uint32_t dynamic[GENX(SAMPLER_STATE_length)];
          iris_pack_state(GENX(SAMPLER_STATE), dynamic, dyns) {
+
+            dyns.MinModeFilter = min_mode;
+            dyns.MagModeFilter = mag_mode;
+            dyns.MipModeFilter = mip_mode;
+
+            if (state->max_anisotropy >= 2) {
+               if (state->min_img_filter == PIPE_TEX_FILTER_LINEAR) {
+                  dyns.MinModeFilter = MAPFILTER_ANISOTROPIC;
+                  dyns.AnisotropicAlgorithm = EWAApproximation;
+               }
+               if (state->mag_img_filter == PIPE_TEX_FILTER_LINEAR)
+                  dyns.MagModeFilter = MAPFILTER_ANISOTROPIC;
+            }
+
             dyns.BorderColorPointer = offset;
          }
 
