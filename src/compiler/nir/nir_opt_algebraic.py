@@ -1310,6 +1310,10 @@ optimizations.extend([
    (('f2f32', ('i2fmp', 'a@32')), ('i2f32', a)),
    (('f2f32', ('u2fmp', 'a@32')), ('u2f32', a)),
 
+   (('f2fmp', ('fsat', a)), ('fsat', ('f2fmp', a))),
+   (('f2fmp', ('fmax', '#a', b)), ('fmax', ('f2fmp', a), ('f2fmp', b))),
+   (('f2fmp', ('fmin', '#a', b)), ('fmin', ('f2fmp', a), ('f2fmp', b))),
+
    # Conversions from float32 to float64 and back can be removed as long as
    # it doesn't need to be precise, since the conversion may e.g. flush denorms
    (('~f2f32', ('f2f64', 'a@32')), a),
