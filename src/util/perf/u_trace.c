@@ -38,6 +38,8 @@
 #define TIMESTAMP_BUF_SIZE 0x1000
 #define TRACES_PER_CHUNK   (TIMESTAMP_BUF_SIZE / sizeof(uint64_t))
 
+bool ut_trace_instrument;
+
 #ifdef HAVE_PERFETTO
 int ut_perfetto_enabled;
 
@@ -217,6 +219,7 @@ get_chunk(struct u_trace *ut, size_t payload_size)
    return chunk;
 }
 
+DEBUG_GET_ONCE_BOOL_OPTION(trace_instrument, "GPU_TRACE_INSTRUMENT", false)
 DEBUG_GET_ONCE_BOOL_OPTION(trace, "GPU_TRACE", false)
 DEBUG_GET_ONCE_FILE_OPTION(trace_file, "GPU_TRACEFILE", NULL, "w")
 
@@ -231,6 +234,8 @@ get_tracefile(void)
       if (!tracefile && debug_get_option_trace()) {
          tracefile = stdout;
       }
+
+      ut_trace_instrument = debug_get_option_trace_instrument();
 
       firsttime = false;
    }
