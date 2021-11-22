@@ -420,6 +420,10 @@ fd4_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd4_emit *emit)
          const struct pipe_vertex_buffer *vb =
             &vtx->vertexbuf.vb[elem->vertex_buffer_index];
          struct fd_resource *rsc = fd_resource(vb->buffer.resource);
+
+         if (rsc == NULL)
+            continue;
+
          enum pipe_format pfmt = elem->src_format;
          enum a4xx_vtx_fmt fmt = fd4_pipe2vtx(pfmt);
          bool switchnext = (i != last) || (vertex_regid != regid(63, 0)) ||
@@ -468,7 +472,7 @@ fd4_emit_vertex_bufs(struct fd_ringbuffer *ring, struct fd4_emit *emit)
    }
 
    /* hw doesn't like to be configured for zero vbo's, it seems: */
-   if (last < 0) {
+   if (j == 0) {
       /* just recycle the shader bo, we just need to point to *something*
        * valid:
        */
