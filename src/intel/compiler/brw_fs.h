@@ -326,6 +326,7 @@ public:
                            unsigned num_components, unsigned first_component);
    void emit_cs_terminate();
    fs_reg emit_work_group_id_setup();
+   fs_reg emit_cs_work_group_id_setup();
 
    void emit_task_mesh_store(const brw::fs_builder &bld,
                              nir_intrinsic_instr *instr);
