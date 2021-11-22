@@ -79,18 +79,14 @@ void IntelDriver::enable_counter(uint32_t counter_id)
 
 void IntelDriver::enable_all_counters()
 {
-   // We can only enable one metric set at a time so at least enable one.
-   for (auto &group : groups) {
-      if (group.name == "RenderBasic") {
-         for (uint32_t counter_id : group.counters) {
-            auto &counter = counters[counter_id];
-            enabled_counters.emplace_back(counter);
-         }
-
-         perf->query = perf->find_query_by_name(group.name);
-         break;
-      }
+   // We should only have one group
+   assert(groups.size() == 1);
+   for (uint32_t counter_id : groups[0].counters) {
+      auto &counter = counters[counter_id];
+      enabled_counters.emplace_back(counter);
    }
+
+   perf->query = perf->find_query_by_name(selected_query->symbol_name);
 }
 
 bool IntelDriver::init_perfcnt()
@@ -99,49 +95,76 @@ bool IntelDriver::init_perfcnt()
 
    perf = std::make_unique<IntelPerf>(drm_device.fd);
 
+   const char *metric_set_name = getenv("INTEL_PERFETTO_METRIC_SET");
+
+   struct intel_perf_query_info *default_query = nullptr;
+   selected_query = nullptr;
    for (auto &query : perf->get_queries()) {
-      // Create group
-      CounterGroup group = {};
-      group.id = groups.size();
-      group.name = query->symbol_name;
-
-      for (int i = 0; i < query->n_counters; ++i) {
-         intel_perf_query_counter &counter = query->counters[i];
-
-         // Create counter
-         Counter counter_desc = {};
-         counter_desc.id = counters.size();
-         counter_desc.name = counter.symbol_name;
-         counter_desc.group = group.id;
-         counter_desc.getter = [counter, query, this](
-                                  const Counter &c, const Driver &dri) -> Counter::Value {
-            switch (counter.data_type) {
-            case INTEL_PERF_COUNTER_DATA_TYPE_UINT64:
-            case INTEL_PERF_COUNTER_DATA_TYPE_UINT32:
-            case INTEL_PERF_COUNTER_DATA_TYPE_BOOL32:
-               return (int64_t)counter.oa_counter_read_uint64(perf->cfg, query, &perf->result);
-               break;
-            case INTEL_PERF_COUNTER_DATA_TYPE_DOUBLE:
-            case INTEL_PERF_COUNTER_DATA_TYPE_FLOAT:
-               return counter.oa_counter_read_float(perf->cfg, query, &perf->result);
-               break;
-            }
-
-            return {};
-         };
-
-         // Add counter id to the group
-         group.counters.emplace_back(counter_desc.id);
-
-         // Store counter
-         counters.emplace_back(std::move(counter_desc));
-      }
-
-      // Store group
-      groups.emplace_back(std::move(group));
+      if (!strcmp(query->symbol_name, "RenderBasic"))
+         default_query = query;
+      if (metric_set_name && !strcmp(query->symbol_name, metric_set_name))
+         selected_query = query;
    }
 
-   assert(groups.size() && "Failed to query groups");
+   assert(default_query);
+
+   if (!selected_query) {
+      if (metric_set_name) {
+         PPS_LOG_ERROR("Available metric sets:");
+         for (auto &query : perf->get_queries())
+            PPS_LOG_ERROR("   %s", query->symbol_name);
+         PPS_LOG_FATAL("Metric set '%s' not available.", metric_set_name);
+      }
+      selected_query = default_query;
+   }
+
+   PPS_LOG("Using metric set '%s': %s",
+           selected_query->symbol_name, selected_query->name);
+
+   // Create group
+   CounterGroup group = {};
+   group.id = groups.size();
+   group.name = selected_query->symbol_name;
+
+   for (int i = 0; i < selected_query->n_counters; ++i) {
+      intel_perf_query_counter &counter = selected_query->counters[i];
+
+      // Create counter
+      Counter counter_desc = {};
+      counter_desc.id = counters.size();
+      counter_desc.name = counter.symbol_name;
+      counter_desc.group = group.id;
+      counter_desc.getter = [counter, this](
+         const Counter &c, const Driver &dri) -> Counter::Value {
+         switch (counter.data_type) {
+         case INTEL_PERF_COUNTER_DATA_TYPE_UINT64:
+         case INTEL_PERF_COUNTER_DATA_TYPE_UINT32:
+         case INTEL_PERF_COUNTER_DATA_TYPE_BOOL32:
+            return (int64_t)counter.oa_counter_read_uint64(perf->cfg,
+                                                           selected_query,
+                                                           &perf->result);
+            break;
+         case INTEL_PERF_COUNTER_DATA_TYPE_DOUBLE:
+         case INTEL_PERF_COUNTER_DATA_TYPE_FLOAT:
+            return counter.oa_counter_read_float(perf->cfg,
+                                                 selected_query,
+                                                 &perf->result);
+            break;
+         }
+
+         return {};
+      };
+
+      // Add counter id to the group
+      group.counters.emplace_back(counter_desc.id);
+
+      // Store counter
+      counters.emplace_back(std::move(counter_desc));
+   }
+
+   // Store group
+   groups.emplace_back(std::move(group));
+
    assert(counters.size() && "Failed to query counters");
 
    // Clear accumulations
