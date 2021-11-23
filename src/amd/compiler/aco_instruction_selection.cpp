@@ -8715,10 +8715,26 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    }
    case nir_intrinsic_load_helper_invocation:
    case nir_intrinsic_is_helper_invocation: {
-      /* load_helper() after demote() get lowered to is_helper().
-       * Otherwise, these two behave the same. */
+      /* Differences between these two:
+       *
+       * - load_helper_invocation:
+       *   System value. True if an invocation was a helper
+       *   invocation when it started. Undefined after demote.
+       *
+       * - is_helper_invocation:
+       *   Not a system value. True if an invocation is _currently_
+       *   a helper invocation. Affected by demote.
+       *
+       * Prevent value numbering from grouping is_helper with different exec mask.
+       * Not needed for load_helper because that only cares if an invocation was
+       * helper at the start.
+       */
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      bld.pseudo(aco_opcode::p_is_helper, Definition(dst), Operand(exec, bld.lm));
+      if (instr->intrinsic == nir_intrinsic_load_helper_invocation)
+         bld.pseudo(aco_opcode::p_is_helper, Definition(dst));
+      else
+         bld.pseudo(aco_opcode::p_is_helper, Definition(dst), Operand(exec, bld.lm));
+
       ctx->block->kind |= block_kind_needs_lowering;
       ctx->program->needs_exact = true;
       break;
