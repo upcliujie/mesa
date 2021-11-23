@@ -4499,12 +4499,12 @@ link_varyings_and_uniforms(unsigned first, unsigned last,
       break;
    }
 
-   if (!link_varyings(prog, first, last, consts, exts,
-                      api, mem_ctx))
-      return false;
+   if (!consts->UseNIRGLSLLinker) {
+      if (!link_varyings(prog, first, last, consts, exts, api, mem_ctx))
+         return false;
 
-   if (!consts->UseNIRGLSLLinker)
-     link_and_validate_uniforms(consts, exts, prog);
+      link_and_validate_uniforms(consts, exts, prog);
+   }
 
    if (!prog->data->LinkStatus)
       return false;
