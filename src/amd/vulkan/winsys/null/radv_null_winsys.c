@@ -24,6 +24,8 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
+#include <ctype.h>
+
 #include "radv_null_winsys_public.h"
 
 #include "radv_null_bo.h"
@@ -68,6 +70,17 @@ static const struct {
    [CHIP_DIMGREY_CAVEFISH] = {0x73E0, 8, true},
 };
 
+/* Windows doesn't have strcasecmp */
+static bool
+case_insensitive_equal(const char *a, const char *b)
+{
+   for (; *a && *b; a++, b++) {
+      if (tolower(*a) != tolower(*b))
+         return false;
+   }
+   return !*a && !*b;
+}
+
 static void
 radv_null_winsys_query_info(struct radeon_winsys *rws, struct radeon_info *info)
 {
@@ -78,10 +91,10 @@ radv_null_winsys_query_info(struct radeon_winsys *rws, struct radeon_info *info)
    info->family = CHIP_UNKNOWN;
 
    for (i = CHIP_TAHITI; i < CHIP_LAST; i++) {
-      if (!strcmp(family, ac_get_family_name(i))) {
+      if (case_insensitive_equal(family, ac_get_family_name(i))) {
          /* Override family and chip_class. */
          info->family = i;
-         info->name = family;
+         info->name = ac_get_family_name(i);
 
          if (i >= CHIP_SIENNA_CICHLID)
             info->chip_class = GFX10_3;
