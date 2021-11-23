@@ -1,0 +1,65 @@
+# Sometimes passes.
+KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-dispatches
+KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-draw-calls2
+
+dEQP-GLES31.functional.compute.basic.ssbo_local_barrier_single_invocation
+dEQP-GLES31.functional.synchronization.inter_invocation.image_overwrite
+dEQP-GLES31.functional.synchronization.inter_invocation.image_read_write
+
+spec@arb_shader_image_load_store@host-mem-barrier@Atomic counter/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/full barrier test/16x16
+spec@arb_shader_image_load_store@host-mem-barrier@Element array/RaW/full barrier test/4x4
+spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/one bit barrier test/64x64
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/incompatible format test
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/incompatible format test/imageBuffer
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/incomplete image test
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/invalid format test
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/level bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicAdd/unbound image test
+spec@arb_shader_image_load_store@invalid@imageAtomicAnd/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicAnd/incomplete image test
+spec@arb_shader_image_load_store@invalid@imageAtomicAnd/invalid format test
+spec@arb_shader_image_load_store@invalid@imageAtomicAnd/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicCompSwap/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicCompSwap/incompatible format test
+spec@arb_shader_image_load_store@invalid@imageAtomicCompSwap/incompatible format test/imageBuffer
+spec@arb_shader_image_load_store@invalid@imageAtomicCompSwap/invalid format test
+spec@arb_shader_image_load_store@invalid@imageAtomicCompSwap/level bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicCompSwap/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicExchange/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicExchange/incompatible format test
+spec@arb_shader_image_load_store@invalid@imageAtomicExchange/incompatible format test/imageBuffer
+spec@arb_shader_image_load_store@invalid@imageAtomicExchange/invalid format test
+spec@arb_shader_image_load_store@invalid@imageAtomicExchange/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicMax/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicMax/incompatible format test
+spec@arb_shader_image_load_store@invalid@imageAtomicMax/unbound image test
+spec@arb_shader_image_load_store@invalid@imageAtomicMin/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicMin/incompatible format test/imageBuffer
+spec@arb_shader_image_load_store@invalid@imageAtomicMin/invalid format test
+spec@arb_shader_image_load_store@invalid@imageAtomicMin/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicMin/level bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicOr/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/address bounds test/imageBuffer/r32ui
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/incompatible format test/imageBuffer
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/incomplete image test
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/invalid format test
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/level bounds test
+spec@arb_shader_image_load_store@invalid@imageAtomicXor/unbound image test
+spec@arb_shader_image_load_store@invalid@imageLoad/address bounds test/imageBuffer/rgba32f
+spec@arb_shader_image_load_store@invalid@imageLoad/incompatible format test/imageBuffer
+spec@arb_shader_image_load_store@invalid@imageLoad/incomplete image test
+spec@arb_shader_image_load_store@invalid@imageLoad/invalid format test
+spec@arb_shader_image_load_store@invalid@imageLoad/layer bounds test
+spec@arb_shader_image_load_store@invalid@imageLoad/level bounds test
+spec@arb_shader_image_load_store@invalid@imageLoad/unbound image test
+
+spec@arb_texture_cube_map_array@texturesize@tes-texturesize-samplercubearrayshadow
+
+spec@glsl-1.50@execution@texturesize@tes-texturesize-sampler1darrayshadow
+spec@glsl-1.50@execution@texturesize@tes-texturesize-sampler1dshadow
+spec@glsl-1.50@execution@texturesize@tes-texturesize-sampler2darrayshadow
+spec@glsl-1.50@execution@texturesize@tes-texturesize-sampler2dshadow
+spec@glsl-1.50@execution@texturesize@tes-texturesize-samplercubeshadow
