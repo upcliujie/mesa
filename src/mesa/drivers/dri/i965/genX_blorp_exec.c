@@ -89,7 +89,7 @@ blorp_surface_reloc(struct blorp_batch *batch, uint32_t ss_offset,
       brw_state_reloc(&brw->batch, ss_offset, bo, address.offset + delta,
                       address.reloc_flags);
 
-   void *reloc_ptr = (void *)brw->batch.state.map + ss_offset;
+   char *reloc_ptr = (char *)brw->batch.state.map + ss_offset;
 #if GFX_VER >= 8
    *(uint64_t *)reloc_ptr = reloc_val;
 #else

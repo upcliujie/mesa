@@ -42,7 +42,7 @@
 static struct dri3_egl_surface *
 loader_drawable_to_egl_surface(struct loader_dri3_drawable *draw) {
    size_t offset = offsetof(struct dri3_egl_surface, loader_drawable);
-   return (struct dri3_egl_surface *)(((void*) draw) - offset);
+   return (struct dri3_egl_surface *)(((char*) draw) - offset);
 }
 
 static void

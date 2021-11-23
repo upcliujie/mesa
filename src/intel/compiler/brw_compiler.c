@@ -288,7 +288,7 @@ brw_write_shader_relocs(const struct intel_device_info *devinfo,
 {
    for (unsigned i = 0; i < prog_data->num_relocs; i++) {
       assert(prog_data->relocs[i].offset % 8 == 0);
-      void *dst = program + prog_data->relocs[i].offset;
+      void *dst = (char *)program + prog_data->relocs[i].offset;
       for (unsigned j = 0; j < num_values; j++) {
          if (prog_data->relocs[i].id == values[j].id) {
             uint32_t value = values[j].value + prog_data->relocs[i].delta;

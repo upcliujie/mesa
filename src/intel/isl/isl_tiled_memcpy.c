@@ -164,26 +164,29 @@ rgba8_copy_aligned_dst(void *dst, const void *src, size_t bytes)
 {
    assert(bytes == 0 || !(((uintptr_t)dst) & 0xf));
 
+   char *d = (char *)d;
+   const char *s = (const char *)s;
+
 #if defined(__SSSE3__) || defined(__SSE2__)
    if (bytes == 64) {
-      rgba8_copy_16_aligned_dst(dst +  0, src +  0);
-      rgba8_copy_16_aligned_dst(dst + 16, src + 16);
-      rgba8_copy_16_aligned_dst(dst + 32, src + 32);
-      rgba8_copy_16_aligned_dst(dst + 48, src + 48);
-      return dst;
+      rgba8_copy_16_aligned_dst(d +  0, s +  0);
+      rgba8_copy_16_aligned_dst(d + 16, s + 16);
+      rgba8_copy_16_aligned_dst(d + 32, s + 32);
+      rgba8_copy_16_aligned_dst(d + 48, s + 48);
+      return d;
    }
 
    while (bytes >= 16) {
-      rgba8_copy_16_aligned_dst(dst, src);
-      src += 16;
-      dst += 16;
+      rgba8_copy_16_aligned_dst(d, s);
+      s += 16;
+      d += 16;
       bytes -= 16;
    }
 #endif
 
-   rgba8_copy(dst, src, bytes);
+   rgba8_copy(d, s, bytes);
 
-   return dst;
+   return d;
 }
 
 /**
@@ -194,26 +197,29 @@ rgba8_copy_aligned_src(void *dst, const void *src, size_t bytes)
 {
    assert(bytes == 0 || !(((uintptr_t)src) & 0xf));
 
+   char *d = (char *)d;
+   const char *s = (const char *)s;
+
 #if defined(__SSSE3__) || defined(__SSE2__)
    if (bytes == 64) {
-      rgba8_copy_16_aligned_src(dst +  0, src +  0);
-      rgba8_copy_16_aligned_src(dst + 16, src + 16);
-      rgba8_copy_16_aligned_src(dst + 32, src + 32);
-      rgba8_copy_16_aligned_src(dst + 48, src + 48);
-      return dst;
+      rgba8_copy_16_aligned_src(d +  0, s +  0);
+      rgba8_copy_16_aligned_src(d + 16, s + 16);
+      rgba8_copy_16_aligned_src(d + 32, s + 32);
+      rgba8_copy_16_aligned_src(d + 48, s + 48);
+      return d;
    }
 
    while (bytes >= 16) {
-      rgba8_copy_16_aligned_src(dst, src);
-      src += 16;
-      dst += 16;
+      rgba8_copy_16_aligned_src(d, s);
+      s += 16;
+      d += 16;
       bytes -= 16;
    }
 #endif
 
-   rgba8_copy(dst, src, bytes);
+   rgba8_copy(d, s, bytes);
 
-   return dst;
+   return d;
 }
 
 /**

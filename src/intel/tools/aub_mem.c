@@ -232,7 +232,7 @@ aub_mem_phys_write(void *_mem, uint64_t phys_address,
       uint32_t size_this_page = MIN2(to_write, 4096 - offset);
       to_write -= size_this_page;
       memcpy(pmem->data + offset, data, size_this_page);
-      pmem->aub_data = data - offset;
+      pmem->aub_data = (const uint8_t *)data - offset;
       data = (const uint8_t *)data + size_this_page;
    }
 }

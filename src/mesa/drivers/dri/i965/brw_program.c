@@ -656,7 +656,7 @@ brw_collect_shader_time(struct brw_context *brw)
    void *bo_map = brw_bo_map(brw, brw->shader_time.bo, MAP_READ | MAP_WRITE);
 
    for (int i = 0; i < brw->shader_time.num_entries; i++) {
-      uint32_t *times = bo_map + i * 3 * BRW_SHADER_TIME_STRIDE;
+      uint32_t *times = (uint32_t *)((char *)bo_map + i * 3 * BRW_SHADER_TIME_STRIDE);
 
       brw->shader_time.cumulative[i].time += times[BRW_SHADER_TIME_STRIDE * 0 / 4];
       brw->shader_time.cumulative[i].written += times[BRW_SHADER_TIME_STRIDE * 1 / 4];

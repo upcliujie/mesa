@@ -891,7 +891,7 @@ blorp_get_client_bo(struct brw_context *brw,
          return NULL;
       }
 
-      if (brw_bo_subdata(bo, 0, size, pixels + first_pixel)) {
+      if (brw_bo_subdata(bo, 0, size, (char *)pixels + first_pixel)) {
          perf_debug("%s: temp bo upload failed\n", __func__);
          brw_bo_unreference(bo);
          return NULL;

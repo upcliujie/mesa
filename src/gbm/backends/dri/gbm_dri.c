@@ -1292,7 +1292,7 @@ gbm_dri_bo_unmap(struct gbm_bo *_bo, void *map_data)
    /* Check if it's a dumb buffer and check the pointer is in range */
    if (bo->map) {
       assert(map_data >= bo->map);
-      assert(map_data < (bo->map + bo->size));
+      assert((char *)map_data < ((char *)bo->map + bo->size));
       return;
    }
 

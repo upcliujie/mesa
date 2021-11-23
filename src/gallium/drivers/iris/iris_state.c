@@ -2308,7 +2308,7 @@ update_surface_state_addrs(struct u_upload_mgr *mgr,
     */
    for (unsigned i = 0; i < surf_state->num_states; i++) {
       *ss_addr = *ss_addr - surf_state->bo_address + bo->address;
-      ss_addr = ((void *) ss_addr) + SURFACE_STATE_ALIGNMENT;
+      ss_addr = (uint64_t *)(((char *) ss_addr) + SURFACE_STATE_ALIGNMENT);
    }
 
    /* Next, upload the updated copies to a GPU buffer. */
@@ -2440,7 +2440,7 @@ iris_create_sampler_view(struct pipe_context *ctx,
          fill_surface_state(&screen->isl_dev, map, isv->res, &isv->res->surf,
                             &isv->view, aux_usage, 0, 0, 0);
 
-         map += SURFACE_STATE_ALIGNMENT;
+         map = (char *)map + SURFACE_STATE_ALIGNMENT;
       }
    } else {
       fill_buffer_surface_state(&screen->isl_dev, isv->res, map,
@@ -2591,8 +2591,8 @@ iris_create_surface(struct pipe_context *ctx,
 #endif
 
    if (!isl_format_is_compressed(res->surf.format)) {
-      void *map = surf->surface_state.cpu;
-      UNUSED void *map_read = surf->surface_state_read.cpu;
+      char *map = (char *)surf->surface_state.cpu;
+      UNUSED char *map_read = (char *)surf->surface_state_read.cpu;
 
       /* This is a normal surface.  Fill out a SURFACE_STATE for each possible
        * auxiliary surface mode and return the pipe_surface.
@@ -2733,7 +2733,7 @@ iris_set_shader_images(struct pipe_context *ctx,
          alloc_surface_states(&iv->surface_state, aux_usages);
          iv->surface_state.bo_address = res->bo->address;
 
-         void *map = iv->surface_state.cpu;
+         char *map = (char *)iv->surface_state.cpu;
 
          if (res->base.b.target != PIPE_BUFFER) {
             struct isl_view view = {
@@ -3286,7 +3286,7 @@ upload_sysvals(struct iris_context *ice,
    if (shader->kernel_input_size > 0)
       memcpy(map, grid->input, shader->kernel_input_size);
 
-   uint32_t *sysval_map = map + system_values_start;
+   uint32_t *sysval_map = (uint32_t *)((char *)map + system_values_start);
    for (int i = 0; i < shader->num_system_values; i++) {
       uint32_t sysval = shader->system_values[i];
       uint32_t value = 0;
@@ -4772,7 +4772,7 @@ update_clear_value(struct iris_context *ice,
    /* TODO: Could update rather than re-filling */
    alloc_surface_states(surf_state, all_aux_modes);
 
-   void *map = surf_state->cpu;
+   char *map = (char *)surf_state->cpu;
 
    while (aux_modes) {
       enum isl_aux_usage aux_usage = u_bit_scan(&aux_modes);
@@ -4962,7 +4962,8 @@ iris_populate_binding_table(struct iris_context *ice,
    struct iris_shader_state *shs = &ice->state.shaders[stage];
    uint32_t binder_addr = binder->bo->address;
 
-   uint32_t *bt_map = binder->map + binder->bt_offset[stage];
+   uint32_t *bt_map =
+      (uint32_t *)((char *)binder->map + binder->bt_offset[stage]);
    int s = 0;
 
    const struct shader_info *info = iris_get_shader_info(ice, stage);

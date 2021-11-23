@@ -116,10 +116,10 @@ gfx7_cmd_buffer_emit_scissor(struct anv_cmd_buffer *cmd_buffer)
       };
 
       if (s->extent.width <= 0 || s->extent.height <= 0) {
-         GFX7_SCISSOR_RECT_pack(NULL, scissor_state.map + i * 8,
+         GFX7_SCISSOR_RECT_pack(NULL, (char *)scissor_state.map + i * 8,
                                 &empty_scissor);
       } else {
-         GFX7_SCISSOR_RECT_pack(NULL, scissor_state.map + i * 8, &scissor);
+         GFX7_SCISSOR_RECT_pack(NULL, (char *)scissor_state.map + i * 8, &scissor);
       }
    }
 

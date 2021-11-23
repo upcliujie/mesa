@@ -45,7 +45,7 @@ intel_disasm_find_end(const struct intel_device_info *devinfo,
 
    /* This loop exits when send-with-EOT or when opcode is 0 */
    while (true) {
-      const brw_inst *insn = assembly + offset;
+      const brw_inst *insn = (const void *)((const char *)assembly + offset);
 
       if (brw_inst_cmpt_control(devinfo, insn)) {
          offset += 8;

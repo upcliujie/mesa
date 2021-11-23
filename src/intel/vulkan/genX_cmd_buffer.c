@@ -1663,7 +1663,7 @@ genX(cmd_buffer_alloc_att_surf_states)(struct anv_cmd_buffer *cmd_buffer,
 
    state->null_surface_state = next_state;
    next_state.offset += ss_stride;
-   next_state.map += ss_stride;
+   next_state.map = (char *)next_state.map + ss_stride;
 
    for (uint32_t i = 0; i < subpass->attachment_count; i++) {
       uint32_t att = subpass->attachments[i].attachment;
@@ -1686,7 +1686,7 @@ genX(cmd_buffer_alloc_att_surf_states)(struct anv_cmd_buffer *cmd_buffer,
 
       state->attachments[att].color.state = next_state;
       next_state.offset += ss_stride;
-      next_state.map += ss_stride;
+      next_state.map = (char *)next_state.map + ss_stride;
    }
 
    assert(next_state.offset == state->attachment_states.offset +
@@ -2879,7 +2879,7 @@ emit_samplers(struct anv_cmd_buffer *cmd_buffer,
       if (sampler == NULL)
          continue;
 
-      memcpy(state->map + (s * 16),
+      memcpy((char *)state->map + (s * 16),
              sampler->state[binding->plane], sizeof(sampler->state[0]));
    }
 
@@ -5198,7 +5198,7 @@ cmd_buffer_trace_rays(struct anv_cmd_buffer *cmd_buffer,
 
    /* Push constants go after the RT_DISPATCH_GLOBALS */
    assert(GFX_RT_DISPATCH_GLOBALS_length * 4 <= BRW_RT_PUSH_CONST_OFFSET);
-   memcpy(rtdg_state.map + BRW_RT_PUSH_CONST_OFFSET,
+   memcpy((char *)rtdg_state.map + BRW_RT_PUSH_CONST_OFFSET,
           &cmd_buffer->state.rt.base.push_constants,
           sizeof(struct anv_push_constants));
 

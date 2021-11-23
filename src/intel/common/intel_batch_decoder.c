@@ -100,7 +100,7 @@ ctx_get_bo(struct intel_batch_decode_ctx *ctx, bool ppgtt, uint64_t addr)
    if (bo.map != NULL) {
       assert(bo.addr <= addr);
       uint64_t offset = addr - bo.addr;
-      bo.map += offset;
+      bo.map = (const char *)bo.map + offset;
       bo.addr += offset;
       bo.size -= offset;
    }
@@ -172,8 +172,8 @@ ctx_print_buffer(struct intel_batch_decode_ctx *ctx,
                  uint32_t pitch,
                  int max_lines)
 {
-   const uint32_t *dw_end =
-         bo.map + ROUND_DOWN_TO(MIN2(bo.size, read_length), 4);
+   const uint32_t *dw_end = (const uint32_t *)bo.map +
+      ROUND_DOWN_TO(MIN2(bo.size, read_length), 4);
 
    int column_count = 0, pitch_col_count = 0, line_count = -1;
    for (const uint32_t *dw = bo.map; dw < dw_end; dw++) {
@@ -322,7 +322,8 @@ dump_binding_table(struct intel_batch_decode_ctx *ctx,
       }
 
       fprintf(ctx->fp, "pointer %u: 0x%08x\n", i, pointers[i]);
-      ctx_print_group(ctx, strct, addr, bo.map + (addr - bo.addr));
+      ctx_print_group(ctx, strct, addr,
+                      (const char *)bo.map + (addr - bo.addr));
    }
 }
 
@@ -359,7 +360,7 @@ dump_samplers(struct intel_batch_decode_ctx *ctx, uint32_t offset, int count)
       fprintf(ctx->fp, "sampler state %d\n", i);
       ctx_print_group(ctx, strct, state_addr, state_map);
       state_addr += sampler_state_size;
-      state_map += sampler_state_size;
+      state_map = (const char *)state_map + sampler_state_size;
    }
 }
 
@@ -433,7 +434,7 @@ handle_media_interface_descriptor_load(struct intel_batch_decode_ctx *ctx,
 
       handle_interface_descriptor_data(ctx, desc, desc_map);
 
-      desc_map += desc->dw_length;
+      desc_map = (const char *)desc_map + desc->dw_length;
       desc_addr += desc->dw_length * 4;
    }
 }
@@ -544,20 +545,20 @@ handle_3dstate_index_buffer(struct intel_batch_decode_ctx *ctx,
       return;
    }
 
-   const void *m = ib.map;
-   const void *ib_end = ib.map + MIN2(ib.size, ib_size);
+   const uint8_t *m = (const uint8_t *)ib.map;
+   const uint8_t *ib_end = m + MIN2(ib.size, ib_size);
    for (int i = 0; m < ib_end && i < 10; i++) {
       switch (format) {
       case 0:
-         fprintf(ctx->fp, "%3d ", *(uint8_t *)m);
+         fprintf(ctx->fp, "%3d ", *m);
          m += 1;
          break;
       case 1:
-         fprintf(ctx->fp, "%3d ", *(uint16_t *)m);
+         fprintf(ctx->fp, "%3d ", *m);
          m += 2;
          break;
       case 2:
-         fprintf(ctx->fp, "%3d ", *(uint32_t *)m);
+         fprintf(ctx->fp, "%3d ", *m);
          m += 4;
          break;
       }
@@ -889,7 +890,7 @@ decode_dynamic_state(struct intel_batch_decode_ctx *ctx,
 {
    uint64_t state_addr = ctx->dynamic_base + state_offset;
    struct intel_batch_decode_bo bo = ctx_get_bo(ctx, true, state_addr);
-   const void *state_map = bo.map;
+   const char *state_map = bo.map;
 
    if (state_map == NULL) {
       fprintf(ctx->fp, "  dynamic %s state unavailable\n", struct_type);

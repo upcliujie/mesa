@@ -161,7 +161,8 @@ intel_debug_write_identifiers(void *_output,
                               uint32_t output_size,
                               const char *driver_name)
 {
-   void *output = _output, *output_end = _output + output_size;
+   char *output = (char *)_output;
+   char *output_end = output + output_size;
 
    assert(output_size > intel_debug_identifier_size());
 
@@ -217,7 +218,7 @@ intel_debug_write_identifiers(void *_output,
    /* Return the how many bytes where written, so that the rest of the buffer
     * can be used for other things.
     */
-   return output - _output;
+   return output - (char *)_output;
 }
 
 void *
@@ -225,11 +226,11 @@ intel_debug_get_identifier_block(void *_buffer,
                                  uint32_t buffer_size,
                                  enum intel_debug_block_type type)
 {
-   void *buffer = _buffer + intel_debug_identifier_size(),
-      *end_buffer = _buffer + buffer_size;
+   char *buffer = (char *)_buffer + intel_debug_identifier_size();
+   char *end_buffer = (char *)_buffer + buffer_size;
 
    while (buffer < end_buffer) {
-      struct intel_debug_block_base *item = buffer;
+      struct intel_debug_block_base *item = (void *)buffer;
 
       if (item->type == type)
          return item;

@@ -82,7 +82,8 @@ gfx8_cmd_buffer_emit_viewport(struct anv_cmd_buffer *cmd_buffer)
                                         &sfv.YMaxClipGuardband);
       }
 
-      GENX(SF_CLIP_VIEWPORT_pack)(NULL, sf_clip_state.map + i * 64, &sfv);
+      GENX(SF_CLIP_VIEWPORT_pack)(NULL,
+         (char *)sf_clip_state.map + i * 64, &sfv);
    }
 
    anv_batch_emit(&cmd_buffer->batch,
@@ -117,7 +118,7 @@ gfx8_cmd_buffer_emit_depth_viewport(struct anv_cmd_buffer *cmd_buffer,
          .MaximumDepth = depth_clamp_enable ? max_depth : 1.0f,
       };
 
-      GENX(CC_VIEWPORT_pack)(NULL, cc_state.map + i * 8, &cc_viewport);
+      GENX(CC_VIEWPORT_pack)(NULL, (char *)cc_state.map + i * 8, &cc_viewport);
    }
 
    anv_batch_emit(&cmd_buffer->batch,

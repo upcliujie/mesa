@@ -1032,7 +1032,7 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
 
    if (chain->display->sw) {
       struct wsi_wl_image *image = &chain->images[image_index];
-      void *dptr = image->data_ptr;
+      uint8_t *dptr = (uint8_t *)image->data_ptr;
       void *sptr;
       chain->base.wsi->MapMemory(chain->base.device,
                                  image->base.memory,
@@ -1041,7 +1041,7 @@ wsi_wl_swapchain_queue_present(struct wsi_swapchain *wsi_chain,
       for (unsigned r = 0; r < chain->extent.height; r++) {
          memcpy(dptr, sptr, image->base.row_pitches[0]);
          dptr += image->base.row_pitches[0];
-         sptr += image->base.row_pitches[0];
+         sptr = (uint8_t *)sptr + image->base.row_pitches[0];
       }
       chain->base.wsi->UnmapMemory(chain->base.device,
                                    image->base.memory);

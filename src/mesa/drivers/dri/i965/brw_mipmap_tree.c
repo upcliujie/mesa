@@ -291,14 +291,14 @@ create_aux_state_map(struct brw_mipmap_tree *mt,
       return NULL;
 
    enum isl_aux_state **per_level_arr = data;
-   enum isl_aux_state *s = data + per_level_array_size;
+   enum isl_aux_state *s = (void *)((char *)data + per_level_array_size);
    for (uint32_t level = 0; level < levels; level++) {
       per_level_arr[level] = s;
       const unsigned level_layers = brw_get_num_logical_layers(mt, level);
       for (uint32_t a = 0; a < level_layers; a++)
          *(s++) = initial;
    }
-   assert((void *)s == data + total_size);
+   assert((char *)s == (char *)data + total_size);
 
    return per_level_arr;
 }
@@ -1256,8 +1256,8 @@ brw_miptree_copy_slice_sw(struct brw_context *brw,
    } else {
       for (int i = 0; i < height; i++) {
          memcpy(dst, src, row_size);
-         dst += dst_stride;
-         src += src_stride;
+         dst = (char *)dst + dst_stride;
+         src = (char *)src + src_stride;
       }
    }
 
@@ -2380,7 +2380,7 @@ brw_miptree_map_map(struct brw_context *brw,
                     unsigned int level, unsigned int slice)
 {
    unsigned int bw, bh;
-   void *base;
+   char *base;
    unsigned int image_x, image_y;
    intptr_t x = map->x;
    intptr_t y = map->y;
@@ -2704,7 +2704,7 @@ brw_miptree_map_movntdqa(struct brw_context *brw,
    image_x += map->x;
    image_y += map->y;
 
-   void *src = brw_miptree_map_raw(brw, mt, map->mode);
+   char *src = brw_miptree_map_raw(brw, mt, map->mode);
    if (!src)
       return;
 
@@ -2728,13 +2728,13 @@ brw_miptree_map_movntdqa(struct brw_context *brw,
 
    map->buffer = align_malloc(map->stride * map->h, 16);
    /* Offset the destination so it has the same misalignment as src. */
-   map->ptr = map->buffer + misalignment;
+   map->ptr = (char *)map->buffer + misalignment;
 
    assert((((uintptr_t) map->ptr) & 15) == misalignment);
 
    for (uint32_t y = 0; y < map->h; y++) {
-      void *dst_ptr = map->ptr + y * map->stride;
-      void *src_ptr = src + y * mt->surf.row_pitch_B;
+      char *dst_ptr = (char *)map->ptr + y * map->stride;
+      char *src_ptr = src + y * mt->surf.row_pitch_B;
 
       _mesa_streaming_load_memcpy(dst_ptr, src_ptr, width_bytes);
    }

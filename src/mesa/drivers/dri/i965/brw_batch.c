@@ -554,7 +554,7 @@ brw_batch_require_space(struct brw_context *brw, GLuint sz)
          MIN2(batch->batch.bo->size + batch->batch.bo->size / 2,
               MAX_BATCH_SIZE);
       grow_buffer(brw, &batch->batch, batch_used, new_size);
-      batch->map_next = (void *) batch->batch.map + batch_used;
+      batch->map_next = (uint32_t *)((char *) batch->batch.map + batch_used);
       assert(batch_used + sz < batch->batch.bo->size);
    }
 }

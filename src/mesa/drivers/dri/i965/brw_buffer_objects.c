@@ -292,7 +292,7 @@ brw_buffer_subdata(struct gl_context *ctx,
        offset + size <= intel_obj->valid_data_start ||
        intel_obj->valid_data_end <= offset) {
       void *map = brw_bo_map(brw, intel_obj->buffer, MAP_WRITE | MAP_ASYNC);
-      memcpy(map + offset, data, size);
+      memcpy((char *)map + offset, data, size);
       brw_bo_unmap(intel_obj->buffer);
 
       if (intel_obj->gpu_active_end > intel_obj->gpu_active_start)
@@ -394,7 +394,7 @@ brw_get_buffer_subdata(struct gl_context *ctx,
       _mesa_error_no_memory(__func__);
       return;
    }
-   memcpy_fn(data, map + offset, size);
+   memcpy_fn(data, (char *)map + offset, size);
    brw_bo_unmap(intel_obj->buffer);
 
    mark_buffer_inactive(intel_obj);
@@ -500,7 +500,7 @@ brw_map_buffer_range(struct gl_context *ctx,
                       length + intel_obj->map_extra[index],
                       BRW_MEMZONE_OTHER);
       void *map = brw_bo_map(brw, intel_obj->range_map_bo[index], access);
-      obj->Mappings[index].Pointer = map + intel_obj->map_extra[index];
+      obj->Mappings[index].Pointer = (char *)map + intel_obj->map_extra[index];
       return obj->Mappings[index].Pointer;
    }
 
@@ -509,7 +509,7 @@ brw_map_buffer_range(struct gl_context *ctx,
       mark_buffer_inactive(intel_obj);
    }
 
-   obj->Mappings[index].Pointer = map + offset;
+   obj->Mappings[index].Pointer = (char *)map + offset;
    return obj->Mappings[index].Pointer;
 }
 

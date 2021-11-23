@@ -200,7 +200,7 @@ enum pipe_reset_status iris_batch_check_for_reset(struct iris_batch *batch);
 static inline unsigned
 iris_batch_bytes_used(struct iris_batch *batch)
 {
-   return batch->map_next - batch->map;
+   return (char *)batch->map_next - (char *)batch->map;
 }
 
 /**
@@ -231,7 +231,7 @@ iris_get_command_space(struct iris_batch *batch, unsigned bytes)
 {
    iris_require_command_space(batch, bytes);
    void *map = batch->map_next;
-   batch->map_next += bytes;
+   batch->map_next = (char *)batch->map_next + bytes;
    return map;
 }
 

@@ -1152,6 +1152,7 @@ else
     '-Wimplicit-fallthrough',
     '-Wno-missing-field-initializers',
     '-Wno-format-truncation',
+    '-Wpointer-arith',
     '-fno-math-errno',
     '-fno-trapping-math',
     '-Qunused-arguments',
@@ -1233,7 +1234,7 @@ if host_machine.system() == 'windows'
         '-Wl,--nxcompat',
         '-Wl,--dynamicbase',
         '-static-libgcc',
-        '-static-libstdc++',
+        '-static-libstdc++'
       ),
       language : ['c'],
     )
