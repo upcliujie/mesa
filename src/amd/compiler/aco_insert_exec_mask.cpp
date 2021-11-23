@@ -29,6 +29,7 @@
 
 #include <set>
 #include <vector>
+#include <algorithm>
 
 namespace aco {
 
@@ -757,9 +758,22 @@ process_instructions(exec_ctx& ctx, Block* block, std::vector<aco_ptr<Instructio
             instr->operands[0] = Operand::zero();
             instr->definitions[0] = dst;
          } else {
-            std::pair<Operand, uint8_t>& exact_mask = ctx.info[block->index].exec[0];
-            assert(exact_mask.second & mask_type_exact);
+            bool affected_by_demote = !instr->operands.empty();
+            std::pair<Operand, uint8_t> exact_mask;
 
+            if (affected_by_demote) {
+               /* Find the last exact exec mask. */
+               std::vector<std::pair<Operand, uint8_t>> &exec_vec = ctx.info[block->index].exec;
+               std::vector<std::pair<Operand, uint8_t>>::reverse_iterator exact_mask_it =
+                  std::find_if(exec_vec.rbegin(), exec_vec.rend(), [](const std::pair<Operand, uint8_t>& x) { return x.second & mask_type_exact; });
+
+               exact_mask = *exact_mask_it;
+            } else {
+               /* Find the first exec mask, which we assert is exact. */
+               exact_mask = ctx.info[block->index].exec[0];
+            }
+
+            assert(exact_mask.second & mask_type_exact);
             instr.reset(create_instruction<SOP2_instruction>(bld.w64or32(Builder::s_andn2),
                                                              Format::SOP2, 2, 2));
             instr->operands[0] = Operand(exec, bld.lm); /* current exec */
