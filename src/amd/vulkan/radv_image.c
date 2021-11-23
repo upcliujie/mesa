@@ -222,6 +222,9 @@ radv_formats_is_atomic_allowed(struct radv_device *device, const void *pNext, Vk
             if (radv_format_is_atomic_allowed(device, format_list->pViewFormats[i]))
                return true;
          }
+      } else {
+         unsigned size = vk_format_get_blocksizebits(device, format);
+         return size == 32 || size == 64;
       }
    }
 
