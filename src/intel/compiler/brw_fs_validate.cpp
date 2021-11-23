@@ -43,6 +43,15 @@ fs_visitor::validate()
 {
 #ifndef NDEBUG
    foreach_block_and_inst (block, fs_inst, inst, cfg) {
+      switch (inst->opcode) {
+      case SHADER_OPCODE_SEND:
+         fsv_assert(is_uniform(inst->src[0]) && is_uniform(inst->src[1]));
+         break;
+
+      default:
+         break;
+      }
+
       if (inst->dst.file == VGRF) {
          fsv_assert(inst->dst.offset / REG_SIZE + regs_written(inst) <=
                     alloc.sizes[inst->dst.nr]);
