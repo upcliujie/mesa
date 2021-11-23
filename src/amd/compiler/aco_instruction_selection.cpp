@@ -8484,6 +8484,9 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
          unsigned lane = nir_src_as_const_value(instr->src[1])->u32;
          uint32_t dpp_ctrl = dpp_quad_perm(lane, lane, lane, lane);
 
+         /* Vulkan spec 9.25: Helper invocations must be active for quad group instructions. */
+         ctx->program->needs_wqm |= ctx->program->stage == fragment_fs;
+
          if (instr->dest.ssa.bit_size != 1)
             src = as_vgpr(ctx, src);
 
@@ -8553,6 +8556,10 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
          emit_uniform_subgroup(ctx, instr, src);
          break;
       }
+
+      /* Vulkan spec 9.25: Helper invocations must be active for quad group instructions. */
+      ctx->program->needs_wqm |= ctx->program->stage == fragment_fs;
+
       uint16_t dpp_ctrl = 0;
       switch (instr->intrinsic) {
       case nir_intrinsic_quad_swap_horizontal: dpp_ctrl = dpp_quad_perm(1, 0, 3, 2); break;
