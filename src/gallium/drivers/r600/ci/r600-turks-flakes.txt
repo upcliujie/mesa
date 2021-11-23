@@ -1,0 +1,6 @@
+# Sometimes passes.
+KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-dispatches
+
+dEQP-GLES31.functional.compute.basic.ssbo_local_barrier_single_invocation
+dEQP-GLES31.functional.synchronization.inter_invocation.image_overwrite
+dEQP-GLES31.functional.synchronization.inter_invocation.image_read_write
