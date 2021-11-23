@@ -2611,8 +2611,10 @@ struct anv_push_constants {
    /* Robust access pushed registers. */
    uint64_t push_reg_mask[MESA_SHADER_STAGES];
 
+   uint32_t fs_msaa_flags;
+
    /** Pad out to a multiple of 32 bytes */
-   uint32_t pad[2];
+   uint32_t pad[1];
 
    /* Base addresses for descriptor sets */
    uint64_t desc_sets[MAX_SETS];
@@ -3359,6 +3361,8 @@ struct anv_graphics_pipeline {
    bool                                         kill_pixel;
    bool                                         depth_bounds_test_enable;
    bool                                         force_fragment_thread_dispatch;
+
+   uint32_t                                     fs_msaa_flags;
 
    /* When primitive replication is used, subpass->view_mask will describe what
     * views to replicate.

@@ -515,6 +515,13 @@ void anv_CmdBindPipeline(
          anv_dynamic_state_copy(&cmd_buffer->state.gfx.dynamic,
                                 &gfx_pipeline->dynamic_state,
                                 gfx_pipeline->dynamic_state_mask);
+
+      struct anv_push_constants *push =
+         &cmd_buffer->state.gfx.base.push_constants;
+      if (push->fs_msaa_flags != gfx_pipeline->fs_msaa_flags) {
+         push->fs_msaa_flags = gfx_pipeline->fs_msaa_flags;
+         cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_FRAGMENT_BIT;
+      }
       break;
    }
 

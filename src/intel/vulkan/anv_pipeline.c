@@ -551,12 +551,15 @@ populate_wm_prog_key(const struct anv_graphics_pipeline *pipeline,
    /* Vulkan doesn't support fixed-function alpha test */
    key->alpha_test_replicate_alpha = false;
 
-   if (ms_info) {
-      key->persample_interp =
-         is_sample_shading(ms_info) ? BRW_ALWAYS : BRW_NEVER;
-      key->multisample_fbo =
-         ms_info->rasterizationSamples > 1 ? BRW_ALWAYS : BRW_NEVER;
-   }
+//   if (ms_info) {
+//      key->persample_interp =
+//         is_sample_shading(ms_info) ? BRW_ALWAYS : BRW_NEVER;
+//      key->multisample_fbo =
+//         ms_info->rasterizationSamples > 1 ? BRW_ALWAYS : BRW_NEVER;
+//   }
+
+   key->persample_interp = BRW_SOMETIMES;
+   key->multisample_fbo = BRW_SOMETIMES;
 
    key->coarse_pixel =
       device->vk.enabled_extensions.KHR_fragment_shading_rate &&
