@@ -63,3 +63,6 @@ endif
 if with_vulkan_device_select_layer
   subdir('device-select-layer')
 endif
+if with_vulkan_trace_layer
+  subdir('trace-layer')
+endif

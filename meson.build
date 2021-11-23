@@ -69,6 +69,7 @@ with_osmesa = get_option('osmesa')
 with_swr_arches = get_option('swr-arches')
 with_vulkan_overlay_layer = get_option('vulkan-layers').contains('overlay')
 with_vulkan_device_select_layer = get_option('vulkan-layers').contains('device-select')
+with_vulkan_trace_layer = get_option('vulkan-layers').contains('trace')
 with_tools = get_option('tools')
 if with_tools.contains('all')
   with_tools = [
@@ -2152,6 +2153,10 @@ with_any_datasource = with_datasources.length() != 0
 if with_perfetto
   dep_perfetto = dependency('perfetto', fallback: ['perfetto', 'dep_perfetto'])
   pre_args += '-DHAVE_PERFETTO'
+endif
+
+if with_vulkan_trace_layer and not with_perfetto
+  error('Vulkan trace layer requires Perfetto')
 endif
 
 # If the compiler supports it, put function and data symbols in their
