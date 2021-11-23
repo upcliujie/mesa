@@ -3109,6 +3109,7 @@ typedef struct {
    nir_cf_node cf_node;
 
    struct exec_list body; /** < list of nir_cf_node */
+   struct exec_list continue_list;
 
    nir_loop_info *info;
    nir_loop_control control;
@@ -3334,6 +3335,24 @@ static inline nir_block *
 nir_loop_last_block(nir_loop *loop)
 {
    struct exec_node *tail = exec_list_get_tail(&loop->body);
+   return nir_cf_node_as_block(exec_node_data(nir_cf_node, tail, node));
+}
+
+static inline nir_block *
+nir_loop_first_continue_block(nir_loop *loop)
+{
+   struct exec_node *head = exec_list_get_head(&loop->continue_list);
+   if (!head)
+      return NULL;
+   return nir_cf_node_as_block(exec_node_data(nir_cf_node, head, node));
+}
+
+static inline nir_block *
+nir_loop_last_continue_block(nir_loop *loop)
+{
+   struct exec_node *tail = exec_list_get_tail(&loop->continue_list);
+   if (!tail)
+      return NULL;
    return nir_cf_node_as_block(exec_node_data(nir_cf_node, tail, node));
 }
 
@@ -5479,6 +5498,7 @@ bool nir_lower_discard_or_demote(nir_shader *shader,
 bool nir_lower_memory_model(nir_shader *shader);
 
 bool nir_lower_goto_ifs(nir_shader *shader);
+bool nir_lower_continue_blocks(nir_shader *shader);
 
 bool nir_shader_uses_view_index(nir_shader *shader);
 bool nir_can_lower_multiview(nir_shader *shader);

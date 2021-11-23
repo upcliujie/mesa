@@ -1486,6 +1486,11 @@ print_loop(nir_loop *loop, print_state *state, unsigned tabs)
       print_cf_node(node, state, tabs + 1);
    }
    print_tabs(tabs, fp);
+   fprintf(fp, "loop continue:\n");
+   foreach_list_typed(nir_cf_node, node, node, &loop->continue_list) {
+      print_cf_node(node, state, tabs + 1);
+   }
+   print_tabs(tabs, fp);
    fprintf(fp, "}\n");
 }
 

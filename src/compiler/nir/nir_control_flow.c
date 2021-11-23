@@ -481,8 +481,10 @@ nir_handle_add_jump(nir_block *block)
 
    case nir_jump_continue: {
       nir_loop *loop = nearest_loop(&block->cf_node);
-      nir_block *first_block = nir_loop_first_block(loop);
-      link_blocks(block, first_block, NULL);
+      nir_block *cont_block = nir_loop_first_continue_block(loop);
+      if (!cont_block)
+         cont_block = nir_loop_first_block(loop);
+      link_blocks(block, cont_block, NULL);
       break;
    }
 

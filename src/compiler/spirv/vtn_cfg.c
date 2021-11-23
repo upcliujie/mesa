@@ -1142,34 +1142,42 @@ vtn_emit_cf_list_structured(struct vtn_builder *b, struct list_head *cf_list,
       case vtn_cf_node_type_loop: {
          struct vtn_loop *vtn_loop = vtn_cf_node_as_loop(node);
 
-         nir_loop *loop = nir_push_loop(&b->nb);
-         loop->control = vtn_loop_control(b, vtn_loop);
 
+         // TODO: create helper function: nir_push_loop_with_continue_block()
+         nir_loop *loop = rzalloc(b->shader, nir_loop);
+         exec_node_init(&loop->cf_node.node);
+         loop->cf_node.parent = NULL;
+         loop->cf_node.type = nir_cf_node_loop;
+         loop->divergent = true;
+
+         nir_block *body = nir_block_create(b->shader);
+         exec_list_make_empty(&loop->body);
+         exec_list_push_tail(&loop->body, &body->cf_node.node);
+         body->cf_node.parent = &loop->cf_node;
+
+         nir_block *cont = nir_block_create(b->shader);
+         exec_list_make_empty(&loop->continue_list);
+         exec_list_push_tail(&loop->continue_list, &cont->cf_node.node);
+         cont->cf_node.parent = &loop->cf_node;
+
+         // seems unnecessary: in SPIR-V the loop back-edges are explicit
+         body->successors[0] = cont;
+         _mesa_set_add(cont->predecessors, body);
+
+         loop->control = vtn_loop_control(b, vtn_loop);
+         nir_builder_cf_insert(&b->nb, &loop->cf_node);
+
+         // emit body
+         b->nb.cursor = nir_before_cf_list(&loop->body);
          vtn_emit_cf_list_structured(b, &vtn_loop->body, NULL, NULL, handler);
 
-         if (!list_is_empty(&vtn_loop->cont_body)) {
-            /* If we have a non-trivial continue body then we need to put
-             * it at the beginning of the loop with a flag to ensure that
-             * it doesn't get executed in the first iteration.
-             */
-            nir_variable *do_cont =
-               nir_local_variable_create(b->nb.impl, glsl_bool_type(), "cont");
+         // add back-edge from continue-list
+         cont->successors[0] = body;
+         _mesa_set_add(body->predecessors, cont);
 
-            b->nb.cursor = nir_before_cf_node(&loop->cf_node);
-            nir_store_var(&b->nb, do_cont, nir_imm_false(&b->nb), 1);
-
-            b->nb.cursor = nir_before_cf_list(&loop->body);
-
-            nir_if *cont_if =
-               nir_push_if(&b->nb, nir_load_var(&b->nb, do_cont));
-
-            vtn_emit_cf_list_structured(b, &vtn_loop->cont_body, NULL, NULL,
-                                        handler);
-
-            nir_pop_if(&b->nb, cont_if);
-
-            nir_store_var(&b->nb, do_cont, nir_imm_true(&b->nb), 1);
-         }
+         // emit continue target
+         b->nb.cursor = nir_before_cf_list(&loop->continue_list);
+         vtn_emit_cf_list_structured(b, &vtn_loop->cont_body, NULL, NULL, handler);
 
          nir_pop_loop(&b->nb, loop);
          break;

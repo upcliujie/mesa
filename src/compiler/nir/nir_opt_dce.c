@@ -182,6 +182,7 @@ dce_cf_list(struct exec_list *cf_list, BITSET_WORD *defs_live,
             /* dce_cf_list() resets inner_state.header_phis_changed itself, so
              * it doesn't have to be done here.
              */
+            dce_cf_list(&loop->continue_list, defs_live, &inner_state);
             dce_cf_list(&loop->body, defs_live, &inner_state);
          } while (inner_state.header_phis_changed);
 

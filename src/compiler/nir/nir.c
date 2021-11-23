@@ -564,6 +564,7 @@ nir_loop_create(nir_shader *shader)
    body->successors[0] = body;
    _mesa_set_add(body->predecessors, body);
 
+   exec_list_make_empty(&loop->continue_list);
    return loop;
 }
 
@@ -1823,11 +1824,17 @@ nir_block_cf_tree_next(nir_block *block)
          return nir_if_first_else_block(if_stmt);
 
       assert(block == nir_if_last_else_block(if_stmt));
-   }
-   FALLTHROUGH;
-
-   case nir_cf_node_loop:
       return nir_cf_node_as_block(nir_cf_node_next(parent));
+   }
+
+   case nir_cf_node_loop: {
+      nir_loop *loop = nir_cf_node_as_loop(parent);
+      if (block == nir_loop_last_block(loop) &&
+          nir_loop_first_continue_block(loop))
+         return nir_loop_first_continue_block(loop);
+
+      return nir_cf_node_as_block(nir_cf_node_next(parent));
+   }
 
    case nir_cf_node_function:
       return NULL;

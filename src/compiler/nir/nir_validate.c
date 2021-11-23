@@ -1018,7 +1018,12 @@ validate_jump_instr(nir_jump_instr *instr, validate_state *state)
       validate_assert(state, state->impl->structured);
       validate_assert(state, state->loop != NULL);
       if (state->loop) {
-         nir_block *first = nir_loop_first_block(state->loop);
+         nir_block *first;
+         if (nir_loop_first_continue_block(state->loop)) {
+            first = nir_loop_first_continue_block(state->loop);
+         } else {
+            first = nir_loop_first_block(state->loop);
+         }
          validate_assert(state, block->successors[0] == first);
       }
       validate_assert(state, block->successors[1] == NULL);
@@ -1170,6 +1175,7 @@ collect_blocks(struct exec_list *cf_list, validate_state *state)
 
       case nir_cf_node_loop:
          collect_blocks(&nir_cf_node_as_loop(node)->body, state);
+         collect_blocks(&nir_cf_node_as_loop(node)->continue_list, state);
          break;
 
       default:
@@ -1239,7 +1245,8 @@ validate_block(nir_block *block, validate_state *state)
          switch (state->parent_node->type) {
          case nir_cf_node_loop: {
             nir_block *first = nir_loop_first_block(state->loop);
-            validate_assert(state, block->successors[0] == first);
+            if (!nir_loop_first_continue_block(state->loop))
+               validate_assert(state, block->successors[0] == first);
             /* due to the hack for infinite loops, block->successors[1] may
              * point to the block after the loop.
              */
@@ -1354,7 +1361,9 @@ validate_loop(nir_loop *loop, validate_state *state)
    foreach_list_typed(nir_cf_node, cf_node, node, &loop->body) {
       validate_cf_node(cf_node, state);
    }
-
+   foreach_list_typed(nir_cf_node, cf_node, node, &loop->continue_list) {
+      validate_cf_node(cf_node, state);
+   }
    state->parent_node = old_parent;
    state->loop = old_loop;
 }
