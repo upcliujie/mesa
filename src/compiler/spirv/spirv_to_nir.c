@@ -1510,9 +1510,19 @@ vtn_handle_type(struct vtn_builder *b, SpvOp opcode,
       NIR_VLA(struct glsl_struct_field, fields, count);
       for (unsigned i = 0; i < num_fields; i++) {
          val->type->members[i] = vtn_get_type(b, w[i + 2]);
+         const char *name = NULL;
+         struct vtn_member_name *sname = val->members;
+         while (sname && !name) {
+            if (sname->num == i)
+               name = sname->name;
+            sname = sname->next;
+         }
+         if (!name)
+            name = ralloc_asprintf(b, "field%d", i);
+
          fields[i] = (struct glsl_struct_field) {
             .type = val->type->members[i]->type,
-            .name = ralloc_asprintf(b, "field%d", i),
+            .name = name,
             .location = -1,
             .offset = -1,
          };
@@ -4836,9 +4846,15 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
       b->values[w[1]].name = vtn_string_literal(b, &w[2], count - 2, NULL);
       break;
 
-   case SpvOpMemberName:
-      /* TODO */
+   case SpvOpMemberName: {
+      struct vtn_member_name *name = ralloc(b, struct vtn_member_name);
+      assert(count >= 4);
+      name->name = vtn_string_literal(b, &w[3], count - 3, NULL);
+      name->num = w[2];
+      name->next = b->values[w[1]].members;
+      b->values[w[1]].members = name;
       break;
+   }
 
    case SpvOpExecutionMode:
    case SpvOpExecutionModeId:

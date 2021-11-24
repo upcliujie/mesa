@@ -593,6 +593,12 @@ struct vtn_image_pointer {
    nir_ssa_def *lod;
 };
 
+struct vtn_member_name {
+   struct vtn_member_name *next;
+   const char *name;
+   unsigned num;
+};
+
 struct vtn_value {
    enum vtn_value_type value_type;
 
@@ -610,6 +616,7 @@ struct vtn_value {
    const char *name;
    struct vtn_decoration *decoration;
    struct vtn_type *type;
+   struct vtn_member_name *members;
    union {
       const char *str;
       nir_constant *constant;
