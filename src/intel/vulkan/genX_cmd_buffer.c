@@ -2394,6 +2394,9 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
    VkAccessFlags2KHR src_flags = 0;
    VkAccessFlags2KHR dst_flags = 0;
 
+   if (cmd_buffer->pool->queue_family->engine_class == I915_ENGINE_CLASS_VIDEO)
+      return;
+
    for (uint32_t i = 0; i < dep_info->memoryBarrierCount; i++) {
       src_flags |= dep_info->pMemoryBarriers[i].srcAccessMask;
       dst_flags |= dep_info->pMemoryBarriers[i].dstAccessMask;
