@@ -26,7 +26,7 @@
 static VkResult
 vk_sync_dummy_init(struct vk_device *device,
                    struct vk_sync *sync,
-                   uint64_t initial_value)
+                   const struct vk_sync_init_info *info)
 {
    return VK_SUCCESS;
 }

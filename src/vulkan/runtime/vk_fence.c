@@ -108,9 +108,13 @@ vk_fence_create(struct vk_device *device,
    VkExternalFenceHandleTypeFlags handle_types =
       export ? export->handleTypes : 0;
 
-   const struct vk_sync_type *sync_type =
-      get_fence_sync_type(device->physical, handle_types);
-   if (sync_type == NULL) {
+   struct vk_sync_init_info info = {
+      .type = get_fence_sync_type(device->physical, handle_types),
+      .flags = 0,
+      .initial_value = (pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT) ? 1 : 0,
+   };
+
+   if (info.type == NULL) {
       /* We should always be able to get a fence type for internal */
       assert(get_fence_sync_type(device->physical, 0) != NULL);
       return vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
@@ -122,18 +126,15 @@ vk_fence_create(struct vk_device *device,
     * field of vk_fence is the base field of the vk_sync implementation, we
     * can make the 2 structures overlap.
     */
-   size_t size = offsetof(struct vk_fence, permanent) + sync_type->size;
+   size_t size = offsetof(struct vk_fence, permanent) + info.type->size;
    fence = vk_object_zalloc(device, pAllocator, size, VK_OBJECT_TYPE_FENCE);
    if (fence == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   enum vk_sync_flags sync_flags = 0;
    if (handle_types)
-      sync_flags |= VK_SYNC_IS_SHAREABLE;
+      info.flags |= VK_SYNC_IS_SHAREABLE;
 
-   bool signaled = pCreateInfo->flags & VK_FENCE_CREATE_SIGNALED_BIT;
-   VkResult result = vk_sync_init(device, &fence->permanent,
-                                  sync_type, sync_flags, signaled);
+   VkResult result = vk_sync_init(device, &fence->permanent, &info);
    if (result != VK_SUCCESS) {
       vk_object_free(device, pAllocator, fence);
       return result;
@@ -359,11 +360,13 @@ vk_common_ImportFenceFdKHR(VkDevice _device,
 
    struct vk_sync *temporary = NULL, *sync;
    if (pImportFenceFdInfo->flags & VK_FENCE_IMPORT_TEMPORARY_BIT) {
-      const struct vk_sync_type *sync_type =
-         get_fence_sync_type(device->physical, handle_type);
+      struct vk_sync_init_info info = {
+         .type = get_fence_sync_type(device->physical, handle_type),
+         .flags = 0,
+         .initial_value = 0,
+      };
 
-      VkResult result = vk_sync_create(device, sync_type, 0 /* flags */,
-                                       0 /* initial_value */, &temporary);
+      VkResult result = vk_sync_create(device, &info, &temporary);
       if (result != VK_SUCCESS)
          return result;
 

@@ -55,7 +55,7 @@ vk_sync_timeline_type_validate(const struct vk_sync_timeline_type *ttype)
 VkResult
 vk_sync_timeline_init(struct vk_device *device,
                       struct vk_sync *sync,
-                      uint64_t initial_value)
+                      const struct vk_sync_init_info *info)
 {
    struct vk_sync_timeline *timeline = to_vk_sync_timeline(sync);
    int ret;
@@ -75,7 +75,7 @@ vk_sync_timeline_init(struct vk_device *device,
    }
 
    timeline->highest_past =
-      timeline->highest_pending = initial_value;
+      timeline->highest_pending = info->initial_value;
    list_inithead(&timeline->pending_points);
    list_inithead(&timeline->free_points);
 
@@ -151,8 +151,13 @@ vk_sync_timeline_alloc_point_locked(struct vk_device *device,
 
       point->timeline = timeline;
 
-      result = vk_sync_init(device, &point->sync, point_sync_type,
-                            0 /* flags */, 0 /* initial_value */);
+      struct vk_sync_init_info info = {
+         .type = point_sync_type,
+         .flags = 0,
+         .initial_value = 0,
+      };
+
+      result = vk_sync_init(device, &point->sync, &info);
       if (unlikely(result != VK_SUCCESS)) {
          vk_free(&device->alloc, point);
          return result;

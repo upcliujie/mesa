@@ -55,7 +55,7 @@ struct vk_sync_binary {
 
 VkResult vk_sync_binary_init(struct vk_device *device,
                              struct vk_sync *sync,
-                             uint64_t initial_value);
+                             const struct vk_sync_init_info *info);
 
 static inline bool
 vk_sync_type_is_vk_sync_binary(const struct vk_sync_type *type)

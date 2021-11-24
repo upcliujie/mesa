@@ -1623,9 +1623,9 @@ wsi_display_fence_alloc(struct wsi_display *wsi, int sync_fd)
 static VkResult
 wsi_display_sync_init(struct vk_device *device,
                       struct vk_sync *sync,
-                      uint64_t initial_value)
+                      const struct vk_sync_init_info *info)
 {
-   assert(initial_value == 0);
+   assert(info->initial_value == 0);
    return VK_SUCCESS;
 }
 
@@ -1669,9 +1669,13 @@ wsi_display_sync_create(struct vk_device *device,
                         struct wsi_display_fence *fence,
                         struct vk_sync **sync_out)
 {
-   VkResult result = vk_sync_create(device, &wsi_display_sync_type,
-                                    0 /* flags */,
-                                    0 /* initial_value */, sync_out);
+   struct vk_sync_init_info info = {
+      .type = &wsi_display_sync_type,
+      .flags = 0,
+      .initial_value = 0,
+   };
+
+   VkResult result = vk_sync_create(device, &info, sync_out);
    if (result != VK_SUCCESS)
       return result;
 

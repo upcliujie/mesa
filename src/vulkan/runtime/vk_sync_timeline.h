@@ -90,7 +90,7 @@ struct vk_sync_timeline {
 
 VkResult vk_sync_timeline_init(struct vk_device *device,
                                struct vk_sync *sync,
-                               uint64_t initial_value);
+                               const struct vk_sync_init_info *info);
 
 VkResult vk_sync_timeline_alloc_point(struct vk_device *device,
                                       struct vk_sync_timeline *timeline,

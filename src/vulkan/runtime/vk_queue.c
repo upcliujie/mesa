@@ -730,10 +730,13 @@ vk_queue_submit(struct vk_queue *queue,
                if (unlikely(result != VK_SUCCESS))
                   goto fail;
 
-               result = vk_sync_create(queue->base.device,
-                                       semaphore->permanent.type,
-                                       0 /* flags */,
-                                       0 /* initial value */,
+               struct vk_sync_init_info info = {
+                  .type = semaphore->permanent.type,
+                  .flags = 0,
+                  .initial_value = 0,
+               };
+
+               result = vk_sync_create(queue->base.device, &info,
                                        &submit->_wait_temps[i]);
                if (unlikely(result != VK_SUCCESS))
                   goto fail;
@@ -986,11 +989,14 @@ vk_common_QueueWaitIdle(VkQueue _queue)
    if (vk_device_is_lost(queue->base.device))
       return VK_ERROR_DEVICE_LOST;
 
-   const struct vk_sync_type *sync_type =
-      get_cpu_wait_type(queue->base.device->physical);
+   struct vk_sync_init_info info = {
+      .type = get_cpu_wait_type(queue->base.device->physical),
+      .flags = 0,
+      .initial_value = 0,
+   };
 
    struct vk_sync *sync;
-   result = vk_sync_create(queue->base.device, sync_type, 0, 0, &sync);
+   result = vk_sync_create(queue->base.device, &info, &sync);
    if (unlikely(result != VK_SUCCESS))
       return result;
 

@@ -36,7 +36,7 @@ to_vk_sync_binary(struct vk_sync *sync)
 VkResult
 vk_sync_binary_init(struct vk_device *device,
                     struct vk_sync *sync,
-                    uint64_t initial_value)
+                    const struct vk_sync_init_info *info)
 {
    struct vk_sync_binary *binary = to_vk_sync_binary(sync);
 
@@ -46,10 +46,15 @@ vk_sync_binary_init(struct vk_device *device,
    assert(!(sync->flags & VK_SYNC_IS_TIMELINE));
    assert(!(sync->flags & VK_SYNC_IS_SHAREABLE));
 
-   binary->next_point = (initial_value == 0);
+   binary->next_point = (info->initial_value == 0);
 
-   return vk_sync_init(device, &binary->timeline, btype->timeline_type,
-                       VK_SYNC_IS_TIMELINE, 0 /* initial_value */);
+   struct vk_sync_init_info tl_info = {
+      .type = btype->timeline_type,
+      .flags = VK_SYNC_IS_TIMELINE,
+      .initial_value = 0,
+   };
+
+   return vk_sync_init(device, &binary->timeline, &tl_info);
 }
 
 static void

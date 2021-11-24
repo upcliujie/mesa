@@ -140,9 +140,13 @@ vk_common_CreateSemaphore(VkDevice _device,
    VkExternalSemaphoreHandleTypeFlags handle_types =
       export ? export->handleTypes : 0;
 
-   const struct vk_sync_type *sync_type =
-      get_semaphore_sync_type(device->physical, semaphore_type, handle_types);
-   if (sync_type == NULL) {
+   struct vk_sync_init_info info = {
+      .type = get_semaphore_sync_type(device->physical, semaphore_type, handle_types),
+      .flags = 0,
+      .initial_value = initial_value,
+   };
+
+   if (info.type == NULL) {
       /* We should always be able to get a semaphore type for internal */
       assert(get_semaphore_sync_type(device->physical, semaphore_type, 0) != NULL);
       return vk_errorf(device, VK_ERROR_INVALID_EXTERNAL_HANDLE,
@@ -157,13 +161,13 @@ vk_common_CreateSemaphore(VkDevice _device,
     */
    if (semaphore_type == VK_SEMAPHORE_TYPE_BINARY &&
        device->timeline_mode == VK_DEVICE_TIMELINE_MODE_ASSISTED)
-      assert(sync_type->move);
+      assert(info.type->move);
 
    /* Allocate a vk_semaphore + vk_sync implementation. Because the permanent
     * field of vk_semaphore is the base field of the vk_sync implementation,
     * we can make the 2 structures overlap.
     */
-   size_t size = offsetof(struct vk_semaphore, permanent) + sync_type->size;
+   size_t size = offsetof(struct vk_semaphore, permanent) + info.type->size;
    semaphore = vk_object_zalloc(device, pAllocator, size,
                                 VK_OBJECT_TYPE_SEMAPHORE);
    if (semaphore == NULL)
@@ -171,14 +175,12 @@ vk_common_CreateSemaphore(VkDevice _device,
 
    semaphore->type = semaphore_type;
 
-   enum vk_sync_flags sync_flags = 0;
    if (semaphore_type == VK_SEMAPHORE_TYPE_TIMELINE)
-      sync_flags |= VK_SYNC_IS_TIMELINE;
+      info.flags |= VK_SYNC_IS_TIMELINE;
    if (handle_types)
-      sync_flags |= VK_SYNC_IS_SHAREABLE;
+      info.flags |= VK_SYNC_IS_SHAREABLE;
 
-   VkResult result = vk_sync_init(device, &semaphore->permanent,
-                                  sync_type, sync_flags, initial_value);
+   VkResult result = vk_sync_init(device, &semaphore->permanent, &info);
    if (result != VK_SUCCESS) {
       vk_object_free(device, pAllocator, semaphore);
       return result;
@@ -413,11 +415,15 @@ vk_common_ImportSemaphoreFdKHR(VkDevice _device,
                           "semaphore");
       }
 
-      const struct vk_sync_type *sync_type =
-         get_semaphore_sync_type(device->physical, semaphore->type, handle_type);
+      struct vk_sync_init_info info = {
+         .type = get_semaphore_sync_type(device->physical,
+                                         semaphore->type,
+                                         handle_type),
+         .flags = 0,
+         .initial_value = 0,
+      };
 
-      VkResult result = vk_sync_create(device, sync_type, 0 /* flags */,
-                                       0 /* initial_value */, &temporary);
+      VkResult result = vk_sync_create(device, &info, &temporary);
       if (result != VK_SUCCESS)
          return result;
 

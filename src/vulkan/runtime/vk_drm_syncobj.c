@@ -41,9 +41,10 @@ to_drm_syncobj(struct vk_sync *sync)
 static VkResult
 vk_drm_syncobj_init(struct vk_device *device,
                     struct vk_sync *sync,
-                    uint64_t initial_value)
+                    const struct vk_sync_init_info *info)
 {
    struct vk_drm_syncobj *sobj = to_drm_syncobj(sync);
+   uint64_t initial_value = info->initial_value;
 
    uint32_t flags = 0;
    if (!(sync->flags & VK_SYNC_IS_TIMELINE) && initial_value)

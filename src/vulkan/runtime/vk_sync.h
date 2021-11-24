@@ -152,6 +152,8 @@ enum vk_sync_wait_flags {
    VK_SYNC_WAIT_ANY        = (1 << 1),
 };
 
+struct vk_sync_init_info;
+
 struct vk_sync_type {
    /** Size of this sync type */
    size_t size;
@@ -167,7 +169,7 @@ struct vk_sync_type {
     */
    VkResult (*init)(struct vk_device *device,
                     struct vk_sync *sync,
-                    uint64_t initial_value);
+                    const struct vk_sync_init_info *info);
 
    /** Finish a vk_sync
     *
@@ -285,6 +287,12 @@ enum vk_sync_flags {
    VK_SYNC_IS_SHARED    = (1 << 2),
 };
 
+struct vk_sync_init_info {
+   const struct vk_sync_type *type;
+   enum vk_sync_flags flags;
+   uint64_t initial_value;
+};
+
 struct vk_sync {
    const struct vk_sync_type *type;
    enum vk_sync_flags flags;
@@ -306,17 +314,13 @@ struct vk_sync_signal {
 
 VkResult MUST_CHECK vk_sync_init(struct vk_device *device,
                                  struct vk_sync *sync,
-                                 const struct vk_sync_type *type,
-                                 enum vk_sync_flags flags,
-                                 uint64_t initial_value);
+                                 const struct vk_sync_init_info *info);
 
 void vk_sync_finish(struct vk_device *device,
                     struct vk_sync *sync);
 
 VkResult MUST_CHECK vk_sync_create(struct vk_device *device,
-                                   const struct vk_sync_type *type,
-                                   enum vk_sync_flags flags,
-                                   uint64_t initial_value,
+                                   const struct vk_sync_init_info *info,
                                    struct vk_sync **sync_out);
 
 void vk_sync_destroy(struct vk_device *device,

@@ -35,13 +35,14 @@ to_anv_bo_sync(struct vk_sync *sync)
 static VkResult
 anv_bo_sync_init(struct vk_device *vk_device,
                  struct vk_sync *vk_sync,
-                 uint64_t initial_value)
+                 const struct vk_sync_init_info *info)
 {
    struct anv_device *device = container_of(vk_device, struct anv_device, vk);
    struct anv_bo_sync *sync = to_anv_bo_sync(vk_sync);
 
-   sync->state = initial_value ? ANV_BO_SYNC_STATE_SIGNALED :
-                                 ANV_BO_SYNC_STATE_RESET;
+   sync->state = info->initial_value ?
+                 ANV_BO_SYNC_STATE_SIGNALED :
+                 ANV_BO_SYNC_STATE_RESET;
 
    return anv_device_alloc_bo(device, "bo-sync", 4096,
                               ANV_BO_ALLOC_EXTERNAL |

@@ -80,23 +80,21 @@ vk_sync_type_validate(const struct vk_sync_type *type)
 VkResult
 vk_sync_init(struct vk_device *device,
              struct vk_sync *sync,
-             const struct vk_sync_type *type,
-             enum vk_sync_flags flags,
-             uint64_t initial_value)
+             const struct vk_sync_init_info *info)
 {
-   vk_sync_type_validate(type);
+   vk_sync_type_validate(info->type);
 
-   if (flags & VK_SYNC_IS_TIMELINE)
-      assert(type->features & VK_SYNC_FEATURE_TIMELINE);
+   if (info->flags & VK_SYNC_IS_TIMELINE)
+      assert(info->type->features & VK_SYNC_FEATURE_TIMELINE);
    else
-      assert(type->features & VK_SYNC_FEATURE_BINARY);
+      assert(info->type->features & VK_SYNC_FEATURE_BINARY);
 
-   assert(type->size >= sizeof(*sync));
-   memset(sync, 0, type->size);
-   sync->type = type;
-   sync->flags = flags;
+   assert(info->type->size >= sizeof(*sync));
+   memset(sync, 0, info->type->size);
+   sync->type = info->type;
+   sync->flags = info->flags;
 
-   return type->init(device, sync, initial_value);
+   return info->type->init(device, sync, info);
 }
 
 void
@@ -108,19 +106,17 @@ vk_sync_finish(struct vk_device *device,
 
 VkResult
 vk_sync_create(struct vk_device *device,
-               const struct vk_sync_type *type,
-               enum vk_sync_flags flags,
-               uint64_t initial_value,
+               const struct vk_sync_init_info *info,
                struct vk_sync **sync_out)
 {
    struct vk_sync *sync;
 
-   sync = vk_alloc(&device->alloc, type->size, 8,
+   sync = vk_alloc(&device->alloc, info->type->size, 8,
                    VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
    if (sync == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   VkResult result = vk_sync_init(device, sync, type, flags, initial_value);
+   VkResult result = vk_sync_init(device, sync, info);
    if (result != VK_SUCCESS) {
       vk_free(&device->alloc, sync);
       return result;
