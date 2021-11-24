@@ -58,6 +58,11 @@ vk_sync_type_validate(const struct vk_sync_type *type)
                                  VK_SYNC_FEATURE_CPU_RESET)));
       assert(!type->import_sync_file);
       assert(!type->export_sync_file);
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+      assert(!type->import_win32_handle);
+      assert(!type->export_win32_handle);
+#endif
    }
 
    if (type->features & VK_SYNC_FEATURE_CPU_WAIT) {
@@ -396,3 +401,41 @@ vk_sync_export_sync_file(struct vk_device *device,
    assert(!(sync->flags & VK_SYNC_IS_TIMELINE));
    return sync->type->export_sync_file(device, sync, sync_file);
 }
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+VkResult
+vk_sync_import_win32_handle(struct vk_device *device,
+                            struct vk_sync *sync,
+                            HANDLE handle,
+                            LPCWSTR name)
+{
+   assert(!(sync->flags & VK_SYNC_IS_TIMELINE));
+   return sync->type->import_win32_handle(device, sync, handle, name);
+}
+
+VkResult
+vk_sync_export_win32_handle(struct vk_device *device,
+                            struct vk_sync *sync,
+                            HANDLE *handle)
+{
+   assert(!(sync->flags & VK_SYNC_IS_TIMELINE));
+   return sync->type->export_win32_handle(device, sync, handle);
+}
+
+VkResult
+vk_sync_import_d3d12_handle(struct vk_device *device,
+                            struct vk_sync *sync,
+                            HANDLE handle,
+                            LPCWSTR name)
+{
+   return sync->type->import_d3d12_handle(device, sync, handle, name);
+}
+
+VkResult
+vk_sync_export_d3d12_handle(struct vk_device *device,
+                            struct vk_sync *sync,
+                            HANDLE *handle)
+{
+   return sync->type->export_d3d12_handle(device, sync, handle);
+}
+#endif

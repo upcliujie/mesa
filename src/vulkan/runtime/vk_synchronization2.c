@@ -320,6 +320,24 @@ vk_common_QueueSubmit(
          timeline_info && timeline_info->signalSemaphoreValueCount ?
          timeline_info->pSignalSemaphoreValues : NULL;
 
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+      const VkD3D12FenceSubmitInfoKHR *d3d12_fence_info =
+         vk_find_struct_const(pSubmits[s].pNext, D3D12_FENCE_SUBMIT_INFO_KHR);
+
+      /* VkD3D12FenceSubmitInfoKHR and VkTimelineSemaphoreSubmitInfoKHR provide
+       * the same information, the latter is just the generic way of passing
+       * timeline points. I don't think the spect mentions what should happen
+       * when both are defined, so let's just use ignore the d3d12-specific
+       * definition in that case.
+       */
+      if (d3d12_fence_info && !timeline_info) {
+         assert(d3d12_fence_info->waitSemaphoreValuesCount == pSubmits[s].waitSemaphoreCount);
+         assert(d3d12_fence_info->signalSemaphoreValuesCount == pSubmits[s].signalSemaphoreCount);
+         wait_values = d3d12_fence_info->pWaitSemaphoreValues;
+         signal_values = d3d12_fence_info->pSignalSemaphoreValues;
+      }
+#endif
+
       const VkDeviceGroupSubmitInfo *group_info =
          vk_find_struct_const(pSubmits[s].pNext, DEVICE_GROUP_SUBMIT_INFO);
 

@@ -46,6 +46,12 @@ vk_sync_fence_import_types(const struct vk_sync_type *type)
    if (type->import_sync_file)
       handle_types |= VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
 
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   if (type->import_win32_handle)
+      handle_types |= VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#endif
+
    return handle_types;
 }
 
@@ -59,6 +65,11 @@ vk_sync_fence_export_types(const struct vk_sync_type *type)
 
    if (type->export_sync_file)
       handle_types |= VK_EXTERNAL_FENCE_HANDLE_TYPE_SYNC_FD_BIT;
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   if (type->export_win32_handle)
+      handle_types |= VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#endif
 
    return handle_types;
 }
@@ -133,6 +144,25 @@ vk_fence_create(struct vk_device *device,
 
    if (handle_types)
       info.flags |= VK_SYNC_IS_SHAREABLE;
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   if (handle_types & VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT) {
+      const VkExportFenceWin32HandleInfoKHR *win32_export =
+         vk_find_struct_const(export->pNext, EXPORT_FENCE_WIN32_HANDLE_INFO_KHR);
+      DWORD req_access = EVENT_MODIFY_STATE | SYNCHRONIZE;
+
+      info.win32.access = req_access;
+
+      if (win32_export) {
+         info.win32.sec_attrs = win32_export->pAttributes;
+         info.win32.access = win32_export->dwAccess;
+         info.win32.name = win32_export->name;
+      }
+
+      if ((info.win32.access & req_access) != req_access)
+         return vk_error(device, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+   }
+#endif
 
    VkResult result = vk_sync_init(device, &fence->permanent, &info);
    if (result != VK_SUCCESS) {
@@ -475,6 +505,104 @@ vk_common_GetFenceFdKHR(VkDevice _device,
    default:
       unreachable("Invalid fence export handle type");
    }
+
+   /* From the Vulkan 1.2.194 spec:
+    *
+    *    "Export operations have the same transference as the specified
+    *    handle type’s import operations. [...]  If the fence was using a
+    *    temporarily imported payload, the fence’s prior permanent payload
+    *    will be restored.
+    */
+   vk_fence_reset_temporary(device, fence);
+
+   return VK_SUCCESS;
+}
+
+#elif defined(VK_USE_PLATFORM_WIN32_KHR)
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vk_common_ImportFenceWin32HandleKHR(VkDevice _device,
+                                    const VkImportFenceWin32HandleInfoKHR *info)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   VK_FROM_HANDLE(vk_fence, fence, info->fence);
+
+   assert(info->sType == VK_STRUCTURE_TYPE_IMPORT_FENCE_WIN32_HANDLE_INFO_KHR);
+
+   HANDLE handle = info->handle;
+   LPCWSTR name = info->name;
+   const VkExternalFenceHandleTypeFlagBits handle_type = info->handleType;
+
+   struct vk_sync *temporary = NULL, *sync;
+   if (info->flags & VK_FENCE_IMPORT_TEMPORARY_BIT) {
+      const struct vk_sync_init_info info = {
+         .type = get_fence_sync_type(device->physical, handle_type),
+         .flags = 0,
+         .initial_value = 0,
+      };
+
+      VkResult result = vk_sync_create(device, &info, &temporary);
+      if (result != VK_SUCCESS)
+         return result;
+
+      sync = temporary;
+   } else {
+      sync = &fence->permanent;
+   }
+   assert(handle_type & vk_sync_fence_handle_types(sync->type));
+
+   VkResult result;
+   switch (info->handleType) {
+   case VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT:
+      result = vk_sync_import_win32_handle(device, sync, handle, name);
+      break;
+
+   case VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT:
+      /* Global share handles not supported. */
+   default:
+      result = vk_error(fence, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+   }
+
+   if (result != VK_SUCCESS) {
+      if (temporary != NULL)
+         vk_sync_destroy(device, temporary);
+      return result;
+   }
+
+   if (temporary) {
+      vk_fence_reset_temporary(device, fence);
+      fence->temporary = temporary;
+   }
+
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vk_common_GetFenceWin32HandleKHR(VkDevice _device,
+                                 const VkFenceGetWin32HandleInfoKHR *info,
+                                 HANDLE *pHandle)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   VK_FROM_HANDLE(vk_fence, fence, info->fence);
+
+   assert(info->sType == VK_STRUCTURE_TYPE_FENCE_GET_WIN32_HANDLE_INFO_KHR);
+
+   struct vk_sync *sync = vk_fence_get_active_sync(fence);
+
+   VkResult result;
+   switch (info->handleType) {
+   case VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_BIT:
+      result = vk_sync_export_win32_handle(device, sync, pHandle);
+      break;
+
+   case VK_EXTERNAL_FENCE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT:
+      /* We don't support Global Share handles. */
+   default:
+      unreachable("Invalid fence export handle type");
+   }
+
+   if (unlikely(result != VK_SUCCESS))
+      return result;
 
    /* From the Vulkan 1.2.194 spec:
     *

@@ -47,6 +47,14 @@ vk_sync_semaphore_import_types(const struct vk_sync_type *type,
    if (type->import_sync_file && semaphore_type == VK_SEMAPHORE_TYPE_BINARY)
       handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
 
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   if (type->import_win32_handle && semaphore_type == VK_SEMAPHORE_TYPE_BINARY)
+      handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+   if (type->import_d3d12_handle)
+      handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT;
+#endif
+
    return handle_types;
 }
 
@@ -61,6 +69,14 @@ vk_sync_semaphore_export_types(const struct vk_sync_type *type,
 
    if (type->export_sync_file && semaphore_type == VK_SEMAPHORE_TYPE_BINARY)
       handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_SYNC_FD_BIT;
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   if (type->export_win32_handle && semaphore_type == VK_SEMAPHORE_TYPE_BINARY)
+      handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+   if (type->export_d3d12_handle)
+      handle_types |= VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT;
+#endif
 
    return handle_types;
 }
@@ -179,6 +195,34 @@ vk_common_CreateSemaphore(VkDevice _device,
       info.flags |= VK_SYNC_IS_TIMELINE;
    if (handle_types)
       info.flags |= VK_SYNC_IS_SHAREABLE;
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   if (handle_types &
+       (VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT |
+        VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT)) {
+      const VkExportFenceWin32HandleInfoKHR *win32_export =
+         vk_find_struct_const(export->pNext, EXPORT_FENCE_WIN32_HANDLE_INFO_KHR);
+      DWORD req_event_access = EVENT_MODIFY_STATE | SYNCHRONIZE;
+
+      if (handle_types & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT)
+         info.win32.access = GENERIC_ALL;
+      else if (handle_types & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT)
+         info.win32.access = req_event_access;
+
+      if (win32_export) {
+         info.win32.sec_attrs = win32_export->pAttributes;
+         info.win32.access = win32_export->dwAccess;
+         info.win32.name = win32_export->name;
+      }
+
+      if ((handle_types & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT) &&
+          info.win32.access != GENERIC_ALL)
+         return vk_error(device, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+      else if ((handle_types & VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT) &&
+               (info.win32.access & req_event_access) != req_event_access)
+         return vk_error(device, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+   }
+#endif
 
    VkResult result = vk_sync_init(device, &semaphore->permanent, &info);
    if (result != VK_SUCCESS) {
@@ -561,6 +605,133 @@ vk_common_GetSemaphoreFdKHR(VkDevice _device,
    default:
       unreachable("Invalid semaphore export handle type");
    }
+
+   /* From the Vulkan 1.2.194 spec:
+    *
+    *    "Export operations have the same transference as the specified
+    *    handle type’s import operations. [...] If the semaphore was using
+    *    a temporarily imported payload, the semaphore’s prior permanent
+    *    payload will be restored."
+    */
+   vk_semaphore_reset_temporary(device, semaphore);
+
+   return VK_SUCCESS;
+}
+
+#elif defined(VK_USE_PLATFORM_WIN32_KHR)
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vk_common_ImportSemaphoreWin32HandleKHR(VkDevice _device,
+                                        const VkImportSemaphoreWin32HandleInfoKHR *info)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   VK_FROM_HANDLE(vk_semaphore, semaphore, info->semaphore);
+
+   assert(info->sType == VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR);
+
+   HANDLE handle = info->handle;
+   LPCWSTR name = info->name;
+   const VkExternalSemaphoreHandleTypeFlagBits handle_type = info->handleType;
+
+   struct vk_sync *temporary = NULL, *sync;
+   if (info->flags & VK_SEMAPHORE_IMPORT_TEMPORARY_BIT) {
+      /* From the Vulkan 1.2.194 spec:
+       *
+       *    VUID-VkImportSemaphoreFdInfoKHR-flags-03323
+       *
+       *    "If flags contains VK_SEMAPHORE_IMPORT_TEMPORARY_BIT, the
+       *    VkSemaphoreTypeCreateInfo::semaphoreType field of the semaphore
+       *    from which handle or name was exported must not be
+       *    VK_SEMAPHORE_TYPE_TIMELINE"
+       */
+      if (unlikely(semaphore->type == VK_SEMAPHORE_TYPE_TIMELINE)) {
+         return vk_errorf(device, VK_ERROR_UNKNOWN,
+                          "Cannot temporarily import into a timeline "
+                          "semaphore");
+      }
+
+      struct vk_sync_init_info info = {
+         .type = get_semaphore_sync_type(device->physical,
+                                         semaphore->type,
+                                         handle_type),
+         .flags = 0,
+         .initial_value = 0,
+      };
+
+      VkResult result = vk_sync_create(device, &info, &temporary);
+      if (result != VK_SUCCESS)
+         return result;
+
+      sync = temporary;
+   } else {
+      sync = &semaphore->permanent;
+   }
+   assert(handle_type &
+          vk_sync_semaphore_handle_types(sync->type, semaphore->type));
+
+   VkResult result;
+   switch (info->handleType) {
+   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT:
+      result = vk_sync_import_win32_handle(device, sync, handle, name);
+      break;
+
+   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT:
+      result = vk_sync_import_d3d12_handle(device, sync, handle, name);
+      break;
+
+   default:
+      result = vk_error(semaphore, VK_ERROR_INVALID_EXTERNAL_HANDLE);
+   }
+
+   if (result != VK_SUCCESS) {
+      if (temporary != NULL)
+         vk_sync_destroy(device, temporary);
+      return result;
+   }
+
+   /* From a spec correctness point of view, we could probably replace the
+    * semaphore's temporary payload with the new vk_sync at the top.  However,
+    * we choose to be nice to applications and only replace the semaphore if
+    * the import succeeded.
+    */
+   if (temporary) {
+      vk_semaphore_reset_temporary(device, semaphore);
+      semaphore->temporary = temporary;
+   }
+
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+vk_commont_GetSemaphoreWin32HandleKHR(VkDevice _device,
+                                      const VkSemaphoreGetWin32HandleInfoKHR *info,
+                                      HANDLE *pHandle)
+{
+   VK_FROM_HANDLE(vk_device, device, _device);
+   VK_FROM_HANDLE(vk_semaphore, semaphore, info->semaphore);
+
+   assert(info->sType == VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR);
+
+   struct vk_sync *sync = vk_semaphore_get_active_sync(semaphore);
+
+   VkResult result;
+   switch (info->handleType) {
+   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT:
+      result = vk_sync_export_win32_handle(device, sync, pHandle);
+      break;
+
+   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE_BIT:
+      result = vk_sync_export_d3d12_handle(device, sync, pHandle);
+      break;
+
+   case VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT:
+      /* Global share handles not supported. */
+   default:
+      unreachable("Invalid semaphore export handle type");
+   }
+
+   if (result != VK_SUCCESS)
+      return result;
 
    /* From the Vulkan 1.2.194 spec:
     *

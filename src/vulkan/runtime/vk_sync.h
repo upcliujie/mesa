@@ -26,6 +26,10 @@
 #include <stdbool.h>
 #include <vulkan/vulkan_core.h>
 
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+#include <windows.h>
+#endif
+
 #include "util/macros.h"
 
 #ifdef __cplusplus
@@ -274,6 +278,30 @@ struct vk_sync_type {
    VkResult (*export_sync_file)(struct vk_device *device,
                                 struct vk_sync *sync,
                                 int *sync_file);
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   /** Imports an event HANDLE into this binary vk_sync */
+   VkResult (*import_win32_handle)(struct vk_device *device,
+                                   struct vk_sync *sync,
+                                   HANDLE handle,
+                                   LPCWSTR name);
+
+   /** Exports the current binary vk_sync state as an event HANDLE. */
+   VkResult (*export_win32_handle)(struct vk_device *device,
+                                   struct vk_sync *sync,
+                                   HANDLE *handle);
+
+   /** Imports a D3D12Fence HANDLE into this binary vk_sync */
+   VkResult (*import_d3d12_handle)(struct vk_device *device,
+                                   struct vk_sync *sync,
+                                   HANDLE handle,
+                                   LPCWSTR name);
+
+   /** Exports the current timeline or binary vk_sync state as a D3D12Fence HANDLE. */
+   VkResult (*export_d3d12_handle)(struct vk_device *device,
+                                   struct vk_sync *sync,
+                                   HANDLE *handle);
+#endif
 };
 
 enum vk_sync_flags {
@@ -291,6 +319,14 @@ struct vk_sync_init_info {
    const struct vk_sync_type *type;
    enum vk_sync_flags flags;
    uint64_t initial_value;
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+   struct {
+      const SECURITY_ATTRIBUTES *sec_attrs;
+      DWORD access;
+      LPCWSTR name;
+   } win32;
+#endif
 };
 
 struct vk_sync {
@@ -364,6 +400,26 @@ VkResult MUST_CHECK vk_sync_import_sync_file(struct vk_device *device,
 VkResult MUST_CHECK vk_sync_export_sync_file(struct vk_device *device,
                                              struct vk_sync *sync,
                                              int *sync_file);
+
+#ifdef VK_USE_PLATFORM_WIN32_KHR
+VkResult MUST_CHECK vk_sync_import_win32_handle(struct vk_device *device,
+                                                struct vk_sync *sync,
+                                                HANDLE handle,
+                                                LPCWSTR name);
+
+VkResult MUST_CHECK vk_sync_export_win32_handle(struct vk_device *device,
+                                                struct vk_sync *sync,
+                                                HANDLE *handle);
+
+VkResult MUST_CHECK vk_sync_import_d3d12_handle(struct vk_device *device,
+                                                struct vk_sync *sync,
+                                                HANDLE handle,
+                                                LPCWSTR name);
+
+VkResult MUST_CHECK vk_sync_export_d3d12_handle(struct vk_device *device,
+                                                struct vk_sync *sync,
+                                                HANDLE *handle);
+#endif
 
 VkResult MUST_CHECK vk_sync_move(struct vk_device *device,
                                  struct vk_sync *dst,
