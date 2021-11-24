@@ -195,6 +195,12 @@ dzn_physical_device::dzn_physical_device(dzn_instance *inst,
    }
 
    get_device_extensions();
+
+   uint32_t num_sync_types = 0;
+   sync_types[num_sync_types++] = dzn_sync::get_type();
+   sync_types[num_sync_types] = NULL;
+   assert(num_sync_types <= MAX_SYNC_TYPES);
+   vk.supported_sync_types = sync_types;
 }
 
 dzn_physical_device::~dzn_physical_device()
@@ -1353,6 +1359,15 @@ dzn_EnumerateInstanceLayerProperties(uint32_t *pPropertyCount,
    return vk_error(NULL, VK_ERROR_LAYER_NOT_PRESENT);
 }
 
+static VkResult
+dzn_queue_submit(struct vk_queue *queue,
+                 struct vk_queue_submit *info)
+{
+   dzn_queue *dqueue = container_of(queue, dzn_queue, vk);
+
+   return dqueue->submit(info);
+}
+
 dzn_queue::dzn_queue(dzn_device *dev,
                      const VkDeviceQueueCreateInfo *pCreateInfo,
                      const VkAllocationCallbacks *alloc)
@@ -1361,6 +1376,7 @@ dzn_queue::dzn_queue(dzn_device *dev,
    if (result != VK_SUCCESS)
       throw result;
 
+   vk.driver_submit = dzn_queue_submit;
    device = dev;
 
    D3D12_COMMAND_QUEUE_DESC queue_desc = {
@@ -1388,6 +1404,114 @@ const VkAllocationCallbacks *
 dzn_queue::get_vk_allocator()
 {
    return &device->vk.alloc;
+}
+
+VkResult
+dzn_queue::sync_wait(const struct vk_sync_wait &wait)
+{
+   dzn_sync *sync = dzn_sync::to_dzn_sync(wait.sync);
+   assert(sync != NULL);
+
+   uint64_t value =
+      (sync->vk.flags & VK_SYNC_IS_TIMELINE) ? wait.wait_value : 1;
+
+   ID3D12Fence *sync_fence = sync->get_fence();
+   assert(sync_fence != NULL);
+
+   if (value > 0 && FAILED(cmdqueue->Wait(sync_fence, value)))
+      return vk_error(device, VK_ERROR_UNKNOWN);
+
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_queue::sync_signal(const struct vk_sync_signal &signal)
+{
+   dzn_sync *sync = dzn_sync::to_dzn_sync(signal.sync);
+   assert(sync != NULL);
+
+   uint64_t value =
+      (sync->vk.flags & VK_SYNC_IS_TIMELINE) ? signal.signal_value : 1;
+   assert(value > 0);
+
+   ID3D12Fence *sync_fence = sync->get_fence();
+   assert(sync_fence != NULL);
+   HRESULT hres;
+
+   hres = cmdqueue->Signal(sync_fence, value);
+   if (FAILED(hres))
+      return vk_error(device, VK_ERROR_UNKNOWN);
+
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_queue::submit(struct vk_queue_submit *info)
+{
+   VkResult result;
+
+   for (uint32_t i = 0; i < info->wait_count; i++) {
+      result = sync_wait(info->waits[i]);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   for (uint32_t i = 0; i < info->command_buffer_count; i++) {
+      dzn_cmd_buffer *cmd_buffer =
+         container_of(info->command_buffers[i], dzn_cmd_buffer, vk);
+
+      for (auto &batch : cmd_buffer->batches) {
+         ID3D12CommandList *cmdlists[] = { batch->cmdlist.Get() };
+
+         for (auto &event : batch->wait) {
+            if (FAILED(cmdqueue->Wait(event->fence.Get(), 1)))
+               return VK_ERROR_UNKNOWN;
+	 }
+
+         for (auto &qop : batch->queries) {
+            auto &query = qop.qpool->queries[qop.query];
+            ComPtr<ID3D12Fence> query_fence = query.fence;
+            uint64_t query_fence_val = query.fence_value.load();
+
+            if (qop.wait && query_fence.Get() && query_fence_val > 0) {
+               if (FAILED(cmdqueue->Wait(query_fence.Get(), query_fence_val)))
+                  return VK_ERROR_UNKNOWN;
+            }
+
+            if (qop.reset) {
+               query.fence = ComPtr<ID3D12Fence>(NULL);
+               query.fence_value = 0;
+            }
+         }
+
+         cmdqueue->ExecuteCommandLists(1, cmdlists);
+
+         for (auto &signal : batch->signal) {
+            if (FAILED(cmdqueue->Signal(signal.event->fence.Get(), signal.value ? 1 : 0)))
+               return VK_ERROR_UNKNOWN;
+         }
+
+         for (auto &qop : batch->queries) {
+            if (qop.signal) {
+               auto &query = qop.qpool->queries[qop.query];
+
+               query.fence = fence;
+               query.fence_value = fence_point + 1;
+            }
+         }
+      }
+   }
+
+   for (uint32_t i = 0; i < info->signal_count; i++) {
+      result = sync_signal(info->signals[i]);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   if (FAILED(cmdqueue->Signal(fence.Get(), ++fence_point)))
+      return VK_ERROR_UNKNOWN;
+
+   return VK_SUCCESS;
 }
 
 static VkResult
@@ -1686,82 +1810,6 @@ dzn_DeviceWaitIdle(VkDevice _device)
 #else
    return VK_SUCCESS;
 #endif
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_QueueWaitIdle(VkQueue _queue)
-{
-   VK_FROM_HANDLE(dzn_queue, queue, _queue);
-
-   if (FAILED(queue->fence->SetEventOnCompletion(queue->fence_point, NULL)))
-      return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
-
-   return VK_SUCCESS;
-}
-
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_QueueSubmit(VkQueue _queue,
-                uint32_t submitCount,
-                const VkSubmitInfo *pSubmits,
-                VkFence _fence)
-{
-   VK_FROM_HANDLE(dzn_queue, queue, _queue);
-   VK_FROM_HANDLE(dzn_fence, fence, _fence);
-   struct dzn_device *device = queue->device;
-
-   /* TODO: execute an array of these instead of one at the time */
-   for (uint32_t i = 0; i < submitCount; i++) {
-      for (uint32_t j = 0; j < pSubmits[i].commandBufferCount; j++) {
-         VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer,
-                         pSubmits[i].pCommandBuffers[j]);
-         assert(cmd_buffer->vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-
-         for (auto &batch : cmd_buffer->batches) {
-            ID3D12CommandList *cmdlists[] = { batch->cmdlist.Get() };
-
-            for (auto &event : batch->wait)
-               queue->cmdqueue->Wait(event->fence.Get(), 1);
-
-            for (auto &qop : batch->queries) {
-               auto &query = qop.qpool->queries[qop.query];
-               ComPtr<ID3D12Fence> query_fence = query.fence;
-               uint64_t query_fence_val = query.fence_value.load();
-
-               if (qop.wait && query_fence.Get() && query_fence_val > 0)
-                  queue->cmdqueue->Wait(query_fence.Get(), query_fence_val);
-
-               if (qop.reset) {
-                  query.fence = ComPtr<ID3D12Fence>(NULL);
-                  query.fence_value = 0;
-               }
-            }
-
-            queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
-
-            for (auto &signal : batch->signal)
-               queue->cmdqueue->Signal(signal.event->fence.Get(), signal.value ? 1 : 0);
-
-            for (auto &qop : batch->queries) {
-               if (qop.signal) {
-                  auto &query = qop.qpool->queries[qop.query];
-
-                  query.fence = queue->fence;
-                  query.fence_value = queue->fence_point + 1;
-               }
-            }
-         }
-      }
-   }
-
-   if (fence)
-      queue->cmdqueue->Signal(fence->fence.Get(), 1);
-
-   queue->cmdqueue->Signal(queue->fence.Get(), ++queue->fence_point);
-
-   if (queue->device->physical_device->instance->debug_flags & DZN_DEBUG_SYNC)
-      dzn_QueueWaitIdle(_queue);
-
-   return VK_SUCCESS;
 }
 
 dzn_device_memory::dzn_device_memory(dzn_device *device,

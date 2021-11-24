@@ -334,6 +334,8 @@ struct dzn_meta_blits {
                       std::hash<uint64_t>, std::equal_to<uint64_t>, contexts_allocator> contexts;
 };
 
+#define MAX_SYNC_TYPES 1
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
@@ -390,6 +392,7 @@ private:
    D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
    VkPhysicalDeviceMemoryProperties memory = {};
    D3D12_HEAP_FLAGS heap_flags_for_mem_type[VK_MAX_MEMORY_TYPES] = {};
+   const struct vk_sync_type *sync_types[MAX_SYNC_TYPES + 1];
 };
 
 #define dzn_debug_ignored_stype(sType) \
@@ -424,14 +427,21 @@ struct dzn_queue {
    struct dzn_device *device;
 
    ComPtr<ID3D12CommandQueue> cmdqueue;
-   ComPtr<ID3D12Fence> fence;
-   uint64_t fence_point = 0;
 
    dzn_queue(dzn_device *device,
              const VkDeviceQueueCreateInfo *pCreateInfo,
              const VkAllocationCallbacks *alloc);
    ~dzn_queue();
+
+   VkResult submit(struct vk_queue_submit *info);
+
    const VkAllocationCallbacks *get_vk_allocator();
+
+private:
+   VkResult sync_wait(const struct vk_sync_wait &wait);
+   VkResult sync_signal(const struct vk_sync_signal &signal);
+   ComPtr<ID3D12Fence> fence;
+   uint64_t fence_point = 0;
 };
 
 struct dzn_device {
@@ -1545,27 +1555,6 @@ private:
    dzn_object_vector<dzn_physical_device> physical_devices;
 };
 
-struct dzn_semaphore {
-   struct vk_object_base base;
-
-   dzn_semaphore(dzn_device *device,
-                 const VkSemaphoreCreateInfo *pCreateInfo,
-                 const VkAllocationCallbacks *pAllocator);
-   ~dzn_semaphore();
-};
-
-struct dzn_fence {
-   struct vk_object_base base;
-
-   ComPtr<ID3D12Fence> fence;
-   HANDLE event;
-
-   dzn_fence(dzn_device *device,
-             const VkFenceCreateInfo *pCreateInfo,
-             const VkAllocationCallbacks *pAllocator);
-   ~dzn_fence();
-};
-
 struct dzn_event {
    struct vk_object_base base;
 
@@ -1669,7 +1658,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_pool, base, VkDescriptorPool, VK_O
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set, base, VkDescriptorSet, VK_OBJECT_TYPE_DESCRIPTOR_SET)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_descriptor_set_layout, base, VkDescriptorSetLayout, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
-VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_fence, base, VkFence, VK_OBJECT_TYPE_FENCE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_framebuffer, base, VkFramebuffer, VK_OBJECT_TYPE_FRAMEBUFFER)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, vk.base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
@@ -1681,7 +1669,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline_layout, base, VkPipelineLayout, VK_O
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE_QUERY_POOL)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_render_pass, base, VkRenderPass, VK_OBJECT_TYPE_RENDER_PASS)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, base, VkSampler, VK_OBJECT_TYPE_SAMPLER)
-VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_semaphore, base, VkSemaphore, VK_OBJECT_TYPE_SEMAPHORE)
 
 template <typename DT, typename VH, typename Conv, typename... CreateArgs>
 class dzn_object_factory {
@@ -1865,7 +1852,6 @@ DZN_OBJ_FACTORY(dzn_descriptor_set_layout, VkDescriptorSetLayout, VkDevice, cons
 DZN_OBJ_FACTORY(dzn_device, VkDevice, VkPhysicalDevice, const VkDeviceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_device_memory, VkDeviceMemory, VkDevice, const VkMemoryAllocateInfo *);
 DZN_OBJ_FACTORY(dzn_event, VkEvent, VkDevice, const VkEventCreateInfo *);
-DZN_OBJ_FACTORY(dzn_fence, VkFence, VkDevice, const VkFenceCreateInfo *);
 DZN_OBJ_FACTORY(dzn_framebuffer, VkFramebuffer, VkDevice, const VkFramebufferCreateInfo *);
 DZN_OBJ_FACTORY(dzn_graphics_pipeline, VkPipeline, VkDevice, VkPipelineCache, const VkGraphicsPipelineCreateInfo *);
 DZN_OBJ_FACTORY(dzn_image, VkImage, VkDevice, const VkImageCreateInfo *);
@@ -1878,6 +1864,5 @@ DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 DZN_OBJ_FACTORY(dzn_query_pool, VkQueryPool, VkDevice, const VkQueryPoolCreateInfo *);
 DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
 DZN_OBJ_FACTORY(dzn_sampler, VkSampler, VkDevice, const VkSamplerCreateInfo *);
-DZN_OBJ_FACTORY(dzn_semaphore, VkSemaphore, VkDevice, const VkSemaphoreCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */
