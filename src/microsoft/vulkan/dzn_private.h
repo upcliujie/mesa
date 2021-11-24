@@ -356,7 +356,7 @@ struct dzn_physical_device {
                        const VkAllocationCallbacks *alloc);
    ~dzn_physical_device();
    const VkAllocationCallbacks *get_vk_allocator();
-   ID3D12Device *get_d3d12_dev();
+   ID3D12Device1 *get_d3d12_dev();
 
    const D3D12_FEATURE_DATA_ARCHITECTURE1 &get_arch_caps() const;
    const VkPhysicalDeviceMemoryProperties &get_memory() const;
@@ -383,7 +383,7 @@ private:
    uint32_t get_max_extent(bool is_3d);
 
    std::mutex dev_lock;
-   ComPtr<ID3D12Device> dev;
+   ComPtr<ID3D12Device1> dev;
    D3D_FEATURE_LEVEL feature_level = (D3D_FEATURE_LEVEL)0;
    D3D12_FEATURE_DATA_ARCHITECTURE1 architecture = {};
    D3D12_FEATURE_DATA_D3D12_OPTIONS options = {};
@@ -415,7 +415,7 @@ d3d12_enable_debug_layer();
 void
 d3d12_enable_gpu_validation();
 
-ComPtr<ID3D12Device>
+ComPtr<ID3D12Device1>
 d3d12_create_device(IUnknown *adapter, bool experimental_features);
 
 struct dzn_queue {
@@ -444,7 +444,7 @@ struct dzn_device {
    struct vk_device_extension_table enabled_extensions;
    struct vk_device_dispatch_table dispatch;
 
-   ID3D12Device *dev;
+   ID3D12Device1 *dev;
 
    dzn_object_unique_ptr<dzn_meta_indirect_draw> indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
    dzn_object_unique_ptr<dzn_meta_triangle_fan_rewrite_index> triangle_fan[dzn_meta_triangle_fan_rewrite_index::NUM_INDEX_TYPE];

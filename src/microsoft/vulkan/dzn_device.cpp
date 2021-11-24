@@ -364,7 +364,7 @@ dzn_physical_device::get_max_array_layers()
    return get_max_extent(false);
 }
 
-ID3D12Device *
+ID3D12Device1 *
 dzn_physical_device::get_d3d12_dev()
 {
    std::lock_guard<std::mutex> lock(dev_lock);
