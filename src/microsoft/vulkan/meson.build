@@ -94,6 +94,7 @@ libdzn_files = files(
   'dzn_query.cpp',
   'dzn_semaphore.cpp',
   'dzn_state.cpp',
+  'dzn_sync.cpp',
   'dzn_util.cpp',
   'dzn_util.c',
   'dzn_wsi.cpp',

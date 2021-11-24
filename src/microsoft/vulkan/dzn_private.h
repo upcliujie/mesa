@@ -30,6 +30,7 @@
 #include "vk_image.h"
 #include "vk_log.h"
 #include "vk_physical_device.h"
+#include "vk_sync.h"
 #include "vk_queue.h"
 #include "vk_shader_module.h"
 #include "wsi_common.h"
@@ -1574,6 +1575,30 @@ struct dzn_event {
              const VkEventCreateInfo *pCreateInfo,
              const VkAllocationCallbacks *pAllocator);
    ~dzn_event();
+};
+
+struct dzn_sync {
+   dzn_sync(dzn_device *device, uint64_t initial_value);
+   ~dzn_sync() = default;
+
+   VkResult signal(uint64_t value);
+   uint64_t get_value();
+   VkResult move(dzn_device *device, dzn_sync *dst);
+   ID3D12Fence *get_fence();
+
+   static VkResult wait(dzn_device *device,
+                        uint32_t wait_count,
+                        const struct vk_sync_wait *waits,
+                        enum vk_sync_wait_flags wait_flags,
+                        uint64_t abs_timeout_ns);
+
+   static dzn_sync *to_dzn_sync(const struct vk_sync *sync);
+   static const struct vk_sync_type *get_type();
+
+   struct vk_sync vk;
+
+private:
+   ComPtr<ID3D12Fence> fence;
 };
 
 struct dzn_query_pool {
