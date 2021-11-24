@@ -1000,6 +1000,14 @@ anv_get_image_format_properties(
       isl_mod_info = isl_drm_modifier_get_info(vk_mod_info->drmFormatModifier);
       if (isl_mod_info == NULL)
          goto unsupported;
+
+#ifdef VK_ENABLE_BETA_EXTENSIONS
+      /* only allow Y tiling for video decode. */
+      if (info->usage & VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR) {
+         if (isl_mod_info->tiling != ISL_TILING_Y0)
+            goto unsupported;
+      }
+#endif
    }
 
    assert(format->vk_format == info->format);
