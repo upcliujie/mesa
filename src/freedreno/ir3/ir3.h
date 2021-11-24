@@ -1364,7 +1364,13 @@ ir3_cat3_absneg(opc_t opc)
    case OPC_SEL_B16:
    case OPC_SEL_B32:
 
-   case OPC_SHLG_B16:
+   case OPC_SHRM:
+   case OPC_SHLM:
+   case OPC_SHRG:
+   case OPC_SHLG:
+   case OPC_ANDG:
+   case OPC_WMM:
+   case OPC_WMM_ACCU:
 
    default:
       return 0;
@@ -1388,6 +1394,8 @@ ir3_output_conv_type(struct ir3_instruction *instr, bool *can_fold)
    case OPC_BARY_F:
    case OPC_MAD_F32:
    case OPC_MAD_F16:
+   case OPC_WMM:
+   case OPC_WMM_ACCU:
       return TYPE_F32;
 
    case OPC_ADD_U:
@@ -1404,6 +1412,11 @@ ir3_output_conv_type(struct ir3_instruction *instr, bool *can_fold)
    case OPC_SHR_B:
    case OPC_ASHR_B:
    case OPC_MAD_U24:
+   case OPC_SHRM:
+   case OPC_SHLM:
+   case OPC_SHRG:
+   case OPC_SHLG:
+   case OPC_ANDG:
    /* Comparison ops zero-extend/truncate their results, so consider them as
     * unsigned here.
     */

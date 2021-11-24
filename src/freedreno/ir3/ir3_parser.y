@@ -483,7 +483,14 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 %token <tok> T_OP_SEL_F32
 %token <tok> T_OP_SAD_S16
 %token <tok> T_OP_SAD_S32
-%token <tok> T_OP_SHLG_B16
+%token <tok> T_OP_SHRM
+%token <tok> T_OP_SHLM
+%token <tok> T_OP_SHRG
+%token <tok> T_OP_SHLG
+%token <tok> T_OP_ANDG
+%token <tok> T_OP_DP2ACC
+%token <tok> T_OP_WMM
+%token <tok> T_OP_WMM_ACCU
 
 /* category 4: */
 %token <tok> T_OP_RCP
@@ -928,8 +935,19 @@ cat3_opc:          T_OP_MAD_U16   { new_instr(OPC_MAD_U16); }
 |                  T_OP_SAD_S16   { new_instr(OPC_SAD_S16); }
 |                  T_OP_SAD_S32   { new_instr(OPC_SAD_S32); }
 
+cat3_imm_reg_opc:  T_OP_SHRM      { new_instr(OPC_SHRM); }
+|                  T_OP_SHLM      { new_instr(OPC_SHLM); }
+|                  T_OP_SHRG      { new_instr(OPC_SHRG); }
+|                  T_OP_SHLG      { new_instr(OPC_SHLG); }
+|                  T_OP_ANDG      { new_instr(OPC_ANDG); }
+
+cat3_wmm:          T_OP_WMM       { new_instr(OPC_WMM); }
+|                  T_OP_WMM_ACCU  { new_instr(OPC_WMM_ACCU); }
+
 cat3_instr:        cat3_opc dst_reg ',' src_reg_or_const_or_rel ',' src_reg_or_const ',' src_reg_or_const_or_rel
-|                  T_OP_SHLG_B16 { new_instr(OPC_SHLG_B16); } dst_reg ',' src_reg_or_rel_or_imm ',' src_reg_or_const ',' src_reg_or_rel_or_imm
+|                  cat3_imm_reg_opc dst_reg ',' src_reg_or_rel_or_imm ',' src_reg_or_const ',' src_reg_or_rel_or_imm
+|                  cat3_wmm         dst_reg ',' src_reg_gpr ',' src_reg ',' immediate
+|                  T_OP_DP2ACC     { new_instr(OPC_DP2ACC); } dst_reg ',' src_reg_or_rel_or_imm ',' src_reg_or_const ',' src_reg_or_rel_or_imm // TODO
 
 cat4_opc:          T_OP_RCP       { new_instr(OPC_RCP); }
 |                  T_OP_RSQ       { new_instr(OPC_RSQ); }
@@ -1196,6 +1214,9 @@ src_reg_flags:     src_reg_flag
 
 src_reg:           src
 |                  src_reg_flags src
+
+src_reg_gpr:       src_reg
+|                  relative_gpr_src
 
 src_const:         const
 |                  src_reg_flags const
