@@ -1007,21 +1007,6 @@ radv_emit_sample_locations(struct radv_cmd_buffer *cmd_buffer)
 }
 
 static void
-radv_emit_inline_push_consts(struct radv_cmd_buffer *cmd_buffer, struct radv_pipeline *pipeline,
-                             gl_shader_stage stage, int idx, uint32_t *values)
-{
-   struct radv_userdata_info *loc = radv_lookup_user_sgpr(pipeline, stage, idx);
-   uint32_t base_reg = pipeline->user_data_0[stage];
-   if (loc->sgpr_idx == -1)
-      return;
-
-   radeon_check_space(cmd_buffer->device->ws, cmd_buffer->cs, 2 + loc->num_sgprs);
-
-   radeon_set_sh_reg_seq(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, loc->num_sgprs);
-   radeon_emit_array(cmd_buffer->cs, values, loc->num_sgprs);
-}
-
-static void
 radv_update_multisample_state(struct radv_cmd_buffer *cmd_buffer, struct radv_pipeline *pipeline)
 {
    int num_samples = pipeline->graphics.ms.num_samples;
@@ -3226,10 +3211,18 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer, VkShaderStageFlags stag
 
       need_push_constants |= radv_shader_loads_push_constants(pipeline, stage);
 
-      uint8_t base = shader->info.min_push_constant_used / 4;
+      struct radv_userdata_info *loc =
+         radv_lookup_user_sgpr(pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS);
+      if (loc->sgpr_idx != -1) {
+         uint32_t base_reg = pipeline->user_data_0[stage];
+         uint8_t base = shader->info.min_push_constant_used / 4;
+         uint32_t *values = (uint32_t *)&cmd_buffer->push_constants[base * 4];
 
-      radv_emit_inline_push_consts(cmd_buffer, pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS,
-                                   (uint32_t *)&cmd_buffer->push_constants[base * 4]);
+         radeon_check_space(cmd_buffer->device->ws, cmd_buffer->cs, 2 + loc->num_sgprs);
+
+         radeon_set_sh_reg_seq(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, loc->num_sgprs);
+         radeon_emit_array(cmd_buffer->cs, values, loc->num_sgprs);
+      }
    }
 
    if (need_push_constants) {
