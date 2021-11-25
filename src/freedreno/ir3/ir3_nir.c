@@ -507,8 +507,10 @@ ir3_nir_lower_subgroup_id_cs(nir_shader *shader)
  * Late passes that need to be done after pscreen->finalize_nir()
  */
 void
-ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
+ir3_nir_post_finalize(struct ir3_shader *shader, nir_shader *s)
 {
+   struct ir3_compiler *compiler = shader->compiler;
+
    NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out,
               ir3_glsl_type_size, (nir_lower_io_options)0);
 
