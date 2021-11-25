@@ -1803,6 +1803,18 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
       if (!wsi_x11_check_dri3_compatible(wsi_device, conn)) {
          chain->base.use_prime_blit = true;
 
+         /* Add a private SDMA command pool */
+         if (wsi_device->allow_present_sdma) {
+            const VkCommandPoolCreateInfo cmd_pool_info = {
+               .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+               .pNext = NULL,
+               .flags = 0,
+               .queueFamilyIndex = 2,
+            };
+            result = wsi_device->CreateCommandPool(device, &cmd_pool_info, &chain->base.alloc,
+                                                   &chain->base.cmd_pools[wsi_device->queue_family_count]);
+         }
+
          /* Get display GPU fd through X11 connection */
          xcb_screen_iterator_t screen_iter =
             xcb_setup_roots_iterator(xcb_get_setup(chain->conn));

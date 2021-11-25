@@ -232,7 +232,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    chain->use_prime_blit = false;
 
    chain->cmd_pools =
-      vk_zalloc(pAllocator, sizeof(VkCommandPool) * wsi->queue_family_count, 8,
+      vk_zalloc(pAllocator, sizeof(VkCommandPool) * (wsi->queue_family_count + (wsi->allow_present_sdma ? 1 : 0)), 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!chain->cmd_pools)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
@@ -750,8 +750,20 @@ wsi_common_queue_present(const struct wsi_device *wsi,
           * command buffer is attached to the image.
           */
          submit_info.commandBufferCount = 1;
-         submit_info.pCommandBuffers =
-            &image->prime.blit_cmd_buffers[queue_family_index];
+
+         if (wsi->allow_present_sdma) {
+            submit_info.pCommandBuffers =
+               &image->prime.blit_cmd_buffers[wsi->queue_family_count];
+            /* Submit the copy to the SDMA queue */
+            result = wsi->QueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE);
+
+            submit_info.commandBufferCount = 0;
+            submit_info.waitSemaphoreCount = 0;
+            submit_info.pCommandBuffers = NULL;
+         } else {
+            submit_info.pCommandBuffers =
+               &image->prime.blit_cmd_buffers[queue_family_index];
+         }
          mem_signal.memory = image->prime.memory;
       }
 
