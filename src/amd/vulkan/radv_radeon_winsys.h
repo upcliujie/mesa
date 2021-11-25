@@ -234,7 +234,8 @@ struct radeon_winsys {
                                unsigned priority, struct radeon_winsys_bo **out_bo);
 
    VkResult (*buffer_from_fd)(struct radeon_winsys *ws, int fd, unsigned priority,
-                              struct radeon_winsys_bo **out_bo, uint64_t *alloc_size);
+                              struct radeon_winsys_bo **out_bo, uint64_t *alloc_size,
+                              bool is_prime_linear_buffer);
 
    bool (*buffer_get_fd)(struct radeon_winsys *ws, struct radeon_winsys_bo *bo, int *fd);
 
