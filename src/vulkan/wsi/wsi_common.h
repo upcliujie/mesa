@@ -107,6 +107,8 @@ struct wsi_device {
     * available. Not all window systems might support this. */
    bool enable_adaptive_sync;
 
+   bool allow_present_sdma;
+
    /* List of fences to signal when hotplug event happens. */
    struct list_head hotplug_fences;
 

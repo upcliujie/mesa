@@ -1799,9 +1799,23 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
     */
    chain->copy_is_suboptimal = false;
 
-   if (!wsi_device->sw)
-      if (!wsi_x11_check_dri3_compatible(wsi_device, conn))
+   if (!wsi_device->sw) {
+      if (!wsi_x11_check_dri3_compatible(wsi_device, conn)) {
          chain->base.use_prime_blit = true;
+
+         /* Add a private SDMA command pool */
+         if (wsi_device->allow_present_sdma) {
+            const VkCommandPoolCreateInfo cmd_pool_info = {
+               .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+               .pNext = NULL,
+               .flags = 0,
+               .queueFamilyIndex = 2,
+            };
+            result = wsi_device->CreateCommandPool(device, &cmd_pool_info, &chain->base.alloc,
+                                                   &chain->base.cmd_pools[wsi_device->queue_family_count]);
+         }
+      }
+   }
 
    chain->event_id = xcb_generate_id(chain->conn);
    xcb_present_select_input(chain->conn, chain->event_id, chain->window,

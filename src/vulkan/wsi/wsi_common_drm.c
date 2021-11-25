@@ -590,7 +590,8 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       goto fail;
    }
 
-   for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
+   /* TODO: or create a single CommandBuffer when allow_present_sdma is enabled? */
+   for (uint32_t i = 0; i < wsi->queue_family_count + wsi->allow_present_sdma ? 1 : 0; i++) {
       const VkCommandBufferAllocateInfo cmd_buffer_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
          .pNext = NULL,

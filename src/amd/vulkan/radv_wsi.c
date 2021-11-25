@@ -24,6 +24,7 @@
  */
 
 #include "util/macros.h"
+#include "radv_debug.h"
 #include "radv_meta.h"
 #include "radv_private.h"
 #include "vk_util.h"
@@ -63,6 +64,10 @@ radv_init_wsi(struct radv_physical_device *physical_device)
    wsi_device_setup_syncobj_fd(&physical_device->wsi_device, physical_device->local_fd);
 
    physical_device->vk.wsi_device = &physical_device->wsi_device;
+
+   physical_device->vk.wsi_device->allow_present_sdma =
+      physical_device->rad_info.chip_class >= GFX9 &&
+      !(physical_device->instance->debug_flags & RADV_DEBUG_NO_DMA_BLIT);
 
    return VK_SUCCESS;
 }
