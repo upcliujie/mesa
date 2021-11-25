@@ -56,6 +56,7 @@ struct wsi_swapchain {
    uint32_t image_count;
 
    bool use_prime_blit;
+   int display_fd;
 
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
