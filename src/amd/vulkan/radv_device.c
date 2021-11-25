@@ -4990,6 +4990,28 @@ radv_QueueSubmit(VkQueue _queue, uint32_t submitCount, const VkSubmitInfo *pSubm
    uint32_t fence_idx = 0;
    bool flushed_caches = false;
 
+   if (submitCount == 1 && pSubmits[0].commandBufferCount == 1) {
+      RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, pSubmits[0].pCommandBuffers[0]);
+      if (cmd_buffer->pool->queue_family_index == 2) {
+         struct radv_device *device = queue->device;
+         if (!queue->device->private_sdma_queue) {
+            const VkDeviceQueueCreateInfo queue_create = {
+               .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+               .queueFamilyIndex = RADV_QUEUE_TRANSFER,
+               .queueCount = 1,
+            };
+            device->private_sdma_queue = vk_alloc(
+                  &device->vk.alloc, sizeof(struct radv_queue), 8,
+                  VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+            memset(device->private_sdma_queue, 0, sizeof(struct radv_queue));
+            result = radv_queue_init(device, device->private_sdma_queue, 0,
+                                     &queue_create, NULL);
+            assert(result == VK_SUCCESS);
+         }
+         queue = device->private_sdma_queue;
+      }
+   }
+
    if (radv_device_is_lost(queue->device))
       return VK_ERROR_DEVICE_LOST;
 
