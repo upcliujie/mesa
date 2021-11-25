@@ -31,6 +31,7 @@
 #include "vk_log.h"
 #include "vk_physical_device.h"
 #include "vk_queue.h"
+#include "vk_shader_module.h"
 #include "wsi_common.h"
 
 #include "util/bitset.h"
@@ -1101,17 +1102,6 @@ struct dzn_event {
    ~dzn_event();
 };
 
-struct dzn_shader_module {
-   struct vk_object_base base;
-   uint32_t code_size;
-   uint32_t code[0];
-
-   dzn_shader_module(dzn_device *device,
-                     const VkShaderModuleCreateInfo *pCreateInfo,
-                     const VkAllocationCallbacks *pAllocator);
-   ~dzn_shader_module();
-};
-
 struct dzn_query_pool {
    struct vk_object_base base;
 };
@@ -1155,7 +1145,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_query_pool, base, VkQueryPool, VK_OBJECT_TYPE
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_render_pass, base, VkRenderPass, VK_OBJECT_TYPE_RENDER_PASS)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_sampler, base, VkSampler, VK_OBJECT_TYPE_SAMPLER)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_semaphore, base, VkSemaphore, VK_OBJECT_TYPE_SEMAPHORE)
-VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_shader_module, base, VkShaderModule, VK_OBJECT_TYPE_SHADER_MODULE)
 
 template <typename DT, typename VH, typename Conv, typename... CreateArgs>
 class dzn_object_factory {
@@ -1352,6 +1341,5 @@ DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
 DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
 DZN_OBJ_FACTORY(dzn_sampler, VkSampler, VkDevice, const VkSamplerCreateInfo *);
 DZN_OBJ_FACTORY(dzn_semaphore, VkSemaphore, VkDevice, const VkSemaphoreCreateInfo *);
-DZN_OBJ_FACTORY(dzn_shader_module, VkShaderModule, VkDevice, const VkShaderModuleCreateInfo *);
 
 #endif /* DZN_PRIVATE_H */

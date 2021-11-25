@@ -43,7 +43,6 @@ libdzn_files = files(
   'dzn_pipeline_cache.cpp',
   'dzn_pipeline.cpp',
   'dzn_semaphore.cpp',
-  'dzn_shader.cpp',
   'dzn_state.cpp',
   'dzn_util.cpp',
   'dzn_util.c',

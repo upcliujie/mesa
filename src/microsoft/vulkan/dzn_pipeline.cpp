@@ -64,8 +64,7 @@ dzn_pipeline::compile_shader(dzn_device *device,
    IDxcLibrary *library = device->instance->dxc.library.Get();
    IDxcCompiler *compiler = device->instance->dxc.compiler.Get();
    const VkSpecializationInfo *spec_info = stage_info->pSpecializationInfo;
-   const struct dzn_shader_module *module =
-      dzn_shader_module_from_handle(stage_info->module);
+   VK_FROM_HANDLE(vk_shader_module, module, stage_info->module);
    struct dxil_spirv_object dxil_object;
 
    /* convert VkSpecializationInfo */
@@ -141,7 +140,7 @@ dzn_pipeline::compile_shader(dzn_device *device,
    };
 
    /* TODO: Extend spirv_to_dxil() to allow passing a custom allocator */
-   if (!spirv_to_dxil(module->code, module->code_size / sizeof(uint32_t),
+   if (!spirv_to_dxil((uint32_t *)module->data, module->size / sizeof(uint32_t),
                       spec, num_spec,
                       to_dxil_shader_stage(stage_info->stage),
                       stage_info->pName, &dbg_opts, &conf, &dxil_object))
