@@ -171,6 +171,8 @@ struct wsi_device {
     */
    bool (*can_present_on_device)(VkPhysicalDevice pdevice, int fd);
 
+   VkResult (*create_device_for_fd)(VkDevice pdevice, int fd, VkDevice *display_dev);
+
 #define WSI_CB(cb) PFN_vk##cb cb
    WSI_CB(AllocateMemory);
    WSI_CB(AllocateCommandBuffers);

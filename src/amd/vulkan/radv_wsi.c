@@ -24,6 +24,7 @@
  */
 
 #include "util/macros.h"
+#include "util/os_file.h"
 #include "radv_meta.h"
 #include "radv_private.h"
 #include "vk_util.h"
@@ -47,6 +48,40 @@ radv_wsi_set_memory_ownership(VkDevice _device, VkDeviceMemory _mem, VkBool32 ow
    }
 }
 
+static VkResult
+radv_wsi_create_device_for_fd(VkDevice _device, int fd, VkDevice *display_dev)
+{
+   RADV_FROM_HANDLE(radv_device, device, _device);
+   assert(device->instance->physical_devices_enumerated);
+   list_for_each_entry(struct radv_physical_device, pdevice, &device->instance->physical_devices, link)
+   {
+      if (os_same_file_description(fd, pdevice->local_fd)) {
+         float queuePriority = 1.0f;
+         VkPhysicalDeviceFeatures features = { 0 };
+
+         VkDeviceQueueCreateInfo queue = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueCount = 1,
+            .queueFamilyIndex = 0,
+            .pQueuePriorities = &queuePriority,
+         };
+
+         VkDeviceCreateInfo info = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .queueCreateInfoCount = 1,
+            .pQueueCreateInfos = &queue,
+            .pEnabledFeatures = &features,
+            .enabledExtensionCount = 0,
+            .enabledLayerCount = 0,
+         };
+
+         return radv_CreateDevice(radv_physical_device_to_handle(pdevice), &info, NULL, display_dev);
+      }
+   }
+   return VK_ERROR_UNKNOWN;
+}
+
+
 VkResult
 radv_init_wsi(struct radv_physical_device *physical_device)
 {
@@ -59,6 +94,7 @@ radv_init_wsi(struct radv_physical_device *physical_device)
 
    physical_device->wsi_device.supports_modifiers = physical_device->rad_info.chip_class >= GFX9;
    physical_device->wsi_device.set_memory_ownership = radv_wsi_set_memory_ownership;
+   physical_device->wsi_device.create_device_for_fd = radv_wsi_create_device_for_fd;
 
    wsi_device_setup_syncobj_fd(&physical_device->wsi_device, physical_device->local_fd);
 

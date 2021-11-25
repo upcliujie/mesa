@@ -463,6 +463,7 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
                        struct wsi_image *image)
 {
    const struct wsi_device *wsi = chain->wsi;
+   VkDevice display_device = chain->device;
    VkResult result;
 
    memset(image, 0, sizeof(*image));
@@ -486,13 +487,23 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
    };
-   result = wsi->CreateBuffer(chain->device, &prime_buffer_info,
+
+   if (chain->display_fd > 0 && wsi->create_device_for_fd) {
+      if (wsi->create_device_for_fd(chain->device, chain->display_fd, &display_device) != VK_SUCCESS) {
+         struct wsi_swapchain copy = *chain;
+         copy.display_fd = -1;
+         return wsi_create_prime_image(&copy, pCreateInfo, use_modifier, image);
+      }
+   }
+
+   result = wsi->CreateBuffer(display_device, &prime_buffer_info,
                               &chain->alloc, &image->prime.buffer);
+
    if (result != VK_SUCCESS)
       goto fail;
 
    VkMemoryRequirements reqs;
-   wsi->GetBufferMemoryRequirements(chain->device, image->prime.buffer, &reqs);
+   wsi->GetBufferMemoryRequirements(display_device, image->prime.buffer, &reqs);
    assert(reqs.size <= linear_size);
 
    const struct wsi_memory_allocate_info memory_wsi_info = {
@@ -515,12 +526,44 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .pNext = &prime_memory_dedicated_info,
       .allocationSize = linear_size,
-      .memoryTypeIndex = select_memory_type(wsi, false, reqs.memoryTypeBits),
+      /* When allocating directly on the display device, we want a DEVICE_LOCAL
+       * allocation so it's scanout-compatible.
+       */
+      .memoryTypeIndex = select_memory_type(wsi, display_device != chain->device, reqs.memoryTypeBits),
    };
-   result = wsi->AllocateMemory(chain->device, &prime_memory_info,
+   result = wsi->AllocateMemory(display_device, &prime_memory_info,
                                 &chain->alloc, &image->prime.memory);
    if (result != VK_SUCCESS)
       goto fail;
+
+   int fd;
+   if (display_device != chain->device) {
+      /* Export */
+      const VkMemoryGetFdInfoKHR info = {
+         .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+         .memory = image->prime.memory,
+         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+      };
+      result = wsi->GetMemoryFdKHR(display_device, &info, &fd);
+      assert(result == VK_SUCCESS);
+
+      /* Import */
+      const VkImportMemoryFdInfoKHR prime_memory_import_info = {
+         .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+         .fd = fd,
+         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+      };
+      const VkMemoryAllocateInfo prime_memory_info = {
+         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+         .pNext = &prime_memory_import_info,
+         .allocationSize = linear_size,
+      };
+
+      result = wsi->AllocateMemory(chain->device, &prime_memory_info,
+                                   &chain->alloc, &image->prime.memory);
+
+      assert(result == VK_SUCCESS);
+   }
 
    result = wsi->BindBufferMemory(chain->device, image->prime.buffer,
                                   image->prime.memory, 0);
@@ -636,16 +679,18 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
          goto fail;
    }
 
-   const VkMemoryGetFdInfoKHR linear_memory_get_fd_info = {
-      .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
-      .pNext = NULL,
-      .memory = image->prime.memory,
-      .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
-   };
-   int fd;
-   result = wsi->GetMemoryFdKHR(chain->device, &linear_memory_get_fd_info, &fd);
-   if (result != VK_SUCCESS)
-      goto fail;
+   if (display_device != chain->device) {
+      const VkMemoryGetFdInfoKHR linear_memory_get_fd_info = {
+         .sType = VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+         .pNext = NULL,
+         .memory = image->prime.memory,
+         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+      };
+
+      result = wsi->GetMemoryFdKHR(chain->device, &linear_memory_get_fd_info, &fd);
+      if (result != VK_SUCCESS)
+         goto fail;
+   }
 
    image->drm_modifier = use_modifier ? DRM_FORMAT_MOD_LINEAR : DRM_FORMAT_MOD_INVALID;
    image->num_planes = 1;

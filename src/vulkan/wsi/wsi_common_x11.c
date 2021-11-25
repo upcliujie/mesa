@@ -1799,9 +1799,22 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
     */
    chain->copy_is_suboptimal = false;
 
-   if (!wsi_device->sw)
-      if (!wsi_x11_check_dri3_compatible(wsi_device, conn))
+   if (!wsi_device->sw) {
+      if (!wsi_x11_check_dri3_compatible(wsi_device, conn)) {
          chain->base.use_prime_blit = true;
+
+         /* Get display GPU fd through X11 connection */
+         xcb_screen_iterator_t screen_iter =
+            xcb_setup_roots_iterator(xcb_get_setup(chain->conn));
+         xcb_screen_t *screen = screen_iter.data;
+         int dri3_fd = wsi_dri3_open(chain->conn, screen->root, None);
+
+         /* Try to create a wsi_device for this fd */
+         if (wsi_device->create_device_for_fd) {
+            chain->base.display_fd = dri3_fd;
+         }
+      }
+   }
 
    chain->event_id = xcb_generate_id(chain->conn);
    xcb_present_select_input(chain->conn, chain->event_id, chain->window,
