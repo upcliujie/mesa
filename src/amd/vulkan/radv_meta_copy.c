@@ -278,6 +278,20 @@ copy_image_to_buffer(struct radv_cmd_buffer *cmd_buffer, struct radv_buffer *buf
                      struct radv_image *image, VkImageLayout layout,
                      const VkBufferImageCopy2KHR *region)
 {
+   if (cmd_buffer->pool->queue_family_index == RADV_QUEUE_TRANSFER &&
+       !region->imageOffset.x && !region->imageOffset.y && !region->imageOffset.z &&
+       image->type == VK_IMAGE_TYPE_2D &&
+       image->info.width == region->imageExtent.width &&
+       image->info.height == region->imageExtent.height) {
+      if (radv_sdma_copy_image(cmd_buffer, image, buffer, region)) {
+         radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs,
+                            image->bo);
+         radv_cs_add_buffer(cmd_buffer->device->ws, cmd_buffer->cs,
+                            buffer->bo);
+         return;
+      }
+   }
+
    struct radv_meta_saved_state saved_state;
    bool old_predicating;
 
