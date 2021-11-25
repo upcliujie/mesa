@@ -542,6 +542,17 @@ wsi_CreateSwapchainKHR(VkDevice _device,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
+   if (wsi_device->allow_present_sdma) {
+      swapchain->sdma_fences = vk_zalloc(alloc,
+                                         sizeof (*swapchain->sdma_fences) * swapchain->image_count,
+                                         sizeof (*swapchain->sdma_fences),
+                                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (!swapchain->sdma_fences) {
+         swapchain->destroy(swapchain, alloc);
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+      }
+   }
+
    *pSwapchain = wsi_swapchain_to_handle(swapchain);
 
    return VK_SUCCESS;
@@ -652,6 +663,20 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
                                    image->memory);
    }
 
+   if (swapchain->use_prime_blit && wsi->allow_present_sdma) {
+      if (swapchain->fences[*pImageIndex] != VK_NULL_HANDLE) {
+         result =
+            wsi->WaitForFences(device, 1, &swapchain->sdma_fences[*pImageIndex],
+                               true, ~0ull);
+         if (result != VK_SUCCESS)
+            return result;
+
+         result = wsi->ResetFences(device, 1, &swapchain->sdma_fences[*pImageIndex]);
+         if (result != VK_SUCCESS)
+            return result;
+      }
+   }
+
    return result;
 }
 
@@ -694,6 +719,19 @@ wsi_common_queue_present(const struct wsi_device *wsi,
                                    &swapchain->fences[image_index]);
          if (result != VK_SUCCESS)
             goto fail_present;
+
+         if (swapchain->use_prime_blit && wsi->allow_present_sdma) {
+            const VkFenceCreateInfo fence_info = {
+               .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+               .pNext = NULL,
+               .flags = 0,
+            };
+            result = wsi->CreateFence(device, &fence_info,
+                                      &swapchain->alloc,
+                                      &swapchain->sdma_fences[image_index]);
+            if (result != VK_SUCCESS)
+               goto fail_present;
+         }
       } else {
          result =
             wsi->WaitForFences(device, 1, &swapchain->fences[image_index],
@@ -755,7 +793,7 @@ wsi_common_queue_present(const struct wsi_device *wsi,
             submit_info.pCommandBuffers =
                &image->prime.blit_cmd_buffers[wsi->queue_family_count];
             /* Submit the copy to the SDMA queue */
-            result = wsi->QueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE);
+            result = wsi->QueueSubmit(queue, 1, &submit_info, swapchain->sdma_fences[image_index]);
 
             submit_info.commandBufferCount = 0;
             submit_info.waitSemaphoreCount = 0;

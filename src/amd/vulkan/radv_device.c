@@ -5285,7 +5285,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
 
    radv_device_memory_init(mem, device, NULL);
 
-   if (wsi_info) {
+   if (wsi_info && !import_info) {
       if(wsi_info->implicit_sync)
          flags |= RADEON_FLAG_IMPLICIT_SYNC;
 
