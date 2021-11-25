@@ -838,7 +838,7 @@ radv_import_ahb_memory(struct radv_device *device, struct radv_device_memory *me
 
    uint64_t alloc_size = 0;
    VkResult result =
-      device->ws->buffer_from_fd(device->ws, dma_buf, priority, &mem->bo, &alloc_size);
+      device->ws->buffer_from_fd(device->ws, dma_buf, priority, &mem->bo, &alloc_size, false);
    if (result != VK_SUCCESS)
       return result;
 

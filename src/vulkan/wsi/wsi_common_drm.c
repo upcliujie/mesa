@@ -551,7 +551,8 @@ wsi_create_prime_image(const struct wsi_swapchain *chain,
       const VkImportMemoryFdInfoKHR prime_memory_import_info = {
          .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
          .fd = fd,
-         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT
+         .handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT,
+         .pNext = &memory_wsi_info,
       };
       const VkMemoryAllocateInfo prime_memory_info = {
          .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
