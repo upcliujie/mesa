@@ -5306,7 +5306,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
    } else if (import_info) {
       assert(import_info->handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT ||
              import_info->handleType == VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT);
-      result = device->ws->buffer_from_fd(device->ws, import_info->fd, priority, &mem->bo, NULL);
+      result = device->ws->buffer_from_fd(device->ws, import_info->fd, priority, &mem->bo, NULL, wsi_info != NULL);
       if (result != VK_SUCCESS) {
          goto fail;
       } else {

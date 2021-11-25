@@ -696,7 +696,8 @@ error:
 
 static VkResult
 radv_amdgpu_winsys_bo_from_fd(struct radeon_winsys *_ws, int fd, unsigned priority,
-                              struct radeon_winsys_bo **out_bo, uint64_t *alloc_size)
+                              struct radeon_winsys_bo **out_bo, uint64_t *alloc_size,
+                              bool is_prime_linear_buffer)
 {
    struct radv_amdgpu_winsys *ws = radv_amdgpu_winsys(_ws);
    struct radv_amdgpu_winsys_bo *bo;
@@ -740,8 +741,8 @@ radv_amdgpu_winsys_bo_from_fd(struct radeon_winsys *_ws, int fd, unsigned priori
       goto error_query;
    }
 
-   r =
-      radv_amdgpu_bo_va_op(ws, result.buf_handle, 0, result.alloc_size, va, 0, 0, AMDGPU_VA_OP_MAP);
+   r = radv_amdgpu_bo_va_op(ws, result.buf_handle, 0, result.alloc_size, va,
+                            is_prime_linear_buffer ? RADEON_FLAG_VA_UNCACHED : 0, 0, AMDGPU_VA_OP_MAP);
    if (r) {
       vk_result = VK_ERROR_UNKNOWN;
       goto error_va_map;
