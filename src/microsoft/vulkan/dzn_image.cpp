@@ -933,10 +933,10 @@ dzn_image_view::~dzn_image_view()
 {
    vk_object_base_finish(&base);
 
-   if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+   if (rt_handle.cpu_handle.ptr)
       device->free_handle(&rt_handle);
 
-   if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+   if (zs_handle.cpu_handle.ptr)
       device->free_handle(&zs_handle);
 }
 
