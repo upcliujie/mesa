@@ -163,6 +163,9 @@ struct ir3_compiler {
    /* True if 16-bit descriptors are used for both 16-bit and 32-bit access. */
    bool storage_16bit;
 
+   bool has_dp2acc;
+   bool has_dp4acc;
+
    /* Type to use for 1b nir bools: */
    type_t bool_type;
 };
