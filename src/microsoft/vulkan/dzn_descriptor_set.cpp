@@ -49,7 +49,6 @@ desc_type_to_range_type(VkDescriptorType in)
 {
    switch (in) {
    case VK_DESCRIPTOR_TYPE_SAMPLER: return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-   case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
    case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
@@ -177,7 +176,13 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
 
          binfos[binding].range_idx[type] = idx;
          auto range = (D3D12_DESCRIPTOR_RANGE1 *) &ranges[visibility][type][idx];
-         range->RangeType = desc_type_to_range_type(ordered_bindings[i].descriptorType);
+         VkDescriptorType range_type = desc_type;
+         if (desc_type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+            range_type = type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ?
+                         VK_DESCRIPTOR_TYPE_SAMPLER :
+                         VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+         }
+         range->RangeType = desc_type_to_range_type(range_type);
          range->NumDescriptors = ordered_bindings[i].descriptorCount;
          range->BaseShaderRegister = binfos[binding].base_shader_register;
          range->Flags = type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ?
