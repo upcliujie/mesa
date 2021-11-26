@@ -370,8 +370,8 @@ dxil_spirv_nir_lower_yz_flip(nir_shader *shader,
 }
 
 static bool
-lower_vulkan_resource_index(struct nir_builder *builder, nir_instr *instr,
-                            void *cb_data)
+adjust_resource_index_binding(struct nir_builder *builder, nir_instr *instr,
+                              void *cb_data)
 {
    struct dxil_spirv_runtime_conf *conf =
       (struct dxil_spirv_runtime_conf *)cb_data;
@@ -397,16 +397,24 @@ lower_vulkan_resource_index(struct nir_builder *builder, nir_instr *instr,
 }
 
 static bool
-dxil_spirv_nir_lower_vulkan_resource_index(nir_shader *shader,
-                                           const struct dxil_spirv_runtime_conf *conf)
+dxil_spirv_nir_adjust_var_bindings(nir_shader *shader,
+                                   const struct dxil_spirv_runtime_conf *conf)
 {
-   nir_foreach_variable_with_modes(var, shader, nir_var_mem_ubo) {
-      if (var->data.descriptor_set >= conf->descriptor_set_count)
-         continue;
-      var->data.binding = conf->descriptor_sets[var->data.descriptor_set]
-                             .bindings[var->data.binding].base_register;
+   uint32_t modes = nir_var_image | nir_var_uniform | nir_var_mem_ubo | nir_var_mem_ssbo;
+
+   nir_foreach_variable_with_modes(var, shader, modes) {
+      if (var->data.mode == nir_var_uniform) {
+         const struct glsl_type *type = glsl_without_array(var->type);
+
+         if (!glsl_type_is_sampler(type) && !glsl_type_is_texture(type))
+            continue;
+      }
+
+      unsigned s = var->data.descriptor_set, b = var->data.binding;
+      var->data.binding = conf->descriptor_sets[s].bindings[b].base_register;
    }
-   return nir_shader_instructions_pass(shader, lower_vulkan_resource_index,
+
+   return nir_shader_instructions_pass(shader, adjust_resource_index_binding,
                                        nir_metadata_all, (void *)conf);
 }
 
@@ -530,7 +538,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    }
 
    if (conf->descriptor_set_count > 0)
-      NIR_PASS_V(nir, dxil_spirv_nir_lower_vulkan_resource_index, conf);
+      NIR_PASS_V(nir, dxil_spirv_nir_adjust_var_bindings, conf);
 
    bool requires_runtime_data = false;
    NIR_PASS(requires_runtime_data, nir,
