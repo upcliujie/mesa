@@ -335,7 +335,8 @@ lima_fb_zsbuf_needs_reload(struct lima_job *job)
 }
 
 static void
-lima_pack_reload_plbu_cmd(struct lima_job *job, struct pipe_surface *psurf)
+lima_pack_reload_plbu_cmd(struct lima_job *job, struct pipe_surface *psurf,
+                          unsigned sample_mask, unsigned mrt_idx)
 {
    #define lima_reload_render_state_offset 0x0000
    #define lima_reload_gl_pos_offset       0x0040
@@ -365,13 +366,15 @@ lima_pack_reload_plbu_cmd(struct lima_job *job, struct pipe_surface *psurf)
       .depth_range = 0xffff0000,
       .stencil_front = 0x00000007,
       .stencil_back = 0x00000007,
-      .multi_sample = 0x0000f007,
+      .multi_sample = 0x00000007,
       .shader_address = reload_shader_va | reload_shader_first_instr_size,
       .varying_types = 0x00000001,
       .textures_address = va + lima_reload_tex_array_offset,
       .aux0 = 0x00004021,
       .varyings_address = va + lima_reload_varying_offset,
    };
+
+   reload_render_state.multi_sample |= (sample_mask << 12);
 
    if (util_format_is_depth_or_stencil(psurf->format)) {
       reload_render_state.alpha_blend &= 0x0fffffff;
@@ -392,7 +395,8 @@ lima_pack_reload_plbu_cmd(struct lima_job *job, struct pipe_surface *psurf)
 
    lima_tex_desc *td = cpu + lima_reload_tex_desc_offset;
    memset(td, 0, lima_min_tex_desc_size);
-   lima_texture_desc_set_res(ctx, td, psurf->texture, level, level, first_layer);
+   lima_texture_desc_set_res(ctx, td, psurf->texture, level, level,
+                             first_layer, mrt_idx);
    td->format = lima_format_get_texel_reload(psurf->format);
    td->unnorm_coords = 1;
    td->sampler_dim = LIMA_SAMPLER_DIM_2D;
@@ -465,10 +469,18 @@ lima_pack_head_plbu_cmd(struct lima_job *job)
    PLBU_CMD_END();
 
    if (lima_fb_cbuf_needs_reload(job))
-      lima_pack_reload_plbu_cmd(job, job->key.cbuf);
+      lima_pack_reload_plbu_cmd(job, job->key.cbuf, ctx->sample_mask, 0);
 
-   if (lima_fb_zsbuf_needs_reload(job))
-      lima_pack_reload_plbu_cmd(job, job->key.zsbuf);
+   if (lima_fb_zsbuf_needs_reload(job)) {
+      if (ctx->framebuffer.base.samples) {
+         for (int i = 0; i < LIMA_MAX_SAMPLES; i++) {
+            if (ctx->sample_mask & (1 << i))
+               lima_pack_reload_plbu_cmd(job, job->key.zsbuf, (1 << i), i);
+         };
+      }
+      else
+         lima_pack_reload_plbu_cmd(job, job->key.zsbuf, ctx->sample_mask, 0);
+   }
 }
 
 static void
@@ -800,7 +812,13 @@ lima_pack_wb_zsbuf_reg(struct lima_job *job, uint32_t *wb_reg, int wb_idx)
       wb[wb_idx].pixel_layout = 0x0;
       wb[wb_idx].pitch = res->levels[level].stride / 8;
    }
-   wb[wb_idx].mrt_bits = 0;
+   wb[wb_idx].flags = 0;
+   if (res->mrt_pitch) {
+      wb[wb_idx].mrt_pitch = res->mrt_pitch;
+      wb[wb_idx].mrt_bits = u_bit_consecutive(0, res->base.nr_samples) &
+                            job->ctx->sample_mask;
+   }
+
 }
 
 static void
@@ -829,7 +847,7 @@ lima_pack_wb_cbuf_reg(struct lima_job *job, uint32_t *frame_reg,
       wb[wb_idx].pixel_layout = 0x0;
       wb[wb_idx].pitch = res->levels[level].stride / 8;
    }
-   wb[wb_idx].mrt_bits = swap_channels ? 0x4 : 0x0;
+   wb[wb_idx].flags = swap_channels ? 0x4 : 0x0;
 }
 
 static void

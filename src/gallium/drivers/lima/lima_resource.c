@@ -95,7 +95,12 @@ setup_miptree(struct lima_resource *res,
    unsigned width = width0;
    unsigned height = height0;
    unsigned depth = pres->depth0;
+   unsigned nr_samples = MAX2(pres->nr_samples, 1);
    uint32_t size = 0;
+
+   /* We only need a larger buffer for MSAA only for depth/stencil */
+   if (!util_format_is_depth_or_stencil(pres->format))
+      nr_samples = 1;
 
    for (level = 0; level <= pres->last_level; level++) {
       uint32_t actual_level_size;
@@ -124,18 +129,17 @@ setup_miptree(struct lima_resource *res,
       if (util_format_is_compressed(pres->format))
          res->levels[level].layer_stride /= 4;
 
-      /* The start address of each level except the last level
-       * must be 64-aligned in order to be able to pass the
-       * addresses to the hardware. */
-      if (level != pres->last_level)
-         size += align(actual_level_size, 64);
-      else
-         size += actual_level_size;  /* Save some memory */
+      size += align(actual_level_size, 64);
 
       width = u_minify(width, 1);
       height = u_minify(height, 1);
       depth = u_minify(depth, 1);
    }
+
+   if (nr_samples)
+      res->mrt_pitch = size;
+
+   size *= nr_samples;
 
    return size;
 }

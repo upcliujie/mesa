@@ -71,7 +71,8 @@ lima_texture_desc_set_va(lima_tex_desc *desc,
 void
 lima_texture_desc_set_res(struct lima_context *ctx, lima_tex_desc *desc,
                           struct pipe_resource *prsc,
-                          unsigned first_level, unsigned last_level, unsigned first_layer)
+                          unsigned first_level, unsigned last_level,
+                          unsigned first_layer, unsigned mrt_idx)
 {
    unsigned width, height, depth, layout, i;
    struct lima_resource *lima_res = lima_resource(prsc);
@@ -102,7 +103,9 @@ lima_texture_desc_set_res(struct lima_context *ctx, lima_tex_desc *desc,
    uint32_t base_va = lima_res->bo->va;
 
    /* attach first level */
-   uint32_t first_va = base_va + lima_res->levels[first_level].offset + first_layer * lima_res->levels[first_level].layer_stride;
+   uint32_t first_va = base_va + lima_res->levels[first_level].offset +
+                       first_layer * lima_res->levels[first_level].layer_stride +
+                       mrt_idx * lima_res->mrt_pitch;
    desc->va_s.va_0 = first_va >> 6;
    desc->va_s.layout = layout;
 
@@ -110,7 +113,8 @@ lima_texture_desc_set_res(struct lima_context *ctx, lima_tex_desc *desc,
     * Each subsequent mipmap address is specified using the 26 msbs.
     * These addresses are then packed continuously in memory */
    for (i = 1; i <= (last_level - first_level); i++) {
-      uint32_t address = base_va + lima_res->levels[first_level + i].offset;
+      uint32_t address = base_va + lima_res->levels[first_level + i].offset +
+                         mrt_idx * lima_res->mrt_pitch;
       lima_texture_desc_set_va(desc, i, address);
    }
 }
@@ -252,7 +256,7 @@ lima_update_tex_desc(struct lima_context *ctx, struct lima_sampler_state *sample
    desc->lod_bias += lod_bias_delta;
 
    lima_texture_desc_set_res(ctx, desc, texture->base.texture,
-                             first_level, last_level, first_layer);
+                             first_level, last_level, first_layer, 0);
 }
 
 static unsigned
