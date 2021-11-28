@@ -66,7 +66,8 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
       vk_free(alloc, mem);
       return result;
    }
-   vn_instance_roundtrip(dev->instance);
+
+   vn_instance_submit_roundtrip(dev->instance, &mem->bo_seqno);
 
    *out_mem = mem;
 
@@ -83,6 +84,11 @@ vn_device_memory_simple_free(struct vn_device *dev,
 
    if (!vn_renderer_bo_unref(dev->renderer, mem->base_bo))
       return;
+
+   /* bo_seqno is valid if non-zero, and it needs to be waited before freeing
+    * the underlying VkDeviceMemory */
+   if (mem->bo_seqno)
+      vn_instance_wait_roundtrip(dev->instance, mem->bo_seqno);
 
    vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
                          vn_device_memory_to_handle(mem), NULL);
@@ -286,7 +292,7 @@ vn_device_memory_alloc(struct vn_device *dev,
       return result;
    }
 
-   vn_instance_roundtrip(dev->instance);
+   vn_instance_submit_roundtrip(dev->instance, &mem->bo_seqno);
 
    return VK_SUCCESS;
 }
@@ -394,6 +400,10 @@ vn_FreeMemory(VkDevice device,
    } else {
       if (mem->base_bo)
          vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+
+      if (mem->bo_seqno)
+         vn_instance_wait_roundtrip(dev->instance, mem->bo_seqno);
+
       vn_async_vkFreeMemory(dev->instance, device, memory, NULL);
    }
 
