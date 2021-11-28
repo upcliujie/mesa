@@ -66,7 +66,8 @@ vn_device_memory_simple_alloc(struct vn_device *dev,
       vk_free(alloc, mem);
       return result;
    }
-   vn_instance_roundtrip(dev->instance);
+
+   vn_instance_submit_roundtrip(dev->instance, &mem->bo_seqno);
 
    *out_mem = mem;
 
@@ -79,8 +80,10 @@ vn_device_memory_simple_free(struct vn_device *dev,
 {
    const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
 
-   if (mem->base_bo)
+   if (mem->base_bo) {
+      vn_instance_wait_roundtrip(dev->instance, mem->bo_seqno);
       vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+   }
 
    vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
                          vn_device_memory_to_handle(mem), NULL);
@@ -294,7 +297,7 @@ vn_device_memory_alloc(struct vn_device *dev,
       return result;
    }
 
-   vn_instance_roundtrip(dev->instance);
+   vn_instance_submit_roundtrip(dev->instance, &mem->bo_seqno);
 
    return VK_SUCCESS;
 }
@@ -400,8 +403,11 @@ vn_FreeMemory(VkDevice device,
    if (mem->base_memory) {
       vn_device_memory_pool_free(dev, mem->base_memory, mem->base_bo);
    } else {
-      if (mem->base_bo)
+      if (mem->base_bo) {
+         vn_instance_wait_roundtrip(dev->instance, mem->bo_seqno);
          vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+      }
+
       vn_async_vkFreeMemory(dev->instance, device, memory, NULL);
    }
 
