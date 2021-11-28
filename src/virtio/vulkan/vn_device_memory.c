@@ -61,16 +61,23 @@ vn_device_memory_pool_grow_alloc(struct vn_device *dev,
 
    result = vn_renderer_bo_create_from_device_memory(
       dev->renderer, mem->size, mem->base.id, mem_flags, 0, &mem->base_bo);
+   if (result != VK_SUCCESS) {
+      assert(!mem->base_bo);
+      goto fail;
+   }
+
+   result = vn_instance_submit_roundtrip(dev->instance, &mem->bo_roundtrip);
    if (result != VK_SUCCESS)
       goto fail;
 
-   vn_instance_roundtrip(dev->instance);
-
+   mem->bo_roundtrip_valid = true;
    *out_mem = mem;
 
    return VK_SUCCESS;
 
 fail:
+   if (mem->base_bo)
+      vn_renderer_bo_unref(dev->renderer, mem->base_bo);
    if (mem_handle != VK_NULL_HANDLE)
       vn_async_vkFreeMemory(dev->instance, dev_handle, mem_handle, NULL);
    vn_object_base_fini(&mem->base);
@@ -99,6 +106,10 @@ vn_device_memory_pool_unref(struct vn_device *dev,
 
    if (!vn_renderer_bo_unref(dev->renderer, pool_mem->base_bo))
       return;
+
+   /* wait on valid bo_roundtrip before vkFreeMemory */
+   if (mem->bo_roundtrip_valid)
+      vn_instance_wait_roundtrip(dev->instance, mem->bo_roundtrip);
 
    vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
                          vn_device_memory_to_handle(pool_mem), NULL);
@@ -292,7 +303,14 @@ vn_device_memory_alloc(struct vn_device *dev,
       return result;
    }
 
-   vn_instance_roundtrip(dev->instance);
+   result = vn_instance_submit_roundtrip(dev->instance, &mem->bo_roundtrip);
+   if (result != VK_SUCCESS) {
+      vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+      vn_async_vkFreeMemory(dev->instance, dev_handle, mem_handle, NULL);
+      return result;
+   }
+
+   mem->bo_roundtrip_valid = true;
 
    return VK_SUCCESS;
 }
@@ -399,6 +417,10 @@ vn_FreeMemory(VkDevice device,
    } else {
       if (mem->base_bo)
          vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+
+      if (mem->bo_roundtrip_valid)
+         vn_instance_wait_roundtrip(dev->instance, mem->bo_roundtrip);
+
       vn_async_vkFreeMemory(dev->instance, device, memory, NULL);
    }
 
