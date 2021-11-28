@@ -28,6 +28,9 @@ struct vn_device_memory {
    struct vn_device_memory *base_memory;
    /* non-NULL when mappable or external */
    struct vn_renderer_bo *base_bo;
+   /* enforce kernel and ring ordering between memory export and free */
+   bool bo_roundtrip_valid;
+   uint32_t bo_roundtrip;
    VkDeviceSize base_offset;
 
    VkDeviceSize map_end;
