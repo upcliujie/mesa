@@ -26,6 +26,8 @@
 #include "util/macros.h"
 #include "radv_meta.h"
 #include "radv_private.h"
+#include "vk_fence.h"
+#include "vk_semaphore.h"
 #include "vk_util.h"
 #include "wsi_common.h"
 
@@ -52,35 +54,22 @@ radv_wsi_signal_semaphore_for_memory(VkDevice _device, VkSemaphore _semaphore,
                                      VkDeviceMemory _memory)
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_semaphore, semaphore, _semaphore);
+   VK_FROM_HANDLE(vk_semaphore, semaphore, _semaphore);
 
-   struct radv_semaphore_part *part = semaphore->temporary.kind != RADV_SEMAPHORE_NONE
-                                         ? &semaphore->temporary
-                                         : &semaphore->permanent;
+   struct vk_sync *sync = semaphore->temporary ? semaphore->temporary : &semaphore->permanent;
 
-   switch (part->kind) {
-   case RADV_SEMAPHORE_NONE:
-      /* Do not need to do anything. */
-      break;
-   case RADV_SEMAPHORE_TIMELINE:
-   case RADV_SEMAPHORE_TIMELINE_SYNCOBJ:
-      unreachable("WSI only allows binary semaphores.");
-   case RADV_SEMAPHORE_SYNCOBJ:
-      device->ws->signal_syncobj(device->ws, part->syncobj, 0);
-      break;
-   }
+   sync->type->signal(&device->vk, sync, 0);
 }
 
 static void
 radv_wsi_signal_fence_for_memory(VkDevice _device, VkFence _fence, VkDeviceMemory _memory)
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
-   RADV_FROM_HANDLE(radv_fence, fence, _fence);
+   VK_FROM_HANDLE(vk_fence, fence, _fence);
 
-   struct radv_fence_part *part =
-      fence->temporary.kind != RADV_FENCE_NONE ? &fence->temporary : &fence->permanent;
+   struct vk_sync *sync = fence->temporary ? fence->temporary : &fence->permanent;
 
-   device->ws->signal_syncobj(device->ws, part->syncobj, 0);
+   sync->type->signal(&device->vk, sync, 0);
 }
 
 VkResult
