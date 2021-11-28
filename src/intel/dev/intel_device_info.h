@@ -112,6 +112,7 @@ struct intel_device_info
    bool has_surface_tile_offset;
    bool supports_simd16_3src;
    bool disable_ccs_repack;
+   bool has_flat_ccs;
    bool has_aux_map;
    bool has_tiling_uapi;
    bool has_ray_tracing;
