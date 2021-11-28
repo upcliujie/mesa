@@ -28,6 +28,8 @@ struct vn_device_memory {
    struct vn_device_memory *base_memory;
    /* non-NULL when mappable or external */
    struct vn_renderer_bo *base_bo;
+   /* non-zero when base_bo is non-NULL and roundtrip submission succeeds */
+   uint32_t bo_seqno;
    VkDeviceSize base_offset;
 
    VkDeviceSize map_end;
