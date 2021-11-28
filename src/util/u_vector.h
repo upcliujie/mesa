@@ -101,7 +101,9 @@ u_vector_finish(struct u_vector *queue)
 #define u_vector_foreach(elem, queue)                                  \
    STATIC_ASSERT(__builtin_types_compatible_p(__typeof__(queue), struct u_vector *)); \
    for (uint32_t __u_vector_offset = (queue)->tail;                                \
-        elem = (void *)((char *)(queue)->data + (__u_vector_offset & ((queue)->size - 1))), __u_vector_offset != (queue)->head; \
+        elem = (__typeof__(elem))((char *)(queue)->data + \
+                                  (__u_vector_offset & ((queue)->size - 1))), \
+           __u_vector_offset != (queue)->head;                          \
         __u_vector_offset += (queue)->element_size)
 
 #ifdef __cplusplus
@@ -109,4 +111,3 @@ u_vector_finish(struct u_vector *queue)
 #endif
 
 #endif
-
