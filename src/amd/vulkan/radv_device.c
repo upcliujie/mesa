@@ -2906,22 +2906,6 @@ radv_device_finish_vrs_image(struct radv_device *device)
                      &device->meta_state.alloc);
 }
 
-VkResult
-_radv_device_set_lost(struct radv_device *device, const char *file, int line, const char *msg, ...)
-{
-   VkResult err;
-   va_list ap;
-
-   p_atomic_inc(&device->lost);
-
-   va_start(ap, msg);
-   err =
-      __vk_errorv(device, VK_ERROR_DEVICE_LOST, file, line, msg, ap);
-   va_end(ap);
-
-   return err;
-}
-
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo,
                   const VkAllocationCallbacks *pAllocator, VkDevice *pDevice)
@@ -4805,7 +4789,7 @@ fail:
        * VK_ERROR_DEVICE_LOST to ensure the clients do not attempt
        * to submit the same job again to this device.
        */
-      result = radv_device_set_lost(queue->device, "vkQueueSubmit() failed");
+      result = vk_device_set_lost(&queue->device->vk, "vkQueueSubmit() failed");
    }
 
    radv_free_temp_syncobjs(queue->device, submission->temporary_semaphore_part_count,
@@ -5020,7 +5004,7 @@ radv_QueueSubmit2KHR(VkQueue _queue, uint32_t submitCount, const VkSubmitInfo2KH
    uint32_t fence_idx = 0;
    bool flushed_caches = false;
 
-   if (radv_device_is_lost(queue->device))
+   if (vk_device_is_lost(&queue->device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    if (fence != VK_NULL_HANDLE) {
@@ -5093,7 +5077,7 @@ radv_QueueWaitIdle(VkQueue _queue)
 {
    RADV_FROM_HANDLE(radv_queue, queue, _queue);
 
-   if (radv_device_is_lost(queue->device))
+   if (vk_device_is_lost(&queue->device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    mtx_lock(&queue->pending_mutex);
@@ -5105,10 +5089,10 @@ radv_QueueWaitIdle(VkQueue _queue)
    if (!queue->device->ws->ctx_wait_idle(
           queue->hw_ctx, radv_queue_family_to_ring(queue->vk.queue_family_index),
           queue->vk.index_in_family)) {
-      return radv_device_set_lost(queue->device,
-                                  "Failed to wait for a '%s' queue "
-                                  "to be idle. GPU hang ?",
-                                  radv_get_queue_family_name(queue));
+      return vk_device_set_lost(&queue->device->vk,
+                                "Failed to wait for a '%s' queue "
+                                "to be idle. GPU hang ?",
+                                radv_get_queue_family_name(queue));
    }
 
    return VK_SUCCESS;
@@ -5713,7 +5697,7 @@ radv_QueueBindSparse(VkQueue _queue, uint32_t bindInfoCount, const VkBindSparseI
    RADV_FROM_HANDLE(radv_queue, queue, _queue);
    uint32_t fence_idx = 0;
 
-   if (radv_device_is_lost(queue->device))
+   if (vk_device_is_lost(&queue->device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    if (fence != VK_NULL_HANDLE) {
@@ -5859,7 +5843,7 @@ radv_WaitForFences(VkDevice _device, uint32_t fenceCount, const VkFence *pFences
    RADV_FROM_HANDLE(radv_device, device, _device);
    uint32_t *handles;
 
-   if (radv_device_is_lost(device))
+   if (vk_device_is_lost(&device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    timeout = radv_get_absolute_timeout(timeout);
@@ -5917,7 +5901,7 @@ radv_GetFenceStatus(VkDevice _device, VkFence _fence)
    struct radv_fence_part *part =
       fence->temporary.kind != RADV_FENCE_NONE ? &fence->temporary : &fence->permanent;
 
-   if (radv_device_is_lost(device))
+   if (vk_device_is_lost(&device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    bool success = device->ws->wait_syncobj(device->ws, &part->syncobj, 1, true, 0);
@@ -6187,7 +6171,7 @@ radv_GetSemaphoreCounterValue(VkDevice _device, VkSemaphore _semaphore, uint64_t
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_semaphore, semaphore, _semaphore);
 
-   if (radv_device_is_lost(device))
+   if (vk_device_is_lost(&device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    struct radv_semaphore_part *part = semaphore->temporary.kind != RADV_SEMAPHORE_NONE
@@ -6246,7 +6230,7 @@ radv_WaitSemaphores(VkDevice _device, const VkSemaphoreWaitInfo *pWaitInfo, uint
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
 
-   if (radv_device_is_lost(device))
+   if (vk_device_is_lost(&device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    uint64_t abs_timeout = radv_get_absolute_timeout(timeout);
@@ -6397,7 +6381,7 @@ radv_GetEventStatus(VkDevice _device, VkEvent _event)
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_event, event, _event);
 
-   if (radv_device_is_lost(device))
+   if (vk_device_is_lost(&device->vk))
       return VK_ERROR_DEVICE_LOST;
 
    if (*event->map == 1)
