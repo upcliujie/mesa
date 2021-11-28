@@ -81,6 +81,21 @@ struct radv_amdgpu_cs {
    unsigned num_old_cs_buffers;
 };
 
+struct radv_winsys_sem_counts {
+   uint32_t syncobj_count;
+   uint32_t syncobj_reset_count; /* for wait only, whether to reset the syncobj */
+   uint32_t timeline_syncobj_count;
+   uint32_t *syncobj;
+   uint64_t *points;
+};
+
+struct radv_winsys_sem_info {
+   bool cs_emit_signal;
+   bool cs_emit_wait;
+   struct radv_winsys_sem_counts wait;
+   struct radv_winsys_sem_counts signal;
+};
+
 static inline struct radv_amdgpu_cs *
 radv_amdgpu_cs(struct radeon_cmdbuf *base)
 {
@@ -1841,7 +1856,6 @@ radv_amdgpu_cs_init_functions(struct radv_amdgpu_winsys *ws)
    ws->base.cs_reset = radv_amdgpu_cs_reset;
    ws->base.cs_add_buffer = radv_amdgpu_cs_add_buffer;
    ws->base.cs_execute_secondary = radv_amdgpu_cs_execute_secondary;
-   ws->base.cs_submit = radv_amdgpu_winsys_cs_submit;
    ws->base.cs_submit2 = radv_amdgpu_winsys_cs_submit2;
    ws->base.cs_dump = radv_amdgpu_winsys_cs_dump;
    ws->base.create_syncobj = radv_amdgpu_create_syncobj;
