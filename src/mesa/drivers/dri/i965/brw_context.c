@@ -1242,7 +1242,7 @@ brw_destroy_context(__DRIcontext *driContextPriv)
       _mesa_make_current(ctx, NULL, NULL);
    }
 
-   _mesa_glthread_destroy(&brw->ctx);
+   _mesa_glthread_destroy(&brw->ctx, NULL);
 
    _mesa_meta_free(&brw->ctx);
 
