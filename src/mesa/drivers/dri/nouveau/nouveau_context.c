@@ -32,7 +32,7 @@
 #include "nouveau_fbo.h"
 #include "nv_object.xml.h"
 
-#include "main/api_exec.h"
+#include "main/context.h"
 #include "main/dd.h"
 #include "main/framebuffer.h"
 #include "main/fbobject.h"

@@ -32,7 +32,6 @@
 
 
 #include "compiler/nir/nir.h"
-#include "main/api_exec.h"
 #include "main/context.h"
 #include "main/fbobject.h"
 #include "main/extensions.h"

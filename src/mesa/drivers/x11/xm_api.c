@@ -65,7 +65,7 @@
 #include <stdio.h>
 #include "glxheader.h"
 #include "xmesaP.h"
-#include "main/api_exec.h"
+#include "main/context.h"
 #include "main/context.h"
 #include "main/extensions.h"
 #include "main/framebuffer.h"

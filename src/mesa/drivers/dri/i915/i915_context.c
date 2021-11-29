@@ -26,7 +26,7 @@
  **************************************************************************/
 
 #include "i915_context.h"
-#include "main/api_exec.h"
+#include "main/context.h"
 #include "main/framebuffer.h"
 #include "main/extensions.h"
 #include "main/macros.h"
