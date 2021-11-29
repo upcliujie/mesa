@@ -169,7 +169,7 @@ typedef struct {
 } nir_search_expression;
 
 struct per_op_table {
-   const uint16_t *filter;
+   const uint8_t *filter;
    unsigned num_filtered_states;
    const uint16_t *table;
 };

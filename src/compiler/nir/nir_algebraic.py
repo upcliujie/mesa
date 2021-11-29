@@ -793,6 +793,20 @@ class TreeAutomaton(object):
       self.patterns = [t.search for t in transforms]
       self._compute_items()
       self._build_table()
+
+      self.filtered_c_type = 'uint8_t'
+      self.unfiltered_c_type = 'uint16_t'
+
+      for op in self.opcodes:
+            for f in self.filter[op]:
+                  assert f < 0x100, 'Filtered state for opcode {} is too large: {}'.format(op, f)
+
+            num_filtered = len(self.rep[op])
+            num_srcs = len(next(iter(self.table[op])))
+
+            for indices in itertools.product(range(num_filtered), repeat=num_srcs):
+                  assert self.table[op][indices] < 0x10000, 'Unfiltered state for opcode {} is too large: {}'.format(op, self.table[op][indices])
+
       #print('num items: {}'.format(len(set(self.items.values()))))
       #print('num states: {}'.format(len(self.states)))
       #for state, patterns in zip(self.states, self.patterns):
@@ -1065,7 +1079,8 @@ static const struct transform ${pass_name}_state${state_id}_xforms[] = {
 static const struct per_op_table ${pass_name}_table[nir_num_search_ops] = {
 % for op in automaton.opcodes:
    [${get_c_opcode(op)}] = {
-      .filter = (uint16_t []) {
+      /* Note: Keep types used in nir_algebraic.py and nir_search.h synchronized. */
+      .filter = (${automaton.filtered_c_type} []) {
       % for e in automaton.filter[op]:
          ${e},
       % endfor
@@ -1074,7 +1089,8 @@ static const struct per_op_table ${pass_name}_table[nir_num_search_ops] = {
         num_filtered = len(automaton.rep[op])
       %>
       .num_filtered_states = ${num_filtered},
-      .table = (uint16_t []) {
+      /* Note: Keep types used in nir_algebraic.py and nir_search.h synchronized. */
+      .table = (${automaton.unfiltered_c_type} []) {
       <%
         num_srcs = len(next(iter(automaton.table[op])))
       %>
