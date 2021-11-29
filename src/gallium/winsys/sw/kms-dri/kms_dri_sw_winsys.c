@@ -278,7 +278,7 @@ kms_sw_displaytarget_map(struct sw_winsys *ws,
 
    kms_sw_dt->map_count++;
 
-   return *ptr + plane->offset;
+   return (char *)*ptr + plane->offset;
 }
 
 static struct kms_sw_displaytarget *

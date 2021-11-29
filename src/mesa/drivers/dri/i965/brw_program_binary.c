@@ -259,7 +259,7 @@ serialize_intel_part(struct blob *writer, struct gl_context *ctx,
    if (brw_search_cache(&brw->cache, brw_stage_cache_id(stage), &key,
                         brw_prog_key_size(stage), &offset, &prog_data,
                         false)) {
-      const void *program_map = brw->cache.map + offset;
+      const void *program_map = (char *)brw->cache.map + offset;
       /* TODO: Improve perf for non-LLC. It would be best to save it at
        * program generation time when the program is in normal memory
        * accessible with cache to the CPU. Another easier change would be to

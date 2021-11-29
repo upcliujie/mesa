@@ -2451,7 +2451,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
       return;
 
    const struct intel_device_info *devinfo = p->devinfo;
-   void *store = p->store + start_offset / 16;
+   char *store = (char *)(p->store + start_offset / 16);
    /* For an instruction at byte offset 16*i before compaction, this is the
     * number of compacted instructions minus the number of padding NOP/NENOPs
     * that preceded it.
@@ -2472,7 +2472,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
    int compacted_count = 0;
    for (int src_offset = 0; src_offset < p->next_insn_offset - start_offset;
         src_offset += sizeof(brw_inst)) {
-      brw_inst *src = store + src_offset;
+      brw_inst *src = (brw_inst *)(store + src_offset);
       void *dst = store + offset;
 
       old_ip[offset / sizeof(brw_compact_inst)] = src_offset / sizeof(brw_inst);
@@ -2497,7 +2497,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
          /* All uncompacted instructions need to be aligned on G45. */
          if ((offset & sizeof(brw_compact_inst)) != 0 &&
              devinfo->platform == INTEL_PLATFORM_G4X) {
-            brw_compact_inst *align = store + offset;
+            brw_compact_inst *align = (brw_compact_inst *)(store + offset);
             memset(align, 0, sizeof(*align));
             brw_compact_inst_set_hw_opcode(
                devinfo, align, brw_opcode_encode(devinfo, BRW_OPCODE_NENOP));
@@ -2530,7 +2530,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
    p->next_insn_offset = start_offset + offset;
    for (offset = 0; offset < p->next_insn_offset - start_offset;
         offset = next_offset(devinfo, store, offset)) {
-      brw_inst *insn = store + offset;
+      brw_inst *insn = (brw_inst *)(store + offset);
       int this_old_ip = old_ip[offset / sizeof(brw_compact_inst)];
       int this_compacted_count = compacted_counts[this_old_ip];
 
@@ -2615,7 +2615,7 @@ brw_compact_instructions(struct brw_codegen *p, int start_offset,
     * compile passes) parses correctly.
     */
    if (p->next_insn_offset & sizeof(brw_compact_inst)) {
-      brw_compact_inst *align = store + offset;
+      brw_compact_inst *align = (brw_compact_inst *)(store + offset);
       memset(align, 0, sizeof(*align));
       brw_compact_inst_set_hw_opcode(
          devinfo, align, brw_opcode_encode(devinfo, BRW_OPCODE_NOP));

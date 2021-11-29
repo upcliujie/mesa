@@ -127,7 +127,7 @@ i965_postprocess_labels()
       return true;
    }
 
-   void *store = p->store;
+   char *store = (char *)p->store;
 
    struct target_label *tlabel;
    struct instr_label *ilabel, *s;
@@ -137,7 +137,7 @@ i965_postprocess_labels()
    LIST_FOR_EACH_ENTRY(tlabel, &target_labels, link) {
       LIST_FOR_EACH_ENTRY_SAFE(ilabel, s, &instr_labels, link) {
          if (!strcmp(tlabel->name, ilabel->name)) {
-            brw_inst *inst = store + ilabel->offset;
+            brw_inst *inst = (brw_inst *)(store + ilabel->offset);
 
             int relative_offset = (tlabel->offset - ilabel->offset) / sizeof(brw_inst);
             relative_offset *= to_bytes_scale;
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
    char c;
    FILE *output = stdout;
    bool help = false, compact = false;
-   void *store;
+   char *store;
    uint64_t pci_id = 0;
    int offset = 0, err;
    int start_offset = 0;
@@ -320,7 +320,7 @@ int main(int argc, char **argv)
    if (!i965_postprocess_labels())
       goto end;
 
-   store = p->store;
+   store = (char *)p->store;
 
    disasm_info = disasm_initialize(p->devinfo, NULL);
    if (!disasm_info) {
@@ -340,7 +340,7 @@ int main(int argc, char **argv)
       brw_compact_instructions(p, start_offset, disasm_info);
 
    for (int i = 0; i < nr_insn; i++) {
-      const brw_inst *insn = store + offset;
+      const brw_inst *insn = (const brw_inst *)(store + offset);
       bool compacted = false;
 
       if (compact && brw_inst_cmpt_control(p->devinfo, insn)) {

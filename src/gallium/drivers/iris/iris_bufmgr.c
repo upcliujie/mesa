@@ -1527,7 +1527,7 @@ iris_bo_map(struct pipe_debug_callback *dbg,
    if (bo->gem_handle == 0) {
       struct iris_bo *real = iris_get_backing_bo(bo);
       uint64_t offset = bo->address - real->address;
-      map = iris_bo_map(dbg, real, flags | MAP_ASYNC) + offset;
+      map = (char *)iris_bo_map(dbg, real, flags | MAP_ASYNC) + offset;
    } else {
       assert(bo->real.mmap_mode != IRIS_MMAP_NONE);
       if (bo->real.mmap_mode == IRIS_MMAP_NONE)

@@ -229,7 +229,7 @@ aub_file_open(const char *filename)
    close(fd);
 
    file->cursor = file->map;
-   file->end = file->map + sb.st_size;
+   file->end = (char *)file->map + sb.st_size;
 
    return file;
 }
@@ -383,11 +383,14 @@ int main(int argc, char *argv[])
       .ring_write = handle_ring_write,
    };
    int consumed;
+   char* cursor = (char *)file->cursor;
+   char* end = (char *)file->end;
    while (aub_file_more_stuff(file) &&
-          (consumed = aub_read_command(&aub_read, file->cursor,
-                                       file->end - file->cursor)) > 0) {
-      file->cursor += consumed;
+          (consumed = aub_read_command(&aub_read, cursor,
+                                       end - cursor) > 0)) {
+      cursor += consumed;
    }
+   file->cursor = cursor;
 
    aub_mem_fini(&mem);
 

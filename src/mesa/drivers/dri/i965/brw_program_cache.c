@@ -252,7 +252,7 @@ brw_lookup_prog(const struct brw_cache *cache,
    for (i = 0; i < cache->size; i++) {
       for (item = cache->items[i]; item; item = item->next) {
          if (item->cache_id != cache_id || item->size != data_size ||
-             memcmp(cache->map + item->offset, data, item->size) != 0)
+             memcmp((char *)cache->map + item->offset, data, item->size) != 0)
             continue;
 
          return item;
@@ -340,14 +340,14 @@ brw_upload_cache(struct brw_cache *cache,
       item->offset = brw_alloc_item_data(cache, data_size);
 
       /* Copy data to the buffer */
-      memcpy(cache->map + item->offset, data, data_size);
+      memcpy((char *)cache->map + item->offset, data, data_size);
    }
 
    /* Set up the memory containing the key and prog_data */
    tmp = malloc(key_size + prog_data_size);
 
    memcpy(tmp, key, key_size);
-   memcpy(tmp + key_size, prog_data, prog_data_size);
+   memcpy((char *)tmp + key_size, prog_data, prog_data_size);
 
    item->key = tmp;
 

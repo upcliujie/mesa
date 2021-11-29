@@ -3366,7 +3366,7 @@ anv_GetRayTracingShaderGroupHandlesKHR(
    for (uint32_t i = 0; i < groupCount; i++) {
       struct anv_rt_shader_group *group = &rt_pipeline->groups[firstGroup + i];
       memcpy(pData, group->handle, sizeof(group->handle));
-      pData += sizeof(group->handle);
+      pData = (char *)pData + sizeof(group->handle);
    }
 
    return VK_SUCCESS;

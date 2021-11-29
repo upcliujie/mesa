@@ -175,14 +175,16 @@ brw_emit_surface_state(struct brw_context *brw,
       assert((aux_offset & 0xfff) == 0);
 
       if (devinfo->ver >= 8) {
-         uint64_t *aux_addr = state + brw->isl_dev.ss.aux_addr_offset;
+         uint64_t *aux_addr = (uint64_t *)
+            ((char *)state + brw->isl_dev.ss.aux_addr_offset);
          *aux_addr = brw_state_reloc(&brw->batch,
                                      *surf_offset +
                                      brw->isl_dev.ss.aux_addr_offset,
                                      aux_bo, *aux_addr,
                                      reloc_flags);
       } else {
-         uint32_t *aux_addr = state + brw->isl_dev.ss.aux_addr_offset;
+         uint32_t *aux_addr = (uint32_t *)
+            ((char *)state + brw->isl_dev.ss.aux_addr_offset);
          *aux_addr = brw_state_reloc(&brw->batch,
                                      *surf_offset +
                                      brw->isl_dev.ss.aux_addr_offset,
@@ -195,8 +197,8 @@ brw_emit_surface_state(struct brw_context *brw,
    if (clear_bo != NULL) {
       /* Make sure the offset is aligned with a cacheline. */
       assert((clear_offset & 0x3f) == 0);
-      uint64_t *clear_address =
-            state + brw->isl_dev.ss.clear_color_state_offset;
+      uint64_t *clear_address = (uint64_t *)
+            ((char *)state + brw->isl_dev.ss.clear_color_state_offset);
       *clear_address = brw_state_reloc(&brw->batch,
                                        *surf_offset +
                                        brw->isl_dev.ss.clear_color_state_offset,

@@ -2509,15 +2509,15 @@ anv_image_fill_surface_state(struct anv_device *device,
        * because the surface buffer addresses are always 4K page aligned.
        */
       if (!anv_address_is_null(aux_address)) {
-         uint32_t *aux_addr_dw = state_inout->state.map +
-            device->isl_dev.ss.aux_addr_offset;
+         uint32_t *aux_addr_dw = (uint32_t *)((char *)state_inout->state.map +
+            device->isl_dev.ss.aux_addr_offset);
          assert((aux_address.offset & 0xfff) == 0);
          state_inout->aux_address.offset |= *aux_addr_dw & 0xfff;
       }
 
       if (device->info.ver >= 10 && clear_address.bo) {
-         uint32_t *clear_addr_dw = state_inout->state.map +
-                                   device->isl_dev.ss.clear_color_state_offset;
+         uint32_t *clear_addr_dw = (uint32_t *)((char *)state_inout->state.map +
+                                   device->isl_dev.ss.clear_color_state_offset);
          assert((clear_address.offset & 0x3f) == 0);
          state_inout->clear_address.offset |= *clear_addr_dw & 0x3f;
       }

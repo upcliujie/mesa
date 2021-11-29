@@ -886,7 +886,8 @@ brw_map_image(__DRIcontext *context, __DRIimage *image,
    assert(pix_h);
    assert(pix_bytes > 0);
 
-   raw_data += (x0 / pix_w) * pix_bytes + (y0 / pix_h) * image->pitch;
+   raw_data = (char *)raw_data +
+      (x0 / pix_w) * pix_bytes + (y0 / pix_h) * image->pitch;
 
    brw_bo_reference(bo);
 

@@ -183,7 +183,7 @@ brw_readpixels_tiled_memcpy(struct gl_context *ctx,
     */
    if (ctx->ReadBuffer->FlipY) {
       yoffset = rb->Height - yoffset - height;
-      pixels += (ptrdiff_t) (height - 1) * dst_pitch;
+      pixels = (char*)pixels + (ptrdiff_t) (height - 1) * dst_pitch;
       dst_pitch = -dst_pitch;
    }
 
@@ -202,7 +202,7 @@ brw_readpixels_tiled_memcpy(struct gl_context *ctx,
       xoffset * cpp, (xoffset + width) * cpp,
       yoffset, yoffset + height,
       pixels,
-      map + irb->mt->offset,
+      (char *)map + irb->mt->offset,
       dst_pitch, irb->mt->surf.row_pitch_B,
       devinfo->has_bit6_swizzle,
       irb->mt->surf.tiling,

@@ -271,7 +271,7 @@ write_program_data(struct brw_context *brw, struct gl_program *prog,
    struct blob binary;
    blob_init(&binary);
 
-   const void *program_map = brw->cache.map + prog_offset;
+   const void *program_map = (char *)brw->cache.map + prog_offset;
    /* TODO: Improve perf for non-LLC. It would be best to save it at program
     * generation time when the program is in normal memory accessible with
     * cache to the CPU. Another easier change would be to use

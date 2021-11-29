@@ -524,14 +524,15 @@ create_aux_state_map(struct iris_resource *res, enum isl_aux_state initial)
       return NULL;
 
    enum isl_aux_state **per_level_arr = data;
-   enum isl_aux_state *s = data + per_level_array_size;
+   enum isl_aux_state *s =
+      (enum isl_aux_state *)((char *)data + per_level_array_size);
    for (uint32_t level = 0; level < res->surf.levels; level++) {
       per_level_arr[level] = s;
       const unsigned level_layers = iris_get_num_logical_layers(res, level);
       for (uint32_t a = 0; a < level_layers; a++)
          *(s++) = initial;
    }
-   assert((void *)s == data + total_size);
+   assert((char *)s == (char *)data + total_size);
 
    return per_level_arr;
 }
@@ -1889,7 +1890,8 @@ iris_map_copy_region(struct iris_transfer *map)
       iris_batch_flush(map->batch);
 
    map->ptr =
-      iris_bo_map(map->dbg, staging_bo, xfer->usage & MAP_FLAGS) + extra;
+      (char *)iris_bo_map(map->dbg, staging_bo, xfer->usage & MAP_FLAGS)
+      + extra;
 
    map->unmap = iris_unmap_copy_region;
 }
@@ -2076,7 +2078,7 @@ iris_unmap_tiled_memcpy(struct iris_transfer *map)
          unsigned x1, x2, y1, y2;
          tile_extents(surf, box, xfer->level, s, &x1, &x2, &y1, &y2);
 
-         void *ptr = map->ptr + s * xfer->layer_stride;
+         void *ptr = (char *)map->ptr + s * xfer->layer_stride;
 
          isl_memcpy_linear_to_tiled(x1, x2, y1, y2, dst, ptr,
                                     surf->row_pitch_B, xfer->stride,
@@ -2121,7 +2123,7 @@ iris_map_tiled_memcpy(struct iris_transfer *map)
          tile_extents(surf, box, xfer->level, s, &x1, &x2, &y1, &y2);
 
          /* Use 's' rather than 'box->z' to rebase the first slice to 0. */
-         void *ptr = map->ptr + s * xfer->layer_stride;
+         void *ptr = (char *)map->ptr + s * xfer->layer_stride;
 
          isl_memcpy_tiled_to_linear(x1, x2, y1, y2, ptr, src, xfer->stride,
                                     surf->row_pitch_B, has_swizzling,
@@ -2145,7 +2147,7 @@ iris_map_direct(struct iris_transfer *map)
       xfer->stride = 0;
       xfer->layer_stride = 0;
 
-      map->ptr = ptr + box->x;
+      map->ptr = (char *)ptr + box->x;
    } else {
       struct isl_surf *surf = &res->surf;
       const struct isl_format_layout *fmtl =
@@ -2158,7 +2160,8 @@ iris_map_direct(struct iris_transfer *map)
       xfer->stride = isl_surf_get_row_pitch_B(surf);
       xfer->layer_stride = isl_surf_get_array_pitch(surf);
 
-      map->ptr = ptr + (y0_el + box->y) * xfer->stride + (x0_el + box->x) * cpp;
+      map->ptr = (char *)ptr +
+         (y0_el + box->y) * xfer->stride + (x0_el + box->x) * cpp;
    }
 }
 
@@ -2454,7 +2457,7 @@ iris_texture_subdata(struct pipe_context *ctx,
    uint8_t *dst = iris_bo_map(&ice->dbg, res->bo, MAP_WRITE | MAP_RAW);
 
    for (int s = 0; s < box->depth; s++) {
-      const uint8_t *src = data + s * layer_stride;
+      const uint8_t *src = (uint8_t *)data + s * layer_stride;
 
       if (surf->tiling == ISL_TILING_W) {
          unsigned x0_el, y0_el;

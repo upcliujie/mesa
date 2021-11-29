@@ -1155,7 +1155,7 @@ mi_store_address(struct mi_builder *b, struct mi_value addr_reg)
 
          const unsigned addr_dw =
             GENX(MI_STORE_REGISTER_MEM_MemoryAddress_start) / 8;
-         token.ptrs[i] = (void *)_dst + addr_dw;
+         token.ptrs[i] = (uint64_t*)((char *)_dst + addr_dw);
       }
    }
 

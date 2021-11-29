@@ -171,7 +171,7 @@ brw_map_renderbuffer(struct gl_context *ctx,
                    x, y, w, h, mode, &map, &stride);
 
    if (flip_y) {
-      map += (h - 1) * stride;
+      map = (char *)map + (h - 1) * stride;
       stride = -stride;
    }
 

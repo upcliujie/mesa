@@ -160,7 +160,7 @@ init_render_queue_state(struct anv_queue *queue)
 
    uint32_t cmds[64];
    batch.start = batch.next = cmds;
-   batch.end = (void *) cmds + sizeof(cmds);
+   batch.end = (char *) cmds + sizeof(cmds);
 
    anv_batch_emit(&batch, GENX(PIPELINE_SELECT), ps) {
 #if GFX_VER >= 9
@@ -611,8 +611,8 @@ genX(emit_shading_rate)(struct anv_batch *batch,
    }
 #elif GFX_VER == 12
    for (uint32_t i = 0; i < dynamic_state->viewport.count; i++) {
-      uint32_t *cps_state_dwords =
-         cps_states.map + GENX(CPS_STATE_length) * 4 * i;
+      uint32_t *cps_state_dwords = (uint32_t *)
+         ((char *)cps_states.map + GENX(CPS_STATE_length) * 4 * i);
       struct GENX(CPS_STATE) cps_state = {
          .CoarsePixelShadingMode = cps_enable ? CPS_MODE_CONSTANT : CPS_MODE_NONE,
       };
@@ -884,7 +884,7 @@ VkResult genX(CreateSampler)(
       GENX(SAMPLER_STATE_pack)(NULL, sampler->state[p], &sampler_state);
 
       if (sampler->bindless_state.map) {
-         memcpy(sampler->bindless_state.map + p * 32,
+         memcpy((char *)sampler->bindless_state.map + p * 32,
                 sampler->state[p], GENX(SAMPLER_STATE_length) * 4);
       }
    }

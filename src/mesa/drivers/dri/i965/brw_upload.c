@@ -101,7 +101,7 @@ brw_upload_space(struct brw_uploader *upload,
       brw_bo_reference(upload->bo);
    }
 
-   return upload->map + offset;
+   return (char *)upload->map + offset;
 }
 
 /**

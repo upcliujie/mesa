@@ -552,7 +552,7 @@ anv_block_pool_expand_range(struct anv_block_pool *pool,
       /* Now that we mapped the new memory, we can write the new
        * center_bo_offset back into pool and update pool->map. */
       pool->center_bo_offset = center_bo_offset;
-      pool->map = map + center_bo_offset;
+      pool->map = (char *)map + center_bo_offset;
 
       pool->bos[pool->nbos++] = new_bo;
       pool->wrapper_bo.map = new_bo;
@@ -587,9 +587,9 @@ anv_block_pool_map(struct anv_block_pool *pool, int32_t offset, uint32_t size)
       assert(offset >= bo_offset);
       assert((offset - bo_offset) + size <= bo->size);
 
-      return bo->map + (offset - bo_offset);
+      return (char *)bo->map + (offset - bo_offset);
    } else {
-      return pool->map + offset;
+      return (char *)pool->map + offset;
    }
 }
 
@@ -1259,7 +1259,7 @@ anv_state_stream_alloc(struct anv_state_stream *stream,
    struct anv_state state = stream->block;
    state.offset += offset;
    state.alloc_size = size;
-   state.map += offset;
+   state.map = (char *)state.map + offset;
 
    stream->next = offset + size;
 

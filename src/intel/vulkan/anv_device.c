@@ -2831,14 +2831,15 @@ anv_device_init_trivial_batch(struct anv_device *device)
    struct anv_batch batch = {
       .start = device->trivial_batch_bo->map,
       .next = device->trivial_batch_bo->map,
-      .end = device->trivial_batch_bo->map + 4096,
+      .end = (char *)device->trivial_batch_bo->map + 4096,
    };
 
    anv_batch_emit(&batch, GFX7_MI_BATCH_BUFFER_END, bbe);
    anv_batch_emit(&batch, GFX7_MI_NOOP, noop);
 
    if (!device->info.has_llc)
-      intel_clflush_range(batch.start, batch.next - batch.start);
+      intel_clflush_range(batch.start,
+                          (char *)batch.next - (char *)batch.start);
 
    return VK_SUCCESS;
 }
@@ -3933,7 +3934,7 @@ VkResult anv_MapMemory(
    }
 
    if (mem->host_ptr) {
-      *ppData = mem->host_ptr + offset;
+      *ppData = (char *)mem->host_ptr + offset;
       return VK_SUCCESS;
    }
 
@@ -3992,7 +3993,7 @@ VkResult anv_MapMemory(
    mem->map = map;
    mem->map_size = map_size;
    mem->map_delta = (offset - map_offset);
-   *ppData = mem->map + mem->map_delta;
+   *ppData = (char *)mem->map + mem->map_delta;
 
    return VK_SUCCESS;
 }
@@ -4028,7 +4029,7 @@ clflush_mapped_ranges(struct anv_device         *device,
       if (mem->type->propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
          continue;
 
-      intel_clflush_range(mem->map + map_offset,
+      intel_clflush_range((char *)mem->map + map_offset,
                           MIN2(ranges[i].size, mem->map_size - map_offset));
    }
 }

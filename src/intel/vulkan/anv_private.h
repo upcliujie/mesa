@@ -1478,7 +1478,7 @@ anv_batch_set_storage(struct anv_batch *batch, struct anv_address addr,
 {
    batch->start_addr = addr;
    batch->next = batch->start = map;
-   batch->end = map + size;
+   batch->end = (char *)map + size;
 }
 
 static inline VkResult
@@ -1508,8 +1508,8 @@ anv_batch_emit_reloc(struct anv_batch *batch,
       result = anv_reloc_list_add_bo(batch->relocs, batch->alloc, bo);
    } else {
       result = anv_reloc_list_add(batch->relocs, batch->alloc,
-                                  location - batch->start, bo, delta,
-                                  &address_u64);
+                                  (char *)location - (char *)batch->start,
+                                  bo, delta, &address_u64);
    }
    if (unlikely(result != VK_SUCCESS)) {
       anv_batch_set_error(batch, result);
