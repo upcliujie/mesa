@@ -29,7 +29,6 @@
 #include "main/context.h"
 #include "main/extensions.h"
 #include "main/version.h"
-#include "main/vtxfmt.h"
 #include "tnl/tnl.h"
 #include "tnl/t_vertex.h"
 #include "tnl/t_context.h"

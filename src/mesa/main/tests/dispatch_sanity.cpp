@@ -46,7 +46,6 @@
 #include "util/compiler.h"
 #include "main/context.h"
 #include "main/remap.h"
-#include "main/vtxfmt.h"
 #include "glapi/glapi.h"
 #include "drivers/common/driverfuncs.h"
 

@@ -39,7 +39,6 @@
 #include "main/light.h"
 #include "main/state.h"
 #include "main/version.h"
-#include "main/vtxfmt.h"
 #include "drivers/common/meta.h"
 #include "drivers/common/driverfuncs.h"
 #include "swrast/swrast.h"

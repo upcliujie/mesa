@@ -39,7 +39,6 @@
 #include "main/macros.h"
 #include "main/points.h"
 #include "main/version.h"
-#include "main/vtxfmt.h"
 #include "main/texobj.h"
 #include "main/framebuffer.h"
 #include "main/stencil.h"

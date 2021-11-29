@@ -110,7 +110,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "main/macros.h"
 #include "main/draw_validate.h"
 #include "main/api_arrayelt.h"
-#include "main/vtxfmt.h"
 #include "main/dispatch.h"
 #include "main/state.h"
 #include "main/varray.h"
@@ -121,7 +120,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "gallium/include/pipe/p_state.h"
 
-#include "vbo_noop.h"
 #include "vbo_private.h"
 
 
@@ -140,14 +138,6 @@ _save_EvalCoord1f(GLfloat u);
 
 static void GLAPIENTRY
 _save_EvalCoord2f(GLfloat u, GLfloat v);
-
-static void
-handle_out_of_memory(struct gl_context *ctx)
-{
-   struct vbo_save_context *save = &vbo_context(ctx)->save;
-   _mesa_noop_vtxfmt_init(ctx, &save->vtxfmt);
-   save->out_of_memory = true;
-}
 
 /*
  * NOTE: Old 'parity' issue is gone, but copying can still be
@@ -425,9 +415,8 @@ grow_vertex_storage(struct gl_context *ctx, int vertex_count)
       save->vertex_store->buffer_in_ram = realloc(save->vertex_store->buffer_in_ram,
                                                   save->vertex_store->buffer_in_ram_size);
       if (save->vertex_store->buffer_in_ram == NULL)
-         handle_out_of_memory(ctx);
+         save->out_of_memory = true;
    }
-
 }
 
 struct vertex_key {
@@ -567,7 +556,7 @@ compile_vertex_list(struct gl_context *ctx)
                    current_size * sizeof(GLfloat));
          } else {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "Current value allocation");
-            handle_out_of_memory(ctx);
+            save->out_of_memory = true;
          }
       }
    }
@@ -787,7 +776,7 @@ compile_vertex_list(struct gl_context *ctx)
       if (!success) {
          _mesa_reference_buffer_object(ctx, &save->current_bo, NULL);
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "IB allocation");
-         handle_out_of_memory(ctx);
+         save->out_of_memory = true;
       } else {
          save->current_bo_bytes_used = 0;
          available_bytes = save->current_bo->Size;
@@ -918,7 +907,7 @@ end:
                                             MESA_GALLIUM_VERTEX_STATE_STORAGE,
                                             save->current_bo);
       if (!success)
-         handle_out_of_memory(ctx);
+         save->out_of_memory = true;
    }
 
    GLuint offsets[VBO_ATTRIB_MAX];
@@ -1406,6 +1395,10 @@ _save_Materialfv(GLenum face, GLenum pname, const GLfloat *params)
 }
 
 
+static void
+vbo_install_save_vtxfmt(struct gl_context *ctx);
+
+
 /* Cope with EvalCoord/CallList called within a begin/end object:
  *     -- Flush current buffer
  *     -- Fallback to opcodes for the rest of the begin/end object.
@@ -1437,10 +1430,10 @@ dlist_fallback(struct gl_context *ctx)
    copy_to_current(ctx);
    reset_vertex(ctx);
    if (save->out_of_memory) {
-      _mesa_install_save_vtxfmt(ctx, &save->vtxfmt);
+      vbo_install_save_vtxfmt_noop(ctx);
    }
    else {
-      _mesa_install_save_vtxfmt(ctx, &ctx->ListState.ListVtxfmt);
+      _mesa_install_save_vtxfmt(ctx);
    }
    ctx->Driver.SaveNeedFlush = GL_FALSE;
 }
@@ -1536,7 +1529,7 @@ vbo_save_NotifyBegin(struct gl_context *ctx, GLenum mode,
 
    save->no_current_update = no_current_update;
 
-   _mesa_install_save_vtxfmt(ctx, &save->vtxfmt);
+   vbo_install_save_vtxfmt(ctx);
 
    /* We need to call vbo_save_SaveFlushVertices() if there's state change */
    ctx->Driver.SaveNeedFlush = GL_TRUE;
@@ -1559,10 +1552,10 @@ _save_End(void)
     * as opcodes.
     */
    if (save->out_of_memory) {
-      _mesa_install_save_vtxfmt(ctx, &save->vtxfmt);
+      vbo_install_save_vtxfmt_noop(ctx);
    }
    else {
-      _mesa_install_save_vtxfmt(ctx, &ctx->ListState.ListVtxfmt);
+      _mesa_install_save_vtxfmt(ctx);
    }
 }
 
@@ -1921,17 +1914,15 @@ save_MultiDrawElementsBaseVertex(GLenum mode, const GLsizei *count,
 
 
 static void
-vtxfmt_init(struct gl_context *ctx)
+vbo_install_save_vtxfmt(struct gl_context *ctx)
 {
-   struct vbo_save_context *save = &vbo_context(ctx)->save;
-   GLvertexformat *vfmt = &save->vtxfmt;
-
 #define NAME_AE(x) _ae_##x
 #define NAME_CALLLIST(x) _save_##x
 #define NAME(x) _save_##x
 #define NAME_ES(x) _save_##x
 
-#include "vbo_init_tmp.h"
+   struct _glapi_table *tab = ctx->Save;
+   #include "api_vtxfmt_init.h"
 }
 
 
@@ -2004,7 +1995,7 @@ vbo_save_EndList(struct gl_context *ctx)
        * etc. received between here and the next begin will be compiled
        * as opcodes.
        */
-      _mesa_install_save_vtxfmt(ctx, &ctx->ListState.ListVtxfmt);
+      _mesa_install_save_vtxfmt(ctx);
    }
 
    assert(save->vertex_size == 0);
@@ -2043,6 +2034,5 @@ vbo_save_api_init(struct vbo_save_context *save)
 {
    struct gl_context *ctx = gl_context_from_vbo_save(save);
 
-   vtxfmt_init(ctx);
    current_init(ctx);
 }

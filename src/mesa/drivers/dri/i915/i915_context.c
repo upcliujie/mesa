@@ -32,7 +32,6 @@
 #include "main/macros.h"
 #include "main/state.h"
 #include "main/version.h"
-#include "main/vtxfmt.h"
 #include "intel_chipset.h"
 #include "intel_tris.h"
 #include "tnl/t_context.h"

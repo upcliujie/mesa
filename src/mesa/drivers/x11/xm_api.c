@@ -74,7 +74,6 @@
 #include "main/state.h"
 #include "main/teximage.h"
 #include "main/version.h"
-#include "main/vtxfmt.h"
 #include "swrast/swrast.h"
 #include "swrast/s_renderbuffer.h"
 #include "swrast_setup/swrast_setup.h"
