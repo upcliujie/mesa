@@ -400,7 +400,6 @@ GLboolean r200CreateContext( gl_api api,
 
    /* Exec table initialization requires the version to be computed */
    _mesa_initialize_dispatch_tables(ctx);
-   _mesa_initialize_vbo_vtxfmt(ctx);
 
    *error = __DRI_CTX_ERROR_SUCCESS;
    return GL_TRUE;

@@ -92,7 +92,6 @@ nouveau_context_create(gl_api api,
 
 	/* Exec table initialization requires the version to be computed */
 	_mesa_initialize_dispatch_tables(ctx);
-	_mesa_initialize_vbo_vtxfmt(ctx);
 
 	if (nouveau_bo_new(context_dev(ctx), NOUVEAU_BO_VRAM, 0, 4096,
 			   NULL, &nctx->fence)) {

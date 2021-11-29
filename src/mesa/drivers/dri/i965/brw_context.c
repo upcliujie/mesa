@@ -1212,7 +1212,6 @@ brw_create_context(gl_api api,
    }
 
    _mesa_initialize_dispatch_tables(ctx);
-   _mesa_initialize_vbo_vtxfmt(ctx);
 
    if (ctx->Extensions.INTEL_performance_query)
       brw_init_performance_queries(brw);

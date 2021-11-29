@@ -891,7 +891,6 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
    _vbo_CreateContext(ctx, true);
 
    _mesa_initialize_dispatch_tables(ctx);
-   _mesa_initialize_vbo_vtxfmt(ctx);
    st_init_driver_flags(st);
 
    /* Initialize context's winsys buffers list */

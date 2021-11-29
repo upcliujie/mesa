@@ -954,7 +954,6 @@ XMesaContext XMesaCreateContext( XMesaVisual v, XMesaContext share_list )
 
     /* Exec table initialization requires the version to be computed */
    _mesa_initialize_dispatch_tables(mesaCtx);
-   _mesa_initialize_vbo_vtxfmt(mesaCtx);
 
    return c;
 }
