@@ -266,6 +266,46 @@ SOFTWARE.
 </bitset>
 
 <bitset name="getinfo" extends="#instruction-cat5-tex">
+	<doc>
+		GETINFO returns 4 values, in .xyzw:
+
+		x: A value associated with the channel type:
+
+		   8_SNORM:          0
+		   16_SNORM:         1
+		   8_UNORM:          2
+		   16_UNORM:         3
+		   5_6_5_UNORM:      4
+		   5_5_5_1_UNORM:    5
+		   10_10_10_2_UNORM: 6
+		   8_SINT:           7
+		   16_SINT:          8
+		   32_SINT:          9
+		   8_UINT:          10
+		   16_UINT:         11
+		   32_UINT:         12
+		   16_FLOAT:        13
+		   32_FLOAT:        14
+		   9_9_9_E5_FLOAT:  15
+		   11_11_10_FLOAT:  15
+		   10_10_10_2_UINT: 16
+		   4_4_4_4_UNORM:   17
+		   X8Z24_UNORM:     18
+
+		y: A value associated with the number of components:
+
+		     1 -> 1
+		     2 -> 3
+		     3 -> 6
+		     4 -> 8
+
+		     And some special formats results in special
+		     values here, e.g. Z24 -> 0x11, A8 -> 0.
+
+		z: Number of levels
+
+		w: Number of samples
+	</doc>
 	<pattern low="54" high="58">01101</pattern>
 	<derived name="NUM_SRC" expr="#zero" type="uint"/>
 	<derived name="HAS_SAMP" expr="#false" type="bool"/>
