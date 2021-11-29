@@ -686,6 +686,7 @@ files_libmesa_common += [
   main_api_exec_decl_h,
   main_api_save_h,
   main_api_save_init_h,
+  main_api_vtxfmt_init_h,
   main_enums_c,
   format_fallback_c,
   get_hash_h,
