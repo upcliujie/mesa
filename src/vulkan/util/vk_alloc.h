@@ -181,7 +181,7 @@ struct vk_multialloc {
 };
 
 #define VK_MULTIALLOC_INIT \
-   ((struct vk_multialloc) { 0, })
+   ((struct vk_multialloc) { 0, 1, })
 
 #define VK_MULTIALLOC(_name) \
    struct vk_multialloc _name = VK_MULTIALLOC_INIT
