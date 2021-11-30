@@ -2654,21 +2654,31 @@ panfrost_update_state_vs(struct panfrost_batch *batch)
         unsigned dirty = batch->ctx->dirty_shader[st];
 
 #if PAN_ARCH <= 7
-        if (dirty & PAN_DIRTY_STAGE_RENDERER)
+        if (dirty & PAN_DIRTY_STAGE_SHADER)
                 batch->rsd[st] = panfrost_emit_compute_shader_meta(batch, st);
 #endif
 
         panfrost_update_state_tex(batch, st);
 }
 
+/* Midgard groups all 3D state into a monolithic Renderer State Descriptor.
+ * Valhall splits 3D state into multiple descriptors. To share code between
+ * both, we use Valhall-style dirty flags and consider the fragment RSD dirty
+ * if any of the following dirty flags are set.
+ */
+#define FRAGMENT_RSD_DIRTY_MASK ( \
+        PAN_DIRTY_ZS | PAN_DIRTY_BLEND | PAN_DIRTY_MSAA | \
+        PAN_DIRTY_OQ)
+
 static void
 panfrost_update_state_fs(struct panfrost_batch *batch)
 {
+        struct panfrost_context *ctx = batch->ctx;
         enum pipe_shader_type st = PIPE_SHADER_FRAGMENT;
-        unsigned dirty = batch->ctx->dirty_shader[st];
+        unsigned dirty = ctx->dirty_shader[st];
 
 #if PAN_ARCH <= 7
-        if (dirty & PAN_DIRTY_STAGE_RENDERER)
+        if (dirty & PAN_DIRTY_STAGE_SHADER || ctx->dirty & FRAGMENT_RSD_DIRTY_MASK)
                 batch->rsd[st] = panfrost_emit_frag_shader_meta(batch);
 
         if (dirty & PAN_DIRTY_STAGE_IMAGE) {
