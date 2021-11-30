@@ -103,8 +103,6 @@ blitframebuffer_texture(struct gl_context *ctx,
    const GLint dstY = MIN2(dstY0, dstY1);
    const GLint dstW = abs(dstX1 - dstX0);
    const GLint dstH = abs(dstY1 - dstY0);
-   const int srcW = abs(srcX1 - srcX0);
-   const int srcH = abs(srcY1 - srcY0);
    struct gl_texture_object *texObj;
    GLuint srcLevel;
    GLenum target;
@@ -139,6 +137,8 @@ blitframebuffer_texture(struct gl_context *ctx,
       }
    } else {
       GLenum tex_base_format;
+      GLint _srcX0, _srcX1, _srcY0, _srcY1;
+
       /* Fall back to doing a CopyTexSubImage to get the destination
        * renderbuffer into a texture.
        */
@@ -160,18 +160,47 @@ blitframebuffer_texture(struct gl_context *ctx,
          return false;
       }
 
+      if (srcX0 > srcX1) {
+         GLint temp = srcX0;
+         srcX0 = srcX1;
+         srcX1 = temp;
+         flipX = -flipX;
+      }
+      if (srcY0 > srcY1) {
+         GLint temp = srcY0;
+         srcY0 = srcY1;
+         srcY1 = temp;
+         flipY = -flipY;
+      }
+
+      /* Using  the exact source rectangle to create the texture does incorrect
+       * linear filtering along the edges. So, allocate the texture extended along
+       * edges by one pixel in x, y directions. But keep it within the original
+       * read buffer or we get undefined results instead of CLAMP_TO_EDGE
+       * behaviour.
+       *
+       * FIXME: _mesa_meta_alloc_texture() may still give us a larger
+       * texture, in which case will not get proper CLAMP_TO_EDGE
+       * behaviour near/past the edges of the read buffer.
+       */
+      _srcX0 = MAX2(srcX0 - 1, 0);
+      _srcY0 = MAX2(srcY0 - 1, 0);
+      _srcX1 = MIN2(srcX1 + 1, rb->Width);
+      _srcY1 = MIN2(srcY1 + 1, rb->Height);
+
       _mesa_meta_setup_copypix_texture(ctx, meta_temp_texture,
-                                       srcX0, srcY0,
-                                       srcW, srcH,
+                                       _srcX0, _srcY0,
+                                       _srcX1 - srcX0,
+                                       _srcY1 - srcY0,
                                        tex_base_format,
                                        filter);
 
       assert(texObj->Target == meta_temp_texture->Target);
 
-      srcX0 = 0;
-      srcY0 = 0;
-      srcX1 = srcW;
-      srcY1 = srcH;
+      srcX0 -= _srcX0;
+      srcX1 -= _srcX0;
+      srcY0 -= _srcY0;
+      srcY1 -= _srcY0;
    }
 
    target = texObj->Target;
