@@ -74,6 +74,9 @@ struct panfrost_zsa_state {
         struct mali_multisample_misc_packed rsd_depth;
         struct mali_stencil_mask_misc_packed rsd_stencil;
         struct mali_stencil_packed stencil_front, stencil_back;
+#else
+        /* Depth/stencil descriptor template */
+        struct mali_depth_stencil_packed desc;
 #endif
 };
 
@@ -3481,6 +3484,13 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
         struct panfrost_zsa_state *so = CALLOC_STRUCT(panfrost_zsa_state);
         so->base = *zsa;
 
+        const struct pipe_stencil_state front = zsa->stencil[0];
+        const struct pipe_stencil_state back =
+                zsa->stencil[1].enabled ? zsa->stencil[1] : front;
+
+        enum mali_func depth_func = zsa->depth_enabled ?
+                (enum mali_func) zsa->depth_func : MALI_FUNC_ALWAYS;
+
 #if PAN_ARCH <= 7
         /* Normalize (there's no separate enable) */
         if (!zsa->alpha_enabled)
@@ -3489,18 +3499,14 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
         /* Prepack relevant parts of the Renderer State Descriptor. They will
          * be ORed in at draw-time */
         pan_pack(&so->rsd_depth, MULTISAMPLE_MISC, cfg) {
-                cfg.depth_function = zsa->depth_enabled ?
-                        (enum mali_func) zsa->depth_func : MALI_FUNC_ALWAYS;
-
+                cfg.depth_function = depth_func;
                 cfg.depth_write_mask = zsa->depth_writemask;
         }
 
         pan_pack(&so->rsd_stencil, STENCIL_MASK_MISC, cfg) {
-                cfg.stencil_enable = zsa->stencil[0].enabled;
-
-                cfg.stencil_mask_front = zsa->stencil[0].writemask;
-                cfg.stencil_mask_back = zsa->stencil[1].enabled ?
-                        zsa->stencil[1].writemask : zsa->stencil[0].writemask;
+                cfg.stencil_enable = front.enabled;
+                cfg.stencil_mask_front = front.writemask;
+                cfg.stencil_mask_back = back.writemask;
 
 #if PAN_ARCH <= 5
                 cfg.alpha_test_compare_function =
@@ -3509,12 +3515,29 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
         }
 
         /* Stencil tests have their own words in the RSD */
-        pan_pipe_to_stencil(&zsa->stencil[0], &so->stencil_front);
+        pan_pipe_to_stencil(&front, &so->stencil_front);
+        pan_pipe_to_stencil(&back, &so->stencil_back);
+#else
+        pan_pack(&so->desc, DEPTH_STENCIL, cfg) {
+                cfg.front_compare_function = (enum mali_func) front.func;
+                cfg.front_stencil_fail = pan_pipe_to_stencil_op(front.fail_op);
+                cfg.front_depth_fail = pan_pipe_to_stencil_op(front.zfail_op);
+                cfg.front_depth_pass = pan_pipe_to_stencil_op(front.zpass_op);
 
-        if (zsa->stencil[1].enabled)
-                pan_pipe_to_stencil(&zsa->stencil[1], &so->stencil_back);
-	else
-                so->stencil_back = so->stencil_front;
+                cfg.back_compare_function = (enum mali_func) back.func;
+                cfg.back_stencil_fail = pan_pipe_to_stencil_op(back.fail_op);
+                cfg.back_depth_fail = pan_pipe_to_stencil_op(back.zfail_op);
+                cfg.back_depth_pass = pan_pipe_to_stencil_op(back.zpass_op);
+
+                cfg.stencil_test_enable = front.enabled;
+                cfg.front_write_mask = front.writemask;
+                cfg.back_write_mask = back.writemask;
+                cfg.front_value_mask = front.valuemask;
+                cfg.back_value_mask = front.valuemask;
+
+                cfg.depth_write_enable = zsa->depth_writemask;
+                cfg.depth_function = depth_func;
+        }
 #endif
 
         so->enabled = zsa->stencil[0].enabled ||
