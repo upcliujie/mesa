@@ -465,7 +465,7 @@ for (int bit = 0; bit < bit_size; bit++) {
 """)
 
 unop("uclz", tuint32, """
-int bit;
+int bit = -1;
 for (bit = bit_size - 1; bit >= 0; bit--) {
    if ((src0 & (1u << bit)) != 0)
       break;
