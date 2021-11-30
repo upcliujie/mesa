@@ -1228,12 +1228,13 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          if (i == 1 && info.is_constant_or_literal(32) &&
              ((ctx.program->chip_class == GFX6 && info.val <= 0x3FF) ||
               (ctx.program->chip_class == GFX7 && info.val <= 0xFFFFFFFF) ||
-              (ctx.program->chip_class >= GFX8 && info.val <= 0xFFFFF))) {
+              (ctx.program->chip_class >= GFX8 && info.val <= 0xFFFFF)) && info.val % 4u == 0) {
             instr->operands[i] = Operand::c32(info.val);
             continue;
          } else if (i == 1 &&
                     parse_base_offset(ctx, instr.get(), i, &base, &offset, prevent_overflow) &&
-                    base.regClass() == s1 && offset <= 0xFFFFF && ctx.program->chip_class >= GFX9) {
+                    base.regClass() == s1 && offset <= 0xFFFFF && ctx.program->chip_class >= GFX9 &&
+                    offset % 4u == 0) {
             bool soe = smem.operands.size() >= (!smem.definitions.empty() ? 3 : 4);
             if (soe && (!ctx.info[smem.operands.back().tempId()].is_constant_or_literal(32) ||
                         ctx.info[smem.operands.back().tempId()].val != 0)) {
