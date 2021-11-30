@@ -129,6 +129,7 @@ struct panfrost_batch {
         mali_ptr attrib_bufs[PIPE_SHADER_TYPES];
         mali_ptr uniform_buffers[PIPE_SHADER_TYPES];
         mali_ptr push_uniforms[PIPE_SHADER_TYPES];
+        mali_ptr depth_stencil;
 
         /* Referenced resources */
         struct set *resources;
