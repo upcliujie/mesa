@@ -157,6 +157,7 @@ static void
 pan_prepare_s(const struct pan_fb_info *fb,
               struct MALI_ZS_CRC_EXTENSION *ext)
 {
+#if PAN_ARCH <= 7
         const struct pan_image_view *s = fb->zs.view.s;
 
         if (!s)
@@ -178,12 +179,16 @@ pan_prepare_s(const struct pan_fb_info *fb,
                 s->image->layout.slices[level].surface_stride : 0;
         ext->s_block_format = mod_to_block_fmt(s->image->layout.modifier);
         ext->s_write_format = translate_s_format(s->format);
+#else
+        /* TODO: reverse-engineer Valhall descriptor */
+#endif
 }
 
 static void
 pan_prepare_zs(const struct pan_fb_info *fb,
                struct MALI_ZS_CRC_EXTENSION *ext)
 {
+#if PAN_ARCH <= 7
         const struct pan_image_view *zs = fb->zs.view.zs;
 
         if (!zs)
@@ -229,6 +234,9 @@ pan_prepare_zs(const struct pan_fb_info *fb,
         ext->zs_write_format = translate_zs_format(zs->format);
         if (ext->zs_write_format == MALI_ZS_FORMAT_D24S8)
                 ext->s_writeback_base = ext->zs_writeback_base;
+#else
+        /* TODO: reverse-engineer Valhall descriptor */
+#endif
 }
 
 static void
@@ -249,7 +257,11 @@ pan_prepare_crc(const struct pan_fb_info *fb, int rt_crc,
         ext->crc_row_stride = slice->crc.stride;
 
 #if PAN_ARCH >= 7
+#if PAN_ARCH <= 7
         ext->crc_render_target = rt_crc;
+#else
+        /* TODO */
+#endif
 
         if (fb->rts[rt_crc].clear) {
                 uint32_t clear_val = fb->rts[rt_crc].clear_value[0];
@@ -265,7 +277,11 @@ pan_emit_zs_crc_ext(const struct pan_fb_info *fb, int rt_crc,
 {
         pan_pack(zs_crc_ext, ZS_CRC_EXTENSION, cfg) {
                 pan_prepare_crc(fb, rt_crc, &cfg);
+#if PAN_ARCH <= 7
                 cfg.zs_clean_pixel_write_enable = fb->zs.clear.z || fb->zs.clear.s;
+#else
+                /* TODO */
+#endif
                 pan_prepare_zs(fb, &cfg);
                 pan_prepare_s(fb, &cfg);
         }
