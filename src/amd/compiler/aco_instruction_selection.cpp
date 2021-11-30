@@ -3717,7 +3717,8 @@ emit_load(isel_context* ctx, Builder& bld, const LoadEmitInfo& info,
       if (info.component_stride)
          bytes_needed = MIN2(bytes_needed, info.component_size);
 
-      bool need_to_align_offset = byte_align && (align_mul % 4 || align_offset % 4);
+      bool is_smem = !params.supports_8bit_16bit_loads;
+      bool need_to_align_offset = !is_smem && byte_align && (align_mul % 4 || align_offset % 4);
 
       /* reduce constant offset */
       Operand offset = info.offset;
@@ -3788,6 +3789,8 @@ emit_load(isel_context* ctx, Builder& bld, const LoadEmitInfo& info,
       }
       Temp aligned_offset_tmp =
          aligned_offset.isTemp() ? aligned_offset.getTemp() : bld.copy(bld.def(s1), aligned_offset);
+
+      align = byte_align ? 4 : align;
 
       Temp val = params.callback(bld, info, aligned_offset_tmp, bytes_needed, align,
                                  reduced_const_offset, byte_align ? Temp() : info.dst);
