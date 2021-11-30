@@ -3717,7 +3717,7 @@ emit_load(isel_context* ctx, Builder& bld, const LoadEmitInfo& info,
       if (info.component_stride)
          bytes_needed = MIN2(bytes_needed, info.component_size);
 
-      bool need_to_align_offset = byte_align && (align_mul % 4 || align_offset % 4);
+      bool need_to_align_offset = false && byte_align && (align_mul % 4 || align_offset % 4);
 
       /* reduce constant offset */
       Operand offset = info.offset;
