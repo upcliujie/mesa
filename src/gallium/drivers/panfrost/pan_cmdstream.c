@@ -690,6 +690,45 @@ panfrost_emit_viewport(struct panfrost_batch *batch)
 }
 #endif
 
+#if PAN_ARCH >= 9
+/**
+ * Emit a Valhall depth/stencil descriptor at draw-time. The bulk of the
+ * descriptor corresponds to a pipe_depth_stencil_alpha CSO and is packed at
+ * CSO create time. However, the stencil reference values and shader
+ * interactions are dynamic state. Pack only the dynamic state here and OR
+ * together.
+ */
+static mali_ptr
+panfrost_emit_depth_stencil(struct panfrost_batch *batch)
+{
+        struct panfrost_context *ctx = batch->ctx;
+        const struct panfrost_zsa_state *zsa = ctx->depth_stencil;
+        struct panfrost_rasterizer *rast = ctx->rasterizer;
+        struct panfrost_shader_state *fs = panfrost_get_shader_state(ctx, PIPE_SHADER_FRAGMENT);
+        bool back_enab = zsa->base.stencil[1].enabled;
+
+        struct panfrost_ptr T = pan_pool_alloc_desc(&batch->pool.base, DEPTH_STENCIL);
+        struct mali_depth_stencil_packed dynamic;
+
+        pan_pack(&dynamic, DEPTH_STENCIL, cfg) {
+                cfg.front_reference_value = ctx->stencil_ref.ref_value[0];
+                cfg.back_reference_value = ctx->stencil_ref.ref_value[back_enab ? 1 : 0];
+
+                cfg.stencil_from_shader = fs->info.fs.writes_stencil;
+                cfg.depth_source = pan_depth_source(&fs->info);
+
+                cfg.depth_units = rast->base.offset_units * 2.0f;
+                cfg.depth_factor = rast->base.offset_scale;
+                cfg.depth_bias_clamp = rast->base.offset_clamp;
+        }
+
+        pan_merge(dynamic, zsa->desc, DEPTH_STENCIL);
+        memcpy(T.cpu, &dynamic, pan_size(DEPTH_STENCIL));
+
+        return T.gpu;
+}
+#endif
+
 static mali_ptr
 panfrost_emit_compute_shader_meta(struct panfrost_batch *batch, enum pipe_shader_type stage)
 {
@@ -2636,7 +2675,8 @@ panfrost_update_state_tex(struct panfrost_batch *batch,
 static inline void
 panfrost_update_state_3d(struct panfrost_batch *batch)
 {
-        unsigned dirty = batch->ctx->dirty;
+        struct panfrost_context *ctx = batch->ctx;
+        unsigned dirty = ctx->dirty;
 
 #if PAN_ARCH <= 7
         if (dirty & (PAN_DIRTY_VIEWPORT | PAN_DIRTY_SCISSOR))
@@ -2645,6 +2685,12 @@ panfrost_update_state_3d(struct panfrost_batch *batch)
 
         if (dirty & PAN_DIRTY_TLS_SIZE)
                 panfrost_batch_adjust_stack_size(batch);
+
+#if PAN_ARCH >= 9
+        if ((dirty & (PAN_DIRTY_ZS | PAN_DIRTY_RASTERIZER)) ||
+            (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & PAN_DIRTY_STAGE_SHADER))
+                batch->depth_stencil = panfrost_emit_depth_stencil(batch);
+#endif
 }
 
 static void
