@@ -481,8 +481,13 @@ nir_handle_add_jump(nir_block *block)
 
    case nir_jump_continue: {
       nir_loop *loop = nearest_loop(&block->cf_node);
-      nir_block *first_block = nir_loop_first_block(loop);
-      link_blocks(block, first_block, NULL);
+      nir_block *cont_block;
+
+      if (loop->has_continue_target)
+         cont_block = nir_loop_first_continue_block(loop);
+      else
+         cont_block = nir_loop_first_block(loop);
+      link_blocks(block, cont_block, NULL);
       break;
    }
 
@@ -654,6 +659,8 @@ cleanup_cf_node(nir_cf_node *node, nir_function_impl *impl)
       nir_loop *loop = nir_cf_node_as_loop(node);
       foreach_list_typed(nir_cf_node, child, node, &loop->body)
          cleanup_cf_node(child, impl);
+      foreach_list_typed(nir_cf_node, child, node, &loop->continue_target)
+         cleanup_cf_node(child, impl);
       break;
    }
    case nir_cf_node_function: {
@@ -764,6 +771,8 @@ relink_jump_halt_cf_node(nir_cf_node *node, nir_block *end_block)
    case nir_cf_node_loop: {
       nir_loop *loop = nir_cf_node_as_loop(node);
       foreach_list_typed(nir_cf_node, child, node, &loop->body)
+         relink_jump_halt_cf_node(child, end_block);
+      foreach_list_typed(nir_cf_node, child, node, &loop->continue_target)
          relink_jump_halt_cf_node(child, end_block);
       break;
    }

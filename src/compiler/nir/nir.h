@@ -3109,11 +3109,13 @@ typedef struct {
    nir_cf_node cf_node;
 
    struct exec_list body; /** < list of nir_cf_node */
+   struct exec_list continue_target;
 
    nir_loop_info *info;
    nir_loop_control control;
    bool partially_unrolled;
    bool divergent;
+   bool has_continue_target;
 } nir_loop;
 
 /**
@@ -3334,6 +3336,24 @@ static inline nir_block *
 nir_loop_last_block(nir_loop *loop)
 {
    struct exec_node *tail = exec_list_get_tail(&loop->body);
+   return nir_cf_node_as_block(exec_node_data(nir_cf_node, tail, node));
+}
+
+static inline nir_block *
+nir_loop_first_continue_block(nir_loop *loop)
+{
+   struct exec_node *head = exec_list_get_head(&loop->continue_target);
+   if (!head)
+      return NULL;
+   return nir_cf_node_as_block(exec_node_data(nir_cf_node, head, node));
+}
+
+static inline nir_block *
+nir_loop_last_continue_block(nir_loop *loop)
+{
+   struct exec_node *tail = exec_list_get_tail(&loop->continue_target);
+   if (!tail)
+      return NULL;
    return nir_cf_node_as_block(exec_node_data(nir_cf_node, tail, node));
 }
 
