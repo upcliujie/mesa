@@ -5175,14 +5175,14 @@ emit_module(struct ntd_context *ctx, const struct nir_to_dxil_options *opts)
 
    /* SRVs */
    nir_foreach_variable_with_modes(var, ctx->shader, nir_var_uniform) {
-      if (glsl_type_is_texture(glsl_without_array(var->type))) {
-         if (!emit_srv(ctx, var, glsl_type_get_texture_count(var->type)))
-            return false;
-      } else if (glsl_type_is_image(glsl_without_array(var->type)) &&
-               ((var->data.access & ACCESS_NON_WRITEABLE))) {
-         if (!emit_srv(ctx, var, glsl_type_get_image_count(var->type)))
-            return false;
-      }
+      if (glsl_type_is_texture(glsl_without_array(var->type)) &&
+          !emit_srv(ctx, var, glsl_type_get_texture_count(var->type)))
+         return false;
+   }
+   nir_foreach_image_variable(var, ctx->shader) {
+      if ((var->data.access & ACCESS_NON_WRITEABLE) &&
+          !emit_srv(ctx, var, glsl_type_get_image_count(var->type)))
+         return false;
    }
 
    /* Handle read-only SSBOs as SRVs */
