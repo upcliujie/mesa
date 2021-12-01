@@ -323,7 +323,7 @@ reg_cp(struct ir3_cp_ctx *ctx, struct ir3_instruction *instr,
     * outside the loop would see the value for the thread(s) that last
     * exited the loop, rather than for their own thread.
     */
-   if ((src->dsts[0]->flags & IR3_REG_SHARED) &&
+   if ((reg->flags & IR3_REG_SHARED) &&
        src->block->loop_id != instr->block->loop_id)
       return false;
 
