@@ -563,10 +563,10 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
       unreachable("bad VkImageType");
    case VK_IMAGE_TYPE_1D:
    case VK_IMAGE_TYPE_2D:
-      assert(range->baseArrayLayer + dzn_get_layerCount(image, range) - 1 <= image->vk.array_layers);
+      assert(range->baseArrayLayer + dzn_get_layer_count(image, range) - 1 <= image->vk.array_layers);
       break;
    case VK_IMAGE_TYPE_3D:
-      assert(range->baseArrayLayer + dzn_get_layerCount(image, range) - 1
+      assert(range->baseArrayLayer + dzn_get_layer_count(image, range) - 1
              <= u_minify(image->vk.extent.depth, range->baseMipLevel));
       break;
    }

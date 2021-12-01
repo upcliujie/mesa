@@ -1037,7 +1037,7 @@ struct dzn_sampler {
 /* This is defined as a macro so that it works for both
  * VkImageSubresourceRange and VkImageSubresourceLayers
  */
-#define dzn_get_layerCount(_image, _range) \
+#define dzn_get_layer_count(_image, _range) \
    ((_range)->layerCount == VK_REMAINING_ARRAY_LAYERS ? \
     (_image)->vk.array_layers - (_range)->baseArrayLayer : (_range)->layerCount)
 
