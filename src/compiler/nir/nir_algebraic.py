@@ -1082,19 +1082,36 @@ static const struct transform ${pass_name}_state${state_id}_xforms[] = {
 % endif
 % endfor
 
+<%
+  max_zero_len = 0
+  for f in automaton.filter.values():
+      if all(e == 0 for e in f):
+          max_zero_len = max(max_zero_len, len(f))
+%>
+% if max_zero_len:
+/* Shared all-zeroes filter table in BSS, since the const uint16_t[] arrays below
+ * would each have separate data in .rodata.  No initializer, so it gets zeroes from BSS.
+ */
+static const uint16_t ${pass_name}_filter_zeroes[${max_zero_len}];
+% endif:
+
 static const struct per_op_table ${pass_name}_pass_op_table[nir_num_search_ops] = {
 % for op in automaton.opcodes:
    [${get_c_opcode(op)}] = {
-      .filter = (uint16_t []) {
+% if all(e == 0 for e in automaton.filter[op]):
+      .filter = ${pass_name}_filter_zeroes,
+% else:
+      .filter = (const uint16_t []) {
       % for e in automaton.filter[op]:
          ${e},
       % endfor
       },
+% endif
       <%
         num_filtered = len(automaton.rep[op])
       %>
       .num_filtered_states = ${num_filtered},
-      .table = (uint16_t []) {
+      .table = (const uint16_t []) {
       <%
         num_srcs = len(next(iter(automaton.table[op])))
       %>
