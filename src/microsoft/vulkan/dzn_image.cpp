@@ -544,11 +544,13 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
 {
    VK_FROM_HANDLE(dzn_image, img, pCreateInfo->image);
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
+   uint32_t level_count = dzn_get_level_count(img, range);
+   uint32_t layer_count = dzn_get_layer_count(img, range);
 
    image = img;
    device = dev;
 
-   assert(range->layerCount > 0);
+   assert(layer_count > 0);
    assert(range->baseMipLevel < image->vk.mip_levels);
 
    /* View usage should be a subset of image usage */
@@ -602,64 +604,53 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
    case D3D12_SRV_DIMENSION_TEXTURE1D:
       desc.Texture1D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.Texture1D.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.Texture1D.MipLevels = level_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2D:
       desc.Texture2D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.Texture2D.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.Texture2D.MipLevels = level_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DMS:
       break;
    case D3D12_SRV_DIMENSION_TEXTURE3D:
       desc.Texture3D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.Texture3D.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.Texture3D.MipLevels = level_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURECUBE:
       desc.TextureCube.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.TextureCube.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.TextureCube.MipLevels = level_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE1DARRAY:
       desc.Texture1DArray.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.Texture1DArray.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.Texture1DArray.MipLevels = level_count;
       desc.Texture1DArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      desc.Texture1DArray.ArraySize =
-         pCreateInfo->subresourceRange.layerCount;
+      desc.Texture1DArray.ArraySize = layer_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DARRAY:
       desc.Texture2DArray.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.Texture2DArray.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.Texture2DArray.MipLevels = level_count;
       desc.Texture2DArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      desc.Texture2DArray.ArraySize =
-         pCreateInfo->subresourceRange.layerCount;
+      desc.Texture2DArray.ArraySize = layer_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY:
       desc.Texture2DMSArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      desc.Texture2DMSArray.ArraySize =
-         pCreateInfo->subresourceRange.layerCount;
+      desc.Texture2DMSArray.ArraySize = layer_count;
       break;
    case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY:
       desc.TextureCubeArray.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
-      desc.TextureCubeArray.MipLevels =
-         pCreateInfo->subresourceRange.levelCount;
+      desc.TextureCubeArray.MipLevels = level_count;
       desc.TextureCubeArray.First2DArrayFace =
          pCreateInfo->subresourceRange.baseArrayLayer;
-      desc.TextureCubeArray.NumCubes =
-         pCreateInfo->subresourceRange.layerCount / 6;
+      desc.TextureCubeArray.NumCubes = layer_count / 6;
       break;
    default: unreachable("Invalid dimension");
    }
@@ -674,7 +665,7 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
       rtv_desc.ViewDimension =
          translate_view_type_to_rtv_dim(pCreateInfo->viewType, image->vk.samples);
 
-      assert(range->levelCount == 1);
+      assert(level_count == 1);
 
       switch (rtv_desc.ViewDimension) {
       case D3D12_RTV_DIMENSION_TEXTURE1D:
@@ -691,16 +682,16 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
       case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
          rtv_desc.Texture1DArray.MipSlice = range->baseMipLevel;
          rtv_desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
-         rtv_desc.Texture1DArray.ArraySize = range->layerCount;
+         rtv_desc.Texture1DArray.ArraySize = layer_count;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE2DARRAY:
          rtv_desc.Texture2DArray.MipSlice = range->baseMipLevel;
          rtv_desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
-         rtv_desc.Texture2DArray.ArraySize = range->layerCount;
+         rtv_desc.Texture2DArray.ArraySize = layer_count;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE2DMSARRAY:
          rtv_desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
-         rtv_desc.Texture2DMSArray.ArraySize = range->layerCount;
+         rtv_desc.Texture2DMSArray.ArraySize = layer_count;
          break;
       default: unreachable("Invalid dimension");
       }
@@ -731,16 +722,16 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
       case D3D12_DSV_DIMENSION_TEXTURE1DARRAY:
          dsv_desc.Texture1DArray.MipSlice = range->baseMipLevel;
          dsv_desc.Texture1DArray.FirstArraySlice = range->baseArrayLayer;
-         dsv_desc.Texture1DArray.ArraySize = range->layerCount;
+         dsv_desc.Texture1DArray.ArraySize = layer_count;
          break;
       case D3D12_DSV_DIMENSION_TEXTURE2DARRAY:
          dsv_desc.Texture2DArray.MipSlice = range->baseMipLevel;
          dsv_desc.Texture2DArray.FirstArraySlice = range->baseArrayLayer;
-         dsv_desc.Texture2DArray.ArraySize = range->layerCount;
+         dsv_desc.Texture2DArray.ArraySize = layer_count;
          break;
       case D3D12_DSV_DIMENSION_TEXTURE2DMSARRAY:
          dsv_desc.Texture2DMSArray.FirstArraySlice = range->baseArrayLayer;
-         dsv_desc.Texture2DMSArray.ArraySize = range->layerCount;
+         dsv_desc.Texture2DMSArray.ArraySize = layer_count;
          break;
       default: unreachable("Invalid dimension");
       }
