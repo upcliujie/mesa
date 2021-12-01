@@ -1570,7 +1570,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
       result = check_physical_device_features(physicalDevice,
                                               pCreateInfo->pEnabledFeatures);
       if (result != VK_SUCCESS)
-         return vk_error(instance, result);
+         return vk_error(physical_device, result);
    }
 
    /* Check requested queues and fail if we are requested to create any
@@ -1579,7 +1579,7 @@ dzn_CreateDevice(VkPhysicalDevice physicalDevice,
    assert(pCreateInfo->queueCreateInfoCount > 0);
    for (uint32_t i = 0; i < pCreateInfo->queueCreateInfoCount; i++) {
       if (pCreateInfo->pQueueCreateInfos[i].flags != 0)
-         return vk_error(instance, VK_ERROR_INITIALIZATION_FAILED);
+         return vk_error(physical_device, VK_ERROR_INITIALIZATION_FAILED);
    }
 
    return dzn_device_factory::create(physicalDevice,
