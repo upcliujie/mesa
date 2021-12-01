@@ -1485,18 +1485,32 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          const struct dzn_descriptor_set *set = desc_state->sets[s].set;
          if (!set) continue;
 
+         uint32_t set_heap_offset = pipeline->layout->sets[s].heap_offsets[type];
          uint32_t set_desc_count = set->layout->range_desc_count[type];
-         if (set_desc_count) {
-            dst_heap.copy(dst_offset, set->heaps[type], 0, set_desc_count);
-            dst_offset += set_desc_count;
-         }
+         if (set_desc_count)
+            dst_heap.copy(set_heap_offset, set->heaps[type], 0, set_desc_count);
 
          if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
-            for (uint32_t o = 0; o < set->layout->dynamic_buffers.count; o++) {
-               dst_heap.write_desc(dst_offset,
+            for (uint32_t o = 0, elem = 0; o < set->layout->dynamic_buffers.count; o++, elem++) {
+               uint32_t b = set->layout->dynamic_buffers.bindings[o];
+
+               if (o > 0 && set->layout->dynamic_buffers.bindings[o - 1] != b)
+                  elem = 0;
+
+	       uint32_t desc_heap_offset = set->layout->get_heap_offset(b, type, false) + elem;
+
+               dst_heap.write_desc(set_heap_offset + desc_heap_offset,
+                                   false,
                                    set->dynamic_buffers[o] +
                                    desc_state->sets[s].dynamic_offsets[o]);
-               dst_offset++;
+
+               if (dzn_descriptor_heap::type_depends_on_shader_usage(set->dynamic_buffers[o].type)) {
+                  desc_heap_offset = set->layout->get_heap_offset(b, type, true) + elem;
+                  dst_heap.write_desc(set_heap_offset + desc_heap_offset,
+                                      true,
+                                      set->dynamic_buffers[o] +
+                                      desc_state->sets[s].dynamic_offsets[o]);
+               }
             }
          }
       }

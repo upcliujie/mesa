@@ -511,13 +511,17 @@ struct dzn_descriptor_heap {
    void write_desc(uint32_t desc_offset,
                    dzn_sampler *sampler);
    void write_desc(uint32_t desc_offset,
+                   bool writeable,
                    dzn_image_view *iview);
    void write_desc(uint32_t desc_offset,
+                   bool writeable,
                    const dzn_buffer_desc &info);
    void copy(uint32_t dst_offset,
              const dzn_descriptor_heap &src_heap,
              uint32_t src_offset,
              uint32_t desc_count);
+
+   static bool type_depends_on_shader_usage(VkDescriptorType type);
 
 private:
    dzn_device *device = NULL;
@@ -743,6 +747,7 @@ struct dzn_descriptor_set_layout {
    struct {
       uint32_t bindings[MAX_DYNAMIC_BUFFERS];
       uint32_t count;
+      uint32_t desc_count;
       uint32_t range_offset;
    } dynamic_buffers;
    uint32_t binding_count;
@@ -753,7 +758,7 @@ struct dzn_descriptor_set_layout {
                              const VkAllocationCallbacks *pAllocator);
    ~dzn_descriptor_set_layout();
 
-   uint32_t get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYPE type) const;
+   uint32_t get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYPE type, bool writeable = false) const;
    uint32_t get_desc_count(uint32_t b) const;
 };
 
@@ -783,7 +788,7 @@ private:
          iterator &operator++() { return operator+=(1UL); }
          bool operator!=(const iterator &iter) const;
          iterator &operator*() { return *this; }
-         uint32_t get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type) const;
+         uint32_t get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type, bool writeable = false) const;
          uint32_t get_dynamic_buffer_idx() const;
          VkDescriptorType get_vk_type() const;
          uint32_t remaining_descs_in_binding() const;

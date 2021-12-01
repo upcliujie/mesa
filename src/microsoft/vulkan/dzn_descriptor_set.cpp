@@ -45,19 +45,26 @@ translate_desc_visibility(VkShaderStageFlags in)
 }
 
 static D3D12_DESCRIPTOR_RANGE_TYPE
-desc_type_to_range_type(VkDescriptorType in)
+desc_type_to_range_type(VkDescriptorType in, bool writeable)
 {
    switch (in) {
-   case VK_DESCRIPTOR_TYPE_SAMPLER: return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-   case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-   case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-   case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-   case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+   case VK_DESCRIPTOR_TYPE_SAMPLER:
+      return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+
+   case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+   case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+   case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+      return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+   case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+      return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+
+   case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+   case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+   case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+      return writeable ? D3D12_DESCRIPTOR_RANGE_TYPE_UAV : D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
    default:
       unreachable("Unsupported desc type");
    }
@@ -74,6 +81,13 @@ static uint32_t
 num_descs_for_type(VkDescriptorType type, bool immutable_samplers)
 {
    unsigned num_descs = 1;
+
+   /* Some type map to an SRV or UAV depending on how the shaders is using the
+    * resource (NONWRITEABLE flag set or not), in that case we need to reserve
+    * slots for both the UAV and SRV descs.
+    */
+   if (dzn_descriptor_heap::type_depends_on_shader_usage(type))
+      num_descs++;
 
    /* There's no combined SRV+SAMPLER type in d3d12, we need an descriptor
     * for the sampler.
@@ -183,7 +197,7 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
                          VK_DESCRIPTOR_TYPE_SAMPLER :
                          VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
          }
-         range->RangeType = desc_type_to_range_type(range_type);
+         range->RangeType = desc_type_to_range_type(range_type, false);
          range->NumDescriptors = ordered_bindings[i].descriptorCount;
          range->BaseShaderRegister = binfos[binding].base_shader_register;
          range->Flags = type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER ?
@@ -191,8 +205,26 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
             D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS;
          if (is_dynamic) {
             range->OffsetInDescriptorsFromTableStart =
-               dynamic_buffers.range_offset + dynamic_buffers.count;
+               dynamic_buffers.range_offset + dynamic_buffers.desc_count;
             dynamic_buffers.count += range->NumDescriptors;
+            dynamic_buffers.desc_count += range->NumDescriptors;
+         } else {
+            range->OffsetInDescriptorsFromTableStart = range_desc_count[type];
+            range_desc_count[type] += range->NumDescriptors;
+         }
+
+         if (!dzn_descriptor_heap::type_depends_on_shader_usage(desc_type))
+            continue;
+
+         assert(idx + 1 < range_count[visibility][type]);
+         range_idx[visibility][type]++;
+         range[1] = range[0];
+         range++;
+         range->RangeType = desc_type_to_range_type(range_type, true);
+         if (is_dynamic) {
+            range->OffsetInDescriptorsFromTableStart =
+               dynamic_buffers.range_offset + dynamic_buffers.desc_count;
+            dynamic_buffers.desc_count += range->NumDescriptors;
          } else {
             range->OffsetInDescriptorsFromTableStart = range_desc_count[type];
             range_desc_count[type] += range->NumDescriptors;
@@ -255,8 +287,17 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
       if (desc_type != VK_DESCRIPTOR_TYPE_SAMPLER) {
          range_count[visibility][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]++;
          total_ranges++;
-         if (!is_dynamic_desc_type(desc_type))
-            dynamic_ranges_offset += bindings[i].descriptorCount;
+
+         if (dzn_descriptor_heap::type_depends_on_shader_usage(desc_type)) {
+            range_count[visibility][D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]++;
+            total_ranges++;
+         }
+
+         if (!is_dynamic_desc_type(desc_type)) {
+            uint32_t factor =
+               dzn_descriptor_heap::type_depends_on_shader_usage(desc_type) ? 2 : 1;
+            dynamic_ranges_offset += bindings[i].descriptorCount * factor;
+         }
       }
 
       binding_count = MAX2(binding_count, bindings[i].binding + 1);
@@ -299,7 +340,7 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
 }
 
 uint32_t
-dzn_descriptor_set_layout::get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYPE type) const
+dzn_descriptor_set_layout::get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYPE type, bool writeable) const
 {
    assert(b < binding_count);
    D3D12_SHADER_VISIBILITY visibility = bindings[b].visibility;
@@ -310,6 +351,9 @@ dzn_descriptor_set_layout::get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYP
 
    if (range_idx == ~0)
       return ~0;
+
+   if (writeable)
+      range_idx++;
 
    assert(range_idx < range_count[visibility][type]);
    return ranges[visibility][type][range_idx].OffsetInDescriptorsFromTableStart;
@@ -384,7 +428,7 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       }
 
       desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] +=
-         set_layout->dynamic_buffers.count;
+         set_layout->dynamic_buffers.desc_count;
 
       sets[j].layout = set_layout;
    }
@@ -680,12 +724,14 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
 
 void
 dzn_descriptor_heap::write_desc(uint32_t desc_offset,
+                                bool writeable,
                                 dzn_image_view *iview)
 {
    D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
       .ptr = get_cpu_ptr(desc_offset),
    };
 
+   assert(!writeable);
    device->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
 }
 
@@ -702,6 +748,7 @@ dzn_buffer_desc::dzn_buffer_desc(VkDescriptorType t,
 
 void
 dzn_descriptor_heap::write_desc(uint32_t desc_offset,
+                                bool writeable,
                                 const dzn_buffer_desc &info)
 {
    D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
@@ -715,12 +762,13 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
 
    if (info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
        info.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
+      assert(!writeable);
       D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {
          .BufferLocation = info.buffer->res->GetGPUVirtualAddress() + info.offset,
          .SizeInBytes = ALIGN_POT(size, 256),
       };
       device->dev->CreateConstantBufferView(&cbv_desc, view_handle);
-   } else {
+   } else if (writeable) {
       D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
          .Format = DXGI_FORMAT_R32_TYPELESS,
          .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
@@ -731,6 +779,18 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
          },
       };
       device->dev->CreateUnorderedAccessView(info.buffer->res.Get(), NULL, &uav_desc, view_handle);
+   } else {
+      D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {
+         .Format = DXGI_FORMAT_R32_TYPELESS,
+         .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+         .Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+         .Buffer = {
+            .FirstElement = info.offset / sizeof(uint32_t),
+            .NumElements = (UINT)size / sizeof(uint32_t),
+            .Flags = D3D12_BUFFER_SRV_FLAG_RAW,
+         },
+      };
+      device->dev->CreateShaderResourceView(info.buffer->res.Get(), &srv_desc, view_handle);
    }
 }
 
@@ -751,6 +811,15 @@ dzn_descriptor_heap::copy(uint32_t dst_offset,
                                       dst_handle,
                                       src_handle,
                                       type);
+}
+
+bool
+dzn_descriptor_heap::type_depends_on_shader_usage(VkDescriptorType type)
+{
+   return type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER ||
+          type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ||
+          type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ||
+          type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 }
 
 dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
@@ -910,12 +979,12 @@ dzn_descriptor_set::range::iterator::operator!=(const iterator &iter) const
 }
 
 uint32_t
-dzn_descriptor_set::range::iterator::get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type) const
+dzn_descriptor_set::range::iterator::get_heap_offset(D3D12_DESCRIPTOR_HEAP_TYPE type, bool writeable) const
 {
    if (binding == ~0)
       return ~0;
 
-   uint32_t base = range.layout.get_heap_offset(binding, type);
+   uint32_t base = range.layout.get_heap_offset(binding, type, writeable);
    if (base == ~0)
       return ~0;
 
@@ -1061,14 +1130,26 @@ dzn_descriptor_set::copy(const dzn_descriptor_set *src,
                 sizeof(*dynamic_buffers) * count);
       } else {
          dzn_foreach_pool_type(type) {
-            uint32_t src_heap_offset = src_iter.get_heap_offset(type);
-            uint32_t dst_heap_offset = dst_iter.get_heap_offset(type);
+            uint32_t src_heap_offset = src_iter.get_heap_offset(type, false);
+            uint32_t dst_heap_offset = dst_iter.get_heap_offset(type, false);
 
             if (src_heap_offset == ~0) {
                assert(dst_heap_offset == ~0);
                continue;
             }
 
+            heaps[type].copy(dst_heap_offset,
+                             src->heaps[type],
+                             src_heap_offset,
+                             count);
+
+            if (!dzn_descriptor_heap::type_depends_on_shader_usage(src_type))
+               continue;
+
+            src_heap_offset = src_iter.get_heap_offset(type, true);
+            dst_heap_offset = dst_iter.get_heap_offset(type, true);
+            assert(src_heap_offset != ~0);
+            assert(dst_heap_offset != ~0);
             heaps[type].copy(dst_heap_offset,
                              src->heaps[type],
                              src_heap_offset,
@@ -1112,9 +1193,17 @@ dzn_descriptor_set::write_desc(const range::iterator &iter,
                                Args... args)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-   uint32_t heap_offset = iter.get_heap_offset(type);
-   if (heap_offset != ~0)
-      heaps[type].write_desc(heap_offset, args...);
+   uint32_t heap_offset = iter.get_heap_offset(type, false);
+   if (heap_offset == ~0)
+      return;
+
+   heaps[type].write_desc(heap_offset, false, args...);
+
+   if (dzn_descriptor_heap::type_depends_on_shader_usage(iter.get_vk_type())) {
+      heap_offset = iter.get_heap_offset(type, true);
+      assert(heap_offset != ~0);
+      heaps[type].write_desc(heap_offset, true, args...);
+   }
 }
 
 VKAPI_ATTR void VKAPI_CALL
