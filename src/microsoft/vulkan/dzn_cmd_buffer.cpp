@@ -1473,7 +1473,7 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
       goto set_heaps;
 
    dzn_foreach_pool_type (type) {
-      uint32_t desc_count = state.pipeline->layout->desc_count[type];
+      uint32_t desc_count = pipeline->layout->desc_count[type];
       if (!desc_count)
          continue;
 
