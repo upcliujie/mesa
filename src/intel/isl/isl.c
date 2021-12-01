@@ -2063,6 +2063,10 @@ isl_surf_get_mcs_surf(const struct isl_device *dev,
    if (mcs_surf->size_B > 0)
       return false;
 
+   /* We are seeing failures with mcs on dg2, so disable it for now. */
+   if (intel_device_info_is_dg2(dev->info))
+      return false;
+
    /* The following are true of all multisampled surfaces */
    assert(surf->samples > 1);
    assert(surf->dim == ISL_SURF_DIM_2D);
