@@ -8790,7 +8790,7 @@
         <param name="textures" type="const GLuint *" count="n"/>
         <param name="residences" type="GLboolean *" output="true" count="n"/>
         <return type="GLboolean"/>
-        <glx vendorpriv="11" handcode="client" always_array="true"/>
+        <glx vendorpriv="11" handcode="client" always_array="true" ignore="true"/>
     </function>
 
     <function name="BindTextureEXT" alias="BindTexture">
@@ -8801,19 +8801,19 @@
     <function name="DeleteTexturesEXT" alias="DeleteTextures">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="textures" type="const GLuint *" count="n"/>
-        <glx vendorpriv="12"/>
+        <glx vendorpriv="12" ignore="true"/>
     </function>
 
     <function name="GenTexturesEXT" alias="GenTextures">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="textures" type="GLuint *" output="true" count="n"/>
-        <glx vendorpriv="13" always_array="true"/>
+        <glx vendorpriv="13" always_array="true" ignore="true"/>
     </function>
 
     <function name="IsTextureEXT" alias="IsTexture">
         <param name="texture" type="GLuint"/>
         <return type="GLboolean"/>
-        <glx vendorpriv="14"/>
+        <glx vendorpriv="14" ignore="true"/>
     </function>
 
     <function name="PrioritizeTexturesEXT" alias="PrioritizeTextures">
