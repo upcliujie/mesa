@@ -623,20 +623,6 @@ i915_set_draw_region(struct intel_context *intel,
    if (drb)
       idrb = intel_renderbuffer(drb);
 
-   /* We set up the drawing rectangle to be offset into the color
-    * region's location in the miptree.  If it doesn't match with
-    * depth's offsets, we can't render to it.
-    *
-    * (Well, not actually true -- the hw grew a bit to let depth's
-    * offset get forced to 0,0.  We may want to use that if people are
-    * hitting that case.  Also, some configurations may be supportable
-    * by tweaking the start offset of the buffers around, which we
-    * can't do in general due to tiling)
-    */
-   FALLBACK(intel, I915_FALLBACK_DRAW_OFFSET,
-	    idrb && irb && (idrb->draw_x != irb->draw_x ||
-			    idrb->draw_y != irb->draw_y));
-
    if (irb) {
       draw_x = irb->draw_x;
       draw_y = irb->draw_y;
@@ -648,11 +634,24 @@ i915_set_draw_region(struct intel_context *intel,
       draw_y = 0;
    }
 
-   draw_offset = (draw_y << 16) | draw_x;
-
+   /* We set up the drawing rectangle to be offset into the color
+    * region's location in the miptree.  If it doesn't match with
+    * depth's offsets, we can't render to it.
+    *
+    * (Well, not actually true -- the hw grew a bit to let depth's
+    * offset get forced to 0,0.  We may want to use that if people are
+    * hitting that case.  Also, some configurations may be supportable
+    * by tweaking the start offset of the buffers around, which we
+    * can't do in general due to tiling)
+    */
    FALLBACK(intel, I915_FALLBACK_DRAW_OFFSET,
+	    (idrb && irb && (idrb->draw_x != irb->draw_x ||
+                             idrb->draw_y != irb->draw_y)) ||
             (ctx->DrawBuffer->Width + draw_x > 2048) ||
             (ctx->DrawBuffer->Height + draw_y > 2048));
+
+   draw_offset = (draw_y << 16) | draw_x;
+
    /* When changing drawing rectangle offset, an MI_FLUSH is first required. */
    if (draw_offset != i915->last_draw_offset) {
       state->Buffer[I915_DESTREG_DRAWRECT0] = MI_FLUSH | INHIBIT_FLUSH_RENDER_CACHE;

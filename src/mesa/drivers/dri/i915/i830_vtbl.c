@@ -662,6 +662,17 @@ i830_set_draw_region(struct intel_context *intel,
    if (drb)
       idrb = intel_renderbuffer(drb);
 
+   if (irb) {
+      draw_x = irb->draw_x;
+      draw_y = irb->draw_y;
+   } else if (idrb) {
+      draw_x = idrb->draw_x;
+      draw_y = idrb->draw_y;
+   } else {
+      draw_x = 0;
+      draw_y = 0;
+   }
+
    /* We set up the drawing rectangle to be offset into the color
     * region's location in the miptree.  If it doesn't match with
     * depth's offsets, we can't render to it.
@@ -673,19 +684,10 @@ i830_set_draw_region(struct intel_context *intel,
     * can't do in general due to tiling)
     */
    FALLBACK(intel, I830_FALLBACK_DRAW_OFFSET,
-	    idrb && irb && (idrb->draw_x != irb->draw_x ||
-			    idrb->draw_y != irb->draw_y));
-
-   if (irb) {
-      draw_x = irb->draw_x;
-      draw_y = irb->draw_y;
-   } else if (idrb) {
-      draw_x = idrb->draw_x;
-      draw_y = idrb->draw_y;
-   } else {
-      draw_x = 0;
-      draw_y = 0;
-   }
+	    (idrb && irb && (idrb->draw_x != irb->draw_x ||
+                             idrb->draw_y != irb->draw_y)) ||
+            (ctx->DrawBuffer->Width + draw_x > 2048) ||
+            (ctx->DrawBuffer->Height + draw_y > 2048));
 
    state->Buffer[I830_DESTREG_DRAWRECT0] = _3DSTATE_DRAWRECT_INFO;
    state->Buffer[I830_DESTREG_DRAWRECT1] = 0;
