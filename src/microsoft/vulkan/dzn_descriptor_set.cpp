@@ -731,8 +731,10 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
       .ptr = get_cpu_ptr(desc_offset),
    };
 
-   assert(!writeable);
-   device->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
+   if (writeable)
+      device->dev->CreateUnorderedAccessView(iview->image->res.Get(), NULL, &iview->uav_desc, view_handle);
+   else
+      device->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
 }
 
 dzn_buffer_desc::dzn_buffer_desc(VkDescriptorType t,
@@ -1055,6 +1057,7 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
 
    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+   case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       for (auto iter : range) {
          assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;

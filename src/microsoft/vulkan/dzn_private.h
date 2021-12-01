@@ -1052,6 +1052,7 @@ struct dzn_image_view {
    VkExtent3D extent;
 
    D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+   D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 
    struct d3d12_descriptor_handle rt_handle = {};
    struct d3d12_descriptor_handle zs_handle = {};

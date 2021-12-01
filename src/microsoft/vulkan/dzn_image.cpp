@@ -659,6 +659,21 @@ translate_view_type_to_srv_dim(VkImageViewType in, uint32_t samples)
    }
 }
 
+static D3D12_UAV_DIMENSION
+translate_view_type_to_uav_dim(VkImageViewType in)
+{
+   switch (in) {
+   case VK_IMAGE_VIEW_TYPE_1D: return D3D12_UAV_DIMENSION_TEXTURE1D;
+   case VK_IMAGE_VIEW_TYPE_2D: return D3D12_UAV_DIMENSION_TEXTURE2D;
+   case VK_IMAGE_VIEW_TYPE_3D: return D3D12_UAV_DIMENSION_TEXTURE3D;
+   case VK_IMAGE_VIEW_TYPE_CUBE: return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+   case VK_IMAGE_VIEW_TYPE_1D_ARRAY: return D3D12_UAV_DIMENSION_TEXTURE1DARRAY;
+   case VK_IMAGE_VIEW_TYPE_2D_ARRAY: return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+   case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY: return D3D12_UAV_DIMENSION_TEXTURE2DARRAY;
+   default: unreachable("Invalid type");
+   }
+}
+
 static D3D12_RTV_DIMENSION
 translate_view_type_to_rtv_dim(VkImageViewType in, uint32_t samples)
 {
@@ -838,6 +853,56 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
       desc.TextureCubeArray.NumCubes = layer_count / 6;
       break;
    default: unreachable("Invalid dimension");
+   }
+
+   if (image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT) {
+      assert(image->vk.samples == 1);
+
+      uav_desc = D3D12_UNORDERED_ACCESS_VIEW_DESC {
+         .Format =
+            dzn_image::get_dxgi_format(pCreateInfo->format,
+                                       VK_IMAGE_USAGE_STORAGE_BIT,
+                                       range->aspectMask),
+         .ViewDimension =
+            translate_view_type_to_uav_dim(pCreateInfo->viewType),
+      };
+
+      assert(pCreateInfo->subresourceRange.levelCount == 1);
+      switch (pCreateInfo->viewType) {
+      case VK_IMAGE_VIEW_TYPE_1D:
+         uav_desc.Texture1D.MipSlice =
+            pCreateInfo->subresourceRange.baseMipLevel;
+         break;
+      case VK_IMAGE_VIEW_TYPE_2D:
+         uav_desc.Texture2D.MipSlice =
+            pCreateInfo->subresourceRange.baseMipLevel;
+         uav_desc.Texture2D.PlaneSlice = 0;
+         break;
+      case VK_IMAGE_VIEW_TYPE_3D:
+         uav_desc.Texture3D.MipSlice =
+            pCreateInfo->subresourceRange.baseMipLevel;
+         uav_desc.Texture3D.FirstWSlice = 0;
+         uav_desc.Texture3D.WSize = extent.depth;
+         break;
+      case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
+         uav_desc.Texture1DArray.MipSlice =
+            pCreateInfo->subresourceRange.baseMipLevel;
+         uav_desc.Texture1DArray.FirstArraySlice =
+            pCreateInfo->subresourceRange.baseArrayLayer;
+         uav_desc.Texture1DArray.ArraySize = layer_count;
+         break;
+      case VK_IMAGE_VIEW_TYPE_CUBE:
+      case VK_IMAGE_VIEW_TYPE_2D_ARRAY:
+      case VK_IMAGE_VIEW_TYPE_CUBE_ARRAY:
+         uav_desc.Texture2DArray.PlaneSlice = 0;
+         uav_desc.Texture2DArray.MipSlice =
+            pCreateInfo->subresourceRange.baseMipLevel;
+         uav_desc.Texture2DArray.FirstArraySlice =
+            pCreateInfo->subresourceRange.baseArrayLayer;
+         uav_desc.Texture2DArray.ArraySize = layer_count;
+         break;
+      default: unreachable("Invalid type");
+      }
    }
 
    if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
