@@ -1036,18 +1036,33 @@ dzn_buffer_view::dzn_buffer_view(dzn_device *device,
       buf->size - pCreateInfo->offset : pCreateInfo->range;
 
    buffer = buf;
-   desc = D3D12_SHADER_RESOURCE_VIEW_DESC {
-      .Format = dzn_buffer::get_dxgi_format(pCreateInfo->format),
-      .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
-      .Shader4ComponentMapping =
-         D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
-      .Buffer = {
-         .FirstElement = pCreateInfo->offset / blksz,
-         .NumElements = UINT(size / blksz),
-         .StructureByteStride = blksz,
-         .Flags = D3D12_BUFFER_SRV_FLAG_NONE,
-      },
-   };
+   if (buf->usage &
+       (VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT)) {
+      srv_desc = D3D12_SHADER_RESOURCE_VIEW_DESC {
+         .Format = dzn_buffer::get_dxgi_format(pCreateInfo->format),
+         .ViewDimension = D3D12_SRV_DIMENSION_BUFFER,
+         .Shader4ComponentMapping =
+            D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+         .Buffer = {
+            .FirstElement = pCreateInfo->offset / blksz,
+            .NumElements = UINT(size / blksz),
+            .Flags = D3D12_BUFFER_SRV_FLAG_NONE,
+         },
+      };
+   }
+
+   if (buf->usage & VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT) {
+      uav_desc = D3D12_UNORDERED_ACCESS_VIEW_DESC {
+         .Format = dzn_buffer::get_dxgi_format(pCreateInfo->format),
+         .ViewDimension = D3D12_UAV_DIMENSION_BUFFER,
+         .Buffer = {
+            .FirstElement = pCreateInfo->offset / blksz,
+            .NumElements = UINT(size / blksz),
+            .Flags = D3D12_BUFFER_UAV_FLAG_NONE,
+         },
+      };
+   }
 
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_BUFFER_VIEW);
 }

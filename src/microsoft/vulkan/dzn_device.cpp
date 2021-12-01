@@ -1808,7 +1808,9 @@ dzn_buffer::dzn_buffer(dzn_device *device,
    desc.Flags = D3D12_RESOURCE_FLAG_NONE;
    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 
-   if (usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+   if (usage &
+       (VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+        VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT))
       desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_BUFFER);

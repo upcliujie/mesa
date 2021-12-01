@@ -737,6 +737,21 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
       device->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
 }
 
+void
+dzn_descriptor_heap::write_desc(uint32_t desc_offset,
+                                bool writeable,
+                                dzn_buffer_view *bview)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
+      .ptr = get_cpu_ptr(desc_offset),
+   };
+
+   if (writeable)
+      device->dev->CreateUnorderedAccessView(bview->buffer->res.Get(), NULL, &bview->uav_desc, view_handle);
+   else
+      device->dev->CreateShaderResourceView(bview->buffer->res.Get(), &bview->srv_desc, view_handle);
+}
+
 dzn_buffer_desc::dzn_buffer_desc(VkDescriptorType t,
                                  const VkDescriptorBufferInfo *pBufferInfo)
 {
@@ -1087,6 +1102,17 @@ dzn_descriptor_set::write(const VkWriteDescriptorSet *pDescriptorWrite)
          d++;
       }
       break;
+
+   case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+   case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+      for (auto iter : range) {
+         assert(iter.get_vk_type() == pDescriptorWrite->descriptorType);
+         VK_FROM_HANDLE(dzn_buffer_view, bview, pDescriptorWrite->pTexelBufferView[d]);
+         write_desc(iter, bview);
+         d++;
+      }
+      break;
+
    default:
       unreachable("invalid descriptor type");
       break;

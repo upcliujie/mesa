@@ -515,6 +515,9 @@ struct dzn_descriptor_heap {
                    dzn_image_view *iview);
    void write_desc(uint32_t desc_offset,
                    bool writeable,
+                   struct dzn_buffer_view *bview);
+   void write_desc(uint32_t desc_offset,
+                   bool writeable,
                    const dzn_buffer_desc &info);
    void copy(uint32_t dst_offset,
              const dzn_descriptor_heap &src_heap,
@@ -1101,7 +1104,9 @@ struct dzn_buffer_view {
 
    const dzn_buffer *buffer;
 
-   D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+   D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+   D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
+
    dzn_buffer_view(dzn_device *device,
                    const VkBufferViewCreateInfo *pCreateInfo,
                    const VkAllocationCallbacks *pAllocator);
