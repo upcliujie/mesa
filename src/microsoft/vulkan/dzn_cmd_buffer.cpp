@@ -438,7 +438,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
     * D3D12 barrier API.
     */
    if (memoryBarrierCount) {
-      D3D12_RESOURCE_BARRIER barriers[2];
+      D3D12_RESOURCE_BARRIER barriers[2] = {};
 
       barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
       barriers[0].Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
@@ -452,7 +452,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
 
    for (uint32_t i = 0; i < bufferMemoryBarrierCount; i++) {
       VK_FROM_HANDLE(dzn_buffer, buf, pBufferMemoryBarriers[i].buffer);
-      D3D12_RESOURCE_BARRIER barrier;
+      D3D12_RESOURCE_BARRIER barrier = {};
 
       /* UAV are used only for storage buffers, skip all other buffers. */
       if (!(buf->usage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT))
