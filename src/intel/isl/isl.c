@@ -2130,6 +2130,10 @@ isl_surf_supports_ccs(const struct isl_device *dev,
        dev->info->revision == 0)
       return false;
 
+   /* We are seeing failures with mcs on dg2, so disable it for now */
+   if (intel_device_info_is_dg2(dev->info))
+      return false;
+
    if (surf->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT)
       return false;
 
