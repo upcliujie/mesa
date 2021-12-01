@@ -555,6 +555,8 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
                  });
    }
 
+   NIR_PASS_V(nir, nir_opt_deref);
+
    const nir_opt_access_options opt_access_options = {
       .is_vulkan = true,
       .infer_non_readable = true,
