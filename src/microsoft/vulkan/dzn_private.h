@@ -1041,6 +1041,9 @@ struct dzn_sampler {
    ((_range)->layerCount == VK_REMAINING_ARRAY_LAYERS ? \
     (_image)->vk.array_layers - (_range)->baseArrayLayer : (_range)->layerCount)
 
+#define dzn_get_level_count(_image, _range) \
+   ((_range)->levelCount == VK_REMAINING_MIP_LEVELS ? \
+    (_image)->vk.mip_levels - (_range)->baseMipLevel : (_range)->levelCount)
 
 #ifdef __cplusplus
 extern "C" {
