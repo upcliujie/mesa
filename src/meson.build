@@ -109,7 +109,9 @@ endif
 if with_gallium_asahi or with_tools.contains('asahi')
   subdir('asahi')
 endif
-subdir('mesa')
+if with_any_opengl
+  subdir('mesa')
+endif
 subdir('loader')
 if with_platform_haiku
   subdir('hgl')
