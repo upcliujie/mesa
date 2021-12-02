@@ -114,6 +114,7 @@ get_loop_instr_count(struct exec_list *cf_list)
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(node);
+         assert(!loop->has_continue_target);
          loop_instr_count += get_loop_instr_count(&loop->body);
          break;
       }
@@ -148,6 +149,7 @@ gcm_build_block_info(struct exec_list *cf_list, struct gcm_state *state,
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(node);
+         assert(!loop->has_continue_target);
          gcm_build_block_info(&loop->body, state, loop, loop_depth + 1,
                               get_loop_instr_count(&loop->body));
          break;
@@ -493,6 +495,7 @@ set_block_for_loop_instr(struct gcm_state *state, nir_instr *instr,
    if (loop == NULL)
       return true;
 
+   assert(!loop->has_continue_target);
    if (nir_block_dominates(instr->block, block))
       return true;
 

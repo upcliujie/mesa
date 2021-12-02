@@ -893,6 +893,7 @@ visit_if(nir_if *if_stmt, struct divergence_state *state)
 static bool
 visit_loop(nir_loop *loop, struct divergence_state *state)
 {
+   assert(!loop->has_continue_target);
    bool progress = false;
    nir_block *loop_header = nir_loop_first_block(loop);
    nir_block *loop_preheader = nir_block_cf_tree_prev(loop_header);

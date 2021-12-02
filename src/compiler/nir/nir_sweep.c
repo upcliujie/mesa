@@ -77,6 +77,7 @@ sweep_if(nir_shader *nir, nir_if *iff)
 static void
 sweep_loop(nir_shader *nir, nir_loop *loop)
 {
+   assert(!loop->has_continue_target);
    ralloc_steal(nir, loop);
 
    foreach_list_typed(nir_cf_node, cf_node, node, &loop->body) {

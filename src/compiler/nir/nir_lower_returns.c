@@ -82,6 +82,7 @@ predicate_following(nir_cf_node *node, struct lower_returns_state *state)
 static bool
 lower_returns_in_loop(nir_loop *loop, struct lower_returns_state *state)
 {
+   assert(!loop->has_continue_target);
    nir_loop *parent = state->loop;
    state->loop = loop;
    bool progress = lower_returns_in_cf_list(&loop->body, state);

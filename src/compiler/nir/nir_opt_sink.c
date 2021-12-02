@@ -85,6 +85,7 @@ get_innermost_loop(nir_cf_node *node)
 static bool
 loop_contains_block(nir_loop *loop, nir_block *block)
 {
+   assert(!loop->has_continue_target);
    nir_block *before = nir_cf_node_as_block(nir_cf_node_prev(&loop->cf_node));
    nir_block *after = nir_cf_node_as_block(nir_cf_node_next(&loop->cf_node));
 
