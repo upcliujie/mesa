@@ -138,6 +138,12 @@ nir_if_phi(nir_builder *build, nir_ssa_def *then_def, nir_ssa_def *else_def);
 nir_loop *
 nir_push_loop(nir_builder *build);
 
+nir_loop *
+nir_push_loop_with_continue_target(nir_builder *build);
+
+nir_loop *
+nir_push_continue_target(nir_builder *build, nir_loop *loop);
+
 void nir_pop_loop(nir_builder *build, nir_loop *loop);
 
 static inline nir_ssa_def *

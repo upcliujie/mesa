@@ -3978,6 +3978,7 @@ nir_function_impl *nir_function_impl_create_bare(nir_shader *shader);
 nir_block *nir_block_create(nir_shader *shader);
 nir_if *nir_if_create(nir_shader *shader);
 nir_loop *nir_loop_create(nir_shader *shader);
+nir_loop *nir_loop_with_continue_target_create(nir_shader *shader);
 
 nir_function_impl *nir_cf_node_get_function(nir_cf_node *node);
 
