@@ -123,7 +123,10 @@ const glsl_type *
 glsl_sampler_type_to_texture(const glsl_type *type)
 {
    assert(glsl_type_is_sampler(type) && !glsl_type_is_bare_sampler(type));
-   return glsl_texture_type((glsl_sampler_dim)type->sampler_dimensionality,
+   glsl_sampler_dim texture_dim = (glsl_sampler_dim)type->sampler_dimensionality;
+   if (texture_dim == GLSL_SAMPLER_DIM_EXTERNAL)
+      texture_dim = GLSL_SAMPLER_DIM_2D;
+   return glsl_texture_type(texture_dim,
                             type->sampler_array,
                             (glsl_base_type)type->sampled_type);
 }
