@@ -570,6 +570,27 @@ nir_loop_create(nir_shader *shader)
    return loop;
 }
 
+nir_loop *
+nir_loop_with_continue_target_create(nir_shader *shader)
+{
+   nir_loop *loop = nir_loop_create(shader);
+
+   nir_block *cont = nir_block_create(shader);
+   exec_list_push_tail(&loop->continue_target, &cont->cf_node.node);
+   cont->cf_node.parent = &loop->cf_node;
+   loop->has_continue_target = true;
+
+   /* adjust predecessors / successors */
+   nir_block *body = nir_loop_first_block(loop);
+   _mesa_set_clear(body->predecessors, NULL);
+   body->successors[0] = cont;
+   _mesa_set_add(cont->predecessors, body);
+   cont->successors[0] = body;
+   _mesa_set_add(body->predecessors, cont);
+
+   return loop;
+}
+
 static void
 instr_init(nir_instr *instr, nir_instr_type type)
 {
