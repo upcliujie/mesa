@@ -638,6 +638,7 @@ duplicate_loop_bodies(nir_function_impl *impl, nir_instr *resume_instr)
          continue;
 
       nir_loop *loop = nir_cf_node_as_loop(node);
+      assert(!nir_loop_has_continue_target(loop));
 
       if (resume_reg == NULL) {
          /* We only create resume_reg if we encounter a loop.  This way we can
@@ -859,6 +860,7 @@ flatten_resume_if_ladder(nir_function_impl *impl,
       case nir_cf_node_loop: {
          assert(!before_cursor);
          nir_loop *loop = nir_cf_node_as_loop(child);
+         assert(!nir_loop_has_continue_target(loop));
 
          if (cf_node_contains_instr(&loop->cf_node, resume_instr)) {
             /* Thanks to our loop body duplication pass, every level of loop

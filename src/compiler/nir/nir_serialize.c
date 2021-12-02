@@ -1871,6 +1871,7 @@ read_if(read_ctx *ctx, struct exec_list *cf_list)
 static void
 write_loop(write_ctx *ctx, nir_loop *loop)
 {
+   assert(!nir_loop_has_continue_target(loop));
    blob_write_uint8(ctx->blob, loop->control);
    write_cf_list(ctx, &loop->body);
 }

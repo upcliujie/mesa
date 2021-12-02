@@ -1500,6 +1500,7 @@ Converter::visit(nir_if *nif)
 bool
 Converter::visit(nir_loop *loop)
 {
+   assert(!nir_loop_has_continue_target(loop));
    curLoopDepth += 1;
    func->loopNestingBound = std::max(func->loopNestingBound, curLoopDepth);
 

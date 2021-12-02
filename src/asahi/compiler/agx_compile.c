@@ -981,6 +981,7 @@ emit_if(agx_context *ctx, nir_if *nif)
 static void
 emit_loop(agx_context *ctx, nir_loop *nloop)
 {
+   assert(!nir_loop_has_continue_target(nloop));
    /* We only track nesting within the innermost loop, so reset */
    ctx->loop_nesting = 0;
 

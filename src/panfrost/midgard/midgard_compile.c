@@ -2878,6 +2878,7 @@ emit_if(struct compiler_context *ctx, nir_if *nif)
 static void
 emit_loop(struct compiler_context *ctx, nir_loop *nloop)
 {
+        assert(!nir_loop_has_continue_target(nloop));
         /* Remember where we are */
         midgard_block *start_block = ctx->current_block;
 

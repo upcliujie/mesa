@@ -3377,6 +3377,7 @@ emit_if(struct ntv_context *ctx, nir_if *if_stmt)
 static void
 emit_loop(struct ntv_context *ctx, nir_loop *loop)
 {
+   assert(!nir_loop_has_continue_target(loop));
    SpvId header_id = spirv_builder_new_id(&ctx->builder);
    SpvId begin_id = block_label(ctx, nir_loop_first_block(loop));
    SpvId break_id = spirv_builder_new_id(&ctx->builder);

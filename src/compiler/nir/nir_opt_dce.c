@@ -165,6 +165,7 @@ dce_cf_list(struct exec_list *cf_list, BITSET_WORD *defs_live,
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(cf_node);
+         assert(!nir_loop_has_continue_target(loop));
 
          /* Fast path if the loop has no continues: we can remove instructions
           * as we mark the others live.

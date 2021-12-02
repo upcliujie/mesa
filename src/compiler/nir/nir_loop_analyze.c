@@ -1353,6 +1353,8 @@ process_loops(nir_cf_node *cf_node, nir_variable_mode indirect_mask)
    }
    case nir_cf_node_loop: {
       nir_loop *loop = nir_cf_node_as_loop(cf_node);
+      assert(!nir_loop_has_continue_target(loop));
+
       foreach_list_typed(nir_cf_node, nested_node, node, &loop->body)
          process_loops(nested_node, indirect_mask);
       break;

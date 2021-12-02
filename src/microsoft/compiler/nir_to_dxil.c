@@ -4329,6 +4329,7 @@ emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
 static bool
 emit_loop(struct ntd_context *ctx, nir_loop *loop)
 {
+   assert(!nir_loop_has_continue_target(loop));
    nir_block *first_block = nir_loop_first_block(loop);
 
    assert(nir_loop_last_block(loop)->successors[0]);

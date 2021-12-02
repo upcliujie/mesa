@@ -5217,6 +5217,7 @@ static void visit_if(struct ac_nir_context *ctx, nir_if *if_stmt)
 
 static void visit_loop(struct ac_nir_context *ctx, nir_loop *loop)
 {
+   assert(!nir_loop_has_continue_target(loop));
    nir_block *first_loop_block = (nir_block *)exec_list_get_head(&loop->body);
 
    ac_build_bgnloop(&ctx->ac, first_loop_block->index);
