@@ -79,8 +79,10 @@ vn_device_memory_simple_free(struct vn_device *dev,
 {
    const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
 
-   if (mem->base_bo)
-      vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+   assert(mem->base_bo);
+
+   if (!vn_renderer_bo_unref(dev->renderer, mem->base_bo))
+      return;
 
    vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
                          vn_device_memory_to_handle(mem), NULL);
@@ -109,15 +111,8 @@ vn_device_memory_pool_grow_locked(struct vn_device *dev,
       return result;
 
    struct vn_device_memory_pool *pool = &dev->memory_pools[mem_type_index];
-   if (pool->memory) {
-      const bool bo_destroyed =
-         vn_renderer_bo_unref(dev->renderer, pool->memory->base_bo);
-      pool->memory->base_bo = NULL;
-
-      /* we use pool->memory's base_bo to keep it alive */
-      if (bo_destroyed)
-         vn_device_memory_simple_free(dev, pool->memory);
-   }
+   if (pool->memory)
+      vn_device_memory_simple_free(dev, pool->memory);
 
    pool->memory = mem;
    pool->used = 0;
@@ -167,12 +162,9 @@ vn_device_memory_pool_alloc(struct vn_device *dev,
 
 static void
 vn_device_memory_pool_free(struct vn_device *dev,
-                           struct vn_device_memory *base_mem,
-                           struct vn_renderer_bo *base_bo)
+                           struct vn_device_memory *base_mem)
 {
-   /* we use base_bo to keep base_mem alive */
-   if (vn_renderer_bo_unref(dev->renderer, base_bo))
-      vn_device_memory_simple_free(dev, base_mem);
+   vn_device_memory_simple_free(dev, base_mem);
 }
 
 static bool
@@ -398,7 +390,7 @@ vn_FreeMemory(VkDevice device,
       return;
 
    if (mem->base_memory) {
-      vn_device_memory_pool_free(dev, mem->base_memory, mem->base_bo);
+      vn_device_memory_pool_free(dev, mem->base_memory);
    } else {
       if (mem->base_bo)
          vn_renderer_bo_unref(dev->renderer, mem->base_bo);
