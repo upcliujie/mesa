@@ -1695,15 +1695,26 @@ emit_frag_end(struct v3d_compile *c)
 
         struct qreg tlbu_reg = vir_magic_reg(V3D_QPU_WADDR_TLBU);
 
-        /* If the shader has no non-TLB side effects and doesn't write Z
-         * we can promote it to enabling early_fragment_tests even
+        /* From the V3D 4.2 spec:
+         *
+         * "If a shader performs a Z read the “Fragment shader does Z writes”
+         *  bit in the shader record must be enabled to ensure deterministic
+         *  results"
+         *
+         * So if c->reads_z is set we always need to write Z and we can't do
+         * early fragment tests.
+         *
+         * Otherwise, f the shader has no non-TLB side effects and doesn't
+         * write Z we can promote it to enabling early_fragment_tests even
          * if the user didn't.
          */
-        if (c->output_position_index == -1 &&
-            !(c->s->info.num_images || c->s->info.num_ssbos) &&
-            !c->s->info.fs.uses_discard &&
-            !c->fs_key->sample_alpha_to_coverage &&
-            has_any_tlb_color_write) {
+        if (c->reads_z) {
+                c->s->info.fs.early_fragment_tests = false;
+        } else if (c->output_position_index == -1 &&
+                   !(c->s->info.num_images || c->s->info.num_ssbos) &&
+                   !c->s->info.fs.uses_discard &&
+                   !c->fs_key->sample_alpha_to_coverage &&
+                   has_any_tlb_color_write) {
                 c->s->info.fs.early_fragment_tests = true;
         }
 
@@ -2452,8 +2463,14 @@ ntq_emit_load_input(struct v3d_compile *c, nir_intrinsic_instr *instr)
         } else {
                 for (int i = 0; i < instr->num_components; i++) {
                         int comp = nir_intrinsic_component(instr) + i;
-                        ntq_store_dest(c, &instr->dest, i,
-                                       vir_MOV(c, c->inputs[offset * 4 + comp]));
+                        struct qreg input = c->inputs[offset * 4 + comp];
+                        ntq_store_dest(c, &instr->dest, i, vir_MOV(c, input));
+
+                        if (c->s->info.stage == MESA_SHADER_FRAGMENT &&
+                            input.file == c->payload_z.file &&
+                            input.index == c->payload_z.index) {
+                                c->reads_z = true;
+                        }
                 }
         }
 }
