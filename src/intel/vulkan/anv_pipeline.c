@@ -438,6 +438,13 @@ pipeline_has_coarse_pixel(const struct anv_graphics_pipeline *pipeline,
    return true;
 }
 
+static bool
+is_sample_shading(const VkPipelineMultisampleStateCreateInfo *ms_info)
+{
+   return ms_info->sampleShadingEnable &&
+      (ms_info->minSampleShading * ms_info->rasterizationSamples) > 1;
+}
+
 static void
 populate_task_prog_key(const struct intel_device_info *devinfo,
                        enum brw_subgroup_size_type subgroup_size_type,
@@ -502,14 +509,8 @@ populate_wm_prog_key(const struct anv_graphics_pipeline *pipeline,
    key->alpha_test_replicate_alpha = false;
 
    if (ms_info) {
-      /* We should probably pull this out of the shader, but it's fairly
-       * harmless to compute it and then let dead-code take care of it.
-       */
-      if (ms_info->rasterizationSamples > 1) {
-         key->persample_interp = ms_info->sampleShadingEnable &&
-            (ms_info->minSampleShading * ms_info->rasterizationSamples) > 1;
-         key->multisample_fbo = true;
-      }
+      key->persample_interp = is_sample_shading(ms_info);
+      key->multisample_fbo = ms_info->rasterizationSamples > 1;
    }
 
    key->coarse_pixel =
@@ -2531,6 +2532,10 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
       /* TODO(mesh): Mesh vs. Multiview with Instancing. */
    }
 
+   const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
+      vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
+                           PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
+
    /* If rasterization is not enabled, ms_info must be ignored. */
    const bool raster_enabled =
       !pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
@@ -2539,10 +2544,6 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
 
    const VkPipelineMultisampleStateCreateInfo *ms_info =
       raster_enabled ? pCreateInfo->pMultisampleState : NULL;
-
-   const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
-      vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
-                           PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
 
    /* Store line mode, polygon mode and rasterization samples, these are used
     * for dynamic primitive topology.
