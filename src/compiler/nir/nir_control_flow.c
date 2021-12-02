@@ -428,6 +428,46 @@ nearest_loop(nir_cf_node *node)
    return nir_cf_node_as_loop(node);
 }
 
+void
+nir_loop_add_continue_target(nir_loop *loop)
+{
+   assert(!nir_loop_has_continue_target(loop));
+   nir_shader *shader =
+      nir_cf_node_get_function(&loop->cf_node)->function->shader;
+   nir_block *cont = nir_block_create(shader);
+   exec_list_push_tail(&loop->continue_target, &cont->cf_node.node);
+   cont->cf_node.parent = &loop->cf_node;
+
+   /* change predecessors and successors */
+   nir_block *header = nir_loop_first_block(loop);
+   nir_block *preheader = nir_block_cf_tree_prev(header);
+   set_foreach(header->predecessors, entry) {
+      nir_block *pred = (nir_block *) entry->key;
+      if (pred == preheader)
+         continue;
+      replace_successor(pred, header, cont);
+   }
+   block_add_pred(header, cont);
+   cont->successors[0] = header;
+}
+
+void
+nir_loop_remove_continue_target(nir_loop *loop)
+{
+   assert(nir_cf_list_is_empty_block(&loop->continue_target));
+
+   /* change predecessors and successors */
+   nir_block *header = nir_loop_first_block(loop);
+   nir_block *cont = nir_loop_first_continue_block(loop);
+   set_foreach(cont->predecessors, entry) {
+      nir_block *pred = (nir_block*) entry->key;
+      replace_successor(pred, cont, header);
+   }
+   block_remove_pred(header, cont);
+
+   exec_node_remove(&cont->cf_node.node);
+}
+
 static void
 remove_phi_src(nir_block *block, nir_block *pred)
 {
