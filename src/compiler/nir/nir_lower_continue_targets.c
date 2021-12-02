@@ -36,24 +36,46 @@ lower_loop_continue_block(nir_builder *b, nir_loop *loop)
    nir_block *header = nir_loop_first_block(loop);
    nir_block *cont = nir_loop_first_continue_block(loop);
 
+   /* count continue statements excluding unreachable ones */
+   nir_block *single_predecessor = NULL;
+   set_foreach(cont->predecessors, entry) {
+      nir_block *pred = (nir_block*) entry->key;
+      if (pred->predecessors->entries == 0)
+         continue;
+      if (single_predecessor == NULL) {
+         single_predecessor = pred;
+      } else {
+         single_predecessor = NULL;
+         break;
+      }
+   }
+
    nir_lower_phis_to_regs_block(header);
-   nir_lower_phis_to_regs_block(cont);
 
-   /* insert the continue block at the begining of the loop */
-   nir_variable *do_cont =
-      nir_local_variable_create(b->impl, glsl_bool_type(), "cont");
+   if (single_predecessor) {
+      /* inline continue block */
+      nir_cf_list extracted;
+      nir_cf_list_extract(&extracted, &loop->continue_target);
+      nir_cf_reinsert(&extracted, nir_after_block_before_jump(single_predecessor));
+   } else {
+      nir_lower_phis_to_regs_block(cont);
 
-   b->cursor = nir_before_cf_node(&loop->cf_node);
-   nir_store_var(b, do_cont, nir_imm_false(b), 1);
-   b->cursor = nir_before_block(header);
-   nir_if *cont_if = nir_push_if(b, nir_load_var(b, do_cont));
+      /* insert the continue block at the begining of the loop */
+      nir_variable *do_cont =
+         nir_local_variable_create(b->impl, glsl_bool_type(), "cont");
 
-   nir_cf_list extracted;
-   nir_cf_list_extract(&extracted, &loop->continue_target);
-   nir_cf_reinsert(&extracted, nir_before_cf_list(&cont_if->then_list));
+      b->cursor = nir_before_cf_node(&loop->cf_node);
+      nir_store_var(b, do_cont, nir_imm_false(b), 1);
+      b->cursor = nir_before_block(header);
+      nir_if *cont_if = nir_push_if(b, nir_load_var(b, do_cont));
 
-   nir_pop_if(b, cont_if);
-   nir_store_var(b, do_cont, nir_imm_true(b), 1);
+      nir_cf_list extracted;
+      nir_cf_list_extract(&extracted, &loop->continue_target);
+      nir_cf_reinsert(&extracted, nir_before_cf_list(&cont_if->then_list));
+
+      nir_pop_if(b, cont_if);
+      nir_store_var(b, do_cont, nir_imm_true(b), 1);
+   }
 
    /* change predecessors and successors */
    header = nir_loop_first_block(loop);
