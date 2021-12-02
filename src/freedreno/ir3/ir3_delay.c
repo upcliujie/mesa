@@ -254,7 +254,7 @@ delay_calc_srcn(struct ir3_instruction *assigner,
 static unsigned
 delay_calc(struct ir3_block *block, struct ir3_instruction *start,
            struct ir3_instruction *consumer, unsigned distance,
-           regmask_t *in_mask, bool mergedregs)
+           regmask_t *in_mask, bool physical, bool mergedregs)
 {
    regmask_t mask;
    memcpy(&mask, in_mask, sizeof(mask));
@@ -280,6 +280,8 @@ delay_calc(struct ir3_block *block, struct ir3_instruction *start,
 
       foreach_dst_n (dst, dst_n, assigner) {
          if (dst->wrmask == 0)
+            continue;
+         if (!(dst->flags & IR3_REG_SHARED) && physical)
             continue;
          if (!regmask_get(&mask, dst))
             continue;
@@ -318,10 +320,19 @@ delay_calc(struct ir3_block *block, struct ir3_instruction *start,
    if (block->data != block) {
       block->data = block;
 
-      for (unsigned i = 0; i < block->predecessors_count; i++) {
-         struct ir3_block *pred = block->predecessors[i];
+      for (unsigned i = 0; i < block->physical_predecessors_count; i++) {
+         struct ir3_block *pred = block->physical_predecessors[i];
+         if (!physical) {
+            physical = true;
+            for (unsigned j = 0; j < block->predecessors_count; j++) {
+               if (block->predecessors[j] == pred) {
+                  physical = false;
+                  break;
+               }
+            }
+         }
          unsigned pred_delay = delay_calc(pred, NULL, consumer, distance,
-                                          &mask, mergedregs);
+                                          &mask, physical, mergedregs);
          delay = MAX2(delay, pred_delay);
       }
 
@@ -346,5 +357,5 @@ ir3_delay_calc(struct ir3_block *block, struct ir3_instruction *instr,
          regmask_set(&mask, src);
    }
 
-   return delay_calc(block, NULL, instr, 0, &mask, mergedregs);
+   return delay_calc(block, NULL, instr, 0, &mask, false, mergedregs);
 }
