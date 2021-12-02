@@ -22,10 +22,10 @@
 /* device memory commands */
 
 static VkResult
-vn_device_memory_simple_alloc(struct vn_device *dev,
-                              uint32_t mem_type_index,
-                              VkDeviceSize size,
-                              struct vn_device_memory **out_mem)
+vn_device_memory_pool_grow_alloc(struct vn_device *dev,
+                                 uint32_t mem_type_index,
+                                 VkDeviceSize size,
+                                 struct vn_device_memory **out_mem)
 {
    VkDevice dev_handle = vn_device_to_handle(dev);
    const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
@@ -79,13 +79,15 @@ fail:
 }
 
 static void
-vn_device_memory_simple_free(struct vn_device *dev,
-                             struct vn_device_memory *mem)
+vn_device_memory_pool_unref(struct vn_device *dev,
+                            struct vn_device_memory *mem)
 {
    const VkAllocationCallbacks *alloc = &dev->base.base.alloc;
 
-   if (mem->base_bo)
-      vn_renderer_bo_unref(dev->renderer, mem->base_bo);
+   assert(mem->base_bo);
+
+   if (!vn_renderer_bo_unref(dev->renderer, mem->base_bo))
+      return;
 
    vn_async_vkFreeMemory(dev->instance, vn_device_to_handle(dev),
                          vn_device_memory_to_handle(mem), NULL);
@@ -98,7 +100,7 @@ vn_device_memory_pool_fini(struct vn_device *dev, uint32_t mem_type_index)
 {
    struct vn_device_memory_pool *pool = &dev->memory_pools[mem_type_index];
    if (pool->memory)
-      vn_device_memory_simple_free(dev, pool->memory);
+      vn_device_memory_pool_unref(dev, pool->memory);
    mtx_destroy(&pool->mutex);
 }
 
@@ -109,20 +111,13 @@ vn_device_memory_pool_grow_locked(struct vn_device *dev,
 {
    struct vn_device_memory *mem;
    VkResult result =
-      vn_device_memory_simple_alloc(dev, mem_type_index, size, &mem);
+      vn_device_memory_pool_grow_alloc(dev, mem_type_index, size, &mem);
    if (result != VK_SUCCESS)
       return result;
 
    struct vn_device_memory_pool *pool = &dev->memory_pools[mem_type_index];
-   if (pool->memory) {
-      const bool bo_destroyed =
-         vn_renderer_bo_unref(dev->renderer, pool->memory->base_bo);
-      pool->memory->base_bo = NULL;
-
-      /* we use pool->memory's base_bo to keep it alive */
-      if (bo_destroyed)
-         vn_device_memory_simple_free(dev, pool->memory);
-   }
+   if (pool->memory)
+      vn_device_memory_pool_unref(dev, pool->memory);
 
    pool->memory = mem;
    pool->used = 0;
@@ -131,12 +126,12 @@ vn_device_memory_pool_grow_locked(struct vn_device *dev,
 }
 
 static VkResult
-vn_device_memory_pool_alloc(struct vn_device *dev,
-                            uint32_t mem_type_index,
-                            VkDeviceSize size,
-                            struct vn_device_memory **base_mem,
-                            struct vn_renderer_bo **base_bo,
-                            VkDeviceSize *base_offset)
+vn_device_memory_pool_suballocate(struct vn_device *dev,
+                                  uint32_t mem_type_index,
+                                  VkDeviceSize size,
+                                  struct vn_device_memory **base_mem,
+                                  struct vn_renderer_bo **base_bo,
+                                  VkDeviceSize *base_offset)
 {
    const VkDeviceSize pool_size = 16 * 1024 * 1024;
    /* XXX We don't know the alignment requirement.  We should probably use 64K
@@ -168,16 +163,6 @@ vn_device_memory_pool_alloc(struct vn_device *dev,
    mtx_unlock(&pool->mutex);
 
    return VK_SUCCESS;
-}
-
-static void
-vn_device_memory_pool_free(struct vn_device *dev,
-                           struct vn_device_memory *base_mem,
-                           struct vn_renderer_bo *base_bo)
-{
-   /* we use base_bo to keep base_mem alive */
-   if (vn_renderer_bo_unref(dev->renderer, base_bo))
-      vn_device_memory_simple_free(dev, base_mem);
 }
 
 static bool
@@ -369,7 +354,7 @@ vn_AllocateMemory(VkDevice device,
                                       mem_type->propertyFlags,
                                       export_info->handleTypes);
    } else if (vn_device_memory_should_suballocate(pAllocateInfo, mem_type)) {
-      result = vn_device_memory_pool_alloc(
+      result = vn_device_memory_pool_suballocate(
          dev, pAllocateInfo->memoryTypeIndex, mem->size, &mem->base_memory,
          &mem->base_bo, &mem->base_offset);
    } else {
@@ -403,7 +388,7 @@ vn_FreeMemory(VkDevice device,
       return;
 
    if (mem->base_memory) {
-      vn_device_memory_pool_free(dev, mem->base_memory, mem->base_bo);
+      vn_device_memory_pool_unref(dev, mem->base_memory);
    } else {
       if (mem->base_bo)
          vn_renderer_bo_unref(dev->renderer, mem->base_bo);
