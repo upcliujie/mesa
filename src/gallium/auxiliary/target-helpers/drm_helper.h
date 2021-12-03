@@ -67,6 +67,7 @@ const struct drm_driver_descriptor descriptor_name = {         \
 #undef GALLIUM_ETNAVIV
 #undef GALLIUM_PANFROST
 #undef GALLIUM_LIMA
+#undef GALLIUM_IRIS
 #endif
 
 #ifdef GALLIUM_I915
@@ -168,6 +169,8 @@ pipe_kmsro_create_screen(int fd, const struct pipe_screen_config *config)
 }
 #if defined(GALLIUM_VC4) || defined(GALLIUM_V3D)
 DRM_DRIVER_DESCRIPTOR(kmsro, v3d_driconf, ARRAY_SIZE(v3d_driconf))
+#elif defined(GALLIUM_IRIS)
+DRM_DRIVER_DESCRIPTOR(kmsro, iris_driconf, ARRAY_SIZE(iris_driconf))
 #else
 DRM_DRIVER_DESCRIPTOR(kmsro, NULL, 0)
 #endif
