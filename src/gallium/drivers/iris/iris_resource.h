@@ -24,6 +24,7 @@
 #define IRIS_RESOURCE_H
 
 #include "pipe/p_state.h"
+#include "util/log.h"
 #include "util/u_inlines.h"
 #include "util/u_range.h"
 #include "util/u_threaded_context.h"
