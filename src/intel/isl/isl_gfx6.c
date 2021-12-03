@@ -38,8 +38,10 @@ isl_gfx6_choose_msaa_layout(const struct isl_device *dev,
       return true;
    }
 
-   if (!isl_format_supports_multisampling(dev->info, info->format))
-      return false;
+   if (!isl_format_supports_multisampling(dev->info, info->format)) {
+      return notify_failure(info, "format %s does not support msaa",
+                            isl_format_get_name(info->format));
+   }
 
    /* From the Sandybridge PRM, Volume 4 Part 1 p85, SURFACE_STATE, Number of
     * Multisamples:
@@ -51,15 +53,15 @@ isl_gfx6_choose_msaa_layout(const struct isl_device *dev,
     *       - [...]
     */
    if (info->dim != ISL_SURF_DIM_2D)
-      return false;
+      return notify_failure(info, "msaa only supported on 2D surfaces");
 
    /* More obvious restrictions */
    if (isl_surf_usage_is_display(info->usage))
-      return false;
+      return notify_failure(info, "msaa not supported for display");
    if (tiling == ISL_TILING_LINEAR)
-      return false;
+      return notify_failure(info, "msaa not supported with linear tiling");
    if (info->levels > 1)
-      return false;
+      return notify_failure(info, "msaa not supported with LOD > 1");
 
    *msaa_layout = ISL_MSAA_LAYOUT_INTERLEAVED;
    return true;
