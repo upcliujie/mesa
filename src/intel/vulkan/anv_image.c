@@ -767,6 +767,13 @@ add_aux_surface_if_supported(struct anv_device *device,
    return VK_SUCCESS;
 }
 
+static void
+anv_surface_isl_error_cb(const struct isl_surf_init_info *info,
+                         const char *error_msg)
+{
+   mesa_logd("surface creation failed: %s\n", error_msg);
+}
+
 static VkResult
 add_shadow_surface(struct anv_device *device,
                    struct anv_image *image,
@@ -791,7 +798,9 @@ add_shadow_surface(struct anv_device *device,
                      .row_pitch_B = stride,
                      .usage = ISL_SURF_USAGE_TEXTURE_BIT |
                               (vk_plane_usage & ISL_SURF_USAGE_CUBE_BIT),
-                     .tiling_flags = ISL_TILING_ANY_MASK);
+                     .tiling_flags = ISL_TILING_ANY_MASK,
+                     .error_cb = INTEL_DEBUG(DEBUG_ISL) ?
+                                 anv_surface_isl_error_cb : NULL);
 
    /* isl_surf_init() will fail only if provided invalid input. Invalid input
     * here is illegal in Vulkan.
@@ -834,7 +843,8 @@ add_primary_surface(struct anv_device *device,
       .min_alignment_B = 0,
       .row_pitch_B = stride,
       .usage = isl_usage,
-      .tiling_flags = isl_tiling_flags);
+      .tiling_flags = isl_tiling_flags,
+      .error_cb = INTEL_DEBUG(DEBUG_ISL) ? anv_surface_isl_error_cb : NULL);
 
    if (!ok) {
       /* TODO: Should return
