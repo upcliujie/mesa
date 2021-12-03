@@ -27,8 +27,14 @@
 #include "nir_builder.h"
 #include "nir_control_flow.h"
 
+struct continue_target_state {
+   bool repair_phis;
+   bool repair_ssa;
+};
+
 static bool
-lower_loop_continue_block(nir_builder *b, nir_loop *loop)
+lower_loop_continue_block(nir_builder *b, nir_loop *loop,
+                          struct continue_target_state *state)
 {
    if (!nir_loop_has_continue_target(loop))
       return false;
@@ -50,7 +56,7 @@ lower_loop_continue_block(nir_builder *b, nir_loop *loop)
       }
    }
 
-   nir_lower_phis_to_regs_block(header);
+   state->repair_phis |= nir_lower_phis_to_regs_block(header);
 
    if (single_predecessor) {
       /* inline continue block */
@@ -58,7 +64,8 @@ lower_loop_continue_block(nir_builder *b, nir_loop *loop)
       nir_cf_list_extract(&extracted, &loop->continue_target);
       nir_cf_reinsert(&extracted, nir_after_block_before_jump(single_predecessor));
    } else {
-      nir_lower_phis_to_regs_block(cont);
+      state->repair_phis |= nir_lower_phis_to_regs_block(cont);
+      state->repair_ssa = true;
 
       /* insert the continue block at the begining of the loop */
       nir_variable *do_cont =
@@ -96,7 +103,8 @@ lower_loop_continue_block(nir_builder *b, nir_loop *loop)
 
 
 static bool
-visit_cf_list(nir_builder *b, struct exec_list *list)
+visit_cf_list(nir_builder *b, struct exec_list *list,
+              struct continue_target_state *state)
 {
    bool progress = false;
 
@@ -106,15 +114,15 @@ visit_cf_list(nir_builder *b, struct exec_list *list)
          continue;
       case nir_cf_node_if: {
          nir_if *nif = nir_cf_node_as_if(node);
-         progress |= visit_cf_list(b, &nif->then_list);
-         progress |= visit_cf_list(b, &nif->else_list);
+         progress |= visit_cf_list(b, &nif->then_list, state);
+         progress |= visit_cf_list(b, &nif->else_list, state);
          break;
       }
       case nir_cf_node_loop: {
          nir_loop *loop = nir_cf_node_as_loop(node);
-         visit_cf_list(b, &loop->body);
-         visit_cf_list(b, &loop->continue_target);
-         progress |= lower_loop_continue_block(b, loop);
+         visit_cf_list(b, &loop->body, state);
+         visit_cf_list(b, &loop->continue_target, state);
+         progress |= lower_loop_continue_block(b, loop, state);
          break;
       }
       case nir_cf_node_function:
@@ -130,19 +138,22 @@ lower_continue_targets_impl(nir_function_impl *impl)
 {
    nir_builder b;
    nir_builder_init(&b, impl);
-   bool progress = visit_cf_list(&b, &impl->body);
+   struct continue_target_state state = { false, false };
+   bool progress = visit_cf_list(&b, &impl->body, &state);
 
    if (progress) {
       nir_metadata_preserve(impl, nir_metadata_none);
 
       /* Merge the Phis from Header and Continue Target */
-      nir_lower_regs_to_ssa_impl(impl);
+      if (state.repair_phis)
+         nir_lower_regs_to_ssa_impl(impl);
 
       /* Re-inserting the Continue Target at the beginning of the loop
        * violates the dominance property if instructions in the continue
        * use SSA defs from the loop body.
        */
-      nir_repair_ssa_impl(impl);
+      if (state.repair_ssa)
+         nir_repair_ssa_impl(impl);
    } else {
       nir_metadata_preserve(impl, nir_metadata_all);
    }
