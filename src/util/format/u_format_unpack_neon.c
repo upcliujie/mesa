@@ -23,7 +23,7 @@
 
 #include <u_format.h>
 
-#if (defined(PIPE_ARCH_AARCH64) || defined(PIPE_ARCH_ARM)) && !defined(NO_FORMAT_ASM) && !defined(__SOFTFP__)
+#if (defined(PIPE_ARCH_AARCH64) || (defined(__ARM_NEON) && defined(PIPE_ARCH_ARM))) && !defined(NO_FORMAT_ASM)
 
 /* armhf builds default to vfp, not neon, and refuses to compile neon intrinsics
  * unless you tell it "no really".
