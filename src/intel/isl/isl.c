@@ -650,7 +650,9 @@ isl_surf_choose_tiling(const struct isl_device *dev,
    #undef CHOOSE
 
    /* No tiling mode accomodates the inputs. */
-   return false;
+   return notify_failure(info,
+                         "no common tiling supported=0x%x requested=0x%x",
+                         tiling_flags, info->tiling_flags);
 }
 
 static bool
@@ -1666,6 +1668,47 @@ pitch_in_range(uint32_t n, uint32_t bits)
    return likely(bits != 0 && 1 <= n && n <= (1 << bits));
 }
 
+bool
+_isl_notify_failure(const struct isl_surf_init_info *surf_info,
+                    const char *file, int line, const char *fmt, ...)
+{
+   if (!surf_info->error_cb)
+      return false;
+
+   char msg[512];
+   int ret = snprintf(msg, sizeof(msg), "%s:%i: ", file, line);
+
+   va_list ap;
+   va_start(ap, fmt);
+   ret += vsnprintf(msg + ret, sizeof(msg) - ret, fmt, ap);
+   va_end(ap);
+
+   snprintf(msg + ret, sizeof(msg) - ret,
+            " s=%ux%ux%u arr=%u msaa=%u rpitch=%u fmt=%s "
+            "usage=%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
+            surf_info->width, surf_info->height, surf_info->depth,
+            surf_info->array_len, surf_info->samples, surf_info->row_pitch_B,
+            isl_format_get_name(surf_info->format) + strlen("ISL_FORMAT_"),
+            (surf_info->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT) ? "+rt" : "",
+            (surf_info->usage & ISL_SURF_USAGE_DEPTH_BIT) ? "+depth" : "",
+            (surf_info->usage & ISL_SURF_USAGE_STENCIL_BIT) ? "+stenc" : "",
+            (surf_info->usage & ISL_SURF_USAGE_TEXTURE_BIT) ? "+tex" : "",
+            (surf_info->usage & ISL_SURF_USAGE_CUBE_BIT) ? "+cube" : "",
+            (surf_info->usage & ISL_SURF_USAGE_DISABLE_AUX_BIT) ? "+no-aux" : "",
+            (surf_info->usage & ISL_SURF_USAGE_DISPLAY_BIT) ? "+disp" : "",
+            (surf_info->usage & ISL_SURF_USAGE_HIZ_BIT) ? "+hiz" : "",
+            (surf_info->usage & ISL_SURF_USAGE_MCS_BIT) ? "+mcs" : "",
+            (surf_info->usage & ISL_SURF_USAGE_CCS_BIT) ? "+ccs" : "",
+            (surf_info->usage & ISL_SURF_USAGE_VERTEX_BUFFER_BIT) ? "+vb" : "",
+            (surf_info->usage & ISL_SURF_USAGE_INDEX_BUFFER_BIT) ? "+ib" : "",
+            (surf_info->usage & ISL_SURF_USAGE_CONSTANT_BUFFER_BIT) ? "+cb" : "",
+            (surf_info->usage & ISL_SURF_USAGE_STAGING_BIT) ? "+st" : "");
+
+   surf_info->error_cb(surf_info, msg);
+
+   return false;
+}
+
 static bool
 isl_calc_row_pitch(const struct isl_device *dev,
                    const struct isl_surf_init_info *surf_info,
@@ -1682,11 +1725,17 @@ isl_calc_row_pitch(const struct isl_device *dev,
                              alignment_B);
 
    if (surf_info->row_pitch_B != 0) {
-      if (surf_info->row_pitch_B < min_row_pitch_B)
-         return false;
+      if (surf_info->row_pitch_B < min_row_pitch_B) {
+         return notify_failure(surf_info,
+                               "row_pitch_B (%u) < min_row_pitch_B (%u)",
+                               surf_info->row_pitch_B, min_row_pitch_B);
+      }
 
-      if (surf_info->row_pitch_B % alignment_B != 0)
-         return false;
+      if (surf_info->row_pitch_B % alignment_B != 0) {
+         return notify_failure(surf_info,
+                               "row_pitch_B (%u) % alignment_B (%u) != 0",
+                               surf_info->row_pitch_B, alignment_B);
+      }
    }
 
    const uint32_t row_pitch_B =
@@ -1695,7 +1744,8 @@ isl_calc_row_pitch(const struct isl_device *dev,
    const uint32_t row_pitch_tl = row_pitch_B / tile_info->phys_extent_B.width;
 
    if (row_pitch_B == 0)
-      return false;
+      return notify_failure(surf_info, "invalid min_row_pitch_B=0");
+
 
    if (dim_layout == ISL_DIM_LAYOUT_GFX9_1D) {
       /* SurfacePitch is ignored for this layout. */
@@ -1705,29 +1755,49 @@ isl_calc_row_pitch(const struct isl_device *dev,
    if ((surf_info->usage & (ISL_SURF_USAGE_RENDER_TARGET_BIT |
                             ISL_SURF_USAGE_TEXTURE_BIT |
                             ISL_SURF_USAGE_STORAGE_BIT)) &&
-       !pitch_in_range(row_pitch_B, RENDER_SURFACE_STATE_SurfacePitch_bits(dev->info)))
-      return false;
+       !pitch_in_range(row_pitch_B, RENDER_SURFACE_STATE_SurfacePitch_bits(dev->info))) {
+      return notify_failure(surf_info,
+                            "row_pitch_B=%u not in range of "
+                            "RENDER_SURFACE_STATE::SurfacePitch",
+                            row_pitch_B);
+   }
 
    if ((surf_info->usage & (ISL_SURF_USAGE_CCS_BIT |
                             ISL_SURF_USAGE_MCS_BIT)) &&
-       !pitch_in_range(row_pitch_tl, RENDER_SURFACE_STATE_AuxiliarySurfacePitch_bits(dev->info)))
-      return false;
+       !pitch_in_range(row_pitch_tl, RENDER_SURFACE_STATE_AuxiliarySurfacePitch_bits(dev->info))) {
+      return notify_failure(surf_info,
+                            "row_pitch_tl=%u not in range of "
+                            "RENDER_SURFACE_STATE::AuxiliarySurfacePitch",
+                            row_pitch_tl);
+   }
 
    if ((surf_info->usage & ISL_SURF_USAGE_DEPTH_BIT) &&
-       !pitch_in_range(row_pitch_B, _3DSTATE_DEPTH_BUFFER_SurfacePitch_bits(dev->info)))
-      return false;
+       !pitch_in_range(row_pitch_B, _3DSTATE_DEPTH_BUFFER_SurfacePitch_bits(dev->info))) {
+      return notify_failure(surf_info,
+                            "row_pitch_B=%u not in range of "
+                            "3DSTATE_DEPTH_BUFFER::SurfacePitch",
+                            row_pitch_B);
+   }
 
    if ((surf_info->usage & ISL_SURF_USAGE_HIZ_BIT) &&
-       !pitch_in_range(row_pitch_B, _3DSTATE_HIER_DEPTH_BUFFER_SurfacePitch_bits(dev->info)))
-      return false;
+       !pitch_in_range(row_pitch_B, _3DSTATE_HIER_DEPTH_BUFFER_SurfacePitch_bits(dev->info))) {
+      return notify_failure(surf_info,
+                            "row_pitch_B=%u not in range of "
+                            "3DSTATE_HIER_DEPTH_BUFFER::SurfacePitch",
+                            row_pitch_B);
+   }
 
    const uint32_t stencil_pitch_bits = dev->use_separate_stencil ?
       _3DSTATE_STENCIL_BUFFER_SurfacePitch_bits(dev->info) :
       _3DSTATE_DEPTH_BUFFER_SurfacePitch_bits(dev->info);
 
    if ((surf_info->usage & ISL_SURF_USAGE_STENCIL_BIT) &&
-       !pitch_in_range(row_pitch_B, stencil_pitch_bits))
-      return false;
+       !pitch_in_range(row_pitch_B, stencil_pitch_bits)) {
+      return notify_failure(surf_info,
+                            "row_pitch_B=%u not in range of "
+                            "3DSTATE_STENCIL_BUFFER/3DSTATE_DEPTH_BUFFER::SurfacePitch",
+                            row_pitch_B);
+   }
 
  done:
    *out_row_pitch_B = row_pitch_B;
@@ -1891,7 +1961,7 @@ isl_surf_init_s(const struct isl_device *dev,
        * This comment is applicable to all Pre-gfx9 platforms.
        */
       if (size_B > (uint64_t) 1 << 31)
-         return false;
+         return notify_failure(info, "size_B=%lu > (1 << 31)", size_B);
    } else if (ISL_GFX_VER(dev) < 11) {
       /* From the Skylake PRM Vol 5, Maximum Surface Size in Bytes:
        *    "In addition to restrictions on maximum height, width, and depth,
@@ -1900,11 +1970,11 @@ isl_surf_init_s(const struct isl_device *dev,
        *     of the base address."
        */
       if (size_B > (uint64_t) 1 << 38)
-         return false;
+         return notify_failure(info, "size_B=%lu > (1 << 38)", size_B);
    } else {
       /* gfx11+ platforms raised this limit to 2^44 bytes. */
       if (size_B > (uint64_t) 1 << 44)
-         return false;
+         return notify_failure(info, "size_B=%lu > (1 << 44)", size_B);
    }
 
    *surf = (struct isl_surf) {
