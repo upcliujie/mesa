@@ -803,7 +803,8 @@ fs_visitor::emit_single_fb_write(const fs_builder &bld,
 }
 
 void
-fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
+fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha,
+                              bool coarse)
 {
    fs_inst *inst = NULL;
 
@@ -822,6 +823,7 @@ fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
       inst = emit_single_fb_write(abld, this->outputs[target],
                                   this->dual_src_output, src0_alpha, 4);
       inst->target = target;
+      inst->coarse_rt_write = coarse;
    }
 
    if (inst == NULL) {
@@ -839,6 +841,7 @@ fs_visitor::do_emit_fb_writes(int nr_color_regions, bool replicate_alpha)
 
       inst = emit_single_fb_write(bld, tmp, reg_undef, reg_undef, 4);
       inst->target = 0;
+      inst->coarse_rt_write = coarse;
    }
 
    inst->last_rt = true;
@@ -900,7 +903,37 @@ fs_visitor::emit_fb_writes()
                            "in SIMD16 and SIMD32 modes.\n");
    }
 
-   do_emit_fb_writes(key->nr_color_regions, replicate_alpha);
+   switch (prog_data->coarse_pixel_dispatch) {
+   case BRW_NEVER:
+      do_emit_fb_writes(key->nr_color_regions, replicate_alpha, false);
+      break;
+
+   case BRW_SOMETIMES:
+      /* This is truly horrible.  The hardware really seems to not like
+       * setting the per-coarse bit in the RT Write via an indirect message
+       * descriptor.  It's unclear if this is because indirect message
+       * descriptors don't work with RT Write in general or if it's something
+       * having to do with per-coarse in particular.
+       *
+       * The workaround is to emit all RT Write messages twice, once for
+       * coarse and once for non-coarse.  The really sticky bit here is that
+       * we need to make 100% sure that the if is uniform because the last one
+       * of those messages is going to have the EOT so we need to be sure the
+       * hardware jumps over the first block in the non-coarse case.
+       */
+      check_dynamic_msaa_flag(bld.exec_all(), prog_data,
+                              BRW_WM_MSAA_FLAG_COARSE_DISPATCH);
+      bld.IF(BRW_PREDICATE_NORMAL);
+      do_emit_fb_writes(key->nr_color_regions, replicate_alpha, true);
+      bld.emit(BRW_OPCODE_ELSE);
+      do_emit_fb_writes(key->nr_color_regions, replicate_alpha, false);
+      bld.emit(BRW_OPCODE_ENDIF);
+      break;
+
+   case BRW_ALWAYS:
+      do_emit_fb_writes(key->nr_color_regions, replicate_alpha, true);
+      break;
+   }
 }
 
 void
