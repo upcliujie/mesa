@@ -1517,6 +1517,20 @@ radv_amdgpu_ctx_wait_idle(struct radeon_winsys_ctx *rwctx, enum ring_type ring_t
    return true;
 }
 
+static int
+radv_amdgpu_ctx_set_pstate(struct radeon_winsys_ctx *rwctx, uint32_t pstate)
+{
+   struct radv_amdgpu_ctx *ctx = (struct radv_amdgpu_ctx *)rwctx;
+   return amdgpu_cs_ctx_stable_pstate(ctx->ctx, AMDGPU_CTX_OP_SET_STABLE_PSTATE, pstate, NULL);
+}
+
+static int
+radv_amdgpu_ctx_get_pstate(struct radeon_winsys_ctx *rwctx, uint32_t *out_pstate)
+{
+   struct radv_amdgpu_ctx *ctx = (struct radv_amdgpu_ctx *)rwctx;
+   return amdgpu_cs_ctx_stable_pstate(ctx->ctx, AMDGPU_CTX_OP_GET_STABLE_PSTATE, 0, out_pstate);
+}
+
 static void *
 radv_amdgpu_cs_alloc_syncobj_chunk(struct radv_winsys_sem_counts *counts, uint32_t queue_syncobj,
                                    struct drm_amdgpu_cs_chunk *chunk, int chunk_id)
@@ -1878,6 +1892,8 @@ radv_amdgpu_cs_init_functions(struct radv_amdgpu_winsys *ws)
    ws->base.ctx_create = radv_amdgpu_ctx_create;
    ws->base.ctx_destroy = radv_amdgpu_ctx_destroy;
    ws->base.ctx_wait_idle = radv_amdgpu_ctx_wait_idle;
+   ws->base.ctx_set_pstate = radv_amdgpu_ctx_set_pstate;
+   ws->base.ctx_get_pstate = radv_amdgpu_ctx_get_pstate;
    ws->base.cs_domain = radv_amdgpu_cs_domain;
    ws->base.cs_create = radv_amdgpu_cs_create;
    ws->base.cs_destroy = radv_amdgpu_cs_destroy;
