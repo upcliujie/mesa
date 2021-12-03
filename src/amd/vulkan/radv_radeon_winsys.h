@@ -250,6 +250,10 @@ struct radeon_winsys {
 
    bool (*ctx_wait_idle)(struct radeon_winsys_ctx *ctx, enum ring_type ring_type, int ring_index);
 
+   int (*ctx_set_pstate)(struct radeon_winsys_ctx *ctx, uint32_t pstate);
+
+   int (*ctx_get_pstate)(struct radeon_winsys_ctx *ctx, uint32_t *out_pstate);
+
    enum radeon_bo_domain (*cs_domain)(const struct radeon_winsys *ws);
 
    struct radeon_cmdbuf *(*cs_create)(struct radeon_winsys *ws, enum ring_type ring_type);
