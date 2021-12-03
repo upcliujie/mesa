@@ -43,6 +43,7 @@
  */
 TEST(MesaFormatsTest, FormatTypeAndComps)
 {
+   util_cpu_detect();
    for (int fi = MESA_FORMAT_NONE + 1; fi < MESA_FORMAT_COUNT; ++fi) {
       mesa_format f = (mesa_format) fi;
       SCOPED_TRACE(_mesa_get_format_name(f));
