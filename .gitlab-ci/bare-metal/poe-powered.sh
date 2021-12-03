@@ -99,7 +99,21 @@ fi
 [ -d $BM_BOOTFS/lib/modules ] && rsync -a --delete $BM_BOOTFS/lib/modules/ /nfs/usr/lib/modules/
 
 # Install kernel image + bootloader files
-rsync -a --delete $BM_BOOTFS/boot/ /tftp/
+rsync -aL --delete $BM_BOOTFS/ /tftp/
+
+# Set up the pxelinux config for Jetson Nano
+mkdir -p /tftp/pxelinux.cfg
+cat <<EOF >/tftp/pxelinux.cfg/default-arm-tegra210-p3450-0000
+PROMPT 0
+TIMEOUT 30
+DEFAULT primary
+MENU TITLE jetson nano boot options
+LABEL primary
+      MENU LABEL CI kernel on TFTP
+      LINUX Image
+      FDT tegra210-p3450-0000.dtb
+      APPEND \${cbootargs} $BM_CMDLINE
+EOF
 
 # Create the rootfs in the NFS directory
 mkdir -p /nfs/results
