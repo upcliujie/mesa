@@ -4550,19 +4550,7 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       inst->desc =
          (inst->group / 16) << 11 | /* rt slot group */
          brw_fb_write_desc(devinfo, inst->target, msg_ctl, inst->last_rt,
-                           0 /* coarse_write */);
-
-      fs_reg desc = brw_imm_ud(0);
-      if (prog_data->coarse_pixel_dispatch == BRW_ALWAYS) {
-         inst->desc |= (1 << 18);
-      } else if (prog_data->coarse_pixel_dispatch == BRW_SOMETIMES) {
-         STATIC_ASSERT(BRW_WM_MSAA_FLAG_COARSE_DISPATCH == (1 << 18));
-         const fs_builder &ubld = bld.exec_all().group(8, 0);
-         desc = ubld.vgrf(BRW_REGISTER_TYPE_UD);
-         ubld.AND(desc, dynamic_msaa_flags(prog_data),
-                  brw_imm_ud(BRW_WM_MSAA_FLAG_COARSE_DISPATCH));
-         desc = component(desc, 0);
-      }
+                           inst->coarse_rt_write);
 
       uint32_t ex_desc = 0;
       if (devinfo->ver >= 11) {
@@ -4579,7 +4567,7 @@ lower_fb_write_logical_send(const fs_builder &bld, fs_inst *inst,
       inst->opcode = SHADER_OPCODE_SEND;
       inst->resize_sources(3);
       inst->sfid = GFX6_SFID_DATAPORT_RENDER_CACHE;
-      inst->src[0] = desc;
+      inst->src[0] = brw_imm_ud(0);
       inst->src[1] = brw_imm_ud(0);
       inst->src[2] = payload;
       inst->mlen = regs_written(load);
