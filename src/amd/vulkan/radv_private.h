@@ -833,6 +833,7 @@ struct radv_device {
 
    /* Thread trace. */
    struct ac_thread_trace_data thread_trace;
+   uint64_t old_profile;
 
    /* Trap handler. */
    struct radv_shader *trap_handler_shader;

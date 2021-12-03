@@ -26,6 +26,7 @@
 #include "radv_cs.h"
 #include "radv_private.h"
 #include "sid.h"
+#include "drm-uapi/amdgpu_drm.h"
 
 #define SQTT_BUFFER_ALIGN_SHIFT 12
 
@@ -429,6 +430,34 @@ radv_thread_trace_finish_bo(struct radv_device *device)
    }
 }
 
+static int
+radv_thread_trace_init_pstate(struct radv_device *device)
+{
+   uint64_t current_profile;
+
+   if (device->physical_device->rad_info.has_profile_ioctl) {
+      /* Query the current profile to restore it when thread trace finishes. */
+      if (device->ws->get_profile(device->ws, &current_profile) < 0)
+         return false;
+      device->old_profile = current_profile;
+
+      /* Set the current profile to peak which is required for profiling. */
+      if (device->ws->set_profile(device->ws, AMDGPU_PROFILE_FLAGS_STABLE_PSTATE_PEAK) < 0)
+         return false;
+   }
+
+   return true;
+}
+
+static void
+radv_thread_trace_finish_pstate(struct radv_device *device)
+{
+   if (!device->physical_device->rad_info.has_profile_ioctl)
+      return;
+
+   device->ws->set_profile(device->ws, device->old_profile);
+}
+
 bool
 radv_thread_trace_init(struct radv_device *device)
 {
@@ -444,6 +473,9 @@ radv_thread_trace_init(struct radv_device *device)
       device->thread_trace.trigger_file = strdup(trigger_file);
 
    if (!radv_thread_trace_init_bo(device))
+      return false;
+
+   if (!radv_thread_trace_init_pstate(device))
       return false;
 
    list_inithead(&thread_trace_data->rgp_pso_correlation.record);
@@ -474,6 +506,8 @@ radv_thread_trace_finish(struct radv_device *device)
       if (device->thread_trace.stop_cs[i])
          ws->cs_destroy(device->thread_trace.stop_cs[i]);
    }
+
+   radv_thread_trace_finish_pstate(device);
 
    assert(thread_trace_data->rgp_pso_correlation.record_count == 0);
    simple_mtx_destroy(&thread_trace_data->rgp_pso_correlation.lock);
