@@ -42,5 +42,5 @@ test(
     link_with : [libmesa, link_main_test],
   ),
   suite : ['mesa'],
-  protocol : gtest_test_protocol,
+  #protocol : gtest_test_protocol,
 )
