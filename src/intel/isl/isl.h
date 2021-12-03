@@ -1445,6 +1445,10 @@ struct isl_surf_init_info {
 
    /** Flags that alter how ISL selects isl_surf::tiling.  */
    isl_tiling_flags_t tiling_flags;
+
+   /** Error message output buffer */
+   char *error_output;
+   uint32_t error_output_len;
 };
 
 struct isl_surf {
