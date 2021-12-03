@@ -607,6 +607,13 @@ target_to_isl_surf_dim(enum pipe_texture_target target)
    unreachable("invalid texture type");
 }
 
+static void
+iris_resource_isl_error_cb(const struct isl_surf_init_info *info,
+                           const char *error_msg)
+{
+   mesa_logd("ISL surface failed: %s\n", error_msg);
+}
+
 static bool
 iris_resource_configure_main(const struct iris_screen *screen,
                              struct iris_resource *res,
@@ -680,9 +687,10 @@ iris_resource_configure_main(const struct iris_screen *screen,
       .array_len = templ->array_size,
       .samples = MAX2(templ->nr_samples, 1),
       .min_alignment_B = 0,
-      .row_pitch_B = row_pitch_B,
+      .row_pitch_B = 42,//row_pitch_B,
       .usage = usage,
-      .tiling_flags = tiling_flags
+      .tiling_flags = tiling_flags,
+      .error_cb = INTEL_DEBUG(DEBUG_ISL) ? iris_resource_isl_error_cb : NULL,
    };
 
    if (!isl_surf_init_s(&screen->isl_dev, &res->surf, &init_info))
