@@ -61,22 +61,24 @@ isl_gfx8_choose_msaa_layout(const struct isl_device *dev,
     *      Min LOD, Mip Count / LOD, and Resource Min LOD must be set to zero.
     */
    if (info->dim != ISL_SURF_DIM_2D)
-      return false;
+      return notify_failure(info, "msaa only supported on 2D surfaces");
    if (info->levels > 1)
-      return false;
+      return notify_failure(info, "msaa not supported with LOD > 1");
 
    /* More obvious restrictions */
    if (isl_surf_usage_is_display(info->usage))
-      return false;
-   if (!isl_format_supports_multisampling(dev->info, info->format))
-      return false;
+      return notify_failure(info, "msaa not supported for display");
+   if (!isl_format_supports_multisampling(dev->info, info->format)) {
+      return notify_failure(info, "format %s does not support msaa",
+                            isl_format_get_name(info->format));
+   }
 
    if (isl_surf_usage_is_depth_or_stencil(info->usage) ||
        (info->usage & ISL_SURF_USAGE_HIZ_BIT))
       require_interleaved = true;
 
    if (require_array && require_interleaved)
-      return false;
+      return notify_failure(info, "cannot require array & interleaved layouts");
 
    if (require_interleaved) {
       *msaa_layout = ISL_MSAA_LAYOUT_INTERLEAVED;
