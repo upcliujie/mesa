@@ -553,10 +553,6 @@ dEQP-GLES31.functional.texture.filtering.cube_array.formats.rgba8_nearest_mipmap
 dEQP-GLES31.functional.texture.filtering.cube_array.formats.rgba8_nearest_mipmap_nearest,Fail
 dEQP-GLES31.functional.texture.filtering.cube_array.formats.rgba8_snorm_nearest,Fail
 dEQP-GLES31.functional.texture.filtering.cube_array.formats.rgba8_snorm_nearest_mipmap_nearest,Fail
-dEQP-GLES31.functional.texture.filtering.cube_array.formats.sr8_nearest_mipmap_nearest,Fail
-dEQP-GLES31.functional.texture.filtering.cube_array.formats.srg8_nearest,Fail
-dEQP-GLES31.functional.texture.filtering.cube_array.formats.srg8_nearest_mipmap_linear,Fail
-dEQP-GLES31.functional.texture.filtering.cube_array.formats.srg8_nearest_mipmap_nearest,Fail
 dEQP-GLES31.functional.texture.filtering.cube_array.formats.srgb8_alpha8_nearest,Fail
 dEQP-GLES31.functional.texture.filtering.cube_array.formats.srgb8_alpha8_nearest_mipmap_linear,Fail
 dEQP-GLES31.functional.texture.filtering.cube_array.sizes.128x128x12_linear,Fail
