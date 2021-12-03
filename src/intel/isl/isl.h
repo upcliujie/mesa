@@ -1407,6 +1407,11 @@ struct isl_drm_modifier_info {
    bool supports_clear_color;
 };
 
+struct isl_surf_init_info;
+
+typedef void (*isl_surf_init_error_cb)(const struct isl_surf_init_info *info,
+                                       const char *error_msg);
+
 /**
  * @brief Input to surface initialization
  *
@@ -1445,6 +1450,9 @@ struct isl_surf_init_info {
 
    /** Flags that alter how ISL selects isl_surf::tiling.  */
    isl_tiling_flags_t tiling_flags;
+
+   /** Error callback in case of error */
+   isl_surf_init_error_cb error_cb;
 };
 
 struct isl_surf {
