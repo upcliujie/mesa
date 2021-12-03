@@ -841,22 +841,36 @@ isl_choose_image_alignment_el(const struct isl_device *dev,
        */
       *image_align_el = isl_extent3d(4, 4, 1);
       return;
-   } else if (info->format == ISL_FORMAT_HIZ) {
-      assert(ISL_GFX_VER(dev) >= 6);
-      if (ISL_GFX_VER(dev) == 6) {
-         /* HiZ surfaces on Sandy Bridge are packed tightly. */
-         *image_align_el = isl_extent3d(1, 1, 1);
-      } else if (ISL_GFX_VER(dev) < 12) {
-         /* On gfx7+, HiZ surfaces are always aligned to 16x8 pixels in the
-          * primary surface which works out to 2x2 HiZ elments.
+   } else if (fmtl->txc == ISL_TXC_HIZ) {
+      if (ISL_GFX_VER(dev) >= 12) {
+         /* From Bspec 47009, "Hierarchical Depth Buffer":
+          *
+          *    HZ_Width (bytes)
+          *    ceiling(Z_Width / 16) * 16
+          *
+          * and
+          *
+          *    To compute the minimum QPitch for the HZ surface, the height of
+          *    each LOD in pixels is determined using the equations for hL in
+          *    the GPU Overview volume, using a vertical alignment j=16.
+          *
+          * HiZ surfaces are aligned to 16x16 pixels in the primary surface.
           */
-         *image_align_el = isl_extent3d(2, 2, 1);
+         *image_align_el = isl_extent3d(16 / fmtl->bw, 16 / fmtl->bh, 1);
       } else {
-         /* On gfx12+, HiZ surfaces are always aligned to 16x16 pixels in the
-          * primary surface which works out to 2x4 HiZ elments.
-          * TODO: Verify
+         assert(ISL_GFX_VER(dev) >= 5);
+         /* From the IronLake PRM, Vol 2 Part 1, "Hierarchical Depth Buffer":
+          *
+          *    HZ_Width (bytes)
+          *    ceiling(Z_Width / 16) * 16
+          *
+          * and
+          *
+          *    QPitch is computed using vertical alignment j=8
+          *
+          * HiZ surfaces are aligned to 16x8 pixels in the primary surface.
           */
-         *image_align_el = isl_extent3d(2, 4, 1);
+         *image_align_el = isl_extent3d(16 / fmtl->bw, 8 / fmtl->bh, 1);
       }
       return;
    }
