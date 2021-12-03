@@ -94,6 +94,7 @@ extern uint64_t intel_debug;
 #define DEBUG_NO_FAST_CLEAR       (1ull << 46)
 #define DEBUG_NO32                (1ull << 47)
 #define DEBUG_RT                  (1ull << 48)
+#define DEBUG_ISL                 (1ull << 49)
 
 #define DEBUG_ANY                 (~0ull)
 
