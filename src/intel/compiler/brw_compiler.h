@@ -875,10 +875,10 @@ enum brw_wm_msaa_flags {
 
    /** True if this shader has been dispatched coarse
     *
-    * This is intentionally chose to be bit 18 to correspond to the coarse
-    * write bit in the FB write message descriptor.
+    * This is intentionally chose to be bit 15 to correspond to the coarse bit
+    * in the pixel interpolator messages.
     */
-   BRW_WM_MSAA_FLAG_COARSE_DISPATCH = (1 << 18),
+   BRW_WM_MSAA_FLAG_COARSE_DISPATCH = (1 << 15),
 };
 MESA_DEFINE_CPP_ENUM_BITFIELD_OPERATORS(enum brw_wm_msaa_flags)
 
