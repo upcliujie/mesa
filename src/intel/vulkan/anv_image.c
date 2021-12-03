@@ -776,6 +776,7 @@ add_shadow_surface(struct anv_device *device,
                    VkImageUsageFlags vk_plane_usage)
 {
    ASSERTED bool ok;
+   char error_msg[512];
 
    ok = isl_surf_init(&device->isl_dev,
                       &image->planes[plane].shadow_surface.isl,
@@ -791,7 +792,12 @@ add_shadow_surface(struct anv_device *device,
                      .row_pitch_B = stride,
                      .usage = ISL_SURF_USAGE_TEXTURE_BIT |
                               (vk_plane_usage & ISL_SURF_USAGE_CUBE_BIT),
-                     .tiling_flags = ISL_TILING_ANY_MASK);
+                     .tiling_flags = ISL_TILING_ANY_MASK,
+                     .error_output = error_msg,
+                     .error_output_len = sizeof(error_msg));
+
+   if (unlikely(!ok && INTEL_DEBUG(DEBUG_ISL)))
+      mesa_logd("shadow surface creation failed: %s\n", error_msg);
 
    /* isl_surf_init() will fail only if provided invalid input. Invalid input
     * here is illegal in Vulkan.
@@ -820,6 +826,7 @@ add_primary_surface(struct anv_device *device,
                     isl_surf_usage_flags_t isl_usage)
 {
    struct anv_surface *anv_surf = &image->planes[plane].primary_surface;
+   char error_msg[512];
    bool ok;
 
    ok = isl_surf_init(&device->isl_dev, &anv_surf->isl,
@@ -834,9 +841,14 @@ add_primary_surface(struct anv_device *device,
       .min_alignment_B = 0,
       .row_pitch_B = stride,
       .usage = isl_usage,
-      .tiling_flags = isl_tiling_flags);
+      .tiling_flags = isl_tiling_flags,
+      .error_output = error_msg,
+      .error_output_len = sizeof(error_msg));
 
    if (!ok) {
+      if (INTEL_DEBUG(DEBUG_ISL))
+         mesa_logd("primary surface creation failed: %s\n", error_msg);
+
       /* TODO: Should return
        * VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT in come cases.
        */
