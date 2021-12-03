@@ -319,6 +319,7 @@ if with_tests
   files_util_tests = files(
     'tests/bitset_test.cpp',
     'tests/blob_test.cpp',
+    'tests/cache_test.cpp',
     'tests/dag_test.cpp',
     'tests/fast_idiv_by_const_test.cpp',
     'tests/fast_urem_by_const_test.cpp',
@@ -393,7 +394,6 @@ if with_tests
     env: ['BUILD_FULL_PATH='+process_test_exe_full_path]
   )
 
-  subdir('tests/cache')
   subdir('tests/hash_table')
   subdir('tests/vma')
   subdir('tests/format')
