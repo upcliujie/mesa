@@ -6690,12 +6690,9 @@ lower_interpolator_logical_send(const fs_builder &bld, fs_inst *inst,
       fs_reg orig_desc = desc;
       const fs_builder &ubld = bld.exec_all().group(8, 0);
       desc = ubld.vgrf(BRW_REGISTER_TYPE_UD);
+      STATIC_ASSERT(BRW_WM_MSAA_FLAG_COARSE_DISPATCH == (1 << 15));
       ubld.AND(desc, dynamic_msaa_flags(wm_prog_data),
                brw_imm_ud(BRW_WM_MSAA_FLAG_COARSE_DISPATCH));
-
-      /* The uniform is in bit 18 but we need it in bit 15 */
-      STATIC_ASSERT(BRW_WM_MSAA_FLAG_COARSE_DISPATCH == (1 << 18));
-      ubld.SHR(desc, desc, brw_imm_ud(3));
 
       /* And, if it's AT_OFFSET, we might have a non-trivial descriptor */
       if (orig_desc.file == IMM) {
