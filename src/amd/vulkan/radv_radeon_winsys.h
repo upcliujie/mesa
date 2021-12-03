@@ -223,6 +223,10 @@ struct radeon_winsys {
 
    const char *(*get_chip_name)(struct radeon_winsys *ws);
 
+   int (*set_profile)(struct radeon_winsys *rws, uint32_t profile);
+
+   int (*get_profile)(struct radeon_winsys *rws, uint64_t *out_profile);
+
    VkResult (*buffer_create)(struct radeon_winsys *ws, uint64_t size, unsigned alignment,
                              enum radeon_bo_domain domain, enum radeon_bo_flag flags,
                              unsigned priority, uint64_t address, struct radeon_winsys_bo **out_bo);
