@@ -670,6 +670,7 @@ iris_resource_configure_main(const struct iris_screen *screen,
    const enum isl_format format =
       iris_format_for_usage(&screen->devinfo, templ->format, usage).fmt;
 
+   char error_msg[512];
    const struct isl_surf_init_info init_info = {
       .dim = target_to_isl_surf_dim(templ->target),
       .format = format,
@@ -682,11 +683,16 @@ iris_resource_configure_main(const struct iris_screen *screen,
       .min_alignment_B = 0,
       .row_pitch_B = row_pitch_B,
       .usage = usage,
-      .tiling_flags = tiling_flags
+      .tiling_flags = tiling_flags,
+      .error_output = error_msg,
+      .error_output_len = sizeof(error_msg),
    };
 
-   if (!isl_surf_init_s(&screen->isl_dev, &res->surf, &init_info))
+   if (!isl_surf_init_s(&screen->isl_dev, &res->surf, &init_info)) {
+      if (INTEL_DEBUG(DEBUG_ISL))
+         mesa_logd("unable to create ISL surface: %s\n", error_msg);
       return false;
+   }
 
    res->internal_format = templ->format;
 
