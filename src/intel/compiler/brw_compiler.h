@@ -606,14 +606,6 @@ struct brw_image_param {
  */
 #define BRW_GFX6_SOL_BINDING_START 0
 
-/**
- * Stride in bytes between shader_time entries.
- *
- * We separate entries by a cacheline to reduce traffic between EUs writing to
- * different entries.
- */
-#define BRW_SHADER_TIME_STRIDE 64
-
 struct brw_ubo_range
 {
    uint16_t block;
@@ -753,7 +745,6 @@ struct brw_stage_prog_data {
       uint32_t ubo_start;
       uint32_t ssbo_start;
       uint32_t image_start;
-      uint32_t shader_time_start;
       uint32_t plane_start[3];
       /** @} */
    } binding_table;
@@ -1571,8 +1562,6 @@ struct brw_compile_vs_params {
    struct brw_vs_prog_data *prog_data;
 
    bool edgeflag_is_last; /* true for gallium */
-   bool shader_time;
-   int shader_time_index;
 
    struct brw_compile_stats *stats;
 
@@ -1606,7 +1595,6 @@ brw_compile_tcs(const struct brw_compiler *compiler,
                 const struct brw_tcs_prog_key *key,
                 struct brw_tcs_prog_data *prog_data,
                 nir_shader *nir,
-                int shader_time_index,
                 struct brw_compile_stats *stats,
                 char **error_str);
 
@@ -1622,7 +1610,6 @@ brw_compile_tes(const struct brw_compiler *compiler, void *log_data,
                 const struct brw_vue_map *input_vue_map,
                 struct brw_tes_prog_data *prog_data,
                 nir_shader *nir,
-                int shader_time_index,
                 struct brw_compile_stats *stats,
                 char **error_str);
 
@@ -1637,7 +1624,6 @@ brw_compile_gs(const struct brw_compiler *compiler, void *log_data,
                const struct brw_gs_prog_key *key,
                struct brw_gs_prog_data *prog_data,
                nir_shader *nir,
-               int shader_time_index,
                struct brw_compile_stats *stats,
                char **error_str);
 
@@ -1722,11 +1708,6 @@ struct brw_compile_fs_params {
    const struct brw_vue_map *vue_map;
    const struct brw_mue_map *mue_map;
 
-   bool shader_time;
-   int shader_time_index8;
-   int shader_time_index16;
-   int shader_time_index32;
-
    bool allow_spilling;
    bool use_rep_send;
 
@@ -1760,9 +1741,6 @@ struct brw_compile_cs_params {
 
    const struct brw_cs_prog_key *key;
    struct brw_cs_prog_data *prog_data;
-
-   bool shader_time;
-   int shader_time_index;
 
    struct brw_compile_stats *stats;
 
