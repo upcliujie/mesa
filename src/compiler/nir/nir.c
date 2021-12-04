@@ -90,7 +90,7 @@ static const struct debug_named_value nir_debug_control[] = {
 
 DEBUG_GET_ONCE_FLAGS_OPTION(nir_debug, "NIR_DEBUG", nir_debug_control, 0)
 
-static void
+void
 nir_process_debug_variable(void)
 {
    if (unlikely(nir_debug == ~0)) {
