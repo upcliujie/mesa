@@ -3853,7 +3853,7 @@ preload(struct panfrost_batch *batch, struct pan_fb_info *fb)
         GENX(pan_preload_fb)(&batch->pool.base, &batch->scoreboard, fb, batch->tls.gpu,
                              PAN_ARCH >= 6 ? batch->tiler_ctx.bifrost : 0, NULL);
 #else
-        unreachable("todo: valhall preloads");
+        //unreachable("todo: valhall preloads");
 #endif
 }
 
