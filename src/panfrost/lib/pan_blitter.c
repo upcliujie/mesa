@@ -38,6 +38,7 @@
 #include "compiler/nir/nir_builder.h"
 #include "util/u_math.h"
 
+#if PAN_ARCH <= 7
 #if PAN_ARCH >= 6
 /* On Midgard, the native blit infrastructure (via MFBD preloads) is broken or
  * missing in many cases. We instead use software paths as fallbacks to
@@ -1517,3 +1518,4 @@ GENX(pan_blitter_cleanup)(struct panfrost_device *dev)
         _mesa_hash_table_destroy(dev->blitter.rsds.rsds, NULL);
         pthread_mutex_destroy(&dev->blitter.rsds.lock);
 }
+#endif

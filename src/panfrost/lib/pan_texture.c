@@ -641,10 +641,14 @@ panfrost_emit_texture_payload(const struct pan_image_view *iview,
                                                      iter.face, iter.sample);
 
                 if (!manual_stride) {
+#if PAN_ARCH <= 5
                         pan_pack(payload, SURFACE, cfg) {
                                 cfg.pointer = pointer;
                         }
                         payload += pan_size(SURFACE);
+#else
+                        unreachable("must use explicit stride on Bifrost");
+#endif
                 } else {
                         pan_pack(payload, SURFACE_WITH_STRIDE, cfg) {
                                 cfg.pointer = pointer;
