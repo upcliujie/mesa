@@ -132,6 +132,10 @@ struct panfrost_batch {
         mali_ptr depth_stencil;
         mali_ptr blend;
 
+        /* Valhall: struct mali_scissor_packed */
+        unsigned scissor[2];
+        float minimum_z, maximum_z;
+
         /* Referenced resources */
         struct set *resources;
 };
