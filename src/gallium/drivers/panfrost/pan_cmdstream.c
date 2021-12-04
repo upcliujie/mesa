@@ -2674,6 +2674,7 @@ panfrost_draw_emit_vertex(struct panfrost_batch *batch,
         panfrost_draw_emit_vertex_section(batch, vs_vary, varyings,
                                           attribs, attrib_bufs, section);
 }
+#endif
 
 static void
 panfrost_emit_primitive_size(struct panfrost_context *ctx,
@@ -2692,7 +2693,6 @@ panfrost_emit_primitive_size(struct panfrost_context *ctx,
                 }
         }
 }
-#endif
 
 static bool
 panfrost_is_implicit_prim_restart(const struct pipe_draw_info *info)
@@ -2758,10 +2758,8 @@ panfrost_update_state_vs(struct panfrost_batch *batch)
         enum pipe_shader_type st = PIPE_SHADER_VERTEX;
         unsigned dirty = batch->ctx->dirty_shader[st];
 
-#if PAN_ARCH <= 7
         if (dirty & PAN_DIRTY_STAGE_SHADER)
                 batch->rsd[st] = panfrost_emit_compute_shader_meta(batch, st);
-#endif
 
         panfrost_update_state_tex(batch, st);
 }
@@ -2790,6 +2788,9 @@ panfrost_update_state_fs(struct panfrost_batch *batch)
                 batch->attribs[st] = panfrost_emit_image_attribs(batch,
                                 &batch->attrib_bufs[st], st);
         }
+#else
+        if (dirty & PAN_DIRTY_STAGE_SHADER)
+                batch->rsd[st] = panfrost_emit_compute_shader_meta(batch, st);
 #endif
 
         panfrost_update_state_tex(batch, st);
@@ -2823,6 +2824,64 @@ panfrost_batch_get_bifrost_tiler(struct panfrost_batch *batch, unsigned vertex_c
         return batch->tiler_ctx.bifrost;
 }
 #endif
+
+/* Packs a primitive descriptor, mostly common between Midgard/Bifrost tiler
+ * jobs and Valhall IDVS jobs
+ */
+static void
+panfrost_emit_primitive(struct panfrost_context *ctx,
+                        const struct pipe_draw_info *info,
+                        const struct pipe_draw_start_count_bias *draw,
+                        mali_ptr indices, bool secondary_shader, void *out)
+{
+        struct pipe_rasterizer_state *rast = &ctx->rasterizer->base;
+
+        pan_pack(out, PRIMITIVE, cfg) {
+                cfg.draw_mode = pan_draw_mode(info->mode);
+                if (panfrost_writes_point_size(ctx))
+                        cfg.point_size_array_format = MALI_POINT_SIZE_ARRAY_FORMAT_FP16;
+
+                /* For line primitives, PRIMITIVE.first_provoking_vertex must
+                 * be set to true and the provoking vertex is selected with
+                 * DRAW.flat_shading_vertex.
+                 */
+                if (info->mode == PIPE_PRIM_LINES ||
+                    info->mode == PIPE_PRIM_LINE_LOOP ||
+                    info->mode == PIPE_PRIM_LINE_STRIP)
+                        cfg.first_provoking_vertex = true;
+                else
+                        cfg.first_provoking_vertex = rast->flatshade_first;
+
+                if (panfrost_is_implicit_prim_restart(info)) {
+                        cfg.primitive_restart = MALI_PRIMITIVE_RESTART_IMPLICIT;
+                } else if (info->primitive_restart) {
+                        cfg.primitive_restart = MALI_PRIMITIVE_RESTART_EXPLICIT;
+                        cfg.primitive_restart_index = info->restart_index;
+                }
+
+#if PAN_ARCH <= 7
+                cfg.job_task_split = 6;
+#endif
+
+                cfg.index_count = ctx->indirect_draw ? 1 : draw->count;
+                cfg.index_type = panfrost_translate_index_size(info->index_size);
+
+                if (cfg.index_type) {
+                        cfg.base_vertex_offset = draw->index_bias - ctx->offset_start;
+
+#if PAN_ARCH <= 7
+                        /* Indices are moved outside the primitive descriptor
+                         * on Valhall
+                         */
+                        cfg.indices = indices;
+#endif
+                }
+
+#if PAN_ARCH >= 6
+                cfg.secondary_shader = secondary_shader;
+#endif
+        }
+}
 
 #if PAN_ARCH >= 9
 static void
@@ -2877,6 +2936,112 @@ panfrost_emit_shader(struct panfrost_batch *batch,
         /* Each entry of FAU is 64-bits */
         cfg->fau_count = DIV_ROUND_UP(fau_words, 2);
 }
+
+static void
+panfrost_emit_idvs_helper(struct panfrost_batch *batch,
+                          const struct pipe_draw_info *info,
+                          const struct pipe_draw_start_count_bias *draw,
+                          mali_ptr indices, bool secondary_shader,
+                          void *job)
+{ 
+        struct panfrost_context *ctx = batch->ctx;
+        struct pipe_rasterizer_state *rast = &ctx->rasterizer->base;
+        bool msaa = rast->multisample;
+
+        struct panfrost_shader_state *vs =
+                panfrost_get_shader_state(ctx, PIPE_SHADER_VERTEX);
+
+        struct panfrost_shader_state *fs =
+                panfrost_get_shader_state(ctx, PIPE_SHADER_FRAGMENT);
+
+        panfrost_emit_primitive(ctx, info, draw, 0, secondary_shader,
+                                pan_section_ptr(job, IDVS_HELPER_JOB, PRIMITIVE));
+
+        pan_section_pack(job, IDVS_HELPER_JOB, COUNTS, cfg) {
+                cfg.instance_count = info->instance_count;
+
+                /* Assumes 16 byte slots. We could better. */
+                cfg.vertex_output_bytes  = vs->info.varyings.output_count * 16;
+                cfg.fragment_input_bytes = fs->info.varyings.input_count * 16;
+        }
+
+        pan_section_pack(job, IDVS_HELPER_JOB, TILER, cfg) {
+                cfg.address = panfrost_batch_get_bifrost_tiler(batch, ~0);
+        }
+
+        STATIC_ASSERT(sizeof(batch->scissor) == pan_size(SCISSOR));
+        memcpy(pan_section_ptr(job, IDVS_HELPER_JOB, SCISSOR),
+               &batch->scissor, pan_size(SCISSOR));
+
+        panfrost_emit_primitive_size(ctx, info->mode == PIPE_PRIM_POINTS, 0,
+                                     pan_section_ptr(job, IDVS_HELPER_JOB, PRIMITIVE_SIZE));
+
+        pan_section_pack(job, IDVS_HELPER_JOB, INDICES, cfg) {
+                cfg.address = indices;
+        }
+
+        pan_section_pack(job, IDVS_HELPER_JOB, DRAW, cfg) {
+                cfg.allow_forward_pixel_to_kill =
+                        pan_allow_forward_pixel_to_kill(ctx, fs);
+
+                cfg.allow_forward_pixel_to_be_killed = !fs->info.fs.sidefx;
+
+                cfg.pixel_kill_operation = MALI_PIXEL_KILL_WEAK_EARLY; // TODO
+                cfg.zs_update_operation = MALI_PIXEL_KILL_WEAK_EARLY; // TODO
+
+                cfg.depth_write_mask = ctx->depth_stencil->base.depth_writemask;
+
+                cfg.alpha_zero_nop = false; // TODO
+                cfg.alpha_one_store = false; // TODO
+
+                cfg.clear_colour_depth_no_msaa = true; // XXX
+
+                cfg.front_face_ccw = rast->front_ccw;
+                cfg.cull_front_face = rast->cull_face & PIPE_FACE_FRONT;
+                cfg.cull_back_face = rast->cull_face & PIPE_FACE_BACK;
+
+                cfg.multisample_enable = rast->multisample;
+                cfg.sample_mask = msaa ? ctx->sample_mask : 0xFFFF;
+                cfg.evaluate_per_sample = msaa && (ctx->min_samples > 1);
+                cfg.shader_modifies_coverage = fs->info.fs.writes_coverage ||
+                                               fs->info.fs.can_discard;
+
+                cfg.minimum_z = batch->minimum_z;
+                cfg.maximum_z = batch->maximum_z;
+
+                cfg.depth_stencil = batch->depth_stencil;
+                cfg.blend = batch->blend;
+
+                panfrost_emit_shader(batch, &cfg.position, PIPE_SHADER_VERTEX,
+                                     batch->rsd[PIPE_SHADER_VERTEX],
+                                     batch->tls.gpu);
+
+                panfrost_emit_shader(batch, &cfg.fragment, PIPE_SHADER_FRAGMENT,
+                                     batch->rsd[PIPE_SHADER_FRAGMENT],
+                                     batch->tls.gpu);
+
+                /* If a varying shader is used, we configure it with the same
+                 * state as the position shader for backwards compatible
+                 * behaviour with Bifrost. This could be optimized.
+                 */
+                if (secondary_shader) {
+                        cfg.varying = cfg.position;
+                        cfg.varying.shader += pan_size(SHADER_PROGRAM);
+                }
+
+                if (ctx->occlusion_query && ctx->active_queries) {
+                        if (ctx->occlusion_query->type == PIPE_QUERY_OCCLUSION_COUNTER)
+                                cfg.occlusion_query = MALI_OCCLUSION_MODE_COUNTER;
+                        else
+                                cfg.occlusion_query = MALI_OCCLUSION_MODE_PREDICATE;
+
+                        struct panfrost_resource *rsrc = pan_resource(ctx->occlusion_query->rsrc);
+                        cfg.occlusion = rsrc->image.data.bo->ptr.gpu;
+                        panfrost_batch_write_rsrc(ctx->batch, rsrc,
+                                              PIPE_SHADER_FRAGMENT);
+                }
+        }
+}
 #else
 static void
 panfrost_draw_emit_tiler(struct panfrost_batch *batch,
@@ -2893,44 +3058,8 @@ panfrost_draw_emit_tiler(struct panfrost_batch *batch,
         void *section = pan_section_ptr(job, TILER_JOB, INVOCATION);
         memcpy(section, invocation_template, pan_size(INVOCATION));
 
-        section = pan_section_ptr(job, TILER_JOB, PRIMITIVE);
-        pan_pack(section, PRIMITIVE, cfg) {
-                cfg.draw_mode = pan_draw_mode(info->mode);
-                if (panfrost_writes_point_size(ctx))
-                        cfg.point_size_array_format = MALI_POINT_SIZE_ARRAY_FORMAT_FP16;
-
-                /* For line primitives, PRIMITIVE.first_provoking_vertex must
-                 * be set to true and the provoking vertex is selected with
-                 * DRAW.flat_shading_vertex.
-                 */
-                if (info->mode == PIPE_PRIM_LINES ||
-                    info->mode == PIPE_PRIM_LINE_LOOP ||
-                    info->mode == PIPE_PRIM_LINE_STRIP)
-                        cfg.first_provoking_vertex = true;
-                else
-                        cfg.first_provoking_vertex = rast->flatshade_first;
-
-                if (panfrost_is_implicit_prim_restart(info)) {
-                        cfg.primitive_restart = MALI_PRIMITIVE_RESTART_IMPLICIT;
-                } else if (info->primitive_restart) {
-                        cfg.primitive_restart = MALI_PRIMITIVE_RESTART_EXPLICIT;
-                        cfg.primitive_restart_index = info->restart_index;
-                }
-
-                cfg.job_task_split = 6;
-
-                cfg.index_count = ctx->indirect_draw ? 1 : draw->count;
-                cfg.index_type = panfrost_translate_index_size(info->index_size);
-
-                if (cfg.index_type) {
-                        cfg.indices = indices;
-                        cfg.base_vertex_offset = draw->index_bias - ctx->offset_start;
-                }
-
-#if PAN_ARCH >= 6
-                cfg.secondary_shader = secondary_shader;
-#endif
-        }
+        panfrost_emit_primitive(ctx, info, draw, indices, secondary_shader,
+                                pan_section_ptr(job, TILER_JOB, PRIMITIVE));
 
         bool points = info->mode == PIPE_PRIM_POINTS;
         void *prim_size = pan_section_ptr(job, TILER_JOB, PRIMITIVE_SIZE);
@@ -3122,7 +3251,19 @@ panfrost_direct_draw(struct panfrost_batch *batch,
                 panfrost_emit_vertex_tiler_jobs(batch, &vertex, &tiler);
         }
 #else
-        unreachable("todo: draws on Valhall");
+        struct panfrost_ptr job =
+                pan_pool_alloc_desc(&batch->pool.base, IDVS_HELPER_JOB);
+
+        panfrost_update_state_3d(batch);
+        panfrost_update_state_vs(batch);
+        panfrost_update_state_fs(batch);
+        panfrost_clean_state_3d(ctx);
+
+        panfrost_emit_idvs_helper(batch, info, draw, indices, secondary_shader, job.cpu);
+
+        panfrost_add_job(&batch->pool.base, &batch->scoreboard,
+                         MALI_JOB_TYPE_IDVS_HELPER, false, false, 0, 0, &job,
+                         false);
 #endif
 
         /* Increment transform feedback offsets */
