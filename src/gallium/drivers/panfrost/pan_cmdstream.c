@@ -738,6 +738,25 @@ panfrost_emit_depth_stencil(struct panfrost_batch *batch)
 
         return T.gpu;
 }
+
+/**
+ * Emit Valhall blend descriptor at draw-time. The descriptor itself is shared
+ * with Bifrost, but the container data structure is simplified.
+ */
+static mali_ptr
+panfrost_emit_blend_valhall(struct panfrost_batch *batch)
+{
+        unsigned rt_count = MAX2(batch->key.nr_cbufs, 1);
+
+        struct panfrost_ptr T = pan_pool_alloc_desc_array(&batch->pool.base, rt_count, BLEND);
+
+        mali_ptr blend_shaders[PIPE_MAX_COLOR_BUFS] = { 0 };
+        panfrost_get_blend_shaders(batch, blend_shaders);
+
+        panfrost_emit_blend(batch, T.cpu, blend_shaders);
+
+        return T.gpu;
+}
 #endif
 
 static mali_ptr
@@ -2701,6 +2720,9 @@ panfrost_update_state_3d(struct panfrost_batch *batch)
         if ((dirty & (PAN_DIRTY_ZS | PAN_DIRTY_RASTERIZER)) ||
             (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & PAN_DIRTY_STAGE_SHADER))
                 batch->depth_stencil = panfrost_emit_depth_stencil(batch);
+
+        if (dirty & PAN_DIRTY_BLEND)
+                batch->blend = panfrost_emit_blend_valhall(batch);
 #endif
 }
 
