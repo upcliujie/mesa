@@ -43,6 +43,7 @@ GENX(pan_shader_compile)(nir_shader *nir,
                          struct util_dynarray *binary,
                          struct pan_shader_info *info);
 
+#if PAN_ARCH <= 7
 #if PAN_ARCH <= 5
 static inline void
 pan_shader_prepare_midgard_rsd(const struct pan_shader_info *info,
@@ -250,5 +251,6 @@ pan_shader_prepare_rsd(const struct pan_shader_info *shader_info,
 #endif
 }
 #endif /* PAN_ARCH */
+#endif
 
 #endif
