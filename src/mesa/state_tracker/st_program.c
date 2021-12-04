@@ -589,7 +589,7 @@ st_translate_vertex_program(struct st_context *st,
    ubyte output_semantic_name[VARYING_SLOT_MAX] = {0};
    ubyte output_semantic_index[VARYING_SLOT_MAX] = {0};
 
-   if (stp->Base.arb.IsPositionInvariant)
+   if (stp->Base.info.is_arb_asm && stp->Base.arb.IsPositionInvariant)
       _mesa_insert_mvp_code(st->ctx, &stp->Base);
 
    /* ARB_vp: */
