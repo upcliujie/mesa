@@ -28,8 +28,7 @@ void
 panfrost_analyze_sysvals(struct panfrost_shader_state *ss)
 {
         unsigned dirty = 0;
-        unsigned dirty_shader =
-                PAN_DIRTY_STAGE_RENDERER | PAN_DIRTY_STAGE_CONST;
+        unsigned dirty_shader = PAN_DIRTY_STAGE_SHADER | PAN_DIRTY_STAGE_CONST;
 
         for (unsigned i = 0; i < ss->info.sysvals.sysval_count; ++i) {
                 switch (PAN_SYSVAL_TYPE(ss->info.sysvals.sysvals[i])) {
@@ -140,4 +139,82 @@ panfrost_get_index_buffer_bounded(struct panfrost_batch *batch,
         return out;
 }
 
+/**
+ * Given an (index, divisor) tuple, assign a vertex buffer. Midgard and
+ * Bifrost put divisor information on the attribute buffer descriptor, so this
+ * is the most we can compact in general. Crucially, this runs at vertex
+ * elements CSO create time, not at draw time.
+ */
+unsigned
+pan_assign_vertex_buffer(struct pan_vertex_buffer *buffers,
+                         unsigned *nr_bufs,
+                         unsigned vbi,
+                         unsigned divisor)
+{
+        /* Look up the buffer */
+        for (unsigned i = 0; i < (*nr_bufs); ++i) {
+                if (buffers[i].vbi == vbi && buffers[i].divisor == divisor)
+                        return i;
+        }
 
+        /* Else, create a new buffer */
+        unsigned idx = (*nr_bufs)++;
+
+        buffers[idx] = (struct pan_vertex_buffer) {
+                .vbi = vbi,
+                .divisor = divisor
+        };
+
+        return idx;
+}
+
+/*
+ * Helper to add a PIPE_CLEAR_* to batch->draws and batch->resolve together,
+ * meaning that we draw to a given target. Adding to only one mask does not
+ * generally make sense, except for clears which add to batch->clear and
+ * batch->resolve together.
+ */
+static void
+panfrost_draw_target(struct panfrost_batch *batch, unsigned target)
+{
+        batch->draws |= target;
+        batch->resolve |= target;
+}
+
+/*
+ * Draw time helper to set batch->{read, draws, resolve} based on current blend
+ * and depth-stencil state. To be called when blend or depth/stencil dirty state
+ * respectively changes.
+ */
+void
+panfrost_set_batch_masks_blend(struct panfrost_batch *batch)
+{
+        struct panfrost_context *ctx = batch->ctx;
+        struct panfrost_blend_state *blend = ctx->blend;
+
+        for (unsigned i = 0; i < batch->key.nr_cbufs; ++i) {
+                if (!blend->info[i].no_colour && batch->key.cbufs[i])
+                        panfrost_draw_target(batch, PIPE_CLEAR_COLOR0 << i);
+        }
+}
+
+void
+panfrost_set_batch_masks_zs(struct panfrost_batch *batch)
+{
+        struct panfrost_context *ctx = batch->ctx;
+        struct pipe_depth_stencil_alpha_state *zsa = (void *) ctx->depth_stencil;
+
+        /* Assume depth is read (TODO: perf) */
+        if (zsa->depth_enabled)
+                batch->read |= PIPE_CLEAR_DEPTH;
+
+        if (zsa->depth_writemask)
+                panfrost_draw_target(batch, PIPE_CLEAR_DEPTH);
+
+        if (zsa->stencil[0].enabled) {
+                panfrost_draw_target(batch, PIPE_CLEAR_STENCIL);
+
+                /* Assume stencil is read (TODO: perf) */
+                batch->read |= PIPE_CLEAR_STENCIL;
+        }
+}

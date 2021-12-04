@@ -43,6 +43,39 @@ GENX(pan_shader_compile)(nir_shader *nir,
                          struct util_dynarray *binary,
                          struct pan_shader_info *info);
 
+#if PAN_ARCH >= 9
+static inline enum mali_shader_stage
+pan_shader_stage(const struct pan_shader_info *info)
+{
+        switch (info->stage) {
+        case MESA_SHADER_VERTEX:
+                return MALI_SHADER_STAGE_VERTEX;
+        case MESA_SHADER_FRAGMENT:
+                return MALI_SHADER_STAGE_FRAGMENT;
+        default:
+                return MALI_SHADER_STAGE_COMPUTE;
+        }
+}
+#endif
+
+#if PAN_ARCH >= 7
+static inline enum mali_shader_register_allocation
+pan_register_allocation(unsigned work_reg_count)
+{
+        return (work_reg_count <= 32) ?
+                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD :
+                MALI_SHADER_REGISTER_ALLOCATION_64_PER_THREAD;
+}
+#endif
+
+static inline enum mali_depth_source
+pan_depth_source(const struct pan_shader_info *info)
+{
+        return info->fs.writes_depth ? MALI_DEPTH_SOURCE_SHADER :
+                                       MALI_DEPTH_SOURCE_FIXED_FUNCTION;
+}
+
+#if PAN_ARCH <= 7
 #if PAN_ARCH <= 5
 static inline void
 pan_shader_prepare_midgard_rsd(const struct pan_shader_info *info,
@@ -113,16 +146,6 @@ pan_shader_classify_pixel_kill_coverage(const struct pan_shader_info *info,
 }
 
 #undef SET_PIXEL_KILL
-
-#if PAN_ARCH >= 7
-static enum mali_shader_register_allocation
-pan_register_allocation(unsigned work_reg_count)
-{
-        return (work_reg_count <= 32) ?
-                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD :
-                MALI_SHADER_REGISTER_ALLOCATION_64_PER_THREAD;
-}
-#endif
 
 #define pan_preloads(reg) (preload & BITFIELD64_BIT(reg))
 
@@ -257,10 +280,7 @@ pan_shader_prepare_rsd(const struct pan_shader_info *shader_info,
         if (shader_info->stage == MESA_SHADER_FRAGMENT) {
                 rsd->properties.stencil_from_shader =
                         shader_info->fs.writes_stencil;
-                rsd->properties.depth_source =
-                        shader_info->fs.writes_depth ?
-                        MALI_DEPTH_SOURCE_SHADER :
-                        MALI_DEPTH_SOURCE_FIXED_FUNCTION;
+                rsd->properties.depth_source = pan_depth_source(shader_info);
 
                 /* This also needs to be set if the API forces per-sample
                  * shading, but that'll just got ORed in */
@@ -275,5 +295,6 @@ pan_shader_prepare_rsd(const struct pan_shader_info *shader_info,
 #endif
 }
 #endif /* PAN_ARCH */
+#endif
 
 #endif

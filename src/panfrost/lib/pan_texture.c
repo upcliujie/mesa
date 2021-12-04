@@ -737,10 +737,14 @@ panfrost_emit_texture_payload(const struct pan_image_view *iview,
                                                      iter.face, iter.sample);
 
                 if (!manual_stride) {
+#if PAN_ARCH <= 5
                         pan_pack(payload, SURFACE, cfg) {
                                 cfg.pointer = pointer;
                         }
                         payload += pan_size(SURFACE);
+#else
+                        unreachable("must use explicit stride on Bifrost");
+#endif
                 } else {
 #if PAN_ARCH >= 9
                         panfrost_emit_plane(layout, pointer, iter.level, payload);
@@ -789,6 +793,7 @@ panfrost_needs_explicit_stride(const struct pan_image_view *iview)
         return false;
 }
 
+#if PAN_ARCH <= 7
 /* Map modifiers to mali_texture_layout for packing in a texture descriptor */
 
 static enum mali_texture_layout
@@ -803,6 +808,7 @@ panfrost_modifier_to_layout(uint64_t modifier)
         else
                 unreachable("Invalid modifer");
 }
+#endif
 
 void
 GENX(panfrost_new_texture)(const struct panfrost_device *dev,
