@@ -642,6 +642,7 @@ panfrost_emit_frag_shader_meta(struct panfrost_batch *batch)
 
         return xfer.gpu;
 }
+#endif
 
 static mali_ptr
 panfrost_emit_viewport(struct panfrost_batch *batch)
@@ -680,26 +681,41 @@ panfrost_emit_viewport(struct panfrost_batch *batch)
         if (maxx == 0 || maxy == 0)
                 maxx = maxy = minx = miny = 1;
 
-        struct panfrost_ptr T = pan_pool_alloc_desc(&batch->pool.base, VIEWPORT);
-
-        pan_pack(T.cpu, VIEWPORT, cfg) {
-                /* [minx, maxx) and [miny, maxy) are exclusive ranges, but
-                 * these are inclusive */
-                cfg.scissor_minimum_x = minx;
-                cfg.scissor_minimum_y = miny;
-                cfg.scissor_maximum_x = maxx - 1;
-                cfg.scissor_maximum_y = maxy - 1;
-
-                cfg.minimum_z = rast->depth_clip_near ? minz : -INFINITY;
-                cfg.maximum_z = rast->depth_clip_far ? maxz : INFINITY;
-        }
-
         panfrost_batch_union_scissor(batch, minx, miny, maxx, maxy);
         batch->scissor_culls_everything = (minx >= maxx || miny >= maxy);
 
+        /* [minx, maxx) and [miny, maxy) are exclusive ranges in the hardware */
+        maxx--;
+        maxy--;
+
+        batch->minimum_z = rast->depth_clip_near ? minz : -INFINITY;
+        batch->maximum_z = rast->depth_clip_far  ? maxz : +INFINITY;
+
+#if PAN_ARCH >= 9
+        pan_pack(&batch->scissor, SCISSOR, cfg) {
+                cfg.scissor_minimum_x = minx;
+                cfg.scissor_minimum_y = miny;
+                cfg.scissor_maximum_x = maxx;
+                cfg.scissor_maximum_y = maxy;
+        }
+
+        return 0;
+#else
+        struct panfrost_ptr T = pan_pool_alloc_desc(&batch->pool.base, VIEWPORT);
+
+        pan_pack(T.cpu, VIEWPORT, cfg) {
+                cfg.scissor_minimum_x = minx;
+                cfg.scissor_minimum_y = miny;
+                cfg.scissor_maximum_x = maxx;
+                cfg.scissor_maximum_y = maxy;
+
+                cfg.minimum_z = batch->minimum_z;
+                cfg.maximum_z = batch->maximum_z;
+        }
+
         return T.gpu;
-}
 #endif
+}
 
 #if PAN_ARCH >= 9
 /**
@@ -2734,10 +2750,8 @@ panfrost_update_state_3d(struct panfrost_batch *batch)
         struct panfrost_context *ctx = batch->ctx;
         unsigned dirty = ctx->dirty;
 
-#if PAN_ARCH <= 7
         if (dirty & (PAN_DIRTY_VIEWPORT | PAN_DIRTY_SCISSOR))
                 batch->viewport = panfrost_emit_viewport(batch);
-#endif
 
         if (dirty & PAN_DIRTY_TLS_SIZE)
                 panfrost_batch_adjust_stack_size(batch);
