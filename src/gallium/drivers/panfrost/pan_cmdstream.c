@@ -793,6 +793,68 @@ panfrost_emit_blend_valhall(struct panfrost_batch *batch)
 
         return T.gpu;
 }
+
+/**
+ * Emit Valhall buffer descriptors for bound vertex buffers at draw-time.
+ */
+static mali_ptr
+panfrost_emit_vertex_buffers(struct panfrost_batch *batch)
+{
+        struct panfrost_context *ctx = batch->ctx;
+        unsigned buffer_count = util_last_bit(ctx->vb_mask);
+        struct panfrost_ptr T = pan_pool_alloc_desc_array(&batch->pool.base,
+                                                          buffer_count, BUFFER);
+        struct mali_buffer_packed *buffers = T.cpu;
+
+        u_foreach_bit(i, ctx->vb_mask) {
+                struct pipe_vertex_buffer vb = ctx->vertex_buffers[i];
+                struct pipe_resource *prsrc = vb.buffer.resource;
+                struct panfrost_resource *rsrc = pan_resource(prsrc);
+                assert(!vb.is_user_buffer);
+
+                panfrost_batch_read_rsrc(batch, rsrc, PIPE_SHADER_VERTEX);
+
+                pan_pack(buffers + i, BUFFER, cfg) {
+                        cfg.address = rsrc->image.data.bo->ptr.gpu +
+                                      vb.buffer_offset;
+
+                        cfg.size = prsrc->width0 - vb.buffer_offset;
+                }
+        }
+
+        return T.gpu;
+}
+
+/**
+ * Emit Valhall attribute descriptors and associated (vertex) buffer
+ * descriptors at draw-time. The attribute descriptors are packed at draw time
+ * except for the stride field. The buffer descriptors are packed here, though
+ * that could be moved into panfrost_set_vertex_buffers if needed.
+ */
+static mali_ptr
+panfrost_emit_vertex_data(struct panfrost_batch *batch)
+{
+        struct panfrost_context *ctx = batch->ctx;
+        struct panfrost_vertex_state *vtx = ctx->vertex;
+        struct panfrost_ptr T = pan_pool_alloc_desc_array(&batch->pool.base,
+                                                          vtx->num_elements,
+                                                          ATTRIBUTE);
+        struct mali_attribute_packed *attributes = T.cpu;
+
+        for (unsigned i = 0; i < vtx->num_elements; ++i) {
+                struct mali_attribute_packed packed;
+                unsigned vbi = vtx->pipe[i].vertex_buffer_index;
+
+                pan_pack(&packed, ATTRIBUTE, cfg) {
+                        cfg.stride = ctx->vertex_buffers[vbi].stride;
+                }
+
+                pan_merge(packed, vtx->attributes[i], ATTRIBUTE);
+                attributes[i] = packed;
+        }
+
+        return T.gpu;
+}
 #endif
 
 static mali_ptr
@@ -2783,6 +2845,14 @@ panfrost_update_state_3d(struct panfrost_batch *batch)
 
         if (dirty & PAN_DIRTY_BLEND)
                 batch->blend = panfrost_emit_blend_valhall(batch);
+
+        if (dirty & PAN_DIRTY_VERTEX) {
+                batch->attribs[PIPE_SHADER_VERTEX] =
+                        panfrost_emit_vertex_data(batch);
+
+                batch->attrib_bufs[PIPE_SHADER_VERTEX] =
+                        panfrost_emit_vertex_buffers(batch);
+        }
 #endif
 }
 
