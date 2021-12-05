@@ -91,7 +91,7 @@ int device_select_find_xcb_pci_default(struct device_pci_info *devices, uint32_t
   if (dri3_fd == -1)
     goto out;
 
-  drmDevicePtr xdev;
+  drmDevicePtr xdev = NULL;
   int ret = drmGetDevice2(dri3_fd, 0, &xdev);
   close(dri3_fd);
   if (ret < 0)
@@ -113,7 +113,9 @@ int device_select_find_xcb_pci_default(struct device_pci_info *devices, uint32_t
     if (default_idx != -1)
       break;
   }
+
 out:
+  drmFreeDevice(&xdev); // Is NULL pointer safe.
   xcb_disconnect(conn);
   return default_idx;
 }
