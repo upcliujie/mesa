@@ -94,6 +94,19 @@ struct panfrost_sampler_view {
         uint64_t modifier;
 };
 
+struct panfrost_vertex_state {
+        unsigned num_elements;
+
+        /* buffers corresponds to attribute buffer, element_buffers corresponds
+         * to an index in buffers for each vertex element */
+        struct pan_vertex_buffer buffers[PIPE_MAX_ATTRIBS];
+        unsigned element_buffer[PIPE_MAX_ATTRIBS];
+        unsigned nr_bufs;
+
+        struct pipe_vertex_element pipe[PIPE_MAX_ATTRIBS];
+        unsigned formats[PIPE_MAX_ATTRIBS];
+};
+
 /* Statically assert that PIPE_* enums match the hardware enums.
  * (As long as they match, we don't need to translate them.)
  */
@@ -3725,6 +3738,9 @@ panfrost_create_vertex_elements_state(
         struct panfrost_vertex_state *so = CALLOC_STRUCT(panfrost_vertex_state);
         struct panfrost_device *dev = pan_device(pctx->screen);
 
+#if PAN_ARCH >= 9
+
+#else
         so->num_elements = num_elements;
         memcpy(so->pipe, elements, sizeof(*elements) * num_elements);
 
@@ -3747,6 +3763,7 @@ panfrost_create_vertex_elements_state(
         /* Let's also prepare vertex builtins */
         so->formats[PAN_VERTEX_ID] = dev->formats[PIPE_FORMAT_R32_UINT].hw;
         so->formats[PAN_INSTANCE_ID] = dev->formats[PIPE_FORMAT_R32_UINT].hw;
+#endif
 
         return so;
 }
