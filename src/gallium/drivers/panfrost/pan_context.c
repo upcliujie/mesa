@@ -287,6 +287,7 @@ panfrost_bind_vertex_elements_state(
 {
         struct panfrost_context *ctx = pan_context(pctx);
         ctx->vertex = hwcso;
+        ctx->dirty |= PAN_DIRTY_VERTEX;
 }
 
 static void *
@@ -581,6 +582,8 @@ panfrost_set_vertex_buffers(
         util_set_vertex_buffers_mask(ctx->vertex_buffers, &ctx->vb_mask, buffers,
                                      start_slot, num_buffers, unbind_num_trailing_slots,
                                      take_ownership);
+
+        ctx->dirty |= PAN_DIRTY_VERTEX;
 }
 
 static void
