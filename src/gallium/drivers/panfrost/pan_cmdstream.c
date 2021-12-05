@@ -97,15 +97,22 @@ struct panfrost_sampler_view {
 
 struct panfrost_vertex_state {
         unsigned num_elements;
+        struct pipe_vertex_element pipe[PIPE_MAX_ATTRIBS];
 
+#if PAN_ARCH >= 9
+        /* Packed attribute descriptor. All fields are set at CSO create time
+         * except for stride, which must be ORed in at draw time
+         */
+        struct mali_attribute_packed attributes[PIPE_MAX_ATTRIBS];
+#else
         /* buffers corresponds to attribute buffer, element_buffers corresponds
          * to an index in buffers for each vertex element */
         struct pan_vertex_buffer buffers[PIPE_MAX_ATTRIBS];
         unsigned element_buffer[PIPE_MAX_ATTRIBS];
         unsigned nr_bufs;
 
-        struct pipe_vertex_element pipe[PIPE_MAX_ATTRIBS];
         unsigned formats[PIPE_MAX_ATTRIBS];
+#endif
 };
 
 /* Statically assert that PIPE_* enums match the hardware enums.
@@ -3731,12 +3738,25 @@ panfrost_create_vertex_elements_state(
         struct panfrost_vertex_state *so = CALLOC_STRUCT(panfrost_vertex_state);
         struct panfrost_device *dev = pan_device(pctx->screen);
 
-#if PAN_ARCH >= 9
-
-#else
         so->num_elements = num_elements;
         memcpy(so->pipe, elements, sizeof(*elements) * num_elements);
 
+#if PAN_ARCH >= 9
+        for (unsigned i = 0; i < num_elements; ++i) {
+                const struct pipe_vertex_element el = elements[i];
+
+                if (el.instance_divisor != 0)
+                        unreachable("todo: instancing on Valhall");
+
+                pan_pack(&so->attributes[i], ATTRIBUTE, cfg) {
+                        cfg.instancing = MALI_INSTANCING_PER_VERTEX;
+                        cfg.table = PAN_TABLE_ATTRIBUTE_BUFFER;
+                        cfg.format = dev->formats[el.src_format].hw;
+                        cfg.offset = el.src_offset;
+                        cfg.buffer_index = el.vertex_buffer_index;
+                }
+        }
+#else
         /* Assign attribute buffers corresponding to the vertex buffers, keyed
          * for a particular divisor since that's how instancing works on Mali */
         for (unsigned i = 0; i < num_elements; ++i) {
