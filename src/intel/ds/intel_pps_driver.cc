@@ -27,6 +27,7 @@
 #include <pps/pps_algorithm.h>
 
 #include "intel_pps_perf.h"
+#include "intel_pps_priv.h"
 
 namespace pps
 {
@@ -47,8 +48,7 @@ IntelDriver::IntelDriver()
     * using the hash of a namespaced string is the recommended approach.
     * See: https://perfetto.dev/docs/concepts/clock-sync
     */
-   this->clock_id =
-      _mesa_hash_string("org.freedesktop.mesa.intel") | 0x80000000;
+   this->clock_id = intel_pps_clock_id(drm_device.gpu_num);
 }
 
 IntelDriver::~IntelDriver()
