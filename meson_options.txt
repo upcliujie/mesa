@@ -157,6 +157,12 @@ option(
   description : 'build gallium D3D10 WDDM UMD frontend.',
 )
 option(
+  'gallium-glide',
+  type : 'boolean',
+  value : false,
+  description : 'build gallium "glide" Glide frontend.',
+)
+option(
   'gallium-opencl',
   type : 'combo',
   choices : ['icd', 'standalone', 'disabled'],
