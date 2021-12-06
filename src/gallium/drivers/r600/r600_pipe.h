@@ -581,6 +581,7 @@ struct r600_context {
 	bool				force_blend_disable;
 	bool                            gs_tri_strip_adj_fix;
 	boolean				dual_src_blend;
+	bool                            is_noop;
 	unsigned			zwritemask;
 	unsigned			ps_iter_samples;
 
