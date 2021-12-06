@@ -261,3 +261,13 @@ TEST_F(ValhallPacking, Csel) {
                        BI_CMPF_LT),
         0x0158c10485844342);
 }
+
+TEST_F(ValhallPacking, LdAttrImm) {
+   bi_instr *I = bi_ld_attr_imm_to(b, bi_register(0),
+                                   bi_discard(bi_register(60)),
+                                   bi_discard(bi_register(61)),
+                                   BI_REGISTER_FORMAT_F16, BI_VECSIZE_V4, 1);
+   I->table = 1;
+
+   CASE(I, 0x0066800433117d7c);
+}
