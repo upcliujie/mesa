@@ -487,11 +487,16 @@ remove_unused_block(struct ir3_block *old_target)
    list_delinit(&old_target->node);
 
    /* If there are any physical predecessors due to fallthroughs, then they may
-    * fall through to the fallthrough block of this block. If there is none,
-    * then they don't fall through and we can remove the physical successor from
-    * them.
+    * fall through to any of the physical successors of this block. But we can
+    * only fit two, so just pick the "earliest" one, i.e. the fallthrough if
+    * possible.
+    *
+    * TODO: we really ought to have unlimited numbers of physical successors,
+    * both because of this and because we currently don't model some scenarios
+    * with nested break/continue correctly.
     */
-   struct ir3_block *new_target = old_target->physical_successors[1];
+   struct ir3_block *new_target = old_target->physical_successors[1] ?
+      old_target->physical_successors[1] : old_target->physical_successors[0];
    for (unsigned i = 0; i < old_target->physical_predecessors_count; i++) {
       struct ir3_block *pred = old_target->physical_predecessors[i];
       if (pred->physical_successors[0] == old_target)
@@ -638,6 +643,10 @@ resolve_jumps(struct ir3 *ir)
 static void
 mark_jp(struct ir3_block *block)
 {
+   while (list_is_empty(&block->instr_list)) {
+      block = list_container_of(block->node.next, block, node);
+   }
+
    struct ir3_instruction *target =
       list_first_entry(&block->instr_list, struct ir3_instruction, node);
    target->flags |= IR3_INSTR_JP;
@@ -654,20 +663,19 @@ static void
 mark_xvergence_points(struct ir3 *ir)
 {
    foreach_block (block, &ir->block_list) {
-      if (block->predecessors_count > 1) {
-         /* if a block has more than one possible predecessor, then
-          * the first instruction is a convergence point.
-          */
-         mark_jp(block);
-      } else if (block->predecessors_count == 1) {
-         /* If a block has one predecessor, which has multiple possible
-          * successors, it is a divergence point.
-          */
-         for (unsigned i = 0; i < block->predecessors_count; i++) {
-            struct ir3_block *predecessor = block->predecessors[i];
-            if (predecessor->successors[1]) {
+      /* We need to insert (jp) if an entry in the "branch stack" is created for
+       * our block. This happens if there is a predecessor to our block that may
+       * fallthrough to an earlier block in the physical CFG, either because it
+       * ends in a non-uniform conditional branch or because there's a
+       * fallthrough for an block in-between that also starts with (jp) and was
+       * pushed on the branch stack already.
+       */
+      for (unsigned i = 0; i < block->predecessors_count; i++) {
+         struct ir3_block *pred = block->predecessors[i];
+         for (unsigned j = 0; j < ARRAY_SIZE(pred->physical_successors); j++) {
+            if (pred->physical_successors[j] != NULL &&
+                pred->physical_successors[j]->start_ip < block->start_ip)
                mark_jp(block);
-            }
          }
       }
    }
