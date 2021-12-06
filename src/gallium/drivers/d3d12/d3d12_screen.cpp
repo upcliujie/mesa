@@ -60,7 +60,13 @@ d3d12_debug_options[] = {
    DEBUG_NAMED_VALUE_END
 };
 
-DEBUG_GET_ONCE_FLAGS_OPTION(d3d12_debug, "D3D12_DEBUG", d3d12_debug_options, 0)
+constexpr unsigned default_debug_options =
+#ifdef DEBUG
+   D3D12_DEBUG_DEBUG_LAYER;
+#else
+   0;
+#endif
+DEBUG_GET_ONCE_FLAGS_OPTION(d3d12_debug, "D3D12_DEBUG", d3d12_debug_options, default_debug_options)
 
 uint32_t
 d3d12_debug;
@@ -894,9 +900,7 @@ d3d12_init_screen(struct d3d12_screen *screen, struct sw_winsys *winsys, IUnknow
    screen->base.flush_frontbuffer = d3d12_flush_frontbuffer;
    screen->base.destroy = d3d12_destroy_screen;
 
-#ifndef DEBUG
    if (d3d12_debug & D3D12_DEBUG_DEBUG_LAYER)
-#endif
       enable_d3d12_debug_layer();
 
    if (d3d12_debug & D3D12_DEBUG_GPU_VALIDATOR)
