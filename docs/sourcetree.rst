@@ -56,23 +56,6 @@ each directory.
    -  **mesa** - Main Mesa sources
 
       -  **main** - The core Mesa code (mainly state management)
-      -  **drivers** - Mesa drivers (not used with Gallium)
-
-         -  **common** - code which may be shared by all drivers
-         -  **dri** - Direct Rendering Infrastructure drivers
-
-            -  **common** - code shared by all DRI drivers
-            -  **i915** - driver for Intel i915/i945
-            -  **i965** - driver for Intel i965
-            -  **nouveau** - driver for nVidia nv04/nv10/nv20
-            -  **radeon** - driver for ATI R100
-            -  **r200** - driver for ATI R200
-            -  **swrast** - software rasterizer driver that uses the
-               swrast module
-
-         -  **x11** - Xlib-based software driver
-         -  **osmesa** - off-screen software driver
-
       -  **math** - vertex array translation and transformation code
          (not used with Gallium)
       -  **program** - Vertex/fragment shader and GLSL compiler code
