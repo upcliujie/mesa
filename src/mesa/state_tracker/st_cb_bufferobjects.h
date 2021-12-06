@@ -30,7 +30,6 @@
 
 #include "main/mtypes.h"
 
-struct dd_function_table;
 struct pipe_resource;
 struct pipe_screen;
 struct st_context;
