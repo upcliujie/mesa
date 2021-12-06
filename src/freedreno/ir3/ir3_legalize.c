@@ -486,11 +486,35 @@ remove_unused_block(struct ir3_block *old_target)
 {
    list_delinit(&old_target->node);
 
+   /* If there are any physical predecessors due to fallthroughs, then they may
+    * fall through to the fallthrough block of this block. If there is none,
+    * then they don't fall through and we can remove the physical successor from
+    * them.
+    */
+   struct ir3_block *new_target = old_target->physical_successors[1];
+   for (unsigned i = 0; i < old_target->physical_predecessors_count; i++) {
+      struct ir3_block *pred = old_target->physical_predecessors[i];
+      if (pred->physical_successors[0] == old_target)
+         pred->physical_successors[0] = new_target;
+      else
+         pred->physical_successors[1] = new_target;
+      if (new_target)
+         ir3_block_add_predecessor(new_target, pred);
+   }
+
+
    /* cleanup dangling predecessors: */
    for (unsigned i = 0; i < ARRAY_SIZE(old_target->successors); i++) {
       if (old_target->successors[i]) {
          struct ir3_block *succ = old_target->successors[i];
          ir3_block_remove_predecessor(succ, old_target);
+      }
+   }
+
+   for (unsigned i = 0; i < ARRAY_SIZE(old_target->physical_successors); i++) {
+      if (old_target->physical_successors[i]) {
+         struct ir3_block *succ = old_target->physical_successors[i];
+         ir3_block_remove_physical_predecessor(succ, old_target);
       }
    }
 }
@@ -509,9 +533,7 @@ retarget_jump(struct ir3_instruction *instr, struct ir3_block *new_target)
       cur_block->successors[1] = new_target;
    }
 
-   /* also update physical_successors.. we don't really need them at
-    * this stage, but it keeps ir3_validate happy:
-    */
+   /* also update physical_successors: */
    if (cur_block->physical_successors[0] == old_target) {
       cur_block->physical_successors[0] = new_target;
    } else {
@@ -521,9 +543,11 @@ retarget_jump(struct ir3_instruction *instr, struct ir3_block *new_target)
 
    /* update new target's predecessors: */
    ir3_block_add_predecessor(new_target, cur_block);
+   ir3_block_add_physical_predecessor(new_target, cur_block);
 
    /* and remove old_target's predecessor: */
    ir3_block_remove_predecessor(old_target, cur_block);
+   ir3_block_remove_physical_predecessor(old_target, cur_block);
 
    instr->cat0.target = new_target;
 
