@@ -241,6 +241,13 @@ isl_gfx6_filter_tiling(const struct isl_device *dev,
    if (isl_format_get_layout(info->format)->txc == ISL_TXC_MCS)
       *flags &= ISL_TILING_Y0_BIT;
 
+   /* From the Sandybridge PRM, Volume 2 Part 1, Hierarchical Depth Buffer:
+    *
+    *    This buffer is supported only in Tile Y memory.
+    */
+   if (info->usage & ISL_SURF_USAGE_HIZ_BIT)
+      *flags &= ISL_TILING_Y0_BIT;
+
    if (info->usage & ISL_SURF_USAGE_DISPLAY_BIT) {
       if (ISL_GFX_VER(dev) >= 12) {
          *flags &= (ISL_TILING_LINEAR_BIT | ISL_TILING_X_BIT |

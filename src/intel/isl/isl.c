@@ -371,8 +371,12 @@ isl_tiling_get_info(enum isl_tiling tiling,
 
    case ISL_TILING_Y0:
    case ISL_TILING_4:
-      assert(bs > 0);
-      logical_el = isl_extent4d(128 / bs, 32, 1, 1);
+      assert(bs > 0 && bs <= 64);
+      assert(bs <= 16 || bs % 16 == 0);
+      unsigned width = 128 / MIN(bs, 16);
+      unsigned height = 32 / isl_align_div(bs, 16);
+
+      logical_el = isl_extent4d(width, height, 1, 1);
       phys_B = isl_extent2d(128, 32);
       break;
 
@@ -462,16 +466,6 @@ isl_tiling_get_info(enum isl_tiling tiling,
 
       phys_B.w = logical_el.w * bs;
       phys_B.h = 64 * 1024 / phys_B.w;
-      break;
-
-   case ISL_TILING_HIZ:
-      /* HiZ buffers are required to have ISL_FORMAT_HIZ which is an 8x4
-       * 128bpb format.  The tiling has the same physical dimensions as
-       * Y-tiling but actually has two HiZ columns per Y-tiled column.
-       */
-      assert(bs == 16);
-      logical_el = isl_extent4d(16, 16, 1, 1);
-      phys_B = isl_extent2d(128, 32);
       break;
 
    case ISL_TILING_CCS:
@@ -588,14 +582,6 @@ isl_surf_choose_tiling(const struct isl_device *dev,
                        enum isl_tiling *tiling)
 {
    isl_tiling_flags_t tiling_flags = info->tiling_flags;
-
-   /* HiZ surfaces always use the HiZ tiling */
-   if (info->usage & ISL_SURF_USAGE_HIZ_BIT) {
-      assert(info->format == ISL_FORMAT_HIZ);
-      assert(tiling_flags == ISL_TILING_HIZ_BIT);
-      *tiling = isl_tiling_flag_to_enum(tiling_flags);
-      return true;
-   }
 
    /* CCS surfaces always use the CCS tiling */
    if (info->usage & ISL_SURF_USAGE_CCS_BIT) {
@@ -907,7 +893,7 @@ isl_surf_choose_dim_layout(const struct isl_device *dev,
 {
    /* Sandy bridge needs a special layout for HiZ and stencil. */
    if (ISL_GFX_VER(dev) == 6 &&
-       (tiling == ISL_TILING_W || tiling == ISL_TILING_HIZ))
+       (tiling == ISL_TILING_W || (usage & ISL_SURF_USAGE_HIZ_BIT)))
       return ISL_DIM_LAYOUT_GFX6_STENCIL_HIZ;
 
    if (ISL_GFX_VER(dev) >= 9) {
@@ -2036,7 +2022,7 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
                         .array_len = surf->logical_level0_px.array_len,
                         .samples = samples,
                         .usage = ISL_SURF_USAGE_HIZ_BIT,
-                        .tiling_flags = ISL_TILING_HIZ_BIT);
+                        .tiling_flags = ISL_TILING_ANY_MASK);
 }
 
 bool
@@ -2163,7 +2149,6 @@ isl_surf_supports_ccs(const struct isl_device *dev,
             return false;
 
          assert(hiz_surf->usage & ISL_SURF_USAGE_HIZ_BIT);
-         assert(hiz_surf->tiling == ISL_TILING_HIZ);
          assert(hiz_surf->format == ISL_FORMAT_HIZ);
       } else if (surf->samples > 1) {
          const struct isl_surf *mcs_surf = hiz_or_mcs_surf;
