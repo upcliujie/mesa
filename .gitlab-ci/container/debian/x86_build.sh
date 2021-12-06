@@ -26,7 +26,7 @@ apt-get install -y --no-remove \
       clang \
       libasan6 \
       libarchive-dev \
-      libclang-cpp11-dev \
+      libclang-cpp12-dev \
       libglvnd-dev \
       libllvmspirvlib-dev \
       liblua5.3-dev \
@@ -40,7 +40,7 @@ apt-get install -y --no-remove \
       libxcb-xfixes0-dev \
       libxcb1-dev \
       libxml2-dev \
-      llvm-11-dev \
+      llvm-12-dev \
       llvm-9-dev \
       ocl-icd-opencl-dev \
       procps \

@@ -40,7 +40,7 @@ apt-get -y install \
 	libxrandr-dev \
 	libxshmfence-dev \
 	libxxf86vm-dev \
-	llvm-11-dev \
+	llvm-12-dev \
 	meson \
 	pkg-config \
 	python3-mako \

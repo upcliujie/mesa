@@ -27,7 +27,7 @@ apt-get install -y --no-remove \
       git-lfs \
       libasan6 \
       libexpat1 \
-      libllvm11 \
+      libllvm12 \
       libllvm9 \
       liblz4-1 \
       libpng16-16 \

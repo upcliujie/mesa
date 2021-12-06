@@ -13,14 +13,14 @@ STABLE_EPHEMERAL=" \
       bison \
       bzip2 \
       ccache \
-      clang-11 \
+      clang-12 \
       cmake \
       flex \
       g++ \
       glslang-tools \
       libasound2-dev \
       libcap-dev \
-      libclang-cpp11-dev \
+      libclang-cpp12-dev \
       libelf-dev \
       libexpat1-dev \
       libfdt-dev \
@@ -37,7 +37,7 @@ STABLE_EPHEMERAL=" \
       libxext-dev \
       libxkbcommon-dev \
       libxrender-dev \
-      llvm-11-dev \
+      llvm-12-dev \
       llvm-spirv \
       make \
       meson \
@@ -53,13 +53,13 @@ apt-get install -y --no-remove \
       $STABLE_EPHEMERAL \
       clinfo \
       iptables \
-      libclang-common-11-dev \
-      libclang-cpp11 \
+      libclang-common-12-dev \
+      libclang-cpp12 \
       libcap2 \
       libegl1 \
       libepoxy-dev \
       libfdt1 \
-      libllvmspirvlib11 \
+      libllvmspirvlib12 \
       libxcb-shm0 \
       ocl-icd-libopencl1 \
       python3-lxml \

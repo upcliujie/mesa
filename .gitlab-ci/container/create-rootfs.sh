@@ -7,7 +7,7 @@ if [ $DEBIAN_ARCH = arm64 ]; then
 elif [ $DEBIAN_ARCH = amd64 ]; then
     ARCH_PACKAGES="firmware-amd-graphics
                    libelf1
-                   libllvm11
+                   libllvm12
                    libva2
                    libva-drm2
                   "
