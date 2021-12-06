@@ -42,7 +42,6 @@ isl_tiling_to_i915_tiling(enum isl_tiling tiling)
       return I915_TILING_X;
 
    case ISL_TILING_Y0:
-   case ISL_TILING_HIZ:
    case ISL_TILING_CCS:
       return I915_TILING_Y;
 
