@@ -4624,6 +4624,7 @@ radv_alloc_memory(struct radv_device *device, const VkMemoryAllocateInfo *pAlloc
        * only for memory allocated by driver this flag is set.
        */
       flags |= RADEON_FLAG_GTT_WC;
+      flags |= RADEON_FLAG_VA_UNCACHED;
    }
 
    if (dedicate_info) {
