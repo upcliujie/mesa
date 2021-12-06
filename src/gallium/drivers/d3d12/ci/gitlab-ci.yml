@@ -23,6 +23,8 @@
     paths:
       - summary/
       - result.txt
+  variables:
+    D3D12_DEBUG: 0
 
 test-d3d12-quick_gl:
   extends:
