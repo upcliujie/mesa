@@ -919,6 +919,7 @@ build_leaf_shader(struct radv_device *dev)
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "accel_build_leaf_shader");
 
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;
@@ -1265,6 +1266,7 @@ build_internal_shader(struct radv_device *dev)
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "accel_build_internal_shader");
 
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;
@@ -1376,6 +1378,7 @@ static nir_shader *
 build_copy_shader(struct radv_device *dev)
 {
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "accel_copy");
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;

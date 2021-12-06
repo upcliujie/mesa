@@ -38,6 +38,8 @@ build_color_shaders(struct nir_shader **out_vs, struct nir_shader **out_fs, uint
       nir_builder_init_simple_shader(MESA_SHADER_VERTEX, NULL, "meta_clear_color_vs");
    nir_builder fs_b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, NULL,
                                                      "meta_clear_color_fs-%d", frag_output);
+   vs_b.shader->info.internal = true;
+   fs_b.shader->info.internal = true;
 
    const struct glsl_type *position_type = glsl_vec4_type();
    const struct glsl_type *color_type = glsl_vec4_type();
@@ -479,6 +481,8 @@ build_depthstencil_shader(struct nir_shader **out_vs, struct nir_shader **out_fs
    nir_builder fs_b = nir_builder_init_simple_shader(
       MESA_SHADER_FRAGMENT, NULL,
       unrestricted ? "meta_clear_depthstencil_unrestricted_fs" : "meta_clear_depthstencil_fs");
+   vs_b.shader->info.internal = true;
+   fs_b.shader->info.internal = true;
 
    const struct glsl_type *position_out_type = glsl_vec4_type();
 
@@ -1061,6 +1065,7 @@ build_clear_htile_mask_shader()
 {
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_clear_htile_mask");
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;
@@ -1166,6 +1171,7 @@ build_clear_dcc_comp_to_single_shader(bool is_msaa)
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_clear_dcc_comp_to_single-%s",
                                      is_msaa ? "multisampled" : "singlesampled");
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;

@@ -41,6 +41,7 @@ build_expand_depth_stencil_compute_shader(struct radv_device *dev)
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "expand_depth_stencil_compute");
 
+   b.shader->info.internal = true;
    /* We need at least 8/8/1 to cover an entire HTILE block in a single workgroup. */
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;

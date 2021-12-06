@@ -45,6 +45,7 @@ static nir_shader *
 build_copy_vrs_htile_shader(struct radv_device *device, struct radeon_surf *surf)
 {
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_copy_vrs_htile");
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;

@@ -8,6 +8,7 @@ static nir_shader *
 build_buffer_fill_shader(struct radv_device *dev)
 {
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_buffer_fill");
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;
@@ -32,6 +33,7 @@ static nir_shader *
 build_buffer_copy_shader(struct radv_device *dev)
 {
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_buffer_copy");
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 64;
    b.shader->info.workgroup_size[1] = 1;
    b.shader->info.workgroup_size[2] = 1;

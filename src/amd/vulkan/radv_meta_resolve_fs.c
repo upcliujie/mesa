@@ -35,6 +35,7 @@ build_nir_vertex_shader(void)
 {
    const struct glsl_type *vec4 = glsl_vec4_type();
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, NULL, "meta_resolve_vs");
+   b.shader->info.internal = true;
 
    nir_variable *pos_out = nir_variable_create(b.shader, nir_var_shader_out, vec4, "gl_Position");
    pos_out->data.location = VARYING_SLOT_POS;
@@ -54,6 +55,7 @@ build_resolve_fragment_shader(struct radv_device *dev, bool is_integer, int samp
 
    nir_builder b = nir_builder_init_simple_shader(
       MESA_SHADER_FRAGMENT, NULL, "meta_resolve_fs-%d-%s", samples, is_integer ? "int" : "float");
+   b.shader->info.internal = true;
 
    nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform, sampler_type, "s_tex");
    input_img->data.descriptor_set = 0;
@@ -332,6 +334,7 @@ build_depth_stencil_resolve_fragment_shader(struct radv_device *dev, int samples
    nir_builder b = nir_builder_init_simple_shader(
       MESA_SHADER_FRAGMENT, NULL, "meta_resolve_fs_%s-%s-%d",
       index == DEPTH_RESOLVE ? "depth" : "stencil", get_resolve_mode_str(resolve_mode), samples);
+   b.shader->info.internal = true;
 
    nir_variable *input_img = nir_variable_create(b.shader, nir_var_uniform, sampler_type, "s_tex");
    input_img->data.descriptor_set = 0;

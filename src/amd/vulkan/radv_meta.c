@@ -595,6 +595,7 @@ radv_meta_build_nir_vs_generate_vertices(void)
    nir_variable *v_position;
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_VERTEX, NULL, "meta_vs_gen_verts");
+   b.shader->info.internal = true;
 
    nir_ssa_def *outvec = radv_meta_gen_rect_vertices(&b);
 
@@ -610,6 +611,7 @@ nir_shader *
 radv_meta_build_nir_fs_noop(void)
 {
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, NULL, "meta_noop_fs");
+   b.shader->info.internal = true;
 
    return b.shader;
 }

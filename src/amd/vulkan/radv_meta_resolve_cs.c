@@ -67,6 +67,7 @@ build_resolve_compute_shader(struct radv_device *dev, bool is_integer, bool is_s
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_resolve_cs-%d-%s", samples,
                                      is_integer ? "int" : (is_srgb ? "srgb" : "float"));
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;
@@ -139,6 +140,7 @@ build_depth_stencil_resolve_compute_shader(struct radv_device *dev, int samples,
    nir_builder b = nir_builder_init_simple_shader(
       MESA_SHADER_COMPUTE, NULL, "meta_resolve_cs_%s-%s-%d",
       index == DEPTH_RESOLVE ? "depth" : "stencil", get_resolve_mode_str(resolve_mode), samples);
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;

@@ -31,6 +31,7 @@ build_fmask_copy_compute_shader(struct radv_device *dev, int samples)
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_fmask_copy_cs_-%d", samples);
 
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;

@@ -34,6 +34,7 @@ build_dcc_retile_compute_shader(struct radv_device *dev, struct radeon_surf *sur
    const struct glsl_type *buf_type = glsl_image_type(dim, false, GLSL_TYPE_UINT);
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "dcc_retile_compute");
 
+   b.shader->info.internal = true;
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = 8;
    b.shader->info.workgroup_size[2] = 1;

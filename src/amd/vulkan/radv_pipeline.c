@@ -3546,6 +3546,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
    if (!modules[MESA_SHADER_FRAGMENT] && !modules[MESA_SHADER_COMPUTE]) {
       nir_builder fs_b = nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT, NULL, "noop_fs");
+      fs_b.shader->info.internal = true;
       fs_m = vk_shader_module_from_nir(fs_b.shader);
       modules[MESA_SHADER_FRAGMENT] = &fs_m;
    }
@@ -3562,7 +3563,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
                                           stage ? stage->pSpecializationInfo : NULL,
                                           pipeline_layout, pipeline_key);
 
-      /* We don't want to alter meta shaders IR directly so clone it
+      /* We don't want to alter meta and RT shaders IR directly so clone it
        * first.
        */
       if (nir[i]->info.name) {

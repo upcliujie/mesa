@@ -102,6 +102,12 @@ radv_get_nir_options(struct radv_physical_device *device)
    };
 }
 
+static bool
+is_meta_shader(nir_shader *nir)
+{
+   return nir && nir->info.internal;
+}
+
 bool
 radv_can_dump_shader(struct radv_device *device, struct vk_shader_module *module,
                      bool meta_shader)
@@ -109,7 +115,8 @@ radv_can_dump_shader(struct radv_device *device, struct vk_shader_module *module
    if (!(device->instance->debug_flags & RADV_DEBUG_DUMP_SHADERS))
       return false;
    if (module)
-      return !module->nir || (device->instance->debug_flags & RADV_DEBUG_DUMP_META_SHADERS);
+      return !is_meta_shader(module->nir) ||
+             (device->instance->debug_flags & RADV_DEBUG_DUMP_META_SHADERS);
 
    return meta_shader;
 }
@@ -118,7 +125,8 @@ bool
 radv_can_dump_shader_stats(struct radv_device *device, struct vk_shader_module *module)
 {
    /* Only dump non-meta shader stats. */
-   return device->instance->debug_flags & RADV_DEBUG_DUMP_SHADER_STATS && module && !module->nir;
+   return device->instance->debug_flags & RADV_DEBUG_DUMP_SHADER_STATS && module &&
+          !is_meta_shader(module->nir);
 }
 
 void
@@ -897,7 +905,7 @@ radv_consider_culling(struct radv_device *device, struct nir_shader *nir, uint64
                       unsigned num_vertices_per_primitive, const struct radv_shader_info *info)
 {
    /* Culling doesn't make sense for meta shaders. */
-   if (!!nir->info.name)
+   if (is_meta_shader(nir))
       return false;
 
    /* We don't support culling with multiple viewports yet. */
@@ -1920,6 +1928,7 @@ radv_create_trap_handler_shader(struct radv_device *device)
    struct radv_shader_info info = {0};
 
    nir_builder b = nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "meta_trap_handler");
+   b.shader->info.internal = true;
 
    options.explicit_scratch_args = true;
    options.wgp_mode = radv_should_use_wgp_mode(device, MESA_SHADER_COMPUTE, &info);

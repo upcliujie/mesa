@@ -42,6 +42,7 @@ build_dcc_decompress_compute_shader(struct radv_device *dev)
    nir_builder b =
       nir_builder_init_simple_shader(MESA_SHADER_COMPUTE, NULL, "dcc_decompress_compute");
 
+   b.shader->info.internal = true;
    /* We need at least 16/16/1 to cover an entire DCC block in a single workgroup. */
    b.shader->info.workgroup_size[0] = 16;
    b.shader->info.workgroup_size[1] = 16;
