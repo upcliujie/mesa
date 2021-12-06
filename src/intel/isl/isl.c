@@ -464,16 +464,6 @@ isl_tiling_get_info(enum isl_tiling tiling,
       phys_B.h = 64 * 1024 / phys_B.w;
       break;
 
-   case ISL_TILING_HIZ:
-      /* HiZ buffers are required to have ISL_FORMAT_HIZ which is an 8x4
-       * 128bpb format.  The tiling has the same physical dimensions as
-       * Y-tiling but actually has two HiZ columns per Y-tiled column.
-       */
-      assert(bs == 16);
-      logical_el = isl_extent4d(16, 16, 1, 1);
-      phys_B = isl_extent2d(128, 32);
-      break;
-
    case ISL_TILING_CCS:
       /* CCS surfaces are required to have one of the GENX_CCS_* formats which
        * have a block size of 1 or 2 bits per block and each CCS element
@@ -588,14 +578,6 @@ isl_surf_choose_tiling(const struct isl_device *dev,
                        enum isl_tiling *tiling)
 {
    isl_tiling_flags_t tiling_flags = info->tiling_flags;
-
-   /* HiZ surfaces always use the HiZ tiling */
-   if (info->usage & ISL_SURF_USAGE_HIZ_BIT) {
-      assert(info->format == ISL_FORMAT_HIZ);
-      assert(tiling_flags == ISL_TILING_HIZ_BIT);
-      *tiling = isl_tiling_flag_to_enum(tiling_flags);
-      return true;
-   }
 
    /* CCS surfaces always use the CCS tiling */
    if (info->usage & ISL_SURF_USAGE_CCS_BIT) {
@@ -907,7 +889,7 @@ isl_surf_choose_dim_layout(const struct isl_device *dev,
 {
    /* Sandy bridge needs a special layout for HiZ and stencil. */
    if (ISL_GFX_VER(dev) == 6 &&
-       (tiling == ISL_TILING_W || tiling == ISL_TILING_HIZ))
+       (tiling == ISL_TILING_W || (usage & ISL_SURF_USAGE_HIZ_BIT)))
       return ISL_DIM_LAYOUT_GFX6_STENCIL_HIZ;
 
    if (ISL_GFX_VER(dev) >= 9) {
@@ -2012,35 +1994,9 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
     *    Z_Width must be multiplied by 4 before being applied to the table
     *    below if Number of Multisamples is set to NUMSAMPLES_8."
     *
-    * In the Sky Lake PRM, the second paragraph is replaced with this:
-    *
-    *    "The Z_Height and Z_Width values must equal those present in
-    *    3DSTATE_DEPTH_BUFFER incremented by one."
-    *
-    * In other words, on Sandy Bridge through Broadwell, each 128-bit HiZ
-    * block corresponds to a region of 8x4 samples in the primary depth
-    * surface.  On Sky Lake, on the other hand, each HiZ block corresponds to
-    * a region of 8x4 pixels in the primary depth surface regardless of the
-    * number of samples.  The dimensions of a HiZ block in both pixels and
-    * samples are given in the table below:
-    *
-    *                    | SNB - BDW |     SKL+
-    *              ------+-----------+-------------
-    *                1x  |  8 x 4 sa |   8 x 4 sa
-    *               MSAA |  8 x 4 px |   8 x 4 px
-    *              ------+-----------+-------------
-    *                2x  |  8 x 4 sa |  16 x 4 sa
-    *               MSAA |  4 x 4 px |   8 x 4 px
-    *              ------+-----------+-------------
-    *                4x  |  8 x 4 sa |  16 x 8 sa
-    *               MSAA |  4 x 2 px |   8 x 4 px
-    *              ------+-----------+-------------
-    *                8x  |  8 x 4 sa |  32 x 8 sa
-    *               MSAA |  2 x 2 px |   8 x 4 px
-    *              ------+-----------+-------------
-    *               16x  |    N/A    | 32 x 16 sa
-    *               MSAA |    N/A    |  8 x  4 px
-    *              ------+-----------+-------------
+    * In the Sky Lake PRM, the second paragraph is gone.  This means that,
+    * from Sandy Bridge through Broadwell, HiZ compresses samples in the
+    * primary depth surface.  On Sky Lake and onward, HiZ compresses pixels.
     *
     * There are a number of different ways that this discrepency could be
     * handled.  The way we have chosen is to simply make MSAA HiZ have the
@@ -2062,7 +2018,7 @@ isl_surf_get_hiz_surf(const struct isl_device *dev,
                         .array_len = surf->logical_level0_px.array_len,
                         .samples = samples,
                         .usage = ISL_SURF_USAGE_HIZ_BIT,
-                        .tiling_flags = ISL_TILING_HIZ_BIT);
+                        .tiling_flags = ISL_TILING_ANY_MASK);
 }
 
 bool
@@ -2189,7 +2145,6 @@ isl_surf_supports_ccs(const struct isl_device *dev,
             return false;
 
          assert(hiz_surf->usage & ISL_SURF_USAGE_HIZ_BIT);
-         assert(hiz_surf->tiling == ISL_TILING_HIZ);
          assert(hiz_surf->format == ISL_FORMAT_HIZ);
       } else if (surf->samples > 1) {
          const struct isl_surf *mcs_surf = hiz_or_mcs_surf;
