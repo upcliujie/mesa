@@ -76,8 +76,9 @@ isl_gfx4_filter_tiling(const struct isl_device *dev,
     *
     * This is required all the way up to Sandy Bridge.
     */
-   if (isl_format_get_layout(info->format)->bpb >= 128)
-      *flags &= ~ISL_TILING_Y0_BIT;
+   if (isl_format_get_layout(info->format)->bpb >= 128 &&
+       (info->usage & ISL_SURF_USAGE_RENDER_TARGET_BIT))
+      *flags &= ISL_TILING_X_BIT | ISL_TILING_LINEAR_BIT;
 }
 
 void
