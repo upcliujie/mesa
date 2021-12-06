@@ -158,7 +158,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .KHR_separate_depth_stencil_layouts = true,
       .KHR_buffer_device_address = true,
 #ifndef TU_USE_KGSL
-      .KHR_timeline_semaphore = false,
+      .KHR_timeline_semaphore = true,
 #endif
 #ifdef VK_USE_PLATFORM_DISPLAY_KHR
       /* This extension is supported by common code across drivers, but it is
@@ -560,7 +560,7 @@ tu_get_physical_device_features_1_2(struct tu_physical_device *pdevice,
    features->shaderSubgroupExtendedTypes         = true;
    features->separateDepthStencilLayouts         = true;
    features->hostQueryReset                      = true;
-   features->timelineSemaphore                   = false;
+   features->timelineSemaphore                   = true;
    features->bufferDeviceAddress                 = true;
    features->bufferDeviceAddressCaptureReplay    = false;
    features->bufferDeviceAddressMultiDevice      = false;
@@ -755,7 +755,7 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES: {
          VkPhysicalDeviceTimelineSemaphoreFeaturesKHR *features =
             (VkPhysicalDeviceTimelineSemaphoreFeaturesKHR *) ext;
-         features->timelineSemaphore = false;
+         features->timelineSemaphore = true;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT: {
