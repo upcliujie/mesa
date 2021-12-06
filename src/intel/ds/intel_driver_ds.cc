@@ -48,6 +48,12 @@ static const char *intel_queue_stage_names[INTEL_DS_QUEUE_STAGE_N_STAGES] = {
    "draw",
 };
 
+static uint64_t get_iid()
+{
+   static uint64_t iid = 1;
+   return iid++;
+}
+
 struct IntelRenderpassIncrementalState {
    bool was_cleared = true;
 };
@@ -108,44 +114,158 @@ i915_engine_class_to_category(enum drm_i915_gem_engine_class engine_class)
 }
 
 static void
-send_descriptors(IntelRenderpassDataSource::TraceContext &ctx,
-                 struct intel_ds_device *device)
+sync_timestamp(IntelRenderpassDataSource::TraceContext &ctx,
+               struct intel_ds_device *device)
 {
-   PERFETTO_LOG("Sending renderstage descriptors");
+   uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
+   uint64_t gpu_ts = intel_perf_scale_gpu_timestamp(&device->info,
+                                                    intel_read_gpu_timestamp(device->fd));
+
+   if (cpu_ts < device->next_clock_sync_ns)
+      return;
+
+   PERFETTO_LOG("sending clocks");
+
+   device->sync_gpu_ts = gpu_ts;
+   device->next_clock_sync_ns = cpu_ts + 1000000000ull;
 
    auto packet = ctx.NewTracePacket();
 
-   packet->set_timestamp(perfetto::base::GetBootTimeNs().count());
-   packet->set_timestamp_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
+   packet->set_timestamp(cpu_ts);
 
-   auto event = packet->set_gpu_render_stage_event();
-   event->set_gpu_id(device->gpu_id);
+   auto event = packet->set_clock_snapshot();
 
-   auto spec = event->set_specifications();
+   {
+      auto clock = event->add_clocks();
 
-   struct intel_ds_queue *queue;
-   u_vector_foreach(queue, &device->queues) {
-      auto desc = spec->add_hw_queue();
-      desc->set_name(queue->name);
-      // TODO
-      // desc->set_description();
+      clock->set_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
+      clock->set_timestamp(cpu_ts);
    }
 
-   for (unsigned i = 0; i < INTEL_DS_QUEUE_STAGE_N_STAGES; i++) {
-      auto desc = spec->add_stage();
-      desc->set_name(intel_queue_stage_names[i]);
-      // TODO
-      // desc->set_description(stages[i].desc);
+   {
+      auto clock = event->add_clocks();
+
+      clock->set_clock_id(device->gpu_clock_id);
+      clock->set_timestamp(gpu_ts);
    }
 }
 
+static void
+send_descriptors(IntelRenderpassDataSource::TraceContext &ctx,
+                 struct intel_ds_device *device)
+{
+   struct intel_ds_queue *queue;
+
+   PERFETTO_LOG("Sending renderstage descriptors");
+
+   device->event_id = 0;
+   u_vector_foreach(queue, &device->queues) {
+      memset(queue->draws, 0, sizeof(queue->draws));
+      memset(queue->blorp, 0, sizeof(queue->blorp));
+   }
+
+   {
+      auto packet = ctx.NewTracePacket();
+
+      packet->set_timestamp(perfetto::base::GetBootTimeNs().count());
+      packet->set_timestamp_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
+      packet->set_sequence_flags(perfetto::protos::pbzero::TracePacket::SEQ_INCREMENTAL_STATE_CLEARED);
+
+      auto interned_data = packet->set_interned_data();
+
+      {
+         auto desc = interned_data->add_graphics_contexts();
+         device->iid = get_iid();
+         desc->set_iid(device->iid);
+         desc->set_pid(getpid());
+         desc->set_api(perfetto::protos::pbzero::InternedGraphicsContext_Api_OPEN_GL);
+      }
+
+      /* Generate new IIDs for all the object tree every time. */
+      u_vector_foreach(queue, &device->queues) {
+         {
+            auto desc = interned_data->add_gpu_specifications();
+            queue->iid = get_iid();
+            desc->set_iid(queue->iid);
+            desc->set_name(queue->name);
+         }
+
+         for (unsigned i = 0; i < INTEL_DS_QUEUE_STAGE_N_STAGES; i++) {
+            auto desc = interned_data->add_gpu_specifications();
+            queue->stage_iids[i] = get_iid();
+            desc->set_iid(queue->stage_iids[i]);
+            desc->set_name(intel_queue_stage_names[i]);
+         }
+
+         for (unsigned i = 0; i < ARRAY_SIZE(queue->draws); i++) {
+            char name[20];
+            snprintf(name, sizeof(name), "draw_%u", i);
+            auto desc = interned_data->add_gpu_specifications();
+            queue->draws[i].iid = get_iid();
+            desc->set_iid(queue->draws[i].iid);
+            desc->set_name(name);
+         }
+
+         for (unsigned i = 0; i < ARRAY_SIZE(queue->draws); i++) {
+            char name[20];
+            snprintf(name, sizeof(name), "blorp_%u", i);
+            auto desc = interned_data->add_gpu_specifications();
+            queue->blorp[i].iid = get_iid();
+            desc->set_iid(queue->blorp[i].iid);
+            desc->set_name(name);
+         }
+      }
+   }
+
+   device->next_clock_sync_ns = 0;
+   sync_timestamp(ctx, device);
+}
+
 typedef void (*trace_payload_as_extra_func)(perfetto::protos::pbzero::GpuRenderStageEvent *, const void*);
+
+static struct intel_ds_stage_tracker *
+find_free_stage(struct intel_ds_stage_tracker *trackers,
+                uint32_t n_trackers,
+                uint64_t ts)
+{
+   for (uint32_t i = 0; i < n_trackers; i++) {
+      if (trackers[i].end_ns < ts)
+         return &trackers[i];
+   }
+   unreachable("Running out of free stages");
+}
 
 static void
 begin_event(struct intel_ds_queue *queue, uint64_t ts_ns,
             enum intel_ds_queue_stage stage)
 {
-   queue->stage_start_ns[stage] = ts_ns;
+
+   switch (stage) {
+   case INTEL_DS_QUEUE_STAGE_CMD_BUFFER:
+   case INTEL_DS_QUEUE_STAGE_COMPUTE:
+   case INTEL_DS_QUEUE_STAGE_RENDER_PASS:
+   case INTEL_DS_QUEUE_STAGE_STALL:
+      queue->current_stage = NULL;
+      queue->stage_start_ns[stage] = ts_ns;
+      break;
+
+   case INTEL_DS_QUEUE_STAGE_DRAW:
+      queue->current_stage = find_free_stage(queue->draws,
+                                             ARRAY_SIZE(queue->draws),
+                                             ts_ns);
+      queue->current_stage->start_ns = ts_ns;
+      break;
+
+   case INTEL_DS_QUEUE_STAGE_BLORP:
+      queue->current_stage = find_free_stage(queue->blorp,
+                                             ARRAY_SIZE(queue->blorp),
+                                             ts_ns);
+      queue->current_stage->start_ns = ts_ns;
+      break;
+
+   case INTEL_DS_QUEUE_STAGE_N_STAGES:
+      unreachable("Invalid stage");
+   }
 }
 
 static void
@@ -163,9 +283,26 @@ end_event(struct intel_ds_queue *queue, uint64_t ts_ns,
    if (!device->sync_gpu_ts)
       return;
 
-   /* Discard anything prior to the first GPU timestamp snapshot. */
-   if (device->sync_gpu_ts > queue->stage_start_ns[stage])
-      return;
+   if (queue->current_stage) {
+      /* Discard anything prior to the first GPU timestamp snapshot. */
+      if (device->sync_gpu_ts > queue->current_stage->start_ns)
+         return;
+   } else {
+      /* Discard anything prior to the first GPU timestamp snapshot. */
+      if (device->sync_gpu_ts > queue->stage_start_ns[stage])
+         return;
+   }
+
+   uint64_t evt_id = device->event_id++;
+   uint64_t start_ns, stage_iid;
+   if (queue->current_stage) {
+      start_ns = queue->current_stage->start_ns;
+      stage_iid = queue->current_stage->iid;
+      queue->current_stage->end_ns = ts_ns;
+   } else {
+      start_ns = queue->stage_start_ns[stage];
+      stage_iid = queue->stage_iids[stage];
+   }
 
    IntelRenderpassDataSource::Trace([=](IntelRenderpassDataSource::TraceContext tctx) {
       if (auto state = tctx.GetIncrementalState(); state->was_cleared) {
@@ -175,19 +312,18 @@ end_event(struct intel_ds_queue *queue, uint64_t ts_ns,
 
       auto packet = tctx.NewTracePacket();
 
-      packet->set_timestamp(queue->stage_start_ns[stage]);
+      packet->set_timestamp(start_ns);
       packet->set_timestamp_clock_id(queue->device->gpu_clock_id);
 
-      assert(ts_ns >= queue->stage_start_ns[stage]);
+      assert(ts_ns >= start_ns);
 
       auto event = packet->set_gpu_render_stage_event();
       event->set_gpu_id(queue->device->gpu_id);
-      event->set_hw_queue_id(queue->queue_id);
-      event->set_stage_id(stage);
-      event->set_context((uintptr_t)queue->device);
-      event->set_event_id(0); // ???
-      event->set_duration(ts_ns - queue->stage_start_ns[stage]);
-      event->set_context((uintptr_t)queue->device);
+      event->set_hw_queue_iid(queue->iid);
+      event->set_stage_iid(stage_iid);
+      event->set_context(queue->device->iid);
+      event->set_event_id(evt_id);
+      event->set_duration(ts_ns - start_ns);
       event->set_submission_id(submission_id);
 
       if (payload && payload_as_extra) {
@@ -227,49 +363,6 @@ custom_trace_payload_as_extra_end_stall(perfetto::protos::pbzero::GpuRenderStage
 
       data->set_value(buf);
    }
-}
-
-static void
-sync_timestamp(struct intel_ds_device *device)
-{
-   uint64_t cpu_ts = perfetto::base::GetBootTimeNs().count();
-   uint64_t gpu_ts = intel_perf_scale_gpu_timestamp(&device->info,
-                                                    intel_read_gpu_timestamp(device->fd));
-
-   if (cpu_ts < device->next_clock_sync_ns)
-      return;
-
-   device->sync_gpu_ts = gpu_ts;
-   device->next_clock_sync_ns = cpu_ts + 1000000000ull;
-
-   IntelRenderpassDataSource::Trace([=](IntelRenderpassDataSource::TraceContext tctx) {
-      if (auto state = tctx.GetIncrementalState(); state->was_cleared) {
-         send_descriptors(tctx, device);
-         state->was_cleared = false;
-      }
-
-      auto packet = tctx.NewTracePacket();
-
-      PERFETTO_LOG("sending clocks");
-
-      packet->set_timestamp(cpu_ts);
-
-      auto event = packet->set_clock_snapshot();
-
-      {
-         auto clock = event->add_clocks();
-
-         clock->set_clock_id(perfetto::protos::pbzero::BUILTIN_CLOCK_BOOTTIME);
-         clock->set_timestamp(cpu_ts);
-      }
-
-      {
-         auto clock = event->add_clocks();
-
-         clock->set_clock_id(device->gpu_clock_id);
-         clock->set_timestamp(gpu_ts);
-      }
-   });
 }
 
 #endif /* HAVE_PERFETTO */
@@ -376,19 +469,20 @@ void
 intel_ds_end_submit(struct intel_ds_queue *queue,
                     uint64_t start_ts)
 {
-   if (!u_trace_context_actively_tracing(&queue->device->trace_context)) {
-      /* Force a clock sync at the next enable. */
-      queue->device->sync_gpu_ts = 0;
-      queue->device->next_clock_sync_ns = 0;
+   if (!u_trace_context_actively_tracing(&queue->device->trace_context))
       return;
-   }
 
    uint64_t end_ts = perfetto::base::GetBootTimeNs().count();
    uint32_t submission_id = queue->submission_id++;
 
-   sync_timestamp(queue->device);
-
    IntelRenderpassDataSource::Trace([=](IntelRenderpassDataSource::TraceContext tctx) {
+      if (auto state = tctx.GetIncrementalState(); state->was_cleared) {
+         send_descriptors(tctx, queue->device);
+         state->was_cleared = false;
+      }
+
+      sync_timestamp(tctx, queue->device);
+
       auto packet = tctx.NewTracePacket();
 
       packet->set_timestamp(start_ts);

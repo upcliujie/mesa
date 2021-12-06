@@ -88,10 +88,27 @@ struct intel_ds_device {
    /* Next timestamp after which we should resend a clock correlation. */
    uint64_t next_clock_sync_ns;
 
+   /* Unique perfetto identifier for the context */
+   uint64_t iid;
+
+   /* Event ID generator */
+   uint64_t event_id;
+
    struct u_trace_context trace_context;
 
    /* List of intel_ds_queue */
    struct u_vector queues;
+};
+
+struct intel_ds_stage_tracker {
+   /* Unique perfetto identifier */
+   uint64_t iid;
+
+   /* Start timestamp of the last work element */
+   uint64_t start_ns;
+
+   /* End timestamp of the last work element */
+   uint64_t end_ns;
 };
 
 struct intel_ds_queue {
@@ -111,6 +128,17 @@ struct intel_ds_queue {
 
    /* Counter incremented on each intel_ds_end_submit() call */
    uint64_t submission_id;
+
+   /* Unique perfetto identifier referring to this object */
+   uint64_t iid;
+
+   /* Unique IIDs for each stage */
+   uint64_t stage_iids[INTEL_DS_QUEUE_STAGE_N_STAGES];
+
+   struct intel_ds_stage_tracker draws[64];
+   struct intel_ds_stage_tracker blorp[64];
+
+   struct intel_ds_stage_tracker *current_stage;
 };
 
 struct intel_ds_flush_data {
