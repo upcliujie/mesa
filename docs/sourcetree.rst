@@ -79,9 +79,7 @@ each directory.
       -  **sparc** - Assembly code/optimizations for SPARC systems (not
          used with Gallium)
       -  **state_tracker** - Translator from Mesa to Gallium. This is
-         basically a Mesa device driver that speaks to Gallium. This
-         directory may be moved to src/mesa/drivers/gallium at some
-         point.
+         basically a Mesa device driver that speaks to Gallium.
       -  **swrast** - Software rasterization module. For drawing points,
          lines, triangles, bitmaps, images, etc. in software. (not used
          with Gallium)
