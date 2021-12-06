@@ -3563,7 +3563,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
                                           stage ? stage->pSpecializationInfo : NULL,
                                           pipeline_layout, pipeline_key);
 
-      /* We don't want to alter meta shaders IR directly so clone it
+      /* We don't want to alter meta and RT shaders IR directly so clone it
        * first.
        */
       if (nir[i]->info.name) {
