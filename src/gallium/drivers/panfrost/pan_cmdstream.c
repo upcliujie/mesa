@@ -3006,6 +3006,7 @@ panfrost_emit_resources(struct panfrost_batch *batch,
                         enum pipe_shader_type stage,
                         mali_ptr ubos, unsigned ubo_count)
 {
+        struct panfrost_context *ctx = batch->ctx;
         struct panfrost_ptr T;
 
         T = pan_pool_alloc_desc_aggregate(&batch->pool.base,
@@ -3014,6 +3015,16 @@ panfrost_emit_resources(struct panfrost_batch *batch,
         memset(T.cpu, 0, pan_size(RESOURCE) * 8);
 
         panfrost_make_resource_table(T, PAN_TABLE_UBO, ubos, ubo_count);
+
+        if (stage == PIPE_SHADER_VERTEX) {
+                panfrost_make_resource_table(T, PAN_TABLE_ATTRIBUTE,
+                                             batch->attribs[stage],
+                                             ctx->vertex->num_elements);
+
+                panfrost_make_resource_table(T, PAN_TABLE_ATTRIBUTE_BUFFER,
+                                             batch->attrib_bufs[stage],
+                                             util_last_bit(ctx->vb_mask));
+        }
 
         return T.gpu | 0xc; /* TODO: what is the tagged pointer? length maybe */
 }
