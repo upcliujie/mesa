@@ -318,6 +318,20 @@ va_pack_lod_mode(enum bi_va_lod_mode mode)
    unreachable("Invalid LOD mode");
 }
 
+static uint64_t
+va_pack_register_format(const bi_instr *I)
+{
+   switch (I->register_format) {
+   case BI_REGISTER_FORMAT_F32: return 2;
+   case BI_REGISTER_FORMAT_F16: return 3;
+   case BI_REGISTER_FORMAT_S32: return 4;
+   case BI_REGISTER_FORMAT_S16: return 5;
+   case BI_REGISTER_FORMAT_U32: return 6;
+   case BI_REGISTER_FORMAT_U16: return 7;
+   default: unreachable("unhandled register format");
+   }
+}
+
 uint64_t
 va_pack_instr(const bi_instr *I, unsigned action)
 {
@@ -340,7 +354,11 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LOAD_I96:
    case BI_OPCODE_LOAD_I128:
    case BI_OPCODE_ATEST:
+   case BI_OPCODE_LD_ATTR_IMM:
       hex |= ((uint64_t) bi_count_write_registers(I, 0) << 33);
+
+      /* Slot */
+      hex |= (0ull << 30);
       break;
    case BI_OPCODE_STORE_I8:
    case BI_OPCODE_STORE_I16:
@@ -353,6 +371,9 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_BLEND:
    case BI_OPCODE_TEX:
       hex |= ((uint64_t) bi_count_read_registers(I, 0) << 33);
+
+      /* Slot */
+      hex |= (0ull << 30);
       break;
    default:
       break;
@@ -424,20 +445,12 @@ va_pack_instr(const bi_instr *I, unsigned action)
       unsigned rt = (I->src[2].value - BIR_FAU_BLEND_0);
       assert(rt < 8);
 
-      /* TODO: Other formats */
-      assert(I->register_format == BI_REGISTER_FORMAT_F16 ||
-             I->register_format == BI_REGISTER_FORMAT_F32);
-
       /* Register format */
-      unsigned regfmt = (I->register_format == BI_REGISTER_FORMAT_F32) ? 2 : 3;
-      hex |= ((uint64_t) regfmt) << 24;
+      hex |= va_pack_register_format(I) << 24;
 
       /* Vector size */
       unsigned vecsize = 4;
       hex |= ((uint64_t) (vecsize - 1) << 28);
-
-      /* Slot */
-      hex |= (0ull << 30);
 
       /* Staging register #2 - input colour */
       hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
@@ -465,9 +478,6 @@ va_pack_instr(const bi_instr *I, unsigned action)
 
       /* Dimension */
       hex |= ((uint64_t) I->dimension) << 28;
-
-      /* Slot */
-      hex |= (0ull << 30);
 
       /* Staging register #0 - inputs */
       hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
