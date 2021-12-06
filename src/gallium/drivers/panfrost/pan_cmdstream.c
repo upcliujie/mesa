@@ -3026,6 +3026,7 @@ panfrost_emit_resources(struct panfrost_batch *batch,
                         enum pipe_shader_type stage,
                         mali_ptr ubos, unsigned ubo_count)
 {
+        struct panfrost_context *ctx = batch->ctx;
         struct panfrost_ptr T;
         unsigned nr_tables = 12;
 
@@ -3036,6 +3037,16 @@ panfrost_emit_resources(struct panfrost_batch *batch,
         memset(T.cpu, 0, nr_tables * pan_size(RESOURCE));
 
         panfrost_make_resource_table(T, PAN_TABLE_UBO, ubos, ubo_count);
+
+        if (stage == PIPE_SHADER_VERTEX) {
+                panfrost_make_resource_table(T, PAN_TABLE_ATTRIBUTE,
+                                             batch->attribs[stage],
+                                             ctx->vertex->num_elements);
+
+                panfrost_make_resource_table(T, PAN_TABLE_ATTRIBUTE_BUFFER,
+                                             batch->attrib_bufs[stage],
+                                             util_last_bit(ctx->vb_mask));
+        }
 
         return T.gpu | nr_tables;
 }
