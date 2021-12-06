@@ -296,8 +296,9 @@ isl_gfx6_filter_tiling(const struct isl_device *dev,
     *
     * This is necessary all the way back to 965, but is permitted on Gfx7+.
     */
-   if (ISL_GFX_VER(dev) < 7 && isl_format_get_layout(info->format)->bpb >= 128)
-      *flags &= ~ISL_TILING_Y0_BIT;
+   if (ISL_GFX_VER(dev) < 7 &&
+       isl_format_get_layout(info->format)->bpb == 128)
+      *flags &= (ISL_TILING_X_BIT | ISL_TILING_LINEAR_BIT);
 
    /* From the BDW and SKL PRMs, Volume 2d,
     * RENDER_SURFACE_STATE::Width - Programming Notes:
