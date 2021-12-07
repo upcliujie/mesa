@@ -65,6 +65,7 @@
 #include "util/simple_list.h"
 #include "util/u_process.h"
 #include "util/u_string.h"
+#include "api_exec_decl.h"
 
 #ifdef ENABLE_SHADER_CACHE
 #if CUSTOM_SHADER_REPLACEMENT

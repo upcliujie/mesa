@@ -56,6 +56,7 @@
 #include "glformats.h"
 #include "texstore.h"
 #include "pbo.h"
+#include "api_exec_decl.h"
 
 
 /**
@@ -3344,17 +3345,6 @@ _mesa_MultiTexImage3DEXT(GLenum texunit, GLenum target, GLint level,
       return;
    teximage(ctx, GL_FALSE, 3, texObj, target, level, internalFormat,
                 width, height, depth, border, format, type, 0, pixels, false);
-}
-
-
-void GLAPIENTRY
-_mesa_TexImage3DEXT( GLenum target, GLint level, GLenum internalFormat,
-                     GLsizei width, GLsizei height, GLsizei depth,
-                     GLint border, GLenum format, GLenum type,
-                     const GLvoid *pixels )
-{
-   _mesa_TexImage3D(target, level, (GLint) internalFormat, width, height,
-                    depth, border, format, type, pixels);
 }
 
 

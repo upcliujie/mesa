@@ -43,6 +43,7 @@
 #include "textureview.h"
 #include "stdbool.h"
 #include "mtypes.h"
+#include "api_exec_decl.h"
 
 /* Table 3.X.2 (Compatible internal formats for TextureView)
     ---------------------------------------------------------------------------

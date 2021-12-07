@@ -29,12 +29,12 @@
 #include "glheader.h"
 #include "errors.h"
 #include "enums.h"
-#include "copyimage.h"
 #include "teximage.h"
 #include "texobj.h"
 #include "fbobject.h"
 #include "textureview.h"
 #include "glformats.h"
+#include "api_exec_decl.h"
 
 enum mesa_block_class {
    BLOCK_CLASS_128_BITS,

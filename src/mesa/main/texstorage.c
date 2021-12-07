@@ -40,6 +40,7 @@
 #include "mtypes.h"
 #include "glformats.h"
 #include "hash.h"
+#include "api_exec_decl.h"
 
 
 /**
