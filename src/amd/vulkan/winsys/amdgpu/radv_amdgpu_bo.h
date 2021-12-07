@@ -32,10 +32,10 @@
 #include "radv_amdgpu_winsys.h"
 
 struct radv_amdgpu_map_range {
+   struct list_head list;
    uint64_t offset;
    uint64_t size;
    struct radv_amdgpu_winsys_bo *bo;
-   uint64_t bo_offset;
 };
 
 struct radv_amdgpu_winsys_bo {
@@ -54,13 +54,7 @@ struct radv_amdgpu_winsys_bo {
       };
       /* virtual bo */
       struct {
-         struct radv_amdgpu_map_range *ranges;
-         uint32_t range_count;
-         uint32_t range_capacity;
-
-         struct radv_amdgpu_winsys_bo **bos;
-         uint32_t bo_count;
-         uint32_t bo_capacity;
+         struct list_head ranges;
       };
    };
 };

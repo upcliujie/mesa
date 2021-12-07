@@ -714,8 +714,11 @@ radv_amdgpu_get_bo_list(struct radv_amdgpu_winsys *ws, struct radeon_cmdbuf **cs
       for (unsigned i = 0; i < count; ++i) {
          struct radv_amdgpu_cs *cs = (struct radv_amdgpu_cs *)cs_array[i];
          total_buffer_count += cs->num_buffers;
-         for (unsigned j = 0; j < cs->num_virtual_buffers; ++j)
-            total_buffer_count += radv_amdgpu_winsys_bo(cs->virtual_buffers[j])->bo_count;
+         for (unsigned j = 0; j < cs->num_virtual_buffers; ++j) {
+            struct radv_amdgpu_winsys_bo *virtual_bo =
+               radv_amdgpu_winsys_bo(cs->virtual_buffers[j]);
+            total_buffer_count += list_length(&virtual_bo->ranges);
+         }
       }
 
       if (extra_cs) {
@@ -769,8 +772,8 @@ radv_amdgpu_get_bo_list(struct radv_amdgpu_winsys *ws, struct radeon_cmdbuf **cs
          for (unsigned j = 0; j < cs->num_virtual_buffers; ++j) {
             struct radv_amdgpu_winsys_bo *virtual_bo =
                radv_amdgpu_winsys_bo(cs->virtual_buffers[j]);
-            for (unsigned k = 0; k < virtual_bo->bo_count; ++k) {
-               struct radv_amdgpu_winsys_bo *bo = virtual_bo->bos[k];
+            list_for_each_entry(struct radv_amdgpu_map_range, range, &virtual_bo->ranges, list) {
+               struct radv_amdgpu_winsys_bo *bo = range->bo;
                bool found = false;
                for (unsigned m = 0; m < num_handles; ++m) {
                   if (handles[m].bo_handle == bo->bo_handle) {
