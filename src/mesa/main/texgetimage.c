@@ -48,6 +48,7 @@
 #include "texstore.h"
 #include "format_utils.h"
 #include "pixeltransfer.h"
+#include "api_exec_decl.h"
 
 /**
  * Can the given type represent negative values?

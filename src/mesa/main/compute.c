@@ -23,8 +23,8 @@
 
 #include "glheader.h"
 #include "bufferobj.h"
-#include "compute.h"
 #include "context.h"
+#include "api_exec_decl.h"
 
 static bool
 check_valid_to_compute(struct gl_context *ctx, const char *function)

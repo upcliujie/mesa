@@ -35,6 +35,7 @@
 #include "feedback.h"
 #include "macros.h"
 #include "mtypes.h"
+#include "api_exec_decl.h"
 
 
 #define FB_3D		0x01

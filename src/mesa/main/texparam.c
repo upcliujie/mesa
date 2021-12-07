@@ -46,6 +46,7 @@
 #include "main/texstate.h"
 #include "program/prog_instruction.h"
 #include "util/u_math.h"
+#include "api_exec_decl.h"
 
 /**
  * Use macro to resolve undefined clamping behaviour when using lroundf

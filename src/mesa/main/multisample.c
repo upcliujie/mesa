@@ -31,6 +31,7 @@
 #include "main/fbobject.h"
 #include "main/glformats.h"
 #include "main/state.h"
+#include "api_exec_decl.h"
 
 
 /**

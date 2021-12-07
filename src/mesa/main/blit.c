@@ -39,6 +39,7 @@
 #include "mtypes.h"
 #include "macros.h"
 #include "state.h"
+#include "api_exec_decl.h"
 
 
 /** Set this to 1 to debug/log glBlitFramebuffer() calls */

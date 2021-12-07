@@ -38,7 +38,7 @@
 #include "main/light.h"
 #include "main/viewport.h"
 #include "util/bitscan.h"
-
+#include "api_exec_decl.h"
 
 
 /**
