@@ -81,15 +81,20 @@ radv_amdgpu_winsys_bo_commit(struct radeon_winsys *_ws, struct radeon_winsys_bo 
    if (bo) {
       struct radv_amdgpu_map_range *range;
 
-      range = malloc(sizeof(*range));
-      if (!range)
-         return VK_ERROR_OUT_OF_HOST_MEMORY;
+      /* Do not need to remember the range if the BO is local (maintained by the kernel) or in the
+       * global BO list (resident).
+       */
+      if (!_bo->is_local && !_bo->use_global_list) {
+         range = malloc(sizeof(*range));
+         if (!range)
+            return VK_ERROR_OUT_OF_HOST_MEMORY;
 
-      range->offset = offset;
-      range->size = size;
-      range->bo = bo;
+         range->offset = offset;
+         range->size = size;
+         range->bo = bo;
 
-      list_addtail(&range->list, &parent->ranges);
+         list_addtail(&range->list, &parent->ranges);
+      }
 
       r = radv_amdgpu_bo_va_op(ws, bo->bo, bo_offset, size, parent->base.va + offset, 0, 0,
                                AMDGPU_VA_OP_REPLACE);
