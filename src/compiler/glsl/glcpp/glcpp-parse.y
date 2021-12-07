@@ -1926,6 +1926,7 @@ _glcpp_parser_expand_function(glcpp_parser_t *parser, token_node_t *node,
    _token_list_trim_trailing_space(substituted);
 
    _glcpp_parser_apply_pastes(parser, substituted);
+   _glcpp_parser_expand_token_list(parser, substituted, mode);
 
    return substituted;
 }
