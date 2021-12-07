@@ -923,7 +923,6 @@ st_init_driver_functions(struct pipe_screen *screen,
    st_init_eglimage_functions(functions, has_egl_image_validate);
 
    st_init_flush_functions(screen, functions);
-   st_init_compute_functions(functions);
 
    st_init_vdpau_functions(functions);
 
