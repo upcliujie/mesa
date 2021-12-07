@@ -163,7 +163,7 @@ bi_varying_src0_for_barycentric(bi_builder *b, nir_intrinsic_instr *intr)
 
         case nir_intrinsic_load_barycentric_pixel:
         default:
-                return bi_dontcare();
+                return b->shader->arch >= 9 ? bi_register(61) : bi_dontcare();
         }
 }
 
@@ -303,15 +303,26 @@ bi_emit_load_vary(bi_builder *b, nir_intrinsic_instr *instr)
         } else {
                 assert(sz == 32);
                 regfmt = BI_REGISTER_FORMAT_U32;
+
+                /* Valhall can't have bi_null() here, although the source is
+                 * logically unused for flat varyings
+                 */
+                if (b->shader->arch >= 9)
+                        src0 = bi_register(61);
         }
 
         nir_src *offset = nir_get_io_offset_src(instr);
         unsigned imm_index = 0;
         bool immediate = bi_is_intr_immediate(instr, &imm_index, 20);
 
-        if (immediate && smooth) {
+        if (b->shader->arch >= 9) {
+                /* TODO: half. Immediate index given in bytes. */
+                assert(immediate && "no indirect varyings on Valhall");
+                bi_ld_var_imm_f32_to(b, dest, src0, regfmt, sample, update,
+                                vecsize, imm_index * 16);
+        } else if (immediate && smooth) {
                 bi_ld_var_imm_to(b, dest, src0, regfmt, sample, update,
-                                vecsize, imm_index);
+                                 vecsize, imm_index);
         } else if (immediate && !smooth) {
                 bi_ld_var_flat_imm_to(b, dest, BI_FUNCTION_NONE, regfmt,
                                 vecsize, imm_index);
