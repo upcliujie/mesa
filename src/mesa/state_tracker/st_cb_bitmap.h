@@ -36,6 +36,9 @@ struct dd_function_table;
 struct st_context;
 struct gl_program;
 struct st_program;
+struct gl_bitmap_atlas;
+struct gl_context;
+struct gl_pixelstore_attrib;
 
 extern void
 st_destroy_bitmap(struct st_context *st);
