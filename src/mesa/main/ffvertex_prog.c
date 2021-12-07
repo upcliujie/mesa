@@ -47,6 +47,7 @@
 #include "program/prog_statevars.h"
 #include "util/bitscan.h"
 
+#include "state_tracker/st_cb_program.h"
 
 /** Max of number of lights and texture coord units */
 #define NUM_UNITS MAX2(MAX_TEXTURE_COORD_UNITS, MAX_LIGHTS)
@@ -1721,7 +1722,7 @@ _mesa_get_fixed_func_vertex_program(struct gl_context *ctx)
       if (0)
          printf("Build new TNL program\n");
 
-      prog = ctx->Driver.NewProgram(ctx, MESA_SHADER_VERTEX, 0, true);
+      prog = st_new_program(ctx, MESA_SHADER_VERTEX, 0, true);
       if (!prog)
          return NULL;
 
@@ -1729,8 +1730,7 @@ _mesa_get_fixed_func_vertex_program(struct gl_context *ctx)
                           ctx->Const.ShaderCompilerOptions[MESA_SHADER_VERTEX].OptimizeForAOS,
                           ctx->Const.Program[MESA_SHADER_VERTEX].MaxTemps );
 
-      if (ctx->Driver.ProgramStringNotify)
-         ctx->Driver.ProgramStringNotify(ctx, GL_VERTEX_PROGRAM_ARB, prog);
+      st_program_string_notify(ctx, GL_VERTEX_PROGRAM_ARB, prog);
 
       _mesa_program_cache_insert(ctx, ctx->VertexProgram.Cache, &key,
                                  sizeof(key), prog);
