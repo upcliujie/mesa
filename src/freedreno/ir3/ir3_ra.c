@@ -2212,6 +2212,51 @@ calc_min_limit_pressure(struct ir3_shader_variant *v,
    ralloc_free(ctx);
 }
 
+/*
+ * If barriers are used, it must be possible for all waves in the workgroup
+ * to execute concurrently. Thus we may have to reduce the registers limit.
+ */
+static void
+calc_limit_pressure_for_cs_with_barrier(struct ir3_shader_variant *v,
+                                        struct ir3_pressure *limit_pressure)
+{
+   const struct ir3_compiler *compiler = v->shader->compiler;
+
+   unsigned threads_per_wg;
+   if (v->local_size_variable) {
+      /* We have to expect the worst case. */
+      threads_per_wg = compiler->max_variable_workgroup_size;
+   } else {
+      threads_per_wg =
+         v->local_size[0] * v->local_size[1] * v->local_size[2];
+   }
+
+   bool double_threadsize = ir3_should_double_threadsize(v, 0);
+   uint32_t threadsize =
+      compiler->threadsize_base * (double_threadsize ? 2 : 1);
+   uint32_t threads_per_wg_round_up = ALIGN_POT(threads_per_wg, threadsize);
+
+   uint32_t total_vec4_regs = compiler->reg_size_vec4 *
+                              compiler->wave_granularity *
+                              compiler->threadsize_base;
+
+   /* HW can only allocate in units of vec4. */
+   uint32_t vec4_regs_per_thread = total_vec4_regs / threads_per_wg_round_up;
+   assert(vec4_regs_per_thread > 0);
+
+   uint32_t half_regs_per_thread = vec4_regs_per_thread * 4 * 2;
+
+   if (limit_pressure->full > half_regs_per_thread) {
+      if (v->mergedregs) {
+         limit_pressure->full = half_regs_per_thread;
+      } else {
+         /* TODO: Handle !mergedregs case, probably we would have to do this
+          * after the first register pressure pass.
+          */
+      }
+   }
+}
+
 int
 ir3_ra(struct ir3_shader_variant *v)
 {
@@ -2238,11 +2283,14 @@ ir3_ra(struct ir3_shader_variant *v)
    d("\thalf: %u", max_pressure.half);
    d("\tshared: %u", max_pressure.shared);
 
-   /* TODO: calculate half/full limit correctly for CS with barrier */
    struct ir3_pressure limit_pressure;
    limit_pressure.full = RA_FULL_SIZE;
    limit_pressure.half = RA_HALF_SIZE;
    limit_pressure.shared = RA_SHARED_SIZE;
+
+   if (gl_shader_stage_is_compute(v->type) && v->has_barrier) {
+      calc_limit_pressure_for_cs_with_barrier(v, &limit_pressure);
+   }
 
    /* If requested, lower the limit so that spilling happens more often. */
    if (ir3_shader_debug & IR3_DBG_SPILLALL)
