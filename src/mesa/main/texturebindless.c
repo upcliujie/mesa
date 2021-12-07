@@ -34,6 +34,7 @@
 
 #include "util/hash_table.h"
 #include "util/u_memory.h"
+#include "api_exec_decl.h"
 
 /**
  * Return the gl_texture_handle_object for a given 64-bit handle.

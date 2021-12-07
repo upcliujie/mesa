@@ -36,6 +36,7 @@
 #include "shaderimage.h"
 #include "texcompress.h"
 #include "textureview.h"
+#include "api_exec_decl.h"
 
 static bool
 _is_renderable(struct gl_context *ctx, GLenum internalformat)

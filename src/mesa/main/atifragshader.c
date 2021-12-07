@@ -32,6 +32,7 @@
 #include "program/program.h"
 #include "program/prog_instruction.h"
 #include "util/u_memory.h"
+#include "api_exec_decl.h"
 
 #define MESA_DEBUG_ATI_FS 0
 

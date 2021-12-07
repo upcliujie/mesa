@@ -49,6 +49,7 @@
 #include "vbo/vbo_save.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
+#include "api_exec_decl.h"
 
 #define USE_BITMAP_ATLAS 1
 

@@ -35,6 +35,7 @@
 #include "mtypes.h"
 #include "performance_query.h"
 #include "util/ralloc.h"
+#include "api_exec_decl.h"
 
 void
 _mesa_init_performance_queries(struct gl_context *ctx)
