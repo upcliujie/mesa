@@ -44,6 +44,7 @@
 #include "version.h"
 
 #include "state_tracker/st_cb_queryobj.h"
+#include "api_exec_decl.h"
 
 /* This is a table driven implemetation of the glGet*v() functions.
  * The basic idea is that most getters just look up an int somewhere

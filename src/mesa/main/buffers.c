@@ -39,6 +39,7 @@
 #include "mtypes.h"
 #include "util/bitscan.h"
 #include "util/u_math.h"
+#include "api_exec_decl.h"
 
 
 #define BAD_MASK ~0u

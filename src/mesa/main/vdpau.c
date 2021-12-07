@@ -39,7 +39,7 @@
 #include "glformats.h"
 #include "texobj.h"
 #include "teximage.h"
-#include "vdpau.h"
+#include "api_exec_decl.h"
 
 #define MAX_TEXTURES 4
 
