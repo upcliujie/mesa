@@ -1459,6 +1459,9 @@ struct radv_cmd_state {
 
    /* Whether the cmdbuffer owns the current render pass rather than the app. */
    bool own_render_pass;
+
+   /* Whether dynamic rendering is suspended. */
+   bool is_rendering_suspended;
 };
 
 struct radv_cmd_pool {

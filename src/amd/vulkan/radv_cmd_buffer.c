@@ -5961,7 +5961,8 @@ radv_cmd_buffer_end_subpass(struct radv_cmd_buffer *cmd_buffer)
    const struct radv_subpass *subpass = state->subpass;
    uint32_t subpass_id = radv_get_subpass_id(cmd_buffer);
 
-   radv_cmd_buffer_resolve_subpass(cmd_buffer);
+   if (!cmd_buffer->state.is_rendering_suspended)
+      radv_cmd_buffer_resolve_subpass(cmd_buffer);
 
    radv_describe_barrier_start(cmd_buffer, RGP_BARRIER_EXTERNAL_RENDER_PASS_SYNC);
 
@@ -7711,6 +7712,9 @@ radv_CmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfoKH
    };
 
    radv_CmdBeginRenderPass2(commandBuffer, &begin_info, &pass_begin_info);
+
+   cmd_buffer->state.is_rendering_suspended =
+      !!(pRenderingInfo->flags & VK_RENDERING_SUSPENDING_BIT_KHR);
 }
 
 VKAPI_ATTR void VKAPI_CALL
