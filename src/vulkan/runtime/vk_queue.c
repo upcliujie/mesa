@@ -360,6 +360,17 @@ vk_queue_submit_final(struct vk_queue *queue,
    if (unlikely(result != VK_SUCCESS))
       return result;
 
+   if (submit->_wait_points) {
+      for (uint32_t i = 0; i < submit->wait_count; i++) {
+         if (submit->_wait_points[i] == NULL)
+            continue;
+
+         vk_sync_timeline_point_complete(queue->base.device,
+                                         submit->_wait_points[i]);
+         submit->_wait_points[i] = NULL;
+      }
+   }
+
    if (submit->_signal_points) {
       for (uint32_t i = 0; i < submit->signal_count; i++) {
          if (submit->_signal_points[i] == NULL)
