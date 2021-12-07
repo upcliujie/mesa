@@ -43,6 +43,8 @@
 #include "program/program.h"
 #include "program/prog_print.h"
 
+#include "state_tracker/st_cb_program.h"
+
 static void
 flush_vertices_for_program_constants(struct gl_context *ctx, GLenum target)
 {
@@ -79,8 +81,8 @@ lookup_or_create_program(GLuint id, GLenum target, const char* caller)
       if (!newProg || newProg == &_mesa_DummyProgram) {
          bool isGenName = newProg != NULL;
          /* allocate a new program now */
-         newProg = ctx->Driver.NewProgram(ctx, _mesa_program_enum_to_shader_stage(target),
-                                          id, true);
+         newProg = st_new_program(ctx, _mesa_program_enum_to_shader_stage(target),
+                                  id, true);
          if (!newProg) {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "%s", caller);
             return NULL;
@@ -408,7 +410,7 @@ set_program_string(struct gl_program *prog, GLenum target, GLenum format, GLsize
 
    if (!failed) {
       /* finally, give the program to the driver for translation/checking */
-      if (!ctx->Driver.ProgramStringNotify(ctx, target, prog)) {
+      if (!st_program_string_notify(ctx, target, prog)) {
          failed = true;
          _mesa_error(ctx, GL_INVALID_OPERATION,
                      "glProgramStringARB(rejected by driver");

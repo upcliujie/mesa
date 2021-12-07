@@ -55,7 +55,6 @@
 #include "st_cb_msaa.h"
 #include "st_cb_perfmon.h"
 #include "st_cb_perfquery.h"
-#include "st_cb_program.h"
 #include "st_cb_queryobj.h"
 #include "st_cb_flush.h"
 #include "st_atom.h"
@@ -929,7 +928,6 @@ st_init_driver_functions(struct pipe_screen *screen,
    st_init_eglimage_functions(functions, has_egl_image_validate);
 
    st_init_msaa_functions(functions);
-   st_init_program_functions(functions);
    st_init_flush_functions(screen, functions);
    st_init_compute_functions(functions);
 

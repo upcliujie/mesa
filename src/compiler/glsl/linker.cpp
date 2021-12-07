@@ -91,6 +91,7 @@
 #include "main/enums.h"
 #include "main/mtypes.h"
 
+#include "state_tracker/st_cb_program.h"
 
 namespace {
 
@@ -2513,7 +2514,7 @@ link_intrastage_shaders(void *mem_ctx,
 
    /* Create program and attach it to the linked shader */
    struct gl_program *gl_prog =
-      ctx->Driver.NewProgram(ctx, shader_list[0]->Stage, prog->Name, false);
+      st_new_program(ctx, shader_list[0]->Stage, prog->Name, false);
    if (!gl_prog) {
       prog->data->LinkStatus = LINKING_FAILURE;
       _mesa_delete_linked_shader(ctx, linked);
