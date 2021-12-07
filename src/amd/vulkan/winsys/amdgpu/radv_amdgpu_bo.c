@@ -66,9 +66,9 @@ radv_amdgpu_bo_va_op(struct radv_amdgpu_winsys *ws, amdgpu_bo_handle bo, uint64_
 }
 
 static VkResult
-radv_amdgpu_winsys_bo_virtual_bind(struct radeon_winsys *_ws, struct radeon_winsys_bo *_parent,
-                                   uint64_t offset, uint64_t size, struct radeon_winsys_bo *_bo,
-                                   uint64_t bo_offset)
+radv_amdgpu_winsys_bo_commit(struct radeon_winsys *_ws, struct radeon_winsys_bo *_parent,
+                             uint64_t offset, uint64_t size, struct radeon_winsys_bo *_bo,
+                             uint64_t bo_offset)
 {
    struct radv_amdgpu_winsys *ws = radv_amdgpu_winsys(_ws);
    struct radv_amdgpu_winsys_bo *parent = (struct radv_amdgpu_winsys_bo *)_parent;
@@ -916,7 +916,7 @@ radv_amdgpu_bo_init_functions(struct radv_amdgpu_winsys *ws)
    ws->base.buffer_get_fd = radv_amdgpu_winsys_get_fd;
    ws->base.buffer_set_metadata = radv_amdgpu_winsys_bo_set_metadata;
    ws->base.buffer_get_metadata = radv_amdgpu_winsys_bo_get_metadata;
-   ws->base.buffer_virtual_bind = radv_amdgpu_winsys_bo_virtual_bind;
+   ws->base.buffer_commit = radv_amdgpu_winsys_bo_commit;
    ws->base.buffer_get_flags_from_fd = radv_amdgpu_bo_get_flags_from_fd;
    ws->base.buffer_make_resident = radv_amdgpu_winsys_bo_make_resident;
    ws->base.dump_bo_ranges = radv_amdgpu_dump_bo_ranges;

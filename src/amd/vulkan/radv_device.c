@@ -4291,9 +4291,9 @@ radv_sparse_buffer_bind_memory(struct radv_device *device, const VkSparseBufferM
       if (bind->pBinds[i].memory != VK_NULL_HANDLE)
          mem = radv_device_memory_from_handle(bind->pBinds[i].memory);
 
-      result = device->ws->buffer_virtual_bind(device->ws, buffer->bo,
-                                               bind->pBinds[i].resourceOffset, bind->pBinds[i].size,
-                                               mem ? mem->bo : NULL, bind->pBinds[i].memoryOffset);
+      result = device->ws->buffer_commit(device->ws, buffer->bo, bind->pBinds[i].resourceOffset,
+                                         bind->pBinds[i].size, mem ? mem->bo : NULL,
+                                         bind->pBinds[i].memoryOffset);
       if (result != VK_SUCCESS)
          return result;
    }
@@ -4314,9 +4314,9 @@ radv_sparse_image_opaque_bind_memory(struct radv_device *device,
       if (bind->pBinds[i].memory != VK_NULL_HANDLE)
          mem = radv_device_memory_from_handle(bind->pBinds[i].memory);
 
-      result = device->ws->buffer_virtual_bind(device->ws, image->bo,
-                                               bind->pBinds[i].resourceOffset, bind->pBinds[i].size,
-                                               mem ? mem->bo : NULL, bind->pBinds[i].memoryOffset);
+      result = device->ws->buffer_commit(device->ws, image->bo, bind->pBinds[i].resourceOffset,
+                                         bind->pBinds[i].size, mem ? mem->bo : NULL,
+                                         bind->pBinds[i].memoryOffset);
       if (result != VK_SUCCESS)
          return result;
    }
@@ -4371,8 +4371,8 @@ radv_sparse_image_bind_memory(struct radv_device *device, const VkSparseImageMem
          uint32_t aligned_extent_height = ALIGN(bind_extent.height, surface->prt_tile_height);
 
          uint32_t size = aligned_extent_width * aligned_extent_height * bs;
-         result = device->ws->buffer_virtual_bind(device->ws, image->bo, offset, size,
-                                                  mem ? mem->bo : NULL, mem_offset);
+         result = device->ws->buffer_commit(device->ws, image->bo, offset, size,
+                                            mem ? mem->bo : NULL, mem_offset);
          if (result != VK_SUCCESS)
             return result;
       } else {
@@ -4380,9 +4380,9 @@ radv_sparse_image_bind_memory(struct radv_device *device, const VkSparseImageMem
          uint32_t mem_increment = aligned_extent_width * bs;
          uint32_t size = mem_increment * surface->prt_tile_height;
          for (unsigned y = 0; y < bind_extent.height; y += surface->prt_tile_height) {
-            result = device->ws->buffer_virtual_bind(
-               device->ws, image->bo, offset + img_increment * y, size, mem ? mem->bo : NULL,
-               mem_offset + mem_increment * y);
+            result = device->ws->buffer_commit(device->ws, image->bo, offset + img_increment * y,
+                                               size, mem ? mem->bo : NULL,
+                                               mem_offset + mem_increment * y);
             if (result != VK_SUCCESS)
                return result;
          }
