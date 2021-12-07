@@ -33,6 +33,8 @@
 
 #include "util/u_atomic.h"
 
+#include "state_tracker/st_cb_program.h"
+
 void
 _mesa_spirv_module_reference(struct gl_spirv_module **dest,
                              struct gl_spirv_module *src)
@@ -148,7 +150,7 @@ _mesa_spirv_link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
 
       /* Create program and attach it to the linked shader */
       struct gl_program *gl_prog =
-         ctx->Driver.NewProgram(ctx, shader_type, prog->Name, false);
+         st_new_program(ctx, shader_type, prog->Name, false);
       if (!gl_prog) {
          prog->data->LinkStatus = LINKING_FAILURE;
          _mesa_delete_linked_shader(ctx, linked);

@@ -38,6 +38,7 @@
 #include "string_to_uint_map.h"
 #include "util/bitscan.h"
 
+#include "state_tracker/st_cb_program.h"
 
 static void
 write_subroutines(struct blob *metadata, struct gl_shader_program *prog)
@@ -1227,7 +1228,7 @@ create_linked_shader_and_program(struct gl_context *ctx,
    struct gl_linked_shader *linked = rzalloc(NULL, struct gl_linked_shader);
    linked->Stage = stage;
 
-   glprog = ctx->Driver.NewProgram(ctx, stage, prog->Name, false);
+   glprog = st_new_program(ctx, stage, prog->Name, false);
    glprog->info.stage = stage;
    linked->Program = glprog;
 

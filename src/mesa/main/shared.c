@@ -48,6 +48,7 @@
 #include "state_tracker/st_cb_memoryobjects.h"
 #include "state_tracker/st_cb_semaphoreobjects.h"
 #include "state_tracker/st_cb_texture.h"
+#include "state_tracker/st_cb_program.h"
 
 static void
 free_shared_state(struct gl_context *ctx, struct gl_shared_state *shared);
@@ -79,9 +80,9 @@ _mesa_alloc_shared_state(struct gl_context *ctx)
    shared->Programs = _mesa_NewHashTable();
 
    shared->DefaultVertexProgram =
-      ctx->Driver.NewProgram(ctx, MESA_SHADER_VERTEX, 0, true);
+      st_new_program(ctx, MESA_SHADER_VERTEX, 0, true);
    shared->DefaultFragmentProgram =
-      ctx->Driver.NewProgram(ctx, MESA_SHADER_FRAGMENT, 0, true);
+      st_new_program(ctx, MESA_SHADER_FRAGMENT, 0, true);
 
    shared->ATIShaders = _mesa_NewHashTable();
    shared->DefaultFragmentShader = _mesa_new_ati_fragment_shader(ctx, 0);
@@ -195,7 +196,7 @@ delete_program_cb(void *data, void *userData)
    if(prog != &_mesa_DummyProgram) {
       assert(prog->RefCount == 1); /* should only be referenced by hash table */
       prog->RefCount = 0;  /* now going away */
-      ctx->Driver.DeleteProgram(ctx, prog);
+      st_delete_program(ctx, prog);
    }
 }
 
