@@ -103,6 +103,9 @@ void vk_sync_timeline_point_free(struct vk_device *device,
 VkResult vk_sync_timeline_point_install(struct vk_device *device,
                                         struct vk_sync_timeline_point *point);
 
+VkResult vk_sync_timeline_point_complete(struct vk_device *device,
+                                         struct vk_sync_timeline_point *point);
+
 VkResult vk_sync_timeline_get_point(struct vk_device *device,
                                     struct vk_sync_timeline *timeline,
                                     uint64_t wait_value,
