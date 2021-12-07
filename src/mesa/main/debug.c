@@ -37,6 +37,7 @@
 #include "pixelstore.h"
 #include "readpix.h"
 #include "texobj.h"
+#include "api_exec_decl.h"
 
 
 static const char *

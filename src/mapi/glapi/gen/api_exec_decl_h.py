@@ -49,6 +49,10 @@ class PrintCode(gl_XML.gl_print_base):
 
             #include "GL/gl.h"
             #include "GLES/gl.h"
+
+            #ifdef __cplusplus
+            extern "C" {
+            #endif
             """))
 
         for f in api.functionIterateAll():
@@ -60,6 +64,10 @@ class PrintCode(gl_XML.gl_print_base):
             if f.has_no_error_variant:
                 print('{0} GLAPIENTRY _mesa_{1}_no_error({2});'.format(
                   f.return_type, f.name, f.get_parameter_string()))
+        print('')
+        print('#ifdef __cplusplus')
+        print('}')
+        print('#endif')
         print('')
         print('#endif')
 

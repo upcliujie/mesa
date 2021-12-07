@@ -37,6 +37,7 @@
 #include "teximage.h"
 #include "texobj.h"
 #include "hash.h"
+#include "api_exec_decl.h"
 
 bool
 _mesa_is_valid_generate_texture_mipmap_target(struct gl_context *ctx,
