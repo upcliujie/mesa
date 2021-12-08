@@ -780,6 +780,8 @@ dzn_descriptor_heap::dzn_descriptor_heap(dzn_device *device,
    type = desc.Type;
    desc_sz = device->dev->GetDescriptorHandleIncrementSize(desc.Type);
    cpu_base = heap->GetCPUDescriptorHandleForHeapStart().ptr;
+   if (shader_visible)
+      gpu_base = heap->GetGPUDescriptorHandleForHeapStart().ptr;
 }
 
 const VkAllocationCallbacks *
@@ -798,6 +800,14 @@ dzn_descriptor_heap::get_cpu_handle(uint32_t desc_offset) const
 {
    return D3D12_CPU_DESCRIPTOR_HANDLE {
       .ptr = cpu_base + (desc_offset * desc_sz),
+   };
+}
+
+D3D12_GPU_DESCRIPTOR_HANDLE
+dzn_descriptor_heap::get_gpu_handle(uint32_t desc_offset) const
+{
+   return D3D12_GPU_DESCRIPTOR_HANDLE {
+      .ptr = gpu_base ? gpu_base + (desc_offset * desc_sz) : 0,
    };
 }
 

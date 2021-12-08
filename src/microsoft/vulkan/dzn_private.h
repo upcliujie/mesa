@@ -538,6 +538,7 @@ struct dzn_descriptor_heap {
 
    const VkAllocationCallbacks *get_vk_allocator();
 
+   D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle(uint32_t desc_offset = 0) const;
    D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle(uint32_t desc_offset = 0) const;
 
    void write_desc(uint32_t desc_offset,
@@ -563,6 +564,7 @@ private:
    ComPtr<ID3D12DescriptorHeap> heap;
    D3D12_DESCRIPTOR_HEAP_TYPE type = (D3D12_DESCRIPTOR_HEAP_TYPE)0;
    SIZE_T cpu_base = 0;
+   uint64_t gpu_base = 0;
    uint32_t desc_count = 0;
    uint32_t desc_sz = 0;
 };
