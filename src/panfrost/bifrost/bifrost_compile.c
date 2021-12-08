@@ -721,6 +721,33 @@ bi_should_remove_store(nir_intrinsic_instr *intr, enum bi_idvs_mode idvs)
         }
 }
 
+/**
+ * Computes the offset in bytes of a varying. This assumes VARYING_SLOT_POS is
+ * mapped to location=0 and always present. This also assumes each slot
+ * consumes 16 bytes, which is a worst-case (highp vec4). In the future, this
+ * should be optimized to support fp16 and partial vectors. There are
+ * nontrivial interactions with separable shaders, however.
+ */
+static unsigned
+bi_varying_offset(nir_intrinsic_instr *intr)
+{
+        nir_io_semantics sem = nir_intrinsic_io_semantics(intr);
+        nir_src *offset = nir_get_io_offset_src(intr);
+        assert(nir_src_is_const(*offset) && "no indirect varyings on Valhall");
+
+        unsigned slot = nir_intrinsic_base(intr) + nir_src_as_uint(*offset);
+
+        switch (sem.location) {
+        case VARYING_SLOT_POS:
+                return 0;
+        case VARYING_SLOT_PSIZ:
+                unreachable("todo: point size on Valhall");
+        default:
+                assert(slot >= 1 && "position should be linked first");
+                return (slot - 1) * 16;
+        }
+}
+
 static void
 bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 {
@@ -763,6 +790,15 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 
                 bi_st_cvt(b, data, bi_register(58), bi_register(59),
                           bi_imm_u32(format), regfmt, nr - 1);
+        } else if (b->shader->arch >= 9) {
+                bi_index address = bi_lea_vary(b, bi_register(59));
+                bool varying = (b->shader->idvs == BI_IDVS_VARYING);
+
+                bi_store(b, nr * nir_src_bit_size(instr->src[0]),
+                         bi_src_index(&instr->src[0]),
+                         address, bi_word(address, 1),
+                         varying ? BI_SEG_VARY : BI_SEG_POS,
+                         bi_varying_offset(instr));
         } else if (immediate) {
                 bi_index address = bi_lea_attr_imm(b,
                                           bi_register(61), bi_register(62),
@@ -776,6 +812,7 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
                                     bi_src_index(nir_get_io_offset_src(instr)),
                                     bi_imm_u32(nir_intrinsic_base(instr)),
                                     false);
+
                 bi_index address = bi_lea_attr(b,
                                       bi_register(61), bi_register(62),
                                       idx, regfmt);
