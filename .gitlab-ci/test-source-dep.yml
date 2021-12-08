@@ -5,7 +5,7 @@
 # ----------------------------------------------------------
 .scheduled_pipelines-rules:
   rules: &ignore_scheduled_pipelines
-    if: '$CI_PIPELINE_SOURCE == "schedule"'
+    if: '$CI_PIPELINE_SOURCE == "schedulex"'
     when: never
 
 # Mesa core source file dependencies
