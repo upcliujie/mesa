@@ -107,6 +107,12 @@ struct wsi_device {
     * available. Not all window systems might support this. */
    bool enable_adaptive_sync;
 
+   /* If the driver wants to use a special queue to execute the prime blit,
+    * it just has to set this to the queue_family_index it wants to use.
+    * VK_NULL_HANDLE is the default value and means that the prime blit is executed on
+    * the present queue. */
+   VkQueue private_queue_for_prime_blit;
+
    /* List of fences to signal when hotplug event happens. */
    struct list_head hotplug_fences;
 
@@ -181,10 +187,12 @@ struct wsi_device {
    WSI_CB(CreateCommandPool);
    WSI_CB(CreateFence);
    WSI_CB(CreateImage);
+   WSI_CB(CreateSemaphore);
    WSI_CB(DestroyBuffer);
    WSI_CB(DestroyCommandPool);
    WSI_CB(DestroyFence);
    WSI_CB(DestroyImage);
+   WSI_CB(DestroySemaphore);
    WSI_CB(EndCommandBuffer);
    WSI_CB(FreeMemory);
    WSI_CB(FreeCommandBuffers);
