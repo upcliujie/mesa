@@ -617,6 +617,24 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBlitImage2KHR(VkCommandBuffer commandBuffer,
+                     const VkBlitImageInfo2KHR *info)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->blit(info);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdResolveImage2KHR(VkCommandBuffer commandBuffer,
+                        const VkResolveImageInfo2KHR *info)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->resolve(info);
+}
+
+VKAPI_ATTR void VKAPI_CALL
 dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
                        VkImage image,
                        VkImageLayout imageLayout,
@@ -1208,6 +1226,437 @@ dzn_cmd_buffer::copy(const VkCopyImageInfo2KHR *info)
          for (uint32_t l = 0; l < region.srcSubresource.layerCount; l++)
             copy(info, tmp_desc, tmp_loc, i, aspect, l);
       }
+   }
+}
+
+void
+dzn_cmd_buffer::blit_prepare_src_view(VkImage image,
+                                      VkImageAspectFlagBits aspect,
+                                      const VkImageSubresourceLayers &subres,
+                                      dzn_descriptor_heap &heap,
+                                      uint32_t heap_offset)
+{
+   VK_FROM_HANDLE(dzn_image, img, image);
+   VkImageViewCreateInfo iview_info = {
+      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+      .image = image,
+      .format = img->vk.format,
+      .subresourceRange = {
+         .aspectMask = (VkImageAspectFlags)aspect,
+         .baseMipLevel = subres.mipLevel,
+         .levelCount = 1,
+         .baseArrayLayer = subres.baseArrayLayer,
+         .layerCount = subres.layerCount,
+      },
+   };
+
+   if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
+      iview_info.components.r = VK_COMPONENT_SWIZZLE_G;
+      iview_info.components.g = VK_COMPONENT_SWIZZLE_G;
+      iview_info.components.b = VK_COMPONENT_SWIZZLE_G;
+      iview_info.components.a = VK_COMPONENT_SWIZZLE_G;
+   } else if (aspect == VK_IMAGE_ASPECT_STENCIL_BIT) {
+      iview_info.components.r = VK_COMPONENT_SWIZZLE_R;
+      iview_info.components.g = VK_COMPONENT_SWIZZLE_R;
+      iview_info.components.b = VK_COMPONENT_SWIZZLE_R;
+      iview_info.components.a = VK_COMPONENT_SWIZZLE_R;
+   }
+
+   switch (img->vk.image_type) {
+   case VK_IMAGE_TYPE_1D:
+      iview_info.viewType = img->vk.array_layers > 1 ?
+                            VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D;
+      break;
+   case VK_IMAGE_TYPE_2D:
+      iview_info.viewType = img->vk.array_layers > 1 ?
+                            VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+      break;
+   case VK_IMAGE_TYPE_3D:
+      iview_info.viewType = VK_IMAGE_VIEW_TYPE_3D;
+      break;
+   default:
+      unreachable("Invalid type");
+   }
+
+   dzn_image_view iview(device, &iview_info, NULL);
+   heap.write_desc(heap_offset, false, &iview);
+
+   dzn_batch *batch = get_batch();
+   batch->cmdlist->SetGraphicsRootDescriptorTable(0, heap.get_gpu_handle(heap_offset));
+}
+
+void
+dzn_cmd_buffer::blit_prepare_dst_view(dzn_image *img,
+                                      VkImageAspectFlagBits aspect,
+                                      uint32_t level, uint32_t layer)
+{
+   bool ds = aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+   VkImageSubresourceRange range = {
+      .aspectMask = (VkImageAspectFlags)aspect,
+      .baseMipLevel = level,
+      .levelCount = 1,
+      .baseArrayLayer = layer,
+      .layerCount = 1,
+   };
+   struct d3d12_descriptor_handle handle;
+   dzn_batch *batch = get_batch();
+
+   if (ds) {
+      d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), &handle);
+      img->create_dsv(device, range, 0, handle.cpu_handle);
+      batch->cmdlist->OMSetRenderTargets(0, NULL, TRUE, &handle.cpu_handle);
+   } else {
+      d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &handle);
+      img->create_rtv(device, range, 0, handle.cpu_handle);
+      batch->cmdlist->OMSetRenderTargets(1, &handle.cpu_handle, FALSE, NULL);
+   }
+}
+
+void
+dzn_cmd_buffer::blit_set_pipeline(const dzn_image *src,
+                                  const dzn_image *dst,
+                                  VkImageAspectFlagBits aspect,
+                                  VkFilter filter, bool resolve)
+{
+   enum pipe_format pfmt = vk_format_to_pipe_format(dst->vk.format);
+   VkImageUsageFlags usage =
+      vk_format_is_depth_or_stencil(dst->vk.format) ?
+      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT :
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+   struct dzn_meta_blit::key ctx_key = {
+      .out_format = dzn_image::get_dxgi_format(dst->vk.format, usage, aspect),
+      .samples = (uint32_t)src->vk.samples,
+      .loc = (uint32_t)(aspect == VK_IMAGE_ASPECT_DEPTH_BIT ?
+                        FRAG_RESULT_DEPTH :
+                        aspect == VK_IMAGE_ASPECT_STENCIL_BIT ?
+                        FRAG_RESULT_STENCIL :
+                        FRAG_RESULT_DATA0),
+      .out_type = (uint32_t)(util_format_is_pure_uint(pfmt) ? GLSL_TYPE_UINT :
+                             util_format_is_pure_sint(pfmt) ? GLSL_TYPE_INT :
+                             aspect == VK_IMAGE_ASPECT_STENCIL_BIT ? GLSL_TYPE_UINT :
+                             GLSL_TYPE_FLOAT),
+      .sampler_dim = (uint32_t)(src->vk.image_type == VK_IMAGE_TYPE_1D ? GLSL_SAMPLER_DIM_1D :
+                                src->vk.image_type == VK_IMAGE_TYPE_2D && src->vk.samples == 1 ? GLSL_SAMPLER_DIM_2D :
+                                src->vk.image_type == VK_IMAGE_TYPE_2D && src->vk.samples > 1 ? GLSL_SAMPLER_DIM_MS :
+                                GLSL_SAMPLER_DIM_3D),
+      .src_is_array = src->vk.array_layers > 1,
+      .resolve = resolve,
+      .linear_filter = filter == VK_FILTER_LINEAR,
+   };
+
+   const dzn_meta_blit *ctx = device->blits->get_context(ctx_key);
+   assert(ctx);
+
+   dzn_batch *batch = get_batch();
+
+   batch->cmdlist->SetGraphicsRootSignature(ctx->root_sig.Get());
+   batch->cmdlist->SetPipelineState(ctx->pipeline_state.Get());
+}
+
+void
+dzn_cmd_buffer::blit_set_2d_region(const dzn_image *src,
+                                   const VkImageSubresourceLayers &src_subres,
+                                   const VkOffset3D *src_offsets,
+                                   const dzn_image *dst,
+                                   const VkImageSubresourceLayers &dst_subres,
+                                   const VkOffset3D *dst_offsets,
+                                   bool normalize_src_coords)
+{
+   uint32_t dst_w = u_minify(dst->vk.extent.width, dst_subres.mipLevel);
+   uint32_t dst_h = u_minify(dst->vk.extent.height, dst_subres.mipLevel);
+   uint32_t src_w = u_minify(src->vk.extent.width, src_subres.mipLevel);
+   uint32_t src_h = u_minify(src->vk.extent.height, src_subres.mipLevel);
+
+   float dst_pos[4] = {
+      (2 * (float)dst_offsets[0].x / (float)dst_w) - 1.0f, -((2 * (float)dst_offsets[0].y / (float)dst_h) - 1.0f),
+      (2 * (float)dst_offsets[1].x / (float)dst_w) - 1.0f, -((2 * (float)dst_offsets[1].y / (float)dst_h) - 1.0f),
+   };
+
+   float src_pos[4] = {
+      (float)src_offsets[0].x, (float)src_offsets[0].y,
+      (float)src_offsets[1].x, (float)src_offsets[1].y,
+   };
+
+   if (normalize_src_coords) {
+      src_pos[0] /= src_w;
+      src_pos[1] /= src_h;
+      src_pos[2] /= src_w;
+      src_pos[3] /= src_h;
+   }
+
+   float coords[] = {
+      dst_pos[0], dst_pos[1], src_pos[0], src_pos[1],
+      dst_pos[2], dst_pos[1], src_pos[2], src_pos[1],
+      dst_pos[0], dst_pos[3], src_pos[0], src_pos[3],
+      dst_pos[2], dst_pos[3], src_pos[2], src_pos[3],
+   };
+
+   batch->cmdlist->SetGraphicsRoot32BitConstants(1, ARRAY_SIZE(coords), coords, 0);
+
+   D3D12_VIEWPORT vp = {
+      .TopLeftX = 0,
+      .TopLeftY = 0,
+      .Width = (float)dst_w,
+      .Height = (float)dst_h,
+      .MinDepth = 0,
+      .MaxDepth = 1,
+   };
+   batch->cmdlist->RSSetViewports(1, &vp);
+
+   D3D12_RECT scissor = {
+      .left = MIN2(dst_offsets[0].x, dst_offsets[1].x),
+      .top = MIN2(dst_offsets[0].y, dst_offsets[1].y),
+      .right = MAX2(dst_offsets[0].x, dst_offsets[1].x),
+      .bottom = MAX2(dst_offsets[0].y, dst_offsets[1].y),
+   };
+   batch->cmdlist->RSSetScissorRects(1, &scissor);
+}
+
+void
+dzn_cmd_buffer::blit_issue_barriers(dzn_image *src, VkImageLayout src_layout,
+                                    const VkImageSubresourceLayers &src_subres,
+                                    dzn_image *dst, VkImageLayout dst_layout,
+                                    const VkImageSubresourceLayers &dst_subres,
+                                    VkImageAspectFlagBits aspect,
+                                    bool post)
+{
+   bool ds = aspect & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+   D3D12_RESOURCE_BARRIER barriers[2] = {
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = src->res.Get(),
+            .StateBefore = dzn_get_states(src_layout),
+            .StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+         },
+      },
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = dst->res.Get(),
+            .StateBefore = dzn_get_states(dst_layout),
+            .StateAfter = ds ?
+                          D3D12_RESOURCE_STATE_DEPTH_WRITE :
+                          D3D12_RESOURCE_STATE_RENDER_TARGET,
+         },
+      },
+   };
+
+   if (post) {
+      std::swap(barriers[0].Transition.StateBefore, barriers[0].Transition.StateAfter);
+      std::swap(barriers[1].Transition.StateBefore, barriers[1].Transition.StateAfter);
+   }
+
+   uint32_t layer_count = dzn_get_layer_count(src, &src_subres);
+   uint32_t src_level = src_subres.mipLevel;
+   uint32_t dst_level = dst_subres.mipLevel;
+
+   assert(dzn_get_layer_count(dst, &dst_subres) == layer_count);
+   assert(src_level < src->vk.mip_levels);
+   assert(dst_level < dst->vk.mip_levels);
+
+   for (uint32_t layer = 0; layer < layer_count; layer++) {
+      barriers[0].Transition.Subresource =
+         src->get_subresource_index(src_subres, aspect, layer);
+      barriers[1].Transition.Subresource =
+         dst->get_subresource_index(dst_subres, aspect, layer);
+      batch->cmdlist->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+   }
+}
+
+void
+dzn_cmd_buffer::blit(const VkBlitImageInfo2KHR *info,
+                     dzn_descriptor_heap &heap,
+                     uint32_t &heap_offset,
+                     uint32_t r)
+{
+   VK_FROM_HANDLE(dzn_image, src, info->srcImage);
+   VK_FROM_HANDLE(dzn_image, dst, info->dstImage);
+
+   ID3D12Device *dev = device->dev;
+   dzn_batch *batch = get_batch();
+   const VkImageBlit2KHR &region = info->pRegions[r];
+
+   dzn_foreach_aspect(aspect, region.srcSubresource.aspectMask) {
+      blit_set_pipeline(src, dst, aspect, info->filter, false);
+      blit_issue_barriers(src, info->srcImageLayout, region.srcSubresource,
+                          dst, info->dstImageLayout, region.dstSubresource,
+                          aspect, false);
+      blit_prepare_src_view(info->srcImage, aspect, region.srcSubresource, heap, heap_offset++);
+      blit_set_2d_region(src, region.srcSubresource, region.srcOffsets,
+                         dst, region.dstSubresource, region.dstOffsets,
+                         src->vk.samples == 1);
+
+      uint32_t dst_depth =
+         region.dstOffsets[1].z > region.dstOffsets[0].z ?
+         region.dstOffsets[1].z - region.dstOffsets[0].z :
+         region.dstOffsets[0].z - region.dstOffsets[1].z;
+      uint32_t src_depth =
+         region.srcOffsets[1].z > region.srcOffsets[0].z ?
+         region.srcOffsets[1].z - region.srcOffsets[0].z :
+         region.srcOffsets[0].z - region.srcOffsets[1].z;
+
+      uint32_t layer_count = dzn_get_layer_count(src, &region.srcSubresource);
+      uint32_t dst_level = region.dstSubresource.mipLevel;
+
+      float src_slice_step = layer_count > 1 ? 1 : (float)src_depth / dst_depth;
+      if (region.srcOffsets[0].z > region.srcOffsets[1].z)
+         src_slice_step = -src_slice_step;
+      float src_z_coord = layer_count > 1 ?
+                          0 : (float)region.srcOffsets[0].z + (src_slice_step * 0.5f);
+      uint32_t slice_count = layer_count > 1 ? layer_count : dst_depth;
+      uint32_t dst_z_coord = layer_count > 1 ?
+                             region.dstSubresource.baseArrayLayer :
+                             region.dstOffsets[0].z;
+      if (region.dstOffsets[0].z > region.dstOffsets[1].z)
+         dst_z_coord--;
+
+      uint32_t dst_slice_step = region.dstOffsets[0].z < region.dstOffsets[1].z ?
+                                1 : -1;
+
+      /* Normalize the src coordinates/step */
+      if (layer_count == 1 && src->vk.samples == 1) {
+         src_z_coord /= src->vk.extent.depth;
+         src_slice_step /= src->vk.extent.depth;
+      }
+
+      for (uint32_t slice = 0; slice < slice_count; slice++) {
+         blit_prepare_dst_view(dst, aspect, dst_level, dst_z_coord);
+         batch->cmdlist->SetGraphicsRoot32BitConstants(1, 1, &src_z_coord, 16);
+         batch->cmdlist->DrawInstanced(4, 1, 0, 0);
+         src_z_coord += src_slice_step;
+         dst_z_coord += dst_slice_step;
+      }
+
+      blit_issue_barriers(src, info->srcImageLayout, region.srcSubresource,
+                          dst, info->dstImageLayout, region.dstSubresource,
+                          aspect, true);
+   }
+}
+
+void
+dzn_cmd_buffer::blit(const VkBlitImageInfo2KHR *info)
+{
+   if (info->regionCount == 0)
+      return;
+
+   uint32_t desc_count = 0;
+   for (uint32_t r = 0; r < info->regionCount; r++)
+      desc_count += util_bitcount(info->pRegions[r].srcSubresource.aspectMask);
+
+   auto heap =
+      dzn_descriptor_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, desc_count, true);
+
+   heaps.push_back(heap);
+
+   ID3D12DescriptorHeap * const heaps[] = { heap };
+   batch->cmdlist->SetDescriptorHeaps(ARRAY_SIZE(heaps), heaps);
+   batch->cmdlist->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+   uint32_t heap_offset = 0;
+   for (uint32_t r = 0; r < info->regionCount; r++)
+      blit(info, heap, heap_offset, r);
+
+   state.pipeline = NULL;
+   state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
+   state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
+   if (state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline) {
+      state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+   }
+}
+
+void
+dzn_cmd_buffer::resolve(const VkResolveImageInfo2KHR *info,
+                        dzn_descriptor_heap &heap,
+                        uint32_t &heap_offset,
+                        uint32_t r)
+{
+   VK_FROM_HANDLE(dzn_image, src, info->srcImage);
+   VK_FROM_HANDLE(dzn_image, dst, info->dstImage);
+
+   ID3D12Device *dev = device->dev;
+   dzn_batch *batch = get_batch();
+   const VkImageResolve2KHR &region = info->pRegions[r];
+
+   dzn_foreach_aspect(aspect, region.srcSubresource.aspectMask) {
+      blit_set_pipeline(src, dst, aspect, VK_FILTER_NEAREST, true);
+      blit_issue_barriers(src, info->srcImageLayout, region.srcSubresource,
+                          dst, info->dstImageLayout, region.dstSubresource,
+                          aspect, false);
+      blit_prepare_src_view(info->srcImage, aspect, region.srcSubresource, heap, heap_offset++);
+
+      VkOffset3D src_offset[2] = {
+         {
+            .x = region.srcOffset.x,
+            .y = region.srcOffset.y,
+         },
+         {
+            .x = (int32_t)(region.srcOffset.x + region.extent.width),
+            .y = (int32_t)(region.srcOffset.y + region.extent.height),
+         },
+      };
+      VkOffset3D dst_offset[2] = {
+         {
+            .x = region.dstOffset.x,
+            .y = region.dstOffset.y,
+         },
+         {
+            .x = (int32_t)(region.dstOffset.x + region.extent.width),
+            .y = (int32_t)(region.dstOffset.y + region.extent.height),
+         },
+      };
+
+      blit_set_2d_region(src, region.srcSubresource, src_offset,
+                         dst, region.dstSubresource, dst_offset,
+                         false);
+
+      uint32_t layer_count = dzn_get_layer_count(src, &region.srcSubresource);
+      for (uint32_t layer = 0; layer < layer_count; layer++) {
+         float src_z_coord = layer;
+
+         blit_prepare_dst_view(dst, aspect, region.dstSubresource.mipLevel,
+                               region.dstSubresource.baseArrayLayer + layer);
+         batch->cmdlist->SetGraphicsRoot32BitConstants(1, 1, &src_z_coord, 16);
+         batch->cmdlist->DrawInstanced(4, 1, 0, 0);
+      }
+
+      blit_issue_barriers(src, info->srcImageLayout, region.srcSubresource,
+                          dst, info->dstImageLayout, region.dstSubresource,
+                          aspect, true);
+   }
+}
+void
+dzn_cmd_buffer::resolve(const VkResolveImageInfo2KHR *info)
+{
+   if (info->regionCount == 0)
+      return;
+
+   uint32_t desc_count = 0;
+   for (uint32_t r = 0; r < info->regionCount; r++)
+      desc_count += util_bitcount(info->pRegions[r].srcSubresource.aspectMask);
+
+   auto heap =
+      dzn_descriptor_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, desc_count, true);
+
+   heaps.push_back(heap);
+
+   ID3D12DescriptorHeap * const heaps[] = { heap };
+   batch->cmdlist->SetDescriptorHeaps(ARRAY_SIZE(heaps), heaps);
+   batch->cmdlist->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+   uint32_t heap_offset = 0;
+   for (uint32_t r = 0; r < info->regionCount; r++)
+      resolve(info, heap, heap_offset, r);
+
+   state.pipeline = NULL;
+   state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
+   state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
+   if (state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline) {
+      state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
    }
 }
 

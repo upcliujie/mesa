@@ -725,6 +725,9 @@ struct dzn_cmd_buffer {
    void copy(const VkCopyBufferToImageInfo2KHR *info);
    void copy(const VkCopyImageInfo2KHR *info);
 
+   void blit(const VkBlitImageInfo2KHR *info);
+   void resolve(const VkResolveImageInfo2KHR *info);
+
    void draw(uint32_t vertex_count,
              uint32_t instance_count,
              uint32_t first_vertex,
@@ -758,6 +761,40 @@ private:
              uint32_t region,
              VkImageAspectFlagBits aspect,
              uint32_t layer);
+
+   void blit_set_pipeline(const dzn_image *src,
+                          const dzn_image *dst,
+                          VkImageAspectFlagBits aspect,
+                          VkFilter filter, bool resolve);
+   void blit_set_2d_region(const dzn_image *src,
+                           const VkImageSubresourceLayers &src_subres,
+                           const VkOffset3D *src_offsets,
+                           const dzn_image *dst,
+                           const VkImageSubresourceLayers &dst_subres,
+                           const VkOffset3D *dst_offsets,
+                           bool normalize_src_coords);
+   void blit_issue_barriers(dzn_image *src, VkImageLayout src_layout,
+                            const VkImageSubresourceLayers &src_subres,
+                            dzn_image *dst, VkImageLayout dst_layout,
+                            const VkImageSubresourceLayers &dst_subres,
+                            VkImageAspectFlagBits aspect,
+                            bool post);
+   void blit_prepare_src_view(VkImage image,
+                              VkImageAspectFlagBits aspect,
+                              const VkImageSubresourceLayers &subres,
+                              dzn_descriptor_heap &heap,
+                              uint32_t heap_offset);
+   void blit_prepare_dst_view(dzn_image *image,
+                              VkImageAspectFlagBits aspect,
+                              uint32_t level, uint32_t layer);
+   void blit(const VkBlitImageInfo2KHR *info,
+             dzn_descriptor_heap &heap,
+             uint32_t &heap_offset,
+             uint32_t r);
+   void resolve(const VkResolveImageInfo2KHR *info,
+                dzn_descriptor_heap &heap,
+                uint32_t &heap_offset,
+                uint32_t r);
 
    void resolve_attachment(uint32_t idx);
    void attachment_transition(const dzn_attachment_ref &att);
