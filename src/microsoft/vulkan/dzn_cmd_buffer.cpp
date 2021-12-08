@@ -1127,8 +1127,30 @@ dzn_cmd_buffer::copy(const VkCopyImageInfo2KHR *info)
 
    assert(src->vk.samples == dst->vk.samples);
 
-   /* TODO: MS copies */
-   assert(src->vk.samples == 1);
+   bool requires_temp_res = src->vk.format != dst->vk.format &&
+                            src->vk.tiling != VK_IMAGE_TILING_LINEAR &&
+                            dst->vk.tiling != VK_IMAGE_TILING_LINEAR;
+
+   /* FIXME: multisample copies only work if we copy the entire subresource
+    * and if the the copy doesn't require a temporary linear resource. When
+    * these conditions are not met we should use a blit shader.
+    */
+   if (src->vk.samples > 1) {
+      assert(requires_temp_res == false);
+
+      for (uint32_t i = 0; i < info->regionCount; i++) {
+         const VkImageCopy2KHR &region = info->pRegions[i];
+         uint32_t src_w = u_minify(src->vk.extent.width, region.srcSubresource.mipLevel);
+         uint32_t src_h = u_minify(src->vk.extent.width, region.srcSubresource.mipLevel);
+
+         assert(region.srcOffset.x == 0 && region.srcOffset.y == 0);
+         assert(region.extent.width == u_minify(src->vk.extent.width, region.srcSubresource.mipLevel));
+         assert(region.extent.height == u_minify(src->vk.extent.height, region.srcSubresource.mipLevel));
+         assert(region.dstOffset.x == 0 && region.dstOffset.y == 0);
+         assert(region.extent.width == u_minify(dst->vk.extent.width, region.dstSubresource.mipLevel));
+         assert(region.extent.height == u_minify(dst->vk.extent.height, region.dstSubresource.mipLevel));
+      }
+   }
 
    D3D12_TEXTURE_COPY_LOCATION tmp_loc = {};
    D3D12_RESOURCE_DESC tmp_desc = {
@@ -1142,9 +1164,7 @@ dzn_cmd_buffer::copy(const VkCopyImageInfo2KHR *info)
       .Flags = D3D12_RESOURCE_FLAG_NONE,
    };
 
-   if (src->vk.format != dst->vk.format &&
-       src->vk.tiling != VK_IMAGE_TILING_LINEAR &&
-       dst->vk.tiling != VK_IMAGE_TILING_LINEAR) {
+   if (requires_temp_res) {
       ID3D12Device *dev = device->dev;
       VkImageAspectFlags aspect = 0;
       uint64_t max_size = 0;
