@@ -145,7 +145,8 @@ dzn_image::dzn_image(dzn_device *device,
 
       if (!(vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
                         VK_IMAGE_USAGE_STORAGE_BIT |
-                        VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)))
+                        VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT)))
          desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
    }
 
@@ -775,7 +776,8 @@ dzn_image_view::dzn_image_view(dzn_device *device,
    assert(range->baseMipLevel < image->vk.mip_levels);
 
    /* View usage should be a subset of image usage */
-   assert(image->vk.usage & (VK_IMAGE_USAGE_SAMPLED_BIT |
+   assert(image->vk.usage & (VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                             VK_IMAGE_USAGE_SAMPLED_BIT |
                              VK_IMAGE_USAGE_STORAGE_BIT |
                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
