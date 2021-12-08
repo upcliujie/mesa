@@ -537,7 +537,8 @@ struct dzn_descriptor_heap {
    operator ID3D12DescriptorHeap *();
 
    const VkAllocationCallbacks *get_vk_allocator();
-   SIZE_T get_cpu_ptr(uint32_t desc_offset = 0) const;
+
+   D3D12_CPU_DESCRIPTOR_HANDLE get_cpu_handle(uint32_t desc_offset = 0) const;
 
    void write_desc(uint32_t desc_offset,
                    dzn_sampler *sampler);

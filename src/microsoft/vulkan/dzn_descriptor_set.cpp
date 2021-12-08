@@ -793,22 +793,19 @@ dzn_descriptor_heap::operator ID3D12DescriptorHeap *()
    return heap.Get();
 }
 
-SIZE_T
-dzn_descriptor_heap::get_cpu_ptr(uint32_t desc_offset) const
+D3D12_CPU_DESCRIPTOR_HANDLE
+dzn_descriptor_heap::get_cpu_handle(uint32_t desc_offset) const
 {
-   assert(desc_offset < desc_count);
-   return cpu_base + (desc_offset * desc_sz);
+   return D3D12_CPU_DESCRIPTOR_HANDLE {
+      .ptr = cpu_base + (desc_offset * desc_sz),
+   };
 }
 
 void
 dzn_descriptor_heap::write_desc(uint32_t desc_offset,
                                 dzn_sampler *sampler)
 {
-   D3D12_CPU_DESCRIPTOR_HANDLE sampler_handle {
-      .ptr = get_cpu_ptr(desc_offset),
-   };
-
-   device->dev->CreateSampler(&sampler->desc, sampler_handle);
+   device->dev->CreateSampler(&sampler->desc, get_cpu_handle(desc_offset));
 }
 
 void
@@ -816,9 +813,7 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
                                 bool writeable,
                                 dzn_image_view *iview)
 {
-   D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
-      .ptr = get_cpu_ptr(desc_offset),
-   };
+   D3D12_CPU_DESCRIPTOR_HANDLE view_handle = get_cpu_handle(desc_offset);
 
    if (writeable)
       device->dev->CreateUnorderedAccessView(iview->get_image()->res.Get(), NULL, &iview->uav_desc, view_handle);
@@ -831,9 +826,7 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
                                 bool writeable,
                                 dzn_buffer_view *bview)
 {
-   D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
-      .ptr = get_cpu_ptr(desc_offset),
-   };
+   D3D12_CPU_DESCRIPTOR_HANDLE view_handle = get_cpu_handle(desc_offset);
 
    if (writeable)
       device->dev->CreateUnorderedAccessView(bview->buffer->res.Get(), NULL, &bview->uav_desc, view_handle);
@@ -857,9 +850,7 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
                                 bool writeable,
                                 const dzn_buffer_desc &info)
 {
-   D3D12_CPU_DESCRIPTOR_HANDLE view_handle {
-      .ptr = get_cpu_ptr(desc_offset),
-   };
+   D3D12_CPU_DESCRIPTOR_HANDLE view_handle = get_cpu_handle(desc_offset);
 
    VkDeviceSize size =
       info.range == VK_WHOLE_SIZE ?
@@ -906,12 +897,8 @@ dzn_descriptor_heap::copy(uint32_t dst_offset,
                           uint32_t src_offset,
                           uint32_t desc_count)
 {
-   D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = {
-      .ptr = get_cpu_ptr(dst_offset),
-   };
-   D3D12_CPU_DESCRIPTOR_HANDLE src_handle = {
-      .ptr = src_heap.get_cpu_ptr(src_offset),
-   };
+   D3D12_CPU_DESCRIPTOR_HANDLE dst_handle = get_cpu_handle(dst_offset);
+   D3D12_CPU_DESCRIPTOR_HANDLE src_handle = src_heap.get_cpu_handle(src_offset);
 
    device->dev->CopyDescriptorsSimple(desc_count,
                                       dst_handle,
