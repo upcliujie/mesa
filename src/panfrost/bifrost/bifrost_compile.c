@@ -744,6 +744,37 @@ bifrost_nir_specialize_idvs(nir_builder *b, nir_instr *instr, void *data)
         return false;
 }
 
+/**
+ * Computes the offset in bytes of a varying. This assumes VARYING_SLOT_POS is
+ * mapped to location=0 and always present. This also assumes each slot
+ * consumes 16 bytes, which is a worst-case (highp vec4). In the future, this
+ * should be optimized to support fp16 and partial vectors. There are
+ * nontrivial interactions with separable shaders, however.
+ */
+static unsigned
+bi_varying_offset(nir_shader *nir, nir_intrinsic_instr *intr)
+{
+        nir_io_semantics sem = nir_intrinsic_io_semantics(intr);
+        nir_src *offset = nir_get_io_offset_src(intr);
+        assert(nir_src_is_const(*offset) && "no indirect varyings on Valhall");
+
+        bool writes_psiz = nir->info.outputs_written & BITFIELD_BIT(VARYING_SLOT_PSIZ);
+        unsigned builtin_slots = writes_psiz ? 2 : 1;
+
+        unsigned slot = nir_intrinsic_base(intr) + nir_src_as_uint(*offset);
+
+        switch (sem.location) {
+        case VARYING_SLOT_POS:
+        case VARYING_SLOT_PSIZ:
+                return 0;
+        default:
+                assert(slot >= 1 && "position should be linked first");
+                assert((!writes_psiz || slot >= 2) && "psiz should be linked first");
+
+                return (slot - builtin_slots) * 16;
+        }
+}
+
 static void
 bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 {
@@ -753,7 +784,8 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
          * but smooth in the FS */
 
         ASSERTED nir_alu_type T = nir_intrinsic_src_type(instr);
-        assert(nir_alu_type_get_type_size(T) == 32);
+        ASSERTED unsigned T_size = nir_alu_type_get_type_size(T);
+        assert(T_size == 32 || (b->shader->arch >= 9 && T_size == 16));
         enum bi_register_format regfmt = BI_REGISTER_FORMAT_AUTO;
 
         unsigned imm_index = 0;
@@ -769,6 +801,7 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
         assert(nr > 0 && nr <= nir_intrinsic_src_components(instr, 0));
 
         bi_index data = bi_src_index(&instr->src[0]);
+        bool psiz = (nir_intrinsic_io_semantics(instr).location == VARYING_SLOT_PSIZ);
 
         if (b->shader->arch <= 8 && b->shader->idvs == BI_IDVS_POSITION) {
                 /* Bifrost position shaders have a fast path */
@@ -780,6 +813,22 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 
                 bi_st_cvt(b, data, bi_register(58), bi_register(59),
                           bi_imm_u32(format), regfmt, nr - 1);
+        } else if (b->shader->arch >= 9) {
+                bi_index index = bi_register(59);
+
+                if (psiz) {
+                        assert(T_size == 16 && "should've been lowered");
+                        index = bi_iadd_imm_i32(b, index, 4);
+                }
+
+                bi_index address = bi_lea_vary(b, index);
+                bool varying = (b->shader->idvs == BI_IDVS_VARYING);
+
+                bi_store(b, nr * nir_src_bit_size(instr->src[0]),
+                         bi_src_index(&instr->src[0]),
+                         address, bi_word(address, 1),
+                         varying ? BI_SEG_VARY : BI_SEG_POS,
+                         bi_varying_offset(b->shader->nir, instr));
         } else if (immediate) {
                 bi_index address = bi_lea_attr_imm(b,
                                           bi_register(61), bi_register(62),
