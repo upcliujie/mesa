@@ -384,6 +384,7 @@ radv_queue_family_to_ring(int f)
    case RADV_QUEUE_COMPUTE:
       return RING_COMPUTE;
    case RADV_QUEUE_TRANSFER:
+   case RADV_QUEUE_TRANSFER_PRIVATE:
       return RING_DMA;
    default:
       unreachable("Unknown queue family");
@@ -5764,6 +5765,7 @@ radv_CreateCommandPool(VkDevice _device, const VkCommandPoolCreateInfo *pCreateI
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
    struct radv_cmd_pool *pool;
+   VkResult result;
 
    pool =
       vk_alloc2(&device->vk.alloc, pAllocator, sizeof(*pool), 8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
@@ -5784,7 +5786,26 @@ radv_CreateCommandPool(VkDevice _device, const VkCommandPoolCreateInfo *pCreateI
 
    *pCmdPool = radv_cmd_pool_to_handle(pool);
 
-   return VK_SUCCESS;
+   result = VK_SUCCESS;
+
+   if (pool->queue_family_index == RADV_QUEUE_TRANSFER_PRIVATE) {
+      if (!device->private_sdma_queue) {
+         const VkDeviceQueueCreateInfo queue_create = {
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = RADV_QUEUE_TRANSFER,
+            .queueCount = 1,
+         };
+         device->private_sdma_queue = vk_alloc(
+               &device->vk.alloc, sizeof(struct radv_queue), 8,
+               VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+         memset(device->private_sdma_queue, 0, sizeof(struct radv_queue));
+         result = radv_queue_init(device, device->private_sdma_queue, 0,
+                                  &queue_create, NULL);
+         assert(result == VK_SUCCESS);
+      }
+   }
+
+   return result;
 }
 
 VKAPI_ATTR void VKAPI_CALL

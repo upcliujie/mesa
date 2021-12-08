@@ -668,9 +668,10 @@ struct radv_meta_state {
 };
 
 /* queue types */
-#define RADV_QUEUE_GENERAL  0
-#define RADV_QUEUE_COMPUTE  1
-#define RADV_QUEUE_TRANSFER 2
+#define RADV_QUEUE_GENERAL          0
+#define RADV_QUEUE_COMPUTE          1
+#define RADV_QUEUE_TRANSFER         2
+#define RADV_QUEUE_TRANSFER_PRIVATE 3
 
 /* Not a real queue family */
 #define RADV_QUEUE_FOREIGN 3
@@ -2334,6 +2335,7 @@ struct radv_image_create_info {
    const VkImageCreateInfo *vk_info;
    bool scanout;
    bool no_metadata_planes;
+   bool prime_blit_src;
    const struct radeon_bo_metadata *bo_metadata;
 };
 
@@ -2610,6 +2612,10 @@ struct radv_semaphore {
 };
 
 bool radv_queue_internal_submit(struct radv_queue *queue, struct radeon_cmdbuf *cs);
+
+int radv_queue_init(struct radv_device *device, struct radv_queue *queue, int idx,
+                    const VkDeviceQueueCreateInfo *create_info,
+                    const VkDeviceQueueGlobalPriorityCreateInfoEXT *global_priority);
 
 void radv_set_descriptor_set(struct radv_cmd_buffer *cmd_buffer, VkPipelineBindPoint bind_point,
                              struct radv_descriptor_set *set, unsigned idx);

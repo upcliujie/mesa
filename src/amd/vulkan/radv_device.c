@@ -2581,7 +2581,7 @@ radv_get_queue_global_priority(const VkDeviceQueueGlobalPriorityCreateInfoEXT *p
    }
 }
 
-static int
+int
 radv_queue_init(struct radv_device *device, struct radv_queue *queue,
                 int idx, const VkDeviceQueueCreateInfo *create_info,
                 const VkDeviceQueueGlobalPriorityCreateInfoEXT *global_priority)
@@ -3323,6 +3323,11 @@ radv_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
          vk_free(&device->vk.alloc, device->queues[i]);
       if (device->empty_cs[i])
          device->ws->cs_destroy(device->empty_cs[i]);
+   }
+
+   if (device->private_sdma_queue) {
+      radv_queue_finish(device->private_sdma_queue);
+      vk_free(&device->vk.alloc, device->private_sdma_queue);
    }
 
    for (unsigned i = 0; i < RADV_NUM_HW_CTX; i++) {
@@ -5010,6 +5015,14 @@ radv_QueueSubmit2KHR(VkQueue _queue, uint32_t submitCount, const VkSubmitInfo2KH
    VkResult result;
    uint32_t fence_idx = 0;
    bool flushed_caches = false;
+
+   if (submitCount == 1 && pSubmits[0].commandBufferInfoCount == 1) {
+      RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, pSubmits[0].pCommandBufferInfos[0].commandBuffer);
+      struct radv_device *device = queue->device;
+
+      if (cmd_buffer->pool->queue_family_index == RADV_QUEUE_TRANSFER_PRIVATE)
+         queue = device->private_sdma_queue;
+   }
 
    if (radv_device_is_lost(queue->device))
       return VK_ERROR_DEVICE_LOST;
