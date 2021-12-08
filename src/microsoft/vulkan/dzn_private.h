@@ -59,6 +59,7 @@
 
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 #include <vector>
 
 using Microsoft::WRL::ComPtr;
@@ -270,6 +271,64 @@ struct dzn_meta_triangle_fan_rewrite_index : public dzn_meta {
    ComPtr<ID3D12CommandSignature> cmd_sig;
 };
 
+struct dzn_meta_blit : public dzn_meta {
+   struct key {
+      union {
+         struct {
+           DXGI_FORMAT out_format;
+           uint32_t samples : 6;
+           uint32_t loc : 4;
+           uint32_t out_type : 4;
+           uint32_t sampler_dim : 4;
+           uint32_t src_is_array : 1;
+           uint32_t resolve : 1;
+           uint32_t linear_filter : 1;
+           uint32_t padding : 11;
+         };
+         const uint64_t u64;
+      };
+   };
+
+   struct shader {
+      shader() = default;
+      shader(struct dzn_device *dev);
+      shader(struct dzn_device *dev, const D3D12_SHADER_BYTECODE &in);
+      shader(const shader &src) = delete;
+      ~shader();
+
+      const VkAllocationCallbacks *get_vk_allocator();
+
+      struct dzn_device *device = NULL;
+      D3D12_SHADER_BYTECODE code = {};
+   };
+
+   dzn_meta_blit(struct dzn_device *device,
+                 const key &key);
+   ~dzn_meta_blit() = default;
+};
+
+struct dzn_meta_blits {
+   dzn_meta_blits(struct dzn_device *dev);
+   ~dzn_meta_blits() = default;
+
+   const VkAllocationCallbacks *get_vk_allocator();
+
+   const dzn_meta_blit::shader *get_vs();
+   const dzn_meta_blit::shader *get_fs(const struct dzn_nir_blit_info &info);
+   const dzn_meta_blit *get_context(const dzn_meta_blit::key &key);
+
+   struct dzn_device *device;
+   std::mutex shaders_lock;
+   dzn_object_unique_ptr<dzn_meta_blit::shader> vs;
+   using fs_allocator = dzn_allocator<std::pair<const uint32_t, dzn_object_unique_ptr<dzn_meta_blit::shader>>>;
+   std::unordered_map<uint32_t, dzn_object_unique_ptr<dzn_meta_blit::shader>,
+                      std::hash<uint32_t>, std::equal_to<uint32_t>, fs_allocator> fs;
+   std::mutex contexts_lock;
+   using contexts_allocator = dzn_allocator<std::pair<const uint64_t, dzn_object_unique_ptr<dzn_meta_blit>>>;
+   std::unordered_map<uint64_t, dzn_object_unique_ptr<dzn_meta_blit>,
+                      std::hash<uint64_t>, std::equal_to<uint64_t>, contexts_allocator> contexts;
+};
+
 struct dzn_physical_device {
    struct vk_physical_device vk;
 
@@ -385,6 +444,7 @@ struct dzn_device {
 
    dzn_object_unique_ptr<dzn_meta_indirect_draw> indirect_draws[DZN_NUM_INDIRECT_DRAW_TYPES];
    dzn_object_unique_ptr<dzn_meta_triangle_fan_rewrite_index> triangle_fan[dzn_meta_triangle_fan_rewrite_index::NUM_INDEX_TYPE];
+   dzn_object_unique_ptr<dzn_meta_blits> blits;
 
    dzn_device(VkPhysicalDevice pdev,
               const VkDeviceCreateInfo *pCreateInfo,

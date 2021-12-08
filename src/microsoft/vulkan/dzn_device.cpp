@@ -1480,6 +1480,8 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
       triangle_fan[i] =
          dzn_private_object_create<dzn_meta_triangle_fan_rewrite_index>(&vk.alloc, this, type);
    }
+
+   blits = dzn_private_object_create<dzn_meta_blits>(&vk.alloc, this);
 }
 
 dzn_device::~dzn_device()

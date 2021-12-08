@@ -26,6 +26,9 @@
 #include "spirv_to_dxil.h"
 #include "nir_to_dxil.h"
 
+#include "dxil_nir.h"
+#include "dxil_nir_lower_int_samplers.h"
+
 dzn_meta::dzn_meta(struct dzn_device *dev) : device(dev)
 {
 }
@@ -344,4 +347,270 @@ dzn_meta_triangle_fan_rewrite_index::get_index_size(enum index_type type)
    case INDEX_4B: return 4;
    default: unreachable("Invalid index type");
    }
+}
+
+dzn_meta_blit::shader::shader(struct dzn_device *dev) :
+   device(dev)
+{
+}
+
+dzn_meta_blit::shader::shader(struct dzn_device *dev, const D3D12_SHADER_BYTECODE &in) :
+   device(dev)
+{
+   code.pShaderBytecode = vk_alloc(&dev->vk.alloc, in.BytecodeLength, 8,
+                                 VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+   memcpy((void *)code.pShaderBytecode, in.pShaderBytecode, in.BytecodeLength);
+   code.BytecodeLength = in.BytecodeLength;
+}
+
+dzn_meta_blit::shader::~shader()
+{
+   vk_free(&device->vk.alloc, (void *)code.pShaderBytecode);
+}
+
+const VkAllocationCallbacks *
+dzn_meta_blit::shader::get_vk_allocator()
+{
+   return &device->vk.alloc;
+}
+
+const dzn_meta_blit::shader *
+dzn_meta_blits::get_vs()
+{
+   std::lock_guard<std::mutex> lock(shaders_lock);
+
+   if (vs.get() == NULL) {
+      nir_shader *nir = dzn_nir_blit_vs();
+
+      NIR_PASS_V(nir, nir_lower_system_values);
+
+      gl_system_value system_values[] = {
+         SYSTEM_VALUE_FIRST_VERTEX,
+         SYSTEM_VALUE_BASE_VERTEX,
+      };
+
+      NIR_PASS_V(nir, dxil_nir_lower_system_values_to_zero, system_values,
+                ARRAY_SIZE(system_values));
+
+      D3D12_SHADER_BYTECODE bc;
+
+      dzn_meta::compile_shader(device, nir, &bc);
+      vs = dzn_private_object_create<dzn_meta_blit::shader>(&device->vk.alloc,
+                                                            device, bc);
+      free((void *)bc.pShaderBytecode);
+      ralloc_free(nir);
+   }
+
+   return vs.get();
+}
+
+const dzn_meta_blit::shader *
+dzn_meta_blits::get_fs(const struct dzn_nir_blit_info &info)
+{
+   std::lock_guard<std::mutex> lock(shaders_lock);
+   const dzn_meta_blit::shader *out = NULL;
+
+   auto iter = fs.find(info.hash_key);
+
+   STATIC_ASSERT(sizeof(struct dzn_nir_blit_info) == sizeof(uint32_t));
+
+   if (iter != fs.end()) {
+      out = iter->second.get();
+   } else {
+      nir_shader *nir = dzn_nir_blit_fs(&info);
+
+      if (info.out_type != GLSL_TYPE_FLOAT) {
+         dxil_wrap_sampler_state wrap_state = {
+            .is_int_sampler = 1,
+            .is_linear_filtering = 0,
+            .skip_boundary_conditions = 1,
+         };
+         dxil_lower_sample_to_txf_for_integer_tex(nir, &wrap_state, NULL, 0);
+      }
+
+      D3D12_SHADER_BYTECODE bc;
+
+      dzn_meta::compile_shader(device, nir, &bc);
+
+      auto s =
+         dzn_private_object_create<dzn_meta_blit::shader>(&device->vk.alloc,
+                                                          device, bc);
+      out = s.get();
+      fs[info.hash_key].swap(s);
+      free((void *)bc.pShaderBytecode);
+      ralloc_free(nir);
+   }
+
+   assert(out);
+   return out;
+}
+
+dzn_meta_blit::dzn_meta_blit(struct dzn_device *dev,
+                             const key &key) :
+   dzn_meta(dev)
+{
+   glsl_type_singleton_init_or_ref();
+
+   D3D12_DESCRIPTOR_RANGE1 ranges[] = {
+      {
+         .RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+         .NumDescriptors = 1,
+         .BaseShaderRegister = 0,
+         .RegisterSpace = 0,
+         .Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_STATIC_KEEPING_BUFFER_BOUNDS_CHECKS,
+         .OffsetInDescriptorsFromTableStart = 0,
+      },
+   };
+
+   D3D12_STATIC_SAMPLER_DESC samplers[] = {
+      {
+         .Filter = key.linear_filter ?
+                   D3D12_FILTER_MIN_MAG_MIP_LINEAR :
+                   D3D12_FILTER_MIN_MAG_MIP_POINT,
+         .AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+         .AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+         .AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP,
+         .MipLODBias = 0,
+         .MaxAnisotropy = 0,
+         .MinLOD = 0,
+         .MaxLOD = D3D12_FLOAT32_MAX,
+         .ShaderRegister = 0,
+         .RegisterSpace = 0,
+         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
+      },
+   };
+
+   D3D12_ROOT_PARAMETER1 root_params[] = {
+      {
+         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE,
+         .DescriptorTable = {
+            .NumDescriptorRanges = ARRAY_SIZE(ranges),
+            .pDescriptorRanges = ranges,
+         },
+         .ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL,
+      },
+      {
+         .ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS,
+         .Constants = {
+            .ShaderRegister = 0,
+            .RegisterSpace = 0,
+            .Num32BitValues = 17,
+         },
+         .ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX,
+      },
+   };
+
+   D3D12_VERSIONED_ROOT_SIGNATURE_DESC root_sig_desc = {
+      .Version = D3D_ROOT_SIGNATURE_VERSION_1_1,
+      .Desc_1_1 = {
+         .NumParameters = ARRAY_SIZE(root_params),
+         .pParameters = root_params,
+         .NumStaticSamplers = ARRAY_SIZE(samplers),
+         .pStaticSamplers = samplers,
+         .Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE,
+      },
+   };
+
+   root_sig = device->create_root_sig(root_sig_desc);
+   if (!root_sig.Get())
+      throw vk_error(device->instance, VK_ERROR_UNKNOWN);
+
+   D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {
+      .pRootSignature = root_sig.Get(),
+      .SampleMask = key.resolve ? 1 : (1ULL << key.samples) - 1,
+      .RasterizerState = {
+         .FillMode = D3D12_FILL_MODE_SOLID,
+         .CullMode = D3D12_CULL_MODE_NONE,
+         .DepthClipEnable = TRUE,
+      },
+      .PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE,
+      .SampleDesc = {
+         .Count = key.resolve ? 1 : key.samples,
+         .Quality = 0,
+      },
+      .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
+   };
+
+   auto *vs = device->blits->get_vs();
+   desc.VS = vs->code;
+   assert(desc.VS.pShaderBytecode);
+
+   struct dzn_nir_blit_info blit_fs_info = {
+      .src_samples = key.samples,
+      .loc = key.loc,
+      .out_type = key.out_type,
+      .sampler_dim = key.sampler_dim,
+      .src_is_array = key.src_is_array,
+      .resolve = key.resolve,
+   };
+   auto *fs = device->blits->get_fs(blit_fs_info);
+   desc.PS = fs->code;
+   assert(desc.PS.pShaderBytecode);
+
+   assert(key.loc == FRAG_RESULT_DATA0 ||
+          key.loc == FRAG_RESULT_DEPTH ||
+          key.loc == FRAG_RESULT_STENCIL);
+
+   if (key.loc == FRAG_RESULT_DATA0) {
+      desc.NumRenderTargets = 1;
+      desc.RTVFormats[0] = key.out_format;
+      desc.BlendState.RenderTarget[0].RenderTargetWriteMask = 0xf;
+   } else {
+      desc.DSVFormat = key.out_format;
+      if (key.loc == FRAG_RESULT_DEPTH) {
+         desc.DepthStencilState.DepthEnable = TRUE;
+         desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+         desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+      } else {
+         assert(key.loc == FRAG_RESULT_STENCIL);
+         desc.DepthStencilState.StencilEnable = TRUE;
+         desc.DepthStencilState.StencilWriteMask = 0xff;
+         desc.DepthStencilState.FrontFace.StencilFailOp = D3D12_STENCIL_OP_REPLACE;
+         desc.DepthStencilState.FrontFace.StencilDepthFailOp = D3D12_STENCIL_OP_REPLACE;
+         desc.DepthStencilState.FrontFace.StencilPassOp = D3D12_STENCIL_OP_REPLACE;
+         desc.DepthStencilState.FrontFace.StencilFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+         desc.DepthStencilState.BackFace = desc.DepthStencilState.FrontFace;
+      }
+   }
+
+   HRESULT hres =
+      device->dev->CreateGraphicsPipelineState(&desc,
+                                               IID_PPV_ARGS(&pipeline_state));
+   assert(!FAILED(hres));
+
+   glsl_type_singleton_decref();
+}
+
+const dzn_meta_blit *
+dzn_meta_blits::get_context(const dzn_meta_blit::key &key)
+{
+   std::lock_guard<std::mutex> lock(contexts_lock);
+   const dzn_meta_blit *out = NULL;
+
+   STATIC_ASSERT(sizeof(key) == sizeof(uint64_t));
+
+   auto iter = contexts.find(key.u64);
+   if (iter != contexts.end()) {
+      out = iter->second.get();
+   } else {
+      auto context =
+         dzn_private_object_create<dzn_meta_blit>(&device->vk.alloc,
+                                                  device, key);
+      out = context.get();
+      contexts[key.u64].swap(context);
+   }
+
+   return out;
+}
+
+dzn_meta_blits::dzn_meta_blits(struct dzn_device *dev) :
+   device(dev), fs(fs_allocator(&dev->vk.alloc)),
+   contexts(contexts_allocator(&dev->vk.alloc))
+{
+}
+
+const VkAllocationCallbacks *
+dzn_meta_blits::get_vk_allocator()
+{
+   return &device->vk.alloc;
 }
