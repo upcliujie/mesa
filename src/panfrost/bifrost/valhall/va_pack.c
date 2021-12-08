@@ -386,6 +386,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LD_ATTR_IMM:
    case BI_OPCODE_LD_VAR_IMM_F16:
    case BI_OPCODE_LD_VAR_IMM_F32:
+   case BI_OPCODE_LEA_VARY:
       hex |= ((uint64_t) bi_count_write_registers(I, 0) << 33);
 
       /* Slot */
@@ -431,6 +432,16 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_STORE_I96:
    case BI_OPCODE_STORE_I128:
       hex |= va_pack_store(I);
+      break;
+
+   case BI_OPCODE_LEA_VARY:
+      /* Staging register - destination */
+      hex |= (uint64_t) va_pack_reg(I->dest[0]) << 40;
+      hex |= (0x80ull << 40); // flags
+      hex |= va_pack_alu(I);
+
+      /* Unknown */
+      hex |= 0xD << 8;
       break;
 
    case BI_OPCODE_BRANCHZ_I16:
