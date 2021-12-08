@@ -1,4 +1,6 @@
 .freedreno-test:
+  rules:
+    - when: manual
   extends:
     - .baremetal-test-arm64
     - .use-debian/arm_test
@@ -17,6 +19,8 @@
     - google-freedreno-db410c
 
 .baremetal-deqp-test-freedreno-vk:
+  rules:
+    - when: manual
   extends:
     - .baremetal-deqp-test
   variables:
@@ -27,6 +31,8 @@
     FREEDRENO_HANGCHECK_MS: 2000
 
 .freedreno-test-traces:
+  rules:
+    - when: manual
   extends:
     - .piglit-traces-test
   variables:
@@ -277,6 +283,8 @@ a630-traces-restricted:
   extends:
     - a630-traces
     - .freedreno-rules-restricted
+  rules:
+    - when: on_success
   variables:
     PIGLIT_REPLAY_DESCRIPTION_FILE: "/install/restricted-traces-freedreno.yml"
     PIGLIT_REPLAY_EXTRA_ARGS:  --keep-image --db-path ${CI_PROJECT_DIR}/replayer-db/ --minio_host=minio-packet.freedesktop.org --minio_bucket=mesa-tracie-private --role-session-name=${CI_PROJECT_PATH}:${CI_JOB_ID} --jwt-file=${CI_JOB_JWT_FILE}
