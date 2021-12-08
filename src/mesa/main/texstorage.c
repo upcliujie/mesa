@@ -384,6 +384,69 @@ tex_storage_error_check(struct gl_context *ctx,
    return GL_FALSE;
 }
 
+static GLboolean
+sparse_texture_error_check(struct gl_context *ctx, GLuint dims,
+                           struct gl_texture_object *texObj,
+                           mesa_format format, GLenum target, GLsizei levels,
+                           GLsizei width, GLsizei height, GLsizei depth,
+                           bool dsa)
+{
+   const char* suffix = dsa ? "ture" : "";
+
+   int px, py, pz;
+   int index = texObj->VirtualPageSizeIndex;
+   if (!st_GetSparseTextureVirtualPageSize(ctx, target, format, index,
+                                           &px, &py, &pz)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glTex%sStorage%uD(sparse index = %d)",
+                  suffix, dims, index);
+      return GL_TRUE;
+   }
+
+   if (target == GL_TEXTURE_3D) {
+      if (width > ctx->Const.MaxSparse3DTextureSize ||
+          height > ctx->Const.MaxSparse3DTextureSize ||
+          depth > ctx->Const.MaxSparse3DTextureSize)
+         goto exceed_max_size;
+   } else {
+      if (width > ctx->Const.MaxSparseTextureSize ||
+          height > ctx->Const.MaxSparseTextureSize)
+         goto exceed_max_size;
+
+      if (target == GL_TEXTURE_2D_ARRAY ||
+          target == GL_TEXTURE_CUBE_MAP_ARRAY) {
+         if (depth > ctx->Const.MaxSparseArrayTextureLayers)
+            goto exceed_max_size;
+      } else if (target == GL_TEXTURE_1D_ARRAY) {
+         if (height > ctx->Const.MaxSparseArrayTextureLayers)
+            goto exceed_max_size;
+      }
+   }
+
+   if (width % px || height % py || depth % pz) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glTex%sStorage%uD(sparse page size)",
+                  suffix, dims);
+      return GL_TRUE;
+   }
+
+   if (!ctx->Const.SparseTextureFullArrayCubeMipmaps &&
+       (target == GL_TEXTURE_1D_ARRAY ||
+        target == GL_TEXTURE_2D_ARRAY ||
+        target == GL_TEXTURE_CUBE_MAP ||
+        target == GL_TEXTURE_CUBE_MAP_ARRAY) &&
+       (width % (px << (levels - 1)) ||
+        height % (py << (levels - 1)))) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glTex%sStorage%uD(sparse array align)",
+                  suffix, dims);
+      return GL_TRUE;
+   }
+
+   return GL_FALSE;
+
+exceed_max_size:
+   _mesa_error(ctx, GL_INVALID_VALUE, "glTex%sStorage%uD(exceed max sparse size)",
+               suffix, dims);
+   return GL_TRUE;
+}
 
 /**
  * Helper that does the storage allocation for _mesa_TexStorage1/2/3D()
@@ -448,6 +511,11 @@ texture_storage(struct gl_context *ctx, GLuint dims,
                         suffix, dims);
             return;
          }
+
+         if (texObj->IsSparse &&
+             sparse_texture_error_check(ctx, dims, texObj, texFormat, target, levels,
+                                        width, height, depth, dsa))
+            return; /* error was recorded */
       }
 
       assert(levels > 0);
