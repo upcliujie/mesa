@@ -30,6 +30,8 @@
 #include "util/macros.h"
 #include "util/u_cpu_detect.h"
 #include "util/u_math.h"
+#include "util/os_misc.h"
+#include "util/bitset.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -330,6 +332,217 @@ has_tmz_support(amdgpu_device_handle dev,
    return true;
 }
 
+static void get_next_se_sa(const struct radeon_info *info, unsigned *se, unsigned *sa)
+{
+   (*se)++;
+   if (*se == info->max_se) {
+      *se = 0;
+      *sa = (*sa + 1) % info->max_sa_per_se;
+   }
+}
+
+static void set_custom_cu_en_mask(struct radeon_info *info)
+{
+   const char *cu_env_var = os_get_option("AMD_CU_MASK");
+   if (!cu_env_var) {
+      memset(info->spi_cu_en, ~0, sizeof(info->spi_cu_en));
+      return;
+   }
+
+   int size = strlen(cu_env_var);
+   char *str = alloca(size + 1);
+   memset(str, 0, size + 1);
+
+   size = 0;
+
+   /* Strip whitespace. */
+   for (unsigned src = 0; cu_env_var[src]; src++) {
+      if (cu_env_var[src] != ' ' && cu_env_var[src] != '\t' &&
+          cu_env_var[src] != '\n' && cu_env_var[src] != '\r') {
+         str[size++] = cu_env_var[src];
+      }
+   }
+
+   /* The following syntax is used, all whitespace is ignored:
+    *   ID = [0-9][0-9]*                         ex. base 10 numbers
+    *   ID_list = (ID | ID-ID)[, (ID | ID-ID)]*  ex. 0,2-4,7
+    *   CU_list = 0x[0-F]* | ID_list             ex. 0x337F OR 0,2-4,7
+    *   AMD_CU_MASK = CU_list
+    *
+    * The CU order is that the first CU or WGP from SA0 of all SE is the first series of bits,
+    * then if there are 2 SAs, the next series of bits is for SA1 in all SEs, then the next
+    * series of bits is the second CU or WGP in SA0 of all SEs, and so on.
+    *
+    * The approximate Gfx9 CU order:
+    *    ((c*num_sa_per_se + a)*num_se + e = SEe SAa CUc
+    *
+    * The approximate Gfx10+ CU order using the WGP granularity:
+    *    ((((c / 2)*num_sa_per_se + a)*num_se + e)*2 + (c % 2) = SEe SAa CUc
+    *
+    * If CU counts are not the same in all shader arrays, the missing CUs are skipped,
+    * shifting CU positions to the left, and the equations don't work in that case.
+    *
+    * Examples:
+    *    AMD_CU_MASK=0x3         // 6800XT: enable WGP0 in SE0 SA0
+    *    AMD_CU_MASK=0xff        // 6800XT: enable WGP0 in SA0 of all SEs
+    *    AMD_CU_MASK=0xffff      // 6800XT: enable WGP0 in all SAs
+    *    AMD_CU_MASK=0xffffffff  // 6800XT: enable WGP0 and WGP1 in all SAs
+    *
+    * It should match:
+    * https://github.com/RadeonOpenCompute/ROCR-Runtime/blob/master/src/core/util/flag.cpp
+    */
+   bool is_good_form = true;
+   BITSET_WORD *mask = NULL;
+   int mask_size = 0;
+
+   if (size > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
+      const int read_len = BITSET_WORDBITS / 4; /* 4 bits per hexadecimal letter */
+      str += 2;
+      size -= 2;
+
+      for (unsigned i = 0; i < size; i++)
+         is_good_form &= isxdigit(str[i]) != 0;
+
+      if (!is_good_form) {
+         fprintf(stderr, "amd: invalid AMD_CU_MASK: ill-formed hex value\n");
+      } else {
+         mask = calloc(1, DIV_ROUND_UP(size, read_len) * sizeof(BITSET_WORD));
+
+         /* Parse an arbitrary-length hexadecimal number from the end (LSB first). */
+         while (size) {
+            int trim = MIN2(size, read_len);
+            size -= trim;
+            mask[mask_size++] = strtol(str + size, NULL, 16);
+            str[size] = 0; /* cut off the parsed section */
+         }
+      }
+   } else {
+      /* Parse ID_list. */
+      long first = 0, last = -1;
+
+      if (!isdigit(*str)) {
+         is_good_form = false;
+      } else {
+         while (*str) {
+            bool add = false;
+
+            if (isdigit(*str)) {
+               first = last = strtol(str, &str, 10);
+            } else if (*str == '-') {
+               str++;
+               /* Parse a digit after a dash. */
+               if (isdigit(*str)) {
+                  last = strtol(str, &str, 10);
+                  add = true;
+               } else {
+                  fprintf(stderr, "amd: invalid AMD_CU_MASK: expected a digit after -\n");
+                  is_good_form = false;
+                  break;
+               }
+            } else if (*str == ',') {
+               add = true;
+               str++;
+               if (!isdigit(*str)) {
+                  fprintf(stderr, "amd: invalid AMD_CU_MASK: expected a digit after ,\n");
+                  is_good_form = false;
+                  break;
+               }
+            }
+
+            if (add || !*str) {
+               if (first > last) {
+                  fprintf(stderr, "amd: invalid AMD_CU_MASK: range not increasing (%li, %li)\n", first, last);
+                  is_good_form = false;
+                  break;
+               }
+               if (last > UINT16_MAX * BITSET_WORDBITS) {
+                  fprintf(stderr, "amd: invalid AMD_CU_MASK: index too large (%li)\n", last);
+                  is_good_form = false;
+                  break;
+               }
+
+               long last_index = BITSET_BITWORD(last);
+
+               if (last_index >= mask_size) {
+                  unsigned old_size = mask_size;
+                  mask_size = last_index + 1;
+                  mask = realloc(mask, mask_size * sizeof(BITSET_WORD));
+                  memset(mask + old_size, 0, (mask_size - old_size) * sizeof(BITSET_WORD));
+               }
+
+               for (long i = first; i <= last; i++)
+                  BITSET_SET(mask, i);
+               last = -1;
+            }
+         }
+      }
+   }
+
+   /* If less than 1 CU or WGP is set, ignore the env var. */
+   if (is_good_form && __bitset_count(mask, mask_size) < (info->chip_class >= GFX10 ? 2 : 1)) {
+      fprintf(stderr, "amd: invalid AMD_CU_MASK: at least 1 CU or WGP is required\n");
+      is_good_form = false;
+   }
+
+   /* The mask is parsed. Now assign bits to CUs. */
+   if (is_good_form) {
+      uint32_t tmp_cu_mask[AMD_MAX_SE][2];
+      memcpy(tmp_cu_mask, info->cu_mask, sizeof(tmp_cu_mask));
+
+      for (unsigned i = 0, se = 0, sa = 0; i < mask_size * BITSET_WORDBITS; i++) {
+         /* Find the next enabled CU. */
+         unsigned initial = se * 2 + sa;
+         while (!tmp_cu_mask[se][sa]) {
+            get_next_se_sa(info, &se, &sa);
+            if (se * 2 + sa == initial)
+               goto done; /* cu_mask[][] is 0 */
+         }
+
+         unsigned cu = u_bit_scan(&tmp_cu_mask[se][sa]); /* get and clear the CU bit */
+
+         /* cu_mask is the physical CU mask, but CU_EN is the logical CU mask (without holes).
+          * The prefix sum does the conversion from physical to logical.
+          */
+         if (BITSET_TEST(mask, i)) {
+            uint32_t prefix_sum = util_bitcount(info->cu_mask[se][sa] & BITFIELD_MASK(cu));
+            info->spi_cu_en[se][sa] |= BITFIELD_BIT(prefix_sum);
+         }
+
+         /* Go to the next SA/SE at CU granularity, or WGP granularity on gfx10+. */
+         if (info->chip_class <= GFX9 || i % 2 == 1)
+            get_next_se_sa(info, &se, &sa);
+      }
+
+      uint32_t first = 0;
+
+done:
+      /* Set spi_cu_en_varies. */
+      for (unsigned i = 0; i < info->max_se; i++) {
+         for (unsigned j = 0; j < info->max_sa_per_se; j++) {
+            /* Skip disabled SAs. */
+            if (!info->cu_mask[i][j])
+               continue;
+
+            if (!first) {
+               first = info->spi_cu_en[i][j];
+               continue;
+            }
+
+            if (first != info->spi_cu_en[i][j])
+               info->spi_cu_en_varies = true;
+
+            unsigned num_cu = util_bitcount(info->cu_mask[i][j]);
+            uint32_t logical_cu_mask = BITFIELD_MASK(num_cu);
+            if ((info->spi_cu_en[i][j] & logical_cu_mask) != logical_cu_mask)
+               info->spi_cu_en_has_effect = true;
+         }
+      }
+   } else {
+      memset(info->spi_cu_en, ~0, sizeof(info->spi_cu_en));
+   }
+
+   free(mask);
+}
 
 bool ac_query_gpu_info(int fd, void *dev_p, struct radeon_info *info,
                        struct amdgpu_gpu_info *amdinfo)
@@ -1095,6 +1308,7 @@ bool ac_query_gpu_info(int fd, void *dev_p, struct radeon_info *info,
    info->num_physical_wave64_vgprs_per_simd = info->chip_class >= GFX10 ? 512 : 256;
    info->num_simd_per_compute_unit = info->chip_class >= GFX10 ? 2 : 4;
 
+   set_custom_cu_en_mask(info);
    return true;
 }
 
@@ -1253,10 +1467,12 @@ void ac_print_gpu_info(struct radeon_info *info, FILE *f)
    fprintf(f, "Shader core info:\n");
    for (unsigned i = 0; i < info->max_se; i++) {
       for (unsigned j = 0; j < info->max_sa_per_se; j++) {
-         fprintf(f, "    cu_mask[SE%u][SA%u] = 0x%x \t(%u)\n",
-                 i, j, info->cu_mask[i][j], util_bitcount(info->cu_mask[i][j]));
+         fprintf(f, "    cu_mask[SE%u][SA%u] = 0x%x \t(%u)\tCU_EN = 0x%x\n", i, j,
+                 info->cu_mask[i][j], util_bitcount(info->cu_mask[i][j]), info->spi_cu_en[i][j]);
       }
    }
+   fprintf(f, "    spi_cu_en_has_effect = %i\n", info->spi_cu_en_has_effect);
+   fprintf(f, "    spi_cu_en_varies = %i\n", info->spi_cu_en_varies);
    fprintf(f, "    max_shader_clock = %i\n", info->max_shader_clock);
    fprintf(f, "    num_good_compute_units = %i\n", info->num_good_compute_units);
    fprintf(f, "    max_good_cu_per_sa = %i\n", info->max_good_cu_per_sa);
