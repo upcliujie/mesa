@@ -37,6 +37,8 @@
 extern "C" {
 #endif
 
+#define AMD_MAX_SE 8
+
 struct amdgpu_gpu_info;
 
 struct radeon_info {
@@ -190,7 +192,7 @@ struct radeon_info {
    bool kernel_has_modifiers;
 
    /* Shader cores. */
-   uint32_t cu_mask[4][2];
+   uint32_t cu_mask[AMD_MAX_SE][2];
    uint32_t r600_max_quad_pipes; /* wave size / 16 */
    uint32_t max_shader_clock;
    uint32_t num_good_compute_units;
