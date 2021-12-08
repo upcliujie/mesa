@@ -4214,7 +4214,6 @@ spec/ext_texture_array/copyteximage 2d_array samples=32: skip
 spec/ext_texture_array/copyteximage 2d_array samples=4: skip
 spec/ext_texture_array/copyteximage 2d_array samples=6: skip
 spec/ext_texture_array/copyteximage 2d_array samples=8: skip
-spec/ext_texture_array/maxlayers: fail
 spec/ext_texture_compression_bptc/bptc-api_gles2: skip
 spec/ext_texture_compression_latc/fbo-generatemipmap-formats: skip
 spec/ext_texture_compression_latc/fbo-generatemipmap-formats-signed: skip
@@ -4738,8 +4737,8 @@ wgl/wgl-sanity: skip
 summary:
        name:  results
        ----  --------
-       pass:    14257
-       fail:      473
+       pass:    14258
+       fail:      472
       crash:       68
        skip:     4176
     timeout:        0
