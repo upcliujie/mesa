@@ -389,20 +389,7 @@ driFetchDrawable(struct glx_context *gc, GLXDrawable glxDrawable)
     *    (window or pixmap) this GLX drawable uses, except the GLXPbuffer
     *    case which use the same XID for both X pixmap and GLX drawable.
     */
-
-   /* Infer the GLX drawable type. */
-   if (__glXGetDrawableAttribute(dpy, glxDrawable, GLX_DRAWABLE_TYPE, &type)) {
-      if (type != GLX_PBUFFER_BIT) {
-         ErrorMessageF("GLX drawable type is not supported\n");
-         return NULL;
-      }
-   } else {
-      /* Xserver may not implement GLX_DRAWABLE_TYPE query yet, or glxDrawable
-       * is a X window. Assume it's a GLXPbuffer in former case, because we don't
-       * know GLXPixmap and GLXWindow's X drawable ID anyway.
-       */
-      type = GLX_PBUFFER_BIT | GLX_WINDOW_BIT;
-   }
+   type = GLX_PBUFFER_BIT | GLX_WINDOW_BIT;
 
    pdraw = psc->driScreen->createDrawable(psc, glxDrawable, glxDrawable,
                                           type, config);
