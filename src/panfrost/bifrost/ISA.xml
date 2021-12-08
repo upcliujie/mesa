@@ -8445,4 +8445,8 @@
     </mod>
   </ins>
 
+  <ins name="+LEA_VARY" staging="w=2" message="attribute" pseudo="true">
+    <src start="0"/>
+  </ins>
+
 </bifrost>
