@@ -581,3 +581,58 @@ unsigned ac_compute_ngg_workgroup_size(unsigned es_verts, unsigned gs_inst_prims
 
    return CLAMP(workgroup_size, 1, 256);
 }
+
+void ac_set_reg_cu_en(void *cs, unsigned reg_offset, uint32_t value, uint32_t clear_mask,
+                      unsigned value_shift, const struct radeon_info *info,
+                      void set_sh_reg(void*, unsigned, uint32_t),
+                      void set_uconfig_reg(void*, unsigned, uint32_t))
+{
+   uint32_t cu_en_mask = ~clear_mask;
+   unsigned cu_en_shift = ffs(cu_en_mask) - 1;
+   uint32_t cu_en = (value & cu_en_mask) >> cu_en_shift;
+
+   if (info->spi_cu_en_has_effect) {
+      if (info->spi_cu_en_varies && info->chip_class >= GFX7) {
+         /* GFX6 code unimplemented here. */
+         for (unsigned se = 0; se < info->max_se; se++) {
+            for (unsigned sa = 0; sa < info->max_sa_per_se; sa++) {
+               if (!info->cu_mask[se][sa])
+                  continue;
+
+               /* Select the SA/SE where we will set the register value. */
+               set_uconfig_reg(cs, R_030800_GRBM_GFX_INDEX,
+                               S_030800_SE_INDEX(se) | S_030800_SA_INDEX(sa) |
+                               S_030800_INSTANCE_BROADCAST_WRITES(1));
+               /* Mask CU_EN by spi_cu_en. */
+               uint32_t spi_cu_en = info->spi_cu_en[se][sa] >> value_shift;
+               set_sh_reg(cs, reg_offset,
+                          (value & ~cu_en_mask) |
+                          (((cu_en & spi_cu_en) << cu_en_shift) & cu_en_mask));
+            }
+         }
+         set_uconfig_reg(cs, R_030800_GRBM_GFX_INDEX,
+                         S_030800_SE_BROADCAST_WRITES(1) |
+                         S_030800_SA_BROADCAST_WRITES(1) |
+                         S_030800_INSTANCE_BROADCAST_WRITES(1));
+      } else {
+         uint32_t spi_cu_en = 0;
+
+         for (unsigned se = 0; se < info->max_se; se++) {
+            for (unsigned sa = 0; sa < info->max_sa_per_se; sa++) {
+               if (info->cu_mask[se][sa]) {
+                  spi_cu_en = info->spi_cu_en[se][sa];
+                  goto found;
+               }
+            }
+         }
+
+      found:
+         assert(spi_cu_en);
+         set_sh_reg(cs, reg_offset,
+                    (value & ~cu_en_mask) |
+                    (((cu_en & spi_cu_en) << cu_en_shift) & cu_en_mask));
+      }
+   } else {
+      set_sh_reg(cs, reg_offset, value);
+   }
+}
