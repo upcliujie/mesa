@@ -45,6 +45,8 @@ dzn_meta::compile_shader(dzn_device *device, nir_shader *nir,
    IDxcLibrary *library = instance->dxc.library.Get();
    IDxcCompiler *compiler = instance->dxc.compiler.Get();
 
+   nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
+
    if ((instance->debug_flags & DZN_DEBUG_NIR) &&
        (instance->debug_flags & DZN_DEBUG_INTERNAL))
       nir_print_shader(nir, stderr);
