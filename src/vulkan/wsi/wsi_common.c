@@ -72,6 +72,7 @@ wsi_device_init(struct wsi_device *wsi,
 
    wsi->maxImageDimension2D = pdp2.properties.limits.maxImageDimension2D;
    wsi->override_present_mode = VK_PRESENT_MODE_MAX_ENUM_KHR;
+   wsi->private_queue_for_prime_blit = VK_NULL_HANDLE;
 
    GetPhysicalDeviceMemoryProperties(pdevice, &wsi->memory_props);
    GetPhysicalDeviceQueueFamilyProperties(pdevice, &wsi->queue_family_count, NULL);
@@ -233,18 +234,26 @@ wsi_swapchain_init(const struct wsi_device *wsi,
    chain->alloc = *pAllocator;
    chain->use_prime_blit = false;
 
+   int cmd_pools_count = wsi->private_queue_for_prime_blit != VK_NULL_HANDLE ? 1 : wsi->queue_family_count;
+
    chain->cmd_pools =
-      vk_zalloc(pAllocator, sizeof(VkCommandPool) * wsi->queue_family_count, 8,
+      vk_zalloc(pAllocator, sizeof(VkCommandPool) * cmd_pools_count, 8,
                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
    if (!chain->cmd_pools)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
-   for (uint32_t i = 0; i < wsi->queue_family_count; i++) {
+   for (uint32_t i = 0; i < cmd_pools_count; i++) {
+      int queue_family_index = i;
+
+      if (wsi->private_queue_for_prime_blit != VK_NULL_HANDLE) {
+         VK_FROM_HANDLE(vk_queue, queue, wsi->private_queue_for_prime_blit);
+         queue_family_index = queue->queue_family_index;
+      }
       const VkCommandPoolCreateInfo cmd_pool_info = {
          .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
          .pNext = NULL,
          .flags = 0,
-         .queueFamilyIndex = i,
+         .queueFamilyIndex = queue_family_index,
       };
       result = wsi->CreateCommandPool(device, &cmd_pool_info, &chain->alloc,
                                       &chain->cmd_pools[i]);
@@ -544,6 +553,17 @@ wsi_CreateSwapchainKHR(VkDevice _device,
       return VK_ERROR_OUT_OF_HOST_MEMORY;
    }
 
+   if (wsi_device->private_queue_for_prime_blit != VK_NULL_HANDLE) {
+      swapchain->prime_blit_fences = vk_zalloc(alloc,
+                                         sizeof (*swapchain->prime_blit_fences) * swapchain->image_count,
+                                         sizeof (*swapchain->prime_blit_fences),
+                                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+      if (!swapchain->prime_blit_fences) {
+         swapchain->destroy(swapchain, alloc);
+         return VK_ERROR_OUT_OF_HOST_MEMORY;
+      }
+   }
+
    *pSwapchain = wsi_swapchain_to_handle(swapchain);
 
    return VK_SUCCESS;
@@ -669,6 +689,20 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
          return lresult;
    }
 
+   if (swapchain->use_prime_blit && wsi->private_queue_for_prime_blit != VK_NULL_HANDLE) {
+      if (swapchain->fences[*pImageIndex] != VK_NULL_HANDLE) {
+         result =
+            wsi->WaitForFences(_device, 1, &swapchain->prime_blit_fences[*pImageIndex],
+                               true, ~0ull);
+         if (result != VK_SUCCESS)
+            return result;
+
+         result = wsi->ResetFences(_device, 1, &swapchain->prime_blit_fences[*pImageIndex]);
+         if (result != VK_SUCCESS)
+            return result;
+      }
+   }
+
    return result;
 }
 
@@ -711,6 +745,19 @@ wsi_common_queue_present(const struct wsi_device *wsi,
                                    &swapchain->fences[image_index]);
          if (result != VK_SUCCESS)
             goto fail_present;
+
+         if (swapchain->use_prime_blit && wsi->private_queue_for_prime_blit != VK_NULL_HANDLE) {
+            const VkFenceCreateInfo fence_info = {
+               .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+               .pNext = NULL,
+               .flags = 0,
+            };
+            result = wsi->CreateFence(device, &fence_info,
+                                      &swapchain->alloc,
+                                      &swapchain->prime_blit_fences[image_index]);
+            if (result != VK_SUCCESS)
+               goto fail_present;
+         }
       } else {
          result =
             wsi->WaitForFences(device, 1, &swapchain->fences[image_index],
@@ -767,8 +814,21 @@ wsi_common_queue_present(const struct wsi_device *wsi,
           * command buffer is attached to the image.
           */
          submit_info.commandBufferCount = 1;
-         submit_info.pCommandBuffers =
-            &image->prime.blit_cmd_buffers[queue_family_index];
+
+         if (wsi->private_queue_for_prime_blit != VK_NULL_HANDLE) {
+            submit_info.pCommandBuffers = &image->prime.blit_cmd_buffers[0];
+            /* Submit the copy to the private transfer queue */
+            result = wsi->QueueSubmit(wsi->private_queue_for_prime_blit,
+                                      1,
+                                      &submit_info,
+                                      swapchain->prime_blit_fences[image_index]);
+            submit_info.commandBufferCount = 0;
+            submit_info.waitSemaphoreCount = 0;
+            submit_info.pCommandBuffers = NULL;
+         } else {
+            submit_info.pCommandBuffers =
+               &image->prime.blit_cmd_buffers[queue_family_index];
+         }
          mem_signal.memory = image->prime.memory;
       }
 
