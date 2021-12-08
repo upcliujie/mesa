@@ -508,10 +508,8 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       /* some layouts map to the states, and NOP-barriers are illegal */
       uint32_t layer_count = dzn_get_layer_count(image, range);
       uint32_t level_count = dzn_get_level_count(image, range);
-      for (uint32_t layer = range->baseArrayLayer;
-           layer < range->baseArrayLayer + layer_count; layer++) {
-         for (uint32_t lvl = range->baseMipLevel;
-              lvl < range->baseMipLevel + level_count; lvl++) {
+      for (uint32_t layer = 0; layer < layer_count; layer++) {
+         for (uint32_t lvl = 0; lvl < level_count; lvl++) {
             dzn_foreach_aspect(aspect, range->aspectMask) {
                transition_barrier.Transition.Subresource =
                   image->get_subresource_index(*range, aspect, lvl, layer);
@@ -651,8 +649,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
       uint32_t layer_count = dzn_get_layer_count(image, &range);
       uint32_t level_count = dzn_get_level_count(image, &range);
 
-      for (uint32_t lvl = range.baseMipLevel;
-           lvl < range.baseMipLevel + level_count; lvl++) {
+      for (uint32_t lvl = 0; lvl < level_count; lvl++) {
          struct d3d12_descriptor_handle handle;
 
          D3D12_RESOURCE_BARRIER barrier = {
@@ -666,8 +663,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
          };
 
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
-            for (uint32_t layer = range.baseArrayLayer;
-                 layer < range.baseArrayLayer + layer_count; layer++) {
+            for (uint32_t layer = 0; layer < layer_count; layer++) {
                barrier.Transition.Subresource =
                   image->get_subresource_index(range, VK_IMAGE_ASPECT_COLOR_BIT,
                                                lvl, layer);
@@ -683,12 +679,9 @@ dzn_cmd_buffer::clear(const dzn_image *image,
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
             std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 
-            for (uint32_t layer = range.baseArrayLayer;
-                 layer < range.baseArrayLayer + layer_count; layer++) {
+            for (uint32_t layer = 0; layer < layer_count; layer++) {
                barrier.Transition.Subresource =
-                  image->get_subresource_index(range, VK_IMAGE_ASPECT_COLOR_BIT,
-                                               lvl + range.baseMipLevel,
-                                               layer + range.baseArrayLayer);
+                  image->get_subresource_index(range, VK_IMAGE_ASPECT_COLOR_BIT, lvl, layer);
                batch->cmdlist->ResourceBarrier(1, &barrier);
             }
          }
@@ -719,8 +712,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
       if (range.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)
          flags |= D3D12_CLEAR_FLAG_STENCIL;
 
-      for (uint32_t lvl = range.baseMipLevel;
-           lvl < range.baseMipLevel + level_count; lvl++) {
+      for (uint32_t lvl = 0; lvl < level_count; lvl++) {
          struct d3d12_descriptor_handle handle;
 
          D3D12_RESOURCE_BARRIER barrier = {
@@ -734,8 +726,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
          };
 
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
-            for (uint32_t layer = range.baseArrayLayer;
-                 layer < range.baseArrayLayer + layer_count; layer++) {
+            for (uint32_t layer = 0; layer < layer_count; layer++) {
                dzn_foreach_aspect(aspect, range.aspectMask) {
                   barrier.Transition.Subresource =
                      image->get_subresource_index(range, aspect, lvl, layer);
@@ -753,8 +744,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
             std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 
-            for (uint32_t layer = range.baseArrayLayer;
-                 layer < range.baseArrayLayer + layer_count; layer++) {
+            for (uint32_t layer = 0; layer < layer_count; layer++) {
                dzn_foreach_aspect(aspect, range.aspectMask) {
                   barrier.Transition.Subresource =
                      image->get_subresource_index(range, aspect, lvl, layer);
