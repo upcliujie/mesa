@@ -43,3 +43,48 @@ vn_renderer_submit_simple_sync(struct vn_renderer *renderer,
 
    return result;
 }
+
+void
+vn_renderer_shmem_pool_init(struct vn_renderer *renderer,
+                            struct vn_renderer_shmem_pool *pool,
+                            size_t min_alloc_size)
+{
+   *pool = (struct vn_renderer_shmem_pool){
+      .min_alloc_size = min_alloc_size,
+   };
+}
+
+void
+vn_renderer_shmem_pool_fini(struct vn_renderer *renderer,
+                            struct vn_renderer_shmem_pool *pool)
+{
+   if (pool->shmem)
+      vn_renderer_shmem_unref(renderer, pool->shmem);
+}
+
+bool
+vn_renderer_shmem_pool_realloc(struct vn_renderer *renderer,
+                               struct vn_renderer_shmem_pool *pool,
+                               size_t size)
+{
+   size_t alloc_size = pool->min_alloc_size;
+   while (alloc_size < size) {
+      alloc_size <<= 1;
+      if (!alloc_size)
+         return false;
+   }
+
+   struct vn_renderer_shmem *shmem =
+      vn_renderer_shmem_create(renderer, alloc_size);
+   if (!shmem)
+      return false;
+
+   if (pool->shmem)
+      vn_renderer_shmem_unref(renderer, pool->shmem);
+
+   pool->shmem = shmem;
+   pool->shmem_size = alloc_size;
+   pool->shmem_used = 0;
+
+   return true;
+}
