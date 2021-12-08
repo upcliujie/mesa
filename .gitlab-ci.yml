@@ -47,24 +47,24 @@ include:
   - local: '.gitlab-ci/image-tags.yml'
   - local: '.gitlab-ci/lava/lava-gitlab-ci.yml'
   - local: '.gitlab-ci/test-source-dep.yml'
-  - local: 'src/amd/ci/gitlab-ci.yml'
-  - local: 'src/broadcom/ci/gitlab-ci.yml'
-  - local: 'src/etnaviv/ci/gitlab-ci.yml'
-  - local: 'src/freedreno/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/crocus/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/d3d12/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/i915/ci/gitlab-ci.yml'
+#  - local: 'src/amd/ci/gitlab-ci.yml'
+#  - local: 'src/broadcom/ci/gitlab-ci.yml'
+#  - local: 'src/etnaviv/ci/gitlab-ci.yml'
+#  - local: 'src/freedreno/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/crocus/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/d3d12/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/i915/ci/gitlab-ci.yml'
   - local: 'src/gallium/drivers/iris/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/radeonsi/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/softpipe/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/virgl/ci/gitlab-ci.yml'
-  - local: 'src/gallium/drivers/zink/ci/gitlab-ci.yml'
-  - local: 'src/gallium/frontends/lavapipe/ci/gitlab-ci.yml'
-  - local: 'src/intel/ci/gitlab-ci.yml'
-  - local: 'src/microsoft/ci/gitlab-ci.yml'
-  - local: 'src/panfrost/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/lima/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/llvmpipe/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/radeonsi/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/softpipe/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/virgl/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/drivers/zink/ci/gitlab-ci.yml'
+#  - local: 'src/gallium/frontends/lavapipe/ci/gitlab-ci.yml'
+#  - local: 'src/intel/ci/gitlab-ci.yml'
+#  - local: 'src/microsoft/ci/gitlab-ci.yml'
+#  - local: 'src/panfrost/ci/gitlab-ci.yml'
 
 stages:
   - sanity
@@ -86,7 +86,7 @@ stages:
 # ----------------------------------------------------------
 .scheduled_pipelines-rules:
   rules: &ignore_scheduled_pipelines
-    if: &is-scheduled-pipeline '$CI_PIPELINE_SOURCE == "schedule"'
+    if: &is-scheduled-pipeline '$CI_PIPELINE_SOURCE == "schedulex"'
     when: never
 
 # YAML anchors for rule conditions
@@ -314,6 +314,8 @@ debian/x86_build-base:
     - .container
   variables:
     MESA_IMAGE_TAG: &debian-x86_build-base ${DEBIAN_BASE_TAG}
+  rules:
+    - when: always
 
 .use-debian/x86_build-base:
   extends:
@@ -413,6 +415,8 @@ debian/android_build:
 
 # Debian 11 based x86 test image base
 debian/x86_test-base:
+  rules:
+    - when: manual
   extends: debian/x86_build-base
   variables:
     MESA_IMAGE_TAG: &debian-x86_test-base ${DEBIAN_BASE_TAG}
@@ -763,6 +767,8 @@ debian-testing:
     - .gitlab-ci/prepare-artifacts.sh
 
 debian-testing-asan:
+  rules:
+    - when: manual
   extends:
     - debian-testing
   variables:
@@ -794,6 +800,8 @@ debian-testing-msan:
     VULKAN_DRIVERS: intel,amd,broadcom,virtio-experimental
 
 debian-clover-testing:
+  rules:
+    - when: manual
   extends:
     - .meson-build
     - .ci-deqp-artifacts
@@ -815,6 +823,8 @@ debian-clover-testing:
     - .gitlab-ci/prepare-artifacts.sh
 
 debian-gallium:
+  rules:
+    - when: manual
   extends: .meson-build
   variables:
     UNWIND: "enabled"
@@ -844,6 +854,8 @@ debian-gallium:
 
 # Test a release build with -Werror so new warnings don't sneak in.
 debian-release:
+  rules:
+    - when: manual
   extends: .meson-build
   variables:
     UNWIND: "enabled"
@@ -873,6 +885,8 @@ debian-release:
     - .gitlab-ci/meson/build.sh
 
 fedora-release:
+  rules:
+    - when: manual
   extends:
     - .meson-build
     - .use-fedora/x86_build
@@ -919,6 +933,8 @@ fedora-release:
     - .gitlab-ci/meson/build.sh
 
 debian-android:
+  rules:
+    - when: manual
   extends:
     - .meson-cross
     - .use-debian/android_build
@@ -1053,6 +1069,8 @@ debian-arm64-build-test:
     - .gitlab-ci/meson/build.sh
 
 debian-clang:
+  rules:
+    - when: manual
   extends: .meson-build
   variables:
     UNWIND: "enabled"
@@ -1093,6 +1111,8 @@ windows-vs2019:
       - _install/
 
 debian-clover:
+  rules:
+    - when: manual
   extends: .meson-build
   variables:
     UNWIND: "enabled"
@@ -1117,6 +1137,8 @@ debian-clover:
     - .gitlab-ci/meson/build.sh
 
 debian-vulkan:
+  rules:
+    - when: manual
   extends: .meson-build
   variables:
     UNWIND: "disabled"
@@ -1145,6 +1167,8 @@ debian-vulkan:
       -D build-aco-tests=true
 
 debian-i386:
+  rules:
+    - when: manual
   extends:
     - .meson-cross
     - .use-debian/i386_build
@@ -1156,6 +1180,8 @@ debian-i386:
       -D vulkan-layers=device-select,overlay
 
 debian-s390x:
+  rules:
+    - when: manual
   extends:
     - debian-ppc64el
     - .use-debian/s390x_build
@@ -1170,6 +1196,8 @@ debian-s390x:
     VULKAN_DRIVERS: "swrast"
 
 debian-ppc64el:
+  rules:
+    - when: manual
   extends:
     - .meson-cross
     - .use-debian/ppc64el_build
@@ -1180,6 +1208,8 @@ debian-ppc64el:
     VULKAN_DRIVERS: "amd,swrast"
 
 debian-mingw32-x86_64:
+  rules:
+    - when: manual
   extends: .meson-build
   stage: build-misc
   variables:
