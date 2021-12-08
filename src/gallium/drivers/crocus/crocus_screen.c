@@ -207,6 +207,7 @@ crocus_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_FENCE_SIGNAL:
    case PIPE_CAP_DEMOTE_TO_HELPER_INVOCATION:
    case PIPE_CAP_GL_CLAMP:
+   case PIPE_CAP_GLSL_DISCARD_IS_TERMINATE:
       return true;
    case PIPE_CAP_INT64:
    case PIPE_CAP_INT64_DIVMOD:
@@ -771,6 +772,8 @@ crocus_screen_create(int fd, const struct pipe_screen_config *config)
       driQueryOptionb(config->options, "disable_throttling");
    screen->driconf.always_flush_cache =
       driQueryOptionb(config->options, "always_flush_cache");
+   screen->driconf.glsl_correct_derivatives_after_discard =
+      driQueryOptionb(config->options, "glsl_correct_derivatives_after_discard");
 
    screen->precompile = env_var_as_boolean("shader_precompile", true);
 
@@ -783,6 +786,8 @@ crocus_screen_create(int fd, const struct pipe_screen_config *config)
    screen->compiler->supports_shader_constants = false;
    screen->compiler->compact_params = false;
    screen->compiler->constant_buffer_0_is_relative = true;
+   screen->compiler->fs_correct_derivs_after_kill =
+      screen->driconf.glsl_correct_derivatives_after_discard;
 
    if (screen->devinfo.ver >= 7) {
       screen->l3_config_3d = crocus_get_default_l3_config(&screen->devinfo, false);

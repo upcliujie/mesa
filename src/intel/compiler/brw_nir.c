@@ -617,6 +617,7 @@ brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
       }
       OPT(nir_opt_if, false);
       OPT(nir_opt_conditional_discard);
+      OPT(nir_opt_dce_discard_condition);
       if (nir->options->max_unroll_iterations != 0) {
          OPT(nir_opt_loop_unroll);
       }
@@ -772,6 +773,13 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
 
    if (nir->info.stage == MESA_SHADER_GEOMETRY)
       OPT(nir_lower_gs_intrinsics, 0);
+
+   /* If we encounter any GLSL 1.10, 1.20, or ES 1.00 shaders that have
+    * problems with discard-as-terminate behavior, they should use the driconf
+    * option to get demote behavior.
+    */
+   OPT(nir_lower_discard_or_demote,
+       compiler->fs_correct_derivs_after_kill || nir->info.is_arb_asm);
 
    /* See also brw_nir_trig_workarounds.py */
    if (compiler->precise_trig &&
