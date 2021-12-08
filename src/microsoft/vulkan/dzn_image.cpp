@@ -150,8 +150,8 @@ dzn_image::dzn_image(dzn_device *device,
          desc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
    }
 
-   /* Images with TRANSFER_DST can be cleared, add the RT/DS cap flags in
-    * that case (required by Clear{RenderTarget,DepthStencil}View()).
+   /* Images with TRANSFER_DST can be cleared or passed as a blit/resolve
+    * destination. Both operations require the RT or DS cap flags.
     */
    if ((vk.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT) &&
        vk.tiling == VK_IMAGE_TILING_OPTIMAL) {
