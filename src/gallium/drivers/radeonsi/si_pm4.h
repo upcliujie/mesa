@@ -31,7 +31,8 @@
 extern "C" {
 #endif
 
-#define SI_PM4_MAX_DW 176
+/* TODO: this is high because of cs_preamble with AMD_CU_MASK */
+#define SI_PM4_MAX_DW 400
 
 // forward defines
 struct si_context;
