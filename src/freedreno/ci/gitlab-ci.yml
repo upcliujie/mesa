@@ -1,4 +1,6 @@
 .freedreno-test:
+  rules:
+    - when: manual
   extends:
     - .baremetal-test-arm64
     - .use-debian/arm_test
@@ -17,6 +19,8 @@
     - google-freedreno-db410c
 
 .baremetal-deqp-test-freedreno-vk:
+  rules:
+    - when: manual
   extends:
     - .baremetal-deqp-test
   variables:
@@ -27,6 +31,8 @@
     FREEDRENO_HANGCHECK_MS: 2000
 
 .freedreno-test-traces:
+  rules:
+    - when: manual
   extends:
     - .piglit-traces-test
   variables:
@@ -272,6 +278,8 @@ a630-traces:
     MESA_GL_VERSION_OVERRIDE: "4.6"
 
 a630-traces-restricted:
+  rules:
+    - when: manual
   extends:
     - a630-traces
     - .freedreno-rules-restricted
