@@ -110,6 +110,27 @@ dzn_nir_indirect_draw_shader(enum dzn_indirect_draw_type type);
 nir_shader *
 dzn_nir_triangle_fan_rewrite_index_shader(uint8_t old_index_size);
 
+struct dzn_nir_blit_info {
+   union {
+      struct {
+         uint32_t src_samples : 6;
+         uint32_t loc : 4;
+         uint32_t out_type : 4;
+         uint32_t sampler_dim : 4;
+         uint32_t src_is_array : 1;
+         uint32_t resolve : 1;
+         uint32_t padding : 12;
+      };
+      const uint32_t hash_key;
+   };
+};
+
+nir_shader *
+dzn_nir_blit_vs(void);
+
+nir_shader *
+dzn_nir_blit_fs(const struct dzn_nir_blit_info *info);
+
 #ifdef __cplusplus
 }
 #endif

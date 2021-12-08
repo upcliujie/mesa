@@ -283,3 +283,174 @@ dzn_nir_triangle_fan_rewrite_index_shader(uint8_t old_index_size)
 
    return b.shader;
 }
+
+nir_shader *
+dzn_nir_blit_vs(void)
+{
+   nir_builder b =
+      nir_builder_init_simple_shader(MESA_SHADER_VERTEX,
+                                     dxil_get_nir_compiler_options(),
+                                     "dzn_meta_blit_vs()");
+   b.shader->info.internal = true;
+
+   nir_variable *params_var =
+      nir_variable_create(b.shader, nir_var_mem_ubo, glsl_float_type(), "params");
+   params_var->data.driver_location = params_var->data.binding = 0;
+   b.shader->info.num_ubos++;
+
+   nir_variable *out_pos =
+      nir_variable_create(b.shader, nir_var_shader_out, glsl_vec4_type(),
+                          "gl_Position");
+   out_pos->data.location = VARYING_SLOT_POS;
+   out_pos->data.driver_location = 0;
+
+   nir_variable *out_coords =
+      nir_variable_create(b.shader, nir_var_shader_out, glsl_vec_type(3),
+                          "coords");
+   out_coords->data.location = VARYING_SLOT_TEX0;
+   out_coords->data.driver_location = 1;
+
+   nir_ssa_def *vertex = nir_load_vertex_id(&b);
+   nir_ssa_def *base = nir_imul_imm(&b, vertex, 4 * sizeof(float));
+   nir_ssa_def *coords =
+      nir_load_ubo(&b, 4, 32, nir_imm_int(&b, 0), base,
+                   .align_mul = 16, .align_offset = 0, .range_base = 0, .range = ~0);
+   nir_ssa_def *pos =
+      nir_vec4(&b, nir_channel(&b, coords, 0), nir_channel(&b, coords, 1),
+               nir_imm_float(&b, 0.0), nir_imm_float(&b, 1.0));
+   nir_ssa_def *z_coord =
+      nir_load_ubo(&b, 1, 32, nir_imm_int(&b, 0), nir_imm_int(&b, 4 * 4 * sizeof(float)),
+                   .align_mul = 64, .align_offset = 0, .range_base = 0, .range = ~0);
+   coords = nir_vec3(&b, nir_channel(&b, coords, 2), nir_channel(&b, coords, 3), z_coord);
+
+   nir_store_var(&b, out_pos, pos, 0xf);
+   nir_store_var(&b, out_coords, coords, 0x7);
+   return b.shader;
+}
+
+nir_shader *
+dzn_nir_blit_fs(const struct dzn_nir_blit_info *info)
+{
+   bool ms = info->src_samples > 1;
+   nir_alu_type nir_out_type =
+      nir_get_nir_type_for_glsl_base_type(info->out_type);
+   uint32_t coord_comps =
+      glsl_get_sampler_dim_coordinate_components(info->sampler_dim) +
+      info->src_is_array;
+
+   nir_builder b =
+      nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT,
+                                     dxil_get_nir_compiler_options(),
+                                     "dzn_meta_blit_fs()");
+   b.shader->info.internal = true;
+
+   const struct glsl_type *tex_type =
+      glsl_texture_type(info->sampler_dim, info->src_is_array, info->out_type);
+   nir_variable *tex_var =
+      nir_variable_create(b.shader, nir_var_uniform, tex_type, "texture");
+
+   nir_variable *pos_var =
+      nir_variable_create(b.shader, nir_var_shader_in,
+                          glsl_vector_type(GLSL_TYPE_FLOAT, 4),
+                          "gl_FragCoord");
+   pos_var->data.location = VARYING_SLOT_POS;
+   pos_var->data.driver_location = 0;
+
+   nir_variable *coord_var =
+      nir_variable_create(b.shader, nir_var_shader_in,
+                          glsl_vector_type(GLSL_TYPE_FLOAT, 3),
+                          "coord");
+   coord_var->data.location = VARYING_SLOT_TEX0;
+   coord_var->data.driver_location = 1;
+   nir_ssa_def *coord =
+      nir_channels(&b, nir_load_var(&b, coord_var), (1 << coord_comps) - 1);
+
+   uint32_t out_comps =
+      (info->loc == FRAG_RESULT_DEPTH || info->loc == FRAG_RESULT_STENCIL) ? 1 : 4;
+   nir_variable *out =
+      nir_variable_create(b.shader, nir_var_shader_out,
+                          glsl_vector_type(info->out_type, out_comps),
+                          "out");
+   out->data.location = info->loc;
+
+   nir_ssa_def *res = NULL;
+
+   if (info->resolve) {
+      /* When resolving a float type, we need to calculate the average of all
+       * samples. For integer resolve, Vulkan says that one sample should be
+       * chosen without telling which. Let's just pick the first one in that
+       * case.
+       */
+
+      unsigned nsamples = info->out_type == GLSL_TYPE_FLOAT ?
+                          info->src_samples : 1;
+      for (unsigned s = 0; s < nsamples; s++) {
+         nir_tex_instr *tex = nir_tex_instr_create(b.shader, 3);
+
+	 tex->op = nir_texop_txf_ms;
+	 tex->dest_type = nir_out_type;
+	 tex->texture_index = 0;
+	 tex->is_array = info->src_is_array;
+	 tex->sampler_dim = info->sampler_dim;
+
+         tex->src[0].src_type = nir_tex_src_coord;
+         tex->src[0].src = nir_src_for_ssa(nir_f2i32(&b, coord));
+         tex->coord_components = coord_comps;
+
+         tex->src[1].src_type = nir_tex_src_ms_index;
+         tex->src[1].src = nir_src_for_ssa(nir_imm_int(&b, s));
+
+         tex->src[2].src_type = nir_tex_src_lod;
+         tex->src[2].src = nir_src_for_ssa(nir_imm_int(&b, 0));
+         nir_ssa_dest_init(&tex->instr, &tex->dest, 4, 32, NULL);
+
+         nir_builder_instr_insert(&b, &tex->instr);
+         res = res ? nir_fadd(&b, res, &tex->dest.ssa) : &tex->dest.ssa;
+      }
+
+      if (nsamples > 1) {
+         unsigned type_sz = nir_alu_type_get_type_size(nir_out_type);
+         res = nir_fmul(&b, res, nir_imm_floatN_t(&b, 1.0f / nsamples, type_sz));
+      }
+   } else {
+      nir_tex_instr *tex =
+         nir_tex_instr_create(b.shader, ms ? 3 : 1);
+
+      tex->dest_type = nir_out_type;
+      tex->texture_index = 0;
+      tex->is_array = info->src_is_array;
+      tex->sampler_dim = info->sampler_dim;
+
+      if (ms) {
+         tex->op = nir_texop_txf_ms;
+
+         tex->src[0].src_type = nir_tex_src_coord;
+         tex->src[0].src = nir_src_for_ssa(nir_f2i32(&b, coord));
+         tex->coord_components = coord_comps;
+
+         tex->src[1].src_type = nir_tex_src_ms_index;
+         tex->src[1].src = nir_src_for_ssa(nir_load_sample_id(&b));
+
+         tex->src[2].src_type = nir_tex_src_lod;
+         tex->src[2].src = nir_src_for_ssa(nir_imm_int(&b, 0));
+      } else {
+         nir_variable *sampler_var =
+            nir_variable_create(b.shader, nir_var_uniform, glsl_bare_sampler_type(), "sampler");
+
+         tex->op = nir_texop_tex;
+         tex->sampler_index = 0;
+
+         tex->src[0].src_type = nir_tex_src_coord;
+         tex->src[0].src = nir_src_for_ssa(coord);
+         tex->coord_components = coord_comps;
+      }
+
+      nir_ssa_dest_init(&tex->instr, &tex->dest, 4, 32, NULL);
+      nir_builder_instr_insert(&b, &tex->instr);
+      res = &tex->dest.ssa;
+   }
+
+   nir_store_var(&b, out, nir_channels(&b, res, (1 << out_comps) - 1), 0xf);
+
+   return b.shader;
+}
