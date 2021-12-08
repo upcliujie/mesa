@@ -395,7 +395,9 @@ dzn_graphics_pipeline::translate_ms(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
     */
    out.SampleDesc.Count = in_ms->rasterizationSamples;
    out.SampleDesc.Quality = 0;
-   out.SampleMask = in_ms->pSampleMask ? *in_ms->pSampleMask : 1;
+   out.SampleMask = in_ms->pSampleMask ?
+                    *in_ms->pSampleMask :
+                    (1 << in_ms->rasterizationSamples) - 1;
 }
 
 static D3D12_STENCIL_OP
