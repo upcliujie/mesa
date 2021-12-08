@@ -43,3 +43,76 @@ vn_renderer_submit_simple_sync(struct vn_renderer *renderer,
 
    return result;
 }
+
+void
+vn_renderer_shmem_pool_init(UNUSED struct vn_renderer *renderer,
+                            struct vn_renderer_shmem_pool *pool,
+                            size_t min_alloc_size)
+{
+   *pool = (struct vn_renderer_shmem_pool){
+      .min_alloc_size = util_next_power_of_two(min_alloc_size),
+   };
+}
+
+void
+vn_renderer_shmem_pool_fini(struct vn_renderer *renderer,
+                            struct vn_renderer_shmem_pool *pool)
+{
+   if (pool->shmem)
+      vn_renderer_shmem_unref(renderer, pool->shmem);
+}
+
+static size_t
+vn_renderer_shmem_pool_space(UNUSED struct vn_renderer *renderer,
+                             const struct vn_renderer_shmem_pool *pool)
+{
+   return pool->shmem_size - pool->shmem_used;
+}
+
+static bool
+vn_renderer_shmem_pool_realloc(struct vn_renderer *renderer,
+                               struct vn_renderer_shmem_pool *pool,
+                               size_t size)
+{
+   size_t alloc_size = pool->min_alloc_size;
+   while (alloc_size < size) {
+      alloc_size <<= 1;
+      if (!alloc_size)
+         return false;
+   }
+
+   struct vn_renderer_shmem *shmem =
+      vn_renderer_shmem_create(renderer, alloc_size);
+   if (!shmem)
+      return false;
+
+   if (pool->shmem)
+      vn_renderer_shmem_unref(renderer, pool->shmem);
+
+   pool->shmem = shmem;
+   pool->shmem_size = alloc_size;
+   pool->shmem_used = 0;
+
+   return true;
+}
+
+struct vn_renderer_shmem *
+vn_renderer_shmem_pool_alloc(struct vn_renderer *renderer,
+                             struct vn_renderer_shmem_pool *pool,
+                             size_t size,
+                             size_t *out_offset)
+{
+   if (unlikely(size > vn_renderer_shmem_pool_space(renderer, pool))) {
+      if (!vn_renderer_shmem_pool_realloc(renderer, pool, size))
+         return NULL;
+
+      assert(size <= vn_renderer_shmem_pool_space(renderer, pool));
+   }
+
+   struct vn_renderer_shmem *shmem =
+      vn_renderer_shmem_ref(renderer, pool->shmem);
+   *out_offset = pool->shmem_used;
+   pool->shmem_used += size;
+
+   return shmem;
+}
