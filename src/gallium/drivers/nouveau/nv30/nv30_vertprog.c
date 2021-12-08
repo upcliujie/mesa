@@ -26,6 +26,7 @@
 #include "draw/draw_context.h"
 #include "util/u_dynarray.h"
 #include "tgsi/tgsi_parse.h"
+#include "nir/nir_to_tgsi.h"
 
 #include "nv_object.xml.h"
 #include "nv30/nv30-40_3d.xml.h"
@@ -231,7 +232,14 @@ nv30_vp_state_create(struct pipe_context *pipe,
    if (nv30->rast)
       vp->enabled_ucps = nv30->rast->pipe.clip_plane_enable;
 
-   vp->pipe.tokens = tgsi_dup_tokens(cso->tokens);
+   if (cso->type == PIPE_SHADER_IR_NIR) {
+      vp->pipe.tokens = nir_to_tgsi(cso->ir.nir, pipe->screen);
+   } else {
+      assert(cso->type == PIPE_SHADER_IR_TGSI);
+      /* we need to keep a local copy of the tokens */
+      vp->pipe.tokens = tgsi_dup_tokens(cso->tokens);
+   }
+
    tgsi_scan_shader(vp->pipe.tokens, &vp->info);
    _nvfx_vertprog_translate(eng3d->oclass, vp, &nv30->base.debug);
    return vp;
