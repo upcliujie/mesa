@@ -107,6 +107,12 @@ struct wsi_device {
     * available. Not all window systems might support this. */
    bool enable_adaptive_sync;
 
+   /* If the driver wants to use a special queue to execute the prime blit,
+    * it just has to set this to the queue_family_index it wants to use.
+    * -1 is the default value and means that the prime blit is executed on
+    * the present queue. */
+   int private_queue_family_for_prime_blit;
+
    /* List of fences to signal when hotplug event happens. */
    struct list_head hotplug_fences;
 

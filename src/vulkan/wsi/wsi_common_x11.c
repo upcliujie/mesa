@@ -1799,9 +1799,25 @@ x11_surface_create_swapchain(VkIcdSurfaceBase *icd_surface,
     */
    chain->copy_is_suboptimal = false;
 
-   if (!wsi_device->sw)
-      if (!wsi_x11_check_dri3_compatible(wsi_device, conn))
+   if (!wsi_device->sw) {
+      if (!wsi_x11_check_dri3_compatible(wsi_device, conn)) {
          chain->base.use_prime_blit = true;
+
+         #if 0
+         /* Add a private transfer command pool for executing the prime blit */
+         if (wsi_device->private_queue_family_for_prime_blit >= 0) {
+            const VkCommandPoolCreateInfo cmd_pool_info = {
+               .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+               .pNext = NULL,
+               .flags = 0,
+               .queueFamilyIndex = wsi_device->private_queue_family_for_prime_blit,
+            };
+            result = wsi_device->CreateCommandPool(device, &cmd_pool_info, &chain->base.alloc,
+                                                   &chain->base.cmd_pools[0]);
+         }
+         #endif
+      }
+   }
 
    chain->event_id = xcb_generate_id(chain->conn);
    xcb_present_select_input(chain->conn, chain->event_id, chain->window,
