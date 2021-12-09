@@ -289,12 +289,47 @@ va_pack_load(const bi_instr *I)
    return hex;
 }
 
+enum va_store_segment {
+   VA_STORE_SEGMENT_GLOBAL = 0,
+   VA_STORE_SEGMENT_POS = 1,
+   VA_STORE_SEGMENT_VARY = 2,
+   VA_STORE_SEGMENT_TL = 3,
+};
+
+static uint64_t
+va_pack_store_segment(const bi_instr *I)
+{
+   switch (I->seg) {
+   case BI_SEG_NONE:
+   case BI_SEG_WLS:
+      return VA_STORE_SEGMENT_GLOBAL;
+
+   case BI_SEG_TL:
+      return VA_STORE_SEGMENT_TL;
+
+   case BI_SEG_POS:
+      return VA_STORE_SEGMENT_POS;
+
+   case BI_SEG_VARY:
+      return VA_STORE_SEGMENT_VARY;
+
+   case BI_SEG_UBO:
+   case BI_SEG_STREAM:
+      unreachable("Segment not supported on Valhall");
+   }
+
+   unreachable("Invalid segment");
+}
+
 static uint64_t
 va_pack_store(const bi_instr *I)
 {
    /* Staging read */
    uint64_t hex = (uint64_t) va_pack_reg(I->src[0]) << 40;
    hex |= (0x40ull << 40); // flags
+
+   /* Store segment */
+   hex |= va_pack_store_segment(I) << 24;
 
    /* 1-src */
    hex |= (uint64_t) va_pack_src(I->src[1]) << 0;
