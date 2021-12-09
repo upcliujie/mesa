@@ -2817,7 +2817,7 @@ nir_to_tgsi_lower_64bit_to_vec2(nir_shader *s)
 }
 
 struct ntt_lower_tex_state {
-   nir_ssa_def *channels[8];
+   nir_ssa_scalar channels[8];
    unsigned i;
 };
 
@@ -2835,10 +2835,30 @@ nir_to_tgsi_lower_tex_instr_arg(nir_builder *b,
 
    nir_ssa_def *def = instr->src[tex_src].src.ssa;
    for (int i = 0; i < def->num_components; i++) {
-      s->channels[s->i++] = nir_channel(b, def, i);
+      s->channels[s->i].def = def;
+      s->channels[s->i].comp = i;
+      i++;
    }
 
    nir_tex_instr_remove_src(instr, tex_src);
+}
+
+static nir_ssa_def *
+nir_vec_or_mov(nir_builder *b, nir_ssa_scalar *channels, int num_components)
+{
+   for (int i = 1; i < num_components; i++) {
+      if (channels[i].def != channels[0].def) {
+         nir_ssa_def *def_chans[num_components];
+         for (int j = 0; j < num_components; j++)
+            def_chans[j] = nir_channel(b, channels[j].def, channels[j].comp);
+         return nir_vec(b, def_chans, num_components);
+      }
+   }
+
+   unsigned swizzle[num_components];
+   for (int i = 0; i < num_components; i++)
+      swizzle[i] = channels[i].comp;
+   return nir_swizzle(b, channels[0].def, swizzle, num_components);
 }
 
 /**
@@ -2890,22 +2910,22 @@ nir_to_tgsi_lower_tex_instr(nir_builder *b, nir_instr *instr, void *data)
    nir_to_tgsi_lower_tex_instr_arg(b, tex, nir_tex_src_ms_index, &s);
 
    /* No need to pack undefs in unused channels of the tex instr */
-   while (!s.channels[s.i - 1])
+   while (!s.channels[s.i - 1].def)
       s.i--;
 
    /* Instead of putting undefs in the unused slots of the vecs, just put in
     * another used channel.  Otherwise, we'll get unnecessary moves into
     * registers.
     */
-   assert(s.channels[0] != NULL);
+   assert(s.channels[0].def != NULL);
    for (int i = 1; i < s.i; i++) {
-      if (!s.channels[i])
+      if (!s.channels[i].def)
          s.channels[i] = s.channels[0];
    }
 
-   nir_tex_instr_add_src(tex, nir_tex_src_backend1, nir_src_for_ssa(nir_vec(b, s.channels, MIN2(s.i, 4))));
+   nir_tex_instr_add_src(tex, nir_tex_src_backend1, nir_src_for_ssa(nir_vec_or_mov(b, s.channels, MIN2(s.i, 4))));
    if (s.i > 4)
-      nir_tex_instr_add_src(tex, nir_tex_src_backend2, nir_src_for_ssa(nir_vec(b, &s.channels[4], s.i - 4)));
+      nir_tex_instr_add_src(tex, nir_tex_src_backend2, nir_src_for_ssa(nir_vec_or_mov(b, &s.channels[4], s.i - 4)));
 
    return true;
 }
