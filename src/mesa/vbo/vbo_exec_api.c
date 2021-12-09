@@ -1035,7 +1035,7 @@ vbo_exec_vtx_init(struct vbo_exec_context *exec)
 {
    struct gl_context *ctx = gl_context_from_vbo_exec(exec);
 
-   exec->vtx.bufferobj = st_bufferobj_alloc(ctx, IMM_BUFFER_NAME);
+   exec->vtx.bufferobj = _mesa_internal_buffer_object_alloc(ctx, IMM_BUFFER_NAME);
 
    vbo_exec_vtxfmt_init(exec);
    _mesa_noop_vtxfmt_init(ctx, &exec->vtxfmt_noop);
