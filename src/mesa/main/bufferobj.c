@@ -124,11 +124,11 @@ st_bufferobj_subdata(struct gl_context *ctx,
 /**
  * Called via glGetBufferSubDataARB().
  */
-void
-st_bufferobj_get_subdata(struct gl_context *ctx,
-                         GLintptrARB offset,
-                         GLsizeiptrARB size,
-                         void * data, struct gl_buffer_object *obj)
+static void
+bufferobj_get_subdata(struct gl_context *ctx,
+                      GLintptrARB offset,
+                      GLsizeiptrARB size,
+                      void *data, struct gl_buffer_object *obj)
 {
    /* we may be called from VBO code, so double-check params here */
    assert(offset >= 0);
@@ -395,7 +395,7 @@ st_bufferobj_data(struct gl_context *ctx,
    return bufferobj_data(ctx, target, size, data, NULL, 0, usage, storageFlags, obj);
 }
 
-GLboolean
+static GLboolean
 st_bufferobj_data_mem(struct gl_context *ctx,
                       GLenum target,
                       GLsizeiptrARB size,
@@ -552,8 +552,8 @@ st_bufferobj_unmap(struct gl_context *ctx, struct gl_buffer_object *obj,
 /**
  * Called via glCopyBufferSubData().
  */
-void
-st_copy_buffer_subdata(struct gl_context *ctx,
+static void
+copy_buffer_subdata(struct gl_context *ctx,
                        struct gl_buffer_object *src,
                        struct gl_buffer_object *dst,
                        GLintptr readOffset, GLintptr writeOffset,
@@ -578,8 +578,8 @@ st_copy_buffer_subdata(struct gl_context *ctx,
 /**
  * Called via glClearBufferSubData().
  */
-void
-st_clear_buffer_subdata(struct gl_context *ctx,
+static void
+clear_buffer_subdata(struct gl_context *ctx,
                         GLintptr offset, GLsizeiptr size,
                         const void *clearValue,
                         GLsizeiptr clearValueSize,
@@ -601,8 +601,8 @@ st_clear_buffer_subdata(struct gl_context *ctx,
                       clearValue, clearValueSize);
 }
 
-void
-st_bufferobj_page_commitment(struct gl_context *ctx,
+static void
+bufferobj_page_commitment(struct gl_context *ctx,
                              struct gl_buffer_object *bufferObj,
                              GLintptr offset, GLsizeiptr size,
                              GLboolean commit)
@@ -2818,7 +2818,7 @@ _mesa_GetBufferSubData(GLenum target, GLintptr offset,
       return;
    }
 
-   st_bufferobj_get_subdata(ctx, offset, size, data, bufObj);
+   bufferobj_get_subdata(ctx, offset, size, data, bufObj);
 }
 
 void GLAPIENTRY
@@ -2838,7 +2838,7 @@ _mesa_GetNamedBufferSubData(GLuint buffer, GLintptr offset,
       return;
    }
 
-   st_bufferobj_get_subdata(ctx, offset, size, data, bufObj);
+   bufferobj_get_subdata(ctx, offset, size, data, bufObj);
 }
 
 
@@ -2865,7 +2865,7 @@ _mesa_GetNamedBufferSubDataEXT(GLuint buffer, GLintptr offset,
       return;
    }
 
-   st_bufferobj_get_subdata(ctx, offset, size, data, bufObj);
+   bufferobj_get_subdata(ctx, offset, size, data, bufObj);
 }
 
 /**
@@ -2914,8 +2914,8 @@ clear_buffer_sub_data(struct gl_context *ctx, struct gl_buffer_object *bufObj,
 
    if (data == NULL) {
       /* clear to zeros, per the spec */
-      st_clear_buffer_subdata(ctx, offset, size,
-                                     NULL, clearValueSize, bufObj);
+      clear_buffer_subdata(ctx, offset, size,
+                           NULL, clearValueSize, bufObj);
       return;
    }
 
@@ -2924,8 +2924,8 @@ clear_buffer_sub_data(struct gl_context *ctx, struct gl_buffer_object *bufObj,
       return;
    }
 
-   st_clear_buffer_subdata(ctx, offset, size,
-                           clearValue, clearValueSize, bufObj);
+   clear_buffer_subdata(ctx, offset, size,
+                        clearValue, clearValueSize, bufObj);
 }
 
 static void
@@ -3520,7 +3520,7 @@ copy_buffer_sub_data(struct gl_context *ctx, struct gl_buffer_object *src,
 
    dst->MinMaxCacheDirty = true;
 
-   st_copy_buffer_subdata(ctx, src, dst, readOffset, writeOffset, size);
+   copy_buffer_subdata(ctx, src, dst, readOffset, writeOffset, size);
 }
 
 void GLAPIENTRY
@@ -3537,8 +3537,8 @@ _mesa_CopyBufferSubData_no_error(GLenum readTarget, GLenum writeTarget,
    struct gl_buffer_object *dst = *dst_ptr;
 
    dst->MinMaxCacheDirty = true;
-   st_copy_buffer_subdata(ctx, src, dst, readOffset, writeOffset,
-                          size);
+   copy_buffer_subdata(ctx, src, dst, readOffset, writeOffset,
+                       size);
 }
 
 void GLAPIENTRY
@@ -3598,8 +3598,8 @@ _mesa_CopyNamedBufferSubData_no_error(GLuint readBuffer, GLuint writeBuffer,
    struct gl_buffer_object *dst = _mesa_lookup_bufferobj(ctx, writeBuffer);
 
    dst->MinMaxCacheDirty = true;
-   st_copy_buffer_subdata(ctx, src, dst, readOffset, writeOffset,
-                          size);
+   copy_buffer_subdata(ctx, src, dst, readOffset, writeOffset,
+                       size);
 }
 
 void GLAPIENTRY
@@ -3658,7 +3658,7 @@ _mesa_InternalBufferSubDataCopyMESA(GLintptr srcBuffer, GLuint srcOffset,
       goto done; /* the error is already set */
 
    dst->MinMaxCacheDirty = true;
-   st_copy_buffer_subdata(ctx, src, dst, srcOffset, dstOffset, size);
+   copy_buffer_subdata(ctx, src, dst, srcOffset, dstOffset, size);
 
 done:
    /* The caller passes the reference to this function, so unreference it. */
@@ -5397,7 +5397,7 @@ buffer_page_commitment(struct gl_context *ctx,
       return;
    }
 
-   st_bufferobj_page_commitment(ctx, bufferObj, offset, size, commit);
+   bufferobj_page_commitment(ctx, bufferObj, offset, size, commit);
 }
 
 void GLAPIENTRY
