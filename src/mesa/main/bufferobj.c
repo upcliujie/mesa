@@ -49,7 +49,6 @@
 #include "util/u_memory.h"
 #include "util/set.h"
 
-#include "state_tracker/st_cb_bufferobjects.h"
 #include "state_tracker/st_cb_memoryobjects.h"
 
 #include "state_tracker/st_debug.h"
