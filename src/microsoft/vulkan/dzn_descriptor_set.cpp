@@ -418,6 +418,11 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    set_count = pCreateInfo->setLayoutCount;
    for (uint32_t j = 0; j < set_count; j++) {
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
+      dxil_spirv_vulkan_binding *bindings = binding_translation[j].bindings;
+
+      binding_translation[j].binding_count = set_layout->binding_count;
+      for (uint32_t b = 0; b < set_layout->binding_count; b++)
+         bindings[b].base_register = set_layout->bindings[b].base_shader_register;
 
       static_sampler_count += set_layout->static_sampler_count;
       dzn_foreach_pool_type (type) {
@@ -429,8 +434,6 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 
       desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] +=
          set_layout->dynamic_buffers.desc_count;
-
-      sets[j].layout = set_layout;
    }
 
    auto ranges =
@@ -554,6 +557,44 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 dzn_pipeline_layout::~dzn_pipeline_layout()
 {
    vk_object_base_finish(&base);
+}
+
+dzn_pipeline_layout *
+dzn_pipeline_layout_factory::allocate(dzn_device *device,
+                                      const VkPipelineLayoutCreateInfo *info,
+                                      const VkAllocationCallbacks *alloc)
+{
+   uint32_t binding_count = 0;
+
+   for (uint32_t s = 0; s < info->setLayoutCount; s++) {
+      VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, info->pSetLayouts[s]);
+
+      if (!set_layout)
+         continue;
+
+      binding_count += set_layout->binding_count;
+   }
+
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, dzn_pipeline_layout, layout, 1);
+   VK_MULTIALLOC_DECL(&ma, dxil_spirv_vulkan_binding,
+                      bindings, binding_count);
+
+   if (!vk_multialloc_alloc2(&ma, &device->vk.alloc, alloc,
+                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+      return NULL;
+
+   for (uint32_t s = 0; s < info->setLayoutCount; s++) {
+      VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, info->pSetLayouts[s]);
+
+      if (!set_layout || !set_layout->binding_count)
+         continue;
+
+      layout->binding_translation[s].bindings = bindings;
+      bindings += set_layout->binding_count;
+   }
+
+   return layout;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

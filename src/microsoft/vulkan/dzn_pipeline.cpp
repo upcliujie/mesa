@@ -106,17 +106,6 @@ dzn_pipeline::compile_shader(dzn_device *device,
       num_spec = spec_info->mapEntryCount;
    }
 
-   struct dxil_spirv_vulkan_descriptor_set sets[MAX_SETS] = {};
-   dzn_transient_object<dxil_spirv_vulkan_binding> bindings[MAX_SETS];
-   for (uint32_t i = 0; i < layout->set_count; i++) {
-      const struct dzn_descriptor_set_layout *set_layout = layout->sets[i].layout;
-      bindings[i] = dzn_transient_zalloc<dxil_spirv_vulkan_binding>(set_layout->binding_count,
-                                                                    &device->vk.alloc);
-      sets[i].bindings = bindings[i].get();
-      for (uint32_t j = 0; j < set_layout->binding_count; j++)
-         sets[i].bindings[j].base_register = set_layout->bindings[j].base_shader_register;
-   }
-
    struct dxil_spirv_runtime_conf conf = {
       .runtime_data_cbv = {
          .register_space = DZN_REGISTER_SPACE_SYSVALS,
@@ -127,7 +116,7 @@ dzn_pipeline::compile_shader(dzn_device *device,
          .base_shader_register = 0,
       },
       .descriptor_set_count = layout->set_count,
-      .descriptor_sets = sets,
+      .descriptor_sets = layout->binding_translation,
       .zero_based_vertex_instance_id = false,
       .yz_flip = {
          .mode = yz_flip_mode,
