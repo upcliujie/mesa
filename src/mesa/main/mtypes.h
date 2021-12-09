@@ -5580,7 +5580,7 @@ struct gl_context
    struct st_context *st;
    struct pipe_context *pipe;
    struct st_config_options *st_opts;
-
+   bool has_invalidate_buffer;
    /*@}*/
 
    /**
