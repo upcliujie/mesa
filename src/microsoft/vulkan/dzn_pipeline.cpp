@@ -903,6 +903,9 @@ dzn_DestroyPipeline(VkDevice device,
 {
    VK_FROM_HANDLE(dzn_pipeline, pipe, pipeline);
 
+   if (!pipe)
+      return;
+
    if (pipe->type == VK_PIPELINE_BIND_POINT_GRAPHICS) {
       dzn_graphics_pipeline_factory::destroy(device, pipeline, pAllocator);
    } else {
