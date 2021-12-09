@@ -276,3 +276,9 @@ TEST_F(ValhallPacking, LeaBufImm) {
    CASE(bi_lea_buf_imm_to(b, bi_register(4), bi_discard(bi_register(59))),
         0x005e840400000d7b);
 }
+
+TEST_F(ValhallPacking, StoreSegment) {
+   CASE(bi_store_i96(b, bi_register(0), bi_discard(bi_register(4)),
+                        bi_discard(bi_register(5)), BI_SEG_VARY, 0),
+        0x0061400632000044);
+}
