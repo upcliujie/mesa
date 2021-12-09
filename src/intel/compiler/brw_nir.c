@@ -746,6 +746,29 @@ lower_bit_size_callback(const nir_instr *instr, UNUSED void *data)
    }
 }
 
+static bool
+lower_tex_offset_filter(const nir_instr *instr, UNUSED const void *data)
+{
+   if (instr->type != nir_instr_type_tex)
+      return false;
+
+   nir_tex_instr *tex = nir_instr_as_tex(instr);
+
+   if (tex->op != nir_texop_tg4)
+      return false;
+
+   int offset_index = nir_tex_instr_src_index(tex, nir_tex_src_offset);
+   if (offset_index < 0)
+      return false;
+
+   assert(tex->src[offset_index].src.is_ssa);
+
+   nir_const_value *offset =
+      nir_src_as_const_value(tex->src[offset_index].src);
+   return !offset || offset[0].i32 < -8 || offset[0].i32 > 7 ||
+      offset[1].i32 < -8 || offset[1].i32 > 7;
+}
+
 /* Does some simple lowering and runs the standard suite of optimizations
  *
  * This is intended to be called more-or-less directly after you get the
@@ -792,6 +815,8 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
       .lower_txd_offset_clamp = true,
       .lower_tg4_offsets = true,
       .lower_txs_lod = true, /* Wa_14012320009 */
+      .lower_offset_filter =
+         devinfo->ver >= 9 ? lower_tex_offset_filter : NULL,
    };
 
    OPT(nir_lower_tex, &tex_options);
