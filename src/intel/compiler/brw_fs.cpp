@@ -1803,13 +1803,27 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
       prog_data->num_per_primitive_inputs = urb_next;
    }
 
-   const uint64_t inputs_read =
+   uint64_t inputs_read =
       nir->info.inputs_read & ~nir->info.per_primitive_inputs;
 
    /* Figure out where each of the incoming setup attributes lands. */
    if (devinfo->ver >= 6) {
-      if (util_bitcount64(inputs_read &
-                          BRW_FS_VARYING_INPUT_MASK) <= 16) {
+      const uint64_t clip_distances = BITFIELD64_BIT(VARYING_SLOT_CLIP_DIST0) |
+                                      BITFIELD64_BIT(VARYING_SLOT_CLIP_DIST1);
+
+      bool reads_clip_from_mesh = mue_map && (inputs_read & clip_distances);
+
+      /* Allocate both CLIP_DIST slots, because MUE always provides both. */
+      if (reads_clip_from_mesh) {
+         /* Mesh must output clip distances. */
+         assert(mue_map->per_vertex_header_size_dw > 8);
+
+         inputs_read |= clip_distances;
+      }
+
+      uint64_t varying_inputs_read = inputs_read & BRW_FS_VARYING_INPUT_MASK;
+
+      if (util_bitcount64(varying_inputs_read) <= 16) {
          /* The SF/SBE pipeline stage can do arbitrary rearrangement of the
           * first 16 varying inputs, so we can put them wherever we want.
           * Just put them in order.
@@ -1819,11 +1833,19 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
           * won't have to recompile the fragment shader if it gets paired with
           * a different vertex (or geometry) shader.
           */
+
+         /* But in mesh, CLIP_DIST slots are always at the beginning, because
+          * they come from MUE Vertex Header, not Per-Vertex Attributes.
+          */
+         if (reads_clip_from_mesh) {
+            prog_data->urb_setup[VARYING_SLOT_CLIP_DIST0] = urb_next++;
+            prog_data->urb_setup[VARYING_SLOT_CLIP_DIST1] = urb_next++;
+            varying_inputs_read &= ~clip_distances;
+         }
+
          for (unsigned int i = 0; i < VARYING_SLOT_MAX; i++) {
-            if (inputs_read & BRW_FS_VARYING_INPUT_MASK &
-                BITFIELD64_BIT(i)) {
+            if (varying_inputs_read & BITFIELD64_BIT(i))
                prog_data->urb_setup[i] = urb_next++;
-            }
          }
       } else {
          /* We have enough input varyings that the SF/SBE pipeline stage can't
@@ -1856,8 +1878,7 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
               slot++) {
             int varying = prev_stage_vue_map.slot_to_varying[slot];
             if (varying != BRW_VARYING_SLOT_PAD &&
-                (inputs_read & BRW_FS_VARYING_INPUT_MASK &
-                 BITFIELD64_BIT(varying))) {
+                (varying_inputs_read & BITFIELD64_BIT(varying))) {
                prog_data->urb_setup[varying] = slot - first_slot;
             }
          }
