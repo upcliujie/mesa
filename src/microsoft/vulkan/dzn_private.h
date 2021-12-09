@@ -724,6 +724,14 @@ struct dzn_cmd_buffer {
    void copy(const VkCopyImageToBufferInfo2KHR *info);
    void copy(const VkCopyBufferToImageInfo2KHR *info);
    void copy(const VkCopyImageInfo2KHR *info);
+   void fill(dzn_buffer *buf,
+             VkDeviceSize offset,
+             VkDeviceSize size,
+             uint32_t data);
+   void update(dzn_buffer *buf,
+               VkDeviceSize offset,
+               VkDeviceSize size,
+               const void *data);
 
    void blit(const VkBlitImageInfo2KHR *info);
    void resolve(const VkResolveImageInfo2KHR *info);
@@ -761,6 +769,10 @@ private:
              uint32_t region,
              VkImageAspectFlagBits aspect,
              uint32_t layer);
+   void copy(ID3D12Resource *src,
+             dzn_buffer *dst,
+             VkDeviceSize dst_offset,
+             VkDeviceSize size);
 
    void blit_set_pipeline(const dzn_image *src,
                           const dzn_image *dst,

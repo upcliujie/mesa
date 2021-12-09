@@ -1230,6 +1230,145 @@ dzn_cmd_buffer::copy(const VkCopyImageInfo2KHR *info)
 }
 
 void
+dzn_cmd_buffer::copy(ID3D12Resource *src,
+                     dzn_buffer *dst,
+                     VkDeviceSize dst_offset,
+                     VkDeviceSize size)
+{
+   D3D12_TEXTURE_COPY_LOCATION src_loc = {
+      .pResource = src,
+      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+      .PlacedFootprint = {
+         .Offset = 0,
+         .Footprint = {
+            .Format = DXGI_FORMAT_R32_TYPELESS,
+            .Width = (UINT)(size / 4),
+            .Height = 1,
+            .Depth = 1,
+            .RowPitch = (UINT)ALIGN(size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT),
+         },
+      },
+   };
+
+   D3D12_BOX src_box = { 0, 0, 0, size / 4, 1, 1 };
+
+   uint32_t dst_x = (dst_offset & (D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - 1)) / 4;
+
+   D3D12_TEXTURE_COPY_LOCATION dst_loc = {
+      .pResource = dst->res.Get(),
+      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+      .PlacedFootprint = {
+         .Offset = dst_offset & ~(D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - 1),
+         .Footprint = {
+            .Format = DXGI_FORMAT_R32_TYPELESS,
+            .Width = (UINT)(dst_x + (size / 4)),
+            .Height = 1,
+            .Depth = 1,
+            .RowPitch = (UINT)ALIGN((dst_x * 4) + size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT),
+         },
+      },
+   };
+
+   dzn_batch *batch = get_batch();
+   ID3D12GraphicsCommandList *cmdlist = batch->cmdlist.Get();
+
+   D3D12_RESOURCE_BARRIER barriers[] = {
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .Transition = {
+            .pResource = src,
+            .StateBefore = D3D12_RESOURCE_STATE_GENERIC_READ,
+            .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+         },
+      },
+   };
+
+   cmdlist->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+   cmdlist->CopyTextureRegion(&dst_loc, dst_x, 0, 0,
+                              &src_loc, &src_box);
+}
+
+void
+dzn_cmd_buffer::fill(dzn_buffer *buf,
+                     VkDeviceSize offset,
+                     VkDeviceSize size,
+                     uint32_t data)
+{
+   if (size == VK_WHOLE_SIZE)
+      size = buf->size - offset;
+
+   size &= ~3ULL;
+
+   auto src_res = alloc_internal_buf(size,
+                                     D3D12_HEAP_TYPE_UPLOAD,
+                                     D3D12_RESOURCE_STATE_GENERIC_READ);
+   uint32_t *cpu_ptr;
+   src_res->Map(0, NULL, (void **)&cpu_ptr);
+   for (uint32_t i = 0; i < size / 4; i++)
+      cpu_ptr[i] = data;
+
+   src_res->Unmap(0, NULL);
+
+   copy(src_res, buf, offset, size);
+}
+
+void
+dzn_cmd_buffer::update(dzn_buffer *buf,
+                       VkDeviceSize offset,
+                       VkDeviceSize size,
+                       const void *data)
+{
+   if (size == VK_WHOLE_SIZE)
+      size = buf->size - offset;
+
+   /*
+    * The spec says:
+    *  "size is the number of bytes to fill, and must be either a multiple of
+    *   4, or VK_WHOLE_SIZE to fill the range from offset to the end of the
+    *   buffer. If VK_WHOLE_SIZE is used and the remaining size of the buffer
+    *   is not a multiple of 4, then the nearest smaller multiple is used."
+    */
+   size &= ~3ULL;
+
+   auto src_res = alloc_internal_buf(size,
+                                     D3D12_HEAP_TYPE_UPLOAD,
+                                     D3D12_RESOURCE_STATE_GENERIC_READ);
+   void *cpu_ptr;
+   src_res->Map(0, NULL, &cpu_ptr);
+   memcpy(cpu_ptr, data, size),
+   src_res->Unmap(0, NULL);
+
+   copy(src_res, buf, offset, size);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdFillBuffer(VkCommandBuffer commandBuffer,
+                  VkBuffer dstBuffer,
+                  VkDeviceSize dstOffset,
+                  VkDeviceSize size,
+                  uint32_t data)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, buffer, dstBuffer);
+
+   cmd_buffer->fill(buffer, dstOffset, size, data);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
+                    VkBuffer dstBuffer,
+                    VkDeviceSize dstOffset,
+                    VkDeviceSize size,
+                    const void *data)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, buffer, dstBuffer);
+
+   cmd_buffer->update(buffer, dstOffset, size, data);
+}
+
+void
 dzn_cmd_buffer::blit_prepare_src_view(VkImage image,
                                       VkImageAspectFlagBits aspect,
                                       const VkImageSubresourceLayers &subres,
