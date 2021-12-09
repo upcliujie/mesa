@@ -288,3 +288,8 @@ TEST_F(ValhallPacking, LdVarImmF16) {
                              BI_UPDATE_STORE, BI_VECSIZE_V4, 8),
          0x005d80443308003d);
 }
+
+TEST_F(ValhallPacking, LeaVary) {
+   CASE(bi_lea_vary_to(b, bi_register(4), bi_discard(bi_register(59))),
+        0x005e840400000d7b);
+}
