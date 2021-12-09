@@ -163,3 +163,13 @@ dzn_DestroyRenderPass(VkDevice device,
 {
    dzn_render_pass_factory::destroy(device, pass, pAllocator);
 }
+
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetRenderAreaGranularity(VkDevice device,
+                             VkRenderPass pass,
+                             VkExtent2D *pGranularity)
+{
+   // FIXME: query the actual optimal granularity
+   pGranularity->width = pGranularity->height = 1;
+}
