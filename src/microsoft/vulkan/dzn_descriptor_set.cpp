@@ -598,7 +598,8 @@ desc_type_to_heap_type(VkDescriptorType in)
 
 dzn_descriptor_pool::dzn_descriptor_pool(dzn_device *device,
                                          const VkDescriptorPoolCreateInfo *pCreateInfo,
-                                         const VkAllocationCallbacks *pAllocator)
+                                         const VkAllocationCallbacks *pAllocator) :
+   sets(sets_allocator(pAllocator ? pAllocator : &device->vk.alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
 {
    alloc = pAllocator ? *pAllocator : device->vk.alloc;
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_POOL);
@@ -610,7 +611,7 @@ dzn_descriptor_pool::~dzn_descriptor_pool()
 }
 
 VkResult
-dzn_descriptor_pool::allocate_sets(VkDevice device,
+dzn_descriptor_pool::allocate_sets(dzn_device *device,
                                    const VkDescriptorSetAllocateInfo *pAllocateInfo,
                                    VkDescriptorSet *pDescriptorSets)
 {
@@ -618,12 +619,16 @@ dzn_descriptor_pool::allocate_sets(VkDevice device,
    unsigned i;
 
    for (i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
+      dzn_descriptor_set *set;
       result = dzn_descriptor_set_factory::create(device, this,
                                                   pAllocateInfo->pSetLayouts[i],
-                                                  &alloc,
-                                                  &pDescriptorSets[i]);
+                                                  &alloc, &set);
       if (result != VK_SUCCESS)
          goto err_free_sets;
+
+      set->index = sets.size();
+      sets.push_back(dzn_object_unique_ptr<dzn_descriptor_set>(set));
+      pDescriptorSets[i] = dzn_descriptor_set_to_handle(set);
    }
 
    return VK_SUCCESS;
@@ -637,13 +642,35 @@ err_free_sets:
 }
 
 VkResult
-dzn_descriptor_pool::free_sets(VkDevice device,
+dzn_descriptor_pool::free_sets(dzn_device *device,
                                uint32_t count,
                                const VkDescriptorSet *pDescriptorSets)
 {
-   for (uint32_t i = 0; i < count; i++)
-      dzn_descriptor_set_factory::destroy(device, pDescriptorSets[i], &alloc);
+   // TODO: keep resources around
+   for (uint32_t i = 0; i < count; i++) {
+      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
 
+      if (set) {
+         assert(sets.size() > 0);
+
+         if (set->index != sets.size() - 1) {
+            auto &tmp_set = sets[set->index];
+            tmp_set.swap(sets[sets.size() - 1]);
+	    tmp_set->index = set->index;
+	 }
+
+         sets.pop_back();
+      }
+   }
+
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_descriptor_pool::reset(dzn_device *device)
+{
+   // TODO: keep resources around
+   sets.clear();
    return VK_SUCCESS;
 }
 
@@ -667,6 +694,17 @@ dzn_DestroyDescriptorPool(VkDevice device,
    return dzn_descriptor_pool_factory::destroy(device,
                                                descriptorPool,
                                                pAllocator);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_ResetDescriptorPool(VkDevice device,
+                        VkDescriptorPool descriptorPool,
+                        VkDescriptorPoolResetFlags flags)
+{
+   VK_FROM_HANDLE(dzn_descriptor_pool, pool, descriptorPool);
+   VK_FROM_HANDLE(dzn_device, dev, device);
+
+   return pool->reset(dev);
 }
 
 dzn_descriptor_heap::dzn_descriptor_heap(dzn_device *device,
@@ -840,7 +878,7 @@ dzn_descriptor_heap::type_depends_on_shader_usage(VkDescriptorType type)
 }
 
 dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
-                                       dzn_descriptor_pool *pool,
+                                       dzn_descriptor_pool *p,
                                        VkDescriptorSetLayout l,
                                        const VkAllocationCallbacks *pAllocator)
 {
@@ -855,11 +893,18 @@ dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
    }
 
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_SET);
+   pool = p;
 }
 
 dzn_descriptor_set::~dzn_descriptor_set()
 {
    vk_object_base_finish(&base);
+}
+
+const VkAllocationCallbacks *
+dzn_descriptor_set::get_vk_allocator()
+{
+   return &pool->alloc;
 }
 
 dzn_descriptor_set *
@@ -890,8 +935,9 @@ dzn_AllocateDescriptorSets(VkDevice device,
                            VkDescriptorSet *pDescriptorSets)
 {
    VK_FROM_HANDLE(dzn_descriptor_pool, pool, pAllocateInfo->descriptorPool);
+   VK_FROM_HANDLE(dzn_device, dev, device);
 
-   return pool->allocate_sets(device, pAllocateInfo, pDescriptorSets);
+   return pool->allocate_sets(dev, pAllocateInfo, pDescriptorSets);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -901,8 +947,9 @@ dzn_FreeDescriptorSets(VkDevice device,
                        const VkDescriptorSet *pDescriptorSets)
 {
    VK_FROM_HANDLE(dzn_descriptor_pool, pool, descriptorPool);
+   VK_FROM_HANDLE(dzn_device, dev, device);
 
-   return pool->free_sets(device, count, pDescriptorSets);
+   return pool->free_sets(dev, count, pDescriptorSets);
 }
 
 dzn_descriptor_set::range::range(const dzn_descriptor_set_layout &l,

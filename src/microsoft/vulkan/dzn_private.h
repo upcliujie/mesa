@@ -721,19 +721,23 @@ struct dzn_descriptor_pool {
    struct vk_object_base base;
    VkAllocationCallbacks alloc;
 
-   VkResult
-   allocate_sets(VkDevice device,
-                 const VkDescriptorSetAllocateInfo *pAllocateInfo,
-                 VkDescriptorSet *pDescriptorSets);
-   VkResult
-   free_sets(VkDevice device,
-             uint32_t count,
-             const VkDescriptorSet *pDescriptorSets);
-
    dzn_descriptor_pool(dzn_device *device,
                        const VkDescriptorPoolCreateInfo *pCreateInfo,
                        const VkAllocationCallbacks *pAllocator);
    ~dzn_descriptor_pool();
+
+   VkResult
+   allocate_sets(dzn_device *device,
+                 const VkDescriptorSetAllocateInfo *pAllocateInfo,
+                 VkDescriptorSet *pDescriptorSets);
+   VkResult
+   free_sets(dzn_device *device,
+             uint32_t count,
+             const VkDescriptorSet *pDescriptorSets);
+   VkResult reset(dzn_device *device);
+
+   using sets_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_descriptor_set>>;
+   dzn_object_vector<dzn_descriptor_set> sets;
 };
 
 #define MAX_SHADER_VISIBILITIES (D3D12_SHADER_VISIBILITY_PIXEL + 1)
@@ -779,6 +783,8 @@ struct dzn_descriptor_set {
    dzn_descriptor_heap heaps[NUM_POOL_TYPES];
    const struct dzn_descriptor_set_layout *layout;
    struct dzn_buffer_desc *dynamic_buffers;
+   uint32_t index;
+   dzn_descriptor_pool *pool;
 
    dzn_descriptor_set(dzn_device *device,
                       dzn_descriptor_pool *pool,
@@ -788,6 +794,7 @@ struct dzn_descriptor_set {
 
    void write(const VkWriteDescriptorSet *pDescriptorWrite);
    void copy(const dzn_descriptor_set *src, const VkCopyDescriptorSet *pDescriptorCopy);
+   const VkAllocationCallbacks *get_vk_allocator();
 
 private:
    struct range {
