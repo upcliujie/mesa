@@ -528,6 +528,15 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
          assert(mue->per_primitive_header_size_dw % 8 == 0);
          sbe_mesh.PerPrimitiveURBEntryOutputReadOffset = mue->per_primitive_header_size_dw / 8;
          sbe_mesh.PerPrimitiveURBEntryOutputReadLength = DIV_ROUND_UP(mue->per_primitive_data_size_dw, 8);
+
+         /* Just like with clip distances, if Viewport Index is read back
+          * in the FS, adjust the offset and length to cover the Primitive
+          * Header, where Viewport Index is stored.
+          */
+         if (wm_prog_data->urb_setup[VARYING_SLOT_VIEWPORT] >= 0) {
+            sbe_mesh.PerPrimitiveURBEntryOutputReadOffset -= 1;
+            sbe_mesh.PerPrimitiveURBEntryOutputReadLength += 1;
+         }
       }
 #endif
    }
