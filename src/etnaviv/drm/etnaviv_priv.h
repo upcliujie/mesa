@@ -111,15 +111,8 @@ struct etna_bo {
 	uint32_t        name;           /* flink global handle (DRI2 name) */
 	uint64_t        offset;         /* offset to mmap() */
 	uint32_t        va;             /* GPU virtual address */
+	uint32_t        hash;
 	int		refcnt;
-
-	/*
-	 * To avoid excess hashtable lookups, cache the stream this bo was
-	 * last emitted on (since that will probably also be the next ring
-	 * it is emitted on).
-	 */
-	struct etna_cmd_stream *current_stream;
-	uint32_t idx;
 
 	int reuse;
 	struct list_head list;   /* bucket-list entry */

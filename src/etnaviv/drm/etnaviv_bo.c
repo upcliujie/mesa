@@ -171,6 +171,7 @@ static struct etna_bo *bo_from_handle(struct etna_device *dev,
 	bo->size = size;
 	bo->handle = handle;
 	bo->flags = flags;
+	bo->hash = _mesa_hash_pointer(bo);
 	p_atomic_set(&bo->refcnt, 1);
 	list_inithead(&bo->list);
 	/* add ourselves to the handle table: */
