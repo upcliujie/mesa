@@ -776,7 +776,8 @@ static void r600_disk_cache_create(struct r600_common_screen *rscreen)
 	uint64_t shader_debug_flags =
 		rscreen->debug_flags &
 		(DBG_NIR |
-		 DBG_NIR_PREFERRED);
+		 DBG_NIR_PREFERRED |
+		 DBG_USE_TGSI);
 
 	rscreen->disk_shader_cache =
 		disk_cache_create(r600_get_family_name(rscreen),
@@ -1360,6 +1361,34 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
 	};
 
 	rscreen->nir_options = nir_options;
+
+	if (rscreen->info.chip_class < EVERGREEN) {
+		/* Pre-EG doesn't have these ALU ops */
+		rscreen->nir_options.lower_bit_count = true;
+		rscreen->nir_options.lower_bitfield_reverse = true;
+	}
+
+	if (!(rscreen->debug_flags & DBG_NIR_PREFERRED)) {
+		/* TGSI is vector, and NIR-to-TGSI doesn't like it when the
+		 * input vars have been scalarized.
+		 */
+		rscreen->nir_options.lower_to_scalar = false;
+
+		/* NIR-to-TGSI can't do fused integer csel, and it can't just
+		 * override the flag and get the code lowered back when we ask
+		 * it to handle it.
+		 */
+		rscreen->nir_options.has_fused_comp_and_csel = false;
+
+		/* r600 has a bitfield_select and bitfield_extract opcode
+		 * (called bfi/bfe), but TGSI's BFI/BFE isn't that.
+		 */
+		rscreen->nir_options.lower_bitfield_extract = false;
+		rscreen->nir_options.lower_bitfield_insert_to_bitfield_select = false;
+
+		/* TGSI's ifind is reversed from ours, keep it the TGSI way. */
+		rscreen->nir_options.lower_find_msb_to_reverse = false;
+	}
 
 	return true;
 }
