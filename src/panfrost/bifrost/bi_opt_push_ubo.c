@@ -45,13 +45,25 @@ bi_is_direct_aligned_ubo(bi_instr *ins)
                 ((ins->src[0].value & 0x3) == 0);
 }
 
+static enum bi_opcode
+bi_word_sized_load(unsigned words)
+{
+        switch (words) {
+        case 1: return BI_OPCODE_LOAD_I32;
+        case 2: return BI_OPCODE_LOAD_I64;
+        case 3: return BI_OPCODE_LOAD_I96;
+        case 4: return BI_OPCODE_LOAD_I128;
+        default: unreachable("Invalid number of words");
+        }
+}
+
 /* Represents use data for a single UBO */
 
-#define MAX_UBO_WORDS (65536 / 16)
+#define MAX_UBO_WORDS (65536 / 4)
 
 struct bi_ubo_block {
         BITSET_DECLARE(pushed, MAX_UBO_WORDS);
-        uint8_t range[MAX_UBO_WORDS];
+        BITSET_DECLARE(accessed, MAX_UBO_WORDS);
 };
 
 struct bi_ubo_analysis {
@@ -79,12 +91,10 @@ bi_analyze_ranges(bi_context *ctx)
                 assert(ubo < res.nr_blocks);
                 assert(channels > 0 && channels <= 4);
 
-                if (word >= MAX_UBO_WORDS) continue;
+                if ((word + channels) > MAX_UBO_WORDS) continue;
 
-                /* Must use max if the same base is read with different channel
-                 * counts, which is possible with nir_opt_shrink_vectors */
-                uint8_t *range = res.blocks[ubo].range;
-                range[word] = MAX2(range[word], channels);
+                for (unsigned i = 0; i < channels; ++i)
+                        BITSET_SET(res.blocks[ubo].accessed, word + i);
         }
 
         return res;
@@ -101,28 +111,43 @@ bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis)
                 struct bi_ubo_block *block = &analysis->blocks[ubo];
 
                 for (unsigned r = 0; r < MAX_UBO_WORDS; ++r) {
-                        unsigned range = block->range[r];
+                        if (!BITSET_TEST(block->accessed, r))
+                                continue;
 
-                        /* Don't push something we don't access */
-                        if (range == 0) continue;
-
-                        /* Don't push more than possible */
-                        if (push->count > PAN_MAX_PUSH - range)
-                                return;
-
-                        for (unsigned offs = 0; offs < range; ++offs) {
-                                struct panfrost_ubo_word word = {
-                                        .ubo = ubo,
-                                        .offset = (r + offs) * 4
-                                };
-
-                                push->words[push->count++] = word;
-                        }
+                        push->words[push->count++] = (struct panfrost_ubo_word) {
+                                .ubo = ubo,
+                                .offset = r * 4
+                        };
 
                         /* Mark it as pushed so we can rewrite */
                         BITSET_SET(block->pushed, r);
+
+                        /* Don't push more than possible */
+                        if (push->count == PAN_MAX_PUSH)
+                                return;
                 }
         }
+}
+
+/**
+ * Given a load from <ubo, [offset, offset + channels)>, determine which
+ * components are pushed. If no components are pushed, returns 0 and no
+ * rewriting should proceed. If all components are pushed, returns
+ * BITFIELD_MASK(channels) and the load should be removed. Other values
+ * correpsond to partial pushes.
+ */
+static uint8_t
+bi_push_mask(struct bi_ubo_analysis *analysis, unsigned ubo, unsigned offset,
+             unsigned channels)
+{
+        uint8_t mask = 0;
+
+        for (unsigned i = 0; i < channels; ++i) {
+                if (BITSET_TEST(analysis->blocks[ubo].pushed, (offset / 4) + i))
+                        mask |= BITFIELD_BIT(i);
+        }
+
+        return mask;
 }
 
 void
@@ -153,9 +178,14 @@ bi_opt_push_ubo(bi_context *ctx)
                         continue;
                 }
 
-                /* Check if we decided to push this */
                 assert(ubo < analysis.nr_blocks);
-                if (!BITSET_TEST(analysis.blocks[ubo].pushed, offset / 4)) {
+
+                unsigned channels = bi_opcode_props[ins->op].sr_count;
+                unsigned push_mask = bi_push_mask(&analysis, ubo, offset, channels);
+                unsigned load_mask = push_mask ^ BITFIELD_MASK(channels);
+
+                /* Skip unpushed instructions */
+                if (!push_mask) {
                         ctx->ubo_mask |= BITSET_BIT(ubo);
                         continue;
                 }
@@ -163,14 +193,13 @@ bi_opt_push_ubo(bi_context *ctx)
                 /* Replace the UBO load with moves from FAU */
                 bi_builder b = bi_init_builder(ctx, bi_after_instr(ins));
 
-                unsigned channels = bi_opcode_props[ins->op].sr_count;
-
-                for (unsigned w = 0; w < channels; ++w) {
-                        /* FAU is grouped in pairs (2 x 4-byte) */
+                /* Replace pushed components with moves from FAU */
+                u_foreach_bit(w, push_mask) {
                         unsigned base =
                                 pan_lookup_pushed_ubo(&ctx->info->push, ubo,
                                                       (offset + 4 * w));
 
+                        /* FAU is grouped in pairs (2 x 4-byte) */
                         unsigned fau_idx = (base >> 1);
                         unsigned fau_hi = (base & 1);
 
@@ -179,7 +208,28 @@ bi_opt_push_ubo(bi_context *ctx)
                                 bi_fau(BIR_FAU_UNIFORM | fau_idx, fau_hi));
                 }
 
-                bi_remove_instruction(ins);
+                if (!load_mask) {
+                        bi_remove_instruction(ins);
+                        continue;
+                }
+
+                /* Shrink the original load */
+                unsigned first_channel = ffs(load_mask) - 1;
+                unsigned last_channel = util_last_bit(load_mask);
+                unsigned new_channels = last_channel - first_channel;
+
+                ins->op = bi_word_sized_load(new_channels);
+                ins->src[0].value += (first_channel * 4);
+
+                /* Copy unpushed components to maintain SSA form */
+                bi_index dest = ins->dest[0];
+                ins->dest[0] = bi_temp(ctx);
+
+                u_foreach_bit(w, load_mask) {
+                        bi_mov_i32_to(&b,
+                                bi_word(dest, w),
+                                bi_word(ins->dest[0], w - first_channel));
+                }
         }
 
         free(analysis.blocks);
