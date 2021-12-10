@@ -413,7 +413,7 @@ bi_load_sysval_to(bi_builder *b, bi_index dest, int sysval,
                 MAX2(b->shader->inputs->sysval_ubo, b->shader->nir->info.num_ubos);
         unsigned uniform =
                 pan_lookup_sysval(b->shader->sysval_to_id,
-                                  &b->shader->info->sysvals,
+                                  b->shader->info.sysvals,
                                   sysval);
         unsigned idx = (uniform * 16) + offset;
 
@@ -534,7 +534,7 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T, unsigned rt)
         }
 
         assert(rt < 8);
-        b->shader->info->bifrost.blend[rt].type = T;
+        b->shader->info.bifrost->blend[rt].type = T;
 }
 
 /* Blend shaders do not need to run ATEST since they are dependent on a
@@ -600,7 +600,7 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
                 for (unsigned i = 0; i < count; ++i)
                         bi_mov_i32_to(b, bi_register(4 + i), bi_word(src0, i));
 
-                b->shader->info->bifrost.blend_src1_type =
+                b->shader->info.bifrost->blend_src1_type =
                         nir_intrinsic_src_type(instr);
 
                 return;
@@ -675,6 +675,25 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
         }
 }
 
+/**
+ * In a vertex shader, is the specified variable a position output? These kinds
+ * of outputs are written from position shaders when IDVS is enabled. All other
+ * outputs are written from the varying shader.
+ */
+static bool
+bi_should_remove_store(nir_intrinsic_instr *intr, enum bi_idvs_mode idvs)
+{
+        nir_io_semantics sem = nir_intrinsic_io_semantics(intr);
+
+        switch (sem.location) {
+        case VARYING_SLOT_POS:
+        case VARYING_SLOT_PSIZ:
+                return idvs == BI_IDVS_VARYING;
+        default:
+                return idvs == BI_IDVS_POSITION;
+        }
+}
+
 static void
 bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 {
@@ -689,6 +708,12 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
 
         unsigned imm_index = 0;
         bool immediate = bi_is_intr_immediate(instr, &imm_index, 16);
+
+        /* Skip stores to the wrong kind of variable in a specialized IDVS
+         * shader. Backend dead code elimination will clean up the mess.
+         */
+        if (bi_should_remove_store(instr, b->shader->idvs))
+                return;
 
         bi_index address;
         if (immediate) {
@@ -3151,7 +3176,7 @@ bi_print_stats(bi_context *ctx, unsigned size, FILE *fp)
         float cycles_bound = MAX2(cycles_arith, cycles_message);
 
         /* Thread count and register pressure are traded off only on v7 */
-        bool full_threads = (ctx->arch == 7 && ctx->info->work_reg_count <= 32);
+        bool full_threads = (ctx->arch == 7 && ctx->info.work_reg_count <= 32);
         unsigned nr_threads = full_threads ? 2 : 1;
 
         /* Dump stats */
@@ -3624,7 +3649,7 @@ bi_lower_branch(bi_block *block)
 }
 
 static void
-bi_pack_clauses(bi_context *ctx, struct util_dynarray *binary)
+bi_pack_clauses(bi_context *ctx, struct util_dynarray *binary, unsigned offset)
 {
         unsigned final_clause = bi_pack(ctx, binary);
 
@@ -3634,15 +3659,15 @@ bi_pack_clauses(bi_context *ctx, struct util_dynarray *binary)
         bi_clause *first_clause = bi_next_clause(ctx, first_block, NULL);
 
         unsigned first_deps = first_clause ? first_clause->dependencies : 0;
-        ctx->info->bifrost.wait_6 = (first_deps & (1 << 6));
-        ctx->info->bifrost.wait_7 = (first_deps & (1 << 7));
+        ctx->info.bifrost->wait_6 = (first_deps & (1 << 6));
+        ctx->info.bifrost->wait_7 = (first_deps & (1 << 7));
 
         /* Pad the shader with enough zero bytes to trick the prefetcher,
          * unless we're compiling an empty shader (in which case we don't pad
          * so the size remains 0) */
         unsigned prefetch_size = BIFROST_SHADER_PREFETCH - final_clause;
 
-        if (binary->size) {
+        if (binary->size - offset) {
                 memset(util_dynarray_grow(binary, uint8_t, prefetch_size),
                        0, prefetch_size);
         }
@@ -3704,25 +3729,27 @@ bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
         NIR_PASS_V(nir, pan_nir_reorder_writeout);
 }
 
-void
-bifrost_compile_shader_nir(nir_shader *nir,
-                           const struct panfrost_compile_inputs *inputs,
-                           struct util_dynarray *binary,
-                           struct pan_shader_info *info)
+static bi_context *
+bi_compile_variant_nir(nir_shader *nir,
+                       const struct panfrost_compile_inputs *inputs,
+                       struct util_dynarray *binary,
+                       struct hash_table_u64 *sysval_to_id,
+                       struct bi_shader_info info,
+                       enum bi_idvs_mode idvs)
 {
-        bifrost_debug = debug_get_option_bifrost_debug();
-
-        bi_finalize_nir(nir, inputs->gpu_id, inputs->is_blend);
-
         bi_context *ctx = rzalloc(NULL, bi_context);
-        ctx->sysval_to_id = panfrost_init_sysvals(&info->sysvals, ctx);
 
+        /* There may be another program in the dynarray, start at the end */
+        unsigned offset = binary->size;
+
+        ctx->sysval_to_id = sysval_to_id;
         ctx->inputs = inputs;
         ctx->nir = nir;
-        ctx->info = info;
         ctx->stage = nir->info.stage;
         ctx->quirks = bifrost_get_quirks(inputs->gpu_id);
         ctx->arch = inputs->gpu_id >> 12;
+        ctx->info = info;
+        ctx->idvs = idvs;
 
         /* If nothing is pushed, all UBOs need to be uploaded */
         ctx->ubo_mask = ~0;
@@ -3735,8 +3762,6 @@ bifrost_compile_shader_nir(nir_shader *nir,
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal) {
                 nir_print_shader(nir, stdout);
         }
-
-        info->tls_size = nir->scratch_size;
 
         nir_foreach_function(func, nir) {
                 if (!func->impl)
@@ -3836,32 +3861,125 @@ bifrost_compile_shader_nir(nir_shader *nir,
         /* Analyze after scheduling since we depend on instruction order. */
         bi_analyze_helper_terminate(ctx);
 
-        /* A register is preloaded <==> it is live before the first block */
-        bi_block *first_block = list_first_entry(&ctx->blocks, bi_block, link);
-        info->preload = first_block->reg_live_in;
-
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal)
                 bi_print_shader(ctx, stdout);
 
         if (ctx->arch <= 8) {
-                bi_pack_clauses(ctx, binary);
+                bi_pack_clauses(ctx, binary, offset);
         } else {
                 /* TODO: pack flat */
         }
 
-        info->ubo_mask = ctx->ubo_mask & BITSET_MASK(ctx->nir->info.num_ubos);
-
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal) {
-                disassemble_bifrost(stdout, binary->data, binary->size,
+                disassemble_bifrost(stdout, binary->data + offset, binary->size - offset,
                                     bifrost_debug & BIFROST_DBG_VERBOSE);
                 fflush(stdout);
         }
 
         if ((bifrost_debug & BIFROST_DBG_SHADERDB || inputs->shaderdb) &&
             !skip_internal) {
-                bi_print_stats(ctx, binary->size, stderr);
+                bi_print_stats(ctx, binary->size - offset, stderr);
         }
 
-        _mesa_hash_table_u64_destroy(ctx->sysval_to_id);
+        return ctx;
+}
+
+static void
+bi_compile_variant(nir_shader *nir,
+                   const struct panfrost_compile_inputs *inputs,
+                   struct util_dynarray *binary,
+                   struct hash_table_u64 *sysval_to_id,
+                   struct pan_shader_info *info,
+                   enum bi_idvs_mode idvs)
+{
+        struct bi_shader_info local_info = {
+                .push = &info->push,
+                .bifrost = &info->bifrost,
+                .tls_size = info->tls_size,
+                .sysvals = &info->sysvals
+        };
+
+        unsigned offset = binary->size;
+
+        /* Software invariant: Only a secondary shader can appear at a nonzero
+         * offset, to keep the ABI simple. */
+        assert((offset == 0) ^ (idvs == BI_IDVS_VARYING));
+
+        bi_context *ctx = bi_compile_variant_nir(nir, inputs, binary, sysval_to_id, local_info, idvs);
+
+        /* A register is preloaded <==> it is live before the first block */
+        bi_block *first_block = list_first_entry(&ctx->blocks, bi_block, link);
+        uint64_t preload = first_block->reg_live_in;
+
+        info->ubo_mask |= ctx->ubo_mask;
+
+        if (idvs == BI_IDVS_VARYING) {
+                info->vs.secondary_enable = (binary->size > offset);
+                info->vs.secondary_offset = offset;
+                info->vs.secondary_preload = preload;
+                info->vs.secondary_work_reg_count = ctx->info.work_reg_count;
+        } else {
+                info->preload = preload;
+                info->work_reg_count = ctx->info.work_reg_count;
+        }
+
         ralloc_free(ctx);
+}
+
+/* Decide if Index-Driven Vertex Shading should be used for a given shader */
+static bool
+bi_should_idvs(nir_shader *nir, unsigned arch)
+{
+        if (nir->info.stage != MESA_SHADER_VERTEX)
+                return false;
+
+        /* Transform feedback requires running all varying shaders regardless
+         * of clipping, but IDVS does clipping before running varying shaders.
+         * So shaders destined for transform feedback must not use IDVS.
+         *
+         * The issue with general memory stores is more subtle: these shaders
+         * have side effects and only make sense if vertex shaders run exactly
+         * once per vertex. IDVS requires the hardware to rerun position or
+         * varying shaders in certain circumstances. So if there is any memory
+         * write, disable IDVS.
+         *
+         * NIR considers transform feedback to be a memory write, so we only
+         * need to check writes_memory to handle both cases.
+         */
+        if (nir->info.writes_memory)
+                return false;
+
+        /* Bifrost cannot write gl_PointSize during IDVS */
+        if (arch <= 8 &&
+            nir->info.outputs_written & BITFIELD_BIT(VARYING_SLOT_PSIZ))
+                return false;
+
+        /* Otherwise, IDVS is usually better */
+        return true;
+}
+
+void
+bifrost_compile_shader_nir(nir_shader *nir,
+                           const struct panfrost_compile_inputs *inputs,
+                           struct util_dynarray *binary,
+                           struct pan_shader_info *info)
+{
+        bifrost_debug = debug_get_option_bifrost_debug();
+
+        bi_finalize_nir(nir, inputs->gpu_id, inputs->is_blend);
+        struct hash_table_u64 *sysval_to_id = panfrost_init_sysvals(&info->sysvals, NULL);
+
+        info->tls_size = nir->scratch_size;
+        info->vs.idvs = bi_should_idvs(nir, inputs->gpu_id >> 12);
+
+        if (info->vs.idvs) {
+                bi_compile_variant(nir, inputs, binary, sysval_to_id, info, BI_IDVS_POSITION);
+                bi_compile_variant(nir, inputs, binary, sysval_to_id, info, BI_IDVS_VARYING);
+        } else {
+                bi_compile_variant(nir, inputs, binary, sysval_to_id, info, BI_IDVS_NONE);
+        }
+
+        info->ubo_mask &= BITSET_MASK(nir->info.num_ubos);
+
+        _mesa_hash_table_u64_destroy(sysval_to_id);
 }
