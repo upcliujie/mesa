@@ -1367,6 +1367,25 @@ bool r600_common_screen_init(struct r600_common_screen *rscreen,
 
 	rscreen->nir_options = nir_options;
 
+	if (rscreen->info.chip_class < EVERGREEN) {
+		/* Pre-EG doesn't have these ALU ops */
+		rscreen->nir_options.lower_bit_count = true;
+		rscreen->nir_options.lower_bitfield_reverse = true;
+	}
+
+	if (!(rscreen->debug_flags & DBG_NIR_PREFERRED)) {
+		/* TGSI is vector, and NIR-to-TGSI doesn't like it when the
+		 * input vars have been scalarized.
+		 */
+		rscreen->nir_options.lower_to_scalar = false;
+
+		/* NIR-to-TGSI can't do fused integer csel, and it can't just
+		 * override the flag and get the code lowered back when we ask
+		 * it to handle it.
+		 */
+		rscreen->nir_options.has_fused_comp_and_csel = false;
+	}
+
 	return true;
 }
 
