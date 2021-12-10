@@ -23,6 +23,7 @@
 
 #include "compiler/nir/nir.h"
 #include "compiler/nir/nir_deref.h"
+#include "compiler/nir/nir_worklist.h"
 #include "nir/nir_to_tgsi.h"
 #include "pipe/p_screen.h"
 #include "pipe/p_state.h"
@@ -57,6 +58,7 @@ struct ntt_compile {
    struct ureg_src *ssa_temp;
 
    nir_instr_liveness *liveness;
+   nir_instr_liveness *reg_liveness;
 
    /* Mappings from driver_location to TGSI input/output number.
     *
@@ -70,6 +72,220 @@ struct ntt_compile {
 
    struct ureg_src images[PIPE_MAX_SHADER_IMAGES];
 };
+
+/* Per-channel masks of def/use within the block, and the per-channel
+ * livein/liveout for the block as a whole.
+ */
+struct live_reg_block_state {
+   uint8_t *def, *use, *livein, *liveout;
+
+   nir_instr_liveness *liveness;
+
+   /* instr->index as we do the def/use callbacks */
+   uint32_t ip;
+   bool is_if;
+};
+
+struct live_reg_state {
+   unsigned bitset_words;
+   nir_instr_liveness *liveness;
+
+   /* Used in propagate_across_edge() */
+   BITSET_WORD *tmp_live;
+
+   struct live_reg_block_state *blocks;
+
+   nir_block_worklist worklist;
+};
+
+/* Compare to nir_src_components_read(). */
+static nir_component_mask_t
+nir_reg_src_components_read(const nir_src *src)
+{
+   if (src->parent_instr->type == nir_instr_type_alu) {
+      nir_alu_instr *alu = nir_instr_as_alu(src->parent_instr);
+      nir_alu_src *alu_src = exec_node_data(nir_alu_src, src, src);
+      int src_idx = alu_src - &alu->src[0];
+      assert(src_idx >= 0 && src_idx < nir_op_infos[alu->op].num_inputs);
+      return nir_alu_instr_src_read_mask(alu, src_idx);
+   } else if (src->parent_instr->type == nir_instr_type_intrinsic) {
+      nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(src->parent_instr);
+      /* src[0] is a store's value, so only the writemask components get used. */
+      if (nir_intrinsic_has_write_mask(intrin) && src == &intrin->src[0])
+         return nir_intrinsic_write_mask(intrin);
+      else
+         return (1 << src->reg.reg->num_components) - 1;
+   } else {
+      return (1 << src->reg.reg->num_components) - 1;
+   }
+}
+
+static bool
+nir_live_reg_setup_def_use_src(nir_src *src, void *void_state)
+{
+   if (src->is_ssa)
+      return true;
+
+   int index = src->reg.reg->index;
+   struct live_reg_block_state *bs = void_state;
+
+   /* Uses are the channels of the reg read in the block that don't have a
+    * preceding def to screen them off.  Note that we don't do per-element
+    * tracking of array regs, so they're never screened off.
+    */
+   if (src->reg.reg->num_array_elems > 1)
+      bs->use[index] = ~0;
+   else if (bs->is_if)
+      bs->use[index] |= 1 & ~bs->def[index];
+   else
+      bs->use[index] |= nir_reg_src_components_read(src) & ~bs->def[index];
+
+   bs->liveness->defs[index].start = MIN2(bs->liveness->defs[index].start, bs->ip);
+   bs->liveness->defs[index].end = MAX2(bs->liveness->defs[index].end, bs->ip);
+
+   return true;
+}
+
+static bool
+nir_live_reg_setup_def_use_dest(nir_dest *dest, void *void_state)
+{
+   if (dest->is_ssa)
+      return true;
+
+   int index = dest->reg.reg->index;
+   struct live_reg_block_state *bs = void_state;
+
+   if (dest->reg.reg->num_array_elems > 1) {
+      /* No per-element tracking of array regs. */
+      bs->use[index] = ~0;
+   } else {
+      uint8_t writemask = 0;
+      nir_instr *parent = dest->reg.parent_instr;
+      if (parent->type == nir_instr_type_alu) {
+         writemask = nir_instr_as_alu(parent)->dest.write_mask;
+      } else if (parent->type == nir_instr_type_intrinsic) {
+         nir_intrinsic_instr *intr = nir_instr_as_intrinsic(parent);
+         if (nir_intrinsic_has_write_mask(intr))
+            writemask = nir_intrinsic_write_mask(intr);
+         else
+            writemask = BITSET_MASK(dest->reg.reg->num_components);
+      }
+
+      /* defs are the unconditionally-written (not R/M/W) channels of the reg in
+       * the block that don't have a preceding use.
+       */
+      bs->def[index] |= writemask & ~bs->use[index];
+   }
+
+   bs->liveness->defs[index].start = MIN2(bs->liveness->defs[index].start, bs->ip);
+   bs->liveness->defs[index].end = MAX2(bs->liveness->defs[index].end, bs->ip);
+
+   return true;
+}
+
+static void
+nir_live_reg_setup_def_use(nir_function_impl *impl, struct live_reg_state *state)
+{
+   for (int i = 0; i < impl->num_blocks; i++) {
+      state->blocks[i].def = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
+      state->blocks[i].use = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
+      state->blocks[i].livein = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
+      state->blocks[i].liveout = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
+      state->blocks[i].liveness = state->liveness;
+   }
+
+   nir_foreach_block(block, impl) {
+      struct live_reg_block_state *bs = &state->blocks[block->index];
+
+      nir_foreach_instr(instr, block) {
+         bs->ip = instr->index;
+         nir_foreach_src(instr, nir_live_reg_setup_def_use_src, bs);
+         nir_foreach_dest(instr, nir_live_reg_setup_def_use_dest, bs);
+      }
+
+      bs->ip = block->end_ip;
+      bs->is_if = true;
+      nir_if *nif = nir_block_get_following_if(block);
+      if (nif)
+         nir_live_reg_setup_def_use_src(&nif->condition, bs);
+   }
+}
+
+static nir_instr_liveness *
+nir_live_reg_defs_impl(nir_function_impl *impl)
+{
+   struct live_reg_state state = {
+      .blocks = rzalloc_array(impl, struct live_reg_block_state, impl->num_blocks),
+      .liveness = rzalloc(impl, nir_instr_liveness),
+   };
+
+   state.liveness->defs = rzalloc_array(state.liveness, nir_liveness_bounds, impl->reg_alloc);
+
+   /* Number the instructions so we can do cheap interference tests using the
+    * instruction index.
+    */
+   nir_metadata_require(impl, nir_metadata_instr_index, nir_metadata_block_index);
+
+   uint32_t max_inst = nir_impl_last_block(impl)->end_ip + 1;
+   for (int i = 0; i < impl->reg_alloc; i++)
+      state.liveness->defs[i].start = max_inst;
+
+   nir_live_reg_setup_def_use(impl, &state);
+
+   /* Make a reverse-order worklist of all the blocks. */
+   nir_foreach_block(block, impl) {
+      nir_block_worklist_push_head(&state.worklist, block);
+   }
+
+   /* We're now ready to work through the worklist and update the liveness sets
+    * of each of the blocks.  As long as we keep the worklist up-to-date as we
+    * go, everything will get covered.
+    */
+   while (!nir_block_worklist_is_empty(&state.worklist)) {
+      /* We pop them off in the reverse order we pushed them on.  This way
+       * the first walk of the instructions is backwards so we only walk
+       * once in the case of no control flow.
+       */
+      nir_block *block = nir_block_worklist_pop_head(&state.worklist);
+      struct live_reg_block_state *bs = &state.blocks[block->index];
+
+      for (int i = 0; i < impl->reg_alloc; i++) {
+         /* Collect livein from our successors to include in our liveout. */
+         for (int j = 0; j < ARRAY_SIZE(block->successors); j++) {
+            nir_block *succ = block->successors[j];
+            if (!succ || succ->index == impl->num_blocks)
+               continue;
+            struct live_reg_block_state *sbs = &state.blocks[succ->index];
+
+            uint8_t new_liveout = sbs->livein[i] & ~bs->liveout[i];
+            if (new_liveout) {
+               state.liveness->defs[i].end = MAX2(state.liveness->defs[i].end, block->end_ip);
+               bs->liveout[i] |= sbs->livein[i];
+            }
+         }
+
+         /* Propagate use requests from either our block's uses or our
+          * non-screened-off liveout up to our predecessors.
+          */
+         uint8_t new_livein = ((bs->use[i] | (bs->liveout[i] & ~bs->def[i])) &
+                               ~bs->livein[i]);
+         if (new_livein) {
+            bs->livein[i] |= new_livein;
+            set_foreach(block->predecessors, entry) {
+               nir_block *pred = (void *)entry->key;
+               nir_block_worklist_push_tail(&state.worklist, pred);
+            }
+
+            state.liveness->defs[i].start = MIN2(state.liveness->defs[i].start, block->start_ip);
+         }
+      }
+   }
+
+   ralloc_free(state.blocks);
+   nir_block_worklist_fini(&state.worklist);
+
+   return state.liveness;
+}
 
 static void ntt_emit_cf_list(struct ntt_compile *c, struct exec_list *list);
 
@@ -575,28 +791,11 @@ ntt_setup_uniforms(struct ntt_compile *c)
 static void
 ntt_setup_registers(struct ntt_compile *c, struct exec_list *list)
 {
-   foreach_list_typed(nir_register, nir_reg, node, list) {
-      struct ureg_dst decl;
-      if (nir_reg->num_array_elems == 0) {
-         uint32_t write_mask = BITFIELD_MASK(nir_reg->num_components);
-         if (!ntt_try_store_in_tgsi_output(c, &decl, &nir_reg->uses, &nir_reg->if_uses)) {
-            if (nir_reg->bit_size == 64) {
-               if (nir_reg->num_components > 2) {
-                  fprintf(stderr, "NIR-to-TGSI: error: %d-component NIR r%d\n",
-                        nir_reg->num_components, nir_reg->index);
-               }
+   c->reg_liveness = nir_live_reg_defs_impl(c->impl);
 
-               write_mask = ntt_64bit_write_mask(write_mask);
-            }
-
-            decl = ureg_writemask(ureg_DECL_temporary(c->ureg), write_mask);
-         }
-      } else {
-         decl = ureg_DECL_array_temporary(c->ureg, nir_reg->num_array_elems,
-                                          true);
-      }
-      c->reg_temp[nir_reg->index] = decl;
-   }
+   /* register value temp allocation happens later during their actual live
+    * range.
+    */
 }
 
 static struct ureg_src
@@ -676,8 +875,52 @@ ntt_reladdr_dst_put(struct ntt_compile *c, struct ureg_dst dst)
       ntt_put_reladdr(c);
 }
 
+static struct ureg_dst
+ntt_get_reg_temp(struct ntt_compile *c, nir_register *reg, int nir_ip)
+{
+   if (c->reg_liveness->defs[reg->index].start > nir_ip) {
+      fprintf(stderr, "ntt_reg_alloc(r%d) before start of live range\n", reg->index);
+      unreachable("use of reg before live range");
+   }
+
+   if (c->reg_liveness->defs[reg->index].end < nir_ip) {
+      fprintf(stderr, "ntt_reg_alloc(r%d) after end of live range\n", reg->index);
+      unreachable("use of reg after live range");
+   }
+
+   if (c->reg_temp[reg->index].File != TGSI_FILE_NULL)
+      return c->reg_temp[reg->index];
+
+   if (nir_ip != c->reg_liveness->defs[reg->index].start) {
+      fprintf(stderr, "ntt_reg_alloc(r%d) first allocated after start of live range\n", reg->index);
+      unreachable("alloc of reg after live range start");
+   }
+
+   struct ureg_dst decl;
+   if (reg->num_array_elems == 0) {
+      uint32_t write_mask = BITFIELD_MASK(reg->num_components);
+      if (!ntt_try_store_in_tgsi_output(c, &decl, &reg->uses, &reg->if_uses)) {
+         if (reg->bit_size == 64) {
+            if (reg->num_components > 2) {
+               fprintf(stderr, "NIR-to-TGSI: error: %d-component NIR r%d\n",
+                     reg->num_components, reg->index);
+            }
+
+            write_mask = ntt_64bit_write_mask(write_mask);
+         }
+
+         decl = ureg_writemask(ureg_DECL_temporary(c->ureg), write_mask);
+      }
+   } else {
+      decl = ureg_DECL_array_temporary(c->ureg, reg->num_array_elems, true);
+   }
+   c->reg_temp[reg->index] = decl;
+
+   return decl;
+}
+
 static struct ureg_src
-ntt_get_src(struct ntt_compile *c, nir_src src)
+ntt_get_src_with_ip(struct ntt_compile *c, nir_src src, int nir_ip)
 {
    if (src.is_ssa) {
       if (src.ssa->parent_instr->type == nir_instr_type_load_const)
@@ -692,17 +935,24 @@ ntt_get_src(struct ntt_compile *c, nir_src src)
       return c->ssa_temp[src.ssa->index];
    } else {
       nir_register *reg = src.reg.reg;
-      struct ureg_dst reg_temp = c->reg_temp[reg->index];
+
+      struct ureg_dst reg_temp = ntt_get_reg_temp(c, reg, nir_ip);
       reg_temp.Index += src.reg.base_offset;
 
       if (src.reg.indirect) {
-         struct ureg_src offset = ntt_get_src(c, *src.reg.indirect);
+         struct ureg_src offset = ntt_get_src_with_ip(c, *src.reg.indirect, nir_ip);
          return ureg_src_indirect(ureg_src(reg_temp),
                                   ntt_reladdr(c, offset));
       } else {
          return ureg_src(reg_temp);
       }
    }
+}
+
+static struct ureg_src
+ntt_get_src(struct ntt_compile *c, nir_src src)
+{
+   return ntt_get_src_with_ip(c, src, src.parent_instr->index);
 }
 
 static struct ureg_src
@@ -777,7 +1027,7 @@ ntt_get_dest_decl(struct ntt_compile *c, nir_dest *dest)
    if (dest->is_ssa)
       return ntt_get_ssa_def_decl(c, &dest->ssa);
    else
-      return c->reg_temp[dest->reg.reg->index];
+      return ntt_get_reg_temp(c, dest->reg.reg, dest->reg.parent_instr->index);
 }
 
 static struct ureg_dst
@@ -2387,7 +2637,14 @@ ntt_free_ssa_temp_by_index(struct ntt_compile *c, int index)
    memset(&c->ssa_temp[index], 0, sizeof(c->ssa_temp[index]));
 }
 
-/* Releases any temporaries for SSA defs with a live interval ending at this
+static void
+ntt_free_reg_temp_by_index(struct ntt_compile *c, int index)
+{
+   ureg_release_temporary(c->ureg, c->reg_temp[index]);
+   memset(&c->reg_temp[index], 0, sizeof(c->reg_temp[index]));
+}
+
+/* Releases any temporaries for regs or SSA defs with a live interval ending at this
  * instruction's src.
  */
 static bool
@@ -2400,12 +2657,16 @@ ntt_src_live_interval_end_cb(nir_src *src, void *state)
 
       if (c->liveness->defs[def->index].end == src->parent_instr->index)
          ntt_free_ssa_temp_by_index(c, def->index);
+   } else {
+      nir_register *reg = src->reg.reg;
+      if (c->reg_liveness->defs[reg->index].end == src->parent_instr->index)
+         ntt_free_reg_temp_by_index(c, reg->index);
    }
 
    return true;
 }
 
-/* Releases any temporaries for SSA defs with a live interval ending at this
+/* Releases any temporaries for regs or SSA defs with a live interval ending at this
  * instruction's dest.
  */
 static bool
@@ -2418,6 +2679,10 @@ ntt_dest_live_interval_end_cb(nir_dest *dest, void *state)
 
       if (c->liveness->defs[def->index].end == def->parent_instr->index)
          ntt_free_ssa_temp_by_index(c, def->index);
+   } else {
+      nir_register *reg = dest->reg.reg;
+      if (c->reg_liveness->defs[reg->index].end == dest->reg.parent_instr->index)
+         ntt_free_reg_temp_by_index(c, reg->index);
    }
 
    return true;
@@ -2426,6 +2691,19 @@ ntt_dest_live_interval_end_cb(nir_dest *dest, void *state)
 static void
 ntt_emit_block(struct ntt_compile *c, nir_block *block)
 {
+   /* Allocate any registers whose live range starts at this block. */
+   for (int i = 0; i < c->impl->reg_alloc; i++) {
+      unsigned def_start_ip = c->reg_liveness->defs[i].start;
+      if (def_start_ip == block->start_ip) {
+         foreach_list_typed(nir_register, reg, node, &c->impl->registers) {
+            if (reg->index == i) {
+               (void)ntt_get_reg_temp(c, reg, block->start_ip);
+               break;
+            }
+         }
+      }
+   }
+
    nir_foreach_instr(instr, block) {
       ntt_emit_instr(c, instr);
 
@@ -2448,7 +2726,8 @@ ntt_emit_block(struct ntt_compile *c, nir_block *block)
     */
    nir_if *nif = nir_block_get_following_if(block);
    if (nif) {
-      c->if_cond = ureg_scalar(ntt_get_src(c, nif->condition), TGSI_SWIZZLE_X);
+      c->if_cond = ureg_scalar(ntt_get_src_with_ip(c, nif->condition, block->end_ip),
+                               TGSI_SWIZZLE_X);
 
       if (nif->condition.is_ssa) {
          if (c->liveness->defs[nif->condition.ssa->index].end == block->end_ip)
@@ -2462,6 +2741,12 @@ ntt_emit_block(struct ntt_compile *c, nir_block *block)
       unsigned def_end_ip = c->liveness->defs[index].end;
       if (def_end_ip == block->end_ip)
          ntt_free_ssa_temp_by_index(c, index);
+   }
+
+   for (int i = 0; i < c->impl->reg_alloc; i++) {
+      unsigned def_end_ip = c->reg_liveness->defs[i].end;
+      if (def_end_ip == block->end_ip)
+         ntt_free_reg_temp_by_index(c, i);
    }
 }
 
@@ -2512,8 +2797,17 @@ ntt_emit_impl(struct ntt_compile *c, nir_function_impl *impl)
       }
    }
 
+   for (int i = 0; i < impl->reg_alloc; i++) {
+      if (c->reg_temp[i].File == TGSI_FILE_TEMPORARY) {
+         fprintf(stderr, "nir_to_tgsi: r%d not released\n", i);
+         unreachable("unreleased reg temp");
+      }
+   }
+
    ralloc_free(c->liveness);
    c->liveness = NULL;
+   ralloc_free(c->reg_liveness);
+   c->reg_liveness = NULL;
 }
 
 static int
