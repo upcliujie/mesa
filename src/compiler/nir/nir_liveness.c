@@ -353,6 +353,7 @@ static bool def_cb(nir_ssa_def *def, void *state)
    int index = def->index;
 
    liveness->defs[index].start = MIN2(liveness->defs[index].start, instr->index);
+   liveness->defs[index].end = instr->index;
 
    nir_foreach_use(src, def) {
       liveness->defs[index].end = MAX2(liveness->defs[index].end,
