@@ -48,6 +48,10 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 {
    struct si_screen *sscreen = (struct si_screen *)pscreen;
 
+   /* Gfx8 (Polaris11) hangs, so don't enable this on Gfx8 and older chips. */
+   bool enable_sparse = sscreen->info.chip_class >= GFX9 &&
+      sscreen->info.has_sparse_vm_mappings;
+
    switch (param) {
    /* Supported features (boolean caps). */
    case PIPE_CAP_ACCELERATED:
@@ -242,9 +246,7 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 0;
 
    case PIPE_CAP_SPARSE_BUFFER_PAGE_SIZE:
-      /* Gfx8 (Polaris11) hangs, so don't enable this on Gfx8 and older chips. */
-      return sscreen->info.chip_class >= GFX9 &&
-             sscreen->info.has_sparse_vm_mappings ? RADEON_SPARSE_PAGE_SIZE : 0;
+      return enable_sparse ? RADEON_SPARSE_PAGE_SIZE : 0;
 
    case PIPE_CAP_UMA:
    case PIPE_CAP_PREFER_IMM_ARRAYS_AS_CONSTBUF:
@@ -294,24 +296,40 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
       return 2048;
 
    /* Texturing. */
+   case PIPE_CAP_MAX_SPARSE_TEXTURE_SIZE:
+      if (!enable_sparse)
+         return 0;
+      FALLTHROUGH;
    case PIPE_CAP_MAX_TEXTURE_2D_SIZE:
       return 16384;
    case PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS:
       if (!sscreen->info.has_3d_cube_border_color_mipmap)
          return 0;
       return 15; /* 16384 */
-   case PIPE_CAP_MAX_TEXTURE_3D_LEVELS:
+   case PIPE_CAP_MAX_SPARSE_3D_TEXTURE_SIZE:
+      if (!enable_sparse)
+         return 0;
+      FALLTHROUGH;
+   case PIPE_CAP_MAX_TEXTURE_3D_LEVELS: {
       if (!sscreen->info.has_3d_cube_border_color_mipmap)
          return 0;
-      if (sscreen->info.chip_class >= GFX10)
-         return 14;
+
       /* textures support 8192, but layered rendering supports 2048 */
-      return 12;
+      int level = sscreen->info.chip_class >= GFX10 ? 14 : 12;
+      return param == PIPE_CAP_MAX_SPARSE_3D_TEXTURE_SIZE ?
+         (1 << (level - 1)) : level;
+   }
+   case PIPE_CAP_MAX_SPARSE_ARRAY_TEXTURE_LAYERS:
+      if (!enable_sparse)
+         return 0;
+      FALLTHROUGH;
    case PIPE_CAP_MAX_TEXTURE_ARRAY_LAYERS:
       if (sscreen->info.chip_class >= GFX10)
          return 8192;
       /* textures support 8192, but layered rendering supports 2048 */
       return 2048;
+   case PIPE_CAP_SPARSE_TEXTURE_FULL_ARRAY_CUBE_MIPMAPS:
+      return enable_sparse ? 1 : 0;
 
    /* Viewports and render targets. */
    case PIPE_CAP_MAX_VIEWPORTS:
