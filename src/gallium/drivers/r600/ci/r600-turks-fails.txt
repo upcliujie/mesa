@@ -1,24 +1,5 @@
 KHR-GLES31.core.compressed_format.api.invalid_teximage_with_compressed_format,Fail
 
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_0_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_0_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_0_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_1_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_1_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_1_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_2_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_2_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_2_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_0_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_0_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_0_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_1_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_1_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_1_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_repeat,Fail
-
 KHR-GLES31.core.compute_shader.pipeline-compute-chain,Fail
 KHR-GLES31.core.compute_shader.resources-max,Fail
 KHR-GLES31.core.compute_shader.shared-struct,Fail
@@ -27,27 +8,22 @@ KHR-GLES31.core.draw_buffers_indexed.blending,Fail
 
 KHR-GLES31.core.draw_indirect.basic-indicesDataType-unsigned_byte,Fail
 
+KHR-GLES31.core.geometry_shader.api.max_atomic_counters,Fail
+
+KHR-GLES31.core.gpu_shader5.atomic_counters_array_indexing,Fail
 KHR-GLES31.core.gpu_shader5.texture_gather_offset_color_clamp_to_border,Fail
 KHR-GLES31.core.gpu_shader5.texture_gather_offset_color_clamp_to_edge,Fail
 
 KHR-GLES31.core.layout_binding.image2D_layout_binding_imageLoad_ComputeShader,Fail
-KHR-GLES31.core.layout_binding.image2D_layout_binding_imageLoad_FragmentShader,Fail
 
+KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-counters,Fail
 KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-draw-calls2,Fail
 KHR-GLES31.core.shader_atomic_counters.advanced-usage-multi-stage,Fail
-KHR-GLES31.core.shader_atomic_counters.advanced-usage-multidim-array-small,Fail
 
 KHR-GLES31.core.shader_image_load_store.basic-allFormats-loadStoreComputeStage,Fail
 KHR-GLES31.core.shader_image_load_store.basic-allTargets-loadStoreCS,Fail
 
-KHR-GLES31.core.shader_storage_buffer_object.advanced-matrix-cs,Fail
 KHR-GLES31.core.shader_storage_buffer_object.advanced-readWrite-case1-cs,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std140-matR,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std140-struct,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std430-matC-pad,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std430-vec,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-usage-operators-cs,Fail
-KHR-GLES31.core.shader_storage_buffer_object.basic-operations-case1-cs,Fail
 
 KHR-GLES31.core.tessellation_shader.tessellation_shader_tessellation.TCS_TES,Fail
 KHR-GLES31.core.tessellation_shader.tessellation_shader_tessellation.gl_InvocationID_PatchVerticesIn_PrimitiveID,Fail
@@ -68,6 +44,14 @@ KHR-GLES31.core.texture_cube_map_array.texture_size_tesselation_ev_sh,Fail
 
 KHR-GLES31.core.vertex_attrib_binding.basic-input-case5,Fail
 KHR-GLES31.core.vertex_attrib_binding.basic-input-case6,Fail
+
+# r600 seems to have issues with register allocation for GPR arrays.  See note in r600-rv770-fails.txt.
+KHR-GLES3.shaders.struct.local.struct_array_dynamic_index_fragment,Fail
+KHR-GLES3.shaders.struct.local.struct_array_dynamic_index_vertex,Fail
+dEQP-GLES2.functional.shaders.struct.local.struct_array_dynamic_index_fragment,Fail
+dEQP-GLES2.functional.shaders.struct.local.struct_array_dynamic_index_vertex,Fail
+dEQP-GLES3.functional.shaders.struct.local.struct_array_dynamic_index_fragment,Fail
+dEQP-GLES3.functional.shaders.struct.local.struct_array_dynamic_index_vertex,Fail
 
 # Wide line near the edge is fully missing instead of partially clipped.  Do we
 # need guardband?
@@ -472,12 +456,10 @@ dEQP-GLES31.functional.image_load_store.2d.format_reinterpret.r32f_rgba8_snorm,F
 dEQP-GLES31.functional.image_load_store.2d.format_reinterpret.rgba8_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.2d_array.format_reinterpret.r32f_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.2d_array.format_reinterpret.rgba8_rgba8_snorm,Fail
-dEQP-GLES31.functional.image_load_store.2d_array.image_size.readonly_writeonly_12x34x56,Fail
 dEQP-GLES31.functional.image_load_store.3d.format_reinterpret.r32f_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.3d.format_reinterpret.rgba8_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.buffer.format_reinterpret.r32f_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.buffer.format_reinterpret.rgba8_rgba8_snorm,Fail
-dEQP-GLES31.functional.image_load_store.buffer.image_size.readonly_1,Fail
 dEQP-GLES31.functional.image_load_store.cube.format_reinterpret.r32f_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.cube.format_reinterpret.rgba8_rgba8_snorm,Fail
 
@@ -496,14 +478,10 @@ dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_d
 dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_primitive.vertex_tessellation_fragment.default_framebuffer,Fail
 dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_primitive.vertex_tessellation_fragment.fbo,Fail
 
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec2_fragment,Fail
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec2_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec3_fragment,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec3_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec4_fragment,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec4_vertex,Fail
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec2_to_uvec2_fragment,Fail
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec2_to_uvec2_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec3_to_uvec3_fragment,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec3_to_uvec3_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec4_to_uvec4_fragment,Fail
@@ -554,6 +532,9 @@ dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.a
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.singlesample_rbo,Fail
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.singlesample_texture,Fail
 
+# ../src/gallium/drivers/r600/sb/sb_sched.cpp:535:try_reserve: Assertion `!"internal reservation error"' failed.
+dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.centroid_qualified.multisample_rbo_4,Crash
+dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.centroid_qualified.multisample_texture_4,Crash
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.centroid_qualified.multisample_rbo_8,Crash
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.centroid_qualified.multisample_texture_8,Crash
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.dynamic_sample_number.multisample_rbo_4,Crash
@@ -565,36 +546,15 @@ dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.s
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.static_sample_number.multisample_texture_4,Crash
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.static_sample_number.multisample_texture_8,Crash
 
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isamplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.sampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.sampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.sampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.samplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.samplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usamplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isamplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.sampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.sampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.sampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.samplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.samplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usamplercubearray,Crash
+# This:
+#   6: LOAD TEMP[0].xyz, BUFFER[0], TEMP[1].xxxx
+#   7: TEX TEMP[2].x, TEMP[0].xyzx, SAMP[3], SHADOW2D
+# turns into:
+#  0072 000CA840 5BDD1003 00080000   SAMPLE_C       R5.x___, R3.xyzz,  RID:21, SID:3  CT:NNNN
+#  0076 00031518 F01FF005 48818000   VFETCH         R3.xyz_, R12.x,  RID:168  UCF:0 FMT(DTA:47 NUM:1 COMP:1 MODE:0)
+# I haven't found the bug in r600_shader.c, though.
+dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.const_expression.compute.sampler2dshadow,Fail
+dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.const_literal.compute.sampler2dshadow,Fail
 
 # Mask bit count in range only on the diagonal.
 dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bit_count_per_two_samples.multisample_rbo_4,Fail
@@ -604,6 +564,26 @@ dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bit_count_per_two
 # Sample rate shading didn't happen at sample rate?
 dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bits_unique_per_two_samples.multisample_texture_4,Fail
 dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bits_unique_per_two_samples.multisample_texture_8,Fail
+
+# r600_shader_from_tgsi - GPR limit exceeded - shader requires 152 registers
+# https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/14158 for fix
+dEQP-GLES31.functional.ssbo.layout.random.all_shared_buffer.36,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.per_block_buffer.packed_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.per_block_buffer.shared_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.per_block_buffer.std140_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.per_block_buffer.std430_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.single_buffer.packed_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.single_buffer.shared_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.single_buffer.std140_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.single_nested_struct_array.single_buffer.std430_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.per_block_buffer.packed_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.per_block_buffer.shared_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.per_block_buffer.std140_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.per_block_buffer.std430_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.single_buffer.packed_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.single_buffer.shared_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.single_buffer.std140_instance_array,Fail
+dEQP-GLES31.functional.ssbo.layout.unsized_nested_struct_array.single_buffer.std430_instance_array,Fail
 
 # Reading with too large of a stride.
 dEQP-GLES31.functional.stencil_texturing.format.depth24_stencil8_2d,Fail
@@ -830,3 +810,44 @@ dEQP-GLES31.functional.texture.gather.offsets.implementation_offset.2d_array.rgb
 dEQP-GLES31.functional.texture.specification.teximage3d_pbo.rgb16f_cube_array,Fail
 dEQP-GLES31.functional.texture.specification.teximage3d_pbo.rgb16i_cube_array,Fail
 dEQP-GLES31.functional.texture.specification.teximage3d_pbo.rgb16ui_cube_array,Fail
+
+# NTT regressions to debug
+dEQP-GLES31.functional.geometry_shading.basic.primitive_id_in,Fail
+dEQP-GLES31.functional.geometry_shading.basic.primitive_id_in_restarted,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.lines_to_points,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.lines_to_triangles,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.points_to_lines,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.points_to_triangles,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.triangles_to_lines,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.triangles_to_points,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.line_loop,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.line_strip,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.line_strip_adjacency,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.lines,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.lines_adjacency,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.points,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangle_fan,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangle_strip,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangles,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangles_adjacency,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_10,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_11,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_12,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_8,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_9,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.coherent_r32f,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.coherent_r32i,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.coherent_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.volatile_r32f,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.volatile_r32i,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.volatile_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.coherent_r32f,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.coherent_r32i,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.coherent_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.volatile_r32f,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.volatile_r32i,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.volatile_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.coherent_r32i,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.coherent_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.volatile_r32f,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.volatile_r32i,Fail
