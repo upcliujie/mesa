@@ -2452,7 +2452,7 @@ ntt_emit_block(struct ntt_compile *c, nir_block *block)
 
    /* Free up any SSA temps that are unused at the end of the block. */
    unsigned index;
-   BITSET_FOREACH_SET(index, block->live_out, BITSET_WORDS(c->impl->ssa_alloc)) {
+   BITSET_FOREACH_SET(index, block->live_out, c->impl->ssa_alloc) {
       unsigned def_end_ip = c->liveness->defs[index].end;
       if (def_end_ip == block->end_ip)
          ntt_free_ssa_temp_by_index(c, index);
