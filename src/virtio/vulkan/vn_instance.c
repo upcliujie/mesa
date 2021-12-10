@@ -548,41 +548,15 @@ vn_instance_ring_submit(struct vn_instance *instance,
    return result;
 }
 
-static bool
-vn_instance_grow_reply_shmem_locked(struct vn_instance *instance, size_t size)
-{
-   const size_t min_shmem_size = 1 << 20;
-
-   size_t shmem_size =
-      instance->reply.size ? instance->reply.size : min_shmem_size;
-   while (shmem_size < size) {
-      shmem_size <<= 1;
-      if (!shmem_size)
-         return false;
-   }
-
-   struct vn_renderer_shmem *shmem =
-      vn_renderer_shmem_create(instance->renderer, shmem_size);
-   if (!shmem)
-      return false;
-
-   if (instance->reply.shmem)
-      vn_renderer_shmem_unref(instance->renderer, instance->reply.shmem);
-   instance->reply.shmem = shmem;
-   instance->reply.size = shmem_size;
-   instance->reply.used = 0;
-   instance->reply.ptr = shmem->mmap_ptr;
-
-   return true;
-}
-
 static struct vn_renderer_shmem *
 vn_instance_get_reply_shmem_locked(struct vn_instance *instance,
                                    size_t size,
-                                   void **ptr)
+                                   void **out_ptr)
 {
-   if (unlikely(instance->reply.used + size > instance->reply.size)) {
-      if (!vn_instance_grow_reply_shmem_locked(instance, size))
+   struct vn_renderer_shmem_pool *pool = &instance->reply_shmem_pool;
+   if (unlikely(size >
+                vn_renderer_shmem_pool_space(instance->renderer, pool))) {
+      if (!vn_renderer_shmem_pool_realloc(instance->renderer, pool, size))
          return NULL;
 
       uint32_t set_reply_command_stream_data[16];
@@ -590,8 +564,8 @@ vn_instance_get_reply_shmem_locked(struct vn_instance *instance,
          set_reply_command_stream_data,
          sizeof(set_reply_command_stream_data));
       const struct VkCommandStreamDescriptionMESA stream = {
-         .resourceId = instance->reply.shmem->res_id,
-         .size = instance->reply.size,
+         .resourceId = pool->shmem->res_id,
+         .size = pool->shmem_size,
       };
       vn_encode_vkSetReplyCommandStreamMESA(&local_enc, 0, &stream);
       vn_cs_encoder_commit(&local_enc);
@@ -606,11 +580,16 @@ vn_instance_get_reply_shmem_locked(struct vn_instance *instance,
       }
    }
 
+   size_t offset;
+   struct vn_renderer_shmem *shmem =
+      vn_renderer_shmem_pool_alloc(instance->renderer, pool, size, &offset);
+   assert(shmem);
+   *out_ptr = pool->shmem->mmap_ptr + offset;
+
    /* TODO avoid this seek command and go lock-free? */
    uint32_t seek_reply_command_stream_data[8];
    struct vn_cs_encoder local_enc = VN_CS_ENCODER_INITIALIZER_LOCAL(
       seek_reply_command_stream_data, sizeof(seek_reply_command_stream_data));
-   const size_t offset = instance->reply.used;
    vn_encode_vkSeekReplyCommandStreamMESA(&local_enc, 0, offset);
    vn_cs_encoder_commit(&local_enc);
 
@@ -622,10 +601,7 @@ vn_instance_get_reply_shmem_locked(struct vn_instance *instance,
                                 vn_cs_encoder_get_len(&local_enc));
    }
 
-   *ptr = instance->reply.ptr + offset;
-   instance->reply.used += size;
-
-   return vn_renderer_shmem_ref(instance->renderer, instance->reply.shmem);
+   return shmem;
 }
 
 void
@@ -743,6 +719,9 @@ vn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    if (result != VK_SUCCESS)
       goto fail;
 
+   vn_renderer_shmem_pool_init(instance->renderer,
+                               &instance->reply_shmem_pool, 1u << 20);
+
    result = vn_instance_init_experimental_features(instance);
    if (result != VK_SUCCESS)
       goto fail;
@@ -795,9 +774,6 @@ vn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    return VK_SUCCESS;
 
 fail:
-   if (instance->reply.shmem)
-      vn_renderer_shmem_unref(instance->renderer, instance->reply.shmem);
-
    if (instance->ring.shmem) {
       uint32_t destroy_ring_data[4];
       struct vn_cs_encoder local_enc = VN_CS_ENCODER_INITIALIZER_LOCAL(
@@ -812,6 +788,9 @@ fail:
       vn_ring_fini(&instance->ring.ring);
       mtx_destroy(&instance->ring.mutex);
    }
+
+   vn_renderer_shmem_pool_fini(instance->renderer,
+                               &instance->reply_shmem_pool);
 
    if (instance->renderer)
       vn_renderer_destroy(instance->renderer, alloc);
@@ -845,8 +824,6 @@ vn_DestroyInstance(VkInstance _instance,
 
    vn_call_vkDestroyInstance(instance, _instance, NULL);
 
-   vn_renderer_shmem_unref(instance->renderer, instance->reply.shmem);
-
    uint32_t destroy_ring_data[4];
    struct vn_cs_encoder local_enc = VN_CS_ENCODER_INITIALIZER_LOCAL(
       destroy_ring_data, sizeof(destroy_ring_data));
@@ -859,6 +836,9 @@ vn_DestroyInstance(VkInstance _instance,
    vn_ring_fini(&instance->ring.ring);
    mtx_destroy(&instance->ring.mutex);
    vn_renderer_shmem_unref(instance->renderer, instance->ring.shmem);
+
+   vn_renderer_shmem_pool_fini(instance->renderer,
+                               &instance->reply_shmem_pool);
 
    vn_renderer_destroy(instance->renderer, alloc);
 
