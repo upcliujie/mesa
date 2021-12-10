@@ -97,6 +97,30 @@ bi_analyze_ranges(bi_context *ctx)
 static void
 bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis)
 {
+        for (unsigned i = 0; i < push->count; ++i) {
+                struct panfrost_ubo_word word = {
+                        .ubo = ubo,
+                        .offset = (r + offs) * 4
+                };
+
+                struct panfrost_ubo_word word = push->words[i];
+                unsigned ubo = push->words[i].ubo;
+                if (ubo >= analysis->nr_blocks)
+                        continue;
+
+                struct bi_ubo_block *block = &analysis->blocks[ubo];
+                assert((push->words[i].offset & 3) == 0);
+                unsigned offset = push->words[i].offset / 4;
+
+                if (word.offset >= MAX_UBO_WORDS)
+                        continue;
+
+                if (offset 
+                assert(!BITSET_TEST(block->pushed, offset));
+                BITSET_SET(block->pushed, offset);
+
+        }
+
         for (signed ubo = analysis->nr_blocks - 1; ubo >= 0; --ubo) {
                 struct bi_ubo_block *block = &analysis->blocks[ubo];
 
