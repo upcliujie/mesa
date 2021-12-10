@@ -66,6 +66,7 @@ struct svga_screen
       boolean force_sampler_view;
       boolean no_sampler_view;
       boolean no_cache_index_buffers;
+      boolean nir;
    } debug;
 
    unsigned texture_timestamp;
