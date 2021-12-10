@@ -2505,6 +2505,13 @@ ntt_emit_impl(struct ntt_compile *c, nir_function_impl *impl)
    ntt_setup_registers(c, &impl->registers);
    ntt_emit_cf_list(c, &impl->body);
 
+   for (int i = 0; i < impl->ssa_alloc; i++) {
+      if (c->ssa_temp[i].File == TGSI_FILE_TEMPORARY) {
+         fprintf(stderr, "nir_to_tgsi: ssa%d not released\n", i);
+         unreachable("unreleased SSA temp");
+      }
+   }
+
    ralloc_free(c->liveness);
    c->liveness = NULL;
 }
