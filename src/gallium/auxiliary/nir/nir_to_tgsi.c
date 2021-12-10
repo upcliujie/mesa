@@ -2447,8 +2447,14 @@ ntt_emit_block(struct ntt_compile *c, nir_block *block)
     * looks at all of .xyzw.  No harm in working around the bug.
     */
    nir_if *nif = nir_block_get_following_if(block);
-   if (nif)
+   if (nif) {
       c->if_cond = ureg_scalar(ntt_get_src(c, nif->condition), TGSI_SWIZZLE_X);
+
+      if (nif->condition.is_ssa) {
+         if (c->liveness->defs[nif->condition.ssa->index].end == block->end_ip)
+            ntt_free_ssa_temp_by_index(c, nif->condition.ssa->index);
+      }
+   }
 
    /* Free up any SSA temps that are unused at the end of the block. */
    unsigned index;
