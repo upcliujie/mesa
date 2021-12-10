@@ -7,3 +7,6 @@ texelfetch@gs
 
 # intermittent GL_OOMs, let's make sure that doesn't impact other tests.
 spec@!opengl 1.2@tex3d-maxsize
+
+# 1-minute timeouts
+KHR-GL33.texture_swizzle.smoke
