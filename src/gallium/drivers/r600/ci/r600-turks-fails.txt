@@ -1,54 +1,48 @@
 KHR-GLES31.core.compressed_format.api.invalid_teximage_with_compressed_format,Fail
 
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_0_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_0_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_0_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_1_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_1_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_1_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_2_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_2_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_11x131_2_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_0_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_0_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_0_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_1_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_1_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_1_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_clamp_to_edge,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_mirrored_repeat,Fail
-KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_repeat,Fail
-
 KHR-GLES31.core.compute_shader.pipeline-compute-chain,Fail
-KHR-GLES31.core.compute_shader.resources-max,Fail
 KHR-GLES31.core.compute_shader.shared-struct,Fail
 
 KHR-GLES31.core.draw_buffers_indexed.blending,Fail
 
 KHR-GLES31.core.draw_indirect.basic-indicesDataType-unsigned_byte,Fail
 
+KHR-GLES31.core.geometry_shader.primitive_counter.lines_to_line_strip,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.lines_to_line_strip_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.lines_to_points,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.lines_to_points_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.lines_to_triangle_strip,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.lines_to_triangle_strip_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.point_to_point,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.points_to_line_strip,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.points_to_line_strip_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.points_to_points_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.points_to_triangle_strip,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.points_to_triangle_strip_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.triangles_to_line_strip,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.triangles_to_line_strip_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.triangles_to_points,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.triangles_to_points_rp,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.triangles_to_triangle_strip,Fail
+KHR-GLES31.core.geometry_shader.primitive_counter.triangles_to_triangle_strip_rp,Fail
+
 KHR-GLES31.core.gpu_shader5.texture_gather_offset_color_clamp_to_border,Fail
 KHR-GLES31.core.gpu_shader5.texture_gather_offset_color_clamp_to_edge,Fail
 
 KHR-GLES31.core.layout_binding.image2D_layout_binding_imageLoad_ComputeShader,Fail
-KHR-GLES31.core.layout_binding.image2D_layout_binding_imageLoad_FragmentShader,Fail
 
 KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-dispatches,Fail
 KHR-GLES31.core.shader_atomic_counters.advanced-usage-many-draw-calls2,Fail
 KHR-GLES31.core.shader_atomic_counters.advanced-usage-multi-stage,Fail
-KHR-GLES31.core.shader_atomic_counters.advanced-usage-multidim-array-small,Fail
 
 KHR-GLES31.core.shader_image_load_store.basic-allFormats-loadStoreComputeStage,Fail
 KHR-GLES31.core.shader_image_load_store.basic-allTargets-loadStoreCS,Fail
 
-KHR-GLES31.core.shader_storage_buffer_object.advanced-matrix-cs,Fail
 KHR-GLES31.core.shader_storage_buffer_object.advanced-readWrite-case1-cs,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std140-matR,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std140-struct,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std430-matC-pad,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std430-vec,Fail
-KHR-GLES31.core.shader_storage_buffer_object.advanced-usage-operators-cs,Fail
-KHR-GLES31.core.shader_storage_buffer_object.basic-operations-case1-cs,Fail
+
+# r600_shader.c:10547: fc_pushlevel: Assertion `ctx->bc->fc_sp < ARRAY_SIZE(ctx->bc->fc_stack)' failed.
+# Yeah, that's some deep flow control there.
+KHR-GLES31.core.tessellation_shader.single.max_patch_vertices,Crash
 
 KHR-GLES31.core.tessellation_shader.tessellation_shader_tessellation.TCS_TES,Fail
 KHR-GLES31.core.tessellation_shader.tessellation_shader_tessellation.gl_InvocationID_PatchVerticesIn_PrimitiveID,Fail
@@ -466,6 +460,66 @@ dEQP-GLES31.functional.draw_indirect.draw_elements_indirect.indices.index_byte,F
 dEQP-GLES31.functional.draw_indirect.random.35,Fail
 dEQP-GLES31.functional.draw_indirect.random.45,Fail
 
+# GS inputs end up in different driver locations?  For example in
+# dEQP-GLES31.functional.geometry_shading.input.basic_primitive.points:
+#
+# Before:
+# DCL IN[][0], POSITION
+# DCL IN[][1], PRIM_ID
+# DCL IN[][2], GENERIC[0]
+# After:
+# DCL IN[][0], POSITION
+# DCL IN[][1], GENERIC[0]
+# DCL IN[][3], PRIM_ID
+#
+# But also, the final CUT_VERTEX is now at the end of the program since GLSL-to-TGSI
+# had some dead output writes, so we go from:
+# 0056  00000000 85c00000 CUT_VERTEX @0
+# 0058  00000074 a0100000 ALU 5 @232
+# [...]
+# 0062  0000007c a00c0000 ALU 4 @248
+# 0248  00000013 00e00c90    21      x: MOV                R7.x,  R19.x
+# 0250  00000413 20e00c90            y: MOV                R7.y,  R19.y
+# 0252  00000813 40e00c90            z: MOV                R7.z,  R19.z
+# 0254  80000c13 60e00c90            w: MOV                R7.w,  R19.w
+# 0064  00000000 80200000 CF_NATIVE @0  EOP
+#
+# to:
+#
+# 0052  00000000 85400000 EMIT_VERTEX @0
+# 0054  0000006e a0040000 ALU 2 @220
+# 0220  801fa00f 01e01a10    18      x: ADD_INT            R15.x,  R15.x, [0x00000003 4.2039e-45].x
+# 0222  00000003
+# 0056  00000000 85e00000 CUT_VERTEX @0  EOP
+#
+# However, even forcing a new CF_NATIVE for EOP doesn't help, and
+# dEQP-GLES31.functional.geometry_shading.basic.primitive_id_in doesn't have the CUT_VERTEX
+# anyway.
+dEQP-GLES31.functional.geometry_shading.basic.primitive_id_in,Fail
+dEQP-GLES31.functional.geometry_shading.basic.primitive_id_in_restarted,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.lines_to_points,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.lines_to_triangles,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.points_to_lines,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.points_to_triangles,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.triangles_to_lines,Fail
+dEQP-GLES31.functional.geometry_shading.conversion.triangles_to_points,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.line_loop,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.line_strip,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.line_strip_adjacency,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.lines,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.lines_adjacency,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.points,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangle_fan,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangle_strip,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangles,Fail
+dEQP-GLES31.functional.geometry_shading.input.basic_primitive.triangles_adjacency,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_10,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_11,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_12,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_8,Fail
+dEQP-GLES31.functional.geometry_shading.input.triangle_strip_adjacency.vertex_count_9,Fail
+
+
 dEQP-GLES31.functional.image_load_store.2d.format_reinterpret.r32f_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.2d.format_reinterpret.rgba8_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.2d_array.format_reinterpret.r32f_rgba8_snorm,Fail
@@ -478,6 +532,26 @@ dEQP-GLES31.functional.image_load_store.buffer.format_reinterpret.rgba8_rgba8_sn
 dEQP-GLES31.functional.image_load_store.buffer.image_size.readonly_1,Fail
 dEQP-GLES31.functional.image_load_store.cube.format_reinterpret.r32f_rgba8_snorm,Fail
 dEQP-GLES31.functional.image_load_store.cube.format_reinterpret.rgba8_rgba8_snorm,Fail
+
+# These have gone mostly flaky, actually.  I haven't found a cause.
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.coherent_r32f,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.coherent_r32i,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.coherent_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.volatile_r32f,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.volatile_r32i,Fail
+dEQP-GLES31.functional.image_load_store.2d_array.qualifiers.volatile_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.coherent_r32f,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.coherent_r32i,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.coherent_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.volatile_r32f,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.volatile_r32i,Fail
+dEQP-GLES31.functional.image_load_store.3d.qualifiers.volatile_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.coherent_r32f,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.coherent_r32i,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.coherent_r32ui,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.volatile_r32f,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.volatile_r32i,Fail
+dEQP-GLES31.functional.image_load_store.cube.qualifiers.volatile_r32ui,Fail
 
 # Same gray result in each attempted image sampling.
 dEQP-GLES31.functional.layout_binding.image.image2d.fragment_binding_max_array,Fail
@@ -494,14 +568,10 @@ dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_d
 dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_primitive.vertex_tessellation_fragment.default_framebuffer,Fail
 dEQP-GLES31.functional.primitive_bounding_box.wide_points.tessellation_set_per_primitive.vertex_tessellation_fragment.fbo,Fail
 
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec2_fragment,Fail
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec2_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec3_fragment,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec3_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec4_fragment,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.int_to_uvec4_vertex,Fail
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec2_to_uvec2_fragment,Fail
-dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec2_to_uvec2_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec3_to_uvec3_fragment,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec3_to_uvec3_vertex,Fail
 dEQP-GLES31.functional.shaders.implicit_conversions.es31.arithmetic.input_before_literal.div.ivec4_to_uvec4_fragment,Fail
@@ -551,37 +621,6 @@ dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.a
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.multisample_texture_8,Fail
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.singlesample_rbo,Fail
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.singlesample_texture,Fail
-
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isamplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.sampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.sampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.sampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.samplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.samplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.usamplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.isamplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.sampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.sampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.sampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.samplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.samplercubearray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usampler2d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usampler2darray,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usampler3d,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usamplercube,Crash
-dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.uniform.geometry.usamplercubearray,Crash
 
 # Mask bit count in range only on the diagonal.
 dEQP-GLES31.functional.shaders.sample_variables.sample_mask_in.bit_count_per_two_samples.multisample_rbo_4,Fail
@@ -845,6 +884,7 @@ spec@arb_shader_image_load_store@host-mem-barrier@Texture fetch/RaW/one bit barr
 spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/one bit barrier test/16x16,Fail
 spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/one bit barrier test/4x4,Fail
 spec@arb_shader_image_load_store@host-mem-barrier@Uniform buffer/RaW/one bit barrier test/64x64,Fail
+spec@arb_shader_image_load_store@execution@imagestore-array,Fail
 spec@arb_shader_image_load_store@indexing,Fail
 spec@arb_shader_image_load_store@indexing@Compute shader/dynamically uniform indexing test,Fail
 spec@arb_shader_image_load_store@indexing@Fragment shader/dynamically uniform indexing test,Fail
@@ -923,9 +963,6 @@ spec@arb_shader_image_load_store@invalid@imageLoad/invalid format test,Fail
 spec@arb_shader_image_load_store@invalid@imageLoad/layer bounds test,Fail
 spec@arb_shader_image_load_store@invalid@imageLoad/level bounds test,Fail
 spec@arb_shader_image_load_store@invalid@imageLoad/unbound image test,Fail
-spec@arb_shader_image_load_store@max-images,Fail
-spec@arb_shader_image_load_store@max-images@Combined max image uniforms test,Fail
-spec@arb_shader_image_load_store@max-images@Fragment shader max image uniforms test,Fail
 spec@arb_shader_image_load_store@restrict,Fail
 spec@arb_shader_image_load_store@restrict@no qualifier image aliasing test,Fail
 
@@ -1330,22 +1367,11 @@ spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@GL_COMPRESSED_SR
 spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT- swizzled- border color only,Fail
 spec@ext_texture_srgb@texwrap formats-s3tc bordercolor-swizzled@GL_COMPRESSED_SRGB_S3TC_DXT1_EXT- swizzled- border color only,Fail
 
-spec@glsl-1.10@execution@function-calls@glsl-function-chain16-in-array-indirect,Fail
-spec@glsl-1.10@execution@function-calls@glsl-function-chain16-in-array-indirect2,Fail
-
-spec@glsl-1.10@execution@varying-packing@simple float arrays_of_arrays,Fail
-spec@glsl-1.10@execution@varying-packing@simple float separate,Fail
-spec@glsl-1.10@execution@varying-packing@simple int arrays_of_arrays,Fail
-spec@glsl-1.10@execution@varying-packing@simple int separate,Fail
-spec@glsl-1.10@execution@varying-packing@simple uint arrays_of_arrays,Fail
-spec@glsl-1.10@execution@varying-packing@simple uint separate,Fail
-
 spec@glsl-1.20@execution@clipping@vs-clip-vertex-primitives,Fail
 
-spec@glsl-1.20@execution@matrix-out-of-bounds-access@fs-mat4-out-of-bounds-6,Crash
-
-spec@glsl-1.30@execution@clipping@vs-clip-distance-deadcode,Fail
 spec@glsl-1.30@execution@clipping@vs-clip-distance-primitives,Fail
+
+spec@glsl-1.30@execution@range_analysis_fsat_of_nan,Fail
 
 spec@glsl-1.30@execution@tex-miplevel-selection texture(bias) 1darrayshadow,Fail
 spec@glsl-1.30@execution@tex-miplevel-selection texture(bias) cubeshadow,Fail
@@ -1359,9 +1385,37 @@ spec@glsl-1.30@execution@tex-miplevel-selection textureoffset(bias) 1darrayshado
 spec@glsl-1.50@execution@geometry@tri-strip-ordering-with-prim-restart gl_triangle_strip_adjacency ffs,Fail
 spec@glsl-1.50@execution@geometry@tri-strip-ordering-with-prim-restart gl_triangle_strip_adjacency other,Fail
 
-spec@glsl-1.50@execution@variable-indexing@gs-input-array-vec3-index-rd,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_loop ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_loop other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip_adjacency ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_line_strip_adjacency other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines_adjacency ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_lines_adjacency other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_points ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_points other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_fan ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_fan other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip_adjacency ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangle_strip_adjacency other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles other,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles_adjacency ffs,Fail
+spec@glsl-1.50@execution@geometry@primitive-id-restart gl_triangles_adjacency other,Fail
 
-spec@glsl-1.50@gs-max-output,Fail
+spec@glsl-1.50@execution@variable-indexing@gs-input-array-vec2-index-rd,Fail
+spec@glsl-1.50@execution@variable-indexing@gs-input-array-vec3-index-rd,Fail
+spec@glsl-1.50@execution@variable-indexing@gs-input-array-vec4-index-rd,Fail
+
+# fc_pushlevel: Assertion `ctx->bc->fc_sp < ARRAY_SIZE(ctx->bc->fc_stack)' failed.
+spec@glsl-1.50@gs-max-output,Crash
+
+spec@glsl-es-3.10@execution@fs-atomic-counter-layout,Fail
 
 spec@khr_texture_compression_astc@miptree-gl srgb-fp,Fail
 spec@khr_texture_compression_astc@miptree-gl srgb-fp@sRGB decode full precision,Fail
@@ -1374,6 +1428,7 @@ spec@khr_texture_compression_astc@sliced-3d-miptree-gles srgb-fp@sRGB decode ful
 
 spec@!opengl 1.0@gl-1.0-dlist-bitmap,Fail
 spec@!opengl 1.0@gl-1.0-no-op-paths,Fail
+spec@!opengl 1.0@gl-1.0-spot-light,Fail
 spec@!opengl 1.0@gl-1.0-user-clip-all-planes,Fail
 spec@!opengl 1.1@linestipple,Fail
 spec@!opengl 1.1@linestipple@Factor 2x,Fail
