@@ -2388,7 +2388,7 @@ ntt_free_ssa_temp_by_index(struct ntt_compile *c, int index)
 }
 
 /* Releases any temporaries for SSA defs with a live interval ending at this
- * instruction.
+ * instruction's src.
  */
 static bool
 ntt_src_live_interval_end_cb(nir_src *src, void *state)
@@ -2405,6 +2405,24 @@ ntt_src_live_interval_end_cb(nir_src *src, void *state)
    return true;
 }
 
+/* Releases any temporaries for SSA defs with a live interval ending at this
+ * instruction's dest.
+ */
+static bool
+ntt_dest_live_interval_end_cb(nir_dest *dest, void *state)
+{
+   struct ntt_compile *c = state;
+
+   if (dest->is_ssa) {
+      nir_ssa_def *def = &dest->ssa;
+
+      if (c->liveness->defs[def->index].end == def->parent_instr->index)
+         ntt_free_ssa_temp_by_index(c, def->index);
+   }
+
+   return true;
+}
+
 static void
 ntt_emit_block(struct ntt_compile *c, nir_block *block)
 {
@@ -2412,6 +2430,13 @@ ntt_emit_block(struct ntt_compile *c, nir_block *block)
       ntt_emit_instr(c, instr);
 
       nir_foreach_src(instr, ntt_src_live_interval_end_cb, c);
+
+      /* Free any dests ending here, too.  We could have a dest live range end
+       * at the instr with the def because of intrinsics with side effects and
+       * also an unused dest (like atomics), or because we just missed some dead
+       * code elimination opportunity.
+       */
+      nir_foreach_dest(instr, ntt_dest_live_interval_end_cb, c);
    }
 
    /* Set up the if condition for ntt_emit_if(), which we have to do before
