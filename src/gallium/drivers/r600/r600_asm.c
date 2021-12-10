@@ -486,8 +486,8 @@ static int is_gpr(unsigned sel)
  * as (the now gone) cfile constants, is that really required? */
 static int is_cfile(unsigned sel)
 {
-	return (sel > 255 && sel < 512) ||
-		(sel > 511 && sel < 4607) || /* Kcache before translation. */
+   return (sel > 256  && sel < V_SQ_ALU_SRC_PARAM_BASE) ||
+         (sel > 511 && sel < 4607) || /* Kcache before translation. */
 		(sel > 127 && sel < 192); /* Kcache after translation. */
 }
 
