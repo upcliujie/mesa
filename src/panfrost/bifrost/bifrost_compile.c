@@ -715,20 +715,33 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
         if (bi_should_remove_store(instr, b->shader->idvs))
                 return;
 
-        bi_index address;
-        if (immediate) {
-                address = bi_lea_attr_imm(b,
+        bi_index address_lo, address_hi, conversion;
+        if (b->shader->arch <= 8 && b->shader->idvs == BI_IDVS_POSITION) {
+                /* Bifrost position shaders have a fast path */
+                address_lo = bi_register(58);
+                address_hi = bi_register(59);
+                assert(T == nir_type_float16 || T == nir_type_float32);
+                unsigned regfmt = (T == nir_type_float16) ? 0 : 1;
+                unsigned identity = (b->shader->arch == 6) ? 0x688 : 0;
+#define SNAP4 (0x5E)
+                conversion = bi_imm_u32(identity | (SNAP4 << 12) | (regfmt << 24));
+        } else if (immediate) {
+                address_lo = bi_lea_attr_imm(b,
                                           bi_register(61), bi_register(62),
                                           regfmt, imm_index);
+                address_hi = bi_word(address_lo, 1);
+                conversion = bi_word(address_lo, 2);
         } else {
                 bi_index idx =
                         bi_iadd_u32(b,
                                     bi_src_index(nir_get_io_offset_src(instr)),
                                     bi_imm_u32(nir_intrinsic_base(instr)),
                                     false);
-                address = bi_lea_attr(b,
+                address_lo = bi_lea_attr(b,
                                       bi_register(61), bi_register(62),
                                       idx, regfmt);
+                address_hi = bi_word(address_lo, 1);
+                conversion = bi_word(address_lo, 2);
         }
 
         /* Only look at the total components needed. In effect, we fill in all
@@ -740,9 +753,8 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
         unsigned nr = util_last_bit(nir_intrinsic_write_mask(instr));
         assert(nr > 0 && nr <= nir_intrinsic_src_components(instr, 0));
 
-        bi_st_cvt(b, bi_src_index(&instr->src[0]), address,
-                        bi_word(address, 1), bi_word(address, 2),
-                        regfmt, nr - 1);
+        bi_st_cvt(b, bi_src_index(&instr->src[0]), address_lo, address_hi,
+                  conversion, regfmt, nr - 1);
 }
 
 static void
