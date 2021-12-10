@@ -683,6 +683,12 @@ ntt_get_src(struct ntt_compile *c, nir_src src)
       if (src.ssa->parent_instr->type == nir_instr_type_load_const)
          return ntt_get_load_const_src(c, nir_instr_as_load_const(src.ssa->parent_instr));
 
+      if (c->ssa_temp[src.ssa->index].File == TGSI_FILE_NULL) {
+         fprintf(stderr,
+                 "ntt_get_src(ssa%d) found SSA value un-allocated or already released",
+                 src.ssa->index);
+         unreachable("use of released SSA value");
+      }
       return c->ssa_temp[src.ssa->index];
    } else {
       nir_register *reg = src.reg.reg;
