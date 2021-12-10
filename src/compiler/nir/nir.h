@@ -3571,8 +3571,8 @@ typedef struct nir_instr_liveness {
    /**
     * nir_instr->index for the start and end of a single live interval for SSA
     * defs.  ssa values last used by a nir_if condition will have an interval
-    * ending at the first instruction after the last one before the if
-    * condition.
+    * ending at the block's end_ip (which is after any instructions inside the
+    * block).
     *
     * Indexed by def->index (impl->ssa_alloc elements).
     */
