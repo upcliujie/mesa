@@ -1833,7 +1833,7 @@ radv_amdgpu_wait_syncobj(struct radeon_winsys *_ws, const uint32_t *handles, uin
    }
 }
 
-static bool
+static VkResult
 radv_amdgpu_wait_timeline_syncobj(struct radeon_winsys *_ws, const uint32_t *handles,
                                   const uint64_t *points, uint32_t handle_count, bool wait_all,
                                   bool available, uint64_t timeout)
@@ -1842,7 +1842,7 @@ radv_amdgpu_wait_timeline_syncobj(struct radeon_winsys *_ws, const uint32_t *han
 
    /* 0 handles is EINVAL for the IOCTL. */
    if (handle_count == 0)
-      return true;
+      return VK_SUCCESS;
 
    /* The timeouts are signed, while vulkan timeouts are unsigned. */
    timeout = MIN2(timeout, INT64_MAX);
@@ -1853,12 +1853,12 @@ radv_amdgpu_wait_timeline_syncobj(struct radeon_winsys *_ws, const uint32_t *han
          (available ? DRM_SYNCOBJ_WAIT_FLAGS_WAIT_AVAILABLE : 0),
       NULL);
    if (ret == 0) {
-      return true;
+      return VK_SUCCESS;
    } else if (ret == -ETIME) {
-      return false;
+      return VK_TIMEOUT;
    } else {
       fprintf(stderr, "amdgpu: radv_amdgpu_wait_timeline_syncobj failed! (%d)\n", ret);
-      return false;
+      return VK_ERROR_UNKNOWN;
    }
 }
 
