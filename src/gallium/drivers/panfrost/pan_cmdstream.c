@@ -4166,6 +4166,19 @@ prepare_shader(struct panfrost_shader_state *state,
                 if (cfg.stage == MALI_SHADER_STAGE_FRAGMENT)
                         cfg.requires_helper_threads = state->info.contains_barrier;
         }
+
+        if (!secondary_enable)
+                return;
+
+        pan_pack(ptr.cpu + pan_size(SHADER_PROGRAM), SHADER_PROGRAM, cfg) {
+                unsigned work_count = state->info.vs.secondary_work_reg_count;
+
+                cfg.stage = pan_shader_stage(&state->info);
+                cfg.primary_shader = false;
+                cfg.register_allocation = pan_register_allocation(work_count);
+                cfg.binary = state->bin.gpu + state->info.vs.secondary_offset;
+                cfg.preload.r48_r63 = (state->info.vs.secondary_preload >> 48);
+        }
 #endif
 }
 
