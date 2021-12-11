@@ -58,6 +58,58 @@ pan_shader_stage(const struct pan_shader_info *info)
 }
 #endif
 
+#if PAN_ARCH >= 7
+static inline enum mali_shader_register_allocation
+pan_register_allocation(unsigned work_reg_count)
+{
+        return (work_reg_count <= 32) ?
+                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD :
+                MALI_SHADER_REGISTER_ALLOCATION_64_PER_THREAD;
+}
+#endif
+
+#define pan_preloads(reg) (preload & BITFIELD64_BIT(reg))
+
+#if PAN_ARCH >= 6
+static inline void
+pan_make_preload(gl_shader_stage stage,
+                 uint64_t preload,
+                 struct MALI_PRELOAD *out)
+{
+        switch (stage) {
+        case MESA_SHADER_VERTEX:
+#if PAN_ARCH >= 9
+                out->vertex.linear_id = pan_preloads(59);
+#else
+                out->vertex.position_result_address_lo = pan_preloads(58);
+                out->vertex.position_result_address_hi = pan_preloads(59);
+#endif
+                out->vertex.vertex_id = pan_preloads(61);
+                out->vertex.instance_id = pan_preloads(62);
+                break;
+
+        case MESA_SHADER_FRAGMENT:
+                out->fragment.primitive_id = pan_preloads(57);
+                out->fragment.primitive_flags = pan_preloads(58);
+                out->fragment.fragment_position = pan_preloads(59);
+                out->fragment.sample_mask_id = pan_preloads(61);
+                out->fragment.coverage = true;
+                break;
+
+        default:
+                out->compute.local_invocation_xy = pan_preloads(55);
+                out->compute.local_invocation_z = pan_preloads(56);
+                out->compute.work_group_x = pan_preloads(57);
+                out->compute.work_group_y = pan_preloads(58);
+                out->compute.work_group_z = pan_preloads(59);
+                out->compute.global_invocation_x = pan_preloads(60);
+                out->compute.global_invocation_y = pan_preloads(61);
+                out->compute.global_invocation_z = pan_preloads(62);
+                break;
+        }
+}
+#endif
+
 #if PAN_ARCH <= 7
 #if PAN_ARCH <= 5
 static inline void
@@ -129,52 +181,6 @@ pan_shader_classify_pixel_kill_coverage(const struct pan_shader_info *info,
 }
 
 #undef SET_PIXEL_KILL
-
-#if PAN_ARCH >= 7
-static enum mali_shader_register_allocation
-pan_register_allocation(unsigned work_reg_count)
-{
-        return (work_reg_count <= 32) ?
-                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD :
-                MALI_SHADER_REGISTER_ALLOCATION_64_PER_THREAD;
-}
-#endif
-
-#define pan_preloads(reg) (preload & BITFIELD64_BIT(reg))
-
-static void
-pan_make_preload(gl_shader_stage stage,
-                 uint64_t preload,
-                 struct MALI_PRELOAD *out)
-{
-        switch (stage) {
-        case MESA_SHADER_VERTEX:
-                out->vertex.position_result_address_lo = pan_preloads(58);
-                out->vertex.position_result_address_hi = pan_preloads(59);
-                out->vertex.vertex_id = pan_preloads(61);
-                out->vertex.instance_id = pan_preloads(62);
-                break;
-
-        case MESA_SHADER_FRAGMENT:
-                out->fragment.primitive_id = pan_preloads(57);
-                out->fragment.primitive_flags = pan_preloads(58);
-                out->fragment.fragment_position = pan_preloads(59);
-                out->fragment.sample_mask_id = pan_preloads(61);
-                out->fragment.coverage = true;
-                break;
-
-        default:
-                out->compute.local_invocation_xy = pan_preloads(55);
-                out->compute.local_invocation_z = pan_preloads(56);
-                out->compute.work_group_x = pan_preloads(57);
-                out->compute.work_group_y = pan_preloads(58);
-                out->compute.work_group_z = pan_preloads(59);
-                out->compute.global_invocation_x = pan_preloads(60);
-                out->compute.global_invocation_y = pan_preloads(61);
-                out->compute.global_invocation_z = pan_preloads(62);
-                break;
-        }
-}
 
 static inline void
 pan_shader_prepare_bifrost_rsd(const struct pan_shader_info *info,
