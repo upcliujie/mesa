@@ -3980,6 +3980,7 @@ bi_compile_variant_nir(nir_shader *nir,
                 bi_opt_dead_code_eliminate(ctx);
                 bi_opt_cse(ctx);
                 bi_opt_dead_code_eliminate(ctx);
+                bi_opt_reorder_push(ctx);
                 bi_validate(ctx, "Optimization passes");
         }
 
