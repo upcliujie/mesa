@@ -3259,9 +3259,9 @@ panfrost_direct_draw(struct panfrost_batch *batch,
         bool idvs = vs->info.vs.idvs;
         bool secondary_shader = vs->info.vs.secondary_enable;
 
+#if PAN_ARCH <= 7
         struct panfrost_ptr tiler, vertex;
 
-#if PAN_ARCH <= 7
         if (idvs) {
 #if PAN_ARCH >= 6
                 tiler = pan_pool_alloc_desc(&batch->pool.base, INDEXED_VERTEX_JOB);
