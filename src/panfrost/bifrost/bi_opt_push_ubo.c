@@ -181,3 +181,113 @@ bi_opt_push_ubo(bi_context *ctx)
 
         free(analysis.blocks);
 }
+
+typedef struct {
+        BITSET_DECLARE(row, PAN_MAX_PUSH);
+} adjacency_row;
+
+/* Find the connected component containing `node` with depth-first search */
+static void
+bi_find_component(adjacency_row *adjacency, BITSET_WORD *visited,
+                  unsigned *component, unsigned *size, unsigned node)
+{
+        unsigned neighbour;
+
+        BITSET_SET(visited, node);
+        component[(*size)++] = node;
+
+        BITSET_FOREACH_SET(neighbour, adjacency[node].row, PAN_MAX_PUSH) {
+                if (!BITSET_TEST(visited, neighbour)) {
+                        bi_find_component(adjacency, visited, component, size,
+                                          neighbour);
+                }
+        }
+}
+
+void
+bi_opt_reorder_push(bi_context *ctx)
+{
+        adjacency_row adjacency[PAN_MAX_PUSH] = { 0 };
+        BITSET_DECLARE(visited, PAN_MAX_PUSH) = { 0 };
+
+        unsigned ordering[PAN_MAX_PUSH] = { 0 };
+        unsigned unpaired[PAN_MAX_PUSH] = { 0 };
+        unsigned pushed = 0, unpaired_count = 0;
+
+        bi_foreach_instr_global(ctx, I) {
+                unsigned nodes[BI_MAX_SRCS] = {};
+                unsigned node_count = 0;
+
+                bi_foreach_src(I, s) {
+                        bi_index src = I->src[s];
+                        if (src.type == BI_INDEX_FAU && src.value & BIR_FAU_UNIFORM) {
+                                unsigned node = ((src.value & ~BIR_FAU_UNIFORM) << 1) + src.offset;
+                                assert(node < PAN_MAX_PUSH);
+
+                                nodes[node_count++] = node;
+                        }
+                }
+
+                for (unsigned i = 0; i < node_count; ++i) {
+                        for (unsigned j = 0; j < node_count; ++j) {
+                                if (i == j)
+                                        continue;
+
+                                unsigned x = nodes[i], y = nodes[j];
+
+                                BITSET_SET(adjacency[x].row, y);
+                                BITSET_SET(adjacency[y].row, x);
+                        }
+                }
+        }
+
+        for (unsigned i = 0; i < ctx->info.push->count; ++i) {
+                if (BITSET_TEST(visited, i)) continue;
+
+                unsigned component[PAN_MAX_PUSH] = { 0 };
+                unsigned size = 0;
+                bi_find_component(adjacency, visited, component, &size, i);
+
+                // TODO: weights
+                if (size & 1) {
+                        // Odd one out
+                        unpaired[unpaired_count++] = component[size - 1];
+                        size--;
+                }
+
+                for (unsigned i = 0; i < size; i += 2) {
+                        ordering[pushed++] = component[i];
+                        ordering[pushed++] = component[i + 1];
+                }
+        }
+
+        /* Push unpaired nodes at the end */
+        memcpy(ordering + pushed, unpaired, unpaired_count * sizeof(ordering[0]));
+        pushed += unpaired_count;
+
+        /* Ordering is a permutation. Invert it for O(1) lookup. */
+        unsigned old_to_new[PAN_MAX_PUSH] = { 0 };
+        for (unsigned i = 0; i < pushed; ++i) {
+                old_to_new[ordering[i]] = i;
+        }
+
+        /* Use new ordering throughout the program */
+        bi_foreach_instr_global(ctx, I) {
+                bi_foreach_src(I, s) {
+                        bi_index src = I->src[s];
+                        if (src.type == BI_INDEX_FAU && src.value & BIR_FAU_UNIFORM) {
+                                unsigned node = ((src.value & ~BIR_FAU_UNIFORM) << 1) + src.offset;
+                                unsigned new_node = old_to_new[node];
+                                I->src[s].value = BIR_FAU_UNIFORM | (new_node >> 1);
+                                I->src[s].offset = new_node & 1;
+                        }
+                }
+        }
+
+        /* Use new ordering for push */
+        struct panfrost_ubo_push old = *(ctx->info.push);
+        for (unsigned i = 0; i < pushed; ++i)
+                ctx->info.push->words[i] = old.words[ordering[i]];
+
+        ctx->info.push->count = pushed;
+}
