@@ -256,10 +256,18 @@ bi_emit_load_attr(bi_builder *b, nir_intrinsic_instr *instr)
         bool constant = nir_src_is_const(*offset);
         bool immediate = bi_is_intr_immediate(instr, &imm_index, 16);
         bi_index dest = (component == 0) ? bi_dest_index(&instr->dest) : bi_temp(b->shader);
+        bi_instr *I;
+
+        /* Which registers are preloaded for vertex/instance IDs changed
+         * between Bifrost and Valhall for unknown reasons.
+         */
+        bool valhall = b->shader->arch >= 9;
+        bi_index vertex_id = bi_register(valhall ? 60 : 61);
+        bi_index instance_id = bi_register(valhall ? 61 : 62);
 
         if (immediate) {
-                bi_ld_attr_imm_to(b, dest, bi_register(61), bi_register(62),
-                                regfmt, vecsize, imm_index);
+                I = bi_ld_attr_imm_to(b, dest, vertex_id, instance_id, regfmt,
+                                      vecsize, imm_index);
         } else {
                 bi_index idx = bi_src_index(&instr->src[0]);
 
@@ -268,9 +276,12 @@ bi_emit_load_attr(bi_builder *b, nir_intrinsic_instr *instr)
                 else if (base != 0)
                         idx = bi_iadd_u32(b, idx, bi_imm_u32(base), false);
 
-                bi_ld_attr_to(b, dest, bi_register(61), bi_register(62),
-                                idx, regfmt, vecsize);
+                I = bi_ld_attr_to(b, dest, vertex_id, instance_id, idx, regfmt,
+                                  vecsize);
         }
+
+        if (valhall)
+                I->table = PAN_TABLE_ATTRIBUTE;
 
         bi_copy_component(b, instr, dest);
 }
