@@ -4148,6 +4148,23 @@ prepare_shader(struct panfrost_shader_state *state,
 
                 pan_make_preload(state->info.stage, state->info.preload, &cfg.preload);
         }
+
+        if (!secondary_enable)
+                return;
+
+        pan_pack(ptr.cpu + pan_size(SHADER_PROGRAM), SHADER_PROGRAM, cfg) {
+                unsigned work_count = state->info.vs.secondary_work_reg_count;
+
+                cfg.stage = pan_shader_stage(&state->info);
+                cfg.primary_shader = false;
+                cfg.shader_contains_barrier = state->info.contains_barrier;
+                cfg.register_allocation = pan_register_allocation(work_count);
+                cfg.binary = state->bin.gpu + state->info.vs.secondary_offset;
+
+                pan_make_preload(state->info.stage,
+                                 state->info.vs.secondary_preload,
+                                 &cfg.preload);
+        }
 #endif
 }
 
