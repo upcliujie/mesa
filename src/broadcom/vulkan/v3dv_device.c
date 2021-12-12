@@ -89,6 +89,7 @@ static const struct vk_instance_extension_table instance_extensions = {
 #ifdef VK_USE_PLATFORM_DISPLAY_KHR
    .KHR_display                         = true,
    .KHR_get_display_properties2         = true,
+   .EXT_display_surface_counter         = true,
 #endif
    .KHR_external_fence_capabilities     = true,
    .KHR_external_memory_capabilities    = true,
