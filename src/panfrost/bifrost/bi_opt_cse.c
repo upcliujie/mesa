@@ -185,8 +185,14 @@ bi_opt_cse(bi_context *ctx)
                                 const bi_instr *match = entry->key;
 
                                 bi_foreach_dest(instr, d) {
-                                        if (!bi_is_null(instr->dest[d]))
-                                                replacement[bi_word_node(instr->dest[d])] = match->dest[d];
+                                        if (bi_is_null(instr->dest[d]))
+                                                continue;
+
+                                        unsigned nr = bi_count_write_registers(instr, d);
+                                        unsigned node = bi_word_node(instr->dest[d]);
+
+                                        for (unsigned i = 0; i < nr; ++i)
+                                                replacement[node + i] = bi_word(match->dest[d], i);
                                 }
                         }
                 }
