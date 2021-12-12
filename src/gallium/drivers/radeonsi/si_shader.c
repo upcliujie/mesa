@@ -1509,6 +1509,8 @@ bool si_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *compi
    if (!si_llvm_compile_shader(sscreen, compiler, shader, debug, nir, free_nir))
       return false;
 
+   shader->info.private_mem_vgprs = DIV_ROUND_UP(nir->scratch_size, 4);
+
    /* Compute vs_output_ps_input_cntl. */
    if ((sel->info.stage == MESA_SHADER_VERTEX ||
         sel->info.stage == MESA_SHADER_TESS_EVAL ||
