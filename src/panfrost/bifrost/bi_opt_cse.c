@@ -122,6 +122,8 @@ instr_can_cse(const bi_instr *I)
         case BI_OPCODE_DTSEL_IMM:
         case BI_OPCODE_DISCARD_F32:
                 return false;
+        case BI_OPCODE_LEA_VARY:
+                return true;
         default:
                 break;
         }
