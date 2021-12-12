@@ -7082,6 +7082,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i16" staging="w=1" message="load">
@@ -7141,6 +7142,7 @@
         <eq left="extend" right="#zext"/>
       </derived>
     </encoding>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i24" staging="w=1" mask="0xffe00" exact="0x65000" message="load">
@@ -7156,6 +7158,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i32" staging="w=1" message="load">
@@ -7193,6 +7196,7 @@
         <eq left="extend" right="#zext"/>
       </derived>
     </encoding>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i48" staging="w=2" mask="0xffe00" exact="0x65200" message="load">
@@ -7208,6 +7212,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i64" staging="w=2" mask="0xffe00" exact="0x60e00" message="load">
@@ -7223,6 +7228,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i8" staging="w=1" message="load">
@@ -7307,6 +7313,7 @@
         <eq left="extend" right="#zext"/>
       </derived>
     </encoding>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOAD.i96" staging="w=3" mask="0xffe00" exact="0x65400" message="load">
@@ -7322,6 +7329,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+LOGB.f32" mask="0xfffe0" exact="0x3d9a0">
@@ -7536,6 +7544,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i16" staging="r=1" mask="0xffe00" exact="0x62800" message="store" dests="0">
@@ -7551,6 +7560,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i24" staging="r=1" mask="0xffe00" exact="0x65800" message="store" dests="0">
@@ -7566,6 +7576,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i32" staging="r=1" mask="0xffe00" exact="0x62c00" message="store" dests="0">
@@ -7581,6 +7592,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i48" staging="r=2" mask="0xffe00" exact="0x65a00" message="store" dests="0">
@@ -7596,6 +7608,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i64" staging="r=2" mask="0xffe00" exact="0x62e00" message="store" dests="0">
@@ -7611,6 +7624,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i8" staging="r=1" mask="0xffe00" exact="0x62000" message="store" dests="0">
@@ -7626,6 +7640,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+STORE.i96" staging="r=3" mask="0xffe00" exact="0x65c00" message="store" dests="0">
@@ -7641,6 +7656,7 @@
       <reserved/>
       <opt>tl</opt>
     </mod>
+    <immediate name="byte_offset" size="16" pseudo="true"/>
   </ins>
 
   <ins name="+ST_CVT" staging="r=format" mask="0xff800" exact="0xc9800" message="store" dests="0">
