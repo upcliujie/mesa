@@ -1840,6 +1840,10 @@ radv_amdgpu_wait_timeline_syncobj(struct radeon_winsys *_ws, const uint32_t *han
 {
    struct radv_amdgpu_winsys *ws = radv_amdgpu_winsys(_ws);
 
+   /* 0 handles is EINVAL for the IOCTL. */
+   if (handle_count == 0)
+      return true;
+
    /* The timeouts are signed, while vulkan timeouts are unsigned. */
    timeout = MIN2(timeout, INT64_MAX);
 
