@@ -377,14 +377,17 @@ panvk_enumerate_devices(struct panvk_instance *instance)
    for (unsigned i = 0; i < (unsigned) max_devices; i++) {
       if ((devices[i]->available_nodes & (1 << DRM_NODE_RENDER)) &&
           devices[i]->bustype == DRM_BUS_PLATFORM) {
+         struct panvk_physical_device *next_pdevice =
+            instance->physical_devices + instance->physical_device_count;
 
-         result = panvk_physical_device_init(instance->physical_devices +
-                                           instance->physical_device_count,
-                                           instance, devices[i]);
-         if (result == VK_SUCCESS)
+         result = panvk_physical_device_init(next_pdevice,
+                                             instance, devices[i]);
+         if (result == VK_SUCCESS) {
+            vk_instance_add_physical_device(&instance->vk, &next_pdevice->vk);
             ++instance->physical_device_count;
-         else if (result != VK_ERROR_INCOMPATIBLE_DRIVER)
+         } else if (result != VK_ERROR_INCOMPATIBLE_DRIVER) {
             break;
+         }
       }
    }
    drmFreeDevices(devices, max_devices);
