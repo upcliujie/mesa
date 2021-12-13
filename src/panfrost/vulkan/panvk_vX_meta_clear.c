@@ -167,10 +167,6 @@ panvk_meta_clear_attachments_emit_rsd(struct panfrost_device *pdev,
 
    pan_pack(rsd_ptr.cpu, RENDERER_STATE, cfg) {
       pan_shader_prepare_rsd(shader_info, shader, &cfg);
-      cfg.properties.depth_source =
-         z ?
-	 MALI_DEPTH_SOURCE_SHADER :
-	 MALI_DEPTH_SOURCE_FIXED_FUNCTION;
       cfg.multisample_misc.depth_write_mask = z;
       cfg.multisample_misc.sample_mask = UINT16_MAX;
       cfg.multisample_misc.depth_function = MALI_FUNC_ALWAYS;
@@ -186,22 +182,8 @@ panvk_meta_clear_attachments_emit_rsd(struct panfrost_device *pdev,
       cfg.stencil_back = cfg.stencil_front;
 
 #if PAN_ARCH >= 6
-      cfg.properties.allow_forward_pixel_to_be_killed = PAN_ARCH >= 7 || !zs;
       cfg.properties.allow_forward_pixel_to_kill = !zs;
-      if (zs) {
-         cfg.properties.zs_update_operation =
-            MALI_PIXEL_KILL_FORCE_LATE;
-         cfg.properties.pixel_kill_operation =
-            MALI_PIXEL_KILL_FORCE_LATE;
-      } else {
-         cfg.properties.zs_update_operation =
-            MALI_PIXEL_KILL_STRONG_EARLY;
-         cfg.properties.pixel_kill_operation =
-            MALI_PIXEL_KILL_FORCE_EARLY;
-      }
 #else
-      cfg.properties.shader_reads_tilebuffer = false;
-      cfg.properties.work_register_count = shader_info->work_reg_count;
       cfg.properties.force_early_z = !zs;
       cfg.stencil_mask_misc.alpha_test_compare_function = MALI_FUNC_ALWAYS;
 #endif

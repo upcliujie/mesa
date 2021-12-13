@@ -252,17 +252,11 @@ panvk_meta_copy_to_img_emit_rsd(struct panfrost_device *pdev,
 
    bool raw = util_format_get_blocksize(fmt) > 4;
    unsigned fullmask = (1 << util_format_get_nr_components(fmt)) - 1;
-   bool partialwrite = fullmask != wrmask && !raw;
-   bool readstb = fullmask != wrmask && raw;
+   UNUSED bool partialwrite = fullmask != wrmask && !raw;
+   UNUSED bool readstb = fullmask != wrmask && raw;
 
    pan_pack(rsd_ptr.cpu, RENDERER_STATE, cfg) {
       pan_shader_prepare_rsd(shader_info, shader, &cfg);
-      if (from_img) {
-         cfg.shader.varying_count = 1;
-         cfg.shader.texture_count = 1;
-         cfg.shader.sampler_count = 1;
-      }
-      cfg.properties.depth_source = MALI_DEPTH_SOURCE_FIXED_FUNCTION;
       cfg.multisample_misc.sample_mask = UINT16_MAX;
       cfg.multisample_misc.depth_function = MALI_FUNC_ALWAYS;
       cfg.stencil_mask_misc.stencil_mask_front = 0xFF;
@@ -275,16 +269,9 @@ panvk_meta_copy_to_img_emit_rsd(struct panfrost_device *pdev,
       cfg.stencil_back = cfg.stencil_front;
 
 #if PAN_ARCH >= 6
-      cfg.properties.allow_forward_pixel_to_be_killed = true;
       cfg.properties.allow_forward_pixel_to_kill =
          !partialwrite && !readstb;
-      cfg.properties.zs_update_operation =
-         MALI_PIXEL_KILL_STRONG_EARLY;
-      cfg.properties.pixel_kill_operation =
-         MALI_PIXEL_KILL_FORCE_EARLY;
 #else
-      cfg.properties.shader_reads_tilebuffer = readstb;
-      cfg.properties.work_register_count = shader_info->work_reg_count;
       cfg.properties.force_early_z = true;
       cfg.stencil_mask_misc.alpha_test_compare_function = MALI_FUNC_ALWAYS;
 #endif
@@ -378,10 +365,6 @@ panvk_meta_copy_to_buf_emit_rsd(struct panfrost_device *pdev,
 
    pan_pack(rsd_ptr.cpu, RENDERER_STATE, cfg) {
       pan_shader_prepare_rsd(shader_info, shader, &cfg);
-      if (from_img) {
-         cfg.shader.texture_count = 1;
-         cfg.shader.sampler_count = 1;
-      }
    }
 
    return rsd_ptr.gpu;

@@ -722,7 +722,6 @@ panvk_per_arch(emit_base_fs_rsd)(const struct panvk_device *dev,
             (pipeline->zs.z_test && pipeline->zs.z_compare_func != MALI_FUNC_ALWAYS) ||
             pipeline->zs.s_test;
 
-         cfg.properties.work_register_count = info->work_reg_count;
          cfg.properties.force_early_z =
             info->fs.can_early_z && !pipeline->ms.alpha_to_coverage &&
             pipeline->zs.z_compare_func == MALI_FUNC_ALWAYS;
