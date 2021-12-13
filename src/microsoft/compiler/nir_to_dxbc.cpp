@@ -47,10 +47,35 @@
 #include <stdint.h>
 #include <vector>
 
+#ifdef _WIN32
+#include <Unknwn.h>
+#include <dxcapi.h>
+#endif
+
 using namespace D3D10ShaderBinary;
 
+int debug_dxbc = 0;
+
+enum dxbc_debug_flags {
+   DXBC_DEBUG_VERBOSE = 1 << 0,
+   DXBC_DEBUG_DUMP_BLOB = 1 << 1,
+   DXBC_DEBUG_TRACE = 1 << 2,
+   DXBC_DEBUG_DISASSEMBLE = 1 << 3,
+};
+
+static const struct debug_named_value
+dxbc_debug_options[] = {
+   { "verbose", DXBC_DEBUG_VERBOSE, NULL },
+   { "dump_blob",  DXBC_DEBUG_DUMP_BLOB , "Write shader blobs" },
+   { "trace",  DXBC_DEBUG_TRACE , "Trace instruction conversion" },
+   { "disassemble", DXBC_DEBUG_DISASSEMBLE, "Use d3dcompiler to disassemble shaders to stderr"},
+   DEBUG_NAMED_VALUE_END
+};
+
+DEBUG_GET_ONCE_FLAGS_OPTION(debug_dxbc, "DXBC_DEBUG", dxbc_debug_options, 0)
+
 #define NIR_INSTR_UNSUPPORTED(instr)                                         \
-   if (true)                                                                 \
+   if (debug_dxbc & DXBC_DEBUG_VERBOSE)                                      \
       do {                                                                   \
          fprintf(stderr, "Unsupported instruction:");                        \
          nir_print_instr(instr, stderr);                                     \
@@ -58,7 +83,7 @@ using namespace D3D10ShaderBinary;
    } while (0)
 
 #define TRACE_CONVERSION(instr)                                              \
-   if (true)                                                                 \
+   if (debug_dxbc & DXBC_DEBUG_TRACE)                                        \
       do {                                                                   \
          fprintf(stderr, "Convert '");                                       \
          nir_print_instr(instr, stderr);                                     \
@@ -1128,6 +1153,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
 {
    assert(opts);
    blob_init(blob);
+   debug_dxbc = (int)debug_get_option_debug_dxbc();
 
    NIR_PASS_V(s, nir_lower_pack);
    NIR_PASS_V(s, nir_lower_frexp);
@@ -1153,6 +1179,9 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
 
    // TODO register allocator that can reuse registers?
    NIR_PASS_V(s, nir_convert_from_ssa, false);
+
+   if (debug_dxbc & DXBC_DEBUG_VERBOSE)
+      nir_print_shader(s, stderr);
 
    ntd_context ctx;
    ctx.shader = s;
@@ -1211,6 +1240,30 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
       debug_printf("D3D12: dxil_container_write failed\n");
       return false;
    }
+
+#ifdef _WIN32
+   if (debug_dxbc & DXBC_DEBUG_DISASSEMBLE) {
+      HMODULE signer = LoadLibraryA("dxbcSigner.dll");
+      auto sign = reinterpret_cast<HRESULT(APIENTRY *)(BYTE *, UINT32)>(GetProcAddress(signer, "SignDxbc"));
+      
+      if (SUCCEEDED(sign(blob->data, blob->size))) {
+         HMODULE d3dcompiler = LoadLibraryA("d3dcompiler_47.dll");
+         auto disassemble = reinterpret_cast<HRESULT(APIENTRY *)(LPCVOID, SIZE_T, UINT, LPCSTR, IDxcBlob **)>(
+            GetProcAddress(d3dcompiler, "D3DDisassemble"));
+         assert(d3dcompiler && disassemble);
+         IDxcBlob *result = nullptr;
+         if (SUCCEEDED(disassemble(blob->data, blob->size, 0, nullptr, &result))) {
+            fprintf(stderr, "%s\n", (char *)result->GetBufferPointer());
+            result->Release();
+         } else
+            debug_printf("D3D12: failed to disassemble shader");
+         FreeLibrary(d3dcompiler);
+      } else
+         debug_printf("D3D12: failed to sign shader for disassembly");
+
+      FreeLibrary(signer);
+   }
+#endif
 
    return true;
 }
