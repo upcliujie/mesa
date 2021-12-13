@@ -121,8 +121,16 @@ convert_instr(nir_builder *bld, nir_op op,
 
 /* ported from LLVM's AMDGPUTargetLowering::LowerUDIVREM */
 static nir_ssa_def *
-emit_udiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, bool modulo)
+emit_udiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, bool modulo,
+          const nir_lower_idiv_options *options)
 {
+   if (options->keep_unsigned) {
+      if (modulo)
+         return nir_umod(bld, numer, denom);
+      else
+         return nir_udiv(bld, numer, denom);
+   }
+
    nir_ssa_def *rcp = nir_frcp(bld, nir_u2f32(bld, denom));
    rcp = nir_f2u32(bld, nir_fmul_imm(bld, rcp, 4294966784.0));
 
@@ -158,7 +166,8 @@ emit_udiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, bool modulo)
 
 /* ported from LLVM's AMDGPUTargetLowering::LowerSDIVREM */
 static nir_ssa_def *
-emit_idiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, nir_op op)
+emit_idiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, nir_op op,
+          const nir_lower_idiv_options *options)
 {
    nir_ssa_def *lh_sign = nir_ilt(bld, numer, nir_imm_int(bld, 0));
    nir_ssa_def *rh_sign = nir_ilt(bld, denom, nir_imm_int(bld, 0));
@@ -172,11 +181,11 @@ emit_idiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, nir_op op)
 
    if (op == nir_op_idiv) {
       nir_ssa_def *d_sign = nir_ixor(bld, lh_sign, rh_sign);
-      nir_ssa_def *res = emit_udiv(bld, lhs, rhs, false);
+      nir_ssa_def *res = emit_udiv(bld, lhs, rhs, false, options);
       res = nir_ixor(bld, res, d_sign);
       return nir_isub(bld, res, d_sign);
    } else {
-      nir_ssa_def *res = emit_udiv(bld, lhs, rhs, true);
+      nir_ssa_def *res = emit_udiv(bld, lhs, rhs, true, options);
       res = nir_ixor(bld, res, lh_sign);
       res = nir_isub(bld, res, lh_sign);
       if (op == nir_op_imod) {
@@ -190,12 +199,13 @@ emit_idiv(nir_builder *bld, nir_ssa_def *numer, nir_ssa_def *denom, nir_op op)
 
 static nir_ssa_def *
 convert_instr_precise(nir_builder *bld, nir_op op,
-      nir_ssa_def *numer, nir_ssa_def *denom)
+      nir_ssa_def *numer, nir_ssa_def *denom,
+      const nir_lower_idiv_options *options)
 {
    if (op == nir_op_udiv || op == nir_op_umod)
-      return emit_udiv(bld, numer, denom, op == nir_op_umod);
+      return emit_udiv(bld, numer, denom, op == nir_op_umod, options);
    else
-      return emit_idiv(bld, numer, denom, op);
+      return emit_idiv(bld, numer, denom, op, options);
 }
 
 static nir_ssa_def *
@@ -254,12 +264,13 @@ lower_idiv(nir_builder *b, nir_instr *instr, void *_data)
    else if (options->imprecise_32bit_lowering)
       return convert_instr(b, alu->op, numer, denom);
    else
-      return convert_instr_precise(b, alu->op, numer, denom);
+      return convert_instr_precise(b, alu->op, numer, denom, options);
 }
 
 static bool
-inst_is_idiv(const nir_instr *instr, UNUSED const void *_state)
+inst_is_idiv(const nir_instr *instr, const void *_state)
 {
+   const nir_lower_idiv_options *options = _state;
    if (instr->type != nir_instr_type_alu)
       return false;
 
@@ -270,11 +281,12 @@ inst_is_idiv(const nir_instr *instr, UNUSED const void *_state)
 
    switch (alu->op) {
    case nir_op_idiv:
-   case nir_op_udiv:
    case nir_op_imod:
-   case nir_op_umod:
    case nir_op_irem:
       return true;
+   case nir_op_umod:
+   case nir_op_udiv:
+      return !options->keep_unsigned;
    default:
       return false;
    }
