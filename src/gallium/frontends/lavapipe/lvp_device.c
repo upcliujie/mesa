@@ -316,6 +316,8 @@ lvp_enumerate_physical_devices(struct lvp_instance *instance)
    if (result == VK_ERROR_INCOMPATIBLE_DRIVER) {
       instance->physicalDeviceCount = 0;
    } else if (result == VK_SUCCESS) {
+      vk_instance_add_physical_device(&instance->vk,
+                                      &instance->physicalDevice.vk);
       instance->physicalDeviceCount = 1;
    }
 
