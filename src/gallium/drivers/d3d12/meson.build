@@ -48,12 +48,20 @@ if host_machine.system() == 'windows'
   files_libd3d12 += files('d3d12_dxgi_screen.cpp')
 endif
 
+d3d12_additional_deps = []
+d3d12_defines = []
+if has_wdk
+  d3d12_additional_deps += idep_libdxbc_compiler
+  d3d12_defines += '-DHAS_DXBC_COMPILER'
+endif
+
 libd3d12 = static_library(
   'd3d12',
   files_libd3d12,
   gnu_symbol_visibility : 'hidden',
   include_directories : [inc_include, inc_src, inc_mesa, inc_gallium, inc_gallium_aux],
-  dependencies: [idep_nir_headers, idep_libdxil_compiler, idep_libd3d12_resource_state, dep_dxheaders],
+  dependencies: [idep_nir_headers, idep_libdxil_compiler, idep_libd3d12_resource_state, dep_dxheaders, d3d12_additional_deps],
+  cpp_args : d3d12_defines,
 )
 
 driver_d3d12 = declare_dependency(
