@@ -529,6 +529,11 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
          get_intr_2_args(D3D10_SB_OPCODE_DP2, alu));
       return true;
 
+   case nir_op_frsq:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_1_args(D3D10_SB_OPCODE_RSQ, alu));
+      return true;
+
    default:
       NIR_INSTR_UNSUPPORTED(&alu->instr);
       assert(!"Unimplemented ALU instruction");
