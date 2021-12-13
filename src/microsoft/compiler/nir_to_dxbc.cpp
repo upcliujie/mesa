@@ -664,6 +664,18 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx,
 }
 
 static bool
+emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   unsigned ubo_id = (unsigned)nir_src_as_uint(intr->src[0]);
+   // TODO relative addressing
+   unsigned ubo_offset = (unsigned)nir_src_as_uint(intr->src[1]);
+   COperand2D src(D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER, ubo_id, ubo_offset);
+   COperandDst dst = nir_dest_as_register(intr->dest, (1 << intr->num_components) - 1);
+   ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_MOV, dst, src));
+   return true;
+}
+
+static bool
 emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    switch (intr->intrinsic) {
@@ -679,6 +691,9 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_vulkan_resource_index(ctx, intr);
    case nir_intrinsic_load_vulkan_descriptor:
       return emit_load_vulkan_descriptor(ctx, intr);
+
+   case nir_intrinsic_load_ubo_dxil:
+      return emit_load_ubo_dxil(ctx, intr);
 
    default:
       NIR_INSTR_UNSUPPORTED(&intr->instr);
@@ -876,7 +891,6 @@ static unsigned get_dword_size(const struct glsl_type *type)
    if (glsl_type_is_array(type)) {
       type = glsl_without_array(type);
    }
-   assert(glsl_type_is_struct(type) || glsl_type_is_interface(type));
    return DIV_ROUND_UP(glsl_get_explicit_size(type, false), 16);
 }
 
