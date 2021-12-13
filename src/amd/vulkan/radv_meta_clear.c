@@ -657,8 +657,8 @@ depth_view_can_fast_clear(struct radv_cmd_buffer *cmd_buffer, const struct radv_
    if (!iview)
       return false;
 
-   uint32_t queue_mask = radv_image_queue_family_mask(iview->image, cmd_buffer->queue_family_index,
-                                                      cmd_buffer->queue_family_index);
+   uint32_t queue_mask = radv_image_queue_family_mask(iview->image, cmd_buffer->qf,
+                                                      cmd_buffer->qf);
    if (clear_rect->rect.offset.x || clear_rect->rect.offset.y ||
        clear_rect->rect.extent.width != iview->extent.width ||
        clear_rect->rect.extent.height != iview->extent.height)
@@ -969,8 +969,8 @@ radv_can_fast_clear_depth(struct radv_cmd_buffer *cmd_buffer, const struct radv_
 
    if (!radv_layout_is_htile_compressed(
           cmd_buffer->device, iview->image, image_layout, in_render_loop,
-          radv_image_queue_family_mask(iview->image, cmd_buffer->queue_family_index,
-                                       cmd_buffer->queue_family_index)))
+          radv_image_queue_family_mask(iview->image, cmd_buffer->qf,
+                                       cmd_buffer->qf)))
       return false;
 
    if (clear_rect->rect.offset.x || clear_rect->rect.offset.y ||
@@ -1799,8 +1799,8 @@ radv_can_fast_clear_color(struct radv_cmd_buffer *cmd_buffer, const struct radv_
 
    if (!radv_layout_can_fast_clear(
           cmd_buffer->device, iview->image, iview->base_mip, image_layout, in_render_loop,
-          radv_image_queue_family_mask(iview->image, cmd_buffer->queue_family_index,
-                                       cmd_buffer->queue_family_index)))
+          radv_image_queue_family_mask(iview->image, cmd_buffer->qf,
+                                       cmd_buffer->qf)))
       return false;
 
    if (clear_rect->rect.offset.x || clear_rect->rect.offset.y ||
@@ -2361,8 +2361,8 @@ radv_cmd_clear_image(struct radv_cmd_buffer *cmd_buffer, struct radv_image *imag
          format = VK_FORMAT_R32_UINT;
          internal_clear_value.color.uint32[0] = float3_to_rgb9e5(clear_value->color.float32);
 
-         uint32_t queue_mask = radv_image_queue_family_mask(image, cmd_buffer->queue_family_index,
-                                                            cmd_buffer->queue_family_index);
+         uint32_t queue_mask = radv_image_queue_family_mask(image, cmd_buffer->qf,
+                                                            cmd_buffer->qf);
 
          for (uint32_t r = 0; r < range_count; r++) {
             const VkImageSubresourceRange *range = &ranges[r];
