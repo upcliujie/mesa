@@ -965,8 +965,14 @@ patch(struct indirect_draw_shader_builder *builder)
         } ELSE {
                 get_instance_size(builder);
 
+                nir_ssa_def *count = builder->instance_size.raw;
+
+                /* IDVS requires padding to a multiple of 4 */
+                if (builder->flags & PAN_INDIRECT_DRAW_IDVS)
+                        count = nir_align_pot(b, count, 4);
+
                 builder->instance_size.padded =
-                        get_padded_count(b, builder->instance_size.raw,
+                        get_padded_count(b, count,
                                          &builder->instance_size.packed);
 
                 update_varyings(builder);
