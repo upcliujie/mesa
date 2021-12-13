@@ -528,14 +528,16 @@ tu_enumerate_devices(struct tu_instance *instance)
    for (unsigned i = 0; i < (unsigned) max_devices; i++) {
       if (devices[i]->available_nodes & 1 << DRM_NODE_RENDER &&
           devices[i]->bustype == DRM_BUS_PLATFORM) {
+         struct tu_physical_device *next_pdevice =
+            instance->physical_devices + instance->physical_device_count;
 
-         result = tu_drm_device_init(
-            instance->physical_devices + instance->physical_device_count,
-            instance, devices[i]);
-         if (result == VK_SUCCESS)
+         result = tu_drm_device_init(next_pdevice, instance, devices[i]);
+         if (result == VK_SUCCESS) {
+            vk_instance_add_physical_device(&instance->vk, &next_pdevice->vk);
             ++instance->physical_device_count;
-         else if (result != VK_ERROR_INCOMPATIBLE_DRIVER)
+         } else if (result != VK_ERROR_INCOMPATIBLE_DRIVER) {
             break;
+         }
       }
    }
    drmFreeDevices(devices, max_devices);

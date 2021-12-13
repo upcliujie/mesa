@@ -254,6 +254,7 @@ tu_enumerate_devices(struct tu_instance *instance)
    if (tu_physical_device_init(device, instance) != VK_SUCCESS)
       goto fail;
 
+   vk_instance_add_physical_device(&instance->vk, &device->vk);
    instance->physical_device_count = 1;
 
    return VK_SUCCESS;
