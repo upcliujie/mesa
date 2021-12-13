@@ -884,9 +884,6 @@ struct anv_memregion {
 struct anv_physical_device {
     struct vk_physical_device                   vk;
 
-    /* Link in anv_instance::physical_devices */
-    struct list_head                            link;
-
     struct anv_instance *                       instance;
     char                                        path[20];
     struct {
@@ -1007,7 +1004,6 @@ struct anv_instance {
     struct vk_instance                          vk;
 
     bool                                        physical_devices_enumerated;
-    struct list_head                            physical_devices;
 
     bool                                        pipeline_cache_enabled;
 

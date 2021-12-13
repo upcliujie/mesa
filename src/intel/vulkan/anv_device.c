@@ -1121,7 +1121,6 @@ VkResult anv_CreateInstance(
    }
 
    instance->physical_devices_enumerated = false;
-   list_inithead(&instance->physical_devices);
 
    instance->pipeline_cache_enabled =
       env_var_as_boolean("ANV_ENABLE_PIPELINE_CACHE", true);
@@ -1144,9 +1143,11 @@ void anv_DestroyInstance(
    if (!instance)
       return;
 
-   list_for_each_entry_safe(struct anv_physical_device, pdevice,
-                            &instance->physical_devices, link)
+   vk_foreach_physical_device(vk_pdevice, &instance->vk) {
+      struct anv_physical_device *pdevice =
+         container_of(vk_pdevice, struct anv_physical_device, vk);
       anv_physical_device_destroy(pdevice);
+   }
 
    VG(VALGRIND_DESTROY_MEMPOOL(instance));
 
@@ -1192,7 +1193,7 @@ anv_enumerate_physical_devices(struct anv_instance *instance)
          if (result != VK_SUCCESS)
             break;
 
-         list_addtail(&pdevice->link, &instance->physical_devices);
+         vk_instance_add_physical_device(&instance->vk, &pdevice->vk);
       }
    }
    drmFreeDevices(devices, max_devices);
@@ -1213,10 +1214,9 @@ VkResult anv_EnumeratePhysicalDevices(
    if (result != VK_SUCCESS)
       return result;
 
-   list_for_each_entry(struct anv_physical_device, pdevice,
-                       &instance->physical_devices, link) {
+   vk_foreach_physical_device(pdevice, &instance->vk) {
       vk_outarray_append(&out, i) {
-         *i = anv_physical_device_to_handle(pdevice);
+         *i = vk_physical_device_to_handle(pdevice);
       }
    }
 
@@ -1236,12 +1236,11 @@ VkResult anv_EnumeratePhysicalDeviceGroups(
    if (result != VK_SUCCESS)
       return result;
 
-   list_for_each_entry(struct anv_physical_device, pdevice,
-                       &instance->physical_devices, link) {
+   vk_foreach_physical_device(pdevice, &instance->vk) {
       vk_outarray_append(&out, p) {
          p->physicalDeviceCount = 1;
          memset(p->physicalDevices, 0, sizeof(p->physicalDevices));
-         p->physicalDevices[0] = anv_physical_device_to_handle(pdevice);
+         p->physicalDevices[0] = vk_physical_device_to_handle(pdevice);
          p->subsetAllocation = false;
 
          vk_foreach_struct(ext, p->pNext)
