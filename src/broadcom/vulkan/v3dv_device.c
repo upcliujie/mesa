@@ -831,6 +831,8 @@ physical_device_init(struct v3dv_physical_device *device,
 
    pthread_mutex_init(&device->mutex, NULL);
 
+   vk_instance_add_physical_device(&instance->vk, &device->vk);
+
    return VK_SUCCESS;
 
 fail:
