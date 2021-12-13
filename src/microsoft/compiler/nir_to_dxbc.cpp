@@ -854,6 +854,15 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
    return true;
 }
 
+static unsigned get_dword_size(const struct glsl_type *type)
+{
+   if (glsl_type_is_array(type)) {
+      type = glsl_without_array(type);
+   }
+   assert(glsl_type_is_struct(type) || glsl_type_is_interface(type));
+   return DIV_ROUND_UP(glsl_get_explicit_size(type, false), 16);
+}
+
 static bool
 emit_dcl(struct ntd_context *ctx)
 {
@@ -862,6 +871,10 @@ emit_dcl(struct ntd_context *ctx)
    // TODO?
    ctx->mod.shader.EmitGlobalFlagsDecl(
        D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
+
+   nir_foreach_variable_with_modes(ubo, ctx->shader, nir_var_mem_ubo) {
+      ctx->mod.shader.EmitConstantBufferDecl(ubo->data.binding, get_dword_size(ubo->type), D3D10_SB_CONSTANT_BUFFER_DYNAMIC_INDEXED);
+   }
 
    for (int i = 0; i < ctx->dxil_mod.num_sig_inputs; i++) {
       struct dxil_signature_record &input = ctx->dxil_mod.inputs[i];
@@ -1008,7 +1021,8 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    ctx.opts = opts;
    ctx.mod.shader_kind = get_dxbc_shader_kind(s);
    ctx.mod.major_version = 5;
-   ctx.mod.minor_version = 1;
+   // TODO update to 5.1 and add support for dynamic indexing instruction emitters
+   ctx.mod.minor_version = 0;
 
    // TODO SV_Position doesn't make it into dxil_module's inputs?
    get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
