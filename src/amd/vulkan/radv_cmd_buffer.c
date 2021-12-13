@@ -2560,8 +2560,21 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
       radeon_emit(cmd_buffer->cs, S_028040_FORMAT(V_028040_Z_INVALID));       /* DB_Z_INFO */
       radeon_emit(cmd_buffer->cs, S_028044_FORMAT(V_028044_STENCIL_INVALID)); /* DB_STENCIL_INFO */
    }
+
+   const uint32_t left =
+      CLAMP(cmd_buffer->state.render_area.offset.x, 0, MAX_FRAMEBUFFER_WIDTH - 1);
+   const uint32_t top =
+      CLAMP(cmd_buffer->state.render_area.offset.y, 0, MAX_FRAMEBUFFER_HEIGHT - 1);
+   const uint32_t right =
+      CLAMP(cmd_buffer->state.render_area.offset.x + framebuffer->width, 0, MAX_FRAMEBUFFER_WIDTH);
+   const uint32_t bottom =
+      CLAMP(cmd_buffer->state.render_area.offset.y + framebuffer->height, 0, MAX_FRAMEBUFFER_HEIGHT);
+
+   radeon_set_context_reg(cmd_buffer->cs, R_028204_PA_SC_WINDOW_SCISSOR_TL,
+                          S_028204_WINDOW_OFFSET_DISABLE(1) |
+                          S_028204_TL_X(left) | S_028204_TL_Y(top));
    radeon_set_context_reg(cmd_buffer->cs, R_028208_PA_SC_WINDOW_SCISSOR_BR,
-                          S_028208_BR_X(framebuffer->width) | S_028208_BR_Y(framebuffer->height));
+                          S_028208_BR_X(right) | S_028208_BR_Y(bottom));
 
    if (cmd_buffer->device->physical_device->rad_info.chip_class >= GFX8) {
       bool disable_constant_encode =
@@ -7682,8 +7695,8 @@ radv_CmdBeginRenderingKHR(VkCommandBuffer commandBuffer, const VkRenderingInfoKH
       return;
    }
 
-   unsigned w = MAX_FRAMEBUFFER_WIDTH;
-   unsigned h = MAX_FRAMEBUFFER_HEIGHT;
+   unsigned w = pRenderingInfo->renderArea.extent.width;
+   unsigned h = pRenderingInfo->renderArea.extent.height;
    for (unsigned i = 0; i < att_count; ++i) {
       RADV_FROM_HANDLE(radv_image_view, iview, iviews[i]);
       w = MIN2(w, iview->extent.width);
