@@ -377,8 +377,7 @@ vk_instance_entrypoint_is_enabled(int index, uint32_t core_version,
         % if ext.type == 'instance':
       if (instance->${ext.name[3:]}) return true;
         % else:
-      /* All device extensions are considered enabled at the instance level */
-      return true;
+      <% assert False %>
         % endif
      % endfor
       return false;
