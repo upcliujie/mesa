@@ -205,7 +205,8 @@ vk_physical_device_dispatch_table_get_if_supported(
     const struct vk_physical_device_dispatch_table *table,
     const char *name,
     uint32_t core_version,
-    const struct vk_instance_extension_table *instance_exts);
+    const struct vk_instance_extension_table *instance_exts,
+    const struct vk_device_extension_table *device_exts);
 
 PFN_vkVoidFunction
 vk_device_dispatch_table_get_if_supported(
@@ -397,7 +398,8 @@ vk_instance_entrypoint_is_enabled(int index, uint32_t core_version,
  */
 static bool
 vk_physical_device_entrypoint_is_enabled(int index, uint32_t core_version,
-                                         const struct vk_instance_extension_table *instance)
+                                         const struct vk_instance_extension_table *instance,
+                                         const struct vk_device_extension_table *device)
 {
    switch (index) {
 % for e in physical_device_entrypoints:
@@ -410,8 +412,7 @@ vk_physical_device_entrypoint_is_enabled(int index, uint32_t core_version,
         % if ext.type == 'instance':
       if (instance->${ext.name[3:]}) return true;
         % else:
-      /* All device extensions are considered enabled at the instance level */
-      return true;
+      if (!device || device->${ext.name[3:]}) return true;
         % endif
      % endfor
       return false;
@@ -556,14 +557,15 @@ vk_physical_device_dispatch_table_get_if_supported(
     const struct vk_physical_device_dispatch_table *table,
     const char *name,
     uint32_t core_version,
-    const struct vk_instance_extension_table *instance_exts)
+    const struct vk_instance_extension_table *instance_exts,
+    const struct vk_device_extension_table *device_exts)
 {
     int entry_index = physical_device_string_map_lookup(name);
     if (entry_index < 0)
         return NULL;
 
     if (!vk_physical_device_entrypoint_is_enabled(entry_index, core_version,
-                                                  instance_exts))
+                                                  instance_exts, device_exts))
         return NULL;
 
     return vk_physical_device_dispatch_table_get_for_entry_index(table, entry_index);

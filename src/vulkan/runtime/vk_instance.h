@@ -53,6 +53,8 @@ struct vk_instance {
 
    struct list_head physical_devices;
 
+   struct vk_device_extension_table supported_device_extensions;
+
    /* VK_EXT_debug_report debug callbacks */
    struct {
       mtx_t callbacks_mutex;

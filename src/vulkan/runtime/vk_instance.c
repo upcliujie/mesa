@@ -183,6 +183,24 @@ vk_instance_add_physical_device(struct vk_instance *instance,
 {
    assert(list_is_empty(&pdevice->link));
    list_addtail(&pdevice->link, &instance->physical_devices);
+
+   /* The Vulkan 1.2.199 spec says we are supposed to return non-NULL from
+    * vkGetInstanceProcAddr for:
+    *
+    *    "available device extension dispatchable command for instance"
+    *
+    * where this is defined as
+    *
+    *    "An “available device extension” is a device extension supported by
+    *    any physical device enumerated by instance."
+    *
+    * Therefore, we have to keep track of all device extensions supported by
+    * any enumerated physical devices so we can filter accordingly.
+    */
+   for (unsigned i = 0; i < VK_DEVICE_EXTENSION_COUNT; i++) {
+      instance->supported_device_extensions.extensions[i] |=
+         pdevice->supported_extensions.extensions[i];
+   }
 }
 
 VkResult
@@ -253,7 +271,8 @@ vk_instance_get_proc_addr(const struct vk_instance *instance,
    func = vk_physical_device_dispatch_table_get_if_supported(&vk_physical_device_trampolines,
                                                              name,
                                                              instance->app_info.api_version,
-                                                             &instance->enabled_extensions);
+                                                             &instance->enabled_extensions,
+                                                             &instance->supported_device_extensions);
    if (func != NULL)
       return func;
 
@@ -303,5 +322,6 @@ vk_instance_get_physical_device_proc_addr(const struct vk_instance *instance,
    return vk_physical_device_dispatch_table_get_if_supported(&vk_physical_device_trampolines,
                                                              name,
                                                              instance->app_info.api_version,
-                                                             &instance->enabled_extensions);
+                                                             &instance->enabled_extensions,
+                                                             &instance->supported_device_extensions);
 }
