@@ -1384,6 +1384,9 @@ vn_instance_enumerate_physical_devices_and_groups(struct vn_instance *instance)
          vk_free(alloc, physical_devs);
          goto unlock;
       }
+
+      vk_instance_add_physical_device(&instance->base.base,
+                                      &physical_dev->base.base);
    }
 
    result = vn_instance_enumerate_physical_device_groups_locked(
