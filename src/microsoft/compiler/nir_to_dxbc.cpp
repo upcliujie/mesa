@@ -934,18 +934,35 @@ emit_dcl(struct ntd_context *ctx)
          UINT write_mask = elem.mask
                            << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
 
-         // TODO: If this trips it's probably because we need to handle SIVs
-         // or SGVs
-         assert(elem.system_value == 0);
+         // elem.system_value is `enum dxil_prog_sig_semantic`
+         // https://gitlab.freedesktop.org/mesa/mesa/blob/4a3395f35aeeb90f4613922dfe761dae62572f4b/src/microsoft/compiler/dxil_signature.c#L405
+         enum dxil_prog_sig_semantic sem =
+            static_cast<enum dxil_prog_sig_semantic>(elem.system_value);
+         switch (sem) {
+         case DXIL_PROG_SEM_UNDEFINED:
+         case DXIL_PROG_SEM_TARGET:
+            // emit as normal
+            if (ctx->mod.shader_kind == D3D10_SB_PIXEL_SHADER) {
+               ctx->mod.shader.EmitPSInputDecl(
+                  elem.reg, write_mask,
+                  D3D10_SB_INTERPOLATION_LINEAR // TODO?
+               );
+            } else {
+               ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT,
+                  elem.reg, write_mask);
+            }
+            break;
 
-         if (ctx->mod.shader_kind == D3D10_SB_VERTEX_SHADER) {
-            ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT,
-                                          elem.reg, write_mask);
-         } else {
-            ctx->mod.shader.EmitPSInputDecl(
-                elem.reg, write_mask,
-                D3D10_SB_INTERPOLATION_LINEAR // TODO?
-            );
+         case DXIL_PROG_SEM_POSITION:
+            ctx->mod.shader.EmitPSInputSystemInterpretedValueDecl(
+               elem.reg, write_mask,
+               D3D10_SB_INTERPOLATION_LINEAR_NOPERSPECTIVE,
+               D3D10_SB_NAME_POSITION);
+            break;
+
+         default:
+            unreachable("unhandled dxil_prog_sig_semantic");
+            return false;
          }
       }
    }
