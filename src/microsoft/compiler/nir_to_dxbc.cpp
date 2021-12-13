@@ -669,6 +669,18 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx,
 }
 
 static bool
+emit_load_ubo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   unsigned ubo_id = (unsigned)nir_src_as_uint(intr->src[0]);
+   // TODO relative addressing
+   unsigned ubo_offset = (unsigned)nir_src_as_uint(intr->src[1]) >> 4;
+   COperand2D src(D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER, ubo_id, ubo_offset);
+   COperandDst dst = nir_dest_as_register(intr->dest, (1 << intr->num_components) - 1);
+   ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_MOV, dst, src));
+   return true;
+}
+
+static bool
 emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    unsigned ubo_id = (unsigned)nir_src_as_uint(intr->src[0]);
@@ -698,7 +710,10 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_vulkan_descriptor(ctx, intr);
 
    case nir_intrinsic_load_ubo_dxil:
+   case nir_intrinsic_load_ubo_vec4:
       return emit_load_ubo_dxil(ctx, intr);
+   case nir_intrinsic_load_ubo:
+      return emit_load_ubo(ctx, intr);
 
    default:
       NIR_INSTR_UNSUPPORTED(&intr->instr);
