@@ -332,6 +332,11 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_2_args(D3D10_SB_OPCODE_MAX, alu));
       return true;
 
+   case nir_op_fmin:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_MIN, alu));
+      return true;
+
    case nir_op_fsat: {
       CInstruction intr =
           get_intr_1_args(D3D10_SB_OPCODE_MOV, alu);
@@ -378,9 +383,24 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_1_args(D3D10_SB_OPCODE_MOV, alu));
       return true;
 
+   case nir_op_imax:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_IMAX, alu));
+      return true;
+
+   case nir_op_imin:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_IMIN, alu));
+      return true;
+
    case nir_op_ige:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_IGE, alu));
+      return true;
+
+   case nir_op_ilt:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_ILT, alu));
       return true;
 
    case nir_op_ieq:
@@ -398,9 +418,32 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_2_args(D3D10_SB_OPCODE_AND, alu));
       return true;
 
+   case nir_op_ixor:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_XOR, alu));
+      return true;
+
    case nir_op_iadd:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_IADD, alu));
+      return true;
+
+   case nir_op_isub: {
+      CInstruction intr =
+         get_intr_2_args(D3D10_SB_OPCODE_IADD, alu);
+      intr.m_Operands[2].SetModifier(D3D10_SB_OPERAND_MODIFIER_NEG);
+      ctx->mod.shader.EmitInstruction(intr);
+      return true;
+   }
+
+   case nir_op_umax:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_UMAX, alu));
+      return true;
+
+   case nir_op_umin:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_2_args(D3D10_SB_OPCODE_UMIN, alu));
       return true;
 
    case nir_op_udiv:
@@ -478,6 +521,11 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
       // TODO: is a bool an int in this instruction's eyes?
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ITOF, alu));
+      return true;
+
+   case nir_op_b2i32:
+      ctx->mod.shader.EmitInstruction(
+         get_intr_1_args(D3D10_SB_OPCODE_MOV, alu));
       return true;
 
    case nir_op_fcos: {
