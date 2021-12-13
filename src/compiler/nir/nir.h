@@ -4966,6 +4966,9 @@ typedef struct {
     * division lowering
     */
    bool allow_fp16;
+
+   /* Only lower signed idiv/imod/irem in terms of unsigned udiv/umod */
+   bool keep_unsigned;
 } nir_lower_idiv_options;
 
 bool nir_lower_idiv(nir_shader *shader, const nir_lower_idiv_options *options);
