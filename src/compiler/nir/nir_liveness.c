@@ -352,7 +352,8 @@ static bool def_cb(nir_ssa_def *def, void *state)
    nir_instr *instr = def->parent_instr;
    int index = def->index;
 
-   liveness->defs[index].start = MIN2(liveness->defs[index].start, instr->index);
+   liveness->defs[index].start = instr->index;
+   liveness->defs[index].end = instr->index;
 
    nir_foreach_use(src, def) {
       liveness->defs[index].end = MAX2(liveness->defs[index].end,
@@ -377,10 +378,6 @@ nir_live_ssa_defs_per_instr(nir_function_impl *impl)
    nir_instr_liveness *liveness = ralloc(NULL, nir_instr_liveness);
    liveness->defs = rzalloc_array(liveness, nir_liveness_bounds,
                                   impl->ssa_alloc);
-
-   /* Set our starts so we can use MIN2() as we accumulate bounds. */
-   for (int i = 0; i < impl->ssa_alloc; i++)
-      liveness->defs->start = ~0;
 
    nir_foreach_block(block, impl) {
       unsigned index;
