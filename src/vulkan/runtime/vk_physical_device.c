@@ -36,6 +36,8 @@ vk_physical_device_init(struct vk_physical_device *pdevice,
    vk_object_base_init(NULL, &pdevice->base, VK_OBJECT_TYPE_PHYSICAL_DEVICE);
    pdevice->instance = instance;
 
+   list_inithead(&pdevice->link);
+
    if (supported_extensions != NULL)
       pdevice->supported_extensions = *supported_extensions;
 

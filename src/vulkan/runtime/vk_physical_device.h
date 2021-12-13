@@ -27,6 +27,8 @@
 #include "vk_extensions.h"
 #include "vk_object.h"
 
+#include "util/list.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,6 +39,9 @@ struct vk_sync_type;
 struct vk_physical_device {
    struct vk_object_base base;
    struct vk_instance *instance;
+
+   /* Link in vk_instance::physical_devices */
+   struct list_head link;
 
    struct vk_device_extension_table supported_extensions;
 
@@ -67,6 +72,14 @@ vk_physical_device_init(struct vk_physical_device *physical_device,
 
 void
 vk_physical_device_finish(struct vk_physical_device *physical_device);
+
+#define vk_foreach_physical_device(physical_device, instance) \
+   list_for_each_entry(struct vk_physical_device, physical_device, \
+                       &(instance)->physical_devices, link)
+
+#define vk_foreach_physical_device_safe(physical_device, instance) \
+   list_for_each_entry_safe(struct vk_physical_device, physical_device, \
+                            &(instance)->physical_devices, link)
 
 VkResult
 vk_physical_device_check_device_features(struct vk_physical_device *physical_device,

@@ -51,6 +51,8 @@ struct vk_instance {
 
    struct vk_instance_dispatch_table dispatch_table;
 
+   struct list_head physical_devices;
+
    /* VK_EXT_debug_report debug callbacks */
    struct {
       mtx_t callbacks_mutex;
@@ -81,6 +83,10 @@ vk_instance_init(struct vk_instance *instance,
 
 void
 vk_instance_finish(struct vk_instance *instance);
+
+void
+vk_instance_add_physical_device(struct vk_instance *instance,
+                                struct vk_physical_device *pdevice);
 
 VkResult
 vk_enumerate_instance_extension_properties(

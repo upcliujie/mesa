@@ -27,6 +27,7 @@
 #include "vk_common_entrypoints.h"
 #include "vk_dispatch_trampolines.h"
 #include "vk_log.h"
+#include "vk_physical_device.h"
 #include "vk_util.h"
 #include "vk_debug_utils.h"
 
@@ -129,6 +130,8 @@ vk_instance_init(struct vk_instance *instance,
    vk_instance_dispatch_table_from_entrypoints(
       &instance->dispatch_table, &vk_common_instance_entrypoints, false);
 
+   list_inithead(&instance->physical_devices);
+
    if (mtx_init(&instance->debug_report.callbacks_mutex, mtx_plain) != 0)
       return vk_error(instance, VK_ERROR_INITIALIZATION_FAILED);
 
@@ -172,6 +175,14 @@ vk_instance_finish(struct vk_instance *instance)
    vk_free(&instance->alloc, (char *)instance->app_info.app_name);
    vk_free(&instance->alloc, (char *)instance->app_info.engine_name);
    vk_object_base_finish(&instance->base);
+}
+
+void
+vk_instance_add_physical_device(struct vk_instance *instance,
+                                struct vk_physical_device *pdevice)
+{
+   assert(list_is_empty(&pdevice->link));
+   list_addtail(&pdevice->link, &instance->physical_devices);
 }
 
 VkResult
