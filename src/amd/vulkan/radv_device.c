@@ -998,7 +998,6 @@ radv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
       radv_logi("Created an instance");
 
    instance->physical_devices_enumerated = false;
-   list_inithead(&instance->physical_devices);
 
    VG(VALGRIND_CREATE_MEMPOOL(instance, 0, false));
 
@@ -1017,8 +1016,10 @@ radv_DestroyInstance(VkInstance _instance, const VkAllocationCallbacks *pAllocat
    if (!instance)
       return;
 
-   list_for_each_entry_safe(struct radv_physical_device, pdevice, &instance->physical_devices, link)
+   vk_foreach_physical_device(vk_pdevice, &instance->vk)
    {
+      struct radv_physical_device *pdevice =
+         container_of(vk_pdevice, struct radv_physical_device, vk);
       radv_physical_device_destroy(pdevice);
    }
 
@@ -1052,7 +1053,7 @@ radv_enumerate_physical_devices(struct radv_instance *instance)
       if (result != VK_SUCCESS)
          return result;
 
-      list_addtail(&pdevice->link, &instance->physical_devices);
+      vk_instance_add_physical_device(&instance->vk, &pdevice->vk);
       return VK_SUCCESS;
    }
 
@@ -1084,7 +1085,7 @@ radv_enumerate_physical_devices(struct radv_instance *instance)
          if (result != VK_SUCCESS)
             break;
 
-         list_addtail(&pdevice->link, &instance->physical_devices);
+         vk_instance_add_physical_device(&instance->vk, &pdevice->vk);
       }
    }
    drmFreeDevices(devices, max_devices);
@@ -1105,11 +1106,11 @@ radv_EnumeratePhysicalDevices(VkInstance _instance, uint32_t *pPhysicalDeviceCou
    if (result != VK_SUCCESS)
       return result;
 
-   list_for_each_entry(struct radv_physical_device, pdevice, &instance->physical_devices, link)
+   vk_foreach_physical_device(pdevice, &instance->vk)
    {
       vk_outarray_append_typed(VkPhysicalDevice, &out, i)
       {
-         *i = radv_physical_device_to_handle(pdevice);
+         *i = vk_physical_device_to_handle(pdevice);
       }
    }
 
@@ -1128,13 +1129,13 @@ radv_EnumeratePhysicalDeviceGroups(VkInstance _instance, uint32_t *pPhysicalDevi
    if (result != VK_SUCCESS)
       return result;
 
-   list_for_each_entry(struct radv_physical_device, pdevice, &instance->physical_devices, link)
+   vk_foreach_physical_device(pdevice, &instance->vk)
    {
       vk_outarray_append_typed(VkPhysicalDeviceGroupProperties, &out, p)
       {
          p->physicalDeviceCount = 1;
          memset(p->physicalDevices, 0, sizeof(p->physicalDevices));
-         p->physicalDevices[0] = radv_physical_device_to_handle(pdevice);
+         p->physicalDevices[0] = vk_physical_device_to_handle(pdevice);
          p->subsetAllocation = false;
       }
    }
