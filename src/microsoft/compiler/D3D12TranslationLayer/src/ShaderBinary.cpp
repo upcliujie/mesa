@@ -1,8 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-#include "pch.h"
 #include <ShaderBinary.h>
+#include <u_debug.h>
+#include <macros.h>
 
 /*==========================================================================;
  *
@@ -726,7 +727,7 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         m_pCurrentToken++;
         pInstruction->m_IndexableTempDecl.NumRegisters  = (UINT)(*m_pCurrentToken);
         m_pCurrentToken++;
-        switch( min( 4u, max( 1u, (UINT)(*m_pCurrentToken) ) ) )
+        switch( MIN2( 4u, MAX2( 1u, (UINT)(*m_pCurrentToken) ) ) )
         {
         case 1:
             pInstruction->m_IndexableTempDecl.Mask = D3D10_SB_OPERAND_4_COMPONENT_MASK_X;
@@ -1127,7 +1128,7 @@ void CShaderAsm::EmitInstruction(const CInstruction& instruction)
     OpCode |= ENCODE_D3D11_SB_INSTRUCTION_PRECISE_VALUES(instruction.m_PreciseMask);
     OPCODE(OpCode);
     
-    for(UINT i = 0; i < min<UINT>(instruction.m_ExtendedOpCodeCount,D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES); i++)
+    for(UINT i = 0; i < MIN2(instruction.m_ExtendedOpCodeCount,D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES); i++)
     {
         UINT  Extended = ENCODE_D3D10_SB_EXTENDED_OPCODE_TYPE(instruction.m_OpCodeEx[i]);
         switch( instruction.m_OpCodeEx[i] )

@@ -48,30 +48,31 @@ spirv_to_dxil = executable(
   install : true,
 )
 
+if has_wdk
+  libspirv_to_dxbc = both_libraries(
+    'spirv_to_dxbc',
+    [
+      files(
+        'spirv_to_dxbc.c',
+        'spirv_to_dxbc.h',
+      ),
+      sha1_h,
+    ],
+    vs_module_defs : 'spirv_to_dxbc.def',
+    dependencies : [idep_nir, idep_libdxbc_compiler],
+    include_directories : [inc_include, inc_src, inc_compiler, inc_gallium],
+    install : true,
+  )
 
-libspirv_to_dxbc = both_libraries(
-  'spirv_to_dxbc',
-  [
+  spirv_to_dxbc = executable(
+    'spirv2dxbc',
     files(
-      'spirv_to_dxbc.c',
-      'spirv_to_dxbc.h',
+      'spirv2dxbc.c',
     ),
-    sha1_h,
-  ],
-  vs_module_defs : 'spirv_to_dxbc.def',
-  dependencies : [idep_nir, idep_libdxbc_compiler],
-  include_directories : [inc_include, inc_src, inc_compiler, inc_gallium],
-  install : true,
-)
-
-spirv_to_dxbc = executable(
-  'spirv2dxbc',
-  files(
-    'spirv2dxbc.c',
-  ),
-  dependencies : [idep_nir, idep_libdxbc_compiler, idep_getopt],
-  include_directories : [inc_include, inc_src, inc_compiler, inc_gallium],
-  link_with : libspirv_to_dxbc.get_static_lib(),
-  build_by_default : true,
-  install : true,
-)
+    dependencies : [idep_nir, idep_libdxbc_compiler, idep_getopt],
+    include_directories : [inc_include, inc_src, inc_compiler, inc_gallium],
+    link_with : libspirv_to_dxbc.get_static_lib(),
+    build_by_default : true,
+    install : true,
+  )
+endif

@@ -71,45 +71,40 @@ if with_tests
   )
 endif
 
-d3d12translationlayer = static_library(
-  'D3D12TranslationLayer',
-  files(
-    'D3D12TranslationLayer/src/ShaderBinary.cpp',
-  ),
-  include_directories : include_directories(
-    'C:/Program Files (x86)/Windows Kits/10/Include/10.0.22000.0/shared',
-    'D3D12TranslationLayer/include',
-  ),
-  override_options : ['cpp_std=c++17'],
-)
+has_wdk = cpp.has_header('d3d12tokenizedprogramformat.hpp')
+if has_wdk
+  d3d12translationlayer = static_library(
+    'D3D12TranslationLayer',
+    files(
+      'D3D12TranslationLayer/src/ShaderBinary.cpp',
+    ),
+    include_directories : 'D3D12TranslationLayer/include',
+    dependencies : [idep_mesautil],
+    override_options : ['cpp_std=c++17'],
+  )
 
-idep_d3d12translationlayer = declare_dependency(
-  link_with : d3d12translationlayer,
-)
+  files_libdxbc_compiler = files(
+    'nir_to_dxbc.cpp',
+  )
 
-files_libdxbc_compiler = files(
-  'nir_to_dxbc.cpp',
-)
+  libdxbc_compiler = static_library(
+    'dxbc_compiler',
+    [files_libdxbc_compiler, sha1_h],
+    include_directories : [
+      inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_gallium,
+      'D3D12TranslationLayer/include',
+      ],
+    link_with : d3d12translationlayer,
+    dependencies: [
+      idep_nir_headers,
+      idep_libdxil_compiler, # TODO: split out shared functions into a separate dependency
+    ],
+    gnu_symbol_visibility : 'hidden',
+  )
 
-libdxbc_compiler = static_library(
-  'dxbc_compiler',
-  [files_libdxbc_compiler, sha1_h],
-  include_directories : [
-    inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_gallium,
-    'D3D12TranslationLayer/include',
-    # WDK is required for dxbc writing, for now: https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk
-    'C:/Program Files (x86)/Windows Kits/10/Include/10.0.22000.0/um',
-  ],
-  dependencies: [
-    idep_d3d12translationlayer,
-    idep_nir_headers,
-    idep_libdxil_compiler, # TODO: split out shared functions into a separate dependency
-  ],
-  gnu_symbol_visibility : 'hidden',
-)
-
-idep_libdxbc_compiler = declare_dependency(
-  link_with : libdxbc_compiler,
-  dependencies : [idep_mesautil],
-  include_directories : include_directories('.')
-)
+  idep_libdxbc_compiler = declare_dependency(
+    link_with : libdxbc_compiler,
+    dependencies : [idep_mesautil],
+    include_directories : include_directories('.')
+  )
+endif
