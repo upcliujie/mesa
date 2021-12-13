@@ -254,6 +254,13 @@ count_write_components(uint32_t write_mask)
    return count;
 }
 
+static COperandBase
+get_alu_src_as_const_value_or_register(nir_alu_instr *alu, nir_alu_src src)
+{
+   return nir_src_as_const_value_or_register(src.src,
+      count_write_components(alu->dest.write_mask), src.swizzle);
+}
+
 static CInstruction
 get_intr_1_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
 {
@@ -395,6 +402,19 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(D3D10_SB_OPCODE_IADD, alu));
       return true;
+
+   case nir_op_udiv:
+   case nir_op_umod: {
+      COperandBase dst0 = nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
+      COperandBase dst1;
+      if (alu->op == nir_op_umod)
+         std::swap(dst0, dst1);
+      COperandBase src0 = get_alu_src_as_const_value_or_register(alu, alu->src[0]);
+      COperandBase src1 = get_alu_src_as_const_value_or_register(alu, alu->src[1]);
+      ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_UDIV,
+            dst0, dst1, src0, src1));
+      return true;
+   }
 
    case nir_op_ushr:
       ctx->mod.shader.EmitInstruction(
@@ -1064,6 +1084,8 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    NIR_PASS_V(s, nir_lower_pack);
    NIR_PASS_V(s, nir_lower_frexp);
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
+   nir_lower_idiv_options idiv_opts = { .keep_unsigned = true };
+   NIR_PASS_V(s, nir_lower_idiv, &idiv_opts);
 
    // NOTE: do not run scalarization passes
    optimize_nir(s, opts, false);
