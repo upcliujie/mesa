@@ -5639,11 +5639,10 @@ enum _verbose
 /** The MESA_DEBUG_FLAGS var is a bitmask of these flags */
 enum _debug
 {
-   DEBUG_SILENT                 = (1 << 0),
-   DEBUG_ALWAYS_FLUSH		= (1 << 1),
-   DEBUG_INCOMPLETE_TEXTURE     = (1 << 2),
-   DEBUG_INCOMPLETE_FBO         = (1 << 3),
-   DEBUG_CONTEXT                = (1 << 4)
+   DEBUG_ALWAYS_FLUSH		= (1 << 0),
+   DEBUG_INCOMPLETE_TEXTURE     = (1 << 1),
+   DEBUG_INCOMPLETE_FBO         = (1 << 2),
+   DEBUG_CONTEXT                = (1 << 3)
 };
 
 #ifdef __cplusplus
