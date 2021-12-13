@@ -27,6 +27,9 @@
 #include "d3d12_screen.h"
 #include "d3d12_nir_passes.h"
 #include "nir_to_dxil.h"
+#ifdef HAS_DXBC_COMPILER
+#include "nir_to_dxbc.h"
+#endif
 #include "dxil_nir.h"
 
 #include "pipe/p_state.h"
@@ -81,6 +84,8 @@ struct d3d12_validation_tools
    ComPtr<IDxcCompiler> compiler;
    ComPtr<IDxcValidator> validator;
    ComPtr<IDxcLibrary> library;
+   HModule dxbc_module;
+   HRESULT (APIENTRY *sign_dxbc)(BYTE*, UINT32);
 };
 
 struct d3d12_validation_tools *d3d12_validator_create()
@@ -104,6 +109,10 @@ d3d12_get_compiler_options(struct pipe_screen *screen,
                            enum pipe_shader_type shader)
 {
    assert(ir == PIPE_SHADER_IR_NIR);
+#ifdef HAS_DXBC_COMPILER
+   if (d3d12_debug & D3D12_DEBUG_DXIL)
+      return dxbc_get_nir_compiler_options;
+#endif
    return dxil_get_nir_compiler_options();
 }
 
@@ -182,9 +191,19 @@ compile_nir(struct d3d12_context *ctx, struct d3d12_shader_selector *sel,
    opts.shader_model_max = SHADER_MODEL_6_2;
 
    struct blob tmp;
-   if (!nir_to_dxil(nir, &opts, &tmp)) {
-      debug_printf("D3D12: nir_to_dxil failed\n");
-      return NULL;
+#ifdef HAS_DXBC_COMPILER
+   if (d3d12_debug & D3D12_DEBUG_DXBC) {
+      if (!nir_to_dxbc(nir, &opts, &tmp)) {
+         debug_printf("D3D12: nir_to_dxbc failed\n");
+         return NULL;
+      }
+   } else
+#endif
+   {
+      if (!nir_to_dxil(nir, &opts, &tmp)) {
+         debug_printf("D3D12: nir_to_dxil failed\n");
+         return NULL;
+      }
    }
 
    // Non-ubo variables
@@ -1203,7 +1222,7 @@ d3d12_validation_tools::d3d12_validation_tools()
       }
    }
 #ifdef _WIN32
-   else if (!(d3d12_debug & D3D12_DEBUG_EXPERIMENTAL)) {
+   else if (!(d3d12_debug & (D3D12_DEBUG_EXPERIMENTAL | D3D12_DEBUG_DXBC))) {
       debug_printf("D3D12: Unable to load DXIL.dll\n");
    }
 #endif
@@ -1226,6 +1245,13 @@ d3d12_validation_tools::d3d12_validation_tools()
       }
    } else if (d3d12_debug & D3D12_DEBUG_DISASS) {
       debug_printf("D3D12: Disassembly requested but compiler couldn't be loaded\n");
+   }
+
+   if (d3d12_debug & D3D12_DEBUG_DXBC) {
+      if (dxbc_module.load("dxbcSigner.dll"))
+         sign_dxbc = (decltype(sign_dxbc))util_dl_get_proc_address(dxbc_module, "SignDxbc");
+      else if (!(d3d12_debug & D3D12_DEBUG_EXPERIMENTAL))
+         debug_printf("D3D12: Unable to load DXBC signer");
    }
 }
 
@@ -1273,6 +1299,13 @@ public:
 
 bool d3d12_validation_tools::validate_and_sign(struct blob *dxil)
 {
+   if (sign_dxbc) {
+      if (FAILED(sign_dxbc(dxil->data, dxil->size))) {
+         debug_printf("Failed to sign DXBC");
+         return false;
+      }
+      return true;
+   }
    ShaderBlob source(dxil);
 
    ComPtr<IDxcOperationResult> result;

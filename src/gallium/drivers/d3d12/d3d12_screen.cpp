@@ -57,6 +57,7 @@ d3d12_debug_options[] = {
    { "res",          D3D12_DEBUG_RESOURCE,      "Debug resources" },
    { "debuglayer",   D3D12_DEBUG_DEBUG_LAYER,   "Enable debug layer" },
    { "gpuvalidator", D3D12_DEBUG_GPU_VALIDATOR, "Enable GPU validator" },
+   { "dxbc",         D3D12_DEBUG_DXBC,          "Use DXBC instead of DXIL" },
    DEBUG_NAMED_VALUE_END
 };
 
@@ -772,6 +773,9 @@ create_device(IUnknown *adapter)
 static bool
 can_attribute_at_vertex(struct d3d12_screen *screen)
 {
+   if (d3d12_debug & D3D12_DEBUG_DXBC)
+      return false;
+
    switch (screen->vendor_id)  {
    case HW_VENDOR_MICROSOFT:
       return true;
