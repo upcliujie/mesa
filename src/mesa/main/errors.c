@@ -121,23 +121,10 @@ should_output(struct gl_context *ctx, GLenum error, const char *fmtString)
 {
    static GLint debug = -1;
 
-   /* Check debug environment variable only once:
+   /* Check log level only once:
     */
-   if (debug == -1) {
-      const char *debugEnv = getenv("MESA_DEBUG");
-
-#ifndef NDEBUG
-      if (debugEnv && strstr(debugEnv, "silent"))
-         debug = GL_FALSE;
-      else
-         debug = GL_TRUE;
-#else
-      if (debugEnv)
-         debug = GL_TRUE;
-      else
-         debug = GL_FALSE;
-#endif
-   }
+   if (debug == -1)
+      debug = mesa_would_log(MESA_LOG_ERROR);
 
    if (debug) {
       if (ctx->ErrorValue != error ||
