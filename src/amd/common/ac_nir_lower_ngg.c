@@ -2111,24 +2111,11 @@ ms_store_arrayed_output_intrin(nir_builder *b,
       bit_size = 32;
    }
 
-   while (write_mask) {
-      int start_comp = 0;
-      int num_comps = 1;
-      u_bit_scan_consecutive_range(&write_mask, &start_comp, &num_comps);
+   unsigned const_off = base_shared_addr + component_offset * bit_size / 8;
 
-      assert(start_comp >= 0);
-      assert(num_comps >= 1);
-
-      unsigned component_addr_off = (component_offset + start_comp) * 4;
-      unsigned num_consumed_components = num_comps * MIN2(1, DIV_ROUND_UP(store_val->bit_size, 32));
-
-      nir_ssa_def *stored = nir_extract_bits(b, &store_val, 1, start_comp * bit_size,
-                                             num_consumed_components, bit_size);
-
-      nir_build_store_shared(b, stored, addr, .base = base_shared_addr + component_addr_off,
-                             .write_mask = BITFIELD_MASK(num_comps), .align_mul = 16,
-                             .align_offset = component_addr_off % 16);
-   }
+   nir_build_store_shared(b, store_val, addr, .base = const_off,
+                          .write_mask = write_mask, .align_mul = 16,
+                          .align_offset = const_off % 16);
 }
 
 static nir_ssa_def *
