@@ -249,6 +249,8 @@ nir_src_as_const_value_or_register(nir_src src, uint32_t num_write_components,
          }
       }
 
+      case 2:
+      case 3:
       case 4:
          if (swizzle) {
             return COperand(
@@ -309,6 +311,22 @@ get_intr_2_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
        alu->src[0].src, num_write_components, alu->src[0].swizzle);
    COperandBase rhs = nir_src_as_const_value_or_register(
        alu->src[1].src, num_write_components, alu->src[1].swizzle);
+   return CInstruction(opcode, dst, lhs, rhs);
+}
+
+static CInstruction
+get_intr_dot_product(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
+{
+   uint32_t num_write_components =
+      count_write_components(alu->dest.write_mask);
+   uint32_t num_src_components = alu->op == nir_op_fdot4 ?
+      4 : (alu->op == nir_op_fdot3 ? 3 : 2);
+   COperandBase dst =
+      nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
+   COperandBase lhs = nir_src_as_const_value_or_register(
+      alu->src[0].src, num_src_components, alu->src[0].swizzle);
+   COperandBase rhs = nir_src_as_const_value_or_register(
+      alu->src[1].src, num_src_components, alu->src[1].swizzle);
    return CInstruction(opcode, dst, lhs, rhs);
 }
 
@@ -609,17 +627,17 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
 
    case nir_op_fdot4:
       ctx->mod.shader.EmitInstruction(
-         get_intr_2_args(D3D10_SB_OPCODE_DP4, alu));
+         get_intr_dot_product(D3D10_SB_OPCODE_DP4, alu));
       return true;
 
    case nir_op_fdot3:
       ctx->mod.shader.EmitInstruction(
-         get_intr_2_args(D3D10_SB_OPCODE_DP3, alu));
+         get_intr_dot_product(D3D10_SB_OPCODE_DP3, alu));
       return true;
 
    case nir_op_fdot2:
       ctx->mod.shader.EmitInstruction(
-         get_intr_2_args(D3D10_SB_OPCODE_DP2, alu));
+         get_intr_dot_product(D3D10_SB_OPCODE_DP2, alu));
       return true;
 
    case nir_op_frsq:
