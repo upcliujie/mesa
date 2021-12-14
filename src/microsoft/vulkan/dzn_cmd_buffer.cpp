@@ -226,7 +226,7 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
    error = VK_SUCCESS;
 
    VkResult result =
-      vk_command_buffer_init(&vk, &device->vk);
+      vk_command_buffer_init(&vk, &device->vk, lvl);
 
    if (result != VK_SUCCESS)
       throw vk_error(device, result);
