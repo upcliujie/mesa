@@ -561,7 +561,6 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
       return true;
 
    case nir_op_b2f32:
-      // TODO: is a bool an int in this instruction's eyes?
       ctx->mod.shader.EmitInstruction(
           get_intr_1_args(D3D10_SB_OPCODE_ITOF, alu));
       return true;
@@ -658,11 +657,16 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    COperandBase src =
        nir_src_as_const_value_or_register(intr->src[0], 4, nullptr);
-   COperandDst dst(
-       D3D10_SB_OPERAND_TYPE_OUTPUT,
-       //   nir_src_as_uint(intr->src[1]) // TODO is `base` the output we care
-       //   about?
-       nir_intrinsic_base(intr));
+
+   assert(nir_src_is_const(intr->src[1]) || !intr->src[1].is_ssa);
+   COperandDst dst = nir_src_is_const(intr->src[1]) ?
+      COperandDst(D3D10_SB_OPERAND_TYPE_OUTPUT,
+         nir_intrinsic_base(intr) + (unsigned)nir_src_as_uint(intr->src[1]),
+         nir_intrinsic_write_mask(intr) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT) :
+      COperandDst(D3D10_SB_OPERAND_TYPE_OUTPUT, nir_intrinsic_base(intr),
+         nir_intrinsic_write_mask(intr) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT,
+         D3D10_SB_OPERAND_TYPE_TEMP, intr->src[1].reg.reg->index, 0, D3D10_SB_4_COMPONENT_R);
+
    CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
    ctx->mod.shader.EmitInstruction(mov);
 
@@ -968,7 +972,7 @@ emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
        nir_src_as_const_value_or_register(if_stmt->condition, 4, nullptr);
    ctx->mod.shader.EmitInstruction(CInstruction(
        D3D10_SB_OPCODE_IF, cond,
-       /* todo? is it ever ZERO? */ D3D10_SB_INSTRUCTION_TEST_NONZERO));
+       D3D10_SB_INSTRUCTION_TEST_NONZERO));
 
    nir_block *then_block = nir_if_first_then_block(if_stmt);
    assert(nir_if_last_then_block(if_stmt)->successors[0]);
@@ -1107,6 +1111,21 @@ dxbc_get_primitive_topology(unsigned topology)
    }
 }
 
+static D3D10_SB_INTERPOLATION_MODE
+dxil_to_dxbc_interpolation_mode(dxil_interpolation_mode mode)
+{
+   switch (mode) {
+   case DXIL_INTERP_CONSTANT: return D3D10_SB_INTERPOLATION_CONSTANT;
+   case DXIL_INTERP_LINEAR: return D3D10_SB_INTERPOLATION_LINEAR;
+   case DXIL_INTERP_LINEAR_CENTROID: return D3D10_SB_INTERPOLATION_LINEAR_CENTROID;
+   case DXIL_INTERP_LINEAR_NOPERSPECTIVE: return D3D10_SB_INTERPOLATION_LINEAR_NOPERSPECTIVE;
+   case DXIL_INTERP_LINEAR_NOPERSPECTIVE_CENTROID: return D3D10_SB_INTERPOLATION_LINEAR_NOPERSPECTIVE_CENTROID;
+   case DXIL_INTERP_LINEAR_NOPERSPECTIVE_SAMPLE: return D3D10_SB_INTERPOLATION_LINEAR_NOPERSPECTIVE_SAMPLE;
+   case DXIL_INTERP_LINEAR_SAMPLE: return D3D10_SB_INTERPOLATION_LINEAR_SAMPLE;
+   default: return D3D10_SB_INTERPOLATION_UNDEFINED;
+   }
+}
+
 static bool
 emit_dcl(struct ntd_context *ctx)
 {
@@ -1122,6 +1141,7 @@ emit_dcl(struct ntd_context *ctx)
 
    for (int i = 0; i < ctx->dxil_mod.num_sig_inputs; i++) {
       struct dxil_signature_record &input = ctx->dxil_mod.inputs[i];
+      struct dxil_psv_signature_element &psv_input = ctx->dxil_mod.psv_inputs[i];
       for (int e = 0; e < input.num_elements; e++) {
          struct dxil_signature_element &elem = input.elements[e];
          UINT write_mask = elem.mask
@@ -1138,7 +1158,7 @@ emit_dcl(struct ntd_context *ctx)
             if (ctx->mod.shader_kind == D3D10_SB_PIXEL_SHADER) {
                ctx->mod.shader.EmitPSInputDecl(
                   elem.reg, write_mask,
-                  D3D10_SB_INTERPOLATION_LINEAR // TODO?
+                  dxil_to_dxbc_interpolation_mode((dxil_interpolation_mode)psv_input.interpolation_mode)
                );
             } else {
                ctx->mod.shader.EmitInputDecl(D3D10_SB_OPERAND_TYPE_INPUT,
