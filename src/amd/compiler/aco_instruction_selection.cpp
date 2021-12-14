@@ -10738,6 +10738,29 @@ export_vs_varying(isel_context* ctx, int slot, bool is_pos, int* next_pos)
    ctx->block->instructions.emplace_back(std::move(exp));
 }
 
+static Temp
+emit_force_vrs_rates(isel_context* ctx, Builder& bld)
+{
+   /* The range is [-2, 1] in each direction. Values:
+    *   1: 2x coarser shading rate in that direction.
+    *   0: normal shading rate
+    *  -1: 2x finer shading rate (sample shading, not directional)
+    *  -2: 4x finer shading rate (sample shading, not directional)
+    *
+    * Sample shading can't go above 8 samples, so both numbers can't be -2
+    * at the same time.
+    */
+   Temp rates = bld.copy(bld.def(v1), Operand::c32((unsigned)ctx->options->force_vrs_rates));
+
+   /* If Pos.W != 1 (typical for non-GUI elements), use the forced shading rate. */
+   Temp cond = bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), Operand::c32(0x3f800000u),
+                        Operand(ctx->outputs.temps[VARYING_SLOT_POS + 3]));
+   Temp val = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1),
+                       bld.copy(bld.def(v1), Operand::zero()), rates, cond);
+
+   return val;
+}
+
 static void
 export_vs_psiz_layer_viewport_vrs(isel_context* ctx, int* next_pos,
                                   const radv_vs_output_info* outinfo)
@@ -10775,28 +10798,8 @@ export_vs_psiz_layer_viewport_vrs(isel_context* ctx, int* next_pos,
       exp->operands[1] = Operand(ctx->outputs.temps[VARYING_SLOT_PRIMITIVE_SHADING_RATE * 4u]);
       exp->enabled_mask |= 0x2;
    } else if (ctx->options->force_vrs_rates) {
-      /* Bits [2:3] = VRS rate X
-       * Bits [4:5] = VRS rate Y
-       *
-       * The range is [-2, 1]. Values:
-       *   1: 2x coarser shading rate in that direction.
-       *   0: normal shading rate
-       *  -1: 2x finer shading rate (sample shading, not directional)
-       *  -2: 4x finer shading rate (sample shading, not directional)
-       *
-       * Sample shading can't go above 8 samples, so both numbers can't be -2
-       * at the same time.
-       */
       Builder bld(ctx->program, ctx->block);
-      Temp rates = bld.copy(bld.def(v1), Operand::c32((unsigned)ctx->options->force_vrs_rates));
-
-      /* If Pos.W != 1 (typical for non-GUI elements), use 2x2 coarse shading. */
-      Temp cond = bld.vopc(aco_opcode::v_cmp_neq_f32, bld.def(bld.lm), Operand::c32(0x3f800000u),
-                           Operand(ctx->outputs.temps[VARYING_SLOT_POS + 3]));
-      rates = bld.vop2(aco_opcode::v_cndmask_b32, bld.def(v1),
-                       bld.copy(bld.def(v1), Operand::zero()), rates, cond);
-
-      exp->operands[1] = Operand(rates);
+      exp->operands[1] = Operand(emit_force_vrs_rates(ctx, bld));
       exp->enabled_mask |= 0x2;
    }
 
