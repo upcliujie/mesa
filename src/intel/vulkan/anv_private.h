@@ -3180,7 +3180,6 @@ struct anv_cmd_buffer {
    struct anv_state_stream                      general_state_stream;
 
    VkCommandBufferUsageFlags                    usage_flags;
-   VkCommandBufferLevel                         level;
 
    struct anv_query_pool                       *perf_query_pool;
 
