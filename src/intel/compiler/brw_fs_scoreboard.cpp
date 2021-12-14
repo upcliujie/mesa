@@ -494,7 +494,7 @@ namespace {
    };
 
    const dependency dependency::done =
-        dependency(TGL_REGDIST_SRC, ordered_address(), false);
+        dependency(TGL_REGDIST_DST, ordered_address(), false);
 
    /**
     * Return whether \p dep contains any dependency information.
@@ -541,7 +541,25 @@ namespace {
    dependency
    shadow(const dependency &dep0, const dependency &dep1)
    {
-      return is_valid(dep1) ? dep1 : dep0;
+      if (dep0.ordered == TGL_REGDIST_SRC &&
+          is_valid(dep1) && !(dep1.unordered & TGL_SBID_DST) &&
+                            !(dep1.ordered & TGL_REGDIST_DST)) {
+         /* As an optimization (see dependency_for_read()),
+          * instructions with a RaR dependency don't synchronize
+          * against a previous in-order read, so we need to pass
+          * through both ordered dependencies instead of simply
+          * dropping the first one.
+          */
+         dependency dep = dep1;
+
+         dep.ordered |= dep0.ordered;
+         for (unsigned p = 0; p < IDX(TGL_PIPE_ALL); p++)
+               dep.jp.jp[p] = MAX2(dep.jp.jp[p], dep0.jp.jp[p]);
+
+         return dep;
+      } else {
+         return is_valid(dep1) ? dep1 : dep0;
+      }
    }
 
    /**
@@ -980,8 +998,10 @@ namespace {
                dependency(TGL_REGDIST_SRC, jp, exec_all) :
             dependency::done;
 
-         for (unsigned j = 0; j < regs_read(inst, i); j++)
-            sb.set(byte_offset(inst->src[i], REG_SIZE * j), rd_dep);
+         for (unsigned j = 0; j < regs_read(inst, i); j++) {
+            const fs_reg r = byte_offset(inst->src[i], REG_SIZE * j);
+            sb.set(r, shadow(sb.get(r), rd_dep));
+         }
       }
 
       if (inst->reads_accumulator_implicitly())
