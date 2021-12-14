@@ -271,6 +271,7 @@ struct iris_bo {
 #define BO_ALLOC_SMEM        (1<<2)
 #define BO_ALLOC_SCANOUT     (1<<3)
 #define BO_ALLOC_NO_SUBALLOC (1<<4)
+#define BO_ALLOC_EXPORTED    (1<<5)
 
 /**
  * Allocate a buffer object.
