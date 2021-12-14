@@ -1196,10 +1196,15 @@ emit_dcl(struct ntd_context *ctx)
             break;
 
          case DXIL_PROG_SEM_POSITION:
-            ctx->mod.shader.EmitPSInputSystemInterpretedValueDecl(
-               elem.reg, write_mask,
-               D3D10_SB_INTERPOLATION_LINEAR_NOPERSPECTIVE,
-               D3D10_SB_NAME_POSITION);
+            if (ctx->mod.shader_kind == D3D10_SB_PIXEL_SHADER) {
+               ctx->mod.shader.EmitPSInputSystemInterpretedValueDecl(
+                  elem.reg, write_mask,
+                  D3D10_SB_INTERPOLATION_LINEAR_NOPERSPECTIVE,
+                  D3D10_SB_NAME_POSITION);
+            } else {
+               ctx->mod.shader.EmitInputSystemInterpretedValueDecl(D3D10_SB_OPERAND_TYPE_INPUT,
+                  elem.reg, write_mask, D3D10_SB_NAME_POSITION);
+            }
             break;
 
          default:
