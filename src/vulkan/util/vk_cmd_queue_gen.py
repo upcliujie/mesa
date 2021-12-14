@@ -90,6 +90,14 @@ extern const char *vk_cmd_queue_type_names[];
 % if c.guard is not None:
 #ifdef ${c.guard}
 % endif
+#define ${to_enum_name(c.name)}_ARGS(cmd) \\
+% for p in c.params[1:]:
+% if loop.index > 0:
+, \\
+% endif
+cmd->u.${to_struct_field_name(c.name)}.${to_field_name(p.name)}\\
+% endfor
+
 struct ${to_struct_name(c.name)} {
 % for p in c.params[1:]:
    ${to_field_decl(p.decl)};
