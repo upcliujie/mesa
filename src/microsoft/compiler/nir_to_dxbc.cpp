@@ -1050,10 +1050,7 @@ emit_cf_list(struct ntd_context *ctx, struct exec_list *list)
 
 static unsigned get_dword_size(const struct glsl_type *type)
 {
-   if (glsl_type_is_array(type)) {
-      type = glsl_without_array(type);
-   }
-   return DIV_ROUND_UP(glsl_get_explicit_size(type, false), 16);
+   return glsl_count_attribute_slots(type, false);
 }
 
 static D3D10_SB_PRIMITIVE
