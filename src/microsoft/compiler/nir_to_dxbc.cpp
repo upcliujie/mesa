@@ -1040,6 +1040,7 @@ emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
       return false;
 
    if (else_block) {
+      ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_ELSE));
       if (!emit_cf_list(ctx, &if_stmt->else_list))
          return false;
    }
