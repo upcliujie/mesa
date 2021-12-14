@@ -194,38 +194,104 @@ nir_dest_as_register(nir_dest dest, uint32_t write_mask)
 // temporary register value or a literal, based on the `ssa`-ness of it.
 static COperandBase
 nir_src_as_const_value_or_register(nir_src src, uint32_t num_write_components,
-                                   uint8_t swizzle[NIR_MAX_VEC_COMPONENTS])
+                                   uint8_t swizzle[NIR_MAX_VEC_COMPONENTS],
+                                   nir_alu_type type)
 {
    uint32_t num_components =
        std::min(num_write_components, nir_src_num_components(src));
 
    if (src.is_ssa) {
-      // TODO immediate operand type?
-      switch (num_components) {
-      case 1:
-         return COperand(
-             static_cast<float>(nir_src_comp_as_float(src, 0)));
+      assert(swizzle == nullptr ||
+         (nir_is_sequential_comp_swizzle(swizzle, num_components) &&
+          swizzle[0] == 0));
 
-      case 2:
-         return COperand(
-             static_cast<float>(nir_src_comp_as_float(src, 0)),
-             static_cast<float>(nir_src_comp_as_float(src, 1)));
+      switch (nir_alu_type_get_base_type(type)) {
+      case nir_type_float:
+         switch (num_components) {
+         case 1:
+            return COperand(
+               static_cast<float>(nir_src_comp_as_float(src, 0)));
 
-      case 3:
-         return COperand(
-             static_cast<float>(nir_src_comp_as_float(src, 0)),
-             static_cast<float>(nir_src_comp_as_float(src, 1)),
-             static_cast<float>(nir_src_comp_as_float(src, 2)), 0.0);
+         case 2:
+            return COperand(
+               static_cast<float>(nir_src_comp_as_float(src, 0)),
+               static_cast<float>(nir_src_comp_as_float(src, 1)), 0.0f, 0.0f);
 
-      case 4:
-         return COperand(
-             static_cast<float>(nir_src_comp_as_float(src, 0)),
-             static_cast<float>(nir_src_comp_as_float(src, 1)),
-             static_cast<float>(nir_src_comp_as_float(src, 2)),
-             static_cast<float>(nir_src_comp_as_float(src, 3)));
+         case 3:
+            return COperand(
+               static_cast<float>(nir_src_comp_as_float(src, 0)),
+               static_cast<float>(nir_src_comp_as_float(src, 1)),
+               static_cast<float>(nir_src_comp_as_float(src, 2)), 0.0);
 
+         case 4:
+            return COperand(
+               static_cast<float>(nir_src_comp_as_float(src, 0)),
+               static_cast<float>(nir_src_comp_as_float(src, 1)),
+               static_cast<float>(nir_src_comp_as_float(src, 2)),
+               static_cast<float>(nir_src_comp_as_float(src, 3)));
+
+         default:
+            unreachable("unhandled number of components");
+         }
+         break;
+      case nir_type_int:
+         switch (num_components) {
+         case 1:
+            return COperand(
+               static_cast<int>(nir_src_comp_as_int(src, 0)));
+
+         case 2:
+            return COperand(
+               static_cast<int>(nir_src_comp_as_int(src, 0)),
+               static_cast<int>(nir_src_comp_as_int(src, 1)), 0, 0);
+
+         case 3:
+            return COperand(
+               static_cast<int>(nir_src_comp_as_int(src, 0)),
+               static_cast<int>(nir_src_comp_as_int(src, 1)),
+               static_cast<int>(nir_src_comp_as_int(src, 2)), 0);
+
+         case 4:
+            return COperand(
+               static_cast<int>(nir_src_comp_as_int(src, 0)),
+               static_cast<int>(nir_src_comp_as_int(src, 1)),
+               static_cast<int>(nir_src_comp_as_int(src, 2)),
+               static_cast<int>(nir_src_comp_as_int(src, 3)));
+
+         default:
+            unreachable("unhandled number of components");
+         }
+         break;
+      case nir_type_uint:
+         switch (num_components) {
+         case 1:
+            return COperand(
+               static_cast<UINT>(nir_src_comp_as_uint(src, 0)));
+
+         case 2:
+            return COperand(
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 0))),
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 1))), 0, 0);
+
+         case 3:
+            return COperand(
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 0))),
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 1))),
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 2))), 0);
+
+         case 4:
+            return COperand(
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 0))),
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 1))),
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 2))),
+               static_cast<int>(static_cast<UINT>(nir_src_comp_as_uint(src, 3))));
+
+         default:
+            unreachable("unhandled number of components");
+         }
+         break;
       default:
-         unreachable("unhandled number of components");
+         unreachable("unexpected alu type for an immediate value");
       }
    } else {
       // nir doesn't ever have a direct load from an input to a usage, so in
@@ -277,10 +343,11 @@ count_write_components(uint32_t write_mask)
 }
 
 static COperandBase
-get_alu_src_as_const_value_or_register(nir_alu_instr *alu, nir_alu_src src)
+get_alu_src_as_const_value_or_register(nir_alu_instr *alu, int num_components, int src_index)
 {
-   return nir_src_as_const_value_or_register(src.src,
-      count_write_components(alu->dest.write_mask), src.swizzle);
+   return nir_src_as_const_value_or_register(alu->src[src_index].src,
+      num_components, alu->src[src_index].swizzle,
+      nir_op_infos[alu->op].input_types[src_index]);
 }
 
 static CInstruction
@@ -290,8 +357,7 @@ get_intr_1_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
        count_write_components(alu->dest.write_mask);
    COperandBase dst =
        nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   COperandBase a = nir_src_as_const_value_or_register(
-       alu->src[0].src, num_write_components, alu->src[0].swizzle);
+   COperandBase a = get_alu_src_as_const_value_or_register(alu, num_write_components, 0);
    return CInstruction(opcode, dst, a);
 }
 
@@ -302,10 +368,8 @@ get_intr_2_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
        count_write_components(alu->dest.write_mask);
    COperandBase dst =
        nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   COperandBase lhs = nir_src_as_const_value_or_register(
-       alu->src[0].src, num_write_components, alu->src[0].swizzle);
-   COperandBase rhs = nir_src_as_const_value_or_register(
-       alu->src[1].src, num_write_components, alu->src[1].swizzle);
+   COperandBase lhs = get_alu_src_as_const_value_or_register(alu, num_write_components, 0);
+   COperandBase rhs = get_alu_src_as_const_value_or_register(alu, num_write_components, 1);
    return CInstruction(opcode, dst, lhs, rhs);
 }
 
@@ -318,10 +382,8 @@ get_intr_dot_product(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
       4 : (alu->op == nir_op_fdot3 ? 3 : 2);
    COperandBase dst =
       nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   COperandBase lhs = nir_src_as_const_value_or_register(
-      alu->src[0].src, num_src_components, alu->src[0].swizzle);
-   COperandBase rhs = nir_src_as_const_value_or_register(
-      alu->src[1].src, num_src_components, alu->src[1].swizzle);
+   COperandBase lhs = get_alu_src_as_const_value_or_register(alu, num_src_components, 0);
+   COperandBase rhs = get_alu_src_as_const_value_or_register(alu, num_src_components, 1);
    return CInstruction(opcode, dst, lhs, rhs);
 }
 
@@ -332,12 +394,9 @@ get_intr_3_args(D3D10_SB_OPCODE_TYPE opcode, nir_alu_instr *alu)
        count_write_components(alu->dest.write_mask);
    COperandBase dst =
        nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-   COperandBase arg0 = nir_src_as_const_value_or_register(
-       alu->src[0].src, num_write_components, alu->src[0].swizzle);
-   COperandBase arg1 = nir_src_as_const_value_or_register(
-       alu->src[1].src, num_write_components, alu->src[1].swizzle);
-   COperandBase arg2 = nir_src_as_const_value_or_register(
-       alu->src[2].src, num_write_components, alu->src[2].swizzle);
+   COperandBase arg0 = get_alu_src_as_const_value_or_register(alu, num_write_components, 0);
+   COperandBase arg1 = get_alu_src_as_const_value_or_register(alu, num_write_components, 1);
+   COperandBase arg2 = get_alu_src_as_const_value_or_register(alu, num_write_components, 2);
    return CInstruction(opcode, dst, arg0, arg1, arg2);
 }
 
@@ -356,9 +415,7 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
          COperandDst dst(
              D3D10_SB_OPERAND_TYPE_TEMP, alu->dest.dest.reg.reg->index,
              (1 << chan) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
-         COperandBase src =
-             nir_src_as_const_value_or_register(alu->src[chan].src, 1,
-                                                alu->src[chan].swizzle);
+         COperandBase src = get_alu_src_as_const_value_or_register(alu, 1, chan);
          CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
          ctx->mod.shader.EmitInstruction(mov);
       }
@@ -487,11 +544,12 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    case nir_op_udiv:
    case nir_op_umod: {
       COperandBase dst0 = nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-      COperandBase dst1;
+      COperandBase dst1 = null_operand;
       if (alu->op == nir_op_umod)
          std::swap(dst0, dst1);
-      COperandBase src0 = get_alu_src_as_const_value_or_register(alu, alu->src[0]);
-      COperandBase src1 = get_alu_src_as_const_value_or_register(alu, alu->src[1]);
+      unsigned num_write_components = count_write_components(alu->dest.write_mask);
+      COperandBase src0 = get_alu_src_as_const_value_or_register(alu, num_write_components, 0);
+      COperandBase src1 = get_alu_src_as_const_value_or_register(alu, num_write_components, 1);
       ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_UDIV,
             dst0, dst1, src0, src1));
       return true;
@@ -570,8 +628,7 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           count_write_components(alu->dest.write_mask);
       COperandBase dst =
           nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-      COperandBase a = nir_src_as_const_value_or_register(
-          alu->src[0].src, num_write_components, alu->src[0].swizzle);
+      COperandBase a = get_alu_src_as_const_value_or_register(alu, num_write_components, 0);
       ctx->mod.shader.EmitInstruction(CInstruction(
           D3D10_SB_OPCODE_SINCOS, null_operand, dst, a));
       return true;
@@ -582,8 +639,7 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           count_write_components(alu->dest.write_mask);
       COperandBase dst =
           nir_dest_as_register(alu->dest.dest, alu->dest.write_mask);
-      COperandBase a = nir_src_as_const_value_or_register(
-          alu->src[0].src, num_write_components, alu->src[0].swizzle);
+      COperandBase a = get_alu_src_as_const_value_or_register(alu, num_write_components, 0);
       ctx->mod.shader.EmitInstruction(CInstruction(
           D3D10_SB_OPCODE_SINCOS, dst, null_operand, a));
       return true;
@@ -651,7 +707,7 @@ static bool
 emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    COperandBase src =
-       nir_src_as_const_value_or_register(intr->src[0], 4, nullptr);
+       nir_src_as_const_value_or_register(intr->src[0], 4, nullptr, nir_type_uint);
 
    assert(nir_src_is_const(intr->src[1]) || !intr->src[1].is_ssa);
    COperandDst dst = nir_src_is_const(intr->src[1]) ?
@@ -961,7 +1017,7 @@ static bool
 emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
 {
    COperandBase cond =
-       nir_src_as_const_value_or_register(if_stmt->condition, 4, nullptr);
+       nir_src_as_const_value_or_register(if_stmt->condition, 4, nullptr, nir_type_int);
    ctx->mod.shader.EmitInstruction(CInstruction(
        D3D10_SB_OPCODE_IF, cond,
        D3D10_SB_INSTRUCTION_TEST_NONZERO));
