@@ -501,6 +501,7 @@ static bool
 is_sample_shading(const VkPipelineMultisampleStateCreateInfo *ms_info)
 {
    return ms_info->sampleShadingEnable &&
+      ms_info->rasterizationSamples > 1 &&
       (ms_info->minSampleShading * ms_info->rasterizationSamples) > 1;
 }
 
