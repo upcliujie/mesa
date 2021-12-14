@@ -461,7 +461,7 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    VkResult result =
-      vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level);
+      vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level, &pool->alloc);
    if (result != VK_SUCCESS) {
       vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
       return result;
@@ -4369,7 +4369,7 @@ radv_AllocateCommandBuffers(VkDevice _device, const VkCommandBufferAllocateInfo 
          result = radv_reset_cmd_buffer(cmd_buffer);
          vk_command_buffer_finish(&cmd_buffer->vk);
          VkResult init_result =
-            vk_command_buffer_init(&cmd_buffer->vk, &device->vk, pAllocateInfo->level);
+            vk_command_buffer_init(&cmd_buffer->vk, &device->vk, pAllocateInfo->level, &pool->alloc);
          if (init_result != VK_SUCCESS)
             result = init_result;
 

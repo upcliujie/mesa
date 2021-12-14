@@ -124,7 +124,7 @@ cmd_buffer_create(struct v3dv_device *device,
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    VkResult result;
-   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level);
+   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level, &pool->alloc);
    if (result != VK_SUCCESS) {
       vk_free2(&device->vk.alloc, &pool->alloc, cmd_buffer);
       return result;
