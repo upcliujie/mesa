@@ -107,11 +107,32 @@ bi_analyze_ranges(bi_context *ctx)
 static void
 bi_pick_ubo(struct panfrost_ubo_push *push, struct bi_ubo_analysis *analysis)
 {
+        /* When IDVS is used, the push analysis runs for each variant, first
+         * for position shading and second for varying shading. On Bifrost, the
+         * same push buffer is used for both position and varying shading. We
+         * don't want to push a uniform twice if it is used in both position
+         * and varying shaders, so we first iterate over what was already
+         * pushed and mark it as pushed to be ignored in our analysis.
+         */
+        for (unsigned i = 0; i < push->count; ++i) {
+                unsigned ubo = push->words[i].ubo;
+                unsigned offset = push->words[i].offset;
+
+                assert(ubo < analysis->nr_blocks);
+                assert((offset & 3) == 0);
+                assert((offset / 4) < MAX_UBO_WORDS);
+
+                BITSET_SET(analysis->blocks[ubo].pushed, offset / 4);
+        }
+
         for (signed ubo = analysis->nr_blocks - 1; ubo >= 0; --ubo) {
                 struct bi_ubo_block *block = &analysis->blocks[ubo];
 
                 for (unsigned r = 0; r < MAX_UBO_WORDS; ++r) {
                         if (!BITSET_TEST(block->accessed, r))
+                                continue;
+
+                        if (BITSET_TEST(block->pushed, r))
                                 continue;
 
                         push->words[push->count++] = (struct panfrost_ubo_word) {
