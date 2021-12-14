@@ -30,7 +30,10 @@
 static bool
 is_dest_live(const nir_dest *dest, BITSET_WORD *defs_live)
 {
-   return !dest->is_ssa || BITSET_TEST(defs_live, dest->ssa.index);
+   if (dest->is_ssa)
+      return BITSET_TEST(defs_live, dest->ssa.index);
+   else
+      return !list_is_empty(&dest->reg.reg->uses) || !list_is_empty(&dest->reg.reg->if_uses);
 }
 
 static bool
