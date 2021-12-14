@@ -654,13 +654,51 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 static bool
 emit_load_input(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
-   COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
-                                    //   nir_src_as_uint(intr->src[0]) // TODO
-                                    //   is `base` the input we care about?
-                                    nir_intrinsic_base(intr));
+   assert(nir_src_is_const(intr->src[0]) || !intr->src[0].is_ssa);
+   COperand4 src = nir_src_is_const(intr->src[0]) ?
+      COperand4(D3D10_SB_OPERAND_TYPE_INPUT,
+         nir_intrinsic_base(intr) + nir_src_as_uint(intr->src[0])) :
+      COperand4(D3D10_SB_OPERAND_TYPE_INPUT, nir_intrinsic_base(intr),
+         D3D10_SB_OPERAND_TYPE_TEMP, intr->src[0].reg.reg->index, D3D10_SB_4_COMPONENT_R);
 
    COperandBase dst =
        nir_dest_as_register(intr->dest, 0b1111);
+
+   CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
+   ctx->mod.shader.EmitInstruction(mov);
+
+   return true;
+}
+
+static COperandBase
+get_per_vertex_source(nir_intrinsic_instr *intr)
+{
+   assert(nir_src_is_const(intr->src[0]) || !intr->src[0].is_ssa);
+   assert(nir_src_is_const(intr->src[1]) || !intr->src[1].is_ssa);
+
+   bool is_indirect_0 = !nir_src_is_const(intr->src[0]);
+   bool is_indirect_1 = !nir_src_is_const(intr->src[1]);
+   return COperand2D(D3D10_SB_OPERAND_TYPE_INPUT,
+      is_indirect_0, is_indirect_1,
+      0, // 0-based vertex ID
+      nir_intrinsic_base(intr),
+      D3D10_SB_OPERAND_TYPE_TEMP,
+      is_indirect_0 ? intr->src[0].reg.reg->index : 0,
+      0, // Not an indexable temp, doesn't matter
+      D3D10_SB_4_COMPONENT_R,
+      D3D10_SB_OPERAND_TYPE_TEMP,
+      is_indirect_1 ? intr->src[0].reg.reg->index : 0,
+      0,
+      D3D10_SB_4_COMPONENT_R);
+}
+
+static bool
+emit_load_per_vertex_input(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   COperandBase src = get_per_vertex_source(intr);
+
+   COperandBase dst =
+      nir_dest_as_register(intr->dest, 0b1111);
 
    CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
    ctx->mod.shader.EmitInstruction(mov);
@@ -791,6 +829,8 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    switch (intr->intrinsic) {
    case nir_intrinsic_load_input:
       return emit_load_input(ctx, intr);
+   case nir_intrinsic_load_per_vertex_input:
+      return emit_load_per_vertex_input(ctx, intr);
    case nir_intrinsic_store_output:
       return emit_store_output(ctx, intr);
 
@@ -807,6 +847,15 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_ubo_dxil(ctx, intr);
    case nir_intrinsic_load_ubo:
       return emit_load_ubo(ctx, intr);
+
+   case nir_intrinsic_end_primitive:
+   case nir_intrinsic_emit_vertex: {
+      COperand src(D3D11_SB_OPERAND_TYPE_STREAM, nir_intrinsic_stream_id(intr));
+      ctx->mod.shader.EmitInstruction(CInstruction(
+         intr->intrinsic == nir_intrinsic_emit_vertex ?
+            D3D11_SB_OPCODE_EMIT_STREAM : D3D11_SB_OPCODE_CUT_STREAM, src));
+      return true;
+   }
 
    default:
       NIR_INSTR_UNSUPPORTED(&intr->instr);
@@ -1007,6 +1056,42 @@ static unsigned get_dword_size(const struct glsl_type *type)
    return DIV_ROUND_UP(glsl_get_explicit_size(type, false), 16);
 }
 
+static D3D10_SB_PRIMITIVE
+dxbc_get_input_primitive(unsigned primitive)
+{
+   switch (primitive) {
+   case GL_POINTS:
+      return D3D10_SB_PRIMITIVE_POINT;
+   case GL_LINES:
+      return D3D10_SB_PRIMITIVE_LINE;
+   case GL_LINES_ADJACENCY:
+      return D3D10_SB_PRIMITIVE_LINE_ADJ;
+   case GL_TRIANGLES:
+      return D3D10_SB_PRIMITIVE_TRIANGLE;
+   case GL_TRIANGLES_ADJACENCY:
+      return D3D10_SB_PRIMITIVE_TRIANGLE_ADJ;
+   default:
+      unreachable("unhandled primitive topology");
+   }
+}
+
+static D3D10_SB_PRIMITIVE_TOPOLOGY
+dxbc_get_primitive_topology(unsigned topology)
+{
+   switch (topology) {
+   case GL_POINTS:
+      return D3D10_SB_PRIMITIVE_TOPOLOGY_POINTLIST;
+   case GL_LINES:
+      return D3D10_SB_PRIMITIVE_TOPOLOGY_LINELIST;
+   case GL_LINE_STRIP:
+      return D3D10_SB_PRIMITIVE_TOPOLOGY_LINESTRIP;
+   case GL_TRIANGLE_STRIP:
+      return D3D10_SB_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+   default:
+      unreachable("unhandled primitive topology");
+   }
+}
+
 static bool
 emit_dcl(struct ntd_context *ctx)
 {
@@ -1060,6 +1145,28 @@ emit_dcl(struct ntd_context *ctx)
       }
    }
 
+   uint32_t num_temps = 0;
+   nir_foreach_register(reg,
+      &nir_shader_get_entrypoint(ctx->shader)->registers)
+   {
+      num_temps = std::max(num_temps, reg->index + 1);
+   }
+   if (num_temps > 0) {
+      ctx->mod.shader.EmitTempsDecl(num_temps);
+   }
+
+   if (ctx->mod.shader_kind == D3D10_SB_GEOMETRY_SHADER) {
+      ctx->mod.shader.EmitGSInputPrimitiveDecl(dxbc_get_input_primitive(ctx->shader->info.gs.input_primitive));
+
+      for (unsigned i = 0; i < 4; ++i) {
+         if (ctx->shader->info.gs.active_stream_mask & (1 << i)) {
+            ctx->mod.shader.EmitStreamDecl(i);
+         }
+      }
+
+      ctx->mod.shader.EmitGSOutputTopologyDecl(dxbc_get_primitive_topology(ctx->shader->info.gs.output_primitive));
+   }
+
    for (int i = 0; i < ctx->dxil_mod.num_sig_outputs; i++) {
       struct dxil_signature_record &output = ctx->dxil_mod.outputs[i];
       for (int e = 0; e < output.num_elements; e++) {
@@ -1090,14 +1197,8 @@ emit_dcl(struct ntd_context *ctx)
       }
    }
 
-   uint32_t num_temps = 0;
-   nir_foreach_register(reg,
-                        &nir_shader_get_entrypoint(ctx->shader)->registers)
-   {
-      num_temps = std::max(num_temps, reg->index + 1);
-   }
-   if (num_temps > 0) {
-      ctx->mod.shader.EmitTempsDecl(num_temps);
+   if (ctx->mod.shader_kind == D3D10_SB_GEOMETRY_SHADER) {
+      ctx->mod.shader.EmitGSMaxOutputVertexCountDecl(ctx->shader->info.gs.vertices_out);
    }
 
    return true;

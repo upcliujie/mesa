@@ -1676,7 +1676,7 @@ public:
         m_ExtendedOpCodeCount = 0;   
     }
     CInstruction(D3D10_SB_OPCODE_TYPE OpCode, COperandBase& Operand0,
-                 D3D10_SB_INSTRUCTION_TEST_BOOLEAN Test)
+                 D3D10_SB_INSTRUCTION_TEST_BOOLEAN Test = D3D10_SB_INSTRUCTION_TEST_ZERO)
     {
         Clear();
         m_OpCode = OpCode;
