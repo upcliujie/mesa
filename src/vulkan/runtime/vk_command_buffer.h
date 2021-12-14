@@ -25,6 +25,7 @@
 #define VK_COMMAND_BUFFER_H
 
 #include "vk_object.h"
+#include "vk_cmd_queue.h"
 #include "util/u_dynarray.h"
 
 #ifdef __cplusplus
@@ -35,6 +36,8 @@ struct vk_command_buffer {
    struct vk_object_base base;
 
    VkCommandBufferLevel level;
+   struct vk_cmd_queue queue;
+
    /**
     * VK_EXT_debug_utils
     *
@@ -82,7 +85,8 @@ VK_DEFINE_HANDLE_CASTS(vk_command_buffer, base, VkCommandBuffer,
 VkResult MUST_CHECK
 vk_command_buffer_init(struct vk_command_buffer *command_buffer,
                        struct vk_device *device,
-                       VkCommandBufferLevel level);
+                       VkCommandBufferLevel level,
+                       VkAllocationCallbacks *pool_alloc);
 
 void
 vk_command_buffer_reset(struct vk_command_buffer *command_buffer);
