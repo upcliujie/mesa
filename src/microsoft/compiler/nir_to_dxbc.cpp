@@ -140,11 +140,6 @@ dxbc_get_nir_compiler_options(void)
 }
 
 struct DxbcModule {
-   struct dxil_signature_record inputs[DXIL_SHADER_MAX_IO_ROWS];
-   struct dxil_signature_record outputs[DXIL_SHADER_MAX_IO_ROWS];
-
-   struct dxil_features feats;
-
    D3D10_SB_TOKENIZED_PROGRAM_TYPE shader_kind;
    uint32_t major_version;
    uint32_t minor_version;
@@ -946,9 +941,6 @@ emit_instr(struct ntd_context *ctx, struct nir_instr *instr)
 static bool
 emit_block(struct ntd_context *ctx, struct nir_block *block)
 {
-   // assert(block->index < ctx->mod.num_basic_block_ids);
-   // ctx->mod.basic_block_ids[block->index] = ctx->mod.curr_block;
-
    nir_foreach_instr(instr, block)
    {
       TRACE_CONVERSION(instr);
@@ -988,25 +980,11 @@ emit_if(struct ntd_context *ctx, struct nir_if *if_stmt)
       else_succ = nir_if_last_else_block(if_stmt)->successors[0]->index;
    }
 
-   // if (!emit_cond_branch(ctx, cond, then_block->index,
-   //                       else_block ? else_block->index : then_succ))
-   //    return false;
-
-   /* handle then-block */
-   if (!emit_cf_list(ctx, &if_stmt->then_list)
-       // ||
-       // (!nir_block_ends_in_jump(nir_if_last_then_block(if_stmt)) &&
-       // !emit_branch(ctx, then_succ))
-   )
+   if (!emit_cf_list(ctx, &if_stmt->then_list))
       return false;
 
    if (else_block) {
-      /* handle else-block */
-      if (!emit_cf_list(ctx, &if_stmt->else_list)
-          // ||
-          // (!nir_block_ends_in_jump(nir_if_last_else_block(if_stmt)) &&
-          // !emit_branch(ctx, else_succ))
-      )
+      if (!emit_cf_list(ctx, &if_stmt->else_list))
          return false;
    }
 
@@ -1026,14 +1004,8 @@ emit_loop(struct ntd_context *ctx, nir_loop *loop)
    ctx->mod.shader.EmitInstruction(
        CInstruction(D3D10_SB_OPCODE_LOOP));
 
-   // if (!emit_branch(ctx, first_block->index))
-   //    return false;
-
    if (!emit_cf_list(ctx, &loop->body))
       return false;
-
-   // if (!emit_branch(ctx, first_block->index))
-   //    return false;
 
    ctx->mod.shader.EmitInstruction(
        CInstruction(D3D10_SB_OPCODE_ENDLOOP));
@@ -1209,8 +1181,6 @@ emit_dcl(struct ntd_context *ctx)
          UINT write_mask = elem.mask
                            << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
 
-         // elem.system_value is `enum dxil_prog_sig_semantic`
-         // https://gitlab.freedesktop.org/mesa/mesa/blob/4a3395f35aeeb90f4613922dfe761dae62572f4b/src/microsoft/compiler/dxil_signature.c#L405
          enum dxil_prog_sig_semantic sem =
              static_cast<enum dxil_prog_sig_semantic>(elem.system_value);
          switch (sem) {
