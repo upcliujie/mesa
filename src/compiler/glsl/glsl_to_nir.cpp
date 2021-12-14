@@ -468,7 +468,7 @@ nir_visitor::visit(ir_variable *ir)
    var->data.sample = ir->data.sample;
    var->data.patch = ir->data.patch;
    var->data.how_declared = get_nir_how_declared(ir->data.how_declared);
-   var->data.invariant = ir->data.invariant;
+   var->data.invariant = ir->data.invariant || ir->data.precise;
    var->data.location = ir->data.location;
    var->data.stream = ir->data.stream;
    if (ir->data.stream & (1u << 31))
