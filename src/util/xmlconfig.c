@@ -59,21 +59,12 @@ static inline void regfree(regex_t* r) {}
 #include "strndup.h"
 #include "u_process.h"
 #include "os_file.h"
+#include "util/log.h"
 
 /* For systems like Hurd */
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-
-static bool
-be_verbose(void)
-{
-   const char *s = getenv("MESA_DEBUG");
-   if (!s)
-      return true;
-
-   return strstr(s, "silent") == NULL;
-}
 
 /** \brief Locale-independent integer parser.
  *
@@ -388,11 +379,9 @@ driParseOptionInfo(driOptionCache *info,
          if (parseValue(&v, opt->info.type, envVal) &&
              checkValue(&v, optinfo)) {
             /* don't use XML_WARNING, we want the user to see this! */
-            if (be_verbose()) {
-               fprintf(stderr,
-                       "ATTENTION: default value of option %s overridden by environment.\n",
-                       name);
-            }
+            mesa_logw("ATTENTION: default value of option %s overridden by environment.\n",
+                      name);
+
             *optval = v;
          } else {
             fprintf(stderr, "illegal environment value for %s: \"%s\".  Ignoring.\n",
@@ -815,11 +804,8 @@ parseOptConfAttr(struct OptConfData *data, const char **attr)
          return;
       else if (getenv(cache->info[opt].name)) {
          /* don't use XML_WARNING, we want the user to see this! */
-         if (be_verbose()) {
-            fprintf(stderr,
-                    "ATTENTION: option value of option %s ignored.\n",
-                    cache->info[opt].name);
-         }
+         mesa_logw("ATTENTION: option value of option %s ignored.\n",
+                   cache->info[opt].name);
       } else if (!parseValue(&cache->values[opt], cache->info[opt].type, value))
          XML_WARNING("illegal option value: %s.", value);
    }

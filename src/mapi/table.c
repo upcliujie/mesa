@@ -45,9 +45,7 @@ static bool log_noop;
 
 static void check_debug_env(void)
 {
-   const char *debug = getenv("MESA_DEBUG");
-   if (!debug)
-      debug = getenv("LIBGL_DEBUG");
+   const char *debug = getenv("LIBGL_DEBUG");
    if (debug && strcmp(debug, "silent") != 0)
       log_noop = true;
 }

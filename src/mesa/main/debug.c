@@ -188,7 +188,6 @@ set_debug_flags(const char *str)
       GLbitfield flag;
    };
    static const struct option opts[] = {
-      { "silent", DEBUG_SILENT }, /* turn off debug messages */
       { "flush", DEBUG_ALWAYS_FLUSH }, /* flush after each drawing command */
       { "incomplete_tex", DEBUG_INCOMPLETE_TEXTURE },
       { "incomplete_fbo", DEBUG_INCOMPLETE_FBO },

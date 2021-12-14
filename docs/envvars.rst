@@ -52,8 +52,6 @@ Core Mesa environment variables
    following comma-separated list of named flags, which adds extra
    behavior to just set :envvar:`MESA_DEBUG` to ``1``:
 
-   ``silent``
-      turn off debug messages. Only useful for debug builds.
    ``flush``
       flush after each drawing command
    ``incomplete_tex``
@@ -68,6 +66,14 @@ Core Mesa environment variables
 :envvar:`MESA_LOG_FILE`
    specifies a file name for logging all errors, warnings, etc., rather
    than stderr
+:envvar:`MESA_LOG`
+   a comma-separated list of enabled log levels. By default, only `error` is
+   enabled. Accepts the following flags:
+
+   ``info``
+   ``debug``
+   ``warning``
+   ``error``
 :envvar:`MESA_TEX_PROG`
    if set, implement conventional texture environment modes with fragment
    programs (intended for developers only)

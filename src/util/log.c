@@ -31,6 +31,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "util/detect_os.h"
 #include "util/log.h"
 #include "util/ralloc.h"
@@ -65,6 +66,55 @@ level_to_str(enum mesa_log_level l)
 }
 #endif
 
+FILE *
+mesa_get_log_file(void)
+{
+   static FILE *log_file = NULL;
+   if (!log_file) {
+      const char *log_file_path = getenv("MESA_LOG_FILE");
+      if (log_file_path)
+         log_file = fopen(log_file_path, "a");
+      else
+         log_file = stderr;
+   }
+
+   return log_file;
+}
+
+bool
+mesa_would_log(enum mesa_log_level l)
+{
+   static int log_level = -1;
+
+   if (log_level == -1) {
+      log_level = 0x0;
+      const char *level_env = getenv("MESA_LOG");
+      if (!level_env) {
+         /* Enable error by default */
+         log_level |= MESA_LOG_ERROR;
+         return l == MESA_LOG_ERROR;
+      }
+
+      struct log_levels {
+         const char *name;
+         enum mesa_log_level flag;
+      };
+      static const struct log_levels levels[] = {
+         { "info", MESA_LOG_INFO },
+         { "debug", MESA_LOG_DEBUG },
+         { "warning", MESA_LOG_WARN },
+         { "error", MESA_LOG_ERROR },
+      };
+
+      for (int i = 0; i < ARRAY_SIZE(levels); i++) {
+         if (strstr(level_env, levels[i].name))
+            log_level |= levels[i].flag;
+      }
+   }
+
+   return log_level & l;
+}
+
 void
 mesa_log(enum mesa_log_level level, const char *tag, const char *format, ...)
 {
@@ -79,17 +129,22 @@ void
 mesa_log_v(enum mesa_log_level level, const char *tag, const char *format,
             va_list va)
 {
+   if (!mesa_would_log(level))
+      return;
+
 #ifdef ANDROID
    __android_log_vprint(level_to_android(level), tag, format, va);
 #else
+   FILE *log_file = mesa_get_log_file();
 #if !DETECT_OS_WINDOWS
-   flockfile(stderr);
+   flockfile(log_file);
 #endif
-   fprintf(stderr, "%s: %s: ", tag, level_to_str(level));
-   vfprintf(stderr, format, va);
-   fprintf(stderr, "\n");
+   fprintf(log_file, "%s: %s: ", tag, level_to_str(level));
+   vfprintf(log_file, format, va);
+   fprintf(log_file, "\n");
+   fflush(log_file);
 #if !DETECT_OS_WINDOWS
-   funlockfile(stderr);
+   funlockfile(log_file);
 #endif
 #endif
 }

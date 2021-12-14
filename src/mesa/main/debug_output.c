@@ -35,6 +35,7 @@
 #include "util/hash_table.h"
 #include "util/list.h"
 #include "util/u_memory.h"
+#include "util/log.h"
 
 
 static GLuint PrevDynamicID = 0;
@@ -626,7 +627,7 @@ debug_log_message(struct gl_debug_state *debug,
    struct gl_debug_message *emptySlot;
 
    if (debug->LogToStderr) {
-      _mesa_log("Mesa debug output: %.*s\n", len, buf);
+      mesa_logd("Mesa debug output: %.*s\n", len, buf);
    }
 
    assert(len < MAX_DEBUG_MESSAGE_LENGTH);
