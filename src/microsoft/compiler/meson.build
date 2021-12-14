@@ -73,12 +73,12 @@ endif
 
 has_wdk = cpp.has_header('d3d12tokenizedprogramformat.hpp')
 if has_wdk
-  d3d12translationlayer = static_library(
-    'D3D12TranslationLayer',
+  dxbc_shaderbinary = static_library(
+    'ShaderBinary',
     files(
-      'D3D12TranslationLayer/src/ShaderBinary.cpp',
+      'ShaderBinary/src/ShaderBinary.cpp',
     ),
-    include_directories : 'D3D12TranslationLayer/include',
+    include_directories : 'ShaderBinary/include',
     dependencies : [idep_mesautil],
     override_options : ['cpp_std=c++17'],
   )
@@ -92,9 +92,9 @@ if has_wdk
     [files_libdxbc_compiler, sha1_h],
     include_directories : [
       inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_gallium,
-      'D3D12TranslationLayer/include',
+      'ShaderBinary/include',
       ],
-    link_with : d3d12translationlayer,
+    link_with : dxbc_shaderbinary,
     dependencies: [
       idep_nir_headers,
       idep_libdxil_compiler, # TODO: split out shared functions into a separate dependency

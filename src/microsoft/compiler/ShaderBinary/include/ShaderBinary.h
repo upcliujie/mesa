@@ -1,14 +1,74 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// ShaderBinary.h                                                          //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Vertex shader binary format parsing and encoding.                         //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
-#ifndef _SHADERBINARY_H
-#define _SHADERBINARY_H
+#pragma once
 
 #include <windows.h>
 #include <strsafe.h>
 #include <d3d12tokenizedprogramformat.hpp>
 
 typedef UINT CShaderToken;
+
+
+//*****************************************************************************
+//
+// GetNumVertices
+//
+// Returns the number of vertices in a complete primitive
+//
+//*****************************************************************************
+inline UINT GetNumVertices( D3D10_SB_PRIMITIVE PrimType )
+{
+    switch( PrimType )
+    {
+    case D3D10_SB_PRIMITIVE_POINT: return 1;
+    case D3D10_SB_PRIMITIVE_LINE: return 2;
+    case D3D10_SB_PRIMITIVE_TRIANGLE: return 3;
+    case D3D10_SB_PRIMITIVE_LINE_ADJ: return 4;
+    case D3D10_SB_PRIMITIVE_TRIANGLE_ADJ: return 6;
+    case D3D11_SB_PRIMITIVE_1_CONTROL_POINT_PATCH: return 1;
+    case D3D11_SB_PRIMITIVE_2_CONTROL_POINT_PATCH: return 2;
+    case D3D11_SB_PRIMITIVE_3_CONTROL_POINT_PATCH: return 3;
+    case D3D11_SB_PRIMITIVE_4_CONTROL_POINT_PATCH: return 4;
+    case D3D11_SB_PRIMITIVE_5_CONTROL_POINT_PATCH: return 5;
+    case D3D11_SB_PRIMITIVE_6_CONTROL_POINT_PATCH: return 6;
+    case D3D11_SB_PRIMITIVE_7_CONTROL_POINT_PATCH: return 7;
+    case D3D11_SB_PRIMITIVE_8_CONTROL_POINT_PATCH: return 8;
+    case D3D11_SB_PRIMITIVE_9_CONTROL_POINT_PATCH: return 9;
+    case D3D11_SB_PRIMITIVE_10_CONTROL_POINT_PATCH: return 10;
+    case D3D11_SB_PRIMITIVE_11_CONTROL_POINT_PATCH: return 11;
+    case D3D11_SB_PRIMITIVE_12_CONTROL_POINT_PATCH: return 12;
+    case D3D11_SB_PRIMITIVE_13_CONTROL_POINT_PATCH: return 13;
+    case D3D11_SB_PRIMITIVE_14_CONTROL_POINT_PATCH: return 14;
+    case D3D11_SB_PRIMITIVE_15_CONTROL_POINT_PATCH: return 15;
+    case D3D11_SB_PRIMITIVE_16_CONTROL_POINT_PATCH: return 16;
+    case D3D11_SB_PRIMITIVE_17_CONTROL_POINT_PATCH: return 17;
+    case D3D11_SB_PRIMITIVE_18_CONTROL_POINT_PATCH: return 18;
+    case D3D11_SB_PRIMITIVE_19_CONTROL_POINT_PATCH: return 19;
+    case D3D11_SB_PRIMITIVE_20_CONTROL_POINT_PATCH: return 20;
+    case D3D11_SB_PRIMITIVE_21_CONTROL_POINT_PATCH: return 21;
+    case D3D11_SB_PRIMITIVE_22_CONTROL_POINT_PATCH: return 22;
+    case D3D11_SB_PRIMITIVE_23_CONTROL_POINT_PATCH: return 23;
+    case D3D11_SB_PRIMITIVE_24_CONTROL_POINT_PATCH: return 24;
+    case D3D11_SB_PRIMITIVE_25_CONTROL_POINT_PATCH: return 25;
+    case D3D11_SB_PRIMITIVE_26_CONTROL_POINT_PATCH: return 26;
+    case D3D11_SB_PRIMITIVE_27_CONTROL_POINT_PATCH: return 27;
+    case D3D11_SB_PRIMITIVE_28_CONTROL_POINT_PATCH: return 28;
+    case D3D11_SB_PRIMITIVE_29_CONTROL_POINT_PATCH: return 29;
+    case D3D11_SB_PRIMITIVE_30_CONTROL_POINT_PATCH: return 30;
+    case D3D11_SB_PRIMITIVE_31_CONTROL_POINT_PATCH: return 31;
+    case D3D11_SB_PRIMITIVE_32_CONTROL_POINT_PATCH: return 32;
+    default: return 0;
+    }
+}
 
 
 /*==========================================================================;
@@ -55,9 +115,8 @@ struct CInstructionInfo
         m_NumOperands = NumOperands;
         m_InPrecisionFromOutMask = InPrecisionFromOutMask;
 
-#if !MODERN_FLAG
         StringCchCopyA(m_Name, sizeof(m_Name), Name);
-#endif
+
         m_OpClass = OpClass;
     }
     
@@ -84,7 +143,7 @@ void InitInstructionInfo();
 class COperandIndex
 {
 public:
-    //COperandIndex() {}
+    COperandIndex() : m_bExtendedOperand(FALSE) {}
     // Value for the immediate index type
     union
     {
@@ -99,6 +158,7 @@ public:
 
     BOOL                                     m_bExtendedOperand;
     D3D11_SB_OPERAND_MIN_PRECISION           m_MinPrecision;
+    BOOL                                     m_Nonuniform;
     D3D10_SB_EXTENDED_OPERAND_TYPE           m_ExtendedOperandType;
 
     // First index of the relative register
@@ -115,6 +175,26 @@ public:
         UINT        m_RelIndexA1[2];
         INT64       m_RelIndex641;
     };
+
+    void SetMinPrecision(D3D11_SB_OPERAND_MIN_PRECISION MinPrec)
+    {
+        m_MinPrecision = MinPrec;
+        if( MinPrec != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
+        {
+            m_bExtendedOperand = true;
+            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
+        }
+    }
+
+    void SetNonuniformIndex(bool bNonuniform = false)
+    {
+        m_Nonuniform = bNonuniform;
+        if(bNonuniform)
+        {
+            m_bExtendedOperand = true;
+            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER;
+        }
+    }
 };
 
 
@@ -185,7 +265,66 @@ public:
             m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // reusing same extended operand token as modifiers.
         }
     }
+    void SetNonuniform(bool bNonuniform = false)
+    {
+        m_Nonuniform = bNonuniform;
+        if(bNonuniform)
+        {
+            m_bExtendedOperand = true;
+            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER;
+        }
+    }
     D3D10_SB_OPERAND_MODIFIER Modifier() const {return m_Modifier;}
+    void SetSwizzle(BYTE SwizzleX=D3D10_SB_4_COMPONENT_X, 
+                    BYTE SwizzleY=D3D10_SB_4_COMPONENT_Y, 
+                    BYTE SwizzleZ=D3D10_SB_4_COMPONENT_Z, 
+                    BYTE SwizzleW=D3D10_SB_4_COMPONENT_W)
+    {
+        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
+        m_Swizzle[0] = SwizzleX;
+        m_Swizzle[1] = SwizzleY;
+        m_Swizzle[2] = SwizzleZ;
+        m_Swizzle[3] = SwizzleW;
+    }
+    void SelectComponent(D3D10_SB_4_COMPONENT_NAME ComponentName=D3D10_SB_4_COMPONENT_X)
+    {
+        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SELECT_1_MODE;
+        m_ComponentName = ComponentName;
+    }
+    void SetMask(UINT Mask=D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL)
+    {
+        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
+        m_WriteMask = Mask;
+    }
+    void SetIndex(UINT Dim, UINT Imm32)
+    {
+        m_IndexType[Dim] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
+        m_Index[Dim].m_RegIndex = Imm32;
+    }
+    void SetIndex(  UINT Dim, 
+                    UINT Offset, 
+                    D3D10_SB_OPERAND_TYPE RelRegType, 
+                    UINT RelRegIndex0, 
+                    UINT RelRegIndex1,
+                    D3D10_SB_4_COMPONENT_NAME RelComponentName,
+                    D3D11_SB_OPERAND_MIN_PRECISION RelRegMinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT)
+    {
+        m_IndexType[Dim] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
+        if (Offset == 0)
+            m_IndexType[Dim] = D3D10_SB_OPERAND_INDEX_RELATIVE;
+        else
+            m_IndexType[Dim] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
+        m_Index[Dim].m_RegIndex = Offset;                   // immediate offset, such as the 3 in cb0[x1[2].x + 3] or cb0[r1.x + 3]
+        m_Index[Dim].m_RelRegType = RelRegType;
+        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
+            m_Index[Dim].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
+        else
+            m_Index[Dim].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
+        m_Index[Dim].m_RelIndex = RelRegIndex0;             // relative register index, such as the 1 in cb0[x1[2].x + 3] or cb0[r1.x + 3]
+        m_Index[Dim].m_RelIndex1 = RelRegIndex1;            // relative register second dimension index, such as the 2 in cb0[x1[2].x + 3]
+        m_Index[Dim].m_ComponentName = RelComponentName;
+        m_Index[Dim].SetMinPrecision(RelRegMinPrecision);
+    }
 
 public:  //esp in the unions...it's just redundant to not directly access things
     void Clear()
@@ -200,6 +339,7 @@ public:  //esp in the unions...it's just redundant to not directly access things
     BOOL                                         m_bExtendedOperand;
     D3D10_SB_OPERAND_MODIFIER                    m_Modifier;
     D3D11_SB_OPERAND_MIN_PRECISION               m_MinPrecision;
+    BOOL                                         m_Nonuniform;
     D3D10_SB_EXTENDED_OPERAND_TYPE               m_ExtendedOperandType;
     union
     {
@@ -218,6 +358,7 @@ public:  //esp in the unions...it's just redundant to not directly access things
     {
         D3D10_SB_OPERAND_INDEX_REPRESENTATION    m_IndexType[3];
         D3D10_SB_OPERAND_INDEX_DIMENSION         m_IndexDimension;
+#pragma warning(suppress: 4201) // Warning about nameless structure.
     };
 
     friend class CShaderAsm;
@@ -285,26 +426,16 @@ public:
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_0_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
     // Immediate constant
     COperand(float v1, float v2, float v3, float v4): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE32;
         m_bExtendedOperand = FALSE;
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
@@ -318,11 +449,7 @@ public:
     COperand(double v1, double v2): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE64;
         m_bExtendedOperand = FALSE;
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
@@ -335,11 +462,7 @@ public:
              BYTE SwizzleX, BYTE SwizzleY, BYTE SwizzleZ, BYTE SwizzleW): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE32;
         m_bExtendedOperand = FALSE;
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
@@ -354,11 +477,7 @@ public:
     COperand(int v1, int v2, int v3, int v4): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE32;
         m_bExtendedOperand = FALSE;
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
@@ -373,11 +492,7 @@ public:
              BYTE SwizzleX, BYTE SwizzleY, BYTE SwizzleZ, BYTE SwizzleW): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE32;
         m_bExtendedOperand = FALSE;
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
@@ -390,11 +505,7 @@ public:
     COperand(INT64 v1, INT64 v2): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE64;
         m_bExtendedOperand = FALSE;
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
@@ -408,23 +519,13 @@ public:
              D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
 
     // Used for operands without indices
@@ -434,16 +535,12 @@ public:
         m_Type = Type;
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_0D;
         if( (Type == D3D10_SB_OPERAND_TYPE_INPUT_PRIMITIVEID) ||
             (Type == D3D11_SB_OPERAND_TYPE_OUTPUT_CONTROL_POINT_ID) ||
             (Type == D3D11_SB_OPERAND_TYPE_INPUT_COVERAGE_MASK) ||
+            (Type == D3D11_SB_OPERAND_TYPE_INNER_COVERAGE) ||
             (Type == D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED) ||
             (Type == D3D11_SB_OPERAND_TYPE_INPUT_GS_INSTANCE_ID) )
         {
@@ -472,41 +569,10 @@ public:
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_0_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        if (RegIndex == 0)
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[0].m_RegIndex = RegIndex;
-        m_Index[0].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RelIndex = RelRegIndex;
-        m_Index[0].m_RelIndex1 = 0xFFFFFFFF;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_MinPrecision = RelRegMinPrecision;
-        if( RelRegMinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex, RelRegType, RelRegIndex, 0xFFFFFFFF, RelComponentName, RelRegMinPrecision);
     }
 
 
@@ -530,23 +596,13 @@ public:
         D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
     COperand4(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex, D3D10_SB_4_COMPONENT_NAME Component,
         D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
@@ -556,16 +612,10 @@ public:
         m_ComponentName = Component;
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
     // single component select on reg, 1D indexing on address
     COperand4(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex, D3D10_SB_4_COMPONENT_NAME Component,
@@ -578,35 +628,10 @@ public:
         m_ComponentName = Component;
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        if (RegIndex == 0)
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[0].m_RegIndex = RegIndex;
-        m_Index[0].m_RelRegType = RelRegType;
-        m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_Index[0].m_RelIndex = RelRegIndex;
-        m_Index[0].m_RelIndex1 = 0xFFFFFFFF;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_MinPrecision = RelRegMinPrecision;
-        if( RelRegMinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
-
+        SetIndex(0, RegIndex, RelRegType, RelRegIndex, 0xFFFFFFFF, RelComponentName, RelRegMinPrecision);
     }
     // 4-component source operand with relative addressing
     COperand4(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex,
@@ -615,49 +640,13 @@ public:
              D3D11_SB_OPERAND_MIN_PRECISION RelRegMinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        if (RegIndex == 0)
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[0].m_RegIndex = RegIndex;
-        m_Index[0].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RelIndex = RelRegIndex;
-        m_Index[0].m_RelIndex1 = 0xFFFFFFFF;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_MinPrecision = RelRegMinPrecision;
-        if( RelRegMinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex, RelRegType, RelRegIndex, 0xFFFFFFFF, RelComponentName, RelRegMinPrecision);
     }
     // 4-component source operand with relative addressing
     COperand4(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex,
@@ -666,71 +655,26 @@ public:
         D3D11_SB_OPERAND_MIN_PRECISION RelRegMinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        if (RegIndex == 0)
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[0].m_RegIndex = RegIndex;
-        m_Index[0].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RelIndex = RelRegIndex;
-        m_Index[0].m_RelIndex1 = RelRegIndex1;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_MinPrecision = RelRegMinPrecision;
-        if( RelRegMinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex, RelRegType, RelRegIndex, RelRegIndex1, RelComponentName, RelRegMinPrecision);
     }
     COperand4(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex,
              BYTE SwizzleX, BYTE SwizzleY, BYTE SwizzleZ, BYTE SwizzleW,
              D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
     // 4-component source operand with relative addressing
     COperand4(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex,
@@ -741,48 +685,13 @@ public:
              D3D11_SB_OPERAND_MIN_PRECISION RelRegMinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        if (RegIndex == 0)
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[0].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RegIndex = RegIndex;
-        m_Index[0].m_RelIndex = RelRegIndex;
-        m_Index[0].m_RelIndex1 = RelRegIndex1;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_MinPrecision = RelRegMinPrecision;
-        if( RelRegMinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex, RelRegType, RelRegIndex, RelRegIndex1, RelComponentName, RelRegMinPrecision);
     }
 
     friend class CShaderAsm;
@@ -804,41 +713,25 @@ public:
         D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
-        m_WriteMask = D3D10_SB_OPERAND_4_COMPONENT_MASK_ALL;
+        SetMask();
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
     COperandDst(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex, UINT WriteMask,
         D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
-        m_WriteMask = WriteMask;
+        SetMask(WriteMask);
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
+        SetIndex(0, RegIndex);
     }
     COperandDst(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex, UINT WriteMask,
          D3D10_SB_OPERAND_TYPE RelRegType,
@@ -849,46 +742,13 @@ public:
          :COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
-        m_WriteMask = WriteMask;
+        SetMask(WriteMask);
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        if (RegIndex == 0)
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[0].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RegIndex = RegIndex;
-        m_Index[0].m_RelIndex  = RelRegIndex;
-        m_Index[0].m_RelIndex1 = RelRegIndex1;
-        m_Index[0].m_ComponentName = RelComponentName;
-        m_Index[0].m_MinPrecision = RelRegMinPrecision;
-        if( RelRegMinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex, RelRegType, RelRegIndex, RelRegIndex1, RelComponentName, RelRegMinPrecision);
     }
     COperandDst(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex, UINT WriteMask,
                 D3D10_SB_OPERAND_TYPE RelRegType, UINT RelRegIndex, UINT RelRegIndex1,
@@ -901,45 +761,12 @@ public:
         m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
         m_WriteMask = WriteMask;
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex;
-        if (RelRegIndex == 0)
-            m_IndexType[1] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-        else
-            m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[1].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[1].m_RegIndex = RelRegIndex;
-        m_Index[1].m_RelIndex  = RelRegIndex1;
-        m_Index[1].m_RelIndex1 = 0;
-        m_Index[1].m_ComponentName = RelComponentName;
-        m_Index[1].m_MinPrecision = RelReg1MinPrecision;
-        if( RelReg1MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[1].m_bExtendedOperand = true;
-            m_Index[1].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[1].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex);
+        SetIndex(1, RelRegIndex, RelRegType, RelRegIndex1, 0, RelComponentName, RelReg1MinPrecision);
     }
     // 2D dst (e.g. for GS input decl)
     COperandDst(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex0, UINT RegIndex1,UINT WriteMask,
@@ -949,20 +776,12 @@ public:
         m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
         m_WriteMask = WriteMask;
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[1].m_RegIndex = RegIndex1;
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1);
     }
     // Used for operands without indices
     COperandDst(D3D10_SB_OPERAND_TYPE Type,
@@ -973,6 +792,7 @@ public:
         case D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH:
         case D3D11_SB_OPERAND_TYPE_OUTPUT_DEPTH_GREATER_EQUAL:
         case D3D11_SB_OPERAND_TYPE_OUTPUT_DEPTH_LESS_EQUAL:
+        case D3D11_SB_OPERAND_TYPE_OUTPUT_STENCIL_REF:
             m_NumComponents = D3D10_SB_OPERAND_1_COMPONENT;
             break;
         default:
@@ -982,14 +802,8 @@ public:
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_0D;
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
     }
     COperandDst(UINT WriteMask, D3D10_SB_OPERAND_TYPE Type,
         D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT)
@@ -999,14 +813,8 @@ public:
         m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_MASK_MODE;
         m_WriteMask = WriteMask;
         m_Type = Type;
-        m_MinPrecision = MinPrecision;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_0D;
     }
@@ -1032,25 +840,14 @@ public:
         : COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[1].m_RegIndex = RegIndex1;
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1);
     }
     COperand2D(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex0, UINT RegIndex1, D3D10_SB_4_COMPONENT_NAME Component,
                 D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT)
@@ -1061,18 +858,11 @@ public:
         m_ComponentName = Component;
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[1].m_RegIndex = RegIndex1;
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1);
     }
     // 2-dimensional 4-component operand with relative addressing the second index
     // For example:
@@ -1097,47 +887,14 @@ public:
             : COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[1].m_RegIndex = RegIndex1;
-        m_Index[1].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[1].m_RelIndex  = RelRegIndex;
-        m_Index[1].m_RelIndex1 = RelRegIndex1;
-        m_Index[1].m_ComponentName = RelComponentName;
-        m_Index[1].m_MinPrecision = RelReg1MinPrecision;
-        if( RelReg1MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[1].m_bExtendedOperand = true;
-            m_Index[1].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[1].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1, RelRegType, RelRegIndex, RelRegIndex1, RelComponentName, RelReg1MinPrecision);
     }
     // 2-dimensional 4-component operand with relative addressing a second index
     // For example:
@@ -1161,46 +918,14 @@ public:
             : COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
-        m_Index[1].m_RegIndex = RegIndex1;
-        m_Index[1].m_RelRegType = RelRegType;
-        if( RelRegType == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[1].m_RelIndex  = RelRegIndex;
-        m_Index[1].m_ComponentName = RelComponentName;
-        m_Index[1].m_MinPrecision = RelReg1MinPrecision;
-        if( RelReg1MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[1].m_bExtendedOperand = true;
-            m_Index[1].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[1].m_bExtendedOperand = false;
-        }
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1, RelRegType, RelRegIndex, 0, RelComponentName, RelReg1MinPrecision);
     }
     // 2-dimensional 4-component operand with relative addressing both operands
     COperand2D(D3D10_SB_OPERAND_TYPE Type,
@@ -1214,107 +939,34 @@ public:
               : COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = D3D10_SB_4_COMPONENT_X;
-        m_Swizzle[1] = D3D10_SB_4_COMPONENT_Y;
-        m_Swizzle[2] = D3D10_SB_4_COMPONENT_Z;
-        m_Swizzle[3] = D3D10_SB_4_COMPONENT_W;
+        SetSwizzle();
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
         if (bIndexRelative0)
-            if (RegIndex0 == 0)
-                m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-            else
-                m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
+            SetIndex(0, RegIndex0, RelRegType0, RelRegIndex0, RelRegIndex10, RelComponentName0, RelReg0MinPrecision);
         else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_Index[0].m_RelRegType = RelRegType0;
-        if( RelRegType0 == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RelIndex = RelRegIndex0;
-        m_Index[0].m_RelIndex1 = RelRegIndex10;
-        m_Index[0].m_ComponentName = RelComponentName0;
-        m_Index[0].m_MinPrecision = RelReg0MinPrecision;
-        if( RelReg0MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
-
+            SetIndex(0, RegIndex0);
         if (bIndexRelative1)
-            if (RegIndex1 == 0)
-                m_IndexType[1] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-            else
-                m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
+            SetIndex(1, RegIndex1, RelRegType1, RelRegIndex1, RelRegIndex11, RelComponentName1, RelReg1MinPrecision);
         else
-            m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[1].m_RegIndex = RegIndex1;
-        m_Index[1].m_RelRegType = RelRegType1;
-        if( RelRegType1 == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[1].m_RelIndex = RelRegIndex1;
-        m_Index[1].m_RelIndex1 = RelRegIndex11;
-        m_Index[1].m_ComponentName = RelComponentName1;
-        m_Index[1].m_MinPrecision = RelReg1MinPrecision;
-        if( RelReg1MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[1].m_bExtendedOperand = true;
-            m_Index[1].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[1].m_bExtendedOperand = false;
-        }
+            SetIndex(1, RegIndex1);
     }
     COperand2D(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex0, UINT RegIndex1,
               BYTE SwizzleX, BYTE SwizzleY, BYTE SwizzleZ, BYTE SwizzleW,
               D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT): COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[1].m_RegIndex = RegIndex1;
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1);
     }
     // 2-dimensional 4-component operand with relative addressing and swizzle
     COperand2D(D3D10_SB_OPERAND_TYPE Type,
@@ -1328,82 +980,45 @@ public:
               : COperandBase()
     {
         m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
-        m_ComponentSelection = D3D10_SB_OPERAND_4_COMPONENT_SWIZZLE_MODE;
-        m_Swizzle[0] = SwizzleX;
-        m_Swizzle[1] = SwizzleY;
-        m_Swizzle[2] = SwizzleZ;
-        m_Swizzle[3] = SwizzleW;
+        SetSwizzle(SwizzleX, SwizzleY, SwizzleZ, SwizzleW);
         m_Type = Type;
         m_bExtendedOperand = FALSE;
-        m_MinPrecision = MinPrecision;
-        if( MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_bExtendedOperand = true;
-            m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
+        SetMinPrecision(MinPrecision);
         m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
         m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
         if (bIndexRelative0)
-            if (RegIndex0 == 0)
-                m_IndexType[0] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-            else
-                m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
+            SetIndex(0, RegIndex0, RelRegType0, RelRegIndex0, RelRegIndex10, RelComponentName0, RelReg0MinPrecision);
         else
-            m_IndexType[0] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[0].m_RegIndex = RegIndex0;
-        m_Index[0].m_RelRegType = RelRegType0;
-        if( RelRegType0 == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[0].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[0].m_RelIndex = RelRegIndex0;
-        m_Index[0].m_RelIndex1 = RelRegIndex10;
-        m_Index[0].m_ComponentName = RelComponentName0;
-        m_Index[0].m_MinPrecision = RelReg0MinPrecision;
-        if( RelReg0MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[0].m_bExtendedOperand = true;
-            m_Index[0].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[0].m_bExtendedOperand = false;
-        }
+            SetIndex(0, RegIndex0);
 
         if (bIndexRelative1)
-            if (RegIndex1 == 0)
-                m_IndexType[1] = D3D10_SB_OPERAND_INDEX_RELATIVE;
-            else
-                m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32_PLUS_RELATIVE;
+            SetIndex(1, RegIndex1, RelRegType1, RelRegIndex1, RelRegIndex11, RelComponentName1, RelReg1MinPrecision);
         else
-            m_IndexType[1] = D3D10_SB_OPERAND_INDEX_IMMEDIATE32;
-        m_Index[1].m_RegIndex = RegIndex1;
-        m_Index[1].m_RelRegType = RelRegType1;
-        if( RelRegType1 == D3D10_SB_OPERAND_TYPE_INDEXABLE_TEMP )
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-        }
-        else
-        {
-            m_Index[1].m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-        }
-        m_Index[1].m_RelIndex = RelRegIndex1;
-        m_Index[1].m_RelIndex1 = RelRegIndex11;
-        m_Index[1].m_ComponentName = RelComponentName1;
-        m_Index[1].m_MinPrecision = RelReg1MinPrecision;
-        if( RelReg1MinPrecision != D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT )
-        {
-            m_Index[1].m_bExtendedOperand = true;
-            m_Index[1].m_ExtendedOperandType = D3D10_SB_EXTENDED_OPERAND_MODIFIER; // piggybacking on modifier token for minprecision
-        }
-        else
-        {
-            m_Index[1].m_bExtendedOperand = false;
-        }
+            SetIndex(1, RegIndex1);
+    }
+
+    friend class CShaderAsm;
+    friend class CShaderCodeParser;
+    friend class CInstruction;
+};
+
+class COperand3D: public COperandBase
+{
+public:
+    COperand3D(D3D10_SB_OPERAND_TYPE Type, UINT RegIndex0, UINT RegIndex1, UINT RegIndex2,
+        D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT)
+        : COperandBase()
+    {
+        m_Modifier = D3D10_SB_OPERAND_MODIFIER_NONE;
+        SetSwizzle();
+        m_Type = Type;
+        m_bExtendedOperand = FALSE;
+        SetMinPrecision(MinPrecision);
+        m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
+        m_IndexDimension = D3D10_SB_OPERAND_INDEX_3D;
+        SetIndex(0, RegIndex0);
+        SetIndex(1, RegIndex1);
+        SetIndex(2, RegIndex2);
     }
 
     friend class CShaderAsm;
@@ -1475,11 +1090,14 @@ struct CResourceDecl
     D3D10_SB_RESOURCE_DIMENSION      Dimension;
     D3D10_SB_RESOURCE_RETURN_TYPE    ReturnType[4];
     UINT                             SampleCount;
+    UINT                             Space;
 };
 
 struct CConstantBufferDecl
 {
     D3D10_SB_CONSTANT_BUFFER_ACCESS_PATTERN AccessPattern;
+    UINT Size;
+    UINT Space;
 };
 
 struct COutputTopologyDecl
@@ -1505,6 +1123,7 @@ struct CGSInstanceCountDecl
 struct CSamplerDecl
 {
     D3D10_SB_SAMPLER_MODE          SamplerMode;
+    UINT Space;
 };
 
 struct CStreamDecl
@@ -1625,17 +1244,20 @@ struct CTypedUAVDeclaration
     D3D10_SB_RESOURCE_DIMENSION      Dimension;
     D3D10_SB_RESOURCE_RETURN_TYPE    ReturnType[4];
     UINT                             Flags;
+    UINT                             Space;
 };
 
 struct CStructuredUAVDeclaration
 {
     UINT    ByteStride;
     UINT    Flags;
+    UINT    Space;
 };
 
 struct CRawUAVDeclaration
 {
     UINT    Flags;
+    UINT    Space;
 };
 
 struct CRawTGSMDeclaration
@@ -1649,9 +1271,15 @@ struct CStructuredTGSMDeclaration
     UINT    StructCount;
 };
 
+struct CRawSRVDeclaration
+{
+    UINT    Space;
+};
+
 struct CStructuredSRVDeclaration
 {
     UINT    ByteStride;
+    UINT    Space;
 };
 
 struct CSyncFlags
@@ -1807,6 +1435,8 @@ public:
     D3D10_SB_RESOURCE_DIMENSION m_ResourceDimEx; // for extended opcode only
     UINT                        m_ResourceDimStructureStrideEx; // for extended opcode only
     D3D10_SB_RESOURCE_RETURN_TYPE  m_ResourceReturnTypeEx[4]; // for extended opcode only
+    BOOL                        m_bNonuniformResourceIndex; // for extended opcode only
+    BOOL                        m_bNonuniformSamplerIndex;  // for extended opcode only
     UINT                        m_PrivateData[MAX_PRIVATE_DATA_COUNT];
     BOOL                        m_bSaturate;
     union // extra info needed by some instructions
@@ -1851,6 +1481,7 @@ public:
         CStructuredUAVDeclaration           m_StructuredUAVDecl;
         CRawUAVDeclaration                  m_RawUAVDecl;
         CStructuredTGSMDeclaration          m_StructuredTGSMDecl;
+        CRawSRVDeclaration                  m_RawSRVDecl;
         CStructuredSRVDeclaration           m_StructuredSRVDecl;
         CRawTGSMDeclaration                 m_RawTGSMDecl;
         CSyncFlags                          m_SyncFlags;
@@ -1940,6 +1571,26 @@ public:
              ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForW, 3));
         ENDINSTRUCTION();
     }
+    // Emit D3D12 resource declaration
+    void EmitIndexableResourceDecl(UINT uTable, UINT uTableLB, UINT uTableUB,
+                                   D3D10_SB_RESOURCE_DIMENSION Dimension,
+                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForX,
+                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForY,
+                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForZ,
+                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForW,
+                                   UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_RESOURCE) |
+               ENCODE_D3D10_SB_RESOURCE_DIMENSION(Dimension) );
+        EmitOperand(COperand3D(D3D10_SB_OPERAND_TYPE_RESOURCE, uTable, uTableLB, uTableUB));
+        FUNC(ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForX, 0) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForY, 1) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForZ, 2) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForW, 3));
+        FUNC(uSpace);
+        ENDINSTRUCTION();
+    }
     // Emit a resource declaration (multisampled)
     void EmitResourceMSDecl(D3D10_SB_RESOURCE_DIMENSION Dimension, UINT TRegIndex,
                           D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForX,
@@ -1959,6 +1610,28 @@ public:
              ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForW, 3));
         ENDINSTRUCTION();
     }
+    // Emit D3D12 resource declaration (multisampled)
+    void EmitIndexableResourceMSDecl(UINT uTable, UINT uTableLB, UINT uTableUB,
+                                     D3D10_SB_RESOURCE_DIMENSION Dimension,
+                                     D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForX,
+                                     D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForY,
+                                     D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForZ,
+                                     D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForW,
+                                     UINT SampleCount,
+                                     UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_RESOURCE) |
+               ENCODE_D3D10_SB_RESOURCE_DIMENSION(Dimension) |
+               ENCODE_D3D10_SB_RESOURCE_SAMPLE_COUNT(SampleCount));
+        EmitOperand(COperand3D(D3D10_SB_OPERAND_TYPE_RESOURCE, uTable, uTableLB, uTableUB));
+        FUNC(ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForX, 0) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForY, 1) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForZ, 2) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForW, 3));
+        FUNC(uSpace);
+        ENDINSTRUCTION();
+    }
     // Emit a sampler declaration
     void EmitSamplerDecl(UINT SRegIndex, D3D10_SB_SAMPLER_MODE Mode)
     {
@@ -1966,6 +1639,16 @@ public:
         OPCODE( ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_SAMPLER) |
                 ENCODE_D3D10_SB_SAMPLER_MODE(Mode) );
         EmitOperand(COperand(D3D10_SB_OPERAND_TYPE_SAMPLER, SRegIndex));
+        ENDINSTRUCTION();
+    }
+    // Emit D3D12 sampler declaration
+    void EmitIndexableSamplerDecl(UINT uTable, UINT uTableLB, UINT uTableUB, D3D10_SB_SAMPLER_MODE Mode, UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE( ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_SAMPLER) |
+                ENCODE_D3D10_SB_SAMPLER_MODE(Mode) );
+        EmitOperand(COperand3D(D3D10_SB_OPERAND_TYPE_SAMPLER, uTable, uTableLB, uTableUB));
+        FUNC(uSpace);
         ENDINSTRUCTION();
     }
 
@@ -2074,6 +1757,14 @@ public:
         EmitOperand(COperand(D3D11_SB_OPERAND_TYPE_INPUT_COVERAGE_MASK, MinPrecision));
         ENDINSTRUCTION();
     }
+    // Emit inner coverage declaration
+    void EmitInnerCoverageDecl(D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_INPUT));
+        EmitOperand(COperand(D3D11_SB_OPERAND_TYPE_INNER_COVERAGE, MinPrecision));
+        ENDINSTRUCTION();
+    }
     // Emit cycle counter decl
     void EmitCycleCounterDecl(UINT WriteMask)
     {
@@ -2130,6 +1821,14 @@ public:
         m_bExecutableInstruction = FALSE;
         OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_OUTPUT));
         EmitOperand(COperandDst(D3D10_SB_OPERAND_TYPE_OUTPUT_COVERAGE_MASK, MinPrecision));
+        ENDINSTRUCTION();
+    }
+    // Emit an oStencilRef declaration
+    void EmitOStencilRefDecl(D3D11_SB_OPERAND_MIN_PRECISION MinPrecision = D3D11_SB_OPERAND_MIN_PRECISION_DEFAULT)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_OUTPUT));
+        EmitOperand(COperandDst(D3D11_SB_OPERAND_TYPE_OUTPUT_STENCIL_REF, MinPrecision));
         ENDINSTRUCTION();
     }
     // Emit an output declaration
@@ -2244,6 +1943,21 @@ public:
         OPCODE( ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER) |
                 ENCODE_D3D10_SB_D3D10_SB_CONSTANT_BUFFER_ACCESS_PATTERN(AccessPattern));
         EmitOperand(COperand2D(D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER, RegIndex, Size));
+        ENDINSTRUCTION();
+    }
+
+    // Emit D3D12 constant buffer (cb#) declaration.
+    void EmitIndexableConstantBufferDecl(UINT uCBufferVarIndex, UINT uLB, UINT uUB,
+                                         UINT Size, // size 0 means unknown/any size
+                                         D3D10_SB_CONSTANT_BUFFER_ACCESS_PATTERN AccessPattern,
+                                         UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE( ENCODE_D3D10_SB_OPCODE_TYPE(D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER) |
+                ENCODE_D3D10_SB_D3D10_SB_CONSTANT_BUFFER_ACCESS_PATTERN(AccessPattern) );
+        EmitOperand(COperand3D(D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER, uCBufferVarIndex, uLB, uUB));
+        FUNC(Size);
+        FUNC(uSpace);
         ENDINSTRUCTION();
     }
 
@@ -2532,7 +2246,7 @@ public:
         m_bExecutableInstruction = FALSE;
         OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED) |
                ENCODE_D3D10_SB_RESOURCE_DIMENSION(Dimension) |
-               ENCODE_D3D11_SB_ACCESS_COHERENCY_FLAGS(Flags));
+               ENCODE_D3D11_SB_RESOURCE_FLAGS(Flags));
         EmitOperand(COperand(D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW, URegIndex));
         FUNC(ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForX, 0) |
              ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForY, 1) |
@@ -2540,13 +2254,45 @@ public:
              ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForW, 3));
         ENDINSTRUCTION();
     }
+    // Emit D3D12 UAV declaration.
+    void EmitIndexableTypedUnorderedAccessViewDecl(UINT uTable, UINT uTableLB, UINT uTableUB,
+                                                   D3D10_SB_RESOURCE_DIMENSION Dimension, 
+                                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForX,
+                                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForY,
+                                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForZ,
+                                                   D3D10_SB_RESOURCE_RETURN_TYPE ReturnTypeForW,
+                                                   UINT Flags,
+                                                   UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED) |
+               ENCODE_D3D10_SB_RESOURCE_DIMENSION(Dimension) |
+               ENCODE_D3D11_SB_RESOURCE_FLAGS(Flags));
+        EmitOperand(COperand3D(D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW, uTable, uTableLB, uTableUB));
+        FUNC(ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForX, 0) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForY, 1) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForZ, 2) |
+             ENCODE_D3D10_SB_RESOURCE_RETURN_TYPE(ReturnTypeForW, 3));
+        FUNC(uSpace);
+        ENDINSTRUCTION();
+    }
 
     void EmitRawUnorderedAccessViewDecl(UINT URegIndex, UINT Flags)
     {
         m_bExecutableInstruction = FALSE;
         OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW) |
-               ENCODE_D3D11_SB_ACCESS_COHERENCY_FLAGS(Flags));
+               ENCODE_D3D11_SB_RESOURCE_FLAGS(Flags));
         EmitOperand(COperand(D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW, URegIndex));
+        ENDINSTRUCTION();
+    }
+    // Emit D3D12 raw UAV declaration.
+    void EmitIndexableRawUnorderedAccessViewDecl(UINT uTable, UINT uTableLB, UINT uTableUB, UINT Flags, UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW) |
+               ENCODE_D3D11_SB_RESOURCE_FLAGS(Flags));
+        EmitOperand(COperand3D(D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW, uTable, uTableLB, uTableUB));
+        FUNC(uSpace);
         ENDINSTRUCTION();
     }
 
@@ -2554,10 +2300,21 @@ public:
     {
         m_bExecutableInstruction = FALSE;
         OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED)|
-            ENCODE_D3D11_SB_ACCESS_COHERENCY_FLAGS(Flags)|
-            ENCODE_D3D11_SB_UAV_FLAGS(Flags)); // (same variable since both sets of flags are in the same space)
+            ENCODE_D3D11_SB_RESOURCE_FLAGS(Flags));
         EmitOperand(COperand(D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW, URegIndex));
         FUNC(ByteStride);
+        ENDINSTRUCTION();
+    }
+    // Emit D3D12 structured UAV declaration.
+    void EmitIndexableStructuredUnorderedAccessViewDecl(UINT uTable, UINT uTableLB, UINT uTableUB,
+                                                        UINT ByteStride, UINT Flags, UINT uSpace )
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED)|
+            ENCODE_D3D11_SB_RESOURCE_FLAGS(Flags));
+        EmitOperand(COperand3D(D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW, uTable, uTableLB, uTableUB));
+        FUNC(ByteStride);
+        FUNC(uSpace);
         ENDINSTRUCTION();
     }
 
@@ -2588,12 +2345,33 @@ public:
         ENDINSTRUCTION();
     }
 
+    // Emit D3D12 byte address buffer declaration
+    void EmitIndexableRawShaderResourceViewDecl(UINT uTable, UINT uTableLB, UINT uTableUB, UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_RESOURCE_RAW));
+        EmitOperand(COperand3D(D3D10_SB_OPERAND_TYPE_RESOURCE, uTable, uTableLB, uTableUB));
+        FUNC(uSpace);
+        ENDINSTRUCTION();
+    }
+
     void EmitStructuredShaderResourceViewDecl(UINT TRegIndex, UINT ByteStride)
     {
         m_bExecutableInstruction = FALSE;
         OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_RESOURCE_STRUCTURED));
         EmitOperand(COperand(D3D10_SB_OPERAND_TYPE_RESOURCE, TRegIndex));
         FUNC(ByteStride);
+        ENDINSTRUCTION();
+    }
+
+    // Emit D3D12 structured buffer declaration
+    void EmitIndexableStructuredShaderResourceViewDecl(UINT uTable, UINT uTableLB, UINT uTableUB, UINT ByteStride, UINT uSpace)
+    {
+        m_bExecutableInstruction = FALSE;
+        OPCODE(ENCODE_D3D10_SB_OPCODE_TYPE(D3D11_SB_OPCODE_DCL_RESOURCE_STRUCTURED));
+        EmitOperand(COperand3D(D3D10_SB_OPERAND_TYPE_RESOURCE, uTable, uTableLB, uTableUB));
+        FUNC(ByteStride);
+        FUNC(uSpace);
         ENDINSTRUCTION();
     }
 
@@ -2637,22 +2415,19 @@ public:
                         UINT SizeInUINTs /*2 UINTS will be added during encoding */,
                         const UINT* pCustomData)
     {
-        if( ((m_Index + SizeInUINTs) < m_Index) || // wrap
-             (SizeInUINTs > 0xfffffffd) ) // need to add 2, also 0xffffffff isn't caught above
+        UINT FullSizeInUINTs = SizeInUINTs + 2; // include opcode and size
+        if( FullSizeInUINTs < SizeInUINTs || FullSizeInUINTs + m_Index < FullSizeInUINTs )   // check for overflow
         {
             throw E_FAIL;
         }
-        UINT FullSizeInUINTs = SizeInUINTs + 2; // include opcode and size
         if( m_Index + FullSizeInUINTs >= m_BufferSize ) // If custom data is going to overflow the buffer, reserve more memory
         {
             Reserve(FullSizeInUINTs);
         }
-        if (m_Index < m_BufferSize)
-            m_dwFunc[m_Index++] = ENCODE_D3D10_SB_CUSTOMDATA_CLASS(CustomDataClass);
-        if (m_Index < m_BufferSize)
-            m_dwFunc[m_Index++] = FullSizeInUINTs;
-        if (m_Index < m_BufferSize)
-            memcpy(&m_dwFunc[m_Index],pCustomData,sizeof(UINT)*SizeInUINTs);
+        __analysis_assume(m_Index + FullSizeInUINTs < m_BufferSize);  // Otherwise there's a bug in Reserve()
+        m_dwFunc[m_Index++] = ENCODE_D3D10_SB_CUSTOMDATA_CLASS(CustomDataClass);
+        m_dwFunc[m_Index++] = FullSizeInUINTs;
+        memcpy(&m_dwFunc[m_Index],pCustomData,sizeof(UINT)*SizeInUINTs);
         m_Index += SizeInUINTs;
         if (m_Index >= m_BufferSize) // If custom data is exactly fully filled the buffer, reserve more memory
         {
@@ -2725,13 +2500,17 @@ protected:
     // Reserve SizeInUINTs UINTs in the m_dwFunc array
     void Reserve(UINT SizeInUINTs)
     {
-        if( m_Index + SizeInUINTs < m_Index ) // overflow (prefix)
+        // The following overflow check may be sligltly over-cautious when (m_Index + SizeInUINTs < m_BufferSize),
+        // but this only matters when m_BufferSize cannot be grown one more step without overflowing.
+        UINT NewSize = m_BufferSize + SizeInUINTs + 1024;
+        if( m_Index > m_BufferSize ||                       // invalid state
+            (m_BufferSize + SizeInUINTs) < m_BufferSize ||  // overflow with adding SizeInUINTs
+            NewSize < (m_BufferSize + SizeInUINTs) )        // overflow with adding 1024
         {
             throw E_FAIL;
         }
         if (m_BufferSize < (m_Index + SizeInUINTs))
         {
-            UINT NewSize = m_BufferSize + SizeInUINTs + 1024;
             UINT* pNewBuffer = (UINT*)malloc(NewSize*sizeof(UINT));
             if (pNewBuffer == NULL)
             {
@@ -2769,15 +2548,15 @@ class CShaderCodeParser
 {
 public:
     CShaderCodeParser():
-        m_pShaderCode(NULL),
         m_pCurrentToken(NULL),
+        m_pShaderCode(NULL),
         m_pShaderEndToken(NULL)
     {
         InitInstructionInfo();
     }
     CShaderCodeParser(CONST CShaderToken* pBuffer):
-        m_pShaderCode(NULL),
         m_pCurrentToken(NULL),
+        m_pShaderCode(NULL),
         m_pShaderEndToken(NULL)
     {
         InitInstructionInfo();
@@ -2795,6 +2574,7 @@ public:
     UINT ShaderLengthInTokens();
     UINT CurrentTokenOffset();
     UINT CurrentTokenOffsetInBytes() { return CurrentTokenOffset() * sizeof(CShaderToken); }
+    void SetCurrentTokenOffset(UINT Offset);
 
     CONST CShaderToken* ParseOperandAt(COperandBase* pOperand,
                                        CONST CShaderToken* pBuffer,
@@ -2824,7 +2604,3 @@ protected:
 };
 
 }; // name space D3D10ShaderBinary
-
-#endif // _SHADERBINARY_H
-
-// End of file : ShaderBinary.h

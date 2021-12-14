@@ -1,5 +1,13 @@
-// Copyright (c) Microsoft Corporation.
-// Licensed under the MIT License.
+///////////////////////////////////////////////////////////////////////////////
+//                                                                           //
+// ShaderBinary.cpp                                                          //
+// Copyright (C) Microsoft Corporation. All rights reserved.                 //
+// This file is distributed under the University of Illinois Open Source     //
+// License. See LICENSE.TXT for details.                                     //
+//                                                                           //
+// Vertex shader binary format parsing and encoding.                         //
+//                                                                           //
+///////////////////////////////////////////////////////////////////////////////
 
 #include <ShaderBinary.h>
 #include <u_debug.h>
@@ -28,15 +36,11 @@ UINT GetNumInstructionOperands(D3D10_SB_OPCODE_TYPE OpCode)
 }
 
 CInstructionInfo g_InstructionInfo[D3D10_SB_NUM_OPCODES];
-bool static g_bInstructionInfoInited = false;
 
 void InitInstructionInfo()
 {
 #define SET(OpCode, Name, NumOperands, PrecMask, OpClass) \
     (g_InstructionInfo[OpCode].Set(NumOperands, Name, OpClass, PrecMask))
-    
-    if (g_bInstructionInfoInited) 
-        return;
 
     SET (D3D10_SB_OPCODE_ADD, "add",                                                 3, 0x06, D3D10_SB_FLOAT_OP);
     SET (D3D10_SB_OPCODE_AND, "and",                                                 3, 0x06, D3D10_SB_BIT_OP);
@@ -283,8 +287,6 @@ void InitInstructionInfo()
     SET (D3DWDDM1_3_SB_OPCODE_SAMPLE_D_CLAMP_FEEDBACK,"sample_d_cl_s",               8, 0x00, D3D10_SB_TEX_OP);
     SET (D3DWDDM1_3_SB_OPCODE_SAMPLE_C_CLAMP_FEEDBACK,"sample_c_cl_s",               7, 0x00, D3D10_SB_TEX_OP);
     SET (D3DWDDM1_3_SB_OPCODE_CHECK_ACCESS_FULLY_MAPPED, "check_access_fully_mapped",2, 0x00, D3D10_SB_TEX_OP);
-
-    g_bInstructionInfoInited = true;
 }
 
 //*****************************************************************************
@@ -306,12 +308,17 @@ D3D10_SB_TOKENIZED_PROGRAM_TYPE CShaderCodeParser::ShaderType()
     return (D3D10_SB_TOKENIZED_PROGRAM_TYPE)DECODE_D3D10_SB_TOKENIZED_PROGRAM_TYPE(*m_pShaderCode);
 }
 
-UINT    CShaderCodeParser::CurrentTokenOffset()
+UINT CShaderCodeParser::CurrentTokenOffset()
 {
     return (UINT)(m_pCurrentToken - m_pShaderCode);
 }
 
-UINT    CShaderCodeParser::ShaderLengthInTokens()
+void CShaderCodeParser::SetCurrentTokenOffset(UINT Offset)
+{
+    m_pCurrentToken = m_pShaderCode + Offset;
+}
+
+UINT CShaderCodeParser::ShaderLengthInTokens()
 {
     return m_pShaderCode[1];
 }
@@ -411,10 +418,10 @@ void CShaderCodeParser::ParseOperand(COperandBase* pOperand)
                 case D3D10_SB_OPERAND_4_COMPONENT_SELECT_1_MODE:
                 {
                     D3D10_SB_4_COMPONENT_NAME Component = DECODE_D3D10_SB_OPERAND_4_COMPONENT_SELECT_1(Token);
-                    pOperand->m_Swizzle[0] = (BYTE)Component;
-                    pOperand->m_Swizzle[1] = (BYTE)Component;
-                    pOperand->m_Swizzle[2] = (BYTE)Component;
-                    pOperand->m_Swizzle[3] = (BYTE)Component;
+                    pOperand->m_Swizzle[0] = static_cast<BYTE>(Component);
+                    pOperand->m_Swizzle[1] = static_cast<BYTE>(Component);
+                    pOperand->m_Swizzle[2] = static_cast<BYTE>(Component);
+                    pOperand->m_Swizzle[3] = static_cast<BYTE>(Component);
                     pOperand->m_ComponentName = Component;
                     break;
                 }
@@ -445,6 +452,7 @@ void CShaderCodeParser::ParseOperand(COperandBase* pOperand)
         {
             pOperand->m_Modifier = DECODE_D3D10_SB_OPERAND_MODIFIER(Token);
             pOperand->m_MinPrecision = DECODE_D3D11_SB_OPERAND_MIN_PRECISION(Token);
+            pOperand->m_Nonuniform = DECODE_D3D12_SB_OPERAND_NON_UNIFORM(Token);
         }
     }
 
@@ -481,14 +489,17 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
     pInstruction->m_bSaturate = DECODE_IS_D3D10_SB_INSTRUCTION_SATURATE_ENABLED(Token); 
     UINT InstructionLength = DECODE_D3D10_SB_TOKENIZED_INSTRUCTION_LENGTH(Token);
     pInstruction->m_NumOperands = GetNumInstructionOperands(pInstruction->m_OpCode);
+    BOOL b51PlusShader = (ShaderMajorVersion() > 5 || (ShaderMajorVersion() == 5 && ShaderMinorVersion() > 0));
     BOOL bExtended = DECODE_IS_D3D10_SB_OPCODE_EXTENDED(Token);
     if( bExtended && (
         (pInstruction->m_OpCode == D3D11_SB_OPCODE_DCL_INTERFACE)||
         (pInstruction->m_OpCode == D3D11_SB_OPCODE_DCL_FUNCTION_TABLE)))
     {
         pInstruction->m_ExtendedOpCodeCount = 1;
+    #pragma prefast (suppress : __WARNING_LOCALDECLHIDESLOCAL, "This uses the same variable name for continuity.")
+        CShaderToken Token = *m_pCurrentToken++;
         // these instructions may be longer than can fit in the normal instructionlength field
-        InstructionLength = (UINT)(*m_pCurrentToken++);
+        InstructionLength = (UINT)(Token);
     }
     else
     {
@@ -496,35 +507,36 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         for(int i = 0; i < (bExtended ? D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES : 0); i++)
         {   
             pInstruction->m_ExtendedOpCodeCount++;
-            CShaderToken ExtToken = *m_pCurrentToken++;
-            bExtended = DECODE_IS_D3D10_SB_OPCODE_EXTENDED(ExtToken);
-            pInstruction->m_OpCodeEx[i] = DECODE_D3D10_SB_EXTENDED_OPCODE_TYPE(ExtToken);
+    #pragma prefast (suppress : __WARNING_LOCALDECLHIDESLOCAL, "This uses the same variable name for continuity.")
+            CShaderToken Token = *m_pCurrentToken++;
+            bExtended = DECODE_IS_D3D10_SB_OPCODE_EXTENDED(Token);
+            pInstruction->m_OpCodeEx[i] = DECODE_D3D10_SB_EXTENDED_OPCODE_TYPE(Token);
             switch(pInstruction->m_OpCodeEx[i])
             {
             case D3D10_SB_EXTENDED_OPCODE_SAMPLE_CONTROLS:
                 {
-                    pInstruction->m_TexelOffset[0] = (INT8)DECODE_IMMEDIATE_D3D10_SB_ADDRESS_OFFSET(D3D10_SB_IMMEDIATE_ADDRESS_OFFSET_U, ExtToken);
-                    pInstruction->m_TexelOffset[1] = (INT8)DECODE_IMMEDIATE_D3D10_SB_ADDRESS_OFFSET(D3D10_SB_IMMEDIATE_ADDRESS_OFFSET_V, ExtToken);
-                    pInstruction->m_TexelOffset[2] = (INT8)DECODE_IMMEDIATE_D3D10_SB_ADDRESS_OFFSET(D3D10_SB_IMMEDIATE_ADDRESS_OFFSET_W, ExtToken);
-                    for(UINT j = 0;j < 3;j++)
+                    pInstruction->m_TexelOffset[0] = (INT8)DECODE_IMMEDIATE_D3D10_SB_ADDRESS_OFFSET(D3D10_SB_IMMEDIATE_ADDRESS_OFFSET_U, Token);
+                    pInstruction->m_TexelOffset[1] = (INT8)DECODE_IMMEDIATE_D3D10_SB_ADDRESS_OFFSET(D3D10_SB_IMMEDIATE_ADDRESS_OFFSET_V, Token);
+                    pInstruction->m_TexelOffset[2] = (INT8)DECODE_IMMEDIATE_D3D10_SB_ADDRESS_OFFSET(D3D10_SB_IMMEDIATE_ADDRESS_OFFSET_W, Token);
+                    for(UINT i = 0;i < 3;i++)
                     {
-                        if(pInstruction->m_TexelOffset[j] & 0x8)
-                            pInstruction->m_TexelOffset[j] |= 0xfffffff0;
+                        if(pInstruction->m_TexelOffset[i] & 0x8)
+                            pInstruction->m_TexelOffset[i] |= 0xfffffff0;
                     }
                     break;
                 }
                 break;
             case D3D11_SB_EXTENDED_OPCODE_RESOURCE_DIM:
                 {
-                    pInstruction->m_ResourceDimEx = DECODE_D3D11_SB_EXTENDED_RESOURCE_DIMENSION(ExtToken);
-                    pInstruction->m_ResourceDimStructureStrideEx = DECODE_D3D11_SB_EXTENDED_RESOURCE_DIMENSION_STRUCTURE_STRIDE(ExtToken);
+                    pInstruction->m_ResourceDimEx = DECODE_D3D11_SB_EXTENDED_RESOURCE_DIMENSION(Token);
+                    pInstruction->m_ResourceDimStructureStrideEx = DECODE_D3D11_SB_EXTENDED_RESOURCE_DIMENSION_STRUCTURE_STRIDE(Token);
                 }
                 break;
             case D3D11_SB_EXTENDED_OPCODE_RESOURCE_RETURN_TYPE:
                 {
                     for(UINT j = 0; j < 4; j++)
                     {
-                        pInstruction->m_ResourceReturnTypeEx[j] = DECODE_D3D11_SB_EXTENDED_RESOURCE_RETURN_TYPE(ExtToken,j);
+                        pInstruction->m_ResourceReturnTypeEx[j] = DECODE_D3D11_SB_EXTENDED_RESOURCE_RETURN_TYPE(Token,j);
                     }
                 }
                 break;
@@ -627,6 +639,12 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
                     pMessage->NumOperands = NumOperands;
                     break;
                 }
+            case D3D10_SB_CUSTOMDATA_COMMENT:
+                {
+                    // Guarantee that the C string comment is Null-terminated
+                    *((LPSTR)pInstruction->m_CustomData.pData + pInstruction->m_CustomData.DataSizeInBytes - 1) = '\0';
+                    break;
+                }
             }
         }      
         break;
@@ -706,11 +724,21 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         pInstruction->m_ResourceDecl.ReturnType[3] = DECODE_D3D10_SB_RESOURCE_RETURN_TYPE(*m_pCurrentToken, 3);
         pInstruction->m_ResourceDecl.SampleCount = DECODE_D3D10_SB_RESOURCE_SAMPLE_COUNT(Token);
         m_pCurrentToken++;
+        pInstruction->m_ResourceDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_ResourceDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
 
     case D3D10_SB_OPCODE_DCL_SAMPLER:
         pInstruction->m_SamplerDecl.SamplerMode = DECODE_D3D10_SB_SAMPLER_MODE(Token);
         ParseOperand(&pInstruction->m_Operands[0]);
+        pInstruction->m_SamplerDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_SamplerDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
 
     case D3D11_SB_OPCODE_DCL_STREAM:
@@ -805,6 +833,16 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
     case D3D10_SB_OPCODE_DCL_CONSTANT_BUFFER:
         pInstruction->m_ConstantBufferDecl.AccessPattern = DECODE_D3D10_SB_CONSTANT_BUFFER_ACCESS_PATTERN(Token);
         ParseOperand(&pInstruction->m_Operands[0]);
+        pInstruction->m_ConstantBufferDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_ConstantBufferDecl.Size = (UINT)(*m_pCurrentToken++);
+            pInstruction->m_ConstantBufferDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
+        else
+        {
+            pInstruction->m_ConstantBufferDecl.Size = pInstruction->m_Operands[0].m_Index[1].m_RegIndex;
+        }
         break;
 
     case D3D10_SB_OPCODE_DCL_GS_OUTPUT_PRIMITIVE_TOPOLOGY:
@@ -869,22 +907,37 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         break;
     case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_TYPED:
         pInstruction->m_TypedUAVDecl.Dimension = DECODE_D3D10_SB_RESOURCE_DIMENSION(Token);
-        pInstruction->m_TypedUAVDecl.Flags = DECODE_D3D11_SB_ACCESS_COHERENCY_FLAGS(Token);
+        pInstruction->m_TypedUAVDecl.Flags = DECODE_D3D11_SB_RESOURCE_FLAGS(Token);
         ParseOperand(&pInstruction->m_Operands[0]);
         pInstruction->m_TypedUAVDecl.ReturnType[0] = DECODE_D3D10_SB_RESOURCE_RETURN_TYPE(*m_pCurrentToken, 0);
         pInstruction->m_TypedUAVDecl.ReturnType[1] = DECODE_D3D10_SB_RESOURCE_RETURN_TYPE(*m_pCurrentToken, 1);
         pInstruction->m_TypedUAVDecl.ReturnType[2] = DECODE_D3D10_SB_RESOURCE_RETURN_TYPE(*m_pCurrentToken, 2);
         pInstruction->m_TypedUAVDecl.ReturnType[3] = DECODE_D3D10_SB_RESOURCE_RETURN_TYPE(*m_pCurrentToken, 3);
+        m_pCurrentToken++;
+        pInstruction->m_TypedUAVDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_TypedUAVDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
     case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_RAW:
-        pInstruction->m_RawUAVDecl.Flags = DECODE_D3D11_SB_ACCESS_COHERENCY_FLAGS(Token);
+        pInstruction->m_RawUAVDecl.Flags = DECODE_D3D11_SB_RESOURCE_FLAGS(Token);
         ParseOperand(&pInstruction->m_Operands[0]);       
+        pInstruction->m_RawUAVDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_RawUAVDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
     case D3D11_SB_OPCODE_DCL_UNORDERED_ACCESS_VIEW_STRUCTURED:
-        pInstruction->m_StructuredUAVDecl.Flags = DECODE_D3D11_SB_ACCESS_COHERENCY_FLAGS(Token) |
-                                                  DECODE_D3D11_SB_UAV_FLAGS(Token);
+        pInstruction->m_StructuredUAVDecl.Flags = DECODE_D3D11_SB_RESOURCE_FLAGS(Token);
         ParseOperand(&pInstruction->m_Operands[0]);
         pInstruction->m_StructuredUAVDecl.ByteStride = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_StructuredUAVDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_StructuredUAVDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
     case D3D11_SB_OPCODE_DCL_THREAD_GROUP_SHARED_MEMORY_RAW:
         ParseOperand(&pInstruction->m_Operands[0]);
@@ -897,10 +950,20 @@ void CShaderCodeParser::ParseInstruction(CInstruction* pInstruction)
         break;
     case D3D11_SB_OPCODE_DCL_RESOURCE_RAW:
         ParseOperand(&pInstruction->m_Operands[0]);       
+        pInstruction->m_RawSRVDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_RawSRVDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
     case D3D11_SB_OPCODE_DCL_RESOURCE_STRUCTURED:
         ParseOperand(&pInstruction->m_Operands[0]);       
         pInstruction->m_StructuredSRVDecl.ByteStride = *(UINT*)m_pCurrentToken++;
+        pInstruction->m_StructuredSRVDecl.Space = 0;
+        if(b51PlusShader)
+        {
+            pInstruction->m_StructuredSRVDecl.Space = (UINT)(*m_pCurrentToken++);
+        }
         break;
     case D3D11_SB_OPCODE_SYNC:
         {
@@ -1013,6 +1076,7 @@ void CShaderAsm::EmitOperand(const COperandBase& operand)
         {
             Token |= ENCODE_D3D10_SB_EXTENDED_OPERAND_MODIFIER(operand.m_Modifier);
             Token |= ENCODE_D3D11_SB_OPERAND_MIN_PRECISION(operand.m_MinPrecision);
+            Token |= ENCODE_D3D12_SB_OPERAND_NON_UNIFORM(operand.m_Nonuniform);
         }
         FUNC(Token);
     }
@@ -1128,7 +1192,7 @@ void CShaderAsm::EmitInstruction(const CInstruction& instruction)
     OpCode |= ENCODE_D3D11_SB_INSTRUCTION_PRECISE_VALUES(instruction.m_PreciseMask);
     OPCODE(OpCode);
     
-    for(UINT i = 0; i < MIN2(instruction.m_ExtendedOpCodeCount,D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES); i++)
+    for(UINT i = 0; i < MIN2(instruction.m_ExtendedOpCodeCount,(UINT)D3D11_SB_MAX_SIMULTANEOUS_EXTENDED_OPCODES); i++)
     {
         UINT  Extended = ENCODE_D3D10_SB_EXTENDED_OPCODE_TYPE(instruction.m_OpCodeEx[i]);
         switch( instruction.m_OpCodeEx[i] )
@@ -1172,7 +1236,7 @@ void CShaderAsm::EmitInstruction(const CInstruction& instruction)
 //*****************************************************************************
 BOOL CInstruction::Disassemble( __out_ecount(StringSize) LPSTR pString, UINT StringSize)
 {
-    StringCchCopy(pString, StringSize, g_InstructionInfo[m_OpCode].m_Name);
+    StringCchCopyA(pString, StringSize, g_InstructionInfo[m_OpCode].m_Name);
     return TRUE;
 }
 
