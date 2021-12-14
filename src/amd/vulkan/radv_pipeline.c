@@ -4846,8 +4846,15 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
    cull_dist_mask = outinfo->cull_dist_mask;
    total_mask = clip_dist_mask | cull_dist_mask;
 
+   /* Primitive shading rate is written as a per-primitive output in mesh shaders. */
+   bool force_vrs_per_vertex =
+      pipeline->device->force_vrs != RADV_FORCE_VRS_NONE && es_type != MESA_SHADER_MESH;
+   bool force_vrs_per_primitive =
+      pipeline->device->force_vrs != RADV_FORCE_VRS_NONE && es_type == MESA_SHADER_MESH;
    bool writes_primitive_shading_rate =
-      outinfo->writes_primitive_shading_rate || pipeline->device->force_vrs != RADV_FORCE_VRS_NONE;
+      outinfo->writes_primitive_shading_rate || force_vrs_per_vertex;
+   bool writes_primitive_shading_rate_per_primitive =
+      outinfo->writes_primitive_shading_rate_per_primitive || force_vrs_per_primitive;
    bool misc_vec_ena = outinfo->writes_pointsize || outinfo->writes_layer ||
                        outinfo->writes_viewport_index || writes_primitive_shading_rate;
    bool es_enable_prim_id = outinfo->export_prim_id || (es && es->info.uses_prim_id);
@@ -4872,7 +4879,8 @@ radv_pipeline_generate_hw_ngg(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf
 
    unsigned idx_format = V_028708_SPI_SHADER_1COMP;
    if (outinfo->writes_layer_per_primitive ||
-       outinfo->writes_viewport_index_per_primitive)
+       outinfo->writes_viewport_index_per_primitive ||
+       writes_primitive_shading_rate_per_primitive)
       idx_format = V_028708_SPI_SHADER_2COMP;
 
    radeon_set_context_reg(ctx_cs, R_028708_SPI_SHADER_IDX_FORMAT,
@@ -5644,10 +5652,16 @@ gfx103_pipeline_generate_vgt_draw_payload_cntl(struct radeon_cmdbuf *ctx_cs,
       vk_find_struct_const(pCreateInfo->pNext, PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR) ||
       radv_is_state_dynamic(pCreateInfo, VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR);
 
+   bool force_vrs_per_primitive =
+      pipeline->device->force_vrs != RADV_FORCE_VRS_NONE && radv_pipeline_has_mesh(pipeline);
+   bool writes_primitive_shading_rate_per_primitive =
+      outinfo->writes_primitive_shading_rate_per_primitive || force_vrs_per_primitive;
+
    bool enable_prim_payload =
       outinfo &&
       (outinfo->writes_viewport_index_per_primitive ||
-       outinfo->writes_layer_per_primitive);
+       outinfo->writes_layer_per_primitive ||
+       writes_primitive_shading_rate_per_primitive);
 
    unsigned vgt_draw_payload_cntl =
       S_028A98_EN_VRS_RATE(enable_vrs) |
