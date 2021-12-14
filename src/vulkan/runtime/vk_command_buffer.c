@@ -26,7 +26,8 @@
 VkResult
 vk_command_buffer_init(struct vk_command_buffer *command_buffer,
                        struct vk_device *device,
-                       VkCommandBufferLevel level)
+                       VkCommandBufferLevel level,
+                       VkAllocationCallbacks *pool_alloc)
 {
    memset(command_buffer, 0, sizeof(*command_buffer));
    vk_object_base_init(device, &command_buffer->base,
@@ -34,6 +35,7 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
 
    command_buffer->level = level;
    util_dynarray_init(&command_buffer->labels, NULL);
+   vk_cmd_queue_init(&command_buffer->queue, pool_alloc);
    command_buffer->region_begin = true;
 
    return VK_SUCCESS;
@@ -42,6 +44,7 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
 void
 vk_command_buffer_reset(struct vk_command_buffer *command_buffer)
 {
+   vk_cmd_queue_finish(&command_buffer->queue);
    util_dynarray_clear(&command_buffer->labels);
    command_buffer->region_begin = true;
 }
@@ -49,6 +52,7 @@ vk_command_buffer_reset(struct vk_command_buffer *command_buffer)
 void
 vk_command_buffer_finish(struct vk_command_buffer *command_buffer)
 {
+   vk_cmd_queue_finish(&command_buffer->queue);
    util_dynarray_fini(&command_buffer->labels);
    vk_object_base_finish(&command_buffer->base);
 }

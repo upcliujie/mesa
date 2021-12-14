@@ -1404,7 +1404,7 @@ tu_create_cmd_buffer(struct tu_device *device,
    if (cmd_buffer == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   VkResult result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
+   VkResult result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk, &pool->alloc);
    if (result != VK_SUCCESS) {
       vk_free2(&device->vk.alloc, NULL, cmd_buffer);
       return result;
@@ -1508,7 +1508,7 @@ tu_AllocateCommandBuffers(VkDevice _device,
          cmd_buffer->level = pAllocateInfo->level;
          vk_command_buffer_finish(&cmd_buffer->vk);
          VkResult init_result =
-            vk_command_buffer_init(&cmd_buffer->vk, &device->vk);
+            vk_command_buffer_init(&cmd_buffer->vk, &device->vk, &pool->alloc);
          if (init_result != VK_SUCCESS)
             result = init_result;
 
