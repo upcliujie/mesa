@@ -10928,6 +10928,15 @@ create_primitive_exports(isel_context *ctx, Temp prim_ch1)
       Temp tmp = ctx->outputs.temps[VARYING_SLOT_VIEWPORT * 4u];
       ch2 = bld.vop3(aco_opcode::v_lshl_or_b32, bld.def(v1), tmp, Operand::c32(20), ch2);
    }
+   if (outinfo->writes_primitive_shading_rate_per_primitive || ctx->options->force_vrs_rates) {
+      en_mask |= 2;
+      Temp tmp = ctx->outputs.temps[VARYING_SLOT_PRIMITIVE_SHADING_RATE * 4u];
+      if (!ctx->outputs.mask[VARYING_SLOT_PRIMITIVE_SHADING_RATE] &&
+          ctx->options->force_vrs_rates) {
+         tmp = emit_force_vrs_rates(ctx, bld);
+      }
+      ch2 = bld.vop2(aco_opcode::v_or_b32, bld.def(v1), tmp, Operand::c32(28), ch2);
+   }
 
    Operand prim_ch2 = (en_mask & 2) ? Operand(ch2) : Operand(v1);
 
