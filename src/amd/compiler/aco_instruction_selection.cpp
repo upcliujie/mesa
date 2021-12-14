@@ -10849,8 +10849,9 @@ create_vs_exports(isel_context* ctx)
    int next_pos = 0;
    export_vs_varying(ctx, VARYING_SLOT_POS, true, &next_pos);
 
+   bool force_vrs_per_vertex = ctx->options->force_vrs_rates && ctx->stage != mesh_ngg;
    bool writes_primitive_shading_rate =
-      outinfo->writes_primitive_shading_rate || ctx->options->force_vrs_rates;
+      outinfo->writes_primitive_shading_rate || force_vrs_per_vertex;
    if (outinfo->writes_pointsize || outinfo->writes_layer || outinfo->writes_viewport_index ||
        writes_primitive_shading_rate) {
       export_vs_psiz_layer_viewport_vrs(ctx, &next_pos, outinfo);
@@ -10917,6 +10918,17 @@ create_primitive_exports(isel_context *ctx, Temp prim_ch1)
       en_mask |= 2;
       Temp tmp = ctx->outputs.temps[VARYING_SLOT_VIEWPORT * 4u];
       ch2 = bld.vop3(aco_opcode::v_lshl_or_b32, bld.def(v1), tmp, Operand::c32(20), ch2);
+   }
+
+   bool force_vrs_per_primitive = ctx->options->force_vrs_rates && ctx->stage == mesh_ngg;
+   if (outinfo->writes_primitive_shading_rate_per_primitive || force_vrs_per_primitive) {
+      en_mask |= 2;
+      Temp tmp = ctx->outputs.temps[VARYING_SLOT_PRIMITIVE_SHADING_RATE * 4u];
+      if (!ctx->outputs.mask[VARYING_SLOT_PRIMITIVE_SHADING_RATE] &&
+          ctx->options->force_vrs_rates) {
+         tmp = emit_force_vrs_rates(ctx, bld);
+      }
+      ch2 = bld.vop2(aco_opcode::v_or_b32, bld.def(v1), tmp, ch2);
    }
 
    Operand prim_ch2 = (en_mask & 2) ? Operand(ch2) : Operand(v1);
