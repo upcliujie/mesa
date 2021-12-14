@@ -134,6 +134,33 @@ struct vk_cmd_queue_entry {
 
 void vk_free_queue(struct vk_cmd_queue *queue);
 
+struct vk_device;
+
+static inline VkResult
+vk_cmd_queue_init(struct vk_cmd_queue *queue,
+                  struct vk_device *device,
+                  VkCommandBufferLevel level,
+                  const VkAllocationCallbacks *alloc)
+{
+   queue->alloc = alloc;
+   list_inithead(&queue->cmds);
+   return VK_SUCCESS;
+}
+
+static inline void
+vk_cmd_queue_reset(struct vk_cmd_queue *queue)
+{
+   vk_free_queue(queue);
+   list_inithead(&queue->cmds);
+}
+
+static inline void
+vk_cmd_queue_finish(struct vk_cmd_queue *queue)
+{
+   vk_free_queue(queue);
+   list_inithead(&queue->cmds);
+}
+
 #ifdef __cplusplus
 }
 #endif
