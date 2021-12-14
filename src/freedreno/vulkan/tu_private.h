@@ -1103,7 +1103,6 @@ struct tu_cmd_buffer
    struct u_trace_iterator trace_renderpass_end;
 
    VkCommandBufferUsageFlags usage_flags;
-   VkCommandBufferLevel level;
    enum tu_cmd_buffer_status status;
 
    struct tu_cmd_state state;
