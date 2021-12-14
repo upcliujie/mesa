@@ -28,6 +28,7 @@
 #include "dxil_enums.h"
 #include "dxil_module.h"
 #include "dxil_signature.h"
+#include "dxil_nir.h"
 #include "nir.h"
 #include "nir/nir_builder.h"
 #include "nir_intrinsics.h"
@@ -873,18 +874,6 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx,
 }
 
 static bool
-emit_load_ubo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
-{
-   unsigned ubo_id = (unsigned)nir_src_as_uint(intr->src[0]);
-   // TODO relative addressing
-   unsigned ubo_offset = (unsigned)nir_src_as_uint(intr->src[1]) >> 4;
-   COperand2D src(D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER, ubo_id, ubo_offset);
-   COperandDst dst = nir_dest_as_register(intr->dest, (1 << intr->num_components) - 1);
-   ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_MOV, dst, src));
-   return true;
-}
-
-static bool
 emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    unsigned ubo_id = (unsigned)nir_src_as_uint(intr->src[0]);
@@ -916,10 +905,7 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_vulkan_descriptor(ctx, intr);
 
    case nir_intrinsic_load_ubo_dxil:
-   case nir_intrinsic_load_ubo_vec4:
       return emit_load_ubo_dxil(ctx, intr);
-   case nir_intrinsic_load_ubo:
-      return emit_load_ubo(ctx, intr);
 
    case nir_intrinsic_end_primitive:
    case nir_intrinsic_emit_vertex: {
@@ -1328,6 +1314,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
    nir_lower_idiv_options idiv_opts = { .keep_unsigned = true };
    NIR_PASS_V(s, nir_lower_idiv, &idiv_opts);
+   NIR_PASS_V(s, dxil_nir_lower_loads_stores_to_dxil);
 
    // NOTE: do not run scalarization passes
    optimize_nir(s, opts, false);
