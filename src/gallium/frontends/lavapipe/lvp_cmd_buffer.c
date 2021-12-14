@@ -38,17 +38,22 @@ static VkResult lvp_create_cmd_buffer(
    if (cmd_buffer == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   VkResult result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level);
+   VkResult result =
+      vk_cmd_queue_init(&cmd_buffer->queue, &device->vk, level, &pool->alloc);
    if (result != VK_SUCCESS) {
+      vk_free(&pool->alloc, cmd_buffer);
+      return result;
+   }
+
+   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level);
+   if (result != VK_SUCCESS) {
+      vk_cmd_queue_finish(&cmd_buffer->queue);
       vk_free(&pool->alloc, cmd_buffer);
       return result;
    }
 
    cmd_buffer->device = device;
    cmd_buffer->pool = pool;
-
-   cmd_buffer->queue.alloc = &pool->alloc;
-   list_inithead(&cmd_buffer->queue.cmds);
 
    cmd_buffer->status = LVP_CMD_BUFFER_STATUS_INITIAL;
    if (pool) {
@@ -66,10 +71,9 @@ static VkResult lvp_create_cmd_buffer(
 
 static VkResult lvp_reset_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer)
 {
+   vk_cmd_queue_reset(&cmd_buffer->queue);
    vk_command_buffer_reset(&cmd_buffer->vk);
 
-   vk_free_queue(&cmd_buffer->queue);
-   list_inithead(&cmd_buffer->queue.cmds);
    cmd_buffer->status = LVP_CMD_BUFFER_STATUS_INITIAL;
    return VK_SUCCESS;
 }
@@ -122,8 +126,7 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_AllocateCommandBuffers(
 static void
 lvp_cmd_buffer_destroy(struct lvp_cmd_buffer *cmd_buffer)
 {
-   vk_free_queue(&cmd_buffer->queue);
-   list_del(&cmd_buffer->pool_link);
+   vk_cmd_queue_finish(&cmd_buffer->queue);
    vk_command_buffer_finish(&cmd_buffer->vk);
    vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
 }
