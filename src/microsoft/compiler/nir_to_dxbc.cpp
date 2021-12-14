@@ -1384,10 +1384,12 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
       return false;
    }
 
-   // if (!dxil_container_add_features(container.get(), &ctx.dxil_mod.feats)) {
-   //    debug_printf("D3D12: dxil_container_add_features failed\n");
-   //    return false;
-   // }
+   dxil_features empty_feats = {};
+   if (memcmp(&ctx.dxil_mod.feats, &empty_feats, sizeof(empty_feats)) != 0 &&
+       !dxil_container_add_features(container.get(), &ctx.dxil_mod.feats)) {
+      debug_printf("D3D12: dxil_container_add_features failed\n");
+      return false;
+   }
 
    if (!dxil_container_add_shader_blob(
            container.get(), static_cast<const void *>(mod.shader.GetShader()),
