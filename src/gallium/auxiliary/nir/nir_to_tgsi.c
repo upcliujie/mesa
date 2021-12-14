@@ -77,7 +77,7 @@ struct ntt_compile {
  * livein/liveout for the block as a whole.
  */
 struct live_reg_block_state {
-   uint8_t *def, *use, *livein, *liveout;
+   uint8_t *def, *use, *livein, *liveout, *defin, *defout;
 
    nir_instr_liveness *liveness;
 
@@ -158,6 +158,7 @@ nir_live_reg_setup_def_use_dest(nir_dest *dest, void *void_state)
    if (dest->reg.reg->num_array_elems > 1) {
       /* No per-element tracking of array regs. */
       bs->use[index] = ~0;
+      bs->defout[index] = ~0;
    } else {
       uint8_t writemask = 0;
       nir_instr *parent = dest->reg.parent_instr;
@@ -175,6 +176,7 @@ nir_live_reg_setup_def_use_dest(nir_dest *dest, void *void_state)
        * the block that don't have a preceding use.
        */
       bs->def[index] |= writemask & ~bs->use[index];
+      bs->defout[index] |= writemask;
    }
 
    bs->liveness->defs[index].start = MIN2(bs->liveness->defs[index].start, bs->ip);
@@ -188,6 +190,8 @@ nir_live_reg_setup_def_use(nir_function_impl *impl, struct live_reg_state *state
 {
    for (int i = 0; i < impl->num_blocks; i++) {
       state->blocks[i].def = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
+      state->blocks[i].defin = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
+      state->blocks[i].defout = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
       state->blocks[i].use = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
       state->blocks[i].livein = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
       state->blocks[i].liveout = rzalloc_array(state->blocks, uint8_t, impl->reg_alloc);
@@ -232,6 +236,37 @@ nir_live_reg_defs_impl(nir_function_impl *impl)
 
    nir_live_reg_setup_def_use(impl, &state);
 
+   /* Make a forward-order worklist of all the blocks. */
+   nir_block_worklist_init(&state.worklist, impl->num_blocks, NULL);
+   nir_foreach_block(block, impl) {
+      nir_block_worklist_push_tail(&state.worklist, block);
+   }
+
+   /* Propagate defin/defout down the CFG to calculate the live variables
+    * potentially defined along any possible control flow path.  We'll use this
+    * to keep things like conditional defs of the reg (or array regs where we
+    * don't track defs!) from making the reg's live range extend back to the
+    * start of the program.
+    */
+   while (!nir_block_worklist_is_empty(&state.worklist)) {
+      nir_block *block = nir_block_worklist_pop_head(&state.worklist);
+      for (int j = 0; j < ARRAY_SIZE(block->successors); j++) {
+         nir_block *succ = block->successors[j];
+         if (!succ || succ->index == impl->num_blocks)
+            continue;
+
+         for (int i = 0; i < impl->reg_alloc; i++) {
+            uint8_t new_def = state.blocks[block->index].defout[i] & ~state.blocks[succ->index].defin[i];
+
+            if (new_def) {
+               state.blocks[succ->index].defin[i] |= new_def;
+               state.blocks[succ->index].defout[i] |= new_def;
+               nir_block_worklist_push_tail(&state.worklist, succ);
+            }
+         }
+      }
+   }
+
    /* Make a reverse-order worklist of all the blocks. */
    nir_foreach_block(block, impl) {
       nir_block_worklist_push_head(&state.worklist, block);
@@ -259,7 +294,8 @@ nir_live_reg_defs_impl(nir_function_impl *impl)
 
             uint8_t new_liveout = sbs->livein[i] & ~bs->liveout[i];
             if (new_liveout) {
-               state.liveness->defs[i].end = MAX2(state.liveness->defs[i].end, block->end_ip);
+               if (state.blocks[block->index].defout[i])
+                  state.liveness->defs[i].end = MAX2(state.liveness->defs[i].end, block->end_ip);
                bs->liveout[i] |= sbs->livein[i];
             }
          }
@@ -276,7 +312,8 @@ nir_live_reg_defs_impl(nir_function_impl *impl)
                nir_block_worklist_push_tail(&state.worklist, pred);
             }
 
-            state.liveness->defs[i].start = MIN2(state.liveness->defs[i].start, block->start_ip);
+            if (new_livein & state.blocks[block->index].defin[i])
+               state.liveness->defs[i].start = MIN2(state.liveness->defs[i].start, block->start_ip);
          }
       }
    }
