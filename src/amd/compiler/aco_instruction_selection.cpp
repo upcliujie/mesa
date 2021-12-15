@@ -432,6 +432,8 @@ expand_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned num_components
    unsigned component_bytes = dst.bytes() / num_components;
    RegClass rc = RegClass::get(RegType::vgpr, component_bytes);
    assert(dst.type() == RegType::vgpr || !rc.is_subdword());
+   Temp zero = bld.copy(bld.def(RegClass::get(dst.type(), component_bytes)),
+                                Operand::zero(component_bytes));
    std::array<Temp, NIR_MAX_VEC_COMPONENTS> elems;
 
    aco_ptr<Pseudo_instruction> vec{create_instruction<Pseudo_instruction>(
@@ -444,10 +446,11 @@ expand_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned num_components
          if (dst.type() == RegType::sgpr)
             src = bld.as_uniform(src);
          vec->operands[i] = Operand(src);
+         elems[i] = src;
       } else {
          vec->operands[i] = Operand::zero(component_bytes);
+         elems[i] = zero;
       }
-      elems[i] = vec->operands[i].getTemp();
    }
    ctx->block->instructions.emplace_back(std::move(vec));
    ctx->allocated_vec.emplace(dst.id(), elems);
