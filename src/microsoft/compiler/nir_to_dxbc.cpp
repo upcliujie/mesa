@@ -1292,6 +1292,13 @@ emit_dcl(struct ntd_context *ctx)
       ctx->mod.shader.EmitGSMaxOutputVertexCountDecl(ctx->shader->info.gs.vertices_out);
    }
 
+   if (ctx->mod.shader_kind == D3D11_SB_COMPUTE_SHADER) {
+      ctx->mod.shader.EmitThreadGroupDecl(
+         ctx->shader->info.workgroup_size[0],
+         ctx->shader->info.workgroup_size[1],
+         ctx->shader->info.workgroup_size[2]);
+   }
+
    return true;
 }
 
