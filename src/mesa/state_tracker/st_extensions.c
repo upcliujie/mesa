@@ -1097,7 +1097,6 @@ void st_init_extensions(struct pipe_screen *screen,
     * Extensions that are supported by all Gallium drivers:
     */
    extensions->ARB_ES2_compatibility = GL_TRUE;
-   extensions->ARB_depth_texture = GL_TRUE;
    extensions->ARB_draw_elements_base_vertex = GL_TRUE;
    extensions->ARB_explicit_attrib_location = GL_TRUE;
    extensions->ARB_explicit_uniform_location = GL_TRUE;
