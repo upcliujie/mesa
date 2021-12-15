@@ -1111,7 +1111,6 @@ void st_init_extensions(struct pipe_screen *screen,
    extensions->ARB_vertex_program = GL_TRUE;
    extensions->ARB_vertex_shader = GL_TRUE;
 
-   extensions->EXT_blend_func_separate = GL_TRUE;
    extensions->EXT_blend_minmax = GL_TRUE;
    extensions->EXT_EGL_image_storage = GL_TRUE;
    extensions->EXT_gpu_program_parameters = GL_TRUE;
