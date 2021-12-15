@@ -1309,6 +1309,11 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    blob_init(blob);
    debug_dxbc = (int)debug_get_option_debug_dxbc();
 
+   if (opts->shader_model_max < SHADER_MODEL_5_0) {
+      debug_printf("D3D12: invalid shader model requested");
+      return false;
+   }
+
    NIR_PASS_V(s, nir_lower_pack);
    NIR_PASS_V(s, nir_lower_frexp);
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);

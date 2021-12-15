@@ -43,6 +43,16 @@ enum dxil_sysvalue_type {
 enum dxil_sysvalue_type
 nir_var_to_dxil_sysvalue_type(nir_variable *var, uint64_t other_stage_mask);
 
+enum dxil_shader_model {
+   SHADER_MODEL_4_0 = 0x40000,
+   SHADER_MODEL_4_1,
+   SHADER_MODEL_5_0 = 0x50000,
+   SHADER_MODEL_5_1,
+   SHADER_MODEL_6_0 = 0x60000,
+   SHADER_MODEL_6_1,
+   SHADER_MODEL_6_2,
+};
+
 struct nir_to_dxil_options {
    bool interpolate_at_vertex;
    bool lower_int16;
@@ -50,6 +60,7 @@ struct nir_to_dxil_options {
    unsigned ubo_binding_offset;
    unsigned provoking_vertex;
    unsigned num_kernel_globals;
+   uint32_t shader_model_max;
    bool vulkan_environment;
 };
 
