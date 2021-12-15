@@ -27,9 +27,11 @@
 #include "util/os_file.h"
 #include "util/xmlconfig.h"
 #include "vk_device.h"
+#include "vk_fence.h"
 #include "vk_instance.h"
 #include "vk_physical_device.h"
 #include "vk_queue.h"
+#include "vk_semaphore.h"
 #include "vk_util.h"
 
 #include <time.h>
@@ -620,11 +622,12 @@ wsi_AcquireNextImageKHR(VkDevice _device,
 
 VkResult
 wsi_common_acquire_next_image2(const struct wsi_device *wsi,
-                               VkDevice device,
+                               VkDevice _device,
                                const VkAcquireNextImageInfoKHR *pAcquireInfo,
                                uint32_t *pImageIndex)
 {
    VK_FROM_HANDLE(wsi_swapchain, swapchain, pAcquireInfo->swapchain);
+   VK_FROM_HANDLE(vk_device, device, _device);
 
    VkResult result = swapchain->acquire_next_image(swapchain, pAcquireInfo,
                                                    pImageIndex);
@@ -637,19 +640,31 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
    }
 
    if (pAcquireInfo->semaphore != VK_NULL_HANDLE &&
-       wsi->signal_semaphore_for_memory != NULL) {
+       wsi->create_sync_for_memory != NULL) {
+      VK_FROM_HANDLE(vk_semaphore, semaphore, pAcquireInfo->semaphore);
       struct wsi_image *image =
          swapchain->get_wsi_image(swapchain, *pImageIndex);
-      wsi->signal_semaphore_for_memory(device, pAcquireInfo->semaphore,
-                                       image->memory);
+
+      vk_semaphore_reset_temporary(device, semaphore);
+      VkResult lresult =
+         wsi->create_sync_for_memory(device, image->memory,
+                                     &semaphore->temporary);
+      if (lresult != VK_SUCCESS)
+         return lresult;
    }
 
    if (pAcquireInfo->fence != VK_NULL_HANDLE &&
-       wsi->signal_fence_for_memory != NULL) {
+       wsi->create_sync_for_memory != NULL) {
+      VK_FROM_HANDLE(vk_fence, fence, pAcquireInfo->fence);
       struct wsi_image *image =
          swapchain->get_wsi_image(swapchain, *pImageIndex);
-      wsi->signal_fence_for_memory(device, pAcquireInfo->fence,
-                                   image->memory);
+
+      vk_fence_reset_temporary(device, fence);
+      VkResult lresult =
+         wsi->create_sync_for_memory(device, image->memory,
+                                     &fence->temporary);
+      if (lresult != VK_SUCCESS)
+         return lresult;
    }
 
    return result;

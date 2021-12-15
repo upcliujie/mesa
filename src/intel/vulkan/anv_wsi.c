@@ -36,45 +36,16 @@ anv_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
    return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
 }
 
-static void
-anv_wsi_signal_semaphore_for_memory(VkDevice _device,
-                                    VkSemaphore _semaphore,
-                                    VkDeviceMemory _memory)
+static VkResult
+anv_wsi_create_sync_for_memory(struct vk_device *_device,
+                               VkDeviceMemory _memory,
+                               struct vk_sync **out_sync)
 {
-   ANV_FROM_HANDLE(anv_device, device, _device);
-   VK_FROM_HANDLE(vk_semaphore, semaphore, _semaphore);
+   struct anv_device *device = (struct anv_device *)_device;
    ANV_FROM_HANDLE(anv_device_memory, memory, _memory);
    ASSERTED VkResult result;
 
-   /* Put a BO semaphore with the image BO in the temporary.  For BO binary
-    * semaphores, we always set EXEC_OBJECT_WRITE so this creates a WaR
-    * hazard with the display engine's read to ensure that no one writes to
-    * the image before the read is complete.
-    */
-   vk_semaphore_reset_temporary(&device->vk, semaphore);
-
-   result = anv_sync_create_for_bo(device, memory->bo, &semaphore->temporary);
-   assert(result == VK_SUCCESS);
-}
-
-static void
-anv_wsi_signal_fence_for_memory(VkDevice _device,
-                                VkFence _fence,
-                                VkDeviceMemory _memory)
-{
-   ANV_FROM_HANDLE(anv_device, device, _device);
-   VK_FROM_HANDLE(vk_fence, fence, _fence);
-   ANV_FROM_HANDLE(anv_device_memory, memory, _memory);
-   ASSERTED VkResult result;
-
-   /* Put a BO fence with the image BO in the temporary.  For BO fences, we
-    * always just wait until the BO isn't busy and reads from the BO should
-    * count as busy.
-    */
-   vk_fence_reset_temporary(&device->vk, fence);
-
-   result = anv_sync_create_for_bo(device, memory->bo, &fence->temporary);
-   assert(result == VK_SUCCESS);
+   return anv_sync_create_for_bo(device, memory->bo, out_sync);
 }
 
 VkResult
@@ -93,10 +64,8 @@ anv_init_wsi(struct anv_physical_device *physical_device)
       return result;
 
    physical_device->wsi_device.supports_modifiers = true;
-   physical_device->wsi_device.signal_semaphore_for_memory =
-      anv_wsi_signal_semaphore_for_memory;
-   physical_device->wsi_device.signal_fence_for_memory =
-      anv_wsi_signal_fence_for_memory;
+   physical_device->wsi_device.create_sync_for_memory =
+      anv_wsi_create_sync_for_memory;
 
    physical_device->vk.wsi_device = &physical_device->wsi_device;
 
