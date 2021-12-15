@@ -550,6 +550,11 @@ clear_depth_stencil(struct iris_context *ice,
       z_res = false;
    }
 
+   /* BSpec 46213: Flush cache after fast clear */
+   iris_emit_pipe_control_flush(batch, "clear_depth_stencil: Flush data cache",
+                                PIPE_CONTROL_DATA_CACHE_FLUSH);
+
+
    /* At this point, we might have fast cleared the depth buffer. So if there's
     * no stencil clear pending, return early.
     */
