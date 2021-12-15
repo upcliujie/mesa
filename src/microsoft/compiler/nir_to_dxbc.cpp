@@ -748,12 +748,22 @@ emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 static bool
 emit_load_input(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
-   assert(nir_src_is_const(intr->src[0]) || !intr->src[0].is_ssa);
    COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT, 0);
    set_static_or_dynamic_index(ctx, nir_intrinsic_base(intr), intr->src[0], src, 0);
 
-   COperandBase dst =
-       nir_dest_as_register(ctx, intr->dest, 0b1111);
+   unsigned num_components = nir_dest_num_components(intr->dest);
+   unsigned base_component = nir_intrinsic_component(intr);
+      COperandBase dst =
+       nir_dest_as_register(ctx, intr->dest, (1 << num_components) - 1);
+
+   if (num_components == 1)
+      src.SelectComponent(static_cast<D3D10_SB_4_COMPONENT_NAME>(base_component));
+   else {
+      uint8_t swizzle[4] = {};
+      for (unsigned i = 0; i < 4; ++i)
+         swizzle[i] = base_component + i < 4 ? base_component + i : 0;
+      src.SetSwizzle(swizzle[0], swizzle[1], swizzle[2], swizzle[3]);
+   }
 
    CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
    ctx->mod.shader.EmitInstruction(mov);
