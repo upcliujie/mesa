@@ -118,7 +118,8 @@ nouveau_fence_cleanup(struct nouveau_screen *screen)
        * _current_ one, and remove both.
        */
       nouveau_fence_ref(screen->fence.current, &current);
-      nouveau_fence_wait(current, NULL);
+      if (!screen->fence.disable)
+         nouveau_fence_wait(current, NULL);
       nouveau_fence_ref(NULL, &current);
       nouveau_fence_ref(NULL, &screen->fence.current);
    }
