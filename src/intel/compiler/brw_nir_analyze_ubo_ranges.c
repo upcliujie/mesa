@@ -210,8 +210,6 @@ brw_nir_analyze_ubo_ranges(const struct brw_compiler *compiler,
 
    switch (nir->info.stage) {
    case MESA_SHADER_VERTEX:
-      if (vs_key && vs_key->nr_userclip_plane_consts > 0)
-         state.uses_regular_uniforms = true;
       break;
 
    case MESA_SHADER_COMPUTE:
