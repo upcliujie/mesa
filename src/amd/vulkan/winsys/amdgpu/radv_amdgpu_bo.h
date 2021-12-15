@@ -42,6 +42,7 @@ struct radv_amdgpu_winsys_bo {
    struct radeon_winsys_bo base;
    amdgpu_va_handle va_handle;
    uint64_t size;
+   uint32_t alignment;
    bool is_virtual;
    uint8_t priority;
 
@@ -50,6 +51,7 @@ struct radv_amdgpu_winsys_bo {
       struct {
          amdgpu_bo_handle bo;
          uint32_t bo_handle;
+         bool use_reusable_pool;
       };
       /* virtual bo */
       struct {
@@ -71,5 +73,9 @@ radv_amdgpu_winsys_bo(struct radeon_winsys_bo *bo)
 }
 
 void radv_amdgpu_bo_init_functions(struct radv_amdgpu_winsys *ws);
+
+void radv_amdgpu_bo_cache_init(struct radv_amdgpu_bo_cache *bo_cache, struct radv_amdgpu_winsys *ws,
+                               uint32_t usecs, uint32_t num_heaps);
+void radv_amdgpu_bo_cache_deinit(struct radv_amdgpu_bo_cache *bo_cache);
 
 #endif /* RADV_AMDGPU_BO_H */

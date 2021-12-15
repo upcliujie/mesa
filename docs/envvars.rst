@@ -698,6 +698,8 @@ RADV driver environment variables
 :envvar:`RADV_PERFTEST`
    a comma-separated list of named flags, which do various things:
 
+   ``bocache``
+      enable the BO cache
    ``bolist``
       enable the global BO list
    ``cswave32``

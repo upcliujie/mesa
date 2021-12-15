@@ -44,6 +44,157 @@
 
 static void radv_amdgpu_winsys_bo_destroy(struct radeon_winsys *_ws, struct radeon_winsys_bo *_bo);
 
+void
+radv_amdgpu_bo_cache_init(struct radv_amdgpu_bo_cache *bo_cache, struct radv_amdgpu_winsys *ws,
+                          uint32_t usecs, uint32_t num_heaps)
+{
+   bo_cache->heaps = CALLOC(num_heaps, sizeof(struct list_head));
+   if (!bo_cache->heaps)
+      return;
+
+   for (unsigned i = 0; i < num_heaps; i++)
+      list_inithead(&bo_cache->heaps[i]);
+
+   simple_mtx_init(&bo_cache->mutex, mtx_plain);
+
+   bo_cache->ws = ws;
+   bo_cache->num_heaps = num_heaps;
+   bo_cache->usecs = usecs;
+}
+
+static void
+radv_amdgpu_bo_cache_add_entry(struct radv_amdgpu_bo_cache *bo_cache,
+                               struct radv_amdgpu_winsys_bo *bo, uint32_t heap_index)
+{
+   struct list_head *heap = &bo_cache->heaps[heap_index];
+   struct radv_amdgpu_bo_cache_entry *entry;
+
+   entry = malloc(sizeof(*entry));
+   if (!entry)
+      return;
+
+   entry->bo = bo;
+   entry->start = os_time_get();
+   entry->end = entry->start + bo_cache->usecs;
+
+   list_addtail(&entry->head, heap);
+
+   bo_cache->num_buffers++;
+   bo_cache->cache_size += bo->size;
+}
+
+static void
+radv_amdgpu_bo_cache_del_entry(struct radv_amdgpu_bo_cache *bo_cache,
+                               struct radv_amdgpu_bo_cache_entry *entry)
+{
+   struct radv_amdgpu_winsys *ws = bo_cache->ws;
+   struct radv_amdgpu_winsys_bo *bo = entry->bo;
+
+   radv_amdgpu_winsys_bo_destroy(&ws->base, &bo->base);
+   list_del(&entry->head);
+   free(entry);
+
+   bo_cache->num_buffers--;
+   bo_cache->cache_size -= bo->size;
+}
+
+static void
+radv_amdgpu_bo_cache_free_expired(struct radv_amdgpu_bo_cache *bo_cache)
+{
+   uint64_t current_time = os_time_get();
+   unsigned i;
+
+   for (i = 0; i < bo_cache->num_heaps; i++) {
+      list_for_each_entry_safe(struct radv_amdgpu_bo_cache_entry, entry, &bo_cache->heaps[i], head) {
+         if (!os_time_timeout(entry->start, entry->end, current_time))
+            break;
+
+         radv_amdgpu_bo_cache_del_entry(bo_cache, entry);
+      }
+   }
+}
+
+static void
+radv_amdgpu_bo_cache_put(struct radv_amdgpu_bo_cache *bo_cache, struct radv_amdgpu_winsys_bo *bo)
+{
+   int heap_index;
+
+   heap_index = radv_get_heap_index(bo->base.initial_domain, bo->base.flags);
+   if (heap_index < 0)
+      return;
+
+   simple_mtx_lock(&bo_cache->mutex);
+
+   radv_amdgpu_bo_cache_free_expired(bo_cache);
+
+   radv_amdgpu_bo_cache_add_entry(bo_cache, bo, heap_index);
+
+   simple_mtx_unlock(&bo_cache->mutex);
+}
+
+static struct radv_amdgpu_winsys_bo *
+radv_amdgpu_bo_cache_get(struct radv_amdgpu_bo_cache *bo_cache, uint64_t size, uint32_t alignment,
+                         uint32_t heap_index)
+{
+   struct radv_amdgpu_winsys_bo *bo = NULL;
+
+   assert(heap_index < bo_cache->num_heaps);
+   struct list_head *heap = &bo_cache->heaps[heap_index];
+
+   simple_mtx_lock(&bo_cache->mutex);
+
+   list_for_each_entry_safe(struct radv_amdgpu_bo_cache_entry, entry, heap, head) {
+      if (entry->bo->size < size || entry->bo->size > size * 2)
+         continue;
+
+      if (alignment &&
+          (alignment > entry->bo->alignment || (entry->bo->alignment % alignment) != 0))
+         continue;
+
+      bo = entry->bo;
+
+      list_del(&entry->head);
+      free(entry);
+
+      bo_cache->num_buffers--;
+      bo_cache->cache_size -= bo->size;
+      simple_mtx_unlock(&bo_cache->mutex);
+      return bo;
+   }
+
+   simple_mtx_unlock(&bo_cache->mutex);
+
+   return NULL;
+}
+
+static bool
+radv_amdgpu_bo_cache_free(struct radv_amdgpu_bo_cache *bo_cache)
+{
+   bool progress = false;
+   unsigned i;
+
+   simple_mtx_lock(&bo_cache->mutex);
+
+   for (i = 0; i < bo_cache->num_heaps; i++) {
+      list_for_each_entry_safe(struct radv_amdgpu_bo_cache_entry, entry, &bo_cache->heaps[i], head) {
+         radv_amdgpu_bo_cache_del_entry(bo_cache, entry);
+         progress = true;
+      }
+   }
+
+   simple_mtx_unlock(&bo_cache->mutex);
+
+   return progress;
+}
+
+void
+radv_amdgpu_bo_cache_deinit(struct radv_amdgpu_bo_cache *bo_cache)
+{
+   radv_amdgpu_bo_cache_free(bo_cache);
+   simple_mtx_destroy(&bo_cache->mutex);
+   FREE(bo_cache->heaps);
+}
+
 static int
 radv_amdgpu_bo_va_op(struct radv_amdgpu_winsys *ws, amdgpu_bo_handle bo, uint64_t offset,
                      uint64_t size, uint64_t addr, uint32_t bo_flags, uint64_t internal_flags,
@@ -348,6 +499,19 @@ radv_amdgpu_winsys_bo_destroy(struct radeon_winsys *_ws, struct radeon_winsys_bo
    FREE(bo);
 }
 
+static void
+radv_amdgpu_winsys_bo_destroy_or_cache(struct radeon_winsys *_ws, struct radeon_winsys_bo *_bo)
+{
+   struct radv_amdgpu_winsys *ws = radv_amdgpu_winsys(_ws);
+   struct radv_amdgpu_winsys_bo *bo = radv_amdgpu_winsys_bo(_bo);
+
+   if (bo->use_reusable_pool) {
+      radv_amdgpu_bo_cache_put(&ws->bo_cache, bo);
+   } else {
+      radv_amdgpu_winsys_bo_destroy(_ws, _bo);
+   }
+}
+
 static VkResult
 radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned alignment,
                              enum radeon_bo_domain initial_domain, enum radeon_bo_flag flags,
@@ -358,6 +522,7 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned 
    struct radv_amdgpu_winsys_bo *bo;
    struct amdgpu_bo_alloc_request request = {0};
    struct radv_amdgpu_map_range *ranges = NULL;
+   bool use_reusable_pool = false;
    amdgpu_bo_handle buf_handle;
    uint64_t va = 0;
    amdgpu_va_handle va_handle;
@@ -367,6 +532,19 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned 
    /* Just be robust for callers that might use NULL-ness for determining if things should be freed.
     */
    *out_bo = NULL;
+
+   if (ws->perftest & RADV_PERFTEST_BO_CACHE) {
+      int heap_index = radv_get_heap_index(initial_domain, flags);
+      if (heap_index >= 0) {
+         bo = radv_amdgpu_bo_cache_get(&ws->bo_cache, size, alignment, heap_index);
+         if (bo) {
+            *out_bo = (struct radeon_winsys_bo *)bo;
+            return VK_SUCCESS;
+         }
+
+         use_reusable_pool = true;
+      }
+   }
 
    bo = CALLOC_STRUCT(radv_amdgpu_winsys_bo);
    if (!bo) {
@@ -393,6 +571,7 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned 
    bo->base.va = va;
    bo->va_handle = va_handle;
    bo->size = size;
+   bo->alignment = alignment;
    bo->is_virtual = !!(flags & RADEON_FLAG_VIRTUAL);
 
    if (flags & RADEON_FLAG_VIRTUAL) {
@@ -481,6 +660,11 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned 
 
    r = amdgpu_bo_alloc(ws->dev, &request, &buf_handle);
    if (r) {
+      /* Free the BO cache and try to allocate again, */
+      if (radv_amdgpu_bo_cache_free(&ws->bo_cache)) {
+         r = amdgpu_bo_alloc(ws->dev, &request, &buf_handle);
+      }
+
       fprintf(stderr, "amdgpu: Failed to allocate a buffer:\n");
       fprintf(stderr, "amdgpu:    size      : %" PRIu64 " bytes\n", size);
       fprintf(stderr, "amdgpu:    alignment : %u bytes\n", alignment);
@@ -497,8 +681,10 @@ radv_amdgpu_winsys_bo_create(struct radeon_winsys *_ws, uint64_t size, unsigned 
 
    bo->bo = buf_handle;
    bo->base.initial_domain = initial_domain;
+   bo->base.flags = flags;
    bo->base.use_global_list = bo->base.is_local;
    bo->priority = priority;
+   bo->use_reusable_pool = use_reusable_pool;
 
    r = amdgpu_bo_export(buf_handle, amdgpu_bo_handle_type_kms, &bo->bo_handle);
    assert(!r);
@@ -1040,7 +1226,7 @@ void
 radv_amdgpu_bo_init_functions(struct radv_amdgpu_winsys *ws)
 {
    ws->base.buffer_create = radv_amdgpu_winsys_bo_create;
-   ws->base.buffer_destroy = radv_amdgpu_winsys_bo_destroy;
+   ws->base.buffer_destroy = radv_amdgpu_winsys_bo_destroy_or_cache;
    ws->base.buffer_map = radv_amdgpu_winsys_bo_map;
    ws->base.buffer_unmap = radv_amdgpu_winsys_bo_unmap;
    ws->base.buffer_from_ptr = radv_amdgpu_winsys_bo_from_ptr;

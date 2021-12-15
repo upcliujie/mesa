@@ -170,6 +170,8 @@ radv_amdgpu_winsys_destroy(struct radeon_winsys *rws)
    if (ws->reserve_vmid)
       amdgpu_vm_unreserve_vmid(ws->dev, 0);
 
+   radv_amdgpu_bo_cache_deinit(&ws->bo_cache);
+
    u_rwlock_destroy(&ws->log_bo_list_lock);
    ac_addrlib_destroy(ws->addrlib);
    amdgpu_device_deinitialize(ws->dev);
@@ -285,6 +287,8 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    radv_amdgpu_bo_init_functions(ws);
    radv_amdgpu_cs_init_functions(ws);
    radv_amdgpu_surface_init_functions(ws);
+
+   radv_amdgpu_bo_cache_init(&ws->bo_cache, ws, 5000000 /*5s*/, RADEON_MAX_CACHED_HEAPS);
 
    _mesa_hash_table_insert(winsyses, dev, ws);
    simple_mtx_unlock(&winsys_creation_mutex);

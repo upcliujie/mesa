@@ -32,11 +32,29 @@
 #include <pthread.h>
 #include "util/list.h"
 #include "util/rwlock.h"
+#include "util/simple_mtx.h"
 #include "ac_gpu_info.h"
 #include "radv_radeon_winsys.h"
 
 #include "vk_sync.h"
 #include "vk_sync_timeline.h"
+
+struct radv_amdgpu_bo_cache_entry {
+   struct list_head head;
+   struct radv_amdgpu_winsys_bo *bo;
+   int64_t start, end; /**< Caching time interval */
+};
+
+struct radv_amdgpu_bo_cache {
+   struct list_head *heaps;
+   uint32_t num_heaps;
+   simple_mtx_t mutex;
+   struct radv_amdgpu_winsys *ws;
+
+   uint32_t usecs;
+   uint32_t num_buffers;
+   uint64_t cache_size;
+};
 
 struct radv_amdgpu_winsys {
    struct radeon_winsys base;
@@ -72,6 +90,9 @@ struct radv_amdgpu_winsys {
    const struct vk_sync_type *sync_types[3];
    struct vk_sync_type syncobj_sync_type;
    struct vk_sync_timeline_type emulated_timeline_sync_type;
+
+   /* BO cache. */
+   struct radv_amdgpu_bo_cache bo_cache;
 
    uint32_t refcount;
 };
