@@ -67,6 +67,9 @@ uint64_t
 dxil_reassign_driver_locations(nir_shader* s, nir_variable_mode modes,
    uint64_t other_stage_mask);
 
+bool
+dxil_allocate_sysvalues(nir_shader *shader, nir_variable **system_values);
+
 #ifdef __cplusplus
 }
 #endif

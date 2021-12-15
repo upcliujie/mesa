@@ -1740,3 +1740,79 @@ dxil_reassign_driver_locations(nir_shader* s, nir_variable_mode modes,
    }
    return result;
 }
+
+static nir_variable *
+add_sysvalue(nir_shader *shader,
+   uint8_t value, char *name,
+   int driver_location)
+{
+
+   nir_variable *var = rzalloc(shader, nir_variable);
+   if (!var)
+      return NULL;
+   var->data.driver_location = driver_location;
+   var->data.location = value;
+   var->type = glsl_uint_type();
+   var->name = name;
+   var->data.mode = nir_var_system_value;
+   var->data.interpolation = INTERP_MODE_FLAT;
+   return var;
+}
+
+static bool
+append_input_or_sysvalue(nir_shader *shader,
+   nir_variable **system_values,
+   int input_loc, int sv_slot,
+   char *name, int driver_location)
+{
+   if (input_loc >= 0) {
+      /* Check inputs whether a variable is available the corresponds
+       * to the sysvalue */
+      nir_foreach_variable_with_modes(var, shader, nir_var_shader_in) {
+         if (var->data.location == input_loc) {
+            system_values[sv_slot] = var;
+            return true;
+         }
+      }
+   }
+
+   system_values[sv_slot] = add_sysvalue(shader, sv_slot, name, driver_location);
+   if (!system_values[sv_slot])
+      return false;
+
+   nir_shader_add_variable(shader, system_values[sv_slot]);
+   return true;
+}
+
+struct sysvalue_name {
+   gl_system_value value;
+   int slot;
+   char *name;
+} possible_sysvalues[] = {
+   {SYSTEM_VALUE_VERTEX_ID_ZERO_BASE, -1, "SV_VertexID"},
+   {SYSTEM_VALUE_INSTANCE_ID, -1, "SV_InstanceID"},
+   {SYSTEM_VALUE_FRONT_FACE, VARYING_SLOT_FACE, "SV_IsFrontFace"},
+   {SYSTEM_VALUE_PRIMITIVE_ID, VARYING_SLOT_PRIMITIVE_ID, "SV_PrimitiveID"},
+   {SYSTEM_VALUE_SAMPLE_ID, -1, "SV_SampleIndex"},
+};
+
+bool
+dxil_allocate_sysvalues(nir_shader *shader, nir_variable **system_values)
+{
+   unsigned driver_location = 0;
+   nir_foreach_variable_with_modes(var, shader, nir_var_shader_in)
+      driver_location++;
+   nir_foreach_variable_with_modes(var, shader, nir_var_system_value)
+      driver_location++;
+
+   for (unsigned i = 0; i < ARRAY_SIZE(possible_sysvalues); ++i) {
+      struct sysvalue_name *info = &possible_sysvalues[i];
+      if (BITSET_TEST(shader->info.system_values_read, info->value)) {
+         if (!append_input_or_sysvalue(shader, system_values, info->slot,
+            info->value, info->name,
+            driver_location++))
+            return false;
+      }
+   }
+   return true;
+}

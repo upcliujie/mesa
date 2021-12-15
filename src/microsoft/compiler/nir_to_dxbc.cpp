@@ -155,6 +155,7 @@ struct ntd_context {
    struct nir_shader *shader{};
    DxbcModule mod{};
    dxil_module dxil_mod{};
+   nir_variable *system_value[SYSTEM_VALUE_MAX];
 
    ntd_context()
    {
@@ -783,20 +784,6 @@ emit_load_per_vertex_input(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
-emit_load_frag_coord(struct ntd_context *ctx, nir_intrinsic_instr *intr)
-{
-   // ctx->dxil_mod.inputs->sysvalue
-   UINT pos_reg_index = 0; /* todo: search input signature for POS register */
-   COperand4 src(D3D10_SB_OPERAND_TYPE_INPUT,
-                                    pos_reg_index);
-   COperandBase dst =
-       nir_dest_as_register(intr->dest, 0b1111);
-   CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
-   ctx->mod.shader.EmitInstruction(mov);
-   return true;
-}
-
-static bool
 emit_vulkan_resource_index(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    unsigned int binding = nir_intrinsic_binding(intr);
@@ -920,9 +907,6 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_per_vertex_input(ctx, intr);
    case nir_intrinsic_store_output:
       return emit_store_output(ctx, intr);
-
-   case nir_intrinsic_load_frag_coord:
-      return emit_load_frag_coord(ctx, intr);
 
    case nir_intrinsic_vulkan_resource_index:
       return emit_vulkan_resource_index(ctx, intr);
@@ -1231,6 +1215,11 @@ emit_dcl(struct ntd_context *ctx)
             }
             break;
 
+         case DXIL_PROG_SEM_VERTEX_ID:
+            ctx->mod.shader.EmitInputSystemGeneratedValueDecl(
+               elem.reg, write_mask, D3D10_SB_NAME_VERTEX_ID);
+            break;
+
          default:
             unreachable("unhandled dxil_prog_sig_semantic");
             return false;
@@ -1359,6 +1348,13 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
       return false;
    }
 
+   ntd_context ctx;
+   ctx.shader = s;
+   ctx.opts = opts;
+   ctx.mod.shader_kind = get_dxbc_shader_kind(s);
+   ctx.mod.major_version = 5;
+   ctx.mod.minor_version = opts->shader_model_max >= SHADER_MODEL_5_1 ? 1 : 0;
+
    NIR_PASS_V(s, nir_lower_pack);
    NIR_PASS_V(s, nir_lower_frexp);
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
@@ -1376,6 +1372,11 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    NIR_PASS_V(s, nir_lower_io,
               nir_var_shader_in | nir_var_shader_out | nir_var_uniform,
               get_glsl_type_size, options);
+
+   if (!dxil_allocate_sysvalues(s, ctx.system_value))
+      return false;
+
+   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx.system_value);
    // NIR_PASS_V(s, nir_lower_locals_to_regs);
    // NIR_PASS_V(s, nir_move_vec_src_uses_to_dest);
    // NIR_PASS_V(s, nir_lower_vec_to_movs, NULL, NULL);
@@ -1387,13 +1388,6 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
 
    if (debug_dxbc & DXBC_DEBUG_VERBOSE)
       nir_print_shader(s, stderr);
-
-   ntd_context ctx;
-   ctx.shader = s;
-   ctx.opts = opts;
-   ctx.mod.shader_kind = get_dxbc_shader_kind(s);
-   ctx.mod.major_version = 5;
-   ctx.mod.minor_version = opts->shader_model_max >= SHADER_MODEL_5_1 ? 1 : 0;
 
    // TODO SV_Position doesn't make it into dxil_module's inputs?
    get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
