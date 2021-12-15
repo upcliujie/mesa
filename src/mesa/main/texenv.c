@@ -116,10 +116,8 @@ set_combiner_mode(struct gl_context *ctx,
    case GL_ADD:
    case GL_ADD_SIGNED:
    case GL_INTERPOLATE:
-      legal = GL_TRUE;
-      break;
    case GL_SUBTRACT:
-      legal = ctx->Extensions.ARB_texture_env_combine;
+      legal = GL_TRUE;
       break;
    case GL_DOT3_RGB_EXT:
    case GL_DOT3_RGBA_EXT:
@@ -312,17 +310,14 @@ set_combiner_operand(struct gl_context *ctx,
        * version.  In the ARB and NV versions and OpenGL ES 1.x they can be
        * used for any RGB operand.
        */
-      legal = !alpha
-	 && ((term < 2) || ctx->Extensions.ARB_texture_env_combine
-	     || ctx->Extensions.NV_texture_env_combine4);
+      legal = !alpha && (term < 2 || ctx->Extensions.NV_texture_env_combine4);
       break;
    case GL_ONE_MINUS_SRC_ALPHA:
       /* GL_ONE_MINUS_SRC_ALPHA can only be used with
        * GL_OPERAND[01]_(RGB|ALPHA) in the EXT version.  In the ARB and NV
        * versions and OpenGL ES 1.x it can be used for any operand.
        */
-      legal = (term < 2) || ctx->Extensions.ARB_texture_env_combine
-	 || ctx->Extensions.NV_texture_env_combine4;
+      legal = term < 2 || ctx->Extensions.NV_texture_env_combine4;
       break;
    case GL_SRC_ALPHA:
       legal = GL_TRUE;
