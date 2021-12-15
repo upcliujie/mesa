@@ -37,6 +37,9 @@ extern const struct vk_physical_device_entrypoint_table wsi_physical_device_entr
 extern const struct vk_device_entrypoint_table wsi_device_entrypoints;
 #endif
 
+struct vk_device;
+struct vk_sync;
+
 #include <util/list.h>
 
 /* This is guaranteed to not collide with anything because it's in the
@@ -133,21 +136,14 @@ struct wsi_device {
 
    bool sw;
 
-   /* Signals the semaphore such that any wait on the semaphore will wait on
-    * any reads or writes on the give memory object.  This is used to
-    * implement the semaphore signal operation in vkAcquireNextImage.
+   /* Signals the sync object such that any wait on the semaphore will wait on
+    * any reads or writes on the give memory object. This is used to implement
+    * the semaphore signal operation in vkAcquireNextImage and vkQueuePresent
+    * to deal with the internal vkQueueSubmit.
     */
-   void (*signal_semaphore_for_memory)(VkDevice device,
-                                       VkSemaphore semaphore,
-                                       VkDeviceMemory memory);
-
-   /* Signals the fence such that any wait on the fence will wait on any reads
-    * or writes on the give memory object.  This is used to implement the
-    * semaphore signal operation in vkAcquireNextImage.
-    */
-   void (*signal_fence_for_memory)(VkDevice device,
-                                   VkFence fence,
-                                   VkDeviceMemory memory);
+   VkResult (*create_sync_for_memory)(struct vk_device *device,
+                                      VkDeviceMemory memory,
+                                      struct vk_sync **out_sync);
 
    /*
     * This sets the ownership for a WSI memory object:
