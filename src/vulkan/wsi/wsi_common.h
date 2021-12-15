@@ -133,21 +133,8 @@ struct wsi_device {
 
    bool sw;
 
-   /* Signals the semaphore such that any wait on the semaphore will wait on
-    * any reads or writes on the give memory object.  This is used to
-    * implement the semaphore signal operation in vkAcquireNextImage.
-    */
-   void (*signal_semaphore_for_memory)(VkDevice device,
-                                       VkSemaphore semaphore,
-                                       VkDeviceMemory memory);
-
-   /* Signals the fence such that any wait on the fence will wait on any reads
-    * or writes on the give memory object.  This is used to implement the
-    * semaphore signal operation in vkAcquireNextImage.
-    */
-   void (*signal_fence_for_memory)(VkDevice device,
-                                   VkFence fence,
-                                   VkDeviceMemory memory);
+   bool signal_fence_with_memory;
+   bool signal_semaphore_with_memory;
 
    /*
     * This sets the ownership for a WSI memory object:
