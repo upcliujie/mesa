@@ -569,6 +569,8 @@ clear_depth_stencil(struct iris_context *ice,
          blorp_flags |= BLORP_BATCH_PREDICATE_ENABLE;
    }
 
+   iris_emit_pipe_control_flush(batch, "clear_depth_stencil: Flush data cache",
+                                       PIPE_CONTROL_DATA_CACHE_FLUSH);
    iris_batch_maybe_flush(batch, 1500);
 
    struct iris_resource *z_res;
