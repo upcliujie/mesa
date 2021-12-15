@@ -235,9 +235,6 @@ a630_vk_asan:
     DEQP_FRACTION: 100
     FDO_CI_CONCURRENT: 4 # We get OOMkills if we go too wide with asan enabled
     TU_DEBUG: forcebin
-    # Disable the leak checks, since the library gets dlclose()d and thus get
-    # totally useless leak reports.  We can still catch buffer overflows.
-    ASAN_OPTIONS: "detect_leaks=0"
 
 a630_piglit:
   extends:
