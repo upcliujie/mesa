@@ -835,9 +835,15 @@ emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    src.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
    if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
       src.m_IndexDimension = D3D10_SB_OPERAND_INDEX_3D;
-      nir_variable *var = nir_get_binding_variable(ctx->shader, nir_chase_binding(intr->src[0]));
+      nir_binding binding = nir_chase_binding(intr->src[0]);
+      nir_variable *var = nir_get_binding_variable(ctx->shader, binding);
       src.SetIndex(0, var->data.driver_location);
-      set_static_or_dynamic_index(ctx, 0, intr->src[0], src, 1);
+
+      if (binding.num_indices)
+         set_static_or_dynamic_index(ctx, binding.binding, binding.indices[0], src, 1);
+      else
+         set_static_or_dynamic_index(ctx, 0, intr->src[0], src, 1);
+
       set_static_or_dynamic_index(ctx, 0, intr->src[1], src, 2);
    } else {
       src.m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
@@ -1116,7 +1122,7 @@ emit_dcl(struct ntd_context *ctx)
       if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
          ubo->data.driver_location = ctx->mod.num_ubos++;
          unsigned upper_bound = ctx->opts->vulkan_environment ?
-            (ubo->data.binding + glsl_type_is_array(ubo->type) ? glsl_get_aoa_size(ubo->type) - 1 : 0) :
+            (ubo->data.binding + (glsl_type_is_array(ubo->type) ? glsl_get_aoa_size(ubo->type) - 1 : 0)) :
             ubo->data.binding;
          unsigned size = get_dword_size(ctx->opts->vulkan_environment ?
             glsl_without_array(ubo->type) : ubo->type);
