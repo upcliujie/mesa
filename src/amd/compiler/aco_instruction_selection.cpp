@@ -444,10 +444,11 @@ expand_vector(isel_context* ctx, Temp vec_src, Temp dst, unsigned num_components
          if (dst.type() == RegType::sgpr)
             src = bld.as_uniform(src);
          vec->operands[i] = Operand(src);
+         elems[i] = src;
       } else {
          vec->operands[i] = Operand::zero(component_bytes);
+         elems[i] = Temp(0, rc);
       }
-      elems[i] = vec->operands[i].getTemp();
    }
    ctx->block->instructions.emplace_back(std::move(vec));
    ctx->allocated_vec.emplace(dst.id(), elems);
