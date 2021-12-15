@@ -145,6 +145,8 @@ struct DxbcModule {
    uint32_t major_version;
    uint32_t minor_version;
    CShaderAsm shader;
+
+   uint32_t num_ubos;
 };
 
 struct ntd_context {
@@ -873,13 +875,36 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx,
    return true;
 }
 
+static void
+set_static_or_dynamic_index(nir_src src, COperandBase& op, int index)
+{
+   if (nir_src_is_const(src)) {
+      op.SetIndex(index, nir_src_as_uint(src));
+   } else {
+      assert(!src.is_ssa && src.reg.reg->num_components == 1);
+      op.SetIndex(index, 0, D3D10_SB_OPERAND_TYPE_TEMP, src.reg.reg->index, 0, D3D10_SB_4_COMPONENT_R);
+   }
+}
+
 static bool
 emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
-   unsigned ubo_id = (unsigned)nir_src_as_uint(intr->src[0]);
-   // TODO relative addressing
-   unsigned ubo_offset = (unsigned)nir_src_as_uint(intr->src[1]);
-   COperand2D src(D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER, ubo_id, ubo_offset);
+   COperandBase src;
+   src.m_Type = D3D10_SB_OPERAND_TYPE_CONSTANT_BUFFER;
+   src.SetSwizzle();
+   src.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
+   if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+      src.m_IndexDimension = D3D10_SB_OPERAND_INDEX_3D;
+      nir_variable *var = nir_get_binding_variable(ctx->shader, nir_chase_binding(intr->src[0]));
+      src.SetIndex(0, var->data.driver_location);
+      set_static_or_dynamic_index(intr->src[0], src, 1);
+      set_static_or_dynamic_index(intr->src[1], src, 2);
+   } else {
+      src.m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
+      set_static_or_dynamic_index(intr->src[0], src, 0);
+      set_static_or_dynamic_index(intr->src[1], src, 1);
+   }
+
    COperandDst dst = nir_dest_as_register(intr->dest, (1 << intr->num_components) - 1);
    ctx->mod.shader.EmitInstruction(CInstruction(D3D10_SB_OPCODE_MOV, dst, src));
    return true;
@@ -1151,7 +1176,20 @@ emit_dcl(struct ntd_context *ctx)
        D3D10_SB_GLOBAL_FLAG_REFACTORING_ALLOWED);
 
    nir_foreach_variable_with_modes(ubo, ctx->shader, nir_var_mem_ubo) {
-      ctx->mod.shader.EmitConstantBufferDecl(ubo->data.binding, get_dword_size(ubo->type), D3D10_SB_CONSTANT_BUFFER_DYNAMIC_INDEXED);
+      if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+         ubo->data.driver_location = ctx->mod.num_ubos++;
+         unsigned upper_bound = ctx->opts->vulkan_environment ?
+            (ubo->data.binding + glsl_type_is_array(ubo->type) ? glsl_get_aoa_size(ubo->type) - 1 : 0) :
+            ubo->data.binding;
+         unsigned size = get_dword_size(ctx->opts->vulkan_environment ?
+            glsl_without_array(ubo->type) : ubo->type);
+
+         ctx->mod.shader.EmitIndexableConstantBufferDecl(ubo->data.driver_location,
+            ubo->data.binding, upper_bound, size,
+            D3D10_SB_CONSTANT_BUFFER_DYNAMIC_INDEXED, ubo->data.descriptor_set);
+      } else {
+         ctx->mod.shader.EmitConstantBufferDecl(ubo->data.binding, get_dword_size(ubo->type), D3D10_SB_CONSTANT_BUFFER_DYNAMIC_INDEXED);
+      }
    }
 
    for (int i = 0; i < ctx->dxil_mod.num_sig_inputs; i++) {
@@ -1348,8 +1386,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    ctx.opts = opts;
    ctx.mod.shader_kind = get_dxbc_shader_kind(s);
    ctx.mod.major_version = 5;
-   // TODO update to 5.1 and add support for dynamic indexing instruction emitters
-   ctx.mod.minor_version = 0;
+   ctx.mod.minor_version = opts->shader_model_max >= SHADER_MODEL_5_1 ? 1 : 0;
 
    // TODO SV_Position doesn't make it into dxil_module's inputs?
    get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
