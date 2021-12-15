@@ -52,6 +52,7 @@ struct nouveau_screen {
       u32 sequence_ack;
       void (*emit)(struct pipe_screen *, u32 *sequence);
       u32  (*update)(struct pipe_screen *);
+      bool disable; /* set by noop drm-shim to avoid waiting on fences that will never complete */
    } fence;
 
    struct nouveau_mman *mm_VRAM;

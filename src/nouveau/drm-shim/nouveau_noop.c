@@ -216,6 +216,11 @@ drm_shim_driver_init(void)
    shim_device.version_minor = 0;
    shim_device.version_patchlevel = 1;
 
+   /* Back-channel tell the driver to avoid waiting on fences, since they'll
+    * never happen.
+    */
+   setenv("NOUVEAU_DISABLE_FENCES", "1", true);
+
    nouveau_driver_get_device_info();
 
    /* nothing looks at the pci id, so fix it to a GTX 780 */
