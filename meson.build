@@ -33,9 +33,9 @@ project(
 # For meson >= 0.55.0, meson can inject some extra arguments to get richer
 # results from gtest based tests.
 gtest_test_protocol = 'exitcode'
-if meson.version().version_compare('>= 0.55.0')
-  gtest_test_protocol = 'gtest'
-endif
+#if meson.version().version_compare('>= 0.55.0')
+#  gtest_test_protocol = 'gtest'
+#endif
 
 cc = meson.get_compiler('c')
 cpp = meson.get_compiler('cpp')
