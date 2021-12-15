@@ -40,6 +40,8 @@
 #include "vk_sync_timeline.h"
 #include "vk_util.h"
 
+#include "../wsi/wsi_common.h"
+
 VkResult
 vk_queue_init(struct vk_queue *queue, struct vk_device *device,
               const VkDeviceQueueCreateInfo *pCreateInfo,
@@ -173,6 +175,8 @@ vk_queue_submit_cleanup(struct vk_queue *queue,
       if (submit->_wait_temps[i] != NULL)
          vk_sync_destroy(queue->base.device, submit->_wait_temps[i]);
    }
+   if (submit->_wsi_temp)
+      vk_sync_destroy(queue->base.device, submit->_wsi_temp);
 
    if (submit->_wait_points != NULL) {
       for (uint32_t i = 0; i < submit->wait_count; i++) {
@@ -508,10 +512,14 @@ vk_queue_submit(struct vk_queue *queue,
 {
    VkResult result;
 
+   const struct wsi_memory_signal_submit_info *mem_signal_info =
+      vk_find_struct_const(info->pNext,
+                           WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
    struct vk_queue_submit *submit =
       vk_queue_submit_alloc(queue, info->waitSemaphoreInfoCount,
                             info->commandBufferInfoCount,
-                            info->signalSemaphoreInfoCount + (fence != NULL));
+                            info->signalSemaphoreInfoCount +
+                            (fence != NULL) + (mem_signal_info != NULL));
    if (unlikely(submit == NULL))
       return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -626,8 +634,31 @@ vk_queue_submit(struct vk_queue *queue,
       };
    }
 
+   if (mem_signal_info != NULL) {
+      struct vk_device *device = queue->base.device;
+      struct vk_physical_device *pdevice = device->physical;
+      uint32_t sem_idx = info->signalSemaphoreInfoCount;
+      assert(submit->signals[sem_idx].sync == NULL);
+
+      result =
+         pdevice->wsi_device->create_sync_for_memory(device,
+                                                     mem_signal_info->memory,
+                                                     &submit->_wsi_temp);
+      if (unlikely(result != VK_SUCCESS))
+         goto fail;
+
+      result = vk_sync_reset(device, submit->_wsi_temp);
+      if (unlikely(result != VK_SUCCESS))
+         goto fail;
+
+      submit->signals[sem_idx] = (struct vk_sync_signal) {
+         .sync = submit->_wsi_temp,
+         .stage_mask = ~(VkPipelineStageFlags2KHR)0,
+      };
+   }
+
    if (fence != NULL) {
-      uint32_t fence_idx = info->signalSemaphoreInfoCount;
+      uint32_t fence_idx = info->signalSemaphoreInfoCount + (mem_signal_info != NULL);
       assert(submit->signal_count == fence_idx + 1);
       assert(submit->signals[fence_idx].sync == NULL);
       submit->signals[fence_idx] = (struct vk_sync_signal) {
