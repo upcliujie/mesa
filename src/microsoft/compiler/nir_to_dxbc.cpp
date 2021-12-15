@@ -512,6 +512,11 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_2_args(ctx, D3D10_SB_OPCODE_IEQ, alu));
       return true;
 
+   case nir_op_ine:
+      ctx->mod.shader.EmitInstruction(
+          get_intr_2_args(ctx, D3D10_SB_OPCODE_INE, alu));
+      return true;
+
    case nir_op_ior:
       ctx->mod.shader.EmitInstruction(
           get_intr_2_args(ctx, D3D10_SB_OPCODE_OR, alu));
