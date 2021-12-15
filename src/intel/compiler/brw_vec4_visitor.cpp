@@ -1006,43 +1006,12 @@ vec4_visitor::emit_texture(ir_texture_opcode op,
                   src_reg(inst->dst), brw_imm_d(1));
    }
 
-   if (devinfo->ver == 6 && op == ir_tg4) {
-      emit_gfx6_gather_wa(key_tex->gfx6_gather_wa[surface], inst->dst);
-   }
-
    if (op == ir_query_levels) {
       /* # levels is in .w */
       src_reg swizzled(dest);
       swizzled.swizzle = BRW_SWIZZLE4(SWIZZLE_W, SWIZZLE_W,
                                       SWIZZLE_W, SWIZZLE_W);
       emit(MOV(dest, swizzled));
-   }
-}
-
-/**
- * Apply workarounds for Gfx6 gather with UINT/SINT
- */
-void
-vec4_visitor::emit_gfx6_gather_wa(uint8_t wa, dst_reg dst)
-{
-   if (!wa)
-      return;
-
-   int width = (wa & WA_8BIT) ? 8 : 16;
-   dst_reg dst_f = dst;
-   dst_f.type = BRW_REGISTER_TYPE_F;
-
-   /* Convert from UNORM to UINT */
-   emit(MUL(dst_f, src_reg(dst_f), brw_imm_f((float)((1 << width) - 1))));
-   emit(MOV(dst, src_reg(dst_f)));
-
-   if (wa & WA_SIGN) {
-      /* Reinterpret the UINT value as a signed INT value by
-       * shifting the sign bit into place, then shifting back
-       * preserving sign.
-       */
-      emit(SHL(dst, src_reg(dst), brw_imm_d(32 - width)));
-      emit(ASR(dst, src_reg(dst), brw_imm_d(32 - width)));
    }
 }
 
