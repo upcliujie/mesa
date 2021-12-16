@@ -399,7 +399,11 @@ iter_declaration(
       switch (decl->Declaration.MemType) {
       /* Note: ,GLOBAL is optional / the default */
       case TGSI_MEMORY_TYPE_GLOBAL:  TXT(", GLOBAL");  break;
-      case TGSI_MEMORY_TYPE_SHARED:  TXT(", SHARED");  break;
+      case TGSI_MEMORY_TYPE_SHARED:
+         TXT(", SHARED");
+         TXT(", ");
+         UID(decl->Size.Size);
+         break;
       case TGSI_MEMORY_TYPE_PRIVATE: TXT(", PRIVATE"); break;
       case TGSI_MEMORY_TYPE_INPUT:   TXT(", INPUT");   break;
       }

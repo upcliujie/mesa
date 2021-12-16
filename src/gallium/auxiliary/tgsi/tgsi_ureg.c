@@ -57,6 +57,7 @@ union tgsi_any_token {
    struct tgsi_declaration_semantic decl_semantic;
    struct tgsi_declaration_sampler_view decl_sampler_view;
    struct tgsi_declaration_array array;
+   struct tgsi_declaration_size size;
    struct tgsi_immediate imm;
    union  tgsi_immediate_data imm_data;
    struct tgsi_instruction insn;
@@ -205,6 +206,7 @@ struct ureg_program
    struct ureg_tokens domain[2];
 
    bool use_memory[TGSI_MEMORY_TYPE_COUNT];
+   unsigned shared_size;
 
    bool precise;
 };
@@ -828,11 +830,16 @@ struct ureg_src ureg_DECL_buffer(struct ureg_program *ureg, unsigned nr,
 /* Allocate a memory area.
  */
 struct ureg_src ureg_DECL_memory(struct ureg_program *ureg,
-                                 unsigned memory_type)
+                                 unsigned memory_type,
+                                 unsigned size)
 {
    struct ureg_src reg = ureg_src_register(TGSI_FILE_MEMORY, memory_type);
 
    ureg->use_memory[memory_type] = true;
+
+   if (memory_type == TGSI_MEMORY_TYPE_SHARED)
+      ureg->shared_size = size;
+
    return reg;
 }
 
@@ -1766,7 +1773,7 @@ emit_decl_buffer(struct ureg_program *ureg,
 static void
 emit_decl_memory(struct ureg_program *ureg, unsigned memory_type)
 {
-   union tgsi_any_token *out = get_tokens(ureg, DOMAIN_DECL, 2);
+   union tgsi_any_token *out = get_tokens(ureg, DOMAIN_DECL, 3);
 
    out[0].value = 0;
    out[0].decl.Type = TGSI_TOKEN_TYPE_DECLARATION;
@@ -1778,6 +1785,9 @@ emit_decl_memory(struct ureg_program *ureg, unsigned memory_type)
    out[1].value = 0;
    out[1].decl_range.First = memory_type;
    out[1].decl_range.Last = memory_type;
+
+   out[2].value = 0;
+   out[2].size.Size = ureg->shared_size;
 }
 
 static void
@@ -2384,7 +2394,7 @@ ureg_setup_compute_shader(struct ureg_program *ureg,
                  info->workgroup_size[2]);
 
    if (info->shared_size)
-      ureg_DECL_memory(ureg, TGSI_MEMORY_TYPE_SHARED);
+      ureg_DECL_memory(ureg, TGSI_MEMORY_TYPE_SHARED, info->shared_size);
 }
 
 void

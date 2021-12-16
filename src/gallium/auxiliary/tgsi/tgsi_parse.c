@@ -136,6 +136,9 @@ tgsi_parse_token(
       if (decl->Declaration.Array) {
          next_token(ctx, &decl->Array);
       }
+      if (decl->Declaration.MemType == TGSI_MEMORY_TYPE_SHARED) {
+         next_token(ctx, &decl->Size);
+      }
 
       break;
    }

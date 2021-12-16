@@ -369,7 +369,7 @@ struct ureg_src
 ureg_DECL_buffer(struct ureg_program *ureg, unsigned nr, bool atomic);
 
 struct ureg_src
-ureg_DECL_memory(struct ureg_program *ureg, unsigned memory_type);
+ureg_DECL_memory(struct ureg_program *ureg, unsigned memory_type, unsigned size);
 
 static inline struct ureg_src
 ureg_imm4f( struct ureg_program *ureg,

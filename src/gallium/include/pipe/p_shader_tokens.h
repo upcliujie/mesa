@@ -250,6 +250,12 @@ struct tgsi_declaration_array {
    unsigned Padding : 22;
 };
 
+struct tgsi_declaration_size {
+   unsigned Size    : 16; /**< UINT */
+   unsigned Padding : 16;
+};
+
+
 enum tgsi_imm_type {
    TGSI_IMM_FLOAT32,
    TGSI_IMM_UINT32,

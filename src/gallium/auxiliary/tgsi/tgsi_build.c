@@ -297,6 +297,28 @@ tgsi_default_declaration_image(void)
    return di;
 }
 
+static struct tgsi_declaration_size
+tgsi_default_declaration_size(void)
+{
+   struct tgsi_declaration_size ds;
+
+   ds.Size = 0;
+   ds.Padding = 0;
+   return ds;
+}
+
+static struct tgsi_declaration_size
+tgsi_build_declaration_size(unsigned size,
+                            struct tgsi_header *header)
+{
+   struct tgsi_declaration_size ds;
+
+   ds = tgsi_default_declaration_size();
+
+   ds.Size = size;
+   return ds;
+}
+
 static struct tgsi_declaration_image
 tgsi_build_declaration_image(unsigned texture,
                              unsigned format,
@@ -395,6 +417,7 @@ tgsi_default_full_declaration( void )
    full_declaration.Image = tgsi_default_declaration_image();
    full_declaration.SamplerView = tgsi_default_declaration_sampler_view();
    full_declaration.Array = tgsi_default_declaration_array();
+   full_declaration.Size = tgsi_default_declaration_size();
 
    return full_declaration;
 }
@@ -534,6 +557,15 @@ tgsi_build_full_declaration(
       *da = tgsi_build_declaration_array(
          full_decl->Array.ArrayID,
          declaration,
+         header);
+   }
+
+   if (full_decl->Declaration.MemType == TGSI_MEMORY_TYPE_SHARED) {
+      struct tgsi_declaration_size *ds;
+      ds = (struct tgsi_declaration_size *)&tokens[size];
+      size++;
+      *ds = tgsi_build_declaration_size(
+         full_decl->Size.Size,
          header);
    }
    return size;

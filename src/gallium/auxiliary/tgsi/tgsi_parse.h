@@ -67,6 +67,7 @@ struct tgsi_full_declaration
    struct tgsi_declaration_image Image;
    struct tgsi_declaration_sampler_view SamplerView;
    struct tgsi_declaration_array Array;
+   struct tgsi_declaration_size Size;
 };
 
 struct tgsi_full_immediate
