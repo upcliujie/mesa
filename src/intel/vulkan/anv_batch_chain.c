@@ -36,6 +36,8 @@
 #include "genxml/genX_bits.h"
 #include "perf/intel_perf.h"
 
+#include "vk_implicit_memory_sync.h"
+
 #include "util/debug.h"
 
 /** \file anv_batch_chain.c
@@ -1651,6 +1653,15 @@ anv_execbuf_add_sync(struct anv_device *device,
 
       return anv_execbuf_add_bo(device, execbuf, bo_sync->bo, NULL,
                                 is_signal ? EXEC_OBJECT_WRITE : 0);
+
+   } else if (vk_sync_type_is_implicit_memory_sync(sync->type)) {
+      struct vk_implicit_memory_sync *mem_sync =
+         vk_sync_as_implicit_memory_sync(sync);
+      ANV_FROM_HANDLE(anv_device_memory, mem, mem_sync->memory);
+
+      return anv_execbuf_add_bo(device, execbuf, mem->bo, NULL,
+                                EXEC_OBJECT_WRITE);
+
    } else if (vk_sync_type_is_drm_syncobj(sync->type)) {
       struct vk_drm_syncobj *syncobj = vk_sync_as_drm_syncobj(sync);
 
