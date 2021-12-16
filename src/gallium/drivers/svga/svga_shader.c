@@ -465,7 +465,7 @@ svga_init_shader_key_common(const struct svga_context *svga,
    }
 
    if (svga_have_gl43(svga)) {
-      if (shader->info.images_declared ||
+      if (shader->info.images_declared || shader->info.hw_atomic_declared ||
           shader->info.shader_buffers_declared) {
 
          /* Save the uavSpliceIndex which is the index used for the first uav
@@ -785,6 +785,9 @@ svga_new_shader_variant(struct svga_context *svga, enum pipe_shader_type type)
       break;
    case PIPE_SHADER_TESS_CTRL:
       variant = CALLOC(1, sizeof(struct svga_tcs_variant));
+      break;
+   case PIPE_SHADER_COMPUTE:
+      variant = CALLOC(1, sizeof(struct svga_cs_variant));
       break;
    default:
       return NULL;

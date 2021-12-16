@@ -1529,7 +1529,7 @@ static boolean
 need_temp_reg_initialization(struct svga_shader_emitter_v10 *emit,
                              unsigned index)
 {
-   if (!(emit->info.indirect_files & (1u << TGSI_FILE_TEMPORARY))
+   if (!(emit->info.indirect_files && (1u << TGSI_FILE_TEMPORARY))
        && emit->current_loop_depth == 0) {
       if (!emit->temp_map[index].initialized &&
           emit->temp_map[index].index < emit->num_shader_temps) {
@@ -4969,6 +4969,7 @@ emit_vgpu10_declaration(struct svga_shader_emitter_v10 *emit,
       if (emit->unit == PIPE_SHADER_COMPUTE &&
           decl->Declaration.MemType == TGSI_MEMORY_TYPE_SHARED) {
          emit->cs.shared_memory_declared = TRUE;
+         emit->cs.shared_size = decl->Size.Size;
       }
 
       return TRUE;
@@ -5916,6 +5917,10 @@ emit_constant_declaration(struct svga_shader_emitter_v10 *emit)
          }
       }
    }
+   if (emit->key.image_size_used) {
+      emit->image_size_index = total_consts;
+      total_consts += emit->num_images;
+   }
 
    if (total_consts > 0) {
       if (total_consts > VGPU10_MAX_CONSTANT_BUFFER_ELEMENT_COUNT) {
@@ -6389,6 +6394,7 @@ emit_memory_declarations(struct svga_shader_emitter_v10 *emit)
        * is 1 as per translated TGSI shader
        */
       emit_dword(emit, 1);
+      emit_dword(emit, emit->cs.shared_size); /* byte Count */
       end_emit_instruction(emit);
    }
 }
@@ -10733,9 +10739,6 @@ emit_instruction(struct svga_shader_emitter_v10 *emit,
 {
    const enum tgsi_opcode opcode = inst->Instruction.Opcode;
 
-   if (emit->skip_instruction)
-      return TRUE;
-
    switch (opcode) {
    case TGSI_OPCODE_ADD:
    case TGSI_OPCODE_AND:
@@ -12802,6 +12805,8 @@ svga_tgsi_vgpu10_translate(struct svga_context *svga,
    emit->current_loop_depth = 0;
 
    emit->initialize_temp_index = INVALID_INDEX;
+   emit->image_size_index = INVALID_INDEX;
+
    emit->max_vs_inputs  = svgascreen->max_vs_inputs;
    emit->max_vs_outputs = svgascreen->max_vs_outputs;
    emit->max_gs_inputs  = svgascreen->max_gs_inputs;

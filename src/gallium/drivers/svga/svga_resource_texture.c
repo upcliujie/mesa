@@ -220,6 +220,42 @@ svga_resource_get_handle(struct pipe_screen *screen,
 }
 
 
+static void
+svga_texture_destroy(struct pipe_screen *screen,
+                     struct pipe_resource *pt)
+{
+   struct svga_screen *ss = svga_screen(screen);
+   struct svga_texture *tex = svga_texture(pt);
+
+   ss->texture_timestamp++;
+
+   svga_sampler_view_reference(&tex->cached_view, NULL);
+
+   /*
+     DBG("%s deleting %p\n", __FUNCTION__, (void *) tex);
+   */
+   SVGA_DBG(DEBUG_DMA, "unref sid %p (texture)\n", tex->handle);
+
+   boolean to_invalidate = svga_was_texture_rendered_to(tex);
+   svga_screen_surface_destroy(ss, &tex->key, to_invalidate, &tex->handle);
+
+   /* Destroy the backed surface handle if exists */
+   if (tex->backed_handle)
+      svga_screen_surface_destroy(ss, &tex->backed_key, to_invalidate,
+		                  &tex->backed_handle);
+
+   ss->hud.total_resource_bytes -= tex->size;
+
+   FREE(tex->defined);
+   FREE(tex->dirty);
+   FREE(tex);
+
+   assert(ss->hud.num_resources > 0);
+   if (ss->hud.num_resources > 0)
+      ss->hud.num_resources--;
+}
+
+
 /**
  * Determine if we need to read back a texture image before mapping it.
  */
@@ -231,8 +267,7 @@ need_tex_readback(struct svga_transfer *st)
 
    if ((st->base.usage & PIPE_MAP_WRITE) &&
        ((st->base.usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) == 0)) {
-      return svga_was_texture_rendered_to(svga_texture(st->base.resource),
-                                          st->slice, st->base.level);
+      return svga_was_texture_rendered_to(svga_texture(st->base.resource));
    }
 
    return FALSE;
@@ -263,6 +298,21 @@ readback_image_vgpu10(struct svga_context *svga,
                                                       subResource));
 }
 
+static void
+readback_texture_surface(struct svga_context *svga,
+                         struct svga_texture *tex,
+                         struct svga_winsys_surface *surf)
+{
+   struct svga_winsys_screen *sws = svga_screen(svga->pipe.screen)->sws;
+
+   SVGA_RETRY(svga, SVGA3D_ReadbackGBSurface(svga->swc, surf));
+
+   /* Mark the texture surface as UPDATED */
+   tex->surface_state = SVGA_SURFACE_STATE_UPDATED;
+
+   svga->hud.num_readbacks++;
+   SVGA_STATS_COUNT_INC(sws, SVGA_STATS_COUNT_TEXREADBACK);
+}
 
 /**
  * Use DMA for the transfer request
@@ -353,16 +403,8 @@ svga_texture_transfer_map_direct(struct svga_context *svga,
       svga_surfaces_flush(svga);
 
       if (!svga->swc->force_coherent || tex->imported) {
-         for (i = 0; i < st->box.d; i++) {
-            if (svga_have_vgpu10(svga)) {
-               readback_image_vgpu10(svga, surf, st->slice + i, level,
-                                     tex->b.last_level + 1);
-            } else {
-               readback_image_vgpu9(svga, surf, st->slice + i, level);
-            }
-         }
-         svga->hud.num_readbacks++;
-         SVGA_STATS_COUNT_INC(sws, SVGA_STATS_COUNT_TEXREADBACK);
+         /* Readback the whole surface */
+	 readback_texture_surface(svga, tex, surf);
 
          svga_context_flush(svga, NULL);
       }
@@ -370,7 +412,7 @@ svga_texture_transfer_map_direct(struct svga_context *svga,
        * Note: if PIPE_MAP_DISCARD_WHOLE_RESOURCE were specified
        * we could potentially clear the flag for all faces/layers/mips.
        */
-      svga_clear_texture_rendered_to(tex, st->slice, level);
+      svga_clear_texture_rendered_to(tex);
    }
    else {
       assert(usage & PIPE_MAP_WRITE);
@@ -427,7 +469,6 @@ svga_texture_transfer_map_direct(struct svga_context *svga,
          map = svga->swc->surface_map(svga->swc, surf, usage, &retry, &rebind);
          svga_retry_exit(svga);
       }
-
       if (map && rebind) {
          enum pipe_error ret;
 
@@ -584,8 +625,7 @@ svga_texture_transfer_map(struct pipe_context *pipe,
       boolean can_use_upload = tex->can_use_upload &&
                                !(st->base.usage & PIPE_MAP_READ);
       boolean was_rendered_to =
-         svga_was_texture_rendered_to(svga_texture(texture),
-                                      st->slice, st->base.level);
+         svga_was_texture_rendered_to(svga_texture(texture));
 
       /* If the texture was already rendered to and upload buffer
        * is supported, then we will use upload buffer to
@@ -721,7 +761,7 @@ svga_texture_transfer_unmap_dma(struct svga_context *svga,
       }
 
       svga_transfer_dma(svga, st, SVGA3D_WRITE_HOST_VRAM, flags);
-      svga_set_texture_rendered_to(tex, st->slice, st->base.level);
+      svga_set_texture_rendered_to(tex);
    }
 
    FREE(st->swbuf);
@@ -785,6 +825,9 @@ svga_texture_transfer_unmap_direct(struct svga_context *svga,
                                transfer->level);
          }
       }
+
+      /* Mark the texture surface state as UPDATED */
+      tex->surface_state = SVGA_SURFACE_STATE_UPDATED;
    }
 }
 
@@ -899,12 +942,6 @@ svga_texture_create(struct pipe_screen *screen,
    if (!tex->defined) {
       FREE(tex);
       goto fail_notex;
-   }
-
-   tex->rendered_to = CALLOC(template->depth0 * template->array_size,
-                             sizeof(tex->rendered_to[0]));
-   if (!tex->rendered_to) {
-      goto fail;
    }
 
    tex->dirty = CALLOC(template->depth0 * template->array_size,
@@ -1062,14 +1099,22 @@ svga_texture_create(struct pipe_screen *screen,
       goto fail;
    }
 
-   /* Use typeless formats for sRGB and depth resources.  Typeless
-    * formats can be reinterpreted as other formats.  For example,
-    * SVGA3D_R8G8B8A8_UNORM_TYPELESS can be interpreted as
-    * SVGA3D_R8G8B8A8_UNORM_SRGB or SVGA3D_R8G8B8A8_UNORM.
-    */
-   if (svgascreen->sws->have_vgpu10 &&
-       (util_format_is_srgb(template->format) ||
-        format_has_depth(template->format))) {
+   bool use_typeless = FALSE;
+   if (svgascreen->sws->have_gl43) {
+      /* Do not use typeless for SHARED, SCANOUT or DISPLAY_TARGET surfaces. */
+      use_typeless = !(bindings & (PIPE_BIND_SHARED | PIPE_BIND_SCANOUT |
+                                   PIPE_BIND_DISPLAY_TARGET));
+   } else if (svgascreen->sws->have_vgpu10) {
+      /* For VGPU10 device, use typeless formats only for sRGB and depth resources
+       * if they do not have SHARED, SCANOUT or DISPLAY_TARGET bind flags
+       */
+      use_typeless = (util_format_is_srgb(template->format) ||
+                      format_has_depth(template->format)) &&
+                     !(bindings & (PIPE_BIND_SHARED | PIPE_BIND_SCANOUT |
+                                   PIPE_BIND_DISPLAY_TARGET));
+   }
+
+   if (use_typeless) {
       SVGA3dSurfaceFormat typeless = svga_typeless_format(tex->key.format);
       if (0) {
          debug_printf("Convert resource type %s -> %s (bind 0x%x)\n",
@@ -1090,12 +1135,34 @@ svga_texture_create(struct pipe_screen *screen,
       tex->key.format = typeless;
    }
 
+   if (svgascreen->sws->have_sm5 &&
+       bindings & (PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_RENDER_TARGET)) {
+       if (template->nr_samples < 2 &&
+           screen->is_format_supported(screen, template->format,
+                                       template->target,
+                                       template->nr_samples,
+                                       template->nr_storage_samples,
+                                       PIPE_BIND_SHADER_IMAGE)) {
+          /* Any non multi-samples texture that can be used as a render target
+           * or sampler view can be bound to an image unit.
+           * So make sure to set the UAV flag here.
+           */
+          tex->key.flags |= SVGA3D_SURFACE_BIND_UAVIEW;
+       }
+   }
+
    SVGA_DBG(DEBUG_DMA, "surface_create for texture\n");
+   boolean invalidated;
    tex->handle = svga_screen_surface_create(svgascreen, bindings,
                                             tex->b.usage,
-                                            &tex->validated, &tex->key);
+                                            &invalidated, &tex->key);
    if (!tex->handle) {
       goto fail;
+   }
+   if (invalidated) {
+      tex->surface_state = SVGA_SURFACE_STATE_INVALIDATED;
+   } else {
+      tex->surface_state = SVGA_SURFACE_STATE_CREATED;
    }
 
    SVGA_DBG(DEBUG_DMA, "  --> got sid %p (texture)\n", tex->handle);
@@ -1122,8 +1189,6 @@ svga_texture_create(struct pipe_screen *screen,
 fail:
    if (tex->dirty)
       FREE(tex->dirty);
-   if (tex->rendered_to)
-      FREE(tex->rendered_to);
    if (tex->defined)
       FREE(tex->defined);
    FREE(tex);
@@ -1181,9 +1246,24 @@ svga_texture_from_handle(struct pipe_screen *screen,
    tex->key.format = format;
    tex->handle = srf;
 
-   tex->rendered_to = CALLOC(1, sizeof(tex->rendered_to[0]));
-   if (!tex->rendered_to)
-      goto out_no_rendered_to;
+
+   /* set bind flags for the imported texture handle according to the bind
+    * flags in the template
+    */
+   if (template->bind & PIPE_BIND_RENDER_TARGET){
+      tex->key.flags |= SVGA3D_SURFACE_HINT_RENDERTARGET;
+      tex->key.flags |= SVGA3D_SURFACE_BIND_RENDER_TARGET;
+   }
+
+   if (template->bind & PIPE_BIND_DEPTH_STENCIL) {
+      tex->key.flags |= SVGA3D_SURFACE_HINT_DEPTHSTENCIL;
+      tex->key.flags |= SVGA3D_SURFACE_BIND_DEPTH_STENCIL;
+   }
+
+   if (template->bind & PIPE_BIND_SAMPLER_VIEW) {
+      tex->key.flags |= SVGA3D_SURFACE_HINT_TEXTURE;
+      tex->key.flags |= SVGA3D_SURFACE_BIND_SHADER_RESOURCE;
+   }
 
    tex->dirty = CALLOC(1, sizeof(tex->dirty[0]));
    if (!tex->dirty)
@@ -1196,8 +1276,6 @@ svga_texture_from_handle(struct pipe_screen *screen,
    return &tex->b;
 
 out_no_dirty:
-   FREE(tex->rendered_to);
-out_no_rendered_to:
    FREE(tex->defined);
 out_no_defined:
    FREE(tex);
@@ -1222,10 +1300,6 @@ svga_texture_generate_mipmap(struct pipe_context *pipe,
 
    assert(svga_have_vgpu10(svga));
 
-   /* Only support 2D texture for now */
-   if (pt->target != PIPE_TEXTURE_2D)
-      return false;
-
    /* Fallback to the mipmap generation utility for those formats that
     * do not support hw generate mipmap
     */
@@ -1239,10 +1313,20 @@ svga_texture_generate_mipmap(struct pipe_context *pipe,
       return false;
 
    templ.format = format;
+   templ.target = pt->target;
    templ.u.tex.first_layer = first_layer;
    templ.u.tex.last_layer = last_layer;
    templ.u.tex.first_level = base_level;
    templ.u.tex.last_level = last_level;
+
+   if (pt->target == PIPE_TEXTURE_CUBE) {
+      /**
+       * state tracker generates mipmap one face at a time.
+       * But SVGA generates mipmap for the entire cubemap.
+       */
+      templ.u.tex.first_layer = 0;
+      templ.u.tex.last_layer = 5;
+   }
 
    psv = pipe->create_sampler_view(pipe, pt, &templ);
    if (psv == NULL)
@@ -1253,6 +1337,9 @@ svga_texture_generate_mipmap(struct pipe_context *pipe,
 
    SVGA_RETRY(svga, SVGA3D_vgpu10_GenMips(svga->swc, sv->id, tex->handle));
    pipe_sampler_view_reference(&psv, NULL);
+
+   /* Mark the texture surface as RENDERED */
+   svga_set_texture_rendered_to(tex);
 
    svga->hud.num_generate_mipmap++;
 
@@ -1449,10 +1536,10 @@ svga_texture_transfer_unmap_upload(struct svga_context *svga,
                                                         dstsurf, subResource,
                                                         &st->upload.box));
       offset += st->base.layer_stride;
-
-      /* Set rendered-to flag */
-      svga_set_texture_rendered_to(tex, layer, st->base.level);
    }
+
+   /* Mark the texture surface state as RENDERED */
+   svga_set_texture_rendered_to(tex);
 
    pipe_resource_reference(&st->upload.buf, NULL);
 }
@@ -1476,8 +1563,12 @@ svga_texture_device_format_has_alpha(struct pipe_resource *texture)
    /* the svga_texture() call below is invalid for PIPE_BUFFER resources */
    assert(texture->target != PIPE_BUFFER);
 
-   enum svga3d_block_desc block_desc =
-      svga3dsurface_get_desc(svga_texture(texture)->key.format)->block_desc;
+   struct svga3d_surface_desc *surf_desc =
+      svga3dsurface_get_desc(svga_texture(texture)->key.format);
 
-   return !!(block_desc & SVGA3DBLOCKDESC_ALPHA);
+   enum svga3d_block_desc block_desc = surf_desc->block_desc;
+
+   return !!((block_desc & SVGA3DBLOCKDESC_ALPHA) ||
+             ((block_desc == SVGA3DBLOCKDESC_TYPELESS) &&
+              (surf_desc->bitDepth.alpha > 0)));
 }
