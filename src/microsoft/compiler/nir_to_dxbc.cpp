@@ -156,7 +156,6 @@ struct DxbcModule {
    std::vector<CInstruction> instructions;
 
    uint32_t reg_alloc;
-   uint32_t num_ubos;
 };
 
 struct ntd_context {
@@ -1172,8 +1171,37 @@ static void
 count_resources(struct ntd_context *ctx)
 {
    if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+      unsigned num_ubos = 0;
       nir_foreach_variable_with_modes(ubo, ctx->shader, nir_var_mem_ubo) {
-         ubo->data.driver_location = ctx->mod.num_ubos++;
+         ubo->data.driver_location = num_ubos++;
+      }
+
+      unsigned num_samplers = 0;
+      nir_foreach_variable_with_modes(var, ctx->shader, nir_var_uniform) {
+         unsigned count = glsl_type_get_sampler_count(var->type);
+         assert(count == 0 || glsl_type_is_bare_sampler(glsl_without_array(var->type)));
+         if (count > 0)
+            var->data.driver_location = num_samplers++;
+      }
+
+      unsigned num_textures = 0;
+      nir_foreach_variable_with_modes(var, ctx->shader, nir_var_uniform) {
+         unsigned count = glsl_type_get_texture_count(var->type);
+         assert(count == 0 || glsl_type_is_texture(glsl_without_array(var->type)));
+         if (count > 0)
+            var->data.driver_location = num_textures++;
+      }
+
+      unsigned num_uavs = 0;
+      nir_foreach_variable_with_modes(var, ctx->shader, nir_var_mem_ssbo) {
+         if ((var->data.access & ACCESS_NON_WRITEABLE) != 0)
+            var->data.driver_location = num_textures++;
+         else
+            var->data.driver_location = num_uavs++;
+      }
+
+      nir_foreach_image_variable(var, ctx->shader) {
+         var->data.driver_location = num_uavs++;
       }
    }
 
