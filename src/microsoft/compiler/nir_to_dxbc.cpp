@@ -940,6 +940,47 @@ emit_jump(struct ntd_context *ctx, nir_jump_instr *instr)
 }
 
 static bool
+emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
+{
+   assert(instr->deref_type == nir_deref_type_var ||
+          instr->deref_type == nir_deref_type_array);
+
+   // In the non-Vulkan environment, there's nothing to emit.
+   if (!ctx->opts->vulkan_environment)
+      return true;
+
+   nir_variable *var = nir_deref_instr_get_variable(instr);
+   assert(var);
+
+   if (!glsl_type_is_sampler(glsl_without_array(var->type)) &&
+       !glsl_type_is_image(glsl_without_array(var->type)) &&
+       !glsl_type_is_texture(glsl_without_array(var->type)))
+      return true;
+
+   const struct glsl_type *type = instr->type;
+   COperandBase src;
+
+   if (instr->deref_type == nir_deref_type_var) {
+      D3D10_SB_OPERAND_TYPE op_type = glsl_type_is_sampler(glsl_without_array(var->type)) ?
+         D3D10_SB_OPERAND_TYPE_SAMPLER : glsl_type_is_image(glsl_without_array(var->type)) ?
+         D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW : D3D10_SB_OPERAND_TYPE_RESOURCE;
+      src = COperand2D(op_type, var->data.driver_location, var->data.binding);
+   } else {
+      COperandBase previous = nir_src_as_const_value_or_register(ctx, instr->parent, 4, nullptr);
+      src = previous;
+
+      if (previous.m_IndexType[1] == D3D10_SB_OPERAND_INDEX_IMMEDIATE32) {
+         src_to_index(ctx, previous.RegIndex(1), instr->arr.index, src, 1);
+      } else {
+         unreachable("Multiple array dimensions unsupported");
+      }
+   }
+
+   ctx->mod.ssa_operands[instr->dest.ssa.index].operand = src;
+   return true;
+}
+
+static bool
 emit_instr(struct ntd_context *ctx, struct nir_instr *instr)
 {
    switch (instr->type) {
@@ -949,8 +990,8 @@ emit_instr(struct ntd_context *ctx, struct nir_instr *instr)
       return emit_intrinsic(ctx, nir_instr_as_intrinsic(instr));
    case nir_instr_type_load_const:
       return emit_load_const(ctx, nir_instr_as_load_const(instr));
-   // case nir_instr_type_deref:
-   //    return emit_deref(ctx, nir_instr_as_deref(instr));
+    case nir_instr_type_deref:
+       return emit_deref(ctx, nir_instr_as_deref(instr));
    case nir_instr_type_jump:
       return emit_jump(ctx, nir_instr_as_jump(instr));
    // case nir_instr_type_phi:
