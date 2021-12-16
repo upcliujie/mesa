@@ -391,6 +391,21 @@ agx_blend_const(agx_builder *b, agx_index dst, unsigned comp)
      return agx_mov_to(b, dst, val);
 }
 
+/*
+ * Demoting a helper invocation is logically equivalent to zeroing the sample
+ * mask. Metal implement discard as such.
+ */
+static agx_instr *
+agx_emit_discard(agx_builder *b, nir_intrinsic_instr *instr)
+{
+   agx_writeout(b, 0xC200);
+   agx_writeout(b, 0x0001);
+   b->shader->did_writeout = true;
+
+   b->shader->out->writes_sample_mask = true;
+   return agx_sample_mask(b, agx_immediate(0));
+}
+
 static agx_instr *
 agx_emit_intrinsic(agx_builder *b, nir_intrinsic_instr *instr)
 {
@@ -436,6 +451,9 @@ agx_emit_intrinsic(agx_builder *b, nir_intrinsic_instr *instr)
 
   case nir_intrinsic_load_frag_coord:
      return agx_emit_load_frag_coord(b, instr);
+
+  case nir_intrinsic_discard:
+     return agx_emit_discard(b, instr);
 
   case nir_intrinsic_load_back_face_agx:
      return agx_get_sr_to(b, dst, AGX_SR_BACKFACING);
