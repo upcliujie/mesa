@@ -1209,6 +1209,44 @@ count_resources(struct ntd_context *ctx)
    ctx->mod.ssa_operands.reset(new ntd_ssa[entrypoint->ssa_alloc]);
 }
 
+static D3D10_SB_RESOURCE_DIMENSION
+glsl_sampler_dim_to_dxbc(glsl_sampler_dim dim, bool is_array)
+{
+   switch (dim) {
+   case GLSL_SAMPLER_DIM_1D:
+      return is_array ?
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURE1DARRAY :
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURE1D;
+   case GLSL_SAMPLER_DIM_2D:
+   case GLSL_SAMPLER_DIM_EXTERNAL:
+      return is_array ?
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURE2DARRAY :
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURE2D;
+   case GLSL_SAMPLER_DIM_3D:
+      return D3D10_SB_RESOURCE_DIMENSION_TEXTURE3D;
+   case GLSL_SAMPLER_DIM_CUBE:
+      return is_array ?
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURECUBEARRAY :
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURECUBE;
+   case GLSL_SAMPLER_DIM_BUF:
+      return D3D10_SB_RESOURCE_DIMENSION_BUFFER;
+   default:
+      assert(false);
+      return D3D10_SB_RESOURCE_DIMENSION_UNKNOWN;
+   }
+}
+
+static D3D10_SB_RESOURCE_RETURN_TYPE
+glsl_base_type_to_dxbc_ret_type(glsl_base_type type)
+{
+   switch (type) {
+   case GLSL_TYPE_UINT: return D3D10_SB_RETURN_TYPE_UINT;
+   case GLSL_TYPE_INT: return D3D10_SB_RETURN_TYPE_SINT;
+   default:
+   case GLSL_TYPE_FLOAT: return D3D10_SB_RETURN_TYPE_FLOAT;
+   }
+}
+
 static bool
 emit_dcl(struct ntd_context *ctx)
 {
@@ -1231,6 +1269,94 @@ emit_dcl(struct ntd_context *ctx)
             D3D10_SB_CONSTANT_BUFFER_DYNAMIC_INDEXED, ubo->data.descriptor_set);
       } else {
          ctx->mod.shader.EmitConstantBufferDecl(ubo->data.binding, get_dword_size(ubo->type), D3D10_SB_CONSTANT_BUFFER_DYNAMIC_INDEXED);
+      }
+   }
+
+   nir_foreach_variable_with_modes(var, ctx->shader, nir_var_uniform) {
+      unsigned count = glsl_type_get_sampler_count(var->type);
+      assert(count == 0 || glsl_type_is_bare_sampler(glsl_without_array(var->type)));
+      if (count > 0) {
+         D3D10_SB_SAMPLER_MODE mode = glsl_sampler_type_is_shadow(glsl_without_array(var->type)) ?
+            D3D10_SB_SAMPLER_MODE_COMPARISON : D3D10_SB_SAMPLER_MODE_DEFAULT;
+         if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+            ctx->mod.shader.EmitIndexableSamplerDecl(var->data.driver_location,
+               var->data.binding, var->data.binding + count - 1, mode, var->data.descriptor_set);
+         } else {
+            for (unsigned i = 0; i < count; ++i) {
+               ctx->mod.shader.EmitSamplerDecl(var->data.binding + i, mode);
+            }
+         }
+      }
+   }
+
+   nir_foreach_variable_with_modes(var, ctx->shader, nir_var_uniform) {
+      unsigned count = glsl_type_get_texture_count(var->type);
+      assert(count == 0 || glsl_type_is_texture(glsl_without_array(var->type)));
+      if (count > 0) {
+         const glsl_type *type = glsl_without_array(var->type);
+         D3D10_SB_RESOURCE_DIMENSION dim = glsl_sampler_dim_to_dxbc(glsl_get_sampler_dim(type), glsl_sampler_type_is_array(type));
+         D3D10_SB_RESOURCE_RETURN_TYPE ret_type = glsl_base_type_to_dxbc_ret_type(glsl_get_sampler_result_type(type));
+         if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+            ctx->mod.shader.EmitIndexableResourceDecl(var->data.driver_location,
+               var->data.binding, var->data.binding + count - 1,
+               dim, ret_type, ret_type, ret_type, ret_type,
+               var->data.descriptor_set);
+         } else {
+            for (unsigned i = 0; i < count; ++i) {
+               ctx->mod.shader.EmitResourceDecl(dim, var->data.binding + i,
+                  ret_type, ret_type, ret_type, ret_type);
+            }
+         }
+      }
+   }
+
+   nir_foreach_variable_with_modes(var, ctx->shader, nir_var_mem_ssbo) {
+      if ((var->data.access & ACCESS_NON_WRITEABLE) != 0) {
+         unsigned count = 1;
+         if (glsl_type_is_array(var->type))
+            count = glsl_get_length(var->type);
+         if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+            ctx->mod.shader.EmitIndexableRawShaderResourceViewDecl(var->data.driver_location,
+               var->data.binding, var->data.binding + count - 1, var->data.descriptor_set);
+         } else {
+            for (unsigned i = 0; i < count; ++i) {
+               ctx->mod.shader.EmitRawShaderResourceViewDecl(var->data.binding + i);
+            }
+         }
+      }
+   }
+
+   nir_foreach_variable_with_modes(var, ctx->shader, nir_var_mem_ssbo) {
+      if ((var->data.access & ACCESS_NON_WRITEABLE) == 0) {
+         unsigned count = 1;
+         if (glsl_type_is_array(var->type))
+            count = glsl_get_length(var->type);
+         if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+            ctx->mod.shader.EmitIndexableRawUnorderedAccessViewDecl(var->data.driver_location,
+               var->data.binding, var->data.binding + count - 1, 0, var->data.descriptor_set);
+         } else {
+            for (unsigned i = 0; i < count; ++i) {
+               ctx->mod.shader.EmitRawUnorderedAccessViewDecl(var->data.binding + i, 0);
+            }
+         }
+      }
+   }
+
+   nir_foreach_image_variable(var, ctx->shader) {
+      unsigned count = glsl_type_get_image_count(var->type);
+      const glsl_type *type = glsl_without_array(var->type);
+      D3D10_SB_RESOURCE_DIMENSION dim = glsl_sampler_dim_to_dxbc(glsl_get_sampler_dim(type), glsl_sampler_type_is_array(type));
+      D3D10_SB_RESOURCE_RETURN_TYPE ret_type = glsl_base_type_to_dxbc_ret_type(glsl_get_sampler_result_type(type));
+      if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+         ctx->mod.shader.EmitIndexableTypedUnorderedAccessViewDecl(var->data.driver_location,
+            var->data.binding, var->data.binding + count - 1,
+            dim, ret_type, ret_type, ret_type, ret_type,
+            0, var->data.descriptor_set);
+      } else {
+         for (unsigned i = 0; i < count; ++i) {
+            ctx->mod.shader.EmitTypedUnorderedAccessViewDecl(dim, var->data.binding + i,
+               ret_type, ret_type, ret_type, ret_type, 0);
+         }
       }
    }
 
