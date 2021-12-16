@@ -47,9 +47,6 @@ extern void
 _mesa_set_enablei(struct gl_context *ctx, GLenum cap, GLuint index, GLboolean state);
 
 extern void
-_mesa_set_multisample(struct gl_context *ctx, GLboolean state);
-
-extern void
 _mesa_set_framebuffer_srgb(struct gl_context *ctx, GLboolean state);
 
 #endif

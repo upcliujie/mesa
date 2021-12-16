@@ -344,7 +344,7 @@ enable_texture(struct gl_context *ctx, GLboolean state, GLbitfield texBit)
  * Helper function to enable or disable GL_MULTISAMPLE, skipping the check for
  * whether the API supports it (GLES doesn't).
  */
-void
+static void
 _mesa_set_multisample(struct gl_context *ctx, GLboolean state)
 {
    if (ctx->Multisample.Enabled == state)
