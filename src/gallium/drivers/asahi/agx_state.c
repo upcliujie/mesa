@@ -1107,7 +1107,9 @@ agx_build_pipeline(struct agx_context *ctx, struct agx_compiled_shader *cs, enum
          cfg.unk_3 = 0x8d;
          cfg.unk_1 = 0x2010bd;
          cfg.unk_2 = 0x0d;
-         cfg.unk_2b = 1;
+         //cfg.unk_2b = 1;
+         cfg.unk_2b = 5; // write sample mask
+         cfg.frag_unk = 0xf2580100; // "
          cfg.unk_3b = 0x1;
          cfg.unk_4 = 0x800;
          cfg.preshader_unk = 0xc080;
