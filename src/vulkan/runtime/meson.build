@@ -41,6 +41,8 @@ vulkan_runtime_files = files(
   'vk_fence.h',
   'vk_image.c',
   'vk_image.h',
+  'vk_implicit_memory_sync.c',
+  'vk_implicit_memory_sync.h',
   'vk_instance.c',
   'vk_instance.h',
   'vk_log.c',
