@@ -278,6 +278,15 @@ agx_emit_fragment_out(agx_builder *b, nir_intrinsic_instr *instr)
 	   agx_writeout(b, 0x000C);
    }
 
+   if (b->shader->nir->info.fs.uses_discard) {
+      /* If the shader uses discard, the sample mask must be written by the
+       * shader on all exeuction paths. If we've reached the end of the shader,
+       * we are therefore still active and need to write a full sample mask.
+       * TODO: interactions with MSAA and gl_SampleMask writes
+       */
+      agx_sample_mask(b, agx_immediate(1));
+   }
+
    b->shader->did_writeout = true;
    return agx_st_tile(b, agx_src_index(&instr->src[0]),
              b->shader->key->fs.tib_formats[rt]);
