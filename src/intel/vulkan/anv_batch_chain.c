@@ -1988,6 +1988,7 @@ anv_queue_exec_locked(struct anv_queue *queue,
                       struct anv_cmd_buffer **cmd_buffers,
                       uint32_t signal_count,
                       const struct vk_sync_signal *signals,
+                      struct anv_device_memory *signal_mem,
                       struct anv_query_pool *perf_query_pool,
                       uint32_t perf_query_pass)
 {
@@ -2020,6 +2021,13 @@ anv_queue_exec_locked(struct anv_queue *queue,
                                     signals[i].sync,
                                     true /* is_signal */,
                                     signals[i].signal_value);
+      if (result != VK_SUCCESS)
+         goto error;
+   }
+
+   if (signal_mem != NULL) {
+      result = anv_execbuf_add_bo(device, &execbuf, signal_mem->bo,
+                                  NULL, EXEC_OBJECT_WRITE);
       if (result != VK_SUCCESS)
          goto error;
    }
@@ -2155,6 +2163,7 @@ static VkResult
 anv_queue_submit_locked(struct anv_queue *queue,
                         struct vk_queue_submit *submit)
 {
+   ANV_FROM_HANDLE(anv_device_memory, signal_mem, submit->signal_mem);
    VkResult result;
 
    if (submit->command_buffer_count == 0) {
@@ -2162,6 +2171,7 @@ anv_queue_submit_locked(struct anv_queue *queue,
                                      0 /* cmd_buffer_count */,
                                      NULL /* cmd_buffers */,
                                      submit->signal_count, submit->signals,
+                                     signal_mem,
                                      NULL /* perf_query_pool */,
                                      0 /* perf_query_pass */);
       if (result != VK_SUCCESS)
@@ -2201,6 +2211,7 @@ anv_queue_submit_locked(struct anv_queue *queue,
                                   i - start, &cmd_buffers[start],
                                   i == end ? submit->signal_count : 0,
                                   i == end ? submit->signals : NULL,
+                                  i == end ? signal_mem : NULL,
                                   perf_query_pool,
                                   submit->perf_pass_index);
          if (result != VK_SUCCESS)
