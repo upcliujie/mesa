@@ -351,7 +351,8 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
          start = map->per_primitive_start_dw + 2;
          break;
       default:
-         assert(location >= VARYING_SLOT_VAR0);
+         assert(location == VARYING_SLOT_PRIMITIVE_ID ||
+                location >= VARYING_SLOT_VAR0);
          start = map->per_primitive_start_dw +
                  map->per_primitive_header_size_dw +
                  map->per_primitive_data_size_dw;

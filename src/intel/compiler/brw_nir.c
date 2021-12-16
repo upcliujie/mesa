@@ -910,12 +910,13 @@ brw_nir_link_shaders(const struct brw_compiler *compiler,
 {
    if (producer->info.stage == MESA_SHADER_MESH &&
          consumer->info.stage == MESA_SHADER_FRAGMENT) {
-      /* gl_MeshPerPrimitiveNV[].gl_ViewportIndex is per primitive, but
-       * fragment shader does not have gl_ViewportIndex marked as such.
+      /* gl_MeshPerPrimitiveNV[].gl_ViewportIndex and gl_PrimitiveID are
+       * per primitive, but fragment shader does not have them marked as such.
        * Add the annotation here.
        */
       nir_foreach_shader_in_variable(var, consumer) {
          switch (var->data.location) {
+            case VARYING_SLOT_PRIMITIVE_ID:
             case VARYING_SLOT_VIEWPORT:
                var->data.per_primitive = 1;
                break;
