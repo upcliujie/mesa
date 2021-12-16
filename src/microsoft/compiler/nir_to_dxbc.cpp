@@ -479,8 +479,13 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
       return true;
 
    case nir_op_mov:
-      store_instruction(ctx, alu->dest.dest,
-          get_intr_1_args(ctx, D3D10_SB_OPCODE_MOV, alu));
+      if (alu->dest.dest.is_ssa) {
+         ctx->mod.ssa_operands[alu->dest.dest.ssa.index].operand =
+            get_alu_src_as_const_value_or_register(ctx, alu, count_write_components(alu->dest.write_mask), 0);
+      } else {
+         store_instruction(ctx, alu->dest.dest,
+             get_intr_1_args(ctx, D3D10_SB_OPCODE_MOV, alu));
+      }
       return true;
 
    case nir_op_imax:
@@ -807,9 +812,24 @@ static bool
 emit_vulkan_resource_index(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    assert(intr->dest.is_ssa);
-   ctx->mod.ssa_operands[intr->dest.ssa.index].operand =
-      nir_src_as_const_value_or_register(ctx, intr->src[0], 1, nullptr);
+   COperandBase input = nir_src_as_const_value_or_register(ctx, intr->src[0], 2, nullptr);
+   COperandBase output;
+   assert(input.m_ComponentSelection == D3D10_SB_OPERAND_4_COMPONENT_SELECT_1_MODE ||
+          input.m_NumComponents == D3D10_SB_OPERAND_1_COMPONENT);
+   if (input.m_Type == D3D10_SB_OPERAND_TYPE_IMMEDIATE32) {
+      output = COperand(input.m_Value[input.m_ComponentName], 0, 0, 0);
+   } else {
+      // Dynamic index, compose 2-vector
+      COperandDst copy_dest(D3D10_SB_OPERAND_TYPE_TEMP, ctx->mod.reg_alloc++);
+      copy_dest.SetMask(0b1 << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_MOV, copy_dest, input));
+      COperand single_zero(0u);
+      copy_dest.SetMask(0b10 << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_MOV, copy_dest, single_zero));
+      output = COperand4(D3D10_SB_OPERAND_TYPE_TEMP, copy_dest.RegIndex(0), 0, 1, 0, 0);
+   }
 
+   ctx->mod.ssa_operands[intr->dest.ssa.index].operand = output;
    return true;
 }
 
@@ -819,7 +839,7 @@ emit_load_vulkan_descriptor(struct ntd_context *ctx,
 {
    assert(intr->dest.is_ssa);
    ctx->mod.ssa_operands[intr->dest.ssa.index].operand =
-      nir_src_as_const_value_or_register(ctx, intr->src[0], 1, nullptr);
+      nir_src_as_const_value_or_register(ctx, intr->src[0], 2, nullptr);
    return true;
 }
 
