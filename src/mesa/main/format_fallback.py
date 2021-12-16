@@ -158,33 +158,6 @@ _mesa_get_intensity_format_red(mesa_format format)
       return format;
    }
 }
-
-/**
- * If the format has an alpha channel, and there exists a non-alpha
- * variant of the format with an identical bit layout, then return
- * the non-alpha format. Otherwise return the original format.
- *
- * Examples:
- *    Fallback exists:
- *       MESA_FORMAT_R8G8B8X8_UNORM -> MESA_FORMAT_R8G8B8A8_UNORM
- *       MESA_FORMAT_RGBX_UNORM16 -> MESA_FORMAT_RGBA_UNORM16
- *
- *    No fallback:
- *       MESA_FORMAT_R8G8B8A8_UNORM -> MESA_FORMAT_R8G8B8A8_UNORM
- *       MESA_FORMAT_Z_FLOAT32 -> MESA_FORMAT_Z_FLOAT32
- */
-mesa_format
-_mesa_format_fallback_rgbx_to_rgba(mesa_format format)
-{
-   switch (format) {
-%for rgbx, rgba in rgbx_to_rgba_map:
-   case ${rgbx}:
-      return ${rgba};
-%endfor
-   default:
-      return format;
-   }
-}
 """);
 
 def main():
