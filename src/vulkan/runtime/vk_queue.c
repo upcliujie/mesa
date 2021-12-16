@@ -31,6 +31,7 @@
 #include "vk_common_entrypoints.h"
 #include "vk_device.h"
 #include "vk_fence.h"
+#include "vk_implicit_memory_sync.h"
 #include "vk_log.h"
 #include "vk_physical_device.h"
 #include "vk_semaphore.h"
@@ -39,6 +40,8 @@
 #include "vk_sync_dummy.h"
 #include "vk_sync_timeline.h"
 #include "vk_util.h"
+
+#include "vulkan/wsi/wsi_common.h"
 
 VkResult
 vk_queue_init(struct vk_queue *queue, struct vk_device *device,
@@ -173,6 +176,9 @@ vk_queue_submit_cleanup(struct vk_queue *queue,
       if (submit->_wait_temps[i] != NULL)
          vk_sync_destroy(queue->base.device, submit->_wait_temps[i]);
    }
+
+   if (submit->_mem_signal_temp != NULL)
+      vk_sync_destroy(queue->base.device, submit->_mem_signal_temp);
 
    if (submit->_wait_points != NULL) {
       for (uint32_t i = 0; i < submit->wait_count; i++) {
@@ -508,10 +514,16 @@ vk_queue_submit(struct vk_queue *queue,
 {
    VkResult result;
 
+   const struct wsi_memory_signal_submit_info *mem_signal =
+      vk_find_struct_const(info->pNext, WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
+
    struct vk_queue_submit *submit =
       vk_queue_submit_alloc(queue, info->waitSemaphoreInfoCount,
                             info->commandBufferInfoCount,
-                            info->signalSemaphoreInfoCount + (fence != NULL));
+                            info->signalSemaphoreInfoCount +
+                            (mem_signal != NULL &&
+                             mem_signal->memory != VK_NULL_HANDLE) +
+                            (fence != NULL));
    if (unlikely(submit == NULL))
       return vk_error(queue, VK_ERROR_OUT_OF_HOST_MEMORY);
 
@@ -626,15 +638,33 @@ vk_queue_submit(struct vk_queue *queue,
       };
    }
 
+   uint32_t signal_count = info->signalSemaphoreInfoCount;
+   if (mem_signal != NULL && mem_signal->memory != VK_NULL_HANDLE) {
+      struct vk_sync *mem_sync;
+      result = vk_implicit_memory_sync_create(queue->base.device,
+                                              mem_signal->memory,
+                                              &mem_sync);
+      if (unlikely(result != VK_SUCCESS))
+         goto fail;
+
+      submit->_mem_signal_temp = mem_sync;
+
+      assert(submit->signals[signal_count].sync == NULL);
+      submit->signals[signal_count++] = (struct vk_sync_signal) {
+         .sync = mem_sync,
+         .stage_mask = ~(VkPipelineStageFlags2KHR)0,
+      };
+   }
+
    if (fence != NULL) {
-      uint32_t fence_idx = info->signalSemaphoreInfoCount;
-      assert(submit->signal_count == fence_idx + 1);
-      assert(submit->signals[fence_idx].sync == NULL);
-      submit->signals[fence_idx] = (struct vk_sync_signal) {
+      assert(submit->signals[signal_count].sync == NULL);
+      submit->signals[signal_count++] = (struct vk_sync_signal) {
          .sync = vk_fence_get_active_sync(fence),
          .stage_mask = ~(VkPipelineStageFlags2KHR)0,
       };
    }
+
+   assert(signal_count == submit->signal_count);
 
    switch (queue->base.device->timeline_mode) {
    case VK_DEVICE_TIMELINE_MODE_ASSISTED:
