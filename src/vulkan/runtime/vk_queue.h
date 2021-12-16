@@ -184,6 +184,9 @@ struct vk_queue_submit {
    struct vk_command_buffer **command_buffers;
    struct vk_sync_signal *signals;
 
+   /** struct wsi_memory_signal_submit_info */
+   VkDeviceMemory signal_mem;
+
    uint32_t perf_pass_index;
 
    /* Used internally; should be ignored by drivers */

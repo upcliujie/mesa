@@ -40,6 +40,8 @@
 #include "vk_sync_timeline.h"
 #include "vk_util.h"
 
+#include "vulkan/wsi/wsi_common.h"
+
 VkResult
 vk_queue_init(struct vk_queue *queue, struct vk_device *device,
               const VkDeviceQueueCreateInfo *pCreateInfo,
@@ -625,6 +627,11 @@ vk_queue_submit(struct vk_queue *queue,
          .signal_value = signal_value,
       };
    }
+
+   const struct wsi_memory_signal_submit_info *mem_signal =
+      vk_find_struct_const(info->pNext, WSI_MEMORY_SIGNAL_SUBMIT_INFO_MESA);
+   if (mem_signal != NULL && mem_signal->memory != VK_NULL_HANDLE)
+      submit->signal_mem = mem_signal->memory;
 
    if (fence != NULL) {
       uint32_t fence_idx = info->signalSemaphoreInfoCount;
