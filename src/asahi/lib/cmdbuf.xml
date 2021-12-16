@@ -399,17 +399,17 @@
     <field name="Tag" size="8" start="0:0" type="hex" default="0x4d"/>
     <field name="Unk 1" size="24" start="0:8" type="hex" default="0x2010bd"/>
     <field name="Unk 2" size="8" start="1:0" type="hex" default="0x0d"/> <!-- 90d if ld_tile or discard is used (to disable opts), 50d for other frag, 80d for vert..? 40d for compute..? -->
-    <field name="Unk 2b" size="8" start="1:8" type="uint" default="5"/>
+    <field name="Unk 2b" size="8" start="1:8" type="uint" default="5"/> <!-- 1 for other frag, 5 with discard? -->
     <field name="Code" size="32" start="1:16" type="address"/>
     <field name="Unk 3" size="8" start="2:16" type="hex" default="0x28d"/>
     <field name="Register quadwords" size="5" start="2:24" type="uint"/> <!-- 0 for max -->
     <field name="Unk 3b" size="3" start="2:29" type="hex" default="0x0"/>
-    <field name="Frag unk" size="32" start="3:0" type="hex" default="0xf3580100"/>
+    <field name="Frag unk" size="32" start="3:0" type="hex" default="0xf3580100"/> <!-- f2580100 with discard -->
     <field name="Spill size" size="8" start="4:0" type="hex" default="0"/> <!-- TODO: determine relation, see docs/table.py -->
     <field name="Unk 4" size="12" start="4:8" type="hex" default="0x801"/>
     <field name="Preshader mode" size="4" start="4:20" type="Preshader mode" default="No preshader"/>
     <field name="Unk 6" size="8" start="4:24" type="hex" default="0x0"/>
-    <field name="Preshader unk" size="16" start="5:0" type="hex" default="0x0"/>
+    <field name="Preshader unk" size="16" start="5:0" type="hex" default="0x0"/> <!-- seen with discard? -->
     <field name="Preshader code" size="32" start="5:16" type="address"/>
     <field name="Unk 7" size="16" start="6:16" type="hex" default="0x0"/> <!-- blob is inconsistent -->
     <field name="Unk 8" size="32" start="7:0" type="hex" default="0x0"/> <!-- may not exist -->
