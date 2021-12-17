@@ -1025,8 +1025,12 @@ emit_load_const(struct ntd_context *ctx, nir_load_const_instr *instr)
       val.m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE64;
       assert(instr->def.num_components <= 2);
       memcpy(&val.m_Value64, &instr->value->i64, 8 * instr->def.num_components);
-   }
-   else {
+   } else if (instr->def.bit_size == 1) {
+      val.m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE32;
+      assert(instr->def.num_components <= 4);
+      for (unsigned i = 0; i < instr->def.num_components; ++i)
+         val.m_Value[i] = instr->value[i].b ? UINT_MAX : 0;
+   } else {
       val.m_Type = D3D10_SB_OPERAND_TYPE_IMMEDIATE32;
       assert(instr->def.bit_size == 32);
       assert(instr->def.num_components <= 4);
