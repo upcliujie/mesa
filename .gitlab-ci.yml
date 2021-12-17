@@ -733,6 +733,23 @@ debian-testing-asan:
     MINIO_ARTIFACT_NAME: ""
     ARTIFACTS_DEBUG_SYMBOLS: 1
 
+debian-testing-msan:
+  extends:
+    - debian-testing
+  variables:
+    # l_undef is incompatible with msan
+    EXTRA_OPTION:
+      -D b_sanitize=memory
+      -D b_lundef=false
+    MINIO_ARTIFACT_NAME: ""
+    ARTIFACTS_DEBUG_SYMBOLS: 1
+    # Don't run all the tests yet:
+    # GLSL has some issues in sexpression reading.
+    # gtest has issues in its test initialization.
+    MESON_TEST_ARGS: "--suite glcpp --suite amd --suite gallium  --suite format"
+    CC: clang
+    CXX: clang++
+
 debian-clover-testing:
   extends:
     - .meson-build
