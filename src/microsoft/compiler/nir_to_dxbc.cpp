@@ -969,6 +969,35 @@ emit_image_deref_store(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
+emit_scoped_barrier(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   CInstruction inst(D3D11_SB_OPCODE_SYNC);
+
+   if (nir_intrinsic_execution_scope(intr) == NIR_SCOPE_WORKGROUP)
+      inst.m_SyncFlags.bThreadsInGroup = true;
+
+   nir_variable_mode modes = nir_intrinsic_memory_modes(intr);
+   nir_scope mem_scope = nir_intrinsic_memory_scope(intr);
+
+   /* Currently vtn uses uniform to indicate image memory, which DXIL considers global */
+   if (modes & nir_var_uniform)
+      modes |= nir_var_mem_global;
+
+   if (modes & (nir_var_mem_ssbo | nir_var_mem_global)) {
+      if (mem_scope > NIR_SCOPE_WORKGROUP)
+         inst.m_SyncFlags.bUnorderedAccessViewMemoryGlobal = true;
+      else
+         inst.m_SyncFlags.bUnorderedAccessViewMemoryGroup = true;
+   }
+
+   if (modes & nir_var_mem_shared)
+      inst.m_SyncFlags.bThreadGroupSharedMemory = true;
+
+   ctx->mod.instructions.push_back(inst);
+   return true;
+}
+
+static bool
 emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    switch (intr->intrinsic) {
@@ -995,6 +1024,9 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_image_deref_size(ctx, intr);
    case nir_intrinsic_image_deref_store:
       return emit_image_deref_store(ctx, intr);
+
+   case nir_intrinsic_scoped_barrier:
+      return emit_scoped_barrier(ctx, intr);
 
    case nir_intrinsic_end_primitive:
    case nir_intrinsic_emit_vertex: {
