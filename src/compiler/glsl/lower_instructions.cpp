@@ -30,7 +30,6 @@
  * rather than in each driver backend.
  *
  * Currently supported transformations:
- * - SUB_TO_ADD_NEG
  * - DIV_TO_MUL_RCP
  * - INT_DIV_TO_MUL_RCP
  * - EXP_TO_EXP2
@@ -43,16 +42,6 @@
  * - BORROW_TO_ARITH
  * - SAT_TO_CLAMP
  * - DOPS_TO_DFRAC
- *
- * SUB_TO_ADD_NEG:
- * ---------------
- * Breaks an ir_binop_sub expression down to add(op0, neg(op1))
- *
- * This simplifies expression reassociation, and for many backends
- * there is no subtract operation separate from adding the negation.
- * For backends with native subtract operations, they will probably
- * want to recognize add(op0, neg(op1)) or the other way around to
- * produce a subtract anyway.
  *
  * FDIV_TO_MUL_RCP, DDIV_TO_MUL_RCP, and INT_DIV_TO_MUL_RCP:
  * ---------------------------------------------------------
@@ -142,7 +131,6 @@ public:
 private:
    unsigned lower; /** Bitfield of which operations to lower */
 
-   void sub_to_add_neg(ir_expression *);
    void div_to_mul_rcp(ir_expression *);
    void int_div_to_mul_rcp(ir_expression *);
    void mod_to_floor(ir_expression *);
@@ -195,16 +183,6 @@ lower_instructions(exec_list *instructions, unsigned what_to_lower)
 
    visit_list_elements(&v, instructions);
    return v.progress;
-}
-
-void
-lower_instructions_visitor::sub_to_add_neg(ir_expression *ir)
-{
-   ir->operation = ir_binop_add;
-   ir->init_num_operands();
-   ir->operands[1] = new(ir) ir_expression(ir_unop_neg, ir->operands[1]->type,
-					   ir->operands[1], NULL);
-   this->progress = true;
 }
 
 void
@@ -1765,10 +1743,6 @@ lower_instructions_visitor::visit_leave(ir_expression *ir)
    case ir_triop_lrp:
       if (ir->operands[0]->type->is_double())
          double_lrp(ir);
-      break;
-   case ir_binop_sub:
-      if (lowering(SUB_TO_ADD_NEG))
-	 sub_to_add_neg(ir);
       break;
 
    case ir_binop_div:
