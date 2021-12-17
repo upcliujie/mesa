@@ -45,7 +45,7 @@ traces:
   - path: gputest/furmark.trace
     expectations:
       - device: gl-panfrost-t860
-        checksum: 6540f71b1c051ba82af2a25b93065f34
+        checksum: c4d4affb1f25f03901316dc062a78316
   - path: gputest/triangle.trace
     expectations:
       - device: gl-panfrost-t860
