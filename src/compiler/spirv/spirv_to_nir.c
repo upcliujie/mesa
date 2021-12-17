@@ -2809,6 +2809,7 @@ vtn_handle_texture(struct vtn_builder *b, SpvOp opcode,
    case SpvOpImageSparseGather:
    case SpvOpImageDrefGather:
    case SpvOpImageSparseDrefGather:
+      fprintf(stderr, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>> sampler_dim=%u\n", sampler_dim);
       vtn_assert(sampler_dim == GLSL_SAMPLER_DIM_2D ||
                  sampler_dim == GLSL_SAMPLER_DIM_CUBE ||
                  sampler_dim == GLSL_SAMPLER_DIM_RECT);
