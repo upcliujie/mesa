@@ -4798,6 +4798,25 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
          spv_check_supported(mesh_shading_nv, cap);
          break;
 
+      case SpvCapabilityShaderViewportMaskNV:
+         switch (b->shader->info.stage) {
+            case MESA_SHADER_MESH:
+               spv_check_supported(mesh_shading_nv, cap);
+               break;
+            case MESA_SHADER_VERTEX:
+            case MESA_SHADER_TESS_CTRL:
+            case MESA_SHADER_TESS_EVAL:
+            case MESA_SHADER_GEOMETRY:
+               spv_check_supported(viewport_array2_nv, cap);
+               break;
+            default:
+               vtn_fail("Capability: %s (%u) not allowed in %s",
+                        spirv_capability_to_string(cap), cap,
+                        _mesa_shader_stage_to_string(b->shader->info.stage));
+               break;
+         }
+         break;
+
       default:
          vtn_fail("Unhandled capability: %s (%u)",
                   spirv_capability_to_string(cap), cap);
