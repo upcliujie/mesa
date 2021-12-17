@@ -211,6 +211,12 @@ nir_src_as_const_value_or_register(ntd_context *ctx, nir_src src, uint32_t num_w
    if (src.is_ssa) {
       COperandBase ret = ctx->mod.ssa_operands[src.ssa->index].operand;
 
+      // For derefs, the num_components is about the resulting resource access,
+      // not about the number of components in the deref itself.
+      nir_deref_instr *deref = nir_src_as_deref(src);
+      if (deref)
+         num_components = 4;
+
       if (num_components == 1) {
          // Already a single component
          if (ret.m_NumComponents == D3D10_SB_OPERAND_1_COMPONENT) {
@@ -939,6 +945,30 @@ emit_store_ssbo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
+emit_image_deref_size(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   COperandBase dest = nir_dest_as_register(ctx, intr->dest, 0b1111);
+   COperandBase src = nir_src_as_const_value_or_register(ctx, intr->src[0], 4, nullptr);
+   COperand lod(0u);
+   CInstruction inst(D3D10_SB_OPCODE_RESINFO, dest, lod, src);
+   inst.m_ResInfoReturnType = D3D10_SB_RESINFO_INSTRUCTION_RETURN_UINT;
+   store_instruction(ctx, intr->dest, inst);
+   return true;
+}
+
+static bool
+emit_image_deref_store(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   COperandBase dest = nir_src_as_const_value_or_register(ctx, intr->src[0], 4, nullptr);
+   dest.SetMask();
+   COperandBase coords = nir_src_as_const_value_or_register(ctx, intr->src[1], 4, nullptr);
+   COperandBase value = nir_src_as_const_value_or_register(ctx, intr->src[3], 4, nullptr);
+   CInstruction inst(D3D11_SB_OPCODE_STORE_UAV_TYPED, dest, coords, value);
+   store_instruction(ctx, intr->dest, inst);
+   return true;
+}
+
+static bool
 emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    switch (intr->intrinsic) {
@@ -960,6 +990,11 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_ssbo(ctx, intr);
    case nir_intrinsic_store_ssbo:
       return emit_store_ssbo(ctx, intr);
+
+   case nir_intrinsic_image_deref_size:
+      return emit_image_deref_size(ctx, intr);
+   case nir_intrinsic_image_deref_store:
+      return emit_image_deref_store(ctx, intr);
 
    case nir_intrinsic_end_primitive:
    case nir_intrinsic_emit_vertex: {
@@ -1146,8 +1181,6 @@ emit_tex(ntd_context *ctx, nir_tex_instr *instr)
       case nir_tex_src_texture_deref:
          assert(ctx->opts->vulkan_environment);
          tex = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 4, nullptr);
-         tex.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
-         tex.SetSwizzle(0, 1, 2, 3);
          break;
 
       case nir_tex_src_sampler_deref:
