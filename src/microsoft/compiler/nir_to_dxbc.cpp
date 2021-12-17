@@ -1047,6 +1047,27 @@ emit_scoped_barrier(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
+emit_load_compute_system_value(ntd_context *ctx, nir_intrinsic_instr *intr, D3D10_SB_OPERAND_TYPE operand)
+{
+   COperand op(operand);
+   if (op.m_NumComponents == D3D10_SB_OPERAND_4_COMPONENT)
+      op.SetSwizzle();
+   else {
+      // Looks like the helper and at least WARP's DXBC reader disagree here, so
+      // follow WARP's expected behavior which probably matches FXC
+      op.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
+      op.SelectComponent();
+   }
+   if (intr->dest.is_ssa && list_length(&intr->dest.ssa.uses) + list_length(&intr->dest.ssa.if_uses) == 1)
+      ctx->mod.ssa_operands[intr->dest.ssa.index].operand = op;
+   else {
+      COperandDst dst = nir_dest_as_register(ctx, intr->dest, (1 << nir_dest_num_components(intr->dest)) - 1);
+      store_instruction(ctx, intr->dest, CInstruction(D3D10_SB_OPCODE_MOV, dst, op));
+   }
+   return true;
+}
+
+static bool
 emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    switch (intr->intrinsic) {
@@ -1056,6 +1077,15 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_per_vertex_input(ctx, intr);
    case nir_intrinsic_store_output:
       return emit_store_output(ctx, intr);
+
+   case nir_intrinsic_load_global_invocation_id:
+      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID);
+   case nir_intrinsic_load_workgroup_id:
+      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_GROUP_ID);
+   case nir_intrinsic_load_local_invocation_id:
+      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP);
+   case nir_intrinsic_load_local_invocation_index:
+      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED);
 
    case nir_intrinsic_vulkan_resource_index:
       return emit_vulkan_resource_index(ctx, intr);
@@ -1868,6 +1898,16 @@ emit_dcl(struct ntd_context *ctx)
    }
 
    if (ctx->mod.shader_kind == D3D11_SB_COMPUTE_SHADER) {
+      const unsigned mask_3comp = 0b111 << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
+      if (BITSET_TEST(ctx->shader->info.system_values_read, SYSTEM_VALUE_GLOBAL_INVOCATION_ID))
+         ctx->mod.shader.EmitInputThreadIDDecl(mask_3comp);
+      if (BITSET_TEST(ctx->shader->info.system_values_read, SYSTEM_VALUE_WORKGROUP_ID))
+         ctx->mod.shader.EmitInputThreadGroupIDDecl(mask_3comp);
+      if (BITSET_TEST(ctx->shader->info.system_values_read, SYSTEM_VALUE_LOCAL_INVOCATION_ID))
+         ctx->mod.shader.EmitInputThreadIDInGroupDecl(mask_3comp);
+      if (BITSET_TEST(ctx->shader->info.system_values_read, SYSTEM_VALUE_LOCAL_INVOCATION_INDEX))
+         ctx->mod.shader.EmitInputThreadIDInGroupFlattenedDecl();
+
       ctx->mod.shader.EmitThreadGroupDecl(
          ctx->shader->info.workgroup_size[0],
          ctx->shader->info.workgroup_size[1],
