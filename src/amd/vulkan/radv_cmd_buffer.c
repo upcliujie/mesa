@@ -5036,9 +5036,13 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
       if (!pipeline)
          break;
 
+      bool had_mesh_shading = cmd_buffer->state.mesh_shading;
       cmd_buffer->state.mesh_shading = radv_pipeline_has_mesh(pipeline);
       cmd_buffer->state.dirty |= RADV_CMD_DIRTY_PIPELINE | RADV_CMD_DIRTY_DYNAMIC_VERTEX_INPUT;
       cmd_buffer->push_constant_stages |= pipeline->active_stages;
+
+      if (had_mesh_shading && !cmd_buffer->state.mesh_shading)
+         cmd_buffer->state.dirty |= RADV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 
       /* the new vertex shader might not have the same user regs */
       if (vtx_emit_count_changed) {
