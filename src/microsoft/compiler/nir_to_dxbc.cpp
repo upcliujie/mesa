@@ -544,6 +544,16 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_2_args(ctx, D3D10_SB_OPCODE_IADD, alu));
       return true;
 
+   case nir_op_imul: {
+      COperandBase dest = nir_dest_as_register(ctx, alu->dest.dest, alu->dest.write_mask);
+      unsigned num_dest_comps = count_write_components(alu->dest.write_mask);
+      COperandBase src0 = get_alu_src_as_const_value_or_register(ctx, alu, num_dest_comps, 0);
+      COperandBase src1 = get_alu_src_as_const_value_or_register(ctx, alu, num_dest_comps, 1);
+      store_instruction(ctx, alu->dest.dest,
+         CInstruction(D3D10_SB_OPCODE_IMUL, null_operand, dest, src0, src1));
+      return true;
+   }
+
    case nir_op_isub: {
       CInstruction intr =
          get_intr_2_args(ctx, D3D10_SB_OPCODE_IADD, alu);
@@ -579,6 +589,16 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    case nir_op_ushr:
       store_instruction(ctx, alu->dest.dest,
           get_intr_2_args(ctx, D3D10_SB_OPCODE_USHR, alu));
+      return true;
+
+   case nir_op_ishr:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_2_args(ctx, D3D10_SB_OPCODE_ISHR, alu));
+      return true;
+
+   case nir_op_ishl:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_2_args(ctx, D3D10_SB_OPCODE_ISHL, alu));
       return true;
 
    case nir_op_flt:
@@ -720,6 +740,16 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    case nir_op_frsq:
       store_instruction(ctx, alu->dest.dest,
          get_intr_1_args(ctx, D3D10_SB_OPCODE_RSQ, alu));
+      return true;
+
+   case nir_op_ult:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_2_args(ctx, D3D10_SB_OPCODE_ULT, alu));
+      return true;
+
+   case nir_op_uge:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_2_args(ctx, D3D10_SB_OPCODE_UGE, alu));
       return true;
 
    case nir_op_inot: {
