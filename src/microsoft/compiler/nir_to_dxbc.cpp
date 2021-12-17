@@ -890,25 +890,35 @@ emit_load_ubo_dxil(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    return true;
 }
 
+static COperandBase
+get_ssbo_operand(struct ntd_context *ctx, nir_src src, bool is_src)
+{
+   COperandBase op;
+   nir_binding binding = nir_chase_binding(src);
+   nir_variable *var = nir_get_binding_variable(ctx->shader, binding);
+   op.m_Type = (var->data.access & ACCESS_NON_WRITEABLE) ?
+      D3D10_SB_OPERAND_TYPE_RESOURCE : D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW;
+   if (is_src)
+      op.SetSwizzle();
+   else
+      op.SetMask();
+   op.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
+   if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+      op.m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
+      op.SetIndex(0, var->data.driver_location);
+      src_to_index(ctx, ctx->opts->vulkan_environment ? binding.binding : 0, src, op, 1);
+   } else {
+      op.m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
+      src_to_index(ctx, 0, src, op, 0);
+   }
+
+   return op;
+}
+
 static bool
 emit_load_ssbo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
-   COperandBase src;
-   nir_binding binding = nir_chase_binding(intr->src[0]);
-   nir_variable *var = nir_get_binding_variable(ctx->shader, binding);
-   src.m_Type = (var->data.access & ACCESS_NON_WRITEABLE) ?
-      D3D10_SB_OPERAND_TYPE_RESOURCE : D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW;
-   src.SetSwizzle();
-   src.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
-   if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
-      src.m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-      src.SetIndex(0, var->data.driver_location);
-      src_to_index(ctx, ctx->opts->vulkan_environment ? binding.binding : 0, intr->src[0], src, 1);
-   } else {
-      src.m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-      src_to_index(ctx, 0, intr->src[0], src, 0);
-   }
-
+   COperandBase src = get_ssbo_operand(ctx, intr->src[0], true);
    unsigned num_components = nir_dest_num_components(intr->dest);
    COperandBase dst = nir_dest_as_register(ctx, intr->dest, (1 << num_components) - 1);
    COperandBase offset = nir_src_as_const_value_or_register(ctx, intr->src[1], 1, nullptr);
@@ -920,27 +930,22 @@ emit_load_ssbo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 static bool
 emit_store_ssbo(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
-   COperandBase dst;
-   nir_binding binding = nir_chase_binding(intr->src[1]);
-   nir_variable *var = nir_get_binding_variable(ctx->shader, binding);
-   dst.m_Type = D3D11_SB_OPERAND_TYPE_UNORDERED_ACCESS_VIEW;
-   dst.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
-   if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
-      dst.m_IndexDimension = D3D10_SB_OPERAND_INDEX_2D;
-      dst.SetIndex(0, var->data.driver_location);
-      src_to_index(ctx, ctx->opts->vulkan_environment ? binding.binding : 0, intr->src[1], dst, 1);
-   }
-   else {
-      dst.m_IndexDimension = D3D10_SB_OPERAND_INDEX_1D;
-      src_to_index(ctx, 0, intr->src[1], dst, 0);
-   }
-
+   COperandBase dst = get_ssbo_operand(ctx, intr->src[1], false);
    unsigned num_components = nir_src_num_components(intr->src[0]);
    dst.SetMask(((1 << num_components) - 1) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
    COperandBase value = nir_src_as_const_value_or_register(ctx, intr->src[0], num_components, nullptr);
    COperandBase offset = nir_src_as_const_value_or_register(ctx, intr->src[2], 1, nullptr);
    store_instruction(ctx, intr->dest, CInstruction(D3D11_SB_OPCODE_STORE_RAW, dst, offset, value));
 
+   return true;
+}
+
+static bool
+emit_get_ssbo_size(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   COperandBase src = get_ssbo_operand(ctx, intr->src[0], true);
+   COperandBase dest = nir_dest_as_register(ctx, intr->dest, 0b1111);
+   store_instruction(ctx, intr->dest, CInstruction(D3D11_SB_OPCODE_BUFINFO, dest, src));
    return true;
 }
 
@@ -1019,6 +1024,8 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_load_ssbo(ctx, intr);
    case nir_intrinsic_store_ssbo:
       return emit_store_ssbo(ctx, intr);
+   case nir_intrinsic_get_ssbo_size:
+      return emit_get_ssbo_size(ctx, intr);
 
    case nir_intrinsic_image_deref_size:
       return emit_image_deref_size(ctx, intr);
