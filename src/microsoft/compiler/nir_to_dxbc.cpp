@@ -660,6 +660,16 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_1_args(ctx, D3D10_SB_OPCODE_ITOF, alu));
       return true;
 
+   case nir_op_u2f32:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_1_args(ctx, D3D10_SB_OPCODE_UTOF, alu));
+      return true;
+
+   case nir_op_f2u32:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_1_args(ctx, D3D10_SB_OPCODE_FTOU, alu));
+      return true;
+
    case nir_op_b2f32:
       store_instruction(ctx, alu->dest.dest,
           get_intr_1_args(ctx, D3D10_SB_OPCODE_ITOF, alu));
