@@ -101,6 +101,7 @@ struct spirv_supported_capabilities {
    bool tessellation;
    bool transform_feedback;
    bool variable_pointers;
+   bool viewport_array2_nv;
    bool vk_memory_model;
    bool vk_memory_model_device_scope;
    bool workgroup_memory_explicit_layout;
