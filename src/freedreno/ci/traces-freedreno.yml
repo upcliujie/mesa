@@ -415,9 +415,9 @@ traces:
       # - device: freedreno-a306
       #   checksum: 751e0e784ba2f003cfc456fe8699f1fa
       - device: freedreno-a530
-        checksum: ba53d1ffbe911171546a93259fb2e57c
+        checksum: 919adf39a5451855993e9db0824d414d
       - device: freedreno-a630
-        checksum: 313ef615f0f5a11eeaf95a2a87769a32
+        checksum: 4c995ff427a204b815635b27a4114b22
 # Note: Requires GL3.3
   - path: gputest/gimark.trace
     expectations:

@@ -77,17 +77,17 @@ traces:
   - path: 0ad/0ad.trace
     expectations:
       - device: gl-intel-apl
-        checksum: 45739401f068971e6e1052f10afe9f99
+        checksum: e67b7a93bac02e41de0326419ee17a3e
       - device: gl-intel-glk
-        checksum: 45739401f068971e6e1052f10afe9f99
+        checksum: e67b7a93bac02e41de0326419ee17a3e
       - device: gl-intel-amly
-        checksum: 45739401f068971e6e1052f10afe9f99
+        checksum: e67b7a93bac02e41de0326419ee17a3e
       - device: gl-intel-kbl
-        checksum: 45739401f068971e6e1052f10afe9f99
+        checksum: e67b7a93bac02e41de0326419ee17a3e
       - device: gl-intel-whl
-        checksum: 45739401f068971e6e1052f10afe9f99
+        checksum: e67b7a93bac02e41de0326419ee17a3e
       - device: gl-intel-cml
-        checksum: 45739401f068971e6e1052f10afe9f99
+        checksum: e67b7a93bac02e41de0326419ee17a3e
   - path: pathfinder/demo.trace
     expectations:
       - device: gl-intel-apl
@@ -217,17 +217,17 @@ traces:
   - path: glmark2/bump:bump-render=height.trace
     expectations:
       - device: gl-intel-apl
-        checksum: e299189c84a7005726554f7ca74611eb
+        checksum: cefbfd68f02a1b776f2d314789c859f1
       - device: gl-intel-glk
-        checksum: e299189c84a7005726554f7ca74611eb
+        checksum: cefbfd68f02a1b776f2d314789c859f1
       - device: gl-intel-amly
-        checksum: e299189c84a7005726554f7ca74611eb
+        checksum: cefbfd68f02a1b776f2d314789c859f1
       - device: gl-intel-kbl
-        checksum: e299189c84a7005726554f7ca74611eb
+        checksum: cefbfd68f02a1b776f2d314789c859f1
       - device: gl-intel-whl
-        checksum: e299189c84a7005726554f7ca74611eb
+        checksum: cefbfd68f02a1b776f2d314789c859f1
       - device: gl-intel-cml
-        checksum: e299189c84a7005726554f7ca74611eb
+        checksum: cefbfd68f02a1b776f2d314789c859f1
   - path: glmark2/bump:bump-render=high-poly.trace
     expectations:
       - device: gl-intel-apl
@@ -609,17 +609,17 @@ traces:
   - path: godot/Material Testers.x86_64_2020.04.08_13.38_frame799.rdc
     expectations:
       - device: gl-intel-apl
-        checksum: ba5302821a4a4024ade9b98a191e80cc
+        checksum: dbe1de4e2e812413f173ea6c423117ff
       - device: gl-intel-glk
-        checksum: ba5302821a4a4024ade9b98a191e80cc
+        checksum: dbe1de4e2e812413f173ea6c423117ff
       - device: gl-intel-amly
-        checksum: ba5302821a4a4024ade9b98a191e80cc
+        checksum: dbe1de4e2e812413f173ea6c423117ff
       - device: gl-intel-kbl
-        checksum: ba5302821a4a4024ade9b98a191e80cc
+        checksum: dbe1de4e2e812413f173ea6c423117ff
       - device: gl-intel-whl
-        checksum: ba5302821a4a4024ade9b98a191e80cc
+        checksum: dbe1de4e2e812413f173ea6c423117ff
       - device: gl-intel-cml
-        checksum: ba5302821a4a4024ade9b98a191e80cc
+        checksum: dbe1de4e2e812413f173ea6c423117ff
   - path: gputest/pixmark-julia-fp32.trace
     expectations:
       - device: gl-intel-apl
