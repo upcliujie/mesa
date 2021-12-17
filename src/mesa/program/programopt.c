@@ -40,78 +40,6 @@
 #include "prog_instruction.h"
 
 
-/**
- * This function inserts instructions for coordinate modelview * projection
- * into a vertex program.
- * May be used to implement the position_invariant option.
- */
-static void
-insert_mvp_dp4_code(struct gl_context *ctx, struct gl_program *vprog)
-{
-   struct prog_instruction *newInst;
-   const GLuint origLen = vprog->arb.NumInstructions;
-   const GLuint newLen = origLen + 4;
-   GLuint i;
-
-   /*
-    * Setup state references for the modelview/projection matrix.
-    * XXX we should check if these state vars are already declared.
-    */
-   static const gl_state_index16 mvpState[4][STATE_LENGTH] = {
-      { STATE_MVP_MATRIX, 0, 0, 0 },  /* state.matrix.mvp.row[0] */
-      { STATE_MVP_MATRIX, 0, 1, 1 },  /* state.matrix.mvp.row[1] */
-      { STATE_MVP_MATRIX, 0, 2, 2 },  /* state.matrix.mvp.row[2] */
-      { STATE_MVP_MATRIX, 0, 3, 3 },  /* state.matrix.mvp.row[3] */
-   };
-   GLint mvpRef[4];
-
-   for (i = 0; i < 4; i++) {
-      mvpRef[i] = _mesa_add_state_reference(vprog->Parameters, mvpState[i]);
-   }
-
-   /* Alloc storage for new instructions */
-   newInst = rzalloc_array(vprog, struct prog_instruction, newLen);
-   if (!newInst) {
-      _mesa_error(ctx, GL_OUT_OF_MEMORY,
-                  "glProgramString(inserting position_invariant code)");
-      return;
-   }
-
-   /*
-    * Generated instructions:
-    * newInst[0] = DP4 result.position.x, mvp.row[0], vertex.position;
-    * newInst[1] = DP4 result.position.y, mvp.row[1], vertex.position;
-    * newInst[2] = DP4 result.position.z, mvp.row[2], vertex.position;
-    * newInst[3] = DP4 result.position.w, mvp.row[3], vertex.position;
-    */
-   _mesa_init_instructions(newInst, 4);
-   for (i = 0; i < 4; i++) {
-      newInst[i].Opcode = OPCODE_DP4;
-      newInst[i].DstReg.File = PROGRAM_OUTPUT;
-      newInst[i].DstReg.Index = VARYING_SLOT_POS;
-      newInst[i].DstReg.WriteMask = (WRITEMASK_X << i);
-      newInst[i].SrcReg[0].File = PROGRAM_STATE_VAR;
-      newInst[i].SrcReg[0].Index = mvpRef[i];
-      newInst[i].SrcReg[0].Swizzle = SWIZZLE_NOOP;
-      newInst[i].SrcReg[1].File = PROGRAM_INPUT;
-      newInst[i].SrcReg[1].Index = VERT_ATTRIB_POS;
-      newInst[i].SrcReg[1].Swizzle = SWIZZLE_NOOP;
-   }
-
-   /* Append original instructions after new instructions */
-   _mesa_copy_instructions (newInst + 4, vprog->arb.Instructions, origLen);
-
-   /* free old instructions */
-   ralloc_free(vprog->arb.Instructions);
-
-   /* install new instructions */
-   vprog->arb.Instructions = newInst;
-   vprog->arb.NumInstructions = newLen;
-   vprog->info.inputs_read |= VERT_BIT_POS;
-   vprog->info.outputs_written |= BITFIELD64_BIT(VARYING_SLOT_POS);
-}
-
-
 static void
 insert_mvp_mad_code(struct gl_context *ctx, struct gl_program *vprog)
 {
@@ -216,10 +144,7 @@ insert_mvp_mad_code(struct gl_context *ctx, struct gl_program *vprog)
 void
 _mesa_insert_mvp_code(struct gl_context *ctx, struct gl_program *vprog)
 {
-   if (ctx->Const.ShaderCompilerOptions[MESA_SHADER_VERTEX].OptimizeForAOS)
-      insert_mvp_dp4_code( ctx, vprog );
-   else
-      insert_mvp_mad_code( ctx, vprog );
+   insert_mvp_mad_code( ctx, vprog );
 }
       
 

@@ -302,7 +302,6 @@ struct tnl_program {
    struct gl_program *program;
    struct gl_program_parameter_list *state_params;
    GLuint max_inst;  /** number of instructions allocated for program */
-   GLboolean mvp_with_dp4;
 
    GLuint temp_in_use;
    GLuint temp_reserved;
@@ -631,22 +630,6 @@ static struct ureg make_temp( struct tnl_program *p, struct ureg reg )
 }
 
 
-/* Currently no tracking performed of input/output/register size or
- * active elements.  Could be used to reduce these operations, as
- * could the matrix type.
- */
-static void emit_matrix_transform_vec4( struct tnl_program *p,
-					struct ureg dest,
-					const struct ureg *mat,
-					struct ureg src)
-{
-   emit_op2(p, OPCODE_DP4, dest, WRITEMASK_X, src, mat[0]);
-   emit_op2(p, OPCODE_DP4, dest, WRITEMASK_Y, src, mat[1]);
-   emit_op2(p, OPCODE_DP4, dest, WRITEMASK_Z, src, mat[2]);
-   emit_op2(p, OPCODE_DP4, dest, WRITEMASK_W, src, mat[3]);
-}
-
-
 /* This version is much easier to implement if writemasks are not
  * supported natively on the target or (like SSE), the target doesn't
  * have a clean/obvious dotproduct implementation.
@@ -713,18 +696,8 @@ static struct ureg get_eye_position( struct tnl_program *p )
 
       p->eye_position = reserve_temp(p);
 
-      if (p->mvp_with_dp4) {
-	 register_matrix_param5( p, STATE_MODELVIEW_MATRIX, 0, 0, 3,
-                                 modelview );
-
-	 emit_matrix_transform_vec4(p, p->eye_position, modelview, pos);
-      }
-      else {
-	 register_matrix_param5( p, STATE_MODELVIEW_MATRIX_TRANSPOSE, 0, 0, 3,
-				 modelview );
-
-	 emit_transpose_matrix_transform_vec4(p, p->eye_position, modelview, pos);
-      }
+      register_matrix_param5( p, STATE_MODELVIEW_MATRIX_TRANSPOSE, 0, 0, 3, modelview );
+      emit_transpose_matrix_transform_vec4(p, p->eye_position, modelview, pos);
    }
 
    return p->eye_position;
@@ -818,16 +791,8 @@ static void build_hpos( struct tnl_program *p )
    struct ureg hpos = register_output( p, VARYING_SLOT_POS );
    struct ureg mvp[4];
 
-   if (p->mvp_with_dp4) {
-      register_matrix_param5( p, STATE_MVP_MATRIX, 0, 0, 3,
-			      mvp );
-      emit_matrix_transform_vec4( p, hpos, mvp, pos );
-   }
-   else {
-      register_matrix_param5( p, STATE_MVP_MATRIX_TRANSPOSE, 0, 0, 3,
-			      mvp );
-      emit_transpose_matrix_transform_vec4( p, hpos, mvp, pos );
-   }
+   register_matrix_param5( p, STATE_MVP_MATRIX_TRANSPOSE, 0, 0, 3, mvp );
+   emit_transpose_matrix_transform_vec4( p, hpos, mvp, pos );
 }
 
 
@@ -1535,16 +1500,8 @@ static void build_texture_transform( struct tnl_program *p )
 	    struct ureg in = (!is_undef(out_texgen) ?
 			      out_texgen :
 			      register_input(p, VERT_ATTRIB_TEX0+i));
-	    if (p->mvp_with_dp4) {
-	       register_matrix_param5( p, STATE_TEXTURE_MATRIX, i, 0, 3,
-				       texmat );
-	       emit_matrix_transform_vec4( p, out, texmat, in );
-	    }
-	    else {
-	       register_matrix_param5( p, STATE_TEXTURE_MATRIX_TRANSPOSE, i, 0, 3,
-				       texmat );
-	       emit_transpose_matrix_transform_vec4( p, out, texmat, in );
-	    }
+       register_matrix_param5( p, STATE_TEXTURE_MATRIX_TRANSPOSE, i, 0, 3, texmat );
+       emit_transpose_matrix_transform_vec4( p, out, texmat, in );
 	 }
 
 	 release_temps(p);
@@ -1651,7 +1608,6 @@ static void build_tnl_program( struct tnl_program *p )
 static void
 create_new_program( const struct state_key *key,
                     struct gl_program *program,
-                    GLboolean mvp_with_dp4,
                     GLuint max_temps)
 {
    struct tnl_program p;
@@ -1665,7 +1621,6 @@ create_new_program( const struct state_key *key,
    p.transformed_normal = undef;
    p.identity = undef;
    p.temp_in_use = 0;
-   p.mvp_with_dp4 = mvp_with_dp4;
 
    if (max_temps >= sizeof(int) * 8)
       p.temp_reserved = 0;
@@ -1727,7 +1682,6 @@ _mesa_get_fixed_func_vertex_program(struct gl_context *ctx)
          return NULL;
 
       create_new_program( &key, prog,
-                          ctx->Const.ShaderCompilerOptions[MESA_SHADER_VERTEX].OptimizeForAOS,
                           ctx->Const.Program[MESA_SHADER_VERTEX].MaxTemps );
 
       st_program_string_notify(ctx, GL_VERTEX_PROGRAM_ARB, prog);
