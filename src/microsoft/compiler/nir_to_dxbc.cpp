@@ -716,6 +716,17 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
          get_intr_1_args(ctx, D3D10_SB_OPCODE_RSQ, alu));
       return true;
 
+   case nir_op_inot: {
+      COperandBase dst = nir_dest_as_register(ctx, alu->dest.dest, alu->dest.write_mask);
+      COperandBase src = get_alu_src_as_const_value_or_register(ctx, alu, count_write_components(alu->dest.write_mask), 0);
+      COperand imm(UINT_MAX);
+      std::fill(imm.m_Value, std::end(imm.m_Value), UINT_MAX);
+      imm.m_NumComponents = src.m_NumComponents;
+      imm.m_ComponentSelection = src.m_ComponentSelection;
+      store_instruction(ctx, alu->dest.dest, CInstruction(D3D10_SB_OPCODE_XOR, dst, src, imm));
+      break;
+   }
+
    default:
       NIR_INSTR_UNSUPPORTED(&alu->instr);
       assert(!"Unimplemented ALU instruction");
