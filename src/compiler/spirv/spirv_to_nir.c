@@ -1105,6 +1105,7 @@ struct_member_decoration_cb(struct vtn_builder *b,
    case SpvDecorationPatch:
    case SpvDecorationPerPrimitiveNV:
    case SpvDecorationPerTaskNV:
+   case SpvDecorationPerViewNV:
       break;
 
    case SpvDecorationSpecId:
@@ -1147,11 +1148,6 @@ struct_member_decoration_cb(struct vtn_builder *b,
    case SpvDecorationUserSemantic:
    case SpvDecorationUserTypeGOOGLE:
       /* User semantic decorations can safely be ignored by the driver. */
-      break;
-
-   case SpvDecorationPerViewNV:
-      /* TODO(mesh): Handle multiview. */
-      vtn_warn("Mesh multiview not yet supported. Needed for decoration PerViewNV.");
       break;
 
    default:
@@ -4796,6 +4792,25 @@ vtn_handle_preamble_instruction(struct vtn_builder *b, SpvOp opcode,
 
       case SpvCapabilityMeshShadingNV:
          spv_check_supported(mesh_shading_nv, cap);
+         break;
+
+      case SpvCapabilityPerViewAttributesNV:
+         switch (b->shader->info.stage) {
+            case MESA_SHADER_MESH:
+               spv_check_supported(mesh_shading_nv, cap);
+               break;
+            case MESA_SHADER_VERTEX:
+            case MESA_SHADER_TESS_CTRL:
+            case MESA_SHADER_TESS_EVAL:
+            case MESA_SHADER_GEOMETRY:
+               spv_check_supported(multiview_per_view_attributes_nv, cap);
+               break;
+            default:
+               vtn_fail("Capability: %s (%u) not allowed in %s",
+                        spirv_capability_to_string(cap), cap,
+                        _mesa_shader_stage_to_string(b->shader->info.stage));
+               break;
+         }
          break;
 
       case SpvCapabilityShaderViewportMaskNV:
