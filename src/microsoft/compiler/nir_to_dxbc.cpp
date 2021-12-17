@@ -985,7 +985,11 @@ emit_image_deref_size(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    COperandBase dest = nir_dest_as_register(ctx, intr->dest, 0b1111);
    COperandBase src = nir_src_as_const_value_or_register(ctx, intr->src[0], 4, nullptr);
    COperand lod(0u);
-   CInstruction inst(D3D10_SB_OPCODE_RESINFO, dest, lod, src);
+   CInstruction inst =
+      glsl_get_sampler_dim(glsl_without_array(nir_deref_instr_get_variable(
+         nir_src_as_deref(intr->src[0]))->type)) == GLSL_SAMPLER_DIM_BUF ?
+            CInstruction(D3D11_SB_OPCODE_BUFINFO, dest, src) :
+            CInstruction(D3D10_SB_OPCODE_RESINFO, dest, lod, src);
    inst.m_ResInfoReturnType = D3D10_SB_RESINFO_INSTRUCTION_RETURN_UINT;
    store_instruction(ctx, intr->dest, inst);
    return true;
