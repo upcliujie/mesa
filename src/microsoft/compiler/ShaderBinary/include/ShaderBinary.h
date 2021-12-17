@@ -1346,6 +1346,33 @@ public:
         m_Operands[3] = Operand3;
         memset(m_TexelOffset, 0, sizeof(m_TexelOffset));
     }
+    CInstruction(D3D10_SB_OPCODE_TYPE OpCode, COperandBase& Operand0, COperandBase& Operand1,
+       COperandBase& Operand2, COperandBase& Operand3, COperandBase& Operand4)
+    {
+       Clear();
+       m_OpCode = OpCode;
+       m_NumOperands = 5;
+       m_ExtendedOpCodeCount = 0;
+       m_Operands[0] = Operand0;
+       m_Operands[1] = Operand1;
+       m_Operands[2] = Operand2;
+       m_Operands[3] = Operand3;
+       m_Operands[4] = Operand4;
+    }
+    CInstruction(D3D10_SB_OPCODE_TYPE OpCode, COperandBase& Operand0, COperandBase& Operand1,
+       COperandBase& Operand2, COperandBase& Operand3, COperandBase& Operand4, COperandBase& Operand5)
+    {
+       Clear();
+       m_OpCode = OpCode;
+       m_NumOperands = 6;
+       m_ExtendedOpCodeCount = 0;
+       m_Operands[0] = Operand0;
+       m_Operands[1] = Operand1;
+       m_Operands[2] = Operand2;
+       m_Operands[3] = Operand3;
+       m_Operands[4] = Operand4;
+       m_Operands[5] = Operand5;
+    }
     void ClearAllocations()
     {
         if (m_OpCode == D3D10_SB_OPCODE_CUSTOMDATA)

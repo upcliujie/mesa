@@ -821,10 +821,10 @@ emit_vulkan_resource_index(struct ntd_context *ctx, nir_intrinsic_instr *intr)
    } else {
       // Dynamic index, compose 2-vector
       COperandDst copy_dest(D3D10_SB_OPERAND_TYPE_TEMP, ctx->mod.reg_alloc++);
-      copy_dest.SetMask(0b1 << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+      copy_dest.SetMask(D3D10_SB_OPERAND_4_COMPONENT_MASK_X);
       ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_MOV, copy_dest, input));
       COperand single_zero(0u);
-      copy_dest.SetMask(0b10 << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+      copy_dest.SetMask(D3D10_SB_OPERAND_4_COMPONENT_MASK_Y);
       ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_MOV, copy_dest, single_zero));
       output = COperand4(D3D10_SB_OPERAND_TYPE_TEMP, copy_dest.RegIndex(0), 0, 1, 0, 0);
    }
@@ -1000,6 +1000,206 @@ emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
 }
 
 static bool
+emit_tex(ntd_context *ctx, nir_tex_instr *instr)
+{
+   COperandBase tex;
+   COperandBase sampler;
+   COperandBase bias, lod = COperand(0u), min_lod;
+   COperandBase coord, offset, dx, dy;
+   COperandBase cmp;
+
+   bool is_zero_lod = false;
+   bool lod_needs_to_be_merged_to_coord_alpha = false;
+   bool has_offset = false;
+   bool has_lod_clamp = false;
+
+   if (!ctx->opts->vulkan_environment) {
+      if (ctx->mod.major_version == 5 && ctx->mod.minor_version == 1) {
+         nir_binding tex_binding = { true, nullptr, 0, instr->texture_index };
+         nir_binding sampler_binding = { true, nullptr, 0, instr->sampler_index };
+         nir_variable *tex_var = nir_get_binding_variable(ctx->shader, tex_binding);
+         nir_variable *sampler_var = nir_get_binding_variable(ctx->shader, sampler_binding);
+         if (tex_var)
+            tex = COperand2D(D3D10_SB_OPERAND_TYPE_RESOURCE, tex_var->data.driver_location, instr->texture_index);
+         if (sampler_var)
+            sampler = COperand2D(D3D10_SB_OPERAND_TYPE_SAMPLER, sampler_var->data.driver_location, instr->sampler_index);
+      } else {
+         tex = COperand(D3D10_SB_OPERAND_TYPE_RESOURCE, instr->texture_index);
+         sampler = COperand(D3D10_SB_OPERAND_TYPE_SAMPLER, instr->sampler_index);
+      }
+   }
+
+   for (unsigned i = 0; i < instr->num_srcs; i++) {
+      nir_alu_type type = nir_tex_instr_src_type(instr, i);
+
+      switch (instr->src[i].src_type) {
+      case nir_tex_src_coord:
+         coord = nir_src_as_const_value_or_register(ctx, instr->src[i].src, instr->coord_components, nullptr);
+         break;
+
+      case nir_tex_src_offset:
+         has_offset = nir_src_is_const(instr->src[i].src);
+         offset = nir_src_as_const_value_or_register(ctx, instr->src[i].src, instr->coord_components, nullptr);
+         break;
+
+      case nir_tex_src_bias:
+         assert(instr->op == nir_texop_txb);
+         assert(nir_src_num_components(instr->src[i].src) == 1);
+         bias = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 1, nullptr);
+         break;
+
+      case nir_tex_src_lod:
+         assert(nir_src_num_components(instr->src[i].src) == 1);
+         lod = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 1, nullptr);
+         lod_needs_to_be_merged_to_coord_alpha = instr->op == nir_texop_txf;
+         is_zero_lod = nir_src_is_const(instr->src[i].src) && nir_src_as_uint(instr->src[i].src) == 0;
+         break;
+
+      case nir_tex_src_min_lod:
+         assert(nir_src_num_components(instr->src[i].src) == 1);
+         min_lod = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 1, nullptr);
+         break;
+
+      case nir_tex_src_comparator:
+         assert(instr->op == nir_texop_tex && instr->is_shadow);
+         assert(nir_src_num_components(instr->src[i].src) == 1);
+         cmp = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 1, nullptr);
+         break;
+
+      case nir_tex_src_ddx:
+         dx = nir_src_as_const_value_or_register(ctx, instr->src[i].src, instr->coord_components, nullptr);
+         break;
+
+      case nir_tex_src_ddy:
+         dy = nir_src_as_const_value_or_register(ctx, instr->src[i].src, instr->coord_components, nullptr);
+         break;
+
+      case nir_tex_src_texture_deref:
+         assert(ctx->opts->vulkan_environment);
+         tex = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 4, nullptr);
+         tex.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
+         tex.SetSwizzle(0, 1, 2, 3);
+         break;
+
+      case nir_tex_src_sampler_deref:
+         assert(ctx->opts->vulkan_environment);
+         sampler = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 4, nullptr);
+         break;
+
+      case nir_tex_src_projector:
+         unreachable("Texture projector should have been lowered");
+
+      default:
+         fprintf(stderr, "texture source: %d\n", instr->src[i].src_type);
+         unreachable("unknown texture source");
+      }
+   }
+
+   tex.m_NumComponents = D3D10_SB_OPERAND_4_COMPONENT;
+   tex.SetSwizzle(0, 1, 2, 3);
+   sampler.m_NumComponents = D3D10_SB_OPERAND_0_COMPONENT;
+
+   if (lod_needs_to_be_merged_to_coord_alpha) {
+      COperandDst temp_coords(D3D10_SB_OPERAND_TYPE_TEMP, ctx->mod.reg_alloc++);
+      temp_coords.SetMask(0b111 << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_MOV, temp_coords, coord));
+      temp_coords.SetMask(D3D10_SB_OPERAND_4_COMPONENT_MASK_W);
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_MOV, temp_coords, lod));
+      coord = COperand4(D3D10_SB_OPERAND_TYPE_TEMP, temp_coords.RegIndex(0));
+   }
+
+   COperandBase dest = nir_dest_as_register(ctx, instr->dest, 0b1111);
+   CInstruction inst;
+   switch (instr->op) {
+   case nir_texop_txb:
+      inst = CInstruction(D3D10_SB_OPCODE_SAMPLE_B, dest, coord, tex, sampler, bias);
+      break;
+
+   case nir_texop_tex:
+      if (instr->is_shadow) {
+         D3D10_SB_OPCODE_TYPE opcode = ctx->mod.shader_kind != DXIL_PIXEL_SHADER || is_zero_lod ?
+            D3D10_SB_OPCODE_SAMPLE_C_LZ : D3D10_SB_OPCODE_SAMPLE_C;
+         inst = CInstruction(opcode, dest, coord, tex, sampler, cmp);
+         break;
+      }
+      else if (ctx->mod.shader_kind == DXIL_PIXEL_SHADER) {
+         inst = CInstruction(D3D10_SB_OPCODE_SAMPLE, dest, coord, tex, sampler);
+         break;
+      }
+      lod = COperand(0u);
+      FALLTHROUGH;
+   case nir_texop_txl:
+      inst = CInstruction(D3D10_SB_OPCODE_SAMPLE_L, dest, coord, tex, sampler, lod);
+      break;
+
+   case nir_texop_txd:
+      inst = CInstruction(D3D10_SB_OPCODE_SAMPLE_D, dest, coord, tex, sampler, dx, dy);
+      break;
+
+   case nir_texop_txf:
+      inst = CInstruction(D3D10_SB_OPCODE_LD, dest, coord, tex);
+      break;
+
+   case nir_texop_txs:
+      if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF)
+         inst = CInstruction(D3D11_SB_OPCODE_BUFINFO, dest, tex);
+      else {
+         inst = CInstruction(D3D10_SB_OPCODE_RESINFO, dest, lod, tex);
+         inst.m_ResInfoReturnType = D3D10_SB_RESINFO_INSTRUCTION_RETURN_UINT;
+      }
+      break;
+
+   case nir_texop_lod:
+      inst = CInstruction(D3D10_1_SB_OPCODE_LOD, dest, coord, tex, sampler);
+      break;
+
+   case nir_texop_query_levels:
+      tex.SetSwizzle(3, 3, 3, 3);
+      inst = CInstruction(D3D10_SB_OPCODE_RESINFO, dest, tex);
+      break;
+
+   default:
+      fprintf(stderr, "texture op: %d\n", instr->op);
+      unreachable("unknown texture op");
+   }
+
+   if (has_offset) {
+      int *offsets = reinterpret_cast<int*>(offset.m_Value);
+      inst.SetTexelOffset(offsets[0], offsets[1], offsets[2]);
+   }
+
+   if (has_lod_clamp) {
+      bool modified = true;
+      switch (inst.OpCode()) {
+      case D3D10_SB_OPCODE_SAMPLE:
+         inst.m_OpCode = D3DWDDM1_3_SB_OPCODE_SAMPLE_CLAMP_FEEDBACK;
+         break;
+      case D3D10_SB_OPCODE_SAMPLE_B:
+         inst.m_OpCode = D3DWDDM1_3_SB_OPCODE_SAMPLE_B_CLAMP_FEEDBACK;
+         break;
+      case D3D10_SB_OPCODE_SAMPLE_C:
+         inst.m_OpCode = D3DWDDM1_3_SB_OPCODE_SAMPLE_C_CLAMP_FEEDBACK;
+         break;
+      case D3D10_SB_OPCODE_SAMPLE_D:
+         inst.m_OpCode = D3DWDDM1_3_SB_OPCODE_SAMPLE_D_CLAMP_FEEDBACK;
+         break;
+      default:
+         modified = false;
+         break;
+      }
+      if (modified) {
+         inst.SetNumOperands(inst.NumOperands() + 2);
+         inst.m_Operands[inst.NumOperands() - 1] = COperand(D3D10_SB_OPERAND_TYPE_NULL);
+         inst.m_Operands[inst.NumOperands() - 2] = min_lod;
+      }
+   }
+
+   store_instruction(ctx, instr->dest, inst);
+
+   return true;
+}
+
+static bool
 emit_instr(struct ntd_context *ctx, struct nir_instr *instr)
 {
    switch (instr->type) {
@@ -1013,10 +1213,8 @@ emit_instr(struct ntd_context *ctx, struct nir_instr *instr)
        return emit_deref(ctx, nir_instr_as_deref(instr));
    case nir_instr_type_jump:
       return emit_jump(ctx, nir_instr_as_jump(instr));
-   // case nir_instr_type_phi:
-   //    return emit_phi(ctx, nir_instr_as_phi(instr));
-   // case nir_instr_type_tex:
-   //    return emit_tex(ctx, nir_instr_as_tex(instr));
+    case nir_instr_type_tex:
+       return emit_tex(ctx, nir_instr_as_tex(instr));
    // case nir_instr_type_ssa_undef:
    //    return emit_undefined(ctx, nir_instr_as_ssa_undef(instr));
    default:
