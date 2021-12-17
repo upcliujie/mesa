@@ -1952,7 +1952,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
    nir_lower_idiv_options idiv_opts = { .keep_unsigned = true };
    NIR_PASS_V(s, nir_lower_idiv, &idiv_opts);
-   NIR_PASS_V(s, dxil_nir_lower_loads_stores_to_dxil);
+   NIR_PASS_V(s, dxil_nir_lower_loads_stores_to_dxil, nir_var_all & ~nir_var_mem_shared);
 
    // NOTE: do not run scalarization passes
    optimize_nir(s, opts, false);
