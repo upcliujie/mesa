@@ -831,16 +831,33 @@ src_to_index(ntd_context *ctx, unsigned const_base, nir_src src, COperandBase& o
    }
 }
 
+static COperandBase
+get_output_operand_type(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   unsigned write_mask = nir_intrinsic_write_mask(intr) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT;
+   nir_io_semantics semantics = nir_intrinsic_io_semantics(intr);
+   if (ctx->mod.shader_kind == D3D10_SB_PIXEL_SHADER) {
+      switch (semantics.location) {
+      case FRAG_RESULT_DEPTH:
+         return COperandDst(write_mask, D3D10_SB_OPERAND_TYPE_OUTPUT_DEPTH);
+      case FRAG_RESULT_STENCIL:
+         return COperandDst(write_mask, D3D11_SB_OPERAND_TYPE_OUTPUT_STENCIL_REF);
+      default:
+         break;
+      }
+   }
+
+   COperandDst dst(D3D10_SB_OPERAND_TYPE_OUTPUT, 0, write_mask);
+   src_to_index(ctx, nir_intrinsic_base(intr), intr->src[1], dst, 0);
+   return dst;
+}
+
 static bool
 emit_store_output(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 {
    COperandBase src =
        nir_src_as_const_value_or_register(ctx, intr->src[0], 4, nullptr);
-
-   COperandDst dst(D3D10_SB_OPERAND_TYPE_OUTPUT, 0,
-      nir_intrinsic_write_mask(intr) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
-   src_to_index(ctx, nir_intrinsic_base(intr), intr->src[1], dst, 0);
-
+   COperandBase dst = get_output_operand_type(ctx, intr);
    CInstruction mov(D3D10_SB_OPCODE_MOV, dst, src);
    ctx->mod.instructions.push_back(mov);
 
@@ -1955,6 +1972,22 @@ emit_dcl(struct ntd_context *ctx)
          case DXIL_PROG_SEM_POSITION:
             ctx->mod.shader.EmitOutputSystemInterpretedValueDecl(
                 elem.reg, write_mask, D3D10_SB_NAME_POSITION);
+            break;
+
+         case DXIL_PROG_SEM_DEPTH:
+            ctx->mod.shader.EmitODepthDecl();
+            break;
+
+         case DXIL_PROG_SEM_DEPTH_GE:
+            ctx->mod.shader.EmitODepthDeclGE();
+            break;
+
+         case DXIL_PROG_SEM_DEPTH_LE:
+            ctx->mod.shader.EmitODepthDeclLE();
+            break;
+
+         case DXIL_PROG_SEM_STENCIL_REF:
+            ctx->mod.shader.EmitOStencilRefDecl();
             break;
 
          default:
