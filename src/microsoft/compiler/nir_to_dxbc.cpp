@@ -1047,6 +1047,43 @@ emit_scoped_barrier(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
+emit_load_shared(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   COperandBase dest = nir_dest_as_register(ctx, intr->dest, (1 << nir_dest_num_components(intr->dest)) - 1);
+   COperandBase offset = nir_src_as_const_value_or_register(ctx, intr->src[0], 1, nullptr);
+   COperand4 tgsm(D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY, 0);
+   if (nir_intrinsic_base(intr)) {
+      COperandDst temp_dest(D3D10_SB_OPERAND_TYPE_TEMP, ctx->mod.reg_alloc++, D3D10_SB_OPERAND_4_COMPONENT_MASK_X);
+      COperand offset_addend(nir_intrinsic_base(intr));
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_IADD, temp_dest, offset, offset_addend));
+      offset = COperand4(D3D10_SB_OPERAND_TYPE_TEMP, temp_dest.RegIndex(0), D3D10_SB_4_COMPONENT_X);
+   }
+   if (nir_dest_num_components(intr->dest) == 1)
+      tgsm.SelectComponent();
+   else
+      tgsm.SetSwizzle();
+   store_instruction(ctx, intr->dest, CInstruction(D3D11_SB_OPCODE_LD_RAW, dest, offset, tgsm));
+   return true;
+}
+
+static bool
+emit_store_shared(struct ntd_context *ctx, nir_intrinsic_instr *intr)
+{
+   COperandBase value = nir_src_as_const_value_or_register(ctx, intr->src[0], 4, nullptr);
+   COperandBase offset = nir_src_as_const_value_or_register(ctx, intr->src[1], 1, nullptr);
+   COperandDst tgsm(D3D11_SB_OPERAND_TYPE_THREAD_GROUP_SHARED_MEMORY, 0,
+      nir_intrinsic_write_mask(intr) << D3D10_SB_OPERAND_4_COMPONENT_MASK_SHIFT);
+   if (nir_intrinsic_base(intr)) {
+      COperandDst temp_dest(D3D10_SB_OPERAND_TYPE_TEMP, ctx->mod.reg_alloc++, D3D10_SB_OPERAND_4_COMPONENT_MASK_X);
+      COperand offset_addend(nir_intrinsic_base(intr));
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_IADD, temp_dest, offset, offset_addend));
+      offset = COperand4(D3D10_SB_OPERAND_TYPE_TEMP, temp_dest.RegIndex(0), D3D10_SB_4_COMPONENT_X);
+   }
+   store_instruction(ctx, intr->dest, CInstruction(D3D11_SB_OPCODE_STORE_RAW, tgsm, offset, value));
+   return true;
+}
+
+static bool
 emit_load_compute_system_value(ntd_context *ctx, nir_intrinsic_instr *intr, D3D10_SB_OPERAND_TYPE operand)
 {
    COperand op(operand);
@@ -1108,6 +1145,11 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 
    case nir_intrinsic_scoped_barrier:
       return emit_scoped_barrier(ctx, intr);
+
+   case nir_intrinsic_load_shared:
+      return emit_load_shared(ctx, intr);
+   case nir_intrinsic_store_shared:
+      return emit_store_shared(ctx, intr);
 
    case nir_intrinsic_end_primitive:
    case nir_intrinsic_emit_vertex: {
@@ -1907,6 +1949,9 @@ emit_dcl(struct ntd_context *ctx)
          ctx->mod.shader.EmitInputThreadIDInGroupDecl(mask_3comp);
       if (BITSET_TEST(ctx->shader->info.system_values_read, SYSTEM_VALUE_LOCAL_INVOCATION_INDEX))
          ctx->mod.shader.EmitInputThreadIDInGroupFlattenedDecl();
+
+      if (ctx->shader->info.shared_size)
+         ctx->mod.shader.EmitRawThreadGroupSharedMemoryDecl(0, ctx->shader->info.shared_size);
 
       ctx->mod.shader.EmitThreadGroupDecl(
          ctx->shader->info.workgroup_size[0],
