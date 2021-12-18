@@ -1165,6 +1165,15 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return true;
    }
 
+   case nir_intrinsic_discard_if:
+   case nir_intrinsic_discard: {
+      COperandBase src = intr->intrinsic == nir_intrinsic_discard_if ?
+         nir_src_as_const_value_or_register(ctx, intr->src[0], 1, nullptr) :
+         COperand(UINT_MAX);
+      ctx->mod.instructions.push_back(CInstruction(D3D10_SB_OPCODE_DISCARD, src));
+      return true;
+   }
+
    default:
       NIR_INSTR_UNSUPPORTED(&intr->instr);
       assert(!"Unimplemented intrinsic instruction");
