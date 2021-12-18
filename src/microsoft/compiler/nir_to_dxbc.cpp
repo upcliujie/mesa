@@ -1925,8 +1925,10 @@ emit_dcl(struct ntd_context *ctx)
             break;
 
          case DXIL_PROG_SEM_VERTEX_ID:
+         case DXIL_PROG_SEM_PRIMITIVE_ID:
+         case DXIL_PROG_SEM_INSTANCE_ID:
             ctx->mod.shader.EmitInputSystemGeneratedValueDecl(
-               elem.reg, write_mask, D3D10_SB_NAME_VERTEX_ID);
+               elem.reg, write_mask, static_cast<D3D10_SB_NAME>(sem));
             break;
 
          default:
