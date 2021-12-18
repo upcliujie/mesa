@@ -1120,7 +1120,7 @@ emit_store_shared(struct ntd_context *ctx, nir_intrinsic_instr *intr)
 }
 
 static bool
-emit_load_compute_system_value(ntd_context *ctx, nir_intrinsic_instr *intr, D3D10_SB_OPERAND_TYPE operand)
+emit_load_system_value(ntd_context *ctx, nir_intrinsic_instr *intr, D3D10_SB_OPERAND_TYPE operand)
 {
    COperand op(operand);
    if (op.m_NumComponents == D3D10_SB_OPERAND_4_COMPONENT)
@@ -1152,13 +1152,15 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_store_output(ctx, intr);
 
    case nir_intrinsic_load_global_invocation_id:
-      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID);
+      return emit_load_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID);
    case nir_intrinsic_load_workgroup_id:
-      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_GROUP_ID);
+      return emit_load_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_GROUP_ID);
    case nir_intrinsic_load_local_invocation_id:
-      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP);
+      return emit_load_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP);
    case nir_intrinsic_load_local_invocation_index:
-      return emit_load_compute_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED);
+      return emit_load_system_value(ctx, intr, D3D11_SB_OPERAND_TYPE_INPUT_THREAD_ID_IN_GROUP_FLATTENED);
+   case nir_intrinsic_load_primitive_id:
+      return emit_load_system_value(ctx, intr, D3D10_SB_OPERAND_TYPE_INPUT_PRIMITIVEID);
 
    case nir_intrinsic_vulkan_resource_index:
       return emit_vulkan_resource_index(ctx, intr);
@@ -1938,9 +1940,13 @@ emit_dcl(struct ntd_context *ctx)
             }
             break;
 
-         case DXIL_PROG_SEM_VERTEX_ID:
          case DXIL_PROG_SEM_PRIMITIVE_ID:
+            ctx->mod.shader.EmitInputPrimIdDecl();
+            break;
+
+         case DXIL_PROG_SEM_VERTEX_ID:
          case DXIL_PROG_SEM_INSTANCE_ID:
+         case DXIL_PROG_SEM_IS_FRONTFACE:
          case DXIL_PROG_SEM_SAMPLE_INDEX:
             ctx->mod.shader.EmitInputSystemGeneratedValueDecl(
                elem.reg, write_mask, static_cast<D3D10_SB_NAME>(sem));
