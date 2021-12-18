@@ -469,7 +469,14 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    case nir_op_fsub: {
       CInstruction intr =
           get_intr_2_args(ctx, D3D10_SB_OPCODE_ADD, alu);
-      intr.m_Operands[2].SetModifier(D3D10_SB_OPERAND_MODIFIER_NEG);
+      if (intr.m_Operands[2].m_Type == D3D10_SB_OPERAND_TYPE_IMMEDIATE32) {
+         unsigned num_components = intr.m_Operands[2].NumComponents();
+         if (intr.m_Operands[2].NumComponents() == D3D10_SB_OPERAND_4_COMPONENT)
+            num_components = 4;
+         for (unsigned i = 0; i < num_components; ++i)
+            intr.m_Operands[i].m_Valuef[i] = -intr.m_Operands[i].m_Valuef[i];
+      } else
+         intr.m_Operands[2].SetModifier(D3D10_SB_OPERAND_MODIFIER_NEG);
       store_instruction(ctx, alu->dest.dest, intr);
       return true;
    }
@@ -562,7 +569,14 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
    case nir_op_isub: {
       CInstruction intr =
          get_intr_2_args(ctx, D3D10_SB_OPCODE_IADD, alu);
-      intr.m_Operands[2].SetModifier(D3D10_SB_OPERAND_MODIFIER_NEG);
+      if (intr.m_Operands[2].m_Type == D3D10_SB_OPERAND_TYPE_IMMEDIATE32) {
+         unsigned num_components = intr.m_Operands[2].NumComponents();
+         if (intr.m_Operands[2].NumComponents() == D3D10_SB_OPERAND_4_COMPONENT)
+            num_components = 4;
+         for (unsigned i = 0; i < num_components; ++i)
+            intr.m_Operands[i].m_Value[i] = -intr.m_Operands[i].m_Value[i];
+      } else
+         intr.m_Operands[2].SetModifier(D3D10_SB_OPERAND_MODIFIER_NEG);
       store_instruction(ctx, alu->dest.dest, intr);
       return true;
    }
