@@ -1314,7 +1314,7 @@ emit_tex(ntd_context *ctx, nir_tex_instr *instr)
    COperandBase sampler;
    COperandBase bias, lod = COperand(0u), min_lod;
    COperandBase coord, offset, dx, dy;
-   COperandBase cmp;
+   COperandBase cmp, sample_idx;
 
    bool is_zero_lod = false;
    bool lod_needs_to_be_merged_to_coord_alpha = false;
@@ -1382,6 +1382,12 @@ emit_tex(ntd_context *ctx, nir_tex_instr *instr)
          dy = nir_src_as_const_value_or_register(ctx, instr->src[i].src, instr->coord_components, nullptr);
          break;
 
+      case nir_tex_src_ms_index:
+         assert(instr->op == nir_texop_txf_ms);
+         assert(nir_src_num_components(instr->src[i].src) == 1);
+         sample_idx = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 1, nullptr);
+         break;
+
       case nir_tex_src_texture_deref:
          assert(ctx->opts->vulkan_environment);
          tex = nir_src_as_const_value_or_register(ctx, instr->src[i].src, 4, nullptr);
@@ -1444,6 +1450,10 @@ emit_tex(ntd_context *ctx, nir_tex_instr *instr)
 
    case nir_texop_txf:
       inst = CInstruction(D3D10_SB_OPCODE_LD, dest, coord, tex);
+      break;
+
+   case nir_texop_txf_ms:
+      inst = CInstruction(D3D10_SB_OPCODE_LD_MS, dest, coord, tex, sample_idx);
       break;
 
    case nir_texop_txs:
@@ -1755,6 +1765,10 @@ glsl_sampler_dim_to_dxbc(glsl_sampler_dim dim, bool is_array)
          D3D10_SB_RESOURCE_DIMENSION_TEXTURECUBE;
    case GLSL_SAMPLER_DIM_BUF:
       return D3D10_SB_RESOURCE_DIMENSION_BUFFER;
+   case GLSL_SAMPLER_DIM_MS:
+      return is_array ?
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURE2DMSARRAY :
+         D3D10_SB_RESOURCE_DIMENSION_TEXTURE2DMS;
    default:
       assert(false);
       return D3D10_SB_RESOURCE_DIMENSION_UNKNOWN;
