@@ -484,6 +484,11 @@ emit_alu(struct ntd_context *ctx, nir_alu_instr *alu)
           get_intr_2_args(ctx, D3D10_SB_OPCODE_EQ, alu));
       return true;
 
+   case nir_op_fneu:
+      store_instruction(ctx, alu->dest.dest,
+         get_intr_2_args(ctx, D3D10_SB_OPCODE_NE, alu));
+      return true;
+
    case nir_op_mov:
       if (alu->dest.dest.is_ssa) {
          ctx->mod.ssa_operands[alu->dest.dest.ssa.index].operand =
