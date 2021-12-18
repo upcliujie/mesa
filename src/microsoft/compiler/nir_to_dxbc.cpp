@@ -1941,6 +1941,7 @@ emit_dcl(struct ntd_context *ctx)
          case DXIL_PROG_SEM_VERTEX_ID:
          case DXIL_PROG_SEM_PRIMITIVE_ID:
          case DXIL_PROG_SEM_INSTANCE_ID:
+         case DXIL_PROG_SEM_SAMPLE_INDEX:
             ctx->mod.shader.EmitInputSystemGeneratedValueDecl(
                elem.reg, write_mask, static_cast<D3D10_SB_NAME>(sem));
             break;
@@ -2131,7 +2132,9 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    if (!dxil_allocate_sysvalues(s, ctx.system_value))
       return false;
 
-   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx.system_value);
+   dxil_lower_sysval_options sysval_options = {};
+   sysval_options.sample_id_is_sysval = true;
+   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx.system_value, &sysval_options);
    // NIR_PASS_V(s, nir_lower_locals_to_regs);
    // NIR_PASS_V(s, nir_move_vec_src_uses_to_dest);
    // NIR_PASS_V(s, nir_lower_vec_to_movs, NULL, NULL);
@@ -2147,8 +2150,7 @@ nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    if (debug_dxbc & DXBC_DEBUG_VERBOSE)
       nir_print_shader(s, stderr);
 
-   // TODO SV_Position doesn't make it into dxil_module's inputs?
-   get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment);
+   get_signatures(&ctx.dxil_mod, s, ctx.opts->vulkan_environment, true /* dxbc */);
 
    DxbcModule &mod = ctx.mod;
    mod.shader.Init(1024);

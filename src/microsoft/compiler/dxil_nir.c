@@ -1629,11 +1629,18 @@ dxil_nir_lower_bool_input(struct nir_shader *s)
                                         lower_bool_input_impl, NULL);
 }
 
+struct sysval_data {
+   const struct dxil_lower_sysval_options options;
+   nir_variable **sysvals;
+};
+
 static bool
-lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *data)
+lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *_data)
 {
    if (instr->type != nir_instr_type_intrinsic)
       return false;
+
+   struct sysval_data *data = _data;
 
    nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
    gl_system_value sysval = SYSTEM_VALUE_MAX;
@@ -1647,11 +1654,16 @@ lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *data)
    case nir_intrinsic_load_vertex_id_zero_base:
       sysval = SYSTEM_VALUE_VERTEX_ID_ZERO_BASE;
       break;
+   case nir_intrinsic_load_sample_id:
+      if (!data->options.sample_id_is_sysval)
+         return false;
+      sysval = SYSTEM_VALUE_SAMPLE_ID;
+      break;
    default:
       return false;
    }
 
-   nir_variable **sysval_vars = (nir_variable **)data;
+   nir_variable **sysval_vars = data->sysvals;
    nir_variable *var = sysval_vars[sysval];
    assert(var);
 
@@ -1663,10 +1675,12 @@ lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *data)
 }
 
 bool
-dxil_nir_lower_sysval_to_load_input(nir_shader *s, nir_variable **sysval_vars)
+dxil_nir_lower_sysval_to_load_input(nir_shader *s, nir_variable **sysval_vars,
+   const struct dxil_lower_sysval_options *options)
 {
+   struct sysval_data data = { .options = *options, .sysvals = sysval_vars };
    return nir_shader_instructions_pass(s, lower_sysval_to_load_input_impl,
-      nir_metadata_block_index | nir_metadata_dominance, sysval_vars);
+      nir_metadata_block_index | nir_metadata_dominance, &data);
 }
 
 /* Comparison function to sort io values so that first come normal varyings,
