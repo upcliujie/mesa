@@ -1416,7 +1416,8 @@ emit_tex(ntd_context *ctx, nir_tex_instr *instr)
 
    case nir_texop_query_levels:
       tex.SetSwizzle(3, 3, 3, 3);
-      inst = CInstruction(D3D10_SB_OPCODE_RESINFO, dest, tex);
+      lod = COperand(0u);
+      inst = CInstruction(D3D10_SB_OPCODE_RESINFO, dest, lod, tex);
       break;
 
    default:
