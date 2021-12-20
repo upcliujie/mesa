@@ -616,8 +616,9 @@ fs_generator::generate_shuffle(fs_inst *inst,
     * easier just to split it here.
     */
    const unsigned lower_width =
-      (devinfo->ver <= 7 || type_sz(src.type) > 4) ?
-      8 : MIN2(16, inst->exec_size);
+      (devinfo->ver <= 7 || type_sz(src.type) << (src.hstride - 1) > 4 ||
+       type_sz(dst.type) << (dst.hstride - 1) > 4) ? 8 :
+      MIN2(16, inst->exec_size);
 
    brw_set_default_exec_size(p, cvt(lower_width) - 1);
    for (unsigned group = 0; group < inst->exec_size; group += lower_width) {
