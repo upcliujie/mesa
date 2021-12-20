@@ -33,6 +33,7 @@
 #include "main/state.h"
 #include "api_exec_decl.h"
 
+#include "state_tracker/st_context.h"
 #include "state_tracker/st_format.h"
 #include "state_tracker/st_cb_msaa.h"
 
@@ -363,10 +364,8 @@ _mesa_AlphaToCoverageDitherControlNV_no_error(GLenum mode)
 {
    GET_CURRENT_CONTEXT(ctx);
 
-   FLUSH_VERTICES(ctx, ctx->DriverFlags.NewSampleAlphaToXEnable ? 0 :
-                                                   _NEW_MULTISAMPLE,
-                  GL_MULTISAMPLE_BIT);
-   ctx->NewDriverState |= ctx->DriverFlags.NewSampleAlphaToXEnable;
+   FLUSH_VERTICES(ctx, 0, GL_MULTISAMPLE_BIT);
+   ctx->NewDriverState |= ST_NEW_BLEND;
    ctx->Multisample.SampleAlphaToCoverageDitherControl = mode;
 }
 
@@ -375,10 +374,8 @@ _mesa_AlphaToCoverageDitherControlNV(GLenum mode)
 {
    GET_CURRENT_CONTEXT(ctx);
 
-   FLUSH_VERTICES(ctx, ctx->DriverFlags.NewSampleAlphaToXEnable ? 0 :
-                                                   _NEW_MULTISAMPLE,
-                  GL_MULTISAMPLE_BIT);
-   ctx->NewDriverState |= ctx->DriverFlags.NewSampleAlphaToXEnable;
+   FLUSH_VERTICES(ctx, 0, GL_MULTISAMPLE_BIT);
+   ctx->NewDriverState |= ST_NEW_BLEND;
    switch (mode) {
       case GL_ALPHA_TO_COVERAGE_DITHER_DEFAULT_NV:
       case GL_ALPHA_TO_COVERAGE_DITHER_ENABLE_NV:
