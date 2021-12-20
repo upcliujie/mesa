@@ -4531,15 +4531,16 @@ lower_bit_size_callback(const nir_instr* instr, void *data)
    return ret;
 }
 
-static void
-optimize_nir(struct nir_shader *s, const struct nir_to_dxil_options *opts)
+void
+dxil_optimize_nir(struct nir_shader *s, const struct nir_to_dxil_options *opts, bool scalarize)
 {
    bool progress;
    do {
       progress = false;
       NIR_PASS_V(s, nir_lower_vars_to_ssa);
       NIR_PASS(progress, s, nir_lower_indirect_derefs, nir_var_function_temp, UINT32_MAX);
-      NIR_PASS(progress, s, nir_lower_alu_to_scalar, NULL, NULL);
+      if (scalarize)
+         NIR_PASS(progress, s, nir_lower_alu_to_scalar, NULL, NULL);
       NIR_PASS(progress, s, nir_copy_prop);
       NIR_PASS(progress, s, nir_opt_copy_prop_vars);
       NIR_PASS(progress, s, nir_lower_bit_size, lower_bit_size_callback, (void*)opts);
@@ -4651,7 +4652,7 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
    NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out, type_size_vec4, (nir_lower_io_options)0);
 
-   optimize_nir(s, opts);
+   dxil_optimize_nir(s, opts, true);
 
    NIR_PASS_V(s, nir_remove_dead_variables,
               nir_var_function_temp | nir_var_shader_temp, NULL);

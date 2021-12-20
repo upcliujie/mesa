@@ -64,6 +64,9 @@ struct nir_to_dxil_options {
    bool vulkan_environment;
 };
 
+void
+dxil_optimize_nir(struct nir_shader *s, const struct nir_to_dxil_options *opts, bool scalarize);
+
 bool
 nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
             struct blob *blob);
