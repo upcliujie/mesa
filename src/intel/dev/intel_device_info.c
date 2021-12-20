@@ -1880,6 +1880,11 @@ intel_get_device_info_from_fd(int fd, struct intel_device_info *devinfo)
       devinfo->no_hw = env_var_as_boolean("INTEL_NO_HW", false);
    }
 
+   /* Provide some sensible values for NO_HW. */
+   if (devinfo->no_hw) {
+      devinfo->gtt_size = 2ull * 1024 * 1024 * 1024;
+   }
+
    if (devinfo->ver == 10) {
       mesa_loge("Gfx10 support is redacted.");
       return false;
