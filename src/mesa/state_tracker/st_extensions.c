@@ -183,6 +183,8 @@ void st_init_limits(struct pipe_screen *screen,
             nir_to_tgsi_get_compiler_options(screen, PIPE_SHADER_IR_NIR, sh);
       }
 
+      options->OptimizeForAOS = !options->NirOptions->lower_to_scalar;
+
       if (sh == PIPE_SHADER_COMPUTE) {
          if (!screen->get_param(screen, PIPE_CAP_COMPUTE))
             continue;

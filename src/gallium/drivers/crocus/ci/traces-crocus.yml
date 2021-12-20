@@ -99,7 +99,7 @@ traces:
   - path: humus/RaytracedShadows.trace
     expectations:
       - device: crocus-g41
-        checksum: dbef340424f4f85eb8dc053ad3a56ae1
+        checksum: f60916254e7afc26c131c3ece991e183
       - device: crocus-hsw
         checksum: bac350df35b9262efca6722faf5c4eaa
   - path: humus/VolumetricFogging2.trace
@@ -112,7 +112,7 @@ traces:
   - path: neverball/neverball.trace
     expectations:
       - device: crocus-g41
-        checksum: 0f14a88f511cd886c920238c80017e5d
+        checksum: 0037eaceb35899dcf9cef77a438e5517
       - device: crocus-hsw
         checksum: ec6b2615ab12db73126e06e6b20663ec
   - path: paraview/pv-manyspheres.trace
@@ -159,7 +159,7 @@ traces:
     expectations:
     # very aliased palm fronds compared to freedreno?
       - device: crocus-g41
-        checksum: 90c01e73b3544cb477ac6109bc61bef1
+        checksum: 1c0471e88ddbb7a1beede330ee616f78
       - device: crocus-hsw
         checksum: 0e1e52aaccd94a261cf9d8675039c41c
   - path: valve/counterstrike-source-v2.trace
