@@ -1136,8 +1136,9 @@ create_indirect_draw_shader(struct panfrost_device *dev,
                 draw_shader->push = shader_info.push;
                 draw_shader->rsd = dev->indirect_draw_shaders.states->ptr.gpu +
                                    (shader_id * pan_size(RENDERER_STATE));
+        } else {
+                pthread_mutex_unlock(&dev->indirect_draw_shaders.lock);
         }
-        pthread_mutex_unlock(&dev->indirect_draw_shaders.lock);
 
         ralloc_free(b->shader);
 }
