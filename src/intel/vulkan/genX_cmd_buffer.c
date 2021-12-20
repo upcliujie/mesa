@@ -86,7 +86,7 @@ convert_pc_to_bits(struct GENX(PIPE_CONTROL) *pc) {
    if (INTEL_DEBUG(DEBUG_PIPE_CONTROL)) { \
       fputs("pc: emit PC=( ", stderr); \
       anv_dump_pipe_bits(convert_pc_to_bits(&(pc))); \
-      fprintf(stderr, ") reason: %s\n", __FUNCTION__); \
+      fprintf(stderr, ") reason: %s:%u\n", __FUNCTION__, __LINE__);      \
    }
 
 static bool
@@ -2414,25 +2414,41 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
     * the app asks for.  One of these days we may make this a bit better
     * but right now that's all the hardware allows for in most areas.
     */
-   VkAccessFlags2 src_flags = 0;
-   VkAccessFlags2 dst_flags = 0;
+   enum intel_pipe_control_bits pc_bits = 0;
 
    for (uint32_t i = 0; i < dep_info->memoryBarrierCount; i++) {
-      src_flags |= dep_info->pMemoryBarriers[i].srcAccessMask;
-      dst_flags |= dep_info->pMemoryBarriers[i].dstAccessMask;
+      pc_bits |= anv_cache_pipe_control_bits_for(cmd_buffer->device,
+         dep_info->pMemoryBarriers[i].dstAccessMask,
+         dep_info->pMemoryBarriers[i].dstStageMask,
+         dep_info->pMemoryBarriers[i].srcAccessMask,
+         dep_info->pMemoryBarriers[i].srcStageMask,
+         "memory barrier, mb_",
+         &dep_info->pMemoryBarriers[i]);
    }
 
    for (uint32_t i = 0; i < dep_info->bufferMemoryBarrierCount; i++) {
-      src_flags |= dep_info->pBufferMemoryBarriers[i].srcAccessMask;
-      dst_flags |= dep_info->pBufferMemoryBarriers[i].dstAccessMask;
+      pc_bits |= anv_cache_pipe_control_bits_for(cmd_buffer->device,
+         dep_info->pBufferMemoryBarriers[i].dstAccessMask,
+         dep_info->pBufferMemoryBarriers[i].dstStageMask,
+         dep_info->pBufferMemoryBarriers[i].srcAccessMask,
+         dep_info->pBufferMemoryBarriers[i].srcStageMask,
+         "buffer barrier bb_",
+         &dep_info->pBufferMemoryBarriers[i]);
    }
 
    for (uint32_t i = 0; i < dep_info->imageMemoryBarrierCount; i++) {
       const VkImageMemoryBarrier2 *img_barrier =
          &dep_info->pImageMemoryBarriers[i];
 
-      src_flags |= img_barrier->srcAccessMask;
-      dst_flags |= img_barrier->dstAccessMask;
+      enum anv_pipe_bits bits =
+         anv_cache_pipe_control_bits_for(cmd_buffer->device,
+                                         img_barrier->dstAccessMask,
+                                         img_barrier->dstStageMask,
+                                         img_barrier->srcAccessMask,
+                                         img_barrier->srcStageMask,
+                                         "image barrier ib_",
+                                         img_barrier);
+      pc_bits |= bits;
 
       ANV_FROM_HANDLE(anv_image, image, img_barrier->image);
       const VkImageSubresourceRange *range = &img_barrier->subresourceRange;
@@ -2481,10 +2497,7 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
       }
    }
 
-   enum anv_pipe_bits bits =
-      anv_pipe_flush_bits_for_access_flags(cmd_buffer->device, src_flags) |
-      anv_pipe_invalidate_bits_for_access_flags(cmd_buffer->device, dst_flags);
-
+   enum anv_pipe_bits bits = anv_pipe_bits_from_pc_bits(pc_bits);
    anv_add_pending_pipe_bits(cmd_buffer, bits, reason);
 }
 
@@ -7326,15 +7339,6 @@ void genX(CmdEndConditionalRenderingEXT)(
    cmd_state->conditional_render_enabled = false;
 }
 #endif
-
-/* Set of stage bits for which are pipelined, i.e. they get queued
- * by the command streamer for later execution.
- */
-#define ANV_PIPELINE_STAGE_PIPELINED_BITS \
-   ~(VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT | \
-     VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT | \
-     VK_PIPELINE_STAGE_2_HOST_BIT | \
-     VK_PIPELINE_STAGE_2_CONDITIONAL_RENDERING_BIT_EXT)
 
 void genX(CmdSetEvent2)(
     VkCommandBuffer                             commandBuffer,
