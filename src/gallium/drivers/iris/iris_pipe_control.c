@@ -188,7 +188,7 @@ iris_emit_buffer_barrier_for(struct iris_batch *batch,
                                     PIPE_CONTROL_STALL_AT_SCOREBOARD |
                                     PIPE_CONTROL_FLUSH_ENABLE);
    const uint32_t flush_bits[NUM_IRIS_DOMAINS] = {
-      [IRIS_DOMAIN_RENDER_WRITE] = PIPE_CONTROL_RENDER_TARGET_FLUSH,
+      [IRIS_DOMAIN_RENDER_WRITE] = PIPE_CONTROL_RENDER_TARGET_FLUSH | PIPE_CONTROL_TILE_CACHE_FLUSH,
       [IRIS_DOMAIN_DEPTH_WRITE] = PIPE_CONTROL_DEPTH_CACHE_FLUSH,
       [IRIS_DOMAIN_DATA_WRITE] = PIPE_CONTROL_DATA_CACHE_FLUSH,
       [IRIS_DOMAIN_OTHER_WRITE] = PIPE_CONTROL_FLUSH_ENABLE,
@@ -317,7 +317,8 @@ iris_texture_barrier(struct pipe_context *ctx, unsigned flags)
                                    "API: texture barrier (1/2)",
                                    PIPE_CONTROL_DEPTH_CACHE_FLUSH |
                                    PIPE_CONTROL_RENDER_TARGET_FLUSH |
-                                   PIPE_CONTROL_CS_STALL);
+                                   PIPE_CONTROL_CS_STALL |
+                                   PIPE_CONTROL_TILE_CACHE_FLUSH);
       iris_emit_pipe_control_flush(render_batch,
                                    "API: texture barrier (2/2)",
                                    PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE);
@@ -327,7 +328,8 @@ iris_texture_barrier(struct pipe_context *ctx, unsigned flags)
       iris_batch_maybe_flush(compute_batch, 48);
       iris_emit_pipe_control_flush(compute_batch,
                                    "API: texture barrier (1/2)",
-                                   PIPE_CONTROL_CS_STALL);
+                                   PIPE_CONTROL_CS_STALL |
+                                   PIPE_CONTROL_TILE_CACHE_FLUSH);
       iris_emit_pipe_control_flush(compute_batch,
                                    "API: texture barrier (2/2)",
                                    PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE);
