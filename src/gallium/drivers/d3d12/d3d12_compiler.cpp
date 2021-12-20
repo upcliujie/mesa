@@ -179,6 +179,7 @@ compile_nir(struct d3d12_context *ctx, struct d3d12_shader_selector *sel,
    opts.lower_int16 = !screen->opts4.Native16BitShaderOpsSupported;
    opts.ubo_binding_offset = shader->has_default_ubo0 ? 0 : 1;
    opts.provoking_vertex = key->fs.provoking_vertex;
+   opts.shader_model_max = SHADER_MODEL_6_2;
 
    struct blob tmp;
    if (!nir_to_dxil(nir, &opts, &tmp)) {

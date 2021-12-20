@@ -4745,6 +4745,12 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
       goto out;
    }
 
+   if ((ctx->mod.major_version << 16 | ctx->mod.minor_version) > opts->shader_model_max) {
+      debug_printf("D3D12: max shader model exceeded\n");
+      retval = false;
+      goto out;
+   }
+
    if (debug_dxil & DXIL_DEBUG_DUMP_MODULE) {
       struct dxil_dumper *dumper = dxil_dump_create();
       dxil_dump_module(dumper, &ctx->mod);
