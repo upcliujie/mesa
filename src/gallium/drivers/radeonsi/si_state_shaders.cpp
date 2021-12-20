@@ -978,7 +978,7 @@ static void si_shader_gs(struct si_screen *sscreen, struct si_shader *shader)
       S_028B90_CNT(MIN2(gs_num_invocations, 127)) | S_028B90_ENABLE(gs_num_invocations > 0);
 
    /* Copy over fields from the GS copy shader to make them easily accessible from GS. */
-   shader->pa_cl_vs_out_cntl = sel->gs_copy_shader->pa_cl_vs_out_cntl;
+   shader->pa_cl_vs_out_cntl = shader->gs_copy_shader->pa_cl_vs_out_cntl;
 
    va = shader->bo->gpu_address;
 
@@ -1871,10 +1871,12 @@ static void si_shader_init_pm4_state(struct si_screen *sscreen, struct si_shader
          si_shader_vs(sscreen, shader, NULL);
       break;
    case MESA_SHADER_GEOMETRY:
-      if (shader->key.ge.as_ngg)
+      if (shader->key.ge.as_ngg) {
          gfx10_shader_ngg(sscreen, shader);
-      else
+      } else {
          si_shader_gs(sscreen, shader);
+         si_shader_vs(sscreen, shader->gs_copy_shader, shader->selector);
+      }
       break;
    case MESA_SHADER_FRAGMENT:
       si_shader_ps(sscreen, shader);
@@ -2755,19 +2757,6 @@ static void si_init_shader_selector_async(void *job, void *gdata, int thread_ind
    if (!compiler->passes)
       si_init_compiler(sscreen, compiler);
 
-   /* The GS copy shader is always pre-compiled. */
-   if (sel->info.stage == MESA_SHADER_GEOMETRY &&
-       (!sscreen->use_ngg || !sscreen->use_ngg_streamout || /* also for PRIMITIVES_GENERATED */
-        sel->tess_turns_off_ngg)) {
-      sel->gs_copy_shader = si_generate_gs_copy_shader(sscreen, compiler, sel, debug);
-      if (!sel->gs_copy_shader) {
-         fprintf(stderr, "radeonsi: can't create GS copy shader\n");
-         return;
-      }
-
-      si_shader_vs(sscreen, sel->gs_copy_shader, sel);
-   }
-
    /* Serialize NIR to save memory. Monolithic shader variants
     * have to deserialize NIR before compilation.
     */
@@ -3629,6 +3618,9 @@ static void si_delete_shader(struct si_context *sctx, struct si_shader *shader)
    default:;
    }
 
+   if (shader->gs_copy_shader)
+      si_delete_shader(sctx, shader->gs_copy_shader);
+
    si_shader_selector_reference(sctx, &shader->previous_stage_sel, NULL);
    si_shader_destroy(shader);
    si_pm4_free_state(sctx, &shader->pm4, state_index);
@@ -3662,8 +3654,6 @@ static void si_destroy_shader_selector(struct pipe_context *ctx, void *cso)
       si_delete_shader(sctx, sel->main_shader_part_es);
    if (sel->main_shader_part_ngg)
       si_delete_shader(sctx, sel->main_shader_part_ngg);
-   if (sel->gs_copy_shader)
-      si_delete_shader(sctx, sel->gs_copy_shader);
 
    util_queue_fence_destroy(&sel->ready);
    simple_mtx_destroy(&sel->mutex);
