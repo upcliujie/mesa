@@ -629,7 +629,7 @@ descriptor=[
   [ "MAX_TESS_EVALUATION_UNIFORM_BLOCKS", "CONTEXT_INT(Const.Program[MESA_SHADER_TESS_EVAL].MaxUniformBlocks), extra_ARB_tessellation_shader" ],
   [ "MAX_COMBINED_TESS_CONTROL_UNIFORM_COMPONENTS", "CONTEXT_INT64(Const.Program[MESA_SHADER_TESS_CTRL].MaxCombinedUniformComponents), extra_ARB_tessellation_shader" ],
   [ "MAX_COMBINED_TESS_EVALUATION_UNIFORM_COMPONENTS", "CONTEXT_INT64(Const.Program[MESA_SHADER_TESS_EVAL].MaxCombinedUniformComponents), extra_ARB_tessellation_shader" ],
-  [ "PRIMITIVE_RESTART_FOR_PATCHES_SUPPORTED", "CONTEXT_BOOL(Const.PrimitiveRestartForPatches), extra_ARB_tessellation_shader" ],
+  [ "PRIMITIVE_RESTART_FOR_PATCHES_SUPPORTED", "CONST(GL_FALSE), extra_ARB_tessellation_shader" ],
 
 # GL_ARB_shader_image_load_store / geometry shader
   [ "MAX_GEOMETRY_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_GEOMETRY].MaxImageUniforms), extra_ARB_shader_image_load_store_and_geometry_shader" ],
