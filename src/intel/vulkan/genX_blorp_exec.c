@@ -352,5 +352,9 @@ genX(blorp_exec)(struct blorp_batch *batch,
 
    cmd_buffer->state.gfx.vb_dirty = ~0;
    cmd_buffer->state.gfx.dirty |= ~skip_bits;
-   cmd_buffer->state.push_constants_dirty = ~0;
+
+   if (batch->flags & BLORP_BATCH_USE_COMPUTE)
+      cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
+   else
+      cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_ALL_GRAPHICS;
 }
