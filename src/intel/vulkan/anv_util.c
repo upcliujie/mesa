@@ -87,4 +87,67 @@ anv_dump_pipe_bits(enum anv_pipe_bits bits)
       fputs("+depth_stall ", stderr);
    if (bits & ANV_PIPE_CS_STALL_BIT)
       fputs("+cs_stall ", stderr);
+   if (bits & ANV_PIPE_END_OF_PIPE_SYNC_BIT)
+      fputs("+eop ", stderr);
+}
+
+void
+dump_anv_pipe_bits(const char* prefix, VkAccessFlags2KHR bits) {
+   fprintf(stderr, "%s", prefix);
+   if (bits & VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT_KHR ) fprintf(stderr, "INDIRECT_COMMAND_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_INDEX_READ_BIT_KHR            ) fprintf(stderr, "INDEX_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT_KHR ) fprintf(stderr, "VERTEX_ATTRIBUTE_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_UNIFORM_READ_BIT_KHR          ) fprintf(stderr, "UNIFORM_READ_BIT_KHR, ");
+
+   if (bits & VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT_KHR ) fprintf(stderr, "INPUT_ATTACHMENT_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_SHADER_READ_BIT_KHR           ) fprintf(stderr, "SHADER_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_SHADER_WRITE_BIT_KHR          ) fprintf(stderr, "SHADER_WRITE_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT_KHR ) fprintf(stderr, "COLOR_ATTACHMENT_READ_BIT_KHR, ");
+
+   if (bits & VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT_KHR) fprintf(stderr, "COLOR_ATTACHMENT_WRITE_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR ) fprintf(stderr, "DEPTH_STENCIL_ATTACHMENT_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR ) fprintf(stderr, "DEPTH_STENCIL_ATTACHMENT_WRITE_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_TRANSFER_READ_BIT_KHR         ) fprintf(stderr, "TRANSFER_READ_BIT_KHR, ");
+
+   if (bits & VK_ACCESS_2_TRANSFER_WRITE_BIT_KHR        ) fprintf(stderr, "TRANSFER_WRITE_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_HOST_READ_BIT_KHR             ) fprintf(stderr, "HOST_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_HOST_WRITE_BIT_KHR            ) fprintf(stderr, "HOST_WRITE_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_MEMORY_READ_BIT_KHR           ) fprintf(stderr, "MEMORY_READ_BIT_KHR, ");
+
+   if (bits & VK_ACCESS_2_MEMORY_WRITE_BIT_KHR          ) fprintf(stderr, "MEMORY_WRITE_BIT_KHR, ");
+
+   if (bits & VK_ACCESS_2_SHADER_SAMPLED_READ_BIT_KHR   ) fprintf(stderr, "SHADER_SAMPLED_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_SHADER_STORAGE_READ_BIT_KHR   ) fprintf(stderr, "SHADER_STORAGE_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT_KHR  ) fprintf(stderr, "SHADER_STORAGE_WRITE_BIT_KHR, ");
+
+   if (bits & VK_ACCESS_2_TRANSFORM_FEEDBACK_WRITE_BIT_EXT           ) fprintf(stderr, "TRANSFORM_FEEDBACK_WRITE_BIT_EXT, ");
+   if (bits & VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT    ) fprintf(stderr, "TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT, ");
+   if (bits & VK_ACCESS_2_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT   ) fprintf(stderr, "TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT, ");
+   if (bits & VK_ACCESS_2_CONDITIONAL_RENDERING_READ_BIT_EXT         ) fprintf(stderr, "CONDITIONAL_RENDERING_READ_BIT_EXT, ");
+   if (bits & VK_ACCESS_2_COMMAND_PREPROCESS_READ_BIT_NV             ) fprintf(stderr, "COMMAND_PREPROCESS_READ_BIT_NV, ");
+   if (bits & VK_ACCESS_2_COMMAND_PREPROCESS_WRITE_BIT_NV            ) fprintf(stderr, "COMMAND_PREPROCESS_WRITE_BIT_NV, ");
+   if (bits & VK_ACCESS_2_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR  ) fprintf(stderr, "FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_SHADING_RATE_IMAGE_READ_BIT_NV             ) fprintf(stderr, "SHADING_RATE_IMAGE_READ_BIT_NV, ");
+   if (bits & VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_KHR        ) fprintf(stderr, "ACCELERATION_STRUCTURE_READ_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_KHR       ) fprintf(stderr, "ACCELERATION_STRUCTURE_WRITE_BIT_KHR, ");
+   if (bits & VK_ACCESS_2_ACCELERATION_STRUCTURE_READ_BIT_NV         ) fprintf(stderr, "ACCELERATION_STRUCTURE_READ_BIT_NV , ");
+   if (bits & VK_ACCESS_2_ACCELERATION_STRUCTURE_WRITE_BIT_NV        ) fprintf(stderr, "ACCELERATION_STRUCTURE_WRITE_BIT_NV, ");
+   if (bits & VK_ACCESS_2_FRAGMENT_DENSITY_MAP_READ_BIT_EXT          ) fprintf(stderr, "FRAGMENT_DENSITY_MAP_READ_BIT_EXT , ");
+   if (bits & VK_ACCESS_2_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT  ) fprintf(stderr, "COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT, ");
+   if (bits & VK_ACCESS_2_INVOCATION_MASK_READ_BIT_HUAWEI            ) fprintf(stderr, "INVOCATION_MASK_READ_BIT_HUAWEI, ");
+}
+
+void
+dump_hw_unit_bits(const char* prefix, enum intel_hw_cache_unit bits) {
+   fprintf(stderr, "%s", prefix);
+   if( bits & INTEL_HW_CACHE_UNIT_VF            ) fprintf(stderr, "VF, ");
+   if( bits & INTEL_HW_CACHE_UNIT_DEPTH         ) fprintf(stderr, "DEPTH, ");
+   if( bits & INTEL_HW_CACHE_UNIT_CONSTANT      ) fprintf(stderr, "CONSTANT," );
+   if( bits & INTEL_HW_CACHE_UNIT_DATA          ) fprintf(stderr, "DATA, ");
+   if( bits & INTEL_HW_CACHE_UNIT_TEXTURE       ) fprintf(stderr, "TEXTURE, ");
+   if( bits & INTEL_HW_CACHE_UNIT_RENDERTARGET  ) fprintf(stderr, "RENDERTARGET, ");
+   if( bits & INTEL_HW_CACHE_UNIT_L3            ) fprintf(stderr, "L3, ");
+   if( bits & INTEL_HW_CACHE_UNIT_MAIN_MEMORY   ) fprintf(stderr, "MAIN_MEMORY, ");
+   if( bits & INTEL_HW_CACHE_UNIT_CS            ) fprintf(stderr, "CS, ");
+   if( bits & INTEL_HW_CACHE_UNIT_CPU           ) fprintf(stderr, "CPU, ");
 }
