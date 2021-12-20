@@ -440,6 +440,12 @@ void anv_CmdCopyImage2(
    ANV_FROM_HANDLE(anv_image, src_image, pCopyImageInfo->srcImage);
    ANV_FROM_HANDLE(anv_image, dst_image, pCopyImageInfo->dstImage);
 
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0),
+                             "before CopyImage");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -451,6 +457,8 @@ void anv_CmdCopyImage2(
    }
 
    anv_blorp_batch_finish(&batch);
+
+   cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_RENDER_TARGET_BUFFER_WRITES;
 }
 
 static enum isl_format
@@ -611,6 +619,12 @@ void anv_CmdCopyBufferToImage2(
    ANV_FROM_HANDLE(anv_buffer, src_buffer, pCopyBufferToImageInfo->srcBuffer);
    ANV_FROM_HANDLE(anv_image, dst_image, pCopyBufferToImageInfo->dstImage);
 
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0),
+                             "before CopyBufferToImage");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -621,6 +635,8 @@ void anv_CmdCopyBufferToImage2(
    }
 
    anv_blorp_batch_finish(&batch);
+
+   cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_RENDER_TARGET_BUFFER_WRITES;
 }
 
 void anv_CmdCopyImageToBuffer2(
@@ -630,6 +646,12 @@ void anv_CmdCopyImageToBuffer2(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_image, src_image, pCopyImageToBufferInfo->srcImage);
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, pCopyImageToBufferInfo->dstBuffer);
+
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0),
+                             "before CopyBufferToImage");
 
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
@@ -792,6 +814,12 @@ void anv_CmdBlitImage2(
    ANV_FROM_HANDLE(anv_image, src_image, pBlitImageInfo->srcImage);
    ANV_FROM_HANDLE(anv_image, dst_image, pBlitImageInfo->dstImage);
 
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0),
+                             "before BlitImage");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -803,6 +831,8 @@ void anv_CmdBlitImage2(
    }
 
    anv_blorp_batch_finish(&batch);
+
+   cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_RENDER_TARGET_BUFFER_WRITES;
 }
 
 /**
@@ -857,6 +887,12 @@ void anv_CmdCopyBuffer2(
    ANV_FROM_HANDLE(anv_buffer, src_buffer, pCopyBufferInfo->srcBuffer);
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, pCopyBufferInfo->dstBuffer);
 
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0),
+                             "before CopyBuffer");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -881,6 +917,16 @@ void anv_CmdUpdateBuffer(
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, dstBuffer);
 
+   /* We're about to read data that was written from the CPU.  Flush the
+    * texture cache so we don't get anything stale.
+    */
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0) |
+                             ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT,
+                             "before UpdateBuffer");
+
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
 
@@ -891,13 +937,6 @@ void anv_CmdUpdateBuffer(
       cmd_buffer->device->dynamic_state_pool.block_size - 64;
 
    assert(max_update_size < MAX_SURFACE_DIM * 4);
-
-   /* We're about to read data that was written from the CPU.  Flush the
-    * texture cache so we don't get anything stale.
-    */
-   anv_add_pending_pipe_bits(cmd_buffer,
-                             ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT,
-                             "before UpdateBuffer");
 
    while (dataSize) {
       const uint32_t copy_size = MIN2(dataSize, max_update_size);
@@ -943,6 +982,16 @@ void anv_CmdFillBuffer(
    ANV_FROM_HANDLE(anv_buffer, dst_buffer, dstBuffer);
    struct blorp_surf surf;
    struct isl_surf isl_surf;
+
+   /* We're about to read data that was written from the CPU.  Flush the
+    * texture cache so we don't get anything stale.
+    */
+   anv_add_pending_pipe_bits(cmd_buffer,
+                             ((cmd_buffer->state.pending_pipe_bits &
+                               ANV_PIPE_RENDER_TARGET_BUFFER_WRITES) ?
+                              ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0) |
+                             ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT,
+                             "before FillBuffer");
 
    struct blorp_batch batch;
    anv_blorp_batch_init(cmd_buffer, &batch, 0);
