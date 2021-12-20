@@ -815,6 +815,8 @@ anv_physical_device_try_create(struct anv_instance *instance,
    snprintf(device->path, ARRAY_SIZE(device->path), "%s", path);
 
    device->info = devinfo;
+   device->cache_hierarchy =
+      intel_cache_hierarchy_get_for_device(&device->info);
    device->is_alpha = is_alpha;
 
    device->cmd_parser_version = -1;
