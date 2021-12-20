@@ -158,6 +158,18 @@ vk_instance_init(struct vk_instance *instance,
       instance->enabled_extensions.extensions[idx] = true;
    }
 
+#ifdef ANDROID
+   /* The Android wrapper ICD requires one of Vulkan 1.1 or GPDP2 support
+    * whenever Vulkan 1.1 supported.  This is to allow it to query
+    * VkPhysicalDevicePresentationPropertiesANDROID.  Some versions of the
+    * wrapper don't properly enable the extension so we need to smash it on
+    * ousrselves.
+    */
+   if (instance_version >= VK_API_VERSION_1_1 &&
+       instance->app_info.api_version < VK_API_VERSION_1_1)
+      instance->enabled_extensions.KHR_get_physical_device_properties2 = true;
+#endif
+
    instance->dispatch_table = *dispatch_table;
 
    /* Add common entrypoints without overwriting driver-provided ones. */
