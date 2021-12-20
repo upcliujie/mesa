@@ -116,8 +116,10 @@ brw_compiler_create(void *mem_ctx, const struct intel_device_info *devinfo)
       devinfo->ver >= 12 ||
       (devinfo->ver >= 9 && INTEL_DEBUG(DEBUG_TCS_EIGHT_PATCH));
 
-   /* Default to the sampler since that's what we've done since forever */
-   compiler->indirect_ubos_use_sampler = true;
+   /* Default to the sampler since that's what we've done since forever,
+    * except on Gfx12+.
+    */
+   compiler->indirect_ubos_use_sampler = devinfo->ver < 12;
 
    /* There is no vec4 mode on Gfx10+, and we don't use it at all on Gfx8+. */
    for (int i = MESA_SHADER_VERTEX; i < MESA_ALL_SHADER_STAGES; i++) {
