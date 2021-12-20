@@ -1379,7 +1379,8 @@ emit_metadata(struct ntd_context *ctx)
    }
 
    const struct dxil_mdnode *signatures = get_signatures(&ctx->mod, ctx->shader,
-                                                         ctx->opts->vulkan_environment);
+                                                         ctx->opts->vulkan_environment,
+                                                         false /* dxbc */);
 
    const struct dxil_mdnode *dx_entry_point = emit_entrypoint(ctx, main_func,
        "main", signatures, resources_node, shader_properties);
@@ -4658,7 +4659,8 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    if (!dxil_allocate_sysvalues(ctx->shader, ctx->system_value))
       return false;
 
-   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx->system_value);
+   struct dxil_lower_sysval_options sysval_options = { 0 };
+   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx->system_value, &sysval_options);
    NIR_PASS_V(s, nir_opt_dce);
 
    if (debug_dxil & DXIL_DEBUG_VERBOSE)
