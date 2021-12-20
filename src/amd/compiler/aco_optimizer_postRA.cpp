@@ -34,6 +34,7 @@ namespace aco {
 namespace {
 
 constexpr const size_t max_reg_cnt = 512;
+constexpr const size_t max_reg_bytes = max_reg_cnt * 4;
 
 struct Idx {
    bool operator==(const Idx& other) const { return block == other.block && instr == other.instr; }
@@ -46,7 +47,6 @@ struct Idx {
 };
 
 Idx not_written_in_block{UINT32_MAX, 0};
-Idx clobbered{UINT32_MAX, 1};
 Idx const_or_undef{UINT32_MAX, 2};
 Idx written_by_multiple_instrs{UINT32_MAX, 3};
 
@@ -67,7 +67,7 @@ struct pr_opt_ctx {
    Block* current_block;
    uint32_t current_instr_idx;
    std::vector<uint16_t> uses;
-   std::vector<std::array<Idx, max_reg_cnt>> instr_idx_by_regs;
+   std::vector<std::array<Idx, max_reg_bytes>> instr_idx_by_regs;
 
    void reset_block(Block* block)
    {
@@ -79,7 +79,7 @@ struct pr_opt_ctx {
                    not_written_in_block);
       } else {
          unsigned first_pred = block->linear_preds[0];
-         for (unsigned i = 0; i < max_reg_cnt; i++) {
+         for (unsigned i = 0; i < max_reg_bytes; i++) {
             bool all_same = std::all_of(
                std::next(block->linear_preds.begin()), block->linear_preds.end(),
                [&](unsigned pred)
@@ -103,32 +103,29 @@ save_reg_writes(pr_opt_ctx& ctx, aco_ptr<Instruction>& instr)
       assert(def.regClass().type() != RegType::sgpr || def.physReg().reg() <= 255);
       assert(def.regClass().type() != RegType::vgpr || def.physReg().reg() >= 256);
 
-      unsigned dw_size = DIV_ROUND_UP(def.bytes(), 4u);
-      unsigned r = def.physReg().reg();
       Idx idx{ctx.current_block->index, ctx.current_instr_idx};
+      unsigned begin_byte = def.physReg().reg() * 4u;
+      unsigned end_byte = begin_byte + def.bytes();
 
-      if (def.regClass().is_subdword())
-         idx = clobbered;
-
-      assert((r + dw_size) <= max_reg_cnt);
-      assert(def.size() == dw_size || def.regClass().is_subdword());
-      std::fill(ctx.instr_idx_by_regs[ctx.current_block->index].begin() + r,
-                ctx.instr_idx_by_regs[ctx.current_block->index].begin() + r + dw_size, idx);
+      assert(begin_byte < max_reg_bytes && end_byte < max_reg_bytes);
+      std::fill(ctx.instr_idx_by_regs[ctx.current_block->index].begin() + begin_byte,
+                ctx.instr_idx_by_regs[ctx.current_block->index].begin() + end_byte, idx);
    }
 }
 
 Idx
 last_writer_idx(pr_opt_ctx& ctx, PhysReg physReg, RegClass rc)
 {
-   /* Verify that all of the operand's registers are written by the same instruction. */
-   assert(physReg.reg() < max_reg_cnt);
-   Idx instr_idx = ctx.instr_idx_by_regs[ctx.current_block->index][physReg.reg()];
-   unsigned dw_size = DIV_ROUND_UP(rc.bytes(), 4u);
-   unsigned r = physReg.reg();
+   /* Verify that all of the operand's register bytes are written by the same instruction. */
+   unsigned begin_byte = physReg.reg() * 4u;
+   unsigned end_byte = begin_byte + rc.bytes();
+   assert(begin_byte < max_reg_bytes && end_byte < max_reg_bytes);
+
+   Idx instr_idx = ctx.instr_idx_by_regs[ctx.current_block->index][begin_byte];
    bool all_same =
-      std::all_of(ctx.instr_idx_by_regs[ctx.current_block->index].begin() + r,
-                  ctx.instr_idx_by_regs[ctx.current_block->index].begin() + r + dw_size,
-                  [instr_idx](Idx i) { return i == instr_idx; });
+      std::all_of(ctx.instr_idx_by_regs[ctx.current_block->index].begin() + begin_byte,
+                  ctx.instr_idx_by_regs[ctx.current_block->index].begin() + end_byte,
+                   [instr_idx](Idx i) { return i == instr_idx; });
 
    return all_same ? instr_idx : written_by_multiple_instrs;
 }
@@ -139,11 +136,10 @@ last_writer_idx(pr_opt_ctx& ctx, const Operand& op)
    if (op.isConstant() || op.isUndefined())
       return const_or_undef;
 
-   assert(op.physReg().reg() < max_reg_cnt);
-   Idx instr_idx = ctx.instr_idx_by_regs[ctx.current_block->index][op.physReg().reg()];
+   Idx instr_idx = ctx.instr_idx_by_regs[ctx.current_block->index][op.physReg().reg() * 4u];
 
 #ifndef NDEBUG
-   /* Debug mode:  */
+   /* Debug mode: make sure that the operand is not written by multiple instructions. */
    instr_idx = last_writer_idx(ctx, op.physReg(), op.regClass());
    assert(instr_idx != written_by_multiple_instrs);
 #endif
