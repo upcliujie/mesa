@@ -321,6 +321,10 @@ iris_texture_barrier(struct pipe_context *ctx, unsigned flags)
       iris_emit_pipe_control_flush(render_batch,
                                    "API: texture barrier (2/2)",
                                    PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE);
+      iris_emit_end_of_pipe_sync(render_batch,
+                                 "cache tracker: flush",
+                                 PIPE_CONTROL_RENDER_TARGET_FLUSH |
+                                 PIPE_CONTROL_DEPTH_CACHE_FLUSH);
    }
 
    if (compute_batch->contains_draw) {
