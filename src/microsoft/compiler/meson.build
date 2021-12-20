@@ -70,3 +70,16 @@ if with_tests
     suite: 'd3d12'
   )
 endif
+
+has_wdk = cpp.has_header('d3d12tokenizedprogramformat.hpp')
+if has_wdk
+  dxbc_shaderbinary = static_library(
+    'ShaderBinary',
+    files(
+      'ShaderBinary/src/ShaderBinary.cpp',
+    ),
+    include_directories : 'ShaderBinary/include',
+    dependencies : [idep_mesautil],
+    override_options : ['cpp_std=c++17'],
+  )
+endif
