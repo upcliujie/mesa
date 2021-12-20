@@ -22,6 +22,8 @@ files_libintel_common = files(
   'intel_aux_map.c',
   'intel_aux_map.h',
   'intel_buffer_alloc.h',
+  'intel_cache_structure.c',
+  'intel_cache_structure.h',
   'intel_clflush.h',
   'intel_decoder.h',
   'intel_disasm.c',
