@@ -453,13 +453,6 @@ st_init_driver_flags(struct st_context *st)
    else
       f->NewAtomicBuffer = ST_NEW_ATOMIC_BUFFER;
 
-   f->NewShaderConstants[MESA_SHADER_VERTEX] = ST_NEW_VS_CONSTANTS;
-   f->NewShaderConstants[MESA_SHADER_TESS_CTRL] = ST_NEW_TCS_CONSTANTS;
-   f->NewShaderConstants[MESA_SHADER_TESS_EVAL] = ST_NEW_TES_CONSTANTS;
-   f->NewShaderConstants[MESA_SHADER_GEOMETRY] = ST_NEW_GS_CONSTANTS;
-   f->NewShaderConstants[MESA_SHADER_FRAGMENT] = ST_NEW_FS_CONSTANTS;
-   f->NewShaderConstants[MESA_SHADER_COMPUTE] = ST_NEW_CS_CONSTANTS;
-
    if (st->lower_alpha_test)
       f->NewAlphaTest = ST_NEW_FS_STATE | ST_NEW_FS_CONSTANTS;
    else

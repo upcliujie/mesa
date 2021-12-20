@@ -44,6 +44,7 @@
 #include "api_exec_decl.h"
 
 #include "state_tracker/st_cb_program.h"
+#include "state_tracker/st_context.h"
 
 static void
 flush_vertices_for_program_constants(struct gl_context *ctx, GLenum target)
@@ -52,10 +53,10 @@ flush_vertices_for_program_constants(struct gl_context *ctx, GLenum target)
 
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
       new_driver_state =
-         ctx->DriverFlags.NewShaderConstants[MESA_SHADER_FRAGMENT];
+         st_new_shader_constants[MESA_SHADER_FRAGMENT];
    } else {
       new_driver_state =
-         ctx->DriverFlags.NewShaderConstants[MESA_SHADER_VERTEX];
+         st_new_shader_constants[MESA_SHADER_VERTEX];
    }
 
    FLUSH_VERTICES(ctx, new_driver_state ? 0 : _NEW_PROGRAM_CONSTANTS, 0);

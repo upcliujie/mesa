@@ -1273,7 +1273,7 @@ _mesa_flush_vertices_for_uniforms(struct gl_context *ctx,
       unsigned index = u_bit_scan(&mask);
 
       assert(index < MESA_SHADER_STAGES);
-      new_driver_state |= ctx->DriverFlags.NewShaderConstants[index];
+      new_driver_state |= st_new_shader_constants[index];
    }
 
    FLUSH_VERTICES(ctx, new_driver_state ? 0 : _NEW_PROGRAM_CONSTANTS, 0);

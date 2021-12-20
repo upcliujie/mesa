@@ -56,6 +56,15 @@ struct u_upload_mgr;
 
 #define ST_L3_PINNING_DISABLED 0xffffffff
 
+static const uint64_t st_new_shader_constants[MESA_SHADER_STAGES] = {
+   ST_NEW_VS_CONSTANTS,
+   ST_NEW_TCS_CONSTANTS,
+   ST_NEW_TES_CONSTANTS,
+   ST_NEW_GS_CONSTANTS,
+   ST_NEW_FS_CONSTANTS,
+   ST_NEW_CS_CONSTANTS,
+};
+
 struct st_bitmap_cache
 {
    /** Window pos to render the cached image */

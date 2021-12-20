@@ -4788,9 +4788,6 @@ struct gl_driver_flags
    /** gl_context::Color::ClampFragmentColor */
    uint64_t NewFragClamp;
 
-   /** Shader constants (uniforms, program parameters, state constants) */
-   uint64_t NewShaderConstants[MESA_SHADER_STAGES];
-
    /** For GL_CLAMP emulation */
    uint64_t NewSamplersWithClamp;
 };
