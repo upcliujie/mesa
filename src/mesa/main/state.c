@@ -311,10 +311,7 @@ update_single_program_constants(struct gl_context *ctx,
    if (prog) {
       const struct gl_program_parameter_list *params = prog->Parameters;
       if (params && params->StateFlags & ctx->NewState) {
-         if (ctx->DriverFlags.NewShaderConstants[stage])
-            ctx->NewDriverState |= ctx->DriverFlags.NewShaderConstants[stage];
-         else
-            return _NEW_PROGRAM_CONSTANTS;
+         ctx->NewDriverState |= st_new_shader_constants[stage];
       }
    }
    return 0;
