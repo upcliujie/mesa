@@ -4820,9 +4820,6 @@ struct gl_driver_flags
    /** gl_context::Color::Alpha* */
    uint64_t NewAlphaTest;
 
-   /** gl_context::Depth */
-   uint64_t NewDepth;
-
    /** gl_context::Multisample::Enabled */
    uint64_t NewMultisampleEnable;
 
@@ -4831,9 +4828,6 @@ struct gl_driver_flags
 
    /** gl_context::Multisample::(Min)SampleShading */
    uint64_t NewSampleShading;
-
-   /** gl_context::Stencil */
-   uint64_t NewStencil;
 
    /** gl_context::Transform::ClipOrigin/ClipDepthMode */
    uint64_t NewClipControl;
