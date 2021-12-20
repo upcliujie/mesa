@@ -18,7 +18,7 @@ traces:
   - path: humus/CelShading.trace
     expectations:
       - device: crocus-g41
-        checksum: 9b6e185ac8e8e67fc13d84f0ad6c3e3b
+        checksum: de1fdea382ad2756188dbac09288ef51
   # Requires GLSL 1.30
   #- path: humus/DynamicBranching3.trace
   #  expectations:
@@ -32,11 +32,11 @@ traces:
   - path: humus/Portals.trace
     expectations:
       - device: crocus-g41
-        checksum: b090e734ed332e259664851576925d7b
+        checksum: 31ed438081ce2b5d75e72d5880d15b1a
   - path: humus/RaytracedShadows.trace
     expectations:
       - device: crocus-g41
-        checksum: dbef340424f4f85eb8dc053ad3a56ae1
+        checksum: f60916254e7afc26c131c3ece991e183
   # Requires GLSL 1.30
   #- path: humus/VolumetricFogging2.trace
   #  expectations:
@@ -45,8 +45,8 @@ traces:
   - path: neverball/neverball.trace
     expectations:
       - device: crocus-g41
-        checksum: 0f14a88f511cd886c920238c80017e5d
+        checksum: 0037eaceb35899dcf9cef77a438e5517
   - path: valve/counterstrike-v2.trace
     expectations:
       - device: crocus-g41
-        checksum: 90c01e73b3544cb477ac6109bc61bef1
+        checksum: 1c0471e88ddbb7a1beede330ee616f78
