@@ -184,6 +184,9 @@ void st_init_limits(struct pipe_screen *screen,
       options = &c->ShaderCompilerOptions[stage];
       c->ShaderCompilerOptions[stage].NirOptions = nir_options;
 
+      if (nir_options)
+         options->OptimizeForAOS = !nir_options->lower_to_scalar;
+
       if (sh == PIPE_SHADER_COMPUTE) {
          if (!screen->get_param(screen, PIPE_CAP_COMPUTE))
             continue;
