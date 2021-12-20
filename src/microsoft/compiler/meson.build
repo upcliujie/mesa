@@ -82,4 +82,29 @@ if has_wdk
     dependencies : [idep_mesautil],
     override_options : ['cpp_std=c++17'],
   )
+
+  files_libdxbc_compiler = files(
+    'nir_to_dxbc.cpp',
+  )
+
+  libdxbc_compiler = static_library(
+    'dxbc_compiler',
+    [files_libdxbc_compiler, sha1_h],
+    include_directories : [
+      inc_include, inc_src, inc_mapi, inc_mesa, inc_compiler, inc_gallium,
+      'ShaderBinary/include',
+      ],
+    link_with : dxbc_shaderbinary,
+    dependencies: [
+      idep_nir_headers,
+      idep_libdxil_compiler, # TODO: split out shared functions into a separate dependency
+    ],
+    gnu_symbol_visibility : 'hidden',
+  )
+
+  idep_libdxbc_compiler = declare_dependency(
+    link_with : libdxbc_compiler,
+    dependencies : [idep_mesautil],
+    include_directories : include_directories('.')
+  )
 endif
