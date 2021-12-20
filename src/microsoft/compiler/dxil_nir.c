@@ -705,7 +705,7 @@ lower_load_ubo(nir_builder *b, nir_intrinsic_instr *intr)
 }
 
 bool
-dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir)
+dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir, nir_variable_mode modes)
 {
    bool progress = false;
 
@@ -725,24 +725,36 @@ dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir)
 
             switch (intr->intrinsic) {
             case nir_intrinsic_load_deref:
-               progress |= lower_load_deref(&b, intr);
+               if (nir_src_as_deref(intr->src[0])->modes & modes)
+                  progress |= lower_load_deref(&b, intr);
                break;
             case nir_intrinsic_load_shared:
+               if (modes & nir_var_mem_shared)
+                  progress |= lower_32b_offset_load(&b, intr);
+               break;
             case nir_intrinsic_load_scratch:
-               progress |= lower_32b_offset_load(&b, intr);
+               if (modes & nir_var_function_temp)
+                  progress |= lower_32b_offset_load(&b, intr);
                break;
             case nir_intrinsic_load_ssbo:
-               progress |= lower_load_ssbo(&b, intr);
+               if (modes & nir_var_mem_ssbo)
+                  progress |= lower_load_ssbo(&b, intr);
                break;
             case nir_intrinsic_load_ubo:
-               progress |= lower_load_ubo(&b, intr);
+               if (modes & nir_var_mem_ubo)
+                  progress |= lower_load_ubo(&b, intr);
                break;
             case nir_intrinsic_store_shared:
+               if (modes & nir_var_mem_shared)
+                  progress |= lower_32b_offset_store(&b, intr);
+               break;
             case nir_intrinsic_store_scratch:
-               progress |= lower_32b_offset_store(&b, intr);
+               if (modes & nir_var_function_temp)
+                  progress |= lower_32b_offset_store(&b, intr);
                break;
             case nir_intrinsic_store_ssbo:
-               progress |= lower_store_ssbo(&b, intr);
+               if (modes & nir_var_mem_ssbo)
+                  progress |= lower_store_ssbo(&b, intr);
                break;
             default:
                break;
