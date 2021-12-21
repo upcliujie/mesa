@@ -604,6 +604,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LEA_ATTR_TEX:
    case BI_OPCODE_ST_CVT:
    case BI_OPCODE_ZS_EMIT:
+   case BI_OPCODE_ARSHIFT_I32:
       /* TODO: Pack thse ops. For now, nop them out */
       hex |= (0xc0ull << 40);
       break;
