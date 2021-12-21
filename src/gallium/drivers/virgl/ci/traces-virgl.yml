@@ -211,7 +211,7 @@ traces:
   - path: itoral-gl-terrain-demo/demo.trace
     expectations:
       - device: gl-virgl
-        checksum: fe6124227b7f8e4e96ffbbd48c713c42
+        checksum: 1aa1f29ddccba999ec0896c17862964f
   - path: neverball/neverball.trace
     expectations:
       - device: gl-virgl
