@@ -78,9 +78,9 @@ vk_instance_init(struct vk_instance *instance,
       }
    }
 
-   uint32_t instance_version = VK_API_VERSION_1_0;
+   instance->api_version = VK_API_VERSION_1_0;
    if (dispatch_table->EnumerateInstanceVersion)
-      dispatch_table->EnumerateInstanceVersion(&instance_version);
+      dispatch_table->EnumerateInstanceVersion(&instance->api_version);
 
    instance->app_info = (struct vk_app_info) { .api_version = 0 };
    if (pCreateInfo->pApplicationInfo) {
@@ -126,7 +126,7 @@ vk_instance_init(struct vk_instance *instance,
     *    Implementations that support Vulkan 1.1 or later must not return
     *    VK_ERROR_INCOMPATIBLE_DRIVER for any value of apiVersion."
     */
-   if (VERSION_IS_1_0(instance_version) &&
+   if (VERSION_IS_1_0(instance->api_version) &&
        !VERSION_IS_1_0(instance->app_info.api_version))
       return VK_ERROR_INCOMPATIBLE_DRIVER;
 

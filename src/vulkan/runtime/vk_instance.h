@@ -46,6 +46,9 @@ struct vk_instance {
    struct vk_object_base base;
    VkAllocationCallbacks alloc;
 
+   /** Vulkan API version advertised by this instance */
+   uint32_t api_version;
+
    struct vk_app_info app_info;
    struct vk_instance_extension_table enabled_extensions;
 
