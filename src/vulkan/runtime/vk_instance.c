@@ -276,6 +276,7 @@ vk_instance_get_proc_addr(const struct vk_instance *instance,
 
    func = vk_physical_device_dispatch_table_get_if_supported(&vk_physical_device_trampolines,
                                                              name,
+                                                             instance->api_version,
                                                              instance->app_info.api_version,
                                                              &instance->enabled_extensions);
    if (func != NULL)
@@ -326,6 +327,7 @@ vk_instance_get_physical_device_proc_addr(const struct vk_instance *instance,
 
    return vk_physical_device_dispatch_table_get_if_supported(&vk_physical_device_trampolines,
                                                              name,
+                                                             instance->api_version,
                                                              instance->app_info.api_version,
                                                              &instance->enabled_extensions);
 }

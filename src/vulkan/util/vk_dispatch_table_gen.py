@@ -204,7 +204,8 @@ PFN_vkVoidFunction
 vk_physical_device_dispatch_table_get_if_supported(
     const struct vk_physical_device_dispatch_table *table,
     const char *name,
-    uint32_t core_version,
+    uint32_t supported_core_version,
+    uint32_t requested_core_version,
     const struct vk_instance_extension_table *instance_exts);
 
 PFN_vkVoidFunction
@@ -397,15 +398,27 @@ vk_instance_entrypoint_is_enabled(int index, uint32_t core_version,
  * If device is NULL, all device extensions are considered enabled.
  */
 static bool
-vk_physical_device_entrypoint_is_enabled(int index, uint32_t core_version,
+vk_physical_device_entrypoint_is_enabled(int index, uint32_t supported_core_version,
+                                         uint32_t requested_core_version,
                                          const struct vk_instance_extension_table *instance)
 {
    switch (index) {
 % for e in physical_device_entrypoints:
    case ${e.entry_table_index}:
       /* ${e.name} */
+   % if e.name == 'GetPhysicalDeviceProperties2':
+#ifdef ANDROID
+      /* The Android wrapper ICD requires the core GPDP2 entrypoint
+       * whenever Vulkan 1.1 supported.  This is to allow it to query
+       * VkPhysicalDevicePresentationPropertiesANDROID.  Some versions
+       * of the wrapper don't properly enable Vulkan 1.1 or fall back
+       * the extension version so we have to force-enable it.
+       */
+      if (supported_core_version >= ${e.core_version.c_vk_version()}) return true;
+#endif
+   % endif
    % if e.core_version:
-      return ${e.core_version.c_vk_version()} <= core_version;
+      return ${e.core_version.c_vk_version()} <= requested_core_version;
    % elif e.extensions:
      % for ext in e.extensions:
         % if ext.type == 'instance':
@@ -556,14 +569,17 @@ PFN_vkVoidFunction
 vk_physical_device_dispatch_table_get_if_supported(
     const struct vk_physical_device_dispatch_table *table,
     const char *name,
-    uint32_t core_version,
+    uint32_t supported_core_version,
+    uint32_t requested_core_version,
     const struct vk_instance_extension_table *instance_exts)
 {
     int entry_index = physical_device_string_map_lookup(name);
     if (entry_index < 0)
         return NULL;
 
-    if (!vk_physical_device_entrypoint_is_enabled(entry_index, core_version,
+    if (!vk_physical_device_entrypoint_is_enabled(entry_index,
+                                                  supported_core_version,
+                                                  requested_core_version,
                                                   instance_exts))
         return NULL;
 
