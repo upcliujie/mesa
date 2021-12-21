@@ -2545,7 +2545,7 @@ ntt_push_tex_arg(struct ntt_compile *c,
    /* virglrenderer workaround that's hard to do in tgsi_translate: Make sure
     * that TG4's immediate offset arg is float-typed.
     */
-   if (instr->op == nir_texop_tg4 && tex_src_type == nir_tex_src_backend1 &&
+   if (instr->op == nir_texop_tg4 && tex_src_type == nir_tex_src_backend2 &&
        nir_src_is_const(*src)) {
       nir_const_value *consts = nir_src_as_const_value(*src);
       s->srcs[s->i++] = ureg_imm4f(c->ureg,
