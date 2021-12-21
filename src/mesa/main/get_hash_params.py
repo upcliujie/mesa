@@ -632,11 +632,11 @@ descriptor=[
   [ "PRIMITIVE_RESTART_FOR_PATCHES_SUPPORTED", "CONTEXT_BOOL(Const.PrimitiveRestartForPatches), extra_ARB_tessellation_shader" ],
 
 # GL_ARB_shader_image_load_store / geometry shader
-  [ "MAX_GEOMETRY_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_GEOMETRY].MaxImageUniforms), extra_ARB_shader_image_load_store_and_geometry_shader" ],
+  [ "MAX_GEOMETRY_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_GEOMETRY].MaxImageUniforms), extra_ARB_shader_image_load_store_or_geometry_shader" ],
 
 # GL_ARB_shader_image_load_store / tessellation shader
-  [ "MAX_TESS_CONTROL_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_TESS_CTRL].MaxImageUniforms), extra_ARB_shader_image_load_store_and_tessellation"],
-  [ "MAX_TESS_EVALUATION_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_TESS_EVAL].MaxImageUniforms), extra_ARB_shader_image_load_store_and_tessellation"],
+  [ "MAX_TESS_CONTROL_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_TESS_CTRL].MaxImageUniforms), extra_ARB_shader_image_load_store_or_tessellation"],
+  [ "MAX_TESS_EVALUATION_IMAGE_UNIFORMS", "CONTEXT_INT(Const.Program[MESA_SHADER_TESS_EVAL].MaxImageUniforms), extra_ARB_shader_image_load_store_or_tessellation"],
 
 # GL_ARB_shader_atomic_counters / geometry shader
   [ "MAX_GEOMETRY_ATOMIC_COUNTER_BUFFERS", "CONTEXT_INT(Const.Program[MESA_SHADER_GEOMETRY].MaxAtomicBuffers), extra_ARB_shader_atomic_counters_and_geometry_shader " ],

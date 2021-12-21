@@ -418,7 +418,8 @@ static const int extra_ARB_shader_atomic_counters_es31[] = {
    EXTRA_END
 };
 
-static const int extra_ARB_shader_image_load_store_and_geometry_shader[] = {
+static const int extra_ARB_shader_image_load_store_or_geometry_shader[] = {
+   EXT(ARB_shader_image_load_store),
    EXTRA_EXT_SHADER_IMAGE_GS,
    EXTRA_END
 };
@@ -428,7 +429,8 @@ static const int extra_ARB_shader_atomic_counters_and_tessellation[] = {
    EXTRA_END
 };
 
-static const int extra_ARB_shader_image_load_store_and_tessellation[] = {
+static const int extra_ARB_shader_image_load_store_or_tessellation[] = {
+   EXT(ARB_shader_image_load_store),
    EXTRA_EXT_SHADER_IMAGE_TESS,
    EXTRA_END
 };
@@ -1486,9 +1488,7 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
          break;
       case EXTRA_EXT_SHADER_IMAGE_GS:
          api_check = GL_TRUE;
-         if (ctx->Extensions.ARB_shader_image_load_store &&
-            _mesa_has_geometry_shaders(ctx))
-            api_found = GL_TRUE;
+         api_found = _mesa_has_geometry_shaders(ctx);
          break;
       case EXTRA_EXT_ATOMICS_TESS:
          api_check = GL_TRUE;
@@ -1497,8 +1497,7 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
          break;
       case EXTRA_EXT_SHADER_IMAGE_TESS:
          api_check = GL_TRUE;
-         api_found = ctx->Extensions.ARB_shader_image_load_store &&
-                     _mesa_has_tessellation(ctx);
+         api_found = _mesa_has_tessellation(ctx);
          break;
       case EXTRA_EXT_SSBO_GS:
          api_check = GL_TRUE;
