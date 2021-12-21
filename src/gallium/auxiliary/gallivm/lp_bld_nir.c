@@ -1174,6 +1174,7 @@ do_alu_action(struct lp_build_nir_context *bld_base,
       return LLVMBuildSelect(builder, src[0], src[1], src[2], "");
    }
    default:
+      fprintf(stderr, "unsupported NIR opcode %s\n", nir_op_infos[instr->op].name);
       assert(0);
       break;
    }
