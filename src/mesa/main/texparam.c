@@ -2413,7 +2413,8 @@ get_tex_parameterfv(struct gl_context *ctx,
          break;
 
       case GL_IMAGE_FORMAT_COMPATIBILITY_TYPE:
-         if (!ctx->Extensions.ARB_shader_image_load_store)
+         if (!ctx->Extensions.ARB_shader_image_load_store &&
+             !_mesa_is_gles31(ctx))
             goto invalid_pname;
          *params = (GLfloat) obj->Attrib.ImageFormatCompatibilityType;
          break;
@@ -2685,7 +2686,8 @@ get_tex_parameteriv(struct gl_context *ctx,
          break;
 
       case GL_IMAGE_FORMAT_COMPATIBILITY_TYPE:
-         if (!ctx->Extensions.ARB_shader_image_load_store)
+         if (!ctx->Extensions.ARB_shader_image_load_store &&
+             !_mesa_is_gles31(ctx))
             goto invalid_pname;
          *params = obj->Attrib.ImageFormatCompatibilityType;
          break;
