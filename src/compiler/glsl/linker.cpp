@@ -87,6 +87,7 @@
 #include "util/u_math.h"
 
 
+#include "main/context.h"
 #include "main/shaderobj.h"
 #include "main/enums.h"
 #include "main/mtypes.h"
@@ -3430,7 +3431,8 @@ check_image_resources(struct gl_context *ctx, struct gl_shader_program *prog)
    unsigned fragment_outputs = 0;
    unsigned total_shader_storage_blocks = 0;
 
-   if (!ctx->Extensions.ARB_shader_image_load_store)
+   if (!ctx->Extensions.ARB_shader_image_load_store &&
+       !_mesa_is_gles31(ctx))
       return;
 
    for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
