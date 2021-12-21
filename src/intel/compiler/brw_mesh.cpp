@@ -337,7 +337,8 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
 
    /* TODO(mesh): Multiview. */
    map->per_primitive_header_size_dw =
-         (nir->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_VIEWPORT)) ? 8 : 0;
+         (nir->info.outputs_written & (BITFIELD64_BIT(VARYING_SLOT_VIEWPORT) |
+                                       BITFIELD64_BIT(VARYING_SLOT_LAYER))) ? 8 : 0;
 
    map->per_primitive_start_dw = ALIGN(primitive_list_size_dw, 8);
 
@@ -347,6 +348,9 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
 
       unsigned start;
       switch (location) {
+      case VARYING_SLOT_LAYER:
+         start = map->per_primitive_start_dw + 1; /* RTAIndex */
+         break;
       case VARYING_SLOT_VIEWPORT:
          start = map->per_primitive_start_dw + 2;
          break;
