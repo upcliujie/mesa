@@ -3433,7 +3433,9 @@ check_image_resources(const struct gl_constants *consts,
    unsigned fragment_outputs = 0;
    unsigned total_shader_storage_blocks = 0;
 
-   if (!exts->ARB_shader_image_load_store)
+   if (!exts->ARB_shader_image_load_store &&
+       !consts->MaxCombinedImageUniforms &&
+       !consts->MaxCombinedShaderStorageBlocks)
       return;
 
    for (unsigned i = 0; i < MESA_SHADER_STAGES; i++) {
