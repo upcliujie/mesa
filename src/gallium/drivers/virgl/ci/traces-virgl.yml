@@ -17,11 +17,11 @@ traces:
   - path: gputest/furmark.trace
     expectations:
       - device: gl-virgl
-        checksum: d5682aaa762a4849f0cae1692623bdcb
+        checksum: 4950326cfdf13a5f2c971932f3390e99
   - path: gputest/pixmark-piano.trace
     expectations:
       - device: gl-virgl
-        checksum: 1bcded27a6ba04fe0f76ff997b98dbc3
+        checksum: 190078ec991311d6a392377b001b256f
   - path: gputest/triangle.trace
     expectations:
       - device: gl-virgl
@@ -33,7 +33,7 @@ traces:
   - path: 0ad/0ad.trace
     expectations:
       - device: gl-virgl
-        checksum: 5e5bd83446d2554bf25761576d9b1af6
+        checksum: 5e8f945ba7316a70a5195c1c23d35809
   - path: glmark2/buffer:update-fraction=0.5:update-dispersion=0.9:columns=200:update-method=map:interleave=false.trace
     expectations:
       - device: gl-virgl
@@ -77,7 +77,7 @@ traces:
   - path: glmark2/effect2d:kernel=0,1,0;1,-4,1;0,1,0;.trace
     expectations:
       - device: gl-virgl
-        checksum: 25d3b5d18a64a86fc812872987f4f5e7
+        checksum: 35584880539813436d87bfcbe22cf59b
   - path: glmark2/effect2d:kernel=1,1,1,1,1;1,1,1,1,1;1,1,1,1,1;.trace
     expectations:
       - device: gl-virgl
@@ -174,11 +174,11 @@ traces:
   - path: gputest/pixmark-volplosion.trace
     expectations:
       - device: gl-virgl
-        checksum: 9bedb84d81528e1b4087522de9f70383
+        checksum: 7adc70461c343335a4ee7bcb8ad74527
   - path: gputest/plot3d.trace
     expectations:
       - device: gl-virgl
-        checksum: a1af286874f7060171cb3ca2e765c448
+        checksum: 13056147133383e25fe483095b5aa08e
 # Times out
 # - path: gputest/tessmark.trace
 #   expectations:
