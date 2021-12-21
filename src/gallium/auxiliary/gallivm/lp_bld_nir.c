@@ -2398,6 +2398,8 @@ bool lp_build_nir_llvm(
 {
    struct nir_function *func;
 
+   lp_build_opt_nir(nir);
+
    nir_convert_from_ssa(nir, true);
    nir_lower_locals_to_regs(nir);
    nir_remove_dead_derefs(nir);
