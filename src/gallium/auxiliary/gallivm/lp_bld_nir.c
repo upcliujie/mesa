@@ -2757,6 +2757,8 @@ lp_build_opt_nir(struct nir_shader *nir)
    NIR_PASS_V(nir, nir_lower_fp16_casts);
    do {
       progress = false;
+
+      NIR_PASS_V(nir, nir_lower_alu_to_scalar, NULL, NULL);
       NIR_PASS(progress, nir, nir_opt_constant_folding);
       NIR_PASS(progress, nir, nir_opt_algebraic);
       NIR_PASS(progress, nir, nir_lower_pack);
