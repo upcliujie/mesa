@@ -3024,6 +3024,14 @@ panfrost_emit_resources(struct panfrost_batch *batch,
 
         panfrost_make_resource_table(T, PAN_TABLE_UBO, ubos, ubo_count);
 
+        panfrost_make_resource_table(T, PAN_TABLE_TEXTURE,
+                                     batch->textures[stage],
+                                     ctx->sampler_view_count[stage]);
+
+        panfrost_make_resource_table(T, PAN_TABLE_SAMPLER,
+                                     batch->samplers[stage],
+                                     ctx->sampler_count[stage]);
+
         if (stage == PIPE_SHADER_VERTEX) {
                 panfrost_make_resource_table(T, PAN_TABLE_ATTRIBUTE,
                                              batch->attribs[stage],
