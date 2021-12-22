@@ -4165,8 +4165,10 @@ bi_compile_variant_nir(nir_shader *nir,
 
         if (likely(optimize)) {
                 bi_opt_copy_prop(ctx);
-                bi_opt_constant_fold(ctx);
-                bi_opt_copy_prop(ctx);
+
+                while (bi_opt_constant_fold(ctx))
+                        bi_opt_copy_prop(ctx);
+
                 bi_opt_mod_prop_forward(ctx);
                 bi_opt_mod_prop_backward(ctx);
                 bi_opt_dead_code_eliminate(ctx);
