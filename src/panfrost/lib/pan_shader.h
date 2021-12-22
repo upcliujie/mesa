@@ -68,6 +68,13 @@ pan_register_allocation(unsigned work_reg_count)
 }
 #endif
 
+static inline enum mali_depth_source
+pan_depth_source(const struct pan_shader_info *info)
+{
+        return info->fs.writes_depth ? MALI_DEPTH_SOURCE_SHADER :
+                                       MALI_DEPTH_SOURCE_FIXED_FUNCTION;
+}
+
 #define pan_preloads(reg) (preload & BITFIELD64_BIT(reg))
 
 #if PAN_ARCH >= 6
@@ -254,10 +261,7 @@ pan_shader_prepare_rsd(const struct pan_shader_info *shader_info,
                         shader_info->fs.helper_invocations;
                 rsd->properties.stencil_from_shader =
                         shader_info->fs.writes_stencil;
-                rsd->properties.depth_source =
-                        shader_info->fs.writes_depth ?
-                        MALI_DEPTH_SOURCE_SHADER :
-                        MALI_DEPTH_SOURCE_FIXED_FUNCTION;
+                rsd->properties.depth_source = pan_depth_source(shader_info);
 
                 /* This also needs to be set if the API forces per-sample
                  * shading, but that'll just got ORed in */
