@@ -570,6 +570,7 @@ panfrost_prepare_fs_state(struct panfrost_context *ctx,
                 cfg.stencil_mask_misc.alpha_to_coverage = alpha_to_coverage;
                 cfg.depth_units = rast->offset_units * 2.0f;
                 cfg.depth_factor = rast->offset_scale;
+                cfg.depth_bias_clamp = rast->offset_clamp;
 
                 bool back_enab = zsa->base.stencil[1].enabled;
                 cfg.stencil_front.reference_value = ctx->stencil_ref.ref_value[0];
