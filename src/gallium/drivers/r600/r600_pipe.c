@@ -545,6 +545,9 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 			return EG_MAX_ATOMIC_BUFFERS;
 		return 0;
 
+	case PIPE_CAP_SUPPORTED_PRIM_MODES_WITH_RESTART:
+		/* radeon hw doesn't support patches on restart. */
+		return BITFIELD_MASK(PIPE_PRIM_MAX) & ~PIPE_PRIM_PATCHES;
 	default:
 		return u_pipe_screen_get_param_defaults(pscreen, param);
 	}

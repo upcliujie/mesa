@@ -349,6 +349,9 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_PCI_FUNCTION:
       return sscreen->info.pci_func;
 
+   case PIPE_CAP_SUPPORTED_PRIM_MODES_WITH_RESTART:
+      /* amd doesn't support restart on patches. */
+      return BITFIELD_MASK(PIPE_PRIM_MAX) & ~PIPE_PRIM_PATCHES;
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
    }
