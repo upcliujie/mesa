@@ -873,6 +873,8 @@ bool ShaderFromNirProcessor::emit_load_ubo_vec4(nir_intrinsic_instr* instr)
    auto bufid = nir_src_as_const_value(instr->src[0]);
    auto buf_offset = nir_src_as_const_value(instr->src[1]);
 
+   /* XXX: Need to handle nir_intrinsic_base() */
+
    if (!buf_offset) {
       /* TODO: if buf_offset is constant then this can also be solved by using the CF indes
        * on the ALU block, and this would probably make sense when there are more then one
