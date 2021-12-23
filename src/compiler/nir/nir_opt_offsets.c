@@ -131,6 +131,7 @@ process_instr(nir_builder *b, nir_instr *instr, void *s)
    case nir_intrinsic_load_shared:
       return try_fold_load_store(b, intrin, state, 0);
    case nir_intrinsic_store_shared:
+   case nir_intrinsic_load_ubo_vec4:
       return try_fold_load_store(b, intrin, state, 1);
    case nir_intrinsic_load_buffer_amd:
       return try_fold_load_store(b, intrin, state, 1);
