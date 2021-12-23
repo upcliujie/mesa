@@ -589,6 +589,15 @@ typedef struct {
         bool td;
 } bi_clause;
 
+#define BI_NUM_SLOTS 8
+
+/* A model for the state of the scoreboard */
+struct bi_scoreboard_state {
+        /** Bitmap of registers read/written by a slot */
+        uint64_t read[BI_NUM_SLOTS];
+        uint64_t write[BI_NUM_SLOTS];
+};
+
 typedef struct bi_block {
         /* Link to next block. Must be first for mir_get_block */
         struct list_head link;
