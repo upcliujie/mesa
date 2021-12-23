@@ -57,6 +57,16 @@ etna_sampler_state(struct pipe_sampler_state *samp)
    return (struct etna_sampler_state *)samp;
 }
 
+static inline void
+etna_force_nearest_filtering(struct etna_sampler_state *ss) {
+      ss->config0 &= ~VIVS_TE_SAMPLER_CONFIG0_MIN__MASK;
+      ss->config0 &= ~VIVS_TE_SAMPLER_CONFIG0_MAG__MASK;
+
+      ss->config0 |=
+         VIVS_TE_SAMPLER_CONFIG0_MIN(TEXTURE_FILTER_NEAREST) |
+         VIVS_TE_SAMPLER_CONFIG0_MAG(TEXTURE_FILTER_NEAREST);
+}
+
 struct etna_sampler_view {
    struct pipe_sampler_view base;
 
@@ -345,6 +355,9 @@ etna_emit_new_texture_state(struct etna_context *ctx)
             struct etna_sampler_state *ss = etna_sampler_state(ctx->sampler[x]);
             struct etna_sampler_view *sv = etna_sampler_view(ctx->sampler_view[x]);
 
+            if ((1 << x) & ctx->nearest_forced_samplers)
+               etna_force_nearest_filtering(ss);
+
             val = (ss->config0 & sv->config0_mask) | sv->config0;
          }
 
@@ -476,6 +489,9 @@ etna_emit_texture_state(struct etna_context *ctx)
          if ((1 << x) & active_samplers) {
             struct etna_sampler_state *ss = etna_sampler_state(ctx->sampler[x]);
             struct etna_sampler_view *sv = etna_sampler_view(ctx->sampler_view[x]);
+
+            if ((1 << x) & ctx->nearest_forced_samplers)
+               etna_force_nearest_filtering(ss);
 
             val = (ss->config0 & sv->config0_mask) | sv->config0;
          }
