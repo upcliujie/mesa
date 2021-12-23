@@ -10,7 +10,6 @@ dEQP-GLES2.functional.shaders.loops.for_uniform_iterations.nested_sequence_fragm
 spec@!opengl 2.0@attribs
 
 spec@arb_map_buffer_range@copybuffersubdata increment-offset
-
 spec@arb_vertex_buffer_object@vbo-subdata-many drawrangeelements
 spec@arb_vertex_type_2_10_10_10_rev@attribs
 
