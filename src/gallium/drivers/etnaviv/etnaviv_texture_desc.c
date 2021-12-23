@@ -292,6 +292,16 @@ etna_emit_texture_desc(struct etna_context *ctx)
          if ((1 << x) & active_samplers) {
             struct etna_sampler_state_desc *ss = etna_sampler_state_desc(ctx->sampler[x]);
             struct etna_sampler_view_desc *sv = etna_sampler_view_desc(ctx->sampler_view[x]);
+
+            if ((1 << x) & ctx->nearest_forced_samplers) {
+               ss->SAMP_CTRL0 &= ~VIVS_NTE_DESCRIPTOR_SAMP_CTRL0_MIN__MASK;
+               ss->SAMP_CTRL0 &= ~VIVS_NTE_DESCRIPTOR_SAMP_CTRL0_MAG__MASK;
+
+               ss->SAMP_CTRL0 |=
+                  VIVS_NTE_DESCRIPTOR_SAMP_CTRL0_MIN(TEXTURE_FILTER_NEAREST) |
+                  VIVS_NTE_DESCRIPTOR_SAMP_CTRL0_MAG(TEXTURE_FILTER_NEAREST);
+            }
+
             uint32_t SAMP_CTRL0 = ss->SAMP_CTRL0 | sv->SAMP_CTRL0;
 
             if (texture_use_int_filter(&sv->base, &ss->base, true))
