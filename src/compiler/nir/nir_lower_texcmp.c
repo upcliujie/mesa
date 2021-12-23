@@ -21,7 +21,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "d3d12_nir_lower_texcmp.h"
+#include "nir.h"
 #include "nir_builder.h"
 #include "nir_builtin_builder.h"
 
@@ -69,7 +69,7 @@ strip_shadow_with_array(const struct glsl_type *type)
 typedef struct {
    unsigned n_states;
    enum compare_func *compare_func;
-   dxil_texture_swizzle_state *tex_swizzles;
+   nir_lower_sample_tex_compare_swizzle *tex_swizzles;
 } sampler_state;
 
 static nir_ssa_def *
@@ -135,10 +135,10 @@ lower_sample_tex_compare_impl(nir_builder *b, nir_instr *instr,
 }
 
 bool
-d3d12_lower_sample_tex_compare(nir_shader *s,
-                               unsigned n_states,
-                               enum compare_func *compare_func,
-                               dxil_texture_swizzle_state *tex_swizzles)
+nir_lower_sample_tex_compare(nir_shader *s,
+                             unsigned n_states,
+                             enum compare_func *compare_func,
+                             nir_lower_sample_tex_compare_swizzle *tex_swizzles)
 {
    sampler_state state = {n_states, compare_func, tex_swizzles};
 

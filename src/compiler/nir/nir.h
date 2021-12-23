@@ -4918,6 +4918,20 @@ typedef struct nir_lower_tex_options {
 bool nir_lower_tex(nir_shader *shader,
                    const nir_lower_tex_options *options);
 
+
+typedef struct nir_lower_sample_tex_compare_swizzle {
+   unsigned swizzle_r:3;
+   unsigned swizzle_g:3;
+   unsigned swizzle_b:3;
+   unsigned swizzle_a:3;
+} nir_lower_sample_tex_compare_swizzle;
+
+bool
+nir_lower_sample_tex_compare(nir_shader *s,
+                             unsigned n_states,
+                             enum compare_func *compare_func,
+                             nir_lower_sample_tex_compare_swizzle *tex_swizzles);
+
 typedef struct nir_lower_image_options {
    /**
     * If true, lower cube size operations.
