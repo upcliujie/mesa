@@ -2539,6 +2539,10 @@ ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
    unsigned control_flow_depth =
       screen->get_shader_param(screen, pipe_stage,
                                PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH);
+   bool native_integers = screen->get_shader_param(screen,
+                                                   pipe_shader_type_from_mesa(s->info.stage),
+                                                   PIPE_SHADER_CAP_INTEGERS);
+
    do {
       progress = false;
 
@@ -2569,6 +2573,15 @@ ntt_optimize_nir(struct nir_shader *s, struct pipe_screen *screen)
       NIR_PASS(progress, s, nir_opt_vectorize, ntt_should_vectorize_instr, NULL);
       NIR_PASS(progress, s, nir_opt_undef);
       NIR_PASS(progress, s, nir_opt_loop_unroll);
+
+      /* Try to fold addressing math into ubo_vec4's base to avoid load_consts
+       * and ALU ops for it.  We skip this on native-integers HW because it also
+       * does into shared var addressing, which we don't support, and because
+       * non-native-integers is where we have the serious immediates and ALU
+       * limitations.
+       */
+      if (!native_integers)
+         NIR_PASS(progress, s, nir_opt_offsets);
 
    } while (progress);
 }
