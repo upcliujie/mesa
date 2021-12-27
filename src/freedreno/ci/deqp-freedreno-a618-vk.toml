@@ -11,16 +11,17 @@ fraction = 2
 # features.
 TU_DEBUG = "forcebin"
 
-# force-bypass testing
+# force-gmem testing
+# Autotuner forces sysmem on most CTS tests
 [[deqp]]
 deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
 caselists = ["/deqp/mustpass/vk-master.txt"]
 skips = ["install/freedreno-a618-premerge-skips.txt"]
 include = ["dEQP-VK.renderpass.*"]
-prefix = "bypass-"
+prefix = "gmem-"
 fraction = 15
 [deqp.env]
-TU_DEBUG = "nogmem"
+TU_DEBUG = "nobypass,forcebin"
 
 [[deqp]]
 deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
