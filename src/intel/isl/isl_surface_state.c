@@ -530,6 +530,13 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
                 info->aux_usage == ISL_AUX_USAGE_CCS_D);
       }
 
+      if (info->aux_usage == ISL_AUX_USAGE_CCS_D)
+         assert(isl_format_supports_ccs_d(dev->info, info->view->format));
+
+      if (info->aux_usage == ISL_AUX_USAGE_CCS_E ||
+          info->aux_usage == ISL_AUX_USAGE_GFX12_CCS_E)
+         assert(isl_format_supports_ccs_e(dev->info, info->view->format));
+
       /* The docs don't appear to say anything whatsoever about compression
        * and the data port.  Testing seems to indicate that the data port
        * completely ignores the AuxiliarySurfaceMode field.
