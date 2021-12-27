@@ -10,15 +10,16 @@ renderer_check = "Turnip Adreno .* 630"
 # features.
 TU_DEBUG = "forcebin"
 
-# force-bypass testing
+# force-gmem testing
+# Autotuner forces sysmem on most CTS tests
 [[deqp]]
 deqp = "/deqp/external/vulkancts/modules/vulkan/deqp-vk"
 caselists = ["/deqp/mustpass/vk-master.txt"]
 timeout = 300
 include = ["dEQP-VK.renderpass.*"]
-prefix = "bypass-"
+prefix = "gmem-"
 [deqp.env]
-TU_DEBUG = "nogmem"
+TU_DEBUG = "nobypass,forcebin"
 
 # Partial test with neither force-bin nor force-sysmem.  We don't expect trouble
 # here if both of those work, but it is the default so we should do at least a
