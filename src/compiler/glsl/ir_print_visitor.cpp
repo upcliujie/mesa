@@ -299,7 +299,7 @@ void ir_print_visitor::visit(ir_expression *ir)
 
 void ir_print_visitor::visit(ir_texture *ir)
 {
-   fprintf(f, "(%s ", ir->opcode_string());
+   fprintf(f, "(%s %d ", ir->opcode_string(), ir->is_sparse);
 
    if (ir->op == ir_samples_identical) {
       ir->sampler->accept(this);
