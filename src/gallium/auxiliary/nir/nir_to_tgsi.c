@@ -1167,6 +1167,14 @@ ntt_emit_alu(struct ntt_compile *c, nir_alu_instr *instr)
          ureg_CMP(c->ureg, dst, ureg_negate(src[0]), src[1], src[2]);
          break;
 
+      case nir_op_fcsel_ge:
+         ureg_CMP(c->ureg, dst, src[0], src[2], src[1]);
+         break;
+
+      case nir_op_fcsel_gt:
+         ureg_CMP(c->ureg, dst, ureg_negate(src[0]), src[1], src[2]);
+         break;
+
          /* It would be nice if we could get this left as scalar in NIR, since
           * the TGSI op is scalar.
           */
@@ -2912,6 +2920,10 @@ ntt_fix_nir_options(struct pipe_screen *screen, struct nir_shader *s)
    bool lower_fsqrt =
       !screen->get_shader_param(screen, pipe_shader_type_from_mesa(s->info.stage),
                                 PIPE_SHADER_CAP_TGSI_SQRT_SUPPORTED);
+   bool native_integers = screen->get_shader_param(screen,
+                                                   pipe_shader_type_from_mesa(s->info.stage),
+                                                   PIPE_SHADER_CAP_INTEGERS);
+   bool has_fused_comp_and_csel = !native_integers;
 
    nir_variable_mode no_indirects_mask = ntt_no_indirects_mask(s, screen);
 
@@ -2926,6 +2938,7 @@ ntt_fix_nir_options(struct pipe_screen *screen, struct nir_shader *s)
        !options->lower_uniforms_to_ubo ||
        !options->lower_vector_cmp ||
        options->lower_fsqrt != lower_fsqrt ||
+       options->has_fused_comp_and_csel != has_fused_comp_and_csel ||
        options->force_indirect_unrolling != no_indirects_mask) {
       nir_shader_compiler_options *new_options = ralloc(s, nir_shader_compiler_options);
       *new_options = *s->options;
@@ -2941,6 +2954,10 @@ ntt_fix_nir_options(struct pipe_screen *screen, struct nir_shader *s)
       new_options->lower_uniforms_to_ubo = true,
       new_options->lower_vector_cmp = true;
       new_options->lower_fsqrt = lower_fsqrt;
+
+      /* We can do fused fcsel, but not fused icsel. */
+      new_options->has_fused_comp_and_csel = has_fused_comp_and_csel;
+
       new_options->force_indirect_unrolling = no_indirects_mask;
 
       s->options = new_options;
