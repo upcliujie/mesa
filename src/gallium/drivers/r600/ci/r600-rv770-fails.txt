@@ -630,8 +630,6 @@ spec@arb_fragment_layer_viewport@layer-vs-write-gs-no-write-simple,Fail
 spec@arb_fragment_layer_viewport@viewport-vs-gs-write-simple,Fail
 spec@arb_fragment_layer_viewport@viewport-vs-write-gs-no-write-simple,Fail
 
-spec@arb_fragment_program_shadow@tex-shadow1d,Fail
-
 spec@arb_framebuffer_object@fbo-attachments-blit-scaled-linear,Fail
 spec@arb_framebuffer_object@fbo-blit-scaled-linear,Fail
 
