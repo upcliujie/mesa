@@ -1104,7 +1104,7 @@ _mesa_delete_list(struct gl_context *ctx, struct gl_display_list *dlist)
 
    if (!n) {
       free(dlist->Label);
-      free(dlist);
+      FREE(dlist);
       return;
    }
 
