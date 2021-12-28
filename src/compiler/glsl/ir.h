@@ -1898,10 +1898,10 @@ enum ir_texture_opcode {
  */
 class ir_texture : public ir_rvalue {
 public:
-   ir_texture(enum ir_texture_opcode op)
+   ir_texture(enum ir_texture_opcode op, bool sparse = false)
       : ir_rvalue(ir_type_texture),
         op(op), sampler(NULL), coordinate(NULL), projector(NULL),
-        shadow_comparator(NULL), offset(NULL)
+        shadow_comparator(NULL), offset(NULL), is_sparse(sparse)
    {
       memset(&lod_info, 0, sizeof(lod_info));
    }
@@ -1972,6 +1972,9 @@ public:
 	 ir_rvalue *dPdy;	/**< Partial derivative of coordinate wrt Y */
       } grad;
    } lod_info;
+
+   /* Whether a sparse texture */
+   bool is_sparse;
 };
 
 
