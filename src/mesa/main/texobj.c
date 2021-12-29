@@ -381,7 +381,8 @@ _mesa_initialize_texture_object( struct gl_context *ctx,
    obj->BufferObjectFormat = ctx->API == API_OPENGL_COMPAT ? GL_LUMINANCE8 : GL_R8;
    obj->_BufferObjectFormat = ctx->API == API_OPENGL_COMPAT
       ? MESA_FORMAT_L_UNORM8 : MESA_FORMAT_R_UNORM8;
-   obj->Attrib.ImageFormatCompatibilityType = GL_IMAGE_FORMAT_COMPATIBILITY_BY_SIZE;
+   obj->Attrib.ImageFormatCompatibilityType = ctx->shader_image_compat_by_class ?
+      GL_IMAGE_FORMAT_COMPATIBILITY_BY_CLASS : GL_IMAGE_FORMAT_COMPATIBILITY_BY_SIZE;
 
    /* GL_ARB_bindless_texture */
    _mesa_init_texture_handles(obj);

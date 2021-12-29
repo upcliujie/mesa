@@ -5471,6 +5471,7 @@ struct gl_context
    /*@}*/
 
    bool shader_builtin_ref;
+   bool shader_image_compat_by_class;
 };
 
 /**

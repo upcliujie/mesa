@@ -953,6 +953,9 @@ st_create_context(gl_api api, struct pipe_context *pipe,
    if (pipe->screen->get_param(pipe->screen, PIPE_CAP_INVALIDATE_BUFFER))
       ctx->has_invalidate_buffer = true;
 
+   if (pipe->screen->get_param(pipe->screen, PIPE_CAP_SHADER_IMAGE_COMPAT_BY_CLASS))
+      ctx->shader_image_compat_by_class = true;
+
    st = st_create_context_priv(ctx, pipe, options, no_error);
    if (!st) {
       _mesa_free_context_data(ctx, true);
