@@ -341,10 +341,9 @@ enable_texture(struct gl_context *ctx, GLboolean state, GLbitfield texBit)
 
 
 /**
- * Helper function to enable or disable GL_MULTISAMPLE, skipping the check for
- * whether the API supports it (GLES doesn't).
+ * Helper function to enable or disable GL_MULTISAMPLE.
  */
-void
+static void
 _mesa_set_multisample(struct gl_context *ctx, GLboolean state)
 {
    if (ctx->Multisample.Enabled == state)
@@ -998,9 +997,10 @@ _mesa_set_enable(struct gl_context *ctx, GLenum cap, GLboolean state)
          ctx->Fog.ColorSumEnabled = state;
          break;
 
-      /* GL_ARB_multisample */
+      /* GL_ARB_multisample / GL_EXT_multisample_compatibility */
       case GL_MULTISAMPLE_ARB:
-         if (!_mesa_is_desktop_gl(ctx) && ctx->API != API_OPENGLES)
+         if (ctx->API == API_OPENGLES2 &&
+             !_mesa_has_EXT_multisample_compatibility(ctx))
             goto invalid_enum_error;
          _mesa_set_multisample(ctx, state);
          return;
@@ -1013,7 +1013,8 @@ _mesa_set_enable(struct gl_context *ctx, GLenum cap, GLboolean state)
          ctx->Multisample.SampleAlphaToCoverage = state;
          break;
       case GL_SAMPLE_ALPHA_TO_ONE_ARB:
-         if (!_mesa_is_desktop_gl(ctx) && ctx->API != API_OPENGLES)
+         if (ctx->API == API_OPENGLES2 &&
+             !_mesa_has_EXT_multisample_compatibility(ctx))
             goto invalid_enum_error;
          if (ctx->Multisample.SampleAlphaToOne == state)
             return;
@@ -1816,15 +1817,17 @@ _mesa_IsEnabled( GLenum cap )
             goto invalid_enum_error;
          return ctx->Fog.ColorSumEnabled;
 
-      /* GL_ARB_multisample */
+      /* GL_ARB_multisample / GL_EXT_multisample_compatibility */
       case GL_MULTISAMPLE_ARB:
-         if (!_mesa_is_desktop_gl(ctx) && ctx->API != API_OPENGLES)
+         if (ctx->API == API_OPENGLES2 &&
+             !_mesa_has_EXT_multisample_compatibility(ctx))
             goto invalid_enum_error;
          return ctx->Multisample.Enabled;
       case GL_SAMPLE_ALPHA_TO_COVERAGE_ARB:
          return ctx->Multisample.SampleAlphaToCoverage;
       case GL_SAMPLE_ALPHA_TO_ONE_ARB:
-         if (!_mesa_is_desktop_gl(ctx) && ctx->API != API_OPENGLES)
+         if (ctx->API == API_OPENGLES2 &&
+             !_mesa_has_EXT_multisample_compatibility(ctx))
             goto invalid_enum_error;
          return ctx->Multisample.SampleAlphaToOne;
       case GL_SAMPLE_COVERAGE_ARB:
