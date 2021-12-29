@@ -747,6 +747,12 @@ lower_subgroups_instr(nir_builder *b, nir_instr *instr, void *_options)
          return lower_subgroup_op_to_scalar(b, intrin, false);
       break;
 
+   case nir_intrinsic_is_sparse_texels_resident:
+      /* code==0 means sparse texels are resident */
+      if (options->lower_is_sparse_texels_resident)
+         return nir_ieq_imm(b, intrin->src[0].ssa, 0);
+      break;
+
    default:
       break;
    }
