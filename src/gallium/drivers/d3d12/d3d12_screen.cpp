@@ -181,6 +181,9 @@ d3d12_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_NIR_SAMPLERS_AS_DEREF:
       return 1;
 
+   case PIPE_CAP_NIR_IMAGES_AS_DEREF:
+      return 0;
+
    case PIPE_CAP_MAX_TEXTURE_ARRAY_LAYERS:
       if (screen->max_feature_level >= D3D_FEATURE_LEVEL_11_0)
          return 1 << 14;
@@ -319,6 +322,13 @@ d3d12_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
 
    case PIPE_CAP_SHADER_IMAGE_COMPAT_BY_CLASS:
       return 1;
+
+   case PIPE_CAP_MAX_COMBINED_SHADER_OUTPUT_RESOURCES:
+      if (screen->max_feature_level <= D3D_FEATURE_LEVEL_11_0)
+         return D3D12_PS_CS_UAV_REGISTER_COUNT;
+      if (screen->opts.ResourceBindingTier <= D3D12_RESOURCE_BINDING_TIER_2)
+         return D3D12_UAV_SLOT_COUNT;
+      return 0;
 
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
@@ -460,7 +470,12 @@ d3d12_get_shader_param(struct pipe_screen *pscreen,
       return 1 << PIPE_SHADER_IR_NIR;
 
    case PIPE_SHADER_CAP_MAX_SHADER_IMAGES:
-      return 0; /* TODO: enable me */
+      if (!screen->support_shader_images)
+         return 0;
+      return
+         (screen->max_feature_level >= D3D_FEATURE_LEVEL_11_1 ||
+          screen->opts.ResourceBindingTier >= D3D12_RESOURCE_BINDING_TIER_3) ?
+         PIPE_MAX_SHADER_IMAGES : D3D12_PS_CS_UAV_REGISTER_COUNT;
 
    case PIPE_SHADER_CAP_LOWER_IF_THRESHOLD:
    case PIPE_SHADER_CAP_TGSI_SKIP_MERGE_REGISTERS:
