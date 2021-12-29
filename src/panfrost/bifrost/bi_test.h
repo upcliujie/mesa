@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include "compiler.h"
+#include "nodearray.h"
 
 /* Helper to generate a bi_builder suitable for creating test instructions */
 static inline bi_builder *
@@ -44,6 +45,9 @@ bit_builder(void *memctx)
                         _mesa_hash_pointer,
                         _mesa_key_pointer_equal);
 
+        nodearray_init(&blk->live_in);
+        nodearray_init(&blk->live_out);
+
         list_addtail(&blk->link, &ctx->blocks);
         list_inithead(&blk->instructions);
 
@@ -51,6 +55,15 @@ bit_builder(void *memctx)
         b->shader = ctx;
         b->cursor = bi_after_block(blk);
         return b;
+}
+
+static inline void
+bit_builder_cleanup(bi_builder *b)
+{
+        bi_foreach_block(b->shader, blk) {
+                nodearray_reset(&blk->live_in);
+                nodearray_reset(&blk->live_out);
+        }
 }
 
 /* Helper to compare for logical equality of instructions. Need to skip over
@@ -114,6 +127,8 @@ bit_shader_equal(bi_context *A, bi_context *B)
       bi_print_shader(B->shader, stderr); \
       fprintf(stderr, "\n"); \
    } \
+   bit_builder_cleanup(A); \
+   bit_builder_cleanup(B); \
 } while(0)
 
 #endif
