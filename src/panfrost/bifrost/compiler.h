@@ -39,15 +39,6 @@
 extern "C" {
 #endif
 
-typedef struct {
-        union {
-                uint32_t *sparse;
-                uint8_t *dense;
-        };
-        unsigned size; /* either 32-bit or 8-bit elements */
-        unsigned sparse_capacity;
-} nodearray;
-
 /* Swizzles across bytes in a 32-bit word. Expresses swz in the XML directly.
  * To express widen, use the correpsonding replicated form, i.e. H01 = identity
  * for widen = none, H00 for widen = h0, B1111 for widen = b1. For lane, also
@@ -139,12 +130,12 @@ typedef struct {
          * write mask. Identity for the full 32-bit, H00 for only caring about
          * the lower half, other values unused. */
         enum bi_swizzle swizzle : 4;
-        uint32_t offset : 2;
+        uint32_t offset : 3;
         bool reg : 1;
         enum bi_index_type type : 3;
 
         /* Must be zeroed so we can hash the whole 64-bits at a time */
-        unsigned padding : (32 - 13);
+        unsigned padding : (32 - 14);
 } bi_index;
 
 static inline bi_index
