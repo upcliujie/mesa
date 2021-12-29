@@ -1000,8 +1000,6 @@ struct radv_buffer {
    /* Set when bound */
    struct radeon_winsys_bo *bo;
    VkDeviceSize offset;
-
-   bool shareable;
 };
 
 void radv_buffer_init(struct radv_buffer *buffer, struct radv_device *device,
