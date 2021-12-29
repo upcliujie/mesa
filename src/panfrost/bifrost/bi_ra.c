@@ -29,6 +29,10 @@
 #include "bi_builder.h"
 #include "util/u_memory.h"
 
+#ifdef __ARM_NEON
+#include "arm_neon.h"
+#endif
+
 struct lcra_state {
         unsigned node_count;
         uint64_t *affinity;
@@ -69,10 +73,10 @@ lcra_alloc_equations(unsigned node_count)
         l->node_count = node_count;
 
         l->linear = calloc(sizeof(l->linear[0]), node_count);
-        l->solutions = calloc(sizeof(l->solutions[0]), node_count);
+        l->solutions = calloc(sizeof(l->solutions[0]), ALIGN_POT(node_count, 16));
         l->affinity = calloc(sizeof(l->affinity[0]), node_count);
 
-        memset(l->solutions, LCRA_NOT_SOLVED, sizeof(l->solutions[0]) * node_count);
+        memset(l->solutions, LCRA_NOT_SOLVED, sizeof(l->solutions[0]) * ALIGN_POT(node_count, 16));
 
         return l;
 }
@@ -119,45 +123,105 @@ lcra_add_node_interference(struct lcra_state *l, unsigned i, unsigned cmask_i, u
         nodearray_orr(&l->linear[i], j, constraint_bw, 256, l->node_count);
 }
 
-static bool
-lcra_test_linear(struct lcra_state *l, int8_t *solutions, unsigned i)
+/* Given a constraint with a second node and the solution for that node,
+ * what solutions could be used for the first node? */
+static uint64_t
+lcra_solution_mask(uint64_t constraint, signed solution)
 {
-        signed constant = solutions[i];
+        if (solution == LCRA_NOT_SOLVED)
+                return ~0ULL;
+
+        if (solution < 3)
+                return ~(constraint >> (3 - solution));
+        else
+                return ~(constraint << (solution - 3));
+}
+
+/* With a row of dense constraints, find all possible solutions */
+static uint64_t
+lcra_solutions_dense_all(struct lcra_state *l, int8_t *solutions,
+                         uint8_t *row, uint64_t affinity)
+{
+        uint64_t possible = affinity;
+
+        for (unsigned j = 0; j < l->node_count; ++j)
+                possible &= lcra_solution_mask(row[j], solutions[j]);
+
+        return possible;
+}
+
+#ifdef __ARM_NEON
+
+static uint64_t
+lcra_solutions_dense(struct lcra_state *l, int8_t *solutions,
+                     uint8_t *row, uint64_t affinity)
+{
+        /* 8 registers at a time appears to be the fastest configuration */
+        for (unsigned reg = 0; reg < 64; reg += 8) {
+                uint8_t aff = affinity >> reg;
+                if (!aff)
+                        continue;
+
+                uint8x16_t possible = vdupq_n_u8(aff);
+
+                int8x16_t constant = vdupq_n_s8(reg + 3);
+
+                for (unsigned j = 0; j < l->node_count; j += 16) {
+                        int8x16_t lhs = vsubq_s8(vld1q_s8(solutions + j), constant);
+                        uint8x16_t constraint = vld1q_u8(row + j);
+
+                        /* This will return zero for small or large lhs, no
+                         * need to clamp */
+                        uint8x16_t shifted = vshlq_u8(constraint, lhs);
+
+                        possible = vbicq_u8(possible, shifted);
+                }
+
+                /* Collect the results from each lane */
+                uint8x8_t res = vand_u8(vget_high_u8(possible),
+                                        vget_low_u8(possible));
+                uint64_t s = vget_lane_u64(vreinterpret_u64_u8(res), 0);
+                s &= (s >> 32);
+                s &= (s >> 16);
+                s &= (s >> 8);
+
+                if (s)
+                        return s << reg;
+        }
+
+        /* We didn't find anything after trying all ranges of registers */
+        return 0;
+}
+
+#else
+
+/* Without NEON, we can't get much faster than returning all solutions */
+#define lcra_solutions_dense lcra_solutions_dense_all
+
+#endif
+
+/* May only return a subset of possible solutions for performance reasons */
+static uint64_t
+lcra_linear_solutions(struct lcra_state *l, int8_t *solutions, unsigned i)
+{
+        uint64_t possible = l->affinity[i];
 
         if (nodearray_sparse(&l->linear[i])) {
                 nodearray_sparse_foreach(&l->linear[i], elem) {
+                        /* Using NEON here would bring a small speedup */
                         unsigned j = nodearray_key(elem);
-                        unsigned constraint = nodearray_value(elem);
+                        uint64_t constraint = nodearray_value(elem);
 
-                        if (solutions[j] == LCRA_NOT_SOLVED) continue;
-
-                        signed lhs = constant - solutions[j];
-
-                        if (lhs < -3 || lhs > 3)
-                                continue;
-
-                        if (constraint & (1 << (lhs + 3)))
-                                return false;
+                        possible &= lcra_solution_mask(constraint, solutions[j]);
                 }
 
-                return true;
+                return possible;
+        } else {
+
+                uint8_t *row = (uint8_t *)l->linear[i].dense;
+
+                return lcra_test_linear_all(l, solutions, row, possible);
         }
-
-        uint8_t *row = l->linear[i].dense;
-
-        for (unsigned j = 0; j < l->node_count; ++j) {
-                if (solutions[j] == LCRA_NOT_SOLVED) continue;
-
-                signed lhs = constant - solutions[j];
-
-                if (lhs < -3 || lhs > 3)
-                        continue;
-
-                if (row[j] & (1 << (lhs + 3)))
-                        return false;
-        }
-
-        return true;
 }
 
 static bool
@@ -167,19 +231,14 @@ lcra_solve(struct lcra_state *l)
                 if (l->solutions[step] != LCRA_NOT_SOLVED) continue;
                 if (l->affinity[step] == 0) continue;
 
-                bool succ = false;
+                uint64_t possible = lcra_linear_solutions(l, l->solutions, step);
 
-                u_foreach_bit64(r, l->affinity[step]) {
-                        l->solutions[step] = r;
+                unsigned reg = ffsll(possible);
 
-                        if (lcra_test_linear(l, l->solutions, step)) {
-                                succ = true;
-                                break;
-                        }
-                }
-
-                /* Out of registers - prepare to spill */
-                if (!succ) {
+                if (reg) {
+                        l->solutions[step] = reg - 1;
+                } else {
+                        /* Out of registers - prepare to spill */
                         l->spill_node = step;
                         return false;
                 }
