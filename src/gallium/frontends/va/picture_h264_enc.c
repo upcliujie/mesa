@@ -68,6 +68,8 @@ vlVaHandleVAEncPictureParameterBufferTypeH264(vlVaDriver *drv, vlVaContext *cont
    if (context->desc.h264enc.gop_cnt == context->desc.h264enc.gop_size)
       context->desc.h264enc.gop_cnt = 0;
 
+   context->desc.h264enc.pic_ctrl.enc_cabac_enable = h264->pic_fields.bits.entropy_coding_mode_flag;
+
    return VA_STATUS_SUCCESS;
 }
 
@@ -124,6 +126,7 @@ vlVaHandleVAEncSequenceParameterBufferTypeH264(vlVaDriver *drv, vlVaContext *con
    if (context->gop_coeff > VL_VA_ENC_GOP_COEFF)
       context->gop_coeff = VL_VA_ENC_GOP_COEFF;
    context->desc.h264enc.gop_size = h264->intra_idr_period * context->gop_coeff;
+   context->desc.h264enc.rate_ctrl[0].fill_data_enable = 1;
    context->desc.h264enc.rate_ctrl[0].frame_rate_num = h264->time_scale / 2;
    context->desc.h264enc.rate_ctrl[0].frame_rate_den = h264->num_units_in_tick;
    context->desc.h264enc.pic_order_cnt_type = h264->seq_fields.bits.pic_order_cnt_type;
@@ -168,6 +171,8 @@ vlVaHandleVAEncMiscParameterTypeRateControlH264(vlVaContext *context, VAEncMiscP
    else
       context->desc.h264enc.rate_ctrl[temporal_id].vbv_buffer_size =
          context->desc.h264enc.rate_ctrl[0].target_bitrate;
+
+   context->desc.h264enc.rate_ctrl[0].fill_data_enable = !rc->rc_flags.bits.disable_bit_stuffing;
 
    return VA_STATUS_SUCCESS;
 }
@@ -220,13 +225,11 @@ void getEncParamPresetH264(vlVaContext *context)
    context->desc.h264enc.motion_est.enc_ime2_search_range_y = 0x00000004;
 
    //pic control preset
-   context->desc.h264enc.pic_ctrl.enc_cabac_enable = 0x00000001;
    context->desc.h264enc.pic_ctrl.enc_constraint_set_flags = 0x00000040;
 
    //rate control
    context->desc.h264enc.rate_ctrl[0].vbv_buffer_size = 20000000;
    context->desc.h264enc.rate_ctrl[0].vbv_buf_lv = 48;
-   context->desc.h264enc.rate_ctrl[0].fill_data_enable = 1;
    context->desc.h264enc.rate_ctrl[0].enforce_hrd = 1;
    context->desc.h264enc.enable_vui = false;
    if (context->desc.h264enc.rate_ctrl[0].frame_rate_num == 0 ||
