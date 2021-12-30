@@ -124,9 +124,6 @@ spec@arb_sample_shading@samplemask 8@sample mask_in_one,Fail
 spec@arb_shader_image_load_store@early-z,Fail
 spec@arb_shader_image_load_store@early-z@occlusion query test/early-z pass,Fail
 
-spec@arb_tessellation_shader@execution@tcs-input@tcs-input-gl_pointsize,Fail
-spec@arb_tessellation_shader@execution@tes-input@tes-input-gl_pointsize,Fail
-
 spec@arb_shader_texture_lod@execution@arb_shader_texture_lod-texgradcube,Fail
 
 spec@arb_texture_buffer_object@formats (fs- arb),Crash
@@ -162,14 +159,13 @@ spec@ext_packed_float@query-rgba-signed-components,Fail
 spec@ext_texture_integer@fbo-integer,Fail
 
 spec@ext_transform_feedback@tessellation triangle_fan flat_first,Fail
+
+# due to point size clamping in shaders since hw doesn't support it later.
 spec@ext_transform_feedback@builtin-varyings gl_pointsize,Fail
 
 spec@glsl-1.50@execution@geometry@primitive-types gl_line_loop,Fail
 
 spec@intel_performance_query@intel_performance_query-issue_2235,Fail
-
-spec@glsl-1.50@execution@gs-redeclares-both-pervertex-blocks,Fail
-spec@glsl-1.50@execution@gs-redeclares-pervertex-out-only,Fail
 
 spec@khr_texture_compression_astc@miptree-gl srgb-fp,Fail
 spec@khr_texture_compression_astc@miptree-gl srgb-fp@sRGB decode full precision,Fail
