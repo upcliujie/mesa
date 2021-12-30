@@ -1100,6 +1100,15 @@ void st_init_extensions(struct pipe_screen *screen,
         } },
    };
 
+   /* ARB_sparse_texture2 need both shader query residency capability and
+    * support multi-sample texture.
+    */
+   extensions->ARB_sparse_texture2 =
+      screen->get_param(screen, PIPE_CAP_QUERY_SPARSE_TEXTURE_RESIDENCY) &&
+      screen->get_sparse_texture_virtual_page_size(screen, PIPE_TEXTURE_2D,
+                                                   true, PIPE_FORMAT_R8_UNORM,
+                                                   0, 0, NULL, NULL, NULL);
+
    /* Expose the extensions which directly correspond to gallium caps. */
    for (i = 0; i < ARRAY_SIZE(cap_mapping); i++) {
       if (screen->get_param(screen, cap_mapping[i].cap)) {
