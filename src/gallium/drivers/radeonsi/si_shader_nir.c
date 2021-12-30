@@ -893,6 +893,7 @@ static void si_lower_nir(struct si_screen *sscreen, struct nir_shader *nir)
       .lower_subgroup_masks = true,
       .lower_vote_trivial = false,
       .lower_vote_eq = true,
+      .lower_is_sparse_texels_resident = true,
    };
    NIR_PASS_V(nir, nir_lower_subgroups, &subgroups_options);
 
