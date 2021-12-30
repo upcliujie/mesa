@@ -1322,11 +1322,12 @@ bool si_texture_commit(struct si_context *ctx, struct si_resource *res, unsigned
    struct radeon_surf *surface = &tex->surface;
    enum pipe_format format = res->b.b.format;
    unsigned blks = util_format_get_blocksize(format);
+   unsigned samples = MAX2(1, res->b.b.nr_samples);
 
    assert(ctx->chip_class >= GFX9);
 
    unsigned row_pitch = surface->u.gfx9.prt_level_pitch[level] *
-      surface->prt_tile_height * surface->prt_tile_depth * blks;
+      surface->prt_tile_height * surface->prt_tile_depth * blks * samples;
    unsigned depth_pitch = surface->u.gfx9.surf_slice_size * surface->prt_tile_depth;
 
    unsigned x = box->x / surface->prt_tile_width;
@@ -2262,6 +2263,8 @@ static int si_get_sparse_texture_virtual_page_size(struct pipe_screen *screen,
                                                    unsigned offset, unsigned size,
                                                    int *x, int *y, int *z)
 {
+   struct si_screen *sscreen = (struct si_screen *)screen;
+
    /* Only support one type of page size. */
    if (offset != 0)
       return 0;
@@ -2284,7 +2287,6 @@ static int si_get_sparse_texture_virtual_page_size(struct pipe_screen *screen,
    const int (*page_sizes)[3];
 
    /* Supported targets. */
-   /* TODO: support multi sample targets. */
    switch (target) {
    case PIPE_TEXTURE_2D:
    case PIPE_TEXTURE_CUBE:
@@ -2299,6 +2301,16 @@ static int si_get_sparse_texture_virtual_page_size(struct pipe_screen *screen,
    default:
       return 0;
    }
+
+   /* ARB_sparse_texture2 need to query supported virtual page x/y/z without
+    * knowing the actual sample count. So we need to return a fixed virtual page
+    * x/y/z for all sample count which means the virtual page size can not be fixed
+    * to 64KB.
+    *
+    * Currently only enabled for GFX9.
+    */
+   if (multi_sample && sscreen->info.chip_class != GFX9)
+      return 0;
 
    /* Unsupport formats. */
    /* TODO: support these formats. */
