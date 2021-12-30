@@ -158,6 +158,8 @@ vlVaHandleVAEncSequenceParameterBufferTypeHEVC(vlVaDriver *drv, vlVaContext *con
    context->desc.h265enc.seq.max_transform_hierarchy_depth_intra = h265->max_transform_hierarchy_depth_intra;
    context->desc.h265enc.rc.frame_rate_num = h265->vui_time_scale;
    context->desc.h265enc.rc.frame_rate_den = h265->vui_num_units_in_tick;
+   context->desc.h265enc.rc.min_qp = 0;
+   context->desc.h265enc.rc.max_qp = 51;
 
    return VA_STATUS_SUCCESS;
 }
@@ -166,6 +168,13 @@ VAStatus
 vlVaHandleVAEncMiscParameterTypeRateControlHEVC(vlVaContext *context, VAEncMiscParameterBuffer *misc)
 {
    VAEncMiscParameterRateControl *rc = (VAEncMiscParameterRateControl *)misc->data;
+
+   if (rc->min_qp != 0)
+      context->desc.h265enc.rc.min_qp = rc->min_qp;
+   if (rc->max_qp != 0)
+      context->desc.h265enc.rc.max_qp = rc->max_qp;
+   context->desc.h265enc.rc.max_qp = MAX2(context->desc.h265enc.rc.min_qp,
+                                          context->desc.h265enc.rc.max_qp);
 
    if (context->desc.h265enc.rc.rate_ctrl_method ==
          PIPE_H2645_ENC_RATE_CONTROL_METHOD_CONSTANT)
