@@ -195,6 +195,7 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_vertex_attribute_divisor = true,
       .EXT_provoking_vertex = true,
       .EXT_line_rasterization = true,
+      .EXT_depth_clip_control = true,
 #ifdef ANDROID
       .ANDROID_native_buffer = true,
 #endif
@@ -781,6 +782,11 @@ tu_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->stippledBresenhamLines = false;
          features->stippledSmoothLines = false;
          break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_CLIP_CONTROL_FEATURES_EXT: {
+         VkPhysicalDeviceDepthClipControlFeaturesEXT *features =
+            (VkPhysicalDeviceDepthClipControlFeaturesEXT *)ext;
+         features->depthClipControl = true;
       }
 
       default:
