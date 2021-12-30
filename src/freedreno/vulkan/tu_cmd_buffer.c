@@ -2347,7 +2347,10 @@ tu_CmdSetViewport(VkCommandBuffer commandBuffer,
    cmd->state.max_viewport = MAX2(cmd->state.max_viewport, firstViewport + viewportCount);
 
    cs = tu_cmd_dynamic_state(cmd, VK_DYNAMIC_STATE_VIEWPORT, 8 + 10 * cmd->state.max_viewport);
-   tu6_emit_viewport(&cs, cmd->state.viewport, cmd->state.max_viewport);
+   /* z_negative_one_to_one state is not dynamic and defined only for
+    * pipeline's viewports.
+    */
+   tu6_emit_viewport(&cs, cmd->state.viewport, cmd->state.max_viewport, false);
 }
 
 VKAPI_ATTR void VKAPI_CALL

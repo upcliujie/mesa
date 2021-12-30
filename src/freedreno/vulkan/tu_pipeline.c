@@ -268,6 +268,7 @@ struct tu_pipeline_builder
    bool use_color_attachments;
    bool use_dual_src_blend;
    bool alpha_to_coverage;
+   bool z_negative_one_to_one;
    uint32_t color_attachment_count;
    VkFormat color_attachment_formats[MAX_RTS];
    VkFormat depth_attachment_format;
@@ -1870,7 +1871,8 @@ tu6_emit_vertex_input(struct tu_pipeline *pipeline,
 }
 
 void
-tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewports, uint32_t num_viewport)
+tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewports, uint32_t num_viewport,
+                  bool z_negative_one_to_one)
 {
    VkExtent2D guardband = {511, 511};
 
@@ -1881,10 +1883,20 @@ tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewports, uint32_t num_vi
       float scales[3];
       scales[0] = viewport->width / 2.0f;
       scales[1] = viewport->height / 2.0f;
-      scales[2] = viewport->maxDepth - viewport->minDepth;
+      if (z_negative_one_to_one) {
+         scales[2] = 0.5 * (viewport->maxDepth - viewport->minDepth);
+      } else {
+         scales[2] = viewport->maxDepth - viewport->minDepth;
+      }
+
       offsets[0] = viewport->x + scales[0];
       offsets[1] = viewport->y + scales[1];
-      offsets[2] = viewport->minDepth;
+      if (z_negative_one_to_one) {
+         offsets[2] = 0.5 * (viewport->minDepth + viewport->maxDepth);
+      } else {
+         offsets[2] = viewport->minDepth;
+      }
+
       for (uint32_t j = 0; j < 3; j++) {
          tu_cs_emit(cs, fui(offsets[j]));
          tu_cs_emit(cs, fui(scales[j]));
@@ -2789,7 +2801,7 @@ tu_pipeline_builder_parse_viewport(struct tu_pipeline_builder *builder,
    struct tu_cs cs;
 
    if (tu_pipeline_static_state(pipeline, &cs, VK_DYNAMIC_STATE_VIEWPORT, 8 + 10 * vp_info->viewportCount))
-      tu6_emit_viewport(&cs, vp_info->pViewports, vp_info->viewportCount);
+      tu6_emit_viewport(&cs, vp_info->pViewports, vp_info->viewportCount, builder->z_negative_one_to_one);
 
    if (tu_pipeline_static_state(pipeline, &cs, VK_DYNAMIC_STATE_SCISSOR, 1 + 2 * vp_info->scissorCount))
       tu6_emit_scissor(&cs, vp_info->pScissors, vp_info->scissorCount);
@@ -2836,7 +2848,7 @@ tu_pipeline_builder_parse_rasterization(struct tu_pipeline_builder *builder,
                      .zfar_clip_disable = depth_clip_disable,
                      /* TODO should this be depth_clip_disable instead? */
                      .unk5 = rast_info->depthClampEnable,
-                     .zero_gb_scale_z = 1,
+                     .zero_gb_scale_z = builder->z_negative_one_to_one ? 0 : 1,
                      .vp_clip_code_ignore = 1));
 
    tu_cs_emit_regs(&cs,
@@ -3279,6 +3291,12 @@ tu_pipeline_builder_init_graphics(
          if (subpass->color_attachments[0].attachment != VK_ATTACHMENT_UNUSED)
             builder->render_components |= 0xf << 4;
       }
+
+      const VkPipelineViewportDepthClipControlCreateInfoEXT *depth_clip_info =
+         vk_find_struct_const(create_info->pViewportState->pNext,
+                              PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT);
+      builder->z_negative_one_to_one =
+         depth_clip_info ? depth_clip_info->negativeOneToOne : false;
    }
 }
 
