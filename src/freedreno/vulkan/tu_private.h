@@ -1295,13 +1295,16 @@ struct tu_pipeline
 
    struct tu_lrz_pipeline lrz;
 
+   bool z_negative_one_to_one;
+
    void *executables_mem_ctx;
    /* tu_pipeline_executable */
    struct util_dynarray executables;
 };
 
 void
-tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewport, uint32_t num_viewport);
+tu6_emit_viewport(struct tu_cs *cs, const VkViewport *viewport, uint32_t num_viewport,
+                  bool z_negative_one_to_one);
 
 void
 tu6_emit_scissor(struct tu_cs *cs, const VkRect2D *scs, uint32_t scissor_count);
