@@ -82,6 +82,9 @@ d3d12_lower_primitive_id(nir_shader *shader);
 void
 d3d12_lower_triangle_strip(nir_shader *shader);
 
+bool
+d3d12_lower_image_casts(nir_shader *s, struct d3d12_image_format_conversion_info *info);
+
 #ifdef __cplusplus
 }
 #endif
