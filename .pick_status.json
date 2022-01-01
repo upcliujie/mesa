@@ -1,5 +1,833 @@
 [
     {
+        "sha": "31d839aacc63831e7e13c46d5070672fb09ff844",
+        "description": "aco: lower masked swizzle to DPP8",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "da0412e55b1cd49f083abd1cb3d349c02e1c85e1",
+        "description": "aco: support DPP8",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5c3dfb4ef51ab33a2a67a55d4c499004e973e523",
+        "description": "gallium/aux: Move index offsetting from prim restart to primconvert",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "b34fed64fa1a8a541b62fda725bfdb504c44ec67"
+    },
+    {
+        "sha": "46c59e8fd69b1537421794c997407e4d1d795be6",
+        "description": "radv: Remove dependencies on vk_common entrypoints.",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "91fe0b5629d263b81950493d3176ecfe7aa29004"
+    },
+    {
+        "sha": "8c4c63a6ed1c914a519426ed4dd51ae9096b00c5",
+        "description": "radv: Rename submit2->submit.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "84ec547f69edcce8caba30005947c2696e5de1bb",
+        "description": "radv: Remove syncobj reset mechanism.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "91fe0b5629d263b81950493d3176ecfe7aa29004",
+        "description": "radv: Delete lots of sync code.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "967fc415fc4ff3a7a556dbc4d9a851ec1b8ff2de",
+        "description": "radv: Add new submission path for use by the common sync framework.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "93cde57f7a5009fb95c71c9daef98dbcc2675efa",
+        "description": "radv: Add new cs_submit2 winsys call.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9d75f23350ebe3c7a5125864d30363a8a056ba4a",
+        "description": "radv: Use vk_command_buffer for preambles.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "31da5c41b6b29dbdd15828d5b33972ad5bf1b62d",
+        "description": "radv: Set horizontal sync types.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1965872b417deaee84b12be6862065e7a5965819",
+        "description": "radv: Add function to allow WSI signalling fences/semaphores.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3055d2f9dfed64e2b2a07afaffb6e61e7a1e8e22",
+        "description": "radv: Initialize vk device drm fd.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "101a366e5799bc3aae2194d2d9dec9e3112208a3",
+        "description": "meson: Bump libdrm_amdgpu version req to 2.4.109.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1a84dd6358c71c532461bee63d325719a10b4537",
+        "description": "radv: Use vulkan runtime for device lost.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "085f99b729bb91d52c612a391381c97edcadcbaa",
+        "description": "radv: Use dispatch table for wsi_display.c",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "40558dbe91dc306ee7ecb6a0df3615ec1ec89f4a",
+        "description": "radv: Use dispatch table for QueueWaitIdle in the SQTT layer.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7a84314c12ae0d001eb7d9df7d1f3c5c1c04b819",
+        "description": "vulkan/runtime: Add sparse bind support.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "73cdc302ab9bdb3fde57fe161a0a169b5a807344",
+        "description": "vulkan/runtime: Refactor queue submit to take an argument struct.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "16a527deefbfced83fec0f0c886c6120bd3e37b4",
+        "description": "aco: don't split VOP3P definitions",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7e02787a544a758d134a814eda54068ec1bf25d2",
+        "description": "aco: use p_create_vector(v2b,v2b) in get_alu_src_vop3p()",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e56d8b0b2e0022f72875f8850476b3ec0a0df742",
+        "description": "aco: use explicit zero-padding for 64bit image loads in expand_vector()",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "91f17e1c7311664a0efc6d07ae1e05df3febbd2c",
+        "description": "aco/optimizer: apply extract from subdword p_split_vector",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fb622775b5e583784cd836afa4e00faf538ae178",
+        "description": "aco/optimizer: optimize extract(extract())",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5ad9c20d4ad7dbcb20515091750658e133feaf25",
+        "description": "aco/optimizer: apply extract from p_extract_vector",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "11712729eb837f093816028b5ec9802a03f6f6ed",
+        "description": "aco/optimizer: keep instr_mod_labels after applying extract",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1502c22e2c32d6a87dd17bdc76af68b8470cb6ea",
+        "description": "aco: don't allow SDWA on VOP3P instructions",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "90994e4db7000951be058a956813e4a828f862c9",
+        "description": "radv: add drirc radv_disable_htile_layers and enable it for F1 2021",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ce5d7bf5085de668d3203f922822f71d4bc0d6b2",
+        "description": "radv: fix copying mutable descriptors to sampler descriptors",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6fee84bc2e7aaa250df00f0731a05310750d2a9c",
+        "description": "radv: Enable NV_mesh_shader with a perftest flag.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f2dd1fbc637251465ab9b97f54fbc13227460ab4",
+        "description": "radv: Implement NV_mesh_shader draw calls.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8d238f5581b5a3c1b34393649724d90019307f20",
+        "description": "aco: Export per-primitive mesh shader output attributes.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fc1424f1d8ffe615f43e762b68dc72f4203aca7a",
+        "description": "aco: Use the correct outinfo for mesh shaders.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "92556d6067503a503bc78290ecbc5ee6dd328e0a",
+        "description": "aco: Add 1D workgroup_id support for mesh shaders.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7759323b75d23f1b12c331df818c50bca6030f4d",
+        "description": "aco: Update README about NGG and mesh shaders.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6766e6a985d7a1ea3dc0eb3896c9fce745b9717b",
+        "description": "aco: Add Mesh and Task shader stages.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7ae425c5d42776ccbac9bf5481cfc1f1af206bc2",
+        "description": "radv: Add support for mesh shading pipelines in the command buffer.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8dc4f626accb32e8bd8dabc44b42d1ce49883f09",
+        "description": "radv: Create mesh shading pipelines.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e2df56f502be81f6039d725ba6ecacfd28fa18bf",
+        "description": "radv: Set output driver locations for mesh shaders.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "11501fa6860cc31f66ad35b7c3b87d2a28e99138",
+        "description": "radv: Compile mesh shaders and apply the necessary NIR lowerings.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ae82d9d8f456f09d833e09e1430c4d6ddac32af4",
+        "description": "radv: Setup shader arguments for mesh shaders.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e3a80d9d29bcf1ac0f9457cb7c1dfd834bddc5bf",
+        "description": "radv: Add support for per-primitive mesh shader outputs.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c7027156ea3eb1f4739af8bb63e1aa04d522af90",
+        "description": "radv: Cleanup VS output param assignment.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "256dcc209f4157f4b9ef4fea96e86b85c4d0590a",
+        "description": "radv: Cleanup PS input generation.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "459b4961bd3ef6143d80bf3c07b875a3006067b8",
+        "description": "radv: Add mesh shader specific info.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "32bc466dcbcf0cc584a0afaa7702413b30c28de0",
+        "description": "radv: Add radv_pipeline_has_mesh helper.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7aa42e023a7907c58062bb286c37da3a1f58999d",
+        "description": "ac/nir/ngg: Lower NV mesh shaders to NGG semantics.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1a1f5ad11d1aa2cefa084391de04583f78778541",
+        "description": "gitlab-ci: Disable radv-fossils again.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "273edf76c288e48ef78ccfe1e9da51788a38800d",
+        "description": "Fixed you're to your",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fe617bcca0e7d8510c60be8a083f6fabe7acf1c8",
+        "description": "intel/compiler/test: Fix build with GCC 7",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "c847bfaaf5cf4ef2550bb90e6f9db81db1870ee0"
+    },
+    {
+        "sha": "8371591dc60f6b9b5d1b5b3d273105abd309887d",
+        "description": "microsoft/compiler: Fix LOD instruction to return 2 values",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8926cfc9f71ce6e9e901e99a2ed65613ff27a265",
+        "description": "d3d12: Enable texture gather",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bd7fc35d6a03265803263e0ee371d0080157af85",
+        "description": "d3d12: Handle cubemap gather on int cubemaps",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9ba4569184b796d4d186b630f8829e9e0e333d1a",
+        "description": "microsoft/compiler: Position should always be no-perspective",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fe963f336ccafee32f5397956f5c174d24bff874",
+        "description": "d3d12: Enable cubemap arrays",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5b32915055c2def05a000990424fb5649a85e1a3",
+        "description": "d3d12: Replace pipe cap literals with D3D12 defines when available",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "71e2df73d95c418ff21312b0ed7b8420eb927999",
+        "description": "radeonsi: enable ARB_sparse_texture",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5a844f87a1f2b341f2d086b21363b1ba4b01460a",
+        "description": "radeonsi: support texture resource commit",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5f3c904ac81641f99381f1b0ea9ffe556f55b7a2",
+        "description": "radeonsi: implement get_sparse_texture_virtual_page_size",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c11059c2b55fdc16f901a976f6d27aa391d96420",
+        "description": "radeonsi: use staging buffer for sparse texture when transfer map",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c2bb232dae743c774887546fcfdd9c68921e794e",
+        "description": "radeonsi: support alloc a sparse texture",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1876285c273101f067083e917470f00dbf770e8f",
+        "description": "ac/surface: add prt_tile_depth",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "92d810fa74af894bcca5f75405637fa595357974",
+        "description": "ac/surface: fix prt_first_mip_tail calculation for gfx9+",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "40928e452dae4f7795bb78013b76919c62043833",
+        "description": "winsys/radeon: change surface_init flags to 64bit",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "30daded7e9292bff51d0b59e8c06546bb741259a",
+        "description": "mesa/st: update NumSparseLevels from pipe_resource",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "90415c1a3a4b987a9cf38a44a094eea9f27d0b9c",
+        "description": "mesa: implement glTexPageCommitmentARB/glTexturePageCommitmentEXT",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "82f2ab0bfc067bc42d973afa5eb88b5b2d30571c",
+        "description": "mesa/st: add st_TexturePageCommitment interface",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "34e5c14f705a551c1ae5dbb3245159a711fc05cb",
+        "description": "mesa: glTexStorage* support sparse texture allocation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "482fe7630038106b8b01812dba29fe1354b4f184",
+        "description": "mesa/st: add st_GetSparseTextureVirtualPageSize interface",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c7c5f9e16887fd10c22fbc3fd443201f0d798e12",
+        "description": "mesa: add ARB_sparse_texture texture param set/get",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b1c32a6c8c2ffb38627a560bc738ffde2c5e25a4",
+        "description": "mesa: add ARB_sparse_texture query in glGetInternalformativ",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1a616c4b294439d651d9e987137048dae987ebea",
+        "description": "gallium: add get_sparse_texture_virtual_page_size for noop/rbug/trace",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "eed8421bbac0ba814a5634550fd4ea02baec57a9",
+        "description": "gallium: add screen get_sparse_texture_virtual_page_size callback",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f3ea79f65e24fa20a2a7451879cf99a56aca736d",
+        "description": "mesa: add ARB_sparse_texture constants",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e1cecd8964cd570d923464b5aedf0fbf3c662608",
+        "description": "mesa: add ARB_sparse_texture extension",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7f48aba64197d0cae648cc046869e1afd6f3da6e",
+        "description": "gallium: add caps for sparse texture support",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bcaf9704ad74aa59cbc7584c42fba525d49fc630",
+        "description": "glapi: should not add alias function to static_data.py",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "757bc6d37a69bafd31f1f240f4f490d51288ba1e"
+    },
+    {
+        "sha": "94351c94dbab22d0ad0f524dbf945795fb554a16",
+        "description": "r600/sfn: Remove unused AluInstruction members.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9130e4564b8481b51c6d709bc9b8466cd223b722",
+        "description": "crocus: set max clip planes to 6 for gen4.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "af3cbc53794710bdd417057bf49334d9056a77fc",
+        "description": "gallium/mesa: enhance PIPE_CAP_CLIP_PLANES to support override number",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f1c1fcfdce45280ab13e70e246d0c662dfe6830d",
+        "description": "crocus: don't create staging resources > half aperture",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d8a38edc48e5567e5f0205b7347761e3d05a4bda",
+        "description": "crocus: fail resource allocation properly.",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "f3630548f1da904ec6c63b43ece7e68afdb8867e"
+    },
+    {
+        "sha": "a2293e33fd1255049b61c57d93eb89d1dc19c1f0",
+        "description": "intel/genxml/gen4-5: fix more Raster Operation in BLT to be a uint",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "de625dddeea4c134a713a96efa4fd8d19fdee823"
+    },
+    {
+        "sha": "c2217acaa57859c2b172e14590e05e2e4d069023",
+        "description": "ci/i915g: Add a couple more recent regressions.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "177bf24569d3391530090c6b1a1240b7ba8e5ae3",
+        "description": "ci: Enable reporting to the flakes IRC channel for i915g and crocus.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d1a59c4077f7416ea9af9b6a8ba8bbf138f9f68b",
+        "description": "ci/crocus: Add manual CI for the new HSW box I have at home.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e573f5447327af6211c260a5a88538002d3fa784",
+        "description": "docs: update calendar and link releases notes for 21.3.3",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e4135c265d46fbf2830640addbeb9b0ae921fde7",
+        "description": "docs: add release notes for 21.3.3",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2ddfb9c256bf18c3031eac28dae04745668f3299",
+        "description": "r300: fix handling swizzle in transform_source_conflicts",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "1c2c4ddbd1e97bfd13430521e5c09cb5ce8e36e6"
+    },
+    {
+        "sha": "6f7421f50dd633b5fcbd533b63c75646af82c373",
+        "description": "r300: Replace RADEON_NO_TCL with RADEON_DEBUG=notcl",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "44f134bc2199aa15403692a7cc56286952eac644",
+        "description": "r300: Document the RADEON_DEBUG options",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b249e700ac62c6e5eb5251b38902b0046c696e0e",
+        "description": "radv: print number of levels with RADV_DEBUG=img",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
         "sha": "4942e108909bbe0f53ec5fd52a3c7ae14c60abe6",
         "description": "radv: stop checking buffer size in vkCreateBuffer()",
         "nominated": false,
