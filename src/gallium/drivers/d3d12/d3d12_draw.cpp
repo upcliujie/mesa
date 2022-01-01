@@ -1023,6 +1023,20 @@ d3d12_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
    struct d3d12_screen *screen = d3d12_screen(pctx->screen);
    struct d3d12_batch *batch;
 
+   if (info->indirect) {
+      /* TODO: Use a compute shader to retrieve state vars if necessary, and do an actual indirect dispatch */
+      pipe_box box = { info->indirect_offset, 0, 0, sizeof(info->grid), 1, 1 };
+      pipe_transfer *transfer = nullptr;
+      void *map = pctx->buffer_map(pctx, info->indirect, 0, PIPE_MAP_READ, &box, &transfer);
+      pipe_grid_info new_info = *info;
+      new_info.indirect = nullptr;
+      memcpy(new_info.grid, map, sizeof(new_info.grid));
+      pctx->buffer_unmap(pctx, transfer);
+
+      d3d12_launch_grid(pctx, &new_info);
+      return;
+   }
+
    d3d12_select_compute_shader_variants(ctx, info);
    d3d12_validate_queries(ctx);
    struct d3d12_shader *shader = ctx->compute_state ? ctx->compute_state->current : NULL;
