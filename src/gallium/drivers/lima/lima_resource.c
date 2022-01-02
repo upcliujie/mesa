@@ -671,6 +671,14 @@ lima_transfer_map(struct pipe_context *pctx,
 
    *pptrans = ptrans;
 
+   /* Our load/store routines work on entire compressed blocks. */
+   ptrans->box.x /= util_format_get_blockwidth(pres->format);
+   ptrans->box.y /= util_format_get_blockheight(pres->format);
+   ptrans->box.width = DIV_ROUND_UP(ptrans->box.width,
+                                    util_format_get_blockwidth(pres->format));
+   ptrans->box.height = DIV_ROUND_UP(ptrans->box.height,
+                                     util_format_get_blockheight(pres->format));
+
    if (res->tiled) {
       ptrans->stride = util_format_get_stride(pres->format, ptrans->box.width);
       ptrans->layer_stride = ptrans->stride * ptrans->box.height;
@@ -682,7 +690,7 @@ lima_transfer_map(struct pipe_context *pctx,
          for (i = 0; i < ptrans->box.depth; i++)
             panfrost_load_tiled_image(
                trans->staging + i * ptrans->stride * ptrans->box.height,
-               bo->map + res->levels[level].offset + (i + box->z) * res->levels[level].layer_stride,
+               bo->map + res->levels[level].offset + (i + ptrans->box.z) * res->levels[level].layer_stride,
                ptrans->box.x, ptrans->box.y,
                ptrans->box.width, ptrans->box.height,
                ptrans->stride,
@@ -704,10 +712,9 @@ lima_transfer_map(struct pipe_context *pctx,
          panfrost_minmax_cache_invalidate(res->index_cache, ptrans);
 
       return bo->map + res->levels[level].offset +
-         box->z * res->levels[level].layer_stride +
-         box->y / util_format_get_blockheight(pres->format) * ptrans->stride +
-         box->x / util_format_get_blockwidth(pres->format) *
-         util_format_get_blocksize(pres->format);
+         ptrans->box.z * res->levels[level].layer_stride +
+         ptrans->box.y * ptrans->stride +
+         ptrans->box.x * util_format_get_blocksize(pres->format);
    }
 }
 

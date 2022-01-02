@@ -864,7 +864,8 @@ panfrost_ptr_map(struct pipe_context *pctx,
         struct panfrost_context *ctx = pan_context(pctx);
         struct panfrost_device *dev = pan_device(pctx->screen);
         struct panfrost_resource *rsrc = pan_resource(resource);
-        int bytes_per_pixel = util_format_get_blocksize(rsrc->image.layout.format);
+        enum pipe_format format = rsrc->image.layout.format;
+        int bytes_per_block = util_format_get_blocksize(format);
         struct panfrost_bo *bo = rsrc->image.data.bo;
 
         /* Can't map tiled/compressed directly */
@@ -995,9 +996,17 @@ panfrost_ptr_map(struct pipe_context *pctx,
                 }
         }
 
+        /* Our load/store routines work on entire compressed blocks. */
+        transfer->base.box.x /= util_format_get_blockwidth(format);
+        transfer->base.box.y /= util_format_get_blockheight(format);
+        transfer->base.box.width = DIV_ROUND_UP(transfer->base.box.width,
+                                                util_format_get_blockwidth(format));
+        transfer->base.box.height = DIV_ROUND_UP(transfer->base.box.height,
+                                                util_format_get_blockheight(format));
+
         if (rsrc->image.layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
-                transfer->base.stride = box->width * bytes_per_pixel;
-                transfer->base.layer_stride = transfer->base.stride * box->height;
+                transfer->base.stride = transfer->base.box.width * bytes_per_block;
+                transfer->base.layer_stride = transfer->base.stride * transfer->base.box.height;
                 transfer->map = ralloc_size(transfer, transfer->base.layer_stride * box->depth);
                 assert(box->depth == 1);
 
@@ -1005,7 +1014,8 @@ panfrost_ptr_map(struct pipe_context *pctx,
                         panfrost_load_tiled_image(
                                         transfer->map,
                                         bo->ptr.cpu + rsrc->image.layout.slices[level].offset,
-                                        box->x, box->y, box->width, box->height,
+                                        transfer->base.box.x, transfer->base.box.y,
+                                        transfer->base.box.width, transfer->base.box.height,
                                         transfer->base.stride,
                                         rsrc->image.layout.slices[level].line_stride,
                                         rsrc->image.layout.format);
@@ -1040,7 +1050,7 @@ panfrost_ptr_map(struct pipe_context *pctx,
                        + rsrc->image.layout.slices[level].offset
                        + transfer->base.box.z * transfer->base.layer_stride
                        + transfer->base.box.y * rsrc->image.layout.slices[level].line_stride
-                       + transfer->base.box.x * bytes_per_pixel;
+                       + transfer->base.box.x * bytes_per_block;
         }
 }
 
