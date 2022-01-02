@@ -995,6 +995,14 @@ panfrost_ptr_map(struct pipe_context *pctx,
                 }
         }
 
+        /* Our load/store routines work on entire compressed blocks. */
+        transfer->box.x /= util_format_get_blockwidth(format);
+        transfer->box.y /= util_format_get_blockheight(format);
+        transfer->box.width = DIV_ROUND_UP(transfer->box.width,
+                                           util_format_get_blockwidth(format));
+        transfer->box.height = DIV_ROUND_UP(transfer->box.height,
+                                            util_format_get_blockheight(format));
+
         if (rsrc->image.layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
                 transfer->base.stride = box->width * bytes_per_pixel;
                 transfer->base.layer_stride = transfer->base.stride * box->height;

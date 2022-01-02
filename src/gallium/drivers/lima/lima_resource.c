@@ -671,6 +671,14 @@ lima_transfer_map(struct pipe_context *pctx,
 
    *pptrans = ptrans;
 
+   /* Our load/store routines work on entire compressed blocks. */
+   ptrans->box.x /= util_format_get_blockwidth(format);
+   ptrans->box.y /= util_format_get_blockheight(format);
+   ptrans->box.width = DIV_ROUND_UP(ptrans->box.width,
+                                    util_format_get_blockwidth(format));
+   ptrans->box.height = DIV_ROUND_UP(ptrans->box.height,
+                                     util_format_get_blockheight(format));
+
    if (res->tiled) {
       ptrans->stride = util_format_get_stride(pres->format, ptrans->box.width);
       ptrans->layer_stride = ptrans->stride * ptrans->box.height;
@@ -705,9 +713,8 @@ lima_transfer_map(struct pipe_context *pctx,
 
       return bo->map + res->levels[level].offset +
          box->z * res->levels[level].layer_stride +
-         box->y / util_format_get_blockheight(pres->format) * ptrans->stride +
-         box->x / util_format_get_blockwidth(pres->format) *
-         util_format_get_blocksize(pres->format);
+         box->y * ptrans->stride +
+         box->x * util_format_get_blocksize(pres->format);
    }
 }
 
