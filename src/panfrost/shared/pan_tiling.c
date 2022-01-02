@@ -250,6 +250,11 @@ TILED_ACCESS_TYPE(pan_uint128_t, 4);
       TILED_UNALIGNED_TYPE(pan_uint128_t, store, shift) \
 }
 
+/*
+ * Perform a generic access to a tiled image with a given format. This works
+ * even for block-compressed images on entire blocks at a time. sx/sy/w/h are
+ * specified in blocks, not pixels.
+ */
 static void
 panfrost_access_tiled_image_generic(void *dst, void *src,
                                unsigned sx, unsigned sy,
@@ -262,9 +267,6 @@ panfrost_access_tiled_image_generic(void *dst, void *src,
    unsigned bpp = desc->block.bits;
 
    if (desc->block.width > 1) {
-      w = DIV_ROUND_UP(w, desc->block.width);
-      h = DIV_ROUND_UP(h, desc->block.height);
-
       if (_is_store)
          TILED_UNALIGNED_TYPES(true, 2)
       else
@@ -371,6 +373,13 @@ panfrost_access_tiled_image(void *dst, void *src,
       panfrost_access_tiled_image_pan_uint128_t(dst, OFFSET(src, x, y), x, y, w, h, dst_stride, src_stride, is_store);
 }
 
+/**
+ * Access a tiled image (load or store). Note: the region of interest (x, y, w,
+ * h) is specified in blocks, not pixels. It is expected the user has already
+ * divided these quantities to handle block compressed accesses as required.
+ * Likewise, strides are the number of bytes from the start of a block to the
+ * start of the next block below.
+ */
 void
 panfrost_store_tiled_image(void *dst, const void *src,
                            unsigned x, unsigned y,

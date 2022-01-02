@@ -864,7 +864,8 @@ panfrost_ptr_map(struct pipe_context *pctx,
         struct panfrost_context *ctx = pan_context(pctx);
         struct panfrost_device *dev = pan_device(pctx->screen);
         struct panfrost_resource *rsrc = pan_resource(resource);
-        int bytes_per_pixel = util_format_get_blocksize(rsrc->image.layout.format);
+        enum pipe_format format = rsrc->image.layout.format;
+        int bytes_per_pixel = util_format_get_blocksize(format);
         struct panfrost_bo *bo = rsrc->image.data.bo;
 
         /* Can't map tiled/compressed directly */
@@ -994,6 +995,14 @@ panfrost_ptr_map(struct pipe_context *pctx,
                         panfrost_bo_wait(bo, INT64_MAX, false);
                 }
         }
+
+        /* Our load/store routines work on entire compressed blocks. */
+        transfer->base.box.x /= util_format_get_blockwidth(format);
+        transfer->base.box.y /= util_format_get_blockheight(format);
+        transfer->base.box.width = DIV_ROUND_UP(transfer->base.box.width,
+                                                util_format_get_blockwidth(format));
+        transfer->base.box.height = DIV_ROUND_UP(transfer->base.box.height,
+                                                util_format_get_blockheight(format));
 
         if (rsrc->image.layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
                 transfer->base.stride = box->width * bytes_per_pixel;
