@@ -67,6 +67,12 @@ vulkan_runtime_files = files(
   'vk_synchronization2.c',
 )
 
+if with_platform_android
+  vulkan_runtime_files += files(
+    'vk_android.c',
+  )
+endif
+
 vulkan_runtime_deps = [
   vulkan_wsi_deps,
   idep_mesautil,
