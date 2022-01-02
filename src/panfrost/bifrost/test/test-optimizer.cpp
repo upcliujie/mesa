@@ -273,29 +273,29 @@ TEST_F(Optimizer, DoNotUseAdditionByZeroForClamps)
 
 TEST_F(Optimizer, FuseComparisonsWithDISCARD)
 {
-   CASE(bi_discard_b32(b, bi_fcmp_f32(b, x, y, BI_CMPF_LE, BI_RESULT_TYPE_F1)),
+   CASE(bi_b_discard(b, bi_b_fcmp_f32(b, x, y, BI_CMPF_LE)),
         bi_discard_f32(b, x, y, BI_CMPF_LE));
 
-   CASE(bi_discard_b32(b, bi_fcmp_f32(b, x, y, BI_CMPF_NE, BI_RESULT_TYPE_I1)),
+   CASE(bi_b_discard(b, bi_b_fcmp_f32(b, x, y, BI_CMPF_NE)),
         bi_discard_f32(b, x, y, BI_CMPF_NE));
 
-   CASE(bi_discard_b32(b, bi_fcmp_f32(b, x, y, BI_CMPF_EQ, BI_RESULT_TYPE_M1)),
+   CASE(bi_b_discard(b, bi_b_fcmp_f32(b, x, y, BI_CMPF_EQ)),
         bi_discard_f32(b, x, y, BI_CMPF_EQ));
 
    for (unsigned h = 0; h < 2; ++h) {
-      CASE(bi_discard_b32(b, bi_half(bi_fcmp_v2f16(b, x, y, BI_CMPF_LE, BI_RESULT_TYPE_F1), h)),
+      CASE(bi_b_discard(b, bi_half(bi_b_fcmp_v2f16(b, x, y, BI_CMPF_LE), h)),
            bi_discard_f32(b, bi_half(x, h), bi_half(y, h), BI_CMPF_LE));
 
-      CASE(bi_discard_b32(b, bi_half(bi_fcmp_v2f16(b, x, y, BI_CMPF_NE, BI_RESULT_TYPE_I1), h)),
+      CASE(bi_b_discard(b, bi_half(bi_b_fcmp_v2f16(b, x, y, BI_CMPF_NE), h)),
            bi_discard_f32(b, bi_half(x, h), bi_half(y, h), BI_CMPF_NE));
 
-      CASE(bi_discard_b32(b, bi_half(bi_fcmp_v2f16(b, x, y, BI_CMPF_EQ, BI_RESULT_TYPE_M1), h)),
+      CASE(bi_b_discard(b, bi_half(bi_b_fcmp_v2f16(b, x, y, BI_CMPF_EQ), h)),
            bi_discard_f32(b, bi_half(x, h), bi_half(y, h), BI_CMPF_EQ));
    }
 }
 
 TEST_F(Optimizer, DoNotFuseSpecialComparisons)
 {
-   NEGCASE(bi_discard_b32(b, bi_fcmp_f32(b, x, y, BI_CMPF_GTLT, BI_RESULT_TYPE_F1)));
-   NEGCASE(bi_discard_b32(b, bi_fcmp_f32(b, x, y, BI_CMPF_TOTAL, BI_RESULT_TYPE_F1)));
+   NEGCASE(bi_b_discard(b, bi_b_fcmp_f32(b, x, y, BI_CMPF_GTLT)));
+   NEGCASE(bi_b_discard(b, bi_b_fcmp_f32(b, x, y, BI_CMPF_TOTAL)));
 }

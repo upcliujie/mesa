@@ -1324,12 +1324,10 @@ bi_emit_intrinsic(bi_builder *b, nir_intrinsic_instr *instr)
                 bi_emit_ld_tile(b, instr);
                 break;
 
-        case nir_intrinsic_discard_if: {
-                bi_index src = bi_src_index(&instr->src[0]);
+        case nir_intrinsic_discard_if:
                 assert(nir_src_bit_size(instr->src[0]) == 1);
-                bi_discard_b32(b, bi_half(src, false));
+                bi_b_discard(b, bi_src_index(&instr->src[0]));
                 break;
-        }
 
         case nir_intrinsic_discard:
                 bi_discard_f32(b, bi_zero(), bi_zero(), BI_CMPF_EQ);
@@ -1475,9 +1473,18 @@ bi_alu_src_index(nir_alu_src src, unsigned comps)
 
         unsigned bitsize = nir_src_bit_size(src.src);
 
-        /* TODO: Do we need to do something more clever with 1-bit bools? */
-        if (bitsize == 1)
-                bitsize = 16;
+        /* Abstract boolean vectors are "special", so this bit size is not
+         * independently meaningful. Rather it generates boolean vector sources
+         * with the correct number of components.
+         */
+        if (bitsize == 1) {
+                if (comps == 1)
+                        bitsize = 32;
+                else if (comps == 2)
+                        bitsize = 16;
+                else
+                        bitsize = 8;
+        }
 
         /* the bi_index carries the 32-bit (word) offset separate from the
          * subword swizzle, first handle the offset */
@@ -1761,44 +1768,44 @@ bi_emit_alu_bool(bi_builder *b, unsigned sz, nir_op op,
 
         switch (op) {
         case nir_op_feq:
-                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_EQ);
+                return bi_b_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_EQ);
         case nir_op_flt:
-                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_LT);
+                return bi_b_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_LT);
         case nir_op_fge:
-                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_GE);
+                return bi_b_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_GE);
         case nir_op_fneu:
-                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_NE);
+                return bi_b_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_NE);
 
         case nir_op_ieq:
-                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_EQ);
+                return bi_b_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_EQ);
         case nir_op_ine:
-                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_NE);
+                return bi_b_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_NE);
         case nir_op_ilt:
-                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_LT);
+                return bi_b_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_LT);
         case nir_op_ige:
-                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_GE);
+                return bi_b_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_GE);
         case nir_op_ult:
-                return bi_p_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_LT);
+                return bi_b_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_LT);
         case nir_op_uge:
-                return bi_p_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_GE);
+                return bi_b_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_GE);
 
         case nir_op_iand:
-                return bi_p_and_to(b, psz, dst, s0, s1);
+                return bi_b_and_to(b, psz, dst, s0, s1);
         case nir_op_ior:
-                return bi_p_or_to(b, psz, dst, s0, s1);
+                return bi_b_or_to(b, psz, dst, s0, s1);
         case nir_op_ixor:
-                return bi_p_xor_to(b, psz, dst, s0, s1);
+                return bi_b_xor_to(b, psz, dst, s0, s1);
         case nir_op_inot:
-                return bi_p_or_to(b, psz, dst, bi_zero(), bi_not(s0));
+                return bi_b_or_to(b, psz, dst, bi_zero(), bi_not(s0));
 
         case nir_op_f2b1:
-                return bi_p_fcmp_f32_to(b, dst, s0, bi_zero(), BI_CMPF_NE);
+                return bi_b_fcmp_f32_to(b, dst, s0, bi_zero(), BI_CMPF_NE);
         case nir_op_i2b1:
         case nir_op_b2b1:
-                return bi_p_icmp_i32_to(b, dst, s0, bi_zero(), BI_CMPF_NE);
+                return bi_b_icmp_i32_to(b, dst, s0, bi_zero(), BI_CMPF_NE);
 
         case nir_op_bcsel:
-                return bi_p_mux_to(b, psz, dst, s2, s1, s0);
+                return bi_b_mux_to(b, psz, dst, s2, s1, s0);
 
         default:
                 fprintf(stderr, "Unhandled ALU op %s\n", nir_op_infos[op].name);
@@ -1829,11 +1836,6 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         unsigned comps = nir_dest_num_components(instr->dest.dest);
         unsigned src_sz = srcs > 0 ? nir_src_bit_size(instr->src[0].src) : 0;
         unsigned src1_sz = srcs > 1 ? nir_src_bit_size(instr->src[1].src) : 0;
-        bool is_bool = (sz == 1);
-
-        /* TODO: Anything else? */
-        if (sz == 1)
-                sz = 16;
 
         /* Indicate scalarness */
         if (sz == 16 && comps == 1)
@@ -1960,7 +1962,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         bi_index s1 = srcs > 1 ? bi_alu_src_index(instr->src[1], comps) : bi_null();
         bi_index s2 = srcs > 2 ? bi_alu_src_index(instr->src[2], comps) : bi_null();
 
-        if (is_bool) {
+        if (sz == 1) {
                 bi_emit_alu_bool(b, src_sz, instr->op, dst, s0, s1, s2, comps);
                 return;
         }
@@ -2046,7 +2048,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_bcsel:
-                bi_p_mux_to(b, src1_sz, dst, s2, s1, s0);
+                bi_b_mux_to(b, src1_sz, dst, s2, s1, s0);
                 break;
 
         case nir_op_ishl:
@@ -2217,7 +2219,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         case nir_op_b2i8:
         case nir_op_b2i16:
         case nir_op_b2i32:
-                bi_p_mux_to(b, sz, dst, bi_zero(), bi_imm_true(instr->op), s0);
+                bi_b_mux_to(b, sz, dst, bi_zero(), bi_imm_true(instr->op), s0);
                 break;
 
         case nir_op_fround_even:
@@ -2989,9 +2991,8 @@ emit_if(bi_context *ctx, nir_if *nif)
 
         /* Speculatively emit the branch, but we can't fill it in until later */
         bi_builder _b = bi_init_builder(ctx, bi_after_block(ctx->current_block));
-        bi_instr *then_branch = bi_branchz_i16(&_b,
-                        bi_half(bi_src_index(&nif->condition), false),
-                        bi_zero(), BI_CMPF_EQ);
+        bi_index cond = bi_src_index(&nif->condition);
+        bi_instr *then_branch = bi_b_branch(&_b, bi_neg(cond));
 
         /* Emit the two subblocks. */
         bi_block *then_block = emit_cf_list(ctx, &nif->then_list);

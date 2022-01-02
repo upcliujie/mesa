@@ -105,13 +105,13 @@ bi_compose_float_index(bi_index old, bi_index repl)
         return repl;
 }
 
-/* DISCARD.b32(FCMP.f(x, y)) --> DISCARD.f(x, y) */
+/* DISCARD.b32(P_FCMP.f(x, y)) --> DISCARD.f(x, y) */
 
 static inline void
 bi_fuse_discard_fcmp(bi_instr *I, bi_instr *mod, unsigned arch)
 {
-        if (I->op != BI_OPCODE_DISCARD_B32) return;
-        if (mod->op != BI_OPCODE_FCMP_F32 && mod->op != BI_OPCODE_FCMP_V2F16) return;
+        if (I->op != BI_OPCODE_B_DISCARD) return;
+        if (mod->op != BI_OPCODE_B_FCMP_F32 && mod->op != BI_OPCODE_B_FCMP_V2F16) return;
         if (mod->cmpf >= BI_CMPF_GTLT) return;
 
         /* .abs and .neg modifiers allowed on Valhall DISCARD but not Bifrost */
@@ -120,18 +120,10 @@ bi_fuse_discard_fcmp(bi_instr *I, bi_instr *mod, unsigned arch)
 
         if (arch <= 8 && absneg) return;
 
-        enum bi_swizzle r = I->src[0].swizzle;
-
-        /* result_type doesn't matter */
         I->op = BI_OPCODE_DISCARD_F32;
         I->cmpf = mod->cmpf;
         I->src[0] = mod->src[0];
         I->src[1] = mod->src[1];
-
-        if (mod->op == BI_OPCODE_FCMP_V2F16) {
-                I->src[0].swizzle = bi_compose_swizzle_16(r, I->src[0].swizzle);
-                I->src[1].swizzle = bi_compose_swizzle_16(r, I->src[1].swizzle);
-        }
 }
 
 void
@@ -297,7 +289,7 @@ bi_lower_opt_instruction(bi_instr *I)
                 I->src[1] = bi_negzero();
                 break;
 
-        case BI_OPCODE_DISCARD_B32:
+        case BI_OPCODE_B_DISCARD:
                 I->op = BI_OPCODE_DISCARD_F32;
                 I->src[1] = bi_imm_u16(0);
                 I->cmpf = BI_CMPF_NE;

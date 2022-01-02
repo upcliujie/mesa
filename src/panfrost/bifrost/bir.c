@@ -163,7 +163,7 @@ bi_side_effects(enum bi_opcode op)
 
         switch (op) {
         case BI_OPCODE_DISCARD_F32:
-        case BI_OPCODE_DISCARD_B32:
+        case BI_OPCODE_B_DISCARD:
                 return true;
         default:
                 break;

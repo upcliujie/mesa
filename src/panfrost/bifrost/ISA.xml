@@ -8337,21 +8337,23 @@
     </mod>
   </ins>
 
-  <ins name="+DISCARD.b32" pseudo="true" dests="0">
-    <src start="0"/>
-    <mod name="widen0" size="2">
-      <opt>none</opt>
-      <opt>h0</opt>
-      <opt>h1</opt>
-    </mod>
-  </ins>
-
   <!-- The following section of pseudo-instructions operate on booleans
         abstractly (not as integers). Lowering to integer representations
         happens later in instruction selection. -->
 
+  <!-- src0 is a scalar boolean. If set, discard. -->
+  <ins name="+B_DISCARD" pseudo="true" dests="0">
+    <src start="0"/>
+  </ins>
+
+  <!-- src0 is a scalar boolean. If set, branch. -->
+  <ins name="+B_BRANCH" pseudo="true" dests="0">
+    <src start="0"/>
+    <mod name="not0" start="14" size="1" opt="not"/>
+  </ins>
+
   <!-- src2 is a scalar boolean. If set, return src1, else return src0. -->
-  <ins name="+P_MUX.b32" pseudo="true">
+  <ins name="+B_MUX.b32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <src start="6"/>
@@ -8359,7 +8361,7 @@
 
   <!-- src2 is vec2 of booleans. Returns a vec2. For each component, if the
        corresponding boolean component is set, return src1, else return src0. -->
-  <ins name="+P_MUX.v2b16" pseudo="true">
+  <ins name="+B_MUX.v2b16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <src start="6"/>
@@ -8379,7 +8381,7 @@
 
   <!-- src2 is vec4 of booleans. Returns a vec2. For each component, if the
        corresponding boolean component is set, return src1, else return src0. -->
-  <ins name="+P_MUX.v4b8" pseudo="true">
+  <ins name="+B_MUX.v4b8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <src start="6"/>
@@ -8387,7 +8389,7 @@
 
   <!-- Exactly like the real comparison instructions, but produces booleans
        abstractly as opposed to producing a particular representation of boolean. -->
-  <ins name="+P_ICMP.i32" pseudo="true">
+  <ins name="+B_ICMP.i32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="cmpf" start="6" size="1">
@@ -8396,7 +8398,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.s32" pseudo="true">
+  <ins name="+B_ICMP.s32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="cmpf" size="2">
@@ -8407,7 +8409,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.u32" pseudo="true">
+  <ins name="+B_ICMP.u32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="cmpf" size="2">
@@ -8418,7 +8420,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.v2i16" pseudo="true">
+  <ins name="+B_ICMP.v2i16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="swz0" start="6" size="2" default="h01">
@@ -8439,7 +8441,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.v2s16" pseudo="true">
+  <ins name="+B_ICMP.v2s16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="swz0" start="6" size="2" default="h01">
@@ -8462,7 +8464,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.v2u16" pseudo="true">
+  <ins name="+B_ICMP.v2u16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="swz0" start="6" size="2" default="h01">
@@ -8485,7 +8487,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.v4i8" pseudo="true">
+  <ins name="+B_ICMP.v4i8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="cmpf" start="6" size="1">
@@ -8494,7 +8496,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.v4s8" pseudo="true">
+  <ins name="+B_ICMP.v4s8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="cmpf" size="2">
@@ -8505,7 +8507,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_ICMP.v4u8" pseudo="true">
+  <ins name="+B_ICMP.v4u8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="cmpf" size="2">
@@ -8516,7 +8518,7 @@
     </mod>
   </ins>
 
-  <ins name="*P_FCMP.f32" pseudo="true">
+  <ins name="*B_FCMP.f32" pseudo="true">
     <src start="0" mask="0xfb"/>
     <src start="3" mask="0xfb"/>
     <mod name="widen0" size="2">
@@ -8545,7 +8547,7 @@
     </mod>
   </ins>
 
-  <ins name="*P_FCMP.v2f16" pseudo="true">
+  <ins name="*B_FCMP.v2f16" pseudo="true">
     <src start="0" mask="0xfb"/>
     <src start="3" mask="0xfb"/>
     <mod name="abs0" size="1" opt="abs"/>
@@ -8577,7 +8579,7 @@
   </ins>
 
   <!-- Relational operators acting on abstract boolean vectors -->
-  <ins name="+P_AND.b32" pseudo="true">
+  <ins name="+B_AND.b32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8587,7 +8589,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_AND.v2b16" pseudo="true">
+  <ins name="+B_AND.v2b16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8597,7 +8599,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_AND.v4b8" pseudo="true">
+  <ins name="+B_AND.v4b8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8607,7 +8609,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_OR.b32" pseudo="true">
+  <ins name="+B_OR.b32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8617,7 +8619,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_OR.v2b16" pseudo="true">
+  <ins name="+B_OR.v2b16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8627,7 +8629,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_OR.v4b8" pseudo="true">
+  <ins name="+B_OR.v4b8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8637,7 +8639,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_XOR.b32" pseudo="true">
+  <ins name="+B_XOR.b32" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8647,7 +8649,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_XOR.v2b16" pseudo="true">
+  <ins name="+B_XOR.v2b16" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8657,7 +8659,7 @@
     </mod>
   </ins>
 
-  <ins name="+P_XOR.v4b8" pseudo="true">
+  <ins name="+B_XOR.v4b8" pseudo="true">
     <src start="0"/>
     <src start="3"/>
     <mod name="not1" start="14" size="1" opt="not"/>
@@ -8666,7 +8668,5 @@
       <opt>none</opt>
     </mod>
   </ins>
-
-
 
 </bifrost>
