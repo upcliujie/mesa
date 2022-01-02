@@ -69,6 +69,8 @@ struct d3d12_varying_info {
       const struct glsl_type *type;
       unsigned interpolation:3;   // INTERP_MODE_COUNT = 5
       unsigned driver_location:6; // VARYING_SLOT_MAX = 64
+      unsigned patch:1;
+      unsigned compact:1;
    } vars[VARYING_SLOT_MAX];
    uint64_t mask;
 };
@@ -107,6 +109,21 @@ struct d3d12_shader_key {
       unsigned primitive_id:1;
       unsigned triangle_strip:1;
    } gs;
+
+   struct {
+      uint16_t primitive_mode;
+      unsigned ccw:1;
+      unsigned point_mode:1;
+      unsigned spacing:2;
+      struct d3d12_varying_info required_patch_outputs;
+      uint32_t next_patch_inputs;
+   } hs;
+
+   struct {
+      unsigned tcs_vertices_out;
+      struct d3d12_varying_info required_patch_inputs;
+      uint32_t prev_patch_outputs;
+   } ds;
 
    struct {
       unsigned missing_dual_src_outputs : 2;
