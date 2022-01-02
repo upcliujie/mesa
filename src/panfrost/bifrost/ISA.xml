@@ -8346,4 +8346,327 @@
     </mod>
   </ins>
 
+  <!-- The following section of pseudo-instructions operate on booleans
+        abstractly (not as integers). Lowering to integer representations
+        happens later in instruction selection. -->
+
+  <!-- src2 is a scalar boolean. If set, return src1, else return src0. -->
+  <ins name="+P_MUX.b32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <src start="6"/>
+  </ins>
+
+  <!-- src2 is vec2 of booleans. Returns a vec2. For each component, if the
+       corresponding boolean component is set, return src1, else return src0. -->
+  <ins name="+P_MUX.v2b16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <src start="6"/>
+    <mod name="swap2" start="11" size="1" default="h01">
+      <opt>h01</opt>
+      <opt>h10</opt>
+    </mod>
+    <mod name="swap1" start="12" size="1" default="h01">
+      <opt>h01</opt>
+      <opt>h10</opt>
+    </mod>
+    <mod name="swap0" start="13" size="1" default="h01">
+      <opt>h01</opt>
+      <opt>h10</opt>
+    </mod>
+  </ins>
+
+  <!-- src2 is vec4 of booleans. Returns a vec2. For each component, if the
+       corresponding boolean component is set, return src1, else return src0. -->
+  <ins name="+P_MUX.v4b8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <src start="6"/>
+  </ins>
+
+  <!-- Exactly like the real comparison instructions, but produces booleans
+       abstractly as opposed to producing a particular representation of boolean. -->
+  <ins name="+P_ICMP.i32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="cmpf" start="6" size="1">
+      <opt>eq</opt>
+      <opt>ne</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.s32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="cmpf" size="2">
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.u32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="cmpf" size="2">
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.v2i16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="swz0" start="6" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="swz1" start="8" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="cmpf" start="11" size="1">
+      <opt>eq</opt>
+      <opt>ne</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.v2s16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="swz0" start="6" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="swz1" start="8" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="cmpf" size="2">
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.v2u16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="swz0" start="6" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="swz1" start="8" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="cmpf" size="2">
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.v4i8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="cmpf" start="6" size="1">
+      <opt>eq</opt>
+      <opt>ne</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.v4s8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="cmpf" size="2">
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_ICMP.v4u8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="cmpf" size="2">
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+    </mod>
+  </ins>
+
+  <ins name="*P_FCMP.f32" pseudo="true">
+    <src start="0" mask="0xfb"/>
+    <src start="3" mask="0xfb"/>
+    <mod name="widen0" size="2">
+      <opt>none</opt>
+      <opt>h0</opt>
+      <opt>h1</opt>
+    </mod>
+    <mod name="widen1" size="2">
+      <opt>none</opt>
+      <opt>h0</opt>
+      <opt>h1</opt>
+    </mod>
+    <mod name="abs1" start="6" size="1" opt="abs"/>
+    <mod name="neg0" start="7" size="1" opt="neg"/>
+    <mod name="neg1" start="8" size="1" opt="neg"/>
+    <mod name="abs0" start="12" size="1" opt="abs"/>
+    <mod name="cmpf" start="13" size="3">
+      <opt>eq</opt>
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>ne</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+      <opt>gtlt</opt>
+      <opt>total</opt>
+    </mod>
+  </ins>
+
+  <ins name="*P_FCMP.v2f16" pseudo="true">
+    <src start="0" mask="0xfb"/>
+    <src start="3" mask="0xfb"/>
+    <mod name="abs0" size="1" opt="abs"/>
+    <mod name="abs1" size="1" opt="abs"/>
+    <mod name="cmpf" size="3">
+      <opt>eq</opt>
+      <opt>gt</opt>
+      <opt>ge</opt>
+      <opt>ne</opt>
+      <opt>lt</opt>
+      <opt>le</opt>
+      <opt>gtlt</opt>
+      <opt>total</opt>
+    </mod>
+    <mod name="neg0" start="7" size="1" opt="neg"/>
+    <mod name="neg1" start="8" size="1" opt="neg"/>
+    <mod name="swz0" start="9" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+    <mod name="swz1" start="11" size="2" default="h01">
+      <opt>h00</opt>
+      <opt>h10</opt>
+      <opt>h01</opt>
+      <opt>h11</opt>
+    </mod>
+  </ins>
+
+  <!-- Relational operators acting on abstract boolean vectors -->
+  <ins name="+P_AND.b32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_AND.v2b16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_AND.v4b8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_OR.b32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_OR.v2b16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_OR.v4b8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_XOR.b32" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_XOR.v2b16" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+  <ins name="+P_XOR.v4b8" pseudo="true">
+    <src start="0"/>
+    <src start="3"/>
+    <mod name="not1" start="14" size="1" opt="not"/>
+    <mod name="not_result" start="15" size="1">
+      <opt>not</opt>
+      <opt>none</opt>
+    </mod>
+  </ins>
+
+
+
 </bifrost>

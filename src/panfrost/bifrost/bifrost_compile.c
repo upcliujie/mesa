@@ -1755,60 +1755,68 @@ bi_clper_xor(bi_builder *b, bi_index s0, bi_index s1)
 
 static bi_instr *
 bi_emit_alu_bool(bi_builder *b, unsigned sz, nir_op op,
-      bi_index dst, bi_index s0, bi_index s1, bi_index s2)
+      bi_index dst, bi_index s0, bi_index s1, bi_index s2, unsigned comps)
 {
-        /* Handle 1-bit bools as 0/~0 by default and let the optimizer deal
-         * with the bit patterns later. 0/~0 has the nice property of being
-         * independent of replicated vectorization. */
-        if (sz == 1) sz = 16;
-        bi_index f = bi_zero();
-        bi_index t = bi_imm_u16(0xFFFF);
+        unsigned psz = 32 / comps;
 
         switch (op) {
         case nir_op_feq:
-                return bi_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_EQ, BI_RESULT_TYPE_M1);
+                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_EQ);
         case nir_op_flt:
-                return bi_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_LT, BI_RESULT_TYPE_M1);
+                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_LT);
         case nir_op_fge:
-                return bi_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_GE, BI_RESULT_TYPE_M1);
+                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_GE);
         case nir_op_fneu:
-                return bi_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_NE, BI_RESULT_TYPE_M1);
+                return bi_p_fcmp_to(b, sz, dst, s0, s1, BI_CMPF_NE);
 
         case nir_op_ieq:
-                return bi_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_EQ, BI_RESULT_TYPE_M1);
+                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_EQ);
         case nir_op_ine:
-                return bi_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_NE, BI_RESULT_TYPE_M1);
+                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_NE);
         case nir_op_ilt:
-                return bi_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_LT, BI_RESULT_TYPE_M1);
+                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_LT);
         case nir_op_ige:
-                return bi_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_GE, BI_RESULT_TYPE_M1);
+                return bi_p_icmp_to(b, nir_type_int, sz, dst, s0, s1, BI_CMPF_GE);
         case nir_op_ult:
-                return bi_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_LT, BI_RESULT_TYPE_M1);
+                return bi_p_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_LT);
         case nir_op_uge:
-                return bi_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_GE, BI_RESULT_TYPE_M1);
+                return bi_p_icmp_to(b, nir_type_uint, sz, dst, s0, s1, BI_CMPF_GE);
 
         case nir_op_iand:
-                return bi_lshift_and_to(b, sz, dst, s0, s1, bi_imm_u8(0));
+                return bi_p_and_to(b, psz, dst, s0, s1);
         case nir_op_ior:
-                return bi_lshift_or_to(b, sz, dst, s0, s1, bi_imm_u8(0));
+                return bi_p_or_to(b, psz, dst, s0, s1);
         case nir_op_ixor:
-                return bi_lshift_xor_to(b, sz, dst, s0, s1, bi_imm_u8(0));
+                return bi_p_xor_to(b, psz, dst, s0, s1);
         case nir_op_inot:
-                return bi_lshift_or_to(b, sz, dst, bi_zero(), bi_not(s0), bi_imm_u8(0));
+                return bi_p_or_to(b, psz, dst, bi_zero(), bi_not(s0));
 
         case nir_op_f2b1:
-                return bi_csel_to(b, nir_type_int, sz, dst, s0, f, f, t, BI_CMPF_EQ);
+                return bi_p_fcmp_f32_to(b, dst, s0, bi_zero(), BI_CMPF_NE);
         case nir_op_i2b1:
-                return bi_csel_to(b, nir_type_int, sz, dst, s0, f, f, t, BI_CMPF_EQ);
         case nir_op_b2b1:
-                return bi_csel_to(b, nir_type_int, sz, dst, s0, f, f, t, BI_CMPF_EQ);
+                return bi_p_icmp_i32_to(b, dst, s0, bi_zero(), BI_CMPF_NE);
 
         case nir_op_bcsel:
-                return bi_csel_to(b, nir_type_int, sz, dst, s0, f, s1, s2, BI_CMPF_NE);
+                return bi_p_mux_to(b, psz, dst, s2, s1, s0);
 
         default:
                 fprintf(stderr, "Unhandled ALU op %s\n", nir_op_infos[op].name);
                 unreachable("Unhandled boolean ALU instruction");
+        }
+}
+
+static bi_index
+bi_imm_true(nir_op op)
+{
+        switch (op) {
+        case nir_op_b2f16: return bi_imm_f16(1.0);
+        case nir_op_b2f32: return bi_imm_f32(1.0);
+        case nir_op_b2b32: return bi_imm_u32(~0);
+        case nir_op_b2i8: return bi_imm_u8(1);
+        case nir_op_b2i16: return bi_imm_u16(1);
+        case nir_op_b2i32: return bi_imm_u32(1);
+        default: unreachable("not a b2* conversion");
         }
 }
 
@@ -1953,7 +1961,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         bi_index s2 = srcs > 2 ? bi_alu_src_index(instr->src[2], comps) : bi_null();
 
         if (is_bool) {
-                bi_emit_alu_bool(b, src_sz, instr->op, dst, s0, s1, s2);
+                bi_emit_alu_bool(b, src_sz, instr->op, dst, s0, s1, s2, comps);
                 return;
         }
 
@@ -2038,11 +2046,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_bcsel:
-                if (src1_sz == 8)
-                        bi_mux_v4i8_to(b, dst, s2, s1, s0, BI_MUX_INT_ZERO);
-                else
-                        bi_csel_to(b, nir_type_int, src1_sz,
-                                        dst, s0, bi_zero(), s1, s2, BI_CMPF_NE);
+                bi_p_mux_to(b, src1_sz, dst, s2, s1, s0);
                 break;
 
         case nir_op_ishl:
@@ -2209,21 +2213,11 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 
         case nir_op_b2f16:
         case nir_op_b2f32:
-                bi_csel_to(b, nir_type_int, sz, dst, s0, bi_zero(),
-                                (sz == 16) ? bi_imm_f16(1.0) : bi_imm_f32(1.0),
-                                (sz == 16) ? bi_imm_f16(0.0) : bi_imm_f32(0.0),
-                                BI_CMPF_NE);
-                break;
-
         case nir_op_b2b32:
-                bi_csel_to(b, nir_type_int, sz, dst, s0, bi_zero(),
-                                bi_imm_u32(~0), bi_zero(), BI_CMPF_NE);
-                break;
-
         case nir_op_b2i8:
         case nir_op_b2i16:
         case nir_op_b2i32:
-                bi_lshift_and_to(b, sz, dst, s0, bi_imm_uintN(1, sz), bi_imm_u8(0));
+                bi_p_mux_to(b, sz, dst, bi_zero(), bi_imm_true(instr->op), s0);
                 break;
 
         case nir_op_fround_even:
