@@ -2045,7 +2045,7 @@ dzn_GetBufferMemoryRequirements2(VkDevice _device,
    }
 
    pMemoryRequirements->memoryRequirements.size = size;
-   pMemoryRequirements->memoryRequirements.alignment = 0;
+   pMemoryRequirements->memoryRequirements.alignment = alignment;
    pMemoryRequirements->memoryRequirements.memoryTypeBits =
       device->physical_device->get_mem_type_mask_for_resource(buffer->desc);
 
