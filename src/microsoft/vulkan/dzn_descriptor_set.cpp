@@ -962,7 +962,7 @@ dzn_descriptor_set_factory::allocate(dzn_device *device,
    VK_MULTIALLOC_DECL(&ma, dzn_buffer_desc,
                       dynamic_buffers, layout->dynamic_buffers.count);
 
-   if (!vk_multialloc_zalloc(&ma, &device->vk.alloc,
+   if (!vk_multialloc_zalloc(&ma, &pool->alloc,
                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return NULL;
 
