@@ -554,7 +554,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       if (transition_barrier.Transition.StateBefore == transition_barrier.Transition.StateAfter)
          continue;
 
-      /* some layouts map to the states, and NOP-barriers are illegal */
+      /* some layouts map to the same states, and NOP-barriers are illegal */
       uint32_t layer_count = dzn_get_layer_count(image, range);
       uint32_t level_count = dzn_get_level_count(image, range);
       for (uint32_t layer = 0; layer < layer_count; layer++) {
