@@ -1292,6 +1292,7 @@ struct dzn_framebuffer {
 struct dzn_sampler {
    struct vk_object_base base;
    D3D12_SAMPLER_DESC desc;
+   D3D12_STATIC_BORDER_COLOR static_border_color = D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
 
    dzn_sampler(dzn_device *device,
                const VkSamplerCreateInfo *pCreateInfo,

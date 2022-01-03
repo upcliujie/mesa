@@ -71,9 +71,14 @@ dzn_sampler::dzn_sampler(dzn_device *device,
       desc.BorderColor[0] = desc.BorderColor[1] = desc.BorderColor[2] = 0.0f;
       desc.BorderColor[3] =
          pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK ? 0.0f : 1.0f;
+      static_border_color =
+         pCreateInfo->borderColor == VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK ?
+         D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK :
+         D3D12_STATIC_BORDER_COLOR_OPAQUE_BLACK;
       break;
    case VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE:
       desc.BorderColor[0] = desc.BorderColor[1] = desc.BorderColor[2] = desc.BorderColor[3] = 1.0f;
+      static_border_color = D3D12_STATIC_BORDER_COLOR_OPAQUE_WHITE;
       break;
    case VK_BORDER_COLOR_FLOAT_CUSTOM_EXT:
       for (unsigned i = 0; i < ARRAY_SIZE(desc.BorderColor); i++)

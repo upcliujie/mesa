@@ -155,12 +155,25 @@ dzn_descriptor_set_layout::dzn_descriptor_set_layout(dzn_device *device,
       base_register += ordered_bindings[i].descriptorCount;
 
       if (immutable_samplers) {
-         binfos[binding].static_sampler_idx = static_sampler_idx;
-         D3D12_STATIC_SAMPLER_DESC *sampler = (D3D12_STATIC_SAMPLER_DESC *)
-            &static_samplers[static_sampler_idx];
-         static_sampler_idx++;
-         assert(0);
-         /* FIXME: parse samplers */
+         for (uint32_t s = 0; s < ordered_bindings[i].descriptorCount; s++) {
+            binfos[binding].static_sampler_idx = static_sampler_idx;
+            D3D12_STATIC_SAMPLER_DESC *desc = (D3D12_STATIC_SAMPLER_DESC *)
+               &static_samplers[static_sampler_idx];
+            VK_FROM_HANDLE(dzn_sampler, sampler, ordered_bindings[i].pImmutableSamplers[s]);
+            desc->Filter = sampler->desc.Filter;
+            desc->AddressU = sampler->desc.AddressU;
+            desc->AddressV = sampler->desc.AddressV;
+            desc->AddressW = sampler->desc.AddressW;
+            desc->MipLODBias = sampler->desc.MipLODBias;
+            desc->MaxAnisotropy = sampler->desc.MaxAnisotropy;
+            desc->ComparisonFunc = sampler->desc.ComparisonFunc;
+            desc->BorderColor = sampler->static_border_color;
+            desc->MinLOD = sampler->desc.MinLOD;
+            desc->MaxLOD = sampler->desc.MaxLOD;
+            desc->ShaderRegister = binding;
+            desc->ShaderVisibility = translate_desc_visibility(ordered_bindings[i].stageFlags);
+            static_sampler_idx++;
+         }
       }
 
       if (is_dynamic) {
