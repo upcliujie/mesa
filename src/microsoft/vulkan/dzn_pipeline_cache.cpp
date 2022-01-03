@@ -57,3 +57,25 @@ dzn_DestroyPipelineCache(VkDevice device,
    return dzn_pipeline_cache_factory::destroy(device, pipelineCache,
                                               pAllocator);
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_GetPipelineCacheData(VkDevice device,
+                         VkPipelineCache pipelineCache,
+                         size_t *pDataSize,
+                         void *pData)
+{
+   // FIXME
+   dzn_stub();
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_MergePipelineCaches(VkDevice device,
+                        VkPipelineCache dstCache,
+                        uint32_t srcCacheCount,
+                        const VkPipelineCache *pSrcCaches)
+{
+   // FIXME
+   dzn_stub();
+   return VK_SUCCESS;
+}
