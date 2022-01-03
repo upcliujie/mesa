@@ -671,7 +671,7 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
           !(stage_mask & VK_SHADER_STAGE_GEOMETRY_BIT))) {
          if (vp.dynamic) {
             yz_flip_mode = DXIL_SPIRV_YZ_FLIP_CONDITIONAL;
-         } else {
+         } else if (pCreateInfo->pViewportState) {
             const VkPipelineViewportStateCreateInfo *vp_info =
                pCreateInfo->pViewportState;
 
