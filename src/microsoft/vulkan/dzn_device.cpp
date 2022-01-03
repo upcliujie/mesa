@@ -477,6 +477,17 @@ dzn_physical_device::get_format_properties(VkFormat format,
       properties->bufferFeatures |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT;
    }
 
+#define ATOMIC_FLAGS (D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_ADD | \
+                      D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_BITWISE_OPS | \
+                      D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_COMPARE_STORE_OR_COMPARE_EXCHANGE | \
+                      D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_EXCHANGE | \
+                      D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_SIGNED_MIN_OR_MAX | \
+                      D3D12_FORMAT_SUPPORT2_UAV_ATOMIC_UNSIGNED_MIN_OR_MAX)
+   if ((dfmt_info.Support2 & ATOMIC_FLAGS) == ATOMIC_FLAGS) {
+      properties->optimalTilingFeatures |= VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT;
+      properties->bufferFeatures |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT;
+   }
+
    /* Color/depth/stencil attachment cap implies input attachement cap, and input
     * attachment loads are lowered to texture loads in dozen, hence the requirement
     * to have shader-load support.
