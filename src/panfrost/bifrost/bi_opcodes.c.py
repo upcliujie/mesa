@@ -36,7 +36,7 @@ struct bi_op_props bi_opcode_props[BI_NUM_OPCODES] = {
         sr_write = int(add["staging"] in ["w", "rw"] if add else False)
         last = int(bool(add["last"]) if add else False)
         table = int(bool(add["table"]) if add else False)
-        branch = int(opcode.startswith('BRANCH'))
+        branch = int(opcode.startswith('BRANCH') or opcode == 'B_BRANCH')
         has_fma = int("*" + opcode in instructions)
         has_add = int("+" + opcode in instructions)
         mods = ops[opcode]['modifiers']

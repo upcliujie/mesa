@@ -2992,7 +2992,7 @@ emit_if(bi_context *ctx, nir_if *nif)
         /* Speculatively emit the branch, but we can't fill it in until later */
         bi_builder _b = bi_init_builder(ctx, bi_after_block(ctx->current_block));
         bi_index cond = bi_src_index(&nif->condition);
-        bi_instr *then_branch = bi_b_branch(&_b, bi_neg(cond));
+        bi_instr *then_branch = bi_b_branch(&_b, bi_neg(cond), bi_zero());
 
         /* Emit the two subblocks. */
         bi_block *then_block = emit_cf_list(ctx, &nif->then_list);
@@ -3776,6 +3776,10 @@ bi_compile_variant_nir(nir_shader *nir,
 
         bool skip_internal = nir->info.internal;
         skip_internal &= !(bifrost_debug & BIFROST_DBG_INTERNAL);
+        if (skip_internal)  {
+                util_dynarray_append(binary, uint64_t, 0);
+                return ctx;
+        }
 
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal) {
                 nir_print_shader(nir, stdout);
@@ -3881,6 +3885,8 @@ bi_compile_variant_nir(nir_shader *nir,
 
         if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal)
                 bi_print_shader(ctx, stdout);
+
+        fflush(stdout);
 
         if (ctx->arch <= 8) {
                 bi_pack_clauses(ctx, binary, offset);

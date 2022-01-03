@@ -8347,8 +8347,9 @@
   </ins>
 
   <!-- src0 is a scalar boolean. If set, branch. -->
-  <ins name="+B_BRANCH" pseudo="true" dests="0">
+  <ins name="+B_BRANCH" pseudo="true" dests="0" last="true">
     <src start="0"/>
+    <src start="6" mask="0xf7"/>
     <mod name="not0" start="14" size="1" opt="not"/>
   </ins>
 

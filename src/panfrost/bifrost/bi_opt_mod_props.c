@@ -105,7 +105,7 @@ bi_compose_float_index(bi_index old, bi_index repl)
         return repl;
 }
 
-/* DISCARD.b32(P_FCMP.f(x, y)) --> DISCARD.f(x, y) */
+/* B_DISCARD(B_FCMP.f(x, y)) --> DISCARD.f(x, y) */
 
 static inline void
 bi_fuse_discard_fcmp(bi_instr *I, bi_instr *mod, unsigned arch)
@@ -124,6 +124,74 @@ bi_fuse_discard_fcmp(bi_instr *I, bi_instr *mod, unsigned arch)
         I->cmpf = mod->cmpf;
         I->src[0] = mod->src[0];
         I->src[1] = mod->src[1];
+}
+
+/* B_MUX(a, b, B_CMP(x, y)) --> CSEL(x, y, b, a) */
+
+static inline enum bi_opcode
+bi_csel_for_cmp(enum bi_opcode cmp)
+{
+        switch (cmp) {
+        case BI_OPCODE_B_ICMP_I32: return BI_OPCODE_CSEL_I32;
+        case BI_OPCODE_B_ICMP_S32: return BI_OPCODE_CSEL_S32;
+        case BI_OPCODE_B_ICMP_U32: return BI_OPCODE_CSEL_U32;
+        case BI_OPCODE_B_ICMP_V2I16: return BI_OPCODE_CSEL_V2I16;
+        case BI_OPCODE_B_ICMP_V2S16: return BI_OPCODE_CSEL_V2S16;
+        case BI_OPCODE_B_ICMP_V2U16: return BI_OPCODE_CSEL_V2U16;
+        case BI_OPCODE_B_FCMP_F32: return BI_OPCODE_CSEL_F32;
+        case BI_OPCODE_B_FCMP_V2F16: return BI_OPCODE_CSEL_V2F16;
+        default: return ~0;
+        }
+}
+
+static inline void
+bi_fuse_mux_cmp(bi_instr *I, bi_instr *cmp)
+{
+        enum bi_opcode cmp_op = bi_csel_for_cmp(cmp->op);
+
+        if (I->op != BI_OPCODE_B_MUX_B32 && I->op != BI_OPCODE_B_MUX_V2B16) return;
+        if (cmp_op == ~0) return;
+        if (bi_opcode_props[I->op].size != bi_opcode_props[cmp->op].size) return;
+
+        I->op = cmp_op;
+        I->cmpf = cmp->cmpf;
+
+        I->src[3] = I->src[0];
+        I->src[2] = I->src[1];
+        I->src[1] = cmp->src[1];
+        I->src[0] = cmp->src[0];
+}
+
+static inline enum bi_opcode
+bi_branchz_for_cmp(enum bi_opcode cmp)
+{
+        switch (cmp) {
+        case BI_OPCODE_B_ICMP_I32: return BI_OPCODE_BRANCHZ_I32;
+        case BI_OPCODE_B_ICMP_S32: return BI_OPCODE_BRANCHZ_S32;
+        case BI_OPCODE_B_ICMP_U32: return BI_OPCODE_BRANCHZ_U32;
+        case BI_OPCODE_B_ICMP_V2I16: return BI_OPCODE_BRANCHZ_I16;
+        case BI_OPCODE_B_ICMP_V2S16: return BI_OPCODE_BRANCHZ_S16;
+        case BI_OPCODE_B_ICMP_V2U16: return BI_OPCODE_BRANCHZ_U16;
+        case BI_OPCODE_B_FCMP_F32: return BI_OPCODE_BRANCHZ_F32;
+        case BI_OPCODE_B_FCMP_V2F16: return BI_OPCODE_BRANCHZ_F16;
+        default: return ~0;
+        }
+}
+
+/* B_BRANCH(B_ICMP(x, #0)) --> BRANCHZ(x) */
+
+static inline void
+bi_fuse_branchz(bi_instr *I, bi_instr *cmp)
+{
+        enum bi_opcode branchz_op = bi_branchz_for_cmp(cmp->op);
+
+        if (I->op != BI_OPCODE_B_BRANCH) return;
+        if (branchz_op == ~0) return;
+        if (!bi_is_equiv(cmp->src[1], bi_zero())) return;
+
+        I->op = branchz_op;
+        I->cmpf = cmp->cmpf;
+        I->src[0] = cmp->src[0];
 }
 
 void
@@ -147,6 +215,11 @@ bi_opt_mod_prop_forward(bi_context *ctx)
                         unsigned size = bi_opcode_props[I->op].size;
 
                         bi_fuse_discard_fcmp(I, mod, ctx->arch);
+
+                        if (s == 0)
+                                bi_fuse_branchz(I, mod);
+                        else if (s == 2)
+                                bi_fuse_mux_cmp(I, mod);
 
                         if (bi_is_fabsneg(mod->op, size)) {
                                 if (mod->src[0].abs && !bi_takes_fabs(ctx->arch, I, mod->src[0], s))
