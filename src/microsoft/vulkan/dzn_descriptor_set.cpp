@@ -316,8 +316,8 @@ dzn_descriptor_set_layout_factory::allocate(dzn_device *device,
    VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set_layout_binding, binfos,
                       binding_count);
 
-   if (!vk_multialloc_zalloc(&ma, &device->vk.alloc,
-                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+   if (!vk_multialloc_zalloc2(&ma, &device->vk.alloc, pAllocator,
+                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
       return NULL;
 
    set_layout->static_samplers = static_samplers;
