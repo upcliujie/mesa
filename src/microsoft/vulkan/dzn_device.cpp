@@ -538,6 +538,10 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
        (info->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
+   if (info->tiling != VK_IMAGE_TILING_OPTIMAL &&
+       vk_format_is_depth_or_stencil(info->format))
+      return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
    D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info = get_format_support(info->format);
    if (dfmt_info.Format == DXGI_FORMAT_UNKNOWN)
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
