@@ -457,7 +457,11 @@ dzn_physical_device::get_format_properties(VkFormat format,
    if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_IA_VERTEX_BUFFER)
       properties->bufferFeatures |= VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT;
 
-   if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE) {
+#define TEX_FLAGS (D3D12_FORMAT_SUPPORT1_TEXTURE1D | \
+                   D3D12_FORMAT_SUPPORT1_TEXTURE2D | \
+                   D3D12_FORMAT_SUPPORT1_TEXTURE3D | \
+                   D3D12_FORMAT_SUPPORT1_TEXTURECUBE)
+   if (dfmt_info.Support1 & TEX_FLAGS) {
       properties->optimalTilingFeatures |=
          VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT;
    }
