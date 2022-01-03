@@ -488,6 +488,9 @@ dzn_physical_device::get_format_properties(VkFormat format,
       properties->bufferFeatures |= VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT;
    }
 
+   if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD)
+      properties->bufferFeatures |= VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT;
+
    /* Color/depth/stencil attachment cap implies input attachement cap, and input
     * attachment loads are lowered to texture loads in dozen, hence the requirement
     * to have shader-load support.
