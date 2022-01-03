@@ -597,7 +597,7 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
    dzn_image_view *view = state.framebuffer->attachments[idx];
    dzn_batch *batch = get_batch();
 
-   if (vk_format_is_depth_or_stencil(view->vk_format)) {
+   if (vk_format_is_depth_or_stencil(view->vk.format)) {
       D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
 
       if (aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT)
@@ -1168,7 +1168,7 @@ void
 dzn_cmd_buffer::attachment_transition(const dzn_attachment_ref &att)
 {
    dzn_batch *batch = get_batch();
-   const dzn_image *image = state.framebuffer->attachments[att.idx]->image;
+   const dzn_image *image = state.framebuffer->attachments[att.idx]->get_image();
 
    if (att.before == att.during)
       return;
@@ -1190,7 +1190,7 @@ void
 dzn_cmd_buffer::attachment_transition(const dzn_attachment &att)
 {
    dzn_batch *batch = get_batch();
-   const dzn_image *image = state.framebuffer->attachments[att.idx]->image;
+   const dzn_image *image = state.framebuffer->attachments[att.idx]->get_image();
 
    if (att.last == att.after)
       return;
@@ -1229,7 +1229,7 @@ dzn_cmd_buffer::resolve_attachment(uint32_t i)
          .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
-            .pResource = src->image->res.Get(),
+            .pResource = src->get_image()->res.Get(),
             .Subresource = 0,
             .StateBefore = subpass->colors[i].during,
             .StateAfter = D3D12_RESOURCE_STATE_RESOLVE_SOURCE,
@@ -1242,7 +1242,7 @@ dzn_cmd_buffer::resolve_attachment(uint32_t i)
          .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
-            .pResource = dst->image->res.Get(),
+            .pResource = dst->get_image()->res.Get(),
             .Subresource = 0,
             .StateBefore = subpass->resolve[i].during,
             .StateAfter = D3D12_RESOURCE_STATE_RESOLVE_DEST,
@@ -1253,8 +1253,8 @@ dzn_cmd_buffer::resolve_attachment(uint32_t i)
    if (barrier_count)
       batch->cmdlist->ResourceBarrier(barrier_count, barriers);
 
-   batch->cmdlist->ResolveSubresource(dst->image->res.Get(), 0,
-                                      src->image->res.Get(), 0,
+   batch->cmdlist->ResolveSubresource(dst->get_image()->res.Get(), 0,
+                                      src->get_image()->res.Get(), 0,
                                       dst->desc.Format);
 
    for (uint32_t b = 0; b < barrier_count; b++)

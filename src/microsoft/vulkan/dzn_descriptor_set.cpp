@@ -732,9 +732,9 @@ dzn_descriptor_heap::write_desc(uint32_t desc_offset,
    };
 
    if (writeable)
-      device->dev->CreateUnorderedAccessView(iview->image->res.Get(), NULL, &iview->uav_desc, view_handle);
+      device->dev->CreateUnorderedAccessView(iview->get_image()->res.Get(), NULL, &iview->uav_desc, view_handle);
    else
-      device->dev->CreateShaderResourceView(iview->image->res.Get(), &iview->desc, view_handle);
+      device->dev->CreateShaderResourceView(iview->get_image()->res.Get(), &iview->desc, view_handle);
 }
 
 void

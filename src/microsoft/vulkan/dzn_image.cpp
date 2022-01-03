@@ -739,17 +739,16 @@ translate_swizzle(VkComponentSwizzle in, uint32_t comp)
    }
 }
 
-dzn_image_view::dzn_image_view(dzn_device *dev,
+dzn_image_view::dzn_image_view(dzn_device *device,
                                const VkImageViewCreateInfo *pCreateInfo,
                                const VkAllocationCallbacks *pAllocator)
 {
-   VK_FROM_HANDLE(dzn_image, img, pCreateInfo->image);
+   VK_FROM_HANDLE(dzn_image, image, pCreateInfo->image);
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
-   uint32_t level_count = dzn_get_level_count(img, range);
-   uint32_t layer_count = dzn_get_layer_count(img, range);
+   uint32_t level_count = dzn_get_level_count(image, range);
+   uint32_t layer_count = dzn_get_layer_count(image, range);
 
-   image = img;
-   device = dev;
+   vk_image_view_init(&device->vk, &vk, pCreateInfo);
 
    assert(layer_count > 0);
    assert(range->baseMipLevel < image->vk.mip_levels);
@@ -773,18 +772,6 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
              <= u_minify(image->vk.extent.depth, range->baseMipLevel));
       break;
    }
-
-   vk_format = pCreateInfo->format;
-
-   /* Format is undefined, this can happen when using external formats. Set
-    * view format from the passed conversion info.
-    */
-
-   extent = VkExtent3D {
-      .width  = u_minify(image->vk.extent.width , range->baseMipLevel),
-      .height = u_minify(image->vk.extent.height, range->baseMipLevel),
-      .depth  = u_minify(image->vk.extent.depth , range->baseMipLevel),
-   };
 
    /* TODO: have a shader-invisible pool for iview descs, and copy those with
     * CopyDescriptors() when UpdateDescriptorSets() is called.
@@ -883,7 +870,7 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
          uav_desc.Texture3D.MipSlice =
             pCreateInfo->subresourceRange.baseMipLevel;
          uav_desc.Texture3D.FirstWSlice = 0;
-         uav_desc.Texture3D.WSize = extent.depth;
+         uav_desc.Texture3D.WSize = vk.extent.depth;
          break;
       case VK_IMAGE_VIEW_TYPE_1D_ARRAY:
          uav_desc.Texture1DArray.MipSlice =
@@ -930,7 +917,7 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
       case D3D12_RTV_DIMENSION_TEXTURE3D:
          rtv_desc.Texture3D.MipSlice = range->baseMipLevel;
          rtv_desc.Texture3D.FirstWSlice = 0;
-         rtv_desc.Texture3D.WSize = u_minify(img->vk.extent.depth, range->baseMipLevel);
+         rtv_desc.Texture3D.WSize = vk.extent.depth;
          break;
       case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
          rtv_desc.Texture1DArray.MipSlice = range->baseMipLevel;
@@ -994,18 +981,17 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
                                           zs_handle.cpu_handle);
    }
 
-   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_IMAGE_VIEW);
 }
 
 dzn_image_view::~dzn_image_view()
 {
-   vk_object_base_finish(&base);
+   vk_image_view_finish(&vk);
 
    if (rt_handle.cpu_handle.ptr)
-      device->free_handle(&rt_handle);
+      get_device()->free_handle(&rt_handle);
 
    if (zs_handle.cpu_handle.ptr)
-      device->free_handle(&zs_handle);
+      get_device()->free_handle(&zs_handle);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

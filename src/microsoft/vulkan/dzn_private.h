@@ -1049,19 +1049,25 @@ struct dzn_image {
 };
 
 struct dzn_image_view {
-   struct vk_object_base base;
-
-   dzn_device *device;
-   const dzn_image *image;
-
-   VkFormat vk_format;
-   VkExtent3D extent;
+   struct vk_image_view vk;
 
    D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
 
    struct d3d12_descriptor_handle rt_handle = {};
    struct d3d12_descriptor_handle zs_handle = {};
+
+   dzn_device *get_device() {
+      return container_of(vk.base.device, dzn_device, vk);
+   }
+
+   const dzn_image *get_image() const {
+      return container_of(vk.image, dzn_image, vk);
+   }
+
+   dzn_image *get_image() {
+      return container_of(vk.image, dzn_image, vk);
+   }
 
    dzn_image_view(dzn_device *device,
                   const VkImageViewCreateInfo *pCreateInfo,
@@ -1270,7 +1276,7 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_event, base, VkEvent, VK_OBJECT_TYPE_EVENT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_fence, base, VkFence, VK_OBJECT_TYPE_FENCE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_framebuffer, base, VkFramebuffer, VK_OBJECT_TYPE_FRAMEBUFFER)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image, vk.base, VkImage, VK_OBJECT_TYPE_IMAGE)
-VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
+VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_image_view, vk.base, VkImageView, VK_OBJECT_TYPE_IMAGE_VIEW)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_pipeline, base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_graphics_pipeline, base.base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
 VK_DEFINE_NONDISP_HANDLE_CASTS(dzn_compute_pipeline, base.base, VkPipeline, VK_OBJECT_TYPE_PIPELINE)
