@@ -78,11 +78,11 @@ dzn_image::dzn_image(dzn_device *device,
        * - usage only includes VK_IMAGE_USAGE_TRANSFER_SRC_BIT and/or VK_IMAGE_USAGE_TRANSFER_DST_BIT
        * "
        */
-      assert(pCreateInfo->imageType == VK_IMAGE_TYPE_2D);
       assert(!vk_format_is_depth_or_stencil(pCreateInfo->format));
       assert(pCreateInfo->mipLevels == 1);
       assert(pCreateInfo->arrayLayers == 1);
       assert(pCreateInfo->samples == 1);
+      assert(pCreateInfo->imageType != VK_IMAGE_TYPE_3D);
       assert(!(pCreateInfo->usage & ~(VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)));
       D3D12_RESOURCE_DESC tmp_desc = {
          .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
