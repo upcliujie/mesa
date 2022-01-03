@@ -928,6 +928,8 @@ dzn_image_view::dzn_image_view(dzn_device *dev,
          break;
       case D3D12_RTV_DIMENSION_TEXTURE3D:
          rtv_desc.Texture3D.MipSlice = range->baseMipLevel;
+         rtv_desc.Texture3D.FirstWSlice = 0;
+         rtv_desc.Texture3D.WSize = u_minify(img->vk.extent.depth, range->baseMipLevel);
          break;
       case D3D12_RTV_DIMENSION_TEXTURE1DARRAY:
          rtv_desc.Texture1DArray.MipSlice = range->baseMipLevel;
