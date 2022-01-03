@@ -31,7 +31,8 @@
 dzn_cmd_pool::dzn_cmd_pool(dzn_device *device,
                            const VkCommandPoolCreateInfo *pCreateInfo,
                            const VkAllocationCallbacks *pAllocator) :
-                          flags(pCreateInfo->flags)
+   flags(pCreateInfo->flags),
+   bufs(bufs_allocator(pAllocator ? pAllocator : &device->vk.alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
 {
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_COMMAND_POOL);
    alloc = pAllocator ? *pAllocator : device->vk.alloc;
@@ -40,6 +41,70 @@ dzn_cmd_pool::dzn_cmd_pool(dzn_device *device,
 dzn_cmd_pool::~dzn_cmd_pool()
 {
    vk_object_base_finish(&base);
+}
+
+VkResult
+dzn_cmd_pool::allocate_cmd_buffers(dzn_device *device,
+                                   const VkCommandBufferAllocateInfo *pAllocateInfo,
+                                   VkCommandBuffer *pCommandBuffers)
+{
+   VkResult result = VK_SUCCESS;
+   uint32_t i;
+
+   for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
+      dzn_cmd_buffer *cmd_buffer;
+      result = dzn_cmd_buffer_factory::create(device, this,
+                                              pAllocateInfo->level,
+                                              &alloc,
+                                              &cmd_buffer);
+      if (result != VK_SUCCESS)
+         break;
+
+      cmd_buffer->index = bufs.size();
+      bufs.push_back(dzn_object_unique_ptr<dzn_cmd_buffer>(cmd_buffer));
+      pCommandBuffers[i] = dzn_cmd_buffer_to_handle(cmd_buffer);
+   }
+
+   if (result != VK_SUCCESS) {
+      dzn_cmd_pool::free_cmd_buffers(device, i, pCommandBuffers);
+      for (i = 0; i < pAllocateInfo->commandBufferCount; i++)
+         pCommandBuffers[i] = VK_NULL_HANDLE;
+   }
+
+   return result;
+}
+
+void
+dzn_cmd_pool::free_cmd_buffers(dzn_device *device,
+                               uint32_t commandBufferCount,
+                               const VkCommandBuffer *pCommandBuffers)
+{
+   // TODO: keep resources around
+   for (uint32_t i = 0; i < commandBufferCount; i++) {
+      VK_FROM_HANDLE(dzn_cmd_buffer, buf, pCommandBuffers[i]);
+
+      if (buf) {
+         assert(bufs.size() > 0);
+
+         if (buf->index != bufs.size() - 1) {
+            auto &tmp_buf = bufs[buf->index];
+            tmp_buf.swap(bufs[bufs.size() - 1]);
+	    tmp_buf->index = buf->index;
+	 }
+
+         bufs.pop_back();
+      }
+   }
+}
+
+VkResult
+dzn_cmd_pool::reset(dzn_device *device)
+{
+   // TODO: keep resources around
+   for (auto &buf : bufs)
+      buf->reset();
+
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -62,6 +127,17 @@ dzn_DestroyCommandPool(VkDevice device,
    dzn_cmd_pool_factory::destroy(device,
                                  commandPool,
                                  pAllocator);
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_ResetCommandPool(VkDevice device,
+                     VkCommandPool commandPool,
+                     VkCommandPoolResetFlags flags)
+{
+   VK_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
+   VK_FROM_HANDLE(dzn_device, dev, device);
+
+   return pool->reset(dev);
 }
 
 dzn_batch::dzn_batch(dzn_cmd_buffer *cmd_buffer):
@@ -163,6 +239,12 @@ dzn_cmd_buffer::~dzn_cmd_buffer()
    vk_command_buffer_finish(&vk);
 }
 
+const VkAllocationCallbacks *
+dzn_cmd_buffer::get_vk_allocator()
+{
+   return &pool->alloc;
+}
+
 void
 dzn_cmd_buffer::close_batch()
 {
@@ -249,49 +331,15 @@ dzn_cmd_buffer::reset()
    vk_command_buffer_reset(&vk);
 }
 
-VkResult
-dzn_cmd_pool::allocate_cmd_buffers(VkDevice device,
-                                   const VkCommandBufferAllocateInfo *pAllocateInfo,
-                                   VkCommandBuffer *pCommandBuffers)
-{
-   VkResult result = VK_SUCCESS;
-   uint32_t i;
-
-   for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
-      result = dzn_cmd_buffer_factory::create(device, this,
-                                              pAllocateInfo->level,
-                                              &alloc,
-                                              &pCommandBuffers[i]);
-      if (result != VK_SUCCESS)
-         break;
-   }
-
-   if (result != VK_SUCCESS) {
-      dzn_cmd_pool::free_cmd_buffers(device, i, pCommandBuffers);
-      for (i = 0; i < pAllocateInfo->commandBufferCount; i++)
-         pCommandBuffers[i] = VK_NULL_HANDLE;
-   }
-
-   return result;
-}
-
-void
-dzn_cmd_pool::free_cmd_buffers(VkDevice device,
-                               uint32_t commandBufferCount,
-                               const VkCommandBuffer *pCommandBuffers)
-{
-   for (uint32_t i = 0; i < commandBufferCount; i++)
-      dzn_cmd_buffer_factory::destroy(device, pCommandBuffers[i], &alloc);
-}
-
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_AllocateCommandBuffers(VkDevice device,
                            const VkCommandBufferAllocateInfo *pAllocateInfo,
                            VkCommandBuffer *pCommandBuffers)
 {
    VK_FROM_HANDLE(dzn_cmd_pool, pool, pAllocateInfo->commandPool);
+   VK_FROM_HANDLE(dzn_device, dev, device);
 
-   return pool->allocate_cmd_buffers(device, pAllocateInfo, pCommandBuffers);
+   return pool->allocate_cmd_buffers(dev, pAllocateInfo, pCommandBuffers);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -301,8 +349,9 @@ dzn_FreeCommandBuffers(VkDevice device,
                        const VkCommandBuffer *pCommandBuffers)
 {
    VK_FROM_HANDLE(dzn_cmd_pool, pool, commandPool);
+   VK_FROM_HANDLE(dzn_device, dev, device);
 
-   pool->free_cmd_buffers(device, commandBufferCount, pCommandBuffers);
+   pool->free_cmd_buffers(dev, commandBufferCount, pCommandBuffers);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL

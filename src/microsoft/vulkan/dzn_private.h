@@ -546,6 +546,7 @@ struct dzn_cmd_buffer {
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
    std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> dsv_pool;
    struct dzn_cmd_pool *pool;
+   uint32_t index;
    using bufs_allocator = dzn_allocator<ComPtr<ID3D12Resource>>;
    std::vector<ComPtr<ID3D12Resource>, bufs_allocator> internal_bufs;
 
@@ -604,6 +605,7 @@ struct dzn_cmd_buffer {
    void close_batch();
    dzn_batch *get_batch(bool signal_event = false);
    void reset();
+   const VkAllocationCallbacks *get_vk_allocator();
 
    void begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
                    const VkSubpassBeginInfoKHR *pSubpassBeginInfo);
@@ -702,13 +704,17 @@ struct dzn_cmd_pool {
    ~dzn_cmd_pool();
 
    VkResult
-   allocate_cmd_buffers(VkDevice device,
+   allocate_cmd_buffers(dzn_device *device,
                         const VkCommandBufferAllocateInfo *pAllocateInfo,
                         VkCommandBuffer *pCommandBuffers);
    void
-   free_cmd_buffers(VkDevice device,
+   free_cmd_buffers(dzn_device *device,
                     uint32_t commandBufferCount,
                     const VkCommandBuffer *pCommandBuffers);
+   VkResult reset(dzn_device *device);
+
+   using bufs_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_cmd_buffer>>;
+   dzn_object_vector<dzn_cmd_buffer> bufs;
 };
 
 struct dzn_descriptor_pool {
