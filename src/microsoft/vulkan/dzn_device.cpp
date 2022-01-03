@@ -584,7 +584,11 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
    else
       properties->imageFormatProperties.maxMipLevels = 1;
 
-   properties->imageFormatProperties.maxArrayLayers = get_max_array_layers();
+   if (info->tiling == VK_IMAGE_TILING_OPTIMAL)
+      properties->imageFormatProperties.maxArrayLayers = get_max_array_layers();
+   else
+      properties->imageFormatProperties.maxArrayLayers = 1;
+
    switch (info->type) {
    case VK_IMAGE_TYPE_1D:
       properties->imageFormatProperties.maxExtent.width = max_extent;
