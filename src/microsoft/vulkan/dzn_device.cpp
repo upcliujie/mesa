@@ -2213,6 +2213,17 @@ dzn_ResetEvent(VkDevice _device,
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
+dzn_SetEvent(VkDevice _device,
+             VkEvent _event)
+{
+   VK_FROM_HANDLE(dzn_device, device, _device);
+   VK_FROM_HANDLE(dzn_event, event, _event);
+
+   event->fence->Signal(1);
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
 dzn_GetEventStatus(VkDevice _device,
                    VkEvent _event)
 {
