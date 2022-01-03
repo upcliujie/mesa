@@ -466,6 +466,11 @@ dzn_physical_device::get_format_properties(VkFormat format,
          VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_BLIT_SRC_BIT;
    }
 
+   if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_SAMPLE) {
+      properties->optimalTilingFeatures |=
+         VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+   }
+
    /* Color/depth/stencil attachment cap implies input attachement cap, and input
     * attachment loads are lowered to texture loads in dozen, hence the requirement
     * to have shader-load support.
