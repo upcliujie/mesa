@@ -59,6 +59,7 @@ dzn_image::dzn_image(dzn_device *device,
 #endif
 
    vk_image_init(&device->vk, &vk, pCreateInfo);
+   enum pipe_format pfmt = vk_format_to_pipe_format(vk.format);
 
    if (vk.tiling == VK_IMAGE_TILING_LINEAR) {
       /* Treat linear images as buffers: they should only be used as copy
@@ -86,8 +87,8 @@ dzn_image::dzn_image(dzn_device *device,
       D3D12_RESOURCE_DESC tmp_desc = {
          .Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
          .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
-         .Width = vk.extent.width,
-         .Height = vk.extent.height,
+         .Width = ALIGN(vk.extent.width, util_format_get_blockwidth(pfmt)),
+         .Height = (UINT)ALIGN(vk.extent.height, util_format_get_blockheight(pfmt)),
          .DepthOrArraySize = 1,
          .MipLevels = 1,
          .Format =
