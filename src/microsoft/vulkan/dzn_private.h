@@ -273,6 +273,7 @@ struct dzn_physical_device {
    D3D12_HEAP_FLAGS get_heap_flags_for_mem_type(uint32_t mem_type) const;
    uint32_t get_mem_type_mask_for_resource(const D3D12_RESOURCE_DESC &desc) const;
 
+   D3D12_FEATURE_DATA_FORMAT_SUPPORT get_format_support(VkFormat format);
    void get_format_properties(VkFormat format,
                               VkFormatProperties *pFormatProperties);
    void get_format_properties(VkFormat format,
@@ -285,7 +286,6 @@ private:
    void get_device_extensions();
    void cache_caps(std::lock_guard<std::mutex>&);
    void init_memory(std::lock_guard<std::mutex>&);
-   D3D12_FEATURE_DATA_FORMAT_SUPPORT get_format_support(VkFormat format);
    bool supports_compressed_format(const VkFormat *formats, uint32_t format_count);
    uint32_t get_max_array_layers();
    uint32_t get_max_mip_levels(bool is_3d);
