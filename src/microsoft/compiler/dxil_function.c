@@ -77,6 +77,7 @@ static struct  predefined_func_descr predefined_funcs[] = {
 {"dx.op.makeDouble", "g", "iii", DXIL_ATTR_KIND_READ_NONE},
 {"dx.op.splitDouble", "G", "ig", DXIL_ATTR_KIND_READ_NONE},
 {"dx.op.storePatchConstant", "v", "iiicO", DXIL_ATTR_KIND_NO_UNWIND},
+{"dx.op.loadPatchConstant", "O", "iiic", DXIL_ATTR_KIND_READ_NONE},
 };
 
 struct func_descr {
