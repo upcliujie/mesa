@@ -1,5 +1,185 @@
 [
     {
+        "sha": "13bdd8da5e9b8e52b3913be8c2d18610a7b31605",
+        "description": "driconf: enable glthread for Minecraft-FTB, Stellaris, Battletech",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d28677cfd96b17904e39bde58dbe974a69c05d2a",
+        "description": "nouveau/nir: Lower 64-bit phis",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ce723950082e5abc52e5d6c2fa5c5c87cc54d617",
+        "description": "radeonsi: add a debug option that disables DCC for all exported buffers",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4cc054804618403a24e9ad48fd860d13fa911a95",
+        "description": "zink: malloc/sizeof mismatch",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "495b2c537b386cd1945f52bac038b737654e443e",
+        "description": "ci: debian-clang: -Wno-error for sometimes-uninitialized",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9e2f1f05c6331d724110a5d4d2a7f5df8ac86115",
+        "description": "r600/sb: silence a sometimes-uninitialized warning",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2a4c56e4e370c05da3847ebd42a9278d01f78fab",
+        "description": "mesa/vbo: be more comprehensive for degenerate primitive conversion in dlists",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "29d319c767394b685e2b421a89a7e8e7103e2688",
+        "description": "pan/bi: Fix load_const of 1-bit booleans",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "646e03c451980c7082a139ba4a6c7eb370822cc7"
+    },
+    {
+        "sha": "78ef08a0611f27b87ab2180fb3da2191daf34bb8",
+        "description": "anv: enable adaptive sync for ANV",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "89b54626fea1b68680f3e6f4694e79bb5d620f49",
+        "description": "iris: enable adaptive sync for IRIS",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "795638767d142a58b76c91a0719e42536435320f",
+        "description": "pan/bi: Use fused dual source blending",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "af3863c6585f2fdec8564451482a168fbfce462b",
+        "description": "pan/bi: Allow an extra staging source",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "251b1c17537281aa87696fe4873a500603d7957f",
+        "description": "pan/bi: Use is_staging_src helper",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c4da1b84d3fe71ad0367db561724182a12b4c76b",
+        "description": "panfrost: Remove pan_nir_reorder_writeout",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d3fb341b4a696678dd6b7f26c8fa743656715631",
+        "description": "panfrost: Combine dual source blends",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "24ea7cbb061eb9b6675c8e34025a6619541e0bdc",
+        "description": "nir: Extend store_combined_output_pan",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e42133aa2ffdb16b3430bc03aa32c572801fdfe8",
+        "description": "panfrost: Simplify blend lowering pass",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5c168f09eb92af8f12abdafe0f0b9de903330959",
+        "description": "nir: Eliminate store_combined_output_pan BASE",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b3d72727537ff1b40323148ac040f84cdbb575c1",
+        "description": "pan/mdg: Don't read base for combined stores",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "996645e4794acc84537b6b69680acfc46620bbcb",
+        "description": "pan/bi: Don't read base for combined stores",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
         "sha": "31d839aacc63831e7e13c46d5070672fb09ff844",
         "description": "aco: lower masked swizzle to DPP8",
         "nominated": false,
