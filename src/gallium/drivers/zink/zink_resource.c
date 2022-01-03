@@ -775,6 +775,8 @@ resource_create(struct pipe_screen *pscreen,
 
    bool optimal_tiling = false;
    struct pipe_resource templ2 = *templ;
+   if (screen->faked_e5sparse && templ->format == PIPE_FORMAT_R9G9B9E5_FLOAT)
+      templ2.flags &= ~PIPE_RESOURCE_FLAG_SPARSE;
    if (templ2.flags & PIPE_RESOURCE_FLAG_SPARSE)
       templ2.bind |= PIPE_BIND_SHADER_IMAGE;
    unsigned scanout_flags = templ->bind & (PIPE_BIND_SCANOUT | PIPE_BIND_SHARED);
