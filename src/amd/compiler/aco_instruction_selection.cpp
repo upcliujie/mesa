@@ -5585,14 +5585,14 @@ visit_load_push_constant(isel_context* ctx, nir_intrinsic_instr* instr)
 
    if (index_cv && instr->dest.ssa.bit_size >= 32) {
       unsigned start = (offset + index_cv->u32) / 4u;
-      uint32_t mask = BITFIELD_MASK(count) << start;
+      uint64_t mask = BITFIELD64_MASK(count) << start;
       if ((ctx->args->ac.inline_push_const_mask | mask) == ctx->args->ac.inline_push_const_mask &&
           start + count <= (sizeof(ctx->args->ac.inline_push_const_mask) * 8u)) {
          std::array<Temp, NIR_MAX_VEC_COMPONENTS> elems;
          aco_ptr<Pseudo_instruction> vec{create_instruction<Pseudo_instruction>(
             aco_opcode::p_create_vector, Format::PSEUDO, count, 1)};
          unsigned arg_index =
-            util_bitcount(ctx->args->ac.inline_push_const_mask & BITFIELD_MASK(start));
+            util_bitcount64(ctx->args->ac.inline_push_const_mask & BITFIELD64_MASK(start));
          for (unsigned i = 0; i < count; ++i) {
             elems[i] = get_arg(ctx, ctx->args->ac.inline_push_consts[arg_index++]);
             vec->operands[i] = Operand{elems[i]};

@@ -1645,12 +1645,12 @@ static LLVMValueRef visit_load_push_constant(struct ac_nir_context *ctx, nir_int
       offset += LLVMConstIntGetZExtValue(src0);
       offset /= 4;
 
-      uint32_t mask = BITFIELD_MASK(count) << offset;
+      uint64_t mask = BITFIELD64_MASK(count) << offset;
       if ((ctx->args->inline_push_const_mask | mask) == ctx->args->inline_push_const_mask &&
           offset + count <= (sizeof(ctx->args->inline_push_const_mask) * 8u)) {
          LLVMValueRef *const push_constants = alloca(count * sizeof(LLVMValueRef));
          unsigned arg_index =
-            util_bitcount(ctx->args->inline_push_const_mask & BITFIELD_MASK(offset));
+            util_bitcount64(ctx->args->inline_push_const_mask & BITFIELD64_MASK(offset));
          for (unsigned i = 0; i < count; i++)
             push_constants[i] = ac_get_arg(&ctx->ac, ctx->args->inline_push_consts[arg_index++]);
          LLVMValueRef res = ac_build_gather_values(&ctx->ac, push_constants, count);

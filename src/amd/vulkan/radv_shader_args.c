@@ -70,7 +70,7 @@ set_loc_desc(struct radv_shader_args *args, int idx, uint8_t *sgpr_idx)
 struct user_sgpr_info {
    bool indirect_all_descriptor_sets;
    uint8_t remaining_sgprs;
-   uint32_t inline_push_constant_mask;
+   uint64_t inline_push_constant_mask;
    bool inlined_all_push_consts;
 };
 
@@ -157,8 +157,8 @@ allocate_inline_push_consts(const struct radv_shader_info *info,
    if (!info->inline_push_constant_mask)
       return;
 
-   uint32_t mask = info->inline_push_constant_mask;
-   uint8_t num_push_consts = util_bitcount(mask);
+   uint64_t mask = info->inline_push_constant_mask;
+   uint8_t num_push_consts = util_bitcount64(mask);
 
    /* Disable the default push constants path if all constants can be inlined and if shaders don't
     * use dynamic descriptors.
@@ -172,7 +172,7 @@ allocate_inline_push_consts(const struct radv_shader_info *info,
       /* Clamp to the maximum number of allowed inlined push constants. */
       while (num_push_consts > MIN2(remaining_sgprs, AC_MAX_INLINE_PUSH_CONSTS)) {
          num_push_consts--;
-         mask &= ~BITFIELD_BIT(util_last_bit(mask) - 1);
+         mask &= ~BITFIELD64_BIT(util_last_bit64(mask) - 1);
       }
    }
 
@@ -283,7 +283,7 @@ declare_global_input_sgprs(const struct radv_shader_info *info,
       ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_CONST_PTR, &args->ac.push_constants);
    }
 
-   for (unsigned i = 0; i < util_bitcount(user_sgpr_info->inline_push_constant_mask); i++) {
+   for (unsigned i = 0; i < util_bitcount64(user_sgpr_info->inline_push_constant_mask); i++) {
       ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.inline_push_consts[i]);
    }
    args->ac.inline_push_const_mask = user_sgpr_info->inline_push_constant_mask;
