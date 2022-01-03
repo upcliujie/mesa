@@ -279,11 +279,14 @@ struct dzn_physical_device {
                               VkFormatProperties2 *pFormatProperties);
    VkResult get_image_format_properties(const VkPhysicalDeviceImageFormatInfo2 *info,
                                         VkImageFormatProperties2 *properties);
+   bool supports_bc();
+
 private:
    void get_device_extensions();
    void cache_caps(std::lock_guard<std::mutex>&);
    void init_memory(std::lock_guard<std::mutex>&);
    D3D12_FEATURE_DATA_FORMAT_SUPPORT get_format_support(VkFormat format);
+   bool supports_compressed_format(const VkFormat *formats, uint32_t format_count);
    uint32_t get_max_array_layers();
    uint32_t get_max_mip_levels(bool is_3d);
    uint32_t get_max_extent(bool is_3d);

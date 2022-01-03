@@ -820,10 +820,55 @@ dzn_EnumerateInstanceVersion(uint32_t *pApiVersion)
     return VK_SUCCESS;
 }
 
+bool
+dzn_physical_device::supports_compressed_format(const VkFormat *formats,
+                                                uint32_t format_count)
+{
+#define REQUIRED_COMPRESSED_CAPS \
+        (VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | \
+         VK_FORMAT_FEATURE_BLIT_SRC_BIT | \
+         VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)
+   for (uint32_t i = 0; i < format_count; i++) {
+      VkFormatProperties props = {};
+      get_format_properties(formats[i], &props);
+      if ((props.optimalTilingFeatures & REQUIRED_COMPRESSED_CAPS) != REQUIRED_COMPRESSED_CAPS)
+         return false;
+   }
+
+   return true;
+}
+
+bool
+dzn_physical_device::supports_bc()
+{
+   static const VkFormat formats[] = {
+      VK_FORMAT_BC1_RGB_UNORM_BLOCK,
+      VK_FORMAT_BC1_RGB_SRGB_BLOCK,
+      VK_FORMAT_BC1_RGBA_UNORM_BLOCK,
+      VK_FORMAT_BC1_RGBA_SRGB_BLOCK,
+      VK_FORMAT_BC2_UNORM_BLOCK,
+      VK_FORMAT_BC2_SRGB_BLOCK,
+      VK_FORMAT_BC3_UNORM_BLOCK,
+      VK_FORMAT_BC3_SRGB_BLOCK,
+      VK_FORMAT_BC4_UNORM_BLOCK,
+      VK_FORMAT_BC4_SNORM_BLOCK,
+      VK_FORMAT_BC5_UNORM_BLOCK,
+      VK_FORMAT_BC5_SNORM_BLOCK,
+      VK_FORMAT_BC6H_UFLOAT_BLOCK,
+      VK_FORMAT_BC6H_SFLOAT_BLOCK,
+      VK_FORMAT_BC7_UNORM_BLOCK,
+      VK_FORMAT_BC7_SRGB_BLOCK,
+   };
+
+   return supports_compressed_format(formats, ARRAY_SIZE(formats));
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
                               VkPhysicalDeviceFeatures *pFeatures)
 {
+   VK_FROM_HANDLE(dzn_physical_device, pdev, physicalDevice);
+
    *pFeatures = VkPhysicalDeviceFeatures {
       .robustBufferAccess = true, /* This feature is mandatory */
       .fullDrawIndexUint32 = false,
@@ -847,7 +892,7 @@ dzn_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
       .samplerAnisotropy = false,
       .textureCompressionETC2 = false,
       .textureCompressionASTC_LDR = false,
-      .textureCompressionBC = false,
+      .textureCompressionBC = pdev->supports_bc(),
       .occlusionQueryPrecise = false,
       .pipelineStatisticsQuery = false,
       .vertexPipelineStoresAndAtomics = false,
