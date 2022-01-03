@@ -86,7 +86,11 @@ public:
 
    T *allocate(size_t n)
    {
-      return (T *)vk_alloc(&allocator, sizeof(T) * n, alignof(T), scope);
+      T *obj = (T *)vk_alloc(&allocator, sizeof(T) * n, alignof(T), scope);
+      if (!obj)
+         throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+      return obj;
    }
 
    void deallocate(T *p, size_t n)
@@ -167,6 +171,9 @@ dzn_transient_alloc(size_t count,
    T *ptr = (T *)
       vk_alloc2(parent_alloc, alloc, count * sizeof(T), alignof(T),
                 VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+   if (!ptr)
+      throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
+
    return dzn_transient_object<T>(ptr, deleter);
 }
 
@@ -184,6 +191,9 @@ dzn_transient_zalloc(size_t count,
    T *ptr = (T *)
       vk_zalloc2(parent_alloc, alloc, count * sizeof(T), alignof(T),
                  VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+   if (!ptr)
+      throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
+
    return dzn_transient_object<T>(ptr, deleter);
 }
 
@@ -195,6 +205,9 @@ dzn_private_object_create(const VkAllocationCallbacks *parent_alloc,
    T *obj = (T *)
       vk_alloc(parent_alloc, sizeof(T), alignof(T),
                VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+
+   if (!obj)
+      throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    std::construct_at(obj, std::forward<CreateArgs>(args)...);
    return dzn_object_unique_ptr<T>(obj);
