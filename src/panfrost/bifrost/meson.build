@@ -25,6 +25,7 @@ libpanfrost_bifrost_files = files(
   'bi_helper_invocations.c',
   'bi_layout.c',
   'bi_liveness.c',
+  'bi_lower_booleans.c',
   'bi_lower_divergent_indirects.c',
   'bi_lower_swizzle.c',
   'bi_print.c',
