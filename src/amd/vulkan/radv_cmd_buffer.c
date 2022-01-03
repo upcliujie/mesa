@@ -3251,12 +3251,12 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer, VkShaderStageFlags stag
 
       need_push_constants |= radv_shader_loads_push_constants(pipeline, stage);
 
-      uint32_t mask = shader->info.inline_push_constant_mask;
+      uint64_t mask = shader->info.inline_push_constant_mask;
       if (!mask)
          continue;
 
       uint8_t base = ffs(mask) - 1;
-      if (mask == u_bit_consecutive(base, util_last_bit(mask) - base)) {
+      if (mask == u_bit_consecutive64(base, util_last_bit64(mask) - base)) {
          /* consecutive inline push constants */
          radv_emit_inline_push_consts(cmd_buffer, pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS,
                                       (uint32_t *)cmd_buffer->push_constants + base);
@@ -3264,7 +3264,7 @@ radv_flush_constants(struct radv_cmd_buffer *cmd_buffer, VkShaderStageFlags stag
          /* sparse inline push constants */
          uint32_t consts[AC_MAX_INLINE_PUSH_CONSTS];
          unsigned num_consts = 0;
-         u_foreach_bit (idx, mask)
+         u_foreach_bit64 (idx, mask)
             consts[num_consts++] = ((uint32_t *)cmd_buffer->push_constants)[idx];
          radv_emit_inline_push_consts(cmd_buffer, pipeline, stage, AC_UD_INLINE_PUSH_CONSTANTS,
                                       consts);
