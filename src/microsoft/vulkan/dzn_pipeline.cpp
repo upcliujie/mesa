@@ -538,7 +538,7 @@ dzn_graphics_pipeline::translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
    const VkPipelineMultisampleStateCreateInfo *in_ms =
       in->pMultisampleState;
 
-   if (!in_ms)
+   if (!in_blend || !in_ms)
       return;
 
    D3D12_LOGIC_OP logicop =
