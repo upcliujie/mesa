@@ -757,7 +757,7 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceProperties(VkPhysicalDevice phys
       .maxFragmentInputComponents               = 128,
       .maxFragmentOutputAttachments             = 8,
       .maxFragmentDualSrcAttachments            = 2,
-      .maxFragmentCombinedOutputResources       = 8,
+      .maxFragmentCombinedOutputResources       = PIPE_MAX_COLOR_BUFS + PIPE_MAX_SHADER_BUFFERS + PIPE_MAX_SHADER_IMAGES,
       .maxComputeSharedMemorySize               = max_local_size,
       .maxComputeWorkGroupCount                 = { grid_size[0], grid_size[1], grid_size[2] },
       .maxComputeWorkGroupInvocations           = max_threads_per_block,
