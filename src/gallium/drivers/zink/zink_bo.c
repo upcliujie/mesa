@@ -694,7 +694,7 @@ zink_bo_unmap(struct zink_screen *screen, struct zink_bo *bo)
 }
 
 static bool
-do_commit_single(struct zink_screen *screen, struct zink_resource *res, struct zink_bo *bo, uint32_t offset, uint32_t size, bool commit)
+buffer_commit_single(struct zink_screen *screen, struct zink_resource *res, struct zink_bo *bo, uint32_t offset, uint32_t size, bool commit)
 {
    VkBindSparseInfo sparse = {0};
    sparse.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
@@ -721,8 +721,8 @@ do_commit_single(struct zink_screen *screen, struct zink_resource *res, struct z
    return zink_screen_handle_vkresult(screen, ret);
 }
 
-bool
-zink_bo_commit(struct zink_screen *screen, struct zink_resource *res, uint32_t offset, uint32_t size, bool commit)
+static bool
+buffer_bo_commit(struct zink_screen *screen, struct zink_resource *res, uint32_t offset, uint32_t size, bool commit)
 {
    bool ok = true;
    struct zink_bo *bo = res->obj->bo;
@@ -735,8 +735,6 @@ zink_bo_commit(struct zink_screen *screen, struct zink_resource *res, uint32_t o
 
    uint32_t va_page = offset / ZINK_SPARSE_BUFFER_PAGE_SIZE;
    uint32_t end_va_page = va_page + DIV_ROUND_UP(size, ZINK_SPARSE_BUFFER_PAGE_SIZE);
-
-   simple_mtx_lock(&bo->lock);
 
    if (commit) {
       while (va_page < end_va_page) {
@@ -764,9 +762,9 @@ zink_bo_commit(struct zink_screen *screen, struct zink_resource *res, uint32_t o
                ok = false;
                goto out;
             }
-            if (!do_commit_single(screen, res, backing->bo,
-                                  (uint64_t)span_va_page * ZINK_SPARSE_BUFFER_PAGE_SIZE,
-                                  (uint64_t)backing_size * ZINK_SPARSE_BUFFER_PAGE_SIZE, true)) {
+            if (!buffer_commit_single(screen, res, backing->bo,
+                                      (uint64_t)span_va_page * ZINK_SPARSE_BUFFER_PAGE_SIZE,
+                                      (uint64_t)backing_size * ZINK_SPARSE_BUFFER_PAGE_SIZE, true)) {
 
                ok = sparse_backing_free(screen, bo, backing, backing_start, backing_size);
                assert(ok && "sufficient memory should already be allocated");
@@ -785,9 +783,9 @@ zink_bo_commit(struct zink_screen *screen, struct zink_resource *res, uint32_t o
          }
       }
    } else {
-      if (!do_commit_single(screen, res, NULL,
-                            (uint64_t)va_page * ZINK_SPARSE_BUFFER_PAGE_SIZE,
-                            (uint64_t)(end_va_page - va_page) * ZINK_SPARSE_BUFFER_PAGE_SIZE, false)) {
+      if (!buffer_commit_single(screen, res, NULL,
+                                (uint64_t)va_page * ZINK_SPARSE_BUFFER_PAGE_SIZE,
+                                (uint64_t)(end_va_page - va_page) * ZINK_SPARSE_BUFFER_PAGE_SIZE, false)) {
          ok = false;
          goto out;
       }
@@ -827,8 +825,184 @@ zink_bo_commit(struct zink_screen *screen, struct zink_resource *res, uint32_t o
       }
    }
 out:
+   return ok;
+}
+
+static bool
+texture_commit_single(struct zink_screen *screen, struct zink_resource *res, struct zink_bo *bo,
+                      VkImageSubresource *subresource, VkOffset3D *offset, VkExtent3D *extents, bool commit)
+{
+   VkBindSparseInfo sparse = {0};
+   sparse.sType = VK_STRUCTURE_TYPE_BIND_SPARSE_INFO;
+   sparse.bufferBindCount = 1;
+
+   VkSparseImageMemoryBindInfo sparse_ibind;
+   VkSparseImageMemoryBind ibind;
+   /* TODO: msaa needs miptail */
+   //VkSparseImageOpaqueMemoryBindInfo sparse_obind;
+   ibind.subresource = *subresource;
+   ibind.offset = *offset;
+   ibind.extent = *extents;
+   ibind.memory = commit ? bo->mem : VK_NULL_HANDLE;
+   ibind.memoryOffset = 0;
+   ibind.flags = 0;
+   sparse_ibind.image = res->obj->image;
+   sparse_ibind.bindCount = 1;
+   sparse_ibind.pBinds = &ibind;
+   sparse.pImageBinds = &sparse_ibind;
+
+   VkQueue queue = screen->threaded ? screen->thread_queue : screen->queue;
+
+   VkResult ret = VKSCR(QueueBindSparse)(queue, 1, &sparse, VK_NULL_HANDLE);
+   return zink_screen_handle_vkresult(screen, ret);
+}
+
+bool
+zink_bo_commit(struct zink_screen *screen, struct zink_resource *res, unsigned level, struct pipe_box *box, bool commit)
+{
+   bool ok = true;
+   struct zink_bo *bo = res->obj->bo;
+
+   if (screen->faked_e5sparse && res->base.b.format == PIPE_FORMAT_R9G9B9E5_FLOAT)
+      return true;
+
+   simple_mtx_lock(&screen->queue_lock);
+   simple_mtx_lock(&bo->lock);
+   if (res->base.b.target == PIPE_BUFFER) {
+      ok = buffer_bo_commit(screen, res, box->x, box->width, commit);
+      goto out;
+   }
+
+   int gwidth, gheight, gdepth;
+   screen->base.get_sparse_texture_virtual_page_size(&screen->base, res->base.b.target, res->base.b.format, 0, 1, &gwidth, &gheight, &gdepth);
+   assert(gwidth && gheight && gdepth);
+
+   struct zink_sparse_commitment *comm = bo->u.sparse.commitments;
+   VkImageSubresource subresource = { res->aspect, level, 0 };
+   unsigned nwidth = DIV_ROUND_UP(box->width, gwidth);
+   unsigned nheight = DIV_ROUND_UP(box->height, gheight);
+   unsigned ndepth = DIV_ROUND_UP(box->depth, gdepth);
+   VkExtent3D lastBlockExtent = {
+			   (box->width % gwidth) ? box->width % gwidth : gwidth,
+			   (box->height % gheight) ? box->height % gheight : gheight,
+			   (box->depth % gdepth) ? box->depth % gdepth : gdepth
+   };
+   VkSubresourceLayout srl;
+   VKSCR(GetImageSubresourceLayout)(screen->dev, res->obj->image, &subresource, &srl);
+
+   for (unsigned d = 0; d < ndepth; d++) {
+      for (unsigned h = 0; h < nheight; h++) {
+         for (unsigned w = 0; w < nwidth; w++) {
+            // Offset
+            VkOffset3D off;
+            off.x = w * gwidth;
+            off.y = h * gheight;
+            off.z = d * gdepth;
+            // Size of the page
+            VkExtent3D extent;
+            extent.width = (w == nwidth - 1) ? lastBlockExtent.width : gwidth;
+            extent.height = (h == nheight - 1) ? lastBlockExtent.height : gheight;
+            extent.depth = (d == ndepth - 1) ? lastBlockExtent.depth : gdepth;
+            const struct util_format_description *desc = util_format_description(res->base.b.format);
+            unsigned offset = srl.offset +
+                              box->z * srl.depthPitch +
+                              (box->y / desc->block.height) * srl.rowPitch +
+                              (box->x / desc->block.width) * (desc->block.bits / 8);
+            VkDeviceSize size = (VkDeviceSize)box->width * box->height * desc->block.bits / 8;
+
+            uint32_t va_page = offset / ZINK_SPARSE_BUFFER_PAGE_SIZE;
+            uint32_t end_va_page = va_page + DIV_ROUND_UP(size, ZINK_SPARSE_BUFFER_PAGE_SIZE);
+
+            if (commit) {
+               while (va_page < end_va_page) {
+                  uint32_t span_va_page;
+
+                  /* Skip pages that are already committed. */
+                  if (comm[va_page].backing) {
+                     va_page++;
+                     continue;
+                  }
+
+                  /* Determine length of uncommitted span. */
+                  span_va_page = va_page;
+                  while (va_page < end_va_page && !comm[va_page].backing)
+                     va_page++;
+
+                  /* Fill the uncommitted span with chunks of backing memory. */
+                  while (span_va_page < va_page) {
+                     struct zink_sparse_backing *backing;
+                     uint32_t backing_start, backing_size;
+
+                     backing_size = va_page - span_va_page;
+                     backing = sparse_backing_alloc(screen, bo, &backing_start, &backing_size);
+                     if (!backing) {
+                        ok = false;
+                        goto out;
+                     }
+                     if (!texture_commit_single(screen, res, backing->bo, &subresource, &off, &extent, true)) {
+                        ok = sparse_backing_free(screen, bo, backing, backing_start, backing_size);
+                        assert(ok && "sufficient memory should already be allocated");
+
+                        ok = false;
+                        goto out;
+                     }
+
+                     while (backing_size) {
+                        comm[span_va_page].backing = backing;
+                        comm[span_va_page].page = backing_start;
+                        span_va_page++;
+                        backing_start++;
+                        backing_size--;
+                     }
+                  }
+               }
+            } else {
+               if (!texture_commit_single(screen, res, NULL, &subresource, &off, &extent, false)) {
+                  ok = false;
+                  goto out;
+               }
+
+               while (va_page < end_va_page) {
+                  struct zink_sparse_backing *backing;
+                  uint32_t backing_start;
+                  uint32_t span_pages;
+
+                  /* Skip pages that are already uncommitted. */
+                  if (!comm[va_page].backing) {
+                     va_page++;
+                     continue;
+                  }
+
+                  /* Group contiguous spans of pages. */
+                  backing = comm[va_page].backing;
+                  backing_start = comm[va_page].page;
+                  comm[va_page].backing = NULL;
+
+                  span_pages = 1;
+                  va_page++;
+
+                  while (va_page < end_va_page &&
+                         comm[va_page].backing == backing &&
+                         comm[va_page].page == backing_start + span_pages) {
+                     comm[va_page].backing = NULL;
+                     va_page++;
+                     span_pages++;
+                  }
+
+                  if (!sparse_backing_free(screen, bo, backing, backing_start, span_pages)) {
+                     /* Couldn't allocate tracking data structures, so we have to leak */
+                     fprintf(stderr, "zink: leaking sparse backing memory\n");
+                     ok = false;
+                  }
+               }
+            }
+         }
+      }
+   }
+out:
 
    simple_mtx_unlock(&bo->lock);
+   simple_mtx_unlock(&screen->queue_lock);
    return ok;
 }
 
