@@ -601,6 +601,9 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
       properties->imageFormatProperties.maxExtent.depth = 1;
       break;
    case VK_IMAGE_TYPE_3D:
+      if (info->tiling != VK_IMAGE_TILING_OPTIMAL)
+         return VK_ERROR_FORMAT_NOT_SUPPORTED;
+
       properties->imageFormatProperties.maxExtent.width = max_extent;
       properties->imageFormatProperties.maxExtent.height = max_extent;
       properties->imageFormatProperties.maxExtent.depth = max_extent;
