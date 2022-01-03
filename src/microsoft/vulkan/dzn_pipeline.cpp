@@ -338,6 +338,8 @@ translate_cull_mode(VkCullModeFlags in)
    case VK_CULL_MODE_NONE: return D3D12_CULL_MODE_NONE;
    case VK_CULL_MODE_FRONT_BIT: return D3D12_CULL_MODE_FRONT;
    case VK_CULL_MODE_BACK_BIT: return D3D12_CULL_MODE_BACK;
+   /* Front+back face culling is equivalent to 'rasterization disabled' */
+   case VK_CULL_MODE_FRONT_AND_BACK: return D3D12_CULL_MODE_NONE;
    default: unreachable("Unsupported cull mode");
    }
 }
@@ -365,7 +367,6 @@ dzn_graphics_pipeline::translate_rast(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
       }
    }
 
-   /* TODO: rasterizerDiscardEnable */
    out.RasterizerState.DepthClipEnable = !in_rast->depthClampEnable;
    out.RasterizerState.FillMode = translate_polygon_mode(in_rast->polygonMode);
    out.RasterizerState.CullMode = translate_cull_mode(in_rast->cullMode);
@@ -675,6 +676,16 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
       stage_mask |= pCreateInfo->pStages[i].stage;
 
    for (uint32_t i = 0; i < pCreateInfo->stageCount; i++) {
+      if (pCreateInfo->pStages[i].stage == VK_SHADER_STAGE_FRAGMENT_BIT &&
+          pCreateInfo->pRasterizationState &&
+          (pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
+           pCreateInfo->pRasterizationState->cullMode == VK_CULL_MODE_FRONT_AND_BACK)) {
+         /* Disable rasterization (AKA leave fragment shader NULL) when
+          * front+back culling or discard is set.
+          */
+         continue;
+      }
+
       D3D12_SHADER_BYTECODE *slot =
          dzn_pipeline_get_gfx_shader_slot(&desc, pCreateInfo->pStages[i].stage);
       enum dxil_spirv_yz_flip_mode yz_flip_mode = DXIL_SPIRV_YZ_FLIP_NONE;
