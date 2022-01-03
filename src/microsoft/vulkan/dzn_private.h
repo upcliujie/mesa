@@ -1335,7 +1335,7 @@ public:
       if (result == VK_SUCCESS)
          *handle = Conv::to_handle(obj);
 
-      return VK_SUCCESS;
+      return result;
    }
 
    static void
