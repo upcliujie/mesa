@@ -539,6 +539,8 @@ ir3_nir_post_finalize(struct ir3_compiler *compiler, nir_shader *s)
                   .lower_vote_eq = true,
                   .lower_subgroup_masks = true,
                   .lower_read_invocation_to_cond = true,
+                  .lower_shuffle = true,
+                  .lower_relative_shuffle = true,
                });
 
       progress = false;
