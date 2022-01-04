@@ -239,4 +239,22 @@ u_box_minify_3d(struct pipe_box *dst,
    dst->depth = MAX2(src->depth >> l, 1);
 }
 
+/* Converts a box @src specified in pixels to an equivalent box @dst specified
+ * in blocks, where the boxes represent a region-of-interest of an image with
+ * format @format. This is trivial (a copy) for uncompressed formats.
+ */
+static inline void
+u_box_pixels_to_blocks(struct pipe_box *dst,
+                       const struct pipe_box *src, enum pipe_format format)
+{
+   u_box_3d(
+         src->x / util_format_get_blockwidth(format),
+         src->y / util_format_get_blockheight(format),
+         src->z,
+         DIV_ROUND_UP(src->width, util_format_get_blockwidth(format)),
+         DIV_ROUND_UP(src->height, util_format_get_blockheight(format)),
+         src->depth,
+         dst);
+}
+
 #endif
