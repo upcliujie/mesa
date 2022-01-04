@@ -3,6 +3,7 @@
 
 #include "pipe/p_state.h"
 #include "util/u_math.h"
+#include "util/format/u_format.h"
 
 static inline void
 u_box_1d(unsigned x, unsigned w, struct pipe_box *box)
