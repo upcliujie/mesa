@@ -288,6 +288,7 @@ enum dxil_intr {
    DXIL_INTR_MAKE_DOUBLE = 101,
    DXIL_INTR_SPLIT_DOUBLE = 102,
 
+   DXIL_INTR_LOAD_OUTPUT_CONTROL_POINT = 103,
    DXIL_INTR_LOAD_PATCH_CONSTANT = 104,
    DXIL_INTR_STORE_PATCH_CONSTANT = 106,
    DXIL_INTR_OUTPUT_CONTROL_POINT_ID = 107,
@@ -3061,6 +3062,7 @@ emit_load_input_via_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr
 
    bool is_patch_constant = ctx->mod.shader_kind == DXIL_DOMAIN_SHADER &&
       intr->intrinsic == nir_intrinsic_load_input;
+   bool is_output_control_point = intr->intrinsic == nir_intrinsic_load_per_vertex_output;
 
    unsigned opcode_val;
    const char *func_name;
@@ -3070,6 +3072,9 @@ emit_load_input_via_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr
    } else if (is_patch_constant) {
       opcode_val = DXIL_INTR_LOAD_PATCH_CONSTANT;
       func_name = "dx.op.loadPatchConstant";
+   } else if (is_output_control_point) {
+      opcode_val = DXIL_INTR_LOAD_OUTPUT_CONTROL_POINT;
+      func_name = "dx.op.loadOutputControlPoint";
    } else {
       opcode_val = DXIL_INTR_LOAD_INPUT;
       func_name = "dx.op.loadInput";
@@ -3083,10 +3088,13 @@ emit_load_input_via_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr
    if (!input_id)
       return false;
 
-   int row_index = intr->intrinsic == nir_intrinsic_load_per_vertex_input ? 1 : 0;
+   bool is_per_vertex =
+      intr->intrinsic == nir_intrinsic_load_per_vertex_input ||
+      intr->intrinsic == nir_intrinsic_load_per_vertex_output;
+   int row_index = is_per_vertex ? 1 : 0;
    const struct dxil_value *vertex_id = NULL;
    if (!is_patch_constant) {
-      if (intr->intrinsic == nir_intrinsic_load_per_vertex_input) {
+      if (is_per_vertex) {
          vertex_id = get_src(ctx, &intr->src[0], 0, nir_type_int);
       } else if (attr_at_vertex) {
          vertex_id = dxil_module_get_int8_const(&ctx->mod, ctx->opts->provoking_vertex);
@@ -4082,6 +4090,7 @@ emit_intrinsic(struct ntd_context *ctx, nir_intrinsic_instr *intr)
       return emit_get_ssbo_size(ctx, intr);
    case nir_intrinsic_load_input:
    case nir_intrinsic_load_per_vertex_input:
+   case nir_intrinsic_load_per_vertex_output:
       return emit_load_input_via_intrinsic(ctx, intr);
    case nir_intrinsic_store_output:
    case nir_intrinsic_store_per_vertex_output:
