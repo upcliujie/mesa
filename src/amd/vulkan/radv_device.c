@@ -82,6 +82,7 @@ typedef void *drmDevicePtr;
 #endif
 
 static VkResult radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission);
+static void radv_queue_finish(struct radv_queue *queue);
 
 uint64_t
 radv_get_current_time(void)
@@ -808,6 +809,11 @@ fail_fd:
 static void
 radv_physical_device_destroy(struct radv_physical_device *device)
 {
+   if (device->vk.wsi_device->private_queue_for_prime_blit != VK_NULL_HANDLE) {
+      RADV_FROM_HANDLE(radv_queue, queue, device->vk.wsi_device->private_queue_for_prime_blit);
+      radv_queue_finish(queue);
+      vk_free(&device->instance->vk.alloc, device->vk.wsi_device->private_queue_for_prime_blit);
+   }
    radv_finish_wsi(device);
    device->ws->destroy(device->ws);
    disk_cache_destroy(device->disk_cache);
@@ -2635,7 +2641,7 @@ radv_get_queue_global_priority(const VkDeviceQueueGlobalPriorityCreateInfoEXT *p
    }
 }
 
-static int
+int
 radv_queue_init(struct radv_device *device, struct radv_queue *queue,
                 int idx, const VkDeviceQueueCreateInfo *create_info,
                 const VkDeviceQueueGlobalPriorityCreateInfoEXT *global_priority)
@@ -3103,6 +3109,30 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          result = radv_queue_init(device, &device->queues[qfi][q], q, queue_create, global_priority);
          if (result != VK_SUCCESS)
             goto fail;
+      }
+   }
+
+   if (physical_device->vk.wsi_device->private_queue_for_prime_blit == VK_NULL_HANDLE &&
+       physical_device->rad_info.chip_class >= GFX9 &&
+       !(physical_device->instance->debug_flags & RADV_DEBUG_NO_DMA_BLIT)) {
+      const VkDeviceQueueCreateInfo queue_create = {
+         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+         .queueFamilyIndex = RADV_QUEUE_TRANSFER,
+         .queueCount = 1,
+      };
+      struct radv_queue *private_sdma_queue = vk_alloc(
+         &device->vk.alloc, sizeof(struct radv_queue), 8,
+         VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+      memset(private_sdma_queue, 0, sizeof(struct radv_queue));
+      result = radv_queue_init(device, private_sdma_queue, 0,
+                               &queue_create, NULL);
+      if (result == VK_SUCCESS) {
+         physical_device->vk.wsi_device->private_queue_for_prime_blit =
+            vk_queue_to_handle(&private_sdma_queue->vk);
+         /* Remove the queue from our queue list because it'll be cleared by the physical device */
+         list_delinit(&private_sdma_queue->vk.link);
+      } else {
+         vk_free(&device->vk.alloc, private_sdma_queue);
       }
    }
 

@@ -24,6 +24,7 @@
  */
 
 #include "util/macros.h"
+#include "radv_debug.h"
 #include "radv_meta.h"
 #include "radv_private.h"
 #include "vk_fence.h"
