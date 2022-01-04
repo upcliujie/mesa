@@ -46,7 +46,6 @@ dEQP-GLES2.functional.rasterization.primitives.line_strip_wide,Fail,Fail
 dEQP-GLES2.functional.rasterization.primitives.line_loop_wide,Fail
 
 dEQP-GLES2.functional.shaders.functions.control_flow.mixed_return_break_continue_vertex,Fail
-dEQP-GLES2.functional.shaders.functions.control_flow.mixed_return_break_continue_fragment,Fail
 
 # "No free temporary to use for predicate stack counter."
 dEQP-GLES2.functional.shaders.indexing.tmp_array.float_const_write_dynamic_loop_read_vertex,Fail
@@ -62,13 +61,11 @@ dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec2_dynamic_subscript_w
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec2_dynamic_subscript_write_static_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec3_dynamic_subscript_write_component_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec3_dynamic_subscript_write_direct_read_fragment,Fail
-dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec3_dynamic_subscript_write_dynamic_loop_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec3_dynamic_subscript_write_dynamic_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec3_dynamic_subscript_write_static_loop_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec3_dynamic_subscript_write_static_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec4_dynamic_subscript_write_component_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec4_dynamic_subscript_write_direct_read_fragment,Fail
-dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec4_dynamic_subscript_write_dynamic_loop_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec4_dynamic_subscript_write_dynamic_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec4_dynamic_subscript_write_static_loop_subscript_read_fragment,Fail
 dEQP-GLES2.functional.shaders.indexing.vector_subscript.vec4_dynamic_subscript_write_static_subscript_read_fragment,Fail
@@ -89,7 +86,10 @@ dEQP-GLES2.functional.shaders.return.return_in_dynamic_loop_dynamic_vertex,Fail
 
 dEQP-GLES2.functional.shaders.random.texture.fragment.141,Fail
 
+dEQP-GLES2.functional.shaders.return.return_in_dynamic_loop_dynamic_fragment,Fail
+
 dEQP-GLES2.functional.shaders.struct.local.dynamic_loop_nested_struct_array_fragment,Fail
+dEQP-GLES2.functional.shaders.struct.uniform.dynamic_loop_nested_struct_array_fragment,Fail
 
 dEQP-GLES2.functional.texture.format.a8_cube_npot,Fail
 dEQP-GLES2.functional.texture.format.l8_cube_npot,Fail
