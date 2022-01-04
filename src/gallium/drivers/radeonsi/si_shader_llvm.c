@@ -846,7 +846,7 @@ bool si_llvm_translate_nir(struct si_shader_context *ctx, struct si_shader *shad
    const struct si_shader_info *info = &sel->info;
 
    ctx->shader = shader;
-   ctx->stage = sel->info.stage;
+   ctx->stage = sel->stage;
 
    ctx->num_const_buffers = info->base.num_ubos;
    ctx->num_shader_buffers = info->base.num_ssbos;
@@ -1057,7 +1057,7 @@ static bool si_should_optimize_less(struct ac_llvm_compiler *compiler,
 
    /* For a crazy dEQP test containing 2597 memory opcodes, mostly
     * buffer stores. */
-   return sel->info.stage == MESA_SHADER_COMPUTE && sel->info.num_memory_stores > 1000;
+   return sel->stage == MESA_SHADER_COMPUTE && sel->info.num_memory_stores > 1000;
 }
 
 static void si_optimize_vs_outputs(struct si_shader_context *ctx)
@@ -1097,7 +1097,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
    memcpy(&ctx.so, so, sizeof(*so));
 
    LLVMValueRef ngg_cull_main_fn = NULL;
-   if (sel->info.stage <= MESA_SHADER_TESS_EVAL && shader->key.ge.opt.ngg_culling) {
+   if (sel->stage <= MESA_SHADER_TESS_EVAL && shader->key.ge.opt.ngg_culling) {
       if (!si_llvm_translate_nir(&ctx, shader, nir, false, true)) {
          si_llvm_dispose(&ctx);
          return false;
@@ -1111,7 +1111,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
       return false;
    }
 
-   if (shader->is_monolithic && sel->info.stage == MESA_SHADER_VERTEX) {
+   if (shader->is_monolithic && sel->stage == MESA_SHADER_VERTEX) {
       LLVMValueRef parts[4];
       unsigned num_parts = 0;
       bool first_is_prolog = false;
@@ -1143,7 +1143,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
       parts[num_parts++] = main_fn;
 
       si_build_wrapper_function(&ctx, parts, num_parts, first_is_prolog ? 1 : 0, 0, false);
-   } else if (shader->is_monolithic && sel->info.stage == MESA_SHADER_TESS_EVAL && ngg_cull_main_fn) {
+   } else if (shader->is_monolithic && sel->stage == MESA_SHADER_TESS_EVAL && ngg_cull_main_fn) {
       LLVMValueRef parts[3], prolog, main_fn = ctx.main_fn;
 
       /* We reuse the VS prolog code for TES just to load the input VGPRs from LDS. */
@@ -1162,7 +1162,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
       parts[2] = main_fn;
 
       si_build_wrapper_function(&ctx, parts, 3, 0, 0, false);
-   } else if (shader->is_monolithic && sel->info.stage == MESA_SHADER_TESS_CTRL) {
+   } else if (shader->is_monolithic && sel->stage == MESA_SHADER_TESS_CTRL) {
       if (sscreen->info.chip_class >= GFX9) {
          struct si_shader_selector *ls = shader->key.ge.part.tcs.ls;
          LLVMValueRef parts[4];
@@ -1230,7 +1230,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
 
          si_build_wrapper_function(&ctx, parts, 2, 0, 0, false);
       }
-   } else if (shader->is_monolithic && sel->info.stage == MESA_SHADER_GEOMETRY) {
+   } else if (shader->is_monolithic && sel->stage == MESA_SHADER_GEOMETRY) {
       if (ctx.screen->info.chip_class >= GFX9) {
          struct si_shader_selector *es = shader->key.ge.part.gs.es;
          LLVMValueRef es_prolog = NULL;
@@ -1258,7 +1258,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
          es_main = ctx.main_fn;
 
          /* ES prolog */
-         if (es->info.stage == MESA_SHADER_VERTEX &&
+         if (es->stage == MESA_SHADER_VERTEX &&
              si_vs_needs_prolog(es, &shader->key.ge.part.gs.vs_prolog, &shader->key, false, true)) {
             union si_shader_part_key vs_prolog_key;
             si_get_vs_prolog_key(&es->info, shader_es.info.num_input_sgprs, false,
@@ -1286,7 +1286,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
       } else {
          /* Nothing to do for gfx6-8. The shader has only 1 part and it's ctx.main_fn. */
       }
-   } else if (shader->is_monolithic && sel->info.stage == MESA_SHADER_FRAGMENT) {
+   } else if (shader->is_monolithic && sel->stage == MESA_SHADER_FRAGMENT) {
       si_llvm_build_monolithic_ps(&ctx, shader);
    }
 
@@ -1300,7 +1300,7 @@ bool si_llvm_compile_shader(struct si_screen *sscreen, struct ac_llvm_compiler *
 
    /* Compile to bytecode. */
    if (!si_compile_llvm(sscreen, &shader->binary, &shader->config, compiler, &ctx.ac, debug,
-                        sel->info.stage, si_get_shader_name(shader),
+                        sel->stage, si_get_shader_name(shader),
                         si_should_optimize_less(compiler, shader->selector))) {
       si_llvm_dispose(&ctx);
       fprintf(stderr, "LLVM failed to compile shader\n");
