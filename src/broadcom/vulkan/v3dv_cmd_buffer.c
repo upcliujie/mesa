@@ -441,11 +441,19 @@ job_compute_frame_tiling(struct v3dv_job *job,
    tiling->msaa = msaa;
    tiling->internal_bpp = max_internal_bpp;
 
-   v3d_choose_tile_size(render_target_count, max_internal_bpp, msaa,
-                         &tiling->tile_width, &tiling->tile_height);
+   /* We can use double-buffer when MSAA is disabled to reduce tile store
+    * overhead.
+    */
+   tiling->double_buffer = (V3D_DEBUG & V3D_DEBUG_DOUBLE_BUFFER) && !msaa;
+
+   v3d_choose_tile_size(render_target_count, max_internal_bpp,
+                        tiling->msaa, tiling->double_buffer,
+                        &tiling->tile_width, &tiling->tile_height);
 
    tiling->draw_tiles_x = DIV_ROUND_UP(width, tiling->tile_width);
    tiling->draw_tiles_y = DIV_ROUND_UP(height, tiling->tile_height);
+
+   assert(!tiling->msaa || !tiling->double_buffer);
 
    /* Size up our supertiles until we get under the limit */
    const uint32_t max_supertiles = 256;
