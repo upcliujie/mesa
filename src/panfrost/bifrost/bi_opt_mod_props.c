@@ -271,6 +271,26 @@ bi_optimizer_clamp(bi_instr *I, bi_instr *use)
         return true;
 }
 
+/* B_TO_F32(B_FCMP(...)) --> B_FCMP(..).f1 */
+
+static bool
+bi_optimizer_result_type(bi_instr *I, bi_instr *use)
+{
+        if (I->op == BI_OPCODE_B_FCMP_F32 &&
+            use->op == BI_OPCODE_B_TO_F32_B32) {
+                I->op = BI_OPCODE_FCMP_F32;
+        } else if (I->op == BI_OPCODE_B_FCMP_V2F16 &&
+                   use->op == BI_OPCODE_B_TO_V2F16_V2B16) {
+                I->op = BI_OPCODE_FCMP_V2F16;
+        } else {
+                return false;
+        }
+
+        I->result_type = BI_RESULT_TYPE_F1;
+        I->dest[0] = use->dest[0];
+        return true;
+}
+
 static bool
 bi_is_var_tex(bi_instr *var, bi_instr *tex)
 {
@@ -333,6 +353,7 @@ bi_opt_mod_prop_backward(bi_context *ctx)
                 /* Destination has a single use, try to propagate */
                 bool propagated =
                         bi_optimizer_clamp(I, use) ||
+                        bi_optimizer_result_type(I, use) ||
                         bi_optimizer_var_tex(ctx, I, use);
 
                 if (propagated) {

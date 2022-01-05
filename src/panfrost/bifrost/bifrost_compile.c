@@ -3837,6 +3837,9 @@ bi_compile_variant_nir(nir_shader *nir,
         bi_lower_swizzle(ctx);
         bi_validate(ctx, "Early lowering");
 
+        if (bifrost_debug & BIFROST_DBG_SHADERS && !skip_internal)
+                bi_print_shader(ctx, stdout);
+
         /* Runs before copy prop */
         if (optimize && !ctx->inputs->no_ubo_to_push) {
                 bi_opt_push_ubo(ctx);
