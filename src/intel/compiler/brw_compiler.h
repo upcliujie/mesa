@@ -2013,6 +2013,9 @@ brw_compute_first_urb_slot_required(uint64_t inputs_read,
 #define BRW_TASK_MESH_PUSH_CONSTANTS_SIZE_DW \
    (BRW_TASK_MESH_INLINE_DATA_SIZE_DW - BRW_TASK_MESH_PUSH_CONSTANTS_START_DW)
 
+/* Varying slot used only by the MESH stage. */
+#define BRW_MESH_VARYING_SLOT_CULL_PRIMITIVE_MASK VARYING_SLOT_TASK_COUNT
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
