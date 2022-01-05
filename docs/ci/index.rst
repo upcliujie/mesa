@@ -242,3 +242,55 @@ directory.  You can hack on mesa and iterate testing the build with:
 .. code-block:: console
 
     sudo docker run --rm -v `pwd`:/mesa $IMAGE ninja -C /mesa/_build
+
+Running Virgl CI locally
+------------------------
+
+The first thing you need to do to debug a CI failure locally is to check on
+which repository is the pipeline being ran. This can be done by checking the
+two strings right after ``freedesktop.org`` in the pipeline URL.
+
+For example, if the link is
+``https://gitlab.freedesktop.org/mesa/mesa/-/pipelines/12345``, the repo is
+``mesa/mesa``.
+
+For the remainer of this guide, this will be referred to as the $REPO_STRING.
+
+Within the same pipeline, go to one of the virgl jobs, such as ``virgl-traces``.
+We need to download the ``x86_test-gl`` container that the CI uses, it can be
+found in the first few lines of every virgl job::
+
+    Pulling docker image registry.freedesktop.org/$REPO_STRING/debian/x86_test-gl:2021-2021-10-07-piglit--2021-09-28-deqp-runner--290b79e0e78eab67a83766f4e9691be554fc4afd ...
+
+To download it just run::
+
+    sudo docker pull <image_name>
+
+Then, start the container in interactive mode::
+
+    docker run -it --device=/dev/kvm --privileged <image_name>
+
+Prepare the directory where the artifacts are expected to be at ::
+
+    apt update && apt install -y curl unzip vim
+    export CI_PROJECT_DIR=/builds/$REPO_STRING && mkdir -p $CI_PROJECT_DIR && cd $CI_PROJECT_DIR
+
+The artifacts contain the last scripts and binaries necessary to run the tests,
+they are the result of the ``debian-testing`` or ``debian-testing-asan`` jobs.
+
+Download the one you want depending on whether you need the address sanitizer,
+just change $DEBIAN_TESTING_JOB_ID accordingly::
+
+    curl https://gitlab.freedesktop.org/$REPO_STRING/-/jobs/$DEBIAN_TESTING_JOB_ID/artifacts/download --output artifacts.zip
+    unzip artifacts.zip && rm -rf install && tar -xf artifacts/install.tar
+
+Lastly we need to run crosvm, although the ``install/crosvm-runner.sh``
+requires some environment variables to be set for it to run the right job,
+these can be seen in the CI logs in gitlab. This example will run the
+``virgl-traces`` job::
+
+    CROSVM_GALLIUM_DRIVER=llvmpipe CROSVM_GPU_ARGS="gles=false,backend=virglrenderer,egl=true,surfaceless=true" FDO_CI_CONCURRENT=4 PIGLIT_NO_WINDOW=1 WAFFLE_PLATFORM="surfaceless_egl" GALLIUM_DRIVER=virgl SANITY_MESA_VERSION_CMD=wflinfo HANG_DETECTION_CMD= EGL_PLATFORM=surfaceless PIGLIT_PROFILES=replay CROSVM_TEST_SCRIPT="/install/piglit/run.sh" PIGLIT_REPLAY_DESCRIPTION_FILE="${CI_PROJECT_DIR}/install/traces-virgl.yml" PIGLIT_REPLAY_DEVICE_NAME="gl-virgl" PIGLIT_RESULTS="virgl-replay" install/crosvm-runner.sh
+
+This last step might fail. If that happens, wait ~30 seconds and try
+again, there's some sincronization problem that happens sometimes, I haven't
+yet figured out why.
