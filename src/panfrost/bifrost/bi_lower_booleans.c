@@ -243,8 +243,15 @@ bi_lower_boolean(bi_instr *I)
                 break;
 
         case BI_OPCODE_B_BRANCH:
+                I->op = BI_OPCODE_BRANCHZ_I32;
+                I->cmpf = BI_CMPF_NE;
+                break;
+
         case BI_OPCODE_B_DISCARD:
-                unreachable("todo: translate");
+                // fne(x, 0.0) is equivalent to ine(x, 0)
+                I->op = BI_OPCODE_DISCARD_F32;
+                I->cmpf = BI_CMPF_NE;
+                break;
 
         default:
                 break;

@@ -286,6 +286,9 @@ bi_optimizer_result_type(bi_instr *I, bi_instr *use)
                 return false;
         }
 
+        // TODO: ICMP result types too, also FCMP.m1 is sometimes useful for eg
+        // b2b32(flt(x, y))
+
         I->result_type = BI_RESULT_TYPE_F1;
         I->dest[0] = use->dest[0];
         return true;
