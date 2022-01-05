@@ -60,6 +60,15 @@ anv_shader_compile_to_nir(struct anv_device *device,
    const nir_shader_compiler_options *nir_options =
       compiler->nir_options[stage];
 
+   bool mesh_shading_supported = pdevice->vk.supported_extensions.NV_mesh_shader;
+   bool viewport_array2_supported = false;
+
+   /* We support these extensions only in MESH stage. */
+   if (mesh_shading_supported && stage == MESA_SHADER_MESH) {
+      viewport_array2_supported =
+            pdevice->vk.supported_extensions.NV_viewport_array2;
+   }
+
    const struct spirv_to_nir_options spirv_options = {
       .caps = {
          .demote_to_helper_invocation = true,
@@ -88,7 +97,7 @@ anv_shader_compile_to_nir(struct anv_device *device,
          .int64 = pdevice->info.ver >= 8,
          .int64_atomics = pdevice->info.ver >= 9 && pdevice->use_softpin,
          .integer_functions2 = pdevice->info.ver >= 8,
-         .mesh_shading_nv = pdevice->vk.supported_extensions.NV_mesh_shader,
+         .mesh_shading_nv = mesh_shading_supported,
          .min_lod = true,
          .multiview = true,
          .physical_storage_buffer_address = pdevice->has_a64_buffer_access,
@@ -99,6 +108,7 @@ anv_shader_compile_to_nir(struct anv_device *device,
          .ray_tracing = pdevice->info.has_ray_tracing,
          .shader_clock = true,
          .shader_viewport_index_layer = true,
+         .shader_viewport_mask_nv = viewport_array2_supported,
          .stencil_export = pdevice->info.ver >= 9,
          .storage_8bit = pdevice->info.ver >= 8,
          .storage_16bit = pdevice->info.ver >= 8,
@@ -840,6 +850,54 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
 
          NIR_PASS_V(nir, nir_zero_initialize_shared_memory,
                     shared_size, chunk_size);
+      }
+   }
+
+   if (nir->info.stage == MESA_SHADER_MESH) {
+      bool progress = false;
+
+      NIR_PASS(progress, nir, anv_nir_mesh_lower_viewport_mask,
+               anv_pipeline_to_graphics(pipeline));
+      if (progress) {
+         /* We need at least optimization level 1 for
+          * nir_remove_dead_variables to remove gl_ViewportMask as shader
+          * output, which we need for later code to not complain about
+          * unassigned outputs. Level 1 will not optimize out the viewport
+          * loop though. We can optimize it now with level >= 2 or leave
+          * it for later phases.
+          */
+         const int opt_level = 1;
+         if (opt_level == 1) {
+            NIR_PASS_V(nir, nir_opt_constant_folding);
+            do {
+               progress = false;
+               NIR_PASS(progress, nir, nir_opt_dead_cf);
+            } while (progress);
+            NIR_PASS_V(nir, nir_opt_dce);
+         } else if (opt_level == 2) {
+            NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+
+            do {
+               progress = false;
+               NIR_PASS(progress, nir, nir_opt_algebraic);
+               NIR_PASS(progress, nir, nir_opt_constant_folding);
+               NIR_PASS(progress, nir, nir_opt_dead_cf);
+               NIR_PASS(progress, nir, nir_opt_loop_unroll);
+               NIR_PASS(progress, nir, nir_opt_remove_phis);
+               NIR_PASS(progress, nir, nir_copy_prop);
+               NIR_PASS(progress, nir, nir_opt_dce);
+               NIR_PASS(progress, nir, nir_opt_cse);
+            } while (progress);
+         } else if (opt_level == 3) {
+            brw_nir_optimize(nir, compiler, true, false);
+         }
+
+         NIR_PASS_V(nir, nir_remove_dead_variables,
+                    nir_var_shader_out |
+                    (opt_level >= 2 ? nir_var_function_temp : 0),
+                    NULL);
+
+         nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
       }
    }
 

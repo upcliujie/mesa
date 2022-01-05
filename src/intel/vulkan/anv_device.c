@@ -180,6 +180,15 @@ get_device_extensions(const struct anv_physical_device *device,
    const bool nv_mesh_shading_enabled =
       env_var_as_boolean("ANV_EXPERIMENTAL_NV_MESH_SHADER", false);
 
+   /* Disabled by default, because there's no hw support for ViewportMask,
+    * its emulation is currently very expensive and severely limits
+    * the number of primitives a mesh shader can output.
+    * See the comment before anv_nir_mesh_lower_viewport_mask to understand
+    * how the emulation works.
+    */
+   const bool nv_mesh_viewport_mask_enabled =
+      env_var_as_boolean("ANV_NV_MESH_VIEWPORT_MASK", false);
+
    *ext = (struct vk_device_extension_table) {
       .KHR_8bit_storage                      = device->info.ver >= 8,
       .KHR_16bit_storage                     = device->info.ver >= 8,
@@ -319,6 +328,9 @@ get_device_extensions(const struct anv_physical_device *device,
       .NV_compute_shader_derivatives         = true,
       .NV_mesh_shader                        = device->info.has_mesh_shading &&
                                                nv_mesh_shading_enabled,
+      .NV_viewport_array2                    = device->info.has_mesh_shading &&
+                                               nv_mesh_shading_enabled &&
+                                               nv_mesh_viewport_mask_enabled,
       .VALVE_mutable_descriptor_type         = true,
    };
 }
@@ -2456,6 +2468,10 @@ void anv_GetPhysicalDeviceProperties2(
          /* TODO(mesh): Multiview. */
          const uint32_t max_view_count = 1;
 
+         uint32_t max_viewports_count = 1;
+         if (pdevice->vk.supported_extensions.NV_viewport_array2)
+            max_viewports_count = MAX_VIEWPORTS;
+
          props->maxDrawMeshTasksCount = UINT32_MAX;
 
          /* TODO(mesh): Implement workgroup Y and Z sizes larger than one by
@@ -2475,7 +2491,7 @@ void anv_GetPhysicalDeviceProperties2(
          props->maxMeshWorkGroupSize[1] = 1;
          props->maxMeshWorkGroupSize[2] = 1;
          props->maxMeshTotalMemorySize = max_slm_size / max_view_count;
-         props->maxMeshOutputPrimitives = max_primitives / max_view_count;
+         props->maxMeshOutputPrimitives = max_primitives / max_view_count / max_viewports_count;
          props->maxMeshMultiviewViewCount = max_view_count;
 
          /* Depends on what indices can be represented with IndexFormat.  For
