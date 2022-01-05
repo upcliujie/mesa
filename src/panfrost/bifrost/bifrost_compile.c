@@ -1465,6 +1465,17 @@ bi_emit_load_const(bi_builder *b, nir_load_const_instr *instr)
         bi_mov_i32_to(b, bi_get_index(instr->def.index, false, 0), bi_imm_u32(acc));
 }
 
+static unsigned
+bi_bool_size(unsigned bool_comps)
+{
+        if (bool_comps == 1)
+                return 32;
+        else if (bool_comps == 2)
+                return 16;
+        else
+                return 8;
+}
+
 static bi_index
 bi_alu_src_index(nir_alu_src src, unsigned comps)
 {
@@ -1477,14 +1488,8 @@ bi_alu_src_index(nir_alu_src src, unsigned comps)
          * independently meaningful. Rather it generates boolean vector sources
          * with the correct number of components.
          */
-        if (bitsize == 1) {
-                if (comps == 1)
-                        bitsize = 32;
-                else if (comps == 2)
-                        bitsize = 16;
-                else
-                        bitsize = 8;
-        }
+        if (bitsize == 1)
+                bitsize = bi_bool_size(comps);
 
         /* the bi_index carries the 32-bit (word) offset separate from the
          * subword swizzle, first handle the offset */
@@ -1834,6 +1839,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         unsigned srcs = nir_op_infos[instr->op].num_inputs;
         unsigned sz = nir_dest_bit_size(instr->dest.dest);
         unsigned comps = nir_dest_num_components(instr->dest.dest);
+        unsigned src_comps = nir_src_num_components(instr->src[0].src);
         unsigned src_sz = srcs > 0 ? nir_src_bit_size(instr->src[0].src) : 0;
         unsigned src1_sz = srcs > 1 ? nir_src_bit_size(instr->src[1].src) : 0;
 
@@ -1963,7 +1969,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         bi_index s2 = srcs > 2 ? bi_alu_src_index(instr->src[2], comps) : bi_null();
 
         if (sz == 1) {
-                bi_emit_alu_bool(b, src_sz, instr->op, dst, s0, s1, s2, comps);
+                bi_emit_alu_bool(b, src_sz, instr->op, dst, s0, s1, s2, src_comps);
                 return;
         }
 
@@ -2219,7 +2225,7 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         case nir_op_b2i8:
         case nir_op_b2i16:
         case nir_op_b2i32:
-                bi_b_mux_to(b, sz, dst, bi_zero(), bi_imm_true(instr->op), s0);
+                bi_b_mux_to(b, bi_bool_size(src_comps), dst, bi_zero(), bi_imm_true(instr->op), s0);
                 break;
 
         case nir_op_fround_even:
