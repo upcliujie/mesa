@@ -37,6 +37,9 @@ bool anv_check_for_primitive_replication(nir_shader **shaders,
 bool anv_nir_lower_multiview(nir_shader *shader,
                              struct anv_graphics_pipeline *pipeline);
 
+bool anv_nir_mesh_lower_viewport_mask(nir_shader *nir,
+                                      struct anv_graphics_pipeline *pipeline);
+
 bool anv_nir_lower_ycbcr_textures(nir_shader *shader,
                                   const struct anv_pipeline_layout *layout);
 
