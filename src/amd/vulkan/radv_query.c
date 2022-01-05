@@ -811,7 +811,28 @@ radv_query_shader(struct radv_cmd_buffer *cmd_buffer, VkPipeline *pipeline,
    cmd_buffer->state.predicating = false;
 
    uint64_t src_buffer_size = MAX2(src_stride * count, avail_offset + 4 * count - src_offset);
-   uint64_t dst_buffer_size = dst_stride * (count - 1) + dst_size;
+   uint64_t dst_buffer_size = count == 1 ?
+                              /* dst_stride must always be ignored for sizing single result copies.
+                               * this value is the bytes between results, not the size of the first result:
+
+                                 The first query’s result is written starting at the first byte requested by the command,
+                                 and each subsequent query’s result begins stride bytes later.
+                                 - 18.2, Query Operation
+                               */
+                              (src_stride +
+                              /* stride must still be applied when calculating sizes with availability bit set:
+                               *
+                                 If VK_QUERY_RESULT_WITH_AVAILABILITY_BIT is used, the final element of each query’s result is an
+                                 integer indicating whether the query’s result is available, with any non-zero value indicating
+                                 that it is available.
+                                 - 18.2, Query Operation
+
+                                 * use 8 bytes for availability result because it's simpler
+                                 * than calcuating with/without VK_QUERY_RESULT_64_BIT
+                               */
+                                ((flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT) ? dst_stride + 8 : 0)) :
+                              /* if multiple results are copied, use specified stride as expected */
+                              dst_stride * (count - 1) + dst_size;
 
    radv_buffer_init(&src_buffer, device, src_bo, src_buffer_size, src_offset);
    radv_buffer_init(&dst_buffer, device, dst_bo, dst_buffer_size, dst_offset);
