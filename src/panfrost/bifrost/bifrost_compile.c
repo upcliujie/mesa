@@ -2220,7 +2220,13 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
                 break;
 
         case nir_op_b2f16:
+                bi_b_to_v2f16_v2b16_to(b, dst, s0);
+                break;
+
         case nir_op_b2f32:
+                bi_b_to_f32_b32_to(b, dst, s0);
+                break;
+
         case nir_op_b2b32:
         case nir_op_b2i8:
         case nir_op_b2i16:
@@ -3847,6 +3853,8 @@ bi_compile_variant_nir(nir_shader *nir,
                 bi_opt_dead_code_eliminate(ctx);
                 bi_validate(ctx, "Optimization passes");
         }
+
+        bi_lower_booleans(ctx);
 
         bi_foreach_instr_global(ctx, I) {
                 bi_lower_opt_instruction(I);

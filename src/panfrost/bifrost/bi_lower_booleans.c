@@ -164,10 +164,97 @@ bi_bool_types_consumed(enum bi_opcode op)
         }
 }
 
+static enum bi_opcode
+bi_translate_boolean_opcode(enum bi_opcode op)
+{
+        switch (op) {
+        case BI_OPCODE_B_AND_B32: return BI_OPCODE_LSHIFT_AND_I32;
+        case BI_OPCODE_B_AND_V2B16: return BI_OPCODE_LSHIFT_AND_V2I16;
+        case BI_OPCODE_B_AND_V4B8: return BI_OPCODE_LSHIFT_AND_V4I8;
+        case BI_OPCODE_B_OR_B32: return BI_OPCODE_LSHIFT_OR_I32;
+        case BI_OPCODE_B_OR_V2B16: return BI_OPCODE_LSHIFT_OR_V2I16;
+        case BI_OPCODE_B_OR_V4B8: return BI_OPCODE_LSHIFT_OR_V4I8;
+        case BI_OPCODE_B_XOR_B32: return BI_OPCODE_LSHIFT_XOR_I32;
+        case BI_OPCODE_B_XOR_V2B16: return BI_OPCODE_LSHIFT_XOR_V2I16;
+        case BI_OPCODE_B_XOR_V4B8: return BI_OPCODE_LSHIFT_XOR_V4I8;
+        case BI_OPCODE_B_FCMP_F32: return BI_OPCODE_FCMP_F32;
+        case BI_OPCODE_B_FCMP_V2F16: return BI_OPCODE_FCMP_V2F16;
+        case BI_OPCODE_B_ICMP_I32: return BI_OPCODE_ICMP_I32;
+        case BI_OPCODE_B_ICMP_S32: return BI_OPCODE_ICMP_S32;
+        case BI_OPCODE_B_ICMP_U32: return BI_OPCODE_ICMP_U32;
+        case BI_OPCODE_B_ICMP_V2I16: return BI_OPCODE_ICMP_V2I16;
+        case BI_OPCODE_B_ICMP_V2S16: return BI_OPCODE_ICMP_V2S16;
+        case BI_OPCODE_B_ICMP_V2U16: return BI_OPCODE_ICMP_V2U16;
+        case BI_OPCODE_B_ICMP_V4I8: return BI_OPCODE_ICMP_V4I8;
+        case BI_OPCODE_B_ICMP_V4S8: return BI_OPCODE_ICMP_V4S8;
+        case BI_OPCODE_B_ICMP_V4U8: return BI_OPCODE_ICMP_V4U8;
+        case BI_OPCODE_B_MUX_B32: return BI_OPCODE_MUX_I32;
+        case BI_OPCODE_B_MUX_V2B16: return BI_OPCODE_MUX_V2I16;
+        case BI_OPCODE_B_MUX_V4B8: return BI_OPCODE_MUX_V4I8;
+        case BI_OPCODE_B_TO_F32_B32: return BI_OPCODE_U8_TO_F32;
+        case BI_OPCODE_B_TO_V2F16_V2B16: return BI_OPCODE_V2U8_TO_V2F16;
+        default: unreachable("not bitwise");
+        }
+}
+
+static void
+bi_lower_boolean(bi_instr *I)
+{
+        switch (I->op) {
+        case BI_OPCODE_B_AND_B32:
+        case BI_OPCODE_B_AND_V2B16:
+        case BI_OPCODE_B_AND_V4B8:
+        case BI_OPCODE_B_OR_B32:
+        case BI_OPCODE_B_OR_V2B16:
+        case BI_OPCODE_B_OR_V4B8:
+        case BI_OPCODE_B_XOR_B32:
+        case BI_OPCODE_B_XOR_V2B16:
+        case BI_OPCODE_B_XOR_V4B8:
+                I->op = bi_translate_boolean_opcode(I->op);
+                I->src[2] = bi_imm_u8(0); /* shift */
+                break;
+
+        case BI_OPCODE_B_FCMP_F32:
+        case BI_OPCODE_B_FCMP_V2F16:
+        case BI_OPCODE_B_ICMP_I32:
+        case BI_OPCODE_B_ICMP_S32:
+        case BI_OPCODE_B_ICMP_U32:
+        case BI_OPCODE_B_ICMP_V2I16:
+        case BI_OPCODE_B_ICMP_V2S16:
+        case BI_OPCODE_B_ICMP_V2U16:
+        case BI_OPCODE_B_ICMP_V4I8:
+        case BI_OPCODE_B_ICMP_V4S8:
+        case BI_OPCODE_B_ICMP_V4U8:
+                I->op = bi_translate_boolean_opcode(I->op);
+                I->result_type = BI_RESULT_TYPE_I1;
+                break;
+
+        case BI_OPCODE_B_MUX_B32:
+        case BI_OPCODE_B_MUX_V2B16:
+        case BI_OPCODE_B_MUX_V4B8:
+                I->op = bi_translate_boolean_opcode(I->op);
+                I->mux = BI_MUX_INT_ZERO;
+                break;
+
+        case BI_OPCODE_B_TO_F32_B32:
+        case BI_OPCODE_B_TO_V2F16_V2B16:
+                I->op = bi_translate_boolean_opcode(I->op);
+                I->src[0].swizzle = BI_SWIZZLE_B0000; // XXX: hack
+                break;
+
+        case BI_OPCODE_B_BRANCH:
+        case BI_OPCODE_B_DISCARD:
+                unreachable("todo: translate");
+
+        default:
+                break;
+        }
+}
+
 void
 bi_lower_booleans(bi_context *ctx)
 {
-        bi_foreach_instr_global_safe(ctx, ins) {
-                // TODO
+        bi_foreach_instr_global_safe(ctx, I) {
+                bi_lower_boolean(I);
         }
 }

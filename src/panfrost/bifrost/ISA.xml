@@ -8360,6 +8360,10 @@
     <src start="6"/>
   </ins>
 
+  <ins name="+B_TO_F32.b32" pseudo="true">
+    <src start="0"/>
+  </ins>
+
   <!-- src2 is vec2 of booleans. Returns a vec2. For each component, if the
        corresponding boolean component is set, return src1, else return src0. -->
   <ins name="+B_MUX.v2b16" pseudo="true">
@@ -8378,6 +8382,10 @@
       <opt>h01</opt>
       <opt>h10</opt>
     </mod>
+  </ins>
+
+  <ins name="+B_TO_V2F16.v2b16" pseudo="true">
+    <src start="0"/>
   </ins>
 
   <!-- src2 is vec4 of booleans. Returns a vec2. For each component, if the
