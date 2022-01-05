@@ -44,8 +44,8 @@ struct ntt_compile {
    bool native_integers;
    bool has_txf_lz;
 
-   bool addr_declared[2];
-   struct ureg_dst addr_reg[2];
+   bool addr_declared[3];
+   struct ureg_dst addr_reg[3];
 
    /* if condition set up at the end of a block, for ntt_emit_if(). */
    struct ureg_src if_cond;
