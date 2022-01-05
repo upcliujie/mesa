@@ -2028,6 +2028,9 @@ enum brw_topology_id
    BRW_TOPOLOGY_ID_EU_THREAD_SIMD,
 };
 
+/* Varying slot used only by the MESH stage. */
+#define BRW_MESH_VARYING_SLOT_CULL_PRIMITIVE_MASK VARYING_SLOT_TASK_COUNT
+
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
