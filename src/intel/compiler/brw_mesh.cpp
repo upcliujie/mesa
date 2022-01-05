@@ -343,6 +343,9 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
       case VARYING_SLOT_VIEWPORT:
          start = map->per_primitive_start_dw + 2;
          break;
+      case VARYING_SLOT_CULL_PRIMITIVE_MASK_INTEL:
+         start = map->per_primitive_start_dw + 3;
+         break;
       default:
          assert(location == VARYING_SLOT_PRIMITIVE_ID ||
                 location >= VARYING_SLOT_VAR0);
