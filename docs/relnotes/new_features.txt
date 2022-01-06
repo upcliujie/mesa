@@ -4,3 +4,4 @@ VK_KHR_synchronization2 on RADV.
 OpenSWR has been moved to the Amber branch
 radeonsi ARB_sparse_texture
 radeonsi ARB_sparse_texture2
+radeonsi ARB_sparse_texture_clamp
