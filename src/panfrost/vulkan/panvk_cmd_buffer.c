@@ -284,7 +284,11 @@ panvk_CmdExecuteCommands(VkCommandBuffer commandBuffer,
                          uint32_t commandBufferCount,
                          const VkCommandBuffer *pCmdBuffers)
 {
-   panvk_stub();
+   for (uint32_t i = 0; i < commandBufferCount; i++) {
+      VK_FROM_HANDLE(vk_cmd_queue, queue, pCmdBuffers[i]);
+
+      vk_cmd_queue_execute(queue, commandBuffer);
+   }
 }
 
 VkResult
@@ -310,6 +314,8 @@ panvk_CreateCommandPool(VkDevice _device,
 
    list_inithead(&pool->active_cmd_buffers);
    list_inithead(&pool->free_cmd_buffers);
+   list_inithead(&pool->active_sec_cmd_buffers);
+   list_inithead(&pool->free_sec_cmd_buffers);
 
    panvk_bo_pool_init(&pool->desc_bo_pool);
    panvk_bo_pool_init(&pool->varying_bo_pool);
@@ -555,4 +561,77 @@ void
 panvk_CmdSetDeviceMask(VkCommandBuffer commandBuffer, uint32_t deviceMask)
 {
    panvk_stub();
+}
+
+VkResult
+panvk_reset_sec_cmdbuf(struct panvk_secondary_cmd_buffer *cmdbuf)
+{
+   vk_cmd_queue_reset(&cmdbuf->queue);
+   return VK_SUCCESS;
+}
+
+void
+panvk_destroy_sec_cmdbuf(struct panvk_secondary_cmd_buffer *cmdbuf)
+{
+   struct vk_device *device = cmdbuf->queue.vk.base.device;
+
+   list_del(&cmdbuf->pool_link);
+   vk_cmd_queue_finish(&cmdbuf->queue);
+   vk_free(&device->alloc, cmdbuf);
+}
+
+VkResult
+panvk_create_sec_cmdbuf(struct panvk_device *device,
+                        struct panvk_cmd_pool *pool,
+                        VkCommandBufferLevel level,
+                        struct panvk_secondary_cmd_buffer **cmdbuf_out)
+{
+   struct panvk_secondary_cmd_buffer *cmdbuf;
+
+   cmdbuf = vk_zalloc(&device->vk.alloc, sizeof(*cmdbuf),
+                      8, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (!cmdbuf)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   VkResult result = vk_cmd_queue_init(&cmdbuf->queue, &pool->vk, level);
+   if (result != VK_SUCCESS) {
+      vk_free(&device->vk.alloc, cmdbuf);
+      return result;
+   }
+
+   cmdbuf->queue.vk.dispatch =
+      &device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY];
+   cmdbuf->pool = pool;
+   *cmdbuf_out = cmdbuf;
+
+   if (pool)
+      list_addtail(&cmdbuf->pool_link, &pool->active_sec_cmd_buffers);
+   else
+      list_inithead(&cmdbuf->pool_link);
+
+   return VK_SUCCESS;
+}
+
+VkResult
+panvk_secondary_ResetCommandBuffer(VkCommandBuffer commandBuffer,
+                                   VkCommandBufferResetFlags flags)
+{
+   VK_FROM_HANDLE(panvk_secondary_cmd_buffer, cmdbuf, commandBuffer);
+
+   return panvk_reset_sec_cmdbuf(cmdbuf);
+}
+
+VkResult
+panvk_secondary_BeginCommandBuffer(VkCommandBuffer commandBuffer,
+                                   const VkCommandBufferBeginInfo *pBeginInfo)
+{
+   VK_FROM_HANDLE(panvk_secondary_cmd_buffer, cmdbuf, commandBuffer);
+
+   return panvk_reset_sec_cmdbuf(cmdbuf);
+}
+
+VkResult
+panvk_secondary_EndCommandBuffer(VkCommandBuffer commandBuffer)
+{
+   return VK_SUCCESS;
 }

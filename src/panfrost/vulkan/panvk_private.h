@@ -51,6 +51,7 @@
 #include "vk_alloc.h"
 #include "vk_command_buffer.h"
 #include "vk_command_pool.h"
+#include "vk_cmd_queue.h"
 #include "vk_device.h"
 #include "vk_instance.h"
 #include "vk_log.h"
@@ -81,6 +82,7 @@ typedef uint32_t xcb_window_t;
 #include <vulkan/vk_icd.h>
 #include <vulkan/vulkan.h>
 
+#include "panvk_secondary_cmd_entrypoints.h"
 #include "panvk_entrypoints.h"
 
 #define MAX_BIND_POINTS 2 /* compute + graphics */
@@ -245,6 +247,7 @@ struct panvk_device {
 
    struct panvk_queue *queues[PANVK_MAX_QUEUE_FAMILIES];
    int queue_count[PANVK_MAX_QUEUE_FAMILIES];
+   struct vk_cmd_dispatch_table cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY + 1];
 
    struct panvk_physical_device *physical_device;
    int _lost;
@@ -621,7 +624,9 @@ struct panvk_cmd_state {
 struct panvk_cmd_pool {
    struct vk_command_pool vk;
    struct list_head active_cmd_buffers;
+   struct list_head active_sec_cmd_buffers;
    struct list_head free_cmd_buffers;
+   struct list_head free_sec_cmd_buffers;
    struct panvk_bo_pool desc_bo_pool;
    struct panvk_bo_pool varying_bo_pool;
    struct panvk_bo_pool tls_bo_pool;
@@ -638,6 +643,12 @@ enum panvk_cmd_buffer_status {
 struct panvk_cmd_bind_point_state {
    struct panvk_descriptor_state desc_state;
    const struct panvk_pipeline *pipeline;
+};
+
+struct panvk_secondary_cmd_buffer {
+   struct vk_cmd_queue queue;
+   struct list_head pool_link;
+   struct panvk_cmd_pool *pool;
 };
 
 struct panvk_cmd_buffer {
@@ -687,6 +698,18 @@ panvk_cmd_fb_info_init(struct panvk_cmd_buffer *cmdbuf);
 
 void
 panvk_cmd_preload_fb_after_batch_split(struct panvk_cmd_buffer *cmdbuf);
+
+VkResult
+panvk_reset_sec_cmdbuf(struct panvk_secondary_cmd_buffer *cmdbuf);
+
+void
+panvk_destroy_sec_cmdbuf(struct panvk_secondary_cmd_buffer *cmdbuf);
+
+VkResult
+panvk_create_sec_cmdbuf(struct panvk_device *device,
+                        struct panvk_cmd_pool *pool,
+                        VkCommandBufferLevel level,
+                        struct panvk_secondary_cmd_buffer **cmdbuf_out);
 
 void
 panvk_pack_color(struct panvk_clear_value *out,
@@ -999,6 +1022,7 @@ struct panvk_render_pass {
 };
 
 VK_DEFINE_HANDLE_CASTS(panvk_cmd_buffer, vk.base, VkCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER)
+VK_DEFINE_HANDLE_CASTS(panvk_secondary_cmd_buffer, queue.vk.base, VkCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER)
 VK_DEFINE_HANDLE_CASTS(panvk_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
 VK_DEFINE_HANDLE_CASTS(panvk_instance, vk.base, VkInstance, VK_OBJECT_TYPE_INSTANCE)
 VK_DEFINE_HANDLE_CASTS(panvk_physical_device, vk.base, VkPhysicalDevice, VK_OBJECT_TYPE_PHYSICAL_DEVICE)
