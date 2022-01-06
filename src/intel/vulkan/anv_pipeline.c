@@ -1158,6 +1158,8 @@ anv_pipeline_link_fs(const struct brw_compiler *compiler,
     */
    nir_function_impl *impl = nir_shader_get_entrypoint(stage->nir);
    bool deleted_output = false;
+   /* Recompute valid color outputs based on output variables. */
+   stage->key.wm.color_outputs_valid = 0;
    nir_foreach_shader_out_variable_safe(var, stage->nir) {
       /* TODO: We don't delete depth/stencil writes.  We probably could if the
        * subpass doesn't have a depth/stencil attachment.
@@ -1166,6 +1168,8 @@ anv_pipeline_link_fs(const struct brw_compiler *compiler,
          continue;
 
       const unsigned rt = var->data.location - FRAG_RESULT_DATA0;
+
+      stage->key.wm.color_outputs_valid |= (1 << rt);
 
       /* If this is the RT at location 0 and we have alpha to coverage
        * enabled we still need that write because it will affect the coverage
@@ -1177,6 +1181,8 @@ anv_pipeline_link_fs(const struct brw_compiler *compiler,
       const unsigned array_len =
          glsl_type_is_array(var->type) ? glsl_get_length(var->type) : 1;
       assert(rt + array_len <= MAX_RTS);
+
+      stage->key.wm.color_outputs_valid |= BITFIELD64_RANGE(rt, array_len);
 
       if (rt >= MAX_RTS || !(stage->key.wm.color_outputs_valid &
                              BITFIELD_RANGE(rt, array_len))) {
