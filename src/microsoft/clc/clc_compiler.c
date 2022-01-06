@@ -1146,7 +1146,7 @@ clc_spirv_to_dxil(struct clc_libclc *lib,
    NIR_PASS_V(nir, nir_lower_explicit_io, nir_var_mem_ubo,
               nir_address_format_32bit_index_offset);
    NIR_PASS_V(nir, clc_nir_lower_system_values, work_properties_var);
-   NIR_PASS_V(nir, dxil_nir_lower_loads_stores_to_dxil);
+   NIR_PASS_V(nir, dxil_nir_lower_loads_stores_to_dxil, nir_var_all);
    NIR_PASS_V(nir, dxil_nir_opt_alu_deref_srcs);
    NIR_PASS_V(nir, dxil_nir_lower_atomics_to_dxil);
    NIR_PASS_V(nir, nir_lower_fp16_casts);
@@ -1166,6 +1166,7 @@ clc_spirv_to_dxil(struct clc_libclc *lib,
       .ubo_binding_offset = 0,
       .disable_math_refactoring = true,
       .num_kernel_globals = num_global_inputs,
+      .shader_model_max = SHADER_MODEL_6_2,
    };
 
    for (unsigned i = 0; i < out_dxil->kernel->num_args; i++) {

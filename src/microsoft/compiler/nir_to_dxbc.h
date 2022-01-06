@@ -21,12 +21,13 @@
  * IN THE SOFTWARE.
  */
 
-#ifndef NIR_TO_DXIL_H
-#define NIR_TO_DXIL_H
+#ifndef NIR_TO_DXBC_H
+#define NIR_TO_DXBC_H
 
 #include <stdbool.h>
 
 #include "nir.h"
+#include "nir_to_dxil.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,45 +35,31 @@ extern "C" {
 
 struct blob;
 
-enum dxil_sysvalue_type {
-   DXIL_NO_SYSVALUE = 0,
-   DXIL_SYSVALUE,
-   DXIL_GENERATED_SYSVALUE
+enum dxbc_sysvalue_type {
+   dxbc_NO_SYSVALUE = 0,
+   dxbc_SYSVALUE,
+   dxbc_GENERATED_SYSVALUE
 };
 
-enum dxil_sysvalue_type
-nir_var_to_dxil_sysvalue_type(nir_variable *var, uint64_t other_stage_mask);
+enum dxbc_sysvalue_type
+nir_var_to_dxbc_sysvalue_type(nir_variable *var, uint64_t other_stage_mask);
 
-enum dxil_shader_model {
-   SHADER_MODEL_4_0 = 0x40000,
-   SHADER_MODEL_4_1,
-   SHADER_MODEL_5_0 = 0x50000,
-   SHADER_MODEL_5_1,
-   SHADER_MODEL_6_0 = 0x60000,
-   SHADER_MODEL_6_1,
-   SHADER_MODEL_6_2,
-};
-
-struct nir_to_dxil_options {
-   bool interpolate_at_vertex;
-   bool lower_int16;
-   bool disable_math_refactoring;
-   unsigned ubo_binding_offset;
-   unsigned provoking_vertex;
-   unsigned num_kernel_globals;
-   uint32_t shader_model_max;
-   bool vulkan_environment;
-};
-
-void
-dxil_optimize_nir(struct nir_shader *s, const struct nir_to_dxil_options *opts, bool scalarize);
+// struct nir_to_dxbc_options {
+//    bool interpolate_at_vertex;
+//    bool lower_int16;
+//    bool disable_math_refactoring;
+//    unsigned ubo_binding_offset;
+//    unsigned provoking_vertex;
+//    unsigned num_kernel_globals;
+//    bool vulkan_environment;
+// };
 
 bool
-nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
+nir_to_dxbc(struct nir_shader *s, const struct nir_to_dxil_options *opts,
             struct blob *blob);
 
 const nir_shader_compiler_options*
-dxil_get_nir_compiler_options(void);
+dxbc_get_nir_compiler_options(void);
 
 #ifdef __cplusplus
 }

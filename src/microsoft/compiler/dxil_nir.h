@@ -36,7 +36,7 @@ bool dxil_nir_lower_8bit_conv(nir_shader *shader);
 bool dxil_nir_lower_16bit_conv(nir_shader *shader);
 bool dxil_nir_lower_x2b(nir_shader *shader);
 bool dxil_nir_lower_ubo_to_temp(nir_shader *shader);
-bool dxil_nir_lower_loads_stores_to_dxil(nir_shader *shader);
+bool dxil_nir_lower_loads_stores_to_dxil(nir_shader *shader, nir_variable_mode modes);
 bool dxil_nir_lower_atomics_to_dxil(nir_shader *shader);
 bool dxil_nir_lower_deref_ssbo(nir_shader *shader);
 bool dxil_nir_opt_alu_deref_srcs(nir_shader *shader);
@@ -50,7 +50,12 @@ bool dxil_nir_lower_system_values_to_zero(nir_shader *shader,
                                           uint32_t count);
 bool dxil_nir_split_typed_samplers(nir_shader *shader);
 bool dxil_nir_lower_bool_input(struct nir_shader *s);
-bool dxil_nir_lower_sysval_to_load_input(nir_shader *s, nir_variable **sysval_vars);
+
+struct dxil_lower_sysval_options {
+   bool sample_id_is_sysval;
+};
+bool dxil_nir_lower_sysval_to_load_input(nir_shader *s, nir_variable **sysval_vars,
+   const struct dxil_lower_sysval_options *options);
 
 nir_ssa_def *
 build_load_ubo_dxil(nir_builder *b, nir_ssa_def *buffer,
@@ -66,6 +71,9 @@ dxil_sort_ps_outputs(nir_shader* s);
 uint64_t
 dxil_reassign_driver_locations(nir_shader* s, nir_variable_mode modes,
    uint64_t other_stage_mask);
+
+bool
+dxil_allocate_sysvalues(nir_shader *shader, nir_variable **system_values);
 
 #ifdef __cplusplus
 }

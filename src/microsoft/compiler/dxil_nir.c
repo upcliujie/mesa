@@ -728,7 +728,7 @@ lower_load_ubo(nir_builder *b, nir_intrinsic_instr *intr)
 }
 
 bool
-dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir)
+dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir, nir_variable_mode modes)
 {
    bool progress = false;
 
@@ -748,24 +748,36 @@ dxil_nir_lower_loads_stores_to_dxil(nir_shader *nir)
 
             switch (intr->intrinsic) {
             case nir_intrinsic_load_deref:
-               progress |= lower_load_deref(&b, intr);
+               if (nir_src_as_deref(intr->src[0])->modes & modes)
+                  progress |= lower_load_deref(&b, intr);
                break;
             case nir_intrinsic_load_shared:
+               if (modes & nir_var_mem_shared)
+                  progress |= lower_32b_offset_load(&b, intr);
+               break;
             case nir_intrinsic_load_scratch:
-               progress |= lower_32b_offset_load(&b, intr);
+               if (modes & nir_var_function_temp)
+                  progress |= lower_32b_offset_load(&b, intr);
                break;
             case nir_intrinsic_load_ssbo:
-               progress |= lower_load_ssbo(&b, intr);
+               if (modes & nir_var_mem_ssbo)
+                  progress |= lower_load_ssbo(&b, intr);
                break;
             case nir_intrinsic_load_ubo:
-               progress |= lower_load_ubo(&b, intr);
+               if (modes & nir_var_mem_ubo)
+                  progress |= lower_load_ubo(&b, intr);
                break;
             case nir_intrinsic_store_shared:
+               if (modes & nir_var_mem_shared)
+                  progress |= lower_32b_offset_store(&b, intr);
+               break;
             case nir_intrinsic_store_scratch:
-               progress |= lower_32b_offset_store(&b, intr);
+               if (modes & nir_var_function_temp)
+                  progress |= lower_32b_offset_store(&b, intr);
                break;
             case nir_intrinsic_store_ssbo:
-               progress |= lower_store_ssbo(&b, intr);
+               if (modes & nir_var_mem_ssbo)
+                  progress |= lower_store_ssbo(&b, intr);
                break;
             default:
                break;
@@ -1639,11 +1651,18 @@ dxil_nir_lower_bool_input(struct nir_shader *s)
                                         lower_bool_input_impl, NULL);
 }
 
+struct sysval_data {
+   const struct dxil_lower_sysval_options options;
+   nir_variable **sysvals;
+};
+
 static bool
-lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *data)
+lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *_data)
 {
    if (instr->type != nir_instr_type_intrinsic)
       return false;
+
+   struct sysval_data *data = _data;
 
    nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
    gl_system_value sysval = SYSTEM_VALUE_MAX;
@@ -1657,11 +1676,16 @@ lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *data)
    case nir_intrinsic_load_vertex_id_zero_base:
       sysval = SYSTEM_VALUE_VERTEX_ID_ZERO_BASE;
       break;
+   case nir_intrinsic_load_sample_id:
+      if (!data->options.sample_id_is_sysval)
+         return false;
+      sysval = SYSTEM_VALUE_SAMPLE_ID;
+      break;
    default:
       return false;
    }
 
-   nir_variable **sysval_vars = (nir_variable **)data;
+   nir_variable **sysval_vars = data->sysvals;
    nir_variable *var = sysval_vars[sysval];
    assert(var);
 
@@ -1673,10 +1697,12 @@ lower_sysval_to_load_input_impl(nir_builder *b, nir_instr *instr, void *data)
 }
 
 bool
-dxil_nir_lower_sysval_to_load_input(nir_shader *s, nir_variable **sysval_vars)
+dxil_nir_lower_sysval_to_load_input(nir_shader *s, nir_variable **sysval_vars,
+   const struct dxil_lower_sysval_options *options)
 {
+   struct sysval_data data = { .options = *options, .sysvals = sysval_vars };
    return nir_shader_instructions_pass(s, lower_sysval_to_load_input_impl,
-      nir_metadata_block_index | nir_metadata_dominance, sysval_vars);
+      nir_metadata_block_index | nir_metadata_dominance, &data);
 }
 
 /* Comparison function to sort io values so that first come normal varyings,
@@ -1761,4 +1787,80 @@ dxil_reassign_driver_locations(nir_shader* s, nir_variable_mode modes,
       var->data.driver_location = driver_loc++;
    }
    return result;
+}
+
+static nir_variable *
+add_sysvalue(nir_shader *shader,
+   uint8_t value, char *name,
+   int driver_location)
+{
+
+   nir_variable *var = rzalloc(shader, nir_variable);
+   if (!var)
+      return NULL;
+   var->data.driver_location = driver_location;
+   var->data.location = value;
+   var->type = glsl_uint_type();
+   var->name = name;
+   var->data.mode = nir_var_system_value;
+   var->data.interpolation = INTERP_MODE_FLAT;
+   return var;
+}
+
+static bool
+append_input_or_sysvalue(nir_shader *shader,
+   nir_variable **system_values,
+   int input_loc, int sv_slot,
+   char *name, int driver_location)
+{
+   if (input_loc >= 0) {
+      /* Check inputs whether a variable is available the corresponds
+       * to the sysvalue */
+      nir_foreach_variable_with_modes(var, shader, nir_var_shader_in) {
+         if (var->data.location == input_loc) {
+            system_values[sv_slot] = var;
+            return true;
+         }
+      }
+   }
+
+   system_values[sv_slot] = add_sysvalue(shader, sv_slot, name, driver_location);
+   if (!system_values[sv_slot])
+      return false;
+
+   nir_shader_add_variable(shader, system_values[sv_slot]);
+   return true;
+}
+
+struct sysvalue_name {
+   gl_system_value value;
+   int slot;
+   char *name;
+} possible_sysvalues[] = {
+   {SYSTEM_VALUE_VERTEX_ID_ZERO_BASE, -1, "SV_VertexID"},
+   {SYSTEM_VALUE_INSTANCE_ID, -1, "SV_InstanceID"},
+   {SYSTEM_VALUE_FRONT_FACE, VARYING_SLOT_FACE, "SV_IsFrontFace"},
+   {SYSTEM_VALUE_PRIMITIVE_ID, VARYING_SLOT_PRIMITIVE_ID, "SV_PrimitiveID"},
+   {SYSTEM_VALUE_SAMPLE_ID, -1, "SV_SampleIndex"},
+};
+
+bool
+dxil_allocate_sysvalues(nir_shader *shader, nir_variable **system_values)
+{
+   unsigned driver_location = 0;
+   nir_foreach_variable_with_modes(var, shader, nir_var_shader_in)
+      driver_location++;
+   nir_foreach_variable_with_modes(var, shader, nir_var_system_value)
+      driver_location++;
+
+   for (unsigned i = 0; i < ARRAY_SIZE(possible_sysvalues); ++i) {
+      struct sysvalue_name *info = &possible_sysvalues[i];
+      if (BITSET_TEST(shader->info.system_values_read, info->value)) {
+         if (!append_input_or_sysvalue(shader, system_values, info->slot,
+            info->value, info->name,
+            driver_location++))
+            return false;
+      }
+   }
+   return true;
 }

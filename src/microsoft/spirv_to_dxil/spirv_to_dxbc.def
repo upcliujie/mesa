@@ -1,0 +1,4 @@
+EXPORTS
+    spirv_to_dxbc
+    spirv_to_dxbc_free
+    spirv_to_dxbc_get_version

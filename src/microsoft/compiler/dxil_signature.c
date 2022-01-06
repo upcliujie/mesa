@@ -102,7 +102,7 @@ in_sysvalue_name(nir_variable *var)
  */
 static unsigned
 get_additional_semantic_info(nir_shader *s, nir_variable *var, struct semantic_info *info,
-                             unsigned next_row, bool is_gs_shader)
+                             unsigned next_row, bool is_gs_shader, bool dxbc)
 {
    const struct glsl_type *type = var->type;
 
@@ -118,7 +118,7 @@ get_additional_semantic_info(nir_shader *s, nir_variable *var, struct semantic_i
    } else if (is_depth ||
               (info->kind == DXIL_SEM_PRIMITIVE_ID && is_gs_shader) ||
               info->kind == DXIL_SEM_COVERAGE ||
-              info->kind == DXIL_SEM_SAMPLE_INDEX) {
+              (info->kind == DXIL_SEM_SAMPLE_INDEX && !dxbc)) {
       // This turns into a 'N/A' mask in the disassembly
       info->start_row = -1;
    } else if (var->data.compact) {
@@ -476,13 +476,13 @@ get_input_signature_group(struct dxil_module *mod, const struct dxil_mdnode **in
                           unsigned num_inputs,
                           nir_shader *s, nir_variable_mode modes,
                           semantic_info_proc get_semantics, unsigned *row_iter,
-                          bool is_gs_shader, bool vulkan)
+                          bool is_gs_shader, bool vulkan, bool dxbc)
 {
    nir_foreach_variable_with_modes(var, s, modes) {
       struct semantic_info semantic = {0};
       get_semantics(var, &semantic, vulkan);
       mod->inputs[num_inputs].sysvalue = semantic.sysvalue_name;
-      *row_iter = get_additional_semantic_info(s, var, &semantic, *row_iter, is_gs_shader);
+      *row_iter = get_additional_semantic_info(s, var, &semantic, *row_iter, is_gs_shader, dxbc);
 
       mod->inputs[num_inputs].name = ralloc_strdup(mod->ralloc_ctx,
                                                    semantic.name);
@@ -509,7 +509,7 @@ get_input_signature_group(struct dxil_module *mod, const struct dxil_mdnode **in
 }
 
 static const struct dxil_mdnode *
-get_input_signature(struct dxil_module *mod, nir_shader *s, bool vulkan)
+get_input_signature(struct dxil_module *mod, nir_shader *s, bool vulkan, bool dxbc)
 {
    if (s->info.stage == MESA_SHADER_KERNEL)
       return NULL;
@@ -525,13 +525,13 @@ get_input_signature(struct dxil_module *mod, nir_shader *s, bool vulkan)
                                                       (s->info.stage == MESA_SHADER_GEOMETRY ?
                                                          get_semantic_gs_in_name : get_semantic_in_name),
                                                    &next_row, is_gs_shader,
-                                                   vulkan);
+                                                   vulkan, dxbc);
 
    mod->num_sig_inputs = get_input_signature_group(mod, inputs, mod->num_sig_inputs,
                                                    s, nir_var_system_value,
                                                    get_semantic_sv_name,
                                                    &next_row, is_gs_shader,
-                                                   vulkan);
+                                                   vulkan, dxbc);
 
    if (!mod->num_sig_inputs && !mod->num_sig_inputs)
       return NULL;
@@ -560,7 +560,7 @@ static const char *out_sysvalue_name(nir_variable *var)
 }
 
 static const struct dxil_mdnode *
-get_output_signature(struct dxil_module *mod, nir_shader *s, bool vulkan)
+get_output_signature(struct dxil_module *mod, nir_shader *s, bool vulkan, bool dxbc)
 {
    const struct dxil_mdnode *outputs[VARYING_SLOT_MAX];
    unsigned num_outputs = 0;
@@ -575,7 +575,7 @@ get_output_signature(struct dxil_module *mod, nir_shader *s, bool vulkan)
          get_semantic_name(var, &semantic, var->type, vulkan);
          mod->outputs[num_outputs].sysvalue = out_sysvalue_name(var);
       }
-      next_row = get_additional_semantic_info(s, var, &semantic, next_row, false);
+      next_row = get_additional_semantic_info(s, var, &semantic, next_row, false, dxbc);
 
       mod->info.has_out_position |= semantic.kind== DXIL_SEM_POSITION;
       mod->info.has_out_depth |= semantic.kind == DXIL_SEM_DEPTH;
@@ -612,14 +612,14 @@ get_output_signature(struct dxil_module *mod, nir_shader *s, bool vulkan)
 }
 
 const struct dxil_mdnode *
-get_signatures(struct dxil_module *mod, nir_shader *s, bool vulkan)
+get_signatures(struct dxil_module *mod, nir_shader *s, bool vulkan, bool dxbc)
 {
    /* DXC does the same: Add an empty string before everything else */
    mod->sem_string_table = _mesa_string_buffer_create(mod->ralloc_ctx, 1024);
    copy_semantic_name_to_string(mod->sem_string_table, "");
 
-   const struct dxil_mdnode *input_signature = get_input_signature(mod, s, vulkan);
-   const struct dxil_mdnode *output_signature = get_output_signature(mod, s, vulkan);
+   const struct dxil_mdnode *input_signature = get_input_signature(mod, s, vulkan, dxbc);
+   const struct dxil_mdnode *output_signature = get_output_signature(mod, s, vulkan, dxbc);
 
    const struct dxil_mdnode *SV_nodes[3] = {
       input_signature,

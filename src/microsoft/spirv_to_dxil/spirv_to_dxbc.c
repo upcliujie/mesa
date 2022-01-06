@@ -21,8 +21,8 @@
  * IN THE SOFTWARE.
  */
 
-#include "spirv_to_dxil.h"
-#include "nir_to_dxil.h"
+#include "spirv_to_dxbc.h"
+#include "nir_to_dxbc.h"
 #include "dxil_nir.h"
 #include "shader_enums.h"
 #include "spirv/nir_spirv.h"
@@ -47,8 +47,8 @@ add_runtime_data_var(nir_shader *nir, unsigned desc_set, unsigned binding)
 {
    unsigned runtime_data_size =
       nir->info.stage == MESA_SHADER_COMPUTE
-         ? sizeof(struct dxil_spirv_compute_runtime_data)
-         : sizeof(struct dxil_spirv_vertex_runtime_data);
+         ? sizeof(struct dxbc_spirv_compute_runtime_data)
+         : sizeof(struct dxbc_spirv_vertex_runtime_data);
 
    const struct glsl_type *array_type =
       glsl_array_type(glsl_uint_type(), runtime_data_size / sizeof(unsigned),
@@ -91,17 +91,17 @@ lower_shader_system_values(struct nir_builder *builder, nir_instr *instr,
    switch (intrin->intrinsic) {
    case nir_intrinsic_load_num_workgroups:
       offset =
-         offsetof(struct dxil_spirv_compute_runtime_data, group_count_x);
+         offsetof(struct dxbc_spirv_compute_runtime_data, group_count_x);
       break;
    case nir_intrinsic_load_first_vertex:
-      offset = offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex);
+      offset = offsetof(struct dxbc_spirv_vertex_runtime_data, first_vertex);
       break;
    case nir_intrinsic_load_is_indexed_draw:
       offset =
-         offsetof(struct dxil_spirv_vertex_runtime_data, is_indexed_draw);
+         offsetof(struct dxbc_spirv_vertex_runtime_data, is_indexed_draw);
       break;
    case nir_intrinsic_load_base_instance:
-      offset = offsetof(struct dxil_spirv_vertex_runtime_data, base_instance);
+      offset = offsetof(struct dxbc_spirv_vertex_runtime_data, base_instance);
       break;
    default:
       return false;
@@ -136,7 +136,7 @@ lower_shader_system_values(struct nir_builder *builder, nir_instr *instr,
 }
 
 static bool
-dxil_spirv_nir_lower_shader_system_values(nir_shader *shader,
+dxbc_spirv_nir_lower_shader_system_values(nir_shader *shader,
                                           nir_address_format ubo_format,
                                           unsigned desc_set, unsigned binding)
 {
@@ -153,12 +153,12 @@ dxil_spirv_nir_lower_shader_system_values(nir_shader *shader,
 }
 
 bool
-spirv_to_dxil(const uint32_t *words, size_t word_count,
-              struct dxil_spirv_specialization *specializations,
-              unsigned int num_specializations, dxil_spirv_shader_stage stage,
+spirv_to_dxbc(const uint32_t *words, size_t word_count,
+              struct dxbc_spirv_specialization *specializations,
+              unsigned int num_specializations, dxbc_spirv_shader_stage stage,
               const char *entry_point_name,
-              const struct dxil_spirv_runtime_conf *conf,
-              struct dxil_spirv_object *out_dxil)
+              const struct dxbc_spirv_runtime_conf *conf,
+              struct dxbc_spirv_object *out_dxil)
 {
    if (stage == MESA_SHADER_NONE || stage == MESA_SHADER_KERNEL)
       return false;
@@ -177,7 +177,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    glsl_type_singleton_init_or_ref();
 
-   struct nir_shader_compiler_options nir_options = *dxil_get_nir_compiler_options();
+   struct nir_shader_compiler_options nir_options = *dxbc_get_nir_compiler_options();
    // We will manually handle base_vertex when vertex_id and instance_id have
    // have been already converted to zero-base.
    nir_options.lower_base_vertex = !conf->zero_based_vertex_instance_id;
@@ -204,7 +204,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    if (conf->zero_based_vertex_instance_id) {
       // vertex_id and instance_id should have already been transformed to
-      // base zero before spirv_to_dxil was called. Therefore, we can zero out
+      // base zero before spirv_to_dxbc was called. Therefore, we can zero out
       // base/firstVertex/Instance.
       gl_system_value system_values[] = {SYSTEM_VALUE_FIRST_VERTEX,
                                          SYSTEM_VALUE_BASE_VERTEX,
@@ -215,7 +215,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    bool requires_runtime_data = false;
    NIR_PASS(requires_runtime_data, nir,
-            dxil_spirv_nir_lower_shader_system_values,
+            dxbc_spirv_nir_lower_shader_system_values,
             spirv_opts.ubo_addr_format,
             conf->runtime_data_cbv.register_space,
             conf->runtime_data_cbv.base_shader_register);
@@ -294,11 +294,8 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    NIR_PASS_V(nir, nir_lower_tex, &lower_tex_options);
 
    NIR_PASS_V(nir, dxil_nir_split_clip_cull_distance);
-   NIR_PASS_V(nir, dxil_nir_lower_loads_stores_to_dxil, nir_var_all);
    NIR_PASS_V(nir, dxil_nir_split_typed_samplers);
    NIR_PASS_V(nir, dxil_nir_lower_bool_input);
-   NIR_PASS_V(nir, nir_opt_dce);
-   NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_uniform, NULL);
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
@@ -314,11 +311,11 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    struct nir_to_dxil_options opts = {
       .vulkan_environment = true,
-      .shader_model_max = SHADER_MODEL_6_2,
+      .shader_model_max = SHADER_MODEL_5_1,
    };
 
    struct blob dxil_blob;
-   if (!nir_to_dxil(nir, &opts, &dxil_blob)) {
+   if (!nir_to_dxbc(nir, &opts, &dxil_blob)) {
       if (dxil_blob.allocated)
          blob_finish(&dxil_blob);
       glsl_type_singleton_decref();
@@ -334,13 +331,13 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 }
 
 void
-spirv_to_dxil_free(struct dxil_spirv_object *dxil)
+spirv_to_dxbc_free(struct dxbc_spirv_object *dxil)
 {
    free(dxil->binary.buffer);
 }
 
 uint64_t
-spirv_to_dxil_get_version()
+spirv_to_dxbc_get_version()
 {
    const char sha1[] = MESA_GIT_SHA1;
    const char* dash = strchr(sha1, '-');

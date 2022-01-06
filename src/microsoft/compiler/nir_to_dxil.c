@@ -1385,7 +1385,8 @@ emit_metadata(struct ntd_context *ctx)
    }
 
    const struct dxil_mdnode *signatures = get_signatures(&ctx->mod, ctx->shader,
-                                                         ctx->opts->vulkan_environment);
+                                                         ctx->opts->vulkan_environment,
+                                                         false /* dxbc */);
 
    const struct dxil_mdnode *dx_entry_point = emit_entrypoint(ctx, main_func,
        "main", signatures, resources_node, shader_properties);
@@ -4577,15 +4578,16 @@ lower_bit_size_callback(const nir_instr* instr, void *data)
    return ret;
 }
 
-static void
-optimize_nir(struct nir_shader *s, const struct nir_to_dxil_options *opts)
+void
+dxil_optimize_nir(struct nir_shader *s, const struct nir_to_dxil_options *opts, bool scalarize)
 {
    bool progress;
    do {
       progress = false;
       NIR_PASS_V(s, nir_lower_vars_to_ssa);
       NIR_PASS(progress, s, nir_lower_indirect_derefs, nir_var_function_temp, UINT32_MAX);
-      NIR_PASS(progress, s, nir_lower_alu_to_scalar, NULL, NULL);
+      if (scalarize)
+         NIR_PASS(progress, s, nir_lower_alu_to_scalar, NULL, NULL);
       NIR_PASS(progress, s, nir_copy_prop);
       NIR_PASS(progress, s, nir_opt_copy_prop_vars);
       NIR_PASS(progress, s, nir_lower_bit_size, lower_bit_size_callback, (void*)opts);
@@ -4654,81 +4656,6 @@ void dxil_fill_validation_state(struct ntd_context *ctx,
    }
 }
 
-static nir_variable *
-add_sysvalue(struct ntd_context *ctx,
-              uint8_t value, char *name,
-              int driver_location)
-{
-
-   nir_variable *var = rzalloc(ctx->shader, nir_variable);
-   if (!var)
-      return NULL;
-   var->data.driver_location = driver_location;
-   var->data.location = value;
-   var->type = glsl_uint_type();
-   var->name = name;
-   var->data.mode = nir_var_system_value;
-   var->data.interpolation = INTERP_MODE_FLAT;
-   return var;
-}
-
-static bool
-append_input_or_sysvalue(struct ntd_context *ctx,
-                         int input_loc,  int sv_slot,
-                         char *name, int driver_location)
-{
-   if (input_loc >= 0) {
-      /* Check inputs whether a variable is available the corresponds
-       * to the sysvalue */
-      nir_foreach_variable_with_modes(var, ctx->shader, nir_var_shader_in) {
-         if (var->data.location == input_loc) {
-            ctx->system_value[sv_slot] = var;
-            return true;
-         }
-      }
-   }
-
-   ctx->system_value[sv_slot] = add_sysvalue(ctx, sv_slot, name, driver_location);
-   if (!ctx->system_value[sv_slot])
-      return false;
-
-   nir_shader_add_variable(ctx->shader, ctx->system_value[sv_slot]);
-   return true;
-}
-
-struct sysvalue_name {
-   gl_system_value value;
-   int slot;
-   char *name;
-} possible_sysvalues[] = {
-   {SYSTEM_VALUE_VERTEX_ID_ZERO_BASE, -1, "SV_VertexID"},
-   {SYSTEM_VALUE_INSTANCE_ID, -1, "SV_InstanceID"},
-   {SYSTEM_VALUE_FRONT_FACE, VARYING_SLOT_FACE, "SV_IsFrontFace"},
-   {SYSTEM_VALUE_PRIMITIVE_ID, VARYING_SLOT_PRIMITIVE_ID, "SV_PrimitiveID"},
-   {SYSTEM_VALUE_SAMPLE_ID, -1, "SV_SampleIndex"},
-};
-
-static bool
-allocate_sysvalues(struct ntd_context *ctx)
-{
-   unsigned driver_location = 0;
-   nir_foreach_variable_with_modes(var, ctx->shader, nir_var_shader_in)
-      driver_location++;
-   nir_foreach_variable_with_modes(var, ctx->shader, nir_var_system_value)
-      driver_location++;
-
-   for (unsigned i = 0; i < ARRAY_SIZE(possible_sysvalues); ++i) {
-      struct sysvalue_name *info = &possible_sysvalues[i];
-      if (BITSET_TEST(ctx->shader->info.system_values_read, info->value)) {
-         if (!append_input_or_sysvalue(ctx, info->slot,
-                                       info->value, info->name,
-                                       driver_location++))
-            return false;
-      }
-   }
-   return true;
-}
-
 static int
 type_size_vec4(const struct glsl_type *type, bool bindless)
 {
@@ -4772,15 +4699,16 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    NIR_PASS_V(s, nir_lower_flrp, 16 | 32 | 64, true);
    NIR_PASS_V(s, nir_lower_io, nir_var_shader_in | nir_var_shader_out, type_size_vec4, (nir_lower_io_options)0);
 
-   optimize_nir(s, opts);
+   dxil_optimize_nir(s, opts, true);
 
    NIR_PASS_V(s, nir_remove_dead_variables,
               nir_var_function_temp | nir_var_shader_temp, NULL);
 
-   if (!allocate_sysvalues(ctx))
+   if (!dxil_allocate_sysvalues(ctx->shader, ctx->system_value))
       return false;
 
-   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx->system_value);
+   struct dxil_lower_sysval_options sysval_options = { 0 };
+   NIR_PASS_V(s, dxil_nir_lower_sysval_to_load_input, ctx->system_value, &sysval_options);
    NIR_PASS_V(s, nir_opt_dce);
 
    if (debug_dxil & DXIL_DEBUG_VERBOSE)
@@ -4788,6 +4716,12 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
 
    if (!emit_module(ctx, opts)) {
       debug_printf("D3D12: dxil_container_add_module failed\n");
+      retval = false;
+      goto out;
+   }
+
+   if ((ctx->mod.major_version << 16 | ctx->mod.minor_version) > opts->shader_model_max) {
+      debug_printf("D3D12: max shader model exceeded\n");
       retval = false;
       goto out;
    }
