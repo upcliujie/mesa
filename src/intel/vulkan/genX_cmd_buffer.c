@@ -61,6 +61,7 @@ convert_pc_to_bits(struct GENX(PIPE_CONTROL) *pc) {
    bits |= (pc->HDCPipelineFlushEnable) ?  ANV_PIPE_HDC_PIPELINE_FLUSH_BIT : 0;
 #endif
    bits |= (pc->RenderTargetCacheFlushEnable) ?  ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT : 0;
+   bits |= (pc->GenericMediaStateClear) ?  ANV_PIPE_GENERIC_MEDIA_STATE_CLEAR_BIT : 0;
    bits |= (pc->VFCacheInvalidationEnable) ?  ANV_PIPE_VF_CACHE_INVALIDATE_BIT : 0;
    bits |= (pc->StateCacheInvalidationEnable) ?  ANV_PIPE_STATE_CACHE_INVALIDATE_BIT : 0;
    bits |= (pc->ConstantCacheInvalidationEnable) ?  ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT : 0;
@@ -2201,7 +2202,8 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (bits & (ANV_PIPE_FLUSH_BITS | ANV_PIPE_STALL_BITS |
-               ANV_PIPE_END_OF_PIPE_SYNC_BIT)) {
+               ANV_PIPE_END_OF_PIPE_SYNC_BIT |
+               ANV_PIPE_GENERIC_MEDIA_STATE_CLEAR_BIT)) {
       anv_batch_emit(&cmd_buffer->batch, GENX(PIPE_CONTROL), pipe) {
 #if GFX_VER >= 12
          pipe.TileCacheFlushEnable = bits & ANV_PIPE_TILE_CACHE_FLUSH_BIT;
@@ -2224,6 +2226,8 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
 #else
          pipe.DepthStallEnable = bits & ANV_PIPE_DEPTH_STALL_BIT;
 #endif
+
+         pipe.GenericMediaStateClear = bits & ANV_PIPE_GENERIC_MEDIA_STATE_CLEAR_BIT;
 
          pipe.CommandStreamerStallEnable = bits & ANV_PIPE_CS_STALL_BIT;
          pipe.StallAtPixelScoreboard = bits & ANV_PIPE_STALL_AT_SCOREBOARD_BIT;
@@ -2332,7 +2336,8 @@ genX(cmd_buffer_apply_pipe_flushes)(struct anv_cmd_buffer *cmd_buffer)
       }
 
       bits &= ~(ANV_PIPE_FLUSH_BITS | ANV_PIPE_STALL_BITS |
-                ANV_PIPE_END_OF_PIPE_SYNC_BIT);
+                ANV_PIPE_END_OF_PIPE_SYNC_BIT |
+                ANV_PIPE_GENERIC_MEDIA_STATE_CLEAR_BIT);
    }
 
    if (bits & ANV_PIPE_INVALIDATE_BITS) {
