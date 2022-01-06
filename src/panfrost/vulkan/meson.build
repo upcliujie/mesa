@@ -29,8 +29,33 @@ panvk_entrypoints = custom_target(
     prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--proto', '--weak',
     '--out-h', '@OUTPUT0@', '--out-c', '@OUTPUT1@', '--prefix', 'panvk',
     '--device-prefix', 'panvk_v5', '--device-prefix', 'panvk_v6', '--device-prefix', 'panvk_v7',
+    '--types', 'cmd,device,physical_device,instance',
   ],
   depend_files : vk_entrypoints_gen_depend_files,
+)
+
+panvk_secondary_cmd_entrypoints = custom_target(
+  'panvk_secondary_cmd_entrypoints.[ch]',
+  input : [vk_entrypoints_gen, vk_api_xml],
+  output : ['panvk_secondary_cmd_entrypoints.h', 'panvk_secondary_cmd_entrypoints.c'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@', '--proto', '--weak',
+    '--out-h', '@OUTPUT0@', '--out-c', '@OUTPUT1@', '--prefix', 'panvk_secondary',
+    '--types', 'cmd',
+  ],
+  depend_files : vk_entrypoints_gen_depend_files,
+)
+
+panvk_secondary_cmd = custom_target(
+  'panvk_secondary_cmd',
+  input : [vk_commands_gen, vk_api_xml],
+  output : ['panvk_secondary_cmd.c', 'panvk_secondary_cmd.h'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@',
+    '--prefix', 'panvk_secondary',
+  ],
+  depend_files : [vk_commands_gen],
 )
 
 libpanvk_files = files(
@@ -101,7 +126,7 @@ endif
 
 libvulkan_panfrost = shared_library(
   'vulkan_panfrost',
-  [libpanvk_files, panvk_entrypoints],
+  [libpanvk_files, panvk_entrypoints, panvk_secondary_cmd, panvk_secondary_cmd_entrypoints],
   include_directories : [
     inc_include,
     inc_src,

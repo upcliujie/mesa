@@ -46,6 +46,7 @@
 #include "util/debug.h"
 #include "util/disk_cache.h"
 #include "util/strtod.h"
+#include "vk_dispatch_cmd.h"
 #include "vk_format.h"
 #include "vk_util.h"
 
@@ -959,17 +960,21 @@ panvk_CreateDevice(VkPhysicalDevice physicalDevice,
       return vk_error(physical_device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    const struct vk_device_entrypoint_table *dev_entrypoints;
+   const struct vk_cmd_entrypoint_table *cmd_entrypoints;
    struct vk_device_dispatch_table dispatch_table;
 
    switch (physical_device->pdev.arch) {
    case 5:
       dev_entrypoints = &panvk_v5_device_entrypoints;
+      cmd_entrypoints = &panvk_v5_cmd_entrypoints;
       break;
    case 6:
       dev_entrypoints = &panvk_v6_device_entrypoints;
+      cmd_entrypoints = &panvk_v6_cmd_entrypoints;
       break;
    case 7:
       dev_entrypoints = &panvk_v7_device_entrypoints;
+      cmd_entrypoints = &panvk_v7_cmd_entrypoints;
       break;
    default:
       unreachable("Unsupported architecture");
@@ -981,6 +986,16 @@ panvk_CreateDevice(VkPhysicalDevice physicalDevice,
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
                                              &panvk_device_entrypoints,
                                              false);
+   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
+                                          cmd_entrypoints, true);
+   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
+                                          &panvk_cmd_entrypoints,
+                                          false);
+   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY],
+                                          &panvk_secondary_cmd_entrypoints, true);
+   vk_device_dispatch_table_from_cmd_tables(&dispatch_table,
+                                            &device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
+                                            &device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY]);
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
                                              &wsi_device_entrypoints,
                                              false);
