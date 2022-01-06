@@ -261,7 +261,7 @@ d3d12_lower_point_sprite(nir_shader *shader,
    for (unsigned int sem = 0; sem < 9; sem++) {
       if (point_coord_enable & BITFIELD64_BIT(sem)) {
          char tmp[100];
-         unsigned location = VARYING_SLOT_VAR0 + sem;
+         unsigned location = VARYING_SLOT_TEX0 + sem;
 
          snprintf(tmp, ARRAY_SIZE(tmp), "gl_TexCoord%dMESA", count);
 
