@@ -5439,7 +5439,9 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
    }
 #endif
 
-   /* From "BXML » GT » MI » vol1a GPU Overview » [Instruction]
+   /* Emit flushes before selecting a different pipeline.
+    *
+    * From "BXML » GT » MI » vol1a GPU Overview » [Instruction]
     * PIPELINE_SELECT [DevBWR+]":
     *
     *   Project: DEVSNB+
@@ -5449,19 +5451,48 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
     *   command to invalidate read only caches prior to programming
     *   MI_PIPELINE_SELECT command to change the Pipeline Select Mode.
     *
+    * And from Tiger Lake PRM vol2a page 1131, "PIPELINE_SELECT":
+    *
+    *   Software must ensure Render Cache, Depth Cache and HDC Pipeline flush
+    *   are flushed through a stalling PIPE_CONTROL command prior to
+    *   programming of PIPELINE_SELECT command transitioning Pipeline Select
+    *   from 3D to GPGPU/Media.
+    *
+    *   Software must ensure HDC Pipeline flush and Generic Media State Clear
+    *   is issued through a stalling PIPE_CONTROL command prior to programming
+    *   of PIPELINE_SELECT command transitioning Pipeline Select from
+    *   GPGPU/Media to 3D.
+    *
     * Note the cmd_buffer_apply_pipe_flushes will split this into two
-    * PIPE_CONTROLs.
+    * PIPE_CONTROLs if needed.
     */
-   anv_add_pending_pipe_bits(cmd_buffer,
-                             ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
-                             ANV_PIPE_DEPTH_CACHE_FLUSH_BIT |
-                             ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
-                             ANV_PIPE_CS_STALL_BIT |
-                             ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT |
-                             ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT |
-                             ANV_PIPE_STATE_CACHE_INVALIDATE_BIT |
-                             ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT,
-                             "flush and invalidate for PIPELINE_SELECT");
+   enum anv_pipe_bits pipe_bits = 0;
+
+#if GFX_VER < 12
+   pipe_bits = ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
+               ANV_PIPE_DEPTH_CACHE_FLUSH_BIT |
+               ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
+               ANV_PIPE_CS_STALL_BIT |
+               ANV_PIPE_TEXTURE_CACHE_INVALIDATE_BIT |
+               ANV_PIPE_CONSTANT_CACHE_INVALIDATE_BIT |
+               ANV_PIPE_STATE_CACHE_INVALIDATE_BIT |
+               ANV_PIPE_INSTRUCTION_CACHE_INVALIDATE_BIT;
+#else
+   if (pipeline == _3D) {
+      pipe_bits = ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
+                  ANV_PIPE_GENERIC_MEDIA_STATE_CLEAR_BIT |
+                  ANV_PIPE_CS_STALL_BIT;
+   } else {
+      assert(pipeline == GPGPU);
+      pipe_bits = ANV_PIPE_RENDER_TARGET_CACHE_FLUSH_BIT |
+                  ANV_PIPE_DEPTH_CACHE_FLUSH_BIT |
+                  ANV_PIPE_HDC_PIPELINE_FLUSH_BIT |
+                  ANV_PIPE_CS_STALL_BIT;
+   }
+#endif
+
+   anv_add_pending_pipe_bits(cmd_buffer, pipe_bits,
+                             "flushes for PIPELINE_SELECT");
    genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(PIPELINE_SELECT), ps) {
