@@ -1154,12 +1154,6 @@ static int tgsi_declaration(struct r600_shader_ctx *ctx)
 				if (ctx->type == PIPE_SHADER_GEOMETRY) {
 					ctx->gs_out_ring_offset += 16;
 				}
-			} else if (ctx->type == PIPE_SHADER_FRAGMENT) {
-				switch (d->Semantic.Name) {
-				case TGSI_SEMANTIC_COLOR:
-					ctx->shader->nr_ps_max_color_exports++;
-					break;
-				}
 			}
 		}
 		ctx->shader->noutput += count;
@@ -3546,7 +3540,6 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 	ctx.cs_grid_size_loaded = false;
 
 	shader->nr_ps_color_exports = 0;
-	shader->nr_ps_max_color_exports = 0;
 
 
 	/* register allocations */
@@ -3797,9 +3790,6 @@ static int r600_shader_from_tgsi(struct r600_context *rctx,
 			}
 		}
 	}
-
-	if (shader->fs_write_all && rscreen->b.chip_class >= EVERGREEN)
-		shader->nr_ps_max_color_exports = 8;
 
 	if (ctx.shader->uses_helper_invocation) {
 		if (ctx.bc->chip_class == CAYMAN)
