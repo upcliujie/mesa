@@ -1017,6 +1017,8 @@ panvk_create_cmdbuf(struct panvk_device *device,
       return result;
    }
 
+   cmdbuf->vk.dispatch =
+      &device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY];
    cmdbuf->device = device;
    cmdbuf->pool = pool;
 
@@ -1058,25 +1060,45 @@ panvk_per_arch(AllocateCommandBuffers)(VkDevice _device,
    unsigned i;
 
    for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
-      struct panvk_cmd_buffer *cmdbuf = NULL;
+      struct vk_command_buffer *vk_cmdbuf = NULL;
 
-      if (!list_is_empty(&pool->free_cmd_buffers)) {
-         cmdbuf = list_first_entry(
-            &pool->free_cmd_buffers, struct panvk_cmd_buffer, pool_link);
+      if (pAllocateInfo->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+         struct panvk_cmd_buffer *cmdbuf = NULL;
 
-         list_del(&cmdbuf->pool_link);
-         list_addtail(&cmdbuf->pool_link, &pool->active_cmd_buffers);
+         if (!list_is_empty(&pool->free_cmd_buffers)) {
+            cmdbuf = list_first_entry(
+               &pool->free_cmd_buffers, struct panvk_cmd_buffer, pool_link);
 
-         vk_command_buffer_finish(&cmdbuf->vk);
-         result = vk_command_buffer_init(&cmdbuf->vk, &device->vk, pAllocateInfo->level);
+            list_del(&cmdbuf->pool_link);
+            list_addtail(&cmdbuf->pool_link, &pool->active_cmd_buffers);
+
+            vk_command_buffer_finish(&cmdbuf->vk);
+            result = vk_command_buffer_init(&cmdbuf->vk, &device->vk,
+                                            pAllocateInfo->level);
+         } else {
+            result = panvk_create_cmdbuf(device, pool, pAllocateInfo->level, &cmdbuf);
+         }
+         vk_cmdbuf = cmdbuf ? &cmdbuf->vk : NULL;
       } else {
-         result = panvk_create_cmdbuf(device, pool, pAllocateInfo->level, &cmdbuf);
+         struct panvk_secondary_cmd_buffer *cmdbuf = NULL;
+
+         if (!list_is_empty(&pool->free_sec_cmd_buffers)) {
+            cmdbuf = list_first_entry(
+               &pool->free_sec_cmd_buffers, struct panvk_secondary_cmd_buffer, pool_link);
+            list_del(&cmdbuf->pool_link);
+            list_addtail(&cmdbuf->pool_link, &pool->active_sec_cmd_buffers);
+            vk_cmd_queue_reset(&cmdbuf->queue);
+         } else {
+            result = panvk_create_sec_cmdbuf(device, pool, pAllocateInfo->level, &cmdbuf);
+         }
+
+         vk_cmdbuf = cmdbuf ? &cmdbuf->queue.vk : NULL;
       }
 
       if (result != VK_SUCCESS)
          goto err_free_cmd_bufs;
 
-      pCommandBuffers[i] = panvk_cmd_buffer_to_handle(cmdbuf);
+      pCommandBuffers[i] = vk_command_buffer_to_handle(vk_cmdbuf);
    }
 
    return VK_SUCCESS;
@@ -1097,16 +1119,33 @@ panvk_per_arch(FreeCommandBuffers)(VkDevice device,
                                    const VkCommandBuffer *pCommandBuffers)
 {
    for (uint32_t i = 0; i < commandBufferCount; i++) {
-      VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, pCommandBuffers[i]);
+      VK_FROM_HANDLE(vk_command_buffer, vk_cmdbuf, pCommandBuffers[i]);
 
-      if (cmdbuf) {
+      if (!vk_cmdbuf)
+         continue;
+
+      if (vk_cmdbuf->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+         VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, pCommandBuffers[i]);
+
          if (cmdbuf->pool) {
             list_del(&cmdbuf->pool_link);
             panvk_reset_cmdbuf(cmdbuf);
             list_addtail(&cmdbuf->pool_link,
                          &cmdbuf->pool->free_cmd_buffers);
-         } else
+         } else {
             panvk_destroy_cmdbuf(cmdbuf);
+         }
+      } else {
+         VK_FROM_HANDLE(panvk_secondary_cmd_buffer, cmdbuf, pCommandBuffers[i]);
+
+         if (cmdbuf->pool) {
+            list_del(&cmdbuf->pool_link);
+            panvk_reset_sec_cmdbuf(cmdbuf);
+            list_addtail(&cmdbuf->pool_link,
+                         &cmdbuf->pool->free_sec_cmd_buffers);
+         } else {
+            panvk_destroy_sec_cmdbuf(cmdbuf);
+         }
       }
    }
 }
@@ -1155,9 +1194,17 @@ panvk_per_arch(DestroyCommandPool)(VkDevice _device,
                             &pool->active_cmd_buffers, pool_link)
       panvk_destroy_cmdbuf(cmdbuf);
 
+   list_for_each_entry_safe(struct panvk_secondary_cmd_buffer, cmdbuf,
+                            &pool->active_sec_cmd_buffers, pool_link)
+      panvk_destroy_sec_cmdbuf(cmdbuf);
+
    list_for_each_entry_safe(struct panvk_cmd_buffer, cmdbuf,
                             &pool->free_cmd_buffers, pool_link)
       panvk_destroy_cmdbuf(cmdbuf);
+
+   list_for_each_entry_safe(struct panvk_secondary_cmd_buffer, cmdbuf,
+                            &pool->free_sec_cmd_buffers, pool_link)
+      panvk_destroy_sec_cmdbuf(cmdbuf);
 
    panvk_bo_pool_cleanup(&pool->desc_bo_pool);
    panvk_bo_pool_cleanup(&pool->varying_bo_pool);
@@ -1177,6 +1224,15 @@ panvk_per_arch(ResetCommandPool)(VkDevice device,
                        pool_link)
    {
       result = panvk_reset_cmdbuf(cmdbuf);
+      if (result != VK_SUCCESS)
+         return result;
+   }
+
+   list_for_each_entry(struct panvk_secondary_cmd_buffer,
+                       cmdbuf, &pool->active_sec_cmd_buffers,
+                       pool_link)
+   {
+      result = panvk_reset_sec_cmdbuf(cmdbuf);
       if (result != VK_SUCCESS)
          return result;
    }
