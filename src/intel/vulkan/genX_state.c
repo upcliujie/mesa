@@ -156,11 +156,11 @@ static VkResult
 init_render_queue_state(struct anv_queue *queue)
 {
    struct anv_device *device = queue->device;
-   struct anv_batch batch;
-
    uint32_t cmds[64];
-   batch.start = batch.next = cmds;
-   batch.end = (void *) cmds + sizeof(cmds);
+   struct anv_batch batch = {
+      .start = batch.next = cmds,
+      .end = (void *) cmds + sizeof(cmds),
+   };
 
    anv_batch_emit(&batch, GENX(PIPELINE_SELECT), ps) {
 #if GFX_VER >= 9
