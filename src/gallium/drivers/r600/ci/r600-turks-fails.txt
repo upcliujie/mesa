@@ -551,17 +551,6 @@ dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.a
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.singlesample_rbo,Fail
 dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.at_sample_id.singlesample_texture,Fail
 
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.centroid_qualified.multisample_rbo_8,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.centroid_qualified.multisample_texture_8,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.dynamic_sample_number.multisample_rbo_4,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.dynamic_sample_number.multisample_rbo_8,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.dynamic_sample_number.multisample_texture_4,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.dynamic_sample_number.multisample_texture_8,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.static_sample_number.multisample_rbo_4,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.static_sample_number.multisample_rbo_8,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.static_sample_number.multisample_texture_4,Crash
-dEQP-GLES31.functional.shaders.multisample_interpolation.interpolate_at_sample.static_sample_number.multisample_texture_8,Crash
-
 dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler2d,Crash
 dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler2darray,Crash
 dEQP-GLES31.functional.shaders.opaque_type_indexing.sampler.dynamically_uniform.geometry.isampler3d,Crash
@@ -858,7 +847,7 @@ spec@arb_framebuffer_object@framebuffer-blit-levels read stencil,Fail
 spec@arb_gpu_shader5@execution@built-in-functions@fs-interpolateatcentroid-block-array,Fail
 spec@arb_gpu_shader5@execution@built-in-functions@fs-interpolateatoffset-block-array,Crash
 spec@arb_gpu_shader5@execution@built-in-functions@fs-interpolateatsample-array-nonuniform,Fail
-spec@arb_gpu_shader5@execution@built-in-functions@fs-interpolateatsample-array-of-array,Crash
+spec@arb_gpu_shader5@execution@built-in-functions@fs-interpolateatsample-array-of-array,Fail
 spec@arb_gpu_shader5@execution@built-in-functions@fs-interpolateatsample-block-array,Fail
 
 # "../src/gallium/drivers/r600/sb/sb_bc_parser.cpp:130: int r600_sb::bc_parser::parse_decls(): Assertion `pshader->num_arrays' failed."
