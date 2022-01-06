@@ -253,6 +253,9 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
    if (wait)
       vws->resource_wait(vws, res->hw_res);
 
+   if (vctx->supports_staging && res->b.target != PIPE_BUFFER)
+      map_type = VIRGL_TRANSFER_MAP_WRITE_TO_STAGING;
+
    return map_type;
 }
 
