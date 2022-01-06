@@ -694,23 +694,11 @@ add_aux_surface_if_supported(struct anv_device *device,
       if (INTEL_DEBUG(DEBUG_NO_RBC))
          return VK_SUCCESS;
 
-      if (device->info.verx10 >= 125) {
-         assert(stride == 0);
-         /* CCS doesn't require VMA on XeHP. So, instead of creating a
-          * separate surface, we can just return whether CCS is supported for
-          * the primary surface.
-          */
-         ok = isl_surf_supports_ccs(&device->isl_dev,
-                                    &image->planes[plane].primary_surface.isl,
-                                    NULL);
-      } else {
-         ok = isl_surf_get_ccs_surf(&device->isl_dev,
-                                    &image->planes[plane].primary_surface.isl,
-                                    NULL,
-                                    &image->planes[plane].aux_surface.isl,
-                                    stride);
-      }
-
+      ok = isl_surf_get_ccs_surf(&device->isl_dev,
+                                 &image->planes[plane].primary_surface.isl,
+                                 NULL,
+                                 &image->planes[plane].aux_surface.isl,
+                                 stride);
       if (!ok)
          return VK_SUCCESS;
 
@@ -729,8 +717,7 @@ add_aux_surface_if_supported(struct anv_device *device,
          image->planes[plane].aux_usage = ISL_AUX_USAGE_CCS_D;
       }
 
-      if (!device->physical->has_implicit_ccs &&
-          image->planes[plane].aux_surface.isl.size_B > 0) {
+      if (!device->physical->has_implicit_ccs) {
          enum anv_image_memory_binding binding =
             ANV_IMAGE_MEMORY_BINDING_PLANE_0 + plane;
 
