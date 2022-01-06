@@ -181,9 +181,6 @@ dEQP-GLES3.functional.draw.random.117,Fail
 # "Attribute 0: position Storage in user_ptr stride 0 input datatype int2_10_10_10 input component count 4 normalized used as vec4 instance divisor 0 drawArraysInstanced() first 7 instance count 1 5 triangles "
 dEQP-GLES3.functional.draw.random.124,Fail
 
-dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_1,Crash
-dEQP-GLES3.functional.shaders.metamorphic.bubblesort_flag.variant_2,Crash
-
 dEQP-GLES3.functional.shaders.texture_functions.texture.samplercubeshadow_bias_fragment,Fail
 dEQP-GLES3.functional.shaders.texture_functions.texturegrad.isamplercube_vertex,Fail
 dEQP-GLES3.functional.shaders.texture_functions.texturegrad.samplercube_fixed_fragment,Fail
