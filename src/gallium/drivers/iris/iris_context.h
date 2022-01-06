@@ -830,6 +830,9 @@ struct iris_context {
       /** Resource holding the pixel pipe hashing tables. */
       struct pipe_resource *pixel_hashing_tables;
    } state;
+
+   /** share state with other context or not */
+   bool bShareCtx;
 };
 
 #define perf_debug(dbg, ...) do {                      \

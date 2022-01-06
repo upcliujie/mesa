@@ -440,6 +440,9 @@ enum pipe_flush_flags
 /** Stop execution if the device is reset. */
 #define PIPE_CONTEXT_LOSE_CONTEXT_ON_RESET (1 << 6)
 
+/** Share state with other context. */
+#define PIPE_CONTEXT_SHARE_STATE    (1 << 7)
+
 /**
  * Flags for pipe_context::memory_barrier.
  */

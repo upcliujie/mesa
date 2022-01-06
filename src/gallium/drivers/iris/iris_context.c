@@ -371,6 +371,11 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
    screen->vtbl.init_render_context(&ice->batches[IRIS_BATCH_RENDER]);
    screen->vtbl.init_compute_context(&ice->batches[IRIS_BATCH_COMPUTE]);
 
+   if (flags & PIPE_CONTEXT_SHARE_STATE)
+      ice->bShareCtx = true;
+   else
+      ice->bShareCtx = false;
+
    if (!(flags & PIPE_CONTEXT_PREFER_THREADED))
       return ctx;
 
