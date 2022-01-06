@@ -867,17 +867,61 @@ static inline void r600_shader_selector_key(const struct pipe_context *ctx,
 	}
 }
 
+static void
+r600_shader_precompile_key(const struct pipe_context *ctx,
+			   const struct r600_pipe_shader_selector *sel,
+			   union r600_shader_key *key)
+{
+	memset(key, 0, sizeof(*key));
+
+	switch (sel->type) {
+	case PIPE_SHADER_VERTEX:
+		/* Assume no tess or GS.  TODO: Could use the next-stage field. */
+		key->vs.as_ls = true;
+		break;
+
+	case PIPE_SHADER_GEOMETRY:
+		break;
+
+	case PIPE_SHADER_FRAGMENT:
+		/* This is used for gl_FragColor output expansion to the number
+		 * of color buffers bound.  Assume just 1 normally.
+		 */
+		key->ps.nr_cbufs = 1;
+		break;
+
+	case PIPE_SHADER_TESS_EVAL:
+		key->tes.as_es = true; /* Assume no GS */
+		break;
+
+	case PIPE_SHADER_TESS_CTRL:
+		/* Prim mode comes from the TES, but we need some valid value. */
+		key->tcs.prim_mode = PIPE_PRIM_TRIANGLES;
+		break;
+
+	case PIPE_SHADER_COMPUTE:
+		break;
+
+	default:
+		unreachable("bad shader stage");
+		break;
+	}
+}
+
 /* Select the hw shader variant depending on the current state.
  * (*dirty) is set to 1 if current variant was changed */
 int r600_shader_select(struct pipe_context *ctx,
         struct r600_pipe_shader_selector* sel,
-        bool *dirty)
+        bool *dirty, bool precompile)
 {
 	union r600_shader_key key;
 	struct r600_pipe_shader * shader = NULL;
 	int r;
 
-	r600_shader_selector_key(ctx, sel, &key);
+	if (precompile)
+		r600_shader_precompile_key(ctx, sel, &key);
+	else
+		r600_shader_selector_key(ctx, sel, &key);
 
 	/* Check if we don't need to change anything.
 	 * This path is also used for most shaders that don't need multiple
@@ -996,6 +1040,12 @@ static void *r600_create_shader_state(struct pipe_context *ctx,
 	default:
 		break;
 	}
+
+	/* Precompile the shader with the expected shader key, to reduce jank at
+	 * draw time. Also produces output for shader-db.
+	 */
+	bool dirty;
+	r600_shader_select(ctx, sel, &dirty, true);
 
 	return sel;
 }
@@ -1771,7 +1821,7 @@ void r600_setup_scratch_buffers(struct r600_context *rctx) {
 }
 
 #define SELECT_SHADER_OR_FAIL(x) do {					\
-		r600_shader_select(ctx, rctx->x##_shader, &x##_dirty);	\
+		r600_shader_select(ctx, rctx->x##_shader, &x##_dirty, false);	\
 		if (unlikely(!rctx->x##_shader->current))		\
 			return false;					\
 	} while(0)
