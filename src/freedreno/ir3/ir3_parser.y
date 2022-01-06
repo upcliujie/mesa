@@ -610,6 +610,7 @@ static void print_token(FILE *file, int type, YYSTYPE value)
 /* category 7: */
 %token <tok> T_OP_BAR
 %token <tok> T_OP_FENCE
+%token <tok> T_OP_SLEEP
 %token <tok> T_OP_ICINV
 %token <tok> T_OP_DCCLN
 %token <tok> T_OP_DCINV
@@ -1241,6 +1242,7 @@ cat7_data_cache:   T_OP_DCCLN              { new_instr(OPC_DCCLN); }
 
 cat7_instr:        cat7_barrier
 |                  cat7_data_cache
+|                  T_OP_SLEEP              { new_instr(OPC_SLEEP); }
 |                  T_OP_ICINV              { new_instr(OPC_ICINV); }
 
 src:               T_REGISTER     { $$ = new_src($1, 0); }

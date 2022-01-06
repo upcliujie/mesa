@@ -398,6 +398,8 @@ static const struct test {
    INSTR_6XX(e09a0000_00000000, "fence.r.w"),
    INSTR_6XX(f0420000_00000000, "(sy)bar.g"),
 
+   INSTR_6XX(e1080000_00000000, "sleep.l"),
+
    INSTR_6XX(e2080000_00000000, "dccln.all"),
    /* clang-format on */
 };
