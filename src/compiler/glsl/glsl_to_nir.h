@@ -37,7 +37,7 @@ extern "C" {
 struct gl_context;
 struct gl_shader_program;
 
-nir_shader *glsl_to_nir(struct gl_context *ctx,
+nir_shader *glsl_to_nir(const struct gl_constants *consts,
                         const struct gl_shader_program *shader_prog,
                         gl_shader_stage stage,
                         const nir_shader_compiler_options *options);
