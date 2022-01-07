@@ -231,7 +231,7 @@ iris-apl-traces-performance:
   variables:
     GPU_VERSION: intel-apl
 
-iris-glk-traces-performance:
+.iris-glk-traces-performance:
   extends:
     - .iris-glk-test
     - .profile-traces
@@ -252,7 +252,7 @@ iris-kbl-traces-performance:
   variables:
     GPU_VERSION: intel-kbl
 
-iris-whl-traces-performance:
+.iris-whl-traces-performance:
   extends:
     - .iris-whl-test
     - .profile-traces
