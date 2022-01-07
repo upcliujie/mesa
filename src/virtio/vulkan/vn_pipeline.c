@@ -140,7 +140,11 @@ vn_CreatePipelineCache(VkDevice device,
 
    VkPipelineCacheCreateInfo local_create_info;
    if (pCreateInfo->initialDataSize) {
+      const struct vk_pipeline_cache_header *header =
+         pCreateInfo->pInitialData;
+
       local_create_info = *pCreateInfo;
+      local_create_info.initialDataSize -= header->header_size;
       local_create_info.pInitialData +=
          sizeof(struct vk_pipeline_cache_header);
       pCreateInfo = &local_create_info;
