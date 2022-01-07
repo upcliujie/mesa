@@ -199,13 +199,10 @@ struct etna_context {
    struct etna_reloc DUMMY_DESC_ADDR;
 
    /* set of resources used by currently-unsubmitted renders */
-   struct set *used_resources_read;
-   struct set *used_resources_write;
+   struct hash_table *pending_resources;
 
    /* resources that must be flushed implicitly at the context flush time */
    struct set *flush_resources;
-
-   mtx_t lock;
 };
 
 static inline struct etna_context *
