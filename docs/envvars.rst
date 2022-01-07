@@ -604,6 +604,8 @@ RADV driver environment variables
    ``invariantgeom``
       Mark geometry-affecting outputs as invariant. This works around a common
       class of application bugs appearing as flickering.
+   ``splitfma``
+      Split application-provided fused multiply-add in geometry stages.
    ``metashaders``
       dump internal meta shaders
    ``noatocdithering``
