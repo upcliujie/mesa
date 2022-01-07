@@ -1,5 +1,788 @@
 [
     {
+        "sha": "3792fbfcf60faa505c18b4981601b381c1170748",
+        "description": "ir3: Assert that we cannot have enough concurrent waves for CS with barrier",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9ed4d49c9779e9cb2e07f04e2295461613468c9c",
+        "description": "ir3: Be able to reduce register limit for RA when CS has barriers",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9323d2ea6d19d5aaf6d99d6b9ec941654d510e5a",
+        "description": "zink/codegen: remove bogus print statement",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "37f01832eb9727572f48aebc96c7f24231553573",
+        "description": "zink/codegen: remove core_since in constructor",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "029e871239ab0b0bb0b63b90339d82c38d923edb",
+        "description": "zink/codegen: support platform tags",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1d40d53e03d33e0595016a95d645bd489ee95365",
+        "description": "anv: don't leave anv_batch fields undefined",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8685a505e7424cac55127d354e0a7ab64d54ac7b",
+        "description": "ntt: Set the output invariant flag according to the semantics",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6f348d9c9902a6268bc54f5c7f0b0e090cee55d4",
+        "description": "nir_lower_io: propagate the \"invariant\" flag to outputs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5bfe29270810bbf35e35f61e44b22ef7dd5031b3",
+        "description": "util/primconvert: map only index buffer part that is needed",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "f9d12bf50e9c09a5896d9419f82d9f510982bc5d"
+    },
+    {
+        "sha": "86b19db459d805e2f31a319ead32b013691e43d9",
+        "description": "etnaviv/ci: update piglit fails",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1756930a79ddc409c656072a479566f6ed63c6a5",
+        "description": "radv: increase maxTaskOutputCount to 65535",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cb45120556938070a623b056867545301bce8cac",
+        "description": "ir3: Use (ss) for instructions writing shared regs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d45678cac46a911230cb35bdcf65e538a4e5dd8b",
+        "description": "ir3/postsched: Rename tex/sfu to sy/ss",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e6b35d606de96d8475dd08d1482bcc5a4f0fe51a",
+        "description": "ir3/sched: Rename tex/sfu to sy/ss",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0cc4aca34558f434d09b15dceb19b53d18c7e395",
+        "description": "ir3: Use new (sy)/(ss) stall helpers in the compiler",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7e60978d30a8c5ac6d16b7b28163b183f9263825",
+        "description": "ir3: Introduce systall metric and new helper functions",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "603791bdebda8d8e316fa18e12d72a6a16629825",
+        "description": "ir3: Bump type mismatch penalty to 3",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "890de1a43603c98b5788f9867ff0793f117b5f4b"
+    },
+    {
+        "sha": "d371d807eb8bb2c6b7f199893b3824be89169811",
+        "description": "ir3/ra: Fix logic bug in compress_regs_left",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "0ffcb19b9d9fbe902224542047c389a661fbf816"
+    },
+    {
+        "sha": "c9adcb605103d248dee991492939489478fbb8bd",
+        "description": "anv/tests: Free BO cache and device mutex",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8a7659a7a23caaa4d31bb0192b7cdca01008c8f1",
+        "description": "anv/ci: Test with deqp-vk on Tiger Lake",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ef27036b4cf054d4955af64343639fac47edfcd8",
+        "description": "shader_info: tess.spacing needs to be unsigned",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1b808f1dea18dc2fdeb1618ef927fb3ca3efa2c8",
+        "description": "etnaviv: fix emit_if in case the else block ends in a jump",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "af1311999313bdbb873d1995ceb2dba69355557f",
+        "description": "intel/fs: OpImageQueryLod does not support arrayed images as an operand",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "231337a13af03f5579f5401cff16aa96ec796746"
+    },
+    {
+        "sha": "558a6006299544ee5f77843f094015c62558f4ad",
+        "description": "nir_to_tgsi: Enable fdot_replicates flag.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "85d7d520b993579ebebaa1c279e7d93015223d8f",
+        "description": "panfrost/ci: update piglit fails",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "054eb9f3468068085f23b991321a23b900a52009",
+        "description": "intel/dev: Implement DG2 restrictions requiring additional DSSes to be disabled.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e48c29acca078fbe6e2a95c1cd7056d84eff8fbf",
+        "description": "intel/dev: Add support for pixel pipe subslice accounting on multi-slice GPUs.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f3274e94fd93c995b8e237797aa0a0582c7d880d",
+        "description": "intel/dev: Fix size of device info num_subslices array.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f7bb68e4995438fd6fa5318d0028cd2c7bff7e59",
+        "description": "glsl/nir: don't pass gl_context to the convertor routine.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ef3303385d07846954074031cb83f3d7ac3bcbbf",
+        "description": "glsl/linker: remove a bunch more gl_context references.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "636b07943ed71963048f6b139fd5ceedc5b44e19",
+        "description": "glsl/linker: drop unused gl_context.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "32702047d87d65f6df4df0092043e19a5b023922",
+        "description": "glsl/linker/uniform_blocks: don't pass gl_context around.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e943af6a55847234da5dbd29548e80275f9d6282",
+        "description": "glsl/nir/linker: avoid passing gl_context inside gl_nir linker",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7c8017bbd1c6336cfeec5e14d41e54a005e39e20",
+        "description": "glsl/linker: remove gl_context usage from more places.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "34090712c6a56b8b8ff75b440b66392d5461388e",
+        "description": "glsl/linker: remove gl_context from check image resources",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4d6e866b7b685ef6c37ba9bc2789ecadc5d6c2f7",
+        "description": "glsl/linker: get rid of gl_context from atomic counters paths",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e9ec1429baf6eb2491ad441bbd7cb2c86a63da08",
+        "description": "glsl/linker: get rid of gl_context from uniform assign paths",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "adbbee980dc651c8294a2916636acfb78059464f",
+        "description": "glsl/linker: get rid of gl_context from link varyings",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "98f665e6131d4488512ce9d33a68ee6b256a9b5f",
+        "description": "glsl/linker: remove direct gl_context usage in favour of consts/exts/api",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d5e7c7351a11dc2228fae7e127df0d4992ae978e",
+        "description": "glsl/linker: move more ctx->Consts to consts.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "eb811bdaf4d25613af07d7c74ce06952dea688e0",
+        "description": "glsl/linker: don't pass gl_context just for constants in xfb code",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e83f0fc6202292c6215cb7c57cae6c9a1d0b64e2",
+        "description": "glsl: don't pass gl_context to lower shared references.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ff0771e2539c1d542696c64eea6b3e869e212b3d",
+        "description": "glsl/linker: cleanup passing gl_context unnecessarily",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c09c0b351fda00c1aaa8aa2f212983ed5e13a7f2",
+        "description": "nir_opt_dead_cf: Remove dead ifs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2bb2219aa71ea3f6c01a14a6aa60d6d42093afb1",
+        "description": "d3d12: Set appropriate caps for shader images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0f8213cb106fd64f33c141683467b97b721e500e",
+        "description": "d3d12: Handle bitcasting of shader images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "156ef05ec77cb51442274868082d2f1a062bae0d",
+        "description": "d3d12: Handle memory barriers",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "63fe4888ea2af15827e52c292f07fb26069c94a9",
+        "description": "d3d12: Lower cube images to 2D arrays via existing int cubemap lowering pass",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d0a3794d6def18a2545253d3d58eb15c9a1564c4",
+        "description": "d3d12: Fill out shader image descriptor tables",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ef44b939149bb10396afe9b65da715afbafb3fa9",
+        "description": "d3d12: Create textures as UAV-capable when appropriate",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "23f0c924cf3e8880748126291ce733916cbcfa89",
+        "description": "d3d12: Handle set_shader_images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5192c8dd1dc97030335bde278fcb52b991084596",
+        "description": "d3d12: Handle images in the root signature",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "def1f0743c557e1f16d960205aa051569179a934",
+        "description": "d3d12: Retrieve shader image dimensions during shader compiles",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5e82a2ff2bb19dc2a81dafec777c3ad45d66fbfe",
+        "description": "d3d12: Init null UAVs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9b62f88cf83a668e669b0567a98925a3bbc747bd",
+        "description": "d3d12: Handle format support queries for shader images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "951f6f2dba33742f671d8179ecd560b6b23881a1",
+        "description": "d3d12: Figure out if we can support GL shader images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f7e50c8cf2547a72e9c2a3b0b67087e14714c891",
+        "description": "d3d12: Add missed SSBO binding enum value",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6620c342ace799901ae3ab29754f9bfb7587c59b",
+        "description": "d3d12: Rename UAV -> SSBO to disambiguate with image UAVs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "aa732038500d7d8e0e927f91c1615032d8dbe0c4",
+        "description": "d3d12: Fix format table typeless-ness for A8 and RGBA1010102",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d1a5250c10a103d14caeb10ab734f360d1e12fd2",
+        "description": "d3d12: Shrink 2D array size so that max-layer cube arrays can be created",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "02fc28625fe9cabcf4a23e5180f56494a62ff5e5",
+        "description": "microsoft/compiler: Fix handling of fp16-in-32bit-val ops to handle high bits",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "20e374f4a3b1c4aa313c09ce90af480872a8c913",
+        "description": "microsoft/compiler: Hook up memory/control barriers",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5d33a9fa47598676a808af38d57691d78b766171",
+        "description": "microsoft/compiler: Handle forced early depth",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0b88600a643b08cf806b7eadc6cf97ddf1f75865",
+        "description": "microsoft/compiler: Implement atomic image ops",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1b62c86eb1b67bbc5e3645b51a5ed09738ced8e0",
+        "description": "microsoft/compiler: Handle images as derefs for GL",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a7311ceafec7762734801ba1176dd1cff4ca5c66",
+        "description": "microsoft/compiler: Fix array-of-array handling for derefs of textures/images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c9719b6d2e4a04a818c3e4f23510db93612f29bb",
+        "description": "microsoft/compiler: Emit SRVs/UAVs as arrays",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e3c14cf718c2880974e29ba8952cb33b8063531b",
+        "description": "microsoft/compiler: Unify handle retrieval between images and UBO/SSBO",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "61872b52408d2731715d53c6dc71498bb0cc95ee",
+        "description": "microsoft/compiler: Emit GL images in descriptor space 1 with driver_location instead of binding",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "83ed626b765e3ea3bb5b4d165f481e2776fe42f3",
+        "description": "microsoft/compiler: Put SSBO and image handles in separate arrays",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8a4b443c5bcac93579567d7093088a622316e677",
+        "description": "microsoft/compiler: Change vulkan_environment bool to an enum",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "87e2d2249dc9cd4d23ce6ed103b2c00489a89582",
+        "description": "anv/blorp: Apply pending pipe flushes after PIPELINE_SELECT",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "313aeee84bc0eeb93766c0349dcc0ff2d5ba6574",
+        "description": "anv: Use pending pipe control mechanism in flush_pipeline_select()",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9ba7bc17d341e0351bc975589eab6e9f42765f6e",
+        "description": "anv: Add another case to INTEL_DEBUG=pc output",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "85ca7fab29bae3410c9ea66d3807afe55b64069d",
+        "description": "radv: Add common entrypoint dependency.",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "a255f6f823017aed7505bb508366a81432ed0ba3"
+    },
+    {
+        "sha": "63101914f8879c37bd468781de1026e761ba6255",
+        "description": "radv: Set optimal copy alignment to 1.",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "05a5e5a2bcefcbce50ae34ad362c382722cf2bf5",
+        "description": "radv: fix xfb query copy param ordering",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "afff9dd0f04d7f4a3a5616b80363f9228ed2f33d"
+    },
+    {
+        "sha": "f43b0d5cdcd3ab68a0aeb5150c2e0446e02186de",
+        "description": "radv/winsys: remove unused syncobj functions",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "91fe0b5629d263b81950493d3176ecfe7aa29004"
+    },
+    {
+        "sha": "da0c708d79cddc14799e1bd5a4cb5cd8611d5fea",
+        "description": "radv: remove remaining dead code related to the old sync code",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "91fe0b5629d263b81950493d3176ecfe7aa29004"
+    },
+    {
+        "sha": "dcbf2423d284b7bf2d0dc3e622c73de00c7d5bf4",
+        "description": "vbo/dlist: add vertices to incomplete primitives",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "ac3d4c7635beab92cadada63f8c09fd12a2f7069"
+    },
+    {
+        "sha": "7a1d3d3abc5366ea75e2b159cd2e46c4b7ea815c",
+        "description": "vbo/dlist: fix loopback crash",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "3253594268028efdca17cb9d2b2e423b353c8aa5"
+    },
+    {
+        "sha": "d84e0096a5daa7c8bdd29c16b4bb15e7d062d80e",
+        "description": "radeonsi/gfx8: use the proper dcc clear size",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "21047a4a06b7901f867072b07514729e15da76c3",
+        "description": "isaspec: Remove duplicate return statement.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d57b10ab98af3d6b5600bf5705f50f39a7839734",
+        "description": "intel/compiler: Adjust TCS instance-id for dg2+",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9f58275f98f8b89b5bb9fc179ed7383cd8a78c7d",
+        "description": "ci: skqp: Add documentation on how to maintain skqp jobs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a6d05e68634cc7b26da87fa879eaa4864143c1a6",
+        "description": "ci: Add a630_skqp jobs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8992cf5ab8b33c2f99e83cd339ca01d0bec72016",
+        "description": "ci: Build skqp on ARM64 images",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
         "sha": "a255f6f823017aed7505bb508366a81432ed0ba3",
         "description": "radv: do not use the common entrypoint for the Metro Exodus layer",
         "nominated": false,
