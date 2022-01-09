@@ -164,6 +164,9 @@ bi_side_effects(enum bi_opcode op)
         switch (op) {
         case BI_OPCODE_DISCARD_F32:
         case BI_OPCODE_DISCARD_B32:
+
+                /* Assume if we emitted a NOP, we had a good reason */
+        case BI_OPCODE_NOP:
                 return true;
         default:
                 break;
