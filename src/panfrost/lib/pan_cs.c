@@ -880,7 +880,7 @@ GENX(pan_emit_tiler_ctx)(const struct panfrost_device *dev,
 
         pan_pack(out, TILER_CONTEXT, tiler) {
                 /* TODO: Select hierarchy mask more effectively */
-                tiler.hierarchy_mask = (max_levels >= 8) ? 0xFF : 0x28;
+                tiler.hierarchy_mask = /*(max_levels >= 8) ? 0xFF : 0x28*/0xaa;
                 tiler.fb_width = fb_width;
                 tiler.fb_height = fb_height;
                 tiler.heap = heap;
