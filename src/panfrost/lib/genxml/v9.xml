@@ -1107,7 +1107,7 @@
     <field name="Tile Enable Map Row Stride" size="8" start="6:0" type="uint"/>
   </struct>
 
-  <aggregate name="Fragment Job" align="64">
+  <aggregate name="Fragment Job" align="128">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Payload" offset="32" type="Fragment Job Payload"/>
   </aggregate>
@@ -1140,12 +1140,12 @@
     <field name="L2 Invalidate" size="1" start="1:1" type="bool"/>
   </struct>
 
-  <aggregate name="Write Value Job" align="64">
+  <aggregate name="Write Value Job" align="128">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Payload" offset="32" type="Write Value Job Payload"/>
   </aggregate>
 
-  <aggregate name="Cache Flush Job" align="64">
+  <aggregate name="Cache Flush Job" align="128">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Payload" offset="32" type="Cache Flush Job Payload"/>
   </aggregate>
@@ -1179,7 +1179,7 @@
   </struct>
 
   <!-- Compute job also covers vertex and geometry operations -->
-  <aggregate name="Compute Job" align="64">
+  <aggregate name="Compute Job" align="128">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Payload" offset="32" type="Compute Payload"/>
   </aggregate>
@@ -1272,7 +1272,7 @@
     <field name="Address" size="64" start="0:0" type="address"/>
   </struct>
 
-  <aggregate name="IDVS Helper Job" size="384" align="64">
+  <aggregate name="IDVS Helper Job" size="384" align="128">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Primitive" offset="32" type="Primitive"/>
     <section name="Counts" offset="48" type="IDVS Counts"/>
