@@ -572,7 +572,7 @@
     <field name="Fixed-Function" size="64" start="0:0" type="Blend Fixed-Function"/>
   </struct>
 
-  <struct name="Blend" size="4" align="16">
+  <struct name="Blend" size="4" align="4096">
     <field name="Load Destination" size="1" start="0:0" type="bool" default="false"/>
     <field name="Alpha To One" size="1" start="0:8" type="bool"/>
     <field name="Enable" size="1" start="0:9" type="bool" default="true"/>
@@ -718,7 +718,7 @@
     <field name="Fragment" size="32" start="0" type="Fragment Preload"/>
   </struct>
 
-  <struct name="Shader Program" align="32">
+  <struct name="Shader Program" align="4096">
     <field name="Type" size="4" start="0:0" type="Descriptor Type" default="Shader"/>
     <field name="Stage" size="4" start="0:4" type="Shader stage"/>
     <field name="Primary shader" size="1" start="0:8" type="bool"/>
@@ -738,7 +738,7 @@
     <field name="Scissor Maximum Y" size="16" start="1:16" type="uint"/>
   </struct>
 
-  <struct name="Local Storage" size="8" align="64">
+  <struct name="Local Storage" size="8" align="4096">
     <field name="TLS Size" size="5" start="0:0" type="uint"/>
     <field name="TLS Initial Stack Pointer Offset" size="27" start="0:5" type="uint"/>
     <field name="WLS Instances" size="5" start="1:0" type="uint" modifier="log2" prefix="MALI_LOCAL_STORAGE" default="MALI_LOCAL_STORAGE_NO_WORKGROUP_MEM">
@@ -1021,7 +1021,7 @@
     <field name="Clear" size="128" start="12:0" type="RT Clear"/>
   </struct>
 
-  <struct name="Tiler Heap" align="64">
+  <struct name="Tiler Heap" align="4096">
     <field name="Unknown" size="32" start="0:0" type="hex" default="0x329"/>
     <field name="Size" size="32" start="1:0" type="uint" modifier="align(4096)"/>
     <field name="Base" size="64" start="2:0" type="address"/>
@@ -1059,7 +1059,7 @@
     <field name="Word15" size="32" start="15:0" type="uint"/>
   </struct>
 
-  <struct name="Tiler Context" size="48" align="64">
+  <struct name="Tiler Context" size="48" align="4096">
     <field name="Polygon List" size="64" start="0:0" type="address"/>
     <field name="Hierarchy Mask" size="13" start="2:0" type="uint"/>
     <field name="Sample Pattern" size="3" start="2:13" type="Sample Pattern"/>
@@ -1074,12 +1074,12 @@
   <struct name="Framebuffer Padding" size="16">
   </struct>
 
-  <aggregate name="Framebuffer" align="64">
+  <aggregate name="Framebuffer" align="4096">
     <section name="Parameters" offset="0" type="Framebuffer Parameters"/>
     <section name="Padding" offset="64" type="Framebuffer Padding"/>
   </aggregate>
 
-  <struct name="Job Header" align="64">
+  <struct name="Job Header" align="4096">
     <field name="Exception Status" size="32" start="0:0" type="uint"/>
     <field name="First Incomplete Task" size="32" start="1:0" type="uint"/>
     <field name="Fault Pointer" size="64" start="2:0" type="address"/>
@@ -1184,7 +1184,7 @@
     <section name="Payload" offset="32" type="Compute Payload"/>
   </aggregate>
 
-  <struct name="Resource" size="4" align="16">
+  <struct name="Resource" size="4" align="4096">
     <field name="Address" start="0:0" size="56" type="address"/>
     <field name="Unk" start="1:24" size="1" type="bool" default="true"/>
     <field name="Size" start="2:0" size="64" type="uint"/> <!-- bytes -->
@@ -1272,7 +1272,7 @@
     <field name="Address" size="64" start="0:0" type="address"/>
   </struct>
 
-  <aggregate name="IDVS Helper Job" size="384" align="128">
+  <aggregate name="IDVS Helper Job" size="384" align="4096">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Primitive" offset="32" type="Primitive"/>
     <section name="Counts" offset="48" type="IDVS Counts"/>
