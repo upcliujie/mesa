@@ -1184,7 +1184,7 @@
     <section name="Payload" offset="32" type="Compute Payload"/>
   </aggregate>
 
-  <struct name="Resource" size="4" align="16">
+  <struct name="Resource" size="4" align="4096">
     <field name="Address" start="0:0" size="56" type="address"/>
     <field name="Unk" start="1:24" size="1" type="bool" default="true"/>
     <field name="Size" start="2:0" size="64" type="uint"/> <!-- bytes -->
@@ -1272,7 +1272,7 @@
     <field name="Address" size="64" start="0:0" type="address"/>
   </struct>
 
-  <aggregate name="IDVS Helper Job" size="384" align="128">
+  <aggregate name="IDVS Helper Job" size="384" align="4096">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Primitive" offset="32" type="Primitive"/>
     <section name="Counts" offset="48" type="IDVS Counts"/>
