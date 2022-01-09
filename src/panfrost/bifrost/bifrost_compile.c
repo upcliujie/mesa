@@ -541,6 +541,11 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T, unsigned rt)
         uint64_t blend_desc = inputs->blend.bifrost_blend_desc;
         enum bi_register_format regfmt = bi_reg_fmt_for_nir(T);
 
+        if (b->shader->arch >= 9) {
+                bi_instr *I = bi_nop(b);
+                I->action = 0x1 | 0x8; /* .barrier */
+        }
+
         if (inputs->is_blend && inputs->blend.nr_samples > 1) {
                 /* Conversion descriptor comes from the compile inputs, pixel
                  * indices derived at run time based on sample ID */
@@ -591,6 +596,11 @@ bi_skip_atest(bi_context *ctx, bool emit_zs)
 static void
 bi_emit_atest(bi_builder *b, bi_index alpha)
 {
+        if (b->shader->arch >= 9) {
+                bi_instr *I = bi_nop(b);
+                I->action = 0x0 | 0x8; /* .wait0126 */
+        }
+
         bi_index coverage = bi_register(60);
         bi_instr *atest = bi_atest_to(b, coverage, coverage, alpha);
         b->shader->emitted_atest = true;

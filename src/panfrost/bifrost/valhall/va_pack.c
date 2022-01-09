@@ -658,6 +658,8 @@ va_pack_action(bi_block *block, bi_instr *I)
       return 0x2 | 0x8;
 
    /* TODO: Barrier, thread discard, ATEST */
+   if (I->action)
+      return I->action;
 
    /* TODO: Generalize waits */
    if (valhall_opcodes[I->op].nr_staging_dests > 0)

@@ -372,6 +372,9 @@ typedef struct {
          * useless double fills */
         bool no_spill;
 
+        /* On Valhall: an action to perform. TODO: Make this not suck. */
+        uint8_t action;
+
         /* On Bifrost: A value of bi_table to override the table, inducing a
          * DTSEL_IMM pair if nonzero.
          *
