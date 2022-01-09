@@ -3156,7 +3156,7 @@ panfrost_emit_idvs_helper(struct panfrost_batch *batch,
                  */
                 if (secondary_shader) {
                         cfg.varying = cfg.position;
-                        cfg.varying.shader += pan_size(SHADER_PROGRAM);
+                        cfg.varying.shader += pan_alignment(SHADER_PROGRAM);
                 }
 
                 if (ctx->occlusion_query && ctx->active_queries) {
@@ -4149,9 +4149,9 @@ prepare_shader(struct panfrost_shader_state *state,
                                  state->info.vs.secondary_enable);
 
         unsigned nr_variants = secondary_enable ? 2 : 1;
-        struct panfrost_ptr ptr = pan_pool_alloc_desc_array(&pool->base,
-                                                            nr_variants,
-                                                            SHADER_PROGRAM);
+        struct panfrost_ptr ptr = pan_pool_alloc_aligned(&pool->base,
+                                                         pan_alignment(SHADER_PROGRAM) * nr_variants,
+                                                         pan_alignment(SHADER_PROGRAM));
 
         state->state = panfrost_pool_take_ref(pool, ptr.gpu);
 
@@ -4168,7 +4168,7 @@ prepare_shader(struct panfrost_shader_state *state,
         if (!secondary_enable)
                 return;
 
-        pan_pack(ptr.cpu + pan_size(SHADER_PROGRAM), SHADER_PROGRAM, cfg) {
+        pan_pack(ptr.cpu + pan_alignment(SHADER_PROGRAM), SHADER_PROGRAM, cfg) {
                 unsigned work_count = state->info.vs.secondary_work_reg_count;
 
                 cfg.stage = pan_shader_stage(&state->info);
