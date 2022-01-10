@@ -1020,7 +1020,6 @@ void
 d3d12_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 {
    struct d3d12_context *ctx = d3d12_context(pctx);
-   struct d3d12_screen *screen = d3d12_screen(pctx->screen);
    struct d3d12_batch *batch;
 
    if (info->indirect) {
