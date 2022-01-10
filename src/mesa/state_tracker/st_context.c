@@ -811,6 +811,9 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
                                         /* patches is always supported */
                                         BITFIELD_BIT(PIPE_PRIM_PATCHES);
 
+   ctx->Const.PrimitiveRestartForPatches =
+      screen->get_param(screen, PIPE_CAP_SUPPORTED_PRIM_MODES_WITH_RESTART) &
+      BITFIELD_BIT(PIPE_PRIM_PATCHES);
    return st;
 }
 
