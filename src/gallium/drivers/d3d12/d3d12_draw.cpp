@@ -1024,7 +1024,7 @@ d3d12_launch_grid(struct pipe_context *pctx, const struct pipe_grid_info *info)
 
    if (info->indirect) {
       /* TODO: Use a compute shader to retrieve state vars if necessary, and do an actual indirect dispatch */
-      pipe_box box = { info->indirect_offset, 0, 0, sizeof(info->grid), 1, 1 };
+      pipe_box box = { (int)info->indirect_offset, 0, 0, sizeof(info->grid), 1, 1 };
       pipe_transfer *transfer = nullptr;
       void *map = pctx->buffer_map(pctx, info->indirect, 0, PIPE_MAP_READ, &box, &transfer);
       pipe_grid_info new_info = *info;
