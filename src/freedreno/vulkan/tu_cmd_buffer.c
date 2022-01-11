@@ -125,7 +125,7 @@ tu6_emit_flushes(struct tu_cmd_buffer *cmd_buffer,
 
 /* "Normal" cache flushes, that don't require any special handling */
 
-static void
+void
 tu_emit_cache_flush(struct tu_cmd_buffer *cmd_buffer,
                     struct tu_cs *cs)
 {
@@ -2686,7 +2686,7 @@ tu_CmdSetLineStippleEXT(VkCommandBuffer commandBuffer,
    tu_stub();
 }
 
-static void
+void
 tu_flush_for_access(struct tu_cache_state *cache,
                     enum tu_cmd_access_mask src_mask,
                     enum tu_cmd_access_mask dst_mask)

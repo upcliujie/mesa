@@ -600,6 +600,17 @@ emit_copy_query_pool_results(struct tu_cmd_buffer *cmdbuf,
     */
    tu_cs_emit_pkt7(cs, CP_WAIT_MEM_WRITES, 0);
 
+   /* From the Vulkan 1.2.203 spec:
+    *
+    *    vkCmdCopyQueryPoolResults is considered to be a transfer operation...
+    *
+    * Barriers which may be used to avoid WaW hazard will invalidate CCU
+    * but not flush it, thus we have to flush CCU in order to make the results
+    * of previous transfer operation visible to CP.
+    */
+   tu_flush_for_access(&cmdbuf->state.cache, 0, TU_ACCESS_SYSMEM_WRITE);
+   tu_emit_cache_flush(cmdbuf, cs);
+
    for (uint32_t i = 0; i < queryCount; i++) {
       uint32_t query = firstQuery + i;
       uint64_t available_iova = query_available_iova(pool, query);
@@ -667,6 +678,15 @@ emit_copy_query_pool_results(struct tu_cmd_buffer *cmdbuf,
                               result_count /* offset */, flags);
       }
    }
+
+   /* From the Vulkan 1.2.203 spec:
+    *
+    *    vkCmdCopyQueryPoolResults is considered to be a transfer operation,
+    *    and its writes to buffer memory must be synchronized using
+    *    VK_PIPELINE_STAGE_TRANSFER_BIT and VK_ACCESS_TRANSFER_WRITE_BIT
+    *    before using the results.
+    */
+   tu_flush_for_access(&cmdbuf->state.cache, TU_ACCESS_CP_WRITE, 0);
 }
 
 VKAPI_ATTR void VKAPI_CALL
