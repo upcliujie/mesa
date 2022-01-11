@@ -89,6 +89,7 @@ radv_get_nir_options(struct radv_physical_device *device)
       .has_sdot_4x8 = device->rad_info.has_accelerated_dot_product,
       .has_udot_4x8 = device->rad_info.has_accelerated_dot_product,
       .has_dot_2x16 = device->rad_info.has_accelerated_dot_product,
+      .has_pack_half_rtz_2x16 = true,
       .use_scoped_barrier = true,
       .max_unroll_iterations = 32,
       .max_unroll_iterations_aggressive = 128,

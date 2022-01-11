@@ -1093,9 +1093,11 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       result = emit_imul_high(&ctx->ac, src[0], src[1]);
       break;
    case nir_op_pack_half_2x16:
+   case nir_op_pack_half_rtz_2x16:
       result = emit_pack_2x16(&ctx->ac, src[0], ac_build_cvt_pkrtz_f16);
       break;
    case nir_op_pack_half_2x16_split:
+   case nir_op_pack_half_rtz_2x16_split:
       src[0] = ac_to_float(&ctx->ac, src[0]);
       src[1] = ac_to_float(&ctx->ac, src[1]);
       result = LLVMBuildBitCast(ctx->ac.builder,
