@@ -1115,12 +1115,19 @@ struct tu_reg_value {
 };
 
 
+void tu_emit_cache_flush(struct tu_cmd_buffer *cmd_buffer,
+                         struct tu_cs *cs);
+
 void tu_emit_cache_flush_renderpass(struct tu_cmd_buffer *cmd_buffer,
                                     struct tu_cs *cs);
 
 void tu_emit_cache_flush_ccu(struct tu_cmd_buffer *cmd_buffer,
                              struct tu_cs *cs,
                              enum tu_cmd_ccu_state ccu_state);
+
+void tu_flush_for_access(struct tu_cache_state *cache,
+                         enum tu_cmd_access_mask src_mask,
+                         enum tu_cmd_access_mask dst_mask);
 
 void
 tu6_emit_event_write(struct tu_cmd_buffer *cmd,
