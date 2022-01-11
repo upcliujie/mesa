@@ -303,6 +303,9 @@ d3d12_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
          return D3D12_UAV_SLOT_COUNT;
       return 0;
 
+   case PIPE_CAP_FRAMEBUFFER_NO_ATTACHMENT:
+      return 1;
+
    default:
       return u_pipe_screen_get_param_defaults(pscreen, param);
    }
@@ -531,6 +534,20 @@ d3d12_is_format_supported(struct pipe_screen *pscreen,
         util_format_is_luminance_alpha(format) ||
         util_format_is_yuv(format)))
       return false;
+
+   if (format == PIPE_FORMAT_NONE) {
+      /* For UAV-only rendering, aka ARB_framebuffer_no_attachments */
+      switch (sample_count) {
+      case 0:
+      case 1:
+      case 4:
+      case 8:
+      case 16:
+         return true;
+      default:
+         return false;
+      }
+   }
 
    DXGI_FORMAT dxgi_format = d3d12_get_format(format);
    if (dxgi_format == DXGI_FORMAT_UNKNOWN)
