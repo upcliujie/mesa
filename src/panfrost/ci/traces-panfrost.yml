@@ -235,6 +235,18 @@ traces:
       # Missing the coins and the texture on the "Nev" of the level.
       - device: gl-panfrost-t860
         checksum: 33235a5466d402348adbf3196cf3cf6b
+  - path: paraview/pv-manyspheres.trace
+    expectations:
+      - device: gl-panfrost-t860
+        checksum: b740377ea4bbb3becd304d1696a55247
+  - path: paraview/pv-waveletcontour.trace
+    expectations:
+      - device: gl-panfrost-t860
+        checksum: db43c733f3f3d5253e263838e58d9111
+  - path: paraview/pv-waveletvolume.trace
+    expectations:
+      - device: gl-panfrost-t860
+        checksum: f4af4067b37c00861fa5911e4c0a6629
   # Definitely wedges the GPU
   # - path: valve/counterstrike-v2.trace
   #   expectations:
