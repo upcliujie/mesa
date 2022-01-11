@@ -1495,6 +1495,11 @@ for op in ['pack_half_2x16', 'pack_half_rtz_2x16']:
        (op, ('vec2', a, b))),
       (('ior', (op, ('vec2', a, 0)), (op, ('vec2', 0, b))),
        (op, ('vec2', a, b))),
+
+      ((op, ('vec2', ('bcsel', ('fneu', a, a), a, ('iand', a, 0xffffe000)), b)),
+       ('pack_half_rtz_2x16', ('vec2', a, b)), 'options->has_pack_half_rtz_2x16'),
+      ((op, ('vec2', a, ('bcsel', ('fneu', b, b), b, ('iand', b, 0xffffe000)))),
+       ('pack_half_rtz_2x16', ('vec2', a, b)), 'options->has_pack_half_rtz_2x16'),
    ])
 
 for op in ['pack_half_2x16_split', 'pack_half_rtz_2x16_split']:
@@ -1505,6 +1510,11 @@ for op in ['pack_half_2x16_split', 'pack_half_rtz_2x16_split']:
 
       (('iadd', (op, a, 0), (op, 0, b)), (op, a, b)),
       (('ior',  (op, a, 0), (op, 0, b)), (op, a, b)),
+
+      ((op, ('bcsel', ('fneu', a, a), a, ('iand', a, 0xffffe000)), b),
+       ('pack_half_rtz_2x16_split', a, b), 'options->has_pack_half_rtz_2x16'),
+      ((op, a, ('bcsel', ('fneu', b, b), b, ('iand', b, 0xffffe000))),
+       ('pack_half_rtz_2x16_split', a, b), 'options->has_pack_half_rtz_2x16'),
    ])
 
 # After the ('extract_u8', a, 0) pattern, above, triggers, there will be
