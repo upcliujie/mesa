@@ -114,6 +114,18 @@ traces:
         checksum: 0f14a88f511cd886c920238c80017e5d
       - device: crocus-hsw
         checksum: ec6b2615ab12db73126e06e6b20663ec
+  - path: paraview/pv-manyspheres.trace
+    expectations:
+      - device: crocus-hsw
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletcontour.trace
+    expectations:
+      - device: crocus-hsw
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletvolume.trace
+    expectations:
+      - device: crocus-hsw
+        checksum: a0000000000000000000000000000000
   - path: pathfinder/canvas_moire.trace
     expectations:
       - device: crocus-hsw

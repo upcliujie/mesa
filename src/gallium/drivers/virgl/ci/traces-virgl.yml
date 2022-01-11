@@ -228,6 +228,18 @@ traces:
     expectations:
       - device: gl-virgl
         checksum: 0702a66c415cfc13d5bae8bec08402cf
+  - path: paraview/pv-manyspheres.trace
+    expectations:
+      - device: gl-virgl
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletcontour.trace
+    expectations:
+      - device: gl-virgl
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletvolume.trace
+    expectations:
+      - device: gl-virgl
+        checksum: a0000000000000000000000000000000
   - path: supertuxkart/supertuxkart-mansion-egl-gles.trace
     expectations:
       - device: gl-virgl

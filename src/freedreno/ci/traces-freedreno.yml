@@ -532,6 +532,24 @@ traces:
 #    expectations:
 #      - device: freedreno-a630
 #        checksum: 9571117bf4eab6fe29b12f6c3d42d865
+  - path: paraview/pv-manyspheres.trace
+    expectations:
+      - device: freedreno-a530
+        checksum: a0000000000000000000000000000000
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletcontour.trace
+    expectations:
+      - device: freedreno-a530
+        checksum: a0000000000000000000000000000000
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletvolume.trace
+    expectations:
+      - device: freedreno-a530
+        checksum: a0000000000000000000000000000000
+      - device: freedreno-a630
+        checksum: a0000000000000000000000000000000
   - path: pathfinder/canvas_moire.trace
     expectations:
       # a306/a630 would need higher GL version to run

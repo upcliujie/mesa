@@ -802,6 +802,18 @@ traces:
         checksum: 75acd3160d268de2c5f286ff4546258c
       - device: gl-intel-cml
         checksum: 75acd3160d268de2c5f286ff4546258c
+  - path: paraview/pv-manyspheres.trace
+    expectations:
+      - device: gl-intel-apl
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletcontour.trace
+    expectations:
+      - device: gl-intel-apl
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletvolume.trace
+    expectations:
+      - device: gl-intel-apl
+        checksum: a0000000000000000000000000000000
   - path: supertuxkart/supertuxkart-antediluvian-abyss.rdc
     expectations:
       - device: gl-intel-apl

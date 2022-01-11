@@ -170,6 +170,18 @@ traces:
     expectations:
       - device: gl-vmware-llvmpipe
         checksum: a053c56658bc830249bc94317a3b3ea8
+  - path: paraview/pv-manyspheres.trace
+    expectations:
+      - device: gl-vmware-llvmpipe
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletcontour.trace
+    expectations:
+      - device: gl-vmware-llvmpipe
+        checksum: a0000000000000000000000000000000
+  - path: paraview/pv-waveletvolume.trace
+    expectations:
+      - device: gl-vmware-llvmpipe
+        checksum: a0000000000000000000000000000000
   - path: pathfinder/canvas_moire.trace
     expectations:
       - device: gl-vmware-llvmpipe
