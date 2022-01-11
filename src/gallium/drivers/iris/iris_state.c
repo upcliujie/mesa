@@ -1155,7 +1155,7 @@ iris_init_compute_context(struct iris_batch *batch)
     *
     *  Start with pipeline in 3D mode to set the STATE_BASE_ADDRESS.
     */
-#if GFX_VER == 12
+#if GFX_VERx10 == 120
    emit_pipeline_select(batch, _3D);
 #else
    emit_pipeline_select(batch, GPGPU);
@@ -1167,7 +1167,7 @@ iris_init_compute_context(struct iris_batch *batch)
 
    iris_init_common_context(batch);
 
-#if GFX_VER == 12
+#if GFX_VERx10 == 120
    emit_pipeline_select(batch, GPGPU);
 #endif
 
@@ -5402,7 +5402,7 @@ iris_update_binder_address(struct iris_batch *batch,
 
    flush_before_state_base_change(batch);
 
-#if GFX_VER == 12
+#if GFX_VERx10 == 120
    /* Wa_1607854226:
     *
     *  Workaround the non pipelined state not applying in MEDIA/GPGPU pipeline
@@ -5433,7 +5433,7 @@ iris_update_binder_address(struct iris_batch *batch,
 #endif
    }
 
-#if GFX_VER == 12
+#if GFX_VERx10 == 120
    /* Wa_1607854226:
     *
     *  Put the pipeline back into compute mode.

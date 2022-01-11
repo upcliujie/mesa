@@ -115,7 +115,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
       anv_debug_dump_pc(pc);
    }
 
-#if GFX_VER == 12
+#if GFX_VERx10 == 120
    /* Wa_1607854226:
     *
     *  Workaround the non pipelined state not applying in MEDIA/GPGPU pipeline
@@ -205,7 +205,7 @@ genX(cmd_buffer_emit_state_base_address)(struct anv_cmd_buffer *cmd_buffer)
 #  endif
    }
 
-#if GFX_VER == 12
+#if GFX_VERx10 == 120
    /* Wa_1607854226:
     *
     *  Put the pipeline back into its current mode.
