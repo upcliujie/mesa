@@ -319,3 +319,16 @@ intel_print_hwconfig_table(const struct hwconfig *hwconfig,
    intel_process_hwconfig_table(NULL, hwconfig, hwconfig_len,
                                 print_hwconfig_item);
 }
+
+void
+intel_print_fd_hwconfig_table(int fd)
+{
+   struct hwconfig *hwconfig;
+   int32_t hwconfig_len = 0;
+   hwconfig = intel_i915_query_alloc(fd, DRM_I915_QUERY_HWCONFIG_TABLE,
+                                     &hwconfig_len);
+   if (hwconfig) {
+      intel_print_hwconfig_table(hwconfig, hwconfig_len);
+      free(hwconfig);
+   }
+}
