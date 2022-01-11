@@ -250,6 +250,12 @@ pack_half_1x16(float x)
    return _mesa_float_to_half(x);
 }
 
+static uint16_t
+pack_half_rtz_1x16(float x)
+{
+   return _mesa_float_to_float16_rtz(x);
+}
+
 /**
  * Evaluate one component of unpackHalf2x16.
  */

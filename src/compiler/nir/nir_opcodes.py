@@ -363,6 +363,7 @@ pack_4x8("snorm")
 pack_2x16("unorm")
 pack_4x8("unorm")
 pack_2x16("half")
+pack_2x16("half_rtz")
 unpack_2x16("snorm")
 unpack_4x8("snorm")
 unpack_2x16("unorm")
@@ -890,6 +891,9 @@ binop("fpow", tfloat, "", "bit_size == 64 ? powf(src0, src1) : pow(src0, src1)")
 
 binop_horiz("pack_half_2x16_split", 1, tuint32, 1, tfloat32, 1, tfloat32,
             "pack_half_1x16(src0.x) | (pack_half_1x16(src1.x) << 16)")
+
+binop_horiz("pack_half_rtz_2x16_split", 1, tuint32, 1, tfloat32, 1, tfloat32,
+            "pack_half_rtz_1x16(src0.x) | (pack_half_rtz_1x16(src1.x) << 16)")
 
 binop_convert("pack_64_2x32_split", tuint64, tuint32, "",
               "src0 | ((uint64_t)src1 << 32)")

@@ -1474,23 +1474,6 @@ optimizations.extend([
    (('unpack_32_2x16_split_x', ('extract_u16', a, 0)), ('unpack_32_2x16_split_x', a)),
    (('unpack_32_2x16_split_x', ('extract_u16', a, 1)), ('unpack_32_2x16_split_y', a)),
 
-   # Optimize half packing
-   (('ishl', ('pack_half_2x16', ('vec2', a, 0)), 16), ('pack_half_2x16', ('vec2', 0, a))),
-   (('ushr', ('pack_half_2x16', ('vec2', 0, a)), 16), ('pack_half_2x16', ('vec2', a, 0))),
-   (('extract_u16', ('pack_half_2x16', ('vec2', 0, a)), 1), ('pack_half_2x16', ('vec2', a, 0))),
-
-   (('iadd', ('pack_half_2x16', ('vec2', a, 0)), ('pack_half_2x16', ('vec2', 0, b))),
-    ('pack_half_2x16', ('vec2', a, b))),
-   (('ior', ('pack_half_2x16', ('vec2', a, 0)), ('pack_half_2x16', ('vec2', 0, b))),
-    ('pack_half_2x16', ('vec2', a, b))),
-
-   (('ishl', ('pack_half_2x16_split', a, 0), 16), ('pack_half_2x16_split', 0, a)),
-   (('ushr', ('pack_half_2x16_split', 0, a), 16), ('pack_half_2x16_split', a, 0)),
-   (('extract_u16', ('pack_half_2x16_split', 0, a), 1), ('pack_half_2x16_split', a, 0)),
-
-   (('iadd', ('pack_half_2x16_split', a, 0), ('pack_half_2x16_split', 0, b)), ('pack_half_2x16_split', a, b)),
-   (('ior',  ('pack_half_2x16_split', a, 0), ('pack_half_2x16_split', 0, b)), ('pack_half_2x16_split', a, b)),
-
    (('extract_i8', ('pack_32_4x8_split', a, b, c, d), 0), ('i2i', a)),
    (('extract_i8', ('pack_32_4x8_split', a, b, c, d), 1), ('i2i', b)),
    (('extract_i8', ('pack_32_4x8_split', a, b, c, d), 2), ('i2i', c)),
@@ -1500,6 +1483,29 @@ optimizations.extend([
    (('extract_u8', ('pack_32_4x8_split', a, b, c, d), 2), ('u2u', c)),
    (('extract_u8', ('pack_32_4x8_split', a, b, c, d), 3), ('u2u', d)),
 ])
+
+# Optimize half packing
+for op in ['pack_half_2x16', 'pack_half_rtz_2x16']:
+   optimizations.extend([
+      (('ishl', (op, ('vec2', a, 0)), 16), (op, ('vec2', 0, a))),
+      (('ushr', (op, ('vec2', 0, a)), 16), (op, ('vec2', a, 0))),
+      (('extract_u16', (op, ('vec2', 0, a)), 1), (op, ('vec2', a, 0))),
+
+      (('iadd', (op, ('vec2', a, 0)), (op, ('vec2', 0, b))),
+       (op, ('vec2', a, b))),
+      (('ior', (op, ('vec2', a, 0)), (op, ('vec2', 0, b))),
+       (op, ('vec2', a, b))),
+   ])
+
+for op in ['pack_half_2x16_split', 'pack_half_rtz_2x16_split']:
+   optimizations.extend([
+      (('ishl', (op, a, 0), 16), (op, 0, a)),
+      (('ushr', (op, 0, a), 16), (op, a, 0)),
+      (('extract_u16', (op, 0, a), 1), (op, a, 0)),
+
+      (('iadd', (op, a, 0), (op, 0, b)), (op, a, b)),
+      (('ior',  (op, a, 0), (op, 0, b)), (op, a, b)),
+   ])
 
 # After the ('extract_u8', a, 0) pattern, above, triggers, there will be
 # patterns like those below.
