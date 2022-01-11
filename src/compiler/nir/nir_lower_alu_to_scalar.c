@@ -187,6 +187,15 @@ lower_alu_instr_scalar(nir_builder *b, nir_instr *instr, void *_data)
                                          nir_channel(b, src_vec2, 1));
    }
 
+   case nir_op_pack_half_rtz_2x16: {
+      if (!b->shader->options->lower_pack_half_2x16)
+         return NULL;
+
+      nir_ssa_def *src_vec2 = nir_ssa_for_alu_src(b, alu, 0);
+      return nir_pack_half_rtz_2x16_split(b, nir_channel(b, src_vec2, 0),
+                                             nir_channel(b, src_vec2, 1));
+   }
+
    case nir_op_unpack_unorm_4x8:
    case nir_op_unpack_snorm_4x8:
    case nir_op_unpack_unorm_2x16:
