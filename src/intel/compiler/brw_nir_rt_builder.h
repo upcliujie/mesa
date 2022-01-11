@@ -24,6 +24,13 @@
 #ifndef BRW_NIR_RT_BUILDER_H
 #define BRW_NIR_RT_BUILDER_H
 
+/* This file provides helpers to access memory based data structures that the
+ * RT hardware reads/writes and their locations.
+ *
+ * For memory structures refer to BSpec 47547, for memory locations refer to
+ * BSpec 47550.
+ */
+
 #include "brw_rt.h"
 #include "nir_builder.h"
 
