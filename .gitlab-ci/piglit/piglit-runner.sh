@@ -69,7 +69,7 @@ fi
 
 set +e
 
-piglit-runner \
+$TEST_RUN_WRAPPER piglit-runner \
     run \
     --piglit-folder /piglit \
     --output $RESULTS \
