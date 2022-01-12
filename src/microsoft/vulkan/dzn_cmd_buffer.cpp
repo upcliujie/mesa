@@ -835,8 +835,15 @@ dzn_cmd_buffer::clear(const dzn_image *image,
             }
          }
 
+         VkImageSubresourceRange view_range = range;
+
+         if (image->vk.image_type == VK_IMAGE_TYPE_3D) {
+            view_range.baseArrayLayer = 0;
+            view_range.layerCount = u_minify(image->vk.extent.depth, range.baseMipLevel + lvl);
+         }
+
          d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &handle);
-         image->create_rtv(device, range, lvl, handle.cpu_handle);
+         image->create_rtv(device, view_range, lvl, handle.cpu_handle);
          batch->cmdlist->ClearRenderTargetView(handle.cpu_handle,
                                                clear_vals, 0, NULL);
 
