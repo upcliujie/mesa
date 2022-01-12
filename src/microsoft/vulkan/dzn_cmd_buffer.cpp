@@ -638,6 +638,139 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
 }
 
 void
+dzn_cmd_buffer::clear_with_copy(const dzn_image *image,
+                                VkImageLayout layout,
+                                const VkClearColorValue *color,
+                                uint32_t range_count,
+                                const VkImageSubresourceRange *ranges)
+{
+   enum pipe_format pfmt = vk_format_to_pipe_format(image->vk.format);
+   uint32_t blksize = util_format_get_blocksize(pfmt);
+   uint8_t buf[D3D12_TEXTURE_DATA_PITCH_ALIGNMENT * 3] = {};
+   uint32_t raw[4] = {};
+
+   assert(blksize <= sizeof(raw));
+   assert(!(sizeof(buf) % blksize));
+
+   util_format_write_4(pfmt, (void *)color, 0, (void *)raw, 0, 0, 0, 1, 1);
+
+   uint32_t fill_step = D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+   while (fill_step % blksize)
+      fill_step += D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+
+   uint32_t res_size = 0;
+   for (uint32_t r = 0; r < range_count; r++) {
+      uint32_t w = u_minify(image->vk.extent.width, ranges[r].baseMipLevel);
+      uint32_t h = u_minify(image->vk.extent.height, ranges[r].baseMipLevel);
+      uint32_t d = u_minify(image->vk.extent.depth, ranges[r].baseMipLevel);
+      uint32_t row_pitch = ALIGN_NPOT(w * blksize, fill_step);
+
+      res_size = MAX2(res_size, h * d * row_pitch);
+   }
+
+   assert(fill_step <= sizeof(buf));
+
+   for (uint32_t i = 0; i < fill_step; i += blksize)
+      memcpy(&buf[i], raw, blksize);
+
+   dzn_batch *batch = get_batch();
+
+   ID3D12Resource *src_res = alloc_internal_buf(res_size,
+                                                D3D12_HEAP_TYPE_UPLOAD,
+                                                D3D12_RESOURCE_STATE_GENERIC_READ);
+
+   assert(!(res_size % fill_step));
+
+   uint8_t *cpu_ptr;
+   src_res->Map(0, NULL, (void **)&cpu_ptr);
+   for (uint32_t i = 0; i < res_size; i += fill_step)
+      memcpy(&cpu_ptr[i], buf, fill_step);
+
+   src_res->Unmap(0, NULL);
+
+   D3D12_TEXTURE_COPY_LOCATION src_loc = {
+      .pResource = src_res,
+      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+      .PlacedFootprint = {
+         .Offset = 0,
+      },
+   };
+
+   D3D12_RESOURCE_STATES dst_state = dzn_image::get_state(layout);
+   D3D12_RESOURCE_BARRIER barrier = {
+      .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+      .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+      .Transition = {
+         .pResource = src_res,
+         .StateBefore = D3D12_RESOURCE_STATE_GENERIC_READ,
+         .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+      },
+   };
+
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+
+   barrier.Transition.pResource = image->res.Get();
+   for (uint32_t r = 0; r < range_count; r++) {
+      uint32_t level_count = dzn_get_level_count(image, &ranges[r]);
+      uint32_t layer_count = dzn_get_layer_count(image, &ranges[r]);
+
+      dzn_foreach_aspect(aspect, ranges[r].aspectMask) {
+         for (uint32_t lvl = 0; lvl < level_count; lvl++) {
+            uint32_t w = u_minify(image->vk.extent.width, ranges[r].baseMipLevel + lvl);
+            uint32_t h = u_minify(image->vk.extent.height, ranges[r].baseMipLevel + lvl);
+            uint32_t d = u_minify(image->vk.extent.depth, ranges[r].baseMipLevel + lvl);
+            VkImageSubresourceLayers subres = {
+               .aspectMask = (VkImageAspectFlags)aspect,
+               .mipLevel = ranges[r].baseMipLevel + lvl,
+               .baseArrayLayer = ranges[r].baseArrayLayer,
+               .layerCount = layer_count,
+            };
+
+            for (uint32_t layer = 0; layer < layer_count; layer++) {
+               if (dst_state != D3D12_RESOURCE_STATE_COPY_DEST) {
+                  barrier.Transition.Subresource =
+                     image->get_subresource_index(ranges[r], aspect, lvl, layer);
+                  barrier.Transition.StateBefore = dst_state;
+                  barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+                  batch->cmdlist->ResourceBarrier(1, &barrier);
+               }
+
+               D3D12_TEXTURE_COPY_LOCATION dst_loc =
+                  image->get_copy_loc(subres, aspect, layer);
+
+               src_loc.PlacedFootprint.Footprint.Format =
+                  dst_loc.Type == D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT ?
+                  dst_loc.PlacedFootprint.Footprint.Format :
+                  image->desc.Format;
+               src_loc.PlacedFootprint.Footprint.Width = w;
+               src_loc.PlacedFootprint.Footprint.Height = h;
+               src_loc.PlacedFootprint.Footprint.Depth = d;
+               src_loc.PlacedFootprint.Footprint.RowPitch =
+                  ALIGN_NPOT(w * blksize, fill_step);
+               D3D12_BOX src_box = {
+                  .left = 0,
+                  .top = 0,
+                  .front = 0,
+                  .right = w,
+                  .bottom = h,
+                  .back = d,
+               };
+
+               batch->cmdlist->CopyTextureRegion(&dst_loc, 0, 0, 0,
+                                                 &src_loc, &src_box);
+
+               if (dst_state != D3D12_RESOURCE_STATE_COPY_DEST) {
+                  barrier.Transition.StateAfter = dst_state;
+                  barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+                  batch->cmdlist->ResourceBarrier(1, &barrier);
+               }
+            }
+         }
+      }
+   }
+}
+
+void
 dzn_cmd_buffer::clear(const dzn_image *image,
                       VkImageLayout layout,
                       const VkClearColorValue *color,

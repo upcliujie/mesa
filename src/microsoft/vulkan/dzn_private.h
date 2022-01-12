@@ -814,6 +814,12 @@ struct dzn_cmd_buffer {
                  uint32_t group_count_z);
 
 private:
+   void clear_with_copy(const dzn_image *image,
+                        VkImageLayout layout,
+                        const VkClearColorValue *color,
+                        uint32_t range_count,
+                        const VkImageSubresourceRange *ranges);
+
    void copy(const VkCopyImageToBufferInfo2KHR *info,
              uint32_t region,
              VkImageAspectFlagBits aspect,
