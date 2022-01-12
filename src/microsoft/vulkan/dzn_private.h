@@ -1122,6 +1122,11 @@ struct dzn_pipeline_layout {
    struct vk_object_base base;
    struct {
       uint32_t heap_offsets[NUM_POOL_TYPES];
+      struct {
+         uint32_t srv, uav;
+      } dynamic_buffer_heap_offsets[MAX_DYNAMIC_BUFFERS];
+      uint32_t dynamic_buffer_count;
+      uint32_t range_desc_count[NUM_POOL_TYPES];
    } sets[MAX_SETS];
    dxil_spirv_vulkan_descriptor_set binding_translation[MAX_SETS];
    uint32_t set_count;

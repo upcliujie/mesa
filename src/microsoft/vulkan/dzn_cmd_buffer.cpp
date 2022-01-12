@@ -2176,26 +2176,23 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          if (!set) continue;
 
          uint32_t set_heap_offset = pipeline->layout->sets[s].heap_offsets[type];
-         uint32_t set_desc_count = set->layout->range_desc_count[type];
+         uint32_t set_desc_count = pipeline->layout->sets[s].range_desc_count[type];
          if (set_desc_count)
             dst_heap.copy(set_heap_offset, set->heaps[type], 0, set_desc_count);
 
          if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
-            for (uint32_t o = 0, elem = 0; o < set->layout->dynamic_buffers.count; o++, elem++) {
-               uint32_t b = set->layout->dynamic_buffers.bindings[o];
-
-               if (o > 0 && set->layout->dynamic_buffers.bindings[o - 1] != b)
-                  elem = 0;
-
-	       uint32_t desc_heap_offset = set->layout->get_heap_offset(b, type, false) + elem;
+            uint32_t dynamic_buffer_count = pipeline->layout->sets[s].dynamic_buffer_count;
+            for (uint32_t o = 0; o < dynamic_buffer_count; o++) {
+	       uint32_t desc_heap_offset =
+                  pipeline->layout->sets[s].dynamic_buffer_heap_offsets[o].srv;
 
                dst_heap.write_desc(set_heap_offset + desc_heap_offset,
                                    false,
                                    set->dynamic_buffers[o] +
                                    desc_state->sets[s].dynamic_offsets[o]);
 
-               if (dzn_descriptor_heap::type_depends_on_shader_usage(set->dynamic_buffers[o].type)) {
-                  desc_heap_offset = set->layout->get_heap_offset(b, type, true) + elem;
+               if (pipeline->layout->sets[s].dynamic_buffer_heap_offsets[o].uav != ~0) {
+                  desc_heap_offset = pipeline->layout->sets[s].dynamic_buffer_heap_offsets[o].uav;
                   dst_heap.write_desc(set_heap_offset + desc_heap_offset,
                                       true,
                                       set->dynamic_buffers[o] +
@@ -2280,14 +2277,15 @@ dzn_cmd_buffer::bind_descriptor_sets(VkPipelineBindPoint bind_point,
          dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
       }
 
-      if (set->layout->dynamic_buffers.count) {
-         assert(dynamic_offset_count >= set->layout->dynamic_buffers.count);
+      uint32_t dynamic_buffer_count = layout->sets[idx].dynamic_buffer_count;
+      if (dynamic_buffer_count) {
+         assert(dynamic_offset_count >= dynamic_buffer_count);
 
-         for (uint32_t j = 0; j < set->layout->dynamic_buffers.count; j++)
+         for (uint32_t j = 0; j < dynamic_buffer_count; j++)
             desc_state->sets[idx].dynamic_offsets[j] = dynamic_offsets[j];
 
-         dynamic_offset_count -= set->layout->dynamic_buffers.count;
-         dynamic_offsets += set->layout->dynamic_buffers.count;
+         dynamic_offset_count -= dynamic_buffer_count;
+         dynamic_offsets += dynamic_buffer_count;
          dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
       }
    }

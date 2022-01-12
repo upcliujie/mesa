@@ -365,6 +365,10 @@ dzn_descriptor_set_layout::get_heap_offset(uint32_t b, D3D12_DESCRIPTOR_HEAP_TYP
    if (range_idx == ~0)
       return ~0;
 
+   if (writeable &&
+       !dzn_descriptor_heap::type_depends_on_shader_usage(bindings[b].type))
+      return ~0;
+
    if (writeable)
       range_idx++;
 
@@ -433,6 +437,9 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
       VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, pCreateInfo->pSetLayouts[j]);
       dxil_spirv_vulkan_binding *bindings = binding_translation[j].bindings;
 
+      sets[j].dynamic_buffer_count = set_layout->dynamic_buffers.count;
+      memcpy(sets[j].range_desc_count, set_layout->range_desc_count,
+             sizeof(sets[j].range_desc_count));
       binding_translation[j].binding_count = set_layout->binding_count;
       for (uint32_t b = 0; b < set_layout->binding_count; b++)
          bindings[b].base_register = set_layout->bindings[b].base_shader_register;
@@ -447,6 +454,17 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
 
       desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] +=
          set_layout->dynamic_buffers.desc_count;
+      for (uint32_t o = 0, elem = 0; o < set_layout->dynamic_buffers.count; o++, elem++) {
+         uint32_t b = set_layout->dynamic_buffers.bindings[o];
+
+         if (o > 0 && set_layout->dynamic_buffers.bindings[o - 1] != b)
+            elem = 0;
+
+         sets[j].dynamic_buffer_heap_offsets[o].srv =
+            set_layout->get_heap_offset(b, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, false) + elem;
+         sets[j].dynamic_buffer_heap_offsets[o].uav =
+            set_layout->get_heap_offset(b, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true) + elem;
+      }
    }
 
    auto ranges =
