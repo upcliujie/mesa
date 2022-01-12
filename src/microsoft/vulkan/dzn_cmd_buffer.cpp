@@ -167,7 +167,7 @@ dzn_batch::dzn_batch(dzn_cmd_buffer *cmd_buffer):
                     queries(queries_allocator(&cmd_buffer->pool->alloc))
 {
    pool = cmd_buffer->pool;
-   if (FAILED(cmd_buffer->device->dev->CreateCommandList(0, cmd_buffer->type,
+   if (FAILED(cmd_buffer->device->dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
                                                          cmd_buffer->alloc.Get(), NULL,
                                                          IID_PPV_ARGS(&cmdlist))))
       throw vk_error(cmd_buffer->device, VK_ERROR_OUT_OF_HOST_MEMORY);
@@ -239,12 +239,8 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
    pool = d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
    dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
 
-   if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-      type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-   else
-      type = D3D12_COMMAND_LIST_TYPE_BUNDLE;
 
-   if (FAILED(device->dev->CreateCommandAllocator(type,
+   if (FAILED(device->dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                                   IID_PPV_ARGS(&alloc)))) {
       vk_command_buffer_finish(&vk);
       throw vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);

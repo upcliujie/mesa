@@ -731,7 +731,6 @@ struct dzn_cmd_buffer {
    VkCommandBufferLevel level;
 
    ComPtr<ID3D12CommandAllocator> alloc;
-   D3D12_COMMAND_LIST_TYPE type;
    dzn_object_unique_ptr<dzn_batch> batch;
    using batches_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_batch>>;
    dzn_object_vector<dzn_batch> batches;
