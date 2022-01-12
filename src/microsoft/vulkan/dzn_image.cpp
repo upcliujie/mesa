@@ -480,6 +480,42 @@ dzn_image::create_rtv(dzn_device *device,
    device->dev->CreateRenderTargetView(res.Get(), &rtv_desc, handle);
 }
 
+D3D12_RESOURCE_STATES
+dzn_image::get_state(VkImageLayout layout)
+{
+   switch (layout) {
+   case VK_IMAGE_LAYOUT_PREINITIALIZED:
+   case VK_IMAGE_LAYOUT_UNDEFINED:
+   case VK_IMAGE_LAYOUT_GENERAL:
+      /* YOLO! */
+   case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+      return D3D12_RESOURCE_STATE_COMMON;
+
+   case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+      return D3D12_RESOURCE_STATE_COPY_DEST;
+
+   case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+      return D3D12_RESOURCE_STATE_COPY_SOURCE;
+
+   case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+      return D3D12_RESOURCE_STATE_RENDER_TARGET;
+
+   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+   case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
+      return D3D12_RESOURCE_STATE_DEPTH_WRITE;
+
+   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+   case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL:
+      return D3D12_RESOURCE_STATE_DEPTH_READ;
+
+   case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+      return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
+
+   default:
+      unreachable("not implemented");
+   }
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateImage(VkDevice device,
                 const VkImageCreateInfo *pCreateInfo,

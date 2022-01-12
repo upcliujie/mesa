@@ -443,42 +443,6 @@ dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
    return VK_SUCCESS;
 }
 
-D3D12_RESOURCE_STATES
-dzn_get_states(VkImageLayout layout)
-{
-   switch (layout) {
-   case VK_IMAGE_LAYOUT_PREINITIALIZED:
-   case VK_IMAGE_LAYOUT_UNDEFINED:
-   case VK_IMAGE_LAYOUT_GENERAL:
-      /* YOLO! */
-   case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
-      return D3D12_RESOURCE_STATE_COMMON;
-
-   case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-      return D3D12_RESOURCE_STATE_COPY_DEST;
-
-   case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-      return D3D12_RESOURCE_STATE_COPY_SOURCE;
-
-   case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-      return D3D12_RESOURCE_STATE_RENDER_TARGET;
-
-   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-   case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL:
-      return D3D12_RESOURCE_STATE_DEPTH_WRITE;
-
-   case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
-   case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL:
-      return D3D12_RESOURCE_STATE_DEPTH_READ;
-
-   case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-      return D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
-
-   default:
-      unreachable("not implemented");
-   }
-}
-
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
                        VkPipelineStageFlags srcStageMask,
@@ -552,7 +516,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
             .pResource = image->res.Get(),
-            .StateAfter = dzn_get_states(pImageMemoryBarriers[i].newLayout),
+            .StateAfter = dzn_image::get_state(pImageMemoryBarriers[i].newLayout),
          },
       };
 
@@ -560,7 +524,7 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
           pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
          transition_barrier.Transition.StateBefore = image->mem->initial_state;
       else
-         transition_barrier.Transition.StateBefore = dzn_get_states(pImageMemoryBarriers[i].oldLayout);
+         transition_barrier.Transition.StateBefore = dzn_image::get_state(pImageMemoryBarriers[i].oldLayout);
 
       if (transition_barrier.Transition.StateBefore == transition_barrier.Transition.StateAfter)
          continue;
@@ -735,7 +699,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
             .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
             .Transition = {
                .pResource = image->res.Get(),
-               .StateBefore = dzn_get_states(layout),
+               .StateBefore = dzn_image::get_state(layout),
                .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
             },
          };
@@ -798,7 +762,7 @@ dzn_cmd_buffer::clear(const dzn_image *image,
             .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
             .Transition = {
                .pResource = image->res.Get(),
-               .StateBefore = dzn_get_states(layout),
+               .StateBefore = dzn_image::get_state(layout),
                .StateAfter = D3D12_RESOURCE_STATE_DEPTH_WRITE,
             },
          };
@@ -1566,7 +1530,7 @@ dzn_cmd_buffer::blit_issue_barriers(dzn_image *src, VkImageLayout src_layout,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
             .pResource = src->res.Get(),
-            .StateBefore = dzn_get_states(src_layout),
+            .StateBefore = dzn_image::get_state(src_layout),
             .StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
          },
       },
@@ -1575,7 +1539,7 @@ dzn_cmd_buffer::blit_issue_barriers(dzn_image *src, VkImageLayout src_layout,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
             .pResource = dst->res.Get(),
-            .StateBefore = dzn_get_states(dst_layout),
+            .StateBefore = dzn_image::get_state(dst_layout),
             .StateAfter = ds ?
                           D3D12_RESOURCE_STATE_DEPTH_WRITE :
                           D3D12_RESOURCE_STATE_RENDER_TARGET,

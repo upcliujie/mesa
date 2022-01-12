@@ -1201,6 +1201,8 @@ struct dzn_image {
                                VkImageAspectFlags aspect);
    static VkFormat
    get_plane_format(VkFormat format, VkImageAspectFlags aspectMask);
+
+   static D3D12_RESOURCE_STATES get_state(VkImageLayout layout);
 };
 
 struct dzn_image_view {
@@ -1411,9 +1413,6 @@ struct dzn_event {
 struct dzn_query_pool {
    struct vk_object_base base;
 };
-
-D3D12_RESOURCE_STATES
-dzn_get_states(VkImageLayout layout);
 
 VK_DEFINE_HANDLE_CASTS(dzn_cmd_buffer, vk.base, VkCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER)
 VK_DEFINE_HANDLE_CASTS(dzn_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)

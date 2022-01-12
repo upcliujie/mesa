@@ -57,8 +57,8 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
             attachment->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR;
       }
       attachments[i].samples = attachment->samples;
-      attachments[i].before = dzn_get_states(attachment->initialLayout);
-      attachments[i].after = dzn_get_states(attachment->finalLayout);
+      attachments[i].before = dzn_image::get_state(attachment->initialLayout);
+      attachments[i].after = dzn_image::get_state(attachment->finalLayout);
       attachments[i].last = attachments[i].before;
    }
 
@@ -77,7 +77,7 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
          subpasses[i].colors[j].idx = idx;
          if (idx != VK_ATTACHMENT_UNUSED) {
             subpasses[i].colors[j].before = attachments[idx].last;
-            subpasses[i].colors[j].during = dzn_get_states(subpass->pColorAttachments[j].layout);
+            subpasses[i].colors[j].during = dzn_image::get_state(subpass->pColorAttachments[j].layout);
             attachments[idx].last = subpasses[i].colors[j].during;
          }
 
@@ -87,7 +87,7 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
          subpasses[i].resolve[j].idx = idx;
          if (idx != VK_ATTACHMENT_UNUSED) {
             subpasses[i].resolve[j].before = attachments[idx].last;
-            subpasses[i].resolve[j].during = dzn_get_states(subpass->pResolveAttachments[j].layout);
+            subpasses[i].resolve[j].during = dzn_image::get_state(subpass->pResolveAttachments[j].layout);
             attachments[idx].last = subpasses[i].resolve[j].during;
          }
       }
@@ -98,7 +98,7 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
          subpasses[i].zs.idx = idx;
          if (idx != VK_ATTACHMENT_UNUSED) {
             subpasses[i].zs.before = attachments[idx].last;
-            subpasses[i].zs.during = dzn_get_states(subpass->pDepthStencilAttachment->layout);
+            subpasses[i].zs.during = dzn_image::get_state(subpass->pDepthStencilAttachment->layout);
             attachments[idx].last = subpasses[i].zs.during;
          }
       }
@@ -109,7 +109,7 @@ dzn_render_pass::dzn_render_pass(dzn_device *device,
          subpasses[i].inputs[j].idx = idx;
          if (idx != VK_ATTACHMENT_UNUSED) {
             subpasses[i].inputs[j].before = attachments[idx].last;
-            subpasses[i].inputs[j].during = dzn_get_states(subpass->pInputAttachments[j].layout);
+            subpasses[i].inputs[j].during = dzn_image::get_state(subpass->pInputAttachments[j].layout);
             attachments[idx].last = subpasses[i].inputs[j].during;
          }
       }
