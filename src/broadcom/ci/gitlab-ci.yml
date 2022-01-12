@@ -40,7 +40,6 @@ vc4-rpi3-egl:armhf:
     - .vc4-rpi3-test:armhf
     - .test-manual-mr
   variables:
-    HWCI_TEST_SCRIPT: "/install/piglit/piglit-runner.sh"
     BM_POE_TIMEOUT: 180
     HWCI_START_XORG: 1
     PIGLIT_PLATFORM: mixed_glx_egl
@@ -101,7 +100,6 @@ v3d-rpi4-piglit:armhf:
     - .v3d-rpi4-test:armhf
   parallel: 4
   variables:
-    HWCI_TEST_SCRIPT: "/install/piglit/piglit-runner.sh"
     HWCI_START_XORG: 1
     PIGLIT_PLATFORM: mixed_glx_egl
     PIGLIT_PROFILES: all
