@@ -176,7 +176,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
       if (xfer->base.usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
          can_realloc = virgl_can_rebind_resource(vctx, &res->b);
       } else {
-         can_staging = vctx->supports_staging;
+         can_staging = res->use_stageing;
       }
 
       /* discard implies no readback */
@@ -188,7 +188,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
           */
          wait = (flush || vws->resource_is_busy(vws, res->hw_res));
          if (wait) {
-            map_type = (can_realloc) ?
+            map_type = (can_realloc && !res->use_stageing) ?
                VIRGL_TRANSFER_MAP_REALLOC :
                VIRGL_TRANSFER_MAP_WRITE_TO_STAGING;
             wait = false;
@@ -203,7 +203,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
          }
 
          /* We can use staging buffer for texture uploads from guest to host */
-         if (can_staging && res->b.target != PIPE_BUFFER) {
+         if (res->use_stageing) {
             map_type = VIRGL_TRANSFER_MAP_WRITE_TO_STAGING;
          }
       }
@@ -616,6 +616,8 @@ static struct pipe_resource *virgl_resource_create_front(struct pipe_screen *scr
       FREE(res);
       return NULL;
    }
+
+   res->use_stageing = virgl_can_copy_transfer_from_host(vs, res);
 
    res->clean_mask = (1 << VR_MAX_TEXTURE_2D_LEVELS) - 1;
 
