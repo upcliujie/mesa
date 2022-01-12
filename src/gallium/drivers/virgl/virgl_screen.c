@@ -635,6 +635,15 @@ virgl_format_check_bitmask(enum pipe_format format,
    return false;
 }
 
+bool virgl_has_scanout_format(struct virgl_screen *vscreen,
+                              enum pipe_format format,
+                              bool may_emulate_bgra)
+{
+   return  virgl_format_check_bitmask(format,
+                                      vscreen->caps.caps.v2.scanout.bitmask,
+                                      may_emulate_bgra);
+}
+
 /**
  * Query format support for creating a texture, drawing surface, etc.
  * \param format  the format to test
