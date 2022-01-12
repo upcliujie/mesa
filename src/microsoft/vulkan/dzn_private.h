@@ -872,6 +872,8 @@ struct dzn_cmd_buffer {
    void dispatch(uint32_t group_count_x,
                  uint32_t group_count_y,
                  uint32_t group_count_z);
+   void dispatch(struct dzn_buffer *dispatch_buf,
+                 uint32_t dispatch_buf_offset);
 
 private:
    void collect_queries(const queries_iterator &first_iter,
@@ -1276,6 +1278,11 @@ struct dzn_compute_pipeline {
                         const VkComputePipelineCreateInfo *pCreateInfo,
                         const VkAllocationCallbacks *pAllocator);
    ~dzn_compute_pipeline();
+
+   ID3D12CommandSignature *get_indirect_cmd_sig();
+
+private:
+   ComPtr<ID3D12CommandSignature> indirect_cmd_sig;
 };
 
 #define MAX_MIP_LEVELS 14

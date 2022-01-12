@@ -856,6 +856,42 @@ dzn_compute_pipeline::~dzn_compute_pipeline()
 {
 }
 
+ID3D12CommandSignature *
+dzn_compute_pipeline::get_indirect_cmd_sig()
+{
+   if (indirect_cmd_sig.Get())
+      return indirect_cmd_sig.Get();
+
+   D3D12_INDIRECT_ARGUMENT_DESC indirect_dispatch_args[] = {
+      {
+         .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
+         .Constant = {
+            .RootParameterIndex = base.layout->root.sysval_cbv_param_idx,
+            .DestOffsetIn32BitValues = 0,
+            .Num32BitValuesToSet = 3,
+         },
+      },
+      {
+         .Type = D3D12_INDIRECT_ARGUMENT_TYPE_DISPATCH,
+      },
+   };
+
+   D3D12_COMMAND_SIGNATURE_DESC indirect_dispatch_desc = {
+      .ByteStride = sizeof(D3D12_DISPATCH_ARGUMENTS) * 2,
+      .NumArgumentDescs = ARRAY_SIZE(indirect_dispatch_args),
+      .pArgumentDescs = indirect_dispatch_args,
+   };
+
+   HRESULT hres =
+      base.device->dev->CreateCommandSignature(&indirect_dispatch_desc,
+                                               base.layout->root.sig.Get(),
+                                               IID_PPV_ARGS(&indirect_cmd_sig));
+   if (FAILED(hres))
+      throw vk_error(base.device, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+
+   return indirect_cmd_sig.Get();
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateComputePipelines(VkDevice device,
                            VkPipelineCache pipelineCache,

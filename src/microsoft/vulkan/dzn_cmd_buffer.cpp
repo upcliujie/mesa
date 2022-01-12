@@ -3054,6 +3054,58 @@ dzn_cmd_buffer::dispatch(uint32_t group_count_x,
 }
 
 void
+dzn_cmd_buffer::dispatch(dzn_buffer *dispatch_buf,
+                         uint32_t dispatch_buf_offset)
+{
+   dzn_batch *batch = get_batch();
+
+   state.sysvals.compute.group_count_x = 0;
+   state.sysvals.compute.group_count_y = 0;
+   state.sysvals.compute.group_count_z = 0;
+   state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
+      DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+
+   prepare_dispatch();
+
+   dzn_compute_pipeline *pipeline =
+      reinterpret_cast<dzn_compute_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline);
+   ID3D12CommandSignature *cmdsig =
+      pipeline->get_indirect_cmd_sig();
+
+   ID3D12Resource *exec_buf =
+      alloc_internal_buf(sizeof(D3D12_DISPATCH_ARGUMENTS) * 2,
+                         D3D12_HEAP_TYPE_DEFAULT,
+                         D3D12_RESOURCE_STATE_COPY_DEST);
+   batch->cmdlist->CopyBufferRegion(exec_buf, 0,
+                                    dispatch_buf->res.Get(),
+                                    dispatch_buf_offset,
+                                    sizeof(D3D12_DISPATCH_ARGUMENTS));
+   batch->cmdlist->CopyBufferRegion(exec_buf, sizeof(D3D12_DISPATCH_ARGUMENTS),
+                                    dispatch_buf->res.Get(),
+                                    dispatch_buf_offset,
+                                    sizeof(D3D12_DISPATCH_ARGUMENTS));
+   D3D12_RESOURCE_BARRIER barriers[] = {
+      {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+          /* Transition the exec buffer to indirect arg so it can be
+           * passed to ExecuteIndirect() as an argument buffer.
+           */
+         .Transition = {
+            .pResource = exec_buf,
+            .Subresource = 0,
+            .StateBefore = D3D12_RESOURCE_STATE_COPY_DEST,
+            .StateAfter = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT,
+         },
+      },
+   };
+
+   batch->cmdlist->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
+
+   batch->cmdlist->ExecuteIndirect(cmdsig, 1, exec_buf, 0, NULL, 0);
+}
+
+void
 dzn_cmd_buffer::begin_query(VkQueryPool query_pool, uint32_t query,
                             VkQueryControlFlags flags)
 {
@@ -3738,4 +3790,15 @@ dzn_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
 
    CMD_WRAPPER(cmd_buffer, copy_query_pool_results, queryPool,
                firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdDispatchIndirect(VkCommandBuffer commandBuffer,
+                                VkBuffer buffer,
+                                VkDeviceSize offset)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
+
+   CMD_WRAPPER(cmd_buffer, dispatch, buf, offset);
 }
