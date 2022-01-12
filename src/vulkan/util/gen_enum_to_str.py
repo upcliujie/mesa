@@ -78,7 +78,7 @@ C_TEMPLATE = Template(textwrap.dedent(u"""\
             return "${enum.values[v]}";
     % endfor
         default:
-            unreachable("Undefined enum value.");
+            return "Undefined enum value.";
         }
     }
 
@@ -115,7 +115,7 @@ C_TEMPLATE = Template(textwrap.dedent(u"""\
             return "${object_types[0].enum_to_name[object_type]}";
     % endfor
         default:
-            unreachable("Undefined enum value.");
+            return "Undefined enum value.";
         }
     }
     """))
