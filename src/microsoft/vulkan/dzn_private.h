@@ -64,6 +64,8 @@
 
 using Microsoft::WRL::ComPtr;
 
+#define dzn_stub() unreachable("Unsupported feature")
+
 struct dzn_instance;
 
 template <typename T>
