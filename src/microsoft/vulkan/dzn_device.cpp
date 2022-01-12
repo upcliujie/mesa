@@ -1710,7 +1710,9 @@ dzn_device_memory::dzn_device_memory(dzn_device *device,
    // TODO: fix all of these:
    heap_desc.SizeInBytes = pAllocateInfo->allocationSize;
    heap_desc.Alignment =
-      D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
+      heap_desc.SizeInBytes >= D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT ?
+      D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT :
+      D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
    heap_desc.Flags = device->physical_device->get_heap_flags_for_mem_type(pAllocateInfo->memoryTypeIndex);
 
    /* TODO: Unsure about this logic??? */

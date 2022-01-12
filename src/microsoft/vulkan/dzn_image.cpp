@@ -605,6 +605,18 @@ dzn_GetImageMemoryRequirements2(VkDevice _device,
       .alignment = info.Alignment,
       .memoryTypeBits = device->physical_device->get_mem_type_mask_for_resource(image->desc),
    };
+
+   /*
+    * MSAA images need memory to be aligned on
+    * D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT (4MB), but the memory
+    * allocation function doesn't know what the memory will be used for,
+    * and forcing all allocations to be 4MB-aligned has a cost, so let's
+    * force MSAA resources to be at least 4MB, such that the allocation
+    * logic can consider sub-4MB allocations to not require this 4MB alignment.
+    */
+   if (image->vk.samples > 1 &&
+       pMemoryRequirements->memoryRequirements.size < D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT)
+      pMemoryRequirements->memoryRequirements.size = D3D12_DEFAULT_MSAA_RESOURCE_PLACEMENT_ALIGNMENT;
 }
 
 VKAPI_ATTR void VKAPI_CALL
