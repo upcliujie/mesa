@@ -508,10 +508,9 @@ dzn_cmd_buffer::pipeline_barrier(const VkDependencyInfoKHR *info)
    }
 
    for (uint32_t i = 0; i < info->imageMemoryBarrierCount; i++) {
-      /* D3D12_RESOURCE_BARRIER_TYPE_TRANSITION */
-      VK_FROM_HANDLE(dzn_image, image, info->pImageMemoryBarriers[i].image);
-      const VkImageSubresourceRange *range =
-         &info->pImageMemoryBarriers[i].subresourceRange;
+      const VkImageMemoryBarrier2KHR &ibarrier = info->pImageMemoryBarriers[i];
+      const VkImageSubresourceRange &range = ibarrier.subresourceRange;
+      VK_FROM_HANDLE(dzn_image, image, ibarrier.image);
 
       /* We use placed resource's simple model, in which only one resource
        * pointing to a given heap is active at a given time. To make the
@@ -533,27 +532,27 @@ dzn_cmd_buffer::pipeline_barrier(const VkDependencyInfoKHR *info)
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
             .pResource = image->res.Get(),
-            .StateAfter = dzn_image::get_state(info->pImageMemoryBarriers[i].newLayout),
+            .StateAfter = dzn_image::get_state(ibarrier.newLayout),
          },
       };
 
-      if (info->pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
-          info->pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
+      if (ibarrier.oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
+          ibarrier.oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
          transition_barrier.Transition.StateBefore = image->mem->initial_state;
       else
-         transition_barrier.Transition.StateBefore = dzn_image::get_state(info->pImageMemoryBarriers[i].oldLayout);
+         transition_barrier.Transition.StateBefore = dzn_image::get_state(ibarrier.oldLayout);
 
       if (transition_barrier.Transition.StateBefore == transition_barrier.Transition.StateAfter)
          continue;
 
       /* some layouts map to the same states, and NOP-barriers are illegal */
-      uint32_t layer_count = dzn_get_layer_count(image, range);
-      uint32_t level_count = dzn_get_level_count(image, range);
+      uint32_t layer_count = dzn_get_layer_count(image, &range);
+      uint32_t level_count = dzn_get_level_count(image, &range);
       for (uint32_t layer = 0; layer < layer_count; layer++) {
          for (uint32_t lvl = 0; lvl < level_count; lvl++) {
-            dzn_foreach_aspect(aspect, range->aspectMask) {
+            dzn_foreach_aspect(aspect, range.aspectMask) {
                transition_barrier.Transition.Subresource =
-                  image->get_subresource_index(*range, aspect, lvl, layer);
+                  image->get_subresource_index(range, aspect, lvl, layer);
                batch->cmdlist->ResourceBarrier(1, &transition_barrier);
             }
          }
