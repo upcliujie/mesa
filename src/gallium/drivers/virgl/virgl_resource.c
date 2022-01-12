@@ -51,6 +51,10 @@ enum virgl_transfer_map_type {
    /* Map type for read of texture data from host to guest
     * using staging buffer. */
    VIRGL_TRANSFER_MAP_READ_FROM_STAGING,
+
+   /* Map type for write of texture data to host using staging
+    * buffer that needs a readback first. */
+   VIRGL_TRANSFER_MAP_WRITE_TO_STAGING_WITH_READBACK,
 };
 
 /* Check if copy transfer from host can be used:
@@ -178,7 +182,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
       if (xfer->base.usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
          can_realloc = virgl_can_rebind_resource(vctx, &res->b);
       } else {
-         can_staging = vctx->supports_staging;
+         can_staging = res->use_staging;
       }
 
       /* discard implies no readback */
@@ -190,7 +194,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
           */
          wait = (flush || vws->resource_is_busy(vws, res->hw_res));
          if (wait) {
-            map_type = (can_realloc) ?
+            map_type = (can_realloc && !res->use_staging) ?
                VIRGL_TRANSFER_MAP_REALLOC :
                VIRGL_TRANSFER_MAP_WRITE_TO_STAGING;
             wait = false;
@@ -206,7 +210,7 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
 
 #if 0 /* TODO re-enable this */
          /* We can use staging buffer for texture uploads from guest to host */
-         if (can_staging && res->b.target != PIPE_BUFFER) {
+         if (res->use_staging) {
             map_type = VIRGL_TRANSFER_MAP_WRITE_TO_STAGING;
          }
 #endif
@@ -218,9 +222,11 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
       /* If we are performing readback for textures and renderer supports
        * copy_transfer_from_host, then we can return here with proper map.
        */
-      if (virgl_can_copy_transfer_from_host(vs, res) && vctx->supports_staging &&
-         xfer->base.usage & PIPE_MAP_READ) {
-         return VIRGL_TRANSFER_MAP_READ_FROM_STAGING;
+      if (res->use_staging) {
+         if (xfer->base.usage & PIPE_MAP_READ)
+            return VIRGL_TRANSFER_MAP_READ_FROM_STAGING;
+         else
+            return VIRGL_TRANSFER_MAP_WRITE_TO_STAGING_WITH_READBACK;
       }
       /* Readback is yet another command and is transparent to the state
        * trackers.  It should be waited for in all cases, including when
@@ -256,6 +262,10 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
 
    if (wait)
       vws->resource_wait(vws, res->hw_res);
+
+   if (res->use_staging) {
+      map_type = VIRGL_TRANSFER_MAP_WRITE_TO_STAGING;
+   }
 
    return map_type;
 }
@@ -404,6 +414,9 @@ virgl_resource_realloc(struct virgl_context *vctx, struct virgl_resource *res)
 
    vbind = pipe_to_virgl_bind(vs, templ->bind);
    vflags = pipe_to_virgl_flags(vs, templ->flags);
+
+   int alloc_size = res->use_staging ? 1 : res->metadata.total_size;
+
    hw_res = vs->vws->resource_create(vs->vws,
                                      templ->target,
                                      NULL,
@@ -416,7 +429,7 @@ virgl_resource_realloc(struct virgl_context *vctx, struct virgl_resource *res)
                                      templ->last_level,
                                      templ->nr_samples,
                                      vflags,
-                                     res->metadata.total_size);
+                                     alloc_size);
    if (!hw_res)
       return false;
 
@@ -484,6 +497,12 @@ virgl_resource_transfer_map(struct pipe_context *ctx,
       map_addr = virgl_staging_read_map(vctx, trans);
       /* Copy transfers don't make use of hw_res_map at the moment. */
       trans->hw_res_map = NULL;
+      break;
+   case VIRGL_TRANSFER_MAP_WRITE_TO_STAGING_WITH_READBACK:
+      map_addr = virgl_staging_read_map(vctx, trans);
+      /* Copy transfers don't make use of hw_res_map at the moment. */
+      trans->hw_res_map = NULL;
+      trans->direction = VIRGL_TRANSFER_TO_HOST;
       break;
    case VIRGL_TRANSFER_MAP_ERROR:
    default:
@@ -620,6 +639,8 @@ static struct pipe_resource *virgl_resource_create_front(struct pipe_screen *scr
       FREE(res);
       return NULL;
    }
+
+   res->use_staging = virgl_can_copy_transfer_from_host(vs, res);
 
    res->clean_mask = (1 << VR_MAX_TEXTURE_2D_LEVELS) - 1;
 
