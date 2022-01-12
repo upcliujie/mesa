@@ -633,6 +633,7 @@ private:
 
 struct dzn_cmd_buffer {
    struct vk_command_buffer vk;
+   VkResult error;
 
    dzn_device *device;
 

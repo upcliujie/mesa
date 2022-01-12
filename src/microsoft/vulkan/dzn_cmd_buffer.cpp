@@ -28,6 +28,18 @@
 #include "vk_format.h"
 #include "vk_util.h"
 
+#define CMD_WRAPPER(cmd_buffer, method, ...) \
+   do { \
+      if (cmd_buffer->error != VK_SUCCESS) break; \
+      try { \
+         cmd_buffer->method(__VA_ARGS__); \
+      } catch (VkResult error) { \
+         assert(error == VK_ERROR_OUT_OF_HOST_MEMORY || \
+                error == VK_ERROR_OUT_OF_DEVICE_MEMORY); \
+         cmd_buffer->error = error; \
+      } \
+   } while (0)
+
 dzn_cmd_pool::dzn_cmd_pool(dzn_device *device,
                            const VkCommandPoolCreateInfo *pCreateInfo,
                            const VkAllocationCallbacks *pAllocator) :
@@ -209,6 +221,7 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
    device = dev;
    level = lvl;
    pool = cmd_pool;
+   error = VK_SUCCESS;
 
    VkResult result =
       vk_command_buffer_init(&vk, &device->vk);
@@ -339,6 +352,7 @@ dzn_cmd_buffer::reset()
    /* Reset the state */
    memset(&state, 0, sizeof(state));
 
+   error = VK_SUCCESS;
    vk_command_buffer_reset(&vk);
 }
 
@@ -371,8 +385,9 @@ dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->reset();
-   return VK_SUCCESS;
+   CMD_WRAPPER(cmd_buffer, reset);
+
+   return cmd_buffer->error;
 }
 
 VkResult
@@ -392,7 +407,9 @@ dzn_cmd_buffer::begin(const VkCommandBufferBeginInfo *info)
     *    VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT not set. It then puts
     *    the command buffer in the recording state.
     */
-   reset();
+   CMD_WRAPPER(this, reset);
+   if (error != VK_SUCCESS)
+      return error;
 
    usage_flags = info->flags;
 
@@ -441,9 +458,9 @@ dzn_BeginCommandBuffer(VkCommandBuffer commandBuffer,
 VkResult
 dzn_cmd_buffer::end()
 {
-   close_batch();
+   CMD_WRAPPER(this, close_batch);
 
-   return VK_SUCCESS;
+   return error;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -2844,7 +2861,7 @@ dzn_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->pipeline_barrier(info);
+   CMD_WRAPPER(cmd_buffer, pipeline_barrier, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2853,7 +2870,7 @@ dzn_CmdCopyBuffer2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->copy(info);
+   CMD_WRAPPER(cmd_buffer, copy, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2862,7 +2879,7 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->copy(info);
+   CMD_WRAPPER(cmd_buffer, copy, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2871,7 +2888,7 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->copy(info);
+   CMD_WRAPPER(cmd_buffer, copy, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2880,7 +2897,7 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->copy(info);
+   CMD_WRAPPER(cmd_buffer, copy, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2889,7 +2906,7 @@ dzn_CmdBlitImage2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->blit(info);
+   CMD_WRAPPER(cmd_buffer, blit, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2898,7 +2915,7 @@ dzn_CmdResolveImage2KHR(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->resolve(info);
+   CMD_WRAPPER(cmd_buffer, resolve, info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2912,7 +2929,7 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_image, img, image);
 
-   cmd_buffer->clear(img, imageLayout, pColor, rangeCount, pRanges);
+   CMD_WRAPPER(cmd_buffer, clear, img, imageLayout, pColor, rangeCount, pRanges);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2926,7 +2943,7 @@ dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_image, img, image);
 
-   cmd_buffer->clear(img, imageLayout, pDepthStencil, rangeCount, pRanges);
+   CMD_WRAPPER(cmd_buffer, clear, img, imageLayout, pDepthStencil, rangeCount, pRanges);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2937,7 +2954,7 @@ dzn_CmdDispatch(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->dispatch(groupCountX, groupCountY, groupCountZ);
+   CMD_WRAPPER(cmd_buffer, dispatch, groupCountX, groupCountY, groupCountZ);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2950,7 +2967,7 @@ dzn_CmdFillBuffer(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buffer, dstBuffer);
 
-   cmd_buffer->fill(buffer, dstOffset, size, data);
+   CMD_WRAPPER(cmd_buffer, fill, buffer, dstOffset, size, data);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2963,7 +2980,7 @@ dzn_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buffer, dstBuffer);
 
-   cmd_buffer->update(buffer, dstOffset, size, data);
+   CMD_WRAPPER(cmd_buffer, update, buffer, dstOffset, size, data);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2975,7 +2992,7 @@ dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->clear_attachments(attachmentCount, pAttachments, rectCount, pRects);
+   CMD_WRAPPER(cmd_buffer, clear_attachments, attachmentCount, pAttachments, rectCount, pRects);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2985,7 +3002,7 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->begin_pass(pRenderPassBeginInfo, pSubpassBeginInfo);
+   CMD_WRAPPER(cmd_buffer, begin_pass, pRenderPassBeginInfo, pSubpassBeginInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2994,7 +3011,7 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->end_pass(pSubpassEndInfo);
+   CMD_WRAPPER(cmd_buffer, end_pass, pSubpassEndInfo);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3004,7 +3021,7 @@ dzn_CmdNextSubpass2(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->next_subpass();
+   CMD_WRAPPER(cmd_buffer, next_subpass);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3015,7 +3032,7 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_pipeline, pipe, pipeline);
 
-   cmd_buffer->bind_pipeline(pipelineBindPoint, pipe);
+   CMD_WRAPPER(cmd_buffer, bind_pipeline, pipelineBindPoint, pipe);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3031,9 +3048,10 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_pipeline_layout, dlayout, layout);
 
-   cmd_buffer->bind_descriptor_sets(pipelineBindPoint, dlayout, firstSet,
-                                    descriptorSetCount, pDescriptorSets,
-                                    dynamicOffsetCount, pDynamicOffsets);
+   CMD_WRAPPER(cmd_buffer, bind_descriptor_sets,
+               pipelineBindPoint, dlayout, firstSet,
+               descriptorSetCount, pDescriptorSets,
+               dynamicOffsetCount, pDynamicOffsets);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3044,7 +3062,7 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->set_viewport(firstViewport, viewportCount, pViewports);
+   CMD_WRAPPER(cmd_buffer, set_viewport, firstViewport, viewportCount, pViewports);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3055,7 +3073,7 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->set_scissor(firstScissor, scissorCount, pScissors);
+   CMD_WRAPPER(cmd_buffer, set_scissor, firstScissor, scissorCount, pScissors);
 }
 
 void
@@ -3065,7 +3083,7 @@ dzn_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->push_constants(stageFlags, offset, size, pValues);
+   CMD_WRAPPER(cmd_buffer, push_constants, stageFlags, offset, size, pValues);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3077,7 +3095,8 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->draw(vertexCount, instanceCount, firstVertex, firstInstance);
+   CMD_WRAPPER(cmd_buffer, draw, vertexCount, instanceCount, firstVertex,
+               firstInstance);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3090,8 +3109,8 @@ dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->draw(indexCount, instanceCount, firstIndex, vertexOffset,
-                    firstInstance);
+   CMD_WRAPPER(cmd_buffer, draw, indexCount, instanceCount, firstIndex,
+               vertexOffset, firstInstance);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3104,7 +3123,7 @@ dzn_CmdDrawIndirect(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buf, buffer);
 
-   cmd_buffer->draw(buf, offset, drawCount, stride, false);
+   CMD_WRAPPER(cmd_buffer, draw, buf, offset, drawCount, stride, false);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3117,7 +3136,7 @@ dzn_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buf, buffer);
 
-   cmd_buffer->draw(buf, offset, drawCount, stride, true);
+   CMD_WRAPPER(cmd_buffer, draw, buf, offset, drawCount, stride, true);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3129,7 +3148,8 @@ dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->bind_vertex_buffers(firstBinding, bindingCount, pBuffers, pOffsets);
+   CMD_WRAPPER(cmd_buffer, bind_vertex_buffers, firstBinding, bindingCount,
+               pBuffers, pOffsets);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3140,7 +3160,7 @@ dzn_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->bind_index_buffer(buffer, offset, indexType);
+   CMD_WRAPPER(cmd_buffer, bind_index_buffer, buffer, offset, indexType);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3150,7 +3170,7 @@ dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->reset_event(event, stageMask);
+   CMD_WRAPPER(cmd_buffer, reset_event, event, stageMask);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3160,7 +3180,7 @@ dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->set_event(event, stageMask);
+   CMD_WRAPPER(cmd_buffer, set_event, event, stageMask);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3178,8 +3198,9 @@ dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->wait_events(eventCount, pEvents, srcStageMask, dstStageMask,
-                           memoryBarrierCount, pMemoryBarriers,
-                           bufferMemoryBarrierCount, pBufferMemoryBarriers,
-                           imageMemoryBarrierCount, pImageMemoryBarriers);
+   CMD_WRAPPER(cmd_buffer, wait_events,
+               eventCount, pEvents, srcStageMask, dstStageMask,
+               memoryBarrierCount, pMemoryBarriers,
+               bufferMemoryBarrierCount, pBufferMemoryBarriers,
+               imageMemoryBarrierCount, pImageMemoryBarriers);
 }
