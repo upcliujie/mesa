@@ -22,6 +22,7 @@
  */
 
 #include "dzn_private.h"
+#include "dzn_cmd_dispatch.h"
 
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
@@ -230,6 +231,9 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
    if (result != VK_SUCCESS)
       throw vk_error(device, result);
 
+   if (vk.level != VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      return;
+
    struct d3d12_descriptor_pool *pool =
       d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
 
@@ -392,6 +396,8 @@ dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
 VkResult
 dzn_cmd_buffer::begin(const VkCommandBufferBeginInfo *info)
 {
+   assert(vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+
    /* If this is the first vkBeginCommandBuffer, we must *initialize* the
     * command buffer's state. Otherwise, we must *reset* its state. In both
     * cases we reset it.
@@ -410,8 +416,6 @@ dzn_cmd_buffer::begin(const VkCommandBufferBeginInfo *info)
    if (error != VK_SUCCESS)
       return error;
 
-   usage_flags = info->flags;
-
    /* VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT must be ignored for
     * primary level command buffers.
     *
@@ -421,28 +425,8 @@ dzn_cmd_buffer::begin(const VkCommandBufferBeginInfo *info)
     *    secondary command buffer is considered to be entirely inside a render
     *    pass. If this is a primary command buffer, then this bit is ignored.
     */
-   if (vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-      usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
-
-   VkResult result = VK_SUCCESS;
-
-#if 0
-   if (cmd_buffer->usage_flags &
-       VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
-      assert(pBeginInfo->pInheritanceInfo);
-      VK_FROM_HANDLE(dzn_render_pass, pass,
-                      pBeginInfo->pInheritanceInfo->renderPass);
-      struct dzn_subpass *subpass =
-         &pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
-      VK_FROM_HANDLE(dzn_framebuffer, framebuffer,
-                      pBeginInfo->pInheritanceInfo->framebuffer);
-
-      cmd_buffer->state.pass = pass;
-      cmd_buffer->state.subpass = subpass;
-   }
-#endif
-
-   return result;
+   usage_flags &= info->flags & ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+   return VK_SUCCESS;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -450,6 +434,9 @@ dzn_BeginCommandBuffer(VkCommandBuffer commandBuffer,
                        const VkCommandBufferBeginInfo *pBeginInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->vk.level != VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      return VK_SUCCESS;
 
    return cmd_buffer->begin(pBeginInfo);
 }
@@ -467,6 +454,9 @@ VKAPI_ATTR VkResult VKAPI_CALL
 dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->vk.level != VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      return VK_SUCCESS;
 
    return cmd_buffer->end();
 }
@@ -3445,8 +3435,8 @@ dzn_cmd_buffer::set_stencil_reference(VkStencilFaceFlags face_mask,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
-                           const VkDependencyInfoKHR *info)
+dzn_primary_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
+                                   const VkDependencyInfoKHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3454,8 +3444,8 @@ dzn_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdCopyBuffer2KHR(VkCommandBuffer commandBuffer,
-                      const VkCopyBufferInfo2KHR *info)
+dzn_primary_CmdCopyBuffer2KHR(VkCommandBuffer commandBuffer,
+                              const VkCopyBufferInfo2KHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3463,8 +3453,8 @@ dzn_CmdCopyBuffer2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
-                             const VkCopyBufferToImageInfo2KHR *info)
+dzn_primary_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
+                                     const VkCopyBufferToImageInfo2KHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3472,8 +3462,8 @@ dzn_CmdCopyBufferToImage2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
-                             const VkCopyImageToBufferInfo2KHR *info)
+dzn_primary_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
+                                     const VkCopyImageToBufferInfo2KHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3481,8 +3471,8 @@ dzn_CmdCopyImageToBuffer2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
-                     const VkCopyImageInfo2KHR *info)
+dzn_primary_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
+                             const VkCopyImageInfo2KHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3490,8 +3480,8 @@ dzn_CmdCopyImage2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBlitImage2KHR(VkCommandBuffer commandBuffer,
-                     const VkBlitImageInfo2KHR *info)
+dzn_primary_CmdBlitImage2KHR(VkCommandBuffer commandBuffer,
+                             const VkBlitImageInfo2KHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3499,8 +3489,8 @@ dzn_CmdBlitImage2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdResolveImage2KHR(VkCommandBuffer commandBuffer,
-                        const VkResolveImageInfo2KHR *info)
+dzn_primary_CmdResolveImage2KHR(VkCommandBuffer commandBuffer,
+                                const VkResolveImageInfo2KHR *info)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3508,12 +3498,12 @@ dzn_CmdResolveImage2KHR(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
-                       VkImage image,
-                       VkImageLayout imageLayout,
-                       const VkClearColorValue *pColor,
-                       uint32_t rangeCount,
-                       const VkImageSubresourceRange *pRanges)
+dzn_primary_CmdClearColorImage(VkCommandBuffer commandBuffer,
+                               VkImage image,
+                               VkImageLayout imageLayout,
+                               const VkClearColorValue *pColor,
+                               uint32_t rangeCount,
+                               const VkImageSubresourceRange *pRanges)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_image, img, image);
@@ -3522,12 +3512,12 @@ dzn_CmdClearColorImage(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
-                              VkImage image,
-                              VkImageLayout imageLayout,
-                              const VkClearDepthStencilValue *pDepthStencil,
-                              uint32_t rangeCount,
-                              const VkImageSubresourceRange *pRanges)
+dzn_primary_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
+                                      VkImage image,
+                                      VkImageLayout imageLayout,
+                                      const VkClearDepthStencilValue *pDepthStencil,
+                                      uint32_t rangeCount,
+                                      const VkImageSubresourceRange *pRanges)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_image, img, image);
@@ -3536,10 +3526,10 @@ dzn_CmdClearDepthStencilImage(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdDispatch(VkCommandBuffer commandBuffer,
-                uint32_t groupCountX,
-                uint32_t groupCountY,
-                uint32_t groupCountZ)
+dzn_primary_CmdDispatch(VkCommandBuffer commandBuffer,
+                        uint32_t groupCountX,
+                        uint32_t groupCountY,
+                        uint32_t groupCountZ)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3547,11 +3537,11 @@ dzn_CmdDispatch(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdFillBuffer(VkCommandBuffer commandBuffer,
-                  VkBuffer dstBuffer,
-                  VkDeviceSize dstOffset,
-                  VkDeviceSize size,
-                  uint32_t data)
+dzn_primary_CmdFillBuffer(VkCommandBuffer commandBuffer,
+                          VkBuffer dstBuffer,
+                          VkDeviceSize dstOffset,
+                          VkDeviceSize size,
+                          uint32_t data)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buffer, dstBuffer);
@@ -3560,11 +3550,11 @@ dzn_CmdFillBuffer(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
-                    VkBuffer dstBuffer,
-                    VkDeviceSize dstOffset,
-                    VkDeviceSize size,
-                    const void *data)
+dzn_primary_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
+                            VkBuffer dstBuffer,
+                            VkDeviceSize dstOffset,
+                            VkDeviceSize size,
+                            const void *data)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buffer, dstBuffer);
@@ -3573,11 +3563,11 @@ dzn_CmdUpdateBuffer(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
-                        uint32_t attachmentCount,
-                        const VkClearAttachment *pAttachments,
-                        uint32_t rectCount,
-                        const VkClearRect *pRects)
+dzn_primary_CmdClearAttachments(VkCommandBuffer commandBuffer,
+                                uint32_t attachmentCount,
+                                const VkClearAttachment *pAttachments,
+                                uint32_t rectCount,
+                                const VkClearRect *pRects)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3585,9 +3575,9 @@ dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
-                        const VkRenderPassBeginInfo *pRenderPassBeginInfo,
-                        const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
+dzn_primary_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
+                                const VkRenderPassBeginInfo *pRenderPassBeginInfo,
+                                const VkSubpassBeginInfoKHR *pSubpassBeginInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3595,8 +3585,8 @@ dzn_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
-                      const VkSubpassEndInfoKHR *pSubpassEndInfo)
+dzn_primary_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
+                              const VkSubpassEndInfoKHR *pSubpassEndInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3604,9 +3594,9 @@ dzn_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdNextSubpass2(VkCommandBuffer commandBuffer,
-                    const VkSubpassBeginInfo *pSubpassBeginInfo,
-                    const VkSubpassEndInfo *pSubpassEndInfo)
+dzn_primary_CmdNextSubpass2(VkCommandBuffer commandBuffer,
+                            const VkSubpassBeginInfo *pSubpassBeginInfo,
+                            const VkSubpassEndInfo *pSubpassEndInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3614,9 +3604,9 @@ dzn_CmdNextSubpass2(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
-                    VkPipelineBindPoint pipelineBindPoint,
-                    VkPipeline pipeline)
+dzn_primary_CmdBindPipeline(VkCommandBuffer commandBuffer,
+                            VkPipelineBindPoint pipelineBindPoint,
+                            VkPipeline pipeline)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_pipeline, pipe, pipeline);
@@ -3625,14 +3615,87 @@ dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
-                          VkPipelineBindPoint pipelineBindPoint,
-                          VkPipelineLayout layout,
-                          uint32_t firstSet,
-                          uint32_t descriptorSetCount,
-                          const VkDescriptorSet *pDescriptorSets,
-                          uint32_t dynamicOffsetCount,
-                          const uint32_t *pDynamicOffsets)
+dzn_secondary_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
+                                    VkPipelineBindPoint pipelineBindPoint,
+                                    VkPipelineLayout _layout,
+                                    uint32_t firstSet,
+                                    uint32_t descriptorSetCount,
+                                    const VkDescriptorSet *pDescriptorSets,
+                                    uint32_t dynamicOffsetCount,
+                                    const uint32_t *pDynamicOffsets)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmdbuf, commandBuffer);
+   vk_command_buffer *cmd_buffer = &cmdbuf->vk;
+   VK_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
+
+   struct vk_cmd_queue_entry *cmd = (struct vk_cmd_queue_entry *)
+      vk_zalloc(cmd_buffer->queue.alloc, sizeof(*cmd), 8,
+                VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+
+   if (!cmd)
+      return;
+
+   cmd->type = VK_CMD_BIND_DESCRIPTOR_SETS;
+   list_addtail(&cmd->cmd_link, &cmd_buffer->queue.cmds);
+
+   uint32_t binding_count = 0;
+   for (uint32_t s = 0; s < layout->set_count; s++)
+      binding_count += layout->binding_translation[s].binding_count;
+
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, dzn_pipeline_layout, new_layout, 1);
+   VK_MULTIALLOC_DECL(&ma, dxil_spirv_vulkan_binding,
+                      bindings, binding_count);
+
+   if (!vk_multialloc_zalloc(&ma, cmd_buffer->queue.alloc,
+                             VK_SYSTEM_ALLOCATION_SCOPE_COMMAND))
+      return;
+
+   for (uint32_t s = 0; s < layout->set_count; s++) {
+      if (layout->binding_translation[s].binding_count)
+         new_layout->binding_translation[s].bindings = bindings;
+      bindings += layout->binding_translation[s].binding_count;
+   }
+
+   std::construct_at(new_layout, cmdbuf->device, *layout);
+
+   cmd->u.bind_descriptor_sets.pipeline_bind_point = pipelineBindPoint;
+   cmd->u.bind_descriptor_sets.layout = dzn_pipeline_layout_to_handle(new_layout);
+   cmd->u.bind_descriptor_sets.first_set = firstSet;
+   cmd->u.bind_descriptor_sets.descriptor_set_count = descriptorSetCount;
+   if (pDescriptorSets) {
+      cmd->u.bind_descriptor_sets.descriptor_sets = (VkDescriptorSet *)
+         vk_zalloc(cmd_buffer->queue.alloc,
+                   sizeof(*cmd->u.bind_descriptor_sets.descriptor_sets) *
+                   descriptorSetCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+      memcpy((VkDescriptorSet *)cmd->u.bind_descriptor_sets.descriptor_sets,
+             pDescriptorSets,
+	     sizeof(*cmd->u.bind_descriptor_sets.descriptor_sets) *
+             descriptorSetCount);
+   }
+
+   cmd->u.bind_descriptor_sets.dynamic_offset_count = dynamicOffsetCount;
+   if (pDynamicOffsets) {
+      cmd->u.bind_descriptor_sets.dynamic_offsets = (uint32_t *)
+         vk_zalloc(cmd_buffer->queue.alloc,
+                   sizeof(*cmd->u.bind_descriptor_sets.dynamic_offsets) *
+                   dynamicOffsetCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+      memcpy((uint32_t *)cmd->u.bind_descriptor_sets.dynamic_offsets,
+             pDynamicOffsets,
+             sizeof(*cmd->u.bind_descriptor_sets.dynamic_offsets) *
+             dynamicOffsetCount);
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_primary_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
+                                  VkPipelineBindPoint pipelineBindPoint,
+                                  VkPipelineLayout layout,
+                                  uint32_t firstSet,
+                                  uint32_t descriptorSetCount,
+                                  const VkDescriptorSet *pDescriptorSets,
+                                  uint32_t dynamicOffsetCount,
+                                  const uint32_t *pDynamicOffsets)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_pipeline_layout, dlayout, layout);
@@ -3644,10 +3707,10 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
-                   uint32_t firstViewport,
-                   uint32_t viewportCount,
-                   const VkViewport *pViewports)
+dzn_primary_CmdSetViewport(VkCommandBuffer commandBuffer,
+                           uint32_t firstViewport,
+                           uint32_t viewportCount,
+                           const VkViewport *pViewports)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3655,10 +3718,10 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
-                  uint32_t firstScissor,
-                  uint32_t scissorCount,
-                  const VkRect2D *pScissors)
+dzn_primary_CmdSetScissor(VkCommandBuffer commandBuffer,
+                          uint32_t firstScissor,
+                          uint32_t scissorCount,
+                          const VkRect2D *pScissors)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3666,9 +3729,9 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
 }
 
 void
-dzn_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
-                     VkShaderStageFlags stageFlags, uint32_t offset, uint32_t size,
-                     const void *pValues)
+dzn_primary_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
+                             VkShaderStageFlags stageFlags, uint32_t offset, uint32_t size,
+                             const void *pValues)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3676,11 +3739,11 @@ dzn_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdDraw(VkCommandBuffer commandBuffer,
-            uint32_t vertexCount,
-            uint32_t instanceCount,
-            uint32_t firstVertex,
-            uint32_t firstInstance)
+dzn_primary_CmdDraw(VkCommandBuffer commandBuffer,
+                    uint32_t vertexCount,
+                    uint32_t instanceCount,
+                    uint32_t firstVertex,
+                    uint32_t firstInstance)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3689,12 +3752,12 @@ dzn_CmdDraw(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
-                   uint32_t indexCount,
-                   uint32_t instanceCount,
-                   uint32_t firstIndex,
-                   int32_t vertexOffset,
-                   uint32_t firstInstance)
+dzn_primary_CmdDrawIndexed(VkCommandBuffer commandBuffer,
+                           uint32_t indexCount,
+                           uint32_t instanceCount,
+                           uint32_t firstIndex,
+                           int32_t vertexOffset,
+                           uint32_t firstInstance)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3703,11 +3766,11 @@ dzn_CmdDrawIndexed(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdDrawIndirect(VkCommandBuffer commandBuffer,
-                    VkBuffer buffer,
-                    VkDeviceSize offset,
-                    uint32_t drawCount,
-                    uint32_t stride)
+dzn_primary_CmdDrawIndirect(VkCommandBuffer commandBuffer,
+                            VkBuffer buffer,
+                            VkDeviceSize offset,
+                            uint32_t drawCount,
+                            uint32_t stride)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buf, buffer);
@@ -3716,11 +3779,11 @@ dzn_CmdDrawIndirect(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
-                           VkBuffer buffer,
-                           VkDeviceSize offset,
-                           uint32_t drawCount,
-                           uint32_t stride)
+dzn_primary_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
+                                   VkBuffer buffer,
+                                   VkDeviceSize offset,
+                                   uint32_t drawCount,
+                                   uint32_t stride)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
    VK_FROM_HANDLE(dzn_buffer, buf, buffer);
@@ -3729,11 +3792,11 @@ dzn_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
-                         uint32_t firstBinding,
-                         uint32_t bindingCount,
-                         const VkBuffer *pBuffers,
-                         const VkDeviceSize *pOffsets)
+dzn_primary_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
+                                 uint32_t firstBinding,
+                                 uint32_t bindingCount,
+                                 const VkBuffer *pBuffers,
+                                 const VkDeviceSize *pOffsets)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3742,10 +3805,10 @@ dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
-                       VkBuffer buffer,
-                       VkDeviceSize offset,
-                       VkIndexType indexType)
+dzn_primary_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
+                               VkBuffer buffer,
+                               VkDeviceSize offset,
+                               VkIndexType indexType)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3753,9 +3816,9 @@ dzn_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
-                  VkEvent event,
-                  VkPipelineStageFlags stageMask)
+dzn_primary_CmdResetEvent(VkCommandBuffer commandBuffer,
+                          VkEvent event,
+                          VkPipelineStageFlags stageMask)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3763,9 +3826,9 @@ dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
-                VkEvent event,
-                VkPipelineStageFlags stageMask)
+dzn_primary_CmdSetEvent(VkCommandBuffer commandBuffer,
+                        VkEvent event,
+                        VkPipelineStageFlags stageMask)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3773,29 +3836,29 @@ dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
-                  uint32_t eventCount,
-                  const VkEvent *pEvents,
-                  VkPipelineStageFlags srcStageMask,
-                  VkPipelineStageFlags dstStageMask,
-                  uint32_t memoryBarrierCount,
-                  const VkMemoryBarrier *pMemoryBarriers,
-                  uint32_t bufferMemoryBarrierCount,
-                  const VkBufferMemoryBarrier *pBufferMemoryBarriers,
-                  uint32_t imageMemoryBarrierCount,
-                  const VkImageMemoryBarrier *pImageMemoryBarriers)
+dzn_primary_CmdWaitEvents(VkCommandBuffer commandBuffer,
+                          uint32_t eventCount,
+                          const VkEvent *pEvents,
+                          VkPipelineStageFlags srcStageMask,
+                          VkPipelineStageFlags dstStageMask,
+                          uint32_t memoryBarrierCount,
+                          const VkMemoryBarrier *pMemoryBarriers,
+                          uint32_t bufferMemoryBarrierCount,
+                          const VkBufferMemoryBarrier *pBufferMemoryBarriers,
+                          uint32_t imageMemoryBarrierCount,
+                          const VkImageMemoryBarrier *pImageMemoryBarriers)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   CMD_WRAPPER(cmd_buffer, wait_events,
-               eventCount, pEvents, srcStageMask, dstStageMask,
+   CMD_WRAPPER(cmd_buffer, wait_events, eventCount, pEvents,
+               srcStageMask, dstStageMask,
                memoryBarrierCount, pMemoryBarriers,
                bufferMemoryBarrierCount, pBufferMemoryBarriers,
                imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBeginQuery(VkCommandBuffer commandBuffer,
+dzn_primary_CmdBeginQuery(VkCommandBuffer commandBuffer,
                           VkQueryPool queryPool,
                           uint32_t query,
                           VkQueryControlFlags flags)
@@ -3806,7 +3869,7 @@ dzn_CmdBeginQuery(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdEndQuery(VkCommandBuffer commandBuffer,
+dzn_primary_CmdEndQuery(VkCommandBuffer commandBuffer,
                         VkQueryPool queryPool,
                         uint32_t query)
 {
@@ -3816,7 +3879,7 @@ dzn_CmdEndQuery(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdResetQueryPool(VkCommandBuffer commandBuffer,
+dzn_primary_CmdResetQueryPool(VkCommandBuffer commandBuffer,
                               VkQueryPool queryPool,
                               uint32_t firstQuery,
                               uint32_t queryCount)
@@ -3827,7 +3890,7 @@ dzn_CmdResetQueryPool(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
+dzn_primary_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
                                     VkQueryPool queryPool,
                                     uint32_t firstQuery,
                                     uint32_t queryCount,
@@ -3843,7 +3906,7 @@ dzn_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdDispatchIndirect(VkCommandBuffer commandBuffer,
+dzn_primary_CmdDispatchIndirect(VkCommandBuffer commandBuffer,
                                 VkBuffer buffer,
                                 VkDeviceSize offset)
 {
@@ -3854,8 +3917,8 @@ dzn_CmdDispatchIndirect(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetLineWidth(VkCommandBuffer commandBuffer,
-                    float lineWidth)
+dzn_primary_CmdSetLineWidth(VkCommandBuffer commandBuffer,
+                            float lineWidth)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3863,10 +3926,10 @@ dzn_CmdSetLineWidth(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetDepthBias(VkCommandBuffer commandBuffer,
-                    float depthBiasConstantFactor,
-                    float depthBiasClamp,
-                    float depthBiasSlopeFactor)
+dzn_primary_CmdSetDepthBias(VkCommandBuffer commandBuffer,
+                            float depthBiasConstantFactor,
+                            float depthBiasClamp,
+                            float depthBiasSlopeFactor)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3875,8 +3938,8 @@ dzn_CmdSetDepthBias(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetBlendConstants(VkCommandBuffer commandBuffer,
-                         const float blendConstants[4])
+dzn_primary_CmdSetBlendConstants(VkCommandBuffer commandBuffer,
+                                 const float blendConstants[4])
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3884,9 +3947,9 @@ dzn_CmdSetBlendConstants(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetDepthBounds(VkCommandBuffer commandBuffer,
-                      float minDepthBounds,
-                      float maxDepthBounds)
+dzn_primary_CmdSetDepthBounds(VkCommandBuffer commandBuffer,
+                             float minDepthBounds,
+                             float maxDepthBounds)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3894,9 +3957,9 @@ dzn_CmdSetDepthBounds(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetStencilCompareMask(VkCommandBuffer commandBuffer,
-                             VkStencilFaceFlags faceMask,
-                             uint32_t compareMask)
+dzn_primary_CmdSetStencilCompareMask(VkCommandBuffer commandBuffer,
+                                     VkStencilFaceFlags faceMask,
+                                     uint32_t compareMask)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3904,9 +3967,9 @@ dzn_CmdSetStencilCompareMask(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetStencilWriteMask(VkCommandBuffer commandBuffer,
-                           VkStencilFaceFlags faceMask,
-                           uint32_t writeMask)
+dzn_primary_CmdSetStencilWriteMask(VkCommandBuffer commandBuffer,
+                                   VkStencilFaceFlags faceMask,
+                                   uint32_t writeMask)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
@@ -3914,9 +3977,9 @@ dzn_CmdSetStencilWriteMask(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetStencilReference(VkCommandBuffer commandBuffer,
-                           VkStencilFaceFlags faceMask,
-                           uint32_t reference)
+dzn_primary_CmdSetStencilReference(VkCommandBuffer commandBuffer,
+                                   VkStencilFaceFlags faceMask,
+                                   uint32_t reference)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 

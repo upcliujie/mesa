@@ -30,6 +30,56 @@ dzn_entrypoints = custom_target(
   depend_files : vk_entrypoints_gen_depend_files,
 )
 
+cmd_dispatch_functions = files(
+  'dzn_cmd_dispatch_functions'
+)
+
+dzn_secondary_cmd = custom_target(
+  'dzn_secondary_cmd',
+  input : [vk_cmd_record_gen, vk_api_xml],
+  output : ['dzn_secondary_cmd.c', 'dzn_secondary_cmd.h'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@',
+    '--prefix', 'dzn_secondary',
+  ],
+  depend_files : [vk_cmd_record_gen],
+)
+
+dzn_cmd_dispatch = custom_target(
+  'dzn_cmd_dispatch',
+  input : [vk_cmd_dispatch_gen, vk_api_xml, cmd_dispatch_functions],
+  output : ['dzn_cmd_dispatch.c', 'dzn_cmd_dispatch.h'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--functions-list', '@INPUT2@',
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@',
+    '--primary-prefix', 'dzn_primary',
+    '--secondary-prefix', 'dzn_secondary',
+    '--prefix', 'dzn',
+  ],
+  depend_files : [vk_cmd_dispatch_gen, cmd_dispatch_functions],
+)
+
+cmd_exec_functions = files(
+  'dzn_cmd_exec_functions'
+)
+
+dzn_cmd_exec = custom_target(
+  'dzn_cmd_exec',
+  input : [vk_cmd_exec_gen, vk_api_xml, cmd_exec_functions],
+  output : ['dzn_cmd_exec.c', 'dzn_cmd_exec.h'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--functions-list', '@INPUT2@',
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@',
+    '--primary-prefix', 'dzn_primary',
+    '--prefix', 'dzn',
+  ],
+  depend_files : [vk_cmd_dispatch_gen, cmd_exec_functions],
+)
+
+
 libdzn_files = files(
   'dzn_cmd_buffer.cpp',
   'dzn_descriptor_set.cpp',
@@ -69,7 +119,7 @@ endif
 
 libvulkan_dzn = shared_library(
   'vulkan_dzn',
-  [libdzn_files, dzn_entrypoints, sha1_h],
+  [libdzn_files, dzn_entrypoints, sha1_h, dzn_secondary_cmd, dzn_cmd_dispatch, dzn_cmd_exec],
   vs_module_defs : 'vulkan_dzn.def',
   include_directories : [
     inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux,
