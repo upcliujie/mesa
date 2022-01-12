@@ -777,21 +777,33 @@ dzn_cmd_buffer::clear(const dzn_image *image,
                       uint32_t range_count,
                       const VkImageSubresourceRange *ranges)
 {
-   dzn_batch *batch = get_batch();
+   if (!(image->desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)) {
+      clear_with_copy(image, layout, color, range_count, ranges);
+      return;
+   }
 
-   assert(image->desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+   dzn_batch *batch = get_batch();
 
    float clear_vals[4];
 
    enum pipe_format pfmt = vk_format_to_pipe_format(image->vk.format);
 
-   /* FIXME: precision loss for all 32-bit integer formats */
    if (util_format_is_pure_sint(pfmt)) {
-      for (uint32_t c = 0; c < ARRAY_SIZE(clear_vals); c++)
+      for (uint32_t c = 0; c < ARRAY_SIZE(clear_vals); c++) {
          clear_vals[c] = color->int32[c];
+         if (color->int32[c] != (int32_t)clear_vals[c]) {
+            clear_with_copy(image, layout, color, range_count, ranges);
+            return;
+         }
+      }
    } else if (util_format_is_pure_uint(pfmt)) {
-      for (uint32_t c = 0; c < ARRAY_SIZE(clear_vals); c++)
+      for (uint32_t c = 0; c < ARRAY_SIZE(clear_vals); c++) {
          clear_vals[c] = color->uint32[c];
+         if (color->uint32[c] != (uint32_t)clear_vals[c]) {
+            clear_with_copy(image, layout, color, range_count, ranges);
+            return;
+         }
+      }
    } else {
       memcpy(clear_vals, color->float32, sizeof(clear_vals));
    }
