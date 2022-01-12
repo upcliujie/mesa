@@ -1696,7 +1696,7 @@ dzn_QueueSubmit(VkQueue _queue,
       for (uint32_t j = 0; j < pSubmits[i].commandBufferCount; j++) {
          VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer,
                          pSubmits[i].pCommandBuffers[j]);
-         assert(cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+         assert(cmd_buffer->vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
          for (auto &batch : cmd_buffer->batches) {
             ID3D12CommandList *cmdlists[] = { batch->cmdlist.Get() };

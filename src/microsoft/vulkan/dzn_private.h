@@ -728,7 +728,6 @@ struct dzn_cmd_buffer {
    std::vector<dzn_descriptor_heap, heaps_allocator> heaps;
 
    VkCommandBufferUsageFlags usage_flags;
-   VkCommandBufferLevel level;
 
    ComPtr<ID3D12CommandAllocator> alloc;
    dzn_object_unique_ptr<dzn_batch> batch;

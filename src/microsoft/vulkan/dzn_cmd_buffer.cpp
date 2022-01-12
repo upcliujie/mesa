@@ -221,7 +221,6 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
                               batches(batches_allocator(pAllocator ? pAllocator : &cmd_pool->alloc))
 {
    device = dev;
-   level = lvl;
    pool = cmd_pool;
    error = VK_SUCCESS;
 
@@ -422,7 +421,7 @@ dzn_cmd_buffer::begin(const VkCommandBufferBeginInfo *info)
     *    secondary command buffer is considered to be entirely inside a render
     *    pass. If this is a primary command buffer, then this bit is ignored.
     */
-   if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+   if (vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
 
    VkResult result = VK_SUCCESS;
