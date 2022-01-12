@@ -754,6 +754,8 @@ dzn_image_view::dzn_image_view(dzn_device *device,
    const VkImageSubresourceRange *range = &pCreateInfo->subresourceRange;
    uint32_t level_count = dzn_get_level_count(image, range);
    uint32_t layer_count = dzn_get_layer_count(image, range);
+   uint32_t plane_slice =
+      pCreateInfo->subresourceRange.aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT ? 1 : 0;
 
    vk_image_view_init(&device->vk, &vk, pCreateInfo);
 
@@ -805,6 +807,7 @@ dzn_image_view::dzn_image_view(dzn_device *device,
       desc.Texture2D.MostDetailedMip =
          pCreateInfo->subresourceRange.baseMipLevel;
       desc.Texture2D.MipLevels = level_count;
+      desc.Texture2D.PlaneSlice = plane_slice;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DMS:
       break;
@@ -833,6 +836,7 @@ dzn_image_view::dzn_image_view(dzn_device *device,
       desc.Texture2DArray.FirstArraySlice =
          pCreateInfo->subresourceRange.baseArrayLayer;
       desc.Texture2DArray.ArraySize = layer_count;
+      desc.Texture2DArray.PlaneSlice = plane_slice;
       break;
    case D3D12_SRV_DIMENSION_TEXTURE2DMSARRAY:
       desc.Texture2DMSArray.FirstArraySlice =
