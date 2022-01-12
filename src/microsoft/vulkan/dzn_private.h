@@ -174,7 +174,12 @@ dzn_transient_alloc(size_t count,
    if (!ptr)
       throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   return dzn_transient_object<T>(ptr, deleter);
+   try {
+      return dzn_transient_object<T>(ptr, deleter);
+   } catch (...) {
+      vk_free2(parent_alloc, alloc, ptr);
+      throw;
+   }
 }
 
 template <typename T>
@@ -194,7 +199,12 @@ dzn_transient_zalloc(size_t count,
    if (!ptr)
       throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   return dzn_transient_object<T>(ptr, deleter);
+   try {
+      return dzn_transient_object<T>(ptr, deleter);
+   } catch (...) {
+      vk_free2(parent_alloc, alloc, ptr);
+      throw;
+   }
 }
 
 template <typename T, typename... CreateArgs>
@@ -209,7 +219,12 @@ dzn_private_object_create(const VkAllocationCallbacks *parent_alloc,
    if (!obj)
       throw vk_error(NULL, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   std::construct_at(obj, std::forward<CreateArgs>(args)...);
+   try {
+      std::construct_at(obj, std::forward<CreateArgs>(args)...);
+   } catch (...) {
+      vk_free(parent_alloc, obj);
+      throw;
+   }
    return dzn_object_unique_ptr<T>(obj);
 }
 

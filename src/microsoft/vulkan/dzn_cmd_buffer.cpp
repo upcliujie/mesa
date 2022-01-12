@@ -61,7 +61,16 @@ dzn_cmd_pool::allocate_cmd_buffers(dzn_device *device,
          break;
 
       cmd_buffer->index = bufs.size();
-      bufs.push_back(dzn_object_unique_ptr<dzn_cmd_buffer>(cmd_buffer));
+      dzn_object_unique_ptr<dzn_cmd_buffer> cmd_buf_ptr(cmd_buffer);
+
+      try {
+         bufs.resize(bufs.size() + 1);
+      } catch (VkResult error) {
+         result = error;
+         break;
+      }
+
+      bufs[cmd_buffer->index].swap(cmd_buf_ptr);
       pCommandBuffers[i] = dzn_cmd_buffer_to_handle(cmd_buffer);
    }
 

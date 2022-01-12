@@ -667,8 +667,18 @@ dzn_descriptor_pool::allocate_sets(dzn_device *device,
       if (result != VK_SUCCESS)
          goto err_free_sets;
 
+      dzn_object_unique_ptr<dzn_descriptor_set> set_ptr(set);
+
       set->index = sets.size();
-      sets.push_back(dzn_object_unique_ptr<dzn_descriptor_set>(set));
+
+      try {
+         sets.resize(sets.size() + 1);
+      } catch (VkResult error) {
+         result = error;
+	 goto err_free_sets;
+      }
+
+      sets[set->index].swap(set_ptr);
       pDescriptorSets[i] = dzn_descriptor_set_to_handle(set);
    }
 

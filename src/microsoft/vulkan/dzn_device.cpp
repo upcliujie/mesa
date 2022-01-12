@@ -809,12 +809,20 @@ dzn_instance::enumerate_physical_devices(uint32_t *pPhysicalDeviceCount,
          }
 
          dzn_physical_device *pdev;
+
          VkResult result =
-            dzn_physical_device_factory::create(this, adapter, desc, NULL, &pdev);
+            dzn_physical_device_factory::create(this, adapter, desc, &vk.alloc, &pdev);
          if (result != VK_SUCCESS)
             return result;
 
-         physical_devices.push_back(dzn_object_unique_ptr<dzn_physical_device>(pdev));
+         dzn_object_unique_ptr<dzn_physical_device> pdev_ptr(pdev);
+
+         try {
+            physical_devices.resize(physical_devices.size() + 1);
+            physical_devices[physical_devices.size() - 1].swap(pdev_ptr);
+         } catch (VkResult error) {
+            return error;
+         }
       }
    }
 
