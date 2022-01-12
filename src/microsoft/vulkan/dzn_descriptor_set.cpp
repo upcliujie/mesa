@@ -585,6 +585,25 @@ dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device,
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
 }
 
+dzn_pipeline_layout::dzn_pipeline_layout(dzn_device *device, const dzn_pipeline_layout &src)
+{
+   set_count = src.set_count;
+   memcpy(sets, src.sets, set_count * sizeof(sets[0]));
+   for (uint32_t s = 0; s < set_count; s++) {
+      binding_translation[s].binding_count = src.binding_translation[s].binding_count;
+      memcpy(binding_translation[s].bindings, src.binding_translation[s].bindings,
+             binding_translation[s].binding_count * sizeof(binding_translation[0].bindings));
+   }
+   memcpy(desc_count, src.desc_count, sizeof(desc_count));
+   root.param_count = src.root.param_count;
+   root.sets_param_count = src.root.sets_param_count;
+   root.sysval_cbv_param_idx = src.root.sysval_cbv_param_idx;
+   memcpy(root.type, src.root.type, sizeof(root.type));
+   root.sig = src.root.sig;
+
+   vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE_LAYOUT);
+}
+
 dzn_pipeline_layout::~dzn_pipeline_layout()
 {
    vk_object_base_finish(&base);

@@ -1143,6 +1143,7 @@ struct dzn_pipeline_layout {
    dzn_pipeline_layout(dzn_device *device,
                        const VkPipelineLayoutCreateInfo *pCreateInfo,
                        const VkAllocationCallbacks *pAllocator);
+   dzn_pipeline_layout(dzn_device *device, const dzn_pipeline_layout &src);
    ~dzn_pipeline_layout();
 };
 
