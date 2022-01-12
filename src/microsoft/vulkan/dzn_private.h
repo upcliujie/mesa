@@ -563,7 +563,7 @@ struct dzn_batch {
    std::vector<dzn_cmd_event_signal, signal_allocator> signal;
    using queries_allocator = dzn_allocator<dzn_batch_query_op>;
    std::vector<dzn_batch_query_op, queries_allocator> queries;
-   ComPtr<ID3D12GraphicsCommandList> cmdlist;
+   ComPtr<ID3D12GraphicsCommandList1> cmdlist;
    struct dzn_cmd_pool *pool;
 
    dzn_batch(struct dzn_cmd_buffer *cmd_buffer);
@@ -813,6 +813,16 @@ struct dzn_cmd_buffer {
                                 VkDeviceSize offset,
                                 VkDeviceSize stride,
                                 VkQueryResultFlags flags);
+
+   void set_line_width(float line_width);
+   void set_depth_bias(float depth_bias_constant_factor,
+                       float depth_bias_clamp,
+                       float depth_bias_slope_factor);
+   void set_blend_constants(const float blend_constants[4]);
+   void set_depth_bounds(float min_depth_bounds, float max_depth_bounds);
+   void set_stencil_compare_mask(VkStencilFaceFlags face_mask, uint32_t compare_mask);
+   void set_stencil_write_mask(VkStencilFaceFlags face_mask, uint32_t write_mask);
+   void set_stencil_reference(VkStencilFaceFlags face_mask, uint32_t reference);
 
    void clear_attachment(uint32_t idx,
                          const VkClearValue *pClearValue,

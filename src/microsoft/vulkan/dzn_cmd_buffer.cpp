@@ -3394,6 +3394,63 @@ dzn_cmd_buffer::copy_query_pool_results(VkQueryPool query_pool,
    }
 }
 
+void
+dzn_cmd_buffer::set_line_width(float line_width)
+{
+   assert(line_width == 1.0f);
+}
+
+void
+dzn_cmd_buffer::set_depth_bias(float depth_bias_constant_factor,
+                               float depth_bias_clamp,
+                               float depth_bias_slope_factor)
+{
+   dzn_stub();
+}
+
+void
+dzn_cmd_buffer::set_blend_constants(const float blend_constants[4])
+{
+   dzn_batch *batch = get_batch();
+
+   batch->cmdlist->OMSetBlendFactor(blend_constants);
+}
+
+void
+dzn_cmd_buffer::set_depth_bounds(float min_depth_bounds,
+                                 float max_depth_bounds)
+{
+   dzn_batch *batch = get_batch();
+
+   batch->cmdlist->OMSetDepthBounds(min_depth_bounds, max_depth_bounds);
+}
+
+void
+dzn_cmd_buffer::set_stencil_compare_mask(VkStencilFaceFlags face_mask,
+                                         uint32_t compare_mask)
+{
+   dzn_stub();
+}
+
+void
+dzn_cmd_buffer::set_stencil_write_mask(VkStencilFaceFlags face_mask,
+                                       uint32_t write_mask)
+{
+   dzn_stub();
+}
+
+void
+dzn_cmd_buffer::set_stencil_reference(VkStencilFaceFlags face_mask,
+                                      uint32_t reference)
+{
+   /* We don't support independent front/back reference */
+   assert(face_mask != VK_STENCIL_FACE_FRONT_AND_BACK);
+
+   dzn_batch *batch = get_batch();
+
+   batch->cmdlist->OMSetStencilRef(reference);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
                            const VkDependencyInfoKHR *info)
@@ -3801,4 +3858,74 @@ dzn_CmdDispatchIndirect(VkCommandBuffer commandBuffer,
    VK_FROM_HANDLE(dzn_buffer, buf, buffer);
 
    CMD_WRAPPER(cmd_buffer, dispatch, buf, offset);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetLineWidth(VkCommandBuffer commandBuffer,
+                    float lineWidth)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_line_width, lineWidth);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetDepthBias(VkCommandBuffer commandBuffer,
+                    float depthBiasConstantFactor,
+                    float depthBiasClamp,
+                    float depthBiasSlopeFactor)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_depth_bias, depthBiasConstantFactor,
+               depthBiasClamp, depthBiasSlopeFactor);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetBlendConstants(VkCommandBuffer commandBuffer,
+                         const float blendConstants[4])
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_blend_constants, blendConstants);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetDepthBounds(VkCommandBuffer commandBuffer,
+                      float minDepthBounds,
+                      float maxDepthBounds)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_depth_bounds, minDepthBounds, maxDepthBounds);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetStencilCompareMask(VkCommandBuffer commandBuffer,
+                             VkStencilFaceFlags faceMask,
+                             uint32_t compareMask)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_stencil_compare_mask, faceMask, compareMask);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetStencilWriteMask(VkCommandBuffer commandBuffer,
+                           VkStencilFaceFlags faceMask,
+                           uint32_t writeMask)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_stencil_write_mask, faceMask, writeMask);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetStencilReference(VkCommandBuffer commandBuffer,
+                           VkStencilFaceFlags faceMask,
+                           uint32_t reference)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, set_stencil_reference, faceMask, reference);
 }
