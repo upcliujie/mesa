@@ -41,6 +41,7 @@ libdzn_files = files(
   'dzn_pass.cpp',
   'dzn_pipeline_cache.cpp',
   'dzn_pipeline.cpp',
+  'dzn_query.cpp',
   'dzn_semaphore.cpp',
   'dzn_state.cpp',
   'dzn_util.cpp',

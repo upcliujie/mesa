@@ -57,6 +57,8 @@
 #include "spirv_to_dxil.h"
 #include "d3d12_descriptor_pool.h"
 
+#include <atomic>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -448,6 +450,12 @@ struct dzn_device {
    dzn_object_unique_ptr<dzn_meta_triangle_fan_rewrite_index> triangle_fan[dzn_meta_triangle_fan_rewrite_index::NUM_INDEX_TYPE];
    dzn_object_unique_ptr<dzn_meta_blits> blits;
 
+   struct {
+      static const uint32_t refs_all_ones_offset = 0;
+      static const uint32_t refs_all_zeros_offset = sizeof(uint64_t);
+      ComPtr<ID3D12Resource> refs;
+   } queries;
+
    dzn_device(VkPhysicalDevice pdev,
               const VkDeviceCreateInfo *pCreateInfo,
               const VkAllocationCallbacks *pAllocator);
@@ -540,11 +548,21 @@ struct dzn_attachment_ref {
    D3D12_RESOURCE_STATES before, during;
 };
 
+struct dzn_batch_query_op {
+   struct dzn_query_pool *qpool;
+   uint32_t query;
+   bool wait;
+   bool reset;
+   bool signal;
+};
+
 struct dzn_batch {
    using wait_allocator = dzn_allocator<dzn_event *>;
    std::vector<dzn_event *, wait_allocator> wait;
    using signal_allocator = dzn_allocator<dzn_cmd_event_signal>;
    std::vector<dzn_cmd_event_signal, signal_allocator> signal;
+   using queries_allocator = dzn_allocator<dzn_batch_query_op>;
+   std::vector<dzn_batch_query_op, queries_allocator> queries;
    ComPtr<ID3D12GraphicsCommandList> cmdlist;
    struct dzn_cmd_pool *pool;
 
@@ -631,6 +649,30 @@ private:
    uint32_t desc_sz = 0;
 };
 
+struct dzn_query_key {
+   struct dzn_query_pool *qpool;
+   uint32_t query;
+
+   bool operator<(const dzn_query_key &b) const
+   {
+      return qpool < b.qpool ||
+             (qpool == b.qpool && query < b.query);
+   }
+};
+
+struct dzn_query_state {
+   bool wait = false;
+   bool reset = false;
+   bool collect = false;
+   bool collected = false;
+   enum status {
+      UNKNOWN,
+      INVALID,
+      STARTED,
+      STOPPED,
+   } status = UNKNOWN;
+};
+
 struct dzn_cmd_buffer {
    struct vk_command_buffer vk;
    VkResult error;
@@ -677,6 +719,10 @@ struct dzn_cmd_buffer {
          struct dxil_spirv_compute_runtime_data compute;
       } sysvals;
    } state = {};
+
+   using queries_allocator = dzn_allocator<std::pair<const dzn_query_key, dzn_query_state>>;
+   using queries_iterator = std::map<dzn_query_key, dzn_query_state, std::less<dzn_query_key>, queries_allocator>::iterator;
+   std::map<dzn_query_key, dzn_query_state, std::less<dzn_query_key>, queries_allocator> queries;
 
    using heaps_allocator = dzn_allocator<dzn_descriptor_heap>;
    std::vector<dzn_descriptor_heap, heaps_allocator> heaps;
@@ -754,6 +800,20 @@ struct dzn_cmd_buffer {
                     uint32_t image_memory_barrier_count,
                     const VkImageMemoryBarrier *image_memory_barriers);
 
+   void begin_query(VkQueryPool query_pool, uint32_t query,
+                    VkQueryControlFlags flags);
+   void end_query(VkQueryPool query_pool, uint32_t query);
+   void reset_query_pool(VkQueryPool query_pool,
+                         uint32_t first_query,
+                         uint32_t query_count);
+   void copy_query_pool_results(VkQueryPool query_pool,
+                                uint32_t first_query,
+                                uint32_t query_count,
+                                VkBuffer buffer,
+                                VkDeviceSize offset,
+                                VkDeviceSize stride,
+                                VkQueryResultFlags flags);
+
    void clear_attachment(uint32_t idx,
                          const VkClearValue *pClearValue,
                          VkImageAspectFlags aspectMask,
@@ -814,6 +874,13 @@ struct dzn_cmd_buffer {
                  uint32_t group_count_z);
 
 private:
+   void collect_queries(const queries_iterator &first_iter,
+                        uint32_t query_count);
+   void collect_queries(dzn_query_pool *qpool,
+                        uint32_t first_query,
+                        uint32_t query_count);
+   void gather_queries();
+
    void clear_with_copy(const dzn_image *image,
                         VkImageLayout layout,
                         const VkClearColorValue *color,
@@ -1474,7 +1541,57 @@ struct dzn_event {
 };
 
 struct dzn_query_pool {
+   struct query {
+      enum status {
+         RESET,
+         STARTED,
+         STOPPED,
+         RESOLVED,
+      };
+      enum status status = RESET;
+      D3D12_QUERY_TYPE type = D3D12_QUERY_TYPE_OCCLUSION;
+      ComPtr<ID3D12Fence> fence;
+      std::atomic<uint64_t> fence_value;
+
+      query() : fence_value(0) {}
+      query(const query &q) {
+         status = q.status;
+	 fence = q.fence;
+	 fence_value.store(q.fence_value);
+      }
+   };
+
    struct vk_object_base base;
+
+   D3D12_QUERY_TYPE get_query_type(VkQueryControlFlags flags);
+   D3D12_QUERY_HEAP_TYPE heap_type;
+   ComPtr<ID3D12QueryHeap> heap;
+   std::vector<query, dzn_allocator<query>> queries;
+   ComPtr<ID3D12Resource> resolve_buffer;
+   ComPtr<ID3D12Resource> collect_buffer;
+   VkQueryPipelineStatisticFlags pipeline_statistics;
+   uint32_t query_size;
+
+   dzn_query_pool(dzn_device *device,
+                  const VkQueryPoolCreateInfo *info,
+                  const VkAllocationCallbacks *alloc);
+   ~dzn_query_pool();
+
+   void reset(uint32_t first_query, uint32_t query_count);
+   VkResult get_results(uint32_t first_query,
+                        uint32_t query_count,
+                        size_t data_size,
+                        void *data,
+                        VkDeviceSize stride,
+                        VkQueryResultFlags flags);
+
+   uint32_t get_result_offset(uint32_t query);
+   uint32_t get_result_size(uint32_t query_count);
+   uint32_t get_availability_offset(uint32_t query);
+
+private:
+   uint64_t *collect_map;
+   static D3D12_QUERY_HEAP_TYPE get_heap_type(VkQueryType in);
 };
 
 VK_DEFINE_HANDLE_CASTS(dzn_cmd_buffer, vk.base, VkCommandBuffer, VK_OBJECT_TYPE_COMMAND_BUFFER)
@@ -1697,6 +1814,7 @@ DZN_OBJ_FACTORY(dzn_physical_device, VkPhysicalDevice, dzn_instance *, ComPtr<ID
 DZN_OBJ_FACTORY(dzn_pipeline_cache, VkPipelineCache, VkDevice, const VkPipelineCacheCreateInfo *);
 DZN_OBJ_FACTORY(dzn_pipeline_layout, VkPipelineLayout, VkDevice, const VkPipelineLayoutCreateInfo *);
 DZN_OBJ_FACTORY(dzn_queue, VkQueue, VkDevice, const VkDeviceQueueCreateInfo *);
+DZN_OBJ_FACTORY(dzn_query_pool, VkQueryPool, VkDevice, const VkQueryPoolCreateInfo *);
 DZN_OBJ_FACTORY(dzn_render_pass, VkRenderPass, VkDevice, const VkRenderPassCreateInfo2KHR *);
 DZN_OBJ_FACTORY(dzn_sampler, VkSampler, VkDevice, const VkSamplerCreateInfo *);
 DZN_OBJ_FACTORY(dzn_semaphore, VkSemaphore, VkDevice, const VkSemaphoreCreateInfo *);

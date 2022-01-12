@@ -929,8 +929,8 @@ dzn_GetPhysicalDeviceFeatures(VkPhysicalDevice physicalDevice,
       .textureCompressionETC2 = false,
       .textureCompressionASTC_LDR = false,
       .textureCompressionBC = pdev->supports_bc(),
-      .occlusionQueryPrecise = false,
-      .pipelineStatisticsQuery = false,
+      .occlusionQueryPrecise = true,
+      .pipelineStatisticsQuery = true,
       .vertexPipelineStoresAndAtomics = false,
       .fragmentStoresAndAtomics = false,
       .shaderTessellationAndGeometryPointSize = false,
@@ -1482,6 +1482,45 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
    }
 
    blits = dzn_private_object_create<dzn_meta_blits>(&vk.alloc, this);
+
+   /* FIXME: create the resource in the default heap */
+   D3D12_HEAP_PROPERTIES hprops =
+      dev->GetCustomHeapProperties(0, D3D12_HEAP_TYPE_UPLOAD);
+   D3D12_RESOURCE_DESC rdesc = {
+      .Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+      .Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT,
+      .Width = sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS) + (sizeof(uint64_t) * 2),
+      .Height = 1,
+      .DepthOrArraySize = 1,
+      .MipLevels = 1,
+      .Format = DXGI_FORMAT_UNKNOWN,
+      .SampleDesc = { .Count = 1, .Quality = 0 },
+      .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+      .Flags = D3D12_RESOURCE_FLAG_NONE,
+   };
+
+   HRESULT hres =
+      dev->CreateCommittedResource(&hprops,
+                                   D3D12_HEAP_FLAG_NONE,
+                                   &rdesc,
+                                   D3D12_RESOURCE_STATE_GENERIC_READ,
+                                   NULL, IID_PPV_ARGS(&queries.refs));
+   if (FAILED(hres)) {
+      vk_device_finish(&vk);
+      throw vk_error(instance, VK_ERROR_OUT_OF_DEVICE_MEMORY);
+   }
+
+   uint8_t *queries_ref;
+   hres = queries.refs->Map(0, NULL, (void **)&queries_ref);
+   if (FAILED(hres)) {
+      vk_device_finish(&vk);
+      throw vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   memset(queries_ref + queries.refs_all_ones_offset, 0xff, sizeof(uint64_t));
+   memset(queries_ref + queries.refs_all_zeros_offset, 0x0,
+          sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS) + sizeof(uint64_t));
+   queries.refs->Unmap(0, NULL);
 }
 
 dzn_device::~dzn_device()
@@ -1665,10 +1704,33 @@ dzn_QueueSubmit(VkQueue _queue,
             for (auto &event : batch->wait)
                queue->cmdqueue->Wait(event->fence.Get(), 1);
 
+            for (auto &qop : batch->queries) {
+               auto &query = qop.qpool->queries[qop.query];
+               ComPtr<ID3D12Fence> query_fence = query.fence;
+               uint64_t query_fence_val = query.fence_value.load();
+
+               if (qop.wait && query_fence.Get() && query_fence_val > 0)
+                  queue->cmdqueue->Wait(query_fence.Get(), query_fence_val);
+
+               if (qop.reset) {
+                  query.fence = ComPtr<ID3D12Fence>(NULL);
+                  query.fence_value = 0;
+               }
+            }
+
             queue->cmdqueue->ExecuteCommandLists(1, cmdlists);
 
             for (auto &signal : batch->signal)
                queue->cmdqueue->Signal(signal.event->fence.Get(), signal.value ? 1 : 0);
+
+            for (auto &qop : batch->queries) {
+               if (qop.signal) {
+                  auto &query = qop.qpool->queries[qop.query];
+
+                  query.fence = queue->fence;
+                  query.fence_value = queue->fence_point + 1;
+               }
+            }
          }
       }
    }

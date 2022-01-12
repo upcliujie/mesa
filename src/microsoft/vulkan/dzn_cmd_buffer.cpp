@@ -163,7 +163,8 @@ dzn_ResetCommandPool(VkDevice device,
 
 dzn_batch::dzn_batch(dzn_cmd_buffer *cmd_buffer):
                     wait(wait_allocator(&cmd_buffer->pool->alloc)),
-                    signal(signal_allocator(&cmd_buffer->pool->alloc))
+                    signal(signal_allocator(&cmd_buffer->pool->alloc)),
+                    queries(queries_allocator(&cmd_buffer->pool->alloc))
 {
    pool = cmd_buffer->pool;
    if (FAILED(cmd_buffer->device->dev->CreateCommandList(0, cmd_buffer->type,
@@ -215,6 +216,7 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
                                VkCommandBufferLevel lvl,
                                const VkAllocationCallbacks *pAllocator) :
                               internal_bufs(bufs_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
+                              queries(queries_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
                               heaps(heaps_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
                               batches(batches_allocator(pAllocator ? pAllocator : &cmd_pool->alloc))
 {
@@ -273,6 +275,7 @@ dzn_cmd_buffer::close_batch()
    if (!batch.get())
       return;
 
+   gather_queries();
    batch->cmdlist->Close();
 
    batches.resize(batches.size() + 1);
@@ -348,6 +351,7 @@ dzn_cmd_buffer::reset()
    batch.reset(NULL);
 
    internal_bufs.clear();
+   queries.clear();
 
    /* Reset the state */
    memset(&state, 0, sizeof(state));
@@ -459,6 +463,7 @@ VkResult
 dzn_cmd_buffer::end()
 {
    CMD_WRAPPER(this, close_batch);
+   queries.clear();
 
    return error;
 }
@@ -3048,6 +3053,295 @@ dzn_cmd_buffer::dispatch(uint32_t group_count_x,
    batch->cmdlist->Dispatch(group_count_x, group_count_y, group_count_z);
 }
 
+void
+dzn_cmd_buffer::begin_query(VkQueryPool query_pool, uint32_t query,
+                            VkQueryControlFlags flags)
+{
+   VK_FROM_HANDLE(dzn_query_pool, qpool, query_pool);
+   dzn_batch *batch = get_batch();
+
+   qpool->queries[query].type = qpool->get_query_type(flags);
+   batch->cmdlist->BeginQuery(qpool->heap.Get(), qpool->queries[query].type, query);
+
+   dzn_query_key key = { qpool, query };
+   dzn_query_state &state = queries[key];
+
+   assert(state.status != dzn_query_state::status::STARTED);
+   state.status = dzn_query_state::status::STARTED;
+   state.collect = false;
+   state.collected = false;
+   state.reset = true;
+}
+
+void
+dzn_cmd_buffer::end_query(VkQueryPool query_pool, uint32_t query)
+{
+   VK_FROM_HANDLE(dzn_query_pool, qpool, query_pool);
+   dzn_batch *batch = get_batch();
+
+   batch->cmdlist->EndQuery(qpool->heap.Get(), qpool->queries[query].type, query);
+
+   dzn_query_key key = { qpool, query };
+   dzn_query_state &state = queries[key];
+
+   assert(state.status == dzn_query_state::status::STARTED ||
+          state.status == dzn_query_state::status::UNKNOWN);
+   state.status = dzn_query_state::status::STOPPED;
+   state.collect = true;
+}
+
+void
+dzn_cmd_buffer::collect_queries(dzn_query_pool *qpool,
+                                uint32_t first_query,
+                                uint32_t query_count)
+{
+   dzn_query_key key = { qpool, first_query };
+   auto first_iter = queries.find(key);
+
+   collect_queries(first_iter, query_count);
+}
+
+void
+dzn_cmd_buffer::collect_queries(const queries_iterator &first_iter,
+                                uint32_t query_count)
+{
+   if (first_iter == queries.end())
+      return;
+
+   dzn_query_pool *qpool = first_iter->first.qpool;
+   uint32_t first_query = first_iter->first.query;
+   uint32_t resolve_count = 0, first_resolve = first_query;
+   auto iter = first_iter;
+
+   while (true) {
+      if (iter != queries.end() &&
+          iter->first.qpool == qpool &&
+          iter->first.query < first_query + query_count &&
+          first_resolve + resolve_count == iter->first.query &&
+          qpool->queries[first_resolve + resolve_count].type == qpool->queries[first_resolve].type &&
+          iter->second.collect == true) {
+         iter++;
+         resolve_count++;
+         continue;
+      }
+
+      if (resolve_count) {
+         batch->cmdlist->ResolveQueryData(qpool->heap.Get(), qpool->queries[first_resolve].type,
+                                          first_resolve, resolve_count,
+                                          qpool->resolve_buffer.Get(),
+                                          qpool->query_size * first_resolve);
+      }
+
+      if (iter == queries.end() ||
+          iter->first.qpool != qpool ||
+          iter->first.query >= first_query + query_count)
+         break;
+
+      first_resolve = iter->first.query + 1;
+      resolve_count = 0;
+      iter++;
+   }
+
+   D3D12_RESOURCE_BARRIER barrier = {
+      .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+      .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+      .Transition = {
+         .pResource = qpool->resolve_buffer.Get(),
+         .StateBefore = D3D12_RESOURCE_STATE_COPY_DEST,
+         .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+      },
+   };
+   uint32_t offset = qpool->get_result_offset(first_query);
+   uint32_t size = qpool->get_result_size(query_count);
+
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+
+   batch->cmdlist->CopyBufferRegion(qpool->collect_buffer.Get(), offset,
+                                    qpool->resolve_buffer.Get(), offset,
+                                    size);
+
+   iter = first_iter;
+
+   while (iter != queries.end()) {
+      if (iter->first.qpool != qpool ||
+          iter->first.query >= first_query + query_count)
+         break;
+
+      if (iter->second.collect == false) {
+         iter++;
+         continue;
+      }
+
+      batch->cmdlist->CopyBufferRegion(qpool->collect_buffer.Get(),
+                                       qpool->get_availability_offset(iter->first.query),
+                                       device->queries.refs.Get(),
+                                       device->queries.refs_all_ones_offset,
+                                       sizeof(uint64_t));
+      iter->second.collect = false;
+      iter->second.collected = true;
+      iter++;
+   }
+
+   std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+}
+
+void
+dzn_cmd_buffer::reset_query_pool(VkQueryPool query_pool,
+                                 uint32_t first_query,
+                                 uint32_t query_count)
+{
+   VK_FROM_HANDLE(dzn_query_pool, qpool, query_pool);
+   dzn_batch *batch = get_batch();
+
+   for (uint32_t q = 0; q < query_count; q++) {
+      dzn_query_key key = { qpool, q + first_query };
+      dzn_query_state &state = queries[key];
+
+      state.status = dzn_query_state::status::INVALID;
+      state.collect = false;
+      state.collected = false;
+      state.reset = true;
+      batch->cmdlist->CopyBufferRegion(qpool->collect_buffer.Get(),
+                                       qpool->get_result_offset(first_query + q),
+                                       device->queries.refs.Get(),
+                                       device->queries.refs_all_zeros_offset,
+                                       qpool->query_size);
+      batch->cmdlist->CopyBufferRegion(qpool->collect_buffer.Get(),
+                                       qpool->get_availability_offset(first_query + q),
+                                       device->queries.refs.Get(),
+                                       device->queries.refs_all_zeros_offset,
+                                       sizeof(uint64_t));
+   }
+}
+
+void
+dzn_cmd_buffer::gather_queries()
+{
+   dzn_query_pool *qpool = NULL;
+   uint32_t first_query = 0, last_query = 0;
+   for (auto iter : queries) {
+      if (iter.second.reset || iter.second.collect || iter.second.wait) {
+         dzn_batch_query_op qop = {
+            iter.first.qpool, iter.first.query,
+            iter.second.wait,
+            iter.second.reset,
+            iter.second.collect | iter.second.collected,
+	 };
+
+         batch->queries.push_back(qop);
+      }
+
+      if (qpool != iter.first.qpool) {
+         qpool = iter.first.qpool;
+         collect_queries(qpool, 0, qpool->queries.size());
+      }
+   }
+}
+
+void
+dzn_cmd_buffer::copy_query_pool_results(VkQueryPool query_pool,
+                                        uint32_t first_query,
+                                        uint32_t query_count,
+                                        VkBuffer buffer,
+                                        VkDeviceSize offset,
+                                        VkDeviceSize stride,
+                                        VkQueryResultFlags flags)
+{
+   VK_FROM_HANDLE(dzn_query_pool, qpool, query_pool);
+   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
+
+   dzn_batch *batch = get_batch();
+
+   collect_queries(qpool, first_query, query_count);
+
+   bool raw_copy = (flags & VK_QUERY_RESULT_64_BIT) &&
+                   stride == qpool->query_size &&
+                   !(flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+#define ALL_STATS \
+        (VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_INVOCATIONS_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_GEOMETRY_SHADER_PRIMITIVES_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_CONTROL_SHADER_PATCHES_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_TESSELLATION_EVALUATION_SHADER_INVOCATIONS_BIT | \
+         VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT)
+   if (qpool->heap_type == D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS &&
+       qpool->pipeline_statistics != ALL_STATS)
+      raw_copy = false;
+#undef ALL_STATS
+
+   D3D12_RESOURCE_BARRIER barrier = {
+      .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+      .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+      .Transition = {
+         .pResource = qpool->collect_buffer.Get(),
+         .StateBefore = D3D12_RESOURCE_STATE_COPY_DEST,
+         .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+      },
+   };
+
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+
+   if (raw_copy) {
+      batch->cmdlist->CopyBufferRegion(buf->res.Get(), offset,
+                                       qpool->collect_buffer.Get(),
+                                       qpool->query_size * first_query,
+                                       qpool->query_size * query_count);
+   } else {
+      uint32_t step = flags & VK_QUERY_RESULT_64_BIT ? sizeof(uint64_t) : sizeof(uint32_t);
+
+      for (uint32_t q = 0; q < query_count; q++) {
+         uint32_t res_offset = qpool->get_result_offset(first_query + q);
+         uint32_t dst_counter_offset = 0;
+
+         if (qpool->heap_type == D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS) {
+            for (uint32_t c = 0; c < sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS) / sizeof(uint64_t); c++) {
+               if (!(BITFIELD_BIT(c) & qpool->pipeline_statistics))
+                  continue;
+
+               batch->cmdlist->CopyBufferRegion(buf->res.Get(), offset + dst_counter_offset,
+                                                qpool->collect_buffer.Get(),
+                                                res_offset + (c * sizeof(uint64_t)),
+                                                step);
+               dst_counter_offset += step;
+            }
+         } else {
+            batch->cmdlist->CopyBufferRegion(buf->res.Get(), offset,
+                                             qpool->collect_buffer.Get(),
+                                             res_offset, step);
+            dst_counter_offset += step;
+         }
+
+         if (flags & VK_QUERY_RESULT_WITH_AVAILABILITY_BIT) {
+            batch->cmdlist->CopyBufferRegion(buf->res.Get(), offset + dst_counter_offset,
+                                             qpool->collect_buffer.Get(),
+                                             qpool->get_availability_offset(first_query + q),
+                                             step);
+	 }
+
+         offset += stride;
+      }
+   }
+
+   std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+   batch->cmdlist->ResourceBarrier(1, &barrier);
+
+   dzn_query_key first = { qpool, first_query }, last = {qpool, first_query + query_count};
+   for (auto iter = queries.find(first);
+        iter != queries.end() && iter->first < last; iter++) {
+      auto &state = iter->second;
+      if (state.status == dzn_query_state::status::UNKNOWN &&
+          (flags & VK_QUERY_RESULT_WAIT_BIT)) {
+         state.wait = true;
+      }
+   }
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
                            const VkDependencyInfoKHR *info)
@@ -3396,4 +3690,52 @@ dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
                memoryBarrierCount, pMemoryBarriers,
                bufferMemoryBarrierCount, pBufferMemoryBarriers,
                imageMemoryBarrierCount, pImageMemoryBarriers);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBeginQuery(VkCommandBuffer commandBuffer,
+                          VkQueryPool queryPool,
+                          uint32_t query,
+                          VkQueryControlFlags flags)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, begin_query, queryPool, query, flags);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdEndQuery(VkCommandBuffer commandBuffer,
+                        VkQueryPool queryPool,
+                        uint32_t query)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, end_query, queryPool, query);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdResetQueryPool(VkCommandBuffer commandBuffer,
+                              VkQueryPool queryPool,
+                              uint32_t firstQuery,
+                              uint32_t queryCount)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, reset_query_pool, queryPool, firstQuery, queryCount);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdCopyQueryPoolResults(VkCommandBuffer commandBuffer,
+                                    VkQueryPool queryPool,
+                                    uint32_t firstQuery,
+                                    uint32_t queryCount,
+                                    VkBuffer dstBuffer,
+                                    VkDeviceSize dstOffset,
+                                    VkDeviceSize stride,
+                                    VkQueryResultFlags flags)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   CMD_WRAPPER(cmd_buffer, copy_query_pool_results, queryPool,
+               firstQuery, queryCount, dstBuffer, dstOffset, stride, flags);
 }
