@@ -2234,3 +2234,14 @@ dzn_GetEventStatus(VkDevice _device,
           VK_EVENT_SET : VK_EVENT_RESET;
    return VK_SUCCESS;
 }
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_GetDeviceMemoryCommitment(VkDevice device,
+                              VkDeviceMemory memory,
+                              VkDeviceSize *pCommittedMemoryInBytes)
+{
+   VK_FROM_HANDLE(dzn_device_memory, mem, memory);
+
+   // TODO: find if there's a way to query/track actual heap residency
+   *pCommittedMemoryInBytes = mem->size;
+}
