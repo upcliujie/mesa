@@ -2387,9 +2387,6 @@ dzn_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
    case VK_INDEX_TYPE_UINT32:
       cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R32_UINT;
       break;
-   case VK_INDEX_TYPE_UINT8_EXT:
-      cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R8_UINT;
-      break;
    default: unreachable("Invalid index type");
    }
 
