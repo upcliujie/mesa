@@ -796,8 +796,6 @@ dzn_instance::enumerate_physical_devices(uint32_t *pPhysicalDeviceCount,
                                          VkPhysicalDevice *pPhysicalDevices)
 {
    if (!physical_devices_enumerated) {
-      physical_devices_enumerated = true;
-
       ComPtr<IDXGIFactory4> factory = dxgi_get_factory(false);
       ComPtr<IDXGIAdapter1> adapter(NULL);
       for (UINT i = 0; SUCCEEDED(factory->EnumAdapters1(i, &adapter)); ++i) {
@@ -836,6 +834,7 @@ dzn_instance::enumerate_physical_devices(uint32_t *pPhysicalDeviceCount,
       }
    }
 
+   physical_devices_enumerated = true;
    return vk_outarray_status(&out);
 }
 
