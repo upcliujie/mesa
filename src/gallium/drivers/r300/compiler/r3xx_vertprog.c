@@ -697,6 +697,27 @@ static int transform_nonnative_modifiers(
 	return 1;
 }
 
+static struct rc_src_register* find_best_register_cache(struct radeon_compiler *c, struct rc_instruction* inst, struct rc_src_register* SrcReg1, struct rc_src_register* SrcReg2) {
+	int s1 = 0;
+	int s2 = 0;
+	while(inst != &c->Program.Instructions) {
+		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
+		for(int i = 0; i < opcode->NumSrcRegs;i++) {
+			if(inst->U.I.SrcReg[i].File ==  SrcReg1->File && inst->U.I.SrcReg[i].Index == SrcReg1->Index) s1++;
+			if(inst->U.I.SrcReg[i].File ==  SrcReg2->File && inst->U.I.SrcReg[i].Index == SrcReg2->Index) s2++;
+		}
+	inst = inst->Next;
+	}
+	return s1 > s2 ? SrcReg1 : SrcReg2;
+}
+enum {
+	CacheSize = 10 
+};
+int active_move_helpers = 0;
+int original_data_index[CacheSize];
+int original_data_type[CacheSize];
+int temp_index[CacheSize];
+
 /**
  * Vertex engine cannot read two inputs or two constants at the same time.
  * Introduce intermediate MOVs to temporary registers to account for this.
@@ -707,10 +728,36 @@ static int transform_source_conflicts(
 	void* unused)
 {
 	const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
+	int reg_left_to_check1 = 0;
+	int reg_left_to_check2 = 1;
+
+	// Lets check if it's already used in some temp helper
+	for(int i = 0; i < opcode->NumSrcRegs;i++) {
+		if(inst->U.I.SrcReg[i].File == RC_FILE_CONSTANT ||  inst->U.I.SrcReg[i].File == RC_FILE_INPUT) {
+			for(int j = 0; j < active_move_helpers;j++) {
+				if(inst->U.I.SrcReg[i].Index == original_data_index[j] && inst->U.I.SrcReg[i].File == original_data_type[j]) {
+					inst->U.I.SrcReg[i].File = RC_FILE_TEMPORARY;
+					inst->U.I.SrcReg[i].Index = temp_index[j];
+					inst->U.I.SrcReg[i].RelAddr = false;
+					break;
+				}
+			}
+		}
+	}
 
 	if (opcode->NumSrcRegs == 3) {
-		if (t_src_conflict(inst->U.I.SrcReg[1], inst->U.I.SrcReg[2])
-		    || t_src_conflict(inst->U.I.SrcReg[0], inst->U.I.SrcReg[2])) {
+		int conflict1 = t_src_conflict(inst->U.I.SrcReg[1], inst->U.I.SrcReg[2]);
+		int conflict2 = t_src_conflict(inst->U.I.SrcReg[0], inst->U.I.SrcReg[2]);
+
+		if (conflict1 || conflict2) {
+			struct rc_src_register* SrcRegToCache;
+			if (conflict1) {
+				SrcRegToCache = find_best_register_cache(c, inst, &inst->U.I.SrcReg[1], &inst->U.I.SrcReg[2]);
+				if(SrcRegToCache == &inst->U.I.SrcReg[1]) reg_left_to_check2 = 2;
+			} else {
+				SrcRegToCache = find_best_register_cache(c, inst, &inst->U.I.SrcReg[0], &inst->U.I.SrcReg[2]);
+				if(SrcRegToCache == &inst->U.I.SrcReg[0]) reg_left_to_check1 = 2;
+			}
 			int tmpreg = rc_find_free_temporary(c);
 			struct rc_instruction * inst_mov = rc_insert_new_instruction(c, inst->Prev);
 			inst_mov->U.I.Opcode = RC_OPCODE_MOV;
@@ -721,27 +768,44 @@ static int transform_source_conflicts(
 			inst_mov->U.I.SrcReg[0].Negate = 0;
 			inst_mov->U.I.SrcReg[0].Abs = 0;
 
-			inst->U.I.SrcReg[2].File = RC_FILE_TEMPORARY;
-			inst->U.I.SrcReg[2].Index = tmpreg;
-			inst->U.I.SrcReg[2].RelAddr = false;
+			SrcRegToCache->File = RC_FILE_TEMPORARY;
+			SrcRegToCache->Index = tmpreg;
+			SrcRegToCache->RelAddr = false;
+
+			// caching
+			if (active_move_helpers < CacheSize) {
+				original_data_index[active_move_helpers] = inst_mov->U.I.SrcReg[0].Index;
+				original_data_type[active_move_helpers] = inst_mov->U.I.SrcReg[0].File;
+				temp_index[active_move_helpers] = inst_mov->U.I.DstReg.Index;
+				active_move_helpers++;
+			}
 		}
 	}
 
 	if (opcode->NumSrcRegs >= 2) {
 		if (t_src_conflict(inst->U.I.SrcReg[1], inst->U.I.SrcReg[0])) {
+			struct rc_src_register* SrcRegToCache = find_best_register_cache(c, inst, &inst->U.I.SrcReg[reg_left_to_check1], &inst->U.I.SrcReg[reg_left_to_check2]);
 			int tmpreg = rc_find_free_temporary(c);
 			struct rc_instruction * inst_mov = rc_insert_new_instruction(c, inst->Prev);
 			inst_mov->U.I.Opcode = RC_OPCODE_MOV;
 			inst_mov->U.I.DstReg.File = RC_FILE_TEMPORARY;
 			inst_mov->U.I.DstReg.Index = tmpreg;
-			inst_mov->U.I.SrcReg[0] = inst->U.I.SrcReg[1];
+			inst_mov->U.I.SrcReg[0] = *SrcRegToCache;
 			inst_mov->U.I.SrcReg[0].Swizzle = RC_SWIZZLE_XYZW;
 			inst_mov->U.I.SrcReg[0].Negate = 0;
 			inst_mov->U.I.SrcReg[0].Abs = 0;
 
-			inst->U.I.SrcReg[1].File = RC_FILE_TEMPORARY;
-			inst->U.I.SrcReg[1].Index = tmpreg;
-			inst->U.I.SrcReg[1].RelAddr = false;
+			SrcRegToCache->File = RC_FILE_TEMPORARY;
+			SrcRegToCache->Index = tmpreg;
+			SrcRegToCache->RelAddr = false;
+
+			// caching
+			if (active_move_helpers < CacheSize) {
+				original_data_index[active_move_helpers] = inst_mov->U.I.SrcReg[0].Index;
+				original_data_type[active_move_helpers] = inst_mov->U.I.SrcReg[0].File;
+				temp_index[active_move_helpers] = inst_mov->U.I.DstReg.Index;
+				active_move_helpers++;
+			}
 		}
 	}
 
@@ -899,6 +963,8 @@ void r3xx_compile_vertex_program(struct r300_vertex_program_compiler *c)
 		{ &transform_source_conflicts, NULL },
 		{ NULL, NULL }
 	};
+
+	active_move_helpers = 0;
 
 	/* List of compiler passes. */
 	struct radeon_compiler_pass vs_list[] = {
