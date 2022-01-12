@@ -199,9 +199,10 @@ dzn_image::get_dxgi_format(VkFormat format,
       if (usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
          return DXGI_FORMAT_D24_UNORM_S8_UINT;
 
-      return (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) ?
-             DXGI_FORMAT_R24_UNORM_X8_TYPELESS :
-             DXGI_FORMAT_X24_TYPELESS_G8_UINT;
+      if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+         return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
+      else
+         return DXGI_FORMAT_X24_TYPELESS_G8_UINT;
 
    case PIPE_FORMAT_X24S8_UINT:
       return usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT ?
@@ -211,9 +212,12 @@ dzn_image::get_dxgi_format(VkFormat format,
       if (usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
          return DXGI_FORMAT_D32_FLOAT_S8X24_UINT;
 
-      return (aspects & VK_IMAGE_ASPECT_DEPTH_BIT) ?
-             DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS :
-             DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+      if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
+         return DXGI_FORMAT_X32_TYPELESS_G8X24_UINT;
+      else if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+         return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+      else
+         return DXGI_FORMAT_R32G8X24_TYPELESS;
 
    default:
       return dzn_pipe_to_dxgi_format(pfmt);
