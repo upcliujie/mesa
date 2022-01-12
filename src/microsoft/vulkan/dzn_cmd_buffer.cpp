@@ -562,9 +562,11 @@ dzn_cmd_buffer::pipeline_barrier(const VkDependencyInfoKHR *info)
 
 void
 dzn_cmd_buffer::clear_attachment(uint32_t idx,
-                                 const VkClearValue *pClearValue,
-                                 VkImageAspectFlags aspectMask,
-                                 uint32_t rectCount,
+                                 const VkClearValue *value,
+                                 VkImageAspectFlags aspects,
+                                 uint32_t base_layer,
+                                 uint32_t layer_count,
+                                 uint32_t rect_count,
                                  D3D12_RECT *rects)
 {
    if (idx == VK_ATTACHMENT_UNUSED)
@@ -572,25 +574,66 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
 
    dzn_image_view *view = state.framebuffer->attachments[idx];
    dzn_batch *batch = get_batch();
+   VkImageSubresourceRange range = {
+      .aspectMask = aspects,
+      .baseMipLevel = view->vk.base_mip_level,
+      .levelCount = 1,
+      .baseArrayLayer = view->vk.base_array_layer + base_layer,
+      .layerCount = layer_count,
+   };
+   struct d3d12_descriptor_handle view_handle;
+   bool all_layers =
+      base_layer == 0 &&
+      (layer_count == view->vk.layer_count ||
+       layer_count == VK_REMAINING_ARRAY_LAYERS);
 
    if (vk_format_is_depth_or_stencil(view->vk.format)) {
       D3D12_CLEAR_FLAGS flags = (D3D12_CLEAR_FLAGS)0;
 
-      if (aspectMask & VK_IMAGE_ASPECT_DEPTH_BIT)
+      if (aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
          flags |= D3D12_CLEAR_FLAG_DEPTH;
-      if (aspectMask & VK_IMAGE_ASPECT_STENCIL_BIT)
+      if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
          flags |= D3D12_CLEAR_FLAG_STENCIL;
 
+      if (base_layer == 0 && (layer_count == view->vk.layer_count || layer_count == ~0)) {
+         view_handle = view->zs_handle;
+      } else {
+         d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), &view_handle);
+         view->get_image()->create_dsv(device, range, 0, view_handle.cpu_handle);
+      }
+
       if (flags != 0)
-         batch->cmdlist->ClearDepthStencilView(view->zs_handle.cpu_handle,
-                                                flags,
-                                                pClearValue->depthStencil.depth,
-                                                pClearValue->depthStencil.stencil,
-                                                rectCount, rects);
-   } else if (aspectMask & VK_IMAGE_ASPECT_COLOR_BIT) {
-      batch->cmdlist->ClearRenderTargetView(view->rt_handle.cpu_handle,
-                                             pClearValue->color.float32,
-                                             rectCount, rects);
+         batch->cmdlist->ClearDepthStencilView(view_handle.cpu_handle,
+                                               flags,
+                                               value->depthStencil.depth,
+                                               value->depthStencil.stencil,
+                                               rect_count, rects);
+   } else if (aspects & VK_IMAGE_ASPECT_COLOR_BIT) {
+      float vals[4];
+      if (vk_format_is_sint(view->vk.format)) {
+         for (uint32_t i = 0; i < 4; i++) {
+            vals[i] = value->color.int32[i];
+            assert(value->color.int32[i] == (int32_t)vals[i]);
+         }
+      } else if (vk_format_is_uint(view->vk.format)) {
+         for (uint32_t i = 0; i < 4; i++) {
+            vals[i] = value->color.uint32[i];
+            assert(value->color.uint32[i] == (uint32_t)vals[i]);
+         }
+      } else {
+         for (uint32_t i = 0; i < 4; i++)
+            vals[i] = value->color.float32[i];
+      }
+      if (base_layer == 0 &&
+          (layer_count == view->vk.layer_count ||
+          layer_count == VK_REMAINING_ARRAY_LAYERS)) {
+         view_handle = view->rt_handle;
+      } else {
+         d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &view_handle);
+         view->get_image()->create_rtv(device, range, 0, view_handle.cpu_handle);
+      }
+      batch->cmdlist->ClearRenderTargetView(view_handle.cpu_handle,
+                                            vals, rect_count, rects);
    }
 }
 
@@ -1681,14 +1724,6 @@ dzn_cmd_buffer::clear_attachments(uint32_t attachment_count,
    const struct dzn_subpass *subpass = &pass->subpasses[state.subpass];
    dzn_batch *batch = get_batch();
 
-   auto rects_elems =
-      dzn_transient_zalloc<D3D12_RECT>(rect_count, &device->vk.alloc);
-   D3D12_RECT *d3d12_rects = rects_elems.get();
-   for (unsigned i = 0; i < rect_count; i++) {
-      assert(rects[i].baseArrayLayer == 0 && rects[i].layerCount == 1);
-      dzn_translate_rect(&d3d12_rects[i], &rects[i].rect);
-   }
-
    for (unsigned i = 0; i < attachment_count; i++) {
       uint32_t idx;
       if (attachments[i].aspectMask & VK_IMAGE_ASPECT_COLOR_BIT)
@@ -1696,9 +1731,16 @@ dzn_cmd_buffer::clear_attachments(uint32_t attachment_count,
       else
          idx = subpass->zs.idx;
 
-      clear_attachment(idx, &attachments[i].clearValue,
-                       attachments[i].aspectMask,
-                       rect_count, d3d12_rects);
+      for (uint32_t j = 0; j < rect_count; j++) {
+         D3D12_RECT rect;
+
+         dzn_translate_rect(&rect, &rects[j].rect);
+         clear_attachment(idx, &attachments[i].clearValue,
+                          attachments[i].aspectMask,
+                          rects[j].baseArrayLayer,
+                          rects[j].layerCount,
+                          1, &rect);
+      }
    }
 }
 
@@ -1884,7 +1926,7 @@ dzn_cmd_buffer::begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
          (pass->attachments[i].clear.depth ? VK_IMAGE_ASPECT_DEPTH_BIT : 0) |
          (pass->attachments[i].clear.stencil ? VK_IMAGE_ASPECT_STENCIL_BIT : 0);
       clear_attachment(i, &pRenderPassBeginInfo->pClearValues[i], aspectMask,
-                       1, &state.render_area);
+                       0, ~0, 1, &state.render_area);
    }
 }
 

@@ -757,6 +757,8 @@ struct dzn_cmd_buffer {
    void clear_attachment(uint32_t idx,
                          const VkClearValue *pClearValue,
                          VkImageAspectFlags aspectMask,
+                         uint32_t base_layer,
+                         uint32_t layer_count,
                          uint32_t rectCount,
                          D3D12_RECT *rects);
    void clear_attachments(uint32_t attachment_count,
