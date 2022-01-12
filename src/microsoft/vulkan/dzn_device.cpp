@@ -2245,3 +2245,14 @@ dzn_GetDeviceMemoryCommitment(VkDevice device,
    // TODO: find if there's a way to query/track actual heap residency
    *pCommittedMemoryInBytes = mem->size;
 }
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_QueueBindSparse(VkQueue queue,
+                    uint32_t bindInfoCount,
+                    const VkBindSparseInfo *pBindInfo,
+                    VkFence fence)
+{
+   // FIXME: add proper implem
+   dzn_stub();
+   return VK_SUCCESS;
+}
