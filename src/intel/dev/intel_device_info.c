@@ -1110,7 +1110,25 @@ update_l3_banks(struct intel_device_info *devinfo)
          devinfo->l3_banks = 6;
    } else {
       devinfo->l3_banks = 4;
+}
+
+static void
+update_slice_subslice_eu_counts(struct intel_device_info *devinfo)
+{
+   devinfo->num_slices = __builtin_popcount(devinfo->slice_masks);
+   devinfo->subslice_total = 0;
+   for (int s = 0; s < topology->max_slices; s++) {
+      if ((devinfo->slice_masks & (1 << s)) == 0)
+         continue;
+
+      for (int b = 0; b < devinfo->subslice_slice_stride; b++) {
+         devinfo->num_subslices[s] +=
+            __builtin_popcount(devinfo->subslice_masks[s * devinfo->subslice_slice_stride + b]);
+      }
+      devinfo->subslice_total += devinfo->num_subslices[s];
    }
+   assert(devinfo->num_slices > 0);
+   assert(devinfo->subslice_total > 0);
 }
 
 static void
@@ -1130,7 +1148,6 @@ update_from_topology(struct intel_device_info *devinfo,
 
    assert(sizeof(devinfo->slice_masks) >= DIV_ROUND_UP(topology->max_slices, 8));
    memcpy(&devinfo->slice_masks, topology->data, DIV_ROUND_UP(topology->max_slices, 8));
-   devinfo->num_slices = __builtin_popcount(devinfo->slice_masks);
    devinfo->max_slices = topology->max_slices;
    devinfo->max_subslices_per_slice = topology->max_subslices;
    devinfo->max_eus_per_subslice = topology->max_eus_per_subslice;
@@ -1141,28 +1158,12 @@ update_from_topology(struct intel_device_info *devinfo,
    memcpy(devinfo->subslice_masks, &topology->data[topology->subslice_offset],
           subslice_mask_len);
 
-   devinfo->subslice_total = 0;
-   for (int s = 0; s < topology->max_slices; s++) {
-      if ((devinfo->slice_masks & (1 << s)) == 0)
-         continue;
-
-      for (int b = 0; b < devinfo->subslice_slice_stride; b++) {
-         devinfo->num_subslices[s] +=
-            __builtin_popcount(devinfo->subslice_masks[s * devinfo->subslice_slice_stride + b]);
-      }
-      devinfo->subslice_total += devinfo->num_subslices[s];
-   }
-   assert(devinfo->subslice_total > 0);
-
    uint32_t eu_mask_len =
       topology->eu_stride * topology->max_subslices * topology->max_slices;
    assert(sizeof(devinfo->eu_masks) >= eu_mask_len);
    memcpy(devinfo->eu_masks, &topology->data[topology->eu_offset], eu_mask_len);
 
-   uint32_t n_eus = 0;
-   for (int b = 0; b < eu_mask_len; b++)
-      n_eus += __builtin_popcount(devinfo->eu_masks[b]);
-
+   update_slice_subslice_counts(devinfo);
    update_pixel_pipes(devinfo);
    update_l3_banks(devinfo);
 }
