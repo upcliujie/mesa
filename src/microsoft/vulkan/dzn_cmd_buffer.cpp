@@ -375,13 +375,9 @@ dzn_ResetCommandBuffer(VkCommandBuffer commandBuffer,
    return VK_SUCCESS;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-dzn_BeginCommandBuffer(
-    VkCommandBuffer commandBuffer,
-    const VkCommandBufferBeginInfo *pBeginInfo)
+VkResult
+dzn_cmd_buffer::begin(const VkCommandBufferBeginInfo *info)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-
    /* If this is the first vkBeginCommandBuffer, we must *initialize* the
     * command buffer's state. Otherwise, we must *reset* its state. In both
     * cases we reset it.
@@ -396,9 +392,9 @@ dzn_BeginCommandBuffer(
     *    VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT not set. It then puts
     *    the command buffer in the recording state.
     */
-   cmd_buffer->reset();
+   reset();
 
-   cmd_buffer->usage_flags = pBeginInfo->flags;
+   usage_flags = info->flags;
 
    /* VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT must be ignored for
     * primary level command buffers.
@@ -409,8 +405,8 @@ dzn_BeginCommandBuffer(
     *    secondary command buffer is considered to be entirely inside a render
     *    pass. If this is a primary command buffer, then this bit is ignored.
     */
-   if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
-      cmd_buffer->usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+   if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+      usage_flags &= ~VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
 
    VkResult result = VK_SUCCESS;
 
@@ -434,36 +430,40 @@ dzn_BeginCommandBuffer(
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
+dzn_BeginCommandBuffer(VkCommandBuffer commandBuffer,
+                       const VkCommandBufferBeginInfo *pBeginInfo)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   cmd_buffer->close_batch();
+   return cmd_buffer->begin(pBeginInfo);
+}
+
+VkResult
+dzn_cmd_buffer::end()
+{
+   close_batch();
 
    return VK_SUCCESS;
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
-                       VkPipelineStageFlags srcStageMask,
-                       VkPipelineStageFlags destStageMask,
-                       VkBool32 byRegion,
-                       uint32_t memoryBarrierCount,
-                       const VkMemoryBarrier *pMemoryBarriers,
-                       uint32_t bufferMemoryBarrierCount,
-                       const VkBufferMemoryBarrier * pBufferMemoryBarriers,
-                       uint32_t imageMemoryBarrierCount,
-                       const VkImageMemoryBarrier *pImageMemoryBarriers)
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_EndCommandBuffer(VkCommandBuffer commandBuffer)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   dzn_batch *batch = cmd_buffer->get_batch();
+   return cmd_buffer->end();
+}
+
+void
+dzn_cmd_buffer::pipeline_barrier(const VkDependencyInfoKHR *info)
+{
+   dzn_batch *batch = get_batch();
 
    /* Global memory barriers can be emulated with NULL UAV/Aliasing barriers.
     * Scopes are not taken into account, but that's inherent to the current
     * D3D12 barrier API.
     */
-   if (memoryBarrierCount) {
+   if (info->memoryBarrierCount) {
       D3D12_RESOURCE_BARRIER barriers[2] = {};
 
       barriers[0].Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
@@ -476,8 +476,8 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       batch->cmdlist->ResourceBarrier(2, barriers);
    }
 
-   for (uint32_t i = 0; i < bufferMemoryBarrierCount; i++) {
-      VK_FROM_HANDLE(dzn_buffer, buf, pBufferMemoryBarriers[i].buffer);
+   for (uint32_t i = 0; i < info->bufferMemoryBarrierCount; i++) {
+      VK_FROM_HANDLE(dzn_buffer, buf, info->pBufferMemoryBarriers[i].buffer);
       D3D12_RESOURCE_BARRIER barrier = {};
 
       /* UAV are used only for storage buffers, skip all other buffers. */
@@ -490,11 +490,11 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
       batch->cmdlist->ResourceBarrier(1, &barrier);
    }
 
-   for (uint32_t i = 0; i < imageMemoryBarrierCount; i++) {
+   for (uint32_t i = 0; i < info->imageMemoryBarrierCount; i++) {
       /* D3D12_RESOURCE_BARRIER_TYPE_TRANSITION */
-      VK_FROM_HANDLE(dzn_image, image, pImageMemoryBarriers[i].image);
+      VK_FROM_HANDLE(dzn_image, image, info->pImageMemoryBarriers[i].image);
       const VkImageSubresourceRange *range =
-         &pImageMemoryBarriers[i].subresourceRange;
+         &info->pImageMemoryBarriers[i].subresourceRange;
 
       /* We use placed resource's simple model, in which only one resource
        * pointing to a given heap is active at a given time. To make the
@@ -516,15 +516,15 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
          .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
          .Transition = {
             .pResource = image->res.Get(),
-            .StateAfter = dzn_image::get_state(pImageMemoryBarriers[i].newLayout),
+            .StateAfter = dzn_image::get_state(info->pImageMemoryBarriers[i].newLayout),
          },
       };
 
-      if (pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
-          pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
+      if (info->pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_UNDEFINED ||
+          info->pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PREINITIALIZED)
          transition_barrier.Transition.StateBefore = image->mem->initial_state;
       else
-         transition_barrier.Transition.StateBefore = dzn_image::get_state(pImageMemoryBarriers[i].oldLayout);
+         transition_barrier.Transition.StateBefore = dzn_image::get_state(info->pImageMemoryBarriers[i].oldLayout);
 
       if (transition_barrier.Transition.StateBefore == transition_barrier.Transition.StateAfter)
          continue;
@@ -542,6 +542,15 @@ dzn_CmdPipelineBarrier(VkCommandBuffer commandBuffer,
          }
       }
    }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdPipelineBarrier2KHR(VkCommandBuffer commandBuffer,
+                           const VkDependencyInfoKHR *info)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->pipeline_barrier(info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -1763,6 +1772,37 @@ dzn_cmd_buffer::resolve(const VkResolveImageInfo2KHR *info)
    }
 }
 
+void
+dzn_cmd_buffer::clear_attachments(uint32_t attachment_count,
+                                  const VkClearAttachment *attachments,
+                                  uint32_t rect_count,
+                                  const VkClearRect *rects)
+{
+   struct dzn_render_pass *pass = state.pass;
+   const struct dzn_subpass *subpass = &pass->subpasses[state.subpass];
+   dzn_batch *batch = get_batch();
+
+   auto rects_elems =
+      dzn_transient_zalloc<D3D12_RECT>(rect_count, &device->vk.alloc);
+   D3D12_RECT *d3d12_rects = rects_elems.get();
+   for (unsigned i = 0; i < rect_count; i++) {
+      assert(rects[i].baseArrayLayer == 0 && rects[i].layerCount == 1);
+      dzn_translate_rect(&d3d12_rects[i], &rects[i].rect);
+   }
+
+   for (unsigned i = 0; i < attachment_count; i++) {
+      uint32_t idx;
+      if (attachments[i].aspectMask & VK_IMAGE_ASPECT_COLOR_BIT)
+         idx = subpass->colors[attachments[i].colorAttachment].idx;
+      else
+         idx = subpass->zs.idx;
+
+      clear_attachment(idx, &attachments[i].clearValue,
+                       attachments[i].aspectMask,
+                       rect_count, d3d12_rects);
+   }
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
                         uint32_t attachmentCount,
@@ -1771,29 +1811,8 @@ dzn_CmdClearAttachments(VkCommandBuffer commandBuffer,
                         const VkClearRect *pRects)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   struct dzn_render_pass *pass = cmd_buffer->state.pass;
-   const struct dzn_subpass *subpass = &pass->subpasses[cmd_buffer->state.subpass];
-   dzn_batch *batch = cmd_buffer->get_batch();
 
-   auto rects_elems =
-      dzn_transient_zalloc<D3D12_RECT>(rectCount, &cmd_buffer->device->vk.alloc);
-   D3D12_RECT *rects = rects_elems.get();
-   for (unsigned i = 0; i < rectCount; i++) {
-      assert(pRects[i].baseArrayLayer == 0 && pRects[i].layerCount == 1);
-      dzn_translate_rect(&rects[i], &pRects[i].rect);
-   }
-
-   for (unsigned i = 0; i < attachmentCount; i++) {
-      uint32_t idx;
-      if (pAttachments[i].aspectMask & VK_IMAGE_ASPECT_COLOR_BIT)
-         idx = subpass->colors[pAttachments[i].colorAttachment].idx;
-      else
-         idx = subpass->zs.idx;
-
-      cmd_buffer->clear_attachment(idx, &pAttachments[i].clearValue,
-                                   pAttachments[i].aspectMask,
-                                   rectCount, rects);
-   }
+   cmd_buffer->clear_attachments(attachmentCount, pAttachments, rectCount, pRects);
 }
 
 void
@@ -2024,37 +2043,44 @@ dzn_CmdNextSubpass2(VkCommandBuffer commandBuffer,
    cmd_buffer->next_subpass();
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
-                    VkPipelineBindPoint pipelineBindPoint,
-                    VkPipeline _pipeline)
+void
+dzn_cmd_buffer::bind_pipeline(VkPipelineBindPoint bind_point,
+		              dzn_pipeline *pipeline)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   VK_FROM_HANDLE(dzn_pipeline, pipeline, _pipeline);
-
-   cmd_buffer->state.bindpoint[pipelineBindPoint].pipeline = pipeline;
-   cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
-   if (pipelineBindPoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
+   state.bindpoint[bind_point].pipeline = pipeline;
+   state.bindpoint[bind_point].dirty |= DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
+   if (bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS) {
       const dzn_graphics_pipeline *gfx = (const dzn_graphics_pipeline *)pipeline;
 
       if (!gfx->vp.dynamic) {
-         memcpy(cmd_buffer->state.viewports, gfx->vp.desc,
-                gfx->vp.count * sizeof(cmd_buffer->state.viewports[0]));
-         cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
+         memcpy(state.viewports, gfx->vp.desc,
+                gfx->vp.count * sizeof(state.viewports[0]));
+         state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
       }
 
       if (!gfx->scissor.dynamic) {
-         memcpy(cmd_buffer->state.scissors, gfx->scissor.desc,
-                gfx->scissor.count * sizeof(cmd_buffer->state.scissors[0]));
-         cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+         memcpy(state.scissors, gfx->scissor.desc,
+                gfx->scissor.count * sizeof(state.scissors[0]));
+         state.dirty |= DZN_CMD_DIRTY_SCISSORS;
       }
 
       for (uint32_t vb = 0; vb < gfx->vb.count; vb++)
-         cmd_buffer->state.vb.views[vb].StrideInBytes = gfx->vb.strides[vb];
+         state.vb.views[vb].StrideInBytes = gfx->vb.strides[vb];
 
       if (gfx->vb.count > 0)
-         BITSET_SET_RANGE(cmd_buffer->state.vb.dirty, 0, gfx->vb.count - 1);
+         BITSET_SET_RANGE(state.vb.dirty, 0, gfx->vb.count - 1);
    }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBindPipeline(VkCommandBuffer commandBuffer,
+                    VkPipelineBindPoint pipelineBindPoint,
+                    VkPipeline pipeline)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_pipeline, pipe, pipeline);
+
+   cmd_buffer->bind_pipeline(pipelineBindPoint, pipe);
 }
 
 void
@@ -2190,25 +2216,22 @@ dzn_cmd_buffer::update_sysvals(uint32_t bindpoint)
    }
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
-                          VkPipelineBindPoint pipelineBindPoint,
-                          VkPipelineLayout _layout,
-                          uint32_t firstSet,
-                          uint32_t descriptorSetCount,
-                          const VkDescriptorSet *pDescriptorSets,
-                          uint32_t dynamicOffsetCount,
-                          const uint32_t *pDynamicOffsets)
+void
+dzn_cmd_buffer::bind_descriptor_sets(VkPipelineBindPoint bind_point,
+                                     const struct dzn_pipeline_layout *layout,
+                                     uint32_t first_set,
+                                     uint32_t descriptor_set_count,
+                                     const VkDescriptorSet *sets,
+                                     uint32_t dynamic_offset_count,
+                                     const uint32_t *dynamic_offsets)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   VK_FROM_HANDLE(dzn_pipeline_layout, layout, _layout);
    struct dzn_descriptor_state *desc_state =
-      &cmd_buffer->state.bindpoint[pipelineBindPoint].desc_state;
+      &state.bindpoint[bind_point].desc_state;
    uint32_t dirty = 0;
 
-   for (uint32_t i = 0; i < descriptorSetCount; i++) {
-      uint32_t idx = firstSet + i;
-      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
+   for (uint32_t i = 0; i < descriptor_set_count; i++) {
+      uint32_t idx = first_set + i;
+      VK_FROM_HANDLE(dzn_descriptor_set, set, sets[i]);
 
       if (desc_state->sets[idx].set != set) {
          desc_state->sets[idx].set = set;
@@ -2216,18 +2239,36 @@ dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
       }
 
       if (set->layout->dynamic_buffers.count) {
-         assert(dynamicOffsetCount >= set->layout->dynamic_buffers.count);
+         assert(dynamic_offset_count >= set->layout->dynamic_buffers.count);
 
          for (uint32_t j = 0; j < set->layout->dynamic_buffers.count; j++)
-            desc_state->sets[idx].dynamic_offsets[j] = pDynamicOffsets[j];
+            desc_state->sets[idx].dynamic_offsets[j] = dynamic_offsets[j];
 
-         dynamicOffsetCount -= set->layout->dynamic_buffers.count;
-         pDynamicOffsets += set->layout->dynamic_buffers.count;
+         dynamic_offset_count -= set->layout->dynamic_buffers.count;
+         dynamic_offsets += set->layout->dynamic_buffers.count;
          dirty |= DZN_CMD_BINDPOINT_DIRTY_HEAPS;
       }
    }
 
-   cmd_buffer->state.bindpoint[pipelineBindPoint].dirty |= dirty;
+   state.bindpoint[bind_point].dirty |= dirty;
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
+                          VkPipelineBindPoint pipelineBindPoint,
+                          VkPipelineLayout layout,
+                          uint32_t firstSet,
+                          uint32_t descriptorSetCount,
+                          const VkDescriptorSet *pDescriptorSets,
+                          uint32_t dynamicOffsetCount,
+                          const uint32_t *pDynamicOffsets)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(dzn_pipeline_layout, dlayout, layout);
+
+   cmd_buffer->bind_descriptor_sets(pipelineBindPoint, dlayout, firstSet,
+                                    descriptorSetCount, pDescriptorSets,
+                                    dynamicOffsetCount, pDynamicOffsets);
 }
 
 void
@@ -2244,6 +2285,36 @@ dzn_cmd_buffer::update_viewports()
    batch->cmdlist->RSSetViewports(pipeline->vp.count, state.viewports);
 }
 
+void
+dzn_cmd_buffer::set_viewport(uint32_t first_viewport,
+                             uint32_t viewport_count,
+                             const VkViewport *viewports)
+{
+   STATIC_ASSERT(MAX_VP <= DXIL_SPIRV_MAX_VIEWPORT);
+
+   for (uint32_t i = 0; i < viewport_count; i++) {
+      uint32_t vp = i + first_viewport;
+
+      dzn_translate_viewport(&state.viewports[vp], &viewports[i]);
+
+      if (viewports[i].minDepth > viewports[i].maxDepth)
+         state.sysvals.gfx.yz_flip_mask |= BITFIELD_BIT(vp + DXIL_SPIRV_Z_FLIP_SHIFT);
+      else
+         state.sysvals.gfx.yz_flip_mask &= ~BITFIELD_BIT(vp + DXIL_SPIRV_Z_FLIP_SHIFT);
+
+      if (viewports[i].height > 0)
+         state.sysvals.gfx.yz_flip_mask |= BITFIELD_BIT(vp);
+      else
+         state.sysvals.gfx.yz_flip_mask &= ~BITFIELD_BIT(vp);
+   }
+
+   if (viewport_count) {
+      state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
+      state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
+         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
+   }
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
                    uint32_t firstViewport,
@@ -2252,29 +2323,7 @@ dzn_CmdSetViewport(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   STATIC_ASSERT(MAX_VP <= DXIL_SPIRV_MAX_VIEWPORT);
-
-   for (uint32_t i = 0; i < viewportCount; i++) {
-      uint32_t vp = i + firstViewport;
-
-      dzn_translate_viewport(&cmd_buffer->state.viewports[vp], &pViewports[i]);
-
-      if (pViewports[i].minDepth > pViewports[i].maxDepth)
-         cmd_buffer->state.sysvals.gfx.yz_flip_mask |= BITFIELD_BIT(vp + DXIL_SPIRV_Z_FLIP_SHIFT);
-      else
-         cmd_buffer->state.sysvals.gfx.yz_flip_mask &= ~BITFIELD_BIT(vp + DXIL_SPIRV_Z_FLIP_SHIFT);
-
-      if (pViewports[i].height > 0)
-         cmd_buffer->state.sysvals.gfx.yz_flip_mask |= BITFIELD_BIT(vp);
-      else
-         cmd_buffer->state.sysvals.gfx.yz_flip_mask &= ~BITFIELD_BIT(vp);
-   }
-
-   if (viewportCount) {
-      cmd_buffer->state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
-      cmd_buffer->state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
-         DZN_CMD_BINDPOINT_DIRTY_SYSVALS;
-   }
+   cmd_buffer->set_viewport(firstViewport, viewportCount, pViewports);
 }
 
 void
@@ -2307,6 +2356,18 @@ dzn_cmd_buffer::update_scissors()
    batch->cmdlist->RSSetScissorRects(pipeline->scissor.count, scissors);
 }
 
+void
+dzn_cmd_buffer::set_scissor(uint32_t first_scissor,
+                            uint32_t scissor_count,
+                            const VkRect2D *scissors)
+{
+   for (uint32_t i = 0; i < scissor_count; i++)
+      dzn_translate_rect(&state.scissors[i + first_scissor], &scissors[i]);
+
+   if (scissor_count)
+      state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
                   uint32_t firstScissor,
@@ -2315,11 +2376,7 @@ dzn_CmdSetScissor(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   for (uint32_t i = 0; i < scissorCount; i++)
-      dzn_translate_rect(&cmd_buffer->state.scissors[i + firstScissor], &pScissors[i]);
-
-   if (scissorCount)
-      cmd_buffer->state.dirty |= DZN_CMD_DIRTY_SCISSORS;
+   cmd_buffer->set_scissor(firstScissor, scissorCount, pScissors);
 }
 
 void
@@ -2369,24 +2426,32 @@ dzn_cmd_buffer::update_push_constants(uint32_t bindpoint)
 }
 
 void
+dzn_cmd_buffer::push_constants(VkShaderStageFlags stages,
+                               uint32_t offset, uint32_t size,
+                               const void *values)
+{
+   memcpy(((char *)state.push_constant.values) + offset, values, size);
+   state.push_constant.stages |= stages;
+
+   uint32_t current_offset = state.push_constant.offset;
+   uint32_t current_end = state.push_constant.end;
+   uint32_t end = offset + size;
+   if (current_end != 0) {
+      offset = MIN2(current_offset, offset);
+      end = MAX2(current_end, end);
+   }
+   state.push_constant.offset = offset;
+   state.push_constant.end = end;
+}
+
+void
 dzn_CmdPushConstants(VkCommandBuffer commandBuffer, VkPipelineLayout layout,
                      VkShaderStageFlags stageFlags, uint32_t offset, uint32_t size,
                      const void *pValues)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   memcpy(((char *)cmd_buffer->state.push_constant.values) + offset, pValues, size);
-   cmd_buffer->state.push_constant.stages |= stageFlags;
-
-   uint32_t current_offset = cmd_buffer->state.push_constant.offset;
-   uint32_t current_end = cmd_buffer->state.push_constant.end;
-   uint32_t end = offset + size;
-   if (current_end != 0) {
-      offset = MIN2(current_offset, offset);
-      end = MAX2(current_end, end);
-   }
-   cmd_buffer->state.push_constant.offset = offset;
-   cmd_buffer->state.push_constant.end = end;
+   cmd_buffer->push_constants(stageFlags, offset, size, pValues);
 }
 
 void
@@ -2919,6 +2984,28 @@ dzn_CmdDrawIndexedIndirect(VkCommandBuffer commandBuffer,
    cmd_buffer->draw(buf, offset, drawCount, stride, true);
 }
 
+void
+dzn_cmd_buffer::bind_vertex_buffers(uint32_t first_binding,
+                                    uint32_t binding_count,
+                                    const VkBuffer *buffers,
+                                    const VkDeviceSize *offsets)
+{
+   if (!binding_count)
+      return;
+
+   D3D12_VERTEX_BUFFER_VIEW *vbviews = state.vb.views;
+
+   for (uint32_t i = 0; i < binding_count; i++) {
+      VK_FROM_HANDLE(dzn_buffer, buf, buffers[i]);
+
+      vbviews[first_binding + i].BufferLocation = buf->res->GetGPUVirtualAddress() + offsets[i];
+      vbviews[first_binding + i].SizeInBytes = buf->size - offsets[i];
+   }
+
+   BITSET_SET_RANGE(state.vb.dirty, first_binding,
+                    first_binding + binding_count - 1);
+}
+
 VKAPI_ATTR void VKAPI_CALL
 dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
                          uint32_t firstBinding,
@@ -2926,21 +3013,31 @@ dzn_CmdBindVertexBuffers(VkCommandBuffer commandBuffer,
                          const VkBuffer *pBuffers,
                          const VkDeviceSize *pOffsets)
 {
-   if (!bindingCount)
-      return;
-
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   D3D12_VERTEX_BUFFER_VIEW *vbviews = cmd_buffer->state.vb.views;
 
-   for (uint32_t i = 0; i < bindingCount; i++) {
-      VK_FROM_HANDLE(dzn_buffer, buf, pBuffers[i]);
+   cmd_buffer->bind_vertex_buffers(firstBinding, bindingCount, pBuffers, pOffsets);
+}
 
-      vbviews[firstBinding + i].BufferLocation = buf->res->GetGPUVirtualAddress() + pOffsets[i];
-      vbviews[firstBinding + i].SizeInBytes = buf->size - pOffsets[i];
+void
+dzn_cmd_buffer::bind_index_buffer(VkBuffer buffer,
+                                  VkDeviceSize offset,
+                                  VkIndexType index_type)
+{
+   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
+
+   state.ib.view.BufferLocation = buf->res->GetGPUVirtualAddress() + offset;
+   state.ib.view.SizeInBytes = buf->size - offset;
+   switch (index_type) {
+   case VK_INDEX_TYPE_UINT16:
+      state.ib.view.Format = DXGI_FORMAT_R16_UINT;
+      break;
+   case VK_INDEX_TYPE_UINT32:
+      state.ib.view.Format = DXGI_FORMAT_R32_UINT;
+      break;
+   default: unreachable("Invalid index type");
    }
 
-   BITSET_SET_RANGE(cmd_buffer->state.vb.dirty, firstBinding,
-                    firstBinding + bindingCount - 1);
+   state.dirty |= DZN_CMD_DIRTY_IB;
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -2950,57 +3047,81 @@ dzn_CmdBindIndexBuffer(VkCommandBuffer commandBuffer,
                        VkIndexType indexType)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   VK_FROM_HANDLE(dzn_buffer, buf, buffer);
 
-   cmd_buffer->state.ib.view.BufferLocation = buf->res->GetGPUVirtualAddress() + offset;
-   cmd_buffer->state.ib.view.SizeInBytes = buf->size - offset;
-   switch (indexType) {
-   case VK_INDEX_TYPE_UINT16:
-      cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R16_UINT;
-      break;
-   case VK_INDEX_TYPE_UINT32:
-      cmd_buffer->state.ib.view.Format = DXGI_FORMAT_R32_UINT;
-      break;
-   default: unreachable("Invalid index type");
-   }
-
-   cmd_buffer->state.dirty |= DZN_CMD_DIRTY_IB;
+   cmd_buffer->bind_index_buffer(buffer, offset, indexType);
 }
 
-VKAPI_ATTR void VKAPI_CALL
-dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
-                  VkEvent _event,
-                  VkPipelineStageFlags stageMask)
+void
+dzn_cmd_buffer::reset_event(VkEvent evt,
+                            VkPipelineStageFlags stage_mask)
 {
-   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   VK_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_event, event, evt);
 
    struct dzn_cmd_event_signal signal = {
       .event = event,
       .value = false,
    };
 
-   dzn_batch *batch = cmd_buffer->get_batch(true);
+   dzn_batch *batch = get_batch(true);
 
    batch->signal.push_back(signal);
 }
 
 VKAPI_ATTR void VKAPI_CALL
-dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
-                VkEvent _event,
-                VkPipelineStageFlags stageMask)
+dzn_CmdResetEvent(VkCommandBuffer commandBuffer,
+                  VkEvent event,
+                  VkPipelineStageFlags stageMask)
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
-   VK_FROM_HANDLE(dzn_event, event, _event);
+
+   cmd_buffer->reset_event(event, stageMask);
+}
+
+void
+dzn_cmd_buffer::set_event(VkEvent evt,
+                          VkPipelineStageFlags stage_mask)
+{
+   VK_FROM_HANDLE(dzn_event, event, evt);
 
    struct dzn_cmd_event_signal signal = {
       .event = event,
       .value = true,
    };
 
-   dzn_batch *batch = cmd_buffer->get_batch(true);
+   dzn_batch *batch = get_batch(true);
 
    batch->signal.push_back(signal);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_CmdSetEvent(VkCommandBuffer commandBuffer,
+                VkEvent event,
+                VkPipelineStageFlags stageMask)
+{
+   VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
+
+   cmd_buffer->set_event(event, stageMask);
+}
+
+void
+dzn_cmd_buffer::wait_events(uint32_t event_count,
+                            const VkEvent *events,
+                            VkPipelineStageFlags src_stage_mask,
+                            VkPipelineStageFlags dst_stage_mask,
+                            uint32_t memory_barrier_Count,
+                            const VkMemoryBarrier *memory_barriers,
+                            uint32_t buffer_memory_barrier_count,
+                            const VkBufferMemoryBarrier *buffer_memory_barriers,
+                            uint32_t image_memory_barrier_count,
+                            const VkImageMemoryBarrier *image_memory_barriers)
+{
+   dzn_batch *batch = get_batch();
+
+   for (uint32_t i = 0; i < event_count; i++) {
+      VK_FROM_HANDLE(dzn_event, event, events[i]);
+
+      batch->wait.push_back(event);
+   }
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -3018,13 +3139,10 @@ dzn_CmdWaitEvents(VkCommandBuffer commandBuffer,
 {
    VK_FROM_HANDLE(dzn_cmd_buffer, cmd_buffer, commandBuffer);
 
-   dzn_batch *batch = cmd_buffer->get_batch();
-
-   for (uint32_t i = 0; i < eventCount; i++) {
-      VK_FROM_HANDLE(dzn_event, event, pEvents[i]);
-
-      batch->wait.push_back(event);
-   }
+   cmd_buffer->wait_events(eventCount, pEvents, srcStageMask, dstStageMask,
+                           memoryBarrierCount, pMemoryBarriers,
+                           bufferMemoryBarrierCount, pBufferMemoryBarriers,
+                           imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
 void

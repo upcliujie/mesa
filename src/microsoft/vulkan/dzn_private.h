@@ -700,16 +700,68 @@ struct dzn_cmd_buffer {
    void reset();
    const VkAllocationCallbacks *get_vk_allocator();
 
+   VkResult begin(const VkCommandBufferBeginInfo *info);
+   VkResult end();
+
    void begin_pass(const VkRenderPassBeginInfo *pRenderPassBeginInfo,
                    const VkSubpassBeginInfoKHR *pSubpassBeginInfo);
    void end_pass(const VkSubpassEndInfoKHR *pSubpassEndInfo);
    void next_subpass();
+
+   void bind_pipeline(VkPipelineBindPoint bind_point,
+                      dzn_pipeline *pipeline);
+
+   void bind_descriptor_sets(VkPipelineBindPoint bind_point,
+                             const struct dzn_pipeline_layout *layout,
+                             uint32_t first_set,
+                             uint32_t descriptor_set_count,
+                             const VkDescriptorSet *sets,
+                             uint32_t dynamic_offset_count,
+                             const uint32_t *dynamic_offsets);
+
+   void set_viewport(uint32_t first_viewport,
+                     uint32_t viewport_count,
+                     const VkViewport *viewports);
+   void set_scissor(uint32_t first_scissor,
+                    uint32_t scissor_count,
+                    const VkRect2D *scissors);
+
+   void push_constants(VkShaderStageFlags stages,
+                       uint32_t offset, uint32_t size,
+                       const void *values);
+
+   void bind_vertex_buffers(uint32_t first_binding,
+                            uint32_t binding_count,
+                            const VkBuffer *buffers,
+                            const VkDeviceSize *offsets);
+   void bind_index_buffer(VkBuffer buffer,
+                          VkDeviceSize offset,
+                          VkIndexType index_type);
+
+   void reset_event(VkEvent event,
+                    VkPipelineStageFlags stage_mask);
+   void set_event(VkEvent event,
+                  VkPipelineStageFlags stage_mask);
+   void wait_events(uint32_t event_count,
+                    const VkEvent *events,
+                    VkPipelineStageFlags src_stage_mask,
+                    VkPipelineStageFlags dst_stage_mask,
+                    uint32_t memory_barrier_Count,
+                    const VkMemoryBarrier *memory_barriers,
+                    uint32_t buffer_memory_barrier_count,
+                    const VkBufferMemoryBarrier *buffer_memory_barriers,
+                    uint32_t image_memory_barrier_count,
+                    const VkImageMemoryBarrier *image_memory_barriers);
 
    void clear_attachment(uint32_t idx,
                          const VkClearValue *pClearValue,
                          VkImageAspectFlags aspectMask,
                          uint32_t rectCount,
                          D3D12_RECT *rects);
+   void clear_attachments(uint32_t attachment_count,
+                          const VkClearAttachment *attachments,
+                          uint32_t rect_count,
+                          const VkClearRect *rects);
 
    void clear(const struct dzn_image *image,
               VkImageLayout layout,
@@ -734,6 +786,8 @@ struct dzn_cmd_buffer {
                VkDeviceSize offset,
                VkDeviceSize size,
                const void *data);
+
+   void pipeline_barrier(const VkDependencyInfoKHR *info);
 
    void blit(const VkBlitImageInfo2KHR *info);
    void resolve(const VkResolveImageInfo2KHR *info);
