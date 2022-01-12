@@ -1064,7 +1064,6 @@ struct dzn_descriptor_set_layout {
 struct dzn_descriptor_set {
    struct vk_object_base base;
    dzn_descriptor_heap heaps[NUM_POOL_TYPES];
-   const struct dzn_descriptor_set_layout *layout;
    struct dzn_buffer_desc *dynamic_buffers;
    uint32_t index;
    dzn_descriptor_pool *pool;
@@ -1080,6 +1079,7 @@ struct dzn_descriptor_set {
    const VkAllocationCallbacks *get_vk_allocator();
 
 private:
+   const struct dzn_descriptor_set_layout *layout;
    struct range {
       struct iterator {
          uint32_t binding;
