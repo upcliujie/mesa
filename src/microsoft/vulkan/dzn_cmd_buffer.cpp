@@ -261,7 +261,9 @@ dzn_cmd_buffer::close_batch()
       return;
 
    batch->cmdlist->Close();
-   batches.push_back(dzn_object_unique_ptr<dzn_batch>(batch.release()));
+
+   batches.resize(batches.size() + 1);
+   batches[batches.size() - 1].swap(batch);
    assert(batch.get() == NULL);
 }
 
