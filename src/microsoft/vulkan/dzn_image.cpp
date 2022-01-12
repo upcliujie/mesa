@@ -154,13 +154,16 @@ dzn_image::dzn_image(dzn_device *device,
     */
    if ((vk.usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT) &&
        vk.tiling == VK_IMAGE_TILING_OPTIMAL) {
-      VkFormatProperties props;
 
-      device->physical_device->get_format_properties(pCreateInfo->format, &props);
-      if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT)
+      D3D12_FEATURE_DATA_FORMAT_SUPPORT dfmt_info =
+         device->physical_device->get_format_support(pCreateInfo->format);
+      if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) {
          desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-      if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+      } else if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL) {
          desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+      } else if (dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW) {
+         desc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+      }
    }
 
    if (vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)
