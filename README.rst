@@ -1,4 +1,4 @@
-`Mesa <https://mesa3d.org>`_ - The 3D Graphics Library
+ `Mesa <https://mesa3d.org>`_ - The 3D Graphics Library
 ======================================================
 
 
