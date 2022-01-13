@@ -2127,10 +2127,10 @@ dzn_cmd_buffer::update_pipeline(uint32_t bindpoint)
       if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
          const dzn_graphics_pipeline *gfx =
             reinterpret_cast<const dzn_graphics_pipeline *>(pipeline);
-         batch->cmdlist->SetGraphicsRootSignature(pipeline->layout->root.sig.Get());
+         batch->cmdlist->SetGraphicsRootSignature(pipeline->root.sig.Get());
          batch->cmdlist->IASetPrimitiveTopology(gfx->ia.topology);
       } else {
-         batch->cmdlist->SetComputeRootSignature(pipeline->layout->root.sig.Get());
+         batch->cmdlist->SetComputeRootSignature(pipeline->root.sig.Get());
       }
    }
 
@@ -2152,7 +2152,7 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
       goto set_heaps;
 
    dzn_foreach_pool_type (type) {
-      uint32_t desc_count = pipeline->layout->desc_count[type];
+      uint32_t desc_count = pipeline->desc_count[type];
       if (!desc_count)
          continue;
 
@@ -2164,24 +2164,24 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          const struct dzn_descriptor_set *set = desc_state->sets[s].set;
          if (!set) continue;
 
-         uint32_t set_heap_offset = pipeline->layout->sets[s].heap_offsets[type];
-         uint32_t set_desc_count = pipeline->layout->sets[s].range_desc_count[type];
+         uint32_t set_heap_offset = pipeline->sets[s].heap_offsets[type];
+         uint32_t set_desc_count = pipeline->sets[s].range_desc_count[type];
          if (set_desc_count)
             dst_heap.copy(set_heap_offset, set->heaps[type], 0, set_desc_count);
 
          if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
-            uint32_t dynamic_buffer_count = pipeline->layout->sets[s].dynamic_buffer_count;
+            uint32_t dynamic_buffer_count = pipeline->sets[s].dynamic_buffer_count;
             for (uint32_t o = 0; o < dynamic_buffer_count; o++) {
 	       uint32_t desc_heap_offset =
-                  pipeline->layout->sets[s].dynamic_buffer_heap_offsets[o].srv;
+                  pipeline->sets[s].dynamic_buffer_heap_offsets[o].srv;
 
                dst_heap.write_desc(set_heap_offset + desc_heap_offset,
                                    false,
                                    set->dynamic_buffers[o] +
                                    desc_state->sets[s].dynamic_offsets[o]);
 
-               if (pipeline->layout->sets[s].dynamic_buffer_heap_offsets[o].uav != ~0) {
-                  desc_heap_offset = pipeline->layout->sets[s].dynamic_buffer_heap_offsets[o].uav;
+               if (pipeline->sets[s].dynamic_buffer_heap_offsets[o].uav != ~0) {
+                  desc_heap_offset = pipeline->sets[s].dynamic_buffer_heap_offsets[o].uav;
                   dst_heap.write_desc(set_heap_offset + desc_heap_offset,
                                       true,
                                       set->dynamic_buffers[o] +
@@ -2209,8 +2209,8 @@ set_heaps:
       for (unsigned h = 0; h < ARRAY_SIZE(state.heaps); h++)
          state.heaps[h] = new_heaps[h];
 
-      for (uint32_t r = 0; r < pipeline->layout->root.sets_param_count; r++) {
-         D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->layout->root.type[r];
+      for (uint32_t r = 0; r < pipeline->root.sets_param_count; r++) {
+         D3D12_DESCRIPTOR_HEAP_TYPE type = pipeline->root.type[r];
          D3D12_GPU_DESCRIPTOR_HANDLE handle = {
             .ptr = new_heaps[type]->GetGPUDescriptorHandleForHeapStart().ptr,
          };
@@ -2230,7 +2230,7 @@ dzn_cmd_buffer::update_sysvals(uint32_t bindpoint)
       return;
 
    const struct dzn_pipeline *pipeline = state.bindpoint[bindpoint].pipeline;
-   uint32_t sysval_cbv_param_idx = pipeline->layout->root.sysval_cbv_param_idx;
+   uint32_t sysval_cbv_param_idx = pipeline->root.sysval_cbv_param_idx;
    dzn_batch *batch = get_batch();
 
    if (bindpoint == VK_PIPELINE_BIND_POINT_GRAPHICS) {
@@ -2403,7 +2403,7 @@ dzn_cmd_buffer::update_push_constants(uint32_t bindpoint)
    if (!(state.push_constant.stages & VK_SHADER_STAGE_ALL_GRAPHICS))
       return;
 
-   uint32_t slot = state.pipeline->layout->root.push_constant_cbv_param_idx;
+   uint32_t slot = state.pipeline->root.push_constant_cbv_param_idx;
    uint32_t offset = state.push_constant.offset / 4;
    uint32_t end = ALIGN(state.push_constant.end, 4) / 4;
 

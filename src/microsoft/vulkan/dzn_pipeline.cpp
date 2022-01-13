@@ -578,9 +578,23 @@ dzn_graphics_pipeline::translate_blend(D3D12_GRAPHICS_PIPELINE_STATE_DESC &out,
    }
 }
 
-dzn_pipeline::dzn_pipeline(dzn_device *dev, VkPipelineBindPoint t) :
+dzn_pipeline::dzn_pipeline(dzn_device *dev, VkPipelineBindPoint t, VkPipelineLayout l) :
    type(t), device(dev)
 {
+   VK_FROM_HANDLE(dzn_pipeline_layout, layout, l);
+
+   root.sets_param_count = layout->root.sets_param_count;
+   root.sysval_cbv_param_idx = layout->root.sysval_cbv_param_idx;
+   root.push_constant_cbv_param_idx = layout->root.push_constant_cbv_param_idx;
+   STATIC_ASSERT(sizeof(root.type) == sizeof(layout->root.type));
+   memcpy(root.type, layout->root.type, sizeof(root.type));
+   root.sig = layout->root.sig;
+
+   STATIC_ASSERT(sizeof(layout->desc_count) == sizeof(desc_count));
+   memcpy(desc_count, layout->desc_count, sizeof(desc_count));
+
+   STATIC_ASSERT(sizeof(layout->sets) == sizeof(sets));
+   memcpy(sets, layout->sets, sizeof(sets));
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_PIPELINE);
 }
 
@@ -593,7 +607,7 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
                                              VkPipelineCache cache,
                                              const VkGraphicsPipelineCreateInfo *pCreateInfo,
                                              const VkAllocationCallbacks *pAllocator) :
-                                            base(device, VK_PIPELINE_BIND_POINT_GRAPHICS)
+   base(device, VK_PIPELINE_BIND_POINT_GRAPHICS, pCreateInfo->layout)
 {
    VK_FROM_HANDLE(dzn_render_pass, pass, pCreateInfo->renderPass);
    VK_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
@@ -601,11 +615,9 @@ dzn_graphics_pipeline::dzn_graphics_pipeline(dzn_device *device,
    VkResult ret;
    HRESULT hres = 0;
 
-   base.layout = layout;
-
    dzn_transient_object<D3D12_INPUT_ELEMENT_DESC> inputs;
    D3D12_GRAPHICS_PIPELINE_STATE_DESC desc = {
-      .pRootSignature = layout->root.sig.Get(),
+      .pRootSignature = base.root.sig.Get(),
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
    };
 
@@ -752,7 +764,7 @@ dzn_graphics_pipeline::get_indirect_cmd_sig(enum indirect_cmd_sig_type type)
    cmd_args[cmd_arg_count++] = D3D12_INDIRECT_ARGUMENT_DESC {
       .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
       .Constant = {
-         .RootParameterIndex = base.layout->root.sysval_cbv_param_idx,
+         .RootParameterIndex = base.root.sysval_cbv_param_idx,
          .DestOffsetIn32BitValues = offsetof(struct dxil_spirv_vertex_runtime_data, first_vertex) / 4,
          .Num32BitValuesToSet = 2,
       },
@@ -777,7 +789,7 @@ dzn_graphics_pipeline::get_indirect_cmd_sig(enum indirect_cmd_sig_type type)
    };
    HRESULT hres =
       base.device->dev->CreateCommandSignature(&cmd_sig_desc,
-                                               base.layout->root.sig.Get(),
+                                               base.root.sig.Get(),
                                                IID_PPV_ARGS(&cmdsig));
    assert(!FAILED(hres));
    return cmdsig.Get();
@@ -824,14 +836,12 @@ dzn_compute_pipeline::dzn_compute_pipeline(dzn_device *device,
                                            VkPipelineCache cache,
                                            const VkComputePipelineCreateInfo *pCreateInfo,
                                            const VkAllocationCallbacks *pAllocator) :
-                                          base(device, VK_PIPELINE_BIND_POINT_COMPUTE)
+   base(device, VK_PIPELINE_BIND_POINT_COMPUTE, pCreateInfo->layout)
 {
    VK_FROM_HANDLE(dzn_pipeline_layout, layout, pCreateInfo->layout);
 
-   base.layout = layout;
-
    D3D12_COMPUTE_PIPELINE_STATE_DESC desc = {
-      .pRootSignature = layout->root.sig.Get(),
+      .pRootSignature = base.root.sig.Get(),
       .Flags = D3D12_PIPELINE_STATE_FLAG_NONE,
    };
 
@@ -866,7 +876,7 @@ dzn_compute_pipeline::get_indirect_cmd_sig()
       {
          .Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT,
          .Constant = {
-            .RootParameterIndex = base.layout->root.sysval_cbv_param_idx,
+            .RootParameterIndex = base.root.sysval_cbv_param_idx,
             .DestOffsetIn32BitValues = 0,
             .Num32BitValuesToSet = 3,
          },
@@ -884,7 +894,7 @@ dzn_compute_pipeline::get_indirect_cmd_sig()
 
    HRESULT hres =
       base.device->dev->CreateCommandSignature(&indirect_dispatch_desc,
-                                               base.layout->root.sig.Get(),
+                                               base.root.sig.Get(),
                                                IID_PPV_ARGS(&indirect_cmd_sig));
    if (FAILED(hres))
       throw vk_error(base.device, VK_ERROR_OUT_OF_DEVICE_MEMORY);

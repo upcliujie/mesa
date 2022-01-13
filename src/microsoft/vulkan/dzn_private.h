@@ -1205,11 +1205,26 @@ public:
 struct dzn_pipeline {
    struct vk_object_base base;
    VkPipelineBindPoint type;
-   const dzn_pipeline_layout *layout = NULL;
    dzn_device *device;
+   struct {
+      uint32_t sets_param_count;
+      uint32_t sysval_cbv_param_idx;
+      uint32_t push_constant_cbv_param_idx;
+      D3D12_DESCRIPTOR_HEAP_TYPE type[MAX_SHADER_VISIBILITIES];
+      ComPtr<ID3D12RootSignature> sig;
+   } root;
+   struct {
+      uint32_t heap_offsets[NUM_POOL_TYPES];
+      struct {
+         uint32_t srv, uav;
+      } dynamic_buffer_heap_offsets[MAX_DYNAMIC_BUFFERS];
+      uint32_t dynamic_buffer_count;
+      uint32_t range_desc_count[NUM_POOL_TYPES];
+   } sets[MAX_SETS];
+   uint32_t desc_count[NUM_POOL_TYPES];
    ComPtr<ID3D12PipelineState> state;
 
-   dzn_pipeline(dzn_device *device, VkPipelineBindPoint type);
+   dzn_pipeline(dzn_device *device, VkPipelineBindPoint type, VkPipelineLayout layout);
    ~dzn_pipeline();
 
    static VkResult compile_shader(dzn_device *device,
