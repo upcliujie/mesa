@@ -523,25 +523,22 @@ util_init_pipe_vertex_state(struct pipe_screen *screen,
 /**
  * Clamp color value to format range.
  */
-union pipe_color_union
+void
 util_clamp_color(enum pipe_format format,
-                 const union pipe_color_union *color)
+                 union pipe_color_union *color)
 {
-   union pipe_color_union clamp_color = *color;
    int i;
 
    for (i = 0; i < util_format_get_nr_components(format); i++) {
       uint8_t bits = util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, i);
 
       if (util_format_is_unorm(format))
-         clamp_color.ui[i] = _mesa_unorm_to_unorm(clamp_color.ui[i], bits, bits);
+         color->ui[i] = _mesa_unorm_to_unorm(color->ui[i], bits, bits);
       else if (util_format_is_snorm(format))
-         clamp_color.i[i] = _mesa_snorm_to_snorm(clamp_color.i[i], bits, bits);
+         color->i[i] = _mesa_snorm_to_snorm(color->i[i], bits, bits);
       else if (util_format_is_pure_uint(format))
-         clamp_color.ui[i] = _mesa_unsigned_to_unsigned(clamp_color.ui[i], bits);
+         color->ui[i] = _mesa_unsigned_to_unsigned(color->ui[i], bits);
       else if (util_format_is_pure_sint(format))
-         clamp_color.i[i] = _mesa_signed_to_signed(clamp_color.i[i], bits);
+         color->i[i] = _mesa_signed_to_signed(color->i[i], bits);
    }
-
-   return clamp_color;
 }

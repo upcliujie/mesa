@@ -1572,9 +1572,7 @@ v3d_tlb_clear(struct v3d_job *job, unsigned buffers,
                  *   enter the TLB and after blending. Clamping is not
                  *   performed on the clear color."
                  */
-                union pipe_color_union clamped_color =
-                        util_clamp_color(psurf->format, color);
-                color = &clamped_color;
+                util_clamp_color(psurf->format, (union pipe_color_union *)color);
 
                 switch (surf->internal_type) {
                 case V3D_INTERNAL_TYPE_8:
