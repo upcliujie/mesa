@@ -45,9 +45,25 @@ if with_dri2
   files_libdri += files('dri2.c')
 endif
 
+if with_gallium_zink
+  files_libdri += files('kopper.c')
+endif
+
 libdri_c_args = []
 if with_gallium_softpipe
   libdri_c_args += '-DGALLIUM_SOFTPIPE'
+endif
+
+if with_platform_x11
+  libdri_c_args += '-DVK_USE_PLATFORM_XCB_KHR=1'
+endif
+
+if with_platform_wayland
+  libdri_c_args += '-DVK_USE_PLATFORM_WAYLAND_KHR=1'
+endif
+
+if with_platform_windows
+  libdri_c_args += '-DVK_USE_PLATFORM_WIN32_KHR=1'
 endif
 
 libdri = static_library(
@@ -55,7 +71,7 @@ libdri = static_library(
   files_libdri,
   include_directories : [
     inc_include, inc_util, inc_mesa, inc_mapi, inc_src, inc_gallium,
-    inc_gallium_aux, inc_util,
+    inc_gallium_aux, inc_util,  inc_gallium_drivers,
   ],
   c_args : [libdri_c_args],
   gnu_symbol_visibility : 'hidden',
