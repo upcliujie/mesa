@@ -55,6 +55,7 @@
 
 #include <GL/gl.h>
 #include <GL/internal/dri_interface.h>
+#include "kopper_interface.h"
 #include "main/menums.h"
 #include "main/formats.h"
 #include "util/xmlconfig.h"
@@ -163,6 +164,7 @@ struct __DriverAPIRec {
 
 extern const struct __DriverAPIRec driDriverAPI;
 extern const struct __DriverAPIRec *globalDriverAPI;
+extern const struct __DriverAPIRec *vkDriverAPI;
 
 /**
  * Per-screen private driver information.
@@ -206,6 +208,7 @@ struct __DRIscreenRec {
     const __DRIextension **extensions;
 
     const __DRIswrastLoaderExtension *swrast_loader;
+    const __DRIkopperLoaderExtension *kopper_loader;
 
     struct {
 	/* Flag to indicate that this is a DRI2 screen.  Many of the above

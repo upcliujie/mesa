@@ -87,6 +87,9 @@ sw_screen_create_vk(struct sw_winsys *winsys, bool sw_vk)
 #if defined(GALLIUM_ASAHI)
       (sw_vk || only_sw) ? "" : "asahi",
 #endif
+#if defined(GALLIUM_ZINK)
+      (sw_vk || only_sw) ? "" : "zink",
+#endif
 #if defined(GALLIUM_LLVMPIPE)
       "llvmpipe",
 #endif
