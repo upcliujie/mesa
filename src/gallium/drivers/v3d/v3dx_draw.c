@@ -1556,13 +1556,14 @@ v3d_tlb_clear(struct v3d_job *job, unsigned buffers,
                 union util_color uc;
                 uint32_t internal_size = 4 << surf->internal_bpp;
 
-                static union pipe_color_union swapped_color;
+                static union pipe_color_union sc_color;
                 if (v3d->swap_color_rb & (1 << i)) {
-                        swapped_color.f[0] = color->f[2];
-                        swapped_color.f[1] = color->f[1];
-                        swapped_color.f[2] = color->f[0];
-                        swapped_color.f[3] = color->f[3];
-                        color = &swapped_color;
+                        sc_color.f[0] = color->f[2];
+                        sc_color.f[1] = color->f[1];
+                        sc_color.f[2] = color->f[0];
+                        sc_color.f[3] = color->f[3];
+                } else {
+                        sc_color = *color;
                 }
 
                 /*  While hardware supports clamping, this is not applied on
@@ -1572,37 +1573,37 @@ v3d_tlb_clear(struct v3d_job *job, unsigned buffers,
                  *   enter the TLB and after blending. Clamping is not
                  *   performed on the clear color."
                  */
-                util_clamp_color(psurf->format, (union pipe_color_union *)color);
+                util_clamp_color(psurf->format, &sc_color);
 
                 switch (surf->internal_type) {
                 case V3D_INTERNAL_TYPE_8:
-                        util_pack_color(color->f, PIPE_FORMAT_R8G8B8A8_UNORM,
+                        util_pack_color(sc_color.f, PIPE_FORMAT_R8G8B8A8_UNORM,
                                         &uc);
                         memcpy(job->clear_color[i], uc.ui, internal_size);
                         break;
                 case V3D_INTERNAL_TYPE_8I:
                 case V3D_INTERNAL_TYPE_8UI:
-                        job->clear_color[i][0] = ((color->ui[0] & 0xff) |
-                                                  (color->ui[1] & 0xff) << 8 |
-                                                  (color->ui[2] & 0xff) << 16 |
-                                                  (color->ui[3] & 0xff) << 24);
+                        job->clear_color[i][0] = ((sc_color.ui[0] & 0xff) |
+                                                  (sc_color.ui[1] & 0xff) << 8 |
+                                                  (sc_color.ui[2] & 0xff) << 16 |
+                                                  (sc_color.ui[3] & 0xff) << 24);
                         break;
                 case V3D_INTERNAL_TYPE_16F:
-                        util_pack_color(color->f, PIPE_FORMAT_R16G16B16A16_FLOAT,
+                        util_pack_color(sc_color.f, PIPE_FORMAT_R16G16B16A16_FLOAT,
                                         &uc);
                         memcpy(job->clear_color[i], uc.ui, internal_size);
                         break;
                 case V3D_INTERNAL_TYPE_16I:
                 case V3D_INTERNAL_TYPE_16UI:
-                        job->clear_color[i][0] = ((color->ui[0] & 0xffff) |
-                                                  color->ui[1] << 16);
-                        job->clear_color[i][1] = ((color->ui[2] & 0xffff) |
-                                                  color->ui[3] << 16);
+                        job->clear_color[i][0] = ((sc_color.ui[0] & 0xffff) |
+                                                  sc_color.ui[1] << 16);
+                        job->clear_color[i][1] = ((sc_color.ui[2] & 0xffff) |
+                                                  sc_color.ui[3] << 16);
                         break;
                 case V3D_INTERNAL_TYPE_32F:
                 case V3D_INTERNAL_TYPE_32I:
                 case V3D_INTERNAL_TYPE_32UI:
-                        memcpy(job->clear_color[i], color->ui, internal_size);
+                        memcpy(job->clear_color[i], sc_color.ui, internal_size);
                         break;
                 }
 
