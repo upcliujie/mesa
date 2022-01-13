@@ -432,7 +432,7 @@ discard_psiz_access(struct nir_builder *builder, nir_instr *instr,
       return false;
 
    nir_variable *var = nir_intrinsic_get_var(intrin, 0);
-   if (var->data.mode != nir_var_shader_out ||
+   if (!var || var->data.mode != nir_var_shader_out ||
        var->data.location != VARYING_SLOT_PSIZ)
       return false;
 
