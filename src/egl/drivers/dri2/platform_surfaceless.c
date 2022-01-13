@@ -199,6 +199,29 @@ surfaceless_get_capability(void *loaderPrivate, enum dri_loader_cap cap)
    }
 }
 
+// i don't belong here
+
+#include "kopper_interface.h"
+#include <vulkan/vulkan.h>
+
+// hmm, mesa doesn't have this yet. it's not _strictly_ needed, you could fake it with
+// plain anonymous images... hm.
+static void
+kopperSetSurfaceCreateInfo(void *_draw, const struct gl_config *visual, void *out)
+{
+    VkHeadlessSurfaceCreateInfoEXT *hsci = (VkHeadlessSurfaceCreateInfoEXT *)out;
+
+    hsci->sType = VK_STRUCTURE_TYPE_HEADLESS_SURFACE_CREATE_INFO_EXT;
+    hsci->pNext = NULL;
+    hsci->flags = 0;
+}
+
+static const __DRIkopperLoaderExtension kopper_loader_extension = {
+    .base = { __DRI_KOPPER_LOADER, 1 },
+
+    .SetSurfaceCreateInfo   = kopperSetSurfaceCreateInfo,
+};
+
 static const __DRIimageLoaderExtension image_loader_extension = {
    .base             = { __DRI_IMAGE_LOADER, 2 },
    .getBuffers       = surfaceless_image_get_buffers,
@@ -211,6 +234,7 @@ static const __DRIextension *image_loader_extensions[] = {
    &image_lookup_extension.base,
    &use_invalidate.base,
    &background_callable_extension.base,
+   &kopper_loader_extension.base,
    NULL,
 };
 
@@ -219,6 +243,7 @@ static const __DRIextension *swrast_loader_extensions[] = {
    &image_loader_extension.base,
    &image_lookup_extension.base,
    &use_invalidate.base,
+   &kopper_loader_extension.base,
    NULL,
 };
 
@@ -299,7 +324,7 @@ surfaceless_probe_device_sw(_EGLDisplay *disp)
    disp->Device = _eglAddDevice(dri2_dpy->fd, true);
    assert(disp->Device);
 
-   dri2_dpy->driver_name = strdup("swrast");
+   dri2_dpy->driver_name = strdup("zink");
    if (!dri2_dpy->driver_name)
       return false;
 
