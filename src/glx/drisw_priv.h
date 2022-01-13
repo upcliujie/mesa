@@ -31,6 +31,7 @@
 struct drisw_display
 {
    __GLXDRIdisplay base;
+   bool zink;
 };
 
 struct drisw_context
@@ -55,6 +56,7 @@ struct drisw_screen
    const __DRIconfig **driver_configs;
 
    void *driver;
+   const char *name;
 };
 
 struct drisw_drawable
