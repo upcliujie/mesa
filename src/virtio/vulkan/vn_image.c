@@ -259,6 +259,8 @@ vn_CreateImage(VkDevice device,
    const VkExternalMemoryImageCreateInfo *external_info =
       vk_find_struct_const(pCreateInfo->pNext,
                            EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
+   const VkImageSwapchainCreateInfoKHR *swapchain_info = vk_find_struct_const(
+      pCreateInfo->pNext, IMAGE_SWAPCHAIN_CREATE_INFO_KHR);
    const bool ahb_info =
       external_info &&
       external_info->handleTypes ==
@@ -277,6 +279,9 @@ vn_CreateImage(VkDevice device,
 
    if (result != VK_SUCCESS)
       return vn_error(dev->instance, result);
+
+   if (swapchain_info)
+      img->wsi.is_wsi = true;
 
    *pImage = vn_image_to_handle(img);
    return VK_SUCCESS;
@@ -444,12 +449,33 @@ vn_BindImageMemory2(VkDevice device,
       struct vn_device_memory *mem =
          vn_device_memory_from_handle(info->memory);
 
+      if (mem && !mem->base_memory) {
+         if (img->wsi.is_wsi)
+            vn_image_bind_wsi_memory(img, mem);
+         continue;
+      }
+
+      if (!mem) {
+#ifdef ANDROID
+         /* TODO handle VkNativeBufferANDROID when we bump up
+          * VN_ANDROID_NATIVE_BUFFER_SPEC_VERSION
+          */
+         unreachable("VkBindImageMemoryInfo with no memory");
+#else
+         const VkBindImageMemorySwapchainInfoKHR *swapchain_info =
+            vk_find_struct_const(info->pNext,
+                                 BIND_IMAGE_MEMORY_SWAPCHAIN_INFO_KHR);
+         assert(img->wsi.is_wsi && swapchain_info);
+
+         struct vn_image *swapchain_img =
+            vn_image_from_handle(wsi_common_get_image(
+               swapchain_info->swapchain, swapchain_info->imageIndex));
+         mem = swapchain_img->wsi.memory;
+#endif
+      }
+
       if (img->wsi.is_wsi)
          vn_image_bind_wsi_memory(img, mem);
-
-      /* TODO handle VkBindImageMemorySwapchainInfoKHR */
-      if (!mem || !mem->base_memory)
-         continue;
 
       if (!local_infos) {
          const size_t size = sizeof(*local_infos) * bindInfoCount;
@@ -461,7 +487,8 @@ vn_BindImageMemory2(VkDevice device,
          memcpy(local_infos, pBindInfos, size);
       }
 
-      local_infos[i].memory = vn_device_memory_to_handle(mem->base_memory);
+      local_infos[i].memory = vn_device_memory_to_handle(
+         mem->base_memory ? mem->base_memory : mem);
       local_infos[i].memoryOffset += mem->base_offset;
    }
    if (local_infos)
