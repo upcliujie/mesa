@@ -916,7 +916,7 @@ dzn_image_view::dzn_image_view(dzn_device *device,
             translate_view_type_to_uav_dim(pCreateInfo->viewType),
       };
 
-      assert(pCreateInfo->subresourceRange.levelCount == 1);
+      assert(level_count == 1);
       switch (pCreateInfo->viewType) {
       case VK_IMAGE_VIEW_TYPE_1D:
          uav_desc.Texture1D.MipSlice =
