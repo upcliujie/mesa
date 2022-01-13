@@ -760,9 +760,8 @@ bi_varying_offset(nir_intrinsic_instr *intr)
 
         switch (sem.location) {
         case VARYING_SLOT_POS:
-                return 0;
         case VARYING_SLOT_PSIZ:
-                unreachable("todo: point size on Valhall");
+                return 0;
         default:
                 assert(slot >= 1 && "position should be linked first");
                 return (slot - 1) * 16;
@@ -778,7 +777,8 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
          * but smooth in the FS */
 
         ASSERTED nir_alu_type T = nir_intrinsic_src_type(instr);
-        assert(nir_alu_type_get_type_size(T) == 32);
+        ASSERTED unsigned T_size = nir_alu_type_get_type_size(T);
+        assert(T_size == 32 || (b->shader->arch >= 9 && T_size == 16));
         enum bi_register_format regfmt = BI_REGISTER_FORMAT_AUTO;
 
         unsigned imm_index = 0;
@@ -800,6 +800,7 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
         assert(nr > 0 && nr <= nir_intrinsic_src_components(instr, 0));
 
         bi_index data = bi_src_index(&instr->src[0]);
+        bool psiz = (nir_intrinsic_io_semantics(instr).location == VARYING_SLOT_PSIZ);
 
         if (b->shader->arch <= 8 && b->shader->idvs == BI_IDVS_POSITION) {
                 /* Bifrost position shaders have a fast path */
@@ -812,7 +813,12 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
                 bi_st_cvt(b, data, bi_register(58), bi_register(59),
                           bi_imm_u32(format), regfmt, nr - 1);
         } else if (b->shader->arch >= 9) {
-                bi_index address = bi_lea_vary(b, bi_register(59));
+                bi_index index = bi_register(59);
+
+                if (psiz)
+                        index = bi_iadd_imm_i32(b, index, 4);
+
+                bi_index address = bi_lea_vary(b, index);
                 bool varying = (b->shader->idvs == BI_IDVS_VARYING);
 
                 bi_store(b, nr * nir_src_bit_size(instr->src[0]),
@@ -4069,6 +4075,11 @@ bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
                 NIR_PASS_V(nir, nir_lower_mediump_io, nir_var_shader_out,
                                 ~0, false);
         } else {
+                if (gpu_id >= 0x9000) {
+                        NIR_PASS_V(nir, nir_lower_mediump_io, nir_var_shader_out,
+                                        BITFIELD64_BIT(VARYING_SLOT_PSIZ), false);
+                }
+
                 struct hash_table_u64 *stores = _mesa_hash_table_u64_create(NULL);
                 NIR_PASS_V(nir, nir_shader_instructions_pass,
                                 bifrost_nir_lower_store_component,
