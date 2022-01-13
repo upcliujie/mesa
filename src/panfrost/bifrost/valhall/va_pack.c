@@ -566,7 +566,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
       /* Image to read from */
       hex |= ((uint64_t) va_pack_src(I->src[1])) << 0;
 
-      if (I->explicit_offset) hex |= (1ull << 11);
+      if (I->texel_offset) hex |= (1ull << 11);
       if (I->shadow) hex |= (1ull << 12);
       if (I->skip) hex |= (1ull << 39);
 
@@ -580,6 +580,9 @@ va_pack_instr(const bi_instr *I, unsigned action)
 
       /* Dimension */
       hex |= ((uint64_t) I->dimension) << 28;
+
+      /* Unknown */
+      hex |= (0x7ull << 24) | (0x3ull << 36);
 
       /* Staging register #0 - inputs */
       hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;

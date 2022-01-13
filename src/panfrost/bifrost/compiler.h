@@ -483,7 +483,8 @@ typedef struct {
 
                         /* Used for valhall texturing */
                         bool shadow;
-                        bool explicit_offset;
+                        bool texel_offset;
+                        bool array_enable;
                         enum bi_va_lod_mode va_lod_mode;
                         enum bi_dimension dimension;
                 };

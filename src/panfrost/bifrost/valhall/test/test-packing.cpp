@@ -208,23 +208,6 @@ TEST_F(ValhallPacking, AtestFP32) {
    CASE(I, 0x007dbc0200ead03c);
 }
 
-TEST_F(ValhallPacking, TexComputedLod) {
-   bi_instr *I = bi_tex_to(b, bi_register(2), bi_register(2), bi_register(3),
-         BI_DIMENSION_2D, false, false, BI_VA_LOD_MODE_COMPUTED_LOD, 1);
-
-   /* Test with and without .skip */
-   CASE(I, 0x0128420210c22003);
-   I->skip = true;
-   CASE(I, 0x0128428210c22003);
-}
-
-TEST_F(ValhallPacking, TexExplictLod) {
-   bi_instr *I = bi_tex_to(b, bi_register(0), bi_register(2), zero,
-         BI_DIMENSION_2D, false, false, BI_VA_LOD_MODE_EXPLICIT, 3);
-
-   CASE(I, 0x0128420610c080c0);
-}
-
 TEST_F(ValhallPacking, Transcendentals) {
    CASE(bi_frexpm_f32_to(b, bi_register(1), bi_register(0), false, true),
         0x0099c10001000000);
