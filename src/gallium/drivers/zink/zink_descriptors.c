@@ -1276,6 +1276,7 @@ update_push_ubo_descriptors(struct zink_context *ctx, struct zink_descriptor_set
    }
    if (unlikely(!cache_hit && !is_compute && ctx->dd->has_fbfetch)) {
       init_write_descriptor(NULL, desc_set, 0, MESA_SHADER_STAGES, &wds[ZINK_SHADER_COUNT], 0);
+      assert(ctx->di.fbfetch.imageView);
       wds[ZINK_SHADER_COUNT].pImageInfo = &ctx->di.fbfetch;
       fbfetch = true;
    }

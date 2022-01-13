@@ -1,4 +1,5 @@
 #include "zink_context.h"
+#include "zink_kopper.h"
 #include "zink_helpers.h"
 #include "zink_query.h"
 #include "zink_resource.h"
@@ -18,6 +19,16 @@ apply_dst_clears(struct zink_context *ctx, const struct pipe_blit_info *info, bo
       zink_fb_clears_apply_or_discard(ctx, info->dst.resource, rect, discard_only);
    } else
       zink_fb_clears_apply_or_discard(ctx, info->dst.resource, zink_rect_from_box(&info->dst.box), discard_only);
+}
+
+static void
+finish_swapchain_readback(struct zink_context *ctx, struct zink_resource *res)
+{
+   if (res->layout != VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
+      zink_resource_image_barrier(ctx, res, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+      ctx->base.flush(&ctx->base, NULL, 0);
+   }
+   zink_kopper_present_readback(zink_screen(ctx->base.screen), res);
 }
 
 static bool
@@ -100,6 +111,9 @@ blit_resolve(struct zink_context *ctx, const struct pipe_blit_info *info)
    VKCTX(CmdResolveImage)(batch->state->cmdbuf, src->obj->image, src->layout,
                      dst->obj->image, dst->layout,
                      1, &region);
+
+   if (src->obj->dt)
+      finish_swapchain_readback(ctx, src);
 
    return true;
 }
@@ -249,6 +263,9 @@ blit_native(struct zink_context *ctx, const struct pipe_blit_info *info)
                   1, &region,
                   zink_filter(info->filter));
 
+   if (src->obj->dt)
+      finish_swapchain_readback(ctx, src);
+
    return true;
 }
 
@@ -263,6 +280,13 @@ zink_blit(struct pipe_context *pctx,
    if (info->render_condition_enable &&
        unlikely(!zink_screen(pctx->screen)->info.have_EXT_conditional_rendering && !zink_check_conditional_render(ctx)))
       return;
+
+   struct zink_resource *src = zink_resource(info->src.resource);
+   struct zink_resource *dst = zink_resource(info->dst.resource);
+   if (src->obj->dt)
+      zink_kopper_acquire_readback(ctx, src);
+   if (dst->obj->dt)
+      zink_kopper_acquire(ctx, dst, UINT64_MAX);
 
    if (src_desc == dst_desc ||
        src_desc->nr_channels != 4 || src_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN ||
@@ -280,8 +304,6 @@ zink_blit(struct pipe_context *pctx,
       }
    }
 
-   struct zink_resource *src = zink_resource(info->src.resource);
-   struct zink_resource *dst = zink_resource(info->dst.resource);
    /* if we're copying between resources with matching aspects then we can probably just copy_region */
    if (src->aspect == dst->aspect) {
       struct pipe_blit_info new_info = *info;
@@ -313,6 +335,8 @@ zink_blit(struct pipe_context *pctx,
    zink_blit_begin(ctx, ZINK_BLIT_SAVE_FB | ZINK_BLIT_SAVE_FS | ZINK_BLIT_SAVE_TEXTURES);
 
    util_blitter_blit(ctx->blitter, info);
+   if (src->obj->dt)
+      finish_swapchain_readback(ctx, src);
 }
 
 /* similar to radeonsi */
