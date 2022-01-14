@@ -7492,7 +7492,7 @@ st_link_tgsi(struct gl_context *ctx, struct gl_shader_program *prog)
       /* Do this again to lower ir_binop_vector_extract introduced
        * by optimization passes.
        */
-      do_vec_index_to_cond_assign(ir);
+      do_vec_index_to_cond_assign(ir, true);
 
       validate_ir_tree(ir);
 

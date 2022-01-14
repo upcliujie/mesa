@@ -160,7 +160,7 @@ st_link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
                             IMUL_HIGH_TO_MUL
                           : 0));
 
-      do_vec_index_to_cond_assign(ir);
+      do_vec_index_to_cond_assign(ir, true);
       lower_vector_insert(ir, true);
       lower_quadop_vector(ir, false);
       if (options->MaxIfDepth == 0) {
