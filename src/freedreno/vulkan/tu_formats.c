@@ -204,7 +204,15 @@ tu_physical_device_get_format_properties(
       if (!vk_format_is_int(vk_format)) {
          optimal |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
 
-         if (physical_device->vk.supported_extensions.EXT_filter_cubic)
+         if (physical_device->vk.supported_extensions.EXT_filter_cubic &&
+             /* Some tests blitting from compressed textures return results
+              * that aren't accurate enough for CTS, and Qualcomm also
+              * disables cubic filtering for compressed formats so there's
+              * little chance to debug this.
+              *
+              * See https://gitlab.khronos.org/Tracker/vk-gl-cts/-/issues/3450
+              */
+             !vk_format_is_compressed(vk_format))
             optimal |= VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_EXT;
       }
    }
