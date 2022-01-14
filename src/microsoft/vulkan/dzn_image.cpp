@@ -841,12 +841,31 @@ dzn_image_view::dzn_image_view(dzn_device *device,
                                  range->aspectMask);
    desc.ViewDimension =
       translate_view_type_to_srv_dim(pCreateInfo->viewType, image->vk.samples);
+
+   D3D12_SHADER_COMPONENT_MAPPING swz[] = {
+      translate_swizzle(pCreateInfo->components.r, 0),
+      translate_swizzle(pCreateInfo->components.g, 1),
+      translate_swizzle(pCreateInfo->components.b, 2),
+      translate_swizzle(pCreateInfo->components.a, 3),
+   };
+
+   /* Swap components to fake B4G4R4A4 support. */
+   if (pCreateInfo->format == VK_FORMAT_B4G4R4A4_UNORM_PACK16) {
+      static const D3D12_SHADER_COMPONENT_MAPPING bgra4_remap[] = {
+         D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_1,
+         D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_0,
+         D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_3,
+         D3D12_SHADER_COMPONENT_MAPPING_FROM_MEMORY_COMPONENT_2,
+         D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_0,
+         D3D12_SHADER_COMPONENT_MAPPING_FORCE_VALUE_1,
+      };
+
+      for (uint32_t i = 0; i < ARRAY_SIZE(swz); i++)
+         swz[i] = bgra4_remap[swz[i]];
+   }
+
    desc.Shader4ComponentMapping =
-      D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(
-         translate_swizzle(pCreateInfo->components.r, 0),
-         translate_swizzle(pCreateInfo->components.g, 1),
-         translate_swizzle(pCreateInfo->components.b, 2),
-         translate_swizzle(pCreateInfo->components.a, 3));
+      D3D12_ENCODE_SHADER_4_COMPONENT_MAPPING(swz[0], swz[1], swz[2], swz[3]);
    switch (desc.ViewDimension) {
    case D3D12_SRV_DIMENSION_TEXTURE1D:
       desc.Texture1D.MostDetailedMip =

@@ -509,6 +509,23 @@ dzn_physical_device::get_format_properties(VkFormat format,
             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_FORMAT_FEATURE_BLIT_DST_BIT;
       }
    }
+
+   /* B4G4R4A4 support is required, but d3d12 doesn't support it. We map this
+    * format to R4G4B4A4 and adjust the SRV component-mapping to fake
+    * B4G4R4A4, but that forces us to limit the usage to sampling, which,
+    * luckily, is exactly what we need to support the required features.
+    */
+   if (format == VK_FORMAT_B4G4R4A4_UNORM_PACK16) {
+      VkFormatFeatureFlags bgra4_req_features =
+         VK_FORMAT_FEATURE_TRANSFER_SRC_BIT |
+         VK_FORMAT_FEATURE_TRANSFER_DST_BIT |
+         VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT |
+         VK_FORMAT_FEATURE_BLIT_SRC_BIT |
+         VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+      properties->optimalTilingFeatures &= bgra4_req_features;
+      properties->bufferFeatures =
+         VK_FORMAT_FEATURE_TRANSFER_SRC_BIT | VK_FORMAT_FEATURE_TRANSFER_DST_BIT;
+   }
 }
 
 void
@@ -575,6 +592,7 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
    if (dfmt_info.Format == DXGI_FORMAT_UNKNOWN)
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
+   bool is_bgra4 = info->format == VK_FORMAT_B4G4R4A4_UNORM_PACK16;
    ID3D12Device *dev = get_d3d12_dev();
 
    if ((info->type == VK_IMAGE_TYPE_1D && !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TEXTURE1D)) ||
@@ -589,19 +607,19 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    if ((info->usage & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) &&
-       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD))
+       (!(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_SHADER_LOAD) || is_bgra4))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    if ((info->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) &&
-       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET))
+       (!(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_RENDER_TARGET) || is_bgra4))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    if ((info->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) &&
-       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL))
+       (!(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_DEPTH_STENCIL) || is_bgra4))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    if ((info->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
-       !(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW))
+       (!(dfmt_info.Support1 & D3D12_FORMAT_SUPPORT1_TYPED_UNORDERED_ACCESS_VIEW) || is_bgra4))
       return VK_ERROR_FORMAT_NOT_SUPPORTED;
 
    bool is_3d = info->type == VK_IMAGE_TYPE_3D;
