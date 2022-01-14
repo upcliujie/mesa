@@ -1800,11 +1800,18 @@ struct anv_descriptor_set_binding_layout {
    /* Offset into the descriptor buffer where this descriptor lives */
    uint32_t descriptor_offset;
 
+   /* Pre computed stride for mutable types */
+   unsigned descriptor_stride;
+
    /* Immutable samplers (or NULL if no immutable samplers) */
    struct anv_sampler **immutable_samplers;
+
 };
 
 unsigned anv_descriptor_size(const struct anv_descriptor_set_binding_layout *layout);
+
+unsigned
+anv_descriptor_size_for_mutable_type(const struct anv_descriptor_set_binding_layout *layout);
 
 unsigned anv_descriptor_type_size(const struct anv_physical_device *pdevice,
                                   VkDescriptorType type);
