@@ -1246,6 +1246,7 @@ void genX(CmdWriteTimestamp2KHR)(
    if (stage == VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT_KHR) {
       mi_store(&b, mi_mem64(anv_address_add(query_addr, 8)),
                    mi_reg64(TIMESTAMP));
+      emit_query_mi_availability(&b, query_addr, true);
    } else {
       /* Everything else is bottom-of-pipe */
       cmd_buffer->state.pending_pipe_bits |= ANV_PIPE_POST_SYNC_BIT;
@@ -1259,9 +1260,9 @@ void genX(CmdWriteTimestamp2KHR)(
          if (GFX_VER == 9 && cmd_buffer->device->info.gt == 4)
             pc.CommandStreamerStallEnable = true;
       }
+      emit_query_pc_availability(cmd_buffer, query_addr, true);
    }
 
-   emit_query_pc_availability(cmd_buffer, query_addr, true);
 
    /* When multiview is active the spec requires that N consecutive query
     * indices are used, where N is the number of active views in the subpass.
