@@ -1802,6 +1802,9 @@ struct anv_descriptor_set_binding_layout {
 
    /* Immutable samplers (or NULL if no immutable samplers) */
    struct anv_sampler **immutable_samplers;
+
+   /* Pre computed stride for mutable types */
+   unsigned stride;
 };
 
 unsigned anv_descriptor_size(const struct anv_descriptor_set_binding_layout *layout);

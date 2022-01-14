@@ -3122,7 +3122,7 @@ get_push_range_address(struct anv_cmd_buffer *cmd_buffer,
       if (desc->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
          if (desc->buffer_view)
             return desc->buffer_view->address;
-      } else {
+      } else if (desc->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC) {
          assert(desc->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC);
          if (desc->buffer) {
             const struct anv_push_constants *push =
