@@ -2905,11 +2905,6 @@ panfrost_direct_draw(struct panfrost_batch *batch,
         mali_ptr attribs, attrib_bufs;
         attribs = panfrost_emit_vertex_data(batch, &attrib_bufs);
 
-        panfrost_update_state_3d(batch);
-        panfrost_update_state_vs(batch);
-        panfrost_update_state_fs(batch);
-        panfrost_clean_state_3d(ctx);
-
         /* Fire off the draw itself */
         panfrost_draw_emit_tiler(batch, info, draw, &invocation, indices,
                                  fs_vary, varyings, pos, psiz, secondary_shader,
@@ -3000,11 +2995,6 @@ panfrost_indirect_draw(struct panfrost_batch *batch,
         ctx->first_vertex_sysval_ptr = 0;
         ctx->base_vertex_sysval_ptr = 0;
         ctx->base_instance_sysval_ptr = 0;
-
-        panfrost_update_state_3d(batch);
-        panfrost_update_state_vs(batch);
-        panfrost_update_state_fs(batch);
-        panfrost_clean_state_3d(ctx);
 
         bool point_coord_replace = (info->mode == PIPE_PRIM_POINTS);
 
@@ -3124,6 +3114,32 @@ panfrost_draw_vbo(struct pipe_context *pipe,
         /* Do some common setup */
         struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
 
+        /* Don't add too many jobs to a single batch. Hardware has a hard limit
+         * of 65536 jobs, but we choose a smaller soft limit (arbitrary) to
+         * avoid the risk of timeouts. This might not be a good idea. */
+        if (unlikely(batch->scoreboard.job_index > 10000))
+                batch = panfrost_get_fresh_batch_for_fbo(ctx, "Too many draws");
+
+        unsigned zs_draws = ctx->depth_stencil->draws;
+        batch->draws |= zs_draws;
+        batch->resolve |= zs_draws;
+
+        /* Mark everything dirty when debugging */
+        if (unlikely(dev->debug & PAN_DBG_DIRTY))
+                panfrost_dirty_state_all(ctx);
+
+        /* Skipping rasterization depends on batch->scissor_culls_everything,
+         * which depends on processing the viewport. So we should handle dirty
+         * flags before trying to skip draws.
+         */
+        panfrost_update_state_3d(batch);
+        panfrost_update_state_vs(batch);
+        panfrost_update_state_fs(batch);
+        panfrost_clean_state_3d(ctx);
+
+        /* Conservatively assume draw parameters always change */
+        ctx->dirty |= PAN_DIRTY_PARAMS | PAN_DIRTY_DRAWID;
+
         /* If rasterization discard is enabled but the vertex shader does not
          * have side effects (including transform feedback), skip the draw
          * altogether. This is always an optimization. Additionally, this is
@@ -3139,23 +3155,6 @@ panfrost_draw_vbo(struct pipe_context *pipe,
                 if (!vs->info.writes_global)
                         return;
         }
-
-        /* Don't add too many jobs to a single batch. Hardware has a hard limit
-         * of 65536 jobs, but we choose a smaller soft limit (arbitrary) to
-         * avoid the risk of timeouts. This might not be a good idea. */
-        if (unlikely(batch->scoreboard.job_index > 10000))
-                batch = panfrost_get_fresh_batch_for_fbo(ctx, "Too many draws");
-
-        unsigned zs_draws = ctx->depth_stencil->draws;
-        batch->draws |= zs_draws;
-        batch->resolve |= zs_draws;
-
-        /* Mark everything dirty when debugging */
-        if (unlikely(dev->debug & PAN_DBG_DIRTY))
-                panfrost_dirty_state_all(ctx);
-
-        /* Conservatively assume draw parameters always change */
-        ctx->dirty |= PAN_DIRTY_PARAMS | PAN_DIRTY_DRAWID;
 
         if (indirect) {
                 assert(num_draws == 1);
@@ -3187,6 +3186,13 @@ panfrost_draw_vbo(struct pipe_context *pipe,
 
                 if (tmp_info.increment_draw_id) {
                         ctx->dirty |= PAN_DIRTY_DRAWID;
+
+                        /* Updating dirty flags may require re-emitting state */
+                        panfrost_update_state_3d(batch);
+                        panfrost_update_state_vs(batch);
+                        panfrost_update_state_fs(batch);
+                        panfrost_clean_state_3d(ctx);
+
                         drawid++;
                 }
         }
