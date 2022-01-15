@@ -39,6 +39,16 @@ algebraic_late = [
 
     (('fabs', ('fddx', a)), ('fabs', ('fddx_must_abs_mali', a))),
     (('fabs', ('fddy', b)), ('fabs', ('fddy_must_abs_mali', b))),
+
+    # In NIR, b2f16 can take a vectorized 32-bit source. We do not have a direct
+    # opcode for this. However, 32-bit NIR booleans are 0/-1 as integers, so
+    # fneg(i2f16) implements b2f16, with both operations vectorized.
+    #
+    # Lowering this in NIR allows the fneg to be optimized, for example if the
+    # result of the b2f16 is negated.
+    #
+    # Test case: KHR-GLES31.core.compute_shader.pipeline-post-fs
+    (('b2f16', 'a@32'), ('fneg', ('i2f16', a))),
 ]
 
 
