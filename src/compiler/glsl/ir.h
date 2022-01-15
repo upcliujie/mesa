@@ -1516,23 +1516,6 @@ public:
    ir_rvalue *rhs;
 
    /**
-    * Optional condition for the assignment.
-    */
-private:
-   ir_rvalue *unused_condition;
-
-public:
-   inline ir_rvalue *get_condition()
-   {
-      return unused_condition;
-   }
-
-   inline const ir_rvalue *get_condition() const
-   {
-      return unused_condition;
-   }
-
-   /**
     * Component mask written
     *
     * For non-vector types in the LHS, this field will be zero.  For vector

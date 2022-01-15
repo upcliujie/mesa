@@ -432,9 +432,6 @@ void ir_print_visitor::visit(ir_assignment *ir)
 {
    fprintf(f, "(assign ");
 
-   if (ir->get_condition())
-      ir->get_condition()->accept(this);
-
    char mask[5];
    unsigned j = 0;
 
