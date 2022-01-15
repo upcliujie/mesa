@@ -2619,9 +2619,6 @@ panfrost_update_state_3d(struct panfrost_batch *batch)
 {
         unsigned dirty = batch->ctx->dirty;
 
-        if (dirty & (PAN_DIRTY_VIEWPORT | PAN_DIRTY_SCISSOR))
-                batch->viewport = panfrost_emit_viewport(batch);
-
         if (dirty & PAN_DIRTY_TLS_SIZE)
                 panfrost_batch_adjust_stack_size(batch);
 }
@@ -3123,6 +3120,13 @@ panfrost_draw_vbo(struct pipe_context *pipe,
 
         /* Do some common setup */
         struct panfrost_batch *batch = panfrost_get_batch_for_fbo(ctx);
+
+        /* panfrost_batch_skip_rasterization reads
+         * batch->scissor_culls_everything, which is set by
+         * panfrost_emit_viewport, so call that first.
+         */
+        if (dirty & (PAN_DIRTY_VIEWPORT | PAN_DIRTY_SCISSOR))
+                batch->viewport = panfrost_emit_viewport(batch);
 
         /* If rasterization discard is enabled but the vertex shader does not
          * have side effects (including transform feedback), skip the draw
