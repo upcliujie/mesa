@@ -65,7 +65,6 @@
    .lower_unpack_snorm_4x8 = true,                                            \
    .lower_unpack_unorm_2x16 = true,                                           \
    .lower_unpack_unorm_4x8 = true,                                            \
-   .lower_usub_sat64 = true,                                                  \
    .lower_hadd64 = true,                                                      \
    .avoid_ternary_with_two_constants = true,                                  \
    .has_pack_32_4x8 = true,                                                   \
@@ -128,7 +127,8 @@ brw_compiler_create(void *mem_ctx, const struct intel_device_info *devinfo)
       nir_lower_imul64 |
       nir_lower_isign64 |
       nir_lower_divmod64 |
-      nir_lower_imul_high64;
+      nir_lower_imul_high64 |
+      nir_lower_usub_sat64;
    nir_lower_doubles_options fp64_options =
       nir_lower_drcp |
       nir_lower_dsqrt |
