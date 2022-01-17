@@ -1705,6 +1705,24 @@ void anv_UpdateDescriptorSets(
          for (uint32_t j = 0; j < copy->descriptorCount; j++)
             dst_desc[j] = src_desc[j];
 
+         if (src_layout->data & ANV_DESCRIPTOR_BUFFER_VIEW) {
+            assert(dst_layout->data & ANV_DESCRIPTOR_BUFFER_VIEW);
+            for (uint32_t j = 0; j < copy->descriptorCount; j++) {
+               struct anv_buffer_view *dst_bview =
+                  &dst->buffer_views[dst_layout->buffer_view_index + j];
+               struct anv_buffer_view *src_bview =
+                  &src->buffer_views[src_layout->buffer_view_index + j];
+
+               dst_bview->format = src_bview->format;
+               dst_bview->range = src_bview->range;
+               dst_bview->address = src_bview->address;
+
+               memcpy(dst_bview->surface_state.map,
+                      src_bview->surface_state.map,
+                      src_bview->surface_state.alloc_size);
+            }
+         }
+
          unsigned desc_size = anv_descriptor_size(src_layout);
          if (desc_size > 0) {
             assert(desc_size == anv_descriptor_size(dst_layout));
