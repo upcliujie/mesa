@@ -32,7 +32,7 @@ struct winsys_handle;
 struct virgl_hw_res;
 
 #define VIRGL_MAX_TBUF_DWORDS 1024
-#define VIRGL_MAX_CMDBUF_DWORDS ((64 * 1024) + VIRGL_MAX_TBUF_DWORDS)
+#define VIRGL_MAX_CMDBUF_DWORDS ((32 * 1024) + VIRGL_MAX_TBUF_DWORDS)
 #define VIRGL_MAX_PLANE_COUNT 3
 
 struct virgl_drm_caps {
