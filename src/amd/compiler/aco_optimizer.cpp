@@ -868,7 +868,7 @@ smem_combine(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 }
 
 unsigned
-get_operand_size(aco_ptr<Instruction>& instr, unsigned index)
+get_operand_size(Instruction* instr, unsigned index)
 {
    if (instr->isPseudo())
       return instr->operands[index].bytes() * 8u;
@@ -899,7 +899,7 @@ propagate_constants_vop3p(opt_ctx& ctx, aco_ptr<Instruction>& instr, ssa_info& i
       return;
 
    assert(instr->operands[i].isTemp());
-   unsigned bits = get_operand_size(instr, i);
+   unsigned bits = get_operand_size(instr.get(), i);
    if (info.is_constant(bits)) {
       instr->operands[i] = get_constant_op(ctx, info, bits);
       return;
@@ -1216,7 +1216,7 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 
       /* SALU / PSEUDO: propagate inline constants */
       if (instr->isSALU() || instr->isPseudo()) {
-         unsigned bits = get_operand_size(instr, i);
+         unsigned bits = get_operand_size(instr.get(), i);
          if ((info.is_constant(bits) || (info.is_literal(bits) && instr->isPseudo())) &&
              !instr->operands[i].isFixed() && alu_can_accept_constant(instr->opcode, i)) {
             instr->operands[i] = get_constant_op(ctx, info, bits);
@@ -1286,7 +1286,7 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
             continue;
          }
 
-         unsigned bits = get_operand_size(instr, i);
+         unsigned bits = get_operand_size(instr.get(), i);
          if (info.is_constant(bits) && alu_can_accept_constant(instr->opcode, i) &&
              (!instr->isSDWA() || ctx.program->chip_class >= GFX9)) {
             Operand op = get_constant_op(ctx, info, bits);
@@ -3026,11 +3026,13 @@ apply_omod_clamp(opt_ctx& ctx, aco_ptr<Instruction>& instr)
       return false;
 
    bool can_vop3 = can_use_VOP3(ctx, instr);
-   if (!instr->isSDWA() && !can_vop3)
+   bool is_mad_mix =
+      instr->opcode == aco_opcode::v_fma_mix_f32 || instr->opcode == aco_opcode::v_fma_mixlo_f16;
+   if (!instr->isSDWA() && !is_mad_mix && !can_vop3)
       return false;
 
-   /* omod flushes -0 to +0 and has no effect if denormals are enabled */
-   bool can_use_omod = (can_vop3 || ctx.program->chip_class >= GFX9); /* SDWA omod is GFX9+ */
+   /* omod flushes -0 to +0 and has no effect if denormals are enabled. SDWA omod is GFX9+. */
+   bool can_use_omod = (can_vop3 || ctx.program->chip_class >= GFX9) && !instr->isVOP3P();
    if (instr->definitions[0].bytes() == 4)
       can_use_omod =
          can_use_omod && ctx.fp_mode.denorm32 == 0 && !ctx.fp_mode.preserve_signed_zero_inf_nan32;
@@ -3047,6 +3049,8 @@ apply_omod_clamp(opt_ctx& ctx, aco_ptr<Instruction>& instr)
     * instruction is a different instruction */
    if (!ctx.uses[def_info.instr->definitions[0].tempId()])
       return false;
+   if (get_operand_size(def_info.instr, 0) != instr->definitions[0].bytes() * 8)
+      return false;
 
    /* MADs/FMAs are created later, so we don't have to update the original add */
    assert(!ctx.info[instr->definitions[0].tempId()].is_mad());
@@ -3054,6 +3058,9 @@ apply_omod_clamp(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    if (instr->isSDWA()) {
       if (!apply_omod_clamp_helper(ctx, &instr->sdwa(), def_info))
          return false;
+   } else if (instr->isVOP3P()) {
+      assert(def_info.is_clamp());
+      instr->vop3p().clamp = true;
    } else {
       to_VOP3(ctx, instr);
       if (!apply_omod_clamp_helper(ctx, &instr->vop3(), def_info))
@@ -3555,7 +3562,7 @@ combine_mad_mix(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          continue;
       }
 
-      if (conv->definitions[0].bytes() * 8 != get_operand_size(instr, i))
+      if (conv->definitions[0].bytes() * 8 != get_operand_size(instr.get(), i))
          continue;
       if (conv->definitions[0].bytes() == 2 &&
           (conv->definitions[0].isPrecise() || instr->definitions[0].isPrecise()))
@@ -3747,7 +3754,7 @@ combine_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          if (info.instr->isVOP3P() && instr->isVOP3() && instr->vop3().omod)
             continue;
 
-         if (get_operand_size(instr, i) != info.instr->definitions[0].bytes() * 8)
+         if (get_operand_size(instr.get(), i) != info.instr->definitions[0].bytes() * 8)
             continue;
 
          bool legacy = info.instr->opcode == aco_opcode::v_mul_legacy_f32;
@@ -4206,7 +4213,7 @@ select_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
 
          /* Try using v_madak/v_fmaak */
          if (instr->operands[2].isTemp() &&
-             ctx.info[instr->operands[2].tempId()].is_literal(get_operand_size(instr, 2))) {
+             ctx.info[instr->operands[2].tempId()].is_literal(get_operand_size(instr.get(), 2))) {
             bool has_sgpr = false;
             bool has_vgpr = false;
             for (unsigned i = 0; i < 2; i++) {
@@ -4236,7 +4243,8 @@ select_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
                    instr->operands[!i].getTemp().type() == RegType::sgpr)
                   continue;
 
-               if (ctx.info[instr->operands[i].tempId()].is_literal(get_operand_size(instr, i)) &&
+               if (ctx.info[instr->operands[i].tempId()].is_literal(
+                      get_operand_size(instr.get(), i)) &&
                    ctx.uses[instr->operands[i].tempId()] < literal_uses) {
                   literal_idx = i;
                   literal_uses = ctx.uses[instr->operands[i].tempId()];
@@ -4367,7 +4375,7 @@ select_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    /* choose a literal to apply */
    for (unsigned i = 0; i < num_operands; i++) {
       Operand op = instr->operands[i];
-      unsigned bits = get_operand_size(instr, i);
+      unsigned bits = get_operand_size(instr.get(), i);
 
       if (instr->isVALU() && op.isTemp() && op.getTemp().type() == RegType::sgpr &&
           op.tempId() != sgpr_ids[0])
@@ -4466,7 +4474,7 @@ apply_literals(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    if (instr->isSALU() || instr->isVALU()) {
       for (unsigned i = 0; i < instr->operands.size(); i++) {
          Operand op = instr->operands[i];
-         unsigned bits = get_operand_size(instr, i);
+         unsigned bits = get_operand_size(instr.get(), i);
          if (op.isTemp() && ctx.info[op.tempId()].is_literal(bits) && ctx.uses[op.tempId()] == 0) {
             Operand literal = Operand::c32(ctx.info[op.tempId()].val);
             instr->format = withoutDPP(instr->format);
