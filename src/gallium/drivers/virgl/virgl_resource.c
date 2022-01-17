@@ -91,6 +91,20 @@ static bool virgl_res_needs_flush(struct virgl_context *vctx,
    return true;
 }
 
+void virgl_res_wait_cmd_buffer(struct virgl_winsys *vws,
+                                  struct virgl_resource *res)
+{
+   vws->res_wait_cmd_buffer(vws, res->hw_res);
+}
+
+static void virgl_transfer_wait_cmd_buffer(struct virgl_context *vctx,
+                                           struct virgl_transfer *trans)
+{
+   struct virgl_winsys *vws = virgl_screen(vctx->base.screen)->vws;
+   struct virgl_resource *res = virgl_resource(trans->base.resource);
+   virgl_res_wait_cmd_buffer(vws, res);
+}
+
 /* We need to read back from the host storage to make sure the guest storage
  * is up-to-date.  But there are cases where the readback can be skipped:
  *
@@ -233,8 +247,10 @@ virgl_resource_transfer_prepare(struct virgl_context *vctx,
          flush = true;
    }
 
-   if (flush)
+   if (flush) {
       vctx->base.flush(&vctx->base, NULL, 0);
+      virgl_transfer_wait_cmd_buffer(vctx, xfer);
+   }
 
    /* If we are not allowed to block, and we know that we will have to wait,
     * either because the resource is busy, or because it will become busy due
