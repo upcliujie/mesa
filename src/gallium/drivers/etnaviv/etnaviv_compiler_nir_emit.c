@@ -46,6 +46,11 @@ struct etna_op_info {
    uint8_t type; /* INST_TYPE_ */
 };
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winitializer-overrides"
+#endif
+
 static const struct etna_op_info etna_ops[] = {
    [0 ... nir_num_opcodes - 1] = {0xff},
 #undef TRUE
@@ -121,6 +126,10 @@ static const struct etna_op_info etna_ops[] = {
    IOP(ishr, RSHIFT, 0_X_1),
    UOP(ushr, RSHIFT, 0_X_1),
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 void
 etna_emit_alu(struct etna_compile *c, nir_op op, struct etna_inst_dst dst,
