@@ -146,6 +146,11 @@ static gpir_node *gpir_node_find(gpir_block *block, nir_src *src,
    return pred;
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winitializer-overrides"
+#endif
+
 static int nir_to_gpir_opcodes[nir_num_opcodes] = {
    /* not supported */
    [0 ... nir_last_opcode] = -1,
@@ -168,6 +173,10 @@ static int nir_to_gpir_opcodes[nir_num_opcodes] = {
    [nir_op_sne] = gpir_op_ne,
    [nir_op_fabs] = gpir_op_abs,
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 static bool gpir_emit_alu(gpir_block *block, nir_instr *ni)
 {

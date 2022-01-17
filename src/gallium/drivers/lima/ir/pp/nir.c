@@ -122,6 +122,11 @@ static void ppir_node_add_src(ppir_compiler *comp, ppir_node *node,
    ppir_node_target_assign(ps, child);
 }
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winitializer-overrides"
+#endif
+
 static int nir_to_ppir_opcodes[nir_num_opcodes] = {
    /* not supported */
    [0 ... nir_last_opcode] = -1,
@@ -156,6 +161,10 @@ static int nir_to_ppir_opcodes[nir_num_opcodes] = {
    [nir_op_fddx] = ppir_op_ddx,
    [nir_op_fddy] = ppir_op_ddy,
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 static bool ppir_emit_alu(ppir_block *block, nir_instr *ni)
 {
