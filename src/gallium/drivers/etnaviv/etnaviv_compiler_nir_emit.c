@@ -49,6 +49,9 @@ struct etna_op_info {
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winitializer-overrides"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverride-init"
 #endif
 
 static const struct etna_op_info etna_ops[] = {
@@ -129,6 +132,8 @@ static const struct etna_op_info etna_ops[] = {
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
 
 void
