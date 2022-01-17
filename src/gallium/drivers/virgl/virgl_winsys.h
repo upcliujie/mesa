@@ -32,7 +32,7 @@ struct winsys_handle;
 struct virgl_hw_res;
 
 #define VIRGL_MAX_TBUF_DWORDS 1024
-#define VIRGL_MAX_CMDBUF_DWORDS ((64 * 1024) + VIRGL_MAX_TBUF_DWORDS)
+#define VIRGL_MAX_CMDBUF_DWORDS ((32 * 1024) + VIRGL_MAX_TBUF_DWORDS)
 #define VIRGL_MAX_PLANE_COUNT 3
 
 struct virgl_drm_caps {
@@ -113,6 +113,9 @@ struct virgl_winsys {
    boolean (*res_is_referenced)(struct virgl_winsys *vws,
                                 struct virgl_cmd_buf *buf,
                                 struct virgl_hw_res *res);
+
+   void (*res_wait_cmd_buffer_submitted)(struct virgl_winsys *vws,
+                                         struct virgl_hw_res *res);
 
    int (*get_caps)(struct virgl_winsys *vws, struct virgl_drm_caps *caps);
 
