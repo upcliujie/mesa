@@ -149,6 +149,9 @@ static gpir_node *gpir_node_find(gpir_block *block, nir_src *src,
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Winitializer-overrides"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverride-init"
 #endif
 
 static int nir_to_gpir_opcodes[nir_num_opcodes] = {
@@ -176,6 +179,8 @@ static int nir_to_gpir_opcodes[nir_num_opcodes] = {
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
 
 static bool gpir_emit_alu(gpir_block *block, nir_instr *ni)
