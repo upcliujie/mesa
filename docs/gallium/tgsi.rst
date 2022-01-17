@@ -1898,31 +1898,6 @@ two-component vectors with doubled precision in each component.
 
   dst.zw = (src.zw > 0) ? 1.0 : (src.zw < 0) ? -1.0 : 0.0
 
-.. opcode:: DFRACEXP - Convert Number to Fractional and Integral Components
-
-Like the ``frexp()`` routine in many math libraries, this opcode stores the
-exponent of its source to ``dst0``, and the significand to ``dst1``, such that
-:math:`dst1 \times 2^{dst0} = src` . The results are replicated across
-channels.
-
-.. math::
-
-  dst0.xy = dst.zw = frac(src.xy)
-
-  dst1 = frac(src.xy)
-
-
-.. opcode:: DLDEXP - Multiply Number by Integral Power of 2
-
-This opcode is the inverse of :opcode:`DFRACEXP`. The second
-source is an integer.
-
-.. math::
-
-  dst.xy = src0.xy \times 2^{src1.x}
-
-  dst.zw = src0.zw \times 2^{src1.z}
-
 .. opcode:: DMIN - Minimum
 
 .. math::

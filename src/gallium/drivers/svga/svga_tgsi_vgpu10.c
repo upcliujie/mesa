@@ -9502,10 +9502,7 @@ emit_vgpu10_instruction(struct svga_shader_emitter_v10 *emit,
     * FMA_SUPPORTED, LDEXP_SUPPORTED queries.
     */
    case TGSI_OPCODE_FMA:
-   case TGSI_OPCODE_LDEXP:
    case TGSI_OPCODE_DSSG:
-   case TGSI_OPCODE_DFRACEXP:
-   case TGSI_OPCODE_DLDEXP:
    case TGSI_OPCODE_DTRUNC:
    case TGSI_OPCODE_DCEIL:
    case TGSI_OPCODE_DFLR:

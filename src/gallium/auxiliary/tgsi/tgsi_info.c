@@ -200,8 +200,6 @@ tgsi_opcode_infer_type(enum tgsi_opcode opcode)
    case TGSI_OPCODE_DRCP:
    case TGSI_OPCODE_DSQRT:
    case TGSI_OPCODE_DMAD:
-   case TGSI_OPCODE_DLDEXP:
-   case TGSI_OPCODE_DFRACEXP:
    case TGSI_OPCODE_DFRAC:
    case TGSI_OPCODE_DRSQ:
    case TGSI_OPCODE_DTRUNC:
@@ -250,10 +248,6 @@ tgsi_opcode_infer_type(enum tgsi_opcode opcode)
 enum tgsi_opcode_type
 tgsi_opcode_infer_src_type(enum tgsi_opcode opcode, uint src_idx)
 {
-   if (src_idx == 1 &&
-       (opcode == TGSI_OPCODE_DLDEXP || opcode == TGSI_OPCODE_LDEXP))
-      return TGSI_TYPE_SIGNED;
-
    if (src_idx == 1 &&
        (opcode == TGSI_OPCODE_LOAD))
       return TGSI_TYPE_UNSIGNED;
@@ -335,8 +329,5 @@ tgsi_opcode_infer_src_type(enum tgsi_opcode opcode, uint src_idx)
 enum tgsi_opcode_type
 tgsi_opcode_infer_dst_type(enum tgsi_opcode opcode, uint dst_idx)
 {
-   if (dst_idx == 1 && opcode == TGSI_OPCODE_DFRACEXP)
-      return TGSI_TYPE_SIGNED;
-
    return tgsi_opcode_infer_type(opcode);
 }

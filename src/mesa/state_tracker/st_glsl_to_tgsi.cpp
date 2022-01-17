@@ -519,7 +519,6 @@ public:
    int eliminate_dead_code(void);
 
    void split_arrays(void);
-   void merge_two_dsts(void);
    void merge_registers(void);
    void renumber_registers(void);
 
@@ -873,7 +872,6 @@ glsl_to_tgsi_visitor::emit_asm(ir_instruction *ir, enum tgsi_opcode op,
                if (op == TGSI_OPCODE_F2D || op == TGSI_OPCODE_U2D ||
                    op == TGSI_OPCODE_I2D ||
                    op == TGSI_OPCODE_I2I64 || op == TGSI_OPCODE_U2I64 ||
-                   op == TGSI_OPCODE_DLDEXP || op == TGSI_OPCODE_LDEXP ||
                    (op == TGSI_OPCODE_UCMP && dst_is_64bit[0])) {
                   dinst->src[j].swizzle = MAKE_SWIZZLE4(swz, swz, swz, swz);
                }
@@ -1776,14 +1774,6 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
       break;
    }
 
-   case ir_unop_frexp_sig:
-      emit_asm(ir, TGSI_OPCODE_DFRACEXP, result_dst, undef_dst, op[0]);
-      break;
-
-   case ir_unop_frexp_exp:
-      emit_asm(ir, TGSI_OPCODE_DFRACEXP, undef_dst, result_dst, op[0]);
-      break;
-
    case ir_binop_add:
       emit_asm(ir, TGSI_OPCODE_ADD, result_dst, op[0], op[1]);
       break;
@@ -2424,16 +2414,6 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
       emit_asm(ir, TGSI_OPCODE_MOV, result_dst, op[0]);
       break;
 
-   case ir_binop_ldexp:
-      if (ir->operands[0]->type->is_double()) {
-         emit_asm(ir, TGSI_OPCODE_DLDEXP, result_dst, op[0], op[1]);
-      } else if (ir->operands[0]->type->is_float()) {
-         emit_asm(ir, TGSI_OPCODE_LDEXP, result_dst, op[0], op[1]);
-      } else {
-         assert(!"Invalid ldexp for non-double opcode in glsl_to_tgsi_visitor::visit()");
-      }
-      break;
-
    case ir_unop_pack_half_2x16:
       emit_asm(ir, TGSI_OPCODE_PK2H, result_dst, op[0]);
       break;
@@ -2596,6 +2576,9 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
    case ir_unop_atan:
    case ir_binop_atan2:
    case ir_unop_clz:
+   case ir_unop_frexp_sig:
+   case ir_unop_frexp_exp:
+   case ir_binop_ldexp:
    case ir_binop_add_sat:
    case ir_binop_sub_sat:
    case ir_binop_abs_sub:
@@ -5740,58 +5723,6 @@ glsl_to_tgsi_visitor::eliminate_dead_code(void)
    return removed;
 }
 
-/* merge DFRACEXP instructions into one. */
-void
-glsl_to_tgsi_visitor::merge_two_dsts(void)
-{
-   /* We never delete inst, but we may delete its successor. */
-   foreach_in_list(glsl_to_tgsi_instruction, inst, &this->instructions) {
-      glsl_to_tgsi_instruction *inst2;
-      unsigned defined;
-
-      if (num_inst_dst_regs(inst) != 2)
-         continue;
-
-      if (inst->dst[0].file != PROGRAM_UNDEFINED &&
-          inst->dst[1].file != PROGRAM_UNDEFINED)
-         continue;
-
-      assert(inst->dst[0].file != PROGRAM_UNDEFINED ||
-             inst->dst[1].file != PROGRAM_UNDEFINED);
-
-      if (inst->dst[0].file == PROGRAM_UNDEFINED)
-         defined = 1;
-      else
-         defined = 0;
-
-      inst2 = (glsl_to_tgsi_instruction *) inst->next;
-      while (!inst2->is_tail_sentinel()) {
-         if (inst->op == inst2->op &&
-             inst2->dst[defined].file == PROGRAM_UNDEFINED &&
-             inst->src[0].file == inst2->src[0].file &&
-             inst->src[0].index == inst2->src[0].index &&
-             inst->src[0].type == inst2->src[0].type &&
-             inst->src[0].swizzle == inst2->src[0].swizzle)
-            break;
-         inst2 = (glsl_to_tgsi_instruction *) inst2->next;
-      }
-
-      if (inst2->is_tail_sentinel()) {
-         /* Undefined destinations are not allowed, substitute with an unused
-          * temporary register.
-          */
-         st_src_reg tmp = get_temp(glsl_type::vec4_type);
-         inst->dst[defined ^ 1] = st_dst_reg(tmp);
-         inst->dst[defined ^ 1].writemask = 0;
-         continue;
-      }
-
-      inst->dst[defined ^ 1] = inst2->dst[defined ^ 1];
-      inst2->remove();
-      delete inst2;
-   }
-}
-
 template <typename st_reg>
 void test_indirect_access(const st_reg& reg, bool *has_indirect_access)
 {
@@ -7310,8 +7241,6 @@ get_mesa_program_tgsi(struct gl_context *ctx,
    v->copy_propagate();
 
    while (v->eliminate_dead_code());
-
-   v->merge_two_dsts();
 
    if (!skip_merge_registers) {
       v->split_arrays();
