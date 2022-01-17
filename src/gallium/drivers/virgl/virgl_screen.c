@@ -53,6 +53,7 @@ static const struct debug_named_value virgl_debug_options[] = {
    { "xfer",      VIRGL_DEBUG_XFER,                "Do not optimize for transfers" },
    { "r8srgb-readback",   VIRGL_DEBUG_L8_SRGB_ENABLE_READBACK, "Enable redaback for L8 sRGB textures" },
    { "nocoherent", VIRGL_DEBUG_NO_COHERENT,        "Disable coherent memory"},
+   { "snc_cmd", VIRGL_DEBUG_SYNC_CMD_SUBMISSION, "Synchrounus command stream submission"},
    DEBUG_NAMED_VALUE_END
 };
 DEBUG_GET_ONCE_FLAGS_OPTION(virgl_debug, "VIRGL_DEBUG", virgl_debug_options, 0)

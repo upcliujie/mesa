@@ -112,6 +112,9 @@ static inline struct virgl_transfer *virgl_transfer(struct pipe_transfer *trans)
    return (struct virgl_transfer *)trans;
 }
 
+void virgl_res_wait_referencing_cmd_submitted(struct virgl_winsys *vws,
+                                              struct virgl_resource *res);
+
 void virgl_buffer_transfer_flush_region(struct pipe_context *ctx,
                                         struct pipe_transfer *transfer,
                                         const struct pipe_box *box);
