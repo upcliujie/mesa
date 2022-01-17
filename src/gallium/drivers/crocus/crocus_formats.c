@@ -34,6 +34,11 @@
 #include "crocus_resource.h"
 #include "crocus_screen.h"
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Winitializer-overrides"
+#endif
+
 static enum isl_format
 crocus_isl_format_for_pipe_format(enum pipe_format pf)
 {
@@ -299,6 +304,10 @@ crocus_isl_format_for_pipe_format(enum pipe_format pf)
    assert(pf < PIPE_FORMAT_COUNT);
    return table[pf];
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 static enum isl_format
 get_render_format(enum pipe_format pformat, enum isl_format def_format)
