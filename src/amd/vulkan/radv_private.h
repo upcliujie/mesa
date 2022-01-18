@@ -692,6 +692,10 @@ struct radv_meta_state {
 
 #define RADV_NUM_HW_CTX (RADEON_CTX_PRIORITY_REALTIME + 1)
 
+/* Size of the task control buffer in dwords. */
+#define RADV_TASK_CTRLBUF_DWORDS 9
+/* Number of entries in the task ring buffers. Needs to be a power of two. */
+#define RADV_TASK_NUM_ENTRIES 256
 /* Size of each payload entry in the task payload ring. Spec requires minimum 16K bytes. */
 #define RADV_TASK_PAYLOAD_ENTRY_BYTES 16384
 /* Number of entries in the task ring buffers. Needs to be a power of two. */
@@ -717,6 +721,7 @@ struct radv_queue {
    bool has_gds;
    bool has_gds_oa;
    bool has_sample_positions;
+   bool has_task_rings;
 
    struct radeon_winsys_bo *scratch_bo;
    struct radeon_winsys_bo *descriptor_bo;
@@ -726,6 +731,7 @@ struct radv_queue {
    struct radeon_winsys_bo *tess_rings_bo;
    struct radeon_winsys_bo *gds_bo;
    struct radeon_winsys_bo *gds_oa_bo;
+   struct radeon_winsys_bo *task_rings_bo;
    struct radeon_cmdbuf *initial_preamble_cs;
    struct radeon_cmdbuf *initial_full_flush_preamble_cs;
    struct radeon_cmdbuf *continue_preamble_cs;
@@ -1453,7 +1459,7 @@ struct radv_cmd_state {
    uint32_t last_nggc_settings;
    int8_t last_nggc_settings_sgpr_idx;
    bool last_nggc_skip;
-   
+
    /* Mesh shading state. */
    bool mesh_shading;
 
@@ -1532,6 +1538,7 @@ struct radv_cmd_buffer {
    bool tess_rings_needed;
    bool gds_needed;    /* for GFX10 streamout and NGG GS queries */
    bool gds_oa_needed; /* for GFX10 streamout */
+   bool task_rings_needed;
    bool sample_positions_needed;
 
    VkResult record_result;
