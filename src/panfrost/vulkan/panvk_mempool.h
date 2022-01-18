@@ -64,6 +64,10 @@ struct panvk_pool {
 
    /* Within the topmost transient BO, how much has been used? */
    unsigned transient_offset;
+
+   /* CPU-visible pool, only used for secondary command buffers */
+   bool cpu_only;
+   struct panfrost_bo cpu_bo;
 };
 
 static inline struct panvk_pool *
@@ -76,6 +80,17 @@ void
 panvk_pool_init(struct panvk_pool *pool, struct panfrost_device *dev,
                 struct panvk_bo_pool *bo_pool, unsigned create_flags,
                 size_t slab_size, const char *label, bool prealloc);
+
+void
+panvk_cpu_pool_init(struct panvk_pool *pool,
+                    struct panfrost_device *dev,
+                    unsigned create_flags,
+                    const char *label,
+                    mali_ptr fake_gpu_base);
+
+void
+panvk_cpu_pool_reserve_mem(struct panvk_pool *pool,
+                           size_t size, unsigned alignment);
 
 void
 panvk_pool_reset(struct panvk_pool *pool);
