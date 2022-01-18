@@ -2522,6 +2522,9 @@ radv_link_shaders(struct radv_pipeline *pipeline,
    if (shaders[MESA_SHADER_MESH]) {
       ordered_shaders[shader_count++] = shaders[MESA_SHADER_MESH];
    }
+   if (shaders[MESA_SHADER_TASK]) {
+      ordered_shaders[shader_count++] = shaders[MESA_SHADER_TASK];
+   }
    if (shaders[MESA_SHADER_COMPUTE]) {
       ordered_shaders[shader_count++] = shaders[MESA_SHADER_COMPUTE];
    }
