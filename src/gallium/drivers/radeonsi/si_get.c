@@ -198,7 +198,7 @@ static int si_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
    case PIPE_CAP_DEVICE_RESET_STATUS_QUERY:
       return sscreen->info.has_gpu_reset_status_query;
 
-   case PIPE_CAP_DEVICE_PROTECTED_CONTENT:
+   case PIPE_CAP_DEVICE_PROTECTED_SURFACE:
       return sscreen->info.has_tmz_support;
 
    case PIPE_CAP_TEXTURE_MULTISAMPLE:
