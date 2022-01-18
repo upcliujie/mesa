@@ -3564,7 +3564,9 @@ fill_geom_tess_rings(struct radv_queue *queue, uint32_t *map, bool add_sample_po
                      uint32_t esgs_ring_size, struct radeon_winsys_bo *esgs_ring_bo,
                      uint32_t gsvs_ring_size, struct radeon_winsys_bo *gsvs_ring_bo,
                      uint32_t tess_factor_ring_size, uint32_t tess_offchip_ring_offset,
-                     uint32_t tess_offchip_ring_size, struct radeon_winsys_bo *tess_rings_bo)
+                     uint32_t tess_offchip_ring_size, struct radeon_winsys_bo *tess_rings_bo,
+                     uint32_t task_draw_ring_size, uint32_t task_payload_ring_size,
+                     struct radeon_winsys_bo *task_rings_bo)
 {
    uint32_t *desc = &map[4];
 
@@ -3680,6 +3682,31 @@ fill_geom_tess_rings(struct radv_queue *queue, uint32_t *map, bool add_sample_po
          desc[7] |= S_008F0C_NUM_FORMAT(V_008F0C_BUF_NUM_FORMAT_FLOAT) |
                     S_008F0C_DATA_FORMAT(V_008F0C_BUF_DATA_FORMAT_32);
       }
+   }
+
+   desc += 8;
+
+   if (task_rings_bo) {
+      uint64_t task_va = radv_buffer_get_va(task_rings_bo);
+      uint64_t task_draw_ring_va = task_va + align(RADV_TASK_CTRLBUF_DWORDS * 4, 256);
+      uint64_t task_payload_ring_va = task_draw_ring_va + align(task_draw_ring_size, 256);
+
+      desc[0] = task_draw_ring_va;
+      desc[1] = S_008F04_BASE_ADDRESS_HI(task_draw_ring_va >> 32);
+      desc[2] = task_draw_ring_size;
+      desc[3] = S_008F0C_DST_SEL_X(V_008F0C_SQ_SEL_X) | S_008F0C_DST_SEL_Y(V_008F0C_SQ_SEL_Y) |
+                S_008F0C_DST_SEL_Z(V_008F0C_SQ_SEL_Z) | S_008F0C_DST_SEL_W(V_008F0C_SQ_SEL_W) |
+                S_008F0C_FORMAT(V_008F0C_GFX10_FORMAT_32_UINT) |
+                S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_DISABLED) | S_008F0C_RESOURCE_LEVEL(1);
+
+      desc[4] = task_payload_ring_va;
+      desc[5] = S_008F04_BASE_ADDRESS_HI(task_payload_ring_va >> 32);
+      desc[6] = task_payload_ring_size;
+      desc[7] = S_008F0C_DST_SEL_X(V_008F0C_SQ_SEL_X) | S_008F0C_DST_SEL_Y(V_008F0C_SQ_SEL_Y) |
+                S_008F0C_DST_SEL_Z(V_008F0C_SQ_SEL_Z) | S_008F0C_DST_SEL_W(V_008F0C_SQ_SEL_W) |
+                S_008F0C_FORMAT(V_008F0C_GFX10_FORMAT_32_UINT) |
+                S_008F0C_OOB_SELECT(V_008F0C_OOB_SELECT_DISABLED) | S_008F0C_RESOURCE_LEVEL(1);
+
    }
 
    desc += 8;
@@ -3827,6 +3854,60 @@ radv_emit_tess_factor_ring(struct radv_queue *queue, struct radeon_cmdbuf *cs,
 }
 
 static void
+radv_initialise_task_control_buffer(struct radv_device *device,
+                                    struct radeon_winsys_bo *task_rings_bo)
+{
+   const uint64_t task_ctrlbuf_va = radv_buffer_get_va(task_rings_bo);
+   const uint64_t task_draw_ring_va = task_ctrlbuf_va + align(RADV_TASK_CTRLBUF_DWORDS * 4, 256);
+   assert((task_draw_ring_va & 0xFFFFFF00) == (task_draw_ring_va & 0xFFFFFFFF));
+
+   uint32_t ctrlbuf_dwords[RADV_TASK_CTRLBUF_DWORDS] = {
+      /* 64-bit write_ptr */
+      device->task_num_entries,
+      0,
+      /* 64-bit read_ptr */
+      device->task_num_entries,
+      0,
+      /* 64-bit dealloc_ptr */
+      device->task_num_entries,
+      0,
+      /* num_entries */
+      device->task_num_entries,
+      /* 64-bit draw ring address */
+      task_draw_ring_va,
+      task_draw_ring_va >> 32
+   };
+
+   uint32_t *mapped_task_rings_bo = (uint32_t *)device->ws->buffer_map(task_rings_bo);
+   memcpy(mapped_task_rings_bo, &ctrlbuf_dwords, RADV_TASK_CTRLBUF_DWORDS * 4);
+   device->ws->buffer_unmap(task_rings_bo);
+}
+
+static void
+radv_emit_task_rings(struct radv_queue *queue, struct radeon_cmdbuf *cs,
+                     unsigned task_num_entries, struct radeon_winsys_bo *task_rings_bo)
+{
+   if (!task_rings_bo)
+      return;
+
+   const uint64_t task_ctrlbuf_va = radv_buffer_get_va(task_rings_bo);
+   assert(radv_is_aligned(task_ctrlbuf_va, 256));
+   radv_cs_add_buffer(queue->device->ws, cs, task_rings_bo);
+
+   ASSERTED unsigned cdw_max = radeon_check_space(queue->device->ws, cs, 3);
+   bool compute = queue->vk.queue_family_index == RADV_QUEUE_COMPUTE;
+
+   /* Tell the GPU where the task control buffer is. */
+   radeon_emit(cs, PKT3(PKT3_DISPATCH_TASK_STATE_INIT, 1, 0) | PKT3_SHADER_TYPE_S(!!compute));
+   /* bits [31:8]: control buffer address lo, bits[7:0]: reserved (set to zero) */
+   radeon_emit(cs, task_ctrlbuf_va & 0xFFFFFF00);
+   /* bits [31:0]: control buffer address hi */
+   radeon_emit(cs, task_ctrlbuf_va >> 32);
+
+   assert(cs->cdw <= cdw_max);
+}
+
+static void
 radv_emit_graphics_scratch(struct radv_queue *queue, struct radeon_cmdbuf *cs,
                            uint32_t size_per_wave, uint32_t waves,
                            struct radeon_winsys_bo *scratch_bo)
@@ -3879,7 +3960,9 @@ radv_emit_global_shader_pointers(struct radv_queue *queue, struct radeon_cmdbuf 
 
    radv_cs_add_buffer(queue->device->ws, cs, descriptor_bo);
 
-   if (queue->device->physical_device->rad_info.chip_class >= GFX10) {
+   if (queue->vk.queue_family_index == RADV_QUEUE_COMPUTE) {
+      radv_emit_shader_pointer(queue->device, cs, R_00B908_COMPUTE_USER_DATA_2, va, true);
+   } else if (queue->device->physical_device->rad_info.chip_class >= GFX10) {
       uint32_t regs[] = {R_00B030_SPI_SHADER_USER_DATA_PS_0, R_00B130_SPI_SHADER_USER_DATA_VS_0,
                          R_00B208_SPI_SHADER_USER_DATA_ADDR_LO_GS,
                          R_00B408_SPI_SHADER_USER_DATA_ADDR_LO_HS};
@@ -3936,7 +4019,7 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
                      uint32_t scratch_waves, uint32_t compute_scratch_size_per_wave,
                      uint32_t compute_scratch_waves, uint32_t esgs_ring_size,
                      uint32_t gsvs_ring_size, bool needs_tess_rings, bool needs_gds,
-                     bool needs_gds_oa, bool needs_sample_positions,
+                     bool needs_gds_oa, bool needs_task_rings, bool needs_sample_positions,
                      struct radeon_cmdbuf **initial_full_flush_preamble_cs,
                      struct radeon_cmdbuf **initial_preamble_cs,
                      struct radeon_cmdbuf **continue_preamble_cs)
@@ -3949,8 +4032,10 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    struct radeon_winsys_bo *tess_rings_bo = NULL;
    struct radeon_winsys_bo *gds_bo = NULL;
    struct radeon_winsys_bo *gds_oa_bo = NULL;
+   struct radeon_winsys_bo *task_rings_bo = NULL;
    struct radeon_cmdbuf *dest_cs[3] = {0};
-   bool add_tess_rings = false, add_gds = false, add_gds_oa = false, add_sample_positions = false;
+   bool add_tess_rings = false, add_gds = false, add_gds_oa = false, add_sample_positions = false,
+        add_task_rings = false;
    unsigned tess_factor_ring_size = 0, tess_offchip_ring_size = 0;
    unsigned max_offchip_buffers;
    unsigned hs_offchip_param = 0;
@@ -3976,6 +4061,10 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       if (needs_sample_positions)
          add_sample_positions = true;
    }
+   if (!queue->has_task_rings) {
+      if (needs_task_rings)
+         add_task_rings = true;
+   }
    tess_factor_ring_size = 32768 * queue->device->physical_device->rad_info.max_se;
    hs_offchip_param = radv_get_hs_offchip_param(queue->device, &max_offchip_buffers);
    tess_offchip_ring_offset = align(tess_factor_ring_size, 64 * 1024);
@@ -4000,14 +4089,14 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
        compute_scratch_size_per_wave <= queue->compute_scratch_size_per_wave &&
        compute_scratch_waves <= queue->compute_scratch_waves &&
        esgs_ring_size <= queue->esgs_ring_size && gsvs_ring_size <= queue->gsvs_ring_size &&
-       !add_tess_rings && !add_gds && !add_gds_oa && !add_sample_positions &&
+       !add_tess_rings && !add_gds && !add_gds_oa && !add_sample_positions && !add_task_rings &&
        queue->initial_preamble_cs) {
       *initial_full_flush_preamble_cs = queue->initial_full_flush_preamble_cs;
       *initial_preamble_cs = queue->initial_preamble_cs;
       *continue_preamble_cs = queue->continue_preamble_cs;
       if (!scratch_size_per_wave && !compute_scratch_size_per_wave && !esgs_ring_size &&
           !gsvs_ring_size && !needs_tess_rings && !needs_gds && !needs_gds_oa &&
-          !needs_sample_positions)
+          !needs_task_rings && !needs_sample_positions)
          *continue_preamble_cs = NULL;
       return VK_SUCCESS;
    }
@@ -4095,12 +4184,42 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       gds_oa_bo = queue->gds_oa_bo;
    }
 
+   const unsigned task_payload_ring_bytes =
+      queue->device->task_num_entries * RADV_TASK_PAYLOAD_ENTRY_BYTES;
+   const unsigned task_draw_ring_bytes =
+      queue->device->task_num_entries * 4 * 4; /* 4 DWORDs per entry. */
+
+   if (add_task_rings) {
+      assert(queue->device->physical_device->rad_info.chip_class >= GFX10_3);
+
+      /* Ensure that the addresses of each ring are 256 byte aligned. */
+      const unsigned task_bo_bytes =
+         align(RADV_TASK_CTRLBUF_DWORDS * 4, 256) + align(task_draw_ring_bytes, 256) + task_payload_ring_bytes;
+      /* We initialize the control buffer from the CPU, so need to grant CPU access to the BO. */
+      uint32_t task_rings_bo_flags = RADEON_FLAG_CPU_ACCESS |
+                                     RADEON_FLAG_NO_INTERPROCESS_SHARING |
+                                     RADEON_FLAG_ZERO_VRAM;
+
+      result =
+         queue->device->ws->buffer_create(queue->device->ws, task_bo_bytes, 256, RADEON_DOMAIN_VRAM,
+                                          task_rings_bo_flags, RADV_BO_PRIORITY_SCRATCH, 0, &task_rings_bo);
+
+      if (result != VK_SUCCESS)
+         goto fail;
+
+      assert(task_rings_bo);
+      radv_initialise_task_control_buffer(queue->device, task_rings_bo);
+
+   } else {
+      task_rings_bo = queue->task_rings_bo;
+   }
+
    if (scratch_bo != queue->scratch_bo || esgs_ring_bo != queue->esgs_ring_bo ||
        gsvs_ring_bo != queue->gsvs_ring_bo || tess_rings_bo != queue->tess_rings_bo ||
-       add_sample_positions) {
+       task_rings_bo != queue->task_rings_bo || add_sample_positions) {
       uint32_t size = 0;
-      if (gsvs_ring_bo || esgs_ring_bo || tess_rings_bo || add_sample_positions) {
-         size = 112; /* 2 dword + 2 padding + 4 dword * 6 */
+      if (gsvs_ring_bo || esgs_ring_bo || tess_rings_bo || task_rings_bo || add_sample_positions) {
+         size = 144; /* 2 dword + 2 padding + 4 dword * 8 */
          if (add_sample_positions)
             size += 128; /* 64+32+16+8 = 120 bytes */
       } else if (scratch_bo)
@@ -4127,10 +4246,11 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
          map[1] = rsrc1;
       }
 
-      if (esgs_ring_bo || gsvs_ring_bo || tess_rings_bo || add_sample_positions)
+      if (esgs_ring_bo || gsvs_ring_bo || tess_rings_bo || task_rings_bo || add_sample_positions)
          fill_geom_tess_rings(queue, map, add_sample_positions, esgs_ring_size, esgs_ring_bo,
                               gsvs_ring_size, gsvs_ring_bo, tess_factor_ring_size,
-                              tess_offchip_ring_offset, tess_offchip_ring_size, tess_rings_bo);
+                              tess_offchip_ring_offset, tess_offchip_ring_size, tess_rings_bo,
+                              task_draw_ring_bytes, task_payload_ring_bytes, task_rings_bo);
 
       queue->device->ws->buffer_unmap(descriptor_bo);
    }
@@ -4154,25 +4274,34 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
       switch (queue->vk.queue_family_index) {
       case RADV_QUEUE_GENERAL:
          radv_init_graphics_state(cs, queue);
+
+         if (esgs_ring_bo || gsvs_ring_bo || tess_rings_bo || task_rings_bo) {
+            radeon_emit(cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+            radeon_emit(cs, EVENT_TYPE(V_028A90_VS_PARTIAL_FLUSH) | EVENT_INDEX(4));
+
+            radeon_emit(cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+            radeon_emit(cs, EVENT_TYPE(V_028A90_VGT_FLUSH) | EVENT_INDEX(0));
+         }
          break;
       case RADV_QUEUE_COMPUTE:
+         assert(!esgs_ring_bo && !gsvs_ring_bo && !tess_rings_bo);
          radv_init_compute_state(cs, queue);
+
+         if (task_rings_bo) {
+            radeon_emit(cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
+            radeon_emit(cs, EVENT_TYPE(V_028A90_CS_PARTIAL_FLUSH) | EVENT_INDEX(4));
+         }
          break;
       case RADV_QUEUE_TRANSFER:
          break;
       }
 
-      if (esgs_ring_bo || gsvs_ring_bo || tess_rings_bo) {
-         radeon_emit(cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
-         radeon_emit(cs, EVENT_TYPE(V_028A90_VS_PARTIAL_FLUSH) | EVENT_INDEX(4));
 
-         radeon_emit(cs, PKT3(PKT3_EVENT_WRITE, 0, 0));
-         radeon_emit(cs, EVENT_TYPE(V_028A90_VGT_FLUSH) | EVENT_INDEX(0));
-      }
 
       radv_emit_gs_ring_sizes(queue, cs, esgs_ring_bo, esgs_ring_size, gsvs_ring_bo,
                               gsvs_ring_size);
       radv_emit_tess_factor_ring(queue, cs, hs_offchip_param, tess_factor_ring_size, tess_rings_bo);
+      radv_emit_task_rings(queue, cs, queue->device->task_num_entries, task_rings_bo);
       radv_emit_global_shader_pointers(queue, cs, descriptor_bo);
       radv_emit_compute_scratch(queue, cs, compute_scratch_size_per_wave, compute_scratch_waves,
                                 compute_scratch_bo);
@@ -4265,6 +4394,11 @@ radv_get_preamble_cs(struct radv_queue *queue, uint32_t scratch_size_per_wave,
    if (gds_oa_bo != queue->gds_oa_bo) {
       queue->gds_oa_bo = gds_oa_bo;
       queue->has_gds_oa = true;
+   }
+
+   if (task_rings_bo != queue->task_rings_bo) {
+      queue->task_rings_bo = task_rings_bo;
+      queue->has_task_rings = true;
    }
 
    if (descriptor_bo != queue->descriptor_bo) {
@@ -4432,6 +4566,7 @@ radv_get_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cm
    bool tess_rings_needed = false;
    bool gds_needed = false;
    bool gds_oa_needed = false;
+   bool task_rings_needed = false;
    bool sample_positions_needed = false;
 
    for (uint32_t j = 0; j < cmd_buffer_count; j++) {
@@ -4447,12 +4582,14 @@ radv_get_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cm
       tess_rings_needed |= cmd_buffer->tess_rings_needed;
       gds_needed |= cmd_buffer->gds_needed;
       gds_oa_needed |= cmd_buffer->gds_oa_needed;
+      task_rings_needed |= cmd_buffer->task_rings_needed;
       sample_positions_needed |= cmd_buffer->sample_positions_needed;
    }
 
    return radv_get_preamble_cs(queue, scratch_size_per_wave, waves_wanted,
                                compute_scratch_size_per_wave, compute_waves_wanted, esgs_ring_size,
                                gsvs_ring_size, tess_rings_needed, gds_needed, gds_oa_needed,
+                               task_rings_needed,
                                sample_positions_needed, initial_full_flush_preamble_cs,
                                initial_preamble_cs, continue_preamble_cs);
 }
