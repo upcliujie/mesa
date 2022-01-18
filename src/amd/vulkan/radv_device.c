@@ -58,6 +58,7 @@ typedef void *drmDevicePtr;
 #include "util/timespec.h"
 #include "util/u_atomic.h"
 #include "winsys/null/radv_null_winsys_public.h"
+#include "aco_interface.h"
 #include "git_sha1.h"
 #include "sid.h"
 #include "vk_format.h"
@@ -90,11 +91,12 @@ radv_get_current_time(void)
 }
 
 static int
-radv_device_get_cache_uuid(enum radeon_family family, void *uuid)
+radv_device_get_cache_uuid(enum radeon_family family, bool use_llvm, void *uuid)
 {
    struct mesa_sha1 ctx;
    unsigned char sha1[20];
    unsigned ptr_size = sizeof(void *);
+   uint64_t compiler_flags = use_llvm ? 0 : aco_get_debug_flags();
 
    memset(uuid, 0, VK_UUID_SIZE);
    _mesa_sha1_init(&ctx);
@@ -108,6 +110,7 @@ radv_device_get_cache_uuid(enum radeon_family family, void *uuid)
 
    _mesa_sha1_update(&ctx, &family, sizeof(family));
    _mesa_sha1_update(&ctx, &ptr_size, sizeof(ptr_size));
+   _mesa_sha1_update(&ctx, &compiler_flags, sizeof(compiler_flags));
    _mesa_sha1_final(&ctx, sha1);
 
    memcpy(uuid, sha1, VK_UUID_SIZE);
@@ -682,7 +685,7 @@ radv_physical_device_try_create(struct radv_instance *instance, drmDevicePtr drm
             radv_get_compiler_string(device));
 
 #ifdef ENABLE_SHADER_CACHE
-   if (radv_device_get_cache_uuid(device->rad_info.family, device->cache_uuid)) {
+   if (radv_device_get_cache_uuid(device->rad_info.family, device->use_llvm, device->cache_uuid)) {
       result = vk_errorf(instance, VK_ERROR_INITIALIZATION_FAILED, "cannot generate UUID");
       goto fail_wsi;
    }

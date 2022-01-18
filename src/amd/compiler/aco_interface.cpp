@@ -63,6 +63,13 @@ static const std::array<aco_compiler_statistic_info, aco::num_statistics> statis
 const unsigned aco_num_statistics = aco::num_statistics;
 const aco_compiler_statistic_info* aco_statistic_infos = statistic_infos.data();
 
+uint64_t
+aco_get_debug_flags()
+{
+   aco::init();
+   return aco::debug_flags;
+}
+
 static void
 validate(aco::Program* program)
 {
