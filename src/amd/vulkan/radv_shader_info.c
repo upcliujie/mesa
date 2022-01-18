@@ -737,8 +737,24 @@ radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *n
 
    switch (nir->info.stage) {
    case MESA_SHADER_COMPUTE:
+   case MESA_SHADER_TASK:
       for (int i = 0; i < 3; ++i)
          info->cs.block_size[i] = nir->info.workgroup_size[i];
+
+      /* Task shaders always need these for the I/O lowering even if
+       * the API shader doesn't actually use them.
+       *
+       * - workgroup ID: to address the ring buffers
+       * - draw ID: to address the IB to read firstTask
+       * - local invocation idx: to only store draw ready on the 1st thread
+       */
+      if (nir->info.stage == MESA_SHADER_TASK) {
+         for (int i = 0; i < 3; ++i)
+            info->cs.uses_block_id[i] = true;
+
+         info->vs.needs_draw_id = true;
+         info->cs.uses_local_invocation_idx = true;
+      }
       break;
    case MESA_SHADER_FRAGMENT:
       info->ps.can_discard = nir->info.fs.uses_discard;
