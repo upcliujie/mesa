@@ -41,6 +41,7 @@ struct radv_shader_args;
 
 namespace aco {
 
+extern uint64_t original_debug_flags;
 extern uint64_t debug_flags;
 
 enum {
