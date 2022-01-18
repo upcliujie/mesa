@@ -95,6 +95,14 @@ struct radv_winsys_sem_info {
    bool cs_emit_wait;
    struct radv_winsys_sem_counts wait;
    struct radv_winsys_sem_counts signal;
+
+   /* Fence returned by the current submission. */
+   struct radv_amdgpu_fence *fence;
+
+   /* Expresses a scheduled dependency, meaning that the sumbission of the
+    * referenced fence must be scheduled before the current submission.
+    */
+   struct radv_amdgpu_fence *scheduled_dependency;
 };
 
 static uint32_t radv_amdgpu_ctx_queue_syncobj(struct radv_amdgpu_ctx *ctx, unsigned ip,
@@ -167,6 +175,9 @@ struct radv_amdgpu_cs_request {
     * The returned sequence number for the command submission
     */
    uint64_t seq_no;
+
+   /** The returned fence for the command submission */
+   struct radv_amdgpu_fence *fence;
 };
 
 static int radv_amdgpu_cs_submit(struct radv_amdgpu_ctx *ctx,
@@ -182,6 +193,8 @@ radv_amdgpu_request_to_fence(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_fen
    fence->fence.ip_instance = req->ip_instance;
    fence->fence.ring = req->ring;
    fence->fence.fence = req->seq_no;
+
+   amdgpu_cs_chunk_fence_to_dep(&fence->fence, &fence->dep);
 }
 
 static void
@@ -875,6 +888,8 @@ radv_assign_last_submit(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_cs_reque
 {
    radv_amdgpu_request_to_fence(ctx, &ctx->last_submission[request->ip_type][request->ring],
                                 request);
+
+   request->fence = &ctx->last_submission[request->ip_type][request->ring];
 }
 
 static VkResult
@@ -955,6 +970,7 @@ radv_amdgpu_winsys_cs_submit_chained(struct radeon_winsys_ctx *_ctx, int queue_i
       goto fail;
 
    radv_assign_last_submit(ctx, &request);
+   sem_info->fence = request.fence;
 
 fail:
    u_rwlock_rdunlock(&aws->global_bo_list.lock);
@@ -1038,6 +1054,7 @@ radv_amdgpu_winsys_cs_submit_fallback(struct radeon_winsys_ctx *_ctx, int queue_
       goto fail;
 
    radv_assign_last_submit(ctx, &request);
+   sem_info->fence = request.fence;
 
 fail:
    u_rwlock_rdunlock(&aws->global_bo_list.lock);
@@ -1228,6 +1245,7 @@ radv_amdgpu_winsys_cs_submit_sysmem(struct radeon_winsys_ctx *_ctx, int queue_id
    }
 
    radv_assign_last_submit(ctx, &request);
+   sem_info->fence = request.fence;
 
    return VK_SUCCESS;
 }
@@ -1355,7 +1373,9 @@ radv_amdgpu_winsys_cs_submit(struct radeon_winsys_ctx *_ctx, enum ring_type ring
                              struct radeon_cmdbuf *initial_preamble_cs,
                              struct radeon_cmdbuf *continue_preamble_cs, uint32_t wait_count,
                              const struct vk_sync_wait *waits, uint32_t signal_count,
-                             const struct vk_sync_signal *signals, bool can_patch)
+                             const struct vk_sync_signal *signals, bool can_patch,
+                             struct radv_amdgpu_fence **out_fence,
+                             struct radv_amdgpu_fence *scheduled_dependency)
 {
    struct radv_amdgpu_winsys *ws = radv_amdgpu_ctx(_ctx)->ws;
    struct radv_winsys_sem_info sem_info;
@@ -1410,9 +1430,14 @@ radv_amdgpu_winsys_cs_submit(struct radeon_winsys_ctx *_ctx, enum ring_type ring
    sem_info.signal.syncobj_count = signal_idx - sem_info.signal.timeline_syncobj_count;
    sem_info.cs_emit_signal = true;
 
+   sem_info.scheduled_dependency = scheduled_dependency;
+
    result = radv_amdgpu_winsys_cs_submit_internal(_ctx, ring_type, queue_idx, cs_array, cs_count,
                                                   initial_preamble_cs, continue_preamble_cs,
                                                   &sem_info, can_patch);
+
+   if (out_fence)
+      *out_fence = sem_info.fence;
 
 out:
    STACK_ARRAY_FINISH(wait_points);
@@ -1686,7 +1711,8 @@ radv_amdgpu_cs_submit(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_cs_request
    if (!queue_syncobj)
       return VK_ERROR_OUT_OF_HOST_MEMORY;
 
-   size = request->number_of_ibs + 2 /* user fence */ + (!use_bo_list_create ? 1 : 0) + 3;
+   size = request->number_of_ibs + 2 /* user fence */ + (!use_bo_list_create ? 1 : 0) + 3
+          + !!sem_info->scheduled_dependency;
 
    chunks = malloc(sizeof(chunks[0]) * size);
    if (!chunks)
@@ -1727,6 +1753,13 @@ radv_amdgpu_cs_submit(struct radv_amdgpu_ctx *ctx, struct radv_amdgpu_cs_request
    fence_info.handle = radv_amdgpu_winsys_bo(ctx->fence_bo)->bo;
    fence_info.offset = (request->ip_type * MAX_RINGS_PER_TYPE + request->ring) * sizeof(uint64_t);
    amdgpu_cs_chunk_fence_info_to_data(&fence_info, &chunk_data[i]);
+
+   if (sem_info->scheduled_dependency) {
+      i = num_chunks++;
+      chunks[i].chunk_id = AMDGPU_CHUNK_ID_SCHEDULED_DEPENDENCIES;
+      chunks[i].length_dw = sizeof(struct drm_amdgpu_cs_chunk_dep) / 4;
+      chunks[i].chunk_data = (uint64_t)(uintptr_t)&sem_info->scheduled_dependency->dep;
+   }
 
    if (sem_info->cs_emit_wait && (sem_info->wait.timeline_syncobj_count ||
                                   sem_info->wait.syncobj_count || *queue_syncobj_wait)) {

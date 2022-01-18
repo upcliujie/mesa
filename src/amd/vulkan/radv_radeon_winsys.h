@@ -45,6 +45,7 @@ struct radeon_surf;
 struct vk_sync_type;
 struct vk_sync_wait;
 struct vk_sync_signal;
+struct radv_amdgpu_fence;
 
 enum radeon_bo_domain { /* bitfield */
                         RADEON_DOMAIN_GTT = 2,
@@ -277,7 +278,9 @@ struct radeon_winsys {
                          struct radeon_cmdbuf *initial_preamble_cs,
                          struct radeon_cmdbuf *continue_preamble_cs, uint32_t wait_count,
                          const struct vk_sync_wait *waits, uint32_t signal_count,
-                         const struct vk_sync_signal *signals, bool can_patch);
+                         const struct vk_sync_signal *signals, bool can_patch,
+                         struct radv_amdgpu_fence **out_fence,
+                         struct radv_amdgpu_fence *scheduled_dependency);
 
    void (*cs_add_buffer)(struct radeon_cmdbuf *cs, struct radeon_winsys_bo *bo);
 
