@@ -98,7 +98,6 @@ spec@arb_pixel_buffer_object@texsubimage array pbo,Fail
 spec@arb_pixel_buffer_object@texsubimage cube_map_array pbo,Fail
 spec@arb_point_sprite@arb_point_sprite-checkerboard,Fail
 spec@arb_point_sprite@arb_point_sprite-mipmap,Fail
-spec@arb_provoking_vertex@arb-provoking-vertex-render,Fail
 spec@arb_sample_shading@samplemask 2@0.250000 mask_in_one,Fail
 spec@arb_sample_shading@samplemask 2@0.500000 mask_in_one,Fail
 spec@arb_sample_shading@samplemask 2@1.000000 mask_in_one,Fail
