@@ -42,6 +42,7 @@ struct radv_vs_prolog_key;
 
 namespace aco {
 
+extern uint64_t original_debug_flags;
 extern uint64_t debug_flags;
 
 enum {

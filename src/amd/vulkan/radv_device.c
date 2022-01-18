@@ -58,6 +58,7 @@ typedef void *drmDevicePtr;
 #include "util/timespec.h"
 #include "util/u_atomic.h"
 #include "winsys/null/radv_null_winsys_public.h"
+#include "aco_interface.h"
 #include "git_sha1.h"
 #include "sid.h"
 #include "vk_format.h"

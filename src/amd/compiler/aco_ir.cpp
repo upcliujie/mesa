@@ -32,6 +32,7 @@
 
 namespace aco {
 
+uint64_t original_debug_flags = 0;
 uint64_t debug_flags = 0;
 
 static const struct debug_control aco_debug_options[] = {{"validateir", DEBUG_VALIDATE_IR},
@@ -50,8 +51,9 @@ static once_flag init_once_flag = ONCE_FLAG_INIT;
 static void
 init_once()
 {
-   debug_flags = parse_debug_string(getenv("ACO_DEBUG"), aco_debug_options);
+   original_debug_flags = parse_debug_string(getenv("ACO_DEBUG"), aco_debug_options);
 
+   debug_flags = original_debug_flags;
 #ifndef NDEBUG
    /* enable some flags by default on debug builds */
    debug_flags |= aco::DEBUG_VALIDATE_IR;
