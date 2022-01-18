@@ -41,6 +41,9 @@ enum { MAX_RINGS_PER_TYPE = 8 };
 
 struct radv_amdgpu_fence {
    struct amdgpu_cs_fence fence;
+
+   /* Can be used when another submission wants this fence as a dependency. */
+   struct drm_amdgpu_cs_chunk_dep dep;
 };
 
 struct radv_amdgpu_ctx {
