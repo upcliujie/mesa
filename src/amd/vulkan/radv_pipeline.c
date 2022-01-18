@@ -3297,6 +3297,16 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
          ac_compute_cs_workgroup_size(
             nir[MESA_SHADER_COMPUTE]->info.workgroup_size, false, UINT32_MAX);
    }
+
+   if (nir[MESA_SHADER_TASK]) {
+      /* Task/mesh I/O uses the task ring buffers. */
+      infos[MESA_SHADER_TASK].cs.uses_task_rings = true;
+      infos[MESA_SHADER_MESH].cs.uses_task_rings = true;
+
+      infos[MESA_SHADER_TASK].workgroup_size =
+         ac_compute_cs_workgroup_size(
+            nir[MESA_SHADER_TASK]->info.workgroup_size, false, UINT32_MAX);
+   }
 }
 
 static void
