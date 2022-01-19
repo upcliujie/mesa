@@ -466,6 +466,25 @@ dzn_cmd_buffer::pipeline_barrier(const VkDependencyInfoKHR *info)
 {
    dzn_batch *batch = get_batch();
 
+   bool execution_barrier =
+      !info->memoryBarrierCount &&
+      !info->bufferMemoryBarrierCount &&
+      !info->imageMemoryBarrierCount;
+
+   if (execution_barrier) {
+      /* Execution barrier can be emulated with a NULL UAV barrier (AKA
+       * pipeline flush). That's the best we can do with the standard D3D12
+       * barrier API.
+       */
+      D3D12_RESOURCE_BARRIER barrier = {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_UAV,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .UAV = { .pResource = NULL },
+      };
+
+      batch->cmdlist->ResourceBarrier(1, &barrier);
+   }
+
    /* Global memory barriers can be emulated with NULL UAV/Aliasing barriers.
     * Scopes are not taken into account, but that's inherent to the current
     * D3D12 barrier API.
