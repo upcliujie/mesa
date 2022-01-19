@@ -125,7 +125,7 @@ struct virgl_transfer_cmd_buf {
    int32_t out_fence_id;
 };
 
-#define VIRGL_COMMAND_BUFFERS 32
+#define VIRGL_COMMAND_BUFFERS 64
 
 struct virgl_drm_cmd_buf {
    struct virgl_cmd_buf base;
