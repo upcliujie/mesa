@@ -313,7 +313,8 @@ static int virgl_encoder_write_cmd_dword(struct virgl_context *ctx,
 {
    int len = (dword >> 16);
 
-   if ((ctx->cbuf->cdw + len + 1) > VIRGL_MAX_CMDBUF_DWORDS)
+   if ((ctx->cbuf->cdw + len + 1) > VIRGL_MAX_CMDBUF_DWORDS ||
+       ctx->num_draws > 64)
       ctx->base.flush(&ctx->base, NULL, 0);
 
    virgl_encoder_write_dword(ctx->cbuf, dword);
