@@ -22,6 +22,7 @@
  */
 
 #include "nir.h"
+#include "nir_gl_types.h"
 #include "nir_builder.h"
 #include "nir_xfb_info.h"
 
