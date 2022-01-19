@@ -53,6 +53,9 @@ struct radv_descriptor_set_binding_layout {
 struct radv_descriptor_set_layout {
    struct vk_object_base base;
 
+   /* Descriptor set layouts can be destroyed at almost any time */
+   uint32_t ref_cnt;
+
    /* The create flags for this descriptor set layout */
    VkDescriptorSetLayoutCreateFlags flags;
 
