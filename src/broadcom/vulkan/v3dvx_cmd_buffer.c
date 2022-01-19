@@ -305,6 +305,23 @@ cmd_buffer_render_pass_emit_store(struct v3dv_cmd_buffer *cmd_buffer,
       store.clear_buffer_being_stored = clear;
 
       store.output_image_format = iview->format->rt_type;
+
+      /* If we create a image view with only the stencil format, we
+       * re-interpret the format as RGBA8_UINT, as it is want we want in
+       * general (see CreateImageView).
+       *
+       * But in some cases we would need the zstencil buffer (see aspects
+       * selected at cmd_buffer_render_pass_emit_stores, and the spec quote
+       * include) So in those cases we need to use the output format of the
+       * image, not the image view.
+       */
+      if (buffer == ZSTENCIL &&
+          iview->format->rt_type == V3D_OUTPUT_IMAGE_FORMAT_RGBA8UI) {
+         /* The previous combination should only happen on that case. */
+         assert(image->format->rt_type == V3D_OUTPUT_IMAGE_FORMAT_D24S8);
+         store.output_image_format = image->format->rt_type;
+      }
+
       store.r_b_swap = iview->swap_rb;
       store.channel_reverse = iview->channel_reverse;
       store.memory_format = slice->tiling;
