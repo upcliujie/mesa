@@ -24,6 +24,7 @@
 #include "nir.h"
 #include "gl_nir.h"
 #include "gl_nir_linker.h"
+#include "main/glheader.h"
 #include "linker_util.h"
 #include "main/mtypes.h"
 #include "main/shaderobj.h"
