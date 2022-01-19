@@ -35,6 +35,7 @@ extern "C" {
 #endif
 
 struct gl_context;
+struct gl_image_unit;
 
 /**
  * Get the matching mesa_format for a shader image format GL enum.
