@@ -26,6 +26,8 @@
 
 #include "util/bitset.h"
 
+#include "GL/gl.h"
+
 struct gl_constants;
 struct gl_shader_program;
 struct gl_uniform_storage;
