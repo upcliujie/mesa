@@ -26,6 +26,7 @@
  */
 
 #include "nir.h"
+#include "nir_gl_types.h"
 #include "compiler/shader_enums.h"
 #include "util/half_float.h"
 #include "util/memstream.h"
