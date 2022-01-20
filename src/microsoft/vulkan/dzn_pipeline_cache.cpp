@@ -65,7 +65,7 @@ dzn_GetPipelineCacheData(VkDevice device,
                          void *pData)
 {
    // FIXME
-   dzn_stub();
+   *pDataSize = 0;
    return VK_SUCCESS;
 }
 
@@ -76,6 +76,5 @@ dzn_MergePipelineCaches(VkDevice device,
                         const VkPipelineCache *pSrcCaches)
 {
    // FIXME
-   dzn_stub();
    return VK_SUCCESS;
 }
