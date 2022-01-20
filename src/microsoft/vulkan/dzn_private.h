@@ -925,10 +925,6 @@ private:
              uint32_t region,
              VkImageAspectFlagBits aspect,
              uint32_t layer);
-   void copy(ID3D12Resource *src,
-             dzn_buffer *dst,
-             VkDeviceSize dst_offset,
-             VkDeviceSize size);
 
    void blit_set_pipeline(const dzn_image *src,
                           const dzn_image *dst,

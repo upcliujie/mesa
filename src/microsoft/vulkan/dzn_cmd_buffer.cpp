@@ -1224,65 +1224,6 @@ dzn_cmd_buffer::copy(const VkCopyImageInfo2KHR *info)
 }
 
 void
-dzn_cmd_buffer::copy(ID3D12Resource *src,
-                     dzn_buffer *dst,
-                     VkDeviceSize dst_offset,
-                     VkDeviceSize size)
-{
-   D3D12_TEXTURE_COPY_LOCATION src_loc = {
-      .pResource = src,
-      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
-      .PlacedFootprint = {
-         .Offset = 0,
-         .Footprint = {
-            .Format = DXGI_FORMAT_R32_TYPELESS,
-            .Width = (UINT)(size / 4),
-            .Height = 1,
-            .Depth = 1,
-            .RowPitch = (UINT)ALIGN(size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT),
-         },
-      },
-   };
-
-   D3D12_BOX src_box = { 0, 0, 0, size / 4, 1, 1 };
-
-   uint32_t dst_x = (dst_offset & (D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - 1)) / 4;
-
-   D3D12_TEXTURE_COPY_LOCATION dst_loc = {
-      .pResource = dst->res.Get(),
-      .Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
-      .PlacedFootprint = {
-         .Offset = dst_offset & ~(D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT - 1),
-         .Footprint = {
-            .Format = DXGI_FORMAT_R32_TYPELESS,
-            .Width = (UINT)(dst_x + (size / 4)),
-            .Height = 1,
-            .Depth = 1,
-            .RowPitch = (UINT)ALIGN((dst_x * 4) + size, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT),
-         },
-      },
-   };
-
-   ID3D12GraphicsCommandList *cmdlist = submit.cmdlist.Get();
-
-   D3D12_RESOURCE_BARRIER barriers[] = {
-      {
-         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
-         .Transition = {
-            .pResource = src,
-            .StateBefore = D3D12_RESOURCE_STATE_GENERIC_READ,
-            .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
-         },
-      },
-   };
-
-   cmdlist->ResourceBarrier(ARRAY_SIZE(barriers), barriers);
-   cmdlist->CopyTextureRegion(&dst_loc, dst_x, 0, 0,
-                              &src_loc, &src_box);
-}
-
-void
 dzn_cmd_buffer::fill(dzn_buffer *buf,
                      VkDeviceSize offset,
                      VkDeviceSize size,
@@ -1303,7 +1244,7 @@ dzn_cmd_buffer::fill(dzn_buffer *buf,
 
    src_res->Unmap(0, NULL);
 
-   copy(src_res, buf, offset, size);
+   submit.cmdlist->CopyBufferRegion(buf->res.Get(), offset, src_res, 0, size);
 }
 
 void
@@ -1332,7 +1273,7 @@ dzn_cmd_buffer::update(dzn_buffer *buf,
    memcpy(cpu_ptr, data, size),
    src_res->Unmap(0, NULL);
 
-   copy(src_res, buf, offset, size);
+   submit.cmdlist->CopyBufferRegion(buf->res.Get(), offset, src_res, 0, size);
 }
 
 void
