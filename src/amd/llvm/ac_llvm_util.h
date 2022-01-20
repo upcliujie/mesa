@@ -104,6 +104,8 @@ bool ac_llvm_is_function(LLVMValueRef v);
 LLVMModuleRef ac_create_module(LLVMTargetMachineRef tm, LLVMContextRef ctx);
 
 LLVMBuilderRef ac_create_builder(LLVMContextRef ctx, enum ac_float_mode float_mode);
+bool ac_disable_inexact_math(LLVMBuilderRef builder);
+void ac_restore_inexact_math(LLVMBuilderRef builder, bool value);
 void ac_enable_signed_zeros(struct ac_llvm_context *ctx);
 void ac_disable_signed_zeros(struct ac_llvm_context *ctx);
 
