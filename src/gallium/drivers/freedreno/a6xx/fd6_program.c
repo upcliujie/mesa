@@ -581,7 +581,7 @@ setup_stateobj(struct fd_ringbuffer *ring, struct fd_context *ctx,
    const struct ir3_shader_variant *last_shader = fd6_last_shader(state);
 
    bool do_streamout = (last_shader->shader->stream_output.num_outputs > 0);
-   uint8_t clip_mask = last_shader->clip_mask,
+   uint8_t clip_mask = last_shader->clip_mask & cache_key->clip_plane_enable,
            cull_mask = last_shader->cull_mask;
    uint8_t clip_cull_mask = clip_mask | cull_mask;
 
