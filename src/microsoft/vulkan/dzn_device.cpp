@@ -2312,6 +2312,27 @@ dzn_event::~dzn_event()
    vk_object_base_finish(&base);
 }
 
+VkResult
+dzn_event::set()
+{
+   fence->Signal(1);
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_event::reset()
+{
+   fence->Signal(0);
+   return VK_SUCCESS;
+}
+
+VkResult
+dzn_event::get_status()
+{
+   return fence->GetCompletedValue() == 0 ?
+          VK_EVENT_RESET : VK_EVENT_SET;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 dzn_CreateEvent(VkDevice device,
                 const VkEventCreateInfo *pCreateInfo,
@@ -2330,37 +2351,30 @@ dzn_DestroyEvent(VkDevice device,
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_ResetEvent(VkDevice _device,
-               VkEvent _event)
+dzn_ResetEvent(VkDevice device,
+               VkEvent evt)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_event, event, evt);
 
-   event->fence->Signal(0);
-   return VK_SUCCESS;
+   return event->reset();
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_SetEvent(VkDevice _device,
-             VkEvent _event)
+dzn_SetEvent(VkDevice device,
+             VkEvent evt)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_event, event, evt);
 
-   event->fence->Signal(1);
-   return VK_SUCCESS;
+   return event->set();
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
-dzn_GetEventStatus(VkDevice _device,
-                   VkEvent _event)
+dzn_GetEventStatus(VkDevice device,
+                   VkEvent evt)
 {
-   VK_FROM_HANDLE(dzn_device, device, _device);
-   VK_FROM_HANDLE(dzn_event, event, _event);
+   VK_FROM_HANDLE(dzn_event, event, evt);
 
-   return event->fence->GetCompletedValue() ?
-          VK_EVENT_SET : VK_EVENT_RESET;
-   return VK_SUCCESS;
+   return event->get_status();
 }
 
 VKAPI_ATTR void VKAPI_CALL

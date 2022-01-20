@@ -1564,6 +1564,10 @@ struct dzn_event {
              const VkEventCreateInfo *pCreateInfo,
              const VkAllocationCallbacks *pAllocator);
    ~dzn_event();
+
+   VkResult set();
+   VkResult reset();
+   VkResult get_status();
 };
 
 struct dzn_sync {
