@@ -52,6 +52,7 @@ vk_extensions_gen = files('vk_extensions_gen.py')
 vk_icd_gen = files('vk_icd_gen.py')
 vk_cmd_queue_gen = files('vk_cmd_queue_gen.py')
 vk_dispatch_trampolines_gen = files('vk_dispatch_trampolines_gen.py')
+vk_deepcopy_gen = files('vk_deepcopy_gen.py')
 
 files_vulkan_util = files(
   'vk_alloc.c',
@@ -93,9 +94,33 @@ vk_extensions = custom_target(
   depend_files : vk_extensions_gen_depend_files,
 )
 
+vk_deepcopy_struct_list = ','.join(
+  [ 'VkPipelineVertexInputStateCreateInfo',
+    'VkPipelineInputAssemblyStateCreateInfo',
+    'VkPipelineTessellationStateCreateInfo',
+    'VkPipelineViewportStateCreateInfo',
+    'VkPipelineRasterizationStateCreateInfo',
+    'VkPipelineMultisampleStateCreateInfo',
+    'VkPipelineDepthStencilStateCreateInfo',
+    'VkPipelineColorBlendStateCreateInfo',
+    'VkPipelineFragmentShadingRateStateCreateInfoKHR',
+    'VkPipelineRenderingCreateInfo',
+  ])
+
+vk_deepcopy = custom_target(
+  'vk_deepcopy',
+  input : ['vk_deepcopy_gen.py', vk_api_xml],
+  output : ['vk_deepcopy.c', 'vk_deepcopy.h'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--outdir', meson.current_build_dir(),
+    '--structures', vk_deepcopy_struct_list,
+  ],
+)
+
 libvulkan_util = static_library(
   'vulkan_util',
-  [files_vulkan_util, vk_dispatch_table, vk_enum_to_str, vk_extensions],
+  [files_vulkan_util, vk_dispatch_table, vk_enum_to_str, vk_extensions, vk_deepcopy],
   include_directories : [inc_include, inc_src, inc_gallium],
   dependencies : [vulkan_wsi_deps, idep_mesautil, idep_nir_headers],
   c_args : [vulkan_wsi_args],
