@@ -1,0 +1,7 @@
+# escape=`
+
+ARG base_container
+FROM ${base_container}
+
+COPY mesa_deps_test.ps1 C:\
+RUN C:\mesa_deps_test.ps1
