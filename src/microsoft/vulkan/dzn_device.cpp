@@ -1460,44 +1460,42 @@ dzn_queue::submit(struct vk_queue_submit *info)
       dzn_cmd_buffer *cmd_buffer =
          container_of(info->command_buffers[i], dzn_cmd_buffer, vk);
 
-      for (auto &batch : cmd_buffer->batches) {
-         ID3D12CommandList *cmdlists[] = { batch->cmdlist.Get() };
+      ID3D12CommandList *cmdlists[] = { cmd_buffer->submit.cmdlist.Get() };
 
-         for (auto &event : batch->wait) {
-            if (FAILED(cmdqueue->Wait(event->fence.Get(), 1)))
+      for (auto &event : cmd_buffer->submit.wait_events) {
+         if (FAILED(cmdqueue->Wait(event->fence.Get(), 1)))
+            return VK_ERROR_UNKNOWN;
+      }
+
+      for (auto &qop : cmd_buffer->submit.queries) {
+         auto &query = qop.qpool->queries[qop.query];
+         ComPtr<ID3D12Fence> query_fence = query.fence;
+         uint64_t query_fence_val = query.fence_value.load();
+
+         if (qop.wait && query_fence.Get() && query_fence_val > 0) {
+            if (FAILED(cmdqueue->Wait(query_fence.Get(), query_fence_val)))
                return VK_ERROR_UNKNOWN;
-	 }
+         }
 
-         for (auto &qop : batch->queries) {
+         if (qop.reset) {
+            query.fence = ComPtr<ID3D12Fence>(NULL);
+            query.fence_value = 0;
+         }
+      }
+
+      cmdqueue->ExecuteCommandLists(1, cmdlists);
+
+      for (auto &signal : cmd_buffer->submit.signal_events) {
+         if (FAILED(cmdqueue->Signal(signal.event->fence.Get(), signal.value ? 1 : 0)))
+            return VK_ERROR_UNKNOWN;
+      }
+
+      for (auto &qop : cmd_buffer->submit.queries) {
+         if (qop.signal) {
             auto &query = qop.qpool->queries[qop.query];
-            ComPtr<ID3D12Fence> query_fence = query.fence;
-            uint64_t query_fence_val = query.fence_value.load();
 
-            if (qop.wait && query_fence.Get() && query_fence_val > 0) {
-               if (FAILED(cmdqueue->Wait(query_fence.Get(), query_fence_val)))
-                  return VK_ERROR_UNKNOWN;
-            }
-
-            if (qop.reset) {
-               query.fence = ComPtr<ID3D12Fence>(NULL);
-               query.fence_value = 0;
-            }
-         }
-
-         cmdqueue->ExecuteCommandLists(1, cmdlists);
-
-         for (auto &signal : batch->signal) {
-            if (FAILED(cmdqueue->Signal(signal.event->fence.Get(), signal.value ? 1 : 0)))
-               return VK_ERROR_UNKNOWN;
-         }
-
-         for (auto &qop : batch->queries) {
-            if (qop.signal) {
-               auto &query = qop.qpool->queries[qop.query];
-
-               query.fence = fence;
-               query.fence_value = fence_point + 1;
-            }
+            query.fence = fence;
+            query.fence_value = fence_point + 1;
          }
       }
    }

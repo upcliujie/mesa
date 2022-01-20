@@ -559,31 +559,6 @@ struct dzn_attachment_ref {
    D3D12_RESOURCE_STATES before, during;
 };
 
-struct dzn_batch_query_op {
-   struct dzn_query_pool *qpool;
-   uint32_t query;
-   bool wait;
-   bool reset;
-   bool signal;
-};
-
-struct dzn_batch {
-   using wait_allocator = dzn_allocator<dzn_event *>;
-   std::vector<dzn_event *, wait_allocator> wait;
-   using signal_allocator = dzn_allocator<dzn_cmd_event_signal>;
-   std::vector<dzn_cmd_event_signal, signal_allocator> signal;
-   using queries_allocator = dzn_allocator<dzn_batch_query_op>;
-   std::vector<dzn_batch_query_op, queries_allocator> queries;
-   ComPtr<ID3D12GraphicsCommandList1> cmdlist;
-   struct dzn_cmd_pool *pool;
-
-   dzn_batch(struct dzn_cmd_buffer *cmd_buffer);
-   ~dzn_batch();
-   const VkAllocationCallbacks *get_vk_allocator();
-   static dzn_batch *create(struct dzn_cmd_buffer *cmd_buffer);
-   static void destroy(dzn_batch *batch, struct dzn_cmd_buffer *cmd_buffer);
-};
-
 struct dzn_descriptor_state {
    struct {
       const struct dzn_descriptor_set *set;
@@ -751,18 +726,35 @@ struct dzn_cmd_buffer {
    VkCommandBufferUsageFlags usage_flags;
 
    ComPtr<ID3D12CommandAllocator> alloc;
-   dzn_object_unique_ptr<dzn_batch> batch;
-   using batches_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_batch>>;
-   dzn_object_vector<dzn_batch> batches;
+
+   struct submit {
+      using wait_events_allocator = dzn_allocator<dzn_event *>;
+      std::vector<dzn_event *, wait_events_allocator> wait_events;
+      using signal_events_allocator = dzn_allocator<dzn_cmd_event_signal>;
+      std::vector<dzn_cmd_event_signal, signal_events_allocator> signal_events;
+
+      struct query_op {
+         struct dzn_query_pool *qpool;
+         uint32_t query;
+         bool wait;
+         bool reset;
+         bool signal;
+      };
+
+      using queries_allocator = dzn_allocator<query_op>;
+      std::vector<query_op, queries_allocator> queries;
+      ComPtr<ID3D12GraphicsCommandList1> cmdlist;
+
+      submit(dzn_cmd_pool *cmd_pool, const VkAllocationCallbacks *pAllocator);
+      ~submit() = default;
+      void reset();
+   } submit;
 
    dzn_cmd_buffer(dzn_device *device,
                   dzn_cmd_pool *pool,
                   VkCommandBufferLevel lvl,
                   const VkAllocationCallbacks *pAllocator);
    ~dzn_cmd_buffer();
-   void open_batch();
-   void close_batch();
-   dzn_batch *get_batch();
    void reset();
    const VkAllocationCallbacks *get_vk_allocator();
 
