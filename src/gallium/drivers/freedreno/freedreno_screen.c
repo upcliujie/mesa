@@ -440,7 +440,9 @@ fd_screen_get_param(struct pipe_screen *pscreen, enum pipe_cap param)
        * mesa/st lower desktop GL's clip planes to clip distances in the last
        * vertex shader stage.
        */
-      return !is_a5xx(screen) && !is_a6xx(screen);
+      if (is_a5xx(screen) || is_a6xx(screen))
+         return 1;
+      return 0;
 
    /* Stream output. */
    case PIPE_CAP_MAX_STREAM_OUTPUT_BUFFERS:
