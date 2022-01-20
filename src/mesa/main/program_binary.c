@@ -237,6 +237,7 @@ _mesa_get_program_binary(struct gl_context *ctx,
    uint8_t driver_sha1[20];
    unsigned header_size = get_program_binary_header_size();
 
+   memset(driver_sha1, 0, sizeof(driver_sha1));
    ctx->Driver.GetProgramBinaryDriverSHA1(ctx, driver_sha1);
 
    blob_init(&blob);
@@ -274,6 +275,7 @@ _mesa_program_binary(struct gl_context *ctx, struct gl_shader_program *sh_prog,
    uint8_t driver_sha1[20];
    unsigned header_size = get_program_binary_header_size();
 
+   memset(driver_sha1, 0, sizeof(driver_sha1));
    ctx->Driver.GetProgramBinaryDriverSHA1(ctx, driver_sha1);
 
    const void *payload = get_program_binary_payload(binary_format, driver_sha1,
