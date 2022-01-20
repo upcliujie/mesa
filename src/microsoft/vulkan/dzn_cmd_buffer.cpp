@@ -274,6 +274,7 @@ dzn_cmd_buffer::close_batch()
    if (!batch.get())
       return;
 
+   gather_events();
    gather_queries();
    batch->cmdlist->Close();
 
@@ -289,46 +290,11 @@ dzn_cmd_buffer::open_batch()
 }
 
 dzn_batch *
-dzn_cmd_buffer::get_batch(bool signal_event)
+dzn_cmd_buffer::get_batch()
 {
-   if (batch.get()) {
-      if (batch->signal.size() == 0 || signal_event)
-         return batch.get();
+   if (!batch.get())
+      open_batch();
 
-      /* Close the current batch if there are event signaling pending. */
-      close_batch();
-
-      /* We need to make sure the current state is re-applied on the new
-       * cmdlist, so mark things as dirty.
-       */
-      const dzn_graphics_pipeline * gfx_pipeline =
-         reinterpret_cast<const dzn_graphics_pipeline *>(state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline);
-
-      if (gfx_pipeline) {
-         if (gfx_pipeline->vp.count)
-            state.dirty |= DZN_CMD_DIRTY_VIEWPORTS;
-         if (gfx_pipeline->scissor.count)
-            state.dirty |= DZN_CMD_DIRTY_SCISSORS;
-
-         state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
-            DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
-      }
-
-      if (state.ib.view.SizeInBytes)
-         state.dirty |= DZN_CMD_DIRTY_IB;
-
-      const dzn_pipeline *compute_pipeline =
-         state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].pipeline;
-
-      if (compute_pipeline) {
-         state.bindpoint[VK_PIPELINE_BIND_POINT_COMPUTE].dirty |=
-            DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
-      }
-
-      state.pipeline = NULL;
-   }
-
-   open_batch();
    assert(batch.get());
    return batch.get();
 }
@@ -351,6 +317,7 @@ dzn_cmd_buffer::reset()
 
    internal_bufs.clear();
    queries.clear();
+   events.clear();
 
    /* Reset the state */
    memset(&state, 0, sizeof(state));
@@ -2980,14 +2947,8 @@ dzn_cmd_buffer::reset_event(VkEvent evt,
 {
    VK_FROM_HANDLE(dzn_event, event, evt);
 
-   struct dzn_cmd_event_signal signal = {
-      .event = event,
-      .value = false,
-   };
-
-   dzn_batch *batch = get_batch(true);
-
-   batch->signal.push_back(signal);
+   get_batch();
+   events[event] = EVENT_STATE_RESET;
 }
 
 void
@@ -2996,19 +2957,13 @@ dzn_cmd_buffer::set_event(VkEvent evt,
 {
    VK_FROM_HANDLE(dzn_event, event, evt);
 
-   struct dzn_cmd_event_signal signal = {
-      .event = event,
-      .value = true,
-   };
-
-   dzn_batch *batch = get_batch(true);
-
-   batch->signal.push_back(signal);
+   get_batch();
+   events[event] = EVENT_STATE_SET;
 }
 
 void
 dzn_cmd_buffer::wait_events(uint32_t event_count,
-                            const VkEvent *events,
+                            const VkEvent *evts,
                             VkPipelineStageFlags src_stage_mask,
                             VkPipelineStageFlags dst_stage_mask,
                             uint32_t memory_barrier_Count,
@@ -3020,10 +2975,63 @@ dzn_cmd_buffer::wait_events(uint32_t event_count,
 {
    dzn_batch *batch = get_batch();
 
-   for (uint32_t i = 0; i < event_count; i++) {
-      VK_FROM_HANDLE(dzn_event, event, events[i]);
+   /* Intra-command list wait is handle by this pipeline flush, which is
+    * overkill, but that's the best we can do with the standard D3D12 barrier
+    * API.
+    *
+    * Inter-command list is taken care of by the serialization done at the
+    * ExecuteCommandList() level:
+    * "Calling ExecuteCommandLists twice in succession (from the same thread,
+    *  or different threads) guarantees that the first workload (A) finishes
+    *  before the second workload (B)"
+    *
+    * HOST -> DEVICE signaling is ignored and we assume events are always
+    * signaled when we reach the vkCmdWaitEvents() point.:
+    * "Command buffers in the submission can include vkCmdWaitEvents commands
+    *  that wait on events that will not be signaled by earlier commands in the
+    *  queue. Such events must be signaled by the application using vkSetEvent,
+    *  and the vkCmdWaitEvents commands that wait upon them must not be inside
+    *  a render pass instance.
+    *  The event must be set before the vkCmdWaitEvents command is executed."
+    */
 
-      batch->wait.push_back(event);
+   bool flush_pipeline = false;
+
+   for (uint32_t i = 0; i < event_count; i++) {
+      VK_FROM_HANDLE(dzn_event, event, evts[i]);
+
+      auto iter = events.find(event);
+      if (iter != events.end()) {
+         assert(iter->second != EVENT_STATE_RESET);
+
+         if (iter->second == EVENT_STATE_SET)
+            flush_pipeline = true;
+      } else {
+         events[event] = EVENT_STATE_EXTERNAL_WAIT;
+         batch->wait.push_back(event);
+      }
+   }
+
+   if (flush_pipeline) {
+      D3D12_RESOURCE_BARRIER barrier = {
+         .Type = D3D12_RESOURCE_BARRIER_TYPE_UAV,
+         .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
+         .UAV = { .pResource = NULL },
+      };
+
+      batch->cmdlist->ResourceBarrier(1, &barrier);
+   }
+}
+
+void
+dzn_cmd_buffer::gather_events()
+{
+   for (auto iter : events) {
+      if (iter.second != EVENT_STATE_EXTERNAL_WAIT) {
+         dzn_cmd_event_signal signal = { iter.first, iter.second == EVENT_STATE_SET };
+
+	 batch->signal.push_back(signal);
+      }
    }
 }
 

@@ -735,6 +735,16 @@ struct dzn_cmd_buffer {
    using queries_iterator = std::map<dzn_query_key, dzn_query_state, std::less<dzn_query_key>, queries_allocator>::iterator;
    std::map<dzn_query_key, dzn_query_state, std::less<dzn_query_key>, queries_allocator> queries;
 
+   enum event_state {
+      EVENT_STATE_EXTERNAL_WAIT = -1,
+      EVENT_STATE_RESET = 0,
+      EVENT_STATE_SET = 1,
+   };
+
+   using events_allocator = dzn_allocator<std::pair<dzn_event * const, enum event_state>>;
+   using events_iterator = std::unordered_map<dzn_event *, enum event_state, std::hash<dzn_event *>, std::equal_to<dzn_event *>, events_allocator>::iterator;
+   std::unordered_map<dzn_event *, enum event_state, std::hash<dzn_event *>, std::equal_to<dzn_event *>, events_allocator> events;
+
    using heaps_allocator = dzn_allocator<dzn_descriptor_heap>;
    std::vector<dzn_descriptor_heap, heaps_allocator> heaps;
 
@@ -752,7 +762,7 @@ struct dzn_cmd_buffer {
    ~dzn_cmd_buffer();
    void open_batch();
    void close_batch();
-   dzn_batch *get_batch(bool signal_event = false);
+   dzn_batch *get_batch();
    void reset();
    const VkAllocationCallbacks *get_vk_allocator();
 
@@ -808,6 +818,7 @@ struct dzn_cmd_buffer {
                     const VkBufferMemoryBarrier *buffer_memory_barriers,
                     uint32_t image_memory_barrier_count,
                     const VkImageMemoryBarrier *image_memory_barriers);
+   void gather_events();
 
    void begin_query(VkQueryPool query_pool, uint32_t query,
                     VkQueryControlFlags flags);
