@@ -1040,8 +1040,8 @@ void u_vbuf_set_vertex_buffers(struct u_vbuf *mgr,
       }
       enabled_vb_mask |= 1 << dst_index;
 
-      if ((!mgr->caps.buffer_offset_unaligned && vb->buffer_offset % 4 != 0) ||
-          (!mgr->caps.buffer_stride_unaligned && vb->stride % 4 != 0)) {
+      if ((!mgr->caps.buffer_offset_unaligned && (vb->buffer_offset & 3) != 0) ||
+          (!mgr->caps.buffer_stride_unaligned && (vb->stride & 3) != 0)) {
          incompatible_vb_mask |= 1 << dst_index;
          real_vb->buffer_offset = vb->buffer_offset;
          real_vb->stride = vb->stride;
@@ -1051,9 +1051,9 @@ void u_vbuf_set_vertex_buffers(struct u_vbuf *mgr,
       }
 
       if (!mgr->caps.attrib_component_unaligned) {
-         if (vb->buffer_offset % 2 != 0 || vb->stride % 2 != 0)
+         if ((vb->buffer_offset & 1) != 0 || (vb->stride & 1) != 0)
             mgr->unaligned_vb_mask[0] |= BITFIELD_BIT(dst_index);
-         if (vb->buffer_offset % 4 != 0 || vb->stride % 4 != 0)
+         if ((vb->buffer_offset & 3) != 0 || (vb->stride & 3) != 0)
             mgr->unaligned_vb_mask[1] |= BITFIELD_BIT(dst_index);
       }
 
