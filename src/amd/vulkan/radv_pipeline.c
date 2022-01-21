@@ -5122,7 +5122,7 @@ radv_pipeline_generate_tess_state(struct radeon_cmdbuf *ctx_cs,
 
    bool ccw = tes->info.tes.ccw;
    const VkPipelineTessellationDomainOriginStateCreateInfo *domain_origin_state =
-      vk_find_struct_const(pCreateInfo->pTessellationState,
+      vk_find_struct_const(pCreateInfo->pTessellationState->pNext,
                            PIPELINE_TESSELLATION_DOMAIN_ORIGIN_STATE_CREATE_INFO);
 
    if (domain_origin_state &&
