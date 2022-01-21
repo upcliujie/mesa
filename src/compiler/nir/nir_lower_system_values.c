@@ -516,8 +516,13 @@ lower_compute_system_value_instr(nir_builder *b,
       if (options && options->has_base_workgroup_id)
          return nir_iadd(b, nir_u2u(b, nir_load_workgroup_id_zero_base(b), bit_size),
                             nir_load_base_workgroup_id(b, bit_size));
-      else
-         return NULL;
+      else if (options && options->lower_cs_workgroup_id_from_index) {
+         nir_ssa_def *wg_index = nir_load_workgroup_index(b);
+         nir_ssa_def *wg_size = nir_load_num_workgroups(b, bit_size);
+         return lower_id_from_index(b, wg_index, wg_size, bit_size);
+      }
+
+      return NULL;
    }
 
    default:

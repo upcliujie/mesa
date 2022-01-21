@@ -768,6 +768,7 @@ system_value("local_invocation_index", 1)
 # non-zero_base indicates the base is included
 system_value("workgroup_id", 3, bit_sizes=[32, 64])
 system_value("workgroup_id_zero_base", 3)
+system_value("workgroup_index", 1)
 system_value("base_workgroup_id", 3, bit_sizes=[32, 64])
 system_value("user_clip_plane", 4, indices=[UCP_ID])
 system_value("num_workgroups", 3, bit_sizes=[32, 64])
