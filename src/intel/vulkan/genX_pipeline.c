@@ -761,7 +761,6 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineMultisampleStateCreateInfo *ms_info,
               const VkPipelineRasterizationLineStateCreateInfoEXT *line_info,
               const VkPipelineRenderingCreateInfo *rendering_info,
-              const uint32_t dynamic_states,
               enum intel_urb_deref_block_size urb_deref_block_size)
 {
    struct GENX(3DSTATE_SF) sf = {
@@ -827,7 +826,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
    VkPolygonMode raster_mode =
       genX(raster_polygon_mode)(pipeline, ia_info ? ia_info->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
    bool dynamic_primitive_topology =
-      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
+      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 
    /* For details on 3DSTATE_RASTER multisample state, see the BSpec table
     * "Multisample Modes State".
@@ -859,10 +858,10 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
       anv_rasterization_aa_mode(raster_mode, pipeline->line_mode);
 
    raster.FrontWinding =
-      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE ?
+      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE ?
          0 : genX(vk_to_intel_front_face)[rs_info->frontFace];
    raster.CullMode =
-      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_CULL_MODE ?
+      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_CULL_MODE ?
          0 : genX(vk_to_intel_cullmode)[rs_info->cullMode];
 
    raster.FrontFaceFillMode = genX(vk_to_intel_fillmode)[rs_info->polygonMode];
@@ -884,7 +883,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
 #endif
 
    bool depth_bias_enable =
-      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE ?
+      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE ?
          0 : rs_info->depthBiasEnable;
 
    raster.GlobalDepthOffsetEnableSolid = depth_bias_enable;
@@ -919,8 +918,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
 
 static void
 emit_ms_state(struct anv_graphics_pipeline *pipeline,
-              const VkPipelineMultisampleStateCreateInfo *info,
-              uint32_t dynamic_states)
+              const VkPipelineMultisampleStateCreateInfo *info)
 {
 #if GFX_VER >= 8
    /* On Gfx8+ 3DSTATE_MULTISAMPLE only holds the number of samples. */
@@ -935,7 +933,7 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
     * 3DSTATE_MULTISAMPLE.
     */
    if (pipeline->base.device->vk.enabled_extensions.EXT_sample_locations &&
-       !(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
+       !(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
 #if GFX_VER >= 8
       genX(emit_sample_pattern)(&pipeline->base.batch,
                                 pipeline->rasterization_samples,
@@ -968,10 +966,10 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
 }
 
 static void
-emit_3dstate_cps(struct anv_graphics_pipeline *pipeline, uint32_t dynamic_states)
+emit_3dstate_cps(struct anv_graphics_pipeline *pipeline)
 {
 #if GFX_VER >= 11
-   if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE) &&
+   if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE) &&
        pipeline->base.device->vk.enabled_extensions.KHR_fragment_shading_rate) {
       genX(emit_shading_rate)(&pipeline->base.batch,
                               pipeline,
@@ -1198,8 +1196,7 @@ sanitize_ds_state(VkPipelineDepthStencilStateCreateInfo *state,
 static void
 emit_ds_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineDepthStencilStateCreateInfo *pCreateInfo,
-              const VkPipelineRenderingCreateInfo *rendering_info,
-              const uint32_t dynamic_states)
+              const VkPipelineRenderingCreateInfo *rendering_info)
 {
 #if GFX_VER == 7
 #  define depth_stencil_dw pipeline->gfx7.depth_stencil_state
@@ -1238,7 +1235,7 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
    pipeline->depth_bounds_test_enable = info.depthBoundsTestEnable;
 
    bool dynamic_stencil_op =
-      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
+      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
 
 #if GFX_VER <= 7
    struct GENX(DEPTH_STENCIL_STATE) depth_stencil = {
@@ -1246,21 +1243,21 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
    struct GENX(3DSTATE_WM_DEPTH_STENCIL) depth_stencil = {
 #endif
       .DepthTestEnable =
-         dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_TEST_ENABLE ?
+         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_TEST_ENABLE ?
             0 : info.depthTestEnable,
 
       .DepthBufferWriteEnable =
-         dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_WRITE_ENABLE ?
+         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_WRITE_ENABLE ?
             0 : info.depthWriteEnable,
 
       .DepthTestFunction =
-         dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP ?
+         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP ?
             0 : genX(vk_to_intel_compare_op)[info.depthCompareOp],
 
       .DoubleSidedStencilEnable = true,
 
       .StencilTestEnable =
-         dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE ?
+         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE ?
             0 : info.stencilTestEnable,
 
       .StencilFailOp = genX(vk_to_intel_stencil_op)[info.front.failOp],
@@ -1291,8 +1288,8 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
 #endif
 
 #if GFX_VER >= 12
-   if ((dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS |
-                          ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE)) == 0) {
+   if ((pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS |
+                                    ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE)) == 0) {
       anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_DEPTH_BOUNDS), db) {
          db.DepthBoundsTestValueModifyDisable = false;
          db.DepthBoundsTestEnableModifyDisable = false;
@@ -1329,8 +1326,7 @@ write_disabled_blend(uint32_t *state)
 static void
 emit_cb_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineColorBlendStateCreateInfo *info,
-              const VkPipelineMultisampleStateCreateInfo *ms_info,
-              uint32_t dynamic_states)
+              const VkPipelineMultisampleStateCreateInfo *ms_info)
 {
    struct anv_device *device = pipeline->base.device;
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
@@ -1353,8 +1349,8 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
       GENX(BLEND_STATE_ENTRY_length) * surface_count;
    uint32_t *blend_state_start, *state_pos;
 
-   if (dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-                         ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
+   if (pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+                                   ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
       const struct intel_device_info *devinfo = &pipeline->base.device->info;
       blend_state_start = devinfo->ver >= 8 ?
          pipeline->gfx8.blend_state : pipeline->gfx7.blend_state;
@@ -1429,11 +1425,11 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
       };
 
       /* Write logic op if not dynamic */
-      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))
+      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))
          entry.LogicOpFunction = genX(vk_to_intel_logic_op)[info->logicOp];
 
       /* Write blending color if not dynamic */
-      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
+      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
          entry.WriteDisableAlpha = !(a->colorWriteMask & VK_COLOR_COMPONENT_A_BIT);
          entry.WriteDisableRed   = !(a->colorWriteMask & VK_COLOR_COMPONENT_R_BIT);
          entry.WriteDisableGreen = !(a->colorWriteMask & VK_COLOR_COMPONENT_G_BIT);
@@ -1513,8 +1509,8 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
    blend.AlphaTestEnable               = false;
    blend.IndependentAlphaBlendEnable   = blend_state.IndependentAlphaBlendEnable;
 
-   if (dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-                        ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
+   if (pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+                                   ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
       GENX(3DSTATE_PS_BLEND_pack)(NULL, pipeline->gfx8.ps_blend, &blend);
    } else {
       anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PS_BLEND), _blend)
@@ -1526,8 +1522,8 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
 
    GENX(BLEND_STATE_pack)(NULL, blend_state_start, &blend_state);
 
-   if (!(dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-                           ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))) {
+   if (!(pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+                                     ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))) {
       anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_BLEND_STATE_POINTERS), bsp) {
          bsp.BlendStatePointer      = pipeline->blend_state.offset;
 #if GFX_VER >= 8
@@ -1541,8 +1537,7 @@ static void
 emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
                   const VkPipelineInputAssemblyStateCreateInfo *ia_info,
                   const VkPipelineViewportStateCreateInfo *vp_info,
-                  const VkPipelineRasterizationStateCreateInfo *rs_info,
-                  const uint32_t dynamic_states)
+                  const VkPipelineRasterizationStateCreateInfo *rs_info)
 {
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
    (void) wm_prog_data;
@@ -1564,8 +1559,8 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
    VkPolygonMode raster_mode =
       genX(raster_polygon_mode)(pipeline, ia_info ? ia_info->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
    clip.ViewportXYClipTestEnable =
-      dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
-         0 : (raster_mode == VK_POLYGON_MODE_FILL);
+      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
+      0 : (raster_mode == VK_POLYGON_MODE_FILL);
 
 #if GFX_VER >= 8
    clip.VertexSubPixelPrecisionSelect = _8Bit;
@@ -1657,8 +1652,7 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
 
 static void
 emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
-                       const VkPipelineRasterizationStateCreateInfo *rs_info,
-                       const uint32_t dynamic_states)
+                       const VkPipelineRasterizationStateCreateInfo *rs_info)
 {
    const struct brw_vue_prog_data *prog_data =
       anv_pipeline_get_last_vue_prog_data(pipeline);
@@ -1793,8 +1787,8 @@ emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
    struct GENX(3DSTATE_STREAMOUT) so = {
       GENX(3DSTATE_STREAMOUT_header),
       .RenderingDisable =
-         (dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) ?
-            0 : rs_info->rasterizerDiscardEnable,
+         (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) ?
+         0 : rs_info->rasterizerDiscardEnable,
    };
 
    if (xfb_info) {
@@ -1860,7 +1854,7 @@ emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
       so.Stream3VertexReadLength = urb_entry_read_length - 1;
    }
 
-   if (dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
+   if (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
       GENX(3DSTATE_STREAMOUT_pack)(NULL, streamout_state_dw, &so);
    } else {
       anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_STREAMOUT), _so)
@@ -2268,8 +2262,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
                 const VkPipelineColorBlendStateCreateInfo *blend,
                 const VkPipelineMultisampleStateCreateInfo *multisample,
                 const VkPipelineRasterizationLineStateCreateInfoEXT *line,
-                const VkRenderingSelfDependencyInfoMESA *rsd,
-                const uint32_t dynamic_states)
+                const VkRenderingSelfDependencyInfoMESA *rsd)
 {
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
 
@@ -2312,7 +2305,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
          wm_prog_data->uses_kill;
 
       /* Only set this value in non dynamic mode. */
-      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
+      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
          wm.ForceThreadDispatchEnable =
             (pipeline->force_fragment_thread_dispatch ||
              !has_color_buffer_write_enabled(pipeline, blend)) ? ForceON : 0;
@@ -2345,7 +2338,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
          wm.PixelShaderKillsPixel;
 
       /* Only set this value in non dynamic mode. */
-      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
+      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
          wm.ThreadDispatchEnable =
             pipeline->force_fragment_thread_dispatch ||
             has_color_buffer_write_enabled(pipeline, blend);
@@ -2365,8 +2358,8 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
          genX(raster_polygon_mode)(pipeline, ia ? ia->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
 
       wm.MultisampleRasterizationMode =
-         dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ? 0 :
-         genX(ms_rasterization_mode)(pipeline, raster_mode);
+         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
+         0 : genX(ms_rasterization_mode)(pipeline, raster_mode);
 #endif
 
       wm.LineStippleEnable = line && line->stippledLineEnable;
@@ -2378,7 +2371,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
    dynamic_wm_states |= ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 #endif
 
-   if (dynamic_states & dynamic_wm_states) {
+   if (pipeline->dynamic_states & dynamic_wm_states) {
       const struct intel_device_info *devinfo = &pipeline->base.device->info;
       uint32_t *dws = devinfo->ver >= 8 ? pipeline->gfx8.wm : pipeline->gfx7.wm;
       GENX(3DSTATE_WM_pack)(NULL, dws, &wm);
@@ -2837,23 +2830,12 @@ genX(graphics_pipeline_create)(
       return result;
    }
 
-   /* Information on which states are considered dynamic. */
-   const VkPipelineDynamicStateCreateInfo *dyn_info =
-      pCreateInfo->pDynamicState;
-   uint32_t dynamic_states = 0;
-   if (dyn_info) {
-      for (unsigned i = 0; i < dyn_info->dynamicStateCount; i++)
-         dynamic_states |=
-            anv_cmd_dirty_bit_for_vk_dynamic_state(dyn_info->pDynamicStates[i]);
-   }
-
-
    /* If rasterization is not enabled, various CreateInfo structs must be
     * ignored.
     */
    const bool raster_enabled =
       !pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
-      (dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
+      (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
 
    const VkPipelineViewportStateCreateInfo *vp_info =
       raster_enabled ? pCreateInfo->pViewportState : NULL;
@@ -2878,17 +2860,16 @@ genX(graphics_pipeline_create)(
    emit_rs_state(pipeline, pCreateInfo->pInputAssemblyState,
                            pCreateInfo->pRasterizationState,
                            ms_info, line_info, rendering_info,
-                           dynamic_states, urb_deref_block_size);
-   emit_ms_state(pipeline, ms_info, dynamic_states);
-   emit_ds_state(pipeline, ds_info, rendering_info, dynamic_states);
-   emit_cb_state(pipeline, cb_info, ms_info, dynamic_states);
+                           urb_deref_block_size);
+   emit_ms_state(pipeline, ms_info);
+   emit_ds_state(pipeline, ds_info, rendering_info);
+   emit_cb_state(pipeline, cb_info, ms_info);
    compute_kill_pixel(pipeline, ms_info, rsd_info);
 
    emit_3dstate_clip(pipeline,
                      pCreateInfo->pInputAssemblyState,
                      vp_info,
-                     pCreateInfo->pRasterizationState,
-                     dynamic_states);
+                     pCreateInfo->pRasterizationState);
 
 #if GFX_VER == 12
    emit_3dstate_primitive_replication(pipeline, rendering_info);
@@ -2922,16 +2903,15 @@ genX(graphics_pipeline_create)(
       emit_3dstate_gs(pipeline);
 
 #if GFX_VER >= 8
-      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY))
+      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY))
          emit_3dstate_vf_topology(pipeline);
 #endif
 
       emit_3dstate_vf_statistics(pipeline);
 
-      emit_3dstate_cps(pipeline, dynamic_states);
+      emit_3dstate_cps(pipeline);
 
-      emit_3dstate_streamout(pipeline, pCreateInfo->pRasterizationState,
-                             dynamic_states);
+      emit_3dstate_streamout(pipeline, pCreateInfo->pRasterizationState);
 #if GFX_VERx10 >= 125
       /* Disable Mesh. */
       if (device->physical->vk.supported_extensions.NV_mesh_shader) {
@@ -2951,8 +2931,7 @@ genX(graphics_pipeline_create)(
    emit_3dstate_wm(pipeline,
                    pCreateInfo->pInputAssemblyState,
                    pCreateInfo->pRasterizationState,
-                   cb_info, ms_info, line_info, rsd_info,
-                   dynamic_states);
+                   cb_info, ms_info, line_info, rsd_info);
    emit_3dstate_ps(pipeline, cb_info, ms_info);
 #if GFX_VER >= 8
    emit_3dstate_ps_extra(pipeline, pCreateInfo->pRasterizationState, rsd_info);
