@@ -1831,10 +1831,10 @@ void anv_UpdateDescriptorSets(
                dst_desc[j].type        = src_desc[j].type;
                dst_desc[j].buffer_view = &dst_bview[j];
             }
-         } else {
-            for (uint32_t j = 0; j < copy->descriptorCount; j++)
-               dst_desc[j] = src_desc[j];
          }
+
+         for (uint32_t j = 0; j < copy->descriptorCount; j++)
+            dst_desc[j] = src_desc[j];
 
          unsigned min_stride = MIN2(src_layout->descriptor_stride, dst_layout->descriptor_stride);
          if (min_stride > 0) {
