@@ -3800,6 +3800,7 @@ bi_vectorize_filter(const nir_instr *instr, void *data)
         case nir_op_ushr:
         case nir_op_f2i16:
         case nir_op_f2u16:
+        case nir_op_f2f16:
                 return false;
         default:
                 return true;
