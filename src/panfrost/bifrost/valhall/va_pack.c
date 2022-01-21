@@ -291,7 +291,7 @@ va_pack_byte_offset(const bi_instr *I)
 }
 
 static uint64_t
-va_pack_load(const bi_instr *I)
+va_pack_load(const bi_instr *I, bool buffer_descriptor)
 {
    const uint8_t load_lane_identity[8] = {
       0, 0, 0, 0, 4, 7, 6, 7
@@ -304,7 +304,8 @@ va_pack_load(const bi_instr *I)
    // unsigned
    hex |= (1ull << 39);
 
-   hex |= va_pack_byte_offset(I);
+   if (!buffer_descriptor)
+      hex |= va_pack_byte_offset(I);
 
    // staging write
    hex |= (uint64_t) va_pack_reg(I->dest[0]) << 40;
@@ -312,6 +313,11 @@ va_pack_load(const bi_instr *I)
 
    // 1-src
    hex |= (uint64_t) va_pack_src(I->src[0]) << 0;
+
+   // 2-src for buffer
+   if (buffer_descriptor)
+      hex |= (uint64_t) va_pack_src(I->src[1]) << 8;
+
    return hex;
 }
 
@@ -441,6 +447,14 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LOAD_I64:
    case BI_OPCODE_LOAD_I96:
    case BI_OPCODE_LOAD_I128:
+   case BI_OPCODE_LD_BUFFER_I8:
+   case BI_OPCODE_LD_BUFFER_I16:
+   case BI_OPCODE_LD_BUFFER_I24:
+   case BI_OPCODE_LD_BUFFER_I32:
+   case BI_OPCODE_LD_BUFFER_I48:
+   case BI_OPCODE_LD_BUFFER_I64:
+   case BI_OPCODE_LD_BUFFER_I96:
+   case BI_OPCODE_LD_BUFFER_I128:
    case BI_OPCODE_ATEST:
    case BI_OPCODE_LD_VAR_SPECIAL:
    case BI_OPCODE_LD_ATTR_IMM:
@@ -480,7 +494,18 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LOAD_I64:
    case BI_OPCODE_LOAD_I96:
    case BI_OPCODE_LOAD_I128:
-      hex |= va_pack_load(I);
+      hex |= va_pack_load(I, false);
+      break;
+
+   case BI_OPCODE_LD_BUFFER_I8:
+   case BI_OPCODE_LD_BUFFER_I16:
+   case BI_OPCODE_LD_BUFFER_I24:
+   case BI_OPCODE_LD_BUFFER_I32:
+   case BI_OPCODE_LD_BUFFER_I48:
+   case BI_OPCODE_LD_BUFFER_I64:
+   case BI_OPCODE_LD_BUFFER_I96:
+   case BI_OPCODE_LD_BUFFER_I128:
+      hex |= va_pack_load(I, true);
       break;
 
    case BI_OPCODE_STORE_I8:
