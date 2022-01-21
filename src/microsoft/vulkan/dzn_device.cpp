@@ -677,6 +677,9 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
     *     VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT flag in
     *     VkFormatProperties::optimalTilingFeatures returned by
     *     vkGetPhysicalDeviceFormatProperties is set.
+    *
+    * D3D12 has a few more constraints:
+    *   - no UAVs on multisample resources
     */
    bool rt_or_ds_cap =
       dfmt_info.Support1 &
@@ -686,7 +689,8 @@ dzn_physical_device::get_image_format_properties(const VkPhysicalDeviceImageForm
    if (info->tiling != VK_IMAGE_TILING_LINEAR &&
        info->type == VK_IMAGE_TYPE_2D &&
        !(info->flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT) &&
-       rt_or_ds_cap) {
+       rt_or_ds_cap &&
+       !(info->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
       for (uint32_t s = VK_SAMPLE_COUNT_2_BIT; s < VK_SAMPLE_COUNT_64_BIT; s <<= 1) {
          D3D12_FEATURE_DATA_MULTISAMPLE_QUALITY_LEVELS ms_info = {
             .Format = dfmt_info.Format,
