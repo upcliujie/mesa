@@ -2977,13 +2977,24 @@ panfrost_emit_primitive(struct panfrost_context *ctx,
                 cfg.index_count = ctx->indirect_draw ? 1 : draw->count;
                 cfg.index_type = panfrost_translate_index_size(info->index_size);
 
-                if (cfg.index_type) {
+
+                if (PAN_ARCH >= 9) {
+                        /* Base vertex offset on Valhall is used for both
+                         * indexed and non-indexed draws, in a simple way for
+                         * either. Handle both cases.
+                         */
+                        if (cfg.index_type)
+                                cfg.base_vertex_offset = draw->index_bias;
+                        else
+                                cfg.base_vertex_offset = draw->start;
+
+                        /* Indices are moved outside the primitive descriptor
+                         * on Valhall, so we don't need to set that here
+                         */
+                } else if (cfg.index_type) {
                         cfg.base_vertex_offset = draw->index_bias - ctx->offset_start;
 
 #if PAN_ARCH <= 7
-                        /* Indices are moved outside the primitive descriptor
-                         * on Valhall
-                         */
                         cfg.indices = indices;
 #endif
                 }
@@ -3307,8 +3318,9 @@ panfrost_direct_draw(struct panfrost_batch *batch,
                                                             &min_index,
                                                             &max_index);
 
+                /* XXX: IDVS doesn't need this */
                 /* Use the corresponding values */
-                vertex_count = max_index - min_index + 1;
+                //vertex_count = max_index - min_index + 1;
                 ctx->offset_start = min_index + draw->index_bias;
         } else {
                 ctx->offset_start = draw->start;
