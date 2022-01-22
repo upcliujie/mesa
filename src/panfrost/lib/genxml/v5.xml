@@ -928,8 +928,8 @@
     <field name="S Writeback Surface Stride" size="32" start="11:0" type="uint"/>
     <field name="ZS AFBC Header" size="64" start="4:0" type="address"/>
     <field name="ZS AFBC Row Stride" size="13" start="6:0" type="uint"/>
-    <field name="ZS AFBC Chunk Size" size="12" start="7:0" type="uint"/>
-    <field name="ZS AFBC Sparse" size="1" start="7:16" type="bool"/>
+    <field name="ZS AFBC Chunk Size" size="12" start="7:0" type="uint" default="9"/>
+    <field name="ZS AFBC Sparse" size="1" start="7:16" type="bool" default="true"/>
     <field name="ZS AFBC Body" size="64" start="8:0" type="address"/>
     <field name="ZS AFBC Body Size" size="32" start="10:0" type="uint"/>
     <field name="ZS Preload Base" size="64" start="12:0" type="address"/>
@@ -981,8 +981,8 @@
   <struct name="Render Target AFBC Overlay" size="16">
     <field name="Header" size="64" start="4:0" type="address"/>
     <field name="Row Stride" size="13" start="6:0" type="uint"/>
-    <field name="Chunk Size" size="12" start="7:0" type="uint"/>
-    <field name="Sparse" size="1" start="7:16" type="bool"/>
+    <field name="Chunk Size" size="12" start="7:0" type="uint" default="9"/>
+    <field name="Sparse" size="1" start="7:16" type="bool" default="true"/>
     <field name="YUV Transform Enable" size="1" start="7:17" type="bool"/>
     <field name="Body" size="64" start="8:0" type="address"/>
     <field name="Body Size" size="32" start="10:0" type="uint"/>

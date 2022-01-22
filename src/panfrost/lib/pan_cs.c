@@ -204,8 +204,6 @@ pan_prepare_zs(const struct pan_fb_info *fb,
                                           AFBC_HEADER_BYTES_PER_TILE;
 #else
                 ext->zs_afbc_body_size = 0x1000;
-                ext->zs_afbc_chunk_size = 9;
-                ext->zs_afbc_sparse = true;
 #endif
 
                 ext->zs_afbc_header = surf.afbc.header;
@@ -444,8 +442,6 @@ pan_prepare_rt(const struct pan_fb_info *fb, unsigned idx,
                 cfg->afbc.afbc_wide_block_enable =
                         panfrost_block_dim(rt->image->layout.modifier, true, 0) > 16;
 #else
-                cfg->afbc.chunk_size = 9;
-                cfg->afbc.sparse = true;
                 cfg->afbc.body_size = slice->afbc.body_size;
 #endif
 
