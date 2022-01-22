@@ -169,8 +169,6 @@ pan_prepare_s(const struct pan_fb_info *fb,
         struct pan_surface surf;
         pan_iview_get_surface(s, 0, 0, 0, &surf);
 
-        assert(s->image->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED ||
-               s->image->layout.modifier == DRM_FORMAT_MOD_LINEAR);
         ext->s_writeback_base = surf.data;
         ext->s_writeback_row_stride = s->image->layout.slices[level].row_stride;
         ext->s_writeback_surface_stride =
@@ -209,9 +207,6 @@ pan_prepare_zs(const struct pan_fb_info *fb,
                 ext->zs_afbc_header = surf.afbc.header;
                 ext->zs_afbc_body = surf.afbc.body;
         } else {
-                assert(zs->image->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED ||
-                       zs->image->layout.modifier == DRM_FORMAT_MOD_LINEAR);
-
                 ext->zs_writeback_base = surf.data;
                 ext->zs_writeback_row_stride =
                         zs->image->layout.slices[level].row_stride;
@@ -449,8 +444,6 @@ pan_prepare_rt(const struct pan_fb_info *fb, unsigned idx,
                 if (rt->image->layout.modifier & AFBC_FORMAT_MOD_YTR)
                         cfg->afbc.yuv_transform_enable = true;
         } else {
-                assert(rt->image->layout.modifier == DRM_FORMAT_MOD_LINEAR ||
-                       rt->image->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED);
                 cfg->rgb.base = surf.data;
                 cfg->rgb.row_stride = row_stride;
                 cfg->rgb.surface_stride = layer_stride;
