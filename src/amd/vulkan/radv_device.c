@@ -4624,7 +4624,13 @@ struct radv_deferred_queue_submission {
 };
 
 static VkResult
-radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
+radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission);
+
+static VkResult
+radv_queue_submit_with_dependencies(struct vk_queue *vqueue,
+                                    struct vk_queue_submit *submission,
+                                    struct radv_amdgpu_fence **out_fence,
+                                    struct radv_amdgpu_fence *scheduled_dependency)
 {
    struct radv_queue *queue = (struct radv_queue *)vqueue;
    struct radeon_winsys_ctx *ctx = queue->hw_ctx;
@@ -4698,16 +4704,28 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
          struct radeon_cmdbuf *initial_preamble =
             need_wait ? initial_flush_preamble_cs : initial_preamble_cs;
          advance = MIN2(max_cs_submission, submission->command_buffer_count - j);
-         bool last_submit = j + advance == submission->command_buffer_count;
+
+         /* Subsequent submissions on the same queue within the same context
+          * are guaranteed to be executed in order. Therefore:
+          * 1. Only the first submit needs to wait (including for the scheduled dependency)
+          * 2. Only the last submission needs to signal
+          */
+         const bool last_submit = j + advance == submission->command_buffer_count;
+         const bool first_submit = j == 0;
 
          if (queue->device->trace_bo)
             *queue->device->trace_id_ptr = 0;
 
+         uint32_t wait_count = first_submit ? submission->wait_count : 0;
+         uint32_t signal_count = last_submit ? submission->signal_count : 0;
+         struct radv_amdgpu_fence **out = last_submit ? out_fence : NULL;
+         struct radv_amdgpu_fence *dep = first_submit ? scheduled_dependency : NULL;
+
          result = queue->device->ws->cs_submit(
             ctx, queue->vk.queue_family_index, queue->vk.index_in_family, cs_array + j, advance,
-            initial_preamble, continue_preamble_cs, j == 0 ? submission->wait_count : 0,
-            submission->waits, last_submit ? submission->signal_count : 0, submission->signals,
-            can_patch, NULL, NULL);
+            initial_preamble, continue_preamble_cs, wait_count,
+            submission->waits, signal_count, submission->signals,
+            can_patch, out, dep);
          if (result != VK_SUCCESS) {
             free(cs_array);
             if (queue->device->trace_bo)
@@ -4741,6 +4759,12 @@ fail:
       result = vk_device_set_lost(&queue->device->vk, "vkQueueSubmit() failed");
    }
    return result;
+}
+
+static VkResult
+radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
+{
+   return radv_queue_submit_with_dependencies(vqueue, submission, NULL, NULL);
 }
 
 bool
