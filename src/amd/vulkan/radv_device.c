@@ -2665,6 +2665,16 @@ radv_queue_init(struct radv_device *device, struct radv_queue *queue, int idx,
 static void
 radv_queue_finish(struct radv_queue *queue)
 {
+   if (queue->ace_internal_queue) {
+      /* Prevent double free */
+      queue->ace_internal_queue->has_task_rings = false;
+      queue->ace_internal_queue->task_rings_bo = NULL;
+      queue->ace_internal_queue->descriptor_bo = NULL;
+
+      radv_queue_finish(queue->ace_internal_queue);
+      free(queue->ace_internal_queue);
+   }
+
    if (queue->initial_full_flush_preamble_cs)
       queue->device->ws->cs_destroy(queue->initial_full_flush_preamble_cs);
    if (queue->initial_preamble_cs)
@@ -2681,6 +2691,8 @@ radv_queue_finish(struct radv_queue *queue)
       queue->device->ws->buffer_destroy(queue->device->ws, queue->gsvs_ring_bo);
    if (queue->tess_rings_bo)
       queue->device->ws->buffer_destroy(queue->device->ws, queue->tess_rings_bo);
+   if (queue->task_rings_bo)
+      queue->device->ws->buffer_destroy(queue->device->ws, queue->task_rings_bo);
    if (queue->gds_bo)
       queue->device->ws->buffer_destroy(queue->device->ws, queue->gds_bo);
    if (queue->gds_oa_bo)
@@ -4594,6 +4606,42 @@ radv_get_preambles(struct radv_queue *queue, struct vk_command_buffer *const *cm
                                initial_preamble_cs, continue_preamble_cs);
 }
 
+static int
+radv_queue_create_ace_internal(struct radv_queue *gfx_queue)
+{
+   struct radv_device *device = gfx_queue->device;
+   struct radv_queue *ace_queue = (struct radv_queue *)calloc(1, sizeof(struct radv_queue));
+
+   float prio = 1.0;
+
+   VkDeviceQueueCreateInfo queue_crinfo = {
+      .queueCount = 1,
+      .queueFamilyIndex = RADV_QUEUE_COMPUTE,
+      .flags = 0,
+      .pQueuePriorities = &prio,
+   };
+
+   /* Find the highest priority existing queue. */
+   VkDeviceQueueGlobalPriorityCreateInfoEXT queue_prio_crinfo = {
+      .globalPriority = VK_QUEUE_GLOBAL_PRIORITY_REALTIME_EXT,
+   };
+   while(!device->hw_ctx[radv_get_queue_global_priority(&queue_prio_crinfo)]) {
+      queue_prio_crinfo.globalPriority >>= 1;
+   }
+
+   int result = radv_queue_init(device, ace_queue, 0, &queue_crinfo,
+                                &queue_prio_crinfo);
+
+   assert(ace_queue->hw_ctx);
+
+   if (result != VK_SUCCESS)
+      free(ace_queue);
+   else
+      gfx_queue->ace_internal_queue = ace_queue;
+
+   return result;
+}
+
 struct radv_deferred_queue_submission {
    struct radv_queue *queue;
    VkCommandBuffer *cmd_buffers;
@@ -4628,7 +4676,57 @@ struct radv_deferred_queue_submission {
 };
 
 static VkResult
-radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission);
+radv_queue_submit_with_dependencies(struct vk_queue *vqueue,
+                                    struct vk_queue_submit *submission,
+                                    struct radv_amdgpu_fence **out_fence,
+                                    struct radv_amdgpu_fence *scheduled_dependency);
+
+static VkResult
+radv_queue_submit_ace_internal(struct radv_queue *gfx_queue,
+                               struct vk_queue_submit *gfx_submission,
+                               struct radv_amdgpu_fence **out_fence,
+                               struct radv_amdgpu_fence *scheduled_dependency)
+{
+   if (!gfx_queue->ace_internal_queue) {
+      int result = radv_queue_create_ace_internal(gfx_queue);
+      if (result != VK_SUCCESS)
+         return (VkResult)result;
+   }
+
+   struct vk_command_buffer **ace_cmdbufs =
+      (struct vk_command_buffer **) calloc(gfx_submission->command_buffer_count,
+                                           sizeof(struct vk_command_buffer *));
+
+   uint32_t ace_cmdbuf_count = 0;
+
+   for (unsigned i = 0; i < gfx_submission->command_buffer_count; ++i) {
+      struct radv_cmd_buffer *cmd_buf =
+         container_of(gfx_submission->command_buffers[i], struct radv_cmd_buffer, vk);
+
+      if (cmd_buf->ace_internal_cmdbuf)
+         ace_cmdbufs[ace_cmdbuf_count++] = &cmd_buf->ace_internal_cmdbuf->vk;
+   }
+
+   struct vk_queue_submit ace_submission = {
+      .wait_count = gfx_submission->wait_count,
+      .waits = gfx_submission->waits,
+      .command_buffer_count = ace_cmdbuf_count,
+      .command_buffers = ace_cmdbufs,
+   };
+
+   struct radv_queue *ace_queue = gfx_queue->ace_internal_queue;
+   ace_queue->has_task_rings = gfx_queue->has_task_rings;
+   ace_queue->task_rings_bo = gfx_queue->task_rings_bo;
+   ace_queue->descriptor_bo = gfx_queue->descriptor_bo;
+
+   VkResult result =
+      radv_queue_submit_with_dependencies(&ace_queue->vk, &ace_submission,
+                                          out_fence, scheduled_dependency);
+
+   free(ace_cmdbufs);
+
+   return result;
+}
 
 static VkResult
 radv_queue_submit_with_dependencies(struct vk_queue *vqueue,
@@ -4689,6 +4787,9 @@ radv_queue_submit_with_dependencies(struct vk_queue *vqueue,
       struct radeon_cmdbuf **cs_array =
          malloc(sizeof(struct radeon_cmdbuf *) * (submission->command_buffer_count));
 
+      bool has_ace_internal = false;
+      struct radv_amdgpu_fence *ace_internal_fence = NULL;
+
       for (uint32_t j = 0; j < submission->command_buffer_count; j++) {
          struct radv_cmd_buffer *cmd_buffer =
             (struct radv_cmd_buffer *)submission->command_buffers[j];
@@ -4698,7 +4799,18 @@ radv_queue_submit_with_dependencies(struct vk_queue *vqueue,
          if ((cmd_buffer->usage_flags & VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT))
             can_patch = false;
 
+         has_ace_internal |= !!cmd_buffer->ace_internal_cmdbuf;
          cmd_buffer->status = RADV_CMD_BUFFER_STATUS_PENDING;
+      }
+
+      if (has_ace_internal) {
+         result = radv_queue_submit_ace_internal(queue, submission,
+                                                 &ace_internal_fence, scheduled_dependency);
+
+         if (result != VK_SUCCESS)
+            goto fail;
+
+         assert(ace_internal_fence);
       }
 
       for (uint32_t j = 0; j < submission->command_buffer_count; j += advance) {
@@ -4720,10 +4832,11 @@ radv_queue_submit_with_dependencies(struct vk_queue *vqueue,
          if (queue->device->trace_bo)
             *queue->device->trace_id_ptr = 0;
 
-         uint32_t wait_count = first_submit ? submission->wait_count : 0;
+         uint32_t wait_count = first_submit && !has_ace_internal ? submission->wait_count : 0;
          uint32_t signal_count = last_submit ? submission->signal_count : 0;
          struct radv_amdgpu_fence **out = last_submit ? out_fence : NULL;
-         struct radv_amdgpu_fence *dep = first_submit ? scheduled_dependency : NULL;
+         struct radv_amdgpu_fence *dep = has_ace_internal ? ace_internal_fence :
+                                         first_submit ? scheduled_dependency : NULL;
 
          result = queue->device->ws->cs_submit(
             ctx, queue->vk.queue_family_index, queue->vk.index_in_family, cs_array + j, advance,
