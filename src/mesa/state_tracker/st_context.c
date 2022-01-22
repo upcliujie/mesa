@@ -438,7 +438,7 @@ st_init_driver_flags(struct st_context *st)
    }
 
    if (st->lower_ucp)
-      f->NewClipPlaneEnable = ST_NEW_VS_STATE | ST_NEW_GS_STATE;
+      f->NewClipPlaneEnable = ST_NEW_VS_STATE | ST_NEW_GS_STATE | ST_NEW_TES_STATE;
    else
       f->NewClipPlaneEnable = ST_NEW_RASTERIZER;
 
