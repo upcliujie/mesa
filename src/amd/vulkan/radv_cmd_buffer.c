@@ -5127,6 +5127,10 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
 
       cmd_buffer->state.compute_pipeline = pipeline;
       cmd_buffer->push_constant_stages |= VK_SHADER_STAGE_COMPUTE_BIT;
+      cmd_buffer->task_rings_needed |=
+         pipeline &&
+         pipeline->shaders[MESA_SHADER_COMPUTE] &&
+         pipeline->shaders[MESA_SHADER_COMPUTE]->info.cs.uses_task_rings;
       break;
    case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
       if (cmd_buffer->state.rt_pipeline == pipeline)
@@ -5217,6 +5221,7 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
                               compute_pipeline);
 
          cmd_buffer->record_result = cmd_buffer->ace_internal_cmdbuf->record_result;
+         cmd_buffer->task_rings_needed = true;
       }
 
       break;
