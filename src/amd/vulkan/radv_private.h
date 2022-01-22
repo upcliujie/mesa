@@ -727,6 +727,8 @@ struct radv_queue {
    struct radeon_cmdbuf *initial_preamble_cs;
    struct radeon_cmdbuf *initial_full_flush_preamble_cs;
    struct radeon_cmdbuf *continue_preamble_cs;
+
+   struct radv_queue *ace_internal_queue;
 };
 
 #define RADV_BORDER_COLOR_COUNT       4096
