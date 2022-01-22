@@ -203,7 +203,6 @@ pan_prepare_zs(const struct pan_fb_info *fb,
                 ext->zs_afbc_row_stride = slice->afbc.row_stride /
                                           AFBC_HEADER_BYTES_PER_TILE;
 #else
-                ext->zs_block_format = MALI_BLOCK_FORMAT_AFBC;
                 ext->zs_afbc_body_size = 0x1000;
                 ext->zs_afbc_chunk_size = 9;
                 ext->zs_afbc_sparse = true;
