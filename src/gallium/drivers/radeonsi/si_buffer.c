@@ -657,21 +657,32 @@ static struct pipe_resource *si_buffer_from_user_memory(struct pipe_screen *scre
 struct pipe_resource *si_buffer_from_winsys_buffer(struct pipe_screen *screen,
                                                    const struct pipe_resource *templ,
                                                    struct pb_buffer *imported_buf,
-                                                   bool dedicated)
+                                                   uint64_t offset)
 {
+   if (offset + templ->width0 > imported_buf->size)
+      return NULL;
+
    struct si_screen *sscreen = (struct si_screen *)screen;
    struct si_resource *res = si_alloc_buffer_struct(screen, templ, false);
 
    if (!res)
-      return 0;
+      return NULL;
+
+   res->b.is_shared = true;
+   res->b.buffer_id_unique = util_idalloc_mt_alloc(&sscreen->buffer_ids);
 
    res->buf = imported_buf;
-   res->gpu_address = sscreen->ws->buffer_get_virtual_address(res->buf);
+   res->gpu_address = sscreen->ws->buffer_get_virtual_address(res->buf) + offset;
    res->bo_size = imported_buf->size;
    res->bo_alignment_log2 = imported_buf->alignment_log2;
    res->domains = sscreen->ws->buffer_get_initial_domain(res->buf);
-
    res->memory_usage_kb = MAX2(1, res->bo_size / 1024);
+   res->flags = 0;
+   res->bind_history = 0;
+   res->TC_L2_dirty = false;
+   res->texture_handle_allocated = false;
+   res->image_handle_allocated = false;
+   res->external_usage = 0;
 
    if (sscreen->ws->buffer_get_flags)
       res->flags = sscreen->ws->buffer_get_flags(res->buf);
@@ -681,7 +692,9 @@ struct pipe_resource *si_buffer_from_winsys_buffer(struct pipe_screen *screen,
       res->flags |= RADEON_FLAG_SPARSE;
    }
 
-   res->b.buffer_id_unique = util_idalloc_mt_alloc(&sscreen->buffer_ids);
+   util_range_add((struct pipe_resource *)templ, &res->valid_buffer_range, 0, templ->width0);
+   util_range_add((struct pipe_resource *)templ, &res->b.valid_buffer_range, 0, templ->width0);
+
    return &res->b.b;
 }
 
