@@ -402,7 +402,13 @@ radv_emit_clear_data(struct radv_cmd_buffer *cmd_buffer, unsigned engine_sel, ui
 static void
 radv_destroy_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 {
-   list_del(&cmd_buffer->pool_link);
+   if (cmd_buffer->ace_internal_cmdbuf) {
+      radv_destroy_cmd_buffer(cmd_buffer->ace_internal_cmdbuf);
+      cmd_buffer->ace_internal_cmdbuf = NULL;
+   }
+
+   if (cmd_buffer->pool_linked)
+      list_del(&cmd_buffer->pool_link);
 
    list_for_each_entry_safe(struct radv_cmd_buffer_upload, up, &cmd_buffer->upload.list, list)
    {
@@ -438,7 +444,7 @@ radv_destroy_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
 }
 
 static VkResult
-radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
+radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool, bool link_pool,
                        VkCommandBufferLevel level, VkCommandBuffer *pCommandBuffer,
                        uint32_t queue_family_index)
 {
@@ -459,7 +465,10 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
    cmd_buffer->device = device;
    cmd_buffer->pool = pool;
 
-   list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
+   if (link_pool)
+      list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
+
+   cmd_buffer->pool_linked = link_pool;
    cmd_buffer->queue_family_index = queue_family_index;
 
    ring = radv_queue_family_to_ring(cmd_buffer->queue_family_index);
@@ -483,6 +492,50 @@ radv_create_cmd_buffer(struct radv_device *device, struct radv_cmd_pool *pool,
 
    return VK_SUCCESS;
 }
+
+static VkResult
+radv_create_taskmesh_sem(struct radv_cmd_buffer *cmd_buffer)
+{
+   /* Allocate 1 DWORD in the upload buffer which will be used as a semaphore to
+    * synchronize between the GFX and its internal ACE command buffer.
+    */
+
+   void *taskmesh_sem_ptr;
+   uint32_t taskmesh_sem_off;
+   if (!radv_cmd_buffer_upload_alloc(cmd_buffer, sizeof(uint32_t), &taskmesh_sem_off, &taskmesh_sem_ptr)) {
+      abort();
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   cmd_buffer->taskmesh_sem_va = radv_buffer_get_va(cmd_buffer->upload.upload_bo) + taskmesh_sem_off;
+   memset(taskmesh_sem_ptr, 0, sizeof(uint32_t));
+   return VK_SUCCESS;
+}
+
+ALWAYS_INLINE static void
+radv_sync_ace_gfx(struct radv_cmd_buffer *wait_for_me, struct radv_cmd_buffer *patient)
+{
+   uint32_t sem = ++wait_for_me->taskmesh_semaphore;
+   uint64_t sem_va = wait_for_me->taskmesh_sem_va;
+
+   /* "Wait for me" writes the value to the semaphore. */
+   radv_emit_write_data_packet(wait_for_me, V_370_ME, sem_va, 1, &sem);
+   /* "Patient" waits patiently until the value above (or greater) is written. */
+   radv_cp_wait_mem(patient->cs, WAIT_REG_MEM_GREATER_OR_EQUAL, sem_va, sem, 0xffffffff);
+}
+
+ALWAYS_INLINE static void
+radv_ace_wait_gfx(struct radv_cmd_buffer *gfx_cmd_buffer)
+{
+   radv_sync_ace_gfx(gfx_cmd_buffer, gfx_cmd_buffer->ace_internal_cmdbuf);
+}
+
+ALWAYS_INLINE static void
+radv_gfx_wait_ace(struct radv_cmd_buffer *gfx_cmd_buffer)
+{
+   radv_sync_ace_gfx(gfx_cmd_buffer->ace_internal_cmdbuf, gfx_cmd_buffer);
+}
+
 
 static VkResult
 radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
@@ -557,6 +610,9 @@ radv_reset_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
    }
 
    cmd_buffer->status = RADV_CMD_BUFFER_STATUS_INITIAL;
+
+   if (cmd_buffer->ace_internal_cmdbuf)
+      radv_reset_cmd_buffer(cmd_buffer->ace_internal_cmdbuf);
 
    return cmd_buffer->record_result;
 }
@@ -4365,7 +4421,7 @@ radv_AllocateCommandBuffers(VkDevice _device, const VkCommandBufferAllocateInfo 
 
          pCommandBuffers[i] = radv_cmd_buffer_to_handle(cmd_buffer);
       } else {
-         result = radv_create_cmd_buffer(device, pool, pAllocateInfo->level, &pCommandBuffers[i],
+         result = radv_create_cmd_buffer(device, pool, true, pAllocateInfo->level, &pCommandBuffers[i],
                                          pool->vk.queue_family_index);
       }
       if (result != VK_SUCCESS)
@@ -4587,6 +4643,10 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
    radv_describe_begin_cmd_buffer(cmd_buffer);
 
    cmd_buffer->status = RADV_CMD_BUFFER_STATUS_RECORDING;
+
+   if (cmd_buffer->ace_internal_cmdbuf)
+      radv_BeginCommandBuffer(
+         radv_cmd_buffer_to_handle(cmd_buffer->ace_internal_cmdbuf), pBeginInfo);
 
    return result;
 }
@@ -4975,6 +5035,14 @@ radv_EndCommandBuffer(VkCommandBuffer commandBuffer)
 
    cmd_buffer->status = RADV_CMD_BUFFER_STATUS_EXECUTABLE;
 
+   if (cmd_buffer->record_result == VK_SUCCESS &&
+       cmd_buffer->ace_internal_cmdbuf) {
+      VkCommandBuffer compute_cmdbuf = radv_cmd_buffer_to_handle(cmd_buffer->ace_internal_cmdbuf);
+      VkResult compute_result = radv_EndCommandBuffer(compute_cmdbuf);
+      if (compute_result != VK_SUCCESS)
+         return compute_result;
+   }
+
    return cmd_buffer->record_result;
 }
 
@@ -5009,6 +5077,46 @@ radv_mark_descriptor_sets_dirty(struct radv_cmd_buffer *cmd_buffer, VkPipelineBi
       radv_get_descriptors_state(cmd_buffer, bind_point);
 
    descriptors_state->dirty |= descriptors_state->valid;
+}
+
+static void
+radv_create_ace_internal_cmd_buffer(struct radv_cmd_buffer *cmd_buffer)
+{
+   assert(!cmd_buffer->ace_internal_cmdbuf);
+   VkResult result;
+
+   result = radv_create_taskmesh_sem(cmd_buffer);
+   if (result != VK_SUCCESS)
+      goto radv_create_ace_internal_cmd_buffer_fail;
+
+   VkCommandBuffer compute_cmdbuf;
+   result = radv_create_cmd_buffer(cmd_buffer->device, cmd_buffer->pool, false,
+                                   VK_COMMAND_BUFFER_LEVEL_PRIMARY, &compute_cmdbuf,
+                                   RADV_QUEUE_COMPUTE);
+
+   if (result != VK_SUCCESS)
+      goto radv_create_ace_internal_cmd_buffer_fail;
+
+   RADV_FROM_HANDLE(radv_cmd_buffer, ace_cmd_buffer, compute_cmdbuf);
+   cmd_buffer->ace_internal_cmdbuf = ace_cmd_buffer;
+
+   VkCommandBufferBeginInfo begin_info = {
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .pInheritanceInfo = NULL,
+      .flags = cmd_buffer->usage_flags,
+   };
+
+   radv_BeginCommandBuffer(compute_cmdbuf, &begin_info);
+
+   result = radv_create_taskmesh_sem(ace_cmd_buffer);
+   if (result != VK_SUCCESS)
+      goto radv_create_ace_internal_cmd_buffer_fail;
+
+   return;
+
+radv_create_ace_internal_cmd_buffer_fail:
+   cmd_buffer->record_result = result;
+   return;
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -5093,6 +5201,28 @@ radv_CmdBindPipeline(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipeline
 
       if (radv_pipeline_has_tess(pipeline))
          cmd_buffer->tess_rings_needed = true;
+
+      if (radv_pipeline_has_task(pipeline)) {
+         if(!cmd_buffer->ace_internal_cmdbuf)
+            radv_create_ace_internal_cmd_buffer(cmd_buffer);
+
+         if (cmd_buffer->record_result != VK_SUCCESS)
+            break;
+
+         assert(cmd_buffer->ace_internal_cmdbuf);
+         assert(pipeline->ace_internal_pipeline);
+
+         VkCommandBuffer compute_cmdbuf =
+            radv_cmd_buffer_to_handle(cmd_buffer->ace_internal_cmdbuf);
+         VkPipeline compute_pipeline =
+            radv_pipeline_to_handle(pipeline->ace_internal_pipeline);
+
+         radv_CmdBindPipeline(compute_cmdbuf, VK_PIPELINE_BIND_POINT_COMPUTE,
+                              compute_pipeline);
+
+         cmd_buffer->record_result = cmd_buffer->ace_internal_cmdbuf->record_result;
+      }
+
       break;
    default:
       assert(!"invalid bind point");
