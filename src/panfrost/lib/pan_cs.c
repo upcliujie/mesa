@@ -212,8 +212,6 @@ pan_prepare_zs(const struct pan_fb_info *fb,
                 assert(zs->image->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED ||
                        zs->image->layout.modifier == DRM_FORMAT_MOD_LINEAR);
 
-                /* TODO: Z32F(S8) support, which is always linear */
-
                 ext->zs_writeback_base = surf.data;
                 ext->zs_writeback_row_stride =
                         zs->image->layout.slices[level].row_stride;
