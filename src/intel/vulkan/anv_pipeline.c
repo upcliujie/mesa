@@ -2101,6 +2101,97 @@ anv_rendering_uses_color_attachment(const VkPipelineRenderingCreateInfo *renderi
    return false;
 }
 
+static VkResult
+anv_compute_pipeline_create(struct anv_device *device,
+                            struct anv_pipeline_cache *cache,
+                            const VkComputePipelineCreateInfo *pCreateInfo,
+                            const VkAllocationCallbacks *pAllocator,
+                            VkPipeline *pPipeline)
+{
+   struct anv_compute_pipeline *pipeline;
+   VkResult result;
+
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO);
+
+   /* Use the default pipeline cache if none is specified */
+   if (cache == NULL && device->physical->instance->pipeline_cache_enabled)
+      cache = &device->default_pipeline_cache;
+
+   pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
+                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (pipeline == NULL)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   result = anv_pipeline_init(&pipeline->base, device,
+                              ANV_PIPELINE_COMPUTE, pCreateInfo->flags,
+                              pAllocator);
+   if (result != VK_SUCCESS) {
+      vk_free2(&device->vk.alloc, pAllocator, pipeline);
+      return result;
+   }
+
+   anv_batch_set_storage(&pipeline->base.batch, ANV_NULL_ADDRESS,
+                         pipeline->batch_data, sizeof(pipeline->batch_data));
+
+   assert(pCreateInfo->stage.stage == VK_SHADER_STAGE_COMPUTE_BIT);
+   VK_FROM_HANDLE(vk_shader_module, module,  pCreateInfo->stage.module);
+   result = anv_pipeline_compile_cs(pipeline, cache, pCreateInfo, module,
+                                    pCreateInfo->stage.pName,
+                                    pCreateInfo->stage.pSpecializationInfo);
+   if (result != VK_SUCCESS) {
+      anv_pipeline_finish(&pipeline->base, device, pAllocator);
+      vk_free2(&device->vk.alloc, pAllocator, pipeline);
+      return result;
+   }
+
+   anv_genX(&device->info, compute_pipeline_emit)(pipeline);
+
+   *pPipeline = anv_pipeline_to_handle(&pipeline->base);
+
+   return pipeline->base.batch.status;
+}
+
+VkResult anv_CreateComputePipelines(
+    VkDevice                                    _device,
+    VkPipelineCache                             pipelineCache,
+    uint32_t                                    count,
+    const VkComputePipelineCreateInfo*          pCreateInfos,
+    const VkAllocationCallbacks*                pAllocator,
+    VkPipeline*                                 pPipelines)
+{
+   ANV_FROM_HANDLE(anv_device, device, _device);
+   ANV_FROM_HANDLE(anv_pipeline_cache, pipeline_cache, pipelineCache);
+
+   VkResult result = VK_SUCCESS;
+
+   unsigned i;
+   for (i = 0; i < count; i++) {
+      VkResult res = anv_compute_pipeline_create(device, pipeline_cache,
+                                                 &pCreateInfos[i],
+                                                 pAllocator, &pPipelines[i]);
+
+      if (res == VK_SUCCESS)
+         continue;
+
+      /* Bail out on the first error != VK_PIPELINE_COMPILE_REQUIRED_EX as it
+       * is not obvious what error should be report upon 2 different failures.
+       * */
+      result = res;
+      if (res != VK_PIPELINE_COMPILE_REQUIRED_EXT)
+         break;
+
+      pPipelines[i] = VK_NULL_HANDLE;
+
+      if (pCreateInfos[i].flags & VK_PIPELINE_CREATE_EARLY_RETURN_ON_FAILURE_BIT_EXT)
+         break;
+   }
+
+   for (; i < count; i++)
+      pPipelines[i] = VK_NULL_HANDLE;
+
+   return result;
+}
+
 /**
  * Copy pipeline state not marked as dynamic.
  * Dynamic state is pipeline state which hasn't been provided at pipeline
