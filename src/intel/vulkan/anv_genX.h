@@ -172,3 +172,6 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
                              const VkGraphicsPipelineCreateInfo *pCreateInfo,
                              const VkPipelineRenderingCreateInfo *rendering_info,
                              const VkRenderingSelfDependencyInfoMESA *rsd_info);
+
+void
+genX(compute_pipeline_emit)(struct anv_compute_pipeline *pipeline);
