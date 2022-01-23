@@ -78,6 +78,7 @@
 #include "vk_instance.h"
 #include "vk_physical_device.h"
 #include "vk_shader_module.h"
+#include "vk_render_pass.h"
 #include "vk_sync.h"
 #include "vk_sync_timeline.h"
 #include "vk_util.h"
@@ -3330,6 +3331,33 @@ enum anv_pipeline_type {
    ANV_PIPELINE_GRAPHICS,
    ANV_PIPELINE_COMPUTE,
    ANV_PIPELINE_RAY_TRACING,
+};
+
+struct anv_graphics_pipeline_info {
+   /* Vertex input interface */
+   const VkPipelineVertexInputStateCreateInfo      *vi;
+   const VkPipelineInputAssemblyStateCreateInfo    *ia;
+
+   /* Pre-raster */
+   const VkPipelineViewportStateCreateInfo         *vp;
+   const VkPipelineTessellationStateCreateInfo     *ts;
+   const VkPipelineRasterizationStateCreateInfo    *rs;
+
+   /* Fragment shader */
+   const VkPipelineMultisampleStateCreateInfo      *ms;
+   const VkPipelineDepthStencilStateCreateInfo     *ds;
+
+   /* output interface */
+   const VkPipelineColorBlendStateCreateInfo       *cb;
+
+   /* Both Pre-raster & Fragment shader */
+   const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr;
+
+   const VkRenderingSelfDependencyInfoMESA         *rsd;
+   const VkPipelineRenderingCreateInfo             *ri;
+
+   VkPipelineRenderingCreateInfo                    _ri;
+   VkRenderingSelfDependencyInfoMESA                _rsd;
 };
 
 struct anv_pipeline {
