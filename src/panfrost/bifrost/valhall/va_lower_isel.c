@@ -80,7 +80,7 @@ va_lower_isel(bi_instr *I)
 
    /* Jump -> conditional branch with condition tied to true. */
    case BI_OPCODE_JUMP:
-      I->op = BI_OPCODE_BRANCHZ_I16;
+      I->op = I->branch_target ? BI_OPCODE_BRANCHZ_I16 : BI_OPCODE_BRANCHZI;
       I->src[1] = I->src[0];
       I->src[0] = bi_zero();
       I->cmpf = BI_CMPF_EQ;

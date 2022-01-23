@@ -76,7 +76,6 @@ SKIP = set([
         "TODO.ATOM_CX",
         "TEX_FETCH",
         "TODO.VAR_TEX",
-        "BRANCHZI",
         "ST_IMAGE",
         "NOT.i32",
         "LEA_IMAGE_IMM",

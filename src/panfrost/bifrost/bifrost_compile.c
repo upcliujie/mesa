@@ -593,6 +593,9 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T,
                                 bi_fau(BIR_FAU_BLEND_0 + rt, false),
                                 desc_hi,
                                 rgba2, regfmt, sr_count, sr_count_2);
+
+                if (b->shader->arch >= 9)
+                        bi_mov_i32_to(b, bi_register(48), bi_zero());
         }
 
         assert(rt < 8);

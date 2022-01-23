@@ -461,6 +461,7 @@ va_pack_instr(const bi_instr *I, unsigned action)
    case BI_OPCODE_LD_VAR_IMM_F16:
    case BI_OPCODE_LD_VAR_IMM_F32:
    case BI_OPCODE_LEA_VARY:
+   case BI_OPCODE_LD_TILE:
       hex |= ((uint64_t) bi_count_write_registers(I, 0) << 33);
 
       /* Slot */
@@ -566,11 +567,8 @@ va_pack_instr(const bi_instr *I, unsigned action)
       /* Target */
       hex |= (0ull << 8);
 
-      /* Staging register #1 - coverage mask */
+      /* Staging register #1 - coverage task */
       hex |= ((uint64_t) va_pack_reg(I->src[1])) << 16;
-
-      unsigned rt = (I->src[2].value - BIR_FAU_BLEND_0);
-      assert(rt < 8);
 
       /* Register format */
       hex |= va_pack_register_format(I) << 24;
