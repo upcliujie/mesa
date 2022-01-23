@@ -450,6 +450,8 @@ panfrost_should_tile(struct panfrost_device *dev,
                 && is_sane_bpp
                 && ((pres->base.bind & ~valid_binding) == 0);
 
+        return false;
+
         return can_tile && (pres->base.usage != PIPE_USAGE_STREAM);
 }
 
