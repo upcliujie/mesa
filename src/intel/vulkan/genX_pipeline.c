@@ -935,13 +935,15 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
    if (pipeline->base.device->vk.enabled_extensions.EXT_sample_locations &&
        !(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
 #if GFX_VER >= 8
-      genX(emit_sample_pattern)(&pipeline->base.batch,
-                                pipeline->rasterization_samples,
-                                pipeline->dynamic_state.sample_locations.locations);
+      genX(emit_sample_pattern)(
+         &pipeline->base.batch,
+         pipeline->rasterization_samples,
+         pipeline->non_dynamic_state.sample_locations.locations);
 #else
-      genX(emit_multisample)(&pipeline->base.batch,
-                             pipeline->rasterization_samples,
-                             pipeline->dynamic_state.sample_locations.locations);
+      genX(emit_multisample)(
+         &pipeline->base.batch,
+         pipeline->rasterization_samples,
+         pipeline->non_dynamic_state.sample_locations.locations);
 #endif
    }
 
@@ -973,7 +975,7 @@ emit_3dstate_cps(struct anv_graphics_pipeline *pipeline)
        pipeline->base.device->vk.enabled_extensions.KHR_fragment_shading_rate) {
       genX(emit_shading_rate)(&pipeline->base.batch,
                               pipeline,
-                              &pipeline->dynamic_state);
+                              &pipeline->non_dynamic_state);
    }
 #endif
 }
@@ -1382,7 +1384,7 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
          continue;
       }
 
-      if ((pipeline->dynamic_state.color_writes & (1u << binding->index)) == 0) {
+      if ((pipeline->non_dynamic_state.color_writes & (1u << binding->index)) == 0) {
          state_pos = write_disabled_blend(state_pos);
          continue;
       }
@@ -2234,7 +2236,7 @@ has_color_buffer_write_enabled(const struct anv_graphics_pipeline *pipeline,
    if (!shader_bin)
       return false;
 
-   if (!pipeline->dynamic_state.color_writes)
+   if (!pipeline->non_dynamic_state.color_writes)
       return false;
 
    const struct anv_pipeline_bind_map *bind_map = &shader_bin->bind_map;
