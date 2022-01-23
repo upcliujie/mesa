@@ -3355,7 +3355,13 @@ struct anv_pipeline {
 struct anv_graphics_pipeline {
    struct anv_pipeline                          base;
 
-   uint32_t                                     batch_data[512];
+   /* States declared dynamic at pipeline creation. */
+   anv_cmd_dirty_mask_t                         dynamic_states;
+
+   /* Shaders */
+   struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+
+   VkShaderStageFlags                           active_stages;
 
    /* States that are part of batch_data and should be not emitted
     * dynamically.
@@ -3370,9 +3376,6 @@ struct anv_graphics_pipeline {
 
    struct anv_dynamic_state                     dynamic_state;
 
-   /* States declared dynamic at pipeline creation. */
-   anv_cmd_dirty_mask_t                         dynamic_states;
-
    uint32_t                                     topology;
 
    /* These fields are required with dynamic primitive topology,
@@ -3384,9 +3387,6 @@ struct anv_graphics_pipeline {
 
    VkColorComponentFlags                        color_comp_writes[MAX_RTS];
 
-   struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
-
-   VkShaderStageFlags                           active_stages;
    uint32_t                                     view_mask;
 
    bool                                         writes_depth;
@@ -3414,6 +3414,14 @@ struct anv_graphics_pipeline {
       uint32_t                                  instance_divisor;
    } vb[MAX_VBS];
 
+   /* Pre computed CS instructions that can directly be copied into
+    * anv_cmd_buffer.
+    */
+   uint32_t                                     batch_data[512];
+
+   /* Pre packed CS instructions & structures that need to be merged later
+    * with dynamic state.
+    */
    struct {
       uint32_t                                  sf[7];
       uint32_t                                  depth_stencil_state[3];
