@@ -655,6 +655,21 @@ panfrost_emit_texture_payload(const struct pan_image_view *iview,
                                 panfrost_get_surface_strides(layout, iter.level,
                                                              &cfg.row_stride,
                                                              &cfg.surface_stride);
+
+#if PAN_ARCH >= 9
+                                if (layout->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
+                                        cfg.unk_1 = 0x11;
+                                        /* not sure if this is right, but for
+                                         * u-interleaved formats it seems to
+                                         * work ok..
+                                         */
+                                        cfg.unk_2 = 2 *
+                                                util_format_get_blocksize(layout->format);
+                                } else {
+                                        cfg.unk_1 = 0x21;
+                                        cfg.unk_2 = 0x2;
+                                }
+#endif
                         }
                         payload += pan_size(SURFACE_WITH_STRIDE);
                 }
