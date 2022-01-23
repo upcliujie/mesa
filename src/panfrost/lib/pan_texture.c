@@ -712,14 +712,22 @@ panfrost_needs_explicit_stride(const struct pan_image_view *iview)
 static enum mali_texture_layout
 panfrost_modifier_to_layout(uint64_t modifier)
 {
-        if (drm_is_afbc(modifier))
-                return MALI_TEXTURE_LAYOUT_AFBC;
-        else if (modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED)
+        switch (modifier) {
+        case DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED:
                 return MALI_TEXTURE_LAYOUT_TILED;
-        else if (modifier == DRM_FORMAT_MOD_LINEAR)
+        case DRM_FORMAT_MOD_LINEAR:
                 return MALI_TEXTURE_LAYOUT_LINEAR;
-        else
-                unreachable("Invalid modifer");
+        default:
+                assert(drm_is_afbc(modifier) && "invalid modifier");
+
+                /* On Valhall, AFBC/Tiled is distinguished in the
+                 * surface descriptor instead of here.
+                 */
+                if (PAN_ARCH >= 9)
+                        return MALI_TEXTURE_LAYOUT_TILED;
+                else
+                        return MALI_TEXTURE_LAYOUT_AFBC;
+        }
 }
 
 void
