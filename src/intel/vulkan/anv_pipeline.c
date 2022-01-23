@@ -2206,9 +2206,8 @@ VkResult anv_CreateComputePipelines(
  * @param[in]  pCreateInfo Source of non_dynamic state to be copied.
  */
 static void
-copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
-                       const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                       const VkPipelineRenderingCreateInfo *rendering_info)
+anv_graphics_copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
+                                    const struct anv_graphics_pipeline_info *info)
 {
    anv_cmd_dirty_mask_t states = ANV_CMD_DIRTY_DYNAMIC_ALL;
 
@@ -2219,7 +2218,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    struct anv_dynamic_state *dynamic = &pipeline->dynamic_state;
 
    bool raster_discard =
-      pCreateInfo->pRasterizationState->rasterizerDiscardEnable &&
+      info->rs->rasterizerDiscardEnable &&
       !(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
 
    /* Section 9.2 of the Vulkan 1.0.15 spec says:
@@ -2228,80 +2227,72 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
     *    has rasterization disabled.
     */
    if (!raster_discard) {
-      assert(pCreateInfo->pViewportState);
+      assert(info->vp);
 
       const VkPipelineViewportDepthClipControlCreateInfoEXT *ccontrol =
-         vk_find_struct_const(pCreateInfo->pViewportState,
+         vk_find_struct_const(info->vp,
                               PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT);
 
       if (ccontrol)
          pipeline->negative_one_to_one = ccontrol->negativeOneToOne;
 
-      dynamic->viewport.count = pCreateInfo->pViewportState->viewportCount;
+      dynamic->viewport.count = info->vp->viewportCount;
       if (states & ANV_CMD_DIRTY_DYNAMIC_VIEWPORT) {
          typed_memcpy(dynamic->viewport.viewports,
-                     pCreateInfo->pViewportState->pViewports,
-                     pCreateInfo->pViewportState->viewportCount);
+                      info->vp->pViewports,
+                      info->vp->viewportCount);
       }
 
-      dynamic->scissor.count = pCreateInfo->pViewportState->scissorCount;
+      dynamic->scissor.count = info->vp->scissorCount;
       if (states & ANV_CMD_DIRTY_DYNAMIC_SCISSOR) {
          typed_memcpy(dynamic->scissor.scissors,
-                     pCreateInfo->pViewportState->pScissors,
-                     pCreateInfo->pViewportState->scissorCount);
+                      info->vp->pScissors,
+                      info->vp->scissorCount);
       }
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_LINE_WIDTH) {
-      assert(pCreateInfo->pRasterizationState);
-      dynamic->line_width = pCreateInfo->pRasterizationState->lineWidth;
+      assert(info->rs);
+      dynamic->line_width = info->rs->lineWidth;
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS) {
-      assert(pCreateInfo->pRasterizationState);
-      dynamic->depth_bias.bias =
-         pCreateInfo->pRasterizationState->depthBiasConstantFactor;
-      dynamic->depth_bias.clamp =
-         pCreateInfo->pRasterizationState->depthBiasClamp;
-      dynamic->depth_bias.slope =
-         pCreateInfo->pRasterizationState->depthBiasSlopeFactor;
+      assert(info->rs);
+      dynamic->depth_bias.bias = info->rs->depthBiasConstantFactor;
+      dynamic->depth_bias.clamp = info->rs->depthBiasClamp;
+      dynamic->depth_bias.slope = info->rs->depthBiasSlopeFactor;
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_CULL_MODE) {
-      assert(pCreateInfo->pRasterizationState);
-      dynamic->cull_mode =
-         pCreateInfo->pRasterizationState->cullMode;
+      assert(info->rs);
+      dynamic->cull_mode = info->rs->cullMode;
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE) {
-      assert(pCreateInfo->pRasterizationState);
-      dynamic->front_face =
-         pCreateInfo->pRasterizationState->frontFace;
+      assert(info->rs);
+      dynamic->front_face = info->rs->frontFace;
    }
 
    if ((states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY) &&
-         (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT)) {
-      assert(pCreateInfo->pInputAssemblyState);
-      dynamic->primitive_topology = pCreateInfo->pInputAssemblyState->topology;
+       (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT)) {
+      assert(info->ia);
+      dynamic->primitive_topology = info->ia->topology;
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
-      assert(pCreateInfo->pRasterizationState);
-      dynamic->raster_discard =
-         pCreateInfo->pRasterizationState->rasterizerDiscardEnable;
+      assert(info->rs);
+      dynamic->raster_discard = info->rs->rasterizerDiscardEnable;
    }
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE) {
-      assert(pCreateInfo->pRasterizationState);
-      dynamic->depth_bias_enable =
-         pCreateInfo->pRasterizationState->depthBiasEnable;
+      assert(info->rs);
+      dynamic->depth_bias_enable = info->rs->depthBiasEnable;
    }
 
    if ((states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_RESTART_ENABLE) &&
          (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT)) {
-      assert(pCreateInfo->pInputAssemblyState);
-      dynamic->primitive_restart_enable =
-         pCreateInfo->pInputAssemblyState->primitiveRestartEnable;
+      assert(info->ia);
+      dynamic->primitive_restart_enable = info->ia->primitiveRestartEnable;
    }
 
    /* Section 9.2 of the Vulkan 1.0.15 spec says:
@@ -2310,14 +2301,13 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
     *    disabled or if the subpass of the render pass the pipeline is
     *    created against does not use any color attachments.
     */
-   bool uses_color_att = anv_rendering_uses_color_attachment(rendering_info);
+   bool uses_color_att = anv_rendering_uses_color_attachment(info->ri);
 
    if (uses_color_att && !raster_discard) {
-      assert(pCreateInfo->pColorBlendState);
+      assert(info->cb);
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_BLEND_CONSTANTS)
-         typed_memcpy(dynamic->blend_constants,
-                     pCreateInfo->pColorBlendState->blendConstants, 4);
+         typed_memcpy(dynamic->blend_constants, info->cb->blendConstants, 4);
    }
 
    /* If there is no depthstencil attachment, then don't read
@@ -2333,75 +2323,61 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
     *    against does not use a depth/stencil attachment.
     */
    if (!raster_discard &&
-       (rendering_info->depthAttachmentFormat != VK_FORMAT_UNDEFINED ||
-        rendering_info->stencilAttachmentFormat != VK_FORMAT_UNDEFINED)) {
-      assert(pCreateInfo->pDepthStencilState);
+       (info->ri->depthAttachmentFormat != VK_FORMAT_UNDEFINED ||
+        info->ri->stencilAttachmentFormat != VK_FORMAT_UNDEFINED)) {
+      assert(info->ds);
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS) {
-         dynamic->depth_bounds.min =
-            pCreateInfo->pDepthStencilState->minDepthBounds;
-         dynamic->depth_bounds.max =
-            pCreateInfo->pDepthStencilState->maxDepthBounds;
+         dynamic->depth_bounds.min = info->ds->minDepthBounds;
+         dynamic->depth_bounds.max = info->ds->maxDepthBounds;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_COMPARE_MASK) {
-         dynamic->stencil_compare_mask.front =
-            pCreateInfo->pDepthStencilState->front.compareMask;
-         dynamic->stencil_compare_mask.back =
-            pCreateInfo->pDepthStencilState->back.compareMask;
+         dynamic->stencil_compare_mask.front = info->ds->front.compareMask;
+         dynamic->stencil_compare_mask.back = info->ds->back.compareMask;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_WRITE_MASK) {
-         dynamic->stencil_write_mask.front =
-            pCreateInfo->pDepthStencilState->front.writeMask;
-         dynamic->stencil_write_mask.back =
-            pCreateInfo->pDepthStencilState->back.writeMask;
+         dynamic->stencil_write_mask.front = info->ds->front.writeMask;
+         dynamic->stencil_write_mask.back = info->ds->back.writeMask;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_REFERENCE) {
-         dynamic->stencil_reference.front =
-            pCreateInfo->pDepthStencilState->front.reference;
-         dynamic->stencil_reference.back =
-            pCreateInfo->pDepthStencilState->back.reference;
+         dynamic->stencil_reference.front = info->ds->front.reference;
+         dynamic->stencil_reference.back = info->ds->back.reference;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_TEST_ENABLE) {
-         dynamic->depth_test_enable =
-            pCreateInfo->pDepthStencilState->depthTestEnable;
+         dynamic->depth_test_enable = info->ds->depthTestEnable;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_WRITE_ENABLE) {
-         dynamic->depth_write_enable =
-            pCreateInfo->pDepthStencilState->depthWriteEnable;
+         dynamic->depth_write_enable = info->ds->depthWriteEnable;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP) {
-         dynamic->depth_compare_op =
-            pCreateInfo->pDepthStencilState->depthCompareOp;
+         dynamic->depth_compare_op = info->ds->depthCompareOp;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE) {
-         dynamic->depth_bounds_test_enable =
-            pCreateInfo->pDepthStencilState->depthBoundsTestEnable;
+         dynamic->depth_bounds_test_enable = info->ds->depthBoundsTestEnable;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE) {
-         dynamic->stencil_test_enable =
-            pCreateInfo->pDepthStencilState->stencilTestEnable;
+         dynamic->stencil_test_enable = info->ds->stencilTestEnable;
       }
 
       if (states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP) {
-         const VkPipelineDepthStencilStateCreateInfo *info =
-            pCreateInfo->pDepthStencilState;
-         memcpy(&dynamic->stencil_op.front, &info->front,
+         const VkPipelineDepthStencilStateCreateInfo *ds_info = info->ds;
+         memcpy(&dynamic->stencil_op.front, &ds_info->front,
                 sizeof(dynamic->stencil_op.front));
-         memcpy(&dynamic->stencil_op.back, &info->back,
+         memcpy(&dynamic->stencil_op.back, &ds_info->back,
                 sizeof(dynamic->stencil_op.back));
       }
    }
 
    const VkPipelineRasterizationLineStateCreateInfoEXT *line_state =
-      vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
+      vk_find_struct_const(info->rs->pNext,
                            PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
    if (!raster_discard && line_state && line_state->stippledLineEnable) {
       if (states & ANV_CMD_DIRTY_DYNAMIC_LINE_STIPPLE) {
@@ -2411,7 +2387,7 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
    }
 
    const VkPipelineMultisampleStateCreateInfo *ms_info =
-      raster_discard ? NULL : pCreateInfo->pMultisampleState;
+      raster_discard ? NULL : info->ms;
    if (states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS) {
       const VkPipelineSampleLocationsStateCreateInfoEXT *sl_info = ms_info ?
          vk_find_struct_const(ms_info, PIPELINE_SAMPLE_LOCATIONS_STATE_CREATE_INFO_EXT) : NULL;
@@ -2436,9 +2412,9 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
 
    if (states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE) {
       if (!raster_discard && uses_color_att) {
-         assert(pCreateInfo->pColorBlendState);
+         assert(info->cb);
          const VkPipelineColorWriteCreateInfoEXT *color_write_info =
-            vk_find_struct_const(pCreateInfo->pColorBlendState->pNext,
+            vk_find_struct_const(info->cb->pNext,
                                  PIPELINE_COLOR_WRITE_CREATE_INFO_EXT);
 
          if (color_write_info) {
@@ -2453,13 +2429,11 @@ copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
       }
    }
 
-   const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr_state =
-      vk_find_struct_const(pCreateInfo->pNext,
-                           PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR);
-   if (fsr_state) {
+   const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr_info = info->fsr;
+   if (fsr_info) {
       if (states & ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE) {
-         dynamic->fragment_shading_rate.rate = fsr_state->fragmentSize;
-         memcpy(dynamic->fragment_shading_rate.ops, fsr_state->combinerOps,
+         dynamic->fragment_shading_rate.rate = fsr_info->fragmentSize;
+         memcpy(dynamic->fragment_shading_rate.ops, fsr_info->combinerOps,
                 sizeof(dynamic->fragment_shading_rate.ops));
       }
    }
@@ -2556,10 +2530,23 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
    if (anv_pipeline_is_mesh(pipeline))
       assert(device->physical->vk.supported_extensions.NV_mesh_shader);
 
-   copy_non_dynamic_state(pipeline, pCreateInfo, rendering_info);
-
-   pipeline->depth_clamp_enable = pCreateInfo->pRasterizationState->depthClampEnable;
    pipeline->view_mask = rendering_info->viewMask;
+
+   return result;
+}
+
+static void
+anv_graphics_pipeline_emit(struct anv_graphics_pipeline *pipeline,
+                           const struct anv_graphics_pipeline_info *info)
+{
+   /* If rasterization is not enabled, various CreateInfo structs must be
+    * ignored.
+    */
+   const bool raster_enabled =
+      !info->rs->rasterizerDiscardEnable ||
+      (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
+
+   pipeline->depth_clamp_enable = info->rs->depthClampEnable;
 
    /* Previously we enabled depth clipping when !depthClampEnable.
     * DepthClipStateCreateInfo now makes depth clipping explicit so if the
@@ -2567,22 +2554,14 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
     * otherwise fallback to the previous !depthClampEnable logic.
     */
    const VkPipelineRasterizationDepthClipStateCreateInfoEXT *clip_info =
-      vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
+      vk_find_struct_const(info->rs->pNext,
                            PIPELINE_RASTERIZATION_DEPTH_CLIP_STATE_CREATE_INFO_EXT);
    pipeline->depth_clip_enable = clip_info ? clip_info->depthClipEnable : !pipeline->depth_clamp_enable;
-
-   result = anv_graphics_pipeline_compile(pipeline, cache, pCreateInfo,
-                                          rendering_info);
-   if (result != VK_SUCCESS) {
-      anv_pipeline_finish(&pipeline->base, device, alloc);
-      return result;
-   }
 
    anv_pipeline_setup_l3_config(&pipeline->base, false);
 
    if (anv_pipeline_is_primitive(pipeline)) {
-      const VkPipelineVertexInputStateCreateInfo *vi_info =
-         pCreateInfo->pVertexInputState;
+      const VkPipelineVertexInputStateCreateInfo *vi_info = info->vi;
 
       const uint64_t inputs_read = get_vs_prog_data(pipeline)->inputs_read;
 
@@ -2641,10 +2620,8 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
          }
       }
 
-      const VkPipelineInputAssemblyStateCreateInfo *ia_info =
-         pCreateInfo->pInputAssemblyState;
-      const VkPipelineTessellationStateCreateInfo *tess_info =
-         pCreateInfo->pTessellationState;
+      const VkPipelineInputAssemblyStateCreateInfo *ia_info = info->ia;
+      const VkPipelineTessellationStateCreateInfo *tess_info = info->ts;
 
       if (anv_pipeline_has_stage(pipeline, MESA_SHADER_TESS_EVAL))
          pipeline->topology = _3DPRIM_PATCHLIST(tess_info->patchControlPoints);
@@ -2656,38 +2633,64 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
    }
 
    const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
-      vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
+      vk_find_struct_const(info->rs->pNext,
                            PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
-
-   /* If rasterization is not enabled, ms_info must be ignored. */
-   const bool raster_enabled =
-      !pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
-      (pipeline->dynamic_states &
-       ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
-
-   const VkPipelineMultisampleStateCreateInfo *ms_info =
-      raster_enabled ? pCreateInfo->pMultisampleState : NULL;
 
    /* Store line mode, polygon mode and rasterization samples, these are used
     * for dynamic primitive topology.
     */
-   pipeline->line_mode = vk_line_rasterization_mode(line_info, ms_info);
-   pipeline->polygon_mode = pCreateInfo->pRasterizationState->polygonMode;
-   pipeline->rasterization_samples =
-      ms_info ? ms_info->rasterizationSamples : 1;
+   pipeline->line_mode = vk_line_rasterization_mode(line_info, info->ms);
+   pipeline->polygon_mode = info->rs->polygonMode;
+   pipeline->rasterization_samples = info->ms ? info->ms->rasterizationSamples : 1;
 
    /* Store the color write masks, to be merged with color write enable if
     * dynamic.
     */
-   if (raster_enabled && anv_rendering_uses_color_attachment(rendering_info)) {
-      for (unsigned i = 0; i < pCreateInfo->pColorBlendState->attachmentCount; i++) {
+   if (raster_enabled && anv_rendering_uses_color_attachment(info->ri)) {
+      for (unsigned i = 0; i < info->cb->attachmentCount; i++) {
          const VkPipelineColorBlendAttachmentState *a =
-            &pCreateInfo->pColorBlendState->pAttachments[i];
+            &info->cb->pAttachments[i];
          pipeline->color_comp_writes[i] = a->colorWriteMask;
       }
    }
 
-   return VK_SUCCESS;
+   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   anv_genX(devinfo, graphics_pipeline_emit)(pipeline, info);
+}
+
+/* Prepare a more HW friendly pick of Vulkan structures out of
+ * VkGraphicsPipelineCreateInfo.
+ */
+static void
+anv_graphics_pipeline_add_sanitized_info(struct anv_graphics_pipeline_info *out,
+                                         const struct anv_graphics_pipeline *pipeline,
+                                         const VkGraphicsPipelineCreateInfo *pCreateInfo)
+{
+   if (anv_pipeline_is_primitive(pipeline)) {
+      out->vi = pCreateInfo->pVertexInputState;
+      out->ia = pCreateInfo->pInputAssemblyState;
+   }
+
+   out->ts = pCreateInfo->pTessellationState;
+   out->rs = pCreateInfo->pRasterizationState;
+
+   /* If rasterization is not enabled, various CreateInfo structs must be
+    * ignored.
+    */
+   const bool raster_enabled =
+      !pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
+      (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
+
+   if (raster_enabled) {
+      out->vp = pCreateInfo->pViewportState;
+      out->ms = pCreateInfo->pMultisampleState;
+      out->ds = pCreateInfo->pDepthStencilState;
+      out->cb = pCreateInfo->pColorBlendState;
+   }
+
+   out->fsr =
+      vk_find_struct_const(pCreateInfo->pNext,
+                           PIPELINE_FRAGMENT_SHADING_RATE_STATE_CREATE_INFO_KHR);
 }
 
 static VkResult
@@ -2711,42 +2714,52 @@ anv_graphics_pipeline_create(struct anv_device *device,
    if (pipeline == NULL)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
+   struct anv_graphics_pipeline_info emit_info;
+   memset(&emit_info, 0, sizeof(emit_info));
+
    /* We'll use these as defaults if we don't have pipeline rendering or
     * self-dependency structs. Saves us some NULL checks.
     */
-   VkRenderingSelfDependencyInfoMESA rsd_info_tmp = {
+   emit_info._rsd = (VkRenderingSelfDependencyInfoMESA) {
       .sType = VK_STRUCTURE_TYPE_RENDERING_SELF_DEPENDENCY_INFO_MESA,
    };
-   VkPipelineRenderingCreateInfo rendering_info_tmp = {
+   emit_info._ri = (VkPipelineRenderingCreateInfo) {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
-      .pNext = &rsd_info_tmp,
+      .pNext = &emit_info._rsd,
    };
 
-   const VkPipelineRenderingCreateInfo *rendering_info =
-      vk_get_pipeline_rendering_create_info(pCreateInfo);
-   if (rendering_info == NULL)
-      rendering_info = &rendering_info_tmp;
+   emit_info.ri = vk_get_pipeline_rendering_create_info(pCreateInfo);
+   if (emit_info.ri == NULL)
+      emit_info.ri = &emit_info._ri;
 
-   const VkRenderingSelfDependencyInfoMESA *rsd_info =
-      vk_find_struct_const(rendering_info->pNext,
+   emit_info.rsd =
+      vk_find_struct_const(emit_info.ri->pNext,
                            RENDERING_SELF_DEPENDENCY_INFO_MESA);
-   if (rsd_info == NULL)
-      rsd_info = &rsd_info_tmp;
+   if (emit_info.rsd == NULL)
+      emit_info.rsd = &emit_info._rsd;
 
-
-
+   /* Initialize some information required by shaders */
    result = anv_graphics_pipeline_init(pipeline, device, cache,
-                                       pCreateInfo, rendering_info,
+                                       pCreateInfo, emit_info.ri,
                                        pAllocator);
    if (result != VK_SUCCESS) {
       vk_free2(&device->vk.alloc, pAllocator, pipeline);
       return result;
    }
 
-   anv_genX(&device->info, graphics_pipeline_emit)(pipeline,
-                                                   pCreateInfo,
-                                                   rendering_info,
-                                                   rsd_info);
+   /* Compile shaders, all required information should be coming from
+    * pCreateInfo.
+    */
+   result = anv_graphics_pipeline_compile(pipeline, cache, pCreateInfo, emit_info.ri);
+   if (result != VK_SUCCESS) {
+      anv_pipeline_finish(&pipeline->base, device, pAllocator);
+      return result;
+   }
+
+   /* Emit the pipeline batch. */
+   anv_graphics_pipeline_add_sanitized_info(&emit_info, pipeline, pCreateInfo);
+   anv_graphics_copy_non_dynamic_state(pipeline, &emit_info);
+   anv_graphics_pipeline_emit(pipeline, &emit_info);
 
    *pPipeline = anv_pipeline_to_handle(&pipeline->base);
 
