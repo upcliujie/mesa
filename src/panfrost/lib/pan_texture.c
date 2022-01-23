@@ -589,6 +589,103 @@ panfrost_get_surface_pointer(const struct pan_image_layout *layout,
         return base + offset;
 }
 
+#if PAN_ARCH >= 9
+static enum mali_clump_format
+panfrost_clump_format(enum pipe_format format)
+{
+#define CLUMP_FMT(pipe, mali) [PIPE_FORMAT_ ## pipe] = MALI_CLUMP_FORMAT_ ## mali
+
+        enum mali_clump_format special_clump_formats[PIPE_FORMAT_COUNT] = {
+                CLUMP_FMT(X32_S8X24_UINT, X32S8X24),
+                CLUMP_FMT(X24S8_UINT, X24S8),
+                CLUMP_FMT(S8X24_UINT, S8X24),
+                CLUMP_FMT(S8_UINT, S8),
+                CLUMP_FMT(L4A4_UNORM, L4A4),
+                CLUMP_FMT(L8A8_UNORM, L8A8),
+                CLUMP_FMT(L8A8_UINT, L8A8),
+                CLUMP_FMT(L8A8_SINT, L8A8),
+                CLUMP_FMT(A8_UNORM, A8),
+                CLUMP_FMT(A8_UINT, A8),
+                CLUMP_FMT(A8_SINT, A8),
+                CLUMP_FMT(ETC1_RGB8, ETC2_RGB8),
+                CLUMP_FMT(ETC2_RGB8, ETC2_RGB8),
+                CLUMP_FMT(ETC2_SRGB8, ETC2_RGB8),
+                CLUMP_FMT(ETC2_RGB8A1, ETC2_RGB8A1),
+                CLUMP_FMT(ETC2_SRGB8A1, ETC2_RGB8A1),
+                CLUMP_FMT(ETC2_R11_UNORM, ETC2_R11_UNORM),
+                CLUMP_FMT(ETC2_R11_SNORM, ETC2_R11_SNORM),
+                CLUMP_FMT(ETC2_RG11_UNORM, ETC2_RG11_UNORM),
+                CLUMP_FMT(ETC2_RG11_SNORM, ETC2_RG11_SNORM),
+                CLUMP_FMT(DXT1_RGB,                BC1_UNORM),
+                CLUMP_FMT(DXT1_RGBA,               BC1_UNORM),
+                CLUMP_FMT(DXT1_SRGB,               BC1_UNORM),
+                CLUMP_FMT(DXT1_SRGBA,              BC1_UNORM),
+                CLUMP_FMT(DXT3_RGBA,               BC2_UNORM),
+                CLUMP_FMT(DXT3_SRGBA,              BC2_UNORM),
+                CLUMP_FMT(DXT5_RGBA,               BC3_UNORM),
+                CLUMP_FMT(DXT5_SRGBA,              BC3_UNORM),
+                CLUMP_FMT(RGTC1_UNORM,             BC4_UNORM),
+                CLUMP_FMT(RGTC1_SNORM,             BC4_SNORM),
+                CLUMP_FMT(RGTC2_UNORM,             BC5_UNORM),
+                CLUMP_FMT(RGTC2_SNORM,             BC5_SNORM),
+                CLUMP_FMT(BPTC_RGB_FLOAT,          BC6H_SF16),
+                CLUMP_FMT(BPTC_RGB_UFLOAT,         BC6H_UF16),
+                CLUMP_FMT(BPTC_RGBA_UNORM,         BC7_UNORM),
+                CLUMP_FMT(BPTC_SRGBA,              BC7_UNORM),
+        };
+
+        /* First, try a special clump format. Note that the 0 encoding is for a
+         * raw clump format, which will never be in the special table.
+         */
+        if (special_clump_formats[format])
+                return special_clump_formats[format];
+
+        /* Else, it's a raw format. Raw formats must not be compressed. */
+        assert(!util_format_is_compressed(format));
+
+        /* Select the appropriate raw format. */
+        switch (util_format_get_blocksize(format)) {
+        case  1: return MALI_CLUMP_FORMAT_RAW8;
+        case  2: return MALI_CLUMP_FORMAT_RAW16;
+        case  3: return MALI_CLUMP_FORMAT_RAW24;
+        case  4: return MALI_CLUMP_FORMAT_RAW32;
+        case  6: return MALI_CLUMP_FORMAT_RAW48;
+        case  8: return MALI_CLUMP_FORMAT_RAW64;
+        case 12: return MALI_CLUMP_FORMAT_RAW96;
+        case 16: return MALI_CLUMP_FORMAT_RAW128;
+        default: unreachable("Invalid bpp");
+        }
+}
+
+static void
+panfrost_emit_plane(const struct pan_image_layout *layout,
+                    mali_ptr pointer,
+                    unsigned level,
+                    void *payload)
+{
+        int32_t row_stride, surface_stride;
+
+        panfrost_get_surface_strides(layout, level, &row_stride, &surface_stride);
+        assert(row_stride >= 0 && surface_stride >= 0 && "negative stride");
+
+        pan_pack(payload, PLANE, cfg) {
+                cfg.pointer = pointer;
+                cfg.row_stride = row_stride;
+                cfg.size = surface_stride;
+
+                if (layout->modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED) {
+                        cfg.plane_type = MALI_PLANE_TYPE_GENERIC;
+                        cfg.clump_ordering = MALI_CLUMP_ORDERING_TILED_U_INTERLEAVED;
+                        cfg.clump_format = panfrost_clump_format(layout->format);
+                } else {
+                        cfg.plane_type = MALI_PLANE_TYPE_GENERIC;
+                        cfg.clump_ordering = MALI_CLUMP_ORDERING_LINEAR;
+                        cfg.clump_format = panfrost_clump_format(layout->format);
+                }
+        }
+}
+#endif
+
 static void
 panfrost_emit_texture_payload(const struct pan_image_view *iview,
                               enum pipe_format format,
@@ -649,6 +746,10 @@ panfrost_emit_texture_payload(const struct pan_image_view *iview,
                         unreachable("must use explicit stride on Bifrost");
 #endif
                 } else {
+#if PAN_ARCH >= 9
+                        panfrost_emit_plane(layout, pointer, iter.level, payload);
+                        payload += pan_size(PLANE);
+#else
                         pan_pack(payload, SURFACE_WITH_STRIDE, cfg) {
                                 cfg.pointer = pointer;
                                 panfrost_get_surface_strides(layout, iter.level,
@@ -656,6 +757,7 @@ panfrost_emit_texture_payload(const struct pan_image_view *iview,
                                                              &cfg.surface_stride);
                         }
                         payload += pan_size(SURFACE_WITH_STRIDE);
+#endif
                 }
         }
 }
