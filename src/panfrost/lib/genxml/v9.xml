@@ -641,13 +641,30 @@
     <field name="Border Color A" size="32" start="7:0" type="uint/float" default="0.0"/>
   </struct>
 
-  <!-- Size unknown. Need to check what happens with mipmapping, cubemapping, 3D... -->
-  <struct name="Surface with Stride" size="32" align="32">
+  <struct name="Surface with Stride" size="8" align="32">
     <field name="Type" size="4" start="0:0" type="Descriptor Type" default="Surface"/>
-    <field name="Unk 1" size="28" start="0:4" type="hex" default="0x0200021"/> <!-- XXX: maybe counts -->
+    <!-- Further tiling information, I guess.
+      Seems to be 0x6 for AFBC, 0x11 for tiled u-interleaved
+     -->
+    <field name="Unk 1" size="12" start="0:4" type="hex"/>
+
+    <!-- AFBC surface flags -->
+    <field name="YTR" size="1" start="0:16" type="bool"/>
+    <field name="Split Block" size="1" start="0:17" type="bool"/> <!-- Postulated -->
+    <field name="Wide Block" size="1" start="0:18" type="bool"/> <!-- Postulated -->
+    <field name="Tiled Header" size="1" start="0:19" type="bool"/>
+    <field name="Prefetch" size="1" start="0:20" type="bool"/>
+    <field name="Check Payload Range" size="1" start="0:21" type="bool"/>
+    <!-- 0x2 or 0x10 for tiled u-interleaved, 0x90 for rgba afbc, 0xa0 for z/s afbc? -->
+    <field name="Unk 2" size="11" start="0:22" type="hex"/>
+
+    <!-- AFBC tiled: equal to total size of the AFBC buffer = align(header size, page) + body size. Tiled: equal to size of surface align(width, 16) * align(height, 16) * bpp -->
     <field name="Surface stride" size="32" start="1:0" type="int"/>
     <field name="Pointer" size="64" start="2:0" type="address"/>
     <field name="Row stride" size="32" start="4:0" type="int"/>
+
+    <!-- AFBC: equal to surface stride. Tiled: 0 -->
+    <field name="AFBC Surface stride" size="32" start="5:0" type="int"/>
   </struct>
 
   <struct name="Texture" size="8" align="32">
@@ -659,6 +676,7 @@
     <field name="Width" size="16" start="1:0" type="uint" modifier="minus(1)"/>
     <field name="Height" size="16" start="1:16" type="uint" modifier="minus(1)"/>
     <field name="Swizzle" size="12" start="2:0" type="uint"/>
+    <!-- "Tiled" here means AFBC, too. Differentiate in the surface descriptor -->
     <field name="Texel ordering" size="4" start="2:12" type="Texture Layout"/>
     <field name="Levels" size="5" start="2:16" type="uint" default="1" modifier="minus(1)"/>
     <field name="Minimum level" size="5" start="2:24" type="uint"/>
@@ -917,32 +935,32 @@
   </struct>
 
   <struct name="ZS CRC Extension" align="64" size="16">
-    <field name="Word 0" size="32" start="0:0" type="hex"/>
+    <field name="Word 0" size="32" start="0:0" type="hex"/> <!-- alias -->
+    <field name="ZS Write Format" size="4" start="0:0" type="ZS Format"/>
+    <field name="ZS Block Format" size="4" start="0:4" type="Block Format"/>
+    <!-- should be zs msaa, zs clean pixel write, crc render -->
+    <field name="S Write Format" size="4" start="0:16" type="S Format"/>
+    <field name="S Block Format" size="4" start="0:20" type="Block Format"/>
+
     <field name="CRC Row Stride" size="32" start="1:0" type="uint"/>
     <field name="CRC Clear Color" size="64" start="2:0" type="hex"/>
     <field name="CRC Base" size="64" start="4:0" type="address"/>
     <field name="Word 6" size="64" start="6:0" type="hex"/>
-    <field name="Word 8" size="64" start="8:0" type="hex"/>
-    <field name="Word 10" size="64" start="10:0" type="hex"/>
-    <field name="Word 12" size="64" start="12:0" type="hex"/>
-    <field name="Word 14" size="64" start="14:0" type="hex"/>
+    <field name="ZS Writeback Base" size="64" start="8:0" type="address"/>
+    <!-- For AFBC Tiled, equal to align(width, 128) * 8. The equivalent AFBC line stride on Bifrost was align(width, 128) / 16. so.. possible off. For regular AFBC, maybe just align(width, 16) - equivalent to Bifrost align(width, 16) / 16. So equal to bifrost_row_stride * width_per_superblock. On Bifrost, was number of header blocks in a row, with 8x8 tiling if necessary. So now interpret as the number of pixels per header row. -->
+    <field name="ZS Writeback Row Stride" size="32" start="10:0" type="uint"/>
+    <!-- For AFBC and AFBC Tiled, offset of body buffer == size of header buffer rounded to nearest page (4096 bytes). That size is the same as Bifrost (16 bytes per effective tile, effective tiles are 16x16 for normal and 8*16x*16 for larger. -->
+    <field name="ZS Writeback Surface Stride" size="32" start="11:0" type="uint"/>
+    <field name="S Writeback Base" size="64" start="12:0" type="address"/>
+    <field name="S Writeback Row Stride" size="32" start="14:0" type="uint"/>
+    <field name="S Writeback Surface Stride" size="32" start="15:0" type="uint"/> <!-- Postulated -->
 
     <!-- TODO: everything below this, Arm shuffled this descriptor -->
     <!--
-    <field name="ZS Write Format" size="4" start="3:0" type="ZS Format"/>
-    <field name="ZS Block Format" size="4" start="3:4" type="Block Format"/>
     <field name="ZS MSAA" size="2" start="3:8" default="Single" type="MSAA"/>
     <field name="ZS Clean Pixel Write Enable" size="1" start="3:10" type="bool"/>
     <field name="CRC Render Target" size="4" start="3:11" type="uint"/>
-    <field name="S Write Format" size="4" start="3:16" type="S Format"/>
-    <field name="S Block Format" size="4" start="3:20" type="Block Format"/>
     <field name="S MSAA" size="2" start="3:24" default="Single" type="MSAA"/>
-    <field name="ZS Writeback Base" size="64" start="4:0" type="address"/>
-    <field name="ZS Writeback Row Stride" size="32" start="6:0" type="uint"/>
-    <field name="ZS Writeback Surface Stride" size="32" start="7:0" type="uint"/>
-    <field name="S Writeback Base" size="64" start="8:0" type="address"/>
-    <field name="S Writeback Row Stride" size="32" start="10:0" type="uint"/>
-    <field name="S Writeback Surface Stride" size="32" start="11:0" type="uint"/>
     <field name="ZS AFBC Header" size="64" start="4:0" type="address"/>
     <field name="ZS AFBC Row Stride" size="13" start="6:0" type="uint"/>
     <field name="ZS AFBC Body" size="64" start="8:0" type="address"/>
