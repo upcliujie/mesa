@@ -36,8 +36,6 @@
 #error This file is included by means other than anv_private.h
 #endif
 
-typedef struct VkRenderingSelfDependencyInfoMESA VkRenderingSelfDependencyInfoMESA;
-
 extern const uint32_t genX(vk_to_intel_cullmode)[];
 
 extern const uint32_t genX(vk_to_intel_front_face)[];
@@ -169,9 +167,7 @@ genX(raster_polygon_mode)(struct anv_graphics_pipeline *pipeline,
 
 void
 genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
-                             const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                             const VkPipelineRenderingCreateInfo *rendering_info,
-                             const VkRenderingSelfDependencyInfoMESA *rsd_info);
+                             const struct anv_graphics_pipeline_info *info);
 
 void
 genX(compute_pipeline_emit)(struct anv_compute_pipeline *pipeline);

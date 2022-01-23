@@ -2777,53 +2777,29 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
 
 void
 genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
-                             const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                             const VkPipelineRenderingCreateInfo *rendering_info,
-                             const VkRenderingSelfDependencyInfoMESA *rsd_info)
+                             const struct anv_graphics_pipeline_info *info)
 {
-   /* If rasterization is not enabled, various CreateInfo structs must be
-    * ignored.
-    */
-   const bool raster_enabled =
-      !pCreateInfo->pRasterizationState->rasterizerDiscardEnable ||
-      (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE);
-
-   const VkPipelineViewportStateCreateInfo *vp_info =
-      raster_enabled ? pCreateInfo->pViewportState : NULL;
-
-   const VkPipelineMultisampleStateCreateInfo *ms_info =
-      raster_enabled ? pCreateInfo->pMultisampleState : NULL;
-
-   const VkPipelineDepthStencilStateCreateInfo *ds_info =
-      raster_enabled ? pCreateInfo->pDepthStencilState : NULL;
-
-   const VkPipelineColorBlendStateCreateInfo *cb_info =
-      raster_enabled ? pCreateInfo->pColorBlendState : NULL;
-
-   const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
-      vk_find_struct_const(pCreateInfo->pRasterizationState->pNext,
-                           PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
-
    enum intel_urb_deref_block_size urb_deref_block_size;
    emit_urb_setup(pipeline, &urb_deref_block_size);
 
-   assert(pCreateInfo->pRasterizationState);
-   emit_rs_state(pipeline, pCreateInfo->pInputAssemblyState,
-                           pCreateInfo->pRasterizationState,
-                           ms_info, line_info, rendering_info,
-                           urb_deref_block_size);
-   emit_ms_state(pipeline, ms_info);
-   emit_ds_state(pipeline, ds_info, rendering_info);
-   emit_cb_state(pipeline, cb_info, ms_info);
-   compute_kill_pixel(pipeline, ms_info, rsd_info);
+   assert(info->rs);
 
-   emit_3dstate_clip(pipeline,
-                     pCreateInfo->pInputAssemblyState,
-                     vp_info,
-                     pCreateInfo->pRasterizationState);
+   const VkPipelineRasterizationLineStateCreateInfoEXT *line_info =
+      vk_find_struct_const(info->rs->pNext,
+                           PIPELINE_RASTERIZATION_LINE_STATE_CREATE_INFO_EXT);
+
+   emit_rs_state(pipeline,
+                 info->ia, info->rs, info->ms, line_info, info->ri,
+                 urb_deref_block_size);
+   emit_ms_state(pipeline, info->ms);
+   emit_ds_state(pipeline, info->ds, info->ri);
+   emit_cb_state(pipeline, info->cb, info->ms);
+   compute_kill_pixel(pipeline, info->ms, info->rsd);
+
+   emit_3dstate_clip(pipeline, info->ia, info->vp, info->rs);
 
 #if GFX_VER == 12
-   emit_3dstate_primitive_replication(pipeline, rendering_info);
+   emit_3dstate_primitive_replication(pipeline, info->ri);
 #endif
 
 #if 0
@@ -2846,11 +2822,11 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
 #endif
 
    if (anv_pipeline_is_primitive(pipeline)) {
-      assert(pCreateInfo->pVertexInputState);
-      emit_vertex_input(pipeline, pCreateInfo->pVertexInputState);
+      assert(info->vi);
+      emit_vertex_input(pipeline, info->vi);
 
       emit_3dstate_vs(pipeline);
-      emit_3dstate_hs_te_ds(pipeline, pCreateInfo->pTessellationState);
+      emit_3dstate_hs_te_ds(pipeline, info->ts);
       emit_3dstate_gs(pipeline);
 
 #if GFX_VER >= 8
@@ -2862,7 +2838,7 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
 
       emit_3dstate_cps(pipeline);
 
-      emit_3dstate_streamout(pipeline, pCreateInfo->pRasterizationState);
+      emit_3dstate_streamout(pipeline, info->rs);
 
 #if GFX_VERx10 >= 125
       const struct anv_device *device = pipeline->base.device;
@@ -2882,12 +2858,11 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
 
    emit_3dstate_sbe(pipeline);
    emit_3dstate_wm(pipeline,
-                   pCreateInfo->pInputAssemblyState,
-                   pCreateInfo->pRasterizationState,
-                   cb_info, ms_info, line_info, rsd_info);
-   emit_3dstate_ps(pipeline, cb_info, ms_info);
+                   info->ia, info->rs, info->cb, info->ms,
+                   line_info, info->rsd);
+   emit_3dstate_ps(pipeline, info->cb, info->ms);
 #if GFX_VER >= 8
-   emit_3dstate_ps_extra(pipeline, pCreateInfo->pRasterizationState, rsd_info);
+   emit_3dstate_ps_extra(pipeline, info->rs, info->rsd);
 #endif
 }
 
