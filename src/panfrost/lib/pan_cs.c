@@ -163,7 +163,9 @@ pan_prepare_s(const struct pan_fb_info *fb,
 
         unsigned level = s->first_level;
 
+#if PAN_ARCH <= 7 /* TODO */
         ext->s_msaa = mali_sampling_mode(s);
+#endif
 
         struct pan_surface surf;
         pan_iview_get_surface(s, 0, 0, 0, &surf);
@@ -190,12 +192,17 @@ pan_prepare_zs(const struct pan_fb_info *fb,
 
         unsigned level = zs->first_level;
 
+#if PAN_ARCH <= 7 /* TODO */
         ext->zs_msaa = mali_sampling_mode(zs);
+#endif
 
         struct pan_surface surf;
         pan_iview_get_surface(zs, 0, 0, 0, &surf);
 
         if (drm_is_afbc(zs->image->layout.modifier)) {
+#if PAN_ARCH >= 9
+                unreachable("todo: Z/S AFBC on Valhall");
+#else
 #if PAN_ARCH >= 6
                 const struct pan_image_slice_layout *slice = &zs->image->layout.slices[level];
 
@@ -210,6 +217,7 @@ pan_prepare_zs(const struct pan_fb_info *fb,
 
                 ext->zs_afbc_header = surf.afbc.header;
                 ext->zs_afbc_body = surf.afbc.body;
+#endif
         } else {
                 assert(zs->image->layout.modifier == DRM_FORMAT_MOD_ARM_16X16_BLOCK_U_INTERLEAVED ||
                        zs->image->layout.modifier == DRM_FORMAT_MOD_LINEAR);
@@ -247,8 +255,10 @@ pan_prepare_crc(const struct pan_fb_info *fb, int rt_crc,
                         slice->crc.offset;
         ext->crc_row_stride = slice->crc.stride;
 
-#if PAN_ARCH >= 7
+#if PAN_ARCH >= 7 /* TODO */
+#if PAN_ARCH <= 7
         ext->crc_render_target = rt_crc;
+#endif
 
         if (fb->rts[rt_crc].clear) {
                 uint32_t clear_val = fb->rts[rt_crc].clear_value[0];
@@ -264,7 +274,9 @@ pan_emit_zs_crc_ext(const struct pan_fb_info *fb, int rt_crc,
 {
         pan_pack(zs_crc_ext, ZS_CRC_EXTENSION, cfg) {
                 pan_prepare_crc(fb, rt_crc, &cfg);
+#if PAN_ARCH <= 7 /* TODO */
                 cfg.zs_clean_pixel_write_enable = fb->zs.clear.z || fb->zs.clear.s;
+#endif
                 pan_prepare_zs(fb, &cfg);
                 pan_prepare_s(fb, &cfg);
         }
