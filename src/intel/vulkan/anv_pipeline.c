@@ -2211,11 +2211,11 @@ anv_graphics_copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
 {
    anv_cmd_dirty_mask_t states = ANV_CMD_DIRTY_DYNAMIC_ALL;
 
-   pipeline->dynamic_state = default_dynamic_state;
+   pipeline->non_dynamic_state = default_dynamic_state;
 
    states &= ~pipeline->dynamic_states;
 
-   struct anv_dynamic_state *dynamic = &pipeline->dynamic_state;
+   struct anv_dynamic_state *dynamic = &pipeline->non_dynamic_state;
 
    bool raster_discard =
       info->rs->rasterizerDiscardEnable &&
@@ -2438,7 +2438,7 @@ anv_graphics_copy_non_dynamic_state(struct anv_graphics_pipeline *pipeline,
       }
    }
 
-   pipeline->dynamic_state_mask = states;
+   pipeline->non_dynamic_state_mask = states;
 
    /* Mark states that can either be dynamic or fully baked into the pipeline.
     */
