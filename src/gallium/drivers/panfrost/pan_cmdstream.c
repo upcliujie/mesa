@@ -65,9 +65,6 @@ struct panfrost_zsa_state {
         /* Is any depth, stencil, or alpha testing enabled? */
         bool enabled;
 
-        /* Mask of PIPE_CLEAR_{DEPTH,STENCIL} written */
-        unsigned draws;
-
 #if PAN_ARCH <= 7
         /* Prepacked words from the RSD */
         struct mali_multisample_misc_packed rsd_depth;
@@ -418,12 +415,6 @@ panfrost_emit_blend(struct panfrost_batch *batch, void *rts, mali_ptr *blend_sha
 #endif
         }
 
-        for (unsigned i = 0; i < batch->key.nr_cbufs; ++i) {
-                if (!so->info[i].no_colour && batch->key.cbufs[i]) {
-                        batch->draws |= (PIPE_CLEAR_COLOR0 << i);
-                        batch->resolve |= (PIPE_CLEAR_COLOR0 << i);
-                }
-        }
 }
 #endif
 
@@ -656,16 +647,7 @@ panfrost_emit_frag_shader_meta(struct panfrost_batch *batch)
 
 #if PAN_ARCH >= 5
         panfrost_emit_blend(batch, xfer.cpu + pan_size(RENDERER_STATE), blend_shaders);
-#else
-        batch->draws |= PIPE_CLEAR_COLOR0;
-        batch->resolve |= PIPE_CLEAR_COLOR0;
 #endif
-
-        if (ctx->depth_stencil->base.depth_enabled)
-                batch->read |= PIPE_CLEAR_DEPTH;
-
-        if (ctx->depth_stencil->base.stencil[0].enabled)
-                batch->read |= PIPE_CLEAR_STENCIL;
 
         return xfer.gpu;
 }
@@ -2845,6 +2827,12 @@ panfrost_update_state_3d(struct panfrost_batch *batch)
         if (dirty & PAN_DIRTY_TLS_SIZE)
                 panfrost_batch_adjust_stack_size(batch);
 
+        if (dirty & PAN_DIRTY_BLEND)
+                panfrost_set_batch_masks_blend(batch);
+
+        if (dirty & PAN_DIRTY_ZS)
+                panfrost_set_batch_masks_zs(batch);
+
 #if PAN_ARCH >= 9
         if ((dirty & (PAN_DIRTY_ZS | PAN_DIRTY_RASTERIZER)) ||
             (ctx->dirty_shader[PIPE_SHADER_FRAGMENT] & PAN_DIRTY_STAGE_SHADER))
@@ -3630,10 +3618,6 @@ panfrost_draw_vbo(struct pipe_context *pipe,
         if (unlikely(batch->scoreboard.job_index > 10000))
                 batch = panfrost_get_fresh_batch_for_fbo(ctx, "Too many draws");
 
-        unsigned zs_draws = ctx->depth_stencil->draws;
-        batch->draws |= zs_draws;
-        batch->resolve |= zs_draws;
-
         /* Mark everything dirty when debugging */
         if (unlikely(dev->debug & PAN_DBG_DIRTY))
                 panfrost_dirty_state_all(ctx);
@@ -3991,13 +3975,6 @@ panfrost_create_depth_stencil_state(struct pipe_context *pipe,
 
         so->enabled = zsa->stencil[0].enabled ||
                 (zsa->depth_enabled && zsa->depth_func != PIPE_FUNC_ALWAYS);
-
-        /* Write masks need tracking together */
-        if (zsa->depth_writemask)
-                so->draws |= PIPE_CLEAR_DEPTH;
-
-        if (zsa->stencil[0].enabled)
-                so->draws |= PIPE_CLEAR_STENCIL;
 
         /* TODO: Bounds test should be easy */
         assert(!zsa->depth_bounds_test);
