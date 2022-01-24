@@ -37,6 +37,7 @@ bo_allocate(struct msm_bo *msm_bo)
       };
       int ret;
 
+      fd_stat(bo->dev, msm_gem_info);
       /* if the buffer is already backed by pages then this
        * doesn't actually do anything (other than giving us
        * the offset)
@@ -75,6 +76,7 @@ msm_bo_cpu_prep(struct fd_bo *bo, struct fd_pipe *pipe, uint32_t op)
 
    get_abs_timeout(&req.timeout, 5000000000);
 
+   fd_stat(bo->dev, msm_gem_cpu_prep);
    return drmCommandWrite(bo->dev->fd, DRM_MSM_GEM_CPU_PREP, &req, sizeof(req));
 }
 
@@ -85,6 +87,7 @@ msm_bo_cpu_fini(struct fd_bo *bo)
       .handle = bo->handle,
    };
 
+   fd_stat(bo->dev, msm_gem_cpu_fini);
    drmCommandWrite(bo->dev->fd, DRM_MSM_GEM_CPU_FINI, &req, sizeof(req));
 }
 
@@ -101,6 +104,11 @@ msm_bo_madvise(struct fd_bo *bo, int willneed)
    if (bo->dev->version < FD_VERSION_MADVISE)
       return willneed;
 
+   if (willneed) {
+      fd_stat(bo->dev, msm_gem_madvise_willneed);
+   } else {
+      fd_stat(bo->dev, msm_gem_madvise_dontneed);
+   }
    ret =
       drmCommandWriteRead(bo->dev->fd, DRM_MSM_GEM_MADVISE, &req, sizeof(req));
    if (ret)
@@ -118,6 +126,7 @@ msm_bo_iova(struct fd_bo *bo)
    };
    int ret;
 
+   fd_stat(bo->dev, msm_gem_info);
    ret = drmCommandWriteRead(bo->dev->fd, DRM_MSM_GEM_INFO, &req, sizeof(req));
    if (ret)
       return 0;
@@ -143,6 +152,7 @@ msm_bo_set_name(struct fd_bo *bo, const char *fmt, va_list ap)
    req.value = VOID2U64(buf);
    req.len = MIN2(sz, sizeof(buf));
 
+   fd_stat(bo->dev, msm_gem_info);
    drmCommandWrite(bo->dev->fd, DRM_MSM_GEM_INFO, &req, sizeof(req));
 }
 
@@ -184,6 +194,7 @@ msm_bo_new_handle(struct fd_device *dev, uint32_t size, uint32_t flags,
    else
       req.flags |= MSM_BO_WC;
 
+   fd_stat(dev, msm_gem_new);
    ret = drmCommandWriteRead(dev->fd, DRM_MSM_GEM_NEW, &req, sizeof(req));
    if (ret)
       return ret;

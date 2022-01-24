@@ -38,6 +38,7 @@ query_param(struct fd_pipe *pipe, uint32_t param, uint64_t *value)
    };
    int ret;
 
+   fd_stat(pipe->dev, msm_get_param);
    ret =
       drmCommandWriteRead(pipe->dev->fd, DRM_MSM_GET_PARAM, &req, sizeof(req));
    if (ret)
@@ -60,6 +61,7 @@ query_queue_param(struct fd_pipe *pipe, uint32_t param, uint64_t *value)
    };
    int ret;
 
+   fd_stat(pipe->dev, msm_submitqueue_query);
    ret = drmCommandWriteRead(pipe->dev->fd, DRM_MSM_SUBMITQUEUE_QUERY, &req,
                              sizeof(req));
    if (ret)
@@ -119,6 +121,7 @@ msm_pipe_wait(struct fd_pipe *pipe, const struct fd_fence *fence, uint64_t timeo
 
    get_abs_timeout(&req.timeout, timeout);
 
+   fd_stat(dev, msm_wait_fence);
    ret = drmCommandWrite(dev->fd, DRM_MSM_WAIT_FENCE, &req, sizeof(req));
    if (ret && (ret != -ETIMEDOUT)) {
       ERROR_MSG("wait-fence failed! %d (%s)", ret, strerror(errno));
@@ -146,6 +149,7 @@ open_submitqueue(struct fd_pipe *pipe, uint32_t prio)
 
    req.prio = MIN2(req.prio, MAX2(nr_rings, 1) - 1);
 
+   fd_stat(pipe->dev, msm_submitqueue_new);
    ret = drmCommandWriteRead(pipe->dev->fd, DRM_MSM_SUBMITQUEUE_NEW, &req,
                              sizeof(req));
    if (ret) {
@@ -163,6 +167,7 @@ close_submitqueue(struct fd_pipe *pipe, uint32_t queue_id)
    if (fd_device_version(pipe->dev) < FD_VERSION_SUBMIT_QUEUES)
       return;
 
+   fd_stat(pipe->dev, msm_submitqueue_close);
    drmCommandWrite(pipe->dev->fd, DRM_MSM_SUBMITQUEUE_CLOSE, &queue_id,
                    sizeof(queue_id));
 }
