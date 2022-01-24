@@ -1983,6 +1983,8 @@ struct anv_descriptor_pool {
 
    struct list_head desc_sets;
 
+   bool allocate_surface_states;
+
    char data[0];
 };
 
