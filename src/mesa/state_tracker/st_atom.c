@@ -102,28 +102,28 @@ static void check_program_state( struct st_context *st )
          dirty |= ST_NEW_VERTEX_PROGRAM(st, st_program(new_vp));
    }
 
-   if (unlikely(new_tcp != &old_tcp->Base)) {
+   if (unlikely(new_tcp != (old_tcp ? &old_tcp->Base : NULL))) {
       if (old_tcp)
          dirty |= old_tcp->affected_states;
       if (new_tcp)
          dirty |= st_program(new_tcp)->affected_states;
    }
 
-   if (unlikely(new_tep != &old_tep->Base)) {
+   if (unlikely(new_tep != (old_tep ? &old_tep->Base : NULL))) {
       if (old_tep)
          dirty |= old_tep->affected_states;
       if (new_tep)
          dirty |= st_program(new_tep)->affected_states;
    }
 
-   if (unlikely(new_gp != &old_gp->Base)) {
+   if (unlikely(new_gp != (old_gp ? &old_gp->Base : NULL))) {
       if (old_gp)
          dirty |= old_gp->affected_states;
       if (new_gp)
          dirty |= st_program(new_gp)->affected_states;
    }
 
-   if (unlikely(new_fp != &old_fp->Base)) {
+   if (unlikely(new_fp != (old_fp ? &old_fp->Base : NULL))) {
       if (old_fp)
          dirty |= old_fp->affected_states;
       if (new_fp)
