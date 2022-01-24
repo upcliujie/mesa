@@ -590,7 +590,7 @@ make_variant_key(struct llvmpipe_context *lp,
 
    memset(cs_sampler, 0, MAX2(key->nr_samplers, key->nr_sampler_views) * sizeof *cs_sampler);
    for(i = 0; i < key->nr_samplers; ++i) {
-      if(shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
+      if(BITSET_TEST(shader->info.base.file_mask[TGSI_FILE_SAMPLER].mask, i)) {
          lp_sampler_static_sampler_state(&cs_sampler[i].sampler_state,
                                          lp->samplers[PIPE_SHADER_COMPUTE][i]);
       }
@@ -609,7 +609,7 @@ make_variant_key(struct llvmpipe_context *lp,
           * This will still work, the only downside is that not actually
           * used views may be included in the shader key.
           */
-         if(shader->info.base.file_mask[TGSI_FILE_SAMPLER_VIEW] & (1u << (i & 31))) {
+         if(i < 32 && BITSET_TEST(shader->info.base.file_mask[TGSI_FILE_SAMPLER_VIEW].mask, i)) {
             lp_sampler_static_texture_state(&cs_sampler[i].texture_state,
                                             lp->sampler_views[PIPE_SHADER_COMPUTE][i]);
          }
@@ -618,7 +618,7 @@ make_variant_key(struct llvmpipe_context *lp,
    else {
       key->nr_sampler_views = key->nr_samplers;
       for(i = 0; i < key->nr_sampler_views; ++i) {
-         if(shader->info.base.file_mask[TGSI_FILE_SAMPLER] & (1 << i)) {
+         if(BITSET_TEST(shader->info.base.file_mask[TGSI_FILE_SAMPLER].mask, i)) {
             lp_sampler_static_texture_state(&cs_sampler[i].texture_state,
                                             lp->sampler_views[PIPE_SHADER_COMPUTE][i]);
          }
@@ -629,7 +629,7 @@ make_variant_key(struct llvmpipe_context *lp,
    lp_image = lp_cs_variant_key_images(key);
    key->nr_images = shader->info.base.file_max[TGSI_FILE_IMAGE] + 1;
    for (i = 0; i < key->nr_images; ++i) {
-      if (shader->info.base.file_mask[TGSI_FILE_IMAGE] & (1 << i)) {
+      if (BITSET_TEST(shader->info.base.file_mask[TGSI_FILE_IMAGE].mask, i)) {
          lp_sampler_static_texture_state_image(&lp_image[i].image_state,
                                                &lp->images[PIPE_SHADER_COMPUTE][i]);
       }
