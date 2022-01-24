@@ -885,6 +885,9 @@ void iris_blorp_surf_for_resource(struct isl_device *isl_dev,
                                   enum isl_aux_usage aux_usage,
                                   unsigned level,
                                   bool is_render_target);
+struct iris_batch *iris_select_copy_method(struct iris_context *ice,
+                                           const struct iris_resource *src,
+                                           const struct iris_resource *dst);
 void iris_copy_region(struct blorp_context *blorp,
                       struct iris_batch *batch,
                       struct pipe_resource *dst,
