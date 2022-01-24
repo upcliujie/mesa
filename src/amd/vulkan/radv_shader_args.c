@@ -132,6 +132,8 @@ count_ms_user_sgprs(const struct radv_shader_info *info)
 
    if (info->vs.needs_draw_id)
       count++;
+   if (info->cs.uses_task_rings)
+      count++;
 
    return count;
 }
@@ -425,6 +427,9 @@ declare_ms_input_sgprs(const struct radv_shader_info *info, struct radv_shader_a
    if (info->vs.needs_draw_id) {
       ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.draw_id);
    }
+   if (info->cs.uses_task_rings) {
+      ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.task_ring_entry);
+   }
 }
 
 static void
@@ -559,6 +564,9 @@ set_ms_input_locs(struct radv_shader_args *args, uint8_t *user_sgpr_idx)
    unsigned vs_num =
       args->ac.base_vertex.used + 3 * args->ac.num_work_groups.used + args->ac.draw_id.used;
    set_loc_shader(args, AC_UD_VS_BASE_VERTEX_START_INSTANCE, user_sgpr_idx, vs_num);
+
+   if (args->ac.task_ring_entry.used)
+      set_loc_shader(args, AC_UD_TASK_RING_ENTRY, user_sgpr_idx, 1);
 }
 
 void
