@@ -1983,6 +1983,8 @@ struct anv_descriptor_pool {
 
    struct list_head desc_sets;
 
+   VkDescriptorPoolCreateFlags flags;
+
    char data[0];
 };
 
