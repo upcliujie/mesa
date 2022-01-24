@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include "util/bitscan.h"
 #include "util/macros.h"
 #include "util/u_mm.h"
 #include "broadcom/common/v3d_macros.h"
@@ -45,7 +46,7 @@
 #define HW_REGISTER_RO(x) (x)
 #define HW_REGISTER_RW(x) (x)
 #if V3D_VERSION >= 41
-#include "libs/core/v3d/registers/4.1.34.0/v3d.h"
+#include "libs/core/v3d/registers/4.1.35.0/v3d.h"
 #else
 #include "libs/core/v3d/registers/3.3.0.0/v3d.h"
 #endif
@@ -294,22 +295,132 @@ static ioctl_fn_t driver_ioctls[] = {
 };
 
 static void
+v3d_isr_core(unsigned core)
+{
+        /* FIXME: so far we are assuming just one core, and using only the _0_
+         * registers. If we add multiple-core on the simulator, we would need
+         * to pass core as a parameter, and chose the proper registers.
+         */
+        assert(core == 0);
+        uint32_t core_status = V3D_READ(V3D_CTL_0_INT_STS);
+        V3D_WRITE(V3D_CTL_0_INT_CLR, core_status);
+
+        if (core_status & V3D_CTL_0_INT_STS_INT_OUTOMEM_SET) {
+                /* FIXME: how to port the equivalent C&P from the simulator
+                 * here?
+                 */
+                /* uint32_t size = 256 * 1024; */
+                /* uint32_t offset = v3d_simulator_get_spill(size); */
+
+                /* v3d_reload_gmp(v3d); */
+
+                /* V3D_WRITE(V3D_PTB_0_BPOA, offset); */
+                /* V3D_WRITE(V3D_PTB_0_BPOS, size); */
+                /* return; */
+                fprintf(stderr, "OUT OF MEM\n");
+                abort();
+        }
+
+        if (core_status & V3D_CTL_0_INT_STS_INT_GMPV_SET) {
+                fprintf(stderr, "GMP violation at 0x%08x\n",
+                        V3D_READ(V3D_GMP_VIO_ADDR));
+                abort();
+        } else {
+                fprintf(stderr,
+                        "Unexpected ISR with core status 0x%08x\n",
+                        core_status);
+        }
+        abort();
+}
+
+static void
+handle_mmu_interruptions(uint32_t hub_status)
+{
+        bool wrv = hub_status & V3D_HUB_CTL_INT_STS_INT_MMU_WRV_SET;
+        bool pti = hub_status & V3D_HUB_CTL_INT_STS_INT_MMU_PTI_SET;
+        bool cap = hub_status & V3D_HUB_CTL_INT_STS_INT_MMU_CAP_SET;
+
+        if (!(pti || cap || wrv))
+                return;
+
+        const char *client = "?";
+        uint32_t axi_id = V3D_READ(V3D_MMU_VIO_ID);
+        uint32_t va_width = 30;
+
+#if V3D_VERSION >= 41
+        static const char *const v3d41_axi_ids[] = {
+                "L2T",
+                "PTB",
+                "PSE",
+                "TLB",
+                "CLE",
+                "TFU",
+                "MMU",
+                "GMP",
+        };
+
+        axi_id = axi_id >> 5;
+        if (axi_id < ARRAY_SIZE(v3d41_axi_ids))
+                client = v3d41_axi_ids[axi_id];
+
+        uint32_t mmu_debug = V3D_READ(V3D_MMU_DEBUG_INFO);
+
+        va_width += ((mmu_debug & V3D_MMU_DEBUG_INFO_VA_WIDTH_SET)
+                     >> V3D_MMU_DEBUG_INFO_VA_WIDTH_LSB);
+#endif
+        /* Only the top bits (final number depends on the gen) of the virtual
+         * address are reported in the MMU VIO_ADDR register.
+         */
+        uint64_t vio_addr = ((uint64_t)V3D_READ(V3D_MMU_VIO_ADDR) <<
+                             (va_width - 32));
+
+        /* Difference with the kernal: here were are going to abort after
+         * logging, so we don't bother with some stuff that the kernel does,
+         * like restoring the MMU ctrl bits
+         */
+
+        fprintf(stderr, "MMU error from client %s (%d) at 0x%llx%s%s%s\n",
+                client, axi_id, (long long) vio_addr,
+                wrv ? ", write violation" : "",
+                pti ? ", pte invalid" : "",
+                cap ? ", cap exceeded" : "");
+
+        abort();
+}
+
+static void
+v3d_isr_hub()
+{
+        uint32_t hub_status = V3D_READ(V3D_HUB_CTL_INT_STS);
+
+        /* Acknowledge the interrupts we're handling here */
+        V3D_WRITE(V3D_HUB_CTL_INT_CLR, hub_status);
+
+        if (hub_status & V3D_HUB_CTL_INT_STS_INT_TFUC_SET) {
+                /* FIXME: we were not able to raise this exception. We let the
+                 * unreachable here, so we could get one if it is raised on
+                 * the future. In any case, note that for this case we would
+                 * only be doing debugging log.
+                 */
+                unreachable("TFU Conversion Complete interrupt not handled");
+        }
+
+        handle_mmu_interruptions(hub_status);
+}
+
+static void
 v3d_isr(uint32_t hub_status)
 {
-        /* Check the per-core bits */
-        if (hub_status & (1 << 0)) {
-                uint32_t core_status = V3D_READ(V3D_CTL_0_INT_STS);
+        uint32_t mask = hub_status;
 
-                if (core_status & V3D_CTL_0_INT_STS_INT_GMPV_SET) {
-                        fprintf(stderr, "GMP violation at 0x%08x\n",
-                                V3D_READ(V3D_GMP_0_VIO_ADDR));
-                        abort();
-                } else {
-                        fprintf(stderr,
-                                "Unexpected ISR with core status 0x%08x\n",
-                                core_status);
-                }
-                abort();
+        /* Check the hub_status bits */
+        while (mask) {
+                unsigned core = u_bit_scan(&mask);
+
+                if (core == v3d_hw_get_hub_core())
+                        v3d_isr_hub();
+                else
+                        v3d_isr_core(core);
         }
 
         return;
@@ -330,9 +441,23 @@ v3dX(simulator_init_regs)(void)
         V3D_WRITE(V3D_CTL_0_MISCCFG, V3D_CTL_1_MISCCFG_OVRTMUOUT_SET);
 #endif
 
-        uint32_t core_interrupts = V3D_CTL_0_INT_STS_INT_GMPV_SET;
+        /* FIXME: the kernel captures some additional core interrupts here,
+         * for tracing. Perhaps we should evaluate to do the same here and add
+         * some debug options.
+         */
+        uint32_t core_interrupts = (V3D_CTL_0_INT_STS_INT_GMPV_SET |
+                                    V3D_CTL_0_INT_STS_INT_OUTOMEM_SET);
         V3D_WRITE(V3D_CTL_0_INT_MSK_SET, ~core_interrupts);
         V3D_WRITE(V3D_CTL_0_INT_MSK_CLR, core_interrupts);
+
+        uint32_t hub_interrupts =
+           (V3D_HUB_CTL_INT_STS_INT_MMU_WRV_SET |  /* write violation */
+            V3D_HUB_CTL_INT_STS_INT_MMU_PTI_SET |  /* page table invalid */
+            V3D_HUB_CTL_INT_STS_INT_MMU_CAP_SET |  /* CAP exceeded */
+            V3D_HUB_CTL_INT_STS_INT_TFUC_SET); /* TFU conversion */
+
+        V3D_WRITE(V3D_HUB_CTL_INT_MSK_SET, ~hub_interrupts);
+        V3D_WRITE(V3D_HUB_CTL_INT_MSK_CLR, hub_interrupts);
 
         v3d_hw_set_isr(v3d.hw, v3d_isr);
 }
