@@ -783,7 +783,7 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
          info->indirect_files |= 1 << TGSI_FILE_OUTPUT;
    }
 
-   BITSET_DECLARE(sampler_mask, 256);
+   BITSET_DECLARE(sampler_mask, PIPE_MAX_SHADER_SAMPLER_VIEWS);
    BITSET_ZERO(sampler_mask);
    nir_foreach_uniform_variable(var, nir) {
       uint32_t sampler_count = glsl_type_get_sampler_count(var->type) +
@@ -807,10 +807,10 @@ void nir_tgsi_scan_shader(const struct nir_shader *nir,
 
    info->file_max[TGSI_FILE_SAMPLER] = BITSET_LAST_BIT(sampler_mask) - 1;
    info->file_max[TGSI_FILE_SAMPLER_VIEW] = BITSET_LAST_BIT(nir->info.textures_used) - 1;
-   info->file_mask[TGSI_FILE_SAMPLER] = info->samplers_declared;
-   info->file_mask[TGSI_FILE_SAMPLER_VIEW] = nir->info.textures_used[0];
+   BITSET_COPY(info->file_mask[TGSI_FILE_SAMPLER].mask, sampler_mask);
+   BITSET_COPY(info->file_mask[TGSI_FILE_SAMPLER_VIEW].mask, nir->info.textures_used);
    info->file_max[TGSI_FILE_IMAGE] = util_last_bit(info->images_declared) - 1;
-   info->file_mask[TGSI_FILE_IMAGE] = info->images_declared;
+   info->file_mask[TGSI_FILE_IMAGE].mask[0] = info->images_declared;
 
    info->num_written_clipdistance = nir->info.clip_distance_array_size;
    info->num_written_culldistance = nir->info.cull_distance_array_size;

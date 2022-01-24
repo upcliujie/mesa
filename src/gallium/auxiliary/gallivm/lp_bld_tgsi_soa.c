@@ -2828,7 +2828,7 @@ emit_dump_file(struct lp_build_tgsi_soa_context *bld,
       int chan;
 
       if (index < 8 * sizeof(unsigned) &&
-          (info->file_mask[file] & (1u << index)) == 0)  {
+          (!BITSET_TEST(info->file_mask[file].mask, index)))  {
          /* This was not declared.*/
          continue;
       }
