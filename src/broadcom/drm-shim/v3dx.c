@@ -56,9 +56,6 @@
 static void
 v3d_flush_l3()
 {
-        if (!v3d_hw_has_gca(v3d.hw))
-                return;
-
 #if V3D_VERSION < 40
         uint32_t gca_ctrl = V3D_READ(V3D_GCA_CACHE_CTRL);
 
