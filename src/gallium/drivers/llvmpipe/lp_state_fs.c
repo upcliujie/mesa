@@ -4300,12 +4300,7 @@ make_variant_key(struct llvmpipe_context *lp,
    if (shader->info.base.file_max[TGSI_FILE_SAMPLER_VIEW] != -1) {
       key->nr_sampler_views = shader->info.base.file_max[TGSI_FILE_SAMPLER_VIEW] + 1;
       for(i = 0; i < key->nr_sampler_views; ++i) {
-         /*
-          * Note sview may exceed what's representable by file_mask.
-          * This will still work, the only downside is that not actually
-          * used views may be included in the shader key.
-          */
-         if(i < 32 && BITSET_TEST(shader->info.base.file_mask[TGSI_FILE_SAMPLER_VIEW].mask, i)) {
+         if(BITSET_TEST(shader->info.base.file_mask[TGSI_FILE_SAMPLER_VIEW].mask, i)) {
             lp_sampler_static_texture_state(&fs_sampler[i].texture_state,
                                             lp->sampler_views[PIPE_SHADER_FRAGMENT][i]);
          }
