@@ -38,7 +38,7 @@ struct v3d_shim_device {
         /* Base hardware address of the heap. */
         uint32_t mem_base;
         /* Size of the heap. */
-        size_t mem_size;
+        uint32_t mem_size;
 
         /* Allocator for the GPU virtual addresses. */
         struct util_vma_heap heap;
