@@ -235,14 +235,14 @@ v3dX(v3d_ioctl_create_bo)(int fd, unsigned long request, void *arg)
          */
         void *sim_addr = v3d.mem + bo->block->ofs;
         void *mmap_ret = mmap(sim_addr, create->size, PROT_READ | PROT_WRITE,
-                              MAP_SHARED | MAP_FIXED, bo->base.fd, 0);
+                              MAP_SHARED | MAP_FIXED, shim_fd->fd, 0);
         assert(mmap_ret == sim_addr);
 #else
         /* Make a simulator-private mapping of the shim GEM object. */
         bo->gem_vaddr = mmap(NULL, bo->base.size,
                              PROT_READ | PROT_WRITE,
                              MAP_SHARED,
-                             bo->base.fd, 0);
+                             shim_fd->fd, 0);
         if (bo->gem_vaddr == MAP_FAILED) {
                 fprintf(stderr, "v3d: mmap of shim bo failed\n");
                 abort();
