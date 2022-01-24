@@ -637,7 +637,7 @@ scan_declaration(struct tgsi_shader_info *info,
        * only first 32 regs will appear in this bitfield, if larger
        * bits will wrap around.
        */
-      info->file_mask[file] |= (1u << (reg & 31));
+      BITSET_SET(info->file_mask[file].mask, reg);
       info->file_count[file]++;
       info->file_max[file] = MAX2(info->file_max[file], (int)reg);
 
@@ -824,7 +824,7 @@ scan_immediate(struct tgsi_shader_info *info)
    uint reg = info->immediate_count++;
    uint file = TGSI_FILE_IMMEDIATE;
 
-   info->file_mask[file] |= (1 << reg);
+   BITSET_SET(info->file_mask[file].mask, reg);
    info->file_count[file]++;
    info->file_max[file] = MAX2(info->file_max[file], (int)reg);
 }
@@ -934,7 +934,7 @@ tgsi_scan_shader(const struct tgsi_token *tokens,
       info->file_max[TGSI_FILE_INPUT] =
             MAX2(info->file_max[TGSI_FILE_INPUT], num_verts - 1);
       for (j = 0; j < num_verts; ++j) {
-         info->file_mask[TGSI_FILE_INPUT] |= (1 << j);
+         BITSET_SET(info->file_mask[TGSI_FILE_INPUT].mask, j);
       }
    }
 
