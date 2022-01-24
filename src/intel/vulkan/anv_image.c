@@ -2098,6 +2098,18 @@ anv_layout_to_aux_state(const struct intel_device_info * const devinfo,
       }
    }
 
+   const struct isl_format_layout *fmtl =
+      isl_format_get_layout(image->planes[plane].primary_surface.isl.format);
+
+   /* Disabling CCS for the following case avoids failures in
+    * dEQP-VK.drm_format_modifiers.export_import.*
+    */
+   if ((usage & VK_IMAGE_USAGE_TRANSFER_DST_BIT) && fmtl->bpb <= 16 &&
+       aux_usage == ISL_AUX_USAGE_CCS_E && devinfo->ver >= 12) {
+      aux_supported = false;
+      clear_supported = false;
+   }
+
    if (usage & (VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                 VK_IMAGE_USAGE_SAMPLED_BIT |
                 VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
