@@ -53,7 +53,7 @@ if dep_v3dv3.found()
         include_directories : [inc_include, inc_src, inc_mapi, inc_mesa, inc_gallium, inc_gallium_aux, inc_broadcom, inc_gallium_v3d, inc_simulator],
         c_args : [no_override_init_args, '-DV3D_VERSION=' + ver, v3dv3_c_args],
         gnu_symbol_visibility : 'hidden',
-        dependencies: [dep_valgrind, dep_thread, dep_v3dv3],
+        dependencies: [dep_valgrind, dep_thread, dep_v3dv3, dep_drm_shim],
     )
   endforeach
 
