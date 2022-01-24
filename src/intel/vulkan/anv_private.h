@@ -1983,7 +1983,10 @@ struct anv_descriptor_pool {
 
    struct list_head desc_sets;
 
+   VkDescriptorPoolCreateFlags flags;
+
    char data[0];
+
 };
 
 enum anv_descriptor_template_entry_type {

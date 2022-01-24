@@ -2728,6 +2728,11 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
           */
          struct anv_descriptor_set *set =
             pipe_state->descriptors[binding->index];
+
+         if (set->pool &&
+             set->pool->flags & VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_VALVE)
+            break;
+
          assert(set->desc_mem.alloc_size);
          assert(set->desc_surface_state.alloc_size);
          bt_map[s] = set->desc_surface_state.offset + state_offset;
