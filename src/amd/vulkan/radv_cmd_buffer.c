@@ -3658,7 +3658,7 @@ radv_flush_force_vrs_state(struct radv_cmd_buffer *cmd_buffer)
 
    base_reg = pipeline->user_data_0[stage];
 
-   switch (cmd_buffer->device->force_vrs) {
+   switch (cmd_buffer->device->instance->force_vrs) {
    case RADV_FORCE_VRS_2x2:
       vrs_rates = (1u << 2) | (1u << 4);
       break;

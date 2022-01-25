@@ -316,6 +316,13 @@ struct radv_physical_device {
    nir_shader_compiler_options nir_options[MESA_VULKAN_SHADER_STAGES];
 };
 
+enum radv_force_vrs {
+   RADV_FORCE_VRS_NONE = 0,
+   RADV_FORCE_VRS_2x2,
+   RADV_FORCE_VRS_2x1,
+   RADV_FORCE_VRS_1x2,
+};
+
 struct radv_instance {
    struct vk_instance vk;
 
@@ -329,6 +336,9 @@ struct radv_instance {
 
    struct driOptionCache dri_options;
    struct driOptionCache available_dri_options;
+
+   /* Whether the user forced VRS rates on GFX10.3+. */
+   enum radv_force_vrs force_vrs;
 
    /**
     * Workarounds for game bugs.
@@ -740,13 +750,6 @@ struct radv_device_border_color_data {
    mtx_t mutex;
 };
 
-enum radv_force_vrs {
-   RADV_FORCE_VRS_NONE = 0,
-   RADV_FORCE_VRS_2x2,
-   RADV_FORCE_VRS_2x1,
-   RADV_FORCE_VRS_1x2,
-};
-
 struct radv_device {
    struct vk_device vk;
 
@@ -846,9 +849,6 @@ struct radv_device {
    bool overallocation_disallowed;
    uint64_t allocated_memory_size[VK_MAX_MEMORY_HEAPS];
    mtx_t overallocation_mutex;
-
-   /* Whether the user forced VRS rates on GFX10.3+. */
-   enum radv_force_vrs force_vrs;
 
    /* Depth image for VRS when not bound by the app. */
    struct {
