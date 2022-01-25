@@ -5719,7 +5719,7 @@ gfx103_pipeline_generate_vrs_state(struct radeon_cmdbuf *ctx_cs,
           */
          mode = V_028064_VRS_COMB_MODE_OVERRIDE;
          rate_x = rate_y = 1;
-      } else if (pipeline->device->force_vrs != RADV_FORCE_VRS_NONE) {
+      } else if (pipeline->graphics.force_vrs_per_vertex) {
          /* Force enable vertex VRS if requested by the user. */
          radeon_set_context_reg(
             ctx_cs, R_028848_PA_CL_VRS_CNTL,
@@ -6012,6 +6012,8 @@ radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
    pipeline->graphics.has_ngg_culling =
       pipeline->graphics.is_ngg &&
       pipeline->shaders[pipeline->graphics.last_vgt_api_stage]->info.has_ngg_culling;
+   pipeline->graphics.force_vrs_per_vertex =
+      pipeline->shaders[pipeline->graphics.last_vgt_api_stage]->info.force_vrs_per_vertex;
 
    pipeline->push_constant_size = pipeline_layout->push_constant_size;
    pipeline->dynamic_offset_count = pipeline_layout->dynamic_offset_count;
