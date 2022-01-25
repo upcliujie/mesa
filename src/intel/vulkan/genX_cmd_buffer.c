@@ -3582,6 +3582,12 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
    struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
    uint32_t *p;
 
+#if GFX_VER == 12
+   if (pipeline->active_stages & VK_SHADER_STAGE_VERTEX_BIT)
+      cmd_buffer->state.push_constants_dirty |=
+         VK_SHADER_STAGE_VERTEX_BIT;
+#endif
+
    assert((pipeline->active_stages & VK_SHADER_STAGE_COMPUTE_BIT) == 0);
 
    genX(cmd_buffer_config_l3)(cmd_buffer, pipeline->base.l3_config);
