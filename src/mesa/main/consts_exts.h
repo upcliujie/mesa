@@ -477,8 +477,6 @@ struct gl_constants
 
    GLuint TextureBufferOffsetAlignment; /**< GL_ARB_texture_buffer_range */
 
-   GLuint MaxArrayLockSize;
-
    GLint SubPixelBits;
 
    GLfloat MinPointSize, MaxPointSize;	     /**< aliased */
