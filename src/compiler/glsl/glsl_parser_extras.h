@@ -588,7 +588,6 @@ struct _mesa_glsl_parse_state {
       unsigned MaxTessEvaluationOutputComponents;
       unsigned MaxTessEvaluationTextureImageUnits;
       unsigned MaxTessPatchComponents;
-      unsigned MaxTessControlTotalOutputComponents;
       unsigned MaxTessControlUniformComponents;
       unsigned MaxTessEvaluationUniformComponents;
 
