@@ -1985,7 +1985,7 @@ st_precompile_shader_variant(struct st_context *st,
 
       if (prog->Target == GL_VERTEX_PROGRAM_ARB ||
           prog->Target == GL_TESS_EVALUATION_PROGRAM_NV ||
-          prog->Target == GL_GEOMETRY_PROGRAM_NV) {
+          (prog->Target == GL_GEOMETRY_PROGRAM_NV && prog->info.gs.output_primitive == SHADER_PRIM_POINTS)) {
          if (st->ctx->API == API_OPENGLES2 || !st->ctx->VertexProgram.PointSizeEnabled)
             key.export_point_size = st->lower_point_size && is_last_vertex_stage(st->ctx, prog);
       }
