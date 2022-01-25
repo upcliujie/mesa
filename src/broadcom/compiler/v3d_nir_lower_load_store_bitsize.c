@@ -64,6 +64,50 @@ offset_src(nir_intrinsic_op intrinsic)
    }
 }
 
+static nir_intrinsic_instr *
+init_scalar_intrinsic(nir_builder *b,
+                      nir_intrinsic_instr *intr,
+                      uint32_t component,
+                      nir_ssa_def *offset,
+                      uint32_t bit_size,
+                      nir_ssa_def **scalar_offset)
+{
+
+        nir_intrinsic_instr *new_intr =
+                nir_intrinsic_instr_create(b->shader, intr->intrinsic);
+
+        nir_intrinsic_copy_const_indices(new_intr, intr);
+
+        const int offset_units = bit_size / 8;
+
+        if (nir_intrinsic_has_align_mul(intr)) {
+                assert(nir_intrinsic_has_align_offset(intr));
+                unsigned align_mul = nir_intrinsic_align_mul(intr);
+                unsigned align_off = nir_intrinsic_align_offset(intr);
+
+                align_off += offset_units * component;
+                align_off = align_off % align_mul;
+
+                nir_intrinsic_set_align(new_intr, align_mul, align_off);
+        }
+
+        *scalar_offset = offset;
+        unsigned offset_adj = offset_units * component;
+        if (nir_intrinsic_has_base(intr)) {
+                nir_intrinsic_set_base(
+                        new_intr, nir_intrinsic_base(intr) + offset_adj);
+        } else {
+                *scalar_offset =
+                        nir_iadd(b, offset,
+                                 nir_imm_intN_t(b, offset_adj,
+                                                offset->bit_size));
+        }
+
+        new_intr->num_components = 1;
+
+        return new_intr;
+}
+
 static bool
 lower_load_bitsize(struct v3d_compile *c,
                    nir_builder *b,
@@ -87,36 +131,10 @@ lower_load_bitsize(struct v3d_compile *c,
         nir_ssa_def *dest_components[4] = { NULL };
         const nir_intrinsic_info *info = &nir_intrinsic_infos[intr->intrinsic];
         for (int component = 0; component < num_comp; component++) {
+                nir_ssa_def *scalar_offset;
                 nir_intrinsic_instr *new_intr =
-                        nir_intrinsic_instr_create(b->shader, intr->intrinsic);
-
-                nir_intrinsic_copy_const_indices(new_intr, intr);
-
-                const int offset_units = bit_size / 8;
-                if (nir_intrinsic_has_align_mul(intr)) {
-                        assert(nir_intrinsic_has_align_offset(intr));
-                        unsigned align_mul = nir_intrinsic_align_mul(intr);
-                        unsigned align_off = nir_intrinsic_align_offset(intr);
-
-                        align_off += offset_units * component;
-                        align_off = align_off % align_mul;
-
-                        nir_intrinsic_set_align(new_intr, align_mul, align_off);
-                }
-
-                nir_ssa_def *scalar_offset = offset;
-                unsigned offset_adj = offset_units * component;
-                if (nir_intrinsic_has_base(intr)) {
-                        nir_intrinsic_set_base(
-                                new_intr, nir_intrinsic_base(intr) + offset_adj);
-                } else {
-                        scalar_offset =
-                                nir_iadd(b, offset,
-                                         nir_imm_intN_t(b, offset_adj,
-                                                        offset->bit_size));
-                }
-
-                new_intr->num_components = 1;
+                        init_scalar_intrinsic(b, intr, component, offset,
+                                              bit_size, &scalar_offset);
 
                 for (unsigned i = 0; i < info->num_srcs; i++) {
                         if (i == offset_idx) {
@@ -171,37 +189,12 @@ lower_store_bitsize(struct v3d_compile *c,
                 nir_ssa_def *scalar_value =
                         nir_channels(b, value, 1 << component);
 
+                nir_ssa_def *scalar_offset;
                 nir_intrinsic_instr *new_intr =
-                        nir_intrinsic_instr_create(b->shader, intr->intrinsic);
-
-                nir_intrinsic_copy_const_indices(new_intr, intr);
+                        init_scalar_intrinsic(b, intr, component, offset,
+                                              value->bit_size / 8,
+                                              &scalar_offset);
                 nir_intrinsic_set_write_mask(new_intr, 0x1);
-
-                const int offset_units = scalar_value->bit_size / 8;
-                if (nir_intrinsic_has_align_mul(intr)) {
-                        assert(nir_intrinsic_has_align_offset(intr));
-                        unsigned align_mul = nir_intrinsic_align_mul(intr);
-                        unsigned align_off = nir_intrinsic_align_offset(intr);
-
-                        align_off += offset_units * component;
-                        align_off = align_off % align_mul;
-
-                        nir_intrinsic_set_align(new_intr, align_mul, align_off);
-                }
-
-                nir_ssa_def *scalar_offset = offset;
-                unsigned offset_adj = offset_units * component;
-                if (nir_intrinsic_has_base(intr)) {
-                        nir_intrinsic_set_base(
-                                new_intr, nir_intrinsic_base(intr) + offset_adj);
-                } else {
-                        scalar_offset =
-                                nir_iadd(b, offset,
-                                         nir_imm_intN_t(b, offset_adj,
-                                                        offset->bit_size));
-                }
-
-                new_intr->num_components = 1;
 
                 for (unsigned i = 0; i < info->num_srcs; i++) {
                         if (i == value_idx) {
