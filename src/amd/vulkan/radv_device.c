@@ -1021,9 +1021,11 @@ radv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
          instance->force_vrs = RADV_FORCE_VRS_2x1;
       else if (!strcmp(vrs_rates, "1x2"))
          instance->force_vrs = RADV_FORCE_VRS_1x2;
+      else if (!strcmp(vrs_rates, "1x1"))
+         instance->force_vrs = RADV_FORCE_VRS_1x1;
       else
          fprintf(stderr, "radv: Invalid VRS rates specified "
-                         "(valid values are 2x2, 2x1 and 1x2)\n");
+                         "(valid values are 2x2, 2x1, 1x2 and 1x1)\n");
    }
 
    *pInstance = radv_instance_to_handle(instance);
@@ -3221,15 +3223,15 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          goto fail;
    }
 
-   if (device->instance->force_vrs != RADV_FORCE_VRS_NONE &&
+   if (device->instance->force_vrs != RADV_FORCE_VRS_1x1 &&
        device->physical_device->rad_info.chip_class < GFX10_3) {
       fprintf(stderr, "radv: VRS is only supported on RDNA2+\n");
-      device->instance->force_vrs = RADV_FORCE_VRS_NONE;
+      device->instance->force_vrs = RADV_FORCE_VRS_1x1;
    }
 
    device->adjust_frag_coord_z =
       (device->vk.enabled_extensions.KHR_fragment_shading_rate ||
-       device->instance->force_vrs != RADV_FORCE_VRS_NONE) &&
+       device->instance->force_vrs != RADV_FORCE_VRS_1x1) &&
       (device->physical_device->rad_info.family == CHIP_SIENNA_CICHLID ||
        device->physical_device->rad_info.family == CHIP_NAVY_FLOUNDER ||
        device->physical_device->rad_info.family == CHIP_VANGOGH);
