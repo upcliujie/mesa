@@ -1084,8 +1084,10 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
    v3dv_GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
 
    VkPhysicalDeviceVulkan12Features vk12 = {
-      .storageBuffer8BitAccess = true,
+      .hostQueryReset = true,
       .uniformAndStorageBuffer8BitAccess = true,
+      .uniformBufferStandardLayout = true,
+      .storageBuffer8BitAccess = true,
       .storagePushConstant8 = true,
    };
 
@@ -1120,13 +1122,6 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
             (VkPhysicalDeviceCustomBorderColorFeaturesEXT *)ext;
          features->customBorderColors = true;
          features->customBorderColorWithoutFormat = false;
-         break;
-      }
-
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR: {
-         VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR *features =
-            (VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR *)ext;
-         features->uniformBufferStandardLayout = true;
          break;
       }
 
@@ -1172,11 +1167,26 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          break;
       }
 
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES: {
-         VkPhysicalDeviceHostQueryResetFeatures *features =
-            (void *) ext;
+      /* Vulkan 1.2 */
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES: {
+         VkPhysicalDevice8BitStorageFeatures *features = (void *) ext;
+         features->storageBuffer8BitAccess = vk12.storageBuffer8BitAccess;
+         features->uniformAndStorageBuffer8BitAccess =
+            vk12.uniformAndStorageBuffer8BitAccess;
+         features->storagePushConstant8 = vk12.storagePushConstant8;
+         break;
+      }
 
-         features->hostQueryReset = true;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES: {
+         VkPhysicalDeviceHostQueryResetFeatures *features = (void *) ext;
+         features->hostQueryReset = vk12.hostQueryReset;
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR: {
+         VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR *features =
+            (VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR *)ext;
+         features->uniformBufferStandardLayout = vk12.uniformBufferStandardLayout;
          break;
       }
 
@@ -1185,14 +1195,6 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceVulkan11Features *features =
             (VkPhysicalDeviceVulkan11Features *)ext;
          memcpy(features, &vk11, sizeof(VkPhysicalDeviceVulkan11Features));
-         break;
-      }
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES: {
-         VkPhysicalDevice8BitStorageFeatures *features = (void *) ext;
-         features->storageBuffer8BitAccess = vk12.storageBuffer8BitAccess;
-         features->uniformAndStorageBuffer8BitAccess =
-            vk12.uniformAndStorageBuffer8BitAccess;
-         features->storagePushConstant8 = vk12.storagePushConstant8;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES: {
