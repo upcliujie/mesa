@@ -574,10 +574,6 @@ _mesa_init_constants(struct gl_constants *consts, gl_api api)
    /* Enables compute support for GLES 3.1 if >= 128 */
    consts->MaxComputeWorkGroupInvocations = 0;
 
-   /** GL_ARB_gpu_shader5 */
-   consts->MinFragmentInterpolationOffset = MIN_FRAGMENT_INTERPOLATION_OFFSET;
-   consts->MaxFragmentInterpolationOffset = MAX_FRAGMENT_INTERPOLATION_OFFSET;
-
    /** GL_KHR_context_flush_control */
    consts->ContextReleaseBehavior = GL_CONTEXT_RELEASE_BEHAVIOR_FLUSH;
 
