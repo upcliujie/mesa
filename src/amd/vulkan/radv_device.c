@@ -976,6 +976,44 @@ radv_init_dri_options(struct radv_instance *instance)
       driQueryOptionb(&instance->dri_options, "radv_disable_aniso_single_level");
 }
 
+static enum radv_force_vrs
+radv_parse_vrs_rates(const char *str)
+{
+   if (!strncmp(str, "2x2", 3)) {
+      return RADV_FORCE_VRS_2x2;
+   } else if (!strncmp(str, "2x1", 3)) {
+      return RADV_FORCE_VRS_2x1;
+   } else if (!strncmp(str, "1x2", 3)) {
+      return RADV_FORCE_VRS_1x2;
+   } else if (!strncmp(str, "1x1", 3)) {
+      return RADV_FORCE_VRS_1x1;
+   }
+
+   fprintf(stderr, "radv: Invalid VRS rates specified (valid values are 2x2, 2x1, 1x2 and 1x1)\n");
+   return RADV_FORCE_VRS_1x1;
+}
+
+static enum radv_force_vrs
+radv_parse_force_vrs_config_file(const char *config_file)
+{
+   enum radv_force_vrs force_vrs = RADV_FORCE_VRS_1x1;
+   char buf[4];
+   FILE *f;
+
+   f = fopen(config_file, "r");
+   if (!f) {
+      fprintf(stderr, "radv: Can't open file: '%s'.\n", config_file);
+      return force_vrs;
+   }
+
+   if (fread(buf, sizeof(buf), 1, f) == 1) {
+      force_vrs = radv_parse_vrs_rates(buf);
+   }
+
+   fclose(f);
+   return force_vrs;
+}
+
 VKAPI_ATTR VkResult VKAPI_CALL
 radv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
                     const VkAllocationCallbacks *pAllocator, VkInstance *pInstance)
@@ -1016,20 +1054,14 @@ radv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
 
    radv_init_dri_options(instance);
 
-   if (getenv("RADV_FORCE_VRS")) {
+   if (getenv("RADV_FORCE_VRS_CONFIG_FILE")) {
+      const char *file = getenv("RADV_FORCE_VRS_CONFIG_FILE");
+
+      instance->force_vrs = radv_parse_force_vrs_config_file(file);
+   } else if (getenv("RADV_FORCE_VRS")) {
       const char *vrs_rates = getenv("RADV_FORCE_VRS");
 
-      if (!strcmp(vrs_rates, "2x2"))
-         instance->force_vrs = RADV_FORCE_VRS_2x2;
-      else if (!strcmp(vrs_rates, "2x1"))
-         instance->force_vrs = RADV_FORCE_VRS_2x1;
-      else if (!strcmp(vrs_rates, "1x2"))
-         instance->force_vrs = RADV_FORCE_VRS_1x2;
-      else if (!strcmp(vrs_rates, "1x1"))
-         instance->force_vrs = RADV_FORCE_VRS_1x1;
-      else
-         fprintf(stderr, "radv: Invalid VRS rates specified "
-                         "(valid values are 2x2, 2x1, 1x2 and 1x1)\n");
+      instance->force_vrs = radv_parse_vrs_rates(vrs_rates);
    }
 
    *pInstance = radv_instance_to_handle(instance);
