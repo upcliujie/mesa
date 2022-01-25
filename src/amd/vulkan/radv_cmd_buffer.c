@@ -3648,7 +3648,7 @@ radv_flush_force_vrs_state(struct radv_cmd_buffer *cmd_buffer)
 
    base_reg = pipeline->user_data_0[stage];
 
-   switch (cmd_buffer->device->force_vrs) {
+   switch (cmd_buffer->device->instance->force_vrs) {
    case RADV_FORCE_VRS_2x2:
       vrs_rates = (1u << 2) | (1u << 4);
       break;
@@ -6661,7 +6661,7 @@ radv_emit_all_graphics_states(struct radv_cmd_buffer *cmd_buffer, const struct r
       }
    }
 
-   if (cmd_buffer->device->force_vrs != RADV_FORCE_VRS_NONE) {
+   if (cmd_buffer->device->instance->force_vrs != RADV_FORCE_VRS_NONE) {
       struct radv_dynamic_state *d = &cmd_buffer->state.dynamic;
       uint64_t dynamic_states =
          cmd_buffer->state.dirty & cmd_buffer->state.emitted_pipeline->graphics.needed_dynamic_state;
