@@ -866,7 +866,8 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       /* Lower primitive shading rate to match HW requirements. */
       NIR_PASS_V(nir, radv_lower_primitive_shading_rate);
    } else if ((nir->info.stage == MESA_SHADER_VERTEX ||
-               nir->info.stage == MESA_SHADER_GEOMETRY) && device->force_vrs != RADV_FORCE_VRS_NONE) {
+               nir->info.stage == MESA_SHADER_GEOMETRY) &&
+              device->instance->force_vrs != RADV_FORCE_VRS_NONE) {
       /* Force primitive shading rate when VRS is force enabled. */
       NIR_PASS_V(nir, radv_force_primitive_shading_rate, device);
    }

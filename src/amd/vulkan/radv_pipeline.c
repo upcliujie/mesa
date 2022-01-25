@@ -2954,7 +2954,7 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
    if (pipeline->device->instance->enable_mrt_output_nan_fixup)
       key.ps.enable_mrt_output_nan_fixup = true;
 
-   key.ps.force_vrs = pipeline->device->force_vrs;
+   key.ps.force_vrs = pipeline->device->instance->force_vrs;
 
    if (pipeline->device->instance->debug_flags & RADV_DEBUG_INVARIANT_GEOM)
       key.invariant_geom = true;
