@@ -323,6 +323,13 @@ enum radv_force_vrs {
    RADV_FORCE_VRS_1x2,
 };
 
+struct radv_notifier {
+   int fd;
+   int watch;
+   bool quit;
+   thrd_t thread;
+};
+
 struct radv_instance {
    struct vk_instance vk;
 
@@ -338,6 +345,7 @@ struct radv_instance {
    struct driOptionCache available_dri_options;
 
    /* Whether the user forced VRS rates on GFX10.3+. */
+   struct radv_notifier notifier;
    enum radv_force_vrs force_vrs;
 
    /**
