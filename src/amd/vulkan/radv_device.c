@@ -3351,15 +3351,18 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
          goto fail;
    }
 
-   if (device->instance->force_vrs != RADV_FORCE_VRS_1x1 &&
-       device->physical_device->rad_info.chip_class < GFX10_3) {
-      fprintf(stderr, "radv: VRS is only supported on RDNA2+\n");
-      device->instance->force_vrs = RADV_FORCE_VRS_1x1;
+   if ((device->instance->force_vrs != RADV_FORCE_VRS_1x1 ||
+        device->physical_device->rad_info.family == CHIP_VANGOGH)) {
+      if (device->physical_device->rad_info.chip_class < GFX10_3) {
+         fprintf(stderr, "radv: VRS is only supported on RDNA2+\n");
+         device->instance->force_vrs = RADV_FORCE_VRS_1x1;
+      } else {
+         device->force_vrs_enabled = true;
+      }
    }
 
    device->adjust_frag_coord_z =
-      (device->vk.enabled_extensions.KHR_fragment_shading_rate ||
-       device->instance->force_vrs != RADV_FORCE_VRS_1x1) &&
+      (device->vk.enabled_extensions.KHR_fragment_shading_rate || device->force_vrs_enabled) &&
       (device->physical_device->rad_info.family == CHIP_SIENNA_CICHLID ||
        device->physical_device->rad_info.family == CHIP_NAVY_FLOUNDER ||
        device->physical_device->rad_info.family == CHIP_VANGOGH);

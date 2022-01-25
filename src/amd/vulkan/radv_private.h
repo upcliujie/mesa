@@ -873,6 +873,9 @@ struct radv_device {
 
    struct radv_shader_prolog *simple_vs_prologs[MAX_VERTEX_ATTRIBS];
    struct radv_shader_prolog *instance_rate_vs_prologs[816];
+
+   /* Whether per-vertex VRS is enabled (default on VANGOGH or with RADV_FORCE_VRS). */
+   bool force_vrs_enabled;
 };
 
 struct radv_device_memory {
