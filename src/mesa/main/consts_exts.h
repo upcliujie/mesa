@@ -895,10 +895,6 @@ struct gl_constants
    GLuint MaxComputeVariableGroupSize[3]; /* Array of x, y, z dimensions */
    GLuint MaxComputeVariableGroupInvocations;
 
-   /** GL_ARB_gpu_shader5 */
-   GLfloat MinFragmentInterpolationOffset;
-   GLfloat MaxFragmentInterpolationOffset;
-
    GLboolean FakeSWMSAA;
 
    /** GL_KHR_context_flush_control */

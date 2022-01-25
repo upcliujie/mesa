@@ -478,8 +478,8 @@ descriptor=[
   [ "WINDOW_RECTANGLE_MODE_EXT", "CONTEXT_ENUM16(Scissor.WindowRectMode), extra_EXT_window_rectangles" ],
 
   # GL_ARB_gpu_shader5 / GL_OES_shader_multisample_interpolation
-  [ "MIN_FRAGMENT_INTERPOLATION_OFFSET", "CONTEXT_FLOAT(Const.MinFragmentInterpolationOffset), extra_ARB_gpu_shader5_or_OES_sample_variables" ],
-  [ "MAX_FRAGMENT_INTERPOLATION_OFFSET", "CONTEXT_FLOAT(Const.MaxFragmentInterpolationOffset), extra_ARB_gpu_shader5_or_OES_sample_variables" ],
+  [ "MIN_FRAGMENT_INTERPOLATION_OFFSET", "CONST(MIN_FRAGMENT_INTERPOLATION_OFFSET), extra_ARB_gpu_shader5_or_OES_sample_variables" ],
+  [ "MAX_FRAGMENT_INTERPOLATION_OFFSET", "CONST(MAX_FRAGMENT_INTERPOLATION_OFFSET), extra_ARB_gpu_shader5_or_OES_sample_variables" ],
   [ "FRAGMENT_INTERPOLATION_OFFSET_BITS", "CONST(FRAGMENT_INTERPOLATION_OFFSET_BITS), extra_ARB_gpu_shader5_or_OES_sample_variables" ],
 
 # GL_EXT_framebuffer_EXT  / GLES 3.0 + EXT_sRGB_write_control
