@@ -907,7 +907,6 @@ struct gl_constants
    struct gl_shader_compiler_options ShaderCompilerOptions[MESA_SHADER_STAGES];
 
    /** GL_ARB_tessellation_shader */
-   GLuint MaxTessGenLevel;
    GLuint MaxTessPatchComponents;
    GLuint MaxTessControlTotalOutputComponents;
    bool LowerTessLevel; /**< Lower gl_TessLevel* from float[n] to vecn? */
