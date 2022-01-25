@@ -595,7 +595,11 @@ iris_fence_signal(struct pipe_context *ctx,
    if (ctx == fence->unflushed_ctx)
       return;
 
-   for (unsigned b = 0; b < IRIS_BATCH_COUNT; b++) {
+   /* Blitter is only supported on Gfx12+ */
+   unsigned num_batches =
+      IRIS_BATCH_COUNT - (ice->batches[0].screen->devinfo.ver >= 12 ? 0 : 1);
+
+   for (unsigned b = 0; b < num_batches; b++) {
       for (unsigned i = 0; i < ARRAY_SIZE(fence->fine); i++) {
          struct iris_fine_fence *fine = fence->fine[i];
 
