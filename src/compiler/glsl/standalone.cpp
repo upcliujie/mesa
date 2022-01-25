@@ -159,7 +159,6 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxDrawBuffers = 2;
       ctx->Const.MinProgramTexelOffset = 0;
       ctx->Const.MaxProgramTexelOffset = 0;
-      ctx->Const.MaxLights = 0;
       ctx->Const.MaxTextureCoordUnits = 0;
       ctx->Const.MaxTextureUnits = 8;
 
@@ -187,7 +186,6 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxDrawBuffers = 1;
       ctx->Const.MinProgramTexelOffset = 0;
       ctx->Const.MaxProgramTexelOffset = 0;
-      ctx->Const.MaxLights = 8;
       ctx->Const.MaxTextureCoordUnits = 2;
       ctx->Const.MaxTextureUnits = 2;
 
@@ -215,7 +213,6 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxDrawBuffers = 8;
       ctx->Const.MinProgramTexelOffset = -8;
       ctx->Const.MaxProgramTexelOffset = 7;
-      ctx->Const.MaxLights = 8;
       ctx->Const.MaxTextureCoordUnits = 8;
       ctx->Const.MaxTextureUnits = 2;
       ctx->Const.MaxUniformBufferBindings = 84;
@@ -251,7 +248,6 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxDrawBuffers = 8;
       ctx->Const.MinProgramTexelOffset = -8;
       ctx->Const.MaxProgramTexelOffset = 7;
-      ctx->Const.MaxLights = 8;
       ctx->Const.MaxTextureCoordUnits = 8;
       ctx->Const.MaxTextureUnits = 2;
       ctx->Const.MaxUniformBufferBindings = 84;
@@ -298,7 +294,6 @@ initialize_context(struct gl_context *ctx, gl_api api)
       ctx->Const.MaxDrawBuffers = 4;
       ctx->Const.MinProgramTexelOffset = -8;
       ctx->Const.MaxProgramTexelOffset = 7;
-      ctx->Const.MaxLights = 0;
       ctx->Const.MaxTextureCoordUnits = 0;
       ctx->Const.MaxTextureUnits = 0;
       ctx->Const.MaxUniformBufferBindings = 84;
