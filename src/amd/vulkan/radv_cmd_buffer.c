@@ -3672,7 +3672,13 @@ radv_flush_force_vrs_state(struct radv_cmd_buffer *cmd_buffer)
       break;
    }
 
-   radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, vrs_rates);
+   if (cmd_buffer->state.last_vrs_rates != vrs_rates ||
+       cmd_buffer->state.last_vrs_rates_sgpr_idx != loc->sgpr_idx) {
+      radeon_set_sh_reg(cmd_buffer->cs, base_reg + loc->sgpr_idx * 4, vrs_rates);
+   }
+
+   cmd_buffer->state.last_vrs_rates = vrs_rates;
+   cmd_buffer->state.last_vrs_rates_sgpr_idx = loc->sgpr_idx;
 }
 
 static void
@@ -4585,6 +4591,8 @@ radv_BeginCommandBuffer(VkCommandBuffer commandBuffer, const VkCommandBufferBegi
    cmd_buffer->state.last_nggc_settings = -1;
    cmd_buffer->state.last_nggc_settings_sgpr_idx = -1;
    cmd_buffer->state.mesh_shading = false;
+   cmd_buffer->state.last_vrs_rates = -1;
+   cmd_buffer->state.last_vrs_rates_sgpr_idx = -1;
    cmd_buffer->usage_flags = pBeginInfo->flags;
 
    if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_SECONDARY &&
@@ -5715,6 +5723,9 @@ radv_CmdExecuteCommands(VkCommandBuffer commandBuffer, uint32_t commandBufferCou
       primary->state.last_nggc_settings = secondary->state.last_nggc_settings;
       primary->state.last_nggc_settings_sgpr_idx = secondary->state.last_nggc_settings_sgpr_idx;
       primary->state.last_nggc_skip = secondary->state.last_nggc_skip;
+
+      primary->state.last_vrs_rates = secondary->state.last_vrs_rates;
+      primary->state.last_vrs_rates_sgpr_idx = secondary->state.last_vrs_rates_sgpr_idx;
    }
 
    /* After executing commands from secondary buffers we have to dirty
