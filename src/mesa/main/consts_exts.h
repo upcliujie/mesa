@@ -908,7 +908,6 @@ struct gl_constants
 
    /** GL_ARB_tessellation_shader */
    GLuint MaxTessPatchComponents;
-   GLuint MaxTessControlTotalOutputComponents;
    bool LowerTessLevel; /**< Lower gl_TessLevel* from float[n] to vecn? */
    bool PrimitiveRestartForPatches;
    bool LowerCsDerivedVariables;    /**< Lower gl_GlobalInvocationID and
