@@ -35,6 +35,10 @@
 #include <sys/sysmacros.h>
 #endif
 
+#ifndef _WIN32
+#include <sys/inotify.h>
+#endif
+
 #include "util/debug.h"
 #include "util/disk_cache.h"
 #include "radv_cs.h"
@@ -993,6 +997,12 @@ radv_parse_vrs_rates(const char *str)
    return RADV_FORCE_VRS_1x1;
 }
 
+static const char *
+radv_get_force_vrs_config_file(void)
+{
+   return getenv("RADV_FORCE_VRS_CONFIG_FILE");
+}
+
 static enum radv_force_vrs
 radv_parse_force_vrs_config_file(const char *config_file)
 {
@@ -1013,6 +1023,99 @@ radv_parse_force_vrs_config_file(const char *config_file)
 
    fclose(f);
    return force_vrs;
+}
+
+#ifndef _WIN32
+
+#define BUF_LEN ((10 * (sizeof(struct inotify_event) + NAME_MAX + 1)))
+
+static int
+radv_notifier_thread_run(void *data)
+{
+   struct radv_instance *instance = data;
+   struct radv_notifier *notifier = &instance->notifier;
+   char buf[BUF_LEN];
+
+   while (!notifier->quit) {
+      const char *file = radv_get_force_vrs_config_file();
+      struct timespec tm = { .tv_nsec = 100000000 }; /* 1OOms */
+      int length, i = 0;
+
+      length = read(notifier->fd, buf, BUF_LEN);
+      while (i < length) {
+         struct inotify_event *event = (struct inotify_event *)&buf[i];
+
+         i += sizeof(struct inotify_event) + event->len;
+         if (event->mask & IN_MODIFY || event->mask & IN_DELETE_SELF) {
+            /* Sleep 100ms for editors that use a temporary file and delete the original. */
+            thrd_sleep(&tm, NULL);
+            instance->force_vrs = radv_parse_force_vrs_config_file(file);
+
+            fprintf(stderr, "radv: Updated the per-vertex VRS rate to '%d'.\n",
+                    instance->force_vrs);
+
+            if (event->mask & IN_DELETE_SELF) {
+               inotify_rm_watch(notifier->fd, notifier->watch);
+               notifier->watch = inotify_add_watch(notifier->fd, file, IN_MODIFY | IN_DELETE_SELF);
+            }
+         }
+      }
+
+      thrd_sleep(&tm, NULL);
+   }
+
+   return 0;
+}
+
+#endif
+
+static int
+radv_init_notifier(struct radv_instance *instance)
+{
+#ifdef _WIN32
+   return true;
+#else
+   struct radv_notifier *notifier = &instance->notifier;
+   const char *file = radv_get_force_vrs_config_file();
+   int ret;
+
+   notifier->fd = inotify_init1(IN_NONBLOCK);
+   if (notifier->fd < 0)
+      return false;
+
+   notifier->watch = inotify_add_watch(notifier->fd, file, IN_MODIFY | IN_DELETE_SELF);
+   if (notifier->watch < 0)
+      goto fail_watch;
+
+   ret = thrd_create(&notifier->thread, radv_notifier_thread_run, instance);
+   if (ret)
+      goto fail_thread;
+
+   return true;
+
+fail_thread:
+   inotify_rm_watch(notifier->fd, notifier->watch);
+fail_watch:
+   close(notifier->fd);
+
+   return false;
+#endif
+}
+
+static void
+radv_finish_notifier(struct radv_instance *instance)
+{
+#ifndef _WIN32
+   struct radv_notifier *notifier = &instance->notifier;
+
+   if (!notifier->thread)
+      return;
+
+   notifier->quit = true;
+   thrd_join(notifier->thread, NULL);
+   inotify_rm_watch(notifier->fd, notifier->watch);
+   close(notifier->fd);
+#endif
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1056,9 +1159,13 @@ radv_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    radv_init_dri_options(instance);
 
    if (getenv("RADV_FORCE_VRS_CONFIG_FILE")) {
-      const char *file = getenv("RADV_FORCE_VRS_CONFIG_FILE");
+      const char *file = radv_get_force_vrs_config_file();
 
       instance->force_vrs = radv_parse_force_vrs_config_file(file);
+
+      if (!radv_init_notifier(instance)) {
+         fprintf(stderr, "radv: Failed to initialize the notifier for RADV_FORCE_VRS_CONFIG_FILE!\n");
+      }
    } else if (getenv("RADV_FORCE_VRS")) {
       const char *vrs_rates = getenv("RADV_FORCE_VRS");
 
@@ -1084,6 +1191,8 @@ radv_DestroyInstance(VkInstance _instance, const VkAllocationCallbacks *pAllocat
    }
 
    VG(VALGRIND_DESTROY_MEMPOOL(instance));
+
+   radv_finish_notifier(instance);
 
    driDestroyOptionCache(&instance->dri_options);
    driDestroyOptionInfo(&instance->available_dri_options);
