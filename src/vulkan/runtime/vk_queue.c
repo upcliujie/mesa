@@ -1163,6 +1163,25 @@ vk_common_QueueBindSparse(VkQueue _queue,
       const uint64_t *signal_values = timeline_info &&
          timeline_info->signalSemaphoreValueCount ? timeline_info->pSignalSemaphoreValues : NULL;
 
+      if (timeline_info) {
+         /* VUID-VkBindSparseInfo-pNext-03247
+            If the pNext chain of this structure includes a VkTimelineSemaphoreSubmitInfo structure
+            and any element of pWaitSemaphores was created with a VkSemaphoreType of
+            VK_SEMAPHORE_TYPE_TIMELINE, then its waitSemaphoreValueCount member must equal
+            waitSemaphoreCount
+
+            VUID-VkBindSparseInfo-pNext-03248
+            If the pNext chain of this structure includes a VkTimelineSemaphoreSubmitInfo structure
+            and any element of pSignalSemaphores was created with a VkSemaphoreType of
+            VK_SEMAPHORE_TYPE_TIMELINE, then its signalSemaphoreValueCount member must equal
+            signalSemaphoreCount
+          */
+         assert(!timeline_info->waitSemaphoreValueCount ||
+                timeline_info->waitSemaphoreValueCount == pBindInfo[i].waitSemaphoreCount);
+         assert(!timeline_info->signalSemaphoreValueCount ||
+                timeline_info->signalSemaphoreValueCount == pBindInfo[i].signalSemaphoreCount);
+      }
+
       STACK_ARRAY(VkSemaphoreSubmitInfoKHR, wait_semaphore_infos,
                   pBindInfo[i].waitSemaphoreCount);
       STACK_ARRAY(VkSemaphoreSubmitInfoKHR, signal_semaphore_infos,

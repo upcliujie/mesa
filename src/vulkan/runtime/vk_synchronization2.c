@@ -321,6 +321,24 @@ vk_common_QueueSubmit(
       const uint64_t *signal_values =
          timeline_info && timeline_info->signalSemaphoreValueCount ?
          timeline_info->pSignalSemaphoreValues : NULL;
+      if (timeline_info) {
+         /* VUID-VkSubmitInfo-pNext-03240
+            If the pNext chain of this structure includes a VkTimelineSemaphoreSubmitInfo structure
+            and any element of pWaitSemaphores was created with a VkSemaphoreType of
+            VK_SEMAPHORE_TYPE_TIMELINE, then its waitSemaphoreValueCount member must equal
+            waitSemaphoreCount
+
+            VUID-VkSubmitInfo-pNext-03241
+            If the pNext chain of this structure includes a VkTimelineSemaphoreSubmitInfo structure
+            and any element of pSignalSemaphores was created with a VkSemaphoreType of
+            VK_SEMAPHORE_TYPE_TIMELINE, then its signalSemaphoreValueCount member must equal
+            signalSemaphoreCount
+          */
+         assert(!timeline_info->waitSemaphoreValueCount ||
+                timeline_info->waitSemaphoreValueCount == pSubmits[s].waitSemaphoreCount);
+         assert(!timeline_info->signalSemaphoreValueCount ||
+                timeline_info->signalSemaphoreValueCount == pSubmits[s].signalSemaphoreCount);
+      }
 
       const VkDeviceGroupSubmitInfo *group_info =
          vk_find_struct_const(pSubmits[s].pNext, DEVICE_GROUP_SUBMIT_INFO);
