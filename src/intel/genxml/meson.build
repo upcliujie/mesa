@@ -32,6 +32,8 @@ gen_xml_files = [
   'gen125.xml',
 ]
 
+gen_pack_header_deps = files('util.py')
+
 genX_xml_h = custom_target(
   'genX_xml.h',
   input : ['gen_zipped_file.py', gen_xml_files],
@@ -76,6 +78,7 @@ genX_bits_h = custom_target(
   output : 'genX_bits.h',
   command : [prog_python, '@INPUT@', '-o', '@OUTPUT@',
              '--include-symbols', ','.join(genX_bits_included_symbols)],
+  depend_files: gen_pack_header_deps
 )
 
 gen_xml_pack = []
@@ -87,6 +90,7 @@ foreach f : gen_xml_files + ['gen_rt.xml']
     output : _name,
     command : [prog_python, '@INPUT@', '--engines=render,blitter,video'],
     capture : true,
+    depend_files: gen_pack_header_deps
   )
 endforeach
 
