@@ -3652,6 +3652,10 @@ VkResult anv_AllocateMemory(
          break;
       }
 
+      case VK_STRUCTURE_TYPE_WSI_MEMORY_ALLOCATE_INFO_MESA:
+         /* ignore here but don't warn */
+         break;
+
       default:
          anv_debug_ignored_stype(ext->sType);
          break;
