@@ -284,6 +284,7 @@ get_device_extensions(const struct anv_physical_device *device,
       .EXT_pipeline_creation_cache_control   = true,
       .EXT_pipeline_creation_feedback        = true,
       .EXT_post_depth_coverage               = device->info.ver >= 9,
+      .EXT_primitives_generated_query        = true,
       .EXT_primitive_topology_list_restart   = true,
       .EXT_private_data                      = true,
       .EXT_provoking_vertex                  = true,
@@ -1634,6 +1635,15 @@ void anv_GetPhysicalDeviceFeatures2(
          VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR *features =
             (VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR *)ext;
          features->pipelineExecutableInfo = true;
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRIMITIVES_GENERATED_QUERY_FEATURES_EXT: {
+         VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT *features =
+            (VkPhysicalDevicePrimitivesGeneratedQueryFeaturesEXT *)ext;
+         features->primitivesGeneratedQuery = true;
+         features->primitivesGeneratedQueryWithRasterizerDiscard = false;
+         features->primitivesGeneratedQueryWithNonZeroStreams = false;
          break;
       }
 
@@ -4727,9 +4737,9 @@ vk_icdNegotiateLoaderICDInterfaceVersion(uint32_t* pSupportedVersion)
     *
     *    - Loader interface v4 differs from v3 in:
     *        - The ICD must implement vk_icdGetPhysicalDeviceProcAddr().
-    * 
+    *
     *    - Loader interface v5 differs from v4 in:
-    *        - The ICD must support Vulkan API version 1.1 and must not return 
+    *        - The ICD must support Vulkan API version 1.1 and must not return
     *          VK_ERROR_INCOMPATIBLE_DRIVER from vkCreateInstance() unless a
     *          Vulkan Loader with interface v4 or smaller is being used and the
     *          application provides an API version that is greater than 1.0.
