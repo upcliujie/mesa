@@ -1,5 +1,851 @@
 [
     {
+        "sha": "8bca29dcf0ae01c23215bbee2193bdde1956def4",
+        "description": "zink: return 256 for PIPE_CAP_MIN_MAP_BUFFER_ALIGNMENT",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a7ae3bcdf8e1f670d65cd8b76c3b774efbce67ba",
+        "description": "zink: fix unused variable warning",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "4ed30be31e5262573167e6f3aef5379974bb8876"
+    },
+    {
+        "sha": "dcbabb9c9d6763bafb0b148334cbeb9d08a3a3d0",
+        "description": "docs/release-calendar: add another 21.3.x since 22.0 has been delayed a bit",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "956c93e154264922d1b544878e5da099cec8903f",
+        "description": "docs: update calendar and link releases notes for 21.3.5",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b486dfd1a40e4e5e3098006229b7a8474d6ead81",
+        "description": "docs: add release notes for 21.3.5",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fe71f4d9ec7ed80f7dded7dc4f1667d1638efbc5",
+        "description": ".mailmap: Switch Jason Ekstrand to @collabora.com",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "96acd0933eeb638ce2399a2dd8bf03906c765120",
+        "description": "tu: VkExternalImageFormatProperties is optional",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "26380b3a9f8fd513dc4da86798f3c15191914fc2"
+    },
+    {
+        "sha": "49e02d076dd19577ada144d3466d50c0749992fe",
+        "description": "radeon/vcn: Updating render_pic_list for correction",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cf16368977cc82245aeb372f10710d9a8e213148",
+        "description": "frontend/va: Keep surface buf addr before reallocation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8747715aecea73fa932d11a30188aae2b353cdb4",
+        "description": "zink: reorder fbfetch flag-setting to avoid null deref",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "417477f60ede0fab0a5a601c872731fc9c612da1"
+    },
+    {
+        "sha": "7a0cf7f6d192ed606520c5b77a3f542f28c954f2",
+        "description": "radv: fix optimized MSAA copies with suballocated images",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "deb4685df39dbfcfb79389f259958f18441e7231"
+    },
+    {
+        "sha": "e4218e5c4d6a47e4db5be8bed5eeb9f6d38f814a",
+        "description": "zink: handle bogus xfb draws",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "61ece8f6a49db58a76c2b6e825964675decc5d83",
+        "description": "anv: Enable VK_KHR_dynamic_rendering",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5d9e8bc9be6578105ebaabe68e6362c35e91dc75",
+        "description": "anv: implement the meat of VK_KHR_dynamic_rendering",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4ad9ccd28a5fec47008a0c66b3c11e4afa7313fd",
+        "description": "anv: split end_subpass into more discrete components",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2f942f321781267969cc3227d6b7068a78db84df",
+        "description": "anv: Split attachment clearing code into their own functions",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e41436beec4bbd4a2bb627018f0628d68113b948",
+        "description": "anv: allocate fake render pass for continuation command buffers",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b32023573de43a1ff3253868407df16a03a92473",
+        "description": "anv: Split out state attachments allocation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5d9aaea31f1ac292fca6587bc13c7bd13148071b",
+        "description": "anv: allocate fake render pass on pipeline creation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "73ed019bec3bfe54a06269c0ea5d59158ab856de",
+        "description": "anv: add functions to set up fake render passes",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b18bc028ee9d9360b86f1d55682d5dc34005706a",
+        "description": "anv: Remove unused struct member",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6612dcc4258b8c50b497afd7c276bbe3fd11d652",
+        "description": "anv/pass: Don't set first_subpass_layout for stencil-only attachments",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ee044d445d1d41b1a934ac8dd165891a9d1c82dc",
+        "description": "panfrost: Remove NO_BLEND_PACKS quirk",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5a8d86f69efa4723f703d135a9cd27a982a62861",
+        "description": "panfrost: Simplify format class selection",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "da9d6a643af59f60981f0214055873ae8d49cbb7",
+        "description": "panfrost: Don't set NO_BLEND_PACKS on Bifrost",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "93f6c6586c53b5280410bbf10711399dd57e8344",
+        "description": "panfrost: Remove MIDGARD_{NO_TYPED_BLEND_STORES,MISSING_LOADS}",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "db497c27dcd0889fc5550bf7f91a0fb5b2a4abea",
+        "description": "panfrost: Remove NO_TILE_ENABLE_MAP quirk",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bbe0517481cf0dea6d78ac33069410e0ff86ca15",
+        "description": "panfrost: Remove MIDGARD_BROKEN_FP16 quirk",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d4575bcc79aeb735eb3db7b9066e3c3bcbf8bd4d",
+        "description": "panfrost: Remove MIDGARD_SFBD quirk",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "47a7e26954315bc6a99e50f8527311a4dc62110f",
+        "description": "panfrost: Remove HAS_SWIZZLES quirk",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ed42b129efb61261bd451f8d2ec3bb99b4d304e8",
+        "description": "d3d12: Set caps for tesselation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "278b30723f76dbbece4dd69dda9e05e4482e2d45",
+        "description": "d3d12: Handle input clip array size in the shader key",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "df302f5f90ef6f83a8969d8c03576891339f7578",
+        "description": "d3d12: Update varying creation logic to handle location_frac",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1a231ec805ad837735b9d2dbdd5a4ead68484143",
+        "description": "d3d12: Add a state variable for patch_vertices_in",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "de438f381f85f48c1fc5b64a53bf6d0d214e6e34",
+        "description": "d3d12: Handle passthrough TCS in the case where eval is bound",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "224c1562c186fa37bd14abd1fd25d38220628f35",
+        "description": "d3d12: Handle patch_vertices and patch topology",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c83476ff13184167abe244e5d91ae9ed29999af6",
+        "description": "d3d12: Link tesselation control and eval shaders",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0ed7b44f5c3b29efd21d2da8681a91b97b2bc655",
+        "description": "d3d12: Initial plumbing for tesselation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "22156821ea2dc7f9a1688517f9f453d7513aaf47",
+        "description": "d3d12: Enable PIPE_CAP_TGSI_TEXCOORD",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "973bff335f86896f6ae7b94324a7685477be8f09",
+        "description": "microsoft/compiler: Handle clip/cull distance as an input to tess shaders",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1c4667bc9faf84b247729435be5292eb7cb075ca",
+        "description": "microsoft/compiler: Location_frac needs to be included in sort order",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4da51aa88fa54f41321a2bb5054569e216d5b4c3",
+        "description": "microsoft/compiler: Primitive ID should only be added as a sysval in geometry shaders",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ec415a274ef4bb67dca80256d4f15b5156c726f7",
+        "description": "microsoft/compiler: Emit DS PSV validation and entrypoint metadata",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9aca56b137dc64887901b092cb76bbdbab6f3e1c",
+        "description": "microsoft/compiler: Handle domain location intrinsic",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8524d047831115deb7e7b057fdef40992c6fc0c5",
+        "description": "microsoft/compiler: Handle load_output in the HS stage as reading a previously written patch constant",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a39881b7881712e3857d70e5f06369dc3eedb06f",
+        "description": "microsoft/compiler: Handle load_per_vertex_output as LoadOutputControlPoint",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a550c059c735667266533258a25c0953c58adb3f",
+        "description": "microsoft/compiler: For load_input from DS, use loadPatchConstant",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cc6104dd3fd158f527cf6db35d4648808425ecc4",
+        "description": "microsoft/compiler: For store_output from HS, use storePatchConstant",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "97b6ea71a0ff457d07cb609122453a5b5f5f59ec",
+        "description": "microsoft/compiler: Add a pass for hull and domain shaders to shrink tess level vars",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bd2a4fb1b8d1dfcd2dd2244c2cf0d1cc13dfeceb",
+        "description": "microsoft/compiler: Add patch constant signature into PSV and as container blob",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "26247d506e38bbb8db48edd5944b23738b2cee2f",
+        "description": "microsoft/compiler: Gather patch const signature and handle tess factor in it",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8e42891f69a5e6135f41c31995385d50247a8f91",
+        "description": "microsoft/compiler: When sorting patch varyings, adjust location to be in normal varying range",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4bb4d0454d79b456e5d3e9e33280b5d988566712",
+        "description": "microsoft/compiler: Overlap patch and non-patch varyings so both are separately 0-indexed",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b7da3f8647fa08c811bc04bd8fab3139f1fa3a34",
+        "description": "microsoft/compiler: Fix I/O signatures for tess shaders",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b346f28453a97a34ebe3ed2fbfafff59482abd2a",
+        "description": "microsoft/compiler: Emit HS PSV validation and entrypoint metadata",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6c58e1f448c5ff897b67315fbb5245ebde92e844",
+        "description": "microsoft/compiler: Delete misleading TODO comments about semantic table",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f511354a643464b668b15586d9c56aa0c5ef9371",
+        "description": "microsoft/compiler: Split hull (tess ctrl) shaders into main and patch constant funcs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ad2233616c17ff36728deb357237b7a8799de156",
+        "description": "microsoft/compiler: Handle store_per_vertex_output for HS outputs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "41af96209973c64c02f07d62a3663f93e1183681",
+        "description": "microsoft/compiler: Emit all NIR functions into the DXIL module",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f6a333f010f7ff9c2fee5a4814e3b4a1fbb3cb8f",
+        "description": "microsoft/compiler: Emit functions with actual function names",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "72812fe9b5a1f26da136faf81d80a6bcf63c532b",
+        "description": "microsoft/compiler: Support emitting multiple functions into a DXIL module",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e5f353f2f29690767196d0a516e6dc3f29af2349",
+        "description": "microsoft/compiler: Emit statically-indexed resource handles and scratch later",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "02f46b67cd7098d438d1b412d0a3619d5e3be288",
+        "description": "microsoft/compiler: Fix typo in enum entry",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b5cb81f8c19ede4562b1a34cd759a0358df74bcf",
+        "description": "microsoft/compiler: Add mapping from MESA_SHADER_* to DXIL_*_SHADER for tessellation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8ad0393abe4fd80d95f511217e4567ad859b4ab4",
+        "description": "microsoft/compiler: Getting a builtin function with an undeclared signature should be unreachable",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4ad72b152cdb5ec72e7f1ccf51d102b89a4c7222",
+        "description": "microsoft/compiler: Multi-row output semantics need to write multiple never_writes_masks",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5e3d64d067b4b645f6427df01d6540dfb051d937",
+        "description": "microsoft/compiler: Semantic table should be de-duped for multi-row semantics too",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "218f8302d2c49b48a3e82a49f0e25da314135aea",
+        "description": "microsoft/compiler: Use driver_location instead of location for inter-stage varying index in GL",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "14ed624ff3755ad7c033912a07ed341254df885b",
+        "description": "microsoft/compiler: Force integer I/O vars to use flat/constant interpolation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9b961b9d1d5f4ea62df871819b6cc1ae0499c3ca",
+        "description": "mesa/st: refactor program translation into one file.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8dfe3c83b6ec7a09223313ce5312445ac8ff9e8a",
+        "description": "mesa/st: move program new/delete into mesa",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "afce8654df32756a36a728aa367008340b3b350f",
+        "description": "mesa/st: move st_vertex_program to gl_vertex_program in mesa",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5730772e368c7c7b805e05ac49bc85f08f4d265f",
+        "description": "mesa/st: move new ati fragment shader to mesa",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3faa21bda713b9d227d9d62adf062bd3584b1d09",
+        "description": "mesa/st: collapse st_program into gl_program object.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8db5937f94f851cc82ae93f5daec97c9e1f933ab",
+        "description": "intel/genxml: Extend length of 3DSTATE_DEPTH_BUFFER for gfx12.5",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "315d6329775a9f6e077c8e8491f02ca5344cb6e0",
+        "description": "intel/genxml: Extend length of 3DSTATE_WM_HZ_OP for gfx12.5",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0ca627371355add336072ad3c72a923822e76788",
+        "description": "zink: add anv (icl) fails",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5e748770b9ca755811d55cafba084b3434165fe0",
+        "description": "zink: never use SpvOpImageQuerySizeLod for texel buffers",
+        "nominated": true,
+        "nomination_type": 0,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5dc28ccb79d1224776652722d3b658818cb53d6f",
+        "description": "zink: update radv fails list",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0d2f8547952ea859603a0b973e40cd39f1a0a7f7",
+        "description": "zink: update nv fails",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "448a840b397556936153a7f82dda4b8ba19d9805",
+        "description": "intel/fs/xehp: Add unit test for handling of RaR deps across multiple pipelines.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d107a0bff8415ba7ffc729c63e868fb343bdf72f",
+        "description": "intel/fs: Assert the GPU supports 64bit ops if present at lower_scoreboard time.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "79fb7f9de8447ca6de3b1034fb9650b695500c6f",
+        "description": "intel/fs: Perform 64-bit CLUSTER_BROADCAST lowering in the lower_regioning pass.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bdf8ac246603c2ac90abb83ff091aeb662abff77",
+        "description": "intel/fs: Honor strided source regions specified by the IR for CLUSTER_BROADCAST.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6c8782c135cdc02b91e5c3899dce097650f756fb",
+        "description": "intel/fs: Perform 64-bit SEL_EXEC lowering in the lower_regioning pass.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "9449b71bdd64a6daa37f7d63d6b09207b40d642f",
+        "description": "intel/fs: Perform 64-bit SHUFFLE lowering in the lower_regioning pass.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d2d72fccf1bdd996e5a429e5cc20205cd110995e",
+        "description": "intel/fs: Fix destination suboffset calculations for non-trivial strides in SHUFFLE codegen.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d1038197f31041f0ff5712bf92be63d34fb883e2",
+        "description": "intel/fs: Take into account region strides during SIMD lowering decision of SHUFFLE.",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "90c9f29518d32a29725b114f3b16ad8c62a812ff"
+    },
+    {
+        "sha": "44e48751d2451662796983e61f85f68f4ec597e5",
+        "description": "intel/fs: Teach the lower_regioning pass how to split instructions of unsuported exec type.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "539c879a6b6fda5aca91097998f95ac03b76166a",
+        "description": "intel/fs: Move legal exec type calculation into helper function in lower_regioning pass.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3886e63033b0d8180365e29a1e1e6e9b7549c30e",
+        "description": "intel/fs/xehp: Merge repeated in-order read dependencies instead of replacement.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4ab663194967fa6da2f98eb6b748bd2e2d969f24",
+        "description": "vc4/nir_lower_blend: update write mask when we update num components",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "67220077ed02e49eda4bacda9b77eed521e784b1",
+        "description": "radv/amdgpu: Use aligned sizing for IB buffers.",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "1f36f6b83f2dd14edd67525a7a2151115d6d2df6"
+    },
+    {
+        "sha": "ef40f2ccc29ba7031bcb4ef100f8a9d290df9689",
+        "description": "radv/amdgpu: Fix handling of IB alignment > 4 words.",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "1f36f6b83f2dd14edd67525a7a2151115d6d2df6"
+    },
+    {
         "sha": "06504fb9e2382e43b889fd6ca642bb785b544d4d",
         "description": "mesa: consolidate setting no error state and checking suid.",
         "nominated": false,
