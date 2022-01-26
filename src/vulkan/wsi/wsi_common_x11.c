@@ -1553,7 +1553,7 @@ fail_pixmap:
 
    wsi_destroy_image(&chain->base, &image->base);
 
-   return result;
+   return VK_ERROR_INITIALIZATION_FAILED;
 }
 
 static void
