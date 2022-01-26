@@ -249,9 +249,14 @@ static void
 iris_init_non_engine_contexts(struct iris_context *ice, int priority)
 {
    struct iris_screen *screen = (void *) ice->ctx.screen;
+   const struct intel_device_info *devinfo = &screen->devinfo;
 
-   for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
+   /* Blitter is only supported on Gfx12+ */
+   unsigned num_batches = IRIS_BATCH_COUNT - (devinfo->ver >= 12 ? 0 : 1);
+
+   for (int i = 0; i < num_batches; i++) {
       struct iris_batch *batch = &ice->batches[i];
+
       batch->ctx_id = iris_create_hw_context(screen->bufmgr);
       batch->exec_flags = I915_EXEC_RENDER;
       batch->has_engines_context = false;
@@ -313,10 +318,15 @@ iris_init_engines_context(struct iris_context *ice, int priority)
       return false;
 
    struct iris_screen *screen = (void *) ice->ctx.screen;
+   const struct intel_device_info *devinfo = &screen->devinfo;
    iris_hw_context_set_priority(screen->bufmgr, engines_ctx, priority);
 
-   for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
+   /* Blitter is only supported on Gfx12+ */
+   unsigned num_batches = IRIS_BATCH_COUNT - (devinfo->ver >= 12 ? 0 : 1);
+
+   for (int i = 0; i < num_batches; i++) {
       struct iris_batch *batch = &ice->batches[i];
+
       batch->ctx_id = engines_ctx;
       batch->exec_flags = i;
       batch->has_engines_context = true;
@@ -727,7 +737,8 @@ replace_kernel_ctx(struct iris_batch *batch)
       if (new_ctx < 0)
          return false;
       for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
-         ice->batches[i].ctx_id = new_ctx;
+         if (ice->batches[i].ctx_id == old_ctx)
+            ice->batches[i].ctx_id = new_ctx;
          /* Notify the context that state must be re-initialized. */
          iris_lost_context_state(&ice->batches[i]);
       }
@@ -750,6 +761,9 @@ replace_kernel_ctx(struct iris_batch *batch)
 enum pipe_reset_status
 iris_batch_check_for_reset(struct iris_batch *batch)
 {
+   if (!iris_batch_is_supported(batch))
+      return PIPE_NO_RESET;
+
    struct iris_screen *screen = batch->screen;
    enum pipe_reset_status status = PIPE_NO_RESET;
    struct drm_i915_reset_stats stats = { .ctx_id = batch->ctx_id };
@@ -1020,6 +1034,8 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
    /* If a fence signals we need to flush it. */
    if (iris_batch_bytes_used(batch) == 0 && !batch->contains_fence_signal)
       return;
+
+   assert(iris_batch_is_supported(batch));
 
    iris_measure_batch_end(ice, batch);
 

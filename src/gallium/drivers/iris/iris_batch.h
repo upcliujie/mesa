@@ -192,6 +192,16 @@ struct iris_batch {
    struct intel_ds_queue *ds;
 };
 
+/**
+ * Not all batches are supported on every platform.  Use this to skip over
+ * batches that won't ever be used to submit commands to the GPU.
+ */
+static inline bool
+iris_batch_is_supported(struct iris_batch *batch)
+{
+   return batch->ctx_id != 0;
+}
+
 void iris_init_batches(struct iris_context *ice, int priority);
 void iris_chain_to_new_batch(struct iris_batch *batch);
 void iris_destroy_batches(struct iris_context *ice);
