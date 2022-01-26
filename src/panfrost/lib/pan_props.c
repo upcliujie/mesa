@@ -33,11 +33,54 @@
 #include "drm-uapi/panfrost_drm.h"
 #include "pan_encoder.h"
 #include "pan_device.h"
-#include "panfrost-quirks.h"
 #include "pan_bo.h"
 #include "pan_texture.h"
 #include "wrap.h"
 #include "pan_util.h"
+
+/* Fixed "minimum revisions" */
+#define NO_ANISO (~0)
+#define HAS_ANISO (0)
+
+#define MODEL(gpu_id_, shortname, min_rev_anisotropic_, quirks_) \
+        { \
+                .gpu_id = gpu_id_, \
+                .name = "Mali-" shortname " (Panfrost)", \
+                .min_rev_anisotropic = min_rev_anisotropic_, \
+                .quirks = quirks_, \
+        }
+
+/* Table of supported Mali GPUs */
+const struct panfrost_model panfrost_model_list[] = {
+        MODEL(0x720, "T720", NO_ANISO, { .no_hierarchical_tiling = true }),
+        MODEL(0x750, "T760", NO_ANISO, {}),
+        MODEL(0x820, "T820", NO_ANISO, { .no_hierarchical_tiling = true }),
+        MODEL(0x830, "T830", NO_ANISO, { .no_hierarchical_tiling = true }),
+        MODEL(0x860, "T860", NO_ANISO, {}),
+        MODEL(0x880, "T880", NO_ANISO, {}),
+
+        MODEL(0x6000, "G71", NO_ANISO, {}),
+        MODEL(0x6221, "G72", 0x30 /* r0p3 */, {}),
+        MODEL(0x7093, "G31", HAS_ANISO, {}),
+        MODEL(0x7211, "G76", HAS_ANISO, {}),
+        MODEL(0x7212, "G52", HAS_ANISO, {}),
+        MODEL(0x7402, "G52r1", HAS_ANISO, {}),
+};
+
+/*
+ * Look up a supported model by its GPU ID, or return NULL if the model is not
+ * supported at this time.
+ */
+const struct panfrost_model *
+panfrost_get_model(uint32_t gpu_id)
+{
+        for (unsigned i = 0; i < ARRAY_SIZE(panfrost_model_list); ++i) {
+                if (panfrost_model_list[i].gpu_id == gpu_id)
+                        return &panfrost_model_list[i];
+        }
+
+        return NULL;
+}
 
 /* Abstraction over the raw drm_panfrost_get_param ioctl for fetching
  * information about devices */
@@ -238,8 +281,8 @@ panfrost_open_device(void *memctx, int fd, struct panfrost_device *dev)
         dev->core_count = panfrost_query_core_count(fd);
         dev->thread_tls_alloc = panfrost_query_thread_tls_alloc(fd, dev->arch);
         dev->kernel_version = drmGetVersion(fd);
-        unsigned revision = panfrost_query_gpu_revision(fd);
-        dev->quirks = panfrost_get_quirks(dev->gpu_id, revision);
+        dev->revision = panfrost_query_gpu_revision(fd);
+        dev->model = panfrost_get_model(dev->gpu_id);
         dev->compressed_formats = panfrost_query_compressed_formats(fd);
         dev->tiler_features = panfrost_query_tiler_features(fd);
         dev->has_afbc = panfrost_query_afbc(fd, dev->arch);
