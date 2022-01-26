@@ -64,6 +64,7 @@ glx@glx-visuals-depth -pixmap,Crash
 glx@glx-visuals-stencil -pixmap,Crash
 shaders@glsl-fs-fogscale,Fail
 shaders@glsl-fs-fogscale@gs-out and fs,Fail
+shaders@glsl-max-varyings,Crash
 
 # "MESA: error: unknown vertex shader output name: VARYING_SLOT_EDGE
 #  gl-2.0-edgeflag: ../src/freedreno/ir3/ir3_context.c:411: ir3_context_error: Assertion `!""' failed."
