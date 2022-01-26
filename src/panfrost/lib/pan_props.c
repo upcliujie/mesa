@@ -64,6 +64,7 @@ const struct panfrost_model panfrost_model_list[] = {
 
         MODEL(0x6000, "G71", "G71", NO_ANISO, {}),
         MODEL(0x6221, "G72", "G72", 0x30 /* r0p3 */, {}),
+        MODEL(0x7090, "G51", "G51", 0x11 /* r1p1 */, {}),
         MODEL(0x7093, "G31", "G31", HAS_ANISO, {}),
         MODEL(0x7211, "G76", "G76", HAS_ANISO, {}),
         MODEL(0x7212, "G52", "G52", HAS_ANISO, {}),
