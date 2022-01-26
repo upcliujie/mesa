@@ -155,6 +155,9 @@ struct panfrost_model {
         /* Marketing name for the GPU, used as the GL_RENDERER */
         const char *name;
 
+        /* Set of associated performance counters */
+        const char *performance_counters;
+
         /* Minimum GPU revision required for anisotropic filtering. ~0 and 0
          * means "no revisions support anisotropy" and "all revisions support
          * anistropy" respectively -- so checking for anisotropy is simply

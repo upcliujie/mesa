@@ -42,30 +42,33 @@
 #define NO_ANISO (~0)
 #define HAS_ANISO (0)
 
-#define MODEL(gpu_id_, shortname, min_rev_anisotropic_, quirks_) \
+#define MODEL(gpu_id_, shortname, counters_, min_rev_anisotropic_, quirks_) \
         { \
                 .gpu_id = gpu_id_, \
                 .name = "Mali-" shortname " (Panfrost)", \
+                .performance_counters = counters_, \
                 .min_rev_anisotropic = min_rev_anisotropic_, \
                 .quirks = quirks_, \
         }
 
 /* Table of supported Mali GPUs */
 const struct panfrost_model panfrost_model_list[] = {
-        MODEL(0x720, "T720", NO_ANISO, { .no_hierarchical_tiling = true }),
-        MODEL(0x750, "T760", NO_ANISO, {}),
-        MODEL(0x820, "T820", NO_ANISO, { .no_hierarchical_tiling = true }),
-        MODEL(0x830, "T830", NO_ANISO, { .no_hierarchical_tiling = true }),
-        MODEL(0x860, "T860", NO_ANISO, {}),
-        MODEL(0x880, "T880", NO_ANISO, {}),
+        MODEL(0x720, "T720", "T72x", NO_ANISO, { .no_hierarchical_tiling = true }),
+        MODEL(0x750, "T760", "T76x", NO_ANISO, {}),
+        MODEL(0x820, "T820", "T82x", NO_ANISO, { .no_hierarchical_tiling = true }),
+        MODEL(0x830, "T830", "T83x", NO_ANISO, { .no_hierarchical_tiling = true }),
+        MODEL(0x860, "T860", "T86x", NO_ANISO, {}),
+        MODEL(0x880, "T880", "T88x", NO_ANISO, {}),
 
-        MODEL(0x6000, "G71", NO_ANISO, {}),
-        MODEL(0x6221, "G72", 0x30 /* r0p3 */, {}),
-        MODEL(0x7093, "G31", HAS_ANISO, {}),
-        MODEL(0x7211, "G76", HAS_ANISO, {}),
-        MODEL(0x7212, "G52", HAS_ANISO, {}),
-        MODEL(0x7402, "G52r1", HAS_ANISO, {}),
+        MODEL(0x6000, "G71", "G71", NO_ANISO, {}),
+        MODEL(0x6221, "G72", "G72", 0x30 /* r0p3 */, {}),
+        MODEL(0x7093, "G31", "G31", HAS_ANISO, {}),
+        MODEL(0x7211, "G76", "G76", HAS_ANISO, {}),
+        MODEL(0x7212, "G52", "G52", HAS_ANISO, {}),
+        MODEL(0x7402, "G52 r1", "G52", HAS_ANISO, {}),
 };
+
+#undef _
 
 /*
  * Look up a supported model by its GPU ID, or return NULL if the model is not

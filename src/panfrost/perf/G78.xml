@@ -22,7 +22,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 -->
-<metrics id="TBOx">
+<metrics id="G78">
     <category name="Job Manager" per_cpu="no">
         <event offset="6" counter="GPU_ACTIVE" title="GPU Cycles" name="GPU active" description="The number of cycles where the GPU has a workload of any type queued for processing." units="cycles" />
         <event offset="7" advanced="yes" counter="IRQ_ACTIVE" title="GPU Cycles" name="Interrupt active" description="The number of cycles where the GPU has a pending interrupt." units="cycles" />
