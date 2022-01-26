@@ -1,8 +1,13 @@
+glx@glx_ext_import_context@free context,Fail
 glx@glx_arb_create_context_no_error@no error,Fail
 glx@glx_arb_create_context_robustness@invalid reset notification strategy,Fail
 glx@glx_ext_import_context@get context id,Fail
 glx@glx_ext_import_context@import context- single process,Fail
+glx@glx_ext_import_context@query context info,Fail
 glx@glx-visuals-stencil -pixmap,Crash
+spec@!opengl 1.0@rasterpos,Fail
+spec@!opengl 1.0@rasterpos@glsl_vs_gs_linked,Fail
+spec@!opengl 1.0@rasterpos@glsl_vs_tes_linked,Fail
 spec@arb_direct_state_access@gettextureimage-formats,Crash
 spec@arb_es2_compatibility@texwrap formats bordercolor-swizzled,Fail
 spec@arb_program_interface_query@arb_program_interface_query-getprogramresourceindex@'vs_input2[1][0]' on GL_PROGRAM_INPUT,Fail
