@@ -78,6 +78,7 @@ genX_bits_h = custom_target(
              '--include-symbols', ','.join(genX_bits_included_symbols)],
 )
 
+gen_pack_header_deps = files('util.py')
 gen_xml_pack = []
 foreach f : gen_xml_files + ['gen_rt.xml']
   _name = '@0@_pack.h'.format(f.split('.')[0])
@@ -87,6 +88,7 @@ foreach f : gen_xml_files + ['gen_rt.xml']
     output : _name,
     command : [prog_python, '@INPUT@', '--engines=render,blitter,video'],
     capture : true,
+    depend_files: gen_pack_header_deps
   )
 endforeach
 
