@@ -187,3 +187,5 @@ spec@!opengl 1.0@rasterpos@glsl_vs_ubo
 
 # First appeared 2021-06-14
 spec@egl 1.4@eglcreatepbuffersurface and then glclear
+
+shaders@glsl-max-varyings
