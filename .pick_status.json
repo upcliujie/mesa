@@ -1,5 +1,356 @@
 [
     {
+        "sha": "2d75fd1e0ac06c65d83e053c58bf266732db3de4",
+        "description": "virgl/ci: make crosvm-runner pass variables in a secure way",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7380d8e285f76b6d5273a8cc272eb0f1bfcb6c0a",
+        "description": "ci/freedreno: Update hashes for closed traces.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "065785e689c144277dde3b5554d157ea8533367a",
+        "description": "tu: Report code size in pipeline statistics",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "583e4549fef192cdf47ad4d3516673fc2808e1e9",
+        "description": "intel/ci: expected failure for 1.3 with older CTS",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f3877182f701cf77db2fe209876d1279f9a47dc1",
+        "description": "relnotes/features: updates for Vulkan 1.3",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "df8ac77af8093c87d5d56d6f1b36c0144a607c40",
+        "description": "anv: Advertise Vulkan 1.3",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7d9cd208d5550e658242d36c547b2c31081e0847",
+        "description": "anv: switch a bunch of struct/enum to 1.3 versions",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2e730167a4ac9d26ef1d698e6e57e75e55095905",
+        "description": "anv: Implement 1.3 features/properties",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "372faa4a234433e6f01b5a112b0b4a956093f969",
+        "description": "anv: SPIR-V 1.6 shaders imply ALLOW_VARYING_SUBGROUP_SIZE",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cad053db6152ee01950af8d7418c7672fd8abfe7",
+        "description": "panvk: Fix pointer corruption in panvk_add_wait_event_syncobjs",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "1e23004600c3b29776c2a36854b1a1c8756d5f81"
+    },
+    {
+        "sha": "ece10a54679bbb25eb357cc479db7098f98213e4",
+        "description": "zink: unify some context casts in zink_create_sampler_view",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fe3984b8cde30b21d719bff57429fba1751c454e",
+        "description": "anv: silence wsi debug logging",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6018d5c44aa2ec051cac8fe38336613f1287e751",
+        "description": "vulkan/wsi/x11: document implementation",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "978ea32acfb3fea2de3400f877485eca5223a254",
+        "description": "radv/ci: mark the dEQP fails related to a missing VKCTS 1.3 as expected",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "764c8867b046db4bb0bdaabc068ada35d5d7c4b4",
+        "description": "v3dv: document why we don't expose VK_EXT_scalar_block_layout",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "06220a28e7adef4b4ccb6f3adc6e5b93627c4762",
+        "description": "v3dv: rework Vulkan 1.2 feature queries",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "692e0dfe272b0581bd48322c4d320c399f368206",
+        "description": "v3dv: implement VK_KHR_imageless_framebuffer",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2ee9487ad7ff97c9a3885a2b283072c2ad267963",
+        "description": "v3dv: drop signature of undefined function",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "af957d4a17e5434358e7d01bb3978dc24dbebf06",
+        "description": "ci/traces: Always generate the junit XML.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "60f7bd3c095c96140fb03b20481642af75d5d6b6",
+        "description": "ci/traces: Drop PIGLIT_REPLAY_UPLOAD_TO_MINIO.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d0af517a14ce45a98e4a86c3a5b0e59a3054d46b",
+        "description": "ci/traces: Drop the baseline file creation for trace results.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d562b83a844cbe2a12d7c5b5c883fa61cf79fcfd",
+        "description": "ci/traces: Clean up the failure report message.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7d6cd4a5cd37712b0e9769f7316fd20da16ae14c",
+        "description": "ci/traces: Drop the PIGLIT_PROFILES setting for traces replay.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ccbf16124e981c93333d71a8217914d410a14f19",
+        "description": "ci/traces: Rename the piglit/run.sh script to piglit-traces.sh.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d041630a3791cf3dbafba833cb9344c533207c21",
+        "description": "ci/llvmpipe,softpipe: Switch piglit testing to piglit-runner.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "87c3651674fd91c6d73e8758da78bb432ce18bde",
+        "description": "ci/llvmpipe: Drop the skip of piglit edgeflag test.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6ce7a6e7258176d79426f5f705a6d005a9306ac5",
+        "description": "Revert \"ci: freedreno: Update a530 dEQP fail expectation list\"",
+        "nominated": false,
+        "nomination_type": 2,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "a35c5540e4241cb4473f5cc9cb1a53bdeee85ada"
+    },
+    {
+        "sha": "ae32c6229e5034d3f111644da15ef32350a3771f",
+        "description": "freedreno: Add missing generated header dependency",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6c984b14694a60c5379d07dd444659f2246e7a89",
+        "description": "dri_interface: Remove the remaining DRI1 API definitions",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "57445adc89186fcadc1e6006d1aa32768b26556b",
+        "description": "anv: Re-enable CCS_E on TGL+",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "e61478958854c63d3d8dfe12948445e0086d3a91"
+    },
+    {
+        "sha": "c48401404c18a1f44dca6bd0d4ea2f64731eae4d",
+        "description": "anv: Use ANV_FAST_CLEAR_DEFAULT_VALUE for CCS on TGL+",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "e61478958854c63d3d8dfe12948445e0086d3a91"
+    },
+    {
+        "sha": "d68b2db89ca38f3f6c0d3ebd65945c471d864d58",
+        "description": "anv: Disable CCS_E for some 8/16bpp copies on TGL+",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "e61478958854c63d3d8dfe12948445e0086d3a91"
+    },
+    {
+        "sha": "09ca089144491dbcbc91f1bedfa0c08f8f498af5",
+        "description": "anv: Drop assert against modifier with aux on gfx12",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f07f4d5ec559c8fa993f773ff997ac769191af97",
+        "description": "docs: use http-redirect when possible",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "53426d26c3700355f88578c0ef70a926faf21f2b",
+        "description": "softpipe: Dispatch 4 CS invocations per tgsi_exec thread.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "62dc4be470fcfd6416e9e5c62e2a744988ef2759",
+        "description": "softpipe: Initialize the CS dispatch mask at machine setup time.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2fe2a2b0808ecb3a471ede8b6275b2c07e12251d",
+        "description": "softpipe: Improve some local var naming in compute shaders.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "13b57a8cad6ae29e972b77d39faea9b2835b2a54",
+        "description": "tgsi_exec: Fix shared var stores for >1 real invocation, and overflow checks.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8a5b949a3ef4ff90e846540768eb04374a155ba2",
+        "description": "turnip: fix leaks of submit requests.",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "479a1c405e46e16e2fe2d537a1dbfe7eea0f57fd"
+    },
+    {
         "sha": "8bca29dcf0ae01c23215bbee2193bdde1956def4",
         "description": "zink: return 256 for PIPE_CAP_MIN_MAP_BUFFER_ALIGNMENT",
         "nominated": false,
