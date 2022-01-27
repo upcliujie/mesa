@@ -420,7 +420,12 @@ void si_clear_buffer(struct si_context *sctx, struct pipe_resource *dst,
       assert(dst->target == PIPE_BUFFER);
       assert(size < 4);
 
-      pipe_buffer_write(&sctx->b, dst, offset, size, clear_value);
+      sctx->b.buffer_subdata(&sctx->b, dst,
+                             PIPE_MAP_WRITE |
+                             /* Don't invalidate the buffer etc. because it breaks TC. */
+                             (sctx->tc ? TC_TRANSFER_MAP_NO_INFER_UNSYNCHRONIZED |
+                                         TC_TRANSFER_MAP_NO_INVALIDATE : 0),
+                             offset, size, clear_value);
    }
 }
 
