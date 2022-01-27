@@ -2198,6 +2198,8 @@ radv_get_shader_name(const struct radv_shader_info *info, gl_shader_stage stage)
       return "Compute Shader";
    case MESA_SHADER_MESH:
       return "Mesh Shader as NGG";
+   case MESA_SHADER_TASK:
+      return "Task Shader as CS";
    default:
       return "Unknown shader";
    };
