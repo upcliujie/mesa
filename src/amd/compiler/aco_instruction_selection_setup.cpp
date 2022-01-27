@@ -616,6 +616,11 @@ init_context(isel_context* ctx, nir_shader* shader)
                case nir_intrinsic_load_ring_tess_offchip_offset_amd:
                case nir_intrinsic_load_ring_esgs_amd:
                case nir_intrinsic_load_ring_es2gs_offset_amd:
+               case nir_intrinsic_load_ring_task_draw_amd:
+               case nir_intrinsic_load_ring_task_payload_amd:
+               case nir_intrinsic_load_task_ring_entry_amd:
+               case nir_intrinsic_load_task_ib_addr:
+               case nir_intrinsic_load_task_ib_stride:
                case nir_intrinsic_image_deref_samples:
                case nir_intrinsic_has_input_vertex_amd:
                case nir_intrinsic_has_input_primitive_amd:

@@ -8864,6 +8864,31 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
                get_arg(ctx, ctx->args->ac.es2gs_offset));
       break;
    }
+   case nir_intrinsic_load_ring_task_draw_amd:
+   case nir_intrinsic_load_ring_task_payload_amd: {
+      unsigned ring =
+         instr->intrinsic == nir_intrinsic_load_ring_task_draw_amd ? RING_TS_DRAW : RING_TS_PAYLOAD;
+      Temp arg_src = ctx->stage == task_cs ? get_arg(ctx, ctx->args->task_ring_offsets)
+                                           : ctx->program->private_segment_buffer;
+      bld.smem(aco_opcode::s_load_dwordx4, Definition(get_ssa_temp(ctx, &instr->dest.ssa)), arg_src,
+               Operand::c32(ring * 16u));
+      break;
+   }
+   case nir_intrinsic_load_task_ring_entry_amd: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               get_arg(ctx, ctx->args->ac.task_ring_entry));
+      break;
+   }
+   case nir_intrinsic_load_task_ib_addr: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               get_arg(ctx, ctx->args->task_ib_addr));
+      break;
+   }
+   case nir_intrinsic_load_task_ib_stride: {
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               get_arg(ctx, ctx->args->task_ib_stride));
+      break;
+   }
    case nir_intrinsic_load_gs_vertex_offset_amd: {
       /* GFX6-8 uses 6 separate args, while GFX9+ packs these into only 3 args. */
       unsigned b = nir_intrinsic_base(instr);
