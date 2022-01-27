@@ -85,7 +85,7 @@ intel_get_urb_config(const struct intel_device_info *devinfo,
     *    Cache" section of the B-Spec."
     */
    if (devinfo->ver >= 12)
-      urb_size_kB -= 4 * devinfo->l3_banks;
+      urb_size_kB -= DIV_ROUND_UP(4 * devinfo->l3_banks, devinfo->num_slices);
 
    const unsigned push_constant_kB = devinfo->max_constant_urb_size_kb;
 
