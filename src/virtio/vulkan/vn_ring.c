@@ -244,6 +244,6 @@ vn_ring_wait_all(const struct vn_ring *ring)
 {
    /* load from tail rather than ring->cur for atomicity */
    const uint32_t pending_seqno =
-      atomic_load_explicit(ring->shared.tail, memory_order_relaxed);
+      atomic_load_explicit(ring->shared.tail, memory_order_acquire);
    vn_ring_wait(ring, pending_seqno);
 }
