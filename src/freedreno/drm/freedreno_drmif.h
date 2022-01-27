@@ -131,6 +131,7 @@ enum fd_version {
    FD_VERSION_MEMORY_FD = 2,           /* supports shared memory objects */
    FD_VERSION_SUSPENDS = 7,            /* Adds MSM_PARAM_SUSPENDS to detect device suspend */
    FD_VERSION_CACHED_COHERENT = 8,     /* Adds cached-coherent support (a6xx+) */
+   FD_VERSION_ASPACE_FAULTS = 9,       /* Adds MSM_PARAM_AS_FAULTS */
 };
 enum fd_version fd_device_version(struct fd_device *dev);
 

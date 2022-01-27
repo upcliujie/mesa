@@ -75,8 +75,9 @@ struct drm_msm_timespec {
 #define MSM_PARAM_GMEM_BASE  0x06
 #define MSM_PARAM_PRIORITIES 0x07  /* The # of priority levels */
 #define MSM_PARAM_PP_PGTABLE 0x08  /* => 1 for per-process pagetables, else 0 */
-#define MSM_PARAM_FAULTS     0x09
+#define MSM_PARAM_FAULTS     0x09  /* global fault count */
 #define MSM_PARAM_SUSPENDS   0x0a
+#define MSM_PARAM_AS_FAULTS  0x0b  /* faults in any context sharing same address space */
 
 /* For backwards compat.  The original support for preemption was based on
  * a single ring per priority level so # of priority levels equals the #

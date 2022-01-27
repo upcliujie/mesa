@@ -98,7 +98,13 @@ msm_pipe_get_param(struct fd_pipe *pipe, enum fd_param_id param,
    case FD_CTX_FAULTS:
       return query_queue_param(pipe, MSM_SUBMITQUEUE_PARAM_FAULTS, value);
    case FD_GLOBAL_FAULTS:
-      return query_param(pipe, MSM_PARAM_FAULTS, value);
+      /* Prefer reporting faults in contexts sharing the same address
+       * space when possible, to avoid troubling app with faults that
+       * are not going to effect it's contexts:
+       */
+      if (fd_device_version(pipe->dev) >= FD_VERSION_ASPACE_FAULTS)
+         return query_param(pipe, MSM_PARAM_FAULTS, value);
+      return query_param(pipe, MSM_PARAM_AS_FAULTS, value);
    case FD_SUSPEND_COUNT:
       return query_param(pipe, MSM_PARAM_SUSPENDS, value);
    default:
