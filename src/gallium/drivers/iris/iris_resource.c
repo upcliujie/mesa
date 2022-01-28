@@ -435,10 +435,11 @@ iris_resource_alloc_flags(const struct iris_screen *screen,
    }
 
    /* Scanout and shared buffers need to be WC (shared because they might be
-    * used for scanout)
+    * used for scanout).  They should also not be suballocated because we'd
+    * have to un-suballocate them on export, which is pointless.
     */
    if (templ->bind & (PIPE_BIND_SCANOUT | PIPE_BIND_SHARED))
-      flags |= BO_ALLOC_SCANOUT;
+      flags |= BO_ALLOC_SCANOUT | BO_ALLOC_NO_SUBALLOC;
 
    if (templ->flags & (PIPE_RESOURCE_FLAG_MAP_COHERENT |
                        PIPE_RESOURCE_FLAG_MAP_PERSISTENT))
