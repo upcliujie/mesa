@@ -1960,12 +1960,9 @@ anv_get_physical_device_properties_1_1(struct anv_physical_device *pdevice,
          scalar_stages |= mesa_to_vk_shader_stage(stage);
    }
    if (pdevice->vk.supported_extensions.KHR_ray_tracing_pipeline) {
-      scalar_stages |= MESA_SHADER_RAYGEN |
-                       MESA_SHADER_ANY_HIT |
-                       MESA_SHADER_CLOSEST_HIT |
-                       MESA_SHADER_MISS |
-                       MESA_SHADER_INTERSECTION |
-                       MESA_SHADER_CALLABLE;
+      for (unsigned stage = MESA_SHADER_RAYGEN; stage <= MESA_SHADER_CALLABLE; stage++) {
+         scalar_stages |= mesa_to_vk_shader_stage(stage);
+      }
    }
    p->subgroupSupportedStages = scalar_stages;
    p->subgroupSupportedOperations = VK_SUBGROUP_FEATURE_BASIC_BIT |
