@@ -38,6 +38,7 @@
 #include "anv_nir.h"
 #include "nir/nir_xfb_info.h"
 #include "spirv/nir_spirv.h"
+#include "vk_nir.h"
 #include "vk_render_pass.h"
 #include "vk_util.h"
 
@@ -50,7 +51,9 @@
 static nir_shader *
 anv_shader_compile_to_nir(struct anv_device *device,
                           void *mem_ctx,
-                          const struct vk_shader_module *module,
+                          const struct vk_object_base *debug_object,
+                          const char *spirv_data,
+                          const uint32_t spirv_size,
                           const char *entrypoint_name,
                           gl_shader_stage stage,
                           const VkSpecializationInfo *spec_info)
@@ -132,12 +135,13 @@ anv_shader_compile_to_nir(struct anv_device *device,
       .shared_addr_format = nir_address_format_32bit_offset,
    };
 
-   nir_shader *nir;
-   VkResult result = vk_shader_module_to_nir(&device->vk, module,
-                                             stage, entrypoint_name,
-                                             spec_info, &spirv_options,
-                                             nir_options, mem_ctx, &nir);
-   if (result != VK_SUCCESS)
+   nir_shader *nir =
+      vk_spirv_to_nir(&device->vk,
+                      (uint32_t *) spirv_data, spirv_size,
+                      stage, entrypoint_name, spec_info,
+                      &spirv_options, nir_options,
+                      mem_ctx);
+   if (!nir)
       return NULL;
 
    if (INTEL_DEBUG(intel_debug_flag_for_shader_stage(stage))) {
@@ -547,7 +551,13 @@ populate_bs_prog_key(const struct intel_device_info *devinfo,
 struct anv_pipeline_stage {
    gl_shader_stage stage;
 
-   const struct vk_shader_module *module;
+   struct {
+      const struct vk_object_base *object;
+      const char *data;
+      uint32_t size;
+      unsigned char sha1[20];
+   } spirv;
+
    const char *entrypoint;
    const VkSpecializationInfo *spec_info;
 
@@ -580,7 +590,8 @@ struct anv_pipeline_stage {
 };
 
 static void
-anv_pipeline_hash_shader(const struct vk_shader_module *module,
+anv_pipeline_hash_shader(const unsigned char *spirv_sha1,
+                         const uint32_t spirv_sha1_size,
                          const char *entrypoint,
                          gl_shader_stage stage,
                          const VkSpecializationInfo *spec_info,
@@ -589,7 +600,7 @@ anv_pipeline_hash_shader(const struct vk_shader_module *module,
    struct mesa_sha1 ctx;
    _mesa_sha1_init(&ctx);
 
-   _mesa_sha1_update(&ctx, module->sha1, sizeof(module->sha1));
+   _mesa_sha1_update(&ctx, spirv_sha1, spirv_sha1_size);
    _mesa_sha1_update(&ctx, entrypoint, strlen(entrypoint));
    _mesa_sha1_update(&ctx, &stage, sizeof(stage));
    if (spec_info) {
@@ -722,7 +733,9 @@ anv_pipeline_stage_get_nir(struct anv_pipeline *pipeline,
 
    nir = anv_shader_compile_to_nir(pipeline->device,
                                    mem_ctx,
-                                   stage->module,
+                                   stage->spirv.object,
+                                   stage->spirv.data,
+                                   stage->spirv.size,
                                    stage->entrypoint,
                                    stage->stage,
                                    stage->spec_info);
@@ -1360,8 +1373,7 @@ anv_pipeline_add_executables(struct anv_pipeline *pipeline,
 }
 
 static enum brw_subgroup_size_type
-anv_subgroup_size_type(gl_shader_stage stage,
-                       const struct vk_shader_module *module,
+anv_subgroup_size_type(struct anv_pipeline_stage *stage,
                        VkPipelineShaderStageCreateFlags flags,
                        const VkPipelineShaderStageRequiredSubgroupSizeCreateInfoEXT *rss_info)
 {
@@ -1369,10 +1381,10 @@ anv_subgroup_size_type(gl_shader_stage stage,
 
    const bool allow_varying =
       flags & VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT_EXT ||
-      vk_shader_module_spirv_version(module) >= 0x10600;
+      vk_spirv_version((uint32_t *) stage->spirv.data, stage->spirv.size) >= 0x10600;
 
    if (rss_info) {
-      assert(gl_shader_stage_uses_workgroup(stage));
+      assert(gl_shader_stage_uses_workgroup(stage->stage));
       /* These enum values are expressly chosen to be equal to the subgroup
        * size that they require.
        */
@@ -1383,7 +1395,7 @@ anv_subgroup_size_type(gl_shader_stage stage,
    } else if (allow_varying) {
       subgroup_size_type = BRW_SUBGROUP_SIZE_VARYING;
    } else if (flags & VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT) {
-      assert(stage == MESA_SHADER_COMPUTE);
+      assert(stage->stage == MESA_SHADER_COMPUTE);
       /* If the client expressly requests full subgroups and they don't
        * specify a subgroup size neither allow varying subgroups, we need to
        * pick one.  So we specify the API value of 32.  Performance will
@@ -1421,6 +1433,50 @@ anv_pipeline_init_from_cached_graphics(struct anv_graphics_pipeline *pipeline)
    }
 }
 
+static bool
+fill_shader_info_for_stage(struct anv_pipeline_stage *out_stage,
+                           const VkPipelineShaderStageCreateInfo *sinfo,
+                           const gl_shader_stage stage)
+{
+   const VkShaderModuleCreateInfo *minfo =
+      vk_find_struct_const(sinfo->pNext, SHADER_MODULE_CREATE_INFO);
+
+   if (sinfo->module == VK_NULL_HANDLE && !minfo)
+      return false;
+
+   memset(out_stage, 0, sizeof(*out_stage));
+
+   out_stage->stage = stage;
+   out_stage->entrypoint = sinfo->pName;
+   out_stage->spec_info = sinfo->pSpecializationInfo;
+
+   out_stage->cache_key.stage = stage;
+   out_stage->feedback.flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT;
+
+   if (sinfo->module != VK_NULL_HANDLE) {
+      struct vk_shader_module *module =
+         vk_shader_module_from_handle(sinfo->module);
+
+      out_stage->spirv.data = module->data;
+      out_stage->spirv.size = module->size;
+      out_stage->spirv.object = &module->base;
+      assert(sizeof(out_stage->spirv.sha1) == sizeof(module->sha1));
+      memcpy(out_stage->spirv.sha1, module->sha1, sizeof(out_stage->spirv.sha1));
+
+      return true;
+   }
+
+   out_stage->spirv.data = (const char *) minfo->pCode;
+   out_stage->spirv.size = minfo->codeSize;
+   _mesa_sha1_compute(out_stage->spirv.data,
+                      out_stage->spirv.size,
+                      out_stage->spirv.sha1);
+
+   /* TODO error object */
+
+   return true;
+}
+
 static void
 anv_graphics_pipeline_init_keys(struct anv_graphics_pipeline *pipeline,
                                 const VkGraphicsPipelineCreateInfo *info,
@@ -1429,15 +1485,16 @@ anv_graphics_pipeline_init_keys(struct anv_graphics_pipeline *pipeline,
 {
    for (uint32_t i = 0; i < info->stageCount; i++) {
       const VkPipelineShaderStageCreateInfo *sinfo = &info->pStages[i];
-      gl_shader_stage stage = vk_to_mesa_shader_stage(sinfo->stage);
 
       int64_t stage_start = os_time_get_nano();
 
-      stages[stage].stage = stage;
-      stages[stage].module = vk_shader_module_from_handle(sinfo->module);
-      stages[stage].entrypoint = sinfo->pName;
-      stages[stage].spec_info = sinfo->pSpecializationInfo;
-      anv_pipeline_hash_shader(stages[stage].module,
+      gl_shader_stage stage = vk_to_mesa_shader_stage(sinfo->stage);
+
+      if (!fill_shader_info_for_stage(&stages[stage], sinfo, stage))
+         continue;
+
+      anv_pipeline_hash_shader(stages[stage].spirv.sha1,
+                               sizeof(stages[stage].spirv.sha1),
                                stages[stage].entrypoint,
                                stage,
                                stages[stage].spec_info,
@@ -1448,7 +1505,7 @@ anv_graphics_pipeline_init_keys(struct anv_graphics_pipeline *pipeline,
                               PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO_EXT);
 
       enum brw_subgroup_size_type subgroup_size_type =
-         anv_subgroup_size_type(stage, stages[stage].module, sinfo->flags, rss_info);
+         anv_subgroup_size_type(&stages[stage], sinfo->flags, rss_info);
 
       const struct intel_device_info *devinfo = &pipeline->base.device->info;
       switch (stage) {
@@ -1937,10 +1994,7 @@ fail:
 static VkResult
 anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
                         struct anv_pipeline_cache *cache,
-                        const VkComputePipelineCreateInfo *info,
-                        const struct vk_shader_module *module,
-                        const char *entrypoint,
-                        const VkSpecializationInfo *spec_info)
+                        const VkComputePipelineCreateInfo *info)
 {
    VkPipelineCreationFeedbackEXT pipeline_feedback = {
       .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT,
@@ -1949,19 +2003,13 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
 
    const struct brw_compiler *compiler = pipeline->base.device->physical->compiler;
 
-   struct anv_pipeline_stage stage = {
-      .stage = MESA_SHADER_COMPUTE,
-      .module = module,
-      .entrypoint = entrypoint,
-      .spec_info = spec_info,
-      .cache_key = {
-         .stage = MESA_SHADER_COMPUTE,
-      },
-      .feedback = {
-         .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT,
-      },
-   };
-   anv_pipeline_hash_shader(stage.module,
+   struct anv_pipeline_stage stage;
+   UNUSED bool ret =
+      fill_shader_info_for_stage(&stage, &info->stage, MESA_SHADER_COMPUTE);
+   assert(ret);
+
+   anv_pipeline_hash_shader(stage.spirv.sha1,
+                            sizeof(stage.spirv.sha1),
                             stage.entrypoint,
                             MESA_SHADER_COMPUTE,
                             stage.spec_info,
@@ -1974,7 +2022,7 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
                            PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO);
 
    const enum brw_subgroup_size_type subgroup_size_type =
-      anv_subgroup_size_type(MESA_SHADER_COMPUTE, stage.module, info->stage.flags, rss_info);
+      anv_subgroup_size_type(&stage, info->stage.flags, rss_info);
 
    populate_cs_prog_key(&pipeline->base.device->info, subgroup_size_type,
                         pipeline->base.device->robust_buffer_access,
@@ -2134,10 +2182,7 @@ anv_compute_pipeline_create(struct anv_device *device,
                          pipeline->batch_data, sizeof(pipeline->batch_data));
 
    assert(pCreateInfo->stage.stage == VK_SHADER_STAGE_COMPUTE_BIT);
-   VK_FROM_HANDLE(vk_shader_module, module,  pCreateInfo->stage.module);
-   result = anv_pipeline_compile_cs(pipeline, cache, pCreateInfo, module,
-                                    pCreateInfo->stage.pName,
-                                    pCreateInfo->stage.pSpecializationInfo);
+   result = anv_pipeline_compile_cs(pipeline, cache, pCreateInfo);
    if (result != VK_SUCCESS) {
       anv_pipeline_finish(&pipeline->base, device, pAllocator);
       vk_free2(&device->vk.alloc, pAllocator, pipeline);
@@ -2946,29 +2991,19 @@ anv_pipeline_init_ray_tracing_stages(struct anv_ray_tracing_pipeline *pipeline,
 
    for (uint32_t i = 0; i < info->stageCount; i++) {
       const VkPipelineShaderStageCreateInfo *sinfo = &info->pStages[i];
-      if (sinfo->module == VK_NULL_HANDLE)
-         continue;
 
       int64_t stage_start = os_time_get_nano();
 
-      stages[i] = (struct anv_pipeline_stage) {
-         .stage = vk_to_mesa_shader_stage(sinfo->stage),
-         .module = vk_shader_module_from_handle(sinfo->module),
-         .entrypoint = sinfo->pName,
-         .spec_info = sinfo->pSpecializationInfo,
-         .cache_key = {
-            .stage = vk_to_mesa_shader_stage(sinfo->stage),
-         },
-         .feedback = {
-            .flags = VK_PIPELINE_CREATION_FEEDBACK_VALID_BIT,
-         },
-      };
+      if (!fill_shader_info_for_stage(&stages[i], sinfo,
+                                      vk_to_mesa_shader_stage(sinfo->stage)))
+         continue;
 
       populate_bs_prog_key(&pipeline->base.device->info, sinfo->flags,
                            pipeline->base.device->robust_buffer_access,
                            &stages[i].key.bs);
 
-      anv_pipeline_hash_shader(stages[i].module,
+      anv_pipeline_hash_shader(stages[i].spirv.sha1,
+                               sizeof(stages[i].spirv.sha1),
                                stages[i].entrypoint,
                                stages[i].stage,
                                stages[i].spec_info,
