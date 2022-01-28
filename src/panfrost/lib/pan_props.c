@@ -68,7 +68,9 @@ const struct panfrost_model panfrost_model_list[] = {
         MODEL(0x7402, "G52 r1", "TGOx", HAS_ANISO, {}),
 };
 
-#undef _
+#undef NO_ANISO
+#undef HAS_ANISO
+#undef MODEL
 
 /*
  * Look up a supported model by its GPU ID, or return NULL if the model is not
