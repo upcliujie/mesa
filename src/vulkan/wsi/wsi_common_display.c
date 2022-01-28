@@ -348,7 +348,7 @@ wsi_display_get_name(struct wsi_display *wsi,
        sizeof(drm_connector_names) / sizeof(char*))
       return NULL;
 
-   char* name = drm_connector_names[drm_connector->connector_type];
+   const char* name = drm_connector_names[drm_connector->connector_type];
    uint32_t id = drm_connector->connector_type_id;
    size_t required_length = snprintf(NULL, 0, "%s-%d", name, id) + 1;
 
