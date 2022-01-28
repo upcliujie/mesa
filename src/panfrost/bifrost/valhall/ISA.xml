@@ -1080,6 +1080,8 @@
     </desc>
     <sr write="true"/>
     <sr_count/>
+    <vecsize/>
+    <regfmt/>
     <slot/>
     <src>Pixel indices descriptor</src>
     <src>Coverage mask</src>
