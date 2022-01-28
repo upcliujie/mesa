@@ -1056,7 +1056,14 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
    bool local = heap != IRIS_HEAP_SYSTEM_MEMORY;
    struct bo_cache_bucket *bucket = bucket_for_size(bufmgr, size, heap);
 
-   if (memzone != IRIS_MEMZONE_OTHER || (flags & BO_ALLOC_COHERENT))
+   bool non_llc_snooped = (flags & BO_ALLOC_COHERENT) &&
+                          !bufmgr->has_llc && bufmgr->vram.size == 0;
+
+   /* Skip the suballocator when manually requesting non-default coherency.
+    * We could use a separate heap to support slab-allocating snooped buffers
+    * someday, but for now we just resort to using actual BOs.
+    */
+   if (memzone != IRIS_MEMZONE_OTHER || non_llc_snooped)
       flags |= BO_ALLOC_NO_SUBALLOC;
 
    bo = alloc_bo_from_slabs(bufmgr, name, size, alignment, flags);
@@ -1126,8 +1133,7 @@ iris_bo_alloc(struct iris_bufmgr *bufmgr,
    /* On integrated GPUs, enable snooping to ensure coherency if needed.
     * For discrete, we instead use SMEM and avoid WB maps for coherency.
     */
-   if ((flags & BO_ALLOC_COHERENT) &&
-       !bufmgr->has_llc && bufmgr->vram.size == 0) {
+   if (non_llc_snooped) {
       struct drm_i915_gem_caching arg = {
          .handle = bo->gem_handle,
          .caching = 1,
