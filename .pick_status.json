@@ -1,5 +1,545 @@
 [
     {
+        "sha": "a78861b0fbd6e1c1bac7c89f4049cdab7ee2913d",
+        "description": "docs/panfrost: Add new Midgard/Bifrost chips",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "0b16bf370ed8b5bbd4a7d0e494d18d2e530dab7d",
+        "description": "panfrost: Add Mali-G51 support",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "33399e95aea0ec02faf2987bacf7270f91576887",
+        "description": "pan/bi: Assume future Valhall is 16-wide warps",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8f0b5b4b19ccdc6885df4aeac02cd86aec4eebce",
+        "description": "pan/bi: Clean up quirks",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "94bb229c460ada5452bba1fce516afa2105a0a16",
+        "description": "panfrost: Get performance counters from table",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5e808f7b0a4023ea28795a9f96c913f09c00b376",
+        "description": "panfrost: Make the GPU allowlist implicit",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8c01a8a2630e34c1cf6cab8650529828e826563b",
+        "description": "panfrost: Replace panfrost_model_name with model->name",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "6c0d433d191143409e034b58a62b39e8592958a8",
+        "description": "panfrost: Centralize our model list",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2b638c1eb347c645868b87b192763e4664bbe783",
+        "description": "panfrost: Don't pass quirks to pan_lower_framebuffer",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "2b699d0650a5ae324acd3400f93d9badcb009cbb",
+        "description": "panfrost: Fix v9 \"Stencil from shader\" bit",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "96acad5cd59c598faaec4ee0ac0f7ee0c2ff0a05"
+    },
+    {
+        "sha": "23d52b47f1b4616bd27a73dc2a4e7393124d7c2c",
+        "description": "panfrost: Make primary_shader boolean",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "96acad5cd59c598faaec4ee0ac0f7ee0c2ff0a05"
+    },
+    {
+        "sha": "52b36cb79012079c4e3ddb50fba9b25f42ce7986",
+        "description": "isaspec: Add support for special {:align=} field",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "42ae116ac753aad5853139840f3e958b986922c1",
+        "description": "zink: fix vertex buffer mask computation for null buffers",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "53aade0ef0def4ea7f8468cdec04acd2384e2d2c"
+    },
+    {
+        "sha": "143c1564093237a6ab509f064eb652a24c3e55d1",
+        "description": "aux/tc: add tc_buffer_write to replace pipe_buffer_write usage",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "be5311972f72f72ca2de3f8d0ad28b4c58d133b6",
+        "description": "zink: remove tmp buffer rebinds",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "5c28afdc7fd701e1f55e40a5be100c6072edec2a",
+        "description": "zink: simplify buffer case for zink_resource_object_init_storage()",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bfde221952ebd4105358f601ebacbcf36c53cbcf",
+        "description": "zink: flag all buffer resources with PIPE_BIND_SHADER_IMAGE",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "93edc63250fa67985bc962a58a44c6864856a0e3",
+        "description": "zink: use the storage buffer for bufferview creation when format allows",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "94afa1632fb80d583e5b57bc31940193ab8717b3",
+        "description": "zink: always create a separate VkBuffer for storage use",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "3e12cb9ad95e55e8a4aefa31305fc3daa06ec2df",
+        "description": "zink: use VkImageViewUsageCreateInfo to remove attachment bits",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "c639e82f185989506a8d161bd79dd46d88b7b61d",
+        "description": "zink: allow resource creation without VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d4720c65acc9aefe22b5364c0663e9a5a0ba4cf9",
+        "description": "zink: flag has_work when a GL semaphore is signalled",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "32597e116d7317127ef8a7caf8dc75b50f48b8e1"
+    },
+    {
+        "sha": "794fabc8c2ad46b96bdd982880a704af21f6bdb3",
+        "description": "zink: emit same number of timeline signals as semaphore signals",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "32597e116d7317127ef8a7caf8dc75b50f48b8e1"
+    },
+    {
+        "sha": "5974949c0dd3bd41639c85b733bed10627aabc29",
+        "description": "v3dv: expose VK_KHR_depth_stencil_resolve",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "668653f830acc5153a85fb225bf991c1a6d503b0",
+        "description": "v3dv: fallback to blit resolve if render area is not aligned to tile boundaries",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7f87a1256e093c5846622930361991fb10eada0f",
+        "description": "v3dv: support resolving depth/stencil attachments",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "743582d17016fcdff55a164f761f4fbfd3ec1282",
+        "description": "ci: Rebalance Iris jobs",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d6c31f05a248a62e63525d2c264eb0ec7640b0f1",
+        "description": "anv: Fix subgroupSupportedStages physical property",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "f40a08d25c91256cd3dff0211b8e10d5bbb3734e"
+    },
+    {
+        "sha": "89f376b5068e78f911f8591c21063c2a46b517f8",
+        "description": "radv/sqtt: Add and enable basic EXT_debug_utils support.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a97ec3eb131b0c927dabcd499484688d0023c7ea",
+        "description": "v3dv: Add missing unlocks on errors.",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "a7052dcf2cfb54aa22f7c028420abc6a9ee44d78"
+    },
+    {
+        "sha": "dc70dd8c7d3e756de5e473583ad19757ea78b966",
+        "description": "iris: Support the XeHP media compression format",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "7f46e569e58e6bb18de7f67c11a6c16143b6efed",
+        "description": "intel/isl: Support the XeHP media compression format",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "fde43bb194ddc83df4575923e09ea1ee670d59f9",
+        "description": "intel: Rename a RenderCompressionFormat field",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "d8c6b2c394f94b23e7652b58419492c3be1a5357",
+        "description": "iris: Use iris_format_for_usage in map_aux_addresses",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "37a0185ec22c05ddfc1ca52150ccaf0cc91c6489",
+        "description": "iris: Drop stale media compression import code",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "cc973de5f6bbf3ae2373f874cb2ef059c2d31561",
+        "description": "intel/isl: Support YUV pipe-to-isl format mapping",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "514897ef419d062383b11398d6f84cc809d16a1f",
+        "description": "iris: Explicitly rely on gallium fallbacks for YUV",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "b5e41c8c2def1b67348388191fa9d79d2fe686c0",
+        "description": "ci/freedreno: Switch 2 default a630 VK jobs to being GLES and VK ASan jobs.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8457667be983bf4adb75ebe9d786cf686f3e16e5",
+        "description": "ci: Use a dlclose-disabling preload library for leak checking in Vulkan.",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "da7a475138d6b5cab15e26be3343abf36ab74727",
+        "description": "turnip: Drop references to layout of all sets on pool reset/destruction",
+        "nominated": false,
+        "nomination_type": 1,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": "1b513f4958ea8f7fdd3bd76cba81289343a6c372"
+    },
+    {
+        "sha": "bdb8e615d1a1ff6cce935ee5544748d61db1bb5c",
+        "description": "vulkan: Fix leak of error messages",
+        "nominated": true,
+        "nomination_type": 1,
+        "resolution": 0,
+        "main_sha": null,
+        "because_sha": "0cad3beb2a0dda7a8f6c6a1e8c9d253b9c988a9f"
+    },
+    {
+        "sha": "749b82238bbd75592cf26bca78986f594e662334",
+        "description": "isl: Enable compression with multisampled Tile64",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "792e294572b33478b228013f68da205a0b74c93f",
+        "description": "isl: Enable compression with Tile4",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "793338266ce43a718836148b39799e49b84b7c3d",
+        "description": "anv: Don't allocate VMA for CCS on XeHP",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "382f6ccda8869f72134dbfa9c3cc68a229e01138",
+        "description": "anv: Require the local heap for CCS on XeHP",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "93f8d88fa3518cc12282eabd3de751a663f27983",
+        "description": "anv: Disable the SMEM fallback for local memory",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "63096b886f9c050da0cf3e973377c3d4180055e3",
+        "description": "anv: Drop redundant disabling of non-renderable CCS",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4f1cf6fd3b74261fa5566ac741c0c4280d6232e1",
+        "description": "vulkan/wsi/x11: fix x11_image_init return value on errors",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "e020c1b97961a76afd24ac3d855d6ba738237887",
+        "description": "r300: Set consistent PIPE_SHADER_CAP_PREFERRED_IR",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "8b11d8a127692e7c9ec54f75e55797f9f0e83871",
+        "description": "r300: Disable integers and indirect temporary addressing with swctl",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "bf32d3145c2b210ecfd39b96ea62db169287bfb1",
+        "description": "venus: handle VkBindImageMemorySwapchainInfoKHR",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "127263dc4a2bd425495b915e0fab223661884fd7",
+        "description": "venus: remember the memory bound to a swapchain image",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "350dfb8c3cc7c19af4200c02ea6f8ddb92edd644",
+        "description": "venus: format with clang-format",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "4d15b527834a355c4b14b2f686ba26585a88173b",
+        "description": "venus: fix VK_KHR_driver_properties",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "24144f6f5c2ad1c6b872494bf6ef9be658906275",
+        "description": "turnip/trace: Delete unused start/end_resolve tracepoints",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "1989e1e6d86b9a9dcdc3fc898366b8812409f9ca",
+        "description": "turnip/perfetto: handle gpu timestamps being non-monotonic",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "ba7faa6f43abf72f9afd77988c0274d30b76ec69",
+        "description": "turnip/trace: process u_trace chunks on queue submission",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "a6482a3a6ecd6742a02aae547e69bff7b732a5b3",
+        "description": "turnip: rename tu_drm_get_timestamp into tu_device_get_gpu_timestamp",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "f2c53c2a9bdf99de0a8c73e0f395b96e0c735cec",
+        "description": "turnip/trace: refactor creation and usage of trace flush data",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
+        "sha": "95896dee93c3ff354b586fbba34dae4e6e76c96d",
+        "description": "turnip/perfetto: Optimize timestamp synchronization",
+        "nominated": false,
+        "nomination_type": null,
+        "resolution": 4,
+        "main_sha": null,
+        "because_sha": null
+    },
+    {
         "sha": "2d75fd1e0ac06c65d83e053c58bf266732db3de4",
         "description": "virgl/ci: make crosvm-runner pass variables in a secure way",
         "nominated": false,
