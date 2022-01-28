@@ -138,15 +138,9 @@ brw_shader_stage_is_bindless(gl_shader_stage stage)
 }
 
 static inline bool
-brw_shader_stage_is_mesh(gl_shader_stage stage)
-{
-   return stage == MESA_SHADER_TASK || stage == MESA_SHADER_MESH;
-}
-
-static inline bool
 brw_shader_stage_requires_bindless_resources(gl_shader_stage stage)
 {
-   return brw_shader_stage_is_bindless(stage) || brw_shader_stage_is_mesh(stage);
+   return brw_shader_stage_is_bindless(stage) || gl_shader_stage_is_mesh(stage);
 }
 
 /**
