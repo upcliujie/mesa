@@ -282,3 +282,10 @@ TEST_F(ValhallPacking, StoreSegment) {
                         bi_discard(bi_register(5)), BI_SEG_VARY, 0),
         0x0061400632000044);
 }
+
+TEST_F(ValhallPacking, LdTile) {
+   CASE(bi_ld_tile_to(b, bi_register(4), bi_discard(bi_register(0)),
+                         bi_register(60), bi_register(3),
+                         BI_REGISTER_FORMAT_F16, BI_VECSIZE_V3),
+        0x0078840423033c40);
+}
