@@ -101,7 +101,6 @@ libdzn_files = files(
 dzn_deps = [
   idep_libdxil_compiler,
   idep_libspirv_to_dxil,
-  idep_libd3d12_common,
   idep_nir,
   idep_nir_headers,
   idep_vulkan_util,

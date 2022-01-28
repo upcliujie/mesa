@@ -1097,6 +1097,47 @@ dzn_descriptor_heap::type_depends_on_shader_usage(VkDescriptorType type)
           type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 }
 
+dzn_descriptor_heap_pool::dzn_descriptor_heap_pool(dzn_device *device,
+		                                   D3D12_DESCRIPTOR_HEAP_TYPE t,
+                                                   bool shader_vis,
+                                                   const VkAllocationCallbacks *allocator) :
+   type(t), shader_visible(shader_vis), heaps(heaps_allocator(allocator))
+{
+   assert(!shader_visible ||
+          type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ||
+          type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER);
+
+   desc_sz = device->dev->GetDescriptorHandleIncrementSize(type);
+}
+
+std::pair<dzn_descriptor_heap *, uint32_t>
+dzn_descriptor_heap_pool::allocate(dzn_device *device, uint32_t desc_count)
+{
+   if (heaps.size() == 0 ||
+       (offset + desc_count > heaps[heaps.size() - 1].get_desc_count())) {
+      uint32_t granularity =
+         (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ||
+          type == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) ?
+         64 * 1024 : 4 * 1024;
+      uint32_t alloc_step = ALIGN_POT(desc_count * desc_sz, granularity);
+      uint32_t heap_desc_count = MAX2(alloc_step / desc_sz, 16);
+      heaps.emplace_back(device, type, heap_desc_count, shader_visible);
+      offset = 0;
+   }
+
+   uint32_t desc = offset;
+   offset += desc_count;
+
+   return std::pair<dzn_descriptor_heap *, uint32_t>(&heaps[heaps.size() - 1], desc);
+}
+
+void
+dzn_descriptor_heap_pool::reset()
+{
+   offset = 0;
+   heaps.clear();
+}
+
 dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
                                        dzn_descriptor_pool *p)
 {

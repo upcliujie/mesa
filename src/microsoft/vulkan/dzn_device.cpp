@@ -1590,27 +1590,6 @@ dzn_device::dzn_device(VkPhysicalDevice pdev,
 
    queue = dzn_object_unique_ptr<dzn_queue>(q);
 
-   struct d3d12_descriptor_pool *pool =
-      d3d12_descriptor_pool_new(dev,
-                                D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                                64);
-   if (!pool) {
-      vk_device_finish(&vk);
-      throw vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
-
-   rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
-
-   pool = d3d12_descriptor_pool_new(dev,
-                                    D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
-                                    64);
-   if (!pool) {
-      vk_device_finish(&vk);
-      throw vk_error(instance, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
-
-   dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
-
    for (uint32_t i = 0; i < ARRAY_SIZE(indirect_draws); i++) {
       enum dzn_indirect_draw_type type = (enum dzn_indirect_draw_type)i;
 
@@ -1675,27 +1654,6 @@ dzn_device::~dzn_device()
     */
    queue.reset(NULL);
    vk_device_finish(&vk);
-}
-
-void
-dzn_device::alloc_rtv_handle(struct d3d12_descriptor_handle *handle)
-{
-   std::lock_guard<std::mutex> lock(pools_lock);
-   d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), handle);
-}
-
-void
-dzn_device::alloc_dsv_handle(struct d3d12_descriptor_handle *handle)
-{
-   std::lock_guard<std::mutex> lock(pools_lock);
-   d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), handle);
-}
-
-void
-dzn_device::free_handle(struct d3d12_descriptor_handle *handle)
-{
-   std::lock_guard<std::mutex> lock(pools_lock);
-   d3d12_descriptor_handle_free(handle);
 }
 
 ComPtr<ID3D12RootSignature>

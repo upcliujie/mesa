@@ -37,6 +37,7 @@
 
 #include "util/bitset.h"
 #include "util/blob.h"
+#include "util\hash_table.h"
 #include "util/u_dynarray.h"
 #include "util/log.h"
 
@@ -56,7 +57,6 @@
 #include <wrl/client.h>
 
 #include "spirv_to_dxil.h"
-#include "d3d12_descriptor_pool.h"
 
 #include <atomic>
 #include <map>
@@ -139,17 +139,6 @@ using dzn_object_unique_ptr = std::unique_ptr<T, dzn_object_deleter<T>>;
 
 template <typename T>
 using dzn_object_vector = std::vector<dzn_object_unique_ptr<T>, dzn_allocator<dzn_object_unique_ptr<T>>>;
-
-class d3d12_descriptor_pool_deleter {
-public:
-   constexpr d3d12_descriptor_pool_deleter() noexcept = default;
-   ~d3d12_descriptor_pool_deleter() = default;
-
-   void operator()(d3d12_descriptor_pool *pool)
-   {
-      d3d12_descriptor_pool_free(pool);
-   }
-};
 
 struct dzn_transient_object_deleter {
    const VkAllocationCallbacks *alloc;
@@ -471,15 +460,8 @@ struct dzn_device {
               const VkDeviceCreateInfo *pCreateInfo,
               const VkAllocationCallbacks *pAllocator);
    ~dzn_device();
-   void alloc_rtv_handle(struct d3d12_descriptor_handle *handle);
-   void alloc_dsv_handle(struct d3d12_descriptor_handle *handle);
-   void free_handle(struct d3d12_descriptor_handle *handle);
    ComPtr<ID3D12RootSignature>
    create_root_sig(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC &desc);
-private:
-   std::mutex pools_lock;
-   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
-   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> dsv_pool;
 };
 
 struct dzn_device_memory {
@@ -639,6 +621,27 @@ private:
    uint32_t desc_sz = 0;
 };
 
+struct dzn_descriptor_heap_pool {
+   dzn_descriptor_heap_pool(struct dzn_device *device,
+                            D3D12_DESCRIPTOR_HEAP_TYPE type,
+                            bool shader_visible,
+                            const VkAllocationCallbacks *allocator);
+   ~dzn_descriptor_heap_pool() = default;
+
+   std::pair<dzn_descriptor_heap *, uint32_t>
+   allocate(dzn_device *device, uint32_t desc_count = 1);
+
+   void reset();
+
+private:
+   D3D12_DESCRIPTOR_HEAP_TYPE type;
+   bool shader_visible;
+   using heaps_allocator = dzn_allocator<dzn_descriptor_heap>;
+   std::vector<dzn_descriptor_heap, heaps_allocator> heaps;
+   uint32_t offset = 0;
+   uint32_t desc_sz;
+};
+
 struct dzn_query_key {
    struct dzn_query_pool *qpool;
    uint32_t query;
@@ -663,14 +666,35 @@ struct dzn_query_state {
    } status = UNKNOWN;
 };
 
+template <typename T>
+struct dzn_hash
+{
+   size_t operator()(const T &key) const
+   {
+      return _mesa_hash_data(&key, sizeof(key));
+   }
+};
+
+
+template <typename T>
+struct dzn_equal_to
+{
+   bool operator()(const T &lhs, const T &rhs) const
+   {
+      return !memcmp(&lhs, &rhs, sizeof(T));
+   }
+};
+
+template <typename K, typename D>
+using dzn_hash_table = std::unordered_map<K, D, dzn_hash<K>, dzn_equal_to<K>,
+                                          dzn_allocator<std::pair<const K, D>>>;
+
 struct dzn_cmd_buffer {
    struct vk_command_buffer vk;
    VkResult error;
 
    dzn_device *device;
 
-   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> rtv_pool;
-   std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter> dsv_pool;
    struct dzn_cmd_pool *pool;
    uint32_t index;
    using bufs_allocator = dzn_allocator<ComPtr<ID3D12Resource>>;
@@ -724,8 +748,11 @@ struct dzn_cmd_buffer {
    using events_iterator = std::unordered_map<dzn_event *, enum event_state, std::hash<dzn_event *>, std::equal_to<dzn_event *>, events_allocator>::iterator;
    std::unordered_map<dzn_event *, enum event_state, std::hash<dzn_event *>, std::equal_to<dzn_event *>, events_allocator> events;
 
-   using heaps_allocator = dzn_allocator<dzn_descriptor_heap>;
-   std::vector<dzn_descriptor_heap, heaps_allocator> heaps;
+   dzn_descriptor_heap_pool cbv_srv_uav_pool, sampler_pool, rtv_pool, dsv_pool;
+
+   uint32_t dsv_heap_offset = 0, rtv_heap_offset = 0;
+   dzn_hash_table<std::pair<const struct dzn_image *,D3D12_RENDER_TARGET_VIEW_DESC>, D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
+   dzn_hash_table<std::pair<const struct dzn_image *,D3D12_DEPTH_STENCIL_VIEW_DESC>, D3D12_CPU_DESCRIPTOR_HANDLE> dsvs;
 
    VkCommandBufferUsageFlags usage_flags;
 
@@ -902,6 +929,11 @@ struct dzn_cmd_buffer {
                  uint32_t dispatch_buf_offset);
 
 private:
+   D3D12_CPU_DESCRIPTOR_HANDLE
+   get_dsv(const dzn_image *image, const D3D12_DEPTH_STENCIL_VIEW_DESC &desc);
+   D3D12_CPU_DESCRIPTOR_HANDLE
+   get_rtv(const dzn_image *image, const D3D12_RENDER_TARGET_VIEW_DESC &desc);
+
    void collect_queries(const queries_iterator &first_iter,
                         uint32_t query_count);
    void collect_queries(dzn_query_pool *qpool,
@@ -1369,14 +1401,12 @@ struct dzn_image {
                 VkImageAspectFlagBits aspect,
                 uint32_t layer) const;
 
-   void create_rtv(dzn_device *device,
-	           const VkImageSubresourceRange &range,
-	           uint32_t level,
-	           D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
-   void create_dsv(dzn_device *device,
-                   const VkImageSubresourceRange &range,
-                   uint32_t level,
-                   D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+   D3D12_RENDER_TARGET_VIEW_DESC
+   get_rtv_desc(const VkImageSubresourceRange &range,
+	        uint32_t level) const;
+   D3D12_DEPTH_STENCIL_VIEW_DESC
+   get_dsv_desc(const VkImageSubresourceRange &range,
+                uint32_t level) const;
 
    static DXGI_FORMAT
    get_dxgi_format(VkFormat format,
@@ -1396,9 +1426,8 @@ struct dzn_image_view {
 
    D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
    D3D12_UNORDERED_ACCESS_VIEW_DESC uav_desc = {};
-
-   struct d3d12_descriptor_handle rt_handle = {};
-   struct d3d12_descriptor_handle zs_handle = {};
+   D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
+   D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
 
    dzn_device *get_device() {
       return container_of(vk.base.device, dzn_device, vk);

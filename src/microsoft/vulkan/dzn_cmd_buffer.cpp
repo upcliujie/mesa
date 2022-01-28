@@ -184,7 +184,14 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
                                const VkAllocationCallbacks *pAllocator) :
    internal_bufs(bufs_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
    queries(queries_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
-   heaps(heaps_allocator(pAllocator ? pAllocator : &cmd_pool->alloc)),
+   cbv_srv_uav_pool(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                    true, pAllocator ? pAllocator : &cmd_pool->alloc),
+   sampler_pool(dev, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+                true, pAllocator ? pAllocator : &cmd_pool->alloc),
+   rtv_pool(dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+            false, pAllocator ? pAllocator : &cmd_pool->alloc),
+   dsv_pool(dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+            false, pAllocator ? pAllocator : &cmd_pool->alloc),
    submit(cmd_pool, pAllocator)
 {
    device = dev;
@@ -199,15 +206,6 @@ dzn_cmd_buffer::dzn_cmd_buffer(dzn_device *dev,
 
    if (vk.level != VK_COMMAND_BUFFER_LEVEL_PRIMARY)
       return;
-
-   struct d3d12_descriptor_pool *pool =
-      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
-
-   rtv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
-
-   pool = d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
-   dsv_pool = std::unique_ptr<struct d3d12_descriptor_pool, d3d12_descriptor_pool_deleter>(pool);
-
 
    if (FAILED(device->dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
                                                   IID_PPV_ARGS(&alloc)))) {
@@ -237,22 +235,19 @@ dzn_cmd_buffer::get_vk_allocator()
 void
 dzn_cmd_buffer::reset()
 {
-   /* TODO: Return heaps to the command pool instead of freeing them */
-   struct d3d12_descriptor_pool *new_rtv_pool =
-      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 16);
-   struct d3d12_descriptor_pool *new_dsv_pool =
-      d3d12_descriptor_pool_new(device->dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 16);
-
-   rtv_pool.reset(new_rtv_pool);
-   dsv_pool.reset(new_dsv_pool);
+   submit.cmdlist->Close();
+   submit.cmdlist->Reset(alloc.Get(), NULL);
 
    internal_bufs.clear();
    queries.clear();
    events.clear();
    submit.reset();
-
-   submit.cmdlist->Close();
-   submit.cmdlist->Reset(alloc.Get(), NULL);
+   rtvs.clear();
+   dsvs.clear();
+   cbv_srv_uav_pool.reset();
+   sampler_pool.reset();
+   rtv_pool.reset();
+   dsv_pool.reset();
 
    /* Reset the state */
    memset(&state, 0, sizeof(state));
@@ -472,6 +467,42 @@ dzn_cmd_buffer::pipeline_barrier(const VkDependencyInfoKHR *info)
    }
 }
 
+D3D12_CPU_DESCRIPTOR_HANDLE
+dzn_cmd_buffer::get_dsv(const dzn_image *image,
+                        const D3D12_DEPTH_STENCIL_VIEW_DESC &desc)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE handle;
+   std::pair<const dzn_image *,D3D12_DEPTH_STENCIL_VIEW_DESC> key(image, desc);
+   auto iter = dsvs.find(key);
+
+   if (iter != dsvs.end())
+      return iter->second;
+
+   auto slot = dsv_pool.allocate(device, 1);
+   handle = slot.first->get_cpu_handle(slot.second);
+   device->dev->CreateDepthStencilView(image->res.Get(), &desc, handle);
+   dsvs[key] = handle;
+   return handle;
+}
+
+D3D12_CPU_DESCRIPTOR_HANDLE
+dzn_cmd_buffer::get_rtv(const dzn_image *image,
+                        const D3D12_RENDER_TARGET_VIEW_DESC &desc)
+{
+   D3D12_CPU_DESCRIPTOR_HANDLE handle;
+   std::pair<const dzn_image *,D3D12_RENDER_TARGET_VIEW_DESC> key(image, desc);
+   auto iter = rtvs.find(key);
+
+   if (iter != rtvs.end())
+      return iter->second;
+
+   auto slot = rtv_pool.allocate(device, 1);
+   handle = slot.first->get_cpu_handle(slot.second);
+   device->dev->CreateRenderTargetView(image->res.Get(), &desc, handle);
+   rtvs[key] = handle;
+   return handle;
+}
+
 void
 dzn_cmd_buffer::clear_attachment(uint32_t idx,
                                  const VkClearValue *value,
@@ -492,7 +523,6 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
       .baseArrayLayer = view->vk.base_array_layer + base_layer,
       .layerCount = layer_count,
    };
-   struct d3d12_descriptor_handle view_handle;
    bool all_layers =
       base_layer == 0 &&
       (layer_count == view->vk.layer_count ||
@@ -506,19 +536,14 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
       if (aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
          flags |= D3D12_CLEAR_FLAG_STENCIL;
 
-      if (base_layer == 0 && (layer_count == view->vk.layer_count || layer_count == ~0)) {
-         view_handle = view->zs_handle;
-      } else {
-         d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), &view_handle);
-         view->get_image()->create_dsv(device, range, 0, view_handle.cpu_handle);
-      }
-
-      if (flags != 0)
-         submit.cmdlist->ClearDepthStencilView(view_handle.cpu_handle,
-                                               flags,
+      if (flags != 0) {
+         auto desc = view->get_image()->get_dsv_desc(range, 0);
+         auto handle = get_dsv(view->get_image(), desc);
+         submit.cmdlist->ClearDepthStencilView(handle, flags,
                                                value->depthStencil.depth,
                                                value->depthStencil.stencil,
                                                rect_count, rects);
+      }
    } else if (aspects & VK_IMAGE_ASPECT_COLOR_BIT) {
       float vals[4];
       if (vk_format_is_sint(view->vk.format)) {
@@ -535,16 +560,10 @@ dzn_cmd_buffer::clear_attachment(uint32_t idx,
          for (uint32_t i = 0; i < 4; i++)
             vals[i] = value->color.float32[i];
       }
-      if (base_layer == 0 &&
-          (layer_count == view->vk.layer_count ||
-          layer_count == VK_REMAINING_ARRAY_LAYERS)) {
-         view_handle = view->rt_handle;
-      } else {
-         d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &view_handle);
-         view->get_image()->create_rtv(device, range, 0, view_handle.cpu_handle);
-      }
-      submit.cmdlist->ClearRenderTargetView(view_handle.cpu_handle,
-                                            vals, rect_count, rects);
+
+      auto desc = view->get_image()->get_rtv_desc(range, 0);
+      auto handle = get_rtv(view->get_image(), desc);
+      submit.cmdlist->ClearRenderTargetView(handle, vals, rect_count, rects);
    }
 }
 
@@ -721,8 +740,6 @@ dzn_cmd_buffer::clear(const dzn_image *image,
       uint32_t level_count = dzn_get_level_count(image, &range);
 
       for (uint32_t lvl = 0; lvl < level_count; lvl++) {
-         struct d3d12_descriptor_handle handle;
-
          D3D12_RESOURCE_BARRIER barrier = {
             .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
             .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
@@ -749,10 +766,9 @@ dzn_cmd_buffer::clear(const dzn_image *image,
             view_range.layerCount = u_minify(image->vk.extent.depth, range.baseMipLevel + lvl);
          }
 
-         d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &handle);
-         image->create_rtv(device, view_range, lvl, handle.cpu_handle);
-         submit.cmdlist->ClearRenderTargetView(handle.cpu_handle,
-                                               clear_vals, 0, NULL);
+         auto desc = image->get_rtv_desc(view_range, lvl);
+         auto handle = get_rtv(image, desc);
+         submit.cmdlist->ClearRenderTargetView(handle, clear_vals, 0, NULL);
 
          if (barrier.Transition.StateBefore != barrier.Transition.StateAfter) {
             std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
@@ -789,8 +805,6 @@ dzn_cmd_buffer::clear(const dzn_image *image,
          flags |= D3D12_CLEAR_FLAG_STENCIL;
 
       for (uint32_t lvl = 0; lvl < level_count; lvl++) {
-         struct d3d12_descriptor_handle handle;
-
          D3D12_RESOURCE_BARRIER barrier = {
             .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
             .Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE,
@@ -811,9 +825,9 @@ dzn_cmd_buffer::clear(const dzn_image *image,
             }
          }
 
-         d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), &handle);
-         image->create_dsv(device, range, lvl, handle.cpu_handle);
-         submit.cmdlist->ClearDepthStencilView(handle.cpu_handle, flags,
+         auto desc = image->get_dsv_desc(range, lvl);
+         auto handle = get_dsv(image, desc);
+         submit.cmdlist->ClearDepthStencilView(handle, flags,
                                                zs->depth, zs->stencil,
                                                0, NULL);
 
@@ -1344,16 +1358,15 @@ dzn_cmd_buffer::blit_prepare_dst_view(dzn_image *img,
       .baseArrayLayer = layer,
       .layerCount = 1,
    };
-   struct d3d12_descriptor_handle handle;
 
    if (ds) {
-      d3d12_descriptor_pool_alloc_handle(dsv_pool.get(), &handle);
-      img->create_dsv(device, range, 0, handle.cpu_handle);
-      submit.cmdlist->OMSetRenderTargets(0, NULL, TRUE, &handle.cpu_handle);
+      auto desc = img->get_dsv_desc(range, 0);
+      auto handle = get_dsv(img, desc);
+      submit.cmdlist->OMSetRenderTargets(0, NULL, TRUE, &handle);
    } else {
-      d3d12_descriptor_pool_alloc_handle(rtv_pool.get(), &handle);
-      img->create_rtv(device, range, 0, handle.cpu_handle);
-      submit.cmdlist->OMSetRenderTargets(1, &handle.cpu_handle, FALSE, NULL);
+      auto desc = img->get_rtv_desc(range, 0);
+      auto handle = get_rtv(img, desc);
+      submit.cmdlist->OMSetRenderTargets(1, &handle, FALSE, NULL);
    }
 }
 
@@ -1588,22 +1601,22 @@ dzn_cmd_buffer::blit(const VkBlitImageInfo2KHR *info)
    for (uint32_t r = 0; r < info->regionCount; r++)
       desc_count += util_bitcount(info->pRegions[r].srcSubresource.aspectMask);
 
-   auto heap =
-      dzn_descriptor_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, desc_count, true);
+   auto descs = cbv_srv_uav_pool.allocate(device, desc_count);
 
-   heaps.push_back(heap);
+   ID3D12DescriptorHeap * const heaps[] = { *descs.first };
+   if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]) {
+      state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+      submit.cmdlist->SetDescriptorHeaps(ARRAY_SIZE(heaps), heaps);
+   }
 
-   ID3D12DescriptorHeap * const heaps[] = { heap };
-   submit.cmdlist->SetDescriptorHeaps(ARRAY_SIZE(heaps), heaps);
    submit.cmdlist->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
    uint32_t heap_offset = 0;
    for (uint32_t r = 0; r < info->regionCount; r++)
-      blit(info, heap, heap_offset, r);
+      blit(info, *descs.first, descs.second, r);
 
    state.pipeline = NULL;
    state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
-   state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
    if (state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline) {
       state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
          DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
@@ -1679,22 +1692,22 @@ dzn_cmd_buffer::resolve(const VkResolveImageInfo2KHR *info)
    for (uint32_t r = 0; r < info->regionCount; r++)
       desc_count += util_bitcount(info->pRegions[r].srcSubresource.aspectMask);
 
-   auto heap =
-      dzn_descriptor_heap(device, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, desc_count, true);
+   auto descs = cbv_srv_uav_pool.allocate(device, desc_count);
 
-   heaps.push_back(heap);
+   ID3D12DescriptorHeap * const heaps[] = { *descs.first };
+   if (heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] != state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV]) {
+      state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV];
+      submit.cmdlist->SetDescriptorHeaps(ARRAY_SIZE(heaps), heaps);
+   }
 
-   ID3D12DescriptorHeap * const heaps[] = { heap };
-   submit.cmdlist->SetDescriptorHeaps(ARRAY_SIZE(heaps), heaps);
    submit.cmdlist->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
    uint32_t heap_offset = 0;
    for (uint32_t r = 0; r < info->regionCount; r++)
-      resolve(info, heap, heap_offset, r);
+      resolve(info, *descs.first, descs.second, r);
 
    state.pipeline = NULL;
    state.dirty |= DZN_CMD_DIRTY_VIEWPORTS | DZN_CMD_DIRTY_SCISSORS;
-   state.heaps[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] = heap;
    if (state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].pipeline) {
       state.bindpoint[VK_PIPELINE_BIND_POINT_GRAPHICS].dirty |=
          DZN_CMD_BINDPOINT_DIRTY_PIPELINE;
@@ -1840,11 +1853,14 @@ dzn_cmd_buffer::begin_subpass()
    for (uint32_t i = 0; i < subpass->color_count; i++) {
       if (subpass->colors[i].idx == VK_ATTACHMENT_UNUSED) continue;
 
-      rt_handles[i] = framebuffer->attachments[subpass->colors[i].idx]->rt_handle.cpu_handle;
+      auto iview = framebuffer->attachments[subpass->colors[i].idx];
+      rt_handles[i] = get_rtv(iview->get_image(), iview->rtv_desc);
    }
 
    if (subpass->zs.idx != VK_ATTACHMENT_UNUSED) {
-      zs_handle = framebuffer->attachments[subpass->zs.idx]->zs_handle.cpu_handle;
+      auto iview = framebuffer->attachments[subpass->zs.idx];
+
+      zs_handle = get_dsv(iview->get_image(), iview->dsv_desc);
    }
 
    submit.cmdlist->OMSetRenderTargets(subpass->color_count,
@@ -1995,8 +2011,11 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          continue;
 
       uint32_t dst_offset = 0;
-      auto dst_heap =
-         dzn_descriptor_heap(device, type, desc_count, true);
+      auto descs = type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV ?
+                   cbv_srv_uav_pool.allocate(device, desc_count) :
+                   sampler_pool.allocate(device, desc_count);
+      auto dst_heap = *descs.first;
+      auto dst_heap_offset = descs.second;
 
       for (uint32_t s = 0; s < MAX_SETS; s++) {
          const struct dzn_descriptor_set *set = desc_state->sets[s].set;
@@ -2006,7 +2025,7 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
          uint32_t set_desc_count = pipeline->sets[s].range_desc_count[type];
          if (set_desc_count) {
             set->pool->defragment_lock.lock_shared();
-            dst_heap.copy(set_heap_offset,
+            dst_heap.copy(dst_heap_offset + set_heap_offset,
                           set->pool->heaps[type],
                           set->heap_offsets[type],
                           set_desc_count);
@@ -2019,14 +2038,14 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
 	       uint32_t desc_heap_offset =
                   pipeline->sets[s].dynamic_buffer_heap_offsets[o].srv;
 
-               dst_heap.write_desc(set_heap_offset + desc_heap_offset,
+               dst_heap.write_desc(dst_heap_offset + set_heap_offset + desc_heap_offset,
                                    false,
                                    set->dynamic_buffers[o] +
                                    desc_state->sets[s].dynamic_offsets[o]);
 
                if (pipeline->sets[s].dynamic_buffer_heap_offsets[o].uav != ~0) {
                   desc_heap_offset = pipeline->sets[s].dynamic_buffer_heap_offsets[o].uav;
-                  dst_heap.write_desc(set_heap_offset + desc_heap_offset,
+                  dst_heap.write_desc(dst_heap_offset + set_heap_offset + desc_heap_offset,
                                       true,
                                       set->dynamic_buffers[o] +
                                       desc_state->sets[s].dynamic_offsets[o]);
@@ -2036,7 +2055,6 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
       }
 
       new_heaps[type] = dst_heap;
-      heaps.push_back(dst_heap);
    }
 
 set_heaps:

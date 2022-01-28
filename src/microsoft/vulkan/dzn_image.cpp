@@ -334,11 +334,9 @@ dzn_image::get_copy_loc(const VkImageSubresourceLayers &subres,
    return loc;
 }
 
-void
-dzn_image::create_dsv(dzn_device *device,
-                      const VkImageSubresourceRange &range,
-                      uint32_t level,
-                      D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+D3D12_DEPTH_STENCIL_VIEW_DESC
+dzn_image::get_dsv_desc(const VkImageSubresourceRange &range,
+                        uint32_t level) const
 {
    uint32_t layer_count = dzn_get_layer_count(this, &range);
    D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {
@@ -393,14 +391,12 @@ dzn_image::create_dsv(dzn_device *device,
       break;
    }
 
-   device->dev->CreateDepthStencilView(res.Get(), &dsv_desc, handle);
+   return dsv_desc;
 }
 
-void
-dzn_image::create_rtv(dzn_device *device,
-                      const VkImageSubresourceRange &range,
-                      uint32_t level,
-                      D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+D3D12_RENDER_TARGET_VIEW_DESC
+dzn_image::get_rtv_desc(const VkImageSubresourceRange &range,
+                        uint32_t level) const
 {
    uint32_t layer_count = dzn_get_layer_count(this, &range);
    D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {
@@ -477,7 +473,7 @@ dzn_image::create_rtv(dzn_device *device,
       break;
    }
 
-   device->dev->CreateRenderTargetView(res.Get(), &rtv_desc, handle);
+   return rtv_desc;
 }
 
 D3D12_RESOURCE_STATES
@@ -974,7 +970,6 @@ dzn_image_view::dzn_image_view(dzn_device *device,
    }
 
    if (image->vk.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-      D3D12_RENDER_TARGET_VIEW_DESC rtv_desc = {};
       rtv_desc.Format =
          dzn_image::get_dxgi_format(pCreateInfo->format,
                                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -1015,14 +1010,9 @@ dzn_image_view::dzn_image_view(dzn_device *device,
          break;
       default: unreachable("Invalid dimension");
       }
-
-      device->alloc_rtv_handle(&rt_handle);
-      device->dev->CreateRenderTargetView(image->res.Get(), &rtv_desc,
-                                          rt_handle.cpu_handle);
    }
 
    if (image->vk.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
-      D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = { };
       dsv_desc.Format =
          dzn_image::get_dxgi_format(pCreateInfo->format,
                                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
@@ -1055,23 +1045,12 @@ dzn_image_view::dzn_image_view(dzn_device *device,
          break;
       default: unreachable("Invalid dimension");
       }
-
-      device->alloc_dsv_handle(&zs_handle);
-      device->dev->CreateDepthStencilView(image->res.Get(), &dsv_desc,
-                                          zs_handle.cpu_handle);
    }
-
 }
 
 dzn_image_view::~dzn_image_view()
 {
    vk_image_view_finish(&vk);
-
-   if (rt_handle.cpu_handle.ptr)
-      get_device()->free_handle(&rt_handle);
-
-   if (zs_handle.cpu_handle.ptr)
-      get_device()->free_handle(&zs_handle);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
