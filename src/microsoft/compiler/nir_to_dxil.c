@@ -4290,7 +4290,8 @@ emit_deref(struct ntd_context* ctx, nir_deref_instr* instr)
    assert(glsl_type_is_sampler(type) || glsl_type_is_image(type) || glsl_type_is_texture(type));
    enum dxil_resource_class res_class;
    if (glsl_type_is_image(type)) {
-      if (var->data.access & ACCESS_NON_WRITEABLE)
+      if (ctx->opts->environment == DXIL_ENVIRONMENT_VULKAN &&
+          (var->data.access & ACCESS_NON_WRITEABLE))
          res_class = DXIL_RESOURCE_CLASS_SRV;
       else
          res_class = DXIL_RESOURCE_CLASS_UAV;
@@ -5178,8 +5179,9 @@ emit_module(struct ntd_context *ctx, const struct nir_to_dxil_options *opts)
       if (glsl_type_is_texture(glsl_without_array(var->type))) {
          if (!emit_srv(ctx, var, glsl_type_get_texture_count(var->type)))
             return false;
-      } else if (glsl_type_is_image(glsl_without_array(var->type)) &&
-               ((var->data.access & ACCESS_NON_WRITEABLE))) {
+      } else if (ctx->opts->environment == DXIL_ENVIRONMENT_VULKAN &&
+                 glsl_type_is_image(glsl_without_array(var->type)) &&
+                 (var->data.access & ACCESS_NON_WRITEABLE)) {
          if (!emit_srv(ctx, var, glsl_type_get_image_count(var->type)))
             return false;
       }
@@ -5266,7 +5268,8 @@ emit_module(struct ntd_context *ctx, const struct nir_to_dxil_options *opts)
    }
 
    nir_foreach_image_variable(var, ctx->shader) {
-      if (var && var->data.access & ACCESS_NON_WRITEABLE)
+      if (ctx->opts->environment == DXIL_ENVIRONMENT_VULKAN &&
+          (var && var->data.access & ACCESS_NON_WRITEABLE))
          continue; // already handled in SRV
 
       if (!emit_uav_var(ctx, var, glsl_type_get_image_count(var->type)))
