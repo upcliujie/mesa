@@ -37,6 +37,7 @@
 
 #include "util/mesa-sha1.h"
 #include "vk_descriptors.h"
+#include "vk_descriptor_update_template.h"
 #include "vk_util.h"
 
 #include "pan_bo.h"
@@ -372,4 +373,115 @@ panvk_per_arch(UpdateDescriptorSets)(VkDevice _device,
       panvk_per_arch(write_descriptor_set)(dev, &pDescriptorWrites[i]);
    for (unsigned i = 0; i < descriptorCopyCount; i++)
       panvk_copy_descriptor_set(dev, &pDescriptorCopies[i]);
+}
+
+static void
+panvk_per_arch(descriptor_set_write_template)(struct panvk_device *device,
+                                              struct panvk_descriptor_set *set,
+                                              const struct vk_descriptor_update_template *template,
+                                              const void *data)
+{
+   const struct panvk_descriptor_set_layout *layout = set->layout;
+   struct mali_uniform_buffer_packed *ubos = set->ubos;
+   struct mali_sampler_packed *samplers = set->samplers;
+
+   for (uint32_t i = 0; i < template->entry_count; i++) {
+      const struct vk_descriptor_template_entry *entry =
+         &template->entries[i];
+
+      if (entry->array_count == 0)
+         continue;
+
+      const struct panvk_descriptor_set_binding_layout *binding_layout =
+         &layout->bindings[entry->binding];
+      struct panvk_descriptor *descs =
+         &set->descs[binding_layout->desc_idx + entry->array_element];
+
+      switch (entry->type) {
+      case VK_DESCRIPTOR_TYPE_SAMPLER:
+      case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+      case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+         for (unsigned j = 0; j < entry->array_count; j++) {
+            const VkDescriptorImageInfo *info =
+               data + entry->offset + j * entry->stride;
+
+            if ((entry->type == VK_DESCRIPTOR_TYPE_SAMPLER ||
+                 entry->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) &&
+                !binding_layout->immutable_samplers) {
+               unsigned sampler = binding_layout->sampler_idx +
+                                  entry->array_element + j;
+
+               panvk_set_sampler_desc(&samplers[sampler], info);
+            }
+
+            if (entry->type == VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE ||
+                entry->type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+               unsigned tex = binding_layout->tex_idx +
+                              entry->array_element + j;
+
+               panvk_per_arch(set_texture_desc)(set, tex, info);
+            }
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+         for (unsigned j = 0; j < entry->array_count; j++) {
+            const VkDescriptorImageInfo *info =
+               data + entry->offset + j * entry->stride;
+
+            panvk_set_image_desc(&descs[j], info);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+         for (unsigned j = 0; j < entry->array_count; j++) {
+            const VkBufferView *view =
+               data + entry->offset + j * entry->stride;
+
+            panvk_set_texel_buffer_view_desc(&descs[j], view);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+         for (unsigned j = 0; j < entry->array_count; j++) {
+            const VkDescriptorBufferInfo *info =
+               data + entry->offset + j * entry->stride;
+
+            unsigned ubo = binding_layout->ubo_idx +
+                           entry->array_element + j;
+
+            panvk_per_arch(set_ubo_desc)(&ubos[ubo], info);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+         for (unsigned j = 0; j < entry->array_count; j++) {
+            const VkDescriptorBufferInfo *info =
+               data + entry->offset + j * entry->stride;
+
+            panvk_set_buffer_info_desc(&descs[j], info);
+         }
+         break;
+      default:
+         unreachable("Invalid type");
+      }
+   }
+}
+
+void
+panvk_per_arch(UpdateDescriptorSetWithTemplate)(VkDevice _device,
+                                                VkDescriptorSet descriptorSet,
+                                                VkDescriptorUpdateTemplate descriptorUpdateTemplate,
+                                                const void *pData)
+{
+   VK_FROM_HANDLE(panvk_device, device, _device);
+   VK_FROM_HANDLE(panvk_descriptor_set, set, descriptorSet);
+   VK_FROM_HANDLE(vk_descriptor_update_template, template,
+                  descriptorUpdateTemplate);
+
+   panvk_per_arch(descriptor_set_write_template)(device, set, template, pData);
 }
