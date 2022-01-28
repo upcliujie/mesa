@@ -3606,21 +3606,6 @@ anv_pipeline_finish(struct anv_pipeline *pipeline,
                     struct anv_device *device,
                     const VkAllocationCallbacks *pAllocator);
 
-VkResult
-anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
-                        struct anv_pipeline_cache *cache,
-                        const VkComputePipelineCreateInfo *info,
-                        const struct vk_shader_module *module,
-                        const char *entrypoint,
-                        const VkSpecializationInfo *spec_info);
-
-VkResult
-anv_ray_tracing_pipeline_init(struct anv_ray_tracing_pipeline *pipeline,
-                              struct anv_device *device,
-                              struct anv_pipeline_cache *cache,
-                              const VkRayTracingPipelineCreateInfoKHR *pCreateInfo,
-                              const VkAllocationCallbacks *alloc);
-
 struct anv_format_plane {
    enum isl_format isl_format:16;
    struct isl_swizzle swizzle;
