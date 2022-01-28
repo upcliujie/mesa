@@ -933,7 +933,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
    }
 
    if (gl_shader_stage_is_compute(nir->info.stage) ||
-       brw_shader_stage_is_mesh(nir->info.stage))
+       gl_shader_stage_is_mesh(nir->info.stage))
       NIR_PASS_V(nir, brw_nir_lower_cs_intrinsics);
 
    stage->nir = nir;
