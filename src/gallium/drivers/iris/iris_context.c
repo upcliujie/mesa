@@ -98,12 +98,12 @@ iris_get_device_reset_status(struct pipe_context *ctx)
    /* Check the reset status of each batch's hardware context, and take the
     * worst status (if one was guilty, proclaim guilt).
     */
-   for (int i = 0; i < IRIS_BATCH_COUNT; i++) {
+   iris_foreach_batch(ice, batch) {
       /* This will also recreate the hardware contexts as necessary, so any
        * future queries will show no resets.  We only want to report once.
        */
       enum pipe_reset_status batch_reset =
-         iris_batch_check_for_reset(&ice->batches[i]);
+         iris_batch_check_for_reset(batch);
 
       if (batch_reset == PIPE_NO_RESET)
          continue;
@@ -364,6 +364,9 @@ iris_create_context(struct pipe_screen *pscreen, void *priv, unsigned flags)
 
    if (INTEL_DEBUG(DEBUG_BATCH))
       ice->state.sizes = _mesa_hash_table_u64_create(ice);
+
+   for (int i = 0; i < IRIS_BATCH_COUNT; i++)
+      ice->batches[i].screen = screen;
 
    /* Do this before initializing the batches */
    iris_utrace_init(ice);
