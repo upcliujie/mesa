@@ -176,8 +176,8 @@ va_pack_alu(const bi_instr *I)
    struct va_opcode_info info = valhall_opcodes[I->op];
    uint64_t hex = 0;
 
-   /* Add FREXP flags */
    switch (I->op) {
+   /* Add FREXP flags */
    case BI_OPCODE_FREXPE_F32:
    case BI_OPCODE_FREXPE_V2F16:
    case BI_OPCODE_FREXPM_F32:
@@ -191,6 +191,14 @@ va_pack_alu(const bi_instr *I)
    case BI_OPCODE_MUX_V2I16:
    case BI_OPCODE_MUX_V4I8:
       hex |= (uint64_t) I->mux << 32;
+      break;
+
+   /* Add .eq flag */
+   case BI_OPCODE_BRANCHZ_I16:
+   case BI_OPCODE_BRANCHZI:
+      assert(I->cmpf == BI_CMPF_EQ || I->cmpf == BI_CMPF_NE);
+
+      if (I->cmpf == BI_CMPF_EQ) hex |= (1ull << 36);
       break;
 
    default:
@@ -429,7 +437,7 @@ va_pack_typed_load(const bi_instr *I)
 }
 
 uint64_t
-va_pack_instr(const bi_instr *I, unsigned action)
+va_pack_instr(const bi_instr *I, unsigned action, bool blend_shader)
 {
    enum va_immediate_mode fau_mode = va_select_fau_mode(I);
    struct va_opcode_info info = valhall_opcodes[I->op];
@@ -531,12 +539,13 @@ va_pack_instr(const bi_instr *I, unsigned action)
       break;
 
    case BI_OPCODE_BRANCHZ_I16:
-      assert(I->cmpf == BI_CMPF_EQ || I->cmpf == BI_CMPF_NE);
-
       hex |= va_pack_alu(I);
-      if (I->cmpf == BI_CMPF_EQ) hex |= (1ull << 36);
       hex |= ((uint64_t) I->branch_offset & BITFIELD_MASK(27)) << 8;
+      break;
 
+   case BI_OPCODE_BRANCHZI:
+      hex |= va_pack_alu(I);
+      hex |= (0x1ull << 40); // unknown
       break;
 
    case BI_OPCODE_IADD_IMM_I32:
@@ -569,6 +578,9 @@ va_pack_instr(const bi_instr *I, unsigned action)
 
       /* Staging register #1 - coverage task */
       hex |= ((uint64_t) va_pack_reg(I->src[1])) << 16;
+
+      if (blend_shader)
+         hex |= (0x40ull << 16); // flags
 
       /* Register format */
       hex |= va_pack_register_format(I) << 24;
@@ -698,6 +710,10 @@ va_last_in_block(bi_block *block, bi_instr *I)
 static bool
 va_should_return(bi_block *block, bi_instr *I)
 {
+   // TODO: return semantics wat?
+   if (I->op == BI_OPCODE_BLEND)
+      return true;
+
    /* Don't return within a block */
    if (!va_last_in_block(block, I))
       return false;
@@ -716,6 +732,10 @@ va_should_return(bi_block *block, bi_instr *I)
 static unsigned
 va_pack_action(bi_block *block, bi_instr *I)
 {
+   // TODO: make blend shaders work..
+   if (I->op == BI_OPCODE_BRANCHZI)
+      return 0x1;
+
    /* .return */
    if (va_should_return(block, I))
       return 0x7 | 0x8;
@@ -820,7 +840,7 @@ bi_pack_valhall(bi_context *ctx, struct util_dynarray *emission)
             va_lower_branch_target(ctx, block, I);
 
          unsigned action = va_pack_action(block, I);
-         uint64_t hex = va_pack_instr(I, action);
+         uint64_t hex = va_pack_instr(I, action, ctx->inputs->is_blend);
          util_dynarray_append(emission, uint64_t, hex);
       }
    }
