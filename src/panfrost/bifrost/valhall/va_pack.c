@@ -680,6 +680,12 @@ va_pack_instr(const bi_instr *I, unsigned action, bool blend_shader)
       break;
    }
 
+   case BI_OPCODE_LD_TILE:
+   {
+      hex |= va_pack_typed_load(I);
+      break;
+   }
+
    case BI_OPCODE_LEA_ATTR_TEX:
    case BI_OPCODE_ST_CVT:
    case BI_OPCODE_ZS_EMIT:
