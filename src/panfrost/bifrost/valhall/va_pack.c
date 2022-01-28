@@ -474,7 +474,7 @@ va_pack_typed_load(const bi_instr *I)
 =======
 >>>>>>> dbaff101c6a ([HACK] pan/bi: Extend IR for Valhall texturing)
 uint64_t
-va_pack_instr(const bi_instr *I, unsigned action)
+va_pack_instr(const bi_instr *I, unsigned action, bool blend_shader)
 {
    enum va_immediate_mode fau_mode = va_select_fau_mode(I);
    struct va_opcode_info info = valhall_opcodes[I->op];
@@ -615,6 +615,9 @@ va_pack_instr(const bi_instr *I, unsigned action)
 
       /* Staging register #1 - coverage task */
       hex |= ((uint64_t) va_pack_reg(I->src[1])) << 16;
+
+      if (blend_shader)
+         hex |= (0x40ull << 16); // flags
 
       /* Register format */
       hex |= va_pack_register_format(I) << 24;
@@ -881,7 +884,7 @@ bi_pack_valhall(bi_context *ctx, struct util_dynarray *emission)
             va_lower_branch_target(ctx, block, I);
 
          unsigned action = va_pack_action(block, I);
-         uint64_t hex = va_pack_instr(I, action);
+         uint64_t hex = va_pack_instr(I, action, ctx->inputs->is_blend);
          util_dynarray_append(emission, uint64_t, hex);
       }
    }

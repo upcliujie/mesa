@@ -547,7 +547,7 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T,
         uint64_t blend_desc = inputs->blend.bifrost_blend_desc;
         enum bi_register_format regfmt = bi_reg_fmt_for_nir(T);
 
-        if (b->shader->arch >= 9) {
+        if (b->shader->arch >= 9 && !inputs->is_blend) {
                 bi_instr *I = bi_nop(b);
                 I->action = 0x1 | 0x8; /* .barrier */
         }
@@ -559,15 +559,18 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T,
                                 bi_imm_u32(blend_desc >> 32), BI_VECSIZE_V4);
         } else if (b->shader->inputs->is_blend) {
                 uint64_t blend_desc = b->shader->inputs->blend.bifrost_blend_desc;
+                bi_index desc_hi = bi_imm_u32(blend_desc >> 32);
+
+                bi_index bd = bi_temp_reg(b->shader);
+                bi_index words[] = { bi_imm_u32(blend_desc), desc_hi };
+                bi_make_vec_to(b, bd, words, NULL, 2, 32);
 
                 /* Blend descriptor comes from the compile inputs */
                 /* Put the result in r0 */
-                bi_index desc_hi = bifrost ? bi_imm_u32(blend_desc >> 32)
-                                           : bi_null();
 
                 bi_blend_to(b, bifrost ? bi_register(0) : bi_null(), rgba,
                                 bi_register(60),
-                                bi_imm_u32(blend_desc & 0xffffffff),
+                                bd,
                                 desc_hi,
                                 bi_null(), regfmt, sr_count, 0);
         } else {
@@ -584,7 +587,7 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T,
                                 rgba2, regfmt, sr_count, sr_count_2);
 
                 if (b->shader->arch >= 9)
-                        bi_mov_i32_to(b, bi_register(48), bi_zero());
+                        bi_mov_i32_to(b, bi_register(54), bi_zero());
         }
 
         assert(rt < 8);
@@ -592,6 +595,9 @@ bi_emit_blend_op(bi_builder *b, bi_index rgba, nir_alu_type T,
 
         if (T2)
                 b->shader->info.bifrost->blend_src1_type = T2;
+
+        if (b->shader->arch >= 9 && !inputs->is_blend)
+                bi_jump(b, bi_fau(BIR_FAU_BLEND_0 + rt, true));
 }
 
 /* Blend shaders do not need to run ATEST since they are dependent on a
@@ -721,9 +727,9 @@ bi_emit_fragment_out(bi_builder *b, nir_intrinsic_instr *instr)
                                     color2, T2, rt);
         }
 
-        if (b->shader->inputs->is_blend) {
+        if (b->shader->inputs->is_blend && b->shader->arch <= 8) {
                 /* Jump back to the fragment shader, return address is stored
-                 * in r48 (see above).
+                 * in r48 (see above). The return on Valhall is implicit.
                  */
                 bi_jump(b, bi_register(48));
         }
