@@ -2211,6 +2211,8 @@ wsi_display_finish_wsi(struct wsi_device *wsi_device,
          wsi_for_each_display_mode(mode, connector) {
             vk_free(wsi->alloc, mode);
          }
+         if (connector->name)
+            vk_free(wsi->alloc, connector->name);
          vk_free(wsi->alloc, connector);
       }
 
