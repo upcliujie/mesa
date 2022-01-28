@@ -61,7 +61,7 @@
 #include <atomic>
 #include <map>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -577,7 +577,7 @@ struct dzn_buffer_desc {
    dzn_buffer_desc(const dzn_buffer_desc &) = default;
    ~dzn_buffer_desc() = default;
 
-   dzn_buffer_desc operator+(VkDeviceSize dyn_offset)
+   dzn_buffer_desc operator+(VkDeviceSize dyn_offset) const
    {
       dzn_buffer_desc new_desc(*this);
 
@@ -622,6 +622,10 @@ struct dzn_descriptor_heap {
              const dzn_descriptor_heap &src_heap,
              uint32_t src_offset,
              uint32_t desc_count);
+
+   uint32_t get_desc_count() const {
+      return desc_count;
+   }
 
    static bool type_depends_on_shader_usage(VkDescriptorType type);
 
@@ -1028,8 +1032,16 @@ struct dzn_descriptor_pool {
              const VkDescriptorSet *pDescriptorSets);
    VkResult reset(dzn_device *device);
 
-   using sets_allocator = dzn_allocator<dzn_object_unique_ptr<dzn_descriptor_set>>;
-   dzn_object_vector<dzn_descriptor_set> sets;
+   uint32_t set_count;
+   uint32_t used_set_count = 0;
+   dzn_descriptor_set *sets;
+   dzn_descriptor_heap heaps[NUM_POOL_TYPES];
+   uint32_t desc_count[NUM_POOL_TYPES] = {};
+   uint32_t used_desc_count[NUM_POOL_TYPES] = {};
+   uint32_t free_offset[NUM_POOL_TYPES] = {};
+
+   VkResult defragment_heap(D3D12_DESCRIPTOR_HEAP_TYPE type);
+   std::shared_mutex defragment_lock;
 };
 
 #define MAX_SHADER_VISIBILITIES (D3D12_SHADER_VISIBILITY_PIXEL + 1)
@@ -1072,15 +1084,14 @@ struct dzn_descriptor_set_layout {
 
 struct dzn_descriptor_set {
    struct vk_object_base base;
-   dzn_descriptor_heap heaps[NUM_POOL_TYPES];
-   struct dzn_buffer_desc *dynamic_buffers;
-   uint32_t index;
+   struct dzn_buffer_desc dynamic_buffers[MAX_DYNAMIC_BUFFERS];
    dzn_descriptor_pool *pool;
+   uint32_t heap_offsets[NUM_POOL_TYPES] = {};
+   uint32_t heap_sizes[NUM_POOL_TYPES] = {};
+   const struct dzn_descriptor_set_layout *layout = NULL;
 
    dzn_descriptor_set(dzn_device *device,
-                      dzn_descriptor_pool *pool,
-                      VkDescriptorSetLayout layout,
-                      const VkAllocationCallbacks *pAllocator);
+                      dzn_descriptor_pool *pool);
    ~dzn_descriptor_set();
 
    void write(const VkWriteDescriptorSet *pDescriptorWrite);
@@ -1088,7 +1099,6 @@ struct dzn_descriptor_set {
    const VkAllocationCallbacks *get_vk_allocator();
 
 private:
-   const struct dzn_descriptor_set_layout *layout;
    struct range {
       struct iterator {
          uint32_t binding;

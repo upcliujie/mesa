@@ -689,16 +689,87 @@ desc_type_to_heap_type(VkDescriptorType in)
 
 dzn_descriptor_pool::dzn_descriptor_pool(dzn_device *device,
                                          const VkDescriptorPoolCreateInfo *pCreateInfo,
-                                         const VkAllocationCallbacks *pAllocator) :
-   sets(sets_allocator(pAllocator ? pAllocator : &device->vk.alloc, VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+                                         const VkAllocationCallbacks *pAllocator)
 {
+   for (uint32_t p = 0; p < pCreateInfo->poolSizeCount; p++) {
+      VkDescriptorType type = pCreateInfo->pPoolSizes[p].type;
+      uint32_t num_desc = pCreateInfo->pPoolSizes[p].descriptorCount;
+
+      switch (type) {
+      case VK_DESCRIPTOR_TYPE_SAMPLER:
+         desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] += num_desc;
+         break;
+      case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+         desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] += num_desc;
+         desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER] += num_desc;
+         break;
+      case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+         desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] += num_desc;
+         break;
+      case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+         /* Reserve one UAV and one SRV slot for those. */
+         desc_count[D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV] += num_desc * 2;
+         break;
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+         break;
+      default:
+         unreachable("Unsupported desc type");
+      }
+   }
+
    alloc = pAllocator ? *pAllocator : device->vk.alloc;
+   set_count = pCreateInfo->maxSets;
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_POOL);
+
+   for (uint32_t s = 0; s < set_count; s++)
+      std::construct_at(&sets[s], device, this);
+
+   dzn_foreach_pool_type(type) {
+      if (desc_count[type])
+         heaps[type] = dzn_descriptor_heap(device, type, desc_count[type], false);
+   }
 }
 
 dzn_descriptor_pool::~dzn_descriptor_pool()
 {
+   for (uint32_t s = 0; s < set_count; s++)
+      std::destroy_at(&sets[s]);
+
    vk_object_base_finish(&base);
+}
+
+VkResult
+dzn_descriptor_pool::defragment_heap(D3D12_DESCRIPTOR_HEAP_TYPE type)
+{
+   dzn_device *device = container_of(base.device, dzn_device, vk);
+
+   try {
+      dzn_descriptor_heap new_heap(device, type, heaps[type].get_desc_count(), false);
+
+      std::lock_guard<std::shared_mutex> excl_lock(defragment_lock);
+      uint32_t heap_offset = 0;
+      for (uint32_t s = 0; s < set_count; s++) {
+         if (!sets[s].layout)
+            continue;
+
+         new_heap.copy(heap_offset, heaps[type], sets[s].heap_offsets[type], sets[s].heap_sizes[type]);
+         sets[s].heap_offsets[type] = heap_offset;
+         heap_offset += sets[s].heap_sizes[type];
+      }
+
+      heaps[type] = new_heap;
+      return VK_SUCCESS;
+   } catch (VkResult error) {
+      return error;
+   } catch (...) {
+      throw;
+   }
 }
 
 VkResult
@@ -709,26 +780,46 @@ dzn_descriptor_pool::allocate_sets(dzn_device *device,
    VkResult result;
    unsigned i;
 
+   if (pAllocateInfo->descriptorSetCount > (set_count - used_set_count))
+      return VK_ERROR_OUT_OF_POOL_MEMORY;
+
+   uint32_t set_idx = 0;
    for (i = 0; i < pAllocateInfo->descriptorSetCount; i++) {
-      dzn_descriptor_set *set;
-      result = dzn_descriptor_set_factory::create(device, this,
-                                                  pAllocateInfo->pSetLayouts[i],
-                                                  &alloc, &set);
-      if (result != VK_SUCCESS)
-         goto err_free_sets;
+      VK_FROM_HANDLE(dzn_descriptor_set_layout, layout, pAllocateInfo->pSetLayouts[i]);
 
-      dzn_object_unique_ptr<dzn_descriptor_set> set_ptr(set);
+      dzn_foreach_pool_type(type) {
+         if (used_desc_count[type] + layout->range_desc_count[type] > desc_count[type]) {
+            free_sets(device, i, pDescriptorSets);
+            result = VK_ERROR_OUT_OF_POOL_MEMORY;
+            goto err_free_sets;
+         }
 
-      set->index = sets.size();
-
-      try {
-         sets.resize(sets.size() + 1);
-      } catch (VkResult error) {
-         result = error;
-	 goto err_free_sets;
+         if (free_offset[type] + layout->range_desc_count[type] > desc_count[type]) {
+            result = defragment_heap(type);
+            if (result != VK_SUCCESS) {
+               free_sets(device, i, pDescriptorSets);
+               result = VK_ERROR_FRAGMENTED_POOL;
+               goto err_free_sets;
+            }
+         }
       }
 
-      sets[set->index].swap(set_ptr);
+      dzn_descriptor_set *set = NULL;
+      for (; set_idx < set_count; set_idx++) {
+         if (!sets[set_idx].layout) {
+            set = &sets[set_idx];
+            break;
+         }
+      }
+
+      set->layout = dzn_descriptor_set_layout_from_handle(pAllocateInfo->pSetLayouts[i]);
+      dzn_foreach_pool_type(type) {
+         set->heap_offsets[type] = free_offset[type];
+         set->heap_sizes[type] = layout->range_desc_count[type];
+         free_offset[type] += layout->range_desc_count[type];
+      }
+
+      vk_object_base_init(&device->vk, &set->base, VK_OBJECT_TYPE_DESCRIPTOR_SET);
       pDescriptorSets[i] = dzn_descriptor_set_to_handle(set);
    }
 
@@ -747,20 +838,28 @@ dzn_descriptor_pool::free_sets(dzn_device *device,
                                uint32_t count,
                                const VkDescriptorSet *pDescriptorSets)
 {
-   // TODO: keep resources around
-   for (uint32_t i = 0; i < count; i++) {
-      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[i]);
+   for (uint32_t s = 0; s < count; s++) {
+      VK_FROM_HANDLE(dzn_descriptor_set, set, pDescriptorSets[s]);
 
-      if (set) {
-         assert(sets.size() > 0);
+      assert(set->pool == this);
 
-         if (set->index != sets.size() - 1) {
-            auto &tmp_set = sets[set->index];
-            tmp_set.swap(sets[sets.size() - 1]);
-	    tmp_set->index = set->index;
-	 }
+      set->layout = NULL;
+      vk_object_base_finish(&set->base);
+   }
 
-         sets.pop_back();
+   dzn_foreach_pool_type(type)
+      free_offset[type] = 0;
+
+   for (uint32_t s = 0; s < set_count; s++) {
+      const dzn_descriptor_set *set = &sets[s];
+
+      if (set->layout) {
+         dzn_foreach_pool_type(type) {
+            free_offset[type] =
+               MAX2(free_offset[type],
+                    set->heap_offsets[type] +
+                    set->layout->range_desc_count[type]);
+         }
       }
    }
 
@@ -770,9 +869,32 @@ dzn_descriptor_pool::free_sets(dzn_device *device,
 VkResult
 dzn_descriptor_pool::reset(dzn_device *device)
 {
-   // TODO: keep resources around
-   sets.clear();
+   for (uint32_t s = 0; s < set_count; s++) {
+      sets[s].layout = NULL;
+      vk_object_base_finish(&sets[s].base);
+   }
+
+   dzn_foreach_pool_type(type)
+      free_offset[type] = 0;
+
    return VK_SUCCESS;
+}
+
+dzn_descriptor_pool *
+dzn_descriptor_pool_factory::allocate(dzn_device *device,
+                                      const VkDescriptorPoolCreateInfo *info,
+                                      const VkAllocationCallbacks *alloc)
+{
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_pool, pool, 1);
+   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set, sets, info->maxSets);
+
+   if (!vk_multialloc_zalloc2(&ma, &device->vk.alloc, alloc,
+                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+      return NULL;
+
+   pool->sets = sets;
+   return pool;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -976,20 +1098,8 @@ dzn_descriptor_heap::type_depends_on_shader_usage(VkDescriptorType type)
 }
 
 dzn_descriptor_set::dzn_descriptor_set(dzn_device *device,
-                                       dzn_descriptor_pool *p,
-                                       VkDescriptorSetLayout l,
-                                       const VkAllocationCallbacks *pAllocator)
+                                       dzn_descriptor_pool *p)
 {
-   layout = dzn_descriptor_set_layout_from_handle(l);
-
-   dzn_foreach_pool_type (type) {
-      if (layout->range_desc_count[type] == 0)
-         continue;
-
-      heaps[type] =
-         dzn_descriptor_heap(device, type, layout->range_desc_count[type], false);
-   }
-
    vk_object_base_init(&device->vk, &base, VK_OBJECT_TYPE_DESCRIPTOR_SET);
    pool = p;
 }
@@ -1003,28 +1113,6 @@ const VkAllocationCallbacks *
 dzn_descriptor_set::get_vk_allocator()
 {
    return &pool->alloc;
-}
-
-dzn_descriptor_set *
-dzn_descriptor_set_factory::allocate(dzn_device *device,
-                                     dzn_descriptor_pool *pool,
-                                     VkDescriptorSetLayout l,
-                                     const VkAllocationCallbacks *alloc)
-{
-   VK_FROM_HANDLE(dzn_descriptor_set_layout, layout, l);
-
-   /* TODO: Allocate from the pool! */
-   VK_MULTIALLOC(ma);
-   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_set, set, 1);
-   VK_MULTIALLOC_DECL(&ma, dzn_buffer_desc,
-                      dynamic_buffers, layout->dynamic_buffers.count);
-
-   if (!vk_multialloc_zalloc(&ma, &pool->alloc,
-                             VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
-      return NULL;
-
-   set->dynamic_buffers = dynamic_buffers;
-   return set;
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
@@ -1312,22 +1400,25 @@ dzn_descriptor_set::copy(const dzn_descriptor_set *src,
                continue;
             }
 
-            heaps[type].copy(dst_heap_offset,
-                             src->heaps[type],
-                             src_heap_offset,
-                             count);
+            src->pool->defragment_lock.lock_shared();
+            pool->defragment_lock.lock_shared();
+            pool->heaps[type].copy(heap_offsets[type] + dst_heap_offset,
+                                   src->pool->heaps[type],
+                                   src->heap_offsets[type] + src_heap_offset,
+                                   count);
 
-            if (!dzn_descriptor_heap::type_depends_on_shader_usage(src_type))
-               continue;
-
-            src_heap_offset = src_iter.get_heap_offset(type, true);
-            dst_heap_offset = dst_iter.get_heap_offset(type, true);
-            assert(src_heap_offset != ~0);
-            assert(dst_heap_offset != ~0);
-            heaps[type].copy(dst_heap_offset,
-                             src->heaps[type],
-                             src_heap_offset,
-                             count);
+            if (dzn_descriptor_heap::type_depends_on_shader_usage(src_type)) {
+               src_heap_offset = src_iter.get_heap_offset(type, true);
+               dst_heap_offset = dst_iter.get_heap_offset(type, true);
+               assert(src_heap_offset != ~0);
+               assert(dst_heap_offset != ~0);
+               pool->heaps[type].copy(heap_offsets[type] + dst_heap_offset,
+                                      src->pool->heaps[type],
+                                      src->heap_offsets[type] + src_heap_offset,
+                                      count);
+            }
+            pool->defragment_lock.unlock_shared();
+            src->pool->defragment_lock.unlock_shared();
          }
       }
 
@@ -1345,8 +1436,11 @@ dzn_descriptor_set::write_desc(const range::iterator &iter,
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
    uint32_t heap_offset = iter.get_heap_offset(type);
-   if (heap_offset != ~0)
-      heaps[type].write_desc(heap_offset, sampler);
+   if (heap_offset != ~0) {
+      pool->defragment_lock.lock_shared();
+      pool->heaps[type].write_desc(heap_offsets[type] + heap_offset, sampler);
+      pool->defragment_lock.unlock_shared();
+   }
 }
 
 void
@@ -1371,13 +1465,15 @@ dzn_descriptor_set::write_desc(const range::iterator &iter,
    if (heap_offset == ~0)
       return;
 
-   heaps[type].write_desc(heap_offset, false, args...);
+   pool->defragment_lock.lock_shared();
+   pool->heaps[type].write_desc(heap_offsets[type] + heap_offset, false, args...);
 
    if (dzn_descriptor_heap::type_depends_on_shader_usage(iter.get_vk_type())) {
       heap_offset = iter.get_heap_offset(type, true);
       assert(heap_offset != ~0);
-      heaps[type].write_desc(heap_offset, true, args...);
+      pool->heaps[type].write_desc(heap_offsets[type] + heap_offset, true, args...);
    }
+   pool->defragment_lock.unlock_shared();
 }
 
 VKAPI_ATTR void VKAPI_CALL

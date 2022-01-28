@@ -2004,8 +2004,14 @@ dzn_cmd_buffer::update_heaps(uint32_t bindpoint)
 
          uint32_t set_heap_offset = pipeline->sets[s].heap_offsets[type];
          uint32_t set_desc_count = pipeline->sets[s].range_desc_count[type];
-         if (set_desc_count)
-            dst_heap.copy(set_heap_offset, set->heaps[type], 0, set_desc_count);
+         if (set_desc_count) {
+            set->pool->defragment_lock.lock_shared();
+            dst_heap.copy(set_heap_offset,
+                          set->pool->heaps[type],
+                          set->heap_offsets[type],
+                          set_desc_count);
+            set->pool->defragment_lock.unlock_shared();
+         }
 
          if (type == D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) {
             uint32_t dynamic_buffer_count = pipeline->sets[s].dynamic_buffer_count;
