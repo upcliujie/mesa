@@ -218,5 +218,6 @@ panvk_GetRenderAreaGranularity(VkDevice _device,
                                VkRenderPass renderPass,
                                VkExtent2D *pGranularity)
 {
-   panvk_stub();
+   fprintf(stderr, "TODO: GetRenderAreaGranularity()\n");
+   *pGranularity = (VkExtent2D) { 1, 1 };
 }
