@@ -36,6 +36,11 @@ va_lower_isel(bi_instr *I)
       I->src[1] = bi_zero();
       break;
 
+   case BI_OPCODE_SWZ_V4I8:
+      I->op = BI_OPCODE_IADD_V4U8;
+      I->src[1] = bi_zero();
+      break;
+
    /* Needs to output the coverage mask */
    case BI_OPCODE_DISCARD_F32:
       assert(bi_is_null(I->dest[0]));
