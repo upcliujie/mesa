@@ -356,6 +356,9 @@ class BitSet(object):
             return min(self.gen_max, parent.get_gen_max())
         return self.gen_max
 
+    def has_gen_restriction(self):
+        return self.gen_min != 0 or self.gen_max != (1 << 32) - 1
+
     def get_c_name(self):
         return get_c_name(self.name)
 
@@ -464,15 +467,23 @@ class ISA(object):
             else:
                 dbg("derived: " + b.name)
             self.bitsets[b.name] = b
-            self.leafs[b.name]  = b
+            self.leafs.setdefault(b.name, []).append(b)
 
+    def validate_isa(self):
+        # Do one-time fixups
         # Remove non-leaf nodes from the leafs table:
-        for name, bitset in self.bitsets.items():
-            if bitset.extends is not None:
+        for name, bitsets in list(self.leafs.items()):
+            for bitset in bitsets:
                 if bitset.extends in self.leafs:
                     del self.leafs[bitset.extends]
 
-    def validate_isa(self):
+        # Fix multi-gen leaves in bitsets
+        for name, bitsets in self.leafs.items():
+            if len(bitsets) == 1:
+                continue
+
+            del self.bitsets[name]
+
         # Validate that all bitset fields have valid types, and in
         # the case of bitset type, the sizes match:
         builtin_types = ['branch', 'int', 'uint', 'hex', 'offset', 'uoffset', 'float', 'bool', 'enum']
@@ -502,11 +513,12 @@ class ISA(object):
 
         # Validate that all the leaf node bitsets have no remaining
         # undefined bits
-        for name, bitset in self.leafs.items():
-            pat = bitset.get_pattern()
-            sz  = bitset.get_size()
-            assert ((pat.mask | pat.field_mask) == (1 << sz) - 1), "leaf bitset {} has undefined bits: {:x}".format(
-                bitset.name, ~(pat.mask | pat.field_mask) & ((1 << sz) - 1))
+        for name, bitsets in self.leafs.items():
+            for bitset in bitsets:
+                pat = bitset.get_pattern()
+                sz  = bitset.get_size()
+                assert ((pat.mask | pat.field_mask) == (1 << sz) - 1), "leaf bitset {} has undefined bits: {:x}".format(
+                    bitset.name, ~(pat.mask | pat.field_mask) & ((1 << sz) - 1))
 
         # TODO somehow validating that only one bitset in a hierarchy
         # matches any given bit pattern would be useful.

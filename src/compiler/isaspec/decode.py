@@ -88,8 +88,8 @@ ${expr.get_c_name()}(struct decode_scope *scope)
  * emit various tables when they have pointers to each other)
  */
 
-%for name, bitset in isa.bitsets.items():
-static const struct isa_bitset bitset_${bitset.get_c_name()};
+%for name, bitset in all_bitsets(isa):
+static const struct isa_bitset bitset_${bitset.get_c_name()}_gen_${bitset.gen_min};
 %endfor
 
 %for root_name, root in isa.roots.items():
@@ -100,12 +100,12 @@ const struct isa_bitset *${root.get_c_name()}[];
  * bitset tables:
  */
 
-%for name, bitset in isa.bitsets.items():
+%for name, bitset in all_bitsets(isa):
 %   for case in bitset.cases:
 %      for field_name, field in case.fields.items():
 %         if field.get_c_typename() == 'TYPE_BITSET':
 %            if len(field.params) > 0:
-static const struct isa_field_params ${case.get_c_name()}_${field.get_c_name()} = {
+static const struct isa_field_params ${case.get_c_name()}_gen_${bitset.gen_min}_${field.get_c_name()} = {
        .num_params = ${len(field.params)},
        .params = {
 %               for param in field.params:
@@ -117,7 +117,7 @@ static const struct isa_field_params ${case.get_c_name()}_${field.get_c_name()} 
 %            endif
 %         endif
 %      endfor
-static const struct isa_case ${case.get_c_name()} = {
+static const struct isa_case ${case.get_c_name()}_gen_${bitset.gen_min} = {
 %   if case.expr is not None:
        .expr     = &${isa.expressions[case.expr].get_c_name()},
 %   endif
@@ -138,7 +138,7 @@ static const struct isa_case ${case.get_c_name()} = {
 %      if field.get_c_typename() == 'TYPE_BITSET':
             .bitsets = ${isa.roots[field.type].get_c_name()},
 %         if len(field.params) > 0:
-            .params = &${case.get_c_name()}_${field.get_c_name()},
+            .params = &${case.get_c_name()}_gen_${bitset.gen_min}_${field.get_c_name()},
 %         endif
 %      endif
 %      if field.get_c_typename() == 'TYPE_ENUM':
@@ -152,10 +152,10 @@ static const struct isa_case ${case.get_c_name()} = {
        },
 };
 %   endfor
-static const struct isa_bitset bitset_${bitset.get_c_name()} = {
+static const struct isa_bitset bitset_${bitset.get_c_name()}_gen_${bitset.gen_min} = {
 <% pattern = bitset.get_pattern() %>
 %   if bitset.extends is not None:
-       .parent   = &bitset_${isa.bitsets[bitset.extends].get_c_name()},
+       .parent   = &bitset_${isa.bitsets[bitset.extends].get_c_name()}_gen_${isa.bitsets[bitset.extends].gen_min},
 %   endif
        .name     = "${name}",
        .gen      = {
@@ -168,7 +168,7 @@ static const struct isa_bitset bitset_${bitset.get_c_name()} = {
        .num_cases = ${len(bitset.cases)},
        .cases    = {
 %   for case in bitset.cases:
-            &${case.get_c_name()},
+            &${case.get_c_name()}_gen_${bitset.gen_min},
 %   endfor
        },
 };
@@ -180,10 +180,12 @@ static const struct isa_bitset bitset_${bitset.get_c_name()} = {
 
 %for root_name, root in isa.roots.items():
 const struct isa_bitset *${root.get_c_name()}[] = {
-%   for leaf_name, leaf in isa.leafs.items():
-%      if leaf.get_root() == root:
-          &bitset_${leaf.get_c_name()},
-%      endif
+%   for leaf_name, leafs in isa.leafs.items():
+%      for leaf in leafs:
+%         if leaf.get_root() == root:
+             &bitset_${leaf.get_c_name()}_gen_${leaf.gen_min},
+%         endif
+%      endfor
 %   endfor
     (void *)0
 };
@@ -298,12 +300,21 @@ dst_h = sys.argv[4]
 
 isa = ISA(xml)
 
+def all_bitsets(isa):
+    for name, bitset in isa.bitsets.items():
+        yield name, bitset
+    for name, bitsets in isa.leafs.items():
+        if len(bitsets) == 1:
+            continue
+        for bitset in bitsets:
+            yield name, bitset
+
 with open(glue_h, 'w') as f:
     guard = os.path.basename(glue_h).upper().replace("-", "_").replace(".", "_")
     f.write(Template(glue).render(guard=guard, isa=os.path.basename(dst_h)))
 
 with open(dst_c, 'w') as f:
-    f.write(Template(template).render(isa=isa))
+    f.write(Template(template).render(isa=isa, all_bitsets=all_bitsets))
 
 with open(dst_h, 'w') as f:
     guard = os.path.basename(dst_h).upper().replace("-", "_").replace(".", "_")
