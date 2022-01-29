@@ -1123,6 +1123,11 @@ bi_emit_ld_tile(bi_builder *b, nir_intrinsic_instr *instr)
         unsigned rt = b->shader->inputs->blend.rt;
         unsigned size = nir_dest_bit_size(instr->dest);
 
+        if (b->shader->arch >= 9 && !b->shader->inputs->is_blend) {
+                bi_instr *I = bi_nop(b);
+                I->action = 0x1 | 0x8; /* .barrier */
+        }
+
         /* Get the render target */
         if (!b->shader->inputs->is_blend) {
                 const nir_variable *var =
