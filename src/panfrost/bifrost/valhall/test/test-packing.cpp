@@ -309,3 +309,11 @@ TEST_F(ValhallPacking, Convert16To32) {
    CASE(bi_s16_to_s32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), true, false))),
          0x0090c20010040077);
 }
+
+TEST_F(ValhallPacking, Swizzle8) {
+   bi_instr *I = bi_icmp_v4u8_to(b, bi_register(1), bi_byte(bi_register(0), 0),
+                                 zero, BI_CMPF_NE, BI_RESULT_TYPE_I1);
+   I->src[2] = zero; // TODO: model in the IR
+
+   CASE(I, 0x00f2c14300c0c000);
+}
