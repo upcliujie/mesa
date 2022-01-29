@@ -289,3 +289,23 @@ TEST_F(ValhallPacking, LdTile) {
                          BI_REGISTER_FORMAT_F16, BI_VECSIZE_V3),
         0x0078840423033c40);
 }
+
+TEST_F(ValhallPacking, Convert16To32) {
+   CASE(bi_u16_to_u32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), false, false))),
+         0x0090c20000140077);
+
+   CASE(bi_u16_to_u32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), true, false))),
+         0x0090c20010140077);
+
+   CASE(bi_u16_to_f32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), false, false))),
+         0x0090c20000150077);
+
+   CASE(bi_u16_to_f32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), true, false))),
+         0x0090c20010150077);
+
+   CASE(bi_s16_to_s32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), false, false))),
+         0x0090c20000040077);
+
+   CASE(bi_s16_to_s32_to(b, bi_register(2), bi_discard(bi_swz_16(bi_register(55), true, false))),
+         0x0090c20010040077);
+}
