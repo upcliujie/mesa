@@ -78,11 +78,8 @@ d3d12_query_heap_type(unsigned query_type, unsigned sub_query)
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
       return D3D12_QUERY_HEAP_TYPE_OCCLUSION;
    case PIPE_QUERY_PIPELINE_STATISTICS:
-      return D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
    case PIPE_QUERY_PRIMITIVES_GENERATED:
-      return sub_query == 0 ?
-         D3D12_QUERY_HEAP_TYPE_SO_STATISTICS :
-         D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
+      return D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
    case PIPE_QUERY_PRIMITIVES_EMITTED:
    case PIPE_QUERY_SO_STATISTICS:
       return D3D12_QUERY_HEAP_TYPE_SO_STATISTICS;
@@ -107,11 +104,8 @@ d3d12_query_type(unsigned query_type, unsigned sub_query)
    case PIPE_QUERY_OCCLUSION_PREDICATE_CONSERVATIVE:
       return D3D12_QUERY_TYPE_BINARY_OCCLUSION;
    case PIPE_QUERY_PIPELINE_STATISTICS:
-      return D3D12_QUERY_TYPE_PIPELINE_STATISTICS;
    case PIPE_QUERY_PRIMITIVES_GENERATED:
-      return sub_query == 0 ?
-         D3D12_QUERY_TYPE_SO_STATISTICS_STREAM0 :
-         D3D12_QUERY_TYPE_PIPELINE_STATISTICS;
+      return D3D12_QUERY_TYPE_PIPELINE_STATISTICS;
    case PIPE_QUERY_PRIMITIVES_EMITTED:
    case PIPE_QUERY_SO_STATISTICS:
       return D3D12_QUERY_TYPE_SO_STATISTICS_STREAM0;
@@ -309,7 +303,7 @@ accumulate_result(struct d3d12_context *ctx, struct d3d12_query *q,
    case PIPE_QUERY_PRIMITIVES_GENERATED:
       if (!accumulate_subresult(ctx, q, 0, &local_result, write))
          return false;
-      result->u64 = local_result.so_statistics.primitives_storage_needed;
+      result->u64 = local_result.pipeline_statistics.gs_primitives;
 
       if (!accumulate_subresult(ctx, q, 1, &local_result, write))
          return false;
@@ -331,10 +325,10 @@ subquery_should_be_active(struct d3d12_context *ctx, struct d3d12_query *q, unsi
 {
    switch (q->type) {
    case PIPE_QUERY_PRIMITIVES_GENERATED: {
-      bool has_xfb = !!ctx->gfx_pipeline_state.num_so_targets;
+      bool has_gs = ctx->gfx_stages[PIPE_SHADER_GEOMETRY] != nullptr;
       switch (sub_query) {
-      case 0: return has_xfb;
-      case 1: return !has_xfb;
+      case 0: return has_gs;
+      case 1: return !has_gs;
       default: unreachable("Invalid subquery for primitives generated");
       }
       break;
