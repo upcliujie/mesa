@@ -3038,6 +3038,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
 
    device->instance = physical_device->instance;
    device->physical_device = physical_device;
+   simple_mtx_init(&device->submit_mtx, mtx_plain);
 
    device->ws = physical_device->ws;
    device->vk.create_sync_for_memory = radv_create_sync_for_memory;
@@ -3346,6 +3347,7 @@ radv_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
    }
 
    mtx_destroy(&device->overallocation_mutex);
+   simple_mtx_destroy(&device->submit_mtx);
 
    radv_device_finish_meta(device);
 
@@ -4370,6 +4372,9 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
       if (result != VK_SUCCESS)
          goto fail;
    } else {
+      if (queue->device->trace_bo)
+         simple_mtx_lock(&queue->device->submit_mtx);
+
       struct radeon_cmdbuf **cs_array =
          malloc(sizeof(struct radeon_cmdbuf *) * (submission->command_buffer_count));
 
@@ -4401,6 +4406,8 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
             can_patch);
          if (result != VK_SUCCESS) {
             free(cs_array);
+            if (queue->device->trace_bo)
+               simple_mtx_unlock(&queue->device->submit_mtx);
             goto fail;
          }
 
@@ -4414,6 +4421,8 @@ radv_queue_submit(struct vk_queue *vqueue, struct vk_queue_submit *submission)
       }
 
       free(cs_array);
+      if (queue->device->trace_bo)
+         simple_mtx_unlock(&queue->device->submit_mtx);
    }
 
 fail:
