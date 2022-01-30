@@ -60,6 +60,9 @@ class Tracepoint(object):
 
         TRACEPOINTS[name] = self
 
+    def can_generate_print(self):
+        return self.args is not None and len(self.args) > 0
+
 class TracepointArgStruct():
     """Represents struct that is being passed as an argument
     """
@@ -268,56 +271,56 @@ src_template = """\
 /*
  * ${trace_name}
  */
-%    if trace.args is not None and len(trace.args) > 0:
+ % if trace.can_generate_print():
 static void __print_${trace_name}(FILE *out, const void *arg) {
    const struct trace_${trace_name} *__entry =
       (const struct trace_${trace_name} *)arg;
-%    if trace.tp_print is not None:
+  % if trace.tp_print is not None:
    fprintf(out, "${trace.tp_print[0]}\\n"
-%       for arg in trace.tp_print[1:]:
+   % for arg in trace.tp_print[1:]:
            , ${arg}
-%       endfor
-% else:
+   % endfor
+  % else:
    fprintf(out, ""
-%  for arg in trace.tp_struct:
+   % for arg in trace.tp_struct:
       "${arg.name}=${arg.c_format}, "
-%  endfor
+   % endfor
          "\\n"
-%  for arg in trace.tp_struct:
-   % if arg.to_prim_type:
+   % for arg in trace.tp_struct:
+    % if arg.to_prim_type:
    ,${arg.to_prim_type.format('__entry->' + arg.name)}
-   % else:
+    % else:
    ,__entry->${arg.name}
-   % endif
-%  endfor
-%endif
+    % endif
+   % endfor
+  % endif
    );
 }
-%    else:
+ % else:
 #define __print_${trace_name} NULL
-%    endif
+ % endif
 static const struct u_tracepoint __tp_${trace_name} = {
     ALIGN_POT(sizeof(struct trace_${trace_name}), 8),   /* keep size 64b aligned */
     "${trace_name}",
     ${"true" if trace.end_of_pipe else "false"},
     __print_${trace_name},
-%    if trace.tp_perfetto is not None:
+ % if trace.tp_perfetto is not None:
 #ifdef HAVE_PERFETTO
     (void (*)(void *pctx, uint64_t, const void *, const void *))${trace.tp_perfetto},
 #endif
-%    endif
+ % endif
 };
 void __trace_${trace_name}(struct u_trace *ut, void *cs
-%    for arg in trace.args:
+ % for arg in trace.args:
      , ${arg.type} ${arg.var}
-%    endfor
+ % endfor
 ) {
    struct trace_${trace_name} *__entry =
       (struct trace_${trace_name} *)u_trace_append(ut, cs, &__tp_${trace_name});
    (void)__entry;
-%    for arg in trace.tp_struct:
+ % for arg in trace.tp_struct:
         __entry->${arg.name} = ${arg.var};
-%    endfor
+ % endfor
 }
 
 % endfor
