@@ -64,6 +64,22 @@ def define_tracepoints(args):
                           Arg(type='uint8_t', var='msaa', c_format='%hhu'),
                           Arg(type='uint32_t', var='subpass_count', c_format='%u'),])
 
+    begin_end_tp('dyn_render_pass',
+                 tp_args=[ArgStruct(type='uint16_t', var='width'),
+                          ArgStruct(type='uint16_t', var='height'),
+                          ArgStruct(type='uint8_t', var='att_count'),
+                          ArgStruct(type='uint8_t', var='msaa'),
+                          ArgStruct(type='uint32_t', var='subpass_count'),
+                          ArgStruct(type='uint8_t', var='suspend'),
+                          ArgStruct(type='uint8_t', var='resume'),],
+                 tp_struct=[Arg(type='uint16_t', name='width', var='width', c_format='%hu'),
+                            Arg(type='uint16_t', name='height', var='height', c_format='%hu'),
+                            Arg(type='uint8_t', name='att_count', var='att_count', c_format='%hhu'),
+                            Arg(type='uint8_t', name='msaa', var='msaa', c_format='%hhu'),
+                            Arg(type='uint32_t', name='subpass_count', var='subpass_count', c_format='%ou'),
+                            Arg(type='uint8_t', name='suspend', var='suspend', c_format='%hhu'),
+                            Arg(type='uint8_t', name='resume', var='resume', c_format='%hhu'),])
+
     begin_end_tp('blorp',
                  tp_args=[Arg(type='uint32_t', name='width', var='width', c_format='%u'),
                           Arg(type='uint32_t', name='height', var='height', c_format='%u'),
