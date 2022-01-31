@@ -54,14 +54,20 @@ TEMPLATE_H = Template(COPYRIGHT + """\
 #define VK_PROTOTYPES
 #include <vulkan/vulkan.h>
 
+#include "vk_command_buffer.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct vk_cmd_queue {
+   struct vk_command_buffer vk;
    const VkAllocationCallbacks *alloc;
    struct list_head cmds;
 };
+
+VK_DEFINE_HANDLE_CASTS(vk_cmd_queue, vk.base, VkCommandBuffer,
+                       VK_OBJECT_TYPE_COMMAND_BUFFER)
 
 enum vk_cmd_type {
 % for c in commands:
@@ -144,12 +150,13 @@ vk_cmd_queue_init(struct vk_cmd_queue *queue,
 {
    queue->alloc = alloc;
    list_inithead(&queue->cmds);
-   return VK_SUCCESS;
+   return vk_command_buffer_init(&queue->vk, device, level);
 }
 
 static inline void
 vk_cmd_queue_reset(struct vk_cmd_queue *queue)
 {
+   vk_command_buffer_reset(&queue->vk);
    vk_free_queue(queue);
    list_inithead(&queue->cmds);
 }
@@ -157,6 +164,7 @@ vk_cmd_queue_reset(struct vk_cmd_queue *queue)
 static inline void
 vk_cmd_queue_finish(struct vk_cmd_queue *queue)
 {
+   vk_command_buffer_finish(&queue->vk);
    vk_free_queue(queue);
    list_inithead(&queue->cmds);
 }
