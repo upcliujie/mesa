@@ -5734,26 +5734,6 @@ visit_discard(isel_context* ctx, nir_intrinsic_instr* instr)
    if (ctx->block->loop_nest_depth || ctx->cf_info.parent_if.is_divergent)
       ctx->cf_info.exec_potentially_empty_discard = true;
 
-   bool divergent =
-      ctx->cf_info.parent_if.is_divergent || ctx->cf_info.parent_loop.has_divergent_continue;
-
-   if (ctx->block->loop_nest_depth && (nir_instr_is_last(&instr->instr) && !divergent)) {
-      /* we handle discards the same way as jump instructions */
-      append_logical_end(ctx->block);
-
-      /* in loops, discard behaves like break */
-      Block* linear_target = ctx->cf_info.parent_loop.exit;
-      ctx->block->kind |= block_kind_discard;
-
-      /* uniform discard - loop ends here */
-      assert(nir_instr_is_last(&instr->instr));
-      ctx->block->kind |= block_kind_uniform;
-      ctx->cf_info.has_branch = true;
-      bld.branch(aco_opcode::p_branch, bld.hint_vcc(bld.def(s2)));
-      add_linear_edge(ctx->block->index, linear_target);
-      return;
-   }
-
    ctx->program->needs_exact = true;
    bld.pseudo(aco_opcode::p_discard_if, Operand::c32(-1u));
    ctx->block->kind |= block_kind_uses_discard_if;
