@@ -55,7 +55,7 @@ TEMPLATE_C = Template(COPYRIGHT + """
 #define VK_PROTOTYPES
 #include <vulkan/vulkan.h>
 
-#include "lvp_private.h"
+#include "${prefix}_private.h"
 #include "pipe/p_context.h"
 #include "vk_util.h"
 
@@ -63,7 +63,7 @@ TEMPLATE_C = Template(COPYRIGHT + """
 % if c.guard is not None:
 #ifdef ${c.guard}
 % endif
-VKAPI_ATTR ${c.return_type} VKAPI_CALL lvp_${c.name} (VkCommandBuffer commandBuffer
+VKAPI_ATTR ${c.return_type} VKAPI_CALL ${prefix}_${c.name} (VkCommandBuffer commandBuffer
 % for p in c.params[1:]:
 , ${p.decl}
 % endfor
@@ -104,7 +104,7 @@ def main():
                         required=True, action='append', dest='xml_files')
     parser.add_argument('--prefix',
                         help='Prefix to use for all dispatch tables.',
-                        action='append', default=[], dest='prefixes')
+                        required=True, default='', dest='prefix')
     args = parser.parse_args()
 
     commands = []
@@ -115,6 +115,7 @@ def main():
 
     environment = {
         'commands': commands,
+        'prefix': args.prefix,
         'filename': os.path.basename(__file__),
         'to_underscore': to_underscore,
     }
