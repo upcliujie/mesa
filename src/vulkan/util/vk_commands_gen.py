@@ -49,14 +49,43 @@ MANUAL_COMMANDS = ['CmdPushDescriptorSetKHR',             # This script doesn't 
                    'CmdBeginRenderingKHR',
                   ]
 
+TEMPLATE_H = Template(COPYRIGHT + """\
+/* This file generated from ${filename}, don't edit directly. */
+
+#pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+% for c in commands:
+% if c.guard is not None:
+#ifdef ${c.guard}
+% endif
+VKAPI_ATTR ${c.return_type} VKAPI_CALL ${prefix}_${c.name} (VkCommandBuffer commandBuffer
+% for p in c.params[1:]:
+, ${p.decl}
+% endfor
+);
+% if c.guard is not None:
+#endif /* ${c.guard} */
+% endif
+% endfor
+
+#ifdef __cplusplus
+}
+#endif
+""", output_encoding='utf-8')
+
 TEMPLATE_C = Template(COPYRIGHT + """
 /* This file generated from ${filename}, don't edit directly. */
 
 #define VK_PROTOTYPES
 #include <vulkan/vulkan.h>
 
-#include "${prefix}_private.h"
+#include "${header}"
 #include "pipe/p_context.h"
+#include "vk_cmd_queue.h"
 #include "vk_util.h"
 
 % for c in commands:
@@ -98,6 +127,7 @@ def to_underscore(name):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--out-h', required=True, help='Output H file.')
     parser.add_argument('--out-c', required=True, help='Output C file.')
     parser.add_argument('--xml',
                         help='Vulkan API XML file.',
@@ -118,9 +148,12 @@ def main():
         'prefix': args.prefix,
         'filename': os.path.basename(__file__),
         'to_underscore': to_underscore,
+        'header' : os.path.basename(args.out_h),
     }
 
     try:
+        with open(args.out_h, 'wb') as f:
+            f.write(TEMPLATE_H.render(**environment))
         with open(args.out_c, 'wb') as f:
             f.write(TEMPLATE_C.render(**environment))
     except Exception:
