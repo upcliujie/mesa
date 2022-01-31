@@ -26,6 +26,8 @@
 #include "vk_util.h"
 #include "u_math.h"
 
+extern VkPhysicalDeviceLimits device_limits;
+
 VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDescriptorSetLayout(
     VkDevice                                    _device,
     const VkDescriptorSetLayoutCreateInfo*      pCreateInfo,
@@ -172,6 +174,37 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_CreateDescriptorSetLayout(
       set_layout->shader_stages |= binding->stageFlags;
    }
 
+#ifndef NDEBUG
+   /* this otherwise crashes later and is annoying to track down */
+   unsigned array[] = {
+      VK_SHADER_STAGE_VERTEX_BIT,
+      VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT,
+      VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT,
+      VK_SHADER_STAGE_GEOMETRY_BIT,
+      VK_SHADER_STAGE_FRAGMENT_BIT,
+      VK_SHADER_STAGE_COMPUTE_BIT,
+   };
+   for (unsigned i = 0; i <= MESA_SHADER_COMPUTE; i++) {
+      uint16_t const_buffer_count = 0;
+      uint16_t shader_buffer_count = 0;
+      uint16_t sampler_count = 0;
+      uint16_t sampler_view_count = 0;
+      uint16_t image_count = 0;
+      if (set_layout->shader_stages & array[i]) {
+         const_buffer_count += set_layout->stage[i].const_buffer_count;
+         shader_buffer_count += set_layout->stage[i].shader_buffer_count;
+         sampler_count += set_layout->stage[i].sampler_count;
+         sampler_view_count += set_layout->stage[i].sampler_view_count;
+         image_count += set_layout->stage[i].image_count;
+      }
+      assert(const_buffer_count <= device_limits.maxPerStageDescriptorUniformBuffers);
+      assert(shader_buffer_count <= device_limits.maxPerStageDescriptorStorageBuffers);
+      assert(sampler_count <= device_limits.maxPerStageDescriptorSamplers);
+      assert(sampler_view_count <= device_limits.maxPerStageDescriptorSampledImages);
+      assert(image_count <= device_limits.maxPerStageDescriptorStorageImages);
+   }
+#endif
+
    free(bindings);
 
    set_layout->dynamic_offset_count = dynamic_offset_count;
@@ -203,8 +236,6 @@ VKAPI_ATTR void VKAPI_CALL lvp_DestroyDescriptorSetLayout(
 
    lvp_descriptor_set_layout_unref(device, set_layout);
 }
-
-extern VkPhysicalDeviceLimits device_limits;
 
 VKAPI_ATTR VkResult VKAPI_CALL lvp_CreatePipelineLayout(
     VkDevice                                    _device,
