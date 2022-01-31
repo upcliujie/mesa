@@ -20,7 +20,7 @@ intel_perf_sources = [
   'intel_perf_mdapi.c',
 ]
 
-intel_perf_sources += custom_target(
+intel_perf_metrics = custom_target(
   'intel-perf-sources',
   input : intel_hw_metrics_xml_files,
   output : [ 'intel_perf_metrics.c', 'intel_perf_metrics.h' ],
@@ -30,6 +30,9 @@ intel_perf_sources += custom_target(
     '@INPUT@',
   ],
 )
+intel_perf_sources += intel_perf_metrics
+
+idep_intel_perf = declare_dependency(sources : [intel_perf_metrics[1]])
 
 libintel_perf = static_library(
   'intel_perf',

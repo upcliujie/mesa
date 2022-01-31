@@ -177,8 +177,8 @@ iris_get_perf_counter_info(struct pipe_context *pipe,
    const struct intel_perf_query_counter *counter =
       &info->counters[counter_index];
 
-   *name = counter->name;
-   *desc = counter->desc;
+   *name = intel_perf_query_idx_to_name(counter->name_idx);
+   *desc = intel_perf_query_idx_to_desc(counter->desc_idx);
    *offset = counter->offset;
    *data_size = intel_perf_query_counter_get_size(counter);
    *type_enum = counter->type;

@@ -20,6 +20,8 @@
 # IN THE SOFTWARE.
 
 import argparse
+import builtins
+import collections
 import os
 import sys
 import textwrap
@@ -395,7 +397,8 @@ def desc_units(unit):
     return " Unit: " + unit + "."
 
 
-def output_counter_report(set, counter, current_offset):
+def output_counter_report(set, counter, current_offset, name_to_idx,
+                          desc_to_idx, symbol_name_to_idx, category_to_idx):
     data_type = counter.get('data_type')
     data_type_uc = data_type.upper()
     c_type = data_type
@@ -418,10 +421,10 @@ def output_counter_report(set, counter, current_offset):
 
     c("counter = &query->counters[query->n_counters++];\n")
     c("counter->oa_counter_read_" + data_type + " = " + set.read_funcs[counter.get('symbol_name')] + ";\n")
-    c("counter->name = \"" + counter.get('name') + "\";\n")
-    c("counter->desc = \"" + counter.get('description') + desc_units(counter.get('units')) + "\";\n")
-    c("counter->symbol_name = \"" + counter.get('symbol_name') + "\";\n")
-    c("counter->category = \"" + counter.get('mdapi_group') + "\";\n")
+    c("counter->name_idx = " + str(name_to_idx[counter.get('name')]) + ";\n")
+    c("counter->desc_idx = " + str(desc_to_idx[counter.get('description') + desc_units(counter.get('units'))]) + ";\n")
+    c("counter->symbol_name_idx = " + str(symbol_name_to_idx[counter.get('symbol_name')]) + ";\n")
+    c("counter->category_idx = " + str(category_to_idx[counter.get('mdapi_group')]) + ";\n")
     c("counter->type = INTEL_PERF_COUNTER_TYPE_" + semantic_type_uc + ";\n")
     c("counter->data_type = INTEL_PERF_COUNTER_DATA_TYPE_" + data_type_uc + ";\n")
     c("counter->units = INTEL_PERF_COUNTER_UNITS_" + output_units(counter.get('units')) + ";\n")
@@ -435,6 +438,38 @@ def output_counter_report(set, counter, current_offset):
         c("}")
 
     return current_offset + sizeof(c_type)
+
+
+def str_to_idx_table(strs):
+    sorted_strs = sorted(strs)
+
+    str_to_idx = collections.OrderedDict()
+    str_to_idx[sorted_strs[0]] = 0
+    previous = sorted_strs[0]
+
+    for i in range(1, len(sorted_strs)):
+        str_to_idx[sorted_strs[i]] = str_to_idx[previous] + len(previous) + 1
+        previous = sorted_strs[i]
+
+    return str_to_idx
+
+
+def output_str_table(name: str, str_to_idx):
+    c("static const char " + name + "[] = {\n")
+    c_indent(3)
+    c("\n".join(f"/* {idx} */ \"{val}\\0\"" for val, idx in str_to_idx.items()))
+    c_outdent(3)
+    c("};\n\n")
+
+    h("const char *const intel_perf_query_idx_to_" + name + "(int idx);\n")
+    c("const char *const\n")
+    c("intel_perf_query_idx_to_" + name + "(int idx)\n")
+    c("{\n")
+    c_indent(3)
+    c("if (idx < 0 || idx >= ARRAY_SIZE(" + name + ")) return NULL;\n")
+    c("return &" + name + "[idx];\n")
+    c_outdent(3)
+    c("}\n\n")
 
 
 register_types = {
@@ -733,7 +768,32 @@ def main():
            query->rpstat_offset = query->perfcnt_offset + 2;
            return query;
         }
+
         """))
+
+    names = builtins.set()
+    descs = builtins.set()
+    symbol_names = builtins.set()
+    categories = builtins.set()
+    for gen in gens:
+        for set in gen.sets:
+            for counter in set.counters:
+                names.add(counter.get('name'))
+                symbol_names.add(counter.get('symbol_name'))
+                descs.add(counter.get('description') + desc_units(counter.get('units')))
+                categories.add(counter.get('mdapi_group'))
+
+    name_to_idx = str_to_idx_table(names)
+    output_str_table("name", name_to_idx)
+
+    desc_to_idx = str_to_idx_table(descs)
+    output_str_table("desc", desc_to_idx)
+
+    symbol_name_to_idx = str_to_idx_table(symbol_names)
+    output_str_table("symbol_name", symbol_name_to_idx)
+
+    category_to_idx = str_to_idx_table(categories)
+    output_str_table("category", category_to_idx)
 
     # Print out all equation functions.
     for gen in gens:
@@ -777,8 +837,10 @@ def main():
 
             offset = 0
             for counter in counters:
-                offset = output_counter_report(set, counter, offset)
-
+                offset = output_counter_report(set, counter, offset,
+                                               name_to_idx, desc_to_idx,
+                                               symbol_name_to_idx,
+                                               category_to_idx)
 
             c("\nquery->data_size = counter->offset + intel_perf_query_counter_get_size(counter);\n")
 

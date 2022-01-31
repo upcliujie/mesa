@@ -474,7 +474,8 @@ intel_perf_compare_counter_names(const void *v1, const void *v2)
    const struct intel_perf_query_counter *c1 = v1;
    const struct intel_perf_query_counter *c2 = v2;
 
-   return strcmp(c1->name, c2->name);
+   return strcmp(intel_perf_query_idx_to_name(c1->name_idx),
+                 intel_perf_query_idx_to_name(c2->name_idx));
 }
 
 static void
@@ -621,11 +622,13 @@ compare_counter_categories_and_names(const void *_c1, const void *_c2)
    const struct intel_perf_query_counter_info *c2 = (const struct intel_perf_query_counter_info *)_c2;
 
    /* pipeline counters don't have an assigned category */
-   int r = compare_str_or_null(c1->counter->category, c2->counter->category);
+   int r = compare_str_or_null(intel_perf_query_idx_to_category(c1->counter->category_idx),
+                               intel_perf_query_idx_to_category(c2->counter->category_idx));
    if (r)
       return r;
 
-   return strcmp(c1->counter->name, c2->counter->name);
+   return strcmp(intel_perf_query_idx_to_name(c1->counter->name_idx),
+                 intel_perf_query_idx_to_name(c2->counter->name_idx));
 }
 
 static void
@@ -661,7 +664,7 @@ build_unique_counter_list(struct intel_perf_config *perf)
          struct intel_perf_query_counter_info *counter_info;
 
          counter = &query->counters[c];
-         entry = _mesa_hash_table_search(counters_table, counter->symbol_name);
+         entry = _mesa_hash_table_search(counters_table, intel_perf_query_idx_to_symbol_name(counter->symbol_name_idx));
 
          if (entry) {
             counter_info = entry->data;
@@ -677,7 +680,7 @@ build_unique_counter_list(struct intel_perf_config *perf)
          counter_info->location.group_idx = q;
          counter_info->location.counter_idx = c;
 
-         _mesa_hash_table_insert(counters_table, counter->symbol_name, counter_info);
+         _mesa_hash_table_insert(counters_table, intel_perf_query_idx_to_symbol_name(counter->symbol_name_idx), counter_info);
       }
    }
 

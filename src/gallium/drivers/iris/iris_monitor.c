@@ -57,7 +57,7 @@ iris_get_monitor_info(struct pipe_screen *pscreen, unsigned index,
    struct intel_perf_query_counter *counter = counter_info->counter;
 
    info->group_id = counter_info->location.group_idx;
-   info->name = counter->name;
+   info->name = intel_perf_query_idx_to_name(counter->name_idx);
    info->query_type = PIPE_QUERY_DRIVER_SPECIFIC + index;
 
    if (counter->type == INTEL_PERF_COUNTER_TYPE_THROUGHPUT)

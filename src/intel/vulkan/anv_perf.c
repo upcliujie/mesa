@@ -30,6 +30,7 @@
 
 #include "perf/intel_perf.h"
 #include "perf/intel_perf_mdapi.h"
+#include "perf/intel_perf_metrics.h"
 
 #include "util/mesa-sha1.h"
 
@@ -358,17 +359,22 @@ VkResult anv_EnumeratePhysicalDeviceQueueFamilyPerformanceQueryCountersKHR(
          counter->storage = intel_perf_counter_data_type_to_vk_storage[intel_counter->data_type];
 
          unsigned char sha1_result[20];
-         _mesa_sha1_compute(intel_counter->symbol_name,
-                            strlen(intel_counter->symbol_name),
+         const char *const symbol_name =
+            intel_perf_query_idx_to_symbol_name(intel_counter->symbol_name_idx);
+         _mesa_sha1_compute(symbol_name, strlen(symbol_name),
                             sha1_result);
          memcpy(counter->uuid, sha1_result, sizeof(counter->uuid));
       }
 
       vk_outarray_append(&out_desc, desc) {
+         const char *const name = intel_perf_query_idx_to_name(intel_counter->name_idx);
+         const char *const category = intel_perf_query_idx_to_category(intel_counter->category_idx);
+         const char *const description = intel_perf_query_idx_to_desc(intel_counter->desc_idx);
+
          desc->flags = 0; /* None so far. */
-         snprintf(desc->name, sizeof(desc->name), "%s", intel_counter->name);
-         snprintf(desc->category, sizeof(desc->category), "%s", intel_counter->category);
-         snprintf(desc->description, sizeof(desc->description), "%s", intel_counter->desc);
+         snprintf(desc->name, sizeof(desc->name), "%s", name);
+         snprintf(desc->category, sizeof(desc->category), "%s", category);
+         snprintf(desc->description, sizeof(desc->description), "%s", description);
       }
    }
 

@@ -25,6 +25,7 @@
 
 #include "perf/intel_perf.h"
 #include "perf/intel_perf_query.h"
+#include "perf/intel_perf_metrics.h"
 
 void iris_perf_init_vtbl(struct intel_perf_config *cfg);
 

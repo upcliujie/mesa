@@ -203,8 +203,8 @@ fill_mdapi_perf_query_counter(struct intel_perf_query_info *query,
 
    assert(query->n_counters <= query->max_counters);
 
-   counter->name = name;
-   counter->desc = "Raw counter value";
+   counter->name_idx = -1; // FIXME?
+   counter->desc_idx = -1; // FIXME?
    counter->type = INTEL_PERF_COUNTER_TYPE_RAW;
    counter->data_type = data_type;
    counter->offset = data_offset;

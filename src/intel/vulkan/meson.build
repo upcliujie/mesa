@@ -119,9 +119,10 @@ anv_deps = [
   dep_libdrm,
   dep_valgrind,
   idep_genxml,
+  idep_intel_perf,
   idep_nir_headers,
-  idep_vulkan_util_headers,
   idep_vulkan_runtime_headers,
+  idep_vulkan_util_headers,
   idep_vulkan_wsi_headers,
 ]
 anv_flags = [
