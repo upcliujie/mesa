@@ -74,9 +74,9 @@ VKAPI_ATTR ${c.return_type} VKAPI_CALL lvp_${c.name} (VkCommandBuffer commandBuf
 % endfor
 )
 {
-   LVP_FROM_HANDLE(lvp_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(vk_cmd_queue, queue, commandBuffer);
 
-   vk_enqueue_${to_underscore(c.name)}(&cmd_buffer->queue
+   vk_enqueue_${to_underscore(c.name)}(queue
 % for p in c.params[1:]:
 , ${p.name}
 % endfor
