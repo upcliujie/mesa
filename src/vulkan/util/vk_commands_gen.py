@@ -70,12 +70,12 @@ TEMPLATE_C = Template(COPYRIGHT + """
 % endif
 VKAPI_ATTR ${c.return_type} VKAPI_CALL lvp_${c.name}(${c.decl_params()})
 {
-   LVP_FROM_HANDLE(lvp_cmd_buffer, cmd_buffer, commandBuffer);
+   VK_FROM_HANDLE(vk_cmd_queue, queue, commandBuffer);
 
 % if len(c.params) == 1:
-   vk_enqueue_${to_underscore(c.name)}(&cmd_buffer->queue);
+   vk_enqueue_${to_underscore(c.name)}(queue);
 % else:
-   vk_enqueue_${to_underscore(c.name)}(&cmd_buffer->queue,
+   vk_enqueue_${to_underscore(c.name)}(queue,
                                        ${c.call_params(start=1)});
 % endif
 % if c.return_type == 'VkResult':
