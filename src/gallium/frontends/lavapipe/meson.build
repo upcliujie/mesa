@@ -13,10 +13,11 @@ lvp_entrypoints = custom_target(
 lvp_commands = custom_target(
   'lvp_commands',
   input : [vk_commands_gen, vk_api_xml],
-  output : ['lvp_commands.c'],
+  output : ['lvp_commands.c', 'lvp_commands.h'],
   command : [
     prog_python, '@INPUT0@', '--xml', '@INPUT1@',
-    '--out-c', '@OUTPUT0@', '--prefix', 'lvp',
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@',
+    '--prefix', 'lvp',
   ],
   depend_files : vk_commands_gen_depend_files,
 )
