@@ -5722,7 +5722,7 @@ visit_discard_if(isel_context* ctx, nir_intrinsic_instr* instr)
    assert(src.regClass() == bld.lm);
    src = bld.sop2(Builder::s_and, bld.def(bld.lm), bld.def(s1, scc), src, Operand(exec, bld.lm));
    bld.pseudo(aco_opcode::p_discard_if, src);
-   ctx->block->kind |= block_kind_uses_discard_if;
+   ctx->block->kind |= block_kind_uses_discard;
    return;
 }
 
@@ -5736,7 +5736,7 @@ visit_discard(isel_context* ctx, nir_intrinsic_instr* instr)
 
    ctx->program->needs_exact = true;
    bld.pseudo(aco_opcode::p_discard_if, Operand::c32(-1u));
-   ctx->block->kind |= block_kind_uses_discard_if;
+   ctx->block->kind |= block_kind_uses_discard;
    return;
 }
 
@@ -8706,7 +8706,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
 
       if (ctx->block->loop_nest_depth || ctx->cf_info.parent_if.is_divergent)
          ctx->cf_info.exec_potentially_empty_discard = true;
-      ctx->block->kind |= block_kind_uses_demote;
+      ctx->block->kind |= block_kind_uses_discard;
       ctx->program->needs_exact = true;
       break;
    case nir_intrinsic_demote_if: {
@@ -8718,7 +8718,7 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
 
       if (ctx->block->loop_nest_depth || ctx->cf_info.parent_if.is_divergent)
          ctx->cf_info.exec_potentially_empty_discard = true;
-      ctx->block->kind |= block_kind_uses_demote;
+      ctx->block->kind |= block_kind_uses_discard;
       ctx->program->needs_exact = true;
       break;
    }
