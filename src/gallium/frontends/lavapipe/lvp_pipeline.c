@@ -557,8 +557,17 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
    NIR_PASS_V(nir, nir_remove_dead_variables,
               nir_var_shader_in | nir_var_shader_out | nir_var_system_value, NULL);
 
-   if (stage == MESA_SHADER_FRAGMENT)
+   if (stage == MESA_SHADER_FRAGMENT) {
       lvp_lower_input_attachments(nir, false);
+      const VkPipelineMultisampleStateCreateInfo *ms_state = pipeline->graphics_create_info.pMultisampleState;
+      if (ms_state->rasterizationSamples > 1 &&
+          ms_state->sampleShadingEnable &&
+          ms_state->minSampleShading * ms_state->rasterizationSamples > 1) {
+         /* mimic lowering in st_program.c */
+         nir_foreach_shader_in_variable(var, nir)
+            var->data.sample = true;
+      }
+   }
    NIR_PASS_V(nir, nir_lower_system_values);
    NIR_PASS_V(nir, nir_lower_compute_system_values, NULL);
 
