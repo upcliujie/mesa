@@ -1155,6 +1155,9 @@ queue_submit_noop_job(struct v3dv_queue *queue,
                       struct v3dv_submit_info_semaphores *sems_info,
                       bool do_sem_signal, bool serialize)
 {
+   if (!do_sem_signal && !serialize && !sems_info->wait_sem_count)
+      return VK_SUCCESS;
+
    /* VkQueue host access is externally synchronized so we don't need to lock
     * here for the static variable.
     */
