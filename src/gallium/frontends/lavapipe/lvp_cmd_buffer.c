@@ -45,13 +45,6 @@ static VkResult lvp_create_cmd_buffer(
       return result;
    }
 
-   result = vk_command_buffer_init(&cmd_buffer->vk, &device->vk, level);
-   if (result != VK_SUCCESS) {
-      vk_cmd_queue_finish(&cmd_buffer->queue);
-      vk_free(&pool->alloc, cmd_buffer);
-      return result;
-   }
-
    cmd_buffer->device = device;
    cmd_buffer->pool = pool;
 
@@ -72,7 +65,6 @@ static VkResult lvp_create_cmd_buffer(
 static VkResult lvp_reset_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer)
 {
    vk_cmd_queue_reset(&cmd_buffer->queue);
-   vk_command_buffer_reset(&cmd_buffer->vk);
 
    cmd_buffer->status = LVP_CMD_BUFFER_STATUS_INITIAL;
    return VK_SUCCESS;
@@ -97,14 +89,14 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_AllocateCommandBuffers(
          list_del(&cmd_buffer->pool_link);
          list_addtail(&cmd_buffer->pool_link, &pool->cmd_buffers);
 
-         result = lvp_reset_cmd_buffer(cmd_buffer);
-         vk_command_buffer_finish(&cmd_buffer->vk);
+         vk_cmd_queue_finish(&cmd_buffer->queue);
          VkResult init_result =
-            vk_command_buffer_init(&cmd_buffer->vk, &device->vk,
-                                   pAllocateInfo->level);
+            vk_cmd_queue_init(&cmd_buffer->queue, &device->vk,
+                              pAllocateInfo->level, &pool->alloc);
          if (init_result != VK_SUCCESS)
             result = init_result;
 
+         cmd_buffer->status = LVP_CMD_BUFFER_STATUS_INITIAL;
          pCommandBuffers[i] = lvp_cmd_buffer_to_handle(cmd_buffer);
       } else {
          result = lvp_create_cmd_buffer(device, pool, pAllocateInfo->level,
@@ -128,7 +120,6 @@ static void
 lvp_cmd_buffer_destroy(struct lvp_cmd_buffer *cmd_buffer)
 {
    vk_cmd_queue_finish(&cmd_buffer->queue);
-   vk_command_buffer_finish(&cmd_buffer->vk);
    vk_free(&cmd_buffer->pool->alloc, cmd_buffer);
 }
 
