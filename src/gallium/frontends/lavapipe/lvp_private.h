@@ -554,15 +554,12 @@ enum lvp_cmd_buffer_status {
 };
 
 struct lvp_cmd_buffer {
-   struct vk_command_buffer vk;
-
+   struct vk_cmd_queue                          queue;
    struct lvp_device *                          device;
 
    enum lvp_cmd_buffer_status status;
    struct lvp_cmd_pool *                        pool;
    struct list_head                             pool_link;
-
-   struct vk_cmd_queue                          queue;
 
    uint8_t push_constants[MAX_PUSH_CONSTANTS_SIZE];
 };
@@ -571,7 +568,7 @@ struct lvp_cmd_buffer {
 #define LVP_FROM_HANDLE(__lvp_type, __name, __handle) \
    struct __lvp_type *__name = __lvp_type ## _from_handle(__handle)
 
-VK_DEFINE_HANDLE_CASTS(lvp_cmd_buffer, vk.base, VkCommandBuffer,
+VK_DEFINE_HANDLE_CASTS(lvp_cmd_buffer, queue.vk.base, VkCommandBuffer,
                        VK_OBJECT_TYPE_COMMAND_BUFFER)
 VK_DEFINE_HANDLE_CASTS(lvp_device, vk.base, VkDevice, VK_OBJECT_TYPE_DEVICE)
 VK_DEFINE_HANDLE_CASTS(lvp_instance, vk.base, VkInstance, VK_OBJECT_TYPE_INSTANCE)
