@@ -60,9 +60,6 @@ TEMPLATE_C = Template(COPYRIGHT + """
 #include "vk_util.h"
 
 % for c in commands:
-% if c.name in manual_commands:
-<% continue %>
-% endif
 % if c.guard is not None:
 #ifdef ${c.guard}
 % endif
@@ -113,14 +110,13 @@ def main():
     commands = []
     for e in get_entrypoints_from_xml(args.xml_files):
         if e.name.startswith('Cmd') and \
-           not e.alias:
+           not e.alias and e.name not in MANUAL_COMMANDS:
             commands.append(e)
 
     environment = {
         'commands': commands,
         'filename': os.path.basename(__file__),
         'to_underscore': to_underscore,
-        'manual_commands': MANUAL_COMMANDS,
     }
 
     try:
