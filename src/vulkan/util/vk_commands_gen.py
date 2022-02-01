@@ -57,14 +57,16 @@ TEMPLATE_H = Template(COPYRIGHT + """\
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 % for c in commands:
+
 % if c.guard is not None:
 #ifdef ${c.guard}
 % endif
-VKAPI_ATTR ${c.return_type} VKAPI_CALL ${prefix}_${c.name} (VkCommandBuffer commandBuffer
+VKAPI_ATTR ${c.return_type} VKAPI_CALL
+${prefix}_${c.name}(VkCommandBuffer commandBuffer\\
 % for p in c.params[1:]:
-, ${p.decl}
+,
+${(" " * len(prefix + '_' + c.name + '(')) + p.decl}\\
 % endfor
 );
 % if c.guard is not None:
@@ -92,21 +94,24 @@ TEMPLATE_C = Template(COPYRIGHT + """
 % if c.guard is not None:
 #ifdef ${c.guard}
 % endif
-VKAPI_ATTR ${c.return_type} VKAPI_CALL ${prefix}_${c.name} (VkCommandBuffer commandBuffer
+VKAPI_ATTR ${c.return_type} VKAPI_CALL
+${prefix}_${c.name}(VkCommandBuffer commandBuffer\\
 % for p in c.params[1:]:
-, ${p.decl}
+,
+${(" " * len(prefix + '_' + c.name + '(')) + p.decl}\\
 % endfor
 )
 {
    VK_FROM_HANDLE(vk_cmd_queue, queue, commandBuffer);
 
-   vk_enqueue_${to_underscore(c.name)}(queue
+   vk_enqueue_${to_underscore(c.name)}(queue\\
 % for p in c.params[1:]:
-, ${p.name}
+,
+${(" " * len('   vk_enqueue_' + to_underscore(c.name) + '(')) + p.name}\\
 % endfor
-   );
-
+);
 % if c.return_type == 'VkResult':
+
    return VK_SUCCESS;
 % endif
 }
