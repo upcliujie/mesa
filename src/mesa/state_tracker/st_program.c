@@ -790,11 +790,16 @@ st_create_common_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (key->export_point_size) {
-         /* if flag is set, shader must export psiz */
+      if (key->export_point_size || key->maybe_point_size) {
+         /* if flag is set, shader must export mesa's internal pointsize
+          * UNLESS it is a geometry shader which is not using GL_LINES,
+          * in which case it would be a dead export
+          */
          nir_shader *nir = state.ir.nir;
-         /* avoid clobbering existing psiz output */
-         if (!(nir->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_PSIZ))) {
+         bool do_export = key->export_point_size ||
+                          (key->maybe_point_size && !(nir->info.outputs_written & BITFIELD64_BIT(VARYING_SLOT_PSIZ)));
+         if (do_export &&
+             (nir->info.stage != MESA_SHADER_GEOMETRY || nir->info.gs.output_primitive == SHADER_PRIM_POINTS)) {
             _mesa_add_state_reference(params, point_size_state);
             NIR_PASS_V(state.ir.nir, nir_lower_point_size_mov,
                        point_size_state);
@@ -1983,11 +1988,31 @@ st_precompile_shader_variant(struct st_context *st,
          key.clamp_color = true;
       }
 
-      if (prog->Target == GL_VERTEX_PROGRAM_ARB ||
-          prog->Target == GL_TESS_EVALUATION_PROGRAM_NV ||
-          (prog->Target == GL_GEOMETRY_PROGRAM_NV && prog->info.gs.output_primitive == SHADER_PRIM_POINTS)) {
-         if (st->ctx->API == API_OPENGLES2 || !st->ctx->VertexProgram.PointSizeEnabled)
-            key.export_point_size = st->lower_point_size && is_last_vertex_stage(st->ctx, prog);
+      /* for precompiles, generate the pointsize export variant if:
+       * - the driver requested it and this is the last vertex stage and one of the following
+       *   - this is a vertex shader and we aren't an ES3.2 context (if it isn't already exported in ES3.2, it's UB)
+       *   - this is a tess eval shader
+       *   - this is a geometry shader and the output is points (otherwise it's a dead output)
+       * this is based on the rationale that the most common use way to
+       * size points is with glPointSize, so for that case the export variant will be needed
+       */
+      if (st->lower_point_size && is_last_vertex_stage(st->ctx, prog) &&
+          prog->Target != GL_COMPUTE_PROGRAM_NV &&
+          prog->Target != GL_TESS_CONTROL_PROGRAM_NV &&
+          (prog->Target != GL_GEOMETRY_PROGRAM_NV || prog->info.gs.output_primitive == SHADER_PRIM_POINTS)) {
+         /* desktop GL requires that this value be exported by the shader,
+          * and behavior is undefined otherwise. so for our UB, we'll add one if it doesn't exist
+          */
+         if (prog->Target == GL_GEOMETRY_PROGRAM_NV)
+            key.maybe_point_size = true;
+         /* in ES3.2, non-vertex stages require the point size to be 1.0 and no gl_PointSize to exist,
+          * but in practice this is not actually the case, so we only add an output for 1.0
+          * if it doesn't exist
+          */
+         else if (prog->Target != GL_VERTEX_PROGRAM_ARB && st->ctx->API == API_OPENGLES2)
+            key.maybe_point_size = true;
+         else 
+            key.export_point_size = true;
       }
       key.st = st->has_shareable_shaders ? NULL : st;
       st_get_common_variant(st, prog, &key);
