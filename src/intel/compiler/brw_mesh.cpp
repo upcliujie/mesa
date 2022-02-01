@@ -470,6 +470,57 @@ brw_nir_lower_mue_outputs(nir_shader *nir, const struct brw_mue_map *map)
 }
 
 static void
+brw_nir_initialize_mue(nir_shader *nir,
+                       const struct brw_mue_map *map,
+                       unsigned dispatch_width)
+{
+   assert(map->per_primitive_header_size_dw > 0);
+
+   nir_builder b;
+   nir_function_impl *entrypoint = nir_shader_get_entrypoint(nir);
+   nir_builder_init(&b, entrypoint);
+   b.cursor = nir_before_block(nir_start_block(entrypoint));
+
+   nir_ssa_def *dw_off = nir_imm_int(&b, 0);
+   nir_ssa_def *zerovec = nir_imm_vec4(&b, 0, 0, 0, 0);
+
+   /* TODO(mesh): can we write in bigger batches, generating fewer SENDs? */
+
+   assert(!nir->info.workgroup_size_variable);
+   const unsigned local_count = nir->info.workgroup_size[0] *
+                                nir->info.workgroup_size[1] *
+                                nir->info.workgroup_size[2];
+
+   unsigned prims_per_subgroup = map->max_primitives / local_count;
+   nir_ssa_def *starting_index;
+
+   bool more_than_1_thread_per_wg = local_count > dispatch_width;
+
+   if (more_than_1_thread_per_wg) {
+      nir_ssa_def *index_in_inv = nir_load_local_invocation_index(&b);
+      starting_index = nir_imul_imm(&b, index_in_inv, prims_per_subgroup);
+   } else {
+      starting_index = nir_imm_int(&b, 0);
+   }
+
+   for (unsigned prim_in_inv = 0; prim_in_inv < prims_per_subgroup; ++prim_in_inv) {
+      nir_ssa_def *prim = nir_iadd_imm(&b, starting_index, prim_in_inv);
+      /* Zero first 4 dwords of MUE Primitive Header:
+       * Reserved, RTAIndex, ViewportIndex, CullPrimitiveMask.
+       */
+      nir_store_per_primitive_output(&b, zerovec, prim, dw_off,
+                                     .base = (int)map->per_primitive_start_dw,
+                                     .write_mask = WRITEMASK_XYZW,
+                                     .src_type = nir_type_uint32);
+   }
+
+   if (more_than_1_thread_per_wg) {
+      nir_scoped_barrier(&b, NIR_SCOPE_WORKGROUP, NIR_SCOPE_WORKGROUP,
+                         NIR_MEMORY_ACQ_REL, nir_var_shader_out);
+   }
+}
+
+static void
 brw_nir_adjust_offset_for_arrayed_indices(nir_shader *nir, const struct brw_mue_map *map)
 {
    /* TODO(mesh): Check if we need to inject extra vertex header / primitive
@@ -580,6 +631,14 @@ brw_compile_mesh(const struct brw_compiler *compiler,
       const unsigned dispatch_width = 8 << simd;
 
       nir_shader *shader = nir_shader_clone(mem_ctx, nir);
+
+      /*
+       * When Primitive Header is enabled, we may not generates writes to all
+       * fields, so let's initialize everything.
+       */
+      if (prog_data->map.per_primitive_header_size_dw > 0)
+         NIR_PASS_V(shader, brw_nir_initialize_mue, &prog_data->map, dispatch_width);
+
       brw_nir_apply_key(shader, compiler, &key->base, dispatch_width, true /* is_scalar */);
 
       NIR_PASS_V(shader, brw_nir_lower_tue_inputs, params->tue_map);
