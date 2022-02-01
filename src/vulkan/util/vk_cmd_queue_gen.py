@@ -148,6 +148,9 @@ struct vk_cmd_queue_entry {
 
 % endfor
 
+void vk_cmd_queue_execute(struct vk_cmd_queue *queue,
+                          VkCommandBuffer primary_cmd_buffer);
+
 void vk_free_queue(struct vk_cmd_queue *queue);
 
 struct vk_device;
@@ -194,6 +197,8 @@ TEMPLATE_C = Template(COPYRIGHT + """
 #include <vulkan/vulkan.h>
 
 #include "vk_alloc.h"
+#include "vk_device.h"
+#include "vk_dispatch_table.h"
 
 const char *vk_cmd_queue_type_names[] = {
 % for c in commands:
@@ -275,6 +280,36 @@ err:
 % endif
 
 % endfor
+
+void vk_cmd_queue_execute(struct vk_cmd_queue *queue,
+                          VkCommandBuffer primary_cmd_buffer)
+{
+   assert(queue->error == VK_SUCCESS);
+   VK_FROM_HANDLE(vk_command_buffer, prim_cmd_buf, primary_cmd_buffer);
+
+   assert(prim_cmd_buf->dispatch != NULL);
+   list_for_each_entry(struct vk_cmd_queue_entry, cmd, &queue->cmds, cmd_link) {
+      switch (cmd->type) {
+% for c in commands:
+% if c.guard is not None:
+#ifdef ${c.guard}
+% endif
+      case ${to_enum_name(c.name)}:
+         assert(prim_cmd_buf->dispatch->${c.name});
+% if len(c.params) > 1:
+         prim_cmd_buf->dispatch->${c.name}(primary_cmd_buffer, ${to_enum_name(c.name) + '_ARGS(cmd)'});
+% else:
+         prim_cmd_buf->dispatch->${c.name}(primary_cmd_buffer);
+%endif
+         break;
+% if c.guard is not None:
+#endif // ${c.guard}
+% endif
+% endfor
+         default: unreachable("Unsupported command");
+         }
+      }
+}
 
 void
 vk_free_queue(struct vk_cmd_queue *queue)
