@@ -3,10 +3,10 @@ traces-db:
 
 traces:
 # Crashes
-#  - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
-#    expectations:
-#      - device: freedreno-a630
-#        checksum: 4ae01533a347796097e3cefff10b029e
+  - path: alien-isolation/AlienIsolation.bin.1-trim--k-f2000-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 4ae01533a347796097e3cefff10b029e
   - path: civilization-v/CivilizationV-trim--s705-761-f762-v20201203.trace
     expectations:
       - device: freedreno-a630
@@ -20,10 +20,10 @@ traces:
       - device: freedreno-a630
         checksum: e72925568412a8ebdbac68c929972a55
 # Crashes
-#  - path: ksp/KSP-trim--f4800-v20201203.trace
-#    expectations:
-#      - device: freedreno-a630
-#        checksum: 59da6ef5c9509616d595d1613fdac42e
+  - path: ksp/KSP-trim--f4800-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 59da6ef5c9509616d595d1613fdac42e
   - path: overcooked2/Overcooked2-trim--f3301-v20201203.trace
     expectations:
       - device: freedreno-a630
@@ -41,22 +41,22 @@ traces:
         checksum: d65b15a48cc7488020a1d4ae3d5dd583
 
 # Crashes
-# - path: Anna/Anna-f692.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: 0
+  - path: Anna/Anna-f692.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
 
 # Crashes
-# - path: Antichamber/antichamber-f240.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: 0
+  - path: Antichamber/antichamber-f240.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
 
 # Crashes
-# - path: Cradle/cradle-f3000.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: 0
+  - path: Cradle/cradle-f3000.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
 
   - path: ICEDarkness/ICEDarkness-f230.trace
     expectations:
@@ -70,17 +70,17 @@ traces:
 
 # Crashes with:
 # metro.bin: ../src/gallium/drivers/freedreno/freedreno_resource.c:274: fd_replace_buffer_storage: Assertion `!fd_batch_references(batch, src)' failed.
-# - path: MetroLLRedux/metro-ll-redux-kf480.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: 0
+  - path: MetroLLRedux/metro-ll-redux-kf480.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
 
 # Hangs the machine after:
 # msm ae00000.mdss: [drm:adreno_wait_ring] *ERROR* timeout waiting for space in ringbuffer 0
-# - path: OilRush/OilRush-f14000.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: 0
+  - path: OilRush/OilRush-f14000.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
 
   - path: Osmos/Osmos-f2660.trace
     expectations:
@@ -92,10 +92,10 @@ traces:
         checksum: a3cc3e461c15d0469d258c5c6dcd6cbb
 
 # Very flaky, at each rendering some pixels in the shrubs along the path change slightly
-# - path: ShadowWarrior/ShadowWarrior-f3952.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: b529f6ca057c3475acb3eb156bf4f82e
+  - path: ShadowWarrior/ShadowWarrior-f3952.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: b529f6ca057c3475acb3eb156bf4f82e
 
   - path: SirYouAreBeingHunted/sir-f750.trace
     expectations:
@@ -111,15 +111,15 @@ traces:
 
 # Hangs the machine after (note the fsr):
 # arm-smmu 5040000.iommu: Unhandled context fault: fsr=0x402, iova=0x68de31e8da00, fsynr=0x0, cbfrsynra=0x0, cb=0
-# - path: SpecOps/specops-s0-1088-f1300.trace
-#   expectations:
-#     - device: freedreno-a630
-#       checksum: 0
+  - path: SpecOps/specops-s0-1088-f1300.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
 
-  # - path: stellaris/Stellaris-trim--f722-v20201203.trace
-  #   expectations:
-  #     - device: freedreno-a630
-  #       checksum: 0
+  - path: stellaris/Stellaris-trim--f722-v20201203.trace
+    expectations:
+      - device: freedreno-a630
+        checksum: 0
   - path: Superhot/superhot-f8100.trace
     expectations:
       - device: freedreno-a630
