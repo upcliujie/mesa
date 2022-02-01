@@ -356,7 +356,7 @@ d3d12_get_paramf(struct pipe_screen *pscreen, enum pipe_capf param)
       return D3D12_MAX_POINT_SIZE;
 
    case PIPE_CAPF_MAX_TEXTURE_ANISOTROPY:
-      return screen->max_feature_level >= D3D_FEATURE_LEVEL_10_0 ? 16.0f : 2.0f;
+      return D3D12_MAX_MAXANISOTROPY;
 
    case PIPE_CAPF_MAX_TEXTURE_LOD_BIAS:
       return 15.99f;
