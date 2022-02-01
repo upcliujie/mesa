@@ -43,19 +43,32 @@ TEMPLATE_H = Template(COPYRIGHT + """\
 extern "C" {
 #endif
 
+% if instance_entrypoints != None:
 % for p in instance_prefixes:
 extern const struct vk_instance_entrypoint_table ${p}_instance_entrypoints;
 % endfor
+% endif
 
+% if physical_device_entrypoints != None:
 % for p in physical_device_prefixes:
 extern const struct vk_physical_device_entrypoint_table ${p}_physical_device_entrypoints;
 % endfor
+% endif
 
+% if device_entrypoints != None:
 % for p in device_prefixes:
 extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 % endfor
+% endif
+
+% if cmd_entrypoints != None:
+% for p in device_prefixes:
+extern const struct vk_cmd_entrypoint_table ${p}_cmd_entrypoints;
+% endfor
+% endif
 
 % if gen_proto:
+% if instance_entrypoints != None:
 % for e in instance_entrypoints:
   % if e.guard is not None:
 #ifdef ${e.guard}
@@ -67,7 +80,9 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 #endif // ${e.guard}
   % endif
 % endfor
+% endif
 
+% if physical_device_entrypoints != None:
 % for e in physical_device_entrypoints:
   % if e.guard is not None:
 #ifdef ${e.guard}
@@ -79,7 +94,9 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 #endif // ${e.guard}
   % endif
 % endfor
+% endif
 
+% if device_entrypoints != None:
 % for e in device_entrypoints:
   % if e.guard is not None:
 #ifdef ${e.guard}
@@ -91,6 +108,21 @@ extern const struct vk_device_entrypoint_table ${p}_device_entrypoints;
 #endif // ${e.guard}
   % endif
 % endfor
+% endif
+
+% if cmd_entrypoints != None:
+% for e in cmd_entrypoints:
+  % if e.guard is not None:
+#ifdef ${e.guard}
+  % endif
+  % for p in device_prefixes:
+  VKAPI_ATTR ${e.return_type} VKAPI_CALL ${p}_${e.name}(${e.decl_params()});
+  % endfor
+  % if e.guard is not None:
+#endif // ${e.guard}
+  % endif
+% endfor
+% endif
 % endif
 
 #ifdef __cplusplus
@@ -115,6 +147,7 @@ TEMPLATE_C = Template(COPYRIGHT + """
  */
 
 <%def name="entrypoint_table(type, entrypoints, prefixes)">
+% if entrypoints != None:
 % if gen_weak:
   % for e in entrypoints:
     % if e.guard is not None:
@@ -154,11 +187,13 @@ const struct vk_${type}_entrypoint_table ${p}_${type}_entrypoints = {
   % endfor
 };
 % endfor
+% endif
 </%def>
 
 ${entrypoint_table('instance', instance_entrypoints, instance_prefixes)}
 ${entrypoint_table('physical_device', physical_device_entrypoints, physical_device_prefixes)}
 ${entrypoint_table('device', device_entrypoints, device_prefixes)}
+${entrypoint_table('cmd', cmd_entrypoints, device_prefixes)}
 """)
 
 def get_entrypoints_defines(doc):
@@ -199,6 +234,10 @@ def main():
     parser.add_argument('--device-prefix',
                         help='Prefix to use for device dispatch tables.',
                         action='append', default=[], dest='device_prefixes')
+    parser.add_argument('--types',
+                        help='Comma separated list of entrypoint types to generate.',
+                        required=False, action='store', default='device,physical_device,instance',
+                        dest='types')
     args = parser.parse_args()
 
     instance_prefixes = args.prefixes
@@ -206,17 +245,25 @@ def main():
     device_prefixes = args.prefixes + args.device_prefixes
 
     entrypoints = get_entrypoints_from_xml(args.xml_files)
+    types = args.types.split(',')
 
-    device_entrypoints = []
-    physical_device_entrypoints = []
-    instance_entrypoints = []
+    device_entrypoints = [] if 'device' in types else None
+    cmd_entrypoints = [] if 'cmd' in types else None
+    physical_device_entrypoints = [] if 'physical_device' in types else None
+    instance_entrypoints = [] if 'instance' in types else None
     for e in entrypoints:
+        if e.is_cmd_entrypoint():
+            if cmd_entrypoints != None:
+                cmd_entrypoints.append(e)
         if e.is_device_entrypoint():
-            device_entrypoints.append(e)
+            if device_entrypoints != None:
+                device_entrypoints.append(e)
         elif e.is_physical_device_entrypoint():
-            physical_device_entrypoints.append(e)
+            if physical_device_entrypoints != None:
+                physical_device_entrypoints.append(e)
         else:
-            instance_entrypoints.append(e)
+            if instance_entrypoints != None:
+                instance_entrypoints.append(e)
 
     assert os.path.dirname(args.out_c) == os.path.dirname(args.out_h)
 
@@ -229,6 +276,7 @@ def main():
         'physical_device_entrypoints': physical_device_entrypoints,
         'physical_device_prefixes': physical_device_prefixes,
         'device_entrypoints': device_entrypoints,
+        'cmd_entrypoints': cmd_entrypoints,
         'device_prefixes': device_prefixes,
         'filename': os.path.basename(__file__),
     }
