@@ -180,8 +180,10 @@ get_block_needs(wqm_ctx& ctx, exec_ctx& exec_ctx, Block* block)
                set_needs_wqm(ctx, op.getTemp());
             }
          }
-      } else if (preserve_wqm && info.block_needs & WQM) {
-         needs = Preserve_WQM;
+      } else if (preserve_wqm) {
+         /* Preserve WQM if WQM is needed or within CF */
+         if (!(block->kind & block_kind_top_level) || info.block_needs & WQM)
+            needs = Preserve_WQM;
       }
 
       /* ensure the condition controlling the control flow for this phi is in WQM */
@@ -316,10 +318,6 @@ calculate_wqm_needs(exec_ctx& exec_ctx)
       if (block.kind & block_kind_needs_lowering)
          exec_ctx.info[i].block_needs |= Exact;
 
-      /* if discard is used somewhere in nested CF, we need to preserve the WQM mask */
-      if (block.kind & block_kind_uses_discard_if && ever_again_needs & WQM)
-         exec_ctx.info[i].block_needs |= Preserve_WQM;
-
       ever_again_needs |= exec_ctx.info[i].block_needs & ~Exact_Branch;
       if (block.kind & block_kind_uses_discard_if || block.kind & block_kind_uses_demote)
          ever_again_needs |= Exact;
@@ -329,6 +327,10 @@ calculate_wqm_needs(exec_ctx& exec_ctx)
          ever_again_needs &= ~Preserve_WQM;
       else
          exec_ctx.info[i].block_needs &= ~Preserve_WQM;
+
+      /* don't propagate WQM preservation if WQM is not ever needed again */
+      if (ever_again_needs & Preserve_WQM && !(ever_again_needs & WQM))
+         ever_again_needs &= ~Preserve_WQM;
    }
    exec_ctx.handle_wqm = true;
 }
