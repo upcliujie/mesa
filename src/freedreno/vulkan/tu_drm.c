@@ -335,6 +335,10 @@ tu_bo_finish(struct tu_device *dev, struct tu_bo *bo)
    dev->bo_count--;
    dev->bo_list[idx] = dev->bo_list[dev->bo_count];
    dev->bo_idx[dev->bo_list[idx].handle] = idx;
+
+   if (bo->implicit_sync)
+      dev->implicit_sync_bo_count--;
+
    mtx_unlock(&dev->bo_mutex);
 
    tu_gem_close(dev, bo->gem_handle);
@@ -907,6 +911,9 @@ tu_queue_submit_locked(struct tu_queue *queue, struct tu_queue_submit *submit)
       flags |= MSM_SUBMIT_SYNCOBJ_OUT;
 
    mtx_lock(&queue->device->bo_mutex);
+
+   if (queue->device->implicit_sync_bo_count == 0)
+      flags |= MSM_SUBMIT_NO_IMPLICIT;
 
    /* drm_msm_gem_submit_cmd requires index of bo which could change at any
     * time when bo_mutex is not locked. So we build submit cmds here the real
