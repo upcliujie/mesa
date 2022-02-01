@@ -133,6 +133,10 @@ struct vk_device_dispatch_table {
   ${dispatch_table(device_entrypoints)}
 };
 
+struct vk_cmd_dispatch_table {
+  ${dispatch_table(cmd_entrypoints)}
+};
+
 struct vk_dispatch_table {
     union {
         struct {
@@ -152,6 +156,7 @@ struct vk_dispatch_table {
 ${entrypoint_table('instance', instance_entrypoints)}
 ${entrypoint_table('physical_device', physical_device_entrypoints)}
 ${entrypoint_table('device', device_entrypoints)}
+${entrypoint_table('cmd', cmd_entrypoints)}
 
 void
 vk_instance_dispatch_table_load(struct vk_instance_dispatch_table *table,
@@ -179,6 +184,11 @@ void vk_physical_device_dispatch_table_from_entrypoints(
 void vk_device_dispatch_table_from_entrypoints(
     struct vk_device_dispatch_table *dispatch_table,
     const struct vk_device_entrypoint_table *entrypoint_table,
+    bool overwrite);
+
+void vk_cmd_dispatch_table_from_entrypoints(
+    struct vk_cmd_dispatch_table *dispatch_table,
+    const struct vk_cmd_entrypoint_table *entrypoint_table,
     bool overwrite);
 
 PFN_vkVoidFunction
@@ -362,6 +372,13 @@ static const uint16_t device_compaction_table[] = {
 % endfor
 };
 
+<% assert len(device_entrypoints) < 2**16 %>
+static const uint16_t cmd_compaction_table[] = {
+% for e in cmd_entrypoints:
+    ${e.disp_table_index},
+% endfor
+};
+
 static bool
 vk_instance_entrypoint_is_enabled(int index, uint32_t core_version,
                                   const struct vk_instance_extension_table *instance)
@@ -507,6 +524,7 @@ void vk_${type}_dispatch_table_from_entrypoints(
 ${dispatch_table_from_entrypoints('instance')}
 ${dispatch_table_from_entrypoints('physical_device')}
 ${dispatch_table_from_entrypoints('device')}
+${dispatch_table_from_entrypoints('cmd')}
 
 <%def name="lookup_funcs(type)">
 static PFN_vkVoidFunction
@@ -661,15 +679,23 @@ def main():
     entrypoints = get_entrypoints_from_xml(args.xml_files)
 
     device_entrypoints = []
+    cmd_entrypoints = []
     physical_device_entrypoints = []
     instance_entrypoints = []
     for e in entrypoints:
-        if e.is_device_entrypoint():
+        if e.is_cmd_entrypoint():
+            cmd_entrypoints.append(e)
+        elif e.is_device_entrypoint():
             device_entrypoints.append(e)
         elif e.is_physical_device_entrypoint():
             physical_device_entrypoints.append(e)
         else:
             instance_entrypoints.append(e)
+
+    # cmd_entrypoints is a subset of device_entrypoints. Let's put
+    # the cmd entrypoints first so we can use disp_table_index in
+    # both compaction tables
+    device_entrypoints = cmd_entrypoints + device_entrypoints
 
     for i, e in enumerate(e for e in device_entrypoints if not e.alias):
         e.disp_table_index = i
@@ -706,12 +732,14 @@ def main():
                 f.write(TEMPLATE_H.render(instance_entrypoints=instance_entrypoints,
                                           physical_device_entrypoints=physical_device_entrypoints,
                                           device_entrypoints=device_entrypoints,
+                                          cmd_entrypoints=cmd_entrypoints,
                                           filename=os.path.basename(__file__)))
         if args.out_c:
             with open(args.out_c, 'w') as f:
                 f.write(TEMPLATE_C.render(instance_entrypoints=instance_entrypoints,
                                           physical_device_entrypoints=physical_device_entrypoints,
                                           device_entrypoints=device_entrypoints,
+                                          cmd_entrypoints=cmd_entrypoints,
                                           instance_strmap=instance_strmap,
                                           physical_device_strmap=physical_device_strmap,
                                           device_strmap=device_strmap,
