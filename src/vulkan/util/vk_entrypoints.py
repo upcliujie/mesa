@@ -59,6 +59,9 @@ class Entrypoint(EntrypointBase):
     def is_device_entrypoint(self):
         return self.params[0].type in ('VkDevice', 'VkCommandBuffer', 'VkQueue')
 
+    def is_cmd_entrypoint(self):
+        return self.params[0].type in ('VkCommandBuffer', )
+
     def decl_params(self):
         return ', '.join(p.decl for p in self.params)
 
@@ -76,6 +79,9 @@ class EntrypointAlias(EntrypointBase):
 
     def is_device_entrypoint(self):
         return self.alias.is_device_entrypoint()
+
+    def is_cmd_entrypoint(self):
+        return self.alias.is_cmd_entrypoint()
 
     def prefixed_name(self, prefix):
         return self.alias.prefixed_name(prefix)
