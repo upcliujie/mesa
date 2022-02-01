@@ -217,8 +217,10 @@ struct st_common_variant_key
    /** for ARB_color_buffer_float */
    bool clamp_color;
 
-   /** lower glPointSize to gl_PointSize */
-   boolean export_point_size;
+   /** lower glPointSize to gl_PointSize, deleting any existing gl_PointSize */
+   bool export_point_size;
+   /** add a gl_PointSize only if one doesn't exist */
+   bool maybe_point_size;
 
    /* for user-defined clip-planes */
    uint8_t lower_ucp;
