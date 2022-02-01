@@ -1507,11 +1507,6 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp,
    if (!dri2_surf->wl_win)
       return _eglError(EGL_BAD_NATIVE_WINDOW, "dri2_swap_buffers");
 
-   while (dri2_surf->throttle_callback != NULL)
-      if (wl_display_dispatch_queue(dri2_dpy->wl_dpy,
-                                    dri2_surf->wl_queue) == -1)
-         return -1;
-
    for (int i = 0; i < ARRAY_SIZE(dri2_surf->color_buffers); i++)
       if (dri2_surf->color_buffers[i].age > 0)
          dri2_surf->color_buffers[i].age++;
@@ -1594,6 +1589,11 @@ dri2_wl_swap_buffers_with_damage(_EGLDisplay *disp,
    }
 
    wl_display_flush(dri2_dpy->wl_dpy);
+
+   while (dri2_surf->throttle_callback != NULL)
+      if (wl_display_dispatch_queue(dri2_dpy->wl_dpy,
+                                    dri2_surf->wl_queue) == -1)
+         return -1;
 
    return EGL_TRUE;
 }
