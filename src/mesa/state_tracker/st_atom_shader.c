@@ -239,8 +239,23 @@ st_update_vp( struct st_context *st )
             if (st->ctx->API != API_OPENGLES2)
                key.export_point_size = !st->ctx->VertexProgram.PointSizeEnabled;
             else
-               /* PointSizeEnabled is always set in ES2 contexts */
-               key.export_point_size = true;
+               /* PointSizeEnabled is always set in ES2 contexts, however:
+
+                  "If the last vertex processing stage is a vertex shader,
+                   the point size is taken from the shader built-in gl_PointSize
+                   written by the vertex shader, and is clamped to the
+                   implementation-dependent point size range. If the value written
+                   to gl_PointSize is less than or equal to zero, or if no value is
+                   written to gl_PointSize, the point size is undefined."
+                 - ES 3.2, 13.5 Points
+                *
+                * thus this should never be set because behavior is undefined if the
+                * value isn't already being exported
+                *
+                * but ES2.0 - 3.1 underspecifies this and doesn't define behavior for
+                * non-vertex pointsize exports, so we can just add one in if it doesn't exist
+                */
+               key.maybe_point_size = false;
          }
          /* _NEW_TRANSFORM */
          if (st->lower_ucp && st_user_clip_planes_enabled(st->ctx))
@@ -301,8 +316,20 @@ st_update_common_program(struct st_context *st, struct gl_program *prog,
          if (st->ctx->API != API_OPENGLES2)
             key.export_point_size = !st->ctx->VertexProgram.PointSizeEnabled;
          else
-            /* PointSizeEnabled is always set in ES2 contexts */
-            key.export_point_size = true;
+            /*
+             * PointSizeEnabled is always set in ES2 contexts:
+             *
+               "If the last vertex processing stage is not a vertex shader, the point size is 1.0."
+               - ES 3.2, 13.5 Points
+             *
+             * thus the value must always be exported so 1.0 can be uploaded because point size
+             * is not a valid export from non-vertex stages.
+             * EXCEPT that the CTS explicitly has tests for "wide points" with tess/geom shaders,
+             * so the "most" correct choice here is just to add an output if it doesn't exist
+
+             * in this case, not having a psiz here is UB, so add one because drawing is a form of UB
+             */
+            key.maybe_point_size = true;
       }
    }
 
