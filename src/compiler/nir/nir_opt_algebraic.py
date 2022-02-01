@@ -129,6 +129,17 @@ optimizations = [
     '!options->lower_bitops'),
    (('irem', a, '#b(is_neg_power_of_two)'), ('irem', a, ('iabs', b)), '!options->lower_bitops'),
 
+   # Section 11.1.3.2 (Texel Fetches) of the OpenGL 4.6 Core Profile
+   # specification says:
+   #
+   #    The results of texelFetch built-ins are undefined if any of the
+   #    following conditions hold.... the texel coordinates (i,j,k) refer to a
+   #    texel outside the defined extents of the computed level-of-detail.
+   #
+   # Negative values are outside the defined extents.
+   (('vec2(is_only_used_by_texelFetch)', ('umod', a, '#b(is_pos_power_of_two)'), ('idiv', a, b)),
+    ('vec2', ('umod', a, b), ('udiv', a, b))),
+
    (('~fneg', ('fneg', a)), a),
    (('ineg', ('ineg', a)), a),
    (('fabs', ('fneg', a)), ('fabs', a)),

@@ -406,6 +406,29 @@ is_only_used_as_float(const nir_alu_instr *instr)
 }
 
 static inline bool
+is_only_used_by_texelFetch(const nir_alu_instr *instr)
+{
+   nir_foreach_use(src, &instr->dest.dest.ssa) {
+      const nir_instr *const user_instr = src->parent_instr;
+      if (user_instr->type != nir_instr_type_tex)
+         return false;
+
+      const nir_tex_instr *const user_tex =
+         nir_instr_as_tex(user_instr);
+
+
+      if (user_tex->op != nir_texop_txf &&
+          user_tex->op != nir_texop_txf_ms &&
+          user_tex->op != nir_texop_txf_ms_fb &&
+          user_tex->op != nir_texop_txf_ms_mcs_intel) {
+         return false;
+      }
+   }
+
+   return true;
+}
+
+static inline bool
 only_lower_8_bits_used(const nir_alu_instr *instr)
 {
    return (nir_ssa_def_bits_used(&instr->dest.dest.ssa) & ~0xffull) == 0;
