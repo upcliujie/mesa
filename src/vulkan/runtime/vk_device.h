@@ -44,6 +44,10 @@ struct vk_device {
    struct vk_device_extension_table enabled_extensions;
 
    struct vk_device_dispatch_table dispatch_table;
+   struct {
+      struct vk_cmd_dispatch_table primary;
+      struct vk_cmd_dispatch_table secondary;
+   } cmd_dispatch_table;
 
    /* For VK_EXT_private_data */
    uint32_t private_data_next_index;
@@ -163,6 +167,15 @@ vk_device_init(struct vk_device *device,
                const struct vk_device_dispatch_table *dispatch_table,
                const VkDeviceCreateInfo *pCreateInfo,
                const VkAllocationCallbacks *alloc);
+
+static inline void
+vk_device_set_cmd_dispatch_tables(struct vk_device *device,
+                                  const struct vk_cmd_dispatch_table *primary,
+                                  const struct vk_cmd_dispatch_table *secondary)
+{
+   device->cmd_dispatch_table.primary = *primary;
+   device->cmd_dispatch_table.secondary = *secondary;
+}
 
 static inline void
 vk_device_set_drm_fd(struct vk_device *device, int drm_fd)
