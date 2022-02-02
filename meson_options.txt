@@ -202,6 +202,12 @@ option(
   description : 'use kgsl backend for freedreno vulkan driver',
 )
 option(
+  'freedreno-virtio-experimental',
+  type : 'boolean',
+  value : false,
+  description : 'use experimental virtio backend for freedreno (currently only gallium driver)',
+)
+option(
   'shader-cache',
   type : 'combo',
   value : 'auto',
