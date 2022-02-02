@@ -677,38 +677,41 @@ zink_bind_rasterizer_state(struct pipe_context *pctx, void *cso)
 {
    struct zink_context *ctx = zink_context(pctx);
    struct zink_screen *screen = zink_screen(pctx->screen);
-   bool point_quad_rasterization = ctx->rast_state ? ctx->rast_state->base.point_quad_rasterization : false;
-   bool scissor = ctx->rast_state ? ctx->rast_state->base.scissor : false;
-   bool pv_last = ctx->rast_state ? ctx->rast_state->hw_state.pv_last : false;
+
    ctx->rast_state = cso;
 
-   if (ctx->rast_state) {
-      if (screen->info.have_EXT_provoking_vertex &&
-          pv_last != ctx->rast_state->hw_state.pv_last &&
-          /* without this prop, change in pv mode requires new rp */
-          !screen->info.pv_props.provokingVertexModePerPipeline)
-         zink_batch_no_rp(ctx);
-      uint32_t rast_bits = 0;
-      memcpy(&rast_bits, &ctx->rast_state->hw_state, sizeof(struct zink_rasterizer_hw_state));
-      ctx->gfx_pipeline_state.rast_state = rast_bits & BITFIELD_MASK(ZINK_RAST_HW_STATE_SIZE);
+   if (cso == NULL)
+      return;
 
-      ctx->gfx_pipeline_state.dirty = true;
-      ctx->rast_state_changed = true;
+   bool point_quad_rasterization = ctx->rast_state->base.point_quad_rasterization;
+   bool scissor = ctx->rast_state->base.scissor;
+   bool pv_last = ctx->rast_state->hw_state.pv_last;
 
-      if (zink_get_last_vertex_key(ctx)->clip_halfz != ctx->rast_state->base.clip_halfz) {
-         zink_set_last_vertex_key(ctx)->clip_halfz = ctx->rast_state->base.clip_halfz;
-         ctx->vp_state_changed = true;
-      }
+   if (screen->info.have_EXT_provoking_vertex &&
+       pv_last != ctx->rast_state->hw_state.pv_last &&
+       /* without this prop, change in pv mode requires new rp */
+       !screen->info.pv_props.provokingVertexModePerPipeline)
+      zink_batch_no_rp(ctx);
+   uint32_t rast_bits = 0;
+   memcpy(&rast_bits, &ctx->rast_state->hw_state, sizeof(struct zink_rasterizer_hw_state));
+   ctx->gfx_pipeline_state.rast_state = rast_bits & BITFIELD_MASK(ZINK_RAST_HW_STATE_SIZE);
 
-      if (ctx->gfx_pipeline_state.dyn_state1.front_face != ctx->rast_state->front_face) {
-         ctx->gfx_pipeline_state.dyn_state1.front_face = ctx->rast_state->front_face;
-         ctx->gfx_pipeline_state.dirty |= !zink_screen(pctx->screen)->info.have_EXT_extended_dynamic_state;
-      }
-      if (ctx->rast_state->base.point_quad_rasterization != point_quad_rasterization)
-         zink_set_fs_point_coord_key(ctx);
-      if (ctx->rast_state->base.scissor != scissor)
-         ctx->scissor_changed = true;
+   ctx->gfx_pipeline_state.dirty = true;
+   ctx->rast_state_changed = true;
+
+   if (zink_get_last_vertex_key(ctx)->clip_halfz != ctx->rast_state->base.clip_halfz) {
+      zink_set_last_vertex_key(ctx)->clip_halfz = ctx->rast_state->base.clip_halfz;
+      ctx->vp_state_changed = true;
    }
+
+   if (ctx->gfx_pipeline_state.dyn_state1.front_face != ctx->rast_state->front_face) {
+      ctx->gfx_pipeline_state.dyn_state1.front_face = ctx->rast_state->front_face;
+      ctx->gfx_pipeline_state.dirty |= !zink_screen(pctx->screen)->info.have_EXT_extended_dynamic_state;
+   }
+   if (ctx->rast_state->base.point_quad_rasterization != point_quad_rasterization)
+      zink_set_fs_point_coord_key(ctx);
+   if (ctx->rast_state->base.scissor != scissor)
+      ctx->scissor_changed = true;
 }
 
 static void
