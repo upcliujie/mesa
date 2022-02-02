@@ -2648,7 +2648,8 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
               (instr->opcode == aco_opcode::v_pk_fma_f16 && program->chip_class >= GFX10) ||
               (instr->opcode == aco_opcode::v_mad_legacy_f32 && program->dev.has_mac_legacy32) ||
               (instr->opcode == aco_opcode::v_fma_legacy_f32 && program->dev.has_mac_legacy32) ||
-              (instr->opcode == aco_opcode::v_dot4_i32_i8 && program->family != CHIP_VEGA20)) &&
+              (instr->opcode == aco_opcode::v_dot4_i32_i8 && program->family != CHIP_VEGA20) ||
+              (instr->opcode == aco_opcode::v_dot2_f32_f16 && program->family != CHIP_VEGA20)) &&
              instr->operands[2].isTemp() && instr->operands[2].isKillBeforeDef() &&
              instr->operands[2].getTemp().type() == RegType::vgpr &&
              ((instr->operands[0].isTemp() &&
@@ -2679,6 +2680,7 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
                case aco_opcode::v_fma_f16: instr->opcode = aco_opcode::v_fmac_f16; break;
                case aco_opcode::v_pk_fma_f16: instr->opcode = aco_opcode::v_pk_fmac_f16; break;
                case aco_opcode::v_dot4_i32_i8: instr->opcode = aco_opcode::v_dot4c_i32_i8; break;
+               case aco_opcode::v_dot2_f32_f16: instr->opcode = aco_opcode::v_dot2c_f32_f16; break;
                case aco_opcode::v_mad_legacy_f32:
                   instr->opcode = aco_opcode::v_mac_legacy_f32;
                   break;
@@ -2699,7 +2701,8 @@ register_allocation(Program* program, std::vector<IDSet>& live_out_per_block, ra
              instr->opcode == aco_opcode::v_pk_fmac_f16 ||
              instr->opcode == aco_opcode::v_writelane_b32 ||
              instr->opcode == aco_opcode::v_writelane_b32_e64 ||
-             instr->opcode == aco_opcode::v_dot4c_i32_i8) {
+             instr->opcode == aco_opcode::v_dot4c_i32_i8 ||
+             instr->opcode == aco_opcode::v_dot2c_f32_f16) {
             instr->definitions[0].setFixed(instr->operands[2].physReg());
          } else if (instr->opcode == aco_opcode::s_addk_i32 ||
                     instr->opcode == aco_opcode::s_mulk_i32) {

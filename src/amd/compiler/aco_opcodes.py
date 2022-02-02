@@ -671,6 +671,7 @@ VOP2 = {
   # GFX6, GFX7, GFX8, GFX9, GFX10, name, input/output modifiers
    (0x01, 0x01,   -1,   -1,   -1, "v_readlane_b32", False),
    (0x02, 0x02,   -1,   -1,   -1, "v_writelane_b32", False),
+   (  -1,   -1,   -1, 0x37, 0x02, "v_dot2c_f32_f16", False),
    (0x03, 0x03, 0x01, 0x01, 0x03, "v_add_f32", True),
    (0x04, 0x04, 0x02, 0x02, 0x04, "v_sub_f32", True),
    (0x05, 0x05, 0x03, 0x03, 0x05, "v_subrev_f32", True),
