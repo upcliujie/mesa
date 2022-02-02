@@ -1517,3 +1517,18 @@ opcode("udot_2x16_uadd_sat", 0, tint32, [0, 0, 0], [tuint32, tuint32, tint32],
 
    dst = tmp >= UINT32_MAX ? UINT32_MAX : tmp;
 """)
+
+# src0 and src1 are f16vec2 packed in an int32, and src2 is a float32_t.
+# float16_t values are extracted and converted to float32_t, and a
+# dot-product is performed on the resulting vectors. src2 is added to
+# the result of the dot-product. 16bit denorms are not flushed and
+# the instruction always uses round-to-nearest-even.
+opcode("fdot_2x16_fadd", 0, tfloat32, [0, 0, 0], [tuint32, tuint32, tfloat32],
+       False, _2src_commutative, """
+   const float v0x = _mesa_half_to_float(src0      );
+   const float v0y = _mesa_half_to_float(src0 >> 16);
+   const float v1x = _mesa_half_to_float(src1      );
+   const float v1y = _mesa_half_to_float(src1 >> 16);
+
+   dst = (v0x * v1x) + (v0y * v1y) + src2;
+""")
