@@ -40,6 +40,8 @@ e = 'e'
 
 signed_zero_inf_nan_preserve_16 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 16)'
 signed_zero_inf_nan_preserve_32 = 'nir_is_float_control_signed_zero_inf_nan_preserve(info->float_controls_execution_mode, 32)'
+can_use_rtne32 = '!nir_is_rounding_mode_rtz(info->float_controls_execution_mode, 32)'
+can_preserve_denormal16 = '!nir_is_denorm_flush_to_zero(info->float_controls_execution_mode, 16)'
 
 ignore_exact = nir_algebraic.ignore_exact
 
@@ -270,6 +272,33 @@ optimizations = [
    (('ffma@32', a, ('bcsel', ignore_exact('feq', a, 0.0), 0.0, '#b(is_not_const_zero)'), c),
     ('ffmaz', a, b, c), 'options->has_fmulz && !'+signed_zero_inf_nan_preserve_32),
 ]
+
+# vkd3d-proton's open-coded fdot_2x16_fadd
+# and other inexact fdot_2x16_fadd patterns
+fdot_2x16_fadd_cond = 'options->has_dot_2x16 && {} && {}'.format(can_use_rtne32, can_preserve_denormal16)
+optimizations.extend([
+   # 32bit multiply and add
+   (('fadd', ('fmul(is_used_once)', ('f2f32', 'a@16'), ('f2f32', 'b@16')), ('fmul(is_used_once)', ('f2f32', 'c@16'), ('f2f32', 'd@16'))),
+    ('fdot_2x16_fadd', ('pack_32_2x16_split', a, c), ('pack_32_2x16_split', b, d), -0.0),
+    fdot_2x16_fadd_cond),
+   (('~fadd', ('fmul(is_used_once)', ('f2f32', 'c@16'), ('f2f32', 'd@16')), ('fadd(is_used_once)', ('fmul(is_used_once)', ('f2f32', 'a@16'), ('f2f32', 'b@16')), e)),
+    ('fdot_2x16_fadd', ('pack_32_2x16_split', a, c), ('pack_32_2x16_split', b, d), e),
+    fdot_2x16_fadd_cond),
+    # 16bit multiply and 32bit add
+   (('~fadd(is_used_once)', ('f2f32', ('fmul(is_used_once)', 'a@16', 'b@16')), ('f2f32(is_used_once)', ('fmul(is_used_once)', 'c@16', 'd@16'))),
+    ('fdot_2x16_fadd', ('pack_32_2x16_split', a, c), ('pack_32_2x16_split', b, d), -0.0),
+    fdot_2x16_fadd_cond),
+   (('~fadd', ('fadd(is_used_once)', ('f2f32(is_used_once)', ('fmul(is_used_once)', 'a@16', 'b@16')), e), ('f2f32(is_used_once)', ('fmul(is_used_once)', 'c@16', 'd@16'))),
+    ('fdot_2x16_fadd', ('pack_32_2x16_split', a, c), ('pack_32_2x16_split', b, d), e),
+    fdot_2x16_fadd_cond),
+    # 16bit multiply and 16bit add, conversion to 32bit
+   (('~f2f32', ('fadd(is_used_once)', ('fmul(is_used_once)', 'a@16', 'b@16'), ('fmul(is_used_once)', 'c@16', 'd@16'))),
+    ('fdot_2x16_fadd', ('pack_32_2x16_split', a, c), ('pack_32_2x16_split', b, d), -0.0),
+    fdot_2x16_fadd_cond),
+
+    (('fadd', ('fdot_2x16_fadd', 'a(is_not_const)', b, -0.0), c), ('fdot_2x16_fadd', a, b, c)),
+    (('~fadd', ('fdot_2x16_fadd(is_used_once)', a, b, '#c'), '#d'), ('fdot_2x16_fadd', a, b, ('fadd', '#c', '#d'))),
+])
 
 # Shorthand for the expansion of just the dot product part of the [iu]dp4a
 # instructions.
