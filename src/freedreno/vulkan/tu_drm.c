@@ -129,6 +129,23 @@ tu_device_get_suspend_count(struct tu_device *dev, uint64_t *suspend_count)
    return ret;
 }
 
+VkResult
+tu_device_check_status(struct vk_device *vk_device)
+{
+   struct tu_device *device = container_of(vk_device, struct tu_device, vk);
+   struct tu_physical_device *physical_device = device->physical_device;
+
+   uint64_t last_fault_count = physical_device->fault_count;
+   int ret = tu_drm_get_param(physical_device, MSM_PARAM_FAULTS, &physical_device->fault_count);
+   if (ret != 0)
+      return vk_device_set_lost(&device->vk, "error getting GPU fault count: %d", ret);
+
+   if (last_fault_count != physical_device->fault_count)
+      return vk_device_set_lost(&device->vk, "GPU faulted or hung");
+
+   return VK_SUCCESS;
+}
+
 int
 tu_drm_submitqueue_new(const struct tu_device *dev,
                        int priority,
@@ -647,6 +664,13 @@ tu_drm_device_init(struct tu_physical_device *device,
    if (tu_drm_get_gmem_base(device, &device->gmem_base)) {
       result = vk_startup_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
                                  "could not get GMEM size");
+      goto fail;
+   }
+
+   int ret = tu_drm_get_param(device, MSM_PARAM_FAULTS, &device->fault_count);
+   if (ret != 0) {
+      result = vk_startup_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                                 "Failed to get initial fault count: %d", ret);
       goto fail;
    }
 
