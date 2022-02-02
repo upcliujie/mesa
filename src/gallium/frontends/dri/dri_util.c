@@ -659,7 +659,8 @@ static void dri_put_drawable(__DRIdrawable *pdp)
 static __DRIdrawable *
 driCreateNewDrawable(__DRIscreen *screen,
                      const __DRIconfig *config,
-                     void *data)
+                     void *data,
+                     int pixmap)
 {
     __DRIdrawable *pdraw;
 
@@ -681,7 +682,7 @@ driCreateNewDrawable(__DRIscreen *screen,
     dri_get_drawable(pdraw);
 
     if (!screen->driver->CreateBuffer(screen, pdraw, &config->modes,
-                                      GL_FALSE)) {
+                                      pixmap)) {
        free(pdraw);
        return NULL;
     }

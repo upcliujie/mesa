@@ -653,7 +653,7 @@ driswCreateDrawable(struct glx_screen *base, XID xDrawable,
 
    /* Create a new drawable */
    pdp->driDrawable =
-      (*swrast->createNewDrawable) (psc->driScreen, config->driConfig, pdp);
+      (*swrast->createNewDrawable) (psc->driScreen, config->driConfig, pdp, type != GLX_WINDOW_BIT);
 
    if (!pdp->driDrawable) {
       XDestroyDrawable(pdp, psc->base.dpy, xDrawable);
