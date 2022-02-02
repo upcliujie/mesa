@@ -53,6 +53,11 @@ struct kopper_surface;
 struct __DRIkopperExtensionRec {
    __DRIextension base;
 
+    __DRIdrawable *(*createNewDrawable)(__DRIscreen *screen,
+					const __DRIconfig *config,
+					void *loaderPrivate,
+					int pixmap);
+
    /* vulkan setup glue */
    void *(*CreateInstance)(uint32_t num_extensions,
                            const char * const * extensions);

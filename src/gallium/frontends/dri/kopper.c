@@ -34,6 +34,7 @@
 #include "driver_trace/tr_screen.h"
 
 #include "dri_screen.h"
+#include "utils.h"
 #include "dri_context.h"
 #include "dri_drawable.h"
 #include "dri_helpers.h"
@@ -529,8 +530,47 @@ kopper_swap_buffers(__DRIdrawable *dPriv)
    drawable->textures[ST_ATTACHMENT_FRONT_LEFT] = ptex;
 }
 
+static __DRIdrawable *
+kopperCreateNewDrawable(__DRIscreen *screen,
+                        const __DRIconfig *config,
+                        void *data,
+                        int is_pixmap)
+{
+    __DRIdrawable *pdraw;
+
+    assert(data != NULL);
+
+    pdraw = malloc(sizeof *pdraw);
+    if (!pdraw)
+	return NULL;
+
+    pdraw->loaderPrivate = data;
+
+    pdraw->driScreenPriv = screen;
+    pdraw->driContextPriv = NULL;
+    pdraw->refcount = 0;
+    pdraw->lastStamp = 0;
+    pdraw->w = 0;
+    pdraw->h = 0;
+
+    //dri_get_drawable(pdraw);
+    pdraw->refcount++;
+
+    if (!screen->driver->CreateBuffer(screen, pdraw, &config->modes,
+                                      is_pixmap)) {
+       free(pdraw);
+       return NULL;
+    }
+
+    pdraw->dri2.stamp = pdraw->lastStamp + 1;
+
+    return pdraw;
+}
+
+
 const __DRIkopperExtension driKopperExtension = {
    .base = { __DRI_KOPPER, 1 },
+   .createNewDrawable          = kopperCreateNewDrawable,
    // XXX
 };
 

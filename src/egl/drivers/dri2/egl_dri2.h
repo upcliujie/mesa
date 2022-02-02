@@ -221,6 +221,7 @@ struct dri2_egl_display
    const __DRIimageDriverExtension *image_driver;
    const __DRIdri2Extension *dri2;
    const __DRIswrastExtension *swrast;
+   const __DRIkopperExtension *kopper;
    const __DRI2flushExtension *flush;
    const __DRI2flushControlExtension *flush_control;
    const __DRItexBufferExtension *tex_buffer;
