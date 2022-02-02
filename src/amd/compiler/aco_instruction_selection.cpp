@@ -977,7 +977,7 @@ emit_vop3p_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, T
 }
 
 void
-emit_idot_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Temp dst, bool clamp)
+emit_dot_instruction(isel_context* ctx, nir_alu_instr* instr, aco_opcode op, Temp dst, bool clamp)
 {
    Temp src[3] = {Temp(0, v1), Temp(0, v1), Temp(0, v1)};
    bool has_sgpr = false;
@@ -2271,35 +2271,39 @@ visit_alu_instr(isel_context* ctx, nir_alu_instr* instr)
       break;
    }
    case nir_op_sdot_4x8_iadd: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot4_i32_i8, dst, false);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot4_i32_i8, dst, false);
       break;
    }
    case nir_op_sdot_4x8_iadd_sat: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot4_i32_i8, dst, true);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot4_i32_i8, dst, true);
       break;
    }
    case nir_op_udot_4x8_uadd: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot4_u32_u8, dst, false);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot4_u32_u8, dst, false);
       break;
    }
    case nir_op_udot_4x8_uadd_sat: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot4_u32_u8, dst, true);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot4_u32_u8, dst, true);
       break;
    }
    case nir_op_sdot_2x16_iadd: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot2_i32_i16, dst, false);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot2_i32_i16, dst, false);
       break;
    }
    case nir_op_sdot_2x16_iadd_sat: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot2_i32_i16, dst, true);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot2_i32_i16, dst, true);
       break;
    }
    case nir_op_udot_2x16_uadd: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot2_u32_u16, dst, false);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot2_u32_u16, dst, false);
       break;
    }
    case nir_op_udot_2x16_uadd_sat: {
-      emit_idot_instruction(ctx, instr, aco_opcode::v_dot2_u32_u16, dst, true);
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot2_u32_u16, dst, true);
+      break;
+   }
+   case nir_op_fdot_2x16_fadd: {
+      emit_dot_instruction(ctx, instr, aco_opcode::v_dot2_f32_f16, dst, false);
       break;
    }
    case nir_op_cube_face_coord_amd: {

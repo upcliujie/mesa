@@ -534,6 +534,7 @@ init_context(isel_context* ctx, nir_shader* shader)
                case nir_op_cube_face_index_amd:
                case nir_op_cube_face_coord_amd:
                case nir_op_sad_u8x4:
+               case nir_op_fdot_2x16_fadd:
                case nir_op_udot_4x8_uadd:
                case nir_op_sdot_4x8_iadd:
                case nir_op_udot_4x8_uadd_sat:

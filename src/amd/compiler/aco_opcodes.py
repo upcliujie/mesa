@@ -966,6 +966,7 @@ VOPP = {
 # (gfx6, gfx7, gfx8, gfx9, gfx10, name) = (-1, -1, -1, code, code, name)
 for (code, name, modifiers) in VOPP:
    opcode(name, -1, code, code, Format.VOP3P, InstrClass.Valu32, modifiers, modifiers)
+opcode("v_dot2_f32_f16", -1, 0x23, 0x13, Format.VOP3P, InstrClass.Valu32)
 opcode("v_dot2_i32_i16", -1, 0x26, 0x14, Format.VOP3P, InstrClass.Valu32)
 opcode("v_dot2_u32_u16", -1, 0x27, 0x15, Format.VOP3P, InstrClass.Valu32)
 opcode("v_dot4_i32_i8", -1, 0x28, 0x16, Format.VOP3P, InstrClass.Valu32)
