@@ -925,6 +925,12 @@ typedef __DRIdrawable *
                               const __DRIconfig *config,
                               void *loaderPrivate);
 
+typedef __DRIdrawable *
+(*__DRIcreateNewDrawablePixmapFunc)(__DRIscreen *screen,
+                                    const __DRIconfig *config,
+                                    void *loaderPrivate,
+                                    int is_pixmap);
+
 typedef __DRIcontext *
 (*__DRIcreateContextAttribsFunc)(__DRIscreen *screen,
                                  int api,

@@ -661,6 +661,7 @@ driswCreateDrawable(struct glx_screen *base, XID xDrawable,
    __GLXDRIconfigPrivate *config = (__GLXDRIconfigPrivate *) modes;
    struct drisw_screen *psc = (struct drisw_screen *) base;
    const __DRIswrastExtension *swrast = psc->swrast;
+   const __DRIkopperExtension *kopper = psc->kopper;
    Display *dpy = psc->base.dpy;
 
    pdp = calloc(1, sizeof(*pdp));
@@ -701,8 +702,12 @@ driswCreateDrawable(struct glx_screen *base, XID xDrawable,
    }
 
    /* Create a new drawable */
-   pdp->driDrawable =
-      (*swrast->createNewDrawable) (psc->driScreen, config->driConfig, pdp);
+   if (kopper)
+      pdp->driDrawable =
+         (*kopper->createNewDrawable) (psc->driScreen, config->driConfig, pdp, !(type & GLX_WINDOW_BIT));
+   else
+      pdp->driDrawable =
+         (*swrast->createNewDrawable) (psc->driScreen, config->driConfig, pdp);
 
    if (!pdp->driDrawable) {
       XDestroyDrawable(pdp, psc->base.dpy, xDrawable);
@@ -901,6 +906,8 @@ driswCreateScreenDriver(int screen, struct glx_display *priv,
 	 psc->core = (__DRIcoreExtension *) extensions[i];
       if (strcmp(extensions[i]->name, __DRI_SWRAST) == 0)
 	 psc->swrast = (__DRIswrastExtension *) extensions[i];
+      if (strcmp(extensions[i]->name, __DRI_KOPPER) == 0)
+	 psc->kopper = (__DRIkopperExtension *) extensions[i];
       if (strcmp(extensions[i]->name, __DRI_COPY_SUB_BUFFER) == 0)
 	 psc->copySubBuffer = (__DRIcopySubBufferExtension *) extensions[i];
    }

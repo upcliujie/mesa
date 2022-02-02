@@ -27,6 +27,7 @@
 #define DRISW_PRIV_H
 
 #include <X11/extensions/XShm.h>
+#include "kopper_interface.h"
 
 struct drisw_display
 {
@@ -49,6 +50,7 @@ struct drisw_screen
    __GLXDRIscreen vtable;
    const __DRIcoreExtension *core;
    const __DRIswrastExtension *swrast;
+   const __DRIkopperExtension *kopper;
    const __DRItexBufferExtension *texBuffer;
    const __DRIcopySubBufferExtension *copySubBuffer;
    const __DRI2rendererQueryExtension *rendererQuery;

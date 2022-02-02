@@ -707,6 +707,7 @@ struct dri2_extension_match {
 static const struct dri2_extension_match dri3_driver_extensions[] = {
    { __DRI_CORE, 1, offsetof(struct dri2_egl_display, core) },
    { __DRI_IMAGE_DRIVER, 1, offsetof(struct dri2_egl_display, image_driver) },
+   { __DRI_KOPPER, 1, offsetof(struct dri2_egl_display, kopper) },
    { NULL, 0, 0 }
 };
 
@@ -1743,19 +1744,26 @@ dri2_create_drawable(struct dri2_egl_display *dri2_dpy,
                      struct dri2_egl_surface *dri2_surf,
                      void *loaderPrivate)
 {
-   __DRIcreateNewDrawableFunc createNewDrawable;
+   if (dri2_dpy->kopper) {
+      __DRIcreateNewDrawablePixmapFunc createNewDrawable = dri2_dpy->kopper->createNewDrawable;
+      dri2_surf->dri_drawable = createNewDrawable(dri2_dpy->dri_screen,
+                                                  config, loaderPrivate,
+                                                  dri2_surf->base.Type == EGL_PBUFFER_BIT ||
+                                                  dri2_surf->base.Type == EGL_PIXMAP_BIT);
+   } else {
+      __DRIcreateNewDrawableFunc createNewDrawable;
+      if (dri2_dpy->image_driver)
+         createNewDrawable = dri2_dpy->image_driver->createNewDrawable;
+      else if (dri2_dpy->dri2)
+         createNewDrawable = dri2_dpy->dri2->createNewDrawable;
+      else if (dri2_dpy->swrast)
+         createNewDrawable = dri2_dpy->swrast->createNewDrawable;
+      else
+         return _eglError(EGL_BAD_ALLOC, "no createNewDrawable");
 
-   if (dri2_dpy->image_driver)
-      createNewDrawable = dri2_dpy->image_driver->createNewDrawable;
-   else if (dri2_dpy->dri2)
-      createNewDrawable = dri2_dpy->dri2->createNewDrawable;
-   else if (dri2_dpy->swrast)
-      createNewDrawable = dri2_dpy->swrast->createNewDrawable;
-   else
-      return _eglError(EGL_BAD_ALLOC, "no createNewDrawable");
-
-   dri2_surf->dri_drawable = createNewDrawable(dri2_dpy->dri_screen,
-                                               config, loaderPrivate);
+      dri2_surf->dri_drawable = createNewDrawable(dri2_dpy->dri_screen,
+                                                  config, loaderPrivate);
+   }
    if (dri2_surf->dri_drawable == NULL)
       return _eglError(EGL_BAD_ALLOC, "createNewDrawable");
 
