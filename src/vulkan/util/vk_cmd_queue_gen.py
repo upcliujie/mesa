@@ -79,6 +79,7 @@ struct vk_device_dispatch_table;
 struct vk_cmd_queue {
    const VkAllocationCallbacks *alloc;
    struct list_head cmds;
+   VkResult error;
 };
 
 enum vk_cmd_type {
@@ -159,6 +160,7 @@ vk_cmd_queue_init(struct vk_cmd_queue *queue, VkAllocationCallbacks *alloc)
 {
    queue->alloc = alloc;
    list_inithead(&queue->cmds);
+   queue->error = VK_SUCCESS;
 }
 
 static inline void
@@ -166,6 +168,7 @@ vk_cmd_queue_reset(struct vk_cmd_queue *queue)
 {
    vk_free_queue(queue);
    list_inithead(&queue->cmds);
+   queue->error = VK_SUCCESS;
 }
 
 static inline void
@@ -211,26 +214,44 @@ const char *vk_cmd_queue_type_names[] = {
 };
 
 % for c in commands:
-% if c.name in manual_commands:
-<% continue %>
-% endif
 % if c.guard is not None:
 #ifdef ${c.guard}
 % endif
+static void
+vk_free_${to_underscore(c.name)}(struct vk_cmd_queue *queue,
+${' ' * len('vk_free_' + to_underscore(c.name) + '(')}\\
+struct vk_cmd_queue_entry *cmd)
+{
+   if (cmd->driver_free_cb)
+      cmd->driver_free_cb(queue, cmd);
+   else
+      vk_free(queue->alloc, cmd->driver_data);
+% for p in c.params[1:]:
+% if p.len:
+   vk_free(queue->alloc, (${remove_suffix(p.decl.replace("const", ""), p.name)})cmd->u.${to_struct_field_name(c.name)}.${to_field_name(p.name)});
+% elif '*' in p.decl:
+   ${get_struct_free(c, p, types)}
+% endif
+% endfor
+   vk_free(queue->alloc, cmd);
+}
+
+% if c.name not in manual_commands:
 void vk_enqueue_${to_underscore(c.name)}(struct vk_cmd_queue *queue
 % for p in c.params[1:]:
 , ${p.decl}
 % endfor
 )
 {
+   if (queue->error)
+      return;
+
    struct vk_cmd_queue_entry *cmd = vk_zalloc(queue->alloc,
                                               sizeof(*cmd), 8,
                                               VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-   if (!cmd)
-      return;
+   if (!cmd) goto err;
 
    cmd->type = ${to_enum_name(c.name)};
-   list_addtail(&cmd->cmd_link, &queue->cmds);
 
 % for p in c.params[1:]:
 % if p.len:
@@ -248,7 +269,16 @@ void vk_enqueue_${to_underscore(c.name)}(struct vk_cmd_queue *queue
    cmd->u.${to_struct_field_name(c.name)}.${to_field_name(p.name)} = ${p.name};
 % endif
 % endfor
+
+   list_addtail(&cmd->cmd_link, &queue->cmds);
+   return;
+
+err:
+   queue->error = VK_ERROR_OUT_OF_HOST_MEMORY;
+   if (cmd)
+      vk_free_${to_underscore(c.name)}(queue, cmd);
 }
+% endif
 % if c.guard is not None:
 #endif // ${c.guard}
 % endif
@@ -266,24 +296,13 @@ vk_free_queue(struct vk_cmd_queue *queue)
 #ifdef ${c.guard}
 % endif
       case ${to_enum_name(c.name)}:
-         if (cmd->driver_free_cb)
-            cmd->driver_free_cb(queue, cmd);
-         else
-            vk_free(queue->alloc, cmd->driver_data);
-% for p in c.params[1:]:
-% if p.len:
-         vk_free(queue->alloc, (${remove_suffix(p.decl.replace("const", ""), p.name)})cmd->u.${to_struct_field_name(c.name)}.${to_field_name(p.name)});
-% elif '*' in p.decl:
-         ${get_struct_free(c, p, types)}
-% endif
-% endfor
+         vk_free_${to_underscore(c.name)}(queue, cmd);
          break;
 % if c.guard is not None:
 #endif // ${c.guard}
 % endif
 % endfor
       }
-      vk_free(queue->alloc, cmd);
    }
 }
 
@@ -399,7 +418,7 @@ def get_array_copy(command, param):
         field_size = "1"
     else:
         field_size = "sizeof(*%s)" % field_name
-    allocation = "%s = vk_zalloc(queue->alloc, %s * %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);" % (field_name, field_size, param.len)
+    allocation = "%s = vk_zalloc(queue->alloc, %s * %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);\n   if (%s == NULL) goto err;\n" % (field_name, field_size, param.len, field_name)
     const_cast = remove_suffix(param.decl.replace("const", ""), param.name)
     copy = "memcpy((%s)%s, %s, %s * %s);" % (const_cast, field_name, param.name, field_size, param.len)
     return "%s\n   %s" % (allocation, copy)
@@ -407,10 +426,10 @@ def get_array_copy(command, param):
 def get_array_member_copy(struct, src_name, member):
     field_name = "%s->%s" % (struct, member.name)
     len_field_name = "%s->%s" % (struct, member.len)
-    allocation = "%s = vk_zalloc(queue->alloc, sizeof(*%s) * %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);" % (field_name, field_name, len_field_name)
+    allocation = "%s = vk_zalloc(queue->alloc, sizeof(*%s) * %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);\n   if (%s == NULL) goto err;\n" % (field_name, field_name, len_field_name, field_name)
     const_cast = remove_suffix(member.decl.replace("const", ""), member.name)
     copy = "memcpy((%s)%s, %s->%s, sizeof(*%s) * %s);" % (const_cast, field_name, src_name, member.name, field_name, len_field_name)
-    return "%s\n   %s\n" % (allocation, copy)
+    return "%s\n   %s" % (allocation, copy)
 
 def get_pnext_member_copy(struct, src_type, member, types, level):
     if not types[src_type].extended_by:
@@ -437,7 +456,7 @@ def get_struct_copy(dst, src_name, src_type, size, types, level=0):
     global tmp_dst_idx
     global tmp_src_idx
 
-    allocation = "%s = vk_zalloc(queue->alloc, %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);" % (dst, size)
+    allocation = "%s = vk_zalloc(queue->alloc, %s, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);\n      if (%s == NULL) goto err;\n" % (dst, size, dst)
     copy = "memcpy((void*)%s, %s, %s);" % (dst, src_name, size)
 
     level += 1
