@@ -552,7 +552,7 @@
   <enum name="Point Size Array Format">
     <value name="None" value="0"/>
     <value name="FP16" value="2"/>
-    <value name="FP32" value="3"/>
+    <!-- FP32 only allowed with legacy (non-IDVS) tiling -->
   </enum>
 
   <enum name="Primitive Restart">
