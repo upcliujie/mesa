@@ -278,12 +278,24 @@ DRM_DRIVER_DESCRIPTOR_ALIAS(msm, kgsl, NULL, 0)
 #include "virgl/drm/virgl_drm_public.h"
 #include "virgl/virgl_public.h"
 
+#ifdef GALLIUM_FREEDRENO
+#include "freedreno/drm/freedreno_drm_public.h"
+#endif
+
 static struct pipe_screen *
 pipe_virtio_gpu_create_screen(int fd, const struct pipe_screen_config *config)
 {
-   struct pipe_screen *screen;
+   struct pipe_screen *screen = NULL;
 
-   screen = virgl_drm_screen_create(fd, config);
+   /* Try native guest driver(s) first, and then fallback to virgl: */
+   // TODO is there a way to do this that doesn't require also building virgl?
+#ifdef GALLIUM_FREEDRENO
+   if (!screen)
+      screen = fd_drm_screen_create(fd, NULL, config);
+#endif
+   if (!screen)
+      screen = virgl_drm_screen_create(fd, config);
+
    return screen ? debug_screen_wrap(screen) : NULL;
 }
 
