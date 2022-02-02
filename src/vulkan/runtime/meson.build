@@ -117,6 +117,17 @@ vk_dispatch_trampolines = custom_target(
   depend_files : vk_dispatch_trampolines_gen_depend_files,
 )
 
+vk_dispatch_cmd = custom_target(
+  'vk_dispatch_cmd',
+  input : [vk_dispatch_cmd_gen, vk_api_xml],
+  output : ['vk_dispatch_cmd.c', 'vk_dispatch_cmd.h'],
+  command : [
+    prog_python, '@INPUT0@', '--xml', '@INPUT1@',
+    '--out-c', '@OUTPUT0@', '--out-h', '@OUTPUT1@'
+  ],
+  depend_files : vk_dispatch_cmd_gen_depend_files,
+)
+
 vk_physical_device_features = custom_target(
   'vk_physical_device_features',
   input : ['vk_physical_device_features.py', vk_api_xml],
@@ -131,7 +142,7 @@ vk_physical_device_features = custom_target(
 libvulkan_runtime = static_library(
   'vulkan_runtime',
   [vulkan_runtime_files, vk_common_entrypoints, vk_cmd_queue,
-   vk_dispatch_trampolines, vk_physical_device_features],
+   vk_dispatch_cmd, vk_dispatch_trampolines, vk_physical_device_features],
   include_directories : [inc_include, inc_src, inc_gallium],
   dependencies : vulkan_runtime_deps,
   # For glsl_type_singleton
