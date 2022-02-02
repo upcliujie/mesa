@@ -1321,6 +1321,16 @@ static void visit_alu(struct ac_nir_context *ctx, const nir_alu_instr *instr)
       break;
    }
 
+   case nir_op_fdot_2x16_fadd: {
+      const char *name = "llvm.amdgcn.fdot2";
+      src[0] = LLVMBuildBitCast(ctx->ac.builder, src[0], ctx->ac.v2f16, "");
+      src[1] = LLVMBuildBitCast(ctx->ac.builder, src[1], ctx->ac.v2f16, "");
+      src[2] = LLVMBuildBitCast(ctx->ac.builder, src[2], ctx->ac.f32, "");
+      src[3] = ctx->ac.i1false;
+      result = ac_build_intrinsic(&ctx->ac, name, ctx->ac.f32, src, 4, AC_FUNC_ATTR_READNONE);
+      break;
+   }
+
    case nir_op_sad_u8x4:
       result = ac_build_intrinsic(&ctx->ac, "llvm.amdgcn.sad.u8", ctx->ac.i32,
                                   (LLVMValueRef[]){src[0], src[1], src[2]}, 3,
