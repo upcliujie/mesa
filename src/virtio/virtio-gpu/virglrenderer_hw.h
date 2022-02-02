@@ -26,6 +26,7 @@
 
 #include "venus_hw.h"
 #include "virgl_hw.h"
+#include "msm_hw.h"
 
 #ifdef VIRGL_RENDERER_UNSTABLE_APIS
 enum virgl_renderer_capset {
@@ -33,6 +34,13 @@ enum virgl_renderer_capset {
    VIRGL_RENDERER_CAPSET_VIRGL2                  = 2,
    /* 3 is reserved for gfxstream */
    VIRGL_RENDERER_CAPSET_VENUS                   = 4,
+   /* 5 is reserved for cross-domain */
+
+   /*
+    * Placeholder value for now.. note that this needs to be in sync
+    * between virglrenderer, mesa, and crosvm
+    */
+   VIRGL_RENDERER_CAPSET_VNC_MSM                 = 7,
 };
 #endif
 
