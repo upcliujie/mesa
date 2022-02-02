@@ -872,7 +872,8 @@ struct __DRIswrastExtensionRec {
 
     __DRIdrawable *(*createNewDrawable)(__DRIscreen *screen,
 					const __DRIconfig *config,
-					void *loaderPrivate);
+					void *loaderPrivate,
+					int pixmap);
 
    /* Since version 2 */
    __DRIcontext *(*createNewContextForAPI)(__DRIscreen *screen,
@@ -923,7 +924,8 @@ typedef __DRIscreen *
 typedef __DRIdrawable *
 (*__DRIcreateNewDrawableFunc)(__DRIscreen *screen,
                               const __DRIconfig *config,
-                              void *loaderPrivate);
+                              void *loaderPrivate,
+                              int pixmap);
 
 typedef __DRIcontext *
 (*__DRIcreateContextAttribsFunc)(__DRIscreen *screen,

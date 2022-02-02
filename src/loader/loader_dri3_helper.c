@@ -457,7 +457,8 @@ loader_dri3_drawable_init(xcb_connection_t *conn,
    draw->dri_drawable =
       draw->ext->image_driver->createNewDrawable(dri_screen,
                                                  dri_config,
-                                                 draw);
+                                                 draw,
+                                                 0);
 
    if (!draw->dri_drawable)
       return 1;
