@@ -1649,6 +1649,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    device->instance = physical_device->instance;
    device->physical_device = physical_device;
    device->fd = physical_device->local_fd;
+   device->vk.check_status = tu_device_check_status;
 
    mtx_init(&device->bo_mutex, mtx_plain);
    pthread_mutex_init(&device->submit_mutex, NULL);
