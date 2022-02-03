@@ -236,12 +236,11 @@ nir_ssa_def *
 nir_vec_scalars(nir_builder *build, nir_ssa_scalar *comp, unsigned num_components)
 {
    nir_op op = nir_op_vec(num_components);
-   const nir_op_info *op_info = &nir_op_infos[op];
    nir_alu_instr *instr = nir_alu_instr_create(build->shader, op);
    if (!instr)
       return NULL;
 
-   for (unsigned i = 0; i < op_info->num_inputs; i++) {
+   for (unsigned i = 0; i < num_components; i++) {
       instr->src[i].src = nir_src_for_ssa(comp[i].def);
       instr->src[i].swizzle[0] = comp[i].comp;
    }
