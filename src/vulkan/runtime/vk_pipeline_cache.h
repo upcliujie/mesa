@@ -49,8 +49,11 @@ struct vk_pipeline_cache_object;
 #define VK_PIPELINE_CACHE_BLOB_ALIGN 8
 
 enum vk_pipeline_cache_object_type {
+   /* Reserve 0 so we can assert everything has a type */
+   VK_PIPELINE_CACHE_OBJECT_TYPE_RESERVED = 0,
    VK_PIPELINE_CACHE_OBJECT_TYPE_RAW_DATA,
    VK_PIPELINE_CACHE_OBJECT_TYPE_NIR,
+   VK_PIPELINE_CACHE_OBJECT_TYPE_ANV_SHADER_BIN,
    VK_NUM_PIPELINE_CACHE_OBJECT_TYPES,
 };
 
@@ -173,8 +176,8 @@ struct vk_pipeline_cache {
    struct set *object_cache;
 };
 
-VK_DEFINE_HANDLE_CASTS(vk_pipeline_cache, base, VkPipelineCache,
-                       VK_OBJECT_TYPE_PIPELINE_CACHE)
+VK_DEFINE_NONDISP_HANDLE_CASTS(vk_pipeline_cache, base, VkPipelineCache,
+                               VK_OBJECT_TYPE_PIPELINE_CACHE)
 
 struct vk_pipeline_cache_create_info {
    /* The pCreateInfo for this pipeline cache, if any.
