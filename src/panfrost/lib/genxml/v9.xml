@@ -1202,7 +1202,7 @@
     <section name="Padding" offset="64" type="Framebuffer Padding"/>
   </aggregate>
 
-  <struct name="Job Header" align="128">
+  <struct name="Job Header" align="256">
     <field name="Exception Status" size="32" start="0:0" type="uint"/>
     <field name="First Incomplete Task" size="32" start="1:0" type="uint"/>
     <field name="Fault Pointer" size="64" start="2:0" type="address"/>
@@ -1406,7 +1406,7 @@
     <field name="Address" size="64" start="0:0" type="address"/>
   </struct>
 
-  <aggregate name="Malloc Vertex Job" size="384" align="128">
+  <aggregate name="Malloc Vertex Job" size="384" align="256">
     <section name="Header" offset="0" type="Job Header"/>
     <section name="Primitive" offset="32" type="Primitive"/>
     <section name="Counts" offset="48" type="IDVS Counts"/>
