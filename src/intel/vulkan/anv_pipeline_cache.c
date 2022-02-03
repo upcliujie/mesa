@@ -54,6 +54,7 @@ anv_shader_bin_destroy(struct vk_pipeline_cache_object *object)
 }
 
 static const struct vk_pipeline_cache_object_ops anv_shader_bin_ops = {
+   .type = VK_PIPELINE_CACHE_OBJECT_TYPE_ANV_SHADER_BIN,
    .serialize = anv_shader_bin_serialize,
    .deserialize = anv_shader_bin_deserialize,
    .destroy = anv_shader_bin_destroy,
