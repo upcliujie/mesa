@@ -419,15 +419,6 @@ tu_CreatePipelineLayout(VkDevice _device,
    }
 
    layout->dynamic_offset_size = dynamic_offset_size;
-   layout->push_constant_size = 0;
-
-   for (unsigned i = 0; i < pCreateInfo->pushConstantRangeCount; ++i) {
-      const VkPushConstantRange *range = pCreateInfo->pPushConstantRanges + i;
-      layout->push_constant_size =
-         MAX2(layout->push_constant_size, range->offset + range->size);
-   }
-
-   layout->push_constant_size = align(layout->push_constant_size, 16);
    *pPipelineLayout = tu_pipeline_layout_to_handle(layout);
 
    return VK_SUCCESS;
