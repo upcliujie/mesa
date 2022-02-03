@@ -1468,6 +1468,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                 format = PIPE_FORMAT_Z32_FLOAT;
         }
 
+#if 0
         const struct util_format_description *desc = util_format_description(format);
 
         bool fake_rgtc = !panfrost_supports_compressed_format(device, MALI_BC4_UNORM);
@@ -1479,6 +1480,7 @@ panfrost_create_sampler_view_bo(struct panfrost_sampler_view *so,
                         format = PIPE_FORMAT_R8G8B8A8_UNORM;
                 desc = util_format_description(format);
         }
+#endif
 
         so->texture_bo = prsrc->image.data.bo->ptr.gpu;
         so->modifier = prsrc->image.layout.modifier;
