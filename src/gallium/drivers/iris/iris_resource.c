@@ -1335,6 +1335,7 @@ iris_resource_from_memobj(struct pipe_screen *pscreen,
    res->bo = memobj->bo;
    res->offset = offset;
    res->external_format = memobj->format;
+   res->internal_format = templ->format;
 
    iris_bo_reference(memobj->bo);
 
@@ -1915,6 +1916,10 @@ iris_map_copy_region(struct iris_transfer *map)
 
    if (iris_batch_references(map->batch, staging_bo))
       iris_batch_flush(map->batch);
+
+   /* XXX - This is required for PIPE_BUFFER (glBufferSubData). */
+   if (templ.target == PIPE_BUFFER)
+      iris_bo_wait_rendering(staging_bo);
 
    map->ptr =
       iris_bo_map(map->dbg, staging_bo, xfer->usage & MAP_FLAGS) + extra;
