@@ -44,8 +44,9 @@ struct wsi_image_info {
    uint32_t modifier_prop_count;
    struct VkDrmFormatModifierPropertiesEXT *modifier_props;
 
-   /* For prime blit images, the linear stride in bytes */
+   /* For buffer blit images, the linear stride in bytes */
    uint32_t linear_stride;
+   uint32_t size_align;
 
    uint8_t *(*alloc_shm)(struct wsi_image *image, unsigned size);
 
@@ -56,6 +57,8 @@ struct wsi_image_info {
    VkResult (*finish_create)(const struct wsi_swapchain *chain,
                              const struct wsi_image_info *info,
                              struct wsi_image *image);
+
+   uint32_t (*get_format_size)(VkFormat format);
 };
 
 struct wsi_image {
@@ -66,7 +69,7 @@ struct wsi_image {
       VkBuffer buffer;
       VkDeviceMemory memory;
       VkCommandBuffer *blit_cmd_buffers;
-   } prime;
+   } buffer;
 
    uint64_t drm_modifier;
    int num_planes;
@@ -84,20 +87,20 @@ struct wsi_swapchain {
    VkDevice device;
    VkAllocationCallbacks alloc;
    VkFence* fences;
-   VkSemaphore* prime_blit_semaphores;
+   VkSemaphore* buffer_blit_semaphores;
    VkPresentModeKHR present_mode;
 
    struct wsi_image_info image_info;
    uint32_t image_count;
 
-   bool use_prime_blit;
+   bool use_buffer_blit;
 
-   /* If the driver wants to use a special queue to execute the prime blit,
-    * it'll implement the wsi_device::get_prime_blit_queue callback.
+   /* If the driver wants to use a special queue to execute the buffer blit,
+    * it'll implement the wsi_device::get_buffer_blit_queue callback.
     * The created queue will be stored here and will be used to execute the
-    * prime blit instead of using the present queue.
+    * buffer blit instead of using the present queue.
     */
-   VkQueue prime_blit_queue;
+   VkQueue buffer_blit_queue;
 
    /* Command pools, one per queue family */
    VkCommandPool *cmd_pools;
@@ -123,7 +126,7 @@ wsi_swapchain_init(const struct wsi_device *wsi,
                    VkDevice device,
                    const VkSwapchainCreateInfoKHR *pCreateInfo,
                    const VkAllocationCallbacks *pAllocator,
-                   bool use_prime_blit);
+                   bool use_buffer_blit);
 
 enum VkPresentModeKHR
 wsi_swapchain_get_present_mode(struct wsi_device *wsi,
@@ -146,6 +149,28 @@ wsi_configure_prime_image(UNUSED const struct wsi_swapchain *chain,
                           const VkSwapchainCreateInfoKHR *pCreateInfo,
                           bool use_modifier,
                           struct wsi_image_info *info);
+
+uint32_t
+wsi_select_memory_type(const struct wsi_device *wsi,
+                              bool want_device_local,
+                              uint32_t type_bits);
+
+VkResult
+wsi_create_buffer_image_mem(const struct wsi_swapchain *chain,
+                            const struct wsi_image_info *info,
+                            struct wsi_image *image,
+                            const void *extra_buf_create_info,
+                            const void *extra_buf_mem_info);
+
+VkResult
+wsi_finish_create_buffer_image(const struct wsi_swapchain *chain,
+                               const struct wsi_image_info *info,
+                               struct wsi_image *image);
+
+VkResult
+wsi_configure_buffer_image(UNUSED const struct wsi_swapchain *chain,
+                           const VkSwapchainCreateInfoKHR *pCreateInfo,
+                           struct wsi_image_info *info);
 
 VkResult
 wsi_configure_image(const struct wsi_swapchain *chain,
