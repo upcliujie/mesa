@@ -171,7 +171,7 @@ GENX(panfrost_blendable_formats)[PIPE_FORMAT_COUNT] = {
 
 const struct panfrost_format GENX(panfrost_pipe_format)[PIPE_FORMAT_COUNT] = {
         FMT(NONE,                    CONSTANT,        0000, L, VTR_),
-        FMT(ETC1_RGB8,               ETC2_RGB8,       RGB1, L, _T__),
+        FMT(ETC1_RGB8,               RGB8_UNORM/*ETC2_RGB8*/,       RGB1, L, _T__),
         FMT(ETC2_RGB8,               ETC2_RGB8,       RGB1, L, _T__),
         FMT(ETC2_SRGB8,              ETC2_RGB8,       RGB1, S, _T__),
         FMT(ETC2_R11_UNORM,          ETC2_R11_UNORM,  R001, L, _T__),
