@@ -128,6 +128,7 @@ nir_build_alu4(nir_builder *build, nir_op op, nir_ssa_def *src0,
                nir_ssa_def *src1, nir_ssa_def *src2, nir_ssa_def *src3);
 
 nir_ssa_def *nir_build_alu_src_arr(nir_builder *build, nir_op op, nir_ssa_def **srcs);
+nir_ssa_def *nir_build_alu_scalar_arr(nir_builder *build, nir_op op, nir_ssa_scalar *srcs);
 
 nir_instr *nir_builder_last_instr(nir_builder *build);
 
@@ -370,6 +371,9 @@ nir_vec(nir_builder *build, nir_ssa_def **comp, unsigned num_components)
 {
    return nir_build_alu_src_arr(build, nir_op_vec(num_components), comp);
 }
+
+nir_ssa_def *
+nir_vec_scalars(nir_builder *build, nir_ssa_scalar *comp, unsigned num_components);
 
 static inline nir_ssa_def *
 nir_mov_alu(nir_builder *build, nir_alu_src src, unsigned num_components)
