@@ -643,6 +643,7 @@ tu_drm_device_init(struct tu_physical_device *device,
                                 "could not get GMEM size");
       goto fail;
    }
+   device->gmem_size = env_var_as_unsigned("TU_GMEM", device->gmem_size);
 
    if (tu_drm_get_gmem_base(device, &device->gmem_base)) {
       result = vk_startup_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
