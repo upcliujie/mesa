@@ -1444,19 +1444,33 @@ static void visit_load_image(struct lp_build_nir_context *bld_base,
 {
    struct gallivm_state *gallivm = bld_base->base.gallivm;
    LLVMBuilderRef builder = gallivm->builder;
-   nir_deref_instr *deref = nir_instr_as_deref(instr->src[0].ssa->parent_instr);
-   nir_variable *var = nir_deref_instr_get_variable(deref);
    LLVMValueRef coord_val = get_src(bld_base, instr->src[1]);
    LLVMValueRef coords[5];
    struct lp_img_params params;
-   const struct glsl_type *type = glsl_without_array(var->type);
-   unsigned const_index;
-   LLVMValueRef indir_index;
-   get_deref_offset(bld_base, deref, false, NULL, NULL,
-                    &const_index, &indir_index);
+   enum glsl_sampler_dim image_dim;
 
    memset(&params, 0, sizeof(params));
-   params.target = glsl_sampler_to_pipe(glsl_get_sampler_dim(type), glsl_sampler_type_is_array(type));
+   if (instr->intrinsic == nir_intrinsic_image_load) {
+      if (nir_src_is_const(instr->src[0]))
+         params.image_index = nir_src_as_int(instr->src[0]);
+      else
+         params.image_index_offset = get_src(bld_base, instr->src[0]);
+      image_dim = nir_intrinsic_image_dim(instr);
+      params.target = glsl_sampler_to_pipe(image_dim, nir_intrinsic_image_array(instr));
+   } else {
+      LLVMValueRef indir_index;
+      unsigned const_index;
+      nir_deref_instr *deref = nir_instr_as_deref(instr->src[0].ssa->parent_instr);
+      nir_variable *var = nir_deref_instr_get_variable(deref);
+      const struct glsl_type *type = glsl_without_array(var->type);
+      image_dim = glsl_get_sampler_dim(type);
+      params.target = glsl_sampler_to_pipe(image_dim, glsl_sampler_type_is_array(type));
+      get_deref_offset(bld_base, deref, false, NULL, NULL,
+                       &const_index, &indir_index);
+      params.image_index = var->data.binding + (indir_index ? 0 : const_index);
+      params.image_index_offset = indir_index;
+   }
+
    for (unsigned i = 0; i < 4; i++)
       coords[i] = LLVMBuildExtractValue(builder, coord_val, i, "");
    if (params.target == PIPE_TEXTURE_1D_ARRAY)
@@ -1465,10 +1479,8 @@ static void visit_load_image(struct lp_build_nir_context *bld_base,
    params.coords = coords;
    params.outdata = result;
    params.img_op = LP_IMG_LOAD;
-   if (glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_MS || glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_SUBPASS_MS)
+   if (image_dim == GLSL_SAMPLER_DIM_MS || image_dim == GLSL_SAMPLER_DIM_SUBPASS_MS)
       params.ms_index = cast_type(bld_base, get_src(bld_base, instr->src[2]), nir_type_uint, 32);
-   params.image_index = var->data.binding + (indir_index ? 0 : const_index);
-   params.image_index_offset = indir_index;
    bld_base->image_op(bld_base, &params);
 }
 
@@ -1867,6 +1879,7 @@ static void visit_intrinsic(struct lp_build_nir_context *bld_base,
    case nir_intrinsic_ssbo_atomic_comp_swap:
       visit_ssbo_atomic(bld_base, instr, result);
       break;
+   case nir_intrinsic_image_load:
    case nir_intrinsic_image_deref_load:
       visit_load_image(bld_base, instr, result);
       break;
