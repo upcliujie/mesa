@@ -58,6 +58,16 @@ pan_shader_stage(const struct pan_shader_info *info)
 }
 #endif
 
+#if PAN_ARCH >= 7
+static inline enum mali_shader_register_allocation
+pan_register_allocation(unsigned work_reg_count)
+{
+        return (work_reg_count <= 32) ?
+                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD :
+                MALI_SHADER_REGISTER_ALLOCATION_64_PER_THREAD;
+}
+#endif
+
 #if PAN_ARCH <= 7
 #if PAN_ARCH <= 5
 static inline void
@@ -129,16 +139,6 @@ pan_shader_classify_pixel_kill_coverage(const struct pan_shader_info *info,
 }
 
 #undef SET_PIXEL_KILL
-
-#if PAN_ARCH >= 7
-static enum mali_shader_register_allocation
-pan_register_allocation(unsigned work_reg_count)
-{
-        return (work_reg_count <= 32) ?
-                MALI_SHADER_REGISTER_ALLOCATION_32_PER_THREAD :
-                MALI_SHADER_REGISTER_ALLOCATION_64_PER_THREAD;
-}
-#endif
 
 #define pan_preloads(reg) (preload & BITFIELD64_BIT(reg))
 
