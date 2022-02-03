@@ -285,6 +285,7 @@ vk_pipeline_cache_lookup_object(struct vk_pipeline_cache *cache,
 {
    assert(key_size <= UINT32_MAX);
    assert(ops != NULL);
+   assert(ops->type != VK_PIPELINE_CACHE_OBJECT_TYPE_RESERVED);
 
    if (cache_hit != NULL)
       *cache_hit = false;
@@ -365,6 +366,9 @@ struct vk_pipeline_cache_object *
 vk_pipeline_cache_add_object(struct vk_pipeline_cache *cache,
                              struct vk_pipeline_cache_object *object)
 {
+   assert(object->ops != NULL);
+   assert(object->ops->type != VK_PIPELINE_CACHE_OBJECT_TYPE_RESERVED);
+
    if (cache->object_cache == NULL)
       return object;
 
