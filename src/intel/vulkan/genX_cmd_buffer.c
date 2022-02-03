@@ -7881,3 +7881,38 @@ void genX(cmd_emit_timestamp)(struct anv_batch *batch,
       mi_store(&b, mi_mem64(addr), mi_reg64(TIMESTAMP));
    }
 }
+
+void
+genX(CmdWriteBufferMarker2AMD)(VkCommandBuffer commandBuffer,
+                               VkPipelineStageFlags2KHR stage,
+                               VkBuffer dstBuffer,
+                               VkDeviceSize dstOffset,
+                               uint32_t marker)
+{
+   ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
+   ANV_FROM_HANDLE(anv_buffer, buffer, dstBuffer);
+
+   enum anv_pipe_bits bits = ANV_PIPE_FLUSH_BITS;
+
+   if (stage & ANV_PIPELINE_STAGE_PIPELINED_BITS)
+      bits |= ANV_PIPE_STALL_BITS;
+
+   if (stage & VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT)
+      bits |= ANV_PIPE_END_OF_PIPE_SYNC_BIT;
+
+   anv_add_pending_pipe_bits(cmd_buffer, bits, "write buffer marker");
+   genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
+
+   struct mi_builder b;
+   mi_builder_init(&b, &cmd_buffer->device->info, &cmd_buffer->batch);
+
+   /* Emitting a PIPE_CONTROL with Post-Sync Op = Write Immediate Data
+    * would be the logical way to implement this extension, as it could
+    * do a pipelined marker write.  Unfortunately, it requires writing
+    * whole 64-bit QWords, and VK_AMD_buffer_marker requires writing a
+    * 32-bit value.  MI_STORE_DATA_IMM is the only good way to do that,
+    * and unfortunately it requires stalling.
+    */
+   mi_store(&b, mi_mem32(anv_address_add(buffer->address, dstOffset)),
+                mi_imm(marker));
+}
