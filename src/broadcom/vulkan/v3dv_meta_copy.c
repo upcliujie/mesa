@@ -3275,7 +3275,11 @@ get_channel_mask_for_sampler_dim(enum glsl_sampler_dim sampler_dim)
 {
    switch (sampler_dim) {
    case GLSL_SAMPLER_DIM_1D: return 0x1;
-   case GLSL_SAMPLER_DIM_2D: return 0x3;
+      /* For single sampled 2D textures we use DIM_RECT as we want to use
+       * unnormalized coordinates to get better precision, so we shouldn't get
+       * a GLSL_SAMPLER_DIM_2D here.
+       */
+   case GLSL_SAMPLER_DIM_RECT: return 0x3;
    case GLSL_SAMPLER_DIM_MS: return 0x3;
    case GLSL_SAMPLER_DIM_3D: return 0x7;
    default:
@@ -3504,7 +3508,10 @@ get_sampler_dim(VkImageType type, VkSampleCountFlagBits src_samples)
    switch (type) {
    case VK_IMAGE_TYPE_1D: return GLSL_SAMPLER_DIM_1D;
    case VK_IMAGE_TYPE_2D:
-      return src_samples == VK_SAMPLE_COUNT_1_BIT ? GLSL_SAMPLER_DIM_2D :
+      /* For single sampled 2D textures we use DIM_RECT as we want to use
+       * unnormalized coordinates to get better precision.
+       */
+      return src_samples == VK_SAMPLE_COUNT_1_BIT ? GLSL_SAMPLER_DIM_RECT :
                                                     GLSL_SAMPLER_DIM_MS;
    case VK_IMAGE_TYPE_3D: return GLSL_SAMPLER_DIM_3D;
    default:
@@ -3936,9 +3943,19 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
 
    uint32_t layer_count = max_dst_layer - min_dst_layer;
 
-   /* Translate source blit coordinates to normalized texture coordinates for
-    * single sampled textures. For multisampled textures we require
-    * unnormalized coordinates, since we can only do texelFetch on them.
+   /* Translate source blit coordinates to normalized texture coordinates if
+    * needed.
+    *
+    * We use unnormalized texture coordinates on the following cases:
+    *  * Multisampled textures: since we can only do texelFetch on them.
+    *  * For single sampled 2D images we use unnormalized coordinates as we
+    *    would get better precision.
+    *
+    * FIXME: technically we could use unnormalized coordinates for single
+    * sampled 1D and 3D textures too, but that would need changes on the v3d
+    * compiler, as right now it only sets unnormalized coordinate mode for
+    * GLSL_SAMPLER_DIM_RECT. But we didn't need it for any application or CTS
+    * test.
     */
    float coords[4] =  {
       (float)src_x,
@@ -3947,7 +3964,8 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
       (float)(src_y + src_h),
    };
 
-   if (src->vk.samples == VK_SAMPLE_COUNT_1_BIT) {
+   if (src->vk.samples == VK_SAMPLE_COUNT_1_BIT &&
+       src->vk.image_type != VK_IMAGE_TYPE_2D) {
       coords[0] /= (float)src_level_w;
       coords[1] /= (float)src_level_h;
       coords[2] /= (float)src_level_w;
