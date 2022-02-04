@@ -93,6 +93,7 @@ struct ttn_compile {
    bool cap_position_is_sysval;
    bool cap_point_is_sysval;
    bool cap_samplers_as_deref;
+   bool cap_integers;
 };
 
 #define ttn_swizzle(b, src, x, y, z, w) \
@@ -690,7 +691,12 @@ ttn_src_for_file_and_index(struct ttn_compile *c, unsigned file, unsigned index,
       nir_intrinsic_op op;
       unsigned srcn = 0;
 
-      if (dim && (dim->Index > 0 || dim->Indirect)) {
+      if (!c->cap_integers) {
+         /* If we're don't have integers, emit the traditional vec4 uniform
+          * loads so that no integer addressing math gets introduced.
+          */
+         op = nir_intrinsic_load_ubo_vec4;
+      } else if (dim && (dim->Index > 0 || dim->Indirect)) {
          op = nir_intrinsic_load_ubo;
       } else {
          op = nir_intrinsic_load_uniform;
@@ -714,10 +720,19 @@ ttn_src_for_file_and_index(struct ttn_compile *c, unsigned file, unsigned index,
                nir_src_for_ssa(nir_imm_int(b, dim->Index - 1));
          }
          srcn++;
+      } else if (op == nir_intrinsic_load_ubo_vec4) {
+         /* If there wasn't a dim specified on the constbuf, then it's cb0. */
+         load->src[srcn++] = nir_src_for_ssa(nir_imm_int(b, 0));
       }
 
       nir_ssa_def *offset;
-      if (op == nir_intrinsic_load_ubo) {
+      if (op == nir_intrinsic_load_ubo_vec4) {
+         nir_intrinsic_set_base(load, index);
+         if (indirect)
+            offset = ttn_src_for_indirect(c, indirect);
+         else
+            offset = nir_imm_int(b, 0);
+      } else if (op == nir_intrinsic_load_ubo) {
          /* UBO loads don't have a base offset. */
          offset = nir_imm_int(b, index);
          if (indirect) {
@@ -2276,6 +2291,7 @@ ttn_read_pipe_caps(struct ttn_compile *c,
    c->cap_face_is_sysval = screen->get_param(screen, PIPE_CAP_FS_FACE_IS_INTEGER_SYSVAL);
    c->cap_position_is_sysval = screen->get_param(screen, PIPE_CAP_FS_POSITION_IS_SYSVAL);
    c->cap_point_is_sysval = screen->get_param(screen, PIPE_CAP_FS_POINT_IS_SYSVAL);
+   c->cap_integers = screen->get_shader_param(screen, c->scan->processor, PIPE_SHADER_CAP_INTEGERS);
 }
 
 /**
