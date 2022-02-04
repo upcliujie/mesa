@@ -3936,9 +3936,12 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
 
    uint32_t layer_count = max_dst_layer - min_dst_layer;
 
-   /* Translate source blit coordinates to normalized texture coordinates for
-    * single sampled textures. For multisampled textures we require
-    * unnormalized coordinates, since we can only do texelFetch on them.
+   /* We use unnormalized coordinates. For multisampled textures is needed
+    * since we can only do texelFetch on them.
+    *
+    * For single sampled images we use unnormalized coordinates as we would
+    * get better precision. We found this to be needed for some ASTC CTS
+    * tests.
     */
    float coords[4] =  {
       (float)src_x,
@@ -3946,13 +3949,6 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
       (float)(src_x + src_w),
       (float)(src_y + src_h),
    };
-
-   if (src->vk.samples == VK_SAMPLE_COUNT_1_BIT) {
-      coords[0] /= (float)src_level_w;
-      coords[1] /= (float)src_level_h;
-      coords[2] /= (float)src_level_w;
-      coords[3] /= (float)src_level_h;
-   }
 
    /* Handle mirroring */
    const bool mirror_x = dst_mirror_x != src_mirror_x;
@@ -4002,6 +3998,10 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
       .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
       .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
       .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
+      /* We can get better precision when using unnormalized coordinates. We
+       * found to need this to get some ASTC CTS tests passing
+       */
+      .unnormalizedCoordinates = true,
    };
    VkSampler sampler;
    result = v3dv_CreateSampler(_device, &sampler_info, &device->vk.alloc,
@@ -4200,6 +4200,8 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
             !mirror_z ?
             (min_src_layer + (i + 0.5f) * src_z_step) / (float)src_level_d :
             (max_src_layer - (i + 0.5f) * src_z_step) / (float)src_level_d;
+         /* Unnormalized coordinates */
+         tex_coords[4] = tex_coords[4] * src_level_w;
       }
 
       v3dv_CmdPushConstants(_cmd_buffer,
