@@ -99,11 +99,17 @@ lower_alu_instr(nir_builder *b, nir_alu_instr *alu)
    case nir_op_bany_inequal4: alu->op = nir_op_bany_fnequal4; break;
 
    default:
-      assert(nir_alu_type_get_base_type(info->output_type) != nir_type_int &&
-             nir_alu_type_get_base_type(info->output_type) != nir_type_uint);
+      if (nir_alu_type_get_base_type(info->output_type) == nir_type_int ||
+          nir_alu_type_get_base_type(info->output_type) == nir_type_uint) {
+         mesa_loge("nir_lower_int_to_float: unsupported integer opcode: %s", nir_op_infos[alu->op].name);
+         unreachable("Unsupported integer opcode in nir_lower_int_to_float");
+      }
       for (unsigned i = 0; i < info->num_inputs; i++) {
-         assert(nir_alu_type_get_base_type(info->input_types[i]) != nir_type_int &&
-                nir_alu_type_get_base_type(info->input_types[i]) != nir_type_uint);
+         if (nir_alu_type_get_base_type(info->input_types[i]) == nir_type_int ||
+             nir_alu_type_get_base_type(info->input_types[i]) == nir_type_uint) {
+            mesa_loge("nir_lower_int_to_float: unsupported integer opcode: %s", nir_op_infos[alu->op].name);
+            unreachable("Unsupported integer opcode in nir_lower_int_to_float");
+         }
       }
       return false;
    }
