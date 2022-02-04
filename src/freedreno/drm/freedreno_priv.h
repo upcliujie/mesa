@@ -93,6 +93,17 @@ struct fd_device_funcs {
                         uint32_t *handle);
    struct fd_bo *(*bo_from_handle)(struct fd_device *dev, uint32_t size,
                                    uint32_t handle);
+
+   /* bo_new() combines bo_new_handle() and bo_from_handle(), and if
+    * implemented the backend doesn't need to implement bo_new_handle()
+    * (but does still need to implement bo_from_handle())..
+    *
+    * bo_new() can result in more backend duplication for create vs import
+    * paths, but in the case of virtio backend it avoids an extra round
+    * trip between guest and host.
+    */
+   struct fd_bo *(*bo_new)(struct fd_device *dev, uint32_t size, uint32_t flags);
+
    struct fd_pipe *(*pipe_new)(struct fd_device *dev, enum fd_pipe_id id,
                                unsigned prio);
    void (*destroy)(struct fd_device *dev);
