@@ -36,7 +36,7 @@ agx_print_sized(char prefix, unsigned value, enum agx_size size, FILE *fp)
       fprintf(fp, "%c%u", prefix, value >> 1);
       return;
    case AGX_SIZE_64:
-      assert((value & 1) == 0);
+//      assert((value & 1) == 0);
       fprintf(fp, "%c%u:%c%u", prefix, value >> 1,
             prefix, (value >> 1) + 1);
       return;
