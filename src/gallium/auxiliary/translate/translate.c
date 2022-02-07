@@ -32,6 +32,7 @@
 
 #include "pipe/p_config.h"
 #include "pipe/p_state.h"
+#include "util/format/u_format.h"
 #include "translate.h"
 
 struct translate *translate_create( const struct translate_key *key )
@@ -39,7 +40,25 @@ struct translate *translate_create( const struct translate_key *key )
    struct translate *translate = NULL;
 
 #if defined(PIPE_ARCH_X86) || defined(PIPE_ARCH_X86_64)
-   translate = translate_sse2_create( key );
+   bool need_generic = false;
+   for (unsigned i = 0; i < key->nr_elements; i++) {
+      enum pipe_format format = key->element[i].input_format;
+      const struct util_format_description *desc = util_format_description(format);
+
+      /* Find the first non-void channel. */
+      unsigned c = util_format_get_first_non_void_channel(format);
+      if (c == -1)
+         continue;
+
+      if (!desc->channel[c].pure_integer &&
+          !desc->channel[c].normalized &&
+          desc->channel[c].type == UTIL_FORMAT_TYPE_UNSIGNED) {
+         need_generic = true;
+         break;
+      }
+   }
+   if (!need_generic)
+      translate = translate_sse2_create( key );
    if (translate)
       return translate;
 #else
