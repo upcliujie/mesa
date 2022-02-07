@@ -5753,7 +5753,8 @@ gfx103_pipeline_generate_vrs_state(struct radeon_cmdbuf *ctx_cs,
           */
          mode = V_028064_VRS_COMB_MODE_OVERRIDE;
          rate_x = rate_y = 1;
-      } else if (pipeline->device->force_vrs != RADV_FORCE_VRS_NONE) {
+      } else if (pipeline->device->force_vrs != RADV_FORCE_VRS_NONE &&
+                 get_vs_output_info(pipeline)->writes_primitive_shading_rate) {
          /* Force enable vertex VRS if requested by the user. */
          radeon_set_context_reg(
             ctx_cs, R_028848_PA_CL_VRS_CNTL,
