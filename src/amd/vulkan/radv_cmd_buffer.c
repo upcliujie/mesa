@@ -1690,6 +1690,17 @@ radv_emit_fragment_shading_rate(struct radv_cmd_buffer *cmd_buffer)
     */
    pa_cl_vrs_cntl |= S_028848_HTILE_RATE_COMBINER_MODE(htile_comb_mode);
 
+   if (pipeline->device->force_vrs != RADV_FORCE_VRS_NONE &&
+       d->fragment_shading_rate.size.width == 1 &&
+       d->fragment_shading_rate.size.height == 1 &&
+       d->fragment_shading_rate.combiner_ops[0] == VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR &&
+       d->fragment_shading_rate.combiner_ops[1] == VK_FRAGMENT_SHADING_RATE_COMBINER_OP_KEEP_KHR) {
+      /* When per-vertex VRS is forced and the dynamic fragment shading rate is a no-op, ignore it.
+       * This is only useful for vkd3d-proton that needs to always declare per-draw VRS as dynamic.
+       */
+      return;
+   }
+
    radeon_set_context_reg(cmd_buffer->cs, R_028848_PA_CL_VRS_CNTL, pa_cl_vrs_cntl);
 }
 
