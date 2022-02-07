@@ -39,12 +39,15 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
    util_dynarray_init(&command_buffer->labels, NULL);
    command_buffer->region_begin = true;
 
+   list_add(&command_buffer->pool_link, &pool->command_buffers);
+
    return VK_SUCCESS;
 }
 
 void
 vk_command_buffer_reset(struct vk_command_buffer *command_buffer)
 {
+   list_del(&command_buffer->pool_link);
    util_dynarray_clear(&command_buffer->labels);
    command_buffer->region_begin = true;
 }
