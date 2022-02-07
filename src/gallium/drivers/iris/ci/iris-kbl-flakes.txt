@@ -1,0 +1,2 @@
+spec@arb_query_buffer_object@qbo
+spec@arb_query_buffer_object@qbo@query-.*
