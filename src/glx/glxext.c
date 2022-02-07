@@ -269,6 +269,14 @@ FreeScreenConfigs(struct glx_display * priv)
 }
 
 static void
+free_native_window(struct set_entry *entry)
+{
+   __GLXDRIdrawable *pdraw = (__GLXDRIdrawable *)entry->key;
+
+   pdraw->destroyDrawable(pdraw);
+}
+
+static void
 glx_display_free(struct glx_display *priv)
 {
    struct glx_context *gc;
@@ -278,6 +286,11 @@ glx_display_free(struct glx_display *priv)
       gc->vtable->destroy(gc);
       __glXSetCurrentContextNull();
    }
+
+   /* Needs to be done before free screen. */
+#if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
+   _mesa_set_destroy(priv->nativeWindows, free_native_window);
+#endif
 
    FreeScreenConfigs(priv);
 
@@ -913,6 +926,8 @@ __glXInitialize(Display * dpy)
    glx_accel = !env_var_as_boolean("LIBGL_ALWAYS_SOFTWARE", false);
 
    dpyPriv->drawHash = __glxHashCreate();
+
+   dpyPriv->nativeWindows = _mesa_pointer_set_create(NULL);
 
 #ifndef GLX_USE_APPLEGL
    /* Set the logger before the *CreateDisplay functions. */
