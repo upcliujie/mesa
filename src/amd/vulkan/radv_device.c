@@ -340,6 +340,14 @@ radv_spm_trace_enabled()
           debug_get_bool_option("RADV_THREAD_TRACE_CACHE_COUNTERS", false);
 }
 
+static bool
+radv_taskmesh_enabled(const struct radv_physical_device *pdevice)
+{
+   return pdevice->use_ngg && !pdevice->use_llvm &&
+          pdevice->rad_info.gfx_level >= GFX10_3 &&
+          pdevice->rad_info.has_scheduled_fence_dependency;
+}
+
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR) || defined(VK_USE_PLATFORM_XCB_KHR) ||                    \
    defined(VK_USE_PLATFORM_XLIB_KHR) || defined(VK_USE_PLATFORM_DISPLAY_KHR)
 #define RADV_USE_WSI_PLATFORM
@@ -556,8 +564,8 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .GOOGLE_hlsl_functionality1 = true,
       .GOOGLE_user_type = true,
       .NV_compute_shader_derivatives = true,
-      .NV_mesh_shader = device->use_ngg && device->rad_info.gfx_level >= GFX10_3 &&
-                        device->instance->perftest_flags & RADV_PERFTEST_NV_MS && !device->use_llvm,
+      .NV_mesh_shader = radv_taskmesh_enabled(device) &&
+                        device->instance->perftest_flags & RADV_PERFTEST_NV_MS,
       /* Undocumented extension purely for vkd3d-proton. This check is to prevent anyone else from
        * using it.
        */
@@ -1720,8 +1728,7 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV: {
          VkPhysicalDeviceMeshShaderFeaturesNV *features =
             (VkPhysicalDeviceMeshShaderFeaturesNV *)ext;
-         features->meshShader = true;
-         features->taskShader = false; /* TODO */
+         features->taskShader = features->meshShader = radv_taskmesh_enabled(pdevice);
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXTURE_COMPRESSION_ASTC_HDR_FEATURES: {
