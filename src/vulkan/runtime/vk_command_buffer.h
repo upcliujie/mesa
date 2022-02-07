@@ -31,12 +31,16 @@
 extern "C" {
 #endif
 
+struct vk_command_pool;
+
 struct vk_command_buffer {
    struct vk_object_base base;
 
+   struct vk_command_pool *pool;
+
    /** VkCommandBufferAllocateInfo::level */
    VkCommandBufferLevel level;
-   
+
    /**
     * VK_EXT_debug_utils
     *
@@ -83,7 +87,7 @@ VK_DEFINE_HANDLE_CASTS(vk_command_buffer, base, VkCommandBuffer,
 
 VkResult MUST_CHECK
 vk_command_buffer_init(struct vk_command_buffer *command_buffer,
-                       struct vk_device *device,
+                       struct vk_command_pool *pool,
                        VkCommandBufferLevel level);
 
 void
