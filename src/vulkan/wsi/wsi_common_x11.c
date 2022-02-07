@@ -1092,6 +1092,28 @@ x11_acquire_next_image_poll_x11(struct x11_swapchain *chain,
       for (uint32_t i = 0; i < chain->base.image_count; i++) {
          if (!chain->images[i].busy) {
             /* We found a non-busy image */
+            if (chain->base.present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR &&
+                chain->base.prime_blit_queue &&
+                chain->base.fences[i] != VK_NULL_HANDLE) {
+               /* Add special handling for PRIME scenario with a custom blit
+                * queue to avoid corruption.
+                * With MODE_IMMEDIATE, X may haven't sent its work to the
+                * kernel when we get there, so there's nothing preventing the
+                * rendering of the next frame to start before the prime blit
+                * is finished.
+                * For other values of present_mode, X already sent its work
+                * to the kernel so the next frame rendering will be stalled,
+                * by the kernel, until X's work completion.
+                * Since X's work depends on the prime copy completion, this
+                * guarantees the ordering.
+                */
+               VkResult result =
+                  chain->base.wsi->WaitForFences(chain->base.device, 1,
+                                                 &chain->base.fences[i],
+                                                 true, ~0ull);
+               if (result != VK_SUCCESS)
+                  continue;
+            }
             xshmfence_await(chain->images[i].shm_fence);
             *image_index = i;
             chain->images[i].busy = true;
