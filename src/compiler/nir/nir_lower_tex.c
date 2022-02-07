@@ -229,6 +229,39 @@ lower_rect_tex_scale(nir_builder *b, nir_tex_instr *tex)
    }
 }
 
+/* Lower the buffer texture to a 65536-wide 2D texture */
+static void
+lower_buffer(nir_builder *b, nir_tex_instr *tex)
+{
+   b->cursor = nir_before_instr(&tex->instr);
+
+   int coord_index = nir_tex_instr_src_index(tex, nir_tex_src_coord);
+
+   nir_src *coord_src = &tex->src[coord_index].src;
+
+   if (coord_index != -1 && nir_src_bit_size(*coord_src) > 16) {
+      assert(tex->coord_components == 1);
+      tex->coord_components = 2;
+
+      nir_ssa_def *coord = nir_ssa_for_src(b, *coord_src, 1);
+      nir_ssa_def *txs = nir_get_texture_size(b, tex);
+
+      coord = nir_umin(b, coord, txs);
+
+      /* Split the 1D coordinate into two components */
+      coord = nir_unpack_32_2x16(b, coord);
+
+      /* Use u2u32 in case hardware expects signed values, where keeping it
+       * 16-bit won't work. */
+      coord = nir_u2u32(b, coord);
+
+      nir_instr_rewrite_src(&tex->instr, coord_src, nir_src_for_ssa(coord));
+   }
+
+   /* Set this at the end so the txs has a single component */
+   tex->sampler_dim = GLSL_SAMPLER_DIM_2D;
+}
+
 static void
 lower_lod(nir_builder *b, nir_tex_instr *tex, nir_ssa_def *lod)
 {
@@ -1340,6 +1373,14 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
             lower_rect(b, tex);
          else
             lower_rect_tex_scale(b, tex);
+
+         progress = true;
+      }
+
+      if ((tex->sampler_dim == GLSL_SAMPLER_DIM_BUF) &&
+          options->lower_tex_buffer && tex->op == nir_texop_txf) {
+
+         lower_buffer(b, tex);
 
          progress = true;
       }
