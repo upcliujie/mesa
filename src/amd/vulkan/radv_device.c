@@ -1663,7 +1663,7 @@ radv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          VkPhysicalDeviceMeshShaderFeaturesNV *features =
             (VkPhysicalDeviceMeshShaderFeaturesNV *)ext;
          features->meshShader = true;
-         features->taskShader = false; /* TODO */
+         features->taskShader = true;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXTURE_COMPRESSION_ASTC_HDR_FEATURES: {
