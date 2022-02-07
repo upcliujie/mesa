@@ -1854,7 +1854,7 @@ bool isl_format_supports_ccs_d(const struct intel_device_info *devinfo,
                                enum isl_format format);
 bool isl_format_supports_ccs_e(const struct intel_device_info *devinfo,
                                enum isl_format format);
-bool isl_format_supports_multisampling(const struct intel_device_info *devinfo,
+bool isl_format_supports_multisampling(const struct isl_device *dev,
                                        enum isl_format format);
 
 bool isl_formats_are_ccs_e_compatible(const struct intel_device_info *devinfo,

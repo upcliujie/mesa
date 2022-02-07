@@ -882,9 +882,10 @@ isl_format_supports_ccs_e(const struct intel_device_info *devinfo,
 }
 
 bool
-isl_format_supports_multisampling(const struct intel_device_info *devinfo,
+isl_format_supports_multisampling(const struct isl_device *dev,
                                   enum isl_format format)
 {
+   const struct intel_device_info *devinfo = dev->info;
    /* From the Sandybridge PRM, Volume 4 Part 1 p72, SURFACE_STATE, Surface
     * Format:
     *

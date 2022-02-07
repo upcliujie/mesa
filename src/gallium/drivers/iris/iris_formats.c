@@ -135,7 +135,7 @@ iris_is_format_supported(struct pipe_screen *pscreen,
    bool supported = true;
 
    if (sample_count > 1)
-      supported &= isl_format_supports_multisampling(devinfo, format);
+      supported &= isl_format_supports_multisampling(&screen->isl_dev, format);
 
    if (usage & PIPE_BIND_DEPTH_STENCIL) {
       supported &= format == ISL_FORMAT_R32_FLOAT_X8X24_TYPELESS ||
