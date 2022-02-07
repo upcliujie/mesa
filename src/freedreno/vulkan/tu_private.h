@@ -214,6 +214,7 @@ struct tu_physical_device
 
    int local_fd;
    int master_fd;
+   int ion_fd;
 
    uint32_t gmem_size;
    uint64_t gmem_base;
@@ -355,6 +356,14 @@ struct tu_bo
    uint64_t size;
    uint64_t iova;
    void *map;
+
+#ifdef TU_USE_KGSL
+   /* We have to store fd returned by ion_fd_data
+    * in order to be able to mmap this buffer and to
+    * export file descriptor.
+    */
+   int shared_fd;
+#endif
 };
 
 enum global_shader {
@@ -502,6 +511,7 @@ enum tu_bo_alloc_flags
    TU_BO_ALLOC_NO_FLAGS = 0,
    TU_BO_ALLOC_ALLOW_DUMP = 1 << 0,
    TU_BO_ALLOC_GPU_READ_ONLY = 1 << 1,
+   TU_BO_ALLOC_SHARED = 1 << 2,
 };
 
 VkResult

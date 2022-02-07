@@ -30,6 +30,8 @@
 #include <sys/mman.h>
 
 #include "msm_kgsl.h"
+#include "msm_ion.h"
+#include "ion.h"
 #include "vk_util.h"
 
 #include "util/debug.h"
@@ -82,10 +84,58 @@ tu_drm_submitqueue_close(const struct tu_device *dev, uint32_t queue_id)
    safe_ioctl(dev->physical_device->local_fd, IOCTL_KGSL_DRAWCTXT_DESTROY, &req);
 }
 
+static VkResult
+bo_init_new_ion(struct tu_device *dev, struct tu_bo *bo, uint64_t size,
+                enum tu_bo_alloc_flags flags)
+{
+   assert(flags == TU_BO_ALLOC_SHARED);
+
+   struct ion_allocation_data alloc = {
+         .len = size,
+         .align = 4096, // TODO: query this value if possible
+         .heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID),
+         .flags = 0,
+         .handle = -1,
+      };
+
+   int ret;
+   ret = safe_ioctl(dev->physical_device->ion_fd, ION_IOC_ALLOC, &alloc);
+   if (ret) {
+      return vk_errorf(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY,
+                        "ION_IOC_ALLOC failed (%s)", strerror(errno));
+   }
+
+   struct ion_fd_data share = {
+      .handle = alloc.handle,
+      .fd = -1,
+   };
+
+   ret = safe_ioctl(dev->physical_device->ion_fd, ION_IOC_SHARE, &share);
+   if (ret) {
+      return vk_errorf(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY,
+                        "ION_IOC_SHARE failed (%s)", strerror(errno));
+   }
+
+   struct ion_handle_data free = {
+      .handle = alloc.handle,
+   };
+   ret = safe_ioctl(dev->physical_device->ion_fd, ION_IOC_FREE, &free);
+   if (ret) {
+      return vk_errorf(dev, VK_ERROR_OUT_OF_DEVICE_MEMORY,
+                        "ION_IOC_FREE failed (%s)", strerror(errno));
+   }
+
+   return tu_bo_init_dmabuf(dev, bo, -1, share.fd);
+}
+
 VkResult
 tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size,
                enum tu_bo_alloc_flags flags)
 {
+   if (flags & TU_BO_ALLOC_SHARED) {
+      return bo_init_new_ion(dev, bo, size, flags);
+   }
+
    struct kgsl_gpumem_alloc_id req = {
       .size = size,
    };
@@ -148,6 +198,7 @@ tu_bo_init_dmabuf(struct tu_device *dev,
       .gem_handle = req.id,
       .size = info_req.size,
       .iova = info_req.gpuaddr,
+      .shared_fd = fd,
    };
 
    return VK_SUCCESS;
@@ -156,9 +207,8 @@ tu_bo_init_dmabuf(struct tu_device *dev,
 int
 tu_bo_export_dmabuf(struct tu_device *dev, struct tu_bo *bo)
 {
-   tu_stub();
-
-   return -1;
+   assert(bo->shared_fd >= 0);
+   return dup(bo->shared_fd);
 }
 
 VkResult
@@ -167,9 +217,16 @@ tu_bo_map(struct tu_device *dev, struct tu_bo *bo)
    if (bo->map)
       return VK_SUCCESS;
 
-   uint64_t offset = bo->gem_handle << 12;
-   void *map = mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED,
-                    dev->physical_device->local_fd, offset);
+   void *map = MAP_FAILED;
+   if (bo->shared_fd == 0) {
+      uint64_t offset = bo->gem_handle << 12;
+      map = mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                 dev->physical_device->local_fd, offset);
+   } else {
+      map = mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED,
+                 bo->shared_fd, 0);
+   }
+
    if (map == MAP_FAILED)
       return vk_error(dev, VK_ERROR_MEMORY_MAP_FAILED);
 
@@ -185,6 +242,9 @@ tu_bo_finish(struct tu_device *dev, struct tu_bo *bo)
 
    if (bo->map)
       munmap(bo->map, bo->size);
+
+   if (bo->shared_fd >= 0)
+      close(bo->shared_fd);
 
    struct kgsl_gpumem_free_id req = {
       .id = bo->gem_handle
@@ -209,7 +269,8 @@ VkResult
 tu_enumerate_devices(struct tu_instance *instance)
 {
    static const char path[] = "/dev/kgsl-3d0";
-   int fd;
+   static const char ion_path[] = "/dev/ion";
+   int fd, ion_fd;
 
    struct tu_physical_device *device = &instance->physical_devices[0];
 
@@ -232,6 +293,13 @@ tu_enumerate_devices(struct tu_instance *instance)
    if (get_kgsl_prop(fd, KGSL_PROP_UCHE_GMEM_VADDR, &gmem_iova, sizeof(gmem_iova)))
       goto fail;
 
+   /* TODO: use dma_heap on latest kernels since ION was removed in them. */
+   ion_fd = open(ion_path, O_RDWR);
+   if (ion_fd < 0) {
+      mesa_loge("Unable to open /dev/ion, VK_KHR_external_memory_fd would be "
+                "unavailable");
+   }
+
    /* kgsl version check? */
 
    if (instance->debug_flags & TU_DEBUG_STARTUP)
@@ -240,6 +308,7 @@ tu_enumerate_devices(struct tu_instance *instance)
    device->instance = instance;
    device->master_fd = -1;
    device->local_fd = fd;
+   device->ion_fd = ion_fd;
 
    device->dev_id.gpu_id =
       ((info.chip_id >> 24) & 0xff) * 100 +
