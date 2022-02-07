@@ -347,6 +347,7 @@ optimise_nir(nir_shader *nir, unsigned quirks, bool is_blend, bool is_blit)
                 /* TODO: we have native gradient.. */
                 .lower_txd = true,
                 .lower_invalid_implicit_lod = true,
+                .lower_tex_buffer = true,
         };
 
         NIR_PASS(progress, nir, nir_lower_tex, &lower_tex_options);
