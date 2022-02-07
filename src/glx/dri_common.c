@@ -419,36 +419,37 @@ driFetchDrawable(struct glx_context *gc, GLXDrawable glxDrawable)
    return pdraw;
 }
 
+static void
+releaseDrawable(const struct glx_display *priv, GLXDrawable drawable)
+{
+   __GLXDRIdrawable *pdraw;
+
+   if (__glxHashLookup(priv->drawHash, drawable, (void *) &pdraw) == 0) {
+      /* Only native window and pbuffer have same GLX and X11 drawable ID. */
+      if (pdraw->drawable == pdraw->xDrawable) {
+         pdraw->refcount --;
+         /* Only following case can decrease the refcount to 0:
+          *   1. native window
+          *   2. pbuffer from other display
+          */
+         if (pdraw->refcount == 0) {
+            pdraw->destroyDrawable(pdraw);
+            __glxHashDelete(priv->drawHash, drawable);
+         }
+      }
+   }
+}
+
 _X_HIDDEN void
 driReleaseDrawables(struct glx_context *gc)
 {
    const struct glx_display *priv = gc->psc->display;
-   __GLXDRIdrawable *pdraw;
 
    if (priv == NULL)
       return;
 
-   if (__glxHashLookup(priv->drawHash,
-		       gc->currentDrawable, (void *) &pdraw) == 0) {
-      if (pdraw->drawable == pdraw->xDrawable) {
-	 pdraw->refcount --;
-	 if (pdraw->refcount == 0) {
-	    pdraw->destroyDrawable(pdraw);
-	    __glxHashDelete(priv->drawHash, gc->currentDrawable);
-	 }
-      }
-   }
-
-   if (__glxHashLookup(priv->drawHash,
-		       gc->currentReadable, (void *) &pdraw) == 0) {
-      if (pdraw->drawable == pdraw->xDrawable) {
-	 pdraw->refcount --;
-	 if (pdraw->refcount == 0) {
-	    pdraw->destroyDrawable(pdraw);
-	    __glxHashDelete(priv->drawHash, gc->currentReadable);
-	 }
-      }
-   }
+   releaseDrawable(priv, gc->currentDrawable);
+   releaseDrawable(priv, gc->currentReadable);
 
    gc->currentDrawable = None;
    gc->currentReadable = None;
