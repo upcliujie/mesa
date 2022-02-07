@@ -923,7 +923,7 @@ isl_format_supports_multisampling(const struct isl_device *dev,
        * Disable multisampling support now as we don't handle the case when
        * one of the render target channels is disabled.
        */
-      return false;
+      return dev->gfx7_allow_sint_multisample;
    } else if (devinfo->ver < 7 && isl_format_get_layout(format)->bpb > 64) {
       return false;
    } else if (isl_format_is_compressed(format)) {

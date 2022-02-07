@@ -1235,6 +1235,7 @@ struct isl_device {
    const struct intel_device_info *info;
    bool use_separate_stencil;
    bool has_bit6_swizzling;
+   bool gfx7_allow_sint_multisample;
 
    /**
     * Describes the layout of a RENDER_SURFACE_STATE structure for the
