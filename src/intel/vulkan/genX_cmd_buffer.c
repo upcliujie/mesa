@@ -2877,6 +2877,18 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
 
          case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
          case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+            // refactor here to use internal buffer view too
+            if (desc->internal_buffer_view) {
+               surface_state = desc->internal_buffer_view->surface_state;
+               assert(surface_state.alloc_size);
+               if (need_client_mem_relocs) {
+                  add_surface_reloc(cmd_buffer, surface_state,
+                                    desc->buffer_view->address);
+               }
+            } else {
+               surface_state = cmd_buffer->device->null_surface_state;
+            }
+            break;
          case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
             if (desc->buffer_view) {
                surface_state = desc->buffer_view->surface_state;
@@ -3225,13 +3237,13 @@ get_push_range_bound_size(struct anv_cmd_buffer *cmd_buffer,
          &set->descriptors[range->index];
 
       if (desc->type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) {
-         if (!desc->buffer_view)
+         if (!desc->internal_buffer_view) // use internal buffer view here
             return 0;
 
-         if (range->start * 32 > desc->buffer_view->range)
+         if (range->start * 32 > desc->internal_buffer_view->range)
             return 0;
 
-         return desc->buffer_view->range;
+         return desc->internal_buffer_view->range;
       } else {
          if (!desc->buffer)
             return 0;

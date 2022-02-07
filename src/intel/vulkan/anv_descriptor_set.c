@@ -1598,7 +1598,10 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
           bind_layout->type == VK_DESCRIPTOR_TYPE_MUTABLE_VALVE);
 
    *desc = (struct anv_descriptor) {
-      .type = type
+      .type = type,
+      .offset = offset,
+      .range = range,
+      .buffer = buffer,
    };
 
    if (set->pool && !set->pool->allocate_surface_states)
@@ -1626,15 +1629,18 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
        type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC)
       bind_range = align_u64(bind_range, ANV_UBO_ALIGNMENT);
 
-   if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
-       type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
-      *desc = (struct anv_descriptor) {
-         .type = type,
-         .buffer = buffer,
-         .offset = offset,
-         .range = range,
+   if (data & ANV_DESCRIPTOR_ADDRESS_RANGE) {
+      struct anv_address_range_descriptor desc_data = {
+         .address = anv_address_physical(bind_addr),
+         .range = bind_range,
       };
-   } else {
+      memcpy(desc_map, &desc_data, sizeof(desc_data));
+   }
+
+   if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+       type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC)
+       return;
+
       assert(data & ANV_DESCRIPTOR_BUFFER_VIEW);
       struct anv_buffer_view *bview =
          &set->buffer_views[bind_layout->buffer_view_index + element];
@@ -1660,20 +1666,7 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
                                        bview->format, usage,
                                        bind_addr, bind_range, 1);
       }
-
-      *desc = (struct anv_descriptor) {
-         .type = type,
-         .buffer_view = bview,
-      };
-   }
-
-   if (data & ANV_DESCRIPTOR_ADDRESS_RANGE) {
-      struct anv_address_range_descriptor desc_data = {
-         .address = anv_address_physical(bind_addr),
-         .range = bind_range,
-      };
-      memcpy(desc_map, &desc_data, sizeof(desc_data));
-   }
+      desc->internal_buffer_view = bview;
 }
 
 void
@@ -1912,25 +1905,83 @@ void anv_UpdateDescriptorSets(
 
       const struct anv_descriptor_set_binding_layout *src_layout =
          &src->layout->binding[copy->srcBinding];
+
+      const struct anv_descriptor_set_binding_layout *dst_layout =
+         &dst->layout->binding[copy->dstBinding];
+
       struct anv_descriptor *src_desc =
          &src->descriptors[src_layout->descriptor_index];
       src_desc += copy->srcArrayElement;
 
-      const struct anv_descriptor_set_binding_layout *dst_layout =
-         &dst->layout->binding[copy->dstBinding];
       struct anv_descriptor *dst_desc =
          &dst->descriptors[dst_layout->descriptor_index];
       dst_desc += copy->dstArrayElement;
 
-      if (src_layout->data & ANV_DESCRIPTOR_INLINE_UNIFORM) {
-         assert(src_layout->data == ANV_DESCRIPTOR_INLINE_UNIFORM);
-         memcpy(dst->desc_mem.map + dst_layout->descriptor_offset +
-                                    copy->dstArrayElement,
-                src->desc_mem.map + src_layout->descriptor_offset +
-                                    copy->srcArrayElement,
-                copy->descriptorCount);
-      } else {
-         anv_copy_descriptor_set(device, copy);
+      struct anv_buffer_view *dst_bview =
+         &dst->buffer_views[dst_layout->buffer_view_index +
+                            copy->dstArrayElement];
+      struct anv_buffer_view *src_bview =
+         &src->buffer_views[src_layout->buffer_view_index +
+                            copy->srcArrayElement];
+
+      /* Copy CPU side data */
+      for (uint32_t j = 0; j < copy->descriptorCount; j++) {
+         switch(src_desc[j].type) {
+         case VK_DESCRIPTOR_TYPE_SAMPLER:
+         case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+         case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+            VkDescriptorImageInfo info = {
+               .sampler = anv_sampler_to_handle(src_desc[j].sampler),
+               .imageView = anv_image_view_to_handle(src_desc[j].image_view),
+               .imageLayout = src_desc[j].layout
+            };
+            anv_descriptor_set_write_image_view(device, dst,
+                                                &info,
+                                                src_desc[j].type,
+                                                copy->dstBinding,
+                                                copy->dstArrayElement + j);
+         break;
+
+         case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+         case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+            anv_descriptor_set_write_buffer_view(device, dst,
+                                                 src_desc[j].type,
+                                                 src_desc[j].buffer_view,
+                                                 copy->dstBinding,
+                                                 copy->dstArrayElement + j);
+         break;
+
+         case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+         case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+         case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+            anv_descriptor_set_write_buffer(device, dst,
+                                            NULL,
+                                            src_desc[j].type,
+                                            src_desc[j].buffer,
+                                            copy->dstBinding,
+                                            copy->dstArrayElement + j,
+                                            src_desc[j].offset,
+                                            src_desc[j].range);
+         break;
+         case VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT:
+         break;
+         case VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+            const VkWriteDescriptorSetAccelerationStructureKHR *accel_write =
+               vk_find_struct_const(dst_desc, WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR);
+            assert(accel_write->accelerationStructureCount ==
+                   copy->descriptorCount);
+            ANV_FROM_HANDLE(anv_acceleration_structure, accel, accel_write->pAccelerationStructures[j]);
+            anv_descriptor_set_write_acceleration_structure(device, dst,
+                                                            accel,
+                                                            copy->dstBinding,
+                                                            copy->dstArrayElement + j);
+            break;
+         default:
+            break;
+         }
       }
    }
 }
