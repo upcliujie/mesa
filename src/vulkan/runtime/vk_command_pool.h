@@ -25,6 +25,7 @@
 #define VK_COMMAND_POOL_H
 
 #include "vk_object.h"
+#include "util/list.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,9 @@ struct vk_command_pool {
 
    /** Allocator passed to vkCreateCommandPool() */
    VkAllocationCallbacks alloc;
+
+   /** List of all command buffers */
+   struct list_head command_buffers;
 };
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(vk_command_pool, base, VkCommandPool,
@@ -51,6 +55,9 @@ vk_command_pool_init(struct vk_command_pool *pool,
                      struct vk_device *device,
                      const VkCommandPoolCreateInfo *pCreateInfo,
                      const VkAllocationCallbacks *pAllocator);
+
+void
+vk_command_pool_reset(struct vk_command_pool *pool);
 
 void
 vk_command_pool_finish(struct vk_command_pool *pool);
