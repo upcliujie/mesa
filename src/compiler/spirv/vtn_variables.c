@@ -777,7 +777,8 @@ vtn_variable_copy(struct vtn_builder *b, struct vtn_pointer *dest,
 static void
 set_mode_system_value(struct vtn_builder *b, nir_variable_mode *mode)
 {
-   vtn_assert(*mode == nir_var_system_value || *mode == nir_var_shader_in);
+   vtn_assert(*mode == nir_var_system_value || *mode == nir_var_shader_in ||
+              *mode == nir_var_mem_task_payload);
    *mode = nir_var_system_value;
 }
 
@@ -1141,6 +1142,7 @@ vtn_get_builtin_location(struct vtn_builder *b,
       break;
    case SpvBuiltInTaskCountNV:
       *location = VARYING_SLOT_TASK_COUNT;
+      *mode = nir_var_shader_out;
       break;
    case SpvBuiltInMeshViewCountNV:
       *location = SYSTEM_VALUE_MESH_VIEW_COUNT;
@@ -1314,10 +1316,19 @@ apply_var_decoration(struct vtn_builder *b,
       break;
 
    case SpvDecorationPerTaskNV:
-      vtn_fail_if(
-         !(b->shader->info.stage == MESA_SHADER_TASK && var_data->mode == nir_var_shader_out) &&
-         !(b->shader->info.stage == MESA_SHADER_MESH && var_data->mode == nir_var_shader_in),
-         "PerTaskNV decoration only allowed for Task shader outputs or Mesh shader inputs");
+      switch (b->shader->info.stage) {
+         case MESA_SHADER_TASK:
+            vtn_fail_if(var_data->mode != nir_var_shader_out && var_data->mode != nir_var_mem_task_payload,
+                        "PerTaskNV is only allowed on Task shader output and payload variables.");
+            break;
+         case MESA_SHADER_MESH:
+            vtn_fail_if(var_data->mode != nir_var_shader_in && var_data->mode != nir_var_mem_task_payload,
+                        "PerTaskNV is only allowed on Mesh shader input and payload variables.");
+            break;
+         default:
+            vtn_fail("PerTaskNV decoration only supported by Mesh and Task shaders.");
+            break;
+      }
       /* Don't set anything, because this decoration is implied by being a
        * non-builtin Task Output or Mesh Input.
        */
@@ -1543,11 +1554,19 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
       break;
    case SpvStorageClassInput:
       mode = vtn_variable_mode_input;
-      nir_mode = nir_var_shader_in;
+      if (b->shader->info.stage == MESA_SHADER_MESH) {
+         nir_mode = nir_var_mem_task_payload;
+      } else {
+         nir_mode = nir_var_shader_in;
+      }
       break;
    case SpvStorageClassOutput:
       mode = vtn_variable_mode_output;
-      nir_mode = nir_var_shader_out;
+      if (b->shader->info.stage == MESA_SHADER_TASK) {
+         nir_mode = nir_var_mem_task_payload;
+      } else {
+         nir_mode = nir_var_shader_out;
+      }
       break;
    case SpvStorageClassPrivate:
       mode = vtn_variable_mode_private;
