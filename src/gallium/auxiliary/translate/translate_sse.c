@@ -64,7 +64,8 @@ struct translate_buffer_variant
 
 #define ELEMENT_BUFFER_INSTANCE_ID  1001
 
-#define NUM_CONSTS 7
+#define NUM_FLOAT_CONSTS 8
+#define NUM_UNSIGNED_CONSTS 1
 
 enum
 {
@@ -74,21 +75,29 @@ enum
    CONST_INV_32767,
    CONST_INV_65535,
    CONST_INV_2147483647,
-   CONST_255
+   CONST_255,
+   CONST_2147483648,
+   /* float consts end */
+   CONST_2147483647_INT,
 };
 
 #define C(v) {(float)(v), (float)(v), (float)(v), (float)(v)}
-static float consts[NUM_CONSTS][4] = {
+static float consts[NUM_FLOAT_CONSTS][4] = {
    {0, 0, 0, 1},
    C(1.0 / 127.0),
    C(1.0 / 255.0),
    C(1.0 / 32767.0),
    C(1.0 / 65535.0),
    C(1.0 / 2147483647.0),
-   C(255.0)
+   C(255.0),
+   C(2147483648.0),
 };
 
 #undef C
+
+static unsigned uconsts[NUM_UNSIGNED_CONSTS][4] = {
+   {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff},
+};
 
 struct translate_sse
 {
@@ -100,9 +109,10 @@ struct translate_sse
    struct x86_function elt8_func;
    struct x86_function *func;
 
-     PIPE_ALIGN_VAR(16) float consts[NUM_CONSTS][4];
+   PIPE_ALIGN_VAR(16) float consts[NUM_FLOAT_CONSTS][4];
+   PIPE_ALIGN_VAR(16) float uconsts[NUM_UNSIGNED_CONSTS][4];
    int8_t reg_to_const[16];
-   int8_t const_to_reg[NUM_CONSTS];
+   int8_t const_to_reg[NUM_FLOAT_CONSTS + NUM_UNSIGNED_CONSTS];
 
    struct translate_buffer buffer[TRANSLATE_MAX_ATTRIBS];
    unsigned nr_buffers;
@@ -165,9 +175,13 @@ get_const(struct translate_sse *p, unsigned id)
    p->const_to_reg[id] = i;
 
    /* TODO: this should happen outside the loop, if possible */
+   const void *c;
+   if (id < NUM_FLOAT_CONSTS)
+      c = &p->consts[id][0];
+   else
+      c = &p->uconsts[id - NUM_FLOAT_CONSTS][0];
    sse_movaps(p->func, reg,
-              x86_make_disp(p->machine_EDI,
-                            get_offset(p, &p->consts[id][0])));
+              x86_make_disp(p->machine_EDI, get_offset(p, c)));
 
    return reg;
 }
@@ -508,6 +522,7 @@ translate_attr_convert(struct translate_sse *p,
         || a->output_format == PIPE_FORMAT_R32G32B32_FLOAT
         || a->output_format == PIPE_FORMAT_R32G32B32A32_FLOAT)) {
       struct x86_reg dataXMM = x86_make_reg(file_XMM, 0);
+      struct x86_reg auxXMM;
 
       for (i = 0; i < output_desc->nr_channels; ++i) {
          if (swizzle[i] == PIPE_SWIZZLE_0
@@ -544,7 +559,18 @@ translate_attr_convert(struct translate_sse *p,
                sse2_punpcklwd(p->func, dataXMM, get_const(p, CONST_IDENTITY));
                break;
             case 32:           /* we lose precision here */
-               sse2_psrld_imm(p->func, dataXMM, 1);
+               /* No unsigned conversion (except in AVX512F), so we check if
+                * it's negative, and stick the high bit as a separate float
+                * value in an aux register: */
+               auxXMM = x86_make_reg(file_XMM, 1);
+               /* aux = 0 */
+               sse_xorps(p->func, auxXMM, auxXMM);
+               /* aux = aux > data ? 0xfffffff : 0 */
+               sse2_pcmpgtd(p->func, auxXMM, dataXMM);
+               /* data = data & 0x7ffffff */
+               sse_andps(p->func, dataXMM, get_const(p, CONST_2147483647_INT));
+               /* aux = aux & 2147483648.0 */
+               sse_andps(p->func, auxXMM, get_const(p, CONST_2147483648));
                break;
             default:
                return FALSE;
@@ -573,8 +599,8 @@ translate_attr_convert(struct translate_sse *p,
                sse_mulps(p->func, dataXMM, factor);
             }
             else if (input_desc->channel[0].size == 32)
-               /* compensate for the bit we threw away to fit u32 into s32 */
-               sse_addps(p->func, dataXMM, dataXMM);
+               /* add in the high bit's worth of float that we AND'd away */
+               sse_addps(p->func, dataXMM, auxXMM);
             break;
          case UTIL_FORMAT_TYPE_SIGNED:
             if (!(x86_target_caps(p->func) & X86_SSE2))
@@ -1491,6 +1517,7 @@ translate_sse2_create(const struct translate_key *key)
 
    memset(p, 0, sizeof(*p));
    memcpy(p->consts, consts, sizeof(consts));
+   memcpy(p->uconsts, uconsts, sizeof(uconsts));
 
    p->translate.key = *key;
    p->translate.release = translate_sse_release;
