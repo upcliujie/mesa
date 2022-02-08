@@ -2008,6 +2008,7 @@ struct anv_descriptor_pool {
    void *surface_state_free_list;
 
    struct list_head desc_sets;
+   bool allocate_surface_states;
 
    char data[0];
 };
