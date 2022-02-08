@@ -3202,13 +3202,21 @@ st_texture_storage(struct gl_context *ctx,
        */
       enum pipe_texture_target ptarget = gl_target_to_pipe(texObj->Target);
       boolean found = FALSE;
+      int max_samples;
 
-      if (ctx->Const.MaxSamples > 1 && num_samples == 1) {
+      if (util_format_is_depth_or_stencil(fmt))
+         max_samples = ctx->Const.MaxDepthTextureSamples;
+      else if (util_format_is_pure_integer(fmt))
+         max_samples = ctx->Const.MaxIntegerSamples;
+      else
+         max_samples = ctx->Const.MaxColorTextureSamples;
+
+      if (max_samples > 1 && num_samples == 1) {
          /* don't try num_samples = 1 with drivers that support real msaa */
          num_samples = 2;
       }
 
-      for (; num_samples <= ctx->Const.MaxSamples; num_samples++) {
+      for (; num_samples <= max_samples; num_samples++) {
          if (screen->is_format_supported(screen, fmt, ptarget,
                                          num_samples, num_samples,
                                          PIPE_BIND_SAMPLER_VIEW)) {
