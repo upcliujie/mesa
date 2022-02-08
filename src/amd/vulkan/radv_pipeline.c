@@ -6397,6 +6397,51 @@ radv_generate_compute_pipeline_key(struct radv_pipeline *pipeline,
    return key;
 }
 
+static VkResult
+radv_compute_pipeline_alloc(struct radv_pipeline **out_pipeline,
+                            const VkAllocationCallbacks *pAllocator,
+                            struct radv_device *device,
+                            struct radv_pipeline_layout *pipeline_layout,
+                            struct radv_pipeline_shader_stack_size *rt_stack_sizes,
+                            uint32_t rt_group_count)
+{
+   *out_pipeline = NULL;
+   struct radv_pipeline *pipeline;
+
+   pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
+                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
+   if (pipeline == NULL) {
+      free(rt_stack_sizes);
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+   }
+
+   vk_object_base_init(&device->vk, &pipeline->base, VK_OBJECT_TYPE_PIPELINE);
+
+   pipeline->type = RADV_PIPELINE_COMPUTE;
+   pipeline->device = device;
+   pipeline->graphics.last_vgt_api_stage = MESA_SHADER_NONE;
+   pipeline->compute.rt_stack_sizes = rt_stack_sizes;
+   pipeline->compute.group_count = rt_group_count;
+   pipeline->push_constant_size = pipeline_layout->push_constant_size;
+   pipeline->dynamic_offset_count = pipeline_layout->dynamic_offset_count;
+   pipeline->user_data_0[MESA_SHADER_COMPUTE] = radv_pipeline_stage_to_user_data_0(
+      pipeline, MESA_SHADER_COMPUTE, device->physical_device->rad_info.chip_class);
+
+   *out_pipeline = pipeline;
+   return VK_SUCCESS;
+}
+
+static void
+radv_compute_pipeline_finish_init(struct radv_pipeline *pipeline,
+                                        struct radv_device *device)
+{
+   pipeline->need_indirect_descriptor_sets |=
+      radv_shader_need_indirect_descriptor_sets(pipeline, MESA_SHADER_COMPUTE);
+   radv_pipeline_init_scratch(device, pipeline);
+
+   radv_compute_generate_pm4(pipeline);
+}
+
 VkResult
 radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
                              const VkComputePipelineCreateInfo *pCreateInfo,
@@ -6412,22 +6457,12 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
    };
    VkPipelineCreationFeedback *stage_feedbacks[MESA_VULKAN_SHADER_STAGES] = {0};
    struct radv_pipeline *pipeline;
-   VkResult result;
 
-   pipeline = vk_zalloc2(&device->vk.alloc, pAllocator, sizeof(*pipeline), 8,
-                         VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);
-   if (pipeline == NULL) {
-      free(rt_stack_sizes);
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
-   }
+   VkResult result = radv_compute_pipeline_alloc(&pipeline, pAllocator, device, pipeline_layout,
+                                                 rt_stack_sizes, rt_group_count);
 
-   vk_object_base_init(&device->vk, &pipeline->base, VK_OBJECT_TYPE_PIPELINE);
-   pipeline->type = RADV_PIPELINE_COMPUTE;
-
-   pipeline->device = device;
-   pipeline->graphics.last_vgt_api_stage = MESA_SHADER_NONE;
-   pipeline->compute.rt_stack_sizes = rt_stack_sizes;
-   pipeline->compute.group_count = rt_group_count;
+   if (result != VK_SUCCESS)
+      return result;
 
    const VkPipelineCreationFeedbackCreateInfoEXT *creation_feedback =
       vk_find_struct_const(pCreateInfo->pNext, PIPELINE_CREATION_FEEDBACK_CREATE_INFO_EXT);
@@ -6449,17 +6484,7 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
       return result;
    }
 
-   pipeline->user_data_0[MESA_SHADER_COMPUTE] = radv_pipeline_stage_to_user_data_0(
-      pipeline, MESA_SHADER_COMPUTE, device->physical_device->rad_info.chip_class);
-   pipeline->need_indirect_descriptor_sets |=
-      radv_shader_need_indirect_descriptor_sets(pipeline, MESA_SHADER_COMPUTE);
-   radv_pipeline_init_scratch(device, pipeline);
-
-   pipeline->push_constant_size = pipeline_layout->push_constant_size;
-   pipeline->dynamic_offset_count = pipeline_layout->dynamic_offset_count;
-
-   radv_compute_generate_pm4(pipeline);
-
+   radv_compute_pipeline_finish_init(pipeline, device);
    *pPipeline = radv_pipeline_to_handle(pipeline);
 
    return VK_SUCCESS;
