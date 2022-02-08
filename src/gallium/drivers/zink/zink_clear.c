@@ -558,6 +558,12 @@ fb_clears_apply_internal(struct zink_context *ctx, struct pipe_resource *pres, i
          union pipe_color_union color;
          zink_fb_clear_util_unpack_clear_color(clear, psurf->format, &color);
 
+         if (psurf->format != psurf->texture->format) {
+            uint32_t data[4];
+            util_format_pack_rgba(psurf->format, data, color.ui, 1);
+            util_format_unpack_rgba(pres->format, color.ui, data, 1);
+         }
+
          clear_color_no_rp(ctx, res, &color,
                                 psurf->u.tex.level, psurf->u.tex.first_layer,
                                 psurf->u.tex.last_layer - psurf->u.tex.first_layer + 1);
