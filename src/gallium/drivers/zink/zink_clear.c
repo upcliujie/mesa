@@ -224,6 +224,7 @@ zink_clear(struct pipe_context *pctx,
             ctx->clears_enabled |= PIPE_CLEAR_COLOR0 << i;
             clear->conditional = ctx->render_condition_active;
             clear->has_scissor = needs_rp;
+            clear->texture_view = psurf->format != psurf->texture->format;
             if (scissor_state && needs_rp)
                clear->scissor = *scissor_state;
             clear->color.color = *pcolor;
@@ -549,12 +550,12 @@ fb_clears_apply_internal(struct zink_context *ctx, struct pipe_resource *pres, i
    if (ctx->batch.in_rp)
       zink_clear_framebuffer(ctx, BITFIELD_BIT(i));
    else if (res->aspect == VK_IMAGE_ASPECT_COLOR_BIT) {
-      if (zink_fb_clear_needs_explicit(fb_clear) || !check_3d_layers(ctx->fb_state.cbufs[i]))
+      struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(fb_clear, 0);
+      if (zink_fb_clear_needs_explicit(fb_clear) || !check_3d_layers(ctx->fb_state.cbufs[i]) || clear->texture_view)
          /* this will automatically trigger all the clears */
          zink_batch_rp(ctx);
       else {
          struct pipe_surface *psurf = ctx->fb_state.cbufs[i];
-         struct zink_framebuffer_clear_data *clear = zink_fb_clear_element(fb_clear, 0);
          union pipe_color_union color;
          zink_fb_clear_util_unpack_clear_color(clear, psurf->format, &color);
 
