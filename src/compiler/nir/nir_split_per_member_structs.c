@@ -161,6 +161,7 @@ nir_split_per_member_structs(nir_shader *shader)
 
    nir_foreach_variable_with_modes_safe(var, shader, nir_var_shader_in |
                                                      nir_var_shader_out |
+                                                     nir_var_mem_task_payload |
                                                      nir_var_system_value) {
       if (var->num_members == 0)
          continue;
