@@ -3283,6 +3283,12 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
    device->tess_offchip_block_dw_size =
       device->physical_device->rad_info.family == CHIP_HAWAII ? 4096 : 8192;
 
+   /* Number of task shader ring entries. Needs to be a power of two.
+    * Generously assume that each CU can run task/mesh shaders with maximum occupancy.
+    */
+   device->task_num_entries =
+      util_next_power_of_two(device->physical_device->rad_info.num_good_compute_units * 16);
+
    if (device->instance->debug_flags & RADV_DEBUG_HANG) {
       /* Enable GPU hangs detection and dump logs if a GPU hang is
        * detected.
