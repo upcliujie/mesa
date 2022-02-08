@@ -30,10 +30,9 @@ virgl-on-gl:
   variables:
     DEQP_SUITE: virgl-gl
     GPU_VERSION: virgl-gl
-    LP_NUM_THREADS: 1 # There will be FDO_CI_CONCURRENT Crosvm processes, so each should use a single thread
-  parallel: 3
+    LP_NUM_THREADS: 4 # There will be FDO_CI_CONCURRENT Crosvm processes, so don't spawn too many per crosvm
   tags:
-    - kvm
+    - mesa-swrast
   extends:
     - .deqp-test
     - .virgl-test
