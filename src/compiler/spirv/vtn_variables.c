@@ -777,7 +777,8 @@ vtn_variable_copy(struct vtn_builder *b, struct vtn_pointer *dest,
 static void
 set_mode_system_value(struct vtn_builder *b, nir_variable_mode *mode)
 {
-   vtn_assert(*mode == nir_var_system_value || *mode == nir_var_shader_in);
+   vtn_assert(*mode == nir_var_system_value || *mode == nir_var_shader_in ||
+              *mode == nir_var_mem_task_payload);
    *mode = nir_var_system_value;
 }
 
@@ -1141,6 +1142,7 @@ vtn_get_builtin_location(struct vtn_builder *b,
       break;
    case SpvBuiltInTaskCountNV:
       *location = VARYING_SLOT_TASK_COUNT;
+      *mode = nir_var_shader_out;
       break;
    case SpvBuiltInMeshViewCountNV:
       *location = SYSTEM_VALUE_MESH_VIEW_COUNT;
@@ -1314,10 +1316,23 @@ apply_var_decoration(struct vtn_builder *b,
       break;
 
    case SpvDecorationPerTaskNV:
-      vtn_fail_if(
-         !(b->shader->info.stage == MESA_SHADER_TASK && var_data->mode == nir_var_shader_out) &&
-         !(b->shader->info.stage == MESA_SHADER_MESH && var_data->mode == nir_var_shader_in),
-         "PerTaskNV decoration only allowed for Task shader outputs or Mesh shader inputs");
+      switch (b->shader->info.stage) {
+         case MESA_SHADER_TASK:
+            if (var_data->mode == nir_var_shader_out)
+               vtn_fail_if(var_data->location != VARYING_SLOT_TASK_COUNT,
+                           "Only TASK_COUNT should be an output variable.");
+            else
+               vtn_fail_if(var_data->mode != nir_var_mem_task_payload,
+                           "Task shader output missing PerTaskNV.");
+            break;
+         case MESA_SHADER_MESH:
+            vtn_fail_if(var_data->mode != nir_var_mem_task_payload,
+                        "Mesh shader input missing PerTaskNV.");
+            break;
+         default:
+            vtn_fail("PerTaskNV decoration only allowed for Mesh/Task.");
+            break;
+      }
       /* Don't set anything, because this decoration is implied by being a
        * non-builtin Task Output or Mesh Input.
        */
@@ -1543,11 +1558,19 @@ vtn_storage_class_to_mode(struct vtn_builder *b,
       break;
    case SpvStorageClassInput:
       mode = vtn_variable_mode_input;
-      nir_mode = nir_var_shader_in;
+      if (b->shader->info.stage == MESA_SHADER_MESH) {
+         nir_mode = nir_var_mem_task_payload;
+      } else {
+         nir_mode = nir_var_shader_in;
+      }
       break;
    case SpvStorageClassOutput:
       mode = vtn_variable_mode_output;
-      nir_mode = nir_var_shader_out;
+      if (b->shader->info.stage == MESA_SHADER_TASK) {
+         nir_mode = nir_var_mem_task_payload;
+      } else {
+         nir_mode = nir_var_shader_out;
+      }
       break;
    case SpvStorageClassPrivate:
       mode = vtn_variable_mode_private;
@@ -1643,6 +1666,16 @@ vtn_mode_to_address_format(struct vtn_builder *b, enum vtn_variable_mode mode)
    case vtn_variable_mode_accel_struct:
       return nir_address_format_64bit_global;
 
+   case vtn_variable_mode_input:
+      if (b->shader->info.stage == MESA_SHADER_MESH)
+         return b->options->task_payload_addr_format;
+      return nir_address_format_logical;
+
+   case vtn_variable_mode_output:
+      if (b->shader->info.stage == MESA_SHADER_TASK)
+         return b->options->task_payload_addr_format;
+      return nir_address_format_logical;
+
    case vtn_variable_mode_function:
       if (b->physical_ptrs)
          return b->options->temp_addr_format;
@@ -1651,8 +1684,6 @@ vtn_mode_to_address_format(struct vtn_builder *b, enum vtn_variable_mode mode)
    case vtn_variable_mode_private:
    case vtn_variable_mode_uniform:
    case vtn_variable_mode_atomic_counter:
-   case vtn_variable_mode_input:
-   case vtn_variable_mode_output:
    case vtn_variable_mode_image:
    case vtn_variable_mode_call_data:
    case vtn_variable_mode_call_data_in:
@@ -1950,6 +1981,14 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       var->var->type = vtn_type_get_nir_type(b, var->type, var->mode);
       var->var->data.mode = nir_mode;
 
+      /* PerTask (aka. task_payload) I/O variables work like
+       * workgroup variables, no need for the rest of the setup here.
+       */
+      if (b->shader->info.stage == MESA_SHADER_TASK ||
+          b->shader->info.stage == MESA_SHADER_MESH) {
+         break;
+      }
+
       /* In order to know whether or not we're a per-vertex inout, we need
        * the patch qualifier.  This means walking the variable decorations
        * early before we actually create any variables.  Not a big deal.
@@ -2023,16 +2062,6 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       vtn_foreach_decoration(b, vtn_value(b, per_vertex_type->id,
                                           vtn_value_type_type),
                              var_decoration_cb, var);
-
-      /* PerTask I/O is always a single block without any Location, so
-       * initialize the base_location of the block and let
-       * assign_missing_member_locations() do the rest.
-       */
-      if ((b->shader->info.stage == MESA_SHADER_TASK && var->mode == vtn_variable_mode_output) ||
-          (b->shader->info.stage == MESA_SHADER_MESH && var->mode == vtn_variable_mode_input)) {
-         if (var->type->block)
-            var->base_location = VARYING_SLOT_VAR0;
-      }
 
       break;
    }
