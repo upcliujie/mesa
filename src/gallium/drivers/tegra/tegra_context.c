@@ -24,6 +24,7 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include "util/format/u_format.h"
 #include "util/u_debug.h"
 #include "util/u_draw.h"
 #include "util/u_inlines.h"
@@ -1114,6 +1115,33 @@ tegra_flush_resource(struct pipe_context *pcontext,
    struct tegra_context *context = to_tegra_context(pcontext);
 
    context->gpu->flush_resource(context->gpu, resource->gpu);
+
+   if (resource->kms) {
+      struct pipe_blit_info blit;
+
+      memset(&blit, 0, sizeof(blit));
+      blit.mask = util_format_get_mask(resource->kms->format);
+      blit.filter = PIPE_TEX_FILTER_LINEAR;
+
+      /* set up blit source */
+      blit.src.resource = resource->gpu;
+      blit.src.format = resource->gpu->format;
+      blit.src.box.width = resource->gpu->width0;
+      blit.src.box.height = resource->gpu->height0;
+      blit.src.box.depth = 1;
+      blit.src.box.z = 0;
+
+      /* set up blit destination */
+      blit.dst.resource = resource->kms;
+      blit.dst.format = resource->kms->format;
+      blit.dst.box.width = resource->kms->width0;
+      blit.dst.box.height = resource->kms->height0;
+      blit.dst.box.depth = 1;
+      blit.dst.box.z = 0;
+
+      context->gpu->blit(context->gpu, &blit);
+      context->gpu->flush_resource(context->gpu, resource->kms);
+   }
 }
 
 static void

@@ -165,81 +165,23 @@ tegra_screen_can_create_resource(struct pipe_screen *pscreen,
    return screen->gpu->can_create_resource(screen->gpu, template);
 }
 
-static int tegra_screen_import_resource(struct tegra_screen *screen,
-                                        struct tegra_resource *resource)
-{
-   struct winsys_handle handle;
-   bool status;
-   int fd, err;
-
-   memset(&handle, 0, sizeof(handle));
-   handle.modifier = DRM_FORMAT_MOD_INVALID;
-   handle.type = WINSYS_HANDLE_TYPE_FD;
-
-   status = screen->gpu->resource_get_handle(screen->gpu, NULL, resource->gpu,
-                                             &handle, 0);
-   if (!status)
-      return -EINVAL;
-
-   assert(handle.modifier != DRM_FORMAT_MOD_INVALID);
-
-   if (handle.modifier == DRM_FORMAT_MOD_INVALID) {
-      close(handle.handle);
-      return -EINVAL;
-   }
-
-   resource->modifier = handle.modifier;
-   resource->stride = handle.stride;
-   fd = handle.handle;
-
-   err = drmPrimeFDToHandle(screen->fd, fd, &resource->handle);
-   if (err < 0)
-      err = -errno;
-
-   close(fd);
-
-   return err;
-}
-
 static struct pipe_resource *
 tegra_screen_resource_create(struct pipe_screen *pscreen,
                              const struct pipe_resource *template)
 {
    struct tegra_screen *screen = to_tegra_screen(pscreen);
-   uint64_t modifier = DRM_FORMAT_MOD_INVALID;
    struct tegra_resource *resource;
-   int err;
 
    resource = calloc(1, sizeof(*resource));
    if (!resource)
       return NULL;
 
-   /*
-    * Applications that create scanout resources without modifiers are very
-    * unlikely to support modifiers at all. In that case the resources need
-    * to be created with a pitch-linear layout so that they can be properly
-    * shared with scanout hardware.
-    *
-    * Technically it is possible for applications to create resources without
-    * specifying a modifier but still query the modifier associated with the
-    * resource (e.g. using gbm_bo_get_modifier()) before handing it to the
-    * framebuffer creation API (such as the DRM_IOCTL_MODE_ADDFB2 IOCTL).
-    */
-   if (template->bind & PIPE_BIND_SCANOUT)
-      modifier = DRM_FORMAT_MOD_LINEAR;
+   memcpy(&resource->tmpl, template, sizeof(*template));
+   resource->modifier = DRM_FORMAT_MOD_INVALID;
 
-   resource->gpu = screen->gpu->resource_create_with_modifiers(screen->gpu,
-                                                               template,
-                                                               &modifier, 1);
+   resource->gpu = screen->gpu->resource_create(screen->gpu, template);
    if (!resource->gpu)
       goto free;
-
-   /* import scanout buffers for display */
-   if (template->bind & PIPE_BIND_SCANOUT) {
-      err = tegra_screen_import_resource(screen, resource);
-      if (err < 0)
-         goto destroy;
-   }
 
    memcpy(&resource->base, resource->gpu, sizeof(*resource->gpu));
    pipe_reference_init(&resource->base.reference, 1);
@@ -247,8 +189,6 @@ tegra_screen_resource_create(struct pipe_screen *pscreen,
 
    return &resource->base;
 
-destroy:
-   screen->gpu->resource_destroy(screen->gpu, resource->gpu);
 free:
    free(resource);
    return NULL;
@@ -316,6 +256,57 @@ tegra_screen_resource_from_user_memory(struct pipe_screen *pscreen,
 }
 
 static bool
+tegra_screen_resource_create_scanout(struct tegra_screen *screen,
+                                     struct tegra_resource *resource)
+{
+   struct pipe_resource template = resource->tmpl;
+   struct winsys_handle handle;
+   bool status;
+   int err;
+
+   /*
+    * We only need the pitch-linear scanout buffer if we don't have one yet
+    * and if the original resource wasn't allocated with any modifiers. If
+    * it was allocated with any modifiers, we assume that the user is going
+    * to pass it to drmModeAddFB2() along with the correct modifiers.
+    */
+   if (resource->kms || resource->modifier != DRM_FORMAT_MOD_INVALID)
+      return true;
+
+   /*
+    * Force pitch-linear allocation because we assume that KMS only supports
+    * pitch-linear if it didn't explicitly pass modifiers during the
+    * allocation.
+    */
+   template.bind |= PIPE_BIND_LINEAR;
+
+   resource->kms = screen->gpu->resource_create(screen->gpu, &template);
+   if (!resource->kms)
+      return NULL;
+
+   memset(&handle, 0, sizeof(handle));
+   handle.modifier = DRM_FORMAT_MOD_INVALID;
+   handle.type = WINSYS_HANDLE_TYPE_FD;
+
+   status = screen->gpu->resource_get_handle(screen->gpu, NULL, resource->kms,
+                                             &handle, 0);
+   if (!status)
+      return false;
+
+   err = drmPrimeFDToHandle(screen->fd, handle.handle, &resource->handle);
+   if (err < 0) {
+      screen->gpu->resource_destroy(screen->gpu, resource->kms);
+      close(handle.handle);
+      return false;
+   }
+
+   resource->stride = handle.stride;
+   close(handle.handle);
+
+   return true;
+}
+
+static bool
 tegra_screen_resource_get_handle(struct pipe_screen *pscreen,
                                  struct pipe_context *pcontext,
                                  struct pipe_resource *presource,
@@ -326,24 +317,85 @@ tegra_screen_resource_get_handle(struct pipe_screen *pscreen,
    struct tegra_context *context = to_tegra_context(pcontext);
    struct tegra_screen *screen = to_tegra_screen(pscreen);
    bool ret = true;
+   int err;
 
    /*
     * Assume that KMS handles for scanout resources will only ever be used
     * to pass buffers into Tegra DRM for display. In all other cases, return
     * the Nouveau handle, assuming they will be used for sharing in DRI2/3.
     */
-   if (handle->type == WINSYS_HANDLE_TYPE_KMS &&
-       presource->bind & PIPE_BIND_SCANOUT) {
-      handle->modifier = resource->modifier;
+   if (handle->type == WINSYS_HANDLE_TYPE_KMS) {
+      struct winsys_handle import;
+      bool status;
+
+      memset(&import, 0, sizeof(import));
+      import.modifier = DRM_FORMAT_MOD_INVALID;
+      import.type = WINSYS_HANDLE_TYPE_FD;
+
+      status = screen->gpu->resource_get_handle(screen->gpu, NULL,
+                                                resource->gpu, &import, 0);
+      if (!status)
+         return false;
+
+      assert(import.modifier != DRM_FORMAT_MOD_INVALID);
+
+      if (import.modifier == DRM_FORMAT_MOD_INVALID) {
+         close(import.handle);
+         return false;
+      }
+
+      /*
+       * If the GPU resource is not already pitch-linear, try to allocate a
+       * pitch-linear scanout buffer that will be used for a de-tiling blit.
+       */
+      if (import.modifier != DRM_FORMAT_MOD_LINEAR) {
+         ret = tegra_screen_resource_create_scanout(screen, resource);
+         if (!ret) {
+            close(import.handle);
+            return false;
+         }
+      }
+
+      /*
+       * If we do have a pitch-linear buffer for de-tiling blits, return the
+       * handle to that instead of the block-linear GPU buffer.
+       */
+      if (resource->kms) {
+         handle->modifier = DRM_FORMAT_MOD_LINEAR;
+         handle->handle = resource->handle;
+         handle->stride = resource->stride;
+
+         close(import.handle);
+         return true;
+      }
+
+      err = drmPrimeFDToHandle(screen->fd, import.handle, &resource->handle);
+      if (err < 0) {
+         close(import.handle);
+         return false;
+      }
+
+      close(import.handle);
+
+      /*
+       * Pass modifier/stride information from the GPU buffer, but use the
+       * handle from the KMS imported buffer to ensure it can be passed to
+       * the DRM_IOCTL_MODE_ADDFB2 IOCTL.
+       */
+      handle->modifier = import.modifier;
       handle->handle = resource->handle;
-      handle->stride = resource->stride;
-   } else {
-      ret = screen->gpu->resource_get_handle(screen->gpu,
-                                             context ? context->gpu : NULL,
-                                             resource->gpu, handle, usage);
+      handle->stride = import.stride;
+
+      return true;
    }
 
-   return ret;
+   /*
+    * Otherwise, simply return the handle to the GPU resource since no
+    * special handling is needed.
+    */
+   return screen->gpu->resource_get_handle(screen->gpu,
+                                           context ? context->gpu : NULL,
+                                           resource->gpu, handle, usage);
 }
 
 static void
@@ -351,6 +403,9 @@ tegra_screen_resource_destroy(struct pipe_screen *pscreen,
                               struct pipe_resource *presource)
 {
    struct tegra_resource *resource = to_tegra_resource(presource);
+
+   if (resource->kms)
+      pipe_resource_reference(&resource->kms, NULL);
 
    pipe_resource_reference(&resource->gpu, NULL);
    free(resource);
@@ -467,7 +522,8 @@ tegra_screen_resource_create_with_modifiers(struct pipe_screen *pscreen,
    struct tegra_screen *screen = to_tegra_screen(pscreen);
    struct pipe_resource tmpl = *template;
    struct tegra_resource *resource;
-   int err;
+   struct winsys_handle handle;
+   bool status;
 
    resource = calloc(1, sizeof(*resource));
    if (!resource)
@@ -490,13 +546,19 @@ tegra_screen_resource_create_with_modifiers(struct pipe_screen *pscreen,
    if (!resource->gpu)
       goto free;
 
-   err = tegra_screen_import_resource(screen, resource);
-   if (err < 0)
-      goto destroy;
-
    memcpy(&resource->base, resource->gpu, sizeof(*resource->gpu));
    pipe_reference_init(&resource->base.reference, 1);
    resource->base.screen = &screen->base;
+
+   memset(&handle, 0, sizeof(handle));
+   handle.type = WINSYS_HANDLE_TYPE_KMS;
+
+   status = screen->gpu->resource_get_handle(screen->gpu, NULL, resource->gpu,
+                                             &handle, 0);
+   if (!status)
+      goto destroy;
+
+   resource->modifier = handle.modifier;
 
    return &resource->base;
 
