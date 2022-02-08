@@ -62,9 +62,6 @@ dEQP-VK.draw.dynamic_rendering.multi_draw.mosaic.indexed_random.16_draws.stride_
 dEQP-VK.draw.dynamic_rendering.multi_draw.mosaic.normal.no_draws.stride_extra_4.2_instances_base_3.vert_only.single_view.no_offset,Fail
 dEQP-VK.draw.dynamic_rendering.multi_draw.overlapping.indexed_mixed.one_draw.stride_extra_12.1_instance.with_tess.single_view.no_offset,Fail
 dEQP-VK.dynamic_rendering.dedicated_allocation.formats.d32_sfloat_s8_uint.clear.clear,Fail
-dEQP-VK.image.mutable.2d.b8g8r8a8_unorm_r32_uint_store_texture,Fail
-dEQP-VK.image.mutable.2d.r32_sfloat_r8g8b8a8_sint_copy_texture,Fail
-dEQP-VK.image.mutable.2d_array.r16g16_sint_r32_sfloat_copy_texture,Fail
 dEQP-VK.query_pool.occlusion_query.get_reset_results_size_64_stride_24_without_availability_dstoffset,Fail
 dEQP-VK.renderpass.dedicated_allocation.formats.a2b10g10r10_uint_pack32.input.load.store.clear_draw_use_input_aspect,Fail
 dEQP-VK.renderpass.dedicated_allocation.formats.d16_unorm.input.clear.store.self_dep_draw_use_input_aspect,Fail

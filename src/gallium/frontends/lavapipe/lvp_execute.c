@@ -4153,6 +4153,11 @@ VkResult lvp_execute_cmds(struct lvp_device *device,
       }
    }
 
+   for (unsigned i = 0; i < PIPE_MAX_SAMPLERS; i++) {
+      if (state.cso_ss_ptr[PIPE_SHADER_COMPUTE][i])
+         state.pctx->delete_sampler_state(state.pctx, state.ss_cso[PIPE_SHADER_COMPUTE][i]);
+   }
+
    free(state.imageless_views);
    free(state.pending_clear_aspects);
    free(state.cleared_views);
