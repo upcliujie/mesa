@@ -3202,13 +3202,14 @@ st_texture_storage(struct gl_context *ctx,
        */
       enum pipe_texture_target ptarget = gl_target_to_pipe(texObj->Target);
       boolean found = FALSE;
+      int max_samples = util_format_is_pure_integer(fmt) ? ctx->Const.MaxIntegerSamples : ctx->Const.MaxSamples;
 
-      if (ctx->Const.MaxSamples > 1 && num_samples == 1) {
+      if (max_samples > 1 && num_samples == 1) {
          /* don't try num_samples = 1 with drivers that support real msaa */
          num_samples = 2;
       }
 
-      for (; num_samples <= ctx->Const.MaxSamples; num_samples++) {
+      for (; num_samples <= max_samples; num_samples++) {
          if (screen->is_format_supported(screen, fmt, ptarget,
                                          num_samples, num_samples,
                                          PIPE_BIND_SAMPLER_VIEW)) {
