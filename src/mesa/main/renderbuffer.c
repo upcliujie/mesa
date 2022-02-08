@@ -180,8 +180,16 @@ renderbuffer_alloc_storage(struct gl_context * ctx,
     */
    if (rb->NumSamples > 0) {
       unsigned start, start_storage;
+      unsigned max_samples;
 
-      if (ctx->Const.MaxSamples > 1 &&  rb->NumSamples == 1) {
+      if (_mesa_is_depthstencil_format(internalFormat))
+         max_samples = ctx->Const.MaxDepthTextureSamples;
+      if (_mesa_is_enum_format_integer(internalFormat))
+         max_samples = ctx->Const.MaxIntegerSamples;
+      else
+         max_samples = ctx->Const.MaxSamples;
+
+      if (max_samples > 1 &&  rb->NumSamples == 1) {
          /* don't try num_samples = 1 with drivers that support real msaa */
          start = 2;
          start_storage = 2;
