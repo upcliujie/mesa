@@ -6,3 +6,6 @@ KHR-GL32.packed_pixels.varied_rectangle.depth*
 
 # Sometimes crashes, e.g. https://gitlab.freedesktop.org/kusma/mesa/-/jobs/4109419
 dEQP-GLES31.functional.compute.basic.empty
+
+# Unreasonably long on llvmpipe
+dEQP-GLES31.functional.ssbo.layout.random.all_shared_buffer.36
