@@ -45,6 +45,7 @@ struct zink_framebuffer_clear_data {
       } zs;
    };
    struct pipe_scissor_state scissor;
+   bool texture_view;
    bool has_scissor;
    bool conditional;
 };
