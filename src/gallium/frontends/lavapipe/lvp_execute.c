@@ -4116,6 +4116,13 @@ VkResult lvp_execute_cmds(struct lvp_device *device,
       }
    }
 
+   for (enum pipe_shader_type s = PIPE_SHADER_VERTEX; s < PIPE_SHADER_TYPES; s++) {
+      for (unsigned i = 0; i < PIPE_MAX_SAMPLERS; i++) {
+         if (state.sv[s][i])
+            pipe_sampler_view_reference(&state.sv[s][i], NULL);
+      }
+   }
+
    free(state.imageless_views);
    free(state.pending_clear_aspects);
    free(state.cleared_views);
