@@ -558,6 +558,8 @@ get_variable_mode_str(nir_variable_mode mode, bool want_local_global_mode)
       return "shader_call_data";
    case nir_var_ray_hit_attrib:
       return "ray_hit_attrib";
+   case nir_var_mem_task_payload:
+      return "task_payload";
    default:
       return "";
    }
