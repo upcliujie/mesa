@@ -692,6 +692,11 @@ struct radv_meta_state {
 
 #define RADV_NUM_HW_CTX (RADEON_CTX_PRIORITY_REALTIME + 1)
 
+/* Size of each payload entry in the task payload ring. Spec requires minimum 16K bytes. */
+#define RADV_TASK_PAYLOAD_ENTRY_BYTES 16384
+/* Number of entries in the task ring buffers. Needs to be a power of two. */
+#define RADV_TASK_NUM_ENTRIES 256
+
 struct radv_deferred_queue_submission;
 
 enum ring_type radv_queue_family_to_ring(int f);
