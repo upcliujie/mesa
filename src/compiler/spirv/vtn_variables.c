@@ -1315,12 +1315,10 @@ apply_var_decoration(struct vtn_builder *b,
 
    case SpvDecorationPerTaskNV:
       vtn_fail_if(
-         !(b->shader->info.stage == MESA_SHADER_TASK && var_data->mode == nir_var_shader_out) &&
-         !(b->shader->info.stage == MESA_SHADER_MESH && var_data->mode == nir_var_shader_in),
-         "PerTaskNV decoration only allowed for Task shader outputs or Mesh shader inputs");
-      /* Don't set anything, because this decoration is implied by being a
-       * non-builtin Task Output or Mesh Input.
-       */
+         (b->shader->info.stage != MESA_SHADER_MESH &&
+          b->shader->info.stage != MESA_SHADER_TASK) ||
+         var_data->mode != nir_var_mem_task_payload,
+         "PerTaskNV decoration only allowed on Task/Mesh payload variables.");
       break;
 
    case SpvDecorationPerViewNV:
@@ -1643,6 +1641,9 @@ vtn_mode_to_address_format(struct vtn_builder *b, enum vtn_variable_mode mode)
    case vtn_variable_mode_accel_struct:
       return nir_address_format_64bit_global;
 
+   case vtn_variable_mode_task_payload:
+      return b->options->task_payload_addr_format;
+
    case vtn_variable_mode_function:
       if (b->physical_ptrs)
          return b->options->temp_addr_format;
@@ -1936,6 +1937,7 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
 
    case vtn_variable_mode_workgroup:
    case vtn_variable_mode_cross_workgroup:
+   case vtn_variable_mode_task_payload:
       /* Create the variable normally */
       var->var = rzalloc(b->shader, nir_variable);
       var->var->name = ralloc_strdup(var->var, val->name);
@@ -1949,6 +1951,14 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       var->var->name = ralloc_strdup(var->var, val->name);
       var->var->type = vtn_type_get_nir_type(b, var->type, var->mode);
       var->var->data.mode = nir_mode;
+
+      /* Task payload variables should work similarly to workgroup variables,
+       * so there is nothing more to do about them here.
+       */
+      if ((b->shader->info.stage == MESA_SHADER_TASK && var->mode == vtn_variable_mode_output) ||
+          (b->shader->info.stage == MESA_SHADER_MESH && var->mode == vtn_variable_mode_input)) {
+         break;
+      }
 
       /* In order to know whether or not we're a per-vertex inout, we need
        * the patch qualifier.  This means walking the variable decorations
@@ -2023,16 +2033,6 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
       vtn_foreach_decoration(b, vtn_value(b, per_vertex_type->id,
                                           vtn_value_type_type),
                              var_decoration_cb, var);
-
-      /* PerTask I/O is always a single block without any Location, so
-       * initialize the base_location of the block and let
-       * assign_missing_member_locations() do the rest.
-       */
-      if ((b->shader->info.stage == MESA_SHADER_TASK && var->mode == vtn_variable_mode_output) ||
-          (b->shader->info.stage == MESA_SHADER_MESH && var->mode == vtn_variable_mode_input)) {
-         if (var->type->block)
-            var->base_location = VARYING_SLOT_VAR0;
-      }
 
       break;
    }
@@ -2143,6 +2143,18 @@ vtn_create_variable(struct vtn_builder *b, struct vtn_value *val,
 
    vtn_foreach_decoration(b, val, var_decoration_cb, var);
    vtn_foreach_decoration(b, val, ptr_decoration_cb, val->pointer);
+
+   if (((b->shader->info.stage == MESA_SHADER_TASK && var->mode == vtn_variable_mode_output) ||
+        (b->shader->info.stage == MESA_SHADER_MESH && var->mode == vtn_variable_mode_input)) &&
+       var->var->data.mode != nir_var_system_value &&
+       var->var->data.location != VARYING_SLOT_TASK_COUNT) {
+      /* NV_mesh_shader:
+       * Task payload variables don't have a dedicated storage class,
+       * so we have to set the correct mode here.
+       */
+      var->mode = vtn_variable_mode_task_payload;
+      var->var->data.mode = nir_var_mem_task_payload;
+   }
 
    /* Propagate access flags from the OpVariable decorations. */
    val->pointer->access |= var->access;
