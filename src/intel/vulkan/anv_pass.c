@@ -628,8 +628,15 @@ anv_dynamic_pass_init_full(struct anv_dynamic_render_pass *dyn_render_pass,
    if (ds_count) {
       /* Easier to reference for the stuff both have in common. */
       const VkRenderingAttachmentInfoKHR *d_att = info->pDepthAttachment;
+      if (d_att != NULL && d_att->imageView == VK_NULL_HANDLE)
+         d_att = NULL;
+
       const VkRenderingAttachmentInfoKHR *s_att = info->pStencilAttachment;
+      if (s_att != NULL && s_att->imageView == VK_NULL_HANDLE)
+         s_att = NULL;
+
       const VkRenderingAttachmentInfoKHR *d_or_s_att = d_att ? d_att : s_att;
+
       VkResolveModeFlagBits depth_resolve_mode = VK_RESOLVE_MODE_NONE;
       VkResolveModeFlagBits stencil_resolve_mode = VK_RESOLVE_MODE_NONE;
 
