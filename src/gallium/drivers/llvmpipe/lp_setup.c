@@ -1170,18 +1170,19 @@ lp_setup_is_resource_referenced( const struct lp_setup_context *setup,
 {
    unsigned i;
 
-   /* check the render targets */
-   for (i = 0; i < setup->fb.nr_cbufs; i++) {
-      if (setup->fb.cbufs[i] && setup->fb.cbufs[i]->texture == texture)
-         return LP_REFERENCED_FOR_READ | LP_REFERENCED_FOR_WRITE;
-   }
-   if (setup->fb.zsbuf && setup->fb.zsbuf->texture == texture) {
-      return LP_REFERENCED_FOR_READ | LP_REFERENCED_FOR_WRITE;
-   }
-
-   /* check resources referenced by the scene */
    for (i = 0; i < setup->num_active_scenes; i++) {
-      unsigned ref = lp_scene_is_resource_referenced(setup->scenes[i], texture);
+      struct lp_scene *scene = setup->scenes[i];
+      /* check the render targets */
+      for (i = 0; i < scene->fb.nr_cbufs; i++) {
+         if (scene->fb.cbufs[i] && scene->fb.cbufs[i]->texture == texture)
+            return LP_REFERENCED_FOR_READ | LP_REFERENCED_FOR_WRITE;
+      }
+      if (scene->fb.zsbuf && scene->fb.zsbuf->texture == texture) {
+         return LP_REFERENCED_FOR_READ | LP_REFERENCED_FOR_WRITE;
+      }
+
+      /* check resources referenced by the scene */
+      unsigned ref = lp_scene_is_resource_referenced(scene, texture);
       if (ref)
          return ref;
    }
