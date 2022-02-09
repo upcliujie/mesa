@@ -4056,6 +4056,7 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
       } else if (shader == PIPE_SHADER_COMPUTE) {
 	 llvmpipe->cs_dirty |= LP_CSNEW_SSBOS;
       } else if (shader == PIPE_SHADER_FRAGMENT) {
+         llvmpipe->fs_ssbo_write_mask = writable_bitmask;
          llvmpipe->dirty |= LP_NEW_FS_SSBOS;
       }
    }
