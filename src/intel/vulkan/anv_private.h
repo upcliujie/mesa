@@ -4521,6 +4521,7 @@ struct anv_query_pool {
 };
 
 struct anv_dynamic_pass_create_info {
+   const void*              pNext;
    uint32_t                 viewMask;
    uint32_t                 colorAttachmentCount;
    const VkFormat*          pColorAttachmentFormats;
