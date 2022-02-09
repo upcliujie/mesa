@@ -49,6 +49,12 @@ extern "C" {
 extern struct vk_physical_device_dispatch_table vk_physical_device_trampolines;
 extern struct vk_device_dispatch_table vk_device_trampolines;
 
+void
+vk_device_dispatch_table_from_cmd_tables(
+    struct vk_device_dispatch_table *dev_table,
+    const struct vk_cmd_dispatch_table *prim_cmd_table,
+    const struct vk_cmd_dispatch_table *sec_cmd_table);
+
 #ifdef __cplusplus
 }
 #endif
@@ -59,6 +65,7 @@ extern struct vk_device_dispatch_table vk_device_trampolines;
 TEMPLATE_C = Template(COPYRIGHT + """\
 /* This file generated from ${filename}, don't edit directly. */
 
+#include "vk_command_buffer.h"
 #include "vk_device.h"
 #include "vk_dispatch_trampolines.h"
 #include "vk_object.h"
@@ -149,6 +156,52 @@ struct vk_device_dispatch_table vk_device_trampolines = {
   % endif
 % endfor
 };
+
+% for e in entrypoints:
+% if not e.is_cmd_entrypoint() or e.alias:
+<% continue %>
+% endif
+% if e.guard is not None:
+#ifdef ${e.guard}
+% endif
+static VKAPI_ATTR ${e.return_type} VKAPI_CALL
+${e.prefixed_name('vk_cmd_tramp')}(${e.decl_params()})
+{
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+
+% if e.return_type != 'void':
+   return cmd_buffer->dispatch->${e.name}(${e.call_params()});
+% else:
+   cmd_buffer->dispatch->${e.name}(${e.call_params()});
+%endif
+}
+% if e.guard is not None:
+#endif
+% endif
+% endfor
+
+void
+vk_device_dispatch_table_from_cmd_tables(
+    struct vk_device_dispatch_table *dev_table,
+    const struct vk_cmd_dispatch_table *prim_cmd_table,
+    const struct vk_cmd_dispatch_table *sec_cmd_table)
+{
+% for e in entrypoints:
+% if not e.is_cmd_entrypoint() or e.alias:
+<% continue %>
+% endif
+% if e.guard is not None:
+#ifdef ${e.guard}
+% endif
+   if (prim_cmd_table->${e.name} && sec_cmd_table->${e.name})
+      dev_table->${e.name} = ${e.prefixed_name('vk_cmd_tramp')};
+   else if (prim_cmd_table->${e.name} || sec_cmd_table->${e.name})
+      dev_table->${e.name} = NULL;
+  % if e.guard is not None:
+#endif
+% endif
+% endfor
+}
 """)
 
 def main():
