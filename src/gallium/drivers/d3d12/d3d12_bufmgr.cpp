@@ -124,7 +124,7 @@ d3d12_bo_new(struct d3d12_screen *screen, uint64_t size, const pb_desc *pb_desc)
 
    D3D12_HEAP_PROPERTIES heap_pris = dev->GetCustomHeapProperties(0, heap_type);
    HRESULT hres = dev->CreateCommittedResource(&heap_pris,
-                                               D3D12_HEAP_FLAG_NONE,
+                                               D3D12_HEAP_FLAG_CREATE_NOT_RESIDENT,
                                                &res_desc,
                                                D3D12_RESOURCE_STATE_COMMON,
                                                NULL,
@@ -133,7 +133,7 @@ d3d12_bo_new(struct d3d12_screen *screen, uint64_t size, const pb_desc *pb_desc)
    if (FAILED(hres))
       return NULL;
 
-   return d3d12_bo_wrap_res(screen, res, PIPE_FORMAT_NONE, d3d12_resident);
+   return d3d12_bo_wrap_res(screen, res, PIPE_FORMAT_NONE, d3d12_evicted);
 }
 
 struct d3d12_bo *
