@@ -1815,14 +1815,17 @@ genX(BeginCommandBuffer)(
    VkResult result = VK_SUCCESS;
    if (cmd_buffer->usage_flags &
        VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+      const VkCommandBufferInheritanceRenderingInfoKHR *inheritance_info =
+         vk_get_command_buffer_inheritance_rendering_info(cmd_buffer->level,
+                                                          pBeginInfo);
       assert(pBeginInfo->pInheritanceInfo);
       ANV_FROM_HANDLE(anv_render_pass, pass,
                       pBeginInfo->pInheritanceInfo->renderPass);
       struct anv_subpass *subpass;
-      if (!pass) {
-         const VkCommandBufferInheritanceRenderingInfoKHR *inheritance_info =
-            vk_find_struct_const(pBeginInfo->pInheritanceInfo->pNext,
-                                 COMMAND_BUFFER_INHERITANCE_RENDERING_INFO_KHR);
+      if (1 || !pass) {
+//         const VkCommandBufferInheritanceRenderingInfoKHR *inheritance_info =
+//            vk_find_struct_const(pBeginInfo->pInheritanceInfo->pNext,
+//                                 COMMAND_BUFFER_INHERITANCE_RENDERING_INFO_KHR);
          assert(inheritance_info);
          struct anv_dynamic_pass_create_info info = {
             .viewMask = inheritance_info->viewMask,
@@ -7159,7 +7162,7 @@ cmd_buffer_end_subpass(struct anv_cmd_buffer *cmd_buffer)
                              "end subpass deps/attachments");
 }
 
-void genX(CmdBeginRenderPass2)(
+static UNUSED void genX(FOO_CmdBeginRenderPass2)(
     VkCommandBuffer                             commandBuffer,
     const VkRenderPassBeginInfo*                pRenderPassBeginInfo,
     const VkSubpassBeginInfoKHR*                pSubpassBeginInfo)
@@ -7196,7 +7199,7 @@ void genX(CmdBeginRenderPass2)(
    cmd_buffer_begin_subpass(cmd_buffer, 0);
 }
 
-void genX(CmdNextSubpass2)(
+static UNUSED void genX(FOO_CmdNextSubpass2)(
     VkCommandBuffer                             commandBuffer,
     const VkSubpassBeginInfoKHR*                pSubpassBeginInfo,
     const VkSubpassEndInfoKHR*                  pSubpassEndInfo)
@@ -7213,7 +7216,7 @@ void genX(CmdNextSubpass2)(
    cmd_buffer_begin_subpass(cmd_buffer, prev_subpass + 1);
 }
 
-void genX(CmdEndRenderPass2)(
+static UNUSED void genX(FOO_CmdEndRenderPass2)(
     VkCommandBuffer                             commandBuffer,
     const VkSubpassEndInfoKHR*                  pSubpassEndInfo)
 {

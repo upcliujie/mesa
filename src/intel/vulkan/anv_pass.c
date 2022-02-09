@@ -259,7 +259,7 @@ num_subpass_attachments2(const VkSubpassDescription2KHR *desc)
           (fsr_attachment != NULL && fsr_attachment->pFragmentShadingRateAttachment);
 }
 
-VkResult anv_CreateRenderPass2(
+static UNUSED VkResult anv_FOO_CreateRenderPass2(
     VkDevice                                    _device,
     const VkRenderPassCreateInfo2KHR*           pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
@@ -432,7 +432,7 @@ VkResult anv_CreateRenderPass2(
    return VK_SUCCESS;
 }
 
-void anv_DestroyRenderPass(
+static UNUSED void anv_FOO_DestroyRenderPass(
     VkDevice                                    _device,
     VkRenderPass                                _pass,
     const VkAllocationCallbacks*                pAllocator)
@@ -446,7 +446,7 @@ void anv_DestroyRenderPass(
    vk_object_free(&device->vk, pAllocator, pass);
 }
 
-void anv_GetRenderAreaGranularity(
+static UNUSED void anv_FOO_GetRenderAreaGranularity(
     VkDevice                                    device,
     VkRenderPass                                renderPass,
     VkExtent2D*                                 pGranularity)
