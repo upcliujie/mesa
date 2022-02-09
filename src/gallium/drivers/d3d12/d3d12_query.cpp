@@ -494,7 +494,7 @@ d3d12_end_query(struct pipe_context *pctx,
        query->type != PIPE_QUERY_TIME_ELAPSED)
       list_delinit(&query->active_list);
 
-   query->fence_value = ctx->fence_value;
+   query->fence_value = ctx->submit_id;
    return true;
 }
 
@@ -507,10 +507,17 @@ d3d12_get_query_result(struct pipe_context *pctx,
    struct d3d12_context *ctx = d3d12_context(pctx);
    struct d3d12_query *query = (struct d3d12_query *)q;
 
-   if (ctx->cmdqueue_fence->GetCompletedValue() < query->fence_value) {
+   if (ctx->submit_id == query->fence_value) {
       if (!wait)
          return false;
       d3d12_flush_cmdlist_and_wait(ctx);
+   } else {
+      d3d12_foreach_submitted_batch(ctx, batch) {
+         if (ctx->submit_id <= query->fence_value) {
+            if (!d3d12_reset_batch(ctx, batch, wait ? PIPE_TIMEOUT_INFINITE : 0))
+               return false;
+         }
+      }
    }
 
    return accumulate_result(ctx, query, result, false);
