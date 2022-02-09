@@ -1138,6 +1138,10 @@ vn_physical_device_init(struct vn_physical_device *physical_dev)
    if (result != VK_SUCCESS)
       goto fail;
 
+   simple_mtx_init(&physical_dev->format_update_mutex, mtx_plain);
+   util_sparse_array_init(&physical_dev->format_properties,
+                          sizeof(struct vn_format_properties_entry), 64);
+
    return VK_SUCCESS;
 
 fail:
@@ -1151,6 +1155,9 @@ vn_physical_device_fini(struct vn_physical_device *physical_dev)
 {
    struct vn_instance *instance = physical_dev->instance;
    const VkAllocationCallbacks *alloc = &instance->base.base.alloc;
+
+   simple_mtx_destroy(&physical_dev->format_update_mutex);
+   util_sparse_array_finish(&physical_dev->format_properties);
 
    vn_wsi_fini(physical_dev);
    vk_free(alloc, physical_dev->extension_spec_versions);
@@ -1546,6 +1553,20 @@ vn_GetPhysicalDeviceMemoryProperties(
    *pMemoryProperties = physical_dev->memory_properties.memoryProperties;
 }
 
+static void
+vn_physical_device_add_format_properties(
+   struct vn_physical_device *physical_dev,
+   struct vn_format_properties_entry *entry,
+   const VkFormatProperties *props)
+{
+   simple_mtx_lock(&physical_dev->format_update_mutex);
+   if (!entry->valid) {
+      entry->properties = *props;
+      entry->valid = true;
+   }
+   simple_mtx_unlock(&physical_dev->format_update_mutex);
+}
+
 void
 vn_GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice,
                                      VkFormat format,
@@ -1554,9 +1575,18 @@ vn_GetPhysicalDeviceFormatProperties(VkPhysicalDevice physicalDevice,
    struct vn_physical_device *physical_dev =
       vn_physical_device_from_handle(physicalDevice);
 
-   /* TODO query all formats during init */
+   struct vn_format_properties_entry *entry =
+      util_sparse_array_get(&physical_dev->format_properties, format);
+   if (entry->valid) {
+      *pFormatProperties = entry->properties;
+      return;
+   }
+
    vn_call_vkGetPhysicalDeviceFormatProperties(
       physical_dev->instance, physicalDevice, format, pFormatProperties);
+
+   vn_physical_device_add_format_properties(physical_dev, entry,
+                                            pFormatProperties);
 }
 
 VkResult
@@ -2092,9 +2122,23 @@ vn_GetPhysicalDeviceFormatProperties2(VkPhysicalDevice physicalDevice,
    struct vn_physical_device *physical_dev =
       vn_physical_device_from_handle(physicalDevice);
 
+   struct vn_format_properties_entry *entry = NULL;
+   if (!pFormatProperties->pNext) {
+      entry = util_sparse_array_get(&physical_dev->format_properties, format);
+      if (entry->valid) {
+         pFormatProperties->formatProperties = entry->properties;
+         return;
+      }
+   }
+
    /* TODO query all formats during init */
    vn_call_vkGetPhysicalDeviceFormatProperties2(
       physical_dev->instance, physicalDevice, format, pFormatProperties);
+
+   if (entry) {
+      vn_physical_device_add_format_properties(
+         physical_dev, entry, &pFormatProperties->formatProperties);
+   }
 }
 
 struct vn_physical_device_image_format_info {
