@@ -38,6 +38,13 @@ struct vk_command_buffer {
    VkCommandBufferLevel level;
 
    /**
+    * Dispatch table used by the generic primary/secondary command
+    * dispatch wrappers. Should stay NULL if you're not using those
+    * generic wrappers.
+    */
+   const struct vk_cmd_dispatch_table *dispatch;
+
+   /**
     * VK_EXT_debug_utils
     *
     * The next two fields represent debug labels storage.
