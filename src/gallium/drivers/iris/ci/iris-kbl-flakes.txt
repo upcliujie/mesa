@@ -1,1 +1,2 @@
 spec@arb_query_buffer_object@qbo
+spec@amd_performance_monitor@measure
