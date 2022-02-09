@@ -72,6 +72,8 @@ genX_bits_included_symbols = [
   'RENDER_SURFACE_STATE::Alpha Clear Color',
   'CLEAR_COLOR',
   'VERTEX_BUFFER_STATE::Buffer Starting Address',
+  'VERTEX_BUFFER_STATE::Buffer Pitch',
+  'VERTEX_ELEMENT_STATE::Source Element Offset',
   'CPS_STATE',
 ]
 
