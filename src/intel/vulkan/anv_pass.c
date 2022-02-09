@@ -24,6 +24,7 @@
 #include "anv_private.h"
 
 #include "vk_format.h"
+#include "vk_render_pass.h"
 #include "vk_util.h"
 
 static void
@@ -259,7 +260,7 @@ num_subpass_attachments2(const VkSubpassDescription2KHR *desc)
           (fsr_attachment != NULL && fsr_attachment->pFragmentShadingRateAttachment);
 }
 
-VkResult anv_CreateRenderPass2(
+static UNUSED VkResult anv_FOO_CreateRenderPass2(
     VkDevice                                    _device,
     const VkRenderPassCreateInfo2KHR*           pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
@@ -432,7 +433,7 @@ VkResult anv_CreateRenderPass2(
    return VK_SUCCESS;
 }
 
-void anv_DestroyRenderPass(
+static UNUSED void anv_FOO_DestroyRenderPass(
     VkDevice                                    _device,
     VkRenderPass                                _pass,
     const VkAllocationCallbacks*                pAllocator)
@@ -446,7 +447,7 @@ void anv_DestroyRenderPass(
    vk_object_free(&device->vk, pAllocator, pass);
 }
 
-void anv_GetRenderAreaGranularity(
+static UNUSED void anv_FOO_GetRenderAreaGranularity(
     VkDevice                                    device,
     VkRenderPass                                renderPass,
     VkExtent2D*                                 pGranularity)
@@ -490,6 +491,13 @@ anv_dynamic_pass_init(struct anv_dynamic_render_pass *dyn_render_pass,
       subpass->color_attachments = dyn_render_pass->sp_attachments;
    }
    subpass->view_mask = info->viewMask;
+
+   const VkRenderingSelfDependencyInfoMESA *self_dep_info =
+      vk_find_struct_const(info->pNext, RENDERING_SELF_DEPENDENCY_INFO_MESA);
+
+   subpass->has_ds_self_dep = self_dep_info != NULL &&
+                              (self_dep_info->depthSelfDependency ||
+                               self_dep_info->stencilSelfDependency);
 
    uint32_t att;
    for (att = 0; att < info->colorAttachmentCount; att++) {
@@ -585,6 +593,9 @@ anv_dynamic_pass_init_full(struct anv_dynamic_render_pass *dyn_render_pass,
    struct anv_subpass_attachment *subpass_attachments =
       dyn_render_pass->sp_attachments;
 
+   const VkRenderingSelfDependencyInfoMESA *self_dep_info =
+      vk_find_struct_const(info->pNext, RENDERING_SELF_DEPENDENCY_INFO_MESA);
+
    *subpass = (struct anv_subpass) {
       .attachment_count = att_count,
       .attachments = subpass_attachments,
@@ -593,6 +604,9 @@ anv_dynamic_pass_init_full(struct anv_dynamic_render_pass *dyn_render_pass,
       .has_color_resolve = has_color_resolve,
       .resolve_attachments = subpass_attachments + info->colorAttachmentCount,
       .view_mask = info->viewMask,
+      .has_ds_self_dep = self_dep_info != NULL &&
+                         (self_dep_info->depthSelfDependency ||
+                          self_dep_info->stencilSelfDependency),
    };
 
    for (uint32_t att = 0; att < info->colorAttachmentCount; att++) {
