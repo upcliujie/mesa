@@ -38,6 +38,7 @@
 #include "anv_nir.h"
 #include "nir/nir_xfb_info.h"
 #include "spirv/nir_spirv.h"
+#include "vk_render_pass.h"
 #include "vk_util.h"
 
 /* Needed for SWIZZLE macros */
@@ -2507,12 +2508,12 @@ anv_pipeline_validate_create_info(const VkGraphicsPipelineCreateInfo *info)
     */
    assert(info->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
 
-   renderpass = anv_render_pass_from_handle(info->renderPass);
-
-   if (renderpass) {
-      assert(info->subpass < renderpass->subpass_count);
-      subpass = &renderpass->subpasses[info->subpass];
-   }
+//   renderpass = anv_render_pass_from_handle(info->renderPass);
+//
+//   if (renderpass) {
+//      assert(info->subpass < renderpass->subpass_count);
+//      subpass = &renderpass->subpasses[info->subpass];
+//   }
 
    assert(info->stageCount >= 1);
    assert(info->pRasterizationState);
