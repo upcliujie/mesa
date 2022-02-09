@@ -47,6 +47,7 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
 void
 vk_command_buffer_reset(struct vk_command_buffer *command_buffer)
 {
+   vk_command_buffer_reset_render_pass(command_buffer);
    util_dynarray_clear(&command_buffer->labels);
    command_buffer->region_begin = true;
 }
@@ -54,6 +55,7 @@ vk_command_buffer_reset(struct vk_command_buffer *command_buffer)
 void
 vk_command_buffer_finish(struct vk_command_buffer *command_buffer)
 {
+   vk_command_buffer_reset_render_pass(command_buffer);
    list_del(&command_buffer->pool_link);
    util_dynarray_fini(&command_buffer->labels);
    vk_object_base_finish(&command_buffer->base);
