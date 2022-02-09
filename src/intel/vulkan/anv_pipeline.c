@@ -38,6 +38,7 @@
 #include "anv_nir.h"
 #include "nir/nir_xfb_info.h"
 #include "spirv/nir_spirv.h"
+#include "vk_render_pass.h"
 #include "vk_util.h"
 
 /* Needed for SWIZZLE macros */
@@ -2504,12 +2505,12 @@ anv_pipeline_validate_create_info(const VkGraphicsPipelineCreateInfo *info)
     */
    assert(info->sType == VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO);
 
-   renderpass = anv_render_pass_from_handle(info->renderPass);
-
-   if (renderpass) {
-      assert(info->subpass < renderpass->subpass_count);
-      subpass = &renderpass->subpasses[info->subpass];
-   }
+//   renderpass = anv_render_pass_from_handle(info->renderPass);
+//
+//   if (renderpass) {
+//      assert(info->subpass < renderpass->subpass_count);
+//      subpass = &renderpass->subpasses[info->subpass];
+//   }
 
    assert(info->stageCount >= 1);
    assert(info->pRasterizationState);
@@ -2610,13 +2611,13 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
 
    ANV_FROM_HANDLE(anv_render_pass, render_pass, pCreateInfo->renderPass);
 
-   if (render_pass) {
+   if (render_pass && 0) {
       assert(pCreateInfo->subpass < render_pass->subpass_count);
       pipeline->subpass = &render_pass->subpasses[pCreateInfo->subpass];
       pipeline->pass = render_pass;
    } else {
       const VkPipelineRenderingCreateInfoKHR *rendering_create_info =
-         vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO_KHR);
+         vk_get_pipeline_rendering_create_info(pCreateInfo);
 
       /* These should be zeroed already. */
       pipeline->pass = &pipeline->dynamic_render_pass.pass;
@@ -2624,6 +2625,7 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
 
       if (rendering_create_info) {
          struct anv_dynamic_pass_create_info info = {
+            .pNext = rendering_create_info->pNext,
             .viewMask = rendering_create_info->viewMask,
             .colorAttachmentCount =
                rendering_create_info->colorAttachmentCount,
