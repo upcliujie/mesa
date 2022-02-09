@@ -3227,25 +3227,6 @@ tu_DestroyCommandPool(VkDevice _device,
    vk_free2(&device->vk.alloc, pAllocator, pool);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-tu_ResetCommandPool(VkDevice device,
-                    VkCommandPool commandPool,
-                    VkCommandPoolResetFlags flags)
-{
-   TU_FROM_HANDLE(tu_cmd_pool, pool, commandPool);
-   VkResult result;
-
-   list_for_each_entry(struct tu_cmd_buffer, cmd_buffer, &pool->cmd_buffers,
-                       pool_link)
-   {
-      result = tu_reset_cmd_buffer(cmd_buffer);
-      if (result != VK_SUCCESS)
-         return result;
-   }
-
-   return VK_SUCCESS;
-}
-
 VKAPI_ATTR void VKAPI_CALL
 tu_TrimCommandPool(VkDevice device,
                    VkCommandPool commandPool,
