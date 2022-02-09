@@ -1685,8 +1685,7 @@ genX(cmd_buffer_alloc_att_surf_states)(struct anv_cmd_buffer *cmd_buffer,
       const VkImageUsageFlagBits att_usage = subpass->attachments[i].usage;
       assert(util_bitcount(att_usage) == 1);
 
-      if (att_usage == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ||
-          att_usage == VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)
+      if (att_usage == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
          num_states++;
    }
 
@@ -1720,8 +1719,6 @@ genX(cmd_buffer_alloc_att_surf_states)(struct anv_cmd_buffer *cmd_buffer,
 
       if (att_usage == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
          state->attachments[att].color.state = next_state;
-      else if (att_usage == VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)
-         state->attachments[att].input.state = next_state;
       else
          continue;
 
@@ -2804,7 +2801,8 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
             continue;
 
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE: {
+         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
             if (desc->image_view) {
                struct anv_surface_state sstate =
                   (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
@@ -2819,33 +2817,6 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
             }
             break;
          }
-         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-            assert(shader->stage == MESA_SHADER_FRAGMENT);
-            assert(desc->image_view != NULL);
-            if ((desc->image_view->vk.aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) == 0) {
-               /* For depth and stencil input attachments, we treat it like any
-                * old texture that a user may have bound.
-                */
-               assert(desc->image_view->n_planes == 1);
-               struct anv_surface_state sstate =
-                  (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
-                  desc->image_view->planes[0].general_sampler_surface_state :
-                  desc->image_view->planes[0].optimal_sampler_surface_state;
-               surface_state = sstate.state;
-               assert(surface_state.alloc_size);
-               if (need_client_mem_relocs)
-                  add_surface_state_relocs(cmd_buffer, sstate);
-            } else {
-               /* For color input attachments, we create the surface state at
-                * vkBeginRenderPass time so that we can include aux and clear
-                * color information.
-                */
-               assert(binding->input_attachment_index < subpass->input_count);
-               const unsigned subpass_att = binding->input_attachment_index;
-               const unsigned att = subpass->input_attachments[subpass_att].attachment;
-               surface_state = cmd_buffer->state.attachments[att].input.state;
-            }
-            break;
 
          case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
             if (desc->image_view) {
@@ -6674,15 +6645,6 @@ cmd_buffer_begin_subpass(struct anv_cmd_buffer *cmd_buffer,
          surface_state = &att_state->color;
          isl_surf_usage = ISL_SURF_USAGE_RENDER_TARGET_BIT;
          isl_aux_usage = att_state->aux_usage;
-      } else if (att_usage == VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) {
-         surface_state = &att_state->input;
-         isl_surf_usage = ISL_SURF_USAGE_TEXTURE_BIT;
-         isl_aux_usage =
-            anv_layout_to_aux_usage(&cmd_buffer->device->info, iview->image,
-                                    VK_IMAGE_ASPECT_COLOR_BIT,
-                                    VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-                                    att_state->current_layout);
-      } else {
          continue;
       }
 
@@ -6766,8 +6728,6 @@ cmd_buffer_clear_state_pointers(struct anv_cmd_state *cmd_state)
    for (uint32_t i = 0; i < cmd_state->pass->attachment_count; ++i) {
       memset(&cmd_state->attachments[i].color, 0,
              sizeof(cmd_state->attachments[i].color));
-      memset(&cmd_state->attachments[i].input, 0,
-             sizeof(cmd_state->attachments[i].input));
    }
    cmd_state->null_surface_state = ANV_STATE_NULL;
    cmd_state->attachment_states = ANV_STATE_NULL;
