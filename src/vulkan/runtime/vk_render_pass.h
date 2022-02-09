@@ -29,6 +29,20 @@
 extern "C" {
 #endif
 
+/**
+ * Pseudo-extension struct that may be chained into VkRenderingInfo,
+ * VkCommandBufferInheritanceRenderingInfo, or VkPipelineRenderingCreateInfo
+ * to provide self-dependency information.
+ */
+typedef struct VkRenderingSelfDependencyInfoMESA {
+    VkStructureType    sType;
+#define VK_STRUCTURE_TYPE_RENDERING_SELF_DEPENDENCY_INFO_MESA (VkStructureType)1000044900
+    const void*        pNext;
+    uint32_t           colorSelfDependencies;
+    VkBool32           depthSelfDependency;
+    VkBool32           stencilSelfDependency;
+} VkRenderingSelfDependencyInfoMESA;
+
 struct vk_subpass_attachment {
    uint32_t attachment;
    VkImageAspectFlags aspects;
@@ -74,6 +88,7 @@ struct vk_subpass {
    VkResolveModeFlagBitsKHR depth_resolve_mode;
    VkResolveModeFlagBitsKHR stencil_resolve_mode;
 
+   VkRenderingSelfDependencyInfoMESA self_dep_info;
    VkPipelineRenderingCreateInfo pipeline_info;
    VkCommandBufferInheritanceRenderingInfo inheritance_info;
 };
