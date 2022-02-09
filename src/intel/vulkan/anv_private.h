@@ -2136,9 +2136,6 @@ struct anv_pipeline_binding {
       /** Plane in the binding index for images */
       uint8_t plane;
 
-      /** Input attachment index (relative to the subpass) */
-      uint8_t input_attachment_index;
-
       /** Dynamic offset index (for dynamic UBOs and SSBOs) */
       uint8_t dynamic_offset_index;
    };

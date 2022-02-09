@@ -2804,7 +2804,8 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
             continue;
 
          case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE: {
+         case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: {
             if (desc->image_view) {
                struct anv_surface_state sstate =
                   (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
@@ -2819,33 +2820,6 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
             }
             break;
          }
-         case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-            assert(shader->stage == MESA_SHADER_FRAGMENT);
-            assert(desc->image_view != NULL);
-            if ((desc->image_view->vk.aspects & VK_IMAGE_ASPECT_ANY_COLOR_BIT_ANV) == 0) {
-               /* For depth and stencil input attachments, we treat it like any
-                * old texture that a user may have bound.
-                */
-               assert(desc->image_view->n_planes == 1);
-               struct anv_surface_state sstate =
-                  (desc->layout == VK_IMAGE_LAYOUT_GENERAL) ?
-                  desc->image_view->planes[0].general_sampler_surface_state :
-                  desc->image_view->planes[0].optimal_sampler_surface_state;
-               surface_state = sstate.state;
-               assert(surface_state.alloc_size);
-               if (need_client_mem_relocs)
-                  add_surface_state_relocs(cmd_buffer, sstate);
-            } else {
-               /* For color input attachments, we create the surface state at
-                * vkBeginRenderPass time so that we can include aux and clear
-                * color information.
-                */
-               assert(binding->input_attachment_index < subpass->input_count);
-               const unsigned subpass_att = binding->input_attachment_index;
-               const unsigned att = subpass->input_attachments[subpass_att].attachment;
-               surface_state = cmd_buffer->state.attachments[att].input.state;
-            }
-            break;
 
          case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE: {
             if (desc->image_view) {
