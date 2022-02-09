@@ -876,11 +876,6 @@ update_bo_syncobjs(struct iris_batch *batch, struct iris_bo *bo, bool write)
 static void
 update_batch_syncobjs(struct iris_batch *batch)
 {
-   struct iris_bufmgr *bufmgr = batch->screen->bufmgr;
-   simple_mtx_t *bo_deps_lock = iris_bufmgr_get_bo_deps_lock(bufmgr);
-
-   simple_mtx_lock(bo_deps_lock);
-
    for (int i = 0; i < batch->exec_count; i++) {
       struct iris_bo *bo = batch->exec_bos[i];
       bool write = BITSET_TEST(batch->bos_written, i);
@@ -890,7 +885,6 @@ update_batch_syncobjs(struct iris_batch *batch)
 
       update_bo_syncobjs(batch, bo, write);
    }
-   simple_mtx_unlock(bo_deps_lock);
 }
 
 /**
@@ -899,7 +893,14 @@ update_batch_syncobjs(struct iris_batch *batch)
 static int
 submit_batch(struct iris_batch *batch)
 {
+   struct iris_bufmgr *bufmgr = batch->screen->bufmgr;
+   simple_mtx_t *bo_deps_lock = iris_bufmgr_get_bo_deps_lock(bufmgr);
+
    iris_bo_unmap(batch->bo);
+
+   simple_mtx_lock(bo_deps_lock);
+
+   update_batch_syncobjs(batch);
 
    struct drm_i915_gem_exec_object2 *validation_list =
       malloc(batch->exec_count * sizeof(*validation_list));
@@ -978,6 +979,8 @@ submit_batch(struct iris_batch *batch)
        intel_ioctl(batch->screen->fd, DRM_IOCTL_I915_GEM_EXECBUFFER2, &execbuf))
       ret = -errno;
 
+   simple_mtx_unlock(bo_deps_lock);
+
    for (int i = 0; i < batch->exec_count; i++) {
       struct iris_bo *bo = batch->exec_bos[i];
 
@@ -1022,8 +1025,6 @@ _iris_batch_flush(struct iris_batch *batch, const char *file, int line)
    iris_measure_batch_end(ice, batch);
 
    iris_finish_batch(batch);
-
-   update_batch_syncobjs(batch);
 
    if (INTEL_DEBUG(DEBUG_BATCH | DEBUG_SUBMIT | DEBUG_PIPE_CONTROL)) {
       const char *basefile = strstr(file, "iris/");
