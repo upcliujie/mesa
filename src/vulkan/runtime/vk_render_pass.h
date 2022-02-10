@@ -73,6 +73,9 @@ struct vk_subpass {
 
    VkResolveModeFlagBitsKHR depth_resolve_mode;
    VkResolveModeFlagBitsKHR stencil_resolve_mode;
+
+   VkPipelineRenderingCreateInfo pipeline_info;
+   VkCommandBufferInheritanceRenderingInfo inheritance_info;
 };
 
 struct vk_render_pass_attachment {
@@ -122,6 +125,14 @@ struct vk_render_pass {
 
 VK_DEFINE_NONDISP_HANDLE_CASTS(vk_render_pass, base, VkRenderPass,
                                VK_OBJECT_TYPE_RENDER_PASS)
+
+const VkPipelineRenderingCreateInfo *
+vk_get_pipeline_rendering_create_info(const VkGraphicsPipelineCreateInfo *info);
+
+const VkCommandBufferInheritanceRenderingInfo *
+vk_get_command_buffer_inheritance_rendering_info(
+   VkCommandBufferLevel level,
+   const VkCommandBufferBeginInfo *pBeginInfo);
 
 #ifdef __cplusplus
 }
