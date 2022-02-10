@@ -945,7 +945,7 @@ emit_srv(struct ntd_context *ctx, nir_variable *var, unsigned count)
    }
    const struct dxil_type *res_type_as_type = dxil_module_get_res_type(&ctx->mod, res_kind, comp_type, false /* readwrite */);
 
-   if (count > 1)
+   if (glsl_type_is_array(var->type))
       res_type_as_type = dxil_module_get_array_type(&ctx->mod, res_type_as_type, count);
 
    const struct dxil_mdnode *srv_meta = emit_srv_metadata(&ctx->mod, res_type_as_type, var->name,
@@ -1175,15 +1175,19 @@ emit_global_consts(struct ntd_context *ctx)
 
 static bool
 emit_cbv(struct ntd_context *ctx, unsigned binding, unsigned space,
-         unsigned size, unsigned count, char *name)
+         unsigned size, unsigned count, char *name, bool as_array)
 {
+   assert(as_array || count == 1);
+
    unsigned idx = util_dynarray_num_elements(&ctx->cbv_metadata_nodes, const struct dxil_mdnode *);
 
    const struct dxil_type *float32 = dxil_module_get_float_type(&ctx->mod, 32);
    const struct dxil_type *array_type = dxil_module_get_array_type(&ctx->mod, float32, size);
    const struct dxil_type *buffer_type = dxil_module_get_struct_type(&ctx->mod, name,
                                                                      &array_type, 1);
-   const struct dxil_type *final_type = count != 1 ? dxil_module_get_array_type(&ctx->mod, buffer_type, count) : buffer_type;
+   const struct dxil_type *final_type =
+      as_array ? dxil_module_get_array_type(&ctx->mod, buffer_type, count)
+               : buffer_type;
    resource_array_layout layout = {idx, binding, count, space};
    const struct dxil_mdnode *cbv_meta = emit_cbv_metadata(&ctx->mod, final_type,
                                                           name, &layout, 4 * size);
@@ -1203,7 +1207,9 @@ emit_ubo_var(struct ntd_context *ctx, nir_variable *var)
    unsigned count = 1;
    if (glsl_type_is_array(var->type))
       count = glsl_get_length(var->type);
-   return emit_cbv(ctx, var->data.binding, var->data.descriptor_set, get_dword_size(var->type), count, var->name);
+   return emit_cbv(ctx, var->data.binding, var->data.descriptor_set,
+                   get_dword_size(var->type), count, var->name,
+                   glsl_type_is_array(var->type));
 }
 
 static bool
@@ -1215,7 +1221,7 @@ emit_sampler(struct ntd_context *ctx, nir_variable *var, unsigned count)
    const struct dxil_type *int32_type = dxil_module_get_int_type(&ctx->mod, 32);
    const struct dxil_type *sampler_type = dxil_module_get_struct_type(&ctx->mod, "struct.SamplerState", &int32_type, 1);
 
-   if (count > 1)
+   if (glsl_type_is_array(var->type))
       sampler_type = dxil_module_get_array_type(&ctx->mod, sampler_type, count);
 
    const struct dxil_mdnode *sampler_meta = emit_sampler_metadata(&ctx->mod, sampler_type, var, &layout);
@@ -5088,13 +5094,14 @@ emit_cbvs(struct ntd_context *ctx)
             (has_state_vars ? 2 : 1);
 
          if (has_ubo0 &&
-             !emit_cbv(ctx, 0, 0, ubo_size, 1, "__ubo_uniforms"))
+             !emit_cbv(ctx, 0, 0, ubo_size, 1, "__ubo_uniforms", false))
             return false;
          if (ubo1_array_size &&
-             !emit_cbv(ctx, 1, 0, ubo_size, ubo1_array_size, "__ubos"))
+             !emit_cbv(ctx, 1, 0, ubo_size, ubo1_array_size, "__ubos", true))
             return false;
          if (has_state_vars &&
-             !emit_cbv(ctx, ctx->shader->info.num_ubos - 1, 0, ubo_size, 1, "__ubo_state_vars"))
+             !emit_cbv(ctx, ctx->shader->info.num_ubos - 1, 0, ubo_size, 1,
+                       "__ubo_state_vars", false))
             return false;
       }
    }
