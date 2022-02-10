@@ -2405,13 +2405,78 @@ emit_ms_finale(nir_shader *shader, lower_ngg_ms_state *s)
    nir_pop_if(b, if_has_output_primitive);
 }
 
+static void
+handle_smaller_ms_api_workgroup(nir_function_impl *impl,
+                                nir_builder *b,
+                                unsigned wave_size,
+                                unsigned api_workgroup_size,
+                                unsigned hw_workgroup_size)
+{
+   /* We can delete workgroup barriers manually when the API workgroup
+    * size is less than or equal to the wave size. This is typical in
+    * mesh shaders written for NVidia hardware.
+    */
+   bool need_additional_barriers = hw_workgroup_size > wave_size;
+   unsigned num_workgroup_barriers = 0;
+
+   /* Count the number of workgroup barriers, delete them if we can. */
+   if (need_additional_barriers) {
+      nir_foreach_block(block, impl) {
+         nir_foreach_instr_safe(instr, block) {
+            if (instr->type != nir_instr_type_intrinsic)
+               continue;
+
+            nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(instr);
+            bool is_workgroup_barrier =
+               intrin->intrinsic == nir_intrinsic_scoped_barrier &&
+               nir_intrinsic_execution_scope(intrin) == NIR_SCOPE_WORKGROUP;
+
+            if (!is_workgroup_barrier)
+               continue;
+
+            num_workgroup_barriers += is_workgroup_barrier;
+         }
+      }
+   }
+
+   /* Extract the full control flow of the shader. */
+   nir_cf_list extracted;
+   nir_cf_extract(&extracted, nir_before_cf_list(&impl->body), nir_after_cf_list(&impl->body));
+   b->cursor = nir_before_cf_list(&impl->body);
+
+   /* Wrap the shader in an if to ensure that only the necessary amount of lanes run it. */
+   nir_ssa_def *invocation_index = nir_load_local_invocation_index(b);
+   nir_ssa_def *has_api_ms_invocation = nir_ult(b, invocation_index, nir_imm_int(b, api_workgroup_size));
+   nir_if *if_has_api_ms_invocation = nir_push_if(b, has_api_ms_invocation);
+   {
+      nir_cf_reinsert(&extracted, b->cursor);
+      b->cursor = nir_after_cf_list(&if_has_api_ms_invocation->then_list);
+   }
+   nir_pop_if(b, if_has_api_ms_invocation);
+
+   if (need_additional_barriers) {
+      /* We can't remove the barriers, so now we have to make sure
+       * that waves that don't run any API invocations execute the
+       * same amount of barriers as those that do.
+       */
+      nir_ssa_def *has_api_ms_ballot = nir_ballot(b, 1, wave_size, has_api_ms_invocation);
+      nir_ssa_def *wave_has_no_api_ms = nir_ieq_imm(b, has_api_ms_ballot, 0);
+      nir_if *if_wave_has_no_api_ms = nir_push_if(b, wave_has_no_api_ms);
+      {
+         for (unsigned i = 0; i < num_workgroup_barriers; ++i)
+            nir_scoped_barrier(b, .execution_scope = NIR_SCOPE_WORKGROUP,
+                                  .memory_scope = NIR_SCOPE_WORKGROUP,
+                                  .memory_semantics = NIR_MEMORY_ACQ_REL,
+                                  .memory_modes = nir_var_shader_out | nir_var_mem_shared);
+      }
+      nir_pop_if(b, if_wave_has_no_api_ms);
+   }
+}
+
 void
 ac_nir_lower_ngg_ms(nir_shader *shader,
                     unsigned wave_size)
 {
-   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
-   assert(impl);
-
    unsigned vertices_per_prim =
       num_mesh_vertices_per_primitive(shader->info.mesh.primitive_type);
 
@@ -2452,29 +2517,31 @@ ac_nir_lower_ngg_ms(nir_shader *shader,
       .numprims_lds_addr = numprims_lds_addr,
    };
 
-   /* Extract the full control flow. It is going to be wrapped in an if statement. */
-   nir_cf_list extracted;
-   nir_cf_extract(&extracted, nir_before_cf_list(&impl->body), nir_after_cf_list(&impl->body));
+   /* The workgroup size that is specified by the API shader may be different
+    * from the size of the workgroup that actually runs on the HW, due to the
+    * limitations of NGG: max 0/1 vertex and 0/1 primitive per lane is allowed.
+    *
+    * Therefore, we must make sure that when the API workgroup size is smaller,
+    * we don't run the API shader on more HW invocations than is necessary.
+    */
+   unsigned api_workgroup_size = shader->info.workgroup_size[0] *
+                                 shader->info.workgroup_size[1] *
+                                 shader->info.workgroup_size[2];
+
+   unsigned hw_workgroup_size =
+      ALIGN(MAX3(api_workgroup_size, max_primitives, max_vertices), wave_size);
+
+   nir_function_impl *impl = nir_shader_get_entrypoint(shader);
+   assert(impl);
 
    nir_builder builder;
    nir_builder *b = &builder; /* This is to avoid the & */
    nir_builder_init(b, impl);
    b->cursor = nir_before_cf_list(&impl->body);
 
-   /* There may be a difference between MS workgroup size and the
-    * number of output vertices/primitives. So it is possible that the actual H
-    * workgroup is larger than what the user wants.
-    * So, only execute the API shader for invocations that the user needs.
-    */
-   unsigned num_ms_invocations = b->shader->info.workgroup_size[0] *
-                                 b->shader->info.workgroup_size[1] *
-                                 b->shader->info.workgroup_size[2];
-   nir_ssa_def *invocation_index = nir_load_local_invocation_index(b);
-   nir_ssa_def *has_ms_invocation = nir_ult(b, invocation_index, nir_imm_int(b, num_ms_invocations));
-   nir_if *if_has_ms_invocation = nir_push_if(b, has_ms_invocation);
-   nir_cf_reinsert(&extracted, b->cursor);
-   b->cursor = nir_after_cf_list(&if_has_ms_invocation->then_list);
-   nir_pop_if(b, if_has_ms_invocation);
+   if (api_workgroup_size < hw_workgroup_size) {
+      handle_smaller_ms_api_workgroup(impl, b, wave_size, api_workgroup_size, hw_workgroup_size);
+   }
 
    lower_ms_intrinsics(shader, &state);
    emit_ms_finale(shader, &state);
