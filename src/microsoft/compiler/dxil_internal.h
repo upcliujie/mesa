@@ -163,7 +163,7 @@ struct dxil_instr_phi {
    struct dxil_phi_src {
       const struct dxil_value *value;
       unsigned block;
-   } incoming[127];
+   } incoming[4];
    size_t num_incoming;
 };
 
