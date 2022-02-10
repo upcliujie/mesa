@@ -1574,12 +1574,31 @@ anv_image_get_memory_requirements(struct anv_device *device,
                                   VkImageAspectFlags aspects,
                                   VkMemoryRequirements2 *pMemoryRequirements)
 {
-   /* The Vulkan spec (git aaed022) says:
+   /* There are a couple restrictions around filling the memoryTypeBits
+    * member. The Vulkan spec says:
     *
-    *    memoryTypeBits is a bitfield and contains one bit set for every
-    *    supported memory type for the resource. The bit `1<<i` is set if and
-    *    only if the memory type `i` in the VkPhysicalDeviceMemoryProperties
-    *    structure for the physical device is supported.
+    *    memoryTypeBits is a bitmask and contains one bit set for every
+    *    supported memory type for the resource. Bit i is set if and only if
+    *    the memory type i in the VkPhysicalDeviceMemoryProperties structure
+    *    for the physical device is supported for the resource.
+    *
+    * This means that we must construct memoryTypeBits from the types
+    * supported by the physical device. It also says,
+    *
+    *    For images created with a color format, the memoryTypeBits member
+    *    is identical for all VkImage objects created with the same
+    *    combination of values for the tiling member, the
+    *    VK_IMAGE_CREATE_SPARSE_BINDING_BIT bit of the flags member, the
+    *    VK_IMAGE_CREATE_SPLIT_INSTANCE_BIND_REGIONS_BIT bit of the flags
+    *    member, handleTypes member of VkExternalMemoryImageCreateInfo, and
+    *    the VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT of the usage member in
+    *    the VkImageCreateInfo structure passed to vkCreateImage.
+    *
+    *    [There's a similar section for depth/stencil images that additionally
+    *     allows the bits to depend on the format].
+    *
+    * This means that we can only rely on some generic properties of the image
+    * to determine if the memory type is supported.
     */
    uint32_t memory_types = 0;
    for (int i = 0; i < device->physical->memory.type_count; i++) {
@@ -1590,10 +1609,21 @@ anv_image_get_memory_requirements(struct anv_device *device,
          VkImageAspectFlagBits aspect = 1 << b;
          const uint32_t plane = anv_image_aspect_to_plane(image, aspect);
 
+         /* Using CCS on XeHP requires a local memory heap. We'd like to check
+          * if the image is using CCS to require local memory, but the only
+          * relevant property the spec allows us to check is the tiling.
+          */
          if (device->info.verx10 >= 125 &&
-             isl_aux_usage_has_ccs(image->planes[plane].aux_usage) &&
-             !device->physical->memory.heaps[heap_index].is_local_mem)
+             image->vk.tiling == VK_IMAGE_TILING_OPTIMAL &&
+             !device->physical->memory.heaps[heap_index].is_local_mem) {
+
+            if (!isl_aux_usage_has_ccs(image->planes[plane].aux_usage)) {
+               anv_perf_warn(VK_LOG_OBJS(&image->vk.base),
+                             "Requiring LMEM for image lacking CCS");
+            }
+
             memory_type_supported = false;
+         }
       }
 
       if (memory_type_supported)
