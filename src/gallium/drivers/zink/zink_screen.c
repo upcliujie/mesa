@@ -1174,6 +1174,10 @@ zink_is_format_supported(struct pipe_screen *pscreen,
             return false;
       }
 
+      /* some compositors gets confused when exposing formats with alpha :( */
+      if (bind & PIPE_BIND_DISPLAY_TARGET && util_format_has_alpha(format))
+         return false;
+
       if (bind & PIPE_BIND_DEPTH_STENCIL &&
           !(props.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT))
          return false;
