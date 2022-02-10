@@ -92,6 +92,19 @@ invocation_0_must_be_active(struct lp_build_nir_context *bld_base)
 }
 
 static LLVMValueRef
+lp_build_zero_bits(struct gallivm_state *gallivm, int bit_size)
+{
+   if (bit_size == 64)
+      return LLVMConstInt(LLVMInt64TypeInContext(gallivm->context), 0, 0);
+   else if (bit_size == 16)
+      return LLVMConstInt(LLVMInt16TypeInContext(gallivm->context), 0, 0);
+   else if (bit_size == 8)
+      return LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), 0, 0);
+   else
+      return lp_build_const_int32(gallivm, 0);
+}
+
+static LLVMValueRef
 emit_fetch_64bit(
    struct lp_build_nir_context * bld_base,
    LLVMValueRef input,
@@ -1159,15 +1172,7 @@ static void emit_load_mem(struct lp_build_nir_context *bld_base,
       LLVMBuildStore(builder, temp_res, result[c]);
       lp_build_else(&ifthen);
       temp_res = LLVMBuildLoad(builder, result[c], "");
-      LLVMValueRef zero;
-      if (bit_size == 64)
-         zero = LLVMConstInt(LLVMInt64TypeInContext(gallivm->context), 0, 0);
-      else if (bit_size == 16)
-         zero = LLVMConstInt(LLVMInt16TypeInContext(gallivm->context), 0, 0);
-      else if (bit_size == 8)
-         zero = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), 0, 0);
-      else
-         zero = lp_build_const_int32(gallivm, 0);
+      LLVMValueRef zero = lp_build_zero_bits(gallivm, bit_size);
       temp_res = LLVMBuildInsertElement(builder, temp_res, zero, loop_state.counter, "");
       LLVMBuildStore(builder, temp_res, result[c]);
       lp_build_endif(&ifthen);
@@ -1357,7 +1362,7 @@ static void emit_atomic_mem(struct lp_build_nir_context *bld_base,
    LLVMBuildStore(builder, temp_res, atom_res);
    lp_build_else(&ifthen);
    temp_res = LLVMBuildLoad(builder, atom_res, "");
-   LLVMValueRef zero = bit_size == 64 ? lp_build_const_int64(gallivm, 0) : lp_build_const_int32(gallivm, 0);
+   LLVMValueRef zero = lp_build_zero_bits(gallivm, bit_size);
    temp_res = LLVMBuildInsertElement(builder, temp_res, zero, loop_state.counter, "");
    LLVMBuildStore(builder, temp_res, atom_res);
    lp_build_endif(&ifthen);
@@ -2363,15 +2368,7 @@ emit_load_scratch(struct lp_build_nir_context *bld_base,
       LLVMBuildStore(builder, temp_res, result);
       lp_build_else(&ifthen);
       temp_res = LLVMBuildLoad(builder, result, "");
-      LLVMValueRef zero;
-      if (bit_size == 64)
-         zero = LLVMConstInt(LLVMInt64TypeInContext(gallivm->context), 0, 0);
-      else if (bit_size == 16)
-         zero = LLVMConstInt(LLVMInt16TypeInContext(gallivm->context), 0, 0);
-      else if (bit_size == 8)
-         zero = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), 0, 0);
-      else
-         zero = lp_build_const_int32(gallivm, 0);
+      LLVMValueRef zero = lp_build_zero_bits(gallivm, bit_size);
       temp_res = LLVMBuildInsertElement(builder, temp_res, zero, loop_state.counter, "");
       LLVMBuildStore(builder, temp_res, result);
       lp_build_endif(&ifthen);
