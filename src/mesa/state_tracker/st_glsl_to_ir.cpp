@@ -80,7 +80,9 @@ link_shader(struct gl_context *ctx, struct gl_shader_program *prog)
                                              options->EmitNoIndirectInput,
                                              options->EmitNoIndirectOutput,
                                              options->EmitNoIndirectTemp,
-                                             options->EmitNoIndirectUniform);
+                                             options->EmitNoIndirectUniform,
+                                             ctx->Const.GLSLLowerConstArrays,
+                                             ctx->Const.Program[stage].MaxUniformComponents);
       }
 
       enum pipe_shader_type ptarget = pipe_shader_type_from_mesa(stage);
