@@ -505,6 +505,7 @@ nvc0_launch_grid(struct pipe_context *pipe, const struct pipe_grid_info *info)
    nvc0_update_compute_invocations_counter(nvc0, info);
 
 out:
+   PUSH_KICK_MT(push);
    simple_mtx_unlock(&screen->state_lock);
 }
 
