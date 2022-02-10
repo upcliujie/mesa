@@ -202,6 +202,9 @@ get_device_extensions(const struct tu_physical_device *device,
       .EXT_line_rasterization = true,
       .EXT_subgroup_size_control = true,
       .EXT_image_robustness = true,
+#ifndef TU_USE_KGSL
+      .EXT_physical_device_drm = true,
+#endif
       /* For Graphics Flight Recorder (GFR) */
       .AMD_buffer_marker = true,
 #ifdef ANDROID
@@ -1241,6 +1244,17 @@ tu_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
             (VkPhysicalDeviceLineRasterizationPropertiesEXT *)ext;
          props->lineSubPixelPrecisionBits = 8;
          break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRM_PROPERTIES_EXT: {
+         VkPhysicalDeviceDrmPropertiesEXT *props =
+            (VkPhysicalDeviceDrmPropertiesEXT *)ext;
+         props->hasPrimary = pdevice->has_master;
+         props->primaryMajor = pdevice->master_major;
+         props->primaryMinor = pdevice->master_minor;
+
+         props->hasRender = pdevice->has_local;
+         props->renderMajor = pdevice->local_major;
+         props->renderMinor = pdevice->local_minor;
       }
 
       default:
