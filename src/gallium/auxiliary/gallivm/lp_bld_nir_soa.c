@@ -770,6 +770,8 @@ static void emit_load_kernel_arg(struct lp_build_nir_context *bld_base,
          LLVMValueRef scalar = lp_build_pointer_get(builder, kernel_args_ptr, this_offset);
          result[c] = lp_build_broadcast_scalar(bld_broad, scalar);
       }
+   } else {
+      assert(!"Expected load_kernel args to be constant offset");
    }
 }
 
