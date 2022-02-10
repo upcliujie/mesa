@@ -785,6 +785,7 @@ nvc0_clear(struct pipe_context *pipe, unsigned buffers,
    }
 
 out:
+   PUSH_KICK(push);
    simple_mtx_unlock(&nvc0->screen->state_lock);
 }
 
@@ -797,6 +798,7 @@ gm200_evaluate_depth_buffer(struct pipe_context *pipe)
    simple_mtx_lock(&nvc0->screen->state_lock);
    nvc0_state_validate_3d(nvc0, NVC0_NEW_3D_FRAMEBUFFER);
    IMMED_NVC0(push, SUBC_3D(0x11fc), 1);
+   PUSH_KICK(push);
    simple_mtx_unlock(&nvc0->screen->state_lock);
 }
 
@@ -1702,6 +1704,7 @@ nvc0_blit(struct pipe_context *pipe, const struct pipe_blit_info *info)
 
    if (nvc0->screen->num_occlusion_queries_active)
       IMMED_NVC0(push, NVC0_3D(SAMPLECNT_ENABLE), 1);
+   PUSH_KICK(push);
    simple_mtx_unlock(&nvc0->screen->state_lock);
 
    NOUVEAU_DRV_STAT(&nvc0->screen->base, tex_blit_count, 1);

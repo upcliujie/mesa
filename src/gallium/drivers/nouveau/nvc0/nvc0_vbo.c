@@ -1130,6 +1130,7 @@ nvc0_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info,
    }
 
 cleanup:
+   PUSH_KICK(push);
    simple_mtx_unlock(&nvc0->screen->state_lock);
 
    nvc0->base.kick_notify = nvc0_default_kick_notify;
