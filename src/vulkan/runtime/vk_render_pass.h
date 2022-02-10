@@ -76,6 +76,7 @@ struct vk_subpass {
 
    struct vk_subpass_attachment *depth_stencil_attachment;
    struct vk_subpass_attachment *depth_stencil_resolve_attachment;
+   struct vk_subpass_attachment *fragment_shading_rate_attachment;
 
    /** VkSubpassDescription2::viewMask or 1 for non-multiview
     *
@@ -87,6 +88,8 @@ struct vk_subpass {
 
    VkResolveModeFlagBitsKHR depth_resolve_mode;
    VkResolveModeFlagBitsKHR stencil_resolve_mode;
+
+   VkExtent2D fragment_shading_rate_attachment_texel_size;
 
    VkRenderingSelfDependencyInfoMESA self_dep_info;
    VkPipelineRenderingCreateInfo pipeline_info;
