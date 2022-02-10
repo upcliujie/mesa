@@ -307,14 +307,23 @@ num_subpass_attachments2(const VkSubpassDescription2 *desc)
                            SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR);
 
    bool has_depth_stencil_resolve_attachment =
-      ds_resolve && ds_resolve->pDepthStencilResolveAttachment &&
+      ds_resolve != NULL && ds_resolve->pDepthStencilResolveAttachment &&
       ds_resolve->pDepthStencilResolveAttachment->attachment != VK_ATTACHMENT_UNUSED;
+
+   const VkFragmentShadingRateAttachmentInfoKHR *fsr_att_info =
+      vk_find_struct_const(desc->pNext,
+                           FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR);
+
+   bool has_fragment_shading_rate_attachment =
+      fsr_att_info && fsr_att_info->pFragmentShadingRateAttachment &&
+      fsr_att_info->pFragmentShadingRateAttachment->attachment != VK_ATTACHMENT_UNUSED;
 
    return desc->inputAttachmentCount +
           desc->colorAttachmentCount +
           (desc->pResolveAttachments ? desc->colorAttachmentCount : 0) +
           has_depth_stencil_attachment +
-          has_depth_stencil_resolve_attachment;
+          has_depth_stencil_resolve_attachment +
+          has_fragment_shading_rate_attachment;
 }
 
 static void
@@ -575,6 +584,22 @@ vk_common_CreateRenderPass2(VkDevice _device,
 
          subpass->depth_resolve_mode = ds_resolve->depthResolveMode;
          subpass->stencil_resolve_mode = ds_resolve->stencilResolveMode;
+      }
+
+      const VkFragmentShadingRateAttachmentInfoKHR *fsr_att_info =
+         vk_find_struct_const(desc->pNext,
+                              FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR);
+
+      if (fsr_att_info && fsr_att_info->pFragmentShadingRateAttachment &&
+          fsr_att_info->pFragmentShadingRateAttachment->attachment != VK_ATTACHMENT_UNUSED) {
+         subpass->fragment_shading_rate_attachment = next_subpass_attachment++;
+         vk_subpass_attachment_init(subpass->fragment_shading_rate_attachment,
+                                    pass, s,
+                                    fsr_att_info->pFragmentShadingRateAttachment,
+                                    pCreateInfo->pAttachments,
+                                    VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR);
+         subpass->fragment_shading_rate_attachment_texel_size =
+            fsr_att_info->shadingRateAttachmentTexelSize;
       }
 
       VkFormat *color_formats = NULL;
@@ -1389,7 +1414,7 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
       att_state->views_loaded |= subpass->view_mask;
    }
 
-   const VkRenderingInfo rendering = {
+   VkRenderingInfo rendering = {
       .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
       .pNext = &subpass->self_dep_info,
       .renderArea = cmd_buffer->render_area,
@@ -1400,6 +1425,39 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
       .pDepthAttachment = &depth_attachment,
       .pStencilAttachment = &stencil_attachment,
    };
+
+   VkRenderingFragmentShadingRateAttachmentInfoKHR fsr_attachment;
+   if (subpass->fragment_shading_rate_attachment) {
+      const struct vk_subpass_attachment *att =
+         subpass->fragment_shading_rate_attachment;
+
+      assert(att->attachment < pass->attachment_count);
+      const struct vk_render_pass_attachment *pass_att =
+         &pass->attachments[att->attachment];
+      struct vk_attachment_state *att_state =
+         &cmd_buffer->attachments[att->attachment];
+
+      if (pass_att->load_op == VK_ATTACHMENT_LOAD_OP_CLEAR &&
+          (subpass->view_mask & ~att_state->views_loaded)) {
+         /* At least one of these views haven't been loaded yet.  Fragment
+          * shading rate attachments have no loadOp (it's implicitly
+          * LOADO_OP_LOAD) so we need to do a quick load/store.
+          */
+         load_store_attachment(cmd_buffer, att->attachment,
+                               subpass->view_mask & ~att_state->views_loaded,
+                               att->layout, att->stencil_layout);
+      }
+
+      fsr_attachment = (VkRenderingFragmentShadingRateAttachmentInfoKHR) {
+         .sType = VK_STRUCTURE_TYPE_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR,
+         .imageView = vk_image_view_to_handle(att_state->image_view),
+         .imageLayout = att->layout,
+         .shadingRateAttachmentTexelSize =
+            subpass->fragment_shading_rate_attachment_texel_size,
+      };
+      __vk_append_struct(&rendering, &fsr_attachment);
+   }
+
    disp->CmdBeginRendering(vk_command_buffer_to_handle(cmd_buffer),
                            &rendering);
 }
