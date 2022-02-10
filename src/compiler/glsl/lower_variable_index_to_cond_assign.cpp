@@ -53,6 +53,7 @@
 #include "main/macros.h"
 #include "program/prog_instruction.h" /* For SWIZZLE_XXXX */
 #include "ir_builder.h"
+#include "util/set.h"
 
 using namespace ir_builder;
 
@@ -60,6 +61,22 @@ static inline bool
 is_array_or_matrix(const ir_rvalue *ir)
 {
    return (ir->type->is_array() || ir->type->is_matrix());
+}
+
+static unsigned
+count_uniforms(exec_list *instructions)
+{
+   unsigned total = 0;
+
+   foreach_in_list(ir_instruction, node, instructions) {
+      ir_variable *const var = node->as_variable();
+
+      if (!var || var->data.mode != ir_var_uniform)
+         continue;
+
+      total += var->type->component_slots();
+   }
+   return total;
 }
 
 namespace {
@@ -219,12 +236,22 @@ public:
                                          bool lower_input,
                                          bool lower_output,
                                          bool lower_temp,
-                                         bool lower_uniform)
+                                         bool lower_uniform,
+                                         bool lower_const_array_to_uniform_enabled,
+                                         unsigned uniform_components,
+                                         unsigned max_uniform_components)
       : progress(false), stage(stage), lower_inputs(lower_input),
         lower_outputs(lower_output), lower_temps(lower_temp),
-        lower_uniforms(lower_uniform)
+        lower_uniforms(lower_uniform),
+        lower_const_array_to_uniform_enabled(lower_const_array_to_uniform_enabled)
    {
-      /* empty */
+      free_uni_components = max_uniform_components - uniform_components;
+      temps_set = _mesa_pointer_set_create(NULL);
+   }
+
+   ~variable_index_to_cond_assign_visitor()
+   {
+      _mesa_set_destroy(temps_set, NULL);
    }
 
    bool progress;
@@ -234,6 +261,13 @@ public:
    bool lower_outputs;
    bool lower_temps;
    bool lower_uniforms;
+   bool lower_const_array_to_uniform_enabled;
+
+   unsigned free_uni_components;
+
+   /* Set of temps that can be lowered later by lower_const_arrays_to_uniform()
+    */
+   struct set *temps_set;
 
    bool storage_type_needs_lowering(ir_dereference_array *deref) const
    {
@@ -249,8 +283,17 @@ public:
 
       switch (var->data.mode) {
       case ir_var_auto:
-      case ir_var_temporary:
+      case ir_var_temporary: {
+         if (lower_const_array_to_uniform_enabled &&
+             _mesa_set_search(temps_set, var)) {
+
+             /* This var will be lowered by lower_const_arrays_to_uniform()
+              * so skip it here.
+              */
+             return false;
+         }
          return this->lower_temps;
+      }
 
       case ir_var_uniform:
       case ir_var_shader_storage:
@@ -387,6 +430,21 @@ public:
       return var;
    }
 
+   ir_visitor_status visit(ir_variable *var)
+   {
+      if (var->data.read_only && var->constant_initializer &&
+          var->type->is_array()) {
+         unsigned component_slots = var->type->component_slots();
+
+         if (component_slots <= free_uni_components) {
+            free_uni_components -= component_slots;
+            _mesa_set_add(temps_set, var);
+         }
+      }
+
+      return visit_continue;
+   }
+
    virtual void handle_rvalue(ir_rvalue **pir)
    {
       if (this->in_assignee)
@@ -431,13 +489,20 @@ lower_variable_index_to_cond_assign(gl_shader_stage stage,
                                     bool lower_input,
                                     bool lower_output,
                                     bool lower_temp,
-                                    bool lower_uniform)
+                                    bool lower_uniform,
+                                    bool lower_const_array_to_uniform_enabled,
+                                    unsigned max_uniform_components)
 {
+   unsigned uniform_components = count_uniforms(instructions);
+
    variable_index_to_cond_assign_visitor v(stage,
                                            lower_input,
                                            lower_output,
                                            lower_temp,
-                                           lower_uniform);
+                                           lower_uniform,
+                                           lower_const_array_to_uniform_enabled,
+                                           max_uniform_components,
+                                           uniform_components);
 
    /* Continue lowering until no progress is made.  If there are multiple
     * levels of indirection (e.g., non-constant indexing of array elements and
