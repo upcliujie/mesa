@@ -203,6 +203,8 @@ enum {
 struct radeon_winsys {
    void (*destroy)(struct radeon_winsys *ws);
 
+   void (*set_options)(struct radeon_winsys *ws, uint64_t debug_flags, uint64_t perftest_flags);
+
    void (*query_info)(struct radeon_winsys *ws, struct radeon_info *info);
 
    uint64_t (*query_value)(struct radeon_winsys *ws, enum radeon_value_id value);
