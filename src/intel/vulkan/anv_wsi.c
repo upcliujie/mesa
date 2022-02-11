@@ -36,6 +36,15 @@ anv_wsi_proc_addr(VkPhysicalDevice physicalDevice, const char *pName)
    return vk_instance_get_proc_addr_unchecked(&pdevice->instance->vk, pName);
 }
 
+static void
+anv_wsi_acquire_notify(VkDevice _device, VkImage image)
+{
+   ANV_FROM_HANDLE(anv_device, device, _device);
+
+   if (device->physical->measure_device.config)
+      anv_measure_acquire(device);
+}
+
 VkResult
 anv_init_wsi(struct anv_physical_device *physical_device)
 {
@@ -54,6 +63,7 @@ anv_init_wsi(struct anv_physical_device *physical_device)
    physical_device->wsi_device.supports_modifiers = true;
    physical_device->wsi_device.signal_semaphore_with_memory = true;
    physical_device->wsi_device.signal_fence_with_memory = true;
+   physical_device->wsi_device.acquire_notify = anv_wsi_acquire_notify;
 
    physical_device->vk.wsi_device = &physical_device->wsi_device;
 
