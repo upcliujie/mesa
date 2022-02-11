@@ -56,6 +56,12 @@ struct vk_attachment_state {
    /** Per-view state */
    struct vk_attachment_view_state views[MESA_VK_MAX_MULTIVIEW_VIEW_COUNT];
 
+   /**
+    * True if the next VkRenderingAttachmentInfo created for this attachment
+    * needs VkRenderingAttachmentInitialLayoutInfoMESA attached.
+    */
+   bool need_initial_layout;
+
    /** VkRenderPassBeginInfo::pClearValues[i] */
    VkClearValue clear_value;
 };
