@@ -851,6 +851,12 @@ wsi_common_acquire_next_image2(const struct wsi_device *wsi,
          return lresult;
    }
 
+   /* Notify the driver if it wants to be notify. */
+   if (result == VK_SUCCESS && wsi->acquire_notify) {
+      wsi->acquire_notify(
+         _device, swapchain->get_wsi_image(swapchain, *pImageIndex)->image);
+   }
+
    return result;
 }
 

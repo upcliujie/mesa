@@ -180,6 +180,12 @@ struct wsi_device {
     */
    VkQueue (*get_prime_blit_queue)(VkDevice device);
 
+   /*
+    * A driver can implement this callback to be notified when an image is
+    * successfully acquired.
+    */
+   void (*acquire_notify)(VkDevice device, VkImage image);
+
 #define WSI_CB(cb) PFN_vk##cb cb
    WSI_CB(AllocateMemory);
    WSI_CB(AllocateCommandBuffers);
