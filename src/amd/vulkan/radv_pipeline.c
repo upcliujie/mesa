@@ -3670,6 +3670,7 @@ radv_consider_force_vrs(const struct radv_pipeline *pipeline, bool noop_fs, nir_
 
    /* Only VS and GS are supported for now. */
    if (pipeline->graphics.last_vgt_api_stage != MESA_SHADER_VERTEX &&
+       pipeline->graphics.last_vgt_api_stage != MESA_SHADER_TESS_EVAL &&
        pipeline->graphics.last_vgt_api_stage != MESA_SHADER_GEOMETRY)
       return false;
 
