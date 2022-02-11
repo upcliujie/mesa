@@ -513,6 +513,102 @@ dxil_spirv_nir_fix_sample_mask_type(nir_shader *shader)
                                        nir_metadata_all, NULL);
 }
 
+static const struct glsl_type *
+convert_cube_image_to_2darray(const struct glsl_type *type)
+{
+   if (glsl_type_is_array(type)) {
+      const struct glsl_type *new_type =
+         convert_cube_image_to_2darray(glsl_get_array_element(type));
+      return glsl_array_type(new_type, glsl_get_length(type), 0);
+   }
+
+   assert(glsl_type_is_image(type));
+   assert(glsl_get_sampler_dim(type) == GLSL_SAMPLER_DIM_CUBE);
+   return glsl_image_type(GLSL_SAMPLER_DIM_2D, true,
+                          glsl_get_sampler_result_type(type));
+}
+
+static bool
+lower_cube_image_deref(struct nir_builder *b,
+                       nir_instr *instr,
+                       UNUSED void *cb_data)
+{
+   if (instr->type == nir_instr_type_deref) {
+      nir_deref_instr *deref = nir_instr_as_deref(instr);
+      const struct glsl_type *elem_type = glsl_without_array(deref->type);
+      if (!glsl_type_is_image(elem_type) ||
+          glsl_get_sampler_dim(elem_type) != GLSL_SAMPLER_DIM_CUBE)
+         return false;
+
+      deref->type = convert_cube_image_to_2darray(deref->type);
+      return true;
+   } else if (instr->type == nir_instr_type_intrinsic) {
+      nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+      switch (intr->intrinsic) {
+      case nir_intrinsic_image_deref_atomic_add:
+      case nir_intrinsic_image_deref_atomic_and:
+      case nir_intrinsic_image_deref_atomic_comp_swap:
+      case nir_intrinsic_image_deref_atomic_dec_wrap:
+      case nir_intrinsic_image_deref_atomic_exchange:
+      case nir_intrinsic_image_deref_atomic_fadd:
+      case nir_intrinsic_image_deref_atomic_fmax:
+      case nir_intrinsic_image_deref_atomic_fmin:
+      case nir_intrinsic_image_deref_atomic_imax:
+      case nir_intrinsic_image_deref_atomic_imin:
+      case nir_intrinsic_image_deref_atomic_inc_wrap:
+      case nir_intrinsic_image_deref_atomic_or:
+      case nir_intrinsic_image_deref_atomic_umax:
+      case nir_intrinsic_image_deref_atomic_umin:
+      case nir_intrinsic_image_deref_atomic_xor:
+      case nir_intrinsic_image_deref_load:
+      case nir_intrinsic_image_deref_size:
+      case nir_intrinsic_image_deref_store:
+         if (nir_intrinsic_image_dim(intr) == GLSL_SAMPLER_DIM_CUBE) {
+            nir_intrinsic_set_image_dim(intr, GLSL_SAMPLER_DIM_2D);
+            nir_intrinsic_set_image_array(intr, true);
+         }
+	 return true;
+      default:
+         return false;
+      }
+   } else {
+      return false;
+   }
+}
+
+static bool
+dxil_spirv_nir_lower_cube_image_to_2darray(nir_shader *shader)
+{
+   bool progress = false;
+   nir_foreach_variable_with_modes(var, shader, nir_var_image) {
+      const struct glsl_type *elem_type = glsl_without_array(var->type);
+
+      if (glsl_get_sampler_dim(elem_type) != GLSL_SAMPLER_DIM_CUBE)
+         continue;
+
+      const struct glsl_type *old_type = var->type;
+      var->type = convert_cube_image_to_2darray(var->type);
+      assert(old_type != var->type);
+      progress = true;
+   }
+
+   if (!progress)
+      return false;
+
+
+   nir_lower_image_options lower_img_opts = {
+      .lower_cube_size = true,
+   };
+
+   nir_lower_image(shader, &lower_img_opts);
+   nir_shader_instructions_pass(shader,
+                                lower_cube_image_deref,
+                                nir_metadata_dominance |
+                                nir_metadata_block_index |
+                                nir_metadata_loop_analysis,
+                                NULL);
+   return progress;
+}
 
 bool
 spirv_to_dxil(const uint32_t *words, size_t word_count,
@@ -556,6 +652,8 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
 
    nir_validate_shader(nir,
                        "Validate before feeding NIR to the DXIL compiler");
+
+   NIR_PASS_V(nir, dxil_spirv_nir_lower_cube_image_to_2darray);
 
    const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
       .frag_coord = true,
