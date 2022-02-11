@@ -3508,12 +3508,10 @@ struct anv_graphics_pipeline {
    VkPolygonMode                                polygon_mode;
    uint32_t                                     rasterization_samples;
 
-   struct anv_subpass *                         subpass;
-   struct anv_render_pass *                     pass;
-
    struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
 
    VkShaderStageFlags                           active_stages;
+   uint32_t                                     view_mask;
 
    bool                                         writes_depth;
    bool                                         depth_test_enable;
@@ -3693,6 +3691,7 @@ VkResult
 anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline, struct anv_device *device,
                            struct anv_pipeline_cache *cache,
                            const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                           const VkPipelineRenderingCreateInfoKHR *rendering_info,
                            const VkAllocationCallbacks *alloc);
 
 VkResult
