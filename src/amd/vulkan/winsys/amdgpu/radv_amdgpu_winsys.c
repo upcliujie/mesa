@@ -190,6 +190,27 @@ radv_amdgpu_winsys_get_sync_types(struct radeon_winsys *rws)
    return ws->sync_types;
 }
 
+static void
+radv_amdgpu_winsys_set_options(struct radeon_winsys *rws, uint64_t debug_flags,
+                               uint64_t perftest_flags)
+{
+   struct radv_amdgpu_winsys *ws = (struct radv_amdgpu_winsys *)rws;
+
+   if (debug_flags & RADV_DEBUG_ALL_BOS)
+      ws->debug_all_bos = true;
+
+   if (debug_flags & RADV_DEBUG_HANG)
+      ws->debug_log_bos = true;
+
+   if (debug_flags & RADV_DEBUG_NO_IBS)
+      ws->use_ib_bos = false;
+
+   if (debug_flags & RADV_DEBUG_ZERO_VRAM)
+      ws->zero_all_vram_allocs = true;
+
+   ws->perftest |= perftest_flags;
+}
+
 struct radeon_winsys *
 radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags, bool reserve_vmid)
 {
@@ -215,6 +236,9 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    }
 
    if (ws) {
+      /* Apply the options again in case they differ from the existing winsys. */
+      radv_amdgpu_winsys_set_options(&ws->base, debug_flags, perftest_flags);
+
       simple_mtx_unlock(&winsys_creation_mutex);
       amdgpu_device_deinitialize(dev);
       return &ws->base;
@@ -231,10 +255,7 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    if (!do_winsys_init(ws, fd))
       goto winsys_fail;
 
-   ws->debug_all_bos = !!(debug_flags & RADV_DEBUG_ALL_BOS);
-   ws->debug_log_bos = debug_flags & RADV_DEBUG_HANG;
-   if (debug_flags & RADV_DEBUG_NO_IBS)
-      ws->use_ib_bos = false;
+   radv_amdgpu_winsys_set_options(&ws->base, debug_flags, perftest_flags);
 
    ws->reserve_vmid = reserve_vmid;
    if (ws->reserve_vmid) {
@@ -256,8 +277,6 @@ radv_amdgpu_winsys_create(int fd, uint64_t debug_flags, uint64_t perftest_flags,
    ws->sync_types[num_sync_types++] = NULL;
    assert(num_sync_types <= ARRAY_SIZE(ws->sync_types));
 
-   ws->perftest = perftest_flags;
-   ws->zero_all_vram_allocs = debug_flags & RADV_DEBUG_ZERO_VRAM;
    u_rwlock_init(&ws->global_bo_list.lock);
    list_inithead(&ws->log_bo_list);
    u_rwlock_init(&ws->log_bo_list_lock);
