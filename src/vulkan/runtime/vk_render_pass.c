@@ -981,6 +981,89 @@ transition_image_range(const struct vk_image_view *image_view,
    }
 }
 
+static bool
+can_use_attachment_initial_layout(struct vk_command_buffer *cmd_buffer,
+                                  uint32_t att_idx,
+                                  uint32_t view_mask)
+{
+   const struct vk_render_pass *pass = cmd_buffer->render_pass;
+   const struct vk_framebuffer *framebuffer = cmd_buffer->framebuffer;
+   const struct vk_render_pass_attachment *pass_att =
+      &pass->attachments[att_idx];
+   struct vk_attachment_state *att_state = &cmd_buffer->attachments[att_idx];
+   const struct vk_image_view *image_view = att_state->image_view;
+
+   if (pass_att->load_op != VK_ATTACHMENT_LOAD_OP_CLEAR)
+      return false;
+
+   if (cmd_buffer->render_area.offset.x != 0 ||
+       cmd_buffer->render_area.offset.y != 0 ||
+       cmd_buffer->render_area.extent.width != image_view->extent.width ||
+       cmd_buffer->render_area.extent.height != image_view->extent.height)
+      return false;
+
+   if (image_view->image->image_type == VK_IMAGE_TYPE_3D) {
+      /* For 3D images, the view has to be the whole thing */
+      if (image_view->base_array_layer != 0 ||
+          image_view->layer_count != image_view->extent.depth)
+         return false;
+   }
+
+   if (pass->is_multiview) {
+      if (!util_is_power_of_two_or_zero(view_mask + 1) ||
+          util_last_bit(view_mask) != image_view->layer_count)
+         return false;
+   } else {
+      if (framebuffer->layers != image_view->layer_count)
+         return false;
+   }
+
+   /* Finally, check if the entire thing is undefined.  It's ok to smash the
+    * view_mask now as the only thing using it will be the loop below.
+    */
+
+   /* 3D is stupidly special.  See transition_attachment() */
+   if (image_view->image->image_type == VK_IMAGE_TYPE_3D)
+      view_mask = 1;
+
+   while (view_mask) {
+      int view = u_bit_scan(&view_mask);
+      assert(view >= 0 && view < MESA_VK_MAX_MULTIVIEW_VIEW_COUNT);
+
+      struct vk_attachment_view_state *att_view_state = &att_state->views[view];
+
+      if ((pass_att->aspects & ~VK_IMAGE_ASPECT_STENCIL_BIT) &&
+          att_view_state->layout != VK_IMAGE_LAYOUT_UNDEFINED)
+         return false;
+
+      if ((pass_att->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) &&
+          att_view_state->stencil_layout != VK_IMAGE_LAYOUT_UNDEFINED)
+         return false;
+   }
+
+   return true;
+}
+
+static void
+set_attachment_layout(struct vk_command_buffer *cmd_buffer,
+                      uint32_t att_idx,
+                      uint32_t view_mask,
+                      VkImageLayout layout,
+                      VkImageLayout stencil_layout)
+{
+   struct vk_attachment_state *att_state = &cmd_buffer->attachments[att_idx];
+
+   while (view_mask) {
+      int view = u_bit_scan(&view_mask);
+      assert(view >= 0 && view < MESA_VK_MAX_MULTIVIEW_VIEW_COUNT);
+
+      struct vk_attachment_view_state *att_view_state = &att_state->views[view];
+
+      att_view_state->layout = layout;
+      att_view_state->stencil_layout = stencil_layout;
+   }
+}
+
 static void
 transition_attachment(struct vk_command_buffer *cmd_buffer,
                       uint32_t att_idx,
@@ -1240,13 +1323,24 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
       if (att->attachment == VK_ATTACHMENT_UNUSED)
          continue;
 
-      transition_attachment(cmd_buffer,
-                            att->attachment,
-                            subpass->view_mask,
-                            att->layout, att->stencil_layout,
-                            &image_barrier_count,
-                            max_image_barrier_count,
-                            image_barriers);
+      assert(att->attachment < pass->attachment_count);
+      struct vk_attachment_state *att_state =
+         &cmd_buffer->attachments[att->attachment];
+
+      if ((att->usage == VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT ||
+           att->usage == VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) &&
+          can_use_attachment_initial_layout(cmd_buffer, att->attachment,
+                                            subpass->view_mask)) {
+         att_state->need_initial_layout = true;
+         set_attachment_layout(cmd_buffer, att->attachment, subpass->view_mask,
+                               att->layout, att->stencil_layout);
+      } else {
+         transition_attachment(cmd_buffer, att->attachment, subpass->view_mask,
+                               att->layout, att->stencil_layout,
+                               &image_barrier_count,
+                               max_image_barrier_count,
+                               image_barriers);
+      }
    }
    assert(image_barrier_count <= max_image_barrier_count);
 
@@ -1268,6 +1362,10 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
 
    STACK_ARRAY(VkRenderingAttachmentInfo, color_attachments,
                subpass->color_count);
+   STACK_ARRAY(VkRenderingAttachmentInitialLayoutInfoMESA,
+               color_attachment_initial_layouts,
+               subpass->color_count);
+
    for (uint32_t i = 0; i < subpass->color_count; i++) {
       const struct vk_subpass_attachment *att = &subpass->color_attachments[i];
       if (att->attachment == VK_ATTACHMENT_UNUSED) {
@@ -1317,6 +1415,21 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
          att_info->storeOp = VK_ATTACHMENT_STORE_OP_STORE;
       }
 
+      if (att_state->need_initial_layout) {
+         assert(att_info->loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR);
+
+         VkRenderingAttachmentInitialLayoutInfoMESA *att_layout_info =
+            &color_attachment_initial_layouts[i];
+         *att_layout_info = (VkRenderingAttachmentInitialLayoutInfoMESA) {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INITIAL_LAYOUT_INFO_MESA,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+         };
+         att_info->pNext = att_layout_info;
+
+         /* Reset for the next use */
+         att_state->need_initial_layout = false;
+      }
+
       if (att->resolve != NULL) {
          assert(att->resolve->attachment < pass->attachment_count);
          struct vk_attachment_state *res_att_state =
@@ -1347,6 +1460,8 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
       .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
       .imageView = VK_NULL_HANDLE,
    };
+   VkRenderingAttachmentInitialLayoutInfoMESA depth_attachment_initial_layout;
+   VkRenderingAttachmentInitialLayoutInfoMESA stencil_attachment_initial_layout;
    if (subpass->depth_stencil_attachment != NULL) {
       const struct vk_subpass_attachment *att =
          subpass->depth_stencil_attachment;
@@ -1399,6 +1514,29 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
          /* For at least one of our views, this isn't the last subpass */
          depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
          stencil_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      }
+
+      if (att_state->need_initial_layout) {
+         if (pass_att->aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
+            assert(depth_attachment.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR);
+            depth_attachment_initial_layout = (VkRenderingAttachmentInitialLayoutInfoMESA) {
+               .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INITIAL_LAYOUT_INFO_MESA,
+               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+            depth_attachment.pNext = &depth_attachment_initial_layout;
+         }
+
+         if (pass_att->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
+            assert(stencil_attachment.loadOp == VK_ATTACHMENT_LOAD_OP_CLEAR);
+            stencil_attachment_initial_layout = (VkRenderingAttachmentInitialLayoutInfoMESA) {
+               .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INITIAL_LAYOUT_INFO_MESA,
+               .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            };
+            stencil_attachment.pNext = &stencil_attachment_initial_layout;
+         }
+
+         /* Reset for next use */
+         att_state->need_initial_layout = false;
       }
 
       if (att->resolve != NULL) {
@@ -1477,6 +1615,10 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
                       att->layout, att->stencil_layout);
    }
 
+   /* Make sure we handled all our need_initial_layout cases */
+   for (uint32_t i = 0; i < pass->attachment_count; i++)
+      assert(!cmd_buffer->attachments[i].need_initial_layout);
+
    VkRenderingInfo rendering = {
       .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
       .pNext = &subpass->self_dep_info,
@@ -1518,6 +1660,7 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
                            &rendering);
 
    STACK_ARRAY_FINISH(color_attachments);
+   STACK_ARRAY_FINISH(color_attachment_initial_layouts);
 }
 
 static void
@@ -1605,6 +1748,7 @@ vk_common_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       *att_state = (struct vk_attachment_state) {
          .image_view = image_view,
          .views_loaded = 0,
+         .need_initial_layout = false,
       };
 
       for (uint32_t v = 0; v < MESA_VK_MAX_MULTIVIEW_VIEW_COUNT; v++) {
