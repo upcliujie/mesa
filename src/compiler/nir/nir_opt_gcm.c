@@ -230,7 +230,7 @@ is_binding_dynamically_uniform(nir_src src)
       return false;
 
    for (unsigned i = 0; i < binding.num_indices; i++) {
-      if (!nir_src_is_dynamically_uniform(binding.indices[i]))
+      if (!nir_src_is_statically_uniform(binding.indices[i]))
          return false;
    }
 
@@ -268,7 +268,7 @@ pin_intrinsic(nir_intrinsic_instr *intrin)
       if (!is_binding_dynamically_uniform(intrin->src[0]))
          instr->pass_flags = GCM_INSTR_PINNED;
    } else if (intrin->intrinsic == nir_intrinsic_load_push_constant) {
-      if (!nir_src_is_dynamically_uniform(intrin->src[0]))
+      if (!nir_src_is_statically_uniform(intrin->src[0]))
          instr->pass_flags = GCM_INSTR_PINNED;
    } else if (intrin->intrinsic == nir_intrinsic_load_deref &&
               nir_deref_mode_is(nir_src_as_deref(intrin->src[0]),
@@ -277,7 +277,7 @@ pin_intrinsic(nir_intrinsic_instr *intrin)
       while (deref->deref_type != nir_deref_type_var) {
          if ((deref->deref_type == nir_deref_type_array ||
               deref->deref_type == nir_deref_type_ptr_as_array) &&
-             !nir_src_is_dynamically_uniform(deref->arr.index)) {
+             !nir_src_is_statically_uniform(deref->arr.index)) {
             instr->pass_flags = GCM_INSTR_PINNED;
             return;
          }
@@ -351,12 +351,12 @@ gcm_pin_instructions(nir_function_impl *impl, struct gcm_state *state)
                   break;
                case nir_tex_src_texture_offset:
                case nir_tex_src_texture_handle:
-                  if (!tex->texture_non_uniform && !nir_src_is_dynamically_uniform(src->src))
+                  if (!tex->texture_non_uniform && !nir_src_is_statically_uniform(src->src))
                      instr->pass_flags = GCM_INSTR_PINNED;
                   break;
                case nir_tex_src_sampler_offset:
                case nir_tex_src_sampler_handle:
-                  if (!tex->sampler_non_uniform && !nir_src_is_dynamically_uniform(src->src))
+                  if (!tex->sampler_non_uniform && !nir_src_is_statically_uniform(src->src))
                      instr->pass_flags = GCM_INSTR_PINNED;
                   break;
                default:
