@@ -38,7 +38,7 @@ struct vk_image_view;
 struct vk_render_pass;
 
 /* Since VkSubpassDescription2::viewMask is a 32-bit integer, there are a
- * maxiumu of 32 possible views.
+ * maximum of 32 possible views.
  */
 #define MESA_VK_MAX_MULTIVIEW_VIEW_COUNT 32
 

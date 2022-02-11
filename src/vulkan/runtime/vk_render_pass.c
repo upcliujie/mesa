@@ -302,9 +302,9 @@ num_subpass_attachments2(const VkSubpassDescription2 *desc)
       desc->pDepthStencilAttachment != NULL &&
       desc->pDepthStencilAttachment->attachment != VK_ATTACHMENT_UNUSED;
 
-   const VkSubpassDescriptionDepthStencilResolveKHR *ds_resolve =
+   const VkSubpassDescriptionDepthStencilResolve *ds_resolve =
       vk_find_struct_const(desc->pNext,
-                           SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR);
+                           SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE);
 
    bool has_depth_stencil_resolve_attachment =
       ds_resolve != NULL && ds_resolve->pDepthStencilResolveAttachment &&
@@ -422,7 +422,7 @@ vk_common_CreateRenderPass2(VkDevice _device,
 {
    VK_FROM_HANDLE(vk_device, device, _device);
 
-   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2_KHR);
+   assert(pCreateInfo->sType == VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO_2);
 
    VK_MULTIALLOC(ma);
    VK_MULTIALLOC_DECL(&ma, struct vk_render_pass, pass, 1);
@@ -567,9 +567,9 @@ vk_common_CreateRenderPass2(VkDevice _device,
                                     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
       }
 
-      const VkSubpassDescriptionDepthStencilResolveKHR *ds_resolve =
+      const VkSubpassDescriptionDepthStencilResolve *ds_resolve =
          vk_find_struct_const(desc->pNext,
-                              SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE_KHR);
+                              SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE);
 
       if (ds_resolve && ds_resolve->pDepthStencilResolveAttachment &&
           ds_resolve->pDepthStencilResolveAttachment->attachment != VK_ATTACHMENT_UNUSED) {
@@ -1521,9 +1521,9 @@ vk_common_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
       cmd_buffer->attachments = cmd_buffer->_attachments;
    }
 
-   const VkRenderPassAttachmentBeginInfoKHR *attach_begin =
+   const VkRenderPassAttachmentBeginInfo *attach_begin =
       vk_find_struct_const(pRenderPassBeginInfo,
-                           RENDER_PASS_ATTACHMENT_BEGIN_INFO_KHR);
+                           RENDER_PASS_ATTACHMENT_BEGIN_INFO);
    if (!attach_begin)
       assert(pass->attachment_count == framebuffer->attachment_count);
 
