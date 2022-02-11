@@ -1595,7 +1595,7 @@ nir_src_as_const_value(nir_src src)
  * can't be determined.
  */
 bool
-nir_src_is_dynamically_uniform(nir_src src)
+nir_src_is_statically_uniform(nir_src src)
 {
    if (!src.is_ssa)
       return false;
@@ -1608,7 +1608,7 @@ nir_src_is_dynamically_uniform(nir_src src)
       nir_intrinsic_instr *intr = nir_instr_as_intrinsic(src.ssa->parent_instr);
       /* As are uniform variables */
       if (intr->intrinsic == nir_intrinsic_load_uniform &&
-          nir_src_is_dynamically_uniform(intr->src[0]))
+          nir_src_is_statically_uniform(intr->src[0]))
          return true;
       /* Push constant loads always use uniform offsets. */
       if (intr->intrinsic == nir_intrinsic_load_push_constant)
@@ -1624,7 +1624,7 @@ nir_src_is_dynamically_uniform(nir_src src)
    if (src.ssa->parent_instr->type == nir_instr_type_alu) {
       nir_alu_instr *alu = nir_instr_as_alu(src.ssa->parent_instr);
       for (int i = 0; i < nir_op_infos[alu->op].num_inputs; i++) {
-         if (!nir_src_is_dynamically_uniform(alu->src[i].src))
+         if (!nir_src_is_statically_uniform(alu->src[i].src))
             return false;
       }
 
