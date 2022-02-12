@@ -133,7 +133,7 @@ struct si_query_ops {
    bool (*end)(struct si_context *, struct si_query *);
    bool (*get_result)(struct si_context *, struct si_query *, bool wait,
                       union pipe_query_result *result);
-   void (*get_result_resource)(struct si_context *, struct si_query *, bool wait,
+   void (*get_result_resource)(struct si_context *, struct si_query *, uint32_t flags,
                                enum pipe_query_value_type result_type, int index,
                                struct pipe_resource *resource, unsigned offset);
 

@@ -1286,6 +1286,8 @@ enum pipe_query_value_type
    PIPE_QUERY_TYPE_U64,
 };
 
+#define PIPE_QUERY_WAIT (1 << 0)
+
 union pipe_color_union
 {
    float f[4];
