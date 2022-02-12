@@ -6492,14 +6492,14 @@ void genX(CmdBeginRendering)(
       ds_iview = d_iview != NULL ? d_iview : s_iview;
       assert(ds_iview != NULL);
 
-      /* One more sanity check that we have attachments for all aspects in the
-       * bound image view.  If we didn't that'd mean someone was trying to
-       * disable half our attachment by only partially attaching it.
-       */
-      if (ds_iview->vk.image->aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
-         assert(d_iview != NULL);
-      if (ds_iview->vk.image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
-         assert(s_iview != NULL);
+//      /* One more sanity check that we have attachments for all aspects in the
+//       * bound image view.  If we didn't that'd mean someone was trying to
+//       * disable half our attachment by only partially attaching it.
+//       */
+//      if (ds_iview->vk.image->aspects & VK_IMAGE_ASPECT_DEPTH_BIT)
+//         assert(d_iview != NULL);
+//      if (ds_iview->vk.image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT)
+//         assert(s_iview != NULL);
 
       assert(render_area.offset.x + render_area.extent.width <=
              ds_iview->vk.extent.width);
