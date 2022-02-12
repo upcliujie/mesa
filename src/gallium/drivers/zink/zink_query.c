@@ -980,7 +980,7 @@ zink_render_condition(struct pipe_context *pctx,
 static void
 zink_get_query_result_resource(struct pipe_context *pctx,
                                struct pipe_query *pquery,
-                               bool wait,
+                               uint32_t flags,
                                enum pipe_query_value_type result_type,
                                int index,
                                struct pipe_resource *pres,
