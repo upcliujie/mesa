@@ -1748,7 +1748,7 @@ genX(BeginCommandBuffer)(
                             fb->attachments[att->attachment]);
 
             if (iview->vk.image->aspects & VK_IMAGE_ASPECT_DEPTH_BIT) {
-               assert(gfx->depth_att.vk_format == iview->vk.format);
+               assert(gfx->depth_att.vk_format == iview->vk.image->format);
                gfx->depth_att.iview = iview;
                gfx->depth_att.layout = att->layout;
                gfx->depth_att.aux_usage =
@@ -1760,7 +1760,7 @@ genX(BeginCommandBuffer)(
             }
 
             if (iview->vk.image->aspects & VK_IMAGE_ASPECT_STENCIL_BIT) {
-               assert(gfx->stencil_att.vk_format == iview->vk.format);
+               assert(gfx->stencil_att.vk_format == iview->vk.image->format);
                gfx->stencil_att.iview = iview;
                gfx->stencil_att.layout = att->stencil_layout;
                gfx->stencil_att.aux_usage =
@@ -6619,7 +6619,7 @@ void genX(CmdBeginRendering)(
       }
 
       if (d_iview != NULL) {
-         gfx->depth_att.vk_format = d_iview->vk.format;
+         gfx->depth_att.vk_format = d_iview->vk.image->format;
          gfx->depth_att.iview = d_iview;
          gfx->depth_att.layout = depth_layout;
          gfx->depth_att.aux_usage = depth_aux_usage;
@@ -6633,7 +6633,7 @@ void genX(CmdBeginRendering)(
       }
 
       if (s_iview != NULL) {
-         gfx->stencil_att.vk_format = s_iview->vk.format;
+         gfx->stencil_att.vk_format = s_iview->vk.image->format;
          gfx->stencil_att.iview = s_iview;
          gfx->stencil_att.layout = stencil_layout;
          gfx->stencil_att.aux_usage = stencil_aux_usage;
