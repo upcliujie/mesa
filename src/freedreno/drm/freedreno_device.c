@@ -148,6 +148,14 @@ fd_device_purge(struct fd_device *dev)
    simple_mtx_unlock(&table_lock);
 }
 
+void
+fd_device_dump_stats(struct fd_device *dev)
+{
+   if (!dev->funcs->dump_stats)
+      return;
+   dev->funcs->dump_stats(dev);
+}
+
 static void
 fd_device_del_impl(struct fd_device *dev)
 {
