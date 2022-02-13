@@ -1287,6 +1287,7 @@ enum pipe_query_value_type
 };
 
 #define PIPE_QUERY_WAIT (1 << 0)
+#define PIPE_QUERY_PARTIAL (1 << 1)
 
 union pipe_color_union
 {
