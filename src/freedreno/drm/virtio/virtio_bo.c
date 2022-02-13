@@ -336,8 +336,10 @@ virtio_bo_new(struct fd_device *dev, uint32_t size, uint32_t flags)
    }
 
    simple_mtx_lock(&virtio_dev->eb_lock);
-   if (rsp)
+   if (rsp) {
       req.hdr.seqno = ++virtio_dev->next_seqno;
+      virtio_dev->stats[req.hdr.cmd].count++;
+   }
    ret = drmIoctl(dev->fd, DRM_IOCTL_VIRTGPU_RESOURCE_CREATE_BLOB, &args);
    simple_mtx_unlock(&virtio_dev->eb_lock);
    if (ret)
