@@ -125,6 +125,7 @@ struct fd_device *fd_device_new_dup(int fd);
 struct fd_device *fd_device_open(void);
 struct fd_device *fd_device_ref(struct fd_device *dev);
 void fd_device_purge(struct fd_device *dev);
+void fd_device_dump_stats(struct fd_device *dev);
 void fd_device_del(struct fd_device *dev);
 int fd_device_fd(struct fd_device *dev);
 

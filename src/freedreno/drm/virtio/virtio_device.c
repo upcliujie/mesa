@@ -27,10 +27,50 @@
 
 #include "virtio_priv.h"
 
+static const char *ccmds[MSM_CCMD_LAST] = {
+#define NAME(n) [MSM_CCMD_##n] = #n
+      NAME(NOP),
+      NAME(IOCTL_SIMPLE),
+      NAME(GEM_NEW),
+      NAME(GEM_INFO),
+      NAME(GEM_CPU_PREP),
+      NAME(GEM_SET_NAME),
+      NAME(GEM_SUBMIT),
+      NAME(GEM_UPLOAD),
+      NAME(SUBMITQUEUE_QUERY),
+      NAME(WAIT_FENCE),
+#undef NAME
+};
+
+static void
+virtio_device_dump_stats(struct fd_device *dev)
+{
+   struct virtio_device *virtio_dev = to_virtio_device(dev);
+   int64_t t = os_time_get_nano();
+
+   if ((t - virtio_dev->last_stat_time) < NSEC_PER_SEC)
+      return;
+
+   virtio_dev->last_stat_time = t;
+
+   for (unsigned i = 0; i < MSM_CCMD_LAST; i++) {
+      if (!ccmds[i])
+         continue;
+      struct virtio_ccmd_stat *stat = &virtio_dev->stats[i];
+      int64_t avg = stat->count ? stat->waittime / stat->count : 0;
+      mesa_logi("%-20s: %u calls, waited %"PRId64" ns (avg)",
+                ccmds[i], stat->count, avg);
+
+      stat->count = 0;
+      stat->waittime = 0;
+   }
+}
+
 static void
 virtio_device_destroy(struct fd_device *dev)
 {
    struct virtio_device *virtio_dev = to_virtio_device(dev);
+
    util_queue_destroy(&virtio_dev->submit_queue);
    free(virtio_dev);
 }
@@ -39,6 +79,7 @@ static const struct fd_device_funcs funcs = {
    .bo_new = virtio_bo_new,
    .bo_from_handle = virtio_bo_from_handle,
    .pipe_new = virtio_pipe_new,
+   .dump_stats = virtio_device_dump_stats,
    .destroy = virtio_device_destroy,
 };
 
@@ -212,6 +253,7 @@ virtio_execbuf_fenced(struct fd_device *dev, struct msm_ccmd_req *req,
 
    simple_mtx_lock(&virtio_dev->eb_lock);
    req->seqno = ++virtio_dev->next_seqno;
+   virtio_dev->stats[req->cmd].count++;
 
 #define COND(bool, val) ((bool) ? (val) : 0)
    struct drm_virtgpu_execbuffer eb = {
@@ -256,9 +298,13 @@ void
 virtio_host_sync(struct fd_device *dev, const struct msm_ccmd_req *req)
 {
    struct virtio_device *virtio_dev = to_virtio_device(dev);
+   int64_t t = os_time_get_nano();
 
    while (fd_fence_before(virtio_dev->shmem->seqno, req->seqno))
       sched_yield();
+
+   t = os_time_get_nano() - t;
+   virtio_dev->stats[req->cmd].waittime += t;
 }
 
 /**
