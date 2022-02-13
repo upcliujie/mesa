@@ -177,6 +177,19 @@ assert_subresource_layers(const struct pipe_resource *pres, const VkImageSubreso
 #endif
 }
 
+static void finish_fence(struct rendering_state *state)
+{
+   struct pipe_fence_handle *handle = NULL;
+
+   state->pctx->flush(state->pctx, &handle, 0);
+
+   state->pctx->screen->fence_finish(state->pctx->screen,
+                                     NULL,
+                                     handle, PIPE_TIMEOUT_INFINITE);
+   state->pctx->screen->fence_reference(state->pctx->screen,
+                                        &handle, NULL);
+}
+
 static void emit_compute_state(struct rendering_state *state)
 {
    if (state->iv_dirty[PIPE_SHADER_COMPUTE]) {
@@ -2322,7 +2335,7 @@ static void handle_copy_image_to_buffer2(struct vk_cmd_queue_entry *cmd,
    struct pipe_transfer *src_t, *dst_t;
    ubyte *src_data, *dst_data;
 
-   state->pctx->flush(state->pctx, NULL, 0);
+   finish_fence(state);
 
    for (i = 0; i < copycmd->regionCount; i++) {
 
@@ -2403,7 +2416,7 @@ static void handle_copy_buffer_to_image(struct vk_cmd_queue_entry *cmd,
    struct pipe_transfer *src_t, *dst_t;
    void *src_data, *dst_data;
 
-   state->pctx->flush(state->pctx, NULL, 0);
+   finish_fence(state);
 
    for (i = 0; i < copycmd->regionCount; i++) {
 
@@ -2485,7 +2498,7 @@ static void handle_copy_image(struct vk_cmd_queue_entry *cmd,
    LVP_FROM_HANDLE(lvp_image, src_image, copycmd->srcImage);
    LVP_FROM_HANDLE(lvp_image, dst_image, copycmd->dstImage);
 
-   state->pctx->flush(state->pctx, NULL, 0);
+   finish_fence(state);
 
    for (i = 0; i < copycmd->regionCount; i++) {
       struct pipe_box src_box;
@@ -2521,6 +2534,8 @@ static void handle_copy_buffer(struct vk_cmd_queue_entry *cmd,
    int i;
    VkCopyBufferInfo2 *copycmd = cmd->u.copy_buffer2.copy_buffer_info;
 
+   finish_fence(state);
+
    for (i = 0; i < copycmd->regionCount; i++) {
       struct pipe_box box = { 0 };
       u_box_1d(copycmd->pRegions[i].srcOffset, copycmd->pRegions[i].size, &box);
@@ -2541,7 +2556,8 @@ static void handle_blit_image(struct vk_cmd_queue_entry *cmd,
 
    memset(&info, 0, sizeof(info));
 
-   state->pctx->flush(state->pctx, NULL, 0);
+   finish_fence(state);
+
    info.src.resource = src_image->bo;
    info.dst.resource = dst_image->bo;
    info.src.format = src_image->bo->format;
@@ -2886,14 +2902,7 @@ static void handle_wait_events(struct vk_cmd_queue_entry *cmd,
 static void handle_pipeline_barrier(struct vk_cmd_queue_entry *cmd,
                                     struct rendering_state *state)
 {
-   struct pipe_fence_handle *handle = NULL;
-   state->pctx->flush(state->pctx, &handle, 0);
-
-   state->pctx->screen->fence_finish(state->pctx->screen,
-                                     NULL,
-                                     handle, PIPE_TIMEOUT_INFINITE);
-   state->pctx->screen->fence_reference(state->pctx->screen,
-                                        &handle, NULL);
+   finish_fence(state);
 }
 
 static void handle_begin_query(struct vk_cmd_queue_entry *cmd,
@@ -3195,7 +3204,8 @@ static void handle_resolve_image(struct vk_cmd_queue_entry *cmd,
 
    memset(&info, 0, sizeof(info));
 
-   state->pctx->flush(state->pctx, NULL, 0);
+   finish_fence(state);
+
    info.src.resource = src_image->bo;
    info.dst.resource = dst_image->bo;
    info.src.format = src_image->bo->format;
