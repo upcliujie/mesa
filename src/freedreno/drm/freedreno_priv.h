@@ -101,6 +101,8 @@ struct fd_device_funcs {
 
    struct fd_pipe *(*pipe_new)(struct fd_device *dev, enum fd_pipe_id id,
                                unsigned prio);
+
+   void (*dump_stats)(struct fd_device *dev);
    void (*destroy)(struct fd_device *dev);
 };
 

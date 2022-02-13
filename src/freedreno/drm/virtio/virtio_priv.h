@@ -41,6 +41,11 @@
 #define VIRGL_RENDERER_UNSTABLE_APIS 1
 #include "virglrenderer_hw.h"
 
+struct virtio_ccmd_stat {
+   unsigned count;
+   int64_t waittime;
+};
+
 struct virtio_device {
    struct fd_device base;
 
@@ -54,6 +59,9 @@ struct virtio_device {
    uint32_t next_seqno;
 
    struct util_queue submit_queue;
+
+   struct virtio_ccmd_stat stats[MSM_CCMD_LAST];
+   int64_t last_stat_time;
 };
 FD_DEFINE_CAST(fd_device, virtio_device);
 
