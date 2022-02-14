@@ -214,6 +214,8 @@ allocate_user_sgprs(const struct radv_nir_compiler_options *options,
          user_sgpr_count += 3;
       if (info->cs.uses_ray_launch_size)
          user_sgpr_count += 3;
+      if (info->cs.uses_dynamic_rt_callable_stack)
+         user_sgpr_count += 1;
       break;
    case MESA_SHADER_FRAGMENT:
       break;
@@ -601,6 +603,10 @@ radv_declare_shader_args(const struct radv_nir_compiler_options *options,
          ac_add_arg(&args->ac, AC_ARG_SGPR, 3, AC_ARG_INT, &args->ac.ray_launch_size);
       }
 
+      if (info->cs.uses_dynamic_rt_callable_stack) {
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.rt_dynamic_callable_stack_base);
+      }
+
       for (int i = 0; i < 3; i++) {
          if (info->cs.uses_block_id[i]) {
             ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.workgroup_ids[i]);
@@ -823,6 +829,9 @@ radv_declare_shader_args(const struct radv_nir_compiler_options *options,
       }
       if (args->ac.ray_launch_size.used) {
          set_loc_shader(args, AC_UD_CS_RAY_LAUNCH_SIZE, &user_sgpr_idx, 3);
+      }
+      if (args->ac.rt_dynamic_callable_stack_base.used) {
+         set_loc_shader(args, AC_UD_CS_RAY_DYNAMIC_CALLABLE_STACK_BASE, &user_sgpr_idx, 1);
       }
       break;
    case MESA_SHADER_VERTEX:
