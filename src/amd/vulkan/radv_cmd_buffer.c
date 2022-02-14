@@ -7584,6 +7584,7 @@ radv_CmdTraceRaysKHR(VkCommandBuffer commandBuffer,
 {
    RADV_FROM_HANDLE(radv_cmd_buffer, cmd_buffer, commandBuffer);
    struct radv_dispatch_info info = {0};
+   struct radv_pipeline *pipeline = cmd_buffer->state.rt_pipeline;
 
    info.blocks[0] = width;
    info.blocks[1] = height;
@@ -7611,6 +7612,16 @@ radv_CmdTraceRaysKHR(VkCommandBuffer commandBuffer,
       radeon_emit(cmd_buffer->cs, width);
       radeon_emit(cmd_buffer->cs, height);
       radeon_emit(cmd_buffer->cs, depth);
+   }
+
+   loc = radv_lookup_user_sgpr(pipeline, MESA_SHADER_COMPUTE, AC_UD_CS_RAY_DYNAMIC_CALLABLE_STACK_BASE);
+
+   if (loc->sgpr_idx != -1) {
+      assert(loc->num_sgprs == 1);
+
+      struct radv_shader_info *cs_info = &pipeline->shaders[MESA_SHADER_COMPUTE]->info;
+      radeon_set_sh_reg(cmd_buffer->cs, R_00B900_COMPUTE_USER_DATA_0 + loc->sgpr_idx * 4,
+                        pipeline->scratch_bytes_per_wave / cs_info->wave_size);
    }
 
    radv_rt_dispatch(cmd_buffer, &info);
