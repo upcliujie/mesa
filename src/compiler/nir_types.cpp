@@ -887,6 +887,19 @@ glsl_get_vec4_size_align_bytes(const struct glsl_type *type,
    }
 }
 
+void
+glsl_get_shared_size_align_bytes(const struct glsl_type *type,
+                                 unsigned *size, unsigned *align)
+{
+   assert(glsl_type_is_vector_or_scalar(type));
+
+   uint32_t comp_size =
+      glsl_type_is_boolean(type) ? 4 : glsl_get_bit_size(type) / 8;
+   unsigned length = glsl_get_vector_elements(type);
+   *size = comp_size * length,
+   *align = comp_size * (length == 3 ? 4 : length);
+}
+
 const glsl_type *
 glsl_atomic_uint_type(void)
 {
