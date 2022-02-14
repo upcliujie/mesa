@@ -7602,8 +7602,8 @@ radv_CmdTraceRaysKHR(VkCommandBuffer commandBuffer,
       return;
    }
 
-   struct radv_userdata_info *loc = radv_lookup_user_sgpr(
-      cmd_buffer->state.rt_pipeline, MESA_SHADER_COMPUTE, AC_UD_CS_RAY_LAUNCH_SIZE);
+   struct radv_userdata_info *loc =
+      radv_lookup_user_sgpr(pipeline, MESA_SHADER_COMPUTE, AC_UD_CS_RAY_LAUNCH_SIZE);
 
    if (loc->sgpr_idx != -1) {
       assert(loc->num_sgprs == 3);
@@ -7622,6 +7622,21 @@ radv_CmdTraceRaysKHR(VkCommandBuffer commandBuffer,
       struct radv_shader_info *cs_info = &pipeline->shaders[MESA_SHADER_COMPUTE]->info;
       radeon_set_sh_reg(cmd_buffer->cs, R_00B900_COMPUTE_USER_DATA_0 + loc->sgpr_idx * 4,
                         pipeline->scratch_bytes_per_wave / cs_info->wave_size);
+   }
+
+   loc = radv_lookup_user_sgpr(pipeline, MESA_SHADER_COMPUTE, AC_UD_CS_RAY_TRAVERSAL_INFO);
+
+   if (loc->sgpr_idx != -1) {
+      assert(loc->num_sgprs == 1);
+
+      struct radv_shader_info *cs_info = &pipeline->shaders[MESA_SHADER_COMPUTE]->info;
+      uint32_t lds_size = cs_info->cs.rt_traversal_lds_stack_size;
+      uint32_t scratch_base =
+         cs_info->cs.rt_traversal_stack_scratch_base + cmd_buffer->state.rt_stack_size;
+      assert(lds_size <= 0xffff && scratch_base <= 0xffff);
+
+      radeon_set_sh_reg(cmd_buffer->cs, R_00B900_COMPUTE_USER_DATA_0 + loc->sgpr_idx * 4,
+                        lds_size | (scratch_base << 16));
    }
 
    radv_rt_dispatch(cmd_buffer, &info);
