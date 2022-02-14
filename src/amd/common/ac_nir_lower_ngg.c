@@ -2078,6 +2078,7 @@ update_ms_output_info(nir_intrinsic_instr *intrin,
 static void
 ms_store_arrayed_output_intrin(nir_builder *b,
                                nir_intrinsic_instr *intrin,
+                               unsigned array_size,
                                unsigned num_arrayed_outputs,
                                unsigned base_shared_addr)
 {
@@ -2116,6 +2117,10 @@ ms_store_arrayed_output_intrin(nir_builder *b,
    }
 
    unsigned const_off = base_shared_addr + component_offset * 4;
+
+   /* Use addr=32K for out of bounds access, which makes the store a no-op. */
+   nir_ssa_def *in_bounds = nir_ult(b, arr_index, nir_imm_int(b, array_size));
+   addr = nir_bcsel(b, in_bounds, addr, nir_imm_int(b, 32768));
 
    nir_store_shared(b, store_val, addr, .base = const_off,
                     .write_mask = write_mask, .align_mul = 16,
@@ -2181,7 +2186,8 @@ lower_ms_store_per_vertex_output(nir_builder *b,
                                  lower_ngg_ms_state *s)
 {
    update_ms_output_info(intrin, s);
-   ms_store_arrayed_output_intrin(b, intrin, s->num_per_vertex_outputs, s->vertex_attr_lds_addr);
+   ms_store_arrayed_output_intrin(b, intrin, b->shader->info.mesh.max_vertices_out,
+                                  s->num_per_vertex_outputs, s->vertex_attr_lds_addr);
    return NIR_LOWER_INSTR_PROGRESS_REPLACE;
 }
 
@@ -2199,7 +2205,8 @@ lower_ms_store_per_primitive_output(nir_builder *b,
                                     lower_ngg_ms_state *s)
 {
    update_ms_output_info(intrin, s);
-   ms_store_arrayed_output_intrin(b, intrin, s->num_per_primitive_outputs, s->prim_attr_lds_addr);
+   ms_store_arrayed_output_intrin(b, intrin, b->shader->info.mesh.max_primitives_out,
+                                  s->num_per_primitive_outputs, s->prim_attr_lds_addr);
    return NIR_LOWER_INSTR_PROGRESS_REPLACE;
 }
 
