@@ -1360,6 +1360,8 @@ intrinsic("load_shared2_amd", [1], dest_comp=2, indices=[OFFSET0, OFFSET1, ST64]
 # src[] = { value, offset }.
 intrinsic("store_shared2_amd", [2, 1], indices=[OFFSET0, OFFSET1, ST64])
 
+system_value("rt_dynamic_callable_stack_base_amd", 1)
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel
