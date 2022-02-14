@@ -6986,8 +6986,17 @@ visit_store_buffer(isel_context* ctx, nir_intrinsic_instr* intrin)
    unsigned elem_size_bytes = intrin->src[0].ssa->bit_size / 8u;
 
    nir_variable_mode mem_mode = nir_intrinsic_memory_modes(intrin);
-   memory_sync_info sync(mem_mode == nir_var_shader_out ? storage_vmem_output : storage_none);
+   unsigned storage = storage_none;
+   if (mem_mode & nir_var_shader_out)
+      storage |= storage_vmem_output;
+   else if ((mem_mode & nir_var_mem_ssbo) || (mem_mode & nir_var_mem_global))
+      storage |= storage_buffer;
+   else if (mem_mode & nir_var_mem_task_payload)
+      storage |= storage_task_payload;
+   else if (mem_mode & nir_var_image)
+      storage |= storage_image;
 
+   memory_sync_info sync(storage);
    store_vmem_mubuf(ctx, store_src, descriptor, v_offset, s_offset, const_offset, elem_size_bytes,
                     write_mask, !swizzled, sync, slc);
 }
@@ -7028,6 +7037,9 @@ emit_scoped_barrier(isel_context* ctx, nir_intrinsic_instr* instr)
                               (ctx->stage.hw == HWStage::GS && ctx->program->chip_class >= GFX9) ||
                               ctx->stage.hw == HWStage::NGG;
 
+   bool task_payload_used = ctx->stage.has(SWStage::MS) ||
+                            ctx->stage.has(SWStage::TS);
+
    /* Workgroup barriers can hang merged shaders that can potentially have 0 threads in either half.
     * They are allowed in CS, TCS, and in any NGG shader.
     */
@@ -7041,6 +7053,8 @@ emit_scoped_barrier(isel_context* ctx, nir_intrinsic_instr* instr)
       storage |= storage_image;
    if (shared_storage_used && (nir_storage & nir_var_mem_shared))
       storage |= storage_shared;
+   if (task_payload_used && (nir_storage & nir_var_mem_task_payload))
+      storage |= storage_task_payload;
 
    unsigned nir_semantics = nir_intrinsic_memory_semantics(instr);
    if (nir_semantics & NIR_MEMORY_ACQUIRE)
