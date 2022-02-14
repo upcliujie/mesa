@@ -5972,6 +5972,7 @@ lower_lsc_surface_logical_send(const fs_builder &bld, fs_inst *inst)
                                 false /* transpose */,
                                 LSC_CACHE_STORE_L1STATE_L3MOCS,
                                 false /* has_dest */);
+      break;
    case SHADER_OPCODE_DWORD_SCATTERED_READ_LOGICAL:
       inst->desc = lsc_msg_desc(devinfo, LSC_OP_ATOMIC_LOAD, inst->exec_size,
                                 surf_type, LSC_ADDR_SIZE_A32,
