@@ -77,6 +77,7 @@ static const struct debug_named_value lp_debug_flags[] = {
    { "fs", DEBUG_FS, NULL },
    { "cs", DEBUG_CS, NULL },
    { "tgsi_ir", DEBUG_TGSI_IR, NULL },
+   { "no_cache", DEBUG_NO_CACHE, NULL },
    { "cache_stats", DEBUG_CACHE_STATS, NULL },
    { "accurate_a0", DEBUG_ACCURATE_A0 },
    DEBUG_NAMED_VALUE_END
@@ -924,6 +925,10 @@ static void update_cache_sha1_cpu(struct mesa_sha1 *ctx)
 
 static void lp_disk_cache_create(struct llvmpipe_screen *screen)
 {
+
+   if (LP_DEBUG & DEBUG_NO_CACHE)
+      return;
+
    struct mesa_sha1 ctx;
    unsigned gallivm_perf = gallivm_get_perf_flags();
    unsigned char sha1[20];

@@ -46,12 +46,13 @@
 #define DEBUG_FS            0x8000
 #define DEBUG_CS            0x10000
 #define DEBUG_TGSI_IR       0x20000
-#define DEBUG_CACHE_STATS   0x40000
-#define DEBUG_NO_FASTPATH   0x80000
-#define DEBUG_LINEAR        0x100000
-#define DEBUG_LINEAR2       0x200000
-#define DEBUG_SHOW_DEPTH    0x400000
-#define DEBUG_ACCURATE_A0   0x800000 /* verbose */
+#define DEBUG_NO_CACHE      0x40000
+#define DEBUG_CACHE_STATS   0x80000
+#define DEBUG_NO_FASTPATH   0x100000
+#define DEBUG_LINEAR        0x200000
+#define DEBUG_LINEAR2       0x400000
+#define DEBUG_SHOW_DEPTH    0x800000
+#define DEBUG_ACCURATE_A0   0x1000000 /* verbose */
 
 /* Performance flags.  These are active even on release builds.
  */
