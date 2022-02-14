@@ -3506,9 +3506,21 @@ mem_vectorize_callback(unsigned align_mul, unsigned align_offset, unsigned bit_s
             req /= 2u;
          return align % (req / 8u) == 0;
       }
-   default:
-      return false;
+   case nir_intrinsic_store_output: {
+      /* NV_mesh_shader: ignore primitive indices */
+      nir_io_semantics io_sem = nir_intrinsic_io_semantics(low);
+      return io_sem.location != VARYING_SLOT_PRIMITIVE_INDICES;
    }
+   default:
+      break;
+   }
+
+   if (high->intrinsic == nir_intrinsic_store_output) {
+      /* NV_mesh_shader: ignore primitive indices */
+      nir_io_semantics io_sem = nir_intrinsic_io_semantics(high);
+      return io_sem.location != VARYING_SLOT_PRIMITIVE_INDICES;
+   }
+
    return false;
 }
 
