@@ -5,6 +5,13 @@ KHR-GL30.shaders30.glsl_constructors.bvec4_from_mat4x3_vs
 # https://gitlab.freedesktop.org/mesa/mesa/-/issues/4651
 KHR-GL31.transform_feedback.capture_special_interleaved_test
 
+KHR-GL43.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std140-matR
+KHR-GL43.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std140-struct
+KHR-GL43.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std430-matC-pad
+KHR-GL43.shader_storage_buffer_object.advanced-unsizedArrayLength-fs-std430-vec
+KHR-GL43.shader_storage_buffer_object.basic-atomic-case3
+KHR-GL43.shader_storage_buffer_object.basic-atomic-case4
+
 dEQP-GLES2.functional.clipping.point.wide_point_clip
 dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_center
 dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_corner
@@ -12,3 +19,22 @@ dEQP-GLES2.functional.clipping.point.wide_point_clip_viewport_corner
 dEQP-GLES3.functional.clipping.point.wide_point_clip
 dEQP-GLES3.functional.clipping.point.wide_point_clip_viewport_center
 dEQP-GLES3.functional.clipping.point.wide_point_clip_viewport_corner
+
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-atomic.*
+spec@arb_framebuffer_no_attachments@arb_framebuffer_no_attachments-roundup-samples
+
+spec@arb_gpu_shader_fp64@shader_storage@layout-std140-fp64-shader
+spec@arb_gpu_shader_fp64@shader_storage@layout-std430-fp64-shader
+spec@arb_gpu_shader_fp64@shader_storage@layout-std140-fp64-mixed-shader
+spec@arb_gpu_shader_fp64@shader_storage@layout-std430-fp64-mixed-shader
+
+spec@arb_shader_atomic_counter_ops@execution@add
+spec@arb_shader_atomic_counters@function-argument
+
+spec@arb_shader_storage_buffer_object@execution@memory-layouts-struct-deref
+spec@arb_shader_storage_buffer_object@execution@ssbo-atomicadd-int
+spec@arb_shader_storage_buffer_object@execution@ssbo-atomicexchange-int
+
+spec@oes_viewport_array@viewport-gs-writes-in-range
+spec@arb_fragment_layer_viewport@layer-gs-writes-in-range
+spec@arb_fragment_layer_viewport@viewport-gs-writes-in-range
