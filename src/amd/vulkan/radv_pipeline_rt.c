@@ -1717,6 +1717,7 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
    b.shader->info.workgroup_size[0] = 8;
    b.shader->info.workgroup_size[1] = device->physical_device->rt_wave_size == 64 ? 8 : 4;
    b.shader->info.workgroup_size[2] = 1;
+   b.shader->options = &device->physical_device->nir_options[MESA_SHADER_RAYGEN];
 
    struct rt_variables vars = create_rt_variables(b.shader, stack_sizes);
    load_sbt_entry(&b, &vars, nir_imm_int(&b, 0), SBT_RAYGEN, 0);
@@ -1768,8 +1769,6 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
 
       const VkPipelineShaderStageCreateInfo *stage = &pCreateInfo->pStages[shader_id];
       nir_shader *nir_stage = parse_rt_stage(device, layout, stage);
-
-      b.shader->options = nir_stage->options;
 
       uint32_t num_resume_shaders = 0;
       nir_shader **resume_shaders = NULL;
