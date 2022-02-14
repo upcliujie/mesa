@@ -1404,6 +1404,52 @@ radv_should_use_wgp_mode(const struct radv_device *device, gl_shader_stage stage
    }
 }
 
+static unsigned
+get_max_waves(const struct radv_device *device, const struct ac_shader_config *conf,
+              const struct radv_shader_info *info, gl_shader_stage stage)
+{
+   struct radeon_info *rad_info = &device->physical_device->rad_info;
+   enum chip_class chip_class = rad_info->chip_class;
+   uint8_t wave_size = info->wave_size;
+   unsigned max_simd_waves;
+   unsigned lds_per_wave = 0;
+
+   max_simd_waves = rad_info->max_wave64_per_simd * (64 / wave_size);
+
+   if (stage == MESA_SHADER_FRAGMENT) {
+      lds_per_wave = conf->lds_size * rad_info->lds_encode_granularity + info->ps.num_interp * 48;
+      lds_per_wave = align(lds_per_wave, rad_info->lds_alloc_granularity);
+   } else if (stage == MESA_SHADER_COMPUTE) {
+      unsigned max_workgroup_size = info->workgroup_size;
+      lds_per_wave =
+         align(conf->lds_size * rad_info->lds_encode_granularity, rad_info->lds_alloc_granularity);
+      lds_per_wave /= DIV_ROUND_UP(max_workgroup_size, wave_size);
+   }
+
+   if (conf->num_sgprs && chip_class < GFX10) {
+      unsigned sgprs = align(conf->num_sgprs, chip_class >= GFX8 ? 16 : 8);
+      max_simd_waves = MIN2(max_simd_waves, rad_info->num_physical_sgprs_per_simd / sgprs);
+   }
+
+   if (conf->num_vgprs) {
+      unsigned physical_vgprs = rad_info->num_physical_wave64_vgprs_per_simd * (64 / wave_size);
+      unsigned vgprs = align(conf->num_vgprs, wave_size == 32 ? 8 : 4);
+      if (chip_class >= GFX10_3)
+         vgprs = align(vgprs, wave_size == 32 ? 16 : 8);
+      max_simd_waves = MIN2(max_simd_waves, physical_vgprs / vgprs);
+   }
+
+   unsigned simd_per_workgroup = rad_info->num_simd_per_compute_unit;
+   if (chip_class >= GFX10)
+      simd_per_workgroup *= 2; /* like lds_size_per_workgroup, assume WGP on GFX10+ */
+
+   unsigned max_lds_per_simd = rad_info->lds_size_per_workgroup / simd_per_workgroup;
+   if (lds_per_wave)
+      max_simd_waves = MIN2(max_simd_waves, DIV_ROUND_UP(max_lds_per_simd, lds_per_wave));
+
+   return max_simd_waves;
+}
+
 static void
 radv_postprocess_config(const struct radv_device *device, const struct ac_shader_config *config_in,
                         const struct radv_shader_info *info, gl_shader_stage stage,
@@ -2233,48 +2279,9 @@ unsigned
 radv_get_max_waves(const struct radv_device *device, struct radv_shader *shader,
                    gl_shader_stage stage)
 {
-   struct radeon_info *info = &device->physical_device->rad_info;
-   enum chip_class chip_class = info->chip_class;
-   uint8_t wave_size = shader->info.wave_size;
-   struct ac_shader_config *conf = &shader->config;
-   unsigned max_simd_waves;
-   unsigned lds_per_wave = 0;
-
-   max_simd_waves = info->max_wave64_per_simd * (64 / wave_size);
-
-   if (stage == MESA_SHADER_FRAGMENT) {
-      lds_per_wave =
-         conf->lds_size * info->lds_encode_granularity + shader->info.ps.num_interp * 48;
-      lds_per_wave = align(lds_per_wave, info->lds_alloc_granularity);
-   } else if (stage == MESA_SHADER_COMPUTE) {
-      unsigned max_workgroup_size = shader->info.workgroup_size;
-      lds_per_wave =
-         align(conf->lds_size * info->lds_encode_granularity, info->lds_alloc_granularity);
-      lds_per_wave /= DIV_ROUND_UP(max_workgroup_size, wave_size);
-   }
-
-   if (conf->num_sgprs && chip_class < GFX10) {
-      unsigned sgprs = align(conf->num_sgprs, chip_class >= GFX8 ? 16 : 8);
-      max_simd_waves = MIN2(max_simd_waves, info->num_physical_sgprs_per_simd / sgprs);
-   }
-
-   if (conf->num_vgprs) {
-      unsigned physical_vgprs = info->num_physical_wave64_vgprs_per_simd * (64 / wave_size);
-      unsigned vgprs = align(conf->num_vgprs, wave_size == 32 ? 8 : 4);
-      if (chip_class >= GFX10_3)
-         vgprs = align(vgprs, wave_size == 32 ? 16 : 8);
-      max_simd_waves = MIN2(max_simd_waves, physical_vgprs / vgprs);
-   }
-
-   unsigned simd_per_workgroup = info->num_simd_per_compute_unit;
-   if (chip_class >= GFX10)
-      simd_per_workgroup *= 2; /* like lds_size_per_workgroup, assume WGP on GFX10+ */
-
-   unsigned max_lds_per_simd = info->lds_size_per_workgroup / simd_per_workgroup;
-   if (lds_per_wave)
-      max_simd_waves = MIN2(max_simd_waves, DIV_ROUND_UP(max_lds_per_simd, lds_per_wave));
-
-   return chip_class >= GFX10 ? max_simd_waves * (wave_size / 32) : max_simd_waves;
+   unsigned max_simd_waves = get_max_waves(device, &shader->config, &shader->info, stage);
+   enum chip_class chip_class = device->physical_device->rad_info.chip_class;
+   return chip_class >= GFX10 ? max_simd_waves * (shader->info.wave_size / 32) : max_simd_waves;
 }
 
 unsigned
