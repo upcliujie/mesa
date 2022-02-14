@@ -21,7 +21,6 @@ KHR-GLES3.texture_repeat_mode.rgba32ui_49x23_2_repeat,Fail
 
 KHR-GLES31.core.compute_shader.pipeline-compute-chain,Fail
 KHR-GLES31.core.compute_shader.resources-max,Fail
-KHR-GLES31.core.compute_shader.shared-struct,Fail
 
 KHR-GLES31.core.draw_buffers_indexed.blending,Fail
 
