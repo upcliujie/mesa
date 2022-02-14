@@ -3395,6 +3395,9 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       }
 
       stages[MESA_SHADER_COMPUTE].info.cs.subgroup_size = subgroup_size;
+
+      stages[MESA_SHADER_COMPUTE].info.cs.rt_traversal_stack_size =
+         pipeline->compute.rt_traversal_stack_size;
    }
 
    for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
@@ -6883,7 +6886,8 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
                              const VkComputePipelineCreateInfo *pCreateInfo,
                              const VkAllocationCallbacks *pAllocator, const uint8_t *custom_hash,
                              struct radv_pipeline_shader_stack_size *rt_stack_sizes,
-                             uint32_t rt_group_count, VkPipeline *pPipeline)
+                             uint32_t rt_group_count, uint32_t rt_traversal_stack_size,
+                             VkPipeline *pPipeline)
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_pipeline_cache, cache, _cache);
@@ -6902,6 +6906,7 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
 
    pipeline->graphics.last_vgt_api_stage = MESA_SHADER_NONE;
    pipeline->compute.rt_stack_sizes = rt_stack_sizes;
+   pipeline->compute.rt_traversal_stack_size = rt_traversal_stack_size;
    pipeline->compute.group_count = rt_group_count;
 
    const VkPipelineCreationFeedbackCreateInfo *creation_feedback =
@@ -6953,7 +6958,7 @@ radv_CreateComputePipelines(VkDevice _device, VkPipelineCache pipelineCache, uin
    for (; i < count; i++) {
       VkResult r;
       r = radv_compute_pipeline_create(_device, pipelineCache, &pCreateInfos[i], pAllocator, NULL,
-                                       NULL, 0, &pPipelines[i]);
+                                       NULL, 0, 0, &pPipelines[i]);
       if (r != VK_SUCCESS) {
          result = r;
          pPipelines[i] = VK_NULL_HANDLE;
