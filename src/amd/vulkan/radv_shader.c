@@ -1450,6 +1450,51 @@ get_max_waves(const struct radv_device *device, const struct ac_shader_config *c
    return max_simd_waves;
 }
 
+static unsigned
+get_max_workgroups_per_wgp(const struct radv_device *device, const struct ac_shader_config *config,
+                           const struct radv_shader_info *info, unsigned max_wave32_per_simd)
+{
+   struct radeon_info *rad_info = &device->physical_device->rad_info;
+   unsigned waves_per_workgroup = DIV_ROUND_UP(info->workgroup_size, info->wave_size);
+   unsigned num_waves_per_simd = get_max_waves(device, config, info, MESA_SHADER_COMPUTE);
+
+   unsigned max_waves_per_simd = max_wave32_per_simd;
+   if (info->wave_size == 64)
+      max_waves_per_simd /= 2;
+   if (rad_info->chip_class < GFX10)
+      max_waves_per_simd /= 2;
+   num_waves_per_simd = MIN2(max_waves_per_simd, num_waves_per_simd);
+
+   unsigned num_simd_per_wgp = rad_info->num_simd_per_compute_unit;
+   if (rad_info->chip_class >= GFX10)
+      num_simd_per_wgp *= 2; /* like lds_size_per_workgroup, assume WGP on GFX10+ */
+   return num_waves_per_simd * num_simd_per_wgp / waves_per_workgroup;
+}
+
+static void
+allocate_rt_traversal_stack(const struct radv_device *device, struct radv_shader_info *info,
+                            struct ac_shader_config *config)
+{
+   struct radeon_info *rad_info = &device->physical_device->rad_info;
+   unsigned target_workgroups = get_max_workgroups_per_wgp(device, config, info, 16);
+   unsigned lds_used = target_workgroups * config->lds_size * rad_info->lds_encode_granularity;
+   unsigned free_lds = rad_info->lds_size_per_workgroup - lds_used;
+   unsigned lds_limit =
+      ROUND_DOWN_TO(free_lds / target_workgroups, rad_info->lds_alloc_granularity);
+
+   unsigned lds_entries =
+      MIN2(lds_limit / (4 * info->workgroup_size), info->cs.rt_traversal_stack_size);
+   unsigned scratch_entries = info->cs.rt_traversal_stack_size - lds_entries;
+
+   info->cs.rt_traversal_lds_stack_size = lds_entries * 4;
+   info->cs.rt_traversal_stack_scratch_base =
+      config->scratch_bytes_per_wave / info->wave_size - lds_entries * 4;
+
+   config->scratch_bytes_per_wave += align(scratch_entries * 4 * info->wave_size, 1024);
+   config->lds_size +=
+      DIV_ROUND_UP(lds_entries * 4 * info->workgroup_size, rad_info->lds_encode_granularity);
+}
+
 static void
 radv_postprocess_config(const struct radv_device *device, const struct ac_shader_config *config_in,
                         const struct radv_shader_info *info, gl_shader_stage stage,
@@ -1784,7 +1829,7 @@ radv_shader_binary_upload(struct radv_device *device, const struct radv_shader_b
 }
 
 struct radv_shader *
-radv_shader_create(struct radv_device *device, const struct radv_shader_binary *binary,
+radv_shader_create(struct radv_device *device, struct radv_shader_binary *binary,
                    bool keep_shader_info, bool from_cache, const struct radv_shader_args *args)
 {
    struct ac_shader_config config = {0};
@@ -1827,6 +1872,9 @@ radv_shader_create(struct radv_device *device, const struct radv_shader_binary *
          radv_get_shader_binary_size(((struct radv_shader_binary_legacy *)binary)->code_size);
       shader->exec_size = ((struct radv_shader_binary_legacy *)binary)->exec_size;
    }
+
+   if (!from_cache && binary->info.cs.rt_traversal_stack_size)
+      allocate_rt_traversal_stack(device, &binary->info, &config);
 
    shader->info = binary->info;
 

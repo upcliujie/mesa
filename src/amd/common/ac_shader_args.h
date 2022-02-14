@@ -145,6 +145,7 @@ struct ac_shader_args {
    struct ac_arg ray_launch_size;
    struct ac_arg force_vrs_rates;
    struct ac_arg rt_dynamic_callable_stack_base;
+   struct ac_arg rt_traversal_info;
 };
 
 void ac_add_arg(struct ac_shader_args *info, enum ac_arg_regfile regfile, unsigned registers,
