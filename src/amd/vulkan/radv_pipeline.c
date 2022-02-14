@@ -3581,6 +3581,9 @@ radv_fill_shader_info(struct radv_pipeline *pipeline,
       }
 
       stages[MESA_SHADER_COMPUTE].info.cs.subgroup_size = subgroup_size;
+
+      stages[MESA_SHADER_COMPUTE].info.cs.rt_traversal_stack_size =
+         pipeline_key->cs.rt_traversal_stack_size;
    }
 
    for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; i++) {
@@ -7152,7 +7155,8 @@ radv_compute_generate_pm4(struct radv_compute_pipeline *pipeline)
 
 static struct radv_pipeline_key
 radv_generate_compute_pipeline_key(struct radv_compute_pipeline *pipeline,
-                                   const VkComputePipelineCreateInfo *pCreateInfo)
+                                   const VkComputePipelineCreateInfo *pCreateInfo,
+                                   uint32_t rt_traversal_stack_size)
 {
    const VkPipelineShaderStageCreateInfo *stage = &pCreateInfo->stage;
    struct radv_pipeline_key key = radv_generate_pipeline_key(&pipeline->base, pCreateInfo->flags);
@@ -7169,6 +7173,8 @@ radv_generate_compute_pipeline_key(struct radv_compute_pipeline *pipeline,
       key.cs.require_full_subgroups = true;
    }
 
+   key.cs.rt_traversal_stack_size = rt_traversal_stack_size;
+
    return key;
 }
 
@@ -7177,7 +7183,8 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
                              const VkComputePipelineCreateInfo *pCreateInfo,
                              const VkAllocationCallbacks *pAllocator, const uint8_t *custom_hash,
                              struct radv_pipeline_shader_stack_size *rt_stack_sizes,
-                             uint32_t rt_group_count, VkPipeline *pPipeline)
+                             uint32_t rt_group_count, uint32_t rt_traversal_stack_size,
+                             VkPipeline *pPipeline)
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_pipeline_cache, cache, _cache);
@@ -7200,7 +7207,8 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
    const VkPipelineCreationFeedbackCreateInfo *creation_feedback =
       vk_find_struct_const(pCreateInfo->pNext, PIPELINE_CREATION_FEEDBACK_CREATE_INFO);
 
-   struct radv_pipeline_key key = radv_generate_compute_pipeline_key(pipeline, pCreateInfo);
+   struct radv_pipeline_key key =
+      radv_generate_compute_pipeline_key(pipeline, pCreateInfo, rt_traversal_stack_size);
 
    UNUSED gl_shader_stage last_vgt_api_stage = MESA_SHADER_NONE;
    result = radv_create_shaders(&pipeline->base, pipeline_layout, device, cache, &key, &pCreateInfo->stage,
@@ -7245,7 +7253,7 @@ radv_CreateComputePipelines(VkDevice _device, VkPipelineCache pipelineCache, uin
    for (; i < count; i++) {
       VkResult r;
       r = radv_compute_pipeline_create(_device, pipelineCache, &pCreateInfos[i], pAllocator, NULL,
-                                       NULL, 0, &pPipelines[i]);
+                                       NULL, 0, 0, &pPipelines[i]);
       if (r != VK_SUCCESS) {
          result = r;
          pPipelines[i] = VK_NULL_HANDLE;

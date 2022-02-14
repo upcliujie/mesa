@@ -111,6 +111,7 @@ struct radv_pipeline_key {
        */
       uint8_t compute_subgroup_size;
       bool require_full_subgroups;
+      uint32_t rt_traversal_stack_size;
    } cs;
 };
 
@@ -158,6 +159,7 @@ enum radv_ud_index {
    AC_UD_CS_SBT_DESCRIPTORS,
    AC_UD_CS_RAY_LAUNCH_SIZE_ADDR,
    AC_UD_CS_RAY_DYNAMIC_CALLABLE_STACK_BASE,
+   AC_UD_CS_RAY_TRAVERSAL_INFO,
    AC_UD_CS_TASK_RING_OFFSETS,
    AC_UD_CS_TASK_DRAW_ID,
    AC_UD_CS_TASK_IB,
@@ -351,7 +353,12 @@ struct radv_shader_info {
       bool uses_sbt;
       bool uses_ray_launch_size;
       bool uses_dynamic_rt_callable_stack;
+      bool uses_rt_traversal;
       bool uses_task_rings;
+
+      uint32_t rt_traversal_stack_size;
+      uint32_t rt_traversal_lds_stack_size;
+      int32_t rt_traversal_stack_scratch_base;
    } cs;
    struct {
       uint64_t tes_inputs_read;
@@ -551,9 +558,8 @@ VkResult radv_create_shaders(struct radv_pipeline *pipeline,
 struct radv_shader_args;
 
 struct radv_shader *radv_shader_create(struct radv_device *device,
-                                       const struct radv_shader_binary *binary,
-                                       bool keep_shader_info, bool from_cache,
-                                       const struct radv_shader_args *args);
+                                       struct radv_shader_binary *binary, bool keep_shader_info,
+                                       bool from_cache, const struct radv_shader_args *args);
 struct radv_shader *radv_shader_nir_to_asm(
    struct radv_device *device, struct radv_pipeline_stage *stage, struct nir_shader *const *shaders,
    int shader_count, const struct radv_pipeline_key *key, bool keep_shader_info, bool keep_statistic_info,
