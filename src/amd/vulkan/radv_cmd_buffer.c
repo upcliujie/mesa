@@ -7728,6 +7728,19 @@ radv_rt_set_args(struct radv_cmd_buffer *cmd_buffer,
                         pipeline->base.scratch_bytes_per_wave / cs_info->wave_size);
    }
 
+   struct radv_userdata_info *traversal_loc = radv_lookup_user_sgpr(
+      &pipeline->base, MESA_SHADER_COMPUTE, AC_UD_CS_RAY_TRAVERSAL_INFO);
+   if (traversal_loc->sgpr_idx != -1) {
+      struct radv_shader_info *cs_info = &pipeline->base.shaders[MESA_SHADER_COMPUTE]->info;
+      uint32_t lds_size = cs_info->cs.rt_traversal_lds_stack_size;
+      int32_t scratch_base =
+         cs_info->cs.rt_traversal_stack_scratch_base + cmd_buffer->state.rt_stack_size;
+      assert(lds_size <= 0xffff && scratch_base >= INT16_MIN && scratch_base <= INT16_MAX);
+
+      radeon_set_sh_reg(cmd_buffer->cs, R_00B900_COMPUTE_USER_DATA_0 + traversal_loc->sgpr_idx * 4,
+                        lds_size | (scratch_base << 16));
+   }
+
    return true;
 }
 

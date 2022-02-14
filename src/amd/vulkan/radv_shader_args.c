@@ -178,6 +178,8 @@ allocate_user_sgprs(enum amd_gfx_level gfx_level, const struct radv_shader_info 
          user_sgpr_count++;
       if (info->cs.uses_dynamic_rt_callable_stack)
          user_sgpr_count += 1;
+      if (info->cs.uses_rt_traversal)
+         user_sgpr_count += 1;
       if (info->vs.needs_draw_id)
          user_sgpr_count += 1;
       if (info->cs.uses_task_rings)
@@ -586,6 +588,10 @@ radv_declare_shader_args(enum amd_gfx_level gfx_level, const struct radv_pipelin
                     &args->ac.rt_dynamic_callable_stack_base);
       }
 
+      if (info->cs.uses_rt_traversal) {
+         ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.rt_traversal_info);
+      }
+
       if (info->vs.needs_draw_id) {
          ac_add_arg(&args->ac, AC_ARG_SGPR, 1, AC_ARG_INT, &args->ac.draw_id);
       }
@@ -837,6 +843,9 @@ radv_declare_shader_args(enum amd_gfx_level gfx_level, const struct radv_pipelin
       }
       if (args->ac.rt_dynamic_callable_stack_base.used) {
          set_loc_shader(args, AC_UD_CS_RAY_DYNAMIC_CALLABLE_STACK_BASE, &user_sgpr_idx, 1);
+      }
+      if (args->ac.rt_traversal_info.used) {
+         set_loc_shader(args, AC_UD_CS_RAY_TRAVERSAL_INFO, &user_sgpr_idx, 1);
       }
       if (args->ac.draw_id.used) {
          set_loc_shader(args, AC_UD_CS_TASK_DRAW_ID, &user_sgpr_idx, 1);

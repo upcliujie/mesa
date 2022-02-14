@@ -8938,6 +8938,16 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
                get_arg(ctx, ctx->args->ac.rt_dynamic_callable_stack_base));
       break;
+   case nir_intrinsic_load_rt_traversal_stack_lds_size_amd:
+      bld.pseudo(aco_opcode::p_extract, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+                 bld.def(s1, scc), get_arg(ctx, ctx->args->ac.rt_traversal_info), Operand::zero(),
+                 Operand::c32(16), Operand::zero());
+      break;
+   case nir_intrinsic_load_rt_traversal_stack_scratch_base_amd:
+      bld.pseudo(aco_opcode::p_extract, Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+                 bld.def(s1, scc), get_arg(ctx, ctx->args->ac.rt_traversal_info), Operand::c32(1),
+                 Operand::c32(16), Operand::c32(1));
+      break;
    case nir_intrinsic_overwrite_vs_arguments_amd: {
       ctx->arg_temps[ctx->args->ac.vertex_id.arg_index] = get_ssa_temp(ctx, instr->src[0].ssa);
       ctx->arg_temps[ctx->args->ac.instance_id.arg_index] = get_ssa_temp(ctx, instr->src[1].ssa);
