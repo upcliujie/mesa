@@ -4,3 +4,13 @@
 
 # Sometimes crashes, e.g. https://gitlab.freedesktop.org/kusma/mesa/-/jobs/4109419
 dEQP-GLES31.functional.compute.basic.empty
+
+spec@ext_external_objects@vk-semaphores
+KHR-GL.*.texture_swizzle.smoke
+KHR-GL.*.texture_swizzle.functional
+KHR-GL.*.copy_image.functional
+
+spec@arb_texture_rg@fbo-blending-formats
+streaming-texture-leak
+spec@ext_framebuffer_object@fbo-blending-formats
+local-id-explosion
