@@ -113,8 +113,5 @@
  * children and remove one, so the DFS stack depth is box nodes * 3 + 2.
  */
 #define RADV_MAX_RT_TRAVERSAL_STACK_SIZE 76
-#define RADV_RT_TRAVERSAL_STACK_LDS_SIZE 24
-#define RADV_RT_TRAVERSAL_STACK_SCRATCH_SIZE                                                       \
-   (RADV_MAX_RT_TRAVERSAL_STACK_SIZE - RADV_RT_TRAVERSAL_STACK_LDS_SIZE)
 
 #endif /* RADV_CONSTANTS_H */
