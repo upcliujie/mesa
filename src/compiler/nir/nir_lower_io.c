@@ -2515,6 +2515,7 @@ nir_get_io_offset_src(nir_intrinsic_instr *instr)
    case nir_intrinsic_load_input:
    case nir_intrinsic_load_output:
    case nir_intrinsic_load_shared:
+   case nir_intrinsic_load_task_payload:
    case nir_intrinsic_load_uniform:
    case nir_intrinsic_load_kernel_input:
    case nir_intrinsic_load_global:
@@ -2559,6 +2560,7 @@ nir_get_io_offset_src(nir_intrinsic_instr *instr)
    case nir_intrinsic_load_interpolated_input:
    case nir_intrinsic_store_output:
    case nir_intrinsic_store_shared:
+   case nir_intrinsic_store_task_payload:
    case nir_intrinsic_store_global:
    case nir_intrinsic_store_scratch:
    case nir_intrinsic_ssbo_atomic_add:
