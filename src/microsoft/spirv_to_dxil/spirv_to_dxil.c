@@ -653,6 +653,23 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    nir_validate_shader(nir,
                        "Validate before feeding NIR to the DXIL compiler");
 
+   // We have to lower away local variable initializers right before we
+   // inline functions. That way they get properly initialized at the top
+   // of the function and not at the top of its caller.
+   NIR_PASS_V(nir, nir_lower_variable_initializers, nir_var_function_temp);
+   NIR_PASS_V(nir, nir_lower_returns);
+   NIR_PASS_V(nir, nir_inline_functions);
+
+   // Pick off the single entrypoint that we want.
+   nir_function *entrypoint;
+   foreach_list_typed_safe(nir_function, func, node, &nir->functions) {
+      if (func->is_entrypoint)
+         entrypoint = func;
+      else
+         exec_node_remove(&func->node);
+   }
+   assert(exec_list_length(&nir->functions) == 1);
+
    NIR_PASS_V(nir, dxil_spirv_nir_lower_cube_image_to_2darray);
 
    const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
@@ -739,16 +756,6 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    NIR_PASS_V(nir, nir_inline_functions);
    NIR_PASS_V(nir, nir_lower_variable_initializers,
               ~nir_var_function_temp);
-
-   // Pick off the single entrypoint that we want.
-   nir_function *entrypoint;
-   foreach_list_typed_safe(nir_function, func, node, &nir->functions) {
-      if (func->is_entrypoint)
-         entrypoint = func;
-      else
-         exec_node_remove(&func->node);
-   }
-   assert(exec_list_length(&nir->functions) == 1);
 
    NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
    NIR_PASS_V(nir, nir_lower_io_to_temporaries, entrypoint->impl, true, true);
