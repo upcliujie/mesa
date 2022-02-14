@@ -158,6 +158,7 @@ visit_intrinsic(nir_shader *shader, nir_intrinsic_instr *instr)
    case nir_intrinsic_load_user_data_amd:
    case nir_intrinsic_load_tess_level_inner_default:
    case nir_intrinsic_load_tess_level_outer_default:
+   case nir_intrinsic_load_rt_dynamic_callable_stack_base:
       is_divergent = false;
       break;
 
