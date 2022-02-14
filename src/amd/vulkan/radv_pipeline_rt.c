@@ -1050,12 +1050,15 @@ struct rt_traversal_vars {
    nir_variable *instance_addr;
    nir_variable *should_return;
    nir_variable *bvh_base;
-   nir_variable *stack;
    nir_variable *top_stack;
+
+   nir_ssa_def *stack_base_lds;
+   nir_ssa_def *stack_base_scratch;
+   nir_variable *stack;
 };
 
 static struct rt_traversal_vars
-init_traversal_vars(nir_builder *b)
+init_traversal_vars(nir_builder *b, const VkRayTracingPipelineCreateInfoKHR *pCreateInfo)
 {
    const struct glsl_type *vec3_type = glsl_vector_type(GLSL_TYPE_FLOAT, 3);
    struct rt_traversal_vars ret;
@@ -1080,6 +1083,19 @@ init_traversal_vars(nir_builder *b)
       nir_variable_create(b->shader, nir_var_shader_temp, glsl_uint_type(), "traversal_stack_ptr");
    ret.top_stack = nir_variable_create(b->shader, nir_var_shader_temp, glsl_uint_type(),
                                        "traversal_top_stack_ptr");
+
+   unsigned lanes = b->shader->info.workgroup_size[0] * b->shader->info.workgroup_size[1] *
+                    b->shader->info.workgroup_size[2];
+   ret.stack_base_lds = nir_iadd_imm(b, nir_imul_imm(b, nir_load_local_invocation_index(b), 4),
+                                     b->shader->info.shared_size);
+   b->shader->info.shared_size += RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4 * lanes;
+
+   ret.stack_base_scratch = radv_rt_pipeline_has_dynamic_stack_size(pCreateInfo)
+                               ? nir_load_rt_dynamic_callable_stack_base(b)
+                               : nir_imm_int(b, 0);
+   ret.stack_base_scratch =
+      nir_iadd_imm(b, ret.stack_base_scratch, -RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4);
+
    return ret;
 }
 
@@ -1418,24 +1434,49 @@ insert_traversal_aabb_case(struct radv_device *device,
 }
 
 static void
+push_to_traversal_stack(nir_builder *b, struct rt_traversal_vars *trav_vars, nir_ssa_def *val)
+{
+   unsigned lanes = b->shader->info.workgroup_size[0] * b->shader->info.workgroup_size[1] *
+                    b->shader->info.workgroup_size[2];
+
+   nir_ssa_def *stack_ptr = nir_load_var(b, trav_vars->stack);
+
+   nir_push_if(b, nir_ige(b, stack_ptr, nir_imm_int(b, RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4)));
+   nir_store_scratch(b, val, nir_iadd(b, trav_vars->stack_base_scratch, stack_ptr));
+   nir_push_else(b, NULL);
+   nir_store_shared(b, val,
+                    nir_iadd(b, trav_vars->stack_base_lds, nir_imul_imm(b, stack_ptr, lanes)));
+   nir_pop_if(b, NULL);
+
+   nir_store_var(b, trav_vars->stack, nir_iadd_imm(b, stack_ptr, 4), 1);
+}
+
+static nir_ssa_def *
+pop_from_traversal_stack(nir_builder *b, struct rt_traversal_vars *trav_vars)
+{
+   unsigned lanes = b->shader->info.workgroup_size[0] * b->shader->info.workgroup_size[1] *
+                    b->shader->info.workgroup_size[2];
+
+   nir_ssa_def *stack_ptr = nir_iadd_imm(b, nir_load_var(b, trav_vars->stack), -4);
+   nir_store_var(b, trav_vars->stack, stack_ptr, 1);
+
+   nir_push_if(b, nir_ige(b, stack_ptr, nir_imm_int(b, RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4)));
+   nir_ssa_def *res_scratch =
+      nir_load_scratch(b, 1, 32, nir_iadd(b, trav_vars->stack_base_scratch, stack_ptr));
+   nir_push_else(b, NULL);
+   nir_ssa_def *res_shared = nir_load_shared(
+      b, 1, 32, nir_iadd(b, trav_vars->stack_base_lds, nir_imul_imm(b, stack_ptr, lanes)));
+   nir_pop_if(b, NULL);
+   return nir_if_phi(b, res_scratch, res_shared);
+}
+
+static void
 insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInfoKHR *pCreateInfo,
                  nir_builder *b, const struct rt_variables *vars)
 {
-   unsigned stack_entry_size = 4;
-   unsigned lanes = b->shader->info.workgroup_size[0] * b->shader->info.workgroup_size[1] *
-                    b->shader->info.workgroup_size[2];
-   unsigned stack_entry_stride = stack_entry_size * lanes;
-   nir_ssa_def *stack_entry_stride_def = nir_imm_int(b, stack_entry_stride);
-   nir_ssa_def *stack_base =
-      nir_iadd(b, nir_imm_int(b, b->shader->info.shared_size),
-               nir_imul(b, nir_load_local_invocation_index(b), nir_imm_int(b, stack_entry_size)));
-
-   b->shader->info.shared_size += stack_entry_stride * MAX_STACK_ENTRY_COUNT;
-   assert(b->shader->info.shared_size <= 32768);
-
    nir_ssa_def *accel_struct = nir_load_var(b, vars->accel_struct);
 
-   struct rt_traversal_vars trav_vars = init_traversal_vars(b);
+   struct rt_traversal_vars trav_vars = init_traversal_vars(b, pCreateInfo);
 
    /* Initialize the follow-up shader idx to 0, to be replaced by the miss shader
     * if we actually miss. */
@@ -1459,14 +1500,14 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
       nir_store_var(b, trav_vars.sbt_offset_and_flags, nir_imm_int(b, 0), 1);
       nir_store_var(b, trav_vars.instance_addr, nir_imm_int64(b, 0), 1);
 
-      nir_store_var(b, trav_vars.stack, nir_iadd(b, stack_base, stack_entry_stride_def), 1);
-      nir_store_shared(b, bvh_root, stack_base, .base = 0, .align_mul = stack_entry_size);
+      nir_store_var(b, trav_vars.stack, nir_imm_int(b, 0), 1);
+      push_to_traversal_stack(b, &trav_vars, bvh_root);
 
       nir_store_var(b, trav_vars.top_stack, nir_imm_int(b, 0), 1);
 
       nir_push_loop(b);
 
-      nir_push_if(b, nir_ieq(b, nir_load_var(b, trav_vars.stack), stack_base));
+      nir_push_if(b, nir_ieq(b, nir_load_var(b, trav_vars.stack), nir_imm_int(b, 0)));
       nir_jump(b, nir_jump_break);
       nir_pop_if(b, NULL);
 
@@ -1482,11 +1523,7 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
 
       nir_pop_if(b, NULL);
 
-      nir_store_var(b, trav_vars.stack,
-                    nir_isub(b, nir_load_var(b, trav_vars.stack), stack_entry_stride_def), 1);
-
-      nir_ssa_def *bvh_node = nir_load_shared(b, 1, 32, nir_load_var(b, trav_vars.stack), .base = 0,
-                                              .align_mul = stack_entry_size);
+      nir_ssa_def *bvh_node = pop_from_traversal_stack(b, &trav_vars);
       nir_ssa_def *bvh_node_type = nir_iand(b, bvh_node, nir_imm_int(b, 7));
 
       bvh_node = nir_iadd(b, nir_load_var(b, trav_vars.bvh_base), nir_u2u(b, bvh_node, 64));
@@ -1542,12 +1579,8 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
                              build_addr_to_node(
                                 b, nir_pack_64_2x32(b, nir_channels(b, instance_data, 0x3))),
                              1);
-               nir_store_shared(
-                  b, nir_iand(b, nir_channel(b, instance_data, 0), nir_imm_int(b, 63)),
-                  nir_load_var(b, trav_vars.stack), .base = 0, .align_mul = stack_entry_size);
-               nir_store_var(b, trav_vars.stack,
-                             nir_iadd(b, nir_load_var(b, trav_vars.stack), stack_entry_stride_def),
-                             1);
+               push_to_traversal_stack(
+                  b, &trav_vars, nir_iand(b, nir_channel(b, instance_data, 0), nir_imm_int(b, 63)));
 
                nir_store_var(
                   b, trav_vars.origin,
@@ -1582,11 +1615,7 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
                nir_ssa_def *new_node = nir_vector_extract(b, result, nir_imm_int(b, i));
                nir_push_if(b, nir_ine(b, new_node, nir_imm_int(b, 0xffffffff)));
                {
-                  nir_store_shared(b, new_node, nir_load_var(b, trav_vars.stack), .base = 0,
-                                   .align_mul = stack_entry_size);
-                  nir_store_var(
-                     b, trav_vars.stack,
-                     nir_iadd(b, nir_load_var(b, trav_vars.stack), stack_entry_stride_def), 1);
+                  push_to_traversal_stack(b, &trav_vars, new_node);
                }
                nir_pop_if(b, NULL);
             }
@@ -1722,7 +1751,10 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
    struct rt_variables vars = create_rt_variables(b.shader, stack_sizes);
    load_sbt_entry(&b, &vars, nir_imm_int(&b, 0), SBT_RAYGEN, 0);
    if (radv_rt_pipeline_has_dynamic_stack_size(pCreateInfo))
-      nir_store_var(&b, vars.stack_ptr, nir_load_rt_dynamic_callable_stack_base(&b), 0x1);
+      nir_store_var(&b, vars.stack_ptr,
+                    nir_iadd_imm(&b, nir_load_rt_dynamic_callable_stack_base(&b),
+                                 RADV_RT_TRAVERSAL_STACK_SCRATCH_SIZE * 4),
+                    0x1);
    else
       nir_store_var(&b, vars.stack_ptr, nir_imm_int(&b, 0), 0x1);
 
@@ -1790,6 +1822,7 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
       b.shader->scratch_size = 16;
    } else
       b.shader->scratch_size = compute_rt_stack_size(pCreateInfo, stack_sizes);
+   b.shader->scratch_size += RADV_RT_TRAVERSAL_STACK_SCRATCH_SIZE * 4;
 
    /* Deal with all the inline functions. */
    nir_index_ssa_defs(nir_shader_get_entrypoint(b.shader));
