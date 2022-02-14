@@ -59,13 +59,4 @@ nir_ssa_def *hit_is_opaque(nir_builder *b, nir_ssa_def *sbt_offset_and_flags, ni
 
 nir_ssa_def *create_bvh_descriptor(nir_builder *b);
 
-/*
- * A top-level AS can contain 2^24 children and a bottom-level AS can contain 2^24
- * triangles. At a branching factor of 4, that means we may need up to 24 levels of box
- * nodes + 1 triangle node
- * + 1 instance node. Furthermore, when processing a box node, worst case we actually
- * push all 4 children and remove one, so the DFS stack depth is box nodes * 3 + 2.
- */
-#define MAX_STACK_ENTRY_COUNT 76
-
 #endif
