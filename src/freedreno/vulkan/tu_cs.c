@@ -57,6 +57,25 @@ tu_cs_init_external(struct tu_cs *cs, struct tu_device *device,
 }
 
 /**
+ * Initialize a sub-command stream as a wrapper to an externally sub-allocated
+ * buffer.
+ */
+void
+tu_cs_init_suballoc(struct tu_cs *cs, struct tu_device *device,
+                    struct tu_suballoc_bo *suballoc_bo)
+{
+   uint32_t *start = tu_suballoc_bo_map(suballoc_bo);
+   uint32_t *end = start + (suballoc_bo->size >> 2);
+
+   memset(cs, 0, sizeof(*cs));
+   cs->device = device;
+   cs->mode = TU_CS_MODE_SUB_STREAM;
+   cs->start = cs->reserved_end = cs->cur = start;
+   cs->end = end;
+   cs->refcount_bo = tu_bo_get_ref(suballoc_bo->bo);
+}
+
+/**
  * Finish and release all resources owned by a command stream.
  */
 void
@@ -66,8 +85,22 @@ tu_cs_finish(struct tu_cs *cs)
       tu_bo_finish(cs->device, cs->bos[i]);
    }
 
+   if (cs->refcount_bo)
+      tu_bo_finish(cs->device, cs->refcount_bo);
+
    free(cs->entries);
    free(cs->bos);
+}
+
+static struct tu_bo *
+tu_cs_current_bo(const struct tu_cs *cs)
+{
+   if (cs->refcount_bo) {
+      return cs->refcount_bo;
+   } else {
+      assert(cs->bo_count);
+      return cs->bos[cs->bo_count - 1];
+   }
 }
 
 /**
@@ -77,8 +110,7 @@ tu_cs_finish(struct tu_cs *cs)
 static uint32_t
 tu_cs_get_offset(const struct tu_cs *cs)
 {
-   assert(cs->bo_count);
-   return cs->start - (uint32_t *) cs->bos[cs->bo_count - 1]->map;
+   return cs->start - (uint32_t *) tu_cs_current_bo(cs)->map;
 }
 
 /*
@@ -90,6 +122,8 @@ tu_cs_add_bo(struct tu_cs *cs, uint32_t size)
 {
    /* no BO for TU_CS_MODE_EXTERNAL */
    assert(cs->mode != TU_CS_MODE_EXTERNAL);
+   /* No adding more BOs if suballocating from a suballoc_bo. */
+   assert(!cs->refcount_bo);
 
    /* no dangling command packet */
    assert(tu_cs_is_empty(cs));
@@ -176,7 +210,7 @@ tu_cs_add_entry(struct tu_cs *cs)
 
    /* add an entry for [cs->start, cs->cur] */
    cs->entries[cs->entry_count++] = (struct tu_cs_entry) {
-      .bo = cs->bos[cs->bo_count - 1],
+      .bo = tu_cs_current_bo(cs),
       .size = tu_cs_get_size(cs) * sizeof(uint32_t),
       .offset = tu_cs_get_offset(cs) * sizeof(uint32_t),
    };
@@ -281,7 +315,7 @@ tu_cs_alloc(struct tu_cs *cs,
    if (result != VK_SUCCESS)
       return result;
 
-   struct tu_bo *bo = cs->bos[cs->bo_count - 1];
+   struct tu_bo *bo = tu_cs_current_bo(cs);
    size_t offset = align(tu_cs_get_offset(cs), size);
 
    memory->map = bo->map + offset * sizeof(uint32_t);
@@ -303,7 +337,6 @@ struct tu_cs_entry
 tu_cs_end_sub_stream(struct tu_cs *cs, struct tu_cs *sub_cs)
 {
    assert(cs->mode == TU_CS_MODE_SUB_STREAM);
-   assert(cs->bo_count);
    assert(sub_cs->start == cs->cur && sub_cs->end == cs->reserved_end);
    tu_cs_sanity_check(sub_cs);
 
@@ -312,7 +345,7 @@ tu_cs_end_sub_stream(struct tu_cs *cs, struct tu_cs *sub_cs)
    cs->cur = sub_cs->cur;
 
    struct tu_cs_entry entry = {
-      .bo = cs->bos[cs->bo_count - 1],
+      .bo = tu_cs_current_bo(cs),
       .size = tu_cs_get_size(cs) * sizeof(uint32_t),
       .offset = tu_cs_get_offset(cs) * sizeof(uint32_t),
    };
@@ -397,7 +430,7 @@ void
 tu_cs_reset(struct tu_cs *cs)
 {
    if (cs->mode == TU_CS_MODE_EXTERNAL) {
-      assert(!cs->bo_count && !cs->entry_count);
+      assert(!cs->bo_count && !cs->refcount_bo && !cs->entry_count);
       cs->reserved_end = cs->cur = cs->start;
       return;
    }
@@ -415,4 +448,78 @@ tu_cs_reset(struct tu_cs *cs)
    }
 
    cs->entry_count = 0;
+}
+
+/* Initializes a BO sub-allocator using refcounts on BOs.
+ */
+void
+tu_bo_suballocator_init(struct tu_suballocator *suballoc,
+                        struct tu_device *dev,
+                        uint32_t default_size, uint32_t flags)
+{
+   suballoc->dev = dev;
+   suballoc->default_size = default_size;
+   suballoc->flags = flags;
+   suballoc->bo = NULL;
+}
+
+void
+tu_bo_suballocator_finish(struct tu_suballocator *suballoc)
+{
+   if (suballoc->bo)
+      tu_bo_finish(suballoc->dev, suballoc->bo);
+}
+
+VkResult
+tu_suballoc_bo_alloc(struct tu_suballoc_bo *suballoc_bo,
+                     struct tu_suballocator *suballoc,
+                     uint32_t size, uint32_t align)
+{
+   struct tu_bo *bo = suballoc->bo;
+   if (bo) {
+      uint32_t offset = ALIGN(suballoc->next_offset, align);
+      if (offset < bo->size && offset + size < bo->size) {
+         suballoc_bo->bo = tu_bo_get_ref(bo);
+         suballoc_bo->iova = bo->iova + offset;
+         suballoc_bo->size = size;
+
+         suballoc->next_offset = offset + size;
+         return VK_SUCCESS;
+      } else {
+         tu_bo_finish(suballoc->dev, bo);
+         suballoc->bo = NULL;
+      }
+   }
+
+   VkResult result = tu_bo_init_new(suballoc->dev, &suballoc->bo,
+                                    MAX2(size, suballoc->default_size),
+                                    suballoc->flags);
+   if (result != VK_SUCCESS)
+      return result;
+
+   result = tu_bo_map(suballoc->dev, suballoc->bo);
+   if (result != VK_SUCCESS) {
+      tu_bo_finish(suballoc->dev, suballoc->bo);
+      return VK_ERROR_OUT_OF_HOST_MEMORY;
+   }
+
+   suballoc_bo->bo = tu_bo_get_ref(suballoc->bo);
+   suballoc_bo->iova = suballoc_bo->bo->iova;
+   suballoc_bo->size = size;
+   suballoc->next_offset = size;
+
+   return VK_SUCCESS;
+}
+
+void
+tu_suballoc_bo_free(struct tu_device *dev, struct tu_suballoc_bo *bo)
+{
+   if (bo)
+      tu_bo_finish(dev, bo->bo);
+}
+
+void *
+tu_suballoc_bo_map(struct tu_suballoc_bo *bo)
+{
+   return bo->bo->map + (bo->iova - bo->bo->iova);
 }
