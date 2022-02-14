@@ -1058,7 +1058,7 @@ struct rt_traversal_vars {
 };
 
 static struct rt_traversal_vars
-init_traversal_vars(nir_builder *b, const VkRayTracingPipelineCreateInfoKHR *pCreateInfo)
+init_traversal_vars(nir_builder *b)
 {
    const struct glsl_type *vec3_type = glsl_vector_type(GLSL_TYPE_FLOAT, 3);
    struct rt_traversal_vars ret;
@@ -1084,17 +1084,9 @@ init_traversal_vars(nir_builder *b, const VkRayTracingPipelineCreateInfoKHR *pCr
    ret.top_stack = nir_variable_create(b->shader, nir_var_shader_temp, glsl_uint_type(),
                                        "traversal_top_stack_ptr");
 
-   unsigned lanes = b->shader->info.workgroup_size[0] * b->shader->info.workgroup_size[1] *
-                    b->shader->info.workgroup_size[2];
    ret.stack_base_lds = nir_iadd_imm(b, nir_imul_imm(b, nir_load_local_invocation_index(b), 4),
                                      b->shader->info.shared_size);
-   b->shader->info.shared_size += RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4 * lanes;
-
-   ret.stack_base_scratch = radv_rt_pipeline_has_dynamic_stack_size(pCreateInfo)
-                               ? nir_load_rt_dynamic_callable_stack_base(b)
-                               : nir_imm_int(b, 0);
-   ret.stack_base_scratch =
-      nir_iadd_imm(b, ret.stack_base_scratch, -RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4);
+   ret.stack_base_scratch = nir_load_rt_traversal_stack_scratch_base_amd(b);
 
    return ret;
 }
@@ -1441,7 +1433,7 @@ push_to_traversal_stack(nir_builder *b, struct rt_traversal_vars *trav_vars, nir
 
    nir_ssa_def *stack_ptr = nir_load_var(b, trav_vars->stack);
 
-   nir_push_if(b, nir_ige(b, stack_ptr, nir_imm_int(b, RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4)));
+   nir_push_if(b, nir_ige(b, stack_ptr, nir_load_rt_traversal_stack_lds_size_amd(b)));
    nir_store_scratch(b, val, nir_iadd(b, trav_vars->stack_base_scratch, stack_ptr));
    nir_push_else(b, NULL);
    nir_store_shared(b, val,
@@ -1460,7 +1452,7 @@ pop_from_traversal_stack(nir_builder *b, struct rt_traversal_vars *trav_vars)
    nir_ssa_def *stack_ptr = nir_iadd_imm(b, nir_load_var(b, trav_vars->stack), -4);
    nir_store_var(b, trav_vars->stack, stack_ptr, 1);
 
-   nir_push_if(b, nir_ige(b, stack_ptr, nir_imm_int(b, RADV_RT_TRAVERSAL_STACK_LDS_SIZE * 4)));
+   nir_push_if(b, nir_ige(b, stack_ptr, nir_load_rt_traversal_stack_lds_size_amd(b)));
    nir_ssa_def *res_scratch =
       nir_load_scratch(b, 1, 32, nir_iadd(b, trav_vars->stack_base_scratch, stack_ptr));
    nir_push_else(b, NULL);
@@ -1476,7 +1468,7 @@ insert_traversal(struct radv_device *device, const VkRayTracingPipelineCreateInf
 {
    nir_ssa_def *accel_struct = nir_load_var(b, vars->accel_struct);
 
-   struct rt_traversal_vars trav_vars = init_traversal_vars(b, pCreateInfo);
+   struct rt_traversal_vars trav_vars = init_traversal_vars(b);
 
    /* Initialize the follow-up shader idx to 0, to be replaced by the miss shader
     * if we actually miss. */
@@ -1751,10 +1743,7 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
    struct rt_variables vars = create_rt_variables(b.shader, stack_sizes);
    load_sbt_entry(&b, &vars, nir_imm_int(&b, 0), SBT_RAYGEN, 0);
    if (radv_rt_pipeline_has_dynamic_stack_size(pCreateInfo))
-      nir_store_var(&b, vars.stack_ptr,
-                    nir_iadd_imm(&b, nir_load_rt_dynamic_callable_stack_base(&b),
-                                 RADV_RT_TRAVERSAL_STACK_SCRATCH_SIZE * 4),
-                    0x1);
+      nir_store_var(&b, vars.stack_ptr, nir_load_rt_dynamic_callable_stack_base(&b), 0x1);
    else
       nir_store_var(&b, vars.stack_ptr, nir_imm_int(&b, 0), 0x1);
 
@@ -1822,7 +1811,6 @@ create_rt_shader(struct radv_device *device, const VkRayTracingPipelineCreateInf
       b.shader->scratch_size = 16;
    } else
       b.shader->scratch_size = compute_rt_stack_size(pCreateInfo, stack_sizes);
-   b.shader->scratch_size += RADV_RT_TRAVERSAL_STACK_SCRATCH_SIZE * 4;
 
    /* Deal with all the inline functions. */
    nir_index_ssa_defs(nir_shader_get_entrypoint(b.shader));
@@ -1883,7 +1871,8 @@ radv_rt_pipeline_create(VkDevice _device, VkPipelineCache _cache,
    /* First check if we can get things from the cache before we take the expensive step of
     * generating the nir. */
    result = radv_compute_pipeline_create(_device, _cache, &compute_info, pAllocator, hash,
-                                         stack_sizes, local_create_info.groupCount, pPipeline);
+                                         stack_sizes, local_create_info.groupCount,
+                                         RADV_MAX_RT_TRAVERSAL_STACK_SIZE, pPipeline);
    if (result == VK_PIPELINE_COMPILE_REQUIRED_EXT) {
       stack_sizes = calloc(sizeof(*stack_sizes), local_create_info.groupCount);
       if (!stack_sizes) {
@@ -1895,7 +1884,8 @@ radv_rt_pipeline_create(VkDevice _device, VkPipelineCache _cache,
       module.nir = shader;
       compute_info.flags = pCreateInfo->flags;
       result = radv_compute_pipeline_create(_device, _cache, &compute_info, pAllocator, hash,
-                                            stack_sizes, local_create_info.groupCount, pPipeline);
+                                            stack_sizes, local_create_info.groupCount,
+                                            RADV_MAX_RT_TRAVERSAL_STACK_SIZE, pPipeline);
       stack_sizes = NULL;
 
       if (result != VK_SUCCESS)

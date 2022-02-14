@@ -1911,6 +1911,7 @@ struct radv_pipeline {
       struct {
          struct radv_pipeline_group_handle *rt_group_handles;
          struct radv_pipeline_shader_stack_size *rt_stack_sizes;
+         uint32_t rt_traversal_stack_size;
          bool dynamic_stack_size;
          uint32_t group_count;
          bool cs_regalloc_hang_bug;
@@ -1984,7 +1985,8 @@ VkResult radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
                                       const VkAllocationCallbacks *pAllocator,
                                       const uint8_t *custom_hash,
                                       struct radv_pipeline_shader_stack_size *rt_stack_sizes,
-                                      uint32_t rt_group_count, VkPipeline *pPipeline);
+                                      uint32_t rt_group_count, uint32_t rt_traversal_stack_size,
+                                      VkPipeline *pPipeline);
 
 void radv_pipeline_destroy(struct radv_device *device, struct radv_pipeline *pipeline,
                            const VkAllocationCallbacks *allocator);
