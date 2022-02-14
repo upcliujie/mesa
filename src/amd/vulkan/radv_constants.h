@@ -106,4 +106,15 @@
 #define RADV_SHADER_ALLOC_NUM_FREE_LISTS                                                           \
    (RADV_SHADER_ALLOC_MAX_SIZE_CLASS - RADV_SHADER_ALLOC_MIN_SIZE_CLASS + 1)
 
+/*
+ * A top-level AS can contain 2^24 children and a bottom-level AS can contain 2^24 triangles. At
+ * a branching factor of 4, that means we may need up to 24 levels of box nodes + 1 triangle node
+ * + 1 instance node. Furthermore, when processing a box node, worst case we actually push all 4
+ * children and remove one, so the DFS stack depth is box nodes * 3 + 2.
+ */
+#define RADV_MAX_RT_TRAVERSAL_STACK_SIZE 76
+#define RADV_RT_TRAVERSAL_STACK_LDS_SIZE 24
+#define RADV_RT_TRAVERSAL_STACK_SCRATCH_SIZE                                                       \
+   (RADV_MAX_RT_TRAVERSAL_STACK_SIZE - RADV_RT_TRAVERSAL_STACK_LDS_SIZE)
+
 #endif /* RADV_CONSTANTS_H */
