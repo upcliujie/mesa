@@ -2751,7 +2751,7 @@ dxil_phi_set_incoming(struct dxil_instr *instr,
 {
    assert(instr->type == INSTR_PHI);
    assert(num_incoming > 0);
-   assert(num_incoming < ARRAY_SIZE(instr->phi.incoming));
+   assert(num_incoming <= ARRAY_SIZE(instr->phi.incoming));
    for (int i = 0; i < num_incoming; ++i) {
       assert(incoming_values[i]);
       assert(types_equal(incoming_values[i]->type, instr->phi.type));
