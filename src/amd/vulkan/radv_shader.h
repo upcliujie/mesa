@@ -157,6 +157,7 @@ enum radv_ud_index {
    AC_UD_CS_GRID_SIZE = AC_UD_SHADER_START,
    AC_UD_CS_SBT_DESCRIPTORS,
    AC_UD_CS_RAY_LAUNCH_SIZE_ADDR,
+   AC_UD_CS_RAY_DYNAMIC_CALLABLE_STACK_BASE,
    AC_UD_CS_TASK_RING_OFFSETS,
    AC_UD_CS_TASK_DRAW_ID,
    AC_UD_CS_TASK_IB,
@@ -349,6 +350,7 @@ struct radv_shader_info {
 
       bool uses_sbt;
       bool uses_ray_launch_size;
+      bool uses_dynamic_rt_callable_stack;
       bool uses_task_rings;
    } cs;
    struct {
