@@ -1277,6 +1277,9 @@ system_value("intersection_opaque_amd", 1, bit_sizes=[1])
 
 system_value("rt_dynamic_callable_stack_base", 1)
 
+system_value("rt_traversal_stack_lds_size_amd", 1)
+system_value("rt_traversal_stack_scratch_base_amd", 1)
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel

@@ -8982,6 +8982,14 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
       bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
                get_arg(ctx, ctx->args->ac.rt_dynamic_callable_stack_base));
       break;
+   case nir_intrinsic_load_rt_traversal_stack_lds_size_amd:
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               get_arg(ctx, ctx->args->ac.rt_traversal_stack_lds_size));
+      break;
+   case nir_intrinsic_load_rt_traversal_stack_scratch_base_amd:
+      bld.copy(Definition(get_ssa_temp(ctx, &instr->dest.ssa)),
+               get_arg(ctx, ctx->args->ac.rt_traversal_stack_scratch_base));
+      break;
    case nir_intrinsic_load_cull_any_enabled_amd: {
       Builder::Result cull_any_enabled =
          bld.sop2(aco_opcode::s_and_b32, bld.def(s1), bld.def(s1, scc),
