@@ -1338,6 +1338,8 @@ intrinsic("load_smem_amd", src_comp=[1, 1], dest_comp=0, bit_sizes=[32],
                            indices=[ALIGN_MUL, ALIGN_OFFSET],
                            flags=[CAN_ELIMINATE, CAN_REORDER])
 
+system_value("rt_dynamic_callable_stack_base", 1)
+
 # V3D-specific instrinc for tile buffer color reads.
 #
 # The hardware requires that we read the samples and components of a pixel
