@@ -283,6 +283,26 @@ bool
 tu_physical_device_extension_supported(struct tu_physical_device *dev,
                                        const char *name);
 
+enum tu_bo_alloc_flags
+{
+   TU_BO_ALLOC_NO_FLAGS = 0,
+   TU_BO_ALLOC_ALLOW_DUMP = 1 << 0,
+   TU_BO_ALLOC_GPU_READ_ONLY = 1 << 1,
+};
+
+/* externally-synchronized BO suballocator. */
+struct tu_suballocator
+{
+   struct tu_device *dev;
+   VkAllocationCallbacks alloc;
+
+   uint32_t default_size;
+   enum tu_bo_alloc_flags flags;
+
+   struct tu_refcount_bo *bo;
+   uint32_t next_offset;
+};
+
 struct cache_entry;
 
 struct tu_pipeline_cache
@@ -357,6 +377,52 @@ struct tu_bo
    uint64_t iova;
    void *map;
 };
+
+struct tu_refcount_bo
+{
+   VkAllocationCallbacks *alloc;
+   struct tu_bo bo;
+   uint32_t ref_cnt;
+};
+
+struct tu_refcount_bo *
+tu_refcount_bo_new(struct tu_device *dev, uint32_t size,
+                   uint32_t flags,
+                   VkAllocationCallbacks *alloc,
+                   VkSystemAllocationScope allocationScope);
+void
+tu_refcount_bo_free(struct tu_device *dev, struct tu_refcount_bo *bo);
+
+struct tu_refcount_bo *
+tu_refcount_bo_get(struct tu_refcount_bo *bo);
+
+struct tu_suballoc_bo
+{
+   struct tu_refcount_bo *bo;
+   uint64_t iova;
+   uint32_t size; /* bytes */
+};
+
+void
+tu_bo_suballocator_init(struct tu_suballocator *suballoc,
+                        struct tu_device *dev,
+                        VkAllocationCallbacks *alloc,
+                        uint32_t default_size,
+                        uint32_t flags,
+                        VkSystemAllocationScope allocationScope);
+void
+tu_bo_suballocator_finish(struct tu_suballocator *suballoc);
+
+VkResult
+tu_suballoc_bo_alloc(struct tu_suballoc_bo *suballoc_bo, struct tu_suballocator *suballoc,
+                         uint32_t size, uint32_t align,
+                         VkSystemAllocationScope allocationScope);
+
+void *
+tu_suballoc_bo_map(struct tu_suballoc_bo *bo);
+
+void
+tu_suballoc_bo_free(struct tu_device *dev, struct tu_suballoc_bo *bo);
 
 enum global_shader {
    GLOBAL_SH_VS_BLIT,
@@ -434,6 +500,11 @@ struct tu_device
 
    struct tu_bo global_bo;
 
+   /* Device-global BO suballocator for reducing BO management overhead for
+    * small read-only/dumped objects.  Synchronized by dev->mutex.
+    */
+   struct tu_suballocator suballoc_ro;
+
    /* the blob seems to always use 8K factor and 128K param sizes, copy them */
 #define TU_TESS_FACTOR_SIZE (8 * 1024)
 #define TU_TESS_PARAM_SIZE (128 * 1024)
@@ -497,13 +568,6 @@ tu_device_wait_u_trace(struct tu_device *dev, struct tu_u_trace_syncobj *syncobj
 
 uint64_t
 tu_device_ticks_to_ns(struct tu_device *dev, uint64_t ts);
-
-enum tu_bo_alloc_flags
-{
-   TU_BO_ALLOC_NO_FLAGS = 0,
-   TU_BO_ALLOC_ALLOW_DUMP = 1 << 0,
-   TU_BO_ALLOC_GPU_READ_ONLY = 1 << 1,
-};
 
 VkResult
 tu_bo_init_new(struct tu_device *dev, struct tu_bo *bo, uint64_t size,
@@ -640,6 +704,9 @@ struct tu_cs
    struct tu_bo **bos;
    uint32_t bo_count;
    uint32_t bo_capacity;
+
+   /* Optional BO that this CS is sub-allocated from for TU_CS_MODE_SUB_STREAM */
+   struct tu_refcount_bo *refcount_bo;
 
    /* state for cond_exec_start/cond_exec_end */
    uint32_t cond_flags;
@@ -1255,6 +1322,7 @@ struct tu_pipeline
    struct vk_object_base base;
 
    struct tu_cs cs;
+   struct tu_suballoc_bo bo;
 
    /* Separate BO for private memory since it should GPU writable */
    struct tu_bo pvtmem_bo;

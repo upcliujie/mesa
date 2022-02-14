@@ -1724,6 +1724,10 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    if (custom_border_colors)
       global_size += TU_BORDER_COLOR_COUNT * sizeof(struct bcolor_entry);
 
+   tu_bo_suballocator_init(&device->suballoc_ro, device, &device->vk.alloc,
+                           128 * 1024, TU_BO_ALLOC_GPU_READ_ONLY | TU_BO_ALLOC_ALLOW_DUMP,
+                           VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
+
    result = tu_bo_init_new(device, &device->global_bo, global_size,
                            TU_BO_ALLOC_ALLOW_DUMP);
    if (result != VK_SUCCESS) {
