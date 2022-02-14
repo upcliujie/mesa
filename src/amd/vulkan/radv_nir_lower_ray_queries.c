@@ -252,10 +252,11 @@ init_ray_query_vars(nir_shader *shader, nir_function_impl *impl, unsigned array_
 
    dst->trav = init_ray_query_traversal_vars(shader, impl, array_length, VAR_NAME("_top"));
 
-   dst->stack = rq_variable_create(shader, impl, array_length,
-                                   glsl_array_type(glsl_uint_type(), MAX_STACK_ENTRY_COUNT,
-                                                   glsl_get_explicit_stride(glsl_uint_type())),
-                                   VAR_NAME("_stack"));
+   dst->stack =
+      rq_variable_create(shader, impl, array_length,
+                         glsl_array_type(glsl_uint_type(), RADV_MAX_RT_TRAVERSAL_STACK_SIZE,
+                                         glsl_get_explicit_stride(glsl_uint_type())),
+                         VAR_NAME("_stack"));
 }
 
 #undef VAR_NAME
