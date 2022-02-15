@@ -1124,6 +1124,23 @@ add_output(struct v3d_compile *c,
                 v3d_slot_from_slot_and_component(slot, swizzle);
 }
 
+static bool
+nir_alu_src_is_zero(const nir_alu_instr *alu, unsigned idx)
+{
+        if (!nir_src_is_const(alu->src[idx].src))
+                return false;
+
+        for (unsigned i = 0; i < NIR_MAX_VEC_COMPONENTS; i++) {
+                if (nir_alu_instr_channel_used(alu, idx, i) &&
+                    nir_src_comp_as_int(alu->src[idx].src,
+                                        alu->src[idx].swizzle[i]) != 0) {
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 /**
  * If compare_instr is a valid comparison instruction, emits the
  * compare_instr's comparison and returns the sel_instr's return value based
@@ -1147,7 +1164,13 @@ ntq_emit_comparison(struct v3d_compile *c,
                 vir_set_pf(c, vir_FCMP_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
                 break;
         case nir_op_ieq32:
-                vir_set_pf(c, vir_XOR_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
+                if (nir_alu_src_is_zero(compare_instr, 0)) {
+                        vir_set_pf(c, vir_MOV_dest(c, nop, src1), V3D_QPU_PF_PUSHZ);
+                } else if (nir_alu_src_is_zero(compare_instr, 1)) {
+                        vir_set_pf(c, vir_MOV_dest(c, nop, src0), V3D_QPU_PF_PUSHZ);
+                } else {
+                        vir_set_pf(c, vir_XOR_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
+                }
                 break;
 
         case nir_op_fneu32:
@@ -1156,7 +1179,13 @@ ntq_emit_comparison(struct v3d_compile *c,
                 cond_invert = true;
                 break;
         case nir_op_ine32:
-                vir_set_pf(c, vir_XOR_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
+                if (nir_alu_src_is_zero(compare_instr, 0)) {
+                        vir_set_pf(c, vir_MOV_dest(c, nop, src1), V3D_QPU_PF_PUSHZ);
+                } else if (nir_alu_src_is_zero(compare_instr, 1)) {
+                        vir_set_pf(c, vir_MOV_dest(c, nop, src0), V3D_QPU_PF_PUSHZ);
+                } else {
+                        vir_set_pf(c, vir_XOR_dest(c, nop, src0, src1), V3D_QPU_PF_PUSHZ);
+                }
                 cond_invert = true;
                 break;
 
