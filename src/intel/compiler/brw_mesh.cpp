@@ -81,14 +81,16 @@ static void
 brw_nir_lower_tue_outputs(nir_shader *nir, const brw_tue_map *map)
 {
    nir_foreach_shader_out_variable(var, nir) {
-      int location = var->data.location;
-      assert(location >= 0);
-      assert(map->start_dw[location] != -1);
-      var->data.driver_location = map->start_dw[location];
+      assert(var->data.location == VARYING_SLOT_TASK_COUNT);
+      /* First word in TUE header. */
+      var->data.driver_location = 0;
    }
 
    nir_lower_io(nir, nir_var_shader_out, type_size_scalar_dwords,
                 nir_lower_io_lower_64bit_to_32);
+
+   nir_lower_explicit_io(nir, nir_var_mem_task_payload,
+                         nir_address_format_32bit_offset);
 }
 
 static void
@@ -96,63 +98,34 @@ brw_compute_tue_map(struct nir_shader *nir, struct brw_tue_map *map)
 {
    memset(map, 0, sizeof(*map));
 
-   map->start_dw[VARYING_SLOT_TASK_COUNT] = 0;
-
-   /* Words 1-3 are used for "Dispatch Dimensions" feature, to allow mapping a
-    * 3D dispatch into the 1D dispatch supported by HW.  So ignore those.
-    */
-
-   /* From bspec: "It is suggested that SW reserve the 16 bytes following the
+   /* TUE header contains 4 words:
+    *
+    * - Word 0 for Task Count.
+    *
+    * - Words 1-3 used for "Dispatch Dimensions" feature, to allow mapping a
+    *   3D dispatch into the 1D dispatch supported by HW.  Currently not used.
+    *
+    * From bspec: "It is suggested that SW reserve the 16 bytes following the
     * TUE Header, and therefore start the SW-defined data structure at 32B
     * alignment.  This allows the TUE Header to always be written as 32 bytes
     * with 32B alignment, the most optimal write performance case."
     */
    map->per_task_data_start_dw = 8;
 
+   /* Lowering to explicit types will start offsets from task_payload_size, so
+    * set it to start after the header.
+    */
+   nir->info.task_payload_size = map->per_task_data_start_dw * 4;
+   nir_lower_vars_to_explicit_types(nir, nir_var_mem_task_payload,
+                                    glsl_get_shared_size_align_bytes);
 
-   /* Compact the data: find the size associated with each location... */
-   nir_foreach_shader_out_variable(var, nir) {
-      const int location = var->data.location;
-      if (location == VARYING_SLOT_TASK_COUNT)
-         continue;
-      assert(location >= VARYING_SLOT_VAR0);
-      assert(location < VARYING_SLOT_MAX);
-
-      map->start_dw[location] += type_size_scalar_dwords(var->type, false);
-   }
-
-   /* ...then assign positions using those sizes. */
-   unsigned next = map->per_task_data_start_dw;
-   for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
-      if (i == VARYING_SLOT_TASK_COUNT)
-         continue;
-      if (map->start_dw[i] == 0) {
-         map->start_dw[i] = -1;
-      } else {
-         const unsigned size = map->start_dw[i];
-         map->start_dw[i] = next;
-         next += size;
-      }
-   }
-
-   map->size_dw = ALIGN(next, 8);
+   map->size_dw = ALIGN(DIV_ROUND_UP(nir->info.task_payload_size, 4), 8);
 }
 
 static void
 brw_print_tue_map(FILE *fp, const struct brw_tue_map *map)
 {
-   fprintf(fp, "TUE map (%d dwords)\n", map->size_dw);
-   fprintf(fp, "  %4d: VARYING_SLOT_TASK_COUNT\n",
-           map->start_dw[VARYING_SLOT_TASK_COUNT]);
-
-   for (int i = VARYING_SLOT_VAR0; i < VARYING_SLOT_MAX; i++) {
-      if (map->start_dw[i] != -1) {
-         fprintf(fp, "  %4d: VARYING_SLOT_VAR%d\n", map->start_dw[i],
-                 i - VARYING_SLOT_VAR0);
-      }
-   }
-
-   fprintf(fp, "\n");
+   fprintf(fp, "TUE (%d dwords)\n\n", map->size_dw);
 }
 
 const unsigned *
@@ -258,15 +231,18 @@ brw_nir_lower_tue_inputs(nir_shader *nir, const brw_tue_map *map)
    if (!map)
       return;
 
-   nir_foreach_shader_in_variable(var, nir) {
-      int location = var->data.location;
-      assert(location >= 0);
-      assert(map->start_dw[location] != -1);
-      var->data.driver_location = map->start_dw[location];
-   }
+   nir->info.task_payload_size = map->per_task_data_start_dw * 4;
 
-   nir_lower_io(nir, nir_var_shader_in, type_size_scalar_dwords,
-                nir_lower_io_lower_64bit_to_32);
+   nir_lower_vars_to_explicit_types(nir, nir_var_mem_task_payload,
+                                    glsl_get_shared_size_align_bytes);
+
+   /* The types for Task Output and Mesh Input should match, so their sizes
+    * should also match.
+    */
+   assert(map->size_dw == ALIGN(DIV_ROUND_UP(nir->info.task_payload_size, 4), 8));
+
+   nir_lower_explicit_io(nir, nir_var_mem_task_payload,
+                         nir_address_format_32bit_offset);
 }
 
 /* Mesh URB Entry consists of an initial section
@@ -642,7 +618,13 @@ brw_compile_mesh(const struct brw_compiler *compiler,
 static fs_reg
 get_mesh_urb_handle(const fs_builder &bld, nir_intrinsic_op op)
 {
-   const unsigned subreg = op == nir_intrinsic_load_input ? 7 : 6;
+   unsigned subreg;
+   if (bld.shader->stage == MESA_SHADER_TASK) {
+      subreg = 6;
+   } else {
+      assert(bld.shader->stage == MESA_SHADER_MESH);
+      subreg = op == nir_intrinsic_load_task_payload ? 7 : 6;
+   }
 
    fs_builder ubld8 = bld.group(8, 0).exec_all();
 
@@ -651,6 +633,15 @@ get_mesh_urb_handle(const fs_builder &bld, nir_intrinsic_op op)
    ubld8.AND(h, h, brw_imm_ud(0xFFFF));
 
    return h;
+}
+
+static unsigned
+component_from_intrinsic(nir_intrinsic_instr *instr)
+{
+   if (nir_intrinsic_has_component(instr))
+      return nir_intrinsic_component(instr);
+   else
+      return 0;
 }
 
 static void
@@ -670,7 +661,7 @@ emit_urb_direct_writes(const fs_builder &bld, nir_intrinsic_instr *instr,
    const unsigned mask = nir_intrinsic_write_mask(instr);
    const unsigned offset_in_dwords = nir_intrinsic_base(instr) +
                                      nir_src_as_uint(*offset_nir_src) +
-                                     nir_intrinsic_component(instr);
+                                     component_from_intrinsic(instr);
 
    /* URB writes are vec4 aligned but the intrinsic offsets are in dwords.
     * With a max of 4 components, an intrinsic can require up to two writes.
@@ -748,7 +739,7 @@ emit_urb_indirect_writes(const fs_builder &bld, nir_intrinsic_instr *instr,
    fs_reg urb_handle = get_mesh_urb_handle(bld, instr->intrinsic);
 
    const unsigned base_in_dwords = nir_intrinsic_base(instr) +
-                                   nir_intrinsic_component(instr);
+                                   component_from_intrinsic(instr);
 
    /* Use URB write message that allow different offsets per-slot.  The offset
     * is in units of vec4s (128 bits), so we use a write for each component,
@@ -815,7 +806,7 @@ emit_urb_direct_reads(const fs_builder &bld, nir_intrinsic_instr *instr,
 
    const unsigned offset_in_dwords = nir_intrinsic_base(instr) +
                                      nir_src_as_uint(*offset_nir_src) +
-                                     nir_intrinsic_component(instr);
+                                     component_from_intrinsic(instr);
 
    const unsigned comp_offset = offset_in_dwords % 4;
    const unsigned num_regs = comp_offset + comps;
@@ -858,7 +849,7 @@ emit_urb_indirect_reads(const fs_builder &bld, nir_intrinsic_instr *instr,
    fs_reg urb_handle = get_mesh_urb_handle(bld, instr->intrinsic);
 
    const unsigned base_in_dwords = nir_intrinsic_base(instr) +
-                                   nir_intrinsic_component(instr);
+                                   component_from_intrinsic(instr);
 
    for (unsigned c = 0; c < comps; c++) {
       for (unsigned q = 0; q < bld.dispatch_width() / 8; q++) {
@@ -943,10 +934,12 @@ fs_visitor::nir_emit_task_intrinsic(const fs_builder &bld,
 
    switch (instr->intrinsic) {
    case nir_intrinsic_store_output:
+   case nir_intrinsic_store_task_payload:
       emit_task_mesh_store(bld, instr);
       break;
 
    case nir_intrinsic_load_output:
+   case nir_intrinsic_load_task_payload:
       emit_task_mesh_load(bld, instr);
       break;
 
@@ -969,10 +962,10 @@ fs_visitor::nir_emit_mesh_intrinsic(const fs_builder &bld,
       emit_task_mesh_store(bld, instr);
       break;
 
-   case nir_intrinsic_load_input:
    case nir_intrinsic_load_per_vertex_output:
    case nir_intrinsic_load_per_primitive_output:
    case nir_intrinsic_load_output:
+   case nir_intrinsic_load_task_payload:
       emit_task_mesh_load(bld, instr);
       break;
 
