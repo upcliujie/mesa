@@ -78,23 +78,7 @@ type_size_scalar_dwords(const struct glsl_type *type, bool bindless)
 }
 
 static void
-brw_nir_lower_tue_outputs(nir_shader *nir, const brw_tue_map *map)
-{
-   nir_foreach_shader_out_variable(var, nir) {
-      assert(var->data.location == VARYING_SLOT_TASK_COUNT);
-      /* First word in TUE header. */
-      var->data.driver_location = 0;
-   }
-
-   nir_lower_io(nir, nir_var_shader_out, type_size_scalar_dwords,
-                nir_lower_io_lower_64bit_to_32);
-
-   nir_lower_explicit_io(nir, nir_var_mem_task_payload,
-                         nir_address_format_32bit_offset);
-}
-
-static void
-brw_compute_tue_map(struct nir_shader *nir, struct brw_tue_map *map)
+brw_nir_lower_tue_outputs(nir_shader *nir, brw_tue_map *map)
 {
    memset(map, 0, sizeof(*map));
 
@@ -104,8 +88,16 @@ brw_compute_tue_map(struct nir_shader *nir, struct brw_tue_map *map)
     *
     * - Words 1-3 used for "Dispatch Dimensions" feature, to allow mapping a
     *   3D dispatch into the 1D dispatch supported by HW.  Currently not used.
-    *
-    * From bspec: "It is suggested that SW reserve the 16 bytes following the
+    */
+   nir_foreach_shader_out_variable(var, nir) {
+      assert(var->data.location == VARYING_SLOT_TASK_COUNT);
+      var->data.driver_location = 0;
+   }
+
+   nir_lower_io(nir, nir_var_shader_out, type_size_scalar_dwords,
+                nir_lower_io_lower_64bit_to_32);
+
+   /* From bspec: "It is suggested that SW reserve the 16 bytes following the
     * TUE Header, and therefore start the SW-defined data structure at 32B
     * alignment.  This allows the TUE Header to always be written as 32 bytes
     * with 32B alignment, the most optimal write performance case."
@@ -118,6 +110,8 @@ brw_compute_tue_map(struct nir_shader *nir, struct brw_tue_map *map)
    nir->info.task_payload_size = map->per_task_data_start_dw * 4;
    nir_lower_vars_to_explicit_types(nir, nir_var_mem_task_payload,
                                     glsl_get_shared_size_align_bytes);
+   nir_lower_explicit_io(nir, nir_var_mem_task_payload,
+                         nir_address_format_32bit_offset);
 
    map->size_dw = ALIGN(DIV_ROUND_UP(nir->info.task_payload_size, 4), 8);
 }
@@ -148,7 +142,6 @@ brw_compile_task(const struct brw_compiler *compiler,
    prog_data->uses_drawid =
       BITSET_TEST(nir->info.system_values_read, SYSTEM_VALUE_DRAW_ID);
 
-   brw_compute_tue_map(nir, &prog_data->map);
    NIR_PASS_V(nir, brw_nir_lower_tue_outputs, &prog_data->map);
 
    const unsigned required_dispatch_width =
