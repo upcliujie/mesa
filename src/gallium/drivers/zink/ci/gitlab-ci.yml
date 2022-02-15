@@ -29,6 +29,9 @@ zink-piglit-no_timelines:
     - .zink-piglit-quick_gl
   script:
     - xvfb-run --server-args='-noreset' sh -c "ZINK_NO_TIMELINES=1 GALLIUM_DRIVER=zink VK_DRIVER=lvp install/piglit/piglit-runner.sh"
+  variables:
+    # this run is just to verify that no-timeline codepaths still work
+    PIGLIT_RUNNER_OPTIONS: "--timeout 180 -x '.*shader.*' -x '.*glsl.*' -x '.*transform.*' -x '.*blend.*' -x '.*texture.*"
 
 zink-lvp-deqp:
   extends:
