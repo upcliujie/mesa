@@ -133,6 +133,12 @@ struct dxil_spirv_vulkan_descriptor_set {
    struct dxil_spirv_vulkan_binding *bindings;
 };
 
+struct dxil_spirv_linking_info {
+   // Let the compiler know which varyings have been written by previous stages
+   uint64_t written_varyings;
+   uint64_t written_patch_varyings;
+};
+
 #define DXIL_SPIRV_MAX_VIEWPORT 16
 
 struct dxil_spirv_runtime_conf {
@@ -190,6 +196,7 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
               const char *entry_point_name,
               const struct dxil_spirv_debug_options *debug_options,
               const struct dxil_spirv_runtime_conf *conf,
+              struct dxil_spirv_linking_info *linking,
               struct dxil_spirv_object *out_dxil);
 
 /**

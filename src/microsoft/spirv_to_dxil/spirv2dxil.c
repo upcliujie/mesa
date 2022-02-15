@@ -143,7 +143,7 @@ main(int argc, char **argv)
    memset(&obj, 0, sizeof(obj));
    if (spirv_to_dxil((uint32_t *)file_contents, word_count, NULL, 0,
                      (dxil_spirv_shader_stage)shader_stage, entry_point,
-                     &dbg_opts, &conf, &obj)) {
+                     &dbg_opts, &conf, NULL, &obj)) {
 
       if (validate && !validate_dxil(&obj)) {
          fprintf(stderr, "Failed to validate DXIL\n");
