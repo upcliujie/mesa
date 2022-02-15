@@ -4042,6 +4042,12 @@ llvmpipe_set_shader_buffers(struct pipe_context *pipe,
 
       util_copy_shader_buffer(&llvmpipe->ssbos[shader][i], buffer);
 
+      if (buffer && buffer->buffer) {
+         boolean read_only = !(writable_bitmask & (1 << idx));
+         llvmpipe_flush_resource(pipe, buffer->buffer, 0, read_only, false,
+                                 false, "buffer");
+      }
+
       if (shader == PIPE_SHADER_VERTEX ||
           shader == PIPE_SHADER_GEOMETRY ||
           shader == PIPE_SHADER_TESS_CTRL ||
@@ -4078,6 +4084,12 @@ llvmpipe_set_shader_images(struct pipe_context *pipe,
       const struct pipe_image_view *image = images ? &images[idx] : NULL;
 
       util_copy_image_view(&llvmpipe->images[shader][i], image);
+
+      if (image && image->resource) {
+         bool read_only = !(image->access & PIPE_IMAGE_ACCESS_WRITE);
+         llvmpipe_flush_resource(pipe, image->resource, 0, read_only, false,
+                                 false, "image");
+      }
    }
 
    llvmpipe->num_images[shader] = start_slot + count;
