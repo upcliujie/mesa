@@ -1009,18 +1009,17 @@ can_use_attachment_initial_layout(struct vk_command_buffer *cmd_buffer,
 
    if (image_view->image->image_type == VK_IMAGE_TYPE_3D) {
       /* For 3D images, the view has to be the whole thing */
-      if (image_view->base_array_layer != 0 ||
-          image_view->layer_count != image_view->extent.depth)
+      if (image_view->base_array_layer != 0)
          return false;
-   }
 
-   if (pass->is_multiview) {
-      if (!util_is_power_of_two_or_zero(view_mask + 1) ||
-          util_last_bit(view_mask) != image_view->layer_count)
-         return false;
-   } else {
-      if (framebuffer->layers != image_view->layer_count)
-         return false;
+      if (pass->is_multiview) {
+         if (!util_is_power_of_two_or_zero(view_mask + 1) ||
+             util_last_bit(view_mask) != image_view->layer_count)
+            return false;
+      } else {
+         if (framebuffer->layers != image_view->layer_count)
+            return false;
+      }
    }
 
    /* Finally, check if the entire thing is undefined.  It's ok to smash the
