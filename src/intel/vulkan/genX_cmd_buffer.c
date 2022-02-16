@@ -6304,8 +6304,6 @@ void genX(CmdBeginRendering)(
                                           layers, render_area);
 
          if (att->imageLayout != initial_layout) {
-            assert(initial_layout == VK_IMAGE_LAYOUT_UNDEFINED);
-
             assert(!is_multiview ||
                    util_is_power_of_two_or_zero(pRenderingInfo->viewMask + 1));
 
@@ -6531,8 +6529,6 @@ void genX(CmdBeginRendering)(
                                       render_area);
 
          if (depth_layout != initial_depth_layout) {
-            assert(initial_depth_layout == VK_IMAGE_LAYOUT_UNDEFINED);
-
             assert(!is_multiview ||
                    util_is_power_of_two_or_zero(pRenderingInfo->viewMask + 1));
 
@@ -6550,8 +6546,6 @@ void genX(CmdBeginRendering)(
          }
 
          if (stencil_layout != initial_stencil_layout) {
-            assert(initial_stencil_layout == VK_IMAGE_LAYOUT_UNDEFINED);
-
             assert(!is_multiview ||
                    util_is_power_of_two_or_zero(pRenderingInfo->viewMask + 1));
 
