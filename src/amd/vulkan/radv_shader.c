@@ -2013,6 +2013,7 @@ radv_shader_compile(struct radv_device *device, struct vk_shader_module *module,
    options.remap_spi_ps_input = !radv_use_llvm_for_stage(device, stage);
    options.robust_buffer_access = device->robust_buffer_access;
    options.wgp_mode = radv_should_use_wgp_mode(device, stage, info);
+   options.inline_grid_size = device->inline_grid_size;
 
    return shader_compile(device, module, shaders, shader_count, stage, info, &options, false, false,
                          keep_shader_info, keep_statistic_info, binary_out);

@@ -8145,7 +8145,14 @@ visit_intrinsic(isel_context* ctx, nir_intrinsic_instr* instr)
    case nir_intrinsic_scoped_barrier: emit_scoped_barrier(ctx, instr); break;
    case nir_intrinsic_load_num_workgroups: {
       Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
-      bld.copy(Definition(dst), Operand(get_arg(ctx, ctx->args->ac.num_work_groups)));
+      Temp size = get_arg(ctx, ctx->args->ac.num_work_groups);
+      if (size.regClass() == s2) {
+         bld.pseudo(aco_opcode::p_create_vector, Definition(dst),
+                    bld.smem(aco_opcode::s_load_dwordx2, bld.def(s2), size, Operand::zero()),
+                    bld.smem(aco_opcode::s_load_dword, bld.def(s1), size, Operand::c32(8)));
+      } else {
+         bld.copy(Definition(dst), size);
+      }
       emit_split_vector(ctx, dst, 3);
       break;
    }

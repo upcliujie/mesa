@@ -823,6 +823,9 @@ struct radv_device {
     */
    bool adjust_frag_coord_z;
 
+   /* Whether to inline the compute dispatch size in user sgprs. */
+   bool inline_grid_size;
+
    /* Whether the driver uses a global BO list. */
    bool use_global_bo_list;
 
