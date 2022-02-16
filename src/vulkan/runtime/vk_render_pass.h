@@ -52,9 +52,11 @@ typedef struct VkRenderingSelfDependencyInfoMESA {
  *
  *    2. VkRenderingInfo::renderArea is tne entire image view LOD
  *
- *    3. VkRenderingInfo::viewMask == 0 AND VkRenderingInfo::layerCount
- *       references the entire bound image view OR VkRenderingInfo::viewMask
- *       is dense (no holes) and references the entire bound image view.
+ *    3. For 3D image attachments, VkRenderingInfo::viewMask == 0 AND
+ *       VkRenderingInfo::layerCount references the entire bound image view
+ *       OR VkRenderingInfo::viewMask is dense (no holes) and references the
+ *       entire bound image view.  (2D and 2D array images have no such
+ *       requirement.)
  *
  * The only allowed value for initialLayout is VK_IMAGE_LAYOUT_UNDEFINED.
  */
