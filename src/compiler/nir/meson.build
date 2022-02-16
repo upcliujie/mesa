@@ -62,7 +62,7 @@ nir_opt_algebraic_c = custom_target(
   output : 'nir_opt_algebraic.c',
   command : [prog_python, '@INPUT@'],
   capture : true,
-  depend_files : files('nir_algebraic.py'),
+  depend_files : files('nir_algebraic.py', 'nir_opcodes.py'),
 )
 
 nir_intrinsics_h = custom_target(
