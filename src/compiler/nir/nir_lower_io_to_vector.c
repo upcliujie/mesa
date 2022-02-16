@@ -418,9 +418,6 @@ nir_lower_io_to_vector_impl(nir_function_impl *impl, nir_variable_mode modes)
    bool flat_outputs[MAX_SLOTS] = {0};
 
    if (modes & nir_var_shader_in) {
-      /* Vertex shaders support overlapping inputs.  We don't do those */
-      assert(b.shader->info.stage != MESA_SHADER_VERTEX);
-
       /* If we don't actually merge any variables, remove that bit from modes
        * so we don't bother doing extra non-work.
        */
