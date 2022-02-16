@@ -111,11 +111,11 @@ lower_memcpy_impl(nir_function_impl *impl)
             uint64_t size = nir_src_as_uint(cpy->src[2]);
             uint64_t offset = 0;
             while (offset < size) {
-               uint64_t remaining = offset - size;
+               uint64_t remaining = size - offset;
                /* For our chunk size, we choose the largest power-of-two that
                 * divides size with a maximum of 16B (a vec4).
                 */
-               unsigned copy_size = 1u << MIN2(ffsll(remaining) - 1, 4);
+               unsigned copy_size = 1u << MIN2(util_last_bit64(remaining) - 1, 4);
                const struct glsl_type *copy_type =
                   copy_type_for_byte_size(copy_size);
 
