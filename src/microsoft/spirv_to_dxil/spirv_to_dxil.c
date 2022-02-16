@@ -714,6 +714,10 @@ spirv_to_dxil(const uint32_t *words, size_t word_count,
    nir_validate_shader(nir,
                        "Validate before feeding NIR to the DXIL compiler");
 
+   NIR_PASS_V(nir, nir_lower_io_to_vector, nir_var_shader_out | nir_var_shader_in);
+   NIR_PASS_V(nir, nir_opt_combine_stores, nir_var_shader_out);
+   NIR_PASS_V(nir, nir_remove_dead_derefs);
+
    // We have to lower away local variable initializers right before we
    // inline functions. That way they get properly initialized at the top
    // of the function and not at the top of its caller.
