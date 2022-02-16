@@ -225,6 +225,10 @@ glsl_to_nir(const struct gl_constants *consts,
    v2.run(sh->ir);
    visit_exec_list(sh->ir, &v1);
 
+   /* The GLSL IR won't be needed anymore. */
+   ralloc_free(sh->ir);
+   sh->ir = NULL;
+
    nir_validate_shader(shader, "after glsl to nir, before function inline");
 
    nir_opt_copy_prop_vars(shader);
