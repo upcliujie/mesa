@@ -43,6 +43,28 @@ typedef struct VkRenderingSelfDependencyInfoMESA {
     VkBool32           stencilSelfDependency;
 } VkRenderingSelfDependencyInfoMESA;
 
+/**
+ * Pseudo-extension struct that may be chained into VkRenderingAttachmentInfo
+ * to indicate an initial layout for the attachment.  This is only allowed if
+ * all of the following conditions are met:
+ *
+ *    1. VkRenderingAttachmentInfo::loadOp == LOAD_OP_CLEAR
+ *
+ *    2. VkRenderingInfo::renderArea is tne entire image view LOD
+ *
+ *    3. For 3D image attachments, VkRenderingInfo::viewMask == 0 AND
+ *       VkRenderingInfo::layerCount references the entire bound image view
+ *       OR VkRenderingInfo::viewMask is dense (no holes) and references the
+ *       entire bound image view.  (2D and 2D array images have no such
+ *       requirement.)
+ */
+typedef struct VkRenderingAttachmentInitialLayoutInfoMESA {
+    VkStructureType    sType;
+#define VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INITIAL_LAYOUT_INFO_MESA (VkStructureType)1000044901
+    const void*        pNext;
+    VkImageLayout      initialLayout;
+} VkRenderingAttachmentInitialLayoutInfoMESA;
+
 struct vk_subpass_attachment {
    uint32_t attachment;
    VkImageAspectFlags aspects;
