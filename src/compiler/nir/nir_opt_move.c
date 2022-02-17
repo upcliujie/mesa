@@ -51,6 +51,18 @@
  * lower register pressure.
  */
 
+static ALWAYS_INLINE bool
+src_is_ssa_cb(nir_src *src, void *state)
+{
+   return src->is_ssa;
+}
+
+static ALWAYS_INLINE bool
+instr_reads_register(nir_instr *instr)
+{
+   return !nir_foreach_src(instr, src_is_ssa_cb, NULL);
+}
+
 static bool
 nir_opt_move_block(nir_block *block, nir_move_options options)
 {
@@ -73,6 +85,12 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
 
       /* Check if this instruction can be moved downwards */
       if (!nir_can_move_instr(instr, options))
+         continue;
+
+      /* We only move SSA defs and we can't move any register use because
+       * that might move it past a def.
+       */
+      if (!nir_instr_def_is_ssa(instr) || instr_reads_register(instr))
          continue;
 
       /* Check all users in this block which is the first */
