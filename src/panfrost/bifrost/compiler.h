@@ -493,7 +493,7 @@ typedef struct {
                 };
 
                 /* Maximum size, for hashing */
-                unsigned flags[9];
+                unsigned flags[10];
 
                 struct {
                         enum bi_subgroup subgroup; /* WMASK, CLPER */
