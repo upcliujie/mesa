@@ -486,6 +486,19 @@ tu_autotune_use_bypass(struct tu_autotune *at,
    if (!at->enabled || !one_time_submit)
       return fallback_use_bypass(pass, framebuffer, cmd_buffer);
 
+   for (unsigned i = 0; i < pass->subpass_count; i++) {
+      const struct tu_subpass *subpass = &pass->subpasses[i];
+      /* GMEM works much faster in this case */
+      if (subpass->raster_order_attachment_access)
+         return false;
+
+      /* Would be very slow in sysmem mode because we have to enable
+       * SINGLE_PRIM_MODE(FLUSH_PER_OVERLAP_AND_OVERWRITE)
+       */
+      if (subpass->feedback)
+         return false;
+   }
+
    /* We use 64bit hash as a key since we don't fear rare hash collision,
     * the worst that would happen is sysmem being selected when it should
     * have not, and with 64bit it would be extremely rare.
