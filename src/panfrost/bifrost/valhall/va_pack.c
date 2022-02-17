@@ -648,9 +648,14 @@ va_pack_instr(const bi_instr *I, unsigned action, bool blend_shader)
       assert(I->va_lod_mode < 8);
       hex |= ((uint64_t) va_pack_lod_mode(I->va_lod_mode)) << 13;
 
-      /* Staging register #1 - output */
+      /* Staging register write */
       hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
-      hex |= (0xC0ull << 16); // flags
+
+      /* Write mask */
+      hex |= (0xF << 22);
+
+      /* Register type */
+      hex |= ((uint64_t) va_pack_register_type(I->register_format)) << 26;
 
       /* Dimension */
       hex |= ((uint64_t) I->dimension) << 28;
