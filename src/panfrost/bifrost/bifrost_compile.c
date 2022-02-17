@@ -3235,8 +3235,15 @@ bi_emit_tex_valhall(bi_builder *b, nir_tex_instr *instr)
         image_src = bi_lshift_or_i32(b, image_src, sampler, bi_imm_u8(0));
         image_src = bi_lshift_or_i32(b, image_src, texture, bi_imm_u8(0));
 
-        bi_tex_to(b, bi_dest_index(&instr->dest), idx, image_src,
+        bi_index resource_descriptor = bi_temp_reg(b->shader);
+        bi_index words[] = { image_src, bi_zero() };
+        bi_make_vec_to(b, resource_descriptor, words, NULL, 2, 32);
+
+        bi_tex_single_to(b, bi_dest_index(&instr->dest), idx, resource_descriptor,
+                        bi_word(resource_descriptor, 1),
+                  instr->is_array,
                   valhall_tex_dimension(instr->sampler_dim),
+                  bi_reg_fmt_for_nir(instr->dest_type),
                   explicit_offset, instr->is_shadow, lod_mode, sr_count);
 }
 
