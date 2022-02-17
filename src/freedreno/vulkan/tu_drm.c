@@ -218,7 +218,6 @@ tu_bo_init(struct tu_device *dev,
       .handle = gem_handle,
       .presumed = iova,
    };
-   mtx_unlock(&dev->bo_mutex);
 
    *bo = (struct tu_bo) {
       .gem_handle = gem_handle,
@@ -227,6 +226,8 @@ tu_bo_init(struct tu_device *dev,
       .refcnt = 1,
       .bo_list_idx = idx,
    };
+
+   mtx_unlock(&dev->bo_mutex);
 
    return VK_SUCCESS;
 
