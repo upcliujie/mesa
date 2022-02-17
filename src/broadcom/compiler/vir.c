@@ -1516,6 +1516,24 @@ v3d_attempt_compile(struct v3d_compile *c)
 
         v3d_optimize_nir(c, c->s);
 
+        const unsigned lower_flrp =
+                (c->s->options->lower_flrp16 ? 16 : 0) |
+                (c->s->options->lower_flrp32 ? 32 : 0) |
+                (c->s->options->lower_flrp64 ? 64 : 0);
+        if (!c->s->info.flrp_lowered && lower_flrp != 0) {
+           bool lower_flrp_progress = false;
+
+           NIR_PASS(lower_flrp_progress, c->s, nir_lower_flrp, lower_flrp,
+                    false /* always_precise */);
+           if (lower_flrp_progress)
+              NIR_PASS_V(c->s, nir_opt_constant_folding);
+
+           /* Nothing should rematerialize any flrps, so we only need to do
+            * this lowering once.
+            */
+           c->s->info.flrp_lowered = true;
+        }
+
         /* Do late algebraic optimization to turn add(a, neg(b)) back into
          * subs, then the mandatory cleanup after algebraic.  Note that it may
          * produce fnegs, and if so then we need to keep running to squash
@@ -1617,7 +1635,7 @@ int v3d_shaderdb_dump(struct v3d_compile *c,
  * register allocation to any particular thread count). This is fine
  * because v3d_nir_to_vir will cap this to the actual minimum.
  */
-struct v3d_compiler_strategy {
+static struct v3d_compiler_strategy {
         const char *name;
         uint32_t max_threads;
         uint32_t min_threads;
@@ -1625,7 +1643,7 @@ struct v3d_compiler_strategy {
         bool disable_ubo_load_sorting;
         bool disable_tmu_pipelining;
         bool tmu_spilling_allowed;
-} static const strategies[] = {
+} const strategies[] = {
   /*0*/ { "default",                        4, 4, false, false, false, false },
   /*1*/ { "disable loop unrolling",         4, 4, true,  false, false, false },
   /*2*/ { "disable UBO load sorting",       4, 4, true,  true,  false, false },

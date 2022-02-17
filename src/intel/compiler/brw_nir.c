@@ -526,10 +526,6 @@ brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
                  bool is_scalar, bool allow_copies)
 {
    bool progress;
-   unsigned lower_flrp =
-      (nir->options->lower_flrp16 ? 16 : 0) |
-      (nir->options->lower_flrp32 ? 32 : 0) |
-      (nir->options->lower_flrp64 ? 64 : 0);
 
    do {
       progress = false;
@@ -596,19 +592,6 @@ brw_nir_optimize(nir_shader *nir, const struct brw_compiler *compiler,
       OPT(nir_opt_idiv_const, 32);
       OPT(nir_opt_algebraic);
       OPT(nir_opt_constant_folding);
-
-      if (lower_flrp != 0) {
-         if (OPT(nir_lower_flrp,
-                 lower_flrp,
-                 false /* always_precise */)) {
-            OPT(nir_opt_constant_folding);
-         }
-
-         /* Nothing should rematerialize any flrps, so we only need to do this
-          * lowering once.
-          */
-         lower_flrp = 0;
-      }
 
       OPT(nir_opt_dead_cf);
       if (OPT(nir_opt_trivial_continues)) {
@@ -837,6 +820,21 @@ brw_preprocess_nir(const struct brw_compiler *compiler, nir_shader *nir,
    OPT(nir_split_struct_vars, nir_var_function_temp);
 
    brw_nir_optimize(nir, compiler, is_scalar, true);
+
+   const unsigned lower_flrp =
+      (nir->options->lower_flrp16 ? 16 : 0) |
+      (nir->options->lower_flrp32 ? 32 : 0) |
+      (nir->options->lower_flrp64 ? 64 : 0);
+
+   if (!nir->info.flrp_lowered && lower_flrp != 0) {
+      if (OPT(nir_lower_flrp, lower_flrp, false /* always_precise */))
+         OPT(nir_opt_constant_folding);
+
+      /* Nothing should rematerialize any flrps, so we only need to do this
+       * lowering once.
+       */
+      nir->info.flrp_lowered = true;
+   }
 
    OPT(nir_lower_doubles, softfp64, nir->options->lower_doubles_options);
    OPT(nir_lower_int64);
