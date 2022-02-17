@@ -75,6 +75,9 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
       if (!nir_can_move_instr(instr, options))
          continue;
 
+      if (!nir_instr_def_is_ssa(instr))
+         continue;
+
       /* Check all users in this block which is the first */
       const nir_ssa_def *def = nir_instr_ssa_def(instr);
       nir_instr *first_user = instr == if_cond_instr ? NULL : last_instr;
