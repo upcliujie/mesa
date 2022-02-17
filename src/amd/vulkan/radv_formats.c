@@ -1563,6 +1563,32 @@ radv_get_image_format_properties(struct radv_physical_device *physical_device,
       goto unsupported;
    }
 
+   if (info->flags & VK_IMAGE_CREATE_EXTENDED_USAGE_BIT) {
+      if ((info->usage & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                          VK_IMAGE_USAGE_SAMPLED_BIT |
+                          VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) &&
+          vk_format_get_blocksizebits(format) == 64 &&
+          vk_format_is_int(format)) {
+         /* VK_FORMAT_R64_{UINT,SINT} are compatibles with eg. VK_FORMAT_R16G16B16A16_UNORM which is
+          * supported as a color/input attachment and sampled format.
+          */
+         format_feature_flags |= VK_FORMAT_FEATURE_2_COLOR_ATTACHMENT_BIT_KHR |
+                                 VK_FORMAT_FEATURE_2_DEPTH_STENCIL_ATTACHMENT_BIT_KHR |
+                                 VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT_KHR;
+      }
+
+      if ((info->usage & VK_IMAGE_USAGE_STORAGE_BIT) &&
+           (vk_format_get_blocksizebits(format) == 8 ||
+            vk_format_get_blocksizebits(format) == 16 ||
+            vk_format_get_blocksizebits(format) == 32) &&
+           vk_format_is_srgb(format)) {
+         /* VK_FORMAT_{R8,R8G8,R8G8B8A8}_SRGB are compatibles with
+          * VK_FORMAT_{R8,R8G8,R8G8B8A8}_UNORM which are supported as storage images.
+          */
+         format_feature_flags |= VK_FORMAT_FEATURE_2_STORAGE_IMAGE_BIT_KHR;
+      }
+   }
+
    if (info->usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
       if (!(format_feature_flags & VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT_KHR)) {
          goto unsupported;
