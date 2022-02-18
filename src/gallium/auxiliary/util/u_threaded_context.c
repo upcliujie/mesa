@@ -692,7 +692,9 @@ threaded_resource_init(struct pipe_resource *res, bool allow_cpu_storage,
        /* We need buffer invalidation and buffer busyness tracking for the CPU
         * storage, which aren't supported with pipe_vertex_state. */
        !(res->bind & PIPE_BIND_VERTEX_STATE))
-      tres->cpu_storage = align_malloc(res->width0, map_buffer_alignment);
+      tres->map_buffer_alignment = map_buffer_alignment;
+   else
+      tres->map_buffer_alignment = 0;
 }
 
 void
@@ -2173,7 +2175,7 @@ tc_buffer_map(struct pipe_context *_pipe,
    usage = tc_improve_map_buffer_flags(tc, tres, usage, box->x, box->width);
 
    /* If the CPU storage is enabled, return it directly. */
-   if (tres->cpu_storage && !(usage & TC_TRANSFER_MAP_UPLOAD_CPU_STORAGE)) {
+   if (tres->map_buffer_alignment && !(usage & TC_TRANSFER_MAP_UPLOAD_CPU_STORAGE)) {
       /* We can't let resource_copy_region disable the CPU storage. */
       assert(!(tres->b.flags & PIPE_RESOURCE_FLAG_DONT_MAP_DIRECTLY));
 
@@ -2189,6 +2191,9 @@ tc_buffer_map(struct pipe_context *_pipe,
       ttrans->valid_buffer_range = &tres->valid_buffer_range;
       ttrans->cpu_storage_mapped = true;
       *transfer = &ttrans->b;
+
+      if (!tres->cpu_storage)
+         tres->cpu_storage = align_malloc(resource->width0, tres->map_buffer_alignment);
 
       return (uint8_t*)tres->cpu_storage + box->x;
    }

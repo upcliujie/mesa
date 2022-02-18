@@ -328,6 +328,10 @@ struct threaded_resource {
     * the GPU storage completely and reupload everything without copy_buffer.
     */
    void *cpu_storage;
+   /* If map_buffer_alignment is 0, cpu_storage is disabled. Otherwise this is used
+    * to align cpu_storage's allocation size.
+    */
+   unsigned map_buffer_alignment;
 
    /* The buffer range which is initialized (with a write transfer, streamout,
     * or writable shader resources). The remainder of the buffer is considered
@@ -344,7 +348,7 @@ struct threaded_resource {
 
    /* Drivers are required to update this for shared resources and user
     * pointers. */
-   bool	is_shared;
+   bool is_shared;
    bool is_user_ptr;
 
    /* Unique buffer ID. Drivers must set it to non-zero for buffers and it must
@@ -613,6 +617,7 @@ tc_buffer_disable_cpu_storage(struct pipe_resource *buf)
       align_free(tres->cpu_storage);
       tres->cpu_storage = NULL;
    }
+   tres->map_buffer_alignment = 0;
 }
 
 static inline void
