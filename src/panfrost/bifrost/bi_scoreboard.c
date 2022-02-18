@@ -65,6 +65,10 @@
 static bool
 bi_should_serialize(bi_instr *I)
 {
+        /* For debug, serialize everything to disable scoreboard opts */
+        if (bifrost_debug & BIFROST_DBG_NOSB)
+                return true;
+
         switch (bi_opcode_props[I->op].message) {
         case BIFROST_MESSAGE_VARYING:
         case BIFROST_MESSAGE_LOAD:
