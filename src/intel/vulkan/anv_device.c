@@ -632,6 +632,7 @@ anv_physical_device_free_disk_cache(struct anv_physical_device *device)
  *  * "gc" is for graphics queues with compute support
  *  * "g" is for graphics queues with no compute support
  *  * "c" is for compute queues with no graphics support
+ *  * "t" is for transfer queues with no compute/graphics support
  *
  * For example, ANV_QUEUE_OVERRIDE=gc=2,c=1 would override the number of
  * advertised queues to be 2 queues with graphics+compute support, and 1 queue
@@ -646,11 +647,12 @@ anv_physical_device_free_disk_cache(struct anv_physical_device *device)
  * number of graphics+compute queues to be 0.
  */
 static void
-anv_override_engine_counts(int *gc_count, int *g_count, int *c_count)
+anv_override_engine_counts(int *gc_count, int *g_count, int *c_count, int *t_count)
 {
    int gc_override = -1;
    int g_override = -1;
    int c_override = -1;
+   int t_override = -1;
    char *env = getenv("ANV_QUEUE_OVERRIDE");
 
    if (env == NULL)
@@ -666,6 +668,8 @@ anv_override_engine_counts(int *gc_count, int *g_count, int *c_count)
          g_override = strtol(next + 2, NULL, 0);
       } else if (strncmp(next, "c=", 2) == 0) {
          c_override = strtol(next + 2, NULL, 0);
+      } else if (strncmp(next, "t=", 2) == 0) {
+         t_override = strtol(next + 2, NULL, 0);
       } else {
          mesa_logw("Ignoring unsupported ANV_QUEUE_OVERRIDE token: %s", next);
       }
@@ -681,6 +685,8 @@ anv_override_engine_counts(int *gc_count, int *g_count, int *c_count)
                 "Vulkan specification");
    if (c_override >= 0)
       *c_count = c_override;
+   if (t_override >= 0)
+      *t_count = t_override;
 }
 
 static void
@@ -694,8 +700,9 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
                                  I915_ENGINE_CLASS_RENDER);
       int g_count = 0;
       int c_count = 0;
+      int t_count = 0;
 
-      anv_override_engine_counts(&gc_count, &g_count, &c_count);
+      anv_override_engine_counts(&gc_count, &g_count, &c_count, &t_count);
 
       if (gc_count > 0) {
          pdevice->queue.families[family_count++] = (struct anv_queue_family) {
@@ -719,6 +726,13 @@ anv_physical_device_init_queue_families(struct anv_physical_device *pdevice)
             .queueFlags = VK_QUEUE_COMPUTE_BIT |
                           VK_QUEUE_TRANSFER_BIT,
             .queueCount = c_count,
+            .engine_class = I915_ENGINE_CLASS_RENDER,
+         };
+      }
+      if (t_count > 0) {
+         pdevice->queue.families[family_count++] = (struct anv_queue_family) {
+            .queueFlags = VK_QUEUE_TRANSFER_BIT,
+            .queueCount = t_count,
             .engine_class = I915_ENGINE_CLASS_RENDER,
          };
       }

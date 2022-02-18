@@ -137,8 +137,7 @@ static void
 anv_blorp_batch_init(struct anv_cmd_buffer *cmd_buffer,
                      struct blorp_batch *batch, enum blorp_batch_flags flags)
 {
-   if (!(cmd_buffer->queue_family->queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
-      assert(cmd_buffer->queue_family->queueFlags & VK_QUEUE_COMPUTE_BIT);
+   if (cmd_buffer->queue_family->engine_class == I915_ENGINE_CLASS_COMPUTE) {
       flags |= BLORP_BATCH_USE_COMPUTE;
    }
 

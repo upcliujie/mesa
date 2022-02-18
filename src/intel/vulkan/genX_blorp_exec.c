@@ -279,7 +279,7 @@ blorp_exec_on_render(struct blorp_batch *batch,
    assert((batch->flags & BLORP_BATCH_USE_COMPUTE) == 0);
 
    struct anv_cmd_buffer *cmd_buffer = batch->driver_batch;
-   assert(cmd_buffer->queue_family->queueFlags & VK_QUEUE_GRAPHICS_BIT);
+   assert(cmd_buffer->queue_family->engine_class == I915_ENGINE_CLASS_RENDER);
 
    const unsigned scale = params->fast_clear_op ? UINT_MAX : 1;
    genX(cmd_buffer_emit_hashing_mode)(cmd_buffer, params->x1 - params->x0,
@@ -363,7 +363,8 @@ blorp_exec_on_compute(struct blorp_batch *batch,
    assert(batch->flags & BLORP_BATCH_USE_COMPUTE);
 
    struct anv_cmd_buffer *cmd_buffer = batch->driver_batch;
-   assert(cmd_buffer->queue_family->queueFlags & VK_QUEUE_COMPUTE_BIT);
+   assert(cmd_buffer->queue_family->queueFlags & (VK_QUEUE_COMPUTE_BIT |
+                                                  VK_QUEUE_TRANFER_BIT));
 
    genX(flush_pipeline_select_gpgpu)(cmd_buffer);
 
