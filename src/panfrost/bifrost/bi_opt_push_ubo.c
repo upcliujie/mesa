@@ -204,6 +204,21 @@ bi_find_component(adjacency_row *adjacency, BITSET_WORD *visited,
         }
 }
 
+static bool
+bi_is_uniform(bi_index idx)
+{
+        return (idx.type == BI_INDEX_FAU) && (idx.value & BIR_FAU_UNIFORM);
+}
+
+static unsigned
+bi_uniform_word(bi_index idx)
+{
+        assert(bi_is_uniform(idx));
+        assert(idx.offset <= 1);
+
+        return ((idx.value & ~BIR_FAU_UNIFORM) << 1) | idx.offset;
+}
+
 void
 bi_opt_reorder_push(bi_context *ctx)
 {
@@ -219,13 +234,8 @@ bi_opt_reorder_push(bi_context *ctx)
                 unsigned node_count = 0;
 
                 bi_foreach_src(I, s) {
-                        bi_index src = I->src[s];
-                        if (src.type == BI_INDEX_FAU && src.value & BIR_FAU_UNIFORM) {
-                                unsigned node = ((src.value & ~BIR_FAU_UNIFORM) << 1) + src.offset;
-                                assert(node < PAN_MAX_PUSH);
-
-                                nodes[node_count++] = node;
-                        }
+                        if (bi_is_uniform(I->src[s]))
+                                nodes[node_count++] = bi_uniform_word(I->src[s]);
                 }
 
                 for (unsigned i = 0; i < node_count; ++i) {
@@ -274,9 +284,8 @@ bi_opt_reorder_push(bi_context *ctx)
         /* Use new ordering throughout the program */
         bi_foreach_instr_global(ctx, I) {
                 bi_foreach_src(I, s) {
-                        bi_index src = I->src[s];
-                        if (src.type == BI_INDEX_FAU && src.value & BIR_FAU_UNIFORM) {
-                                unsigned node = ((src.value & ~BIR_FAU_UNIFORM) << 1) + src.offset;
+                        if (bi_is_uniform(I->src[s])) {
+                                unsigned node = bi_uniform_word(I->src[s]);
                                 unsigned new_node = old_to_new[node];
                                 I->src[s].value = BIR_FAU_UNIFORM | (new_node >> 1);
                                 I->src[s].offset = new_node & 1;
