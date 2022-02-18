@@ -68,12 +68,16 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
     * the original order is kept.
     */
    unsigned index =  1;
+   unsigned last_reg_def_index = 0;
    nir_foreach_instr_reverse_safe(instr, block) {
       instr->index = index++;
 
       /* Check if this instruction can be moved downwards */
       if (!nir_can_move_instr(instr, options))
          continue;
+
+      /* We need to be careful not to move register uses around register defs */
+      const bool is_reg_def = nir_instr_def_is_not_ssa(instr);
 
       /* Check all users in this block which is the first */
       const nir_ssa_def *def = nir_instr_ssa_def(instr);
@@ -95,19 +99,28 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
          if (nir_instr_prev(first_user) == instr)
             continue;
 
+         if (last_reg_def_index > 0 && first_user->index < last_reg_def_index)
+            continue;
+
          /* Insert the instruction before it's first user */
          exec_node_remove(&instr->node);
          instr->index = first_user->index;
+         if (is_reg_def)
+            last_reg_def_index = instr->index;
          exec_node_insert_node_before(&first_user->node, &instr->node);
          progress = true;
          continue;
       }
 
       /* No user was found in this block:
-       * This instruction will be moved to the end of the block.
+       * This instruction will be moved to the end of the block if it is not
+       * a register write.
        */
       assert(nir_block_last_instr(block)->type != nir_instr_type_jump);
       if (instr == nir_block_last_instr(block))
+         continue;
+
+      if (is_reg_def)
          continue;
 
       exec_node_remove(&instr->node);
