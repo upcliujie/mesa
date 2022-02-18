@@ -273,6 +273,9 @@ struct tu_pipeline_builder
    VkFormat depth_attachment_format;
    uint32_t render_components;
    uint32_t multiview_mask;
+
+   bool subpass_raster_order_attachment_access;
+   bool subpass_feedback_loop;
 };
 
 static bool
@@ -3059,6 +3062,13 @@ tu_pipeline_builder_parse_depth_stencil(struct tu_pipeline_builder *builder,
          pipeline->lrz.force_disable_mask = TU_LRZ_FORCE_DISABLE_LRZ;
       }
    }
+
+   if (ds_info->flags &
+       (VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_ARM |
+        VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_ARM)) {
+      pipeline->raster_order_attachment_access = true;
+      pipeline->ds_raster_order_attachment_access = true;
+   }
 }
 
 static void
@@ -3090,6 +3100,14 @@ tu_pipeline_builder_parse_multisample_and_color_blend(
    const VkPipelineColorBlendStateCreateInfo *blend_info =
       builder->use_color_attachments ? builder->create_info->pColorBlendState
                                      : &dummy_blend_info;
+
+   pipeline->raster_order_attachment_access =
+      blend_info->flags &
+      VK_PIPELINE_COLOR_BLEND_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_BIT_ARM;
+
+   pipeline->subpass_raster_order_attachment_access =
+      builder->subpass_raster_order_attachment_access;
+   pipeline->subpass_feedback = builder->subpass_feedback_loop;
 
    struct tu_cs cs;
    pipeline->blend_state =
@@ -3286,6 +3304,10 @@ tu_pipeline_builder_init_graphics(
       tu_render_pass_from_handle(create_info->renderPass);
    const struct tu_subpass *subpass =
       &pass->subpasses[create_info->subpass];
+
+   builder->subpass_raster_order_attachment_access =
+      subpass->raster_order_attachment_access;
+   builder->subpass_feedback_loop = subpass->feedback;
 
    builder->multiview_mask = subpass->multiview_mask;
 

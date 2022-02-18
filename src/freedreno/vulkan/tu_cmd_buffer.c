@@ -265,6 +265,64 @@ tu6_emit_zs(struct tu_cmd_buffer *cmd,
 }
 
 static void
+tu6_emit_gras_sc_cntl(struct tu_cs *cs,
+                      bool pipeline_rast_order,
+                      bool subpass_rast_order,
+                      bool subpass_feedback)
+{
+   /* Couldn't be emitted as a draw state since it contains COND_EXEC */
+
+   if (!subpass_rast_order || !pipeline_rast_order) {
+      tu_cs_emit_write_reg(cs, REG_A6XX_GRAS_SC_CNTL,
+                           A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2));
+      /* If there is a feedback loop, then the shader can read the previous value
+       * of a pixel being written out. It can also write some components and then
+       * read different components without a barrier in between. This is a
+       * problem in sysmem mode with UBWC, because the main buffer and flags
+       * buffer can get out-of-sync if only one is flushed. We fix this by
+       * setting the SINGLE_PRIM_MODE field to the same value that the blob does
+       * for advanced_blend in sysmem mode if a feedback loop is detected.
+       */
+      if (subpass_feedback) {
+         tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_SYSMEM);
+         tu_cs_emit_write_reg(cs, REG_A6XX_GRAS_SC_CNTL,
+                              A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2) |
+                              A6XX_GRAS_SC_CNTL_SINGLE_PRIM_MODE(
+                                 FLUSH_PER_OVERLAP_AND_OVERWRITE));
+         tu_cond_exec_end(cs);
+      }
+
+      return;
+   }
+
+   /* VK_ARM_rasterization_order_attachment_access:
+    *
+    * This extension allow access to framebuffer attachments when used as
+    * both input and color attachments from one fragment to the next,
+    * in rasterization order, without explicit synchronization.
+    *
+    * We update reg on every pipeline bind instead of doing it
+    * once at subpass start since ordered and non-ordered pipelines
+    * could be mixed inside one renderpass.
+    */
+   if (pipeline_rast_order) {
+      tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_SYSMEM);
+      tu_cs_emit_write_reg(cs, REG_A6XX_GRAS_SC_CNTL,
+                           A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2) |
+                           A6XX_GRAS_SC_CNTL_SINGLE_PRIM_MODE(
+                              FLUSH_PER_OVERLAP_AND_OVERWRITE));
+      tu_cond_exec_end(cs);
+
+      tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_GMEM);
+      tu_cs_emit_write_reg(cs, REG_A6XX_GRAS_SC_CNTL,
+                           A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2) |
+                           A6XX_GRAS_SC_CNTL_SINGLE_PRIM_MODE(
+                              FLUSH_PER_OVERLAP));
+      tu_cond_exec_end(cs);
+   }
+}
+
+static void
 tu6_emit_mrt(struct tu_cmd_buffer *cmd,
              const struct tu_subpass *subpass,
              struct tu_cs *cs)
@@ -305,24 +363,10 @@ tu6_emit_mrt(struct tu_cmd_buffer *cmd,
    unsigned layers = MAX2(fb->layers, util_logbase2(subpass->multiview_mask) + 1);
    tu_cs_emit_regs(cs, A6XX_GRAS_MAX_LAYER_INDEX(layers - 1));
 
-   tu_cs_emit_write_reg(cs, REG_A6XX_GRAS_SC_CNTL,
-                        A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2));
-
-   /* If there is a feedback loop, then the shader can read the previous value
-    * of a pixel being written out. It can also write some components and then
-    * read different components without a barrier in between. This is a
-    * problem in sysmem mode with UBWC, because the main buffer and flags
-    * buffer can get out-of-sync if only one is flushed. We fix this by
-    * setting the SINGLE_PRIM_MODE field to the same value that the blob does
-    * for advanced_blend in sysmem mode if a feedback loop is detected.
-    */
-   if (subpass->feedback) {
-      tu_cond_exec_start(cs, CP_COND_EXEC_0_RENDER_MODE_SYSMEM);
-      tu_cs_emit_write_reg(cs, REG_A6XX_GRAS_SC_CNTL,
-                           A6XX_GRAS_SC_CNTL_CCUSINGLECACHELINESIZE(2) |
-                           A6XX_GRAS_SC_CNTL_SINGLE_PRIM_MODE(
-                              FLUSH_PER_OVERLAP_AND_OVERWRITE));
-      tu_cond_exec_end(cs);
+   if (!subpass->raster_order_attachment_access) {
+      tu6_emit_gras_sc_cntl(cs, false,
+                            subpass->raster_order_attachment_access,
+                            subpass->feedback);
    }
 }
 
@@ -2323,6 +2367,12 @@ tu_CmdBindPipeline(VkCommandBuffer commandBuffer,
 
    struct tu_cs *cs = &cmd->draw_cs;
 
+   if (pipeline->subpass_raster_order_attachment_access) {
+      tu6_emit_gras_sc_cntl(cs, pipeline->raster_order_attachment_access,
+                            pipeline->subpass_raster_order_attachment_access,
+                            pipeline->subpass_feedback);
+   }
+
    /* note: this also avoids emitting draw states before renderpass clears,
     * which may use the 3D clear path (for MSAA cases)
     */
@@ -3885,6 +3935,16 @@ tu6_build_depth_plane_z_mode(struct tu_cmd_buffer *cmd)
    }
 
    if (cmd->state.pipeline->lrz.force_late_z || !depth_test_enable)
+      zmode = A6XX_LATE_Z;
+
+   /* When user reads depth or stencil input attachment they don't expect
+    * to read a value written by the current shader invocation,
+    * which would happen if we enable early Z. Per spec Depth/Stencil
+    * test comes after shader invocation per spec.
+    */
+   if ((depth_write || stencil_write) &&
+       (cmd->state.pipeline->ds_raster_order_attachment_access ||
+        cmd->state.pipeline->subpass_feedback))
       zmode = A6XX_LATE_Z;
 
    /* User defined early tests take precedence above all else */
