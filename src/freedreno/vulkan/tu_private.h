@@ -1357,6 +1357,11 @@ struct tu_pipeline
 
    struct tu_lrz_pipeline lrz;
 
+   /* In other words - framebuffer fetch support */
+   bool raster_order_attachment_access;
+   bool subpass_raster_order_attachment_access;
+   bool subpass_feedback;
+
    /* Base drawcall cost for sysmem vs gmem autotuner */
    uint8_t drawcall_base_cost;
 
@@ -1696,6 +1701,9 @@ struct tu_subpass
 
    /* True if we must invalidate UCHE thanks to a feedback loop. */
    bool feedback_invalidate;
+
+   /* In other words - framebuffer fetch support */
+   bool raster_order_attachment_access;
 
    struct tu_subpass_attachment *input_attachments;
    struct tu_subpass_attachment *color_attachments;
