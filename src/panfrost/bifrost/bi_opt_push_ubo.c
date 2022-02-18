@@ -246,7 +246,7 @@ bi_create_fau_interference_graph(bi_context *ctx, adjacency_row *adjacency)
                                         continue;
 
                                 unsigned x = nodes[i], y = nodes[j];
-                                assert((x < PAN_MAX_PUSH) && (y < PAN_MAX_PUSH));
+                                assert(MAX2(x, y) < ctx->info.push->count);
 
                                 /* Add undirected edge between the nodes */
                                 BITSET_SET(adjacency[x].row, y);
@@ -267,38 +267,43 @@ bi_opt_reorder_push(bi_context *ctx)
         unsigned pushed = 0, unpaired_count = 0;
 
         struct panfrost_ubo_push *push = ctx->info.push;
+        unsigned push_offset = ctx->info.push_offset;
 
         bi_create_fau_interference_graph(ctx, adjacency);
 
-        for (unsigned i = 0; i < push->count; ++i) {
+        for (unsigned i = push_offset; i < push->count; ++i) {
                 if (BITSET_TEST(visited, i)) continue;
 
                 unsigned component[PAN_MAX_PUSH] = { 0 };
                 unsigned size = 0;
                 bi_find_component(adjacency, visited, component, &size, i);
 
-                // TODO: weights
-                if (size & 1) {
-                        // Odd one out
-                        unpaired[unpaired_count++] = component[size - 1];
-                        size--;
-                }
+                /* If there is an odd number of uses, at least one use must be
+                 * unpaired. Arbitrarily take the last one.
+                 */
+                if (size % 2)
+                        unpaired[unpaired_count++] = component[--size];
 
-                for (unsigned i = 0; i < size; i += 2) {
-                        ordering[pushed++] = component[i];
-                        ordering[pushed++] = component[i + 1];
-                }
+                /* The rest of uses are paired */
+                assert((size % 2) == 0);
+
+                /* Push the paired uses */
+                memcpy(ordering + pushed, component, sizeof(unsigned) * size);
+                pushed += size;
         }
 
         /* Push unpaired nodes at the end */
-        memcpy(ordering + pushed, unpaired, unpaired_count * sizeof(ordering[0]));
+        memcpy(ordering + pushed, unpaired, sizeof(unsigned) * unpaired_count);
         pushed += unpaired_count;
 
         /* Ordering is a permutation. Invert it for O(1) lookup. */
         unsigned old_to_new[PAN_MAX_PUSH] = { 0 };
+        printf("ORDERING: ");
         for (unsigned i = 0; i < pushed; ++i) {
-                old_to_new[ordering[i]] = i;
+                printf("%u ", ordering[i]);
+                old_to_new[push_offset + ordering[i]] = push_offset + i;
         }
+        printf("\n");
 
         /* Use new ordering throughout the program */
         bi_foreach_instr_global(ctx, I) {
@@ -315,7 +320,11 @@ bi_opt_reorder_push(bi_context *ctx)
         /* Use new ordering for push */
         struct panfrost_ubo_push old = *push;
         for (unsigned i = 0; i < pushed; ++i)
-                push->words[i] = old.words[ordering[i]];
+                push->words[push_offset + i] = old.words[push_offset + ordering[i]];
 
-        push->count = pushed;
+        push->count = push_offset + pushed;
+
+        for (unsigned i = 0; i < push->count; ++i)
+                printf("%u: (%u, %u)\n", i, push->words[i].ubo, push->words[i].offset);
+
 }
