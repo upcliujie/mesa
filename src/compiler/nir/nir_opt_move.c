@@ -68,12 +68,19 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
     * the original order is kept.
     */
    unsigned index =  1;
+   unsigned last_reg_def_index = 0;
    nir_foreach_instr_reverse_safe(instr, block) {
       instr->index = index++;
 
       /* Check if this instruction can be moved downwards */
       if (!nir_can_move_instr(instr, options))
          continue;
+
+      /* We need to be careful not to move register uses around register defs */
+      if (nir_instr_def_is_not_ssa(instr)) {
+         last_reg_def_index = index;
+         continue;
+      }
 
       /* Check all users in this block which is the first */
       const nir_ssa_def *def = nir_instr_ssa_def(instr);
@@ -93,6 +100,9 @@ nir_opt_move_block(nir_block *block, nir_move_options options)
 
          /* check if the user is already the immediate successor */
          if (nir_instr_prev(first_user) == instr)
+            continue;
+
+         if (last_reg_def_index > 0 && first_user->index < last_reg_def_index)
             continue;
 
          /* Insert the instruction before it's first user */
