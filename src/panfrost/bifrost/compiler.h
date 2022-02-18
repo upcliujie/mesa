@@ -632,6 +632,7 @@ struct bi_shader_info {
         struct panfrost_sysvals *sysvals;
         unsigned tls_size;
         unsigned work_reg_count;
+        unsigned push_offset;
 };
 
 /* State of index-driven vertex shading for current shader */

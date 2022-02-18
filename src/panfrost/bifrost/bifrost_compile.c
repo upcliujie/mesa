@@ -3908,7 +3908,8 @@ bi_compile_variant(nir_shader *nir,
                 .push = &info->push,
                 .bifrost = &info->bifrost,
                 .tls_size = info->tls_size,
-                .sysvals = &info->sysvals
+                .sysvals = &info->sysvals,
+                .push_offset = info->push.count
         };
 
         unsigned offset = binary->size;
