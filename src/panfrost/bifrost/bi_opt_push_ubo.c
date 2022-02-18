@@ -210,6 +210,7 @@ bi_is_uniform(bi_index idx)
         return (idx.type == BI_INDEX_FAU) && (idx.value & BIR_FAU_UNIFORM);
 }
 
+/* Get the index of a uniform in 32-bit words from the start of FAU-RAM */
 static unsigned
 bi_uniform_word(bi_index idx)
 {
@@ -217,6 +218,42 @@ bi_uniform_word(bi_index idx)
         assert(idx.offset <= 1);
 
         return ((idx.value & ~BIR_FAU_UNIFORM) << 1) | idx.offset;
+}
+
+/*
+ * Create an undirected graph where nodes are 32-bit uniform indices and edges
+ * represent that two nodes are used in the same instruction.
+ *
+ * The graph is constructed as an adjacency matrix stored in adjacency.
+ */
+static void
+bi_create_fau_interference_graph(bi_context *ctx, adjacency_row *adjacency)
+{
+        bi_foreach_instr_global(ctx, I) {
+                unsigned nodes[BI_MAX_SRCS] = {};
+                unsigned node_count = 0;
+
+                /* Set nodes[] to 32-bit uniforms accessed */
+                bi_foreach_src(I, s) {
+                        if (bi_is_uniform(I->src[s]))
+                                nodes[node_count++] = bi_uniform_word(I->src[s]);
+                }
+
+                /* Create clique connecting nodes[] */
+                for (unsigned i = 0; i < node_count; ++i) {
+                        for (unsigned j = 0; j < node_count; ++j) {
+                                if (i == j)
+                                        continue;
+
+                                unsigned x = nodes[i], y = nodes[j];
+                                assert((x < PAN_MAX_PUSH) && (y < PAN_MAX_PUSH));
+
+                                /* Add undirected edge between the nodes */
+                                BITSET_SET(adjacency[x].row, y);
+                                BITSET_SET(adjacency[y].row, x);
+                        }
+                }
+        }
 }
 
 void
@@ -229,29 +266,11 @@ bi_opt_reorder_push(bi_context *ctx)
         unsigned unpaired[PAN_MAX_PUSH] = { 0 };
         unsigned pushed = 0, unpaired_count = 0;
 
-        bi_foreach_instr_global(ctx, I) {
-                unsigned nodes[BI_MAX_SRCS] = {};
-                unsigned node_count = 0;
+        struct panfrost_ubo_push *push = ctx->info.push;
 
-                bi_foreach_src(I, s) {
-                        if (bi_is_uniform(I->src[s]))
-                                nodes[node_count++] = bi_uniform_word(I->src[s]);
-                }
+        bi_create_fau_interference_graph(ctx, adjacency);
 
-                for (unsigned i = 0; i < node_count; ++i) {
-                        for (unsigned j = 0; j < node_count; ++j) {
-                                if (i == j)
-                                        continue;
-
-                                unsigned x = nodes[i], y = nodes[j];
-
-                                BITSET_SET(adjacency[x].row, y);
-                                BITSET_SET(adjacency[y].row, x);
-                        }
-                }
-        }
-
-        for (unsigned i = 0; i < ctx->info.push->count; ++i) {
+        for (unsigned i = 0; i < push->count; ++i) {
                 if (BITSET_TEST(visited, i)) continue;
 
                 unsigned component[PAN_MAX_PUSH] = { 0 };
@@ -294,9 +313,9 @@ bi_opt_reorder_push(bi_context *ctx)
         }
 
         /* Use new ordering for push */
-        struct panfrost_ubo_push old = *(ctx->info.push);
+        struct panfrost_ubo_push old = *push;
         for (unsigned i = 0; i < pushed; ++i)
-                ctx->info.push->words[i] = old.words[ordering[i]];
+                push->words[i] = old.words[ordering[i]];
 
-        ctx->info.push->count = pushed;
+        push->count = pushed;
 }
