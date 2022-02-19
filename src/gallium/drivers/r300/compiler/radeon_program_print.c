@@ -140,6 +140,7 @@ static void rc_print_register(FILE * f, rc_register_file file, int index, unsign
 		const char * filename;
 		switch(file) {
 		case RC_FILE_TEMPORARY: filename = "temp"; break;
+		case RC_FILE_ALT_TEMPORARY: filename = "atemp"; break;
 		case RC_FILE_INPUT: filename = "input"; break;
 		case RC_FILE_OUTPUT: filename = "output"; break;
 		case RC_FILE_ADDRESS: filename = "addr"; break;

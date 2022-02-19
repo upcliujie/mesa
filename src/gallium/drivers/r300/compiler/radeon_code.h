@@ -267,7 +267,8 @@ struct r300_vertex_program_code {
 	} body;
 
 	int pos_end;
-	int num_temporaries;	/* Number of temp vars used by program */
+	int num_temporaries;	/* Number of temp registers used by program */
+	int num_alt_temporaries; /* Number of alternate temp registers used by program */
 	int inputs[VSF_MAX_INPUTS];
 	int outputs[VSF_MAX_OUTPUTS];
 	unsigned last_input_read;

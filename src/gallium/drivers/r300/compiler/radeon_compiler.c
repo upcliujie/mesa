@@ -345,7 +345,9 @@ static void reg_count_callback(void * userdata, struct rc_instruction * inst,
 {
 	struct rc_program_stats *s = userdata;
 	if (file == RC_FILE_TEMPORARY)
-		(int)index > s->num_temp_regs ? s->num_temp_regs = index : 0;
+		(int)index >= s->num_temp_regs ? s->num_temp_regs = index + 1 : 1;
+	if (file == RC_FILE_ALT_TEMPORARY)
+		(int)index >= s->num_atemp_regs ? s->num_atemp_regs = index + 1 : 1;
 	if (file == RC_FILE_INLINE)
 		s->num_inline_literals++;
 	if (file == RC_FILE_CONSTANT)
@@ -402,13 +404,13 @@ void rc_get_stats(struct radeon_compiler *c, struct rc_program_stats *s)
 			s->num_tex_insts++;
 		s->num_insts++;
 	}
-	/* Increment here because the reg_count_callback store the max
-	 * temporary reg index in s->nun_temp_regs. */
-	s->num_temp_regs++;
 	if (c->type == RC_VERTEX_PROGRAM)
-		s->num_cntrls = MIN2(5, (c->is_r500 ? 128 : 72) / s->num_temp_regs);
+		s->num_cntrls = MIN3((c->is_r500 ? 128 : 72) / MAX2(s->num_temp_regs, 1),
+				     20 / MAX2(s->num_atemp_regs, 1), 5);
 	else
 		s->num_cntrls = 0;
+	/* Sum together both temps and atemps. */
+	s->num_temp_regs = s->num_temp_regs + s->num_atemp_regs;
 }
 
 static void print_stats(struct radeon_compiler * c)

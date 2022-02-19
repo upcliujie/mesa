@@ -1109,13 +1109,16 @@ void r300_emit_vs_state(struct r300_context* r300, unsigned size, void* state)
     unsigned instruction_count = code->length / 4;
 
     unsigned vtx_mem_size = r300screen->caps.is_r500 ? 128 : 72;
+    unsigned atrm_mem_size = 20;
     unsigned input_count = MAX2(util_bitcount(code->InputsRead), 1);
     unsigned output_count = MAX2(util_bitcount(code->OutputsWritten), 1);
     unsigned temp_count = MAX2(code->num_temporaries, 1);
+    unsigned atemp_count = MAX2(code->num_alt_temporaries, 1);
 
     unsigned pvs_num_slots = MIN3(vtx_mem_size / input_count,
                                   vtx_mem_size / output_count, 10);
-    unsigned pvs_num_controllers = MIN2(vtx_mem_size / temp_count, 5);
+    unsigned pvs_num_controllers = MIN3(vtx_mem_size / temp_count,
+                                        atrm_mem_size / atemp_count, 5);
 
     CS_LOCALS(r300);
 

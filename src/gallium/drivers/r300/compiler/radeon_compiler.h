@@ -58,6 +58,7 @@ struct radeon_compiler {
 	unsigned disable_optimizations:1;
 	unsigned needs_trig_input_transform:1;
 	unsigned max_temp_regs;
+	unsigned max_alt_temp_regs;
 	unsigned max_constants;
 	int max_alu_insts;
 	unsigned max_tex_insts;
@@ -155,6 +156,7 @@ struct rc_program_stats {
 	unsigned num_pred_insts;
 	unsigned num_presub_ops;
 	unsigned num_temp_regs;
+	unsigned num_atemp_regs;
 	unsigned num_omod_ops;
 	unsigned num_inline_literals;
 	unsigned num_loops;
