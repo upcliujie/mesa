@@ -65,6 +65,8 @@ static unsigned long t_dst_class(rc_register_file file)
 		FALLTHROUGH;
 	case RC_FILE_TEMPORARY:
 		return PVS_DST_REG_TEMPORARY;
+	case RC_FILE_ALT_TEMPORARY:
+		return PVS_DST_REG_ALT_TEMPORARY;
 	case RC_FILE_OUTPUT:
 		return PVS_DST_REG_OUT;
 	case RC_FILE_ADDRESS:
@@ -90,6 +92,8 @@ static unsigned long t_src_class(rc_register_file file)
 	case RC_FILE_NONE:
 	case RC_FILE_TEMPORARY:
 		return PVS_SRC_REG_TEMPORARY;
+	case RC_FILE_ALT_TEMPORARY:
+		return PVS_SRC_REG_ALT_TEMPORARY;
 	case RC_FILE_INPUT:
 		return PVS_SRC_REG_INPUT;
 	case RC_FILE_CONSTANT:
@@ -376,6 +380,7 @@ static void translate_vertex_program(struct radeon_compiler *c, void *user)
 	compiler->code->pos_end = 0;	/* Not supported yet */
 	compiler->code->length = 0;
 	compiler->code->num_temporaries = 0;
+	compiler->code->num_alt_temporaries = 0;
 	compiler->code->last_input_read = 0;
 
 	compiler->SetHwInputOutput(compiler);
@@ -538,24 +543,30 @@ static void translate_vertex_program(struct radeon_compiler *c, void *user)
 			}
 		}
 
-		/* Update the number of temporaries. */
+		/* Update the number of temporaries and alternate temporaries. */
 		if (info->HasDstReg && vpi->DstReg.File == RC_FILE_TEMPORARY &&
 		    vpi->DstReg.Index >= compiler->code->num_temporaries)
 			compiler->code->num_temporaries = vpi->DstReg.Index + 1;
+
+		if (info->HasDstReg && vpi->DstReg.File == RC_FILE_ALT_TEMPORARY &&
+		    vpi->DstReg.Index >= compiler->code->num_alt_temporaries)
+			compiler->code->num_alt_temporaries = vpi->DstReg.Index + 1;
 
 		for (unsigned i = 0; i < info->NumSrcRegs; i++) {
 			if (vpi->SrcReg[i].File == RC_FILE_TEMPORARY &&
 			    vpi->SrcReg[i].Index >= compiler->code->num_temporaries)
 				compiler->code->num_temporaries = vpi->SrcReg[i].Index + 1;
+			if (vpi->SrcReg[i].File == RC_FILE_ALT_TEMPORARY &&
+			    vpi->SrcReg[i].Index >= compiler->code->num_alt_temporaries)
+				compiler->code->num_alt_temporaries = vpi->SrcReg[i].Index + 1;
+
 			if (vpi->SrcReg[i].File == RC_FILE_INPUT) {
 				if (loop_depth == 0)
 					compiler->code->last_input_read = compiler->code->length / 4;
 				else
 					last_input_read_at_loop_end = true;
 			}
-
 		}
-
 
 		if (compiler->code->num_temporaries > compiler->Base.max_temp_regs) {
 			rc_error(&compiler->Base, "Too many temporaries.\n");

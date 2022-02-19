@@ -51,6 +51,7 @@ typedef enum {
 	 */
 	RC_FILE_NONE = 0,
 	RC_FILE_TEMPORARY,
+	RC_FILE_ALT_TEMPORARY,
 
 	/**
 	 * Input register.
