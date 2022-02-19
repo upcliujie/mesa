@@ -278,25 +278,21 @@ lower_id_from_index(nir_builder *b, nir_ssa_def *index, nir_ssa_def *size,
    /* We lower gl_LocalInvocationID from gl_LocalInvocationIndex based
     * on this formula:
     *
-    *    id.x = index % size.x;
-    *    id.y = (index / size.x) % gl_WorkGroupSize.y;
-    *    id.z = (index / (size.x * size.y)) % size.z;
+    *    id.z = index / (size.x * size.y)
+    *    id.y = (index - (id.z * (size.x * size.y))) / size.x
+    *    id.x = index - ((id.z * (size.x * size.y)) + (id.y * size.x))
     *
-    * However, the final % size.z does nothing unless we
-    * accidentally end up with an index that is too
-    * large so it can safely be omitted.
-    *
-    * Because no hardware supports a local workgroup size greater than
-    * about 1K, this calculation can be done in 32-bit and can save some
-    * 64-bit arithmetic.
     */
 
    nir_ssa_def *size_x = nir_channel(b, size, 0);
    nir_ssa_def *size_y = nir_channel(b, size, 1);
+   nir_ssa_def *size_x_y = nir_imul(b, size_x, size_y);
 
-   nir_ssa_def *id_x = nir_umod(b, index, size_x);
-   nir_ssa_def *id_y = nir_umod(b, nir_udiv(b, index, size_x), size_y);
-   nir_ssa_def *id_z = nir_udiv(b, index, nir_imul(b, size_x, size_y));
+   nir_ssa_def *id_z = nir_udiv(b, index, size_x_y);
+   nir_ssa_def *z_portion = nir_imul(b, id_z, size_x_y);
+   nir_ssa_def *id_y = nir_udiv(b, nir_isub(b, index, z_portion), size_x);
+   nir_ssa_def *y_portion = nir_imul(b, id_y, size_x);
+   nir_ssa_def *id_x = nir_isub(b, index, nir_iadd(b, z_portion, y_portion));
 
    return nir_u2u(b, nir_vec3(b, id_x, id_y, id_z), bit_size);
 }
