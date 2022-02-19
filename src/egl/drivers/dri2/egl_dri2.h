@@ -368,6 +368,8 @@ struct dri2_egl_surface
    __DRIimage *dri_image_back;
    __DRIimage *dri_image_front;
 
+   int in_fence_fd;
+
    /* Used to record all the buffers created by ANativeWindow and their ages.
     * Allocate number of color_buffers based on query to android bufferqueue
     * and save color_buffers_count.
