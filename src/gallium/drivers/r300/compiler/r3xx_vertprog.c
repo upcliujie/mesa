@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "r300_reg.h"
 
@@ -34,6 +35,7 @@
 #include "radeon_swizzle.h"
 #include "radeon_emulate_branches.h"
 #include "radeon_remove_constants.h"
+#include "radeon_rename_regs.h"
 
 #include "util/compiler.h"
 
@@ -582,26 +584,88 @@ static void translate_vertex_program(struct radeon_compiler *c, void *user)
 
 struct temporary_allocation {
 	unsigned int Allocated:1;
+	unsigned int UsesATemp:1;
 	unsigned int HwTemp:15;
 	struct rc_instruction * LastRead;
 };
 
 static int get_reg(struct radeon_compiler *c, struct temporary_allocation *ta, bool *hwtemps,
-                   unsigned int orig)
+                   bool *hwatemps, bool *interference, unsigned int num_orig_temps,
+                   unsigned int orig, unsigned int *type)
 {
-    if (!ta[orig].Allocated) {
-        int j;
-        for (j = 0; j < c->max_temp_regs; ++j)
-        {
+    if (ta[orig].Allocated) {
+        if (ta[orig].UsesATemp)
+            *type = RC_FILE_ALT_TEMPORARY;
+        else
+            *type = RC_FILE_TEMPORARY;
+
+        return ta[orig].HwTemp;
+    }
+
+    /* Check how many hw registers are live */
+    unsigned int num_alloc_temps = 0;
+    unsigned int num_alloc_atemps = 0;
+    for (int i = 0; i < RC_REGISTER_MAX_INDEX; i++){
+        if (hwtemps[i])
+            num_alloc_temps++;
+        if (hwatemps[i])
+            num_alloc_atemps++;
+    }
+
+    /* Check if the newly allocated atemp would interfere with some already allocated */
+    bool can_use_atemp = true;
+    for (int i = 0; i < num_orig_temps; i++) {
+        if (interference[i * num_orig_temps + orig] && ta[i].Allocated && ta[i].UsesATemp)
+            can_use_atemp = false;
+    }
+
+    bool use_atemp;
+    /* Decide what register type we would like to allocated next:
+     * try to keep the num_cntrls as high as possible.
+     */
+    unsigned int num_cntrls = MIN3(5, 20 / MAX2(num_alloc_atemps, 1),
+                                   128 / MAX2(num_alloc_temps, 1));
+    if (can_use_atemp) {
+        /* Don't allocate atemp if it would result in decreasing num_cntrls
+         * unless we already have no more temps.
+         *
+         * This is not optimal as it is possible that we can't use atemp when we run out of the
+         * normal register, so try to do it a bit earlier at c->max_temp_regs - 2
+         * Another problematic part is that we need some registers also for the predicate
+         * stack counters, but those are ATM allocated later.
+         */
+        if (num_cntrls > 20 / (num_alloc_atemps + 1) && num_alloc_temps < c->max_temp_regs - 2)
+            use_atemp = false;
+        else
+            use_atemp = true;
+    } else
+        use_atemp = false;
+
+    int j;
+    for (j = 0; j < c->max_temp_regs; ++j)
+    {
+        if (use_atemp) {
+            if (!hwatemps[j])
+                break;
+        } else {
             if (!hwtemps[j])
                 break;
         }
-        ta[orig].Allocated = 1;
-        ta[orig].HwTemp = j;
-        hwtemps[ta[orig].HwTemp] = true;
     }
+    ta[orig].Allocated = 1;
+    ta[orig].UsesATemp = use_atemp;
+    ta[orig].HwTemp = j;
+    if (use_atemp)
+        hwatemps[ta[orig].HwTemp] = true;
+    else
+        hwtemps[ta[orig].HwTemp] = true;
 
-    return ta[orig].HwTemp;
+    if (ta[orig].UsesATemp)
+        *type = RC_FILE_ALT_TEMPORARY;
+    else
+        *type = RC_FILE_TEMPORARY;
+
+    return j;
 }
 
 static void allocate_temporary_registers(struct radeon_compiler *c, void *user)
@@ -611,14 +675,17 @@ static void allocate_temporary_registers(struct radeon_compiler *c, void *user)
 	struct rc_instruction *end_loop = NULL;
 	unsigned int num_orig_temps = 0;
 	bool hwtemps[RC_REGISTER_MAX_INDEX];
+	bool hwatemps[RC_REGISTER_MAX_INDEX];
 	struct temporary_allocation * ta;
-	unsigned int i;
+	bool *interference;
+	unsigned int i,j;
 
 	memset(hwtemps, 0, sizeof(hwtemps));
+	memset(hwatemps, 0, sizeof(hwtemps));
 
 	rc_recompute_ips(c);
 
-	/* Pass 1: Count original temporaries. */
+	/* Pass 1: Count original temporaries and mark source interference. */
 	for(inst = compiler->Base.Program.Instructions.Next; inst != &compiler->Base.Program.Instructions; inst = inst->Next) {
 		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
 
@@ -641,7 +708,8 @@ static void allocate_temporary_registers(struct radeon_compiler *c, void *user)
 			sizeof(struct temporary_allocation) * num_orig_temps);
 	memset(ta, 0, sizeof(struct temporary_allocation) * num_orig_temps);
 
-	/* Pass 2: Determine original temporary lifetimes */
+	/* Pass 2: Determine original temporary lifetimes and determine for which registers we can use the
+	 * alternate temporary register memory (ATRM) */
 	for(inst = compiler->Base.Program.Instructions.Next; inst != &compiler->Base.Program.Instructions; inst = inst->Next) {
 		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
 		/* Instructions inside of loops need to use the ENDLOOP
@@ -661,6 +729,22 @@ static void allocate_temporary_registers(struct radeon_compiler *c, void *user)
 		}
 	}
 
+	interference = (bool *) malloc(num_orig_temps * num_orig_temps * sizeof(bool));
+	memset(interference, 0, sizeof(bool) * num_orig_temps * num_orig_temps);
+
+	for(inst = compiler->Base.Program.Instructions.Next; inst != &compiler->Base.Program.Instructions; inst = inst->Next) {
+		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
+
+		for (i = 0; i < opcode->NumSrcRegs; i++) {
+			for (j = i + 1; j < opcode->NumSrcRegs; j++) {
+				if (inst->U.I.SrcReg[i].File == RC_FILE_TEMPORARY &&
+				    inst->U.I.SrcReg[j].File == RC_FILE_TEMPORARY) {
+					interference[inst->U.I.SrcReg[i].Index * num_orig_temps + inst->U.I.SrcReg[j].Index] = true;
+					interference[inst->U.I.SrcReg[j].Index * num_orig_temps + inst->U.I.SrcReg[i].Index] = true;
+				}
+			}
+		}
+	}
 	/* Pass 3: Register allocation */
 	for(inst = compiler->Base.Program.Instructions.Next; inst != &compiler->Base.Program.Instructions; inst = inst->Next) {
 		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
@@ -668,17 +752,27 @@ static void allocate_temporary_registers(struct radeon_compiler *c, void *user)
 		for (i = 0; i < opcode->NumSrcRegs; ++i) {
 			if (inst->U.I.SrcReg[i].File == RC_FILE_TEMPORARY) {
 				unsigned int orig = inst->U.I.SrcReg[i].Index;
-				inst->U.I.SrcReg[i].Index = get_reg(c, ta, hwtemps, orig);
+				unsigned int type;
+				inst->U.I.SrcReg[i].Index = get_reg(c, ta, hwtemps, hwatemps, interference,
+								    num_orig_temps, orig, &type);
+				inst->U.I.SrcReg[i].File = type;
 
-				if (ta[orig].Allocated && inst == ta[orig].LastRead)
+				if (ta[orig].Allocated && inst == ta[orig].LastRead &&
+				    type == RC_FILE_TEMPORARY)
 					hwtemps[ta[orig].HwTemp] = false;
+				if (ta[orig].Allocated && inst == ta[orig].LastRead &&
+				    type == RC_FILE_ALT_TEMPORARY)
+					hwatemps[ta[orig].HwTemp] = false;
 			}
 		}
 
 		if (opcode->HasDstReg) {
 			if (inst->U.I.DstReg.File == RC_FILE_TEMPORARY) {
 				unsigned int orig = inst->U.I.DstReg.Index;
-				inst->U.I.DstReg.Index = get_reg(c, ta, hwtemps, orig);
+				unsigned int type;
+				inst->U.I.DstReg.Index = get_reg(c, ta, hwtemps, hwatemps, interference,
+								 num_orig_temps, orig, &type);
+				inst->U.I.DstReg.File = type;
 			}
 		}
 	}
