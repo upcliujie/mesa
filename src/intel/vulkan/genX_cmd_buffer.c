@@ -1450,13 +1450,22 @@ transition_color_buffer(struct anv_cmd_buffer *cmd_buffer,
 
    enum isl_aux_op resolve_op = ISL_AUX_OP_NONE;
 
+   /* Compute fast clear state for initial & final layouts. The result of
+    * anv_layout_to_fast_clear_type() is tied to the usage of the image with
+    * Anv (for instance within Anv we might use an image with compression, but
+    * the image is shared externally using a modifier with no compression). If
+    * we have picked ISL_AUX_USAGE_NONE earlier to due to external usage, it
+    * means we can't have any fast clear state either.
+    */
+   const enum anv_fast_clear_type initial_fast_clear =
+      private_binding_acquire ? ANV_FAST_CLEAR_NONE :
+      anv_layout_to_fast_clear_type(devinfo, image, aspect, initial_layout);
+   const enum anv_fast_clear_type final_fast_clear =
+      private_binding_release ? ANV_FAST_CLEAR_NONE :
+      anv_layout_to_fast_clear_type(devinfo, image, aspect, final_layout);
    /* If the initial layout supports more fast clear than the final layout
     * then we need at least a partial resolve.
     */
-   const enum anv_fast_clear_type initial_fast_clear =
-      anv_layout_to_fast_clear_type(devinfo, image, aspect, initial_layout);
-   const enum anv_fast_clear_type final_fast_clear =
-      anv_layout_to_fast_clear_type(devinfo, image, aspect, final_layout);
    if (final_fast_clear < initial_fast_clear)
       resolve_op = ISL_AUX_OP_PARTIAL_RESOLVE;
 
