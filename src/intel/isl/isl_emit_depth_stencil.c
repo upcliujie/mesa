@@ -76,6 +76,12 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #endif
    };
 
+   /* This chunk here applies prior Gfx12 where the
+    * width/height/depth/format/type of depth & stencil buffers is specified
+    * in the 3DSTATE_DEPTH_BUFFER packet only. Here we fill this packet
+    * depending on the surface available.
+    */
+#if GFX_VER < 12
    if (info->depth_surf) {
       db.SurfaceType = isl_encode_ds_surftype[info->depth_surf->dim];
       db.SurfaceFormat = isl_surf_get_depth_format(dev, info->depth_surf);
@@ -94,8 +100,16 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
       db.SurfaceType = SURFTYPE_NULL;
       db.SurfaceFormat = D32_FLOAT;
    }
+#endif
 
-   if (info->depth_surf || info->stencil_surf) {
+   /* Only set 3DSTATE_DEPTH_BUFFER fields :
+    *
+    *    - On Gfx >= 12, if there is a depth buffer
+    *
+    *    - On Gfx < 12, if there is a depth or stencil buffer, because
+    *      3DSTATE_STENCIL_BUFFER does not have those fields.
+    */
+   if (info->depth_surf || (GFX_VER < 12 && info->stencil_surf)) {
       /* These are based entirely on the view */
       db.RenderTargetViewExtent = info->view->array_len - 1;
       db.LOD                  = info->view->base_level;
@@ -122,6 +136,15 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #endif
       db.SurfaceBaseAddress = info->depth_address;
 
+#if GFX_VER >= 12
+      db.SurfaceType = isl_encode_ds_surftype[info->depth_surf->dim];
+      db.SurfaceFormat = isl_surf_get_depth_format(dev, info->depth_surf);
+      db.Width = info->depth_surf->logical_level0_px.width - 1;
+      db.Height = info->depth_surf->logical_level0_px.height - 1;
+      if (db.SurfaceType == SURFTYPE_3D)
+         db.Depth = info->depth_surf->logical_level0_px.depth - 1;
+#endif
+
 #if GFX_VERx10 >= 125
       db.TiledMode = isl_encode_tiling[info->depth_surf->tiling];
       db.MipTailStartLOD = 15;
@@ -144,6 +167,11 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #if GFX_VER >= 12
       db.ControlSurfaceEnable = db.DepthBufferCompressionEnable =
          isl_aux_usage_has_ccs(info->hiz_usage);
+#endif
+   } else {
+#if GFX_VER >= 12
+      db.SurfaceType = SURFTYPE_NULL;
+      db.SurfaceFormat = D32_FLOAT;
 #endif
    }
 
