@@ -76,6 +76,12 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #endif
    };
 
+   /* This chunk here applies prior Gfx12 where the
+    * width/height/depth/format/type of depth & stencil buffers is specified
+    * in the 3DSTATE_DEPTH_BUFFER packet only. Here we fill this packet
+    * depending on the surface available.
+    */
+#if GFX_VER < 12
    if (info->depth_surf) {
       db.SurfaceType = isl_encode_ds_surftype[info->depth_surf->dim];
       db.SurfaceFormat = isl_surf_get_depth_format(dev, info->depth_surf);
@@ -90,16 +96,46 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
       db.Height = info->stencil_surf->logical_level0_px.height - 1;
       if (db.SurfaceType == SURFTYPE_3D)
          db.Depth = info->stencil_surf->logical_level0_px.depth - 1;
+      db.RenderTargetViewExtent = info->view->array_len - 1;
+      db.LOD = info->view->base_level;
+      db.MinimumArrayElement = info->view->base_array_layer;
+      /* From the Haswell PRM docs for 3DSTATE_DEPTH_BUFFER::Depth
+       *
+       *    "This field specifies the total number of levels for a volume
+       *    texture or the number of array elements allowed to be accessed
+       *    starting at the Minimum Array Element for arrayed surfaces. If the
+       *    volume texture is MIP-mapped, this field specifies the depth of
+       *    the base MIP level."
+       *
+       * For 3D surfaces, we set it to the correct depth above.  For non-3D
+       * surfaces, this is the same as RenderTargetViewExtent.
+       */
+      if (db.SurfaceType != SURFTYPE_3D)
+         db.Depth = db.RenderTargetViewExtent;
    } else {
       db.SurfaceType = SURFTYPE_NULL;
       db.SurfaceFormat = D32_FLOAT;
    }
+#endif
 
-   if (info->depth_surf || info->stencil_surf) {
-      /* These are based entirely on the view */
+   if (info->depth_surf) {
+#if GFX_VER >= 7
+      db.DepthWriteEnable = true;
+#endif
+      db.SurfaceBaseAddress = info->depth_address;
+
+#if GFX_VER >= 12
+      db.SurfaceType = isl_encode_ds_surftype[info->depth_surf->dim];
+      db.SurfaceFormat = isl_surf_get_depth_format(dev, info->depth_surf);
+      db.Width = info->depth_surf->logical_level0_px.width - 1;
+      db.Height = info->depth_surf->logical_level0_px.height - 1;
+      if (db.SurfaceType == SURFTYPE_3D)
+         db.Depth = info->depth_surf->logical_level0_px.depth - 1;
+#endif
+
       db.RenderTargetViewExtent = info->view->array_len - 1;
-      db.LOD                  = info->view->base_level;
-      db.MinimumArrayElement  = info->view->base_array_layer;
+      db.LOD = info->view->base_level;
+      db.MinimumArrayElement = info->view->base_array_layer;
 
       /* From the Haswell PRM docs for 3DSTATE_DEPTH_BUFFER::Depth
        *
@@ -114,13 +150,6 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
        */
       if (db.SurfaceType != SURFTYPE_3D)
          db.Depth = db.RenderTargetViewExtent;
-   }
-
-   if (info->depth_surf) {
-#if GFX_VER >= 7
-      db.DepthWriteEnable = true;
-#endif
-      db.SurfaceBaseAddress = info->depth_address;
 
 #if GFX_VERx10 >= 125
       db.TiledMode = isl_encode_tiling[info->depth_surf->tiling];
@@ -144,6 +173,11 @@ isl_genX(emit_depth_stencil_hiz_s)(const struct isl_device *dev, void *batch,
 #if GFX_VER >= 12
       db.ControlSurfaceEnable = db.DepthBufferCompressionEnable =
          isl_aux_usage_has_ccs(info->hiz_usage);
+#endif
+   } else {
+#if GFX_VER >= 12
+      db.SurfaceType = SURFTYPE_NULL;
+      db.SurfaceFormat = D32_FLOAT;
 #endif
    }
 
