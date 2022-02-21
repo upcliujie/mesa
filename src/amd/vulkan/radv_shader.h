@@ -86,6 +86,8 @@ struct radv_pipeline_key {
       uint32_t is_int10;
       uint8_t log2_ps_iter_samples;
       uint8_t num_samples;
+      uint32_t cb_target_mask;
+      bool mrt0_is_dual_src;
 
       bool lower_discard_to_demote;
       bool enable_mrt_output_nan_fixup;
