@@ -29,6 +29,7 @@
 #include "dev/intel_debug.h"
 #include "util/build_id.h"
 #include "util/disk_cache.h"
+#include "util/macros.h"
 #include "util/mesa-sha1.h"
 #include "util/u_dynarray.h"
 
@@ -39,6 +40,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+
+// Shader functions
+#define SPIR_V_MAGIC_NUMBER 0x07230203
 
 static struct disk_cache *
 get_disk_cache(struct brw_compiler *compiler)
@@ -267,6 +271,22 @@ print_usage(char *exec_name, FILE *f)
 
 #define OPT_PREFIX 1000
 
+static uint32_t
+get_module_spirv_version(const uint32_t *spirv, size_t size)
+{
+   assert(size >= 8);
+   assert(spirv[0] == SPIR_V_MAGIC_NUMBER);
+   return spirv[1];
+}
+
+static void
+set_module_spirv_version(uint32_t *spirv, size_t size, uint32_t version)
+{
+   assert(size >= 8);
+   assert(spirv[0] == SPIR_V_MAGIC_NUMBER);
+   spirv[1] = version;
+}
+
 int main(int argc, char **argv)
 {
    brw_process_intel_debug_variable();
@@ -423,6 +443,25 @@ int main(int argc, char **argv)
 
       util_dynarray_append(&spirv_ptr_objs, struct clc_binary *, spirv_out);
    }
+
+   /* The SPIRV-Tools linker started checking that all modules have the same
+    * version. But SPIRV-LLVM-Translator picks the lower required version for
+    * each module it compiles. So we have to iterate over all of them and set
+    * the max found.
+    */
+   uint32_t max_spirv_version = 0;
+   util_dynarray_foreach(&spirv_ptr_objs, struct clc_binary *, module) {
+      max_spirv_version = MAX2(max_spirv_version,
+                               get_module_spirv_version((*module)->data,
+                                                        (*module)->size));
+   }
+
+   assert(max_spirv_version > 0);
+   util_dynarray_foreach(&spirv_ptr_objs, struct clc_binary *, module) {
+      set_module_spirv_version((*module)->data, (*module)->size,
+                               max_spirv_version);
+   }
+
 
    struct clc_linker_args link_args = {
       .in_objs = util_dynarray_begin(&spirv_ptr_objs),
