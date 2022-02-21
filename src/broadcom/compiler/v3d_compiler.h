@@ -845,6 +845,7 @@ struct v3d_compile {
 
         struct qreg undef;
         uint32_t num_temps;
+        uint32_t spill_start_num_temps;
 
         struct vir_cursor cursor;
         struct list_head blocks;
