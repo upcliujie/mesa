@@ -514,10 +514,13 @@ nir_shader *radv_shader_compile_to_nir(struct radv_device *device, struct vk_sha
 void radv_init_shader_arenas(struct radv_device *device);
 void radv_destroy_shader_arenas(struct radv_device *device);
 
+struct radv_blend_state;
+
 VkResult radv_create_shaders(struct radv_pipeline *pipeline,
                              struct radv_pipeline_layout *pipeline_layout,
                              struct radv_device *device, struct radv_pipeline_cache *cache,
                              const struct radv_pipeline_key *key,
+                             const struct radv_blend_state *blend,
                              const VkPipelineShaderStageCreateInfo **pStages,
                              const VkPipelineCreateFlags flags, const uint8_t *custom_hash,
                              VkPipelineCreationFeedback *pipeline_feedback,

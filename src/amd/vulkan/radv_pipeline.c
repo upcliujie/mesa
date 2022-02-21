@@ -2483,6 +2483,7 @@ radv_lower_viewport_to_zero(nir_shader *nir)
 static void
 radv_link_shaders(struct radv_pipeline *pipeline,
                   const struct radv_pipeline_key *pipeline_key,
+                  const struct radv_blend_state *blend,
                   nir_shader **shaders,
                   bool optimize_conservatively)
 {
@@ -2598,15 +2599,16 @@ radv_link_shaders(struct radv_pipeline *pipeline,
                   continue;
 
                unsigned col_format = (pipeline_key->ps.col_format >> (4 * idx)) & 0xf;
-               switch (col_format) {
-               case V_028714_SPI_SHADER_ZERO:
+               unsigned cb_target_mask = blend->cb_target_mask >> (4 * idx) & 0xf;
+
+               if (col_format == V_028714_SPI_SHADER_ZERO ||
+                   (col_format == V_028714_SPI_SHADER_32_R && !cb_target_mask &&
+                    !blend->mrt0_is_dual_src)) {
+                  /* Remove the color export if it's unused or in presence of holes. */
                   info->outputs_written &= ~BITFIELD64_BIT(var->data.location);
                   var->data.location = 0;
                   var->data.mode = nir_var_shader_temp;
                   fixup_derefs = true;
-                  break;
-               default:
-                  break;
                }
             }
             if (fixup_derefs) {
@@ -3765,6 +3767,7 @@ VkResult
 radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout *pipeline_layout,
                     struct radv_device *device, struct radv_pipeline_cache *cache,
                     const struct radv_pipeline_key *pipeline_key,
+                    const struct radv_blend_state *blend,
                     const VkPipelineShaderStageCreateInfo **pStages,
                     const VkPipelineCreateFlags flags, const uint8_t *custom_hash,
                     VkPipelineCreationFeedback *pipeline_feedback,
@@ -3873,7 +3876,7 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
 
    bool optimize_conservatively = pipeline_key->optimisations_disabled;
 
-   radv_link_shaders(pipeline, pipeline_key, nir, optimize_conservatively);
+   radv_link_shaders(pipeline, pipeline_key, blend, nir, optimize_conservatively);
    radv_set_driver_locations(pipeline, nir, infos);
 
    for (int i = 0; i < MESA_VULKAN_SHADER_STAGES; ++i) {
@@ -6084,7 +6087,7 @@ radv_pipeline_init(struct radv_pipeline *pipeline, struct radv_device *device,
    struct radv_pipeline_key key =
       radv_generate_graphics_pipeline_key(pipeline, pCreateInfo, &blend);
 
-   result = radv_create_shaders(pipeline, pipeline_layout, device, cache, &key, pStages,
+   result = radv_create_shaders(pipeline, pipeline_layout, device, cache, &key, &blend, pStages,
                                 pCreateInfo->flags, NULL, pipeline_feedback, stage_feedbacks);
    if (result != VK_SUCCESS)
       return result;
@@ -6425,8 +6428,9 @@ radv_compute_pipeline_create(VkDevice _device, VkPipelineCache _cache,
    pStages[MESA_SHADER_COMPUTE] = &pCreateInfo->stage;
 
    struct radv_pipeline_key key = radv_generate_compute_pipeline_key(pipeline, pCreateInfo);
+   struct radv_blend_state blend = {0};
 
-   result = radv_create_shaders(pipeline, pipeline_layout, device, cache, &key, pStages,
+   result = radv_create_shaders(pipeline, pipeline_layout, device, cache, &key, &blend, pStages,
                                 pCreateInfo->flags, custom_hash, pipeline_feedback, stage_feedbacks);
    if (result != VK_SUCCESS) {
       radv_pipeline_destroy(device, pipeline, pAllocator);
