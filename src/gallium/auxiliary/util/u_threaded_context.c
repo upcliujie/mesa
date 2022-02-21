@@ -220,7 +220,9 @@ tc_batch_execute(void *job, UNUSED void *gdata, int thread_index)
       &tc->buffer_lists[batch->buffer_list_index].driver_flushed_fence;
 
    if (tc->options.driver_calls_flush_notify) {
-      tc->signal_fences_next_flush[tc->num_signal_fences_next_flush++] = fence;
+      simple_mtx_lock(&tc->signal_next_flush.mtx);
+      tc->signal_next_flush.fences[tc->signal_next_flush.num++] = fence;
+      simple_mtx_unlock(&tc->signal_next_flush.mtx);
 
       /* Since our buffer lists are chained as a ring, we need to flush
        * the context twice as we go around the ring to make the driver signal
@@ -4241,6 +4243,7 @@ tc_destroy(struct pipe_context *_pipe)
          util_queue_fence_signal(&tc->buffer_lists[i].driver_flushed_fence);
       util_queue_fence_destroy(&tc->buffer_lists[i].driver_flushed_fence);
    }
+   simple_mtx_destroy(&tc->signal_next_flush.mtx);
 
    FREE(tc);
 }
@@ -4259,11 +4262,15 @@ void tc_driver_internal_flush_notify(struct threaded_context *tc)
    if (!tc)
       return;
 
-   /* Signal fences set by tc_batch_execute. */
-   for (unsigned i = 0; i < tc->num_signal_fences_next_flush; i++)
-      util_queue_fence_signal(tc->signal_fences_next_flush[i]);
+   simple_mtx_lock(&tc->signal_next_flush.mtx);
 
-   tc->num_signal_fences_next_flush = 0;
+   /* Signal fences set by tc_batch_execute. */
+   for (unsigned i = 0; i < tc->signal_next_flush.num; i++)
+      util_queue_fence_signal(tc->signal_next_flush.fences[i]);
+
+   tc->signal_next_flush.num = 0;
+
+   simple_mtx_unlock(&tc->signal_next_flush.mtx);
 }
 
 /**
@@ -4348,6 +4355,7 @@ threaded_context_create(struct pipe_context *pipe,
    }
    for (unsigned i = 0; i < TC_MAX_BUFFER_LISTS; i++)
       util_queue_fence_init(&tc->buffer_lists[i].driver_flushed_fence);
+   simple_mtx_init(&tc->signal_next_flush.mtx, mtx_plain);
 
    list_inithead(&tc->unflushed_queries);
 

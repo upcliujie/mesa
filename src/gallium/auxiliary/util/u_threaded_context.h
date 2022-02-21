@@ -197,6 +197,7 @@
 #include "c11/threads.h"
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
+#include "simple_mtx.h"
 #include "util/bitset.h"
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
@@ -501,8 +502,11 @@ struct threaded_context {
    /* The list fences that the driver should signal after the next flush.
     * If this is empty, all driver command buffers have been flushed.
     */
-   struct util_queue_fence *signal_fences_next_flush[TC_MAX_BUFFER_LISTS];
-   unsigned num_signal_fences_next_flush;
+   struct {
+      struct util_queue_fence *fences[TC_MAX_BUFFER_LISTS];
+      unsigned num;
+      simple_mtx_t mtx;
+   } signal_next_flush;
 
    /* Bound buffers are tracked here using threaded_resource::buffer_id_hash.
     * 0 means unbound.
