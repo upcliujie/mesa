@@ -86,7 +86,7 @@ void *r600_buffer_map_sync_with_rings(struct r600_common_context *ctx,
 		}
 	}
 
-	if (busy || !ctx->ws->buffer_wait(ctx->ws, resource->buf, 0, rusage)) {
+	if (busy || !ctx->ws->buffer_wait(ctx->ws, resource->buf, 0)) {
 		if (usage & PIPE_MAP_DONTBLOCK) {
 			return NULL;
 		} else {
@@ -254,7 +254,7 @@ r600_invalidate_buffer(struct r600_common_context *rctx,
 
 	/* Check if mapping this buffer would cause waiting for the GPU. */
 	if (r600_rings_is_buffer_referenced(rctx, rbuffer->buf, RADEON_USAGE_READWRITE) ||
-	    !rctx->ws->buffer_wait(rctx->ws, rbuffer->buf, 0, RADEON_USAGE_READWRITE)) {
+	    !rctx->ws->buffer_wait(rctx->ws, rbuffer->buf, 0)) {
 		rctx->invalidate_buffer(&rctx->b, &rbuffer->b.b);
 	} else {
 		util_range_set_empty(&rbuffer->valid_buffer_range);
@@ -413,7 +413,7 @@ void *r600_buffer_transfer_map(struct pipe_context *ctx,
 		 */
 		if (rbuffer->flags & RADEON_FLAG_SPARSE ||
 		    r600_rings_is_buffer_referenced(rctx, rbuffer->buf, RADEON_USAGE_READWRITE) ||
-		    !rctx->ws->buffer_wait(rctx->ws, rbuffer->buf, 0, RADEON_USAGE_READWRITE)) {
+		    !rctx->ws->buffer_wait(rctx->ws, rbuffer->buf, 0)) {
 			/* Do a wait-free write-only transfer using a temporary buffer. */
 			unsigned offset;
 			struct r600_resource *staging = NULL;

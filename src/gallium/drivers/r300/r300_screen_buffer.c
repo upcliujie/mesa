@@ -111,7 +111,7 @@ r300_buffer_transfer_map( struct pipe_context *context,
 
         /* Check if mapping this buffer would cause waiting for the GPU. */
         if (r300->rws->cs_is_buffer_referenced(&r300->cs, rbuf->buf, RADEON_USAGE_READWRITE) ||
-            !r300->rws->buffer_wait(r300->rws, rbuf->buf, 0, RADEON_USAGE_READWRITE)) {
+            !r300->rws->buffer_wait(r300->rws, rbuf->buf, 0)) {
             unsigned i;
             struct pb_buffer *new_buf;
 

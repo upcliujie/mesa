@@ -805,11 +805,7 @@ static bool si_is_resource_busy(struct pipe_screen *screen, struct pipe_resource
 {
    struct radeon_winsys *ws = ((struct si_screen *)screen)->ws;
 
-   return !ws->buffer_wait(ws, si_resource(resource)->buf, 0,
-                           /* If mapping for write, we need to wait for all reads and writes.
-                            * If mapping for read, we only need to wait for writes.
-                            */
-                           usage & PIPE_MAP_WRITE ? RADEON_USAGE_READWRITE : RADEON_USAGE_WRITE);
+   return !ws->buffer_wait(ws, si_resource(resource)->buf, 0);
 }
 
 static struct pipe_context *si_pipe_create_context(struct pipe_screen *screen, void *priv,

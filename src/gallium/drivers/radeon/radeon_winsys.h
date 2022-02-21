@@ -334,7 +334,7 @@ struct radeon_winsys {
     * is idle.
     */
    bool (*buffer_wait)(struct radeon_winsys *ws, struct pb_buffer *buf,
-                       uint64_t timeout, unsigned usage);
+                       uint64_t timeout);
 
    /**
     * Return buffer metadata.

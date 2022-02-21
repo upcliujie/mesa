@@ -117,7 +117,7 @@ r300_texture_transfer_map(struct pipe_context *ctx,
         referenced_hw = TRUE;
     } else {
         referenced_hw =
-            !r300->rws->buffer_wait(r300->rws, tex->buf, 0, RADEON_USAGE_READWRITE);
+            !r300->rws->buffer_wait(r300->rws, tex->buf, 0);
     }
 
     trans = CALLOC_STRUCT(r300_transfer);

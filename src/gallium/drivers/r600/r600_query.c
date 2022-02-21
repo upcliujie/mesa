@@ -1021,7 +1021,7 @@ void r600_query_hw_reset_buffers(struct r600_common_context *rctx,
 
 	/* Obtain a new buffer if the current one can't be mapped without a stall. */
 	if (r600_rings_is_buffer_referenced(rctx, query->buffer.buf->buf, RADEON_USAGE_READWRITE) ||
-	    !rctx->ws->buffer_wait(rctx->ws, query->buffer.buf->buf, 0, RADEON_USAGE_READWRITE)) {
+	    !rctx->ws->buffer_wait(rctx->ws, query->buffer.buf->buf, 0)) {
 		r600_resource_reference(&query->buffer.buf, NULL);
 		query->buffer.buf = r600_new_query_buffer(rctx->screen, query);
 	} else {

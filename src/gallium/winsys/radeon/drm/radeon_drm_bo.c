@@ -130,8 +130,7 @@ static void radeon_bo_wait_idle(struct radeon_bo *bo)
 }
 
 static bool radeon_bo_wait(struct radeon_winsys *rws,
-                           struct pb_buffer *_buf, uint64_t timeout,
-                           unsigned usage)
+                           struct pb_buffer *_buf, uint64_t timeout)
 {
    struct radeon_bo *bo = radeon_bo(_buf);
    int64_t abs_timeout;
@@ -523,8 +522,7 @@ static void *radeon_bo_map(struct radeon_winsys *rws,
                return NULL;
             }
 
-            if (!radeon_bo_wait(rws, (struct pb_buffer*)bo, 0,
-                                RADEON_USAGE_WRITE)) {
+            if (!radeon_bo_wait(rws, (struct pb_buffer*)bo, 0)) {
                return NULL;
             }
          } else {
@@ -534,8 +532,7 @@ static void *radeon_bo_map(struct radeon_winsys *rws,
                return NULL;
             }
 
-            if (!radeon_bo_wait(rws, (struct pb_buffer*)bo, 0,
-                                RADEON_USAGE_READWRITE)) {
+            if (!radeon_bo_wait(rws, (struct pb_buffer*)bo, 0)) {
                return NULL;
             }
          }
@@ -554,8 +551,7 @@ static void *radeon_bo_map(struct radeon_winsys *rws,
                cs->flush_cs(cs->flush_data,
                             RADEON_FLUSH_START_NEXT_GFX_IB_NOW, NULL);
             }
-            radeon_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE,
-                           RADEON_USAGE_WRITE);
+            radeon_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE);
          } else {
             /* Mapping for write. */
             if (cs) {
@@ -569,8 +565,7 @@ static void *radeon_bo_map(struct radeon_winsys *rws,
                }
             }
 
-            radeon_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE,
-                           RADEON_USAGE_READWRITE);
+            radeon_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE);
          }
 
          bo->rws->buffer_wait_time += os_time_get_nano() - time;
@@ -746,7 +741,7 @@ bool radeon_bo_can_reclaim(void *winsys, struct pb_buffer *_buf)
    if (radeon_bo_is_referenced_by_any_cs(bo))
       return false;
 
-   return radeon_bo_wait(winsys, _buf, 0, RADEON_USAGE_READWRITE);
+   return radeon_bo_wait(winsys, _buf, 0);
 }
 
 bool radeon_bo_can_reclaim_slab(void *priv, struct pb_slab_entry *entry)

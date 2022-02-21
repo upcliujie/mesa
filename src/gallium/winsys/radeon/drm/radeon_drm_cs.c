@@ -800,8 +800,7 @@ static bool radeon_fence_wait(struct radeon_winsys *ws,
                               struct pipe_fence_handle *fence,
                               uint64_t timeout)
 {
-   return ws->buffer_wait(ws, (struct pb_buffer*)fence, timeout,
-                          RADEON_USAGE_READWRITE);
+   return ws->buffer_wait(ws, (struct pb_buffer*)fence, timeout);
 }
 
 static void radeon_fence_reference(struct pipe_fence_handle **dst,

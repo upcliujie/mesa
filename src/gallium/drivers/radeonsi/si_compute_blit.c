@@ -63,7 +63,7 @@ static bool si_is_buffer_idle(struct si_context *sctx, struct si_resource *buf,
                               unsigned usage)
 {
    return !si_cs_is_buffer_referenced(sctx, buf->buf, usage) &&
-          sctx->ws->buffer_wait(sctx->ws, buf->buf, 0, usage);
+          sctx->ws->buffer_wait(sctx->ws, buf->buf, 0);
 }
 
 static void si_improve_sync_flags(struct si_context *sctx, struct pipe_resource *dst,

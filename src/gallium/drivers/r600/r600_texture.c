@@ -1339,8 +1339,7 @@ void *r600_texture_transfer_map(struct pipe_context *ctx,
 		/* Write & linear only: */
 		else if (r600_rings_is_buffer_referenced(rctx, rtex->resource.buf,
 							 RADEON_USAGE_READWRITE) ||
-			 !rctx->ws->buffer_wait(rctx->ws, rtex->resource.buf, 0,
-						RADEON_USAGE_READWRITE)) {
+			 !rctx->ws->buffer_wait(rctx->ws, rtex->resource.buf, 0)) {
 			/* It's busy. */
 			if (r600_can_invalidate_texture(rctx->screen, rtex,
 							usage, box))

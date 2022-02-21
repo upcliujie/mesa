@@ -48,8 +48,7 @@ struct amdgpu_sparse_backing_chunk {
 };
 
 static bool amdgpu_bo_wait(struct radeon_winsys *rws,
-                           struct pb_buffer *_buf, uint64_t timeout,
-                           unsigned usage)
+                           struct pb_buffer *_buf, uint64_t timeout)
 {
    struct amdgpu_winsys *ws = amdgpu_winsys(rws);
    struct amdgpu_winsys_bo *bo = amdgpu_winsys_bo(_buf);
@@ -304,8 +303,7 @@ void *amdgpu_bo_map(struct radeon_winsys *rws,
                return NULL;
             }
 
-            if (!amdgpu_bo_wait(rws, (struct pb_buffer*)bo, 0,
-                                RADEON_USAGE_WRITE)) {
+            if (!amdgpu_bo_wait(rws, (struct pb_buffer*)bo, 0)) {
                return NULL;
             }
          } else {
@@ -315,8 +313,7 @@ void *amdgpu_bo_map(struct radeon_winsys *rws,
                return NULL;
             }
 
-            if (!amdgpu_bo_wait(rws, (struct pb_buffer*)bo, 0,
-                                RADEON_USAGE_READWRITE)) {
+            if (!amdgpu_bo_wait(rws, (struct pb_buffer*)bo, 0)) {
                return NULL;
             }
          }
@@ -343,8 +340,7 @@ void *amdgpu_bo_map(struct radeon_winsys *rws,
                }
             }
 
-            amdgpu_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE,
-                           RADEON_USAGE_WRITE);
+            amdgpu_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE);
          } else {
             /* Mapping for write. */
             if (cs) {
@@ -358,8 +354,7 @@ void *amdgpu_bo_map(struct radeon_winsys *rws,
                }
             }
 
-            amdgpu_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE,
-                           RADEON_USAGE_READWRITE);
+            amdgpu_bo_wait(rws, (struct pb_buffer*)bo, PIPE_TIMEOUT_INFINITE);
          }
 
          ws->buffer_wait_time += os_time_get_nano() - time;
@@ -619,7 +614,7 @@ error_bo_alloc:
 
 bool amdgpu_bo_can_reclaim(struct amdgpu_winsys *ws, struct pb_buffer *_buf)
 {
-   return amdgpu_bo_wait(&ws->dummy_ws.base, _buf, 0, RADEON_USAGE_READWRITE);
+   return amdgpu_bo_wait(&ws->dummy_ws.base, _buf, 0);
 }
 
 bool amdgpu_bo_can_reclaim_slab(void *priv, struct pb_slab_entry *entry)
