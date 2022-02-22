@@ -95,6 +95,18 @@ asahi_classify_attachment(enum pipe_format format)
       return AGX_IOGPU_ATTACHMENT_TYPE_COLOUR;
 }
 
+static uint64_t
+agx_map_surface_resource(struct pipe_surface *surf, struct agx_resource *rsrc)
+{
+   return agx_map_texture_gpu(rsrc, surf->u.tex.level, surf->u.tex.first_layer);
+}
+
+static uint64_t
+agx_map_surface(struct pipe_surface *surf)
+{
+   return agx_map_surface_resource(surf, agx_resource(surf->texture));
+}
+
 static void
 asahi_pack_iogpu_attachment(void *out, struct agx_resource *rsrc,
                             struct pipe_surface *surf,
@@ -105,12 +117,8 @@ asahi_pack_iogpu_attachment(void *out, struct agx_resource *rsrc,
 
    agx_pack(out, IOGPU_ATTACHMENT, cfg) {
       cfg.type = asahi_classify_attachment(rsrc->base.format);
-
-      cfg.address = agx_map_texture_gpu(rsrc, surf->u.tex.level,
-                                              surf->u.tex.first_layer);
-
+      cfg.address = agx_map_surface_resource(surf, rsrc);
       cfg.size = rsrc->slices[surf->u.tex.level].size;
-
       cfg.percent = (100 * cfg.size) / total_size;
    }
 }
@@ -175,6 +183,8 @@ demo_cmdbuf(uint64_t *buf, size_t size,
    uint64_t unk_buffer = demo_zero(pool, 0x1000);
    uint64_t unk_buffer_2 = demo_zero(pool, 0x8000);
 
+   uint64_t stencil_buffer = 0, stencil_acceleration_buffer = 0;
+
    agx_pack(map + 156, IOGPU_INTERNAL_PIPELINES, cfg) {
       cfg.clear_pipeline_bind = 0xffff8002 | (clear_pipeline_textures ? 0x210 : 0);
       cfg.clear_pipeline = pipeline_clear;
@@ -182,6 +192,33 @@ demo_cmdbuf(uint64_t *buf, size_t size,
       cfg.store_pipeline = pipeline_store;
       cfg.scissor_array = scissor_ptr;
       cfg.unknown_buffer = unk_buffer;
+
+      if (framebuffer->zsbuf) {
+         struct pipe_surface *zsbuf = framebuffer->zsbuf;
+         const struct util_format_description *desc =
+            util_format_description(zsbuf->texture->format);
+
+         if (util_format_has_depth(desc)) {
+            cfg.depth_buffer = agx_map_surface(zsbuf);
+            cfg.depth_acceleration_buffer = cfg.depth_buffer + 0x1000; //TODO: planar
+         } else {
+            stencil_buffer = agx_map_surface(zsbuf);
+            stencil_acceleration_buffer = stencil_buffer + 0x1000; //TODO: planar
+         }
+
+         if (agx_resource(zsbuf->texture)->separate_stencil) {
+            stencil_buffer = agx_map_surface_resource(zsbuf,
+                  agx_resource(zsbuf->texture)->separate_stencil);
+
+            stencil_acceleration_buffer = stencil_buffer + 0x1000; //TODO: planar
+         }
+
+         cfg.stencil_buffer = stencil_buffer;
+         cfg.stencil_buffer_2 = stencil_buffer;
+
+         cfg.stencil_acceleration_buffer = stencil_acceleration_buffer;
+         cfg.stencil_acceleration_buffer_2 = stencil_acceleration_buffer;
+      }
    }
 
    agx_pack(map + 220, IOGPU_AUX_FRAMEBUFFER, cfg) {
@@ -207,6 +244,8 @@ demo_cmdbuf(uint64_t *buf, size_t size,
    map[306] = pipeline_store | 0x4;
 
    agx_pack(map + 344, IOGPU_MISC, cfg) {
+      cfg.stencil_buffer = stencil_buffer;
+      cfg.stencil_acceleration_buffer = stencil_acceleration_buffer;
       cfg.encoder_id = encoder_id;
       cfg.unknown_buffer = demo_unk6(pool);
       cfg.width = framebuffer->width;
