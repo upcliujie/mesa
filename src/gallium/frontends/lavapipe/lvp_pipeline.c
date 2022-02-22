@@ -816,6 +816,11 @@ lvp_graphics_pipeline_init(struct lvp_pipeline *pipeline,
    deep_copy_graphics_create_info(pipeline->mem_ctx, &pipeline->graphics_create_info, pCreateInfo);
    pipeline->is_compute_pipeline = false;
 
+   const VkPipelineViewportDepthClipControlCreateInfoEXT *ccontrol = vk_find_struct_const(pCreateInfo->pViewportState,
+                                                                                          PIPELINE_VIEWPORT_DEPTH_CLIP_CONTROL_CREATE_INFO_EXT);
+   if (ccontrol)
+      pipeline->negative_one_to_one = !!ccontrol->negativeOneToOne;
+
    const VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *pv_state =
       vk_find_struct_const(pCreateInfo->pRasterizationState,
                            PIPELINE_RASTERIZATION_PROVOKING_VERTEX_STATE_CREATE_INFO_EXT);
