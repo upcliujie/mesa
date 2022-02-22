@@ -198,6 +198,11 @@ demo_cmdbuf(uint64_t *buf, size_t size,
          const struct util_format_description *desc =
             util_format_description(zsbuf->texture->format);
 
+         // XXX
+         cfg.depth_pipeline_unk = 0x4;
+         cfg.depth_pipeline = 0x40;
+         cfg.depth_unknown_1 = 0x9e0394;
+
          if (util_format_has_depth(desc)) {
             cfg.depth_buffer = agx_map_surface(zsbuf);
             cfg.depth_acceleration_buffer = cfg.depth_buffer + 0x1000; //TODO: planar
