@@ -372,7 +372,8 @@ static void handle_compute_pipeline(struct vk_cmd_queue_entry *cmd,
 
 static void
 get_viewport_xform(const VkViewport *viewport,
-                   float scale[3], float translate[3])
+                   float scale[3], float translate[3],
+                   bool negative_one_to_one)
 {
    float x = viewport->x;
    float y = viewport->y;
@@ -386,8 +387,13 @@ get_viewport_xform(const VkViewport *viewport,
    scale[1] = half_height;
    translate[1] = half_height + y;
 
-   scale[2] = (f - n);
-   translate[2] = n;
+   if (negative_one_to_one) {
+      scale[2] = 0.5 * (f - n);
+      translate[2] = 0.5 * (n + f);
+   } else {
+      scale[2] = (f - n);
+      translate[2] = n;
+   }
 }
 
 /* enum re-indexing:
@@ -458,6 +464,7 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
    LVP_FROM_HANDLE(lvp_pipeline, pipeline, cmd->u.bind_pipeline.pipeline);
    bool dynamic_states[VK_DYNAMIC_STATE_STENCIL_REFERENCE+32];
    unsigned fb_samples = 0;
+   bool clip_halfz = state->rs_state.clip_halfz;
 
    memset(dynamic_states, 0, sizeof(dynamic_states));
    if (pipeline->graphics_create_info.pDynamicState)
@@ -545,7 +552,6 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
       state->rs_state.point_size_per_vertex = true;
       state->rs_state.flatshade_first = !pipeline->provoking_vertex_last;
       state->rs_state.point_quad_rasterization = true;
-      state->rs_state.clip_halfz = true;
       state->rs_state.half_pixel_center = true;
       state->rs_state.scissor = true;
       state->rs_state.no_ms_sample_mask_out = true;
@@ -791,6 +797,12 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
    } else
       state->patch_vertices = 0;
 
+   bool halfz_changed = false;
+   if (!pipeline->negative_one_to_one != clip_halfz) {
+      state->rs_state.clip_halfz = !pipeline->negative_one_to_one;
+      halfz_changed = state->rs_dirty = true;
+   }
+
    if (pipeline->graphics_create_info.pViewportState) {
       const VkPipelineViewportStateCreateInfo *vpi= pipeline->graphics_create_info.pViewportState;
       int i;
@@ -807,7 +819,16 @@ static void handle_graphics_pipeline(struct vk_cmd_queue_entry *cmd,
       if (!dynamic_states[VK_DYNAMIC_STATE_VIEWPORT] &&
           !dynamic_states[conv_dynamic_state_idx(VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT)]) {
          for (i = 0; i < vpi->viewportCount; i++)
-            get_viewport_xform(&vpi->pViewports[i], state->viewports[i].scale, state->viewports[i].translate);
+            get_viewport_xform(&vpi->pViewports[i], state->viewports[i].scale, state->viewports[i].translate, !state->rs_state.clip_halfz);
+         state->vp_dirty = true;
+      } else if (halfz_changed) {
+         /* handle dynamic state: convert from one transform to the other */
+         unsigned num_viewports = dynamic_states[VK_DYNAMIC_STATE_VIEWPORT] ? vpi->viewportCount : state->num_viewports;
+         float factor = state->rs_state.clip_halfz ? 2.0 : 0.5;
+         for (i = 0; i < num_viewports; i++) {
+            state->viewports[i].scale[2] *= factor;
+            state->viewports[i].translate[2] *= factor;
+         }
          state->vp_dirty = true;
       }
       if (!dynamic_states[VK_DYNAMIC_STATE_SCISSOR] &&
@@ -2076,7 +2097,7 @@ static void set_viewport(unsigned first_viewport, unsigned viewport_count,
    for (i = 0; i < viewport_count; i++) {
       int idx = i + base;
       const VkViewport *vp = &viewports[i];
-      get_viewport_xform(vp, state->viewports[idx].scale, state->viewports[idx].translate);
+      get_viewport_xform(vp, state->viewports[idx].scale, state->viewports[idx].translate, !state->rs_state.clip_halfz);
    }
    state->vp_dirty = true;
 }
