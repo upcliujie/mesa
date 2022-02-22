@@ -405,6 +405,10 @@ void rc_get_stats(struct radeon_compiler *c, struct rc_program_stats *s)
 	/* Increment here because the reg_count_callback store the max
 	 * temporary reg index in s->nun_temp_regs. */
 	s->num_temp_regs++;
+	if (c->type == RC_VERTEX_PROGRAM)
+		s->num_cntrls = MIN2(5, (c->is_r500 ? 128 : 72) / s->num_temp_regs);
+	else
+		s->num_cntrls = 0;
 }
 
 static void print_stats(struct radeon_compiler * c)
@@ -417,11 +421,12 @@ static void print_stats(struct radeon_compiler * c)
 	 * only the FS has, becasue shader-db's report.py wants all shaders to
 	 * have the same set.
 	 */
-	pipe_debug_message(c->debug, SHADER_INFO, "%s shader: %u inst, %u vinst, %u sinst, %u predicate, %u flowcontrol, %u loops, %u tex, %u presub, %u omod, %u temps, %u consts, %u lits",
+	pipe_debug_message(c->debug, SHADER_INFO, "%s shader: %u inst, %u vinst, %u sinst, %u predicate, %u flowcontrol, %u loops, %u tex, %u presub, %u omod, %u temps, %u consts, %u lits, %u cntlrs",
 	                   c->type == RC_VERTEX_PROGRAM ? "VS" : "FS",
 	                   s.num_insts, s.num_rgb_insts, s.num_alpha_insts, s.num_pred_insts,
 	                   s.num_fc_insts, s.num_loops, s.num_tex_insts, s.num_presub_ops,
-	                   s.num_omod_ops, s.num_temp_regs, s.num_consts, s.num_inline_literals);
+	                   s.num_omod_ops, s.num_temp_regs, s.num_consts, s.num_inline_literals,
+			   s.num_cntrls);
 }
 
 static const char *shader_name[RC_NUM_PROGRAM_TYPES] = {
