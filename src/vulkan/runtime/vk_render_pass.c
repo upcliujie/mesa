@@ -486,6 +486,7 @@ vk_common_CreateRenderPass2(VkDevice _device,
        * mask of 1 for non-multiview instead of a mask of 0.
        */
       subpass->view_mask = desc->viewMask ? desc->viewMask : 1;
+      pass->view_mask |= subpass->view_mask;
 
       assert(desc->colorAttachmentCount <= 32);
       uint32_t color_self_deps = 0;
@@ -1140,25 +1141,23 @@ transition_attachment(struct vk_command_buffer *cmd_buffer,
          .levelCount = 1,
       };
 
-      /* 3D is stupidly special.  From the Vulkan 1.3.204 spec:
+      /* From the Vulkan 1.3.XXX spec:
        *
-       *    "When the VkImageSubresourceRange structure is used to select a
-       *    subset of the slices of a 3D image’s mip level in order to create
-       *    a 2D or 2D array image view of a 3D image created with
-       *    VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT, baseArrayLayer and
-       *    layerCount specify the first slice index and the number of slices
-       *    to include in the created image view. Such an image view can be
-       *    used as a framebuffer attachment that refers only to the specified
-       *    range of slices of the selected mip level. However, any layout
-       *    transitions performed on such an attachment view during a render
-       *    pass instance still apply to the entire subresource referenced
-       *    which includes all the slices of the selected mip level."
-       *
-       * To deal with this, we expand out the layer range to include the
-       * entire 3D image and treat them as having only a single view even when
-       * multiview is enabled.  This later part means that we effectively only
-       * track one image layout for the entire attachment rather than one per
-       * view like we do for all the others.
+       *    "Automatic layout transitions apply to the entire image
+       *    subresource attached to the framebuffer. If multiview is not
+       *    enabled and the attachment is a view of a 1D or 2D image, the
+       *    automatic layout transitions apply to the number of layers
+       *    specified by VkFramebufferCreateInfo::layers, even if
+       *    VkImageViewCreateInfo::subresourceRange.layerCount is larger. If
+       *    multiview is enabled and the attachment is a view of a 1D or 2D
+       *    image, the automatic layout transitions apply to the layers
+       *    corresponding to views which are used by some subpass in the
+       *    render pass, even if that subpass does not reference the given
+       *    attachment. If the attachment view is a 2D or 2D array view of a
+       *    3D image, even if the attachment view only refers to a subset of
+       *    the slices of the selected mip level of the 3D image, automatic
+       *    layout transitions apply to the entire subresource referenced
+       *    which is the entire mip level in this case."
        */
       if (image_view->image->image_type == VK_IMAGE_TYPE_3D) {
          assert(view == 0);
@@ -1830,87 +1829,27 @@ vk_common_CmdEndRenderPass2(VkCommandBuffer commandBuffer,
 
    end_subpass(cmd_buffer, pSubpassEndInfo);
 
-   /* From the Vulkan 1.3.204 spec:
-    *
-    *    "Automatic layout transitions apply to the entire image subresource
-    *    attached to the framebuffer. If the attachment view is a 2D or 2D
-    *    array view of a 3D image, even if the attachment view only refers to
-    *    a subset of the slices of the selected mip level of the 3D image,
-    *    automatic layout transitions apply to the entire subresource
-    *    referenced which is the entire mip level in this case."
-    *
-    * We need to ensure that the entire bound subresource ends up in
-    * finalLayout regardless of multiview or whether or not the attachment
-    * was ever used.
-    */
+   /* Make sure all our attachments end up in their finalLayout */
+
    uint32_t max_image_barrier_count = 0;
    for (uint32_t a = 0; a < pass->attachment_count; a++) {
-      const struct vk_render_pass_attachment *pass_att = &pass->attachments[a];
-      struct vk_attachment_state *att_state = &cmd_buffer->attachments[a];
-      const struct vk_image_view *image_view = att_state->image_view;
+      const struct vk_render_pass_attachment *rp_att = &pass->attachments[a];
 
-      unsigned num_views = util_last_bit(pass_att->view_mask);
-      if (!pass->is_multiview ||
-          image_view->image->image_type == VK_IMAGE_TYPE_3D)
-         num_views = 1;
-
-      max_image_barrier_count += num_views * util_bitcount(pass_att->aspects);
-      if (pass->is_multiview &&
-          image_view->image->image_type != VK_IMAGE_TYPE_3D &&
-          image_view->layer_count > num_views)
-         max_image_barrier_count += util_bitcount(pass_att->aspects);
+      max_image_barrier_count += util_bitcount(pass->view_mask) *
+                                 util_bitcount(rp_att->aspects);
    }
    STACK_ARRAY(VkImageMemoryBarrier2, image_barriers, max_image_barrier_count);
    uint32_t image_barrier_count = 0;
 
    for (uint32_t a = 0; a < pass->attachment_count; a++) {
-      const struct vk_render_pass_attachment *pass_att = &pass->attachments[a];
-      struct vk_attachment_state *att_state = &cmd_buffer->attachments[a];
-      const struct vk_image_view *image_view = att_state->image_view;
+      const struct vk_render_pass_attachment *rp_att = &pass->attachments[a];
 
-      unsigned num_views = util_last_bit(pass_att->view_mask);
-      assert(num_views <= image_view->layer_count);
-
-      /* For non-multiview or 3D images, handle the case where the attachment
-       * was completely unused here.  For non-multiview, we handle it
-       * specially below as part of the "more layers than used" case.
-       */
-      if (!pass->is_multiview ||
-          image_view->image->image_type == VK_IMAGE_TYPE_3D)
-         num_views = 1;
-
-      transition_attachment(cmd_buffer, a, BITFIELD_MASK(num_views),
-                            pass_att->final_layout,
-                            pass_att->final_stencil_layout,
+      transition_attachment(cmd_buffer, a, pass->view_mask,
+                            rp_att->final_layout,
+                            rp_att->final_stencil_layout,
                             &image_barrier_count,
                             max_image_barrier_count,
                             image_barriers);
-
-      /* For multiview, it's possible that the client has bound more array
-       * layers than they've actually used as views.  In this case, we need
-       * one more barrier to transition the remaining slices.  We don't for
-       * 3D because those are already transitioned an entire miplevel at a
-       * time.
-       */
-      if (pass->is_multiview &&
-          image_view->image->image_type != VK_IMAGE_TYPE_3D &&
-          image_view->layer_count > num_views) {
-         VkImageSubresourceRange range = {
-            .aspectMask = pass_att->aspects,
-            .baseMipLevel = image_view->base_mip_level,
-            .levelCount = 1,
-            .baseArrayLayer = num_views,
-            .layerCount = image_view->layer_count - num_views,
-         };
-         transition_image_range(image_view, range,
-                                pass_att->initial_layout,
-                                pass_att->final_layout,
-                                pass_att->initial_stencil_layout,
-                                pass_att->final_stencil_layout,
-                                &image_barrier_count,
-                                max_image_barrier_count,
-                                image_barriers);
-      }
    }
    assert(image_barrier_count <= max_image_barrier_count);
 
