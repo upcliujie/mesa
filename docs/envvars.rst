@@ -326,11 +326,13 @@ Intel driver environment variables
    ``spill_vec4``
       force spilling of all registers in the vec4 backend (useful to
       debug spilling code)
+   ``stall``
+      inserts a stall after each draw/dispatch command on the GPU.
    ``submit``
       emit batchbuffer usage statistics
    ``sync``
-      after sending each batch, emit a message and wait for that batch
-      to finish rendering
+      after sending each batch, wait on the CPU for that batch to
+      finish rendering
    ``task``
       dump shader assembly for task shaders
    ``tcs``
