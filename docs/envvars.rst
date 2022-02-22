@@ -326,6 +326,9 @@ Intel driver environment variables
    ``spill_vec4``
       force spilling of all registers in the vec4 backend (useful to
       debug spilling code)
+   ``stall``
+      insert stalls between each draw/dispatch commands (useful to
+      identify a particular command hanging the machine)
    ``submit``
       emit batchbuffer usage statistics
    ``sync``
