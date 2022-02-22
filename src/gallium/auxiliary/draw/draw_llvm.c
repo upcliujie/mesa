@@ -58,7 +58,6 @@
 #include "util/u_math.h"
 #include "util/u_pointer.h"
 #include "util/u_string.h"
-#include "util/simple_list.h"
 #include "nir_serialize.h"
 #include "util/mesa-sha1.h"
 #define DEBUG_STORE 0
@@ -736,7 +735,7 @@ create_jit_types(struct draw_llvm_variant *variant)
 
    buffer_type = create_jit_dvbuffer_type(gallivm, "draw_vertex_buffer");
    variant->buffer_ptr_type = LLVMPointerType(buffer_type, 0);
-   
+
    vb_type = create_jit_vertex_buffer_type(gallivm, "pipe_vertex_buffer");
    variant->vb_ptr_type = LLVMPointerType(vb_type, 0);
 }
@@ -803,16 +802,16 @@ draw_llvm_create(struct draw_context *draw, LLVMContextRef context)
       goto fail;
 
    llvm->nr_variants = 0;
-   make_empty_list(&llvm->vs_variants_list);
+   list_inithead(&llvm->vs_variants_list.list);
 
    llvm->nr_gs_variants = 0;
-   make_empty_list(&llvm->gs_variants_list);
+   list_inithead(&llvm->gs_variants_list.list);
 
    llvm->nr_tcs_variants = 0;
-   make_empty_list(&llvm->tcs_variants_list);
+   list_inithead(&llvm->tcs_variants_list.list);
 
    llvm->nr_tes_variants = 0;
-   make_empty_list(&llvm->tes_variants_list);
+   list_inithead(&llvm->tes_variants_list.list);
 
    return llvm;
 
@@ -1341,7 +1340,7 @@ convert_to_aos(struct gallivm_state *gallivm,
             {
                LLVMValueRef iv =
                   LLVMBuildBitCast(builder, out, lp_build_int_vec_type(gallivm, soa_type), "");
-               
+
                lp_build_print_value(gallivm, "  ival = ", iv);
             }
 #endif
@@ -1904,7 +1903,7 @@ draw_gs_llvm_epilogue(const struct lp_build_gs_iface *gs_base,
    LLVMValueRef emitted_prims_ptr =
       draw_gs_jit_emitted_prims(gallivm, variant->context_ptr);
    LLVMValueRef stream_val = lp_build_const_int32(gallivm, stream);
-   
+
    emitted_verts_ptr = LLVMBuildGEP(builder, emitted_verts_ptr, &stream_val, 1, "");
    emitted_prims_ptr = LLVMBuildGEP(builder, emitted_prims_ptr, &stream_val, 1, "");
 
@@ -2604,7 +2603,7 @@ draw_llvm_set_mapped_image(struct draw_context *draw,
 
 
 void
-draw_llvm_set_sampler_state(struct draw_context *draw, 
+draw_llvm_set_sampler_state(struct draw_context *draw,
                             enum pipe_shader_type shader_type)
 {
    unsigned i;
@@ -2689,9 +2688,9 @@ draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 
    gallivm_destroy(variant->gallivm);
 
-   remove_from_list(&variant->list_item_local);
+   list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
-   remove_from_list(&variant->list_item_global);
+   list_del(&variant->list_item_global.list);
    llvm->nr_variants--;
    FREE(variant);
 }
@@ -3007,9 +3006,9 @@ draw_gs_llvm_destroy_variant(struct draw_gs_llvm_variant *variant)
 
    gallivm_destroy(variant->gallivm);
 
-   remove_from_list(&variant->list_item_local);
+   list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
-   remove_from_list(&variant->list_item_global);
+   list_del(&variant->list_item_global.list);
    llvm->nr_gs_variants--;
    FREE(variant);
 }
@@ -3673,9 +3672,9 @@ draw_tcs_llvm_destroy_variant(struct draw_tcs_llvm_variant *variant)
 
    gallivm_destroy(variant->gallivm);
 
-   remove_from_list(&variant->list_item_local);
+   list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
-   remove_from_list(&variant->list_item_global);
+   list_del(&variant->list_item_global.list);
    llvm->nr_tcs_variants--;
    FREE(variant);
 }
@@ -4200,9 +4199,9 @@ draw_tes_llvm_destroy_variant(struct draw_tes_llvm_variant *variant)
 
    gallivm_destroy(variant->gallivm);
 
-   remove_from_list(&variant->list_item_local);
+   list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
-   remove_from_list(&variant->list_item_global);
+   list_del(&variant->list_item_global.list);
    llvm->nr_tes_variants--;
    FREE(variant);
 }
