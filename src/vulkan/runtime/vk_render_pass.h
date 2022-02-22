@@ -278,6 +278,9 @@ struct vk_render_pass {
     */
    bool is_multiview;
 
+   /** Views used by this render pass or 1 for non-multiview */
+   uint32_t view_mask;
+
    /** VkRenderPassCreateInfo2::attachmentCount */
    uint32_t attachment_count;
 
