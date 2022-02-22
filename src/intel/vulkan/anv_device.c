@@ -3431,7 +3431,15 @@ VkResult anv_CreateDevice(
 
    result = anv_device_init_rt_shaders(device);
    if (result != VK_SUCCESS)
-      goto fail_rt_trampoline;
+      goto fail_default_pipeline;
+
+   if (INTEL_DEBUG(DEBUG_SYNC)) {
+      result = vk_sync_create(&device->vk,
+                              &device->physical->sync_syncobj_type,
+                              0, 0, &device->sync);
+      if (result != VK_SUCCESS)
+         goto fail_rt_shaders;
+   }
 
    anv_device_init_blorp(device);
 
@@ -3445,7 +3453,9 @@ VkResult anv_CreateDevice(
 
    return VK_SUCCESS;
 
- fail_rt_trampoline:
+ fail_rt_shaders:
+   anv_device_finish_rt_shaders(device);
+ fail_default_pipeline:
    anv_pipeline_cache_finish(&device->default_pipeline_cache);
  fail_trivial_batch_bo_and_scratch_pool:
    anv_scratch_pool_finish(device, &device->scratch_pool);
@@ -3515,6 +3525,9 @@ void anv_DestroyDevice(
    anv_device_utrace_finish(device);
 
    anv_device_finish_blorp(device);
+
+   if (device->sync)
+      vk_sync_destroy(&device->vk, device->sync);
 
    anv_device_finish_rt_shaders(device);
 

@@ -1276,6 +1276,9 @@ struct anv_device {
 
     const struct intel_l3_config                *l3_config;
 
+    /** Synchronization object for debug purposes (DEBUG_SYNC) */
+    struct vk_sync                              *sync;
+
     struct intel_debug_block_frame              *debug_frame_desc;
 
     struct intel_ds_device                       ds;
