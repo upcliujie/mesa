@@ -52,40 +52,41 @@ void
 bi_opt_message_preload(bi_context *ctx)
 {
         unsigned nr_preload = 0;
-        bi_index preload[2] = { bi_null() };
 
         /* We only preload from the first block */
         bi_block *block = bi_start_block(&ctx->blocks);
         bi_builder b = bi_init_builder(ctx, bi_before_nonempty_block(block));
 
-        bi_foreach_instr_in_block_safe(block, ins) {
-                /* TODO: generalize? */
-                if (!bi_is_ssa(ins->dest[0])) continue;
-                if (ins->dest[0].offset) continue;
+        bi_foreach_instr_in_block_safe(block, I) {
+                if (!bi_is_ssa(I->dest[0])) continue;
 
                 struct bifrost_message_preload msg;
 
-                if (bi_can_preload_ld_var(ins)) {
+                if (bi_can_preload_ld_var(I)) {
                         msg = (struct bifrost_message_preload) {
                                 .enabled = true,
-                                .varying_index = ins->varying_index,
-                                .fp16 = (ins->register_format == BI_REGISTER_FORMAT_F16),
-                                .num_components = ins->vecsize + 1
+                                .varying_index = I->varying_index,
+                                .fp16 = (I->register_format == BI_REGISTER_FORMAT_F16),
+                                .num_components = I->vecsize + 1
                         };
                 } else
                         continue;
 
-                /* Replace with moves at the start */
+                /* Report the preloading */
+                ctx->info.bifrost->messages[nr_preload] = msg;
+
+                /* Replace with moves at the start. Ideally, they will be
+                 * coalesced out or copy propagated.
+                 */
                 for (unsigned i = 0; i < msg.num_components; ++i) {
-                        bi_mov_i32_to(&b, bi_word(ins->dest[0], i),
+                        bi_mov_i32_to(&b, bi_word(I->dest[0], i),
                                           bi_register((nr_preload * 4) + i));
                 }
 
-                bi_remove_instruction(ins);
+                bi_remove_instruction(I);
 
-                /* Report the preloading */
-                ctx->info.bifrost->messages[nr_preload++] = msg;
-
-                if (nr_preload == 2) break;
+                /* Maximum number of preloaded messages */
+                if ((nr_preload++) == 2)
+                        break;
         }
 }
