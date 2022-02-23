@@ -567,7 +567,18 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginRendering(VkCommandBuffer                
    list_addtail(&cmd->cmd_link, &queue->cmds);
 
    if (pRenderingInfo) {
-      cmd->u.begin_rendering.rendering_info = vk_zalloc(queue->alloc, sizeof(VkRenderingInfoKHR), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+      struct VkRenderingAttachmentInfo *pDepthAttachment = NULL;
+      struct VkRenderingAttachmentInfo *pStencilAttachment = NULL;
+      VK_MULTIALLOC(ma);
+      vk_multialloc_add(&ma, &cmd->u.begin_rendering.rendering_info, VkRenderingInfoKHR, 1);
+      if (pRenderingInfo->pDepthAttachment)
+         vk_multialloc_add(&ma, &pDepthAttachment, VkRenderingAttachmentInfo, 1);
+      if (pRenderingInfo->pStencilAttachment)
+         vk_multialloc_add(&ma, &pStencilAttachment, VkRenderingAttachmentInfo, 1);
+
+      if (!vk_multialloc_alloc(&ma, queue->alloc, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND))
+         return;
+
       memcpy((void*)cmd->u.begin_rendering.rendering_info, pRenderingInfo, sizeof(VkRenderingInfoKHR));
    VkRenderingInfoKHR *tmp_dst1 = (void *) cmd->u.begin_rendering.rendering_info; (void) tmp_dst1;
    VkRenderingInfoKHR *tmp_src1 = (void *) pRenderingInfo; (void) tmp_src1;   
@@ -627,11 +638,11 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginRendering(VkCommandBuffer                
       tmp_dst1->pColorAttachments = vk_zalloc(queue->alloc, sizeof(*tmp_dst1->pColorAttachments) * tmp_dst1->colorAttachmentCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
    memcpy(( VkRenderingAttachmentInfoKHR*             )tmp_dst1->pColorAttachments, tmp_src1->pColorAttachments, sizeof(*tmp_dst1->pColorAttachments) * tmp_dst1->colorAttachmentCount);
       if (tmp_src1->pDepthAttachment) {
-         tmp_dst1->pDepthAttachment = vk_zalloc(queue->alloc, sizeof(VkRenderingAttachmentInfoKHR), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+         tmp_dst1->pDepthAttachment = pDepthAttachment;
          memcpy((void*)tmp_dst1->pDepthAttachment, tmp_src1->pDepthAttachment, sizeof(VkRenderingAttachmentInfoKHR));
       }
       if (tmp_src1->pStencilAttachment) {
-         tmp_dst1->pStencilAttachment = vk_zalloc(queue->alloc, sizeof(VkRenderingAttachmentInfoKHR), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+         tmp_dst1->pStencilAttachment = pStencilAttachment;
          memcpy((void*)tmp_dst1->pStencilAttachment, tmp_src1->pStencilAttachment, sizeof(VkRenderingAttachmentInfoKHR));
       }
    } else {
