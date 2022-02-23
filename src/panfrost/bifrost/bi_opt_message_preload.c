@@ -22,6 +22,7 @@
  */
 
 #include "compiler.h"
+#include "bi_builder.h"
 
 /* Bifrost v7 can preload up to two messages of the form:
  *
@@ -53,22 +54,11 @@ bi_opt_message_preload(bi_context *ctx)
         unsigned nr_preload = 0;
         bi_index preload[2] = { bi_null() };
 
-        bi_foreach_instr_global(ctx, ins) {
-                bi_foreach_src(ins, s) {
-                        bi_index use = ins->src[s];
-                        if (!bi_is_ssa(use)) continue;
+        /* We only preload from the first block */
+        bi_block *block = bi_start_block(&ctx->blocks);
+        bi_builder b = bi_init_builder(ctx, bi_before_nonempty_block(block));
 
-                        for (unsigned i = 0; i < nr_preload; ++i) {
-                                if (bi_is_equiv(use, preload[i])) {
-                                        ins->src[s] = bi_replace_index(use,
-                                                        bi_register(4*i + use.offset));
-                                        break;
-                                }
-                        }
-                }
-
-                if (nr_preload == 2) continue;
-
+        bi_foreach_instr_in_block_safe(block, ins) {
                 /* TODO: generalize? */
                 if (!bi_is_ssa(ins->dest[0])) continue;
                 if (ins->dest[0].offset) continue;
@@ -85,8 +75,17 @@ bi_opt_message_preload(bi_context *ctx)
                 } else
                         continue;
 
+                /* Replace with moves at the start */
+                for (unsigned i = 0; i < msg.num_components; ++i) {
+                        bi_mov_i32_to(&b, bi_word(ins->dest[0], i),
+                                          bi_register((nr_preload * 4) + i));
+                }
+
+                bi_remove_instruction(ins);
+
                 /* Report the preloading */
-                ctx->info.bifrost->messages[nr_preload] = msg;
-                preload[nr_preload++] = ins->dest[0];
+                ctx->info.bifrost->messages[nr_preload++] = msg;
+
+                if (nr_preload == 2) break;
         }
 }
