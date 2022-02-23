@@ -48,6 +48,7 @@ static const struct debug_named_value bifrost_debug_options[] = {
         {"noopt",     BIFROST_DBG_NOOPT,        "Skip optimization passes"},
         {"noidvs",    BIFROST_DBG_NOIDVS,       "Disable IDVS"},
         {"nosb",      BIFROST_DBG_NOSB,         "Disable scoreboarding"},
+        {"nopreload", BIFROST_DBG_NOPRELOAD,    "Disable message preloading"},
         DEBUG_NAMED_VALUE_END
 };
 
@@ -4002,6 +4003,12 @@ bi_compile_variant_nir(nir_shader *nir,
         /* Runs before copy prop */
         if (optimize && !ctx->inputs->no_ubo_to_push) {
                 bi_opt_push_ubo(ctx);
+        }
+
+        /* Push LD_VAR_IMM/VAR_TEX instructions */
+        if (optimize && ctx->arch == 7 && ctx->stage == MESA_SHADER_FRAGMENT &&
+            !(bifrost_debug & BIFROST_DBG_NOPRELOAD)) {
+                bi_opt_message_preload(ctx);
         }
 
         if (likely(optimize)) {
