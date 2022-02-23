@@ -183,7 +183,7 @@ matrix_inverse(struct vtn_builder *b, struct vtn_ssa_value *src)
  * in each case.
  */
 static nir_ssa_def *
-build_asin(nir_builder *b, nir_ssa_def *x, float p0, float p1, bool piecewise)
+build_asin(nir_builder *b, nir_ssa_def *x, bool cos)
 {
    if (x->bit_size == 16) {
       /* The polynomial approximation isn't precise enough to meet half-float
@@ -196,12 +196,14 @@ build_asin(nir_builder *b, nir_ssa_def *x, float p0, float p1, bool piecewise)
        * approximation in 32-bit math and then we convert the result back to
        * 16-bit.
        */
-      return nir_f2f16(b, build_asin(b, nir_f2f32(b, x), p0, p1, piecewise));
+      return nir_f2f16(b, build_asin(b, nir_f2f32(b, x), cos));
    }
    nir_ssa_def *one = nir_imm_floatN_t(b, 1.0f, x->bit_size);
    nir_ssa_def *half = nir_imm_floatN_t(b, 0.5f, x->bit_size);
    nir_ssa_def *abs_x = nir_fabs(b, x);
 
+   float p0 = cos ? 0.08132463 : 0.086566724;
+   float p1 = cos ? -0.02363318 : -0.03102955;
    nir_ssa_def *p0_plus_xp1 = nir_ffma_imm12(b, abs_x, p1, p0);
 
    nir_ssa_def *expr_tail =
@@ -213,7 +215,7 @@ build_asin(nir_builder *b, nir_ssa_def *x, float p0, float p1, bool piecewise)
                       nir_a_minus_bc(b, nir_imm_floatN_t(b, M_PI_2f, x->bit_size),
                                         nir_fsqrt(b, nir_fsub(b, one, abs_x)),
                                         expr_tail));
-   if (piecewise) {
+   if (!cos) {
       /* approximation for |x| < 0.5 */
       const float pS0 =  1.6666586697e-01f;
       const float pS1 = -4.2743422091e-02f;
@@ -231,7 +233,7 @@ build_asin(nir_builder *b, nir_ssa_def *x, float p0, float p1, bool piecewise)
       nir_ssa_def *result1 = nir_ffma(b, x, nir_fdiv(b, p, q), x);
       return nir_bcsel(b, nir_flt(b, abs_x, half), result1, result0);
    } else {
-      return result0;
+      return nir_fsub(b, nir_imm_floatN_t(b, M_PI_2f, x->bit_size), result0);
    }
 }
 
@@ -506,13 +508,11 @@ handle_glsl450_alu(struct vtn_builder *b, enum GLSLstd450 entrypoint,
    }
 
    case GLSLstd450Asin:
-      dest->def = build_asin(nb, src[0], 0.086566724, -0.03102955, true);
+      dest->def = build_asin(nb, src[0], false);
       break;
 
    case GLSLstd450Acos:
-      dest->def =
-         nir_fsub(nb, nir_imm_floatN_t(nb, M_PI_2f, src[0]->bit_size),
-                      build_asin(nb, src[0], 0.08132463, -0.02363318, false));
+      dest->def = build_asin(nb, src[0], true);
       break;
 
    case GLSLstd450Atan:
