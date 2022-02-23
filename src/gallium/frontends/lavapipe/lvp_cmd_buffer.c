@@ -578,78 +578,75 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginRendering(VkCommandBuffer commandBuffer,
          return;
 
       memcpy((void *)cmd->u.begin_rendering.rendering_info, pRenderingInfo, sizeof(VkRenderingInfoKHR));
-      VkRenderingInfoKHR *tmp_dst1 = (void *)cmd->u.begin_rendering.rendering_info;
-      (void)tmp_dst1;
-      VkRenderingInfoKHR *tmp_src1 = (void *)pRenderingInfo;
-      (void)tmp_src1;
+      VkRenderingInfoKHR *dst = cmd->u.begin_rendering.rendering_info;
 
-      const VkBaseInStructure *pnext = tmp_dst1->pNext;
+      const VkBaseInStructure *pnext = dst->pNext;
       if (pnext) {
          switch ((int32_t)pnext->sType) {
          case VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO:
             if (pnext) {
-               tmp_dst1->pNext = vk_zalloc(queue->alloc, sizeof(VkDeviceGroupRenderPassBeginInfo), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-               memcpy((void *)tmp_dst1->pNext, pnext, sizeof(VkDeviceGroupRenderPassBeginInfo));
-               VkDeviceGroupRenderPassBeginInfo *tmp_dst2 = (void *)tmp_dst1->pNext;
+               dst->pNext = vk_zalloc(queue->alloc, sizeof(VkDeviceGroupRenderPassBeginInfo), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+               memcpy((void *)dst->pNext, pnext, sizeof(VkDeviceGroupRenderPassBeginInfo));
+               VkDeviceGroupRenderPassBeginInfo *tmp_dst2 = (void *)dst->pNext;
                (void)tmp_dst2;
                VkDeviceGroupRenderPassBeginInfo *tmp_src2 = (void *)pnext;
                (void)tmp_src2;
                tmp_dst2->pDeviceRenderAreas = vk_zalloc(queue->alloc, sizeof(*tmp_dst2->pDeviceRenderAreas) * tmp_dst2->deviceRenderAreaCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
                memcpy((VkRect2D *)tmp_dst2->pDeviceRenderAreas, tmp_src2->pDeviceRenderAreas, sizeof(*tmp_dst2->pDeviceRenderAreas) * tmp_dst2->deviceRenderAreaCount);
             } else {
-               tmp_dst1->pNext = NULL;
+               dst->pNext = NULL;
             }
             break;
 
          case VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR:
             if (pnext) {
-               tmp_dst1->pNext = vk_zalloc(queue->alloc, sizeof(VkRenderingFragmentShadingRateAttachmentInfoKHR), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-               memcpy((void *)tmp_dst1->pNext, pnext, sizeof(VkRenderingFragmentShadingRateAttachmentInfoKHR));
-               VkRenderingFragmentShadingRateAttachmentInfoKHR *tmp_dst2 = (void *)tmp_dst1->pNext;
+               dst->pNext = vk_zalloc(queue->alloc, sizeof(VkRenderingFragmentShadingRateAttachmentInfoKHR), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+               memcpy((void *)dst->pNext, pnext, sizeof(VkRenderingFragmentShadingRateAttachmentInfoKHR));
+               VkRenderingFragmentShadingRateAttachmentInfoKHR *tmp_dst2 = (void *)dst->pNext;
                (void)tmp_dst2;
                VkRenderingFragmentShadingRateAttachmentInfoKHR *tmp_src2 = (void *)pnext;
                (void)tmp_src2;
             } else {
-               tmp_dst1->pNext = NULL;
+               dst->pNext = NULL;
             }
             break;
 
          case VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_INFO_EXT:
             if (pnext) {
-               tmp_dst1->pNext = vk_zalloc(queue->alloc, sizeof(VkRenderingFragmentDensityMapAttachmentInfoEXT), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-               memcpy((void *)tmp_dst1->pNext, pnext, sizeof(VkRenderingFragmentDensityMapAttachmentInfoEXT));
-               VkRenderingFragmentDensityMapAttachmentInfoEXT *tmp_dst2 = (void *)tmp_dst1->pNext;
+               dst->pNext = vk_zalloc(queue->alloc, sizeof(VkRenderingFragmentDensityMapAttachmentInfoEXT), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+               memcpy((void *)dst->pNext, pnext, sizeof(VkRenderingFragmentDensityMapAttachmentInfoEXT));
+               VkRenderingFragmentDensityMapAttachmentInfoEXT *tmp_dst2 = (void *)dst->pNext;
                (void)tmp_dst2;
                VkRenderingFragmentDensityMapAttachmentInfoEXT *tmp_src2 = (void *)pnext;
                (void)tmp_src2;
             } else {
-               tmp_dst1->pNext = NULL;
+               dst->pNext = NULL;
             }
             break;
 
          case VK_STRUCTURE_TYPE_MULTIVIEW_PER_VIEW_ATTRIBUTES_INFO_NVX:
             if (pnext) {
-               tmp_dst1->pNext = vk_zalloc(queue->alloc, sizeof(VkMultiviewPerViewAttributesInfoNVX), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-               memcpy((void *)tmp_dst1->pNext, pnext, sizeof(VkMultiviewPerViewAttributesInfoNVX));
-               VkMultiviewPerViewAttributesInfoNVX *tmp_dst2 = (void *)tmp_dst1->pNext;
+               dst->pNext = vk_zalloc(queue->alloc, sizeof(VkMultiviewPerViewAttributesInfoNVX), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+               memcpy((void *)dst->pNext, pnext, sizeof(VkMultiviewPerViewAttributesInfoNVX));
+               VkMultiviewPerViewAttributesInfoNVX *tmp_dst2 = (void *)dst->pNext;
                (void)tmp_dst2;
                VkMultiviewPerViewAttributesInfoNVX *tmp_src2 = (void *)pnext;
                (void)tmp_src2;
             } else {
-               tmp_dst1->pNext = NULL;
+               dst->pNext = NULL;
             }
             break;
          }
       }
-      tmp_dst1->pColorAttachments = vk_zalloc(queue->alloc, sizeof(*tmp_dst1->pColorAttachments) * tmp_dst1->colorAttachmentCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
-      memcpy((VkRenderingAttachmentInfoKHR *)tmp_dst1->pColorAttachments, tmp_src1->pColorAttachments, sizeof(*tmp_dst1->pColorAttachments) * tmp_dst1->colorAttachmentCount);
-      if (tmp_src1->pDepthAttachment) {
-         tmp_dst1->pDepthAttachment = pDepthAttachment;
-         memcpy((void *)tmp_dst1->pDepthAttachment, tmp_src1->pDepthAttachment, sizeof(VkRenderingAttachmentInfoKHR));
+      dst->pColorAttachments = vk_zalloc(queue->alloc, sizeof(*dst->pColorAttachments) * dst->colorAttachmentCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+      memcpy((VkRenderingAttachmentInfoKHR *)dst->pColorAttachments, pRenderingInfo->pColorAttachments, sizeof(*dst->pColorAttachments) * dst->colorAttachmentCount);
+      if (pRenderingInfo->pDepthAttachment) {
+         dst->pDepthAttachment = pDepthAttachment;
+         memcpy((void *)dst->pDepthAttachment, pRenderingInfo->pDepthAttachment, sizeof(VkRenderingAttachmentInfoKHR));
       }
-      if (tmp_src1->pStencilAttachment) {
-         tmp_dst1->pStencilAttachment = pStencilAttachment;
-         memcpy((void *)tmp_dst1->pStencilAttachment, tmp_src1->pStencilAttachment, sizeof(VkRenderingAttachmentInfoKHR));
+      if (pRenderingInfo->pStencilAttachment) {
+         dst->pStencilAttachment = pStencilAttachment;
+         memcpy((void *)dst->pStencilAttachment, pRenderingInfo->pStencilAttachment, sizeof(VkRenderingAttachmentInfoKHR));
       }
    } else {
       cmd->u.begin_rendering.rendering_info = NULL;
