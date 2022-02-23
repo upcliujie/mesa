@@ -30,6 +30,8 @@
 #include "lp_bld_struct.h"
 #include "lp_bld_swizzle.h"
 #include "lp_bld_debug.h"
+#include "util/u_math.h"
+
 static LLVMValueRef
 swizzle_aos(struct lp_build_nir_context *bld_base,
             LLVMValueRef a,
@@ -117,6 +119,22 @@ static void emit_store_var(struct lp_build_nir_context *bld_base,
    struct lp_build_nir_aos_context *bld = (struct lp_build_nir_aos_context *)bld_base;
    struct gallivm_state *gallivm = bld_base->base.gallivm;
    unsigned location = var->data.driver_location;
+   LLVMValueRef elems[16];
+
+   if (LLVMIsConstant(dst)) {
+      /* convert from 4 x f32 to 16 x i8? */
+      for (unsigned i = 0; i < 4; i++) {
+         LLVMValueRef value = LLVMBuildExtractElement(gallivm->builder, dst, lp_build_const_int32(gallivm, i), "");
+         assert(LLVMIsConstant(value));
+         unsigned uval = LLVMConstIntGetZExtValue(value);
+         float f = uif(uval);
+         uint8_t val = float_to_ubyte(f);
+         for (unsigned j = 0; j < 4; j++) {
+            elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), val, 0);
+         }
+      }
+      dst = LLVMConstVector(elems, 16);
+   }
 
    switch (deref_mode) {
    case nir_var_shader_out:
@@ -234,12 +252,11 @@ emit_load_const(struct lp_build_nir_context *bld_base,
                 LLVMValueRef outval[NIR_MAX_VEC_COMPONENTS])
 {
    struct gallivm_state *gallivm = bld_base->base.gallivm;
-   LLVMTypeRef elem_type = lp_build_elem_type(gallivm, bld_base->base.type);
    LLVMValueRef elems[4];
    int nc = instr->def.num_components;
 
    for (unsigned i = 0; i < nc; i++) {
-      elems[i] = LLVMConstInt(elem_type, instr->value[i].u32, bld_base->base.type.sign ? 1 : 0);
+      elems[i] = LLVMConstInt(LLVMInt32TypeInContext(gallivm->context), instr->value[i].u32, bld_base->base.type.sign ? 1 : 0);
    }
    outval[0] = LLVMConstVector(elems, nc);
 }
