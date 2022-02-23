@@ -586,9 +586,7 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginRendering(VkCommandBuffer commandBuffer,
          dst->pNext = vk_zalloc(queue->alloc, sizeof(VkDeviceGroupRenderPassBeginInfo), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
          memcpy((void *)dst->pNext, pnext, sizeof(VkDeviceGroupRenderPassBeginInfo));
          VkDeviceGroupRenderPassBeginInfo *tmp_dst2 = (void *)dst->pNext;
-         (void)tmp_dst2;
          VkDeviceGroupRenderPassBeginInfo *tmp_src2 = (void *)pnext;
-         (void)tmp_src2;
          tmp_dst2->pDeviceRenderAreas = vk_zalloc(queue->alloc, sizeof(*tmp_dst2->pDeviceRenderAreas) * tmp_dst2->deviceRenderAreaCount, 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
          memcpy((VkRect2D *)tmp_dst2->pDeviceRenderAreas, tmp_src2->pDeviceRenderAreas, sizeof(*tmp_dst2->pDeviceRenderAreas) * tmp_dst2->deviceRenderAreaCount);
          break;
@@ -597,30 +595,18 @@ VKAPI_ATTR void VKAPI_CALL lvp_CmdBeginRendering(VkCommandBuffer commandBuffer,
       case VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR: {
          dst->pNext = vk_zalloc(queue->alloc, sizeof(VkRenderingFragmentShadingRateAttachmentInfoKHR), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
          memcpy((void *)dst->pNext, pnext, sizeof(VkRenderingFragmentShadingRateAttachmentInfoKHR));
-         VkRenderingFragmentShadingRateAttachmentInfoKHR *tmp_dst2 = (void *)dst->pNext;
-         (void)tmp_dst2;
-         VkRenderingFragmentShadingRateAttachmentInfoKHR *tmp_src2 = (void *)pnext;
-         (void)tmp_src2;
          break;
       }
 
       case VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_INFO_EXT: {
          dst->pNext = vk_zalloc(queue->alloc, sizeof(VkRenderingFragmentDensityMapAttachmentInfoEXT), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
          memcpy((void *)dst->pNext, pnext, sizeof(VkRenderingFragmentDensityMapAttachmentInfoEXT));
-         VkRenderingFragmentDensityMapAttachmentInfoEXT *tmp_dst2 = (void *)dst->pNext;
-         (void)tmp_dst2;
-         VkRenderingFragmentDensityMapAttachmentInfoEXT *tmp_src2 = (void *)pnext;
-         (void)tmp_src2;
          break;
       }
 
       case VK_STRUCTURE_TYPE_MULTIVIEW_PER_VIEW_ATTRIBUTES_INFO_NVX: {
          dst->pNext = vk_zalloc(queue->alloc, sizeof(VkMultiviewPerViewAttributesInfoNVX), 8, VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
          memcpy((void *)dst->pNext, pnext, sizeof(VkMultiviewPerViewAttributesInfoNVX));
-         VkMultiviewPerViewAttributesInfoNVX *tmp_dst2 = (void *)dst->pNext;
-         (void)tmp_dst2;
-         VkMultiviewPerViewAttributesInfoNVX *tmp_src2 = (void *)pnext;
-         (void)tmp_src2;
          break;
       }
       }
