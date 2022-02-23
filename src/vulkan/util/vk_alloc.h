@@ -169,9 +169,9 @@ vk_free2(const VkAllocationCallbacks *parent_alloc,
  * helps facilitate that.  The intended usage looks like this:
  *
  *    VK_MULTIALLOC(ma)
- *    vk_multialloc_add(&ma, &main_ptr, 1);
- *    vk_multialloc_add(&ma, &substruct1, substruct1Count);
- *    vk_multialloc_add(&ma, &substruct2, substruct2Count);
+ *    vk_multialloc_add(&ma, &main_ptr, main_type, 1);
+ *    vk_multialloc_add(&ma, &substruct1, sub1_type, substruct1Count);
+ *    vk_multialloc_add(&ma, &substruct2, sub2_type, substruct2Count);
  *
  *    if (!vk_multialloc_alloc(&ma, pAllocator, VK_ALLOCATION_SCOPE_FOO))
  *       return vk_error(VK_ERROR_OUT_OF_HOST_MEORY);
