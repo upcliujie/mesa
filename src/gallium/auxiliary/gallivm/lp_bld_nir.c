@@ -1127,6 +1127,14 @@ static void visit_alu(struct lp_build_nir_context *bld_base, const nir_alu_instr
       src_bit_size[i] = nir_src_bit_size(instr->src[i].src);
    }
 
+   if (instr->op == nir_op_mov && is_aos(bld_base) && !instr->dest.dest.is_ssa) {
+      for (unsigned i = 0; i < 4; i++) {
+         if (instr->dest.write_mask & (1 << i)) {
+            assign_reg(bld_base, &instr->dest.dest.reg, (1 << i), src);
+         }
+      }
+      return;
+   }
    LLVMValueRef result[NIR_MAX_VEC_COMPONENTS];
    if (instr->op == nir_op_vec4 || instr->op == nir_op_vec3 || instr->op == nir_op_vec2 || instr->op == nir_op_vec8 || instr->op == nir_op_vec16) {
       for (unsigned i = 0; i < nir_op_infos[instr->op].num_inputs; i++) {

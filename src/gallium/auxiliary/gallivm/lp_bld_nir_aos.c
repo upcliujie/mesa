@@ -56,6 +56,29 @@ swizzle_aos(struct lp_build_nir_context *bld_base,
    return lp_build_swizzle_aos(&bld->bld_base.base, a, swizzles);
 }
 
+static LLVMValueRef conv_const_to_aos(struct gallivm_state *gallivm, LLVMValueRef constval, int nc)
+{
+   LLVMValueRef elems[16];
+
+   /* convert from 1..4 x f32 to 16 x i8? */
+   for (unsigned i = 0; i < nc; i++) {
+      LLVMValueRef value = LLVMBuildExtractElement(gallivm->builder, constval, lp_build_const_int32(gallivm, i), "");
+      assert(LLVMIsConstant(value));
+      unsigned uval = LLVMConstIntGetZExtValue(value);
+      float f = uif(uval);
+      uint8_t val = float_to_ubyte(f);
+      for (unsigned j = 0; j < 4; j++) {
+         elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), val, 0);
+      }
+   }
+   for (unsigned i = nc; i < 4; i++) {
+      for (unsigned j = 0; j < 4; j++) {
+         elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), 0, 0);
+      }
+   }
+   return LLVMConstVector(elems, 16);
+}
+
 static void init_var_slots(struct lp_build_nir_context *bld_base,
                            nir_variable *var)
 {
@@ -119,21 +142,9 @@ static void emit_store_var(struct lp_build_nir_context *bld_base,
    struct lp_build_nir_aos_context *bld = (struct lp_build_nir_aos_context *)bld_base;
    struct gallivm_state *gallivm = bld_base->base.gallivm;
    unsigned location = var->data.driver_location;
-   LLVMValueRef elems[16];
 
    if (LLVMIsConstant(dst)) {
-      /* convert from 4 x f32 to 16 x i8? */
-      for (unsigned i = 0; i < 4; i++) {
-         LLVMValueRef value = LLVMBuildExtractElement(gallivm->builder, dst, lp_build_const_int32(gallivm, i), "");
-         assert(LLVMIsConstant(value));
-         unsigned uval = LLVMConstIntGetZExtValue(value);
-         float f = uif(uval);
-         uint8_t val = float_to_ubyte(f);
-         for (unsigned j = 0; j < 4; j++) {
-            elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), val, 0);
-         }
-      }
-      dst = LLVMConstVector(elems, 16);
+      dst = conv_const_to_aos(gallivm, dst, num_components);
    }
 
    switch (deref_mode) {
@@ -166,7 +177,31 @@ static void emit_store_reg(struct lp_build_nir_context *bld_base,
 {
    struct gallivm_state *gallivm = bld_base->base.gallivm;
 
-   LLVMBuildStore(gallivm->builder, dst[0], reg_storage);
+   if (LLVMIsConstant(dst[0]))
+      dst[0] = conv_const_to_aos(gallivm, dst[0], 1);
+
+   if (writemask == 0xf) {
+      LLVMBuildStore(gallivm->builder, dst[0], reg_storage);
+      return;
+   }
+
+   LLVMValueRef cur = LLVMBuildLoad(gallivm->builder, reg_storage, "");
+   LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm->context);
+   for (unsigned i = 0; i < 4; i++) {
+      if (writemask & (1 << i)) {
+         LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH] = { 0 };
+         for (unsigned j = 0; j < 16; j++){
+            if (j % 4 == i)
+               shuffles[j] = LLVMConstInt(i32t, 16 + j, 0);
+            else
+               shuffles[j] = LLVMConstInt(i32t, j, 0);
+         }
+
+         cur = LLVMBuildShuffleVector(gallivm->builder, cur, dst[0],
+                                      LLVMConstVector(shuffles, 16), "");
+      }
+   }
+   LLVMBuildStore(gallivm->builder, cur, reg_storage);
 }
 
 static void emit_load_ubo(struct lp_build_nir_context *bld_base,
