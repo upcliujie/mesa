@@ -1,11 +1,3 @@
-# vk_cmd_queue_gen.py doesn't free pDepthAttachment and pStencilAttachment because they don't have a len field.
-# That seems like totally the wrong key to use for whether a free is needed.
-dEQP-VK.draw.dynamic_rendering.multi_draw.mosaic.indexed_mixed.no_draws.stride_extra_4.2_instances_base_3.with_tess.multiview.no_offset,Fail
-dEQP-VK.draw.dynamic_rendering.multi_draw.mosaic.indexed_packed.no_draws.stride_extra_4.no_instances.with_tess.multiview.no_offset,Fail
-dEQP-VK.draw.dynamic_rendering.multi_draw.mosaic.indexed_random.no_draws.stride_extra_4.10_instances.vert_only.multiview.no_offset,Fail
-dEQP-VK.draw.dynamic_rendering.multi_draw.overlapping.indexed_random.16_draws.stride_extra_4.1_instance.with_tess.multiview.no_offset,Fail
-dEQP-VK.draw.dynamic_rendering.multi_draw.overlapping.normal.one_draw.stride_extra_12.no_instances.with_geom.single_view.no_offset,Fail
-
 # Direct leak of 496 byte(s) in 1 object(s) allocated from:
 #     #0 0x7fa1e2f1e037 in __interceptor_calloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:154
 #     #1 0x7fa1ddf026ad in llvmpipe_resource_create_all ../src/gallium/drivers/llvmpipe/lp_texture.c:235
