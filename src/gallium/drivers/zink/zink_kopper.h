@@ -66,6 +66,7 @@ struct kopper_displaytarget
    VkSurfaceCapabilitiesKHR caps;
    VkImageFormatListCreateInfoKHR format_list;
    enum kopper_type type;
+   VkPresentModeKHR present_mode;
 };
 
 struct zink_context;
@@ -109,4 +110,6 @@ void
 zink_kopper_deinit_displaytarget(struct zink_screen *screen, struct kopper_displaytarget *cdt);
 bool
 zink_kopper_update(struct pipe_screen *pscreen, struct pipe_resource *pres, int *w, int *h);
+void
+zink_kopper_set_swap_interval(struct pipe_screen *pscreen, struct pipe_resource *pres, int interval);
 #endif
