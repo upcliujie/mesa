@@ -286,12 +286,18 @@ emit_load_const(struct lp_build_nir_context *bld_base,
                 const nir_load_const_instr *instr,
                 LLVMValueRef outval[NIR_MAX_VEC_COMPONENTS])
 {
+   struct lp_build_nir_aos_context *bld = lp_nir_aos_context(bld_base);
    struct gallivm_state *gallivm = bld_base->base.gallivm;
    LLVMValueRef elems[4];
    int nc = instr->def.num_components;
+   bool do_swizzle = false;
+
+   if (nc == 4)
+      do_swizzle = true;
 
    for (unsigned i = 0; i < nc; i++) {
-      elems[i] = LLVMConstInt(LLVMInt32TypeInContext(gallivm->context), instr->value[i].u32, bld_base->base.type.sign ? 1 : 0);
+      int idx = do_swizzle ? bld->swizzles[i] : i;
+      elems[idx] = LLVMConstInt(LLVMInt32TypeInContext(gallivm->context), instr->value[i].u32, bld_base->base.type.sign ? 1 : 0);
    }
    outval[0] = LLVMConstVector(elems, nc);
 }
