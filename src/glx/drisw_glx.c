@@ -838,6 +838,13 @@ driswBindExtensions(struct drisw_screen *psc, const __DRIextension **extensions)
 				     "GLX_ARB_context_flush_control");
       }
    }
+
+   if (psc->kopper) {
+       __glXEnableDirectExtension(&psc->base, "GLX_EXT_swap_control");
+       __glXEnableDirectExtension(&psc->base, "GLX_EXT_swap_control_tear");
+       __glXEnableDirectExtension(&psc->base, "GLX_SGI_swap_control");
+       __glXEnableDirectExtension(&psc->base, "GLX_MESA_swap_control");
+   }
 }
 
 static int
@@ -863,6 +870,26 @@ check_xshm(Display *dpy)
    }
 
    return ret;
+}
+
+static int
+kopperSetSwapInterval(__GLXDRIdrawable *pdraw, int interval)
+{
+   struct drisw_drawable *pdp = (struct drisw_drawable *) pdraw;
+   struct drisw_screen *psc = (struct drisw_screen *) pdp->base.psc;
+
+   psc->kopper->setSwapInterval(pdp->driDrawable, interval);
+
+   return 1;
+}
+
+static int
+kopperGetSwapInterval(__GLXDRIdrawable *pdraw)
+{
+   struct drisw_drawable *pdp = (struct drisw_drawable *) pdraw;
+   struct drisw_screen *psc = (struct drisw_screen *) pdp->base.psc;
+
+   return psc->kopper->getSwapInterval(pdp->driDrawable);
 }
 
 static struct glx_screen *
@@ -962,6 +989,11 @@ driswCreateScreenDriver(int screen, struct glx_display *priv,
 
    if (psc->copySubBuffer)
       psp->copySubBuffer = driswCopySubBuffer;
+
+   if (psc->kopper) {
+      psp->setSwapInterval = kopperSetSwapInterval;
+      psp->getSwapInterval = kopperGetSwapInterval;
+   }
 
    return &psc->base;
 

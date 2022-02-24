@@ -49,6 +49,9 @@ init_dt_type(struct kopper_displaytarget *cdt)
     default:
        unreachable("unsupported!");
     }
+
+    /* Matches the EGL and GLX_SGI_swap_interval default */
+    cdt->present_mode = VK_PRESENT_MODE_FIFO_KHR;
 }
 
 static VkSurfaceKHR
@@ -160,6 +163,7 @@ kopper_CreateSwapchain(struct zink_screen *screen, struct kopper_displaytarget *
    cswap->last_present_prune = 1;
 
    bool has_alpha = cdt->info.has_alpha && (cdt->caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR);
+   
    if (cdt->swapchain) {
       cswap->scci = cdt->swapchain->scci;
       cswap->scci.oldSwapchain = cdt->swapchain->swapchain;
@@ -179,9 +183,9 @@ kopper_CreateSwapchain(struct zink_screen *screen, struct kopper_displaytarget *
       cswap->scci.queueFamilyIndexCount = 0;
       cswap->scci.pQueueFamilyIndices = NULL;
       cswap->scci.compositeAlpha = has_alpha ? VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR : VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-      cswap->scci.presentMode = cdt->type == KOPPER_X11 ? VK_PRESENT_MODE_IMMEDIATE_KHR : VK_PRESENT_MODE_FIFO_KHR; // XXX swapint
       cswap->scci.clipped = VK_TRUE;                                   // XXX hmm
    }
+   cswap->scci.presentMode = cdt->present_mode;
    cswap->scci.minImageCount = cdt->caps.minImageCount;
    cswap->scci.preTransform = cdt->caps.currentTransform;
    if (cdt->formats[1])
@@ -643,4 +647,39 @@ zink_kopper_update(struct pipe_screen *pscreen, struct pipe_resource *pres, int 
    *w = cdt->caps.currentExtent.width;
    *h = cdt->caps.currentExtent.height;
    return true;
+}
+
+void
+zink_kopper_set_swap_interval(struct pipe_screen *pscreen, struct pipe_resource *pres, unsigned int interval)
+{
+   struct zink_resource *res = zink_resource(pres);
+   struct zink_screen *screen = zink_screen(pscreen);
+   assert(res->obj->dt);
+   struct kopper_displaytarget *cdt = kopper_displaytarget(res->obj->dt);
+
+   if (interval == 0)
+      cdt->present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+   else if (interval > 0)
+      cdt->present_mode = VK_PRESENT_MODE_FIFO_KHR;
+#if 0
+   else if (interval < 0)
+      cdt->present_mode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+#endif
+
+   update_swapchain(screen, cdt, cdt->caps.currentExtent.width, cdt->caps.currentExtent.height);
+}
+
+unsigned int
+zink_kopper_get_swap_interval(struct pipe_screen *pscreen, struct pipe_resource *pres)
+{
+   struct zink_resource *res = zink_resource(pres);
+   assert(res->obj->dt);
+   struct kopper_displaytarget *cdt = kopper_displaytarget(res->obj->dt);
+
+   if (cdt->present_mode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+      return 0;
+   else if (cdt->present_mode == VK_PRESENT_MODE_FIFO_KHR)
+      return 1; // XXX
+
+   return 1; // XXX
 }

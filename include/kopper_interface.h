@@ -58,6 +58,9 @@ struct __DRIkopperExtensionRec {
 					void *loaderPrivate,
 					int pixmap);
 
+    void (*setSwapInterval)(__DRIdrawable *drawable, unsigned int inteval);
+    unsigned int (*getSwapInterval)(__DRIdrawable *drawable);
+
    /* vulkan setup glue */
    void *(*CreateInstance)(uint32_t num_extensions,
                            const char * const * extensions);

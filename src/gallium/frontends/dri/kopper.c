@@ -31,6 +31,8 @@
 #include "os/os_process.h"
 #include "zink/zink_public.h"
 #include "zink/zink_instance.h"
+#include "zink/zink_context.h"
+#include "zink/zink_kopper.h"
 #include "driver_trace/tr_screen.h"
 
 #include "dri_screen.h"
@@ -567,11 +569,39 @@ kopperCreateNewDrawable(__DRIscreen *screen,
     return pdraw;
 }
 
+static void
+kopperSetSwapInterval(__DRIdrawable *dPriv, unsigned int interval)
+{
+   struct dri_drawable *drawable = dri_drawable(dPriv);
+   struct dri_screen *screen = dri_screen(drawable->sPriv);
+   struct kopper_screen *kscreen = (struct kopper_screen *)screen;
+   struct pipe_screen *pscreen = kscreen->screen;
+   struct pipe_resource *ptex = drawable->textures[ST_ATTACHMENT_BACK_LEFT] ?
+                                drawable->textures[ST_ATTACHMENT_BACK_LEFT] :
+                                drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
+
+   zink_kopper_set_swap_interval(pscreen, ptex, interval);
+}
+
+static unsigned int
+kopperGetSwapInterval(__DRIdrawable *dPriv)
+{
+   struct dri_drawable *drawable = dri_drawable(dPriv);
+   struct dri_screen *screen = dri_screen(drawable->sPriv);
+   struct kopper_screen *kscreen = (struct kopper_screen *)screen;
+   struct pipe_screen *pscreen = kscreen->screen;
+   struct pipe_resource *ptex = drawable->textures[ST_ATTACHMENT_BACK_LEFT] ?
+                                drawable->textures[ST_ATTACHMENT_BACK_LEFT] :
+                                drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
+
+   return zink_kopper_get_swap_interval(pscreen, ptex);
+}
 
 const __DRIkopperExtension driKopperExtension = {
    .base = { __DRI_KOPPER, 1 },
    .createNewDrawable          = kopperCreateNewDrawable,
-   // XXX
+   .setSwapInterval            = kopperSetSwapInterval,
+   .getSwapInterval            = kopperGetSwapInterval,
 };
 
 const struct __DriverAPIRec galliumvk_driver_api = {
