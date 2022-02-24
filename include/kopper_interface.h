@@ -70,6 +70,8 @@ struct __DRIkopperExtensionRec {
                                         const __DRIconfig *config,
                                         void *loaderPrivate,
                                         int pixmap);
+
+    void (*setSwapInterval)(__DRIdrawable *drawable, int interval);
 };
 
 /**
