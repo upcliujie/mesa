@@ -203,6 +203,8 @@ llvmpipe_nir_fn_is_linear_compat(struct nir_shader *shader,
                   if (scalar.def->parent_instr->type != nir_instr_type_intrinsic)
                      return false;
                   nir_intrinsic_instr *intrin = nir_instr_as_intrinsic(scalar.def->parent_instr);
+                  if (intrin->intrinsic != nir_intrinsic_load_deref)
+                     return false;
                   nir_deref_instr *deref = nir_instr_as_deref(intrin->src[0].ssa->parent_instr);
                   nir_variable *var = nir_deref_instr_get_variable(deref);
                   if (var->data.mode != nir_var_shader_in)
