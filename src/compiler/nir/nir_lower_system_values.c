@@ -354,7 +354,21 @@ lower_compute_system_value_instr(nir_builder *b,
           (options && options->lower_cs_local_id_to_index)) {
          nir_ssa_def *local_index = nir_load_local_invocation_index(b);
          nir_ssa_def *local_size = nir_load_workgroup_size(b);
-         return lower_id_to_index(b, local_index, local_size, bit_size);
+
+         /* Use the lowering without modulo division if the workroup size
+          * is variable or not a power of two. This should generate better
+          * code on HW without a dedicated umod instruction.
+          */
+         bool skip_umod =
+            b->shader->info.workgroup_size_variable ||
+            (!util_is_power_of_two_nonzero(b->shader->info.workgroup_size[0]) ||
+             !util_is_power_of_two_nonzero(b->shader->info.workgroup_size[1]) ||
+             !util_is_power_of_two_nonzero(b->shader->info.workgroup_size[2]));
+
+         if (skip_umod)
+            return lower_id_to_index_no_umod(b, local_index, local_size, bit_size);
+         else
+            return lower_id_to_index(b, local_index, local_size, bit_size);
       }
       if (options && options->shuffle_local_ids_for_quad_derivatives &&
           b->shader->info.cs.derivative_group == DERIVATIVE_GROUP_QUADS &&
