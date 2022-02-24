@@ -1148,8 +1148,15 @@ static void visit_alu(struct lp_build_nir_context *bld_base, const nir_alu_instr
          result[0] = (c == 0) ? temp_chan : lp_build_add(get_flt_bld(bld_base, src_bit_size[0]), result[0], temp_chan);
       }
     } else {
-      if (is_aos(bld_base))
+      if (is_aos(bld_base)) {
+         if (instr->op == nir_op_fmul) {
+            if (LLVMIsConstant(src[0]))
+               src[0] = lp_nir_aos_conv_const(gallivm, src[0], 1);
+            if (LLVMIsConstant(src[1]))
+               src[1] = lp_nir_aos_conv_const(gallivm, src[1], 1);
+         }
          result[0] = do_alu_action(bld_base, instr, src_bit_size, src);
+      }
       else {
       for (unsigned c = 0; c < num_components; c++) {
          LLVMValueRef src_chan[NIR_MAX_VEC_COMPONENTS];

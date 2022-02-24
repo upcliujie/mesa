@@ -56,7 +56,7 @@ swizzle_aos(struct lp_build_nir_context *bld_base,
    return lp_build_swizzle_aos(&bld->bld_base.base, a, swizzles);
 }
 
-static LLVMValueRef conv_const_to_aos(struct gallivm_state *gallivm, LLVMValueRef constval, int nc)
+LLVMValueRef lp_nir_aos_conv_const(struct gallivm_state *gallivm, LLVMValueRef constval, int nc)
 {
    LLVMValueRef elems[16];
 
@@ -144,7 +144,7 @@ static void emit_store_var(struct lp_build_nir_context *bld_base,
    unsigned location = var->data.driver_location;
 
    if (LLVMIsConstant(dst)) {
-      dst = conv_const_to_aos(gallivm, dst, num_components);
+      dst = lp_nir_aos_conv_const(gallivm, dst, num_components);
    }
 
    switch (deref_mode) {
@@ -178,7 +178,7 @@ static void emit_store_reg(struct lp_build_nir_context *bld_base,
    struct gallivm_state *gallivm = bld_base->base.gallivm;
 
    if (LLVMIsConstant(dst[0]))
-      dst[0] = conv_const_to_aos(gallivm, dst[0], 1);
+      dst[0] = lp_nir_aos_conv_const(gallivm, dst[0], 1);
 
    if (writemask == 0xf) {
       LLVMBuildStore(gallivm->builder, dst[0], reg_storage);

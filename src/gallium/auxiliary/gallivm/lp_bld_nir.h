@@ -375,4 +375,5 @@ lp_nir_aos_context(struct lp_build_nir_context *bld_base)
 {
    return (struct lp_build_nir_aos_context *)bld_base;
 }
+LLVMValueRef lp_nir_aos_conv_const(struct gallivm_state *gallivm, LLVMValueRef constval, int nc);
 #endif
