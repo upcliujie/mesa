@@ -59,21 +59,21 @@ swizzle_aos(struct lp_build_nir_context *bld_base,
 LLVMValueRef lp_nir_aos_conv_const(struct gallivm_state *gallivm, LLVMValueRef constval, int nc)
 {
    LLVMValueRef elems[16];
-
+   uint8_t val = 0;
    /* convert from 1..4 x f32 to 16 x i8? */
    for (unsigned i = 0; i < nc; i++) {
       LLVMValueRef value = LLVMBuildExtractElement(gallivm->builder, constval, lp_build_const_int32(gallivm, i), "");
       assert(LLVMIsConstant(value));
       unsigned uval = LLVMConstIntGetZExtValue(value);
       float f = uif(uval);
-      uint8_t val = float_to_ubyte(f);
+      val = float_to_ubyte(f);
       for (unsigned j = 0; j < 4; j++) {
          elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), val, 0);
       }
    }
    for (unsigned i = nc; i < 4; i++) {
       for (unsigned j = 0; j < 4; j++) {
-         elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), 0, 0);
+         elems[j * 4 + i] = LLVMConstInt(LLVMInt8TypeInContext(gallivm->context), val, 0);
       }
    }
    return LLVMConstVector(elems, 16);
