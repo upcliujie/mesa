@@ -3300,8 +3300,8 @@ typedef struct nir_shader_compiler_options {
     */
    bool optimize_sample_mask_in;
 
-   bool lower_cs_local_index_from_id;
-   bool lower_cs_local_id_from_index;
+   bool lower_cs_local_index_to_id;
+   bool lower_cs_local_id_to_index;
 
    /* Prevents lowering global_invocation_id to be in terms of workgroup_id */
    bool has_cs_global_id;
@@ -4695,7 +4695,7 @@ typedef struct nir_lower_compute_system_values_options {
    bool has_base_workgroup_id:1;
    bool shuffle_local_ids_for_quad_derivatives:1;
    bool lower_local_invocation_index:1;
-   bool lower_cs_local_id_from_index:1;
+   bool lower_cs_local_id_to_index:1;
 } nir_lower_compute_system_values_options;
 
 bool nir_lower_compute_system_values(nir_shader *shader,
