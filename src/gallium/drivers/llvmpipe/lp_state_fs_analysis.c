@@ -249,6 +249,25 @@ llvmpipe_nir_fn_is_linear_compat(struct nir_shader *shader,
                 alu->op != nir_op_vec4 &&
                 alu->op != nir_op_fmul)
                return false;
+
+            if (alu->op == nir_op_fmul) {
+               unsigned num_src = nir_op_infos[alu->op].num_inputs;;
+               for (unsigned s = 0; s < num_src; s++) {
+                  if (nir_src_is_const(alu->src[s].src)) {
+                     nir_load_const_instr *load =
+                        nir_instr_as_load_const(alu->src[s].src.ssa->parent_instr);
+
+                     if (load->def.bit_size != 32)
+                        return false;
+                     for (unsigned c = 0; c < load->def.num_components; c++) {
+                        if (load->value[c].f32 < 0.0 || load->value[c].f32 > 1.0) {
+                           info->unclamped_immediates = true;
+                           return false;
+                        }
+                     }
+                  }
+               }
+            }
             break;
          }
          default:
