@@ -193,12 +193,15 @@ llvm_fragment_body(struct lp_build_context *bld,
                         consts_ptr, inputs, outputs,
                         &sampler->base,
                         &shader->info.base);
-   else
-      lp_build_nir_aos(gallivm, shader->base.ir.nir, fs_type,
+   else {
+      nir_shader *clone = nir_shader_clone(NULL, shader->base.ir.nir);
+      lp_build_nir_aos(gallivm, clone, fs_type,
                        bgra_swizzles,
                        consts_ptr, inputs, outputs,
                        &sampler->base,
                        &shader->info.base);
+      ralloc_free(clone);
+   }
 
 
    /*
