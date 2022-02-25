@@ -903,6 +903,12 @@ anv_physical_device_try_create(struct anv_instance *instance,
    if (env_var_as_boolean("ANV_QUEUE_THREAD_DISABLE", false))
       device->has_exec_timeline = false;
 
+
+   device->generated_indirect_draws =
+      device->info.ver >= 11 &&
+      env_var_as_boolean("ANV_ENABLE_GENERATED_INDIRECT_DRAWS",
+                         true);
+
    unsigned st_idx = 0;
 
    device->sync_syncobj_type = vk_drm_syncobj_get_type(fd);
@@ -3419,6 +3425,8 @@ VkResult anv_CreateDevice(
 
    anv_device_init_border_colors(device);
 
+   anv_device_init_generated_indirect_draws(device);
+
    anv_device_perf_init(device);
 
    anv_device_utrace_init(device);
@@ -3499,6 +3507,8 @@ void anv_DestroyDevice(
    anv_device_finish_blorp(device);
 
    anv_device_finish_rt_shaders(device);
+
+   anv_device_finish_generated_indirect_draws(device);
 
    anv_pipeline_cache_finish(&device->default_pipeline_cache);
 

@@ -1023,6 +1023,15 @@ struct anv_physical_device {
 
     bool                                        always_flush_cache;
 
+    /**
+     * True if the generated indirect draw optimization is turned on.
+     *
+     * This optimization is currently only available on Gfx11+ to avoid
+     * dealing with the annoying Gfx8/9 tracking of vertex buffer for the VF
+     * cache workaround.
+     */
+    bool                                        generated_indirect_draws;
+
     struct {
       uint32_t                                  family_count;
       struct anv_queue_family                   families[ANV_MAX_QUEUE_FAMILIES];
@@ -1258,6 +1267,14 @@ struct anv_device {
 
     struct anv_shader_bin                      *rt_trampoline;
     struct anv_shader_bin                      *rt_trivial_return;
+
+    /** Draw generation shader
+     *
+     * Generates direct draw calls out of indirect parameters. Used to
+     * workaround slowness with indirect draw calls.
+     */
+    struct anv_shader_bin                      *generated_draw_kernel;
+    const struct intel_l3_config               *generated_draw_l3_config;
 
     pthread_mutex_t                             mutex;
     pthread_cond_t                              queue_submit;
@@ -3223,6 +3240,13 @@ void anv_cmd_buffer_dump(struct anv_cmd_buffer *cmd_buffer);
 
 void anv_cmd_emit_conditional_render_predicate(struct anv_cmd_buffer *cmd_buffer);
 
+static inline unsigned
+anv_cmd_buffer_get_view_count(struct anv_cmd_buffer *cmd_buffer)
+{
+   struct anv_cmd_graphics_state *gfx = &cmd_buffer->state.gfx;
+   return MAX2(1, util_bitcount(gfx->view_mask));
+}
+
 enum anv_bo_sync_state {
    /** Indicates that this is a new (or newly reset fence) */
    ANV_BO_SYNC_STATE_RESET,
@@ -4546,6 +4570,22 @@ struct anv_memcpy_state {
    struct anv_vb_cache_range vb_bound;
    struct anv_vb_cache_range vb_dirty;
 };
+
+/* Used as inline parameter for a compute shader to generate 3DPRIMITIVE
+ * instructions.
+ */
+struct anv_generated_indirect_draw_params {
+   uint64_t generated_cmd_addr;
+   uint32_t generated_cmd_stride;
+   uint32_t indexed;
+   uint32_t multiview_multiplier;
+};
+
+void
+anv_device_init_generated_indirect_draws(struct anv_device *device);
+void
+anv_device_finish_generated_indirect_draws(struct anv_device *device);
+
 
 struct anv_utrace_flush_copy {
    /* Needs to be the first field */

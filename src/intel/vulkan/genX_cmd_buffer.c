@@ -53,6 +53,9 @@
 #include "common/mi_builder.h"
 
 #include "genX_cmd_draw_helpers.h"
+#if GFX_VER >= 12
+#include "genX_cmd_draw_generated_indirect.h"
+#endif
 
 static void genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
                                         uint32_t pipeline);
@@ -1878,6 +1881,10 @@ genX(EndCommandBuffer)(
    trace_intel_end_cmd_buffer(&cmd_buffer->trace, cmd_buffer,
                               cmd_buffer->vk.level);
 
+#if GFX_VER >= 12
+   genX(cmd_buffer_flush_generated_draws)(cmd_buffer);
+#endif
+
    anv_cmd_buffer_end_batch_buffer(cmd_buffer);
 
    return VK_SUCCESS;
@@ -2458,6 +2465,11 @@ cmd_buffer_barrier(struct anv_cmd_buffer *cmd_buffer,
    enum anv_pipe_bits bits =
       anv_pipe_flush_bits_for_access_flags(cmd_buffer->device, src_flags) |
       anv_pipe_invalidate_bits_for_access_flags(cmd_buffer->device, dst_flags);
+
+#if GFX_VER >= 12
+   if (dst_flags & VK_ACCESS_INDIRECT_COMMAND_READ_BIT)
+      genX(cmd_buffer_flush_generated_draws)(cmd_buffer);
+#endif
 
    anv_add_pending_pipe_bits(cmd_buffer, bits, reason);
 }
@@ -4058,13 +4070,6 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
    genX(cmd_buffer_flush_dynamic_state)(cmd_buffer);
 }
 
-static unsigned
-anv_cmd_buffer_get_view_count(struct anv_cmd_buffer *cmd_buffer)
-{
-   struct anv_cmd_graphics_state *gfx = &cmd_buffer->state.gfx;
-   return MAX2(1, util_bitcount(gfx->view_mask));
-}
-
 #if GFX_VER >= 11
 #define _3DPRIMITIVE_DIRECT GENX(3DPRIMITIVE_EXTENDED)
 #else
@@ -4597,51 +4602,53 @@ load_indirect_parameters(struct anv_cmd_buffer *cmd_buffer,
 #endif
 }
 
-void genX(CmdDrawIndirect)(
-    VkCommandBuffer                             commandBuffer,
-    VkBuffer                                    _buffer,
-    VkDeviceSize                                offset,
-    uint32_t                                    drawCount,
-    uint32_t                                    stride)
+static void
+emit_indirect_draws(struct anv_cmd_buffer *cmd_buffer,
+                    struct anv_address indirect_data_addr,
+                    uint32_t indirect_data_stride,
+                    uint32_t draw_count,
+                    bool indexed)
 {
-   ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
-   ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
 #if GFX_VER < 11
    struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
    const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
 #endif
-
-   if (anv_batch_has_error(&cmd_buffer->batch))
-      return;
-
-   anv_measure_snapshot(cmd_buffer,
-                        INTEL_SNAPSHOT_DRAW,
-                        "draw indirect",
-                        drawCount);
-   trace_intel_begin_draw_indirect(&cmd_buffer->trace, cmd_buffer);
 
    genX(cmd_buffer_flush_state)(cmd_buffer);
 
    if (cmd_buffer->state.conditional_render_enabled)
       genX(cmd_emit_conditional_render_predicate)(cmd_buffer);
 
-   for (uint32_t i = 0; i < drawCount; i++) {
-      struct anv_address draw = anv_address_add(buffer->address, offset);
+   uint32_t offset = 0;
+   for (uint32_t i = 0; i < draw_count; i++) {
+      struct anv_address draw = anv_address_add(indirect_data_addr, offset);
 
 #if GFX_VER < 11
+      /* TODO: We need to stomp base vertex to 0 somehow */
+
+      /* With sequential draws, we're dealing with the VkDrawIndirectCommand
+       * structure data. We want to load VkDrawIndirectCommand::firstVertex at
+       * offset 8 in the structure.
+       *
+       * With indexed draws, we're dealing with VkDrawIndexedIndirectCommand.
+       * We want the VkDrawIndirectCommand::vertexOffset field at offset 12 in
+       * the structure.
+       */
       if (vs_prog_data->uses_firstvertex ||
-          vs_prog_data->uses_baseinstance)
-         emit_base_vertex_instance_bo(cmd_buffer, anv_address_add(draw, 8));
+          vs_prog_data->uses_baseinstance) {
+         emit_base_vertex_instance_bo(cmd_buffer,
+                                      anv_address_add(draw, indexed ? 12 : 8));
+      }
       if (vs_prog_data->uses_drawid)
          emit_draw_index(cmd_buffer, i);
-# endif
+#endif
 
       /* Emitting draw index or vertex index BOs may result in needing
        * additional VF cache flushes.
        */
       genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
-      load_indirect_parameters(cmd_buffer, draw, false, i);
+      load_indirect_parameters(cmd_buffer, draw, indexed, i);
 
       anv_batch_emit(&cmd_buffer->batch,
 #if GFX_VER < 11
@@ -4652,7 +4659,7 @@ void genX(CmdDrawIndirect)(
                      prim) {
          prim.IndirectParameterEnable  = true;
          prim.PredicateEnable          = cmd_buffer->state.conditional_render_enabled;
-         prim.VertexAccessType         = SEQUENTIAL;
+         prim.VertexAccessType         = indexed ? RANDOM : SEQUENTIAL;
          prim.PrimitiveTopologyType    = cmd_buffer->state.gfx.primitive_topology;
 #if GFX_VER >= 11
          prim.ExtendedParametersPresent = true;
@@ -4661,8 +4668,48 @@ void genX(CmdDrawIndirect)(
 
       update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, SEQUENTIAL);
 
-      offset += stride;
+      offset += indirect_data_stride;
    }
+}
+
+void genX(CmdDrawIndirect)(
+    VkCommandBuffer                             commandBuffer,
+    VkBuffer                                    _buffer,
+    VkDeviceSize                                offset,
+    uint32_t                                    drawCount,
+    uint32_t                                    stride)
+{
+   ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
+   ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
+
+   if (anv_batch_has_error(&cmd_buffer->batch))
+      return;
+
+   anv_measure_snapshot(cmd_buffer,
+                        INTEL_SNAPSHOT_DRAW,
+                        "draw indirect",
+                        drawCount);
+   trace_intel_begin_draw_indirect(&cmd_buffer->trace, cmd_buffer);
+
+#if GFX_VER >= 12
+   struct anv_physical_device *pdevice = cmd_buffer->device->physical;
+   if (pdevice->generated_indirect_draws) {
+      genX(cmd_buffer_emit_indirect_generated_draws)(
+         cmd_buffer,
+         anv_address_add(buffer->address, offset),
+         MAX2(stride, sizeof(VkDrawIndirectCommand)),
+         drawCount,
+         false /* indexed */);
+   } else {
+      emit_indirect_draws(cmd_buffer,
+                          anv_address_add(buffer->address, offset),
+                          stride, drawCount, false /* indexed */);
+   }
+#else
+   emit_indirect_draws(cmd_buffer,
+                       anv_address_add(buffer->address, offset),
+                       stride, drawCount, false /* indexed */);
+#endif
 
    trace_intel_end_draw_indirect(&cmd_buffer->trace, cmd_buffer, drawCount);
 }
@@ -4676,7 +4723,6 @@ void genX(CmdDrawIndexedIndirect)(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_buffer, buffer, _buffer);
-   struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
 
    if (anv_batch_has_error(&cmd_buffer->batch))
       return;
@@ -4687,51 +4733,25 @@ void genX(CmdDrawIndexedIndirect)(
                         drawCount);
    trace_intel_begin_draw_indexed_indirect(&cmd_buffer->trace, cmd_buffer);
 
-   genX(cmd_buffer_flush_state)(cmd_buffer);
-
-   if (cmd_buffer->state.conditional_render_enabled)
-      genX(cmd_emit_conditional_render_predicate)(cmd_buffer);
-
-   for (uint32_t i = 0; i < drawCount; i++) {
-      struct anv_address draw = anv_address_add(buffer->address, offset);
-
-#if GFX_VER < 11
-      const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
-      /* TODO: We need to stomp base vertex to 0 somehow */
-      if (vs_prog_data->uses_firstvertex ||
-          vs_prog_data->uses_baseinstance)
-         emit_base_vertex_instance_bo(cmd_buffer, anv_address_add(draw, 12));
-      if (vs_prog_data->uses_drawid)
-         emit_draw_index(cmd_buffer, i);
-#endif
-
-      /* Emitting draw index or vertex index BOs may result in needing
-       * additional VF cache flushes.
-       */
-      genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
-
-      load_indirect_parameters(cmd_buffer, draw, true, i);
-
-      anv_batch_emit(&cmd_buffer->batch,
-#if GFX_VER < 11
-                     GENX(3DPRIMITIVE),
-#else
-                     GENX(3DPRIMITIVE_EXTENDED),
-#endif
-                     prim) {
-         prim.IndirectParameterEnable  = true;
-         prim.PredicateEnable          = cmd_buffer->state.conditional_render_enabled;
-         prim.VertexAccessType         = RANDOM;
-         prim.PrimitiveTopologyType    = pipeline->topology;
-#if GFX_VER >= 11
-         prim.ExtendedParametersPresent = true;
-#endif
-      }
-
-      update_dirty_vbs_for_gfx8_vb_flush(cmd_buffer, RANDOM);
-
-      offset += stride;
+#if GFX_VER >= 12
+   struct anv_physical_device *pdevice = cmd_buffer->device->physical;
+   if (pdevice->generated_indirect_draws) {
+      genX(cmd_buffer_emit_indirect_generated_draws)(
+         cmd_buffer,
+         anv_address_add(buffer->address, offset),
+         MAX2(stride, sizeof(VkDrawIndexedIndirectCommand)),
+         drawCount,
+         true /* indexed */);
+   } else {
+      emit_indirect_draws(cmd_buffer,
+                          anv_address_add(buffer->address, offset),
+                          stride, drawCount, true /* indexed */);
    }
+#else
+   emit_indirect_draws(cmd_buffer,
+                       anv_address_add(buffer->address, offset),
+                       stride, drawCount, true /* indexed */);
+#endif
 
    trace_intel_end_draw_indexed_indirect(&cmd_buffer->trace, cmd_buffer, drawCount);
 }
