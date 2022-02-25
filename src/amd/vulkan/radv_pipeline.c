@@ -3004,6 +3004,8 @@ radv_generate_graphics_pipeline_key(const struct radv_pipeline *pipeline,
       key.invariant_geom = true;
 
    key.use_ngg = pipeline->device->physical_device->use_ngg;
+   key.adjust_frag_coord_z = pipeline->device->adjust_frag_coord_z;
+   key.disable_aniso_single_level = pipeline->device->instance->disable_aniso_single_level;
 
    return key;
 }
