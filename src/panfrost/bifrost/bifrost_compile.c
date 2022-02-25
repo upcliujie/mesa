@@ -800,21 +800,24 @@ bi_varying_offset(nir_shader *nir, nir_intrinsic_instr *intr)
         nir_src *offset = nir_get_io_offset_src(intr);
         assert(nir_src_is_const(*offset) && "no indirect varyings on Valhall");
 
-        bool writes_psiz = nir->info.outputs_written & BITFIELD_BIT(VARYING_SLOT_PSIZ);
-        unsigned builtin_slots = writes_psiz ? 2 : 1;
-
+        unsigned loc = 0;
         unsigned slot = nir_intrinsic_base(intr) + nir_src_as_uint(*offset);
 
-        switch (sem.location) {
-        case VARYING_SLOT_POS:
-        case VARYING_SLOT_PSIZ:
-                return 0;
-        default:
-                assert(slot >= 1 && "position should be linked first");
-                assert((!writes_psiz || slot >= 2) && "psiz should be linked first");
+        nir_foreach_shader_out_variable(var, nir) {
+                if ((var->data.location == VARYING_SLOT_POS) ||
+                    (var->data.location == VARYING_SLOT_PSIZ))
+                        continue;
 
-                return (slot - builtin_slots) * 16;
+                if (var->data.driver_location > slot)
+                        continue;
+
+                if (var->data.driver_location == slot)
+                        return loc;
+
+                loc += 16; // todo size
         }
+
+        unreachable("Unlinked variable");
 }
 
 static void
@@ -870,7 +873,7 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
                          bi_src_index(&instr->src[0]),
                          address, bi_word(address, 1),
                          varying ? BI_SEG_VARY : BI_SEG_POS,
-                         bi_varying_offset(b->shader->nir, instr));
+                         varying ? bi_varying_offset(b->shader->nir, instr) : 0);
         } else if (immediate) {
                 bi_index address = bi_lea_attr_imm(b,
                                           bi_register(61), bi_register(62),
