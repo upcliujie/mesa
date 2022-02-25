@@ -201,6 +201,19 @@ va_pack_alu(const bi_instr *I)
       if (I->cmpf == BI_CMPF_EQ) hex |= (1ull << 36);
       break;
 
+   /* Add arithmetic flag */
+   case BI_OPCODE_RSHIFT_AND_I32:
+   case BI_OPCODE_RSHIFT_AND_V2I16:
+   case BI_OPCODE_RSHIFT_AND_V4I8:
+   case BI_OPCODE_RSHIFT_OR_I32:
+   case BI_OPCODE_RSHIFT_OR_V2I16:
+   case BI_OPCODE_RSHIFT_OR_V4I8:
+   case BI_OPCODE_RSHIFT_XOR_I32:
+   case BI_OPCODE_RSHIFT_XOR_V2I16:
+   case BI_OPCODE_RSHIFT_XOR_V4I8:
+      hex |= (uint64_t) I->arithmetic << 34;
+      break;
+
    default:
       break;
    }
