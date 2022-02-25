@@ -945,6 +945,43 @@ v3d_check_compiled_shaders(struct v3d_context *v3d)
         return false;
 }
 
+/* Re-emit sampler view state if the BO has changed. We first do all the
+ * emissions and then we reset the flags.
+ */
+static void
+rebind_sampler_views(struct v3d_context *v3d)
+{
+        for (int i = 0; i < 2; i++)  {
+                for (int st = 0; st < PIPE_SHADER_TYPES; st++) {
+                        struct v3d_texture_stateobj *tex = v3d->tex + st;
+
+                        for (unsigned i = 0; i < tex->num_textures; i++) {
+                                struct pipe_sampler_view *psview =
+                                        tex->textures[i];
+
+                                if (!psview)
+                                        continue;
+
+                                struct v3d_resource *rsc =
+                                        v3d_resource(psview->texture);
+
+                                if (!rsc->rebind_sview)
+                                        continue;
+
+                                if (i == 0) {
+                                        struct v3d_sampler_view *sview =
+                                                v3d_sampler_view(psview);
+
+                                        v3d_create_texture_shader_state_bo(v3d, sview);
+                                        v3d_flag_dirty_sampler_state(v3d, st);
+                                } else {
+                                        rsc->rebind_sview = false;
+                                }
+                        }
+                }
+        }
+}
+
 static void
 v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
              unsigned drawid_offset,
@@ -1056,6 +1093,7 @@ v3d_draw_vbo(struct pipe_context *pctx, const struct pipe_draw_info *info,
         v3d_update_compiled_shaders(v3d, info->mode);
         if (!v3d_check_compiled_shaders(v3d))
                 return;
+        rebind_sampler_views(v3d);
         v3d_update_job_ez(v3d, job);
 
         /* If this job was writing to transform feedback buffers before this

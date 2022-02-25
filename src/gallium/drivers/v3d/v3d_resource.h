@@ -101,6 +101,11 @@ struct v3d_resource {
         bool compute_written;
 
         /**
+         * The sampler view state must be rebound, as the BO changed
+         */
+        bool rebind_sview;
+
+        /**
          * Number of times the resource has been written to.
          *
          * This is used to track whether we need to load the surface on first
