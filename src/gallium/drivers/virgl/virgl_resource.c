@@ -70,8 +70,7 @@ static bool virgl_can_readback_from_rendertarget(struct virgl_screen *vs,
    return res->b.nr_samples < 2 &&
          vs->base.is_format_supported(&vs->base, res->b.format, res->b.target,
                                       res->b.nr_samples, res->b.nr_samples,
-                                      PIPE_BIND_RENDER_TARGET) &&
-         virgl_has_readback_format(&vs->base, pipe_to_virgl_format(res->b.format), false);
+                                      PIPE_BIND_RENDER_TARGET);
 }
 
 static bool virgl_can_readback_from_scanout(struct virgl_screen *vs,
@@ -89,6 +88,7 @@ static bool virgl_can_copy_transfer_from_host(struct virgl_screen *vs,
 {
    return (vs->caps.caps.v2.capability_bits_v2 & VIRGL_CAP_V2_COPY_TRANSFER_BOTH_DIRECTIONS) &&
          (res->b.target != PIPE_BUFFER) &&
+         virgl_has_readback_format(&vs->base, pipe_to_virgl_format(res->b.format), false) &&
          ((!(vs->caps.caps.v2.capability_bits & VIRGL_CAP_FAKE_FP64)) ||
           virgl_can_readback_from_rendertarget(vs, res) ||
           virgl_can_readback_from_scanout(vs, res, bind));
