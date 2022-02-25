@@ -592,7 +592,7 @@ struct v3d_interp_input {
    unsigned mode; /* interpolation mode */
 };
 
-struct v3d_ra_temp_node_info {
+struct v3d_ra_node_info {
         struct {
                 uint32_t priority;
                 uint8_t class_bits;
@@ -798,7 +798,7 @@ struct v3d_compile {
 
         /* Used during register allocation */
         int thread_index;
-        struct v3d_ra_temp_node_info ra_map;
+        struct v3d_ra_node_info nodes;
         struct ra_graph *g;
 
         /**
