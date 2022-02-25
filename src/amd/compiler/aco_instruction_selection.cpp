@@ -6192,11 +6192,14 @@ visit_image_store(isel_context* ctx, nir_intrinsic_instr* instr)
    const enum glsl_sampler_dim dim = nir_intrinsic_image_dim(instr);
    bool is_array = nir_intrinsic_image_array(instr);
    Temp data = get_ssa_temp(ctx, instr->src[3].ssa);
+   bool d16 = instr->src[3].ssa->bit_size == 16;
 
    /* only R64_UINT and R64_SINT supported */
    if (instr->src[3].ssa->bit_size == 64 && data.bytes() > 8)
       data = emit_extract_vector(ctx, data, 0, RegClass(data.type(), 2));
    data = as_vgpr(ctx, data);
+
+   uint32_t num_components = d16 ? instr->src[3].ssa->num_components : data.size();
 
    memory_sync_info sync = get_memory_sync_info(instr, storage_image, 0);
    unsigned access = var->data.access | nir_intrinsic_access(instr);
@@ -6210,12 +6213,22 @@ visit_image_store(isel_context* ctx, nir_intrinsic_instr* instr)
                                    ACO_DESC_BUFFER, nullptr, true);
       Temp vindex = emit_extract_vector(ctx, get_ssa_temp(ctx, instr->src[1].ssa), 0, v1);
       aco_opcode opcode;
-      switch (data.size()) {
-      case 1: opcode = aco_opcode::buffer_store_format_x; break;
-      case 2: opcode = aco_opcode::buffer_store_format_xy; break;
-      case 3: opcode = aco_opcode::buffer_store_format_xyz; break;
-      case 4: opcode = aco_opcode::buffer_store_format_xyzw; break;
-      default: unreachable(">4 channel buffer image store");
+      if (!d16) {
+         switch (num_components) {
+         case 1: opcode = aco_opcode::buffer_store_format_x; break;
+         case 2: opcode = aco_opcode::buffer_store_format_xy; break;
+         case 3: opcode = aco_opcode::buffer_store_format_xyz; break;
+         case 4: opcode = aco_opcode::buffer_store_format_xyzw; break;
+         default: unreachable(">4 channel buffer image store");
+         }
+      } else {
+         switch (num_components) {
+         case 1: opcode = aco_opcode::buffer_store_format_d16_x; break;
+         case 2: opcode = aco_opcode::buffer_store_format_d16_xy; break;
+         case 3: opcode = aco_opcode::buffer_store_format_d16_xyz; break;
+         case 4: opcode = aco_opcode::buffer_store_format_d16_xyzw; break;
+         default: unreachable(">4 channel buffer image store");
+         }
       }
       aco_ptr<MUBUF_instruction> store{
          create_instruction<MUBUF_instruction>(opcode, Format::MUBUF, 4, 0)};
@@ -6247,7 +6260,8 @@ visit_image_store(isel_context* ctx, nir_intrinsic_instr* instr)
    store->glc = glc;
    store->dlc = false;
    store->dim = ac_get_image_dim(ctx->options->chip_class, dim, is_array);
-   store->dmask = (1 << data.size()) - 1;
+   store->d16 = d16;
+   store->dmask = BITFIELD_MASK(num_components);
    store->unrm = true;
    store->da = should_declare_array(ctx, dim, is_array);
    store->disable_wqm = true;
