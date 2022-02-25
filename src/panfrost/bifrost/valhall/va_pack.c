@@ -393,6 +393,27 @@ va_pack_lod_mode(enum bi_va_lod_mode mode)
    unreachable("Invalid LOD mode");
 }
 
+static unsigned
+va_pack_register_type(enum bi_register_format regfmt)
+{
+   switch (regfmt) {
+   case BI_REGISTER_FORMAT_F16:
+   case BI_REGISTER_FORMAT_F32:
+      return 1;
+
+   case BI_REGISTER_FORMAT_U16:
+   case BI_REGISTER_FORMAT_U32:
+      return 2;
+
+   case BI_REGISTER_FORMAT_S16:
+   case BI_REGISTER_FORMAT_S32:
+      return 3;
+
+   default:
+      unreachable("Invalid register format");
+   }
+}
+
 static uint64_t
 va_pack_varying_format(const bi_instr *I)
 {
@@ -601,27 +622,33 @@ va_pack_instr(const bi_instr *I, unsigned action, bool blend_shader)
       /* Image to read from */
       hex |= ((uint64_t) va_pack_src(I->src[1])) << 0;
 
+      if (I->array_enable) hex |= (1ull << 10);
       if (I->texel_offset) hex |= (1ull << 11);
       if (I->shadow) hex |= (1ull << 12);
       if (I->skip) hex |= (1ull << 39);
+      if (!bi_is_regfmt_16(I->register_format)) hex |= (1ull << 46);
 
       /* LOD mode */
       assert(I->va_lod_mode < 8);
       hex |= ((uint64_t) va_pack_lod_mode(I->va_lod_mode)) << 13;
 
-      /* Staging register #1 - output */
+      /* Staging register write */
       hex |= ((uint64_t) va_pack_reg(I->dest[0])) << 16;
-      hex |= (0xC0ull << 16); // flags
+
+      /* Write mask */
+      hex |= (0xF << 22);
+
+      /* Register type */
+      hex |= ((uint64_t) va_pack_register_type(I->register_format)) << 26;
 
       /* Dimension */
       hex |= ((uint64_t) I->dimension) << 28;
 
-      /* Unknown */
-      hex |= (0x7ull << 24) | (0x3ull << 36);
+      /* Staging write count */
+      hex |= ((uint64_t) bi_count_write_registers(I, 0) - 1) << 36;
 
-      /* Staging register #0 - inputs */
+      /* Staging register read */
       hex |= ((uint64_t) va_pack_reg(I->src[0])) << 40;
-      hex |= (0x40ull << 40); // flags
 
       break;
    }
