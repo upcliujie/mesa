@@ -3959,8 +3959,8 @@ bi_finalize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
                         glsl_type_size, 0);
 
         if (nir->info.stage == MESA_SHADER_FRAGMENT) {
-                NIR_PASS_V(nir, nir_lower_mediump_io, nir_var_shader_out,
-                                ~0, false);
+//                NIR_PASS_V(nir, nir_lower_mediump_io, nir_var_shader_out,
+ //                               ~0, false);
         } else {
                 struct hash_table_u64 *stores = _mesa_hash_table_u64_create(NULL);
                 NIR_PASS_V(nir, nir_shader_instructions_pass,
