@@ -1795,8 +1795,28 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
        * into real HW registers.
        */
       if (nir->info.per_primitive_inputs) {
+         uint64_t per_prim_inputs_read =
+               nir->info.inputs_read & nir->info.per_primitive_inputs;
+
+         /* In Mesh, VIEWPORT and LAYER slots are always at the beginning,
+          * because they come from MUE Primitive Header, not Per-Primitive Attributes.
+          */
+         const uint64_t primitive_header_bits = VARYING_BIT_VIEWPORT |
+                                                VARYING_BIT_LAYER;
+
+         if (per_prim_inputs_read & VARYING_BIT_LAYER)
+            prog_data->urb_setup[VARYING_SLOT_LAYER] = 0;
+
+         if (per_prim_inputs_read & VARYING_BIT_VIEWPORT)
+            prog_data->urb_setup[VARYING_SLOT_VIEWPORT] = 0;
+
+         if (per_prim_inputs_read & primitive_header_bits) {
+            urb_next = 2;
+            per_prim_inputs_read &= ~primitive_header_bits;
+         }
+
          for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
-            if (nir->info.per_primitive_inputs & BITFIELD64_BIT(i)) {
+            if (per_prim_inputs_read & BITFIELD64_BIT(i)) {
                prog_data->urb_setup[i] = urb_next++;
             }
          }
