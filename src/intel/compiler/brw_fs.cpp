@@ -1811,9 +1811,13 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
             prog_data->urb_setup[VARYING_SLOT_VIEWPORT] = 0;
 
          if (per_prim_inputs_read & primitive_header_bits) {
-            urb_next = 2;
             per_prim_inputs_read &= ~primitive_header_bits;
+
+            assert(mue_map->per_primitive_header_size_dw % 4 == 0);
+            urb_next = mue_map->per_primitive_header_size_dw / 4;
          }
+
+         unsigned reg_start = urb_next;
 
          for (unsigned i = 0; i < VARYING_SLOT_MAX; i++) {
             if (per_prim_inputs_read & BITFIELD64_BIT(i)) {
@@ -1821,8 +1825,11 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
             }
          }
 
+         assert(mue_map->per_primitive_data_size_dw % 4 == 0);
+         int reg_end = reg_start + mue_map->per_primitive_data_size_dw / 4;
+         assert(reg_end >= urb_next);
          /* The actual setup attributes later must be aligned to a full GRF. */
-         urb_next = ALIGN(urb_next, 2);
+         urb_next = ALIGN(reg_end, 2);
 
          prog_data->num_per_primitive_inputs = urb_next;
       }
