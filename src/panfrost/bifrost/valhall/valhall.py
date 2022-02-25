@@ -160,6 +160,7 @@ class Staging:
         self.widen = False
         self.lanes = False
         self.lane = False
+        self.combine = False
         self.size = 32
 
         if not flags:
