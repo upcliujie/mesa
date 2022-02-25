@@ -1073,12 +1073,9 @@ add_all_surfaces_implicit_layout(
    const VkImageFormatListCreateInfo *format_list_info,
    uint32_t stride,
    isl_tiling_flags_t isl_tiling_flags,
-   const struct anv_image_create_info *create_info)
+   isl_surf_usage_flags_t isl_extra_usage_flags)
 {
-   assert(create_info);
    const struct intel_device_info *devinfo = &device->info;
-   isl_surf_usage_flags_t isl_extra_usage_flags =
-      create_info->isl_extra_usage_flags;
    VkResult result;
 
    u_foreach_bit(b, image->vk.aspects) {
@@ -1380,7 +1377,7 @@ anv_image_init(struct anv_device *device, struct anv_image *image,
    } else {
       r = add_all_surfaces_implicit_layout(device, image, fmt_list, 0,
                                            isl_tiling_flags,
-                                           create_info);
+                                           create_info->isl_extra_usage_flags);
    }
 
    if (r != VK_SUCCESS)
