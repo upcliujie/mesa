@@ -584,7 +584,8 @@ anv_cmd_buffer_surface_base_address(struct anv_cmd_buffer *cmd_buffer)
 }
 
 static void
-emit_batch_buffer_start(struct anv_cmd_buffer *cmd_buffer,
+emit_batch_buffer_start(struct anv_batch *batch,
+                        const struct intel_device_info *devinfo,
                         struct anv_bo *bo, uint32_t offset)
 {
    /* In gfx8+ the address field grew to two dwords to accomodate 48 bit
@@ -603,8 +604,8 @@ emit_batch_buffer_start(struct anv_cmd_buffer *cmd_buffer,
    const uint32_t gfx8_length =
       GFX8_MI_BATCH_BUFFER_START_length - GFX8_MI_BATCH_BUFFER_START_length_bias;
 
-   anv_batch_emit(&cmd_buffer->batch, GFX8_MI_BATCH_BUFFER_START, bbs) {
-      bbs.DWordLength               = cmd_buffer->device->info.ver < 8 ?
+   anv_batch_emit(batch, GFX8_MI_BATCH_BUFFER_START, bbs) {
+      bbs.DWordLength               = devinfo->ver < 8 ?
                                       gfx7_length : gfx8_length;
       bbs.SecondLevelBatchBuffer    = Firstlevelbatch;
       bbs.AddressSpaceIndicator     = ASI_PPGTT;
@@ -627,7 +628,8 @@ cmd_buffer_chain_to_batch_bo(struct anv_cmd_buffer *cmd_buffer,
    batch->end += GFX8_MI_BATCH_BUFFER_START_length * 4;
    assert(batch->end == current_bbo->bo->map + current_bbo->bo->size);
 
-   emit_batch_buffer_start(cmd_buffer, bbo->bo, 0);
+   emit_batch_buffer_start(&cmd_buffer->batch,
+                           &cmd_buffer->device->info, bbo->bo, 0);
 
    anv_batch_bo_finish(current_bbo, batch);
 }
@@ -983,6 +985,7 @@ anv_cmd_buffer_reset_batch_bo_chain(struct anv_cmd_buffer *cmd_buffer)
 void
 anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
 {
+   const struct intel_device_info *devinfo = &cmd_buffer->device->info;
    struct anv_batch_bo *batch_bo = anv_cmd_buffer_current_batch_bo(cmd_buffer);
 
    if (cmd_buffer->vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
@@ -1004,7 +1007,7 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
        */
       batch_bo->chained = anv_cmd_buffer_is_chainable(cmd_buffer);
       if (batch_bo->chained)
-         emit_batch_buffer_start(cmd_buffer, batch_bo->bo, 0);
+         emit_batch_buffer_start(&cmd_buffer->batch, devinfo, batch_bo->bo, 0);
       else
          anv_batch_emit(&cmd_buffer->batch, GFX8_MI_BATCH_BUFFER_END, bbe);
 
@@ -1031,7 +1034,6 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
           * prefetch.
           */
          if (cmd_buffer->batch_bos.next == cmd_buffer->batch_bos.prev) {
-            const struct intel_device_info *devinfo = &cmd_buffer->device->info;
             /* Careful to have everything in signed integer. */
             int32_t prefetch_len = devinfo->cs_prefetch_size;
             int32_t batch_len =
@@ -1079,7 +1081,7 @@ anv_cmd_buffer_end_batch_buffer(struct anv_cmd_buffer *cmd_buffer)
          assert(cmd_buffer->batch.start == batch_bo->bo->map);
          assert(cmd_buffer->batch.end == batch_bo->bo->map + batch_bo->bo->size);
 
-         emit_batch_buffer_start(cmd_buffer, batch_bo->bo, 0);
+         emit_batch_buffer_start(&cmd_buffer->batch, devinfo, batch_bo->bo, 0);
          assert(cmd_buffer->batch.start == batch_bo->bo->map);
       } else {
          cmd_buffer->exec_mode = ANV_CMD_BUFFER_EXEC_MODE_COPY_AND_CHAIN;
@@ -1108,6 +1110,8 @@ void
 anv_cmd_buffer_add_secondary(struct anv_cmd_buffer *primary,
                              struct anv_cmd_buffer *secondary)
 {
+   const struct intel_device_info *devinfo = &primary->device->info;
+
    anv_measure_add_secondary(primary, secondary);
    switch (secondary->exec_mode) {
    case ANV_CMD_BUFFER_EXEC_MODE_EMIT:
@@ -1127,7 +1131,7 @@ anv_cmd_buffer_add_secondary(struct anv_cmd_buffer *primary,
       struct anv_batch_bo *last_bbo =
          list_last_entry(&secondary->batch_bos, struct anv_batch_bo, link);
 
-      emit_batch_buffer_start(primary, first_bbo->bo, 0);
+      emit_batch_buffer_start(&primary->cmd_buffer, devinfo, first_bbo->bo, 0);
 
       struct anv_batch_bo *this_bbo = anv_cmd_buffer_current_batch_bo(primary);
       assert(primary->batch.start == this_bbo->bo->map);
@@ -1175,7 +1179,7 @@ anv_cmd_buffer_add_secondary(struct anv_cmd_buffer *primary,
                          .Address = secondary->return_addr)
          + (GFX8_MI_STORE_DATA_IMM_ImmediateData_start / 8);
 
-      emit_batch_buffer_start(primary, first_bbo->bo, 0);
+      emit_batch_buffer_start(primary, devinfo, first_bbo->bo, 0);
 
       *write_return_addr =
          anv_address_physical(anv_batch_address(&primary->batch,
