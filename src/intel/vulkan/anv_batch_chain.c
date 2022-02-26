@@ -279,8 +279,9 @@ anv_reloc_list_append(struct anv_reloc_list *list,
 void *
 anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
 {
-   if (batch->next + num_dwords * 4 > batch->end) {
-      VkResult result = batch->extend_cb(batch, batch->user_data);
+   uint32_t size = num_dwords * 4;
+   if (batch->next + size > batch->end) {
+      VkResult result = batch->extend_cb(batch, size, batch->user_data);
       if (result != VK_SUCCESS) {
          anv_batch_set_error(batch, result);
          return NULL;
@@ -293,6 +294,21 @@ anv_batch_emit_dwords(struct anv_batch *batch, int num_dwords)
    assert(batch->next <= batch->end);
 
    return p;
+}
+
+/* Ensure enough contiguous space is available */
+VkResult
+anv_batch_emit_ensure_space(struct anv_batch *batch, uint32_t size)
+{
+   if (batch->next + size > batch->end) {
+      VkResult result = batch->extend_cb(batch, size, batch->user_data);
+      if (result != VK_SUCCESS) {
+         anv_batch_set_error(batch, result);
+         return result;
+      }
+   }
+
+   return VK_SUCCESS;
 }
 
 struct anv_address
@@ -315,7 +331,7 @@ anv_batch_emit_batch(struct anv_batch *batch, struct anv_batch *other)
    assert(size % 4 == 0);
 
    if (batch->next + size > batch->end) {
-      VkResult result = batch->extend_cb(batch, batch->user_data);
+      VkResult result = batch->extend_cb(batch, size, batch->user_data);
       if (result != VK_SUCCESS) {
          anv_batch_set_error(batch, result);
          return;
@@ -662,13 +678,19 @@ anv_cmd_buffer_record_end_submit(struct anv_cmd_buffer *cmd_buffer)
 }
 
 static VkResult
-anv_cmd_buffer_chain_batch(struct anv_batch *batch, void *_data)
+anv_cmd_buffer_chain_batch(struct anv_batch *batch, uint32_t size, void *_data)
 {
+   /* The caller should not need that much space. Otherwise it should split
+    * its commands.
+    */
+   assert(size <= ANV_MAX_CMD_BUFFER_BATCH_SIZE);
+
    struct anv_cmd_buffer *cmd_buffer = _data;
    struct anv_batch_bo *new_bbo = NULL;
    /* Cap reallocation to chunk. */
-   uint32_t alloc_size = MIN2(cmd_buffer->total_batch_size,
-                              ANV_MAX_CMD_BUFFER_BATCH_SIZE);
+   uint32_t alloc_size = MIN2(
+      MAX2(cmd_buffer->total_batch_size, size),
+      ANV_MAX_CMD_BUFFER_BATCH_SIZE);
 
    VkResult result = anv_batch_bo_create(cmd_buffer, alloc_size, &new_bbo);
    if (result != VK_SUCCESS)
@@ -693,12 +715,12 @@ anv_cmd_buffer_chain_batch(struct anv_batch *batch, void *_data)
 }
 
 static VkResult
-anv_cmd_buffer_grow_batch(struct anv_batch *batch, void *_data)
+anv_cmd_buffer_grow_batch(struct anv_batch *batch, uint32_t size, void *_data)
 {
    struct anv_cmd_buffer *cmd_buffer = _data;
    struct anv_batch_bo *bbo = anv_cmd_buffer_current_batch_bo(cmd_buffer);
 
-   anv_batch_bo_grow(cmd_buffer, bbo, &cmd_buffer->batch, 4096,
+   anv_batch_bo_grow(cmd_buffer, bbo, &cmd_buffer->batch, MAX2(4096, size),
                      GFX8_MI_BATCH_BUFFER_START_length * 4);
 
    return VK_SUCCESS;
