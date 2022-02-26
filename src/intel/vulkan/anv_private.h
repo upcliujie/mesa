@@ -3114,7 +3114,7 @@ struct anv_cmd_buffer {
    uint32_t                                     total_batch_size;
 
    /**
-    *
+    * Structure holding tracepoints recorded in the command buffer.
     */
    struct u_trace                               trace;
 };
