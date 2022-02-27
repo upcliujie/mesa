@@ -176,6 +176,11 @@ modifier_lists = order_modifiers(ir_instructions)
 # Generate type signature for a builder routine
 
 def should_skip(mod, op):
+    # FROUND and HADD only make sense in context of a round mode, so override
+    # the usual skip
+    if mod == "round" and ("FROUND" in op or "HADD" in op):
+        return False
+
     return mod in SKIP or mod[0:-1] in SKIP
 
 def modifier_signature(op):
