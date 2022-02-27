@@ -280,6 +280,7 @@ static VkResult anv_create_cmd_buffer(
 
    cmd_buffer->vk.destroy = anv_cmd_buffer_destroy;
    cmd_buffer->batch.status = VK_SUCCESS;
+   cmd_buffer->generation_batch.status = VK_SUCCESS;
 
    cmd_buffer->device = device;
 
@@ -299,6 +300,8 @@ static VkResult anv_create_cmd_buffer(
                          &device->general_state_pool, 16384);
 
    cmd_buffer->self_mod_locations = NULL;
+
+   cmd_buffer->generation_return_addr = ANV_NULL_ADDRESS;
 
    anv_cmd_state_init(cmd_buffer);
 
