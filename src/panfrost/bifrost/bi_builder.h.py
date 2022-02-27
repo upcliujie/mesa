@@ -101,7 +101,7 @@ bi_instr * bi_${opcode.replace('.', '_').lower()}${to_suffix(ops[opcode])}(${sig
     I->src[${src}] = src${src};
 % endfor
 % for mod in ops[opcode]["modifiers"]:
-% if not should_skip(mod):
+% if not should_skip(mod, opcode):
     I->${mod} = ${mod};
 % endif
 % endfor
@@ -175,11 +175,11 @@ modifier_lists = order_modifiers(ir_instructions)
 
 # Generate type signature for a builder routine
 
-def should_skip(mod):
+def should_skip(mod, op):
     return mod in SKIP or mod[0:-1] in SKIP
 
 def modifier_signature(op):
-    return sorted([m for m in op["modifiers"].keys() if not should_skip(m)])
+    return sorted([m for m in op["modifiers"].keys() if not should_skip(m, op["key"])])
 
 def signature(op, modifiers, typeful = False, sized = False, no_dests = False):
     return ", ".join(
