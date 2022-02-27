@@ -251,8 +251,7 @@ def simplify_to_ir(ins):
 # All other opcodes default to rounding to nearest even
 def default_round_to_zero(name):
     # 8-bit int to float is exact
-    subs = ['_TO_U', '_TO_S', '_TO_V2U', '_TO_V2S', '_TO_V4U', '_TO_V4S',
-            'S32_TO_F', 'U32_TO_F', 'V2S16_TO_V2F', 'V2U16_TO_V2F']
+    subs = ['_TO_U', '_TO_S', '_TO_V2U', '_TO_V2S', '_TO_V4U', '_TO_V4S']
     return any([x in name for x in subs])
 
 def combine_ir_variants(instructions, key):
@@ -279,6 +278,7 @@ def combine_ir_variants(instructions, key):
     # Great, we've checked srcs/immediates are consistent and we've summed over
     # modifiers
     return {
+            'key': key,
             'srcs': variants[0]['srcs'],
             'dests': variants[0]['dests'],
             'staging': variants[0]['staging'],
