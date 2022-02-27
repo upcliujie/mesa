@@ -19,7 +19,9 @@
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 # IN THE SOFTWARE.
 
-SKIP = set(["lane", "lane_dest", "lanes", "lanes", "replicate", "swz", "widen", "swap", "neg", "abs", "not", "sign", "extend", "divzero", "clamp", "sem", "not_result", "skip"])
+SKIP = set(["lane", "lane_dest", "lanes", "lanes", "replicate", "swz", "widen",
+    "swap", "neg", "abs", "not", "sign", "extend", "divzero", "clamp", "sem",
+    "not_result", "skip", "round"])
 
 TEMPLATE = """
 #ifndef _BI_BUILDER_H_
@@ -103,6 +105,9 @@ bi_instr * bi_${opcode.replace('.', '_').lower()}${to_suffix(ops[opcode])}(${sig
     I->${mod} = ${mod};
 % endif
 % endfor
+% if ops[opcode]["rtz"]:
+    I->round = BI_ROUND_RTZ;
+% endif
 % for imm in ops[opcode]["immediates"]:
     I->${imm} = ${imm};
 % endfor

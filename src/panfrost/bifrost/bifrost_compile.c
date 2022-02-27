@@ -2335,7 +2335,8 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         case nir_op_fceil:
         case nir_op_ffloor:
         case nir_op_ftrunc:
-                bi_fround_to(b, sz, dst, s0, bi_nir_round(instr->op));
+                bi_instr *I = bi_fround_to(b, sz, dst, s0);
+                I->round = bi_nir_round(instr->op);
                 break;
 
         case nir_op_fmin:
