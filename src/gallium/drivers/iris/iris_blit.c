@@ -700,6 +700,9 @@ iris_copy_region(struct blorp_context *blorp,
          .local_hint = iris_bo_likely_local(dst_res->bo),
       };
 
+      iris_emit_pipe_control_flush(batch, "before pipe buffer copy",
+                                   PIPE_CONTROL_TILE_CACHE_FLUSH);
+
       iris_emit_buffer_barrier_for(batch, src_res->bo,
                                    IRIS_DOMAIN_OTHER_READ);
       iris_emit_buffer_barrier_for(batch, dst_res->bo, write_domain);
