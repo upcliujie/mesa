@@ -404,6 +404,15 @@ fd_set_vertex_buffers(struct pipe_context *pctx, unsigned start_slot,
 
    for (unsigned i = 0; i < count; i++) {
       assert(!vb[start_slot + i].is_user_buffer);
+
+      /* Robust buffer access: Return undefined data (the start of the buffer)
+       * instead of process termination or a GPU hang in case of overflow.
+       */
+      if (so->vb[start_slot + i].buffer.resource &&
+          unlikely(so->vb[start_slot + i].buffer_offset >= so->vb[start_slot + i].buffer.resource->width0)) {
+         so->vb[start_slot + i].buffer_offset = 0;
+      }
+
       fd_resource_set_usage(vb[start_slot + i].buffer.resource, FD_DIRTY_VTXBUF);
    }
 }
