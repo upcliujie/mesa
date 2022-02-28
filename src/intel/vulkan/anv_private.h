@@ -2649,6 +2649,9 @@ struct anv_push_constants {
    /** Ray query globals (RT_DISPATCH_GLOBALS) */
    uint64_t ray_query_globals;
 
+   /* Task/mesh view indices. */
+   uint32_t view_indices[4];
+
    /* Base addresses for descriptor sets */
    uint64_t desc_sets[MAX_SETS];
 
@@ -4533,6 +4536,12 @@ static inline unsigned
 anv_subpass_view_count(const struct anv_subpass *subpass)
 {
    return MAX2(1, util_bitcount(subpass->view_mask));
+}
+
+static inline unsigned
+anv_subpass_max_views(const struct anv_subpass *subpass)
+{
+   return MAX2(1, util_last_bit(subpass->view_mask));
 }
 
 #define ANV_PIPELINE_STATISTICS_MASK 0x000007ff
