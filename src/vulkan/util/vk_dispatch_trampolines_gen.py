@@ -48,12 +48,7 @@ extern "C" {
 
 extern struct vk_physical_device_dispatch_table vk_physical_device_trampolines;
 extern struct vk_device_dispatch_table vk_device_trampolines;
-
-void
-vk_device_dispatch_table_from_cmd_tables(
-    struct vk_device_dispatch_table *dev_table,
-    const struct vk_cmd_dispatch_table *prim_cmd_table,
-    const struct vk_cmd_dispatch_table *sec_cmd_table);
+extern struct vk_device_dispatch_table vk_command_buffer_trampolines;
 
 #ifdef __cplusplus
 }
@@ -121,20 +116,23 @@ ${e.prefixed_name('vk_tramp')}(${e.decl_params()})
 {
   % if e.params[0].type == 'VkDevice':
     VK_FROM_HANDLE(vk_device, vk_device, ${e.params[0].name});
-    % if e.return_type == 'void':
-    vk_device->dispatch_table.${e.name}(${e.call_params()});
-    % else:
-    return vk_device->dispatch_table.${e.name}(${e.call_params()});
-    % endif
-  % elif e.params[0].type in ('VkCommandBuffer', 'VkQueue'):
-    struct vk_object_base *vk_object = (struct vk_object_base *)${e.params[0].name};
-    % if e.return_type == 'void':
-    vk_object->device->dispatch_table.${e.name}(${e.call_params()});
-    % else:
-    return vk_object->device->dispatch_table.${e.name}(${e.call_params()});
-    % endif
+    const struct vk_device_dispatch_table *disp = &vk_device->dispatch_table;
+  % elif e.params[0].type == 'VkQueue':
+    struct vk_object_base *vk_object =
+        (struct vk_object_base *)${e.params[0].name};
+    const struct vk_device_dispatch_table *disp =
+        &vk_object->device->dispatch_table;
+  % elif e.params[0].type == 'VkCommandBuffer':
+    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+    const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
   % else:
     assert(!"Unhandled device child trampoline case: ${e.params[0].type}");
+  %endif
+
+  % if e.return_type == 'void':
+    disp->${e.name}(${e.call_params()});
+  % else:
+    return disp->${e.name}(${e.call_params()});
   % endif
 }
   % if e.guard is not None:
@@ -157,51 +155,20 @@ struct vk_device_dispatch_table vk_device_trampolines = {
 % endfor
 };
 
+struct vk_device_dispatch_table vk_command_buffer_trampolines = {
 % for e in entrypoints:
-% if not e.is_cmd_entrypoint() or e.alias:
-<% continue %>
-% endif
-% if e.guard is not None:
+  % if not e.is_cmd_entrypoint() or e.alias:
+    <% continue %>
+  % endif
+  % if e.guard is not None:
 #ifdef ${e.guard}
-% endif
-static VKAPI_ATTR ${e.return_type} VKAPI_CALL
-${e.prefixed_name('vk_cmd_tramp')}(${e.decl_params()})
-{
-   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-
-% if e.return_type != 'void':
-   return cmd_buffer->dispatch->${e.name}(${e.call_params()});
-% else:
-   cmd_buffer->dispatch->${e.name}(${e.call_params()});
-%endif
-}
-% if e.guard is not None:
-#endif
-% endif
-% endfor
-
-void
-vk_device_dispatch_table_from_cmd_tables(
-    struct vk_device_dispatch_table *dev_table,
-    const struct vk_cmd_dispatch_table *prim_cmd_table,
-    const struct vk_cmd_dispatch_table *sec_cmd_table)
-{
-% for e in entrypoints:
-% if not e.is_cmd_entrypoint() or e.alias:
-<% continue %>
-% endif
-% if e.guard is not None:
-#ifdef ${e.guard}
-% endif
-   if (prim_cmd_table->${e.name} && sec_cmd_table->${e.name})
-      dev_table->${e.name} = ${e.prefixed_name('vk_cmd_tramp')};
-   else if (prim_cmd_table->${e.name} || sec_cmd_table->${e.name})
-      dev_table->${e.name} = NULL;
+  % endif
+    .${e.name} = ${e.prefixed_name('vk_tramp')},
   % if e.guard is not None:
 #endif
-% endif
+  % endif
 % endfor
-}
+};
 """)
 
 def main():

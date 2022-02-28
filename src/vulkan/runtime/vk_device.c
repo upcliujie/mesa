@@ -24,6 +24,7 @@
 #include "vk_device.h"
 
 #include "vk_common_entrypoints.h"
+#include "vk_dispatch_trampolines.h"
 #include "vk_instance.h"
 #include "vk_log.h"
 #include "vk_physical_device.h"
@@ -251,15 +252,29 @@ PFN_vkVoidFunction
 vk_device_get_proc_addr(const struct vk_device *device,
                         const char *name)
 {
+   PFN_vkVoidFunction func;
+
    if (device == NULL || name == NULL)
       return NULL;
 
    struct vk_instance *instance = device->physical->instance;
-   return vk_device_dispatch_table_get_if_supported(&device->dispatch_table,
+   func = vk_device_dispatch_table_get_if_supported(&device->dispatch_table,
                                                     name,
                                                     instance->app_info.api_version,
                                                     &instance->enabled_extensions,
                                                     &device->enabled_extensions);
+   if (func != NULL)
+      return func;
+
+   func = vk_device_dispatch_table_get_if_supported(&vk_command_buffer_trampolines,
+                                                    name,
+                                                    instance->app_info.api_version,
+                                                    &instance->enabled_extensions,
+                                                    &device->enabled_extensions);
+   if (func != NULL)
+      return func;
+
+   return NULL;
 }
 
 VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL
