@@ -616,28 +616,23 @@ fail:
 }
 
 void
-radv_get_viewport_xform(const VkViewport *viewport, float scale[3], float translate[3])
+radv_get_viewport_xform(const VkViewport *viewport, float scale[2], float translate[2])
 {
    float x = viewport->x;
    float y = viewport->y;
    float half_width = 0.5f * viewport->width;
    float half_height = 0.5f * viewport->height;
-   double n = viewport->minDepth;
-   double f = viewport->maxDepth;
 
    scale[0] = half_width;
    translate[0] = half_width + x;
    scale[1] = half_height;
    translate[1] = half_height + y;
-
-   scale[2] = (f - n);
-   translate[2] = n;
 }
 
 static VkRect2D
 si_scissor_from_viewport(const VkViewport *viewport)
 {
-   float scale[3], translate[3];
+   float scale[2], translate[2];
    VkRect2D rect;
 
    radv_get_viewport_xform(viewport, scale, translate);
@@ -668,7 +663,7 @@ si_write_scissors(struct radeon_cmdbuf *cs, int first, int count, const VkRect2D
                   const VkViewport *viewports, bool can_use_guardband)
 {
    int i;
-   float scale[3], translate[3], guardband_x = INFINITY, guardband_y = INFINITY;
+   float scale[2], translate[2], guardband_x = INFINITY, guardband_y = INFINITY;
    const float max_range = 32767.0f;
    if (!count)
       return;

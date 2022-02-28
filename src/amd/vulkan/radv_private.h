@@ -1177,8 +1177,8 @@ struct radv_viewport_state {
    uint32_t count;
    VkViewport viewports[MAX_VIEWPORTS];
    struct {
-      float scale[3];
-      float translate[3];
+      float scale[2];
+      float translate[2];
    } xform[MAX_VIEWPORTS];
 };
 
@@ -1726,7 +1726,7 @@ radv_get_descriptors_state(struct radv_cmd_buffer *cmd_buffer, VkPipelineBindPoi
 }
 
 void
-radv_get_viewport_xform(const VkViewport *viewport, float scale[3], float translate[3]);
+radv_get_viewport_xform(const VkViewport *viewport, float scale[2], float translate[2]);
 
 /*
  * Takes x,y,z as exact numbers of invocations, instead of blocks.
@@ -1893,6 +1893,7 @@ struct radv_pipeline {
          unsigned cb_color_control;
          bool uses_dynamic_stride;
          bool uses_conservative_overestimate;
+         bool negative_one_to_one;
 
          /* Used for rbplus */
          uint32_t col_format;
