@@ -709,6 +709,9 @@ iris_copy_region(struct blorp_context *blorp,
       iris_batch_sync_region_start(batch);
       blorp_buffer_copy(&blorp_batch, src_addr, dst_addr, src_box->width);
       iris_batch_sync_region_end(batch);
+
+      iris_emit_pipe_control_flush(batch, "after pipe buffer copy",
+                                   PIPE_CONTROL_TILE_CACHE_FLUSH);
    } else {
       // XXX: what about one surface being a buffer and not the other?
 
