@@ -1841,7 +1841,7 @@ calculate_urb_setup(const struct intel_device_info *devinfo,
       uint64_t unique_fs_attrs = inputs_read & BRW_FS_VARYING_INPUT_MASK;
 
       if (inputs_read & clip_dist_bits) {
-         assert(mue_map->per_vertex_header_size_dw > 8);
+         assert(mue_map->has_clip_distances);
          unique_fs_attrs &= ~clip_dist_bits;
       }
 
