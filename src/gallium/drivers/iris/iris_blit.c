@@ -766,6 +766,7 @@ iris_resource_copy_region(struct pipe_context *ctx,
 {
    struct iris_context *ice = (void *) ctx;
    struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+   const struct intel_device_info *devinfo = &batch->screen->devinfo;
 
    iris_copy_region(&ice->blorp, batch, p_dst, dst_level, dstx, dsty, dstz,
                     p_src, src_level, src_box);
@@ -780,8 +781,17 @@ iris_resource_copy_region(struct pipe_context *ctx,
                        dsty, dstz, &s_src_res->base.b, src_level, src_box);
    }
 
-   iris_flush_and_dirty_for_history(ice, batch, (struct iris_resource *)p_dst,
-                                    PIPE_CONTROL_RENDER_TARGET_FLUSH,
+   /* One TGL+, flush tile cache after blitting buffer that is used as index
+     * or vertex buffer (cached in L3).
+     */
+   struct iris_resource *dst_res = (void *) p_dst;
+   bool vbo_or_ibo = dst_res->bind_history & (PIPE_BIND_VERTEX_BUFFER |
+                                              PIPE_BIND_INDEX_BUFFER);
+
+   iris_flush_and_dirty_for_history(ice, batch, dst_res,
+                                    PIPE_CONTROL_RENDER_TARGET_FLUSH |
+                                    (devinfo->verx10 >= 120 && vbo_or_ibo) ?
+                                       PIPE_CONTROL_TILE_CACHE_FLUSH : 0,
                                     "cache history: post copy_region");
 }
 
