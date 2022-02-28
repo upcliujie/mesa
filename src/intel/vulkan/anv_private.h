@@ -2657,6 +2657,9 @@ struct anv_push_constants {
    /** Ray query globals (RT_DISPATCH_GLOBALS) */
    uint64_t ray_query_globals;
 
+   /* Task/mesh view indices. */
+   uint32_t view_indices[4];
+
    /* Base addresses for descriptor sets */
    uint64_t desc_sets[MAX_SETS];
 
@@ -4367,6 +4370,18 @@ struct anv_sampler {
 
    struct anv_state             custom_border_color;
 };
+
+static inline unsigned
+anv_gfx_pipeline_view_count(const struct anv_graphics_pipeline *pipeline)
+{
+   return MAX2(1, util_bitcount(pipeline->view_mask));
+}
+
+static inline unsigned
+anv_gfx_pipeline_max_views(const struct anv_graphics_pipeline *pipeline)
+{
+   return MAX2(1, util_last_bit(pipeline->view_mask));
+}
 
 #define ANV_PIPELINE_STATISTICS_MASK 0x000007ff
 
