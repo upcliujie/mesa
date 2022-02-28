@@ -37,12 +37,12 @@ vk_common_CmdWriteTimestamp(
    uint32_t                                    query)
 {
    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-   struct vk_device *device = cmd_buffer->base.device;
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
-   device->dispatch_table.CmdWriteTimestamp2KHR(commandBuffer,
-                                                (VkPipelineStageFlags2KHR) pipelineStage,
-                                                queryPool,
-                                                query);
+   disp->CmdWriteTimestamp2KHR(commandBuffer,
+                               (VkPipelineStageFlags2KHR) pipelineStage,
+                               queryPool,
+                               query);
 }
 
 static VkMemoryBarrier2KHR
@@ -112,7 +112,7 @@ vk_common_CmdPipelineBarrier(
     const VkImageMemoryBarrier*                 pImageMemoryBarriers)
 {
    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-   struct vk_device *device = cmd_buffer->base.device;
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
    STACK_ARRAY(VkMemoryBarrier2KHR, memory_barriers, memoryBarrierCount);
    STACK_ARRAY(VkBufferMemoryBarrier2KHR, buffer_barriers, bufferMemoryBarrierCount);
@@ -147,7 +147,7 @@ vk_common_CmdPipelineBarrier(
       .pImageMemoryBarriers = image_barriers,
    };
 
-   device->dispatch_table.CmdPipelineBarrier2KHR(commandBuffer, &dep_info);
+   disp->CmdPipelineBarrier2KHR(commandBuffer, &dep_info);
 
    STACK_ARRAY_FINISH(memory_barriers);
    STACK_ARRAY_FINISH(buffer_barriers);
@@ -161,7 +161,7 @@ vk_common_CmdSetEvent(
     VkPipelineStageFlags                        stageMask)
 {
    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-   struct vk_device *device = cmd_buffer->base.device;
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
    VkMemoryBarrier2KHR mem_barrier = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR,
@@ -174,7 +174,7 @@ vk_common_CmdSetEvent(
       .pMemoryBarriers = &mem_barrier,
    };
 
-   device->dispatch_table.CmdSetEvent2KHR(commandBuffer, event, &dep_info);
+   disp->CmdSetEvent2KHR(commandBuffer, event, &dep_info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -184,11 +184,10 @@ vk_common_CmdResetEvent(
     VkPipelineStageFlags                        stageMask)
 {
    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-   struct vk_device *device = cmd_buffer->base.device;
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
-   device->dispatch_table.CmdResetEvent2KHR(commandBuffer,
-                                            event,
-                                            (VkPipelineStageFlags2KHR) stageMask);
+   disp->CmdResetEvent2KHR(commandBuffer, event,
+                           (VkPipelineStageFlags2KHR) stageMask);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -206,7 +205,7 @@ vk_common_CmdWaitEvents(
     const VkImageMemoryBarrier*                 pImageMemoryBarriers)
 {
    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-   struct vk_device *device = cmd_buffer->base.device;
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
    STACK_ARRAY(VkDependencyInfoKHR, deps, eventCount);
 
@@ -228,7 +227,7 @@ vk_common_CmdWaitEvents(
          .pMemoryBarriers = &stage_barrier,
       };
    }
-   device->dispatch_table.CmdWaitEvents2KHR(commandBuffer, eventCount, pEvents, deps);
+   disp->CmdWaitEvents2KHR(commandBuffer, eventCount, pEvents, deps);
 
    STACK_ARRAY_FINISH(deps);
 
@@ -245,12 +244,12 @@ vk_common_CmdWaitEvents(
     */
    const VkDependencyFlags dep_flags = 0;
 
-   device->dispatch_table.CmdPipelineBarrier(commandBuffer,
-                                             srcStageMask, destStageMask,
-                                             dep_flags,
-                                             memoryBarrierCount, pMemoryBarriers,
-                                             bufferMemoryBarrierCount, pBufferMemoryBarriers,
-                                             imageMemoryBarrierCount, pImageMemoryBarriers);
+   disp->CmdPipelineBarrier(commandBuffer,
+                            srcStageMask, destStageMask,
+                            dep_flags,
+                            memoryBarrierCount, pMemoryBarriers,
+                            bufferMemoryBarrierCount, pBufferMemoryBarriers,
+                            imageMemoryBarrierCount, pImageMemoryBarriers);
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -262,13 +261,13 @@ vk_common_CmdWriteBufferMarkerAMD(
     uint32_t                                    marker)
 {
    VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
-   struct vk_device *device = cmd_buffer->base.device;
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
-   device->dispatch_table.CmdWriteBufferMarker2AMD(commandBuffer,
-                                                   (VkPipelineStageFlags2KHR) pipelineStage,
-                                                   dstBuffer,
-                                                   dstOffset,
-                                                   marker);
+   disp->CmdWriteBufferMarker2AMD(commandBuffer,
+                                  (VkPipelineStageFlags2KHR) pipelineStage,
+                                  dstBuffer,
+                                  dstOffset,
+                                  marker);
 }
 
 VKAPI_ATTR void VKAPI_CALL

@@ -22,6 +22,7 @@
  */
 
 #include "vk_alloc.h"
+#include "vk_command_buffer.h"
 #include "vk_common_entrypoints.h"
 #include "vk_device.h"
 #include "vk_format.h"
@@ -239,43 +240,36 @@ vk_common_CmdBeginRenderPass(VkCommandBuffer commandBuffer,
                              const VkRenderPassBeginInfo* pRenderPassBegin,
                              VkSubpassContents contents)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
    VkSubpassBeginInfo info = {
       .sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,
       .contents = contents,
    };
 
-   disp->device->dispatch_table.CmdBeginRenderPass2(commandBuffer,
-                                                    pRenderPassBegin, &info);
+   disp->CmdBeginRenderPass2(commandBuffer, pRenderPassBegin, &info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
 vk_common_CmdEndRenderPass(VkCommandBuffer commandBuffer)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
    VkSubpassEndInfo info = {
       .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO,
    };
 
-   disp->device->dispatch_table.CmdEndRenderPass2(commandBuffer, &info);
+   disp->CmdEndRenderPass2(commandBuffer, &info);
 }
 
 VKAPI_ATTR void VKAPI_CALL
 vk_common_CmdNextSubpass(VkCommandBuffer commandBuffer,
                          VkSubpassContents contents)
 {
-   /* We don't have a vk_command_buffer object but we can assume, since we're
-    * using common dispatch, that it's a vk_object of some sort.
-    */
-   struct vk_object_base *disp = (struct vk_object_base *)commandBuffer;
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+   const struct vk_cmd_dispatch_table *disp = cmd_buffer->dispatch_table;
 
    VkSubpassBeginInfo begin_info = {
       .sType = VK_STRUCTURE_TYPE_SUBPASS_BEGIN_INFO,
@@ -286,6 +280,5 @@ vk_common_CmdNextSubpass(VkCommandBuffer commandBuffer,
       .sType = VK_STRUCTURE_TYPE_SUBPASS_END_INFO,
    };
 
-   disp->device->dispatch_table.CmdNextSubpass2(commandBuffer, &begin_info,
-                                                &end_info);
+   disp->CmdNextSubpass2(commandBuffer, &begin_info, &end_info);
 }
