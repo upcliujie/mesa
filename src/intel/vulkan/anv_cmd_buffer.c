@@ -594,6 +594,19 @@ void anv_CmdBindPipeline(
 
       state = &cmd_buffer->state.gfx.base;
       stages = gfx_pipeline->active_stages;
+
+      uint32_t view_mask = gfx_pipeline->view_mask;
+      if (anv_pipeline_is_mesh(gfx_pipeline) && view_mask) {
+         struct anv_push_constants *pc =
+               &cmd_buffer->state.gfx.base.push_constants;
+         unsigned i = 0;
+         u_foreach_bit(view_idx, view_mask)
+            pc->view_indices[i++] = view_idx;
+         assert(i <= ARRAY_SIZE(pc->view_indices));
+         cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_TASK_BIT_NV;
+         cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_MESH_BIT_NV;
+      }
+
       break;
    }
 

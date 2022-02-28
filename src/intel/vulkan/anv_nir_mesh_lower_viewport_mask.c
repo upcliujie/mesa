@@ -40,6 +40,7 @@ struct mesh_lower_viewport_mask_state {
    struct anv_graphics_pipeline *pipeline;
    nir_shader *nir;
    nir_variable *primitive_indices;
+   nir_variable *view_indices;
    nir_variable *viewport_index;
    nir_variable *cull_primitive_mask;
    unsigned viewport_count;
@@ -130,6 +131,65 @@ handle_primitive_indices(struct nir_builder *b,
 
       nir_deref_instr *reindexed_deref =
             nir_build_deref_array(b, primitive_indices_deref, new_idx);
+
+      nir_store_deref(b, reindexed_deref, intrin->src[1].ssa, writemask);
+   }
+
+   nir_instr_remove(instr);
+}
+
+static void
+handle_view_indices(struct nir_builder *b,
+                    nir_instr *instr,
+                    nir_intrinsic_instr *intrin,
+                    struct mesh_lower_viewport_mask_state *state,
+                    nir_ssa_def *prim,
+                    const nir_variable *var)
+{
+   /*
+    * Replace:
+    * ViewID[prim] := view;
+    *
+    * By:
+    * for (int viewport = 0; viewport < viewport_count; ++viewport)
+    *     ViewID[prim * numViewports + viewport] := view;
+    *
+    */
+
+   unsigned writemask = nir_intrinsic_write_mask(intrin);
+
+   b->cursor = nir_before_instr(instr);
+
+   if (!state->view_indices) {
+      const struct glsl_type *type =
+            glsl_array_type(glsl_uint_type(),
+                            state->nir->info.mesh.max_primitives_out *
+                            state->viewport_count,
+                            0);
+
+      state->view_indices =
+            nir_variable_create(b->shader,
+                                nir_var_shader_out,
+                                type,
+                                "GeneratedViewID2");
+      state->view_indices->data.location = var->data.location;
+      state->view_indices->data.interpolation = var->data.interpolation;
+      state->view_indices->data.per_primitive = var->data.per_primitive;
+   }
+
+   nir_deref_instr *view_indices_deref =
+         nir_build_deref_var(b, state->view_indices);
+
+   nir_ssa_def *viewport_count_def = nir_imm_int(b, state->viewport_count);
+
+   for (unsigned viewport = 0; viewport < state->viewport_count; ++viewport) {
+      nir_ssa_def *viewport_def = nir_imm_int(b, viewport);
+
+      nir_ssa_def *new_idx =
+            nir_iadd(b, nir_imul(b, prim, viewport_count_def), viewport_def);
+
+      nir_deref_instr *reindexed_deref =
+            nir_build_deref_array(b, view_indices_deref, new_idx);
 
       nir_store_deref(b, reindexed_deref, intrin->src[1].ssa, writemask);
    }
@@ -297,6 +357,12 @@ anv_nir_mesh_lower_viewport_mask_instr(struct nir_builder *b,
 
             handle_primitive_indices(b, instr, intrin, state,
                                      lvl1_index.ssa, var);
+
+            progress = true;
+         } else if (location == VARYING_SLOT_VIEW_INDEX) {
+            msvpm_printf(", VARYING_SLOT_VIEW_INDEX");
+
+            handle_view_indices(b, instr, intrin, state, lvl1_index.ssa, var);
 
             progress = true;
          } else if (location >= VARYING_SLOT_VAR0 && location <= VARYING_SLOT_VAR31) {
