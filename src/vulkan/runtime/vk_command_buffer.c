@@ -24,6 +24,7 @@
 #include "vk_command_buffer.h"
 
 #include "vk_command_pool.h"
+#include "vk_device.h"
 
 VkResult
 vk_command_buffer_init(struct vk_command_buffer *command_buffer,
@@ -38,6 +39,13 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
    command_buffer->level = level;
    util_dynarray_init(&command_buffer->labels, NULL);
    command_buffer->region_begin = true;
+
+   /* We put all the command buffer entrypoints first in the device dispatch
+    * table so that a command buffer dispatch table is just the first N
+    * entrypoints from a device dispatch table and we can cast like this.
+    */
+   command_buffer->dispatch_table =
+      (const struct vk_cmd_dispatch_table *)&pool->base.device->dispatch_table;
 
    list_add(&command_buffer->pool_link, &pool->command_buffers);
 

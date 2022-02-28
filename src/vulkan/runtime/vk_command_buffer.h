@@ -57,7 +57,7 @@ struct vk_command_buffer {
     * dispatch wrappers. Should stay NULL if you're not using those
     * generic wrappers.
     */
-   const struct vk_cmd_dispatch_table *dispatch;
+   const struct vk_cmd_dispatch_table *dispatch_table;
 
    /**
     * VK_EXT_debug_utils
