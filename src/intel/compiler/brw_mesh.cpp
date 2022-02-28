@@ -294,7 +294,8 @@ brw_nir_lower_tue_inputs(nir_shader *nir, const brw_tue_map *map)
  * the pitch.
  */
 static void
-brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
+brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map,
+      unsigned view_count, bool use_primitive_replication)
 {
    memset(map, 0, sizeof(*map));
 
@@ -308,6 +309,16 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
    map->max_vertices = nir->info.mesh.max_vertices_out;
 
    uint64_t outputs_written = nir->info.outputs_written;
+   uint64_t per_primitive_outputs = nir->info.per_primitive_outputs;
+
+   if (!use_primitive_replication && view_count > 1) {
+      map->max_primitives *= view_count;
+      map->max_vertices *= view_count;
+      view_count = 1;
+
+      outputs_written |= BITFIELD64_BIT(VARYING_SLOT_VIEW_INDEX);
+      per_primitive_outputs |= BITFIELD64_BIT(VARYING_SLOT_VIEW_INDEX);
+   }
 
    /* Assign initial section. */
    if (BITFIELD64_BIT(VARYING_SLOT_PRIMITIVE_COUNT) & outputs_written) {
@@ -324,20 +335,21 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
     */
    const unsigned primitive_list_size_dw = 1 + vertices_per_primitive * map->max_primitives;
 
-   /* TODO(mesh): Multiview. */
    map->per_primitive_header_size_dw =
-         (nir->info.outputs_written & (BITFIELD64_BIT(VARYING_SLOT_VIEWPORT) |
-                                       BITFIELD64_BIT(VARYING_SLOT_LAYER))) ? 8 : 0;
+         (outputs_written & (BITFIELD64_BIT(VARYING_SLOT_VIEWPORT) |
+                             BITFIELD64_BIT(VARYING_SLOT_VIEW_INDEX) |
+                             BITFIELD64_BIT(VARYING_SLOT_LAYER))) ? 8 : 0;
 
    map->per_primitive_start_dw = ALIGN(primitive_list_size_dw, 8);
 
    map->per_primitive_data_size_dw = 0;
-   u_foreach_bit64(location, outputs_written & nir->info.per_primitive_outputs) {
+   u_foreach_bit64(location, outputs_written & per_primitive_outputs) {
       assert(map->start_dw[location] == -1);
 
       unsigned start;
       switch (location) {
       case VARYING_SLOT_LAYER:
+      case VARYING_SLOT_VIEW_INDEX:
          start = map->per_primitive_start_dw + 1; /* RTAIndex */
          break;
       case VARYING_SLOT_VIEWPORT:
@@ -357,6 +369,8 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
       }
 
       map->start_dw[location] = start;
+
+      outputs_written &= ~BITFIELD64_BIT(location);
    }
 
    map->per_primitive_pitch_dw = ALIGN(map->per_primitive_header_size_dw +
@@ -365,13 +379,13 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
    map->per_vertex_start_dw = ALIGN(map->per_primitive_start_dw +
                                     map->per_primitive_pitch_dw * map->max_primitives, 8);
 
-   /* TODO(mesh): Multiview. */
-   unsigned fixed_header_size = 8;
-   map->per_vertex_header_size_dw = ALIGN(fixed_header_size +
+   unsigned clip_distance_pos_dw = ALIGN(4 + 4 * view_count, 8);
+   map->per_vertex_header_size_dw = ALIGN(clip_distance_pos_dw +
                                           nir->info.clip_distance_array_size +
                                           nir->info.cull_distance_array_size, 8);
+   map->has_clip_distances = map->per_vertex_header_size_dw > clip_distance_pos_dw;
    map->per_vertex_data_size_dw = 0;
-   u_foreach_bit64(location, outputs_written & ~nir->info.per_primitive_outputs) {
+   u_foreach_bit64(location, outputs_written & ~per_primitive_outputs) {
       assert(map->start_dw[location] == -1);
 
       unsigned start;
@@ -383,10 +397,10 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
          start = map->per_vertex_start_dw + 4;
          break;
       case VARYING_SLOT_CLIP_DIST0:
-         start = map->per_vertex_start_dw + fixed_header_size + 0;
+         start = map->per_vertex_start_dw + clip_distance_pos_dw + 0;
          break;
       case VARYING_SLOT_CLIP_DIST1:
-         start = map->per_vertex_start_dw + fixed_header_size + 4;
+         start = map->per_vertex_start_dw + clip_distance_pos_dw + 4;
          break;
       case VARYING_SLOT_CULL_DIST0:
       case VARYING_SLOT_CULL_DIST1:
@@ -401,7 +415,10 @@ brw_compute_mue_map(struct nir_shader *nir, struct brw_mue_map *map)
          break;
       }
       map->start_dw[location] = start;
+      outputs_written &= ~BITFIELD64_BIT(location);
    }
+
+   assert(outputs_written == 0);
 
    map->per_vertex_pitch_dw = ALIGN(map->per_vertex_header_size_dw +
                                     map->per_vertex_data_size_dw, 8);
@@ -649,7 +666,8 @@ brw_compile_mesh(const struct brw_compiler *compiler,
 
    NIR_PASS_V(nir, brw_nir_lower_tue_inputs, params->tue_map);
 
-   brw_compute_mue_map(nir, &prog_data->map);
+   brw_compute_mue_map(nir, &prog_data->map, params->view_count,
+                       params->use_primitive_replication);
    NIR_PASS_V(nir, brw_nir_lower_mue_outputs, &prog_data->map);
 
    const unsigned required_dispatch_width =
