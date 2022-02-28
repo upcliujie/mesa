@@ -210,6 +210,7 @@ struct intel_perf_query_result;
 #define MAX_PUSH_DESCRIPTORS 32 /* Minimum requirement */
 #define MAX_INLINE_UNIFORM_BLOCK_SIZE 4096
 #define MAX_INLINE_UNIFORM_BLOCK_DESCRIPTORS 32
+#define MAX_VIEWS 4
 /* We need 16 for UBO block reads to work and 32 for push UBOs. However, we
  * use 64 here to avoid cache issues. This could most likely bring it back to
  * 32 if we had different virtual addresses for the different views on a given
@@ -2657,6 +2658,9 @@ struct anv_push_constants {
    /** Ray query globals (RT_DISPATCH_GLOBALS) */
    uint64_t ray_query_globals;
 
+   /* Task/mesh view indices. */
+   uint32_t view_indices[MAX_VIEWS];
+
    /* Base addresses for descriptor sets */
    uint64_t desc_sets[MAX_SETS];
 
@@ -4367,6 +4371,12 @@ struct anv_sampler {
 
    struct anv_state             custom_border_color;
 };
+
+static inline unsigned
+anv_gfx_pipeline_view_count(const struct anv_graphics_pipeline *pipeline)
+{
+   return MAX2(1, util_bitcount(pipeline->view_mask));
+}
 
 #define ANV_PIPELINE_STATISTICS_MASK 0x000007ff
 
