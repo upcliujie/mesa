@@ -519,7 +519,7 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
           * Note that FS attribute reading must be aware that the clip
           * distances have fixed position.
           */
-         if (mue->per_vertex_header_size_dw > 8 &&
+         if (mue->has_clip_distances &&
                (wm_prog_data->urb_setup[VARYING_SLOT_CLIP_DIST0] >= 0 ||
                 wm_prog_data->urb_setup[VARYING_SLOT_CLIP_DIST1] >= 0)) {
             sbe_mesh.PerVertexURBEntryOutputReadOffset -= 1;
@@ -1579,7 +1579,6 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
    clip.MinimumPointWidth = 0.125;
    clip.MaximumPointWidth = 255.875;
 
-   /* TODO(mesh): Multiview. */
    if (anv_pipeline_is_primitive(pipeline)) {
       const struct brw_vue_prog_data *last =
          anv_pipeline_get_last_vue_prog_data(pipeline);
@@ -2619,11 +2618,11 @@ emit_3dstate_primitive_replication(struct anv_graphics_pipeline *pipeline,
 
    uint32_t view_mask = rendering_info != NULL ? rendering_info->viewMask : 0;
    int view_count = util_bitcount(view_mask);
-   assert(view_count > 1 && view_count <= MAX_VIEWS_FOR_PRIMITIVE_REPLICATION);
+   assert(view_count > 0 && view_count <= MAX_VIEWS_FOR_PRIMITIVE_REPLICATION);
 
    anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PRIMITIVE_REPLICATION), pr) {
       pr.ReplicaMask = (1 << view_count) - 1;
-      pr.ReplicationCount = view_count - 1;
+      pr.ReplicationCount = view_count > 1 ? view_count - 1 : 1;
 
       int i = 0;
       u_foreach_bit(view_index, view_mask) {
