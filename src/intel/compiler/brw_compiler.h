@@ -1440,6 +1440,8 @@ struct brw_mue_map {
    uint32_t per_vertex_header_size_dw;
    uint32_t per_vertex_data_size_dw;
    uint32_t per_vertex_pitch_dw;
+
+   bool has_clip_distances;
 };
 
 struct brw_task_prog_data {
@@ -1729,6 +1731,8 @@ struct brw_compile_mesh_params {
    const struct brw_tue_map *tue_map;
 
    struct brw_compile_stats *stats;
+   unsigned view_count;
+   bool use_primitive_replication;
 
    char *error_str;
    void *log_data;
