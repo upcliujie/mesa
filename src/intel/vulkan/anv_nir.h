@@ -40,6 +40,12 @@ bool anv_nir_lower_multiview(nir_shader *shader,
 bool anv_nir_mesh_lower_viewport_mask(nir_shader *nir,
                                       struct anv_graphics_pipeline *pipeline);
 
+bool anv_nir_lower_mesh_view(nir_shader *nir,
+                             struct anv_graphics_pipeline *pipeline);
+
+void anv_nir_lower_mesh_multiview(nir_shader *nir,
+                                  struct anv_graphics_pipeline *pipeline);
+
 bool anv_nir_lower_ycbcr_textures(nir_shader *shader,
                                   const struct anv_pipeline_layout *layout);
 

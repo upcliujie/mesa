@@ -74,6 +74,13 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
                   sizeof_field(struct anv_push_constants, desc_sets));
                break;
 
+            case nir_intrinsic_load_mesh_view_indices:
+               push_start = MIN2(push_start,
+                  offsetof(struct anv_push_constants, view_indices));
+               push_end = MAX2(push_end, push_start +
+                  sizeof_field(struct anv_push_constants, view_indices));
+               break;
+
             default:
                break;
             }
@@ -175,6 +182,16 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
                   nir_ssa_def_rewrite_uses(&intrin->dest.ssa, pc_load);
                   break;
                }
+
+               case nir_intrinsic_load_mesh_view_indices:
+                  b->cursor = nir_before_instr(&intrin->instr);
+                  nir_ssa_def *vi_load = nir_load_uniform(b, 1, 32,
+                           nir_imul_imm(b, intrin->src[0].ssa, sizeof(uint32_t)),
+                           .base = offsetof(struct anv_push_constants, view_indices),
+                           .range = sizeof_field(struct anv_push_constants, view_indices),
+                           .dest_type = nir_type_uint32);
+                  nir_ssa_def_rewrite_uses(&intrin->dest.ssa, vi_load);
+                  break;
 
                default:
                   break;
