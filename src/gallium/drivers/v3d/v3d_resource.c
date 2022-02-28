@@ -93,13 +93,12 @@ v3d_debug_resource_layout(struct v3d_resource *rsc, const char *caller)
 }
 
 static bool
-v3d_resource_bo_alloc(struct v3d_resource *rsc)
+v3d_resource_bo_alloc(struct v3d_screen *screen,
+                      struct v3d_resource *rsc)
 {
-        struct pipe_resource *prsc = &rsc->base;
-        struct pipe_screen *pscreen = prsc->screen;
         struct v3d_bo *bo;
 
-        bo = v3d_bo_alloc(v3d_screen(pscreen), rsc->size, "resource");
+        bo = v3d_bo_alloc(screen, rsc->size, "resource");
         if (bo) {
                 v3d_bo_unreference(&rsc->bo);
                 rsc->bo = bo;
@@ -175,10 +174,11 @@ v3d_map_usage_prep(struct pipe_context *pctx,
                    unsigned usage)
 {
         struct v3d_context *v3d = v3d_context(pctx);
+        struct v3d_screen *screen = v3d_screen(v3d->base.screen);
         struct v3d_resource *rsc = v3d_resource(prsc);
 
         if (usage & PIPE_MAP_DISCARD_WHOLE_RESOURCE) {
-                if (v3d_resource_bo_alloc(rsc)) {
+                if (v3d_resource_bo_alloc(screen, rsc)) {
                         /* If it might be bound as one of our vertex buffers
                          * or UBOs, make sure we re-emit vertex buffer state
                          * or uniforms.
@@ -850,7 +850,7 @@ v3d_resource_create_with_modifiers(struct pipe_screen *pscreen,
 
                 return prsc;
         } else {
-                if (!v3d_resource_bo_alloc(rsc))
+                if (!v3d_resource_bo_alloc(screen, rsc))
                         goto fail;
         }
 
