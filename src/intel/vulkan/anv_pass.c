@@ -420,6 +420,31 @@ VkResult anv_CreateRenderPass2(
 
    vk_foreach_struct(ext, pCreateInfo->pNext) {
       switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO: {
+         VkRenderPassMultiviewCreateInfo *mCreateInfo = (VkRenderPassMultiviewCreateInfo *)ext;
+         assert(pCreateInfo->subpassCount == mCreateInfo->subpassCount);
+         for (uint32_t i = 0; i < mCreateInfo->subpassCount; i++) {
+            struct anv_subpass *subpass = &pass->subpasses[i];
+            subpass->view_mask = mCreateInfo->pViewMasks[i];
+         }
+
+         if (mCreateInfo->dependencyCount != 0) {
+            // TODO
+            mesa_logd("%s: support for VkRenderPassMultiviewCreateInfo.dependencyCount/pViewOffsets not implemented\n",
+                  __func__);
+
+            for (uint32_t i = 0; i < mCreateInfo->dependencyCount; i++) {
+               (void) mCreateInfo->pViewOffsets[i];
+            }
+         }
+
+         // TODO: use this optional information
+         for (uint32_t i = 0; i < mCreateInfo->correlationMaskCount; i++) {
+            (void) mCreateInfo->pCorrelationMasks[i];
+         }
+
+         break;
+      }
       default:
          anv_debug_ignored_stype(ext->sType);
       }
