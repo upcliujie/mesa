@@ -287,7 +287,7 @@ void vk_cmd_queue_execute(struct vk_cmd_queue *queue,
    assert(queue->error == VK_SUCCESS);
    VK_FROM_HANDLE(vk_command_buffer, prim_cmd_buf, primary_cmd_buffer);
 
-   assert(prim_cmd_buf->dispatch != NULL);
+   assert(prim_cmd_buf->dispatch_table != NULL);
    list_for_each_entry(struct vk_cmd_queue_entry, cmd, &queue->cmds, cmd_link) {
       switch (cmd->type) {
 % for c in commands:
@@ -295,11 +295,11 @@ void vk_cmd_queue_execute(struct vk_cmd_queue *queue,
 #ifdef ${c.guard}
 % endif
       case ${to_enum_name(c.name)}:
-         assert(prim_cmd_buf->dispatch->${c.name});
+         assert(prim_cmd_buf->dispatch_table->${c.name});
 % if len(c.params) > 1:
-         prim_cmd_buf->dispatch->${c.name}(primary_cmd_buffer, ${to_enum_name(c.name) + '_ARGS(cmd)'});
+         prim_cmd_buf->dispatch_table->${c.name}(primary_cmd_buffer, ${to_enum_name(c.name) + '_ARGS(cmd)'});
 % else:
-         prim_cmd_buf->dispatch->${c.name}(primary_cmd_buffer);
+         prim_cmd_buf->dispatch_table->${c.name}(primary_cmd_buffer);
 %endif
          break;
 % if c.guard is not None:
