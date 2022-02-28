@@ -189,6 +189,9 @@ get_device_extensions(const struct anv_physical_device *device,
    const bool nv_mesh_viewport_mask_enabled =
       env_var_as_boolean("ANV_NV_MESH_VIEWPORT_MASK", false);
 
+   const bool nv_mesh_per_view_attrs_enabled =
+      env_var_as_boolean("ANV_NV_MESH_PER_VIEW_ATTRS", false);
+
    *ext = (struct vk_device_extension_table) {
       .KHR_8bit_storage                      = device->info.ver >= 8,
       .KHR_16bit_storage                     = device->info.ver >= 8,
@@ -331,6 +334,9 @@ get_device_extensions(const struct anv_physical_device *device,
       .NV_viewport_array2                    = device->info.has_mesh_shading &&
                                                nv_mesh_shading_enabled &&
                                                nv_mesh_viewport_mask_enabled,
+      .NVX_multiview_per_view_attributes     = device->info.has_mesh_shading &&
+                                               nv_mesh_shading_enabled &&
+                                               nv_mesh_per_view_attrs_enabled,
       .VALVE_mutable_descriptor_type         = true,
    };
 }
@@ -2465,8 +2471,9 @@ void anv_GetPhysicalDeviceProperties2(
           */
          const uint32_t max_primitives = 1024;
 
-         /* TODO(mesh): Multiview. */
-         const uint32_t max_view_count = 1;
+         uint32_t max_view_count = 1;
+         if (pdevice->vk.supported_extensions.NVX_multiview_per_view_attributes)
+            max_view_count = MAX_VIEWS;
 
          uint32_t max_viewports_count = 1;
          if (pdevice->vk.supported_extensions.NV_viewport_array2)

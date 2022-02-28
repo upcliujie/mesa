@@ -62,11 +62,14 @@ anv_shader_compile_to_nir(struct anv_device *device,
 
    bool mesh_shading_supported = pdevice->vk.supported_extensions.NV_mesh_shader;
    bool viewport_array2_supported = false;
+   bool multiview_per_view_attributes_supported = false;
 
    /* We support these extensions only in MESH stage. */
    if (mesh_shading_supported && stage == MESA_SHADER_MESH) {
       viewport_array2_supported =
             pdevice->vk.supported_extensions.NV_viewport_array2;
+      multiview_per_view_attributes_supported =
+            pdevice->vk.supported_extensions.NVX_multiview_per_view_attributes;
    }
 
    const struct spirv_to_nir_options spirv_options = {
@@ -100,6 +103,7 @@ anv_shader_compile_to_nir(struct anv_device *device,
          .mesh_shading_nv = mesh_shading_supported,
          .min_lod = true,
          .multiview = true,
+         .per_view_attributes_nv = multiview_per_view_attributes_supported,
          .physical_storage_buffer_address = pdevice->has_a64_buffer_access,
          .post_depth_coverage = pdevice->info.ver >= 9,
          .runtime_descriptor_array = true,
@@ -779,8 +783,11 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
    NIR_PASS_V(nir, anv_nir_lower_ycbcr_textures, layout);
 
    if (pipeline->type == ANV_PIPELINE_GRAPHICS) {
-      NIR_PASS_V(nir, anv_nir_lower_multiview,
-                 anv_pipeline_to_graphics(pipeline));
+      struct anv_graphics_pipeline *gfx_pipeline =
+            anv_pipeline_to_graphics(pipeline);
+
+      if (anv_pipeline_is_primitive(gfx_pipeline))
+         NIR_PASS_V(nir, anv_nir_lower_multiview, gfx_pipeline);
    }
 
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
@@ -825,6 +832,28 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
                   .callback = NULL,
               });
 
+   bool mesh_multiview = false;
+   if (nir->info.stage == MESA_SHADER_MESH || nir->info.stage == MESA_SHADER_TASK) {
+      struct anv_graphics_pipeline *gfx_pipeline = anv_pipeline_to_graphics(pipeline);
+      NIR_PASS(mesh_multiview, nir, anv_nir_lower_mesh_view, gfx_pipeline);
+      if (mesh_multiview) {
+         /* If anv_nir_lower_mesh_view was successful at inlining mesh view
+          * count, then we probably can optimize away all checks against it
+          * and remove some dead code.
+          */
+         bool progress = false;
+         NIR_PASS(progress, nir, nir_opt_constant_folding);
+         if (progress) {
+            do {
+               progress = false;
+               NIR_PASS(progress, nir, nir_opt_dead_cf);
+            } while (progress);
+
+            NIR_PASS_V(nir, nir_opt_dce);
+         }
+      }
+   }
+
    anv_nir_compute_push_layout(pdevice, pipeline->device->robust_buffer_access,
                                nir, prog_data, &stage->bind_map, mem_ctx);
 
@@ -850,6 +879,16 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
 
          NIR_PASS_V(nir, nir_zero_initialize_shared_memory,
                     shared_size, chunk_size);
+      }
+   }
+
+   if (nir->info.stage == MESA_SHADER_MESH && mesh_multiview) {
+      struct anv_graphics_pipeline *gfx_pipeline = anv_pipeline_to_graphics(pipeline);
+      if (!gfx_pipeline->use_primitive_replication) {
+         NIR_PASS_V(nir, anv_nir_lower_mesh_multiview, gfx_pipeline);
+         NIR_PASS_V(nir, nir_opt_constant_folding);
+         NIR_PASS_V(nir, nir_opt_dce);
+         NIR_PASS_V(nir, nir_remove_dead_variables, nir_var_shader_out, NULL);
       }
    }
 
@@ -1151,10 +1190,11 @@ anv_pipeline_link_mesh(const struct brw_compiler *compiler,
 static void
 anv_pipeline_compile_mesh(const struct brw_compiler *compiler,
                           void *mem_ctx,
-                          struct anv_device *device,
+                          struct anv_graphics_pipeline *pipeline,
                           struct anv_pipeline_stage *mesh_stage,
                           struct anv_pipeline_stage *prev_stage)
 {
+   struct anv_device *device = pipeline->base.device;
    mesh_stage->num_stats = 1;
 
    struct brw_compile_mesh_params params = {
@@ -1163,6 +1203,8 @@ anv_pipeline_compile_mesh(const struct brw_compiler *compiler,
       .prog_data = &mesh_stage->prog_data.mesh,
       .stats = mesh_stage->stats,
       .log_data = device,
+      .view_count = anv_gfx_pipeline_view_count(pipeline),
+      .use_primitive_replication = pipeline->use_primitive_replication,
    };
 
    if (prev_stage) {
@@ -1499,6 +1541,40 @@ anv_subgroup_size_type(gl_shader_stage stage,
    return subgroup_size_type;
 }
 
+static bool
+anv_mesh_use_primitive_replication(nir_shader *mesh,
+                                   struct anv_graphics_pipeline *pipeline)
+{
+   if (pipeline->view_mask == 0)
+      return false;
+
+   if (mesh) {
+      /* compilation in progress */
+
+      /* The only per-view array we have in HW is for gl_Position. If any
+       * other per-view variable is used, then we can't use primitive
+       * replication.
+       */
+      nir_foreach_shader_out_variable(var, mesh) {
+         if (var->data.per_view && var->data.location != VARYING_SLOT_POS)
+            return false;
+      }
+   } else {
+      /* from cache */
+      const struct brw_mesh_prog_data *mesh_prog_data =
+         (const void *) pipeline->shaders[MESA_SHADER_MESH]->prog_data;
+      const struct brw_mue_map *mue_map = &mesh_prog_data->map;
+
+      /* When we don't use primitive replication, then mesh multiview
+       * lowering pass generates writes to VIEW_INDEX.
+       */
+      if (mue_map->start_dw[VARYING_SLOT_VIEW_INDEX] >= 0)
+         return false;
+   }
+
+   return true;
+}
+
 static void
 anv_pipeline_init_from_cached_graphics(struct anv_graphics_pipeline *pipeline)
 {
@@ -1519,6 +1595,11 @@ anv_pipeline_init_from_cached_graphics(struct anv_graphics_pipeline *pipeline)
             pos_slots++;
       }
       pipeline->use_primitive_replication = pos_slots > 1;
+   } else if (anv_pipeline_is_mesh(pipeline)) {
+      pipeline->use_primitive_replication =
+            anv_mesh_use_primitive_replication(NULL, pipeline);
+   } else {
+      assert(0);
    }
 }
 
@@ -1808,21 +1889,29 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
       next_stage = &stages[s];
    }
 
+   pipeline->use_primitive_replication = false;
+
    if (pipeline->base.device->info.ver >= 12 &&
        pipeline->view_mask != 0) {
-      /* For some pipelines HW Primitive Replication can be used instead of
-       * instancing to implement Multiview.  This depend on how viewIndex is
-       * used in all the active shaders, so this check can't be done per
-       * individual shaders.
-       */
-      nir_shader *shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
-      for (unsigned s = 0; s < ARRAY_SIZE(shaders); s++)
-         shaders[s] = stages[s].nir;
+      if (anv_pipeline_is_primitive(pipeline)) {
+         /* For some pipelines HW Primitive Replication can be used instead of
+          * instancing to implement Multiview.  This depend on how viewIndex is
+          * used in all the active shaders, so this check can't be done per
+          * individual shaders.
+          */
+         nir_shader *shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT] = {};
+         for (unsigned s = 0; s < ARRAY_SIZE(shaders); s++)
+            shaders[s] = stages[s].nir;
 
-      pipeline->use_primitive_replication =
-         anv_check_for_primitive_replication(shaders, pipeline);
-   } else {
-      pipeline->use_primitive_replication = false;
+         pipeline->use_primitive_replication =
+            anv_check_for_primitive_replication(shaders, pipeline);
+      } else if (anv_pipeline_is_mesh(pipeline)) {
+         pipeline->use_primitive_replication =
+               anv_mesh_use_primitive_replication(stages[MESA_SHADER_MESH].nir,
+                     pipeline);
+      } else {
+         assert(0);
+      }
    }
 
    struct anv_pipeline_stage *prev_stage = NULL;
@@ -1920,7 +2009,7 @@ anv_pipeline_compile_graphics(struct anv_graphics_pipeline *pipeline,
                                    &stages[s]);
          break;
       case MESA_SHADER_MESH:
-         anv_pipeline_compile_mesh(compiler, stage_ctx, pipeline->base.device,
+         anv_pipeline_compile_mesh(compiler, stage_ctx, pipeline,
                                    &stages[s], prev_stage);
          break;
       case MESA_SHADER_FRAGMENT:
@@ -2633,7 +2722,6 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
          pipeline->topology = vk_to_intel_primitive_type[ia_info->topology];
    } else {
       assert(anv_pipeline_is_mesh(pipeline));
-      /* TODO(mesh): Mesh vs. Multiview with Instancing. */
    }
 
    /* If rasterization is not enabled, ms_info must be ignored. */
