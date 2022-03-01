@@ -24,6 +24,7 @@ struct vn_physical_device_features {
 
    /* Vulkan 1.3 */
    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state;
+   VkPhysicalDeviceImageRobustnessFeaturesEXT image_robustness;
 
    /* EXT */
    VkPhysicalDevice4444FormatsFeaturesEXT argb_4444_formats;

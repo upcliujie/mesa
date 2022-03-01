@@ -123,6 +123,8 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
    VN_ADD_EXT_TO_PNEXT(exts->EXT_extended_dynamic_state,
                        feats->extended_dynamic_state,
                        EXTENDED_DYNAMIC_STATE_FEATURES_EXT, features2);
+   VN_ADD_EXT_TO_PNEXT(exts->EXT_image_robustness, feats->image_robustness,
+                       IMAGE_ROBUSTNESS_FEATURES_EXT, features2);
 
    /* EXT */
    VN_ADD_EXT_TO_PNEXT(exts->EXT_4444_formats, feats->argb_4444_formats,
@@ -918,6 +920,7 @@ vn_physical_device_get_passthrough_extensions(
 
       /* promoted to VK_VERSION_1_3 */
       .EXT_extended_dynamic_state = true,
+      .EXT_image_robustness = true,
 
       /* EXT */
       .EXT_4444_formats = true,
@@ -1641,6 +1644,7 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
 
       /* Vulkan 1.3 */
       VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *extended_dynamic_state;
+      VkPhysicalDeviceImageRobustnessFeaturesEXT *image_robustness;
 
       /* EXT */
       VkPhysicalDevice4444FormatsFeaturesEXT *argb_4444_formats;
@@ -1811,6 +1815,9 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       /* Vulkan 1.3 */
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT:
          *u.extended_dynamic_state = feats->extended_dynamic_state;
+         break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT:
+         *u.image_robustness = feats->image_robustness;
          break;
 
       /* EXT */
