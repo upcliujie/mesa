@@ -173,6 +173,9 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
    VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_line_rasterization,
                         line_rasterization_features,
                         LINE_RASTERIZATION_FEATURES_EXT);
+   VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_provoking_vertex,
+                        provoking_vertex_features,
+                        PROVOKING_VERTEX_FEATURES_EXT);
 
    vn_call_vkGetPhysicalDeviceFeatures2(
       instance, vn_physical_device_to_handle(physical_dev),
@@ -492,6 +495,15 @@ vn_physical_device_init_properties(struct vn_physical_device *physical_dev)
          physical_dev->properties.pNext;
       physical_dev->properties.pNext =
          &physical_dev->line_rasterization_properties;
+   }
+
+   if (physical_dev->renderer_extensions.EXT_provoking_vertex) {
+      physical_dev->provoking_vertex_properties.sType =
+         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_PROPERTIES_EXT;
+      physical_dev->provoking_vertex_properties.pNext =
+         physical_dev->properties.pNext;
+      physical_dev->properties.pNext =
+         &physical_dev->provoking_vertex_properties;
    }
 
    vn_call_vkGetPhysicalDeviceProperties2(
@@ -989,6 +1001,7 @@ vn_physical_device_get_passthrough_extensions(
       .EXT_image_drm_format_modifier = true,
 #endif
       .EXT_line_rasterization = true,
+      .EXT_provoking_vertex = true,
       .EXT_queue_family_foreign = true,
       .EXT_transform_feedback = true,
    };
@@ -1701,6 +1714,7 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *extended_dynamic_state;
       VkPhysicalDeviceCustomBorderColorFeaturesEXT *custom_border_color;
       VkPhysicalDeviceLineRasterizationFeaturesEXT *line_rasterization;
+      VkPhysicalDeviceProvokingVertexFeaturesEXT *provoking_vertex;
    } u;
 
    u.pnext = (VkBaseOutStructure *)pFeatures;
@@ -1880,6 +1894,10 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
                 &physical_dev->line_rasterization_features,
                 sizeof(physical_dev->line_rasterization_features));
          break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT:
+         memcpy(u.provoking_vertex, &physical_dev->provoking_vertex_features,
+                sizeof(physical_dev->provoking_vertex_features));
+         break;
       default:
          break;
       }
@@ -1923,6 +1941,7 @@ vn_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceCustomBorderColorPropertiesEXT *custom_border_color;
       VkPhysicalDevicePresentationPropertiesANDROID *presentation_properties;
       VkPhysicalDeviceLineRasterizationPropertiesEXT *line_rasterization;
+      VkPhysicalDeviceProvokingVertexPropertiesEXT *provoking_vertex;
    } u;
 
    u.pnext = (VkBaseOutStructure *)pProperties;
@@ -2131,6 +2150,11 @@ vn_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          memcpy(u.line_rasterization,
                 &physical_dev->line_rasterization_properties,
                 sizeof(physical_dev->line_rasterization_properties));
+         break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_PROPERTIES_EXT:
+         memcpy(u.provoking_vertex,
+                &physical_dev->provoking_vertex_properties,
+                sizeof(physical_dev->provoking_vertex_properties));
          break;
       default:
          break;
