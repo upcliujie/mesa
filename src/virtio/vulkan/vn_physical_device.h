@@ -52,6 +52,7 @@ struct vn_physical_device {
    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT
       extended_dynamic_state_features;
    VkPhysicalDeviceCustomBorderColorFeaturesEXT custom_border_color_features;
+   VkPhysicalDeviceLineRasterizationFeaturesEXT line_rasterization_features;
 
    VkPhysicalDeviceProperties2 properties;
    VkPhysicalDeviceVulkan11Properties vulkan_1_1_properties;
@@ -60,6 +61,8 @@ struct vn_physical_device {
       transform_feedback_properties;
    VkPhysicalDeviceCustomBorderColorPropertiesEXT
       custom_border_color_properties;
+   VkPhysicalDeviceLineRasterizationPropertiesEXT
+      line_rasterization_properties;
 
    VkQueueFamilyProperties2 *queue_family_properties;
    uint32_t queue_family_count;
