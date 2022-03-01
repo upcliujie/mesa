@@ -145,7 +145,7 @@ private:
    DataType getSType(nir_src &, bool isFloat, bool isSigned);
 
    operation getOperation(nir_intrinsic_op);
-   operation getOperation(nir_op);
+   operation getOperation(nir_op, bool exact);
    operation getOperation(nir_texop);
    operation preOperationNeeded(nir_op);
 
@@ -382,7 +382,7 @@ Converter::getFile(nir_intrinsic_op op)
 }
 
 operation
-Converter::getOperation(nir_op op)
+Converter::getOperation(nir_op op, bool exact)
 {
    switch (op) {
    // basic ops with float and int variants
@@ -433,7 +433,7 @@ Converter::getOperation(nir_op op)
    case nir_op_ffloor:
       return OP_FLOOR;
    case nir_op_ffma:
-      return OP_FMA;
+      return exact ? OP_FMA : OP_MAD;
    case nir_op_flog2:
       return OP_LG2;
    case nir_op_fmax:
@@ -2540,14 +2540,14 @@ Converter::visit(nir_alu_instr *insn)
          assert(info.num_inputs < 2);
          Value *tmp = getSSA(typeSizeof(dType));
          Instruction *i0 = mkOp(preOp, dType, tmp);
-         Instruction *i1 = mkOp(getOperation(op), dType, newDefs[0]);
+         Instruction *i1 = mkOp(getOperation(op, insn->exact), dType, newDefs[0]);
          if (info.num_inputs) {
             i0->setSrc(0, getSrc(&insn->src[0]));
             i1->setSrc(0, tmp);
          }
          i1->subOp = getSubOp(op);
       } else {
-         Instruction *i = mkOp(getOperation(op), dType, newDefs[0]);
+         Instruction *i = mkOp(getOperation(op, insn->exact), dType, newDefs[0]);
          for (unsigned s = 0u; s < info.num_inputs; ++s) {
             i->setSrc(s, getSrc(&insn->src[s]));
          }
@@ -2560,7 +2560,7 @@ Converter::visit(nir_alu_instr *insn)
       DEFAULT_CHECKS;
       LValues &newDefs = convert(&insn->dest);
       dType = sTypes[0];
-      mkOp1(getOperation(op), dType, newDefs[0], getSrc(&insn->src[0]));
+      mkOp1(getOperation(op, insn->exact), dType, newDefs[0], getSrc(&insn->src[0]));
       break;
    }
    case nir_op_fround_even: {
@@ -2586,7 +2586,7 @@ Converter::visit(nir_alu_instr *insn)
    case nir_op_u2u64: {
       DEFAULT_CHECKS;
       LValues &newDefs = convert(&insn->dest);
-      Instruction *i = mkOp1(getOperation(op), dType, newDefs[0], getSrc(&insn->src[0]));
+      Instruction *i = mkOp1(getOperation(op, insn->exact), dType, newDefs[0], getSrc(&insn->src[0]));
       if (op == nir_op_f2i32 || op == nir_op_f2i64 || op == nir_op_f2u32 || op == nir_op_f2u64)
          i->rnd = ROUND_Z;
       i->sType = sTypes[0];
@@ -2605,7 +2605,7 @@ Converter::visit(nir_alu_instr *insn)
    case nir_op_ine32: {
       DEFAULT_CHECKS;
       LValues &newDefs = convert(&insn->dest);
-      Instruction *i = mkCmp(getOperation(op),
+      Instruction *i = mkCmp(getOperation(op, insn->exact),
                              getCondCode(op),
                              dType,
                              newDefs[0],
