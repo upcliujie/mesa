@@ -167,9 +167,9 @@ nouveau_disk_cache_create(struct nouveau_screen *screen)
    _mesa_sha1_final(&ctx, sha1);
    disk_cache_format_hex_id(cache_id, sha1, 20 * 2);
 
-   if (screen->prefer_nir)
+   if (screen->prefer_nir || screen->nir_to_tgsi)
       driver_flags |= NOUVEAU_SHADER_CACHE_FLAGS_IR_NIR;
-   else
+   if (!screen->prefer_nir)
       driver_flags |= NOUVEAU_SHADER_CACHE_FLAGS_IR_TGSI;
 
    screen->disk_shader_cache =
@@ -202,10 +202,20 @@ nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
    if (nv_dbg)
       nouveau_mesa_debug = atoi(nv_dbg);
 
-   if (dev->chipset < 0x140)
+   if (dev->chipset < 0x140) {
       screen->prefer_nir = debug_get_bool_option("NV50_PROG_USE_NIR", false);
-   else
+
+      if (dev->chipset <= 0x92 && !screen->prefer_nir) {
+         /* Default to using NIR and NIR-to-TGSI, but allow switching back to
+          * TGSI-only using PROG_USE_TGSI, or the native NIR backend using
+          * PROG_USE_NIR.
+          */
+         screen->nir_to_tgsi = !debug_get_bool_option("NV50_PROG_USE_TGSI", false);
+         screen->prefer_nir = screen->nir_to_tgsi;
+      }
+   } else {
       screen->prefer_nir = true;
+   }
 
    screen->force_enable_cl = debug_get_bool_option("NOUVEAU_ENABLE_CL", false);
    if (screen->force_enable_cl)

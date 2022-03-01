@@ -2,6 +2,7 @@
 KHR-GL33.pipeline_statistics_query_tests_ARB.functional_primitives_vertices_submitted_and_clipping_input_output_primitives,Fail
 KHR-GL33.texture_size_promotion.functional,Fail
 KHR-GL33.texture_swizzle.functional,Fail
+
 KHR-GLES3.copy_tex_image_conversions.forbidden.cubemap_negx_cubemap_negx,Fail
 KHR-GLES3.copy_tex_image_conversions.forbidden.cubemap_negx_cubemap_negy,Fail
 KHR-GLES3.copy_tex_image_conversions.forbidden.cubemap_negx_cubemap_negz,Fail
@@ -82,10 +83,6 @@ KHR-GLES3.packed_pixels.varied_rectangle.rgba,Fail
 KHR-GLES3.packed_pixels.varied_rectangle.rgba4,Fail
 KHR-GLES3.packed_pixels.varied_rectangle.rgba8,Fail
 dEQP-GLES2.functional.rasterization.limits.points,Fail
-
-# "../src/gallium/drivers/nouveau/codegen/nv50_ir_ra.cpp:1437: void nv50_ir::GCRA::checkInterference(const nv50_ir::GCRA::RIG_Node*, nv50_ir::Graph::EdgeIterator&): Assertion `vB->compound' failed."
-dEQP-GLES2.functional.shaders.random.all_features.fragment.93,Crash
-dEQP-GLES3.functional.shaders.random.all_features.fragment.93,Crash
 
 dEQP-GLES2.functional.shaders.texture_functions.vertex.texturecubelod,Fail
 dEQP-GLES2.functional.texture.mipmap.cube.basic.linear_linear,Fail
