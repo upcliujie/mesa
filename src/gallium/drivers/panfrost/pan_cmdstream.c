@@ -3017,19 +3017,6 @@ panfrost_emit_primitive(struct panfrost_context *ctx,
 }
 
 #if PAN_ARCH >= 9
-static void
-panfrost_make_resource_table(struct panfrost_ptr base, unsigned index,
-                             mali_ptr address, unsigned resource_count)
-{
-        if (resource_count == 0)
-                return;
-
-        pan_pack(base.cpu + index * pan_size(RESOURCE), RESOURCE, cfg) {
-                cfg.address = address;
-                cfg.size = resource_count * pan_size(BUFFER);
-        }
-}
-
 static mali_ptr
 panfrost_emit_resources(struct panfrost_batch *batch,
                         enum pipe_shader_type stage,
@@ -4236,9 +4223,7 @@ screen_destroy(struct pipe_screen *pscreen)
 {
         struct panfrost_device *dev = pan_device(pscreen);
 
-#if PAN_ARCH <= 7
         GENX(pan_blitter_cleanup)(dev);
-#endif
 
 #if PAN_GPU_INDIRECTS
         GENX(panfrost_cleanup_indirect_draw_shaders)(dev);
@@ -4384,10 +4369,9 @@ GENX(panfrost_cmdstream_screen_init)(struct panfrost_screen *screen)
         screen->vtbl.get_compiler_options = GENX(pan_shader_get_compiler_options);
         screen->vtbl.compile_shader = GENX(pan_shader_compile);
 
-#if PAN_ARCH <= 7
         GENX(pan_blitter_init)(dev, &screen->blitter.bin_pool.base,
                                &screen->blitter.desc_pool.base);
-#endif
+
 #if PAN_GPU_INDIRECTS
         GENX(pan_indirect_dispatch_init)(dev);
         GENX(panfrost_init_indirect_draw_shaders)(dev, &screen->indirect_draw.bin_pool.base);
