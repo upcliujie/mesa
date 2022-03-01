@@ -72,6 +72,7 @@ struct nouveau_screen {
    struct disk_cache *disk_shader_cache;
 
    bool prefer_nir;
+   bool nir_to_tgsi;
    bool force_enable_cl;
    bool has_svm;
    void *svm_cutout;
