@@ -28,6 +28,7 @@
 #include "util/format_srgb.h"
 
 #include "tgsi/tgsi_parse.h"
+#include "nir/nir_to_tgsi.h"
 #include "compiler/nir/nir.h"
 
 #include "nv50/nv50_stateobj.h"
@@ -739,6 +740,7 @@ nv50_sp_state_create(struct pipe_context *pipe,
                      const struct pipe_shader_state *cso,
                      enum pipe_shader_type type)
 {
+   struct nouveau_screen *screen = nouveau_screen(pipe->screen);
    struct nv50_program *prog;
 
    prog = CALLOC_STRUCT(nv50_program);
@@ -753,7 +755,12 @@ nv50_sp_state_create(struct pipe_context *pipe,
       prog->pipe.tokens = tgsi_dup_tokens(cso->tokens);
       break;
    case PIPE_SHADER_IR_NIR:
-      prog->pipe.ir.nir = cso->ir.nir;
+      if (screen->nir_to_tgsi) {
+         prog->pipe.type = PIPE_SHADER_IR_TGSI;
+         prog->pipe.tokens = nir_to_tgsi(cso->ir.nir, pipe->screen);
+      } else {
+         prog->pipe.ir.nir = cso->ir.nir;
+      }
       break;
    default:
       assert(!"unsupported IR!");
