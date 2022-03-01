@@ -3670,6 +3670,8 @@ Converter::handleInstruction(const struct tgsi_full_instruction *insn)
       bb->cfg.attach(&lbgnBB->cfg, Graph::Edge::TREE);
       setPosition(lbgnBB, true);
       mkFlow(OP_PRECONT, lbgnBB, CC_ALWAYS, NULL);
+
+      info_out->loops++;
    }
       break;
    case TGSI_OPCODE_ENDLOOP:
