@@ -431,13 +431,7 @@ pan_blitter_get_blit_shader(struct panfrost_device *dev,
                 nir_builder_init_simple_shader(MESA_SHADER_FRAGMENT,
                                                GENX(pan_shader_get_compiler_options)(),
                                                "pan_blit(%s)", sig);
-        nir_variable *coord_var =
-                nir_variable_create(b.shader, nir_var_shader_in,
-                                    glsl_vector_type(GLSL_TYPE_FLOAT, coord_comps),
-                                    "coord");
-        coord_var->data.location = VARYING_SLOT_TEX0;
-
-        nir_ssa_def *coord = nir_load_var(&b, coord_var);
+        nir_ssa_def *coord = nir_channels(&b, nir_load_frag_coord(&b), BITFIELD_MASK(coord_comps));
 
         unsigned active_count = 0;
         for (unsigned i = 0; i < ARRAY_SIZE(key->surfaces); i++) {
