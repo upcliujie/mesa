@@ -1529,6 +1529,8 @@ Converter::visit(nir_loop *loop)
 
    curLoopDepth -= 1;
 
+   info_out->loops++;
+
    return true;
 }
 
