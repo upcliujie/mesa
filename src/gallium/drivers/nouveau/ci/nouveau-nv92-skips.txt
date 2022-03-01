@@ -1,0 +1,2 @@
+KHR-GL33.packed_pixels.*
+KHR-GL33.texture_swizzle.smoke
