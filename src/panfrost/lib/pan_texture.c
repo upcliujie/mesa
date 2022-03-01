@@ -793,6 +793,7 @@ panfrost_needs_explicit_stride(const struct pan_image_view *iview)
         return false;
 }
 
+#if PAN_ARCH <= 7
 /* Map modifiers to mali_texture_layout for packing in a texture descriptor */
 
 static enum mali_texture_layout
@@ -807,6 +808,7 @@ panfrost_modifier_to_layout(uint64_t modifier)
         else
                 unreachable("Invalid modifer");
 }
+#endif
 
 void
 GENX(panfrost_new_texture)(const struct panfrost_device *dev,
