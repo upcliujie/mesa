@@ -170,6 +170,9 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
    VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_custom_border_color,
                         custom_border_color_features,
                         CUSTOM_BORDER_COLOR_FEATURES_EXT);
+   VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_line_rasterization,
+                        line_rasterization_features,
+                        LINE_RASTERIZATION_FEATURES_EXT);
 
    vn_call_vkGetPhysicalDeviceFeatures2(
       instance, vn_physical_device_to_handle(physical_dev),
@@ -481,6 +484,9 @@ vn_physical_device_init_properties(struct vn_physical_device *physical_dev)
    VN_ADD_PROP_TO_PNEXT(physical_dev, EXT_custom_border_color,
                         custom_border_color_properties,
                         CUSTOM_BORDER_COLOR_PROPERTIES_EXT);
+   VN_ADD_PROP_TO_PNEXT(physical_dev, EXT_line_rasterization,
+                        line_rasterization_properties,
+                        LINE_RASTERIZATION_PROPERTIES_EXT);
 
    vn_call_vkGetPhysicalDeviceProperties2(
       instance, vn_physical_device_to_handle(physical_dev),
@@ -976,6 +982,7 @@ vn_physical_device_get_passthrough_extensions(
 #ifndef ANDROID
       .EXT_image_drm_format_modifier = true,
 #endif
+      .EXT_line_rasterization = true,
       .EXT_queue_family_foreign = true,
       .EXT_transform_feedback = true,
    };
@@ -1687,6 +1694,7 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceTransformFeedbackFeaturesEXT *transform_feedback;
       VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *extended_dynamic_state;
       VkPhysicalDeviceCustomBorderColorFeaturesEXT *custom_border_color;
+      VkPhysicalDeviceLineRasterizationFeaturesEXT *line_rasterization;
    } u;
 
    u.pnext = (VkBaseOutStructure *)pFeatures;
@@ -1861,6 +1869,11 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
                 &physical_dev->custom_border_color_features,
                 sizeof(physical_dev->custom_border_color_features));
          break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_FEATURES_EXT:
+         memcpy(u.line_rasterization,
+                &physical_dev->line_rasterization_features,
+                sizeof(physical_dev->line_rasterization_features));
+         break;
       default:
          break;
       }
@@ -1903,6 +1916,7 @@ vn_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceTransformFeedbackPropertiesEXT *transform_feedback;
       VkPhysicalDeviceCustomBorderColorPropertiesEXT *custom_border_color;
       VkPhysicalDevicePresentationPropertiesANDROID *presentation_properties;
+      VkPhysicalDeviceLineRasterizationPropertiesEXT *line_rasterization;
    } u;
 
    u.pnext = (VkBaseOutStructure *)pProperties;
@@ -2106,6 +2120,11 @@ vn_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          break;
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENTATION_PROPERTIES_ANDROID:
          u.presentation_properties->sharedImage = VK_FALSE;
+         break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT:
+         memcpy(u.line_rasterization,
+                &physical_dev->line_rasterization_properties,
+                sizeof(physical_dev->line_rasterization_properties));
          break;
       default:
          break;
