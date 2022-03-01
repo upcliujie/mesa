@@ -3251,11 +3251,12 @@ bi_emit_tex_valhall(bi_builder *b, nir_tex_instr *instr)
         bi_make_vec_to(b, resource_descriptor, words, NULL, 2, 32);
 
         bi_tex_single_to(b, bi_dest_index(&instr->dest), idx, resource_descriptor,
-                        bi_word(resource_descriptor, 1),
-                  instr->is_array,
-                  valhall_tex_dimension(instr->sampler_dim),
-                  bi_reg_fmt_for_nir(instr->dest_type),
-                  explicit_offset, instr->is_shadow, lod_mode, sr_count);
+                         bi_word(resource_descriptor, 1),
+                         instr->is_array,
+                         valhall_tex_dimension(instr->sampler_dim),
+                         bi_reg_fmt_for_nir(instr->dest_type),
+                         instr->is_shadow, explicit_offset, lod_mode,
+                         0xF, sr_count);
 }
 
 /* Simple textures ops correspond to NIR tex or txl with LOD = 0 on 2D/cube
