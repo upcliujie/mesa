@@ -3088,8 +3088,9 @@ VkResult anv_CreateDevice(
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
       &wsi_device_entrypoints, false);
 
-   result = vk_device_init(&device->vk, &physical_device->vk,
-                           &dispatch_table, pCreateInfo, pAllocator);
+   result = vk_device_init(&device->vk, &physical_device->vk, &dispatch_table,
+                           false /* separate_command_buffer_dispatch */,
+                           pCreateInfo, pAllocator);
    if (result != VK_SUCCESS)
       goto fail_alloc;
 

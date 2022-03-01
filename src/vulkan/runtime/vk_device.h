@@ -45,6 +45,15 @@ struct vk_device {
 
    struct vk_device_dispatch_table dispatch_table;
 
+   /** This device requires separate command buffer dispatch
+    *
+    * If true, vk_command_buffer::dispatch_table will not be automatically
+    * initialized and it's up to the driver to initialize it.  Also, all
+    * vkCmd* entries in the device dispatch table will be filled with
+    * trampoline functions that fetch from vk_command_buffer::dispatch_table.
+    */
+   bool separate_command_buffer_dispatch;
+
    /* For VK_EXT_private_data */
    uint32_t private_data_next_index;
 
@@ -161,6 +170,7 @@ VkResult MUST_CHECK
 vk_device_init(struct vk_device *device,
                struct vk_physical_device *physical_device,
                const struct vk_device_dispatch_table *dispatch_table,
+               bool separate_command_buffer_dispatch,
                const VkDeviceCreateInfo *pCreateInfo,
                const VkAllocationCallbacks *alloc);
 
@@ -172,6 +182,10 @@ vk_device_set_drm_fd(struct vk_device *device, int drm_fd)
 
 void
 vk_device_finish(struct vk_device *device);
+
+void
+vk_device_populate_cmd_dispatch_table(struct vk_device *device,
+                                      struct vk_cmd_dispatch_table *table);
 
 VkResult vk_device_flush(struct vk_device *device);
 

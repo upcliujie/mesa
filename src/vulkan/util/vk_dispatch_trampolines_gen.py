@@ -48,7 +48,6 @@ extern "C" {
 
 extern struct vk_physical_device_dispatch_table vk_physical_device_trampolines;
 extern struct vk_device_dispatch_table vk_device_trampolines;
-extern struct vk_device_dispatch_table vk_command_buffer_trampolines;
 
 #ifdef __cplusplus
 }
@@ -143,21 +142,6 @@ ${e.prefixed_name('vk_tramp')}(${e.decl_params()})
 struct vk_device_dispatch_table vk_device_trampolines = {
 % for e in entrypoints:
   % if not e.is_device_entrypoint() or e.alias:
-    <% continue %>
-  % endif
-  % if e.guard is not None:
-#ifdef ${e.guard}
-  % endif
-    .${e.name} = ${e.prefixed_name('vk_tramp')},
-  % if e.guard is not None:
-#endif
-  % endif
-% endfor
-};
-
-struct vk_device_dispatch_table vk_command_buffer_trampolines = {
-% for e in entrypoints:
-  % if not e.is_cmd_entrypoint() or e.alias:
     <% continue %>
   % endif
   % if e.guard is not None:

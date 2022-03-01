@@ -986,25 +986,27 @@ panvk_CreateDevice(VkPhysicalDevice physicalDevice,
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
                                              &panvk_device_entrypoints,
                                              false);
-   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
-                                          cmd_entrypoints, true);
-   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
-                                          &panvk_cmd_entrypoints,
-                                          false);
-   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY],
-                                          &panvk_secondary_cmd_entrypoints, true);
-   vk_device_dispatch_table_from_cmd_tables(&dispatch_table,
-                                            &device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
-                                            &device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY]);
    vk_device_dispatch_table_from_entrypoints(&dispatch_table,
                                              &wsi_device_entrypoints,
                                              false);
    result = vk_device_init(&device->vk, &physical_device->vk, &dispatch_table,
+                           true /* separate_command_buffer_dispatch */,
                            pCreateInfo, pAllocator);
    if (result != VK_SUCCESS) {
       vk_free(&device->vk.alloc, device);
       return result;
    }
+
+   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
+                                          cmd_entrypoints, true);
+   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY],
+                                          &panvk_cmd_entrypoints,
+                                          false);
+   vk_device_populate_cmd_dispatch_table(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_PRIMARY]);
+
+   vk_cmd_dispatch_table_from_entrypoints(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY],
+                                          &panvk_secondary_cmd_entrypoints, true);
+   vk_device_populate_cmd_dispatch_table(&device->cmd_dispatch[VK_COMMAND_BUFFER_LEVEL_SECONDARY]);
 
    device->instance = physical_device->instance;
    device->physical_device = physical_device;

@@ -31,6 +31,8 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
                        struct vk_command_pool *pool,
                        VkCommandBufferLevel level)
 {
+   struct vk_device *device = pool->base.device;
+
    memset(command_buffer, 0, sizeof(*command_buffer));
    vk_object_base_init(pool->base.device, &command_buffer->base,
                        VK_OBJECT_TYPE_COMMAND_BUFFER);
@@ -40,12 +42,14 @@ vk_command_buffer_init(struct vk_command_buffer *command_buffer,
    util_dynarray_init(&command_buffer->labels, NULL);
    command_buffer->region_begin = true;
 
-   /* We put all the command buffer entrypoints first in the device dispatch
-    * table so that a command buffer dispatch table is just the first N
-    * entrypoints from a device dispatch table and we can cast like this.
-    */
-   command_buffer->dispatch_table =
-      (const struct vk_cmd_dispatch_table *)&pool->base.device->dispatch_table;
+   if (!device->separate_command_buffer_dispatch) {
+      /* We put all the command buffer entrypoints first in the device dispatch
+       * table so that a command buffer dispatch table is just the first N
+       * entrypoints from a device dispatch table and we can cast like this.
+       */
+      command_buffer->dispatch_table =
+         (const struct vk_cmd_dispatch_table *)&device->dispatch_table;
+   }
 
    list_add(&command_buffer->pool_link, &pool->command_buffers);
 

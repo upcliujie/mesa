@@ -80,6 +80,7 @@ VkResult
 vk_device_init(struct vk_device *device,
                struct vk_physical_device *physical_device,
                const struct vk_device_dispatch_table *dispatch_table,
+               bool separate_command_buffer_dispatch,
                const VkDeviceCreateInfo *pCreateInfo,
                const VkAllocationCallbacks *alloc)
 {
@@ -97,6 +98,17 @@ vk_device_init(struct vk_device *device,
    /* Add common entrypoints without overwriting driver-provided ones. */
    vk_device_dispatch_table_from_entrypoints(
       &device->dispatch_table, &vk_common_device_entrypoints, false);
+
+   if (separate_command_buffer_dispatch) {
+      /* We put all the command buffer entrypoints first in the device
+       * dispatch table so that a command buffer dispatch table is just the
+       * first N entrypoints from a device dispatch table and we can memcpy
+       * them like this.
+       */
+      device->separate_command_buffer_dispatch = true;
+      memcpy(&device->dispatch_table, &vk_device_trampolines,
+             sizeof(struct vk_cmd_dispatch_table));
+   }
 
    for (uint32_t i = 0; i < pCreateInfo->enabledExtensionCount; i++) {
       int idx;
@@ -163,6 +175,17 @@ vk_device_finish(UNUSED struct vk_device *device)
 #endif /* ANDROID */
 
    vk_object_base_finish(&device->base);
+}
+
+void
+vk_device_populate_cmd_dispatch_table(UNUSED struct vk_device *device,
+                                      struct vk_cmd_dispatch_table *table)
+{
+   /* Add common entrypoints without overwriting driver-provided ones. */
+   const struct vk_cmd_entrypoint_table *vk_common_table =
+      (const struct vk_cmd_entrypoint_table *)&vk_common_device_entrypoints;
+
+   vk_cmd_dispatch_table_from_entrypoints(table, vk_common_table, false);
 }
 
 VkResult
@@ -259,14 +282,6 @@ vk_device_get_proc_addr(const struct vk_device *device,
 
    struct vk_instance *instance = device->physical->instance;
    func = vk_device_dispatch_table_get_if_supported(&device->dispatch_table,
-                                                    name,
-                                                    instance->app_info.api_version,
-                                                    &instance->enabled_extensions,
-                                                    &device->enabled_extensions);
-   if (func != NULL)
-      return func;
-
-   func = vk_device_dispatch_table_get_if_supported(&vk_command_buffer_trampolines,
                                                     name,
                                                     instance->app_info.api_version,
                                                     &instance->enabled_extensions,
