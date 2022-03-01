@@ -176,6 +176,9 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
    VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_provoking_vertex,
                         provoking_vertex_features,
                         PROVOKING_VERTEX_FEATURES_EXT);
+   VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_image_robustness,
+                        image_robustness_features,
+                        IMAGE_ROBUSTNESS_FEATURES_EXT);
 
    vn_call_vkGetPhysicalDeviceFeatures2(
       instance, vn_physical_device_to_handle(physical_dev),
@@ -983,6 +986,7 @@ vn_physical_device_get_passthrough_extensions(
       /* promoted to VK_VERSION_1_3 */
       .EXT_4444_formats = true,
       .EXT_extended_dynamic_state = true,
+      .EXT_image_robustness = true,
       /* EXT */
       .EXT_custom_border_color = true,
 #ifndef ANDROID
@@ -1703,6 +1707,7 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceCustomBorderColorFeaturesEXT *custom_border_color;
       VkPhysicalDeviceLineRasterizationFeaturesEXT *line_rasterization;
       VkPhysicalDeviceProvokingVertexFeaturesEXT *provoking_vertex;
+      VkPhysicalDeviceImageRobustnessFeaturesEXT *image_robustness;
    } u;
 
    u.pnext = (VkBaseOutStructure *)pFeatures;
@@ -1885,6 +1890,10 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT:
          memcpy(u.provoking_vertex, &physical_dev->provoking_vertex_features,
                 sizeof(physical_dev->provoking_vertex_features));
+         break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT:
+         u.image_robustness->robustImageAccess =
+            physical_dev->image_robustness_features.robustImageAccess;
          break;
       default:
          break;
