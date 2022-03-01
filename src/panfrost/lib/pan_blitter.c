@@ -776,6 +776,7 @@ static bool
 pan_preload_needed(const struct pan_fb_info *fb, bool zs)
 {
         if (zs) {
+                return false; //TODO
                 if (fb->zs.preload.z || fb->zs.preload.s)
                         return true;
         } else {
