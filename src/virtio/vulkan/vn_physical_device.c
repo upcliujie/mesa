@@ -159,14 +159,20 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
       local_feats.vulkan_memory_model.pNext = NULL;
    }
 
+   /* Vulkan 1.3 */
    VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_4444_formats,
                         argb_4444_formats_features, 4444_FORMATS_FEATURES_EXT);
-   VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_transform_feedback,
-                        transform_feedback_features,
-                        TRANSFORM_FEEDBACK_FEATURES_EXT);
    VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_extended_dynamic_state,
                         extended_dynamic_state_features,
                         EXTENDED_DYNAMIC_STATE_FEATURES_EXT);
+   VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_image_robustness,
+                        image_robustness_features,
+                        IMAGE_ROBUSTNESS_FEATURES_EXT);
+
+   /* EXT */
+   VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_transform_feedback,
+                        transform_feedback_features,
+                        TRANSFORM_FEEDBACK_FEATURES_EXT);
    VN_ADD_FEAT_TO_PNEXT(physical_dev, EXT_custom_border_color,
                         custom_border_color_features,
                         CUSTOM_BORDER_COLOR_FEATURES_EXT);
@@ -995,6 +1001,7 @@ vn_physical_device_get_passthrough_extensions(
       /* promoted to VK_VERSION_1_3 */
       .EXT_4444_formats = true,
       .EXT_extended_dynamic_state = true,
+      .EXT_image_robustness = true,
       /* EXT */
       .EXT_custom_border_color = true,
 #ifndef ANDROID
@@ -1709,9 +1716,13 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceBufferDeviceAddressFeatures *buffer_device_address;
       VkPhysicalDeviceVulkanMemoryModelFeatures *vulkan_memory_model;
 
+      /* Vulkan 1.3 */
       VkPhysicalDevice4444FormatsFeaturesEXT *argb_4444_formats;
-      VkPhysicalDeviceTransformFeedbackFeaturesEXT *transform_feedback;
       VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *extended_dynamic_state;
+      VkPhysicalDeviceImageRobustnessFeaturesEXT *image_robustness;
+
+      /* EXT */
+      VkPhysicalDeviceTransformFeedbackFeaturesEXT *transform_feedback;
       VkPhysicalDeviceCustomBorderColorFeaturesEXT *custom_border_color;
       VkPhysicalDeviceLineRasterizationFeaturesEXT *line_rasterization;
       VkPhysicalDeviceProvokingVertexFeaturesEXT *provoking_vertex;
@@ -1875,14 +1886,18 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          memcpy(u.argb_4444_formats, &physical_dev->argb_4444_formats_features,
                 sizeof(physical_dev->argb_4444_formats_features));
          break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT:
+         u.extended_dynamic_state->extendedDynamicState =
+            physical_dev->extended_dynamic_state_features.extendedDynamicState;
+         break;
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_ROBUSTNESS_FEATURES_EXT:
+         u.image_robustness->robustImageAccess =
+            physical_dev->image_robustness_features.robustImageAccess;
+         break;
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT:
          memcpy(u.transform_feedback,
                 &physical_dev->transform_feedback_features,
                 sizeof(physical_dev->transform_feedback_features));
-         break;
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT:
-         u.extended_dynamic_state->extendedDynamicState =
-            physical_dev->extended_dynamic_state_features.extendedDynamicState;
          break;
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT:
          memcpy(u.custom_border_color,

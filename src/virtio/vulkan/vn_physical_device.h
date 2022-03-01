@@ -54,6 +54,7 @@ struct vn_physical_device {
    VkPhysicalDeviceCustomBorderColorFeaturesEXT custom_border_color_features;
    VkPhysicalDeviceLineRasterizationFeaturesEXT line_rasterization_features;
    VkPhysicalDeviceProvokingVertexFeaturesEXT provoking_vertex_features;
+   VkPhysicalDeviceImageRobustnessFeaturesEXT image_robustness_features;
 
    VkPhysicalDeviceProperties2 properties;
    VkPhysicalDeviceVulkan11Properties vulkan_1_1_properties;
