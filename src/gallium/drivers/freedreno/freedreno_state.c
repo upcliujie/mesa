@@ -382,9 +382,9 @@ fd_set_vertex_buffers(struct pipe_context *pctx, unsigned start_slot,
    if (ctx->screen->gen < 3) {
       for (i = 0; i < count; i++) {
          bool new_enabled = vb && vb[i].buffer.resource;
-         bool old_enabled = so->vb[i].buffer.resource != NULL;
+         bool old_enabled = so->vb[start_slot + i].buffer.resource != NULL;
          uint32_t new_stride = vb ? vb[i].stride : 0;
-         uint32_t old_stride = so->vb[i].stride;
+         uint32_t old_stride = so->vb[start_slot + i].stride;
          if ((new_enabled != old_enabled) || (new_stride != old_stride)) {
             fd_context_dirty(ctx, FD_DIRTY_VTXSTATE);
             break;
@@ -403,8 +403,8 @@ fd_set_vertex_buffers(struct pipe_context *pctx, unsigned start_slot,
    fd_context_dirty(ctx, FD_DIRTY_VTXBUF);
 
    for (unsigned i = 0; i < count; i++) {
-      assert(!vb[i].is_user_buffer);
-      fd_resource_set_usage(vb[i].buffer.resource, FD_DIRTY_VTXBUF);
+      assert(!vb[start_slot + i].is_user_buffer);
+      fd_resource_set_usage(vb[start_slot + i].buffer.resource, FD_DIRTY_VTXBUF);
    }
 }
 
