@@ -247,6 +247,8 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
 
          range_start_reg += ubo_range->length;
       }
+      if (n < 4)
+         map->push_ranges[n].length = 0;
    } else {
       /* For Ivy Bridge, the push constants packets have a different
        * rule that would require us to iterate in the other direction
