@@ -36,12 +36,6 @@ extern "C" {
 
 extern const uint32_t valhall_immediates[32];
 
-enum va_immediate_mode {
-   VA_MODE_DEFAULT = 0,
-   VA_MODE_TS = 1,
-   VA_MODE_ID = 3
-};
-
 enum va_size {
    VA_SIZE_8 = 0,
    VA_SIZE_16 = 1,

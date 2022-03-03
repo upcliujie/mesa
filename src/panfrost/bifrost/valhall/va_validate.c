@@ -92,12 +92,12 @@ fau_state_special(struct fau_state *fau, bi_index idx)
 }
 
 static bool
-valid_src(struct fau_state *fau, enum va_immediate_mode mode, bi_index src)
+valid_src(struct fau_state *fau, unsigned fau_page, bi_index src)
 {
    if (src.type != BI_INDEX_FAU)
       return true;
 
-   bool valid = (mode == va_fau_mode(src.value));
+   bool valid = (fau_page == va_fau_page(src.value));
    valid &= fau_state_buffer(fau, src);
 
    if (src.value & BIR_FAU_UNIFORM)
@@ -113,10 +113,10 @@ va_validate_fau(bi_instr *I)
 {
    bool valid = true;
    struct fau_state fau = { .uniform_slot = -1 };
-   enum va_immediate_mode mode = va_select_fau_mode(I);
+   unsigned fau_page = va_select_fau_page(I);
 
    bi_foreach_src(I, s) {
-      valid &= valid_src(&fau, mode, I->src[s]);
+      valid &= valid_src(&fau, fau_page, I->src[s]);
    }
 
    return valid;
@@ -126,13 +126,13 @@ void
 va_repair_fau(bi_builder *b, bi_instr *I)
 {
    struct fau_state fau = { .uniform_slot = -1 };
-   enum va_immediate_mode mode = va_select_fau_mode(I);
+   unsigned fau_page = va_select_fau_page(I);
 
    bi_foreach_src(I, s) {
       struct fau_state push = fau;
       bi_index src = I->src[s];
 
-      if (!valid_src(&fau, mode, src)) {
+      if (!valid_src(&fau, fau_page, src)) {
          bi_index copy = bi_mov_i32(b, bi_strip_index(src));
          I->src[s] = bi_replace_index(src, copy);
 

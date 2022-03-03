@@ -42,31 +42,31 @@ void va_lower_constants(bi_context *ctx, bi_instr *I);
 void va_lower_isel(bi_instr *I);
 uint64_t va_pack_instr(const bi_instr *I, unsigned action);
 
-static inline enum va_immediate_mode
-va_fau_mode(enum bir_fau value)
+static inline unsigned
+va_fau_page(enum bir_fau value)
 {
    switch (value) {
    case BIR_FAU_TLS_PTR:
    case BIR_FAU_WLS_PTR:
-      return VA_MODE_TS;
+      return 1;
    case BIR_FAU_LANE_ID:
    case BIR_FAU_CORE_ID:
    case BIR_FAU_PROGRAM_COUNTER:
-      return VA_MODE_ID;
+      return 3;
    default:
-      return VA_MODE_DEFAULT;
+      return 0;
    }
 }
 
-static inline enum va_immediate_mode
-va_select_fau_mode(const bi_instr *I)
+static inline unsigned
+va_select_fau_page(const bi_instr *I)
 {
    bi_foreach_src(I, s) {
       if (I->src[s].type == BI_INDEX_FAU)
-         return va_fau_mode((enum bir_fau) I->src[s].value);
+         return va_fau_page((enum bir_fau) I->src[s].value);
    }
 
-   return VA_MODE_DEFAULT;
+   return 0;
 }
 
 /** Cycle model for Valhall. Results need to be normalized */
