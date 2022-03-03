@@ -8,6 +8,7 @@ KHR-GL46.shader_image_load_store.advanced-sso-subroutine
 # " Value is: [0,0,0,0]. Value should be: [1,2,3,4]. Format is: rgba32f. Unit is: 0"
 KHR-GL46.shader_image_load_store.basic-allFormats-store
 
+KHR-GL46.shader_image_load_store.early-fragment-tests
 KHR-GL46.shader_image_load_store.non-layered_binding
 KHR-GL46.shader_storage_buffer_object.advanced-write-tessellation
 
