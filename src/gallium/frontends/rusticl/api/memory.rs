@@ -3,6 +3,7 @@
 extern crate mesa_rust_util;
 extern crate rusticl_opencl_gen;
 
+use crate::api::icd::*;
 use crate::api::types::*;
 use crate::api::util::*;
 use crate::core::device::*;
@@ -768,7 +769,7 @@ pub fn enqueue_write_buffer(
         Err(CL_INVALID_VALUE)?
     }
 
-    let evs = check_event_list(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same
     // or if the context associated with command_queue and events in event_wait_list are not the
@@ -789,13 +790,13 @@ pub fn enqueue_write_buffer(
         Err(CL_INVALID_OPERATION)?
     }
 
-    let e = CLEvent::new(
+    let e = Event::new(
         &q,
         CL_COMMAND_WRITE_BUFFER,
         evs,
         Box::new(move |q| b.write_from_user(q, offset, ptr, cb)),
     );
-    event.write_checked(e.cl);
+    event.write_checked(cl_event::from_arc(e.clone()));
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -825,7 +826,7 @@ pub fn enqueue_read_buffer_rect(
     let block = check_cl_bool(blocking_read).ok_or(CL_INVALID_VALUE)?;
     let q = command_queue.check()?;
     let buf = buffer.check()?.clone();
-    let evs = check_event_list(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_OPERATION if clEnqueueReadBufferRect is called on buffer which has been created
     // with CL_MEM_HOST_WRITE_ONLY or CL_MEM_HOST_NO_ACCESS.
@@ -904,7 +905,7 @@ pub fn enqueue_read_buffer_rect(
         Err(CL_INVALID_CONTEXT)?
     }
 
-    let e = CLEvent::new(
+    let e = Event::new(
         &q,
         CL_COMMAND_WRITE_BUFFER_RECT,
         evs,
@@ -922,7 +923,7 @@ pub fn enqueue_read_buffer_rect(
             )
         }),
     );
-    event.write_checked(e.cl);
+    event.write_checked(cl_event::from_arc(e.clone()));
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -952,7 +953,7 @@ pub fn enqueue_write_buffer_rect(
     let block = check_cl_bool(blocking_write).ok_or(CL_INVALID_VALUE)?;
     let q = command_queue.check()?;
     let buf = buffer.check()?.clone();
-    let evs = check_event_list(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_OPERATION if clEnqueueWriteBufferRect is called on buffer which has been created
     // with CL_MEM_HOST_READ_ONLY or CL_MEM_HOST_NO_ACCESS.
@@ -1031,7 +1032,7 @@ pub fn enqueue_write_buffer_rect(
         Err(CL_INVALID_CONTEXT)?
     }
 
-    let e = CLEvent::new(
+    let e = Event::new(
         &q,
         CL_COMMAND_WRITE_BUFFER_RECT,
         evs,
@@ -1049,7 +1050,7 @@ pub fn enqueue_write_buffer_rect(
             )
         }),
     );
-    event.write_checked(e.cl);
+    event.write_checked(cl_event::from_arc(e.clone()));
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -1078,7 +1079,7 @@ pub fn enqueue_copy_buffer_rect(
     let q = command_queue.check()?;
     let src = src_buffer.check()?.clone();
     let dst = dst_buffer.check()?.clone();
-    let evs = check_event_list(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if src_origin, dst_origin, or region is NULL.
     if src_origin.is_null() || dst_origin.is_null() || region.is_null() {
@@ -1176,7 +1177,7 @@ pub fn enqueue_copy_buffer_rect(
         Err(CL_INVALID_CONTEXT)?
     }
 
-    let e = CLEvent::new(
+    let e = Event::new(
         &q,
         CL_COMMAND_COPY_BUFFER_RECT,
         evs,
@@ -1194,7 +1195,7 @@ pub fn enqueue_copy_buffer_rect(
             )
         }),
     );
-    event.write_checked(e.cl);
+    event.write_checked(cl_event::from_arc(e.clone()));
     q.queue(&e);
     Ok(())
 
@@ -1247,7 +1248,7 @@ pub fn enqueue_map_buffer(
         Err(CL_INVALID_OPERATION)?
     }
 
-    let evs = check_event_list(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST if the map operation is blocking and the
     // execution status of any of the events in event_wait_list is a negative integer value.
@@ -1287,7 +1288,7 @@ pub fn enqueue_unmap_mem_object(
 ) -> Result<(), cl_int> {
     let q = command_queue.check()?;
     let m = memobj.check()?;
-    let evs = check_event_list(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_CONTEXT if context associated with command_queue and memobj are not the same or if
     // the context associated with command_queue and events in event_wait_list are not the same.
