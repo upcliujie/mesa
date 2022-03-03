@@ -16,6 +16,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::os::raw::c_void;
 use std::ptr;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 decl_cl_type!(_cl_mem, CLMem, CLMemRef, CL_INVALID_MEM_OBJECT);
@@ -200,7 +201,7 @@ impl CLMem {
 
     pub fn write_from_user(
         &self,
-        q: &CLQueueRef,
+        q: &Arc<Queue>,
         offset: usize,
         ptr: *const c_void,
         size: usize,
@@ -219,7 +220,7 @@ impl CLMem {
     pub fn write_from_user_rect(
         &self,
         src: *const c_void,
-        q: &CLQueueRef,
+        q: &Arc<Queue>,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -250,7 +251,7 @@ impl CLMem {
     pub fn read_to_user_rect(
         &self,
         dst: *mut c_void,
-        q: &CLQueueRef,
+        q: &Arc<Queue>,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -281,7 +282,7 @@ impl CLMem {
     pub fn copy_to(
         &self,
         dst: &Self,
-        q: &CLQueueRef,
+        q: &Arc<Queue>,
         region: &CLVec<usize>,
         src_origin: &CLVec<usize>,
         src_row_pitch: usize,
@@ -320,7 +321,7 @@ impl CLMem {
     }
 
     // TODO use PIPE_MAP_UNSYNCHRONIZED for non blocking
-    pub fn map(&self, q: &CLQueueRef, offset: usize, size: usize) -> *mut c_void {
+    pub fn map(&self, q: &Arc<Queue>, offset: usize, size: usize) -> *mut c_void {
         let res = self.res.as_ref().unwrap().get(&q.device.cl).unwrap();
         let tx = q
             .context()
