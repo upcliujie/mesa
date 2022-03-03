@@ -103,6 +103,7 @@ v3d_resource_bo_alloc(struct v3d_resource *rsc)
         if (bo) {
                 v3d_bo_unreference(&rsc->bo);
                 rsc->bo = bo;
+                rsc->serial_bo++;
                 v3d_debug_resource_layout(rsc, "alloc");
                 return true;
         } else {
@@ -739,6 +740,8 @@ v3d_resource_setup(struct pipe_screen *pscreen,
                         break;
                 }
         }
+
+        rsc->serial_bo++;
 
         assert(rsc->cpp);
 
