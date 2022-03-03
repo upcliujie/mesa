@@ -119,15 +119,17 @@ vn_physical_device_init_features(struct vn_physical_device *physical_dev)
                       VULKAN_MEMORY_MODEL_FEATURES, features2);
    }
 
+   /* Vulkan 1.3 */
+   VN_ADD_EXT_TO_PNEXT(exts->EXT_extended_dynamic_state,
+                       feats->extended_dynamic_state,
+                       EXTENDED_DYNAMIC_STATE_FEATURES_EXT, features2);
+
    /* EXT */
    VN_ADD_EXT_TO_PNEXT(exts->EXT_4444_formats, feats->argb_4444_formats,
                        4444_FORMATS_FEATURES_EXT, features2);
    VN_ADD_EXT_TO_PNEXT(exts->EXT_custom_border_color,
                        feats->custom_border_color,
                        CUSTOM_BORDER_COLOR_FEATURES_EXT, features2);
-   VN_ADD_EXT_TO_PNEXT(exts->EXT_extended_dynamic_state,
-                       feats->extended_dynamic_state,
-                       EXTENDED_DYNAMIC_STATE_FEATURES_EXT, features2);
    VN_ADD_EXT_TO_PNEXT(exts->EXT_transform_feedback,
                        feats->transform_feedback,
                        TRANSFORM_FEEDBACK_FEATURES_EXT, features2);
@@ -905,10 +907,10 @@ vn_physical_device_get_passthrough_extensions(
       .EXT_shader_viewport_index_layer = true,
 
       /* promoted to VK_VERSION_1_3 */
-      .EXT_4444_formats = true,
       .EXT_extended_dynamic_state = true,
 
       /* EXT */
+      .EXT_4444_formats = true,
       .EXT_custom_border_color = true,
 #ifndef ANDROID
       .EXT_image_drm_format_modifier = true,
@@ -1625,10 +1627,12 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
       VkPhysicalDeviceBufferDeviceAddressFeatures *buffer_device_address;
       VkPhysicalDeviceVulkanMemoryModelFeatures *vulkan_memory_model;
 
+      /* Vulkan 1.3 */
+      VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *extended_dynamic_state;
+
       /* EXT */
       VkPhysicalDevice4444FormatsFeaturesEXT *argb_4444_formats;
       VkPhysicalDeviceCustomBorderColorFeaturesEXT *custom_border_color;
-      VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *extended_dynamic_state;
       VkPhysicalDeviceTransformFeedbackFeaturesEXT *transform_feedback;
    } u;
 
@@ -1790,15 +1794,17 @@ vn_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
             vk12_feats->vulkanMemoryModelAvailabilityVisibilityChains;
          break;
 
+      /* Vulkan 1.3 */
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT:
+         *u.extended_dynamic_state = feats->extended_dynamic_state;
+         break;
+
       /* EXT */
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT:
          *u.argb_4444_formats = feats->argb_4444_formats;
          break;
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CUSTOM_BORDER_COLOR_FEATURES_EXT:
          *u.custom_border_color = feats->custom_border_color;
-         break;
-      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT:
-         *u.extended_dynamic_state = feats->extended_dynamic_state;
          break;
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TRANSFORM_FEEDBACK_FEATURES_EXT:
          *u.transform_feedback = feats->transform_feedback;

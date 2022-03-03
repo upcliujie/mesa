@@ -22,10 +22,12 @@ struct vn_physical_device_features {
    VkPhysicalDeviceVulkan11Features vulkan_1_1;
    VkPhysicalDeviceVulkan12Features vulkan_1_2;
 
+   /* Vulkan 1.3 */
+   VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state;
+
    /* EXT */
    VkPhysicalDevice4444FormatsFeaturesEXT argb_4444_formats;
    VkPhysicalDeviceCustomBorderColorFeaturesEXT custom_border_color;
-   VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state;
    VkPhysicalDeviceTransformFeedbackFeaturesEXT transform_feedback;
 };
 
