@@ -165,6 +165,11 @@ struct v3d_sampler_view {
          * raster texture.
          */
         struct pipe_resource *texture;
+
+        /* BO id bound to sampler view. Used to know when to rebind the
+         * sampler state.
+         */
+        uint32_t serial_bo;
 };
 
 struct v3d_sampler_state {

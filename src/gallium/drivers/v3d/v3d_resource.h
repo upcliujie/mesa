@@ -119,6 +119,11 @@ struct v3d_resource {
          */
         uint32_t initialized_buffers;
 
+        /**
+         * BO serial id; increases when assigning new BOs.
+         */
+        uint32_t serial_bo;
+
         enum pipe_format internal_format;
 
         /* Resource storing the S8 part of a Z32F_S8 resource, or NULL. */

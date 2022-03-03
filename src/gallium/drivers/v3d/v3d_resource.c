@@ -103,6 +103,7 @@ v3d_resource_bo_alloc(struct v3d_resource *rsc)
         if (bo) {
                 v3d_bo_unreference(&rsc->bo);
                 rsc->bo = bo;
+                rsc->serial_bo++;
                 v3d_debug_resource_layout(rsc, "alloc");
                 return true;
         } else {
@@ -146,29 +147,6 @@ v3d_resource_transfer_unmap(struct pipe_context *pctx,
 }
 
 static void
-rebind_sampler_views(struct v3d_context *v3d,
-                     struct v3d_resource *rsc)
-{
-        for (int st = 0; st < PIPE_SHADER_TYPES; st++) {
-                struct v3d_texture_stateobj *tex = v3d->tex + st;
-
-                for (unsigned i = 0; i < tex->num_textures; i++) {
-                        struct pipe_sampler_view *psview = tex->textures[i];
-
-                        if (psview->texture != &rsc->base)
-                                continue;
-
-                        struct v3d_sampler_view *sview =
-                                v3d_sampler_view(psview);
-
-                        v3d_create_texture_shader_state_bo(v3d, sview);
-
-                        v3d_flag_dirty_sampler_state(v3d, st);
-                }
-        }
-}
-
-static void
 v3d_map_usage_prep(struct pipe_context *pctx,
                    struct pipe_resource *prsc,
                    unsigned usage)
@@ -186,8 +164,6 @@ v3d_map_usage_prep(struct pipe_context *pctx,
                                 v3d->dirty |= V3D_DIRTY_VTXBUF;
                         if (prsc->bind & PIPE_BIND_CONSTANT_BUFFER)
                                 v3d->dirty |= V3D_DIRTY_CONSTBUF;
-                        if (prsc->bind & PIPE_BIND_SAMPLER_VIEW)
-                                rebind_sampler_views(v3d, rsc);
                 } else {
                         /* If we failed to reallocate, flush users so that we
                          * don't violate any syncing requirements.
@@ -739,6 +715,8 @@ v3d_resource_setup(struct pipe_screen *pscreen,
                         break;
                 }
         }
+
+        rsc->serial_bo++;
 
         assert(rsc->cpp);
 
