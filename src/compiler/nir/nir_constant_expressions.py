@@ -271,18 +271,6 @@ unpack_half_1x16(uint16_t u)
    return _mesa_half_to_float(u);
 }
 
-static uint16_t
-pack_uint_1x16(uint32_t u)
-{
-    return _mesa_unsigned_to_unsigned(u, 16);
-}
-
-static int16_t
-pack_sint_1x16(int32_t i)
-{
-    return _mesa_signed_to_signed(i, 16);
-}
-
 /* Some typed vector structures to make things like src0.y work */
 typedef int8_t int1_t;
 typedef uint8_t uint1_t;

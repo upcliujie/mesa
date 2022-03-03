@@ -369,14 +369,14 @@ unpack_2x16("half")
 
 # Convert two unsigned integers into a packed unsigned short.
 unop_horiz("pack_uint_2x16", 1, tuint32, 2, tuint32, """
-dst.x = (uint32_t) pack_uint_1x16(src0.x);
-dst.x |= ((uint32_t) pack_uint_1x16(src0.y)) << 16;
+dst.x = _mesa_unsigned_to_unsigned(src0.x, 16);
+dst.x |= _mesa_unsigned_to_unsigned(src0.y, 16) << 16;
 """)
 
 # Convert two signed integers into a packed signed short.
 unop_horiz("pack_sint_2x16", 1, tint32, 2, tint32, """
-dst.x = (int32_t) (pack_sint_1x16(src0.x) & 0xffff);
-dst.x |= ((int32_t) pack_sint_1x16(src0.y)) << 16;
+dst.x = _mesa_signed_to_signed(src0.x, 16) & 0xffff;
+dst.x |= _mesa_signed_to_signed(src0.y, 16) << 16;
 """)
 
 unop_horiz("pack_uvec2_to_uint", 1, tuint32, 2, tuint32, """
