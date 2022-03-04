@@ -944,7 +944,7 @@ VkResult anv_CreateDescriptorPool(
    pool->size = pool_size;
    pool->next = 0;
    pool->free_list = EMPTY;
-   pool->allocate_surface_states = (pCreateInfo->flags & VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_VALVE) == 0;
+   pool->host_only = (pCreateInfo->flags & VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_VALVE) != 0;
 
    if (descriptor_bo_size > 0) {
       VkResult result = anv_device_alloc_bo(device,
@@ -1091,7 +1091,7 @@ struct surface_state_free_list_entry {
 static struct anv_state
 anv_descriptor_pool_alloc_state(struct anv_descriptor_pool *pool)
 {
-   assert(pool->allocate_surface_states);
+   assert(!pool->host_only);
 
    struct surface_state_free_list_entry *entry =
       pool->surface_state_free_list;
@@ -1174,7 +1174,7 @@ anv_descriptor_set_create(struct anv_device *device,
          anv_isl_format_for_descriptor_type(device,
                                             VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-      if (pool->allocate_surface_states) {
+      if (!pool->host_only) {
          set->desc_surface_state = anv_descriptor_pool_alloc_state(pool);
          anv_fill_buffer_surface_state(device, set->desc_surface_state, format,
                                        ISL_SURF_USAGE_CONSTANT_BUFFER_BIT,
@@ -1413,7 +1413,7 @@ anv_descriptor_set_write_image_view(struct anv_device *device,
       .sampler = sampler,
    };
 
-   if (set->pool && !set->pool->allocate_surface_states)
+   if (set->pool && set->pool->host_only)
       return;
 
    void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset +
@@ -1518,7 +1518,7 @@ anv_descriptor_set_write_buffer_view(struct anv_device *device,
       .buffer_view = buffer_view,
    };
 
-   if (set->pool && !set->pool->allocate_surface_states)
+   if (set->pool && set->pool->host_only)
       return;
 
    enum anv_descriptor_data data =
@@ -1586,7 +1586,7 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
       .buffer = buffer,
    };
 
-   if (set->pool && !set->pool->allocate_surface_states)
+   if (set->pool && set->pool->host_only)
       return;
 
    void *desc_map = set->desc_mem.map + bind_layout->descriptor_offset +
