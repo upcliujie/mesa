@@ -111,6 +111,8 @@ enum iris_domain {
    IRIS_DOMAIN_OTHER_WRITE,
    /** Vertex cache. */
    IRIS_DOMAIN_VF_READ,
+   /** Texture cache. */
+   IRIS_DOMAIN_SAMPLER_READ,
    /** Any other read-only cache. */
    IRIS_DOMAIN_OTHER_READ,
    /** Number of caching domains. */
