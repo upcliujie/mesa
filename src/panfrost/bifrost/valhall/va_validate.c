@@ -67,12 +67,10 @@ fau_state_uniform(struct fau_state *fau, bi_index idx)
     */
    unsigned slot = (idx.value & 63);
 
-   if ((fau->uniform_slot < 0) || fau->uniform_slot == slot) {
+   if (fau->uniform_slot < 0)
       fau->uniform_slot = slot;
-      return true;
-   }
 
-   return false;
+   return fau->uniform_slot == slot;
 }
 
 static bool
