@@ -29,10 +29,14 @@
  *
  *   An instruction may access no more than a single 64-bit uniform slot.
  *   An instruction may access no more than 64-bits of combined uniforms and constants.
- *   An instruction may only access uniforms in the default immediate mode.
  *   An instruction may access no more than a single special immediate (e.g. lane_id).
  *
  * We validate these constraints.
+ *
+ * An instruction may only access a single page of (special or uniform) FAU.
+ * This constraint does not need explicit validation: since FAU slots are
+ * naturally aligned, they never cross page boundaries, so this condition is
+ * implied by only acesssing a single 64-bit slot.
  */
 
 struct fau_state {
