@@ -561,6 +561,67 @@ scan_pipeline_info(struct lvp_pipeline *pipeline, nir_shader *nir)
 
 }
 
+static bool
+lower_fp16_tex_impl(nir_builder *b, nir_instr *instr)
+{
+   if (instr->type != nir_instr_type_tex)
+      return false;
+
+   nir_tex_instr *tex = nir_instr_as_tex(instr);
+   if (tex->dest_type != nir_type_float32)
+      return false;
+   nir_ssa_def *dest = &tex->dest.ssa;
+   nir_foreach_use(src, dest) {
+      if (src->parent_instr->type != nir_instr_type_alu)
+         return false;
+      nir_alu_instr *alu = nir_instr_as_alu(src->parent_instr);
+      if (alu->op != nir_op_f2f16)
+         return false;
+   }
+
+   dest->bit_size = 16;
+   tex->dest_type = nir_type_float16;
+
+   nir_foreach_use_safe(src, dest) {
+      nir_alu_instr *alu = nir_instr_as_alu(src->parent_instr);
+      if (alu->op != nir_op_f2f16)
+         continue;
+      b->cursor = nir_before_instr(&alu->instr);
+      nir_ssa_def_rewrite_uses(&alu->dest.dest.ssa, nir_channels(b, dest, nir_alu_instr_src_read_mask(alu, 0)));
+      nir_instr_remove(&alu->instr);
+   }
+
+   return true;
+}
+
+static bool
+lower_fp16_tex(nir_shader *nir)
+{
+   bool progress = false;
+   nir_foreach_function(function, nir) {
+      if (!function->impl)
+         continue;
+
+      bool func_progress = false;
+      nir_builder b;
+      nir_builder_init(&b, function->impl);
+
+      nir_foreach_block(block, function->impl) {
+         nir_foreach_instr(instr, block) {
+            func_progress |= lower_fp16_tex_impl(&b, instr);
+         }
+      }
+
+      if (func_progress) {
+         nir_metadata_preserve(function->impl, nir_metadata_dominance);
+         progress = true;
+      } else {
+         nir_metadata_preserve(function->impl, nir_metadata_all);
+      }
+   }
+   return progress;
+}
+
 static void
 lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
                          struct vk_shader_module *module,
@@ -757,6 +818,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
    }
    nir_assign_io_var_locations(nir, nir_var_shader_out, &nir->num_outputs,
                                nir->info.stage);
+   NIR_PASS_V(nir, lower_fp16_tex);
    pipeline->pipeline_nir[stage] = nir;
 }
 
