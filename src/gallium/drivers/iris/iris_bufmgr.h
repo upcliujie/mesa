@@ -113,6 +113,8 @@ enum iris_domain {
    IRIS_DOMAIN_VF_READ,
    /** Texture cache. */
    IRIS_DOMAIN_SAMPLER_READ,
+   /** Pull-style shader constant loads. */
+   IRIS_DOMAIN_PULL_CONSTANT_READ,
    /** Any other read-only cache. */
    IRIS_DOMAIN_OTHER_READ,
    /** Number of caching domains. */
@@ -127,8 +129,8 @@ enum iris_domain {
 static inline bool
 iris_domain_is_read_only(enum iris_domain access)
 {
-   return access == IRIS_DOMAIN_OTHER_READ ||
-          access == IRIS_DOMAIN_VF_READ;
+   return access >= IRIS_DOMAIN_VF_READ &&
+          access <= IRIS_DOMAIN_OTHER_READ;
 }
 
 enum iris_mmap_mode {
