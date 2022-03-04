@@ -45,6 +45,18 @@ uint64_t va_pack_instr(const bi_instr *I, unsigned action);
 static inline unsigned
 va_fau_page(enum bir_fau value)
 {
+   /* Uniform slots of FAU have a 7-bit index. The top 2-bits are the page; the
+    * bottom 5-bits are specified in the source.
+    */
+   if (value & BIR_FAU_UNIFORM) {
+      unsigned slot = value & ~BIR_FAU_UNIFORM;
+      unsigned page = slot >> 5;
+
+      assert(page <= 3);
+      return page;
+   }
+
+   /* Special indices are also paginated */
    switch (value) {
    case BIR_FAU_TLS_PTR:
    case BIR_FAU_WLS_PTR:
