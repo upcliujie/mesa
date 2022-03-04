@@ -459,11 +459,10 @@ va_pack_typed_load(const bi_instr *I)
 uint64_t
 va_pack_instr(const bi_instr *I, unsigned action)
 {
-   unsigned fau_page = va_select_fau_page(I);
    struct va_opcode_info info = valhall_opcodes[I->op];
 
-   unsigned meta = fau_page | (action << 2);
-   uint64_t hex = info.exact | (((uint64_t) meta) << 57);
+   uint64_t hex = info.exact | (((uint64_t) action) << 59);
+   hex |= ((uint64_t) va_select_fau_page(I)) << 57;
 
    /* Staging register count */
    switch (I->op) {
