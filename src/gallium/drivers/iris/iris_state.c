@@ -5089,7 +5089,7 @@ iris_populate_binding_table(struct iris_context *ice,
       struct iris_state_ref *grid_data = &ice->state.grid_size;
       struct iris_state_ref *grid_state = &ice->state.grid_surf_state;
       iris_use_pinned_bo(batch, iris_resource_bo(grid_data->res), false,
-                         IRIS_DOMAIN_OTHER_READ);
+                         IRIS_DOMAIN_PULL_CONSTANT_READ);
       iris_use_pinned_bo(batch, iris_resource_bo(grid_state->res), false,
                          IRIS_DOMAIN_NONE);
       push_bt_entry(grid_state->offset);
@@ -5148,7 +5148,7 @@ iris_populate_binding_table(struct iris_context *ice,
    foreach_surface_used(i, IRIS_SURFACE_GROUP_UBO) {
       uint32_t addr = use_ubo_ssbo(batch, ice, &shs->constbuf[i],
                                    &shs->constbuf_surf_state[i], false,
-                                   IRIS_DOMAIN_OTHER_READ);
+                                   IRIS_DOMAIN_PULL_CONSTANT_READ);
       push_bt_entry(addr);
    }
 
@@ -7588,6 +7588,10 @@ iris_rebind_buffer(struct iris_context *ice,
 static void
 batch_mark_sync_for_pipe_control(struct iris_batch *batch)
 {
+   const struct brw_compiler *compiler = batch->screen->compiler;
+   unsigned indirect_ubo_flag = compiler->indirect_ubos_use_sampler ?
+      PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE : PIPE_CONTROL_DATA_CACHE_FLUSH;
+
    uint32_t flags = batch->flushes_since_last_sync_boundary;
 
    iris_batch_sync_boundary(batch);
@@ -7608,6 +7612,7 @@ batch_mark_sync_for_pipe_control(struct iris_batch *batch)
       if ((flags & (PIPE_CONTROL_CACHE_FLUSH_BITS |
                     PIPE_CONTROL_STALL_AT_SCOREBOARD))) {
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_VF_READ);
+         iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_PULL_CONSTANT_READ);
          iris_batch_mark_flush_sync(batch, IRIS_DOMAIN_OTHER_READ);
       }
    }
@@ -7626,6 +7631,10 @@ batch_mark_sync_for_pipe_control(struct iris_batch *batch)
 
    if ((flags & PIPE_CONTROL_VF_CACHE_INVALIDATE))
       iris_batch_mark_invalidate_sync(batch, IRIS_DOMAIN_VF_READ);
+
+   if ((flags & PIPE_CONTROL_CONST_CACHE_INVALIDATE) &&
+       (flags & indirect_ubo_flag))
+      iris_batch_mark_invalidate_sync(batch, IRIS_DOMAIN_PULL_CONSTANT_READ);
 
    if ((flags & PIPE_CONTROL_TEXTURE_CACHE_INVALIDATE) &&
        (flags & PIPE_CONTROL_CONST_CACHE_INVALIDATE))
