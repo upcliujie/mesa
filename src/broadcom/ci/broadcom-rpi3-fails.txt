@@ -1600,7 +1600,6 @@ spec@glsl-1.20@execution@variable-indexing@vs-temp-array-mat4-index-wr,Fail
 spec@glsl-1.20@execution@vs-nan-builtin-max,Fail
 spec@glsl-1.20@execution@vs-nan-builtin-min,Fail
 spec@intel_performance_query@intel_performance_query-issue_2235,Fail
-spec@khr_texture_compression_astc@basic-gles,Fail
 spec@khr_texture_compression_astc@miptree-gl ldr,Fail
 spec@khr_texture_compression_astc@miptree-gl ldr@LDR Profile,Fail
 spec@khr_texture_compression_astc@miptree-gl srgb,Fail
