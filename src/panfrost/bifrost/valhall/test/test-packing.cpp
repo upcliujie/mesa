@@ -317,3 +317,8 @@ TEST_F(ValhallPacking, Swizzle8) {
 
    CASE(I, 0x00f2c14300c0c000);
 }
+
+TEST_F(ValhallPacking, FauPage1) {
+   CASE(bi_mov_i32_to(b, bi_register(1), bi_fau((enum bir_fau) (BIR_FAU_UNIFORM | 32), false)),
+         0x0291c100000000c0ULL);
+}
