@@ -70,7 +70,7 @@ impl Mem {
         flags: cl_mem_flags,
         size: usize,
         host_ptr: *mut c_void,
-    ) -> Result<Arc<Mem>, i32> {
+    ) -> CLResult<Arc<Mem>> {
         if bit_check(flags, CL_MEM_COPY_HOST_PTR | CL_MEM_ALLOC_HOST_PTR) {
             println!("host ptr semantics not implemented!");
         }
@@ -182,7 +182,7 @@ impl Mem {
         offset: usize,
         ptr: *const c_void,
         size: usize,
-    ) -> Result<(), cl_int> {
+    ) -> CLResult<()> {
         // TODO support sub buffers
         let r = self.get_res().get(&Arc::as_ptr(&q.device)).unwrap();
         q.context().buffer_subdata(
@@ -205,7 +205,7 @@ impl Mem {
         dst_origin: &CLVec<usize>,
         dst_row_pitch: usize,
         dst_slice_pitch: usize,
-    ) -> Result<(), cl_int> {
+    ) -> CLResult<()> {
         let r = self
             .res
             .as_ref()
@@ -241,7 +241,7 @@ impl Mem {
         dst_origin: &CLVec<usize>,
         dst_row_pitch: usize,
         dst_slice_pitch: usize,
-    ) -> Result<(), cl_int> {
+    ) -> CLResult<()> {
         let r = self
             .res
             .as_ref()
@@ -277,7 +277,7 @@ impl Mem {
         dst_origin: &CLVec<usize>,
         dst_row_pitch: usize,
         dst_slice_pitch: usize,
-    ) -> Result<(), cl_int> {
+    ) -> CLResult<()> {
         let res_src = self
             .res
             .as_ref()
