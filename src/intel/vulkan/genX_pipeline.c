@@ -507,13 +507,11 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
 
          assert(mue->per_vertex_header_size_dw % 8 == 0);
          sbe_mesh.PerVertexURBEntryOutputReadOffset = mue->per_vertex_header_size_dw / 8;
-         sbe_mesh.PerVertexURBEntryOutputReadLength = DIV_ROUND_UP(mue->per_vertex_data_size_dw, 8);
 
          /* Clip distance array is passed in the per-vertex header so that
           * it can be consumed by the HW. If user wants to read it in the FS,
-          * adjust the offset and length to cover it. Conveniently it is at
-          * the end of the per-vertex header, right before per-vertex
-          * attributes.
+          * adjust the offset to cover it. Conveniently it is at  the end of
+          * the per-vertex header, right before per-vertex attributes.
           *
           * Note that FS attribute reading must be aware that the clip
           * distances have fixed position.
@@ -522,23 +520,25 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
                (wm_prog_data->urb_setup[VARYING_SLOT_CLIP_DIST0] >= 0 ||
                 wm_prog_data->urb_setup[VARYING_SLOT_CLIP_DIST1] >= 0)) {
             sbe_mesh.PerVertexURBEntryOutputReadOffset -= 1;
-            sbe_mesh.PerVertexURBEntryOutputReadLength += 1;
          }
+
+         sbe_mesh.PerVertexURBEntryOutputReadLength = DIV_ROUND_UP(wm_prog_data->num_varying_inputs, 2);
 
          assert(mue->per_primitive_header_size_dw % 8 == 0);
          sbe_mesh.PerPrimitiveURBEntryOutputReadOffset = mue->per_primitive_header_size_dw / 8;
-         sbe_mesh.PerPrimitiveURBEntryOutputReadLength = DIV_ROUND_UP(mue->per_primitive_data_size_dw, 8);
 
          /* Just like with clip distances, if Viewport Index or Layer is read
-          * back in the FS, adjust the offset and length to cover the Primitive
-          * Header, where Viewport Index & Layer are stored.
+          * back in the FS, adjust the offset to cover the Primitive Header,
+          * where Viewport Index & Layer are stored.
           */
          if (wm_prog_data->urb_setup[VARYING_SLOT_VIEWPORT] >= 0 ||
                wm_prog_data->urb_setup[VARYING_SLOT_LAYER] >= 0) {
             assert(sbe_mesh.PerPrimitiveURBEntryOutputReadOffset > 0);
             sbe_mesh.PerPrimitiveURBEntryOutputReadOffset -= 1;
-            sbe_mesh.PerPrimitiveURBEntryOutputReadLength += 1;
          }
+
+         assert(wm_prog_data->num_per_primitive_inputs % 2 == 0);
+         sbe_mesh.PerPrimitiveURBEntryOutputReadLength = wm_prog_data->num_per_primitive_inputs / 2;
       }
 #endif
    }
