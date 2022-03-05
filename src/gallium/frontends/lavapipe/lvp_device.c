@@ -748,7 +748,7 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceProperties(VkPhysicalDevice phys
       .maxDescriptorSetInputAttachments         = 256,
       .maxVertexInputAttributes                 = 32,
       .maxVertexInputBindings                   = 32,
-      .maxVertexInputAttributeOffset            = 2047,
+      .maxVertexInputAttributeOffset            = UINT32_MAX,
       .maxVertexInputBindingStride              = 2048,
       .maxVertexOutputComponents                = 128,
       .maxTessellationGenerationLevel           = 64,
