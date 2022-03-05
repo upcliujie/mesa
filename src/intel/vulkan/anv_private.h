@@ -3380,7 +3380,7 @@ struct anv_pipeline {
    const struct intel_l3_config *               l3_config;
 };
 
-struct anv_graphics_pipeline {
+struct anv_graphics_pipeline_base {
    struct anv_pipeline                          base;
 
    /* States declared dynamic at pipeline creation. */
@@ -3390,6 +3390,17 @@ struct anv_graphics_pipeline {
    struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
 
    VkShaderStageFlags                           active_stages;
+
+   /* When primitive replication is used, subpass->view_mask will describe what
+    * views to replicate.
+    */
+   bool                                         use_primitive_replication;
+
+   uint32_t                                     view_mask;
+};
+
+struct anv_graphics_pipeline {
+   struct anv_graphics_pipeline_base            base;
 
    /* States that are part of batch_data and should be not emitted
     * dynamically.
@@ -3415,8 +3426,6 @@ struct anv_graphics_pipeline {
 
    VkColorComponentFlags                        color_comp_writes[MAX_RTS];
 
-   uint32_t                                     view_mask;
-
    bool                                         writes_depth;
    bool                                         depth_test_enable;
    bool                                         writes_stencil;
@@ -3427,11 +3436,6 @@ struct anv_graphics_pipeline {
    bool                                         depth_bounds_test_enable;
    bool                                         force_fragment_thread_dispatch;
    bool                                         negative_one_to_one;
-
-   /* When primitive replication is used, subpass->view_mask will describe what
-    * views to replicate.
-    */
-   bool                                         use_primitive_replication;
 
    struct anv_state                             blend_state;
 
@@ -3527,7 +3531,7 @@ static inline bool
 anv_pipeline_has_stage(const struct anv_graphics_pipeline *pipeline,
                        gl_shader_stage stage)
 {
-   return (pipeline->active_stages & mesa_to_vk_shader_stage(stage)) != 0;
+   return (pipeline->base.active_stages & mesa_to_vk_shader_stage(stage)) != 0;
 }
 
 static inline bool
@@ -3567,7 +3571,7 @@ get_##prefix##_prog_data(const struct anv_graphics_pipeline *pipeline)  \
 {                                                                       \
    if (anv_pipeline_has_stage(pipeline, stage)) {                       \
       return (const struct brw_##prefix##_prog_data *)                  \
-             pipeline->shaders[stage]->prog_data;                       \
+         pipeline->base.shaders[stage]->prog_data;                      \
    } else {                                                             \
       return NULL;                                                      \
    }                                                                    \

@@ -796,7 +796,7 @@ genX(emit_shading_rate)(struct anv_batch *batch,
    }
 
    anv_batch_emit(batch, GENX(3DSTATE_CPS_POINTERS), cps) {
-      struct anv_device *device = pipeline->base.device;
+      struct anv_device *device = pipeline->base.base.device;
 
       cps.CoarsePixelShadingStateArrayPointer =
          get_cps_state_offset(device, cps_enable, dynamic_state);
