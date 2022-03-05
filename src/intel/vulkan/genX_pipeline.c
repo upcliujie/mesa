@@ -91,6 +91,8 @@ static void
 emit_vertex_input(struct anv_graphics_pipeline *pipeline,
                   const VkPipelineVertexInputStateCreateInfo *info)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   const struct anv_device *device = pipeline->base.base.device;
    const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
 
    /* Pull inputs_read out of the VS prog data */
@@ -114,8 +116,7 @@ emit_vertex_input(struct anv_graphics_pipeline *pipeline,
    uint32_t *p;
 
    const uint32_t num_dwords = 1 + total_elems * 2;
-   p = anv_batch_emitn(&pipeline->base.batch, num_dwords,
-                       GENX(3DSTATE_VERTEX_ELEMENTS));
+   p = anv_batch_emitn(batch, num_dwords, GENX(3DSTATE_VERTEX_ELEMENTS));
    if (!p)
       return;
 
@@ -150,7 +151,7 @@ emit_vertex_input(struct anv_graphics_pipeline *pipeline,
    for (uint32_t i = 0; i < info->vertexAttributeDescriptionCount; i++) {
       const VkVertexInputAttributeDescription *desc =
          &info->pVertexAttributeDescriptions[i];
-      enum isl_format format = anv_get_isl_format(&pipeline->base.device->info,
+      enum isl_format format = anv_get_isl_format(&device->info,
                                                   desc->format,
                                                   VK_IMAGE_ASPECT_COLOR_BIT,
                                                   VK_IMAGE_TILING_LINEAR);
@@ -183,7 +184,7 @@ emit_vertex_input(struct anv_graphics_pipeline *pipeline,
        * that controls instancing.  On Haswell and prior, that's part of
        * VERTEX_BUFFER_STATE which we emit later.
        */
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
+      anv_batch_emit(batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
          vfi.InstancingEnable = pipeline->vb[desc->binding].instanced;
          vfi.VertexElementIndex = slot;
          vfi.InstanceDataStepRate =
@@ -224,14 +225,14 @@ emit_vertex_input(struct anv_graphics_pipeline *pipeline,
       GENX(VERTEX_ELEMENT_STATE_pack)(NULL, &p[1 + id_slot * 2], &element);
 
 #if GFX_VER >= 8
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
+      anv_batch_emit(batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
          vfi.VertexElementIndex = id_slot;
       }
 #endif
    }
 
 #if GFX_VER >= 8
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VF_SGVS), sgvs) {
+   anv_batch_emit(batch, GENX(3DSTATE_VF_SGVS), sgvs) {
       sgvs.VertexIDEnable              = vs_prog_data->uses_vertexid;
       sgvs.VertexIDComponentNumber     = 2;
       sgvs.VertexIDElementOffset       = id_slot;
@@ -257,7 +258,7 @@ emit_vertex_input(struct anv_graphics_pipeline *pipeline,
                                       &element);
 
 #if GFX_VER >= 8
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
+      anv_batch_emit(batch, GENX(3DSTATE_VF_INSTANCING), vfi) {
          vfi.VertexElementIndex = drawid_slot;
       }
 #endif
@@ -320,7 +321,8 @@ static void
 emit_urb_setup_mesh(struct anv_graphics_pipeline *pipeline,
                     enum intel_urb_deref_block_size *deref_block_size)
 {
-   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   const struct intel_device_info *devinfo = &pipeline->base.base.device->info;
 
    const struct brw_task_prog_data *task_prog_data =
       anv_pipeline_has_stage(pipeline, MESA_SHADER_TASK) ?
@@ -328,18 +330,18 @@ emit_urb_setup_mesh(struct anv_graphics_pipeline *pipeline,
    const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
 
    const struct intel_mesh_urb_allocation alloc =
-      intel_get_mesh_urb_config(devinfo, pipeline->base.l3_config,
+      intel_get_mesh_urb_config(devinfo, pipeline->base.base.l3_config,
                                 task_prog_data ? task_prog_data->map.size_dw : 0,
                                 mesh_prog_data->map.size_dw);
 
    /* Zero out the primitive pipeline URB allocations. */
    for (int i = 0; i <= MESA_SHADER_GEOMETRY; i++) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_VS), urb) {
+      anv_batch_emit(batch, GENX(3DSTATE_URB_VS), urb) {
          urb._3DCommandSubOpcode += i;
       }
    }
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_ALLOC_TASK), urb) {
+   anv_batch_emit(batch, GENX(3DSTATE_URB_ALLOC_TASK), urb) {
       if (task_prog_data) {
          urb.TASKURBEntryAllocationSize   = alloc.task_entry_size_64b - 1;
          urb.TASKNumberofURBEntriesSlice0 = alloc.task_entries;
@@ -349,7 +351,7 @@ emit_urb_setup_mesh(struct anv_graphics_pipeline *pipeline,
       }
    }
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_URB_ALLOC_MESH), urb) {
+   anv_batch_emit(batch, GENX(3DSTATE_URB_ALLOC_MESH), urb) {
       urb.MESHURBEntryAllocationSize   = alloc.mesh_entry_size_64b - 1;
       urb.MESHNumberofURBEntriesSlice0 = alloc.mesh_entries;
       urb.MESHNumberofURBEntriesSliceN = alloc.mesh_entries;
@@ -376,30 +378,32 @@ emit_urb_setup(struct anv_graphics_pipeline *pipeline,
    for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_GEOMETRY; i++) {
       const struct brw_vue_prog_data *prog_data =
          !anv_pipeline_has_stage(pipeline, i) ? NULL :
-         (const struct brw_vue_prog_data *) pipeline->shaders[i]->prog_data;
+         (const struct brw_vue_prog_data *) pipeline->base.shaders[i]->prog_data;
 
       entry_size[i] = prog_data ? prog_data->urb_entry_size : 1;
    }
 
-   genX(emit_urb_setup)(pipeline->base.device, &pipeline->base.batch,
-                        pipeline->base.l3_config,
-                        pipeline->active_stages, entry_size,
+   genX(emit_urb_setup)(pipeline->base.base.device,
+                        &pipeline->base.base.batch,
+                        pipeline->base.base.l3_config,
+                        pipeline->base.active_stages, entry_size,
                         deref_block_size);
 }
 
 static void
 emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
 
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT)) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE), sbe);
+      anv_batch_emit(batch, GENX(3DSTATE_SBE), sbe);
 #if GFX_VER >= 8
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE_SWIZ), sbe);
+      anv_batch_emit(batch, GENX(3DSTATE_SBE_SWIZ), sbe);
 #endif
 #if GFX_VERx10 >= 125
       if (anv_pipeline_is_mesh(pipeline))
-         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE_MESH), sbe_mesh);
+         anv_batch_emit(batch, GENX(3DSTATE_SBE_MESH), sbe_mesh);
 #endif
       return;
    }
@@ -503,7 +507,7 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
       assert(anv_pipeline_is_mesh(pipeline));
 #if GFX_VERx10 >= 125
       const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SBE_MESH), sbe_mesh) {
+      anv_batch_emit(batch, GENX(3DSTATE_SBE_MESH), sbe_mesh) {
          const struct brw_mue_map *mue = &mesh_prog_data->map;
 
          assert(mue->per_vertex_header_size_dw % 8 == 0);
@@ -544,17 +548,16 @@ emit_3dstate_sbe(struct anv_graphics_pipeline *pipeline)
 #endif
    }
 
-   uint32_t *dw = anv_batch_emit_dwords(&pipeline->base.batch,
-                                        GENX(3DSTATE_SBE_length));
+   uint32_t *dw = anv_batch_emit_dwords(batch, GENX(3DSTATE_SBE_length));
    if (!dw)
       return;
-   GENX(3DSTATE_SBE_pack)(&pipeline->base.batch, dw, &sbe);
+   GENX(3DSTATE_SBE_pack)(batch, dw, &sbe);
 
 #if GFX_VER >= 8
-   dw = anv_batch_emit_dwords(&pipeline->base.batch, GENX(3DSTATE_SBE_SWIZ_length));
+   dw = anv_batch_emit_dwords(batch, GENX(3DSTATE_SBE_SWIZ_length));
    if (!dw)
       return;
-   GENX(3DSTATE_SBE_SWIZ_pack)(&pipeline->base.batch, dw, &swiz);
+   GENX(3DSTATE_SBE_SWIZ_pack)(batch, dw, &swiz);
 #endif
 }
 
@@ -826,7 +829,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
    VkPolygonMode raster_mode =
       genX(raster_polygon_mode)(pipeline, ia_info ? ia_info->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
    bool dynamic_primitive_topology =
-      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
+      pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 
    /* For details on 3DSTATE_RASTER multisample state, see the BSpec table
     * "Multisample Modes State".
@@ -858,10 +861,10 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
       anv_rasterization_aa_mode(raster_mode, pipeline->line_mode);
 
    raster.FrontWinding =
-      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE ?
+      pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_FRONT_FACE ?
          0 : genX(vk_to_intel_front_face)[rs_info->frontFace];
    raster.CullMode =
-      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_CULL_MODE ?
+      pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_CULL_MODE ?
          0 : genX(vk_to_intel_cullmode)[rs_info->cullMode];
 
    raster.FrontFaceFillMode = genX(vk_to_intel_fillmode)[rs_info->polygonMode];
@@ -883,7 +886,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
 #endif
 
    bool depth_bias_enable =
-      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE ?
+      pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_BIAS_ENABLE ?
          0 : rs_info->depthBiasEnable;
 
    raster.GlobalDepthOffsetEnableSolid = depth_bias_enable;
@@ -898,7 +901,7 @@ emit_rs_state(struct anv_graphics_pipeline *pipeline,
        rendering_info->depthAttachmentFormat != VK_FORMAT_UNDEFINED) {
       assert(vk_format_has_depth(rendering_info->depthAttachmentFormat));
       enum isl_format isl_format =
-         anv_get_isl_format(&pipeline->base.device->info,
+         anv_get_isl_format(&pipeline->base.base.device->info,
                             rendering_info->depthAttachmentFormat,
                             VK_IMAGE_ASPECT_DEPTH_BIT,
                             VK_IMAGE_TILING_OPTIMAL);
@@ -920,9 +923,11 @@ static void
 emit_ms_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineMultisampleStateCreateInfo *info)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
+
 #if GFX_VER >= 8
    /* On Gfx8+ 3DSTATE_MULTISAMPLE only holds the number of samples. */
-   genX(emit_multisample)(&pipeline->base.batch,
+   genX(emit_multisample)(batch,
                           pipeline->rasterization_samples,
                           NULL);
 #endif
@@ -932,16 +937,16 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
     * Gfx8+ this is part of 3DSTATE_SAMPLE_PATTERN, prior to that this is in
     * 3DSTATE_MULTISAMPLE.
     */
-   if (pipeline->base.device->vk.enabled_extensions.EXT_sample_locations &&
-       !(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
+   if (pipeline->base.base.device->vk.enabled_extensions.EXT_sample_locations &&
+       !(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
 #if GFX_VER >= 8
       genX(emit_sample_pattern)(
-         &pipeline->base.batch,
+         batch,
          pipeline->rasterization_samples,
          pipeline->non_dynamic_state.sample_locations.locations);
 #else
       genX(emit_multisample)(
-         &pipeline->base.batch,
+         batch,
          pipeline->rasterization_samples,
          pipeline->non_dynamic_state.sample_locations.locations);
 #endif
@@ -962,7 +967,7 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
    if (info && info->pSampleMask)
       sample_mask &= info->pSampleMask[0];
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_SAMPLE_MASK), sm) {
+   anv_batch_emit(batch, GENX(3DSTATE_SAMPLE_MASK), sm) {
       sm.SampleMask = sample_mask;
    }
 }
@@ -971,9 +976,10 @@ static void
 emit_3dstate_cps(struct anv_graphics_pipeline *pipeline)
 {
 #if GFX_VER >= 11
-   if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE) &&
-       pipeline->base.device->vk.enabled_extensions.KHR_fragment_shading_rate) {
-      genX(emit_shading_rate)(&pipeline->base.batch,
+   const struct anv_device *device = pipeline->base.base.device;
+   if (!(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SHADING_RATE) &&
+       device->vk.enabled_extensions.KHR_fragment_shading_rate) {
+      genX(emit_shading_rate)(&pipeline->base.base.batch,
                               pipeline,
                               &pipeline->non_dynamic_state);
    }
@@ -1237,7 +1243,7 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
    pipeline->depth_bounds_test_enable = info.depthBoundsTestEnable;
 
    bool dynamic_stencil_op =
-      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
+      pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_OP;
 
 #if GFX_VER <= 7
    struct GENX(DEPTH_STENCIL_STATE) depth_stencil = {
@@ -1245,21 +1251,21 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
    struct GENX(3DSTATE_WM_DEPTH_STENCIL) depth_stencil = {
 #endif
       .DepthTestEnable =
-         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_TEST_ENABLE ?
+         pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_TEST_ENABLE ?
             0 : info.depthTestEnable,
 
       .DepthBufferWriteEnable =
-         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_WRITE_ENABLE ?
+         pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_WRITE_ENABLE ?
             0 : info.depthWriteEnable,
 
       .DepthTestFunction =
-         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP ?
+         pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_DEPTH_COMPARE_OP ?
             0 : genX(vk_to_intel_compare_op)[info.depthCompareOp],
 
       .DoubleSidedStencilEnable = true,
 
       .StencilTestEnable =
-         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE ?
+         pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_STENCIL_TEST_ENABLE ?
             0 : info.stencilTestEnable,
 
       .StencilFailOp = genX(vk_to_intel_stencil_op)[info.front.failOp],
@@ -1290,9 +1296,9 @@ emit_ds_state(struct anv_graphics_pipeline *pipeline,
 #endif
 
 #if GFX_VER >= 12
-   if ((pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS |
-                                    ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE)) == 0) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_DEPTH_BOUNDS), db) {
+   if ((pipeline->base.dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS |
+                                         ANV_CMD_DIRTY_DYNAMIC_DEPTH_BOUNDS_TEST_ENABLE)) == 0) {
+      anv_batch_emit(&pipeline->base.base.batch, GENX(3DSTATE_DEPTH_BOUNDS), db) {
          db.DepthBoundsTestEnable = pCreateInfo->depthBoundsTestEnable;
          db.DepthBoundsTestMinValue = pCreateInfo->minDepthBounds;
          db.DepthBoundsTestMaxValue = pCreateInfo->maxDepthBounds;
@@ -1328,7 +1334,8 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
               const VkPipelineColorBlendStateCreateInfo *info,
               const VkPipelineMultisampleStateCreateInfo *ms_info)
 {
-   struct anv_device *device = pipeline->base.device;
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   struct anv_device *device = pipeline->base.base.device;
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
 
    struct GENX(BLEND_STATE) blend_state = {
@@ -1341,7 +1348,7 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
    uint32_t surface_count = 0;
    struct anv_pipeline_bind_map *map;
    if (anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT)) {
-      map = &pipeline->shaders[MESA_SHADER_FRAGMENT]->bind_map;
+      map = &pipeline->base.shaders[MESA_SHADER_FRAGMENT]->bind_map;
       surface_count = map->surface_count;
    }
 
@@ -1349,9 +1356,10 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
       GENX(BLEND_STATE_ENTRY_length) * surface_count;
    uint32_t *blend_state_start, *state_pos;
 
-   if (pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-                                   ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
-      const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   if (pipeline->base.dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+                                        ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
+      const struct intel_device_info *devinfo =
+         &pipeline->base.base.device->info;
       blend_state_start = devinfo->ver >= 8 ?
          pipeline->gfx8.blend_state : pipeline->gfx7.blend_state;
       pipeline->blend_state = ANV_STATE_NULL;
@@ -1425,11 +1433,11 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
       };
 
       /* Write logic op if not dynamic */
-      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))
+      if (!(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))
          entry.LogicOpFunction = genX(vk_to_intel_logic_op)[info->logicOp];
 
       /* Write blending color if not dynamic */
-      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
+      if (!(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
          entry.WriteDisableAlpha = !(a->colorWriteMask & VK_COLOR_COMPONENT_A_BIT);
          entry.WriteDisableRed   = !(a->colorWriteMask & VK_COLOR_COMPONENT_R_BIT);
          entry.WriteDisableGreen = !(a->colorWriteMask & VK_COLOR_COMPONENT_G_BIT);
@@ -1509,11 +1517,11 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
    blend.AlphaTestEnable               = false;
    blend.IndependentAlphaBlendEnable   = blend_state.IndependentAlphaBlendEnable;
 
-   if (pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-                                   ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
+   if (pipeline->base.dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+                                        ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP)) {
       GENX(3DSTATE_PS_BLEND_pack)(NULL, pipeline->gfx8.ps_blend, &blend);
    } else {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PS_BLEND), _blend)
+      anv_batch_emit(batch, GENX(3DSTATE_PS_BLEND), _blend)
          _blend = blend;
    }
 #else
@@ -1522,9 +1530,9 @@ emit_cb_state(struct anv_graphics_pipeline *pipeline,
 
    GENX(BLEND_STATE_pack)(NULL, blend_state_start, &blend_state);
 
-   if (!(pipeline->dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
-                                     ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_BLEND_STATE_POINTERS), bsp) {
+   if (!(pipeline->base.dynamic_states & (ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE |
+                                          ANV_CMD_DIRTY_DYNAMIC_LOGIC_OP))) {
+      anv_batch_emit(batch, GENX(3DSTATE_BLEND_STATE_POINTERS), bsp) {
          bsp.BlendStatePointer      = pipeline->blend_state.offset;
 #if GFX_VER >= 8
          bsp.BlendStatePointerValid = true;
@@ -1559,7 +1567,7 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
    VkPolygonMode raster_mode =
       genX(raster_polygon_mode)(pipeline, ia_info ? ia_info->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
    clip.ViewportXYClipTestEnable =
-      pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
+      pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
       0 : (raster_mode == VK_POLYGON_MODE_FILL);
 
 #if GFX_VER >= 8
@@ -1640,8 +1648,9 @@ emit_3dstate_clip(struct anv_graphics_pipeline *pipeline,
 
 #if GFX_VERx10 >= 125
    if (anv_pipeline_is_mesh(pipeline)) {
+      struct anv_batch *batch = &pipeline->base.base.batch;
       const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_CLIP_MESH), clip_mesh) {
+      anv_batch_emit(batch, GENX(3DSTATE_CLIP_MESH), clip_mesh) {
          clip_mesh.PrimitiveHeaderEnable = mesh_prog_data->map.per_primitive_header_size_dw > 0;
          clip_mesh.UserClipDistanceClipTestEnableBitmask = mesh_prog_data->clip_distance_mask;
          clip_mesh.UserClipDistanceCullTestEnableBitmask = mesh_prog_data->cull_distance_mask;
@@ -1654,17 +1663,19 @@ static void
 emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
                        const VkPipelineRasterizationStateCreateInfo *rs_info)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   const struct anv_device *device = pipeline->base.base.device;
    const struct brw_vue_prog_data *prog_data =
       anv_pipeline_get_last_vue_prog_data(pipeline);
    const struct brw_vue_map *vue_map = &prog_data->vue_map;
 
    nir_xfb_info *xfb_info;
    if (anv_pipeline_has_stage(pipeline, MESA_SHADER_GEOMETRY))
-      xfb_info = pipeline->shaders[MESA_SHADER_GEOMETRY]->xfb_info;
+      xfb_info = pipeline->base.shaders[MESA_SHADER_GEOMETRY]->xfb_info;
    else if (anv_pipeline_has_stage(pipeline, MESA_SHADER_TESS_EVAL))
-      xfb_info = pipeline->shaders[MESA_SHADER_TESS_EVAL]->xfb_info;
+      xfb_info = pipeline->base.shaders[MESA_SHADER_TESS_EVAL]->xfb_info;
    else
-      xfb_info = pipeline->shaders[MESA_SHADER_VERTEX]->xfb_info;
+      xfb_info = pipeline->base.shaders[MESA_SHADER_VERTEX]->xfb_info;
 
    if (xfb_info) {
       struct GENX(SO_DECL) so_decl[MAX_XFB_STREAMS][128];
@@ -1753,10 +1764,10 @@ emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
        *    2. Send SO_DECL NP state
        *    3. Send 3D State SOL with SOL Enabled
        */
-      if (intel_device_info_is_dg2(&pipeline->base.device->info))
-         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_STREAMOUT), so);
+      if (intel_device_info_is_dg2(&device->info))
+         anv_batch_emit(batch, GENX(3DSTATE_STREAMOUT), so);
 
-      uint32_t *dw = anv_batch_emitn(&pipeline->base.batch, 3 + 2 * max_decls,
+      uint32_t *dw = anv_batch_emitn(batch, 3 + 2 * max_decls,
                                      GENX(3DSTATE_SO_DECL_LIST),
                                      .StreamtoBufferSelects0 = sbs[0],
                                      .StreamtoBufferSelects1 = sbs[1],
@@ -1787,7 +1798,7 @@ emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
    struct GENX(3DSTATE_STREAMOUT) so = {
       GENX(3DSTATE_STREAMOUT_header),
       .RenderingDisable =
-         (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) ?
+         (pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) ?
          0 : rs_info->rasterizerDiscardEnable,
    };
 
@@ -1854,10 +1865,10 @@ emit_3dstate_streamout(struct anv_graphics_pipeline *pipeline,
       so.Stream3VertexReadLength = urb_entry_read_length - 1;
    }
 
-   if (pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
+   if (pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE) {
       GENX(3DSTATE_STREAMOUT_pack)(NULL, streamout_state_dw, &so);
    } else {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_STREAMOUT), _so)
+      anv_batch_emit(batch, GENX(3DSTATE_STREAMOUT), _so)
          _so = so;
    }
 }
@@ -1915,14 +1926,15 @@ get_scratch_surf(struct anv_pipeline *pipeline,
 static void
 emit_3dstate_vs(struct anv_graphics_pipeline *pipeline)
 {
-   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   const struct intel_device_info *devinfo = &pipeline->base.base.device->info;
    const struct brw_vs_prog_data *vs_prog_data = get_vs_prog_data(pipeline);
    const struct anv_shader_bin *vs_bin =
-      pipeline->shaders[MESA_SHADER_VERTEX];
+      pipeline->base.shaders[MESA_SHADER_VERTEX];
 
    assert(anv_pipeline_has_stage(pipeline, MESA_SHADER_VERTEX));
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VS), vs) {
+   anv_batch_emit(batch, GENX(3DSTATE_VS), vs) {
       vs.Enable               = true;
       vs.StatisticsEnable     = true;
       vs.KernelStartPointer   = vs_bin->kernel.offset;
@@ -1984,11 +1996,11 @@ emit_3dstate_vs(struct anv_graphics_pipeline *pipeline)
 
 #if GFX_VERx10 >= 125
       vs.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_VERTEX, vs_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_VERTEX, vs_bin);
 #else
       vs.PerThreadScratchSpace   = get_scratch_space(vs_bin);
       vs.ScratchSpaceBasePointer =
-         get_scratch_address(&pipeline->base, MESA_SHADER_VERTEX, vs_bin);
+         get_scratch_address(&pipeline->base.base, MESA_SHADER_VERTEX, vs_bin);
 #endif
    }
 }
@@ -1997,23 +2009,25 @@ static void
 emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
                       const VkPipelineTessellationStateCreateInfo *tess_info)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
+
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_TESS_EVAL)) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_HS), hs);
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TE), te);
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_DS), ds);
+      anv_batch_emit(batch, GENX(3DSTATE_HS), hs);
+      anv_batch_emit(batch, GENX(3DSTATE_TE), te);
+      anv_batch_emit(batch, GENX(3DSTATE_DS), ds);
       return;
    }
 
-   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   const struct intel_device_info *devinfo = &pipeline->base.base.device->info;
    const struct anv_shader_bin *tcs_bin =
-      pipeline->shaders[MESA_SHADER_TESS_CTRL];
+      pipeline->base.shaders[MESA_SHADER_TESS_CTRL];
    const struct anv_shader_bin *tes_bin =
-      pipeline->shaders[MESA_SHADER_TESS_EVAL];
+      pipeline->base.shaders[MESA_SHADER_TESS_EVAL];
 
    const struct brw_tcs_prog_data *tcs_prog_data = get_tcs_prog_data(pipeline);
    const struct brw_tes_prog_data *tes_prog_data = get_tes_prog_data(pipeline);
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_HS), hs) {
+   anv_batch_emit(batch, GENX(3DSTATE_HS), hs) {
       hs.Enable = true;
       hs.StatisticsEnable = true;
       hs.KernelStartPointer = tcs_bin->kernel.offset;
@@ -2046,11 +2060,11 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
 
 #if GFX_VERx10 >= 125
       hs.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_TESS_CTRL, tcs_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_TESS_CTRL, tcs_bin);
 #else
       hs.PerThreadScratchSpace = get_scratch_space(tcs_bin);
       hs.ScratchSpaceBasePointer =
-         get_scratch_address(&pipeline->base, MESA_SHADER_TESS_CTRL, tcs_bin);
+         get_scratch_address(&pipeline->base.base, MESA_SHADER_TESS_CTRL, tcs_bin);
 #endif
 
 #if GFX_VER == 12
@@ -2073,7 +2087,7 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
       domain_origin_state ? domain_origin_state->domainOrigin :
                             VK_TESSELLATION_DOMAIN_ORIGIN_UPPER_LEFT;
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TE), te) {
+   anv_batch_emit(batch, GENX(3DSTATE_TE), te) {
       te.Partitioning = tes_prog_data->partitioning;
 
       if (uv_origin == VK_TESSELLATION_DOMAIN_ORIGIN_LOWER_LEFT) {
@@ -2105,7 +2119,7 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
 #endif
    }
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_DS), ds) {
+   anv_batch_emit(batch, GENX(3DSTATE_DS), ds) {
       ds.Enable = true;
       ds.StatisticsEnable = true;
       ds.KernelStartPointer = tes_bin->kernel.offset;
@@ -2144,11 +2158,11 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
 #endif
 #if GFX_VERx10 >= 125
       ds.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_TESS_EVAL, tes_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_TESS_EVAL, tes_bin);
 #else
       ds.PerThreadScratchSpace = get_scratch_space(tes_bin);
       ds.ScratchSpaceBasePointer =
-         get_scratch_address(&pipeline->base, MESA_SHADER_TESS_EVAL, tes_bin);
+         get_scratch_address(&pipeline->base.base, MESA_SHADER_TESS_EVAL, tes_bin);
 #endif
    }
 }
@@ -2156,18 +2170,19 @@ emit_3dstate_hs_te_ds(struct anv_graphics_pipeline *pipeline,
 static void
 emit_3dstate_gs(struct anv_graphics_pipeline *pipeline)
 {
-   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   const struct intel_device_info *devinfo = &pipeline->base.base.device->info;
    const struct anv_shader_bin *gs_bin =
-      pipeline->shaders[MESA_SHADER_GEOMETRY];
+      pipeline->base.shaders[MESA_SHADER_GEOMETRY];
 
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_GEOMETRY)) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_GS), gs);
+      anv_batch_emit(batch, GENX(3DSTATE_GS), gs);
       return;
    }
 
    const struct brw_gs_prog_data *gs_prog_data = get_gs_prog_data(pipeline);
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_GS), gs) {
+   anv_batch_emit(batch, GENX(3DSTATE_GS), gs) {
       gs.Enable                  = true;
       gs.StatisticsEnable        = true;
       gs.KernelStartPointer      = gs_bin->kernel.offset;
@@ -2216,11 +2231,11 @@ emit_3dstate_gs(struct anv_graphics_pipeline *pipeline)
 
 #if GFX_VERx10 >= 125
       gs.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_GEOMETRY, gs_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_GEOMETRY, gs_bin);
 #else
       gs.PerThreadScratchSpace   = get_scratch_space(gs_bin);
       gs.ScratchSpaceBasePointer =
-         get_scratch_address(&pipeline->base, MESA_SHADER_GEOMETRY, gs_bin);
+         get_scratch_address(&pipeline->base.base, MESA_SHADER_GEOMETRY, gs_bin);
 #endif
    }
 }
@@ -2230,7 +2245,7 @@ has_color_buffer_write_enabled(const struct anv_graphics_pipeline *pipeline,
                                const VkPipelineColorBlendStateCreateInfo *blend)
 {
    const struct anv_shader_bin *shader_bin =
-      pipeline->shaders[MESA_SHADER_FRAGMENT];
+      pipeline->base.shaders[MESA_SHADER_FRAGMENT];
    if (!shader_bin)
       return false;
 
@@ -2264,6 +2279,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
                 const VkPipelineRasterizationLineStateCreateInfoEXT *line,
                 const VkRenderingSelfDependencyInfoMESA *rsd)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
 
    struct GENX(3DSTATE_WM) wm = {
@@ -2305,7 +2321,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
          wm_prog_data->uses_kill;
 
       /* Only set this value in non dynamic mode. */
-      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
+      if (!(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
          wm.ForceThreadDispatchEnable =
             (pipeline->force_fragment_thread_dispatch ||
              !has_color_buffer_write_enabled(pipeline, blend)) ? ForceON : 0;
@@ -2338,7 +2354,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
          wm.PixelShaderKillsPixel;
 
       /* Only set this value in non dynamic mode. */
-      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
+      if (!(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)) {
          wm.ThreadDispatchEnable =
             pipeline->force_fragment_thread_dispatch ||
             has_color_buffer_write_enabled(pipeline, blend);
@@ -2358,7 +2374,7 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
          genX(raster_polygon_mode)(pipeline, ia ? ia->topology : VK_PRIMITIVE_TOPOLOGY_MAX_ENUM);
 
       wm.MultisampleRasterizationMode =
-         pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
+         pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY ?
          0 : genX(ms_rasterization_mode)(pipeline, raster_mode);
 #endif
 
@@ -2371,12 +2387,13 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
    dynamic_wm_states |= ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY;
 #endif
 
-   if (pipeline->dynamic_states & dynamic_wm_states) {
-      const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   if (pipeline->base.dynamic_states & dynamic_wm_states) {
+      const struct intel_device_info *devinfo =
+         &pipeline->base.base.device->info;
       uint32_t *dws = devinfo->ver >= 8 ? pipeline->gfx8.wm : pipeline->gfx7.wm;
       GENX(3DSTATE_WM_pack)(NULL, dws, &wm);
    } else {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_WM), _wm)
+      anv_batch_emit(batch, GENX(3DSTATE_WM), _wm)
          _wm = wm;
    }
 }
@@ -2386,13 +2403,14 @@ emit_3dstate_ps(struct anv_graphics_pipeline *pipeline,
                 const VkPipelineColorBlendStateCreateInfo *blend,
                 const VkPipelineMultisampleStateCreateInfo *multisample)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
    UNUSED const struct intel_device_info *devinfo =
-      &pipeline->base.device->info;
+      &pipeline->base.base.device->info;
    const struct anv_shader_bin *fs_bin =
-      pipeline->shaders[MESA_SHADER_FRAGMENT];
+      pipeline->base.shaders[MESA_SHADER_FRAGMENT];
 
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT)) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PS), ps) {
+      anv_batch_emit(batch, GENX(3DSTATE_PS), ps) {
 #if GFX_VER == 7
          /* Even if no fragments are ever dispatched, gfx7 hardware hangs if
           * we don't at least set the maximum number of threads.
@@ -2427,7 +2445,7 @@ emit_3dstate_ps(struct anv_graphics_pipeline *pipeline,
    }
 #endif
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PS), ps) {
+   anv_batch_emit(batch, GENX(3DSTATE_PS), ps) {
       ps._8PixelDispatchEnable      = wm_prog_data->dispatch_8;
       ps._16PixelDispatchEnable     = wm_prog_data->dispatch_16;
       ps._32PixelDispatchEnable     = wm_prog_data->dispatch_32;
@@ -2491,11 +2509,11 @@ emit_3dstate_ps(struct anv_graphics_pipeline *pipeline,
 
 #if GFX_VERx10 >= 125
       ps.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_FRAGMENT, fs_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_FRAGMENT, fs_bin);
 #else
       ps.PerThreadScratchSpace   = get_scratch_space(fs_bin);
       ps.ScratchSpaceBasePointer =
-         get_scratch_address(&pipeline->base, MESA_SHADER_FRAGMENT, fs_bin);
+         get_scratch_address(&pipeline->base.base, MESA_SHADER_FRAGMENT, fs_bin);
 #endif
    }
 }
@@ -2506,14 +2524,15 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
                       const VkPipelineRasterizationStateCreateInfo *rs_info,
                       const VkRenderingSelfDependencyInfoMESA *rsd_info)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
    const struct brw_wm_prog_data *wm_prog_data = get_wm_prog_data(pipeline);
 
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_FRAGMENT)) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PS_EXTRA), ps);
+      anv_batch_emit(batch, GENX(3DSTATE_PS_EXTRA), ps);
       return;
    }
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PS_EXTRA), ps) {
+   anv_batch_emit(batch, GENX(3DSTATE_PS_EXTRA), ps) {
       ps.PixelShaderValid              = true;
       ps.AttributeEnable               = wm_prog_data->num_varying_inputs > 0;
       ps.oMaskPresenttoRenderTarget    = wm_prog_data->uses_omask;
@@ -2570,7 +2589,8 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
 static void
 emit_3dstate_vf_topology(struct anv_graphics_pipeline *pipeline)
 {
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VF_TOPOLOGY), vft) {
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   anv_batch_emit(batch, GENX(3DSTATE_VF_TOPOLOGY), vft) {
       vft.PrimitiveTopologyType = pipeline->topology;
    }
 }
@@ -2579,7 +2599,8 @@ emit_3dstate_vf_topology(struct anv_graphics_pipeline *pipeline)
 static void
 emit_3dstate_vf_statistics(struct anv_graphics_pipeline *pipeline)
 {
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_VF_STATISTICS), vfs) {
+   struct anv_batch *batch = &pipeline->base.base.batch;
+   anv_batch_emit(batch, GENX(3DSTATE_VF_STATISTICS), vfs) {
       vfs.StatisticsEnable = true;
    }
 }
@@ -2623,8 +2644,10 @@ static void
 emit_3dstate_primitive_replication(struct anv_graphics_pipeline *pipeline,
                                    const VkPipelineRenderingCreateInfo *rendering_info)
 {
-   if (!pipeline->use_primitive_replication) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PRIMITIVE_REPLICATION), pr);
+   struct anv_batch *batch = &pipeline->base.base.batch;
+
+   if (!pipeline->base.use_primitive_replication) {
+      anv_batch_emit(batch, GENX(3DSTATE_PRIMITIVE_REPLICATION), pr);
       return;
    }
 
@@ -2632,7 +2655,7 @@ emit_3dstate_primitive_replication(struct anv_graphics_pipeline *pipeline,
    int view_count = util_bitcount(view_mask);
    assert(view_count > 1 && view_count <= MAX_VIEWS_FOR_PRIMITIVE_REPLICATION);
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_PRIMITIVE_REPLICATION), pr) {
+   anv_batch_emit(batch, GENX(3DSTATE_PRIMITIVE_REPLICATION), pr) {
       pr.ReplicaMask = (1 << view_count) - 1;
       pr.ReplicationCount = view_count - 1;
 
@@ -2649,27 +2672,29 @@ emit_3dstate_primitive_replication(struct anv_graphics_pipeline *pipeline,
 static void
 emit_task_state(struct anv_graphics_pipeline *pipeline)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
    assert(anv_pipeline_is_mesh(pipeline));
 
    if (!anv_pipeline_has_stage(pipeline, MESA_SHADER_TASK)) {
-      anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_CONTROL), zero);
+      anv_batch_emit(batch, GENX(3DSTATE_TASK_CONTROL), zero);
       return;
    }
 
-   const struct anv_shader_bin *task_bin = pipeline->shaders[MESA_SHADER_TASK];
+   const struct anv_shader_bin *task_bin =
+      pipeline->base.shaders[MESA_SHADER_TASK];
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_CONTROL), tc) {
+   anv_batch_emit(batch, GENX(3DSTATE_TASK_CONTROL), tc) {
       tc.TaskShaderEnable = true;
       tc.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_TASK, task_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_TASK, task_bin);
    }
 
-   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   const struct intel_device_info *devinfo = &pipeline->base.base.device->info;
    const struct brw_task_prog_data *task_prog_data = get_task_prog_data(pipeline);
    const struct brw_cs_dispatch_info task_dispatch =
       brw_cs_get_dispatch_info(devinfo, &task_prog_data->base, NULL);
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_SHADER), task) {
+   anv_batch_emit(batch, GENX(3DSTATE_TASK_SHADER), task) {
       task.KernelStartPointer                = task_bin->kernel.offset;
       task.SIMDSize                          = task_dispatch.simd_size / 16;
       task.MessageSIMD                       = task.SIMDSize;
@@ -2693,7 +2718,7 @@ emit_task_state(struct anv_graphics_pipeline *pipeline)
    }
 
    /* Recommended values from "Task and Mesh Distribution Programming". */
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_REDISTRIB), redistrib) {
+   anv_batch_emit(batch, GENX(3DSTATE_TASK_REDISTRIB), redistrib) {
       redistrib.LocalBOTAccumulatorThreshold = MULTIPLIER_1;
       redistrib.SmallTaskThreshold = MULTIPLIER_2;
       redistrib.TargetMeshBatchSize = MULTIPLIER_4;
@@ -2705,19 +2730,20 @@ emit_task_state(struct anv_graphics_pipeline *pipeline)
 static void
 emit_mesh_state(struct anv_graphics_pipeline *pipeline)
 {
+   struct anv_batch *batch = &pipeline->base.base.batch;
    assert(anv_pipeline_is_mesh(pipeline));
 
-   const struct anv_shader_bin *mesh_bin = pipeline->shaders[MESA_SHADER_MESH];
+   const struct anv_shader_bin *mesh_bin = pipeline->base.shaders[MESA_SHADER_MESH];
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_CONTROL), mc) {
+   anv_batch_emit(batch, GENX(3DSTATE_MESH_CONTROL), mc) {
       mc.MeshShaderEnable = true;
       mc.ScratchSpaceBuffer =
-         get_scratch_surf(&pipeline->base, MESA_SHADER_MESH, mesh_bin);
+         get_scratch_surf(&pipeline->base.base, MESA_SHADER_MESH, mesh_bin);
 
       /* TODO(mesh): MaximumNumberofThreadGroups. */
    }
 
-   const struct intel_device_info *devinfo = &pipeline->base.device->info;
+   const struct intel_device_info *devinfo = &pipeline->base.base.device->info;
    const struct brw_mesh_prog_data *mesh_prog_data = get_mesh_prog_data(pipeline);
    const struct brw_cs_dispatch_info mesh_dispatch =
       brw_cs_get_dispatch_info(devinfo, &mesh_prog_data->base, NULL);
@@ -2736,7 +2762,7 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
       unreachable("invalid index format");
    }
 
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_SHADER), mesh) {
+   anv_batch_emit(batch, GENX(3DSTATE_MESH_SHADER), mesh) {
       mesh.KernelStartPointer                = mesh_bin->kernel.offset;
       mesh.SIMDSize                          = mesh_dispatch.simd_size / 16;
       mesh.MessageSIMD                       = mesh.SIMDSize;
@@ -2767,7 +2793,7 @@ emit_mesh_state(struct anv_graphics_pipeline *pipeline)
    }
 
    /* Recommended values from "Task and Mesh Distribution Programming". */
-   anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_DISTRIB), distrib) {
+   anv_batch_emit(batch, GENX(3DSTATE_MESH_DISTRIB), distrib) {
       distrib.DistributionMode = MESH_RR_FREE;
       distrib.TaskDistributionBatchSize = 2; /* 2^2 thread groups */
       distrib.MeshDistributionBatchSize = 3; /* 2^3 thread groups */
@@ -2830,7 +2856,7 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
       emit_3dstate_gs(pipeline);
 
 #if GFX_VER >= 8
-      if (!(pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY))
+      if (!(pipeline->base.dynamic_states & ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY))
          emit_3dstate_vf_topology(pipeline);
 #endif
 
@@ -2841,11 +2867,12 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
       emit_3dstate_streamout(pipeline, info->rs);
 
 #if GFX_VERx10 >= 125
-      const struct anv_device *device = pipeline->base.device;
+      const struct anv_device *device = pipeline->base.base.device;
       /* Disable Mesh. */
       if (device->physical->vk.supported_extensions.NV_mesh_shader) {
-         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_MESH_CONTROL), zero);
-         anv_batch_emit(&pipeline->base.batch, GENX(3DSTATE_TASK_CONTROL), zero);
+         struct anv_batch *batch = &pipeline->base.base.batch;
+         anv_batch_emit(batch, GENX(3DSTATE_MESH_CONTROL), zero);
+         anv_batch_emit(batch, GENX(3DSTATE_TASK_CONTROL), zero);
       }
 #endif
    } else {
@@ -2871,7 +2898,7 @@ genX(graphics_pipeline_emit)(struct anv_graphics_pipeline *pipeline,
 void
 genX(compute_pipeline_emit)(struct anv_compute_pipeline *pipeline)
 {
-   struct anv_device *device = pipeline->base.device;
+   const struct anv_device *device = pipeline->base.device;
    const struct brw_cs_prog_data *cs_prog_data = get_cs_prog_data(pipeline);
    anv_pipeline_setup_l3_config(&pipeline->base, cs_prog_data->base.total_shared > 0);
 
@@ -2891,7 +2918,7 @@ genX(compute_pipeline_emit)(struct anv_compute_pipeline *pipeline)
 void
 genX(compute_pipeline_emit)(struct anv_compute_pipeline *pipeline)
 {
-   struct anv_device *device = pipeline->base.device;
+   const struct anv_device *device = pipeline->base.device;
    const struct intel_device_info *devinfo = &device->info;
    const struct brw_cs_prog_data *cs_prog_data = get_cs_prog_data(pipeline);
 
