@@ -2475,7 +2475,7 @@ static void
 cmd_buffer_alloc_push_constants(struct anv_cmd_buffer *cmd_buffer)
 {
    VkShaderStageFlags stages =
-      cmd_buffer->state.gfx.pipeline->active_stages;
+      cmd_buffer->state.gfx.pipeline->base.active_stages;
 
    /* In order to avoid thrash, we assume that vertex and fragment stages
     * always exist.  In the rare case where one is missing *and* the other
@@ -3185,7 +3185,7 @@ cmd_buffer_emit_push_constant(struct anv_cmd_buffer *cmd_buffer,
 
       if (anv_pipeline_has_stage(pipeline, stage)) {
          const struct anv_pipeline_bind_map *bind_map =
-            &pipeline->shaders[stage]->bind_map;
+            &pipeline->base.shaders[stage]->bind_map;
 
 #if GFX_VERx10 >= 75
          /* The Skylake PRM contains the following restriction:
@@ -3268,7 +3268,7 @@ cmd_buffer_emit_push_constant_all(struct anv_cmd_buffer *cmd_buffer,
    assert(stage < ARRAY_SIZE(push_constant_opcodes));
 
    const struct anv_pipeline_bind_map *bind_map =
-      &pipeline->shaders[stage]->bind_map;
+      &pipeline->base.shaders[stage]->bind_map;
 
    uint32_t *dw;
    const uint32_t buffer_mask = (1 << buffer_count) - 1;
@@ -3311,7 +3311,7 @@ cmd_buffer_flush_push_constants(struct anv_cmd_buffer *cmd_buffer,
          if (!anv_pipeline_has_stage(pipeline, stage))
             continue;
 
-         const struct anv_shader_bin *shader = pipeline->shaders[stage];
+         const struct anv_shader_bin *shader = pipeline->base.shaders[stage];
          const struct anv_pipeline_bind_map *bind_map = &shader->bind_map;
          struct anv_push_constants *push = &gfx_state->base.push_constants;
 
@@ -3356,7 +3356,7 @@ cmd_buffer_flush_push_constants(struct anv_cmd_buffer *cmd_buffer,
 
       struct anv_address buffers[4] = {};
       if (anv_pipeline_has_stage(pipeline, stage)) {
-         const struct anv_shader_bin *shader = pipeline->shaders[stage];
+         const struct anv_shader_bin *shader = pipeline->base.shaders[stage];
          const struct anv_pipeline_bind_map *bind_map = &shader->bind_map;
 
          /* We have to gather buffer addresses as a second step because the
@@ -3423,7 +3423,7 @@ cmd_buffer_flush_mesh_inline_data(struct anv_cmd_buffer *cmd_buffer,
    if (dirty_stages & VK_SHADER_STAGE_TASK_BIT_NV &&
        anv_pipeline_has_stage(pipeline, MESA_SHADER_TASK)) {
 
-      const struct anv_shader_bin *shader = pipeline->shaders[MESA_SHADER_TASK];
+      const struct anv_shader_bin *shader = pipeline->base.shaders[MESA_SHADER_TASK];
       const struct anv_pipeline_bind_map *bind_map = &shader->bind_map;
 
       anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_TASK_SHADER_DATA), data) {
@@ -3446,7 +3446,7 @@ cmd_buffer_flush_mesh_inline_data(struct anv_cmd_buffer *cmd_buffer,
    if (dirty_stages & VK_SHADER_STAGE_MESH_BIT_NV &&
        anv_pipeline_has_stage(pipeline, MESA_SHADER_MESH)) {
 
-      const struct anv_shader_bin *shader = pipeline->shaders[MESA_SHADER_MESH];
+      const struct anv_shader_bin *shader = pipeline->base.shaders[MESA_SHADER_MESH];
       const struct anv_pipeline_bind_map *bind_map = &shader->bind_map;
 
       anv_batch_emit(&cmd_buffer->batch, GENX(3DSTATE_MESH_SHADER_DATA), data) {
@@ -3490,7 +3490,7 @@ cmd_buffer_emit_clip(struct anv_cmd_buffer *cmd_buffer)
     */
    bool xy_clip_test_enable = 0;
 
-   if (cmd_buffer->state.gfx.pipeline->dynamic_states &
+   if (cmd_buffer->state.gfx.pipeline->base.dynamic_states &
        ANV_CMD_DIRTY_DYNAMIC_PRIMITIVE_TOPOLOGY) {
       VkPrimitiveTopology primitive_topology =
          cmd_buffer->state.gfx.dynamic.primitive_topology;
@@ -3789,9 +3789,9 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
    struct anv_graphics_pipeline *pipeline = cmd_buffer->state.gfx.pipeline;
    uint32_t *p;
 
-   assert((pipeline->active_stages & VK_SHADER_STAGE_COMPUTE_BIT) == 0);
+   assert((pipeline->base.active_stages & VK_SHADER_STAGE_COMPUTE_BIT) == 0);
 
-   genX(cmd_buffer_config_l3)(cmd_buffer, pipeline->base.l3_config);
+   genX(cmd_buffer_config_l3)(cmd_buffer, pipeline->base.base.l3_config);
 
    genX(cmd_buffer_emit_hashing_mode)(cmd_buffer, UINT_MAX, UINT_MAX, 1);
 
@@ -3888,7 +3888,7 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
    cmd_buffer->state.gfx.vb_dirty &= ~vb_emit;
 
    uint32_t descriptors_dirty = cmd_buffer->state.descriptors_dirty &
-                                pipeline->active_stages;
+                                pipeline->base.active_stages;
    if (!cmd_buffer->state.gfx.dirty && !descriptors_dirty &&
        !cmd_buffer->state.push_constants_dirty)
       return;
@@ -3961,7 +3961,7 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
    }
 
    if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_PIPELINE) {
-      anv_batch_emit_batch(&cmd_buffer->batch, &pipeline->base.batch);
+      anv_batch_emit_batch(&cmd_buffer->batch, &pipeline->base.base.batch);
 
       /* If the pipeline changed, we may need to re-allocate push constant
        * space in the URB.
@@ -4010,8 +4010,8 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
       dirty = flush_descriptor_sets(cmd_buffer,
                                     &cmd_buffer->state.gfx.base,
                                     descriptors_dirty,
-                                    pipeline->shaders,
-                                    ARRAY_SIZE(pipeline->shaders));
+                                    pipeline->base.shaders,
+                                    ARRAY_SIZE(pipeline->base.shaders));
       cmd_buffer->state.descriptors_dirty &= ~dirty;
    }
 
@@ -4202,7 +4202,7 @@ void genX(CmdDraw)(
 
    const uint32_t count = (vertexCount *
                            instanceCount *
-                           (pipeline->use_primitive_replication ?
+                           (pipeline->base.use_primitive_replication ?
                             1 : anv_cmd_buffer_get_view_count(cmd_buffer)));
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
@@ -4221,7 +4221,7 @@ void genX(CmdDraw)(
    /* Our implementation of VK_KHR_multiview uses instancing to draw the
     * different views.  We need to multiply instanceCount by the view count.
     */
-   if (!pipeline->use_primitive_replication)
+   if (!pipeline->base.use_primitive_replication)
       instanceCount *= anv_cmd_buffer_get_view_count(cmd_buffer);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(3DPRIMITIVE), prim) {
@@ -4257,7 +4257,7 @@ void genX(CmdDrawMultiEXT)(
 
    const uint32_t count = (drawCount *
                            instanceCount *
-                           (pipeline->use_primitive_replication ?
+                           (pipeline->base.use_primitive_replication ?
                             1 : anv_cmd_buffer_get_view_count(cmd_buffer)));
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
@@ -4272,7 +4272,7 @@ void genX(CmdDrawMultiEXT)(
    /* Our implementation of VK_KHR_multiview uses instancing to draw the
     * different views.  We need to multiply instanceCount by the view count.
     */
-   if (!pipeline->use_primitive_replication)
+   if (!pipeline->base.use_primitive_replication)
       instanceCount *= anv_cmd_buffer_get_view_count(cmd_buffer);
 
    uint32_t i = 0;
@@ -4315,7 +4315,7 @@ void genX(CmdDrawIndexed)(
 
    const uint32_t count = (indexCount *
                            instanceCount *
-                           (pipeline->use_primitive_replication ?
+                           (pipeline->base.use_primitive_replication ?
                             1 : anv_cmd_buffer_get_view_count(cmd_buffer)));
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
@@ -4333,7 +4333,7 @@ void genX(CmdDrawIndexed)(
    /* Our implementation of VK_KHR_multiview uses instancing to draw the
     * different views.  We need to multiply instanceCount by the view count.
     */
-   if (!pipeline->use_primitive_replication)
+   if (!pipeline->base.use_primitive_replication)
       instanceCount *= anv_cmd_buffer_get_view_count(cmd_buffer);
 
    anv_batch_emit(&cmd_buffer->batch, GENX(3DPRIMITIVE), prim) {
@@ -4370,7 +4370,7 @@ void genX(CmdDrawMultiIndexedEXT)(
 
    const uint32_t count = (drawCount *
                            instanceCount *
-                           (pipeline->use_primitive_replication ?
+                           (pipeline->base.use_primitive_replication ?
                             1 : anv_cmd_buffer_get_view_count(cmd_buffer)));
    anv_measure_snapshot(cmd_buffer,
                         INTEL_SNAPSHOT_DRAW,
@@ -4386,7 +4386,7 @@ void genX(CmdDrawMultiIndexedEXT)(
    /* Our implementation of VK_KHR_multiview uses instancing to draw the
     * different views.  We need to multiply instanceCount by the view count.
     */
-   if (!pipeline->use_primitive_replication)
+   if (!pipeline->base.use_primitive_replication)
       instanceCount *= anv_cmd_buffer_get_view_count(cmd_buffer);
 
    uint32_t i = 0;
@@ -4521,7 +4521,7 @@ void genX(CmdDrawIndirectByteCountEXT)(
    /* Our implementation of VK_KHR_multiview uses instancing to draw the
     * different views.  We need to multiply instanceCount by the view count.
     */
-   if (!pipeline->use_primitive_replication)
+   if (!pipeline->base.use_primitive_replication)
       instanceCount *= anv_cmd_buffer_get_view_count(cmd_buffer);
 
    struct mi_builder b;

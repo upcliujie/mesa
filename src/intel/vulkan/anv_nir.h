@@ -32,10 +32,10 @@ extern "C" {
 #endif
 
 bool anv_check_for_primitive_replication(nir_shader **shaders,
-                                         struct anv_graphics_pipeline *pipeline);
+                                         struct anv_graphics_pipeline_base *pipeline);
 
 bool anv_nir_lower_multiview(nir_shader *shader,
-                             struct anv_graphics_pipeline *pipeline);
+                             struct anv_graphics_pipeline_base *pipeline);
 
 bool anv_nir_lower_ycbcr_textures(nir_shader *shader,
                                   const struct anv_pipeline_layout *layout);

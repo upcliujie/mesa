@@ -580,9 +580,9 @@ void anv_CmdBindPipeline(
       cmd_buffer->state.gfx.vb_dirty |= gfx_pipeline->vb_used;
       cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_PIPELINE;
 
-      anv_foreach_stage(stage, gfx_pipeline->active_stages) {
+      anv_foreach_stage(stage, gfx_pipeline->base.active_stages) {
          set_dirty_for_bind_map(cmd_buffer, stage,
-                                &gfx_pipeline->shaders[stage]->bind_map);
+                                &gfx_pipeline->base.shaders[stage]->bind_map);
       }
 
       /* Apply the non dynamic state from the pipeline */
@@ -592,7 +592,7 @@ void anv_CmdBindPipeline(
                                 gfx_pipeline->non_dynamic_state_mask);
 
       state = &cmd_buffer->state.gfx.base;
-      stages = gfx_pipeline->active_stages;
+      stages = gfx_pipeline->base.active_stages;
       break;
    }
 
