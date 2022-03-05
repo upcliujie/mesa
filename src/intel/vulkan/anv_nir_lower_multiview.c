@@ -167,7 +167,7 @@ replace_load_view_index_with_zero(struct nir_builder *b,
 
 bool
 anv_nir_lower_multiview(nir_shader *shader,
-                        struct anv_graphics_pipeline *pipeline)
+                        struct anv_graphics_pipeline_base *pipeline)
 {
    assert(shader->info.stage != MESA_SHADER_COMPUTE);
    uint32_t view_mask = pipeline->view_mask;
@@ -288,7 +288,7 @@ anv_nir_lower_multiview(nir_shader *shader,
 
 bool
 anv_check_for_primitive_replication(nir_shader **shaders,
-                                    struct anv_graphics_pipeline *pipeline)
+                                    struct anv_graphics_pipeline_base *pipeline)
 {
    assert(pipeline->base.device->info.ver >= 12);
 
