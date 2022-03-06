@@ -339,6 +339,8 @@ typedef enum VkCommandTypeEXT {
     VK_COMMAND_TYPE_vkNotifyRingMESA_EXT = 190,
     VK_COMMAND_TYPE_vkWriteRingExtraMESA_EXT = 191,
     VK_COMMAND_TYPE_vkGetMemoryResourcePropertiesMESA_EXT = 192,
+    VK_COMMAND_TYPE_vkRingSubmitRoundtripMESA_EXT = 238,
+    VK_COMMAND_TYPE_vkRingWaitRoundtripMESA_EXT = 239,
     VK_COMMAND_TYPE_vkGetVenusExperimentalFeatureData100000MESA_EXT = 195,
 } VkCommandTypeEXT;
 
@@ -398,6 +400,7 @@ typedef struct VkVenusExperimentalFeatures100000MESA {
     VkBool32 memoryResourceAllocationSize;
     VkBool32 globalFencing;
     VkBool32 largeRing;
+    VkBool32 asyncRoundtrip;
 } VkVenusExperimentalFeatures100000MESA;
 
 typedef struct VkMemoryResourceAllocationSizeProperties100000MESA {
