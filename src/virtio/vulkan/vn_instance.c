@@ -222,10 +222,12 @@ vn_instance_init_experimental_features(struct vn_instance *instance)
              "VkVenusExperimentalFeatures100000MESA is as below:"
              "\n\tmemoryResourceAllocationSize = %u"
              "\n\tglobalFencing = %u"
-             "\n\tlargeRing = %u",
+             "\n\tlargeRing = %u"
+             "\n\tasyncRoundtrip = %u",
              instance->experimental.memoryResourceAllocationSize,
              instance->experimental.globalFencing,
-             instance->experimental.largeRing);
+             instance->experimental.largeRing,
+             instance->experimental.asyncRoundtrip);
    }
 
    return VK_SUCCESS;
@@ -301,17 +303,23 @@ VkResult
 vn_instance_submit_roundtrip(struct vn_instance *instance,
                              uint32_t *roundtrip_seqno)
 {
-   uint32_t write_ring_extra_data[8];
-   struct vn_cs_encoder local_enc = VN_CS_ENCODER_INITIALIZER_LOCAL(
-      write_ring_extra_data, sizeof(write_ring_extra_data));
+   uint32_t local_enc_data[8];
+   struct vn_cs_encoder local_enc =
+      VN_CS_ENCODER_INITIALIZER_LOCAL(local_enc_data, sizeof(local_enc_data));
 
-   /* submit a vkWriteRingExtraMESA through the renderer */
    mtx_lock(&instance->ring.roundtrip_mutex);
    const uint32_t seqno = instance->ring.roundtrip_next++;
-   vn_encode_vkWriteRingExtraMESA(&local_enc, 0, instance->ring.id, 0, seqno);
-   VkResult result =
-      vn_renderer_submit_simple(instance->renderer, write_ring_extra_data,
-                                vn_cs_encoder_get_len(&local_enc));
+   if (instance->experimental.asyncRoundtrip) {
+      vn_encode_vkRingSubmitRoundtripMESA(&local_enc, 0, instance->ring.id,
+                                          seqno);
+   } else {
+      vn_encode_vkWriteRingExtraMESA(&local_enc, 0, instance->ring.id, 0,
+                                     seqno);
+   }
+
+   /* submit through the renderer */
+   VkResult result = vn_renderer_submit_simple(
+      instance->renderer, local_enc_data, vn_cs_encoder_get_len(&local_enc));
    mtx_unlock(&instance->ring.roundtrip_mutex);
 
    *roundtrip_seqno = seqno;
@@ -330,6 +338,13 @@ vn_instance_wait_roundtrip(struct vn_instance *instance,
                            uint32_t roundtrip_seqno)
 {
    VN_TRACE_FUNC();
+
+   if (instance->experimental.asyncRoundtrip) {
+      vn_async_vkRingWaitRoundtripMESA(instance, instance->ring.id,
+                                       roundtrip_seqno);
+      return;
+   }
+
    const struct vn_ring *ring = &instance->ring.ring;
    const volatile atomic_uint *ptr = ring->shared.extra;
    uint32_t iter = 0;
