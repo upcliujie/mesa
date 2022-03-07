@@ -46,7 +46,7 @@ struct radv_amdgpu_fence {
 struct radv_amdgpu_ctx {
    struct radv_amdgpu_winsys *ws;
    amdgpu_context_handle ctx;
-   struct radv_amdgpu_fence last_submission[AMDGPU_HW_IP_DMA + 1][MAX_RINGS_PER_TYPE];
+   struct radv_amdgpu_fence last_submission[AMDGPU_HW_IP_NUM + 1][MAX_RINGS_PER_TYPE];
 
    struct radeon_winsys_bo *fence_bo;
 
