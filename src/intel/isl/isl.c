@@ -1743,6 +1743,7 @@ isl_calc_row_pitch(const struct isl_device *dev,
    const uint32_t min_row_pitch_B =
       isl_calc_min_row_pitch(dev, surf_info, tile_info, phys_total_el,
                              alignment_B);
+   assert(min_row_pitch_B > 0);
 
    if (surf_info->row_pitch_B != 0) {
       if (surf_info->row_pitch_B < min_row_pitch_B)
@@ -1756,9 +1757,6 @@ isl_calc_row_pitch(const struct isl_device *dev,
       surf_info->row_pitch_B != 0 ? surf_info->row_pitch_B : min_row_pitch_B;
 
    const uint32_t row_pitch_tl = row_pitch_B / tile_info->phys_extent_B.width;
-
-   if (row_pitch_B == 0)
-      return false;
 
    if (dim_layout == ISL_DIM_LAYOUT_GFX9_1D) {
       /* SurfacePitch is ignored for this layout. */
