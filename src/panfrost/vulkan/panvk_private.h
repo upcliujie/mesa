@@ -686,6 +686,7 @@ struct panvk_cmd_state {
    VkViewport viewport;
    VkRect2D scissor;
 
+   void *desc_pool_cpu_base;
    struct panvk_batch *batch;
 };
 

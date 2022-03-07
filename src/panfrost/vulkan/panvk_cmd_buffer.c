@@ -538,6 +538,10 @@ panvk_cmd_open_batch(struct panvk_cmd_buffer *cmdbuf)
    cmdbuf->state.batch = vk_zalloc(&cmdbuf->pool->vk.alloc,
                                    sizeof(*cmdbuf->state.batch), 8,
                                    VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+
+   if (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY)
+      cmdbuf->state.desc_pool_cpu_base = cmdbuf->desc_pool.cpu_bo.ptr.cpu;
+
    assert(cmdbuf->state.batch);
    return cmdbuf->state.batch;
 }

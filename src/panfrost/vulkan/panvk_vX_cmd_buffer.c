@@ -170,6 +170,11 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
 
    list_addtail(&batch->node, &cmdbuf->batches);
 
+   if (cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+      cmdbuf->state.batch = NULL;
+      return;
+   }
+
    if (batch->scoreboard.first_tiler) {
       /* Make sure the CPU-remapping (if any) happens before
        * pan_preload_fb(). 16k of descriptors should be more than enough
@@ -457,12 +462,20 @@ panvk_cmd_prepare_ubos(struct panvk_cmd_buffer *cmdbuf,
    panvk_cmd_prepare_sysvals(cmdbuf, bind_point_state);
    panvk_cmd_prepare_push_constants(cmdbuf, bind_point_state);
 
+   uint32_t num_ubos =
+      pipeline->num_ubos +
+      (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY ? 1 : 0);
    struct panfrost_ptr ubos =
       pan_pool_alloc_desc_array(&cmdbuf->desc_pool.base,
-                                pipeline->num_ubos,
+                                num_ubos,
                                 UNIFORM_BUFFER);
 
    panvk_per_arch(emit_ubos)(pipeline, desc_state, ubos.cpu);
+
+   if (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
+      memset(ubos.cpu + (pan_size(UNIFORM_BUFFER) * pipeline->num_ubos),
+             0, pan_size(UNIFORM_BUFFER));
+   }
 
    desc_state->ubos = ubos.gpu;
 }
@@ -607,7 +620,9 @@ panvk_per_arch(cmd_get_tiler_context)(struct panvk_cmd_buffer *cmdbuf,
 {
    struct panvk_batch *batch = cmdbuf->state.batch;
 
-   if (batch->tiler.descs.cpu)
+   if (batch->tiler.descs.cpu ||
+       (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY &&
+        (cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT)))
       return;
 
    batch->tiler.descs =
@@ -666,11 +681,18 @@ panvk_draw_prepare_varyings(struct panvk_cmd_buffer *cmdbuf,
    panvk_varyings_alloc(varyings, &cmdbuf->varying_pool.base,
                         draw->padded_vertex_count * draw->instance_count);
 
-   unsigned buf_count = panvk_varyings_buf_count(varyings);
+   unsigned buf_count =
+      panvk_varyings_buf_count(varyings) +
+      (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY ? 1 : 0);
    struct panfrost_ptr bufs =
       pan_pool_alloc_desc_array(&cmdbuf->desc_pool.base,
                                 buf_count + (PAN_ARCH >= 6 ? 1 : 0),
                                 ATTRIBUTE_BUFFER);
+
+   if (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
+      memset(bufs.cpu + (pan_size(ATTRIBUTE_BUFFER) * (buf_count - 1)),
+             0, pan_size(ATTRIBUTE_BUFFER));
+   }
 
    panvk_per_arch(emit_varying_bufs)(varyings, bufs.cpu);
 
@@ -1381,7 +1403,8 @@ panvk_per_arch(AllocateCommandBuffers)(VkDevice _device,
    for (i = 0; i < pAllocateInfo->commandBufferCount; i++) {
       struct panvk_cmd_buffer *cmdbuf = NULL;
 
-      if (!list_is_empty(&pool->free_cmd_buffers)) {
+      if (pAllocateInfo->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY &&
+          !list_is_empty(&pool->free_cmd_buffers)) {
          cmdbuf = list_first_entry(
             &pool->free_cmd_buffers, struct panvk_cmd_buffer, pool_link);
 
@@ -1421,7 +1444,8 @@ panvk_per_arch(FreeCommandBuffers)(VkDevice device,
       VK_FROM_HANDLE(panvk_cmd_buffer, cmdbuf, pCommandBuffers[i]);
 
       if (cmdbuf) {
-         if (cmdbuf->pool) {
+         if (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_PRIMARY &&
+             cmdbuf->pool) {
             list_del(&cmdbuf->pool_link);
             panvk_reset_cmdbuf(cmdbuf);
             list_addtail(&cmdbuf->pool_link,
@@ -1458,6 +1482,22 @@ panvk_per_arch(BeginCommandBuffer)(VkCommandBuffer commandBuffer,
    }
 
    memset(&cmdbuf->state, 0, sizeof(cmdbuf->state));
+
+   cmdbuf->usage_flags = pBeginInfo->flags;
+   if (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
+      if (cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+         cmdbuf->state.pass = panvk_render_pass_from_handle(pBeginInfo->pInheritanceInfo->renderPass);
+         cmdbuf->state.subpass = &cmdbuf->state.pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
+         memset(&cmdbuf->state.render_area, 0, sizeof(cmdbuf->state.render_area));
+         cmdbuf->state.batch = vk_zalloc(&cmdbuf->pool->vk.alloc,
+                                         sizeof(*cmdbuf->state.batch), 8,
+                                         VK_SYSTEM_ALLOCATION_SCOPE_COMMAND);
+         util_dynarray_init(&cmdbuf->state.batch->jobs, NULL);
+         util_dynarray_init(&cmdbuf->state.batch->event_ops, NULL);
+         cmdbuf->state.clear = NULL;
+         memset(&cmdbuf->state.fb.info, 0, sizeof(cmdbuf->state.fb.info));
+      }
+   }
 
    cmdbuf->status = PANVK_CMD_BUFFER_STATUS_RECORDING;
 

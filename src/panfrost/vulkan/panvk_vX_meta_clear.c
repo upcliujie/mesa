@@ -381,9 +381,11 @@ panvk_meta_clear_attachment(struct panvk_cmd_buffer *cmdbuf,
    unsigned maxx = MAX2(clear_rect->rect.offset.x + clear_rect->rect.extent.width - 1, 0);
    unsigned maxy = MAX2(clear_rect->rect.offset.y + clear_rect->rect.extent.height - 1, 0);
 
-   panvk_per_arch(cmd_alloc_fb_desc)(cmdbuf);
-   panvk_per_arch(cmd_alloc_tls_desc)(cmdbuf, true);
-   panvk_per_arch(cmd_prepare_tiler_context)(cmdbuf);
+   if (!(cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT)) {
+      panvk_per_arch(cmd_alloc_fb_desc)(cmdbuf);
+      panvk_per_arch(cmd_alloc_tls_desc)(cmdbuf, true);
+      panvk_per_arch(cmd_prepare_tiler_context)(cmdbuf);
+   }
 
    mali_ptr vpd =
       panvk_per_arch(meta_emit_viewport)(&cmdbuf->desc_pool.base,
