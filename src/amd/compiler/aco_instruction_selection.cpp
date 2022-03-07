@@ -9462,7 +9462,9 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
 
    /* Build tex instruction */
    unsigned dmask = nir_ssa_def_components_read(&instr->dest.ssa) & 0xf;
-   if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF)
+   bool d16 = instr->dest.ssa.bit_size == 16;
+   /* D16 dmask can have holes, but it is easier to optimize this way */
+   if (instr->sampler_dim == GLSL_SAMPLER_DIM_BUF || d16)
       dmask = u_bit_consecutive(0, util_last_bit(dmask));
    if (instr->is_sparse)
       dmask = MAX2(dmask, 1) | 0x10;
@@ -9470,7 +9472,7 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
       ctx->options->chip_class >= GFX10 && instr->sampler_dim != GLSL_SAMPLER_DIM_BUF
          ? ac_get_sampler_dim(ctx->options->chip_class, instr->sampler_dim, instr->is_array)
          : 0;
-   bool d16 = instr->dest.ssa.bit_size == 16;
+
    Temp dst = get_ssa_temp(ctx, &instr->dest.ssa);
    Temp tmp_dst = dst;
 
@@ -9485,6 +9487,9 @@ visit_tex(isel_context* ctx, nir_tex_instr* instr)
          tmp_dst = bld.tmp(instr->is_sparse ? v5 : (d16 ? v2 : v4));
    } else if (instr->op == nir_texop_fragment_mask_fetch_amd) {
       tmp_dst = bld.tmp(v1);
+   } else if (d16) {
+      if (dmask == 0x1 || dmask == 0x3)
+         tmp_dst = bld.tmp(v1);
    } else if (util_bitcount(dmask) != instr->dest.ssa.num_components ||
               dst.type() == RegType::sgpr) {
       unsigned bytes = util_bitcount(dmask) * instr->dest.ssa.bit_size / 8;
