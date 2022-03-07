@@ -684,12 +684,11 @@ panvk_fill_non_vs_attribs(struct panvk_cmd_buffer *cmdbuf,
       offset = img_idx * pan_size(ATTRIBUTE);
       for (unsigned i = 0; i < layout->num_imgs; i++) {
          pan_pack(attribs + offset, ATTRIBUTE, cfg) {
-            cfg.buffer_index = first_buf + (img_idx * 2);
+            cfg.buffer_index = first_buf + (img_idx + i) * 2;
             cfg.format = desc_state->sets[s]->img_fmts[i];
             cfg.offset_enable = PAN_ARCH <= 5;
          }
          offset += pan_size(ATTRIBUTE);
-         img_idx++;
       }
    }
 }
@@ -789,16 +788,14 @@ panvk_draw_prepare_attributes(struct panvk_cmd_buffer *cmdbuf,
    const struct panvk_pipeline *pipeline = bind_point_state->pipeline;
 
    for (unsigned i = 0; i < ARRAY_SIZE(draw->stages); i++) {
-      if (i != MESA_SHADER_VERTEX) {
-         if (pipeline->img_access_mask & BITFIELD_BIT(i)) {
-            panvk_prepare_non_vs_attribs(cmdbuf, bind_point_state);
-            draw->stages[i].attributes = desc_state->non_vs_attribs;
-            draw->stages[i].attribute_bufs = desc_state->non_vs_attrib_bufs;
-         }
-      } else {
+      if (i == MESA_SHADER_VERTEX) {
          panvk_draw_prepare_vs_attribs(cmdbuf, draw);
          draw->stages[i].attributes = desc_state->vs_attribs;
          draw->stages[i].attribute_bufs = desc_state->vs_attrib_bufs;
+      } else if (pipeline->img_access_mask & BITFIELD_BIT(i)) {
+         panvk_prepare_non_vs_attribs(cmdbuf, bind_point_state);
+         draw->stages[i].attributes = desc_state->non_vs_attribs;
+         draw->stages[i].attribute_bufs = desc_state->non_vs_attrib_bufs;
       }
    }
 }
