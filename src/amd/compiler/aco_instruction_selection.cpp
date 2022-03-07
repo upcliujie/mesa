@@ -337,7 +337,14 @@ void
 emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, Temp dst)
 {
    Builder bld(ctx->program, ctx->block);
-   bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand::c32(idx));
+   if (dst.regClass() == v2b && src.regClass() == v1) {
+      /* D16 subdword split */
+      Definition def0 = idx == 0 ? Definition(dst) : bld.def(v2b);
+      Definition def1 = idx == 0 ? bld.def(v2b) : Definition(dst);
+      bld.pseudo(aco_opcode::p_split_vector, def0, def1, src);
+   } else {
+      bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand::c32(idx));
+   }
 }
 
 Temp
