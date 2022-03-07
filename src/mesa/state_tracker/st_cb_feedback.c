@@ -291,12 +291,17 @@ st_RenderMode(struct gl_context *ctx, GLenum newMode )
       st_init_draw_functions(st->screen, &ctx->Driver);
    }
    else if (newMode == GL_SELECT) {
-      if (!st->selection_stage)
-         st->selection_stage = draw_glselect_stage(ctx, draw);
-      draw_set_rasterize_stage(draw, st->selection_stage);
-      /* Plug in new vbo draw function */
-      ctx->Driver.DrawGallium = _mesa_draw_gallium_fallback;
-      ctx->Driver.DrawGalliumMultiMode = _mesa_draw_gallium_multimode_fallback;
+      /* HW select use normal VBO draw function */
+      if (ctx->Const.HardwareAcceleratedSelect)
+         st_init_draw_functions(st->screen, &ctx->Driver);
+      else {
+         if (!st->selection_stage)
+            st->selection_stage = draw_glselect_stage(ctx, draw);
+         draw_set_rasterize_stage(draw, st->selection_stage);
+         /* Plug in new vbo draw function */
+         ctx->Driver.DrawGallium = _mesa_draw_gallium_fallback;
+         ctx->Driver.DrawGalliumMultiMode = _mesa_draw_gallium_multimode_fallback;
+      }
    }
    else {
       struct gl_program *vp = st->ctx->VertexProgram._Current;
