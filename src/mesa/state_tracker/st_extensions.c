@@ -1153,6 +1153,8 @@ void st_init_extensions(struct pipe_screen *screen,
    consts->PrimitiveRestartFixedIndex =
       screen->get_param(screen, PIPE_CAP_PRIMITIVE_RESTART_FIXED_INDEX);
 
+   consts->HardwareAcceleratedSelect = false;
+
    /* Technically we are turning on the EXT_gpu_shader5 extension,
     * ARB_gpu_shader5 does not exist in GLES, but this flag is what
     * switches on EXT_gpu_shader5:
