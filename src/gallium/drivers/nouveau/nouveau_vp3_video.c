@@ -444,6 +444,10 @@ nouveau_vp3_screen_get_video_param(struct pipe_screen *pscreen,
    switch (param) {
    case PIPE_VIDEO_CAP_SUPPORTED:
       /* VP3 does not support MPEG4, VP4+ do. */
+#ifndef VIDEO_CODEC_H264DEC
+      if (profile == PIPE_VIDEO_PROFILE_MPEG4_AVC)
+         return false;
+#endif
       return entrypoint == PIPE_VIDEO_ENTRYPOINT_BITSTREAM &&
          profile >= PIPE_VIDEO_PROFILE_MPEG1 &&
          profile < PIPE_VIDEO_PROFILE_HEVC_MAIN &&
