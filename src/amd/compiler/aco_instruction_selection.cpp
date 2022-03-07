@@ -358,6 +358,14 @@ emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, RegClass dst_rc)
 
    assert(src.bytes() > (idx * dst_rc.bytes()));
    Builder bld(ctx->program, ctx->block);
+   if (dst_rc == v2b && src.regClass() == v2) {
+      /* we only split these into v1 */
+      src = emit_extract_vector(ctx, src, idx / 2, v1);
+      Temp dst = bld.tmp(dst_rc);
+      emit_extract_vector(ctx, src, idx & 1, dst);
+      return dst;
+   }
+
    auto it = ctx->allocated_vec.find(src.id());
    if (it != ctx->allocated_vec.end() && dst_rc.bytes() == it->second[idx].regClass().bytes()) {
       if (it->second[idx].regClass() == dst_rc) {
@@ -391,7 +399,7 @@ emit_split_vector(isel_context* ctx, Temp vec_src, unsigned num_components)
       return;
    RegClass rc;
    if (num_components > vec_src.size()) {
-      if (vec_src.type() == RegType::sgpr) {
+      if (vec_src.type() == RegType::sgpr || vec_src.regClass() == v2) {
          /* should still help get_alu_src() */
          emit_split_vector(ctx, vec_src, vec_src.size());
          return;
