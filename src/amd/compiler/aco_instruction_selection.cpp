@@ -337,7 +337,21 @@ void
 emit_extract_vector(isel_context* ctx, Temp src, uint32_t idx, Temp dst)
 {
    Builder bld(ctx->program, ctx->block);
-   bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand::c32(idx));
+   if (dst.regClass().is_subdword()) {
+      unsigned num_components = src.bytes() / dst.bytes();
+      aco_ptr<Pseudo_instruction> split{create_instruction<Pseudo_instruction>(
+         aco_opcode::p_split_vector, Format::PSEUDO, 1, num_components)};
+      split->operands[0] = Operand(src);
+      for (unsigned i = 0; i < num_components; i++) {
+         if (i == idx)
+            split->definitions[i] = Definition(dst);
+         else
+            split->definitions[i] = bld.def(dst.regClass());
+      }
+      bld.insert(std::move(split));
+   } else {
+      bld.pseudo(aco_opcode::p_extract_vector, Definition(dst), src, Operand::c32(idx));
+   }
 }
 
 Temp
