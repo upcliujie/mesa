@@ -1653,6 +1653,40 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer,
    desc_state->dirty = 0;
 }
 
+struct panvk_reloc_ctx {
+   struct {
+      struct panvk_cmd_buffer *cmdbuf;
+      struct panfrost_ptr desc_base, varying_base;
+   } src, dst;
+   uint32_t desc_size, varying_size;
+   uint16_t job_idx_offset;
+};
+
+#define PANVK_RELOC_SET(dst_ptr, type, field, value) \
+        do { \
+           mali_ptr *dst_addr = (dst_ptr) + pan_field_byte_offset(type, field); \
+           *dst_addr = value; \
+        } while (0)
+
+
+#define PANVK_RELOC_COPY(ctx, pool, src_ptr, dst_ptr, type, field) \
+        do { \
+           mali_ptr *src_addr = (src_ptr) + pan_field_byte_offset(type, field); \
+           if (*src_addr < (ctx)->src.pool ## _base.gpu || \
+               *src_addr >= (ctx)->src.pool ## _base.gpu + (ctx)->pool ## _size) \
+              break; \
+           mali_ptr *dst_addr = (dst_ptr) + pan_field_byte_offset(type, field); \
+           *dst_addr = *src_addr - (ctx)->src.pool ## _base.gpu + (ctx)->dst.pool ## _base.gpu; \
+        } while (0)
+
+#define PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, p) \
+        (p >= ctx->src.desc_base.gpu && \
+           p < ctx->src.desc_base.gpu + ctx->desc_size)
+
+#define PANVK_RELOC_CHECK_ADDR_VARYING_BASE(ctx, p) \
+        (p >= ctx->src.varying_base.gpu && \
+           p < ctx->src.varying_base.gpu + ctx->varying_size)
+
 unsigned
 panvk_per_arch(cmd_add_job)(struct panvk_cmd_buffer *cmdbuf,
                             unsigned type,
