@@ -4422,11 +4422,18 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          }
          if (((stages[i].nir->info.bit_sizes_int | stages[i].nir->info.bit_sizes_float) & 16) &&
              device->physical_device->rad_info.chip_class >= GFX9) {
+            bool copy_prop = false;
+
             // TODO: also optimize the tex srcs. see radeonSI for reference */
             /* Skip if there are potentially conflicting rounding modes */
             if (!nir_has_any_rounding_mode_enabled(stages[i].nir->info.float_controls_execution_mode))
-               NIR_PASS_V(stages[i].nir, nir_fold_16bit_sampler_conversions, 0);
-            NIR_PASS_V(stages[i].nir, nir_fold_16bit_image_load_store_conversions);
+               NIR_PASS(copy_prop, stages[i].nir, nir_fold_16bit_sampler_conversions, 0);
+            NIR_PASS(copy_prop, stages[i].nir, nir_fold_16bit_image_load_store_conversions);
+
+            if (copy_prop) {
+               NIR_PASS_V(stages[i].nir, nir_copy_prop);
+               NIR_PASS_V(stages[i].nir, nir_opt_dce);
+            }
 
             NIR_PASS_V(stages[i].nir, nir_opt_vectorize, opt_vectorize_callback, NULL);
           }
