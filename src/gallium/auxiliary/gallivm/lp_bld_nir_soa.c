@@ -1454,7 +1454,7 @@ static void emit_tex(struct lp_build_nir_context *bld_base,
    params->context_ptr = bld->context_ptr;
    params->thread_data_ptr = bld->thread_data_ptr;
 
-   if (params->texture_index_offset && bld_base->shader->info.stage != MESA_SHADER_FRAGMENT) {
+   if (params->texture_index_offset) {
       /* this is horrible but this can be dynamic */
       LLVMValueRef coords[5];
       LLVMValueRef *orig_texel_ptr;
@@ -1502,10 +1502,7 @@ static void emit_tex(struct lp_build_nir_context *bld_base,
       return;
    }
 
-   if (params->texture_index_offset)
-      params->texture_index_offset = LLVMBuildExtractElement(bld_base->base.gallivm->builder,
-                                                             params->texture_index_offset,
-                                                             lp_build_const_int32(bld_base->base.gallivm, 0), "");
+   assert(!params->texture_index_offset);
 
    params->type = bld_base->base.type;
    bld->sampler->emit_tex_sample(bld->sampler,
