@@ -291,17 +291,16 @@ panvk_meta_clear_attachment_emit_dcd(struct pan_pool *pool,
 }
 
 static struct panfrost_ptr
-panvk_meta_clear_attachment_emit_tiler_job(struct pan_pool *desc_pool,
-                                           struct pan_scoreboard *scoreboard,
+panvk_meta_clear_attachment_emit_tiler_job(struct panvk_cmd_buffer *cmdbuf,
                                            mali_ptr coords,
                                            mali_ptr push_constants,
                                            mali_ptr vpd, mali_ptr rsd,
                                            mali_ptr tsd, mali_ptr tiler)
 {
    struct panfrost_ptr job =
-      pan_pool_alloc_desc(desc_pool, TILER_JOB);
+      pan_pool_alloc_desc(&cmdbuf->desc_pool.base, TILER_JOB);
 
-   panvk_meta_clear_attachment_emit_dcd(desc_pool,
+   panvk_meta_clear_attachment_emit_dcd(&cmdbuf->desc_pool.base,
                                         coords,
                                         push_constants,
                                         vpd, tsd, rsd,
@@ -330,8 +329,8 @@ panvk_meta_clear_attachment_emit_tiler_job(struct pan_pool *desc_pool,
    }
 #endif
 
-   panfrost_add_job(desc_pool, scoreboard, MALI_JOB_TYPE_TILER,
-                    false, false, 0, 0, &job, false);
+   panvk_per_arch(cmd_add_job)(cmdbuf, MALI_JOB_TYPE_TILER,
+                               false, false, 0, 0, &job, false);
    return job;
 }
 
@@ -442,14 +441,10 @@ panvk_meta_clear_attachment(struct panvk_cmd_buffer *cmdbuf,
    mali_ptr tsd = PAN_ARCH >= 6 ? batch->tls.gpu : batch->fb.desc.gpu;
    mali_ptr tiler = PAN_ARCH >= 6 ? batch->tiler.descs.gpu : 0;
 
-   struct panfrost_ptr job;
-
-   job = panvk_meta_clear_attachment_emit_tiler_job(&cmdbuf->desc_pool.base,
-                                                    &batch->scoreboard,
-                                                    coordinates, pushconsts,
-                                                    vpd, rsd, tsd, tiler);
-
-   util_dynarray_append(&batch->jobs, void *, job.cpu);
+   panvk_meta_clear_attachment_emit_tiler_job(cmdbuf,
+                                              coordinates,
+                                              pushconsts,
+                                              vpd, rsd, tsd, tiler);
 }
 
 static void

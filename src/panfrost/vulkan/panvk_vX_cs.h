@@ -126,3 +126,15 @@ void
 panvk_per_arch(emit_tiler_context)(const struct panvk_device *dev,
                                    unsigned width, unsigned height,
                                    const struct panfrost_ptr *descs);
+
+void
+panvk_per_arch(cmd_add_job_ptr)(struct panvk_cmd_buffer *cmdbuf,
+                                void *job_ptr);
+
+unsigned
+panvk_per_arch(cmd_add_job)(struct panvk_cmd_buffer *cmdbuf,
+                            unsigned type,
+                            bool barrier, bool suppress_prefetch,
+                            unsigned local_dep, unsigned global_dep,
+                            const struct panfrost_ptr *job,
+                            bool inject);

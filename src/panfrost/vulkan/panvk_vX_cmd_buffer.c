@@ -39,6 +39,23 @@
 #include "util/u_pack_color.h"
 #include "vk_format.h"
 
+void
+panvk_per_arch(cmd_add_job_ptr)(struct panvk_cmd_buffer *cmdbuf,
+                                void *job_ptr)
+{
+   struct panvk_batch *batch = cmdbuf->state.batch;
+
+   if (cmdbuf->vk.level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
+      /* We only store the job offsets to stay immune to CPU buffer
+       * remapping.
+       */
+      job_ptr = (void *)((uintptr_t)job_ptr -
+                         (uintptr_t)cmdbuf->desc_pool.cpu_bo.ptr.cpu);
+   }
+
+   util_dynarray_append(&batch->jobs, void *, job_ptr);
+}
+
 static void
 panvk_cmd_prepare_fragment_job(struct panvk_cmd_buffer *cmdbuf)
 {
@@ -47,9 +64,11 @@ panvk_cmd_prepare_fragment_job(struct panvk_cmd_buffer *cmdbuf)
    struct panfrost_ptr job_ptr =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, FRAGMENT_JOB);
 
-   GENX(pan_emit_fragment_job)(fbinfo, batch->fb.desc.gpu, job_ptr.cpu),
+   GENX(pan_emit_fragment_job)(fbinfo, batch->fb.desc.gpu, job_ptr.cpu);
+   
    batch->fragment_job = job_ptr.gpu;
-   util_dynarray_append(&batch->jobs, void *, job_ptr.cpu);
+   
+   panvk_per_arch(cmd_add_job_ptr)(cmdbuf, job_ptr.cpu);
 }
 
 #if PAN_ARCH == 5
@@ -138,10 +157,9 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
           */
          struct panfrost_ptr ptr = pan_pool_alloc_desc(&cmdbuf->desc_pool.base,
                                                        JOB_HEADER);
-         util_dynarray_append(&batch->jobs, void *, ptr.cpu);
-         panfrost_add_job(&cmdbuf->desc_pool.base, &batch->scoreboard,
-                          MALI_JOB_TYPE_NULL, false, false, 0, 0,
-                          &ptr, false);
+         panvk_per_arch(cmd_add_job)(cmdbuf, MALI_JOB_TYPE_NULL,
+                                     false, false, 0, 0,
+                                     &ptr, false);
          list_addtail(&batch->node, &cmdbuf->batches);
       }
       cmdbuf->state.batch = NULL;
@@ -167,7 +185,7 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
                               PAN_ARCH >= 6 ? batch->tiler.descs.gpu : 0,
                               preload_jobs);
       for (unsigned i = 0; i < num_preload_jobs; i++)
-         util_dynarray_append(&batch->jobs, void *, preload_jobs[i].cpu);
+         panvk_per_arch(cmd_add_job_ptr)(cmdbuf, preload_jobs[i].cpu);
    }
 
    if (batch->tlsinfo.tls.size) {
@@ -198,7 +216,7 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
                                               &batch->scoreboard,
                                               polygon_list);
       if (writeval_job.cpu)
-         util_dynarray_append(&batch->jobs, void *, writeval_job.cpu);
+         panvk_per_arch(cmd_add_job_ptr)(cmdbuf, writeval_job.cpu);
 #endif
 
 #if PAN_ARCH <= 5
@@ -864,13 +882,15 @@ panvk_draw_prepare_vertex_job(struct panvk_cmd_buffer *cmdbuf,
                               struct panvk_draw_info *draw)
 {
    const struct panvk_pipeline *pipeline = panvk_cmd_get_pipeline(cmdbuf, GRAPHICS);
-   struct panvk_batch *batch = cmdbuf->state.batch;
    struct panfrost_ptr ptr =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, COMPUTE_JOB);
 
-   util_dynarray_append(&batch->jobs, void *, ptr.cpu);
-   draw->jobs.vertex = ptr;
    panvk_per_arch(emit_vertex_job)(pipeline, draw, ptr.cpu);
+
+   draw->vertex_job_id =
+      panvk_per_arch(cmd_add_job)(cmdbuf, MALI_JOB_TYPE_VERTEX,
+                                  false, false, 0, 0,
+                                  &ptr, false);
 }
 
 static void
@@ -878,13 +898,13 @@ panvk_draw_prepare_tiler_job(struct panvk_cmd_buffer *cmdbuf,
                              struct panvk_draw_info *draw)
 {
    const struct panvk_pipeline *pipeline = panvk_cmd_get_pipeline(cmdbuf, GRAPHICS);
-   struct panvk_batch *batch = cmdbuf->state.batch;
    struct panfrost_ptr ptr =
       pan_pool_alloc_desc(&cmdbuf->desc_pool.base, TILER_JOB);
 
-   util_dynarray_append(&batch->jobs, void *, ptr.cpu);
-   draw->jobs.tiler = ptr;
    panvk_per_arch(emit_tiler_job)(pipeline, draw, ptr.cpu);
+   panvk_per_arch(cmd_add_job)(cmdbuf, MALI_JOB_TYPE_TILER,
+                               false, false, draw->vertex_job_id, 0,
+                               &ptr, false);
 }
 
 static void
@@ -949,17 +969,6 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf,
    panvk_draw_prepare_tiler_job(cmdbuf, draw);
    batch->tlsinfo.tls.size = MAX2(pipeline->tls_size, batch->tlsinfo.tls.size);
    assert(!pipeline->wls_size);
-
-   unsigned vjob_id =
-      panfrost_add_job(&cmdbuf->desc_pool.base, &batch->scoreboard,
-                       MALI_JOB_TYPE_VERTEX, false, false, 0, 0,
-                       &draw->jobs.vertex, false);
-
-   if (pipeline->fs.required) {
-      panfrost_add_job(&cmdbuf->desc_pool.base, &batch->scoreboard,
-                       MALI_JOB_TYPE_TILER, false, false, vjob_id, 0,
-                       &draw->jobs.tiler, false);
-   }
 
    /* Clear the dirty flags all at once */
    desc_state->dirty = cmdbuf->state.dirty = 0;
@@ -1567,4 +1576,23 @@ panvk_per_arch(CmdDispatch)(VkCommandBuffer commandBuffer,
 
    panvk_per_arch(cmd_close_batch)(cmdbuf);
    desc_state->dirty = 0;
+}
+
+unsigned
+panvk_per_arch(cmd_add_job)(struct panvk_cmd_buffer *cmdbuf,
+                            unsigned type,
+                            bool barrier, bool suppress_prefetch,
+                            unsigned local_dep, unsigned global_dep,
+                            const struct panfrost_ptr *job,
+                            bool inject)
+{
+   struct pan_scoreboard *scoreboard = &cmdbuf->state.batch->scoreboard;
+
+   panvk_cmd_fix_cpu_pointers(cmdbuf);
+
+   panvk_per_arch(cmd_add_job_ptr)(cmdbuf, job->cpu);
+
+   return panfrost_add_job(&cmdbuf->desc_pool.base, scoreboard,
+                           type, barrier, suppress_prefetch,
+                           local_dep, global_dep, job, inject);
 }

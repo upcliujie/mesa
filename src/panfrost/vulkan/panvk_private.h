@@ -582,10 +582,7 @@ struct panvk_draw_info {
    const struct pan_tiler_context *tiler_ctx;
    mali_ptr fs_rsd;
    mali_ptr viewport;
-   struct {
-      struct panfrost_ptr vertex;
-      struct panfrost_ptr tiler;
-   } jobs;
+   unsigned vertex_job_id;
 };
 
 struct panvk_dispatch_info {

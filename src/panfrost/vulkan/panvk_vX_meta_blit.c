@@ -131,7 +131,7 @@ panvk_meta_blit(struct panvk_cmd_buffer *cmdbuf,
 
       struct panfrost_ptr job =
          GENX(pan_blit)(&ctx, &cmdbuf->desc_pool.base, &batch->scoreboard, tsd, tiler);
-      util_dynarray_append(&batch->jobs, void *, job.cpu);
+      panvk_per_arch(cmd_add_job_ptr)(cmdbuf, job.cpu);
       panvk_per_arch(cmd_close_batch)(cmdbuf);
    } while (pan_blit_next_surface(&ctx));
 }
