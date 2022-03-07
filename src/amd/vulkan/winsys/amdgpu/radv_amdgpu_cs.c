@@ -106,6 +106,19 @@ radv_amdgpu_cs(struct radeon_cmdbuf *base)
    return (struct radv_amdgpu_cs *)base;
 }
 
+static bool
+ring_can_use_ib_bos(const struct radv_amdgpu_winsys *ws,
+                    enum ring_type ring_type)
+{
+   if (ring_type == RING_UVD ||
+       ring_type == RING_VCE ||
+       ring_type == RING_UVD_ENC ||
+       ring_type == RING_VCN_DEC ||
+       ring_type == RING_VCN_ENC)
+      return false;
+   return ws->use_ib_bos;
+}
+
 static int
 ring_to_hw_ip(enum ring_type ring)
 {
@@ -268,7 +281,7 @@ radv_amdgpu_cs_create(struct radeon_winsys *ws, enum ring_type ring_type)
    cs->ws = radv_amdgpu_winsys(ws);
    radv_amdgpu_init_cs(cs, ring_type);
 
-   if (cs->ws->use_ib_bos) {
+   if (ring_can_use_ib_bos(cs->ws, ring_type)) {
       VkResult result =
          ws->buffer_create(ws, ib_size, 0, radv_amdgpu_cs_domain(ws),
                            RADEON_FLAG_CPU_ACCESS | RADEON_FLAG_NO_INTERPROCESS_SHARING |
@@ -339,7 +352,7 @@ radv_amdgpu_cs_grow(struct radeon_cmdbuf *_cs, size_t min_size)
       return;
    }
 
-   if (!cs->ws->use_ib_bos) {
+   if (!ring_can_use_ib_bos(cs->ws, hw_ip_to_ring(cs->hw_ip))) {
       const uint64_t limit_dws = GFX6_MAX_CS_SIZE;
       uint64_t ib_dws = MAX2(cs->base.cdw + min_size, MIN2(cs->base.max_dw * 2, limit_dws));
 
@@ -458,9 +471,9 @@ static VkResult
 radv_amdgpu_cs_finalize(struct radeon_cmdbuf *_cs)
 {
    struct radv_amdgpu_cs *cs = radv_amdgpu_cs(_cs);
+   enum ring_type ring_type = hw_ip_to_ring(cs->hw_ip);
 
-   if (cs->ws->use_ib_bos) {
-      enum ring_type ring_type = hw_ip_to_ring(cs->hw_ip);
+   if (ring_can_use_ib_bos(cs->ws, ring_type)) {
       uint32_t ib_pad_dw_mask = MAX2(3, cs->ws->info.ib_pad_dw_mask[ring_type]);
       uint32_t nop_packet = get_nop_packet(cs);
 
@@ -510,7 +523,7 @@ radv_amdgpu_cs_reset(struct radeon_cmdbuf *_cs)
    cs->num_buffers = 0;
    cs->num_virtual_buffers = 0;
 
-   if (cs->ws->use_ib_bos) {
+   if (ring_can_use_ib_bos(cs->ws, hw_ip_to_ring(cs->hw_ip))) {
       cs->ws->base.cs_add_buffer(&cs->base, cs->ib_buffer);
 
       for (unsigned i = 0; i < cs->num_old_ib_buffers; ++i)
@@ -658,7 +671,7 @@ radv_amdgpu_cs_execute_secondary(struct radeon_cmdbuf *_parent, struct radeon_cm
    struct radv_amdgpu_cs *parent = radv_amdgpu_cs(_parent);
    struct radv_amdgpu_cs *child = radv_amdgpu_cs(_child);
    struct radv_amdgpu_winsys *ws = parent->ws;
-   bool use_ib2 = ws->use_ib_bos && allow_ib2;
+   bool use_ib2 = ring_can_use_ib_bos(ws, hw_ip_to_ring(parent->hw_ip)) && allow_ib2;
 
    if (parent->status != VK_SUCCESS || child->status != VK_SUCCESS)
       return;
@@ -682,7 +695,7 @@ radv_amdgpu_cs_execute_secondary(struct radeon_cmdbuf *_parent, struct radeon_cm
       radeon_emit(&parent->base, child->ib.ib_mc_address >> 32);
       radeon_emit(&parent->base, child->ib.size);
    } else {
-      if (parent->ws->use_ib_bos) {
+      if (ring_can_use_ib_bos(parent->ws, hw_ip_to_ring(parent->hw_ip))) {
          /* Copy and chain old IB buffers from the child to the parent IB. */
          for (unsigned i = 0; i < child->num_old_ib_buffers; i++) {
             struct radv_amdgpu_ib *ib = &child->old_ib_buffers[i];
@@ -1364,7 +1377,7 @@ radv_amdgpu_winsys_cs_submit_internal(struct radeon_winsys_ctx *_ctx, enum ring_
    assert(sem_info);
    if (!cs_count) {
       result = radv_amdgpu_cs_submit_zero(ctx, ring_type, queue_idx, sem_info);
-   } else if (!ctx->ws->use_ib_bos) {
+   } else if (!ring_can_use_ib_bos(ctx->ws, ring_type)) {
       result = radv_amdgpu_winsys_cs_submit_sysmem(_ctx, queue_idx, sem_info, cs_array, cs_count,
                                                    initial_preamble_cs, continue_preamble_cs);
    } else if (can_patch) {
@@ -1492,7 +1505,7 @@ radv_amdgpu_winsys_cs_dump(struct radeon_cmdbuf *_cs, FILE *file, const int *tra
    void *ib = cs->base.buf;
    int num_dw = cs->base.cdw;
 
-   if (cs->ws->use_ib_bos) {
+   if (ring_can_use_ib_bos(cs->ws, hw_ip_to_ring(cs->hw_ip))) {
       ib = radv_amdgpu_winsys_get_cpu_addr(cs, cs->ib.ib_mc_address);
       num_dw = cs->ib.size;
    }
