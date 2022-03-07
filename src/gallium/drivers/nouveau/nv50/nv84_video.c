@@ -808,9 +808,13 @@ nv84_screen_get_video_param(struct pipe_screen *pscreen,
    switch (param) {
    case PIPE_VIDEO_CAP_SUPPORTED:
       codec = u_reduce_video_profile(profile);
-      return (codec == PIPE_VIDEO_FORMAT_MPEG4_AVC ||
-              codec == PIPE_VIDEO_FORMAT_MPEG12) &&
-         firmware_present(pscreen, codec);
+      if (!firmware_present(pscreen, codec))
+          return false;
+      return (
+#ifdef VIDEO_CODEC_H264DEC
+              codec == PIPE_VIDEO_FORMAT_MPEG4_AVC ||
+#endif
+              codec == PIPE_VIDEO_FORMAT_MPEG12);
    case PIPE_VIDEO_CAP_NPOT_TEXTURES:
       return 1;
    case PIPE_VIDEO_CAP_MAX_WIDTH:
