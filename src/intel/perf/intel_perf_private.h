@@ -92,5 +92,7 @@ void intel_perf_register_mdapi_statistic_query(struct intel_perf_config *perf_cf
 void intel_perf_register_mdapi_oa_query(struct intel_perf_config *perf,
                                         const struct intel_device_info *devinfo);
 
+void intel_perf_add_metric_set(struct intel_perf_config *perf,
+                               struct intel_perf_query_info *metric_set);
 
 #endif /* INTEL_PERF_PRIVATE_H */
