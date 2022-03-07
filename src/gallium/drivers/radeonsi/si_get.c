@@ -554,12 +554,22 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
 
       switch (param) {
       case PIPE_VIDEO_CAP_SUPPORTED:
-         return (
-            (codec == PIPE_VIDEO_FORMAT_MPEG4_AVC &&
-             (sscreen->info.family >= CHIP_RAVEN || si_vce_is_fw_version_supported(sscreen))) ||
-            (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN &&
-             (sscreen->info.family >= CHIP_RAVEN || si_radeon_uvd_enc_supported(sscreen))) ||
-            (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10 && sscreen->info.family >= CHIP_RENOIR));
+         if (codec == PIPE_VIDEO_FORMAT_MPEG4_AVC) {
+#ifdef VIDEO_CODEC_H264ENC
+            return (sscreen->info.family >= CHIP_RAVEN || si_vce_is_fw_version_supported(sscreen));
+#else
+            return 0;
+#endif
+         }
+#ifdef VIDEO_CODEC_H265ENC
+         if (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN &&
+             (sscreen->info.family >= CHIP_RAVEN || si_radeon_uvd_enc_supported(sscreen)) ||
+             (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10 && sscreen->info.family >= CHIP_RENOIR))
+            return 1;
+#else
+         return 0;
+#endif
+      }
       case PIPE_VIDEO_CAP_NPOT_TEXTURES:
          return 1;
       case PIPE_VIDEO_CAP_MAX_WIDTH:
@@ -614,21 +624,31 @@ static int si_get_video_param(struct pipe_screen *screen, enum pipe_video_profil
       case PIPE_VIDEO_FORMAT_MPEG4:
          return 1;
       case PIPE_VIDEO_FORMAT_MPEG4_AVC:
+#ifdef VIDEO_CODEC_H264DEC
          if ((sscreen->info.family == CHIP_POLARIS10 || sscreen->info.family == CHIP_POLARIS11) &&
              sscreen->info.uvd_fw_version < UVD_FW_1_66_16) {
             RVID_ERR("POLARIS10/11 firmware version need to be updated.\n");
             return false;
          }
          return true;
+#else
+         return false;
+#endif
       case PIPE_VIDEO_FORMAT_VC1:
+#ifdef VIDEO_CODEC_VC1DEC
          return true;
+#else
+         return false;
+#endif
       case PIPE_VIDEO_FORMAT_HEVC:
+#ifdef VIDEO_CODEC_H265DEC
          /* Carrizo only supports HEVC Main */
          if (sscreen->info.family >= CHIP_STONEY)
             return (profile == PIPE_VIDEO_PROFILE_HEVC_MAIN ||
                     profile == PIPE_VIDEO_PROFILE_HEVC_MAIN_10);
          else if (sscreen->info.family >= CHIP_CARRIZO)
             return profile == PIPE_VIDEO_PROFILE_HEVC_MAIN;
+#endif
          return false;
       case PIPE_VIDEO_FORMAT_JPEG:
          if (sscreen->info.family >= CHIP_RAVEN) {
