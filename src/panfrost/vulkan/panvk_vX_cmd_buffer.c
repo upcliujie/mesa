@@ -126,6 +126,40 @@ panvk_copy_fb_desc(struct panvk_cmd_buffer *cmdbuf, void *src)
 }
 #endif
 
+static void
+panvk_cmd_fix_cpu_pointers(struct panvk_cmd_buffer *cmdbuf)
+{
+   struct pan_scoreboard *scoreboard = &cmdbuf->state.batch->scoreboard;
+   void *desc_pool_cpu_base = cmdbuf->state.desc_pool_cpu_base;
+
+   if (cmdbuf->vk.level != VK_COMMAND_BUFFER_LEVEL_SECONDARY ||
+       desc_pool_cpu_base == cmdbuf->desc_pool.cpu_bo.ptr.cpu)
+      return;
+
+   intptr_t translation = (intptr_t)cmdbuf->desc_pool.cpu_bo.ptr.cpu -
+                          (intptr_t)desc_pool_cpu_base;
+
+   if (scoreboard->first_tiler) {
+      scoreboard->first_tiler =
+         (void *)((uintptr_t)scoreboard->first_tiler + translation);
+   }
+
+   if (scoreboard->prev_job) {
+      scoreboard->prev_job =
+         (void *)((uintptr_t)scoreboard->prev_job + translation);
+   }
+   if (cmdbuf->state.batch->tls.cpu) {
+      cmdbuf->state.batch->tls.cpu =
+      (void *)((uintptr_t) cmdbuf->state.batch->tls.cpu + translation);
+   }
+   if (cmdbuf->state.batch->fb.desc.cpu) {
+      cmdbuf->state.batch->fb.desc.cpu =
+      (void *)((uintptr_t) cmdbuf->state.batch->fb.desc.cpu + translation);
+   }
+
+   cmdbuf->state.desc_pool_cpu_base = cmdbuf->desc_pool.cpu_bo.ptr.cpu;
+}
+
 void
 panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
 {
@@ -147,6 +181,7 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
    for (unsigned i = 0; i < fbinfo->rt_count; i++)
       clear |= fbinfo->rts[i].clear;
 
+   panvk_cmd_fix_cpu_pointers(cmdbuf);
    if (!clear && !batch->scoreboard.first_job) {
       if (util_dynarray_num_elements(&batch->event_ops, struct panvk_event_op) == 0) {
          /* Content-less batch, let's drop it */
