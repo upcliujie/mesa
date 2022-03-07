@@ -229,8 +229,12 @@ int rvid_get_video_param(struct pipe_screen *screen,
 	if (entrypoint == PIPE_VIDEO_ENTRYPOINT_ENCODE) {
 		switch (param) {
 		case PIPE_VIDEO_CAP_SUPPORTED:
+#ifdef VIDEO_CODEC_H264ENC
 			return codec == PIPE_VIDEO_FORMAT_MPEG4_AVC &&
 				rvce_is_fw_version_supported(rscreen);
+#else
+			return 0;
+#endif
 		case PIPE_VIDEO_CAP_NPOT_TEXTURES:
 			return 1;
 		case PIPE_VIDEO_CAP_MAX_WIDTH:
@@ -261,7 +265,11 @@ int rvid_get_video_param(struct pipe_screen *screen,
 			/* no support for MPEG4 on older hw */
 			return rscreen->family >= CHIP_PALM;
 		case PIPE_VIDEO_FORMAT_MPEG4_AVC:
+#ifdef VIDEO_CODEC_H264DEC
 			return true;
+#else
+			return false;
+#endif
 		case PIPE_VIDEO_FORMAT_VC1:
 			return true;
 		case PIPE_VIDEO_FORMAT_HEVC:
