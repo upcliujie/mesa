@@ -153,6 +153,12 @@ panvk_per_arch(cmd_close_batch)(struct panvk_cmd_buffer *cmdbuf)
    list_addtail(&batch->node, &cmdbuf->batches);
 
    if (batch->scoreboard.first_tiler) {
+      /* Make sure the CPU-remapping (if any) happens before
+       * pan_preload_fb(). 16k of descriptors should be more than enough
+       * for those reload jobs.
+       */
+      if (cmdbuf->desc_pool.cpu_only)
+         panvk_cpu_pool_reserve_mem(&cmdbuf->desc_pool, 16 * 1024, 4096);
       struct panfrost_ptr preload_jobs[2];
       unsigned num_preload_jobs =
          GENX(pan_preload_fb)(&cmdbuf->desc_pool.base, &batch->scoreboard,
@@ -1323,15 +1329,29 @@ panvk_create_cmdbuf(struct panvk_device *device,
       cmdbuf->queue_family_index = PANVK_QUEUE_GENERAL;
    }
 
-   panvk_pool_init(&cmdbuf->desc_pool, &device->physical_device->pdev,
-                   pool ? &pool->desc_bo_pool : NULL, 0, 64 * 1024,
-                   "Command buffer descriptor pool", true);
-   panvk_pool_init(&cmdbuf->tls_pool, &device->physical_device->pdev,
-                   pool ? &pool->tls_bo_pool : NULL,
-                   PAN_BO_INVISIBLE, 64 * 1024, "TLS pool", false);
-   panvk_pool_init(&cmdbuf->varying_pool, &device->physical_device->pdev,
-                   pool ? &pool->varying_bo_pool : NULL,
-                   PAN_BO_INVISIBLE, 64 * 1024, "Varyings pool", false);
+   cmdbuf->vk.level = level;
+
+   if (level == VK_COMMAND_BUFFER_LEVEL_SECONDARY) {
+      panvk_cpu_pool_init(&cmdbuf->desc_pool, &device->physical_device->pdev,
+                          0, "Command buffer descriptor pool",
+                          0xffffff00000000ULL);
+      panvk_cpu_pool_init(&cmdbuf->tls_pool, &device->physical_device->pdev,
+                          PAN_BO_INVISIBLE, "TLS pool",
+                          0xfffffe00000000ULL);
+      panvk_cpu_pool_init(&cmdbuf->varying_pool, &device->physical_device->pdev,
+                          PAN_BO_INVISIBLE, "Varyings pool",
+                          0xfffffd00000000ULL);
+   } else {
+      panvk_pool_init(&cmdbuf->desc_pool, &device->physical_device->pdev,
+                      pool ? &pool->desc_bo_pool : NULL, 0, 64 * 1024,
+                      "Command buffer descriptor pool", true);
+      panvk_pool_init(&cmdbuf->tls_pool, &device->physical_device->pdev,
+                      pool ? &pool->tls_bo_pool : NULL,
+                     PAN_BO_INVISIBLE, 64 * 1024, "TLS pool", false);
+      panvk_pool_init(&cmdbuf->varying_pool, &device->physical_device->pdev,
+                      pool ? &pool->varying_bo_pool : NULL,
+                      PAN_BO_INVISIBLE, 64 * 1024, "Varyings pool", false);
+   }
    list_inithead(&cmdbuf->batches);
    cmdbuf->status = PANVK_CMD_BUFFER_STATUS_INITIAL;
    *cmdbuf_out = cmdbuf;

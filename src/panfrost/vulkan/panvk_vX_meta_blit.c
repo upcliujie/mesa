@@ -102,6 +102,9 @@ panvk_meta_blit(struct panvk_cmd_buffer *cmdbuf,
 
    panvk_per_arch(cmd_close_batch)(cmdbuf);
 
+   if (cmdbuf->desc_pool.cpu_only)
+      panvk_cpu_pool_reserve_mem(&cmdbuf->desc_pool, 512 * 1024, 4096);
+
    GENX(pan_blit_ctx_init)(pdev, blitinfo, &cmdbuf->desc_pool.base, &ctx);
    do {
       if (ctx.dst.cur_layer < 0)
