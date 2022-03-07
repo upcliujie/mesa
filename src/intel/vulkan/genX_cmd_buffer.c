@@ -3938,7 +3938,7 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
 
    cmd_buffer_emit_clip(cmd_buffer);
 
-   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE)
+   if (cmd_buffer->state.gfx.dirty & (ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE | ANV_CMD_DIRTY_PIPELINE))
       cmd_buffer_emit_streamout(cmd_buffer);
 
    if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_VIEWPORT)
