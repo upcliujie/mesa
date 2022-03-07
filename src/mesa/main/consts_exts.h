@@ -1008,5 +1008,8 @@ struct gl_constants
    GLuint MaxSparse3DTextureSize;
    GLuint MaxSparseArrayTextureLayers;
    bool SparseTextureFullArrayCubeMipmaps;
+
+   /** Use hardware accelerated GL_SELECT */
+   bool HardwareAcceleratedSelect;
 };
 #endif
