@@ -1899,7 +1899,7 @@ isl_surf_init_s(const struct isl_device *dev,
       .a = info->array_len,
    };
 
-   enum isl_tiling tiling;
+   enum isl_tiling tiling = ISL_TILING_LINEAR;
    if (!isl_surf_choose_tiling(dev, info, &tiling))
       return false;
 
@@ -1936,7 +1936,7 @@ isl_surf_init_s(const struct isl_device *dev,
                                  array_pitch_span, &array_pitch_el_rows,
                                  &phys_total_el);
 
-   uint32_t row_pitch_B;
+   uint32_t row_pitch_B = 0;
    if (!isl_calc_row_pitch(dev, info, &tile_info, dim_layout,
                            &phys_total_el, &row_pitch_B))
       return false;
