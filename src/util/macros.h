@@ -155,6 +155,17 @@ do {                       \
 #define assume(expr) assert(expr)
 #endif
 
+static inline int
+mul_overflow(size_t size, unsigned count, size_t *res)
+{
+#ifdef HAVE___BUILTIN_MUL_OVERFLOW
+        return __builtin_mul_overflow(size, count, res);
+#else
+        *res = size * count;
+        return count > (SIZE_MAX / size);
+#endif
+}
+
 /* Attribute const is used for functions that have no effects other than their
  * return value, and only rely on the argument values to compute the return
  * value.  As a result, calls to it can be CSEed.  Note that using memory
