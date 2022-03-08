@@ -763,7 +763,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
 static void fill_shader_prog(struct pipe_shader_state *state, gl_shader_stage stage, struct lvp_pipeline *pipeline)
 {
    state->type = PIPE_SHADER_IR_NIR;
-   state->ir.nir = pipeline->pipeline_nir[stage];
+   state->ir.nir = nir_shader_clone(NULL, pipeline->pipeline_nir[stage]);
 }
 
 static void
