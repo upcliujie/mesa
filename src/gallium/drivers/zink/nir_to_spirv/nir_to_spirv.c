@@ -312,6 +312,8 @@ static SpvStorageClass
 get_storage_class(struct nir_variable *var)
 {
    switch (var->data.mode) {
+   case nir_var_function_temp:
+      return SpvStorageClassFunction;
    case nir_var_mem_push_const:
       return SpvStorageClassPushConstant;
    case nir_var_shader_in:
@@ -678,6 +680,23 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
    }
 
    _mesa_hash_table_insert(ctx->vars, var, (void *)(intptr_t)var_id);
+
+   assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
+   ctx->entry_ifaces[ctx->num_entry_ifaces++] = var_id;
+}
+
+static void
+emit_temp(struct ntv_context *ctx, struct nir_variable *var)
+{
+   SpvId var_type = get_glsl_type(ctx, var->type);
+
+   SpvId pointer_type = spirv_builder_type_pointer(&ctx->builder,
+                                                   SpvStorageClassFunction,
+                                                   var_type);
+   SpvId var_id = spirv_builder_emit_var(&ctx->builder, pointer_type,
+                                         SpvStorageClassFunction);
+   if (var->name)
+      spirv_builder_emit_name(&ctx->builder, var_id, var->name);
 
    assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
    ctx->entry_ifaces[ctx->num_entry_ifaces++] = var_id;
@@ -3477,6 +3496,7 @@ emit_deref_array(struct ntv_context *ctx, nir_deref_instr *deref)
    SpvStorageClass storage_class = get_storage_class(var);
    SpvId base, type;
    switch (var->data.mode) {
+   case nir_var_function_temp:
    case nir_var_shader_in:
    case nir_var_shader_out:
    case nir_var_mem_ubo:
@@ -3997,6 +4017,13 @@ nir_to_spirv(struct nir_shader *s, const struct zink_shader_info *sinfo, uint32_
          max_output = MAX2(max_output, (int)var->data.driver_location);
       }
       emit_output(&ctx, var);
+   }
+
+   nir_foreach_function(func, s) {
+      if (func->impl) {
+         nir_foreach_function_temp_variable(var, func->impl)
+            emit_temp(&ctx, var);
+      }
    }
 
 
