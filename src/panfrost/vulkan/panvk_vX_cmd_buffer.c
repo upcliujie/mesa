@@ -1687,6 +1687,414 @@ struct panvk_reloc_ctx {
         (p >= ctx->src.varying_base.gpu && \
            p < ctx->src.varying_base.gpu + ctx->varying_size)
 
+static void
+panvk_reloc_ubos(const struct panvk_reloc_ctx *ctx,
+                 void *src_ptr)
+{
+   mali_ptr *src_ubos = src_ptr;
+
+   if(!PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, *src_ubos))
+      return;
+
+   uint64_t desc_offset = *src_ubos - ctx->src.desc_base.gpu;
+   void *src_ubo = ctx->src.desc_base.cpu + desc_offset;
+   void *dst_ubo = ctx->dst.desc_base.cpu + desc_offset;
+   while (*((mali_ptr *)src_ubo) != 0) {
+      mali_ptr *src_addr_ptr = src_ubo;
+      mali_ptr *dst_addr_ptr = dst_ubo;
+      mali_ptr addr = (*src_addr_ptr >> 12) << 4;
+
+      if (PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, addr)) {
+         mali_ptr new_addr = addr - ctx->src.desc_base.gpu + ctx->dst.desc_base.gpu;
+         assert((new_addr & 0xff0000000000000fULL) == 0);
+         *dst_addr_ptr = (*src_addr_ptr & 0xfff) | ((new_addr >> 4) << 12);
+      }
+      src_ubo += pan_size(UNIFORM_BUFFER);
+      dst_ubo += pan_size(UNIFORM_BUFFER);
+   }
+}
+
+static void
+panvk_reloc_varying_buffers(const struct panvk_reloc_ctx *ctx, void *src_ptr)
+{
+   mali_ptr *src_varying_bufs = src_ptr;
+   if (!PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, *src_varying_bufs))
+      return;
+
+   uint64_t desc_offset = *src_varying_bufs - ctx->src.desc_base.gpu;
+   void *src_varying_buf = ctx->src.desc_base.cpu + desc_offset;
+   void *dst_varying_buf = ctx->dst.desc_base.cpu + desc_offset;
+   while (*((mali_ptr *)src_varying_buf) != 0) {
+      mali_ptr *src_addr_ptr = src_varying_buf;
+      mali_ptr *dst_addr_ptr = dst_varying_buf;
+      mali_ptr addr_mask = 0xffffffffffffc0ULL;
+      mali_ptr addr = *src_addr_ptr & addr_mask;
+
+      if (PANVK_RELOC_CHECK_ADDR_VARYING_BASE(ctx, addr)) {
+         addr = addr - ctx->src.varying_base.gpu + ctx->dst.varying_base.gpu;
+         assert((addr & ~addr_mask) == 0);
+         *dst_addr_ptr = (*src_addr_ptr & ~addr_mask) | addr;
+      } else if (PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, addr)) {
+         addr = addr - ctx->src.desc_base.gpu + ctx->dst.desc_base.gpu;
+         assert((addr & ~addr_mask) == 0);
+         *dst_addr_ptr = (*src_addr_ptr & ~addr_mask) | addr;
+      }
+
+      src_varying_buf += pan_size(ATTRIBUTE_BUFFER);
+      dst_varying_buf += pan_size(ATTRIBUTE_BUFFER);
+   }
+}
+
+static void
+panvk_reloc_draw(const struct panvk_reloc_ctx *ctx,
+                 void *src_ptr, void *dst_ptr)
+{
+   /* Sometimes the position array is allocated from the descriptor pool
+    * and filled by the CPU. Let's call PANVK_RELOC_COPY() and let it choose
+    * which relocation should happen (if any).
+    */
+   PANVK_RELOC_COPY(ctx, varying, src_ptr, dst_ptr, DRAW, position);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, position);
+
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, uniform_buffers);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, textures);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, samplers);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, push_uniforms);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, state);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, attribute_buffers);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, attributes);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, varying_buffers);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, varyings);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, viewport);
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, occlusion);
+
+   panvk_reloc_ubos(ctx, src_ptr + pan_field_byte_offset(DRAW, uniform_buffers));
+   panvk_reloc_varying_buffers(ctx, src_ptr + pan_field_byte_offset(DRAW, varying_buffers));
+
+   if (ctx->src.cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+      panvk_per_arch(cmd_alloc_tls_desc)(ctx->dst.cmdbuf, true);
+      PANVK_RELOC_SET(dst_ptr, DRAW, thread_storage, ctx->dst.cmdbuf->state.batch->tls.gpu);
+   } else {
+      PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, DRAW, thread_storage);
+   }
+}
+
+static void
+panvk_reloc_write_value_job_payload(const struct panvk_reloc_ctx *ctx,
+                                    void *src_ptr, void *dst_ptr)
+{
+   PANVK_RELOC_COPY(ctx, desc,
+                    pan_section_ptr(src_ptr, WRITE_VALUE_JOB, PAYLOAD),
+                    pan_section_ptr(dst_ptr, WRITE_VALUE_JOB, PAYLOAD),
+                    WRITE_VALUE_JOB_PAYLOAD, address);
+}
+
+static void
+panvk_reloc_compute_job_payload(const struct panvk_reloc_ctx *ctx,
+                                void *src_ptr, void *dst_ptr)
+{
+   panvk_reloc_draw(ctx, pan_section_ptr(src_ptr, COMPUTE_JOB, DRAW),
+                    pan_section_ptr(dst_ptr, COMPUTE_JOB, DRAW));
+}
+
+static void
+panvk_reloc_tiler_job_payload(const struct panvk_reloc_ctx *ctx,
+                              void *src_ptr, void *dst_ptr)
+{
+   panvk_reloc_draw(ctx, pan_section_ptr(src_ptr, TILER_JOB, DRAW),
+                    pan_section_ptr(dst_ptr, TILER_JOB, DRAW));
+
+   PANVK_RELOC_COPY(ctx, varying,
+                    pan_section_ptr(src_ptr, TILER_JOB, PRIMITIVE_SIZE),
+                    pan_section_ptr(dst_ptr, TILER_JOB, PRIMITIVE_SIZE),
+                    PRIMITIVE_SIZE, size_array);
+
+#if PAN_ARCH >= 6
+   if (ctx->src.cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT) {
+      struct panvk_batch *dst_batch = ctx->dst.cmdbuf->state.batch;
+      assert(dst_batch);
+
+      panvk_per_arch(cmd_alloc_fb_desc)(ctx->dst.cmdbuf);
+      panvk_per_arch(cmd_prepare_tiler_context)(ctx->dst.cmdbuf);
+
+      assert(dst_batch->tiler.ctx.bifrost);
+
+      PANVK_RELOC_SET(pan_section_ptr(dst_ptr, TILER_JOB, TILER),
+                      TILER_POINTER, address, dst_batch->tiler.ctx.bifrost);
+   } else {
+      PANVK_RELOC_COPY(ctx, desc,
+                       pan_section_ptr(src_ptr, TILER_JOB, TILER),
+                       pan_section_ptr(dst_ptr, TILER_JOB, TILER),
+                       TILER_POINTER, address);
+      mali_ptr *src_tiler = pan_section_ptr(src_ptr, TILER_JOB, TILER) + pan_field_byte_offset(TILER_POINTER, address);
+
+      if (!PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, *src_tiler))
+         return;
+
+      uint64_t tiler_offset = *src_tiler - ctx->src.desc_base.gpu;
+      mali_ptr *src_tiler_cpu = ctx->src.desc_base.cpu + tiler_offset;
+      mali_ptr *dst_tiler_cpu = ctx->dst.desc_base.cpu + tiler_offset;
+
+      PANVK_RELOC_COPY(ctx, desc,
+                       (void *)src_tiler_cpu,
+                       (void *)dst_tiler_cpu,
+                       TILER_CONTEXT, heap);
+   }
+#endif
+}
+
+static void
+panvk_reloc_fragment_job_payload(const struct panvk_reloc_ctx *ctx,
+                                 void *src_ptr, void *dst_ptr)
+{
+   assert(!(ctx->src.cmdbuf->usage_flags & VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT));
+
+   void* src_payload = pan_section_ptr(src_ptr, FRAGMENT_JOB, PAYLOAD);
+   void* dst_payload = pan_section_ptr(dst_ptr, FRAGMENT_JOB, PAYLOAD);
+
+   PANVK_RELOC_COPY(ctx, desc,
+                    src_payload,
+                    dst_payload,
+                    FRAGMENT_JOB_PAYLOAD, framebuffer);
+
+   int off = pan_field_byte_offset(FRAGMENT_JOB_PAYLOAD, framebuffer);
+
+   mali_ptr *src_fb_ptr =  (mali_ptr *)((uint8_t *)src_payload + off);
+
+   if (!PANVK_RELOC_CHECK_ADDR_DESC_BASE(ctx, *src_fb_ptr))
+      return;
+
+   uint64_t fb_offset = *src_fb_ptr - ctx->src.desc_base.gpu;
+
+   void* src_fb = (void *)((uint8_t*)ctx->src.desc_base.cpu + fb_offset);
+   void* dst_fb = (void *)((uint8_t*)ctx->src.desc_base.cpu + fb_offset);
+
+#if PAN_ARCH >= 6
+   mali_ptr* fb_param_src = pan_section_ptr(src_fb, FRAMEBUFFER, PARAMETERS);
+   mali_ptr* fb_param_dst = pan_section_ptr(dst_fb, FRAMEBUFFER, PARAMETERS);
+
+   PANVK_RELOC_COPY(ctx, desc,
+                    fb_param_src,
+                    fb_param_dst,
+                    FRAMEBUFFER_PARAMETERS, tiler);
+#else
+   // TODO
+   void* src_tiler = pan_section_ptr(src_fb, FRAMEBUFFER, TILER);
+   void* dst_tiler = pan_section_ptr(dst_fb, FRAMEBUFFER, TILER);
+
+   PANVK_RELOC_COPY(ctx, desc,
+                    src_tiler,
+                    dst_tiler,
+                    TILER_CONTEXT, polygon_list);
+   PANVK_RELOC_COPY(ctx, desc,
+                    src_tiler,
+                    dst_tiler,
+                    TILER_CONTEXT, polygon_list_body);
+   PANVK_RELOC_COPY(ctx, desc,
+                    src_tiler,
+                    dst_tiler,
+                    TILER_CONTEXT, heap_start);
+   PANVK_RELOC_COPY(ctx, desc,
+                    src_tiler,
+                    dst_tiler,
+                    TILER_CONTEXT, heap_end);
+#endif
+}
+
+static void
+panvk_reloc_job(const struct panvk_reloc_ctx *ctx,
+                void *src_ptr,
+                void *dst_ptr)
+{
+   /* TODO: Add helpers to retrieve a field value without unpacking the whole desc. */
+   uint32_t w4 = ((uint32_t *)src_ptr)[4];
+
+   uint8_t type = (w4 >> 1) & 0x7f;
+   uint32_t job_idx =  *(uint16_t *)((uint8_t *)src_ptr + pan_field_byte_offset(JOB_HEADER, index)) + ctx->job_idx_offset;
+   uint32_t dep1 =  *(uint16_t *)((uint8_t *)src_ptr + pan_field_byte_offset(JOB_HEADER, dependency_1));
+   uint32_t dep2 =  *(uint16_t *)((uint8_t *)src_ptr + pan_field_byte_offset(JOB_HEADER, dependency_2));
+
+   if (dep1)
+      dep1 += ctx->job_idx_offset;
+   if (dep2)
+      dep1 += ctx->job_idx_offset;
+
+   switch (type) {
+   case MALI_JOB_TYPE_NULL:
+   case MALI_JOB_TYPE_CACHE_FLUSH:
+      break;
+   case MALI_JOB_TYPE_WRITE_VALUE:
+      panvk_reloc_write_value_job_payload(ctx, src_ptr, dst_ptr);
+      break;
+   case MALI_JOB_TYPE_COMPUTE:
+   case MALI_JOB_TYPE_VERTEX:
+      panvk_reloc_compute_job_payload(ctx, src_ptr, dst_ptr);
+      break;
+   case MALI_JOB_TYPE_TILER:
+      panvk_reloc_tiler_job_payload(ctx, src_ptr, dst_ptr);
+      ctx->dst.cmdbuf->state.batch->scoreboard.tiler_dep = job_idx;
+      if (!ctx->dst.cmdbuf->state.batch->scoreboard.first_tiler) {
+         ctx->dst.cmdbuf->state.batch->scoreboard.first_tiler = dst_ptr;
+         ctx->dst.cmdbuf->state.batch->scoreboard.first_tiler_dep1 = dep1;
+      } else if (!dep2) {
+         dep2 = ctx->dst.cmdbuf->state.batch->scoreboard.tiler_dep;
+      }
+      break;
+   case MALI_JOB_TYPE_FRAGMENT:
+      panvk_reloc_fragment_job_payload(ctx, src_ptr, dst_ptr);
+      break;
+   default:
+      unreachable("Unsupported job type!");
+   }
+
+   assert(job_idx <= UINT16_MAX);
+
+   uint16_t* dst_job_idx_ptr = (uint16_t *)((uint8_t *)dst_ptr + pan_field_byte_offset(JOB_HEADER, index));
+   uint16_t* dst_dep1_ptr = (uint16_t *)((uint8_t *)dst_ptr + pan_field_byte_offset(JOB_HEADER, dependency_1));
+   uint16_t* dst_dep2_ptr = (uint16_t *)((uint8_t *)dst_ptr + pan_field_byte_offset(JOB_HEADER, dependency_2));
+
+   *dst_job_idx_ptr = job_idx;
+   *dst_dep1_ptr = dep1;
+   *dst_dep2_ptr = dep2;
+
+   PANVK_RELOC_COPY(ctx, desc, src_ptr, dst_ptr, JOB_HEADER, next);
+}
+
+void
+panvk_per_arch(CmdExecuteCommands)(VkCommandBuffer commandBuffer,
+                                   uint32_t commandBufferCount,
+                                   const VkCommandBuffer *pCmdBuffers)
+{
+   VK_FROM_HANDLE(panvk_cmd_buffer, dst_cmdbuf, commandBuffer);
+
+   // to connect jobs of different command buffers
+   void *prev_cmdbuf_last_job = NULL;
+
+   for (uint32_t i = 0; i < commandBufferCount; i++) {
+      VK_FROM_HANDLE(panvk_cmd_buffer, src_cmdbuf, pCmdBuffers[i]);
+      uint32_t desc_buf_size = src_cmdbuf->desc_pool.transient_offset;
+      uint32_t varyings_buf_size = src_cmdbuf->varying_pool.transient_offset;
+
+      struct panfrost_ptr src_desc_ptr = src_cmdbuf->desc_pool.cpu_bo.ptr;
+      struct panfrost_ptr src_varyings_ptr = src_cmdbuf->varying_pool.cpu_bo.ptr;
+      struct panfrost_ptr dst_desc_ptr =
+         pan_pool_alloc_aligned(&dst_cmdbuf->desc_pool.base, desc_buf_size, 4096);
+      struct panfrost_ptr dst_varyings_ptr =
+         pan_pool_alloc_aligned(&dst_cmdbuf->varying_pool.base, varyings_buf_size, 64);
+
+      bool cmdbuf_first_job = true;
+
+      memcpy(dst_desc_ptr.cpu, src_desc_ptr.cpu, desc_buf_size);
+
+      struct panvk_reloc_ctx reloc_ctx = {
+         .src = {
+            .desc_base = src_desc_ptr,
+            .varying_base = src_varyings_ptr,
+            .cmdbuf = src_cmdbuf,
+         },
+         .dst = {
+            .desc_base = dst_desc_ptr,
+            .varying_base = dst_varyings_ptr,
+            .cmdbuf = dst_cmdbuf,
+         },
+         .desc_size = desc_buf_size,
+         .varying_size = varyings_buf_size,
+      };
+
+      struct panvk_batch *last_src_batch =
+         list_last_entry(&src_cmdbuf->batches, struct panvk_batch, node);
+
+      list_for_each_entry(struct panvk_batch, batch, &src_cmdbuf->batches, node) {
+         struct panvk_batch *dst_batch = dst_cmdbuf->state.batch;
+         bool set_event = false, wait_event = false;
+
+         util_dynarray_foreach(&batch->event_ops, struct panvk_event_op, eop) {
+            if (eop->type == PANVK_EVENT_OP_SET ||
+                eop->type == PANVK_EVENT_OP_RESET)
+               set_event = true;
+            if (eop->type == PANVK_EVENT_OP_SET)
+               wait_event = true;
+         }
+
+         if (dst_batch &&
+             (wait_event ||
+              dst_batch->scoreboard.job_index + dst_batch->scoreboard.job_index > UINT16_MAX)) {
+            panvk_per_arch(cmd_close_batch)(dst_cmdbuf);
+            panvk_cmd_preload_fb_after_batch_split(dst_cmdbuf);
+            dst_batch = panvk_cmd_open_batch(dst_cmdbuf);
+         }
+
+         if (!dst_batch)
+            dst_batch = panvk_cmd_open_batch(dst_cmdbuf);
+
+         util_dynarray_foreach(&batch->event_ops, struct panvk_event_op, eop)
+            util_dynarray_append(&dst_batch->event_ops, struct panvk_event_op, *eop);
+
+         uint32_t subjob_idx = 0;
+
+         util_dynarray_foreach(&batch->jobs, uintptr_t, job_offset_ptr) {
+            uintptr_t job_offset = *job_offset_ptr;
+            void *src_ptr = src_desc_ptr.cpu + job_offset;
+            void *dst_ptr = dst_desc_ptr.cpu + job_offset;
+
+            if (cmdbuf_first_job && prev_cmdbuf_last_job) {
+               PANVK_RELOC_SET(prev_cmdbuf_last_job, JOB_HEADER, next, dst_desc_ptr.gpu + job_offset);
+               cmdbuf_first_job = false;
+            }
+
+            if (src_ptr < src_cmdbuf->desc_pool.cpu_bo.ptr.cpu ||
+                src_ptr >= src_cmdbuf->desc_pool.cpu_bo.ptr.cpu + src_cmdbuf->desc_pool.cpu_bo.size)
+	            assert(src_ptr >= src_cmdbuf->desc_pool.cpu_bo.ptr.cpu &&
+                  src_ptr < src_cmdbuf->desc_pool.cpu_bo.ptr.cpu + src_cmdbuf->desc_pool.cpu_bo.size);
+            panvk_reloc_job(&reloc_ctx, src_ptr, dst_ptr);
+            util_dynarray_append(&dst_batch->jobs, void *, dst_ptr);
+            dst_batch->scoreboard.prev_job = dst_ptr;
+            prev_cmdbuf_last_job = dst_ptr;
+            subjob_idx++;
+         }
+
+         if (batch->fragment_job) {
+             dst_batch->fragment_job = batch->fragment_job - src_desc_ptr.gpu + dst_desc_ptr.gpu;
+#if PAN_ARCH >= 6
+            memcpy(dst_batch->tiler.templ, batch->tiler.templ, sizeof(batch->tiler.templ));
+            uintptr_t tiler_ctx_offset = batch->tiler.descs.gpu - src_desc_ptr.gpu;
+            dst_batch->tiler.descs.cpu = dst_desc_ptr.cpu + tiler_ctx_offset;
+            dst_batch->tiler.descs.gpu = dst_desc_ptr.gpu + tiler_ctx_offset;
+            memcpy(dst_batch->tiler.descs.cpu, dst_batch->tiler.templ,
+                   pan_size(TILER_CONTEXT) + pan_size(TILER_HEAP));
+#else
+            // TODO
+            panvk_copy_fb_desc(dst_cmdbuf, batch->fb.desc.cpu);
+            memcpy(dst_batch->tiler.templ,
+               pan_section_ptr(batch->fb.desc.cpu, FRAMEBUFFER, TILER),
+               pan_size(TILER_CONTEXT));
+#endif
+         }
+
+         if (!dst_batch->scoreboard.first_job && batch->scoreboard.first_job)
+            dst_batch->scoreboard.first_job = batch->scoreboard.first_job - src_desc_ptr.gpu + dst_desc_ptr.gpu;
+
+         if (!dst_batch->scoreboard.first_tiler && batch->scoreboard.first_tiler) {
+            uintptr_t job_offset = (uintptr_t)batch->scoreboard.first_tiler - (uintptr_t)src_desc_ptr.cpu;
+
+            dst_batch->scoreboard.first_tiler = dst_desc_ptr.cpu + job_offset;
+            dst_batch->scoreboard.first_tiler_dep1 = batch->scoreboard.first_tiler_dep1 + reloc_ctx.job_idx_offset;
+         }
+
+         if (batch->scoreboard.tiler_dep)
+            dst_batch->scoreboard.tiler_dep = batch->scoreboard.tiler_dep + reloc_ctx.job_idx_offset;
+
+         dst_batch->scoreboard.job_index += batch->scoreboard.job_index;
+
+         if (set_event || batch != last_src_batch) {
+            panvk_per_arch(cmd_close_batch)(dst_cmdbuf);
+            panvk_cmd_preload_fb_after_batch_split(dst_cmdbuf);
+            panvk_cmd_open_batch(dst_cmdbuf);
+         }
+      }
+   }
+}
+
 unsigned
 panvk_per_arch(cmd_add_job)(struct panvk_cmd_buffer *cmdbuf,
                             unsigned type,
