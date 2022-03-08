@@ -71,6 +71,8 @@ struct vn_ring {
 
    struct list_head submits;
    struct list_head free_submits;
+
+   int64_t last_notify;
 };
 
 void

@@ -8,6 +8,9 @@
 #include "vn_cs.h"
 #include "vn_renderer.h"
 
+/* 50 milliseconds */
+#define VN_RING_NOTIFY_MIN_STEP (50ll * 1000)
+
 enum vn_ring_status_flag {
    VN_RING_STATUS_IDLE = 1u << 0,
 };
@@ -240,7 +243,14 @@ vn_ring_submit(struct vn_ring *ring,
    }
 
    vn_ring_store_tail(ring);
-   const bool notify = vn_ring_load_status(ring) & VN_RING_STATUS_IDLE;
+   bool notify = vn_ring_load_status(ring) & VN_RING_STATUS_IDLE;
+   if (notify) {
+      const int64_t now = os_time_get();
+      if (now - ring->last_notify > VN_RING_NOTIFY_MIN_STEP)
+         ring->last_notify = now;
+      else
+         notify = false;
+   }
 
    vn_ring_retire_submits(ring, cur_seqno);
 
