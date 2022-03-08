@@ -786,6 +786,12 @@ zink_draw(struct pipe_context *pctx,
       ctx->primitive_restart = dinfo->primitive_restart;
    }
 
+   if (DYNAMIC_STATE >= ZINK_DYNAMIC_STATE2 && (BATCH_CHANGED || ctx->color_write_changed)) {
+      static const VkBool32 enables[PIPE_MAX_COLOR_BUFS] = {1, 1, 1, 1, 1, 1, 1, 1};
+      VKCTX(CmdSetColorWriteEnableEXT)(batch->state->cmdbuf, ctx->fb_state.nr_cbufs, enables);
+      ctx->color_write_changed = false;
+   }
+
    if (zink_program_has_descriptors(&ctx->curr_program->base))
       screen->descriptors_update(ctx, false);
 
@@ -1140,7 +1146,7 @@ zink_init_draw_functions(struct zink_context *ctx, struct zink_screen *screen)
                                                [2];   //batch changed
    zink_dynamic_state dynamic;
    if (screen->info.have_EXT_extended_dynamic_state) {
-      if (screen->info.have_EXT_extended_dynamic_state2) {
+      if (screen->info.have_EXT_extended_dynamic_state2 && screen->info.have_EXT_color_write_enable) {
          if (screen->info.have_EXT_vertex_input_dynamic_state)
             dynamic = ZINK_DYNAMIC_VERTEX_INPUT;
          else

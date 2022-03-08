@@ -2567,6 +2567,8 @@ zink_set_framebuffer_state(struct pipe_context *pctx,
          zink_resource_image_barrier(ctx, res, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                      VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
    }
+   /* update color write if number of cbufs changed */
+   ctx->color_write_changed |= ctx->fb_state.nr_cbufs != state->nr_cbufs;
    /* renderpass changes if the number or types of attachments change */
    ctx->rp_changed |= ctx->fb_state.nr_cbufs != state->nr_cbufs;
    ctx->rp_changed |= !!ctx->fb_state.zsbuf != !!state->zsbuf;
