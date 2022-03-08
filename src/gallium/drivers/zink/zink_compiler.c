@@ -314,6 +314,8 @@ zink_screen_init_compiler(struct zink_screen *screen)
 {
    static const struct nir_shader_compiler_options
    default_options = {
+      .force_indirect_unrolling = nir_var_function_temp,
+      .max_unroll_iterations = 32,
       .lower_ffma16 = true,
       .lower_ffma32 = true,
       .lower_ffma64 = true,
@@ -408,6 +410,7 @@ optimize_nir(struct nir_shader *s)
       NIR_PASS(progress, s, nir_opt_algebraic);
       NIR_PASS(progress, s, nir_opt_constant_folding);
       NIR_PASS(progress, s, nir_opt_undef);
+      NIR_PASS(progress, s, nir_opt_loop_unroll);
       NIR_PASS(progress, s, zink_nir_lower_b2b);
    } while (progress);
 
