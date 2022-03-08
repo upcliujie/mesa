@@ -1230,9 +1230,11 @@ anv_descriptor_set_create(struct anv_device *device,
    /* Allocate null surface state for the buffer views since
     * we lazy allocate this in the write anyway.
     */
-   for (uint32_t b = 0; b < set->buffer_view_count; b++) {
-      set->buffer_views[b].surface_state = ANV_STATE_NULL;
-      set->buffer_views[b].range = 0;
+   if (pool->allocate_surface_states) {
+      for (uint32_t b = 0; b < set->buffer_view_count; b++) {
+         set->buffer_views[b].surface_state =
+            anv_descriptor_pool_alloc_state(pool);
+      }
    }
 
    list_addtail(&set->pool_link, &pool->desc_sets);
@@ -1637,9 +1639,9 @@ anv_descriptor_set_write_buffer(struct anv_device *device,
       * vkAllocateDescriptorSets. */
    if (alloc_stream) {
       bview->surface_state = anv_state_stream_alloc(alloc_stream, 64, 64);
-   } else if (bview->surface_state.alloc_size == 0) {
-      bview->surface_state = anv_descriptor_pool_alloc_state(set->pool);
    }
+
+   assert(bview->surface_state.alloc_size);
 
    isl_surf_usage_flags_t usage =
       (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
