@@ -312,6 +312,8 @@ static SpvStorageClass
 get_storage_class(struct nir_variable *var)
 {
    switch (var->data.mode) {
+   case nir_var_function_temp:
+      return SpvStorageClassFunction;
    case nir_var_mem_push_const:
       return SpvStorageClassPushConstant;
    case nir_var_shader_in:
@@ -681,6 +683,24 @@ emit_output(struct ntv_context *ctx, struct nir_variable *var)
 
    assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
    ctx->entry_ifaces[ctx->num_entry_ifaces++] = var_id;
+}
+
+static SpvId
+emit_temp(struct ntv_context *ctx, struct nir_variable *var)
+{
+   SpvId var_type = get_glsl_type(ctx, var->type);
+
+   SpvId pointer_type = spirv_builder_type_pointer(&ctx->builder,
+                                                   SpvStorageClassFunction,
+                                                   var_type);
+   SpvId var_id = spirv_builder_emit_var(&ctx->builder, pointer_type,
+                                         SpvStorageClassFunction);
+   if (var->name)
+      spirv_builder_emit_name(&ctx->builder, var_id, var->name);
+
+   assert(ctx->num_entry_ifaces < ARRAY_SIZE(ctx->entry_ifaces));
+   ctx->entry_ifaces[ctx->num_entry_ifaces++] = var_id;
+   return var_id;
 }
 
 static SpvDim
@@ -3462,9 +3482,14 @@ emit_deref_var(struct ntv_context *ctx, nir_deref_instr *deref)
 {
    assert(deref->deref_type == nir_deref_type_var);
 
-   struct hash_entry *he = _mesa_hash_table_search(ctx->vars, deref->var);
-   assert(he);
-   SpvId result = (SpvId)(intptr_t)he->data;
+   SpvId result;
+   if (deref->var->data.mode == nir_var_function_temp) {
+      result = emit_temp(ctx, deref->var);
+   } else {
+      struct hash_entry *he = _mesa_hash_table_search(ctx->vars, deref->var);
+      assert(he);
+      result = (SpvId)(intptr_t)he->data;
+   }
    store_dest_raw(ctx, &deref->dest, result);
 }
 
@@ -3477,6 +3502,7 @@ emit_deref_array(struct ntv_context *ctx, nir_deref_instr *deref)
    SpvStorageClass storage_class = get_storage_class(var);
    SpvId base, type;
    switch (var->data.mode) {
+   case nir_var_function_temp:
    case nir_var_shader_in:
    case nir_var_shader_out:
    case nir_var_mem_ubo:
