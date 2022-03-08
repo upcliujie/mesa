@@ -582,6 +582,8 @@ void anv_CmdBindPipeline(
       cmd_buffer->state.gfx.pipeline = gfx_pipeline;
       cmd_buffer->state.gfx.vb_dirty |= gfx_pipeline->vb_used;
       cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_PIPELINE;
+      if (gfx_pipeline->dynamic_states & ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE)
+         cmd_buffer->state.gfx.dirty |= ANV_CMD_DIRTY_DYNAMIC_COLOR_BLEND_STATE;
 
       anv_foreach_stage(stage, gfx_pipeline->active_stages) {
          set_dirty_for_bind_map(cmd_buffer, stage,
