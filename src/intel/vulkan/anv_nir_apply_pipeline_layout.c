@@ -1433,6 +1433,9 @@ anv_nir_apply_pipeline_layout(const struct anv_physical_device *pdevice,
    };
 
    for (unsigned s = 0; s < layout->num_sets; s++) {
+      if (!layout->set[s].layout)
+         continue;
+
       const unsigned count = layout->set[s].layout->binding_count;
       state.set[s].use_count = rzalloc_array(mem_ctx, uint8_t, count);
       state.set[s].surface_offsets = rzalloc_array(mem_ctx, uint8_t, count);
@@ -1466,6 +1469,9 @@ anv_nir_apply_pipeline_layout(const struct anv_physical_device *pdevice,
    unsigned used_binding_count = 0;
    for (uint32_t set = 0; set < layout->num_sets; set++) {
       struct anv_descriptor_set_layout *set_layout = layout->set[set].layout;
+      if (!set_layout)
+         continue;
+
       for (unsigned b = 0; b < set_layout->binding_count; b++) {
          if (state.set[set].use_count[b] == 0)
             continue;
@@ -1479,6 +1485,9 @@ anv_nir_apply_pipeline_layout(const struct anv_physical_device *pdevice,
    used_binding_count = 0;
    for (uint32_t set = 0; set < layout->num_sets; set++) {
       const struct anv_descriptor_set_layout *set_layout = layout->set[set].layout;
+      if (!set_layout)
+         continue;
+
       for (unsigned b = 0; b < set_layout->binding_count; b++) {
          if (state.set[set].use_count[b] == 0)
             continue;
@@ -1518,6 +1527,7 @@ anv_nir_apply_pipeline_layout(const struct anv_physical_device *pdevice,
 
    for (unsigned i = 0; i < used_binding_count; i++) {
       unsigned set = infos[i].set, b = infos[i].binding;
+      assert(layout->set[set].layout);
       const struct anv_descriptor_set_binding_layout *binding =
             &layout->set[set].layout->binding[b];
 
