@@ -254,25 +254,6 @@ struct radv_shader_debug_data {
 };
 
 static void
-radv_spirv_nir_debug(void *private_data, enum nir_spirv_debug_level level, size_t spirv_offset,
-                     const char *message)
-{
-   struct radv_shader_debug_data *debug_data = private_data;
-   struct radv_instance *instance = debug_data->device->instance;
-
-   static const VkDebugReportFlagsEXT vk_flags[] = {
-      [NIR_SPIRV_DEBUG_LEVEL_INFO] = VK_DEBUG_REPORT_INFORMATION_BIT_EXT,
-      [NIR_SPIRV_DEBUG_LEVEL_WARNING] = VK_DEBUG_REPORT_WARNING_BIT_EXT,
-      [NIR_SPIRV_DEBUG_LEVEL_ERROR] = VK_DEBUG_REPORT_ERROR_BIT_EXT,
-   };
-   char buffer[256];
-
-   snprintf(buffer, sizeof(buffer), "SPIR-V offset %lu: %s", (unsigned long)spirv_offset, message);
-
-   vk_debug_report(&instance->vk, vk_flags[level], &debug_data->module->base, 0, 0, "radv", buffer);
-}
-
-static void
 radv_compiler_debug(void *private_data, enum radv_compiler_debug_level level, const char *message)
 {
    struct radv_shader_debug_data *debug_data = private_data;
@@ -520,6 +501,9 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
                            const struct radv_pipeline_layout *layout,
                            const struct radv_pipeline_key *key)
 {
+   const nir_shader_compiler_options *nir_options =
+      &device->physical_device->nir_options[stage];
+
    unsigned subgroup_size = 64, ballot_bit_size = 64;
    if (key->cs.compute_subgroup_size) {
       /* Only compute shaders currently support requiring a
@@ -530,193 +514,126 @@ radv_shader_compile_to_nir(struct radv_device *device, struct vk_shader_module *
       ballot_bit_size = key->cs.compute_subgroup_size;
    }
 
-   nir_shader *nir;
-
-   if (module->nir) {
-      /* Some things such as our meta clear/blit code will give us a NIR
-       * shader directly.  In that case, we just ignore the SPIR-V entirely
-       * and just use the NIR shader.  We don't want to alter meta and RT
-       * shaders IR directly, so clone it first. */
-      nir = nir_shader_clone(NULL, module->nir);
-      nir->options = &device->physical_device->nir_options[stage];
-      nir_validate_shader(nir, "in internal shader");
-
-      assert(exec_list_length(&nir->functions) == 1);
-   } else {
-      uint32_t *spirv = (uint32_t *)module->data;
+   if (module->nir == NULL) {
       assert(module->size % 4 == 0);
-
       if (device->instance->debug_flags & RADV_DEBUG_DUMP_SPIRV)
          radv_print_spirv(module->data, module->size, stderr);
-
-      uint32_t num_spec_entries = 0;
-      struct nir_spirv_specialization *spec_entries =
-         vk_spec_info_to_nir_spirv(spec_info, &num_spec_entries);
-      struct radv_shader_debug_data spirv_debug_data = {
-         .device = device,
-         .module = module,
-      };
-      const struct spirv_to_nir_options spirv_options = {
-         .caps =
-            {
-               .amd_fragment_mask = true,
-               .amd_gcn_shader = true,
-               .amd_image_gather_bias_lod = true,
-               .amd_image_read_write_lod = true,
-               .amd_shader_ballot = true,
-               .amd_shader_explicit_vertex_parameter = true,
-               .amd_trinary_minmax = true,
-               .demote_to_helper_invocation = true,
-               .derivative_group = true,
-               .descriptor_array_dynamic_indexing = true,
-               .descriptor_array_non_uniform_indexing = true,
-               .descriptor_indexing = true,
-               .device_group = true,
-               .draw_parameters = true,
-               .float_controls = true,
-               .float16 = device->physical_device->rad_info.has_packed_math_16bit,
-               .float32_atomic_add = true,
-               .float32_atomic_min_max = true,
-               .float64 = true,
-               .float64_atomic_min_max = true,
-               .geometry_streams = true,
-               .groups = true,
-               .image_atomic_int64 = true,
-               .image_ms_array = true,
-               .image_read_without_format = true,
-               .image_write_without_format = true,
-               .int8 = true,
-               .int16 = true,
-               .int64 = true,
-               .int64_atomics = true,
-               .mesh_shading_nv = true,
-               .min_lod = true,
-               .multiview = true,
-               .physical_storage_buffer_address = true,
-               .post_depth_coverage = true,
-               .ray_tracing = true,
-               .runtime_descriptor_array = true,
-               .shader_clock = true,
-               .shader_viewport_index_layer = true,
-               .sparse_residency = true,
-               .stencil_export = true,
-               .storage_8bit = true,
-               .storage_16bit = true,
-               .storage_image_ms = true,
-               .subgroup_arithmetic = true,
-               .subgroup_ballot = true,
-               .subgroup_basic = true,
-               .subgroup_quad = true,
-               .subgroup_shuffle = true,
-               .subgroup_uniform_control_flow = true,
-               .subgroup_vote = true,
-               .tessellation = true,
-               .transform_feedback = true,
-               .variable_pointers = true,
-               .vk_memory_model = true,
-               .vk_memory_model_device_scope = true,
-               .fragment_shading_rate = device->physical_device->rad_info.chip_class >= GFX10_3,
-               .workgroup_memory_explicit_layout = true,
-            },
-         .ubo_addr_format = nir_address_format_vec2_index_32bit_offset,
-         .ssbo_addr_format = nir_address_format_vec2_index_32bit_offset,
-         .phys_ssbo_addr_format = nir_address_format_64bit_global,
-         .push_const_addr_format = nir_address_format_logical,
-         .shared_addr_format = nir_address_format_32bit_offset,
-         .constant_addr_format = nir_address_format_64bit_global,
-         .use_deref_buffer_array_length = true,
-         .debug =
-            {
-               .func = radv_spirv_nir_debug,
-               .private_data = &spirv_debug_data,
-            },
-      };
-      nir = spirv_to_nir(spirv, module->size / 4, spec_entries, num_spec_entries, stage,
-                         entrypoint_name, &spirv_options,
-                         &device->physical_device->nir_options[stage]);
-      assert(nir->info.stage == stage);
-      nir_validate_shader(nir, "after spirv_to_nir");
-
-      free(spec_entries);
-
-      const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
-         .point_coord = true,
-      };
-      NIR_PASS_V(nir, nir_lower_sysvals_to_varyings, &sysvals_to_varyings);
-
-      /* We have to lower away local constant initializers right before we
-       * inline functions.  That way they get properly initialized at the top
-       * of the function and not at the top of its caller.
-       */
-      NIR_PASS_V(nir, nir_lower_variable_initializers, nir_var_function_temp);
-      NIR_PASS_V(nir, nir_lower_returns);
-      if (nir_inline_functions(nir))
-         NIR_PASS_V(nir, nir_copy_prop);
-      NIR_PASS_V(nir, nir_opt_deref);
-
-      /* Pick off the single entrypoint that we want */
-      foreach_list_typed_safe(nir_function, func, node, &nir->functions)
-      {
-         if (func->is_entrypoint)
-            func->name = ralloc_strdup(func, "main");
-         else
-            exec_node_remove(&func->node);
-      }
-      assert(exec_list_length(&nir->functions) == 1);
-
-      /* Make sure we lower constant initializers on output variables so that
-       * nir_remove_dead_variables below sees the corresponding stores
-       */
-      NIR_PASS_V(nir, nir_lower_variable_initializers, nir_var_shader_out);
-
-      /* Now that we've deleted all but the main function, we can go ahead and
-       * lower the rest of the constant initializers.
-       */
-      NIR_PASS_V(nir, nir_lower_variable_initializers, ~0);
-
-      /* Split member structs.  We do this before lower_io_to_temporaries so that
-       * it doesn't lower system values to temporaries by accident.
-       */
-      NIR_PASS_V(nir, nir_split_var_copies);
-      NIR_PASS_V(nir, nir_split_per_member_structs);
-
-      if (nir->info.stage == MESA_SHADER_FRAGMENT)
-         NIR_PASS_V(nir, nir_lower_io_to_vector, nir_var_shader_out);
-      if (nir->info.stage == MESA_SHADER_FRAGMENT)
-         NIR_PASS_V(nir, nir_lower_input_attachments,
-                    &(nir_input_attachment_options){
-                       .use_fragcoord_sysval = true,
-                       .use_layer_id_sysval = false,
-                    });
-
-      NIR_PASS_V(nir, nir_remove_dead_variables,
-                 nir_var_shader_in | nir_var_shader_out | nir_var_system_value | nir_var_mem_shared,
-                 NULL);
-
-      /* Variables can make nir_propagate_invariant more conservative
-       * than it needs to be.
-       */
-      NIR_PASS_V(nir, nir_lower_global_vars_to_local);
-      NIR_PASS_V(nir, nir_lower_vars_to_ssa);
-
-      NIR_PASS_V(nir, nir_propagate_invariant, key->invariant_geom);
-
-      NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
-
-      NIR_PASS_V(nir, nir_lower_discard_or_demote, key->ps.lower_discard_to_demote);
-
-      nir_lower_doubles_options lower_doubles = nir->options->lower_doubles_options;
-
-      if (device->physical_device->rad_info.chip_class == GFX6) {
-         /* GFX6 doesn't support v_floor_f64 and the precision
-          * of v_fract_f64 which is used to implement 64-bit
-          * floor is less than what Vulkan requires.
-          */
-         lower_doubles |= nir_lower_dfloor;
-      }
-
-      NIR_PASS_V(nir, nir_lower_doubles, NULL, lower_doubles);
    }
+
+   const struct spirv_to_nir_options spirv_options = {
+      .caps =
+         {
+            .amd_fragment_mask = true,
+            .amd_gcn_shader = true,
+            .amd_image_gather_bias_lod = true,
+            .amd_image_read_write_lod = true,
+            .amd_shader_ballot = true,
+            .amd_shader_explicit_vertex_parameter = true,
+            .amd_trinary_minmax = true,
+            .demote_to_helper_invocation = true,
+            .derivative_group = true,
+            .descriptor_array_dynamic_indexing = true,
+            .descriptor_array_non_uniform_indexing = true,
+            .descriptor_indexing = true,
+            .device_group = true,
+            .draw_parameters = true,
+            .float_controls = true,
+            .float16 = device->physical_device->rad_info.has_packed_math_16bit,
+            .float32_atomic_add = true,
+            .float32_atomic_min_max = true,
+            .float64 = true,
+            .float64_atomic_min_max = true,
+            .geometry_streams = true,
+            .groups = true,
+            .image_atomic_int64 = true,
+            .image_ms_array = true,
+            .image_read_without_format = true,
+            .image_write_without_format = true,
+            .int8 = true,
+            .int16 = true,
+            .int64 = true,
+            .int64_atomics = true,
+            .mesh_shading_nv = true,
+            .min_lod = true,
+            .multiview = true,
+            .physical_storage_buffer_address = true,
+            .post_depth_coverage = true,
+            .ray_tracing = true,
+            .runtime_descriptor_array = true,
+            .shader_clock = true,
+            .shader_viewport_index_layer = true,
+            .sparse_residency = true,
+            .stencil_export = true,
+            .storage_8bit = true,
+            .storage_16bit = true,
+            .storage_image_ms = true,
+            .subgroup_arithmetic = true,
+            .subgroup_ballot = true,
+            .subgroup_basic = true,
+            .subgroup_quad = true,
+            .subgroup_shuffle = true,
+            .subgroup_uniform_control_flow = true,
+            .subgroup_vote = true,
+            .tessellation = true,
+            .transform_feedback = true,
+            .variable_pointers = true,
+            .vk_memory_model = true,
+            .vk_memory_model_device_scope = true,
+            .fragment_shading_rate = device->physical_device->rad_info.chip_class >= GFX10_3,
+            .workgroup_memory_explicit_layout = true,
+         },
+      .ubo_addr_format = nir_address_format_vec2_index_32bit_offset,
+      .ssbo_addr_format = nir_address_format_vec2_index_32bit_offset,
+      .phys_ssbo_addr_format = nir_address_format_64bit_global,
+      .push_const_addr_format = nir_address_format_logical,
+      .shared_addr_format = nir_address_format_32bit_offset,
+      .constant_addr_format = nir_address_format_64bit_global,
+      .use_deref_buffer_array_length = true,
+   };
+
+   nir_shader *nir;
+   VkResult result = vk_shader_module_to_nir(&device->vk, module,
+                                             stage, entrypoint_name,
+                                             spec_info, &spirv_options,
+                                             nir_options, NULL, &nir);
+   if (result != VK_SUCCESS)
+      return NULL;
+
+   const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
+      .point_coord = true,
+   };
+   NIR_PASS_V(nir, nir_lower_sysvals_to_varyings, &sysvals_to_varyings);
+
+   if (nir->info.stage == MESA_SHADER_FRAGMENT)
+      NIR_PASS_V(nir, nir_lower_io_to_vector, nir_var_shader_out);
+   if (nir->info.stage == MESA_SHADER_FRAGMENT)
+      NIR_PASS_V(nir, nir_lower_input_attachments,
+                 &(nir_input_attachment_options){
+                    .use_fragcoord_sysval = true,
+                    .use_layer_id_sysval = false,
+                 });
+
+   /* Variables can make nir_propagate_invariant more conservative
+    * than it needs to be.
+    */
+   NIR_PASS_V(nir, nir_lower_global_vars_to_local);
+   NIR_PASS_V(nir, nir_lower_vars_to_ssa);
+
+   NIR_PASS_V(nir, nir_lower_clip_cull_distance_arrays);
+
+   NIR_PASS_V(nir, nir_lower_discard_or_demote, key->ps.lower_discard_to_demote);
+
+   nir_lower_doubles_options lower_doubles = nir->options->lower_doubles_options;
+
+   if (device->physical_device->rad_info.chip_class == GFX6) {
+      /* GFX6 doesn't support v_floor_f64 and the precision
+       * of v_fract_f64 which is used to implement 64-bit
+       * floor is less than what Vulkan requires.
+       */
+      lower_doubles |= nir_lower_dfloor;
+   }
+
+   NIR_PASS_V(nir, nir_lower_doubles, NULL, lower_doubles);
 
    NIR_PASS_V(nir, nir_lower_system_values);
    nir_lower_compute_system_values_options csv_options = {
