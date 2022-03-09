@@ -106,7 +106,7 @@ st_get_sampler_views(struct st_context *st,
    unsigned num_textures = util_last_bit(samplers_used);
 
    /* prog->sh.data is NULL if it's ARB_fragment_program */
-   bool glsl130 = (prog->sh.data ? prog->sh.data->Version : 0) >= 130;
+   bool glsl130 = true;//(prog->sh.data ? prog->sh.data->Version : 0) >= 130;
 
    /* loop over sampler units (aka tex image units) */
    for (unit = 0; unit < num_textures; unit++) {

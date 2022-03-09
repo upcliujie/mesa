@@ -1059,8 +1059,8 @@ static void fill_sampler_view_stage(struct rendering_state *state,
       fix_depth_swizzle(templ.swizzle_g);
       fix_depth_swizzle(templ.swizzle_b);
       fix_depth_swizzle_a(templ.swizzle_a);
-      if (templ.swizzle_a == PIPE_SWIZZLE_X)
-         templ.swizzle_r = PIPE_SWIZZLE_X;
+      //      if (templ.swizzle_a == PIPE_SWIZZLE_X)
+      //         templ.swizzle_r = PIPE_SWIZZLE_X;
    }
 
    if (state->sv[p_stage][sv_idx])
