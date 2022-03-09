@@ -1379,7 +1379,8 @@ iris_create_blend_state(struct pipe_context *ctx,
        * setting it when dual color blending without an appropriate shader.
        */
 
-      pb.AlphaToCoverageEnable = state->alpha_to_coverage;
+      pb.AlphaToCoverageEnable = state->alpha_to_coverage ?
+         BRW_ALWAYS : BRW_NEVER;
       pb.IndependentAlphaBlendEnable = indep_alpha_blend;
 
       /* The casts prevent warnings about implicit enum type conversions. */
