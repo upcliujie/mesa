@@ -17,11 +17,6 @@ use std::sync::Once;
 
 impl CLInfo<cl_device_info> for cl_device_id {
     fn query(&self, q: cl_device_info) -> CLResult<Vec<u8>> {
-        if q == CL_DEVICE_REFERENCE_COUNT {
-            // TODO: sub-devices
-            return Ok(cl_prop::<cl_uint>(1));
-        }
-
         let dev = self.get_ref()?;
         Ok(match q {
             CL_DEVICE_ADDRESS_BITS => cl_prop::<cl_uint>(dev.address_bits()),
@@ -64,6 +59,8 @@ impl CLInfo<cl_device_info> for cl_device_id {
             CL_DEVICE_IMAGE3D_MAX_HEIGHT => cl_prop::<usize>(dev.image_3d_size()),
             CL_DEVICE_IMAGE3D_MAX_WIDTH => cl_prop::<usize>(dev.image_3d_size()),
             CL_DEVICE_IMAGE3D_MAX_DEPTH => cl_prop::<usize>(dev.image_3d_size()),
+            // TODO: sub-devices
+            CL_DEVICE_REFERENCE_COUNT => cl_prop::<cl_uint>(1),
             CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS => cl_prop::<bool>(false),
             CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED => cl_prop::<&str>(""),
             CL_DEVICE_LINKER_AVAILABLE => cl_prop::<bool>(true),

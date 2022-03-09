@@ -11,10 +11,6 @@ use std::sync::Arc;
 
 impl CLInfo<cl_event_info> for cl_event {
     fn query(&self, q: cl_event_info) -> CLResult<Vec<u8>> {
-        if q == CL_EVENT_REFERENCE_COUNT {
-            return Ok(cl_prop::<cl_uint>(self.refcnt()?));
-        }
-
         let event = self.get_ref()?;
         Ok(match q {
             CL_EVENT_COMMAND_EXECUTION_STATUS => cl_prop::<cl_int>(event.status()),
@@ -31,6 +27,7 @@ impl CLInfo<cl_event_info> for cl_event {
                 };
                 cl_prop::<cl_command_queue>(cl_command_queue::from_ptr(ptr))
             }
+            CL_EVENT_REFERENCE_COUNT => cl_prop::<cl_uint>(self.refcnt()?),
             CL_EVENT_COMMAND_TYPE => cl_prop::<cl_command_type>(event.cmd_type),
             _ => Err(CL_INVALID_VALUE)?,
         })
