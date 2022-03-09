@@ -60,9 +60,3 @@ impl Context {
         Ok(res)
     }
 }
-
-impl PartialEq for Context {
-    fn eq(&self, other: &Self) -> bool {
-        (self as *const Self) == (other as *const Self)
-    }
-}

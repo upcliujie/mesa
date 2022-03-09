@@ -464,9 +464,3 @@ impl Device {
         id as u32
     }
 }
-
-impl PartialEq for Device {
-    fn eq(&self, other: &Self) -> bool {
-        (self as *const Self) == (other as *const Self)
-    }
-}
