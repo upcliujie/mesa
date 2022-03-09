@@ -138,8 +138,8 @@ impl Drop for SPIRVBin {
     fn drop(&mut self) {
         unsafe {
             clc_free_spirv(&mut self.spirv);
-            if self.info.is_some() {
-                clc_free_parsed_spirv(self.info.as_mut().unwrap());
+            if let Some(info) = &mut self.info {
+                clc_free_parsed_spirv(info);
             }
         }
     }
