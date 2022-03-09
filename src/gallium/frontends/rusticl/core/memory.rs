@@ -36,7 +36,7 @@ pub struct Mem {
     pub image_elem_size: u8,
     pub cbs: Mutex<Vec<Box<dyn Fn(cl_mem) -> ()>>>,
     res: Option<HashMap<Arc<Device>, PipeResource>>,
-    maps: Mutex<HashMap<*mut c_void, PipeTransfer>>,
+    maps: Mutex<HashMap<*mut c_void, (u32, PipeTransfer)>>,
 }
 
 impl_cl_type_trait!(cl_mem, Mem, CL_INVALID_MEM_OBJECT);
@@ -228,7 +228,7 @@ impl Mem {
         dst_slice_pitch: usize,
     ) -> CLResult<()> {
         let r = self.res.as_ref().unwrap().get(&q.device).unwrap();
-        let tx = ctx.buffer_map(r, 0, self.size.try_into().unwrap());
+        let tx = ctx.buffer_map(r, 0, self.size.try_into().unwrap(), true);
 
         sw_copy(
             src,
@@ -260,7 +260,7 @@ impl Mem {
         dst_slice_pitch: usize,
     ) -> CLResult<()> {
         let r = self.res.as_ref().unwrap().get(&q.device).unwrap();
-        let tx = ctx.buffer_map(r, 0, self.size.try_into().unwrap());
+        let tx = ctx.buffer_map(r, 0, self.size.try_into().unwrap(), true);
 
         sw_copy(
             tx.ptr(),
@@ -294,8 +294,8 @@ impl Mem {
         let res_src = self.res.as_ref().unwrap().get(&q.device).unwrap();
         let res_dst = dst.res.as_ref().unwrap().get(&q.device).unwrap();
 
-        let tx_src = ctx.buffer_map(res_src, 0, self.size.try_into().unwrap());
-        let tx_dst = ctx.buffer_map(res_dst, 0, dst.size.try_into().unwrap());
+        let tx_src = ctx.buffer_map(res_src, 0, self.size.try_into().unwrap(), true);
+        let tx_dst = ctx.buffer_map(res_dst, 0, dst.size.try_into().unwrap(), true);
 
         // TODO check to use hw accelerated paths (e.g. resource_copy_region or blits)
         sw_copy(
@@ -317,22 +317,43 @@ impl Mem {
     }
 
     // TODO use PIPE_MAP_UNSYNCHRONIZED for non blocking
-    pub fn map(&self, q: &Arc<Queue>, offset: usize, size: usize) -> *mut c_void {
+    pub fn map(&self, q: &Arc<Queue>, offset: usize, size: usize, block: bool) -> *mut c_void {
         let res = self.res.as_ref().unwrap().get(&q.device).unwrap();
         let tx = q.device.helper_ctx().buffer_map(
             res,
             offset.try_into().unwrap(),
             size.try_into().unwrap(),
+            block,
         );
         let ptr = tx.ptr();
+        let mut lock = self.maps.lock().unwrap();
+        let e = lock.get_mut(&ptr);
 
-        self.maps.lock().unwrap().insert(tx.ptr(), tx);
+        // if we already have a mapping, reuse that and increase the refcount
+        if let Some(e) = e {
+            e.0 += 1;
+        } else {
+            lock.insert(tx.ptr(), (1, tx));
+        }
 
         ptr
     }
 
-    pub fn unmap(&self, ptr: *mut c_void) -> bool {
-        self.maps.lock().unwrap().remove(&ptr).is_some()
+    pub fn is_mapped_ptr(&self, ptr: *mut c_void) -> bool {
+        self.maps.lock().unwrap().contains_key(&ptr)
+    }
+
+    pub fn unmap(&self, q: &Arc<Queue>, ptr: *mut c_void) {
+        let mut lock = self.maps.lock().unwrap();
+        let e = lock.get_mut(&ptr).unwrap();
+
+        e.0 -= 1;
+        if e.0 == 0 {
+            lock.remove(&ptr)
+                .unwrap()
+                .1
+                .with_ctx(&q.device.helper_ctx());
+        }
     }
 }
 

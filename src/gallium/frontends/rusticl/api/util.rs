@@ -45,7 +45,7 @@ pub trait CLInfo<I> {
         // param_value is a pointer to memory where the appropriate result being queried is returned.
         // If param_value is NULL, it is ignored.
         unsafe {
-            param_value.copy_checked(d.as_ptr() as *const c_void, size);
+            param_value.copy_checked(d.as_ptr().cast(), size);
         }
 
         Ok(())
@@ -79,7 +79,7 @@ pub trait CLInfoObj<I, O> {
         // param_value is a pointer to memory where the appropriate result being queried is returned.
         // If param_value is NULL, it is ignored.
         unsafe {
-            param_value.copy_checked(d.as_ptr() as *const c_void, size);
+            param_value.copy_checked(d.as_ptr().cast(), size);
         }
 
         Ok(())
@@ -104,10 +104,8 @@ macro_rules! cl_prop_for_struct {
     ($ty: ty) => {
         impl CLProp for $ty {
             fn cl_vec(&self) -> Vec<u8> {
-                unsafe {
-                    slice::from_raw_parts((self as *const Self) as *const u8, size_of::<Self>())
-                }
-                .to_vec()
+                unsafe { slice::from_raw_parts((self as *const Self).cast(), size_of::<Self>()) }
+                    .to_vec()
             }
         }
     };

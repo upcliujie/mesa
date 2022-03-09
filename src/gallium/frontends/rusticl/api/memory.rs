@@ -1304,16 +1304,20 @@ pub fn enqueue_map_buffer(
         Err(CL_INVALID_CONTEXT)?
     }
 
-    if !block || num_events_in_wait_list > 0 || !event.is_null() {
-        println!("enqueue_map_buffer not implemented");
-        Err(CL_MAP_FAILURE)?
-    }
-
+    let e = Event::new(
+        &q,
+        CL_COMMAND_MAP_BUFFER,
+        evs,
+        // we don't really have anything to do here?
+        Box::new(|_, _| Ok(())),
+    );
+    cl_event::leak_ref(event, &e);
+    q.queue(&e);
     if block {
         q.flush(true)?;
     }
 
-    Ok(b.map(&q, offset, size))
+    Ok(b.map(&q, offset, size, block))
     // TODO
     // CL_MISALIGNED_SUB_BUFFER_OFFSET if buffer is a sub-buffer object and offset specified when the sub-buffer object is created is not aligned to CL_DEVICE_MEM_BASE_ADDR_ALIGN value for the device associated with queue. This error code is missing before version 1.1.
     // CL_MAP_FAILURE if there is a failure to map the requested region into the host address space. This error cannot occur for buffer objects created with CL_MEM_USE_HOST_PTR or CL_MEM_ALLOC_HOST_PTR.
@@ -1329,8 +1333,8 @@ pub fn enqueue_unmap_mem_object(
     event: *mut cl_event,
 ) -> CLResult<()> {
     let q = command_queue.get_arc()?;
-    let m = memobj.get_ref()?;
-    let _evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
+    let m = memobj.get_arc()?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_CONTEXT if context associated with command_queue and memobj are not the same
     if q.context != m.context {
@@ -1339,14 +1343,18 @@ pub fn enqueue_unmap_mem_object(
 
     // CL_INVALID_VALUE if mapped_ptr is not a valid pointer returned by clEnqueueMapBuffer or
     // clEnqueueMapImage for memobj.
-    if !m.unmap(mapped_ptr) {
+    if !m.is_mapped_ptr(mapped_ptr) {
         Err(CL_INVALID_VALUE)?
     }
 
-    if num_events_in_wait_list > 0 || !event.is_null() {
-        println!("enqueue_unmap_mem_object not implemented");
-        Err(CL_OUT_OF_HOST_MEMORY)?
-    }
+    let e = Event::new(
+        &q,
+        CL_COMMAND_UNMAP_MEM_OBJECT,
+        evs,
+        Box::new(move |q, _| Ok(m.unmap(q, mapped_ptr))),
+    );
+    cl_event::leak_ref(event, &e);
+    q.queue(&e);
 
     Ok(())
 }

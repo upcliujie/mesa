@@ -4,19 +4,38 @@ use crate::pipe::context::*;
 
 use self::mesa_rust_gen::*;
 
+use std::ops::Deref;
 use std::os::raw::c_void;
 use std::ptr;
-use std::sync::Arc;
 
 pub struct PipeTransfer {
     pipe: *mut pipe_transfer,
     res: *mut pipe_resource,
     ptr: *mut c_void,
-    ctx: Arc<PipeContext>,
+}
+
+pub struct GuardedPipeTransfer<'a> {
+    inner: PipeTransfer,
+    ctx: &'a PipeContext,
+}
+
+impl<'a> Deref for GuardedPipeTransfer<'a> {
+    type Target = PipeTransfer;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<'a> Drop for GuardedPipeTransfer<'a> {
+    fn drop(&mut self) {
+        self.ctx.buffer_unmap(self.inner.pipe);
+        unsafe { pipe_resource_reference(&mut self.inner.res, ptr::null_mut()) };
+    }
 }
 
 impl PipeTransfer {
-    pub fn new(pipe: *mut pipe_transfer, ptr: *mut c_void, ctx: &Arc<PipeContext>) -> Self {
+    pub(super) fn new(pipe: *mut pipe_transfer, ptr: *mut c_void) -> Self {
         let mut res: *mut pipe_resource = ptr::null_mut();
         unsafe { pipe_resource_reference(&mut res, (*pipe).resource) }
 
@@ -24,18 +43,24 @@ impl PipeTransfer {
             pipe: pipe,
             res: res,
             ptr: ptr,
-            ctx: ctx.clone(),
         }
     }
 
     pub fn ptr(&self) -> *mut c_void {
         self.ptr
     }
+
+    pub fn with_ctx(self, ctx: &PipeContext) -> GuardedPipeTransfer {
+        GuardedPipeTransfer {
+            inner: self,
+            ctx: ctx,
+        }
+    }
 }
 
+// use set_ctx before operating on the PipeTransfer inside a block where it gets droped
 impl Drop for PipeTransfer {
     fn drop(&mut self) {
-        self.ctx.buffer_unmap(self.pipe);
-        unsafe { pipe_resource_reference(&mut self.res, ptr::null_mut()) }
+        assert_eq!(ptr::null_mut(), self.res);
     }
 }
