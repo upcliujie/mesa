@@ -924,7 +924,11 @@ anv_physical_device_try_create(struct anv_instance *instance,
    device->use_256B_binding_tables =
       device->info.verx10 >= 110 && device->info.verx10 <= 120;
 
-   device->bt_block_size = 64 * 1024;
+   /* TODO: We could increase this to 1MB on info.verx10 >= 125 */
+   if (device->info.ver >= 11)
+      device->bt_block_size = 512 * 1024;
+   else
+      device->bt_block_size = 64 * 1024;
 
    device->always_use_bindless =
       env_var_as_boolean("ANV_ALWAYS_BINDLESS", false);
