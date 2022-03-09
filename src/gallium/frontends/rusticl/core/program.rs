@@ -154,8 +154,8 @@ impl Program {
                 .collect();
 
             let (spirv, log) = spirv::SPIRVBin::link(&bins, false);
-            let status = if spirv.is_some() {
-                kernels.append(&mut spirv.as_ref().unwrap().kernels());
+            let status = if let Some(spirv) = &spirv {
+                kernels.append(&mut spirv.kernels());
                 CL_BUILD_SUCCESS as cl_build_status
             } else {
                 CL_BUILD_ERROR

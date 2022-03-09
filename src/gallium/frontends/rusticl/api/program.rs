@@ -88,8 +88,8 @@ fn call_cb(
     program: cl_program,
     user_data: *mut ::std::os::raw::c_void,
 ) {
-    if pfn_notify.is_some() {
-        unsafe { pfn_notify.unwrap()(program, user_data) };
+    if let Some(cb) = pfn_notify {
+        unsafe { cb(program, user_data) };
     }
 }
 
