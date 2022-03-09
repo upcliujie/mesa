@@ -21,10 +21,6 @@ use std::sync::Arc;
 
 impl CLInfo<cl_program_info> for cl_program {
     fn query(&self, q: cl_program_info) -> CLResult<Vec<u8>> {
-        if q == CL_PROGRAM_REFERENCE_COUNT {
-            return Ok(cl_prop::<cl_uint>(self.refcnt()?));
-        }
-
         let prog = self.get_ref()?;
         Ok(match q {
             CL_PROGRAM_CONTEXT => {
@@ -46,6 +42,7 @@ impl CLInfo<cl_program_info> for cl_program {
             }
             CL_PROGRAM_NUM_DEVICES => cl_prop::<cl_uint>(prog.devs.len() as cl_uint),
             CL_PROGRAM_NUM_KERNELS => cl_prop::<usize>(prog.kernels.len()),
+            CL_PROGRAM_REFERENCE_COUNT => cl_prop::<cl_uint>(self.refcnt()?),
             CL_PROGRAM_SOURCE => cl_prop::<&CStr>(prog.src.as_c_str()),
             // CL_INVALID_VALUE if param_name is not one of the supported values
             _ => Err(CL_INVALID_VALUE)?,

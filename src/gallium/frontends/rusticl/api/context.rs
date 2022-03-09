@@ -18,10 +18,6 @@ use std::sync::Arc;
 
 impl CLInfo<cl_context_info> for cl_context {
     fn query(&self, q: cl_context_info) -> CLResult<Vec<u8>> {
-        if q == CL_CONTEXT_REFERENCE_COUNT {
-            return Ok(cl_prop::<cl_uint>(self.refcnt()?));
-        }
-
         let ctx = self.get_ref()?;
         Ok(match q {
             CL_CONTEXT_DEVICES => {
@@ -37,6 +33,7 @@ impl CLInfo<cl_context_info> for cl_context {
             }
             CL_CONTEXT_NUM_DEVICES => cl_prop::<cl_uint>(ctx.devs.len() as u32),
             CL_CONTEXT_PROPERTIES => cl_prop::<&Vec<cl_context_properties>>(&ctx.properties),
+            CL_CONTEXT_REFERENCE_COUNT => cl_prop::<cl_uint>(self.refcnt()?),
             // CL_INVALID_VALUE if param_name is not one of the supported values
             _ => Err(CL_INVALID_VALUE)?,
         })

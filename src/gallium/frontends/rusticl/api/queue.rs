@@ -10,10 +10,6 @@ use std::sync::Arc;
 
 impl CLInfo<cl_command_queue_info> for cl_command_queue {
     fn query(&self, q: cl_command_queue_info) -> CLResult<Vec<u8>> {
-        if q == CL_QUEUE_REFERENCE_COUNT {
-            return Ok(cl_prop::<cl_uint>(self.refcnt()?));
-        }
-
         let queue = self.get_ref()?;
         Ok(match q {
             CL_QUEUE_CONTEXT => {
@@ -27,6 +23,7 @@ impl CLInfo<cl_command_queue_info> for cl_command_queue {
                 cl_prop::<cl_device_id>(cl_device_id::from_ptr(ptr))
             }
             CL_QUEUE_PROPERTIES => cl_prop::<cl_command_queue_properties>(queue.props),
+            CL_QUEUE_REFERENCE_COUNT => cl_prop::<cl_uint>(self.refcnt()?),
             // CL_INVALID_VALUE if param_name is not one of the supported values
             _ => Err(CL_INVALID_VALUE)?,
         })
