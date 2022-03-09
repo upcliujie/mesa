@@ -388,6 +388,10 @@ tu_CreateImage(VkDevice _device,
       ubwc_enabled = false;
    }
 
+   /* No sense in tiling a 1D image, you'd just waste space and cache locality. */
+   if (pCreateInfo->imageType == VK_IMAGE_TYPE_1D)
+      tile_mode = TILE6_LINEAR;
+
    /* Mutable images can be reinterpreted as any other compatible format.
     * This is a problem with UBWC (compression for different formats is different),
     * but also tiling ("swap" affects how tiled formats are stored in memory)
