@@ -3866,11 +3866,6 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
    if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_PIPELINE) {
       anv_batch_emit_batch(&cmd_buffer->batch, &pipeline->base.batch);
 
-      /* Remove from dynamic state emission all of stuff that is baked into
-       * the pipeline.
-       */
-      cmd_buffer->state.gfx.dirty &= ~pipeline->static_state_mask;
-
       /* If the pipeline changed, we may need to re-allocate push constant
        * space in the URB.
        */
@@ -3944,21 +3939,24 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
 
    cmd_buffer_emit_clip(cmd_buffer);
 
-   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE)
+   if (anv_cmd_buffer_needs_dynamic_state(cmd_buffer,
+                                          ANV_CMD_DIRTY_DYNAMIC_RASTERIZER_DISCARD_ENABLE))
       cmd_buffer_emit_streamout(cmd_buffer);
 
-   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_DYNAMIC_VIEWPORT)
+   if (anv_cmd_buffer_needs_dynamic_state(cmd_buffer,
+                                          ANV_CMD_DIRTY_DYNAMIC_VIEWPORT))
       gfx8_cmd_buffer_emit_viewport(cmd_buffer);
 
-   if (cmd_buffer->state.gfx.dirty & (ANV_CMD_DIRTY_DYNAMIC_VIEWPORT |
-                                  ANV_CMD_DIRTY_PIPELINE)) {
+   if (anv_cmd_buffer_needs_dynamic_state(cmd_buffer,
+                                          ANV_CMD_DIRTY_DYNAMIC_VIEWPORT)) {
       gfx8_cmd_buffer_emit_depth_viewport(cmd_buffer,
                                           pipeline->depth_clamp_enable);
    }
 
-   if (cmd_buffer->state.gfx.dirty & (ANV_CMD_DIRTY_DYNAMIC_SCISSOR |
-                                      ANV_CMD_DIRTY_RENDER_TARGETS |
-                                      ANV_CMD_DIRTY_DYNAMIC_VIEWPORT))
+   if (anv_cmd_buffer_needs_dynamic_state(cmd_buffer,
+                                          ANV_CMD_DIRTY_DYNAMIC_SCISSOR |
+                                          ANV_CMD_DIRTY_RENDER_TARGETS |
+                                          ANV_CMD_DIRTY_DYNAMIC_VIEWPORT))
       gfx7_cmd_buffer_emit_scissor(cmd_buffer);
 
    genX(cmd_buffer_flush_dynamic_state)(cmd_buffer);
