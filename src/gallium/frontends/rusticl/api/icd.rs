@@ -298,6 +298,23 @@ macro_rules! impl_cl_type_trait {
                 ptr as Self
             }
         }
+
+        // there are two reason to implement those traits for all objects
+        //   1. it speeds up operations
+        //   2. we want to check for real equality more explicit to stay conformant with the API
+        //      and to not break in subtle ways e.g. using CL objects as keys in HashMaps.
+        impl std::cmp::Eq for $t {}
+        impl std::cmp::PartialEq for $t {
+            fn eq(&self, other: &Self) -> bool {
+                (self as *const Self) == (other as *const Self)
+            }
+        }
+
+        impl std::hash::Hash for $t {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                (self as *const Self).hash(state);
+            }
+        }
     };
 }
 
