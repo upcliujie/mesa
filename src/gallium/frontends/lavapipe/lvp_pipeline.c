@@ -64,6 +64,9 @@ VKAPI_ATTR void VKAPI_CALL lvp_DestroyPipeline(
    if (pipeline->shader_cso[PIPE_SHADER_COMPUTE])
       device->queue.ctx->delete_compute_state(device->queue.ctx, pipeline->shader_cso[PIPE_SHADER_COMPUTE]);
 
+   for (unsigned i = 0; i < MESA_SHADER_STAGES; i++)
+      ralloc_free(pipeline->pipeline_nir[i]);
+
    ralloc_free(pipeline->mem_ctx);
    vk_object_base_finish(&pipeline->base);
    vk_free2(&device->vk.alloc, pAllocator, pipeline);
@@ -763,7 +766,7 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
 static void fill_shader_prog(struct pipe_shader_state *state, gl_shader_stage stage, struct lvp_pipeline *pipeline)
 {
    state->type = PIPE_SHADER_IR_NIR;
-   state->ir.nir = pipeline->pipeline_nir[stage];
+   state->ir.nir = nir_shader_clone(NULL, pipeline->pipeline_nir[stage]);
 }
 
 static void
@@ -1021,7 +1024,7 @@ lvp_graphics_pipeline_init(struct lvp_pipeline *pipeline,
       pipeline->pipeline_nir[MESA_SHADER_FRAGMENT] = b.shader;
       struct pipe_shader_state shstate = {0};
       shstate.type = PIPE_SHADER_IR_NIR;
-      shstate.ir.nir = pipeline->pipeline_nir[MESA_SHADER_FRAGMENT];
+      shstate.ir.nir = nir_shader_clone(NULL, pipeline->pipeline_nir[MESA_SHADER_FRAGMENT]);
       pipeline->shader_cso[PIPE_SHADER_FRAGMENT] = device->queue.ctx->create_fs_state(device->queue.ctx, &shstate);
    }
    return VK_SUCCESS;
