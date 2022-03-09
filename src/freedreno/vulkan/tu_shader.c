@@ -645,18 +645,6 @@ tu_lower_io(nir_shader *shader, struct tu_shader *tu_shader,
 }
 
 static void
-shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
-{
-   assert(glsl_type_is_vector_or_scalar(type));
-
-   unsigned comp_size =
-      glsl_type_is_boolean(type) ? 4 : glsl_get_bit_size(type) / 8;
-   unsigned length = glsl_get_vector_elements(type);
-   *size = comp_size * length;
-   *align = comp_size;
-}
-
-static void
 tu_gather_xfb_info(nir_shader *nir, struct ir3_stream_output_info *info)
 {
    nir_xfb_info *xfb = nir_gather_xfb_info(nir, NULL);
@@ -759,7 +747,7 @@ tu_shader_create(struct tu_device *dev,
 
    if (nir->info.stage == MESA_SHADER_COMPUTE) {
       NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
-                 nir_var_mem_shared, shared_type_info);
+                 nir_var_mem_shared, glsl_get_shared_size_align_bytes);
       NIR_PASS_V(nir, nir_lower_explicit_io,
                  nir_var_mem_shared,
                  nir_address_format_32bit_offset);

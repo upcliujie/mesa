@@ -75,8 +75,6 @@ protected:
                                       unsigned num_components,
                                       nir_intrinsic_instr *low, nir_intrinsic_instr *high,
                                       void *data);
-   static void shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align);
-
    std::string swizzle(nir_alu_instr *instr, int src);
 
    nir_builder *b, _b;
@@ -158,7 +156,7 @@ nir_load_store_vectorize_test::run_vectorizer(nir_variable_mode modes,
                                               nir_variable_mode robust_modes)
 {
    if (modes & nir_var_mem_shared)
-      nir_lower_vars_to_explicit_types(b->shader, nir_var_mem_shared, shared_type_info);
+      nir_lower_vars_to_explicit_types(b->shader, nir_var_mem_shared, glsl_get_shared_size_align_bytes);
 
    nir_load_store_vectorize_options opts = { };
    opts.callback = mem_vectorize_callback;
@@ -371,18 +369,6 @@ bool nir_load_store_vectorize_test::mem_vectorize_callback(
    /* Require scalar alignment and less than 5 components. */
    return align % (bit_size / 8) == 0 &&
           num_components <= 4;
-}
-
-void nir_load_store_vectorize_test::shared_type_info(
-   const struct glsl_type *type, unsigned *size, unsigned *align)
-{
-   assert(glsl_type_is_vector_or_scalar(type));
-
-   uint32_t comp_size = glsl_type_is_boolean(type)
-      ? 4 : glsl_get_bit_size(type) / 8;
-   unsigned length = glsl_get_vector_elements(type);
-   *size = comp_size * length,
-   *align = comp_size;
 }
 } // namespace
 

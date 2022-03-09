@@ -250,18 +250,6 @@ st_nir_assign_uniform_locations(struct gl_context *ctx,
    }
 }
 
-static void
-shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
-{
-   assert(glsl_type_is_vector_or_scalar(type));
-
-   uint32_t comp_size = glsl_type_is_boolean(type)
-      ? 4 : glsl_get_bit_size(type) / 8;
-   unsigned length = glsl_get_vector_elements(type);
-   *size = comp_size * length,
-   *align = comp_size * (length == 3 ? 4 : length);
-}
-
 /* First third of converting glsl_to_nir.. this leaves things in a pre-
  * nir_lower_io state, so that shader variants can more easily insert/
  * replace variables, etc.
@@ -343,7 +331,7 @@ st_nir_preprocess(struct st_context *st, struct gl_program *prog,
    if (prog->nir->info.stage == MESA_SHADER_COMPUTE &&
        shader_program->data->spirv) {
       NIR_PASS_V(prog->nir, nir_lower_vars_to_explicit_types,
-                 nir_var_mem_shared, shared_type_info);
+                 nir_var_mem_shared, glsl_get_shared_size_align_bytes);
       NIR_PASS_V(prog->nir, nir_lower_explicit_io,
                  nir_var_mem_shared, nir_address_format_32bit_offset);
    }

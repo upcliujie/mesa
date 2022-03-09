@@ -830,18 +830,6 @@ anv_pipeline_stage_get_nir(struct anv_pipeline *pipeline,
 }
 
 static void
-shared_type_info(const struct glsl_type *type, unsigned *size, unsigned *align)
-{
-   assert(glsl_type_is_vector_or_scalar(type));
-
-   uint32_t comp_size = glsl_type_is_boolean(type)
-      ? 4 : glsl_get_bit_size(type) / 8;
-   unsigned length = glsl_get_vector_elements(type);
-   *size = comp_size * length,
-   *align = comp_size * (length == 3 ? 4 : length);
-}
-
-static void
 anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
                        void *mem_ctx,
                        struct anv_pipeline_stage *stage,
@@ -917,7 +905,7 @@ anv_pipeline_lower_nir(struct anv_pipeline *pipeline,
    if (gl_shader_stage_uses_workgroup(nir->info.stage)) {
       if (!nir->info.shared_memory_explicit_layout) {
          NIR_PASS_V(nir, nir_lower_vars_to_explicit_types,
-                    nir_var_mem_shared, shared_type_info);
+                    nir_var_mem_shared, glsl_get_shared_size_align_bytes);
       }
 
       NIR_PASS_V(nir, nir_lower_explicit_io,
