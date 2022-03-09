@@ -3267,13 +3267,13 @@ VkResult anv_CreateDevice(
     */
    result = anv_state_pool_init(&device->general_state_pool, device,
                                 "general pool",
-                                0, GENERAL_STATE_POOL_MIN_ADDRESS, 16384);
+                                0, GENERAL_STATE_POOL_MIN_ADDRESS, 65536);
    if (result != VK_SUCCESS)
       goto fail_batch_bo_pool;
 
    result = anv_state_pool_init(&device->dynamic_state_pool, device,
                                 "dynamic pool",
-                                DYNAMIC_STATE_POOL_MIN_ADDRESS, 0, 16384);
+                                DYNAMIC_STATE_POOL_MIN_ADDRESS, 0, 65536);
    if (result != VK_SUCCESS)
       goto fail_general_state_pool;
 
@@ -3292,13 +3292,13 @@ VkResult anv_CreateDevice(
 
    result = anv_state_pool_init(&device->instruction_state_pool, device,
                                 "instruction pool",
-                                INSTRUCTION_STATE_POOL_MIN_ADDRESS, 0, 16384);
+                                INSTRUCTION_STATE_POOL_MIN_ADDRESS, 0, 65536);
    if (result != VK_SUCCESS)
       goto fail_dynamic_state_pool;
 
    result = anv_state_pool_init(&device->surface_state_pool, device,
                                 "surface state pool",
-                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 4096);
+                                SURFACE_STATE_POOL_MIN_ADDRESS, 0, 65536);
    if (result != VK_SUCCESS)
       goto fail_instruction_state_pool;
 
