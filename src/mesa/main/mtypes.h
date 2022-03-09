@@ -1784,9 +1784,9 @@ struct gl_selection
    GLuint Hits;		/**< number of records in the selection buffer */
    GLuint NameStackDepth; /**< name stack depth */
    GLuint NameStack[MAX_NAME_STACK_DEPTH]; /**< name stack */
-   GLboolean HitFlag;	/**< hit flag */
-   GLfloat HitMinZ;	/**< minimum hit depth */
-   GLfloat HitMaxZ;	/**< maximum hit depth */
+   GLboolean HitFlag;  /**< hit flag */
+   GLfloat HitMinZ;    /**< minimum hit depth */
+   GLfloat HitMaxZ;    /**< maximum hit depth */
 };
 
 
