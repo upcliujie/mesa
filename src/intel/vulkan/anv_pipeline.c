@@ -503,7 +503,8 @@ populate_wm_prog_key(const struct anv_graphics_pipeline *pipeline,
     * code to workaround the issue that hardware disables alpha to coverage
     * when there is SampleMask output.
     */
-   key->alpha_to_coverage = ms_info && ms_info->alphaToCoverageEnable;
+   key->alpha_to_coverage = (ms_info && ms_info->alphaToCoverageEnable) ?
+      BRW_ALWAYS : BRW_NEVER;
 
    /* Vulkan doesn't support fixed-function alpha test */
    key->alpha_test_replicate_alpha = false;
