@@ -237,6 +237,22 @@ panvk_per_arch(set_texture_desc)(struct panvk_descriptor_set *set,
 }
 
 static void
+panvk_set_uniform_texel_buffer_desc(struct panvk_device *dev,
+                                    struct panvk_descriptor_set *set,
+                                    unsigned idx,
+                                    const VkBufferView bufferView)
+{
+   VK_FROM_HANDLE(panvk_buffer_view, view, bufferView);
+
+#if PAN_ARCH > 5
+   memcpy(&((struct mali_texture_packed *)set->textures)[idx],
+          view->descs.tex, pan_size(TEXTURE));
+#else
+   ((mali_ptr *)set->textures)[idx] = view->bo->ptr.gpu;
+#endif
+}
+
+static void
 panvk_set_img_desc(struct panvk_device *dev,
                    struct panvk_descriptor_set *set,
                    unsigned idx,
@@ -251,24 +267,18 @@ panvk_set_img_desc(struct panvk_device *dev,
 }
 
 static void
-panvk_set_texel_buf_desc(struct panvk_device *dev,
-                         struct panvk_descriptor_set *set,
-                         unsigned img_idx, unsigned tex_idx,
-                         const VkBufferView bufferView)
+panvk_set_storage_texel_buffer_desc(struct panvk_device *dev,
+                                    struct panvk_descriptor_set *set,
+                                    unsigned idx,
+                                    const VkBufferView bufferView)
 {
    const struct panfrost_device *pdev = &dev->physical_device->pdev;
    VK_FROM_HANDLE(panvk_buffer_view, view, bufferView);
-   void *attrib_buf = (uint8_t *)set->img_attrib_bufs + (pan_size(ATTRIBUTE_BUFFER) * 2 * img_idx);
 
-   set->img_fmts[img_idx] = pdev->formats[view->fmt].hw;
+   void *attrib_buf = (uint8_t *)set->img_attrib_bufs + (pan_size(ATTRIBUTE_BUFFER) * 2 * idx);
+
+   set->img_fmts[idx] = pdev->formats[view->fmt].hw;
    memcpy(attrib_buf, view->descs.img_attrib_buf, pan_size(ATTRIBUTE_BUFFER) * 2);
-
-#if PAN_ARCH > 5
-   memcpy(&((struct mali_texture_packed *)set->textures)[tex_idx],
-          view->descs.tex, pan_size(TEXTURE));
-#else
-   ((mali_ptr *)set->textures)[tex_idx] = view->bo->ptr.gpu;
-#endif
 }
 
 static void
@@ -323,6 +333,14 @@ panvk_per_arch(write_descriptor_set)(struct panvk_device *dev,
          }
          break;
 
+      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+         for (unsigned i = 0; i < ndescs; i++) {
+            unsigned tex = binding_layout->tex_idx + dest_offset + i;
+            panvk_set_uniform_texel_buffer_desc(dev, set, tex,
+               pDescriptorWrite->pTexelBufferView[src_offset + i]);
+         }
+         break;
+
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
          for (unsigned i = 0; i < ndescs; i++) {
@@ -333,13 +351,11 @@ panvk_per_arch(write_descriptor_set)(struct panvk_device *dev,
          }
          break;
 
-      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
       case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
          for (unsigned i = 0; i < ndescs; i++) {
             unsigned img = binding_layout->img_idx + dest_offset + i;
-            unsigned tex = binding_layout->tex_idx + dest_offset + i;
-            panvk_set_texel_buf_desc(dev, set, img, tex,
-                                     pDescriptorWrite->pTexelBufferView[src_offset + i]);
+            panvk_set_storage_texel_buffer_desc(dev, set, img,
+               pDescriptorWrite->pTexelBufferView[src_offset + i]);
          }
          break;
 
