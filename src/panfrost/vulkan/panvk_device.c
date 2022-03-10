@@ -151,6 +151,7 @@ panvk_get_device_extensions(const struct panvk_physical_device *device,
       .KHR_swapchain = true,
 #endif
       .EXT_custom_border_color = true,
+      .EXT_vertex_attribute_divisor = true,
    };
 }
 
