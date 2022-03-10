@@ -430,7 +430,6 @@ gather_info_output_decl_gs(const nir_shader *nir, const nir_variable *var,
 
    assert(stream < 4);
 
-   info->gs.max_stream = MAX2(info->gs.max_stream, stream);
    info->gs.num_stream_output_components[stream] += num_components;
    info->gs.output_streams[idx] = stream;
 }
@@ -697,6 +696,7 @@ radv_nir_shader_info_pass(struct radv_device *device, const struct nir_shader *n
       info->gs.vertices_out = nir->info.gs.vertices_out;
       info->gs.output_prim = nir->info.gs.output_primitive;
       info->gs.invocations = nir->info.gs.invocations;
+      info->gs.max_stream = util_last_bit(nir->info.gs.active_stream_mask);
       break;
    case MESA_SHADER_TESS_EVAL:
       info->tes._primitive_mode = nir->info.tess._primitive_mode;

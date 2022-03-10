@@ -5659,21 +5659,21 @@ radv_pipeline_generate_hw_gs(struct radeon_cmdbuf *ctx_cs, struct radeon_cmdbuf 
 
    radeon_set_context_reg_seq(ctx_cs, R_028A60_VGT_GSVS_RING_OFFSET_1, 3);
    radeon_emit(ctx_cs, offset);
-   if (max_stream >= 1)
+   if (max_stream >= 2)
       offset += num_components[1] * gs_max_out_vertices;
    radeon_emit(ctx_cs, offset);
-   if (max_stream >= 2)
+   if (max_stream >= 3)
       offset += num_components[2] * gs_max_out_vertices;
    radeon_emit(ctx_cs, offset);
-   if (max_stream >= 3)
+   if (max_stream >= 4)
       offset += num_components[3] * gs_max_out_vertices;
    radeon_set_context_reg(ctx_cs, R_028AB0_VGT_GSVS_RING_ITEMSIZE, offset);
 
    radeon_set_context_reg_seq(ctx_cs, R_028B5C_VGT_GS_VERT_ITEMSIZE, 4);
    radeon_emit(ctx_cs, num_components[0]);
-   radeon_emit(ctx_cs, (max_stream >= 1) ? num_components[1] : 0);
-   radeon_emit(ctx_cs, (max_stream >= 2) ? num_components[2] : 0);
-   radeon_emit(ctx_cs, (max_stream >= 3) ? num_components[3] : 0);
+   radeon_emit(ctx_cs, (max_stream >= 2) ? num_components[1] : 0);
+   radeon_emit(ctx_cs, (max_stream >= 3) ? num_components[2] : 0);
+   radeon_emit(ctx_cs, (max_stream >= 4) ? num_components[3] : 0);
 
    uint32_t gs_num_invocations = gs->info.gs.invocations;
    radeon_set_context_reg(
