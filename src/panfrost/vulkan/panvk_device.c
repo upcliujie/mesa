@@ -151,6 +151,7 @@ panvk_get_device_extensions(const struct panvk_physical_device *device,
       .KHR_swapchain = true,
 #endif
       .EXT_custom_border_color = true,
+      .EXT_vertex_attribute_divisor = true,
    };
 }
 
@@ -701,6 +702,13 @@ panvk_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
          properties->maxPerSetDescriptors = (1ull << 31) / 96;
          /* Our buffer size fields allow only this much */
          properties->maxMemoryAllocationSize = 0xFFFFFFFFull;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT: {
+         VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT *properties =
+            (VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT *)ext;
+         /* We have to restrict this a bit for multiview */
+         properties->maxVertexAttribDivisor = UINT32_MAX / (16 * 2048);
          break;
       }
       default:
