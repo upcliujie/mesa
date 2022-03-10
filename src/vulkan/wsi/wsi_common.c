@@ -395,7 +395,7 @@ wsi_configure_image(const struct wsi_swapchain *chain,
       .tiling = VK_IMAGE_TILING_OPTIMAL,
       .usage = pCreateInfo->imageUsage,
       .sharingMode = pCreateInfo->imageSharingMode,
-      .queueFamilyIndexCount = pCreateInfo->queueFamilyIndexCount,
+      .queueFamilyIndexCount = queue_family_indices ? pCreateInfo->queueFamilyIndexCount : 0,
       .pQueueFamilyIndices = queue_family_indices,
       .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
    };
