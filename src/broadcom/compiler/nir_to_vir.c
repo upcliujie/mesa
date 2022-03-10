@@ -2103,7 +2103,7 @@ v3d_optimize_nir(struct v3d_compile *c, struct nir_shader *s)
                 NIR_PASS(progress, s, nir_opt_peephole_select, 8, true, true);
                 NIR_PASS(progress, s, nir_opt_algebraic);
                 NIR_PASS(progress, s, nir_opt_constant_folding);
-
+                NIR_PASS(progress, s, nir_opt_gcm, false);
                 /* Note that vectorization may undo the load/store scalarization
                  * pass we run for non 32-bit TMU general load/store by
                  * converting, for example, 2 consecutive 16-bit loads into a
