@@ -353,10 +353,10 @@ panvk_emit_attrib(const struct panvk_device *dev,
                    (bufs[buf_idx].address & 63);
 
       if (buf_info->per_instance && buf_info->instance_divisor) {
-         if (draw->first_instance > 0) {
-            cfg.offset += (draw->first_instance * buf_info->stride) /
-                          buf_info->instance_divisor;
-         }
+//         if (draw->first_instance > 0) {
+//            cfg.offset += (draw->first_instance * buf_info->stride) /
+//                          buf_info->instance_divisor;
+//         }
 
          if (draw->instance_count > 1)
             cfg.offset -= buf_info->stride * draw->offset_start;
