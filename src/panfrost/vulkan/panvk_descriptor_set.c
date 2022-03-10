@@ -125,9 +125,6 @@ panvk_CreateDescriptorSetLayout(VkDevice _device,
          tex_idx += binding_layout->array_size;
          break;
       case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-         binding_layout->img_idx = img_idx;
-         img_idx += binding_layout->array_size;
          binding_layout->tex_idx = tex_idx;
          tex_idx += binding_layout->array_size;
          break;
@@ -148,6 +145,10 @@ panvk_CreateDescriptorSetLayout(VkDevice _device,
          ssbo_idx += binding_layout->array_size;
          break;
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+         binding_layout->img_idx = img_idx;
+         img_idx += binding_layout->array_size;
+         break;
+      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
          binding_layout->img_idx = img_idx;
          img_idx += binding_layout->array_size;
          break;
@@ -227,13 +228,9 @@ panvk_GetDescriptorSetLayoutSupport(VkDevice _device,
          sampler_idx += binding->descriptorCount;
          tex_idx += binding->descriptorCount;
          break;
-      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-         img_idx += binding->descriptorCount;
-         tex_idx += binding->descriptorCount;
-         break;
       case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
       case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
          tex_idx += binding->descriptorCount;
          break;
       case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
@@ -249,6 +246,7 @@ panvk_GetDescriptorSetLayoutSupport(VkDevice _device,
          ssbo_idx += binding->descriptorCount;
          break;
       case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
          img_idx += binding->descriptorCount;
          break;
       default:
