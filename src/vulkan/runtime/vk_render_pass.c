@@ -1681,7 +1681,7 @@ begin_subpass(struct vk_command_buffer *cmd_buffer,
                       sp_att->layout, sp_att->stencil_layout);
 
       fsr_attachment = (VkRenderingFragmentShadingRateAttachmentInfoKHR) {
-         .sType = VK_STRUCTURE_TYPE_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR,
+         .sType = VK_STRUCTURE_TYPE_RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_INFO_KHR,
          .imageView = vk_image_view_to_handle(att_state->image_view),
          .imageLayout = sp_att->layout,
          .shadingRateAttachmentTexelSize =
@@ -1781,7 +1781,19 @@ vk_common_CmdBeginRenderPass2(VkCommandBuffer commandBuffer,
        */
       assert(image_view->image->samples == pass_att->samples);
 
-      assert(util_last_bit(pass_att->view_mask) <= image_view->layer_count);
+      /* From the Vulkan 1.3.204 spec:
+       *
+       *    If multiview is enabled and the shading rate attachment has
+       *    multiple layers, the shading rate attachment texel is selected
+       *    from the layer determined by the ViewIndex built-in. If multiview
+       *    is disabled, and both the shading rate attachment and the
+       *    framebuffer have multiple layers, the shading rate attachment
+       *    texel is selected from the layer determined by the Layer built-in.
+       *    Otherwise, the texel is unconditionally selected from the first
+       *    layer of the attachment.
+       */
+      if (!(image_view->usage & VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR))
+         assert(util_last_bit(pass_att->view_mask) <= image_view->layer_count);
 
       *att_state = (struct vk_attachment_state) {
          .image_view = image_view,
