@@ -476,6 +476,33 @@ add_coupling_code(exec_ctx& ctx, Block* block, std::vector<aco_ptr<Instruction>>
    return i;
 }
 
+/* Avoid live-range splits in Exact mode:
+ * Because the data register of atomic VMEM instructions
+ * is shared between src and dst, it might be necessary
+ * to create live-range splits during RA.
+ * Make the live-range splits explicit in WQM mode.
+ */
+void
+handle_atomic_data(exec_ctx& ctx, Builder& bld, unsigned block_idx, aco_ptr<Instruction>& instr)
+{
+   /* check if this is an atomic VMEM instruction */
+   unsigned idx = 0;
+   if (!instr->isVMEM() || instr->definitions.empty())
+      return;
+   else if (instr->isMIMG())
+      idx = instr->operands[2].isTemp() ? 2 : 0;
+   else if (instr->operands.size() == 4)
+      idx = 3;
+
+   if (idx) {
+      /* insert explicit copy of atomic data in WQM-mode */
+      transition_to_WQM(ctx, bld, block_idx);
+      Temp data = instr->operands[idx].getTemp();
+      data = bld.copy(bld.def(data.regClass()), data);
+      instr->operands[idx].setTemp(data);
+   }
+}
+
 void
 process_instructions(exec_ctx& ctx, Block* block, std::vector<aco_ptr<Instruction>>& instructions,
                      unsigned idx)
@@ -511,7 +538,8 @@ process_instructions(exec_ctx& ctx, Block* block, std::vector<aco_ptr<Instructio
       if (needs == WQM && state != WQM) {
          transition_to_WQM(ctx, bld, block->index);
          state = WQM;
-      } else if (needs == Exact && state != Exact) {
+      } else if (needs == Exact) {
+         handle_atomic_data(ctx, bld, block->index, instr);
          transition_to_Exact(ctx, bld, block->index);
          state = Exact;
       }
