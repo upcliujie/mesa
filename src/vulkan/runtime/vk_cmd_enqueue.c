@@ -66,6 +66,28 @@ vk_cmd_enqueue_CmdDrawMultiEXT(VkCommandBuffer commandBuffer,
 }
 
 VKAPI_ATTR void VKAPI_CALL
+vk_cmd_enqueue_unless_primary_CmdDrawMultiEXT(VkCommandBuffer commandBuffer,
+                                              uint32_t drawCount,
+                                              const VkMultiDrawInfoEXT *pIndexInfo,
+                                              uint32_t instanceCount,
+                                              uint32_t firstInstance,
+                                              uint32_t stride)
+{
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+      const struct vk_device_dispatch_table *disp =
+         cmd_buffer->base.device->command_dispatch_table;
+
+      disp->CmdDrawMultiEXT(commandBuffer, drawCount, pIndexInfo,
+                           instanceCount, firstInstance, stride);
+   } else {
+      vk_cmd_enqueue_CmdDrawMultiEXT(commandBuffer, drawCount, pIndexInfo,
+                                     instanceCount, firstInstance, stride);
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
 vk_cmd_enqueue_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
                                       uint32_t drawCount,
                                       const VkMultiDrawIndexedInfoEXT *pIndexInfo,
@@ -114,6 +136,31 @@ vk_cmd_enqueue_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
 
       memcpy(cmd->u.draw_multi_indexed_ext.vertex_offset, pVertexOffset,
              sizeof(*cmd->u.draw_multi_indexed_ext.vertex_offset));
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_cmd_enqueue_unless_primary_CmdDrawMultiIndexedEXT(VkCommandBuffer commandBuffer,
+                                                     uint32_t drawCount,
+                                                     const VkMultiDrawIndexedInfoEXT *pIndexInfo,
+                                                     uint32_t instanceCount,
+                                                     uint32_t firstInstance,
+                                                     uint32_t stride,
+                                                     const int32_t *pVertexOffset)
+{
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+      const struct vk_device_dispatch_table *disp =
+         cmd_buffer->base.device->command_dispatch_table;
+
+      disp->CmdDrawMultiIndexedEXT(commandBuffer, drawCount, pIndexInfo,
+                                   instanceCount, firstInstance, stride,
+                                   pVertexOffset);
+   } else {
+      vk_cmd_enqueue_CmdDrawMultiIndexedEXT(commandBuffer, drawCount, pIndexInfo,
+                                            instanceCount, firstInstance, stride,
+                                            pVertexOffset);
    }
 }
 
@@ -196,6 +243,32 @@ vk_cmd_enqueue_CmdPushDescriptorSetKHR(VkCommandBuffer commandBuffer,
    }
 }
 
+VKAPI_ATTR void VKAPI_CALL
+vk_cmd_enqueue_unless_primary_CmdPushDescriptorSetKHR(VkCommandBuffer commandBuffer,
+                                                      VkPipelineBindPoint pipelineBindPoint,
+                                                      VkPipelineLayout layout,
+                                                      uint32_t set,
+                                                      uint32_t descriptorWriteCount,
+                                                      const VkWriteDescriptorSet *pDescriptorWrites)
+{
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+      const struct vk_device_dispatch_table *disp =
+         cmd_buffer->base.device->command_dispatch_table;
+
+      disp->CmdPushDescriptorSetKHR(commandBuffer,
+                                    pipelineBindPoint,
+                                    layout, set,
+                                    descriptorWriteCount, pDescriptorWrites);
+   } else {
+      vk_cmd_enqueue_CmdPushDescriptorSetKHR(commandBuffer,
+                                             pipelineBindPoint,
+                                             layout, set,
+                                             descriptorWriteCount, pDescriptorWrites);
+   }
+}
+
 static void
 unref_pipeline_layout(struct vk_cmd_queue *queue,
                       struct vk_cmd_queue_entry *cmd)
@@ -260,5 +333,33 @@ vk_cmd_enqueue_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
 
       memcpy(cmd->u.bind_descriptor_sets.dynamic_offsets, pDynamicOffsets,
              sizeof(*cmd->u.bind_descriptor_sets.dynamic_offsets) * dynamicOffsetCount);
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+vk_cmd_enqueue_unless_primary_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
+                                                    VkPipelineBindPoint pipelineBindPoint,
+                                                    VkPipelineLayout layout,
+                                                    uint32_t firstSet,
+                                                    uint32_t descriptorSetCount,
+                                                    const VkDescriptorSet* pDescriptorSets,
+                                                    uint32_t dynamicOffsetCount,
+                                                    const uint32_t *pDynamicOffsets)
+{
+   VK_FROM_HANDLE(vk_command_buffer, cmd_buffer, commandBuffer);
+
+   if (cmd_buffer->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY) {
+      const struct vk_device_dispatch_table *disp =
+         cmd_buffer->base.device->command_dispatch_table;
+
+      disp->CmdBindDescriptorSets(commandBuffer, pipelineBindPoint,
+                                  layout, firstSet,
+                                  descriptorSetCount, pDescriptorSets,
+                                  dynamicOffsetCount, pDynamicOffsets);
+   } else {
+      vk_cmd_enqueue_CmdBindDescriptorSets(commandBuffer, pipelineBindPoint,
+                                           layout, firstSet,
+                                           descriptorSetCount, pDescriptorSets,
+                                           dynamicOffsetCount, pDynamicOffsets);
    }
 }
