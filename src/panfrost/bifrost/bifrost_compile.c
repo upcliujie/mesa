@@ -2140,14 +2140,55 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
         }
 
         case nir_op_fddx:
-        case nir_op_fddy: {
+        case nir_op_fddy:
+        case nir_op_fddx_coarse:
+        case nir_op_fddy_coarse:
+        case nir_op_fddx_fine:
+        case nir_op_fddy_fine: {
+                unsigned lane1_mask, lane2_add;
+                switch (instr->op) {
+                case nir_op_fddx:
+                case nir_op_fddx_fine:
+                        lane1_mask = ~1;
+                        break;
+                case nir_op_fddy:
+                case nir_op_fddy_fine:
+                        lane1_mask = ~2;
+                        break;
+                case nir_op_fddx_coarse:
+                case nir_op_fddy_coarse:
+                        /* For coarse, we always want to start from the
+                         * upper-left.  This ensures the result is quad-
+                         * uniform.
+                         */
+                        lane1_mask = ~3;
+                        break;
+                default:
+                        unreachable("Invalid derivative op");
+                }
+
+                switch (instr->op) {
+                case nir_op_fddx:
+                case nir_op_fddx_fine:
+                case nir_op_fddx_coarse:
+                        lane2_add = 1;
+                        break;
+                case nir_op_fddy:
+                case nir_op_fddy_fine:
+                case nir_op_fddy_coarse:
+                        lane2_add = 2;
+                        break;
+                default:
+                        unreachable("Invalid derivative op");
+                }
+
                 bi_index lane1 = bi_lshift_and_i32(b,
                                 bi_fau(BIR_FAU_LANE_ID, false),
-                                bi_imm_u32(instr->op == nir_op_fddx ? ~1 : ~2),
+                                bi_imm_u32(lane1_mask),
                                 bi_imm_u8(0));
 
                 bi_index lane2 = bi_iadd_u32(b, lane1,
-                                bi_imm_u32(instr->op == nir_op_fddx ? 1 : 2),
+                                bi_imm_u32(lane2_add),
                                 false);
 
                 bi_index left, right;
