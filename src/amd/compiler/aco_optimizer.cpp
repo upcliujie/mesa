@@ -1580,6 +1580,8 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
    case aco_opcode::p_as_uniform:
       if (instr->definitions[0].isFixed()) {
          /* don't copy-propagate copies into fixed registers */
+      } else if (instr->definitions[0].isNoCSE()) {
+         /* don't copy-propagate copies which are meant to be there */
       } else if (instr->usesModifiers()) {
          // TODO
       } else if (instr->operands[0].isConstant()) {

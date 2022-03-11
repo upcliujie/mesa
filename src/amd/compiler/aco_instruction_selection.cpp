@@ -6236,6 +6236,13 @@ visit_image_store(isel_context* ctx, nir_intrinsic_instr* instr)
    return;
 }
 
+Temp
+kill_atomic_data(Builder& bld, Temp data) {
+   Definition def = bld.def(data.regClass());
+   def.setNoCSE(true);
+   return bld.copy(def, data);
+}
+
 void
 visit_image_atomic(isel_context* ctx, nir_intrinsic_instr* instr)
 {
@@ -6251,6 +6258,10 @@ visit_image_atomic(isel_context* ctx, nir_intrinsic_instr* instr)
    if (instr->intrinsic == nir_intrinsic_image_deref_atomic_comp_swap)
       data = bld.pseudo(aco_opcode::p_create_vector, bld.def(is_64bit ? v4 : v2),
                         get_ssa_temp(ctx, instr->src[4].ssa), data);
+
+   /* avoid exact copies in WQM */
+   if (return_previous && ctx->program->stage == fragment_fs)
+      data = kill_atomic_data(bld, data);
 
    aco_opcode buf_op, buf_op64, image_op;
    switch (instr->intrinsic) {
@@ -6551,6 +6562,10 @@ visit_atomic_ssbo(isel_context* ctx, nir_intrinsic_instr* instr)
    if (instr->intrinsic == nir_intrinsic_ssbo_atomic_comp_swap)
       data = bld.pseudo(aco_opcode::p_create_vector, bld.def(RegType::vgpr, data.size() * 2),
                         get_ssa_temp(ctx, instr->src[3].ssa), data);
+
+   /* avoid exact copies in WQM */
+   if (return_previous && ctx->program->stage == fragment_fs)
+      data = kill_atomic_data(bld, data);
 
    Temp offset = get_ssa_temp(ctx, instr->src[1].ssa);
    Temp rsrc = load_buffer_rsrc(ctx, get_ssa_temp(ctx, instr->src[0].ssa));
@@ -6870,6 +6885,9 @@ visit_global_atomic(isel_context* ctx, nir_intrinsic_instr* instr)
       ctx->block->instructions.emplace_back(std::move(flat));
    } else {
       assert(ctx->options->chip_class == GFX6);
+      /* avoid exact copies in WQM */
+      if (return_previous && ctx->program->stage == fragment_fs)
+         data = kill_atomic_data(bld, data);
 
       switch (instr->intrinsic) {
       case nir_intrinsic_global_atomic_add:
