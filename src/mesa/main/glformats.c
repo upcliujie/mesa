@@ -3206,14 +3206,14 @@ _mesa_gles_error_check_format_and_type(const struct gl_context *ctx,
          break;
 
       case GL_HALF_FLOAT:
+         if (ctx->Version <= 20 || internalFormat != GL_RG16F)
+            return GL_INVALID_OPERATION;
+         break;
+
       case GL_HALF_FLOAT_OES:
          switch (internalFormat) {
-            case GL_RG16F:
-               if (ctx->Version <= 20)
-                  return GL_INVALID_OPERATION;
-               break;
             case GL_RG:
-               if (!_mesa_has_rg_textures(ctx) ||
+               if (!_mesa_has_EXT_texture_rg(ctx) ||
                    !_mesa_has_OES_texture_half_float(ctx))
                   return GL_INVALID_OPERATION;
                break;
@@ -3226,9 +3226,11 @@ _mesa_gles_error_check_format_and_type(const struct gl_context *ctx,
          switch (internalFormat) {
          case GL_RG16F:
          case GL_RG32F:
+            if (ctx->Version <= 20)
+               return GL_INVALID_OPERATION;
             break;
          case GL_RG:
-            if (!_mesa_has_rg_textures(ctx) ||
+            if (!_mesa_has_EXT_texture_rg(ctx) ||
                 !_mesa_has_OES_texture_float(ctx))
                return GL_INVALID_OPERATION;
             break;
@@ -3313,15 +3315,14 @@ _mesa_gles_error_check_format_and_type(const struct gl_context *ctx,
          break;
 
       case GL_HALF_FLOAT:
+         if (ctx->Version <= 20 || internalFormat != GL_R16F)
+            return GL_INVALID_OPERATION;
+         break;
+
       case GL_HALF_FLOAT_OES:
          switch (internalFormat) {
-         case GL_R16F:
-            if (ctx->Version <= 20)
-               return GL_INVALID_OPERATION;
-            break;
-         case GL_RG:
          case GL_RED:
-            if (!_mesa_has_rg_textures(ctx) ||
+            if (!_mesa_has_EXT_texture_rg(ctx) ||
                 !_mesa_has_OES_texture_half_float(ctx))
                return GL_INVALID_OPERATION;
             break;
@@ -3334,9 +3335,11 @@ _mesa_gles_error_check_format_and_type(const struct gl_context *ctx,
          switch (internalFormat) {
          case GL_R16F:
          case GL_R32F:
+            if (ctx->Version <= 20)
+               return GL_INVALID_OPERATION;
             break;
          case GL_RED:
-            if (!_mesa_has_rg_textures(ctx) ||
+            if (!_mesa_has_EXT_texture_rg(ctx) ||
                 !_mesa_has_OES_texture_float(ctx))
                return GL_INVALID_OPERATION;
             break;
