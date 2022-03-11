@@ -45,6 +45,8 @@ static const nir_shader_compiler_options bifrost_nir_options = {
         .lower_isign = true,
         .lower_find_lsb = true,
         .lower_ifind_msb = true,
+        .lower_uadd_carry = true,
+        .lower_usub_borrow = true,
         .lower_fdph = true,
         .lower_fsqrt = true,
 
