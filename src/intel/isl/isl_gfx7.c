@@ -106,12 +106,6 @@ isl_gfx7_choose_msaa_layout(const struct isl_device *dev,
    if (info->samples > 1 && gfx7_format_needs_valign2(dev, info->format))
       return false;
 
-   /* More obvious restrictions */
-   if (isl_surf_usage_is_display(info->usage))
-      return false;
-   if (tiling == ISL_TILING_LINEAR)
-      return false;
-
    /* From the Ivybridge PRM, Volume 4 Part 1 p72, SURFACE_STATE, Multisampled
     * Suface Storage Format:
     *
