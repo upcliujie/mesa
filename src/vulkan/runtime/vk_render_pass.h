@@ -218,7 +218,7 @@ struct vk_render_pass_attachment {
    VkAttachmentLoadOp stencil_load_op;
 
    /** VkAttachmentDescription2::stencilStoreOp */
-   VkAttachmentLoadOp stencil_store_op;
+   VkAttachmentStoreOp stencil_store_op;
 
    /** VkAttachmentDescription2::initialLayout */
    VkImageLayout initial_layout;
