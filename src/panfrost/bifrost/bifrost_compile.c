@@ -2093,6 +2093,27 @@ bi_emit_alu(bi_builder *b, nir_alu_instr *instr)
 
                 break;
 
+        case nir_op_frexp_exp:
+                if (sz == 32)
+                        bi_frexpe_f32_to(b, dst, s0, false, false);
+                else
+                        bi_frexpe_v2f16_to(b, dst, s0, false, false);
+                break;
+
+        case nir_op_frexp_sig:
+                if (sz == 32)
+                        bi_frexpm_f32_to(b, dst, s0, false, false);
+                else
+                        bi_frexpm_v2f16_to(b, dst, s0, false, false);
+                break;
+
+        case nir_op_ldexp:
+                if (sz == 32)
+                        bi_ldexp_f32_to(b, dst, s0, s1, BI_ROUND_NONE);
+                else
+                        bi_ldexp_v2f16_to(b, dst, s0, s1, BI_ROUND_NONE);
+                break;
+
         case nir_op_b8csel:
                 bi_mux_v4i8_to(b, dst, s2, s1, s0, BI_MUX_INT_ZERO);
                 break;
