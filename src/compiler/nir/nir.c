@@ -3382,3 +3382,12 @@ nir_tex_instr_src_size(const nir_tex_instr *instr, unsigned src)
 
    return 1;
 }
+
+void nir_remove_non_entrypoints(nir_shader *nir)
+{
+   foreach_list_typed_safe(nir_function, func, node, &nir->functions) {
+      if (!func->is_entrypoint)
+         exec_node_remove(&func->node);
+   }
+   assert(exec_list_length(&nir->functions) == 1);
+}
