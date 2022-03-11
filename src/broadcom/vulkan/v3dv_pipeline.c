@@ -359,6 +359,12 @@ nir_optimize(nir_shader *nir, bool allow_copies)
        * be refined though.
        */
 
+      /* FIXME: calling loop unroll here, just to show how fragile current
+       * status is right now.
+       */
+      if (nir->options->max_unroll_iterations > 0) {
+         OPT(nir_opt_loop_unroll);
+      }
    } while (progress);
 }
 
