@@ -189,7 +189,9 @@ generate_compute(struct llvmpipe_context *lp,
    num_x_loop = LLVMBuildAdd(gallivm->builder, x_size_arg, vec_length, "");
    num_x_loop = LLVMBuildSub(gallivm->builder, num_x_loop, lp_build_const_int32(gallivm, 1), "");
    num_x_loop = LLVMBuildUDiv(gallivm->builder, num_x_loop, vec_length, "");
-   LLVMValueRef partials = LLVMBuildURem(gallivm->builder, x_size_arg, vec_length, "");
+   LLVMValueRef total_loops = LLVMBuildMul(gallivm->builder, x_size_arg,
+                                           LLVMBuildMul(gallivm->builder, y_size_arg, z_size_arg, ""), "");
+   LLVMValueRef partials = LLVMBuildURem(gallivm->builder, total_loops, vec_length, "");
 
    LLVMValueRef coro_num_hdls = LLVMBuildMul(gallivm->builder, num_x_loop, y_size_arg, "");
    coro_num_hdls = LLVMBuildMul(gallivm->builder, coro_num_hdls, z_size_arg, "");
