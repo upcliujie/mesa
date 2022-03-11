@@ -276,6 +276,12 @@ try_swap_mad_two_srcs(struct ir3_instruction *instr, unsigned new_flags)
    if (!is_mad(instr->opc))
       return false;
 
+   /* If we've already tried, nothing more to gain */
+   if (instr->cat3.swapped)
+      return false;
+
+   instr->cat3.swapped = true;
+
    /* NOTE: pre-swap first two src's before valid_flags(),
     * which might try to dereference the n'th src:
     */
