@@ -49,7 +49,7 @@ llvmpipe:
     DEQP_SUITE: llvmpipe
   extends: .llvmpipe-deqp-test
   script:
-    - LD_LIBRARY_PATH=`pwd`/install xvfb-run --server-args='-noreset' install/deqp-runner.sh
+    - LD_LIBRARY_PATH=`pwd`/install xvfb-run --server-args='-noreset +bs' install/deqp-runner.sh
 
 llvmpipe-deqp-asan:
   variables:

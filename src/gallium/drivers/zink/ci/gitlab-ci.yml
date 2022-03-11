@@ -20,7 +20,7 @@ zink:
     DEQP_SUITE: zink-lvp
     PIGLIT_NO_WINDOW: 1
   script:
-    - xvfb-run --server-args='-noreset' sh -c "GALLIUM_DRIVER=zink VK_DRIVER=lvp install/deqp-runner.sh"
+    - xvfb-run --server-args='-noreset +bs' sh -c "GALLIUM_DRIVER=zink VK_DRIVER=lvp install/deqp-runner.sh"
 
 # Should be merged into the main zink job once we have prefix support in deqp-runner.
 .zink-piglit-quick_gl:
@@ -34,4 +34,4 @@ zink:
     # No taking more than our fair share of CPU on fd.o shared runners.
     LP_NUM_THREADS: 0
   script:
-    - xvfb-run --server-args='-noreset' sh -c "ZINK_NO_TIMELINES=1 GALLIUM_DRIVER=zink VK_DRIVER=lvp install/piglit/piglit-runner.sh"
+    - xvfb-run --server-args='-noreset +bs' sh -c "ZINK_NO_TIMELINES=1 GALLIUM_DRIVER=zink VK_DRIVER=lvp install/piglit/piglit-runner.sh"

@@ -22,7 +22,7 @@ softpipe:
     DEQP_SUITE: softpipe
   extends: .softpipe-deqp-test
   script:
-    - LD_LIBRARY_PATH=`pwd`/install/lib xvfb-run --server-args='-noreset' install/deqp-runner.sh
+    - LD_LIBRARY_PATH=`pwd`/install/lib xvfb-run --server-args='-noreset +bs' install/deqp-runner.sh
 
 softpipe-asan-gles31:
   variables:
