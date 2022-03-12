@@ -189,7 +189,9 @@ generate_compute(struct llvmpipe_context *lp,
    num_x_loop = LLVMBuildAdd(gallivm->builder, block_x_size_arg, vec_length, "");
    num_x_loop = LLVMBuildSub(gallivm->builder, num_x_loop, lp_build_const_int32(gallivm, 1), "");
    num_x_loop = LLVMBuildUDiv(gallivm->builder, num_x_loop, vec_length, "");
-   LLVMValueRef partials = LLVMBuildURem(gallivm->builder, block_x_size_arg, vec_length, "");
+   LLVMValueRef partials = key->use_partials ?
+                           LLVMBuildURem(gallivm->builder, block_x_size_arg, vec_length, "") :
+                           lp_build_const_int32(gallivm, 0);
 
    LLVMValueRef coro_num_hdls = LLVMBuildMul(gallivm->builder, num_x_loop, block_y_size_arg, "");
    coro_num_hdls = LLVMBuildMul(gallivm->builder, coro_num_hdls, block_z_size_arg, "");
@@ -602,6 +604,11 @@ make_variant_key(struct llvmpipe_context *lp,
    struct lp_compute_shader_variant_key *key;
    key = (struct lp_compute_shader_variant_key *)store;
    memset(key, 0, sizeof(*key));
+
+   if (shader->base.type == PIPE_SHADER_IR_NIR) {
+      nir_shader *nir = shader->base.ir.nir;
+      key->use_partials = !nir->info.cs.require_full_subgroups;
+   }
 
    /* This value will be the same for all the variants of a given shader:
     */
