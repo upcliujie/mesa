@@ -224,10 +224,12 @@ impl Mem {
     ) -> CLResult<()> {
         let b = self.to_parent(&mut offset);
         let r = b.get_res().get(&q.device).unwrap();
-        let tx = q.context().buffer_map(r, 0, b.size.try_into().unwrap());
+        let tx = q
+            .context()
+            .buffer_map(r, offset.try_into().unwrap(), size.try_into().unwrap());
 
         unsafe {
-            ptr::copy_nonoverlapping(tx.ptr().add(offset), ptr, size);
+            ptr::copy_nonoverlapping(tx.ptr(), ptr, size);
         }
 
         drop(tx);
@@ -264,12 +266,14 @@ impl Mem {
         dst_row_pitch: usize,
         dst_slice_pitch: usize,
     ) -> CLResult<()> {
-        let r = self.res.as_ref().unwrap().get(&q.device).unwrap();
+        let mut offset = 0;
+        let b = self.to_parent(&mut offset);
+        let r = b.res.as_ref().unwrap().get(&q.device).unwrap();
         let tx = q.context().buffer_map(r, 0, self.size.try_into().unwrap());
 
         sw_copy(
             src,
-            tx.ptr(),
+            unsafe { tx.ptr().add(offset) },
             region,
             src_origin,
             src_row_pitch,
@@ -295,11 +299,13 @@ impl Mem {
         dst_row_pitch: usize,
         dst_slice_pitch: usize,
     ) -> CLResult<()> {
-        let r = self.res.as_ref().unwrap().get(&q.device).unwrap();
+        let mut offset = 0;
+        let b = self.to_parent(&mut offset);
+        let r = b.res.as_ref().unwrap().get(&q.device).unwrap();
         let tx = q.context().buffer_map(r, 0, self.size.try_into().unwrap());
 
         sw_copy(
-            tx.ptr(),
+            unsafe { tx.ptr().add(offset) },
             dst,
             region,
             src_origin,
@@ -326,20 +332,25 @@ impl Mem {
         dst_row_pitch: usize,
         dst_slice_pitch: usize,
     ) -> CLResult<()> {
-        let res_src = self.res.as_ref().unwrap().get(&q.device).unwrap();
+        let mut src_offset = 0;
+        let mut dst_offset = 0;
+        let src = self.to_parent(&mut src_offset);
+        let dst = dst.to_parent(&mut dst_offset);
+
+        let res_src = src.res.as_ref().unwrap().get(&q.device).unwrap();
         let res_dst = dst.res.as_ref().unwrap().get(&q.device).unwrap();
 
         let tx_src = q
             .context()
-            .buffer_map(res_src, 0, self.size.try_into().unwrap());
+            .buffer_map(res_src, 0, src.size.try_into().unwrap());
         let tx_dst = q
             .context()
             .buffer_map(res_dst, 0, dst.size.try_into().unwrap());
 
         // TODO check to use hw accelerated paths (e.g. resource_copy_region or blits)
         sw_copy(
-            tx_src.ptr(),
-            tx_dst.ptr(),
+            unsafe { tx_src.ptr().add(src_offset) },
+            unsafe { tx_dst.ptr().add(dst_offset) },
             region,
             src_origin,
             src_row_pitch,
@@ -356,8 +367,10 @@ impl Mem {
     }
 
     // TODO use PIPE_MAP_UNSYNCHRONIZED for non blocking
-    pub fn map(&self, q: &Arc<Queue>, offset: usize, size: usize) -> *mut c_void {
-        let res = self.res.as_ref().unwrap().get(&q.device).unwrap();
+    pub fn map(&self, q: &Arc<Queue>, mut offset: usize, size: usize) -> *mut c_void {
+        let b = self.to_parent(&mut offset);
+
+        let res = b.res.as_ref().unwrap().get(&q.device).unwrap();
         let tx = q
             .context()
             .buffer_map(res, offset.try_into().unwrap(), size.try_into().unwrap());
