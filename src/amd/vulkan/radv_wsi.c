@@ -68,7 +68,7 @@ radv_wsi_get_prime_blit_queue(VkDevice _device)
       device->private_sdma_queue = vk_zalloc(&device->vk.alloc, sizeof(struct radv_queue), 8,
                                              VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
-      VkResult result = radv_queue_init(device, device->private_sdma_queue, 0, &queue_create, NULL);
+      VkResult result = radv_queue_init(device, device->private_sdma_queue, 0, RADV_QUEUE_TRANSFER, &queue_create, NULL);
       if (result == VK_SUCCESS) {
          /* Remove the queue from our queue list because it'll be cleared manually
           * in radv_DestroyDevice.

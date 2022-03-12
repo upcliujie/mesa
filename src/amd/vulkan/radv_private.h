@@ -2592,6 +2592,7 @@ struct radv_query_pool {
 bool radv_queue_internal_submit(struct radv_queue *queue, struct radeon_cmdbuf *cs);
 
 int radv_queue_init(struct radv_device *device, struct radv_queue *queue, int idx,
+                    enum radv_queue_family qf,
                     const VkDeviceQueueCreateInfo *create_info,
                     const VkDeviceQueueGlobalPriorityCreateInfoEXT *global_priority);
 
