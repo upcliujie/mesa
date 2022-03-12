@@ -2779,6 +2779,136 @@ enum bifrost_tex_dreg {
 };
 
 static void
+bi_texc_tail_to(bi_builder *b, bi_index dst, nir_tex_instr *instr,
+                bi_index *dregs, bi_index cx, bi_index cy,
+                bool computed_lod,
+                struct bifrost_texture_operation desc)
+{
+        /* Choose an index mode */
+
+        bool direct_tex = bi_is_null(dregs[BIFROST_TEX_DREG_TEXTURE]);
+        bool direct_samp = bi_is_null(dregs[BIFROST_TEX_DREG_SAMPLER]);
+        bool direct = direct_tex && direct_samp;
+
+        desc.immediate_indices = direct && (instr->sampler_index < 16);
+
+        if (desc.immediate_indices) {
+                desc.sampler_index_or_mode = instr->sampler_index;
+                desc.index = instr->texture_index;
+        } else {
+                unsigned mode = 0;
+
+                if (direct && instr->sampler_index == instr->texture_index) {
+                        mode = BIFROST_INDEX_IMMEDIATE_SHARED;
+                        desc.index = instr->texture_index;
+                } else if (direct) {
+                        mode = BIFROST_INDEX_IMMEDIATE_SAMPLER;
+                        desc.index = instr->sampler_index;
+                        dregs[BIFROST_TEX_DREG_TEXTURE] = bi_mov_i32(b,
+                                        bi_imm_u32(instr->texture_index));
+                } else if (direct_tex) {
+                        assert(!direct_samp);
+                        mode = BIFROST_INDEX_IMMEDIATE_TEXTURE;
+                        desc.index = instr->texture_index;
+                } else if (direct_samp) {
+                        assert(!direct_tex);
+                        mode = BIFROST_INDEX_IMMEDIATE_SAMPLER;
+                        desc.index = instr->sampler_index;
+                } else {
+                        mode = BIFROST_INDEX_REGISTER;
+                }
+
+                mode |= (BIFROST_TEXTURE_OPERATION_SINGLE << 2);
+                desc.sampler_index_or_mode = mode;
+        }
+
+        /* Allocate staging registers contiguously by compacting the array.
+         * Index is not SSA (tied operands) */
+
+        unsigned sr_count = 0;
+
+        for (unsigned i = 0; i < BIFROST_TEX_DREG_COUNT; ++i) {
+                if (!bi_is_null(dregs[i]))
+                        dregs[sr_count++] = dregs[i];
+        }
+
+        bi_index idx = sr_count ? bi_temp_reg(b->shader) : bi_null();
+
+        if (sr_count)
+                bi_make_vec_to(b, idx, dregs, NULL, sr_count, 32);
+
+        uint32_t desc_u = 0;
+        memcpy(&desc_u, &desc, sizeof(desc_u));
+        bi_texc_to(b, sr_count ? idx : dst, bi_null(), idx, cx, cy,
+                   bi_imm_u32(desc_u), !computed_lod, sr_count, 0);
+
+        /* Explicit copy to facilitate tied operands */
+        if (sr_count) {
+                bi_index srcs[4] = { idx, idx, idx, idx };
+                unsigned channels[4] = { 0, 1, 2, 3 };
+                bi_make_vec_to(b, dst, srcs, channels, 4, 32);
+        }
+}
+
+/*
+ * Emit GRDESC_DER instruction, calculating a gradient descriptor from explicit
+ * derivatives. Used internally to implement txd.
+ *
+ * Does not support cube maps due to a hardware limitation, these should be
+ * lowered in NIR. (GRDESC_DER on a cube map acts on face 0 only as a 2D image
+ * with a 2x2 gradients, whereas APIs want full 3x3 gradients)
+ */
+static bi_index
+bi_emit_grdesc_der(bi_builder *b, nir_tex_instr *instr)
+{
+        struct bifrost_texture_operation desc = {
+                .op = BIFROST_TEX_OP_GRDESC_DER,
+                .dimension = bifrost_tex_format(instr->sampler_dim),
+                .offset_or_bias_disable = true,
+                .shadow_or_clamp_disable = true,
+                .array = false,
+                .format = BIFROST_TEXTURE_FORMAT_U32, /* Raw output */
+                .mask = 0x3, /* 64-bit gradient descriptor */
+        };
+
+        /* Get derivatives */
+        int idx_ddx = nir_tex_instr_src_index(instr, nir_tex_src_ddx);
+        int idx_ddy = nir_tex_instr_src_index(instr, nir_tex_src_ddy);
+
+        assert(idx_ddx >= 0 && idx_ddy >= 0);
+
+        bi_index ddx = bi_src_index(&instr->src[idx_ddx].src);
+        bi_index ddy = bi_src_index(&instr->src[idx_ddy].src);
+
+        assert(nir_src_bit_size(instr->src[idx_ddx].src) == 32);
+        assert(nir_src_bit_size(instr->src[idx_ddy].src) == 32);
+
+        /* Get dimension of partials */
+        unsigned dim = nir_tex_instr_src_size(instr, idx_ddx);
+        assert(nir_tex_instr_src_size(instr, idx_ddy) == dim);
+
+        bi_index dregs[BIFROST_TEX_DREG_COUNT] = { };
+
+        /* Third X delta passed as a staging register for 3D texturing */
+        if (dim >= 3) {
+                assert(dim == 3);
+                dregs[BIFROST_TEX_DREG_Z_COORD] = bi_word(ddx, 2);
+        }
+
+        /* Y deltas passed as staging registers. This aliases LOD and GRDESC_HI
+         * in dregs, but that's ok since they're not used with GRDESC_DER
+         */
+        for (unsigned i = 0; i < dim; ++i)
+                dregs[BIFROST_TEX_DREG_Y_DELTAS + i] = bi_word(ddy, i);
+
+        /* X deltas passed as "coordinates", emit the TEXC instruction */
+        bi_index dst = bi_temp(b->shader);
+        bi_texc_tail_to(b, dst, instr, dregs, ddx, bi_word(ddx, 1), false, desc);
+
+        return dst;
+}
+
+static void
 bi_emit_texc(bi_builder *b, nir_tex_instr *instr)
 {
         bool computed_lod = false;
@@ -2905,6 +3035,23 @@ bi_emit_texc(bi_builder *b, nir_tex_instr *instr)
                         dregs[BIFROST_TEX_DREG_SAMPLER] = index;
                         break;
 
+                case nir_tex_src_ddx:
+                {
+                        /* Calculate gradient descriptor from derivatives */
+                        bi_index grdesc = bi_emit_grdesc_der(b, instr);
+                        dregs[BIFROST_TEX_DREG_LOD] = grdesc;
+                        dregs[BIFROST_TEX_DREG_GRDESC_HI] = bi_word(grdesc, 1);
+
+                        /* Use LOD from GRDESC */
+                        desc.lod_or_fetch = BIFROST_LOD_MODE_GRDESC;
+                        computed_lod = false;
+                        break;
+                }
+
+                case nir_tex_src_ddy:
+                        /* Handled above */
+                        break;
+
                 default:
                         unreachable("Unhandled src type in texc emit");
                 }
@@ -2915,71 +3062,8 @@ bi_emit_texc(bi_builder *b, nir_tex_instr *instr)
                         bi_emit_texc_lod_cube(b, bi_zero());
         }
 
-        /* Choose an index mode */
-
-        bool direct_tex = bi_is_null(dregs[BIFROST_TEX_DREG_TEXTURE]);
-        bool direct_samp = bi_is_null(dregs[BIFROST_TEX_DREG_SAMPLER]);
-        bool direct = direct_tex && direct_samp;
-
-        desc.immediate_indices = direct && (instr->sampler_index < 16);
-
-        if (desc.immediate_indices) {
-                desc.sampler_index_or_mode = instr->sampler_index;
-                desc.index = instr->texture_index;
-        } else {
-                unsigned mode = 0;
-
-                if (direct && instr->sampler_index == instr->texture_index) {
-                        mode = BIFROST_INDEX_IMMEDIATE_SHARED;
-                        desc.index = instr->texture_index;
-                } else if (direct) {
-                        mode = BIFROST_INDEX_IMMEDIATE_SAMPLER;
-                        desc.index = instr->sampler_index;
-                        dregs[BIFROST_TEX_DREG_TEXTURE] = bi_mov_i32(b,
-                                        bi_imm_u32(instr->texture_index));
-                } else if (direct_tex) {
-                        assert(!direct_samp);
-                        mode = BIFROST_INDEX_IMMEDIATE_TEXTURE;
-                        desc.index = instr->texture_index;
-                } else if (direct_samp) {
-                        assert(!direct_tex);
-                        mode = BIFROST_INDEX_IMMEDIATE_SAMPLER;
-                        desc.index = instr->sampler_index;
-                } else {
-                        mode = BIFROST_INDEX_REGISTER;
-                }
-
-                mode |= (BIFROST_TEXTURE_OPERATION_SINGLE << 2);
-                desc.sampler_index_or_mode = mode;
-        }
-
-        /* Allocate staging registers contiguously by compacting the array.
-         * Index is not SSA (tied operands) */
-
-        unsigned sr_count = 0;
-
-        for (unsigned i = 0; i < ARRAY_SIZE(dregs); ++i) {
-                if (!bi_is_null(dregs[i]))
-                        dregs[sr_count++] = dregs[i];
-        }
-
-        bi_index idx = sr_count ? bi_temp_reg(b->shader) : bi_null();
-
-        if (sr_count)
-                bi_make_vec_to(b, idx, dregs, NULL, sr_count, 32);
-
-        uint32_t desc_u = 0;
-        memcpy(&desc_u, &desc, sizeof(desc_u));
-        bi_texc_to(b, sr_count ? idx : bi_dest_index(&instr->dest), bi_null(),
-                        idx, cx, cy, bi_imm_u32(desc_u), !computed_lod,
-                        sr_count, 0);
-
-        /* Explicit copy to facilitate tied operands */
-        if (sr_count) {
-                bi_index srcs[4] = { idx, idx, idx, idx };
-                unsigned channels[4] = { 0, 1, 2, 3 };
-                bi_make_vec_to(b, bi_dest_index(&instr->dest), srcs, channels, 4, 32);
-        }
+        bi_texc_tail_to(b, bi_dest_index(&instr->dest), instr, dregs, cx, cy,
+                        computed_lod, desc);
 }
 
 /* Simple textures ops correspond to NIR tex or txl with LOD = 0 on 2D/cube
@@ -3073,6 +3157,7 @@ bi_emit_tex(bi_builder *b, nir_tex_instr *instr)
         case nir_texop_txf:
         case nir_texop_txf_ms:
         case nir_texop_tg4:
+        case nir_texop_txd:
                 break;
         default:
                 unreachable("Invalid texture operation");
@@ -3582,7 +3667,7 @@ bi_optimize_nir(nir_shader *nir, unsigned gpu_id, bool is_blend)
                 .lower_txs_lod = true,
                 .lower_txp = ~0,
                 .lower_tg4_broadcom_swizzle = true,
-                .lower_txd = true,
+                .lower_txd_cube_map = true
         };
 
         NIR_PASS(progress, nir, pan_nir_lower_64bit_intrin);
