@@ -471,6 +471,18 @@ typedef struct shader_info {
           * Uses subgroup intrinsics which can communicate across a quad.
           */
          bool uses_wide_subgroup_intrinsics;
+
+         /**
+          * requires all invocations within a subgroup to be active
+          * See VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT.
+          */
+         bool require_full_subgroups;
+         /**
+          * If required size not specified, shader can be dispatched with different subgroup sizes. See
+          * VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT.
+          */
+         bool allow_varying_subgroups;
+
       } cs;
 
       /* Applies to both TCS and TES. */

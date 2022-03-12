@@ -6461,6 +6461,14 @@ spirv_to_nir(const uint32_t *words, size_t word_count,
    b->shader = nir_shader_create(b, stage, nir_options, NULL);
    b->shader->info.float_controls_execution_mode = options->float_controls_execution_mode;
 
+   /* See SubgroupLocalInvocationId and SubgroupSize in the Vulkan 1.3 spec.
+    * These two bits are implied by SPIR-V 1.6 in Vulkan.
+    */
+   if (b->options->environment == NIR_SPIRV_VULKAN && b->version >= 0x10600) {
+      b->shader->info.cs.require_full_subgroups = true;
+      b->shader->info.cs.allow_varying_subgroups = true;
+   }
+
    /* Handle all the preamble instructions */
    words = vtn_foreach_instruction(b, words, word_end,
                                    vtn_handle_preamble_instruction);
