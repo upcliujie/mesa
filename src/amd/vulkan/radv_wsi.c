@@ -65,6 +65,8 @@ radv_wsi_get_prime_blit_queue(VkDevice _device)
          .queueFamilyIndex = RADV_QUEUE_TRANSFER,
          .queueCount = 1,
       };
+
+      device->physical_device->vk_queue_to_radv[device->physical_device->num_queues++] = RADV_QUEUE_TRANSFER;
       device->private_sdma_queue = vk_zalloc(&device->vk.alloc, sizeof(struct radv_queue), 8,
                                              VK_SYSTEM_ALLOCATION_SCOPE_DEVICE);
 
