@@ -1122,6 +1122,10 @@ lvp_compute_pipeline_init(struct lvp_pipeline *pipeline,
                             pCreateInfo->stage.pSpecializationInfo);
    if (!pipeline->pipeline_nir[MESA_SHADER_COMPUTE])
       return VK_ERROR_FEATURE_NOT_PRESENT;
+   if (pCreateInfo->stage.flags & VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT_EXT)
+      pipeline->pipeline_nir[MESA_SHADER_COMPUTE]->info.cs.require_full_subgroups = true;
+   if (pCreateInfo->stage.flags & VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT)
+      pipeline->pipeline_nir[MESA_SHADER_COMPUTE]->info.cs.varying_subgroups = true;
    lvp_pipeline_compile(pipeline, MESA_SHADER_COMPUTE);
    return VK_SUCCESS;
 }
