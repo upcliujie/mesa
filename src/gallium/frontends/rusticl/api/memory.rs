@@ -783,7 +783,7 @@ pub fn enqueue_write_buffer(
     event: *mut cl_event,
 ) -> CLResult<()> {
     let q = command_queue.get_arc()?;
-    let b = buffer.get_ref()?;
+    let b = buffer.get_arc()?;
     let block = check_cl_bool(blocking_write).ok_or(CL_INVALID_VALUE)?;
 
     // CL_INVALID_VALUE if the region being read or written specified by (offset, size) is out of
@@ -848,7 +848,7 @@ pub fn enqueue_read_buffer_rect(
 ) -> CLResult<()> {
     let block = check_cl_bool(blocking_read).ok_or(CL_INVALID_VALUE)?;
     let q = command_queue.get_arc()?;
-    let buf = buffer.get_ref()?;
+    let buf = buffer.get_arc()?;
     let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_OPERATION if clEnqueueReadBufferRect is called on buffer which has been created
@@ -975,7 +975,7 @@ pub fn enqueue_write_buffer_rect(
 ) -> CLResult<()> {
     let block = check_cl_bool(blocking_write).ok_or(CL_INVALID_VALUE)?;
     let q = command_queue.get_arc()?;
-    let buf = buffer.get_ref()?;
+    let buf = buffer.get_arc()?;
     let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_OPERATION if clEnqueueWriteBufferRect is called on buffer which has been created
@@ -1100,8 +1100,8 @@ pub fn enqueue_copy_buffer_rect(
     event: *mut cl_event,
 ) -> CLResult<()> {
     let q = command_queue.get_arc()?;
-    let src = src_buffer.get_ref()?;
-    let dst = dst_buffer.get_ref()?;
+    let src = src_buffer.get_arc()?;
+    let dst = dst_buffer.get_arc()?;
     let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if src_origin, dst_origin, or region is NULL.
@@ -1238,7 +1238,7 @@ pub fn enqueue_map_buffer(
     event: *mut cl_event,
 ) -> CLResult<*mut c_void> {
     let q = command_queue.get_arc()?;
-    let b = buffer.get_ref()?;
+    let b = buffer.get_arc()?;
     let block = check_cl_bool(blocking_map).ok_or(CL_INVALID_VALUE)?;
 
     // CL_INVALID_VALUE if region being mapped given by (offset, size) is out of bounds or if size
