@@ -471,6 +471,15 @@ typedef struct shader_info {
           * Uses subgroup intrinsics which can communicate across a quad.
           */
          bool uses_wide_subgroup_intrinsics;
+
+         /**
+          * requires all invocations within a subgroup to be active
+          */
+         bool require_full_subgroups;
+         /**
+          * all invocations within a subgroup may be active
+          */
+         bool varying_subgroups;
       } cs;
 
       /* Applies to both TCS and TES. */
