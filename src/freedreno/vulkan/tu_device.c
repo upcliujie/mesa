@@ -1777,18 +1777,11 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    struct tu6_global *global = device->global_bo->map;
    tu_init_clear_blit_shaders(device);
    global->predicate = 0;
-   tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK],
-                         &(VkClearColorValue) {}, false);
-   tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_INT_TRANSPARENT_BLACK],
-                         &(VkClearColorValue) {}, true);
-   tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK],
-                         &(VkClearColorValue) { .float32[3] = 1.0f }, false);
-   tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_INT_OPAQUE_BLACK],
-                         &(VkClearColorValue) { .int32[3] = 1 }, true);
-   tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE],
-                         &(VkClearColorValue) { .float32[0 ... 3] = 1.0f }, false);
-   tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_INT_OPAQUE_WHITE],
-                         &(VkClearColorValue) { .int32[0 ... 3] = 1 }, true);
+   for (int i = 0; i < TU_BORDER_COLOR_BUILTIN; i++) {
+      tu6_pack_border_color(&global->bcolor_builtin[i],
+                            &vk_border_color_value(i),
+                            vk_border_color_is_int(i));
+   }
 
    /* initialize to ones so ffs can be used to find unused slots */
    BITSET_ONES(device->custom_border_color);
