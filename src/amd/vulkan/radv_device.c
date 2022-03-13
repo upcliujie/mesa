@@ -558,7 +558,11 @@ radv_physical_device_get_supported_extensions(const struct radv_physical_device 
       .NV_mesh_shader = device->use_ngg && device->rad_info.chip_class >= GFX10_3 &&
                         device->instance->perftest_flags & RADV_PERFTEST_NV_MS && !device->use_llvm,
       .VALVE_mutable_descriptor_type = true,
-      .VALVE_descriptor_set_host_mapping = true,
+      /* Undocumented extension purely for vkd3d-proton. This check is to prevent anyone else from
+         using it. */
+      .VALVE_descriptor_set_host_mapping =
+         device->vk.instance->app_info.engine_name &&
+         strcmp(device->vk.instance->app_info.engine_name, "vkd3d") == 0,
    };
 }
 
