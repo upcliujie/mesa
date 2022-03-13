@@ -3620,7 +3620,7 @@ typedef struct nir_shader {
    foreach_list_typed(nir_function, func, node, &(shader)->functions)
 
 static inline nir_function_impl *
-nir_shader_get_entrypoint(nir_shader *shader)
+nir_shader_get_entrypoint(const nir_shader *shader)
 {
    nir_function *func = NULL;
 
