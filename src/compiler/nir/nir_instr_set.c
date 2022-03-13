@@ -758,6 +758,37 @@ nir_instrs_equal(const nir_instr *instr1, const nir_instr *instr2)
    unreachable("All cases in the above switch should return");
 }
 
+/* Returns "True" if parent instruction of source is a vec[234] */
+
+bool
+nir_src_is_vector(nir_src src) {
+   if (src.ssa->parent_instr->type != nir_instr_type_alu)
+       return false;
+
+   nir_alu_instr *parent_alu = nir_instr_as_alu(src.ssa->parent_instr);
+
+   if (parent_alu == NULL)
+      return false;
+
+   return nir_op_is_vec(parent_alu->op);
+}
+
+/* Returns "True" if all sources of a vec[234] is load_const */
+
+bool
+nir_src_is_const_vector(nir_src src) {
+   if (!nir_src_is_vector(src))
+      return false;
+
+   nir_alu_instr *parent_alu = nir_instr_as_alu(src.ssa->parent_instr);
+
+   for (uint64_t i = 0; i < src.ssa->num_components; ++i)
+      if (!nir_src_is_const(parent_alu->src[i].src))
+         return false;
+
+   return true;
+}
+
 static nir_ssa_def *
 nir_instr_get_dest_ssa_def(nir_instr *instr)
 {
