@@ -128,6 +128,9 @@ struct tu_renderpass_result {
    struct list_head node;
    uint32_t fence;
    uint64_t samples_passed;
+
+   /* For debug purposes */
+   void* rp_data;
 };
 
 VkResult tu_autotune_init(struct tu_autotune *at, struct tu_device *dev);

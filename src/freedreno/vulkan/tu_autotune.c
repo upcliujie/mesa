@@ -473,38 +473,6 @@ tu_autotune_init(struct tu_autotune *at, struct tu_device *dev)
    return VK_SUCCESS;
 }
 
-void
-tu_autotune_fini(struct tu_autotune *at, struct tu_device *dev)
-{
-#if TU_AUTOTUNE_LOG_AT_FINISH != 0
-   while (!list_is_empty(&at->pending_results)) {
-      process_results(at);
-   }
-
-   hash_table_foreach(at->ht, entry) {
-      struct tu_renderpass_history *history = entry->data;
-
-      mesa_logi("%016"PRIx64" \tavg_passed=%u results=%u",
-                history->key, history->avg_samples, history->num_results);
-   }
-#endif
-
-   tu_autotune_free_results(&at->pending_results);
-
-   hash_table_foreach(at->ht, entry) {
-      struct tu_renderpass_history *history = entry->data;
-      ralloc_free(history);
-   }
-
-   list_for_each_entry_safe(struct tu_submission_data, submission_data,
-                            &at->pending_submission_data, node) {
-      free_submission_data(submission_data);
-   }
-
-   _mesa_hash_table_destroy(at->ht, NULL);
-   u_rwlock_destroy(&at->ht_lock);
-}
-
 bool
 tu_autotune_submit_requires_fence(struct tu_cmd_buffer **cmd_buffers,
                                   uint32_t cmd_buffer_count)
@@ -543,6 +511,55 @@ fallback_use_bypass(const struct tu_render_pass *pass,
    return true;
 }
 
+struct tu_autotune_rp_data {
+   uint32_t total_drawcalls_cost;
+   uint32_t drawcall_count;
+};
+
+static bool
+tu_autotune_use_bypass_per_dynamic_data(uint64_t renderpass_key,
+                                        uint32_t avg_samples,
+                                        struct tu_autotune_rp_data *rp_data)
+{
+   /* TODO we should account for load/stores/clears/resolves especially
+    * with low drawcall count and ~fb_size samples passed, in D3D11 games
+    * we are seeing many renderpasses like:
+    *  - color attachment load
+    *  - single fullscreen draw
+    *  - color attachment store
+    */
+
+   /* Low sample count could mean there was only a clear.. or there was
+    * a clear plus draws that touch no or few samples
+    */
+   if (avg_samples < 500) {
+#if TU_AUTOTUNE_DEBUG_LOG != 0
+      mesa_logi("%016"PRIx64":%u\t avg_samples=%u selecting sysmem",
+         renderpass_key, rp_data->drawcall_count, avg_samples);
+#endif
+      return true;
+   }
+
+   /* Cost-per-sample is an estimate for the average number of reads+
+    * writes for a given passed sample.
+    */
+   float sample_cost = rp_data->total_drawcalls_cost;
+   sample_cost /= rp_data->drawcall_count;
+
+   float single_draw_cost = (avg_samples * sample_cost) / rp_data->drawcall_count;
+
+   bool select_sysmem = single_draw_cost < 6000.0;
+
+#if TU_AUTOTUNE_DEBUG_LOG != 0
+   mesa_logi("%016"PRIx64":%u\t avg_samples=%u, "
+         "sample_cost=%f, single_draw_cost=%f selecting %s",
+         renderpass_key,rp_data->drawcall_count, avg_samples,
+         sample_cost, single_draw_cost, select_sysmem ? "sysmem" : "gmem");
+#endif
+
+   return select_sysmem;
+}
+
 bool
 tu_autotune_use_bypass(struct tu_autotune *at,
                        struct tu_cmd_buffer *cmd_buffer,
@@ -576,6 +593,14 @@ tu_autotune_use_bypass(struct tu_autotune *at,
    if (!at->enabled || simultaneous_use)
       return fallback_use_bypass(pass, framebuffer, cmd_buffer);
 
+   bool profile_autotune =
+      at->device->instance->debug_flags & TU_DEBUG_PROFILE_AUTOTUNE;
+
+   struct tu_autotune_rp_data rp_data = {
+      .drawcall_count = cmd_buffer->state.drawcall_count,
+      .total_drawcalls_cost = cmd_buffer->state.total_drawcalls_cost,
+   };
+
    /* We use 64bit hash as a key since we don't fear rare hash collision,
     * the worst that would happen is sysmem being selected when it should
     * have not, and with 64bit it would be extremely rare.
@@ -586,46 +611,21 @@ tu_autotune_use_bypass(struct tu_autotune *at,
     *    frame in a loop for testing.
     */
    uint64_t renderpass_key = hash_renderpass_instance(pass, framebuffer, cmd_buffer);
+   if (unlikely(profile_autotune))
+      renderpass_key = cmd_buffer->dbg_renderpass_hash;
 
    *autotune_result = create_history_result(at, renderpass_key);
 
+   if (unlikely(profile_autotune)) {
+      struct tu_autotune_rp_data *rp_data_copy = malloc(sizeof(struct tu_autotune_rp_data));
+      *rp_data_copy = rp_data;
+      (*autotune_result)->rp_data = rp_data_copy;
+   }
+
    uint32_t avg_samples = 0;
    if (get_history(at, renderpass_key, &avg_samples)) {
-      /* TODO we should account for load/stores/clears/resolves especially
-       * with low drawcall count and ~fb_size samples passed, in D3D11 games
-       * we are seeing many renderpasses like:
-       *  - color attachment load
-       *  - single fullscreen draw
-       *  - color attachment store
-       */
-
-      /* Low sample count could mean there was only a clear.. or there was
-       * a clear plus draws that touch no or few samples
-       */
-      if (avg_samples < 500) {
-#if TU_AUTOTUNE_DEBUG_LOG != 0
-         mesa_logi("%016"PRIx64":%u\t avg_samples=%u selecting sysmem",
-            renderpass_key, cmd_buffer->state.drawcall_count, avg_samples);
-#endif
-         return true;
-      }
-
-      /* Cost-per-sample is an estimate for the average number of reads+
-       * writes for a given passed sample.
-       */
-      float sample_cost = cmd_buffer->state.total_drawcalls_cost;
-      sample_cost /= cmd_buffer->state.drawcall_count;
-
-      float single_draw_cost = (avg_samples * sample_cost) / cmd_buffer->state.drawcall_count;
-
-      bool select_sysmem = single_draw_cost < 6000.0;
-
-#if TU_AUTOTUNE_DEBUG_LOG != 0
-      mesa_logi("%016"PRIx64":%u\t avg_samples=%u, "
-          "sample_cost=%f, single_draw_cost=%f selecting %s",
-          renderpass_key, cmd_buffer->state.drawcall_count, avg_samples,
-          sample_cost, single_draw_cost, select_sysmem ? "sysmem" : "gmem");
-#endif
+      bool select_sysmem = tu_autotune_use_bypass_per_dynamic_data(
+         renderpass_key, avg_samples, &rp_data);
 
       return select_sysmem;
    }
@@ -711,4 +711,46 @@ void tu_autotune_end_renderpass(struct tu_cmd_buffer *cmd,
 
    tu_cs_emit_pkt7(cs, CP_EVENT_WRITE, 1);
    tu_cs_emit(cs, ZPASS_DONE);
+}
+
+void
+tu_autotune_fini(struct tu_autotune *at, struct tu_device *dev)
+{
+   if (unlikely(dev->instance->debug_flags & TU_DEBUG_PROFILE_AUTOTUNE)) {
+      while (!list_is_empty(&at->pending_results)) {
+         process_results(at);
+      }
+
+      mesa_logi("start of autotune results");
+
+      hash_table_foreach(at->ht, entry) {
+         struct tu_renderpass_history *history = entry->data;
+         struct tu_renderpass_result *result = list_first_entry(
+            &history->results, struct tu_renderpass_result, node);
+         struct tu_autotune_rp_data *rp_data = result->rp_data;
+
+         bool use_bypass = tu_autotune_use_bypass_per_dynamic_data(
+            history->key, history->avg_samples, rp_data);
+
+         mesa_logi("rp_hash=%016"PRIx64" avg_passed=%u results=%u use_bypass_dynamic=%u",
+                  history->key, history->avg_samples, history->num_results, use_bypass);
+      }
+
+      mesa_logi("end of autotune results");
+   }
+
+   tu_autotune_free_results(&at->pending_results);
+
+   hash_table_foreach(at->ht, entry) {
+      struct tu_renderpass_history *history = entry->data;
+      ralloc_free(history);
+   }
+
+   list_for_each_entry_safe(struct tu_submission_data, submission_data,
+                            &at->pending_submission_data, node) {
+      free_submission_data(submission_data);
+   }
+
+   _mesa_hash_table_destroy(at->ht, NULL);
+   u_rwlock_destroy(&at->ht_lock);
 }
