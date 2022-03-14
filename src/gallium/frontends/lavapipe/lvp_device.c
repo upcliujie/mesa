@@ -148,6 +148,7 @@ static const struct vk_device_extension_table lvp_device_extensions_supported = 
    .EXT_sampler_filter_minmax             = true,
    .EXT_scalar_block_layout               = true,
    .EXT_separate_stencil_usage            = true,
+   .EXT_shader_demote_to_helper_invocation= true,
    .EXT_shader_stencil_export             = true,
    .EXT_shader_viewport_index_layer       = true,
    .EXT_transform_feedback                = true,
@@ -764,6 +765,12 @@ VKAPI_ATTR void VKAPI_CALL lvp_GetPhysicalDeviceFeatures2(
          VkPhysicalDeviceExtendedDynamicStateFeaturesEXT *features =
             (VkPhysicalDeviceExtendedDynamicStateFeaturesEXT*)ext;
          features->extendedDynamicState = true;
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DEMOTE_TO_HELPER_INVOCATION_FEATURES_EXT: {
+         VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT *features =
+            (VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT *)ext;
+         features->shaderDemoteToHelperInvocation = true;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_4444_FORMATS_FEATURES_EXT: {
