@@ -553,7 +553,7 @@ void anv_CmdBindPipeline(
 {
    ANV_FROM_HANDLE(anv_cmd_buffer, cmd_buffer, commandBuffer);
    ANV_FROM_HANDLE(anv_pipeline, pipeline, _pipeline);
-   struct anv_cmd_pipeline_state *state;
+   struct anv_cmd_pipeline_state *state = NULL;
    VkShaderStageFlags stages = 0;
 
    switch (pipelineBindPoint) {
