@@ -766,7 +766,7 @@ disk_cache_write_item_to_disk(struct disk_cache_put_job *dc_job,
 
 /* Determine path for cache based on the first defined name as follows:
  *
- *   $MESA_GLSL_CACHE_DIR
+ *   $MESA_SHADER_CACHE_DIR
  *   $XDG_CACHE_HOME/mesa_shader_cache
  *   <pwd.pw_dir>/.cache/mesa_shader_cache
  */
@@ -778,7 +778,7 @@ disk_cache_generate_cache_dir(void *mem_ctx, const char *gpu_name,
    if (env_var_as_boolean("MESA_DISK_CACHE_SINGLE_FILE", false))
       cache_dir_name = CACHE_DIR_NAME_SF;
 
-   char *path = getenv("MESA_GLSL_CACHE_DIR");
+   char *path = getenv("MESA_SHADER_CACHE_DIR");
    if (path) {
       if (mkdir_if_needed(path) == -1)
          return NULL;
@@ -862,7 +862,7 @@ disk_cache_enabled()
 #else
    bool disable_by_default = false;
 #endif
-   if (env_var_as_boolean("MESA_GLSL_CACHE_DISABLE", disable_by_default))
+   if (env_var_as_boolean("MESA_SHADER_CACHE_DISABLE", disable_by_default))
       return false;
 
    return true;
