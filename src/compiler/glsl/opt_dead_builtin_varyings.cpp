@@ -545,11 +545,10 @@ do_dead_builtin_varyings(const struct gl_constants *consts,
       lower_fragdata_array(consumer);
    }
 
-   /* Lowering of built-in varyings has no effect with the core context and
-    * GLES2, because they are not available there.
+   /* Lowering of built-in varyings has no effect with GLES2, because they are
+    * not available there.
     */
-   if (api == API_OPENGL_CORE ||
-       api == API_OPENGLES2) {
+   if (api == API_OPENGLES2) {
       return;
    }
 
