@@ -561,6 +561,24 @@ scan_pipeline_info(struct lvp_pipeline *pipeline, nir_shader *nir)
 
 }
 
+static bool
+remove_scoped_barriers_impl(nir_builder *b, nir_instr *instr, void *data)
+{
+   if (instr->type != nir_instr_type_intrinsic)
+      return false;
+   nir_intrinsic_instr *intr = nir_instr_as_intrinsic(instr);
+   if (intr->intrinsic != nir_intrinsic_scoped_barrier)
+      return false;
+   nir_instr_remove(instr);
+   return true;
+}
+
+static bool
+remove_scoped_barriers(nir_shader *nir)
+{
+   return nir_shader_instructions_pass(nir, remove_scoped_barriers_impl, nir_metadata_dominance, NULL);
+}
+
 static void
 lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
                          struct vk_shader_module *module,
@@ -631,6 +649,9 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
    nir_validate_shader(nir, NULL);
 
    free(spec_entries);
+
+   if (nir->info.stage != MESA_SHADER_COMPUTE)
+      NIR_PASS_V(nir, remove_scoped_barriers);
 
    const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
       .frag_coord = true,
