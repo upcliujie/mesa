@@ -837,7 +837,7 @@ pub fn enqueue_read_buffer(
         evs,
         Box::new(move |q| b.read_to_user(q, offset, ptr, cb)),
     );
-    event.write_checked(cl_event::from_arc(e.clone()));
+    cl_event::leak_ref(event, &e);
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -896,7 +896,7 @@ pub fn enqueue_write_buffer(
         evs,
         Box::new(move |q| b.write_from_user(q, offset, ptr, cb)),
     );
-    event.write_checked(cl_event::from_arc(e.clone()));
+    cl_event::leak_ref(event, &e);
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -1028,7 +1028,7 @@ pub fn enqueue_read_buffer_rect(
             )
         }),
     );
-    event.write_checked(cl_event::from_arc(e.clone()));
+    cl_event::leak_ref(event, &e);
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -1160,7 +1160,7 @@ pub fn enqueue_write_buffer_rect(
             )
         }),
     );
-    event.write_checked(cl_event::from_arc(e.clone()));
+    cl_event::leak_ref(event, &e);
     q.queue(&e);
     if block {
         q.flush(true)?;
@@ -1305,7 +1305,7 @@ pub fn enqueue_copy_buffer_rect(
             )
         }),
     );
-    event.write_checked(cl_event::from_arc(e.clone()));
+    cl_event::leak_ref(event, &e);
     q.queue(&e);
     Ok(())
 
