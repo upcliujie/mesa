@@ -313,7 +313,7 @@ v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline_cache *cache,
          struct blob_reader blob;
          struct v3dv_pipeline_shared_data *shared_data;
 
-         if (debug_cache)
+         if (unlikely(V3D_DEBUG & V3D_DEBUG_CACHE))
             fprintf(stderr, "\ton-disk-cache hit\n");
 
          blob_reader_init(&blob, buffer, buffer_size);
@@ -326,7 +326,7 @@ v3dv_pipeline_cache_search_for_pipeline(struct v3dv_pipeline_cache *cache,
             return shared_data;
          }
       } else {
-         if (debug_cache)
+         if (unlikely(V3D_DEBUG & V3D_DEBUG_CACHE))
             fprintf(stderr, "\ton-disk-cache miss\n");
       }
    }
@@ -465,7 +465,7 @@ pipeline_cache_upload_shared_data(struct v3dv_pipeline_cache *cache,
          disk_cache_compute_key(disk_cache, shared_data->sha1_key, 20, cache_key);
 
          disk_cache_put(disk_cache, cache_key, binary.data, binary.size, NULL);
-         if (debug_cache) {
+         if (unlikely(V3D_DEBUG & V3D_DEBUG_CACHE)) {
             char sha1buf[41];
             _mesa_sha1_format(sha1buf, shared_data->sha1_key);
 
