@@ -3522,6 +3522,8 @@ struct anv_graphics_pipeline {
    VkPolygonMode                                polygon_mode;
    uint32_t                                     rasterization_samples;
 
+   VkColorComponentFlags                        color_comp_writes[MAX_RTS];
+
    struct anv_subpass *                         subpass;
    struct anv_render_pass *                     pass;
 

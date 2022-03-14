@@ -2740,6 +2740,17 @@ anv_graphics_pipeline_init(struct anv_graphics_pipeline *pipeline,
    pipeline->rasterization_samples =
       ms_info ? ms_info->rasterizationSamples : 1;
 
+   /* Store the color write masks, to be merged with color write enable if
+    * dynamic.
+    */
+   if (raster_enabled) {
+      for (unsigned i = 0; i < pCreateInfo->pColorBlendState->attachmentCount; i++) {
+         const VkPipelineColorBlendAttachmentState *a =
+            &pCreateInfo->pColorBlendState->pAttachments[i];
+         pipeline->color_comp_writes[i] = a->colorWriteMask;
+      }
+   }
+
    return VK_SUCCESS;
 }
 
