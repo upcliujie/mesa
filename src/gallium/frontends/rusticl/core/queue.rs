@@ -87,9 +87,8 @@ impl Queue {
         let mut p = self.pending.lock().unwrap();
         // This should never ever error, but if it does return an error
         self.chan_in
-            .send((*p).clone())
+            .send((*p).drain(0..).collect())
             .map_err(|_| CL_OUT_OF_HOST_MEMORY)?;
-        p.clear();
         self.chan_out.recv().unwrap();
         Ok(())
     }
