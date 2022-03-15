@@ -1840,9 +1840,7 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline_base *pipeline,
     * set the value.
     */
    const struct intel_device_info *devinfo = &device->info;
-   if (devinfo->has_coarse_pixel_primitive_and_cb &&
-       stages[MESA_SHADER_FRAGMENT].entrypoint &&
-       stages[MESA_SHADER_FRAGMENT].key.wm.coarse_pixel) {
+   if (devinfo->has_coarse_pixel_primitive_and_cb) {
       struct anv_pipeline_stage *last_psr = NULL;
 
       for (unsigned i = 0; i < ARRAY_SIZE(graphics_shader_order); i++) {
@@ -1857,8 +1855,11 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline_base *pipeline,
          break;
       }
 
-      assert(last_psr);
-      last_psr->nir->info.outputs_written |= VARYING_BIT_PRIMITIVE_SHADING_RATE;
+      /* Only set primitive shading rate if there is a pre-rasterization
+       * shader in this pipeline/pipeline-library.
+       */
+      if (last_psr)
+         last_psr->nir->info.outputs_written |= VARYING_BIT_PRIMITIVE_SHADING_RATE;
    }
 
    prev_stage = NULL;
