@@ -1743,11 +1743,6 @@ genX(BeginCommandBuffer)(
          const struct vk_subpass *subpass =
             &pass->subpasses[pBeginInfo->pInheritanceInfo->subpass];
 
-         gfx->render_area = (VkRect2D) {
-            .offset = { 0, 0 },
-            .extent = { fb->width, fb->height },
-         };
-
          if (!(fb->flags & VK_FRAMEBUFFER_CREATE_IMAGELESS_BIT_KHR) &&
              subpass->depth_stencil_attachment != NULL) {
             const struct vk_subpass_attachment *att =
