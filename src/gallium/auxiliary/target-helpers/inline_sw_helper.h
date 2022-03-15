@@ -87,6 +87,9 @@ sw_screen_create_vk(struct sw_winsys *winsys, bool sw_vk)
 #if defined(GALLIUM_ASAHI)
       (sw_vk || only_sw) ? "" : "asahi",
 #endif
+#if defined(GALLIUM_ZINK)
+      (sw_vk || only_sw) ? "" : "zink",
+#endif
 #if defined(GALLIUM_LLVMPIPE)
       "llvmpipe",
 #endif
@@ -107,6 +110,16 @@ sw_screen_create_vk(struct sw_winsys *winsys, bool sw_vk)
          return NULL;
    }
    return NULL;
+}
+
+static inline struct pipe_screen *
+sw_screen_create_zink(struct sw_winsys *winsys, const struct pipe_screen_config *config, bool whatever)
+{
+#if defined(GALLIUM_ZINK)
+   return zink_create_screen(winsys, config);
+#else
+   return NULL;
+#endif
 }
 
 static inline struct pipe_screen *
