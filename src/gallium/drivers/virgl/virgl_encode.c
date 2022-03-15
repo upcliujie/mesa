@@ -1588,7 +1588,7 @@ void virgl_encode_emit_string_marker(struct virgl_context *ctx,
    }
 
    uint32_t buf_len = (uint32_t )(len + 3) / 4 + 1;
-   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_EMIT_STRING_MARKER, 0, buf_len));
+   virgl_encoder_write_cmd_dword(ctx, VIRGL_CMD0(VIRGL_CCMD_SEND_STRING_MARKER, 0, buf_len));
    virgl_encoder_write_dword(ctx->cbuf, len);
    virgl_encoder_write_block(ctx->cbuf, (const uint8_t *)message, len);
 }
