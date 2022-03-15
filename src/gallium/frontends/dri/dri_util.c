@@ -86,6 +86,8 @@ setupLoaderExtensions(__DRIscreen *psp,
            psp->image.loader = (__DRIimageLoaderExtension *) extensions[i];
         if (strcmp(extensions[i]->name, __DRI_MUTABLE_RENDER_BUFFER_LOADER) == 0)
            psp->mutableRenderBuffer.loader = (__DRImutableRenderBufferLoaderExtension *) extensions[i];
+        if (strcmp(extensions[i]->name, __DRI_KOPPER_LOADER) == 0)
+            psp->kopper_loader = (__DRIkopperLoaderExtension *) extensions[i];
     }
 }
 
@@ -105,6 +107,7 @@ setupLoaderExtensions(__DRIscreen *psp,
  * the X Server patches to support the new loader interface.
  */
 const struct __DriverAPIRec *globalDriverAPI = &driDriverAPI;
+const struct __DriverAPIRec *vkDriverAPI = &driDriverAPI;
 
 /**
  * This is the first entrypoint in the driver called by the DRI driver loader
@@ -127,7 +130,11 @@ driCreateNewScreen2(int scrn, int fd,
 	return NULL;
 
     /* By default, use the global driDriverAPI symbol (non-megadrivers). */
-    psp->driver = globalDriverAPI;
+    const char *env = getenv("MESA_LOADER_DRIVER_OVERRIDE");
+    if (env && !strcmp(env, "zink"))
+       psp->driver = vkDriverAPI;
+    else
+       psp->driver = globalDriverAPI;
 
     /* If the driver exposes its vtable through its extensions list
      * (megadrivers), use that instead.
