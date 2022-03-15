@@ -2394,7 +2394,7 @@ get_affinities(ra_ctx& ctx, std::vector<IDSet>& live_out_per_block)
                     instr->operands[0].isFirstKillBeforeDef()) {
             ctx.split_vectors[instr->operands[0].tempId()] = instr.get();
          } else if (instr->isVOPC() && !instr->isVOP3()) {
-            //if (!instr->isSDWA() || ctx.program->chip_class == GFX8)
+            if (!instr->isSDWA() || ctx.program->chip_class == GFX8)
                ctx.assignments[instr->definitions[0].tempId()].vcc = true;
          } else if (instr->isVOP2() && !instr->isVOP3()) {
             if (instr->operands.size() == 3 && instr->operands[2].isTemp() &&
