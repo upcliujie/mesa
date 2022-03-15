@@ -926,21 +926,9 @@ panvk_cmd_draw(struct panvk_cmd_buffer *cmdbuf,
    draw->samplers = desc_state->samplers;
 
    STATIC_ASSERT(sizeof(draw->invocation) >= sizeof(struct mali_invocation_packed));
-   if (draw->instance_count > 1) {
-      panfrost_pack_work_groups_compute((struct mali_invocation_packed *)&draw->invocation,
-                                         1, draw->vertex_range, draw->instance_count,
-                                         1, 1, 1, true, false);
-   } else {
-      pan_pack(&draw->invocation, INVOCATION, cfg) {
-         cfg.invocations = MALI_POSITIVE(draw->vertex_range);
-         cfg.size_y_shift = 0;
-         cfg.size_z_shift = 0;
-         cfg.workgroups_x_shift = 0;
-         cfg.workgroups_y_shift = 0;
-         cfg.workgroups_z_shift = 32;
-         cfg.thread_group_split = MALI_SPLIT_MIN_EFFICIENT;
-      }
-   }
+   panfrost_pack_work_groups_compute((struct mali_invocation_packed *)&draw->invocation,
+                                      1, draw->vertex_range, draw->instance_count,
+                                      1, 1, 1, true, false);
 
    panvk_draw_prepare_fs_rsd(cmdbuf, draw);
    panvk_draw_prepare_varyings(cmdbuf, draw);
