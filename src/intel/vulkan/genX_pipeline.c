@@ -936,11 +936,11 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
        */
 #if GFX_VER >= 8
       genX(emit_multisample)(&pipeline->base.batch,
-                             pipeline->dynamic_state.sample_locations.samples,
+                             pipeline->rasterization_samples,
                              pipeline->dynamic_state.sample_locations.locations);
       if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
          genX(emit_sample_pattern)(&pipeline->base.batch,
-                                   pipeline->dynamic_state.sample_locations.samples,
+                                   pipeline->rasterization_samples,
                                    pipeline->dynamic_state.sample_locations.locations);
       }
 #endif
@@ -950,7 +950,7 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
        */
 #if GFX_VER >= 8
       genX(emit_multisample)(&pipeline->base.batch,
-                             info ? info->rasterizationSamples : 1,
+                             pipeline->rasterization_samples,
                              NULL);
 #endif
    }
