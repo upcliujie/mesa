@@ -514,20 +514,20 @@ panvk_emit_tiler_primitive(const struct panvk_pipeline *pipeline,
          cfg.primitive_restart = MALI_PRIMITIVE_RESTART_IMPLICIT;
       cfg.job_task_split = 6;
 
-      cfg.index_count = draw->index_size ?
-                        draw->index_count :
-                        draw->vertex_count;
-
-      switch (draw->index_size) {
-      case 32: cfg.index_type = MALI_INDEX_TYPE_UINT32; break;
-      case 16: cfg.index_type = MALI_INDEX_TYPE_UINT16; break;
-      case 8: cfg.index_type = MALI_INDEX_TYPE_UINT8; break;
-      default: cfg.index_type = MALI_INDEX_TYPE_NONE; break;
-      }
-
       if (draw->index_size) {
+         cfg.index_count = draw->index_count;
          cfg.indices = draw->indices;
          cfg.base_vertex_offset = draw->vertex_offset - draw->offset_start;
+
+         switch (draw->index_size) {
+         case 32: cfg.index_type = MALI_INDEX_TYPE_UINT32; break;
+         case 16: cfg.index_type = MALI_INDEX_TYPE_UINT16; break;
+         case 8: cfg.index_type = MALI_INDEX_TYPE_UINT8; break;
+         default: unreachable("Invalid index size");
+         }
+      } else {
+         cfg.index_count = draw->vertex_count;
+         cfg.index_type = MALI_INDEX_TYPE_NONE;
       }
    }
 }
