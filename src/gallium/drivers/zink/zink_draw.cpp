@@ -751,7 +751,7 @@ zink_draw(struct pipe_context *pctx,
    ctx->rast_state_changed = false;
 
    if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE) {
-      if (ctx->sample_locations_changed) {
+      if (BATCH_CHANGED || ctx->sample_locations_changed) {
          VkSampleLocationsInfoEXT loc;
          zink_init_vk_sample_locations(ctx, &loc);
          VKCTX(CmdSetSampleLocationsEXT)(batch->state->cmdbuf, &loc);
