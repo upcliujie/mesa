@@ -132,10 +132,14 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
       const struct panvk_descriptor_set_binding_layout *bind_layout =
          &ctx->layout->sets[set].layout->bindings[binding];
 
-      tex->sampler_index = ctx->layout->sets[set].sampler_offset +
-                           bind_layout->sampler_idx + index_imm;
+      const uint32_t base_index = ctx->layout->sets[set].sampler_offset +
+                                  bind_layout->sampler_idx + index_imm;
 
-      if (index_ssa != NULL) {
+      if (index_ssa == NULL) {
+         tex->sampler_index = base_index;
+      } else {
+         assert(tex->sampler_index == 0);
+         index_ssa = nir_iadd_imm(b, index_ssa, base_index);
          nir_tex_instr_add_src(tex, nir_tex_src_sampler_offset,
                                nir_src_for_ssa(index_ssa));
       }
@@ -155,10 +159,14 @@ lower_tex(nir_builder *b, nir_tex_instr *tex,
       const struct panvk_descriptor_set_binding_layout *bind_layout =
          &ctx->layout->sets[set].layout->bindings[binding];
 
-      tex->texture_index = ctx->layout->sets[set].tex_offset +
-                           bind_layout->tex_idx + index_imm;
+      const uint32_t base_index = ctx->layout->sets[set].tex_offset +
+                                  bind_layout->tex_idx + index_imm;
 
-      if (index_ssa != NULL) {
+      if (index_ssa == NULL) {
+         tex->texture_index = base_index;
+      } else {
+         assert(tex->sampler_index == 0);
+         index_ssa = nir_iadd_imm(b, index_ssa, base_index);
          nir_tex_instr_add_src(tex, nir_tex_src_texture_offset,
                                nir_src_for_ssa(index_ssa));
       }
