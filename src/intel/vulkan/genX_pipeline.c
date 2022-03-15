@@ -930,20 +930,20 @@ emit_ms_state(struct anv_graphics_pipeline *pipeline,
     */
    if (pipeline->base.device->vk.enabled_extensions.EXT_sample_locations) {
       /* If the sample locations are dynamic, 3DSTATE_MULTISAMPLE on Gfx7/7.5
-       * will be emitted dynamically, so skip it here. On Gfx8+
-       * 3DSTATE_SAMPLE_PATTERN will be emitted dynamically, so skip it here.
+       * will be emitted dynamically, so we have nothing to do here. On Gfx8+
+       * 3DSTATE_SAMPLE_PATTERN will be emitted dynamically, so skip it here,
+       * but we still have to emit 3DSTATE_MULTISAMPLE.
        */
-      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
 #if GFX_VER >= 8
-         genX(emit_sample_pattern)(&pipeline->base.batch,
-                                   pipeline->dynamic_state.sample_locations.samples,
-                                   pipeline->dynamic_state.sample_locations.locations);
-#endif
-      }
-
       genX(emit_multisample)(&pipeline->base.batch,
                              pipeline->dynamic_state.sample_locations.samples,
                              pipeline->dynamic_state.sample_locations.locations);
+      if (!(dynamic_states & ANV_CMD_DIRTY_DYNAMIC_SAMPLE_LOCATIONS)) {
+         genX(emit_sample_pattern)(&pipeline->base.batch,
+                                   pipeline->dynamic_state.sample_locations.samples,
+                                   pipeline->dynamic_state.sample_locations.locations);
+      }
+#endif
    } else {
       /* On Gfx8+ 3DSTATE_MULTISAMPLE does not hold anything we need to modify
        * for sample locations, so we don't have to emit it dynamically.
