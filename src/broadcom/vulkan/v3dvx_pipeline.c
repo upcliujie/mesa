@@ -146,6 +146,7 @@ pack_cfg_bits(struct v3dv_pipeline *pipeline,
               const VkPipelineDepthStencilStateCreateInfo *ds_info,
               const VkPipelineRasterizationStateCreateInfo *rs_info,
               const VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *pv_info,
+              const VkPipelineRasterizationLineStateCreateInfoEXT *ls_info,
               const VkPipelineMultisampleStateCreateInfo *ms_info)
 {
    assert(sizeof(pipeline->cfg_bits) == cl_packet_length(CFG_BITS));
@@ -170,7 +171,11 @@ pack_cfg_bits(struct v3dv_pipeline *pipeline,
        * exposing, at least, a minimum of 4-bits of subpixel precision
        * (the minimum requirement).
        */
-      config.line_rasterization = 1; /* perp end caps */
+      if (ls_info &&
+          ls_info->lineRasterizationMode == VK_LINE_RASTERIZATION_MODE_BRESENHAM_EXT)
+         config.line_rasterization = 0;
+      else
+         config.line_rasterization = 1;
 
       if (rs_info && rs_info->polygonMode != VK_POLYGON_MODE_FILL) {
          config.direct3d_wireframe_triangles_mode = true;
@@ -178,7 +183,8 @@ pack_cfg_bits(struct v3dv_pipeline *pipeline,
             rs_info->polygonMode == VK_POLYGON_MODE_POINT;
       }
 
-      config.rasterizer_oversample_mode = pipeline->msaa ? 1 : 0;
+      /* diamond-exit rasterization does not suport oversample */
+      config.rasterizer_oversample_mode = (config.line_rasterization && pipeline->msaa) ? 1 : 0;
 
       /* From the Vulkan spec:
        *
@@ -342,10 +348,11 @@ v3dX(pipeline_pack_state)(struct v3dv_pipeline *pipeline,
                           const VkPipelineDepthStencilStateCreateInfo *ds_info,
                           const VkPipelineRasterizationStateCreateInfo *rs_info,
                           const VkPipelineRasterizationProvokingVertexStateCreateInfoEXT *pv_info,
+                          const VkPipelineRasterizationLineStateCreateInfoEXT *ls_info,
                           const VkPipelineMultisampleStateCreateInfo *ms_info)
 {
    pack_blend(pipeline, cb_info);
-   pack_cfg_bits(pipeline, ds_info, rs_info, pv_info, ms_info);
+   pack_cfg_bits(pipeline, ds_info, rs_info, pv_info, ls_info, ms_info);
    pack_stencil_cfg(pipeline, ds_info);
 }
 
