@@ -147,12 +147,12 @@ impl PipeContext {
 }
 
 pub trait PipeContextRef {
-    fn buffer_map(&self, res: &PipeResource, offset: i32, size: i32) -> PipeTransfer;
+    fn buffer_map(&self, res: &PipeResource, offset: i32, size: i32, block: bool) -> PipeTransfer;
     fn flush(&self) -> PipeFence;
 }
 
 impl PipeContextRef for Rc<PipeContext> {
-    fn buffer_map(&self, res: &PipeResource, offset: i32, size: i32) -> PipeTransfer {
+    fn buffer_map(&self, res: &PipeResource, offset: i32, size: i32, block: bool) -> PipeTransfer {
         let mut b = pipe_box::default();
         let mut out: *mut pipe_transfer = ptr::null_mut();
 
@@ -161,12 +161,17 @@ impl PipeContextRef for Rc<PipeContext> {
         b.height = 1;
         b.depth = 1;
 
+        let flags = match block {
+            false => pipe_map_flags::PIPE_MAP_UNSYNCHRONIZED,
+            true => pipe_map_flags(0),
+        };
+
         let ptr = unsafe {
             self.pipe.as_ref().buffer_map.unwrap()(
                 self.pipe.as_ptr(),
                 res.pipe(),
                 0,
-                0, // TODO PIPE_MAP_x
+                flags.0,
                 &b,
                 &mut out,
             )
