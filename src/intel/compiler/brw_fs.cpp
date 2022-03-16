@@ -5478,6 +5478,21 @@ emit_predicate_on_sample_mask(const fs_builder &bld, fs_inst *inst)
    }
 }
 
+void
+fs_visitor::emit_is_helper_invocation(fs_reg result)
+{
+   /* Unlike the regular gl_HelperInvocation, that is defined at dispatch,
+    * the helperInvocationEXT() (aka SpvOpIsHelperInvocationEXT) takes into
+    * consideration demoted invocations.
+    */
+   result.type = BRW_REGISTER_TYPE_UD;
+
+   bld.MOV(result, brw_imm_ud(0));
+   fs_inst *mov = bld.MOV(result, brw_imm_ud(~0));
+   emit_predicate_on_sample_mask(bld, mov);
+   mov->predicate_inverse = true;
+}
+
 /**
  * Predicate the specified instruction on the vector mask.
  */
