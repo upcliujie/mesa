@@ -79,7 +79,9 @@ set_io_mask(nir_shader *shader, nir_variable *var, int offset, int len,
             nir_deref_instr *deref, bool is_output_read)
 {
    for (int i = 0; i < len; i++) {
-      assert(var->data.location != -1);
+      /* Built-in varyings might not have been assigned values yet so abort. */
+      if (var->data.location == -1)
+         return;
 
       int idx = var->data.location + offset + i;
       bool is_patch_generic = var->data.patch &&
