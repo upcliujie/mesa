@@ -779,6 +779,33 @@ fetch_state(struct gl_context *ctx, const gl_state_index16 state[],
          COPY_4V(value, ctx->Transform._ClipUserPlane[plane]);
       }
       return;
+
+   case STATE_CUBE_PARAMS:
+      {
+         const GLuint tex_unit = (GLuint) state[1];
+         const struct gl_texture_object *texobj;
+         const struct gl_sampler_object *msamp;
+
+         texobj = ctx->Texture.Unit[tex_unit]._Current;
+         assert(texobj);
+
+         msamp = _mesa_get_samplerobj(ctx, tex_unit);
+         memcpy(value, &msamp->Attrib.state, sizeof(uint32_t) * 4);
+      }
+      return;
+   case STATE_CUBE_BORDER:
+      {
+         const GLuint tex_unit = (GLuint) state[1];
+         const struct gl_texture_object *texobj;
+         const struct gl_sampler_object *msamp;
+
+         texobj = ctx->Texture.Unit[tex_unit]._Current;
+         assert(texobj);
+
+         msamp = _mesa_get_samplerobj(ctx, tex_unit);
+         memcpy(value, &msamp->Attrib.state.border_color, sizeof(uint32_t) * 4);
+      }
+      return;
    }
 }
 
@@ -916,6 +943,10 @@ _mesa_program_state_flags(const gl_state_index16 state[STATE_LENGTH])
    case STATE_TES_PATCH_VERTICES_IN:
    case STATE_INTERNAL_DRIVER:
       return 0; /* internal driver state */
+
+   case STATE_CUBE_PARAMS:
+   case STATE_CUBE_BORDER:
+      return _NEW_PROGRAM_CONSTANTS;
 
    case STATE_NOT_STATE_VAR:
       return 0;
@@ -1192,6 +1223,12 @@ append_token(char *dst, gl_state_index k)
    case STATE_CLIP_INTERNAL:
       append(dst, "clipInternal");
       break;
+   case STATE_CUBE_PARAMS:
+      append(dst, "cubeParams");
+      break;
+   case STATE_CUBE_BORDER:
+      append(dst, "cubeBorder");
+      break;
    default:
       /* probably STATE_INTERNAL_DRIVER+i (driver private state) */
       append(dst, "driverState");
@@ -1317,6 +1354,8 @@ _mesa_program_state_string(const gl_state_index16 state[STATE_LENGTH])
    case STATE_LIGHT_POSITION_NORMALIZED:
    case STATE_LIGHT_HALF_VECTOR:
    case STATE_CLIP_INTERNAL:
+   case STATE_CUBE_PARAMS:
+   case STATE_CUBE_BORDER:
       append_index(str, state[1], false);
       break;
    case STATE_POINT_SIZE:

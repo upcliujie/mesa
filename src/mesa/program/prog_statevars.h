@@ -141,6 +141,8 @@ typedef enum gl_state_index_ {
    STATE_ALPHA_REF,        /* alpha-test reference value */
    STATE_CLIP_INTERNAL,    /* similar to STATE_CLIPPLANE, but in clip-space */
 
+   STATE_CUBE_PARAMS,
+   STATE_CUBE_BORDER,
    STATE_INTERNAL_DRIVER,	/* first available state index for drivers (must be last) */
 
 
