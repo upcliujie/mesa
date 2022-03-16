@@ -71,7 +71,7 @@ impl Device {
         d.fill_format_tables();
 
         // check if we are embedded or full profile first
-        d.embedded = d.check_embedded_profile();
+        d.embedded = true; //d.check_embedded_profile();
 
         // check if we have to report it as a custom device
         d.custom = d.check_custom();
@@ -401,7 +401,9 @@ impl Device {
       // The minimum value is 8 if CL_DEVICE_IMAGE_SUPPORT is CL_TRUE
       self.image_write_count() >= 8 &&
       // The minimum value is 2048 if CL_DEVICE_IMAGE_SUPPORT is CL_TRUE
-      self.image_2d_size() >= 2048
+      self.image_2d_size() >= 2048 &&
+      // TODO: hack
+      false
     }
 
     pub fn image_write_count(&self) -> cl_uint {
