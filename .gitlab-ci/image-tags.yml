@@ -8,11 +8,11 @@ variables:
    DEBIAN_X86_TEST_BASE_IMAGE: "debian/x86_test-base"
 
    DEBIAN_X86_TEST_IMAGE_PATH: "debian/x86_test-gl"
-   DEBIAN_X86_TEST_GL_TAG: "2022-03-25-virglrenderer"
-   DEBIAN_X86_TEST_VK_TAG: "2022-03-28-fossilize"
+   DEBIAN_X86_TEST_GL_TAG: "2022-03-28-uprev"
+   DEBIAN_X86_TEST_VK_TAG: "2022-03-28-uprev"
 
    FEDORA_X86_BUILD_TAG: "2022-03-18-spirv-tools-5"
-   KERNEL_ROOTFS_TAG: "2022-03-23-bash"
+   KERNEL_ROOTFS_TAG: "2022-03-23-uprev"
 
    WINDOWS_X64_BUILD_PATH: "windows/x64_build"
    WINDOWS_X64_BUILD_TAG: "2022-20-02-base_split"
