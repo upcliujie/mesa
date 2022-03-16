@@ -273,7 +273,11 @@ pub fn link_program(
     } else {
         CL_LINK_PROGRAM_FAILURE
     };
-    Ok((cl_program::from_arc(res), code))
+
+    let res = cl_program::from_arc(res);
+    call_cb(pfn_notify, res, user_data);
+
+    Ok((res, code))
 
     //• CL_INVALID_LINKER_OPTIONS if the linker options specified by options are invalid.
     //• CL_INVALID_OPERATION if the rules for devices containing compiled binaries or libraries as described in input_programs argument above are not followed.
