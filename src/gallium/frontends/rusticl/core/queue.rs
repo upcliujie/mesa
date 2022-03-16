@@ -8,6 +8,7 @@ use crate::core::event::*;
 use crate::impl_cl_type_trait;
 
 use self::mesa_rust::pipe::context::*;
+use self::mesa_rust::pipe::screen::*;
 use self::rusticl_opencl_gen::*;
 
 use std::rc::Rc;
