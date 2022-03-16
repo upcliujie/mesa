@@ -184,6 +184,7 @@ struct st_context
    boolean needs_texcoord_semantic;
    boolean apply_texture_swizzle_to_border_color;
    boolean emulate_gl_clamp;
+   boolean emulate_nonseamless_cube;
    boolean texture_buffer_sampler;
 
    boolean draw_needs_minmax_index;

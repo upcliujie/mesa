@@ -112,6 +112,47 @@ update_gl_clamp(struct st_context *st, struct gl_program *prog, uint32_t *gl_cla
    }
 }
 
+static inline GLboolean
+is_nonseamless_wrap_implemented(GLint param)
+{
+   return param == GL_CLAMP_TO_EDGE || param == GL_REPEAT;
+}
+
+static bool
+update_nonseamless_samplers(struct st_context *st, struct gl_program *prog)
+{
+   if (!st->emulate_nonseamless_cube)
+      return false;
+
+   GLbitfield samplers_used = prog->SamplersUsed;
+   unsigned unit;
+   /* same as st_atom_sampler.c */
+   for (unit = 0; samplers_used; unit++, samplers_used >>= 1) {
+      unsigned tex_unit = prog->SamplerUnits[unit];
+      if (samplers_used & 1 &&
+          (st->ctx->Texture.Unit[tex_unit]._Current->Target == GL_TEXTURE_CUBE_MAP ||
+           st->ctx->Texture.Unit[tex_unit]._Current->Target == GL_TEXTURE_CUBE_MAP_ARRAY)) {
+         const struct gl_texture_object *texobj;
+         struct gl_context *ctx = st->ctx;
+         const struct gl_sampler_object *msamp;
+
+         texobj = ctx->Texture.Unit[tex_unit]._Current;
+         assert(texobj);
+
+         msamp = _mesa_get_samplerobj(ctx, tex_unit);
+         if (!msamp->Attrib.CubeMapSeamless &&
+             !st->ctx->Texture.CubeMapSeamless &&
+             (msamp->Attrib.state.min_img_filter || msamp->Attrib.state.mag_img_filter)) {
+            if (!is_nonseamless_wrap_implemented(msamp->Attrib.WrapS) ||
+                !is_nonseamless_wrap_implemented(msamp->Attrib.WrapT))
+               debug_printf("mesa: unimplemented non-edge/repeat clamp with non-seamless cube texture!");
+            return true;
+         }
+      }
+   }
+   return false;
+}
+
 /**
  * Update fragment program state/atom.  This involves translating the
  * Mesa fragment program into a gallium fragment program and binding it.
@@ -178,6 +219,7 @@ st_update_fp( struct st_context *st )
 
       key.external = st_get_external_sampler_key(st, fp);
       update_gl_clamp(st, st->ctx->FragmentProgram._Current, key.gl_clamp);
+      key.has_nonseamless = update_nonseamless_samplers(st, st->ctx->FragmentProgram._Current);
 
       simple_mtx_lock(&st->ctx->Shared->Mutex);
       shader = st_get_fp_variant(st, fp, &key)->base.driver_shader;
@@ -243,6 +285,7 @@ st_update_vp( struct st_context *st )
       }
 
       update_gl_clamp(st, st->ctx->VertexProgram._Current, key.gl_clamp);
+      key.has_nonseamless = update_nonseamless_samplers(st, st->ctx->VertexProgram._Current);
 
       simple_mtx_lock(&st->ctx->Shared->Mutex);
       st->vp_variant = st_get_common_variant(st, vp, &key);
@@ -297,6 +340,7 @@ st_update_common_program(struct st_context *st, struct gl_program *prog,
    }
 
    update_gl_clamp(st, prog, key.gl_clamp);
+   key.has_nonseamless = update_nonseamless_samplers(st, prog);
 
    simple_mtx_lock(&st->ctx->Shared->Mutex);
    void *result = st_get_common_variant(st, prog, &key)->base.driver_shader;

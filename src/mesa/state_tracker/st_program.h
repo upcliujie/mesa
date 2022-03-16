@@ -163,6 +163,9 @@ struct st_fp_variant_key
    GLuint lower_texcoord_replace:MAX_TEXTURE_COORD_UNITS;
    unsigned lower_alpha_func:3;
 
+   /* whether to rewrite all cube samplers to handle non-seamless cubes */
+   bool has_nonseamless;
+
    /** needed for ATI_fragment_shader */
    uint8_t texture_index[MAX_NUM_FRAGMENT_REGISTERS_ATI];
 
@@ -227,6 +230,9 @@ struct st_common_variant_key
     * not for the driver.
     */
    bool is_draw_shader;
+
+   /* whether to rewrite all cube samplers to handle non-seamless cubes */
+   bool has_nonseamless;
 
    /* bitmask of sampler units; PIPE_CAP_GL_CLAMP */
    uint32_t gl_clamp[3];

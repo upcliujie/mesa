@@ -963,14 +963,15 @@ st_get_common_variant(struct st_context *st,
    if (!v) {
       if (prog->variants != NULL) {
          _mesa_perf_debug(st->ctx, MESA_DEBUG_SEVERITY_MEDIUM,
-                          "Compiling %s shader variant (%s%s%s%s%s%s)",
+                          "Compiling %s shader variant (%s%s%s%s%s%s%s)",
                           _mesa_shader_stage_to_string(prog->info.stage),
                           key->passthrough_edgeflags ? "edgeflags," : "",
                           key->clamp_color ? "clamp_color," : "",
                           key->export_point_size ? "point_size," : "",
                           key->lower_ucp ? "ucp," : "",
                           key->is_draw_shader ? "draw," : "",
-                          key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2] ? "GL_CLAMP," : "");
+                          key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2] ? "GL_CLAMP," : "",
+                          key->has_nonseamless ? "NON-SEAMLESS, " : "");
       }
 
       /* create now */
@@ -1656,7 +1657,7 @@ st_get_fp_variant(struct st_context *st,
 
       if (fp->variants != NULL) {
          _mesa_perf_debug(st->ctx, MESA_DEBUG_SEVERITY_MEDIUM,
-                          "Compiling fragment shader variant (%s%s%s%s%s%s%s%s%s%s%s%s%s)",
+                          "Compiling fragment shader variant (%s%s%s%s%s%s%s%s%s%s%s%s%s%s)",
                           key->bitmap ? "bitmap," : "",
                           key->drawpixels ? "drawpixels," : "",
                           key->scaleAndBias ? "scale_bias," : "",
@@ -1670,7 +1671,8 @@ st_get_fp_variant(struct st_context *st,
                           key->lower_alpha_func ? "alpha_compare," : "",
                           /* skipped ATI_fs targets */
                           fp->ExternalSamplersUsed ? "external?," : "",
-                          key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2] ? "GL_CLAMP," : "");
+                          key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2] ? "GL_CLAMP," : "",
+                          key->has_nonseamless ? "NON-SEAMLESS, " : "");
       }
 
       fpv = st_create_fp_variant(st, fp, key);
