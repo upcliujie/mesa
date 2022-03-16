@@ -1,9 +1,9 @@
 /**************************************************************************
- * 
+ *
  * Copyright 2009 VMware, Inc.
  * Copyright 2007 VMware, Inc.
  * All Rights Reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -11,11 +11,11 @@
  * distribute, sub license, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice (including the
  * next paragraph) shall be included in all copies or substantial portions
  * of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
@@ -23,7 +23,7 @@
  * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
+ *
  **************************************************************************/
 
 /**
@@ -65,7 +65,6 @@
 #include "util/format/u_format.h"
 #include "util/u_dump.h"
 #include "util/u_string.h"
-#include "util/simple_list.h"
 #include "util/u_dual_blend.h"
 #include "util/u_upload_mgr.h"
 #include "util/os_time.h"
@@ -3067,7 +3066,7 @@ generate_fragment(struct llvmpipe_context *lp,
    blend_type.width = 8;        /* 8-bit ubyte values */
    blend_type.length = 16;      /* 16 elements per vector */
 
-   /* 
+   /*
     * Generate the function prototype. Any change here must be reflected in
     * lp_jit.h's lp_jit_frag_func function pointer type, and vice-versa.
     */
@@ -3712,7 +3711,7 @@ generate_variant(struct llvmpipe_context *lp,
    llvmpipe_fs_variant_fastpath(variant);
 
    lp_jit_init_types(variant);
-   
+
    if (variant->jit_function[RAST_EDGE_TEST] == NULL)
       generate_fragment(lp, shader, variant, RAST_EDGE_TEST);
 
@@ -3815,7 +3814,7 @@ llvmpipe_create_fs_state(struct pipe_context *pipe,
 
    pipe_reference_init(&shader->reference, 1);
    shader->no = fs_no++;
-   make_empty_list(&shader->variants);
+   list_inithead(&shader->variants.list);
 
    shader->base.type = templ->type;
    if (templ->type == PIPE_SHADER_IR_TGSI) {
@@ -3945,11 +3944,11 @@ void llvmpipe_remove_shader_variant(struct llvmpipe_context *lp,
    }
 
    /* remove from shader's list */
-   remove_from_list(&variant->list_item_local);
+   list_del(&variant->list_item_local.list);
    variant->shader->variants_cached--;
 
    /* remove from context's list */
-   remove_from_list(&variant->list_item_global);
+   list_del(&variant->list_item_global.list);
    lp->nr_fs_variants--;
    lp->nr_fs_instrs -= variant->nr_instrs;
 }
@@ -3984,17 +3983,14 @@ llvmpipe_delete_fs_state(struct pipe_context *pipe, void *fs)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct lp_fragment_shader *shader = fs;
-   struct lp_fs_variant_list_item *li;
+   struct lp_fs_variant_list_item *li, *next;
 
    /* Delete all the variants */
-   li = first_elem(&shader->variants);
-   while(!at_end(&shader->variants, li)) {
-      struct lp_fs_variant_list_item *next = next_elem(li);
+   LIST_FOR_EACH_ENTRY_SAFE(li, next, &shader->variants.list, list) {
       struct lp_fragment_shader_variant *variant;
       variant = li->base;
       llvmpipe_remove_shader_variant(llvmpipe, li->base);
       lp_fs_variant_reference(llvmpipe, &variant, NULL);
-      li = next;
    }
 
    lp_fs_reference(llvmpipe, &shader, NULL);
@@ -4384,32 +4380,30 @@ make_variant_key(struct llvmpipe_context *lp,
  * Update fragment shader state.  This is called just prior to drawing
  * something when some fragment-related state has changed.
  */
-void 
+void
 llvmpipe_update_fs(struct llvmpipe_context *lp)
 {
    struct lp_fragment_shader *shader = lp->fs;
    struct lp_fragment_shader_variant_key *key;
    struct lp_fragment_shader_variant *variant = NULL;
-   struct lp_fs_variant_list_item *li;
+   struct lp_fs_variant_list_item *li, *next;
    char store[LP_FS_MAX_VARIANT_KEY_SIZE];
 
    key = make_variant_key(lp, shader, store);
 
    /* Search the variants for one which matches the key */
-   li = first_elem(&shader->variants);
-   while(!at_end(&shader->variants, li)) {
+   LIST_FOR_EACH_ENTRY_SAFE(li, next, &shader->variants.list, list) {
       if(memcmp(&li->base->key, key, shader->variant_key_size) == 0) {
          variant = li->base;
          break;
       }
-      li = next_elem(li);
    }
 
    if (variant) {
       /* Move this variant to the head of the list to implement LRU
        * deletion of shader's when we have too many.
        */
-      move_to_head(&lp->fs_variants_list, &variant->list_item_global);
+      list_move_to(&variant->list_item_global.list, &lp->fs_variants_list.list);
    }
    else {
       /* variant not found, create it now */
@@ -4447,10 +4441,11 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
 
          for (i = 0; i < variants_to_cull || lp->nr_fs_instrs >= LP_MAX_SHADER_INSTRUCTIONS; i++) {
             struct lp_fs_variant_list_item *item;
-            if (is_empty_list(&lp->fs_variants_list)) {
+            if (list_is_empty(&lp->fs_variants_list.list)) {
                break;
             }
-            item = last_elem(&lp->fs_variants_list);
+            item = list_last_entry(&lp->fs_variants_list.list,
+                                   struct lp_fs_variant_list_item, list);
             assert(item);
             assert(item->base);
             llvmpipe_remove_shader_variant(lp, item->base);
@@ -4471,8 +4466,8 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
 
       /* Put the new variant into the list */
       if (variant) {
-         insert_at_head(&shader->variants, &variant->list_item_local);
-         insert_at_head(&lp->fs_variants_list, &variant->list_item_global);
+         list_add(&variant->list_item_local.list, &shader->variants.list);
+         list_add(&variant->list_item_global.list, &lp->fs_variants_list.list);
          lp->nr_fs_variants++;
          lp->nr_fs_instrs += variant->nr_instrs;
          shader->variants_cached++;
