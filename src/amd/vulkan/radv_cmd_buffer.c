@@ -8330,9 +8330,9 @@ radv_handle_image_transition(struct radv_cmd_buffer *cmd_buffer, struct radv_ima
    }
 
    unsigned src_queue_mask =
-      radv_image_queue_family_mask(image, src_qf, cmd_buffer->qf);
+      radv_image_queue_family_mask(image, src_family_index, cmd_buffer->qf);
    unsigned dst_queue_mask =
-      radv_image_queue_family_mask(image, dst_qf, cmd_buffer->qf);
+      radv_image_queue_family_mask(image, dst_family_index, cmd_buffer->qf);
 
    if (src_layout == dst_layout && src_render_loop == dst_render_loop && src_queue_mask == dst_queue_mask)
       return;
