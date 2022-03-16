@@ -1292,6 +1292,214 @@ nir_lower_lod_zero_width(nir_builder *b, nir_tex_instr *tex)
    nir_ssa_def_rewrite_uses_after(&tex->dest.ssa, def, def->parent_instr);
 }
 
+/* perform all clamping for s/t cube coordinates; only edge and repeat clamping currently handled */
+static nir_ssa_def *
+apply_nonseamless_clamp(nir_builder *b, nir_ssa_def *val, nir_ssa_def *extent, nir_ssa_def *wrap)
+{
+   nir_ssa_def *zero = nir_imm_float(b, 0.0);
+   nir_ssa_def *edge = nir_ieq(b, wrap, nir_imm_int(b, PIPE_TEX_WRAP_CLAMP_TO_EDGE));
+   nir_ssa_def *edge_or_repeat = nir_ior(b,
+                                         edge,
+                                         nir_ieq(b, wrap, nir_imm_int(b, PIPE_TEX_WRAP_REPEAT)));
+   nir_ssa_def *upper = nir_bcsel(b, edge,
+                                  nir_fadd_imm(b, extent, -0.5),
+                                  nir_fadd_imm(b, nir_ffloor(b, nir_fmod(b, val, extent)), 0.5));
+   nir_ssa_def *lower = nir_bcsel(b, edge,
+                                  nir_imm_float(b, 0.5),
+                                  nir_fadd_imm(b, nir_fceil(b, nir_fmod(b, val, extent)), -0.5));
+   return nir_bcsel(b, edge_or_repeat,
+                    nir_bcsel(b,
+                              nir_ior(b, nir_fge(b, nir_ffloor(b, val), extent), nir_fge(b, nir_fceil(b, val), extent)),
+                              upper,
+                              nir_bcsel(b,
+                                        nir_ior(b, nir_flt(b, nir_ffloor(b, val), zero), nir_flt(b, nir_fceil(b, val), zero)),
+                                        lower,
+                                        val)),
+                    val);
+}
+
+/* this returns vec4[2] representing pipe_sampler_state */
+static nir_deref_instr *
+deref_cube_sampler_var(nir_builder *b, unsigned tex_unit, unsigned state_cube_params, unsigned state_cube_border)
+{
+   nir_foreach_uniform_variable(var, b->shader) {
+      if (var->num_state_slots != 2)
+         continue;
+      if (var->state_slots[0].tokens[0] == state_cube_params)
+         return nir_build_deref_var(b, var);
+   }
+
+   nir_variable *var = nir_variable_create(b->shader, nir_var_uniform, glsl_array_type(glsl_vec4_type(), 2, 16), "cube");
+   var->state_slots = ralloc_array(var, nir_state_slot, 2);
+   var->state_slots[0].tokens[0] = state_cube_params;
+   var->state_slots[0].tokens[1] = tex_unit;
+   var->num_state_slots = 1;
+   //enable this as part of making non-seamless border colors work
+   //var->state_slots[1].tokens[0] = state_cube_border;
+   //var->state_slots[1].tokens[1] = tex_unit;
+   var->data.how_declared = nir_var_hidden;
+   b->shader->num_uniforms++;
+   return nir_build_deref_var(b, var);
+}
+
+static bool
+lower_seamless_cube(nir_builder *b, nir_tex_instr *tex, uint8_t sampler_index, unsigned state_cube_params, unsigned state_cube_border)
+{
+   int coord_index = nir_tex_instr_src_index(tex, nir_tex_src_coord);
+   assert(coord_index >= 0);
+
+   b->cursor = nir_before_instr(&tex->instr);
+
+   nir_ssa_def *zero = nir_imm_int(b, 0);
+   nir_deref_instr *cube_sampler_deref = deref_cube_sampler_var(b, sampler_index, state_cube_params, state_cube_border);
+
+   /* this is pipe_sampler_state: unpack bitfields */
+   nir_ssa_def *sampler = nir_load_deref(b, nir_build_deref_array_imm(b, cube_sampler_deref, 0));
+   nir_ssa_def *bits = nir_channel(b, sampler, 0);
+   nir_ssa_def *wrap_s = nir_iand_imm(b, bits, BITFIELD_RANGE(0, 3));
+   nir_ssa_def *wrap_t = nir_ushr_imm(b, nir_iand_imm(b, bits, BITFIELD_RANGE(3, 3)), 3);
+   nir_ssa_def *is_seamless = nir_ine(b, nir_iand_imm(b, bits, BITFIELD_RANGE(24, 1)), zero);
+   nir_ssa_def *lod_bias = nir_channel(b, sampler, 1);
+   nir_ssa_def *min_lod = nir_channel(b, sampler, 2);
+   nir_ssa_def *max_lod = nir_channel(b, sampler, 3);
+
+   /* this is pipe_color_union */
+   //enable this as part of making non-seamless border colors work
+   //nir_ssa_def *border = nir_load_deref(b, nir_build_deref_array_imm(b, cube_sampler_deref, 1));
+
+   nir_ssa_def *coord = tex->src[coord_index].src.ssa;
+   nir_ssa_def *base_size = nir_get_texture_size(b, tex);
+   nir_ssa_def *lod;
+   switch (tex->op) {
+   case nir_texop_tex:
+   case nir_texop_txb:
+      if (b->shader->info.stage == MESA_SHADER_FRAGMENT)
+         lod = nir_get_texture_lod(b, tex);
+      else
+         lod = nir_imm_float(b, 0.0);
+      break;
+   case nir_texop_txl:
+      lod = tex->src[nir_tex_instr_src_index(tex, nir_tex_src_lod)].src.ssa;
+      break;
+   case nir_texop_txd: {
+      int ddx_index = nir_tex_instr_src_index(tex, nir_tex_src_ddx);
+      int ddy_index = nir_tex_instr_src_index(tex, nir_tex_src_ddy);
+      assert(ddx_index >= 0 && ddy_index >= 0);
+
+      nir_ssa_def *grad = nir_fmax(b,
+                                   tex->src[ddx_index].src.ssa,
+                                   tex->src[ddy_index].src.ssa);
+
+      nir_ssa_def *r = nir_fmul(b, grad, nir_i2f32(b, base_size));
+      nir_ssa_def *rho = nir_channel(b, r, 0);
+      for (unsigned i = 1; i < tex->coord_components - !!tex->is_array; i++)
+         rho = nir_fmax(b, rho, nir_channel(b, r, i));
+      lod = nir_flog2(b, rho);
+   }
+      break;
+   default:
+      return false;
+   }
+   if (tex->op == nir_texop_txb) {
+      lod_bias = nir_fadd(b, lod_bias, tex->src[nir_tex_instr_src_index(tex, nir_tex_src_bias)].src.ssa);
+      lod = nir_fadd(b, lod, lod_bias);
+   }
+   lod = nir_fmax(b, lod, min_lod);
+   lod = nir_fmin(b, lod, max_lod);
+   lod = nir_f2i32(b, nir_fround_even(b, lod));
+   nir_ssa_def *abs_coord = nir_fabs(b, coord);
+   nir_ssa_def *x = nir_channel(b, coord, 0);
+   nir_ssa_def *y = nir_channel(b, coord, 1);
+   nir_ssa_def *z = nir_channel(b, coord, 2);
+   nir_ssa_def *abs_x = nir_channel(b, abs_coord, 0);
+   nir_ssa_def *abs_y = nir_channel(b, abs_coord, 1);
+   nir_ssa_def *abs_z = nir_channel(b, abs_coord, 2);
+
+   nir_ssa_def *max = nir_fmax(b, abs_x, nir_fmax(b, abs_y, abs_z));
+   nir_ssa_def *component = nir_bcsel(b,
+                                      /* z face */
+                                      nir_fge(b, abs_z, max),
+                                      nir_imm_int(b, 2),
+                                      nir_bcsel(b,
+                                                /* y face */
+                                                nir_fge(b, abs_y, max),
+                                                nir_imm_int(b, 1),
+                                                /* x face */
+                                                nir_imm_int(b, 0))
+                                      );
+   nir_ssa_def *r = nir_vector_extract(b, coord, component);
+   nir_ssa_def *size = nir_i2f32(b, nir_imax(b, nir_imm_int(b, 1), nir_ishr(b, base_size, lod)));
+
+   /* coordinate selections for cube face */
+   nir_ssa_def *sc = nir_bcsel(b,
+                               nir_ieq_imm(b, component, 0),
+                               /* x face */
+                               z,
+                               /* y or z face */
+                               x);
+   nir_ssa_def *tc = nir_bcsel(b,
+                               nir_ieq_imm(b, component, 0),
+                               /* x face */
+                               y,
+                               nir_bcsel(b,
+                                         nir_ieq_imm(b, component, 1),
+                                         /* y face */
+                                         z,
+                                         /* z face */
+                                         y));
+
+   /* cube map coordinate transformation */
+   nir_ssa_def *sface = nir_fadd_imm(b, nir_fmul_imm(b, nir_fdiv(b, sc, nir_fabs(b, r)), 0.5), 0.5);
+   nir_ssa_def *tface = nir_fadd_imm(b, nir_fmul_imm(b, nir_fdiv(b, tc, nir_fabs(b, r)), 0.5), 0.5);
+
+   /* unnormalize */
+   nir_ssa_def *extent_s = nir_channel(b, size, 0);
+   nir_ssa_def *extent_t = nir_channel(b, size, 1);
+   nir_ssa_def *s = nir_fmul(b, sface, extent_s);
+   nir_ssa_def *t = nir_fmul(b, tface, extent_t);
+
+   /* wrap */
+   nir_ssa_def *s_clamped = apply_nonseamless_clamp(b, s, extent_s, wrap_s);
+   nir_ssa_def *t_clamped = apply_nonseamless_clamp(b, t, extent_t, wrap_t);
+
+   /* normalize */
+   nir_ssa_def *snorm = nir_fdiv(b, s_clamped, extent_s);
+   nir_ssa_def *tnorm = nir_fdiv(b, t_clamped, extent_t);
+
+   /* map back from cube coords */
+   nir_ssa_def *global_s = nir_fmul(b, nir_fmul_imm(b, nir_fsub(b, snorm, nir_imm_float(b, 0.5)), 2.0), nir_fabs(b, r));
+   nir_ssa_def *global_t = nir_fmul(b, nir_fmul_imm(b, nir_fsub(b, tnorm, nir_imm_float(b, 0.5)), 2.0), nir_fabs(b, r));
+
+   nir_ssa_def *non_seamless_x = nir_bcsel(b,
+                                           /* x face */
+                                           nir_ieq_imm(b, component, 0),
+                                           x,
+                                           global_s);
+   nir_ssa_def *non_seamless_y = nir_bcsel(b,
+                                           /* y face */
+                                           nir_ieq_imm(b, component, 1),
+                                           y,
+                                           global_t);
+   nir_ssa_def *non_seamless_z = nir_bcsel(b,
+                                           /* x face */
+                                           nir_ieq_imm(b, component, 0),
+                                           global_s,
+                                           nir_bcsel(b,
+                                                     /* y face */
+                                                     nir_ieq_imm(b, component, 1),
+                                                     global_t,
+                                                     /* z face */
+                                                     z));
+   nir_ssa_def *nonseamless_coord = tex->coord_components == 3 ?
+                                    nir_vec3(b, non_seamless_x, non_seamless_y, non_seamless_z) :
+                                    nir_vec4(b, non_seamless_x, non_seamless_y, non_seamless_z, nir_channel(b, coord, 3));
+   /* use seamless coords if this is a seamless cube */
+   nonseamless_coord = nir_bcsel(b, is_seamless, coord, nonseamless_coord);
+   nir_instr_rewrite_src_ssa(&tex->instr, &tex->src[coord_index].src, nonseamless_coord);
+
+   return true;
+}
+
 static bool
 nir_lower_tex_block(nir_block *block, nir_builder *b,
                     const nir_lower_tex_options *options,
@@ -1441,6 +1649,11 @@ nir_lower_tex_block(nir_block *block, nir_builder *b,
          lower_tex_packing(b, tex, options);
          progress = true;
       }
+
+      if (options->lower_cubes)
+         progress = lower_seamless_cube(b, tex,
+                                        options->cube_sampler_mapping[tex->sampler_index],
+                                        options->state_cube_params, options->state_cube_border);
 
       if (tex->op == nir_texop_txd &&
           (options->lower_txd ||

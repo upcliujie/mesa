@@ -4837,6 +4837,11 @@ typedef struct nir_lower_tex_options {
    unsigned bt709_external;
    unsigned bt2020_external;
 
+   bool lower_cubes;
+   uint8_t cube_sampler_mapping[32];
+   unsigned state_cube_params;
+   unsigned state_cube_border;
+
    /**
     * To emulate certain texture wrap modes, this can be used
     * to saturate the specified tex coord to [0.0, 1.0].  The
