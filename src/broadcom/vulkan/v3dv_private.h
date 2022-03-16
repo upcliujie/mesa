@@ -260,6 +260,11 @@ struct v3dv_queue {
    /* A mutex to prevent concurrent access to the list of wait threads */
    mtx_t mutex;
 
+   /* A mutex to ensure only one thread (main, wait or mster) is submitting
+    * jobs concurrently.
+    */
+   mtx_t submit_mutex;
+
    struct v3dv_job *noop_job;
 };
 

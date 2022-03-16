@@ -425,10 +425,13 @@ event_wait_thread_func(void *_info)
        */
       pjob->do_sem_signal = false;
 
+      mtx_lock(&queue->submit_mutex);
+      VkResult result = queue_submit_job(queue, pjob, info->sems_info, NULL);
+      mtx_unlock(&queue->submit_mutex);
+
       /* We don't want to spawn more than one wait thread per command buffer.
        * If this job also requires a wait for events, we will do the wait here.
        */
-      VkResult result = queue_submit_job(queue, pjob, info->sems_info, NULL);
       if (result == VK_NOT_READY) {
          while (!check_wait_events_complete(pjob)) {
             usleep(wait_interval_ms * 1000);
@@ -1490,6 +1493,8 @@ master_wait_thread_func(void *_wait_info)
    }
 
    /* Signal semaphores and fences */
+   mtx_lock(&queue->submit_mutex);
+
    VkResult result;
    result = process_semaphores_to_signal(wait_info->device,
                                          wait_info->signal_semaphore_count,
@@ -1509,6 +1514,8 @@ master_wait_thread_func(void *_wait_info)
 
    vk_free(&wait_info->device->vk.alloc, wait_info->signal_semaphores);
    vk_free(&wait_info->device->vk.alloc, wait_info);
+
+   mtx_unlock(&queue->submit_mutex);
 
    return NULL;
 }
@@ -1545,6 +1552,8 @@ v3dv_QueueSubmit(VkQueue _queue,
 
    struct v3dv_queue_submit_wait_info *wait_info = NULL;
 
+   mtx_lock(&queue->submit_mutex);
+
    VkResult result = VK_SUCCESS;
    for (uint32_t i = 0; i < submitCount; i++) {
       result = queue_submit_cmd_buffer_batch(queue, &pSubmits[i], &wait_info);
@@ -1567,6 +1576,7 @@ v3dv_QueueSubmit(VkQueue _queue,
    result = spawn_master_wait_thread(queue, wait_info);
 
 done:
+   mtx_unlock(&queue->submit_mutex);
    return result;
 }
 
