@@ -4124,6 +4124,8 @@ radv_create_shaders(struct radv_pipeline *pipeline, struct radv_pipeline_layout 
          if (lowered_ngg)
             radv_lower_ngg(device, nir[i], &infos[i], pipeline_key);
 
+         radv_nir_lower_abi(nir[i], device->physical_device->rad_info.chip_class,
+                            &infos[i], &args[i], pipeline_key);
          radv_optimize_nir_algebraic(nir[i], io_to_mem || lowered_ngg || i == MESA_SHADER_COMPUTE);
 
          if (nir[i]->info.bit_sizes_int & (8 | 16)) {
