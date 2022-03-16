@@ -440,6 +440,12 @@ st_init_driver_flags(struct st_context *st)
                                 ST_NEW_VS_STATE | ST_NEW_TCS_STATE |
                                 ST_NEW_TES_STATE | ST_NEW_GS_STATE |
                                 ST_NEW_FS_STATE | ST_NEW_CS_STATE;
+
+   if (st->emulate_nonseamless_cube)
+      f->NewSamplersWithSeamless = ST_NEW_SAMPLERS |
+                                   ST_NEW_VS_STATE | ST_NEW_TCS_STATE |
+                                   ST_NEW_TES_STATE | ST_NEW_GS_STATE |
+                                   ST_NEW_FS_STATE | ST_NEW_CS_STATE;
 }
 
 static bool

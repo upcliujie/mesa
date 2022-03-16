@@ -2937,6 +2937,9 @@ struct gl_driver_flags
 
    /** For GL_CLAMP emulation */
    uint64_t NewSamplersWithClamp;
+
+   /** For not-GL_TEXTURE_CUBE_MAP_SEAMLESS emulation */
+   uint64_t NewSamplersWithSeamless;
 };
 
 struct gl_buffer_binding

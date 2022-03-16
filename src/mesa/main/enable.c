@@ -1198,6 +1198,7 @@ _mesa_set_enable(struct gl_context *ctx, GLenum cap, GLboolean state)
          if (ctx->Texture.CubeMapSeamless != state) {
             FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT, 0);
             ctx->Texture.CubeMapSeamless = state;
+            ctx->NewDriverState |= ctx->DriverFlags.NewSamplersWithSeamless;
          }
          break;
 

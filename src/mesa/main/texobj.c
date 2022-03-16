@@ -1616,6 +1616,11 @@ bind_texture_object(struct gl_context *ctx, unsigned unit,
     */
    FLUSH_VERTICES(ctx, _NEW_TEXTURE_OBJECT, GL_TEXTURE_BIT);
 
+   /* when changing from seamless -> non-seamless, flag a shader update */
+   if (texUnit->CurrentTex[targetIndex] &&
+       texUnit->CurrentTex[targetIndex]->Sampler.Attrib.CubeMapSeamless)
+      ctx->NewDriverState |= ctx->DriverFlags.NewSamplersWithSeamless;
+
    /* If the refcount on the previously bound texture is decremented to
     * zero, it'll be deleted here.
     */

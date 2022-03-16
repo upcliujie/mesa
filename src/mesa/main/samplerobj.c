@@ -816,6 +816,7 @@ set_sampler_cube_map_seamless(struct gl_context *ctx,
       return INVALID_VALUE;
 
    flush(ctx);
+   ctx->NewDriverState |= ctx->DriverFlags.NewSamplersWithSeamless;
    samp->Attrib.CubeMapSeamless = param;
    samp->Attrib.state.seamless_cube_map = param;
    return GL_TRUE;

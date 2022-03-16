@@ -652,6 +652,7 @@ set_tex_parameteri(struct gl_context *ctx,
          }
          if (param != texObj->Sampler.Attrib.CubeMapSeamless) {
             flush(ctx);
+            ctx->NewDriverState |= ctx->DriverFlags.NewSamplersWithSeamless;
             texObj->Sampler.Attrib.CubeMapSeamless = param;
             texObj->Sampler.Attrib.state.seamless_cube_map = param;
          }
