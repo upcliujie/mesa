@@ -124,12 +124,13 @@ enum Label {
    label_dpp8 = 1ull << 36,
    label_f2f32 = 1ull << 37,
    label_f2f16 = 1ull << 38,
+   label_split = 1ull << 39,
 };
 
 static constexpr uint64_t instr_usedef_labels =
    label_vec | label_mul | label_mad | label_add_sub | label_vop3p | label_bitwise |
    label_uniform_bitwise | label_minmax | label_vopc | label_usedef | label_extract | label_dpp16 |
-   label_dpp8 | label_f2f32;
+   label_dpp8 | label_f2f32 | label_split;
 static constexpr uint64_t instr_mod_labels =
    label_omod2 | label_omod4 | label_omod5 | label_clamp | label_insert | label_f2f16;
 
@@ -490,6 +491,14 @@ struct ssa_info {
    bool is_dpp() { return label & (label_dpp16 | label_dpp8); }
    bool is_dpp16() { return label & label_dpp16; }
    bool is_dpp8() { return label & label_dpp8; }
+
+   void set_split(Instruction* split)
+   {
+      add_label(label_split);
+      instr = split;
+   }
+
+   bool is_split() { return label & label_split; }
 };
 
 struct opt_ctx {
@@ -1483,6 +1492,16 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          }
       }
       ctx.info[instr->definitions[0].tempId()].set_vec(instr.get());
+
+      if (instr->operands.size() == 2) {
+         /* check if this is created from split_vector */
+         if (instr->operands[1].isTemp() && ctx.info[instr->operands[1].tempId()].is_split()) {
+            Instruction* split = ctx.info[instr->operands[1].tempId()].instr;
+            if (instr->operands[0].isTemp() &&
+                instr->operands[0].getTemp() == split->definitions[0].getTemp())
+               ctx.info[instr->definitions[0].tempId()].set_temp(split->operands[0].getTemp());
+         }
+      }
       break;
    }
    case aco_opcode::p_split_vector: {
@@ -1497,11 +1516,14 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
          }
          break;
       } else if (!info.is_vec()) {
-         if (instr->operands[0].bytes() == 4 && instr->definitions.size() == 2) {
-            /* D16 subdword split */
-            ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[0].getTemp());
-            if (instr->definitions[1].bytes() == 2)
+         if (instr->definitions.size() == 2 && instr->operands[0].isTemp() &&
+             instr->definitions[0].bytes() == instr->definitions[1].bytes()) {
+            ctx.info[instr->definitions[1].tempId()].set_split(instr.get());
+            if (instr->operands[0].bytes() == 4) {
+               /* D16 subdword split */
+               ctx.info[instr->definitions[0].tempId()].set_temp(instr->operands[0].getTemp());
                ctx.info[instr->definitions[1].tempId()].set_extract(instr.get());
+            }
          }
          break;
       }
