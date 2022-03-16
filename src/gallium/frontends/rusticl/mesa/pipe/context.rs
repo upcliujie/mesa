@@ -1,7 +1,9 @@
 extern crate mesa_rust_gen;
 
 use crate::compiler::nir::*;
+use crate::pipe::fence::*;
 use crate::pipe::resource::*;
+use crate::pipe::screen::*;
 use crate::pipe::transfer::*;
 
 use self::mesa_rust_gen::*;
@@ -14,12 +16,14 @@ use std::sync::Arc;
 
 pub struct PipeContext {
     pipe: NonNull<pipe_context>,
+    screen: Arc<PipeScreen>,
 }
 
 impl PipeContext {
-    pub(super) fn new(context: *mut pipe_context) -> Option<Rc<Self>> {
+    pub(super) fn new(context: *mut pipe_context, screen: &Arc<PipeScreen>) -> Option<Rc<Self>> {
         let s = Self {
             pipe: NonNull::new(context)?,
+            screen: screen.clone(),
         };
 
         if !has_required_cbs(unsafe { s.pipe.as_ref() }) {
@@ -144,6 +148,7 @@ impl PipeContext {
 
 pub trait PipeContextRef {
     fn buffer_map(&self, res: &PipeResource, offset: i32, size: i32) -> PipeTransfer;
+    fn flush(&self) -> PipeFence;
 }
 
 impl PipeContextRef for Rc<PipeContext> {
@@ -169,6 +174,14 @@ impl PipeContextRef for Rc<PipeContext> {
 
         PipeTransfer::new(out, ptr, self)
     }
+
+    fn flush(&self) -> PipeFence {
+        unsafe {
+            let mut fence = ptr::null_mut();
+            self.pipe.as_ref().flush.unwrap()(self.pipe.as_ptr(), &mut fence, 0);
+            PipeFence::new(fence, &self.screen)
+        }
+    }
 }
 
 impl Drop for PipeContext {
@@ -188,6 +201,7 @@ fn has_required_cbs(c: &pipe_context) -> bool {
         && c.buffer_unmap.is_some()
         && c.create_compute_state.is_some()
         && c.delete_compute_state.is_some()
+        && c.flush.is_some()
         && c.launch_grid.is_some()
         && c.memory_barrier.is_some()
         && c.set_global_binding.is_some()
