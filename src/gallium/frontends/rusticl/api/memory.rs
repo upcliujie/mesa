@@ -786,7 +786,7 @@ pub fn enqueue_read_buffer(
     let q = command_queue.get_arc()?;
     let b = buffer.get_arc()?;
     let block = check_cl_bool(blocking_read).ok_or(CL_INVALID_VALUE)?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if the region being read or written specified by (offset, size) is out of
     // bounds or if ptr is a NULL value.
@@ -795,9 +795,7 @@ pub fn enqueue_read_buffer(
     }
 
     // CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same
-    // or if the context associated with command_queue and events in event_wait_list are not the
-    // same.
-    if b.context != q.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    if b.context != q.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -844,6 +842,7 @@ pub fn enqueue_write_buffer(
     let q = command_queue.get_arc()?;
     let b = buffer.get_arc()?;
     let block = check_cl_bool(blocking_write).ok_or(CL_INVALID_VALUE)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if the region being read or written specified by (offset, size) is out of
     // bounds or if ptr is a NULL value.
@@ -851,12 +850,8 @@ pub fn enqueue_write_buffer(
         Err(CL_INVALID_VALUE)?
     }
 
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
-
     // CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same
-    // or if the context associated with command_queue and events in event_wait_list are not the
-    // same.
-    if b.context != q.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    if b.context != q.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -903,15 +898,11 @@ pub fn enqueue_copy_buffer(
     let q = command_queue.get_arc()?;
     let src = src_buffer.get_arc()?;
     let dst = dst_buffer.get_arc()?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_CONTEXT if the context associated with command_queue, src_buffer and dst_buffer
-    // are not the same or if the context associated with command_queue and events in
-    // event_wait_list are not the same.
-    if q.context != src.context
-        || q.context != dst.context
-        || evs.iter().find(|e| e.context != q.context).is_some()
-    {
+    // are not the same
+    if q.context != src.context || q.context != dst.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -971,7 +962,7 @@ pub fn enqueue_read_buffer_rect(
     let block = check_cl_bool(blocking_read).ok_or(CL_INVALID_VALUE)?;
     let q = command_queue.get_arc()?;
     let buf = buffer.get_arc()?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_OPERATION if clEnqueueReadBufferRect is called on buffer which has been created
     // with CL_MEM_HOST_WRITE_ONLY or CL_MEM_HOST_NO_ACCESS.
@@ -1044,9 +1035,7 @@ pub fn enqueue_read_buffer_rect(
     }
 
     // CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same
-    // or if the context associated with command_queue and events in event_wait_list are not the
-    // same.
-    if q.context != buf.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    if q.context != buf.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -1098,7 +1087,7 @@ pub fn enqueue_write_buffer_rect(
     let block = check_cl_bool(blocking_write).ok_or(CL_INVALID_VALUE)?;
     let q = command_queue.get_arc()?;
     let buf = buffer.get_arc()?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_OPERATION if clEnqueueWriteBufferRect is called on buffer which has been created
     // with CL_MEM_HOST_READ_ONLY or CL_MEM_HOST_NO_ACCESS.
@@ -1171,9 +1160,7 @@ pub fn enqueue_write_buffer_rect(
     }
 
     // CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same
-    // or if the context associated with command_queue and events in event_wait_list are not the
-    // same.
-    if q.context != buf.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    if q.context != buf.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -1224,7 +1211,7 @@ pub fn enqueue_copy_buffer_rect(
     let q = command_queue.get_arc()?;
     let src = src_buffer.get_arc()?;
     let dst = dst_buffer.get_arc()?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if src_origin, dst_origin, or region is NULL.
     if src_origin.is_null() || dst_origin.is_null() || region.is_null() {
@@ -1313,12 +1300,8 @@ pub fn enqueue_copy_buffer_rect(
     }
 
     // CL_INVALID_CONTEXT if the context associated with command_queue, src_buffer and dst_buffer
-    // are not the same or if the context associated with command_queue and events in
-    // event_wait_list are not the same.
-    if src.context != q.context
-        || dst.context != q.context
-        || evs.iter().find(|e| e.context != q.context).is_some()
-    {
+    // are not the same
+    if src.context != q.context || dst.context != q.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -1361,7 +1344,7 @@ pub fn enqueue_fill_buffer(
 ) -> CLResult<()> {
     let q = command_queue.get_arc()?;
     let b = buffer.get_arc()?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if offset or offset + size require accessing elements outside the buffer
     // buffer object respectively.
@@ -1381,9 +1364,7 @@ pub fn enqueue_fill_buffer(
     }
 
     // CL_INVALID_CONTEXT if the context associated with command_queue and buffer are not the same
-    // or if the context associated with command_queue and events in event_wait_list are not the
-    // same.
-    if b.context != q.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    if b.context != q.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -1418,6 +1399,7 @@ pub fn enqueue_map_buffer(
     let q = command_queue.get_arc()?;
     let b = buffer.get_arc()?;
     let block = check_cl_bool(blocking_map).ok_or(CL_INVALID_VALUE)?;
+    let evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
     // CL_INVALID_VALUE if region being mapped given by (offset, size) is out of bounds or if size
     // is 0
@@ -1449,17 +1431,14 @@ pub fn enqueue_map_buffer(
         Err(CL_INVALID_OPERATION)?
     }
 
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
-
     // CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST if the map operation is blocking and the
     // execution status of any of the events in event_wait_list is a negative integer value.
     if block && evs.iter().find(|e| e.is_error()).is_some() {
         Err(CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST)?
     }
 
-    // CL_INVALID_CONTEXT if context associated with command_queue and buffer are not the same or
-    // if the context associated with command_queue and events in event_wait_list are not the same.
-    if b.context != q.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    // CL_INVALID_CONTEXT if context associated with command_queue and buffer are not the same
+    if b.context != q.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
@@ -1498,11 +1477,10 @@ pub fn enqueue_unmap_mem_object(
 ) -> CLResult<()> {
     let q = command_queue.get_arc()?;
     let m = memobj.get_ref()?;
-    let evs = event_list_from_cl(num_events_in_wait_list, event_wait_list)?;
+    let _evs = event_list_from_cl(&q, num_events_in_wait_list, event_wait_list)?;
 
-    // CL_INVALID_CONTEXT if context associated with command_queue and memobj are not the same or if
-    // the context associated with command_queue and events in event_wait_list are not the same.
-    if q.context != m.context || evs.iter().find(|e| e.context != q.context).is_some() {
+    // CL_INVALID_CONTEXT if context associated with command_queue and memobj are not the same
+    if q.context != m.context {
         Err(CL_INVALID_CONTEXT)?
     }
 
