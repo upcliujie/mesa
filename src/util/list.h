@@ -179,6 +179,17 @@ static inline void list_validate(const struct list_head *list)
       assert(node->next->prev == node && node->prev->next == node);
 }
 
+/**
+ * Move an item from anywhere in the list to the head of the list
+ *
+ * @param item The item to move
+ * @param loc  The element to put the item in front of
+ */
+static inline void list_move_to(struct list_head *item, struct list_head *loc) {
+   list_del(item);
+   list_add(item, loc);
+}
+
 #define LIST_ENTRY(__type, __item, __field)   \
     ((__type *)(((char *)(__item)) - offsetof(__type, __field)))
 
