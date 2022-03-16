@@ -1306,8 +1306,16 @@ pub fn enqueue_map_buffer(
     }
 
     // CL_INVALID_VALUE ... if values specified in map_flags are not valid.
-    // TODO CL_MAP_WRITE_INVALIDATE_REGION
-    validate_mem_flags(map_flags, false)?;
+    let valid_flags =
+        cl_bitfield::from(CL_MAP_READ | CL_MAP_WRITE | CL_MAP_WRITE_INVALIDATE_REGION);
+    let read_write_group = cl_bitfield::from(CL_MAP_READ | CL_MAP_WRITE);
+    let invalidate_group = cl_bitfield::from(CL_MAP_WRITE_INVALIDATE_REGION);
+
+    if (map_flags & !valid_flags != 0)
+        || ((map_flags & read_write_group != 0) && (map_flags & invalidate_group != 0))
+    {
+        return Err(CL_INVALID_VALUE);
+    }
 
     // CL_INVALID_OPERATION if buffer has been created with CL_MEM_HOST_WRITE_ONLY or
     // CL_MEM_HOST_NO_ACCESS and CL_MAP_READ is set in map_flags
