@@ -440,6 +440,11 @@ _mesa_InitNames( void )
    if (ctx->RenderMode != GL_SELECT)
       return;
 
+   if (_mesa_inside_begin_end(ctx)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glInitNames inside begin end");
+      return;
+   }
+
    FLUSH_VERTICES(ctx, 0, 0);
 
    save_used_name_stack(ctx);
@@ -464,6 +469,12 @@ _mesa_LoadName( GLuint name )
    if (ctx->RenderMode != GL_SELECT) {
       return;
    }
+
+   if (_mesa_inside_begin_end(ctx)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glLoadName inside begin end");
+      return;
+   }
+
    if (ctx->Select.NameStackDepth == 0) {
       _mesa_error( ctx, GL_INVALID_OPERATION, "glLoadName" );
       return;
@@ -493,6 +504,11 @@ _mesa_PushName( GLuint name )
       return;
    }
 
+   if (_mesa_inside_begin_end(ctx)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glPushName inside begin end");
+      return;
+   }
+
    if (ctx->Select.NameStackDepth >= MAX_NAME_STACK_DEPTH) {
       _mesa_error( ctx, GL_STACK_OVERFLOW, "glPushName" );
       return;
@@ -517,6 +533,11 @@ _mesa_PopName( void )
    GET_CURRENT_CONTEXT(ctx);
 
    if (ctx->RenderMode != GL_SELECT) {
+      return;
+   }
+
+   if (_mesa_inside_begin_end(ctx)) {
+      _mesa_error(ctx, GL_INVALID_OPERATION, "glPopName inside begin end");
       return;
    }
 
