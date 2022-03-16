@@ -763,6 +763,16 @@ lower_ucp(struct st_context *st,
    }
 }
 
+static void
+run_lower_tex(struct st_context *st, struct gl_program *prog, nir_shader *nir, const uint32_t *gl_clamp)
+{
+   nir_lower_tex_options tex_opts = {0};
+   tex_opts.saturate_s = gl_clamp[0];
+   tex_opts.saturate_t = gl_clamp[1];
+   tex_opts.saturate_r = gl_clamp[2];
+   NIR_PASS_V(nir, nir_lower_tex, &tex_opts);
+}
+
 static struct st_common_variant *
 st_create_common_variant(struct st_context *st,
                          struct gl_program *prog,
@@ -825,13 +835,9 @@ st_create_common_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (st->emulate_gl_clamp &&
-          (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) {
-         nir_lower_tex_options tex_opts = {0};
-         tex_opts.saturate_s = key->gl_clamp[0];
-         tex_opts.saturate_t = key->gl_clamp[1];
-         tex_opts.saturate_r = key->gl_clamp[2];
-         NIR_PASS_V(state.ir.nir, nir_lower_tex, &tex_opts);
+      if (st->emulate_gl_clamp && (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) {
+         run_lower_tex(st, prog, state.ir.nir, key->gl_clamp);
+         finalize = true;
       }
 
       if (finalize || !st->allow_st_finalize_nir_twice) {
@@ -1401,13 +1407,8 @@ st_create_fp_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (st->emulate_gl_clamp &&
-          (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) {
-         nir_lower_tex_options tex_opts = {0};
-         tex_opts.saturate_s = key->gl_clamp[0];
-         tex_opts.saturate_t = key->gl_clamp[1];
-         tex_opts.saturate_r = key->gl_clamp[2];
-         NIR_PASS_V(state.ir.nir, nir_lower_tex, &tex_opts);
+      if (st->emulate_gl_clamp && (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) {
+         run_lower_tex(st, fp, state.ir.nir, key->gl_clamp);
          finalize = true;
       }
 
