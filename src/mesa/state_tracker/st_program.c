@@ -764,12 +764,33 @@ lower_ucp(struct st_context *st,
 }
 
 static void
-run_lower_tex(struct st_context *st, struct gl_program *prog, nir_shader *nir, const uint32_t *gl_clamp)
+run_lower_tex(struct st_context *st, struct gl_program *prog, nir_shader *nir, const uint32_t *gl_clamp, bool has_nonseamless)
 {
    nir_lower_tex_options tex_opts = {0};
    tex_opts.saturate_s = gl_clamp[0];
    tex_opts.saturate_t = gl_clamp[1];
    tex_opts.saturate_r = gl_clamp[2];
+   tex_opts.lower_cubes = has_nonseamless;
+   tex_opts.state_cube_params = STATE_CUBE_PARAMS;
+   tex_opts.state_cube_border = STATE_CUBE_BORDER;
+   if (has_nonseamless) {
+      GLbitfield samplers_used = prog->SamplersUsed;
+      struct gl_program_parameter_list *params = prog->Parameters;
+      /* same as st_atom_sampler.c */
+      for (unsigned unit = 0; samplers_used; unit++, samplers_used >>= 1) {
+         unsigned tex_unit = prog->SamplerUnits[unit];
+         if (samplers_used & 1 &&
+             (st->ctx->Texture.Unit[tex_unit]._Current->Target == GL_TEXTURE_CUBE_MAP ||
+              st->ctx->Texture.Unit[tex_unit]._Current->Target == GL_TEXTURE_CUBE_MAP_ARRAY)) {
+            gl_state_index16 sampler_state[STATE_LENGTH] = { STATE_CUBE_PARAMS, tex_unit };
+            tex_opts.cube_sampler_mapping[unit] = tex_unit;
+            _mesa_add_state_reference(params, sampler_state);
+            //enable this as part of making non-seamless border colors work
+            //gl_state_index16 border_state[STATE_LENGTH] = { STATE_CUBE_BORDER, tex_unit };
+            //_mesa_add_state_reference(params, border_state);
+         }
+      }
+   }
    NIR_PASS_V(nir, nir_lower_tex, &tex_opts);
 }
 
@@ -835,8 +856,9 @@ st_create_common_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (st->emulate_gl_clamp && (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) {
-         run_lower_tex(st, prog, state.ir.nir, key->gl_clamp);
+      if ((st->emulate_gl_clamp && (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) ||
+          key->has_nonseamless) {
+         run_lower_tex(st, prog, state.ir.nir, key->gl_clamp, key->has_nonseamless);
          finalize = true;
       }
 
@@ -1407,8 +1429,9 @@ st_create_fp_variant(struct st_context *st,
          finalize = true;
       }
 
-      if (st->emulate_gl_clamp && (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) {
-         run_lower_tex(st, fp, state.ir.nir, key->gl_clamp);
+      if ((st->emulate_gl_clamp && (key->gl_clamp[0] || key->gl_clamp[1] || key->gl_clamp[2])) ||
+          st->emulate_nonseamless_cube) {
+         run_lower_tex(st, fp, state.ir.nir, key->gl_clamp, key->has_nonseamless);
          finalize = true;
       }
 
