@@ -2902,6 +2902,25 @@ static void handle_event_set(struct vk_cmd_queue_entry *cmd,
    event->event_storage = 1;
 }
 
+static void handle_event_set2(struct vk_cmd_queue_entry *cmd,
+                             struct rendering_state *state)
+{
+   LVP_FROM_HANDLE(lvp_event, event, cmd->u.set_event2.event);
+
+   VkPipelineStageFlags2KHR src_stage_mask = 0;
+
+   for (uint32_t i = 0; i < cmd->u.set_event2.dependency_info->memoryBarrierCount; i++)
+      src_stage_mask |= cmd->u.set_event2.dependency_info->pMemoryBarriers[i].srcStageMask;
+   for (uint32_t i = 0; i < cmd->u.set_event2.dependency_info->bufferMemoryBarrierCount; i++)
+      src_stage_mask |= cmd->u.set_event2.dependency_info->pBufferMemoryBarriers[i].srcStageMask;
+   for (uint32_t i = 0; i < cmd->u.set_event2.dependency_info->imageMemoryBarrierCount; i++)
+      src_stage_mask |= cmd->u.set_event2.dependency_info->pImageMemoryBarriers[i].srcStageMask;
+
+   if (src_stage_mask & VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT)
+      state->pctx->flush(state->pctx, NULL, 0);
+   event->event_storage = 1;
+}
+
 static void handle_event_reset(struct vk_cmd_queue_entry *cmd,
                                struct rendering_state *state)
 {
@@ -2912,12 +2931,33 @@ static void handle_event_reset(struct vk_cmd_queue_entry *cmd,
    event->event_storage = 0;
 }
 
+static void handle_event_reset2(struct vk_cmd_queue_entry *cmd,
+                               struct rendering_state *state)
+{
+   LVP_FROM_HANDLE(lvp_event, event, cmd->u.reset_event2.event);
+
+   if (cmd->u.reset_event2.stage_mask == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT)
+      state->pctx->flush(state->pctx, NULL, 0);
+   event->event_storage = 0;
+}
+
 static void handle_wait_events(struct vk_cmd_queue_entry *cmd,
                                struct rendering_state *state)
 {
    finish_fence(state);
    for (unsigned i = 0; i < cmd->u.wait_events.event_count; i++) {
       LVP_FROM_HANDLE(lvp_event, event, cmd->u.wait_events.events[i]);
+
+      while (event->event_storage != true);
+   }
+}
+
+static void handle_wait_events2(struct vk_cmd_queue_entry *cmd,
+                               struct rendering_state *state)
+{
+   finish_fence(state);
+   for (unsigned i = 0; i < cmd->u.wait_events2.event_count; i++) {
+      LVP_FROM_HANDLE(lvp_event, event, cmd->u.wait_events2.events[i]);
 
       while (event->event_storage != true);
    }
@@ -3016,6 +3056,22 @@ static void handle_write_timestamp(struct vk_cmd_queue_entry *cmd,
    }
 
    if (!(qcmd->pipeline_stage == VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT))
+      state->pctx->flush(state->pctx, NULL, 0);
+   state->pctx->end_query(state->pctx, pool->queries[qcmd->query]);
+
+}
+
+static void handle_write_timestamp2(struct vk_cmd_queue_entry *cmd,
+                                    struct rendering_state *state)
+{
+   struct vk_cmd_write_timestamp2 *qcmd = &cmd->u.write_timestamp2;
+   LVP_FROM_HANDLE(lvp_query_pool, pool, qcmd->query_pool);
+   if (!pool->queries[qcmd->query]) {
+      pool->queries[qcmd->query] = state->pctx->create_query(state->pctx,
+                                                             PIPE_QUERY_TIMESTAMP, 0);
+   }
+
+   if (!(qcmd->stage == VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT))
       state->pctx->flush(state->pctx, NULL, 0);
    state->pctx->end_query(state->pctx, pool->queries[qcmd->query]);
 
@@ -3945,6 +4001,11 @@ void lvp_add_enqueue_cmd_entrypoints(struct vk_device_dispatch_table *disp)
    ENQUEUE_CMD(CmdBeginRendering)
    ENQUEUE_CMD(CmdEndRendering)
    ENQUEUE_CMD(CmdSetDeviceMask)
+   ENQUEUE_CMD(CmdPipelineBarrier2)
+   ENQUEUE_CMD(CmdResetEvent2)
+   ENQUEUE_CMD(CmdSetEvent2)
+   ENQUEUE_CMD(CmdWaitEvents2)
+   ENQUEUE_CMD(CmdWriteTimestamp2)
 
 #undef ENQUEUE_CMD
 }
@@ -4226,6 +4287,21 @@ static void lvp_execute_cmd_buffer(struct lvp_cmd_buffer *cmd_buffer,
          break;
       case VK_CMD_SET_DEVICE_MASK:
          /* no-op */
+         break;
+      case VK_CMD_PIPELINE_BARRIER2:
+         handle_pipeline_barrier(cmd, state);
+         break;
+      case VK_CMD_RESET_EVENT2:
+         handle_event_reset2(cmd, state);
+         break;
+      case VK_CMD_SET_EVENT2:
+         handle_event_set2(cmd, state);
+         break;
+      case VK_CMD_WAIT_EVENTS2:
+         handle_wait_events2(cmd, state);
+         break;
+      case VK_CMD_WRITE_TIMESTAMP2:
+         handle_write_timestamp2(cmd, state);
          break;
       default:
          fprintf(stderr, "Unsupported command %s\n", vk_cmd_queue_type_names[cmd->type]);
