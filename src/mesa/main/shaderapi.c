@@ -3550,7 +3550,7 @@ _mesa_NamedStringARB(GLenum type, GLint namelen, const GLchar *name,
    struct hash_table *path_ht =
       ctx->Shared->ShaderIncludes->shader_include_tree;
 
-   struct sh_incl_path_entry *entry, *next;
+   struct sh_incl_path_entry *entry;
    LIST_FOR_EACH_ENTRY(entry, &path_list->list, list) {
       struct hash_entry *ht_entry =
          _mesa_hash_table_search(path_ht, entry->path);
