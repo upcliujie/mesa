@@ -593,6 +593,8 @@ st_create_context_priv(struct gl_context *ctx, struct pipe_context *pipe,
           PIPE_QUIRK_TEXTURE_BORDER_COLOR_SWIZZLE_R600));
    st->emulate_gl_clamp =
       !screen->get_param(screen, PIPE_CAP_GL_CLAMP);
+   st->emulate_nonseamless_cube =
+      !screen->get_param(screen, PIPE_CAP_NONSEAMLESS_CUBE_MAP);
    st->texture_buffer_sampler =
       screen->get_param(screen, PIPE_CAP_TEXTURE_BUFFER_SAMPLER);
    st->has_time_elapsed =
