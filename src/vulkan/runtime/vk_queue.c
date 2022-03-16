@@ -663,7 +663,7 @@ vk_queue_submit(struct vk_queue *queue,
                      info->command_buffers[i].commandBuffer);
       assert(info->command_buffers[i].deviceMask == 0 ||
              info->command_buffers[i].deviceMask == 1);
-      assert(cmd_buffer->pool->queue_family_index == queue->queue_family_index);
+      //assert(cmd_buffer->pool->queue_family_index == queue->queue_family_index);
       submit->command_buffers[i] = cmd_buffer;
    }
 
