@@ -10,10 +10,106 @@
 
 #include "vn_protocol_driver_defines.h"
 
+struct vn_info_extension_table {
+   union {
+      bool enabled[87];
+      struct {
+         bool EXT_4444_formats;
+         bool EXT_calibrated_timestamps;
+         bool EXT_command_serialization;
+         bool EXT_conservative_rasterization;
+         bool EXT_custom_border_color;
+         bool EXT_depth_clip_enable;
+         bool EXT_descriptor_indexing;
+         bool EXT_extended_dynamic_state;
+         bool EXT_extended_dynamic_state2;
+         bool EXT_external_memory_dma_buf;
+         bool EXT_host_query_reset;
+         bool EXT_image_drm_format_modifier;
+         bool EXT_image_robustness;
+         bool EXT_inline_uniform_block;
+         bool EXT_line_rasterization;
+         bool EXT_pipeline_creation_cache_control;
+         bool EXT_pipeline_creation_feedback;
+         bool EXT_private_data;
+         bool EXT_provoking_vertex;
+         bool EXT_queue_family_foreign;
+         bool EXT_robustness2;
+         bool EXT_sampler_filter_minmax;
+         bool EXT_scalar_block_layout;
+         bool EXT_separate_stencil_usage;
+         bool EXT_shader_demote_to_helper_invocation;
+         bool EXT_shader_stencil_export;
+         bool EXT_shader_viewport_index_layer;
+         bool EXT_subgroup_size_control;
+         bool EXT_texel_buffer_alignment;
+         bool EXT_texture_compression_astc_hdr;
+         bool EXT_tooling_info;
+         bool EXT_transform_feedback;
+         bool EXT_vertex_attribute_divisor;
+         bool EXT_ycbcr_2plane_444_formats;
+         bool KHR_16bit_storage;
+         bool KHR_8bit_storage;
+         bool KHR_bind_memory2;
+         bool KHR_buffer_device_address;
+         bool KHR_copy_commands2;
+         bool KHR_create_renderpass2;
+         bool KHR_dedicated_allocation;
+         bool KHR_depth_stencil_resolve;
+         bool KHR_descriptor_update_template;
+         bool KHR_device_group;
+         bool KHR_device_group_creation;
+         bool KHR_draw_indirect_count;
+         bool KHR_driver_properties;
+         bool KHR_dynamic_rendering;
+         bool KHR_external_fence;
+         bool KHR_external_fence_capabilities;
+         bool KHR_external_fence_fd;
+         bool KHR_external_memory;
+         bool KHR_external_memory_capabilities;
+         bool KHR_external_memory_fd;
+         bool KHR_external_semaphore;
+         bool KHR_external_semaphore_capabilities;
+         bool KHR_format_feature_flags2;
+         bool KHR_get_memory_requirements2;
+         bool KHR_get_physical_device_properties2;
+         bool KHR_image_format_list;
+         bool KHR_imageless_framebuffer;
+         bool KHR_maintenance1;
+         bool KHR_maintenance2;
+         bool KHR_maintenance3;
+         bool KHR_maintenance4;
+         bool KHR_multiview;
+         bool KHR_relaxed_block_layout;
+         bool KHR_sampler_mirror_clamp_to_edge;
+         bool KHR_sampler_ycbcr_conversion;
+         bool KHR_separate_depth_stencil_layouts;
+         bool KHR_shader_atomic_int64;
+         bool KHR_shader_draw_parameters;
+         bool KHR_shader_float16_int8;
+         bool KHR_shader_float_controls;
+         bool KHR_shader_integer_dot_product;
+         bool KHR_shader_non_semantic_info;
+         bool KHR_shader_subgroup_extended_types;
+         bool KHR_shader_terminate_invocation;
+         bool KHR_spirv_1_4;
+         bool KHR_storage_buffer_storage_class;
+         bool KHR_synchronization2;
+         bool KHR_timeline_semaphore;
+         bool KHR_uniform_buffer_standard_layout;
+         bool KHR_variable_pointers;
+         bool KHR_vulkan_memory_model;
+         bool KHR_zero_initialize_workgroup_memory;
+         bool MESA_venus_protocol;
+      };
+   };
+};
+
 struct vn_info_extension {
    uint32_t index;
 
    const char *name;
+   uint32_t number;
    uint32_t spec_version;
 };
 
@@ -35,101 +131,115 @@ vn_info_extension_compare(const void *name, const void *ext)
    return strcmp(name, ((const struct vn_info_extension *)ext)->name);
 }
 
+static const struct vn_info_extension vn_info_extensions[87] = {
+   { 0, "VK_EXT_4444_formats", 341, 1 },
+   { 1, "VK_EXT_calibrated_timestamps", 185, 2 },
+   { 2, "VK_EXT_command_serialization", 384, 0 },
+   { 3, "VK_EXT_conservative_rasterization", 102, 1 },
+   { 4, "VK_EXT_custom_border_color", 288, 12 },
+   { 5, "VK_EXT_depth_clip_enable", 103, 1 },
+   { 6, "VK_EXT_descriptor_indexing", 162, 2 },
+   { 7, "VK_EXT_extended_dynamic_state", 268, 1 },
+   { 8, "VK_EXT_extended_dynamic_state2", 378, 1 },
+   { 9, "VK_EXT_external_memory_dma_buf", 126, 1 },
+   { 10, "VK_EXT_host_query_reset", 262, 1 },
+   { 11, "VK_EXT_image_drm_format_modifier", 159, 2 },
+   { 12, "VK_EXT_image_robustness", 336, 1 },
+   { 13, "VK_EXT_inline_uniform_block", 139, 1 },
+   { 14, "VK_EXT_line_rasterization", 260, 1 },
+   { 15, "VK_EXT_pipeline_creation_cache_control", 298, 3 },
+   { 16, "VK_EXT_pipeline_creation_feedback", 193, 1 },
+   { 17, "VK_EXT_private_data", 296, 1 },
+   { 18, "VK_EXT_provoking_vertex", 255, 1 },
+   { 19, "VK_EXT_queue_family_foreign", 127, 1 },
+   { 20, "VK_EXT_robustness2", 287, 1 },
+   { 21, "VK_EXT_sampler_filter_minmax", 131, 2 },
+   { 22, "VK_EXT_scalar_block_layout", 222, 1 },
+   { 23, "VK_EXT_separate_stencil_usage", 247, 1 },
+   { 24, "VK_EXT_shader_demote_to_helper_invocation", 277, 1 },
+   { 25, "VK_EXT_shader_stencil_export", 141, 1 },
+   { 26, "VK_EXT_shader_viewport_index_layer", 163, 1 },
+   { 27, "VK_EXT_subgroup_size_control", 226, 2 },
+   { 28, "VK_EXT_texel_buffer_alignment", 282, 1 },
+   { 29, "VK_EXT_texture_compression_astc_hdr", 67, 1 },
+   { 30, "VK_EXT_tooling_info", 246, 1 },
+   { 31, "VK_EXT_transform_feedback", 29, 1 },
+   { 32, "VK_EXT_vertex_attribute_divisor", 191, 3 },
+   { 33, "VK_EXT_ycbcr_2plane_444_formats", 331, 1 },
+   { 34, "VK_KHR_16bit_storage", 84, 1 },
+   { 35, "VK_KHR_8bit_storage", 178, 1 },
+   { 36, "VK_KHR_bind_memory2", 158, 1 },
+   { 37, "VK_KHR_buffer_device_address", 258, 1 },
+   { 38, "VK_KHR_copy_commands2", 338, 1 },
+   { 39, "VK_KHR_create_renderpass2", 110, 1 },
+   { 40, "VK_KHR_dedicated_allocation", 128, 3 },
+   { 41, "VK_KHR_depth_stencil_resolve", 200, 1 },
+   { 42, "VK_KHR_descriptor_update_template", 86, 1 },
+   { 43, "VK_KHR_device_group", 61, 4 },
+   { 44, "VK_KHR_device_group_creation", 71, 1 },
+   { 45, "VK_KHR_draw_indirect_count", 170, 1 },
+   { 46, "VK_KHR_driver_properties", 197, 1 },
+   { 47, "VK_KHR_dynamic_rendering", 45, 1 },
+   { 48, "VK_KHR_external_fence", 114, 1 },
+   { 49, "VK_KHR_external_fence_capabilities", 113, 1 },
+   { 50, "VK_KHR_external_fence_fd", 116, 1 },
+   { 51, "VK_KHR_external_memory", 73, 1 },
+   { 52, "VK_KHR_external_memory_capabilities", 72, 1 },
+   { 53, "VK_KHR_external_memory_fd", 75, 1 },
+   { 54, "VK_KHR_external_semaphore", 78, 1 },
+   { 55, "VK_KHR_external_semaphore_capabilities", 77, 1 },
+   { 56, "VK_KHR_format_feature_flags2", 361, 1 },
+   { 57, "VK_KHR_get_memory_requirements2", 147, 1 },
+   { 58, "VK_KHR_get_physical_device_properties2", 60, 2 },
+   { 59, "VK_KHR_image_format_list", 148, 1 },
+   { 60, "VK_KHR_imageless_framebuffer", 109, 1 },
+   { 61, "VK_KHR_maintenance1", 70, 2 },
+   { 62, "VK_KHR_maintenance2", 118, 1 },
+   { 63, "VK_KHR_maintenance3", 169, 1 },
+   { 64, "VK_KHR_maintenance4", 414, 2 },
+   { 65, "VK_KHR_multiview", 54, 1 },
+   { 66, "VK_KHR_relaxed_block_layout", 145, 1 },
+   { 67, "VK_KHR_sampler_mirror_clamp_to_edge", 15, 3 },
+   { 68, "VK_KHR_sampler_ycbcr_conversion", 157, 14 },
+   { 69, "VK_KHR_separate_depth_stencil_layouts", 242, 1 },
+   { 70, "VK_KHR_shader_atomic_int64", 181, 1 },
+   { 71, "VK_KHR_shader_draw_parameters", 64, 1 },
+   { 72, "VK_KHR_shader_float16_int8", 83, 1 },
+   { 73, "VK_KHR_shader_float_controls", 198, 4 },
+   { 74, "VK_KHR_shader_integer_dot_product", 281, 1 },
+   { 75, "VK_KHR_shader_non_semantic_info", 294, 1 },
+   { 76, "VK_KHR_shader_subgroup_extended_types", 176, 1 },
+   { 77, "VK_KHR_shader_terminate_invocation", 216, 1 },
+   { 78, "VK_KHR_spirv_1_4", 237, 1 },
+   { 79, "VK_KHR_storage_buffer_storage_class", 132, 1 },
+   { 80, "VK_KHR_synchronization2", 315, 1 },
+   { 81, "VK_KHR_timeline_semaphore", 208, 2 },
+   { 82, "VK_KHR_uniform_buffer_standard_layout", 254, 1 },
+   { 83, "VK_KHR_variable_pointers", 121, 1 },
+   { 84, "VK_KHR_vulkan_memory_model", 212, 3 },
+   { 85, "VK_KHR_zero_initialize_workgroup_memory", 326, 1 },
+   { 86, "VK_MESA_venus_protocol", 385, 100000 },
+};
+
 static inline const struct vn_info_extension *
 vn_info_extension_get(const char *name)
 {
-   static const struct vn_info_extension vn_info_extensions[87] = {
-      { 0, "VK_EXT_4444_formats", 1 },
-      { 1, "VK_EXT_calibrated_timestamps", 2 },
-      { 2, "VK_EXT_command_serialization", 0 },
-      { 3, "VK_EXT_conservative_rasterization", 1 },
-      { 4, "VK_EXT_custom_border_color", 12 },
-      { 5, "VK_EXT_depth_clip_enable", 1 },
-      { 6, "VK_EXT_descriptor_indexing", 2 },
-      { 7, "VK_EXT_extended_dynamic_state", 1 },
-      { 8, "VK_EXT_extended_dynamic_state2", 1 },
-      { 9, "VK_EXT_external_memory_dma_buf", 1 },
-      { 10, "VK_EXT_host_query_reset", 1 },
-      { 11, "VK_EXT_image_drm_format_modifier", 2 },
-      { 12, "VK_EXT_image_robustness", 1 },
-      { 13, "VK_EXT_inline_uniform_block", 1 },
-      { 14, "VK_EXT_line_rasterization", 1 },
-      { 15, "VK_EXT_pipeline_creation_cache_control", 3 },
-      { 16, "VK_EXT_pipeline_creation_feedback", 1 },
-      { 17, "VK_EXT_private_data", 1 },
-      { 18, "VK_EXT_provoking_vertex", 1 },
-      { 19, "VK_EXT_queue_family_foreign", 1 },
-      { 20, "VK_EXT_robustness2", 1 },
-      { 21, "VK_EXT_sampler_filter_minmax", 2 },
-      { 22, "VK_EXT_scalar_block_layout", 1 },
-      { 23, "VK_EXT_separate_stencil_usage", 1 },
-      { 24, "VK_EXT_shader_demote_to_helper_invocation", 1 },
-      { 25, "VK_EXT_shader_stencil_export", 1 },
-      { 26, "VK_EXT_shader_viewport_index_layer", 1 },
-      { 27, "VK_EXT_subgroup_size_control", 2 },
-      { 28, "VK_EXT_texel_buffer_alignment", 1 },
-      { 29, "VK_EXT_texture_compression_astc_hdr", 1 },
-      { 30, "VK_EXT_tooling_info", 1 },
-      { 31, "VK_EXT_transform_feedback", 1 },
-      { 32, "VK_EXT_vertex_attribute_divisor", 3 },
-      { 33, "VK_EXT_ycbcr_2plane_444_formats", 1 },
-      { 34, "VK_KHR_16bit_storage", 1 },
-      { 35, "VK_KHR_8bit_storage", 1 },
-      { 36, "VK_KHR_bind_memory2", 1 },
-      { 37, "VK_KHR_buffer_device_address", 1 },
-      { 38, "VK_KHR_copy_commands2", 1 },
-      { 39, "VK_KHR_create_renderpass2", 1 },
-      { 40, "VK_KHR_dedicated_allocation", 3 },
-      { 41, "VK_KHR_depth_stencil_resolve", 1 },
-      { 42, "VK_KHR_descriptor_update_template", 1 },
-      { 43, "VK_KHR_device_group", 4 },
-      { 44, "VK_KHR_device_group_creation", 1 },
-      { 45, "VK_KHR_draw_indirect_count", 1 },
-      { 46, "VK_KHR_driver_properties", 1 },
-      { 47, "VK_KHR_dynamic_rendering", 1 },
-      { 48, "VK_KHR_external_fence", 1 },
-      { 49, "VK_KHR_external_fence_capabilities", 1 },
-      { 50, "VK_KHR_external_fence_fd", 1 },
-      { 51, "VK_KHR_external_memory", 1 },
-      { 52, "VK_KHR_external_memory_capabilities", 1 },
-      { 53, "VK_KHR_external_memory_fd", 1 },
-      { 54, "VK_KHR_external_semaphore", 1 },
-      { 55, "VK_KHR_external_semaphore_capabilities", 1 },
-      { 56, "VK_KHR_format_feature_flags2", 1 },
-      { 57, "VK_KHR_get_memory_requirements2", 1 },
-      { 58, "VK_KHR_get_physical_device_properties2", 2 },
-      { 59, "VK_KHR_image_format_list", 1 },
-      { 60, "VK_KHR_imageless_framebuffer", 1 },
-      { 61, "VK_KHR_maintenance1", 2 },
-      { 62, "VK_KHR_maintenance2", 1 },
-      { 63, "VK_KHR_maintenance3", 1 },
-      { 64, "VK_KHR_maintenance4", 2 },
-      { 65, "VK_KHR_multiview", 1 },
-      { 66, "VK_KHR_relaxed_block_layout", 1 },
-      { 67, "VK_KHR_sampler_mirror_clamp_to_edge", 3 },
-      { 68, "VK_KHR_sampler_ycbcr_conversion", 14 },
-      { 69, "VK_KHR_separate_depth_stencil_layouts", 1 },
-      { 70, "VK_KHR_shader_atomic_int64", 1 },
-      { 71, "VK_KHR_shader_draw_parameters", 1 },
-      { 72, "VK_KHR_shader_float16_int8", 1 },
-      { 73, "VK_KHR_shader_float_controls", 4 },
-      { 74, "VK_KHR_shader_integer_dot_product", 1 },
-      { 75, "VK_KHR_shader_non_semantic_info", 1 },
-      { 76, "VK_KHR_shader_subgroup_extended_types", 1 },
-      { 77, "VK_KHR_shader_terminate_invocation", 1 },
-      { 78, "VK_KHR_spirv_1_4", 1 },
-      { 79, "VK_KHR_storage_buffer_storage_class", 1 },
-      { 80, "VK_KHR_synchronization2", 1 },
-      { 81, "VK_KHR_timeline_semaphore", 2 },
-      { 82, "VK_KHR_uniform_buffer_standard_layout", 1 },
-      { 83, "VK_KHR_variable_pointers", 1 },
-      { 84, "VK_KHR_vulkan_memory_model", 3 },
-      { 85, "VK_KHR_zero_initialize_workgroup_memory", 1 },
-      { 86, "VK_MESA_venus_protocol", 100000 },
-   };
-
    return bsearch(name, vn_info_extensions, 87,
          sizeof(*vn_info_extensions), vn_info_extension_compare);
+}
+
+struct vn_info_protocol {
+   uint32_t api_version;
+   struct vn_info_extension_table extensions;
+};
+
+static inline void
+vn_info_extension_mask_to_table(const uint32_t *mask, struct vn_info_extension_table *out_table)
+{
+   for (uint32_t i = 0; i < 87; i++) {
+       const uint32_t ext_num = vn_info_extensions[i].number - 1;
+       out_table->enabled[i] = mask[ext_num >> 5] & (1 << (ext_num & 0x1FU));
+   }
 }
 
 #endif /* VN_PROTOCOL_DRIVER_INFO_H */
