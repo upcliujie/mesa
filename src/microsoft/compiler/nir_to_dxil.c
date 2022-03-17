@@ -442,7 +442,6 @@ struct dxil_def {
 };
 
 struct ntd_context {
-   void *ralloc_ctx;
    const struct nir_to_dxil_options *opts;
    struct nir_shader *shader;
 
@@ -1138,11 +1137,11 @@ emit_global_consts(struct ntd_context *ctx)
       assert(var->constant_initializer);
 
       unsigned int num_members = DIV_ROUND_UP(glsl_get_cl_size(var->type), 4);
-      uint32_t *const_ints = ralloc_array(ctx->ralloc_ctx, uint32_t, num_members);
+      uint32_t *const_ints = ralloc_array(ctx, uint32_t, num_members);
       var_fill_const_array(ctx, var->constant_initializer, var->type,
                                  const_ints, 0);
       const struct dxil_value **const_vals =
-         ralloc_array(ctx->ralloc_ctx, const struct dxil_value *, num_members);
+         ralloc_array(ctx, const struct dxil_value *, num_members);
       if (!const_vals)
          return false;
       for (int i = 0; i < num_members; i++)
@@ -5186,12 +5185,12 @@ emit_function(struct ntd_context *ctx, nir_function *func)
    else if (func == ctx->tess_ctrl_patch_constant_func)
       ctx->tess_ctrl_patch_constant_func_def = func_def;
 
-   ctx->defs = rzalloc_array(ctx->ralloc_ctx, struct dxil_def, impl->ssa_alloc);
+   ctx->defs = rzalloc_array(ctx, struct dxil_def, impl->ssa_alloc);
    if (!ctx->defs)
       return false;
    ctx->num_defs = impl->ssa_alloc;
 
-   ctx->phis = _mesa_pointer_hash_table_create(ctx->ralloc_ctx);
+   ctx->phis = _mesa_pointer_hash_table_create(ctx);
    if (!ctx->phis)
       return false;
 
@@ -5297,7 +5296,7 @@ emit_module(struct ntd_context *ctx, const struct nir_to_dxil_options *opts)
       if (!emit_globals(ctx, opts->num_kernel_globals))
          return false;
 
-      ctx->consts = _mesa_pointer_hash_table_create(ctx->ralloc_ctx);
+      ctx->consts = _mesa_pointer_hash_table_create(ctx);
       if (!ctx->consts)
          return false;
       if (!emit_global_consts(ctx))
@@ -5616,25 +5615,19 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
    debug_dxil = (int)debug_get_option_debug_dxil();
    blob_init(blob);
 
-   struct ntd_context *ctx = calloc(1, sizeof(*ctx));
+   struct ntd_context *ctx = rzalloc(NULL, struct ntd_context);
    if (!ctx)
       return false;
 
    ctx->opts = opts;
    ctx->shader = s;
 
-   ctx->ralloc_ctx = ralloc_context(NULL);
-   if (!ctx->ralloc_ctx) {
-      retval = false;
-      goto out;
-   }
-
-   util_dynarray_init(&ctx->srv_metadata_nodes, ctx->ralloc_ctx);
-   util_dynarray_init(&ctx->uav_metadata_nodes, ctx->ralloc_ctx);
-   util_dynarray_init(&ctx->cbv_metadata_nodes, ctx->ralloc_ctx);
-   util_dynarray_init(&ctx->sampler_metadata_nodes, ctx->ralloc_ctx);
-   util_dynarray_init(&ctx->resources, ctx->ralloc_ctx);
-   dxil_module_init(&ctx->mod, ctx->ralloc_ctx);
+   util_dynarray_init(&ctx->srv_metadata_nodes, ctx);
+   util_dynarray_init(&ctx->uav_metadata_nodes, ctx);
+   util_dynarray_init(&ctx->cbv_metadata_nodes, ctx);
+   util_dynarray_init(&ctx->sampler_metadata_nodes, ctx);
+   util_dynarray_init(&ctx->resources, ctx);
+   dxil_module_init(&ctx->mod, ctx);
    ctx->mod.shader_kind = get_dxil_shader_kind(s);
    ctx->mod.major_version = 6;
    ctx->mod.minor_version = 1;
@@ -5760,8 +5753,7 @@ nir_to_dxil(struct nir_shader *s, const struct nir_to_dxil_options *opts,
 
 out:
    dxil_module_release(&ctx->mod);
-   ralloc_free(ctx->ralloc_ctx);
-   free(ctx);
+   ralloc_free(ctx);
    return retval;
 }
 
