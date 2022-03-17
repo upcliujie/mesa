@@ -7,55 +7,62 @@ use std::slice;
 
 #[macro_export]
 macro_rules! cl_closure {
-   (|$obj:ident| $cb:ident($($arg:ident$(,)?)*)) => {
-      Box::new(
-         unsafe {
-            move|$obj| $cb.unwrap()($($arg,)*)
-         }
-      )
-   }
+    (|$obj:ident| $cb:ident($($arg:ident$(,)?)*)) => {
+        Box::new(
+            unsafe {
+                move|$obj| $cb.unwrap()($($arg,)*)
+            }
+        )
+    }
 }
 
 macro_rules! cl_callback {
-   ($cb:ident {
-      $($p:ident : $ty:ty,)*
-   }) => {
-      #[allow(dead_code)]
-      pub type $cb = unsafe extern "C" fn(
-         $($p: $ty,)*
-      );
-   }
+    ($cb:ident {
+        $($p:ident : $ty:ty,)*
+    }) => {
+        #[allow(dead_code)]
+        pub type $cb = unsafe extern "C" fn(
+            $($p: $ty,)*
+        );
+    }
 }
 
 cl_callback!(
-   CreateContextCB {
-      errinfo: *const ::std::os::raw::c_char,
-      private_info: *const ::std::ffi::c_void,
-      cb: usize,
-      user_data: *mut ::std::ffi::c_void,
-   }
+    CreateContextCB {
+        errinfo: *const ::std::os::raw::c_char,
+        private_info: *const ::std::ffi::c_void,
+        cb: usize,
+        user_data: *mut ::std::ffi::c_void,
+    }
 );
 
 cl_callback!(
-   EventCB {
-      event: cl_event,
-      event_command_status: cl_int,
-      user_data: *mut ::std::os::raw::c_void,
-   }
+    DeleteContextCB {
+        context: cl_context,
+        user_data: *mut ::std::os::raw::c_void,
+    }
 );
 
 cl_callback!(
-   MemCB {
-      memobj: cl_mem,
-      user_data: *mut ::std::os::raw::c_void,
-   }
+    EventCB {
+        event: cl_event,
+        event_command_status: cl_int,
+        user_data: *mut ::std::os::raw::c_void,
+    }
 );
 
 cl_callback!(
-   ProgramCB {
-      program: cl_program,
-      user_data: *mut ::std::os::raw::c_void,
-   }
+    MemCB {
+        memobj: cl_mem,
+        user_data: *mut ::std::os::raw::c_void,
+    }
+);
+
+cl_callback!(
+    ProgramCB {
+        program: cl_program,
+        user_data: *mut ::std::os::raw::c_void,
+    }
 );
 
 // a lot of APIs use 3 component vectors passed as C arrays
