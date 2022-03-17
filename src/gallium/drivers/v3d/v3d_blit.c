@@ -59,6 +59,25 @@ v3d_blitter_save(struct v3d_context *v3d)
                                      v3d->streamout.targets);
 }
 
+static enum pipe_format
+get_compatible_blit_format(enum pipe_format format)
+{
+        switch (util_format_get_blocksizebits(format)) {
+        case 8:
+                return PIPE_FORMAT_R8_UINT;
+        case 16:
+                return PIPE_FORMAT_R8G8_UINT;
+        case 32:
+                return PIPE_FORMAT_R8G8B8A8_UINT;
+        case 64:
+                return PIPE_FORMAT_R32G32_UINT;
+        case 128:
+                return PIPE_FORMAT_R32G32B32A32_UINT;
+        default:
+                return PIPE_FORMAT_NONE;
+        }
+}
+
 static void
 v3d_render_blit(struct pipe_context *ctx, struct pipe_blit_info *info)
 {
@@ -101,7 +120,16 @@ v3d_render_blit(struct pipe_context *ctx, struct pipe_blit_info *info)
                 info->src.resource = tiled;
         }
 
-        if (!util_blitter_is_blit_supported(v3d->blitter, info)) {
+        struct pipe_blit_info cinfo = *info;
+
+        /* For direct image copies, use a compatible format supported by TLB */
+        if (info->src.format == info->dst.format &&
+            !v3d_rt_format_supported(&v3d->screen->devinfo, info->src.format)) {
+                cinfo.src.format = get_compatible_blit_format(info->src.format);
+                cinfo.dst.format = get_compatible_blit_format(info->dst.format);
+        }
+
+        if (!util_blitter_is_blit_supported(v3d->blitter, &cinfo)) {
                 fprintf(stderr, "blit unsupported %s -> %s\n",
                     util_format_short_name(info->src.resource->format),
                     util_format_short_name(info->dst.resource->format));
@@ -109,7 +137,7 @@ v3d_render_blit(struct pipe_context *ctx, struct pipe_blit_info *info)
         }
 
         v3d_blitter_save(v3d);
-        util_blitter_blit(v3d->blitter, info);
+        util_blitter_blit(v3d->blitter, &cinfo);
 
         pipe_resource_reference(&tiled, NULL);
         info->mask = 0;
