@@ -180,6 +180,10 @@ vbo_exec_copy_to_current(struct vbo_exec_context *exec)
 
       assert(exec->vtx.attr[i].size);
 
+      /* VBO_ATTRIB_SELECT_RESULT_INDEX has no current */
+      if (!current)
+         continue;
+
       if (exec->vtx.attr[i].type == GL_DOUBLE ||
           exec->vtx.attr[i].type == GL_UNSIGNED_INT64_ARB) {
          memset(tmp, 0, sizeof(tmp));
@@ -501,6 +505,9 @@ do {                                                                    \
       /* we now have accumulated a per-vertex attribute */              \
       ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;                    \
    } else {                                                             \
+      if (_mesa_hw_select_enabled(ctx))                                 \
+         vbo_exec_set_select_result_index_attrib(ctx);                  \
+                                                                        \
       /* This is a glVertex call */                                     \
       int size = exec->vtx.attr[0].size;                                \
                                                                         \
@@ -557,6 +564,12 @@ do {                                                                    \
    }                                                                    \
 } while (0)
 
+static void
+vbo_exec_set_select_result_index_attrib(struct gl_context *ctx)
+{
+   ATTR_UNION(VBO_ATTRIB_SELECT_RESULT_OFFSET, 1, GL_UNSIGNED_INT, uint32_t,
+              ctx->Select.ResultOffset, 0, 0, 0);
+}
 
 #undef ERROR
 #define ERROR(err) _mesa_error(ctx, err, __func__)
