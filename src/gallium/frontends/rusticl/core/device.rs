@@ -311,6 +311,7 @@ impl Device {
 
     fn fill_extensions(&mut self) {
         let mut exts: Vec<String> = Vec::new();
+        let has_doubles = self.doubles_supported();
         let mut add_ext = |major, minor, patch, ext| {
             let s = String::from(ext);
             self.extensions
@@ -318,7 +319,16 @@ impl Device {
             exts.push(s);
         };
 
+        // add extensions all drivers support
         add_ext(1, 0, 0, "cl_khr_byte_addressable_store");
+        add_ext(1, 0, 0, "cl_khr_global_int32_base_atomics");
+        add_ext(1, 0, 0, "cl_khr_global_int32_extended_atomics");
+        add_ext(1, 0, 0, "cl_khr_local_int32_base_atomics");
+        add_ext(1, 0, 0, "cl_khr_local_int32_extended_atomics");
+
+        if has_doubles {
+            add_ext(1, 0, 0, "cl_khr_fp64");
+        }
 
         self.extension_string = exts.join(" ");
     }
@@ -355,6 +365,10 @@ impl Device {
             }
             pipe_loader_device_type::NUM_PIPE_LOADER_DEVICE_TYPES => CL_DEVICE_TYPE_CUSTOM,
         }) as cl_device_type
+    }
+
+    pub fn doubles_supported(&self) -> bool {
+        self.screen.param(pipe_cap::PIPE_CAP_DOUBLES) == 1
     }
 
     pub fn global_mem_size(&self) -> cl_ulong {
