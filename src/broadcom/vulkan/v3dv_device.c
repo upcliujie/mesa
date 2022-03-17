@@ -1345,9 +1345,7 @@ v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
 
    const uint32_t max_varying_components = 16 * 4;
 
-   const uint32_t v3d_coord_shift = 6;
-
-   const float v3d_point_line_granularity = 2.0f / (1 << v3d_coord_shift);
+   const float v3d_point_line_granularity = 2.0f / (1 << V3D_COORD_SHIFT);
    const uint32_t max_fb_size = 4096;
 
    const VkSampleCountFlags supported_sample_counts =
@@ -1433,7 +1431,7 @@ v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       .maxComputeWorkGroupInvocations           = 256,
       .maxComputeWorkGroupSize                  = { 256, 256, 256 },
 
-      .subPixelPrecisionBits                    = v3d_coord_shift,
+      .subPixelPrecisionBits                    = V3D_COORD_SHIFT,
       .subTexelPrecisionBits                    = 8,
       .mipmapPrecisionBits                      = 8,
       .maxDrawIndexedIndexValue                 = 0x00ffffff,
@@ -1455,7 +1453,7 @@ v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       .maxTexelGatherOffset                     = 7,
       .minInterpolationOffset                   = -0.5,
       .maxInterpolationOffset                   = 0.5,
-      .subPixelInterpolationOffsetBits          = v3d_coord_shift,
+      .subPixelInterpolationOffsetBits          = V3D_COORD_SHIFT,
       .maxFramebufferWidth                      = max_fb_size,
       .maxFramebufferHeight                     = max_fb_size,
       .maxFramebufferLayers                     = 256,
