@@ -132,6 +132,7 @@ pub struct Kernel {
     pub name: String,
     pub args: Vec<KernelArg>,
     pub values: Vec<RefCell<Option<KernelArgValue>>>,
+    pub work_group_size: [usize; 3],
     internal_args: Vec<InternalKernelArg>,
     nirs: HashMap<Arc<Device>, NirShader>,
 }
@@ -186,7 +187,7 @@ extern "C" fn rusticl_lower_constant_buffer(nir: *mut nir_shader, var: *mut nir_
 // mostly like clc_spirv_to_dxil
 // does not DCEe uniforms or images!
 fn lower_and_optimize_nir_pre_inputs(nir: &NirShader, lib_clc: &NirShader) {
-    nir.set_workgroup_size(&[0; 3]);
+    nir.set_workgroup_size_variable_if_zero();
     nir.structurize();
     while {
         let mut progress = false;
@@ -349,11 +350,15 @@ impl Kernel {
         let mut internal_args = internal_args.into_iter().next().unwrap();
         KernelArg::assign_locations(&mut args, &mut internal_args, &nir);
 
+        let wgs = nir.workgroup_size();
+        let work_group_size = [wgs[0] as usize, wgs[1] as usize, wgs[2] as usize];
+
         Arc::new(Self {
             base: CLObjectBase::new(),
             prog: prog,
             name: name,
             args: args,
+            work_group_size: work_group_size,
             values: values,
             internal_args: internal_args,
             // caller has to verify all kernels have the same sig
