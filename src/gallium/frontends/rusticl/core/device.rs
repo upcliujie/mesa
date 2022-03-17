@@ -322,7 +322,16 @@ impl Device {
             exts_str.push(s);
         };
 
+        // add extensions all drivers support
         add_ext(1, 0, 0, "cl_khr_byte_addressable_store");
+        add_ext(1, 0, 0, "cl_khr_global_int32_base_atomics");
+        add_ext(1, 0, 0, "cl_khr_global_int32_extended_atomics");
+        add_ext(1, 0, 0, "cl_khr_local_int32_base_atomics");
+        add_ext(1, 0, 0, "cl_khr_local_int32_extended_atomics");
+
+        if self.doubles_supported() {
+            add_ext(1, 0, 0, "cl_khr_fp64");
+        }
 
         self.extensions = exts;
         self.extension_string = exts_str.join(" ");
@@ -360,6 +369,19 @@ impl Device {
             }
             pipe_loader_device_type::NUM_PIPE_LOADER_DEVICE_TYPES => CL_DEVICE_TYPE_CUSTOM,
         }) as cl_device_type
+    }
+
+    pub fn doubles_supported(&self) -> bool {
+        if self.screen.param(pipe_cap::PIPE_CAP_DOUBLES) == 0 {
+            return false;
+        }
+        let nir_options = self
+            .screen
+            .nir_shader_compiler_options(pipe_shader_type::PIPE_SHADER_COMPUTE);
+        !bit_check(
+            unsafe { *nir_options }.lower_doubles_options as u32,
+            nir_lower_doubles_options::nir_lower_fp64_full_software as u32,
+        )
     }
 
     pub fn global_mem_size(&self) -> cl_ulong {
