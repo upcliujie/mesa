@@ -1156,6 +1156,26 @@ v3d_resource_get_stencil(struct pipe_resource *prsc)
         return &rsc->separate_stencil->base;
 }
 
+static enum pipe_format
+v3d_resource_get_canonical_format(struct pipe_context *pctx,
+                                  enum pipe_format format)
+{
+        switch (util_format_get_blocksizebits(format)) {
+        case 8:
+                return PIPE_FORMAT_R8_UINT;
+        case 16:
+                return PIPE_FORMAT_R8G8_UINT;
+        case 32:
+                return PIPE_FORMAT_R8G8B8A8_UINT;
+        case 64:
+                return PIPE_FORMAT_R32G32_UINT;
+        case 128:
+                return PIPE_FORMAT_R32G32B32A32_UINT;
+        default:
+                return PIPE_FORMAT_NONE;
+        }
+}
+
 static const struct u_transfer_vtbl transfer_vtbl = {
         .resource_create          = v3d_resource_create,
         .resource_destroy         = v3d_resource_destroy,
@@ -1199,4 +1219,5 @@ v3d_resource_context_init(struct pipe_context *pctx)
         pctx->blit = v3d_blit;
         pctx->generate_mipmap = v3d_generate_mipmap;
         pctx->flush_resource = v3d_flush_resource;
+        pctx->get_canonical_format = v3d_resource_get_canonical_format;
 }
