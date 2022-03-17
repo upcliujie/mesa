@@ -169,6 +169,7 @@ setup_arrays(struct st_context *st,
          const struct gl_array_attributes *const attrib
             = _mesa_draw_array_attrib(vao, attr);
          const GLuint off = _mesa_draw_attributes_relative_offset(attrib);
+
          init_velement(velements->velems, &attrib->Format, off,
                        binding->InstanceDivisor, bufidx,
                        dual_slot_inputs & BITFIELD_BIT(attr),
