@@ -35,6 +35,76 @@
 #include "iris_screen.h"
 #include "intel/compiler/brw_compiler.h"
 
+static void
+iris_clear_buffer(struct pipe_context *ctx,
+                  struct pipe_resource *p_res,
+                  unsigned offset,
+                  unsigned size,
+                  const void *clear_value,
+                  int clear_value_size)
+{
+   struct blorp_batch blorp_batch;
+   struct iris_context *ice = (void *) ctx;
+   struct iris_batch *batch = &ice->batches[IRIS_BATCH_RENDER];
+   struct iris_resource *res = (void *) p_res;
+
+   assert(p_res->target == PIPE_BUFFER);
+   struct blorp_address dst_addr = {
+      .buffer = res->bo, .offset = res->offset + offset,
+      .reloc_flags = EXEC_OBJECT_WRITE,
+      .mocs = iris_mocs(res->bo, &batch->screen->isl_dev,
+                        ISL_SURF_USAGE_RENDER_TARGET_BIT),
+      .local_hint = iris_bo_likely_local(res->bo),
+   };
+
+   struct pipe_resource *clear_value_res = NULL;
+   struct blorp_address clear_value_addr;
+   if (clear_value_size > 16 ||
+       !util_is_power_of_two_nonzero(clear_value_size) ||
+       dst_addr.offset % clear_value_size != 0) {
+      void *cv_res_map = NULL;
+      unsigned cv_offset = 0;
+      u_upload_alloc(ice->ctx.const_uploader, 0, clear_value_size, 16,
+                     &cv_offset, &clear_value_res, &cv_res_map);
+
+      memcpy(cv_res_map, clear_value, clear_value_size);
+
+      struct iris_resource *cv_res = (void *) clear_value_res;
+      clear_value_addr = (struct blorp_address) {
+         .buffer = cv_res->bo, .offset = cv_res->offset + cv_offset,
+         .mocs = iris_mocs(cv_res->bo, &batch->screen->isl_dev,
+                           ISL_SURF_USAGE_TEXTURE_BIT),
+         .local_hint = iris_bo_likely_local(cv_res->bo),
+      };
+   }
+
+   enum iris_domain write_domain =
+      batch->name == IRIS_BATCH_BLITTER ? IRIS_DOMAIN_OTHER_WRITE
+                                        : IRIS_DOMAIN_RENDER_WRITE;
+
+   enum blorp_batch_flags blorp_flags = iris_blorp_flags_for_batch(batch);
+
+   blorp_batch_init(&ice->blorp, &blorp_batch, batch, blorp_flags);
+
+   iris_emit_buffer_barrier_for(batch, res->bo, write_domain);
+
+   iris_batch_maybe_flush(batch, 1500);
+
+   iris_batch_sync_region_start(batch);
+   if (clear_value_addr.buffer) {
+      blorp_buffer_copy_repeat(&blorp_batch,
+                               clear_value_addr, clear_value_size,
+                               dst_addr, size);
+      pipe_resource_reference(&clear_value_res, NULL);
+   } else {
+      blorp_buffer_fill(&blorp_batch, dst_addr, clear_value,
+                        clear_value_size, size);
+   }
+   iris_batch_sync_region_end(batch);
+
+   blorp_batch_finish(&blorp_batch);
+}
+
 static bool
 iris_is_color_fast_clear_compatible(struct iris_context *ice,
                                     enum isl_format format,
@@ -793,6 +863,7 @@ void
 iris_init_clear_functions(struct pipe_context *ctx)
 {
    ctx->clear = iris_clear;
+   ctx->clear_buffer = iris_clear_buffer;
    ctx->clear_texture = iris_clear_texture;
    ctx->clear_render_target = iris_clear_render_target;
    ctx->clear_depth_stencil = iris_clear_depth_stencil;
