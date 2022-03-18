@@ -13,6 +13,7 @@ use crate::impl_cl_type_trait;
 
 use self::mesa_rust::compiler::clc::*;
 use self::mesa_rust::compiler::nir::*;
+use self::mesa_rust::pipe::context::*;
 use self::mesa_rust_gen::*;
 use self::rusticl_opencl_gen::*;
 
@@ -20,8 +21,11 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
+use std::mem;
+use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
+use std::slice;
 use std::sync::Arc;
 
 // ugh, we are not allowed to take refs, so...
@@ -47,6 +51,7 @@ pub enum KernelArgType {
 pub enum InternalKernelArgType {
     ConstantBuffer,
     GlobalWorkOffsets,
+    PrintfBuffer,
 }
 
 #[derive(Clone)]
@@ -158,6 +163,7 @@ where
 struct RusticlLowerConstantBufferState {
     base_global_invoc_id: *mut nir_variable,
     const_buf: *mut nir_variable,
+    printf_buf: *mut nir_variable,
 }
 
 impl Default for RusticlLowerConstantBufferState {
@@ -165,6 +171,7 @@ impl Default for RusticlLowerConstantBufferState {
         Self {
             base_global_invoc_id: ptr::null_mut(),
             const_buf: ptr::null_mut(),
+            printf_buf: ptr::null_mut(),
         }
     }
 }
@@ -189,6 +196,9 @@ unsafe extern "C" fn rusticl_lower_intrinsics_instr(
             nir_load_var(b, state.base_global_invoc_id)
         }
         nir_intrinsic_op::nir_intrinsic_load_constant_base_ptr => nir_load_var(b, state.const_buf),
+        nir_intrinsic_op::nir_intrinsic_load_printf_buffer_address => {
+            nir_load_var(b, state.printf_buf)
+        }
         _ => ptr::null_mut(),
     }
 }
@@ -209,7 +219,7 @@ extern "C" fn rusticl_lower_intrinsics(
 
 // mostly like clc_spirv_to_dxil
 // does not DCEe uniforms or images!
-fn lower_and_optimize_nir_pre_inputs(nir: &NirShader, lib_clc: &NirShader) {
+fn lower_and_optimize_nir_pre_inputs(dev: &Device, nir: &NirShader, lib_clc: &NirShader) {
     nir.set_workgroup_size_variable_if_zero();
     nir.structurize();
     while {
@@ -261,7 +271,12 @@ fn lower_and_optimize_nir_pre_inputs(nir: &NirShader, lib_clc: &NirShader) {
         nir_variable_mode::nir_var_function_temp,
         Some(glsl_get_cl_type_size_align),
     );
-    // TODO printf
+
+    let mut printf_opts = nir_lower_printf_options::default();
+    printf_opts.set_treat_doubles_as_floats(false);
+    printf_opts.max_buffer_size = dev.printf_buffer_size() as u32;
+    nir.pass1(nir_lower_printf, &printf_opts);
+
     nir.pass0(nir_split_var_copies);
     nir.pass0(nir_opt_copy_prop_vars);
     nir.pass0(nir_lower_var_copies);
@@ -306,6 +321,7 @@ fn lower_and_optimize_nir_late(
         Some(glsl_get_cl_type_size_align),
     );
     nir.extract_constant_initializers();
+
     // TODO printf
     // TODO 32 bit devices
     // add vars for global offsets
@@ -331,6 +347,19 @@ fn lower_and_optimize_nir_late(
             unsafe { glsl_uint64_t_type() },
             args + res.len() - 1,
             "constant_buffer_addr",
+        );
+    }
+    if nir.has_printf() {
+        res.push(InternalKernelArg {
+            kind: InternalKernelArgType::PrintfBuffer,
+            offset: 0,
+            size: 8,
+        });
+        lower_state.printf_buf = nir.add_var(
+            nir_variable_mode::nir_var_uniform,
+            unsafe { glsl_uint64_t_type() },
+            args + res.len() - 1,
+            "printf_buffer_addr",
         );
     }
 
@@ -379,8 +408,20 @@ fn lower_and_optimize_nir_late(
     nir.pass1(nir_lower_convert_alu_types, None);
     nir.pass0(nir_opt_dce);
     dev.screen.finalize_nir(nir);
+    nir.print();
     nir.sweep_mem();
     res
+}
+
+fn extract<T>(buf: &mut &[u8]) -> T
+where
+    T: Copy,
+{
+    let val;
+    (val, *buf) = (*buf).split_at(size_of::<T>());
+    // I wished there was a safe way
+    let val: &[T] = unsafe { mem::transmute(val) };
+    val[0]
 }
 
 impl Kernel {
@@ -391,7 +432,7 @@ impl Kernel {
         args: Vec<spirv::SPIRVKernelArg>,
     ) -> Arc<Kernel> {
         nirs.iter()
-            .for_each(|(d, n)| lower_and_optimize_nir_pre_inputs(n, &d.lib_clc));
+            .for_each(|(d, n)| lower_and_optimize_nir_pre_inputs(d, n, &d.lib_clc));
         let nir = nirs.values().next().unwrap();
         let mut args = KernelArg::from_spirv_nir(args, &nir);
         // can't use vec!...
@@ -418,123 +459,6 @@ impl Kernel {
             internal_args: internal_args,
             // caller has to verify all kernels have the same sig
             nirs: nirs,
-        })
-    }
-
-    // the painful part is, that host threads are allowed to modify the kernel object once it was
-    // enqueued, so return a closure with all req data included.
-    pub fn launch(
-        &self,
-        q: &Arc<Queue>,
-        work_dim: u32,
-        block: &[usize],
-        grid: &[usize],
-        offsets: &[usize],
-    ) -> EventSig {
-        let mut block = create_kernel_arr::<u32>(block, 1);
-        let mut grid = create_kernel_arr::<u32>(grid, 1);
-        let offsets = create_kernel_arr::<u64>(offsets, 0);
-        let mut input: Vec<u8> = Vec::new();
-        let mut resource_info = Vec::new();
-        let mut local_size: u32 = 0;
-
-        for i in 0..3 {
-            if block[i] == 0 {
-                if i == 0 {
-                    // TODO: make this more nice, but at least that should work
-                    let threads = q.device.max_block_sizes()[i] as u32;
-                    if grid[0] % threads == 0 {
-                        block[i] = threads;
-                        grid[i] /= threads;
-                    } else {
-                        block[i] = 1;
-                    }
-                } else {
-                    block[i] = 1;
-                }
-            } else {
-                // we already made sure everything is fine
-                grid[i] /= block[i];
-            }
-        }
-
-        for (arg, val) in self.args.iter().zip(&self.values) {
-            if arg.dead {
-                continue;
-            }
-            input.append(&mut vec![0; arg.offset - input.len()]);
-            match val.borrow().as_ref().unwrap() {
-                KernelArgValue::Constant(c) => input.extend_from_slice(&c),
-                KernelArgValue::MemObject(mem) => {
-                    // TODO 32 bit
-                    input.extend_from_slice(&[0; 8]);
-                    resource_info.push((Some(mem.get_res_of_dev(&q.device).clone()), arg.offset));
-                }
-                KernelArgValue::LocalMem(size) => {
-                    // TODO 32 bit
-                    input.extend_from_slice(&[0; 8]);
-                    local_size += *size as u32;
-                }
-                KernelArgValue::None => {
-                    assert!(
-                        arg.kind == KernelArgType::MemGlobal
-                            || arg.kind == KernelArgType::MemConstant
-                    );
-                    input.extend_from_slice(&[0; 8]);
-                }
-                _ => panic!("unhandled arg type"),
-            }
-        }
-
-        let nir = self.nirs.get(&q.device).unwrap();
-        for arg in &self.internal_args {
-            input.append(&mut vec![0; arg.offset - input.len()]);
-            match arg.kind {
-                InternalKernelArgType::ConstantBuffer => {
-                    input.extend_from_slice(&[0; 8]);
-                    let buf = nir.get_constant_buffer();
-                    let res = Arc::new(
-                        q.device
-                            .screen()
-                            .resource_create_buffer(buf.len() as u32)
-                            .unwrap(),
-                    );
-                    q.device.helper_ctx.buffer_subdata(
-                        &res,
-                        0,
-                        buf.as_ptr().cast(),
-                        buf.len() as u32,
-                    );
-                    resource_info.push((Some(res), arg.offset));
-                }
-                InternalKernelArgType::GlobalWorkOffsets => {
-                    input.extend_from_slice(&cl_prop::<[u64; 3]>(offsets));
-                }
-            }
-        }
-
-        let cso = q
-            .context()
-            .create_compute_state(nir, input.len() as u32, local_size);
-
-        Box::new(move |q| {
-            let mut input = input.clone();
-            let mut resources = Vec::with_capacity(resource_info.len());
-            let mut globals: Vec<*mut u32> = Vec::new();
-
-            for (res, offset) in resource_info.clone() {
-                resources.push(res);
-                globals.push(unsafe { input.as_mut_ptr().add(offset) }.cast());
-            }
-
-            q.context().bind_compute_state(cso);
-            q.context()
-                .set_global_binding(resources.as_slice(), &mut globals);
-            q.context().launch_grid(work_dim, block, grid, &input);
-            q.context().clear_global_binding(globals.len() as u32);
-            q.context().delete_compute_state(cso);
-            q.context().memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
-            Ok(())
         })
     }
 
@@ -622,5 +546,174 @@ impl Clone for Kernel {
             internal_args: self.internal_args.clone(),
             nirs: self.nirs.clone(),
         }
+    }
+}
+
+pub trait KernelRef {
+    fn launch(
+        &self,
+        q: &Arc<Queue>,
+        work_dim: u32,
+        block: &[usize],
+        grid: &[usize],
+        offsets: &[usize],
+    ) -> EventSig;
+}
+
+impl KernelRef for Arc<Kernel> {
+    // the painful part is, that host threads are allowed to modify the kernel object once it was
+    // enqueued, so return a closure with all req data included.
+    fn launch(
+        &self,
+        q: &Arc<Queue>,
+        work_dim: u32,
+        block: &[usize],
+        grid: &[usize],
+        offsets: &[usize],
+    ) -> EventSig {
+        let mut block = create_kernel_arr::<u32>(block, 1);
+        let mut grid = create_kernel_arr::<u32>(grid, 1);
+        let offsets = create_kernel_arr::<u64>(offsets, 0);
+        let mut input: Vec<u8> = Vec::new();
+        let mut resource_info = Vec::new();
+        let mut local_size: u32 = 0;
+        let printf_size = q.device.printf_buffer_size() as u32;
+
+        for i in 0..3 {
+            if block[i] == 0 {
+                if i == 0 {
+                    // TODO: make this more nice, but at least that should work
+                    let threads = q.device.max_block_sizes()[i] as u32;
+                    if grid[0] % threads == 0 {
+                        block[i] = threads;
+                        grid[i] /= threads;
+                    } else {
+                        block[i] = 1;
+                    }
+                } else {
+                    block[i] = 1;
+                }
+            } else {
+                // we already made sure everything is fine
+                grid[i] /= block[i];
+            }
+        }
+
+        for (arg, val) in self.args.iter().zip(&self.values) {
+            if arg.dead {
+                continue;
+            }
+            input.append(&mut vec![0; arg.offset - input.len()]);
+            match val.borrow().as_ref().unwrap() {
+                KernelArgValue::Constant(c) => input.extend_from_slice(&c),
+                KernelArgValue::MemObject(mem) => {
+                    // TODO 32 bit
+                    input.extend_from_slice(&[0; 8]);
+                    resource_info.push((Some(mem.get_res_of_dev(&q.device).clone()), arg.offset));
+                }
+                KernelArgValue::LocalMem(size) => {
+                    // TODO 32 bit
+                    input.extend_from_slice(&[0; 8]);
+                    local_size += *size as u32;
+                }
+                KernelArgValue::None => {
+                    assert!(
+                        arg.kind == KernelArgType::MemGlobal
+                            || arg.kind == KernelArgType::MemConstant
+                    );
+                    input.extend_from_slice(&[0; 8]);
+                }
+                _ => panic!("unhandled arg type"),
+            }
+        }
+
+        let nir = self.nirs.get(&q.device).unwrap();
+        let mut printf_buf = None;
+        for arg in &self.internal_args {
+            input.append(&mut vec![0; arg.offset - input.len()]);
+            match arg.kind {
+                InternalKernelArgType::ConstantBuffer => {
+                    input.extend_from_slice(&[0; 8]);
+                    let buf = nir.get_constant_buffer();
+                    let res = Arc::new(
+                        q.device
+                            .screen()
+                            .resource_create_buffer(buf.len() as u32)
+                            .unwrap(),
+                    );
+                    q.device.helper_ctx.buffer_subdata(
+                        &res,
+                        0,
+                        buf.as_ptr().cast(),
+                        buf.len() as u32,
+                    );
+                    resource_info.push((Some(res), arg.offset));
+                }
+                InternalKernelArgType::GlobalWorkOffsets => {
+                    input.extend_from_slice(&cl_prop::<[u64; 3]>(offsets));
+                }
+                InternalKernelArgType::PrintfBuffer => {
+                    let buf =
+                        Arc::new(q.device.screen.resource_create_buffer(printf_size).unwrap());
+
+                    input.extend_from_slice(&[0; 8]);
+                    resource_info.push((Some(buf.clone()), arg.offset));
+
+                    printf_buf = Some(buf);
+                }
+            }
+        }
+
+        let k = self.clone();
+        Box::new(move |q| {
+            let nir = k.nirs.get(&q.device).unwrap();
+            let mut input = input.clone();
+            let mut resources = Vec::with_capacity(resource_info.len());
+            let mut globals: Vec<*mut u32> = Vec::new();
+            let printf_format = nir.printf_format();
+            let printf_buf = printf_buf.clone();
+
+            for (res, offset) in resource_info.clone() {
+                resources.push(res);
+                globals.push(unsafe { input.as_mut_ptr().add(offset) }.cast());
+            }
+
+            if let Some(printf_buf) = &printf_buf {
+                let init_data: [u8; 1] = [4];
+                q.context().clear_buffer(&printf_buf, &[0], 0, printf_size);
+                q.context().buffer_subdata(
+                    &printf_buf,
+                    0,
+                    init_data.as_ptr().cast(),
+                    init_data.len() as u32,
+                );
+            }
+            let cso = q
+                .context()
+                .create_compute_state(nir, input.len() as u32, local_size);
+
+            q.context().bind_compute_state(cso);
+            q.context()
+                .set_global_binding(resources.as_slice(), &mut globals);
+            q.context().launch_grid(work_dim, block, grid, &input);
+            q.context().clear_global_binding(globals.len() as u32);
+            q.context().delete_compute_state(cso);
+            q.context().memory_barrier(PIPE_BARRIER_GLOBAL_BUFFER);
+
+            if let Some(printf_buf) = &printf_buf {
+                let tx = q
+                    .context()
+                    .buffer_map(&printf_buf, 0, printf_size as i32, true);
+                let mut buf: &[u8] =
+                    unsafe { slice::from_raw_parts(tx.ptr().cast(), printf_size as usize) };
+                //                let counter = extract::<u32>(&mut buf);
+
+                eprintln!("printf count {:?}", &buf[..100]);
+
+                drop(tx);
+            }
+
+            Ok(())
+        })
     }
 }
