@@ -287,22 +287,22 @@ impl Device {
 
         if res >= CLVersion::Cl3_0 {
             self.clc_versions
-                .push(mk_cl_version_ext(3, 0, 0, b"OpenCL C 3.0"));
+                .push(mk_cl_version_ext(3, 0, 0, b"OpenCL C"));
         }
 
         if res >= CLVersion::Cl1_2 {
             self.clc_versions
-                .push(mk_cl_version_ext(1, 2, 0, b"OpenCL C 1.2"));
+                .push(mk_cl_version_ext(1, 2, 0, b"OpenCL C"));
         }
 
         if res >= CLVersion::Cl1_1 {
             self.clc_versions
-                .push(mk_cl_version_ext(1, 1, 0, b"OpenCL C 1.1"));
+                .push(mk_cl_version_ext(1, 1, 0, b"OpenCL C"));
         }
 
         if res >= CLVersion::Cl1_0 {
             self.clc_versions
-                .push(mk_cl_version_ext(1, 0, 0, b"OpenCL C 1.0"));
+                .push(mk_cl_version_ext(1, 0, 0, b"OpenCL C"));
         }
 
         self.cl_version = res;
