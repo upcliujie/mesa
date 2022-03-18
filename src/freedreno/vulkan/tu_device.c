@@ -1767,6 +1767,8 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
 
    tu_bo_suballocator_init(&device->suballoc_ro, device,
                            128 * 1024, TU_BO_ALLOC_GPU_READ_ONLY | TU_BO_ALLOC_ALLOW_DUMP);
+   tu_bo_suballocator_init(&device->suballoc_rw, device,
+                           128 * 1024, 0);
 
    result = tu_bo_init_new(device, &device->global_bo, global_size,
                            TU_BO_ALLOC_ALLOW_DUMP);
@@ -1970,6 +1972,7 @@ tu_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
    tu_autotune_fini(&device->autotune, device);
 
    tu_bo_suballocator_finish(&device->suballoc_ro);
+   tu_bo_suballocator_finish(&device->suballoc_rw);
 
    util_sparse_array_finish(&device->bo_map);
    u_rwlock_destroy(&device->dma_bo_lock);

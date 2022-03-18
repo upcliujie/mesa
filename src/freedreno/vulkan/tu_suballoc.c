@@ -67,12 +67,12 @@ tu_suballoc_bo_alloc(struct tu_suballoc_bo *suballoc_bo,
       }
    }
 
-   size = MAX2(size, suballoc->default_size);
+   uint32_t alloc_size = MAX2(size, suballoc->default_size);
 
    /* Reuse a recycled suballoc BO if we have one and it's big enough, otherwise free it. */
    if (suballoc->cached_bo) {
-      if (size <= suballoc->cached_bo->size)
-         suballoc->bo = bo;
+      if (alloc_size <= suballoc->cached_bo->size)
+         suballoc->bo = suballoc->cached_bo;
       else
          tu_bo_finish(suballoc->dev, suballoc->cached_bo);
       suballoc->cached_bo = NULL;
@@ -81,7 +81,7 @@ tu_suballoc_bo_alloc(struct tu_suballoc_bo *suballoc_bo,
    /* Allocate the new BO if we didn't have one cached. */
    if (!suballoc->bo) {
       VkResult result = tu_bo_init_new(suballoc->dev, &suballoc->bo,
-                                       size,
+                                       alloc_size,
                                        suballoc->flags);
       if (result != VK_SUCCESS)
          return result;
