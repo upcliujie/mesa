@@ -2499,7 +2499,13 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetSemaphoreCounterValue(
    LVP_FROM_HANDLE(lvp_semaphore, sema, _semaphore);
    simple_mtx_lock(&sema->lock);
    prune_semaphore_links(device, sema, device->queue.last_finished);
-   *pValue = sema->current;
+   struct lvp_semaphore_timeline *tl = find_semaphore_timeline(sema, sema->current);
+   if (tl && tl->fence && device->pscreen->fence_finish(device->pscreen, NULL, tl->fence, 0)) {
+      set_last_fence(device, tl->fence, tl->timeline);
+      *pValue = tl->timeline;
+   } else {
+      *pValue = sema->current;
+   }
    simple_mtx_unlock(&sema->lock);
    return VK_SUCCESS;
 }
