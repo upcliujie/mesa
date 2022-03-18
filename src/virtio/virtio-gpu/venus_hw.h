@@ -35,6 +35,12 @@ struct virgl_renderer_capset_venus {
 
    /* TODO revisit this when we bump up wire_format_version to 1 */
    uint32_t supports_blob_id_0;
+
+   /* Extension number N, where N is defined by the Vulkan spec, corresponds
+    * to bit [(N - 1) / 32] & (1 << (N - 1) % 32). The below mask1 covers the
+    * first 1024 Vulkan extensions.
+    */
+   uint32_t vk_extension_mask1[32];
 };
 #endif
 
