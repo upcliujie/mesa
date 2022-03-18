@@ -3125,6 +3125,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
    bool image_float32_atomics = false;
    bool vs_prologs = false;
    bool global_bo_list = false;
+   bool vrs_enabled = false;
 
    /* Check enabled features */
    if (pCreateInfo->pEnabledFeatures) {
@@ -3157,6 +3158,9 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADING_RATE_FEATURES_KHR: {
          const VkPhysicalDeviceFragmentShadingRateFeaturesKHR *vrs = (const void *)ext;
          attachment_vrs_enabled = vrs->attachmentFragmentShadingRate;
+         vrs_enabled = vrs->pipelineFragmentShadingRate ||
+                       vrs->primitiveFragmentShadingRate ||
+                       vrs->attachmentFragmentShadingRate;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_FEATURES_EXT: {
@@ -3421,8 +3425,7 @@ radv_CreateDevice(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCr
       }
    }
 
-   device->adjust_frag_coord_z =
-      (device->vk.enabled_extensions.KHR_fragment_shading_rate || device->force_vrs_enabled) &&
+   device->adjust_frag_coord_z = (vrs_enabled || device->force_vrs_enabled) &&
       (device->physical_device->rad_info.family == CHIP_SIENNA_CICHLID ||
        device->physical_device->rad_info.family == CHIP_NAVY_FLOUNDER ||
        device->physical_device->rad_info.family == CHIP_VANGOGH);
