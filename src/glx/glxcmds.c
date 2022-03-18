@@ -297,6 +297,7 @@ __glXIsDirect(Display * dpy, GLXContextID contextID, Bool *error)
    if (!opcode) {
       return False;
    }
+   XFlush(dpy);
 
    c = XGetXCBConnection(dpy);
    reply = xcb_glx_is_direct_reply(c, xcb_glx_is_direct(c, contextID), &err);
