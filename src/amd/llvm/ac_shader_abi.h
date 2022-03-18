@@ -166,11 +166,6 @@ struct ac_shader_abi {
    /* Clamp div by 0 (so it won't produce NaN) */
    bool clamp_div_by_zero;
 
-   /* Whether gl_FragCoord.z should be adjusted for VRS due to a hw bug on
-    * some GFX10.3 chips.
-    */
-   bool adjust_frag_coord_z;
-
    /* Whether anisotropic filtering should be disabled for single level
     * images.
     */
