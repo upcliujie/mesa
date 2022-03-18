@@ -84,6 +84,10 @@ impl NirShader {
         unsafe { nir_shader_clone(ptr::null_mut(), self.nir.as_ptr()) }
     }
 
+    pub fn sweep_mem(&self) {
+        unsafe { nir_sweep(self.nir.as_ptr()) }
+    }
+
     pub fn pass0(&self, pass: unsafe extern "C" fn(*mut nir_shader) -> bool) -> bool {
         unsafe { pass(self.nir.as_ptr()) }
     }
