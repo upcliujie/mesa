@@ -419,6 +419,13 @@ struct tu6_global
    /* To know when renderpass stats for autotune are valid */
    volatile uint32_t autotune_fence;
 
+   /* Written from GPU */
+   volatile uint32_t breadcrumb_gpu_sync_seqno;
+   uint32_t _pad3;
+   /* Written from CPU, acknowledges value written from GPU */
+   volatile uint32_t breadcrumb_cpu_sync_seqno;
+   uint32_t _pad4;
+
    /* note: larger global bo will be used for customBorderColors */
    struct bcolor_entry bcolor_builtin[TU_BORDER_COLOR_BUILTIN], bcolor[];
 };
@@ -509,6 +516,9 @@ struct tu_device
    pthread_mutex_t submit_mutex;
 
    struct tu_autotune autotune;
+
+   bool breadcrumbs_thread_started;
+   pthread_t breadcrumbs_thread;
 
 #ifdef ANDROID
    const void *gralloc;
@@ -697,6 +707,8 @@ struct tu_cs
    /* state for cond_exec_start/cond_exec_end */
    uint32_t cond_flags;
    uint32_t *cond_dwords;
+
+   uint32_t breadcrumb_emit_after;
 };
 
 struct tu_device_memory

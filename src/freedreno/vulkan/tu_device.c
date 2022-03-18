@@ -1781,6 +1781,8 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    struct tu6_global *global = device->global_bo->map;
    tu_init_clear_blit_shaders(device);
    global->predicate = 0;
+   global->breadcrumb_cpu_sync_seqno = 0;
+   global->breadcrumb_gpu_sync_seqno = 0;
    tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK],
                          &(VkClearColorValue) {}, false);
    tu6_pack_border_color(&global->bcolor_builtin[VK_BORDER_COLOR_INT_TRANSPARENT_BLACK],
@@ -1936,6 +1938,9 @@ tu_DestroyDevice(VkDevice _device, const VkAllocationCallbacks *pAllocator)
 
    if (!device)
       return;
+
+   if (device->breadcrumbs_thread_started)
+      pthread_cancel(device->breadcrumbs_thread);
 
    u_trace_context_fini(&device->trace_context);
 
