@@ -13,7 +13,7 @@
 
 #include "vn_common.h"
 
-#include "venus-protocol/vn_protocol_driver_defines.h"
+#include "venus-protocol/vn_protocol_driver_info.h"
 
 #include "vn_cs.h"
 #include "vn_renderer.h"
@@ -40,6 +40,8 @@ struct vn_instance {
    struct vn_renderer *renderer;
 
    struct vn_renderer_shmem_pool reply_shmem_pool;
+
+   struct vn_info_protocol protocol_info;
 
    /* XXX staged features to be merged to core venus protocol */
    VkVenusExperimentalFeatures100000MESA experimental;
@@ -138,6 +140,7 @@ vn_instance_submit_command_init(struct vn_instance *instance,
 {
    submit->buffer = VN_CS_ENCODER_BUFFER_INITIALIZER(cmd_data);
    submit->command = VN_CS_ENCODER_INITIALIZER(&submit->buffer, cmd_size);
+   submit->command.protocol_info = &instance->protocol_info;
 
    submit->reply_size = reply_size;
    submit->reply_shmem = NULL;
@@ -153,7 +156,12 @@ static inline struct vn_cs_decoder *
 vn_instance_get_command_reply(struct vn_instance *instance,
                               struct vn_instance_submit_command *submit)
 {
-   return submit->reply_shmem ? &submit->reply : NULL;
+   if (submit->reply_shmem) {
+      submit->reply.protocol_info = &instance->protocol_info;
+      return &submit->reply;
+   }
+
+   return NULL;
 }
 
 static inline void

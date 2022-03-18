@@ -231,6 +231,31 @@ vn_instance_init_experimental_features(struct vn_instance *instance)
    return VK_SUCCESS;
 }
 
+static void
+vn_instance_init_protocol_info(struct vn_instance *instance)
+{
+   const struct vn_renderer_info *renderer_info = &instance->renderer->info;
+   /* use large enough local mask to combine vk extension masks */
+   uint32_t local_ext_mask[32] = { 0 };
+
+   instance->protocol_info.api_version = renderer_info->vk_xml_version;
+
+   /* set first 1k protocol extensions mask */
+   memcpy(&local_ext_mask[0], renderer_info->vk_extension_mask1,
+          sizeof(renderer_info->vk_extension_mask1));
+
+   vn_info_extension_mask_to_table(local_ext_mask,
+                                   &instance->protocol_info.extensions);
+
+   if (VN_DEBUG(INIT)) {
+      vn_log(instance, "renderer protocol extensions are as below:");
+      for (uint32_t i = 0; i < ARRAY_SIZE(vn_info_extensions); i++) {
+         if (instance->protocol_info.extensions.enabled[i])
+            vn_log(instance, "\t%s", vn_info_extensions[i].name);
+      }
+   }
+}
+
 static VkResult
 vn_instance_init_renderer(struct vn_instance *instance)
 {
@@ -731,6 +756,8 @@ vn_CreateInstance(const VkInstanceCreateInfo *pCreateInfo,
    result = vn_instance_init_renderer(instance);
    if (result != VK_SUCCESS)
       goto fail;
+
+   vn_instance_init_protocol_info(instance);
 
    vn_renderer_shmem_pool_init(instance->renderer,
                                &instance->reply_shmem_pool, 1u << 20);

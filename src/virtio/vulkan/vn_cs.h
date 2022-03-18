@@ -69,6 +69,8 @@ struct vn_cs_encoder {
    /* TODO remove when blob_id_0 support gets required */
    uint32_t current_buffer_roundtrip;
 
+   const struct vn_info_protocol *protocol_info;
+
    /* cur is the write pointer.  When cur passes end, the slow path is
     * triggered.
     */
@@ -77,6 +79,8 @@ struct vn_cs_encoder {
 };
 
 struct vn_cs_decoder {
+   const struct vn_info_protocol *protocol_info;
+
    const void *cur;
    const void *end;
 };
@@ -165,6 +169,12 @@ vn_cs_encoder_write(struct vn_cs_encoder *enc,
 void
 vn_cs_encoder_commit(struct vn_cs_encoder *enc);
 
+static inline const struct vn_info_protocol *
+vn_cs_encoder_get_protocol_info(struct vn_cs_encoder *enc)
+{
+   return enc->protocol_info;
+}
+
 static inline void
 vn_cs_decoder_init(struct vn_cs_decoder *dec, const void *data, size_t size)
 {
@@ -213,6 +223,12 @@ vn_cs_decoder_peek(const struct vn_cs_decoder *dec,
                    size_t val_size)
 {
    vn_cs_decoder_peek_internal(dec, size, val, val_size);
+}
+
+static inline const struct vn_info_protocol *
+vn_cs_decoder_get_protocol_info(struct vn_cs_decoder *dec)
+{
+   return dec->protocol_info;
 }
 
 static inline vn_object_id
