@@ -36,13 +36,24 @@ extern "C" {
 
 struct vk_sync;
 
+/** Base struct for VkDevice */
 struct vk_device {
    struct vk_object_base base;
+
+   /** Allocator used to create this device
+    *
+    * This is used as a fall-back for when a NULL pAllocator is passed into a
+    * device-level create function such as vkCreateImage().
+    */
    VkAllocationCallbacks alloc;
+
+   /** Pointer to the physical device */
    struct vk_physical_device *physical;
 
+   /** Table of enabled extensions */
    struct vk_device_extension_table enabled_extensions;
 
+   /** Device-level dispatch table */
    struct vk_device_dispatch_table dispatch_table;
 
    /** Command dispatch table
