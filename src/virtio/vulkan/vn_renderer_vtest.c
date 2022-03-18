@@ -945,6 +945,11 @@ vtest_init_renderer_info(struct vtest *vtest)
    info->vk_mesa_venus_protocol_spec_version =
       capset->vk_mesa_venus_protocol_spec_version;
    info->supports_blob_id_0 = capset->supports_blob_id_0;
+
+   assert(sizeof(info->vk_extension_mask1) ==
+          sizeof(capset->vk_extension_mask1));
+   memcpy(info->vk_extension_mask1, capset->vk_extension_mask1,
+          sizeof(info->vk_extension_mask1));
 }
 
 static void
