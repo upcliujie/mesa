@@ -2029,7 +2029,7 @@ radv_shader_compile(struct radv_device *device, struct vk_shader_module *module,
 struct radv_shader *
 radv_create_gs_copy_shader(struct radv_device *device, struct nir_shader *shader,
                            struct radv_shader_info *info, struct radv_shader_binary **binary_out,
-                           bool keep_shader_info, bool keep_statistic_info, bool multiview,
+                           bool keep_shader_info, bool keep_statistic_info,
                            bool disable_optimizations)
 {
    struct radv_nir_compiler_options options = {0};
@@ -2037,7 +2037,6 @@ radv_create_gs_copy_shader(struct radv_device *device, struct nir_shader *shader
 
    options.explicit_scratch_args = !radv_use_llvm_for_stage(device, stage);
    options.remap_spi_ps_input = !radv_use_llvm_for_stage(device, stage);
-   options.key.has_multiview_view_index = multiview;
    options.key.optimisations_disabled = disable_optimizations;
 
    return shader_compile(device, NULL, &shader, 1, stage, info, &options, true, false,

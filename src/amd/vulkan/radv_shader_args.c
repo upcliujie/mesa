@@ -75,19 +75,15 @@ struct user_sgpr_info {
 };
 
 static bool
-needs_view_index_sgpr(const struct radv_nir_compiler_options *options,
-                      const struct radv_shader_info *info, gl_shader_stage stage)
+needs_view_index_sgpr(const struct radv_shader_info *info, gl_shader_stage stage)
 {
    switch (stage) {
    case MESA_SHADER_VERTEX:
-      if (info->uses_view_index ||
-          (!info->vs.as_es && !info->vs.as_ls &&
-           options->key.has_multiview_view_index))
+      if (info->uses_view_index)
          return true;
       break;
    case MESA_SHADER_TESS_EVAL:
-      if (info->uses_view_index ||
-          (!info->tes.as_es && options->key.has_multiview_view_index))
+      if (info->uses_view_index)
          return true;
       break;
    case MESA_SHADER_TESS_CTRL:
@@ -95,12 +91,11 @@ needs_view_index_sgpr(const struct radv_nir_compiler_options *options,
          return true;
       break;
    case MESA_SHADER_GEOMETRY:
-      if (info->uses_view_index ||
-          (info->is_ngg && options->key.has_multiview_view_index))
+      if (info->uses_view_index)
          return true;
       break;
    case MESA_SHADER_MESH:
-      if (info->uses_view_index || options->key.has_multiview_view_index)
+      if (info->uses_view_index)
          return true;
       break;
    default:
@@ -559,7 +554,7 @@ radv_declare_shader_args(const struct radv_nir_compiler_options *options,
                          struct radv_shader_args *args)
 {
    struct user_sgpr_info user_sgpr_info;
-   bool needs_view_index = needs_view_index_sgpr(options, info, stage);
+   bool needs_view_index = needs_view_index_sgpr(info, stage);
    bool has_api_gs = stage == MESA_SHADER_GEOMETRY;
 
    if (options->chip_class >= GFX10 && info->is_ngg && stage != MESA_SHADER_GEOMETRY) {
