@@ -308,16 +308,12 @@ ubwc_possible(VkFormat format, VkImageType type, VkImageUsageFlags usage,
    return true;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL
-tu_CreateImage(VkDevice _device,
-               const VkImageCreateInfo *pCreateInfo,
-               const VkAllocationCallbacks *alloc,
-               VkImage *pImage)
+static VkResult
+tu_image_init(struct tu_device *device, const VkImageCreateInfo *pCreateInfo,
+              struct tu_image *image)
 {
-   TU_FROM_HANDLE(tu_device, device, _device);
    uint64_t modifier = DRM_FORMAT_MOD_INVALID;
    const VkSubresourceLayout *plane_layouts = NULL;
-   struct tu_image *image;
 
    if (pCreateInfo->tiling == VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT) {
       const VkImageDrmFormatModifierListCreateInfoEXT *mod_info =
@@ -358,11 +354,6 @@ tu_CreateImage(VkDevice _device,
          return result;
    }
 #endif
-
-   image = vk_object_zalloc(&device->vk, alloc, sizeof(*image),
-                            VK_OBJECT_TYPE_IMAGE);
-   if (!image)
-      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
    const VkExternalMemoryImageCreateInfo *external_info =
       vk_find_struct_const(pCreateInfo->pNext, EXTERNAL_MEMORY_IMAGE_CREATE_INFO);
@@ -460,7 +451,7 @@ tu_CreateImage(VkDevice _device,
          if (pCreateInfo->mipLevels != 1 ||
             pCreateInfo->arrayLayers != 1 ||
             pCreateInfo->extent.depth != 1)
-            goto invalid_layout;
+            return vk_error(device, VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT);
 
          plane_layout.offset = plane_layouts[i].offset;
          plane_layout.pitch = plane_layouts[i].rowPitch;
@@ -479,7 +470,7 @@ tu_CreateImage(VkDevice _device,
                        pCreateInfo->imageType == VK_IMAGE_TYPE_3D,
                        plane_layouts ? &plane_layout : NULL)) {
          assert(plane_layouts); /* can only fail with explicit layout */
-         goto invalid_layout;
+         return vk_error(device, VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT);
       }
 
       /* fdl6_layout can't take explicit offset without explicit pitch
@@ -527,17 +518,34 @@ tu_CreateImage(VkDevice _device,
       image->total_size += lrz_size;
    }
 
-   *pImage = tu_image_to_handle(image);
-
 #ifdef ANDROID
    if (gralloc_info)
-      return tu_import_memory_from_gralloc_handle(_device, dma_buf, alloc, *pImage);
+      return tu_import_memory_from_gralloc_handle(_device, dma_buf, alloc,
+                                                  tu_image_to_handle(image));
 #endif
    return VK_SUCCESS;
+}
 
-invalid_layout:
-   vk_object_free(&device->vk, alloc, image);
-   return vk_error(device, VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT);
+VKAPI_ATTR VkResult VKAPI_CALL
+tu_CreateImage(VkDevice _device,
+               const VkImageCreateInfo *pCreateInfo,
+               const VkAllocationCallbacks *alloc,
+               VkImage *pImage)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+   struct tu_image *image =
+      vk_object_zalloc(&device->vk, alloc, sizeof(*image), VK_OBJECT_TYPE_IMAGE);
+
+   if (!image)
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   VkResult result = tu_image_init(device, pCreateInfo, image);
+   if (result != VK_SUCCESS)
+      vk_object_free(&device->vk, alloc, image);
+
+   *pImage = tu_image_to_handle(image);
+
+   return result;
 }
 
 VKAPI_ATTR void VKAPI_CALL
@@ -557,6 +565,76 @@ tu_DestroyImage(VkDevice _device,
 #endif
 
    vk_object_free(&device->vk, pAllocator, image);
+}
+
+static void
+tu_get_image_memory_requirements(struct tu_image *image,
+                                 VkMemoryRequirements2 *pMemoryRequirements)
+{
+   pMemoryRequirements->memoryRequirements = (VkMemoryRequirements) {
+      .memoryTypeBits = 1,
+      .alignment = image->layout[0].base_align,
+      .size = image->total_size
+   };
+
+   vk_foreach_struct(ext, pMemoryRequirements->pNext) {
+      switch (ext->sType) {
+      case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
+         VkMemoryDedicatedRequirements *req =
+            (VkMemoryDedicatedRequirements *) ext;
+         req->requiresDedicatedAllocation = image->shareable;
+         req->prefersDedicatedAllocation = req->requiresDedicatedAllocation;
+         break;
+      }
+      default:
+         break;
+      }
+   }
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_GetImageMemoryRequirements2(VkDevice device,
+                               const VkImageMemoryRequirementsInfo2 *pInfo,
+                               VkMemoryRequirements2 *pMemoryRequirements)
+{
+   TU_FROM_HANDLE(tu_image, image, pInfo->image);
+
+   tu_get_image_memory_requirements(image, pMemoryRequirements);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_GetImageSparseMemoryRequirements2(
+   VkDevice device,
+   const VkImageSparseMemoryRequirementsInfo2 *pInfo,
+   uint32_t *pSparseMemoryRequirementCount,
+   VkSparseImageMemoryRequirements2 *pSparseMemoryRequirements)
+{
+   tu_stub();
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_GetDeviceImageMemoryRequirements(
+   VkDevice _device,
+   const VkDeviceImageMemoryRequirements *pInfo,
+   VkMemoryRequirements2 *pMemoryRequirements)
+{
+   TU_FROM_HANDLE(tu_device, device, _device);
+
+   struct tu_image image = {0};
+
+   tu_image_init(device, pInfo->pCreateInfo, &image);
+
+   tu_get_image_memory_requirements(&image, pMemoryRequirements);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+tu_GetDeviceImageSparseMemoryRequirements(
+    VkDevice device,
+    const VkDeviceImageMemoryRequirements *pInfo,
+    uint32_t *pSparseMemoryRequirementCount,
+    VkSparseImageMemoryRequirements2 *pSparseMemoryRequirements)
+{
+   tu_stub();
 }
 
 VKAPI_ATTR void VKAPI_CALL
