@@ -283,3 +283,32 @@ vk_common_GetPhysicalDeviceSparseImageFormatProperties(VkPhysicalDevice physical
 
    STACK_ARRAY_FINISH(props2);
 }
+
+VKAPI_ATTR void VKAPI_CALL
+vk_common_GetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice physicalDevice,
+                                                 uint32_t *count,
+                                                 VkQueueFamilyProperties *props)
+{
+   VK_FROM_HANDLE(vk_physical_device, pdevice, physicalDevice);
+
+   if (!props) {
+      pdevice->dispatch_table.GetPhysicalDeviceQueueFamilyProperties2(physicalDevice,
+                                                                      count, NULL);
+      return;
+   }
+
+   STACK_ARRAY(VkQueueFamilyProperties2, props2, *count);
+
+   for (uint32_t i = 0; i < *count; i++) {
+      props2[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+      props2[i].pNext = NULL;
+   }
+
+   pdevice->dispatch_table.GetPhysicalDeviceQueueFamilyProperties2(physicalDevice,
+                                                                   count, props2);
+
+   for (uint32_t i = 0; i < *count; i++)
+      props[i] = props2[i].queueFamilyProperties;
+
+   STACK_ARRAY_FINISH(props2);
+}
