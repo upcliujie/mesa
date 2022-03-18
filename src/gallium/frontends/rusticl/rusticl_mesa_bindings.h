@@ -9,3 +9,5 @@
 #include "pipe/p_screen.h"
 #include "pipe/p_state.h"
 #include "pipe-loader/pipe_loader.h"
+
+#include "util/u_printf.h"
