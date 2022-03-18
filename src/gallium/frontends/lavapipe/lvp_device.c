@@ -2613,7 +2613,16 @@ VKAPI_ATTR VkResult VKAPI_CALL lvp_GetSemaphoreCounterValue(
    LVP_FROM_HANDLE(lvp_semaphore, sema, _semaphore);
    simple_mtx_lock(&sema->lock);
    prune_semaphore_links(device, sema, device->queue.last_finished);
-   *pValue = sema->current;
+   struct lvp_semaphore_timeline *tl = find_semaphore_timeline(sema, sema->current);
+   if (tl && fence_finish(device->pscreen, tl->fence, 0)) {
+      simple_mtx_lock(&queue->last_lock);
+      if (tl->timeline > device->queue.last_finished)
+         device->queue.last_finished = tl->timeline;
+      simple_mtx_unlock(&queue->last_lock);
+      *pValue = tl->signal;
+   } else {
+      *pValue = sema->current;
+   }
    simple_mtx_unlock(&sema->lock);
    return VK_SUCCESS;
 }
