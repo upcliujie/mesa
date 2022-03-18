@@ -35,6 +35,9 @@ struct virgl_renderer_capset_venus {
 
    /* TODO revisit this when we bump up wire_format_version to 1 */
    uint32_t supports_blob_id_0;
+
+   /* this covers the first 1023 Vulkan extensions */
+   uint32_t vk_extension_mask1[32];
 };
 #endif
 
