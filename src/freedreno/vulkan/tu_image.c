@@ -398,6 +398,7 @@ tu_CreateImage(VkDevice _device,
    }
 
    bool has_r8g8 = tu_is_r8g8(image->vk_format);
+   bool has_non_r8g8 = !has_r8g8;
 
    /* Mutable images can be reinterpreted as any other compatible format.
     * This is a problem with UBWC (compression for different formats is different),
@@ -421,6 +422,7 @@ tu_CreateImage(VkDevice _device,
          for (uint32_t i = 0; i < fmt_list->viewFormatCount; i++) {
             bool is_r8g8 = tu_is_r8g8(fmt_list->pViewFormats[i]);
             has_r8g8 = has_r8g8 || is_r8g8;
+            has_non_r8g8 = has_non_r8g8 || !is_r8g8;
 
             if (tu6_format_texture(tu_vk_format_to_pipe_format(fmt_list->pViewFormats[i]), TILE6_LINEAR).swap) {
                may_be_swapped = true;
@@ -428,8 +430,17 @@ tu_CreateImage(VkDevice _device,
             }
          }
       }
+
       if (may_be_swapped)
          tile_mode = TILE6_LINEAR;
+
+      /* R8G8 have a different block width/height and height alignment from other
+       * formats that would normally be compatible (like R16), and so if we are
+       * trying to, for example, sample R16 as R8G8 we need to demote to linear.
+       */
+      if (has_r8g8 && has_non_r8g8)
+         tile_mode = TILE6_LINEAR;
+
       ubwc_enabled = false;
    }
 
