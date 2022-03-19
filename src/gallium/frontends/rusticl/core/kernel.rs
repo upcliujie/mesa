@@ -21,8 +21,6 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryInto;
-use std::mem;
-use std::mem::size_of;
 use std::os::raw::c_void;
 use std::ptr;
 use std::slice;
@@ -413,15 +411,12 @@ fn lower_and_optimize_nir_late(
     res
 }
 
-fn extract<T>(buf: &mut &[u8]) -> T
-where
-    T: Copy,
-{
+fn extract<'a, const S: usize>(buf: &'a mut &[u8]) -> &'a [u8; S] {
     let val;
-    (val, *buf) = (*buf).split_at(size_of::<T>());
-    // I wished there was a safe way
-    let val: &[T] = unsafe { mem::transmute(val) };
-    val[0]
+    (val, *buf) = (*buf).split_at(S);
+    // we split of 4 bytes and convert to [u8; 4], so this should be safe
+    // use split_array_ref once it's stable
+    val.try_into().unwrap()
 }
 
 impl Kernel {
@@ -706,9 +701,31 @@ impl KernelRef for Arc<Kernel> {
                     .buffer_map(&printf_buf, 0, printf_size as i32, true);
                 let mut buf: &[u8] =
                     unsafe { slice::from_raw_parts(tx.ptr().cast(), printf_size as usize) };
-                //                let counter = extract::<u32>(&mut buf);
+                let length = u32::from_ne_bytes(*extract(&mut buf));
 
-                eprintln!("printf count {:?}", &buf[..100]);
+                // update our slice to make sure we don't go out of bounds
+                buf = &buf[0..(length - 4) as usize];
+                eprintln!("printf length {:?}", buf);
+
+                // as long as we can still read out a printf format string id continue
+                while buf.len() >= 4 {
+                    let id = u32::from_ne_bytes(*extract(&mut buf)) as usize;
+                    let format = printf_format[id - 1];
+                    let string = unsafe {
+                        slice::from_raw_parts(format.strings.cast(), format.string_size as usize)
+                    };
+                    let args = unsafe {
+                        slice::from_raw_parts(format.arg_sizes, format.num_args as usize)
+                    };
+
+                    eprintln!(
+                        "printf string id {:?} {}",
+                        id,
+                        String::from_utf8(string.to_vec()).unwrap()
+                    );
+                    eprintln!("printf args {:?}", args);
+                    buf = &[];
+                }
 
                 drop(tx);
             }
