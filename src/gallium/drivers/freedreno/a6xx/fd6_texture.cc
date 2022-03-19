@@ -33,6 +33,8 @@
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_string.h"
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
 
 #include "freedreno_dev_info.h"
 #include "fd6_emit.h"

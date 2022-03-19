@@ -24,6 +24,8 @@
 #include "nir_instr_set.h"
 #include "nir_vla.h"
 #include "util/half_float.h"
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
 
 static bool
 src_is_ssa(nir_src *src, void *data)

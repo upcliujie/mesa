@@ -15,6 +15,9 @@
 #include "tu_device.h"
 #include "tu_image.h"
 
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
+
 /* Return true if we have to fallback to sysmem rendering because the
  * dependency can't be satisfied with tiled rendering.
  */

@@ -36,6 +36,8 @@
 #include "nir_vla.h"
 #include "nir_builder.h"
 #include "util/u_dynarray.h"
+#define XXH_INLINE_ALL
+#include "util/xxhash.h"
 
 #define HASH(hash, data) XXH32(&data, sizeof(data), hash)
 
