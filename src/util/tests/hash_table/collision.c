@@ -46,7 +46,7 @@ main(int argc, char **argv)
    const char *str3 = strdup("test3");
    struct hash_entry *entry1, *entry2;
    uint32_t bad_hash = 5;
-   int i;
+   uint32_t i;
 
    (void) argc;
    (void) argv;
