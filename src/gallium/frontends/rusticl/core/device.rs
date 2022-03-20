@@ -224,7 +224,7 @@ impl Device {
 
             // TODO check req formats
         }
-        false
+        !self.long_supported()
     }
 
     fn parse_env_version() -> Option<CLVersion> {
@@ -312,6 +312,8 @@ impl Device {
     fn fill_extensions(&mut self) {
         let mut exts: Vec<String> = Vec::new();
         let has_doubles = self.doubles_supported();
+        let has_longs = self.long_supported();
+        let is_embedded = self.embedded;
         let mut add_ext = |major, minor, patch, ext| {
             let s = String::from(ext);
             self.extensions
@@ -328,6 +330,12 @@ impl Device {
 
         if has_doubles {
             add_ext(1, 0, 0, "cl_khr_fp64");
+        }
+
+        if is_embedded {
+            if has_longs {
+                add_ext(1, 0, 0, "cles_khr_int64");
+            }
         }
 
         self.extension_string = exts.join(" ");
@@ -369,6 +377,10 @@ impl Device {
 
     pub fn doubles_supported(&self) -> bool {
         self.screen.param(pipe_cap::PIPE_CAP_DOUBLES) == 1
+    }
+
+    pub fn long_supported(&self) -> bool {
+        self.screen.param(pipe_cap::PIPE_CAP_INT64) == 1
     }
 
     pub fn global_mem_size(&self) -> cl_ulong {
