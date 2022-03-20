@@ -1671,16 +1671,17 @@ extern "C" fn cl_set_program_specialization_constant(
 }
 
 extern "C" fn cl_create_buffer_with_properties(
-    _context: cl_context,
-    _properties: *const cl_mem_properties,
-    _flags: cl_mem_flags,
-    _size: usize,
-    _host_ptr: *mut ::std::os::raw::c_void,
+    context: cl_context,
+    properties: *const cl_mem_properties,
+    flags: cl_mem_flags,
+    size: usize,
+    host_ptr: *mut ::std::os::raw::c_void,
     errcode_ret: *mut cl_int,
 ) -> cl_mem {
-    println!("cl_create_buffer_with_properties not implemented");
-    errcode_ret.write_checked(CL_OUT_OF_HOST_MEMORY);
-    ptr::null_mut()
+    match_obj!(
+        create_buffer_with_properties(context, properties, flags, size, host_ptr),
+        errcode_ret
+    )
 }
 
 extern "C" fn cl_create_image_with_properties(
