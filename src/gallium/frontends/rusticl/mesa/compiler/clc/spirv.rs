@@ -266,6 +266,12 @@ impl SPIRVBin {
             }
         }
     }
+
+    pub fn print(&self) {
+        unsafe {
+            clc_dump_spirv(&self.spirv, stderr);
+        }
+    }
 }
 
 impl Drop for SPIRVBin {
