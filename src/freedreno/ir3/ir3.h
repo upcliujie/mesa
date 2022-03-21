@@ -38,6 +38,8 @@
 
 /* low level intermediate representation of an adreno shader program */
 
+#define IR3_SHARED_CONST_BASE 504
+
 struct ir3_compiler;
 struct ir3;
 struct ir3_instruction;
@@ -66,6 +68,7 @@ struct ir3_info {
    int8_t max_reg; /* highest GPR # used by shader */
    int8_t max_half_reg;
    int16_t max_const;
+   int16_t max_shared_const;
    /* This is the maximum # of waves that can executed at once in one core,
     * assuming that they are all executing this shader.
     */
@@ -158,6 +161,12 @@ struct ir3_register {
        * interferes with the sources of the instruction.
        */
       IR3_REG_EARLY_CLOBBER = 0x80000,
+
+      /* Shared consts are enabled when HLSQ_SHARED_CONSTS is enabled, which
+       * are mapped to c504~c511. This flag is needed since we don't need to
+       * take this into account when calculating constlen.
+       */
+      IR3_REG_SHARED_CONST = 0x100000,
    } flags;
 
    unsigned name;
@@ -1954,6 +1963,10 @@ create_uniform_typed(struct ir3_block *block, unsigned n, type_t type)
    mov->cat1.src_type = type;
    mov->cat1.dst_type = type;
    __ssa_dst(mov)->flags |= flags;
+
+   if (n >= IR3_SHARED_CONST_BASE * 4)
+      flags |= IR3_REG_SHARED_CONST;
+
    ir3_src_create(mov, n, IR3_REG_CONST | flags);
 
    return mov;

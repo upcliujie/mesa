@@ -167,6 +167,7 @@ ir3_shader_assemble(struct ir3_shader_variant *v)
     * the assembler what the max addr reg value can be:
     */
    v->constlen = MAX2(v->constlen, info->max_const + 1);
+   v->shared_constlen = MAX2(v->shared_constlen, info->max_shared_const + 1);
 
    if (v->constlen > ir3_const_state(v)->offsets.driver_param)
       v->need_driver_params = true;
@@ -783,9 +784,10 @@ ir3_shader_disasm(struct ir3_shader_variant *so, uint32_t *bin, FILE *out)
       so->info.cov_count, so->info.sizedwords);
 
    fprintf(out,
-           "; %s prog %d/%d: %u last-baryf, %d half, %d full, %u constlen\n",
+           "; %s prog %d/%d: %u last-baryf, %d half, %d full, %u constlen, %u shared-constlen\n",
            type, so->shader->id, so->id, so->info.last_baryf,
-           so->info.max_half_reg + 1, so->info.max_reg + 1, so->constlen);
+           so->info.max_half_reg + 1, so->info.max_reg + 1,
+           so->constlen, so->shared_constlen);
 
    fprintf(
       out,

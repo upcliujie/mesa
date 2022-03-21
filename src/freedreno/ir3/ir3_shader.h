@@ -575,6 +575,10 @@ struct ir3_shader_variant {
     */
    unsigned constlen;
 
+   /* the shared constants length is in units of vec4's.
+    */
+   unsigned shared_constlen;
+
    /* The private memory size in bytes */
    unsigned pvtmem_size;
    /* Whether we should use the new per-wave layout rather than per-fiber. */
