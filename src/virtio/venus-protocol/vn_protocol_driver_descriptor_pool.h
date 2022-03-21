@@ -146,6 +146,11 @@ vn_encode_VkDescriptorPoolCreateInfo_pnext(struct vn_cs_encoder *enc, const void
     while (pnext) {
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO:
+            {
+                const struct vn_info_protocol *info = vn_cs_encoder_get_protocol_info(enc);
+                if (!info->extensions.EXT_inline_uniform_block)
+                    break;
+            }
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkDescriptorPoolCreateInfo_pnext(enc, pnext->pNext);

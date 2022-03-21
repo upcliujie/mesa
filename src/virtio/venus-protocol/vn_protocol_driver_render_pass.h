@@ -1075,6 +1075,11 @@ vn_encode_VkSubpassDependency2_pnext(struct vn_cs_encoder *enc, const void *val)
     while (pnext) {
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_MEMORY_BARRIER_2:
+            {
+                const struct vn_info_protocol *info = vn_cs_encoder_get_protocol_info(enc);
+                if (!info->extensions.KHR_synchronization2)
+                    break;
+            }
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSubpassDependency2_pnext(enc, pnext->pNext);
