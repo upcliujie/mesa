@@ -47,7 +47,7 @@ enum agx_selector {
 	AGX_SELECTOR_FREE_NOTIFICATION_QUEUE = 0x12,
 	AGX_SELECTOR_SUBMIT_COMMAND_BUFFERS = 0x1E,
 	AGX_SELECTOR_GET_VERSION = 0x23,
-	AGX_NUM_SELECTORS = 0x30
+	AGX_NUM_SELECTORS = 0x32
 };
 
 static const char *selector_table[AGX_NUM_SELECTORS] = {
@@ -98,7 +98,9 @@ static const char *selector_table[AGX_NUM_SELECTORS] = {
 	"unk2C",
 	"unk2D",
 	"unk2E",
-	"unk2F"
+	"unk2F",
+	"unk30",
+	"unk31"
 };
 
 static inline const char *
