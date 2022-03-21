@@ -444,7 +444,7 @@ agxdecode_cmdstream(unsigned cmdbuf_handle, unsigned map_handle, bool verbose)
 
    DUMP_CL(IOGPU_INTERNAL_PIPELINES, ((uint32_t *) cmdbuf->ptr.cpu) + 160, "Internal pipelines");
    DUMP_CL(IOGPU_AUX_FRAMEBUFFER, ((uint32_t *) cmdbuf->ptr.cpu) + 228, "Aux Framebuffer");
-   DUMP_CL(IOGPU_CLEAR_Z_S, ((uint32_t *) cmdbuf->ptr.cpu) + 276, "Clear Z/S");
+   DUMP_CL(IOGPU_CLEAR_Z_S, ((uint32_t *) cmdbuf->ptr.cpu) + 292, "Clear Z/S");
 
    /* Guard against changes */
    uint32_t zeroes[356 - 344] = { 0 };
