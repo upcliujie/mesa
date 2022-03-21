@@ -67,9 +67,20 @@ ir3_destroy(struct ir3 *shader)
    ralloc_free(shader);
 }
 
+static bool
+is_shared_consts(struct ir3_register *reg, struct ir3_const_state *const_state)
+{
+   if ((reg->flags & IR3_REG_CONST) &&
+         reg->num >= regid(IR3_SHARED_CONST_BASE, 0) &&
+         reg->num < regid(IR3_SHARED_CONST_BASE + 8, 0))
+      return true;
+
+   return false;
+}
+
 static void
 collect_reg_info(struct ir3_instruction *instr, struct ir3_register *reg,
-                 struct ir3_info *info)
+                 struct ir3_info *info, struct ir3_const_state *const_state)
 {
    struct ir3_shader_variant *v = info->data;
    unsigned repeat = instr->repeat;
@@ -78,6 +89,10 @@ collect_reg_info(struct ir3_instruction *instr, struct ir3_register *reg,
       /* nothing to do */
       return;
    }
+   /* Shared consts don't need to be included to constlen.
+    */
+   if (is_shared_consts(reg, const_state))
+      return;
 
    if (!(reg->flags & IR3_REG_R)) {
       repeat = 0;
@@ -280,12 +295,12 @@ ir3_collect_info(struct ir3_shader_variant *v)
       foreach_instr (instr, &block->instr_list) {
 
          foreach_src (reg, instr) {
-            collect_reg_info(instr, reg, info);
+            collect_reg_info(instr, reg, info, ir3_const_state(v));
          }
 
          foreach_dst (reg, instr) {
             if (is_dest_gpr(reg)) {
-               collect_reg_info(instr, reg, info);
+               collect_reg_info(instr, reg, info, ir3_const_state(v));
             }
          }
 

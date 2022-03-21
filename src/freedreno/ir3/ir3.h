@@ -38,6 +38,8 @@
 
 /* low level intermediate representation of an adreno shader program */
 
+#define IR3_SHARED_CONST_BASE 504
+
 struct ir3_compiler;
 struct ir3;
 struct ir3_instruction;
@@ -1954,6 +1956,7 @@ create_uniform_typed(struct ir3_block *block, unsigned n, type_t type)
    mov->cat1.src_type = type;
    mov->cat1.dst_type = type;
    __ssa_dst(mov)->flags |= flags;
+
    ir3_src_create(mov, n, IR3_REG_CONST | flags);
 
    return mov;

@@ -198,6 +198,11 @@ struct ir3_compiler_options {
     * constants for it can be pre-baked when compiling the shader.
     */
    bool push_ubo_with_preamble;
+
+   /* If true, enable HLSQ_SHARED_CONSTS and handle cases where it has to use
+    * them at the ir3 comipler.
+    */
+   bool shared_const_enable;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
