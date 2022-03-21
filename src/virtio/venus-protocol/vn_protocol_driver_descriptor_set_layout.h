@@ -176,12 +176,13 @@ vn_encode_VkDescriptorSetLayoutCreateInfo_pnext(struct vn_cs_encoder *enc, const
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO:
+        case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkDescriptorSetLayoutCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDescriptorSetLayoutBindingFlagsCreateInfo_self(enc, (const VkDescriptorSetLayoutBindingFlagsCreateInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -388,10 +389,11 @@ vn_decode_VkDescriptorSetLayoutSupport_pnext(struct vn_cs_decoder *dec, const vo
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT:
+    case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT: {
         vn_decode_VkDescriptorSetLayoutSupport_pnext(dec, pnext->pNext);
         vn_decode_VkDescriptorSetVariableDescriptorCountLayoutSupport_self(dec, (VkDescriptorSetVariableDescriptorCountLayoutSupport *)pnext);
         break;
+    }
     default:
         assert(false);
         break;
@@ -469,12 +471,13 @@ vn_encode_VkDescriptorSetLayoutSupport_pnext_partial(struct vn_cs_encoder *enc, 
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT:
+        case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_LAYOUT_SUPPORT: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkDescriptorSetLayoutSupport_pnext_partial(enc, pnext->pNext);
             vn_encode_VkDescriptorSetVariableDescriptorCountLayoutSupport_self_partial(enc, (const VkDescriptorSetVariableDescriptorCountLayoutSupport *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

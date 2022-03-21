@@ -144,12 +144,13 @@ vn_encode_VkDescriptorSetAllocateInfo_pnext(struct vn_cs_encoder *enc, const voi
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO:
+        case VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkDescriptorSetAllocateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDescriptorSetVariableDescriptorCountAllocateInfo_self(enc, (const VkDescriptorSetVariableDescriptorCountAllocateInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -368,12 +369,16 @@ vn_encode_VkWriteDescriptorSet_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK:
+        case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK: {
+            const struct vn_info_protocol *info = vn_cs_encoder_get_protocol_info(enc);
+            if (!info->extensions.EXT_inline_uniform_block)
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkWriteDescriptorSet_pnext(enc, pnext->pNext);
             vn_encode_VkWriteDescriptorSetInlineUniformBlock_self(enc, (const VkWriteDescriptorSetInlineUniformBlock *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

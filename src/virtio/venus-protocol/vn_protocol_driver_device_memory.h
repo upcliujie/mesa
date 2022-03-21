@@ -367,36 +367,41 @@ vn_encode_VkMemoryAllocateInfo_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO:
+        case VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryAllocateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkExportMemoryAllocateInfo_self(enc, (const VkExportMemoryAllocateInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO:
+        }
+        case VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryAllocateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkMemoryAllocateFlagsInfo_self(enc, (const VkMemoryAllocateFlagsInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO:
+        }
+        case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryAllocateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkMemoryDedicatedAllocateInfo_self(enc, (const VkMemoryDedicatedAllocateInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_MEMORY_OPAQUE_CAPTURE_ADDRESS_ALLOCATE_INFO:
+        }
+        case VK_STRUCTURE_TYPE_MEMORY_OPAQUE_CAPTURE_ADDRESS_ALLOCATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryAllocateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkMemoryOpaqueCaptureAddressAllocateInfo_self(enc, (const VkMemoryOpaqueCaptureAddressAllocateInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA:
+        }
+        case VK_STRUCTURE_TYPE_IMPORT_MEMORY_RESOURCE_INFO_MESA: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryAllocateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkImportMemoryResourceInfoMESA_self(enc, (const VkImportMemoryResourceInfoMESA *)pnext);
             return;
+        }
         case VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR:
         default:
             /* ignore unknown/unsupported struct */

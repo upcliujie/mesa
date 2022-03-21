@@ -124,18 +124,20 @@ vn_encode_VkSemaphoreCreateInfo_pnext(struct vn_cs_encoder *enc, const void *val
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO:
+        case VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSemaphoreCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkExportSemaphoreCreateInfo_self(enc, (const VkExportSemaphoreCreateInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO:
+        }
+        case VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSemaphoreCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkSemaphoreTypeCreateInfo_self(enc, (const VkSemaphoreTypeCreateInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

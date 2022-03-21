@@ -304,10 +304,11 @@ vn_decode_VkMemoryResourcePropertiesMESA_pnext(struct vn_cs_decoder *dec, const 
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_MEMORY_RESOURCE_ALLOCATION_SIZE_PROPERTIES_100000_MESA:
+    case VK_STRUCTURE_TYPE_MEMORY_RESOURCE_ALLOCATION_SIZE_PROPERTIES_100000_MESA: {
         vn_decode_VkMemoryResourcePropertiesMESA_pnext(dec, pnext->pNext);
         vn_decode_VkMemoryResourceAllocationSizeProperties100000MESA_self(dec, (VkMemoryResourceAllocationSizeProperties100000MESA *)pnext);
         break;
+    }
     default:
         assert(false);
         break;
@@ -385,12 +386,13 @@ vn_encode_VkMemoryResourcePropertiesMESA_pnext_partial(struct vn_cs_encoder *enc
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_MEMORY_RESOURCE_ALLOCATION_SIZE_PROPERTIES_100000_MESA:
+        case VK_STRUCTURE_TYPE_MEMORY_RESOURCE_ALLOCATION_SIZE_PROPERTIES_100000_MESA: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryResourcePropertiesMESA_pnext_partial(enc, pnext->pNext);
             vn_encode_VkMemoryResourceAllocationSizeProperties100000MESA_self_partial(enc, (const VkMemoryResourceAllocationSizeProperties100000MESA *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

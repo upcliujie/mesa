@@ -241,18 +241,20 @@ vn_encode_VkBufferCreateInfo_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO:
+        case VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkBufferCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkExternalMemoryBufferCreateInfo_self(enc, (const VkExternalMemoryBufferCreateInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_BUFFER_OPAQUE_CAPTURE_ADDRESS_CREATE_INFO:
+        }
+        case VK_STRUCTURE_TYPE_BUFFER_OPAQUE_CAPTURE_ADDRESS_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkBufferCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkBufferOpaqueCaptureAddressCreateInfo_self(enc, (const VkBufferOpaqueCaptureAddressCreateInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -306,14 +308,16 @@ vn_decode_VkBufferCreateInfo_pnext(struct vn_cs_decoder *dec, const void *val)
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO:
+    case VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO: {
         vn_decode_VkBufferCreateInfo_pnext(dec, pnext->pNext);
         vn_decode_VkExternalMemoryBufferCreateInfo_self(dec, (VkExternalMemoryBufferCreateInfo *)pnext);
         break;
-    case VK_STRUCTURE_TYPE_BUFFER_OPAQUE_CAPTURE_ADDRESS_CREATE_INFO:
+    }
+    case VK_STRUCTURE_TYPE_BUFFER_OPAQUE_CAPTURE_ADDRESS_CREATE_INFO: {
         vn_decode_VkBufferCreateInfo_pnext(dec, pnext->pNext);
         vn_decode_VkBufferOpaqueCaptureAddressCreateInfo_self(dec, (VkBufferOpaqueCaptureAddressCreateInfo *)pnext);
         break;
+    }
     default:
         assert(false);
         break;
@@ -505,12 +509,13 @@ vn_encode_VkBindBufferMemoryInfo_pnext(struct vn_cs_encoder *enc, const void *va
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_DEVICE_GROUP_INFO:
+        case VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_DEVICE_GROUP_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkBindBufferMemoryInfo_pnext(enc, pnext->pNext);
             vn_encode_VkBindBufferMemoryDeviceGroupInfo_self(enc, (const VkBindBufferMemoryDeviceGroupInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -556,10 +561,11 @@ vn_decode_VkBindBufferMemoryInfo_pnext(struct vn_cs_decoder *dec, const void *va
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_DEVICE_GROUP_INFO:
+    case VK_STRUCTURE_TYPE_BIND_BUFFER_MEMORY_DEVICE_GROUP_INFO: {
         vn_decode_VkBindBufferMemoryInfo_pnext(dec, pnext->pNext);
         vn_decode_VkBindBufferMemoryDeviceGroupInfo_self(dec, (VkBindBufferMemoryDeviceGroupInfo *)pnext);
         break;
+    }
     default:
         assert(false);
         break;

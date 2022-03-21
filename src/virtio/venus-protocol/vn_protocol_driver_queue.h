@@ -332,24 +332,27 @@ vn_encode_VkSubmitInfo_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO:
+        case VK_STRUCTURE_TYPE_DEVICE_GROUP_SUBMIT_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSubmitInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDeviceGroupSubmitInfo_self(enc, (const VkDeviceGroupSubmitInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_PROTECTED_SUBMIT_INFO:
+        }
+        case VK_STRUCTURE_TYPE_PROTECTED_SUBMIT_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSubmitInfo_pnext(enc, pnext->pNext);
             vn_encode_VkProtectedSubmitInfo_self(enc, (const VkProtectedSubmitInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO:
+        }
+        case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSubmitInfo_pnext(enc, pnext->pNext);
             vn_encode_VkTimelineSemaphoreSubmitInfo_self(enc, (const VkTimelineSemaphoreSubmitInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -706,18 +709,20 @@ vn_encode_VkBindSparseInfo_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO:
+        case VK_STRUCTURE_TYPE_DEVICE_GROUP_BIND_SPARSE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkBindSparseInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDeviceGroupBindSparseInfo_self(enc, (const VkDeviceGroupBindSparseInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO:
+        }
+        case VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkBindSparseInfo_pnext(enc, pnext->pNext);
             vn_encode_VkTimelineSemaphoreSubmitInfo_self(enc, (const VkTimelineSemaphoreSubmitInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

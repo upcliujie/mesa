@@ -219,12 +219,13 @@ vn_encode_VkFramebufferCreateInfo_pnext(struct vn_cs_encoder *enc, const void *v
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO:
+        case VK_STRUCTURE_TYPE_FRAMEBUFFER_ATTACHMENTS_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkFramebufferCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkFramebufferAttachmentsCreateInfo_self(enc, (const VkFramebufferAttachmentsCreateInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

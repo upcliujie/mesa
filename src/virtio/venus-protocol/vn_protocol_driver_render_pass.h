@@ -436,18 +436,20 @@ vn_encode_VkRenderPassCreateInfo_pnext(struct vn_cs_encoder *enc, const void *va
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO:
+        case VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkRenderPassCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkRenderPassMultiviewCreateInfo_self(enc, (const VkRenderPassMultiviewCreateInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_RENDER_PASS_INPUT_ATTACHMENT_ASPECT_CREATE_INFO:
+        }
+        case VK_STRUCTURE_TYPE_RENDER_PASS_INPUT_ATTACHMENT_ASPECT_CREATE_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkRenderPassCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkRenderPassInputAttachmentAspectCreateInfo_self(enc, (const VkRenderPassInputAttachmentAspectCreateInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -615,12 +617,13 @@ vn_encode_VkAttachmentDescription2_pnext(struct vn_cs_encoder *enc, const void *
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT:
+        case VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_STENCIL_LAYOUT: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkAttachmentDescription2_pnext(enc, pnext->pNext);
             vn_encode_VkAttachmentDescriptionStencilLayout_self(enc, (const VkAttachmentDescriptionStencilLayout *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -764,12 +767,13 @@ vn_encode_VkAttachmentReference2_pnext(struct vn_cs_encoder *enc, const void *va
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_STENCIL_LAYOUT:
+        case VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_STENCIL_LAYOUT: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkAttachmentReference2_pnext(enc, pnext->pNext);
             vn_encode_VkAttachmentReferenceStencilLayout_self(enc, (const VkAttachmentReferenceStencilLayout *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -947,12 +951,13 @@ vn_encode_VkSubpassDescription2_pnext(struct vn_cs_encoder *enc, const void *val
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE:
+        case VK_STRUCTURE_TYPE_SUBPASS_DESCRIPTION_DEPTH_STENCIL_RESOLVE: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSubpassDescription2_pnext(enc, pnext->pNext);
             vn_encode_VkSubpassDescriptionDepthStencilResolve_self(enc, (const VkSubpassDescriptionDepthStencilResolve *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -1074,12 +1079,16 @@ vn_encode_VkSubpassDependency2_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_MEMORY_BARRIER_2:
+        case VK_STRUCTURE_TYPE_MEMORY_BARRIER_2: {
+            const struct vn_info_protocol *info = vn_cs_encoder_get_protocol_info(enc);
+            if (!info->extensions.KHR_synchronization2)
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSubpassDependency2_pnext(enc, pnext->pNext);
             vn_encode_VkMemoryBarrier2_self(enc, (const VkMemoryBarrier2 *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

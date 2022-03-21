@@ -1033,10 +1033,11 @@ vn_decode_VkMemoryRequirements2_pnext(struct vn_cs_decoder *dec, const void *val
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS:
+    case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
         vn_decode_VkMemoryRequirements2_pnext(dec, pnext->pNext);
         vn_decode_VkMemoryDedicatedRequirements_self(dec, (VkMemoryDedicatedRequirements *)pnext);
         break;
+    }
     default:
         assert(false);
         break;
@@ -1114,12 +1115,13 @@ vn_encode_VkMemoryRequirements2_pnext_partial(struct vn_cs_encoder *enc, const v
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS:
+        case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkMemoryRequirements2_pnext_partial(enc, pnext->pNext);
             vn_encode_VkMemoryDedicatedRequirements_self_partial(enc, (const VkMemoryDedicatedRequirements *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;

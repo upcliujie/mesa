@@ -241,12 +241,16 @@ vn_encode_VkCommandBufferInheritanceInfo_pnext(struct vn_cs_encoder *enc, const 
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO:
+        case VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO: {
+            const struct vn_info_protocol *info = vn_cs_encoder_get_protocol_info(enc);
+            if (!info->extensions.KHR_dynamic_rendering)
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkCommandBufferInheritanceInfo_pnext(enc, pnext->pNext);
             vn_encode_VkCommandBufferInheritanceRenderingInfo_self(enc, (const VkCommandBufferInheritanceRenderingInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -295,10 +299,14 @@ vn_decode_VkCommandBufferInheritanceInfo_pnext(struct vn_cs_decoder *dec, const 
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO:
+    case VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO: {
+        const struct vn_info_protocol *info = vn_cs_decoder_get_protocol_info(dec);
+        if (!info->extensions.KHR_dynamic_rendering)
+            break;
         vn_decode_VkCommandBufferInheritanceInfo_pnext(dec, pnext->pNext);
         vn_decode_VkCommandBufferInheritanceRenderingInfo_self(dec, (VkCommandBufferInheritanceRenderingInfo *)pnext);
         break;
+    }
     default:
         assert(false);
         break;
@@ -466,12 +474,13 @@ vn_encode_VkCommandBufferBeginInfo_pnext(struct vn_cs_encoder *enc, const void *
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO:
+        case VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkCommandBufferBeginInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDeviceGroupCommandBufferBeginInfo_self(enc, (const VkDeviceGroupCommandBufferBeginInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -517,10 +526,11 @@ vn_decode_VkCommandBufferBeginInfo_pnext(struct vn_cs_decoder *dec, const void *
     }
 
     switch ((int32_t)pnext->sType) {
-    case VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO:
+    case VK_STRUCTURE_TYPE_DEVICE_GROUP_COMMAND_BUFFER_BEGIN_INFO: {
         vn_decode_VkCommandBufferBeginInfo_pnext(dec, pnext->pNext);
         vn_decode_VkDeviceGroupCommandBufferBeginInfo_self(dec, (VkDeviceGroupCommandBufferBeginInfo *)pnext);
         break;
+    }
     default:
         assert(false);
         break;
@@ -1197,18 +1207,20 @@ vn_encode_VkRenderPassBeginInfo_pnext(struct vn_cs_encoder *enc, const void *val
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO:
+        case VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkRenderPassBeginInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDeviceGroupRenderPassBeginInfo_self(enc, (const VkDeviceGroupRenderPassBeginInfo *)pnext);
             return;
-        case VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO:
+        }
+        case VK_STRUCTURE_TYPE_RENDER_PASS_ATTACHMENT_BEGIN_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkRenderPassBeginInfo_pnext(enc, pnext->pNext);
             vn_encode_VkRenderPassAttachmentBeginInfo_self(enc, (const VkRenderPassAttachmentBeginInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
@@ -2481,12 +2493,13 @@ vn_encode_VkRenderingInfo_pnext(struct vn_cs_encoder *enc, const void *val)
 
     while (pnext) {
         switch ((int32_t)pnext->sType) {
-        case VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO:
+        case VK_STRUCTURE_TYPE_DEVICE_GROUP_RENDER_PASS_BEGIN_INFO: {
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkRenderingInfo_pnext(enc, pnext->pNext);
             vn_encode_VkDeviceGroupRenderPassBeginInfo_self(enc, (const VkDeviceGroupRenderPassBeginInfo *)pnext);
             return;
+        }
         default:
             /* ignore unknown/unsupported struct */
             break;
