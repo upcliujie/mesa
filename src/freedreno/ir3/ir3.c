@@ -94,7 +94,10 @@ collect_reg_info(struct ir3_instruction *instr, struct ir3_register *reg,
       max = (reg->num + repeat + components - 1);
    }
 
-   if (reg->flags & IR3_REG_CONST) {
+   /* regs with IR3_REG_SHARED_CONST are shared consts mapped to c504~c511,
+    * which doesn't need to be included to constlen.
+    */
+   if ((reg->flags & IR3_REG_CONST) && !(reg->flags & IR3_REG_SHARED_CONST)) {
       info->max_const = MAX2(info->max_const, max >> 2);
    } else if (max < regid(48, 0)) {
       if (reg->flags & IR3_REG_HALF) {
@@ -833,7 +836,7 @@ cp_flags(unsigned flags)
    /* only considering these flags (at least for now): */
    flags &= (IR3_REG_CONST | IR3_REG_IMMED | IR3_REG_FNEG | IR3_REG_FABS |
              IR3_REG_SNEG | IR3_REG_SABS | IR3_REG_BNOT | IR3_REG_RELATIV |
-             IR3_REG_SHARED);
+             IR3_REG_SHARED | IR3_REG_SHARED_CONST);
    return flags;
 }
 
