@@ -2075,7 +2075,34 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
                  const_state->ubo_state.size / 16);
       }
       break;
+   case nir_intrinsic_load_uniform_shared_ir3:
+      idx = nir_intrinsic_base(intr);
 
+      if (nir_src_is_const(intr->src[0])) {
+         idx += nir_src_as_uint(intr->src[0]);
+
+         for (int i = 0; i < dest_components; i++) {
+            unsigned n = idx + i;
+            n += IR3_SHARED_CONST_BASE * 4;
+
+            dst[i] = create_uniform_typed(
+               b, n, nir_dest_bit_size(intr->dest) == 16 ? TYPE_F16 : TYPE_F32);
+         }
+      } else {
+         src = ir3_get_src(ctx, &intr->src[0]);
+
+         for (int i = 0; i < dest_components; i++) {
+            unsigned n = idx + i;
+
+            struct ir3_instruction *shared_idx;
+            shared_idx = create_immed(b, n + IR3_SHARED_CONST_BASE * 4);
+
+            dst[i] = create_uniform_indirect(b, n,
+               nir_dest_bit_size(intr->dest) == 16 ? TYPE_F16 : TYPE_F32,
+               ir3_get_addr0(ctx, ir3_ADD_U(b, src[0], 0, shared_idx, 0), 1));
+         }
+      }
+      break;
    case nir_intrinsic_load_vs_primitive_stride_ir3:
       dst[0] = create_uniform(b, primitive_param + 0);
       break;
