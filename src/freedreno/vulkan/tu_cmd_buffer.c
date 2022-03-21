@@ -829,13 +829,14 @@ tu6_init_hw(struct tu_cmd_buffer *cmd, struct tu_cs *cs)
    tu_cs_emit_write_reg(cs, REG_A6XX_SP_CHICKEN_BITS, 0x00000410);
    tu_cs_emit_write_reg(cs, REG_A6XX_SP_IBO_COUNT, 0);
    tu_cs_emit_write_reg(cs, REG_A6XX_SP_UNKNOWN_B182, 0);
-   tu_cs_emit_write_reg(cs, REG_A6XX_HLSQ_SHARED_CONSTS, 0);
+   tu_cs_emit_regs(cs, A6XX_HLSQ_SHARED_CONSTS(.enable = true));
    tu_cs_emit_write_reg(cs, REG_A6XX_UCHE_UNKNOWN_0E12, 0x3200000);
    tu_cs_emit_write_reg(cs, REG_A6XX_UCHE_CLIENT_PF, 4);
    tu_cs_emit_write_reg(cs, REG_A6XX_RB_UNKNOWN_8E01, 0x0);
    tu_cs_emit_write_reg(cs, REG_A6XX_SP_UNKNOWN_A9A8, 0);
-   tu_cs_emit_write_reg(cs, REG_A6XX_SP_MODE_CONTROL,
-                        A6XX_SP_MODE_CONTROL_CONSTANT_DEMOTION_ENABLE | 4);
+   tu_cs_emit_regs(cs, A6XX_SP_MODE_CONTROL(.constant_demotion_enable = true,
+                                            .isammode = ISAMMODE_GL,
+                                            .shared_consts_enable = true));
 
    /* TODO: set A6XX_VFD_ADD_OFFSET_INSTANCE and fix ir3 to avoid adding base instance */
    tu_cs_emit_write_reg(cs, REG_A6XX_VFD_ADD_OFFSET, A6XX_VFD_ADD_OFFSET_VERTEX);
@@ -1932,7 +1933,7 @@ tu_CmdBindDescriptorSets(VkCommandBuffer commandBuffer,
 
       sp_bindless_base_reg = REG_A6XX_SP_CS_BINDLESS_BASE(0);
       hlsq_bindless_base_reg = REG_A6XX_HLSQ_CS_BINDLESS_BASE(0);
-      hlsq_invalidate_value = A6XX_HLSQ_INVALIDATE_CMD_CS_BINDLESS(0x1f);
+      hlsq_invalidate_value =  A6XX_HLSQ_INVALIDATE_CMD_CS_BINDLESS(0x1f);
 
       cmd->state.dirty |= TU_CMD_DIRTY_COMPUTE_DESC_SETS_LOAD;
       cs = &cmd->cs;
@@ -3444,9 +3445,9 @@ tu6_user_consts_size(const struct tu_pipeline *pipeline,
       &pipeline->program.link[type];
    uint32_t dwords = 0;
 
-   if (link->push_consts.count > 0) {
-      unsigned num_units = link->push_consts.count;
-      dwords += 4 + num_units * 4;
+   if (link->push_consts.dwords > 0) {
+      unsigned num_units = link->push_consts.dwords;
+      dwords += 4 + num_units;
    }
 
    return dwords;
@@ -3461,19 +3462,29 @@ tu6_emit_user_consts(struct tu_cs *cs, const struct tu_pipeline *pipeline,
    const struct tu_program_descriptor_linkage *link =
       &pipeline->program.link[type];
 
-   if (link->push_consts.count > 0) {
-      unsigned num_units = link->push_consts.count;
+   if (link->push_consts.dwords > 0) {
+      /* Offset and num_units are in units of dwords.
+       * See gather_push_constants.
+       */
+      unsigned num_units = link->push_consts.dwords;
       unsigned offset = link->push_consts.lo;
-      tu_cs_emit_pkt7(cs, tu6_stage2opcode(type), 3 + num_units * 4);
+
+      enum a6xx_state_type st = type == MESA_SHADER_COMPUTE ?
+                                ST6_UBO : ST6_CONSTANTS;
+      uint32_t cp_load_state = type == MESA_SHADER_COMPUTE ?
+                               CP_LOAD_STATE6_FRAG : CP_LOAD_STATE6;
+
+      tu_cs_emit_pkt7(cs, cp_load_state, 3 + num_units);
       tu_cs_emit(cs, CP_LOAD_STATE6_0_DST_OFF(offset) |
-            CP_LOAD_STATE6_0_STATE_TYPE(ST6_CONSTANTS) |
+            CP_LOAD_STATE6_0_STATE_TYPE(st) |
             CP_LOAD_STATE6_0_STATE_SRC(SS6_DIRECT) |
-            CP_LOAD_STATE6_0_STATE_BLOCK(tu6_stage2shadersb(type)) |
+            CP_LOAD_STATE6_0_STATE_BLOCK(SB6_IBO) |
             CP_LOAD_STATE6_0_NUM_UNIT(num_units));
       tu_cs_emit(cs, 0);
       tu_cs_emit(cs, 0);
-      for (unsigned i = 0; i < num_units * 4; i++)
-         tu_cs_emit(cs, push_constants[i + offset * 4]);
+
+      for (unsigned i = 0; i < num_units; i++)
+         tu_cs_emit(cs, push_constants[i + offset]);
    }
 }
 
