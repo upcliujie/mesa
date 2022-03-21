@@ -136,6 +136,7 @@ struct agx_submit_cmdbuf_req {
 	uint32_t unk1;
 	uint32_t cmdbuf;
 	uint32_t mappings;
+   uint64_t unk1B; // 0, new in 12.x
 	void *user_0;
 	void *user_1;
 	uint32_t unk2;
