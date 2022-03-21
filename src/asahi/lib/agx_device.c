@@ -426,7 +426,7 @@ agx_create_command_queue(struct agx_device *dev)
       };
 
       ASSERTED kern_return_t ret = IOConnectCallScalarMethod(dev->fd,
-                          0x29,
+                          0x31,
                           scalars, 2, NULL, NULL);
 
       assert(ret == 0);
