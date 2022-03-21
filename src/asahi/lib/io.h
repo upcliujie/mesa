@@ -191,10 +191,11 @@ struct agx_command_queue {
 struct agx_map_header {
 	uint64_t cmdbuf_id; // GUID
 	uint32_t unk2; // 01 00 00 00
-	uint32_t unk3; // 28 05 00 80
+	uint32_t unk3; // 28 05 00 80, 12.x: 30 01 00 80
 	uint64_t encoder_id; // GUID
 	uint32_t unk6; // 00 00 00 00
 	uint32_t cmdbuf_size;
+   uint32_t padding[2];
 	uint32_t nr_handles;
 	uint32_t nr_entries;
 } __attribute__((packed));
