@@ -1551,7 +1551,7 @@ virtgpu_open_device(struct virtgpu *gpu, const drmDevicePtr dev)
    switch (dev->bustype) {
    case DRM_BUS_PCI:
       if (dev->deviceinfo.pci->vendor_id == VIRTGPU_PCI_VENDOR_ID &&
-         dev->deviceinfo.pci->device_id == VIRTGPU_PCI_DEVICE_ID)
+          dev->deviceinfo.pci->device_id == VIRTGPU_PCI_DEVICE_ID)
          supported_bus = true;
       break;
    case DRM_BUS_PLATFORM:

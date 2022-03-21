@@ -33,7 +33,8 @@
       (head).pNext = &(elem);                                                \
    } while (0)
 #define VN_ADD_EXT_TO_PNEXT(ext, elem, s_type, head)                         \
-   if (ext) VN_ADD_TO_PNEXT(elem, s_type, head)
+   if (ext)                                                                  \
+   VN_ADD_TO_PNEXT(elem, s_type, head)
 
 static void
 vn_physical_device_init_features(struct vn_physical_device *physical_dev)
