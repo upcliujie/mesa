@@ -270,8 +270,7 @@ demo_cmdbuf(uint64_t *buf, size_t size,
 
    agx_pack(map, IOGPU_HEADER, cfg) {
       cfg.total_size = total_size;
-      cfg.attachment_offset_1 = offset_attachments;
-      cfg.attachment_offset_2 = offset_attachments;
+      cfg.attachment_offset = offset_attachments;
       cfg.attachment_length = nr_attachments * AGX_IOGPU_ATTACHMENT_LENGTH;
       cfg.unknown_offset = offset_unk;
       cfg.encoder = encoder_ptr;
