@@ -103,6 +103,9 @@ struct ir3_compiler {
    /* The maximum number of constants, in vec4's, for compute shaders. */
    uint16_t max_const_compute;
 
+   /* The number of shared constants. */
+   uint16_t shared_const;
+
    /* Number of instructions that the shader's base address and length
     * (instrlen divides instruction count by this) must be aligned to.
     */
@@ -184,6 +187,8 @@ struct ir3_compiler {
    bool has_preamble;
 
    bool push_ubo_with_preamble;
+
+   bool shared_const_enable;
 };
 
 struct ir3_compiler_options {
@@ -198,6 +203,11 @@ struct ir3_compiler_options {
     * constants for it can be pre-baked when compiling the shader.
     */
    bool push_ubo_with_preamble;
+
+   /* If true, enable HLSQ_SHARED_CONSTS and handle cases where it has to use
+    * them at the ir3 comipler.
+    */
+   bool shared_const_enable;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);

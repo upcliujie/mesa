@@ -1953,7 +1953,8 @@ create_immed(struct ir3_block *block, uint32_t val)
 }
 
 static inline struct ir3_instruction *
-create_uniform_typed(struct ir3_block *block, unsigned n, type_t type)
+create_uniform_typed(struct ir3_block *block, unsigned n, type_t type,
+                     bool shared_enable)
 {
    struct ir3_instruction *mov;
    unsigned flags = (type_size(type) < 32) ? IR3_REG_HALF : 0;
@@ -1963,7 +1964,7 @@ create_uniform_typed(struct ir3_block *block, unsigned n, type_t type)
    mov->cat1.dst_type = type;
    __ssa_dst(mov)->flags |= flags;
 
-   if (n >= IR3_SHARED_CONST_BASE * 4)
+   if (shared_enable && n >= IR3_SHARED_CONST_BASE * 4)
       flags |= IR3_REG_SHARED_CONST;
 
    ir3_src_create(mov, n, IR3_REG_CONST | flags);
@@ -1974,7 +1975,7 @@ create_uniform_typed(struct ir3_block *block, unsigned n, type_t type)
 static inline struct ir3_instruction *
 create_uniform(struct ir3_block *block, unsigned n)
 {
-   return create_uniform_typed(block, n, TYPE_F32);
+   return create_uniform_typed(block, n, TYPE_F32, false);
 }
 
 static inline struct ir3_instruction *

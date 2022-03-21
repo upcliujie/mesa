@@ -2047,14 +2047,17 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
    const unsigned primitive_map = const_state->offsets.primitive_map * 4;
 
    switch (intr->intrinsic) {
-   case nir_intrinsic_load_uniform:
+   case nir_intrinsic_load_uniform: {
+      bool shared_const_enable = b->shader->compiler->shared_const_enable;
+
       idx = nir_intrinsic_base(intr);
       if (nir_src_is_const(intr->src[0])) {
          idx += nir_src_as_uint(intr->src[0]);
          for (int i = 0; i < dest_components; i++) {
             dst[i] = create_uniform_typed(
                b, idx + i,
-               nir_dest_bit_size(intr->dest) == 16 ? TYPE_F16 : TYPE_F32);
+               nir_dest_bit_size(intr->dest) == 16 ? TYPE_F16 : TYPE_F32,
+               shared_const_enable);
          }
       } else {
          src = ir3_get_src(ctx, &intr->src[0]);
@@ -2075,7 +2078,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
                  const_state->ubo_state.size / 16);
       }
       break;
-
+   }
    case nir_intrinsic_load_vs_primitive_stride_ir3:
       dst[0] = create_uniform(b, primitive_param + 0);
       break;
