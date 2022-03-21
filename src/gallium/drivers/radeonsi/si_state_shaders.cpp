@@ -2198,7 +2198,8 @@ void si_ps_key_update_framebuffer_blend(struct si_context *sctx)
     * Check if any output is eliminated.
     */
    if (sel->colors_written_4bit &
-       ~(sctx->framebuffer.colorbuf_enabled_4bit & blend->cb_target_enabled_4bit))
+       ~((sctx->framebuffer.colorbuf_enabled_4bit & blend->cb_target_enabled_4bit) |
+         (blend->dual_src_blend ? 0xf0 : 0)))
       key->ps.opt.prefer_mono = 1;
    else
       key->ps.opt.prefer_mono = 0;
