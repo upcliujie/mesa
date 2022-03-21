@@ -109,7 +109,7 @@ tu_cs_add_bo(struct tu_cs *cs, uint32_t size)
    struct tu_bo *new_bo;
 
    VkResult result =
-      tu_bo_init_new(cs->device, &new_bo, size * sizeof(uint32_t),
+      tu_bo_init_new(cs->device, &new_bo, size * sizeof(uint32_t), 0,
                      TU_BO_ALLOC_GPU_READ_ONLY | TU_BO_ALLOC_ALLOW_DUMP);
    if (result != VK_SUCCESS) {
       free(new_bo);

@@ -259,6 +259,10 @@ tu_physical_device_init(struct tu_physical_device *device,
       goto fail_free_name;
    }
 
+   mtx_init(&device->vma_mutex, mtx_plain);
+   util_vma_heap_init(&device->vma, device->va_start,
+                      ROUND_DOWN_TO(device->va_size, 4096));
+
    /* The gpu id is already embedded in the uuid so we just pass "tu"
     * when creating the cache.
     */
@@ -297,6 +301,7 @@ tu_physical_device_init(struct tu_physical_device *device,
 
 fail_free_cache:
    disk_cache_destroy(device->disk_cache);
+   util_vma_heap_finish(&device->vma);
 fail_free_name:
    vk_free(&instance->vk.alloc, (void *)device->name);
    return result;
@@ -313,6 +318,8 @@ tu_physical_device_finish(struct tu_physical_device *device)
    close(device->local_fd);
    if (device->master_fd != -1)
       close(device->master_fd);
+
+   util_vma_heap_finish(&device->vma);
 
    vk_free(&device->instance->vk.alloc, (void *)device->name);
 
@@ -577,7 +584,7 @@ tu_get_physical_device_features_1_2(struct tu_physical_device *pdevice,
    features->hostQueryReset                      = true;
    features->timelineSemaphore                   = true;
    features->bufferDeviceAddress                 = true;
-   features->bufferDeviceAddressCaptureReplay    = false;
+   features->bufferDeviceAddressCaptureReplay    = true;
    features->bufferDeviceAddressMultiDevice      = false;
    features->vulkanMemoryModel                   = true;
    features->vulkanMemoryModelDeviceScope        = true;
@@ -1440,7 +1447,7 @@ tu_trace_create_ts_buffer(struct u_trace_context *utctx, uint32_t size)
       container_of(utctx, struct tu_device, trace_context);
 
    struct tu_bo *bo;
-   tu_bo_init_new(device, &bo, size, false);
+   tu_bo_init_new(device, &bo, size, 0, false);
 
    return bo;
 }
@@ -1769,7 +1776,7 @@ tu_CreateDevice(VkPhysicalDevice physicalDevice,
    if (custom_border_colors)
       global_size += TU_BORDER_COLOR_COUNT * sizeof(struct bcolor_entry);
 
-   result = tu_bo_init_new(device, &device->global_bo, global_size,
+   result = tu_bo_init_new(device, &device->global_bo, global_size, 0,
                            TU_BO_ALLOC_ALLOW_DUMP);
    if (result != VK_SUCCESS) {
       vk_startup_errorf(device->instance, result, "BO init");
@@ -2011,7 +2018,7 @@ tu_get_scratch_bo(struct tu_device *dev, uint64_t size, struct tu_bo **bo)
 
    unsigned bo_size = 1ull << size_log2;
    VkResult result = tu_bo_init_new(dev, &dev->scratch_bos[index].bo, bo_size,
-                                    TU_BO_ALLOC_NO_FLAGS);
+                                    0, TU_BO_ALLOC_NO_FLAGS);
    if (result != VK_SUCCESS) {
       mtx_unlock(&dev->scratch_bos[index].construct_mtx);
       return result;
@@ -2164,9 +2171,27 @@ tu_AllocateMemory(VkDevice _device,
          close(fd_info->fd);
       }
    } else {
+      uint64_t client_address = 0;
+      enum tu_bo_alloc_flags alloc_flags = TU_BO_ALLOC_NO_FLAGS;
+
+      const VkMemoryOpaqueCaptureAddressAllocateInfo *replay_info =
+         vk_find_struct_const(pAllocateInfo->pNext,
+                              MEMORY_OPAQUE_CAPTURE_ADDRESS_ALLOCATE_INFO);
+      if (replay_info && replay_info->opaqueCaptureAddress) {
+         client_address = replay_info->opaqueCaptureAddress;
+         alloc_flags |= TU_BO_ALLOC_REPLAYABLE;
+      }
+
+      const VkMemoryAllocateFlagsInfo *flags_info = vk_find_struct_const(
+         pAllocateInfo->pNext, MEMORY_ALLOCATE_FLAGS_INFO);
+      if (flags_info &&
+          (flags_info->flags & VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT)) {
+         alloc_flags |= TU_BO_ALLOC_REPLAYABLE;
+      }
+
       result =
          tu_bo_init_new(device, &mem->bo, pAllocateInfo->allocationSize,
-                        TU_BO_ALLOC_NO_FLAGS);
+                        client_address, alloc_flags);
    }
 
 
@@ -2407,7 +2432,7 @@ tu_CreateEvent(VkDevice _device,
    if (!event)
       return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
 
-   VkResult result = tu_bo_init_new(device, &event->bo, 0x1000,
+   VkResult result = tu_bo_init_new(device, &event->bo, 0x1000, 0,
                                     TU_BO_ALLOC_NO_FLAGS);
    if (result != VK_SUCCESS)
       goto fail_alloc;
@@ -2825,7 +2850,7 @@ uint64_t tu_GetBufferOpaqueCaptureAddress(
     VkDevice                                    device,
     const VkBufferDeviceAddressInfoKHR*         pInfo)
 {
-   tu_stub();
+   /* We care only about memory allocation opaque addresses */
    return 0;
 }
 
@@ -2833,6 +2858,6 @@ uint64_t tu_GetDeviceMemoryOpaqueCaptureAddress(
     VkDevice                                    device,
     const VkDeviceMemoryOpaqueCaptureAddressInfoKHR* pInfo)
 {
-   tu_stub();
-   return 0;
+   TU_FROM_HANDLE(tu_device_memory, mem, pInfo->memory);
+   return mem->bo->iova;
 }

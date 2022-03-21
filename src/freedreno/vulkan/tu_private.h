@@ -56,6 +56,7 @@
 #include "util/u_dynarray.h"
 #include "util/xmlconfig.h"
 #include "util/perf/u_trace.h"
+#include "util/vma.h"
 #include "vk_alloc.h"
 #include "vk_debug_report.h"
 #include "vk_device.h"
@@ -230,6 +231,9 @@ struct tu_physical_device
    uint32_t ccu_offset_gmem;
    uint32_t ccu_offset_bypass;
 
+   uint64_t va_start;
+   uint64_t va_size;
+
    struct fd_dev_id dev_id;
    const struct fd_dev_info *info;
 
@@ -245,6 +249,8 @@ struct tu_physical_device
    struct disk_cache *disk_cache;
 
    struct tu_memory_heap heap;
+   mtx_t                 vma_mutex;
+   struct util_vma_heap  vma;
 
    struct vk_sync_type syncobj_type;
    struct vk_sync_timeline_type timeline_type;
@@ -549,11 +555,12 @@ enum tu_bo_alloc_flags
    TU_BO_ALLOC_NO_FLAGS = 0,
    TU_BO_ALLOC_ALLOW_DUMP = 1 << 0,
    TU_BO_ALLOC_GPU_READ_ONLY = 1 << 1,
+   TU_BO_ALLOC_REPLAYABLE = 1 << 2,
 };
 
 VkResult
 tu_bo_init_new(struct tu_device *dev, struct tu_bo **bo, uint64_t size,
-               enum tu_bo_alloc_flags flags);
+               uint64_t client_iova, enum tu_bo_alloc_flags flags);
 VkResult
 tu_bo_init_dmabuf(struct tu_device *dev,
                   struct tu_bo **bo,

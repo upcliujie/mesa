@@ -651,7 +651,7 @@ get_bo_for_renderpass(struct tu_autotune_results_buffer *buffer)
          reralloc(NULL, buffer->bos, struct tu_bo *, buffer->num_bos);
       struct tu_bo **new_bo = &buffer->bos[buffer->num_bos - 1];
 
-      tu_bo_init_new(buffer->device, new_bo, TU_AUTOTUNE_RP_BO_SIZE,
+      tu_bo_init_new(buffer->device, new_bo, TU_AUTOTUNE_RP_BO_SIZE, 0,
                      TU_BO_ALLOC_NO_FLAGS);
       tu_bo_map(buffer->device, *new_bo);
    }

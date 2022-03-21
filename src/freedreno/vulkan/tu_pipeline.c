@@ -1618,7 +1618,7 @@ tu6_emit_geom_tess_consts(struct tu_cs *cs,
       /* Create the shared tess factor BO the first time tess is used on the device. */
       mtx_lock(&dev->mutex);
       if (!dev->tess_bo)
-         tu_bo_init_new(dev, &dev->tess_bo, TU_TESS_BO_SIZE, TU_BO_ALLOC_NO_FLAGS);
+         tu_bo_init_new(dev, &dev->tess_bo, TU_TESS_BO_SIZE, 0, TU_BO_ALLOC_NO_FLAGS);
       mtx_unlock(&dev->mutex);
 
       uint64_t tess_factor_iova = dev->tess_bo->iova;
@@ -2241,7 +2241,7 @@ tu_setup_pvtmem(struct tu_device *dev,
    config->per_wave = per_wave;
 
    VkResult result =
-      tu_bo_init_new(dev, &pipeline->pvtmem_bo, total_size,
+      tu_bo_init_new(dev, &pipeline->pvtmem_bo, total_size, 0,
                      TU_BO_ALLOC_NO_FLAGS);
    if (result != VK_SUCCESS)
       return result;

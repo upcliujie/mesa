@@ -124,6 +124,26 @@ tu_drm_get_gmem_base(const struct tu_physical_device *dev, uint64_t *base)
    return tu_drm_get_param(dev, MSM_PARAM_GMEM_BASE, base);
 }
 
+static int
+tu_drm_get_va_prop(const struct tu_physical_device *dev,
+                   uint64_t *va_start, uint64_t *va_size)
+{
+   uint64_t value;
+   int ret = tu_drm_get_param(dev, MSM_PARAM_VA_START, &value);
+   if (ret)
+      return ret;
+
+   *va_start = value;
+
+   ret = tu_drm_get_param(dev, MSM_PARAM_VA_SIZE, &value);
+   if (ret)
+      return ret;
+
+   *va_size = value;
+
+   return 0;
+}
+
 int
 tu_device_get_gpu_timestamp(struct tu_device *dev, uint64_t *ts)
 {
@@ -212,12 +232,49 @@ tu_bo_init(struct tu_device *dev,
            struct tu_bo *bo,
            uint32_t gem_handle,
            uint64_t size,
-           bool dump)
+           uint64_t client_iova,
+           enum tu_bo_alloc_flags flags)
 {
-   uint64_t iova = tu_gem_info(dev, gem_handle, MSM_INFO_GET_IOVA);
+   uint64_t iova = 0;
+
+   mtx_lock(&dev->physical_device->vma_mutex);
+
+   if (flags & TU_BO_ALLOC_REPLAYABLE) {
+      if (client_iova) {
+         if (util_vma_heap_alloc_addr(&dev->physical_device->vma, client_iova,
+                                      size)) {
+            iova = client_iova;
+         }
+         /* TODO: return VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS on failure here */
+      } else {
+         /* We have to separate replayable IOVAs from ordinary one in order to
+          * for them not to clash. The easiest way to do this is to allocate
+          * them from the other end of address space.
+          */
+         dev->physical_device->vma.alloc_high = true;
+         iova = util_vma_heap_alloc(&dev->physical_device->vma, size, 4096);
+      }
+   } else {
+      dev->physical_device->vma.alloc_high = false;
+      iova = util_vma_heap_alloc(&dev->physical_device->vma, size, 4096);
+   }
+
+   mtx_unlock(&dev->physical_device->vma_mutex);
+
    if (!iova) {
-      tu_gem_close(dev, gem_handle);
-      return VK_ERROR_OUT_OF_DEVICE_MEMORY;
+      goto fail_bo_list;
+   }
+
+   struct drm_msm_gem_info req = {
+      .handle = gem_handle,
+      .info = MSM_INFO_SET_IOVA,
+      .value = iova,
+   };
+
+   int ret = drmCommandWriteRead(dev->fd,
+                                 DRM_MSM_GEM_INFO, &req, sizeof(req));
+   if (ret < 0) {
+      goto fail_bo_list;
    }
 
    mtx_lock(&dev->bo_mutex);
@@ -236,6 +293,7 @@ tu_bo_init(struct tu_device *dev,
       dev->bo_list_size = new_len;
    }
 
+   bool dump = flags & TU_BO_ALLOC_ALLOW_DUMP;
    dev->bo_list[idx] = (struct drm_msm_gem_submit_bo) {
       .flags = MSM_SUBMIT_BO_READ | MSM_SUBMIT_BO_WRITE |
                COND(dump, MSM_SUBMIT_BO_DUMP),
@@ -262,7 +320,7 @@ fail_bo_list:
 
 VkResult
 tu_bo_init_new(struct tu_device *dev, struct tu_bo **out_bo, uint64_t size,
-               enum tu_bo_alloc_flags flags)
+               uint64_t client_iova, enum tu_bo_alloc_flags flags)
 {
    /* TODO: Choose better flags. As of 2018-11-12, freedreno/drm/msm_bo.c
     * always sets `flags = MSM_BO_WC`, and we copy that behavior here.
@@ -284,7 +342,7 @@ tu_bo_init_new(struct tu_device *dev, struct tu_bo **out_bo, uint64_t size,
    assert(bo && bo->gem_handle == 0);
 
    VkResult result =
-      tu_bo_init(dev, bo, req.handle, size, flags & TU_BO_ALLOC_ALLOW_DUMP);
+      tu_bo_init(dev, bo, req.handle, size, client_iova, flags);
 
    if (result != VK_SUCCESS)
       memset(bo, 0, sizeof(*bo));
@@ -332,7 +390,7 @@ tu_bo_init_dmabuf(struct tu_device *dev,
       return VK_SUCCESS;
    }
 
-   VkResult result = tu_bo_init(dev, bo, gem_handle, size, false);
+   VkResult result = tu_bo_init(dev, bo, gem_handle, size, 0, TU_BO_ALLOC_NO_FLAGS);
 
    if (result != VK_SUCCESS)
       memset(bo, 0, sizeof(*bo));
@@ -400,6 +458,10 @@ tu_bo_finish(struct tu_device *dev, struct tu_bo *bo)
       dev->implicit_sync_bo_count--;
 
    mtx_unlock(&dev->bo_mutex);
+
+   mtx_lock(&dev->physical_device->vma_mutex);
+   util_vma_heap_free(&dev->physical_device->vma, bo->iova, bo->size);
+   mtx_unlock(&dev->physical_device->vma_mutex);
 
    /* Our BO structs are stored in a sparse array in the physical device,
     * so we don't want to free the BO pointer, instead we want to reset it
@@ -721,6 +783,12 @@ tu_drm_device_init(struct tu_physical_device *device,
    if (tu_drm_get_gmem_base(device, &device->gmem_base)) {
       result = vk_startup_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
                                  "could not get GMEM size");
+      goto fail;
+   }
+
+   if (tu_drm_get_va_prop(device, &device->va_start, &device->va_size)) {
+      result = vk_startup_errorf(instance, VK_ERROR_INITIALIZATION_FAILED,
+                                 "could not get VA properties");
       goto fail;
    }
 
