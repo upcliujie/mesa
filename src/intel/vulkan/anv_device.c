@@ -302,6 +302,7 @@ get_device_extensions(const struct anv_physical_device *device,
       .EXT_shader_viewport_index_layer       = true,
       .EXT_subgroup_size_control             = true,
       .EXT_texel_buffer_alignment            = true,
+      .EXT_tooling_info                      = true,
       .EXT_transform_feedback                = true,
       .EXT_vertex_attribute_divisor          = true,
       .EXT_ycbcr_image_arrays                = true,
@@ -4799,5 +4800,14 @@ VkResult anv_GetPhysicalDeviceFragmentShadingRatesKHR(
 
 #undef append_rate
 
+   return vk_outarray_status(&out);
+}
+
+VkResult anv_GetPhysicalDeviceToolProperties(
+    VkPhysicalDevice                            physicalDevice,
+    uint32_t*                                   pToolCount,
+    VkPhysicalDeviceToolProperties*             pToolProperties)
+{
+   VK_OUTARRAY_MAKE(out, pToolProperties, pToolCount);
    return vk_outarray_status(&out);
 }
