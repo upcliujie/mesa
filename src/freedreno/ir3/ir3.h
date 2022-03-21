@@ -38,6 +38,8 @@
 
 /* low level intermediate representation of an adreno shader program */
 
+#define IR3_SHARED_CONST_BASE 504
+
 struct ir3_compiler;
 struct ir3;
 struct ir3_instruction;
@@ -1233,6 +1235,16 @@ static inline bool
 is_reg_num_special(unsigned num)
 {
    return num >= 48 * 4;
+}
+static inline bool
+is_shared_consts(struct ir3_register *reg)
+{
+   if ((reg->flags & IR3_REG_CONST) &&
+         reg->num >= regid(IR3_SHARED_CONST_BASE, 0) &&
+         reg->num < regid(IR3_SHARED_CONST_BASE + 8, 0))
+      return true;
+
+   return false;
 }
 
 /* returns defining instruction for reg */

@@ -72,12 +72,18 @@ collect_reg_info(struct ir3_instruction *instr, struct ir3_register *reg,
                  struct ir3_info *info)
 {
    struct ir3_shader_variant *v = info->data;
+   struct ir3_compiler *compiler = instr->block->shader->compiler;
+
    unsigned repeat = instr->repeat;
 
    if (reg->flags & IR3_REG_IMMED) {
       /* nothing to do */
       return;
    }
+   /* Shared consts don't need to be included to constlen.
+    */
+   if (compiler->shared_consts_enable && is_shared_consts(reg))
+      return;
 
    if (!(reg->flags & IR3_REG_R)) {
       repeat = 0;
