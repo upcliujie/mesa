@@ -515,9 +515,9 @@
 
   <!--- The rest of this file is likely software defined by macOS kernel -->
   <enum name="IOGPU Attachment Type">
-    <value name="Colour" value="0xA"/>
-    <value name="Depth" value="0xC"/>
-    <value name="Stencil" value="0xD"/>
+    <value name="Colour" value="0xE"/>
+    <value name="Depth" value="0x10"/>
+    <value name="Stencil" value="0x11"/>
   </enum>
 
   <struct name="IOGPU Header" size="192">
