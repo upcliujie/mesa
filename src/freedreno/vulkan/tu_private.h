@@ -115,7 +115,7 @@ typedef uint32_t xcb_window_t;
 #define MAX_VIEWPORT_SIZE (1 << 14)
 #define MAX_SCISSORS 16
 #define MAX_DISCARD_RECTANGLES 4
-#define MAX_PUSH_CONSTANTS_SIZE 128
+#define MAX_PUSH_CONSTANTS_SIZE 256
 #define MAX_PUSH_DESCRIPTORS 32
 #define MAX_DYNAMIC_UNIFORM_BUFFERS 16
 #define MAX_DYNAMIC_STORAGE_BUFFERS 8
@@ -1252,6 +1252,7 @@ struct tu_push_constant_range
 {
    uint32_t lo;
    uint32_t count;
+   bool use_shared_consts;
 };
 
 struct tu_shader
