@@ -173,6 +173,7 @@ struct format_mapping
       PIPE_FORMAT_Z16_UNORM, \
       PIPE_FORMAT_Z24_UNORM_S8_UINT, \
       PIPE_FORMAT_S8_UINT_Z24_UNORM, \
+      PIPE_FORMAT_Z32_FLOAT, \
       0
 
 #define DEFAULT_SNORM8_RGBA_FORMATS \
