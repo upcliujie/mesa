@@ -81,17 +81,30 @@ struct vn_cs_decoder {
    const void *end;
 };
 
+struct vn_cs_renderer_protocol_info {
+   simple_mtx_t mutex;
+   bool init_once;
+   uint32_t api_version;
+   BITSET_DECLARE(extension_bitset, 1024);
+};
+
+extern struct vn_cs_renderer_protocol_info _vn_cs_renderer_protocol_info;
+
 static inline bool
-vn_cs_renderer_protocol_has_api_version(UNUSED uint32_t api_version)
+vn_cs_renderer_protocol_has_api_version(uint32_t api_version)
 {
-   return false;
+   return _vn_cs_renderer_protocol_info.api_version >= api_version;
 }
 
 static inline bool
-vn_cs_renderer_protocol_has_extension(UNUSED uint32_t ext_number)
+vn_cs_renderer_protocol_has_extension(uint32_t ext_number)
 {
-   return false;
+   return BITSET_TEST(_vn_cs_renderer_protocol_info.extension_bitset,
+                      ext_number - 1);
 }
+
+void
+vn_cs_renderer_protocol_info_init(struct vn_instance *instance);
 
 void
 vn_cs_encoder_init(struct vn_cs_encoder *enc,
