@@ -555,7 +555,7 @@ pub trait KernelRef {
         block: &[usize],
         grid: &[usize],
         offsets: &[usize],
-    ) -> EventSig;
+    ) -> CLResult<EventSig>;
 }
 
 impl KernelRef for Arc<Kernel> {
@@ -568,7 +568,7 @@ impl KernelRef for Arc<Kernel> {
         block: &[usize],
         grid: &[usize],
         offsets: &[usize],
-    ) -> EventSig {
+    ) -> CLResult<EventSig> {
         let mut block = create_kernel_arr::<u32>(block, 1);
         let mut grid = create_kernel_arr::<u32>(grid, 1);
         let offsets = create_kernel_arr::<u64>(offsets, 0);
@@ -607,7 +607,7 @@ impl KernelRef for Arc<Kernel> {
                 KernelArgValue::MemObject(mem) => {
                     // TODO 32 bit
                     input.extend_from_slice(&[0; 8]);
-                    resource_info.push((Some(mem.get_res_of_dev(&q.device).clone()), arg.offset));
+                    resource_info.push((Some(mem.get_res_of_dev(&q.device)?.clone()), arg.offset));
                 }
                 KernelArgValue::LocalMem(size) => {
                     // TODO 32 bit
@@ -663,7 +663,7 @@ impl KernelRef for Arc<Kernel> {
         }
 
         let k = self.clone();
-        Box::new(move |q| {
+        Ok(Box::new(move |q| {
             let nir = k.nirs.get(&q.device).unwrap();
             let mut input = input.clone();
             let mut resources = Vec::with_capacity(resource_info.len());
@@ -1052,6 +1052,6 @@ impl KernelRef for Arc<Kernel> {
             }
 
             Ok(())
-        })
+        }))
     }
 }
