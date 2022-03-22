@@ -17,7 +17,7 @@ traces:
   - path: 0ad/0ad.trace
     expectations:
       - device: gl-radeonsi-stoney
-        checksum: 1a089d8584a9e68e7ab08eada954741b
+        checksum: 8d71757cb74f8d71bf87c8af7e7f725a
   - path: pathfinder/demo.trace
     expectations:
       - device: gl-radeonsi-stoney
