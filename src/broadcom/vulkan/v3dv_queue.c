@@ -864,40 +864,40 @@ set_multisync(struct drm_v3d_multi_sync *ms,
               struct drm_v3d_extension *next,
               struct v3dv_device *device,
               struct v3dv_job *job,
-              struct drm_v3d_sem *out_syncs,
-              struct drm_v3d_sem *in_syncs,
+              struct drm_v3d_sem **out_syncs,
+              struct drm_v3d_sem **in_syncs,
               enum v3dv_queue_type queue_sync,
               enum v3d_queue wait_stage)
 {
    uint32_t out_sync_count = 0, in_sync_count = 0;
 
-   in_syncs = set_in_syncs(device, job, queue_sync,
-                           &in_sync_count, sems_info);
-   if (!in_syncs && in_sync_count)
+   *in_syncs = set_in_syncs(device, job, queue_sync,
+                            &in_sync_count, sems_info);
+   if (!*in_syncs && in_sync_count)
       goto fail;
 
-   out_syncs = set_out_syncs(device, job, queue_sync,
-                             &out_sync_count, sems_info);
+   *out_syncs = set_out_syncs(device, job, queue_sync,
+                              &out_sync_count, sems_info);
 
    assert(out_sync_count > 0);
 
-   if (!out_syncs)
+   if (!*out_syncs)
       goto fail;
 
    set_ext(&ms->base, next, DRM_V3D_EXT_ID_MULTI_SYNC, 0);
    ms->wait_stage = wait_stage;
    ms->out_sync_count = out_sync_count;
-   ms->out_syncs = (uintptr_t)(void *)out_syncs;
+   ms->out_syncs = (uintptr_t)(void *)*out_syncs;
    ms->in_sync_count = in_sync_count;
-   ms->in_syncs = (uintptr_t)(void *)in_syncs;
+   ms->in_syncs = (uintptr_t)(void *)*in_syncs;
 
    device->last_job_syncs.first[queue_sync] = false;
 
    return;
 
 fail:
-   if (in_syncs)
-      vk_free(&device->vk.alloc, in_syncs);
+   if (*in_syncs)
+      vk_free(&device->vk.alloc, *in_syncs);
    assert(!out_syncs);
 
    return;
@@ -975,7 +975,7 @@ handle_cl_job(struct v3dv_queue *queue,
    if (device->pdevice->caps.multisync) {
       struct drm_v3d_multi_sync ms = { 0 };
       enum v3d_queue wait_stage = needs_rcl_sync ? V3D_RENDER : V3D_BIN;
-      set_multisync(&ms, sems_info, NULL, device, job, out_syncs, in_syncs,
+      set_multisync(&ms, sems_info, NULL, device, job, &out_syncs, &in_syncs,
                     V3DV_QUEUE_CL, wait_stage);
       if (!ms.base.id) {
          mtx_unlock(&queue->device->mutex);
@@ -1034,7 +1034,7 @@ handle_tfu_job(struct v3dv_queue *queue,
     */
    if (device->pdevice->caps.multisync) {
       struct drm_v3d_multi_sync ms = { 0 };
-      set_multisync(&ms, sems_info, NULL, device, job, out_syncs, in_syncs,
+      set_multisync(&ms, sems_info, NULL, device, job, &out_syncs, &in_syncs,
                     V3DV_QUEUE_TFU, V3D_TFU);
       if (!ms.base.id) {
          mtx_unlock(&device->mutex);
@@ -1095,7 +1095,7 @@ handle_csd_job(struct v3dv_queue *queue,
     */
    if (device->pdevice->caps.multisync) {
       struct drm_v3d_multi_sync ms = { 0 };
-      set_multisync(&ms, sems_info, NULL, device, job, out_syncs, in_syncs,
+      set_multisync(&ms, sems_info, NULL, device, job, &out_syncs, &in_syncs,
                     V3DV_QUEUE_CSD, V3D_CSD);
       if (!ms.base.id) {
          mtx_unlock(&queue->device->mutex);
