@@ -729,6 +729,9 @@ lvp_shader_compile_to_ir(struct lvp_pipeline *pipeline,
 
    scan_pipeline_info(pipeline, nir);
 
+   NIR_PASS_V(nir, nir_opt_copy_prop_vars);
+   NIR_PASS_V(nir, nir_copy_prop);
+   NIR_PASS_V(nir, nir_opt_deref);
    lvp_lower_pipeline_layout(pipeline->device, pipeline->layout, nir);
 
    NIR_PASS_V(nir, nir_lower_io_to_temporaries, nir_shader_get_entrypoint(nir), true, true);
