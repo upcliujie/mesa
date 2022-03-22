@@ -369,6 +369,8 @@ vn_encode_VkWriteDescriptorSet_pnext(struct vn_cs_encoder *enc, const void *val)
     while (pnext) {
         switch ((int32_t)pnext->sType) {
         case VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_INLINE_UNIFORM_BLOCK:
+            if (!vn_cs_renderer_protocol_has_extension(139 /* VK_EXT_inline_uniform_block */))
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkWriteDescriptorSet_pnext(enc, pnext->pNext);
