@@ -505,12 +505,16 @@ vn_encode_VkImageCreateInfo_pnext(struct vn_cs_encoder *enc, const void *val)
             vn_encode_VkImageFormatListCreateInfo_self(enc, (const VkImageFormatListCreateInfo *)pnext);
             return;
         case VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT:
+            if (!vn_cs_renderer_protocol_has_extension(159 /* VK_EXT_image_drm_format_modifier */))
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkImageCreateInfo_pnext(enc, pnext->pNext);
             vn_encode_VkImageDrmFormatModifierListCreateInfoEXT_self(enc, (const VkImageDrmFormatModifierListCreateInfoEXT *)pnext);
             return;
         case VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT:
+            if (!vn_cs_renderer_protocol_has_extension(159 /* VK_EXT_image_drm_format_modifier */))
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkImageCreateInfo_pnext(enc, pnext->pNext);
@@ -591,10 +595,14 @@ vn_decode_VkImageCreateInfo_pnext(struct vn_cs_decoder *dec, const void *val)
         vn_decode_VkImageFormatListCreateInfo_self(dec, (VkImageFormatListCreateInfo *)pnext);
         break;
     case VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_LIST_CREATE_INFO_EXT:
+        if (!vn_cs_renderer_protocol_has_extension(159 /* VK_EXT_image_drm_format_modifier */))
+            break;
         vn_decode_VkImageCreateInfo_pnext(dec, pnext->pNext);
         vn_decode_VkImageDrmFormatModifierListCreateInfoEXT_self(dec, (VkImageDrmFormatModifierListCreateInfoEXT *)pnext);
         break;
     case VK_STRUCTURE_TYPE_IMAGE_DRM_FORMAT_MODIFIER_EXPLICIT_CREATE_INFO_EXT:
+        if (!vn_cs_renderer_protocol_has_extension(159 /* VK_EXT_image_drm_format_modifier */))
+            break;
         vn_decode_VkImageCreateInfo_pnext(dec, pnext->pNext);
         vn_decode_VkImageDrmFormatModifierExplicitCreateInfoEXT_self(dec, (VkImageDrmFormatModifierExplicitCreateInfoEXT *)pnext);
         break;

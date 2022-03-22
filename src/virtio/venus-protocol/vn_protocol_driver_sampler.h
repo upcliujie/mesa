@@ -213,6 +213,8 @@ vn_encode_VkSamplerCreateInfo_pnext(struct vn_cs_encoder *enc, const void *val)
             vn_encode_VkSamplerReductionModeCreateInfo_self(enc, (const VkSamplerReductionModeCreateInfo *)pnext);
             return;
         case VK_STRUCTURE_TYPE_SAMPLER_CUSTOM_BORDER_COLOR_CREATE_INFO_EXT:
+            if (!vn_cs_renderer_protocol_has_extension(288 /* VK_EXT_custom_border_color */))
+                break;
             vn_encode_simple_pointer(enc, pnext);
             vn_encode_VkStructureType(enc, &pnext->sType);
             vn_encode_VkSamplerCreateInfo_pnext(enc, pnext->pNext);
