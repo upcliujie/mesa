@@ -5,8 +5,45 @@
 
 #include "vn_cs.h"
 
+#include "venus-protocol/vn_protocol_driver_info.h"
+
 #include "vn_instance.h"
 #include "vn_renderer.h"
+
+struct vn_cs_renderer_protocol_info _vn_cs_renderer_protocol_info = {
+   .mutex = _SIMPLE_MTX_INITIALIZER_NP,
+};
+
+void
+vn_cs_renderer_protocol_info_init_once(struct vn_instance *instance)
+{
+   const struct vn_renderer_info *renderer_info = &instance->renderer->info;
+
+   simple_mtx_lock(&_vn_cs_renderer_protocol_info.mutex);
+   if (_vn_cs_renderer_protocol_info.init_once) {
+      simple_mtx_unlock(&_vn_cs_renderer_protocol_info.mutex);
+      return;
+   }
+
+   _vn_cs_renderer_protocol_info.api_version = renderer_info->vk_xml_version;
+
+   /* recover complete extension mask from capset masks */
+   uint32_t ext_mask[32] = { 0 };
+   memcpy(&ext_mask[0], renderer_info->vk_extension_mask1,
+          sizeof(renderer_info->vk_extension_mask1));
+
+   static_assert(sizeof(ext_mask) ==
+                 sizeof(_vn_cs_renderer_protocol_info.extension_bitset));
+
+   for (uint32_t i = 0; i < sizeof(ext_mask) * 8; i++) {
+      /* use protocl helper to ensure mask decoding matches encoding */
+      if (vn_info_extension_mask_test(ext_mask, i + 1))
+         BITSET_SET(_vn_cs_renderer_protocol_info.extension_bitset, i);
+   }
+
+   _vn_cs_renderer_protocol_info.init_once = true;
+   simple_mtx_unlock(&_vn_cs_renderer_protocol_info.mutex);
+}
 
 static void
 vn_cs_encoder_sanity_check(struct vn_cs_encoder *enc)
