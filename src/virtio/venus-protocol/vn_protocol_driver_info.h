@@ -142,4 +142,10 @@ vn_info_extension_get(int32_t index)
    return &_vn_info_extensions[index];
 }
 
+static inline bool
+vn_info_extension_mask_test(const uint32_t *mask, uint32_t ext_bit)
+{
+   return mask[ext_bit / 32] & (1 << (ext_bit % 32));
+}
+
 #endif /* VN_PROTOCOL_DRIVER_INFO_H */
