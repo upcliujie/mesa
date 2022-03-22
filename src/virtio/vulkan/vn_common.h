@@ -23,7 +23,7 @@
 #include <vulkan/vulkan.h>
 
 #include "c11/threads.h"
-#include "util/bitscan.h"
+#include "util/bitset.h"
 #include "util/compiler.h"
 #include "util/list.h"
 #include "util/macros.h"
