@@ -1186,6 +1186,22 @@ anv_pipeline_link_fs(const struct brw_compiler *compiler,
    typed_memcpy(stage->bind_map.surface_to_descriptor,
                 rt_bindings, num_rt_bindings);
    stage->bind_map.surface_count += num_rt_bindings;
+
+   /* This is rather ugly.
+    *
+    * Any variable annotated as interpolated by sample essentially disables
+    * coarse pixel shading. Unfortunately the CTS tests exercising this set
+    * the varying value in the previous stage using a constant. Our NIR
+    * infrastructure is clever enough to lookup variables across stages and
+    * constant fold, removing the variable. So in order to comply with CTS we
+    * have check variables here.
+    */
+   nir_foreach_variable_in_list(var, &stage->nir->variables) {
+      if (var->data.sample) {
+         stage->key.wm.coarse_pixel = false;
+         break;
+      }
+   }
 }
 
 static void
@@ -1679,24 +1695,6 @@ anv_graphics_pipeline_load_nir(struct anv_graphics_pipeline_base *pipeline,
                                                  pipeline_ctx, &stages[s]);
       if (stages[s].nir == NULL) {
          return vk_error(pipeline, VK_ERROR_UNKNOWN);
-      }
-
-      /* This is rather ugly.
-       *
-       * Any variable annotated as interpolated by sample essentially disables
-       * coarse pixel shading. Unfortunately the CTS tests exercising this set
-       * the varying value in the previous stage using a constant. Our NIR
-       * infrastructure is clever enough to lookup variables across stages and
-       * constant fold, removing the variable. So in order to comply with CTS
-       * we have check variables here.
-       */
-      if (s == MESA_SHADER_FRAGMENT) {
-         nir_foreach_variable_in_list(var, &stages[s].nir->variables) {
-            if (var->data.sample) {
-               stages[s].key.wm.coarse_pixel = false;
-               break;
-            }
-         }
       }
 
       stages[s].feedback.duration += os_time_get_nano() - stage_start;
