@@ -37,7 +37,7 @@ vn_cs_renderer_protocol_info_init_once(struct vn_instance *instance)
 
    for (uint32_t i = 0; i < sizeof(ext_mask) * 8; i++) {
       /* use protocl helper to ensure mask decoding matches encoding */
-      if (vn_info_extension_mask_test(ext_mask, i + 1))
+      if (vn_info_extension_mask_test(ext_mask, i))
          BITSET_SET(_vn_cs_renderer_protocol_info.extension_bitset, i);
    }
 
