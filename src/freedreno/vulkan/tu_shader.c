@@ -141,14 +141,16 @@ lower_load_push_constant(nir_builder *b, nir_intrinsic_instr *instr,
 {
    uint32_t base = nir_intrinsic_base(instr);
    assert(base % 4 == 0);
-   assert(base >= shader->push_consts.lo * 4);
-   base -= shader->push_consts.lo * 4;
+   assert(base >= shader->shared_consts.lo * 4);
+
+   if (shader->shared_consts.count > 0)
+      base += IR3_SHARED_CONST_BASE * 4;
 
    nir_ssa_def *load =
       nir_load_uniform(b, instr->num_components,
             instr->dest.ssa.bit_size,
             nir_ushr(b, instr->src[0].ssa, nir_imm_int(b, 2)),
-            .base = base + IR3_SHARED_CONST_BASE * 4);
+            .base = base);
 
    nir_ssa_def_rewrite_uses(&instr->dest.ssa, load);
 
@@ -569,7 +571,8 @@ lower_instr(nir_builder *b, nir_instr *instr, void *cb_data)
  */
 
 static void
-gather_push_constants(nir_shader *shader, struct tu_shader *tu_shader)
+gather_push_constants(nir_shader *shader, struct tu_shader *tu_shader,
+                      const struct tu_pipeline_layout *layout)
 {
    uint32_t min = UINT32_MAX, max = 0;
    nir_foreach_function(function, shader) {
@@ -594,21 +597,28 @@ gather_push_constants(nir_shader *shader, struct tu_shader *tu_shader)
       }
    }
 
-   if (min >= max) {
-      tu_shader->push_consts.lo = 0;
-      tu_shader->push_consts.count = 0;
+   if (min >= max)
       return;
-   }
 
    /* CP_LOAD_STATE OFFSET and NUM_UNIT for SHARED_CONSTS are in units of
     * dwords while loading regular consts is in units of vec4's.
     *
+    * So we unify the unit here as dwords for tu_push_constant_range, then
+    * we should consider correct unit when emitting.
+    *
+    * See tu6_emit_user_consts.
+    *
     * Note there's an alignment requirement of 16 dwords on OFFSET. Expand
     * the range and change units accordingly.
     */
-   tu_shader->push_consts.lo = (min / 4) / 4 * 4;
-   tu_shader->push_consts.count =
-      align(max, 16) / 4 - tu_shader->push_consts.lo;
+   struct tu_push_constant_range *const_range =
+         layout->push_constant_size <= 128 ?
+         &tu_shader->shared_consts : &tu_shader->regular_consts;
+
+   assert(layout->push_constant_size >= max);
+
+   const_range->lo = (min / 4) / 4 * 4;
+   const_range->count = align(max, 16) / 4 - const_range->lo;
 }
 
 static bool
@@ -616,7 +626,7 @@ tu_lower_io(nir_shader *shader, struct tu_device *dev,
             struct tu_shader *tu_shader,
             const struct tu_pipeline_layout *layout)
 {
-   gather_push_constants(shader, tu_shader);
+   gather_push_constants(shader, tu_shader, layout);
 
    struct lower_instr_params params = {
       .dev = dev,
@@ -839,7 +849,7 @@ tu_shader_create(struct tu_device *dev,
 
    shader->ir3_shader =
       ir3_shader_from_nir(dev->compiler, nir, &(struct ir3_shader_options) {
-                           .reserved_user_consts = 0,
+                           .reserved_user_consts = align(shader->regular_consts.count, 4),
                            .api_wavesize = api_wavesize,
                            .real_wavesize = real_wavesize,
                           }, &so_info);
