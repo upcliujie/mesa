@@ -5238,11 +5238,6 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
       genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
       anv_batch_emit_batch(&cmd_buffer->batch, &pipeline->base.batch);
-
-      /* The workgroup size of the pipeline affects our push constant layout
-       * so flag push constants as dirty if we change the pipeline.
-       */
-      cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
    }
 
    if ((cmd_buffer->state.descriptors_dirty & VK_SHADER_STAGE_COMPUTE_BIT) ||

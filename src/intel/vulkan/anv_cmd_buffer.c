@@ -567,6 +567,11 @@ void anv_CmdBindPipeline(
 
       state = &cmd_buffer->state.compute.base;
       stages = VK_SHADER_STAGE_COMPUTE_BIT;
+
+      /* The workgroup size of the pipeline affects our push constant layout
+       * so flag push constants as dirty if we change the pipeline.
+       */
+      cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
       break;
    }
 
