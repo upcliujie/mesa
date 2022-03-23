@@ -2719,7 +2719,8 @@ tu_pipeline_set_linkage(struct tu_program_descriptor_linkage *link,
 {
    link->const_state = *ir3_const_state(v);
    link->constlen = v->constlen;
-   link->push_consts = shader->push_consts;
+   link->shared_consts = shader->shared_consts;
+   link->regular_consts = shader->regular_consts;
 }
 
 static void

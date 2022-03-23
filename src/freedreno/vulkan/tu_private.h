@@ -115,7 +115,7 @@ typedef uint32_t xcb_window_t;
 #define MAX_VIEWPORT_SIZE (1 << 14)
 #define MAX_SCISSORS 16
 #define MAX_DISCARD_RECTANGLES 4
-#define MAX_PUSH_CONSTANTS_SIZE 128
+#define MAX_PUSH_CONSTANTS_SIZE 256
 #define MAX_PUSH_DESCRIPTORS 32
 #define MAX_DYNAMIC_UNIFORM_BUFFERS 16
 #define MAX_DYNAMIC_STORAGE_BUFFERS 8
@@ -1258,7 +1258,12 @@ struct tu_shader
 {
    struct ir3_shader *ir3_shader;
 
-   struct tu_push_constant_range push_consts;
+   /* Store as dword units for both type of consts and convert
+    * at emit time if necessary.
+    */
+   struct tu_push_constant_range shared_consts;
+   struct tu_push_constant_range regular_consts;
+
    uint8_t active_desc_sets;
    bool multi_pos_output;
 };
@@ -1292,7 +1297,8 @@ struct tu_program_descriptor_linkage
 
    uint32_t constlen;
 
-   struct tu_push_constant_range push_consts;
+   struct tu_push_constant_range shared_consts;
+   struct tu_push_constant_range regular_consts;
 };
 
 struct tu_pipeline_executable {
