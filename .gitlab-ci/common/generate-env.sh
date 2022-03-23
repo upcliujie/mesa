@@ -1,5 +1,31 @@
 #!/bin/sh
 
+#
+# Helper to print an export var statement, escaping any quotes from val.
+#
+#   export var='val'
+#
+# where var and val are passed as function arguments.
+#
+print_export() {
+    local var=$1 val=$2
+
+    printf "export %s='" "${var}"
+    while true; do
+        case ${val} in
+        *\'*)
+            printf %s "${val%%\'*}""'\''"
+            val=${val#*\'}
+            ;;
+        *)
+            printf "%s" "${val}"
+            break
+        esac
+    done
+
+    printf "\'\n"
+}
+
 for var in \
     ASAN_OPTIONS \
     BASE_SYSTEM_FORK_HOST_PREFIX \
@@ -112,5 +138,5 @@ for var in \
     ;
 do
     eval val=\$${var}
-    [ -z "$val" ] || echo "export $var='$val'"
+    [ -z "$val" ] || print_export "${var}" "${val}"
 done
