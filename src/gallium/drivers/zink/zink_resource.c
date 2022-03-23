@@ -47,11 +47,11 @@
 #include "util/os_file.h"
 #include "frontend/sw_winsys.h"
 
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(__APPLE__)
 #define ZINK_USE_DMABUF
 #endif
 
-#ifdef ZINK_USE_DMABUF
+#if defined(ZINK_USE_DMABUF) && !defined(_WIN32)
 #include <xf86drm.h>
 #include "drm-uapi/drm_fourcc.h"
 #else
@@ -488,7 +488,11 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    VkMemoryPropertyFlags flags;
    bool need_dedicated = false;
    bool shared = templ->bind & PIPE_BIND_SHARED;
+#ifndef _WIN32
    VkExternalMemoryHandleTypeFlags export_types = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+#else
+   VkExternalMemoryHandleTypeFlags export_types = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#endif
    unsigned num_planes = util_format_get_num_planes(templ->format);
    VkImageAspectFlags plane_aspects[] = {
       VK_IMAGE_ASPECT_PLANE_0_BIT,
@@ -505,7 +509,11 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    }
    if (needs_export) {
       if (whandle && whandle->type == ZINK_EXTERNAL_MEMORY_HANDLE) {
+#ifndef _WIN32
          external = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT;
+#else
+         external = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+#endif
       } else {
          external = VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
          export_types |= VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT;
@@ -786,6 +794,8 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
    }
 
 #ifdef ZINK_USE_DMABUF
+
+#ifndef _WIN32
    VkImportMemoryFdInfoKHR imfi = {
       VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
       NULL,
@@ -803,6 +813,32 @@ resource_object_create(struct zink_screen *screen, const struct pipe_resource *t
       imfi.pNext = mai.pNext;
       mai.pNext = &imfi;
    }
+#else
+   VkImportMemoryWin32HandleInfoKHR imfi = {
+      VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+      NULL,
+   };
+
+   if (whandle) {
+      HANDLE source_target = GetCurrentProcess();
+      HANDLE out_handle;
+
+      bool result = DuplicateHandle(source_target, whandle->handle, source_target, &out_handle, 0, false, DUPLICATE_SAME_ACCESS);
+
+      if (!result || !out_handle) {
+         mesa_loge("ZINK: failed to DuplicateHandle with winerr: 0x%x\n", GetLastError());
+         goto fail1;
+      }
+
+      imfi.pNext = NULL;
+      imfi.handleType = external;
+      imfi.handle = out_handle;
+
+      imfi.pNext = mai.pNext;
+      mai.pNext = &imfi;
+   }
+#endif
+
 #endif
 
    unsigned alignment = MAX2(reqs.alignment, 256);
@@ -1117,7 +1153,7 @@ zink_resource_get_param(struct pipe_screen *pscreen, struct pipe_context *pctx,
       if (!pscreen->resource_get_handle(pscreen, pctx, pres, &whandle, handle_usage))
          return false;
 
-      *value = whandle.handle;
+      *value = (uint64_t)whandle.handle;
       break;
 #else
       (void)whandle;
@@ -1141,6 +1177,7 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
       struct zink_screen *screen = zink_screen(pscreen);
       struct zink_resource_object *obj = res->obj;
 
+#ifndef _WIN32
       assert(screen->drm_fd >= 0);
       VkMemoryGetFdInfoKHR fd_info = {0};
       int fd;
@@ -1166,6 +1203,18 @@ zink_resource_get_handle(struct pipe_screen *pscreen,
          fd = h;
       }
       whandle->handle = fd;
+#else
+      VkMemoryGetWin32HandleInfoKHR handle_info = {0};
+      HANDLE handle;
+      handle_info.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
+      //TODO: remove for wsi
+      handle_info.memory = zink_bo_get_mem(obj->bo);
+      handle_info.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+      VkResult result = VKSCR(GetMemoryWin32HandleKHR)(screen->dev, &handle_info, &handle);
+      if (result != VK_SUCCESS)
+         return false;
+      whandle->handle = handle;
+#endif
       uint64_t value;
       zink_resource_get_param(pscreen, context, tex, 0, 0, 0, PIPE_RESOURCE_PARAM_MODIFIER, 0, &value);
       whandle->modifier = value;
@@ -1220,9 +1269,21 @@ zink_memobj_create_from_handle(struct pipe_screen *pscreen, struct winsys_handle
       return NULL;
    memcpy(&memobj->whandle, whandle, sizeof(struct winsys_handle));
    memobj->whandle.type = ZINK_EXTERNAL_MEMORY_HANDLE;
+
 #ifdef ZINK_USE_DMABUF
+
+#ifndef _WIN32
    memobj->whandle.handle = os_dupfd_cloexec(whandle->handle);
-#endif
+#else
+   HANDLE source_target = GetCurrentProcess();
+   HANDLE out_handle;
+
+   DuplicateHandle(source_target, whandle->handle, source_target, &out_handle, 0, false, DUPLICATE_SAME_ACCESS);
+   memobj->whandle.handle = out_handle;
+
+#endif /* _WIN32 */
+#endif /* ZINK_USE_DMABUF */
+
    return (struct pipe_memory_object *)memobj;
 }
 
@@ -1231,8 +1292,14 @@ zink_memobj_destroy(struct pipe_screen *pscreen, struct pipe_memory_object *pmem
 {
 #ifdef ZINK_USE_DMABUF
    struct zink_memory_object *memobj = (struct zink_memory_object *)pmemobj;
+
+#ifndef _WIN32
    close(memobj->whandle.handle);
-#endif
+#else
+   CloseHandle(memobj->whandle.handle);
+#endif /* _WIN32 */
+#endif /* ZINK_USE_DMABUF */
+   
    FREE(pmemobj);
 }
 
@@ -1951,7 +2018,7 @@ zink_screen_resource_init(struct pipe_screen *pscreen)
    pscreen->resource_destroy = zink_resource_destroy;
    pscreen->transfer_helper = u_transfer_helper_create(&transfer_vtbl, true, true, false, false, !screen->have_D24_UNORM_S8_UINT);
 
-   if (screen->info.have_KHR_external_memory_fd) {
+   if (screen->info.have_KHR_external_memory_fd || screen->info.have_KHR_external_memory_win32) {
       pscreen->resource_get_handle = zink_resource_get_handle;
       pscreen->resource_from_handle = zink_resource_from_handle;
    }
