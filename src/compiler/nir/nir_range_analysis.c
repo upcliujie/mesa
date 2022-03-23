@@ -1419,6 +1419,12 @@ nir_unsigned_upper_bound(nir_shader *shader, struct hash_table *range_ht,
       default:
          break;
       }
+      if (nir_intrinsic_has_assume_upper_bound(intrin)) {
+         /* Zero means that the upper bound is not set here. */
+         unsigned upper_bound = nir_intrinsic_assume_upper_bound(intrin);
+         if (upper_bound != 0 && upper_bound < res)
+            res = upper_bound;
+      }
       if (res != max)
          _mesa_hash_table_insert(range_ht, key, (void*)(uintptr_t)res);
       return res;

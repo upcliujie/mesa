@@ -226,6 +226,9 @@ index("bool", "is_swizzled")
 # The SLC ("system level coherent") bit of load_buffer_amd/store_buffer_amd
 index("bool", "slc_amd")
 
+# When set, the intrinsic should be assumed to have this upper bound
+index("unsigned", "assume_upper_bound")
+
 # Separate source/dest access flags for copies
 index("enum gl_access_qualifier", "dst_access")
 index("enum gl_access_qualifier", "src_access")
@@ -1330,8 +1333,8 @@ system_value("intersection_opaque_amd", 1, bit_sizes=[1])
 # Load forced VRS rates.
 intrinsic("load_force_vrs_rates_amd", dest_comp=1, bit_sizes=[32], flags=[CAN_ELIMINATE, CAN_REORDER])
 
-intrinsic("load_scalar_arg_amd", dest_comp=0, bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
-intrinsic("load_vector_arg_amd", dest_comp=0, bit_sizes=[32], indices=[BASE], flags=[CAN_ELIMINATE, CAN_REORDER])
+intrinsic("load_scalar_arg_amd", dest_comp=0, bit_sizes=[32], indices=[BASE, ASSUME_UPPER_BOUND], flags=[CAN_ELIMINATE, CAN_REORDER])
+intrinsic("load_vector_arg_amd", dest_comp=0, bit_sizes=[32], indices=[BASE, ASSUME_UPPER_BOUND], flags=[CAN_ELIMINATE, CAN_REORDER])
 
 # src[] = { 64-bit base address, 32-bit offset }.
 intrinsic("load_smem_amd", src_comp=[1, 1], dest_comp=0, bit_sizes=[32],
