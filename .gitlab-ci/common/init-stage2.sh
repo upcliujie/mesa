@@ -91,6 +91,12 @@ if [ -n "$HWCI_START_XORG" ]; then
   export DISPLAY=:0
 fi
 
+set +e
+echo 'test bash support'
+which bash
+ls -l /bin/*sh
+set -e
+
 sh -c "$HWCI_TEST_SCRIPT" && RESULT=pass || RESULT=fail
 
 # Let's make sure the results are always stored in current working directory
