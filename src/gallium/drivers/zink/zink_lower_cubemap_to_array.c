@@ -404,9 +404,57 @@ rewrite_cube_var_type(nir_builder *b, nir_tex_instr *tex)
    sampler->type = make_2darray_from_cubemap_with_array(sampler->type);
 }
 
+/* txb(s, coord, bias) = txl(s, coord, lod(s, coord).y + bias) */
+/* tex(s, coord, bias) = txl(s, coord, lod(s, coord)) */
+static nir_tex_instr *
+lower_tex_to_txl(nir_builder *b, nir_tex_instr *tex)
+{
+   b->cursor = nir_after_instr(&tex->instr);
+   int bias_idx = nir_tex_instr_src_index(tex, nir_tex_src_bias);
+   unsigned num_srcs = bias_idx >= 0 ? tex->num_srcs : tex->num_srcs + 1;
+   nir_tex_instr *txl = nir_tex_instr_create(b->shader, num_srcs);
+
+   txl->op = nir_texop_txl;
+   txl->sampler_dim = tex->sampler_dim;
+   txl->dest_type = tex->dest_type;
+   txl->coord_components = tex->coord_components;
+   txl->texture_index = tex->texture_index;
+   txl->sampler_index = tex->sampler_index;
+   txl->is_array = tex->is_array;
+   txl->is_shadow = tex->is_shadow;
+   txl->is_new_style_shadow = tex->is_new_style_shadow;
+
+   unsigned s = 0;
+   for (int i = 0; i < tex->num_srcs; i++) {
+      if (i == bias_idx)
+         continue;
+      nir_src_copy(&txl->src[s].src, &tex->src[i].src);
+      txl->src[s].src_type = tex->src[i].src_type;
+      s++;
+   }
+   nir_ssa_def *lod = nir_get_texture_lod(b, tex);
+
+   if (bias_idx >= 0)
+      lod = nir_fadd(b, lod, nir_ssa_for_src(b, tex->src[bias_idx].src, 1));
+   lod = nir_fadd_imm(b, lod, -1.0);
+   txl->src[s].src = nir_src_for_ssa(lod);
+   txl->src[s].src_type = nir_tex_src_lod;
+
+   b->cursor = nir_before_instr(&tex->instr);
+   nir_ssa_dest_init(&txl->instr, &txl->dest, nir_dest_num_components(tex->dest),
+                     nir_dest_bit_size(tex->dest), NULL);
+   nir_builder_instr_insert(b, &txl->instr);
+   nir_ssa_def_rewrite_uses(&tex->dest.ssa, &txl->dest.ssa);
+   return txl;
+}
+
 static nir_ssa_def *
 lower_cube_sample(nir_builder *b, nir_tex_instr *tex)
 {
+   if (!tex->is_shadow && (tex->op == nir_texop_txb || tex->op == nir_texop_tex)) {
+      tex = lower_tex_to_txl(b, tex);
+   }
+ 
    int coord_index = nir_tex_instr_src_index(tex, nir_tex_src_coord);
    assert(coord_index >= 0);
 
