@@ -33,6 +33,14 @@
 #include "arm_neon.h"
 #endif
 
+/* If forward is 1, then the node in 'node' has the higher register */
+struct lcra_adjacent_node {
+        unsigned offset : 6;
+        bool forward : 1;
+        bool set : 1;
+        unsigned node : 24;
+};
+
 struct lcra_state {
         unsigned node_count;
         uint64_t *affinity;
@@ -51,6 +59,10 @@ struct lcra_state {
 
         /* Before solving, forced registers; after solving, solutions. */
         int8_t *solutions;
+
+        /* Nodes can be forced adjacent to other nodes. Can be used for
+         * emulating support for more than 4 components */
+        struct lcra_adjacent_node *adjacent;
 
         /** Node which caused register allocation to fail */
         unsigned spill_node;
@@ -75,6 +87,7 @@ lcra_alloc_equations(unsigned node_count)
         l->linear = calloc(sizeof(l->linear[0]), node_count);
         l->solutions = calloc(sizeof(l->solutions[0]), ALIGN_POT(node_count, 16));
         l->affinity = calloc(sizeof(l->affinity[0]), node_count);
+        l->adjacent = calloc(sizeof(l->adjacent[0]), node_count);
 
         memset(l->solutions, LCRA_NOT_SOLVED, sizeof(l->solutions[0]) * ALIGN_POT(node_count, 16));
 
@@ -88,8 +101,9 @@ lcra_free(struct lcra_state *l)
                 nodearray_reset(&l->linear[i]);
 
         free(l->linear);
-        free(l->affinity);
         free(l->solutions);
+        free(l->affinity);
+        free(l->adjacent);
         free(l);
 }
 
@@ -224,6 +238,19 @@ lcra_linear_solutions(struct lcra_state *l, int8_t *solutions, unsigned i)
         }
 }
 
+/* Returns all possible solutions */
+static uint64_t
+lcra_linear_solutions_all(struct lcra_state *l, int8_t *solutions, unsigned i)
+{
+        if (nodearray_sparse(&l->linear[i])) {
+                return lcra_linear_solutions(l, solutions, i);
+        } else {
+                uint64_t affinity = l->affinity[i];
+                uint8_t *row = (uint8_t *)l->linear[i].dense;
+                return lcra_solutions_dense_all(l, solutions, row, affinity);
+        }
+}
+
 static bool
 lcra_solve(struct lcra_state *l)
 {
@@ -231,16 +258,49 @@ lcra_solve(struct lcra_state *l)
                 if (l->solutions[step] != LCRA_NOT_SOLVED) continue;
                 if (l->affinity[step] == 0) continue;
 
-                uint64_t possible = lcra_linear_solutions(l, l->solutions, step);
+                struct lcra_adjacent_node adj = l->adjacent[step];
 
-                unsigned reg = ffsll(possible);
+                if (likely(!adj.set)) {
+                        uint64_t possible = lcra_linear_solutions(l, l->solutions, step);
 
-                if (reg) {
-                        l->solutions[step] = reg - 1;
+                        if (possible) {
+                                l->solutions[step] = ffsll(possible) - 1;
+                        } else {
+                                /* Out of registers - prepare to spill */
+                                l->spill_node = step;
+                                return false;
+                        }
                 } else {
-                        /* Out of registers - prepare to spill */
-                        l->spill_node = step;
-                        return false;
+                        /* We only support pairs for now */
+                        assert(l->adjacent[adj.node].node == step);
+
+                        uint64_t possible =
+                                lcra_linear_solutions_all(l, l->solutions, step);
+
+                        uint64_t adj_possible =
+                                lcra_linear_solutions_all(l, l->solutions, adj.node);
+
+                        if (adj.forward)
+                                adj_possible >>= adj.offset;
+                        else
+                                adj_possible <<= adj.offset;
+
+                        uint64_t combined = possible & adj_possible;
+
+                        if (combined) {
+                                unsigned reg = ffsll(combined) - 1;
+
+                                l->solutions[step] = reg;
+                                l->solutions[adj.node] = reg +
+                                        (adj.forward ? adj.offset : -adj.offset);
+                        } else {
+                                /* Out of registers - prepare to spill */
+                                if (!possible)
+                                        l->spill_node = step;
+                                else
+                                        l->spill_node = adj.node;
+                                return false;
+                        }
                 }
         }
 
@@ -306,6 +366,49 @@ bi_make_affinity(uint64_t clobber, unsigned count, bool split_file)
 
         /* We can use a register iff it's not clobberred */
         return ~clobbered;
+}
+
+static void
+bi_set_nodes_adjacent(struct lcra_state *l, unsigned offset,
+                      unsigned node_low, unsigned node_high)
+{
+        assert(!l->adjacent[node_low].set);
+        assert(!l->adjacent[node_high].set);
+
+        l->adjacent[node_low] = (struct lcra_adjacent_node) {
+                .set = true,
+                .node = node_high,
+                .offset = offset,
+                .forward = true,
+        };
+
+        l->adjacent[node_high] = (struct lcra_adjacent_node) {
+                .set = true,
+                .node = node_low,
+                .offset = offset,
+                .forward = false,
+        };
+}
+
+static void
+bi_set_srcs_adjacent(struct lcra_state *l, bi_instr *ins,
+                     unsigned src_low, unsigned src_high)
+{
+        unsigned count_low = bi_count_read_registers(ins, src_low);
+        unsigned count_high = bi_count_read_registers(ins, src_high);
+
+        /* There's no point if we don't use the second register */
+        if (!count_high)
+                return;
+
+        /* It should be possible to handle some cases where
+         * these asserts don't hold */
+        assert(ins->src[src_low].offset == 0);
+        assert(ins->src[src_high].offset == 0);
+
+        bi_set_nodes_adjacent(l, count_low,
+                              bi_get_node(ins->src[src_low]),
+                              bi_get_node(ins->src[src_high]));
 }
 
 static void
