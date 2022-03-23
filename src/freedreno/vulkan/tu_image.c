@@ -136,6 +136,14 @@ tu_cs_image_stencil_ref(struct tu_cs *cs, const struct tu_image_view *iview, uin
 }
 
 void
+tu_cs_image_depth_ref(struct tu_cs *cs, const struct tu_image_view *iview, uint32_t layer)
+{
+   tu_cs_emit(cs, iview->depth_PITCH);
+   tu_cs_emit(cs, iview->depth_layer_size >> 6);
+   tu_cs_emit_qw(cs, iview->depth_base_addr + iview->depth_layer_size * layer);
+}
+
+void
 tu_cs_image_ref_2d(struct tu_cs *cs, const struct fdl6_view *iview, uint32_t layer, bool src)
 {
    tu_cs_emit_qw(cs, iview->base_addr + iview->layer_size * layer);
@@ -248,6 +256,12 @@ tu_image_view_init(struct tu_image_view *iview,
          fdl_surface_offset(layout, range->baseMipLevel, range->baseArrayLayer);
       iview->stencil_layer_size = fdl_layer_stride(layout, range->baseMipLevel);
       iview->stencil_PITCH = A6XX_RB_STENCIL_BUFFER_PITCH(fdl_pitch(layout, range->baseMipLevel)).value;
+
+      layout = &image->layout[0];
+      iview->depth_base_addr = image->iova +
+         fdl_surface_offset(layout, range->baseMipLevel, range->baseArrayLayer);
+      iview->depth_layer_size = fdl_layer_stride(layout, range->baseMipLevel);
+      iview->depth_PITCH = A6XX_RB_DEPTH_BUFFER_PITCH(fdl_pitch(layout, range->baseMipLevel)).value;
    }
 }
 
