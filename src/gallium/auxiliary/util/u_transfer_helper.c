@@ -37,6 +37,7 @@ struct u_transfer_helper {
    bool separate_stencil; /**< separate stencil for all formats */
    bool fake_rgtc;
    bool msaa_map;
+   bool z24_in_z32; /* the z24 values are stored in a z32 - translate them. */
 };
 
 static inline bool handle_transfer(struct pipe_resource *prsc)
@@ -527,7 +528,8 @@ u_transfer_helper_create(const struct u_transfer_vtbl *vtbl,
                          bool separate_z32s8,
                          bool separate_stencil,
                          bool fake_rgtc,
-                         bool msaa_map)
+                         bool msaa_map,
+                         bool z24_in_z32)
 {
    struct u_transfer_helper *helper = calloc(1, sizeof(*helper));
 
@@ -536,6 +538,7 @@ u_transfer_helper_create(const struct u_transfer_vtbl *vtbl,
    helper->separate_stencil = separate_stencil;
    helper->fake_rgtc = fake_rgtc;
    helper->msaa_map = msaa_map;
+   helper->z24_in_z32 = z24_in_z32;
 
    return helper;
 }
@@ -611,13 +614,23 @@ u_transfer_helper_deinterleave_transfer_map(struct pipe_context *pctx,
                                                        width, height);
          break;
       case PIPE_FORMAT_Z24_UNORM_S8_UINT:
-         util_format_z24_unorm_s8_uint_pack_separate(trans->staging,
-                                                     ptrans->stride,
-                                                     trans->ptr,
-                                                     trans->trans->stride,
-                                                     trans->ptr2,
-                                                     trans->trans2->stride,
-                                                     width, height);
+         if (helper->z24_in_z32) {
+            util_format_z24_unorm_s8_uint_pack_separate_z32(trans->staging,
+                                                            ptrans->stride,
+                                                            trans->ptr,
+                                                            trans->trans->stride,
+                                                            trans->ptr2,
+                                                            trans->trans2->stride,
+                                                            width, height);
+         } else {
+            util_format_z24_unorm_s8_uint_pack_separate(trans->staging,
+                                                        ptrans->stride,
+                                                        trans->ptr,
+                                                        trans->trans->stride,
+                                                        trans->ptr2,
+                                                        trans->trans2->stride,
+                                                        width, height);
+         }
          break;
       default:
          unreachable("Unexpected format");
