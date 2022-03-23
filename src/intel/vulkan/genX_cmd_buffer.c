@@ -5240,11 +5240,6 @@ genX(cmd_buffer_flush_compute_state)(struct anv_cmd_buffer *cmd_buffer)
       genX(cmd_buffer_apply_pipe_flushes)(cmd_buffer);
 
       anv_batch_emit_batch(&cmd_buffer->batch, &pipeline->base.batch);
-
-      /* The workgroup size of the pipeline affects our push constant layout
-       * so flag push constants as dirty if we change the pipeline.
-       */
-      cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
    }
 
    if ((cmd_buffer->state.descriptors_dirty & VK_SHADER_STAGE_COMPUTE_BIT) ||
@@ -5965,8 +5960,12 @@ genX(flush_pipeline_select)(struct anv_cmd_buffer *cmd_buffer,
        * invalid. Set the compute pipeline to dirty to force a re-emit of the
        * pipeline in case we get back-to-back dispatch calls with the same
        * pipeline and a PIPELINE_SELECT in between.
+       *
+       * Touching MEDIA_VFE_STATE also seems to affect the content of
+       * MEDIA_CURBE_LOAD, so reemit that one too.
        */
       cmd_buffer->state.compute.pipeline_dirty = true;
+      cmd_buffer->state.push_constants_dirty |= VK_SHADER_STAGE_COMPUTE_BIT;
    }
 #endif
 
