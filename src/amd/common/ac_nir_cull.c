@@ -72,10 +72,11 @@ cull_face(nir_builder *b, nir_ssa_def *pos[3][4], const position_w_info *w_info)
    nir_ssa_def *front_facing_ccw = nir_flt(b, nir_imm_float(b, 0.0f), det);
    nir_ssa_def *ccw = nir_load_cull_ccw_amd(b);
    nir_ssa_def *front_facing = nir_bcsel(b, ccw, front_facing_ccw, front_facing_cw);
-   nir_ssa_def *cull_front = nir_load_cull_front_face_enabled_amd(b);
-   nir_ssa_def *cull_back = nir_load_cull_back_face_enabled_amd(b);
-
-   nir_ssa_def *face_culled = nir_bcsel(b, front_facing, cull_front, cull_back);
+   nir_ssa_def *cull_front = nir_bcsel(b, nir_load_cull_front_face_enabled_amd(b),
+                                          front_facing, nir_imm_false(b));
+   nir_ssa_def *cull_back = nir_bcsel(b, nir_load_cull_back_face_enabled_amd(b),
+                                         nir_inot(b, front_facing), nir_imm_false(b));
+   nir_ssa_def *face_culled = nir_ior(b, cull_front, cull_back);
 
    /* Don't reject NaN and +/-infinity, these are tricky.
     * Just trust fixed-function HW to handle these cases correctly.
