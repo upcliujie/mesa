@@ -2905,19 +2905,24 @@ tu_store_gmem_attachment(struct tu_cmd_buffer *cmd,
          tu_disable_draw_states(cmd, cs);
 
       if (dst->store) {
-         store_3d_blit(cmd, cs, iview, dst->samples, resolve_d32s8_s8, format,
-                       render_area, src->gmem_offset, src->cpp);
+         store_3d_blit(
+            cmd, cs, iview, dst->samples, resolve_d32s8_s8, format,
+            render_area,
+            resolve_d32s8_s8 ? src->gmem_offset_stencil : src->gmem_offset,
+            src->cpp);
       }
       if (dst->store_stencil) {
          store_3d_blit(cmd, cs, iview, dst->samples, true, PIPE_FORMAT_S8_UINT,
-                       render_area, src->gmem_offset, src->samples);
+                       render_area, src->gmem_offset_stencil, src->samples);
       }
    } else {
       r2d_coords(cs, &render_area->offset, &render_area->offset, &render_area->extent);
 
       if (dst->store) {
-         store_cp_blit(cmd, cs, iview, src->samples, resolve_d32s8_s8, format,
-                       src->gmem_offset, src->cpp);
+         store_cp_blit(
+            cmd, cs, iview, src->samples, resolve_d32s8_s8, format,
+            resolve_d32s8_s8 ? src->gmem_offset_stencil : src->gmem_offset,
+            src->cpp);
       }
       if (dst->store_stencil) {
          store_cp_blit(cmd, cs, iview, src->samples, true, PIPE_FORMAT_S8_UINT,
