@@ -393,6 +393,11 @@ virgl_get_shader_param(struct pipe_screen *screen,
          return 1;
       case PIPE_SHADER_CAP_TGSI_ANY_INOUT_DECL_RANGE:
       case PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR:
+         if ((vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_FAKE_FP64) &&
+             (shader == PIPE_SHADER_VERTEX)) {
+            fprintf(stderr, "No support for VS input array\n");
+            return 0;
+         }
          return vscreen->caps.caps.v2.capability_bits & VIRGL_CAP_INDIRECT_INPUT_ADDR;
       case PIPE_SHADER_CAP_MAX_INPUTS:
          if (vscreen->caps.caps.v1.glsl_level < 150)
