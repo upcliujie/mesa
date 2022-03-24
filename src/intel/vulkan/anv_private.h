@@ -2913,6 +2913,12 @@ struct anv_cmd_graphics_state {
 
    uint32_t primitive_topology;
 
+   /**
+    * Whether thread dispatch is forced. This might be set when all color
+    * writes are disabled but the fragment shader still has side effects.
+    */
+   bool force_fragment_thread_dispatch;
+
    struct {
       struct anv_buffer *index_buffer;
       uint32_t index_type; /**< 3DSTATE_INDEX_BUFFER.IndexFormat */

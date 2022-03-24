@@ -3967,8 +3967,11 @@ genX(cmd_buffer_flush_state)(struct anv_cmd_buffer *cmd_buffer)
       cmd_buffer_alloc_push_constants(cmd_buffer);
    }
 
-   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_PIPELINE)
+   if (cmd_buffer->state.gfx.dirty & ANV_CMD_DIRTY_PIPELINE) {
       cmd_buffer->state.gfx.primitive_topology = pipeline->topology;
+      cmd_buffer->state.gfx.force_fragment_thread_dispatch =
+         pipeline->force_fragment_thread_dispatch;
+   }
 
 #if GFX_VER <= 7
    if (cmd_buffer->state.descriptors_dirty & VK_SHADER_STAGE_VERTEX_BIT ||
