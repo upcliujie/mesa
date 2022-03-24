@@ -1150,6 +1150,7 @@ else
     '-fno-common',
     # Clang
     '-Wno-microsoft-enum-value',
+    '-Wno-unused-function',
   ]
   _trial_cpp = [
     '-Werror=return-type',
