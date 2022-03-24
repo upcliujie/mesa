@@ -207,8 +207,7 @@ static LLVMTargetMachineRef ac_create_target_machine(enum radeon_family family,
 
    if (out_triple)
       *out_triple = triple;
-   if (tm_options & AC_TM_ENABLE_GLOBAL_ISEL)
-      ac_enable_global_isel(tm);
+
    return tm;
 }
 
