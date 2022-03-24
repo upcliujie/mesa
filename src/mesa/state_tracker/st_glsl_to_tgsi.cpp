@@ -1644,11 +1644,17 @@ glsl_to_tgsi_visitor::visit_expression(ir_expression* ir, st_src_reg *op)
    }
    if (ir->operands[2] &&
        ir->operands[2]->type->vector_elements != vector_elements) {
-      /* This can happen with ir_triop_lrp, i.e. glsl mix */
-      assert(ir->operands[2]->type->vector_elements == 1);
-      uint16_t swizzle_x = GET_SWZ(op[2].swizzle, 0);
-      op[2].swizzle = MAKE_SWIZZLE4(swizzle_x, swizzle_x,
-                                    swizzle_x, swizzle_x);
+      if (ir->operands[0]->type->vector_elements == 1) {
+         /* This can happen with ir_triop_csel */
+         uint16_t swizzle_x = GET_SWZ(op[0].swizzle, 0);
+         op[0].swizzle = MAKE_SWIZZLE4(swizzle_x, swizzle_x,
+                                       swizzle_x, swizzle_x);
+      } else if (ir->operands[2]->type->vector_elements == 1) {
+         /* This can happen with ir_triop_lrp, i.e. glsl mix */
+         uint16_t swizzle_x = GET_SWZ(op[2].swizzle, 0);
+         op[2].swizzle = MAKE_SWIZZLE4(swizzle_x, swizzle_x,
+                                       swizzle_x, swizzle_x);
+      }
    }
 
    this->result.file = PROGRAM_UNDEFINED;
