@@ -10,3 +10,7 @@ endif
 if with_tools.contains('dlclose-skip')
   subdir('dlclose-skip')
 endif
+
+if with_tools.contains('glide')
+  subdir('grtrace')
+endif

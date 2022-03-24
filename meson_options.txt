@@ -157,6 +157,12 @@ option(
   description : 'build gallium D3D10 WDDM UMD frontend.',
 )
 option(
+  'gallium-glide',
+  type : 'boolean',
+  value : false,
+  description : 'build gallium "glide" Glide frontend.',
+)
+option(
   'gallium-opencl',
   type : 'combo',
   choices : ['icd', 'standalone', 'disabled'],
@@ -423,7 +429,7 @@ option(
   'tools',
   type : 'array',
   value : [],
-  choices : ['drm-shim', 'etnaviv', 'freedreno', 'glsl', 'intel', 'intel-ui', 'nir', 'nouveau', 'xvmc', 'lima', 'panfrost', 'asahi', 'all', 'dlclose-skip'],
+  choices : ['drm-shim', 'etnaviv', 'freedreno', 'glsl', 'intel', 'intel-ui', 'nir', 'nouveau', 'xvmc', 'lima', 'panfrost', 'asahi', 'all', 'dlclose-skip', 'glide'],
   description : 'List of tools to build. (Note: `intel-ui` selects `intel`)',
 )
 option(

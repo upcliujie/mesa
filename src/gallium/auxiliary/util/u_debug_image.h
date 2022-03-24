@@ -32,6 +32,7 @@
 #include "pipe/p_format.h"
 
 
+#define DEBUG
 #ifdef DEBUG
 struct pipe_context;
 struct pipe_surface;

@@ -198,7 +198,7 @@ format_srgb = custom_target(
 deps_for_libmesa_util = [
   dep_zlib,
   dep_clock,
-  dep_thread,
+  #dep_thread,
   dep_atomic,
   dep_m,
   dep_valgrind,
@@ -262,7 +262,9 @@ _libmesa_util = static_library(
 idep_mesautil = declare_dependency(
   link_with : _libmesa_util,
   include_directories : [inc_util, inc_gallium],
-  dependencies : [dep_zlib, dep_clock, dep_thread, dep_atomic, dep_m, dep_valgrind],
+  dependencies : [dep_zlib, dep_clock,
+    #dep_thread,
+    dep_atomic, dep_m, dep_valgrind],
 )
 
 xmlconfig_deps = []

@@ -26,7 +26,7 @@ project(
     check : true
   ).stdout(),
   license : 'MIT',
-  meson_version : '>= 0.53',
+  meson_version : '>= 0.57',
   default_options : ['buildtype=debugoptimized', 'b_ndebug=if-release', 'c_std=c11', 'cpp_std=c++14']
 )
 
@@ -84,6 +84,7 @@ if with_tools.contains('all')
     'nouveau',
     'xvmc',
     'asahi',
+    'glide',
   ]
 endif
 
@@ -967,6 +968,11 @@ if with_platform_x11
 else
   pre_args += '-DEGL_NO_X11'
   gl_pkgconfig_c_flags += '-DEGL_NO_X11'
+endif
+
+with_gallium_glide = get_option('gallium-glide')
+if with_gallium_glide and not with_gallium
+  error('Glide implementation requires at least one gallium driver.')
 endif
 
 with_android_stub = get_option('android-stub')
@@ -2289,6 +2295,9 @@ if with_gallium
   endif
   if with_gallium_opencl
     gallium_st += 'clover'
+  endif
+  if with_gallium_glide
+    gallium_st += 'glide'
   endif
   lines += 'Gallium st:      ' + ' '.join(gallium_st)
 else
