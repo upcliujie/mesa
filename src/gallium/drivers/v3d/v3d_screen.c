@@ -872,7 +872,7 @@ v3d_screen_create(int fd, const struct pipe_screen_config *config,
 
         v3d_resource_screen_init(pscreen);
 
-        screen->compiler = v3d_compiler_init(&screen->devinfo);
+        screen->compiler = v3d_compiler_init(&screen->devinfo, 0);
 
 #ifdef ENABLE_SHADER_CACHE
         v3d_disk_cache_init(screen);

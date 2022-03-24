@@ -153,6 +153,7 @@ get_device_extensions(const struct v3dv_physical_device *device,
       .EXT_4444_formats                    = true,
       .EXT_color_write_enable              = true,
       .EXT_custom_border_color             = true,
+      .EXT_inline_uniform_block            = true,
       .EXT_external_memory_dma_buf         = true,
       .EXT_host_query_reset                = true,
       .EXT_image_drm_format_modifier       = true,
@@ -812,7 +813,8 @@ physical_device_init(struct v3dv_physical_device *device,
    if (result != VK_SUCCESS)
       goto fail;
 
-   device->compiler = v3d_compiler_init(&device->devinfo);
+   device->compiler = v3d_compiler_init(&device->devinfo,
+                                        MAX_INLINE_UNIFORM_BUFFERS);
    device->next_program_id = 0;
 
    ASSERTED int len =
@@ -1087,6 +1089,20 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
 {
    v3dv_GetPhysicalDeviceFeatures(physicalDevice, &pFeatures->features);
 
+   VkPhysicalDeviceVulkan13Features vk13 = {
+      .inlineUniformBlock  = true,
+      /* Inline buffers work like push constants, so after their are bound
+       * some of their contents may be copied into the uniform stream as soon
+       * as the next draw/dispatch is recorded in the command buffer. This means
+       * that if the client updates the buffer contents after binding it to
+       * a command buffer, the next queue submit of that command buffer may
+       * not use the latest update to the buffer contents, but the data that
+       * was present in the buffer at the time it was bound to the command
+       * buffer.
+       */
+      .descriptorBindingInlineUniformBlockUpdateAfterBind = false,
+   };
+
    VkPhysicalDeviceVulkan12Features vk12 = {
       .hostQueryReset = true,
       .uniformAndStorageBuffer8BitAccess = true,
@@ -1168,6 +1184,15 @@ v3dv_GetPhysicalDeviceFeatures2(VkPhysicalDevice physicalDevice,
          features->stippledRectangularLines = false;
          features->stippledBresenhamLines = false;
          features->stippledSmoothLines = false;
+         break;
+      }
+
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT: {
+         VkPhysicalDeviceInlineUniformBlockFeaturesEXT *features =
+            (VkPhysicalDeviceInlineUniformBlockFeaturesEXT *)ext;
+         features->inlineUniformBlock = vk13.inlineUniformBlock;
+         features->descriptorBindingInlineUniformBlockUpdateAfterBind =
+            vk13.descriptorBindingInlineUniformBlockUpdateAfterBind;
          break;
       }
 
@@ -1383,7 +1408,7 @@ v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       .maxPushConstantsSize                     = MAX_PUSH_CONSTANTS_SIZE,
       .maxMemoryAllocationCount                 = mem_size / page_size,
       .maxSamplerAllocationCount                = 64 * 1024,
-      .bufferImageGranularity                   = 256, /* A cache line */
+      .bufferImageGranularity                   = V3D_NON_COHERENT_ATOM_SIZE,
       .sparseAddressSpaceSize                   = 0,
       .maxBoundDescriptorSets                   = MAX_SETS,
       .maxPerStageDescriptorSamplers            = V3D_MAX_TEXTURE_SAMPLERS,
@@ -1497,7 +1522,7 @@ v3dv_GetPhysicalDeviceProperties(VkPhysicalDevice physicalDevice,
       .standardSampleLocations                  = false,
       .optimalBufferCopyOffsetAlignment         = 32,
       .optimalBufferCopyRowPitchAlignment       = 32,
-      .nonCoherentAtomSize                      = 256,
+      .nonCoherentAtomSize                      = V3D_NON_COHERENT_ATOM_SIZE,
    };
 
    *pProperties = (VkPhysicalDeviceProperties) {
@@ -1571,6 +1596,18 @@ v3dv_GetPhysicalDeviceProperties2(VkPhysicalDevice physicalDevice,
             .subminor = 7,
             .patch = 1,
          };
+         break;
+      }
+      case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_PROPERTIES_EXT: {
+         VkPhysicalDeviceInlineUniformBlockProperties *props =
+            (VkPhysicalDeviceInlineUniformBlockProperties *)ext;
+         props->maxInlineUniformBlockSize = 4096;
+         props->maxPerStageDescriptorInlineUniformBlocks =
+            MAX_INLINE_UNIFORM_BUFFERS;
+         props->maxDescriptorSetInlineUniformBlocks =
+            MAX_INLINE_UNIFORM_BUFFERS;
+         props->maxPerStageDescriptorUpdateAfterBindInlineUniformBlocks = 0;
+         props->maxDescriptorSetUpdateAfterBindInlineUniformBlocks = 0;
          break;
       }
       case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_PROPERTIES_EXT: {
@@ -2513,7 +2550,7 @@ v3dv_CreateBuffer(VkDevice  _device,
 
    buffer->size = pCreateInfo->size;
    buffer->usage = pCreateInfo->usage;
-   buffer->alignment = 256; /* nonCoherentAtomSize */
+   buffer->alignment = V3D_NON_COHERENT_ATOM_SIZE;
 
    /* Limit allocations to 32-bit */
    const VkDeviceSize aligned_size = align64(buffer->size, buffer->alignment);
