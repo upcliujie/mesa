@@ -24,7 +24,7 @@
 #ifndef VK_QUEUE_H
 #define VK_QUEUE_H
 
-#include "vk_object.h"
+#include "vk_device.h"
 
 #include "c11/threads.h"
 
@@ -72,6 +72,8 @@ struct vk_queue {
                              struct vk_queue_submit *submit);
 
    struct {
+      enum vk_queue_submit_mode mode;
+
       mtx_t mutex;
       cnd_t push;
       cnd_t pop;
@@ -79,7 +81,6 @@ struct vk_queue {
       struct list_head submits;
 
       bool thread_run;
-      bool has_thread;
       thrd_t thread;
    } submit;
 
