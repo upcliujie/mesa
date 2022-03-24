@@ -118,6 +118,8 @@ struct v3d_simulator_file;
 /* Minimum required by the Vulkan 1.1 spec */
 #define MAX_MEMORY_ALLOCATION_SIZE (1ull << 30)
 
+#define V3D_NON_COHERENT_ATOM_SIZE 256
+
 struct v3dv_physical_device {
    struct vk_physical_device vk;
 
@@ -1353,8 +1355,8 @@ struct v3dv_descriptor {
 
       struct {
          struct v3dv_buffer *buffer;
-         uint32_t offset;
-         uint32_t range;
+         size_t offset;
+         size_t range;
       };
 
       struct v3dv_buffer_view *buffer_view;
@@ -1727,8 +1729,8 @@ struct v3dv_pipeline_layout {
  * FIXME: one alternative would be to allocate the map as big as you need for
  * each descriptor type. That would means more individual allocations.
  */
-#define DESCRIPTOR_MAP_SIZE MAX3(V3D_MAX_TEXTURE_SAMPLERS, \
-                                 MAX_UNIFORM_BUFFERS,      \
+#define DESCRIPTOR_MAP_SIZE MAX3(V3D_MAX_TEXTURE_SAMPLERS,                         \
+                                 MAX_UNIFORM_BUFFERS + MAX_INLINE_UNIFORM_BUFFERS, \
                                  MAX_STORAGE_BUFFERS)
 
 
@@ -1739,6 +1741,7 @@ struct v3dv_descriptor_map {
    int binding[DESCRIPTOR_MAP_SIZE];
    int array_index[DESCRIPTOR_MAP_SIZE];
    int array_size[DESCRIPTOR_MAP_SIZE];
+   bool used[DESCRIPTOR_MAP_SIZE];
 
    /* NOTE: the following is only for sampler, but this is the easier place to
     * put it.
@@ -2072,6 +2075,14 @@ v3dv_descriptor_map_get_descriptor(struct v3dv_descriptor_state *descriptor_stat
                                    struct v3dv_pipeline_layout *pipeline_layout,
                                    uint32_t index,
                                    uint32_t *dynamic_offset);
+
+struct v3dv_cl_reloc
+v3dv_descriptor_map_get_descriptor_bo(struct v3dv_device *device,
+                                      struct v3dv_descriptor_state *descriptor_state,
+                                      struct v3dv_descriptor_map *map,
+                                      struct v3dv_pipeline_layout *pipeline_layout,
+                                      uint32_t index,
+                                      VkDescriptorType *out_type);
 
 const struct v3dv_sampler *
 v3dv_descriptor_map_get_sampler(struct v3dv_descriptor_state *descriptor_state,
