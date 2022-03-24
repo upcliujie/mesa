@@ -83,10 +83,6 @@ KHR-GLES3.packed_pixels.varied_rectangle.rgba4,Fail
 KHR-GLES3.packed_pixels.varied_rectangle.rgba8,Fail
 dEQP-GLES2.functional.rasterization.limits.points,Fail
 
-# "../src/mesa/state_tracker/st_glsl_to_tgsi.cpp:1648: void glsl_to_tgsi_visitor::visit_expression(ir_expression*, st_src_reg*): Assertion `ir->operands[2]->type->vector_elements == 1' failed."
-dEQP-GLES2.functional.shaders.algorithm.hsl_to_rgb_fragment,Crash
-dEQP-GLES2.functional.shaders.algorithm.hsl_to_rgb_vertex,Crash
-
 # "../src/gallium/drivers/nouveau/codegen/nv50_ir_ra.cpp:1437: void nv50_ir::GCRA::checkInterference(const nv50_ir::GCRA::RIG_Node*, nv50_ir::Graph::EdgeIterator&): Assertion `vB->compound' failed."
 dEQP-GLES2.functional.shaders.random.all_features.fragment.93,Crash
 dEQP-GLES3.functional.shaders.random.all_features.fragment.93,Crash
@@ -817,10 +813,6 @@ spec@glsl-1.40@built-in constants,Fail
 spec@glsl-1.40@built-in constants@gl_MaxVaryingComponents,Fail
 spec@glsl-1.40@built-in constants@gl_MaxVaryingFloats,Fail
 
-# "st_glsl_to_tgsi.cpp:1648: void glsl_to_tgsi_visitor::visit_expression(ir_expression*, st_src_reg*): Assertion `ir->operands[2]->type->vector_elements == 1' failed."
-spec@glsl-1.40@uniform_buffer@fs-struct-copy-complicated,Crash
-spec@glsl-1.40@uniform_buffer@vs-struct-copy-complicated,Crash
-
 spec@glsl-1.50@built-in constants,Fail
 spec@glsl-1.50@built-in constants@gl_MaxFragmentInputComponents,Fail
 spec@glsl-1.50@built-in constants@gl_MaxGeometryInputComponents,Fail
@@ -834,9 +826,6 @@ spec@glsl-1.50@execution@variable-indexing@gs-output-array-vec4-index-wr,Fail
 
 # "../src/gallium/drivers/nouveau/codegen/nv50_ir_emit_nv50.cpp:407: void nv50_ir::CodeEmitterNV50::setSrcFileBits(const nv50_ir::Instruction*, int): Assertion `reg < 3' failed."
 spec@glsl-1.50@execution@vs-gs-arrays-within-blocks-pass,Crash
-
-# "st_glsl_to_tgsi.cpp:1648: void glsl_to_tgsi_visitor::visit_expression(ir_expression*, st_src_reg*): Assertion `ir->operands[2]->type->vector_elements == 1' failed."
-spec@glsl-1.50@uniform_buffer@gs-struct-copy-complicated,Crash
 
 spec@glsl-3.30@built-in constants,Fail
 spec@glsl-3.30@built-in constants@gl_MaxFragmentInputComponents,Fail
