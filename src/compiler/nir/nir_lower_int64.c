@@ -760,13 +760,13 @@ lower_f2(nir_builder *b, nir_ssa_def *x, bool dst_is_signed)
    if (dst_is_signed)
       x_sign = nir_fsign(b, x);
    else
-      x = nir_fmin(b, x, nir_imm_floatN_t(b, UINT64_MAX, x->bit_size));
+      x = nir_fmin(b, x, nir_imm_floatN_t(b, (double)UINT64_MAX, x->bit_size));
 
    x = nir_ftrunc(b, x);
 
    if (dst_is_signed) {
-      x = nir_fmin(b, x, nir_imm_floatN_t(b, INT64_MAX, x->bit_size));
-      x = nir_fmax(b, x, nir_imm_floatN_t(b, INT64_MIN, x->bit_size));
+      x = nir_fmin(b, x, nir_imm_floatN_t(b, (double)INT64_MAX, x->bit_size));
+      x = nir_fmax(b, x, nir_imm_floatN_t(b, (double)INT64_MIN, x->bit_size));
       x = nir_fabs(b, x);
    }
 
