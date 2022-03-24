@@ -140,7 +140,6 @@ files_libglsl = files(
   'linker.h',
   'linker_util.h',
   'linker_util.cpp',
-  'link_atomics.cpp',
   'link_functions.cpp',
   'link_interface_blocks.cpp',
   'link_uniforms.cpp',
