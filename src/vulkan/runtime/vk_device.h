@@ -123,6 +123,8 @@ struct vk_device {
    /* Set by vk_device_set_drm_fd() */
    int drm_fd;
 
+   uint32_t d3dkmt_handle;
+
    /** An enum describing how timeline semaphores work */
    enum vk_device_timeline_mode {
       /** Timeline semaphores are not supported */

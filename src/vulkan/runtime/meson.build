@@ -91,6 +91,14 @@ if with_platform_android
   vulkan_runtime_deps += dep_android
 endif
 
+if with_vulkan_windows
+  vulkan_runtime_files += files(
+    'vk_wddm_monitored_fence.c',
+    'vk_wddm_monitored_fence.h',
+  )
+  vulkan_runtime_deps += dep_libdxg
+endif
+
 vk_common_entrypoints = custom_target(
   'vk_common_entrypoints',
   input : [vk_entrypoints_gen, vk_api_xml],
