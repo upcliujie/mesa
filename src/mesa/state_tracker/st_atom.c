@@ -178,6 +178,18 @@ static void check_attrib_edgeflag(struct st_context *st)
    st_update_edgeflags(st, _mesa_draw_edge_flag_array_enabled(st->ctx));
 }
 
+static void check_pointsize(struct st_context *st)
+{
+   if (st->ctx->VertexProgram.PointSizeEnabled)
+      return;
+   if (st->ctx->GeometryProgram._Current)
+      st->dirty |= ST_NEW_GS_CONSTANTS;
+   else if (st->ctx->TessEvalProgram._Current)
+      st->dirty |= ST_NEW_TES_CONSTANTS;
+   else
+      st->dirty |= ST_NEW_VS_CONSTANTS;
+}
+
 
 /***********************************************************************
  * Update all derived state:
@@ -202,6 +214,9 @@ void st_validate_state( struct st_context *st, enum st_pipeline pipeline )
    case ST_PIPELINE_RENDER_NO_VARRAYS:
       if (st->ctx->API == API_OPENGL_COMPAT)
          check_attrib_edgeflag(st);
+      if (st->lower_point_size &&
+          (st->ctx->API == API_OPENGL_COMPAT || st->ctx->API == API_OPENGL_CORE))
+         check_pointsize(st);
 
       if (st->gfx_shaders_may_be_dirty) {
          check_program_state(st);
@@ -234,6 +249,9 @@ void st_validate_state( struct st_context *st, enum st_pipeline pipeline )
    case ST_PIPELINE_UPDATE_FRAMEBUFFER:
       st_manager_validate_framebuffers(st);
       pipeline_mask = ST_PIPELINE_UPDATE_FB_STATE_MASK;
+      if (st->lower_point_size &&
+          (st->ctx->API == API_OPENGL_COMPAT || st->ctx->API == API_OPENGL_CORE))
+         check_pointsize(st);
       break;
 
    case ST_PIPELINE_COMPUTE: {
