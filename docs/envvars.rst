@@ -579,6 +579,8 @@ VC4 driver environment variables
 
    ``cl``
       dump command list during creation
+   ``surf``
+      dump surface layouts
    ``qpu``
       dump generated QPU instructions
    ``qir``
@@ -599,6 +601,14 @@ VC4 driver environment variables
       wait for finish after each flush
    ``dump``
       write a GPU command stream trace file (VC4 simulator only)
+
+
+V3D/V3DV driver environment variables
+-------------------------------------
+
+:envvar:`V3D_DEBUG`
+    a comma-separated list of debug options. Use `V3D_DEBUG=help` to
+    print a list of available options.
 
 
 .. _radv env-vars:
