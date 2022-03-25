@@ -488,7 +488,7 @@ bi_pixel_indices(bi_builder *b, unsigned rt)
 static void
 bi_emit_load_blend_input(bi_builder *b, nir_intrinsic_instr *instr)
 {
-        ASSERTED nir_io_semantics sem = nir_intrinsic_io_semantics(instr);
+        nir_io_semantics sem = nir_intrinsic_io_semantics(instr);
 
         /* Source color is passed through r0-r3, or r4-r7 for the second
          * source when dual-source blending.  TODO: Precolour instead */
@@ -728,7 +728,7 @@ bi_emit_store_vary(bi_builder *b, nir_intrinsic_instr *instr)
          * varyings, to handle internal TGSI shaders that set flat in the VS
          * but smooth in the FS */
 
-        ASSERTED nir_alu_type T = nir_intrinsic_src_type(instr);
+        nir_alu_type T = nir_intrinsic_src_type(instr);
         assert(nir_alu_type_get_type_size(T) == 32);
         enum bi_register_format regfmt = BI_REGISTER_FORMAT_AUTO;
 
@@ -1029,7 +1029,7 @@ bi_emit_image_load(bi_builder *b, nir_intrinsic_instr *instr)
         enum glsl_sampler_dim dim = nir_intrinsic_image_dim(instr);
         unsigned coord_comps = nir_image_intrinsic_coord_components(instr);
         bool array = nir_intrinsic_image_array(instr);
-        ASSERTED unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
+        unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
 
         bi_index coords = bi_src_index(&instr->src[1]);
         /* TODO: MSAA */
@@ -1048,7 +1048,7 @@ bi_emit_lea_image(bi_builder *b, nir_intrinsic_instr *instr)
 {
         enum glsl_sampler_dim dim = nir_intrinsic_image_dim(instr);
         bool array = nir_intrinsic_image_array(instr);
-        ASSERTED unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
+        unsigned nr_dim = glsl_get_sampler_dim_coordinate_components(dim);
         unsigned coord_comps = nir_image_intrinsic_coord_components(instr);
 
         /* TODO: MSAA */
@@ -2816,7 +2816,7 @@ bi_emit_texc(bi_builder *b, nir_tex_instr *instr)
                 bi_index index = bi_src_index(&instr->src[i].src);
                 unsigned sz = nir_src_bit_size(instr->src[i].src);
                 unsigned components = nir_src_num_components(instr->src[i].src);
-                ASSERTED nir_alu_type base = nir_tex_instr_src_type(instr, i);
+                nir_alu_type base = nir_tex_instr_src_type(instr, i);
                 nir_alu_type T = base | sz;
 
                 switch (instr->src[i].src_type) {
@@ -3870,7 +3870,7 @@ bi_lower_branch(bi_context *ctx, bi_block *block)
 {
         bool cull_terminal = (ctx->arch <= 8);
         bool branched = false;
-        ASSERTED bool was_jump = false;
+        bool was_jump = false;
 
         bi_foreach_instr_in_block_safe(block, ins) {
                 if (!ins->branch_target) continue;

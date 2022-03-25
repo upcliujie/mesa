@@ -750,8 +750,8 @@ emit_alu(compiler_context *ctx, nir_alu_instr *instr)
         /* Should we swap arguments? */
         bool flip_src12 = false;
 
-        ASSERTED unsigned src_bitsize = nir_src_bit_size(instr->src[0].src);
-        ASSERTED unsigned dst_bitsize = nir_dest_bit_size(*dest);
+        unsigned src_bitsize = nir_src_bit_size(instr->src[0].src);
+        unsigned dst_bitsize = nir_dest_bit_size(*dest);
 
         enum midgard_roundmode roundmode = MIDGARD_RTE;
 

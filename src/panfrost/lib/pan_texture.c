@@ -321,7 +321,7 @@ pan_iview_get_surface(const struct pan_image_view *iview,
                 assert(!sample);
 
                 if (is_3d) {
-                        ASSERTED unsigned depth = u_minify(iview->image->layout.depth, level);
+                        unsigned depth = u_minify(iview->image->layout.depth, level);
                         assert(layer < depth);
                         surf->afbc.header = base + slice->offset +
                                            (layer * slice->afbc.surface_stride);
@@ -596,7 +596,7 @@ panfrost_emit_texture_payload(const struct pan_image_view *iview,
                               void *payload)
 {
         const struct pan_image_layout *layout = &iview->image->layout;
-        ASSERTED const struct util_format_description *desc =
+        const struct util_format_description *desc =
                 util_format_description(format);
 
         mali_ptr base = iview->image->data.bo->ptr.gpu + iview->image->data.offset;

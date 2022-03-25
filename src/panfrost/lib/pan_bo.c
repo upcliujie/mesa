@@ -425,7 +425,7 @@ void
 panfrost_bo_reference(struct panfrost_bo *bo)
 {
         if (bo) {
-                ASSERTED int count = p_atomic_inc_return(&bo->refcnt);
+                int count = p_atomic_inc_return(&bo->refcnt);
                 assert(count != 1);
         }
 }
@@ -469,7 +469,7 @@ panfrost_bo_import(struct panfrost_device *dev, int fd)
 {
         struct panfrost_bo *bo;
         struct drm_panfrost_get_bo_offset get_bo_offset = {0,};
-        ASSERTED int ret;
+        int ret;
         unsigned gem_handle;
 
         ret = drmPrimeFDToHandle(dev->fd, fd, &gem_handle);

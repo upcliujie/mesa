@@ -355,7 +355,7 @@ pan_blitter_get_blend_shaders(struct panfrost_device *dev,
                                                           nir_type_float32, /* unused */
                                                           i);
 
-                ASSERTED unsigned full_threads =
+                unsigned full_threads =
                         (dev->arch >= 7) ? 32 : ((dev->arch == 6) ? 64 : 4);
                 assert(b->work_reg_count <= full_threads);
                 struct panfrost_ptr bin =
@@ -1289,7 +1289,7 @@ GENX(pan_blit_ctx_init)(struct panfrost_device *dev,
 
         ctx->rsd = pan_blit_get_rsd(dev, sviews, &dview);
 
-        ASSERTED unsigned nlayers = info->src.end.layer - info->src.start.layer + 1;
+        unsigned nlayers = info->src.end.layer - info->src.start.layer + 1;
 
         assert(nlayers == (info->dst.end.layer - info->dst.start.layer + 1));
 

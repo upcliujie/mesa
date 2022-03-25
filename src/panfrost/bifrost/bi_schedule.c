@@ -1375,7 +1375,7 @@ bi_rewrite_constants_to_pass(bi_tuple *tuple, uint64_t constant, bool pcrel)
 
                 uint32_t cons = ins->src[s].value;
 
-                ASSERTED bool lo = (cons == (constant & 0xffffffff));
+                bool lo = (cons == (constant & 0xffffffff));
                 bool hi = (cons == (constant >> 32ull));
 
                 /* PC offsets always live in the upper half, set to zero by

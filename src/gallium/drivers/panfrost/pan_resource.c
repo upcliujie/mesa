@@ -500,7 +500,7 @@ panfrost_resource_setup(struct panfrost_device *dev,
         if (fmt == PIPE_FORMAT_Z32_FLOAT_S8X24_UINT)
                 fmt = PIPE_FORMAT_Z32_FLOAT;
 
-        ASSERTED bool valid =
+        bool valid =
                 pan_image_layout_init(dev, &pres->image.layout,
                                       chosen_mod, fmt, dim,
                                       pres->base.width0,

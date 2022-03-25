@@ -1144,7 +1144,7 @@ panfrost_create_context(struct pipe_screen *screen, void *priv, unsigned flags)
         ctx->sample_mask = ~0;
         ctx->active_queries = true;
 
-        int ASSERTED ret;
+        int ret;
 
         /* Create a syncobj in a signaled state. Will be updated to point to the
          * last queued job out_sync every time we submit a new job.

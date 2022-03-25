@@ -452,7 +452,7 @@ bi_pack_literal(enum bi_clause_subword literal)
 static inline uint8_t
 bi_clause_upper(unsigned val,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count)
+                unsigned tuple_count)
 {
         assert(val < tuple_count);
 
@@ -464,7 +464,7 @@ bi_clause_upper(unsigned val,
 uint8_t
 bi_pack_upper(enum bi_clause_subword upper,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count)
+                unsigned tuple_count)
 {
         assert(upper >= BI_CLAUSE_SUBWORD_UPPER_0);
         assert(upper <= BI_CLAUSE_SUBWORD_UPPER_7);
@@ -476,7 +476,7 @@ bi_pack_upper(enum bi_clause_subword upper,
 uint64_t
 bi_pack_tuple_bits(enum bi_clause_subword idx,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count,
+                unsigned tuple_count,
                 unsigned offset, unsigned nbits)
 {
         assert(idx >= BI_CLAUSE_SUBWORD_TUPLE_0);
@@ -513,7 +513,7 @@ bi_pack_tuple_bits(enum bi_clause_subword idx,
 static inline uint16_t
 bi_pack_lu(enum bi_clause_subword word,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count)
+                unsigned tuple_count)
 {
         return (word >= BI_CLAUSE_SUBWORD_UPPER_0) ?
                 bi_pack_upper(word, tuples, tuple_count) :
@@ -525,7 +525,7 @@ bi_pack_sync(enum bi_clause_subword t1,
              enum bi_clause_subword t2,
              enum bi_clause_subword t3,
              struct bi_packed_tuple *tuples,
-             ASSERTED unsigned tuple_count,
+             unsigned tuple_count,
              bool z)
 {
         uint8_t sync =
@@ -543,7 +543,7 @@ bi_pack_sync(enum bi_clause_subword t1,
 static inline uint64_t
 bi_pack_t_ec(enum bi_clause_subword word,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count,
+                unsigned tuple_count,
                 uint64_t ec0)
 {
         if (word == BI_CLAUSE_SUBWORD_CONSTANT)
@@ -555,7 +555,7 @@ bi_pack_t_ec(enum bi_clause_subword word,
 static uint32_t
 bi_pack_subwords_56(enum bi_clause_subword t,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count,
+                unsigned tuple_count,
                 uint64_t header, uint64_t ec0,
                 unsigned tuple_subword)
 {
@@ -574,7 +574,7 @@ bi_pack_subwords_56(enum bi_clause_subword t,
 static uint16_t
 bi_pack_subword(enum bi_clause_subword t, unsigned format,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count,
+                unsigned tuple_count,
                 uint64_t header, uint64_t ec0, unsigned m0,
                 unsigned tuple_subword)
 {
@@ -605,7 +605,7 @@ void
 bi_pack_format(struct util_dynarray *emission,
                 unsigned index,
                 struct bi_packed_tuple *tuples,
-                ASSERTED unsigned tuple_count,
+                unsigned tuple_count,
                 uint64_t header, uint64_t ec0,
                 unsigned m0, bool z)
 {
@@ -675,7 +675,7 @@ bi_pack_clause(bi_context *ctx, bi_clause *clause,
         unsigned count = counts[clause->tuple_count - 1];
 
         for (unsigned pos = 0; pos < count; ++pos) {
-                ASSERTED unsigned idx = indices[clause->tuple_count - 1][pos];
+                unsigned idx = indices[clause->tuple_count - 1][pos];
                 assert(bi_clause_formats[idx].pos == pos);
                 assert((bi_clause_formats[idx].tag_1 == BI_CLAUSE_SUBWORD_Z) ==
                                 (pos == count - 1));

@@ -153,7 +153,7 @@ static struct bifrost_reg_ctrl DecodeRegCtrl(FILE *fp, struct bifrost_regs regs,
                 ctrl += 16;
 
         decoded.slot23 = bifrost_reg_ctrl_lut[ctrl];
-        ASSERTED struct bifrost_reg_ctrl_23 reserved = { 0 };
+        struct bifrost_reg_ctrl_23 reserved = { 0 };
         assert(memcmp(&decoded.slot23, &reserved, sizeof(reserved)));
 
         return decoded;
@@ -599,7 +599,7 @@ static void dump_clause(FILE *fp, uint32_t *words, unsigned *size, unsigned offs
                                         { ~0, ~0 }
                                 };
 
-                                ASSERTED bool valid_count = pos_table[pos].nr_tuples == num_instrs;
+                                bool valid_count = pos_table[pos].nr_tuples == num_instrs;
                                 assert(valid_count && "INSTR_INVALID_ENC");
 
                                 unsigned const_idx = pos_table[pos].const_idx;

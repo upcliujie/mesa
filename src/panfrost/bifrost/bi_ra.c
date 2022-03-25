@@ -349,7 +349,7 @@ bi_reg_from_index(bi_context *ctx, struct lcra_state *l, bi_index index)
         /* Offsets can only be applied when we register allocated an index, or
          * alternatively for FAU's encoding */
 
-        ASSERTED bool is_offset = (index.offset > 0) &&
+        bool is_offset = (index.offset > 0) &&
                 (index.type != BI_INDEX_FAU);
         unsigned node_count = bi_max_temp(ctx);
 

@@ -99,7 +99,7 @@ panfrost_query_raw(
                 unsigned default_value)
 {
         struct drm_panfrost_get_param get_param = {0,};
-        ASSERTED int ret;
+        int ret;
 
         get_param.param = param;
         ret = drmIoctl(fd, DRM_IOCTL_PANFROST_GET_PARAM, &get_param);

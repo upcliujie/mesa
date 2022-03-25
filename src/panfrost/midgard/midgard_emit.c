@@ -281,7 +281,7 @@ mir_pack_swizzle(unsigned mask, unsigned *swizzle,
                 for (unsigned c = (dest_up ? 4 : 0); c < (dest_up ? 8 : 4); ++c) {
                         unsigned v = swizzle[c];
 
-                        ASSERTED bool t_upper = v > (sz == 8 ? 7 : 3);
+                        bool t_upper = v > (sz == 8 ? 7 : 3);
 
                         /* Ensure we're doing something sane */
 
@@ -467,7 +467,7 @@ mir_pack_tex_ooo(midgard_block *block, midgard_bundle *bundle, midgard_instructi
 
 static unsigned
 midgard_pack_common_store_mask(midgard_instruction *ins) {
-        ASSERTED unsigned comp_sz = nir_alu_type_get_type_size(ins->src_types[0]);
+        unsigned comp_sz = nir_alu_type_get_type_size(ins->src_types[0]);
         unsigned bytemask = mir_bytemask(ins);
         unsigned packed = 0;
 

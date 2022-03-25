@@ -151,7 +151,7 @@ pan_pack_color(uint32_t *packed, const union pipe_color_union *color,
         unsigned count_r = l.int_r + l.frac_r;
         unsigned count_g = l.int_g + l.frac_g + count_r;
         unsigned count_b = l.int_b + l.frac_b + count_g;
-        ASSERTED unsigned count_a = l.int_a + l.frac_a + count_b;
+        unsigned count_a = l.int_a + l.frac_a + count_b;
 
         /* Must fill the word */
         assert(count_a == 32);
