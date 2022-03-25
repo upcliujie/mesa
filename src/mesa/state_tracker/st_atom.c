@@ -189,13 +189,33 @@ static void check_pointsize(struct st_context *st)
     *   - because this stage was just bound
     */
    if (st->ctx->GeometryProgram._Current) {
-      if (st->gfx_shaders_may_be_dirty || (st->dirty & ST_NEW_GS_STATE))
+      /* "gfx_shaders_may_be_dirty" can be any gfx stage: check for GS change */
+      bool prog_changed = st->gfx_shaders_may_be_dirty &&
+                          /* GS changed */
+                          st->gp != st->ctx->GeometryProgram._Current;
+      if (prog_changed || (st->dirty & ST_NEW_GS_STATE))
          st->dirty |= ST_NEW_GS_CONSTANTS;
    } else if (st->ctx->TessEvalProgram._Current) {
-      if (st->gfx_shaders_may_be_dirty || (st->dirty & (ST_NEW_TES_STATE | ST_NEW_GS_STATE)))
+      /* "gfx_shaders_may_be_dirty" can be any gfx stage: check for GS or TES change */
+      bool prog_changed = st->gfx_shaders_may_be_dirty &&
+                          /* GS was unbound */
+                          (st->gp != st->ctx->GeometryProgram._Current ||
+                          /* TES changed */
+                           st->tep != st->ctx->TessEvalProgram._Current);
+      if (prog_changed || (st->dirty & (ST_NEW_TES_STATE | ST_NEW_GS_STATE)))
          st->dirty |= ST_NEW_TES_CONSTANTS;
-   } else if (st->gfx_shaders_may_be_dirty || (st->dirty & (ST_NEW_VS_STATE | ST_NEW_TES_STATE | ST_NEW_GS_STATE)))
-      st->dirty |= ST_NEW_VS_CONSTANTS;
+   } else {
+      /* "gfx_shaders_may_be_dirty" can be any gfx stage: check for GS, TES, or VS change */
+      bool prog_changed = st->gfx_shaders_may_be_dirty &&
+                          /* GS was unbound */
+                          (st->gp != st->ctx->GeometryProgram._Current ||
+                          /* TES was unbound */
+                           st->tep != st->ctx->TessEvalProgram._Current ||
+                          /* VS changed */
+                           st->vp != st->ctx->VertexProgram._Current);
+      if (prog_changed || (st->dirty & (ST_NEW_VS_STATE | ST_NEW_TES_STATE | ST_NEW_GS_STATE)))
+         st->dirty |= ST_NEW_VS_CONSTANTS;
+   }
 }
 
 
