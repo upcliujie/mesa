@@ -112,6 +112,7 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
             # update the ocmmit log with merged so that we don't force push and
             # hide the gitlab pipeline resuilts.
             commit.resolution = core.Resolution.MERGED
+            core.save(commits)
             await core.commit_state(amend=True)
             await git_push(commit, commits)
 
