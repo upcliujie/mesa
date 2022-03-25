@@ -55,7 +55,7 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
                    c.nominated and c.resolution is core.Resolution.UNRESOLVED]
     failed: typing.Set[str] = set()
 
-    print('  Sanity testing')
+    print('  Sanity testing', flush=True)
     p = await asyncio.create_subprocess_exec(
         'meson', 'setup', '--reconfigure', 'builddir',
         stdout=asyncio.subprocess.DEVNULL,
@@ -94,7 +94,7 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
                 await set_need_manual_resolution(commit, commits, force_push=False)
                 continue
 
-            print('  Compiling project')
+            print('  Compiling project', flush=True)
             # TODO: make builddir configureable?
             p = await asyncio.create_subprocess_exec(
                 'ninja', '-C', 'builddir', 'test',
@@ -108,7 +108,11 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
                 await set_need_manual_resolution(commit, commits, force_push=False)
                 continue
 
-            print('  Pushing update to git')
+            print('  Pushing update to git', flush=True)
+            # update the ocmmit log with merged so that we don't force push and
+            # hide the gitlab pipeline resuilts.
+            commit.resolution = core.Resolution.MERGED
+            await core.commit_state(amend=True)
             await git_push(commit, commits)
 
             print('  Waiting for for CI to finish: ', end='', flush=True)
@@ -127,10 +131,6 @@ async def main(loop: asyncio.BaseEventLoop) -> None:
                         continue
                     elif status == 'success':
                         print(f'\n  Successfully applied: {commit.sha}')
-                        commit.resolution = core.Resolution.MERGED
-                        # Update the commit log
-                        await core.commit_state(amend=True)
-                        await git_push(commit, commits, True)
                         break
                     else:
                         if status == 'failed':
