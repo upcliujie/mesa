@@ -1350,7 +1350,7 @@ label_instruction(opt_ctx& ctx, aco_ptr<Instruction>& instr)
           * addressing works significantly, this probably applies to swizzled
           * MUBUF accesses. */
          bool vaddr_prevent_overflow = mubuf.swizzled && ctx.program->chip_class < GFX9;
-         bool saddr_prevent_overflow = mubuf.swizzled;
+         bool saddr_prevent_overflow = true;
 
          if (mubuf.offen && i == 1 && info.is_constant_or_literal(32) &&
              mubuf.offset + info.val < 4096) {
