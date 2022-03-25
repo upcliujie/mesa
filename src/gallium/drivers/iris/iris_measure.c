@@ -30,6 +30,7 @@
 #include "util/crc32.h"
 #include "iris_context.h"
 #include "iris_defines.h"
+#include "iris_perf.h"
 #include "compiler/shader_info.h"
 
 /**
@@ -99,7 +100,7 @@ iris_destroy_screen_measure(struct iris_screen *screen)
 void
 iris_init_batch_measure(struct iris_context *ice, struct iris_batch *batch)
 {
-   const struct intel_measure_config *config = config_from_context(ice);
+   struct intel_measure_config *config = config_from_context(ice);
    struct iris_screen *screen = batch->screen;
    struct iris_bufmgr *bufmgr = screen->bufmgr;
 
@@ -124,6 +125,29 @@ iris_init_batch_measure(struct iris_context *ice, struct iris_batch *batch)
    measure->base.renderpass =
       (uintptr_t)util_hash_crc32(&ice->state.framebuffer,
                                  sizeof(ice->state.framebuffer));
+   if (config->oa_metric_name) {
+      if (!ice->perf_ctx) {
+         ice->perf_ctx = intel_perf_new_context(ice);
+      }
+      if (!intel_perf_get_cfg_from_ctx(ice->perf_ctx)) {
+         struct intel_perf_config *perf_cfg = intel_perf_new(ice->perf_ctx);
+
+         iris_perf_init_vtbl(perf_cfg);
+         intel_measure_perf_init_ctx(perf_cfg,
+                                    ice,
+                                    screen->bufmgr,
+                                    screen->devinfo,
+                                    batch->i915.ctx_id,
+                                    screen->fd,
+                                    ice->perf_ctx,
+                                    config);
+
+         struct intel_measure_device * device = &screen->measure;
+         unsigned result_size = perf_cfg->queries[config->oa_metric_set].data_size;
+         device->oa_results = malloc(sizeof(struct intel_measure_oa_result_manager));
+         intel_measure_oa_result_manager_init(device->oa_results, result_size);
+      }
+   }
 }
 
 void
@@ -201,14 +225,21 @@ measure_start_snapshot(struct iris_context *ice,
    snapshot->event_name = event_name;
    snapshot->renderpass = renderpass;
 
-   if (type == INTEL_SNAPSHOT_COMPUTE) {
-      snapshot->cs = (uintptr_t) ice->shaders.prog[MESA_SHADER_COMPUTE];
-   } else {
-      snapshot->vs  = (uintptr_t) ice->shaders.prog[MESA_SHADER_VERTEX];
-      snapshot->tcs = (uintptr_t) ice->shaders.prog[MESA_SHADER_TESS_CTRL];
-      snapshot->tes = (uintptr_t) ice->shaders.prog[MESA_SHADER_TESS_EVAL];
-      snapshot->gs  = (uintptr_t) ice->shaders.prog[MESA_SHADER_GEOMETRY];
-      snapshot->fs  = (uintptr_t) ice->shaders.prog[MESA_SHADER_FRAGMENT];
+   if (config->oa_metric_set == 0) {
+      if (type == INTEL_SNAPSHOT_COMPUTE) {
+         snapshot->cs = (uintptr_t) ice->shaders.prog[MESA_SHADER_COMPUTE];
+      } else {
+         snapshot->vs  = (uintptr_t) ice->shaders.prog[MESA_SHADER_VERTEX];
+         snapshot->tcs = (uintptr_t) ice->shaders.prog[MESA_SHADER_TESS_CTRL];
+         snapshot->tes = (uintptr_t) ice->shaders.prog[MESA_SHADER_TESS_EVAL];
+         snapshot->gs  = (uintptr_t) ice->shaders.prog[MESA_SHADER_GEOMETRY];
+         snapshot->fs  = (uintptr_t) ice->shaders.prog[MESA_SHADER_FRAGMENT];
+      }
+   } else if (type != INTEL_SNAPSHOT_END) {
+      snapshot->perf_query =
+         intel_perf_new_query(ice->perf_ctx, config->oa_metric_set);
+
+      intel_perf_begin_query(ice->perf_ctx, snapshot->perf_query);
    }
 }
 
@@ -234,6 +265,11 @@ measure_end_snapshot(struct iris_batch *batch,
    memset(snapshot, 0, sizeof(*snapshot));
    snapshot->type = INTEL_SNAPSHOT_END;
    snapshot->event_count = event_count;
+
+   struct intel_measure_snapshot *start_snapshot =
+      &(measure_batch->snapshots[index - 1]);
+   if (start_snapshot->perf_query)
+      intel_perf_end_query(batch->ice->perf_ctx, start_snapshot->perf_query);
 }
 
 static bool
