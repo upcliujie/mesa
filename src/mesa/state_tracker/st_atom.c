@@ -182,11 +182,19 @@ static void check_pointsize(struct st_context *st)
 {
    if (st->ctx->VertexProgram.PointSizeEnabled)
       return;
-   if (st->ctx->GeometryProgram._Current)
-      st->dirty |= ST_NEW_GS_CONSTANTS;
-   else if (st->ctx->TessEvalProgram._Current)
-      st->dirty |= ST_NEW_TES_CONSTANTS;
-   else
+   /* only flag constant updates if:
+    * - shader stage exists
+    * - this has just become the last vertex stage
+    *   - because a later stage was unbound
+    *   - because this stage was just bound
+    */
+   if (st->ctx->GeometryProgram._Current) {
+      if (st->gfx_shaders_may_be_dirty || (st->dirty & ST_NEW_GS_STATE))
+         st->dirty |= ST_NEW_GS_CONSTANTS;
+   } else if (st->ctx->TessEvalProgram._Current) {
+      if (st->gfx_shaders_may_be_dirty || (st->dirty & (ST_NEW_TES_STATE | ST_NEW_GS_STATE)))
+         st->dirty |= ST_NEW_TES_CONSTANTS;
+   } else if (st->gfx_shaders_may_be_dirty || (st->dirty & (ST_NEW_VS_STATE | ST_NEW_TES_STATE | ST_NEW_GS_STATE)))
       st->dirty |= ST_NEW_VS_CONSTANTS;
 }
 
