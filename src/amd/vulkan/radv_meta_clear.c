@@ -520,8 +520,8 @@ depth_view_can_fast_clear(struct radv_cmd_buffer *cmd_buffer, const struct radv_
    uint32_t queue_mask = radv_image_queue_family_mask(iview->image, cmd_buffer->qf,
                                                       cmd_buffer->qf);
    if (clear_rect->rect.offset.x || clear_rect->rect.offset.y ||
-       clear_rect->rect.extent.width != iview->extent.width ||
-       clear_rect->rect.extent.height != iview->extent.height)
+       clear_rect->rect.extent.width != iview->vk.extent.width ||
+       clear_rect->rect.extent.height != iview->vk.extent.height)
       return false;
    if (radv_image_is_tc_compat_htile(iview->image) &&
        (((aspects & VK_IMAGE_ASPECT_DEPTH_BIT) && clear_value.depth != 0.0 &&
@@ -532,7 +532,7 @@ depth_view_can_fast_clear(struct radv_cmd_buffer *cmd_buffer, const struct radv_
        iview->vk.base_array_layer == 0 && iview->vk.layer_count == iview->image->info.array_size &&
        radv_layout_is_htile_compressed(cmd_buffer->device, iview->image, layout, in_render_loop,
                                        queue_mask) &&
-       radv_image_extent_compare(iview->image, &iview->extent))
+       radv_image_extent_compare(iview->image, &iview->vk.extent))
       return true;
    return false;
 }

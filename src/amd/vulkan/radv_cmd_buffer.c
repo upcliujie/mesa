@@ -7964,8 +7964,8 @@ radv_CmdBeginRendering(VkCommandBuffer commandBuffer, const VkRenderingInfo *pRe
       if (vrs_info && vrs_info->imageView == iviews[i])
          continue;
 
-      w = MIN2(w, iview->extent.width);
-      h = MIN2(h, iview->extent.height);
+      w = MIN2(w, iview->vk.extent.width);
+      h = MIN2(h, iview->vk.extent.height);
    }
    VkFramebufferCreateInfo fb_create_info = {
       .sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,

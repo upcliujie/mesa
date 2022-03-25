@@ -2408,7 +2408,6 @@ struct radv_image_view {
    struct radv_image *image; /**< VkImageViewCreateInfo::image */
 
    unsigned plane_id;
-   VkExtent3D extent; /**< Extent of VkImageViewCreateInfo::baseMipLevel. */
 
    /* Whether the image iview supports fast clear. */
    bool support_fast_clear;

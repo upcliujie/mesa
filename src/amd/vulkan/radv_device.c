@@ -5453,7 +5453,7 @@ si_tile_mode_index(const struct radv_image_plane *plane, unsigned level, bool st
 static uint32_t
 radv_surface_max_layer_count(struct radv_image_view *iview)
 {
-   return iview->vk.view_type == VK_IMAGE_VIEW_TYPE_3D ? iview->extent.depth
+   return iview->vk.view_type == VK_IMAGE_VIEW_TYPE_3D ? iview->vk.extent.depth
                                                        : (iview->vk.base_array_layer + iview->vk.layer_count);
 }
 
@@ -5726,12 +5726,12 @@ radv_initialise_color_surface(struct radv_device *device, struct radv_color_buff
 
    if (device->physical_device->rad_info.chip_class >= GFX9) {
       unsigned mip0_depth = iview->image->vk.image_type == VK_IMAGE_TYPE_3D
-                               ? (iview->extent.depth - 1)
+                               ? (iview->vk.extent.depth - 1)
                                : (iview->image->info.array_size - 1);
       unsigned width =
-         vk_format_get_plane_width(iview->image->vk.format, iview->plane_id, iview->extent.width);
+         vk_format_get_plane_width(iview->image->vk.format, iview->plane_id, iview->vk.extent.width);
       unsigned height =
-         vk_format_get_plane_height(iview->image->vk.format, iview->plane_id, iview->extent.height);
+         vk_format_get_plane_height(iview->image->vk.format, iview->plane_id, iview->vk.extent.height);
 
       if (device->physical_device->rad_info.chip_class >= GFX10) {
          cb->cb_color_view |= S_028C6C_MIP_LEVEL_GFX10(iview->vk.base_mip_level);

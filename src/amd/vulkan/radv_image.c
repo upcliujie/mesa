@@ -1925,9 +1925,9 @@ radv_image_view_make_descriptor(struct radv_image_view *iview, struct radv_devic
       device, image, is_storage_image, iview->vk.view_type, vk_format, components, hw_level,
       hw_level + iview->vk.level_count - 1, iview->vk.base_array_layer,
       iview->vk.base_array_layer + iview->vk.layer_count - 1,
-      vk_format_get_plane_width(image->vk.format, plane_id, iview->extent.width),
-      vk_format_get_plane_height(image->vk.format, plane_id, iview->extent.height),
-      iview->extent.depth, min_lod, descriptor->plane_descriptors[descriptor_plane_id],
+      vk_format_get_plane_width(image->vk.format, plane_id, iview->vk.extent.width),
+      vk_format_get_plane_height(image->vk.format, plane_id, iview->vk.extent.height),
+      iview->vk.extent.depth, min_lod, descriptor->plane_descriptors[descriptor_plane_id],
       descriptor_plane_id || is_storage_image ? NULL : descriptor->fmask_descriptor);
 
    const struct legacy_surf_level *base_level_info = NULL;
@@ -2007,7 +2007,7 @@ radv_image_view_can_fast_clear(const struct radv_device *device,
       return false;
 
    /* Only fast clear if the view covers the whole image. */
-   if (!radv_image_extent_compare(image, &iview->extent))
+   if (!radv_image_extent_compare(image, &iview->vk.extent))
       return false;
 
    return true;
@@ -2070,16 +2070,6 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
       plane_count = 1;
    }
 
-   if (device->physical_device->rad_info.chip_class >= GFX9) {
-      iview->extent = (VkExtent3D){
-         .width = image->info.width,
-         .height = image->info.height,
-         .depth = image->info.depth,
-      };
-   } else {
-      iview->extent = iview->vk.extent;
-   }
-
    if (iview->vk.format != image->planes[iview->plane_id].format) {
       unsigned view_bw = vk_format_get_blockwidth(iview->vk.format);
       unsigned view_bh = vk_format_get_blockheight(iview->vk.format);
@@ -2133,9 +2123,9 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
             lvl_width <<= range->baseMipLevel;
             lvl_height <<= range->baseMipLevel;
 
-            iview->extent.width = CLAMP(lvl_width, iview->extent.width,
+            iview->extent.width = CLAMP(lvl_width, iview->vk.extent.width,
                                         iview->image->planes[0].surface.u.gfx9.base_mip_width);
-            iview->extent.height = CLAMP(lvl_height, iview->extent.height,
+            iview->extent.height = CLAMP(lvl_height, iview->vk.extent.height,
                                          iview->image->planes[0].surface.u.gfx9.base_mip_height);
          }
       }
