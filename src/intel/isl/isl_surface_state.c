@@ -330,13 +330,16 @@ isl_genX(surf_fill_state_s)(const struct isl_device *dev, void *state,
        * assert-failures in the packing function below, we only set the field
        * when it's actually going to be used by the hardware.
        *
-       * Similaraly, the MinimumArrayElement field is ignored by all hardware
-       * prior to Sky Lake when texturing and we want it set to 0 anyway.
-       * Since it's already initialized to 0, we can just leave it alone for
-       * texture surfaces.
+       * The MinimumArrayElement field is ignored by all hardware
+       * prior to Sky Lake when texturing. KHR_gl_texture_3D_image requires
+       * this functionality, but it's seldom used, so those platforms will
+       * silently fail in the unlikely scenario where such a thing is required.
        */
-      if (info->view->usage & (ISL_SURF_USAGE_RENDER_TARGET_BIT |
-                               ISL_SURF_USAGE_STORAGE_BIT)) {
+      uint32_t usage_mask = ISL_SURF_USAGE_RENDER_TARGET_BIT |
+                            ISL_SURF_USAGE_STORAGE_BIT;
+      if (GFX_VER >= 9)
+         usage_mask |= ISL_SURF_USAGE_TEXTURE_BIT;
+      if (info->view->usage & usage_mask) {
          s.MinimumArrayElement = info->view->base_array_layer;
          s.RenderTargetViewExtent = info->view->array_len - 1;
       }
