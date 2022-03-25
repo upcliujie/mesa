@@ -38,6 +38,7 @@
 #include "radv_private.h"
 #include "radv_shader.h"
 #include "radv_shader_args.h"
+#include "vk_render_pass.h"
 #include "vk_util.h"
 
 #include "util/debug.h"
@@ -117,7 +118,7 @@ static bool
 radv_pipeline_has_ds_attachments(const VkGraphicsPipelineCreateInfo *pCreateInfo)
 {
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    return (render_create_info->depthAttachmentFormat != VK_FORMAT_UNDEFINED ||
            render_create_info->stencilAttachmentFormat != VK_FORMAT_UNDEFINED);
 }
@@ -137,7 +138,7 @@ static bool
 radv_pipeline_has_color_attachments(const VkGraphicsPipelineCreateInfo *pCreateInfo)
 {
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
 
    for (uint32_t i = 0; i < render_create_info->colorAttachmentCount; ++i) {
       if (render_create_info->pColorAttachmentFormats[i] != VK_FORMAT_UNDEFINED)
@@ -542,7 +543,7 @@ radv_pipeline_compute_spi_color_formats(const struct radv_graphics_pipeline *pip
                                         struct radv_blend_state *blend)
 {
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    unsigned col_format = 0, is_int8 = 0, is_int10 = 0, is_float32 = 0;
    unsigned num_targets;
 
@@ -876,9 +877,9 @@ static unsigned
 radv_pipeline_color_samples(const VkGraphicsPipelineCreateInfo *pCreateInfo)
 {
    const VkAttachmentSampleCountInfoAMD *sample_info =
-      vk_find_struct_const(pCreateInfo->pNext, ATTACHMENT_SAMPLE_COUNT_INFO_AMD);
+      vk_get_pipeline_sample_count_info_amd(pCreateInfo);
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    if (sample_info && sample_info->colorAttachmentCount > 0) {
       unsigned samples = 1;
       for (uint32_t i = 0; i < sample_info->colorAttachmentCount; ++i) {
@@ -896,7 +897,7 @@ static unsigned
 radv_pipeline_depth_samples(const VkGraphicsPipelineCreateInfo *pCreateInfo)
 {
    const VkAttachmentSampleCountInfoAMD *sample_info =
-      vk_find_struct_const(pCreateInfo->pNext, ATTACHMENT_SAMPLE_COUNT_INFO_AMD);
+      vk_get_pipeline_sample_count_info_amd(pCreateInfo);
    if (sample_info) {
       if (radv_pipeline_has_ds_attachments(pCreateInfo)) {
          return sample_info->depthStencilAttachmentSamples;
@@ -992,7 +993,7 @@ radv_pipeline_out_of_order_rast(struct radv_graphics_pipeline *pipeline,
                                 const VkGraphicsPipelineCreateInfo *pCreateInfo)
 {
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    const VkPipelineDepthStencilStateCreateInfo *vkds =
       radv_pipeline_get_depth_stencil_state(pipeline, pCreateInfo);
    const VkPipelineColorBlendStateCreateInfo *vkblend =
@@ -2067,7 +2068,7 @@ radv_pipeline_init_depth_stencil_state(struct radv_graphics_pipeline *pipeline,
    const VkPipelineDepthStencilStateCreateInfo *ds_info =
       radv_pipeline_get_depth_stencil_state(pipeline, pCreateInfo);
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    struct radv_shader *ps = pipeline->base.shaders[MESA_SHADER_FRAGMENT];
    struct radv_depth_stencil_state ds_state = {0};
    uint32_t db_depth_control = 0;
@@ -3224,7 +3225,7 @@ radv_generate_graphics_pipeline_key(const struct radv_graphics_pipeline *pipelin
 {
    struct radv_device *device = pipeline->base.device;
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
 
    struct radv_pipeline_key key = radv_generate_pipeline_key(&pipeline->base, pCreateInfo->flags);
 
@@ -5192,7 +5193,7 @@ radv_gfx9_compute_bin_size(const struct radv_graphics_pipeline *pipeline,
    };
 
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    VkExtent2D extent = {512, 512};
 
    unsigned log_num_rb_per_se =
@@ -5255,7 +5256,7 @@ radv_gfx10_compute_bin_size(const struct radv_graphics_pipeline *pipeline,
 {
    const struct radv_physical_device *pdevice = pipeline->base.device->physical_device;
    const VkPipelineRenderingCreateInfo *render_create_info =
-      vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
    VkExtent2D extent = {512, 512};
 
    const unsigned db_tag_size = 64;
@@ -5353,7 +5354,7 @@ radv_pipeline_init_disabled_binning_state(struct radv_graphics_pipeline *pipelin
 
    if (pdevice->rad_info.gfx_level >= GFX10) {
       const VkPipelineRenderingCreateInfo *render_create_info =
-         vk_find_struct_const(pCreateInfo->pNext, PIPELINE_RENDERING_CREATE_INFO);
+         vk_get_pipeline_rendering_create_info(pCreateInfo);
       const VkPipelineColorBlendStateCreateInfo *vkblend =
          radv_pipeline_get_color_blend_state(pipeline, pCreateInfo);
       unsigned min_bytes_per_pixel = 0;
@@ -6966,12 +6967,12 @@ radv_graphics_pipeline_init(struct radv_graphics_pipeline *pipeline, struct radv
    return result;
 }
 
-static VkResult
-radv_graphics_pipeline_create_nonlegacy(VkDevice _device, VkPipelineCache _cache,
-                                        const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                                        const struct radv_graphics_pipeline_create_info *extra,
-                                        const VkAllocationCallbacks *pAllocator,
-                                        VkPipeline *pPipeline)
+VkResult
+radv_graphics_pipeline_create(VkDevice _device, VkPipelineCache _cache,
+                              const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                              const struct radv_graphics_pipeline_create_info *extra,
+                              const VkAllocationCallbacks *pAllocator,
+                              VkPipeline *pPipeline)
 {
    RADV_FROM_HANDLE(radv_device, device, _device);
    RADV_FROM_HANDLE(radv_pipeline_cache, cache, _cache);
@@ -6994,70 +6995,6 @@ radv_graphics_pipeline_create_nonlegacy(VkDevice _device, VkPipelineCache _cache
    *pPipeline = radv_pipeline_to_handle(&pipeline->base);
 
    return VK_SUCCESS;
-}
-
-/* This is a wrapper for radv_graphics_pipeline_create_nonlegacy that does all legacy conversions
- * for the VkGraphicsPipelineCreateInfo data. */
-VkResult
-radv_graphics_pipeline_create(VkDevice _device, VkPipelineCache _cache,
-                              const VkGraphicsPipelineCreateInfo *pCreateInfo,
-                              const struct radv_graphics_pipeline_create_info *extra,
-                              const VkAllocationCallbacks *pAllocator, VkPipeline *pPipeline)
-{
-   VkGraphicsPipelineCreateInfo create_info = *pCreateInfo;
-
-   VkPipelineRenderingCreateInfo rendering_create_info;
-   VkFormat color_formats[MAX_RTS];
-   VkAttachmentSampleCountInfoAMD sample_info;
-   VkSampleCountFlagBits samples[MAX_RTS];
-   if (pCreateInfo->renderPass != VK_NULL_HANDLE) {
-      RADV_FROM_HANDLE(radv_render_pass, pass, pCreateInfo->renderPass);
-      struct radv_subpass *subpass = pass->subpasses + pCreateInfo->subpass;
-
-      rendering_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-      rendering_create_info.pNext = create_info.pNext;
-      create_info.pNext = &rendering_create_info;
-
-      rendering_create_info.viewMask = subpass->view_mask;
-
-      VkFormat ds_format =
-         subpass->depth_stencil_attachment
-            ? pass->attachments[subpass->depth_stencil_attachment->attachment].format
-            : VK_FORMAT_UNDEFINED;
-
-      rendering_create_info.depthAttachmentFormat =
-         vk_format_has_depth(ds_format) ? ds_format : VK_FORMAT_UNDEFINED;
-      rendering_create_info.stencilAttachmentFormat =
-         vk_format_has_stencil(ds_format) ? ds_format : VK_FORMAT_UNDEFINED;
-
-      rendering_create_info.colorAttachmentCount = subpass->color_count;
-      rendering_create_info.pColorAttachmentFormats = color_formats;
-      for (unsigned i = 0; i < rendering_create_info.colorAttachmentCount; ++i) {
-         if (subpass->color_attachments[i].attachment != VK_ATTACHMENT_UNUSED)
-            color_formats[i] = pass->attachments[subpass->color_attachments[i].attachment].format;
-         else
-            color_formats[i] = VK_FORMAT_UNDEFINED;
-      }
-
-      create_info.renderPass = VK_NULL_HANDLE;
-
-      sample_info.sType = VK_STRUCTURE_TYPE_ATTACHMENT_SAMPLE_COUNT_INFO_AMD;
-      sample_info.pNext = create_info.pNext;
-      create_info.pNext = &sample_info;
-
-      sample_info.colorAttachmentCount = rendering_create_info.colorAttachmentCount;
-      sample_info.pColorAttachmentSamples = samples;
-      for (unsigned i = 0; i < sample_info.colorAttachmentCount; ++i) {
-         if (subpass->color_attachments[i].attachment != VK_ATTACHMENT_UNUSED) {
-            samples[i] = pass->attachments[subpass->color_attachments[i].attachment].samples;
-         } else
-            samples[i] = 1;
-      }
-      sample_info.depthStencilAttachmentSamples = subpass->depth_sample_count;
-   }
-
-   return radv_graphics_pipeline_create_nonlegacy(_device, _cache, &create_info, extra, pAllocator,
-                                                  pPipeline);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL
