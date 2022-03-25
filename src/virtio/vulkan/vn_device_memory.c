@@ -440,6 +440,15 @@ vn_AllocateMemory(VkDevice device,
       }
    }
 
+   VkMemoryAllocateInfo local_alloc_info;
+   if (!import_ahb_info && !export_ahb) {
+      /* match blob mem kernel page align and kvm expectation */
+      local_alloc_info = *pAllocateInfo;
+      local_alloc_info.allocationSize =
+         align64(pAllocateInfo->allocationSize, getpagesize());
+      pAllocateInfo = &local_alloc_info;
+   }
+
    struct vn_device_memory *mem =
       vk_zalloc(alloc, sizeof(*mem), VN_DEFAULT_ALIGN,
                 VK_SYSTEM_ALLOCATION_SCOPE_OBJECT);

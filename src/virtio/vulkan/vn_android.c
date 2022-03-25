@@ -1155,7 +1155,7 @@ vn_android_device_import_ahb(struct vn_device *dev,
    const VkMemoryAllocateInfo local_alloc_info = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .pNext = dedicated_info,
-      .allocationSize = alloc_size,
+      .allocationSize = align64(alloc_size, getpagesize()),
       .memoryTypeIndex = mem_type_index,
    };
    result = vn_device_memory_import_dma_buf(dev, mem, &local_alloc_info,
