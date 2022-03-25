@@ -219,9 +219,6 @@ void st_validate_state( struct st_context *st, enum st_pipeline pipeline )
          check_program_state(st);
          st->gfx_shaders_may_be_dirty = false;
       }
-      if (st->lower_point_size &&
-          (st->ctx->API == API_OPENGL_COMPAT || st->ctx->API == API_OPENGL_CORE))
-         check_pointsize(st);
 
       st_manager_validate_framebuffers(st);
 
@@ -232,9 +229,6 @@ void st_validate_state( struct st_context *st, enum st_pipeline pipeline )
       break;
 
    case ST_PIPELINE_CLEAR:
-      if (st->lower_point_size &&
-          (st->ctx->API == API_OPENGL_COMPAT || st->ctx->API == API_OPENGL_CORE))
-         check_pointsize(st);
       st_manager_validate_framebuffers(st);
       pipeline_mask = ST_PIPELINE_CLEAR_STATE_MASK;
       break;
@@ -244,18 +238,12 @@ void st_validate_state( struct st_context *st, enum st_pipeline pipeline )
          check_program_state(st);
          st->gfx_shaders_may_be_dirty = false;
       }
-      if (st->lower_point_size &&
-          (st->ctx->API == API_OPENGL_COMPAT || st->ctx->API == API_OPENGL_CORE))
-         check_pointsize(st);
 
       st_manager_validate_framebuffers(st);
       pipeline_mask = ST_PIPELINE_META_STATE_MASK;
       break;
 
    case ST_PIPELINE_UPDATE_FRAMEBUFFER:
-      if (st->lower_point_size &&
-          (st->ctx->API == API_OPENGL_COMPAT || st->ctx->API == API_OPENGL_CORE))
-         check_pointsize(st);
       st_manager_validate_framebuffers(st);
       pipeline_mask = ST_PIPELINE_UPDATE_FB_STATE_MASK;
       break;
@@ -287,6 +275,9 @@ void st_validate_state( struct st_context *st, enum st_pipeline pipeline )
    default:
       unreachable("Invalid pipeline specified");
    }
+
+   if (st->lower_point_size && pipeline != ST_PIPELINE_COMPUTE)
+      check_pointsize(st);
 
    dirty = st->dirty & pipeline_mask;
    if (!dirty)
