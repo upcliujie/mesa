@@ -2,6 +2,7 @@
 
 #include "compiler/clc/clc.h"
 #include "compiler/clc/clc_helpers.h"
+#include "compiler/shader_enums.h"
 #include "nir_types.h"
 #include "spirv/nir_spirv.h"
 
@@ -12,3 +13,4 @@
 #include "pipe-loader/pipe_loader.h"
 
 #include "util/u_printf.h"
+#include "util/u_sampler.h"
