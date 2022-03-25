@@ -579,6 +579,8 @@ VC4 driver environment variables
 
    ``cl``
       dump command list during creation
+   ``surf``
+      dump surface layouts
    ``qpu``
       dump generated QPU instructions
    ``qir``
@@ -600,6 +602,65 @@ VC4 driver environment variables
    ``dump``
       write a GPU command stream trace file (VC4 simulator only)
 
+
+V3D/V3DV driver environment variables
+-------------------------------------
+
+:envvar:`V3D_DEBUG`
+   a comma-separated list of named flags, which do various things:
+   ``cl``
+      dump command list during creation
+   ``cl``
+      dump command list during creation
+   ``cl_nobin``
+      dump command listd uring creation, excluding binary resources
+   ``clif``
+      dump command list (CLIF format) during creation"
+   ``qpu``
+      dump generated QPU instructions
+   ``vir``
+      dump VIR during program compile
+   ``nir``
+      dump NIR during program compile
+   ``tgsi``
+      dump TGSI during program compile
+   ``shaderdb``
+      dump program compile information for shader-db analysis
+   ``surface``
+      print resource layout information
+   ``perf``
+      print during runtime performance-related events
+   ``norast``
+      skip actual hardware execution of commands
+   ``fs``
+      dump fragment shaders
+   ``gs``
+      dump geometry shaders
+   ``vs``
+      dump vertex shaders
+   ``cs``
+      dump computer shaders
+   ``always_flush``
+      flush after each draw call
+   ``precompile``
+      precompiles shader variant at shader state creation time
+   ``ra``
+      dump register allocation failures
+   ``dump_spirv``
+      dump SPIR-V code
+   ``tmu32``
+      force 32-bit precision on all TMU operations
+      This can lead to incorrect behavior for applications that do
+      require full 32-bit precision but can improve performance
+      for those that don't.
+   ``tmu16``
+      force 16-bit precision on all TMU operations
+   ``noloopunroll``
+      disable loop unrolling
+   ``db``
+      enable double buffer for Tile Buffer when MSAA is disabled
+   ``cache``
+      print during on-disk cache events (only with cache enabled)
 
 .. _radv env-vars:
 
