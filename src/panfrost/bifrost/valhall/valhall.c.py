@@ -78,7 +78,6 @@ SKIP = set([
         "IDP.v4s8",
         "IDP.v4u8",
         "TEX_DUAL",
-        "TODO.VAR_TEX",
     ])
 
 template = """
