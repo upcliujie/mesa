@@ -30,6 +30,9 @@
 #include <stdint.h>
 
 #include "util/list.h"
+#include "util/u_dynarray.h"
+#include "perf/intel_perf.h"
+#include "perf/intel_perf_query.h"
 
 enum intel_measure_snapshot_type {
    INTEL_SNAPSHOT_UNDEFINED,
@@ -104,6 +107,12 @@ struct intel_measure_config {
 
    /* Measure CPU timing, not GPU timing */
    bool                       cpu_measure;
+
+   /** Which metric set are we recording?  or 0 (XXX: or -1?) for none */
+   unsigned oa_metric_set;
+
+   /** A string version of the oa set */
+   const char * oa_metric_name;
 };
 
 struct intel_measure_batch;
@@ -116,13 +125,16 @@ struct intel_measure_snapshot {
    uintptr_t vs, tcs, tes, gs, fs, cs, ms, ts;
    /* for vulkan secondary command buffers */
    struct intel_measure_batch *secondary;
+
+   /** A perf query object for oa measurements */
+   struct intel_perf_query_object * perf_query;
 };
 
 struct intel_measure_buffered_result {
    struct intel_measure_snapshot snapshot;
    uint64_t start_ts, end_ts, idle_duration;
    unsigned frame, batch_count, event_index, primary_renderpass;
-;
+   unsigned *oa_result_data;
 };
 
 struct intel_measure_ringbuffer {
@@ -132,6 +144,23 @@ struct intel_measure_ringbuffer {
 
 /* This function will be called when enqueued snapshots have been processed */
 typedef void (*intel_measure_release_batch_cb)(struct intel_measure_batch *base);
+
+/**
+ * manager for OA Result storage
+*/
+struct intel_measure_oa_result_manager {
+   pthread_mutex_t mutex;
+
+   /** The size of the slots in the pool */
+   unsigned slot_size;
+
+   /** A pool of storage objects */
+   struct util_dynarray * pool;
+};
+
+void intel_measure_oa_result_manager_init(struct intel_measure_oa_result_manager * mgr, const unsigned size);
+void * intel_measure_oa_result_manager_take(struct intel_measure_oa_result_manager * mgr);
+void intel_measure_oa_result_manager_return(struct intel_measure_oa_result_manager * mgr, void * data);
 
 struct intel_measure_device {
    struct intel_measure_config *config;
@@ -149,6 +178,12 @@ struct intel_measure_device {
     * written out
     */
    struct intel_measure_ringbuffer *ringbuffer;
+
+   /**
+    * A list of free results for use with OA measure gathering
+    */
+   struct intel_measure_oa_result_manager * oa_results;
+
 };
 
 struct intel_measure_batch {
@@ -178,6 +213,16 @@ void intel_measure_print_cpu_result(unsigned int frame,
                                     unsigned int count,
                                     const char* event_name);
 void intel_measure_gather(struct intel_measure_device *device,
-                          const struct intel_device_info *info);
+                          const struct intel_device_info *info,
+                          struct intel_perf_context *perf);
 
+/** Initialize a perf context for use by intel_measure */
+void intel_measure_perf_init_ctx(struct intel_perf_config * perf_cfg,
+                                 void * mem_ctx,
+                                 void * bufmgr,
+                                 const struct intel_device_info * devinfo,
+                                 uint32_t hw_ctx_id,
+                                 int drm_fd,
+                                 struct intel_perf_context * perf_ctx,
+                                 struct intel_measure_config * config);
 #endif /* INTEL_MEASURE_H */

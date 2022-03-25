@@ -54,6 +54,38 @@ static const struct debug_control debug_control[] = {
 static struct intel_measure_config config;
 
 void
+intel_measure_oa_result_manager_init(struct intel_measure_oa_result_manager * mgr, const unsigned size)
+{
+   pthread_mutex_init(&mgr->mutex, NULL);
+   mgr->slot_size = size;
+   util_dynarray_init(mgr->pool, NULL);
+}
+
+void *
+intel_measure_oa_result_manager_take(struct intel_measure_oa_result_manager * mgr)
+{
+   pthread_mutex_lock(&mgr->mutex);
+   if (!mgr->pool->size) {
+      for (unsigned i = 0; i < 64; ++i) {
+         void * data = malloc(mgr->slot_size);
+         util_dynarray_append(mgr->pool, void *, data);
+      }
+   }
+
+   void * data = util_dynarray_pop(mgr->pool, void *);
+   pthread_mutex_unlock(&mgr->mutex);
+   return data;
+}
+
+void
+intel_measure_oa_result_manager_return(struct intel_measure_oa_result_manager * mgr, void * data)
+{
+   pthread_mutex_lock(&mgr->mutex);
+   util_dynarray_append(mgr->pool, void *, data);
+   pthread_mutex_unlock(&mgr->mutex);
+}
+
+void
 intel_measure_init(struct intel_measure_device *device)
 {
    static bool once = false;
@@ -99,6 +131,7 @@ intel_measure_init(struct intel_measure_device *device)
       const char *batch_size_s = strstr(env_copy, "batch_size=");
       const char *buffer_size_s = strstr(env_copy, "buffer_size=");
       const char *cpu_s = strstr(env_copy, "cpu");
+      const char *oa_c = strstr(env_copy, "oa_set=");
       while (true) {
          char *sep = strrchr(env_copy, ',');
          if (sep == NULL)
@@ -116,122 +149,135 @@ intel_measure_init(struct intel_measure_device *device)
          }
       }
 
-      if (start_frame_s) {
-         start_frame_s += 6;
-         const int start_frame = atoi(start_frame_s);
-         if (start_frame < 0) {
-            fprintf(stderr, "INTEL_MEASURE start frame may "
-                    "not be negative: %d\n", start_frame);
+      if (oa_c) {
+         oa_c += 7;
+         config.oa_metric_name = strdup(oa_c);
+
+         if (start_frame_s != NULL || count_frame_s != NULL || control_path != NULL ||
+             interval_s != NULL || batch_size_s != NULL || buffer_size_s != NULL ||
+             cpu_s != NULL) {
+            fprintf(stderr, "Support for INTEL_MEASURE with OA counters combined with other methods is not supported.\n");
             abort();
          }
-
-         config.start_frame = start_frame;
-         config.enabled = false;
-      }
-
-      if (count_frame_s) {
-         count_frame_s += 6;
-         const int count_frame = atoi(count_frame_s);
-         if (count_frame <= 0) {
-            fprintf(stderr, "INTEL_MEASURE count frame must be positive: %d\n",
-                    count_frame);
-            abort();
-         }
-
-         config.end_frame = config.start_frame + count_frame;
-      }
-
-      if (control_path) {
-         control_path += 8;
-         if (mkfifoat(AT_FDCWD, control_path, O_CREAT | S_IRUSR | S_IWUSR)) {
-            if (errno != EEXIST) {
-               fprintf(stderr, "INTEL_MEASURE failed to create control "
-                       "fifo %s: %s\n", control_path, strerror (errno));
+      } else {
+         if (start_frame_s) {
+            start_frame_s += 6;
+            const int start_frame = atoi(start_frame_s);
+            if (start_frame < 0) {
+               fprintf(stderr, "INTEL_MEASURE start frame may "
+                     "not be negative: %d\n", start_frame);
                abort();
             }
+
+            config.start_frame = start_frame;
+            config.enabled = false;
          }
 
-         config.control_fh = openat(AT_FDCWD, control_path,
-                                    O_RDONLY | O_NONBLOCK);
-         if (config.control_fh == -1) {
-            fprintf(stderr, "INTEL_MEASURE failed to open control fifo "
-                    "%s: %s\n", control_path, strerror (errno));
-            abort();
+         if (count_frame_s) {
+            count_frame_s += 6;
+            const int count_frame = atoi(count_frame_s);
+            if (count_frame <= 0) {
+               fprintf(stderr, "INTEL_MEASURE count frame must be positive: %d\n",
+                     count_frame);
+               abort();
+            }
+
+            config.end_frame = config.start_frame + count_frame;
          }
 
-         /* when using a control fifo, do not start until the user triggers
-          * capture
-          */
-         config.enabled = false;
+         if (control_path) {
+            control_path += 8;
+            if (mkfifoat(AT_FDCWD, control_path, O_CREAT | S_IRUSR | S_IWUSR)) {
+               if (errno != EEXIST) {
+                  fprintf(stderr, "INTEL_MEASURE failed to create control "
+                        "fifo %s: %s\n", control_path, strerror (errno));
+                  abort();
+               }
+            }
+
+            config.control_fh = openat(AT_FDCWD, control_path,
+                                       O_RDONLY | O_NONBLOCK);
+            if (config.control_fh == -1) {
+               fprintf(stderr, "INTEL_MEASURE failed to open control fifo "
+                     "%s: %s\n", control_path, strerror (errno));
+               abort();
+            }
+
+            /* when using a control fifo, do not start until the user triggers
+            * capture
+            */
+            config.enabled = false;
+         }
+
+
+         if (interval_s) {
+            interval_s += 9;
+            const int event_interval = atoi(interval_s);
+            if (event_interval < 1) {
+               fprintf(stderr, "INTEL_MEASURE event_interval must be positive: "
+                     "%d\n", event_interval);
+               abort();
+            }
+            config.event_interval = event_interval;
+         }
+
+         if (batch_size_s) {
+            batch_size_s += 11;
+            const int batch_size = atoi(batch_size_s);
+            if (batch_size < DEFAULT_BATCH_SIZE) {
+               fprintf(stderr, "INTEL_MEASURE minimum batch_size is 4k: "
+                     "%d\n", batch_size);
+               abort();
+            }
+            if (batch_size > DEFAULT_BATCH_SIZE * 1024) {
+               fprintf(stderr, "INTEL_MEASURE batch_size limited to 4M: "
+                     "%d\n", batch_size);
+               abort();
+            }
+
+            config.batch_size = batch_size;
+         }
+
+         if (buffer_size_s) {
+            buffer_size_s += 12;
+            const int buffer_size = atoi(buffer_size_s);
+            if (buffer_size < DEFAULT_BUFFER_SIZE) {
+               fprintf(stderr, "INTEL_MEASURE minimum buffer_size is 1k: "
+                     "%d\n", DEFAULT_BUFFER_SIZE);
+            }
+            if (buffer_size > DEFAULT_BUFFER_SIZE * 1024) {
+               fprintf(stderr, "INTEL_MEASURE buffer_size limited to 1M: "
+                     "%d\n", buffer_size);
+            }
+
+            config.buffer_size = buffer_size;
+         }
+
+         if (cpu_s) {
+            config.cpu_measure = true;
+         }
+
+         if (!config.cpu_measure)
+            fputs("draw_start,draw_end,frame,batch,renderpass,"
+                  "event_index,event_count,type,count,vs,tcs,tes,"
+                  "gs,fs,cs,ms,ts,idle_us,time_us\n",
+                  config.file);
+         else
+            fputs("draw_start,frame,batch,event_index,event_count,"
+                  "type,count\n",
+                  config.file);
       }
 
-      if (interval_s) {
-         interval_s += 9;
-         const int event_interval = atoi(interval_s);
-         if (event_interval < 1) {
-            fprintf(stderr, "INTEL_MEASURE event_interval must be positive: "
-                    "%d\n", event_interval);
-            abort();
-         }
-         config.event_interval = event_interval;
-      }
+      device->config = NULL;
+      device->frame = 0;
+      device->render_pass_count = 0;
+      device->release_batch = NULL;
+      pthread_mutex_init(&device->mutex, NULL);
+      list_inithead(&device->queued_snapshots);
 
-      if (batch_size_s) {
-         batch_size_s += 11;
-         const int batch_size = atoi(batch_size_s);
-         if (batch_size < DEFAULT_BATCH_SIZE) {
-            fprintf(stderr, "INTEL_MEASURE minimum batch_size is 4k: "
-                    "%d\n", batch_size);
-            abort();
-         }
-         if (batch_size > DEFAULT_BATCH_SIZE * 1024) {
-            fprintf(stderr, "INTEL_MEASURE batch_size limited to 4M: "
-                    "%d\n", batch_size);
-            abort();
-         }
-
-         config.batch_size = batch_size;
-      }
-
-      if (buffer_size_s) {
-         buffer_size_s += 12;
-         const int buffer_size = atoi(buffer_size_s);
-         if (buffer_size < DEFAULT_BUFFER_SIZE) {
-            fprintf(stderr, "INTEL_MEASURE minimum buffer_size is 1k: "
-                    "%d\n", DEFAULT_BUFFER_SIZE);
-         }
-         if (buffer_size > DEFAULT_BUFFER_SIZE * 1024) {
-            fprintf(stderr, "INTEL_MEASURE buffer_size limited to 1M: "
-                    "%d\n", buffer_size);
-         }
-
-         config.buffer_size = buffer_size;
-      }
-
-      if (cpu_s) {
-         config.cpu_measure = true;
-      }
-
-      if (!config.cpu_measure)
-         fputs("draw_start,draw_end,frame,batch,renderpass,"
-               "event_index,event_count,type,count,vs,tcs,tes,"
-               "gs,fs,cs,ms,ts,idle_us,time_us\n",
-               config.file);
-      else
-         fputs("draw_start,frame,batch,event_index,event_count,"
-               "type,count\n",
-               config.file);
+      if (env)
+         device->config = &config;
    }
-
-   device->config = NULL;
-   device->frame = 0;
-   device->render_pass_count = 0;
-   device->release_batch = NULL;
-   pthread_mutex_init(&device->mutex, NULL);
-   list_inithead(&device->queued_snapshots);
-
-   if (env)
-      device->config = &config;
 }
 
 const char *
@@ -416,7 +462,8 @@ intel_measure_ready(struct intel_measure_batch *batch)
  */
 static void
 intel_measure_push_result(struct intel_measure_device *device,
-                          struct intel_measure_batch *batch)
+                          struct intel_measure_batch *batch,
+                          struct intel_perf_context *perf_ctx)
 {
    struct intel_measure_ringbuffer *rb = device->ringbuffer;
 
@@ -434,7 +481,7 @@ intel_measure_push_result(struct intel_measure_device *device,
          assert(begin->secondary != NULL);
          begin->secondary->batch_count = batch->batch_count;
          begin->secondary->primary_renderpass = batch->renderpass;
-         intel_measure_push_result(device, begin->secondary);
+         intel_measure_push_result(device, begin->secondary, perf_ctx);
          continue;
       }
 
@@ -471,6 +518,17 @@ intel_measure_push_result(struct intel_measure_device *device,
       buffered_result->primary_renderpass = batch->primary_renderpass;
       buffered_result->event_index = i / 2;
       buffered_result->snapshot.event_count = end->event_count;
+
+      if (begin->type != INTEL_SNAPSHOT_END && perf_ctx) {
+         buffered_result->oa_result_data = intel_measure_oa_result_manager_take(device->oa_results);
+
+         unsigned bytes_written = 0;
+         assert(intel_perf_is_query_ready(perf_ctx, begin->perf_query, batch));
+         intel_perf_get_query_data(perf_ctx, begin->perf_query, batch,
+                                   device->oa_results->slot_size, buffered_result->oa_result_data,
+                                   &bytes_written);
+         assert(bytes_written <= device->oa_results->slot_size);
+      }
    }
 }
 
@@ -585,7 +643,8 @@ buffered_event_count(struct intel_measure_device *device)
 static void
 print_combined_results(struct intel_measure_device *measure_device,
                        int result_count,
-                       const struct intel_device_info *info)
+                       const struct intel_device_info *info,
+                       struct intel_perf_context *perf)
 {
    if (result_count == 0)
       return;
@@ -618,19 +677,47 @@ print_combined_results(struct intel_measure_device *measure_device,
    uint64_t duration_time_ns =
       intel_device_info_timebase_scale(info, duration_ts);
    const struct intel_measure_snapshot *begin = &start_result->snapshot;
-   uint32_t renderpass = (start_result->primary_renderpass)
-      ? start_result->primary_renderpass : begin->renderpass;
-   fprintf(config.file, "%"PRIu64",%"PRIu64",%u,%u,%u,%u,%u,%s,%u,"
-           "0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,%.3lf,%.3lf\n",
-           start_result->start_ts, current_result->end_ts,
-           start_result->frame, start_result->batch_count,
-           renderpass, start_result->event_index, event_count,
-           begin->event_name, begin->count,
-           (uint32_t)begin->vs, (uint32_t)begin->tcs, (uint32_t)begin->tes,
-           (uint32_t)begin->gs, (uint32_t)begin->fs, (uint32_t)begin->cs,
-           (uint32_t)begin->ms, (uint32_t)begin->ts,
-           (double)duration_idle_ns / 1000.0,
-           (double)duration_time_ns / 1000.0);
+   if (!begin->perf_query) {
+      uint32_t renderpass = (start_result->primary_renderpass)
+         ? start_result->primary_renderpass : begin->renderpass;
+      fprintf(config.file, "%"PRIu64",%"PRIu64",%u,%u,%u,%u,%u,%s,%u,"
+            "0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,0x%x,%.3lf,%.3lf\n",
+            start_result->start_ts, current_result->end_ts,
+            start_result->frame, start_result->batch_count,
+            renderpass, start_result->event_index, event_count,
+            begin->event_name, begin->count,
+            (uint32_t)begin->vs, (uint32_t)begin->tcs, (uint32_t)begin->tes,
+            (uint32_t)begin->gs, (uint32_t)begin->fs, (uint32_t)begin->cs,
+            (uint32_t)begin->ms, (uint32_t)begin->ts,
+            (double)duration_idle_ns / 1000.0,
+            (double)duration_time_ns / 1000.0);
+   } else {
+      fprintf(config.file, "%u,%s,%u,",
+              start_result->frame, begin->event_name, begin->count);
+      const struct intel_perf_query_info * query_info = intel_perf_query_info(begin->perf_query);
+      for (unsigned i = 0; i < query_info->n_counters; ++i) {
+         const struct intel_perf_query_counter * counter = &query_info->counters[i];
+         uint8_t *counter_data = ((uint8_t *) start_result->oa_result_data) + counter->offset;
+         switch (counter->data_type) {
+            case INTEL_PERF_COUNTER_DATA_TYPE_UINT64:
+               fprintf(config.file, "%"PRIu64",", ((uint64_t *) counter_data)[0]);
+               break;
+            case INTEL_PERF_COUNTER_DATA_TYPE_UINT32:
+            case INTEL_PERF_COUNTER_DATA_TYPE_BOOL32:
+               fprintf(config.file, "%u,", ((uint32_t *) counter_data)[0]);
+               break;
+            case INTEL_PERF_COUNTER_DATA_TYPE_FLOAT:
+               fprintf(config.file, "%f,", ((float *) counter_data)[0]);
+               break;
+            case INTEL_PERF_COUNTER_DATA_TYPE_DOUBLE:
+               fprintf(config.file, "%f,", ((double *) counter_data)[0]);
+               break;
+         }
+      }
+      fprintf(config.file, "\n");
+      intel_measure_oa_result_manager_return(measure_device->oa_results, start_result->oa_result_data);
+      intel_perf_delete_query(perf, begin->perf_query);
+   }
 }
 
 /**
@@ -657,13 +744,14 @@ intel_measure_print_cpu_result(unsigned int frame,
  */
 static void
 intel_measure_print(struct intel_measure_device *device,
-                    const struct intel_device_info *info)
+                    const struct intel_device_info *info,
+                    struct intel_perf_context * perf)
 {
    while (true) {
       const int events_to_combine = buffered_event_count(device);
       if (events_to_combine == 0)
          break;
-      print_combined_results(device, events_to_combine, info);
+      print_combined_results(device, events_to_combine, info, perf);
    }
 }
 
@@ -673,7 +761,8 @@ intel_measure_print(struct intel_measure_device *device,
  */
 void
 intel_measure_gather(struct intel_measure_device *measure_device,
-                     const struct intel_device_info *info)
+                     const struct intel_device_info *info,
+                     struct intel_perf_context *perf)
 {
    pthread_mutex_lock(&measure_device->mutex);
 
@@ -696,7 +785,7 @@ intel_measure_gather(struct intel_measure_device *measure_device,
       list_del(&batch->link);
       assert(batch->index % 2 == 0);
 
-      intel_measure_push_result(measure_device, batch);
+      intel_measure_push_result(measure_device, batch, perf);
 
       batch->index = 0;
       batch->frame = 0;
@@ -704,7 +793,67 @@ intel_measure_gather(struct intel_measure_device *measure_device,
          measure_device->release_batch(batch);
    }
 
-   intel_measure_print(measure_device, info);
+   intel_measure_print(measure_device, info, perf);
    pthread_mutex_unlock(&measure_device->mutex);
+}
+
+void
+intel_measure_perf_init_ctx(struct intel_perf_config * perf_cfg,
+                            void * mem_ctx,
+                            void * bufmgr,
+                            const struct intel_device_info * devinfo,
+                            uint32_t hw_ctx_id,
+                            int drm_fd,
+                            struct intel_perf_context * perf_ctx,
+                            struct intel_measure_config * config) {
+
+   intel_perf_init_metrics(perf_cfg, devinfo, drm_fd,
+                           true /* pipeline_statistics */,
+                           true /* register snapshots */);
+   intel_perf_init_context(perf_ctx,
+                           perf_cfg,
+                           mem_ctx,
+                           mem_ctx,
+                           bufmgr,
+                           devinfo,
+                           hw_ctx_id,
+                           drm_fd);
+   // We can get here twice if we have more than one iris_context
+   if (config->oa_metric_set != 0) {
+      return;
+   }
+
+   if (!perf_cfg->oa_metrics_table) {
+      fprintf(stderr, "Unable to load any metrics, have you disabled dev.i915.perf_stream_paranoid?\n");
+      exit(1);
+   }
+
+   for (unsigned i = 0; i < perf_cfg->n_queries; ++i) {
+      struct intel_perf_query_info * q = &perf_cfg->queries[i];
+      if (q->symbol_name && strcmp(q->symbol_name, config->oa_metric_name) == 0) {
+         config->oa_metric_set = i;
+         break;
+      }
+   }
+
+   if (config->oa_metric_set == 0) {
+      fprintf(stderr, "Could not find an oa reference set for '%s'\n", config->oa_metric_name);
+      fprintf(stderr, "Valid sets are:\n");
+      for (unsigned i = 0; i < perf_cfg->n_queries; ++i) {
+         struct intel_perf_query_info * q = &perf_cfg->queries[i];
+         if (q->symbol_name) {
+            fprintf(stderr, "  - %s\n", q->symbol_name);
+         }
+      }
+      exit(1);
+   }
+
+   /* Print the header into the csv file */
+   fprintf(config->file, "frame,type,count,");
+   const struct intel_perf_query_info * qinfo = &perf_cfg->queries[config->oa_metric_set];
+   for (unsigned i = 0; i < qinfo->n_counters; ++i) {
+      fprintf(config->file, "%s,", qinfo->counters[i].name);
+   }
+   fprintf(config->file, "\n");
 }
 
