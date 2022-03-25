@@ -38,6 +38,7 @@
 #include "radv_private.h"
 #include "radv_shader.h"
 #include "radv_shader_args.h"
+#include "vk_render_pass.h"
 #include "vk_util.h"
 
 #include "util/debug.h"
@@ -6749,6 +6750,18 @@ radv_graphics_pipeline_create(VkDevice _device, VkPipelineCache _cache,
                               const VkAllocationCallbacks *pAllocator, VkPipeline *pPipeline)
 {
    VkGraphicsPipelineCreateInfo create_info = *pCreateInfo;
+
+   /* We'll use these as defaults if we don't have pipeline rendering or
+    * self-dependency structs.  Saves us some NULL checks.
+    */
+   VkPipelineRenderingCreateInfo rendering_info_tmp = {
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+   };
+
+   const VkPipelineRenderingCreateInfo *rendering_info =
+      vk_get_pipeline_rendering_create_info(pCreateInfo);
+   if (rendering_info == NULL)
+      rendering_info = &rendering_info_tmp;
 
    VkPipelineRenderingCreateInfo rendering_create_info;
    VkFormat color_formats[MAX_RTS];

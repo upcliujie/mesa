@@ -67,7 +67,6 @@
 #include "vk_queue.h"
 #include "vk_util.h"
 #include "vk_image.h"
-#include "vk_framebuffer.h"
 
 #include "ac_binary.h"
 #include "ac_gpu_info.h"
@@ -1338,20 +1337,16 @@ void radv_initialise_vrs_surface(struct radv_image *image, struct radv_buffer *h
  *
  * The clear value is valid only if there exists a pending clear.
  */
-struct radv_attachment_state {
-   VkImageAspectFlags pending_clear_aspects;
-   uint32_t cleared_views;
-   VkClearValue clear_value;
-   VkImageLayout current_layout;
-   VkImageLayout current_stencil_layout;
-   bool current_in_render_loop;
+struct radv_attachment {
+   struct radv_image_view *iview;
+   VkImageLayout layout;
+   bool in_render_loop;
    struct radv_sample_locations_state sample_location;
 
    union {
       struct radv_color_buffer_info cb;
       struct radv_ds_buffer_info ds;
    };
-   struct radv_image_view *iview;
 };
 
 struct radv_descriptor_state {
@@ -1361,11 +1356,6 @@ struct radv_descriptor_state {
    struct radv_push_descriptor_set push_set;
    bool push_dirty;
    uint32_t dynamic_buffers[4 * MAX_DYNAMIC_BUFFERS];
-};
-
-struct radv_subpass_sample_locs_state {
-   uint32_t subpass_idx;
-   struct radv_sample_locations_state sample_location;
 };
 
 enum rgp_flush_bits {
@@ -1401,17 +1391,17 @@ struct radv_cmd_state {
    struct radv_pipeline *compute_pipeline;
    struct radv_pipeline *emitted_compute_pipeline;
    struct radv_pipeline *rt_pipeline; /* emitted = emitted_compute_pipeline */
-   struct vk_framebuffer *framebuffer;
-   struct radv_render_pass *pass;
-   const struct radv_subpass *subpass;
    struct radv_dynamic_state dynamic;
    struct radv_vs_input_state dynamic_vs_input;
-   struct radv_attachment_state *attachments;
    struct radv_streamout_state streamout;
+
    VkRect2D render_area;
+   uint32_t color_att_count;
+   struct radv_attachment color_att[MAX_RTS];
+   struct radv_attachment depth_att;
+   struct radv_attachment stencil_att;
 
    uint32_t num_subpass_sample_locs;
-   struct radv_subpass_sample_locs_state *subpass_sample_locs;
 
    /* Index buffer */
    struct radv_buffer *index_buffer;
@@ -1484,9 +1474,6 @@ struct radv_cmd_state {
    uint32_t emitted_vs_prolog_key_hash;
    uint32_t vbo_misaligned_mask;
    uint32_t vbo_bound_mask;
-
-   /* Whether the cmdbuffer owns the current render pass rather than the app. */
-   bool own_render_pass;
 
    /* Per-vertex VRS state. */
    uint32_t last_vrs_rates;
@@ -1612,10 +1599,6 @@ bool radv_cmp_vs_prolog(const void *a_, const void *b_);
 
 bool radv_cmd_buffer_upload_alloc(struct radv_cmd_buffer *cmd_buffer, unsigned size,
                                   unsigned *out_offset, void **ptr);
-void radv_cmd_buffer_set_subpass(struct radv_cmd_buffer *cmd_buffer,
-                                 const struct radv_subpass *subpass);
-void radv_cmd_buffer_restore_subpass(struct radv_cmd_buffer *cmd_buffer,
-                                     const struct radv_subpass *subpass);
 bool radv_cmd_buffer_upload_data(struct radv_cmd_buffer *cmd_buffer, unsigned size,
                                  const void *data, unsigned *out_offset);
 
@@ -2546,80 +2529,6 @@ struct radv_sampler {
    uint32_t border_color_slot;
 };
 
-struct radv_subpass_barrier {
-   VkPipelineStageFlags2 src_stage_mask;
-   VkAccessFlags2 src_access_mask;
-   VkAccessFlags2 dst_access_mask;
-};
-
-void radv_emit_subpass_barrier(struct radv_cmd_buffer *cmd_buffer,
-                               const struct radv_subpass_barrier *barrier);
-
-struct radv_subpass_attachment {
-   uint32_t attachment;
-   VkImageLayout layout;
-   VkImageLayout stencil_layout;
-   bool in_render_loop;
-};
-
-struct radv_subpass {
-   uint32_t attachment_count;
-   struct radv_subpass_attachment *attachments;
-
-   uint32_t input_count;
-   uint32_t color_count;
-   struct radv_subpass_attachment *input_attachments;
-   struct radv_subpass_attachment *color_attachments;
-   struct radv_subpass_attachment *resolve_attachments;
-   struct radv_subpass_attachment *depth_stencil_attachment;
-   struct radv_subpass_attachment *ds_resolve_attachment;
-   struct radv_subpass_attachment *vrs_attachment;
-   VkResolveModeFlagBits depth_resolve_mode;
-   VkResolveModeFlagBits stencil_resolve_mode;
-
-   /** Subpass has at least one color resolve attachment */
-   bool has_color_resolve;
-
-   struct radv_subpass_barrier start_barrier;
-
-   uint32_t view_mask;
-
-   VkSampleCountFlagBits color_sample_count;
-   VkSampleCountFlagBits depth_sample_count;
-   VkSampleCountFlagBits max_sample_count;
-
-   /* Whether the subpass has ingoing/outgoing external dependencies. */
-   bool has_ingoing_dep;
-   bool has_outgoing_dep;
-};
-
-uint32_t radv_get_subpass_id(struct radv_cmd_buffer *cmd_buffer);
-
-struct radv_render_pass_attachment {
-   VkFormat format;
-   uint32_t samples;
-   VkAttachmentLoadOp load_op;
-   VkAttachmentLoadOp stencil_load_op;
-   VkImageLayout initial_layout;
-   VkImageLayout final_layout;
-   VkImageLayout stencil_initial_layout;
-   VkImageLayout stencil_final_layout;
-
-   /* The subpass id in which the attachment will be used first/last. */
-   uint32_t first_subpass_idx;
-   uint32_t last_subpass_idx;
-};
-
-struct radv_render_pass {
-   struct vk_object_base base;
-   uint32_t attachment_count;
-   uint32_t subpass_count;
-   struct radv_subpass_attachment *subpass_attachments;
-   struct radv_render_pass_attachment *attachments;
-   struct radv_subpass_barrier end_barrier;
-   struct radv_subpass subpasses[0];
-};
-
 VkResult radv_device_init_meta(struct radv_device *device);
 void radv_device_finish_meta(struct radv_device *device);
 
@@ -2998,8 +2907,6 @@ VK_DEFINE_NONDISP_HANDLE_CASTS(radv_pipeline_layout, base, VkPipelineLayout,
                                VK_OBJECT_TYPE_PIPELINE_LAYOUT)
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_query_pool, base, VkQueryPool,
                                VK_OBJECT_TYPE_QUERY_POOL)
-VK_DEFINE_NONDISP_HANDLE_CASTS(radv_render_pass, base, VkRenderPass,
-                               VK_OBJECT_TYPE_RENDER_PASS)
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_sampler, base, VkSampler,
                                VK_OBJECT_TYPE_SAMPLER)
 VK_DEFINE_NONDISP_HANDLE_CASTS(radv_sampler_ycbcr_conversion, base,
