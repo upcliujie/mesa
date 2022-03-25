@@ -1024,8 +1024,6 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
 {
    struct llvmpipe_screen *screen;
 
-   util_cpu_detect();
-
    glsl_type_singleton_init_or_ref();
 
 #ifdef DEBUG

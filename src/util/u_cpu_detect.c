@@ -584,7 +584,7 @@ get_cpu_topology(void)
 #endif
 }
 
-static void
+void
 util_cpu_detect_once(void)
 {
    int available_cpus = 0;
@@ -860,12 +860,4 @@ util_cpu_detect_once(void)
       printf("util_cpu_caps.num_L3_caches = %u\n", util_cpu_caps.num_L3_caches);
       printf("util_cpu_caps.num_cpu_mask_bits = %u\n", util_cpu_caps.num_cpu_mask_bits);
    }
-}
-
-static once_flag cpu_once_flag = ONCE_FLAG_INIT;
-
-void
-util_cpu_detect(void)
-{
-   call_once(&cpu_once_flag, util_cpu_detect_once);
 }

@@ -127,21 +127,19 @@ struct util_cpu_caps_t {
 
 #define U_CPU_INVALID_L3 0xffff
 
+static once_flag util_cpu_once_flag = ONCE_FLAG_INIT;
+
+void util_cpu_detect_once(void);
+
 static inline const struct util_cpu_caps_t *
 util_get_cpu_caps(void)
 {
 	extern struct util_cpu_caps_t util_cpu_caps;
 
-	/* If you hit this assert, it means that something is using the
-	 * cpu-caps without having first called util_cpu_detect()
-	 */
-	assert(util_cpu_caps.nr_cpus >= 1);
+   call_once(&util_cpu_once_flag, util_cpu_detect_once);
 
 	return &util_cpu_caps;
 }
-
-void util_cpu_detect(void);
-
 
 #ifdef	__cplusplus
 }
