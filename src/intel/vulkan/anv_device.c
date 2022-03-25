@@ -908,6 +908,12 @@ anv_physical_device_try_create(struct anv_instance *instance,
    device->sync_syncobj_type = vk_drm_syncobj_get_type(fd);
    if (!device->has_exec_timeline)
       device->sync_syncobj_type.features &= ~VK_SYNC_FEATURE_TIMELINE;
+
+   if (device->sync_syncobj_type.features & VK_SYNC_FEATURE_TIMELINE) {
+      device->hack = true;
+      device->sync_syncobj_type.features &= ~VK_SYNC_FEATURE_TIMELINE;
+   }
+
    device->sync_types[st_idx++] = &device->sync_syncobj_type;
 
    if (!(device->sync_syncobj_type.features & VK_SYNC_FEATURE_CPU_WAIT))
@@ -3086,6 +3092,9 @@ VkResult anv_CreateDevice(
                            &dispatch_table, pCreateInfo, pAllocator);
    if (result != VK_SUCCESS)
       goto fail_alloc;
+
+   if (physical_device->hack)
+      vk_device_enable_threaded_submit(&device->vk);
 
    if (INTEL_DEBUG(DEBUG_BATCH)) {
       const unsigned decode_flags =

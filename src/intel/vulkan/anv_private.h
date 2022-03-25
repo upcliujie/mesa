@@ -1043,6 +1043,7 @@ struct anv_physical_device {
     uint8_t                                     driver_uuid[VK_UUID_SIZE];
     uint8_t                                     device_uuid[VK_UUID_SIZE];
 
+    bool                                        hack;
     struct vk_sync_type                         sync_syncobj_type;
     struct vk_sync_timeline_type                sync_timeline_type;
     const struct vk_sync_type *                 sync_types[4];

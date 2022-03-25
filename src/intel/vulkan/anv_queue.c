@@ -41,6 +41,14 @@ anv_queue_init(struct anv_device *device, struct anv_queue *queue,
    if (result != VK_SUCCESS)
       return result;
 
+   if (device->physical->hack) {
+      result = vk_queue_enable_submit_thread(&queue->vk);
+      if (result != VK_SUCCESS) {
+         vk_queue_finish(&queue->vk);
+         return result;
+      }
+   }
+
    queue->vk.driver_submit = anv_queue_submit;
 
    queue->device = device;
