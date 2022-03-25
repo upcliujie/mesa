@@ -73,7 +73,7 @@ create_iview(struct radv_cmd_buffer *cmd_buffer, struct radv_meta_blit2d_surf *s
                                                 .baseArrayLayer = surf->layer,
                                                 .layerCount = 1},
                         },
-                        NULL);
+                        &(struct radv_image_view_extra_create_info) { });
 }
 
 static void
@@ -261,7 +261,7 @@ radv_meta_blit2d_normal_dst(struct radv_cmd_buffer *cmd_buffer,
              aspect_mask == VK_IMAGE_ASPECT_PLANE_0_BIT ||
              aspect_mask == VK_IMAGE_ASPECT_PLANE_1_BIT ||
              aspect_mask == VK_IMAGE_ASPECT_PLANE_2_BIT) {
-            unsigned fs_key = radv_format_meta_fs_key(device, dst_temps.iview.vk_format);
+            unsigned fs_key = radv_format_meta_fs_key(device, dst_temps.iview.vk.format);
             unsigned dst_layout = radv_meta_dst_layout_from_layout(dst->current_layout);
 
             if (device->meta_state.blit2d[log2_samples].pipelines[src_type][fs_key] ==
