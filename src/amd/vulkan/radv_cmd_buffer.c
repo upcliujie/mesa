@@ -2170,7 +2170,7 @@ radv_load_ds_clear_metadata(struct radv_cmd_buffer *cmd_buffer, const struct rad
 {
    struct radeon_cmdbuf *cs = cmd_buffer->cs;
    const struct radv_image *image = iview->image;
-   VkImageAspectFlags aspects = vk_format_aspects(image->vk_format);
+   VkImageAspectFlags aspects = vk_format_aspects(image->vk.format);
    uint64_t va = radv_get_ds_clear_value_va(image, iview->base_mip);
    unsigned reg_offset = 0, reg_count = 0;
 
@@ -2561,7 +2561,7 @@ radv_emit_framebuffer_state(struct radv_cmd_buffer *cmd_buffer)
                               .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                               .image = radv_image_to_handle(image),
                               .viewType = radv_meta_get_view_type(image),
-                              .format = image->vk_format,
+                              .format = image->vk.format,
                               .subresourceRange =
                                  {
                                     .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
@@ -3911,8 +3911,8 @@ radv_src_access_flush(struct radv_cmd_buffer *cmd_buffer, VkAccessFlags2KHR src_
          /* since the STORAGE bit isn't set we know that this is a meta operation.
           * on the dst flush side we skip CB/DB flushes without the STORAGE bit, so
           * set it here. */
-         if (image && !(image->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
-            if (vk_format_is_depth_or_stencil(image->vk_format)) {
+         if (image && !(image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
+            if (vk_format_is_depth_or_stencil(image->vk.format)) {
                flush_bits |= RADV_CMD_FLAG_FLUSH_AND_INV_DB;
             } else {
                flush_bits |= RADV_CMD_FLAG_FLUSH_AND_INV_CB;
@@ -3978,7 +3978,7 @@ radv_dst_access_flush(struct radv_cmd_buffer *cmd_buffer, VkAccessFlags2KHR dst_
    bool image_is_coherent = image ? image->l2_coherent : false;
 
    if (image) {
-      if (!(image->usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
+      if (!(image->vk.usage & VK_IMAGE_USAGE_STORAGE_BIT)) {
          flush_CB = false;
          flush_DB = false;
       }
@@ -4248,7 +4248,7 @@ radv_cmd_state_setup_sample_locations(struct radv_cmd_buffer *cmd_buffer,
       uint32_t att_idx = att_sample_locs->attachmentIndex;
       struct radv_image *image = cmd_buffer->state.attachments[att_idx].iview->image;
 
-      assert(vk_format_is_depth_or_stencil(image->vk_format));
+      assert(vk_format_is_depth_or_stencil(image->vk.format));
 
       /* From the Vulkan spec 1.1.108:
        *
@@ -4258,7 +4258,7 @@ radv_cmd_state_setup_sample_locations(struct radv_cmd_buffer *cmd_buffer,
        *  then the values specified in sampleLocationsInfo are
        *  ignored."
        */
-      if (!(image->flags & VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT))
+      if (!(image->vk.create_flags & VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT))
          continue;
 
       const VkSampleLocationsInfoEXT *sample_locs_info = &att_sample_locs->sampleLocationsInfo;
@@ -8275,7 +8275,7 @@ radv_handle_color_image_transition(struct radv_cmd_buffer *cmd_buffer, struct ra
 
    /* MSAA color decompress. */
    if (radv_image_has_fmask(image) &&
-       (image->usage & (VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) &&
+       (image->vk.usage & (VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT)) &&
        radv_layout_fmask_compressed(cmd_buffer->device, image, src_layout, src_queue_mask) &&
        !radv_layout_fmask_compressed(cmd_buffer->device, image, dst_layout, dst_queue_mask)) {
       if (radv_dcc_enabled(image, range->baseMipLevel) &&
@@ -8337,7 +8337,7 @@ radv_handle_image_transition(struct radv_cmd_buffer *cmd_buffer, struct radv_ima
    if (src_layout == dst_layout && src_render_loop == dst_render_loop && src_queue_mask == dst_queue_mask)
       return;
 
-   if (vk_format_has_depth(image->vk_format)) {
+   if (vk_format_has_depth(image->vk.format)) {
       radv_handle_depth_image_transition(cmd_buffer, image, src_layout, src_render_loop, dst_layout,
                                          dst_render_loop, src_queue_mask, dst_queue_mask, range,
                                          sample_locs);
@@ -8413,7 +8413,7 @@ radv_barrier(struct radv_cmd_buffer *cmd_buffer, const VkDependencyInfoKHR *dep_
       struct radv_sample_locations_state sample_locations;
 
       if (sample_locs_info) {
-         assert(image->flags & VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT);
+         assert(image->vk.create_flags & VK_IMAGE_CREATE_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT_EXT);
          sample_locations.per_pixel = sample_locs_info->sampleLocationsPerPixel;
          sample_locations.grid_size = sample_locs_info->sampleLocationGridSize;
          sample_locations.count = sample_locs_info->sampleLocationsCount;
