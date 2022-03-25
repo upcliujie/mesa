@@ -1903,7 +1903,7 @@ radv_image_view_make_descriptor(struct radv_image_view *iview, struct radv_devic
 {
    struct radv_image *image = iview->image;
    struct radv_image_plane *plane = &image->planes[plane_id];
-   bool is_stencil = iview->aspect_mask == VK_IMAGE_ASPECT_STENCIL_BIT;
+   bool is_stencil = iview->vk.aspects == VK_IMAGE_ASPECT_STENCIL_BIT;
    uint32_t blk_w;
    union radv_descriptor *descriptor;
    uint32_t hw_level = 0;
@@ -1920,11 +1920,11 @@ radv_image_view_make_descriptor(struct radv_image_view *iview, struct radv_devic
            vk_format_get_blockwidth(vk_format);
 
    if (device->physical_device->rad_info.chip_class >= GFX9)
-      hw_level = iview->base_mip;
+      hw_level = iview->vk.base_mip_level;
    radv_make_texture_descriptor(
-      device, image, is_storage_image, iview->type, vk_format, components, hw_level,
-      hw_level + iview->level_count - 1, iview->base_layer,
-      iview->base_layer + iview->layer_count - 1,
+      device, image, is_storage_image, iview->vk.view_type, vk_format, components, hw_level,
+      hw_level + iview->vk.level_count - 1, iview->vk.base_array_layer,
+      iview->vk.base_array_layer + iview->vk.layer_count - 1,
       vk_format_get_plane_width(image->vk.format, plane_id, iview->extent.width),
       vk_format_get_plane_height(image->vk.format, plane_id, iview->extent.height),
       iview->extent.depth, min_lod, descriptor->plane_descriptors[descriptor_plane_id],
@@ -1933,16 +1933,16 @@ radv_image_view_make_descriptor(struct radv_image_view *iview, struct radv_devic
    const struct legacy_surf_level *base_level_info = NULL;
    if (device->physical_device->rad_info.chip_class <= GFX9) {
       if (is_stencil)
-         base_level_info = &plane->surface.u.legacy.zs.stencil_level[iview->base_mip];
+         base_level_info = &plane->surface.u.legacy.zs.stencil_level[iview->vk.base_mip_level];
       else
-         base_level_info = &plane->surface.u.legacy.level[iview->base_mip];
+         base_level_info = &plane->surface.u.legacy.level[iview->vk.base_mip_level];
    }
 
    bool enable_write_compression = radv_image_use_dcc_image_stores(device, image);
    if (is_storage_image && !(enable_write_compression || enable_compression))
       disable_compression = true;
-   si_set_mutable_tex_desc_fields(device, image, base_level_info, plane_id, iview->base_mip,
-                                  iview->base_mip, blk_w, is_stencil, is_storage_image,
+   si_set_mutable_tex_desc_fields(device, image, base_level_info, plane_id, iview->vk.base_mip_level,
+                                  iview->vk.base_mip_level, blk_w, is_stencil, is_storage_image,
                                   disable_compression, enable_write_compression,
                                   descriptor->plane_descriptors[descriptor_plane_id]);
 }
@@ -2003,7 +2003,7 @@ radv_image_view_can_fast_clear(const struct radv_device *device,
       return false;
 
    /* Only fast clear if all layers are bound. */
-   if (iview->base_layer > 0 || iview->layer_count != image->info.array_size)
+   if (iview->vk.base_array_layer > 0 || iview->vk.layer_count != image->info.array_size)
       return false;
 
    /* Only fast clear if the view covers the whole image. */
@@ -2029,7 +2029,7 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
    if (min_lod_info)
       min_lod = min_lod_info->minLod;
 
-   vk_object_base_init(&device->vk, &iview->base, VK_OBJECT_TYPE_IMAGE_VIEW);
+   vk_image_view_init(&device->vk, &iview->vk, pCreateInfo);
 
    switch (image->vk.image_type) {
    case VK_IMAGE_TYPE_1D:
@@ -2045,44 +2045,25 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
       unreachable("bad VkImageType");
    }
    iview->image = image;
-   iview->type = pCreateInfo->viewType;
    iview->plane_id = radv_plane_from_aspect(pCreateInfo->subresourceRange.aspectMask);
-   iview->aspect_mask = pCreateInfo->subresourceRange.aspectMask;
-   iview->base_layer = range->baseArrayLayer;
-   iview->layer_count = radv_get_layerCount(image, range);
-   iview->base_mip = range->baseMipLevel;
-   iview->level_count = radv_get_levelCount(image, range);
-
-   iview->vk_format = pCreateInfo->format;
 
    /* If the image has an Android external format, pCreateInfo->format will be
     * VK_FORMAT_UNDEFINED. */
-   if (iview->vk_format == VK_FORMAT_UNDEFINED)
-      iview->vk_format = image->vk.format;
-
-   /* Split out the right aspect. Note that for internal meta code we sometimes
-    * use an equivalent color format for the aspect so we first have to check
-    * if we actually got depth/stencil formats. */
-   if (iview->aspect_mask == VK_IMAGE_ASPECT_STENCIL_BIT) {
-      if (vk_format_has_stencil(iview->vk_format))
-         iview->vk_format = vk_format_stencil_only(iview->vk_format);
-   } else if (iview->aspect_mask == VK_IMAGE_ASPECT_DEPTH_BIT) {
-      if (vk_format_has_depth(iview->vk_format))
-         iview->vk_format = vk_format_depth_only(iview->vk_format);
-   }
+   if (iview->vk.format == VK_FORMAT_UNDEFINED)
+      iview->vk.format = image->vk.format;
 
    if (vk_format_get_plane_count(image->vk.format) > 1 &&
-       iview->aspect_mask == VK_IMAGE_ASPECT_COLOR_BIT) {
-      plane_count = vk_format_get_plane_count(iview->vk_format);
+       iview->vk.aspects == VK_IMAGE_ASPECT_COLOR_BIT) {
+      plane_count = vk_format_get_plane_count(iview->vk.format);
    }
 
    if (device->physical_device->emulate_etc2 &&
        vk_format_description(image->vk.format)->layout == UTIL_FORMAT_LAYOUT_ETC) {
-      const struct util_format_description *desc = vk_format_description(iview->vk_format);
+      const struct util_format_description *desc = vk_format_description(iview->vk.format);
       assert(desc);
       if (desc->layout == UTIL_FORMAT_LAYOUT_ETC) {
          iview->plane_id = 1;
-         iview->vk_format = etc2_emulation_format(iview->vk_format);
+         iview->vk.format = etc2_emulation_format(iview->vk.format);
       }
 
       plane_count = 1;
@@ -2095,16 +2076,12 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
          .depth = image->info.depth,
       };
    } else {
-      iview->extent = (VkExtent3D){
-         .width = radv_minify(image->info.width, range->baseMipLevel),
-         .height = radv_minify(image->info.height, range->baseMipLevel),
-         .depth = radv_minify(image->info.depth, range->baseMipLevel),
-      };
+      iview->extent = iview->vk.extent;
    }
 
-   if (iview->vk_format != image->planes[iview->plane_id].format) {
-      unsigned view_bw = vk_format_get_blockwidth(iview->vk_format);
-      unsigned view_bh = vk_format_get_blockheight(iview->vk_format);
+   if (iview->vk.format != image->planes[iview->plane_id].format) {
+      unsigned view_bw = vk_format_get_blockwidth(iview->vk.format);
+      unsigned view_bh = vk_format_get_blockheight(iview->vk.format);
       unsigned img_bw = vk_format_get_blockwidth(image->planes[iview->plane_id].format);
       unsigned img_bh = vk_format_get_blockheight(image->planes[iview->plane_id].format);
 
@@ -2138,11 +2115,11 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
        * the plain converted dimensions the physical layout is correct.
        */
       if (device->physical_device->rad_info.chip_class >= GFX9 &&
-          vk_format_is_compressed(image->vk.format) && !vk_format_is_compressed(iview->vk_format)) {
+          vk_format_is_compressed(image->vk.format) && !vk_format_is_compressed(iview->vk.format)) {
          /* If we have multiple levels in the view we should ideally take the last level,
           * but the mip calculation has a max(..., 1) so walking back to the base mip in an
           * useful way is hard. */
-         if (iview->level_count > 1) {
+         if (iview->vk.level_count > 1) {
             iview->extent.width = iview->image->planes[0].surface.u.gfx9.base_mip_width;
             iview->extent.height = iview->image->planes[0].surface.u.gfx9.base_mip_height;
          } else {
@@ -2168,7 +2145,7 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
    bool disable_compression = extra_create_info ? extra_create_info->disable_compression : false;
    bool enable_compression = extra_create_info ? extra_create_info->enable_compression : false;
    for (unsigned i = 0; i < plane_count; ++i) {
-      VkFormat format = vk_format_get_plane_format(iview->vk_format, i);
+      VkFormat format = vk_format_get_plane_format(iview->vk.format, i);
       radv_image_view_make_descriptor(iview, device, format, &pCreateInfo->components, min_lod, false,
                                       disable_compression, enable_compression, iview->plane_id + i,
                                       i);
@@ -2181,7 +2158,7 @@ radv_image_view_init(struct radv_image_view *iview, struct radv_device *device,
 void
 radv_image_view_finish(struct radv_image_view *iview)
 {
-   vk_object_base_finish(&iview->base);
+   vk_image_view_finish(&iview->vk);
 }
 
 bool
