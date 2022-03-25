@@ -383,6 +383,7 @@ MODIFIERS = {
     "skip": Flag("skip", 39),
     "register_width": Modifier("register_width", 46, 1, force_enum = "register_width"),
     "secondary_register_width": Modifier("secondary_register_width", 47, 1, force_enum = "register_width"),
+    "vartex_register_width": Modifier("varying_texture_register_width", 24, 2, force_enum = "register_width"),
 
     "atom_opc": Modifier("atomic_operation", 22, 4),
     "atom_opc_1": Modifier("atomic_operation_with_1", 22, 4),
