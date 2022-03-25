@@ -1763,6 +1763,19 @@
     <saturate/>
   </group>
 
+  <group name="SHADDX_WLS" title="SHADDX for workgroup-local storage" dests="1" opcode2="6" unit="CVT">
+    <desc>
+      Similar to SHADDX, but seems to be only used for loading offsets into
+      WLS. Usually this is only required for atomic operations, which cannot
+      directly use wls_pointer as an address.
+    </desc>
+    <ins name="SHADDX_WLS.u64" opcode="0x1A3"/>
+    <ins name="SHADDX_WLS.s64" opcode="0x1AB"/>
+    <imm name="shift" start="20" size="3"/>
+    <src>A</src>
+    <src widen="true">B</src>
+  </group>
+
   <group name="SHADDX" title="Shift, extend, and 64-bit add" dests="1" opcode2="7" unit="CVT">
     <desc>
       Sign or zero extend B to 64-bits, left-shift by `shift`, and add the
