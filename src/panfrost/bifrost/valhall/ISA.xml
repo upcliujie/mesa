@@ -1599,7 +1599,8 @@
       exponent parts. By default, this is compatible with the `frexp()` function
       in APIs. With the log/sqrt modifiers, the floating point format is
       adjusted to be compatible with Valhall's argument reduction for logarithm
-      and square root computation respectively.
+      and square root computation respectively. Note that `.sqrt` on `FREXPE`
+      returns a value of the opposite sign to Bifrost.
     </desc>
     <mod name="sqrt" start="24" size="1"/>
     <mod name="log" start="25" size="1"/>
@@ -1612,11 +1613,14 @@
     <ins name="FRSQ.f32" opcode2="2"/>
     <ins name="FRSQ.f16" opcode2="3"/>
     <ins name="FLOGD.f32" opcode2="8"/>
+    <ins name="FRSQ_APPROX.f32" opcode2="15"/>
     <desc>
       Performs a given special function. The floating-point reciprocal (`FRCP`)
       and reciprocal square root (`FRSQ`) instructions may be freely used as-is.
-      The logarithm instruction (`FLOGD.f32`) requires an argument reduction. See the
-      transcendentals section for more information.
+      The logarithm instruction (`FLOGD.f32`) requires an argument
+      reduction. See the transcendentals section for more information. Like the
+      Bifrost op, `FRSQ_APPROX.f32` does an implicit `FREXPM.f32.sqrt` on the
+      source.
     </desc>
     <src float="true" swizzle="true" absneg="true"/>
   </group>
@@ -1624,9 +1628,11 @@
   <group name="SFU" title="Special function unit" dests="1" opcode="0x9C" unit="SFU">
     <ins name="FSIN_TABLE.u6" opcode2="4"/>
     <ins name="FCOS_TABLE.u6" opcode2="5"/>
+    <ins name="FATAN_TABLE.f32" opcode2="14"/>
     <desc>
-      Performs a given special function.The trigonometric tables (`FSIN_TABLE.u6` and `FCOS_TABLE.u6`) are crude,
-      requiring both an argument reduction and postprocessing.
+      Performs a given special function. The trigonometric tables
+      (`FSIN_TABLE.u6` and `FCOS_TABLE.u6`) are crude, requiring both an
+      argument reduction and postprocessing.
     </desc>
     <src/>
   </group>
@@ -1699,6 +1705,18 @@
       Performs a floating-point addition specialized for logarithm computation.
     </desc>
     <clamp/>
+    <src absneg="true">A</src>
+    <src absneg="true">B</src>
+  </ins>
+
+  <ins name="FATAN_ASSIST.v2f16" title="ATAN calculation helper" dests="1" opcode="0xA4" opcode2="14" unit="FMA">
+    <desc>
+      Used for `atan2()` implementation. Destination is two 16-bit
+      floats for the normal case, and a single 32-bit float when
+      `.second` is set.
+    </desc>
+    <clamp/>
+    <mod name="second" start="24" size="1"/>
     <src absneg="true">A</src>
     <src absneg="true">B</src>
   </ins>
