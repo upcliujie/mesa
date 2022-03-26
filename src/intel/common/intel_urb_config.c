@@ -226,13 +226,22 @@ intel_get_urb_config(const struct intel_device_info *devinfo,
 
    /* Lay out the URB in pipeline order: push constants, VS, HS, DS, GS. */
    int next = push_constant_chunks;
+
+   /* From the BDW PRM: for 3DSTATE_URB_*: VS URB Starting Address
+    *
+    *    "Value: [4,48] Device [SliceCount] GT 1"
+    *
+    * In later PRMs up to DG1 :
+    *
+    *    "If CTXT_SR_CTL::POSH_Enable is clear and Push Constants are required
+    *     or Device[SliceCount] GT 1, the lower limit is 4."
+    */
+   if (devinfo->ver > 8 && devinfo->num_slices == 1)
+      next = MAX2(next, 4);
    for (int i = MESA_SHADER_VERTEX; i <= MESA_SHADER_GEOMETRY; i++) {
+      start[i] = next;
       if (entries[i]) {
-         start[i] = next;
          next += chunks[i];
-      } else {
-         /* Just put disabled stages at the beginning. */
-         start[i] = 0;
       }
    }
 
@@ -359,4 +368,3 @@ intel_get_mesh_urb_config(const struct intel_device_info *devinfo,
 
    return r;
 }
-
