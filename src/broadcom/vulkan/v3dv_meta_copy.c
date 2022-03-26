@@ -3860,8 +3860,6 @@ blit_shader(struct v3dv_cmd_buffer *cmd_buffer,
          unreachable("Unsupported depth/stencil format");
       };
       src_format = dst_format;
-      region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-      region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
    }
 
    const VkColorComponentFlags full_cmask = VK_COLOR_COMPONENT_R_BIT |
