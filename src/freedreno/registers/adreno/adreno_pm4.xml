@@ -493,6 +493,9 @@ xsi:schemaLocation="http://nouveau.freedesktop.org/ rules-ng.xsd">
 	</doc>
 	<value name="CP_START_BIN" value="0x50" varset="chip" variants="A6XX"/>
 	<value name="CP_END_BIN" value="0x51" varset="chip" variants="A6XX"/>
+
+	<value name="CP_WAIT_TIMESTAMP" value="0x14" varset="chip" variants="A7XX-"/>
+	<value name="CP_THREAD_CONTROL" value="0x17" varset="chip" variants="A7XX-"/>
 </enum>
 
 
@@ -1788,6 +1791,19 @@ opcode: CP_LOAD_STATE4 (30) (4 dwords)
 	</reg32>
 	<reg32 offset="4" name="BODY_DWORDS">
 		<doc>Number of dwords after this packet until CP_END_BIN</doc>
+	</reg32>
+</domain>
+
+<domain name="CP_THREAD_CONTROL" width="32">
+	<enum name="cp_thread">
+		<value name="CP_SET_THREAD_BR" value="1"/>
+		<value name="CP_SET_THREAD_BV" value="2"/>
+		<value name="CP_SET_THREAD_BOTH" value="3"/>
+	</enum>
+	<reg32 offset="0" name="0">
+		<bitfield low="0" high="1" name="THREAD" type="cp_thread"/>
+		<bitfield pos="27" name="CONCURRENT_BIN_DISABLE" type="boolean"/>
+		<bitfield pos="31" name="SYNC_THREADS" type="boolean"/>
 	</reg32>
 </domain>
 
