@@ -1354,7 +1354,6 @@ struct radv_attachment_state {
    VkImageLayout current_layout;
    VkImageLayout current_stencil_layout;
    bool current_in_render_loop;
-   bool disable_dcc;
    struct radv_sample_locations_state sample_location;
 
    union {
@@ -2373,6 +2372,8 @@ struct radv_image_view {
    /* Whether the image iview supports fast clear. */
    bool support_fast_clear;
 
+   bool disable_dcc_mrt;
+
    union radv_descriptor descriptor;
 
    /* Descriptor for use as a storage image as opposed to a sampled image.
@@ -2421,6 +2422,7 @@ bool radv_android_gralloc_supports_format(VkFormat format, VkImageUsageFlagBits 
 struct radv_image_view_extra_create_info {
    bool disable_compression;
    bool enable_compression;
+   bool disable_dcc_mrt;
 };
 
 void radv_image_view_init(struct radv_image_view *view, struct radv_device *device,
@@ -2773,13 +2775,8 @@ si_conv_prim_to_gs_out(enum VkPrimitiveTopology topology)
    }
 }
 
-struct radv_extra_render_pass_begin_info {
-   bool disable_dcc;
-};
-
 void radv_cmd_buffer_begin_render_pass(struct radv_cmd_buffer *cmd_buffer,
-                                       const VkRenderPassBeginInfo *pRenderPassBegin,
-                                       const struct radv_extra_render_pass_begin_info *extra_info);
+                                       const VkRenderPassBeginInfo *pRenderPassBegin);
 void radv_cmd_buffer_end_render_pass(struct radv_cmd_buffer *cmd_buffer);
 
 static inline uint32_t
