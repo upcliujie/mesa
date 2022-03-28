@@ -153,24 +153,6 @@ anv_shader_compile_to_nir(struct anv_device *device,
    NIR_PASS_V(nir, nir_lower_io_to_temporaries,
               nir_shader_get_entrypoint(nir), true, false);
 
-   const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
-      .point_coord = true,
-   };
-   NIR_PASS_V(nir, nir_lower_sysvals_to_varyings, &sysvals_to_varyings);
-
-   const nir_opt_access_options opt_access_options = {
-      .is_vulkan = true,
-      .infer_non_readable = true,
-   };
-   NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
-
-   NIR_PASS_V(nir, nir_lower_frexp);
-
-   /* Vulkan uses the separate-shader linking model */
-   nir->info.separate_shader = true;
-
-   brw_preprocess_nir(compiler, nir, NULL);
-
    return nir;
 }
 
@@ -1703,6 +1685,31 @@ anv_graphics_pipeline_load_nir(struct anv_graphics_pipeline_base *pipeline,
    return VK_SUCCESS;
 }
 
+static void
+anv_pipeline_nir_preprocess(struct anv_pipeline *pipeline, nir_shader *nir)
+{
+   struct anv_device *device = pipeline->device;
+   const struct brw_compiler *compiler = device->physical->compiler;
+
+   const struct nir_lower_sysvals_to_varyings_options sysvals_to_varyings = {
+      .point_coord = true,
+   };
+   NIR_PASS_V(nir, nir_lower_sysvals_to_varyings, &sysvals_to_varyings);
+
+   const nir_opt_access_options opt_access_options = {
+      .is_vulkan = true,
+      .infer_non_readable = true,
+   };
+   NIR_PASS_V(nir, nir_opt_access, &opt_access_options);
+
+   NIR_PASS_V(nir, nir_lower_frexp);
+
+   /* Vulkan uses the separate-shader linking model */
+   nir->info.separate_shader = true;
+
+   brw_preprocess_nir(compiler, nir, NULL);
+}
+
 static VkResult
 anv_graphics_pipeline_compile(struct anv_graphics_pipeline_base *pipeline,
                               struct anv_pipeline_cache *cache,
@@ -1754,6 +1761,13 @@ anv_graphics_pipeline_compile(struct anv_graphics_pipeline_base *pipeline,
                                            pipeline_ctx);
    if (result != VK_SUCCESS)
       goto fail;
+
+   for (int s = 0; s < ARRAY_SIZE(pipeline->shaders); s++) {
+      if (!stages[s].entrypoint)
+         continue;
+
+      anv_pipeline_nir_preprocess(&pipeline->base, stages[s].nir);
+   }
 
    /* Walk backwards to link */
    struct anv_pipeline_stage *next_stage = NULL;
@@ -2061,6 +2075,8 @@ anv_pipeline_compile_cs(struct anv_compute_pipeline *pipeline,
          ralloc_free(mem_ctx);
          return vk_error(pipeline, VK_ERROR_UNKNOWN);
       }
+
+      anv_pipeline_nir_preprocess(&pipeline->base, stage.nir);
 
       NIR_PASS_V(stage.nir, anv_nir_add_base_work_group_id);
 
@@ -3138,6 +3154,8 @@ anv_pipeline_compile_ray_tracing(struct anv_ray_tracing_pipeline *pipeline,
          ralloc_free(pipeline_ctx);
          return vk_error(pipeline, VK_ERROR_OUT_OF_HOST_MEMORY);
       }
+
+      anv_pipeline_nir_preprocess(&pipeline->base, stages[i].nir);
 
       anv_pipeline_lower_nir(&pipeline->base, pipeline_ctx, &stages[i], layout);
 
