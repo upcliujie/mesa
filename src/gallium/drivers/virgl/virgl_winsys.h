@@ -79,6 +79,7 @@ struct virgl_winsys {
 
    void *(*resource_map)(struct virgl_winsys *vws, struct virgl_hw_res *res);
    void (*resource_wait)(struct virgl_winsys *vws, struct virgl_hw_res *res);
+   void (*resource_wait_writes)(struct virgl_winsys *vws, struct virgl_hw_res *res);
    boolean (*resource_is_busy)(struct virgl_winsys *vws,
                                struct virgl_hw_res *res);
 
