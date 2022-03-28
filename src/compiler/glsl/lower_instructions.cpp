@@ -36,7 +36,6 @@
  * - EXP_TO_EXP2
  * - POW_TO_EXP2
  * - LOG_TO_LOG2
- * - MOD_TO_FLOOR
  * - LDEXP_TO_ARITH
  * - CARRY_TO_ARITH
  * - BORROW_TO_ARITH
@@ -79,10 +78,6 @@
  * -----------
  * Many older GPUs don't have an x**y instruction.  For these GPUs, convert
  * x**y to 2**(y * log2(x)).
- *
- * MOD_TO_FLOOR:
- * -------------
- * Breaks an ir_binop_mod expression down to (op0 - op1 * floor(op0 / op1))
  *
  * Many GPUs don't have a MOD instruction (945 and 965 included), and
  * if we have to break it down like this anyway, it gives an
@@ -144,7 +139,6 @@ private:
    void sub_to_add_neg(ir_expression *);
    void div_to_mul_rcp(ir_expression *);
    void int_div_to_mul_rcp(ir_expression *);
-   void mod_to_floor(ir_expression *);
    void exp_to_exp2(ir_expression *);
    void pow_to_exp2(ir_expression *);
    void log_to_log2(ir_expression *);
@@ -311,56 +305,6 @@ lower_instructions_visitor::log_to_log2(ir_expression *ir)
    ir->operands[0] = new(ir) ir_expression(ir_unop_log2, ir->operands[0]->type,
 					   ir->operands[0], NULL);
    ir->operands[1] = _imm_fp(ir, ir->operands[0]->type, 1.0 / M_LOG2E);
-   this->progress = true;
-}
-
-void
-lower_instructions_visitor::mod_to_floor(ir_expression *ir)
-{
-   ir_variable *x = new(ir) ir_variable(ir->operands[0]->type, "mod_x",
-                                         ir_var_temporary);
-   ir_variable *y = new(ir) ir_variable(ir->operands[1]->type, "mod_y",
-                                         ir_var_temporary);
-   this->base_ir->insert_before(x);
-   this->base_ir->insert_before(y);
-
-   ir_assignment *const assign_x =
-      new(ir) ir_assignment(new(ir) ir_dereference_variable(x),
-                            ir->operands[0]);
-   ir_assignment *const assign_y =
-      new(ir) ir_assignment(new(ir) ir_dereference_variable(y),
-                            ir->operands[1]);
-
-   this->base_ir->insert_before(assign_x);
-   this->base_ir->insert_before(assign_y);
-
-   ir_expression *const div_expr =
-      new(ir) ir_expression(ir_binop_div, x->type,
-                            new(ir) ir_dereference_variable(x),
-                            new(ir) ir_dereference_variable(y));
-
-   /* Don't generate new IR that would need to be lowered in an additional
-    * pass.
-    */
-   if ((lowering(FDIV_TO_MUL_RCP) && ir->type->is_float_16_32()) ||
-       (lowering(DDIV_TO_MUL_RCP) && ir->type->is_double()))
-      div_to_mul_rcp(div_expr);
-
-   ir_expression *const floor_expr =
-      new(ir) ir_expression(ir_unop_floor, x->type, div_expr);
-
-   if (lowering(DOPS_TO_DFRAC) && ir->type->is_double())
-      dfloor_to_dfrac(floor_expr);
-
-   ir_expression *const mul_expr =
-      new(ir) ir_expression(ir_binop_mul,
-                            new(ir) ir_dereference_variable(y),
-                            floor_expr);
-
-   ir->operation = ir_binop_sub;
-   ir->init_num_operands();
-   ir->operands[0] = new(ir) ir_dereference_variable(x);
-   ir->operands[1] = mul_expr;
    this->progress = true;
 }
 
@@ -1786,11 +1730,6 @@ lower_instructions_visitor::visit_leave(ir_expression *ir)
    case ir_unop_log:
       if (lowering(LOG_TO_LOG2))
 	 log_to_log2(ir);
-      break;
-
-   case ir_binop_mod:
-      if (lowering(MOD_TO_FLOOR) && ir->type->is_float_16_32_64())
-	 mod_to_floor(ir);
       break;
 
    case ir_binop_pow:
