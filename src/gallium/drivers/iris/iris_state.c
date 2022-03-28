@@ -2566,6 +2566,9 @@ iris_create_sampler_view(struct pipe_context *ctx,
          isv->view.base_array_layer = 0;
          isv->view.array_len = 1;
       } else {
+         /* this codepath is broken on hardware older than skylake */
+         assert(devinfo->ver >= 9 || tex->target != PIPE_TEXTURE_3D || !tmpl->u.tex.first_layer);
+
          isv->view.base_array_layer = tmpl->u.tex.first_layer;
          isv->view.array_len =
             tmpl->u.tex.last_layer - tmpl->u.tex.first_layer + 1;
