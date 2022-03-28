@@ -187,8 +187,6 @@ struct ir3_compiler {
    bool has_preamble;
 
    bool push_ubo_with_preamble;
-
-   bool shared_const_enable;
 };
 
 struct ir3_compiler_options {
@@ -203,11 +201,6 @@ struct ir3_compiler_options {
     * constants for it can be pre-baked when compiling the shader.
     */
    bool push_ubo_with_preamble;
-
-   /* If true, enable HLSQ_SHARED_CONSTS and handle cases where it has to use
-    * them at the ir3 comipler.
-    */
-   bool shared_const_enable;
 };
 
 void ir3_compiler_destroy(struct ir3_compiler *compiler);
@@ -222,6 +215,8 @@ bool ir3_disk_cache_retrieve(struct ir3_compiler *compiler,
                              struct ir3_shader_variant *v);
 void ir3_disk_cache_store(struct ir3_compiler *compiler,
                           struct ir3_shader_variant *v);
+
+void ir3_compiler_set_shared_consts(struct ir3_compiler *compiler, uint16_t val);
 
 const nir_shader_compiler_options *
 ir3_get_compiler_options(struct ir3_compiler *compiler);

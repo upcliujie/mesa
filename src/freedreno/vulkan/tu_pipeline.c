@@ -625,6 +625,13 @@ tu6_emit_xs(struct tu_cs *cs,
       }
    }
 
+   if (const_state->shared_consts_enable) {
+      tu_cs_emit_regs(cs, A6XX_HLSQ_SHARED_CONSTS(.enable = true));
+      tu_cs_emit_regs(cs, A6XX_SP_MODE_CONTROL(.constant_demotion_enable = true,
+                                               .isammode = ISAMMODE_GL,
+                                               .shared_consts_enable = true));
+   }
+
    /* emit FS driver param */
    if (stage == MESA_SHADER_FRAGMENT && const_state->num_driver_params > 0) {
       uint32_t base = const_state->offsets.driver_param;

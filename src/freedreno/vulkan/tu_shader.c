@@ -811,6 +811,9 @@ tu_shader_create(struct tu_device *dev,
 
    NIR_PASS_V(nir, tu_lower_io, dev, shader, layout);
 
+   if (shader->shared_consts.count > 0)
+      ir3_compiler_set_shared_consts(dev->compiler, 8);
+
    nir_shader_gather_info(nir, nir_shader_get_entrypoint(nir));
 
    ir3_finalize_nir(dev->compiler, nir);
@@ -853,6 +856,7 @@ tu_shader_create(struct tu_device *dev,
    shader->ir3_shader =
       ir3_shader_from_nir(dev->compiler, nir, &(struct ir3_shader_options) {
                            .reserved_user_consts = align(shader->regular_consts.count, 4),
+                           .shared_consts_enable = shader->shared_consts.count > 0,
                            .api_wavesize = api_wavesize,
                            .real_wavesize = real_wavesize,
                           }, &so_info);
