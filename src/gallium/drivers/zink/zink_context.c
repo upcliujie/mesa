@@ -4330,7 +4330,11 @@ zink_context_create(struct pipe_screen *pscreen, void *priv, unsigned flags)
    zink_select_draw_vbo(ctx);
    zink_select_launch_grid(ctx);
 
-   zink_set_color_write_enables(ctx);
+   if (!screen->driver_workarounds.color_write_missing) {
+      const VkBool32 enables[PIPE_MAX_COLOR_BUFS] = {1, 1, 1, 1, 1, 1, 1, 1};
+      const unsigned max_att = MIN2(PIPE_MAX_COLOR_BUFS, screen->info.props.limits.maxColorAttachments);
+      VKCTX(CmdSetColorWriteEnableEXT)(ctx->batch.state->cmdbuf, max_att, enables);
+   }
 
    if (!(flags & PIPE_CONTEXT_PREFER_THREADED) || flags & PIPE_CONTEXT_COMPUTE_ONLY) {
       return &ctx->base;
