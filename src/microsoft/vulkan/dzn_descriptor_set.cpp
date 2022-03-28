@@ -952,18 +952,18 @@ struct dzn_descriptor_set_ptr {
 };
 
 static void
-dzn_descriptor_set_ptr_validate(const dzn_descriptor_set *set,
+dzn_descriptor_set_ptr_validate(const dzn_descriptor_set_layout *layout,
                                 dzn_descriptor_set_ptr *ptr)
 {
 
-   if (ptr->binding >= set->layout->binding_count) {
+   if (ptr->binding >= layout->binding_count) {
       ptr->binding = ~0;
       ptr->elem = ~0;
       return;
    }
 
    uint32_t desc_count =
-      dzn_descriptor_set_layout_get_desc_count(set->layout, ptr->binding);
+      dzn_descriptor_set_layout_get_desc_count(layout, ptr->binding);
    if (ptr->elem >= desc_count) {
       ptr->binding = ~0;
       ptr->elem = ~0;
@@ -971,17 +971,17 @@ dzn_descriptor_set_ptr_validate(const dzn_descriptor_set *set,
 }
 
 static void
-dzn_descriptor_set_ptr_init(const dzn_descriptor_set *set,
+dzn_descriptor_set_ptr_init(const dzn_descriptor_set_layout *layout,
                             dzn_descriptor_set_ptr *ptr,
                             uint32_t binding, uint32_t elem)
 {
    ptr->binding = binding;
    ptr->elem = elem;
-   dzn_descriptor_set_ptr_validate(set, ptr);
+   dzn_descriptor_set_ptr_validate(layout, ptr);
 }
 
 static void
-dzn_descriptor_set_ptr_move(const dzn_descriptor_set *set,
+dzn_descriptor_set_ptr_move(const dzn_descriptor_set_layout *layout,
                             dzn_descriptor_set_ptr *ptr,
                             uint32_t count)
 {
@@ -990,7 +990,7 @@ dzn_descriptor_set_ptr_move(const dzn_descriptor_set *set,
 
    while (count) {
       uint32_t desc_count =
-         dzn_descriptor_set_layout_get_desc_count(set->layout, ptr->binding);
+         dzn_descriptor_set_layout_get_desc_count(layout, ptr->binding);
 
       if (count >= desc_count - ptr->elem) {
          count -= desc_count - ptr->elem;
@@ -1002,7 +1002,7 @@ dzn_descriptor_set_ptr_move(const dzn_descriptor_set *set,
       }
    }
 
-   dzn_descriptor_set_ptr_validate(set, ptr);
+   dzn_descriptor_set_ptr_validate(layout, ptr);
 }
 
 static bool
@@ -1012,30 +1012,30 @@ dzn_descriptor_set_ptr_is_valid(const dzn_descriptor_set_ptr *ptr)
 }
 
 static uint32_t
-dzn_descriptor_set_remaining_descs_in_binding(const dzn_descriptor_set *set,
+dzn_descriptor_set_remaining_descs_in_binding(const dzn_descriptor_set_layout *layout,
                                               const dzn_descriptor_set_ptr *ptr)
 {
-   if (ptr->binding >= set->layout->binding_count)
+   if (ptr->binding >= layout->binding_count)
       return 0;
 
    uint32_t desc_count =
-      dzn_descriptor_set_layout_get_desc_count(set->layout, ptr->binding);
+      dzn_descriptor_set_layout_get_desc_count(layout, ptr->binding);
 
    return desc_count >= ptr->elem ? desc_count - ptr->elem : 0;
 }
 
 
 static uint32_t
-dzn_descriptor_set_get_heap_offset(const dzn_descriptor_set *set,
-                                   D3D12_DESCRIPTOR_HEAP_TYPE type,
-                                   const dzn_descriptor_set_ptr *ptr,
-                                   bool writeable)
+dzn_descriptor_set_ptr_get_heap_offset(const dzn_descriptor_set_layout *layout,
+                                       D3D12_DESCRIPTOR_HEAP_TYPE type,
+                                       const dzn_descriptor_set_ptr *ptr,
+                                       bool writeable)
 {
    if (ptr->binding == ~0)
       return ~0;
 
    uint32_t base =
-      dzn_descriptor_set_layout_get_heap_offset(set->layout, ptr->binding, type, writeable);
+      dzn_descriptor_set_layout_get_heap_offset(layout, ptr->binding, type, writeable);
    if (base == ~0)
       return ~0;
 
@@ -1044,30 +1044,41 @@ dzn_descriptor_set_get_heap_offset(const dzn_descriptor_set *set,
 
 static void
 dzn_descriptor_set_write_sampler_desc(dzn_descriptor_set *set,
-                                      const dzn_descriptor_set_ptr *ptr,
+                                      uint32_t heap_offset,
                                       const dzn_sampler *sampler)
+{
+   if (heap_offset == ~0)
+      return;
+
+   D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+
+   mtx_lock(&set->pool->defragment_lock);
+   dzn_descriptor_heap_write_sampler_desc(&set->pool->heaps[type],
+                                          set->heap_offsets[type] + heap_offset,
+                                          sampler);
+    mtx_unlock(&set->pool->defragment_lock);
+}
+
+static void
+dzn_descriptor_set_ptr_write_sampler_desc(dzn_descriptor_set *set,
+                                          const dzn_descriptor_set_ptr *ptr,
+                                          const dzn_sampler *sampler)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
    uint32_t heap_offset =
-      dzn_descriptor_set_get_heap_offset(set, type, ptr, false);
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, false);
 
-   if (heap_offset != ~0) {
-      mtx_lock(&set->pool->defragment_lock);
-      dzn_descriptor_heap_write_sampler_desc(&set->pool->heaps[type],
-                                             set->heap_offsets[type] + heap_offset,
-                                             sampler);
-      mtx_unlock(&set->pool->defragment_lock);
-   }
+   dzn_descriptor_set_write_sampler_desc(set, heap_offset, sampler);
 }
 
 static uint32_t
-dzn_descriptor_set_get_dynamic_buffer_idx(const dzn_descriptor_set *set,
-                                          const dzn_descriptor_set_ptr *ptr)
+dzn_descriptor_set_ptr_get_dynamic_buffer_idx(const dzn_descriptor_set_layout *layout,
+                                              const dzn_descriptor_set_ptr *ptr)
 {
    if (ptr->binding == ~0)
       return ~0;
 
-   uint32_t base = set->layout->bindings[ptr->binding].dynamic_buffer_idx;
+   uint32_t base = layout->bindings[ptr->binding].dynamic_buffer_idx;
 
    if (base == ~0)
       return ~0;
@@ -1077,11 +1088,9 @@ dzn_descriptor_set_get_dynamic_buffer_idx(const dzn_descriptor_set *set,
 
 static void
 dzn_descriptor_set_write_dynamic_buffer_desc(dzn_descriptor_set *set,
-                                             const dzn_descriptor_set_ptr *ptr,
+                                             uint32_t dynamic_buffer_idx,
                                              const dzn_buffer_desc *info)
 {
-   uint32_t dynamic_buffer_idx =
-      dzn_descriptor_set_get_dynamic_buffer_idx(set, ptr);
    if (dynamic_buffer_idx == ~0)
       return;
 
@@ -1089,25 +1098,36 @@ dzn_descriptor_set_write_dynamic_buffer_desc(dzn_descriptor_set *set,
    set->dynamic_buffers[dynamic_buffer_idx] = *info;
 }
 
-static VkDescriptorType
-dzn_descriptor_set_get_desc_vk_type(const dzn_descriptor_set *set,
-                                    const dzn_descriptor_set_ptr *ptr)
+static void
+dzn_descriptor_set_ptr_write_dynamic_buffer_desc(dzn_descriptor_set *set,
+                                                 const dzn_descriptor_set_ptr *ptr,
+                                                 const dzn_buffer_desc *info)
 {
-   if (ptr->binding >= set->layout->binding_count)
+   uint32_t dynamic_buffer_idx =
+      dzn_descriptor_set_ptr_get_dynamic_buffer_idx(set->layout, ptr);
+
+   dzn_descriptor_set_write_dynamic_buffer_desc(set, dynamic_buffer_idx, info);
+}
+
+static VkDescriptorType
+dzn_descriptor_set_ptr_get_vk_type(const dzn_descriptor_set_layout *layout,
+                                   const dzn_descriptor_set_ptr *ptr)
+{
+   if (ptr->binding >= layout->binding_count)
       return (VkDescriptorType)~0;
 
-   return set->layout->bindings[ptr->binding].type;
+   return layout->bindings[ptr->binding].type;
 }
 
 static void
 dzn_descriptor_set_write_image_view_desc(dzn_descriptor_set *set,
-                                         const dzn_descriptor_set_ptr *ptr,
+                                         uint32_t heap_offset,
+                                         uint32_t alt_heap_offset,
                                          bool cube_as_2darray,
                                          const dzn_image_view *iview)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-   uint32_t heap_offset =
-      dzn_descriptor_set_get_heap_offset(set, type, ptr, false);
+
    if (heap_offset == ~0)
       return;
 
@@ -1117,13 +1137,9 @@ dzn_descriptor_set_write_image_view_desc(dzn_descriptor_set *set,
                                              false, cube_as_2darray,
                                              iview);
 
-   VkDescriptorType vk_type = dzn_descriptor_set_get_desc_vk_type(set, ptr);
-   if (dzn_descriptor_type_depends_on_shader_usage(vk_type)) {
-      heap_offset =
-         dzn_descriptor_set_get_heap_offset(set, type, ptr, true);
-      assert(heap_offset != ~0);
+   if (alt_heap_offset != ~0) {
       dzn_descriptor_heap_write_image_view_desc(&set->pool->heaps[type],
-                                                set->heap_offsets[type] + heap_offset,
+                                                set->heap_offsets[type] + alt_heap_offset,
                                                 true, cube_as_2darray,
                                                 iview);
    }
@@ -1131,41 +1147,68 @@ dzn_descriptor_set_write_image_view_desc(dzn_descriptor_set *set,
 }
 
 static void
-dzn_descriptor_set_write_buffer_view_desc(dzn_descriptor_set *set,
-                                         const dzn_descriptor_set_ptr *ptr,
-                                         const dzn_buffer_view *bview)
+dzn_descriptor_set_ptr_write_image_view_desc(dzn_descriptor_set *set,
+                                             const dzn_descriptor_set_ptr *ptr,
+                                             bool cube_as_2darray,
+                                             const dzn_image_view *iview)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
    uint32_t heap_offset =
-      dzn_descriptor_set_get_heap_offset(set, type, ptr, false);
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, false);
+   uint32_t alt_heap_offset =
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, true);
+
+   dzn_descriptor_set_write_image_view_desc(set, heap_offset, alt_heap_offset,
+                                            cube_as_2darray, iview);
+}
+
+static void
+dzn_descriptor_set_write_buffer_view_desc(dzn_descriptor_set *set,
+                                          uint32_t heap_offset,
+                                          uint32_t alt_heap_offset,
+                                          const dzn_buffer_view *bview)
+{
    if (heap_offset == ~0)
       return;
 
+   D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+
    mtx_lock(&set->pool->defragment_lock);
    dzn_descriptor_heap_write_buffer_view_desc(&set->pool->heaps[type],
-                                              set->heap_offsets[type] + heap_offset,
+                                              set->heap_offsets[type] +
+                                              heap_offset,
                                               false, bview);
 
-   VkDescriptorType vk_type = dzn_descriptor_set_get_desc_vk_type(set, ptr);
-   if (dzn_descriptor_type_depends_on_shader_usage(vk_type)) {
-      heap_offset =
-         dzn_descriptor_set_get_heap_offset(set, type, ptr, true);
-      assert(heap_offset != ~0);
+   if (alt_heap_offset != ~0) {
       dzn_descriptor_heap_write_buffer_view_desc(&set->pool->heaps[type],
-                                                 set->heap_offsets[type] + heap_offset,
+                                                 set->heap_offsets[type] +
+                                                 alt_heap_offset,
                                                  true, bview);
    }
    mtx_unlock(&set->pool->defragment_lock);
 }
 
 static void
-dzn_descriptor_set_write_buffer_desc(dzn_descriptor_set *set,
-                                     const dzn_descriptor_set_ptr *ptr,
-                                     const dzn_buffer_desc *bdesc)
+dzn_descriptor_set_ptr_write_buffer_view_desc(dzn_descriptor_set *set,
+                                              const dzn_descriptor_set_ptr *ptr,
+                                              const dzn_buffer_view *bview)
 {
    D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
    uint32_t heap_offset =
-      dzn_descriptor_set_get_heap_offset(set, type, ptr, false);
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, false);
+   uint32_t alt_heap_offset =
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, true);
+
+   dzn_descriptor_set_write_buffer_view_desc(set, heap_offset, alt_heap_offset, bview);
+}
+
+static void
+dzn_descriptor_set_write_buffer_desc(dzn_descriptor_set *set,
+                                     uint32_t heap_offset,
+                                     uint32_t alt_heap_offset,
+                                     const dzn_buffer_desc *bdesc)
+{
+   D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
    if (heap_offset == ~0)
       return;
 
@@ -1174,16 +1217,27 @@ dzn_descriptor_set_write_buffer_desc(dzn_descriptor_set *set,
                                          set->heap_offsets[type] + heap_offset,
                                          false, bdesc);
 
-   VkDescriptorType vk_type = dzn_descriptor_set_get_desc_vk_type(set, ptr);
-   if (dzn_descriptor_type_depends_on_shader_usage(vk_type)) {
-      heap_offset =
-         dzn_descriptor_set_get_heap_offset(set, type, ptr, true);
-      assert(heap_offset != ~0);
+   if (alt_heap_offset != ~0) {
       dzn_descriptor_heap_write_buffer_desc(&set->pool->heaps[type],
-                                            set->heap_offsets[type] + heap_offset,
+                                            set->heap_offsets[type] +
+                                            alt_heap_offset,
                                             true, bdesc);
    }
    mtx_unlock(&set->pool->defragment_lock);
+}
+
+static void
+dzn_descriptor_set_ptr_write_buffer_desc(dzn_descriptor_set *set,
+                                         const dzn_descriptor_set_ptr *ptr,
+                                         const dzn_buffer_desc *bdesc)
+{
+   D3D12_DESCRIPTOR_HEAP_TYPE type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+   uint32_t heap_offset =
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, false);
+   uint32_t alt_heap_offset =
+      dzn_descriptor_set_ptr_get_heap_offset(set->layout, type, ptr, true);
+
+   dzn_descriptor_set_write_buffer_desc(set, heap_offset, alt_heap_offset, bdesc);
 }
 
 static void
@@ -1218,10 +1272,10 @@ dzn_descriptor_set_init(dzn_descriptor_set *set,
          dzn_descriptor_set_ptr ptr;
          const dzn_sampler **sampler =
             &layout->immutable_samplers[layout->bindings[b].immutable_sampler_idx];
-         for (dzn_descriptor_set_ptr_init(set, &ptr, b, 0);
+         for (dzn_descriptor_set_ptr_init(set->layout, &ptr, b, 0);
               dzn_descriptor_set_ptr_is_valid(&ptr);
-              dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-            dzn_descriptor_set_write_sampler_desc(set, &ptr, *sampler);
+              dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+            dzn_descriptor_set_ptr_write_sampler_desc(set, &ptr, *sampler);
             sampler++;
          }
       }
@@ -1584,7 +1638,7 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
 
    dzn_descriptor_set_ptr ptr;
 
-   dzn_descriptor_set_ptr_init(set, &ptr,
+   dzn_descriptor_set_ptr_init(set->layout, &ptr,
                                pDescriptorWrite->dstBinding,
                                pDescriptorWrite->dstArrayElement);
    uint32_t desc_count = pDescriptorWrite->descriptorCount;
@@ -1596,30 +1650,30 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
    switch (pDescriptorWrite->descriptorType) {
    case VK_DESCRIPTOR_TYPE_SAMPLER:
       for (; dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count;
-           dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-         assert(dzn_descriptor_set_get_desc_vk_type(set, &ptr) == pDescriptorWrite->descriptorType);
+           dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+         assert(dzn_descriptor_set_ptr_get_vk_type(set->layout, &ptr) == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
 
          if (sampler)
-            dzn_descriptor_set_write_sampler_desc(set, &ptr, sampler);
+            dzn_descriptor_set_ptr_write_sampler_desc(set, &ptr, sampler);
 
          d++;
       }
       break;
    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
       for (; dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count;
-           dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-         assert(dzn_descriptor_set_get_desc_vk_type(set, &ptr) == pDescriptorWrite->descriptorType);
+           dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+         assert(dzn_descriptor_set_ptr_get_vk_type(set->layout, &ptr) == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_sampler, sampler, pImageInfo->sampler);
          VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
 
          if (sampler)
-            dzn_descriptor_set_write_sampler_desc(set, &ptr, sampler);
+            dzn_descriptor_set_ptr_write_sampler_desc(set, &ptr, sampler);
 
          if (iview)
-            dzn_descriptor_set_write_image_view_desc(set, &ptr, cube_as_2darray, iview);
+            dzn_descriptor_set_ptr_write_image_view_desc(set, &ptr, cube_as_2darray, iview);
 
          d++;
       }
@@ -1629,13 +1683,13 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
       for (; dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count;
-           dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-         assert(dzn_descriptor_set_get_desc_vk_type(set, &ptr) == pDescriptorWrite->descriptorType);
+           dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+         assert(dzn_descriptor_set_ptr_get_vk_type(set->layout, &ptr) == pDescriptorWrite->descriptorType);
          const VkDescriptorImageInfo *pImageInfo = pDescriptorWrite->pImageInfo + d;
          VK_FROM_HANDLE(dzn_image_view, iview, pImageInfo->imageView);
 
          if (iview)
-            dzn_descriptor_set_write_image_view_desc(set, &ptr, cube_as_2darray, iview);
+            dzn_descriptor_set_ptr_write_image_view_desc(set, &ptr, cube_as_2darray, iview);
 
          d++;
       }
@@ -1643,8 +1697,8 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
       for (; dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count;
-           dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-         assert(dzn_descriptor_set_get_desc_vk_type(set, &ptr) == pDescriptorWrite->descriptorType);
+           dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+         assert(dzn_descriptor_set_ptr_get_vk_type(set->layout, &ptr) == pDescriptorWrite->descriptorType);
          const VkDescriptorBufferInfo *binfo = &pDescriptorWrite->pBufferInfo[d];
          dzn_buffer_desc desc {
             pDescriptorWrite->descriptorType,
@@ -1653,7 +1707,7 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
 	 };
 
          if (desc.buffer)
-            dzn_descriptor_set_write_buffer_desc(set, &ptr, &desc);
+            dzn_descriptor_set_ptr_write_buffer_desc(set, &ptr, &desc);
 
          d++;
       }
@@ -1662,8 +1716,8 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
    case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
       for (; dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count;
-           dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-         assert(dzn_descriptor_set_get_desc_vk_type(set, &ptr) == pDescriptorWrite->descriptorType);
+           dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+         assert(dzn_descriptor_set_ptr_get_vk_type(set->layout, &ptr) == pDescriptorWrite->descriptorType);
          const VkDescriptorBufferInfo *binfo = &pDescriptorWrite->pBufferInfo[d];
          dzn_buffer_desc desc {
             pDescriptorWrite->descriptorType,
@@ -1672,7 +1726,7 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
 	 };
 
          if (desc.buffer)
-            dzn_descriptor_set_write_dynamic_buffer_desc(set, &ptr, &desc);
+            dzn_descriptor_set_ptr_write_dynamic_buffer_desc(set, &ptr, &desc);
 
          d++;
       }
@@ -1681,12 +1735,12 @@ dzn_descriptor_set_write(const VkWriteDescriptorSet *pDescriptorWrite)
    case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
    case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
       for (; dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count;
-           dzn_descriptor_set_ptr_move(set, &ptr, 1)) {
-         assert(dzn_descriptor_set_get_desc_vk_type(set, &ptr) == pDescriptorWrite->descriptorType);
+           dzn_descriptor_set_ptr_move(set->layout, &ptr, 1)) {
+         assert(dzn_descriptor_set_ptr_get_vk_type(set->layout, &ptr) == pDescriptorWrite->descriptorType);
          VK_FROM_HANDLE(dzn_buffer_view, bview, pDescriptorWrite->pTexelBufferView[d]);
 
          if (bview)
-            dzn_descriptor_set_write_buffer_view_desc(set, &ptr, bview);
+            dzn_descriptor_set_ptr_write_buffer_view_desc(set, &ptr, bview);
 
          d++;
       }
@@ -1707,10 +1761,10 @@ dzn_descriptor_set_copy(const VkCopyDescriptorSet *pDescriptorCopy)
    VK_FROM_HANDLE(dzn_descriptor_set, dst_set, pDescriptorCopy->dstSet);
    dzn_descriptor_set_ptr src_ptr, dst_ptr;
 
-   dzn_descriptor_set_ptr_init(src_set, &src_ptr,
+   dzn_descriptor_set_ptr_init(src_set->layout, &src_ptr,
                                pDescriptorCopy->srcBinding,
                                pDescriptorCopy->srcArrayElement);
-   dzn_descriptor_set_ptr_init(dst_set, &dst_ptr,
+   dzn_descriptor_set_ptr_init(dst_set->layout, &dst_ptr,
                                pDescriptorCopy->dstBinding,
                                pDescriptorCopy->dstArrayElement);
 
@@ -1719,22 +1773,22 @@ dzn_descriptor_set_copy(const VkCopyDescriptorSet *pDescriptorCopy)
    while (dzn_descriptor_set_ptr_is_valid(&src_ptr) &&
           dzn_descriptor_set_ptr_is_valid(&dst_ptr)) {
       VkDescriptorType src_type =
-         dzn_descriptor_set_get_desc_vk_type(src_set, &src_ptr);
+         dzn_descriptor_set_ptr_get_vk_type(src_set->layout, &src_ptr);
       VkDescriptorType dst_type =
-         dzn_descriptor_set_get_desc_vk_type(dst_set, &dst_ptr);
+         dzn_descriptor_set_ptr_get_vk_type(dst_set->layout, &dst_ptr);
 
       assert(copied_count < pDescriptorCopy->descriptorCount);
       assert(src_type == dst_type);
       uint32_t count =
-         MIN2(dzn_descriptor_set_remaining_descs_in_binding(src_set, &src_ptr),
-              dzn_descriptor_set_remaining_descs_in_binding(dst_set, &dst_ptr));
+         MIN2(dzn_descriptor_set_remaining_descs_in_binding(src_set->layout, &src_ptr),
+              dzn_descriptor_set_remaining_descs_in_binding(dst_set->layout, &dst_ptr));
 
       if (src_type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
           src_type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
          uint32_t src_idx =
-            dzn_descriptor_set_get_dynamic_buffer_idx(src_set, &src_ptr);
+            dzn_descriptor_set_ptr_get_dynamic_buffer_idx(src_set->layout, &src_ptr);
          uint32_t dst_idx =
-            dzn_descriptor_set_get_dynamic_buffer_idx(dst_set, &dst_ptr);
+            dzn_descriptor_set_ptr_get_dynamic_buffer_idx(dst_set->layout, &dst_ptr);
 
          memcpy(&dst_set->dynamic_buffers[dst_idx],
                 &src_set->dynamic_buffers[src_idx],
@@ -1742,9 +1796,9 @@ dzn_descriptor_set_copy(const VkCopyDescriptorSet *pDescriptorCopy)
       } else {
          dzn_foreach_pool_type(type) {
             uint32_t src_heap_offset =
-               dzn_descriptor_set_get_heap_offset(src_set, type, &src_ptr, false);
+               dzn_descriptor_set_ptr_get_heap_offset(src_set->layout, type, &src_ptr, false);
             uint32_t dst_heap_offset =
-               dzn_descriptor_set_get_heap_offset(dst_set, type, &dst_ptr, false);
+               dzn_descriptor_set_ptr_get_heap_offset(dst_set->layout, type, &dst_ptr, false);
 
             if (src_heap_offset == ~0) {
                assert(dst_heap_offset == ~0);
@@ -1761,9 +1815,9 @@ dzn_descriptor_set_copy(const VkCopyDescriptorSet *pDescriptorCopy)
 
             if (dzn_descriptor_type_depends_on_shader_usage(src_type)) {
                src_heap_offset =
-                  dzn_descriptor_set_get_heap_offset(src_set, type, &src_ptr, true);
+                  dzn_descriptor_set_ptr_get_heap_offset(src_set->layout, type, &src_ptr, true);
                dst_heap_offset =
-                  dzn_descriptor_set_get_heap_offset(dst_set, type, &dst_ptr, true);
+                  dzn_descriptor_set_ptr_get_heap_offset(dst_set->layout, type, &dst_ptr, true);
                assert(src_heap_offset != ~0);
                assert(dst_heap_offset != ~0);
                dzn_descriptor_heap_copy(&dst_set->pool->heaps[type],
@@ -1777,8 +1831,8 @@ dzn_descriptor_set_copy(const VkCopyDescriptorSet *pDescriptorCopy)
          }
       }
 
-      dzn_descriptor_set_ptr_move(src_set, &src_ptr, count);
-      dzn_descriptor_set_ptr_move(dst_set, &dst_ptr, count);
+      dzn_descriptor_set_ptr_move(src_set->layout, &src_ptr, count);
+      dzn_descriptor_set_ptr_move(dst_set->layout, &dst_ptr, count);
       copied_count += count;
    }
 
@@ -1799,4 +1853,268 @@ dzn_UpdateDescriptorSets(VkDevice _device,
 
    for (unsigned i = 0; i < descriptorCopyCount; i++)
       dzn_descriptor_set_copy(&pDescriptorCopies[i]);
+}
+
+static void
+dzn_descriptor_update_template_destroy(dzn_descriptor_update_template *templ,
+                                       const VkAllocationCallbacks *alloc)
+{
+   if (!templ)
+      return;
+
+   dzn_device *device = container_of(templ->base.device, dzn_device, vk);
+
+   vk_object_base_finish(&templ->base);
+   vk_free2(&device->vk.alloc, alloc, templ);
+}
+
+static VkResult
+dzn_descriptor_update_template_create(dzn_device *device,
+                                      const VkDescriptorUpdateTemplateCreateInfo *info,
+                                      const VkAllocationCallbacks *alloc,
+                                      VkDescriptorUpdateTemplate *out)
+{
+   assert(info->templateType == VK_DESCRIPTOR_UPDATE_TEMPLATE_TYPE_DESCRIPTOR_SET);
+
+   VK_FROM_HANDLE(dzn_descriptor_set_layout, set_layout, info->descriptorSetLayout);
+
+   uint32_t entry_count = 0;
+   for (uint32_t e = 0; e < info->descriptorUpdateEntryCount; e++) {
+      dzn_descriptor_set_ptr ptr;
+      dzn_descriptor_set_ptr_init(set_layout, &ptr,
+                                  info->pDescriptorUpdateEntries[e].dstBinding,
+                                  info->pDescriptorUpdateEntries[e].dstArrayElement);
+      uint32_t desc_count = info->pDescriptorUpdateEntries[e].descriptorCount;
+      VkDescriptorType type = info->pDescriptorUpdateEntries[e].descriptorType;
+      uint32_t d = 0;
+
+      while (dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count) {
+         uint32_t ndescs = dzn_descriptor_set_remaining_descs_in_binding(set_layout, &ptr);
+
+         assert(dzn_descriptor_set_ptr_get_vk_type(set_layout, &ptr) == type);
+         d += ndescs;
+         dzn_descriptor_set_ptr_move(set_layout, &ptr, ndescs);
+         entry_count++;
+      }
+
+      assert(d >= desc_count);
+   }
+
+   VK_MULTIALLOC(ma);
+   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_update_template, templ, 1);
+   VK_MULTIALLOC_DECL(&ma, dzn_descriptor_update_template_entry, entries, entry_count);
+
+   if (!vk_multialloc_zalloc2(&ma, &device->vk.alloc, alloc,
+                              VK_SYSTEM_ALLOCATION_SCOPE_OBJECT))
+      return vk_error(device, VK_ERROR_OUT_OF_HOST_MEMORY);
+
+   vk_object_base_init(&device->vk, &templ->base, VK_OBJECT_TYPE_DESCRIPTOR_UPDATE_TEMPLATE);
+   templ->entry_count = entry_count;
+   templ->entries = entries;
+
+   dzn_descriptor_update_template_entry *entry = entries;
+
+   for (uint32_t e = 0; e < info->descriptorUpdateEntryCount; e++) {
+      dzn_descriptor_set_ptr ptr;
+      dzn_descriptor_set_ptr_init(set_layout, &ptr,
+                                  info->pDescriptorUpdateEntries[e].dstBinding,
+                                  info->pDescriptorUpdateEntries[e].dstArrayElement);
+      uint32_t desc_count = info->pDescriptorUpdateEntries[e].descriptorCount;
+      VkDescriptorType type = info->pDescriptorUpdateEntries[e].descriptorType;
+      size_t user_data_offset = info->pDescriptorUpdateEntries[e].offset;
+      size_t user_data_stride = info->pDescriptorUpdateEntries[e].stride;
+      uint32_t d = 0;
+
+      while (dzn_descriptor_set_ptr_is_valid(&ptr) && d < desc_count) {
+         uint32_t ndescs = dzn_descriptor_set_remaining_descs_in_binding(set_layout, &ptr);
+
+         entry->type = type;
+         entry->desc_count = MIN2(desc_count - d, ndescs);
+	 entry->user_data.stride = user_data_stride;
+         entry->user_data.offset = user_data_offset;
+         memset(&entry->heap_offsets, ~0, sizeof(entry->heap_offsets));
+
+         assert(dzn_descriptor_set_ptr_get_vk_type(set_layout, &ptr) == type);
+         if (type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER ||
+             type == VK_DESCRIPTOR_TYPE_SAMPLER) {
+            entry->heap_offsets.sampler =
+               dzn_descriptor_set_ptr_get_heap_offset(set_layout,
+                                                      D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+                                                      &ptr, false);
+         }
+
+         if (type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC ||
+             type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
+            entry->dynamic_buffer_idx =
+               dzn_descriptor_set_ptr_get_dynamic_buffer_idx(set_layout, &ptr);
+         } else if (type != VK_DESCRIPTOR_TYPE_SAMPLER) {
+            entry->heap_offsets.cbv_srv_uav =
+               dzn_descriptor_set_ptr_get_heap_offset(set_layout,
+                                                      D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                                      &ptr, false);
+            if (dzn_descriptor_type_depends_on_shader_usage(type)) {
+               entry->heap_offsets.extra_uav =
+                  dzn_descriptor_set_ptr_get_heap_offset(set_layout,
+                                                         D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+                                                         &ptr, true);
+            }
+         }
+
+         d += ndescs;
+         dzn_descriptor_set_ptr_move(set_layout, &ptr, ndescs);
+         user_data_offset += user_data_stride * ndescs;
+         ++entry;
+      }
+   }
+
+   *out = dzn_descriptor_update_template_to_handle(templ);
+   return VK_SUCCESS;
+}
+
+VKAPI_ATTR VkResult VKAPI_CALL
+dzn_CreateDescriptorUpdateTemplate(VkDevice device,
+                                   const VkDescriptorUpdateTemplateCreateInfo *pCreateInfo,
+                                   const VkAllocationCallbacks *pAllocator,
+                                   VkDescriptorUpdateTemplate *pDescriptorUpdateTemplate)
+{
+   return dzn_descriptor_update_template_create(dzn_device_from_handle(device),
+                                                pCreateInfo, pAllocator,
+                                                pDescriptorUpdateTemplate);
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_DestroyDescriptorUpdateTemplate(VkDevice device,
+                                    VkDescriptorUpdateTemplate descriptorUpdateTemplate,
+                                    const VkAllocationCallbacks *pAllocator)
+{
+   dzn_descriptor_update_template_destroy(dzn_descriptor_update_template_from_handle(descriptorUpdateTemplate),
+                                          pAllocator);
+}
+
+static const void *
+dzn_descriptor_update_template_get_desc_data(const dzn_descriptor_update_template *templ,
+                                             uint32_t e, uint32_t d,
+                                             const void *user_data)
+{
+   return (const void *)((const uint8_t *)user_data +
+                         templ->entries[e].user_data.offset +
+                         (d * templ->entries[e].user_data.stride));
+}
+
+VKAPI_ATTR void VKAPI_CALL
+dzn_UpdateDescriptorSetWithTemplate(VkDevice device,
+                                    VkDescriptorSet descriptorSet,
+                                    VkDescriptorUpdateTemplate descriptorUpdateTemplate,
+                                    const void *pData)
+{
+   VK_FROM_HANDLE(dzn_descriptor_set, set, descriptorSet);
+   VK_FROM_HANDLE(dzn_descriptor_update_template, templ, descriptorUpdateTemplate);
+
+   for (uint32_t e = 0; e < templ->entry_count; e++) {
+      const dzn_descriptor_update_template_entry *entry = &templ->entries[e];
+      bool cube_as_2darray =
+         entry->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+
+      switch (entry->type) {
+      case VK_DESCRIPTOR_TYPE_SAMPLER:
+         for (uint32_t d = 0; d < entry->desc_count; d++) {
+            const VkDescriptorImageInfo *info = (const VkDescriptorImageInfo *)
+               dzn_descriptor_update_template_get_desc_data(templ, e, d, pData);
+            VK_FROM_HANDLE(dzn_sampler, sampler, info->sampler);
+
+            if (sampler)
+               dzn_descriptor_set_write_sampler_desc(set, entry->heap_offsets.sampler + d, sampler);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+         for (uint32_t d = 0; d < entry->desc_count; d++) {
+            const VkDescriptorImageInfo *info = (const VkDescriptorImageInfo *)
+               dzn_descriptor_update_template_get_desc_data(templ, e, d, pData);
+            VK_FROM_HANDLE(dzn_sampler, sampler, info->sampler);
+            VK_FROM_HANDLE(dzn_image_view, iview, info->imageView);
+
+            if (sampler)
+               dzn_descriptor_set_write_sampler_desc(set, entry->heap_offsets.sampler + d, sampler);
+
+            if (iview)
+               dzn_descriptor_set_write_image_view_desc(set, entry->heap_offsets.cbv_srv_uav + d, ~0, cube_as_2darray, iview);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+      case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+      case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+         for (uint32_t d = 0; d < entry->desc_count; d++) {
+            const VkDescriptorImageInfo *info = (const VkDescriptorImageInfo *)
+               dzn_descriptor_update_template_get_desc_data(templ, e, d, pData);
+            uint32_t srv_heap_offset = entry->heap_offsets.cbv_srv_uav + d;
+            uint32_t uav_heap_offset =
+               entry->type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE ?
+               entry->heap_offsets.extra_uav + d : ~0;
+            VK_FROM_HANDLE(dzn_image_view, iview, info->imageView);
+
+            if (iview)
+               dzn_descriptor_set_write_image_view_desc(set, srv_heap_offset, uav_heap_offset, cube_as_2darray, iview);
+         }
+         break;
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+         for (uint32_t d = 0; d < entry->desc_count; d++) {
+            const VkDescriptorBufferInfo *info = (const VkDescriptorBufferInfo *)
+               dzn_descriptor_update_template_get_desc_data(templ, e, d, pData);
+            uint32_t cbv_srv_heap_offset = entry->heap_offsets.cbv_srv_uav + d;
+            uint32_t uav_heap_offset =
+               entry->type == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ?
+               entry->heap_offsets.extra_uav + d : ~0;
+
+            dzn_buffer_desc desc {
+               entry->type,
+               dzn_buffer_from_handle(info->buffer),
+               info->range, info->offset
+            };
+
+            if (desc.buffer)
+               dzn_descriptor_set_write_buffer_desc(set, cbv_srv_heap_offset, uav_heap_offset, &desc);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+      case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+         for (uint32_t d = 0; d < entry->desc_count; d++) {
+            const VkDescriptorBufferInfo *info = (const VkDescriptorBufferInfo *)
+               dzn_descriptor_update_template_get_desc_data(templ, e, d, pData);
+            uint32_t dyn_buf_idx = entry->dynamic_buffer_idx + d;
+
+            dzn_buffer_desc desc {
+               entry->type,
+               dzn_buffer_from_handle(info->buffer),
+               info->range, info->offset
+            };
+
+            if (desc.buffer)
+               dzn_descriptor_set_write_dynamic_buffer_desc(set, dyn_buf_idx, &desc);
+         }
+         break;
+
+      case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+      case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+         for (uint32_t d = 0; d < entry->desc_count; d++) {
+            VkBufferView *info = (VkBufferView *)
+               dzn_descriptor_update_template_get_desc_data(templ, e, d, pData);
+            VK_FROM_HANDLE(dzn_buffer_view, bview, *info);
+            uint32_t srv_heap_offset = entry->heap_offsets.cbv_srv_uav + d;
+            uint32_t uav_heap_offset =
+               entry->type == VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER ?
+               entry->heap_offsets.extra_uav + d : ~0;
+
+            if (bview)
+               dzn_descriptor_set_write_buffer_view_desc(set, srv_heap_offset, uav_heap_offset, bview);
+         }
+         break;
+
+      default:
+         unreachable("invalid descriptor type");
+      }
+   }
 }
