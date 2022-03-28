@@ -112,6 +112,7 @@ libanv_files = files(
   'anv_device.c',
   'anv_formats.c',
   'anv_genX.h',
+  'anv_graphics_info.c',
   'anv_image.c',
   'anv_measure.c',
   'anv_measure.h',

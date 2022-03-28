@@ -2331,7 +2331,8 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
 #endif
 
       wm.BarycentricInterpolationMode =
-         wm_prog_data_barycentric_modes(wm_prog_data, 0);
+         wm_prog_data_barycentric_modes(wm_prog_data,
+                                        pipeline->fs_msaa_flags);
 
 #if GFX_VER < 8
       wm.PixelShaderComputedDepthMode  = wm_prog_data->computed_depth_mode;
@@ -2363,7 +2364,8 @@ emit_3dstate_wm(struct anv_graphics_pipeline *pipeline,
       }
 
       if (multisample && multisample->rasterizationSamples > 1) {
-         if (brw_wm_prog_data_is_persample(wm_prog_data, 0)) {
+         if (brw_wm_prog_data_is_persample(wm_prog_data,
+                                           pipeline->fs_msaa_flags)) {
             wm.MultisampleDispatchMode = MSDISPMODE_PERSAMPLE;
          } else {
             wm.MultisampleDispatchMode = MSDISPMODE_PERPIXEL;
@@ -2452,18 +2454,41 @@ emit_3dstate_ps(struct anv_graphics_pipeline *pipeline,
       ps._16PixelDispatchEnable     = wm_prog_data->dispatch_16;
       ps._32PixelDispatchEnable     = wm_prog_data->dispatch_32;
 
-      /* From the Sky Lake PRM 3DSTATE_PS::32 Pixel Dispatch Enable:
-       *
-       *    "When NUM_MULTISAMPLES = 16 or FORCE_SAMPLE_COUNT = 16, SIMD32
-       *    Dispatch must not be enabled for PER_PIXEL dispatch mode."
-       *
-       * Since 16x MSAA is first introduced on SKL, we don't need to apply
-       * the workaround on any older hardware.
-       */
-      if (GFX_VER >= 9 && !brw_wm_prog_data_is_persample(wm_prog_data, 0) &&
-          multisample && multisample->rasterizationSamples == 16) {
-         assert(ps._8PixelDispatchEnable || ps._16PixelDispatchEnable);
-         ps._32PixelDispatchEnable = false;
+      const bool persample =
+         brw_wm_prog_data_is_persample(wm_prog_data, pipeline->fs_msaa_flags);
+
+      if (persample) {
+         /* Starting with SandyBridge (where we first get MSAA), the different
+          * pixel dispatch combinations are grouped into classifications A
+          * through F (SNB PRM Vol. 2 Part 1 Section 7.7.1).  On most hardware
+          * generations, the only configurations supporting persample dispatch
+          * are those in which only one dispatch width is enabled.
+          *
+          * The Gfx12 hardware spec has a similar dispatch grouping table, but
+          * the following conflicting restriction applies (from the page on
+          * "Structure_3DSTATE_PS_BODY"), so we need to keep the SIMD16 shader:
+          *
+          *  "SIMD32 may only be enabled if SIMD16 or (dual)SIMD8 is also
+          *   enabled."
+          */
+         if (ps._16PixelDispatchEnable || ps._32PixelDispatchEnable)
+            ps._8PixelDispatchEnable = false;
+         if (ps._32PixelDispatchEnable && GFX_VER < 12)
+            ps._16PixelDispatchEnable = false;
+      } else {
+         /* From the Sky Lake PRM 3DSTATE_PS::32 Pixel Dispatch Enable:
+          *
+          *    "When NUM_MULTISAMPLES = 16 or FORCE_SAMPLE_COUNT = 16, SIMD32
+          *    Dispatch must not be enabled for PER_PIXEL dispatch mode."
+          *
+          * Since 16x MSAA is first introduced on SKL, we don't need to apply
+          * the workaround on any older hardware.
+          */
+         if (GFX_VER >= 9 && multisample &&
+             multisample->rasterizationSamples == 16) {
+            assert(ps._8PixelDispatchEnable || ps._16PixelDispatchEnable);
+            ps._32PixelDispatchEnable = false;
+         }
       }
 
       ps.KernelStartPointer0 = fs_bin->kernel.offset +
@@ -2480,8 +2505,9 @@ emit_3dstate_ps(struct anv_graphics_pipeline *pipeline,
       ps.BindingTableEntryCount     = fs_bin->bind_map.surface_count;
       ps.PushConstantEnable         = wm_prog_data->base.nr_params > 0 ||
                                       wm_prog_data->base.ubo_ranges[0].length;
-      ps.PositionXYOffsetSelect     = wm_prog_data->uses_pos_offset ?
-                                      POSOFFSET_SAMPLE: POSOFFSET_NONE;
+      ps.PositionXYOffsetSelect     =
+         !wm_prog_data->uses_pos_offset ? POSOFFSET_NONE :
+         persample ? POSOFFSET_SAMPLE : POSOFFSET_CENTROID;
 #if GFX_VER < 8
       ps.AttributeEnable            = wm_prog_data->num_varying_inputs > 0;
       ps.oMaskPresenttoRenderTarget = wm_prog_data->uses_omask;
@@ -2539,7 +2565,7 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
       ps.AttributeEnable               = wm_prog_data->num_varying_inputs > 0;
       ps.oMaskPresenttoRenderTarget    = wm_prog_data->uses_omask;
       ps.PixelShaderIsPerSample        =
-         brw_wm_prog_data_is_persample(wm_prog_data, 0);
+         brw_wm_prog_data_is_persample(wm_prog_data, pipeline->fs_msaa_flags);
       ps.PixelShaderComputedDepthMode  = wm_prog_data->computed_depth_mode;
       ps.PixelShaderUsesSourceDepth    = wm_prog_data->uses_src_depth;
       ps.PixelShaderUsesSourceW        = wm_prog_data->uses_src_w;
@@ -2576,14 +2602,14 @@ emit_3dstate_ps_extra(struct anv_graphics_pipeline *pipeline,
       ps.PixelShaderRequiresSourceDepthandorWPlaneCoefficients =
          wm_prog_data->uses_depth_w_coefficients;
       ps.PixelShaderIsPerCoarsePixel =
-         brw_wm_prog_data_is_coarse(wm_prog_data, 0);
+         brw_wm_prog_data_is_coarse(wm_prog_data, pipeline->fs_msaa_flags);
 #endif
 #if GFX_VERx10 >= 125
       /* TODO: We should only require this when the last geometry shader uses
        *       a fragment shading rate that is not constant.
        */
       ps.EnablePSDependencyOnCPsizeChange =
-           brw_wm_prog_data_is_coarse(wm_prog_data, 0);
+         brw_wm_prog_data_is_coarse(wm_prog_data, pipeline->fs_msaa_flags);
 #endif
    }
 }

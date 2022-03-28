@@ -104,6 +104,7 @@ vk_deepcopy_struct_list = ','.join(
     'VkPipelineDepthStencilStateCreateInfo',
     'VkPipelineColorBlendStateCreateInfo',
     'VkPipelineFragmentShadingRateStateCreateInfoKHR',
+    'VkPipelineRenderingCreateInfo',
   ])
 
 vk_deepcopy = custom_target(
