@@ -2556,6 +2556,7 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
    uint32_t state_offset;
 
    struct anv_pipeline_bind_map *map = &shader->bind_map;
+
    if (map->surface_count == 0) {
       *bt_state = (struct anv_state) { 0, };
       return VK_SUCCESS;
@@ -2829,6 +2830,7 @@ emit_binding_table(struct anv_cmd_buffer *cmd_buffer,
          bt_map[s] = surface_state.offset + state_offset;
          break;
       }
+
       }
    }
 

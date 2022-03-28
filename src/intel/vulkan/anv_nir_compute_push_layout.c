@@ -31,6 +31,7 @@
 void
 anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
                             bool robust_buffer_access,
+                            bool fragment_dynamic,
                             nir_shader *nir,
                             struct brw_stage_prog_data *prog_data,
                             struct anv_pipeline_bind_map *map,
@@ -100,6 +101,14 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
       const uint32_t push_reg_mask_end = push_reg_mask_start + sizeof(uint64_t);
       push_start = MIN2(push_start, push_reg_mask_start);
       push_end = MAX2(push_end, push_reg_mask_end);
+   }
+
+   if (nir->info.stage == MESA_SHADER_FRAGMENT && fragment_dynamic) {
+      const uint32_t fs_msaa_flags_start =
+         offsetof(struct anv_push_constants, fs_msaa_flags);
+      const uint32_t fs_msaa_flags_end = fs_msaa_flags_start + sizeof(uint32_t);
+      push_start = MIN2(push_start, fs_msaa_flags_start);
+      push_end = MAX2(push_end, fs_msaa_flags_end);
    }
 
    if (nir->info.stage == MESA_SHADER_COMPUTE && devinfo->verx10 < 125) {
@@ -257,6 +266,17 @@ anv_nir_compute_push_layout(const struct anv_physical_device *pdevice,
        * better to just provide one in push_ranges[0].
        */
       map->push_ranges[0] = push_constant_range;
+   }
+
+   if (nir->info.stage == MESA_SHADER_FRAGMENT && fragment_dynamic) {
+      struct brw_wm_prog_data *wm_prog_data =
+         container_of(prog_data, struct brw_wm_prog_data, base);
+
+      const uint32_t fs_msaa_flags_offset =
+         offsetof(struct anv_push_constants, fs_msaa_flags);
+      assert(fs_msaa_flags_offset >= push_start);
+      wm_prog_data->msaa_flags_param =
+         (fs_msaa_flags_offset - push_start) / 4;
    }
 
    /* Now that we're done computing the push constant portion of the
