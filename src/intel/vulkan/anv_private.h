@@ -2694,6 +2694,12 @@ struct anv_push_constants {
    /** Ray query globals (RT_DISPATCH_GLOBALS) */
    uint64_t ray_query_globals;
 
+   /** Dynamic MSAA value */
+   uint32_t fs_msaa_flags;
+
+   /** Pad out to a multiple of 32 bytes */
+   uint32_t pad[1];
+
    /* Base addresses for descriptor sets */
    uint64_t desc_sets[MAX_SETS];
 
@@ -3343,11 +3349,12 @@ anv_shader_bin_create(struct anv_device *device,
 void
 anv_shader_bin_destroy(struct anv_device *device, struct anv_shader_bin *shader);
 
-static inline void
+static inline struct anv_shader_bin *
 anv_shader_bin_ref(struct anv_shader_bin *shader)
 {
    assert(shader && shader->ref_cnt >= 1);
    p_atomic_inc(&shader->ref_cnt);
+   return shader;
 }
 
 static inline void
@@ -3383,14 +3390,15 @@ struct anv_pipeline_executable {
 
 enum anv_pipeline_type {
    ANV_PIPELINE_GRAPHICS,
+   ANV_PIPELINE_GRAPHICS_LIB,
    ANV_PIPELINE_COMPUTE,
    ANV_PIPELINE_RAY_TRACING,
 };
 
 struct anv_graphics_pipeline_info {
    /* Vertex input interface */
-   const VkPipelineVertexInputStateCreateInfo      *vi;
-   const VkPipelineInputAssemblyStateCreateInfo    *ia;
+   VkPipelineVertexInputStateCreateInfo            *vi;
+   VkPipelineInputAssemblyStateCreateInfo          *ia;
 
    /* Pre-raster */
    const VkPipelineViewportStateCreateInfo         *vp;
@@ -3401,16 +3409,15 @@ struct anv_graphics_pipeline_info {
    const VkPipelineMultisampleStateCreateInfo      *ms;
    const VkPipelineDepthStencilStateCreateInfo     *ds;
 
-   /* output interface */
+   /* Output interface */
    const VkPipelineColorBlendStateCreateInfo       *cb;
 
-   /* Both Pre-raster & Fragment shader */
+   /* Pre-raster & Fragment shader */
    const VkPipelineFragmentShadingRateStateCreateInfoKHR *fsr;
 
    const VkRenderingSelfDependencyInfoMESA         *rsd;
    const VkPipelineRenderingCreateInfo             *ri;
 
-   VkPipelineRenderingCreateInfo                    _ri;
    VkRenderingSelfDependencyInfoMESA                _rsd;
 };
 
@@ -3437,14 +3444,39 @@ struct anv_pipeline {
    const struct intel_l3_config *               l3_config;
 };
 
+#define ALL_GRAPHICS_LIB_FLAGS \
+   (VK_GRAPHICS_PIPELINE_LIBRARY_VERTEX_INPUT_INTERFACE_BIT_EXT | \
+    VK_GRAPHICS_PIPELINE_LIBRARY_PRE_RASTERIZATION_SHADERS_BIT_EXT | \
+    VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_SHADER_BIT_EXT | \
+    VK_GRAPHICS_PIPELINE_LIBRARY_FRAGMENT_OUTPUT_INTERFACE_BIT_EXT)
+
 struct anv_graphics_pipeline_base {
    struct anv_pipeline                          base;
+
+   VkGraphicsPipelineLibraryFlagsEXT            lib_flags;
 
    /* States declared dynamic at pipeline creation. */
    anv_cmd_dirty_mask_t                         dynamic_states;
 
-   /* Shaders */
+   /* Final shaders in ISA form */
    struct anv_shader_bin *                      shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
+
+   /* Retained shaders for link optimization. */
+   struct {
+      /* This hash is the same as computed in
+       * anv_graphics_pipeline_gather_shaders().
+       */
+      unsigned char                             shader_sha1[20];
+
+
+      enum brw_subgroup_size_type               subgroup_size_type;
+
+
+      /* NIR captured in anv_pipeline_stage_get_nir(), includes specialization
+       * constants.
+       */
+      nir_shader *                              nir;
+   }                                            retained_shaders[ANV_GRAPHICS_SHADER_STAGE_COUNT];
 
    VkShaderStageFlags                           active_stages;
 
@@ -3454,6 +3486,21 @@ struct anv_graphics_pipeline_base {
    bool                                         use_primitive_replication;
 
    uint32_t                                     view_mask;
+
+   /* True if at the time the fragment shader was compiled, it didn't have all
+    * the information to avoid BRW_WM_MSAA_FLAG_ENABLE_DYNAMIC.
+    */
+   bool                                         fragment_dynamic;
+
+   /* Whether the shaders have been retained
+    */
+   bool                                         retain_shaders;
+};
+
+struct anv_graphics_lib_pipeline {
+   struct anv_graphics_pipeline_base            base;
+
+   struct anv_graphics_pipeline_info            info;
 };
 
 struct anv_graphics_pipeline {
@@ -3493,6 +3540,8 @@ struct anv_graphics_pipeline {
    bool                                         depth_bounds_test_enable;
    bool                                         force_fragment_thread_dispatch;
    bool                                         negative_one_to_one;
+
+   uint32_t                                     fs_msaa_flags;
 
    struct anv_state                             blend_state;
 
@@ -3535,6 +3584,18 @@ struct anv_graphics_pipeline {
       uint32_t                                  wm_depth_stencil[4];
    } gfx9;
 };
+
+void anv_graphics_pipeline_import_info(struct anv_graphics_pipeline_base *pipeline,
+                                       struct anv_graphics_pipeline_info *info,
+                                       void *mem_ctx,
+                                       const VkGraphicsPipelineCreateInfo *pCreateInfo,
+                                       VkGraphicsPipelineLibraryFlagBitsEXT lib_flags);
+
+void anv_graphics_pipeline_import_lib(struct anv_graphics_pipeline_base *pipeline,
+                                      struct anv_graphics_pipeline_info *info,
+                                      void *mem_ctx,
+                                      struct anv_graphics_lib_pipeline *lib,
+                                      bool link_optimize);
 
 struct anv_compute_pipeline {
    struct anv_pipeline                          base;
@@ -3581,6 +3642,7 @@ struct anv_ray_tracing_pipeline {
    }
 
 ANV_DECL_PIPELINE_DOWNCAST(graphics, ANV_PIPELINE_GRAPHICS)
+ANV_DECL_PIPELINE_DOWNCAST(graphics_lib, ANV_PIPELINE_GRAPHICS_LIB)
 ANV_DECL_PIPELINE_DOWNCAST(compute, ANV_PIPELINE_COMPUTE)
 ANV_DECL_PIPELINE_DOWNCAST(ray_tracing, ANV_PIPELINE_RAY_TRACING)
 
