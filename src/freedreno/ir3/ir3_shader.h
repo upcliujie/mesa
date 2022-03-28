@@ -212,6 +212,7 @@ struct ir3_const_state {
 
    unsigned preamble_size;
 
+   bool shared_consts_enable;
    /* State of ubo access lowered to push consts: */
    struct ir3_ubo_analysis_state ubo_state;
 };
@@ -789,6 +790,8 @@ struct ir3_shader {
 
    unsigned num_reserved_user_consts;
 
+   bool shared_consts_enable;
+
    /* What API-visible wavesizes are allowed. Even if only double wavesize is
     * allowed, we may still use the smaller wavesize "under the hood" and the
     * application simply sees the upper half as always disabled.
@@ -865,6 +868,7 @@ ir3_shader_get_variant(struct ir3_shader *shader,
 
 struct ir3_shader_options {
    unsigned reserved_user_consts;
+   bool shared_consts_enable;
    enum ir3_wavesize_option api_wavesize, real_wavesize;
 };
 

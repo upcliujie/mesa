@@ -232,13 +232,6 @@ ir3_compiler_create(struct fd_device *dev, const struct fd_dev_id *dev_id,
       compiler->max_const_frag = 512;
       compiler->max_const_geom = 512;
       compiler->max_const_safe = 128;
-      compiler->shared_const = 8;
-
-      if (options->shared_const_enable) {
-         compiler->max_const_frag -= compiler->shared_const;
-         compiler->max_const_geom -= compiler->shared_const;
-         compiler->shared_const_enable = true;
-      }
 
       /* Compute shaders don't share a const file with the FS. Instead they
        * have their own file, which is smaller than the FS one.
@@ -344,4 +337,15 @@ const nir_shader_compiler_options *
 ir3_get_compiler_options(struct ir3_compiler *compiler)
 {
    return &compiler->nir_options;
+}
+
+void ir3_compiler_set_shared_consts(struct ir3_compiler *compiler,
+                                    uint16_t val)
+{
+   if (compiler->gen < 6)
+      return;
+
+   compiler->shared_const = val;
+   compiler->max_const_frag += compiler->shared_const;
+   compiler->max_const_frag += compiler->shared_const;
 }

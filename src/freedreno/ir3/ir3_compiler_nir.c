@@ -2048,8 +2048,6 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
 
    switch (intr->intrinsic) {
    case nir_intrinsic_load_uniform: {
-      bool shared_const_enable = b->shader->compiler->shared_const_enable;
-
       idx = nir_intrinsic_base(intr);
       if (nir_src_is_const(intr->src[0])) {
          idx += nir_src_as_uint(intr->src[0]);
@@ -2057,7 +2055,7 @@ emit_intrinsic(struct ir3_context *ctx, nir_intrinsic_instr *intr)
             dst[i] = create_uniform_typed(
                b, idx + i,
                nir_dest_bit_size(intr->dest) == 16 ? TYPE_F16 : TYPE_F32,
-               shared_const_enable);
+               const_state->shared_consts_enable);
          }
       } else {
          src = ir3_get_src(ctx, &intr->src[0]);

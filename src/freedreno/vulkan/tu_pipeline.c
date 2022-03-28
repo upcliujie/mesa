@@ -651,11 +651,24 @@ tu6_emit_xs(struct tu_cs *cs,
 }
 
 static void
+tu6_emit_shared_consts_enable(struct tu_cs *cs, bool enable)
+{
+   /* Enable/disable shared constants */
+   tu_cs_emit_regs(cs, A6XX_HLSQ_SHARED_CONSTS(.enable = enable));
+   tu_cs_emit_regs(cs, A6XX_SP_MODE_CONTROL(.constant_demotion_enable = true,
+                                            .isammode = ISAMMODE_GL,
+                                            .shared_consts_enable = enable));
+}
+
+static void
 tu6_emit_cs_config(struct tu_cs *cs, const struct tu_shader *shader,
                    const struct ir3_shader_variant *v,
                    const struct tu_pvtmem_config *pvtmem,
                    uint64_t binary_iova)
 {
+   const struct ir3_const_state *const_state = ir3_const_state(v);
+   tu6_emit_shared_consts_enable(cs, const_state->shared_consts_enable);
+
    tu_cs_emit_regs(cs, A6XX_HLSQ_INVALIDATE_CMD(
          .cs_state = true,
          .cs_ibo = true));
@@ -1680,6 +1693,26 @@ tu6_emit_program_config(struct tu_cs *cs,
    gl_shader_stage stage = MESA_SHADER_VERTEX;
 
    STATIC_ASSERT(MESA_SHADER_VERTEX == 0);
+
+   /* Shared constants are shared across shaders between vs and fs,
+    * so we just need to enable when either of them is using shader consts.
+    *
+    * Note that shared consts for CS is separated.
+    */
+   bool shared_consts = false;
+   for (; stage < ARRAY_SIZE(builder->shaders); stage++) {
+      if (!builder->shaders[stage])
+         continue;
+
+      const struct ir3_shader_variant *xs = builder->variants[stage];
+      const struct ir3_const_state *const_state = ir3_const_state(xs);
+
+      shared_consts = const_state->shared_consts_enable;
+
+      if (shared_consts)
+         break;
+   }
+   tu6_emit_shared_consts_enable(cs, shared_consts);
 
    tu_cs_emit_regs(cs, A6XX_HLSQ_INVALIDATE_CMD(
          .vs_state = true,
