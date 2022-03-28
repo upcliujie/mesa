@@ -3255,7 +3255,7 @@ nvir_nir_shader_compiler_options(int chipset)
    op.lower_bitfield_insert = false;
    op.lower_bitfield_insert_to_shifts = (chipset >= NVISA_GV100_CHIPSET);
    op.lower_bitfield_insert_to_bitfield_select = false;
-   op.lower_bitfield_reverse = false;
+   op.lower_bitfield_reverse = (chipset < NVISA_GF100_CHIPSET);
    op.lower_bit_count = false;
    op.lower_ifind_msb = false;
    op.lower_find_lsb = false;
