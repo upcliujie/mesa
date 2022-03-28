@@ -120,9 +120,9 @@ do_optimization(struct exec_list *ir, const char *optimization,
       return lower_variable_index_to_cond_assign(MESA_SHADER_VERTEX, ir,
                                                  int_0 != 0, int_1 != 0,
                                                  int_2 != 0, int_3 != 0);
-   } else if (sscanf(optimization, "lower_quadop_vector ( %d ) ",
+   } else if (sscanf(optimization, "lower_quadop_vector ",
                      &int_0) == 1) {
-      return lower_quadop_vector(ir, int_0 != 0);
+      return lower_quadop_vector(ir);
    } else {
       printf("Unrecognized optimization %s\n", optimization);
       exit(EXIT_FAILURE);
